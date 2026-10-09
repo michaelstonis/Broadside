@@ -1185,6 +1185,91 @@ def gen_name_tree_dests() -> bytes:
     ])
 
 
+def tree_key(key: bytes) -> bytes:
+    """A name-tree key as a PDF string: literal when printable ASCII, hexadecimal otherwise (7.3.4)."""
+    if all(0x20 <= b < 0x7F and b not in b"()\\" for b in key):
+        return b"(" + key + b")"
+    return b"<" + key.hex().upper().encode() + b">"
+
+
+def build_tree(objects: list[tuple[int, bytes]], first_num: int, entries: list[tuple[bytes, bytes]],
+               fanouts: list[int], entries_key: bytes, key_bytes) -> int:
+    """7.9.6/7.9.7: lays sorted (key, value) pairs out as a balanced tree of indirect nodes, appended to
+    ``objects`` from ``first_num``. ``fanouts[0]`` pairs per leaf, then kids per node for each level up;
+    the root is written last, has only Kids and no Limits. Returns the root's object number."""
+    num = first_num
+    level = []  # (num, least key, greatest key)
+    for i in range(0, len(entries), fanouts[0]):
+        chunk = entries[i:i + fanouts[0]]
+        pairs = b" ".join(key_bytes(k) + b" " + v for k, v in chunk)
+        objects.append((num, b"<< /Limits [%s %s] /%s [%s] >>" % (
+            key_bytes(chunk[0][0]), key_bytes(chunk[-1][0]), entries_key, pairs)))
+        level.append((num, chunk[0][0], chunk[-1][0]))
+        num += 1
+    for fanout in fanouts[1:]:
+        upper = []
+        for i in range(0, len(level), fanout):
+            chunk = level[i:i + fanout]
+            kids = b" ".join(b"%d 0 R" % n for n, _, _ in chunk)
+            objects.append((num, b"<< /Limits [%s %s] /Kids [%s] >>" % (
+                key_bytes(chunk[0][1]), key_bytes(chunk[-1][2]), kids)))
+            upper.append((num, chunk[0][1], chunk[-1][2]))
+            num += 1
+        level = upper
+    objects.append((num, b"<< /Kids [%s] >>" % b" ".join(b"%d 0 R" % n for n, _, _ in level)))
+    return num
+
+
+def gen_name_tree_deep() -> bytes:
+    """7.9.6, Table 36; 12.3.2.4: a Dests name tree four levels deep (root, two intermediate levels,
+    leaves) holding 200 keys, sorted byte by byte: a key that is a prefix of another ((a) before (ab)),
+    PDFDocEncoding keys whose byte order differs from their text order (<18> breve sorts before (A);
+    <80> bullet before <E9> e-acute), and UTF-16BE keys with the BOM (<FEFF0061> also reads as "a").
+    Each value is [3 0 R /XYZ 0 i null] where i is the key's position in byte order."""
+    keys = [b"a", b"ab", b"\x18", b"\x80", b"\xe9", b"\xfe\xff\x00a", b"\xfe\xff\x00\xe9"]
+    keys += [b"n%03d" % i for i in range(1, 194)]
+    keys.sort()
+    entries = [(k, b"[3 0 R /XYZ 0 %d null]" % i) for i, k in enumerate(keys)]
+    objects = [(2, pages()), (3, page())]
+    root = build_tree(objects, 4, entries, [10, 4, 3], b"Names", tree_key)
+    return simple_file([(1, catalog(b" /Names << /Dests %d 0 R >>" % root))] + objects)
+
+
+def gen_number_tree_deep() -> bytes:
+    """7.9.7, Table 37; 12.4.2: twelve pages whose /PageLabels number tree has three levels (root,
+    intermediate nodes, leaves) and nine keys, so a page between two keys takes the nearest lower key."""
+    labels = [(0, b"<< /S /r >>"), (1, b"<< /S /D >>"), (2, b"<< /S /D /St 10 >>"), (4, b"<< /P (A-) >>"),
+              (5, b"<< /S /A >>"), (7, b"<< /S /a /P (x) >>"), (8, b"<< /S /R /St 4 >>"),
+              (10, b"<< /S /D /P (B-) /St 1 >>"), (11, b"<< /S /D >>")]
+    objects: list[tuple[int, bytes]] = []
+    root = build_tree(objects, 3, [(str(k).encode(), v) for k, v in labels], [3, 2], b"Nums",
+                      lambda k: k)
+    first_page = root + 1
+    page_nums = list(range(first_page, first_page + 12))
+    return simple_file([(1, catalog(b" /PageLabels %d 0 R" % root)), (2, pages(page_nums))]
+                       + objects + [(n, page()) for n in page_nums])
+
+
+def gen_name_tree_broken() -> bytes:
+    """7.9.6, Table 36, broken six ways: leaf 7's Limits [(a) (c)] do not hold its key (d); leaf 8's
+    keys are not sorted ((f) before (e)); intermediate node 6 has no Limits; key (g) is in leaf 8 and
+    again in leaf 9; node 6's Kids list the root 4 (a cycle); leaf 9's Names array has an odd length
+    (a dangling key (i)). Every key still resolves."""
+    def dest(top: int) -> bytes:
+        return b"[3 0 R /XYZ 0 %d null]" % top
+    return simple_file([
+        (1, catalog(b" /Names << /Dests 4 0 R >>")),
+        (2, pages()),
+        (3, page()),
+        (4, b"<< /Kids [5 0 R 6 0 R] >>"),
+        (5, b"<< /Limits [(a) (g)] /Kids [7 0 R 8 0 R] >>"),
+        (6, b"<< /Kids [9 0 R 4 0 R] >>"),
+        (7, b"<< /Limits [(a) (c)] /Names [(a) %s (b) %s (d) %s] >>" % (dest(1), dest(2), dest(4))),
+        (8, b"<< /Limits [(e) (g)] /Names [(f) %s (e) %s (g) %s] >>" % (dest(6), dest(5), dest(7))),
+        (9, b"<< /Limits [(g) (i)] /Names [(g) %s (h) %s (i)] >>" % (dest(70), dest(8))),
+    ])
+
+
 XMP = (b'<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
        b'<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
        b' <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
@@ -1249,6 +1334,9 @@ FILES = {
     "outline.pdf": gen_outline,
     "name-tree-dests.pdf": gen_name_tree_dests,
     "metadata-xmp.pdf": gen_metadata_xmp,
+    "name-tree-deep.pdf": gen_name_tree_deep,
+    "number-tree-deep.pdf": gen_number_tree_deep,
+    "name-tree-broken.pdf": gen_name_tree_broken,
 }
 
 

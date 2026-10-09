@@ -54,6 +54,12 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
         }
     }
 
+    /// <summary>
+    /// Gets a number that changes every time an element is added, replaced or removed through the public API, and never by reading
+    /// or loading: caches of state derived from the array record it and rebuild when it differs.
+    /// </summary>
+    internal int Version { get; private set; }
+
     /// <summary>Gets the number of elements.</summary>
     public int Count => _items.Count;
 
@@ -70,6 +76,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
             ArgumentNullException.ThrowIfNull(value);
             _items[index] = value;
             _changed = true;
+            Version++;
         }
     }
 
@@ -80,6 +87,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
         ArgumentNullException.ThrowIfNull(item);
         _items.Add(item);
         _changed = true;
+        Version++;
     }
 
     /// <summary>Inserts an element and marks the array dirty.</summary>
@@ -90,6 +98,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
         ArgumentNullException.ThrowIfNull(item);
         _items.Insert(index, item);
         _changed = true;
+        Version++;
     }
 
     /// <summary>Removes the element at <paramref name="index"/> and marks the array dirty.</summary>
@@ -98,6 +107,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     {
         _items.RemoveAt(index);
         _changed = true;
+        Version++;
     }
 
     /// <summary>Removes the first element equal to <paramref name="item"/>; marks the array dirty when one was removed.</summary>
@@ -107,6 +117,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     {
         bool removed = _items.Remove(item);
         _changed |= removed;
+        Version += removed ? 1 : 0;
         return removed;
     }
 
@@ -114,6 +125,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     public void Clear()
     {
         _changed |= _items.Count > 0;
+        Version += _items.Count > 0 ? 1 : 0;
         _items.Clear();
     }
 

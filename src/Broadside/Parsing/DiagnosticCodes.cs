@@ -8,7 +8,7 @@ namespace Broadside.Parsing;
 /// Every ticket adds its own group here. The catalogue is internal while parallel tickets add codes; the codes reach users as
 /// <see cref="Diagnostics.Diagnostic.Code"/> strings.
 /// </remarks>
-internal static class DiagnosticCodes
+internal static partial class DiagnosticCodes
 {
     // File header (ISO 32000-2 §7.5.2).
     public const string HeaderMissing = nameof(HeaderMissing);
