@@ -1,3 +1,5 @@
+using Broadside.Filters;
+
 namespace Broadside;
 
 /// <summary>
@@ -14,8 +16,18 @@ internal sealed class EngineConfiguration
     /// <summary>Gets how deviations are treated.</summary>
     public PdfReadingMode ReadingMode { get; }
 
+    /// <summary>Gets the filters by name: the managed defaults with the options' registrations applied (issue #38).</summary>
+    public FilterRegistry Filters { get; private init; } = FilterRegistry.Create([]);
+
+    /// <summary>Gets the most bytes one stream may decode to (issue #38).</summary>
+    public long MaxDecodedStreamLength { get; private init; } = PdfOptions.DefaultMaxDecodedStreamLength;
+
     /// <summary>Copies the current values of <paramref name="options"/>.</summary>
     /// <param name="options">The options.</param>
     /// <returns>The snapshot.</returns>
-    public static EngineConfiguration From(PdfOptions options) => new(options.ReadingMode);
+    public static EngineConfiguration From(PdfOptions options) => new(options.ReadingMode)
+    {
+        Filters = FilterRegistry.Create(options.Filters),
+        MaxDecodedStreamLength = options.MaxDecodedStreamLength,
+    };
 }

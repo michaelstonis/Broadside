@@ -1,4 +1,6 @@
+using System.Buffers;
 using Broadside.Diagnostics;
+using Broadside.Filters;
 using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -25,12 +27,14 @@ public sealed class PdfDocument : IDisposable
     private readonly PdfSource _source;
     private readonly DiagnosticSink _diagnostics;
     private readonly ObjectLoader _loader;
+    private readonly StreamDecoder _streams;
 
-    private PdfDocument(PdfSource source, DiagnosticSink diagnostics, ObjectLoader loader, CosDictionary catalog)
+    private PdfDocument(PdfSource source, DiagnosticSink diagnostics, ObjectLoader loader, StreamDecoder streams, CosDictionary catalog)
     {
         _source = source;
         _diagnostics = diagnostics;
         _loader = loader;
+        _streams = streams;
         Catalog = catalog;
         Pages = new PdfPageCollection(() => PageTreeReader.Read(this, diagnostics));
     }
@@ -141,6 +145,33 @@ public sealed class PdfDocument : IDisposable
     /// <remarks>ISO 32000-2 §7.3.10.</remarks>
     public CosObject Resolve(CosObject? value) => _loader.Resolve(value);
 
+    /// <summary>Returns the data of <paramref name="stream"/> decoded through the filters its <c>Filter</c> entry names.</summary>
+    /// <param name="stream">A stream of this document.</param>
+    /// <returns>The decoded data; for a stream without filters, its <see cref="CosStream.EncodedData"/> itself.</returns>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while decoding.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.3.8.2 and §7.4. Filters come from the engine's options (<see cref="PdfOptions.UseFilter"/>). In lenient mode a
+    /// filter that is unknown or not implemented yet leaves the data as decoded up to it, with a diagnostic; damaged data decodes as
+    /// far as it can. Decodes on every call; nothing is cached.
+    /// </remarks>
+    public ReadOnlyMemory<byte> DecodeStream(CosStream stream)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        return _streams.Decode(stream);
+    }
+
+    /// <summary>Decodes the data of <paramref name="stream"/> through the filters its <c>Filter</c> entry names into <paramref name="output"/>.</summary>
+    /// <param name="stream">A stream of this document.</param>
+    /// <param name="output">Where to write the decoded data.</param>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while decoding.</exception>
+    /// <remarks>ISO 32000-2 §7.3.8.2 and §7.4. As <see cref="DecodeStream(CosStream)"/>, into a caller-provided or pooled buffer.</remarks>
+    public void DecodeStream(CosStream stream, IBufferWriter<byte> output)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        ArgumentNullException.ThrowIfNull(output);
+        _streams.Decode(stream, output);
+    }
+
     /// <inheritdoc/>
     public void Dispose() => _source.Dispose();
 
@@ -156,8 +187,9 @@ public sealed class PdfDocument : IDisposable
             FileHeader header = FileHeader.Locate(source, diagnostics);
             CrossReference crossReference = CrossReferenceReader.Read(source, header, diagnostics) ?? Reconstruct(diagnostics);
             var loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks());
+            var streams = new StreamDecoder(configuration.Filters, configuration.MaxDecodedStreamLength, diagnostics, loader.Resolve);
             CosDictionary catalog = ReadCatalog(loader, diagnostics);
-            return new PdfDocument(source, diagnostics, loader, catalog);
+            return new PdfDocument(source, diagnostics, loader, streams, catalog);
         }
         catch
         {

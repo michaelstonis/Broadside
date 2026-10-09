@@ -1,4 +1,6 @@
+using System.Buffers;
 using Broadside.Diagnostics;
+using Broadside.Filters;
 using Broadside.Objects;
 using SharpFuzz;
 
@@ -16,7 +18,15 @@ internal static class FuzzTargets
         ["lexer"] = Lexer,
         ["object-parser"] = ObjectParser,
         ["document"] = Document,
+        ["filter-asciihex"] = data => Filter(new AsciiHexDecodeFilter(), data, parameters: null, maxRatio: 1),
+        ["filter-ascii85"] = data => Filter(new Ascii85DecodeFilter(), data, parameters: null, maxRatio: 4),
+        ["filter-lzw"] = Lzw,
+        ["filter-flate"] = data => Filter(new FlateDecodeFilter(), data, parameters: null, maxRatio: 1100),
+        ["filter-runlength"] = data => Filter(new RunLengthDecodeFilter(), data, parameters: null, maxRatio: 128),
+        ["filter-predictor"] = PredictorTarget,
     };
+
+    private static readonly CosName ContentsKey = new("Contents");
 
     /// <summary>
     /// Opens the input as a whole file in lenient mode and reads everything the document model exposes: version, trailer, every
@@ -51,6 +61,79 @@ internal static class FuzzTargets
             }
 
             _ = page.Resources;
+            if (page.Dictionary.TryGetValue(ContentsKey, out CosObject? contents) && document.Resolve(contents) is CosStream stream)
+            {
+                _ = document.DecodeStream(stream);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Decodes the input as a raw stream body with one filter in lenient mode. The output must stay within <paramref name="maxRatio"/>
+    /// bytes per input byte (plus one group), the most any encoding of that filter can expand.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.4.2 to §7.4.5.</remarks>
+    private static void Filter(IStreamFilter filter, ReadOnlySpan<byte> data, CosDictionary? parameters, long maxRatio)
+    {
+        var output = new ArrayBufferWriter<byte>();
+        filter.Decode(data.ToArray(), output, new FilterContext { Parameters = parameters });
+        if (output.WrittenCount > (data.Length * maxRatio) + 8)
+        {
+            throw new InvalidOperationException($"{filter.Name.Value} decoded {data.Length} bytes to {output.WrittenCount}, more than the encoding allows.");
+        }
+    }
+
+    /// <summary>LZWDecode: the first byte's low bit selects EarlyChange (Table 8); the rest is the stream body.</summary>
+    /// <remarks>ISO 32000-2 §7.4.4.2 and §7.4.4.3.</remarks>
+    private static void Lzw(ReadOnlySpan<byte> data)
+    {
+        if (data.IsEmpty)
+        {
+            return;
+        }
+
+        var parameters = new CosDictionary { [new CosName("EarlyChange")] = new CosInteger(data[0] & 1) };
+
+        // One code (at least 9 bits) expands to at most 4096 bytes.
+        Filter(new LzwDecodeFilter(), data[1..], parameters, maxRatio: 4096);
+    }
+
+    /// <summary>
+    /// The LZW and Flate predictor functions over the input: the first four bytes select Predictor (1, 2, 10 to 15, or an invalid 3),
+    /// Colors (1 to 4), BitsPerComponent (1, 2, 4, 8, 16) and Columns (1 to 64); the rest is the filter's output to undo. The result
+    /// must be whole rows, and no more rows than the input holds.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.4.4.3 Table 8 and §7.4.4.4.</remarks>
+    private static void PredictorTarget(ReadOnlySpan<byte> data)
+    {
+        if (data.Length < 4)
+        {
+            return;
+        }
+
+        ReadOnlySpan<int> predictors = [1, 2, 10, 11, 12, 13, 14, 15, 3];
+        ReadOnlySpan<int> depths = [1, 2, 4, 8, 16];
+        int predictor = predictors[data[0] % predictors.Length];
+        int colors = 1 + (data[1] % 4);
+        int bitsPerComponent = depths[data[2] % depths.Length];
+        int columns = 1 + (data[3] % 64);
+        var parameters = new CosDictionary
+        {
+            [new CosName("Predictor")] = new CosInteger(predictor),
+            [new CosName("Colors")] = new CosInteger(colors),
+            [new CosName("BitsPerComponent")] = new CosInteger(bitsPerComponent),
+            [new CosName("Columns")] = new CosInteger(columns),
+        };
+        ReadOnlySpan<byte> body = data[4..];
+        var output = new ArrayBufferWriter<byte>();
+        Predictor.Decode(body, output, new FilterContext { Parameters = parameters });
+
+        int row = ((colors * bitsPerComponent * columns) + 7) / 8;
+        int rowsIn = predictor >= 10 ? (body.Length + row) / (row + 1) : (body.Length + row - 1) / row;
+        bool passedThrough = predictor is 1 or 3;
+        if (!passedThrough && (output.WrittenCount % row != 0 || output.WrittenCount > rowsIn * row))
+        {
+            throw new InvalidOperationException($"Predictor {predictor} turned {body.Length} bytes into {output.WrittenCount}, not whole rows of {row}.");
         }
     }
 
