@@ -77,7 +77,29 @@ public sealed class PdfEngine
     public PdfDocument Open(Stream stream)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        return PdfDocument.Read(PdfSource.FromStream(stream), _configuration);
+        return PdfDocument.Read(PdfSource.FromStream(stream, _configuration.StreamBufferLimit), _configuration);
+    }
+
+    /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position, reading a non-seekable stream asynchronously.</summary>
+    /// <param name="stream">
+    /// The stream. It is not disposed. A seekable stream is read in place as objects are used: keep it open and unchanged until the
+    /// document is disposed. A non-seekable stream is read to its end, asynchronously, before the file is parsed.
+    /// </param>
+    /// <param name="cancellationToken">Cancels reading a non-seekable stream.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">
+    /// The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.
+    /// </exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.5. Reading is synchronous once the bytes are available (spec #33: <c>Async</c> only at the open and save
+    /// boundaries), so this differs from <see cref="Open(Stream)"/> only in how a non-seekable stream is copied.
+    /// </remarks>
+    public async Task<PdfDocument> OpenAsync(Stream stream, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        PdfSource source = await PdfSource.FromStreamAsync(stream, _configuration.StreamBufferLimit, cancellationToken).ConfigureAwait(false);
+        return PdfDocument.Read(source, _configuration);
     }
 
     /// <summary>Opens the PDF file held in <paramref name="bytes"/>.</summary>

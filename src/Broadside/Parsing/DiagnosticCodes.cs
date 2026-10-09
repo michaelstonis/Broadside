@@ -55,6 +55,9 @@ internal static class DiagnosticCodes
     public const string MissingEndobj = nameof(MissingEndobj);
     public const string ReferenceChainTooDeep = nameof(ReferenceChainTooDeep);
 
+    // Lazy loading (§7.5.4): an object whose loading needs the object itself.
+    public const string ObjectReferenceCycle = nameof(ObjectReferenceCycle);
+
     // Stream filters (§7.3.8.2 Table 5, §7.4).
     public const string FilterInvalid = nameof(FilterInvalid);
     public const string FilterUnsupported = nameof(FilterUnsupported);

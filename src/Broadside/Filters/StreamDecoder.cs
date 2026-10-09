@@ -157,7 +157,7 @@ internal sealed class StreamDecoder
     private static long InitialCapacity(CosStream stream) =>
         stream.Dictionary.TryGetValue(FilterNames.DL, out CosObject? hint) && hint is CosInteger { Value: > 0 } length
             ? length.Value
-            : (long)stream.EncodedData.Length * 4;
+            : (long)stream.EncodedLength * 4;
 
     /// <summary>Runs one filter; returns <see langword="false"/> when the chain cannot continue past it.</summary>
     private bool RunStage(FilterStage stage, int index, ReadOnlyMemory<byte> data, PooledBufferWriter output, FilterContext context)

@@ -12,6 +12,7 @@ namespace Broadside.Objects;
 public sealed class CosStream : CosObject
 {
     private ReadOnlyMemory<byte> _encodedData;
+    private DeferredStreamData? _deferred;
     private bool _changed;
 
     /// <summary>Initializes a new instance of the <see cref="CosStream"/> class from its dictionary and data.</summary>
@@ -24,20 +25,36 @@ public sealed class CosStream : CosObject
         _encodedData = encodedData;
     }
 
+    /// <summary>Initializes a new instance of the <see cref="CosStream"/> class whose data stays in the file until read.</summary>
+    /// <param name="dictionary">The stream dictionary.</param>
+    /// <param name="encodedData">Where the data is; read on each access to <see cref="EncodedData"/>.</param>
+    internal CosStream(CosDictionary dictionary, DeferredStreamData encodedData)
+    {
+        Dictionary = dictionary;
+        _deferred = encodedData;
+    }
+
     /// <summary>Gets the stream dictionary.</summary>
     public CosDictionary Dictionary { get; }
 
     /// <summary>Gets or sets the stream's data as stored in the file, before any filter is decoded. Setting marks the stream dirty.</summary>
-    /// <remarks>ISO 32000-2 §7.3.8.1. Setting the data does not change the dictionary's <c>Filter</c> entry; keep the two consistent.</remarks>
+    /// <remarks>
+    /// ISO 32000-2 §7.3.8.1. Setting the data does not change the dictionary's <c>Filter</c> entry; keep the two consistent. A stream
+    /// of a document opened from a file or a stream keeps its data in the file and reads it on each get, so read it once per use.
+    /// </remarks>
     public ReadOnlyMemory<byte> EncodedData
     {
-        get => _encodedData;
+        get => _deferred is { } deferred ? deferred.Read() : _encodedData;
         set
         {
             _encodedData = value;
+            _deferred = null;
             _changed = true;
         }
     }
+
+    /// <summary>Gets the length of <see cref="EncodedData"/> without reading it.</summary>
+    internal int EncodedLength => _deferred is { } deferred ? deferred.Length : _encodedData.Length;
 
     /// <inheritdoc/>
     public override bool IsDirty => _changed || Dictionary.IsDirty;

@@ -25,6 +25,7 @@ internal ref struct CosParser
     private CosLexer _lexer;
     private readonly CosRepairLog? _repairs;
     private readonly IStreamLengthResolver? _lengthResolver;
+    private readonly IStreamDataFactory? _dataFactory;
 
     /// <summary>Initializes a new instance of the <see cref="CosParser"/> struct.</summary>
     /// <param name="source">The bytes to parse.</param>
@@ -34,11 +35,20 @@ internal ref struct CosParser
     /// Resolves a stream's <c>Length</c> entry when it is an indirect reference (§7.3.8.2), or <see langword="null"/> when there is no
     /// file to resolve it in; the data then ends at <c>endstream</c> without a repair.
     /// </param>
-    public CosParser(ReadOnlySpan<byte> source, CosRepairLog? repairs, int position = 0, IStreamLengthResolver? lengthResolver = null)
+    /// <param name="dataFactory">
+    /// Creates stream objects over data located in <paramref name="source"/> (issue #45), or <see langword="null"/> to copy the data.
+    /// </param>
+    public CosParser(
+        ReadOnlySpan<byte> source,
+        CosRepairLog? repairs,
+        int position = 0,
+        IStreamLengthResolver? lengthResolver = null,
+        IStreamDataFactory? dataFactory = null)
     {
         _lexer = new CosLexer(source, position);
         _repairs = repairs;
         _lengthResolver = lengthResolver;
+        _dataFactory = dataFactory;
     }
 
     /// <summary>Gets or sets the offset of the next byte to read.</summary>
@@ -491,7 +501,7 @@ internal ref struct CosParser
         if (declared >= 0 && declared <= source.Length - dataStart && TryMatchEndstream(source, dataStart + (int)declared, out int afterEndstream))
         {
             _lexer.Position = afterEndstream;
-            return new CosStream(dictionary, source.Slice(dataStart, (int)declared).ToArray());
+            return CreateStream(dictionary, source, dataStart, (int)declared);
         }
 
         int found = source[dataStart..].IndexOf("endstream"u8);
@@ -509,14 +519,18 @@ internal ref struct CosParser
             }
 
             _lexer.Position = dataStart + found + "endstream"u8.Length;
-            return new CosStream(dictionary, source[dataStart..dataEnd].ToArray());
+            return CreateStream(dictionary, source, dataStart, dataEnd - dataStart);
         }
 
         int end = declared >= 0 && declared <= source.Length - dataStart ? dataStart + (int)declared : source.Length;
         Report(CosRepairCodes.EndstreamMissing, keyword.Start, "The stream has no endstream keyword.");
         _lexer.Position = end;
-        return new CosStream(dictionary, source[dataStart..end].ToArray());
+        return CreateStream(dictionary, source, dataStart, end - dataStart);
     }
+
+    /// <summary>Creates the stream over its located data: through the factory when there is one, else as a copy.</summary>
+    private readonly CosStream CreateStream(CosDictionary dictionary, ReadOnlySpan<byte> source, int start, int length) =>
+        _dataFactory?.CreateStream(dictionary, start, length) ?? new CosStream(dictionary, source.Slice(start, length).ToArray());
 
     /// <summary>
     /// Skips the end-of-line marker after the <c>stream</c> keyword, which shall be CRLF or LF (§7.3.8.1), and returns where the data

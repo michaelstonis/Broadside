@@ -1,5 +1,5 @@
-using System.Collections.Concurrent;
 using System.Diagnostics.CodeAnalysis;
+using Broadside.Caching;
 using Broadside.Objects;
 
 namespace Broadside.Parsing;
@@ -59,9 +59,14 @@ internal interface IObjectDecryptor
 
 /// <summary>
 /// Hook 3 of the object loader: the cache loaded objects are published to, so each indirect object is parsed once and every
-/// reference to it yields the same instance (a live view needs one instance to view). Issue #45 replaces the default with a
-/// lazy-once, memory-bounded cache under the concurrency contract.
+/// reference to it yields the same instance (a live view needs one instance to view). The loader runs the whole load (locate, parse,
+/// hooks 1 and 2) inside <see cref="GetOrLoad"/>, so the cache decides how many times an object is parsed.
 /// </summary>
+/// <remarks>
+/// ISO 32000-2 §7.5.4: objects are reached at random through the cross-reference table, on first use. The concurrency contract of a
+/// document (CLAUDE.md): concurrent reads are safe while nobody mutates it, so an implementation must be safe for concurrent calls
+/// and must parse each object once however many threads ask for it (<see cref="Caching.OnceCache{TKey, TValue}"/>).
+/// </remarks>
 internal interface IObjectCache
 {
     /// <summary>Looks up a loaded object.</summary>
@@ -70,7 +75,20 @@ internal interface IObjectCache
     /// <returns><see langword="true"/> when cached.</returns>
     bool TryGet(CosReference reference, [NotNullWhen(true)] out CosObject? value);
 
-    /// <summary>Publishes a loaded object, or returns the one another thread published first.</summary>
+    /// <summary>Returns the cached object, or loads it with <paramref name="load"/> once, however many threads ask at the same time.</summary>
+    /// <typeparam name="TState">The loader's state for the factories.</typeparam>
+    /// <param name="reference">The object's number and generation.</param>
+    /// <param name="state">The factories' state.</param>
+    /// <param name="load">Locates, parses and decrypts the object; its result is cached unless it says otherwise.</param>
+    /// <param name="cycle">The value for a load that needs itself (on this thread, or through threads waiting on each other); not cached.</param>
+    /// <returns>The cached instance, which every caller must use.</returns>
+    CosObject GetOrLoad<TState>(
+        CosReference reference,
+        TState state,
+        Func<CosReference, TState, Created<CosObject>> load,
+        Func<CosReference, TState, CosObject> cycle);
+
+    /// <summary>Publishes an object loaded outside <see cref="GetOrLoad"/>, or returns the one cached first.</summary>
     /// <param name="reference">The object's number and generation.</param>
     /// <param name="value">The loaded object.</param>
     /// <returns>The cached instance, which every caller must use.</returns>
@@ -103,16 +121,27 @@ internal sealed class NullObjectDecryptor : IObjectDecryptor
     public CosObject Decrypt(CosObject value, in ObjectLoadContext context) => value;
 }
 
-/// <summary>The default <see cref="IObjectCache"/>: an unbounded concurrent dictionary, first publisher wins.</summary>
-internal sealed class ConcurrentObjectCache : IObjectCache
+/// <summary>
+/// The default <see cref="IObjectCache"/>: every object loaded once and kept for the document's lifetime, so references keep
+/// resolving to one instance. Memory stays bounded by the objects' dictionaries and arrays: stream data is not held (a stream read
+/// from a file or stream source reads its data from the source on each access).
+/// </summary>
+internal sealed class ObjectCache : IObjectCache
 {
-    private readonly ConcurrentDictionary<CosReference, CosObject> _objects = new();
+    private readonly OnceCache<CosReference, CosObject> _objects = new();
 
     /// <inheritdoc/>
-    public bool TryGet(CosReference reference, [NotNullWhen(true)] out CosObject? value) => _objects.TryGetValue(reference, out value);
+    public bool TryGet(CosReference reference, [NotNullWhen(true)] out CosObject? value) => _objects.TryGet(reference, out value);
 
     /// <inheritdoc/>
-    public CosObject Publish(CosReference reference, CosObject value) => _objects.GetOrAdd(reference, value);
+    public CosObject GetOrLoad<TState>(
+        CosReference reference,
+        TState state,
+        Func<CosReference, TState, Created<CosObject>> load,
+        Func<CosReference, TState, CosObject> cycle) => _objects.GetOrCreate(reference, state, load, cycle);
+
+    /// <inheritdoc/>
+    public CosObject Publish(CosReference reference, CosObject value) => _objects.Add(reference, value);
 }
 
 /// <summary>
@@ -136,6 +165,6 @@ internal sealed class ObjectLoaderHooks
         set => _decryptor = value;
     }
 
-    /// <summary>Gets hook 3, cache publication (issue #45 replaces it).</summary>
-    public IObjectCache Cache { get; init; } = new ConcurrentObjectCache();
+    /// <summary>Gets hook 3, cache publication (issue #45): load once, publish, share across threads.</summary>
+    public IObjectCache Cache { get; init; } = new ObjectCache();
 }
