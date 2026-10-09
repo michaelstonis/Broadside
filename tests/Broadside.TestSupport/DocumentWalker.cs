@@ -13,7 +13,7 @@ public sealed record DocumentWalkResult(int Pages, int Objects, int Streams, lon
 /// <summary>
 /// Reads everything the document model exposes, so that "the file opens" means more than "the trailer parsed" (objects load
 /// lazily, issue #45): version, trailer, revisions, linearization and hint tables, security, every page's boxes, rotation, user unit
-/// and resources, the outline and every named destination (issue #70), every indirect object reachable from the trailer and every object number below the trailer's <c>Size</c>, and
+/// and resources, the outline and every named destination (issue #70), every annotation with its appearances (issue #71), every indirect object reachable from the trailer and every object number below the trailer's <c>Size</c>, and
 /// every stream decoded through the filter pipeline (image filters that are not implemented yet end in a diagnostic, not an
 /// exception). Used by the real-world corpus gate (issue #47) and meant to be shared with the open-and-walk fuzz target and
 /// benchmark (issue #48): link this file as source there, as <see cref="CorpusLocator"/> is. Public API only.
@@ -60,6 +60,7 @@ public static class DocumentWalker
 
         ReadCatalogEssentials(document);
         WalkNavigation(document);
+        _ = AnnotationWalker.Walk(document);
 
         var walk = new GraphWalk(document);
         walk.Visit(document.Trailer);

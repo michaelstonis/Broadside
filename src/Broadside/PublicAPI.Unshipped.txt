@@ -1,5 +1,326 @@
 #nullable enable
 abstract Broadside.Objects.CosNumber.ToDouble() -> double
+Broadside.Annotations.Pdf3DAnnotation
+Broadside.Annotations.Pdf3DAnnotation.Activation.get -> Broadside.Objects.CosDictionary?
+Broadside.Annotations.Pdf3DAnnotation.Artwork.get -> Broadside.Objects.CosObject?
+Broadside.Annotations.Pdf3DAnnotation.DefaultView.get -> Broadside.Objects.CosObject?
+Broadside.Annotations.Pdf3DAnnotation.Geospatial.get -> Broadside.Objects.CosDictionary?
+Broadside.Annotations.Pdf3DAnnotation.IsInteractive.get -> bool
+Broadside.Annotations.Pdf3DAnnotation.Units.get -> Broadside.Objects.CosDictionary?
+Broadside.Annotations.Pdf3DAnnotation.ViewBox.get -> Broadside.PdfRectangle?
+Broadside.Annotations.PdfAnnotation
+Broadside.Annotations.PdfAnnotation.AppearanceDictionary.get -> Broadside.Annotations.PdfAppearanceDictionary?
+Broadside.Annotations.PdfAnnotation.AppearanceState.get -> Broadside.Objects.CosName?
+Broadside.Annotations.PdfAnnotation.AssociatedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
+Broadside.Annotations.PdfAnnotation.BlendMode.get -> Broadside.Graphics.BlendMode
+Broadside.Annotations.PdfAnnotation.Border.get -> Broadside.Annotations.PdfAnnotationBorder!
+Broadside.Annotations.PdfAnnotation.Color.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.Annotations.PdfAnnotation.Contents.get -> string?
+Broadside.Annotations.PdfAnnotation.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Annotations.PdfAnnotation.Flags.get -> Broadside.Annotations.PdfAnnotationFlags
+Broadside.Annotations.PdfAnnotation.GetAppearance() -> Broadside.Graphics.PdfFormXObject?
+Broadside.Annotations.PdfAnnotation.GetAppearance(Broadside.Annotations.PdfAppearanceMode mode) -> Broadside.Graphics.PdfFormXObject?
+Broadside.Annotations.PdfAnnotation.GetAppearance(Broadside.Annotations.PdfAppearanceMode mode, Broadside.Objects.CosName! state) -> Broadside.Graphics.PdfFormXObject?
+Broadside.Annotations.PdfAnnotation.GetAppearanceMatrix(Broadside.Graphics.PdfFormXObject! appearance) -> Broadside.Graphics.Matrix?
+Broadside.Annotations.PdfAnnotation.IsVisible(Broadside.PdfOptionalContentState! state) -> bool
+Broadside.Annotations.PdfAnnotation.Kind.get -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotation.Language.get -> string?
+Broadside.Annotations.PdfAnnotation.Modified.get -> Broadside.PdfDate?
+Broadside.Annotations.PdfAnnotation.ModifiedText.get -> string?
+Broadside.Annotations.PdfAnnotation.Name.get -> string?
+Broadside.Annotations.PdfAnnotation.NonStrokingOpacity.get -> double
+Broadside.Annotations.PdfAnnotation.OptionalContent.get -> Broadside.Objects.CosDictionary?
+Broadside.Annotations.PdfAnnotation.Page.get -> Broadside.PdfPage?
+Broadside.Annotations.PdfAnnotation.PageObject.get -> Broadside.Objects.CosDictionary?
+Broadside.Annotations.PdfAnnotation.Rect.get -> Broadside.PdfRectangle
+Broadside.Annotations.PdfAnnotation.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Annotations.PdfAnnotation.StrokingOpacity.get -> double
+Broadside.Annotations.PdfAnnotation.StructParent.get -> int?
+Broadside.Annotations.PdfAnnotation.Subtype.get -> Broadside.Objects.CosName?
+Broadside.Annotations.PdfAnnotationBorder
+Broadside.Annotations.PdfAnnotationBorder.DashPattern.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Annotations.PdfAnnotationBorder.HorizontalCornerRadius.get -> double
+Broadside.Annotations.PdfAnnotationBorder.Source.get -> Broadside.Annotations.PdfBorderSource
+Broadside.Annotations.PdfAnnotationBorder.Style.get -> Broadside.Annotations.PdfBorderStyle
+Broadside.Annotations.PdfAnnotationBorder.VerticalCornerRadius.get -> double
+Broadside.Annotations.PdfAnnotationBorder.Width.get -> double
+Broadside.Annotations.PdfAnnotationFlags
+Broadside.Annotations.PdfAnnotationFlags.Hidden = 2 -> Broadside.Annotations.PdfAnnotationFlags
+Broadside.Annotations.PdfAnnotationFlags.Invisible = 1 -> Broadside.Annotations.PdfAnnotationFlags
+Broadside.Annotations.PdfAnnotationFlags.Locked = 128 -> Broadside.Annotations.PdfAnnotationFlags
+Broadside.Annotations.PdfAnnotationFlags.LockedContents = 512 -> Broadside.Annotations.PdfAnnotationFlags
+Broadside.Annotations.PdfAnnotationFlags.None = 0 -> Broadside.Annotations.PdfAnnotationFlags
+Broadside.Annotations.PdfAnnotationFlags.NoRotate = 16 -> Broadside.Annotations.PdfAnnotationFlags
+Broadside.Annotations.PdfAnnotationFlags.NoView = 32 -> Broadside.Annotations.PdfAnnotationFlags
+Broadside.Annotations.PdfAnnotationFlags.NoZoom = 8 -> Broadside.Annotations.PdfAnnotationFlags
+Broadside.Annotations.PdfAnnotationFlags.Print = 4 -> Broadside.Annotations.PdfAnnotationFlags
+Broadside.Annotations.PdfAnnotationFlags.ReadOnly = 64 -> Broadside.Annotations.PdfAnnotationFlags
+Broadside.Annotations.PdfAnnotationFlags.ToggleNoView = 256 -> Broadside.Annotations.PdfAnnotationFlags
+Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Caret = 13 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Circle = 6 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.FileAttachment = 17 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.FreeText = 3 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Highlight = 9 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Ink = 15 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Line = 4 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Link = 2 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Movie = 19 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Polygon = 7 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.PolyLine = 8 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Popup = 16 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.PrinterMark = 22 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Projection = 27 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Redact = 26 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.RichMedia = 28 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Screen = 20 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Sound = 18 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Square = 5 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Squiggly = 11 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Stamp = 14 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.StrikeOut = 12 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Text = 1 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.ThreeD = 25 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.TrapNet = 23 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Underline = 10 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Unknown = 0 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Watermark = 24 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAnnotationKind.Widget = 21 -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Annotations.PdfAppearanceCharacteristics
+Broadside.Annotations.PdfAppearanceCharacteristics.AlternateCaption.get -> string?
+Broadside.Annotations.PdfAppearanceCharacteristics.AlternateIcon.get -> Broadside.Graphics.PdfFormXObject?
+Broadside.Annotations.PdfAppearanceCharacteristics.BackgroundColor.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.Annotations.PdfAppearanceCharacteristics.BorderColor.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.Annotations.PdfAppearanceCharacteristics.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Annotations.PdfAppearanceCharacteristics.IconFit.get -> Broadside.Objects.CosDictionary?
+Broadside.Annotations.PdfAppearanceCharacteristics.NormalCaption.get -> string?
+Broadside.Annotations.PdfAppearanceCharacteristics.NormalIcon.get -> Broadside.Graphics.PdfFormXObject?
+Broadside.Annotations.PdfAppearanceCharacteristics.RolloverCaption.get -> string?
+Broadside.Annotations.PdfAppearanceCharacteristics.RolloverIcon.get -> Broadside.Graphics.PdfFormXObject?
+Broadside.Annotations.PdfAppearanceCharacteristics.Rotation.get -> int
+Broadside.Annotations.PdfAppearanceCharacteristics.TextPosition.get -> int
+Broadside.Annotations.PdfAppearanceDictionary
+Broadside.Annotations.PdfAppearanceDictionary.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Annotations.PdfAppearanceDictionary.Down.get -> Broadside.Annotations.PdfAppearanceEntry?
+Broadside.Annotations.PdfAppearanceDictionary.GetEntry(Broadside.Annotations.PdfAppearanceMode mode) -> Broadside.Annotations.PdfAppearanceEntry?
+Broadside.Annotations.PdfAppearanceDictionary.HasDown.get -> bool
+Broadside.Annotations.PdfAppearanceDictionary.HasRollover.get -> bool
+Broadside.Annotations.PdfAppearanceDictionary.Normal.get -> Broadside.Annotations.PdfAppearanceEntry?
+Broadside.Annotations.PdfAppearanceDictionary.Rollover.get -> Broadside.Annotations.PdfAppearanceEntry?
+Broadside.Annotations.PdfAppearanceEntry
+Broadside.Annotations.PdfAppearanceEntry.Form.get -> Broadside.Graphics.PdfFormXObject?
+Broadside.Annotations.PdfAppearanceEntry.GetAppearance(Broadside.Objects.CosName! state) -> Broadside.Graphics.PdfFormXObject?
+Broadside.Annotations.PdfAppearanceEntry.HasStates.get -> bool
+Broadside.Annotations.PdfAppearanceEntry.StateNames.get -> System.Collections.Generic.IReadOnlyList<Broadside.Objects.CosName!>!
+Broadside.Annotations.PdfAppearanceEntry.Value.get -> Broadside.Objects.CosObject!
+Broadside.Annotations.PdfAppearanceMode
+Broadside.Annotations.PdfAppearanceMode.Down = 2 -> Broadside.Annotations.PdfAppearanceMode
+Broadside.Annotations.PdfAppearanceMode.Normal = 0 -> Broadside.Annotations.PdfAppearanceMode
+Broadside.Annotations.PdfAppearanceMode.Rollover = 1 -> Broadside.Annotations.PdfAppearanceMode
+Broadside.Annotations.PdfBorderEffect
+Broadside.Annotations.PdfBorderEffect.Intensity.get -> double
+Broadside.Annotations.PdfBorderEffect.Style.get -> Broadside.Annotations.PdfBorderEffectStyle
+Broadside.Annotations.PdfBorderEffectStyle
+Broadside.Annotations.PdfBorderEffectStyle.Cloudy = 1 -> Broadside.Annotations.PdfBorderEffectStyle
+Broadside.Annotations.PdfBorderEffectStyle.None = 0 -> Broadside.Annotations.PdfBorderEffectStyle
+Broadside.Annotations.PdfBorderSource
+Broadside.Annotations.PdfBorderSource.BorderArray = 1 -> Broadside.Annotations.PdfBorderSource
+Broadside.Annotations.PdfBorderSource.BorderStyle = 2 -> Broadside.Annotations.PdfBorderSource
+Broadside.Annotations.PdfBorderSource.Default = 0 -> Broadside.Annotations.PdfBorderSource
+Broadside.Annotations.PdfBorderStyle
+Broadside.Annotations.PdfBorderStyle.Beveled = 2 -> Broadside.Annotations.PdfBorderStyle
+Broadside.Annotations.PdfBorderStyle.Dashed = 1 -> Broadside.Annotations.PdfBorderStyle
+Broadside.Annotations.PdfBorderStyle.Inset = 3 -> Broadside.Annotations.PdfBorderStyle
+Broadside.Annotations.PdfBorderStyle.Solid = 0 -> Broadside.Annotations.PdfBorderStyle
+Broadside.Annotations.PdfBorderStyle.Underline = 4 -> Broadside.Annotations.PdfBorderStyle
+Broadside.Annotations.PdfCaretAnnotation
+Broadside.Annotations.PdfCaretAnnotation.RectangleDifferences.get -> Broadside.Annotations.PdfRectangleDifferences?
+Broadside.Annotations.PdfCaretAnnotation.Symbol.get -> Broadside.Annotations.PdfCaretSymbol
+Broadside.Annotations.PdfCaretSymbol
+Broadside.Annotations.PdfCaretSymbol.None = 0 -> Broadside.Annotations.PdfCaretSymbol
+Broadside.Annotations.PdfCaretSymbol.Paragraph = 1 -> Broadside.Annotations.PdfCaretSymbol
+Broadside.Annotations.PdfCircleAnnotation
+Broadside.Annotations.PdfCircleAnnotation.BorderEffect.get -> Broadside.Annotations.PdfBorderEffect?
+Broadside.Annotations.PdfCircleAnnotation.InteriorColor.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.Annotations.PdfCircleAnnotation.RectangleDifferences.get -> Broadside.Annotations.PdfRectangleDifferences?
+Broadside.Annotations.PdfDeviceColor
+Broadside.Annotations.PdfDeviceColor.ColorSpace.get -> Broadside.Annotations.PdfDeviceColorSpace
+Broadside.Annotations.PdfDeviceColor.Components.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Annotations.PdfDeviceColor.Equals(Broadside.Annotations.PdfDeviceColor? other) -> bool
+Broadside.Annotations.PdfDeviceColor.IsTransparent.get -> bool
+Broadside.Annotations.PdfDeviceColor.PdfDeviceColor(params System.ReadOnlySpan<double> components) -> void
+Broadside.Annotations.PdfDeviceColorSpace
+Broadside.Annotations.PdfDeviceColorSpace.Cmyk = 3 -> Broadside.Annotations.PdfDeviceColorSpace
+Broadside.Annotations.PdfDeviceColorSpace.Gray = 1 -> Broadside.Annotations.PdfDeviceColorSpace
+Broadside.Annotations.PdfDeviceColorSpace.None = 0 -> Broadside.Annotations.PdfDeviceColorSpace
+Broadside.Annotations.PdfDeviceColorSpace.Rgb = 2 -> Broadside.Annotations.PdfDeviceColorSpace
+Broadside.Annotations.PdfFileAttachmentAnnotation
+Broadside.Annotations.PdfFileAttachmentAnnotation.FileSpecification.get -> Broadside.PdfFileSpecification?
+Broadside.Annotations.PdfFileAttachmentAnnotation.IconName.get -> string!
+Broadside.Annotations.PdfFixedPrint
+Broadside.Annotations.PdfFixedPrint.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Annotations.PdfFixedPrint.HasValidType.get -> bool
+Broadside.Annotations.PdfFixedPrint.HorizontalTranslation.get -> double
+Broadside.Annotations.PdfFixedPrint.Matrix.get -> Broadside.Graphics.Matrix
+Broadside.Annotations.PdfFixedPrint.VerticalTranslation.get -> double
+Broadside.Annotations.PdfFreeTextAnnotation
+Broadside.Annotations.PdfFreeTextAnnotation.BorderEffect.get -> Broadside.Annotations.PdfBorderEffect?
+Broadside.Annotations.PdfFreeTextAnnotation.CalloutLine.get -> System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PathPoint>!
+Broadside.Annotations.PdfFreeTextAnnotation.DefaultAppearance.get -> string?
+Broadside.Annotations.PdfFreeTextAnnotation.DefaultStyle.get -> string?
+Broadside.Annotations.PdfFreeTextAnnotation.Justification.get -> Broadside.Annotations.PdfTextJustification
+Broadside.Annotations.PdfFreeTextAnnotation.LineEnding.get -> Broadside.Annotations.PdfLineEnding
+Broadside.Annotations.PdfFreeTextAnnotation.RectangleDifferences.get -> Broadside.Annotations.PdfRectangleDifferences?
+Broadside.Annotations.PdfHighlightAnnotation
+Broadside.Annotations.PdfHighlightMode
+Broadside.Annotations.PdfHighlightMode.Invert = 1 -> Broadside.Annotations.PdfHighlightMode
+Broadside.Annotations.PdfHighlightMode.None = 0 -> Broadside.Annotations.PdfHighlightMode
+Broadside.Annotations.PdfHighlightMode.Outline = 2 -> Broadside.Annotations.PdfHighlightMode
+Broadside.Annotations.PdfHighlightMode.Push = 3 -> Broadside.Annotations.PdfHighlightMode
+Broadside.Annotations.PdfInkAnnotation
+Broadside.Annotations.PdfInkAnnotation.InkList.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PathPoint>!>!
+Broadside.Annotations.PdfInkAnnotation.Path.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<double>!>?
+Broadside.Annotations.PdfLineAnnotation
+Broadside.Annotations.PdfLineAnnotation.CaptionOffset.get -> Broadside.Graphics.PathPoint
+Broadside.Annotations.PdfLineAnnotation.CaptionPosition.get -> Broadside.Annotations.PdfLineCaptionPosition
+Broadside.Annotations.PdfLineAnnotation.End.get -> Broadside.Graphics.PathPoint
+Broadside.Annotations.PdfLineAnnotation.EndLineEnding.get -> Broadside.Annotations.PdfLineEnding
+Broadside.Annotations.PdfLineAnnotation.HasCaption.get -> bool
+Broadside.Annotations.PdfLineAnnotation.InteriorColor.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.Annotations.PdfLineAnnotation.LeaderLineExtension.get -> double
+Broadside.Annotations.PdfLineAnnotation.LeaderLineLength.get -> double
+Broadside.Annotations.PdfLineAnnotation.LeaderLineOffset.get -> double
+Broadside.Annotations.PdfLineAnnotation.Measure.get -> Broadside.Objects.CosDictionary?
+Broadside.Annotations.PdfLineAnnotation.Start.get -> Broadside.Graphics.PathPoint
+Broadside.Annotations.PdfLineAnnotation.StartLineEnding.get -> Broadside.Annotations.PdfLineEnding
+Broadside.Annotations.PdfLineCaptionPosition
+Broadside.Annotations.PdfLineCaptionPosition.Inline = 0 -> Broadside.Annotations.PdfLineCaptionPosition
+Broadside.Annotations.PdfLineCaptionPosition.Top = 1 -> Broadside.Annotations.PdfLineCaptionPosition
+Broadside.Annotations.PdfLineEnding
+Broadside.Annotations.PdfLineEnding.Butt = 6 -> Broadside.Annotations.PdfLineEnding
+Broadside.Annotations.PdfLineEnding.Circle = 2 -> Broadside.Annotations.PdfLineEnding
+Broadside.Annotations.PdfLineEnding.ClosedArrow = 5 -> Broadside.Annotations.PdfLineEnding
+Broadside.Annotations.PdfLineEnding.Diamond = 3 -> Broadside.Annotations.PdfLineEnding
+Broadside.Annotations.PdfLineEnding.None = 0 -> Broadside.Annotations.PdfLineEnding
+Broadside.Annotations.PdfLineEnding.OpenArrow = 4 -> Broadside.Annotations.PdfLineEnding
+Broadside.Annotations.PdfLineEnding.RClosedArrow = 8 -> Broadside.Annotations.PdfLineEnding
+Broadside.Annotations.PdfLineEnding.ROpenArrow = 7 -> Broadside.Annotations.PdfLineEnding
+Broadside.Annotations.PdfLineEnding.Slash = 9 -> Broadside.Annotations.PdfLineEnding
+Broadside.Annotations.PdfLineEnding.Square = 1 -> Broadside.Annotations.PdfLineEnding
+Broadside.Annotations.PdfLinkAnnotation
+Broadside.Annotations.PdfLinkAnnotation.Action.get -> Broadside.PdfAction?
+Broadside.Annotations.PdfLinkAnnotation.ActivationRegion.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>!
+Broadside.Annotations.PdfLinkAnnotation.Destination.get -> Broadside.PdfDestination?
+Broadside.Annotations.PdfLinkAnnotation.HighlightMode.get -> Broadside.Annotations.PdfHighlightMode
+Broadside.Annotations.PdfLinkAnnotation.PreviousUriAction.get -> Broadside.PdfAction?
+Broadside.Annotations.PdfLinkAnnotation.QuadPoints.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>!
+Broadside.Annotations.PdfMarkupAnnotation
+Broadside.Annotations.PdfMarkupAnnotation.CreationDate.get -> Broadside.PdfDate?
+Broadside.Annotations.PdfMarkupAnnotation.ExternalData.get -> Broadside.Objects.CosDictionary?
+Broadside.Annotations.PdfMarkupAnnotation.InReplyTo.get -> Broadside.Annotations.PdfAnnotation?
+Broadside.Annotations.PdfMarkupAnnotation.Intent.get -> Broadside.Objects.CosName?
+Broadside.Annotations.PdfMarkupAnnotation.Popup.get -> Broadside.Annotations.PdfPopupAnnotation?
+Broadside.Annotations.PdfMarkupAnnotation.ReplyType.get -> Broadside.Annotations.PdfReplyType
+Broadside.Annotations.PdfMarkupAnnotation.RichText.get -> string?
+Broadside.Annotations.PdfMarkupAnnotation.Subject.get -> string?
+Broadside.Annotations.PdfMarkupAnnotation.Title.get -> string?
+Broadside.Annotations.PdfMovieAnnotation
+Broadside.Annotations.PdfMovieAnnotation.Activation.get -> Broadside.Objects.CosObject?
+Broadside.Annotations.PdfMovieAnnotation.Movie.get -> Broadside.Objects.CosDictionary?
+Broadside.Annotations.PdfMovieAnnotation.MovieTitle.get -> string?
+Broadside.Annotations.PdfPolygonAnnotation
+Broadside.Annotations.PdfPolygonAnnotation.BorderEffect.get -> Broadside.Annotations.PdfBorderEffect?
+Broadside.Annotations.PdfPolygonAnnotation.InteriorColor.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.Annotations.PdfPolygonAnnotation.Measure.get -> Broadside.Objects.CosDictionary?
+Broadside.Annotations.PdfPolygonAnnotation.Path.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<double>!>?
+Broadside.Annotations.PdfPolygonAnnotation.Vertices.get -> System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PathPoint>!
+Broadside.Annotations.PdfPolyLineAnnotation
+Broadside.Annotations.PdfPolyLineAnnotation.EndLineEnding.get -> Broadside.Annotations.PdfLineEnding
+Broadside.Annotations.PdfPolyLineAnnotation.InteriorColor.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.Annotations.PdfPolyLineAnnotation.Measure.get -> Broadside.Objects.CosDictionary?
+Broadside.Annotations.PdfPolyLineAnnotation.Path.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<double>!>?
+Broadside.Annotations.PdfPolyLineAnnotation.StartLineEnding.get -> Broadside.Annotations.PdfLineEnding
+Broadside.Annotations.PdfPolyLineAnnotation.Vertices.get -> System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PathPoint>!
+Broadside.Annotations.PdfPopupAnnotation
+Broadside.Annotations.PdfPopupAnnotation.IsOpen.get -> bool
+Broadside.Annotations.PdfPopupAnnotation.Parent.get -> Broadside.Annotations.PdfAnnotation?
+Broadside.Annotations.PdfPrinterMarkAnnotation
+Broadside.Annotations.PdfPrinterMarkAnnotation.MarkName.get -> Broadside.Objects.CosName?
+Broadside.Annotations.PdfProjectionAnnotation
+Broadside.Annotations.PdfQuadrilateral
+Broadside.Annotations.PdfQuadrilateral.Bounds.get -> Broadside.PdfRectangle
+Broadside.Annotations.PdfQuadrilateral.Equals(Broadside.Annotations.PdfQuadrilateral other) -> bool
+Broadside.Annotations.PdfQuadrilateral.PdfQuadrilateral() -> void
+Broadside.Annotations.PdfQuadrilateral.PdfQuadrilateral(Broadside.Graphics.PathPoint point1, Broadside.Graphics.PathPoint point2, Broadside.Graphics.PathPoint point3, Broadside.Graphics.PathPoint point4) -> void
+Broadside.Annotations.PdfQuadrilateral.Point1.get -> Broadside.Graphics.PathPoint
+Broadside.Annotations.PdfQuadrilateral.Point2.get -> Broadside.Graphics.PathPoint
+Broadside.Annotations.PdfQuadrilateral.Point3.get -> Broadside.Graphics.PathPoint
+Broadside.Annotations.PdfQuadrilateral.Point4.get -> Broadside.Graphics.PathPoint
+Broadside.Annotations.PdfRectangleDifferences
+Broadside.Annotations.PdfRectangleDifferences.Bottom.get -> double
+Broadside.Annotations.PdfRectangleDifferences.Bottom.init -> void
+Broadside.Annotations.PdfRectangleDifferences.Left.get -> double
+Broadside.Annotations.PdfRectangleDifferences.Left.init -> void
+Broadside.Annotations.PdfRectangleDifferences.PdfRectangleDifferences() -> void
+Broadside.Annotations.PdfRectangleDifferences.PdfRectangleDifferences(double Left, double Top, double Right, double Bottom) -> void
+Broadside.Annotations.PdfRectangleDifferences.Right.get -> double
+Broadside.Annotations.PdfRectangleDifferences.Right.init -> void
+Broadside.Annotations.PdfRectangleDifferences.Top.get -> double
+Broadside.Annotations.PdfRectangleDifferences.Top.init -> void
+Broadside.Annotations.PdfRedactAnnotation
+Broadside.Annotations.PdfRedactAnnotation.DefaultAppearance.get -> string?
+Broadside.Annotations.PdfRedactAnnotation.InteriorColor.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.Annotations.PdfRedactAnnotation.Justification.get -> Broadside.Annotations.PdfTextJustification
+Broadside.Annotations.PdfRedactAnnotation.Overlay.get -> Broadside.Graphics.PdfFormXObject?
+Broadside.Annotations.PdfRedactAnnotation.OverlayText.get -> string?
+Broadside.Annotations.PdfRedactAnnotation.QuadPoints.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>!
+Broadside.Annotations.PdfRedactAnnotation.RepeatsOverlayText.get -> bool
+Broadside.Annotations.PdfReplyType
+Broadside.Annotations.PdfReplyType.Group = 1 -> Broadside.Annotations.PdfReplyType
+Broadside.Annotations.PdfReplyType.Reply = 0 -> Broadside.Annotations.PdfReplyType
+Broadside.Annotations.PdfRichMediaAnnotation
+Broadside.Annotations.PdfRichMediaAnnotation.Content.get -> Broadside.Objects.CosDictionary?
+Broadside.Annotations.PdfRichMediaAnnotation.Settings.get -> Broadside.Objects.CosDictionary?
+Broadside.Annotations.PdfScreenAnnotation
+Broadside.Annotations.PdfScreenAnnotation.Action.get -> Broadside.PdfAction?
+Broadside.Annotations.PdfScreenAnnotation.AppearanceCharacteristics.get -> Broadside.Annotations.PdfAppearanceCharacteristics?
+Broadside.Annotations.PdfScreenAnnotation.ScreenTitle.get -> string?
+Broadside.Annotations.PdfSoundAnnotation
+Broadside.Annotations.PdfSoundAnnotation.IconName.get -> string!
+Broadside.Annotations.PdfSoundAnnotation.Sound.get -> Broadside.Objects.CosStream?
+Broadside.Annotations.PdfSquareAnnotation
+Broadside.Annotations.PdfSquareAnnotation.BorderEffect.get -> Broadside.Annotations.PdfBorderEffect?
+Broadside.Annotations.PdfSquareAnnotation.InteriorColor.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.Annotations.PdfSquareAnnotation.RectangleDifferences.get -> Broadside.Annotations.PdfRectangleDifferences?
+Broadside.Annotations.PdfSquigglyAnnotation
+Broadside.Annotations.PdfStampAnnotation
+Broadside.Annotations.PdfStampAnnotation.IconName.get -> string?
+Broadside.Annotations.PdfStrikeOutAnnotation
+Broadside.Annotations.PdfTextAnnotation
+Broadside.Annotations.PdfTextAnnotation.IconName.get -> string!
+Broadside.Annotations.PdfTextAnnotation.IsOpen.get -> bool
+Broadside.Annotations.PdfTextAnnotation.State.get -> string?
+Broadside.Annotations.PdfTextAnnotation.StateModel.get -> string?
+Broadside.Annotations.PdfTextJustification
+Broadside.Annotations.PdfTextJustification.Centered = 1 -> Broadside.Annotations.PdfTextJustification
+Broadside.Annotations.PdfTextJustification.Left = 0 -> Broadside.Annotations.PdfTextJustification
+Broadside.Annotations.PdfTextJustification.Right = 2 -> Broadside.Annotations.PdfTextJustification
+Broadside.Annotations.PdfTextMarkupAnnotation
+Broadside.Annotations.PdfTextMarkupAnnotation.QuadPoints.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>!
+Broadside.Annotations.PdfTrapNetAnnotation
+Broadside.Annotations.PdfTrapNetAnnotation.AnnotationStates.get -> Broadside.Objects.CosArray?
+Broadside.Annotations.PdfTrapNetAnnotation.FontFauxing.get -> Broadside.Objects.CosArray?
+Broadside.Annotations.PdfTrapNetAnnotation.LastModified.get -> Broadside.PdfDate?
+Broadside.Annotations.PdfTrapNetAnnotation.Version.get -> Broadside.Objects.CosArray?
+Broadside.Annotations.PdfUnderlineAnnotation
+Broadside.Annotations.PdfUnknownAnnotation
+Broadside.Annotations.PdfWatermarkAnnotation
+Broadside.Annotations.PdfWatermarkAnnotation.FixedPrint.get -> Broadside.Annotations.PdfFixedPrint?
+Broadside.Annotations.PdfWidgetAnnotation
+Broadside.Annotations.PdfWidgetAnnotation.Action.get -> Broadside.PdfAction?
+Broadside.Annotations.PdfWidgetAnnotation.AppearanceCharacteristics.get -> Broadside.Annotations.PdfAppearanceCharacteristics?
+Broadside.Annotations.PdfWidgetAnnotation.HighlightMode.get -> Broadside.Annotations.PdfHighlightMode
+Broadside.Annotations.PdfWidgetAnnotation.Parent.get -> Broadside.Objects.CosDictionary?
 Broadside.Content.ClipEvent
 Broadside.Content.ClipEvent.ClipEvent() -> void
 Broadside.Content.ClipEvent.Ctm.get -> Broadside.Graphics.Matrix
@@ -358,6 +679,19 @@ Broadside.Graphics.PathView.PathView() -> void
 Broadside.Graphics.PathView.PathView(System.ReadOnlySpan<Broadside.Graphics.PathVerb> verbs, System.ReadOnlySpan<Broadside.Graphics.PathPoint> points) -> void
 Broadside.Graphics.PathView.Points.get -> System.ReadOnlySpan<Broadside.Graphics.PathPoint>
 Broadside.Graphics.PathView.Verbs.get -> System.ReadOnlySpan<Broadside.Graphics.PathVerb>
+Broadside.Graphics.PdfFormXObject
+Broadside.Graphics.PdfFormXObject.BoundingBox.get -> Broadside.PdfRectangle?
+Broadside.Graphics.PdfFormXObject.Decode() -> System.ReadOnlyMemory<byte>
+Broadside.Graphics.PdfFormXObject.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Graphics.PdfFormXObject.Group.get -> Broadside.Objects.CosDictionary?
+Broadside.Graphics.PdfFormXObject.IsForm.get -> bool
+Broadside.Graphics.PdfFormXObject.Matrix.get -> Broadside.Graphics.Matrix
+Broadside.Graphics.PdfFormXObject.OptionalContent.get -> Broadside.Objects.CosDictionary?
+Broadside.Graphics.PdfFormXObject.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Graphics.PdfFormXObject.Resources.get -> Broadside.Objects.CosDictionary?
+Broadside.Graphics.PdfFormXObject.Stream.get -> Broadside.Objects.CosStream!
+Broadside.Graphics.PdfFormXObject.StructParent.get -> int?
+Broadside.Graphics.PdfFormXObject.StructParents.get -> int?
 Broadside.Graphics.RenderingIntent
 Broadside.Graphics.RenderingIntent.AbsoluteColorimetric = 1 -> Broadside.Graphics.RenderingIntent
 Broadside.Graphics.RenderingIntent.Perceptual = 3 -> Broadside.Graphics.RenderingIntent
@@ -437,6 +771,7 @@ Broadside.Objects.CosString.CosString(System.ReadOnlySpan<byte> bytes, bool hexa
 Broadside.Objects.CosString.DecodeText() -> string!
 Broadside.Objects.CosString.Equals(Broadside.Objects.CosString? other) -> bool
 Broadside.Objects.CosString.IsHexadecimal.get -> bool
+Broadside.PdfPage.Annotations.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfAnnotation!>!
 Broadside.PdfPage.ProcessContent(Broadside.Content.ContentProcessor! processor) -> void
 Broadside.PdfPage.ProcessContent(Broadside.Content.ContentProcessor! processor, Broadside.Content.ContentOptions! options) -> void
 const Broadside.Content.ContentOptions.DefaultMaxNestingDepth = 50 -> int
@@ -769,6 +1104,12 @@ Broadside.PdfVisibilityPolicy.AllOn = 0 -> Broadside.PdfVisibilityPolicy
 Broadside.PdfVisibilityPolicy.AnyOff = 2 -> Broadside.PdfVisibilityPolicy
 Broadside.PdfVisibilityPolicy.AnyOn = 1 -> Broadside.PdfVisibilityPolicy
 const Broadside.Objects.CosReference.MaxGeneration = 65535 -> int
+override Broadside.Annotations.PdfDeviceColor.Equals(object? obj) -> bool
+override Broadside.Annotations.PdfDeviceColor.GetHashCode() -> int
+override Broadside.Annotations.PdfDeviceColor.ToString() -> string!
+override Broadside.Annotations.PdfQuadrilateral.Equals(object? obj) -> bool
+override Broadside.Annotations.PdfQuadrilateral.GetHashCode() -> int
+override Broadside.Annotations.PdfQuadrilateral.ToString() -> string!
 override Broadside.Content.CompositeContentProcessor.BeginForm(in Broadside.Content.FormEvent form, Broadside.Content.ContentContext! context) -> Broadside.Content.ContentVisit
 override Broadside.Content.CompositeContentProcessor.BeginMarkedContent(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
 override Broadside.Content.CompositeContentProcessor.BeginRun(Broadside.Content.ContentContext! context) -> void
@@ -811,6 +1152,9 @@ override Broadside.Objects.CosReference.GetHashCode() -> int
 override Broadside.Objects.CosStream.IsDirty.get -> bool
 override Broadside.Objects.CosString.Equals(object? obj) -> bool
 override Broadside.Objects.CosString.GetHashCode() -> int
+static Broadside.Annotations.PdfAnnotation.ComputeAppearanceMatrix(Broadside.PdfRectangle rect, Broadside.PdfRectangle boundingBox, Broadside.Graphics.Matrix matrix) -> Broadside.Graphics.Matrix?
+static Broadside.Annotations.PdfQuadrilateral.operator !=(Broadside.Annotations.PdfQuadrilateral left, Broadside.Annotations.PdfQuadrilateral right) -> bool
+static Broadside.Annotations.PdfQuadrilateral.operator ==(Broadside.Annotations.PdfQuadrilateral left, Broadside.Annotations.PdfQuadrilateral right) -> bool
 static Broadside.Graphics.Matrix.CreateScale(double sx, double sy) -> Broadside.Graphics.Matrix
 static Broadside.Graphics.Matrix.CreateTranslation(double tx, double ty) -> Broadside.Graphics.Matrix
 static Broadside.Graphics.Matrix.Identity.get -> Broadside.Graphics.Matrix

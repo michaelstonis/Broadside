@@ -19,6 +19,8 @@
     <PackageReference Include="SharpFuzz" />
     <!-- Shared corpus locator, linked as source so this project does not drag xunit and Verify in through Broadside.TestSupport. -->
     <Compile Include="../Broadside.TestSupport/CorpusLocator.cs" Link="CorpusLocator.cs" />
+    <!-- Annotation walker (issue #71): reads every annotation property through the public API; no test framework dependency. -->
+    <Compile Include="../Broadside.TestSupport/AnnotationWalker.cs" Link="AnnotationWalker.cs" />
     <!-- The folder props add a global using for xunit; this harness does not reference it. -->
     <Using Remove="Xunit" />
   </ItemGroup>

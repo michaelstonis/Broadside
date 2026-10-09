@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
+using Broadside.Annotations;
 using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Fonts;
@@ -63,6 +64,7 @@ public sealed partial class PdfDocument : IDisposable
     private readonly ConditionalWeakTable<CosDictionary, NameTreeReader> _nameTrees = [];
     private readonly ConditionalWeakTable<CosDictionary, NumberTreeReader> _numberTrees = [];
     private StructureContext? _structure;
+    private AnnotationIndex? _annotationIndex;
     private PdfOptionalContentProperties? _optionalContent;
 
     private PdfDocument(
@@ -613,6 +615,16 @@ public sealed partial class PdfDocument : IDisposable
 
     /// <summary>Gets the diagnostics sink, for document-model views that report what they find on first read.</summary>
     internal DiagnosticSink DiagnosticSink => _diagnostics;
+
+    /// <summary>Gets the document's annotation views and the page each belongs to (issue #71).</summary>
+    internal AnnotationIndex AnnotationIndex
+    {
+        get
+        {
+            AnnotationIndex? index = Volatile.Read(ref _annotationIndex);
+            return index ?? Interlocked.CompareExchange(ref _annotationIndex, new AnnotationIndex(this), null) ?? _annotationIndex!;
+        }
+    }
     /// <summary>Gets the document's optional content (layers), or <see langword="null"/> when the catalog has no <c>OCProperties</c>.</summary>
     /// <remarks>
     /// ISO 32000-2 §8.11 and §7.7.2, Table 29 (PDF 1.5). Without <c>OCProperties</c> every optional content structure is ignored and all
