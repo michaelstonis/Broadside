@@ -117,6 +117,12 @@ Phase 0 → Phase 1 → {2A, 2B, 2C, 2D} → 3A → {3B, 3C, 3D, 3E, 3F, 3G, 3H,
                      Phase 6 (needs 3A–3D, 5A; 5B improves it)
 ```
 
+## Ticket lists
+
+- [Phase 0](phase-0-issues.md) (scaffold, horizontal by nature)
+- [Phase 1](phase-1-issues.md) and [Phase 2](phase-2-issues.md): vertical slices of the [spec](spec-broadside-v1.md), published as sub-issues of #33
+- Phases 3 to 6: cut when Phase 2 is underway
+
 ## Working agreement
 
 - Every task is a GitHub issue created from the template, in a milestone, with phase/track/area labels. Agents self-assign, add `in-progress`, work in a worktree, open a PR that closes the issue, and update the conformance map in the same PR.
