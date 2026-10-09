@@ -1206,6 +1206,44 @@ def gen_metadata_xmp() -> bytes:
     ], trailer_extra=b" /Info 5 0 R")
 
 
+# ---------------------------------------------------------------------------
+# Optional content, files, associated files, object metadata, declarations (issue #76)
+# ---------------------------------------------------------------------------
+
+
+def gen_optional_content() -> bytes:
+    """8.11: four groups (A, B in D's OFF, C with Intent Design, D2 with a View usage OFF but no AS),
+    OCMD 9 (/OCGs [A B] /P /AllOff) and OCMD 10 (/VE [/Or A [/Not B]]), content sections /OC /a, /m1, /m2
+    and /a nested in /b, a form XObject with /OC B, an annotation with /OC C; D carries Order (a label and
+    an unlabelled nested array), RBGroups and Locked; Configs has one alternate configuration
+    (8.11.4.3 Table 99: BaseState OFF, ON [C], Intent All)."""
+    content = (b"/OC /a BDC 0 0 10 10 re f EMC\n"
+               b"/OC /m1 BDC 20 0 10 10 re f EMC\n"
+               b"/OC /m2 BDC 40 0 10 10 re f EMC\n"
+               b"/OC /b BDC /OC /a BDC 60 0 10 10 re f EMC EMC\n"
+               b"/Fm Do\n")
+    ocprops = (b" /OCProperties << /OCGs [5 0 R 6 0 R 7 0 R 8 0 R]"
+               b" /D << /Name (Default) /Creator (Broadside corpus) /OFF [6 0 R]"
+               b" /Order [5 0 R [(Labelled) 6 0 R 7 0 R] [8 0 R]] /RBGroups [[5 0 R 6 0 R]] /Locked [7 0 R] >>"
+               b" /Configs [<< /Name (Only C) /BaseState /OFF /ON [7 0 R] /Intent /All /ListMode /VisiblePages >>] >>")
+    return simple_file([
+        (1, catalog(ocprops)),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << /Properties << /a 5 0 R /b 6 0 R /m1 9 0 R /m2 10 0 R >>"
+                       b" /XObject << /Fm 11 0 R >> >> /Annots [12 0 R]")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /OCG /Name (A) >>"),
+        (6, b"<< /Type /OCG /Name (B) >>"),
+        (7, b"<< /Type /OCG /Name (C) /Intent /Design /Usage << /CreatorInfo << /Creator (Broadside) /Subtype /Technical >> >> >>"),
+        (8, b"<< /Type /OCG /Name (D2) /Usage << /View << /ViewState /OFF >> /Zoom << /min 1.5 >> >> >>"),
+        (9, b"<< /Type /OCMD /OCGs [5 0 R 6 0 R] /P /AllOff >>"),
+        (10, b"<< /Type /OCMD /VE [/Or 5 0 R [/Not 6 0 R]] >>"),
+        (11, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10] /OC 6 0 R", b"80 0 10 10 re f")),
+        (12, b"<< /Type /Annot /Subtype /Square /Rect [100 100 200 200] /OC 7 0 R >>"),
+    ])
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -1249,6 +1287,7 @@ FILES = {
     "outline.pdf": gen_outline,
     "name-tree-dests.pdf": gen_name_tree_dests,
     "metadata-xmp.pdf": gen_metadata_xmp,
+    "optional-content.pdf": gen_optional_content,
 }
 
 

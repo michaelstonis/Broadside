@@ -54,6 +54,7 @@ public sealed class PdfDocument : IDisposable
     private readonly DiagnosticSink _diagnostics;
     private readonly ObjectLoader _loader;
     private readonly StreamDecoder _streams;
+    private PdfOptionalContentProperties? _optionalContent;
 
     private PdfDocument(
         PdfSource source,
@@ -346,6 +347,34 @@ public sealed class PdfDocument : IDisposable
     /// </returns>
     /// <remarks>ISO 32000-2 §7.3.10.</remarks>
     public CosObject Resolve(CosObject? value) => _loader.Resolve(value);
+
+    /// <summary>Gets the document's optional content (layers), or <see langword="null"/> when the catalog has no <c>OCProperties</c>.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §8.11 and §7.7.2, Table 29 (PDF 1.5). Without <c>OCProperties</c> every optional content structure is ignored and all
+    /// content is visible (§8.11.4.2). The same view is returned while the catalog's <c>OCProperties</c> is the same dictionary; its
+    /// group list is a snapshot taken on first use.
+    /// </remarks>
+    public PdfOptionalContentProperties? OptionalContent
+    {
+        get
+        {
+            if (Resolve(Catalog.TryGetValue(FileAndLayerNames.OCProperties, out CosObject? entry) ? entry : null) is not CosDictionary dictionary)
+            {
+                return null;
+            }
+
+            PdfOptionalContentProperties? cached = Volatile.Read(ref _optionalContent);
+            if (cached is not null && ReferenceEquals(cached.Dictionary, dictionary))
+            {
+                return cached;
+            }
+
+            CosReference? reference = entry as CosReference ?? (Trailer.TryGetValue(KnownNames.Root, out CosObject? root) ? root as CosReference : null);
+            var created = new PdfOptionalContentProperties(this, dictionary, reference);
+            PdfOptionalContentProperties? raced = Interlocked.CompareExchange(ref _optionalContent, created, cached);
+            return raced == cached ? created : (ReferenceEquals(raced!.Dictionary, dictionary) ? raced : created);
+        }
+    }
 
     /// <summary>Returns a view over a file specification held by <paramref name="value"/>, resolving it first.</summary>
     /// <param name="value">A file specification string or dictionary, or a reference to one, of this document.</param>

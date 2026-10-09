@@ -31,6 +31,7 @@
   name-tree-dests.pdf,
   no-xref.pdf,
   object-stream.pdf,
+  optional-content.pdf,
   outline.pdf,
   page-tree-inherited.pdf,
   pdf20-header.pdf,
