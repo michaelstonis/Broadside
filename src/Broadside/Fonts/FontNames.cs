@@ -122,6 +122,15 @@ internal static class FontNames
     /// <summary><c>/FontFile3</c> (§9.8.1 Table 120).</summary>
     public static readonly CosName FontFile3 = new("FontFile3");
 
+    /// <summary><c>/Length1</c> of a font file stream (§9.9 Table 125).</summary>
+    public static readonly CosName Length1 = new("Length1");
+
+    /// <summary><c>/Length2</c> of a font file stream (§9.9 Table 125).</summary>
+    public static readonly CosName Length2 = new("Length2");
+
+    /// <summary><c>/Length3</c> of a font file stream (§9.9 Table 125).</summary>
+    public static readonly CosName Length3 = new("Length3");
+
     /// <summary><c>/CharSet</c> (§9.8.1 Table 120).</summary>
     public static readonly CosName CharSet = new("CharSet");
 }

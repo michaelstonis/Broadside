@@ -1,4 +1,6 @@
 using Broadside.Filters;
+using Broadside.Fonts;
+using Broadside.Graphics;
 using Broadside.Objects;
 using Broadside.Security;
 using Microsoft.Extensions.Logging;
@@ -23,6 +25,7 @@ public sealed class PdfOptions
 
     private readonly List<IStreamFilter> _filters = [];
     private readonly List<ISecurityHandler> _securityHandlers = [];
+    private readonly List<IFontProgramParser> _fontProgramParsers = [];
     private long _maxDecodedStreamLength = DefaultMaxDecodedStreamLength;
     private long _streamBufferLimit = DefaultStreamBufferLimit;
 
@@ -153,6 +156,24 @@ public sealed class PdfOptions
         return this;
     }
 
+    /// <summary>Gets the colour management set with <see cref="UseColorManagement"/>; <see cref="ManagedColorManagement.Default"/> otherwise.</summary>
+    /// <remarks>Not public, so configuration binding never sees it.</remarks>
+    internal IColorManagement ColorManagement { get; private set; } = ManagedColorManagement.Default;
+
+    /// <summary>
+    /// Uses <paramref name="colorManagement"/> to convert colours of device, CIE-based and ICCBased spaces to device colours, in place
+    /// of <see cref="ManagedColorManagement.Default"/>.
+    /// </summary>
+    /// <param name="colorManagement">The colour management. Shared by every document and thread of the engine.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §8.6.5, §10.3 and §10.4. The colour-management extension point (ADR 0001).</remarks>
+    public PdfOptions UseColorManagement(IColorManagement colorManagement)
+    {
+        ArgumentNullException.ThrowIfNull(colorManagement);
+        ColorManagement = colorManagement;
+        return this;
+    }
+
     /// <summary>Gets the security handlers registered with <see cref="UseSecurityHandler"/>, in order.</summary>
     /// <remarks>Not public, so configuration binding never sees it.</remarks>
     internal IReadOnlyList<ISecurityHandler> SecurityHandlers => _securityHandlers;
@@ -187,6 +208,25 @@ public sealed class PdfOptions
     public PdfOptions WithPassword(string? password)
     {
         Credentials = string.IsNullOrEmpty(password) ? null : new PdfPassword(password);
+        return this;
+    }
+
+    /// <summary>Gets the font program parsers registered with <see cref="UseFontProgramParser"/>, in registration order.</summary>
+    /// <remarks>ISO 32000-2 §9.9. Not public, so configuration binding never sees it; parsers are code.</remarks>
+    internal IReadOnlyList<IFontProgramParser> FontProgramParsers => _fontProgramParsers;
+
+    /// <summary>
+    /// Uses <paramref name="parser"/> for embedded font programs, tried before the managed defaults and before parsers registered
+    /// earlier: the first parser whose <see cref="IFontProgramParser.CanParse"/> accepts a program's bytes reads it, so a parser for a
+    /// format the defaults read replaces them, and a parser for a new format adds it.
+    /// </summary>
+    /// <param name="parser">The parser. Shared by every document and thread of the engine: it must keep no state between calls.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §9.9. The font program parser extension point (ADR 0001); the managed default reads TrueType programs.</remarks>
+    public PdfOptions UseFontProgramParser(IFontProgramParser parser)
+    {
+        ArgumentNullException.ThrowIfNull(parser);
+        _fontProgramParsers.Add(parser);
         return this;
     }
 

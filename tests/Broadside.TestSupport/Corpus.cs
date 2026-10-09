@@ -21,6 +21,10 @@ public static class Corpus
         "text-standard14-widths.pdf",
         "text-standard14-alias.pdf",
         "text-type1-symbolic-noencoding.pdf",
+        "text-truetype-composite.pdf",
+        "text-truetype-symbolic.pdf",
+        "text-truetype-macroman.pdf",
+        "text-truetype-loca-long.pdf",
         "xref-stream.pdf",
         "object-stream.pdf",
         "incremental-update.pdf",
@@ -72,6 +76,10 @@ public static class Corpus
         "actions-preserved.pdf",
         "acroform-fields.pdf",
         "acroform-xfa.pdf",
+        "colorspace-families.pdf",
+        "color-operators.pdf",
+        "default-colorspaces.pdf",
+        "separation-special.pdf",
     ];
 
     private static readonly string[] Malformed =
