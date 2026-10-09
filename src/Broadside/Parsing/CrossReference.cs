@@ -73,7 +73,8 @@ internal sealed record XrefSection(long Offset, long End, XrefSectionKind Kind, 
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §7.5.4, §7.5.5 and §7.5.6. Lookup is newest first, first write wins: an object number takes its entry from the most
-/// recent section that lists it. The trailer is the newest section's, with keys only an older trailer has filled in (a lenient
+/// recent section that lists it; a hybrid table's free entry gives way to its own <c>XRefStm</c> stream's entry (§7.5.8.4), which
+/// otherwise comes after the table and before older sections. The trailer is the newest section's, with keys only an older trailer has filled in (a lenient
 /// fallback; §7.5.6 says each update's trailer repeats them).
 /// </remarks>
 internal sealed class CrossReference
@@ -91,11 +92,24 @@ internal sealed class CrossReference
         var inherited = new List<CosName>();
         for (int revision = Revisions.Count - 1; revision >= 0; revision--)
         {
-            foreach (XrefSection section in Revisions[revision].Sections)
+            IReadOnlyList<XrefSection> revisionSections = Revisions[revision].Sections;
+            for (int index = 0; index < revisionSections.Count; index++)
             {
+                XrefSection section = revisionSections[index];
+                XrefSection? hybridStream = section.XRefStreamOffset is { } streamOffset
+                    && index + 1 < revisionSections.Count
+                    && revisionSections[index + 1].Offset == streamOffset
+                        ? revisionSections[index + 1]
+                        : null;
                 foreach ((int number, XrefEntry entry) in section.Entries)
                 {
-                    _merged.TryAdd(number, entry);
+                    // §7.5.8.4: a free table entry is the pre-1.5 marker of an object the section's XRefStm stream defines, and
+                    // "a PDF reader shall look in the cross-reference stream first"; an in-use table entry still wins.
+                    XrefEntry effective = entry.Kind == XrefEntryKind.Free && hybridStream is not null
+                        && hybridStream.Entries.TryGetValue(number, out XrefEntry fromStream)
+                            ? fromStream
+                            : entry;
+                    _merged.TryAdd(number, effective);
                 }
 
                 foreach (KeyValuePair<CosName, CosObject> entry in section.Trailer)

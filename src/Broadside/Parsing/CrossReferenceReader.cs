@@ -17,7 +17,8 @@ namespace Broadside.Parsing;
 /// </para>
 /// <para>
 /// Hybrid files (§7.5.8.4): a table whose trailer has <c>XRefStm</c> is followed, in <see cref="CrossReference.Sections"/>, by the
-/// cross-reference stream it names, so lookup consults the table, then that stream, then the older sections. The stream's own
+/// cross-reference stream it names, so lookup consults the table, then that stream, then the older sections; a free entry in the
+/// table gives way to the stream's entry for the same number ("A PDF reader shall look in the cross-reference stream first"). The stream's own
 /// <c>Prev</c> is not followed ("not meaningful in hybrid-reference files", Table 17) and its dictionary is not a trailer.
 /// </para>
 /// <para>

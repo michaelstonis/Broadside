@@ -24,10 +24,10 @@ public class HybridFileTests
     }
 
     [Fact]
-    public void The_table_of_a_section_takes_precedence_over_its_XRefStm_stream()
+    public void An_in_use_entry_in_the_table_of_a_section_takes_precedence_over_its_XRefStm_stream()
     {
-        // §7.5.8.4: the stream is searched only for entries the table does not have.
-        byte[] file = Hybrid(tableHasObject4: true, streamEntries: string.Empty);
+        // §7.5.8.4: the stream is searched for an object the table does not define; an in-use table entry defines it.
+        byte[] file = Hybrid(object4InTable: "in use", streamEntries: string.Empty);
 
         using PdfDocument document = PdfDocument.Open(file);
 
@@ -37,10 +37,24 @@ public class HybridFileTests
     }
 
     [Fact]
+    public void A_free_entry_in_the_table_of_a_section_gives_way_to_its_XRefStm_stream()
+    {
+        // §7.5.8.4: "A PDF reader shall look in the cross-reference stream first, find the object there, and shall ignore the free
+        // entry"; the NOTE puts the free entry only typically in a previous section, so a free entry in the same table yields too.
+        byte[] file = Hybrid(object4InTable: "free", streamEntries: string.Empty);
+
+        using PdfDocument document = PdfDocument.Open(file);
+
+        Assert.Equal("stream", Assert.IsType<CosString>(document.Resolve(new CosReference(4, 0))).DecodeText());
+        Assert.Single(document.Pages);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
     public void The_XRefStm_streams_dictionary_is_not_the_trailer_and_its_Prev_is_not_followed()
     {
         // Table 17: Prev in an XRefStm stream is "not meaningful in hybrid-reference files"; Root comes from the table's trailer.
-        byte[] file = Hybrid(tableHasObject4: false, streamEntries: "/Prev 999999 /Root 3 0 R /Info 4 0 R");
+        byte[] file = Hybrid(object4InTable: null, streamEntries: "/Prev 999999 /Root 3 0 R /Info 4 0 R");
 
         using PdfDocument document = PdfDocument.Open(file);
 
@@ -53,7 +67,7 @@ public class HybridFileTests
     [Fact]
     public void An_XRefStm_offset_that_names_no_stream_is_reported_and_the_table_is_still_read()
     {
-        byte[] file = Hybrid(tableHasObject4: false, streamEntries: string.Empty, xrefStm: "13");
+        byte[] file = Hybrid(object4InTable: null, streamEntries: string.Empty, xrefStm: "13");
 
         using PdfDocument document = PdfDocument.Open(file);
 
@@ -63,11 +77,11 @@ public class HybridFileTests
     }
 
     /// <summary>
-    /// One section: objects 1-3 (and 4, "(table)", when <paramref name="tableHasObject4"/>) in the classic table, which lists nothing
-    /// else, object stream 5
-    /// holding 4 as "(stream)", and cross-reference stream 6 for 4-6 named by the trailer's XRefStm (or by <paramref name="xrefStm"/>).
+    /// One section: objects 1-3 in the classic table, and object 4 listed there as <paramref name="object4InTable"/> says ("in use",
+    /// written as "(table)"; "free"; or not listed when <see langword="null"/>); object stream 5 holding 4 as "(stream)"; and
+    /// cross-reference stream 6 for 4-6 named by the trailer's XRefStm (or by <paramref name="xrefStm"/>).
     /// </summary>
-    private static byte[] Hybrid(bool tableHasObject4, string streamEntries, string? xrefStm = null)
+    private static byte[] Hybrid(string? object4InTable, string streamEntries, string? xrefStm = null)
     {
         var text = new StringBuilder("%PDF-1.5\n");
         var offsets = new Dictionary<int, int>();
@@ -82,7 +96,7 @@ public class HybridFileTests
             Add(index + 1, XrefStreamPdf.OnePage[index]);
         }
 
-        if (tableHasObject4)
+        if (object4InTable == "in use")
         {
             Add(4, "(table)");
         }
@@ -93,12 +107,11 @@ public class HybridFileTests
         text.Append(CultureInfo.InvariantCulture, $"6 0 obj\n<< /Type /XRef /Size 7 /Index [4 3] /W [1 2 1] {streamEntries} /Length {rows.Length} >>\nstream\n");
         text.Append(Encoding.Latin1.GetString(rows)).Append("\nendstream\nendobj\n");
         int table = text.Length;
-        // The table lists only the objects it holds: a free entry for 4 would be found in the table and hide the stream's (§7.5.8.4).
-        int listed = tableHasObject4 ? 4 : 3;
+        int listed = object4InTable is null ? 3 : 4;
         text.Append(CultureInfo.InvariantCulture, $"xref\n0 {listed + 1}\n0000000000 65535 f \n");
         for (int number = 1; number <= listed; number++)
         {
-            text.Append(CultureInfo.InvariantCulture, $"{offsets[number]:D10} 00000 n \n");
+            text.Append(offsets.TryGetValue(number, out int offset) ? $"{offset:D10} 00000 n \n" : "0000000000 00001 f \n");
         }
 
         text.Append(CultureInfo.InvariantCulture, $"trailer\n<< /Size 7 /Root 1 0 R /XRefStm {xrefStm ?? stream.ToString(CultureInfo.InvariantCulture)} >>\nstartxref\n{table}\n%%EOF\n");
