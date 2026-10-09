@@ -3,6 +3,8 @@ using System.Runtime.CompilerServices;
 using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Fonts;
+using Broadside.Graphics;
+using Broadside.Graphics.Functions;
 using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -82,6 +84,7 @@ public sealed partial class PdfDocument : IDisposable
         Revisions = revisions;
         Linearization = linearization;
         Pages = new PdfPageCollection(() => PageTreeReader.Read(this, diagnostics));
+        Functions = new FunctionCache(this, diagnostics);
     }
 
     /// <summary>
@@ -811,8 +814,29 @@ public sealed partial class PdfDocument : IDisposable
         return _fonts.TryAdd(dictionary, created) || !_fonts.TryGetValue(dictionary, out PdfFont? winner) ? created : winner;
     }
 
+    /// <summary>Returns the view of a function object of this document.</summary>
+    /// <param name="function">A function dictionary or stream, or an indirect reference to one.</param>
+    /// <returns>
+    /// The view, shared by every caller asking for the same object; <see langword="null"/>, with a diagnostic, when
+    /// <paramref name="function"/> is not a dictionary or stream with a <c>FunctionType</c> of 0, 2, 3 or 4. A function of a known
+    /// type that cannot be used is returned with <see cref="PdfFunction.IsValid"/> <see langword="false"/>.
+    /// </returns>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found in the function.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.10. The function is compiled once, here, and again only when an object it was compiled from changes. Deviations
+    /// are recorded on <see cref="Diagnostics"/> against <paramref name="function"/> when it is a reference.
+    /// </remarks>
+    public PdfFunction? GetFunction(CosObject function)
+    {
+        ArgumentNullException.ThrowIfNull(function);
+        return Functions.Get(function);
+    }
+
     /// <inheritdoc/>
     public void Dispose() => _source.Dispose();
+
+    /// <summary>Gets the document's functions, compiled once each (issue #78): the seam colour spaces, graphics states and shadings use.</summary>
+    internal FunctionCache Functions { get; }
 
     private CosDictionary? ResolveTreeRoot(CosObject? root, string code, string kind)
     {
