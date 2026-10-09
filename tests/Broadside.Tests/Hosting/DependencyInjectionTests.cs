@@ -20,7 +20,6 @@ public class DependencyInjectionTests
     [MemberData(nameof(Corpus.WellFormedFiles), MemberType = typeof(Corpus))]
     public void The_registered_engine_and_the_static_entry_point_open_documents_identically(string fileName)
     {
-        Assert.SkipWhen(WellFormedCorpusTests.NeedsCrossReferenceStreams(fileName), "Needs cross-reference streams (#39).");
         using ServiceProvider services = new ServiceCollection().AddBroadside().BuildServiceProvider();
 
         using PdfDocument fromContainer = services.GetRequiredService<PdfEngine>().Open(Corpus.Bytes(fileName));

@@ -1,4 +1,5 @@
 using Broadside.Diagnostics;
+using Broadside.Filters;
 using Broadside.IO;
 using Broadside.Objects;
 
@@ -10,13 +11,18 @@ namespace Broadside.Parsing;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ISO 32000-2 §7.5.4, §7.5.5 and §7.5.6. Every offset the file states is relative to the <c>%PDF-</c> header (§7.5.2). The
-/// <c>Prev</c> chain is guarded by a set of visited offsets, so a loop ends the chain with a diagnostic instead of hanging.
+/// ISO 32000-2 §7.5.4, §7.5.5, §7.5.6 and §7.5.8. Every offset the file states is relative to the <c>%PDF-</c> header (§7.5.2). A
+/// section is a classic table or a cross-reference stream (<see cref="XrefStreamReader"/>). The <c>Prev</c> chain is guarded by a
+/// set of visited offsets, so a loop ends the chain with a diagnostic instead of hanging.
 /// </para>
 /// <para>
-/// Extension: issue #39 reads cross-reference streams in <see cref="ReadStreamSection"/> and follows a hybrid file's
-/// <c>XRefStm</c> before <c>Prev</c>; issue #41 locates <c>startxref</c> when it is wrong and reconstructs the table when nothing
-/// here can be read (<see cref="Read"/> returns <see langword="null"/>).
+/// Hybrid files (§7.5.8.4): a table whose trailer has <c>XRefStm</c> is followed, in <see cref="CrossReference.Sections"/>, by the
+/// cross-reference stream it names, so lookup consults the table, then that stream, then the older sections. The stream's own
+/// <c>Prev</c> is not followed ("not meaningful in hybrid-reference files", Table 17) and its dictionary is not a trailer.
+/// </para>
+/// <para>
+/// Extension: issue #41 locates <c>startxref</c> when it is wrong and reconstructs the table when nothing here can be read
+/// (<see cref="Read"/> returns <see langword="null"/>).
 /// </para>
 /// </remarks>
 internal static class CrossReferenceReader
@@ -24,12 +30,15 @@ internal static class CrossReferenceReader
     /// <summary>How many bytes the backward search for <c>startxref</c> reads at a time.</summary>
     private const int TailWindow = 1024;
 
+    private static readonly CosName XRefStm = new("XRefStm");
+
     /// <summary>Reads the cross-reference sections of <paramref name="source"/>.</summary>
     /// <param name="source">The file.</param>
     /// <param name="header">The header, whose offset every stated offset is relative to.</param>
+    /// <param name="streams">The filter pipeline cross-reference streams are decoded with.</param>
     /// <param name="diagnostics">Where to report deviations.</param>
     /// <returns>The cross-reference information, or <see langword="null"/> when no section could be read.</returns>
-    public static CrossReference? Read(PdfSource source, FileHeader header, DiagnosticSink diagnostics)
+    public static CrossReference? Read(PdfSource source, FileHeader header, StreamDecoder streams, DiagnosticSink diagnostics)
     {
         if (!TryReadStartxref(source, header, diagnostics, out long first))
         {
@@ -51,13 +60,25 @@ internal static class CrossReferenceReader
                 break;
             }
 
-            XrefSection? section = ReadSection(source, offset, isFirst: sections.Count == 0, diagnostics);
+            XrefSection? section = ReadSection(source, offset, isFirst: sections.Count == 0, streams, diagnostics);
             if (section is null)
             {
                 break;
             }
 
-            sections.Add(section);
+            XrefSection? hybridStream = section.Kind == XrefSectionKind.Table
+                ? ReadHybridStream(source, header, section, visited, streams, diagnostics)
+                : null;
+            if (hybridStream is not null)
+            {
+                sections.Add(section with { XRefStreamOffset = hybridStream.Offset });
+                sections.Add(hybridStream);
+            }
+            else
+            {
+                sections.Add(section);
+            }
+
             next = PreviousSectionOffset(section, header, diagnostics);
         }
 
@@ -128,7 +149,7 @@ internal static class CrossReferenceReader
     }
 
     /// <summary>Reads the section at <paramref name="offset"/>: a table when it starts with <c>xref</c>, else a stream.</summary>
-    private static XrefSection? ReadSection(PdfSource source, long offset, bool isFirst, DiagnosticSink diagnostics)
+    private static XrefSection? ReadSection(PdfSource source, long offset, bool isFirst, StreamDecoder streams, DiagnosticSink diagnostics)
     {
         ReadOnlySpan<byte> window = source.GetWindow(offset).Span;
         var lexer = new CosLexer(window);
@@ -148,7 +169,7 @@ internal static class CrossReferenceReader
                 window = window[first.Start..];
             }
 
-            return isTable ? XrefTableReader.Read(window, offset, diagnostics) : ReadStreamSection(source, offset, diagnostics);
+            return isTable ? XrefTableReader.Read(window, offset, diagnostics) : XrefStreamReader.Read(source, offset, streams, diagnostics);
         }
 
         diagnostics.Report(
@@ -161,16 +182,69 @@ internal static class CrossReferenceReader
         return null;
     }
 
-    /// <summary>Reads a cross-reference stream section (§7.5.8). Issue #39.</summary>
-    private static XrefSection? ReadStreamSection(PdfSource source, long offset, DiagnosticSink diagnostics)
+    /// <summary>
+    /// Reads the cross-reference stream a hybrid file's table names through its trailer's <c>XRefStm</c> entry (§7.5.8.4, Table 19).
+    /// </summary>
+    /// <returns>The stream section, whose trailer is empty, or <see langword="null"/> when there is none or it cannot be read.</returns>
+    private static XrefSection? ReadHybridStream(
+        PdfSource source,
+        FileHeader header,
+        XrefSection table,
+        HashSet<long> visited,
+        StreamDecoder streams,
+        DiagnosticSink diagnostics)
     {
-        _ = source;
-        diagnostics.Report(
-            DiagnosticCodes.XrefStreamUnsupported,
-            DiagnosticSeverity.Error,
-            "The cross-reference section is a cross-reference stream, which this version cannot read yet.",
-            offset);
-        return null;
+        if (!table.Trailer.TryGetValue(XRefStm, out CosObject? entry))
+        {
+            return null;
+        }
+
+        if (entry is not CosInteger { Value: >= 0 } stated || stated.Value > long.MaxValue - header.Offset)
+        {
+            diagnostics.Report(
+                DiagnosticCodes.TrailerXRefStmInvalid,
+                DiagnosticSeverity.Error,
+                "The trailer's XRefStm entry is not a direct, non-negative integer; the cross-reference stream it names is not read.",
+                table.Offset);
+            return null;
+        }
+
+        long offset = header.Offset + stated.Value;
+        if (!visited.Add(offset))
+        {
+            diagnostics.Report(
+                DiagnosticCodes.XrefPrevLoop,
+                DiagnosticSeverity.Error,
+                "The trailer's XRefStm entry names a cross-reference section already read; it is not read again.",
+                offset);
+            return null;
+        }
+
+        ReadOnlySpan<byte> window = source.GetWindow(offset).Span;
+        CosToken first = new CosLexer(window).Next();
+        if (first.Kind != CosTokenKind.Integer)
+        {
+            diagnostics.Report(
+                DiagnosticCodes.TrailerXRefStmInvalid,
+                DiagnosticSeverity.Error,
+                "The trailer's XRefStm offset does not point at a cross-reference stream; it is not read.",
+                offset);
+            return null;
+        }
+
+        if (first.Start != 0)
+        {
+            diagnostics.Report(
+                DiagnosticCodes.TrailerXRefStmInvalid,
+                DiagnosticSeverity.Warning,
+                "The XRefStm offset points before the cross-reference stream rather than at it.",
+                offset);
+            offset += first.Start;
+        }
+
+        return XrefStreamReader.Read(source, offset, streams, diagnostics) is { } section
+            ? section with { Trailer = new CosDictionary() }
+            : null;
     }
 
     /// <summary>Returns the absolute offset of the section before <paramref name="section"/>, from its trailer's <c>Prev</c> entry.</summary>

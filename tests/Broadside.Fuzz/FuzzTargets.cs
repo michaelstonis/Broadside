@@ -1,6 +1,7 @@
 using System.Buffers;
 using Broadside.Diagnostics;
 using Broadside.Filters;
+using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
 using SharpFuzz;
@@ -20,6 +21,8 @@ internal static class FuzzTargets
         ["object-parser"] = ObjectParser,
         ["document"] = Document,
         ["hint-tables"] = HintTables,
+        ["xref-stream"] = XrefStream,
+        ["object-stream"] = ObjectStreamTarget,
         ["filter-asciihex"] = data => Filter(new AsciiHexDecodeFilter(), data, parameters: null, maxRatio: 1),
         ["filter-ascii85"] = data => Filter(new Ascii85DecodeFilter(), data, parameters: null, maxRatio: 4),
         ["filter-lzw"] = Lzw,
@@ -187,6 +190,71 @@ internal static class FuzzTargets
                 || decoded.Pages.Any(page => page.ObjectCount < 0 || page.Length < 0)))
         {
             throw new InvalidOperationException("Decoded hint tables are inconsistent with the layout.");
+        }
+    }
+
+    /// <summary>
+    /// Reads the input as cross-reference stream data: bytes 0 to 2 are the field widths of <c>W</c> (0 to 9, so invalid widths are
+    /// tried too), byte 3 selects whether <c>Index</c> is <c>[0 Size]</c> by default or two subsections, the rest is the data. The
+    /// section must have at most one entry per whole row of data, never object number 0, and in-use offsets and compressed indexes
+    /// that are not negative.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.5.8.2 Table 17 and §7.5.8.3 Table 18.</remarks>
+    private static void XrefStream(ReadOnlySpan<byte> data)
+    {
+        if (data.Length < 4)
+        {
+            return;
+        }
+
+        int[] widths = [data[0] % 10, data[1] % 10, data[2] % 10];
+        ReadOnlySpan<byte> rows = data[4..];
+        string index = (data[3] & 1) == 0 ? string.Empty : "/Index [0 3 1000 1000000]";
+        byte[] head = System.Text.Encoding.ASCII.GetBytes(
+            $"7 0 obj\n<< /Type /XRef /Size 1000 {index} /W [{widths[0]} {widths[1]} {widths[2]}] /Length {rows.Length} >>\nstream\n");
+        byte[] file = [.. head, .. rows, .. "\nendstream\nendobj\n"u8];
+        var diagnostics = new DiagnosticSink(strict: false);
+        var streams = new StreamDecoder(FilterRegistry.Create([]), PdfOptions.DefaultMaxDecodedStreamLength, diagnostics, static value => value ?? CosNull.Instance);
+        using PdfSource source = PdfSource.FromMemory(file);
+
+        XrefSection? section = XrefStreamReader.Read(source, 0, streams, diagnostics);
+
+        if (section is null)
+        {
+            return;
+        }
+
+        int entryWidth = widths.Sum();
+        if (section.Entries.Count > rows.Length / entryWidth
+            || section.Entries.ContainsKey(0)
+            || section.Entries.Values.Any(entry => entry.Offset < 0 || entry.Generation < 0)
+            || section.Trailer.ContainsKey(new CosName("W")))
+        {
+            throw new InvalidOperationException("The cross-reference stream section is inconsistent with its data.");
+        }
+    }
+
+    /// <summary>
+    /// Reads the input as decoded object stream data: byte 0 is <c>N</c>, byte 1 is <c>First</c> (both modulo the data length plus
+    /// one), the rest is the data. Every member the header names is then parsed, at its own index and at a wrong one; none may throw.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.5.7 Table 16.</remarks>
+    private static void ObjectStreamTarget(ReadOnlySpan<byte> data)
+    {
+        if (data.Length < 2)
+        {
+            return;
+        }
+
+        byte[] body = data[2..].ToArray();
+        var diagnostics = new DiagnosticSink(strict: false);
+        var reference = new CosReference(1, 0);
+        ObjectStream contents = ObjectStream.Read(reference, body, new CosInteger(data[0]), new CosInteger(data[1] % (body.Length + 1)), diagnostics);
+        for (int index = 0; index < contents.ObjectNumbers.Count; index++)
+        {
+            var member = new CosReference(contents.ObjectNumbers[index], 0);
+            _ = contents.Parse(member, index, diagnostics);
+            _ = contents.Parse(member, index + 1, diagnostics);
         }
     }
 

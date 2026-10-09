@@ -13,6 +13,7 @@
   hybrid-xref.pdf,
   incremental-update.pdf,
   inline-image.pdf,
+  linearized-xref-stream.pdf,
   linearized.pdf,
   lzw-stream.pdf,
   metadata-xmp.pdf,

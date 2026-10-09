@@ -99,6 +99,26 @@ public class LinearizationTests
     }
 
     [Fact]
+    public void A_linearized_file_with_cross_reference_streams_has_its_first_page_and_main_streams_as_one_revision()
+    {
+        // linearized-xref-stream.pdf (qpdf --object-streams=generate): the first-page cross-reference stream (object 5, objects 4-15)
+        // has Prev pointing forward to the main one (object 3, objects 0-3); objects 13-15 are in object stream 10 (F.3.4, §7.5.8).
+        byte[] file = Corpus.Bytes("linearized-xref-stream.pdf");
+
+        using PdfDocument document = PdfDocument.Open(file);
+
+        Assert.True(document.IsLinearized);
+        PdfLinearization linearization = document.Linearization!;
+        Assert.Equal((new CosReference(4, 0), 1661L, 2, 8), (linearization.Reference, linearization.FileLength, linearization.PageCount, linearization.FirstPageObjectNumber));
+        Assert.Equal(Enumerable.Range(4, 12).Select(number => new CosReference(number, 0)), linearization.FirstPageObjects);
+        PdfRevision revision = Assert.Single(document.Revisions);
+        Assert.Equal(file.LongLength, revision.Length);
+        Assert.Equal(new CosReference(6, 0), revision.Trailer[new CosName("Root")]);
+        Assert.Equal(2, document.Pages.Count);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
     public void A_file_that_is_not_linearized_reports_false()
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Path("page-tree-inherited.pdf"));

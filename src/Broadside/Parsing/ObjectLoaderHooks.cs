@@ -10,7 +10,10 @@ internal enum ObjectOrigin : byte
     /// <summary>An indirect object in the file body, located by a cross-reference entry (§7.3.10).</summary>
     FileBody,
 
-    /// <summary>An object inside an object stream (§7.5.7; issue #39). Never decrypted on its own (§7.6.2).</summary>
+    /// <summary>
+    /// An object inside an object stream (§7.5.7). Never decrypted on its own (§7.6.2): its container is decrypted as a whole, and the
+    /// loader does not run hooks 1 and 2 for members.
+    /// </summary>
     ObjectStream,
 }
 
@@ -41,8 +44,9 @@ internal interface IStreamExtentResolver
 /// dictionary has been read the loader uses <see cref="NullObjectDecryptor"/>.
 /// </summary>
 /// <remarks>
-/// Must not decrypt cross-reference streams, objects inside object streams (<see cref="ObjectOrigin.ObjectStream"/>, already decrypted
-/// with their container), or the <c>Encrypt</c> dictionary itself (§7.6.2). Must not mark anything dirty (ADR 0004).
+/// Must not decrypt cross-reference streams (they never pass through the loader: <see cref="XrefStreamReader"/> reads them), objects
+/// inside object streams (never passed to it: they are decrypted with their container, an ordinary <see cref="ObjectOrigin.FileBody"/>
+/// stream), or the <c>Encrypt</c> dictionary itself (§7.6.2). Must not mark anything dirty (ADR 0004).
 /// </remarks>
 internal interface IObjectDecryptor
 {

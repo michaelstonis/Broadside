@@ -12,7 +12,7 @@ internal enum XrefEntryKind : byte
     /// <summary>An object stored in the file body at a byte offset.</summary>
     InUse,
 
-    /// <summary>An object stored inside an object stream (§7.5.7). Read by issue #39.</summary>
+    /// <summary>An object stored inside an object stream (§7.5.7), type 2 in a cross-reference stream (§7.5.8.3, Table 18).</summary>
     Compressed,
 }
 
@@ -39,21 +39,33 @@ internal enum XrefSectionKind : byte
     /// <summary>A classic <c>xref</c> table followed by <c>trailer</c>.</summary>
     Table,
 
-    /// <summary>A cross-reference stream (issue #39).</summary>
+    /// <summary>A cross-reference stream (§7.5.8).</summary>
     Stream,
 }
 
 /// <summary>One cross-reference section as read from the file: its entries and its trailer.</summary>
 /// <remarks>ISO 32000-2 §7.5.4 and §7.5.5. Kept per section, never only merged, for incremental updates (#40) and repair (#41).</remarks>
 /// <param name="Offset">The absolute byte offset of the section (the <c>xref</c> keyword, or the stream object).</param>
-/// <param name="End">The absolute byte offset just past the section's trailer dictionary.</param>
+/// <param name="End">
+/// The absolute byte offset just past the section's trailer dictionary; for a stream, just past the stream object's <c>endobj</c>.
+/// </param>
 /// <param name="Kind">Table or stream.</param>
 /// <param name="Entries">The entries, by object number. Object number 0 is never present.</param>
-/// <param name="Trailer">The section's trailer dictionary (for a stream, the stream dictionary).</param>
+/// <param name="Trailer">
+/// The section's trailer dictionary. For a cross-reference stream, its dictionary without the entries that describe the stream
+/// itself (Type, Length, W, Index, Filter, DecodeParms, DL, F, FFilter, FDecodeParms); for the stream a hybrid file's table names
+/// through <c>XRefStm</c>, an empty dictionary, since the table's trailer is the trailer (§7.5.8.4).
+/// </param>
 internal sealed record XrefSection(long Offset, long End, XrefSectionKind Kind, IReadOnlyDictionary<int, XrefEntry> Entries, CosDictionary Trailer)
 {
-    /// <summary>Gets the offset of the hybrid-file cross-reference stream this table's trailer names (§7.5.8.4), when issue #39 follows it.</summary>
+    /// <summary>
+    /// Gets the absolute offset of the cross-reference stream this table's trailer names through <c>XRefStm</c> (§7.5.8.4), when it
+    /// was read; that stream is the next section in <see cref="CrossReference.Sections"/>.
+    /// </summary>
     public long? XRefStreamOffset { get; init; }
+
+    /// <summary>Gets the cross-reference stream object of a <see cref="XrefSectionKind.Stream"/> section, as parsed.</summary>
+    public CosStream? Stream { get; init; }
 }
 
 /// <summary>
@@ -108,8 +120,8 @@ internal sealed class CrossReference
     /// <para>
     /// Each update appends one revision. A revision usually has one section; it has more when the file is linearized (the
     /// first-page section and the main section, F.3.4, form the original revision: the first-page section's <c>Prev</c> points
-    /// forward, to a higher offset, which an appended update never does) or, with issue #39, when a hybrid file's table names a
-    /// cross-reference stream through <c>XRefStm</c> (§7.5.8.4: the stream belongs to its table's revision).
+    /// forward, to a higher offset, which an appended update never does) or when a hybrid file's table names a cross-reference
+    /// stream through <c>XRefStm</c> (§7.5.8.4: the stream belongs to its table's revision).
     /// </para>
     /// </remarks>
     public IReadOnlyList<XrefRevision> Revisions { get; }
