@@ -109,6 +109,10 @@ public sealed class PdfObjectMetadata
     /// <remarks>ISO 32000-2 §14.3.2 and ISO 16684-1. Parsed once per stream and document; a changed stream is parsed again.</remarks>
     public XmpPacket? Packet => _document.ReadXmpPacket(Stream, Reference ?? OwnerReference);
 
+    /// <summary>Gets the PDF Declarations the packet makes about the owner object (object-level scope).</summary>
+    /// <remarks>PDF Declarations §7: claims at the object level are limited to the data of that object.</remarks>
+    public IReadOnlyList<PdfDeclaration> Declarations => PdfDeclaration.Read(Packet);
+
     /// <inheritdoc/>
     public override string ToString() => Location.ToString();
 }

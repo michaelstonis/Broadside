@@ -48,6 +48,7 @@ public class FilesAndLayersCorpusTests
             }
         }
 
+        _ = document.Declarations;
         foreach (PdfEmbeddedFileEntry entry in document.EmbeddedFiles)
         {
             Touch(entry.File);
@@ -67,6 +68,7 @@ public class FilesAndLayersCorpusTests
         foreach (PdfObjectMetadata metadata in document.EnumerateObjectMetadata(deep: true))
         {
             metadata.Decode();
+            _ = metadata.Declarations;
         }
 
         static void Touch(PdfFileSpecification file)

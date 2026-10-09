@@ -6,6 +6,7 @@
   broken-xref-offsets.pdf,
   catalog-version-extensions.pdf,
   collection-portfolio.pdf,
+  declarations.pdf,
   embedded-files.pdf,
   empty-page.pdf,
   encrypted-aes-128.pdf,

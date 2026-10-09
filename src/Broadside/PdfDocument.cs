@@ -487,6 +487,10 @@ public sealed partial class PdfDocument : IDisposable
             ? new PdfCollection(this, dictionary, entry as CosReference)
             : null;
 
+    /// <summary>Gets the PDF Declarations of the whole document, from the XMP of the catalog's <c>Metadata</c>.</summary>
+    /// <remarks>PDF Declarations §7 and §8. Declarations live only in XMP; there is no catalog key. Read on every call (the packet is parsed once).</remarks>
+    public IReadOnlyList<PdfDeclaration> Declarations => PdfDeclaration.Read(Metadata?.Packet);
+
     /// <summary>Gets the files associated with the whole document (the catalog's <c>AF</c>).</summary>
     /// <remarks>ISO 32000-2 §7.7.2, Table 29 (PDF 2.0), and §14.13.3. Read on every call.</remarks>
     public IReadOnlyList<PdfFileSpecification> AssociatedFiles => ReadAssociatedFiles(Catalog, CatalogReference);
