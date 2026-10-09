@@ -102,7 +102,7 @@ public class ContentItemTests
         Assert.Equal("x-sampa", span.PhoneticAlphabet);
         Assert.Equal("de", Assert.Single(span.References).EffectiveLanguage);
         Assert.Same(section, span.Parent);
-        Assert.Empty(span.AssociatedFiles!);
+        Assert.Empty(span.AssociatedFiles);
         Assert.Null(section.Page);
         Assert.Empty(document.Diagnostics);
     }

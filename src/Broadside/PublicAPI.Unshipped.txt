@@ -442,6 +442,332 @@ Broadside.PdfPage.ProcessContent(Broadside.Content.ContentProcessor! processor, 
 const Broadside.Content.ContentOptions.DefaultMaxNestingDepth = 50 -> int
 const Broadside.Content.ContentOptions.DefaultMaxOperands = 65536 -> int
 const Broadside.Content.ContentOptions.DefaultMaxSaveDepth = 4096 -> int
+Broadside.PdfAssociatedFile
+Broadside.PdfAssociatedFile.File.get -> Broadside.PdfFileSpecification!
+Broadside.PdfAssociatedFile.Location.get -> Broadside.PdfAssociatedFileLocation
+Broadside.PdfAssociatedFile.Owner.get -> Broadside.Objects.CosObject!
+Broadside.PdfAssociatedFile.OwnerReference.get -> Broadside.Objects.CosReference?
+Broadside.PdfAssociatedFile.PageIndex.get -> int?
+Broadside.PdfAssociatedFile.PropertyName.get -> string?
+Broadside.PdfAssociatedFileLocation
+Broadside.PdfAssociatedFileLocation.Annotation = 4 -> Broadside.PdfAssociatedFileLocation
+Broadside.PdfAssociatedFileLocation.Catalog = 0 -> Broadside.PdfAssociatedFileLocation
+Broadside.PdfAssociatedFileLocation.DocumentPart = 7 -> Broadside.PdfAssociatedFileLocation
+Broadside.PdfAssociatedFileLocation.FormXObject = 2 -> Broadside.PdfAssociatedFileLocation
+Broadside.PdfAssociatedFileLocation.ImageXObject = 3 -> Broadside.PdfAssociatedFileLocation
+Broadside.PdfAssociatedFileLocation.MarkedContent = 9 -> Broadside.PdfAssociatedFileLocation
+Broadside.PdfAssociatedFileLocation.MetadataStream = 8 -> Broadside.PdfAssociatedFileLocation
+Broadside.PdfAssociatedFileLocation.Other = 10 -> Broadside.PdfAssociatedFileLocation
+Broadside.PdfAssociatedFileLocation.Page = 1 -> Broadside.PdfAssociatedFileLocation
+Broadside.PdfAssociatedFileLocation.StructureElement = 6 -> Broadside.PdfAssociatedFileLocation
+Broadside.PdfAssociatedFileLocation.StructureTreeRoot = 5 -> Broadside.PdfAssociatedFileLocation
+Broadside.PdfCheckSumStatus
+Broadside.PdfCheckSumStatus.Absent = 0 -> Broadside.PdfCheckSumStatus
+Broadside.PdfCheckSumStatus.DoesNotMatch = 2 -> Broadside.PdfCheckSumStatus
+Broadside.PdfCheckSumStatus.Matches = 1 -> Broadside.PdfCheckSumStatus
+Broadside.PdfCollection
+Broadside.PdfCollection.Colors.get -> Broadside.PdfCollectionColors?
+Broadside.PdfCollection.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfCollection.FindFolder(int id) -> Broadside.PdfCollectionFolder?
+Broadside.PdfCollection.GetFolder(Broadside.PdfEmbeddedFileEntry! file) -> Broadside.PdfCollectionFolder?
+Broadside.PdfCollection.InitialDocument.get -> string?
+Broadside.PdfCollection.Navigator.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfCollection.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfCollection.RootFolder.get -> Broadside.PdfCollectionFolder?
+Broadside.PdfCollection.Schema.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfCollectionField!>!
+Broadside.PdfCollection.Sort.get -> Broadside.PdfCollectionSort?
+Broadside.PdfCollection.Split.get -> Broadside.PdfCollectionSplit!
+Broadside.PdfCollection.View.get -> Broadside.PdfCollectionView
+Broadside.PdfCollectionColors
+Broadside.PdfCollectionColors.Background.get -> Broadside.PdfRgbColor?
+Broadside.PdfCollectionColors.CardBackground.get -> Broadside.PdfRgbColor?
+Broadside.PdfCollectionColors.CardBorder.get -> Broadside.PdfRgbColor?
+Broadside.PdfCollectionColors.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfCollectionColors.PrimaryText.get -> Broadside.PdfRgbColor?
+Broadside.PdfCollectionColors.SecondaryText.get -> Broadside.PdfRgbColor?
+Broadside.PdfCollectionField
+Broadside.PdfCollectionField.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfCollectionField.IsEditable.get -> bool
+Broadside.PdfCollectionField.IsVisible.get -> bool
+Broadside.PdfCollectionField.Key.get -> string!
+Broadside.PdfCollectionField.Name.get -> string!
+Broadside.PdfCollectionField.Order.get -> int?
+Broadside.PdfCollectionField.Type.get -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionField.TypeName.get -> Broadside.Objects.CosName?
+Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.CompressedSize = 8 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.CreationDate = 6 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.Date = 1 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.Description = 4 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.FileName = 3 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.ModificationDate = 5 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.Number = 2 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.Size = 7 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.Text = 0 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.Unknown = 9 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFolder
+Broadside.PdfCollectionFolder.Children.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfCollectionFolder!>!
+Broadside.PdfCollectionFolder.CollectionItem.get -> Broadside.PdfCollectionItem?
+Broadside.PdfCollectionFolder.CreationDate.get -> Broadside.PdfDate?
+Broadside.PdfCollectionFolder.Description.get -> string?
+Broadside.PdfCollectionFolder.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfCollectionFolder.FreeIds.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfCollectionIdRange>!
+Broadside.PdfCollectionFolder.Id.get -> int
+Broadside.PdfCollectionFolder.ModificationDate.get -> Broadside.PdfDate?
+Broadside.PdfCollectionFolder.Name.get -> string!
+Broadside.PdfCollectionFolder.Parent.get -> Broadside.PdfCollectionFolder?
+Broadside.PdfCollectionFolder.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfCollectionFolder.Thumbnail.get -> Broadside.Objects.CosStream?
+Broadside.PdfCollectionIdRange
+Broadside.PdfCollectionIdRange.Equals(Broadside.PdfCollectionIdRange other) -> bool
+Broadside.PdfCollectionIdRange.High.get -> int
+Broadside.PdfCollectionIdRange.Low.get -> int
+Broadside.PdfCollectionIdRange.PdfCollectionIdRange() -> void
+Broadside.PdfCollectionIdRange.PdfCollectionIdRange(int low, int high) -> void
+Broadside.PdfCollectionItem
+Broadside.PdfCollectionItem.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfCollectionItem.GetValue(string! fieldKey) -> Broadside.PdfCollectionItemValue?
+Broadside.PdfCollectionItem.Keys.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.PdfCollectionItemValue
+Broadside.PdfCollectionItemValue.Data.get -> Broadside.Objects.CosObject!
+Broadside.PdfCollectionItemValue.Date.get -> Broadside.PdfDate?
+Broadside.PdfCollectionItemValue.Number.get -> double?
+Broadside.PdfCollectionItemValue.Prefix.get -> string?
+Broadside.PdfCollectionItemValue.Text.get -> string?
+Broadside.PdfCollectionSort
+Broadside.PdfCollectionSort.Ascending.get -> System.Collections.Generic.IReadOnlyList<bool>!
+Broadside.PdfCollectionSort.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfCollectionSort.Keys.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.PdfCollectionSplit
+Broadside.PdfCollectionSplit.Direction.get -> Broadside.PdfCollectionSplitDirection
+Broadside.PdfCollectionSplit.Position.get -> double?
+Broadside.PdfCollectionSplitDirection
+Broadside.PdfCollectionSplitDirection.Horizontal = 0 -> Broadside.PdfCollectionSplitDirection
+Broadside.PdfCollectionSplitDirection.None = 2 -> Broadside.PdfCollectionSplitDirection
+Broadside.PdfCollectionSplitDirection.Vertical = 1 -> Broadside.PdfCollectionSplitDirection
+Broadside.PdfCollectionView
+Broadside.PdfCollectionView.Details = 0 -> Broadside.PdfCollectionView
+Broadside.PdfCollectionView.Hidden = 2 -> Broadside.PdfCollectionView
+Broadside.PdfCollectionView.Navigator = 3 -> Broadside.PdfCollectionView
+Broadside.PdfCollectionView.Tile = 1 -> Broadside.PdfCollectionView
+Broadside.PdfDeclaration
+Broadside.PdfDeclaration.Claims.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfDeclarationClaim!>!
+Broadside.PdfDeclaration.ConformsTo.get -> string!
+Broadside.PdfDeclarationClaim
+Broadside.PdfDeclarationClaim.ClaimedBy.get -> string?
+Broadside.PdfDeclarationClaim.Credentials.get -> string?
+Broadside.PdfDeclarationClaim.Date.get -> Broadside.XmpDate?
+Broadside.PdfDeclarationClaim.DateText.get -> string?
+Broadside.PdfDeclarationClaim.Report.get -> string?
+Broadside.PdfDocument.AssociatedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
+Broadside.PdfDocument.Collection.get -> Broadside.PdfCollection?
+Broadside.PdfDocument.Declarations.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfDeclaration!>!
+Broadside.PdfDocument.EmbeddedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfEmbeddedFileEntry!>!
+Broadside.PdfDocument.EnumerateAssociatedFiles(bool deep = false) -> System.Collections.Generic.IEnumerable<Broadside.PdfAssociatedFile!>!
+Broadside.PdfDocument.EnumerateObjectMetadata(bool deep = false) -> System.Collections.Generic.IEnumerable<Broadside.PdfObjectMetadata!>!
+Broadside.PdfDocument.GetFileSpecification(Broadside.Objects.CosObject? value) -> Broadside.PdfFileSpecification?
+Broadside.PdfDocument.OptionalContent.get -> Broadside.PdfOptionalContentProperties?
+Broadside.PdfDocument.ReadAssociatedFiles(Broadside.Objects.CosDictionary! owner, Broadside.Objects.CosReference? ownerReference = null) -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
+Broadside.PdfDocument.ReadMarkedContentAssociatedFiles(Broadside.Objects.CosObject? properties) -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
+Broadside.PdfEmbeddedFile
+Broadside.PdfEmbeddedFile.Decode() -> System.ReadOnlyMemory<byte>
+Broadside.PdfEmbeddedFile.Decode(System.Buffers.IBufferWriter<byte>! output) -> void
+Broadside.PdfEmbeddedFile.MediaType.get -> string!
+Broadside.PdfEmbeddedFile.Parameters.get -> Broadside.PdfEmbeddedFileParameters?
+Broadside.PdfEmbeddedFile.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfEmbeddedFile.Stream.get -> Broadside.Objects.CosStream!
+Broadside.PdfEmbeddedFile.Subtype.get -> string?
+Broadside.PdfEmbeddedFile.VerifyCheckSum() -> Broadside.PdfCheckSumStatus
+Broadside.PdfEmbeddedFileEntry
+Broadside.PdfEmbeddedFileEntry.File.get -> Broadside.PdfFileSpecification!
+Broadside.PdfEmbeddedFileEntry.FileName.get -> string!
+Broadside.PdfEmbeddedFileEntry.FolderId.get -> int?
+Broadside.PdfEmbeddedFileEntry.Key.get -> Broadside.Objects.CosString!
+Broadside.PdfEmbeddedFileEntry.Name.get -> string!
+Broadside.PdfEmbeddedFileParameters
+Broadside.PdfEmbeddedFileParameters.CheckSum.get -> System.ReadOnlyMemory<byte>?
+Broadside.PdfEmbeddedFileParameters.CreationDate.get -> Broadside.PdfDate?
+Broadside.PdfEmbeddedFileParameters.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfEmbeddedFileParameters.Mac.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfEmbeddedFileParameters.ModificationDate.get -> Broadside.PdfDate?
+Broadside.PdfEmbeddedFileParameters.Size.get -> long?
+Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.Alternative = 3 -> Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.Data = 2 -> Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.EncryptedPayload = 5 -> Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.FormData = 6 -> Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.Other = 8 -> Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.Schema = 7 -> Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.Source = 1 -> Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.Supplement = 4 -> Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.Unspecified = 0 -> Broadside.PdfFileRelationship
+Broadside.PdfFileSpecification
+Broadside.PdfFileSpecification.CollectionItem.get -> Broadside.PdfCollectionItem?
+Broadside.PdfFileSpecification.Description.get -> string?
+Broadside.PdfFileSpecification.Dictionary.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfFileSpecification.EmbeddedFile.get -> Broadside.PdfEmbeddedFile?
+Broadside.PdfFileSpecification.EncryptedPayload.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfFileSpecification.FileIdentifier.get -> Broadside.Objects.CosArray?
+Broadside.PdfFileSpecification.FileName.get -> string?
+Broadside.PdfFileSpecification.FileNameString.get -> Broadside.Objects.CosString?
+Broadside.PdfFileSpecification.FileSystem.get -> Broadside.Objects.CosName?
+Broadside.PdfFileSpecification.IsAbsolute.get -> bool
+Broadside.PdfFileSpecification.IsUrl.get -> bool
+Broadside.PdfFileSpecification.IsVolatile.get -> bool
+Broadside.PdfFileSpecification.PathComponents.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.PdfFileSpecification.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfFileSpecification.RelatedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfRelatedFile!>!
+Broadside.PdfFileSpecification.Relationship.get -> Broadside.PdfFileRelationship
+Broadside.PdfFileSpecification.RelationshipName.get -> Broadside.Objects.CosName!
+Broadside.PdfFileSpecification.SafeFileName.get -> string?
+Broadside.PdfFileSpecification.Thumbnail.get -> Broadside.Objects.CosStream?
+Broadside.PdfFileSpecification.Value.get -> Broadside.Objects.CosObject!
+Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.Annotation = 14 -> Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.Document = 0 -> Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.DocumentPart = 6 -> Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.EmbeddedFile = 13 -> Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.FontProgram = 7 -> Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.FormXObject = 4 -> Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.IccProfile = 2 -> Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.ImageXObject = 3 -> Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.MarkedContent = 11 -> Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.OptionalContentGroup = 15 -> Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.Other = 17 -> Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.Page = 1 -> Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.Shading = 10 -> Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.StructureElement = 12 -> Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.Thread = 5 -> Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.ThreeD = 16 -> Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.TilingPattern = 9 -> Broadside.PdfMetadataLocation
+Broadside.PdfMetadataLocation.Type3Font = 8 -> Broadside.PdfMetadataLocation
+Broadside.PdfNameDictionary.EmbeddedFiles.get -> Broadside.PdfNameTree?
+Broadside.PdfObjectMetadata
+Broadside.PdfObjectMetadata.Declarations.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfDeclaration!>!
+Broadside.PdfObjectMetadata.Decode() -> System.ReadOnlyMemory<byte>
+Broadside.PdfObjectMetadata.Location.get -> Broadside.PdfMetadataLocation
+Broadside.PdfObjectMetadata.Owner.get -> Broadside.Objects.CosObject!
+Broadside.PdfObjectMetadata.OwnerReference.get -> Broadside.Objects.CosReference?
+Broadside.PdfObjectMetadata.Packet.get -> Broadside.XmpPacket?
+Broadside.PdfObjectMetadata.PageIndex.get -> int?
+Broadside.PdfObjectMetadata.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfObjectMetadata.Stream.get -> Broadside.Objects.CosStream!
+Broadside.PdfOptionalContentBaseState
+Broadside.PdfOptionalContentBaseState.Off = 1 -> Broadside.PdfOptionalContentBaseState
+Broadside.PdfOptionalContentBaseState.On = 0 -> Broadside.PdfOptionalContentBaseState
+Broadside.PdfOptionalContentBaseState.Unchanged = 2 -> Broadside.PdfOptionalContentBaseState
+Broadside.PdfOptionalContentConfiguration
+Broadside.PdfOptionalContentConfiguration.AutoStates.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOptionalContentUsageApplication!>!
+Broadside.PdfOptionalContentConfiguration.BaseState.get -> Broadside.PdfOptionalContentBaseState
+Broadside.PdfOptionalContentConfiguration.Creator.get -> string?
+Broadside.PdfOptionalContentConfiguration.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfOptionalContentConfiguration.Intents.get -> System.Collections.Generic.IReadOnlyList<Broadside.Objects.CosName!>!
+Broadside.PdfOptionalContentConfiguration.IsDefault.get -> bool
+Broadside.PdfOptionalContentConfiguration.ListMode.get -> Broadside.PdfOptionalContentListMode
+Broadside.PdfOptionalContentConfiguration.Locked.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOptionalContentGroup!>!
+Broadside.PdfOptionalContentConfiguration.Name.get -> string?
+Broadside.PdfOptionalContentConfiguration.Off.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOptionalContentGroup!>!
+Broadside.PdfOptionalContentConfiguration.On.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOptionalContentGroup!>!
+Broadside.PdfOptionalContentConfiguration.Order.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOptionalContentOrderItem!>!
+Broadside.PdfOptionalContentConfiguration.RadioButtonGroups.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<Broadside.PdfOptionalContentGroup!>!>!
+Broadside.PdfOptionalContentConfiguration.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfOptionalContentEvent
+Broadside.PdfOptionalContentEvent.Export = 2 -> Broadside.PdfOptionalContentEvent
+Broadside.PdfOptionalContentEvent.Print = 1 -> Broadside.PdfOptionalContentEvent
+Broadside.PdfOptionalContentEvent.View = 0 -> Broadside.PdfOptionalContentEvent
+Broadside.PdfOptionalContentGroup
+Broadside.PdfOptionalContentGroup.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfOptionalContentGroup.Intents.get -> System.Collections.Generic.IReadOnlyList<Broadside.Objects.CosName!>!
+Broadside.PdfOptionalContentGroup.Name.get -> string!
+Broadside.PdfOptionalContentGroup.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfOptionalContentGroup.Usage.get -> Broadside.PdfOptionalContentUsage?
+Broadside.PdfOptionalContentListMode
+Broadside.PdfOptionalContentListMode.AllPages = 0 -> Broadside.PdfOptionalContentListMode
+Broadside.PdfOptionalContentListMode.VisiblePages = 1 -> Broadside.PdfOptionalContentListMode
+Broadside.PdfOptionalContentMembership
+Broadside.PdfOptionalContentMembership.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfOptionalContentMembership.Groups.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOptionalContentGroup!>!
+Broadside.PdfOptionalContentMembership.Policy.get -> Broadside.PdfVisibilityPolicy
+Broadside.PdfOptionalContentMembership.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfOptionalContentMembership.VisibilityExpression.get -> Broadside.PdfVisibilityExpression?
+Broadside.PdfOptionalContentOrderItem
+Broadside.PdfOptionalContentOrderItem.Children.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOptionalContentOrderItem!>!
+Broadside.PdfOptionalContentOrderItem.Group.get -> Broadside.PdfOptionalContentGroup?
+Broadside.PdfOptionalContentOrderItem.Label.get -> string?
+Broadside.PdfOptionalContentProperties
+Broadside.PdfOptionalContentProperties.ApplyAutoStates(Broadside.PdfOptionalContentState! state, Broadside.PdfOptionalContentEvent usageEvent, Broadside.PdfOptionalContentUsageContext! context) -> Broadside.PdfOptionalContentState!
+Broadside.PdfOptionalContentProperties.ApplyUsageStates(Broadside.PdfOptionalContentState! state, Broadside.PdfOptionalContentEvent usageEvent) -> Broadside.PdfOptionalContentState!
+Broadside.PdfOptionalContentProperties.Configurations.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOptionalContentConfiguration!>!
+Broadside.PdfOptionalContentProperties.DefaultConfiguration.get -> Broadside.PdfOptionalContentConfiguration!
+Broadside.PdfOptionalContentProperties.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfOptionalContentProperties.FindGroup(Broadside.Objects.CosObject? value) -> Broadside.PdfOptionalContentGroup?
+Broadside.PdfOptionalContentProperties.FindMembership(Broadside.Objects.CosObject? value) -> Broadside.PdfOptionalContentMembership?
+Broadside.PdfOptionalContentProperties.GetDefaultStates() -> Broadside.PdfOptionalContentState!
+Broadside.PdfOptionalContentProperties.GetStates(Broadside.PdfOptionalContentConfiguration! configuration, Broadside.PdfOptionalContentState? current = null) -> Broadside.PdfOptionalContentState!
+Broadside.PdfOptionalContentProperties.Groups.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOptionalContentGroup!>!
+Broadside.PdfOptionalContentProperties.IsVisible(Broadside.Objects.CosObject? ocgOrOcmd, Broadside.PdfOptionalContentState! state) -> bool
+Broadside.PdfOptionalContentState
+Broadside.PdfOptionalContentState.Apply(Broadside.Objects.CosArray! state, bool preserveRadioButtons = true) -> Broadside.PdfOptionalContentState!
+Broadside.PdfOptionalContentState.Configuration.get -> Broadside.PdfOptionalContentConfiguration!
+Broadside.PdfOptionalContentState.Intents.get -> System.Collections.Generic.IReadOnlyList<Broadside.Objects.CosName!>!
+Broadside.PdfOptionalContentState.IsOn(Broadside.PdfOptionalContentGroup! group) -> bool
+Broadside.PdfOptionalContentState.With(Broadside.PdfOptionalContentGroup! group, bool on) -> Broadside.PdfOptionalContentState!
+Broadside.PdfOptionalContentState.WithIntents(System.Collections.Generic.IEnumerable<Broadside.Objects.CosName!>! intents) -> Broadside.PdfOptionalContentState!
+Broadside.PdfOptionalContentTracker
+Broadside.PdfOptionalContentTracker.BeginMarkedContent(Broadside.Objects.CosName! tag, Broadside.Objects.CosObject? properties, bool inlineProperties = false) -> void
+Broadside.PdfOptionalContentTracker.Depth.get -> int
+Broadside.PdfOptionalContentTracker.EndMarkedContent() -> void
+Broadside.PdfOptionalContentTracker.IsObjectVisible(Broadside.Objects.CosDictionary! dictionary) -> bool
+Broadside.PdfOptionalContentTracker.IsVisible.get -> bool
+Broadside.PdfOptionalContentTracker.PdfOptionalContentTracker(Broadside.PdfOptionalContentProperties? properties, Broadside.PdfOptionalContentState? state) -> void
+Broadside.PdfOptionalContentTracker.Reset() -> void
+Broadside.PdfOptionalContentUsage
+Broadside.PdfOptionalContentUsage.Creator.get -> string?
+Broadside.PdfOptionalContentUsage.CreatorSubtype.get -> Broadside.Objects.CosName?
+Broadside.PdfOptionalContentUsage.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfOptionalContentUsage.ExportState.get -> bool?
+Broadside.PdfOptionalContentUsage.Language.get -> string?
+Broadside.PdfOptionalContentUsage.LanguagePreferred.get -> bool
+Broadside.PdfOptionalContentUsage.PageElement.get -> Broadside.Objects.CosName?
+Broadside.PdfOptionalContentUsage.PrintState.get -> bool?
+Broadside.PdfOptionalContentUsage.PrintSubtype.get -> Broadside.Objects.CosName?
+Broadside.PdfOptionalContentUsage.UserNames.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.PdfOptionalContentUsage.UserType.get -> Broadside.Objects.CosName?
+Broadside.PdfOptionalContentUsage.ViewState.get -> bool?
+Broadside.PdfOptionalContentUsage.ZoomMax.get -> double?
+Broadside.PdfOptionalContentUsage.ZoomMin.get -> double?
+Broadside.PdfOptionalContentUsageApplication
+Broadside.PdfOptionalContentUsageApplication.Categories.get -> System.Collections.Generic.IReadOnlyList<Broadside.Objects.CosName!>!
+Broadside.PdfOptionalContentUsageApplication.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfOptionalContentUsageApplication.Event.get -> Broadside.PdfOptionalContentEvent?
+Broadside.PdfOptionalContentUsageApplication.Groups.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOptionalContentGroup!>!
+Broadside.PdfOptionalContentUsageContext
+Broadside.PdfOptionalContentUsageContext.Language.get -> string?
+Broadside.PdfOptionalContentUsageContext.Language.init -> void
+Broadside.PdfOptionalContentUsageContext.PdfOptionalContentUsageContext() -> void
+Broadside.PdfOptionalContentUsageContext.UserNames.get -> System.Collections.Generic.IReadOnlyCollection<string!>?
+Broadside.PdfOptionalContentUsageContext.UserNames.init -> void
+Broadside.PdfOptionalContentUsageContext.Zoom.get -> double?
+Broadside.PdfOptionalContentUsageContext.Zoom.init -> void
+Broadside.PdfPage.AssociatedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
+Broadside.PdfRelatedFile
+Broadside.PdfRelatedFile.File.get -> Broadside.PdfEmbeddedFile!
+Broadside.PdfRelatedFile.Name.get -> string!
+Broadside.PdfRelatedFile.NameString.get -> Broadside.Objects.CosString!
+Broadside.PdfVisibilityExpression
+Broadside.PdfVisibilityExpression.Group.get -> Broadside.PdfOptionalContentGroup?
+Broadside.PdfVisibilityExpression.Operands.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfVisibilityExpression!>!
+Broadside.PdfVisibilityExpression.Operator.get -> Broadside.PdfVisibilityOperator
+Broadside.PdfVisibilityOperator
+Broadside.PdfVisibilityOperator.And = 1 -> Broadside.PdfVisibilityOperator
+Broadside.PdfVisibilityOperator.Group = 0 -> Broadside.PdfVisibilityOperator
+Broadside.PdfVisibilityOperator.Not = 3 -> Broadside.PdfVisibilityOperator
+Broadside.PdfVisibilityOperator.Or = 2 -> Broadside.PdfVisibilityOperator
+Broadside.PdfVisibilityPolicy
+Broadside.PdfVisibilityPolicy.AllOff = 3 -> Broadside.PdfVisibilityPolicy
+Broadside.PdfVisibilityPolicy.AllOn = 0 -> Broadside.PdfVisibilityPolicy
+Broadside.PdfVisibilityPolicy.AnyOff = 2 -> Broadside.PdfVisibilityPolicy
+Broadside.PdfVisibilityPolicy.AnyOn = 1 -> Broadside.PdfVisibilityPolicy
 const Broadside.Objects.CosReference.MaxGeneration = 65535 -> int
 override Broadside.Content.CompositeContentProcessor.BeginForm(in Broadside.Content.FormEvent form, Broadside.Content.ContentContext! context) -> Broadside.Content.ContentVisit
 override Broadside.Content.CompositeContentProcessor.BeginMarkedContent(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
@@ -492,6 +818,19 @@ static Broadside.Graphics.Matrix.Multiply(Broadside.Graphics.Matrix first, Broad
 static Broadside.Graphics.Matrix.operator !=(Broadside.Graphics.Matrix left, Broadside.Graphics.Matrix right) -> bool
 static Broadside.Graphics.Matrix.operator *(Broadside.Graphics.Matrix first, Broadside.Graphics.Matrix second) -> Broadside.Graphics.Matrix
 static Broadside.Graphics.Matrix.operator ==(Broadside.Graphics.Matrix left, Broadside.Graphics.Matrix right) -> bool
+override Broadside.PdfAssociatedFile.ToString() -> string!
+override Broadside.PdfCollectionField.ToString() -> string!
+override Broadside.PdfCollectionFolder.ToString() -> string!
+override Broadside.PdfCollectionIdRange.Equals(object? obj) -> bool
+override Broadside.PdfCollectionIdRange.GetHashCode() -> int
+override Broadside.PdfCollectionIdRange.ToString() -> string!
+override Broadside.PdfDeclaration.ToString() -> string!
+override Broadside.PdfEmbeddedFileEntry.ToString() -> string!
+override Broadside.PdfObjectMetadata.ToString() -> string!
+override Broadside.PdfOptionalContentConfiguration.ToString() -> string!
+override Broadside.PdfOptionalContentGroup.ToString() -> string!
+override Broadside.PdfOptionalContentOrderItem.ToString() -> string!
+override Broadside.PdfVisibilityExpression.ToString() -> string!
 static Broadside.Objects.CosBoolean.False.get -> Broadside.Objects.CosBoolean!
 static Broadside.Objects.CosBoolean.True.get -> Broadside.Objects.CosBoolean!
 static Broadside.Objects.CosNull.Instance.get -> Broadside.Objects.CosNull!
@@ -518,6 +857,8 @@ virtual Broadside.Content.ContentProcessor.RestoreState(Broadside.Content.Conten
 virtual Broadside.Content.ContentProcessor.SaveState(Broadside.Content.ContentContext! context) -> void
 virtual Broadside.Content.ContentProcessor.ShowGlyph(in Broadside.Content.GlyphEvent glyph, Broadside.Content.ContentContext! context) -> void
 virtual Broadside.Content.ContentProcessor.VisitOperator(in Broadside.Content.ContentOperator op, Broadside.Content.ContentContext! context) -> void
+static Broadside.PdfCollectionIdRange.operator !=(Broadside.PdfCollectionIdRange left, Broadside.PdfCollectionIdRange right) -> bool
+static Broadside.PdfCollectionIdRange.operator ==(Broadside.PdfCollectionIdRange left, Broadside.PdfCollectionIdRange right) -> bool
 virtual Broadside.Objects.CosObject.IsDirty.get -> bool
 Broadside.Diagnostics.Diagnostic
 Broadside.Diagnostics.Diagnostic.Code.get -> string!
@@ -1255,7 +1596,7 @@ Broadside.Structure.PdfPropertyList.Tag.get -> Broadside.Objects.CosName!
 Broadside.Structure.PdfStructureElement
 Broadside.Structure.PdfStructureElement.ActualText.get -> string?
 Broadside.Structure.PdfStructureElement.AlternateDescription.get -> string?
-Broadside.Structure.PdfStructureElement.AssociatedFiles.get -> Broadside.Objects.CosArray?
+Broadside.Structure.PdfStructureElement.AssociatedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
 Broadside.Structure.PdfStructureElement.Attributes.get -> System.Collections.Generic.IReadOnlyList<Broadside.Structure.PdfAttributeObject!>!
 Broadside.Structure.PdfStructureElement.Children.get -> System.Collections.Generic.IReadOnlyList<Broadside.Structure.PdfStructureItem!>!
 Broadside.Structure.PdfStructureElement.ClassAttributes.get -> System.Collections.Generic.IReadOnlyList<Broadside.Structure.PdfAttributeObject!>!
@@ -1296,7 +1637,7 @@ Broadside.Structure.PdfStructureNamespaceKind.MathML = 3 -> Broadside.Structure.
 Broadside.Structure.PdfStructureNamespaceKind.Pdf17 = 1 -> Broadside.Structure.PdfStructureNamespaceKind
 Broadside.Structure.PdfStructureNamespaceKind.Pdf20 = 2 -> Broadside.Structure.PdfStructureNamespaceKind
 Broadside.Structure.PdfStructureTreeRoot
-Broadside.Structure.PdfStructureTreeRoot.AssociatedFiles.get -> Broadside.Objects.CosArray?
+Broadside.Structure.PdfStructureTreeRoot.AssociatedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfFileSpecification!>!
 Broadside.Structure.PdfStructureTreeRoot.Children.get -> System.Collections.Generic.IReadOnlyList<Broadside.Structure.PdfStructureElement!>!
 Broadside.Structure.PdfStructureTreeRoot.ClassMap.get -> Broadside.Objects.CosDictionary?
 Broadside.Structure.PdfStructureTreeRoot.Dictionary.get -> Broadside.Objects.CosDictionary!
@@ -1441,3 +1782,43 @@ override Broadside.PdfRgbColor.ToString() -> string!
 static Broadside.PdfRgbColor.Black.get -> Broadside.PdfRgbColor
 static Broadside.PdfRgbColor.operator !=(Broadside.PdfRgbColor left, Broadside.PdfRgbColor right) -> bool
 static Broadside.PdfRgbColor.operator ==(Broadside.PdfRgbColor left, Broadside.PdfRgbColor right) -> bool
+abstract Broadside.Graphics.PdfFunction.FunctionType.get -> Broadside.Graphics.PdfFunctionType
+Broadside.Graphics.PdfExponentialFunction
+Broadside.Graphics.PdfExponentialFunction.C0.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfExponentialFunction.C1.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfExponentialFunction.Exponent.get -> double?
+Broadside.Graphics.PdfFunction
+Broadside.Graphics.PdfFunction.CosObject.get -> Broadside.Objects.CosObject!
+Broadside.Graphics.PdfFunction.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Graphics.PdfFunction.Domain.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfFunction.Evaluate(System.ReadOnlySpan<float> input, System.Span<float> output) -> void
+Broadside.Graphics.PdfFunction.Evaluate(System.ReadOnlySpan<float> inputs, System.Span<float> outputs, int count) -> void
+Broadside.Graphics.PdfFunction.InputCount.get -> int
+Broadside.Graphics.PdfFunction.IsValid.get -> bool
+Broadside.Graphics.PdfFunction.MinimumVersion.get -> Broadside.PdfVersion
+Broadside.Graphics.PdfFunction.OutputCount.get -> int
+Broadside.Graphics.PdfFunction.Range.get -> System.Collections.Generic.IReadOnlyList<double>?
+Broadside.Graphics.PdfFunction.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Graphics.PdfFunctionType
+Broadside.Graphics.PdfFunctionType.Exponential = 2 -> Broadside.Graphics.PdfFunctionType
+Broadside.Graphics.PdfFunctionType.PostScriptCalculator = 4 -> Broadside.Graphics.PdfFunctionType
+Broadside.Graphics.PdfFunctionType.Sampled = 0 -> Broadside.Graphics.PdfFunctionType
+Broadside.Graphics.PdfFunctionType.Stitching = 3 -> Broadside.Graphics.PdfFunctionType
+Broadside.Graphics.PdfPostScriptFunction
+Broadside.Graphics.PdfPostScriptFunction.Stream.get -> Broadside.Objects.CosStream?
+Broadside.Graphics.PdfSampledFunction
+Broadside.Graphics.PdfSampledFunction.BitsPerSample.get -> int?
+Broadside.Graphics.PdfSampledFunction.Decode.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfSampledFunction.Encode.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfSampledFunction.Order.get -> int
+Broadside.Graphics.PdfSampledFunction.Size.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfSampledFunction.Stream.get -> Broadside.Objects.CosStream?
+Broadside.Graphics.PdfStitchingFunction
+Broadside.Graphics.PdfStitchingFunction.Bounds.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfStitchingFunction.Encode.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfStitchingFunction.Functions.get -> System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PdfFunction?>!
+Broadside.PdfDocument.GetFunction(Broadside.Objects.CosObject! function) -> Broadside.Graphics.PdfFunction?
+override Broadside.Graphics.PdfExponentialFunction.FunctionType.get -> Broadside.Graphics.PdfFunctionType
+override Broadside.Graphics.PdfPostScriptFunction.FunctionType.get -> Broadside.Graphics.PdfFunctionType
+override Broadside.Graphics.PdfSampledFunction.FunctionType.get -> Broadside.Graphics.PdfFunctionType
+override Broadside.Graphics.PdfStitchingFunction.FunctionType.get -> Broadside.Graphics.PdfFunctionType

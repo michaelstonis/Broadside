@@ -59,6 +59,13 @@ public static class Corpus
         "tagged-structure.pdf",
         "destinations-all.pdf",
         "outline-full.pdf",
+        "functions.pdf",
+        "optional-content.pdf",
+        "embedded-files.pdf",
+        "collection-portfolio.pdf",
+        "associated-files.pdf",
+        "object-metadata.pdf",
+        "declarations.pdf",
         "actions-all.pdf",
         "actions-preserved.pdf",
     ];

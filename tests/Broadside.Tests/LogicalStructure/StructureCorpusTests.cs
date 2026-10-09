@@ -39,6 +39,7 @@ public class StructureCorpusTests(ITestOutputHelper output)
         int expected = fileName switch
         {
             "tagged-structure.pdf" => 18,
+            "associated-files.pdf" => 1, // the structure element that carries an AF entry (§14.13.6)
             "outline-full.pdf" => 1, // the H1 an outline item's /SE points to (§12.3.3)
             _ => -1,
         };
