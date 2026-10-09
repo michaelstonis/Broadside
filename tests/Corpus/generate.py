@@ -1664,6 +1664,201 @@ def gen_functions() -> bytes:
     ]
     return simple_file(objects)
 
+# ---------------------------------------------------------------------------
+# Colour spaces (clause 8.6)
+# ---------------------------------------------------------------------------
+
+def s15f16(value: float) -> bytes:
+    """ICC.1:2022 4.6 s15Fixed16Number."""
+    return struct.pack(">i", round(value * 65536))
+
+
+def icc_profile(device_class: bytes, space: bytes, tags: list[tuple[bytes, bytes]]) -> bytes:
+    """A version 2.1 ICC profile (ICC.1:2022 7.2 header, 7.3 tag table): XYZ PCS, D50 illuminant, the tags 4-byte aligned."""
+    count = len(tags)
+    offset = 128 + 4 + 12 * count
+    table = struct.pack(">I", count)
+    data = b""
+    for sig, body in tags:
+        table += sig + struct.pack(">II", offset + len(data), len(body))
+        data += body + b"\x00" * (-len(body) % 4)
+    size = 128 + len(table) + len(data)
+    header = (struct.pack(">I", size) + b"\x00" * 4 + bytes([2, 0x10, 0, 0]) + device_class + space + b"XYZ "
+              + struct.pack(">6H", 2026, 1, 1, 0, 0, 0) + b"acsp" + b"\x00" * 24 + struct.pack(">I", 0)
+              + s15f16(0.9642) + s15f16(1.0) + s15f16(0.8249) + b"\x00" * 48)
+    assert len(header) == 128
+    return header + table + data
+
+
+def icc_desc(text: bytes) -> bytes:
+    """ICC.1:2001 textDescriptionType (version 2 profiles): ASCII, empty Unicode and ScriptCode parts."""
+    return b"desc" + b"\x00" * 4 + struct.pack(">I", len(text) + 1) + text + b"\x00" + b"\x00" * 8 + b"\x00" * 3 + b"\x00" * 67
+
+
+def icc_xyz(x: float, y: float, z: float) -> bytes:
+    return b"XYZ " + b"\x00" * 4 + s15f16(x) + s15f16(y) + s15f16(z)
+
+
+def icc_gamma(gamma: float) -> bytes:
+    """curveType with one entry, a u8Fixed8Number gamma."""
+    return b"curv" + b"\x00" * 4 + struct.pack(">IH", 1, round(gamma * 256))
+
+
+ICC_COPYRIGHT = b"text" + b"\x00" * 4 + b"No copyright, use freely\x00"
+
+
+def icc_rgb_profile() -> bytes:
+    """Display (mntr) RGB matrix/TRC profile: the sRGB primaries adapted to D50 (IEC 61966-2-1 Annex), gamma 2.2."""
+    return icc_profile(b"mntr", b"RGB ", [
+        (b"desc", icc_desc(b"Broadside RGB gamma 2.2")),
+        (b"cprt", ICC_COPYRIGHT),
+        (b"wtpt", icc_xyz(0.9642, 1.0, 0.8249)),
+        (b"rXYZ", icc_xyz(0.4361, 0.2225, 0.0139)),
+        (b"gXYZ", icc_xyz(0.3851, 0.7169, 0.0971)),
+        (b"bXYZ", icc_xyz(0.1431, 0.0606, 0.7141)),
+        (b"rTRC", icc_gamma(2.2)),
+        (b"gTRC", icc_gamma(2.2)),
+        (b"bTRC", icc_gamma(2.2)),
+    ])
+
+
+def icc_gray_profile() -> bytes:
+    """Display (mntr) GRAY profile: a gamma 2.2 tone curve."""
+    return icc_profile(b"mntr", b"GRAY", [
+        (b"desc", icc_desc(b"Broadside gray gamma 2.2")),
+        (b"cprt", ICC_COPYRIGHT),
+        (b"wtpt", icc_xyz(0.9642, 1.0, 0.8249)),
+        (b"kTRC", icc_gamma(2.2)),
+    ])
+
+
+D65 = b"/WhitePoint [0.9505 1 1.089]"
+SRGB_MATRIX = b"/Matrix [0.4124 0.2126 0.0193 0.3576 0.7152 0.1192 0.1805 0.0722 0.9505]"
+
+
+def colour_rects(entries: list[tuple[bytes, bytes]], columns: int = 4) -> bytes:
+    """One 100 x 100 rectangle per (colour space resource, colour operator text), left to right, top to bottom."""
+    content = b""
+    for i, (name, colour) in enumerate(entries):
+        x = 40 + (i % columns) * 140
+        y = 640 - (i // columns) * 140
+        content += b"/%s cs %s %d %d 100 100 re f\n" % (name, colour, x, y)
+    return content
+
+
+def gen_colorspace_families() -> bytes:
+    """8.6.3 Table 61: one ColorSpace resource per family and one filled rectangle each (8.6.4 to 8.6.6), in reading order:
+    CS0 DeviceGray 0.5; CS1 DeviceRGB 1 0 0; CS2 DeviceCMYK 0 1 0 0; CS3 CalGray (D65, gamma 2.2) 0.5; CS4 CalRGB (D65, sRGB
+    primaries, gamma 2.2) 0 0 1; CS5 Lab (D50) 50 60 40; CS6 ICCBased RGB (an ICC v2 mntr matrix/TRC profile, /Alternate
+    /DeviceRGB) 0 1 0; CS7 ICCBased GRAY (gamma 2.2, no Alternate) 0.25; CS8 Indexed DeviceRGB, index 2 of red, green, blue;
+    CS9 Separation /Spot to DeviceCMYK (Type 2, C1 [0 0.4 1 0]) at 1; CS10 DeviceN [/Cyan /Magenta] to DeviceCMYK (Type 4
+    {0 0}) at 1 0.4 (both CMYK values are IT8.7/3 patches measured in CGATS TR 001); CS11 [/Pattern /DeviceRGB] with the uncoloured tiling pattern P0 (a 10 x 10 cell, half filled) in 0 0.5 0."""
+    entries = [(b"CS%d" % i, colour) for i, colour in enumerate([
+        b"0.5 sc", b"1 0 0 sc", b"0 1 0 0 sc", b"0.5 sc", b"0 0 1 sc", b"50 60 40 sc", b"0 1 0 scn", b"0.25 scn",
+        b"2 sc", b"1 scn", b"1 0.4 scn", b"0 0.5 0 /P0 scn"])]
+    spaces = [
+        b"/DeviceGray", b"/DeviceRGB", b"/DeviceCMYK",
+        b"[/CalGray << " + D65 + b" /Gamma 2.2 >>]",
+        b"[/CalRGB << " + D65 + b" /Gamma [2.2 2.2 2.2] " + SRGB_MATRIX + b" >>]",
+        b"[/Lab << /WhitePoint [0.9642 1 0.8249] /Range [-128 127 -128 127] >>]",
+        b"[/ICCBased 6 0 R]", b"[/ICCBased 7 0 R]",
+        b"[/Indexed /DeviceRGB 2 <FF0000 00FF00 0000FF>]",
+        b"[/Separation /Spot /DeviceCMYK << /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [0 0.4 1 0] /N 1 >>]",
+        b"[/DeviceN [/Cyan /Magenta] /DeviceCMYK 8 0 R]",
+        b"[/Pattern /DeviceRGB]",
+    ]
+    resources = (b"<< /ColorSpace << " + b" ".join(b"/CS%d %s" % (i, s) for i, s in enumerate(spaces))
+                 + b" >> /Pattern << /P0 5 0 R >> >>")
+    rgb = icc_rgb_profile()
+    gray = icc_gray_profile()
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", colour_rects(entries))),
+        (5, stream(b"/PatternType 1 /PaintType 2 /TilingType 1 /BBox [0 0 10 10] /XStep 10 /YStep 10 /Resources << >>",
+                   b"0 0 10 5 re f")),
+        (6, stream(b"/N 3 /Alternate /DeviceRGB", rgb)),
+        (7, stream(b"/N 1", gray)),
+        (8, stream(b"/FunctionType 4 /Domain [0 1 0 1] /Range [0 1 0 1 0 1 0 1]", b"{0 0}")),
+    ], binary=True)
+
+
+def gen_color_operators() -> bytes:
+    """8.6.8 Table 73: all twelve colour operators, each followed by a filled and stroked rectangle (B), in reading order:
+    (1) 0.25 G 0.75 g; (2) 1 0 0 RG 0 0 1 rg; (3) 0 0 0 1 K 0 1 0 0 k; (4) /CS0 CS 0.2 SC /CS0 cs 0.8 sc with CS0 CalGray;
+    (5) /CS1 CS /CS1 cs with CS1 Separation (CS resets both colours to the initial tint 1.0); (6) /CS1 CS 0.5 SCN /CS1 cs
+    0.25 scn; (7) /CS2 CS 0 0 1 /P0 SCN /CS2 cs 1 0 0 /P0 scn with CS2 [/Pattern /DeviceRGB] and the uncoloured tiling pattern
+    P0; (8) /DeviceCMYK CS /DeviceRGB cs (initial colours 0 0 0 1 and 0 0 0). Then an inline image (8.9.7 Tables 91-92) in
+    the abbreviated Indexed space /CS [/I /RGB 1 <FF0000 0000FF>], two pixels: red, blue."""
+    ops = [b"0.25 G 0.75 g", b"1 0 0 RG 0 0 1 rg", b"0 0 0 1 K 0 1 0 0 k", b"/CS0 CS 0.2 SC /CS0 cs 0.8 sc",
+           b"/CS1 CS /CS1 cs", b"/CS1 CS 0.5 SCN /CS1 cs 0.25 scn", b"/CS2 CS 0 0 1 /P0 SCN /CS2 cs 1 0 0 /P0 scn",
+           b"/DeviceCMYK CS /DeviceRGB cs"]
+    content = b"8 w\n"
+    for i, op in enumerate(ops):
+        x = 40 + (i % 4) * 140
+        y = 640 - (i // 4) * 140
+        content += b"%s %d %d 100 100 re B\n" % (op, x, y)
+    content += b"q 200 0 0 100 40 300 cm BI /W 2 /H 1 /CS [/I /RGB 1 <FF0000 0000FF>] /BPC 8 ID \x00\x01 EI Q\n"
+    resources = (b"<< /ColorSpace << /CS0 [/CalGray << " + D65 + b" >>] "
+                 b"/CS1 [/Separation /Spot /DeviceGray << /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >>] "
+                 b"/CS2 [/Pattern /DeviceRGB] >> /Pattern << /P0 5 0 R >> >>")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/PatternType 1 /PaintType 2 /TilingType 1 /BBox [0 0 10 10] /XStep 10 /YStep 10 /Resources << >>",
+                   b"0 0 10 5 re f")),
+    ], binary=True)
+
+
+def gen_default_colorspaces() -> bytes:
+    """8.6.5.6 default colour spaces. The page's ColorSpace resources have DefaultRGB = CalRGB (D50 white, gamma 1, the sRGB
+    primaries adapted to D50) and DefaultGray = CalGray (D50, gamma 1), so a remapped 0.5 is linear and shows as sRGB 188, a
+    device 0.5 as 128. Reading order: (1) 0.5 0.5 0.5 rg rectangle; (2) 0.5 g rectangle; (3) the Form XObject Fm0, whose own
+    Resources have DefaultRGB = CalRGB (D65, gamma 2.2, sRGB primaries), painting 0.5 0.5 0.5 rg (inside it its DefaultRGB
+    applies, found at paint time: 128); (4) Im0, a 2 x 1 image in [/Indexed /DeviceRGB 1 <FF0000 808080>] (the base DeviceRGB
+    remapped to the page's DefaultRGB), pixels 0 and 1."""
+    d50 = b"/WhitePoint [0.9642 1 0.8249]"
+    d50_matrix = b"/Matrix [0.4361 0.2225 0.0139 0.3851 0.7169 0.0971 0.1431 0.0606 0.7141]"
+    content = (b"0.5 0.5 0.5 rg 40 640 100 100 re f\n"
+               b"0.5 g 180 640 100 100 re f\n"
+               b"q 1 0 0 1 320 640 cm /Fm0 Do Q\n"
+               b"q 100 0 0 100 460 640 cm /Im0 Do Q\n")
+    resources = (b"<< /ColorSpace << /DefaultRGB [/CalRGB << " + d50 + b" " + d50_matrix + b" >>] "
+                 b"/DefaultGray [/CalGray << " + d50 + b" >>] >> /XObject << /Fm0 5 0 R /Im0 6 0 R >> >>")
+    form_resources = b"<< /ColorSpace << /DefaultRGB [/CalRGB << " + D65 + b" /Gamma [2.2 2.2 2.2] " + SRGB_MATRIX + b" >>] >> >>"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Resources " + form_resources,
+                   b"0.5 0.5 0.5 rg 0 0 100 100 re f")),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 1 /BitsPerComponent 8 "
+                   b"/ColorSpace [/Indexed /DeviceRGB 1 <FF0000 808080>]", b"\x00\x01")),
+    ], binary=True)
+
+
+def gen_separation_special() -> bytes:
+    """8.6.6.4 and 8.6.6.5 special colourant names, one rectangle each at tint 0.5 over a light gray (0.8) band: CS0 Separation
+    /All (every colourant; on an RGB device 1 - tint on every component, a 50% gray); CS1 Separation /None (paints nothing, the
+    band shows through); CS2 DeviceN [/None /None] (never paints). The tint transforms, which would paint white, are ignored."""
+    tint = b"<< /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [1] /N 1 >>"
+    content = (b"0.8 g 0 600 612 160 re f\n"
+               + colour_rects([(b"CS0", b"0.5 scn"), (b"CS1", b"0.5 scn"), (b"CS2", b"0.5 0.5 scn")]))
+    resources = (b"<< /ColorSpace << /CS0 [/Separation /All /DeviceGray " + tint + b"] /CS1 [/Separation /None /DeviceGray "
+                 + tint + b"] /CS2 [/DeviceN [/None /None] /DeviceGray 5 0 R] >> >>")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/FunctionType 4 /Domain [0 1 0 1] /Range [0 1]", b"{pop pop 1}")),
+    ])
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -1729,6 +1924,10 @@ FILES = {
     "outline-full.pdf": gen_outline_full,
     "outline-broken.pdf": gen_outline_broken,
     "functions.pdf": gen_functions,
+    "colorspace-families.pdf": gen_colorspace_families,
+    "color-operators.pdf": gen_color_operators,
+    "default-colorspaces.pdf": gen_default_colorspaces,
+    "separation-special.pdf": gen_separation_special,
 }
 
 

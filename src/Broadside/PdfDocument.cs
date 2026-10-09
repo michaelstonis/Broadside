@@ -4,6 +4,7 @@ using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Fonts;
 using Broadside.Graphics;
+using Broadside.Graphics.Colors;
 using Broadside.Graphics.Functions;
 using Broadside.IO;
 using Broadside.Objects;
@@ -72,7 +73,8 @@ public sealed partial class PdfDocument : IDisposable
         CosDictionary catalog,
         IReadOnlyList<PdfRevision> revisions,
         PdfLinearization? linearization,
-        PdfSecurity? security)
+        PdfSecurity? security,
+        IColorManagement colorManagement)
     {
         Security = security;
         _source = source;
@@ -84,6 +86,7 @@ public sealed partial class PdfDocument : IDisposable
         Linearization = linearization;
         Pages = new PdfPageCollection(() => PageTreeReader.Read(this, diagnostics));
         Functions = new FunctionCache(this, diagnostics);
+        ColorSpaces = new ColorSpaceCache(this, diagnostics, colorManagement);
     }
 
     /// <summary>
@@ -689,6 +692,63 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Gets the document's functions, compiled once each (issue #78): the seam colour spaces, graphics states and shadings use.</summary>
     internal FunctionCache Functions { get; }
 
+    /// <summary>Gets the document's colour spaces, default colour spaces and colour converters (issue #77).</summary>
+    internal ColorSpaceCache ColorSpaces { get; }
+
+    /// <summary>Returns the colour space a colour space value describes.</summary>
+    /// <param name="colorSpace">
+    /// A family name (<c>/DeviceRGB</c>, <c>/Pattern</c>), a colour space array (<c>[/ICCBased 5 0 R]</c>), or a reference to one, such
+    /// as an image's <c>ColorSpace</c> entry or a value of a resource dictionary's <c>ColorSpace</c> subdictionary.
+    /// </param>
+    /// <returns>
+    /// The space, shared by every caller asking for the same object. A value that is not a colour space, or one that cannot be used
+    /// (an unknown family, a space that refers to itself), reads as DeviceGray with a diagnostic.
+    /// </returns>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found in the space.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §8.6.3, Table 61. A name other than a family name (a resource name such as <c>/CS0</c>) is not looked up here;
+    /// content streams resolve those through <see cref="Content.ContentContext.GetColorSpace"/>. Deviations are recorded on
+    /// <see cref="Diagnostics"/> once, when the space is first read.
+    /// </remarks>
+    public PdfColorSpace GetColorSpace(CosObject colorSpace)
+    {
+        ArgumentNullException.ThrowIfNull(colorSpace);
+        return ColorSpaces.Get(colorSpace);
+    }
+
+    /// <summary>Returns the default colour spaces of a resource dictionary.</summary>
+    /// <param name="resources">The resource dictionary, such as <see cref="PdfPage.Resources"/>; <see langword="null"/> for none.</param>
+    /// <returns>The defaults; <see cref="PdfDefaultColorSpaces.None"/> when the dictionary has none.</returns>
+    /// <remarks>ISO 32000-2 §8.6.5.6. Invalid defaults are ignored with a diagnostic.</remarks>
+    public PdfDefaultColorSpaces GetDefaultColorSpaces(CosDictionary? resources) => ColorSpaces.GetDefaults(resources);
+
+    /// <summary>Returns the converter from <paramref name="source"/> to RGB with the relative colorimetric intent.</summary>
+    /// <param name="source">The colour space.</param>
+    /// <param name="defaults">The default colour spaces in effect where the colour is painted; <see langword="null"/> for none.</param>
+    /// <returns>The converter, shared by every caller asking for the same source and defaults.</returns>
+    /// <remarks>ISO 32000-2 §8.6, §10.3 and §10.4; see <see cref="PdfColorConverter"/>.</remarks>
+    public PdfColorConverter GetColorConverter(PdfColorSpace source, PdfDefaultColorSpaces? defaults) =>
+        GetColorConverter(source, default, defaults);
+
+    /// <summary>Returns the converter from <paramref name="source"/> to RGB with the relative colorimetric intent and no default spaces.</summary>
+    /// <param name="source">The colour space.</param>
+    /// <returns>The converter, shared by every caller asking for the same source.</returns>
+    /// <remarks>ISO 32000-2 §8.6, §10.3 and §10.4; see <see cref="PdfColorConverter"/>.</remarks>
+    public PdfColorConverter GetColorConverter(PdfColorSpace source) => GetColorConverter(source, default, null);
+
+    /// <summary>Returns the converter from <paramref name="source"/> under <paramref name="conversion"/>.</summary>
+    /// <param name="source">The colour space.</param>
+    /// <param name="conversion">The target model, rendering intent and device controls.</param>
+    /// <param name="defaults">The default colour spaces in effect where the colour is painted; <see langword="null"/> for none.</param>
+    /// <returns>The converter, shared by every caller asking for the same source, conversion and defaults.</returns>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found building it.</exception>
+    /// <remarks>ISO 32000-2 §8.6, §10.3 and §10.4; see <see cref="PdfColorConverter"/>.</remarks>
+    public PdfColorConverter GetColorConverter(PdfColorSpace source, ColorConversion conversion, PdfDefaultColorSpaces? defaults = null)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        return ColorSpaces.GetConverter(source, conversion, defaults ?? PdfDefaultColorSpaces.None);
+    }
+
     private CosDictionary? ResolveTreeRoot(CosObject? root, string code, string kind)
     {
         switch (Resolve(root))
@@ -811,7 +871,7 @@ public sealed partial class PdfDocument : IDisposable
             }
 
             PdfLinearization? linearization = LinearizationReader.Read(source, loader, diagnostics);
-            var document = new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security);
+            var document = new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security, configuration.ColorManagement);
 
             // Table 15: ID is "required in PDF 2.0 or if an Encrypt entry is present" (the latter is the security handler's
             // EncryptionIdMissing).
