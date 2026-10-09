@@ -57,6 +57,7 @@ internal static class FuzzTargets
         ["font-type1"] = FontType1,
         ["cmap"] = CMapFile,
         ["colorspace"] = ColorSpaceTarget,
+        ["image-decode"] = ImageDecodeTarget.Target,
         ["shading-mesh"] = ShadingMeshTarget.Target,
     };
 
