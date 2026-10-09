@@ -161,6 +161,9 @@ public sealed class PdfDocument : IDisposable
     /// </remarks>
     public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics.Snapshot();
 
+    /// <summary>Gets the sink the document's readers report deviations to (the content interpreter, issue #55).</summary>
+    internal DiagnosticSink DiagnosticSink => _diagnostics;
+
     /// <summary>Opens the PDF file at <paramref name="path"/> with default options.</summary>
     /// <param name="path">The file path. The file is memory-mapped and shared for reading: do not change it until the document is disposed.</param>
     /// <returns>The document. Dispose it when done.</returns>
