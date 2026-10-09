@@ -1,4 +1,6 @@
 ﻿[
+  acroform-fields.pdf,
+  acroform-xfa.pdf,
   actions-all.pdf,
   actions-preserved.pdf,
   annotations-appearance.pdf,

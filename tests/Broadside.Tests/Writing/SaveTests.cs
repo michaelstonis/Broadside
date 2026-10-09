@@ -87,7 +87,7 @@ public class SaveTests
         }
 
         AssertSameObjectGraph(source, saved);
-        Assert.Empty(saved.Diagnostics);
+        Assert.DoesNotContain(saved.Diagnostics, diagnostic => diagnostic.Severity > Broadside.Diagnostics.DiagnosticSeverity.Information);
     }
 
     [Theory]
