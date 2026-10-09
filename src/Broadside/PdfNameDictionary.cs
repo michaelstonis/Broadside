@@ -1,4 +1,6 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
+using Broadside.Parsing;
 
 namespace Broadside;
 
@@ -29,6 +31,50 @@ public sealed class PdfNameDictionary
     /// is one. Named destinations of PDF 1.1 (name keys) are in the catalog's own <c>Dests</c> dictionary instead.
     /// </remarks>
     public PdfNameTree? Dests => GetTree(NavigationNames.Dests);
+
+    /// <summary>Gets the tree of embedded files (string keys to file specifications), or <see langword="null"/> when there is none.</summary>
+    /// <remarks>ISO 32000-2 §7.7.4, Table 32 (PDF 1.4), and §7.11.4. <see cref="PdfDocument.EmbeddedFiles"/> lists it typed.</remarks>
+    public PdfNameTree? EmbeddedFiles => GetTree(FileAndLayerNames.EmbeddedFiles);
+
+    /// <summary>Gets the tree of document-level ECMAScript actions (<c>JavaScript</c>, PDF 1.3), or <see langword="null"/> when there is none.</summary>
+    /// <remarks>ISO 32000-2 §7.7.4, Table 32, and §12.6.4.17: the actions a processor runs when the document opens; the names are arbitrary. See <see cref="JavaScriptActions"/>.</remarks>
+    public PdfNameTree? JavaScript => GetTree(ActionNames.JavaScript);
+
+    /// <summary>
+    /// Gets the document-level ECMAScript actions of the <c>JavaScript</c> tree, in key order. Never run. A value that is not an
+    /// ECMAScript action is skipped with a diagnostic.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.7.4, Table 32, and §12.6.4.17. A fresh walk of the tree on every call.</remarks>
+    public IReadOnlyList<KeyValuePair<CosString, PdfJavaScriptAction>> JavaScriptActions
+    {
+        get
+        {
+            var actions = new List<KeyValuePair<CosString, PdfJavaScriptAction>>();
+            if (JavaScript is not { } tree)
+            {
+                return actions;
+            }
+
+            foreach (KeyValuePair<CosString, CosObject> entry in tree)
+            {
+                switch (PdfAction.Create(_document, entry.Value, tree.RootReference))
+                {
+                    case PdfJavaScriptAction script:
+                        actions.Add(new(entry.Key, script));
+                        break;
+                    case { } other:
+                        _document.DiagnosticSink.Report(
+                            DiagnosticCodes.ActionEntryInvalid,
+                            DiagnosticSeverity.Warning,
+                            $"A value of the name dictionary's JavaScript tree shall be an ECMAScript action; it is a {other.ActionType.Value} action, skipped.",
+                            objectReference: other.Reference ?? tree.RootReference);
+                        break;
+                }
+            }
+
+            return actions;
+        }
+    }
 
     /// <summary>Gets the name tree under <paramref name="key"/>, or <see langword="null"/> when the entry is absent.</summary>
     /// <param name="key">The entry, for example <c>EmbeddedFiles</c> or <c>JavaScript</c>.</param>

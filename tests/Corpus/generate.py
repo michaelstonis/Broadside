@@ -654,6 +654,262 @@ def minimal_truetype() -> tuple[bytes, dict[int, int]]:
     return bytes(font), {c: advances[g] for c, g in chars.items()}
 
 
+# The standard Macintosh glyph order of the 'post' table (Apple TrueType Reference Manual, "The 'post' table").
+MAC_STANDARD_NAMES = (
+    ".notdef .null nonmarkingreturn space exclam quotedbl numbersign dollar percent ampersand quotesingle parenleft "
+    "parenright asterisk plus comma hyphen period slash zero one two three four five six seven eight nine colon "
+    "semicolon less equal greater question at A B C D E F G H I J K L M N O P Q R S T U V W X Y Z bracketleft "
+    "backslash bracketright asciicircum underscore grave a b c d e f g h i j k l m n o p q r s t u v w x y z "
+    "braceleft bar braceright asciitilde Adieresis Aring Ccedilla Eacute Ntilde Odieresis Udieresis aacute agrave "
+    "acircumflex adieresis atilde aring ccedilla eacute egrave ecircumflex edieresis iacute igrave icircumflex "
+    "idieresis ntilde oacute ograve ocircumflex odieresis otilde uacute ugrave ucircumflex udieresis dagger degree "
+    "cent sterling section bullet paragraph germandbls registered copyright trademark acute dieresis notequal AE "
+    "Oslash infinity plusminus lessequal greaterequal yen mu partialdiff summation product pi integral ordfeminine "
+    "ordmasculine Omega ae oslash questiondown exclamdown logicalnot radical florin approxequal Delta guillemotleft "
+    "guillemotright ellipsis nonbreakingspace Agrave Atilde Otilde OE oe endash emdash quotedblleft quotedblright "
+    "quoteleft quoteright divide lozenge ydieresis Ydieresis fraction currency guilsinglleft guilsinglright fi fl "
+    "daggerdbl periodcentered quotesinglbase quotedblbase perthousand Acircumflex Ecircumflex Aacute Edieresis Egrave "
+    "Iacute Icircumflex Idieresis Igrave Oacute Ocircumflex apple Ograve Uacute Ucircumflex Ugrave dotlessi "
+    "circumflex tilde macron breve dotaccent ring cedilla hungarumlaut ogonek caron Lslash lslash Scaron scaron "
+    "Zcaron zcaron brokenbar Eth eth Yacute yacute Thorn thorn minus multiply onesuperior twosuperior threesuperior "
+    "onehalf onequarter threequarters franc Gbreve gbreve Idotaccent Scedilla scedilla Cacute cacute Ccaron ccaron "
+    "dcroat").split()
+assert len(MAC_STANDARD_NAMES) == 258
+
+# Composite glyph component flags (OpenType 'glyf' table).
+ARG_WORDS, ARGS_XY, HAVE_SCALE, MORE_COMPONENTS = 0x0001, 0x0002, 0x0008, 0x0020
+HAVE_X_AND_Y_SCALE, HAVE_TWO_BY_TWO, HAVE_INSTRUCTIONS, USE_MY_METRICS = 0x0040, 0x0080, 0x0100, 0x0200
+SCALED_OFFSET, UNSCALED_OFFSET = 0x0800, 0x1000
+
+
+def f2dot14(value: float) -> bytes:
+    return struct.pack(">h", round(value * 16384))
+
+
+class TtfGlyph:
+    """A glyph of a synthesized TrueType font: simple (points with on-curve flags) or composite (component records)."""
+
+    def __init__(self, contours=None, components=None, instructions: bytes = b""):
+        self.contours = contours or []      # [[(x, y, on_curve), ...], ...]
+        self.components = components or []  # [(flags, glyph, arg1, arg2, transform), ...]
+        self.instructions = instructions
+
+
+def _f2(data: bytes) -> list[float]:
+    return [v / 16384 for v in struct.unpack(">%dh" % (len(data) // 2), data)]
+
+
+def _glyph_points(glyphs: list[TtfGlyph], gid: int) -> list[tuple[float, float]]:
+    """The points of a glyph with composites applied (only to compute the header bounding boxes)."""
+    g = glyphs[gid]
+    if not g.components:
+        return [(x, y) for c in g.contours for x, y, _ in c]
+    points: list[tuple[float, float]] = []
+    for flags, child, a1, a2, transform in g.components:
+        pts = _glyph_points(glyphs, child)
+        m = [1.0, 0.0, 0.0, 1.0]  # xscale, scale01, scale10, yscale
+        if flags & HAVE_SCALE:
+            s = _f2(transform)[0]
+            m = [s, 0.0, 0.0, s]
+        elif flags & HAVE_X_AND_Y_SCALE:
+            sx, sy = _f2(transform)
+            m = [sx, 0.0, 0.0, sy]
+        elif flags & HAVE_TWO_BY_TWO:
+            m = _f2(transform)
+        pts = [(m[0] * x + m[2] * y, m[1] * x + m[3] * y) for x, y in pts]
+        if flags & ARGS_XY:
+            dx, dy = a1, a2
+            if transform and flags & SCALED_OFFSET and not flags & UNSCALED_OFFSET:
+                dx, dy = dx * (m[0] ** 2 + m[2] ** 2) ** 0.5, dy * (m[3] ** 2 + m[1] ** 2) ** 0.5
+        else:
+            dx, dy = points[a1][0] - pts[a2][0], points[a1][1] - pts[a2][1]
+        points += [(x + dx, y + dy) for x, y in pts]
+    return points
+
+
+def _glyph_bbox(glyphs: list[TtfGlyph], gid: int) -> tuple[int, int, int, int]:
+    pts = _glyph_points(glyphs, gid)
+    if not pts:
+        return (0, 0, 0, 0)
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    return (int(min(xs)), int(min(ys)), int(max(xs)), int(max(ys)))
+
+
+def _encode_glyph(glyphs: list[TtfGlyph], gid: int) -> bytes:
+    """Encodes a glyph description: simple glyphs with short and same coordinates and repeated flags where they fit."""
+    g = glyphs[gid]
+    if not g.contours and not g.components:
+        return b""
+    bbox = _glyph_bbox(glyphs, gid)
+    if g.components:
+        out = struct.pack(">hhhhh", -1, *bbox)
+        for i, (flags, child, a1, a2, transform) in enumerate(g.components):
+            last = i == len(g.components) - 1
+            flags |= 0 if last else MORE_COMPONENTS
+            if last and g.instructions:
+                flags |= HAVE_INSTRUCTIONS
+            out += struct.pack(">HH", flags, child)
+            fmt = (">hh" if flags & ARGS_XY else ">HH") if flags & ARG_WORDS else (">bb" if flags & ARGS_XY else ">BB")
+            out += struct.pack(fmt, a1, a2) + transform
+        if g.instructions:
+            out += struct.pack(">H", len(g.instructions)) + g.instructions
+        return out
+    pts = [p for c in g.contours for p in c]
+    out = struct.pack(">hhhhh", len(g.contours), *bbox)
+    end = -1
+    for c in g.contours:
+        end += len(c)
+        out += struct.pack(">H", end)
+    out += struct.pack(">H", len(g.instructions)) + g.instructions
+    flags, xs, ys = [], b"", b""
+    px = py = 0
+    for x, y, on in pts:
+        dx, dy = x - px, y - py
+        px, py = x, y
+        f = 0x01 if on else 0x00
+        if dx == 0:
+            f |= 0x10
+        elif -255 <= dx <= 255:
+            f |= 0x02 | (0x10 if dx > 0 else 0)
+            xs += bytes([abs(dx)])
+        else:
+            xs += struct.pack(">h", dx)
+        if dy == 0:
+            f |= 0x20
+        elif -255 <= dy <= 255:
+            f |= 0x04 | (0x20 if dy > 0 else 0)
+            ys += bytes([abs(dy)])
+        else:
+            ys += struct.pack(">h", dy)
+        flags.append(f)
+    packed = b""
+    i = 0
+    while i < len(flags):  # a run of equal flags is written once with REPEAT (0x08) and a count
+        run = 1
+        while i + run < len(flags) and flags[i + run] == flags[i] and run < 256:
+            run += 1
+        packed += bytes([flags[i] | 0x08, run - 1]) if run > 1 else bytes([flags[i]])
+        i += run
+    return out + packed + xs + ys
+
+
+def cmap_format0(mapping: dict[int, int]) -> bytes:
+    return struct.pack(">HHH", 0, 262, 0) + bytes(mapping.get(c, 0) for c in range(256))
+
+
+def cmap_format4(segments: list[tuple[int, int, int, list[int] | None]]) -> bytes:
+    """Segments (start, end, idDelta, glyph ids or None); glyph ids go through idRangeOffset into glyphIdArray."""
+    segments = segments + [(0xFFFF, 0xFFFF, 1, None)]
+    n = len(segments)
+    ends = b"".join(struct.pack(">H", e) for _, e, _, _ in segments)
+    starts = b"".join(struct.pack(">H", s) for s, _, _, _ in segments)
+    deltas = b"".join(struct.pack(">H", d & 0xFFFF) for _, _, d, _ in segments)
+    offsets, array = b"", b""
+    for i, (_, _, _, ids) in enumerate(segments):
+        if ids is None:
+            offsets += struct.pack(">H", 0)
+        else:
+            offsets += struct.pack(">H", 2 * (n - i) + len(array))
+            array += b"".join(struct.pack(">H", g) for g in ids)
+    es = n.bit_length() - 1
+    body = struct.pack(">HHHH", 2 * n, 2 * (1 << es), es, 2 * n - 2 * (1 << es)) + ends + b"\0\0" + starts + deltas + offsets + array
+    return struct.pack(">HHH", 4, 6 + len(body), 0) + body
+
+
+def cmap_format6(first: int, ids: list[int]) -> bytes:
+    return struct.pack(">HHHHH", 6, 10 + 2 * len(ids), 0, first, len(ids)) + b"".join(struct.pack(">H", g) for g in ids)
+
+
+def cmap_format12(groups: list[tuple[int, int, int]]) -> bytes:
+    body = b"".join(struct.pack(">III", s, e, g) for s, e, g in groups)
+    return struct.pack(">HHIII", 12, 0, 16 + len(body), 0, len(groups)) + body
+
+
+def cmap_table(subtables: list[tuple[int, int, bytes]]) -> bytes:
+    subtables = sorted(subtables, key=lambda t: (t[0], t[1]))
+    out = struct.pack(">HH", 0, len(subtables))
+    offset = 4 + 8 * len(subtables)
+    data = b""
+    for platform, encoding, sub in subtables:
+        out += struct.pack(">HHI", platform, encoding, offset + len(data))
+        data += sub
+    return out + data
+
+
+def post_table(version: int, names: list[str] | None = None) -> bytes:
+    """'post' version 0x00010000, 0x00020000 (names: index into the standard order or Pascal strings) or 0x00030000."""
+    out = struct.pack(">IiHHIIIII", version, 0, 0, 0, 0, 0, 0, 0, 0)
+    if version == 0x00020000:
+        indexes, strings = [], b""
+        custom: list[str] = []
+        for name in names or []:
+            if name in MAC_STANDARD_NAMES:
+                indexes.append(MAC_STANDARD_NAMES.index(name))
+            else:
+                indexes.append(258 + len(custom))
+                custom.append(name)
+                strings += bytes([len(name)]) + name.encode("ascii")
+        out += struct.pack(">H", len(indexes)) + b"".join(struct.pack(">H", i) for i in indexes) + strings
+    return out
+
+
+def ttf_font(glyphs: list[TtfGlyph], metrics: list[tuple[int, int]], n_hmetrics: int, cmap: bytes, post: bytes,
+             ps_name: str, long_loca: bool = False, pad: bool = True) -> bytes:
+    """A TrueType program from glyphs, (advance, lsb) per glyph (advances past n_hmetrics are dropped), cmap and post.
+
+    Tables: head, hhea, maxp, hmtx, loca, glyf, cmap, name, post (the ones ISO 32000-2 Table 124 and 9.9 require, plus
+    name and post). Glyphs are padded to 4 bytes unless ``pad`` is false (long loca permits odd offsets)."""
+    upem = 1000
+    glyf = bytearray()
+    loca = []
+    for gid in range(len(glyphs)):
+        loca.append(len(glyf))
+        data = _encode_glyph(glyphs, gid)
+        glyf += data + (bytes((-len(data)) % 4) if pad else b"")
+    loca.append(len(glyf))
+    loca_tbl = b"".join(struct.pack(">I", o) if long_loca else struct.pack(">H", o // 2) for o in loca)
+    boxes = [_glyph_bbox(glyphs, g) for g in range(len(glyphs)) if glyphs[g].contours or glyphs[g].components]
+    bbox = (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
+    hmtx = b"".join(struct.pack(">Hh", a, l) for a, l in metrics[:n_hmetrics])
+    hmtx += b"".join(struct.pack(">h", l) for _, l in metrics[n_hmetrics:])
+    head = struct.pack(">IIIIHHqqhhhhHHhhh", 0x00010000, 0x00010000, 0, 0x5F0F3CF5, 0x000B, upem, 0, 0,
+                       *bbox, 0, 8, 2, 1 if long_loca else 0, 0)
+    hhea = struct.pack(">IhhhHhhhhhhhhhhhH", 0x00010000, 800, -200, 0, max(a for a, _ in metrics), 0, 0, bbox[2],
+                       1, 0, 0, 0, 0, 0, 0, 0, n_hmetrics)
+    maxp = struct.pack(">IHHHHHHHHHHHHHH", 0x00010000, len(glyphs), 64, 4, 64, 4, 2, 0, 0, 0, 0, 0, 0, 4, 2)
+    names = [(1, ps_name), (2, "Regular"), (4, ps_name), (6, ps_name)]
+    name_data, recs = b"", b""
+    for nid, text in names:
+        enc = text.encode("utf-16-be")
+        recs += struct.pack(">HHHHHH", 3, 1, 0x409, nid, len(enc), len(name_data))
+        name_data += enc
+    name = struct.pack(">HHH", 0, len(names), 6 + 12 * len(names)) + recs + name_data
+    tables = {b"cmap": cmap, b"glyf": bytes(glyf), b"head": head, b"hhea": hhea, b"hmtx": hmtx, b"loca": loca_tbl,
+              b"maxp": maxp, b"name": name, b"post": post}
+    tags = sorted(tables)
+    n = len(tags)
+    es = n.bit_length() - 1
+    sr = (1 << es) * 16
+    font = bytearray(struct.pack(">IHHHH", 0x00010000, n, sr, es, n * 16 - sr))
+    offset = 12 + 16 * n
+    body = bytearray()
+    head_off = 0
+    for tag in tags:
+        data = tables[tag]
+        if tag == b"head":
+            head_off = offset + len(body)
+        font += tag + struct.pack(">III", _checksum(data), offset + len(body), len(data))
+        body += data + bytes((-len(data)) % 4)
+    font += body
+    adj = (0xB1B0AFBA - _checksum(bytes(font))) & 0xFFFFFFFF
+    font[head_off + 8:head_off + 12] = struct.pack(">I", adj)
+    return bytes(font)
+
+
+def ttf_rect(x0: int, y0: int, x1: int, y1: int) -> TtfGlyph:
+    return TtfGlyph([[(x0, y0, True), (x0, y1, True), (x1, y1, True), (x1, y0, True)]])
+
+
 # ---------------------------------------------------------------------------
 # The corpus
 # ---------------------------------------------------------------------------
@@ -792,6 +1048,117 @@ def gen_text_type1_symbolic_noencoding() -> bytes:
     descriptor = (b"<< /Type /FontDescriptor /FontName /BroadsideSymbolic /Flags 4 /FontBBox [0 -200 1000 800] "
                   b"/ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 >>")
     return font_file([font], [b"ABC"], [(6, descriptor)])
+
+
+def truetype_file(font: bytes, base_font: bytes, flags: int, first: int, widths: list[int], encoding: bytes | None,
+                  codes: bytes) -> bytes:
+    """A page showing ``codes`` in an embedded TrueType font (9.6.3, 9.8, 9.9 Table 125: Length1 is the program length)."""
+    enc = b" /Encoding " + encoding if encoding is not None else b""
+    w = b" ".join(b"%d" % x for x in widths)
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>" % LETTER),
+        (4, stream(b"", codes_content([("F1", codes)]))),
+        (5, b"<< /Type /Font /Subtype /TrueType /BaseFont /%s /FirstChar %d /LastChar %d /Widths [%s]%s "
+            b"/FontDescriptor 6 0 R >>" % (base_font, first, first + len(widths) - 1, w, enc)),
+        (6, b"<< /Type /FontDescriptor /FontName /%s /Flags %d /FontBBox [-300 0 700 1400] /ItalicAngle 0 /Ascent 800 "
+            b"/Descent -200 /CapHeight 700 /StemV 200 /FontFile2 7 0 R >>" % (base_font, flags)),
+        (7, stream(b"/Length1 %d" % len(font), font)),
+    ], binary=True)
+
+
+def gen_text_truetype_composite() -> bytes:
+    """9.6.3, 9.6.5.4, 9.9: simple glyphs with off-curve points (an all-off-curve contour, a contour starting off-curve),
+    short, same and repeated coordinate flags, and composite glyphs with every argument and transform form of the
+    OpenType 'glyf' table (word and byte offsets, scale with SCALED/UNSCALED/neither offset flag, x-and-y scale, 2x2,
+    point matching, nesting, USE_MY_METRICS, instructions). hmtx has fewer advances than glyphs; the (3,1) format 4
+    cmap has a glyphIdArray segment (with a 0 entry that stays 0) and negative deltas. Glyph 15 has lsb != xMin."""
+    I = ttf_rect(100, 0, 300, 700)
+    glyphs = [
+        TtfGlyph(),                                                                          # 0 .notdef
+        I,                                                                                   # 1 'I'
+        TtfGlyph([[(250, 0, False), (500, 250, False), (250, 500, False), (0, 250, False)]]),  # 2 'o': all off-curve
+        TtfGlyph([[(0, 0, False), (200, 0, True), (200, 200, True), (0, 200, True)]]),        # 3 'c': starts off-curve
+        TtfGlyph(components=[(ARG_WORDS | ARGS_XY, 1, 400, 300, b"")]),                      # 4 word offset
+        TtfGlyph(components=[(ARGS_XY, 1, 10, 20, b"")]),                                    # 5 byte offset
+        TtfGlyph(components=[(ARGS_XY | HAVE_SCALE | SCALED_OFFSET, 1, 100, 40, f2dot14(0.5))]),    # 6
+        TtfGlyph(components=[(ARGS_XY | HAVE_SCALE | UNSCALED_OFFSET, 1, 100, 40, f2dot14(0.5))]),  # 7
+        TtfGlyph(components=[(ARGS_XY | HAVE_SCALE, 1, 100, 40, f2dot14(0.5))]),                    # 8
+        TtfGlyph(components=[(ARG_WORDS | ARGS_XY | HAVE_X_AND_Y_SCALE, 1, 400, 0,
+                              f2dot14(-1) + f2dot14(1))]),                                   # 9 mirror
+        TtfGlyph(components=[(ARG_WORDS | ARGS_XY | HAVE_TWO_BY_TWO, 1, 700, 0,
+                              f2dot14(0) + f2dot14(1) + f2dot14(-1) + f2dot14(0))]),         # 10 rotation by 90
+        TtfGlyph(components=[(ARGS_XY, 1, 0, 0, b""), (0, 1, 2, 0, b"")]),                   # 11 point matching
+        TtfGlyph(components=[(ARGS_XY, 5, 0, 100, b"")]),                                    # 12 nested
+        TtfGlyph(components=[(ARGS_XY | USE_MY_METRICS, 3, 50, 0, b"")]),                    # 13 USE_MY_METRICS
+        TtfGlyph(components=[(ARGS_XY, 2, 0, 0, b"")], instructions=b"\x00\x01\x02"),        # 14 instructions
+        ttf_rect(100, 0, 300, 700),                                                          # 15 lsb 150, xMin 100
+    ]
+    advances = [500, 400, 500, 300, 700, 400, 400, 400, 400, 400, 700, 600]
+    metrics = []
+    for gid in range(len(glyphs)):
+        lsb = _glyph_bbox(glyphs, gid)[0] + (50 if gid == 15 else 0)
+        metrics.append((advances[min(gid, len(advances) - 1)], lsb))
+    cmap = cmap_table([(3, 1, cmap_format4([
+        (0x30, 0x3C, 1, [g - 1 for g in range(4, 15)] + [0, 14]),  # '0'..':' -> 4..14, ';' -> 0, '<' -> 15
+        (0x49, 0x49, 1 - 0x49, None),
+        (0x63, 0x63, 3 - 0x63, None),
+        (0x6F, 0x6F, 2 - 0x6F, None),
+    ]))])
+    font = ttf_font(glyphs, metrics, len(advances), cmap, post_table(0x00030000), "BroadsideComposite")
+    codes = b"Ioc0123456789:;<"
+    gids = {0x49: 1, 0x6F: 2, 0x63: 3, 0x3B: 0, 0x3C: 15}
+    gids.update({0x30 + i: 4 + i for i in range(11)})
+    widths = [metrics[gids[c]][0] if c in gids else 0 for c in range(0x30, 0x70)]
+    return truetype_file(font, b"BroadsideComposite", 32, 0x30, widths, b"/WinAnsiEncoding", codes)
+
+
+def gen_text_truetype_symbolic() -> bytes:
+    """9.6.5.4: a symbolic font (Flags 4) without Encoding selects glyphs by code: the (3,0) subtable at 0xF000 + code
+    comes before the (1,0) subtable, which maps the same codes to other glyphs; code 0x44 is only in (1,0)."""
+    glyphs = [TtfGlyph(), ttf_rect(100, 0, 300, 700), ttf_rect(100, 0, 500, 500), ttf_rect(100, 0, 700, 300)]
+    metrics = [(500, 0), (400, 100), (600, 100), (800, 100)]
+    cmap = cmap_table([
+        (1, 0, cmap_format0({0x41: 3, 0x42: 2, 0x43: 1, 0x44: 2})),
+        (3, 0, cmap_format4([(0xF041, 0xF043, 1 - 0xF041, None)])),
+    ])
+    font = ttf_font(glyphs, metrics, len(metrics), cmap, post_table(0x00030000), "BroadsideSymbolic")
+    return truetype_file(font, b"BroadsideSymbolic", 4, 0x41, [400, 600, 800, 600], None, b"ABCD")
+
+
+def gen_text_truetype_macroman() -> bytes:
+    """9.6.5.4 and Table 113: a nonsymbolic font whose program has only a (1,0) cmap (format 6): names from the encoding
+    (WinAnsi base with Differences) map to Mac OS Roman codes (Euro is 219, eacute 0x8E); a name with no Mac OS Roman code
+    (brds.alt) is found through the 'post' format 2 names."""
+    glyphs = [TtfGlyph(), ttf_rect(100, 0, 300, 700), ttf_rect(100, 0, 500, 500), ttf_rect(100, 0, 700, 300)]
+    metrics = [(500, 0), (400, 100), (600, 100), (800, 100)]
+    ids = [0] * (0xDB - 0x8E + 1)
+    ids[0] = 2            # 0x8E eacute
+    ids[0xDB - 0x8E] = 1  # 0xDB Euro (Table 113)
+    cmap = cmap_table([(1, 0, cmap_format6(0x8E, ids))])
+    post = post_table(0x00020000, [".notdef", "Euro", "eacute", "brds.alt"])
+    font = ttf_font(glyphs, metrics, len(metrics), cmap, post, "BroadsideMacRoman")
+    widths = [0] * (0xE9 - 0x80 + 1)
+    widths[0], widths[1], widths[0xE9 - 0x80] = 400, 800, 600
+    return truetype_file(font, b"BroadsideMacRoman", 32, 0x80, widths,
+                         b"<< /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [129 /brds.alt] >>",
+                         b"\x80\xe9\x81")
+
+
+def gen_text_truetype_loca_long() -> bytes:
+    """9.6.5.4 and the OpenType 'loca' table: long offsets (indexToLocFormat 1) with an odd-length, unpadded glyph; the
+    only cmap is (3,10) format 12, a Unicode subtable that stands in for (3,1); 'post' version 1.0."""
+    H = TtfGlyph([[(x, y, True) for x, y in [(100, 0), (100, 700), (300, 700), (300, 400), (500, 400), (500, 700),
+                                             (700, 700), (700, 0), (500, 0), (500, 300), (300, 300), (300, 0)]]],
+                 instructions=b"\x00")
+    glyphs = [TtfGlyph(), H, ttf_rect(100, 0, 300, 700)]
+    metrics = [(500, 0), (800, 100), (400, 100)]
+    cmap = cmap_table([(3, 10, cmap_format12([(0x48, 0x49, 1), (0x1F600, 0x1F600, 2)]))])
+    font = ttf_font(glyphs, metrics, len(metrics), cmap, post_table(0x00010000), "BroadsideLongLoca",
+                    long_loca=True, pad=False)
+    assert len(_encode_glyph(glyphs, 1)) % 2 == 1
+    return truetype_file(font, b"BroadsideLongLoca", 32, 0x48, [800, 400], b"/WinAnsiEncoding", b"HI")
 
 
 def gen_xref_stream() -> bytes:
@@ -1253,6 +1620,136 @@ def gen_annotations_link() -> bytes:
     ])
 
 
+def annotation(subtype: bytes, rect: bytes, extra: bytes = b"", ap: bool = True) -> bytes:
+    """12.5.2 Table 166: an annotation dictionary on page 3 (/P) whose normal appearance is form 4."""
+    body = b"<< /Type /Annot /Subtype /" + subtype + b" /Rect " + rect + b" /P 3 0 R"
+    if ap:
+        body += b" /AP << /N 4 0 R >>"
+    return body + extra + b" >>"
+
+
+def gen_annotations_subtypes() -> bytes:
+    """12.5.6 Table 171: one annotation of each of the 28 standard subtypes on one page, plus one of the
+    unknown subtype XBroadsideTest with every flag bit of Table 167 set; TrapNet is last (12.5.6.21). Every
+    annotation that needs one (12.5.2: all but Popup, Link and a zero-size Projection) shares the normal
+    appearance form 4. Relations: Text 10 <-> Popup 11 (Popup/Parent), reply 12 (IRT 10, RT R, State
+    Accepted in the Review model); colours C/IC with 1, 3 and 4 components; Border array with a dash, BS
+    and BE dictionaries; QuadPoints on Link, text markup and Redact; the Widget is a push button field
+    listed in the catalog's AcroForm."""
+    def rect(i: int) -> bytes:
+        x, y = 40 + (i % 6) * 90, 700 - (i // 6) * 90
+        return b"[%d %d %d %d]" % (x, y, x + 60, y + 40)
+
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog(b" /AcroForm << /Fields [34 0 R] >>")),
+        (2, pages()),
+        (3, page(extra=b" /Annots [%s]" % b" ".join(b"%d 0 R" % n for n in [
+            10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 30, 32, 33, 34, 35, 36,
+            37, 39, 40, 41, 42, 43]))),
+        (4, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"0 g 0 0 10 10 re f")),
+        (10, annotation(b"Text", rect(0), b" /Contents (Note text) /NM (note-1) /M (D:20240102030405Z)"
+                        b" /F 28 /C [1 1 0] /T (Alice) /Subj (Review) /CreationDate (D:20240101120000Z)"
+                        b" /Popup 11 0 R /Name /Comment /Open true")),
+        (11, annotation(b"Popup", b"[300 600 450 700]", b" /Parent 10 0 R /Open true", ap=False)),
+        (12, annotation(b"Text", rect(2), b" /T (Bob) /IRT 10 0 R /RT /R /State (Accepted) /StateModel (Review)")),
+        (13, annotation(b"Link", b"[220 700 280 740]", b" /Dest [3 0 R /Fit] /H /O"
+                        b" /QuadPoints [222 702 278 702 278 738 222 738] /BS << /W 2 /S /U >>", ap=False)),
+        (14, annotation(b"FreeText", rect(4), b" /DA (/Helv 12 Tf 0 g) /Q 1 /IT /FreeTextCallout"
+                        b" /CL [10 10 50 50 60 50] /LE /OpenArrow /DS (font: 12pt Helvetica) /RC (<p>rich</p>)")),
+        (15, annotation(b"Line", rect(5), b" /L [100 100 200 200] /LE [/Circle /ClosedArrow] /IC [1 0 0]"
+                        b" /LL 10 /LLE 2 /LLO 1 /Cap true /CP /Top /CO [0 5] /IT /LineDimension")),
+        (16, annotation(b"Square", rect(6), b" /BS << /Type /Border /W 2 /S /D /D [3 2] >> /IC [0 0 1]"
+                        b" /BE << /S /C /I 1 >> /RD [1 2 3 4]")),
+        (17, annotation(b"Circle", rect(7), b" /Border [0 0 2 [4 1]] /IC [0.5] /C [0 0 0 1]")),
+        (18, annotation(b"Polygon", rect(8), b" /Vertices [10 10 50 10 30 40] /IT /PolygonCloud /BE << /S /C /I 2 >>")),
+        (19, annotation(b"PolyLine", rect(9), b" /Path [[10 10] [50 10] [60 20 70 30 80 10]] /LE [/Square /Slash]")),
+        (20, annotation(b"Highlight", rect(10), b" /QuadPoints [10 10 50 10 50 20 10 20]")),
+        (21, annotation(b"Underline", rect(11), b" /QuadPoints [10 30 50 30 50 40 10 40]")),
+        (22, annotation(b"Squiggly", rect(12), b" /QuadPoints [10 50 50 50 50 60 10 60]")),
+        (23, annotation(b"StrikeOut", rect(13), b" /QuadPoints [10 70 50 70 50 80 10 80 60 70 90 70 90 80 60 80]")),
+        (24, annotation(b"Caret", rect(14), b" /Sy /P /RD [1 1 1 1]")),
+        (25, annotation(b"Stamp", rect(15), b" /IT /StampImage")),
+        (26, annotation(b"Ink", rect(16), b" /InkList [[10 10 20 20 30 10] [40 40 50 50]]")),
+        (27, annotation(b"FileAttachment", rect(17), b" /FS 28 0 R /Name /Paperclip /Contents (An attached file)"
+                        b" /AF [28 0 R]")),
+        (28, b"<< /Type /Filespec /F (a.txt) /UF (a.txt) /AFRelationship /Data /EF << /F 29 0 R /UF 29 0 R >> >>"),
+        (29, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain", b"attached")),
+        (30, annotation(b"Sound", rect(18), b" /Sound 31 0 R /Name /Mic")),
+        (31, stream(b"/Type /Sound /R 8000", b"\x00\x40\x80\xc0")),
+        (32, annotation(b"Movie", rect(19), b" /T (Clip) /Movie << /F (movie.mp4) >> /A false")),
+        (33, annotation(b"Screen", rect(20), b" /T (Screen) /MK << /R 90 /BC [1 0 0] /BG [1] /CA (Play) >>"
+                        b" /A << /S /URI /URI (https://example.org/media) >>")),
+        (34, annotation(b"Widget", rect(21), b" /FT /Btn /Ff 65536 /T (push) /H /P /MK << /CA (Push) /TP 0 >>")),
+        (35, annotation(b"PrinterMark", rect(22), b" /F 68 /MN /ColorBar")),
+        (36, annotation(b"Watermark", rect(23), b" /FixedPrint << /Type /FixedPrint /Matrix [1 0 0 1 72 -72] /H 0 /V 1 >>")),
+        (37, annotation(b"3D", rect(24), b" /3DD 38 0 R /3DI false /3DB [0 0 60 40]")),
+        (38, stream(b"/Type /3D /Subtype /U3D", b"U3D\x00")),
+        (39, annotation(b"Redact", rect(25), b" /QuadPoints [10 10 50 10 50 20 10 20] /IC [1 0 0]"
+                        b" /OverlayText (X) /Repeat true /DA (/Helv 10 Tf 0 g) /Q 2")),
+        (40, annotation(b"Projection", b"[0 0 0 0]", ap=False)),
+        (41, annotation(b"RichMedia", rect(27), b" /RichMediaContent << >> /RichMediaSettings << >>")),
+        (42, annotation(b"XBroadsideTest", rect(28), b" /F 1023")),
+        (43, annotation(b"TrapNet", b"[0 0 612 792]", b" /F 68 /LastModified (D:20240101000000Z) /AS /T1", ap=False)[:-3]
+            + b" /AP << /N << /T1 4 0 R >> >> >>"),
+    ]
+    id0 = file_id("annotations-subtypes").hex().encode()
+    return simple_file(objects, version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_annotations_appearance() -> bytes:
+    """12.5.5 Algorithm "Appearance streams" and Table 170. Square 10: N stream with BBox [0 0 100 50] and
+    Matrix [0 1 -1 0 0 0] on Rect [100 100 150 200] (AA = [0 1 -1 0 150 100]). Circle 11: Rect written
+    unnormalized as [50 30 10 10] (7.9.5) with N BBox [0 0 20 20] (AA = [2 0 0 1 10 10]). Square 12: N is a
+    state subdictionary (On, Off), D has only On, R is absent, AS /On."""
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog()),
+        (2, pages()),
+        (3, page(extra=b" /Annots [10 0 R 11 0 R 12 0 R]")),
+        (4, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 100 50] /Matrix [0 1 -1 0 0 0]", b"1 0 0 rg 0 0 100 50 re f")),
+        (5, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 20 20]", b"0 0 1 rg 0 0 20 20 re f")),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"0 1 0 rg 0 0 10 10 re f")),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"0.5 g 0 0 10 10 re f")),
+        (8, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"0 g 0 0 10 10 re f")),
+        (10, b"<< /Type /Annot /Subtype /Square /Rect [100 100 150 200] /AP << /N 4 0 R >> >>"),
+        (11, b"<< /Type /Annot /Subtype /Circle /Rect [50 30 10 10] /AP << /N 5 0 R >> >>"),
+        (12, b"<< /Type /Annot /Subtype /Square /Rect [300 300 340 340] /AS /On"
+             b" /AP << /N << /On 6 0 R /Off 7 0 R >> /D << /On 8 0 R >> >> >>"),
+    ]
+    return simple_file(objects)
+
+
+def gen_annotations_malformed() -> bytes:
+    """12.5 real-world deviations, two pages. Page 3's Annots: [null 9 0 R (an integer) 10 10 11 12 13 14 15
+    16 << direct >>]: 10 is listed twice; 11 has no Subtype; 12 has a three-number Rect; 13 is a Highlight
+    with 7 QuadPoints numbers; 14 has an N state subdictionary but no AS; 15's N stream has no BBox; 16's P
+    names page 4, whose Annots lists 16 too. Page 4 also holds 17: a Line with RT but no IRT, Popup -> 18
+    (a Popup whose Parent is 19), State without StateModel, F 2048, C with two components, Border [1],
+    and a Link 19 with both A and Dest. PDF 1.7, so a missing appearance is not a deviation."""
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog()),
+        (2, pages([3, 4])),
+        (3, page(extra=b" /Annots [null 9 0 R 10 0 R 10 0 R 11 0 R 12 0 R 13 0 R 14 0 R 15 0 R 16 0 R"
+                       b" << /Type /Annot /Subtype /Square /Rect [0 0 10 10] >>]")),
+        (4, page(extra=b" /Annots [16 0 R 17 0 R 18 0 R 19 0 R]")),
+        (5, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"0 g 0 0 10 10 re f")),
+        (6, stream(b"/Type /XObject /Subtype /Form", b"0 g 0 0 10 10 re f")),
+        (9, b"42"),
+        (10, b"<< /Type /Annot /Subtype /Square /Rect [10 10 20 20] /P 3 0 R >>"),
+        (11, b"<< /Type /Annot /Rect [30 10 40 20] /P 3 0 R >>"),
+        (12, b"<< /Type /Annot /Subtype /Circle /Rect [1 2 3] /P 3 0 R >>"),
+        (13, b"<< /Type /Annot /Subtype /Highlight /Rect [50 10 60 20] /P 3 0 R /QuadPoints [1 2 3 4 5 6 7] >>"),
+        (14, b"<< /Type /Annot /Subtype /Square /Rect [70 10 80 20] /P 3 0 R /AP << /N << /On 5 0 R >> >> >>"),
+        (15, b"<< /Type /Annot /Subtype /Square /Rect [90 10 100 20] /P 3 0 R /AP << /N 6 0 R >> >>"),
+        (16, b"<< /Type /Annot /Subtype /Square /Rect [110 10 120 20] /P 4 0 R >>"),
+        (17, b"<< /Type /Annot /Subtype /Text /Rect [10 50 20 60] /P 4 0 R /RT /Group /Popup 18 0 R"
+             b" /State (Accepted) /F 2048 /C [1 0] /Border [1] >>"),
+        (18, b"<< /Type /Annot /Subtype /Popup /Rect [30 50 90 90] /P 4 0 R /Parent 19 0 R >>"),
+        (19, b"<< /Type /Annot /Subtype /Link /Rect [10 100 50 120] /P 4 0 R /Dest [4 0 R /Fit]"
+             b" /A << /S /URI /URI (https://example.com/) >> >>"),
+    ]
+    return simple_file(objects)
+
+
 def gen_outline() -> bytes:
     return simple_file([
         (1, catalog(b" /Outlines 4 0 R /PageMode /UseOutlines")),
@@ -1446,6 +1943,150 @@ def gen_outline_broken() -> bytes:
     ])
 
 
+def link(action: bytes) -> bytes:
+    """12.5.6.5 Table 176: a link annotation with no border whose A entry is ``action``."""
+    return b"<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A " + action + b" >>"
+
+
+def gen_actions_all() -> bytes:
+    """12.6 Actions: every action type of Table 201, each in the A entry of its own link annotation
+    (objects 40-59, in table order: GoTo with D and SD, GoToR with a string F and a page number, GoToE
+    with a nested target dictionary three levels deep (Table 205), GoToDp, Launch with a file
+    specification dictionary and the deprecated Win dictionary (Table 208), Thread with an index
+    into the catalog's Threads and a bead index, URI relative to the catalog's URI Base (Table 211)
+    with IsMap, Sound, Movie naming a movie annotation, Hide with an annotation and a field name,
+    Named NextPage with a non-standard /Print next, SubmitForm (12.7.6.2: URL file specification,
+    Fields mixing a reference and a name, Flags 13, CharSet), ResetForm (Flags 1), ImportData,
+    SetOCGState with PreserveRB false, Rendition with OP 0 and JS, Trans, GoTo3DView with the
+    name /F, JavaScript in a stream, RichMediaExecute with a command and two arguments). The GoTo
+    action's Next is an array of two actions, the first of which has a Next of its own.
+    Trigger events (12.6.3): the catalog's OpenAction (a go-to action) and AA (Table 200: WC WS DS WP
+    DP), the page's AA (Table 198: O C), a link annotation's AA (Table 197: E X D U PO PC PV PI) and
+    a widget merged with its text field (object 69) whose AA has Table 199's K F V C and Table 197's
+    Fo Bl. The name dictionary's JavaScript tree has one document-level script (7.7.4)."""
+    id0 = file_id("actions-all").hex().encode()
+
+    def js(text: bytes) -> bytes:
+        return b"<< /S /JavaScript /JS (" + text + b") >>"
+
+    catalog_aa = b" ".join(b"/%s %s" % (k, js(k + b"\\(\\);")) for k in [b"WC", b"WS", b"DS", b"WP", b"DP"])
+    annot_aa = b" ".join(b"/%s %s" % (k, js(k + b"\\(\\);")) for k in [b"E", b"X", b"D", b"U", b"PO", b"PC", b"PV", b"PI"])
+    field_aa = b" ".join(b"/%s %s" % (k, js(k + b"\\(\\);")) for k in [b"K", b"F", b"V", b"C", b"Fo", b"Bl"])
+    appearance = b" /AP << /N 81 0 R >>"
+    annots = list(range(40, 60)) + [60, 68, 69, 72, 74, 77]
+    return simple_file([
+        (1, catalog(b" /OpenAction << /S /GoTo /D [3 0 R /Fit] >>"
+                    b" /AA << " + catalog_aa + b" >>"
+                    b" /URI << /Base (https://example.com/) >>"
+                    b" /Names << /JavaScript << /Names [(init) 79 0 R] >> >>"
+                    b" /Threads [65 0 R] /OCProperties << /OCGs [70 0 R 71 0 R] /D << /Order [70 0 R 71 0 R] >> >>"
+                    b" /AcroForm << /Fields [69 0 R] /CO [69 0 R] >> /StructTreeRoot 61 0 R /DPartRoot 63 0 R")),
+        (2, pages()),
+        (3, page(extra=b" /AA << /O << /S /Named /N /FirstPage >> /C " + js(b"pageClosed\\(\\);") + b" >>"
+                       b" /B [66 0 R] /Annots [" + b" ".join(b"%d 0 R" % n for n in annots) + b"]")),
+        (40, link(b"<< /Type /Action /S /GoTo /D [3 0 R /XYZ 0 792 null] /SD [62 0 R /Fit]"
+                  b" /Next [<< /S /Named /N /LastPage /Next " + js(b"nested\\(\\);") + b" >>"
+                  b" << /S /URI /URI (https://example.com/next) >>] >>")),
+        (41, link(b"<< /S /GoToR /F (other.pdf) /D [0 /Fit] /NewWindow true >>")),
+        (42, link(b"<< /S /GoToE /D (Chapter 1) /NewWindow false"
+                  b" /T << /R /P /T << /R /C /N (embedded.pdf) /T << /R /C /P 0 /A (attached) >> >> >> >>")),
+        (43, link(b"<< /S /GoToDp /Dp 82 0 R >>")),
+        (44, link(b"<< /S /Launch /F << /Type /Filespec /F (readme.txt) /UF (readme.txt) >>"
+                  b" /Win << /F (notepad.exe) /D (C:\\\\Temp) /O (print) /P (readme.txt) >> /NewWindow true >>")),
+        (45, link(b"<< /S /Thread /D 0 /B 0 >>")),
+        (46, link(b"<< /S /URI /URI (docs/index.html) /IsMap true >>")),
+        (47, link(b"<< /S /Sound /Sound 67 0 R /Volume 0.25 /Synchronous true /Repeat false /Mix true >>")),
+        (48, link(b"<< /S /Movie /Annotation 68 0 R /Operation /Pause >>")),
+        (49, link(b"<< /S /Hide /T [40 0 R (email)] /H false >>")),
+        (50, link(b"<< /S /Named /N /NextPage /Next << /S /Named /N /Print >> >>")),
+        (51, link(b"<< /S /SubmitForm /F << /FS /URL /F (https://example.com/submit) >>"
+                  b" /Fields [69 0 R (name.first)] /Flags 13 /CharSet (utf-8) >>")),
+        (52, link(b"<< /S /ResetForm /Fields [(email)] /Flags 1 >>")),
+        (53, link(b"<< /S /ImportData /F (data.fdf) >>")),
+        (54, link(b"<< /S /SetOCGState /State [/OFF 70 0 R /Toggle 71 0 R 70 0 R] /PreserveRB false >>")),
+        (55, link(b"<< /S /Rendition /OP 0 /AN 72 0 R /R 73 0 R /JS (play\\(\\);) >>")),
+        (56, link(b"<< /S /Trans /Trans << /Type /Trans /S /Dissolve /D 0.5 >> >>")),
+        (57, link(b"<< /S /GoTo3DView /TA 74 0 R /V /F >>")),
+        (58, link(b"<< /S /JavaScript /JS 76 0 R >>")),
+        (59, link(b"<< /S /RichMediaExecute /TA 77 0 R /TI 78 0 R"
+                  b" /CMD << /Type /RichMediaCommand /C (play) /A [(intro) 2 true] >> >>")),
+        (60, b"<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /AA << " + annot_aa + b" >> >>"),
+        (61, b"<< /Type /StructTreeRoot /K 62 0 R >>"),
+        (62, b"<< /Type /StructElem /S /P /P 61 0 R /Pg 3 0 R >>"),
+        (63, b"<< /Type /DPartRoot /DPartRootNode 64 0 R >>"),
+        (64, b"<< /Type /DPart /Parent 63 0 R /DParts [[82 0 R]] >>"),
+        (65, b"<< /Type /Thread /F 66 0 R /I << /Title (Article) >> >>"),
+        (66, b"<< /Type /Bead /T 65 0 R /N 66 0 R /V 66 0 R /P 3 0 R /R [0 0 100 100] >>"),
+        (67, stream(b"/Type /Sound /R 8000 /C 1 /B 8 /E /Raw", b"\x80\xa0\x80\x60")),
+        (68, b"<< /Type /Annot /Subtype /Movie /Rect [0 0 10 10] /T (Clip) /Movie << /F (clip.mov) >>" + appearance + b" >>"),
+        (69, b"<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /P 3 0 R /FT /Tx /T (email)"
+             b" /AA << " + field_aa + b" >>" + appearance + b" >>"),
+        (70, b"<< /Type /OCG /Name (One) >>"),
+        (71, b"<< /Type /OCG /Name (Two) >>"),
+        (72, b"<< /Type /Annot /Subtype /Screen /Rect [0 0 10 10] /P 3 0 R" + appearance + b" >>"),
+        (73, b"<< /Type /Rendition /S /MR /C << /Type /MediaClip /S /MCD /D << /Type /Filespec /F (clip.mp4) >> /CT (video/mp4) >> >>"),
+        (74, b"<< /Type /Annot /Subtype /3D /Rect [0 0 10 10] /3DD 75 0 R" + appearance + b" >>"),
+        (75, stream(b"/Type /3D /Subtype /U3D", b"")),
+        (76, stream(b"", b'app.alert("stream");')),
+        (77, b"<< /Type /Annot /Subtype /RichMedia /Rect [0 0 10 10] /RichMediaContent << /Configurations [] >>"
+             + appearance + b" >>"),
+        (78, b"<< /Type /RichMediaInstance /Subtype /Video >>"),
+        (79, js(b"var initialised = true;")),
+        (82, b"<< /Type /DPart /Parent 64 0 R /Start 3 0 R >>"),
+        (81, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"")),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_actions_preserved() -> bytes:
+    """12.6 Actions that the library keeps as data and never performs (JavaScript 12.6.4.17, Sound
+    12.6.4.9, Movie 12.6.4.10, Rendition 12.6.4.14, Rich-Media-Execute 12.6.4.18), each an indirect
+    object written in bytes a re-serializer would change, so that a save proves they are copied
+    byte for byte: object 10, a script in a literal string with escapes (\\( \\" \\053 \\r \\n, 7.3.4.2
+    Table 3) and a backslash-EOL continuation; 11, a script in a hexadecimal string; 12, a script in a
+    Flate stream (object 27; the catalog's OpenAction); 13, a script action whose type is written /Java#53cript
+    (7.3.5: the same name as /JavaScript); 14, a sound action with /Volume .50 and a four-sample raw
+    sound (13.3, object 15); 16, a rendition action with a rendition dictionary and a script stream
+    (object 17); 18, a movie action naming the movie annotation 19; 20, a rich-media-execute action
+    with TA, TI and CMD; 23 and 24, two go-to actions whose Next entries name each other (a cycle).
+    Objects 30-37 are the link annotations holding them; object 13 is the name dictionary's
+    document-level script (7.7.4) and object 11 the page's open action (Table 198)."""
+    sound = bytes([0x80, 0xA0, 0x80, 0x60])
+    script = b"app.alert('flate');"
+    links = list(range(30, 38))
+    return simple_file([
+        (1, catalog(b" /OpenAction 12 0 R /Names << /JavaScript << /Names [(doc) 13 0 R] >> >>")),
+        (2, pages()),
+        (3, page(extra=b" /AA << /O 11 0 R >> /Annots [" + b" ".join(b"%d 0 R" % n for n in links + [19, 21]) + b"]")),
+        (10, b"<<  /S/JavaScript /JS (app.alert\\(\\\"hi\\\"\\);\\053\\r\\n// one \\\nline) >>"),
+        (11, b"<</S /JavaScript/JS <6170702E616C6572742827686578272920>>>"),
+        (12, b"<< /S /JavaScript /JS 27 0 R >>"),
+        (13, b"<< /Type /Action /S /Java#53cript /JS (var x = 1;) >>"),
+        (14, b"<< /S /Sound /Sound 15 0 R /Volume .50 /Mix true >>"),
+        (15, stream(b"/Type /Sound /R 8000 /C 1 /B 8 /E /Raw", sound)),
+        (16, b"<< /S /Rendition /OP 4 /AN 21 0 R /R << /Type /Rendition /S /MR"
+             b" /C << /Type /MediaClip /S /MCD /D << /Type /Filespec /F (clip.mp4) >> /CT (video/mp4) >> >> /JS 17 0 R >>"),
+        (17, stream(b"", b"play();")),
+        (18, b"<< /S /Movie /Annotation 19 0 R /Operation /Play /Rate 2.0 >>"),
+        (19, b"<< /Type /Annot /Subtype /Movie /Rect [0 0 10 10] /Movie << /F (clip.mov) >> /AP << /N 25 0 R >> >>"),
+        (20, b"<< /S /RichMediaExecute /TA 22 0 R /TI 26 0 R /CMD << /C (rewind) /A 0.0 >> >>"),
+        (21, b"<< /Type /Annot /Subtype /Screen /Rect [0 0 10 10] /P 3 0 R /AP << /N 25 0 R >> >>"),
+        (22, b"<< /Type /Annot /Subtype /RichMedia /Rect [0 0 10 10] /RichMediaContent << >> /AP << /N 25 0 R >> >>"),
+        (23, b"<< /S /GoTo /D [3 0 R /Fit] /Next 24 0 R >>"),
+        (24, b"<< /S /GoTo /D [3 0 R /FitH 700] /Next [23 0 R] >>"),
+        (25, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"")),
+        (26, b"<< /Type /RichMediaInstance /Subtype /Video >>"),
+        (27, stream(b"/Filter /FlateDecode", flate(script))),
+        (30, link(b"10 0 R")),
+        (31, link(b"11 0 R")),
+        (32, link(b"13 0 R")),
+        (33, link(b"14 0 R")),
+        (34, link(b"16 0 R")),
+        (35, link(b"18 0 R")),
+        (36, link(b"20 0 R")),
+        (37, link(b"23 0 R")),
+    ])
+
+
 XMP = (b'<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
        b'<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
        b' <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
@@ -1564,6 +2205,246 @@ def gen_page_labels() -> bytes:
         (1, catalog(labels)),
         (2, pages(kids=kids)),
     ] + [(k, page()) for k in kids])
+# ---------------------------------------------------------------------------
+# Optional content, files, associated files, object metadata, declarations (issue #76)
+# ---------------------------------------------------------------------------
+
+
+def gen_optional_content() -> bytes:
+    """8.11: four groups (A, B in D's OFF, C with Intent Design, D2 with a View usage OFF but no AS),
+    OCMD 9 (/OCGs [A B] /P /AllOff) and OCMD 10 (/VE [/Or A [/Not B]]), content sections /OC /a, /m1, /m2
+    and /a nested in /b, a form XObject with /OC B, an annotation with /OC C; D carries Order (a label and
+    an unlabelled nested array), RBGroups and Locked; Configs has one alternate configuration
+    (8.11.4.3 Table 99: BaseState OFF, ON [C], Intent All)."""
+    content = (b"/OC /a BDC 0 0 10 10 re f EMC\n"
+               b"/OC /m1 BDC 20 0 10 10 re f EMC\n"
+               b"/OC /m2 BDC 40 0 10 10 re f EMC\n"
+               b"/OC /b BDC /OC /a BDC 60 0 10 10 re f EMC EMC\n"
+               b"/Fm Do\n")
+    ocprops = (b" /OCProperties << /OCGs [5 0 R 6 0 R 7 0 R 8 0 R]"
+               b" /D << /Name (Default) /Creator (Broadside corpus) /OFF [6 0 R]"
+               b" /Order [5 0 R [(Labelled) 6 0 R 7 0 R] [8 0 R]] /RBGroups [[5 0 R 6 0 R]] /Locked [7 0 R] >>"
+               b" /Configs [<< /Name (Only C) /BaseState /OFF /ON [7 0 R] /Intent /All /ListMode /VisiblePages >>] >>")
+    return simple_file([
+        (1, catalog(ocprops)),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << /Properties << /a 5 0 R /b 6 0 R /m1 9 0 R /m2 10 0 R >>"
+                       b" /XObject << /Fm 11 0 R >> >> /Annots [12 0 R]")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /OCG /Name (A) >>"),
+        (6, b"<< /Type /OCG /Name (B) >>"),
+        (7, b"<< /Type /OCG /Name (C) /Intent /Design /Usage << /CreatorInfo << /Creator (Broadside) /Subtype /Technical >> >> >>"),
+        (8, b"<< /Type /OCG /Name (D2) /Usage << /View << /ViewState /OFF >> /Zoom << /min 1.5 >> >> >>"),
+        (9, b"<< /Type /OCMD /OCGs [5 0 R 6 0 R] /P /AllOff >>"),
+        (10, b"<< /Type /OCMD /VE [/Or 5 0 R [/Not 6 0 R]] >>"),
+        (11, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10] /OC 6 0 R", b"80 0 10 10 re f")),
+        (12, b"<< /Type /Annot /Subtype /Square /Rect [100 100 200 200] /OC 7 0 R >>"),
+    ])
+
+
+def utf16_text(text: str) -> bytes:
+    """7.9.2.2 text string as a hexadecimal string: FEFF byte order mark, then UTF-16BE."""
+    return b"<FEFF" + text.encode("utf-16-be").hex().upper().encode() + b">"
+
+
+def gen_embedded_files() -> bytes:
+    """7.11.3-7.11.4 and 7.7.4 EmbeddedFiles: two file specifications in the name tree. hello.txt has
+    Subtype text/plain and Params Size, CreationDate, ModDate and CheckSum (the MD5 of the data, Table 45);
+    data.csv has a non-ASCII UF, Desc, a Flate-encoded stream and one related file (RF, 7.11.4.2)."""
+    hello = b"Hello, world!"
+    csv = b"name,value\nalpha,1\nbeta,2\n"
+    return simple_file([
+        (1, catalog(b" /Names << /EmbeddedFiles 4 0 R >>")),
+        (2, pages()),
+        (3, page()),
+        (4, b"<< /Names [(data.csv) 5 0 R (hello.txt) 7 0 R] >>"),
+        (5, b"<< /Type /Filespec /F (data.csv) /UF " + utf16_text("d\u00e4t\u00e4.csv") + b" /Desc (Comma-separated data)"
+            b" /EF << /F 6 0 R /UF 6 0 R >> /RF << /F 9 0 R /UF 9 0 R >> >>"),
+        (6, stream(b"/Type /EmbeddedFile /Subtype /text#2Fcsv /Filter /FlateDecode /Params << /Size %d >>" % len(csv), flate(csv))),
+        (7, b"<< /Type /Filespec /F (hello.txt) /UF (hello.txt) /EF << /F 8 0 R /UF 8 0 R >> >>"),
+        (8, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain /Params << /Size %d /CreationDate (D:20240102030405Z)"
+                   b" /ModDate (D:20240607080910+02'00) /CheckSum <%s> >>" % (len(hello), hashlib.md5(hello).hexdigest().encode()),
+                   hello)),
+        (9, b"[(data.schema) 10 0 R]"),
+        (10, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain", b"name:text,value:int")),
+    ])
+
+
+def gen_collection_portfolio() -> bytes:
+    """12.3.5 portable collection: Collection with View D, initial document D, Schema (S, D, N, F, Size fields
+    with O, V and E), Sort (S array, short A array), Colors, Split and a Folders tree (root ID 0 with Free,
+    child ID 1); EmbeddedFiles keys <1>report.txt (in folder 1) and notes.txt (root folder); collection items
+    with a subitem (7.11.6, Tables 46 and 47)."""
+    collection = (b"<< /Type /Collection /View /D /D (notes.txt)"
+                  b" /Schema << /Type /CollectionSchema"
+                  b" /name << /Type /CollectionField /Subtype /S /N (Name) /O 0 >>"
+                  b" /date << /Type /CollectionField /Subtype /D /N (Date) /O 1 >>"
+                  b" /pages << /Type /CollectionField /Subtype /N /N (Pages) /O 2 /V false >>"
+                  b" /fname << /Type /CollectionField /Subtype /F /N (File) /O 3 /E true >>"
+                  b" /size << /Type /CollectionField /Subtype /Size /N (Size) /O 4 >> >>"
+                  b" /Sort << /Type /CollectionSort /S [/date /name] /A [false] >>"
+                  b" /Colors << /Background [1 1 1] /CardBackground [0.9 0.9 0.9] /CardBorder [0 0 0]"
+                  b" /PrimaryText [0 0 0] /SecondaryText [0.5 0.5 0.5] >>"
+                  b" /Split << /Direction /V /Position 30 >> /Folders 10 0 R >>")
+    return simple_file([
+        (1, catalog(b" /Names << /EmbeddedFiles << /Names [(<1>report.txt) 5 0 R (notes.txt) 7 0 R] >> >> /Collection 9 0 R")),
+        (2, pages()),
+        (3, page()),
+        (5, b"<< /Type /Filespec /F (report.txt) /UF (report.txt) /EF << /F 12 0 R >> /CI 6 0 R >>"),
+        (6, b"<< /Type /CollectionItem /name << /Type /CollectionSubitem /D (Quarterly report) /P (Q1: ) >>"
+            b" /date (D:20240301000000Z) /pages 3 >>"),
+        (7, b"<< /Type /Filespec /F (notes.txt) /UF (notes.txt) /EF << /F 13 0 R >> /CI 8 0 R >>"),
+        (8, b"<< /Type /CollectionItem /name (Notes) /pages 1 >>"),
+        (9, collection),
+        (10, b"<< /Type /Folder /ID 0 /Name (Portfolio) /Child 11 0 R /Free [2 10] >>"),
+        (11, b"<< /Type /Folder /ID 1 /Name (Reports) /Parent 10 0 R /Desc (Quarterly reports) >>"),
+        (12, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain", b"Revenue up.")),
+        (13, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain", b"Remember the milk.")),
+    ])
+
+
+def xmp_titled(title: bytes) -> bytes:
+    """A minimal XMP packet (14.3.2) whose dc:title is ``title``."""
+    return XMP.replace(b">Broadside<", b">" + title + b"<")
+
+
+def af_filespec(name: bytes, relationship: bytes | None, ef: int | None = None) -> bytes:
+    """7.11.3 file specification for an associated file (14.13): embedded when ``ef`` is given, else external."""
+    body = b"<< /Type /Filespec /F (%s) /UF (%s)" % (name, name)
+    if relationship is not None:
+        body += b" /AFRelationship /" + relationship
+    if ef is not None:
+        body += b" /EF << /F %d 0 R /UF %d 0 R >>" % (ef, ef)
+    return body + b" >>"
+
+
+def gen_associated_files() -> bytes:
+    """14.13 associated files at every location: catalog (Source, embedded), page (Data), form XObject
+    (Supplement, embedded application/mathml+xml), image XObject (Data), annotation (no AFRelationship:
+    Unspecified), structure tree root (Alternative), structure element (Alternative), DPart (Source),
+    metadata stream (Schema), marked content /AF /MF1 with an MCAF property list (errata Table 409a) and
+    /AF /MF2 with a bare array resource (14.13.5 Example 2). PDF 2.0 with a trailer ID (7.5.5)."""
+    id0 = file_id("associated-files").hex().encode()
+    content = b"/AF /MF1 BDC 0 0 10 10 re f EMC\n/AF /MF2 BDC /Fm Do EMC\nq 10 0 0 10 20 0 cm /Im Do Q\n"
+    return simple_file([
+        (1, catalog(b" /AF [20 0 R] /StructTreeRoot 6 0 R /DPartRoot 8 0 R /Metadata 10 0 R /MarkInfo << /Marked true >>")),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /AF [21 0 R] /DPart 9 0 R /Annots [5 0 R] /Resources << /XObject << /Fm 11 0 R /Im 12 0 R >>"
+                       b" /Properties << /MF1 13 0 R /MF2 [31 0 R] >> >>")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Annot /Subtype /Square /Rect [100 100 200 200] /AF [22 0 R] >>"),
+        (6, b"<< /Type /StructTreeRoot /K 7 0 R /AF [23 0 R] >>"),
+        (7, b"<< /Type /StructElem /S /Document /P 6 0 R /AF [24 0 R] >>"),
+        (8, b"<< /Type /DPartRoot /DPartRootNode 9 0 R >>"),
+        (9, b"<< /Type /DPart /Parent 8 0 R /Start 3 0 R /End 3 0 R /AF [25 0 R] >>"),
+        (10, stream(b"/Type /Metadata /Subtype /XML /AF [26 0 R]", XMP)),
+        (11, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10] /AF [27 0 R]", b"40 0 10 10 re f")),
+        (12, stream(b"/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /AF [28 0 R]", b"\x80")),
+        (13, b"<< /MCAF [29 0 R] >>"),
+        (20, af_filespec(b"source.txt", b"Source", ef=30)),
+        (21, af_filespec(b"page-data.csv", b"Data")),
+        (22, af_filespec(b"annotation.txt", None)),
+        (23, af_filespec(b"tree.txt", b"Alternative")),
+        (24, af_filespec(b"element.txt", b"Alternative")),
+        (25, af_filespec(b"part.txt", b"Source")),
+        (26, af_filespec(b"schema.xsd", b"Schema")),
+        (27, af_filespec(b"equation.mml", b"Supplement", ef=32)),
+        (28, af_filespec(b"image-data.csv", b"Data")),
+        (29, af_filespec(b"marked.csv", b"Data")),
+        (30, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain /Params << /ModDate (D:20240101000000Z) /Size 6 >>", b"source")),
+        (31, af_filespec(b"marked-legacy.txt", b"Supplement")),
+        (32, stream(b"/Type /EmbeddedFile /Subtype /application#2Fmathml+xml /Params << /ModDate (D:20240101000000Z) >>",
+                    b"<math><mi>x</mi></math>")),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_object_metadata() -> bytes:
+    """14.3.2 and PDF 2.0 Application Note 003: a Metadata stream, each with a distinct dc:title, on the catalog
+    (Document), a page, an image XObject, a form XObject, an ICCBased colour space stream, an embedded TrueType
+    font program (FontFile2), a tiling pattern, a shading dictionary, a marked-content property list, an
+    optional content group, an annotation and an embedded file stream."""
+    font, widths = minimal_truetype()
+    first, last = min(widths), max(widths)
+    w = b" ".join(b"%d" % widths[c] for c in range(first, last + 1))
+    titles = [b"Document", b"Page", b"Image", b"Form", b"ICC profile", b"Font program", b"Tiling pattern",
+              b"Shading", b"Marked content", b"Optional content", b"Annotation", b"Embedded file"]
+    meta = {title: 40 + i for i, title in enumerate(titles)}
+    objects = [
+        (1, catalog(b" /Metadata %d 0 R /OCProperties << /OCGs [15 0 R] /D << >> >>"
+                    b" /Names << /EmbeddedFiles << /Names [(attached.txt) 16 0 R] >> >>" % meta[b"Document"])),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Metadata %d 0 R /Annots [14 0 R] /Resources << /XObject << /Im 5 0 R /Fm 6 0 R >>"
+                       b" /ColorSpace << /CS0 [/ICCBased 7 0 R] >> /Font << /F1 8 0 R >> /Pattern << /P0 10 0 R >>"
+                       b" /Shading << /Sh0 11 0 R >> /Properties << /MC0 12 0 R /OC0 15 0 R >> >>" % meta[b"Page"])),
+        (4, stream(b"", b"/Im Do /Fm Do /Span /MC0 BDC EMC /OC /OC0 BDC EMC BT /F1 24 Tf 72 700 Td (HI) Tj ET\n")),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Metadata %d 0 R"
+                   % meta[b"Image"], b"\x80")),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10] /Metadata %d 0 R" % meta[b"Form"], b"0 0 10 10 re f")),
+        (7, stream(b"/N 1 /Alternate /DeviceGray /Metadata %d 0 R" % meta[b"ICC profile"], b"ICC")),
+        (8, b"<< /Type /Font /Subtype /TrueType /BaseFont /BroadsideMinimal /FirstChar %d /LastChar %d "
+            b"/Widths [%s] /Encoding /WinAnsiEncoding /FontDescriptor 9 0 R >>" % (first, last, w)),
+        (9, b"<< /Type /FontDescriptor /FontName /BroadsideMinimal /Flags 32 /FontBBox [0 0 700 700] "
+            b"/ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 200 /FontFile2 13 0 R >>"),
+        (10, stream(b"/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 10 10] /XStep 10 /YStep 10"
+                    b" /Resources << >> /Metadata %d 0 R" % meta[b"Tiling pattern"], b"0 0 5 5 re f")),
+        (11, b"<< /ShadingType 2 /ColorSpace /DeviceGray /Coords [0 0 1 0] /Function << /FunctionType 2 /Domain [0 1]"
+             b" /C0 [0] /C1 [1] /N 1 >> /Metadata %d 0 R >>" % meta[b"Shading"]),
+        (12, b"<< /Metadata %d 0 R >>" % meta[b"Marked content"]),
+        (13, stream(b"/Length1 %d /Metadata %d 0 R" % (len(font), meta[b"Font program"]), font)),
+        (14, b"<< /Type /Annot /Subtype /Square /Rect [100 100 200 200] /Metadata %d 0 R >>" % meta[b"Annotation"]),
+        (15, b"<< /Type /OCG /Name (Layer) /Metadata %d 0 R >>" % meta[b"Optional content"]),
+        (16, b"<< /Type /Filespec /F (attached.txt) /UF (attached.txt) /EF << /F 17 0 R /UF 17 0 R >> >>"),
+        (17, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain /Metadata %d 0 R" % meta[b"Embedded file"], b"attached")),
+    ]
+    objects += [(meta[title], stream(b"/Type /Metadata /Subtype /XML", xmp_titled(title))) for title in titles]
+    return simple_file(objects, binary=True)
+
+
+def declarations_xmp(namespace: bytes, body: bytes) -> bytes:
+    """An XMP packet (ISO 16684-1) holding a pdfd:declarations bag (PDF Declarations 7.1, 8.1)."""
+    return (b'<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
+            b'<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
+            b' <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
+            b'  <rdf:Description rdf:about="" xmlns:pdfd="' + namespace + b'">\n'
+            b'   <pdfd:declarations><rdf:Bag>\n' + body +
+            b'   </rdf:Bag></pdfd:declarations>\n'
+            b'  </rdf:Description>\n'
+            b' </rdf:RDF>\n'
+            b'</x:xmpmeta>\n'
+            b'<?xpacket end="w"?>')
+
+
+def gen_declarations() -> bytes:
+    """PDF Declarations 7-8: the catalog XMP holds two declarations, ISO/TS 32005 with one claim (claimBy,
+    claimDate, claimCredentials, claimReport as an Annex O #ef= fragment) written with rdf:parseType="Resource",
+    and WTPDF reuse written as a nested rdf:Description with white space around the URI; the page XMP holds one
+    object-level declaration under the https namespace TS 32005 Table 1 shows. PDF 2.0 with a trailer ID."""
+    id0 = file_id("declarations").hex().encode()
+    document = declarations_xmp(b"http://pdfa.org/declarations/",
+        b'    <rdf:li rdf:parseType="Resource">\n'
+        b'     <pdfd:conformsTo>https://pdfa.org/declarations#iso32005</pdfd:conformsTo>\n'
+        b'     <pdfd:claimData><rdf:Bag><rdf:li rdf:parseType="Resource">\n'
+        b'      <pdfd:claimBy>Broadside corpus</pdfd:claimBy>\n'
+        b'      <pdfd:claimDate>2024-05-06</pdfd:claimDate>\n'
+        b'      <pdfd:claimCredentials>Generated by generate.py</pdfd:claimCredentials>\n'
+        b'      <pdfd:claimReport>#ef=report.html</pdfd:claimReport>\n'
+        b'     </rdf:li></rdf:Bag></pdfd:claimData>\n'
+        b'    </rdf:li>\n'
+        b'    <rdf:li><rdf:Description>\n'
+        b'     <pdfd:conformsTo>\n       http://pdfa.org/declarations/wtpdf/#reuse1.0\n     </pdfd:conformsTo>\n'
+        b'    </rdf:Description></rdf:li>\n')
+    page_xmp = declarations_xmp(b"https://pdfa.org/declarations/",
+        b'    <rdf:li rdf:parseType="Resource"><pdfd:conformsTo>http://pdfa.org/declarations/wtpdf/#accessibility1.0</pdfd:conformsTo></rdf:li>\n')
+    return simple_file([
+        (1, catalog(b" /Metadata 4 0 R")),
+        (2, pages()),
+        (3, page(extra=b" /Metadata 5 0 R")),
+        (4, stream(b"/Type /Metadata /Subtype /XML", document)),
+        (5, stream(b"/Type /Metadata /Subtype /XML", page_xmp)),
+    ], version="2.0", binary=True, trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
 
 
 def gen_tagged_structure() -> bytes:
@@ -1873,6 +2754,10 @@ FILES = {
     "text-standard14-widths.pdf": gen_text_standard14_widths,
     "text-standard14-alias.pdf": gen_text_standard14_alias,
     "text-type1-symbolic-noencoding.pdf": gen_text_type1_symbolic_noencoding,
+    "text-truetype-composite.pdf": gen_text_truetype_composite,
+    "text-truetype-symbolic.pdf": gen_text_truetype_symbolic,
+    "text-truetype-macroman.pdf": gen_text_truetype_macroman,
+    "text-truetype-loca-long.pdf": gen_text_truetype_loca_long,
     "xref-stream.pdf": gen_xref_stream,
     "object-stream.pdf": gen_object_stream,
     "incremental-update.pdf": gen_incremental_update,
@@ -1908,6 +2793,9 @@ FILES = {
     "inline-image.pdf": gen_inline_image,
     "page-tree-inherited.pdf": gen_page_tree_inherited,
     "annotations-link.pdf": gen_annotations_link,
+    "annotations-subtypes.pdf": gen_annotations_subtypes,
+    "annotations-appearance.pdf": gen_annotations_appearance,
+    "annotations-malformed.pdf": gen_annotations_malformed,
     "outline.pdf": gen_outline,
     "name-tree-dests.pdf": gen_name_tree_dests,
     "metadata-xmp.pdf": gen_metadata_xmp,
@@ -1924,6 +2812,14 @@ FILES = {
     "outline-full.pdf": gen_outline_full,
     "outline-broken.pdf": gen_outline_broken,
     "functions.pdf": gen_functions,
+    "optional-content.pdf": gen_optional_content,
+    "embedded-files.pdf": gen_embedded_files,
+    "collection-portfolio.pdf": gen_collection_portfolio,
+    "associated-files.pdf": gen_associated_files,
+    "object-metadata.pdf": gen_object_metadata,
+    "declarations.pdf": gen_declarations,
+    "actions-all.pdf": gen_actions_all,
+    "actions-preserved.pdf": gen_actions_preserved,
     "colorspace-families.pdf": gen_colorspace_families,
     "color-operators.pdf": gen_color_operators,
     "default-colorspaces.pdf": gen_default_colorspaces,

@@ -18,4 +18,16 @@ internal static partial class DiagnosticCodes
     public const string FontDifferencesInvalid = nameof(FontDifferencesInvalid);
     public const string FontBuiltInEncodingUnavailable = nameof(FontBuiltInEncodingUnavailable);
     public const string FontGlyphMissing = nameof(FontGlyphMissing);
+
+    // Font programs and the font program parser extension point (§9.9; issue #50).
+    public const string FontProgramUnsupported = nameof(FontProgramUnsupported);
+    public const string FontProgramFormatMismatch = nameof(FontProgramFormatMismatch);
+    public const string FontProgramInvalid = nameof(FontProgramInvalid);
+    public const string FontProgramTruncated = nameof(FontProgramTruncated);
+    public const string FontTableInvalid = nameof(FontTableInvalid);
+    public const string FontGlyphInvalid = nameof(FontGlyphInvalid);
+    public const string FontCmapInvalid = nameof(FontCmapInvalid);
+
+    // Character code to glyph id for TrueType fonts (§9.6.5.4; issue #50).
+    public const string FontGlyphMappingFallback = nameof(FontGlyphMappingFallback);
 }
