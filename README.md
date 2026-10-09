@@ -8,6 +8,10 @@ Broadside is a fully managed .NET implementation of the PDF specification (ISO 3
 
 **Planning is complete; no library code exists yet.** The repository currently holds the vocabulary, the architecture decisions, the phased build plan and the build scaffolding. Work is organized as GitHub issues in milestones, one per phase, and tracked on the [project board](https://github.com/users/michaelstonis/projects/1). Start with [docs/plan/README.md](docs/plan/README.md) to see what is planned and in what order.
 
+## Documentation
+
+The documentation site, with the API reference generated from the XML docs, is at <https://michaelstonis.github.io/Broadside/>. Its sources are in [site/](site); build and check it locally with `./check-docs.sh`.
+
 ## Orientation
 
 - [CONTEXT.md](CONTEXT.md): the vocabulary.

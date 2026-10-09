@@ -1,0 +1,7 @@
+articles:
+  - {path: readme.md, title: "Documentation"}
+  - {path: getting-started.md, title: "Getting started"}
+  - {path: architecture.md, title: "Architecture"}
+  - {path: roadmap.md, title: "Roadmap"}
+  - {path: conformance.md, title: "Conformance"}
+  - {path: contributing.md, title: "Contributing"}
