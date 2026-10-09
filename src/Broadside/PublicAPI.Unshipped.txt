@@ -1,5 +1,377 @@
 #nullable enable
 abstract Broadside.Objects.CosNumber.ToDouble() -> double
+Broadside.Content.ClipEvent
+Broadside.Content.ClipEvent.ClipEvent() -> void
+Broadside.Content.ClipEvent.Ctm.get -> Broadside.Graphics.Matrix
+Broadside.Content.ClipEvent.Handle.get -> int
+Broadside.Content.ClipEvent.Kind.get -> Broadside.Content.ClipKind
+Broadside.Content.ClipEvent.ParentHandle.get -> int
+Broadside.Content.ClipEvent.Path.get -> Broadside.Graphics.PathView
+Broadside.Content.ClipEvent.Rule.get -> Broadside.Graphics.FillRule
+Broadside.Content.ClipKind
+Broadside.Content.ClipKind.Initial = 0 -> Broadside.Content.ClipKind
+Broadside.Content.ClipKind.Path = 1 -> Broadside.Content.ClipKind
+Broadside.Content.ClipKind.Rectangle = 2 -> Broadside.Content.ClipKind
+Broadside.Content.ClipKind.Text = 3 -> Broadside.Content.ClipKind
+Broadside.Content.ClipView
+Broadside.Content.ClipView.ClipView() -> void
+Broadside.Content.ClipView.Ctm.get -> Broadside.Graphics.Matrix
+Broadside.Content.ClipView.Handle.get -> int
+Broadside.Content.ClipView.Kind.get -> Broadside.Content.ClipKind
+Broadside.Content.ClipView.ParentHandle.get -> int
+Broadside.Content.ClipView.Path.get -> Broadside.Graphics.PathView
+Broadside.Content.ClipView.Rule.get -> Broadside.Graphics.FillRule
+Broadside.Content.CompositeContentProcessor
+Broadside.Content.CompositeContentProcessor.CompositeContentProcessor(params Broadside.Content.ContentProcessor![]! processors) -> void
+Broadside.Content.CompositeContentProcessor.Processors.get -> System.Collections.Generic.IReadOnlyList<Broadside.Content.ContentProcessor!>!
+Broadside.Content.ContentContext
+Broadside.Content.ContentContext.CancellationToken.get -> System.Threading.CancellationToken
+Broadside.Content.ContentContext.CurrentPartIndex.get -> int
+Broadside.Content.ContentContext.CurrentStream.get -> Broadside.Objects.CosReference?
+Broadside.Content.ContentContext.Depth.get -> int
+Broadside.Content.ContentContext.Document.get -> Broadside.PdfDocument!
+Broadside.Content.ContentContext.GetClip(int handle) -> Broadside.Content.ClipView
+Broadside.Content.ContentContext.IsHidden.get -> bool
+Broadside.Content.ContentContext.Page.get -> Broadside.PdfPage?
+Broadside.Content.ContentContext.Resources.get -> Broadside.Objects.CosDictionary?
+Broadside.Content.ContentContext.RunKind.get -> Broadside.Content.ContentRunKind
+Broadside.Content.ContentContext.State.get -> Broadside.Graphics.GraphicsState
+Broadside.Content.ContentContext.StateDepth.get -> int
+Broadside.Content.ContentContext.StreamBaseMatrix.get -> Broadside.Graphics.Matrix
+Broadside.Content.ContentEvents
+Broadside.Content.ContentEvents.All = Broadside.Content.ContentEvents.Paths | Broadside.Content.ContentEvents.Clips | Broadside.Content.ContentEvents.Text | Broadside.Content.ContentEvents.Glyphs | Broadside.Content.ContentEvents.Images | Broadside.Content.ContentEvents.Shadings | Broadside.Content.ContentEvents.Forms | Broadside.Content.ContentEvents.MarkedContent | Broadside.Content.ContentEvents.StateStack | Broadside.Content.ContentEvents.Operators | Broadside.Content.ContentEvents.HiddenContent | Broadside.Content.ContentEvents.Type3GlyphContent -> Broadside.Content.ContentEvents
+Broadside.Content.ContentEvents.Clips = 2 -> Broadside.Content.ContentEvents
+Broadside.Content.ContentEvents.Forms = 64 -> Broadside.Content.ContentEvents
+Broadside.Content.ContentEvents.Glyphs = 8 -> Broadside.Content.ContentEvents
+Broadside.Content.ContentEvents.HiddenContent = 1024 -> Broadside.Content.ContentEvents
+Broadside.Content.ContentEvents.Images = 16 -> Broadside.Content.ContentEvents
+Broadside.Content.ContentEvents.MarkedContent = 128 -> Broadside.Content.ContentEvents
+Broadside.Content.ContentEvents.None = 0 -> Broadside.Content.ContentEvents
+Broadside.Content.ContentEvents.Operators = 512 -> Broadside.Content.ContentEvents
+Broadside.Content.ContentEvents.Paths = 1 -> Broadside.Content.ContentEvents
+Broadside.Content.ContentEvents.Shadings = 32 -> Broadside.Content.ContentEvents
+Broadside.Content.ContentEvents.StateStack = 256 -> Broadside.Content.ContentEvents
+Broadside.Content.ContentEvents.Text = 4 -> Broadside.Content.ContentEvents
+Broadside.Content.ContentEvents.Type3GlyphContent = 2048 -> Broadside.Content.ContentEvents
+Broadside.Content.ContentOperand
+Broadside.Content.ContentOperand.Boolean.get -> bool
+Broadside.Content.ContentOperand.Bytes.get -> System.ReadOnlySpan<byte>
+Broadside.Content.ContentOperand.ContentOperand() -> void
+Broadside.Content.ContentOperand.IsHexadecimal.get -> bool
+Broadside.Content.ContentOperand.IsName(System.ReadOnlySpan<byte> name) -> bool
+Broadside.Content.ContentOperand.IsNumber.get -> bool
+Broadside.Content.ContentOperand.Items.get -> Broadside.Content.ContentOperands
+Broadside.Content.ContentOperand.Kind.get -> Broadside.Content.ContentOperandKind
+Broadside.Content.ContentOperand.Number.get -> double
+Broadside.Content.ContentOperand.ToCosObject() -> Broadside.Objects.CosObject!
+Broadside.Content.ContentOperandKind
+Broadside.Content.ContentOperandKind.Array = 6 -> Broadside.Content.ContentOperandKind
+Broadside.Content.ContentOperandKind.Boolean = 1 -> Broadside.Content.ContentOperandKind
+Broadside.Content.ContentOperandKind.Dictionary = 7 -> Broadside.Content.ContentOperandKind
+Broadside.Content.ContentOperandKind.Integer = 2 -> Broadside.Content.ContentOperandKind
+Broadside.Content.ContentOperandKind.Name = 4 -> Broadside.Content.ContentOperandKind
+Broadside.Content.ContentOperandKind.Null = 0 -> Broadside.Content.ContentOperandKind
+Broadside.Content.ContentOperandKind.Real = 3 -> Broadside.Content.ContentOperandKind
+Broadside.Content.ContentOperandKind.String = 5 -> Broadside.Content.ContentOperandKind
+Broadside.Content.ContentOperands
+Broadside.Content.ContentOperands.ContentOperands() -> void
+Broadside.Content.ContentOperands.Count.get -> int
+Broadside.Content.ContentOperands.Enumerator
+Broadside.Content.ContentOperands.Enumerator.Current.get -> Broadside.Content.ContentOperand
+Broadside.Content.ContentOperands.Enumerator.Enumerator() -> void
+Broadside.Content.ContentOperands.Enumerator.MoveNext() -> bool
+Broadside.Content.ContentOperands.GetEnumerator() -> Broadside.Content.ContentOperands.Enumerator
+Broadside.Content.ContentOperands.this[int index].get -> Broadside.Content.ContentOperand
+Broadside.Content.ContentOperator
+Broadside.Content.ContentOperator.Code.get -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperator.ContentOperator() -> void
+Broadside.Content.ContentOperator.Data.get -> System.ReadOnlySpan<byte>
+Broadside.Content.ContentOperator.Keyword.get -> System.ReadOnlySpan<byte>
+Broadside.Content.ContentOperator.KeywordOffset.get -> int
+Broadside.Content.ContentOperator.Length.get -> int
+Broadside.Content.ContentOperator.Offset.get -> int
+Broadside.Content.ContentOperator.Operands.get -> Broadside.Content.ContentOperands
+Broadside.Content.ContentOperator.PartIndex.get -> int
+Broadside.Content.ContentOperator.Stream.get -> Broadside.Objects.CosReference?
+Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.BeginCompatibility = 72 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.BeginInlineImage = 63 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.BeginInlineImageData = 64 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.BeginMarkedContent = 69 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.BeginMarkedContentWithProperties = 70 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.BeginText = 31 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.Clip = 29 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.ClipEvenOdd = 30 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.CloseAndStroke = 20 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.CloseFillAndStroke = 26 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.CloseFillEvenOddAndStroke = 27 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.ClosePath = 17 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.ConcatenateMatrix = 3 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.CurveTo = 14 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.CurveToFinalPointReplicated = 16 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.CurveToInitialPointReplicated = 15 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.EndCompatibility = 73 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.EndInlineImage = 65 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.EndMarkedContent = 71 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.EndPath = 28 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.EndText = 32 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.Fill = 21 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.FillAndStroke = 24 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.FillEvenOdd = 23 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.FillEvenOddAndStroke = 25 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.FillObsolete = 22 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.LineTo = 13 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.MarkPoint = 67 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.MarkPointWithProperties = 68 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.MoveText = 40 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.MoveTextSetLeading = 41 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.MoveTo = 12 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.NextLine = 43 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.NextLineShowText = 46 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.NextLineShowTextWithSpacing = 47 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.PaintShading = 62 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.PaintXObject = 66 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.Rectangle = 18 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.RestoreState = 2 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SaveState = 1 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetCharacterSpacing = 33 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetDash = 8 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetFillCmyk = 61 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetFillColor = 54 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetFillColorExtended = 55 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetFillColorSpace = 51 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetFillGray = 57 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetFillRgb = 59 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetFlatness = 10 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetFont = 37 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetGlyphWidth = 48 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetGlyphWidthAndBoundingBox = 49 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetGraphicsStateParameters = 11 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetHorizontalScaling = 35 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetLeading = 36 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetLineCap = 5 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetLineJoin = 6 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetLineWidth = 4 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetMiterLimit = 7 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetRenderingIntent = 9 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetStrokeCmyk = 60 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetStrokeColor = 52 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetStrokeColorExtended = 53 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetStrokeColorSpace = 50 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetStrokeGray = 56 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetStrokeRgb = 58 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetTextMatrix = 42 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetTextRenderingMode = 38 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetTextRise = 39 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.SetWordSpacing = 34 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.ShowText = 44 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.ShowTextAdjusted = 45 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.Stroke = 19 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorCode.Unknown = 0 -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOptions
+Broadside.Content.ContentOptions.CancellationToken.get -> System.Threading.CancellationToken
+Broadside.Content.ContentOptions.CancellationToken.set -> void
+Broadside.Content.ContentOptions.ContentOptions() -> void
+Broadside.Content.ContentOptions.MaxNestingDepth.get -> int
+Broadside.Content.ContentOptions.MaxNestingDepth.set -> void
+Broadside.Content.ContentOptions.MaxOperands.get -> int
+Broadside.Content.ContentOptions.MaxOperands.set -> void
+Broadside.Content.ContentOptions.MaxSaveDepth.get -> int
+Broadside.Content.ContentOptions.MaxSaveDepth.set -> void
+Broadside.Content.ContentOptions.WithCancellation(System.Threading.CancellationToken cancellationToken) -> Broadside.Content.ContentOptions!
+Broadside.Content.ContentOptions.WithMaxNestingDepth(int maxNestingDepth) -> Broadside.Content.ContentOptions!
+Broadside.Content.ContentOptions.WithMaxOperands(int maxOperands) -> Broadside.Content.ContentOptions!
+Broadside.Content.ContentOptions.WithMaxSaveDepth(int maxSaveDepth) -> Broadside.Content.ContentOptions!
+Broadside.Content.ContentProcessor
+Broadside.Content.ContentProcessor.ContentProcessor() -> void
+Broadside.Content.ContentRunKind
+Broadside.Content.ContentRunKind.Appearance = 6 -> Broadside.Content.ContentRunKind
+Broadside.Content.ContentRunKind.Form = 1 -> Broadside.Content.ContentRunKind
+Broadside.Content.ContentRunKind.Group = 2 -> Broadside.Content.ContentRunKind
+Broadside.Content.ContentRunKind.Page = 0 -> Broadside.Content.ContentRunKind
+Broadside.Content.ContentRunKind.Pattern = 3 -> Broadside.Content.ContentRunKind
+Broadside.Content.ContentRunKind.SoftMask = 5 -> Broadside.Content.ContentRunKind
+Broadside.Content.ContentRunKind.Type3Glyph = 4 -> Broadside.Content.ContentRunKind
+Broadside.Content.ContentVisit
+Broadside.Content.ContentVisit.Enter = 0 -> Broadside.Content.ContentVisit
+Broadside.Content.ContentVisit.Skip = 1 -> Broadside.Content.ContentVisit
+Broadside.Content.FormEvent
+Broadside.Content.FormEvent.BoundingBox.get -> Broadside.PdfRectangle
+Broadside.Content.FormEvent.Depth.get -> int
+Broadside.Content.FormEvent.FormEvent() -> void
+Broadside.Content.FormEvent.Group.get -> Broadside.Objects.CosDictionary?
+Broadside.Content.FormEvent.Matrix.get -> Broadside.Graphics.Matrix
+Broadside.Content.FormEvent.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Content.FormEvent.ReferenceDictionary.get -> Broadside.Objects.CosDictionary?
+Broadside.Content.FormEvent.ResourceName.get -> System.ReadOnlySpan<byte>
+Broadside.Content.FormEvent.Resources.get -> Broadside.Objects.CosDictionary?
+Broadside.Content.FormEvent.Stream.get -> Broadside.Objects.CosStream?
+Broadside.Content.FormEvent.StructParent.get -> int?
+Broadside.Content.FormEvent.StructParents.get -> int?
+Broadside.Content.GlyphEvent
+Broadside.Content.GlyphEvent.Adjustment.get -> double
+Broadside.Content.GlyphEvent.AdvanceX.get -> double
+Broadside.Content.GlyphEvent.AdvanceY.get -> double
+Broadside.Content.GlyphEvent.CharacterCode.get -> uint
+Broadside.Content.GlyphEvent.CodeLength.get -> int
+Broadside.Content.GlyphEvent.Ctm.get -> Broadside.Graphics.Matrix
+Broadside.Content.GlyphEvent.FontDictionary.get -> Broadside.Objects.CosDictionary?
+Broadside.Content.GlyphEvent.GlyphEvent() -> void
+Broadside.Content.GlyphEvent.HorizontalDisplacement.get -> double
+Broadside.Content.GlyphEvent.IsHidden.get -> bool
+Broadside.Content.GlyphEvent.IsVertical.get -> bool
+Broadside.Content.GlyphEvent.RenderingMode.get -> Broadside.Graphics.TextRenderingMode
+Broadside.Content.GlyphEvent.SourceBytes.get -> System.ReadOnlySpan<byte>
+Broadside.Content.GlyphEvent.SourceIndex.get -> int
+Broadside.Content.GlyphEvent.TextMatrix.get -> Broadside.Graphics.Matrix
+Broadside.Content.GlyphEvent.VerticalDisplacement.get -> double
+Broadside.Content.GlyphEvent.WordSpacingApplied.get -> bool
+Broadside.Content.ImageEvent
+Broadside.Content.ImageEvent.Ctm.get -> Broadside.Graphics.Matrix
+Broadside.Content.ImageEvent.ImageEvent() -> void
+Broadside.Content.ImageEvent.InlineData.get -> System.ReadOnlySpan<byte>
+Broadside.Content.ImageEvent.InlineDictionary.get -> Broadside.Content.ContentOperand
+Broadside.Content.ImageEvent.IsHidden.get -> bool
+Broadside.Content.ImageEvent.IsInline.get -> bool
+Broadside.Content.ImageEvent.IsStencil.get -> bool
+Broadside.Content.ImageEvent.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Content.ImageEvent.ResourceName.get -> System.ReadOnlySpan<byte>
+Broadside.Content.ImageEvent.Stream.get -> Broadside.Objects.CosStream?
+Broadside.Content.ImageEvent.StructParent.get -> int?
+Broadside.Content.MarkedContentEvent
+Broadside.Content.MarkedContentEvent.Depth.get -> int
+Broadside.Content.MarkedContentEvent.InlineProperties.get -> Broadside.Content.ContentOperand
+Broadside.Content.MarkedContentEvent.IsHidden.get -> bool
+Broadside.Content.MarkedContentEvent.MarkedContentEvent() -> void
+Broadside.Content.MarkedContentEvent.Mcid.get -> int?
+Broadside.Content.MarkedContentEvent.Properties.get -> Broadside.Objects.CosDictionary?
+Broadside.Content.MarkedContentEvent.Tag.get -> System.ReadOnlySpan<byte>
+Broadside.Content.PathEvent
+Broadside.Content.PathEvent.ClosedBeforePaint.get -> bool
+Broadside.Content.PathEvent.FillRule.get -> Broadside.Graphics.FillRule
+Broadside.Content.PathEvent.IsHidden.get -> bool
+Broadside.Content.PathEvent.Paint.get -> Broadside.Content.PathPaint
+Broadside.Content.PathEvent.Path.get -> Broadside.Graphics.PathView
+Broadside.Content.PathEvent.PathEvent() -> void
+Broadside.Content.PathEvent.PendingClip.get -> Broadside.Graphics.FillRule?
+Broadside.Content.PathPaint
+Broadside.Content.PathPaint.Fill = 2 -> Broadside.Content.PathPaint
+Broadside.Content.PathPaint.FillAndStroke = 3 -> Broadside.Content.PathPaint
+Broadside.Content.PathPaint.None = 0 -> Broadside.Content.PathPaint
+Broadside.Content.PathPaint.Stroke = 1 -> Broadside.Content.PathPaint
+Broadside.Content.ShadingEvent
+Broadside.Content.ShadingEvent.Ctm.get -> Broadside.Graphics.Matrix
+Broadside.Content.ShadingEvent.IsHidden.get -> bool
+Broadside.Content.ShadingEvent.ResourceName.get -> System.ReadOnlySpan<byte>
+Broadside.Content.ShadingEvent.Shading.get -> Broadside.Objects.CosObject?
+Broadside.Content.ShadingEvent.ShadingEvent() -> void
+Broadside.Graphics.BlendMode
+Broadside.Graphics.BlendMode.Color = 14 -> Broadside.Graphics.BlendMode
+Broadside.Graphics.BlendMode.ColorBurn = 7 -> Broadside.Graphics.BlendMode
+Broadside.Graphics.BlendMode.ColorDodge = 6 -> Broadside.Graphics.BlendMode
+Broadside.Graphics.BlendMode.Darken = 4 -> Broadside.Graphics.BlendMode
+Broadside.Graphics.BlendMode.Difference = 10 -> Broadside.Graphics.BlendMode
+Broadside.Graphics.BlendMode.Exclusion = 11 -> Broadside.Graphics.BlendMode
+Broadside.Graphics.BlendMode.HardLight = 8 -> Broadside.Graphics.BlendMode
+Broadside.Graphics.BlendMode.Hue = 12 -> Broadside.Graphics.BlendMode
+Broadside.Graphics.BlendMode.Lighten = 5 -> Broadside.Graphics.BlendMode
+Broadside.Graphics.BlendMode.Luminosity = 15 -> Broadside.Graphics.BlendMode
+Broadside.Graphics.BlendMode.Multiply = 1 -> Broadside.Graphics.BlendMode
+Broadside.Graphics.BlendMode.Normal = 0 -> Broadside.Graphics.BlendMode
+Broadside.Graphics.BlendMode.Overlay = 3 -> Broadside.Graphics.BlendMode
+Broadside.Graphics.BlendMode.Saturation = 13 -> Broadside.Graphics.BlendMode
+Broadside.Graphics.BlendMode.Screen = 2 -> Broadside.Graphics.BlendMode
+Broadside.Graphics.BlendMode.SoftLight = 9 -> Broadside.Graphics.BlendMode
+Broadside.Graphics.FillRule
+Broadside.Graphics.FillRule.EvenOdd = 1 -> Broadside.Graphics.FillRule
+Broadside.Graphics.FillRule.NonZero = 0 -> Broadside.Graphics.FillRule
+Broadside.Graphics.GraphicsState
+Broadside.Graphics.GraphicsState.AlphaIsShape.get -> bool
+Broadside.Graphics.GraphicsState.BlendMode.get -> Broadside.Graphics.BlendMode
+Broadside.Graphics.GraphicsState.CharacterSpacing.get -> double
+Broadside.Graphics.GraphicsState.ClipHandle.get -> int
+Broadside.Graphics.GraphicsState.Ctm.get -> Broadside.Graphics.Matrix
+Broadside.Graphics.GraphicsState.DashArray.get -> System.ReadOnlySpan<double>
+Broadside.Graphics.GraphicsState.DashPhase.get -> double
+Broadside.Graphics.GraphicsState.FillAlpha.get -> double
+Broadside.Graphics.GraphicsState.FillOverprint.get -> bool
+Broadside.Graphics.GraphicsState.Flatness.get -> double
+Broadside.Graphics.GraphicsState.FontSize.get -> double
+Broadside.Graphics.GraphicsState.GraphicsState() -> void
+Broadside.Graphics.GraphicsState.HorizontalScaling.get -> double
+Broadside.Graphics.GraphicsState.Leading.get -> double
+Broadside.Graphics.GraphicsState.LineCap.get -> Broadside.Graphics.LineCap
+Broadside.Graphics.GraphicsState.LineJoin.get -> Broadside.Graphics.LineJoin
+Broadside.Graphics.GraphicsState.LineWidth.get -> double
+Broadside.Graphics.GraphicsState.MiterLimit.get -> double
+Broadside.Graphics.GraphicsState.OverprintMode.get -> int
+Broadside.Graphics.GraphicsState.RenderingIntent.get -> Broadside.Graphics.RenderingIntent
+Broadside.Graphics.GraphicsState.StrokeAdjustment.get -> bool
+Broadside.Graphics.GraphicsState.StrokeAlpha.get -> double
+Broadside.Graphics.GraphicsState.StrokeOverprint.get -> bool
+Broadside.Graphics.GraphicsState.TextKnockout.get -> bool
+Broadside.Graphics.GraphicsState.TextRenderingMode.get -> Broadside.Graphics.TextRenderingMode
+Broadside.Graphics.GraphicsState.TextRise.get -> double
+Broadside.Graphics.GraphicsState.WordSpacing.get -> double
+Broadside.Graphics.LineCap
+Broadside.Graphics.LineCap.Butt = 0 -> Broadside.Graphics.LineCap
+Broadside.Graphics.LineCap.ProjectingSquare = 2 -> Broadside.Graphics.LineCap
+Broadside.Graphics.LineCap.Round = 1 -> Broadside.Graphics.LineCap
+Broadside.Graphics.LineJoin
+Broadside.Graphics.LineJoin.Bevel = 2 -> Broadside.Graphics.LineJoin
+Broadside.Graphics.LineJoin.Miter = 0 -> Broadside.Graphics.LineJoin
+Broadside.Graphics.LineJoin.Round = 1 -> Broadside.Graphics.LineJoin
+Broadside.Graphics.Matrix
+Broadside.Graphics.Matrix.A.get -> double
+Broadside.Graphics.Matrix.B.get -> double
+Broadside.Graphics.Matrix.C.get -> double
+Broadside.Graphics.Matrix.D.get -> double
+Broadside.Graphics.Matrix.Determinant.get -> double
+Broadside.Graphics.Matrix.E.get -> double
+Broadside.Graphics.Matrix.Equals(Broadside.Graphics.Matrix other) -> bool
+Broadside.Graphics.Matrix.F.get -> double
+Broadside.Graphics.Matrix.IsIdentity.get -> bool
+Broadside.Graphics.Matrix.Matrix() -> void
+Broadside.Graphics.Matrix.Matrix(double a, double b, double c, double d, double e, double f) -> void
+Broadside.Graphics.Matrix.Transform(Broadside.Graphics.PathPoint point) -> Broadside.Graphics.PathPoint
+Broadside.Graphics.Matrix.Transform(double x, double y) -> Broadside.Graphics.PathPoint
+Broadside.Graphics.Matrix.TransformVector(double dx, double dy) -> Broadside.Graphics.PathPoint
+Broadside.Graphics.Matrix.TryInvert(out Broadside.Graphics.Matrix inverse) -> bool
+Broadside.Graphics.PathPoint
+Broadside.Graphics.PathPoint.PathPoint() -> void
+Broadside.Graphics.PathPoint.PathPoint(double X, double Y) -> void
+Broadside.Graphics.PathPoint.X.get -> double
+Broadside.Graphics.PathPoint.X.init -> void
+Broadside.Graphics.PathPoint.Y.get -> double
+Broadside.Graphics.PathPoint.Y.init -> void
+Broadside.Graphics.PathVerb
+Broadside.Graphics.PathVerb.Close = 4 -> Broadside.Graphics.PathVerb
+Broadside.Graphics.PathVerb.CubicTo = 3 -> Broadside.Graphics.PathVerb
+Broadside.Graphics.PathVerb.LineTo = 1 -> Broadside.Graphics.PathVerb
+Broadside.Graphics.PathVerb.MoveTo = 0 -> Broadside.Graphics.PathVerb
+Broadside.Graphics.PathVerb.QuadTo = 2 -> Broadside.Graphics.PathVerb
+Broadside.Graphics.PathView
+Broadside.Graphics.PathView.Bounds.get -> Broadside.PdfRectangle
+Broadside.Graphics.PathView.HasTrailingMoveTo.get -> bool
+Broadside.Graphics.PathView.IsEmpty.get -> bool
+Broadside.Graphics.PathView.PathView() -> void
+Broadside.Graphics.PathView.PathView(System.ReadOnlySpan<Broadside.Graphics.PathVerb> verbs, System.ReadOnlySpan<Broadside.Graphics.PathPoint> points) -> void
+Broadside.Graphics.PathView.Points.get -> System.ReadOnlySpan<Broadside.Graphics.PathPoint>
+Broadside.Graphics.PathView.Verbs.get -> System.ReadOnlySpan<Broadside.Graphics.PathVerb>
+Broadside.Graphics.RenderingIntent
+Broadside.Graphics.RenderingIntent.AbsoluteColorimetric = 1 -> Broadside.Graphics.RenderingIntent
+Broadside.Graphics.RenderingIntent.Perceptual = 3 -> Broadside.Graphics.RenderingIntent
+Broadside.Graphics.RenderingIntent.RelativeColorimetric = 0 -> Broadside.Graphics.RenderingIntent
+Broadside.Graphics.RenderingIntent.Saturation = 2 -> Broadside.Graphics.RenderingIntent
+Broadside.Graphics.TextRenderingMode
+Broadside.Graphics.TextRenderingMode.Clip = 7 -> Broadside.Graphics.TextRenderingMode
+Broadside.Graphics.TextRenderingMode.Fill = 0 -> Broadside.Graphics.TextRenderingMode
+Broadside.Graphics.TextRenderingMode.FillClip = 4 -> Broadside.Graphics.TextRenderingMode
+Broadside.Graphics.TextRenderingMode.FillStroke = 2 -> Broadside.Graphics.TextRenderingMode
+Broadside.Graphics.TextRenderingMode.FillStrokeClip = 6 -> Broadside.Graphics.TextRenderingMode
+Broadside.Graphics.TextRenderingMode.Invisible = 3 -> Broadside.Graphics.TextRenderingMode
+Broadside.Graphics.TextRenderingMode.Stroke = 1 -> Broadside.Graphics.TextRenderingMode
+Broadside.Graphics.TextRenderingMode.StrokeClip = 5 -> Broadside.Graphics.TextRenderingMode
 Broadside.Objects.CosArray
 Broadside.Objects.CosArray.Add(Broadside.Objects.CosObject! item) -> void
 Broadside.Objects.CosArray.Clear() -> void
@@ -65,7 +437,36 @@ Broadside.Objects.CosString.CosString(System.ReadOnlySpan<byte> bytes, bool hexa
 Broadside.Objects.CosString.DecodeText() -> string!
 Broadside.Objects.CosString.Equals(Broadside.Objects.CosString? other) -> bool
 Broadside.Objects.CosString.IsHexadecimal.get -> bool
+Broadside.PdfPage.ProcessContent(Broadside.Content.ContentProcessor! processor) -> void
+Broadside.PdfPage.ProcessContent(Broadside.Content.ContentProcessor! processor, Broadside.Content.ContentOptions! options) -> void
+const Broadside.Content.ContentOptions.DefaultMaxNestingDepth = 50 -> int
+const Broadside.Content.ContentOptions.DefaultMaxOperands = 65536 -> int
+const Broadside.Content.ContentOptions.DefaultMaxSaveDepth = 4096 -> int
 const Broadside.Objects.CosReference.MaxGeneration = 65535 -> int
+override Broadside.Content.CompositeContentProcessor.BeginForm(in Broadside.Content.FormEvent form, Broadside.Content.ContentContext! context) -> Broadside.Content.ContentVisit
+override Broadside.Content.CompositeContentProcessor.BeginMarkedContent(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
+override Broadside.Content.CompositeContentProcessor.BeginRun(Broadside.Content.ContentContext! context) -> void
+override Broadside.Content.CompositeContentProcessor.BeginText(Broadside.Content.ContentContext! context) -> void
+override Broadside.Content.CompositeContentProcessor.BeginType3Glyph(in Broadside.Content.GlyphEvent glyph, Broadside.Content.ContentContext! context) -> Broadside.Content.ContentVisit
+override Broadside.Content.CompositeContentProcessor.EndForm(in Broadside.Content.FormEvent form, Broadside.Content.ContentContext! context) -> void
+override Broadside.Content.CompositeContentProcessor.EndMarkedContent(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
+override Broadside.Content.CompositeContentProcessor.EndRun(Broadside.Content.ContentContext! context) -> void
+override Broadside.Content.CompositeContentProcessor.EndText(Broadside.Content.ContentContext! context) -> void
+override Broadside.Content.CompositeContentProcessor.EndType3Glyph(in Broadside.Content.GlyphEvent glyph, Broadside.Content.ContentContext! context) -> void
+override Broadside.Content.CompositeContentProcessor.Events.get -> Broadside.Content.ContentEvents
+override Broadside.Content.CompositeContentProcessor.IntersectClip(in Broadside.Content.ClipEvent clip, Broadside.Content.ContentContext! context) -> void
+override Broadside.Content.CompositeContentProcessor.MarkedContentPoint(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
+override Broadside.Content.CompositeContentProcessor.PaintImage(in Broadside.Content.ImageEvent image, Broadside.Content.ContentContext! context) -> void
+override Broadside.Content.CompositeContentProcessor.PaintPath(in Broadside.Content.PathEvent path, Broadside.Content.ContentContext! context) -> void
+override Broadside.Content.CompositeContentProcessor.PaintShading(in Broadside.Content.ShadingEvent shading, Broadside.Content.ContentContext! context) -> void
+override Broadside.Content.CompositeContentProcessor.RestoreState(Broadside.Content.ContentContext! context) -> void
+override Broadside.Content.CompositeContentProcessor.SaveState(Broadside.Content.ContentContext! context) -> void
+override Broadside.Content.CompositeContentProcessor.ShowGlyph(in Broadside.Content.GlyphEvent glyph, Broadside.Content.ContentContext! context) -> void
+override Broadside.Content.CompositeContentProcessor.VisitOperator(in Broadside.Content.ContentOperator op, Broadside.Content.ContentContext! context) -> void
+override Broadside.Graphics.Matrix.Equals(object? obj) -> bool
+override Broadside.Graphics.Matrix.GetHashCode() -> int
+override Broadside.Graphics.Matrix.ToString() -> string!
+override Broadside.Graphics.PathPoint.ToString() -> string!
 override Broadside.Objects.CosArray.IsDirty.get -> bool
 override Broadside.Objects.CosBoolean.Equals(object? obj) -> bool
 override Broadside.Objects.CosBoolean.GetHashCode() -> int
@@ -84,12 +485,39 @@ override Broadside.Objects.CosReference.GetHashCode() -> int
 override Broadside.Objects.CosStream.IsDirty.get -> bool
 override Broadside.Objects.CosString.Equals(object? obj) -> bool
 override Broadside.Objects.CosString.GetHashCode() -> int
+static Broadside.Graphics.Matrix.CreateScale(double sx, double sy) -> Broadside.Graphics.Matrix
+static Broadside.Graphics.Matrix.CreateTranslation(double tx, double ty) -> Broadside.Graphics.Matrix
+static Broadside.Graphics.Matrix.Identity.get -> Broadside.Graphics.Matrix
+static Broadside.Graphics.Matrix.Multiply(Broadside.Graphics.Matrix first, Broadside.Graphics.Matrix second) -> Broadside.Graphics.Matrix
+static Broadside.Graphics.Matrix.operator !=(Broadside.Graphics.Matrix left, Broadside.Graphics.Matrix right) -> bool
+static Broadside.Graphics.Matrix.operator *(Broadside.Graphics.Matrix first, Broadside.Graphics.Matrix second) -> Broadside.Graphics.Matrix
+static Broadside.Graphics.Matrix.operator ==(Broadside.Graphics.Matrix left, Broadside.Graphics.Matrix right) -> bool
 static Broadside.Objects.CosBoolean.False.get -> Broadside.Objects.CosBoolean!
 static Broadside.Objects.CosBoolean.True.get -> Broadside.Objects.CosBoolean!
 static Broadside.Objects.CosNull.Instance.get -> Broadside.Objects.CosNull!
 static Broadside.Objects.CosObject.DeepEquals(Broadside.Objects.CosObject? left, Broadside.Objects.CosObject? right) -> bool
 static Broadside.Objects.CosObject.Parse(System.ReadOnlySpan<byte> bytes) -> Broadside.Objects.CosObject!
 static Broadside.Objects.CosObject.TryParse(System.ReadOnlySpan<byte> bytes, out Broadside.Objects.CosObject? result) -> bool
+virtual Broadside.Content.ContentProcessor.BeginForm(in Broadside.Content.FormEvent form, Broadside.Content.ContentContext! context) -> Broadside.Content.ContentVisit
+virtual Broadside.Content.ContentProcessor.BeginMarkedContent(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
+virtual Broadside.Content.ContentProcessor.BeginRun(Broadside.Content.ContentContext! context) -> void
+virtual Broadside.Content.ContentProcessor.BeginText(Broadside.Content.ContentContext! context) -> void
+virtual Broadside.Content.ContentProcessor.BeginType3Glyph(in Broadside.Content.GlyphEvent glyph, Broadside.Content.ContentContext! context) -> Broadside.Content.ContentVisit
+virtual Broadside.Content.ContentProcessor.EndForm(in Broadside.Content.FormEvent form, Broadside.Content.ContentContext! context) -> void
+virtual Broadside.Content.ContentProcessor.EndMarkedContent(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
+virtual Broadside.Content.ContentProcessor.EndRun(Broadside.Content.ContentContext! context) -> void
+virtual Broadside.Content.ContentProcessor.EndText(Broadside.Content.ContentContext! context) -> void
+virtual Broadside.Content.ContentProcessor.EndType3Glyph(in Broadside.Content.GlyphEvent glyph, Broadside.Content.ContentContext! context) -> void
+virtual Broadside.Content.ContentProcessor.Events.get -> Broadside.Content.ContentEvents
+virtual Broadside.Content.ContentProcessor.IntersectClip(in Broadside.Content.ClipEvent clip, Broadside.Content.ContentContext! context) -> void
+virtual Broadside.Content.ContentProcessor.MarkedContentPoint(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
+virtual Broadside.Content.ContentProcessor.PaintImage(in Broadside.Content.ImageEvent image, Broadside.Content.ContentContext! context) -> void
+virtual Broadside.Content.ContentProcessor.PaintPath(in Broadside.Content.PathEvent path, Broadside.Content.ContentContext! context) -> void
+virtual Broadside.Content.ContentProcessor.PaintShading(in Broadside.Content.ShadingEvent shading, Broadside.Content.ContentContext! context) -> void
+virtual Broadside.Content.ContentProcessor.RestoreState(Broadside.Content.ContentContext! context) -> void
+virtual Broadside.Content.ContentProcessor.SaveState(Broadside.Content.ContentContext! context) -> void
+virtual Broadside.Content.ContentProcessor.ShowGlyph(in Broadside.Content.GlyphEvent glyph, Broadside.Content.ContentContext! context) -> void
+virtual Broadside.Content.ContentProcessor.VisitOperator(in Broadside.Content.ContentOperator op, Broadside.Content.ContentContext! context) -> void
 virtual Broadside.Objects.CosObject.IsDirty.get -> bool
 Broadside.Diagnostics.Diagnostic
 Broadside.Diagnostics.Diagnostic.Code.get -> string!

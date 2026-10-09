@@ -1,7 +1,9 @@
 using System.Buffers;
+using Broadside.Content;
 using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Fonts;
+using Broadside.Graphics;
 using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -20,6 +22,8 @@ internal static class FuzzTargets
     public static IReadOnlyDictionary<string, ReadOnlySpanAction> All { get; } = new Dictionary<string, ReadOnlySpanAction>(StringComparer.Ordinal)
     {
         ["lexer"] = Lexer,
+        ["content-lexer"] = ContentLexer,
+        ["content-interpreter"] = ContentInterpreterTarget,
         ["object-parser"] = ObjectParser,
         ["document"] = Document,
         ["windowed-document"] = WindowedDocument,
@@ -45,6 +49,7 @@ internal static class FuzzTargets
 
     private static readonly CosName ContentsKey = new("Contents");
     private static readonly CosName FontKey = new("Font");
+    private static readonly Lazy<PdfDocument> EmptyDocument = new(() => PdfDocument.Create());
     private static readonly CosName InfoKey = new("Info");
 
     /// <summary>
@@ -102,6 +107,8 @@ internal static class FuzzTargets
             {
                 _ = document.DecodeStream(stream);
             }
+
+            page.ProcessContent(new CheckingProcessor());
         }
 
         Navigation(document);
@@ -673,6 +680,51 @@ internal static class FuzzTargets
     }
 
     /// <summary>
+    /// Reads the input as decoded content: operator by operator, with operands. Every operator's ranges must lie inside the input,
+    /// after the previous operator, with a keyword of one byte or more (so the reader always progresses), and every operand,
+    /// nested ones included, must be readable.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.8.2 (issue #55).</remarks>
+    private static void ContentLexer(ReadOnlySpan<byte> data)
+    {
+        var arena = new OperandArena();
+        var reader = new ContentReader(data, arena);
+        int previousEnd = 0;
+        while (reader.Next(out ReadOperator op))
+        {
+            if (op.Start > op.KeywordStart || op.KeywordStart < previousEnd || op.KeywordLength < 1 || op.KeywordStart + op.KeywordLength > op.End
+                || op.End > data.Length || op.DataStart < 0 || op.DataLength < 0 || op.DataStart + op.DataLength > data.Length)
+            {
+                throw new InvalidOperationException($"Operator {op} lies outside the input of {data.Length} bytes or before the previous end {previousEnd}.");
+            }
+
+            _ = Walk(arena.Operands);
+            arena.Clear();
+            previousEnd = op.KeywordStart + op.KeywordLength;
+        }
+    }
+
+    private static double Walk(ContentOperands operands)
+    {
+        double sum = 0;
+        foreach (ContentOperand operand in operands)
+        {
+            sum += operand.Number + operand.Bytes.Length + Walk(operand.Items);
+        }
+
+        return sum;
+    }
+
+    /// <summary>
+    /// Runs the input as a page's decoded content through the interpreter with a processor that asks for every event and checks
+    /// what it receives: path verbs and points agree, clip handles resolve and chain back to the initial clip, the state stack is
+    /// balanced at the end of the run. Lenient mode: no exception may escape.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.8.2, §8.4, §8.5 (issue #55).</remarks>
+    private static void ContentInterpreterTarget(ReadOnlySpan<byte> data) =>
+        ContentInterpreter.RunBytes(data, EmptyDocument.Value, new CheckingProcessor(), ContentInterpreter.DefaultOptions);
+
+    /// <summary>
     /// Parses the input as a sequence of objects in lenient mode, the way a reader scans a file body, then checks the round-trip
     /// property for each object: what <see cref="CosObject.WriteTo"/> writes parses back, with no repair, to an equal object. Also
     /// runs the strict public <see cref="CosObject.TryParse"/> over the whole input, which must not throw.
@@ -859,6 +911,66 @@ internal static class FuzzTargets
         if (XmpDate.TryParse(text, out XmpDate xmp) && xmp.Text != text)
         {
             throw new InvalidOperationException("An XMP date must keep its text.");
+        }
+    }
+}
+
+/// <summary>A processor for the content targets: asks for every event and throws when what it receives is inconsistent.</summary>
+internal sealed class CheckingProcessor : ContentProcessor
+{
+    private int _saves;
+
+    public override void BeginRun(ContentContext context) => _saves = 0;
+
+    public override void SaveState(ContentContext context) => _saves++;
+
+    public override void RestoreState(ContentContext context) => _saves--;
+
+    public override void EndRun(ContentContext context)
+    {
+        if (_saves != 0 || context.StateDepth != 0)
+        {
+            throw new InvalidOperationException($"The state stack is unbalanced at the end of the run: {_saves} saves, depth {context.StateDepth}.");
+        }
+    }
+
+    public override void PaintPath(in PathEvent path, ContentContext context) => Check(path.Path);
+
+    public override void IntersectClip(in ClipEvent clip, ContentContext context)
+    {
+        Check(clip.Path);
+        if (context.State.ClipHandle != clip.Handle || clip.ParentHandle >= clip.Handle)
+        {
+            throw new InvalidOperationException($"Clip {clip.Handle} (parent {clip.ParentHandle}) is not the state's clip {context.State.ClipHandle}.");
+        }
+
+        int steps = 0;
+        for (int handle = clip.Handle; handle != 0; handle = context.GetClip(handle).ParentHandle)
+        {
+            if (++steps > clip.Handle)
+            {
+                throw new InvalidOperationException($"Clip {clip.Handle} does not chain back to the initial clip.");
+            }
+        }
+    }
+
+    private static void Check(PathView path)
+    {
+        int points = 0;
+        foreach (PathVerb verb in path.Verbs)
+        {
+            points += verb switch
+            {
+                PathVerb.MoveTo or PathVerb.LineTo => 1,
+                PathVerb.QuadTo => 2,
+                PathVerb.CubicTo => 3,
+                _ => 0,
+            };
+        }
+
+        if (points != path.Points.Length || (path.Verbs.Length > 0 && path.Verbs[0] != PathVerb.MoveTo))
+        {
+            throw new InvalidOperationException($"A path with {path.Verbs.Length} verbs has {path.Points.Length} points, expected {points}, or does not start with a moveto.");
         }
     }
 }

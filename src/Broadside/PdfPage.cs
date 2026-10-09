@@ -1,3 +1,4 @@
+using Broadside.Content;
 using Broadside.Diagnostics;
 using Broadside.Fonts;
 using Broadside.Objects;
@@ -89,6 +90,31 @@ public sealed class PdfPage
             && fontResources.TryGetValue(new CosName(resourceName), out CosObject? font)
             ? _document.GetFont(font)
             : null;
+    }
+
+    /// <summary>Runs the page's content through the content interpreter and reports what it paints to <paramref name="processor"/>.</summary>
+    /// <param name="processor">The processor; for several at once, a <see cref="CompositeContentProcessor"/>.</param>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.8.2, §8.2 to §8.5. The content is the page's <c>Contents</c> stream, or the streams of its <c>Contents</c>
+    /// array read as one (Table 31), decoded through their filters; the names it uses resolve in <see cref="Resources"/>. Geometry is
+    /// reported in user space with the CTM to default user space, starting at the identity: the media box, crop box, rotation and
+    /// user unit are the consumer's to apply. In lenient mode malformed content is repaired and recorded in
+    /// <see cref="PdfDocument.Diagnostics"/>, once per kind of deviation per content stream. Reads the page live, on every call.
+    /// </remarks>
+    public void ProcessContent(ContentProcessor processor) => ProcessContent(processor, ContentInterpreter.DefaultOptions);
+
+    /// <summary>Runs the page's content through the content interpreter, with limits and cancellation.</summary>
+    /// <param name="processor">The processor; for several at once, a <see cref="CompositeContentProcessor"/>.</param>
+    /// <param name="options">Limits and cancellation for the run.</param>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
+    /// <exception cref="OperationCanceledException">The options' cancellation token was canceled.</exception>
+    /// <remarks>ISO 32000-2 §7.8.2, §8.2 to §8.5. As <see cref="ProcessContent(ContentProcessor)"/>.</remarks>
+    public void ProcessContent(ContentProcessor processor, ContentOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(processor);
+        ArgumentNullException.ThrowIfNull(options);
+        ContentInterpreter.RunPage(this, _document, processor, options);
     }
 
     /// <summary>Reads a page boundary; for an inheritable one, from the nearest node that has it.</summary>
