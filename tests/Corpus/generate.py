@@ -1390,6 +1390,105 @@ def gen_collection_portfolio() -> bytes:
     ])
 
 
+def xmp_titled(title: bytes) -> bytes:
+    """A minimal XMP packet (14.3.2) whose dc:title is ``title``."""
+    return XMP.replace(b">Broadside<", b">" + title + b"<")
+
+
+def af_filespec(name: bytes, relationship: bytes | None, ef: int | None = None) -> bytes:
+    """7.11.3 file specification for an associated file (14.13): embedded when ``ef`` is given, else external."""
+    body = b"<< /Type /Filespec /F (%s) /UF (%s)" % (name, name)
+    if relationship is not None:
+        body += b" /AFRelationship /" + relationship
+    if ef is not None:
+        body += b" /EF << /F %d 0 R /UF %d 0 R >>" % (ef, ef)
+    return body + b" >>"
+
+
+def gen_associated_files() -> bytes:
+    """14.13 associated files at every location: catalog (Source, embedded), page (Data), form XObject
+    (Supplement, embedded application/mathml+xml), image XObject (Data), annotation (no AFRelationship:
+    Unspecified), structure tree root (Alternative), structure element (Alternative), DPart (Source),
+    metadata stream (Schema), marked content /AF /MF1 with an MCAF property list (errata Table 409a) and
+    /AF /MF2 with a bare array resource (14.13.5 Example 2). PDF 2.0 with a trailer ID (7.5.5)."""
+    id0 = file_id("associated-files").hex().encode()
+    content = b"/AF /MF1 BDC 0 0 10 10 re f EMC\n/AF /MF2 BDC /Fm Do EMC\nq 10 0 0 10 20 0 cm /Im Do Q\n"
+    return simple_file([
+        (1, catalog(b" /AF [20 0 R] /StructTreeRoot 6 0 R /DPartRoot 8 0 R /Metadata 10 0 R /MarkInfo << /Marked true >>")),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /AF [21 0 R] /DPart 9 0 R /Annots [5 0 R] /Resources << /XObject << /Fm 11 0 R /Im 12 0 R >>"
+                       b" /Properties << /MF1 13 0 R /MF2 [31 0 R] >> >>")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Annot /Subtype /Square /Rect [100 100 200 200] /AF [22 0 R] >>"),
+        (6, b"<< /Type /StructTreeRoot /K 7 0 R /AF [23 0 R] >>"),
+        (7, b"<< /Type /StructElem /S /Document /P 6 0 R /AF [24 0 R] >>"),
+        (8, b"<< /Type /DPartRoot /DPartRootNode 9 0 R >>"),
+        (9, b"<< /Type /DPart /Parent 8 0 R /Start 3 0 R /End 3 0 R /AF [25 0 R] >>"),
+        (10, stream(b"/Type /Metadata /Subtype /XML /AF [26 0 R]", XMP)),
+        (11, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10] /AF [27 0 R]", b"40 0 10 10 re f")),
+        (12, stream(b"/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /AF [28 0 R]", b"\x80")),
+        (13, b"<< /MCAF [29 0 R] >>"),
+        (20, af_filespec(b"source.txt", b"Source", ef=30)),
+        (21, af_filespec(b"page-data.csv", b"Data")),
+        (22, af_filespec(b"annotation.txt", None)),
+        (23, af_filespec(b"tree.txt", b"Alternative")),
+        (24, af_filespec(b"element.txt", b"Alternative")),
+        (25, af_filespec(b"part.txt", b"Source")),
+        (26, af_filespec(b"schema.xsd", b"Schema")),
+        (27, af_filespec(b"equation.mml", b"Supplement", ef=32)),
+        (28, af_filespec(b"image-data.csv", b"Data")),
+        (29, af_filespec(b"marked.csv", b"Data")),
+        (30, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain /Params << /ModDate (D:20240101000000Z) /Size 6 >>", b"source")),
+        (31, af_filespec(b"marked-legacy.txt", b"Supplement")),
+        (32, stream(b"/Type /EmbeddedFile /Subtype /application#2Fmathml+xml /Params << /ModDate (D:20240101000000Z) >>",
+                    b"<math><mi>x</mi></math>")),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_object_metadata() -> bytes:
+    """14.3.2 and PDF 2.0 Application Note 003: a Metadata stream, each with a distinct dc:title, on the catalog
+    (Document), a page, an image XObject, a form XObject, an ICCBased colour space stream, an embedded TrueType
+    font program (FontFile2), a tiling pattern, a shading dictionary, a marked-content property list, an
+    optional content group, an annotation and an embedded file stream."""
+    font, widths = minimal_truetype()
+    first, last = min(widths), max(widths)
+    w = b" ".join(b"%d" % widths[c] for c in range(first, last + 1))
+    titles = [b"Document", b"Page", b"Image", b"Form", b"ICC profile", b"Font program", b"Tiling pattern",
+              b"Shading", b"Marked content", b"Optional content", b"Annotation", b"Embedded file"]
+    meta = {title: 40 + i for i, title in enumerate(titles)}
+    objects = [
+        (1, catalog(b" /Metadata %d 0 R /OCProperties << /OCGs [15 0 R] /D << >> >>"
+                    b" /Names << /EmbeddedFiles << /Names [(attached.txt) 16 0 R] >> >>" % meta[b"Document"])),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Metadata %d 0 R /Annots [14 0 R] /Resources << /XObject << /Im 5 0 R /Fm 6 0 R >>"
+                       b" /ColorSpace << /CS0 [/ICCBased 7 0 R] >> /Font << /F1 8 0 R >> /Pattern << /P0 10 0 R >>"
+                       b" /Shading << /Sh0 11 0 R >> /Properties << /MC0 12 0 R /OC0 15 0 R >> >>" % meta[b"Page"])),
+        (4, stream(b"", b"/Im Do /Fm Do /Span /MC0 BDC EMC /OC /OC0 BDC EMC BT /F1 24 Tf 72 700 Td (HI) Tj ET\n")),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Metadata %d 0 R"
+                   % meta[b"Image"], b"\x80")),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10] /Metadata %d 0 R" % meta[b"Form"], b"0 0 10 10 re f")),
+        (7, stream(b"/N 1 /Alternate /DeviceGray /Metadata %d 0 R" % meta[b"ICC profile"], b"ICC")),
+        (8, b"<< /Type /Font /Subtype /TrueType /BaseFont /BroadsideMinimal /FirstChar %d /LastChar %d "
+            b"/Widths [%s] /Encoding /WinAnsiEncoding /FontDescriptor 9 0 R >>" % (first, last, w)),
+        (9, b"<< /Type /FontDescriptor /FontName /BroadsideMinimal /Flags 32 /FontBBox [0 0 700 700] "
+            b"/ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 200 /FontFile2 13 0 R >>"),
+        (10, stream(b"/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 10 10] /XStep 10 /YStep 10"
+                    b" /Resources << >> /Metadata %d 0 R" % meta[b"Tiling pattern"], b"0 0 5 5 re f")),
+        (11, b"<< /ShadingType 2 /ColorSpace /DeviceGray /Coords [0 0 1 0] /Function << /FunctionType 2 /Domain [0 1]"
+             b" /C0 [0] /C1 [1] /N 1 >> /Metadata %d 0 R >>" % meta[b"Shading"]),
+        (12, b"<< /Metadata %d 0 R >>" % meta[b"Marked content"]),
+        (13, stream(b"/Length1 %d /Metadata %d 0 R" % (len(font), meta[b"Font program"]), font)),
+        (14, b"<< /Type /Annot /Subtype /Square /Rect [100 100 200 200] /Metadata %d 0 R >>" % meta[b"Annotation"]),
+        (15, b"<< /Type /OCG /Name (Layer) /Metadata %d 0 R >>" % meta[b"Optional content"]),
+        (16, b"<< /Type /Filespec /F (attached.txt) /UF (attached.txt) /EF << /F 17 0 R /UF 17 0 R >> >>"),
+        (17, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain /Metadata %d 0 R" % meta[b"Embedded file"], b"attached")),
+    ]
+    objects += [(meta[title], stream(b"/Type /Metadata /Subtype /XML", xmp_titled(title))) for title in titles]
+    return simple_file(objects, binary=True)
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -1439,6 +1538,8 @@ FILES = {
     "optional-content.pdf": gen_optional_content,
     "embedded-files.pdf": gen_embedded_files,
     "collection-portfolio.pdf": gen_collection_portfolio,
+    "associated-files.pdf": gen_associated_files,
+    "object-metadata.pdf": gen_object_metadata,
 }
 
 

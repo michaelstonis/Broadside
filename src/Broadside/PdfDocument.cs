@@ -452,7 +452,7 @@ public sealed class PdfDocument : IDisposable
     /// <remarks>
     /// ISO 32000-2 §7.7.4, Table 32 (PDF 1.4), and §7.11.4. Read on every call. An entry whose value is not a file specification is
     /// skipped with a <c>FileSpecificationInvalid</c> diagnostic. Files attached only to annotations or associated files are not
-    /// listed here (PDF 2.0 Application Note 002 §6.2): see <c>EnumerateAssociatedFiles</c>.
+    /// listed here (PDF 2.0 Application Note 002 §6.2): see <see cref="EnumerateAssociatedFiles"/>.
     /// </remarks>
     public IReadOnlyList<PdfEmbeddedFileEntry> EmbeddedFiles
     {
@@ -486,6 +486,81 @@ public sealed class PdfDocument : IDisposable
         Resolve(Catalog.TryGetValue(FileAndLayerNames.Collection, out CosObject? entry) ? entry : null) is CosDictionary dictionary
             ? new PdfCollection(this, dictionary, entry as CosReference)
             : null;
+
+    /// <summary>Gets the files associated with the whole document (the catalog's <c>AF</c>).</summary>
+    /// <remarks>ISO 32000-2 §7.7.2, Table 29 (PDF 2.0), and §14.13.3. Read on every call.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => ReadAssociatedFiles(Catalog, CatalogReference);
+
+    /// <summary>Returns the associated files listed in the <c>AF</c> entry of <paramref name="owner"/>.</summary>
+    /// <param name="owner">Any dictionary or stream dictionary of this document: a structure element, an annotation, a form field.</param>
+    /// <param name="ownerReference">The owner's indirect reference, for diagnostics.</param>
+    /// <returns>The file specifications, in order.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §14.13.2 (PDF 2.0): <c>AF</c> is an array of file specification dictionaries. A single dictionary is read as an
+    /// array of one and a file specification string is accepted, both with an <c>AssociatedFilesInvalid</c> diagnostic. An embedded
+    /// associated file without <c>Subtype</c>, or with <c>Params</c> but no <c>ModDate</c>, is reported. A missing
+    /// <c>AFRelationship</c> means Unspecified and is not reported.
+    /// </remarks>
+    public IReadOnlyList<PdfFileSpecification> ReadAssociatedFiles(CosDictionary owner, CosReference? ownerReference = null)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        return owner.TryGetValue(FileAndLayerNames.AF, out CosObject? value) ? AssociatedFileReader.Read(this, value, ownerReference) : [];
+    }
+
+    /// <summary>Returns the associated files of a marked-content sequence, from the property list of its <c>/AF</c> tag.</summary>
+    /// <param name="properties">The property list operand of <c>/AF ... BDC</c>, resolved from the <c>Properties</c> resource, or a reference to it.</param>
+    /// <returns>The file specifications.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §14.13.5 and errata Table 409a: a property list dictionary whose <c>MCAF</c> array lists the files (each shall
+    /// have <c>AFRelationship</c>), or, as in the original text's Example 2, a resource that is the array itself. Both are accepted.
+    /// </remarks>
+    public IReadOnlyList<PdfFileSpecification> ReadMarkedContentAssociatedFiles(CosObject? properties) =>
+        AssociatedFileReader.ReadMarkedContent(this, properties, properties as CosReference);
+
+    /// <summary>Enumerates every associated file of the document with the object it is associated with.</summary>
+    /// <param name="deep">
+    /// <see langword="false"/> walks the known locations: the catalog and its metadata, the structure tree, document parts, and every
+    /// page with its resources (form and image XObjects, marked-content property lists, recursively through forms) and annotations.
+    /// <see langword="true"/> also scans every object of the file for an <c>AF</c> entry (Application Note 002 §3.2: AF may appear on
+    /// any object), reporting those as <see cref="PdfAssociatedFileLocation.Other"/>.
+    /// </param>
+    /// <returns>A lazy sequence; each object is reported once. Nothing is cached.</returns>
+    /// <remarks>ISO 32000-2 §14.13 and PDF 2.0 Application Note 002 §6.2.</remarks>
+    public IEnumerable<PdfAssociatedFile> EnumerateAssociatedFiles(bool deep = false) => AssociatedFileReader.Enumerate(this, deep);
+
+    /// <summary>Enumerates every object-level metadata stream of the document with the object it describes.</summary>
+    /// <param name="deep">
+    /// <see langword="false"/> walks the locations Application Note 003 lists: the catalog, optional content groups, threads,
+    /// structure elements, document parts, embedded files, pages, XObjects, ICC profiles, embedded font programs, Type 3 fonts, tiling
+    /// patterns, shadings, marked-content property lists, annotations and 3D artwork. <see langword="true"/> also scans every object
+    /// of the file for a <c>Metadata</c> entry, reporting those as <see cref="PdfMetadataLocation.Other"/>.
+    /// </param>
+    /// <returns>A lazy sequence; each object is reported once. Nothing is cached.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §14.3.2 (PDF 1.4), Tables 347 and 348, and PDF 2.0 Application Note 003. A metadata stream without <c>Type</c>
+    /// <c>Metadata</c> and <c>Subtype</c> <c>XML</c> is still reported, with a <c>MetadataStreamInvalid</c> diagnostic.
+    /// </remarks>
+    public IEnumerable<PdfObjectMetadata> EnumerateObjectMetadata(bool deep = false) => AssociatedFileReader.EnumerateMetadata(this, deep);
+
+    /// <summary>Gets the catalog's indirect reference, from the trailer.</summary>
+    internal CosReference? CatalogReference => Trailer.TryGetValue(KnownNames.Root, out CosObject? root) ? root as CosReference : null;
+
+    /// <summary>Enumerates the reference of every object the cross-reference information lists as in use, by object number.</summary>
+    internal IEnumerable<CosReference> EnumerateObjectReferences()
+    {
+        foreach (KeyValuePair<int, XrefEntry> entry in _loader.CrossReference.Entries.OrderBy(entry => entry.Key))
+        {
+            switch (entry.Value.Kind)
+            {
+                case XrefEntryKind.InUse:
+                    yield return new CosReference(entry.Key, entry.Value.Generation);
+                    break;
+                case XrefEntryKind.Compressed:
+                    yield return new CosReference(entry.Key, 0);
+                    break;
+            }
+        }
+    }
 
     /// <summary>Returns a view over a file specification held by <paramref name="value"/>, resolving it first.</summary>
     /// <param name="value">A file specification string or dictionary, or a reference to one, of this document.</param>

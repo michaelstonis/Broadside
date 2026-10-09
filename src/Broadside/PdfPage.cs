@@ -73,6 +73,10 @@ public sealed class PdfPage
     /// <remarks>ISO 32000-2 §7.7.3.3, Table 31 (PDF 1.6).</remarks>
     public double UserUnit => ReadUserUnit(out double value) == PageAttributeState.Valid ? value : 1.0;
 
+    /// <summary>Gets the files associated with the page (<c>AF</c>).</summary>
+    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31 (PDF 2.0), and §14.13.4. Read on every call; see <see cref="PdfDocument.ReadAssociatedFiles"/>.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => _document.ReadAssociatedFiles(Dictionary, Reference);
+
     /// <summary>Reads a page boundary; for an inheritable one, from the nearest node that has it.</summary>
     internal PageAttributeState ReadBox(CosName key, bool inheritable, out PdfRectangle box)
     {
