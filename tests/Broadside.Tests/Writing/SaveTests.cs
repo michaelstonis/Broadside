@@ -9,6 +9,18 @@ public class SaveTests
 {
     private static readonly PdfCrossReferenceLayout[] Layouts = Enum.GetValues<PdfCrossReferenceLayout>();
 
+    /// <summary>
+    /// Broken files whose damage is in a document-model structure read lazily (a name tree, an outline), not in the file structure:
+    /// they open without a diagnostic and save byte for byte, damage included, so qpdf reports it again.
+    /// </summary>
+    private static readonly HashSet<string> DamagedInTheDocumentModel = new(StringComparer.Ordinal) { "name-tree-broken.pdf" };
+
+    /// <summary>
+    /// Well-formed files qpdf 12.4.2 warns about because it compares name tree keys as decoded text, not byte by byte as ISO 32000-2
+    /// §7.9.6 requires (tests/Corpus/README.md).
+    /// </summary>
+    private static readonly HashSet<string> QpdfComparesNameTreeKeysAsText = new(StringComparer.Ordinal) { "name-tree-deep.pdf" };
+
     /// <summary>Every unencrypted well-formed corpus file with every layout (encrypted files cannot be saved yet).</summary>
     public static TheoryData<string, PdfCrossReferenceLayout> FilesAndLayouts
     {
@@ -33,7 +45,7 @@ public class SaveTests
         get
         {
             var data = new TheoryData<string, PdfCrossReferenceLayout>();
-            foreach (string file in Corpus.MalformedFileNames.Where(name => !name.StartsWith("encrypted-", StringComparison.Ordinal)))
+            foreach (string file in Corpus.MalformedFileNames.Where(name => !name.StartsWith("encrypted-", StringComparison.Ordinal) && !DamagedInTheDocumentModel.Contains(name)))
             {
                 foreach (PdfCrossReferenceLayout layout in Layouts)
                 {
@@ -85,6 +97,16 @@ public class SaveTests
         using PdfDocument source = PdfDocument.Open(Corpus.Path(fileName));
 
         (int exitCode, string output) = ExternalTool.Run("qpdf", Save(source, layout), "--check");
+
+        if (QpdfComparesNameTreeKeysAsText.Contains(fileName))
+        {
+            // Exit code 3: warnings only, and every warning is qpdf's text-order complaint.
+            Assert.True(exitCode == 3, output);
+            Assert.All(
+                output.Split('\n').Where(line => line.StartsWith("WARNING", StringComparison.Ordinal)),
+                line => Assert.Contains("keys are not sorted", line, StringComparison.Ordinal));
+            return;
+        }
 
         Assert.True(exitCode == 0, output);
     }
