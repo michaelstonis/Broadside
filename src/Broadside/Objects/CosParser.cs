@@ -248,7 +248,7 @@ internal ref struct CosParser
     }
 
     /// <summary>Reads the escape sequence at <paramref name="text"/>[<paramref name="index"/>] (a backslash) and returns the index after it (§7.3.4.2, Table 3).</summary>
-    private static int ReadEscape(ReadOnlySpan<byte> text, int index, Span<byte> output, ref int written)
+    internal static int ReadEscape(ReadOnlySpan<byte> text, int index, Span<byte> output, ref int written)
     {
         if (index + 1 >= text.Length)
         {
@@ -641,7 +641,7 @@ internal ref struct CosParser
 
     private readonly ReadOnlySpan<byte> Bytes(CosToken token) => _lexer.Source.Slice(token.Start, token.Length);
 
-    private static int HexValue(byte character) => character switch
+    internal static int HexValue(byte character) => character switch
     {
         >= (byte)'0' and <= (byte)'9' => character - '0',
         >= (byte)'A' and <= (byte)'F' => character - 'A' + 10,
@@ -650,11 +650,11 @@ internal ref struct CosParser
     };
 
     /// <summary>Parses <c>[+-]?[0-9]+</c> into a <see cref="long"/>; fails on any other text or on overflow.</summary>
-    private static bool TryParseStrictInteger(ReadOnlySpan<byte> text, out long value) =>
+    internal static bool TryParseStrictInteger(ReadOnlySpan<byte> text, out long value) =>
         long.TryParse(text, NumberStyles.AllowLeadingSign, CultureInfo.InvariantCulture, out value);
 
     /// <summary>Whether <paramref name="text"/> is <c>[+-]?</c>, then digits with at most one period, with at least one digit (§7.3.3).</summary>
-    private static bool IsWellFormedNumber(ReadOnlySpan<byte> text)
+    internal static bool IsWellFormedNumber(ReadOnlySpan<byte> text)
     {
         if (text.Length > 0 && text[0] is (byte)'+' or (byte)'-')
         {
@@ -674,7 +674,7 @@ internal ref struct CosParser
     /// The lenient reading of a malformed number: leading signs collapse to one (negative if any is a minus), then digits and at most
     /// one period, stopping at the first byte that does not fit. Always has at least one digit.
     /// </summary>
-    private static ReadOnlySpan<byte> WellFormedPrefix(ReadOnlySpan<byte> text, Span<byte> scratch)
+    internal static ReadOnlySpan<byte> WellFormedPrefix(ReadOnlySpan<byte> text, Span<byte> scratch)
     {
         int index = 0;
         bool negative = false;
