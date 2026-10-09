@@ -311,9 +311,6 @@ public sealed partial class PdfDocument
         }
     }
 
-    /// <summary>Gets the sink the document's views report deviations to.</summary>
-    internal DiagnosticSink DiagnosticSink => _diagnostics;
-
     /// <summary>Gets the indirect reference to the catalog, when the trailer has one.</summary>
     internal CosReference? CatalogReference => Trailer.GetValueOrDefault(KnownNames.Root) as CosReference;
 

@@ -8,7 +8,7 @@ namespace Broadside.Parsing;
 /// Every ticket adds its own group here. The catalogue is internal while parallel tickets add codes; the codes reach users as
 /// <see cref="Diagnostics.Diagnostic.Code"/> strings.
 /// </remarks>
-internal static class DiagnosticCodes
+internal static partial class DiagnosticCodes
 {
     // File header (ISO 32000-2 §7.5.2).
     public const string HeaderMissing = nameof(HeaderMissing);
@@ -114,37 +114,6 @@ internal static class DiagnosticCodes
     public const string CatalogVersionNotName = nameof(CatalogVersionNotName);
     public const string CatalogVersionInvalid = nameof(CatalogVersionInvalid);
     public const string PagesMissing = nameof(PagesMissing);
-    public const string CatalogEntryInvalid = nameof(CatalogEntryInvalid);
-    public const string PageLayoutInvalid = nameof(PageLayoutInvalid);
-    public const string PageModeInvalid = nameof(PageModeInvalid);
-    public const string ViewerPreferencesInvalid = nameof(ViewerPreferencesInvalid);
-    public const string ViewerPreferenceInvalid = nameof(ViewerPreferenceInvalid);
-    public const string ExtensionsInvalid = nameof(ExtensionsInvalid);
-    public const string ExtensionsNotDirect = nameof(ExtensionsNotDirect);
-    public const string DeveloperExtensionInvalid = nameof(DeveloperExtensionInvalid);
-    public const string RequirementInvalid = nameof(RequirementInvalid);
-
-    // Page labels (§12.4.2).
-    public const string PageLabelsMissingZeroKey = nameof(PageLabelsMissingZeroKey);
-    public const string PageLabelInvalid = nameof(PageLabelInvalid);
-    public const string PageLabelStyleInvalid = nameof(PageLabelStyleInvalid);
-    public const string PageLabelStartInvalid = nameof(PageLabelStartInvalid);
-    public const string PageLabelPrefixInvalid = nameof(PageLabelPrefixInvalid);
-    public const string PageLabelTooLong = nameof(PageLabelTooLong);
-
-    // Document information, metadata and file identifiers (§7.9.4, §14.3, §14.4).
-    public const string InfoDictionaryInvalid = nameof(InfoDictionaryInvalid);
-    public const string InfoValueNotTextString = nameof(InfoValueNotTextString);
-    public const string InfoTrappedInvalid = nameof(InfoTrappedInvalid);
-    public const string DateInvalid = nameof(DateInvalid);
-    public const string DateUnreadable = nameof(DateUnreadable);
-    public const string MetadataStreamInvalid = nameof(MetadataStreamInvalid);
-    public const string MetadataStreamTypeInvalid = nameof(MetadataStreamTypeInvalid);
-    public const string XmpMalformed = nameof(XmpMalformed);
-    public const string XmpDtdProhibited = nameof(XmpDtdProhibited);
-    public const string XmpLeadingJunk = nameof(XmpLeadingJunk);
-    public const string XmpPropertyDuplicate = nameof(XmpPropertyDuplicate);
-    public const string FileIdentifierInvalid = nameof(FileIdentifierInvalid);
 
     // Page tree (§7.7.3).
     public const string PageTreeNodeTypeInvalid = nameof(PageTreeNodeTypeInvalid);

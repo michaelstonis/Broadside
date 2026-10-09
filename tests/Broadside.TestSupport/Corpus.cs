@@ -45,6 +45,8 @@ public static class Corpus
         "viewer-preferences.pdf",
         "catalog-version-extensions.pdf",
         "page-labels.pdf",
+        "name-tree-deep.pdf",
+        "number-tree-deep.pdf",
     ];
 
     private static readonly string[] Malformed =
@@ -57,6 +59,7 @@ public static class Corpus
         "encrypted-mac-tampered.pdf",
         "encrypted-owner-key-variant.pdf",
         "encrypted-rc4-length-missing.pdf",
+        "name-tree-broken.pdf",
     ];
 
     private static readonly (string FileName, string UserPassword)[] PasswordProtected =
