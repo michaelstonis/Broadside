@@ -26,12 +26,20 @@ public sealed class PdfDocument : IDisposable
     private readonly DiagnosticSink _diagnostics;
     private readonly ObjectLoader _loader;
 
-    private PdfDocument(PdfSource source, DiagnosticSink diagnostics, ObjectLoader loader, CosDictionary catalog)
+    private PdfDocument(
+        PdfSource source,
+        DiagnosticSink diagnostics,
+        ObjectLoader loader,
+        CosDictionary catalog,
+        IReadOnlyList<PdfRevision> revisions,
+        PdfLinearization? linearization)
     {
         _source = source;
         _diagnostics = diagnostics;
         _loader = loader;
         Catalog = catalog;
+        Revisions = revisions;
+        Linearization = linearization;
         Pages = new PdfPageCollection(() => PageTreeReader.Read(this, diagnostics));
     }
 
@@ -69,6 +77,32 @@ public sealed class PdfDocument : IDisposable
     /// <summary>Gets the pages, in page order. The page tree is read on first use.</summary>
     /// <remarks>ISO 32000-2 §7.7.3.</remarks>
     public PdfPageCollection Pages { get; }
+
+    /// <summary>Gets the revisions of the file, oldest first: the original file, then one per incremental update.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.5.6. The document itself always shows the newest revision: for every object number the most recent
+    /// cross-reference section that lists it decides, and a number it marks free is deleted even when an older section has the
+    /// object. A linearized file without updates has one revision.
+    /// </remarks>
+    public IReadOnlyList<PdfRevision> Revisions { get; }
+
+    /// <summary>
+    /// Gets a value indicating whether the file is linearized: it starts with a linearization parameter dictionary whose file
+    /// length (<c>L</c>) is the length of the file.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 Annex F, Table F.1: a file whose length does not match "shall be treated as ordinary PDF file, ignoring
+    /// linearization information", which is what appending an update to a linearized file produces (G.7). Lengths count from the
+    /// <c>%PDF-</c> header.
+    /// </remarks>
+    public bool IsLinearized => Linearization is { } linearization && linearization.FileLength == _source.Length - _loader.Header.Offset;
+
+    /// <summary>
+    /// Gets the linearization information when the file starts with a valid linearization parameter dictionary, whether or not the
+    /// file is still linearized (<see cref="IsLinearized"/>); otherwise <see langword="null"/>.
+    /// </summary>
+    /// <remarks>ISO 32000-2 Annex F, F.3.3.</remarks>
+    public PdfLinearization? Linearization { get; }
 
     /// <summary>Gets the deviations found so far, in the order they were found. Empty for a well-formed file.</summary>
     /// <remarks>
@@ -156,14 +190,29 @@ public sealed class PdfDocument : IDisposable
             FileHeader header = FileHeader.Locate(source, diagnostics);
             CrossReference crossReference = CrossReferenceReader.Read(source, header, diagnostics) ?? Reconstruct(diagnostics);
             var loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks());
+            IReadOnlyList<PdfRevision> revisions = ReadRevisions(source, crossReference, diagnostics);
             CosDictionary catalog = ReadCatalog(loader, diagnostics);
-            return new PdfDocument(source, diagnostics, loader, catalog);
+            PdfLinearization? linearization = LinearizationReader.Read(source, loader, diagnostics);
+            return new PdfDocument(source, diagnostics, loader, catalog, revisions, linearization);
         }
         catch
         {
             source.Dispose();
             throw;
         }
+    }
+
+    /// <summary>Describes each revision: its byte range and its own trailer (§7.5.6).</summary>
+    private static PdfRevision[] ReadRevisions(PdfSource source, CrossReference crossReference, DiagnosticSink diagnostics)
+    {
+        long[] ends = RevisionReader.ReadEnds(source, crossReference, diagnostics);
+        var revisions = new PdfRevision[ends.Length];
+        for (int index = 0; index < ends.Length; index++)
+        {
+            revisions[index] = new PdfRevision(index, ends[index], crossReference.Revisions[index].Newest.Trailer);
+        }
+
+        return revisions;
     }
 
     /// <summary>Rebuilds the cross-reference information by scanning the file when it cannot be read (§7.5.4). Issue #41.</summary>

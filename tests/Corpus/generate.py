@@ -626,13 +626,16 @@ def gen_incremental_update() -> bytes:
 def gen_hybrid_xref() -> bytes:
     """7.5.8.4: objects 1-3 in the classic table; the /Info dictionary (4) lives in
     an object stream (5) that only the cross-reference stream (6) knows about.
-    The main table lists 4-6 as free, as in the example in 7.5.8.4."""
+    The main table lists 4-6 as free, as in the example in 7.5.8.4. The main
+    section and the update section each end with startxref and %%EOF (7.5.6)."""
     f = File("1.5", binary=True)
     f.add(1, catalog())
     f.add(2, pages())
     f.add(3, page())
     main = f.pos()
     f.raw(xref_table(f.offsets, 7, b"<< /Size 7 /Root 1 0 R >>"))
+    # 7.5.6: each trailer is terminated by its own %%EOF; the example in 7.5.8.4 ends the main section so too.
+    f.raw(b"startxref\n%d\n%%%%EOF\n" % main)
     f.add(5, object_stream([(4, b"<< /Title (hybrid) >>")]))
     xs = f.pos()
     rows = xref_stream_rows([(2, 5, 0), (1, f.offsets[5], 0), (1, xs, 0)])

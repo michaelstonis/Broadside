@@ -61,7 +61,33 @@ internal static class CrossReferenceReader
             next = PreviousSectionOffset(section, header, diagnostics);
         }
 
-        return sections.Count == 0 ? null : new CrossReference(sections);
+        if (sections.Count == 0)
+        {
+            return null;
+        }
+
+        var crossReference = new CrossReference(sections);
+        ReportInheritedTrailerEntries(crossReference, diagnostics);
+        return crossReference;
+    }
+
+    /// <summary>
+    /// Reports the document-level trailer entries the newest revision's trailer lacks and an older one supplied: §7.5.6 says an
+    /// update's trailer shall repeat every entry of the previous trailer except <c>Prev</c>. The older value is used.
+    /// </summary>
+    private static void ReportInheritedTrailerEntries(CrossReference crossReference, DiagnosticSink diagnostics)
+    {
+        foreach (CosName key in crossReference.InheritedTrailerKeys)
+        {
+            if (key.Equals(KnownNames.Root) || key.Equals(KnownNames.Info) || key.Equals(KnownNames.Encrypt) || key.Equals(KnownNames.ID))
+            {
+                diagnostics.Report(
+                    DiagnosticCodes.TrailerEntryFromOlderRevision,
+                    DiagnosticSeverity.Warning,
+                    $"The newest trailer has no {key} entry, which every update's trailer shall repeat; the entry of an older revision's trailer is used.",
+                    crossReference.Sections[0].Offset);
+            }
+        }
     }
 
     /// <summary>Finds the last <c>startxref</c> in the file and reads the offset after it (§7.5.5).</summary>

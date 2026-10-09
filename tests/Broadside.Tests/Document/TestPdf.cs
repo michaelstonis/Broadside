@@ -26,6 +26,40 @@ internal sealed class TestPdf
             "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
             $"<< /Type /Page /Parent 2 0 R /Resources << >> {pageEntries} >>");
 
+    /// <summary>
+    /// Appends an incremental update (ISO 32000-2 §7.5.6) to <paramref name="file"/>: the objects, a cross-reference section with one
+    /// subsection per object, and a trailer with <paramref name="trailerEntries"/> and a <c>Prev</c> entry pointing at the
+    /// section the file's last <c>startxref</c> names. An object whose body is <see langword="null"/> is written as a free entry
+    /// carrying <c>Generation</c>, the generation a reuse of the number takes.
+    /// </summary>
+    public static byte[] AppendUpdate(byte[] file, string trailerEntries, params (int Number, int Generation, string? Body)[] objects)
+    {
+        string existing = Encoding.Latin1.GetString(file);
+        int startxref = existing.LastIndexOf("startxref", StringComparison.Ordinal);
+        string prev = existing[(startxref + "startxref".Length)..].Trim().Split('\n')[0].Trim();
+        var text = new StringBuilder(existing);
+        var offsets = new Dictionary<int, int>();
+        foreach ((int number, int generation, string? body) in objects)
+        {
+            if (body is not null)
+            {
+                offsets[number] = text.Length;
+                text.Append(CultureInfo.InvariantCulture, $"{number} {generation} obj\n{body}\nendobj\n");
+            }
+        }
+
+        int xref = text.Length;
+        text.Append("xref\n");
+        foreach ((int number, int generation, string? body) in objects.OrderBy(o => o.Number))
+        {
+            string entry = body is null ? $"0000000000 {generation:D5} f" : $"{offsets[number]:D10} {generation:D5} n";
+            text.Append(CultureInfo.InvariantCulture, $"{number} 1\n{entry} \n");
+        }
+
+        text.Append(CultureInfo.InvariantCulture, $"trailer\n<< {trailerEntries} /Prev {prev} >>\nstartxref\n{xref}\n%%EOF\n");
+        return Encoding.Latin1.GetBytes(text.ToString());
+    }
+
     /// <summary>Writes the file.</summary>
     public byte[] Build(params string[] objects)
     {

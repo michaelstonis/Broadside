@@ -1,5 +1,6 @@
 using Broadside.Diagnostics;
 using Broadside.Objects;
+using Broadside.Parsing;
 using SharpFuzz;
 
 namespace Broadside.Fuzz;
@@ -16,15 +17,17 @@ internal static class FuzzTargets
         ["lexer"] = Lexer,
         ["object-parser"] = ObjectParser,
         ["document"] = Document,
+        ["hint-tables"] = HintTables,
     };
 
     /// <summary>
     /// Opens the input as a whole file in lenient mode and reads everything the document model exposes: version, trailer, every
-    /// page's boxes, rotation, user unit and resources. A <see cref="DiagnosticException"/> is the one documented outcome for a file
+    /// page's boxes, rotation, user unit and resources, the revisions, and the linearization dictionary and hint tables. A <see cref="DiagnosticException"/> is the one documented outcome for a file
     /// whose cross-reference information cannot be read at all (until issue #41 reconstructs it); any other exception is a finding.
-    /// Every box must be normalized and every rotation one of 0, 90, 180, 270.
+    /// Every box must be normalized and every rotation one of 0, 90, 180, 270; every revision must be a non-empty prefix of the input
+    /// at its own index.
     /// </summary>
-    /// <remarks>ISO 32000-2 §7.5.1 to §7.5.5, §7.7.2, §7.7.3.</remarks>
+    /// <remarks>ISO 32000-2 §7.5.1 to §7.5.6, §7.7.2, §7.7.3, Annex F.</remarks>
     private static void Document(ReadOnlySpan<byte> data)
     {
         using PdfDocument? document = OpenOrNull(data);
@@ -35,6 +38,22 @@ internal static class FuzzTargets
 
         _ = document.Version;
         _ = document.Trailer.Count;
+        for (int index = 0; index < document.Revisions.Count; index++)
+        {
+            PdfRevision revision = document.Revisions[index];
+            if (revision.Index != index || revision.Length <= 0 || revision.Length > data.Length)
+            {
+                throw new InvalidOperationException($"Revision {revision.Index} at position {index} has length {revision.Length} in a file of {data.Length} bytes.");
+            }
+        }
+
+        _ = document.IsLinearized;
+        if (document.Linearization is { } linearization)
+        {
+            _ = (linearization.FileLength, linearization.PageCount, linearization.FirstPageObjects.Count);
+            _ = linearization.Hints?.Pages.Count;
+        }
+
         foreach (PdfPage page in document.Pages)
         {
             foreach (PdfRectangle box in (ReadOnlySpan<PdfRectangle>)[page.MediaBox, page.CropBox, page.BleedBox, page.TrimBox, page.ArtBox])
@@ -51,6 +70,40 @@ internal static class FuzzTargets
             }
 
             _ = page.Resources;
+        }
+    }
+
+    /// <summary>
+    /// Decodes the input as linearization hint data: byte 0 gives the page count (1 to 16), bytes 1 and 2 the position of the shared
+    /// object table, the rest is the hint stream. Decoding either fails with a reason or yields one entry per page, groups of at
+    /// least one object, and never throws.
+    /// </summary>
+    /// <remarks>ISO 32000-2 F.4.1 to F.4.3.</remarks>
+    private static void HintTables(ReadOnlySpan<byte> data)
+    {
+        if (data.Length < 4)
+        {
+            return;
+        }
+
+        int pages = (data[0] & 15) + 1;
+        ReadOnlySpan<byte> hints = data[3..];
+        int shared = ((data[1] << 8) | data[2]) % hints.Length;
+        var layout = new HintTableLayout(HeaderOffset: 0, HintOffset: 100, HintLength: 50, FirstPageObjectNumber: 1, PageCount: pages);
+
+        PdfLinearizationHints? decoded = HintTableReader.Parse(hints, shared, layout, out string? error);
+
+        if ((decoded is null) == (error is null))
+        {
+            throw new InvalidOperationException("Hint decoding must yield either tables or a reason, not both or neither.");
+        }
+
+        if (decoded is not null
+            && (decoded.Pages.Count != pages
+                || decoded.SharedObjects.Any(group => group.ObjectCount < 1)
+                || decoded.Pages.Any(page => page.ObjectCount < 0 || page.Length < 0)))
+        {
+            throw new InvalidOperationException("Decoded hint tables are inconsistent with the layout.");
         }
     }
 

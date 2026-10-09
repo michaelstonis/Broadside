@@ -26,6 +26,13 @@ internal static class DiagnosticCodes
     public const string XrefPrevLoop = nameof(XrefPrevLoop);
     public const string XrefStreamUnsupported = nameof(XrefStreamUnsupported);
 
+    // Incremental updates (§7.5.6).
+    public const string TrailerEntryFromOlderRevision = nameof(TrailerEntryFromOlderRevision);
+
+    // Linearized files (Annex F).
+    public const string LinearizationDictionaryInvalid = nameof(LinearizationDictionaryInvalid);
+    public const string LinearizationHintsInvalid = nameof(LinearizationHintsInvalid);
+
     // Indirect objects (§7.3.10).
     public const string XrefEntryOffsetInvalid = nameof(XrefEntryOffsetInvalid);
     public const string MissingEndobj = nameof(MissingEndobj);
