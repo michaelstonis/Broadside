@@ -1,5 +1,6 @@
 using Broadside.Filters;
 using Broadside.Objects;
+using Broadside.Security;
 using Microsoft.Extensions.Logging;
 
 namespace Broadside;
@@ -21,6 +22,7 @@ public sealed class PdfOptions
     public const long DefaultStreamBufferLimit = 64L << 20;
 
     private readonly List<IStreamFilter> _filters = [];
+    private readonly List<ISecurityHandler> _securityHandlers = [];
     private long _maxDecodedStreamLength = DefaultMaxDecodedStreamLength;
     private long _streamBufferLimit = DefaultStreamBufferLimit;
 
@@ -148,6 +150,53 @@ public sealed class PdfOptions
     public PdfOptions WithLoggerFactory(ILoggerFactory? loggerFactory)
     {
         LoggerFactory = loggerFactory;
+        return this;
+    }
+
+    /// <summary>Gets the security handlers registered with <see cref="UseSecurityHandler"/>, in order.</summary>
+    /// <remarks>Not public, so configuration binding never sees it.</remarks>
+    internal IReadOnlyList<ISecurityHandler> SecurityHandlers => _securityHandlers;
+
+    /// <summary>Gets the credentials set by <see cref="WithPassword"/> or <see cref="WithCredentials"/>, or <see langword="null"/>.</summary>
+    /// <remarks>Not public, so configuration binding never sees a password.</remarks>
+    internal PdfCredentials? Credentials { get; private set; }
+
+    /// <summary>
+    /// Uses <paramref name="handler"/> for encrypted documents whose encryption dictionary's <c>Filter</c> is
+    /// <see cref="ISecurityHandler.Filter"/>, or whose <c>SubFilter</c> it lists, replacing the default of that name
+    /// (<see cref="StandardSecurityHandler"/> for <c>Standard</c>). A later registration of the same name wins.
+    /// </summary>
+    /// <param name="handler">The handler. Shared by every document and thread of the engine: it must keep no state between calls.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §7.6.2, Table 20. The security handler extension point (ADR 0001).</remarks>
+    public PdfOptions UseSecurityHandler(ISecurityHandler handler)
+    {
+        ArgumentNullException.ThrowIfNull(handler);
+        _ = handler.Filter ?? throw new ArgumentException("The security handler has no Filter name.", nameof(handler));
+        _securityHandlers.Add(handler);
+        return this;
+    }
+
+    /// <summary>Offers <paramref name="password"/> to every encrypted document opened without credentials of its own.</summary>
+    /// <param name="password">The user or owner password; <see langword="null"/> or empty for the default user password only.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.6.4.1. To give each document its own password, pass it to <see cref="PdfEngine.Open(string, PdfCredentials)"/>
+    /// instead. A password that opens neither as the user nor as the owner password makes opening throw <see cref="PdfPasswordException"/>.
+    /// </remarks>
+    public PdfOptions WithPassword(string? password)
+    {
+        Credentials = string.IsNullOrEmpty(password) ? null : new PdfPassword(password);
+        return this;
+    }
+
+    /// <summary>Offers <paramref name="credentials"/> to every encrypted document opened without credentials of its own.</summary>
+    /// <param name="credentials">The credentials, or <see langword="null"/> for none.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §7.6.4 and §7.6.5: a password for the standard security handler, a certificate for a public-key handler.</remarks>
+    public PdfOptions WithCredentials(PdfCredentials? credentials)
+    {
+        Credentials = credentials;
         return this;
     }
 }

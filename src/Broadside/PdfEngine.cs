@@ -1,4 +1,5 @@
 using Broadside.IO;
+using Broadside.Security;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 
@@ -110,6 +111,56 @@ public sealed class PdfEngine
     /// </exception>
     /// <remarks>ISO 32000-2 §7.5.</remarks>
     public PdfDocument Open(ReadOnlyMemory<byte> bytes) => PdfDocument.Read(PdfSource.FromMemory(bytes), _configuration);
+
+    /// <summary>Opens the encrypted PDF file at <paramref name="path"/> with <paramref name="credentials"/>.</summary>
+    /// <param name="path">The file path.</param>
+    /// <param name="credentials">The credentials, such as a <see cref="PdfPassword"/>; they override those set on the options.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">
+    /// The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.
+    /// </exception>
+    /// <exception cref="PdfPasswordException">The document is encrypted and the credentials do not open it.</exception>
+    /// <exception cref="PdfEncryptionNotSupportedException">The document is encrypted in a way this engine cannot decrypt.</exception>
+    /// <remarks>ISO 32000-2 §7.5 and §7.6. For an unencrypted file the credentials are ignored.</remarks>
+    public PdfDocument Open(string path, PdfCredentials credentials)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        ArgumentNullException.ThrowIfNull(credentials);
+        return PdfDocument.Read(PdfSource.FromFile(path), _configuration, credentials);
+    }
+
+    /// <summary>Opens the encrypted PDF file held by <paramref name="stream"/>, from its current position, with <paramref name="credentials"/>.</summary>
+    /// <param name="stream">The stream. It is not disposed; keep it open and unchanged until the document is disposed.</param>
+    /// <param name="credentials">The credentials, such as a <see cref="PdfPassword"/>; they override those set on the options.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">
+    /// The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.
+    /// </exception>
+    /// <exception cref="PdfPasswordException">The document is encrypted and the credentials do not open it.</exception>
+    /// <exception cref="PdfEncryptionNotSupportedException">The document is encrypted in a way this engine cannot decrypt.</exception>
+    /// <remarks>ISO 32000-2 §7.5 and §7.6. For an unencrypted file the credentials are ignored.</remarks>
+    public PdfDocument Open(Stream stream, PdfCredentials credentials)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        ArgumentNullException.ThrowIfNull(credentials);
+        return PdfDocument.Read(PdfSource.FromStream(stream, _configuration.StreamBufferLimit), _configuration, credentials);
+    }
+
+    /// <summary>Opens the encrypted PDF file held in <paramref name="bytes"/> with <paramref name="credentials"/>.</summary>
+    /// <param name="bytes">The file. Not copied: do not change it until the document is disposed.</param>
+    /// <param name="credentials">The credentials, such as a <see cref="PdfPassword"/>; they override those set on the options.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">
+    /// The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.
+    /// </exception>
+    /// <exception cref="PdfPasswordException">The document is encrypted and the credentials do not open it.</exception>
+    /// <exception cref="PdfEncryptionNotSupportedException">The document is encrypted in a way this engine cannot decrypt.</exception>
+    /// <remarks>ISO 32000-2 §7.5 and §7.6. For an unencrypted file the credentials are ignored.</remarks>
+    public PdfDocument Open(ReadOnlyMemory<byte> bytes, PdfCredentials credentials)
+    {
+        ArgumentNullException.ThrowIfNull(credentials);
+        return PdfDocument.Read(PdfSource.FromMemory(bytes), _configuration, credentials);
+    }
 
     /// <summary>Creates a new document with one empty US Letter page (612 by 792 points).</summary>
     /// <returns>The document. Dispose it when done.</returns>

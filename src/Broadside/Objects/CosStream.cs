@@ -53,6 +53,14 @@ public sealed class CosStream : CosObject
         }
     }
 
+    /// <summary>Replaces the encoded data as part of loading (decryption), without marking the stream dirty.</summary>
+    /// <param name="encodedData">The data.</param>
+    internal void ReplaceLoadedData(ReadOnlyMemory<byte> encodedData)
+    {
+        _encodedData = encodedData;
+        _deferred = null;
+    }
+
     /// <summary>Gets the length of <see cref="EncodedData"/> without reading it.</summary>
     internal int EncodedLength => _deferred is { } deferred ? deferred.Length : _encodedData.Length;
 

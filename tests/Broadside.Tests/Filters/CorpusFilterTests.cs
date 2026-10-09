@@ -49,8 +49,6 @@ public class CorpusFilterTests
     [MemberData(nameof(Corpus.WellFormedFiles), MemberType = typeof(Corpus))]
     public void Every_page_content_stream_of_a_well_formed_file_decodes_with_no_diagnostics(string fileName)
     {
-        Assert.SkipWhen(fileName.StartsWith("encrypted-", StringComparison.Ordinal), "Needs decryption (#42).");
-
         using PdfDocument document = PdfDocument.Open(Corpus.Path(fileName));
         foreach (PdfPage page in document.Pages)
         {

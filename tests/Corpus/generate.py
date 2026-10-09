@@ -16,6 +16,7 @@ Clause references are to ISO 32000-2:2020.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import os
 import struct
 import sys
@@ -362,21 +363,24 @@ def pad_password(pw: bytes) -> bytes:
     return (pw + PASSWORD_PAD)[:32]
 
 
-def legacy_file_key(user_pw: bytes, o_entry: bytes, p: int, id0: bytes, r: int, n: int) -> bytes:
+def legacy_file_key(user_pw: bytes, o_entry: bytes, p: int, id0: bytes, r: int, n: int,
+                    encrypt_metadata: bool = True) -> bytes:
     """7.6.4.3.2 Algorithm 2 (R2..R4); ``n`` is the key length in bytes."""
-    h = hashlib.md5(pad_password(user_pw) + o_entry + struct.pack("<I", p & 0xFFFFFFFF) + id0).digest()
+    extra = b"\xff\xff\xff\xff" if r >= 4 and not encrypt_metadata else b""  # step (f)
+    h = hashlib.md5(pad_password(user_pw) + o_entry + struct.pack("<I", p & 0xFFFFFFFF) + id0 + extra).digest()
     if r >= 3:
         for _ in range(50):
             h = hashlib.md5(h[:n]).digest()
     return h[:n]
 
 
-def legacy_o_entry(owner_pw: bytes, user_pw: bytes, r: int, n: int) -> bytes:
-    """7.6.4.4.2 Algorithm 3."""
+def legacy_o_entry(owner_pw: bytes, user_pw: bytes, r: int, n: int, rehash_first_n: bool = False) -> bytes:
+    """7.6.4.4.2 Algorithm 3. ``rehash_first_n`` rehashes only the first n bytes in step (c), as qpdf
+    and PDFBox do (the same as the spec for 128-bit keys)."""
     k = hashlib.md5(pad_password(owner_pw or user_pw)).digest()
     if r >= 3:
         for _ in range(50):
-            k = hashlib.md5(k).digest()
+            k = hashlib.md5(k[:n] if rehash_first_n else k).digest()
     k = k[:n]
     o = rc4(k, pad_password(user_pw))
     if r >= 3:
@@ -413,6 +417,125 @@ def hash_2b(data: bytes, password: bytes, udata: bytes) -> bytes:
         k = (hashlib.sha256, hashlib.sha384, hashlib.sha512)[mod](e).digest()
         i += 1
     return k[:32]
+
+
+def gcm_encrypt(key: bytes, iv: bytes, data: bytes) -> tuple[bytes, bytes]:
+    """NIST SP 800-38D AES-GCM with a 96-bit IV and no AAD (ISO/TS 32003 5.2); returns (ciphertext, tag)."""
+    rk = _aes_round_keys(key)
+    h = int.from_bytes(aes_encrypt_block(rk, bytes(16)), "big")
+    out = bytearray()
+    for i in range(0, len(data), 16):
+        ks = aes_encrypt_block(rk, iv + (i // 16 + 2).to_bytes(4, "big"))
+        out += bytes(a ^ b for a, b in zip(data[i:i + 16], ks))
+
+    def mul(x: int, y: int) -> int:  # GF(2^128), SP 800-38D 6.3 Algorithm 1
+        z, v = 0, y
+        for bit in range(128):
+            if (x >> (127 - bit)) & 1:
+                z ^= v
+            v = (v >> 1) ^ (0xE1 << 120) if v & 1 else v >> 1
+        return z
+
+    y = 0
+    for i in range(0, len(out), 16):
+        y = mul(y ^ int.from_bytes(bytes(out[i:i + 16]).ljust(16, b"\0"), "big"), h)
+    y = mul(y ^ (len(out) * 8), h)  # len(A) = 0 in the high 64 bits
+    tag = y ^ int.from_bytes(aes_encrypt_block(rk, iv + b"\0\0\0\1"), "big")
+    return bytes(out), tag.to_bytes(16, "big")
+
+
+def aes_key_wrap(kek: bytes, key: bytes) -> bytes:
+    """RFC 3394 2.2.1 key wrap (index-based), the key wrapping ISO/TS 32004 Table 7 uses."""
+    rk = _aes_round_keys(kek)
+    n = len(key) // 8
+    a = bytes.fromhex("A6A6A6A6A6A6A6A6")
+    r = [key[8 * i:8 * i + 8] for i in range(n)]
+    for j in range(6):
+        for i in range(n):
+            b = aes_encrypt_block(rk, a + r[i])
+            a = (int.from_bytes(b[:8], "big") ^ (n * j + i + 1)).to_bytes(8, "big")
+            r[i] = b[8:]
+    return a + b"".join(r)
+
+
+def hkdf_sha256(ikm: bytes, salt: bytes, info: bytes, length: int) -> bytes:
+    """RFC 5869 HKDF with SHA-256 (ISO/TS 32004 6.4 pdfMacWrapKdf)."""
+    prk = hmac.new(salt, ikm, hashlib.sha256).digest()
+    okm, t, i = b"", b"", 1
+    while len(okm) < length:
+        t = hmac.new(prk, t + info + bytes([i]), hashlib.sha256).digest()
+        okm += t
+        i += 1
+    return okm[:length]
+
+
+def der(tag: int, content: bytes) -> bytes:
+    """ITU-T X.690 DER tag-length-value."""
+    n = len(content)
+    if n < 0x80:
+        return bytes([tag, n]) + content
+    length = n.to_bytes((n.bit_length() + 7) // 8, "big")
+    return bytes([tag, 0x80 | len(length)]) + length + content
+
+
+def der_oid(dotted: str) -> bytes:
+    arcs = [int(x) for x in dotted.split(".")]
+    body = bytearray([40 * arcs[0] + arcs[1]])
+    for arc in arcs[2:]:
+        chunk = [arc & 0x7F]
+        arc >>= 7
+        while arc:
+            chunk.append(0x80 | (arc & 0x7F))
+            arc >>= 7
+        body += bytes(reversed(chunk))
+    return der(0x06, bytes(body))
+
+
+def der_seq(*items: bytes) -> bytes:
+    return der(0x30, b"".join(items))
+
+
+def der_set(*items: bytes) -> bytes:
+    return der(0x31, b"".join(sorted(items)))  # DER: SET OF sorted by encoding
+
+
+OID_AUTH_DATA = "1.2.840.113549.1.9.16.1.2"
+OID_PDF_MAC_INTEGRITY_INFO = "1.0.32004.1.0"
+OID_PDF_MAC_WRAP_KDF = "1.0.32004.1.1"
+OID_AES256_WRAP = "2.16.840.1.101.3.4.1.45"
+OID_HMAC_SHA256 = "1.2.840.113549.2.9"
+OID_SHA256 = "2.16.840.1.101.3.4.2.1"
+OID_CONTENT_TYPE = "1.2.840.113549.1.9.3"
+OID_MESSAGE_DIGEST = "1.2.840.113549.1.9.4"
+OID_CMS_ALGORITHM_PROTECTION = "1.2.840.113549.1.9.52"
+
+
+def pdf_mac_token(file_key: bytes, kdf_salt: bytes, mac_key: bytes, data_digest: bytes) -> bytes:
+    """ISO/TS 32004 6.2-6.4: a CMS AuthenticatedData (RFC 5652 9) over PdfMacIntegrityInfo, one
+    PasswordRecipientInfo with pdfMacWrapKdf and AES-256 key wrap, HMAC-SHA-256, SHA-256 digests."""
+    sha256_alg = der_seq(der_oid(OID_SHA256))
+    hmac_alg = der_seq(der_oid(OID_HMAC_SHA256))
+    info = der_seq(der(0x02, b"\0"), der(0x04, data_digest))  # version 0, dataDigest
+    encap = der_seq(der_oid(OID_PDF_MAC_INTEGRITY_INFO), der(0xA0, der(0x04, info)))
+    attrs = sorted([
+        der_seq(der_oid(OID_CONTENT_TYPE), der_set(der_oid(OID_PDF_MAC_INTEGRITY_INFO))),
+        der_seq(der_oid(OID_MESSAGE_DIGEST), der_set(der(0x04, hashlib.sha256(info).digest()))),
+        der_seq(der_oid(OID_CMS_ALGORITHM_PROTECTION),
+                der_set(der_seq(sha256_alg, der(0xA2, der_oid(OID_HMAC_SHA256))))),  # RFC 6211, macAlgorithm [2]
+    ])
+    mac = hmac.new(mac_key, der(0x31, b"".join(attrs)), hashlib.sha256).digest()  # RFC 5652 9.2
+    kek = hkdf_sha256(file_key, kdf_salt, b"PDFMAC", 32)
+    pwri = der(0xA3, der(0x02, b"\0") + der(0xA0, der_oid(OID_PDF_MAC_WRAP_KDF))
+               + der_seq(der_oid(OID_AES256_WRAP)) + der(0x04, aes_key_wrap(kek, mac_key)))
+    auth_data = der_seq(
+        der(0x02, b"\0"),                      # version 0
+        der_set(pwri),                          # recipientInfos
+        hmac_alg,                               # macAlgorithm
+        der(0xA1, der_oid(OID_SHA256)),         # digestAlgorithm [1]
+        encap,                                  # encapContentInfo
+        der(0xA2, b"".join(attrs)),             # authAttrs [2]
+        der(0x04, mac))                         # mac
+    return der_seq(der_oid(OID_AUTH_DATA), der(0xA0, auth_data))
 
 
 # ---------------------------------------------------------------------------
@@ -690,6 +813,8 @@ def gen_png_predictor() -> bytes:
 PERMISSIONS = -4  # all permission bits set, reserved bits 1-2 clear (Table 22)
 OWNER_PASSWORD = b"owner"
 USER_PASSWORD = b""
+USER_PASSWORD_R6 = "p\u00e4sswort".encode("utf-8")  # SASLprep leaves it unchanged (NFKC, nothing to map)
+USER_PASSWORD_LEGACY = b"caf\xe9"  # "cafe" with e-acute, PDFDocEncoding
 
 
 def encrypted_file(name: str, version: str, label: bytes, encrypt_dict, encrypt_stream) -> bytes:
@@ -705,10 +830,10 @@ def encrypted_file(name: str, version: str, label: bytes, encrypt_dict, encrypt_
     return f.finish_classic(b"<< /Size 7 /Root 1 0 R /Encrypt 6 0 R /ID [<%s> <%s>] >>" % ((id0.hex().encode(),) * 2))
 
 
-def gen_encrypted_legacy(name: str, r: int, label: bytes) -> bytes:
+def gen_encrypted_legacy(name: str, r: int, label: bytes, n: int | None = None, rehash_first_n: bool = False) -> bytes:
     id0 = file_id(name)
-    n = 5 if r == 2 else 16
-    o = legacy_o_entry(OWNER_PASSWORD, USER_PASSWORD, r, n)
+    n = n or (5 if r == 2 else 16)
+    o = legacy_o_entry(OWNER_PASSWORD, USER_PASSWORD, r, n, rehash_first_n)
     key = legacy_file_key(USER_PASSWORD, o, PERMISSIONS, id0, r, n)
     u = legacy_u_entry(key, id0, r)
     aes = r == 4
@@ -757,6 +882,185 @@ def gen_encrypted_aes_256(name: str = "encrypted-aes-256") -> bytes:
         return iv + aes_cbc_encrypt(key, iv, data, pad=True)
 
     return encrypted_file(name, "2.0", b"AES-256 (R6)", enc, encrypt)
+
+
+def r6_entries(name: str, key: bytes, user_pw: bytes, owner_pw: bytes, p: int,
+               encrypt_metadata: bool = True) -> bytes:
+    """7.6.4.4.7-7.6.4.4.9 Algorithms 8-10: the /O /U /OE /UE /Perms entries of revisions 6 and 7."""
+    uvs, uks = fixed_bytes(name + ":user-salts", 16)[:8], fixed_bytes(name + ":user-salts", 16)[8:]
+    ovs, oks = fixed_bytes(name + ":owner-salts", 16)[:8], fixed_bytes(name + ":owner-salts", 16)[8:]
+    u = hash_2b(user_pw + uvs, user_pw, b"") + uvs + uks
+    ue = aes_cbc_encrypt(hash_2b(user_pw + uks, user_pw, b""), bytes(16), key, pad=False)
+    o = hash_2b(owner_pw + ovs + u, owner_pw, u) + ovs + oks
+    oe = aes_cbc_encrypt(hash_2b(owner_pw + oks + u, owner_pw, u), bytes(16), key, pad=False)
+    perms_block = struct.pack("<q", p) + (b"T" if encrypt_metadata else b"F") + b"adb" + fixed_bytes(name + ":perms", 4)
+    perms = aes_ecb_encrypt_block(key, perms_block)
+    return b"/P %d /O <%s> /U <%s> /OE <%s> /UE <%s> /Perms <%s>" % (
+        p, o.hex().encode(), u.hex().encode(), oe.hex().encode(), ue.hex().encode(), perms.hex().encode())
+
+
+def aes256_encryptor(name: str, key: bytes):
+    """7.6.3.3 Algorithm 1.A; ``label`` keeps every IV of the file distinct."""
+    def encrypt(num: int, label: str, data: bytes) -> bytes:
+        iv = fixed_bytes("%s:iv:%d:%s" % (name, num, label), 16)
+        return iv + aes_cbc_encrypt(key, iv, data, pad=True)
+    return encrypt
+
+
+def hex_string(data: bytes) -> bytes:
+    return b"<" + data.hex().encode() + b">"
+
+
+def extensions(level: int, revision: bytes, url: bytes, encrypt, num: int = 1) -> bytes:
+    """7.12 developer extensions dictionary under the ISO_ prefix; its strings are encrypted (ISO/TS 32004 4 NOTE)."""
+    return (b" /Extensions << /ISO_ [<< /Type /DeveloperExtensions /BaseVersion /2.0 /ExtensionLevel %d"
+            b" /ExtensionRevision %s /URL %s >>] >>" % (
+                level, hex_string(encrypt(num, "rev", revision)), hex_string(encrypt(num, "url", url))))
+
+
+def gen_encrypted_aes_gcm(name: str = "encrypted-aes-gcm") -> bytes:
+    """ISO/TS 32003: V 6, R 7, crypt filter /StdCF with /CFM /AESV4 (AES-256-GCM: 12-byte IV, ciphertext,
+    16-byte tag, no AAD), the revision 6 password algorithms, the 32003 extension declared in the catalog,
+    and an encrypted Info string."""
+    key = fixed_bytes(name + ":file-key", 32)
+
+    def encrypt(num: int, label: str, data: bytes) -> bytes:
+        iv = fixed_bytes("%s:iv:%d:%s" % (name, num, label), 12)  # never reused under the one key
+        ciphertext, tag = gcm_encrypt(key, iv, data)
+        return iv + ciphertext + tag
+
+    enc = (b"<< /Filter /Standard /V 6 /R 7 /Length 256 " + r6_entries(name, key, USER_PASSWORD, OWNER_PASSWORD, PERMISSIONS)
+           + b" /CF << /StdCF << /CFM /AESV4 /AuthEvent /DocOpen /Length 32 >> >> /StmF /StdCF /StrF /StdCF >>")
+    id0 = file_id(name)
+    f = File("2.0", binary=True)
+    f.add(1, catalog(extensions(32003, b":2023", b"https://www.iso.org/standard/45876.html", encrypt)))
+    f.add(2, pages())
+    f.add(3, page(contents=4, font=5))
+    f.add(4, stream(b"", encrypt(4, "stream", text_content(b"AES-256-GCM (R7)"))))
+    f.add(5, HELVETICA)
+    f.add(6, enc)
+    f.add(7, b"<< /Title %s >>" % hex_string(encrypt(7, "title", b"AES-GCM")))
+    return f.finish_classic(b"<< /Size 8 /Root 1 0 R /Info 7 0 R /Encrypt 6 0 R /ID [<%s> <%s>] >>" % ((id0.hex().encode(),) * 2))
+
+
+def gen_encrypted_user_password(name: str = "encrypted-user-password") -> bytes:
+    """R6 (V 5, AES-256) with a non-ASCII user password, prepared with SASLprep and UTF-8 (7.6.4.1), and
+    restricted user permissions: P -3372 grants printing (bit 3) and copying (bit 5) only (Table 22)."""
+    key = fixed_bytes(name + ":file-key", 32)
+    encrypt = aes256_encryptor(name, key)
+    enc = (b"<< /Filter /Standard /V 5 /R 6 /Length 256 " + r6_entries(name, key, USER_PASSWORD_R6, OWNER_PASSWORD, -3372)
+           + b" /CF << /StdCF << /CFM /AESV3 /AuthEvent /DocOpen /Length 32 >> >> /StmF /StdCF /StrF /StdCF >>")
+    id0 = file_id(name)
+    f = File("2.0", binary=True)
+    f.add(1, catalog())
+    f.add(2, pages())
+    f.add(3, page(contents=4, font=5))
+    f.add(4, stream(b"", encrypt(4, "stream", text_content(b"User password (R6)"))))
+    f.add(5, HELVETICA)
+    f.add(6, enc)
+    f.add(7, b"<< /Title %s >>" % hex_string(encrypt(7, "title", b"Protected")))
+    return f.finish_classic(b"<< /Size 8 /Root 1 0 R /Info 7 0 R /Encrypt 6 0 R /ID [<%s> <%s>] >>" % ((id0.hex().encode(),) * 2))
+
+
+def gen_encrypted_rc4_user_password(name: str = "encrypted-rc4-user-password") -> bytes:
+    """R3 (V 2, 128-bit RC4) with the user password ``caf\xe9`` in PDFDocEncoding (7.6.4.3.2 step a) and an
+    encrypted Info string: Algorithms 2, 5, 6 and 7 with a non-empty user password."""
+    id0 = file_id(name)
+    n = 16
+    o = legacy_o_entry(OWNER_PASSWORD, USER_PASSWORD_LEGACY, 3, n)
+    key = legacy_file_key(USER_PASSWORD_LEGACY, o, PERMISSIONS, id0, 3, n)
+    u = legacy_u_entry(key, id0, 3)
+    f = File("1.4", binary=True)
+    f.add(1, catalog())
+    f.add(2, pages())
+    f.add(3, page(contents=4, font=5))
+    f.add(4, stream(b"", rc4(object_key(key, 4, 0, False), text_content(b"User password (R3)"))))
+    f.add(5, HELVETICA)
+    f.add(6, b"<< /Filter /Standard /V 2 /R 3 /Length 128 /P %d /O <%s> /U <%s> >>" % (
+        PERMISSIONS, o.hex().encode(), u.hex().encode()))
+    f.add(7, b"<< /Title %s >>" % hex_string(rc4(object_key(key, 7, 0, False), b"Protected")))
+    return f.finish_classic(b"<< /Size 8 /Root 1 0 R /Info 7 0 R /Encrypt 6 0 R /ID [<%s> <%s>] >>" % ((id0.hex().encode(),) * 2))
+
+
+def gen_encrypted_crypt_filters(name: str = "encrypted-crypt-filters") -> bytes:
+    """R4 (V 4) crypt filters (7.6.6, 7.4.10): StmF and StrF /StdCF (AESV2), /EncryptMetadata false (the
+    metadata stream is plaintext and Algorithm 2 step f appends FF FF FF FF), a content stream with
+    /Filter /Crypt /Name /Identity left unencrypted, one with /Name /StdCF (Algorithm 1 object key, as
+    qpdf and poppler read it), and an encrypted Info string."""
+    id0 = file_id(name)
+    n = 16
+    o = legacy_o_entry(OWNER_PASSWORD, USER_PASSWORD, 4, n)
+    key = legacy_file_key(USER_PASSWORD, o, PERMISSIONS, id0, 4, n, encrypt_metadata=False)
+    u = legacy_u_entry(key, id0, 4)
+
+    def encrypt(num: int, label: str, data: bytes) -> bytes:
+        iv = fixed_bytes("%s:iv:%d:%s" % (name, num, label), 16)
+        return iv + aes_cbc_encrypt(object_key(key, num, 0, True), iv, data, pad=True)
+
+    def text(y: int, label: bytes) -> bytes:
+        return b"BT /F1 24 Tf 72 %d Td (%s) Tj ET" % (y, label)
+
+    f = File("1.6", binary=True)
+    f.add(1, catalog(b" /Metadata 8 0 R"))
+    f.add(2, pages())
+    f.add(3, page(contents=None, font=5, extra=b" /Contents [4 0 R 7 0 R 10 0 R]"))
+    f.add(4, stream(b"", encrypt(4, "stream", text(700, b"StmF StdCF"))))
+    f.add(5, HELVETICA)
+    f.add(6, b"<< /Filter /Standard /V 4 /R 4 /Length 128 /P %d /O <%s> /U <%s> /EncryptMetadata false"
+             b" /CF << /StdCF << /CFM /AESV2 /AuthEvent /DocOpen /Length 16 >> >> /StmF /StdCF /StrF /StdCF >>" % (
+                 PERMISSIONS, o.hex().encode(), u.hex().encode()))
+    f.add(7, stream(b"/Filter /Crypt /DecodeParms << /Type /CryptFilterDecodeParms /Name /Identity >>", text(660, b"Identity crypt filter")))
+    f.add(8, stream(b"/Type /Metadata /Subtype /XML", XMP))
+    f.add(9, b"<< /Title %s >>" % hex_string(encrypt(9, "title", b"Crypt filters")))
+    f.add(10, stream(b"/Filter /Crypt /DecodeParms << /Type /CryptFilterDecodeParms /Name /StdCF >>", encrypt(10, "stream", text(620, b"StdCF crypt filter"))))
+    return f.finish_classic(b"<< /Size 11 /Root 1 0 R /Info 9 0 R /Encrypt 6 0 R /ID [<%s> <%s>] >>" % ((id0.hex().encode(),) * 2))
+
+
+MAC_TAMPER_TARGET = b"% Integrity check target: original\n"
+
+
+def gen_encrypted_mac(name: str = "encrypted-mac") -> bytes:
+    """ISO/TS 32004: R6 (V 5) with /KDFSalt, P -4100 (bit 13 clear: a MAC token is required) and a
+    standalone PDF MAC token in the trailer's /AuthCode, its /ByteRange covering the whole file except
+    the token, the 32004 extension declared in the catalog."""
+    key = fixed_bytes(name + ":file-key", 32)
+    kdf_salt = fixed_bytes(name + ":kdf-salt", 32)
+    mac_key = fixed_bytes(name + ":mac-key", 32)
+    encrypt = aes256_encryptor(name, key)
+    p = -4100
+    enc = (b"<< /Filter /Standard /V 5 /R 6 /Length 256 " + r6_entries(name, key, USER_PASSWORD, OWNER_PASSWORD, p)
+           + b" /KDFSalt <%s> /CF << /StdCF << /CFM /AESV3 /AuthEvent /DocOpen /Length 32 >> >>"
+             b" /StmF /StdCF /StrF /StdCF >>" % kdf_salt.hex().encode())
+    id0 = file_id(name)
+    f = File("2.0", binary=True)
+    f.add(1, catalog(extensions(32004, b":2024", b"https://www.iso.org/standard/45877.html", encrypt)))
+    f.add(2, pages())
+    f.add(3, page(contents=4, font=5))
+    f.add(4, stream(b"", encrypt(4, "stream", text_content(b"Integrity MAC (R6)"))))
+    f.add(5, HELVETICA)
+    f.add(6, enc)
+    f.raw(MAC_TAMPER_TARGET)
+    token_length = len(pdf_mac_token(key, kdf_salt, mac_key, bytes(32)))
+    placeholder = b"<" + b"0" * (2 * token_length) + b">"
+    range_placeholder = b"[0 0000000000 0000000000 0000000000]"
+    data = bytearray(f.finish_classic(
+        b"<< /Size 7 /Root 1 0 R /Encrypt 6 0 R /ID [<%s> <%s>] /AuthCode << /MACLocation /Standalone"
+        b" /ByteRange %s /MAC %s >> >>" % (id0.hex().encode(), id0.hex().encode(), range_placeholder, placeholder)))
+    l1 = data.index(placeholder)
+    start = l1 + len(placeholder)
+    byte_range = b"[0 %010d %010d %010d]" % (l1, start, len(data) - start)
+    r = data.index(range_placeholder)
+    data[r:r + len(range_placeholder)] = byte_range
+    digest = hashlib.sha256(bytes(data[:l1]) + bytes(data[start:])).digest()
+    token = pdf_mac_token(key, kdf_salt, mac_key, digest)
+    data[l1:start] = b"<" + token.hex().upper().encode() + b">"
+    return bytes(data)
+
+
+def gen_encrypted_mac_tampered() -> bytes:
+    """encrypted-mac.pdf with one byte of a comment changed after the MAC was computed."""
+    data = gen_encrypted_mac()
+    return data.replace(MAC_TAMPER_TARGET, MAC_TAMPER_TARGET.replace(b"original", b"Original"), 1)
 
 
 def gen_broken_xref_offsets() -> bytes:
@@ -895,6 +1199,15 @@ FILES = {
     "encrypted-rc4-128.pdf": lambda: gen_encrypted_legacy("encrypted-rc4-128", 3, b"RC4 128-bit (R3)"),
     "encrypted-aes-128.pdf": lambda: gen_encrypted_legacy("encrypted-aes-128", 4, b"AES-128 (R4)"),
     "encrypted-aes-256.pdf": gen_encrypted_aes_256,
+    "encrypted-rc4-40-r3.pdf": lambda: gen_encrypted_legacy("encrypted-rc4-40-r3", 3, b"RC4 40-bit (R3)", n=5),
+    "encrypted-crypt-filters.pdf": gen_encrypted_crypt_filters,
+    "encrypted-aes-gcm.pdf": gen_encrypted_aes_gcm,
+    "encrypted-mac.pdf": gen_encrypted_mac,
+    "encrypted-user-password.pdf": gen_encrypted_user_password,
+    "encrypted-rc4-user-password.pdf": gen_encrypted_rc4_user_password,
+    "encrypted-mac-tampered.pdf": gen_encrypted_mac_tampered,
+    "encrypted-owner-key-variant.pdf": lambda: gen_encrypted_legacy(
+        "encrypted-owner-key-variant", 3, b"RC4 40-bit (R3), qpdf owner key", n=5, rehash_first_n=True),
     "broken-xref-offsets.pdf": gen_broken_xref_offsets,
     "missing-endobj.pdf": gen_missing_endobj,
     "wrong-stream-length.pdf": gen_wrong_stream_length,
@@ -924,6 +1237,17 @@ def self_test() -> None:
     assert aes_ecb_encrypt_block(k256, pt) == bytes.fromhex("8ea2b7ca516745bfeafc49904b496089")
     # RC4 known answer (key "Key", plaintext "Plaintext")
     assert rc4(b"Key", b"Plaintext") == bytes.fromhex("BBF316E8D940AF0AD3")
+    # GCM: the McGrew-Viega test cases 13 and 14 (AES-256, 96-bit zero IV, no AAD)
+    assert gcm_encrypt(bytes(32), bytes(12), b"") == (b"", bytes.fromhex("530f8afbc74536b9a963b4f1c4cb738b"))
+    assert gcm_encrypt(bytes(32), bytes(12), bytes(16)) == (
+        bytes.fromhex("cea7403d4d606b6e074ec5d3baf39d18"), bytes.fromhex("d0d1c8a799996bf0265b98b5d48ab919"))
+    # RFC 3394 4.6: wrap 256 bits of key data with a 256-bit KEK
+    assert aes_key_wrap(bytes(range(32)), bytes.fromhex(
+        "00112233445566778899AABBCCDDEEFF000102030405060708090A0B0C0D0E0F")) == bytes.fromhex(
+        "28C9F404C4B810F4CBCCB35CFB87F8263F5786E2D80ED326CBC7F0E71A99F43BFB988B9B7A02DD21")
+    # RFC 5869 A.1
+    assert hkdf_sha256(b"\x0b" * 22, bytes(range(13)), bytes(range(0xF0, 0xFA)), 42) == bytes.fromhex(
+        "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865")
 
 
 def main(argv: list[str]) -> int:

@@ -44,7 +44,7 @@ string path = Corpus.Path("outline.pdf");
 public void Opens(string fileName) { ... }
 ```
 
-`Corpus.WellFormedFiles`, `Corpus.MalformedFiles` and `Corpus.AllFiles` are `TheoryData<string>` over the two tables in the corpus README; `WellFormedFileNames`, `MalformedFileNames` and `AllFileNames` are the same lists as `IReadOnlyList<string>`. The lists are hard-coded and `CorpusSmokeTests.File_lists_match_the_corpus_directory` fails if they drift from the directory, so adding a corpus file means adding it to `Corpus.cs` and to the README table.
+`Corpus.WellFormedFiles`, `Corpus.MalformedFiles` and `Corpus.AllFiles` are `TheoryData<string>` over the well-formed and broken tables in the corpus README (`Corpus.PasswordProtectedFiles` is `TheoryData<string, string>` of file name and user password over its password-protected table); `WellFormedFileNames`, `MalformedFileNames` and `AllFileNames` are the same lists as `IReadOnlyList<string>`. The lists are hard-coded and `CorpusSmokeTests.File_lists_match_the_corpus_directory` fails if they drift from the directory, so adding a corpus file means adding it to `Corpus.cs` and to the README table.
 
 The real-world corpora in `corpus/` (gitignored, fetched by `tools/CorpusFetcher`) will get a similar helper when that tool lands.
 

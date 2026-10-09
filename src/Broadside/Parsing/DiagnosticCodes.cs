@@ -81,6 +81,27 @@ internal static class DiagnosticCodes
     public const string StreamDecodedLengthExceeded = nameof(StreamDecodedLengthExceeded);
     public const string StreamDecodingTooDeep = nameof(StreamDecodingTooDeep);
 
+    // Encryption (§7.6; ISO/TS 32003; ISO/TS 32004).
+    public const string EncryptDictionaryInvalid = nameof(EncryptDictionaryInvalid);
+    public const string EncryptionIdMissing = nameof(EncryptionIdMissing);
+    public const string EncryptionVersionInvalid = nameof(EncryptionVersionInvalid);
+    public const string EncryptionRevisionInvalid = nameof(EncryptionRevisionInvalid);
+    public const string EncryptionKeyLengthInvalid = nameof(EncryptionKeyLengthInvalid);
+    public const string EncryptionEntryLengthInvalid = nameof(EncryptionEntryLengthInvalid);
+    public const string EncryptionPermissionsMismatch = nameof(EncryptionPermissionsMismatch);
+    public const string EncryptionExtensionMissing = nameof(EncryptionExtensionMissing);
+    public const string OwnerPasswordKeyVariant = nameof(OwnerPasswordKeyVariant);
+    public const string CryptFilterMissing = nameof(CryptFilterMissing);
+    public const string CryptFilterMethodInvalid = nameof(CryptFilterMethodInvalid);
+    public const string EncryptedDataInvalid = nameof(EncryptedDataInvalid);
+    public const string EncryptedDataAuthenticationFailed = nameof(EncryptedDataAuthenticationFailed);
+    public const string MetadataNotEncrypted = nameof(MetadataNotEncrypted);
+    public const string IntegrityCodeMissing = nameof(IntegrityCodeMissing);
+    public const string IntegrityCodeInvalid = nameof(IntegrityCodeInvalid);
+    public const string IntegrityCodeMismatch = nameof(IntegrityCodeMismatch);
+    public const string IntegrityCodeIncomplete = nameof(IntegrityCodeIncomplete);
+    public const string IntegrityCodeNotVerified = nameof(IntegrityCodeNotVerified);
+
     // Document catalog (§7.7.2).
     public const string CatalogTypeInvalid = nameof(CatalogTypeInvalid);
     public const string CatalogVersionNotName = nameof(CatalogVersionNotName);
