@@ -25,6 +25,8 @@ public static class Corpus
         "text-truetype-symbolic.pdf",
         "text-truetype-macroman.pdf",
         "text-truetype-loca-long.pdf",
+        "text-cff-embedded.pdf",
+        "text-opentype-cff-embedded.pdf",
         "text-type1-embedded.pdf",
         "text-cid-identity-h.pdf",
         "text-cid-identity-v.pdf",

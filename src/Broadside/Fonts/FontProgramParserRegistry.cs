@@ -1,4 +1,5 @@
 using Broadside.Diagnostics;
+using Broadside.Fonts.Cff;
 using Broadside.Fonts.TrueType;
 using Broadside.Fonts.Type1;
 using Broadside.Objects;
@@ -22,7 +23,7 @@ internal sealed class FontProgramParserRegistry
     private FontProgramParserRegistry(IFontProgramParser[] parsers) => _parsers = parsers;
 
     /// <summary>Gets the managed default parsers, one stateless instance each, in the order they are tried.</summary>
-    public static IReadOnlyList<IFontProgramParser> Defaults { get; } = [new TrueTypeFontProgramParser(), new Type1FontProgramParser()];
+    public static IReadOnlyList<IFontProgramParser> Defaults { get; } = [new TrueTypeFontProgramParser(), new Type1FontProgramParser(), new CffFontProgramParser()];
 
     /// <summary>Gets the registry of the defaults only.</summary>
     public static FontProgramParserRegistry Default { get; } = new([.. Defaults]);

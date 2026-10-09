@@ -25,6 +25,9 @@ public sealed class FontProgramContext
     /// <summary>The default of <see cref="MaxGlyphPoints"/>.</summary>
     public const int DefaultMaxGlyphPoints = 65536;
 
+    /// <summary>The default of <see cref="MaxCharStringOperators"/>.</summary>
+    public const int DefaultMaxCharStringOperators = 100_000;
+
     private readonly DiagnosticSink? _sink;
     private readonly CosReference? _objectReference;
     private readonly List<Diagnostic> _diagnostics = [];
@@ -93,6 +96,16 @@ public sealed class FontProgramContext
     /// <summary>Gets how many points one glyph may have, components included; a larger glyph is dropped with a diagnostic. Default 65,536.</summary>
     /// <remarks>Guards against composite fan-out: a few levels of many components each multiply into billions of points.</remarks>
     public int MaxGlyphPoints { get; init; } = DefaultMaxGlyphPoints;
+
+    /// <summary>
+    /// Gets how many charstring operators and operands one glyph may execute, subroutine calls and accent components included; a glyph
+    /// that needs more is dropped with a diagnostic. Default 100,000.
+    /// </summary>
+    /// <remarks>
+    /// Guards against subroutine fan-out (Adobe Technical Note #5177 §4.7): ten nesting levels that each call the next many times
+    /// multiply into an unbounded amount of work, which the nesting limit alone does not prevent.
+    /// </remarks>
+    public int MaxCharStringOperators { get; init; } = DefaultMaxCharStringOperators;
 
     /// <summary>Gets the diagnostics reported through this context: the first of each code, in order.</summary>
     public IReadOnlyList<Diagnostic> Diagnostics
