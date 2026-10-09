@@ -13,7 +13,8 @@
       "tests/Broadside.Rendering.Tests/Broadside.Rendering.Tests.csproj",
       "tests/Broadside.Rendering.Skia.Tests/Broadside.Rendering.Skia.Tests.csproj",
       "tests/Broadside.Fonts.Standard14.Tests/Broadside.Fonts.Standard14.Tests.csproj",
-      "tests/Broadside.Fonts.Cmaps.Tests/Broadside.Fonts.Cmaps.Tests.csproj"
+      "tests/Broadside.Fonts.Cmaps.Tests/Broadside.Fonts.Cmaps.Tests.csproj",
+      "tests/ConformanceCheck.Tests/ConformanceCheck.Tests.csproj"
     ]
   }
 }
