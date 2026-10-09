@@ -17,6 +17,17 @@ Broadside is a fully managed .NET PDF library (read, write, edit, render) with v
 4. Open a PR that references the issue, updates the conformance map, updates `PublicAPI.Unshipped.txt`, and adds tests. CI must be green.
 5. Phase 0 and 1: self-merge when green. Phase 2 onward: request review from the owner.
 
+### Skills
+
+`.claude/skills/` holds one skill per recurring task type (index in `.claude/skills/README.md`). Invoke the matching skill before starting that kind of task:
+
+- `picking-up-an-issue`: the flow above, step by step, with the exact commands.
+- `updating-the-conformance-map`: row and cell formats, third-level splits, clause citations, the checker.
+- `writing-a-corpus-file`: adding a file to `tests/Corpus/` through `generate.py`, verifying it, registering it.
+- `adding-a-benchmark`: `[MemoryDiagnoser]` conventions, zero-allocation proof, run modes, the regression gate.
+- `adding-a-fuzz-target`: registering a target in `tests/Broadside.Fuzz`, seeds, smoke mode.
+- `adding-a-filter`, `adding-a-font-program-parser`, `adding-a-rendering-backend`: design briefs for the three extension points; their contract sections are replaced with real signatures when the defining issues land.
+
 ## Hard rules
 
 - **Dependencies.** The core package and `Broadside.Rendering` depend only on packages Microsoft ships with no native component (BCL, `System.*`, `Microsoft.Extensions.*` abstractions). Nothing else, ever. Backends other than the software rasterizer may depend on their platform library and nothing else. See ADR 0001.
