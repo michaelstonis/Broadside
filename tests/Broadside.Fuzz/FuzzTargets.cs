@@ -4,6 +4,7 @@ using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Fonts;
 using Broadside.Fonts.TrueType;
+using Broadside.Fonts.Type1;
 using Broadside.Graphics;
 using Broadside.IO;
 using Broadside.Objects;
@@ -51,6 +52,8 @@ internal static class FuzzTargets
         ["function-sampled"] = FunctionSampled,
         ["optional-content"] = OptionalContentTarget.Target,
         ["font-truetype"] = FontTrueType,
+        ["font-type1"] = FontType1,
+        ["cmap"] = CMapFile,
         ["colorspace"] = ColorSpaceTarget,
         ["shading-mesh"] = ShadingMeshTarget.Target,
     };
@@ -233,6 +236,11 @@ internal static class FuzzTargets
                 }
             }
 
+            if (font is PdfType0Font composite)
+            {
+                ReadComposite(composite, entry.Key.Value);
+            }
+
             if (font is PdfTrueTypeFont trueType && trueType.Program is { } program)
             {
                 var outline = new GlyphOutline();
@@ -247,6 +255,165 @@ internal static class FuzzTargets
                     CheckOutline(program.GetOutline(glyph, outline), outline);
                 }
             }
+
+            if (font is PdfType1Font type1 && type1.Program is { } type1Program)
+            {
+                var outline = new GlyphOutline();
+                for (int code = 0; code < 256; code++)
+                {
+                    int glyph = type1.GetGlyphId((byte)code);
+                    if (glyph < 0 || (glyph > 0 && glyph >= type1Program.GlyphCount))
+                    {
+                        throw new InvalidOperationException($"Code {code} of font {entry.Key.Value} selects glyph {glyph} of {type1Program.GlyphCount}.");
+                    }
+
+                    CheckOutline(type1Program.GetOutline(glyph, outline), outline);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Parses the input as a Type 1 program (issue #52) twice: stand-alone, and as a <c>FontFile</c> stream with <c>Length1</c> and
+    /// <c>Length2</c> near the true ones (the last two input bytes move them), so both the exact and the repaired layouts run. Reads all
+    /// of it: every glyph's outline (up to 4,096) and metrics, every glyph name and its reverse lookup, the built-in encoding. An input
+    /// starting with <c>%PDF-</c> is read from its first <c>%!</c> (or PFB header), so the Type 1 corpus files (unfiltered programs)
+    /// seed it. Outlines must be well-formed contours with finite points.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.9; Adobe Type 1 Font Format chapters 2, 6, 7 and 8; TN 5015; TN 5040 §3.3.</remarks>
+    private static void FontType1(ReadOnlySpan<byte> data)
+    {
+        if (data.StartsWith("%PDF-"u8))
+        {
+            int text = data[5..].IndexOf("%!"u8);
+            int pfb = data.IndexOf((ReadOnlySpan<byte>)[0x80, 0x01]);
+            int start = text < 0 ? pfb : pfb >= 0 ? Math.Min(text + 5, pfb) : text + 5;
+            if (start < 0)
+            {
+                return;
+            }
+
+            data = data[start..];
+        }
+
+        byte[] bytes = data.ToArray();
+        var parser = new Type1FontProgramParser();
+        _ = parser.CanParse(bytes);
+        ReadType1(parser.Parse(bytes, new FontProgramContext()));
+
+        int eexec = data.IndexOf("eexec"u8);
+        long length1 = (eexec < 0 ? data.Length / 2 : eexec + 6) + (data.Length > 0 ? (data[^1] % 7) - 3 : 0);
+        long length2 = data.Length - length1 - (data.Length > 1 ? data[^2] % 600 : 0);
+        ReadType1(parser.Parse(bytes, new FontProgramContext { Source = FontProgramSource.FontFile, Length1 = length1, Length2 = length2, Length3 = 0 }));
+    }
+
+    private static void ReadType1(FontProgram? program)
+    {
+        if (program is null)
+        {
+            return;
+        }
+
+        _ = (program.FontBBox, program.PostScriptName, program.FontMatrix);
+        if (program.BuiltInEncoding is { } encoding && encoding.Count != 256)
+        {
+            throw new InvalidOperationException($"The built-in encoding has {encoding.Count} entries.");
+        }
+
+        if (program.GlyphCount < 1 || program.GetGlyphName(0) != ".notdef")
+        {
+            throw new InvalidOperationException("Glyph 0 is not .notdef.");
+        }
+
+        var outline = new GlyphOutline();
+        int glyphs = Math.Min(program.GlyphCount, 4096);
+        for (int glyph = -1; glyph <= glyphs; glyph++)
+        {
+            CheckOutline(program.GetOutline(glyph, outline), outline);
+            GlyphMetrics metrics = program.GetMetrics(glyph);
+            if (!double.IsFinite(metrics.AdvanceWidth) || !double.IsFinite(metrics.LeftSideBearing))
+            {
+                throw new InvalidOperationException($"Glyph {glyph} has metrics that are not finite.");
+            }
+
+            if (program.GetGlyphName(glyph) is { } name && (!program.TryGetGlyphId(name, out int named) || named > glyph))
+            {
+                throw new InvalidOperationException($"Glyph {glyph} is named {name}, but the name finds glyph {named}.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reads a Type 0 font (#53): its CMap and CIDFont, and every glyph of a fixed string of varied bytes. Each code takes 1 to 4
+    /// bytes of what is left, CIDs lie in 0 to 65,535, metrics are finite, and an embedded TrueType CIDFont's glyph ids lie inside
+    /// its program.
+    /// </summary>
+    private static void ReadComposite(PdfType0Font font, string name)
+    {
+        _ = (font.Encoding.Name, font.Encoding.SystemInfo, font.WritingMode);
+        if (font.DescendantFont is { } descendant)
+        {
+            _ = (descendant.BaseFont, descendant.SystemInfo, descendant.DefaultWidth, descendant.Descriptor?.Flags);
+        }
+
+        FontProgram? program = font.DescendantFont?.Program;
+        bool embedded = font.DescendantFont?.IsEmbedded == true;
+        Span<byte> text = stackalloc byte[512];
+        for (int index = 0; index < text.Length; index++)
+        {
+            text[index] = (byte)((index * 37) ^ (index >> 3));
+        }
+
+        ReadOnlySpan<byte> rest = text;
+        while (!rest.IsEmpty)
+        {
+            CidGlyph glyph = font.ReadGlyph(rest);
+            if (glyph.Code.Length < 1 || glyph.Code.Length > Math.Min(4, rest.Length) || glyph.Cid is < 0 or > 0xFFFF
+                || !double.IsFinite(glyph.Width) || !double.IsFinite(glyph.VerticalMetrics.VerticalAdvance)
+                || !double.IsFinite(glyph.VerticalMetrics.PositionX) || !double.IsFinite(glyph.VerticalMetrics.PositionY)
+                || (program is not null && embedded && (glyph.GlyphId < 0 || (glyph.GlyphId > 0 && glyph.GlyphId >= program.GlyphCount))))
+            {
+                throw new InvalidOperationException("Font " + name + " read " + glyph + " from " + rest.Length + " bytes.");
+            }
+
+            rest = rest[glyph.Code.Length..];
+        }
+    }
+
+    /// <summary>
+    /// Parses the input as a CMap file (issue #53) in lenient mode, with <c>usecmap</c> reaching only the built-in Identity CMaps,
+    /// then reads the input itself as a shown string with it: each code takes 1 to 4 bytes of what is left, the codes cover the
+    /// input exactly, and every CID lies in 0 to 65,535. Whole files are read as they are (the parser skips what is not a CMap
+    /// operator), so the corpus files with embedded CMap and ToUnicode streams are seeds in smoke mode.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.7.5 and §9.7.6.2-§9.7.6.3; Adobe TN 5014 §7.</remarks>
+    private static void CMapFile(ReadOnlySpan<byte> data)
+    {
+        CMap cmap = CMap.Parse(data, new CMapContext { MaxEntries = 100_000 });
+        _ = (cmap.Name, cmap.WritingMode, cmap.SystemInfo, cmap.Parent);
+        int consumed = 0;
+        ReadOnlySpan<byte> rest = data;
+        while (!rest.IsEmpty)
+        {
+            CharacterCode code = cmap.ReadCode(rest);
+            if (code.Length < 1 || code.Length > Math.Min(4, rest.Length))
+            {
+                throw new InvalidOperationException("A code of " + code.Length + " bytes was read from " + rest.Length + ".");
+            }
+
+            int cid = cmap.GetCid(code);
+            if (cid is < 0 or > 0xFFFF || (cmap.TryGetCid(code, out int mapped) && mapped is < 0 or > 0xFFFF))
+            {
+                throw new InvalidOperationException("Code " + code + " maps to CID " + cid + ".");
+            }
+
+            consumed += code.Length;
+            rest = rest[code.Length..];
+        }
+
+        if (consumed != data.Length)
+        {
+            throw new InvalidOperationException("The codes cover " + consumed + " of " + data.Length + " bytes.");
         }
     }
 

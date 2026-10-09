@@ -152,7 +152,7 @@ public class EncodingTests
     }
 
     [Fact]
-    public void An_embedded_font_without_an_encoding_uses_StandardEncoding_until_its_program_is_read()
+    public void An_embedded_font_without_an_encoding_whose_program_cannot_be_read_uses_StandardEncoding()
     {
         using PdfDocument document = FontPdf.Open(
             "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /FirstChar 32 /LastChar 32 /Widths [ 300 ] /FontDescriptor 5 0 R >>",
@@ -165,9 +165,9 @@ public class EncodingTests
         Assert.Equal("quoteright", font.GetGlyphName(0x27));
         Assert.Equal(300, font.GetWidth(0x20));
         Assert.Equal(0, font.GetWidth(0x41));
-        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
-        Assert.Equal("FontBuiltInEncodingUnavailable", diagnostic.Code);
-        Assert.Equal(DiagnosticSeverity.Information, diagnostic.Severity);
+        Assert.Equal(
+            [("FontType1NoEexec", DiagnosticSeverity.Warning), ("FontType1CharStringsMissing", DiagnosticSeverity.Error), ("FontBuiltInEncodingUnavailable", DiagnosticSeverity.Information)],
+            document.Diagnostics.Select(diagnostic => (diagnostic.Code, diagnostic.Severity)).ToArray());
     }
 
     [Fact]

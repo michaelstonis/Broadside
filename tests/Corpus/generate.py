@@ -1161,6 +1161,308 @@ def gen_text_truetype_loca_long() -> bytes:
     return truetype_file(font, b"BroadsideLongLoca", 32, 0x48, [800, 400], b"/WinAnsiEncoding", b"HI")
 
 
+# ---------------------------------------------------------------------------
+# Type 1 font programs (9.9 Table 125; Adobe Type 1 Font Format, TN 5015, TN 5040)
+# ---------------------------------------------------------------------------
+
+T1_OPS = {"hstem": 1, "vstem": 3, "vmoveto": 4, "rlineto": 5, "hlineto": 6, "vlineto": 7, "rrcurveto": 8,
+          "closepath": 9, "callsubr": 10, "return": 11, "hsbw": 13, "endchar": 14, "rmoveto": 21, "hmoveto": 22,
+          "vhcurveto": 30, "hvcurveto": 31}
+T1_ESCAPES = {"dotsection": 0, "vstem3": 1, "hstem3": 2, "seac": 6, "sbw": 7, "div": 12, "callothersubr": 16,
+              "pop": 17, "setcurrentpoint": 33}
+
+
+def t1_num(v: int) -> bytes:
+    """Type 1 Font Format 6.2: charstring number encoding."""
+    if -107 <= v <= 107:
+        return bytes([v + 139])
+    if 108 <= v <= 1131:
+        v -= 108
+        return bytes([(v >> 8) + 247, v & 0xFF])
+    if -1131 <= v <= -108:
+        v = -v - 108
+        return bytes([(v >> 8) + 251, v & 0xFF])
+    return b"\xff" + struct.pack(">i", v)
+
+
+def t1_charstring(program: str) -> bytes:
+    """A plaintext charstring from text: integers and command names (6.4, Appendix 2)."""
+    out = b""
+    for token in program.split():
+        if token in T1_OPS:
+            out += bytes([T1_OPS[token]])
+        elif token in T1_ESCAPES:
+            out += bytes([12, T1_ESCAPES[token]])
+        else:
+            out += t1_num(int(token))
+    return out
+
+
+def t1_encrypt(plain: bytes, r: int) -> bytes:
+    """Type 1 Font Format 7.1: c = p ^ (r >> 8); r = ((c + r) * 52845 + 22719) mod 65536."""
+    out = bytearray()
+    for p in plain:
+        c = p ^ (r >> 8)
+        r = ((c + r) * 52845 + 22719) & 0xFFFF
+        out.append(c)
+    return bytes(out)
+
+
+def t1_decrypt(cipher: bytes, r: int) -> bytes:
+    out = bytearray()
+    for c in cipher:
+        out.append(c ^ (r >> 8))
+        r = ((c + r) * 52845 + 22719) & 0xFFFF
+    return bytes(out)
+
+
+def t1_eexec(plain: bytes, label: str) -> bytes:
+    """7.2: eexec encryption with four leading bytes chosen so that the first cipher byte is not white space and not all
+    of the first four are hexadecimal digits (the binary form a reader can tell from the hexadecimal one)."""
+    hexdigits = set(b"0123456789abcdefABCDEF")
+    i = 0
+    while True:
+        cipher = t1_encrypt(fixed_bytes("%s:%d" % (label, i), 4) + plain, 55665)
+        if cipher[0] not in b" \t\r\n" and not all(b in hexdigits for b in cipher[:4]):
+            return cipher
+        i += 1
+
+
+# The glyphs of BroadsideT1 (glyph space 1000 units per em). Each exercises a part of the charstring language:
+# hints, h/v line and curve shortcuts, nested subroutines, flex (Subrs 0-2, 8.3-8.4), hint replacement (OtherSubrs 3,
+# 8.2), the 5-byte number form with div, closepath leaving the current point, sbw, and seac (6.4, TN 5015 errata).
+T1_SUBRS = [
+    "3 0 callothersubr pop pop setcurrentpoint return",   # 0: flex end (8.4)
+    "0 1 callothersubr return",                            # 1: flex start
+    "0 2 callothersubr return",                            # 2: flex point
+    "return",                                              # 3: hint replacement fallback
+    "0 0 rmoveto 6 callsubr closepath return",             # 4: the I stem, through subr 6
+    "0 100 hstem 600 100 hstem 0 100 vstem return",        # 5: replacement hints for E
+    "200 hlineto 700 vlineto -200 hlineto return",         # 6: nested in 4
+]
+T1_GLYPHS = [
+    (".notdef", "0 500 hsbw endchar"),
+    ("H", "100 800 hsbw 0 200 vstem 400 200 vstem 0 0 rmoveto 200 hlineto 300 vlineto 200 hlineto -300 vlineto "
+          "200 hlineto 700 vlineto -200 hlineto -300 vlineto -200 hlineto 300 vlineto -200 hlineto closepath endchar"),
+    ("I", "100 400 hsbw 4 callsubr endchar"),
+    ("O", "50 800 hsbw 0 350 rmoveto -193 157 -157 193 vhcurveto 193 157 157 193 hvcurveto "
+          "0 193 -157 157 -193 0 rrcurveto -193 -157 -157 -193 hvcurveto closepath endchar"),
+    ("F", "100 300 hsbw 0 -10 rmoveto 1 callsubr 50 0 rmoveto 2 callsubr -35 0 rmoveto 2 callsubr "
+          "10 10 rmoveto 2 callsubr 25 0 rmoveto 2 callsubr 25 0 rmoveto 2 callsubr 10 -10 rmoveto 2 callsubr "
+          "15 0 rmoveto 2 callsubr 50 200 -10 0 callsubr 100 vlineto -100 hlineto closepath endchar"),
+    ("E", "100 600 hsbw 0 100 hstem 0 0 rmoveto 5 1 3 callothersubr pop callsubr 400 hlineto 100 vlineto "
+          "-300 hlineto 500 vlineto 300 hlineto 100 vlineto -400 hlineto closepath dotsection endchar"),
+    ("T", "50 500000 1000 div hsbw 0 600 rmoveto 400 hlineto 100 vlineto -400 hlineto closepath "
+          "150 -700 rmoveto 100 hlineto 600 vlineto -100 hlineto closepath endchar"),
+    ("A", "20 740 hsbw 0 0 rmoveto 200 hlineto 150 500 rlineto 150 -500 rlineto 200 hlineto -250 700 rlineto "
+          "-200 hlineto closepath endchar"),
+    ("acute", "200 0 400 0 sbw 0 600 rmoveto 100 hlineto 100 100 rlineto -100 hlineto closepath endchar"),
+    ("Aacute", "20 740 hsbw 200 150 150 65 194 seac"),
+]
+# Codes of the built-in encoding; 49 ('1') and 193 map glyphs StandardEncoding would not.
+T1_ENCODING = [(49, "H"), (65, "A"), (69, "E"), (70, "F"), (72, "H"), (73, "I"), (79, "O"), (84, "T"),
+               (193, "Aacute"), (194, "acute")]
+T1_TEXT = b"1HIOFETA\xc1"
+
+
+def minimal_type1() -> tuple[bytes, bytes, bytes]:
+    """A synthesized Type 1 program (no licence): clear text, eexec-encrypted portion, fixed portion (T1 2.2-2.6).
+    Entries alternate between the RD/ND/NP and -|/|-/| procedure names (2.5)."""
+    encoding = b"".join(b"dup %d /%s put\n" % (code, name.encode()) for code, name in T1_ENCODING)
+    clear = (b"%!PS-AdobeFont-1.0: BroadsideT1 001.000\n"
+             b"%%Title: BroadsideT1\n"
+             b"11 dict begin\n"
+             b"/FontInfo 2 dict dup begin\n"
+             b"/FullName (Broadside Type 1 \\(synthesized\\)) readonly def\n"
+             b"/Notice (Synthesized for the Broadside corpus) readonly def\n"
+             b"end readonly def\n"
+             b"/FontName /BroadsideT1 def\n"
+             b"/PaintType 0 def\n"
+             b"/FontType 1 def\n"
+             b"/FontMatrix [0.001 0 0 0.001 0 0] readonly def\n"
+             b"/FontBBox {0 -10 750 850} readonly def\n"
+             b"/Encoding 256 array\n"
+             b"0 1 255 {1 index exch /.notdef put} for\n" + encoding +
+             b"readonly def\n"
+             b"currentfile eexec\n")
+
+    def entry(cs: str) -> bytes:
+        return t1_encrypt(b"\x00\x00\x00\x00" + t1_charstring(cs), 4330)
+
+    private = (b"dup /Private 10 dict dup begin\n"
+               b"/RD{string currentfile exch readstring pop}executeonly def\n"
+               b"/ND{noaccess def}executeonly def\n"
+               b"/NP{noaccess put}executeonly def\n"
+               b"/-|{string currentfile exch readstring pop}executeonly def\n"
+               b"/|-{noaccess def}executeonly def\n"
+               b"/|{noaccess put}executeonly def\n"
+               b"/BlueValues [-10 0 700 710] def\n"
+               b"/MinFeature{16 16}def\n"
+               b"/password 5839 def\n"
+               b"/lenIV 4 def\n"
+               b"/OtherSubrs [{} {} {} {systemdict /internaldict known not {pop 3} {1183615869 systemdict "
+               b"/internaldict get exec dup /startlock known {/startlock get exec} {dup /strtlck known "
+               b"{/strtlck get exec} {pop 3} ifelse} ifelse} ifelse} executeonly] noaccess def\n"
+               b"/Subrs %d array\n" % len(T1_SUBRS))
+    for i, cs in enumerate(T1_SUBRS):
+        data = entry(cs)
+        rd, np = (b"RD", b"NP") if i % 2 == 0 else (b"-|", b"|")
+        private += b"dup %d %d %s %s %s\n" % (i, len(data), rd, data, np)
+    private += b"ND\n2 index /CharStrings %d dict dup begin\n" % len(T1_GLYPHS)
+    for i, (name, cs) in enumerate(T1_GLYPHS):
+        data = entry(cs)
+        rd, nd = (b"RD", b"ND") if i % 2 == 0 else (b"-|", b"|-")
+        private += b"/%s %d %s %s %s\n" % (name.encode(), len(data), rd, data, nd)
+    private += b"end\nend\nreadonly put\nnoaccess put\ndup/FontName get exch definefont pop\nmark currentfile closefile\n"
+    fixed = (b"0" * 64 + b"\n") * 8 + b"cleartomark\n"
+    return clear, t1_eexec(private, "type1-eexec"), fixed
+
+
+def type1_file(program: bytes, lengths: tuple[int, int, int]) -> bytes:
+    """A page showing every glyph of BroadsideT1, embedded with FontFile and no /Encoding, so the program's built-in
+    encoding applies (9.6.2.1 Table 109, 9.6.5.2, 9.9 Table 125)."""
+    first, last = min(T1_TEXT), max(T1_TEXT)
+    width_of = {"H": 800, "I": 400, "O": 800, "F": 300, "E": 600, "T": 500, "A": 740, "Aacute": 740, "acute": 400}
+    names = dict(T1_ENCODING)
+    w = b" ".join(b"%d" % width_of.get(names.get(c, ""), 0) for c in range(first, last + 1))
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>" % LETTER),
+        (4, stream(b"", codes_content([("F1", T1_TEXT)]))),
+        (5, b"<< /Type /Font /Subtype /Type1 /BaseFont /BroadsideT1 /FirstChar %d /LastChar %d /Widths [%s] "
+            b"/FontDescriptor 6 0 R >>" % (first, last, w)),
+        (6, b"<< /Type /FontDescriptor /FontName /BroadsideT1 /Flags 32 /FontBBox [0 -10 750 850] /ItalicAngle 0 "
+            b"/Ascent 850 /Descent -10 /CapHeight 700 /StemV 100 /FontFile 7 0 R >>"),
+        (7, stream(b"/Length1 %d /Length2 %d /Length3 %d" % lengths, program)),
+    ], binary=True)
+
+
+def gen_text_type1_embedded() -> bytes:
+    """9.9 Table 125: an embedded Type 1 program in the PDF layout (clear text, binary eexec portion, 512 zeros and
+    cleartomark), its lengths exact; the font dictionary has no Encoding (9.6.5.2: the program's applies)."""
+    clear, cipher, fixed = minimal_type1()
+    return type1_file(clear + cipher + fixed, (len(clear), len(cipher), len(fixed)))
+
+
+def pfb_segment(kind: int, data: bytes = b"") -> bytes:
+    """TN 5040 3.3 Table 1: 128, type (1 ASCII, 2 binary, 3 end of file), 4-byte little-endian length, data."""
+    return bytes([128, kind]) + (struct.pack("<I", len(data)) + data if kind != 3 else b"")
+
+
+def gen_text_type1_pfb() -> bytes:
+    """A whole PFB file (TN 5040) as the FontFile, the binary portion split over two segments; ISO 32000-2 9.9 wants the
+    unwrapped program, so a reader strips the segment headers with a diagnostic. Lengths are the unwrapped portions."""
+    clear, cipher, fixed = minimal_type1()
+    half = len(cipher) // 2
+    pfb = (pfb_segment(1, clear) + pfb_segment(2, cipher[:half]) + pfb_segment(2, cipher[half:]) +
+           pfb_segment(1, fixed) + pfb_segment(3))
+    return type1_file(pfb, (len(clear), len(cipher), len(fixed)))
+
+
+def gen_text_type1_hex_eexec() -> bytes:
+    """A PFA-style program: the eexec portion in hexadecimal, 64 digits per line (Type 1 Font Format 7.2); ISO 32000-2
+    9.9 allows only the binary form. Length2 counts the hexadecimal text."""
+    clear, cipher, fixed = minimal_type1()
+    digits = cipher.hex().encode()
+    hex_text = b"".join(digits[i:i + 64] + b"\n" for i in range(0, len(digits), 64))
+    return type1_file(clear + hex_text + fixed, (len(clear), len(hex_text), len(fixed)))
+
+
+def gen_text_type1_bad_lengths() -> bytes:
+    """Length1 five bytes short of the clear text (pdf.js issue5686), Length2 larger than the stream (issue3928 has
+    such values), Length3 0 and no fixed portion."""
+    clear, cipher, _ = minimal_type1()
+    return type1_file(clear + cipher, (len(clear) - 5, 99999999999, 0))
+# Composite fonts (clause 9.7): Type 0 font over a CIDFontType2 descendant
+# ---------------------------------------------------------------------------
+
+def cmap_stream(name: bytes, body: bytes, cmap_type: int = 1, extra: bytes = b"", wmode: int | None = None,
+                registry: bytes = b"Adobe", ordering: bytes = b"Identity", supplement: int = 0) -> bytes:
+    """A CMap file (Adobe TN 5014 §7, TN 5099 §1.3) as a stream (9.7.5.3 Table 118); ``body`` holds the range blocks."""
+    ros = b"<< /Registry (%s) /Ordering (%s) /Supplement %d >>" % (registry, ordering, supplement)
+    text = (b"%!PS-Adobe-3.0 Resource-CMap\n/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n"
+            b"/CIDSystemInfo 3 dict dup begin\n  /Registry (" + registry + b") def\n  /Ordering (" + ordering
+            + b") def\n  /Supplement %d def\nend def\n/CMapName /%s def\n/CMapType %d def\n" % (supplement, name, cmap_type))
+    if wmode is not None:
+        text += b"/WMode %d def\n" % wmode
+    text += body + b"endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n"
+    entries = b"/Type /CMap /CMapName /%s /CIDSystemInfo %s" % (name, ros)
+    if wmode is not None:
+        entries += b" /WMode %d" % wmode
+    return stream(entries + extra, text)
+
+
+def to_unicode(codespace: bytes, mappings: bytes) -> bytes:
+    """9.10.3 ToUnicode CMap: a codespace block and bfchar/bfrange blocks (TN 5099 §1.4)."""
+    return cmap_stream(b"Adobe-Identity-UCS", codespace + mappings, cmap_type=2, ordering=b"UCS")
+
+
+def cid_file(encoding: bytes, cid_entries: bytes, codes: list[bytes], tounicode: bytes,
+             extra: list[tuple[int, bytes]] | None = None, origin: bytes = b"72 700") -> bytes:
+    """A page showing each of ``codes`` (one Tj each) in a Type 0 font (9.7.6.1 Table 119) whose descendant is an
+    embedded CIDFontType2 (9.7.4.1 Table 115) over ``minimal_truetype()``: GID 1 'H' 800, GID 2 'I' 400, upem 1000."""
+    font, _ = minimal_truetype()
+    shows = b" ".join((b"<%s> Tj" % c.hex().upper().encode()) if c[:1] != b"(" else c + b" Tj" for c in codes)
+    content = b"BT /F1 24 Tf " + origin + b" Td " + shows + b" ET"
+    objects = [
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>" % LETTER),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Font /Subtype /Type0 /BaseFont /BroadsideMinimal /Encoding %s /DescendantFonts [8 0 R] "
+            b"/ToUnicode 9 0 R >>" % encoding),
+        (6, b"<< /Type /FontDescriptor /FontName /BroadsideMinimal /Flags 4 /FontBBox [0 0 700 700] /ItalicAngle 0 "
+            b"/Ascent 800 /Descent -200 /CapHeight 700 /StemV 200 /FontFile2 7 0 R >>"),
+        (7, stream(b"/Length1 %d" % len(font), font)),
+        (8, b"<< /Type /Font /Subtype /CIDFontType2 /BaseFont /BroadsideMinimal "
+            b"/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 6 0 R %s >>"
+            % cid_entries),
+        (9, tounicode),
+    ]
+    return simple_file(objects + (extra or []), binary=True)
+
+
+def gen_text_cid_identity_h() -> bytes:
+    """9.7.4.1 Table 115, 9.7.4.3, 9.7.5.2, 9.7.6: Identity-H over CIDFontType2 with CIDToGIDMap /Identity; W in both
+    forms (1 [800] and 2 2 400) and DW 600. Codes 0001 0003 0002: CID 3 is past the program's 3 glyphs, so it shows
+    the CID 0 glyph with the DW width."""
+    tu = to_unicode(b"1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n",
+                    b"2 beginbfchar\n<0001> <0048>\n<0003> <0020>\nendbfchar\n"
+                    b"1 beginbfrange\n<0002> <0002> <0049>\nendbfrange\n")
+    return cid_file(b"/Identity-H", b"/CIDToGIDMap /Identity /DW 600 /W [1 [800] 2 2 400]",
+                    [b"\x00\x01\x00\x03\x00\x02"], tu)
+
+
+def gen_text_cid_identity_v() -> bytes:
+    """9.7.4.1 Table 115 (CIDToGIDMap stream, DW2, W2), 9.7.4.3 (W2 in both forms, DW2 fallback, v.x = w0/2), 9.7.5.2
+    Identity-V. The map covers CIDs 0 to 0x22 (0x21 -> 1, 0x22 -> 2); CID 0x23 is past its end and shows CID 0's glyph."""
+    gid_map = bytearray(2 * 0x23)
+    gid_map[2 * 0x21:2 * 0x21 + 2] = b"\x00\x01"
+    gid_map[2 * 0x22:2 * 0x22 + 2] = b"\x00\x02"
+    tu = to_unicode(b"1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n",
+                    b"3 beginbfchar\n<0021> <0048>\n<0022> <0049>\n<0023> <0020>\nendbfchar\n")
+    return cid_file(b"/Identity-V", b"/CIDToGIDMap 10 0 R /DW2 [900 -1100] /W2 [33 [-1200 400 880] 34 34 -900 200 880]",
+                    [b"\x00\x21\x00\x22\x00\x23"], tu, [(10, stream(b"", bytes(gid_map)))], origin=b"300 700")
+
+
+def gen_text_cid_embedded_cmap() -> bytes:
+    """9.7.5.3 Table 118, 9.7.5.4, 9.7.6.2, 9.7.6.3, Adobe TN 5014 §5.4 and §7: an embedded CMap stream whose UseCMap is
+    another embedded CMap stream (in-file usecmap names it too). The parent has a mixed codespace (1-byte <00>-<7F>,
+    2-byte <8140>-<9FFC>), a cidrange and a cidchar; the child adds one cidchar. <8210> is invalid by the per-byte
+    rule (its second byte is below 0x40) and consumes two bytes, showing CID 0."""
+    parent = cmap_stream(b"Broadside-Parent-H",
+                         b"2 begincodespacerange\n<00> <7F>\n<8140> <9FFC>\nendcodespacerange\n"
+                         b"1 begincidrange\n<48> <49> 1\nendcidrange\n"
+                         b"1 begincidchar\n<8140> 1\nendcidchar\n")
+    child = cmap_stream(b"Broadside-Child-H", b"/Broadside-Parent-H usecmap\n1 begincidchar\n<8141> 2\nendcidchar\n",
+                        extra=b" /UseCMap 11 0 R")
+    tu = to_unicode(b"2 begincodespacerange\n<00> <7F>\n<8140> <9FFC>\nendcodespacerange\n",
+                    b"4 beginbfchar\n<48> <0048>\n<49> <0049>\n<8140> <0048>\n<8141> <0049>\nendbfchar\n")
+    return cid_file(b"10 0 R", b"/CIDToGIDMap /Identity /W [1 [800 400]]",
+                    [b"(HI)", b"\x81\x41\x81\x40", b"\x82\x10"], tu, [(10, child), (11, parent)])
+
+
 def gen_xref_stream() -> bytes:
     f = File("1.5", binary=True)
     f.add(1, catalog())
@@ -2098,6 +2400,91 @@ XMP = (b'<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
        b'<?xpacket end="w"?>')
 
 
+def gen_acroform_fields() -> bytes:
+    """12.7 interactive forms: one field of each type, PDF 2.0, two pages. AcroForm 4 (12.7.3 Table 224):
+    Fields, CO, DA, DR (Helv 5, ZaDb 6), Q, SigFlags 1. Fields (12.7.4, Tables 226-228): 10 `name` text
+    field merged with its widget (TU, TM, V, DV, MaxLen, DA, AA with a C trigger 26); 11 `person`
+    non-terminal carrying FT Tx, DA, Q 1 and Ff 2 (Required) for its merged kids 12 `first` (inherits all)
+    and 13 `last` (own Ff 1: ReadOnly only, UTF-16 V); 14 `agree` check box (12.7.5.2.3) with widgets 15
+    (page 3) and 25 (page 30), on state Yes; 16 `color` radio group (12.7.5.2.4, Ff Radio + NoToggleToOff,
+    Opt with a duplicate export value, index-named states /0 /1 /2, V /1); 20 `submit` push button whose A
+    is a reset-form action naming `person` and field 14; 21 `country` combo box (Combo + Edit, export/display
+    pairs, V the export value, DA from the AcroForm); 22 `toppings` multi-select list box (V array, I, TI);
+    23 `sig` invisible signature field (12.7.5.5, zero Rect) with Lock 27 and SV 28 (Tables 235-237)."""
+    text = b" /AP << /N 7 0 R >>"
+
+    def states(state: bytes) -> bytes:
+        return b" /AP << /N << /%s 8 0 R /Off 9 0 R >> /D << /%s 8 0 R /Off 9 0 R >> >>" % (state, state)
+
+    def widget(rect: bytes, page_num: int = 3) -> bytes:
+        return b"<< /Type /Annot /Subtype /Widget /Rect " + rect + b" /P %d 0 R /F 4" % page_num
+
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog(b" /AcroForm 4 0 R")),
+        (2, pages([3, 30])),
+        (3, page(extra=b" /Annots [10 0 R 12 0 R 13 0 R 15 0 R 17 0 R 18 0 R 19 0 R 20 0 R 21 0 R 22 0 R 23 0 R]")),
+        (4, b"<< /Fields [10 0 R 11 0 R 14 0 R 16 0 R 20 0 R 21 0 R 22 0 R 23 0 R] /CO [10 0 R]"
+            b" /DA (/Helv 0 Tf 0 g) /DR << /Font << /Helv 5 0 R /ZaDb 6 0 R >> >> /Q 0 /SigFlags 1 >>"),
+        (5, HELVETICA),
+        (6, b"<< /Type /Font /Subtype /Type1 /BaseFont /ZapfDingbats >>"),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 5 0 R >> >>",
+                   b"/Tx BMC BT /Helv 12 Tf 2 5 Td (Ada) Tj ET EMC")),
+        (8, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 20 20] /Resources << /Font << /ZaDb 6 0 R >> >>",
+                   b"q BT /ZaDb 12 Tf 4 5 Td (4) Tj ET Q")),
+        (9, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 20 20]", b"0 g 0 0 20 20 re S")),
+        (10, widget(b"[50 700 250 720]") + text + b" /FT /Tx /T (name) /TU (Your name) /TM (full_name)"
+             b" /V (Ada) /DV (Anonymous) /MaxLen 40 /DA (/Helv 12 Tf 0 g) /AA << /C 26 0 R >> >>"),
+        (11, b"<< /T (person) /FT /Tx /DA (/Helv 10 Tf 0 0 1 rg) /Q 1 /Ff 2 /Kids [12 0 R 13 0 R] >>"),
+        (12, widget(b"[50 670 150 690]") + text + b" /Parent 11 0 R /T (first) /V (Grace) >>"),
+        (13, widget(b"[160 670 260 690]") + text + b" /Parent 11 0 R /T (last) /Ff 1 /V <FEFF004C00F60076> >>"),
+        (14, b"<< /FT /Btn /T (agree) /V /Yes /DV /Off /Kids [15 0 R 25 0 R] >>"),
+        (15, widget(b"[50 640 70 660]") + states(b"Yes") + b" /Parent 14 0 R /AS /Yes /MK << /CA (4) >> >>"),
+        (16, b"<< /FT /Btn /Ff 49152 /T (color) /V /1 /Opt [(Red) (Green) (Green)] /Kids [17 0 R 18 0 R 19 0 R] >>"),
+        (17, widget(b"[50 610 70 630]") + states(b"0") + b" /Parent 16 0 R /AS /Off >>"),
+        (18, widget(b"[80 610 100 630]") + states(b"1") + b" /Parent 16 0 R /AS /1 >>"),
+        (19, widget(b"[110 610 130 630]") + states(b"2") + b" /Parent 16 0 R /AS /Off >>"),
+        (20, widget(b"[50 570 150 590]") + text + b" /FT /Btn /Ff 65536 /T (submit) /MK << /CA (Reset) >>"
+             b" /A << /S /ResetForm /Fields [(person) 14 0 R] >> >>"),
+        (21, widget(b"[50 540 250 560]") + text + b" /FT /Ch /Ff 393216 /T (country)"
+             b" /Opt [[(us) (United States)] [(ca) (Canada)]] /V (ca) >>"),
+        (22, widget(b"[50 460 250 530]") + text + b" /FT /Ch /Ff 2097152 /T (toppings) /Opt [(Cheese) (Ham) (Olives)]"
+             b" /V [(Cheese) (Olives)] /I [0 2] /TI 1 /DA (/Helv 10 Tf 0 g) >>"),
+        (23, widget(b"[0 0 0 0]") + b" /FT /Sig /T (sig) /Lock 27 0 R /SV 28 0 R >>"),
+        (25, widget(b"[50 700 70 720]", 30) + states(b"Yes") + b" /Parent 14 0 R /AS /Yes >>"),
+        (26, b"<< /S /JavaScript /JS (event.value = 1;) >>"),
+        (27, b"<< /Type /SigFieldLock /Action /Include /Fields [(name) (person.first)] /P 2 >>"),
+        (28, b"<< /Type /SV /Filter /Adobe.PPKLite /Ff 1 >>"),
+        (30, page(extra=b" /Annots [25 0 R]")),
+    ]
+    id0 = file_id("acroform-fields").hex().encode()
+    return simple_file(objects, version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_acroform_xfa() -> bytes:
+    """Annex K XFA forms (12.7.3 Table 224 XFA): one text field 10 merged with its widget, and an XFA entry
+    that is an array of packets [(xdp:xdp) 11 (template) 12 (datasets) 13 (</xdp:xdp>) 14] (Annex K example
+    1 shape). The catalog has no NeedsRendering (Table 29), so the XFA form is static. PDF 1.7."""
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog(b" /AcroForm 4 0 R")),
+        (2, pages()),
+        (3, page(extra=b" /Annots [10 0 R]")),
+        (4, b"<< /Fields [10 0 R] /DA (/Helv 0 Tf 0 g) /DR << /Font << /Helv 5 0 R >> >>"
+            b" /XFA [(xdp:xdp) 11 0 R (template) 12 0 R (datasets) 13 0 R (</xdp:xdp>) 14 0 R] >>"),
+        (5, HELVETICA),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 5 0 R >> >>",
+                   b"/Tx BMC BT /Helv 12 Tf 2 5 Td (Ada) Tj ET EMC")),
+        (10, b"<< /Type /Annot /Subtype /Widget /Rect [50 700 250 720] /P 3 0 R /F 4 /AP << /N 6 0 R >>"
+             b" /FT /Tx /T (name) /V (Ada) >>"),
+        (11, stream(b"", b'<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/">')),
+        (12, stream(b"", b'<template xmlns="http://www.xfa.org/schema/xfa-template/3.3/"><subform name="form1">'
+                         b'<field name="name"/></subform></template>')),
+        (13, stream(b"", b'<xfa:datasets xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/"><xfa:data>'
+                         b'<form1><name>Ada</name></form1></xfa:data></xfa:datasets>')),
+        (14, stream(b"", b"</xdp:xdp>")),
+    ]
+    return simple_file(objects)
+
+
 def gen_metadata_xmp() -> bytes:
     return simple_file([
         (1, catalog(b" /Metadata 4 0 R")),
@@ -3002,6 +3389,10 @@ FILES = {
     "text-truetype-symbolic.pdf": gen_text_truetype_symbolic,
     "text-truetype-macroman.pdf": gen_text_truetype_macroman,
     "text-truetype-loca-long.pdf": gen_text_truetype_loca_long,
+    "text-type1-embedded.pdf": gen_text_type1_embedded,
+    "text-cid-identity-h.pdf": gen_text_cid_identity_h,
+    "text-cid-identity-v.pdf": gen_text_cid_identity_v,
+    "text-cid-embedded-cmap.pdf": gen_text_cid_embedded_cmap,
     "xref-stream.pdf": gen_xref_stream,
     "object-stream.pdf": gen_object_stream,
     "incremental-update.pdf": gen_incremental_update,
@@ -3040,6 +3431,9 @@ FILES = {
     "annotations-subtypes.pdf": gen_annotations_subtypes,
     "annotations-appearance.pdf": gen_annotations_appearance,
     "annotations-malformed.pdf": gen_annotations_malformed,
+    "text-type1-pfb.pdf": gen_text_type1_pfb,
+    "text-type1-hex-eexec.pdf": gen_text_type1_hex_eexec,
+    "text-type1-bad-lengths.pdf": gen_text_type1_bad_lengths,
     "outline.pdf": gen_outline,
     "name-tree-dests.pdf": gen_name_tree_dests,
     "metadata-xmp.pdf": gen_metadata_xmp,
@@ -3064,6 +3458,8 @@ FILES = {
     "declarations.pdf": gen_declarations,
     "actions-all.pdf": gen_actions_all,
     "actions-preserved.pdf": gen_actions_preserved,
+    "acroform-fields.pdf": gen_acroform_fields,
+    "acroform-xfa.pdf": gen_acroform_xfa,
     "colorspace-families.pdf": gen_colorspace_families,
     "color-operators.pdf": gen_color_operators,
     "default-colorspaces.pdf": gen_default_colorspaces,
@@ -3107,6 +3503,15 @@ def self_test() -> None:
     assert aes_key_wrap(bytes(range(32)), bytes.fromhex(
         "00112233445566778899AABBCCDDEEFF000102030405060708090A0B0C0D0E0F")) == bytes.fromhex(
         "28C9F404C4B810F4CBCCB35CFB87F8263F5786E2D80ED326CBC7F0E71A99F43BFB988B9B7A02DD21")
+    # Type 1 Font Format 7.3: the charstring of the letter C (6.6), encrypted with four zero bytes (r = 4330)
+    c_plain = bytes.fromhex("BDF9B40D8BEF038BEF01F8ECEF018B16F95006EF07FCEC06F88807F8EC06EF07FD5006090E")
+    c_cipher = bytes.fromhex("10BF31704FAB5B1F03F9B68B1F39A66521B1841F1481697F8E12B7F7DDD6E3D7248D965B1CD45E2114")
+    assert t1_encrypt(bytes(4) + c_plain, 4330) == c_cipher
+    assert t1_charstring("50 800 hsbw 0 100 vstem 0 100 hstem 600 100 hstem 0 hmoveto 700 hlineto 100 vlineto "
+                         "-600 hlineto 500 vlineto 600 hlineto 100 vlineto -700 hlineto closepath endchar") == c_plain
+    # TN 5015 section 6 errata: the corrected eexec text of the Symbol font begins its Private dictionary
+    assert t1_decrypt(bytes.fromhex("a8686bfddf470dd119f86e1b8e5b290ae7d910e9317a36f6768d8de89e7ed5b8"), 55665)[4:] \
+        == b"dup /Private 13 dict dup beg"
     # RFC 5869 A.1
     assert hkdf_sha256(b"\x0b" * 22, bytes(range(13)), bytes(range(0xF0, 0xFA)), 42) == bytes.fromhex(
         "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865")
