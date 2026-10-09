@@ -18,4 +18,24 @@ public sealed class PdfType1Font : PdfSimpleFont
     /// <summary>Gets a value indicating whether the font is an instance of a multiple master font (<c>Subtype</c> <c>MMType1</c>).</summary>
     /// <remarks>ISO 32000-2 §9.6.2.3. An embedded program of such an instance is an ordinary Type 1 program, a snapshot of the instance.</remarks>
     public bool IsMultipleMaster => FontType == PdfFontType.MMType1;
+
+    /// <summary>Gets the glyph id that a character code selects in the font's program; 0, the missing glyph (<c>.notdef</c>), when none.</summary>
+    /// <param name="code">The character code.</param>
+    /// <returns>The glyph id in <see cref="PdfFont.Program"/>; 0 for every code when the font has no program.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the font or its program.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §9.6.5.2: the code's glyph name from the font's encoding (<see cref="PdfSimpleFont.GetGlyphName"/>, whose base is
+    /// the program's built-in encoding for an embedded font) is looked up among the program's glyph names; a name the program does not
+    /// have selects <c>.notdef</c>.
+    /// </remarks>
+    public int GetGlyphId(byte code)
+    {
+        string name = GetGlyphName(code);
+        return Program is { } program && program.TryGetGlyphId(name, out int glyphId) ? glyphId : 0;
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>ISO 32000-2 §9.6.5.2: the embedded program's <c>/Encoding</c> (<see cref="FontProgram.BuiltInEncoding"/>).</remarks>
+    internal override string?[]? GetProgramEncoding() =>
+        Program?.BuiltInEncoding is { Count: 256 } encoding ? [.. encoding] : null;
 }

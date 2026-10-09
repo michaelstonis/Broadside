@@ -37,6 +37,9 @@ internal enum ContentIssue
     ColorOperatorIgnored,
     PatternMissing,
     ColorComponentLimit,
+    ShadingMissing,
+    PatternRecursion,
+    NestingTooDeep,
 }
 
 /// <summary>The code and severity of each <see cref="ContentIssue"/>.</summary>
@@ -69,6 +72,9 @@ internal static class ContentIssues
         ContentIssue.ColorOperatorIgnored => DiagnosticCodes.ContentColorOperatorIgnored,
         ContentIssue.PatternMissing => DiagnosticCodes.ContentPatternMissing,
         ContentIssue.ColorComponentLimit => DiagnosticCodes.ColorComponentLimitExceeded,
+        ContentIssue.ShadingMissing => DiagnosticCodes.ContentShadingMissing,
+        ContentIssue.PatternRecursion => DiagnosticCodes.ContentPatternRecursion,
+        ContentIssue.NestingTooDeep => DiagnosticCodes.ContentNestingTooDeep,
         _ => DiagnosticCodes.ContentInlineImageInvalid,
     };
 

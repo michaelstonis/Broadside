@@ -1,3 +1,4 @@
+using Broadside.Forms;
 using Broadside.Objects;
 
 namespace Broadside.Annotations;
@@ -31,4 +32,19 @@ public sealed class PdfWidgetAnnotation : PdfAnnotation
     /// <summary>Gets the field dictionary this widget is a kid of (<c>Parent</c>), as stored, or <see langword="null"/>; required when the field has several widgets.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.19, Table 191, and §12.7.4.</remarks>
     public CosDictionary? Parent => ReadDictionary(AnnotationNames.Parent);
+
+    /// <summary>
+    /// Gets the terminal field the widget belongs to: the field whose <c>Kids</c> lists it, or the field merged with it; <see langword="null"/>
+    /// when the document has no interactive form or the widget belongs to no field. The same instance the form's field tree holds, whose
+    /// <see cref="PdfTerminalField.Widgets"/> lists this widget.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §12.7.2 and §12.5.6.19. A widget the tree from <c>Fields</c> does not reach is resolved through its <c>Parent</c>
+    /// chain with a <c>WidgetNotInFieldTree</c> diagnostic.
+    /// </remarks>
+    public PdfTerminalField? Field => Document.AcroForm?.FieldOf(this);
+
+    /// <summary>Whether <paramref name="dictionary"/>'s subtype (a name, or a string read as one) is <c>Widget</c>.</summary>
+    internal static bool IsWidget(PdfDocument document, CosDictionary dictionary) =>
+        ReadSubtype(document, dictionary, out _) is { } subtype && string.Equals(subtype.Value, "Widget", StringComparison.Ordinal);
 }

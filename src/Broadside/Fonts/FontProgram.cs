@@ -55,6 +55,16 @@ public abstract class FontProgram
     /// <remarks>ISO 32000-2 §9.6.5.4.</remarks>
     public virtual IReadOnlyList<FontCharacterMap> CharacterMaps => [];
 
+    /// <summary>
+    /// Gets the program's built-in encoding: the glyph name of each of the 256 character codes, <c>.notdef</c> where it maps none;
+    /// <see langword="null"/> when the format has no built-in encoding (TrueType) or the program records none.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §9.6.5.1 and §9.6.5.2: a Type 1 program's <c>/Encoding</c> (a CFF program's Encoding). A simple font with an
+    /// embedded program uses it when its <c>Encoding</c> entry gives no base encoding.
+    /// </remarks>
+    public virtual IReadOnlyList<string>? BuiltInEncoding => null;
+
     /// <summary>Writes a glyph's outline into <paramref name="outline"/>, which is cleared first.</summary>
     /// <param name="glyphId">The glyph id.</param>
     /// <param name="outline">The buffer to fill; reuse one for many glyphs.</param>

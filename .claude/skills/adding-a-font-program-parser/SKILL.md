@@ -40,6 +40,7 @@ public sealed class FontProgramContext                 // public ctor = stand-al
     int FaceIndex { get; init; }  string? FaceName { get; init; }   // font collections
     PdfReadingMode ReadingMode { get; init; }
     int MaxCompositeDepth { get; init; }   // 16;  int MaxGlyphPoints { get; init; }  // 65,536
+    int MaxCharStringOperators { get; init; }   // 100,000 per glyph, subrs and seac components included (#51)
     IReadOnlyList<Diagnostic> Diagnostics { get; }     // first of each code
     void Report(string code, DiagnosticSeverity severity, string message);   // throws in strict mode (not for Information)
 }
@@ -58,6 +59,7 @@ public abstract class FontProgram                      // immutable, shared acro
     virtual GlyphMetrics GetMetrics(int glyphId);       // default (advance, left side bearing)
     virtual bool TryGetGlyphId(string glyphName, out int glyphId);              // false (post / charset / CharStrings)
     virtual string? GetGlyphName(int glyphId);          // null
+    virtual IReadOnlyList<string>? BuiltInEncoding { get; }                     // null (256 names, .notdef unmapped: Type 1 /Encoding #52, CFF Encoding #51)
 }
 
 public abstract class FontCharacterMap { protected FontCharacterMap(); abstract int PlatformId, EncodingId, Format { get; } abstract int GetGlyphId(int code); }
@@ -80,6 +82,7 @@ Registration and use:
 - `PdfFont.Program` (public) parses the descriptor's first font file stream through `PdfDocument.GetFontProgram` (internal): decoded with the document's filters, parsed once per stream (an `OnceCache` keyed by the stream and its `Version`, so a changed stream is parsed again), diagnostics recorded once per code against the font file stream's reference.
 - Glyph selection belongs to the PDF font: `PdfTrueTypeFont.GetGlyphId(byte)` implements §9.6.5.4 (`TrueTypeGlyphSelector`). #51/#52 supply a simple font's built-in encoding through `PdfSimpleFont.GetProgramEncoding()` (internal virtual, #49) and add the lookups their format has as new virtual members of `FontProgram` (built-in encoding, CID to GID, FDSelect): adding a virtual member with a "not available" default does not break other parsers.
 - The sfnt container (`Fonts/TrueType/SfntFile`: table directory, TTC face selection, "name") is internal and meant to be shared with the OpenType-CFF parser (#51); "cmap" (`CmapSubtable`) and "post" (`PostTable`) readers likewise.
+- Simple Type 1 fonts select glyphs through `PdfType1Font.GetGlyphId(byte)` (§9.6.5.2): the encoding's glyph name (whose base is `FontProgram.BuiltInEncoding` for an embedded font, through #49's `GetProgramEncoding`) looked up with `FontProgram.TryGetGlyphId`. A Type 1 or CFF program implements `BuiltInEncoding`, `TryGetGlyphId` and `GetGlyphName`. The Type 1 interpreter is self-contained in `Fonts/Type1/` (#52); the Type 2 one is `Fonts/Cff/Type2CharStringInterpreter` over `src/Broadside/Fonts/CharStrings/` (`CharStringPath`, `CharStringStack`, `CharStringLimits`, `CharStringReporter`, `StandardEncodingNames`), which a later interpreter can reuse.
 - Diagnostic codes (`Parsing/DiagnosticCodes.Fonts.cs`): `FontProgramUnsupported`, `FontProgramFormatMismatch`, `FontProgramInvalid`, `FontProgramTruncated`, `FontTableInvalid`, `FontGlyphInvalid`, `FontCmapInvalid`, `FontGlyphMappingFallback`. Glyph-level problems are reported when the glyph is asked for, so strict mode throws from `GetOutline`.
 - Hot path: `GetOutline` into a reused `GlyphOutline` allocates nothing once warm (pooled point buffers, stack-allocated ancestor stack): prove it with an allocation test and `<Format>Benchmarks.Outlines` (`Allocated` = `-`).
 

@@ -1,5 +1,7 @@
 using Broadside.Diagnostics;
+using Broadside.Fonts.Cff;
 using Broadside.Fonts.TrueType;
+using Broadside.Fonts.Type1;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -9,7 +11,7 @@ namespace Broadside.Fonts;
 /// One engine's font program parsers: those its options registered, newest first, then the managed defaults. Immutable; built once
 /// when the engine is constructed and shared by every document it opens. There is no static or global registry.
 /// </summary>
-/// <remarks>ISO 32000-2 §9.9, Table 124. The CFF (#51) and Type 1 (#52) parsers join the defaults as they land.</remarks>
+/// <remarks>ISO 32000-2 §9.9, Table 124. The CFF parser (#51) joins the defaults when it lands.</remarks>
 internal sealed class FontProgramParserRegistry
 {
     private static readonly CosName Type1C = new("Type1C");
@@ -21,7 +23,7 @@ internal sealed class FontProgramParserRegistry
     private FontProgramParserRegistry(IFontProgramParser[] parsers) => _parsers = parsers;
 
     /// <summary>Gets the managed default parsers, one stateless instance each, in the order they are tried.</summary>
-    public static IReadOnlyList<IFontProgramParser> Defaults { get; } = [new TrueTypeFontProgramParser()];
+    public static IReadOnlyList<IFontProgramParser> Defaults { get; } = [new TrueTypeFontProgramParser(), new Type1FontProgramParser(), new CffFontProgramParser()];
 
     /// <summary>Gets the registry of the defaults only.</summary>
     public static FontProgramParserRegistry Default { get; } = new([.. Defaults]);

@@ -82,7 +82,7 @@ public abstract class PdfFont
     /// <para>
     /// ISO 32000-2 §9.9: the program in the font descriptor's <c>FontFile</c>, <c>FontFile2</c> or <c>FontFile3</c> stream, decoded
     /// through its filters. The parser is picked by the program's bytes, then by the format the stream declares (Table 124); see
-    /// <see cref="IFontProgramParser"/>. The managed default reads TrueType programs.
+    /// <see cref="IFontProgramParser"/>. The managed defaults read TrueType and Type 1 programs.
     /// </para>
     /// <para>
     /// The program is parsed once per font file stream and shared by every font and thread that uses it; it is parsed again only

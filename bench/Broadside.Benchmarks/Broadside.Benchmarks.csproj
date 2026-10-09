@@ -14,6 +14,7 @@
     <Compile Include="../../tests/Broadside.TestSupport/CorpusLocator.cs" Link="CorpusLocator.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/FilterEncoders.cs" Link="FilterEncoders.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/ContentSamples.cs" Link="ContentSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/MeshSamples.cs" Link="MeshSamples.cs" />
   </ItemGroup>
 
 </Project>

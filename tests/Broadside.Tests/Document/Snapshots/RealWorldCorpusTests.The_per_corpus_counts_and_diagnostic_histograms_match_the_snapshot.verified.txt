@@ -1,6 +1,6 @@
 ﻿pdfjs: 989 files
-  Clean: 729
-  Diagnostics: 246
+  Clean: 725
+  Diagnostics: 250
   PasswordRequired: 12
   CertificateRequired: 0
   EncryptionUnsupported: 0
@@ -36,6 +36,7 @@
     NameTreeNodeInvalid: 3
     PageTreeNodeTypeInvalid: 3
     PagesMissing: 3
+    WidgetNotInFieldTree: 3
     AnnotationEntryInvalid: 2
     AppearanceEntryInvalid: 2
     AppearanceNotForm: 2
@@ -44,6 +45,9 @@
     DecodeParmsInvalid: 2
     EncryptionEntryLengthInvalid: 2
     EndOfFileMarkerMissing: 2
+    FieldNameMissing: 2
+    FieldNotRoot: 2
+    FieldReferenceInvalid: 2
     FilterAbbreviationNotAllowed: 2
     InfoTrappedInvalid: 2
     LinearizationHintsInvalid: 2
@@ -53,16 +57,23 @@
     TrailerIdMissing: 2
     TrailerMissing: 2
     XmpMalformed: 2
+    AcroFormFieldsMissing: 1
     AnnotationRequiredEntryMissing: 1
     AnnotationSubtypeMissing: 1
     AnnotationValueInvalid: 1
     AppearanceBBoxMissing: 1
     AppearanceStateMissing: 1
+    ButtonOnStateMissing: 1
+    ButtonOptLengthMismatch: 1
+    ButtonValueStateMismatch: 1
     DictionaryValueMissing: 1
     EncryptDictionaryInvalid: 1
     EncryptedDataInvalid: 1
     EndOfFileMarkerNotLast: 1
     EndstreamMissing: 1
+    FieldEntryInvalid: 1
+    FieldNameDuplicateInconsistent: 1
+    FieldParentMissing: 1
     FilterUnsupported: 1
     HeaderMissing: 1
     HeaderVersionInvalid: 1
@@ -118,8 +129,8 @@ pdfbox: 137 files
     StartxrefInvalid: 1
     StreamLengthInvalid: 1
 qpdf: 639 files
-  Clean: 439
-  Diagnostics: 163
+  Clean: 403
+  Diagnostics: 199
   PasswordRequired: 23
   CertificateRequired: 0
   EncryptionUnsupported: 1
@@ -127,6 +138,7 @@ qpdf: 639 files
   Crash: 0
   Timeout: 0
   files with each diagnostic code:
+    ButtonValueStateMismatch: 33
     MissingEndobj: 18
     FilterDataInvalid: 17
     XrefEntryOffsetInvalid: 15
@@ -141,7 +153,10 @@ qpdf: 639 files
     CatalogTypeInvalid: 7
     FilterUnsupported: 7
     ObjectStreamIndexMismatch: 7
+    WidgetNotInFieldTree: 7
     XrefEntryInvalid: 7
+    FieldNameMissing: 6
+    FieldParentMissing: 6
     PageTreeCountMismatch: 6
     PagesMissing: 6
     XrefEntryFormatInvalid: 6
@@ -165,9 +180,12 @@ qpdf: 639 files
     StartxrefMissing: 3
     TrailerPrevInvalid: 3
     ArrayUnterminated: 2
+    ButtonValueUnknownState: 2
     DictionaryDuplicateKey: 2
     EndOfFileMarkerMissing: 2
     ExtensionsNotDirect: 2
+    FieldKidsMixed: 2
+    FieldTreeCycle: 2
     FilterAbbreviationNotAllowed: 2
     FilterInvalid: 2
     HexStringInvalidDigit: 2
@@ -178,13 +196,19 @@ qpdf: 639 files
     TrailerMissing: 2
     XrefPrevLoop: 2
     XrefSectionInvalid: 2
+    AcroFormFieldsMissing: 1
     AnnotationEntryInvalid: 1
     AnnotationNotIndirect: 1
     AppearanceEntryInvalid: 1
     AppearanceNotForm: 1
+    ChoiceValueNotInOptions: 1
+    DefaultAppearanceMissing: 1
     EncryptionEntryLengthInvalid: 1
     EncryptionIdMissing: 1
     EncryptionKeyLengthInvalid: 1
+    FieldNotIndirect: 1
+    FieldReferenceInvalid: 1
+    FieldTypeMissing: 1
     HeaderInvalid: 1
     NestingTooDeep: 1
     NumberTreeKeysUnsorted: 1
@@ -208,8 +232,8 @@ qpdf: 639 files
     XrefStreamWidthsInvalid: 1
     XrefSubsectionHeaderInvalid: 1
 pdfium-tests: 840 files
-  Clean: 307
-  Diagnostics: 526
+  Clean: 305
+  Diagnostics: 528
   PasswordRequired: 2
   CertificateRequired: 4
   EncryptionUnsupported: 0
@@ -247,6 +271,7 @@ pdfium-tests: 840 files
     PageTreeParentMismatch: 5
     AnnotationRequiredEntryMissing: 4
     DictionaryUnterminated: 4
+    FieldNotRoot: 4
     StartxrefMissing: 4
     XrefEntryFormatInvalid: 4
     AnnotationValueInvalid: 3
@@ -254,24 +279,31 @@ pdfium-tests: 840 files
     MetadataNotEncrypted: 3
     NameTreeLimitsInvalid: 3
     StringUnterminated: 3
+    WidgetNotInFieldTree: 3
     ActionEntryInvalid: 2
     AppearanceStateMissing: 2
     ArrayUnterminated: 2
+    ChoiceValueNotInOptions: 2
     EncryptionRevisionInvalid: 2
     EndOfFileMarkerNotLast: 2
+    FieldNameMissing: 2
+    FieldTypeMissing: 2
     NamedDestinationNotFound: 2
     TrailerMissing: 2
     ViewerPreferenceInvalid: 2
     XrefSubsectionHeaderInvalid: 2
+    AcroFormEntryInvalid: 1
     AnnotationDuplicate: 1
     AnnotationEntryInvalid: 1
     AnnotationFlagsInvalid: 1
     AnnotationRectInvalid: 1
     AppearanceEntryInvalid: 1
+    ButtonValueStateMismatch: 1
     DictionaryValueMissing: 1
     EncryptDictionaryInvalid: 1
     EndOfFileMarkerMissing: 1
     EndstreamMissing: 1
+    FieldNameDuplicateInconsistent: 1
     HeaderMissing: 1
     HexStringInvalidDigit: 1
     LinearizationHintsInvalid: 1
