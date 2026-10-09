@@ -1,3 +1,4 @@
+using Broadside.Annotations;
 using Broadside.Content;
 using Broadside.Diagnostics;
 using Broadside.Fonts;
@@ -25,6 +26,7 @@ public sealed class PdfPage
 
     private readonly PdfDocument _document;
     private readonly PageTreeAncestor? _ancestors;
+    private volatile AnnotationList? _annotations;
 
     internal PdfPage(PdfDocument document, CosDictionary dictionary, CosReference? reference, PageTreeAncestor? ancestors)
     {
@@ -99,6 +101,36 @@ public sealed class PdfPage
     /// <summary>Gets the files associated with the page (<c>AF</c>).</summary>
     /// <remarks>ISO 32000-2 §7.7.3.3, Table 31 (PDF 2.0), and §14.13.4. Read on every call; see <see cref="PdfDocument.ReadAssociatedFiles"/>.</remarks>
     public IReadOnlyList<PdfFileSpecification> AssociatedFiles => _document.ReadAssociatedFiles(Dictionary, Reference);
+
+    /// <summary>Gets the page's annotations, in the order of its <c>Annots</c> array, each typed by its subtype.</summary>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the <c>Annots</c> array.</exception>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §7.7.3.3, Table 31 (<c>Annots</c>), and §12.5. The list is built on first use and rebuilt when the page's
+    /// <c>Annots</c> entry or array, or an annotation's <c>Subtype</c>, changes; each annotation is a live view over its dictionary, and the same dictionary always
+    /// gives the same instance. An element that is not an annotation dictionary is skipped; one listed twice appears twice. An
+    /// <c>Annots</c> entry on a page tree node above the page, which is not inheritable, is used as viewers use it.
+    /// </para>
+    /// <para>Deviations in the array are recorded in <see cref="PdfDocument.Diagnostics"/> when the list is built.</para>
+    /// </remarks>
+    public IReadOnlyList<PdfAnnotation> Annotations
+    {
+        get
+        {
+            (CosObject? entry, bool inherited) = FindAnnots();
+            var array = _document.Resolve(entry) as CosArray;
+            AnnotationList? cached = _annotations;
+            if (cached is not null && ReferenceEquals(cached.Entry, entry) && ReferenceEquals(cached.Array, array) && cached.ArrayVersion == (array?.Version ?? 0)
+                && cached.Items.All(annotation => Equals(annotation.CreatedSubtype, PdfAnnotation.ReadSubtype(_document, annotation.Dictionary, out _))))
+            {
+                return cached.Items;
+            }
+
+            IReadOnlyList<PdfAnnotation> items = _document.AnnotationIndex.Read(this, entry, inherited);
+            _annotations = new AnnotationList(entry, array, array?.Version ?? 0, items);
+            return items;
+        }
+    }
 
     /// <summary>Runs the page's content through the content interpreter and reports what it paints to <paramref name="processor"/>.</summary>
     /// <param name="processor">The processor; for several at once, a <see cref="CompositeContentProcessor"/>.</param>
@@ -209,6 +241,25 @@ public sealed class PdfPage
         return box.Intersect(MediaBox) ?? fallback;
     }
 
+    /// <summary>The page's <c>Annots</c> entry as stored, else the nearest ancestor's (not inheritable, but read as viewers read it).</summary>
+    private (CosObject? Entry, bool Inherited) FindAnnots()
+    {
+        if (Dictionary.TryGetValue(AnnotationNames.Annots, out CosObject? own))
+        {
+            return (own, false);
+        }
+
+        for (PageTreeAncestor? node = _ancestors; node is not null; node = node.Parent)
+        {
+            if (node.Dictionary.TryGetValue(AnnotationNames.Annots, out CosObject? value))
+            {
+                return (value, true);
+            }
+        }
+
+        return (null, false);
+    }
+
     /// <summary>The page's own entry, resolved; <see langword="null"/> when absent or a reference to nothing.</summary>
     private CosObject? Find(CosName key) =>
         Dictionary.TryGetValue(key, out CosObject? value) && _document.Resolve(value) is not CosNull and var resolved ? resolved : null;
@@ -237,6 +288,9 @@ public sealed class PdfPage
 /// <param name="Dictionary">The node's dictionary.</param>
 /// <param name="Parent">The node above it, or <see langword="null"/> for the root.</param>
 internal sealed record PageTreeAncestor(CosDictionary Dictionary, PageTreeAncestor? Parent);
+
+/// <summary>A page's annotation list and the <c>Annots</c> entry, array and array version it was built from.</summary>
+internal sealed record AnnotationList(CosObject? Entry, CosArray? Array, int ArrayVersion, IReadOnlyList<PdfAnnotation> Items);
 
 /// <summary>What reading a page attribute found.</summary>
 internal enum PageAttributeState : byte
