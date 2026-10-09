@@ -2,7 +2,7 @@
 
 Hand-written PDF files, one feature per file, for the Phase 1 unit tests. Every file is as small as it can be while remaining a complete document: a catalog, a page tree and one page (two in `page-tree-inherited.pdf`), plus only the objects the feature needs.
 
-All files are produced by `generate.py`:
+All files but one are produced by `generate.py`:
 
 ```sh
 python3 -I tests/Corpus/generate.py          # rewrites every PDF in place
@@ -10,6 +10,15 @@ python3 -I tests/Corpus/generate.py /tmp/out # or into another directory
 ```
 
 The script uses only the standard library. It computes cross-reference offsets and stream lengths, and it implements the codecs and ciphers the corpus needs (LZW, ASCII85, ASCIIHex, RunLength, PNG predictor, RC4, AES-128/256, the standard security handler algorithms of ISO 32000-2 clause 7.6.4). It is deterministic: the values the specification asks a writer to draw from a random source (file identifiers, AES initialization vectors, R6 salts and file key) are fixed constants derived from the file name, so regenerating the corpus produces byte-identical files and `git diff` shows exactly what a change to the script did. A real writer must use a cryptographically secure random source for those values; the corpus trades that for reproducibility.
+
+The exception is `linearized.pdf`: writing hint tables by hand is a project of its own, so the file is qpdf's output, checked in as a binary. It is regenerated, byte for byte with the same qpdf version, from `page-tree-inherited.pdf`:
+
+```sh
+qpdf --linearize --deterministic-id --object-streams=disable --compress-streams=n \
+  tests/Corpus/page-tree-inherited.pdf tests/Corpus/linearized.pdf   # qpdf 12.4.2
+```
+
+`--object-streams=disable` keeps classic cross-reference tables (no cross-reference streams) and `--compress-streams=n` leaves the hint stream unfiltered, so the file reads without either. `generate.py` does not write or delete it.
 
 `generate.py` self-tests its codecs against known answers before writing anything (the LZW example in clause 7.4.4.2, FIPS-197 AES vectors, an RC4 vector).
 
@@ -28,7 +37,8 @@ Verification was run with qpdf 12.4.2 (`qpdf --check`), poppler (`pdfinfo`, `pdf
 | `xref-stream.pdf` | Cross-reference stream (`/Type /XRef`, `/W [1 2 1]`, uncompressed), no classic table, no `trailer` keyword. | 7.5.8.2, 7.5.8.3 | `qpdf --check`; `qpdf --qdf --object-streams=disable` | clean |
 | `object-stream.pdf` | Catalog, page tree and page stored in an object stream (`/Type /ObjStm`, `/N 3`, `/First`), located through type 2 entries in a cross-reference stream. | 7.5.7, 7.5.8.3 Table 18 | `qpdf --qdf --object-streams=disable` lists objects 1-3 as ordinary objects | clean |
 | `incremental-update.pdf` | `empty-page.pdf` followed by one update section that replaces object 3 with an A4 `/MediaBox`; update trailer carries `/Prev`. | 7.5.6 | `pdfinfo` shows `595 x 842 pts (A4)` | clean |
-| `hybrid-xref.pdf` | Classic table for objects 1-3 (4-6 listed free), then an object stream (5) holding the `/Info` dictionary (4), a cross-reference stream (6, `/Index [4 3]`) describing it, and an empty update section whose trailer has `/Prev` and `/XRefStm`. Mirrors the example in 7.5.8.4. A reader that follows `/XRefStm` sees the title; one that does not sees no `/Info`. | 7.5.8.4 Table 19 | `pdfinfo` shows `Title: hybrid` | clean |
+| `hybrid-xref.pdf` | Classic table for objects 1-3 (4-6 listed free), then an object stream (5) holding the `/Info` dictionary (4), a cross-reference stream (6, `/Index [4 3]`) describing it, and an empty update section whose trailer has `/Prev` and `/XRefStm`. Each section ends with `startxref` and `%%EOF` (7.5.6), so the file has two revisions. Mirrors the example in 7.5.8.4. A reader that follows `/XRefStm` sees the title; one that does not sees no `/Info`. | 7.5.8.4 Table 19 | `pdfinfo` shows `Title: hybrid` | clean |
+| `linearized.pdf` | `page-tree-inherited.pdf` linearized by qpdf 12.4.2 (command above): linearization parameter dictionary (object 5, `/L 1627 /H [590 130] /O 8 /E 1079 /N 2 /T 1409`), first-page cross-reference section for objects 5-12 whose trailer `/Prev` points forward to the main section (objects 0-4), unfiltered primary hint stream (object 7, `/S 44`), inherited attributes pushed down to the pages. Two Letter pages. | F.3, F.3.3, F.3.4, F.4.1-F.4.3 | `qpdf --check` (`File is linearized`), `qpdf --check-linearization` (`no linearization errors`), `qpdf --show-linearization`; `pdfinfo` shows `Optimized: yes`, 2 Letter pages; `pdftotext` prints `Page 1` and `Page 2` | clean; hint tables per `qpdf --show-linearization`: page 0 = 5 objects from 8, 359 bytes at 720, no shared references; page 1 = 2 objects from 1, 184 bytes at 1079, shared groups 2, 3, 4; shared groups 0-4 = objects 8-12, one each, lengths 98, 86, 98, 32, 45 from 720 |
 | `flate-stream.pdf` | Content stream with `/Filter /FlateDecode`. | 7.4.4 | `pdftotext` prints `FlateDecode` | clean |
 | `lzw-stream.pdf` | Content stream with `/Filter /LZWDecode`, `EarlyChange` 1 (default), clear code first, EOD last. | 7.4.4.2, Table 8 | `pdftotext` prints `LZWDecode` | clean |
 | `ascii85-stream.pdf` | Content stream with `/Filter /ASCII85Decode`, `~>` terminator. | 7.4.3 | `pdftotext` prints `ASCII85Decode` | clean |

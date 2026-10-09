@@ -13,8 +13,8 @@ public class DocumentOpenBenchmarks
 {
     private byte[] _bytes = [];
 
-    /// <summary>The corpus file to open: one page, and a two-level page tree with inheritance.</summary>
-    [Params("empty-page.pdf", "page-tree-inherited.pdf")]
+    /// <summary>The corpus file to open: one page, a two-level page tree with inheritance, an updated file and a linearized file.</summary>
+    [Params("empty-page.pdf", "page-tree-inherited.pdf", "incremental-update.pdf", "linearized.pdf")]
     public string File { get; set; } = "";
 
     [GlobalSetup]
@@ -31,5 +31,16 @@ public class DocumentOpenBenchmarks
         }
 
         return area;
+    }
+
+    /// <summary>
+    /// Opens the file and reads its file structure: the revisions (§7.5.6) and, for a linearized file, the parameter dictionary and
+    /// the page offset and shared object hint tables (Annex F, F.4).
+    /// </summary>
+    [Benchmark]
+    public int OpenAndReadFileStructure()
+    {
+        using PdfDocument document = PdfDocument.Open(_bytes);
+        return document.Revisions.Count + (document.Linearization?.Hints?.Pages.Count ?? 0);
     }
 }

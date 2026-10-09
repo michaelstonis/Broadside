@@ -150,8 +150,11 @@ Broadside.PdfDocument.DecodeStream(Broadside.Objects.CosStream! stream) -> Syste
 Broadside.PdfDocument.DecodeStream(Broadside.Objects.CosStream! stream, System.Buffers.IBufferWriter<byte>! output) -> void
 Broadside.PdfDocument.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
 Broadside.PdfDocument.Dispose() -> void
+Broadside.PdfDocument.IsLinearized.get -> bool
+Broadside.PdfDocument.Linearization.get -> Broadside.PdfLinearization?
 Broadside.PdfDocument.Pages.get -> Broadside.PdfPageCollection!
 Broadside.PdfDocument.Resolve(Broadside.Objects.CosObject? value) -> Broadside.Objects.CosObject!
+Broadside.PdfDocument.Revisions.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfRevision!>!
 Broadside.PdfDocument.Trailer.get -> Broadside.Objects.CosDictionary!
 Broadside.PdfDocument.Version.get -> Broadside.PdfVersion
 Broadside.PdfEngine
@@ -161,8 +164,19 @@ Broadside.PdfEngine.Open(System.IO.Stream! stream) -> Broadside.PdfDocument!
 Broadside.PdfEngine.Open(System.ReadOnlyMemory<byte> bytes) -> Broadside.PdfDocument!
 Broadside.PdfEngine.PdfEngine() -> void
 Broadside.PdfEngine.PdfEngine(Broadside.PdfOptions! options) -> void
+Broadside.PdfLinearization
+Broadside.PdfLinearization.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfLinearization.FileLength.get -> long
+Broadside.PdfLinearization.FirstPageNumber.get -> int
+Broadside.PdfLinearization.FirstPageObjectNumber.get -> int
+Broadside.PdfLinearization.FirstPageObjects.get -> System.Collections.Generic.IReadOnlyList<Broadside.Objects.CosReference!>!
+Broadside.PdfLinearization.Hints.get -> Broadside.PdfLinearizationHints?
+Broadside.PdfLinearization.PageCount.get -> int
+Broadside.PdfLinearization.Reference.get -> Broadside.Objects.CosReference!
+Broadside.PdfLinearizationHints
+Broadside.PdfLinearizationHints.Pages.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfPageHint!>!
+Broadside.PdfLinearizationHints.SharedObjects.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfSharedObjectHint!>!
 Broadside.PdfOptions
-Broadside.PdfOptions.Filters.get -> System.Collections.Generic.IReadOnlyList<Broadside.Filters.IStreamFilter!>!
 Broadside.PdfOptions.MaxDecodedStreamLength.get -> long
 Broadside.PdfOptions.MaxDecodedStreamLength.set -> void
 Broadside.PdfOptions.PdfOptions() -> void
@@ -187,6 +201,12 @@ Broadside.PdfPageCollection
 Broadside.PdfPageCollection.Count.get -> int
 Broadside.PdfPageCollection.GetEnumerator() -> System.Collections.Generic.IEnumerator<Broadside.PdfPage!>!
 Broadside.PdfPageCollection.this[int index].get -> Broadside.PdfPage!
+Broadside.PdfPageHint
+Broadside.PdfPageHint.FirstObjectNumber.get -> int
+Broadside.PdfPageHint.Length.get -> long
+Broadside.PdfPageHint.ObjectCount.get -> int
+Broadside.PdfPageHint.Offset.get -> long
+Broadside.PdfPageHint.SharedObjects.get -> System.Collections.Generic.IReadOnlyList<int>!
 Broadside.PdfReadingMode
 Broadside.PdfReadingMode.Lenient = 0 -> Broadside.PdfReadingMode
 Broadside.PdfReadingMode.Strict = 1 -> Broadside.PdfReadingMode
@@ -200,6 +220,15 @@ Broadside.PdfRectangle.PdfRectangle(double x1, double y1, double x2, double y2) 
 Broadside.PdfRectangle.Right.get -> double
 Broadside.PdfRectangle.Top.get -> double
 Broadside.PdfRectangle.Width.get -> double
+Broadside.PdfRevision
+Broadside.PdfRevision.Index.get -> int
+Broadside.PdfRevision.Length.get -> long
+Broadside.PdfRevision.Trailer.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfSharedObjectHint
+Broadside.PdfSharedObjectHint.FirstObjectNumber.get -> int
+Broadside.PdfSharedObjectHint.Length.get -> long
+Broadside.PdfSharedObjectHint.ObjectCount.get -> int
+Broadside.PdfSharedObjectHint.Offset.get -> long
 Broadside.PdfVersion
 Broadside.PdfVersion.CompareTo(Broadside.PdfVersion other) -> int
 Broadside.PdfVersion.Equals(Broadside.PdfVersion other) -> bool
@@ -231,3 +260,8 @@ static Broadside.PdfVersion.operator <=(Broadside.PdfVersion left, Broadside.Pdf
 static Broadside.PdfVersion.operator ==(Broadside.PdfVersion left, Broadside.PdfVersion right) -> bool
 static Broadside.PdfVersion.operator >(Broadside.PdfVersion left, Broadside.PdfVersion right) -> bool
 static Broadside.PdfVersion.operator >=(Broadside.PdfVersion left, Broadside.PdfVersion right) -> bool
+Broadside.PdfEngine.PdfEngine(Microsoft.Extensions.Options.IOptions<Broadside.PdfOptions!>! options, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null) -> void
+Broadside.PdfOptions.WithLoggerFactory(Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory) -> Broadside.PdfOptions!
+Microsoft.Extensions.DependencyInjection.BroadsideServiceCollectionExtensions
+static Microsoft.Extensions.DependencyInjection.BroadsideServiceCollectionExtensions.AddBroadside(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Microsoft.Extensions.DependencyInjection.BroadsideServiceCollectionExtensions.AddBroadside(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Broadside.PdfOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
