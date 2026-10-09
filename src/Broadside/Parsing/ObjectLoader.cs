@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Globalization;
 using Broadside.Caching;
 using Broadside.Diagnostics;
@@ -52,6 +53,7 @@ internal sealed class ObjectLoader
     private readonly DiagnosticSink _diagnostics;
     private readonly StreamDecoder _streams;
     private OnceCache<int, ObjectStream?>? _objectStreams;
+    private ConcurrentDictionary<CosReference, ObjectSourceBytes>? _sourceBytes;
 
     /// <summary>Initializes a new instance of the <see cref="ObjectLoader"/> class.</summary>
     /// <param name="source">The file.</param>
@@ -94,6 +96,24 @@ internal sealed class ObjectLoader
     /// path shares one scan between cross-reference repair and the loader.
     /// </summary>
     public Lazy<FileScan> Scan { get; init; }
+
+    /// <summary>
+    /// Finds the source bytes of an object this loader has loaded and read without repairs, so a writer can copy them instead of
+    /// re-serializing the object (issue #44).
+    /// </summary>
+    /// <param name="reference">The object's number and generation.</param>
+    /// <param name="bytes">Where the object's bytes are.</param>
+    /// <returns><see langword="true"/> when the object was loaded, read without any repair, and its bytes are known.</returns>
+    public bool TryGetSourceBytes(CosReference reference, out ObjectSourceBytes bytes)
+    {
+        if (Volatile.Read(ref _sourceBytes) is { } sourceBytes)
+        {
+            return sourceBytes.TryGetValue(reference, out bytes);
+        }
+
+        bytes = default;
+        return false;
+    }
 
     /// <summary>Returns <paramref name="value"/>, or the object it refers to when it is an indirect reference.</summary>
     /// <param name="value">A direct object, a reference, or <see langword="null"/> for an absent entry.</param>
@@ -208,7 +228,12 @@ internal sealed class ObjectLoader
             return new(CosNull.Instance, Keep: false);
         }
 
-        CosObject loaded = container.Parse(reference, entry.Generation, _diagnostics);
+        CosObject loaded = container.Parse(reference, entry.Generation, _diagnostics, out ReadOnlyMemory<byte>? memberBytes);
+        if (memberBytes is { } bytes)
+        {
+            SourceBytes[reference] = ObjectSourceBytes.InObjectStream(bytes);
+        }
+
         if (Logger is { } logger)
         {
             ObjectLog.ObjectParsed(logger, reference.ObjectNumber, reference.Generation, offset: null, containerNumber);
@@ -268,6 +293,16 @@ internal sealed class ObjectLoader
         {
             OnceCache<int, ObjectStream?>? objectStreams = Volatile.Read(ref _objectStreams);
             return objectStreams ?? Interlocked.CompareExchange(ref _objectStreams, new(), null) ?? _objectStreams;
+        }
+    }
+
+    /// <summary>Gets the recorded source bytes by object, created on first use.</summary>
+    private ConcurrentDictionary<CosReference, ObjectSourceBytes> SourceBytes
+    {
+        get
+        {
+            ConcurrentDictionary<CosReference, ObjectSourceBytes>? sourceBytes = Volatile.Read(ref _sourceBytes);
+            return sourceBytes ?? Interlocked.CompareExchange(ref _sourceBytes, new(), null) ?? _sourceBytes;
         }
     }
 
@@ -341,9 +376,12 @@ internal sealed class ObjectLoader
             return LoadMisplaced(context);
         }
 
+        lexer.SkipWhitespaceAndComments();
+        int bodyStart = lexer.Position;
         var repairs = new CosRepairLog(keepAll: true);
-        var parser = new CosParser(window, repairs, lexer.Position, new LengthResolver(this, context), new StreamDataFactory(_source, context.Offset));
+        var parser = new CosParser(window, repairs, bodyStart, new LengthResolver(this, context), new StreamDataFactory(_source, context.Offset));
         CosObject value = parser.ParseObject();
+        int bodyEnd = parser.Position;
         lexer.Position = parser.Position;
         CosToken end = lexer.Next();
         bool ended = StructureTokens.IsKeyword(window, end, "endobj"u8);
@@ -365,6 +403,11 @@ internal sealed class ObjectLoader
                 "The object is not followed by the endobj keyword; it ends here.",
                 context.Offset + end.Start,
                 context.Reference);
+        }
+        else if (repairs.Count == 0)
+        {
+            // Only bytes read without any repair may be copied by a writer; a repaired object is re-serialized (issue #44).
+            SourceBytes[context.Reference] = ObjectSourceBytes.InFile(context.Offset + bodyStart, bodyEnd - bodyStart);
         }
 
         return value;

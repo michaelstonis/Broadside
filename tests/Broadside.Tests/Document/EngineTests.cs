@@ -95,13 +95,6 @@ public class EngineTests
     }
 
     [Fact]
-    public void Create_is_a_stub_until_writing_lands()
-    {
-        Assert.Throws<NotSupportedException>(() => PdfDocument.Create());
-        Assert.Throws<NotSupportedException>(() => new PdfEngine().Create());
-    }
-
-    [Fact]
     public void A_disposed_document_cannot_load_more_objects()
     {
         PdfDocument document = PdfDocument.Open(Corpus.Path("empty-page.pdf"));
