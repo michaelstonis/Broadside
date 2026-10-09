@@ -44,6 +44,7 @@
   png-predictor.pdf,
   runlength-stream.pdf,
   startxref-wrong.pdf,
+  tagged-structure.pdf,
   text-standard14-alias.pdf,
   text-standard14-differences.pdf,
   text-standard14-macroman.pdf,

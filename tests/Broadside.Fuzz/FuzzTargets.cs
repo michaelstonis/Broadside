@@ -40,6 +40,7 @@ internal static class FuzzTargets
         ["public-key"] = PublicKey.Target,
         ["xmp"] = Xmp,
         ["pdf-date"] = PdfDateTarget,
+        ["structure-tree"] = StructureTree.Target,
     };
 
     private static readonly CosName ContentsKey = new("Contents");

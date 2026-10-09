@@ -56,6 +56,7 @@ public static class Corpus
         "page-labels.pdf",
         "name-tree-deep.pdf",
         "number-tree-deep.pdf",
+        "tagged-structure.pdf",
     ];
 
     private static readonly string[] Malformed =

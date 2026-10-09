@@ -1,0 +1,19 @@
+﻿pdfjs: 989 files, 89 with a structure tree, 36996 elements
+  ParentTreeMissing: 2
+  StructElemPageMissing: 2
+  NamespaceNotDeclared: 1
+pdfbox: 137 files, 25 with a structure tree, 2108 elements
+qpdf: 639 files, 37 with a structure tree, 1830 elements
+  ParentTreeEntryInvalid: 4
+  MarkInfoInvalid: 1
+pdfium-tests: 840 files, 73 with a structure tree, 1525 elements
+  StructureTypeUnresolved: 1
+pdf20examples: 7 files, 1 with a structure tree, 6 elements
+verapdf-corpus: 2906 files, 590 with a structure tree, 3547 elements
+  ParentTreeEntryInvalid: 21
+  StructureTypeUnresolved: 16
+  IdTreeEntryInvalid: 3
+  McidDuplicate: 2
+  NamespaceNotDeclared: 2
+  IdTreeDuplicate: 1
+  MarkInfoInvalid: 1

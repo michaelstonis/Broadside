@@ -738,3 +738,189 @@ Broadside.PdfPageLabelStyle.LowercaseRoman = 3 -> Broadside.PdfPageLabelStyle
 Broadside.PdfPageLabelStyle.None = 0 -> Broadside.PdfPageLabelStyle
 Broadside.PdfPageLabelStyle.UppercaseLetters = 4 -> Broadside.PdfPageLabelStyle
 Broadside.PdfPageLabelStyle.UppercaseRoman = 2 -> Broadside.PdfPageLabelStyle
+Broadside.PdfDocument.MarkInfo.get -> Broadside.Structure.PdfMarkInfo!
+Broadside.PdfDocument.StructureTree.get -> Broadside.Structure.PdfStructureTreeRoot?
+Broadside.Structure.PdfArtifactAttributes
+Broadside.Structure.PdfArtifactAttributes.ArtifactSubtype.get -> string?
+Broadside.Structure.PdfArtifactAttributes.ArtifactType.get -> string?
+Broadside.Structure.PdfArtifactAttributes.BoundingBox.get -> Broadside.PdfRectangle?
+Broadside.Structure.PdfAttributeObject
+Broadside.Structure.PdfAttributeObject.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Structure.PdfAttributeObject.GetValue(Broadside.Objects.CosName! name) -> Broadside.Objects.CosObject?
+Broadside.Structure.PdfAttributeObject.Namespace.get -> Broadside.Structure.PdfStructureNamespace?
+Broadside.Structure.PdfAttributeObject.Owner.get -> Broadside.Objects.CosName?
+Broadside.Structure.PdfAttributeObject.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Structure.PdfAttributeObject.Revision.get -> int
+Broadside.Structure.PdfAttributeObject.Stream.get -> Broadside.Objects.CosStream?
+Broadside.Structure.PdfLayoutAttributes
+Broadside.Structure.PdfLayoutAttributes.BackgroundColor.get -> System.Collections.Generic.IReadOnlyList<double>?
+Broadside.Structure.PdfLayoutAttributes.BaselineShift.get -> double?
+Broadside.Structure.PdfLayoutAttributes.BlockAlign.get -> string?
+Broadside.Structure.PdfLayoutAttributes.BorderStyle.get -> System.Collections.Generic.IReadOnlyList<string?>?
+Broadside.Structure.PdfLayoutAttributes.BorderThickness.get -> System.Collections.Generic.IReadOnlyList<double>?
+Broadside.Structure.PdfLayoutAttributes.BoundingBox.get -> Broadside.PdfRectangle?
+Broadside.Structure.PdfLayoutAttributes.Color.get -> System.Collections.Generic.IReadOnlyList<double>?
+Broadside.Structure.PdfLayoutAttributes.ColumnCount.get -> int?
+Broadside.Structure.PdfLayoutAttributes.ColumnGap.get -> System.Collections.Generic.IReadOnlyList<double>?
+Broadside.Structure.PdfLayoutAttributes.ColumnWidths.get -> System.Collections.Generic.IReadOnlyList<double>?
+Broadside.Structure.PdfLayoutAttributes.EndIndent.get -> double?
+Broadside.Structure.PdfLayoutAttributes.GlyphOrientationVertical.get -> double?
+Broadside.Structure.PdfLayoutAttributes.Height.get -> double?
+Broadside.Structure.PdfLayoutAttributes.InlineAlign.get -> string?
+Broadside.Structure.PdfLayoutAttributes.LineHeight.get -> double?
+Broadside.Structure.PdfLayoutAttributes.Padding.get -> System.Collections.Generic.IReadOnlyList<double>?
+Broadside.Structure.PdfLayoutAttributes.Placement.get -> string?
+Broadside.Structure.PdfLayoutAttributes.RubyAlign.get -> string?
+Broadside.Structure.PdfLayoutAttributes.RubyPosition.get -> string?
+Broadside.Structure.PdfLayoutAttributes.SpaceAfter.get -> double?
+Broadside.Structure.PdfLayoutAttributes.SpaceBefore.get -> double?
+Broadside.Structure.PdfLayoutAttributes.StartIndent.get -> double?
+Broadside.Structure.PdfLayoutAttributes.TableBorderStyle.get -> System.Collections.Generic.IReadOnlyList<string?>?
+Broadside.Structure.PdfLayoutAttributes.TablePadding.get -> System.Collections.Generic.IReadOnlyList<double>?
+Broadside.Structure.PdfLayoutAttributes.TextAlign.get -> string?
+Broadside.Structure.PdfLayoutAttributes.TextDecorationColor.get -> System.Collections.Generic.IReadOnlyList<double>?
+Broadside.Structure.PdfLayoutAttributes.TextDecorationThickness.get -> double?
+Broadside.Structure.PdfLayoutAttributes.TextDecorationType.get -> string?
+Broadside.Structure.PdfLayoutAttributes.TextIndent.get -> double?
+Broadside.Structure.PdfLayoutAttributes.TextPosition.get -> string?
+Broadside.Structure.PdfLayoutAttributes.Width.get -> double?
+Broadside.Structure.PdfLayoutAttributes.WritingMode.get -> string?
+Broadside.Structure.PdfListAttributes
+Broadside.Structure.PdfListAttributes.ContinuedFrom.get -> Broadside.Objects.CosString?
+Broadside.Structure.PdfListAttributes.ContinuedList.get -> bool?
+Broadside.Structure.PdfListAttributes.IsOrdered.get -> bool
+Broadside.Structure.PdfListAttributes.ListNumbering.get -> string?
+Broadside.Structure.PdfMarkedContentReference
+Broadside.Structure.PdfMarkedContentReference.ContentStream.get -> Broadside.Objects.CosStream?
+Broadside.Structure.PdfMarkedContentReference.ContentStreamOwner.get -> Broadside.Objects.CosObject?
+Broadside.Structure.PdfMarkedContentReference.Dictionary.get -> Broadside.Objects.CosDictionary?
+Broadside.Structure.PdfMarkedContentReference.Mcid.get -> int
+Broadside.Structure.PdfMarkedContentReference.Page.get -> Broadside.PdfPage?
+Broadside.Structure.PdfMarkInfo
+Broadside.Structure.PdfMarkInfo.Dictionary.get -> Broadside.Objects.CosDictionary?
+Broadside.Structure.PdfMarkInfo.Marked.get -> bool
+Broadside.Structure.PdfMarkInfo.Suspects.get -> bool
+Broadside.Structure.PdfMarkInfo.UserProperties.get -> bool
+Broadside.Structure.PdfObjectReference
+Broadside.Structure.PdfObjectReference.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Structure.PdfObjectReference.ObjectReference.get -> Broadside.Objects.CosReference?
+Broadside.Structure.PdfObjectReference.Page.get -> Broadside.PdfPage?
+Broadside.Structure.PdfObjectReference.ReferencedObject.get -> Broadside.Objects.CosObject!
+Broadside.Structure.PdfPrintFieldAttributes
+Broadside.Structure.PdfPrintFieldAttributes.Checked.get -> string?
+Broadside.Structure.PdfPrintFieldAttributes.Description.get -> string?
+Broadside.Structure.PdfPrintFieldAttributes.Role.get -> string?
+Broadside.Structure.PdfPropertyList
+Broadside.Structure.PdfPropertyList.ActualText.get -> string?
+Broadside.Structure.PdfPropertyList.AlternateDescription.get -> string?
+Broadside.Structure.PdfPropertyList.ArtifactAttachments.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.Structure.PdfPropertyList.ArtifactBoundingBox.get -> Broadside.PdfRectangle?
+Broadside.Structure.PdfPropertyList.ArtifactSubtype.get -> string?
+Broadside.Structure.PdfPropertyList.ArtifactType.get -> string?
+Broadside.Structure.PdfPropertyList.Expansion.get -> string?
+Broadside.Structure.PdfPropertyList.IsArtifact.get -> bool
+Broadside.Structure.PdfPropertyList.Language.get -> string?
+Broadside.Structure.PdfPropertyList.Mcid.get -> int?
+Broadside.Structure.PdfPropertyList.PdfPropertyList(Broadside.Objects.CosName! tag, Broadside.Objects.CosDictionary? properties, Broadside.PdfDocument? document) -> void
+Broadside.Structure.PdfPropertyList.Properties.get -> Broadside.Objects.CosDictionary?
+Broadside.Structure.PdfPropertyList.Tag.get -> Broadside.Objects.CosName!
+Broadside.Structure.PdfStructureElement
+Broadside.Structure.PdfStructureElement.ActualText.get -> string?
+Broadside.Structure.PdfStructureElement.AlternateDescription.get -> string?
+Broadside.Structure.PdfStructureElement.AssociatedFiles.get -> Broadside.Objects.CosArray?
+Broadside.Structure.PdfStructureElement.Attributes.get -> System.Collections.Generic.IReadOnlyList<Broadside.Structure.PdfAttributeObject!>!
+Broadside.Structure.PdfStructureElement.Children.get -> System.Collections.Generic.IReadOnlyList<Broadside.Structure.PdfStructureItem!>!
+Broadside.Structure.PdfStructureElement.ClassAttributes.get -> System.Collections.Generic.IReadOnlyList<Broadside.Structure.PdfAttributeObject!>!
+Broadside.Structure.PdfStructureElement.ClassNames.get -> System.Collections.Generic.IReadOnlyList<Broadside.Objects.CosName!>!
+Broadside.Structure.PdfStructureElement.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Structure.PdfStructureElement.EffectiveLanguage.get -> string?
+Broadside.Structure.PdfStructureElement.Equals(Broadside.Structure.PdfStructureElement? other) -> bool
+Broadside.Structure.PdfStructureElement.Expansion.get -> string?
+Broadside.Structure.PdfStructureElement.GetAttributeValue(Broadside.Objects.CosName! owner, Broadside.Objects.CosName! name) -> Broadside.Objects.CosObject?
+Broadside.Structure.PdfStructureElement.GetContentItems() -> System.Collections.Generic.IReadOnlyList<Broadside.Structure.PdfStructureItem!>!
+Broadside.Structure.PdfStructureElement.Id.get -> Broadside.Objects.CosString?
+Broadside.Structure.PdfStructureElement.Language.get -> string?
+Broadside.Structure.PdfStructureElement.Namespace.get -> Broadside.Structure.PdfStructureNamespace!
+Broadside.Structure.PdfStructureElement.Page.get -> Broadside.PdfPage?
+Broadside.Structure.PdfStructureElement.PhoneticAlphabet.get -> string!
+Broadside.Structure.PdfStructureElement.Phoneme.get -> string?
+Broadside.Structure.PdfStructureElement.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Structure.PdfStructureElement.References.get -> System.Collections.Generic.IReadOnlyList<Broadside.Structure.PdfStructureElement!>!
+Broadside.Structure.PdfStructureElement.Revision.get -> int
+Broadside.Structure.PdfStructureElement.RoleMapping.get -> System.Collections.Generic.IReadOnlyList<Broadside.Structure.PdfStructureType!>!
+Broadside.Structure.PdfStructureElement.StandardType.get -> Broadside.Structure.PdfStructureType?
+Broadside.Structure.PdfStructureElement.StructureType.get -> Broadside.Objects.CosName?
+Broadside.Structure.PdfStructureElement.Title.get -> string?
+Broadside.Structure.PdfStructureItem
+Broadside.Structure.PdfStructureNamespace
+Broadside.Structure.PdfStructureNamespace.Dictionary.get -> Broadside.Objects.CosDictionary?
+Broadside.Structure.PdfStructureNamespace.Equals(Broadside.Structure.PdfStructureNamespace? other) -> bool
+Broadside.Structure.PdfStructureNamespace.IsDefault.get -> bool
+Broadside.Structure.PdfStructureNamespace.IsStandardType(string! type) -> bool
+Broadside.Structure.PdfStructureNamespace.Kind.get -> Broadside.Structure.PdfStructureNamespaceKind
+Broadside.Structure.PdfStructureNamespace.Name.get -> string!
+Broadside.Structure.PdfStructureNamespace.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Structure.PdfStructureNamespace.RoleMap.get -> Broadside.Objects.CosDictionary?
+Broadside.Structure.PdfStructureNamespace.Schema.get -> Broadside.Objects.CosObject?
+Broadside.Structure.PdfStructureNamespaceKind
+Broadside.Structure.PdfStructureNamespaceKind.Custom = 0 -> Broadside.Structure.PdfStructureNamespaceKind
+Broadside.Structure.PdfStructureNamespaceKind.MathML = 3 -> Broadside.Structure.PdfStructureNamespaceKind
+Broadside.Structure.PdfStructureNamespaceKind.Pdf17 = 1 -> Broadside.Structure.PdfStructureNamespaceKind
+Broadside.Structure.PdfStructureNamespaceKind.Pdf20 = 2 -> Broadside.Structure.PdfStructureNamespaceKind
+Broadside.Structure.PdfStructureTreeRoot
+Broadside.Structure.PdfStructureTreeRoot.AssociatedFiles.get -> Broadside.Objects.CosArray?
+Broadside.Structure.PdfStructureTreeRoot.Children.get -> System.Collections.Generic.IReadOnlyList<Broadside.Structure.PdfStructureElement!>!
+Broadside.Structure.PdfStructureTreeRoot.ClassMap.get -> Broadside.Objects.CosDictionary?
+Broadside.Structure.PdfStructureTreeRoot.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Structure.PdfStructureTreeRoot.Elements.get -> System.Collections.Generic.IReadOnlyList<Broadside.Structure.PdfStructureElement!>!
+Broadside.Structure.PdfStructureTreeRoot.FindElement(Broadside.Objects.CosStream! contentStream, int mcid) -> Broadside.Structure.PdfStructureElement?
+Broadside.Structure.PdfStructureTreeRoot.FindElement(Broadside.PdfPage! page, int mcid) -> Broadside.Structure.PdfStructureElement?
+Broadside.Structure.PdfStructureTreeRoot.FindElementById(System.ReadOnlySpan<byte> id) -> Broadside.Structure.PdfStructureElement?
+Broadside.Structure.PdfStructureTreeRoot.FindElementForObject(Broadside.Objects.CosObject! contentItem) -> Broadside.Structure.PdfStructureElement?
+Broadside.Structure.PdfStructureTreeRoot.GetMarkedContentElements(Broadside.Objects.CosStream! contentStream) -> System.Collections.Generic.IReadOnlyDictionary<int, Broadside.Structure.PdfStructureElement!>!
+Broadside.Structure.PdfStructureTreeRoot.GetMarkedContentElements(Broadside.PdfPage! page) -> System.Collections.Generic.IReadOnlyDictionary<int, Broadside.Structure.PdfStructureElement!>!
+Broadside.Structure.PdfStructureTreeRoot.Namespaces.get -> System.Collections.Generic.IReadOnlyList<Broadside.Structure.PdfStructureNamespace!>!
+Broadside.Structure.PdfStructureTreeRoot.ParentTreeNextKey.get -> int?
+Broadside.Structure.PdfStructureTreeRoot.PronunciationLexicon.get -> Broadside.Objects.CosArray?
+Broadside.Structure.PdfStructureTreeRoot.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Structure.PdfStructureTreeRoot.RoleMap.get -> Broadside.Objects.CosDictionary?
+Broadside.Structure.PdfStructureType
+Broadside.Structure.PdfStructureType.Equals(Broadside.Structure.PdfStructureType? other) -> bool
+Broadside.Structure.PdfStructureType.IsStandard.get -> bool
+Broadside.Structure.PdfStructureType.Name.get -> string!
+Broadside.Structure.PdfStructureType.Namespace.get -> Broadside.Structure.PdfStructureNamespace!
+Broadside.Structure.PdfStructureType.PdfStructureType(string! name, Broadside.Structure.PdfStructureNamespace! namespace) -> void
+Broadside.Structure.PdfTableAttributes
+Broadside.Structure.PdfTableAttributes.ColumnSpan.get -> int?
+Broadside.Structure.PdfTableAttributes.Headers.get -> System.Collections.Generic.IReadOnlyList<Broadside.Objects.CosString!>?
+Broadside.Structure.PdfTableAttributes.RowSpan.get -> int?
+Broadside.Structure.PdfTableAttributes.Scope.get -> string?
+Broadside.Structure.PdfTableAttributes.ShortForm.get -> string?
+Broadside.Structure.PdfTableAttributes.Summary.get -> string?
+Broadside.Structure.PdfUserPropertiesAttributes
+Broadside.Structure.PdfUserPropertiesAttributes.Properties.get -> System.Collections.Generic.IReadOnlyList<Broadside.Structure.PdfUserProperty!>!
+Broadside.Structure.PdfUserProperty
+Broadside.Structure.PdfUserProperty.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Structure.PdfUserProperty.FormattedValue.get -> string?
+Broadside.Structure.PdfUserProperty.IsHidden.get -> bool
+Broadside.Structure.PdfUserProperty.Name.get -> string!
+Broadside.Structure.PdfUserProperty.Value.get -> Broadside.Objects.CosObject!
+abstract Broadside.Structure.PdfStructureItem.Parent.get -> Broadside.Structure.PdfStructureElement?
+const Broadside.Structure.PdfStructureNamespace.MathMLName = "http://www.w3.org/1998/Math/MathML" -> string!
+const Broadside.Structure.PdfStructureNamespace.Pdf17Name = "http://iso.org/pdf/ssn" -> string!
+const Broadside.Structure.PdfStructureNamespace.Pdf20Name = "http://iso.org/pdf2/ssn" -> string!
+override Broadside.Structure.PdfMarkedContentReference.Parent.get -> Broadside.Structure.PdfStructureElement!
+override Broadside.Structure.PdfObjectReference.Parent.get -> Broadside.Structure.PdfStructureElement!
+override Broadside.Structure.PdfStructureElement.Equals(object? obj) -> bool
+override Broadside.Structure.PdfStructureElement.GetHashCode() -> int
+override Broadside.Structure.PdfStructureElement.Parent.get -> Broadside.Structure.PdfStructureElement?
+override Broadside.Structure.PdfStructureElement.ToString() -> string!
+override Broadside.Structure.PdfStructureNamespace.Equals(object? obj) -> bool
+override Broadside.Structure.PdfStructureNamespace.GetHashCode() -> int
+override Broadside.Structure.PdfStructureNamespace.ToString() -> string!
+override Broadside.Structure.PdfStructureType.Equals(object? obj) -> bool
+override Broadside.Structure.PdfStructureType.GetHashCode() -> int
+override Broadside.Structure.PdfStructureType.ToString() -> string!
+static Broadside.Structure.PdfStructureNamespace.MathML.get -> Broadside.Structure.PdfStructureNamespace!
+static Broadside.Structure.PdfStructureNamespace.Pdf17.get -> Broadside.Structure.PdfStructureNamespace!
+static Broadside.Structure.PdfStructureNamespace.Pdf20.get -> Broadside.Structure.PdfStructureNamespace!
