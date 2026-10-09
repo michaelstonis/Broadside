@@ -4,6 +4,7 @@ using Broadside.Filters;
 using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
+using Broadside.Writing;
 
 namespace Broadside;
 
@@ -160,16 +161,100 @@ public sealed class PdfDocument : IDisposable
     /// <remarks>ISO 32000-2 §7.5.</remarks>
     public static PdfDocument Open(ReadOnlyMemory<byte> bytes, PdfOptions options) => new PdfEngine(options).Open(bytes);
 
-    /// <summary>Creates a new, empty document with default options.</summary>
-    /// <returns>The document.</returns>
-    /// <exception cref="NotSupportedException">Always, for now: writing arrives in a later version.</exception>
+    /// <summary>Creates a new document with one empty US Letter page (612 by 792 points), with default options.</summary>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.2 (catalog), §7.7.3 (page tree) and §7.5.2: the document is PDF 2.0. The same as
+    /// <see cref="PdfEngine.Create"/> on an engine with default options.
+    /// </remarks>
     public static PdfDocument Create() => PdfEngine.Default.Create();
 
-    /// <summary>Creates a new, empty document.</summary>
+    /// <summary>Creates a new document with one empty US Letter page (612 by 792 points).</summary>
     /// <param name="options">The options.</param>
-    /// <returns>The document.</returns>
-    /// <exception cref="NotSupportedException">Always, for now: writing arrives in a later version.</exception>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.2, §7.7.3 and §7.5.2. The same as <see cref="PdfEngine.Create"/> on an engine built from
+    /// <paramref name="options"/>.
+    /// </remarks>
     public static PdfDocument Create(PdfOptions options) => new PdfEngine(options).Create();
+
+    /// <summary>Writes the document to <paramref name="stream"/> as a complete file with a classic cross-reference table.</summary>
+    /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
+    /// <exception cref="NotSupportedException">The document is encrypted, or uses object numbers above 8,388,607; saving either arrives in a later version.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
+    /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
+    public void Save(Stream stream) => Save(stream, new PdfSaveOptions());
+
+    /// <summary>Writes the document to <paramref name="stream"/> as a complete file.</summary>
+    /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
+    /// <param name="options">How to lay the file out.</param>
+    /// <exception cref="NotSupportedException">The document is encrypted, or uses object numbers above 8,388,607; saving either arrives in a later version.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §7.5: a header, every object, the cross-reference information and the trailer. Objects keep their numbers and
+    /// generations. An object that has not changed since it was read, and was read without any repair, is written with exactly the
+    /// bytes it was read from; changed, repaired and new objects are serialized. The revisions of an incrementally updated file
+    /// collapse into one, and a linearized file is written unlinearized (Annex F).
+    /// </para>
+    /// <para>
+    /// The header keeps the document's version, raised to 1.5 when the layout needs cross-reference streams. The trailer's first
+    /// file identifier is kept; the second is derived from the written bytes, so saving the same document the same way always writes
+    /// the same bytes (§14.4).
+    /// </para>
+    /// </remarks>
+    public void Save(Stream stream, PdfSaveOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        foreach (ReadOnlyMemory<byte> chunk in PlanSave(options).Write())
+        {
+            stream.Write(chunk.Span);
+        }
+    }
+
+    /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it, with a classic cross-reference table.</summary>
+    /// <param name="path">The file path. Do not name the file the document was opened from.</param>
+    /// <exception cref="NotSupportedException">The document is encrypted, or uses object numbers above 8,388,607; saving either arrives in a later version.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
+    /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
+    public void Save(string path) => Save(path, new PdfSaveOptions());
+
+    /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it.</summary>
+    /// <param name="path">The file path. Do not name the file the document was opened from.</param>
+    /// <param name="options">How to lay the file out.</param>
+    /// <exception cref="NotSupportedException">The document is encrypted, or uses object numbers above 8,388,607; saving either arrives in a later version.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
+    /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/>.</remarks>
+    public void Save(string path, PdfSaveOptions options)
+    {
+        ArgumentException.ThrowIfNullOrEmpty(path);
+        FileWriter writer = PlanSave(options);
+        using FileStream stream = File.Create(path);
+        foreach (ReadOnlyMemory<byte> chunk in writer.Write())
+        {
+            stream.Write(chunk.Span);
+        }
+    }
+
+    /// <summary>Writes the document to <paramref name="stream"/> as a complete file, writing asynchronously.</summary>
+    /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
+    /// <param name="options">How to lay the file out; <see langword="null"/> for the defaults (a classic cross-reference table).</param>
+    /// <param name="cancellationToken">Cancels the writes.</param>
+    /// <returns>A task that completes when the file is written.</returns>
+    /// <exception cref="NotSupportedException">The document is encrypted, or uses object numbers above 8,388,607; saving either arrives in a later version.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.5. Writes exactly the bytes <see cref="Save(Stream, PdfSaveOptions)"/> writes, from the same writer; only the
+    /// writes to <paramref name="stream"/> are asynchronous.
+    /// </remarks>
+    public async Task SaveAsync(Stream stream, PdfSaveOptions? options = null, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        foreach (ReadOnlyMemory<byte> chunk in PlanSave(options ?? new PdfSaveOptions()).Write())
+        {
+            await stream.WriteAsync(chunk, cancellationToken).ConfigureAwait(false);
+        }
+    }
 
     /// <summary>Returns <paramref name="value"/>, or the indirect object it refers to when it is a <see cref="CosReference"/>.</summary>
     /// <param name="value">A COS object from this document, or <see langword="null"/>.</param>
@@ -209,6 +294,52 @@ public sealed class PdfDocument : IDisposable
 
     /// <inheritdoc/>
     public void Dispose() => _source.Dispose();
+
+    /// <summary>Builds the bytes of a new one-page document and opens them (issue #44).</summary>
+    /// <param name="configuration">The engine's configuration.</param>
+    /// <returns>The document.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.2, §7.7.3, Table 31: a catalog, a page tree root and one US Letter page whose <c>Resources</c> is the empty
+    /// dictionary (no resources) and which has no <c>Contents</c> (an empty page). Written as PDF 2.0 with file identifiers.
+    /// </remarks>
+    internal static PdfDocument CreateNew(EngineConfiguration configuration) => Read(PdfSource.FromMemory(NewDocumentFile()), configuration);
+
+    /// <summary>Writes the file <see cref="CreateNew"/> opens.</summary>
+    private static byte[] NewDocumentFile()
+    {
+        var catalog = new CosReference(1, 0);
+        var pages = new CosReference(2, 0);
+        var page = new CosReference(3, 0);
+        var mediaBox = new CosArray([new CosInteger(0), new CosInteger(0), new CosInteger(612), new CosInteger(792)]);
+        WriterObject[] objects =
+        [
+            new(catalog, new CosDictionary { [KnownNames.Type] = KnownNames.Catalog, [KnownNames.Pages] = pages }, null),
+            new(pages, new CosDictionary { [KnownNames.Type] = KnownNames.Pages, [KnownNames.Kids] = new CosArray([page]), [KnownNames.Count] = new CosInteger(1) }, null),
+            new(page, new CosDictionary { [KnownNames.Type] = KnownNames.Page, [KnownNames.Parent] = pages, [KnownNames.MediaBox] = mediaBox, [KnownNames.Resources] = new CosDictionary() }, null),
+        ];
+        var writer = new FileWriter(
+            source: null,
+            new PdfVersion(2, 0),
+            objects,
+            new Dictionary<int, int>(),
+            new CosDictionary { [KnownNames.Root] = catalog },
+            firstIdentifier: null,
+            PdfCrossReferenceLayout.Table);
+        using var bytes = new MemoryStream();
+        foreach (ReadOnlyMemory<byte> chunk in writer.Write())
+        {
+            bytes.Write(chunk.Span);
+        }
+
+        return bytes.ToArray();
+    }
+
+    /// <summary>Plans a full save; throws for what cannot be saved before anything is written.</summary>
+    private FileWriter PlanSave(PdfSaveOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return SavePlan.Create(_source, _loader, Linearization, options.CrossReferenceLayout);
+    }
 
     /// <summary>The open path shared by every entry point: header, cross-reference information, trailer, catalog.</summary>
     /// <param name="source">The file; owned by the document, disposed if opening fails.</param>

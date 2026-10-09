@@ -146,6 +146,9 @@ internal sealed class CrossReference
     /// </summary>
     public IReadOnlyList<CosName> InheritedTrailerKeys { get; }
 
+    /// <summary>Gets the merged lookup: for every object number a section lists, the entry <see cref="TryGetEntry"/> returns.</summary>
+    public IReadOnlyDictionary<int, XrefEntry> Entries => _merged;
+
     /// <summary>Gets the merged trailer dictionary.</summary>
     public CosDictionary Trailer { get; }
 
