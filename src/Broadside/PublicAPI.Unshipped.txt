@@ -404,3 +404,37 @@ Broadside.Security.PublicKeySecurityHandler.Filter.get -> Broadside.Objects.CosN
 Broadside.Security.PublicKeySecurityHandler.PublicKeySecurityHandler() -> void
 Broadside.Security.PublicKeySecurityHandler.SubFilters.get -> System.Collections.Generic.IReadOnlyCollection<Broadside.Objects.CosName!>!
 override Broadside.Security.PdfCertificateCredentials.ToString() -> string!
+Broadside.PdfDate
+Broadside.PdfDate.Equals(Broadside.PdfDate other) -> bool
+Broadside.PdfDate.PdfDate() -> void
+Broadside.PdfDate.Precision.get -> Broadside.PdfDatePrecision
+Broadside.PdfDate.Text.get -> string!
+Broadside.PdfDate.UtcOffsetMinutes.get -> int?
+Broadside.PdfDate.Value.get -> System.DateTimeOffset
+Broadside.PdfDatePrecision
+Broadside.PdfDatePrecision.Day = 2 -> Broadside.PdfDatePrecision
+Broadside.PdfDatePrecision.FractionOfSecond = 6 -> Broadside.PdfDatePrecision
+Broadside.PdfDatePrecision.Hour = 3 -> Broadside.PdfDatePrecision
+Broadside.PdfDatePrecision.Minute = 4 -> Broadside.PdfDatePrecision
+Broadside.PdfDatePrecision.Month = 1 -> Broadside.PdfDatePrecision
+Broadside.PdfDatePrecision.Second = 5 -> Broadside.PdfDatePrecision
+Broadside.PdfDatePrecision.Year = 0 -> Broadside.PdfDatePrecision
+Broadside.XmpDate
+Broadside.XmpDate.Equals(Broadside.XmpDate other) -> bool
+Broadside.XmpDate.HasTimeZone.get -> bool
+Broadside.XmpDate.Precision.get -> Broadside.PdfDatePrecision
+Broadside.XmpDate.Text.get -> string!
+Broadside.XmpDate.Value.get -> System.DateTimeOffset
+Broadside.XmpDate.XmpDate() -> void
+override Broadside.PdfDate.Equals(object? obj) -> bool
+override Broadside.PdfDate.GetHashCode() -> int
+override Broadside.PdfDate.ToString() -> string!
+override Broadside.XmpDate.Equals(object? obj) -> bool
+override Broadside.XmpDate.GetHashCode() -> int
+override Broadside.XmpDate.ToString() -> string!
+static Broadside.PdfDate.operator !=(Broadside.PdfDate left, Broadside.PdfDate right) -> bool
+static Broadside.PdfDate.operator ==(Broadside.PdfDate left, Broadside.PdfDate right) -> bool
+static Broadside.PdfDate.TryParse(string? text, out Broadside.PdfDate date) -> bool
+static Broadside.XmpDate.operator !=(Broadside.XmpDate left, Broadside.XmpDate right) -> bool
+static Broadside.XmpDate.operator ==(Broadside.XmpDate left, Broadside.XmpDate right) -> bool
+static Broadside.XmpDate.TryParse(string? text, out Broadside.XmpDate date) -> bool
