@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- A console harness, not a test project: it overrides the test-project defaults of tests/Directory.Build.props. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsTestProject>false</IsTestProject>
+    <UseMicrosoftTestingPlatformRunner>false</UseMicrosoftTestingPlatformRunner>
+    <TestingPlatformDotnetTestSupport>false</TestingPlatformDotnetTestSupport>
+    <RootNamespace>Broadside.Fuzz</RootNamespace>
+    <!--
+      CA1031: the smoke runner's whole job is to catch any unhandled exception a target throws and report it.
+      CA5394: the mutator uses a seeded System.Random on purpose, so a failing run can be replayed from its seed.
+    -->
+    <NoWarn>$(NoWarn);CA1031;CA5394</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside/Broadside.csproj" />
+    <PackageReference Include="SharpFuzz" />
+    <!-- Shared corpus locator, linked as source so this project does not drag xunit and Verify in through Broadside.TestSupport. -->
+    <Compile Include="../Broadside.TestSupport/CorpusLocator.cs" Link="CorpusLocator.cs" />
+    <!-- The folder props add a global using for xunit; this harness does not reference it. -->
+    <Using Remove="Xunit" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Broadside.Benchmarks</RootNamespace>
+    <!-- BenchmarkDotNet needs the benchmark assembly to be optimized; a Debug build is refused by its validator. -->
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside/Broadside.csproj" />
+    <PackageReference Include="BenchmarkDotNet" />
+    <!-- Shared corpus locator, linked as source so this project does not drag xunit and Verify in through Broadside.TestSupport. -->
+    <Compile Include="../../tests/Broadside.TestSupport/CorpusLocator.cs" Link="CorpusLocator.cs" />
+  </ItemGroup>
+
+</Project>

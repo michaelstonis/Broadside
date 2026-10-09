@@ -27,6 +27,8 @@
 
   <ItemGroup Label="Tests, benchmarks, fuzzing">
     <PackageVersion Include="xunit.v3" Version="4.0.1" />
+    <!-- For libraries shared by test projects: the xunit.v3 core assembly without the executable entry point. -->
+    <PackageVersion Include="xunit.v3.extensibility.core" Version="4.0.1" />
     <PackageVersion Include="Microsoft.Testing.Extensions.CodeCoverage" Version="18.12.0" />
     <PackageVersion Include="Verify.XunitV3" Version="33.3.2" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />

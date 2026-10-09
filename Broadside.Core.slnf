@@ -7,7 +7,13 @@
       "src/Broadside.Rendering.Skia/Broadside.Rendering.Skia.csproj",
       "src/Broadside.Rendering.Direct2D/Broadside.Rendering.Direct2D.csproj",
       "src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj",
-      "src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj"
+      "src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj",
+      "tests/Broadside.TestSupport/Broadside.TestSupport.csproj",
+      "tests/Broadside.Tests/Broadside.Tests.csproj",
+      "tests/Broadside.Rendering.Tests/Broadside.Rendering.Tests.csproj",
+      "tests/Broadside.Rendering.Skia.Tests/Broadside.Rendering.Skia.Tests.csproj",
+      "tests/Broadside.Fonts.Standard14.Tests/Broadside.Fonts.Standard14.Tests.csproj",
+      "tests/Broadside.Fonts.Cmaps.Tests/Broadside.Fonts.Cmaps.Tests.csproj"
     ]
   }
 }
