@@ -132,20 +132,4 @@ internal static partial class DiagnosticCodes
     public const string PageResourcesMissing = nameof(PageResourcesMissing);
     public const string PageResourcesInvalid = nameof(PageResourcesInvalid);
     public const string PageUserUnitInvalid = nameof(PageUserUnitInvalid);
-
-    // Fonts: font dictionaries, simple-font encodings and widths, font descriptors (§9.5, §9.6, §9.8; issue #49).
-    public const string FontTypeInvalid = nameof(FontTypeInvalid);
-    public const string FontSubtypeInvalid = nameof(FontSubtypeInvalid);
-    public const string FontBaseFontMissing = nameof(FontBaseFontMissing);
-    public const string FontStandard14Alias = nameof(FontStandard14Alias);
-    public const string FontStandard14EntriesIncomplete = nameof(FontStandard14EntriesIncomplete);
-    public const string FontDescriptorMissing = nameof(FontDescriptorMissing);
-    public const string FontDescriptorInvalid = nameof(FontDescriptorInvalid);
-    public const string FontWidthsMissing = nameof(FontWidthsMissing);
-    public const string FontWidthsInvalid = nameof(FontWidthsInvalid);
-    public const string FontEncodingInvalid = nameof(FontEncodingInvalid);
-    public const string FontEncodingIgnored = nameof(FontEncodingIgnored);
-    public const string FontDifferencesInvalid = nameof(FontDifferencesInvalid);
-    public const string FontBuiltInEncodingUnavailable = nameof(FontBuiltInEncodingUnavailable);
-    public const string FontGlyphMissing = nameof(FontGlyphMissing);
 }
