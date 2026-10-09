@@ -69,8 +69,8 @@ public class FontProgramParserRegistrationTests
     {
         using PdfDocument document = FontPdf.Open(
             "<< /Type /Font /Subtype /Type1 /BaseFont /Embedded /FirstChar 65 /LastChar 65 /Widths [500] /FontDescriptor 5 0 R >>",
-            "<< /Type /FontDescriptor /FontName /Embedded /Flags 32 /FontBBox [0 0 1 1] /ItalicAngle 0 /Ascent 1 /Descent 0 /StemV 1 /FontFile 6 0 R >>",
-            "<< /Length 12 /Length1 12 >>\nstream\n%!PS-AdobeFo\nendstream");
+            "<< /Type /FontDescriptor /FontName /Embedded /Flags 32 /FontBBox [0 0 1 1] /ItalicAngle 0 /Ascent 1 /Descent 0 /StemV 1 /FontFile3 6 0 R >>",
+            "<< /Length 12 /Subtype /Unknown >>\nstream\nnot-a-font!!\nendstream");
 
         Assert.Null(FontPdf.Font(document).Program);
         Assert.Contains(document.Diagnostics, d => d.Code == "FontProgramUnsupported" && d.Severity == DiagnosticSeverity.Information);
