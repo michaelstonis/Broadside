@@ -29,7 +29,21 @@ namespace Broadside;
 /// recovered from <c>endstream</c> (or <c>endobj</c>), without changing the <c>Length</c> entry; a missing <c>endobj</c> ends the
 /// object at the next keyword.
 /// </para>
-/// <para>Safe for concurrent reads from several threads while nobody changes it; changes are single-threaded.</para>
+/// <para>
+/// Objects load lazily through the cross-reference table (§7.5.4: it "permits random access to indirect objects ... so that the
+/// entire PDF file need not be read"), are parsed once, and are kept: every reference to an object resolves to the same instance.
+/// A file opened from a path is memory-mapped and a seekable stream is read in place, so memory grows with the objects used, not
+/// with the file: stream data stays in the file and is read each time it is asked for (<see cref="CosStream.EncodedData"/>). A
+/// 2 GiB file opens and reads its last page in a few megabytes of managed memory. A non-seekable stream is copied when opened.
+/// </para>
+/// <para>
+/// <b>Concurrency contract.</b> While nobody mutates the document, any number of threads may read it at the same time: resolve
+/// objects, walk pages, decode streams, read diagnostics, render. Each object is still parsed once, and every thread sees the same
+/// instance. Mutation (changing a COS object reachable from the document) is single-threaded and the caller's responsibility to
+/// synchronize: no read may run while a mutation runs, and reading concurrently with a mutation is undefined. Disposing the
+/// document while another thread reads it is a caller error too; reads after <see cref="Dispose"/> throw
+/// <see cref="ObjectDisposedException"/>.
+/// </para>
 /// </remarks>
 public sealed class PdfDocument : IDisposable
 {
@@ -125,7 +139,7 @@ public sealed class PdfDocument : IDisposable
     public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics.Snapshot();
 
     /// <summary>Opens the PDF file at <paramref name="path"/> with default options.</summary>
-    /// <param name="path">The file path.</param>
+    /// <param name="path">The file path. The file is memory-mapped and shared for reading: do not change it until the document is disposed.</param>
     /// <returns>The document. Dispose it when done.</returns>
     /// <exception cref="DiagnosticException">The file cannot be read at all.</exception>
     /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.Open(string)"/> on an engine with default options.</remarks>
@@ -143,8 +157,40 @@ public sealed class PdfDocument : IDisposable
     /// <param name="stream">The stream. It is not disposed; keep it open and unchanged until the document is disposed.</param>
     /// <returns>The document. Dispose it when done.</returns>
     /// <exception cref="DiagnosticException">The file cannot be read at all.</exception>
-    /// <remarks>ISO 32000-2 §7.5.</remarks>
+    /// <remarks>
+    /// ISO 32000-2 §7.5. A seekable stream is read in place as objects are used, under a lock (a <see cref="FileStream"/> is
+    /// memory-mapped instead); a non-seekable stream is copied first, into memory up to <see cref="PdfOptions.StreamBufferLimit"/> and
+    /// into a temporary file beyond it.
+    /// </remarks>
     public static PdfDocument Open(Stream stream) => PdfEngine.Default.Open(stream);
+
+    /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position, with default options; a non-seekable stream is read asynchronously.</summary>
+    /// <param name="stream">The stream. It is not disposed; a seekable stream must stay open and unchanged until the document is disposed.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="DiagnosticException">The file cannot be read at all.</exception>
+    /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(Stream, CancellationToken)"/> on an engine with default options.</remarks>
+    public static Task<PdfDocument> OpenAsync(Stream stream) => PdfEngine.Default.OpenAsync(stream, CancellationToken.None);
+
+    /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position, with default options; a non-seekable stream is read asynchronously.</summary>
+    /// <param name="stream">The stream. It is not disposed; a seekable stream must stay open and unchanged until the document is disposed.</param>
+    /// <param name="cancellationToken">Cancels reading a non-seekable stream.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="DiagnosticException">The file cannot be read at all.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(Stream, CancellationToken)"/> on an engine with default options.</remarks>
+    public static Task<PdfDocument> OpenAsync(Stream stream, CancellationToken cancellationToken) =>
+        PdfEngine.Default.OpenAsync(stream, cancellationToken);
+
+    /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position; a non-seekable stream is read asynchronously.</summary>
+    /// <param name="stream">The stream. It is not disposed; a seekable stream must stay open and unchanged until the document is disposed.</param>
+    /// <param name="options">The options.</param>
+    /// <param name="cancellationToken">Cancels reading a non-seekable stream.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="DiagnosticException">The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(Stream, CancellationToken)"/> on an engine built from <paramref name="options"/>.</remarks>
+    public static Task<PdfDocument> OpenAsync(Stream stream, PdfOptions options, CancellationToken cancellationToken = default) =>
+        new PdfEngine(options).OpenAsync(stream, cancellationToken);
 
     /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position.</summary>
     /// <param name="stream">The stream. It is not disposed; keep it open and unchanged until the document is disposed.</param>
@@ -155,7 +201,9 @@ public sealed class PdfDocument : IDisposable
     public static PdfDocument Open(Stream stream, PdfOptions options) => new PdfEngine(options).Open(stream);
 
     /// <summary>Opens the PDF file held in <paramref name="bytes"/> with default options.</summary>
-    /// <param name="bytes">The file. Not copied: do not change it until the document is disposed.</param>
+    /// <param name="bytes">
+    /// The file. Not copied: do not change it while the document or any of its objects is in use; stream data refers into it.
+    /// </param>
     /// <returns>The document. Dispose it when done.</returns>
     /// <exception cref="DiagnosticException">The file cannot be read at all.</exception>
     /// <remarks>ISO 32000-2 §7.5.</remarks>
@@ -372,7 +420,7 @@ public sealed class PdfDocument : IDisposable
             CrossReference? crossReference = CrossReferenceReader.Read(source, header, streams, diagnostics, scan);
             bool reconstructed = crossReference is null;
             crossReference ??= Reconstruct(source, header, scan.Value, streams, diagnostics, reportMissingTrailer: true);
-            loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks(), streams) { Scan = scan };
+            loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks(), streams) { Scan = scan, Logger = configuration.Logger };
             CosDictionary? catalog = ReadCatalog(loader, diagnostics, reportUnusableRoot: reconstructed);
             if (catalog is null)
             {
@@ -383,7 +431,7 @@ public sealed class PdfDocument : IDisposable
                     DiagnosticSeverity.Warning,
                     "The trailer has no Root entry that resolves to the catalog dictionary; the cross-reference information is rebuilt by scanning the file.");
                 crossReference = Reconstruct(source, header, scan.Value, streams, diagnostics, reportMissingTrailer: false);
-                loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks(), streams) { Scan = scan };
+                loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks(), streams) { Scan = scan, Logger = configuration.Logger };
                 catalog = ReadCatalog(loader, diagnostics, reportUnusableRoot: true)!;
             }
 

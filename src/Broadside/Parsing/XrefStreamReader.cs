@@ -95,7 +95,10 @@ internal static class XrefStreamReader
         return CosDictionary.FromOwnedEntries(trailer);
     }
 
-    /// <summary>Parses <c>N G obj</c> stream <c>endobj</c> at <paramref name="offset"/> (§7.3.10).</summary>
+    /// <summary>
+    /// Parses <c>N G obj</c> stream <c>endobj</c> at <paramref name="offset"/> (§7.3.10), in a window that grows while the object
+    /// does not end inside it (a windowed source, issue #45).
+    /// </summary>
     private static bool TryParseStreamObject(
         PdfSource source,
         long offset,
@@ -104,10 +107,35 @@ internal static class XrefStreamReader
         out CosReference? reference,
         out long end)
     {
+        (bool parsed, CosStream? value, CosReference? number, long objectEnd) = source.ReadGrowing(
+            offset,
+            (ReadOnlySpan<byte> window, bool final, out (bool, CosStream?, CosReference?, long) result) =>
+            {
+                bool done = TryParseStreamObject(window, final, offset, diagnostics, out bool ok, out CosStream? s, out CosReference? r, out long e);
+                result = (ok, s, r, e);
+                return done;
+            });
+        stream = value;
+        reference = number;
+        end = objectEnd;
+        return parsed && stream is not null;
+    }
+
+    /// <summary>One attempt of <see cref="TryParseStreamObject(PdfSource, long, DiagnosticSink, out CosStream?, out CosReference?, out long)"/>; <see langword="false"/> asks for a larger window.</summary>
+    private static bool TryParseStreamObject(
+        ReadOnlySpan<byte> window,
+        bool final,
+        long offset,
+        DiagnosticSink diagnostics,
+        out bool parsed,
+        out CosStream? stream,
+        out CosReference? reference,
+        out long end)
+    {
+        parsed = false;
         stream = null;
         reference = null;
         end = offset;
-        ReadOnlySpan<byte> window = source.GetWindow(offset).Span;
         var lexer = new CosLexer(window);
         if (!StructureTokens.TryReadUnsigned(ref lexer, out long number)
             || !StructureTokens.TryReadUnsigned(ref lexer, out long generation)
@@ -115,23 +143,36 @@ internal static class XrefStreamReader
             || number is 0 or > int.MaxValue
             || generation > CosReference.MaxGeneration)
         {
+            if (!final && lexer.Position >= window.Length)
+            {
+                // The header is cut off by the end of the window: read again in a larger one.
+                return false;
+            }
+
             Report(diagnostics, DiagnosticCodes.XrefSectionInvalid, DiagnosticSeverity.Error, "Expected the xref keyword or the header of a cross-reference stream object.", offset, null);
-            return false;
+            return true;
         }
 
         reference = new CosReference((int)number, (int)generation);
         var repairs = new CosRepairLog(keepAll: true);
         var parser = new CosParser(window, repairs, lexer.Position);
         CosObject value = parser.ParseObject();
+        var after = new CosLexer(window, parser.Position);
+        CosToken next = after.Next();
+        if (!final && (repairs.Count > 0 || value is not CosStream || !StructureTokens.IsKeyword(window, next, "endobj"u8) || next.End >= window.Length))
+        {
+            return false;
+        }
+
         foreach (CosRepair repair in repairs.All)
         {
             diagnostics.Report(repair.Code, DiagnosticSeverity.Warning, repair.Message, offset + repair.Offset, reference);
         }
 
-        if (value is not CosStream parsed)
+        if (value is not CosStream parsedStream)
         {
             Report(diagnostics, DiagnosticCodes.XrefSectionInvalid, DiagnosticSeverity.Error, "The object at the cross-reference offset is not a stream.", offset, reference);
-            return false;
+            return true;
         }
 
         lexer.Position = parser.Position;
@@ -146,7 +187,8 @@ internal static class XrefStreamReader
             end = offset + parser.Position;
         }
 
-        stream = parsed;
+        stream = parsedStream;
+        parsed = true;
         return true;
     }
 

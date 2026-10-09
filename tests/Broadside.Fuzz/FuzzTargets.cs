@@ -20,6 +20,7 @@ internal static class FuzzTargets
         ["lexer"] = Lexer,
         ["object-parser"] = ObjectParser,
         ["document"] = Document,
+        ["windowed-document"] = WindowedDocument,
         ["save"] = Save,
         ["hint-tables"] = HintTables,
         ["xref-stream"] = XrefStream,
@@ -89,6 +90,67 @@ internal static class FuzzTargets
             {
                 _ = document.DecodeStream(stream);
             }
+        }
+    }
+
+    /// <summary>
+    /// Opens the input twice, from memory (the whole file in one view) and through a seekable stream (read in place, in windows that
+    /// grow while an object does not end inside them), and requires the two to read the same: the same outcome when the file cannot
+    /// be opened, else the same pages, the same object for every number below the trailer's Size (capped), and the same diagnostics.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.5.4: random access to indirect objects through the cross-reference table (issue #45).</remarks>
+    private static void WindowedDocument(ReadOnlySpan<byte> data)
+    {
+        byte[] bytes = data.ToArray();
+        string whole = ReadEverything(() => PdfDocument.Open(bytes));
+        using var stream = new MemoryStream(bytes, writable: false);
+        string windowed = ReadEverything(() => PdfDocument.Open(stream));
+        if (whole != windowed)
+        {
+            throw new InvalidOperationException($"Reading in windows differs from reading the whole file:\n{whole}\n---\n{windowed}");
+        }
+
+        // Windows that start at 16 bytes and double: every object and section is read through the growth paths.
+        using var tiny = new MemoryStream(bytes, writable: false);
+        string grown = ReadEverything(() => PdfDocument.Read(new StreamSource(tiny, ownsStream: false, initialWindow: 16), EngineConfiguration.From(new PdfOptions())));
+        if (whole != grown)
+        {
+            throw new InvalidOperationException($"Reading in growing windows differs from reading the whole file:\n{whole}\n---\n{grown}");
+        }
+    }
+
+    private static string ReadEverything(Func<PdfDocument> open)
+    {
+        PdfDocument document;
+        try
+        {
+            document = open();
+        }
+        catch (DiagnosticException exception)
+        {
+            return exception.Diagnostic.ToString();
+        }
+
+        using (document)
+        {
+            var text = new System.Text.StringBuilder();
+            foreach (PdfPage page in document.Pages)
+            {
+                text.Append(page.Reference).Append(' ').Append(page.MediaBox).Append('\n');
+            }
+
+            long size = document.Trailer.TryGetValue(new CosName("Size"), out CosObject? entry) && entry is CosInteger integer ? integer.Value : 0;
+            for (int number = 1; number < Math.Min(size, 2048); number++)
+            {
+                text.Append(document.Resolve(new CosReference(number, 0))).Append('\n');
+            }
+
+            foreach (Diagnostic diagnostic in document.Diagnostics)
+            {
+                text.Append(diagnostic).Append('\n');
+            }
+
+            return text.ToString();
         }
     }
 

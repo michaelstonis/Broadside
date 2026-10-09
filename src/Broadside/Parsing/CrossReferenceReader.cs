@@ -195,7 +195,7 @@ internal static class CrossReferenceReader
                 window = window[first.Start..];
             }
 
-            return isTable ? XrefTableReader.Read(window, offset, diagnostics) : XrefStreamReader.Read(source, offset, streams, diagnostics);
+            return isTable ? ReadTable(source, offset, diagnostics) : XrefStreamReader.Read(source, offset, streams, diagnostics);
         }
 
         string stated = isFirst ? "startxref" : "Prev";
@@ -254,6 +254,46 @@ internal static class CrossReferenceReader
             }
         }
     }
+
+    /// <summary>
+    /// Reads the table section at <paramref name="offset"/> in a window large enough for all of it, whatever its size: a windowed
+    /// source is read again in a larger window while the section does not end inside the window (issue #45). Deviations are held
+    /// back until the window is known to be large enough, so a window boundary is never reported as damage.
+    /// </summary>
+    private static XrefSection? ReadTable(PdfSource source, long offset, DiagnosticSink diagnostics) =>
+        source.ReadGrowing(offset, (ReadOnlySpan<byte> window, bool final, out XrefSection? section) =>
+        {
+            var attempt = new DiagnosticSink(strict: false);
+            DiagnosticException? failure = null;
+            try
+            {
+                section = XrefTableReader.Read(window, offset, attempt);
+            }
+            catch (DiagnosticException exception)
+            {
+                failure = exception;
+                section = null;
+            }
+
+            // The token after the section must be in the window too: a trailer dictionary followed by "stream" is not a trailer.
+            Diagnostic[] found = attempt.Snapshot();
+            if (!final && (found.Length > 0 || section is null || !StructureTokens.NextTokenEndsInside(window, (int)(section.End - offset))))
+            {
+                return false;
+            }
+
+            foreach (Diagnostic diagnostic in found)
+            {
+                diagnostics.Report(diagnostic.Code, diagnostic.Severity, diagnostic.Message, diagnostic.Offset, diagnostic.ObjectReference);
+            }
+
+            if (failure is not null)
+            {
+                throw failure;
+            }
+
+            return true;
+        });
 
     /// <summary>
     /// Reads the cross-reference stream a hybrid file's table names through its trailer's <c>XRefStm</c> entry (§7.5.8.4, Table 19).

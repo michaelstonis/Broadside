@@ -48,9 +48,10 @@ internal static class CosWriter
                 WriteDictionary(dictionary, writer, streamLength: -1);
                 break;
             case CosStream stream:
-                WriteDictionary(stream.Dictionary, writer, stream.EncodedData.Length);
+                ReadOnlyMemory<byte> data = stream.EncodedData;
+                WriteDictionary(stream.Dictionary, writer, data.Length);
                 writer.Write("\nstream\n"u8);
-                writer.Write(stream.EncodedData.Span);
+                writer.Write(data.Span);
                 writer.Write("\nendstream"u8);
                 break;
             case CosReference reference:

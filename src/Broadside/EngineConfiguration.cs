@@ -24,11 +24,20 @@ internal sealed class EngineConfiguration
     /// </summary>
     public Action<Diagnostic>? DiagnosticObserver { get; private init; }
 
+    /// <summary>
+    /// Gets the logger lazy loading is traced through (issue #45: <c>ObjectParsed</c>, <c>ObjectStreamDecoded</c>), or
+    /// <see langword="null"/> when nothing logs.
+    /// </summary>
+    public ILogger? Logger { get; private init; }
+
     /// <summary>Gets the filters by name: the managed defaults with the options' registrations applied (issue #38).</summary>
     public FilterRegistry Filters { get; private init; } = FilterRegistry.Create([]);
 
     /// <summary>Gets the most bytes one stream may decode to (issue #38).</summary>
     public long MaxDecodedStreamLength { get; private init; } = PdfOptions.DefaultMaxDecodedStreamLength;
+
+    /// <summary>Gets how many bytes of a non-seekable stream are copied into memory before a temporary file is used (issue #45).</summary>
+    public long StreamBufferLimit { get; private init; } = PdfOptions.DefaultStreamBufferLimit;
 
     /// <summary>Copies the current values of <paramref name="options"/>.</summary>
     /// <param name="options">The options.</param>
@@ -37,7 +46,9 @@ internal sealed class EngineConfiguration
     public static EngineConfiguration From(PdfOptions options, ILoggerFactory? hostLoggerFactory = null) => new(options.ReadingMode)
     {
         DiagnosticObserver = DiagnosticLog.CreateObserver(options.LoggerFactory ?? hostLoggerFactory),
+        Logger = ObjectLog.CreateLogger(options.LoggerFactory ?? hostLoggerFactory),
         Filters = FilterRegistry.Create(options.Filters),
         MaxDecodedStreamLength = options.MaxDecodedStreamLength,
+        StreamBufferLimit = options.StreamBufferLimit,
     };
 }

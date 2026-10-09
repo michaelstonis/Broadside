@@ -17,8 +17,12 @@ public sealed class PdfOptions
     /// <summary>The default of <see cref="MaxDecodedStreamLength"/>: 1 GiB.</summary>
     public const long DefaultMaxDecodedStreamLength = 1L << 30;
 
+    /// <summary>The default of <see cref="StreamBufferLimit"/>: 64 MiB.</summary>
+    public const long DefaultStreamBufferLimit = 64L << 20;
+
     private readonly List<IStreamFilter> _filters = [];
     private long _maxDecodedStreamLength = DefaultMaxDecodedStreamLength;
+    private long _streamBufferLimit = DefaultStreamBufferLimit;
 
     /// <summary>Gets or sets how deviations from the specification are treated. The default is <see cref="PdfReadingMode.Lenient"/>.</summary>
     /// <remarks>ADR 0005.</remarks>
@@ -91,6 +95,37 @@ public sealed class PdfOptions
     public PdfOptions WithMaxDecodedStreamLength(long maxLength)
     {
         MaxDecodedStreamLength = maxLength;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets how many bytes of a non-seekable stream are copied into memory when a document is opened from it; a longer stream
+    /// is copied into a temporary file, deleted when the document is disposed, and read from there. Default 64 MiB.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.5.1: a file is read at random through its cross-reference table, starting from its end, which a non-seekable
+    /// stream cannot do, so it is copied once at the open boundary. A seekable stream, a path and bytes are never copied: they are
+    /// read in place or memory-mapped as objects are used.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    public long StreamBufferLimit
+    {
+        get => _streamBufferLimit;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _streamBufferLimit = value;
+        }
+    }
+
+    /// <summary>Sets <see cref="StreamBufferLimit"/>.</summary>
+    /// <param name="limit">How many bytes of a non-seekable stream to copy into memory; 0 always uses a temporary file.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="limit"/> is negative.</exception>
+    /// <remarks>ISO 32000-2 §7.5.1.</remarks>
+    public PdfOptions WithStreamBufferLimit(long limit)
+    {
+        StreamBufferLimit = limit;
         return this;
     }
 

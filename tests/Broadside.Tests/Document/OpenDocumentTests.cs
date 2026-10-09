@@ -84,10 +84,9 @@ public class OpenDocumentTests
             case SourceKind.Path:
                 return PdfDocument.Open(Corpus.Path(fileName));
             case SourceKind.Stream:
-                using (FileStream stream = Corpus.Open(fileName))
-                {
-                    return PdfDocument.Open(stream);
-                }
+                // A seekable stream is read in place, so it stays open as long as the document; a stream that is not a FileStream
+                // is read under a lock rather than memory-mapped.
+                return PdfDocument.Open(new ProbeStream(Corpus.Bytes(fileName)));
 
             default:
                 return PdfDocument.Open(Corpus.Bytes(fileName));

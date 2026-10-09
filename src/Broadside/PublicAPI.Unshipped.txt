@@ -266,6 +266,14 @@ Broadside.PdfOptions.WithLoggerFactory(Microsoft.Extensions.Logging.ILoggerFacto
 Microsoft.Extensions.DependencyInjection.BroadsideServiceCollectionExtensions
 static Microsoft.Extensions.DependencyInjection.BroadsideServiceCollectionExtensions.AddBroadside(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Microsoft.Extensions.DependencyInjection.BroadsideServiceCollectionExtensions.AddBroadside(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Broadside.PdfOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+Broadside.PdfEngine.OpenAsync(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+Broadside.PdfOptions.StreamBufferLimit.get -> long
+Broadside.PdfOptions.StreamBufferLimit.set -> void
+Broadside.PdfOptions.WithStreamBufferLimit(long limit) -> Broadside.PdfOptions!
+const Broadside.PdfOptions.DefaultStreamBufferLimit = 67108864 -> long
+static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream, Broadside.PdfOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
 Broadside.PdfCrossReferenceLayout
 Broadside.PdfCrossReferenceLayout.Stream = 1 -> Broadside.PdfCrossReferenceLayout
 Broadside.PdfCrossReferenceLayout.StreamWithObjectStreams = 2 -> Broadside.PdfCrossReferenceLayout

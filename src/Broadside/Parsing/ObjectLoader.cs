@@ -1,9 +1,11 @@
 using System.Collections.Concurrent;
 using System.Globalization;
+using Broadside.Caching;
 using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.IO;
 using Broadside.Objects;
+using Microsoft.Extensions.Logging;
 
 namespace Broadside.Parsing;
 
@@ -34,6 +36,12 @@ internal sealed class ObjectLoader
     /// <summary>How many loads may nest (an indirect <c>Length</c> loads while its stream loads) before the inner one reads null.</summary>
     public const int MaxDepth = 32;
 
+    /// <summary>The first window a windowed source is asked for per object: most objects are smaller.</summary>
+    private const int InitialObjectWindow = 4096;
+
+    /// <summary>The largest window an object is parsed in; an object that does not end within 1 GiB is read as repaired.</summary>
+    private const int MaxObjectWindow = 1 << 30;
+
     /// <summary>How far before and after a wrong offset the object's header is looked for before the whole file is scanned.</summary>
     private const int NearSearchDistance = 1024;
 
@@ -41,14 +49,10 @@ internal sealed class ObjectLoader
     private static readonly CosName N = new("N");
     private static readonly CosName First = new("First");
 
-    /// <summary>The object streams this thread is decoding, across loaders, so a container that needs its own member ends.</summary>
-    [ThreadStatic]
-    private static List<(ObjectLoader Loader, int Number)>? _decoding;
-
     private readonly PdfSource _source;
     private readonly DiagnosticSink _diagnostics;
     private readonly StreamDecoder _streams;
-    private ConcurrentDictionary<int, ObjectStream>? _objectStreams;
+    private OnceCache<int, ObjectStream?>? _objectStreams;
     private ConcurrentDictionary<CosReference, ObjectSourceBytes>? _sourceBytes;
 
     /// <summary>Initializes a new instance of the <see cref="ObjectLoader"/> class.</summary>
@@ -83,6 +87,9 @@ internal sealed class ObjectLoader
 
     /// <summary>Gets the hooks.</summary>
     public ObjectLoaderHooks Hooks { get; }
+
+    /// <summary>Gets the logger loads are traced through (<see cref="ObjectLog"/>), or <see langword="null"/>.</summary>
+    public ILogger? Logger { get; init; }
 
     /// <summary>
     /// Gets the scan of the whole file that objects whose entries are wrong are searched in, run on first use (issue #41). The open
@@ -134,7 +141,13 @@ internal sealed class ObjectLoader
             return cached;
         }
 
-        if (!CrossReference.TryGetEntry(reference.ObjectNumber, out XrefEntry entry))
+        if (!CrossReference.TryGetEntry(reference.ObjectNumber, out XrefEntry entry)
+            || entry.Kind switch
+            {
+                XrefEntryKind.InUse => entry.Generation != reference.Generation,
+                XrefEntryKind.Compressed => reference.Generation != 0,
+                _ => true,
+            })
         {
             return CosNull.Instance;
         }
@@ -149,49 +162,84 @@ internal sealed class ObjectLoader
             return CosNull.Instance;
         }
 
-        CosObject loaded;
-        ObjectLoadContext context;
-        switch (entry.Kind)
-        {
-            case XrefEntryKind.InUse when entry.Generation == reference.Generation:
-                context = new ObjectLoadContext(reference, Header.Offset + entry.Offset, ObjectOrigin.FileBody, depth);
-                loaded = ParseIndirectObject(context);
-                break;
-            case XrefEntryKind.Compressed when reference.Generation == 0:
-                return LoadCompressed(reference, entry, depth);
-            default:
-                return CosNull.Instance;
-        }
-
-        loaded = Hooks.Decryptor.Decrypt(loaded, context);
-        return Hooks.Cache.Publish(reference, loaded);
+        // Hook 3 runs the load at most once per object, however many threads ask (issue #45).
+        return Hooks.Cache.GetOrLoad(
+            reference,
+            (Loader: this, Entry: entry, Depth: depth),
+            static (reference, state) => state.Loader.LoadUncached(reference, state.Entry, state.Depth),
+            static (reference, state) => state.Loader.ReportCycle(reference, state.Entry));
     }
 
-    /// <summary>Loads an object stored in an object stream (§7.5.7): container, then the member at the entry's index.</summary>
-    private CosObject LoadCompressed(CosReference reference, XrefEntry entry, int depth)
+    /// <summary>Locates and parses an object nobody has loaded yet, then runs hook 2.</summary>
+    private Created<CosObject> LoadUncached(CosReference reference, XrefEntry entry, int depth)
     {
-        int containerNumber = (int)entry.Offset;
-        if (IsDecoding(containerNumber))
+        if (entry.Kind == XrefEntryKind.Compressed)
+        {
+            return LoadCompressed(reference, entry, depth);
+        }
+
+        var context = new ObjectLoadContext(reference, Header.Offset + entry.Offset, ObjectOrigin.FileBody, depth);
+        CosObject loaded = ParseIndirectObject(context);
+        if (Logger is { } logger)
+        {
+            ObjectLog.ObjectParsed(logger, reference.ObjectNumber, reference.Generation, context.Offset, objectStream: null);
+        }
+
+        return new(Hooks.Decryptor.Decrypt(loaded, context));
+    }
+
+    /// <summary>Reads as null an object whose loading needs the object itself, which the cache detected; the null is not cached.</summary>
+    private CosNull ReportCycle(CosReference reference, XrefEntry entry)
+    {
+        if (entry.Kind == XrefEntryKind.Compressed)
         {
             _diagnostics.Report(
                 DiagnosticCodes.ObjectStreamCycle,
                 DiagnosticSeverity.Error,
-                string.Create(CultureInfo.InvariantCulture, $"Object stream {containerNumber} needs this object, which it holds, to be decoded; read as null."),
+                string.Create(CultureInfo.InvariantCulture, $"Object stream {entry.Offset} needs this object, which it holds, to be decoded; read as null."),
                 objectReference: reference);
-            return CosNull.Instance;
+        }
+        else
+        {
+            _diagnostics.Report(
+                DiagnosticCodes.ObjectReferenceCycle,
+                DiagnosticSeverity.Error,
+                "Loading the object needs the object itself (a stream's Length refers back to it); read as null where it is needed.",
+                objectReference: reference);
         }
 
-        ConcurrentDictionary<int, ObjectStream> objectStreams = ObjectStreams;
-        ObjectStream container = objectStreams.TryGetValue(containerNumber, out ObjectStream? cached)
-            ? cached
-            : objectStreams.GetOrAdd(containerNumber, ReadObjectStream(containerNumber, reference, depth));
+        return CosNull.Instance;
+    }
+
+    /// <summary>Loads an object stored in an object stream (§7.5.7): container, then the member at the entry's index.</summary>
+    private Created<CosObject> LoadCompressed(CosReference reference, XrefEntry entry, int depth)
+    {
+        int containerNumber = (int)entry.Offset;
+        ObjectStream? container = ObjectStreams.GetOrCreate(
+            containerNumber,
+            (Loader: this, Member: reference, Depth: depth),
+            static (number, state) => new Created<ObjectStream?>(state.Loader.ReadObjectStream(number, state.Member, state.Depth)),
+            static (_, _) => null);
+        if (container is null)
+        {
+            // The container is being decoded further up this thread's stack (its N, First, Filter or Length is one of its own
+            // members) or by a thread waiting for this one. The null depends on how the member was reached: not cached.
+            ReportCycle(reference, entry);
+            return new(CosNull.Instance, Keep: false);
+        }
+
         CosObject loaded = container.Parse(reference, entry.Generation, _diagnostics, out ReadOnlyMemory<byte>? memberBytes);
         if (memberBytes is { } bytes)
         {
             SourceBytes[reference] = ObjectSourceBytes.InObjectStream(bytes);
         }
 
-        return Hooks.Cache.Publish(reference, loaded);
+        if (Logger is { } logger)
+        {
+            ObjectLog.ObjectParsed(logger, reference.ObjectNumber, reference.Generation, offset: null, containerNumber);
+        }
+
+        return new(loaded);
     }
 
     /// <summary>Loads and decodes object stream <paramref name="number"/> and reads its header (§7.5.7, Table 16).</summary>
@@ -208,45 +256,42 @@ internal sealed class ObjectLoader
             return ObjectStream.Unreadable(reference);
         }
 
-        List<(ObjectLoader Loader, int Number)> decoding = _decoding ??= [];
-        decoding.Add((this, number));
-        try
+        if (Load(reference, depth + 1) is not CosStream stream)
         {
-            if (Load(reference, depth + 1) is not CosStream stream)
-            {
-                _diagnostics.Report(
-                    DiagnosticCodes.ObjectStreamInvalid,
-                    DiagnosticSeverity.Error,
-                    string.Create(CultureInfo.InvariantCulture, $"The cross-reference entry places the object in object {number}, which is not a stream; read as null."),
-                    objectReference: member);
-                return ObjectStream.Unreadable(reference);
-            }
-
-            if (!stream.Dictionary.TryGetValue(KnownNames.Type, out CosObject? type) || !ObjStm.Equals(type))
-            {
-                _diagnostics.Report(
-                    DiagnosticCodes.ObjectStreamTypeInvalid,
-                    DiagnosticSeverity.Warning,
-                    "The object stream's Type entry shall be /ObjStm; the stream is read as one.",
-                    objectReference: reference);
-            }
-
-            CosObject count = Resolve(stream.Dictionary.TryGetValue(N, out CosObject? n) ? n : null, depth + 1);
-            CosObject first = Resolve(stream.Dictionary.TryGetValue(First, out CosObject? f) ? f : null, depth + 1);
-            return ObjectStream.Read(reference, _streams.Decode(stream), count, first, _diagnostics);
+            _diagnostics.Report(
+                DiagnosticCodes.ObjectStreamInvalid,
+                DiagnosticSeverity.Error,
+                string.Create(CultureInfo.InvariantCulture, $"The cross-reference entry places the object in object {number}, which is not a stream; read as null."),
+                objectReference: member);
+            return ObjectStream.Unreadable(reference);
         }
-        finally
+
+        if (!stream.Dictionary.TryGetValue(KnownNames.Type, out CosObject? type) || !ObjStm.Equals(type))
         {
-            decoding.Remove((this, number));
+            _diagnostics.Report(
+                DiagnosticCodes.ObjectStreamTypeInvalid,
+                DiagnosticSeverity.Warning,
+                "The object stream's Type entry shall be /ObjStm; the stream is read as one.",
+                objectReference: reference);
         }
+
+        CosObject count = Resolve(stream.Dictionary.TryGetValue(N, out CosObject? n) ? n : null, depth + 1);
+        CosObject first = Resolve(stream.Dictionary.TryGetValue(First, out CosObject? f) ? f : null, depth + 1);
+        ObjectStream container = ObjectStream.Read(reference, _streams.Decode(stream), count, first, _diagnostics);
+        if (Logger is { } logger)
+        {
+            ObjectLog.ObjectStreamDecoded(logger, number, container.ObjectNumbers.Count);
+        }
+
+        return container;
     }
 
     /// <summary>Gets the decoded object streams by object number, created on first use so a file without them pays nothing.</summary>
-    private ConcurrentDictionary<int, ObjectStream> ObjectStreams
+    private OnceCache<int, ObjectStream?> ObjectStreams
     {
         get
         {
-            ConcurrentDictionary<int, ObjectStream>? objectStreams = Volatile.Read(ref _objectStreams);
+            OnceCache<int, ObjectStream?>? objectStreams = Volatile.Read(ref _objectStreams);
             return objectStreams ?? Interlocked.CompareExchange(ref _objectStreams, new(), null) ?? _objectStreams;
         }
     }
@@ -260,8 +305,6 @@ internal sealed class ObjectLoader
             return sourceBytes ?? Interlocked.CompareExchange(ref _sourceBytes, new(), null) ?? _sourceBytes;
         }
     }
-
-    private bool IsDecoding(int containerNumber) => _decoding is { Count: > 0 } decoding && decoding.Contains((this, containerNumber));
 
     private CosObject Resolve(CosObject? value, int depth) => value is CosReference reference ? Load(reference, depth) : value ?? CosNull.Instance;
 
@@ -296,10 +339,33 @@ internal sealed class ObjectLoader
         return ParseIndirectObject(context with { Offset = offset });
     }
 
-    /// <summary>Parses <c>N G obj</c> object <c>endobj</c> at the context's offset (§7.3.10).</summary>
+    /// <summary>
+    /// Parses <c>N G obj</c> object <c>endobj</c> at the context's offset (§7.3.10). A source that reads in windows (a stream) is
+    /// asked for a small window first and a larger one while the object does not end inside it.
+    /// </summary>
     private CosObject ParseIndirectObject(in ObjectLoadContext context)
     {
-        ReadOnlySpan<byte> window = _source.GetWindow(context.Offset).Span;
+        long available = _source.Length - context.Offset;
+        int minimum = Math.Min(InitialObjectWindow, _source.InitialWindow);
+        while (true)
+        {
+            ReadOnlyMemory<byte> window = _source.GetWindow(context.Offset, minimum);
+            bool truncated = window.Length < available;
+            if (ParseIndirectObject(context, window.Span, final: !truncated || window.Length >= MaxObjectWindow) is { } value)
+            {
+                return value;
+            }
+
+            minimum = (int)Math.Min(MaxObjectWindow, (long)window.Length * 2);
+        }
+    }
+
+    /// <summary>
+    /// Parses the object in <paramref name="window"/>; returns <see langword="null"/>, reporting nothing, when it does not end inside a
+    /// window that is not <paramref name="final"/>.
+    /// </summary>
+    private CosObject? ParseIndirectObject(in ObjectLoadContext context, ReadOnlySpan<byte> window, bool final)
+    {
         var lexer = new CosLexer(window);
         if (!StructureTokens.TryReadUnsigned(ref lexer, out long number)
             || !StructureTokens.TryReadUnsigned(ref lexer, out long generation)
@@ -307,23 +373,31 @@ internal sealed class ObjectLoader
             || number != context.Reference.ObjectNumber
             || generation != context.Reference.Generation)
         {
-            return LoadMisplaced(context);
+            // A header cut off by the end of a window that is not final is read again in a larger one.
+            return !final && lexer.Position >= window.Length ? null : LoadMisplaced(context);
         }
 
         lexer.SkipWhitespaceAndComments();
         int bodyStart = lexer.Position;
         var repairs = new CosRepairLog(keepAll: true);
-        var parser = new CosParser(window, repairs, bodyStart, new LengthResolver(this, context));
+        var parser = new CosParser(window, repairs, bodyStart, new LengthResolver(this, context), new StreamDataFactory(_source, context.Offset));
         CosObject value = parser.ParseObject();
         int bodyEnd = parser.Position;
+        lexer.Position = parser.Position;
+        CosToken end = lexer.Next();
+        bool ended = StructureTokens.IsKeyword(window, end, "endobj"u8);
+        // Not final: read again in a larger window unless the object, and the token after it, end inside this one.
+        if (!final && (!ended || repairs.Count > 0 || end.End >= window.Length))
+        {
+            return null;
+        }
+
         foreach (CosRepair repair in repairs.All)
         {
             _diagnostics.Report(repair.Code, DiagnosticSeverity.Warning, repair.Message, context.Offset + repair.Offset, context.Reference);
         }
 
-        lexer.Position = parser.Position;
-        CosToken end = lexer.Next();
-        if (!StructureTokens.IsKeyword(window, end, "endobj"u8))
+        if (!ended)
         {
             _diagnostics.Report(
                 DiagnosticCodes.MissingEndobj,
@@ -339,6 +413,12 @@ internal sealed class ObjectLoader
         }
 
         return value;
+    }
+
+    /// <summary>Keeps a parsed stream's data in the source: the parser's window starts at <paramref name="windowOffset"/>.</summary>
+    private sealed class StreamDataFactory(PdfSource source, long windowOffset) : IStreamDataFactory
+    {
+        public CosStream CreateStream(CosDictionary dictionary, int start, int length) => source.CreateStream(dictionary, windowOffset + start, length);
     }
 
     /// <summary>Adapts hook 1 to the parser's resolver contract for one object load.</summary>
