@@ -1,21 +1,21 @@
-# Phase 1 issues (COS layer)
+# Phase 1 tickets (Read foundation)
 
-Milestone "Phase 1". Clauses are ISO 32000-2 unless stated. Rows with the same "after" value run in parallel.
+Milestone "Phase 1: COS layer". Tickets are vertical tracer-bullet slices of the spec [#33](https://github.com/michaelstonis/Broadside/issues/33): each one is demoable through the public document API against corpus files, which is the spec's primary test seam. GitHub is the source of truth for status and blocking edges (native sub-issues of #33 and native *blocked by* relationships); this table is a snapshot for orientation. Each issue body holds the acceptance criteria.
 
-| # | Title | Clauses | Acceptance | After |
-|---|---|---|---|---|
-| 1.1 ([#11](https://github.com/michaelstonis/Broadside/issues/11)) | Lexer | §7.2 | Tokenizes every file in `tests/Corpus/` and `corpus/`; zero allocations per token in benchmark; fuzz target | – |
-| 1.2 ([#12](https://github.com/michaelstonis/Broadside/issues/12)) | COS object types | §7.3 | `CosBoolean`, `CosInteger`, `CosReal`, `CosString` (literal and hex, PDFDocEncoding, UTF-16BE, UTF-8 per 2.0), `CosName` (with `#xx` escapes), `CosArray`, `CosDictionary`, `CosStream`, `CosNull`, `CosReference`; dirty flag; equality semantics; unit tests per type | – |
-| 1.3 ([#13](https://github.com/michaelstonis/Broadside/issues/13)) | Object parser | §7.3, §7.5.7 | Direct and indirect objects, object streams; recovers from missing `endobj`; fuzz target | 1.1, 1.2 |
-| 1.4 ([#14](https://github.com/michaelstonis/Broadside/issues/14)) | File source abstraction | – | In-memory, memory-mapped, seekable `Stream`; non-seekable buffered at the boundary; async open/save at the boundary only | – |
-| 1.5 ([#15](https://github.com/michaelstonis/Broadside/issues/15)) | Cross-reference tables and streams | §7.5.4, §7.5.5, §7.5.8, §7.5.6 | Classic tables, xref streams, hybrid files, `/Prev` chains, `/XRefStm`; free-list handling; tests for each corpus file type | 1.3, 1.4 |
-| 1.6 ([#16](https://github.com/michaelstonis/Broadside/issues/16)) | Reconstruction and diagnostics | §7.5 (recovery), ADR 0005 | `Diagnostic` model and collection; xref rebuild by scanning for `N G obj`; `startxref` recovery; stream `/Length` recovery via `endstream` search; strict mode throws; every repair has a test corpus file | 1.5 |
-| 1.7 ([#17](https://github.com/michaelstonis/Broadside/issues/17)) | Object cache and concurrency | – | Lazy load by object number; read-safe concurrent access; dirty tracking preserved; stress test with parallel readers | 1.5 |
-| 1.8 ([#18](https://github.com/michaelstonis/Broadside/issues/18)) | Standard filters | §7.4.2–§7.4.6, §7.4.4.4 | Flate (via `System.IO.Compression`), LZW (early change), ASCIIHex, ASCII85, RunLength, TIFF and PNG predictors; filter chains; `DecodeParms`; extension-point interface `IStreamFilter` with registry; fuzz target per filter | 1.2 |
-| 1.9 ([#19](https://github.com/michaelstonis/Broadside/issues/19)) | Standard security handler | §7.6.2–§7.6.4, ISO/TS 32003, ISO/TS 32004 | RC4 40/128 (own implementation), AES-128 CBC, AES-256 R5 and R6 (SHA-256 hash loop), AES-GCM R7, `Identity` crypt filter, per-object keys, `EncryptMetadata`, MAC verification (32004); decrypt on read; test files for each revision | 1.8 |
-| 1.10 ([#20](https://github.com/michaelstonis/Broadside/issues/20)) | Public-key security handler read | §7.6.5 | PKCS#7 recipient lists via `System.Security.Cryptography.Pkcs`; decrypt with a provided certificate | 1.9 |
-| 1.11 ([#21](https://github.com/michaelstonis/Broadside/issues/21)) | COS serializer | §7.5, §7.3 | Writes any object graph; classic xref or xref stream; object streams; byte-exact round trip of untouched objects (test: hash of re-serialized unchanged file sections) | 1.2, 1.8 |
-| 1.12 ([#22](https://github.com/michaelstonis/Broadside/issues/22)) | Engine, options, DI | – | `PdfEngine`, `PdfOptions` fluent (`UseLenient`, `UseStrict`, `UseFilter`, `UseFontResolver`, ...), `services.AddBroadside()`, `IOptions<PdfOptions>`, `ILogger` wiring; tests via `ServiceCollection` | 1.8 |
-| 1.13 ([#23](https://github.com/michaelstonis/Broadside/issues/23)) | Document skeleton | §7.7.2, §7.7.3, §7.7.3.4 | `PdfDocument.Open/Create/Save/SaveAsync`, catalog, page tree walk with inheritance, `PdfPage` boxes and rotation, `PdfDocument.Diagnostics`; opens every corpus file in lenient mode | 1.6, 1.7, 1.11, 1.12 |
-| 1.14 ([#24](https://github.com/michaelstonis/Broadside/issues/24)) | Linearization read | Annex F | Parse linearization parameter dictionary and hint streams; expose `IsLinearized` and first-page object set | 1.5 |
-| 1.15 ([#25](https://github.com/michaelstonis/Broadside/issues/25)) | Phase 1 exit gate | – | Corpus run: every pdf.js and PDFBox file opens without exception; strict mode agrees with veraPDF on well-formed subset; 24 h fuzz run clean; conformance rows for §7.2–§7.7 marked | all |
+The original horizontal Phase 1 issues (#11 to #25: lexer, object types, parser, ...) were closed as superseded on 2026-10-09; each carries a comment pointing at its replacement.
+
+| Issue | Title | Blocked by |
+|---|---|---|
+| [#36](https://github.com/michaelstonis/Broadside/issues/36) | Parse COS objects from bytes | none |
+| [#37](https://github.com/michaelstonis/Broadside/issues/37) | Open a file and read its pages | [#36](https://github.com/michaelstonis/Broadside/issues/36) |
+| [#38](https://github.com/michaelstonis/Broadside/issues/38) | Decode streams through filters | [#37](https://github.com/michaelstonis/Broadside/issues/37) |
+| [#39](https://github.com/michaelstonis/Broadside/issues/39) | Cross-reference streams, object streams and hybrid files | [#38](https://github.com/michaelstonis/Broadside/issues/38) |
+| [#40](https://github.com/michaelstonis/Broadside/issues/40) | Incremental updates and linearization detection | [#37](https://github.com/michaelstonis/Broadside/issues/37) |
+| [#41](https://github.com/michaelstonis/Broadside/issues/41) | Lenient repair with diagnostics; strict mode throws | [#39](https://github.com/michaelstonis/Broadside/issues/39) |
+| [#42](https://github.com/michaelstonis/Broadside/issues/42) | Standard security handler, all revisions | [#38](https://github.com/michaelstonis/Broadside/issues/38), [#39](https://github.com/michaelstonis/Broadside/issues/39) |
+| [#43](https://github.com/michaelstonis/Broadside/issues/43) | Public-key security handler | [#42](https://github.com/michaelstonis/Broadside/issues/42) |
+| [#44](https://github.com/michaelstonis/Broadside/issues/44) | Save unchanged documents and create an empty one | [#39](https://github.com/michaelstonis/Broadside/issues/39) |
+| [#45](https://github.com/michaelstonis/Broadside/issues/45) | Lazy loading, object cache and the concurrency contract | [#39](https://github.com/michaelstonis/Broadside/issues/39) |
+| [#46](https://github.com/michaelstonis/Broadside/issues/46) | Dependency injection parity | [#37](https://github.com/michaelstonis/Broadside/issues/37) |
+| [#47](https://github.com/michaelstonis/Broadside/issues/47) | Real-world corpus gate | [#41](https://github.com/michaelstonis/Broadside/issues/41), [#42](https://github.com/michaelstonis/Broadside/issues/42), [#44](https://github.com/michaelstonis/Broadside/issues/44), [#45](https://github.com/michaelstonis/Broadside/issues/45) |
+| [#48](https://github.com/michaelstonis/Broadside/issues/48) | Phase 1 fuzz run and benchmark baseline | [#47](https://github.com/michaelstonis/Broadside/issues/47) |
