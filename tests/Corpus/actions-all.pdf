@@ -1,0 +1,238 @@
+%PDF-2.0
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /OpenAction << /S /GoTo /D [3 0 R /Fit] >> /AA << /WC << /S /JavaScript /JS (WC\(\);) >> /WS << /S /JavaScript /JS (WS\(\);) >> /DS << /S /JavaScript /JS (DS\(\);) >> /WP << /S /JavaScript /JS (WP\(\);) >> /DP << /S /JavaScript /JS (DP\(\);) >> >> /URI << /Base (https://example.com/) >> /Names << /JavaScript << /Names [(init) 79 0 R] >> >> /Threads [65 0 R] /OCProperties << /OCGs [70 0 R 71 0 R] /D << /Order [70 0 R 71 0 R] >> >> /AcroForm << /Fields [69 0 R] /CO [69 0 R] >> /StructTreeRoot 61 0 R /DPartRoot 63 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /AA << /O << /S /Named /N /FirstPage >> /C << /S /JavaScript /JS (pageClosed\(\);) >> >> /B [66 0 R] /Annots [40 0 R 41 0 R 42 0 R 43 0 R 44 0 R 45 0 R 46 0 R 47 0 R 48 0 R 49 0 R 50 0 R 51 0 R 52 0 R 53 0 R 54 0 R 55 0 R 56 0 R 57 0 R 58 0 R 59 0 R 60 0 R 68 0 R 69 0 R 72 0 R 74 0 R 77 0 R] >>
+endobj
+40 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /Type /Action /S /GoTo /D [3 0 R /XYZ 0 792 null] /SD [62 0 R /Fit] /Next [<< /S /Named /N /LastPage /Next << /S /JavaScript /JS (nested\(\);) >> >> << /S /URI /URI (https://example.com/next) >>] >> >>
+endobj
+41 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /GoToR /F (other.pdf) /D [0 /Fit] /NewWindow true >> >>
+endobj
+42 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /GoToE /D (Chapter 1) /NewWindow false /T << /R /P /T << /R /C /N (embedded.pdf) /T << /R /C /P 0 /A (attached) >> >> >> >> >>
+endobj
+43 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /GoToDp /Dp 82 0 R >> >>
+endobj
+44 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /Launch /F << /Type /Filespec /F (readme.txt) /UF (readme.txt) >> /Win << /F (notepad.exe) /D (C:\\Temp) /O (print) /P (readme.txt) >> /NewWindow true >> >>
+endobj
+45 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /Thread /D 0 /B 0 >> >>
+endobj
+46 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /URI /URI (docs/index.html) /IsMap true >> >>
+endobj
+47 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /Sound /Sound 67 0 R /Volume 0.25 /Synchronous true /Repeat false /Mix true >> >>
+endobj
+48 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /Movie /Annotation 68 0 R /Operation /Pause >> >>
+endobj
+49 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /Hide /T [40 0 R (email)] /H false >> >>
+endobj
+50 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /Named /N /NextPage /Next << /S /Named /N /Print >> >> >>
+endobj
+51 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /SubmitForm /F << /FS /URL /F (https://example.com/submit) >> /Fields [69 0 R (name.first)] /Flags 13 /CharSet (utf-8) >> >>
+endobj
+52 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /ResetForm /Fields [(email)] /Flags 1 >> >>
+endobj
+53 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /ImportData /F (data.fdf) >> >>
+endobj
+54 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /SetOCGState /State [/OFF 70 0 R /Toggle 71 0 R 70 0 R /ON 71 0 R] /PreserveRB false >> >>
+endobj
+55 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /Rendition /OP 0 /AN 72 0 R /R 73 0 R /JS (play\(\);) >> >>
+endobj
+56 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /Trans /Trans << /Type /Trans /S /Dissolve /D 0.5 >> >> >>
+endobj
+57 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /GoTo3DView /TA 74 0 R /V /F >> >>
+endobj
+58 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /JavaScript /JS 76 0 R >> >>
+endobj
+59 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A << /S /RichMediaExecute /TA 77 0 R /TI 78 0 R /CMD << /Type /RichMediaCommand /C (play) /A [(intro) 2 true] >> >> >>
+endobj
+60 0 obj
+<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /AA << /E << /S /JavaScript /JS (E\(\);) >> /X << /S /JavaScript /JS (X\(\);) >> /D << /S /JavaScript /JS (D\(\);) >> /U << /S /JavaScript /JS (U\(\);) >> /PO << /S /JavaScript /JS (PO\(\);) >> /PC << /S /JavaScript /JS (PC\(\);) >> /PV << /S /JavaScript /JS (PV\(\);) >> /PI << /S /JavaScript /JS (PI\(\);) >> >> >>
+endobj
+61 0 obj
+<< /Type /StructTreeRoot /K 62 0 R >>
+endobj
+62 0 obj
+<< /Type /StructElem /S /P /P 61 0 R /Pg 3 0 R >>
+endobj
+63 0 obj
+<< /Type /DPartRoot /DPartRootNode 64 0 R >>
+endobj
+64 0 obj
+<< /Type /DPart /Parent 63 0 R /DParts [[82 0 R]] >>
+endobj
+65 0 obj
+<< /Type /Thread /F 66 0 R /I << /Title (Article) >> >>
+endobj
+66 0 obj
+<< /Type /Bead /T 65 0 R /N 66 0 R /V 66 0 R /P 3 0 R /R [0 0 100 100] >>
+endobj
+67 0 obj
+<< /Type /Sound /R 8000 /C 1 /B 8 /E /Raw /Length 4 >>
+stream
+€ €`
+endstream
+endobj
+68 0 obj
+<< /Type /Annot /Subtype /Movie /Rect [0 0 10 10] /T (Clip) /Movie << /F (clip.mov) >> /AP << /N 81 0 R >> >>
+endobj
+69 0 obj
+<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /P 3 0 R /FT /Tx /T (email) /AA << /K << /S /JavaScript /JS (K\(\);) >> /F << /S /JavaScript /JS (F\(\);) >> /V << /S /JavaScript /JS (V\(\);) >> /C << /S /JavaScript /JS (C\(\);) >> /Fo << /S /JavaScript /JS (Fo\(\);) >> /Bl << /S /JavaScript /JS (Bl\(\);) >> >> /AP << /N 81 0 R >> >>
+endobj
+70 0 obj
+<< /Type /OCG /Name (One) >>
+endobj
+71 0 obj
+<< /Type /OCG /Name (Two) >>
+endobj
+72 0 obj
+<< /Type /Annot /Subtype /Screen /Rect [0 0 10 10] /P 3 0 R /AP << /N 81 0 R >> >>
+endobj
+73 0 obj
+<< /Type /Rendition /S /MR /C << /Type /MediaClip /S /MCD /D << /Type /Filespec /F (clip.mp4) >> /CT (video/mp4) >> >>
+endobj
+74 0 obj
+<< /Type /Annot /Subtype /3D /Rect [0 0 10 10] /3DD 75 0 R /AP << /N 81 0 R >> >>
+endobj
+75 0 obj
+<< /Type /3D /Subtype /U3D /Length 0 >>
+stream
+
+endstream
+endobj
+76 0 obj
+<<  /Length 20 >>
+stream
+app.alert("stream");
+endstream
+endobj
+77 0 obj
+<< /Type /Annot /Subtype /RichMedia /Rect [0 0 10 10] /RichMediaContent << /Configurations [] >> /AP << /N 81 0 R >> >>
+endobj
+78 0 obj
+<< /Type /RichMediaInstance /Subtype /Video >>
+endobj
+79 0 obj
+<< /S /JavaScript /JS (var initialised = true;) >>
+endobj
+82 0 obj
+<< /Type /DPart /Parent 64 0 R /Start 3 0 R >>
+endobj
+81 0 obj
+<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length 0 >>
+stream
+
+endstream
+endobj
+xref
+0 83
+0000000000 65535 f 
+0000000009 00000 n 
+0000000579 00000 n 
+0000000636 00000 n 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000000000 00000 f 
+0000001017 00000 n 
+0000001306 00000 n 
+0000001452 00000 n 
+0000001669 00000 n 
+0000001784 00000 n 
+0000002031 00000 n 
+0000002145 00000 n 
+0000002281 00000 n 
+0000002453 00000 n 
+0000002593 00000 n 
+0000002724 00000 n 
+0000002872 00000 n 
+0000003087 00000 n 
+0000003221 00000 n 
+0000003343 00000 n 
+0000003524 00000 n 
+0000003674 00000 n 
+0000003823 00000 n 
+0000003948 00000 n 
+0000004067 00000 n 
+0000004268 00000 n 
+0000004666 00000 n 
+0000004720 00000 n 
+0000004786 00000 n 
+0000004847 00000 n 
+0000004916 00000 n 
+0000004988 00000 n 
+0000005078 00000 n 
+0000005171 00000 n 
+0000005297 00000 n 
+0000005651 00000 n 
+0000005696 00000 n 
+0000005741 00000 n 
+0000005840 00000 n 
+0000005975 00000 n 
+0000006073 00000 n 
+0000006147 00000 n 
+0000006219 00000 n 
+0000006355 00000 n 
+0000006418 00000 n 
+0000000000 00000 f 
+0000006548 00000 n 
+0000006485 00000 n 
+trailer
+<< /Size 83 /Root 1 0 R /ID [<3992eaabdfde1524d376a1ebec1f51ab> <3992eaabdfde1524d376a1ebec1f51ab>] >>
+startxref
+6646
+%%EOF

@@ -1446,6 +1446,150 @@ def gen_outline_broken() -> bytes:
     ])
 
 
+def link(action: bytes) -> bytes:
+    """12.5.6.5 Table 176: a link annotation with no border whose A entry is ``action``."""
+    return b"<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A " + action + b" >>"
+
+
+def gen_actions_all() -> bytes:
+    """12.6 Actions: every action type of Table 201, each in the A entry of its own link annotation
+    (objects 40-59, in table order: GoTo with D and SD, GoToR with a string F and a page number, GoToE
+    with a nested target dictionary three levels deep (Table 205), GoToDp, Launch with a file
+    specification dictionary and the deprecated Win dictionary (Table 208), Thread with an index
+    into the catalog's Threads and a bead index, URI relative to the catalog's URI Base (Table 211)
+    with IsMap, Sound, Movie naming a movie annotation, Hide with an annotation and a field name,
+    Named NextPage with a non-standard /Print next, SubmitForm (12.7.6.2: URL file specification,
+    Fields mixing a reference and a name, Flags 13, CharSet), ResetForm (Flags 1), ImportData,
+    SetOCGState with PreserveRB false, Rendition with OP 0 and JS, Trans, GoTo3DView with the
+    name /F, JavaScript in a stream, RichMediaExecute with a command and two arguments). The GoTo
+    action's Next is an array of two actions, the first of which has a Next of its own.
+    Trigger events (12.6.3): the catalog's OpenAction (a go-to action) and AA (Table 200: WC WS DS WP
+    DP), the page's AA (Table 198: O C), a link annotation's AA (Table 197: E X D U PO PC PV PI) and
+    a widget merged with its text field (object 69) whose AA has Table 199's K F V C and Table 197's
+    Fo Bl. The name dictionary's JavaScript tree has one document-level script (7.7.4)."""
+    id0 = file_id("actions-all").hex().encode()
+
+    def js(text: bytes) -> bytes:
+        return b"<< /S /JavaScript /JS (" + text + b") >>"
+
+    catalog_aa = b" ".join(b"/%s %s" % (k, js(k + b"\\(\\);")) for k in [b"WC", b"WS", b"DS", b"WP", b"DP"])
+    annot_aa = b" ".join(b"/%s %s" % (k, js(k + b"\\(\\);")) for k in [b"E", b"X", b"D", b"U", b"PO", b"PC", b"PV", b"PI"])
+    field_aa = b" ".join(b"/%s %s" % (k, js(k + b"\\(\\);")) for k in [b"K", b"F", b"V", b"C", b"Fo", b"Bl"])
+    appearance = b" /AP << /N 81 0 R >>"
+    annots = list(range(40, 60)) + [60, 68, 69, 72, 74, 77]
+    return simple_file([
+        (1, catalog(b" /OpenAction << /S /GoTo /D [3 0 R /Fit] >>"
+                    b" /AA << " + catalog_aa + b" >>"
+                    b" /URI << /Base (https://example.com/) >>"
+                    b" /Names << /JavaScript << /Names [(init) 79 0 R] >> >>"
+                    b" /Threads [65 0 R] /OCProperties << /OCGs [70 0 R 71 0 R] /D << /Order [70 0 R 71 0 R] >> >>"
+                    b" /AcroForm << /Fields [69 0 R] /CO [69 0 R] >> /StructTreeRoot 61 0 R /DPartRoot 63 0 R")),
+        (2, pages()),
+        (3, page(extra=b" /AA << /O << /S /Named /N /FirstPage >> /C " + js(b"pageClosed\\(\\);") + b" >>"
+                       b" /B [66 0 R] /Annots [" + b" ".join(b"%d 0 R" % n for n in annots) + b"]")),
+        (40, link(b"<< /Type /Action /S /GoTo /D [3 0 R /XYZ 0 792 null] /SD [62 0 R /Fit]"
+                  b" /Next [<< /S /Named /N /LastPage /Next " + js(b"nested\\(\\);") + b" >>"
+                  b" << /S /URI /URI (https://example.com/next) >>] >>")),
+        (41, link(b"<< /S /GoToR /F (other.pdf) /D [0 /Fit] /NewWindow true >>")),
+        (42, link(b"<< /S /GoToE /D (Chapter 1) /NewWindow false"
+                  b" /T << /R /P /T << /R /C /N (embedded.pdf) /T << /R /C /P 0 /A (attached) >> >> >> >>")),
+        (43, link(b"<< /S /GoToDp /Dp 82 0 R >>")),
+        (44, link(b"<< /S /Launch /F << /Type /Filespec /F (readme.txt) /UF (readme.txt) >>"
+                  b" /Win << /F (notepad.exe) /D (C:\\\\Temp) /O (print) /P (readme.txt) >> /NewWindow true >>")),
+        (45, link(b"<< /S /Thread /D 0 /B 0 >>")),
+        (46, link(b"<< /S /URI /URI (docs/index.html) /IsMap true >>")),
+        (47, link(b"<< /S /Sound /Sound 67 0 R /Volume 0.25 /Synchronous true /Repeat false /Mix true >>")),
+        (48, link(b"<< /S /Movie /Annotation 68 0 R /Operation /Pause >>")),
+        (49, link(b"<< /S /Hide /T [40 0 R (email)] /H false >>")),
+        (50, link(b"<< /S /Named /N /NextPage /Next << /S /Named /N /Print >> >>")),
+        (51, link(b"<< /S /SubmitForm /F << /FS /URL /F (https://example.com/submit) >>"
+                  b" /Fields [69 0 R (name.first)] /Flags 13 /CharSet (utf-8) >>")),
+        (52, link(b"<< /S /ResetForm /Fields [(email)] /Flags 1 >>")),
+        (53, link(b"<< /S /ImportData /F (data.fdf) >>")),
+        (54, link(b"<< /S /SetOCGState /State [/OFF 70 0 R /Toggle 71 0 R 70 0 R /ON 71 0 R] /PreserveRB false >>")),
+        (55, link(b"<< /S /Rendition /OP 0 /AN 72 0 R /R 73 0 R /JS (play\\(\\);) >>")),
+        (56, link(b"<< /S /Trans /Trans << /Type /Trans /S /Dissolve /D 0.5 >> >>")),
+        (57, link(b"<< /S /GoTo3DView /TA 74 0 R /V /F >>")),
+        (58, link(b"<< /S /JavaScript /JS 76 0 R >>")),
+        (59, link(b"<< /S /RichMediaExecute /TA 77 0 R /TI 78 0 R"
+                  b" /CMD << /Type /RichMediaCommand /C (play) /A [(intro) 2 true] >> >>")),
+        (60, b"<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /AA << " + annot_aa + b" >> >>"),
+        (61, b"<< /Type /StructTreeRoot /K 62 0 R >>"),
+        (62, b"<< /Type /StructElem /S /P /P 61 0 R /Pg 3 0 R >>"),
+        (63, b"<< /Type /DPartRoot /DPartRootNode 64 0 R >>"),
+        (64, b"<< /Type /DPart /Parent 63 0 R /DParts [[82 0 R]] >>"),
+        (65, b"<< /Type /Thread /F 66 0 R /I << /Title (Article) >> >>"),
+        (66, b"<< /Type /Bead /T 65 0 R /N 66 0 R /V 66 0 R /P 3 0 R /R [0 0 100 100] >>"),
+        (67, stream(b"/Type /Sound /R 8000 /C 1 /B 8 /E /Raw", b"\x80\xa0\x80\x60")),
+        (68, b"<< /Type /Annot /Subtype /Movie /Rect [0 0 10 10] /T (Clip) /Movie << /F (clip.mov) >>" + appearance + b" >>"),
+        (69, b"<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /P 3 0 R /FT /Tx /T (email)"
+             b" /AA << " + field_aa + b" >>" + appearance + b" >>"),
+        (70, b"<< /Type /OCG /Name (One) >>"),
+        (71, b"<< /Type /OCG /Name (Two) >>"),
+        (72, b"<< /Type /Annot /Subtype /Screen /Rect [0 0 10 10] /P 3 0 R" + appearance + b" >>"),
+        (73, b"<< /Type /Rendition /S /MR /C << /Type /MediaClip /S /MCD /D << /Type /Filespec /F (clip.mp4) >> /CT (video/mp4) >> >>"),
+        (74, b"<< /Type /Annot /Subtype /3D /Rect [0 0 10 10] /3DD 75 0 R" + appearance + b" >>"),
+        (75, stream(b"/Type /3D /Subtype /U3D", b"")),
+        (76, stream(b"", b'app.alert("stream");')),
+        (77, b"<< /Type /Annot /Subtype /RichMedia /Rect [0 0 10 10] /RichMediaContent << /Configurations [] >>"
+             + appearance + b" >>"),
+        (78, b"<< /Type /RichMediaInstance /Subtype /Video >>"),
+        (79, js(b"var initialised = true;")),
+        (82, b"<< /Type /DPart /Parent 64 0 R /Start 3 0 R >>"),
+        (81, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"")),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_actions_preserved() -> bytes:
+    """12.6 Actions that the library keeps as data and never performs (JavaScript 12.6.4.17, Sound
+    12.6.4.9, Movie 12.6.4.10, Rendition 12.6.4.14, Rich-Media-Execute 12.6.4.18), each an indirect
+    object written in bytes a re-serializer would change, so that a save proves they are copied
+    byte for byte: object 10, a script in a literal string with escapes (\\( \\" \\053 \\r \\n, 7.3.4.2
+    Table 3) and a backslash-EOL continuation; 11, a script in a hexadecimal string; 12, a script in a
+    Flate stream (object 27; the catalog's OpenAction); 13, a script action whose type is written /Java#53cript
+    (7.3.5: the same name as /JavaScript); 14, a sound action with /Volume .50 and a four-sample raw
+    sound (13.3, object 15); 16, a rendition action with a rendition dictionary and a script stream
+    (object 17); 18, a movie action naming the movie annotation 19; 20, a rich-media-execute action
+    with TA, TI and CMD; 23 and 24, two go-to actions whose Next entries name each other (a cycle).
+    Objects 30-37 are the link annotations holding them; object 13 is the name dictionary's
+    document-level script (7.7.4) and object 11 the page's open action (Table 198)."""
+    sound = bytes([0x80, 0xA0, 0x80, 0x60])
+    script = b"app.alert('flate');"
+    links = list(range(30, 38))
+    return simple_file([
+        (1, catalog(b" /OpenAction 12 0 R /Names << /JavaScript << /Names [(doc) 13 0 R] >> >>")),
+        (2, pages()),
+        (3, page(extra=b" /AA << /O 11 0 R >> /Annots [" + b" ".join(b"%d 0 R" % n for n in links + [19, 21]) + b"]")),
+        (10, b"<<  /S/JavaScript /JS (app.alert\\(\\\"hi\\\"\\);\\053\\r\\n// one \\\nline) >>"),
+        (11, b"<</S /JavaScript/JS <6170702E616C6572742827686578272920>>>"),
+        (12, b"<< /S /JavaScript /JS 27 0 R >>"),
+        (13, b"<< /Type /Action /S /Java#53cript /JS (var x = 1;) >>"),
+        (14, b"<< /S /Sound /Sound 15 0 R /Volume .50 /Mix true >>"),
+        (15, stream(b"/Type /Sound /R 8000 /C 1 /B 8 /E /Raw", sound)),
+        (16, b"<< /S /Rendition /OP 4 /AN 21 0 R /R << /Type /Rendition /S /MR"
+             b" /C << /Type /MediaClip /S /MCD /D << /Type /Filespec /F (clip.mp4) >> /CT (video/mp4) >> >> /JS 17 0 R >>"),
+        (17, stream(b"", b"play();")),
+        (18, b"<< /S /Movie /Annotation 19 0 R /Operation /Play /Rate 2.0 >>"),
+        (19, b"<< /Type /Annot /Subtype /Movie /Rect [0 0 10 10] /Movie << /F (clip.mov) >> /AP << /N 25 0 R >> >>"),
+        (20, b"<< /S /RichMediaExecute /TA 22 0 R /TI 26 0 R /CMD << /C (rewind) /A 0.0 >> >>"),
+        (21, b"<< /Type /Annot /Subtype /Screen /Rect [0 0 10 10] /P 3 0 R /AP << /N 25 0 R >> >>"),
+        (22, b"<< /Type /Annot /Subtype /RichMedia /Rect [0 0 10 10] /RichMediaContent << >> /AP << /N 25 0 R >> >>"),
+        (23, b"<< /S /GoTo /D [3 0 R /Fit] /Next 24 0 R >>"),
+        (24, b"<< /S /GoTo /D [3 0 R /FitH 700] /Next [23 0 R] >>"),
+        (25, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"")),
+        (26, b"<< /Type /RichMediaInstance /Subtype /Video >>"),
+        (27, stream(b"/Filter /FlateDecode", flate(script))),
+        (30, link(b"10 0 R")),
+        (31, link(b"11 0 R")),
+        (32, link(b"13 0 R")),
+        (33, link(b"14 0 R")),
+        (34, link(b"16 0 R")),
+        (35, link(b"18 0 R")),
+        (36, link(b"20 0 R")),
+        (37, link(b"23 0 R")),
+    ])
+
+
 XMP = (b'<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
        b'<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
        b' <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
@@ -1691,6 +1835,8 @@ FILES = {
     "destinations-all.pdf": gen_destinations_all,
     "outline-full.pdf": gen_outline_full,
     "outline-broken.pdf": gen_outline_broken,
+    "actions-all.pdf": gen_actions_all,
+    "actions-preserved.pdf": gen_actions_preserved,
 }
 
 

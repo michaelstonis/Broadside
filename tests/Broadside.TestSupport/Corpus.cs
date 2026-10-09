@@ -59,6 +59,8 @@ public static class Corpus
         "tagged-structure.pdf",
         "destinations-all.pdf",
         "outline-full.pdf",
+        "actions-all.pdf",
+        "actions-preserved.pdf",
     ];
 
     private static readonly string[] Malformed =
