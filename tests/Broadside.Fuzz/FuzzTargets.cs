@@ -37,6 +37,7 @@ internal static class FuzzTargets
         ["decrypt"] = Decrypt,
         ["mac-token"] = MacToken,
         ["public-key"] = PublicKey.Target,
+        ["optional-content"] = OptionalContentTarget.Target,
     };
 
     private static readonly CosName ContentsKey = new("Contents");
@@ -426,7 +427,7 @@ internal static class FuzzTargets
         }
     }
 
-    private static PdfDocument? OpenOrNull(ReadOnlySpan<byte> data)
+    internal static PdfDocument? OpenOrNull(ReadOnlySpan<byte> data)
     {
         try
         {
