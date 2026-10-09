@@ -70,6 +70,8 @@ public static class Corpus
         "declarations.pdf",
         "actions-all.pdf",
         "actions-preserved.pdf",
+        "acroform-fields.pdf",
+        "acroform-xfa.pdf",
     ];
 
     private static readonly string[] Malformed =

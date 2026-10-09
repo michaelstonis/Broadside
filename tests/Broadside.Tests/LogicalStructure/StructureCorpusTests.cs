@@ -45,7 +45,7 @@ public class StructureCorpusTests(ITestOutputHelper output)
             _ => -1,
         };
         Assert.Equal(expected, elements);
-        Assert.Empty(document.Diagnostics);
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Severity > Broadside.Diagnostics.DiagnosticSeverity.Information);
     }
 
     [Fact]

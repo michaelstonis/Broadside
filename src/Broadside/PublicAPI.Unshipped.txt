@@ -321,6 +321,7 @@ Broadside.Annotations.PdfWidgetAnnotation
 Broadside.Annotations.PdfWidgetAnnotation.Action.get -> Broadside.PdfAction?
 Broadside.Annotations.PdfWidgetAnnotation.AdditionalActions.get -> Broadside.PdfAnnotationAdditionalActions?
 Broadside.Annotations.PdfWidgetAnnotation.AppearanceCharacteristics.get -> Broadside.Annotations.PdfAppearanceCharacteristics?
+Broadside.Annotations.PdfWidgetAnnotation.Field.get -> Broadside.Forms.PdfTerminalField?
 Broadside.Annotations.PdfWidgetAnnotation.HighlightMode.get -> Broadside.Annotations.PdfHighlightMode
 Broadside.Annotations.PdfWidgetAnnotation.Parent.get -> Broadside.Objects.CosDictionary?
 abstract Broadside.PdfAction.Kind.get -> Broadside.PdfActionKind
@@ -589,6 +590,140 @@ Broadside.Content.ShadingEvent.IsHidden.get -> bool
 Broadside.Content.ShadingEvent.ResourceName.get -> System.ReadOnlySpan<byte>
 Broadside.Content.ShadingEvent.Shading.get -> Broadside.Objects.CosObject?
 Broadside.Content.ShadingEvent.ShadingEvent() -> void
+Broadside.Forms.PdfAcroForm
+Broadside.Forms.PdfAcroForm.AllFields.get -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfField!>!
+Broadside.Forms.PdfAcroForm.CalculationOrder.get -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfField!>!
+Broadside.Forms.PdfAcroForm.DefaultAppearance.get -> string?
+Broadside.Forms.PdfAcroForm.DefaultResources.get -> Broadside.Objects.CosDictionary?
+Broadside.Forms.PdfAcroForm.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Forms.PdfAcroForm.Fields.get -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfField!>!
+Broadside.Forms.PdfAcroForm.FindField(Broadside.Objects.CosDictionary! dictionary) -> Broadside.Forms.PdfField?
+Broadside.Forms.PdfAcroForm.FindField(string! fullyQualifiedName) -> Broadside.Forms.PdfField?
+Broadside.Forms.PdfAcroForm.FindFields(Broadside.PdfActionTarget! target) -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfField!>!
+Broadside.Forms.PdfAcroForm.FindFields(string! fullyQualifiedName) -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfField!>!
+Broadside.Forms.PdfAcroForm.NeedAppearances.get -> bool
+Broadside.Forms.PdfAcroForm.Quadding.get -> Broadside.Annotations.PdfTextJustification
+Broadside.Forms.PdfAcroForm.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Forms.PdfAcroForm.SignatureFlags.get -> Broadside.Forms.PdfSignatureFlags
+Broadside.Forms.PdfAcroForm.TerminalFields.get -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!
+Broadside.Forms.PdfAcroForm.Xfa.get -> Broadside.Forms.PdfXfaForm?
+Broadside.Forms.PdfButtonField
+Broadside.Forms.PdfCheckBoxField
+Broadside.Forms.PdfCheckBoxField.IsChecked.get -> bool
+Broadside.Forms.PdfChoiceField
+Broadside.Forms.PdfChoiceField.DefaultValues.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.Forms.PdfChoiceField.IsCommitOnSelectionChange.get -> bool
+Broadside.Forms.PdfChoiceField.IsMultiSelect.get -> bool
+Broadside.Forms.PdfChoiceField.IsSort.get -> bool
+Broadside.Forms.PdfChoiceField.Options.get -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfChoiceOption!>!
+Broadside.Forms.PdfChoiceField.SelectedIndices.get -> System.Collections.Generic.IReadOnlyList<int>!
+Broadside.Forms.PdfChoiceField.StoredIndices.get -> System.Collections.Generic.IReadOnlyList<int>!
+Broadside.Forms.PdfChoiceField.TopIndex.get -> int
+Broadside.Forms.PdfChoiceField.Values.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.Forms.PdfChoiceOption
+Broadside.Forms.PdfChoiceOption.DisplayText.get -> string!
+Broadside.Forms.PdfChoiceOption.ExportValue.get -> string!
+Broadside.Forms.PdfComboBoxField
+Broadside.Forms.PdfComboBoxField.IsDoNotSpellCheck.get -> bool
+Broadside.Forms.PdfComboBoxField.IsEditable.get -> bool
+Broadside.Forms.PdfField
+Broadside.Forms.PdfField.AdditionalActions.get -> Broadside.PdfFieldAdditionalActions?
+Broadside.Forms.PdfField.AlternateName.get -> string?
+Broadside.Forms.PdfField.DefaultAppearance.get -> string?
+Broadside.Forms.PdfField.DefaultStyle.get -> string?
+Broadside.Forms.PdfField.DefaultValueObject.get -> Broadside.Objects.CosObject?
+Broadside.Forms.PdfField.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Forms.PdfField.FieldType.get -> Broadside.Forms.PdfFieldType
+Broadside.Forms.PdfField.FieldTypeName.get -> Broadside.Objects.CosName?
+Broadside.Forms.PdfField.Flags.get -> uint
+Broadside.Forms.PdfField.Form.get -> Broadside.Forms.PdfAcroForm!
+Broadside.Forms.PdfField.FullyQualifiedName.get -> string!
+Broadside.Forms.PdfField.IsNoExport.get -> bool
+Broadside.Forms.PdfField.IsReadOnly.get -> bool
+Broadside.Forms.PdfField.IsRequired.get -> bool
+Broadside.Forms.PdfField.Kind.get -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfField.MappingName.get -> string?
+Broadside.Forms.PdfField.Parent.get -> Broadside.Forms.PdfNonTerminalField?
+Broadside.Forms.PdfField.PartialName.get -> string!
+Broadside.Forms.PdfField.Quadding.get -> Broadside.Annotations.PdfTextJustification
+Broadside.Forms.PdfField.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Forms.PdfField.RichValue.get -> string?
+Broadside.Forms.PdfField.ValueObject.get -> Broadside.Objects.CosObject?
+Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.CheckBox = 4 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.ComboBox = 6 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.ListBox = 7 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.NonTerminal = 1 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.PushButton = 3 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.RadioButton = 5 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.Signature = 8 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.Text = 2 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.Unknown = 0 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldType
+Broadside.Forms.PdfFieldType.Button = 1 -> Broadside.Forms.PdfFieldType
+Broadside.Forms.PdfFieldType.Choice = 3 -> Broadside.Forms.PdfFieldType
+Broadside.Forms.PdfFieldType.Signature = 4 -> Broadside.Forms.PdfFieldType
+Broadside.Forms.PdfFieldType.Text = 2 -> Broadside.Forms.PdfFieldType
+Broadside.Forms.PdfFieldType.Unknown = 0 -> Broadside.Forms.PdfFieldType
+Broadside.Forms.PdfListBoxField
+Broadside.Forms.PdfNonTerminalField
+Broadside.Forms.PdfNonTerminalField.Children.get -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfField!>!
+Broadside.Forms.PdfPushButtonField
+Broadside.Forms.PdfRadioButtonField
+Broadside.Forms.PdfRadioButtonField.IsNoToggleToOff.get -> bool
+Broadside.Forms.PdfRadioButtonField.IsRadiosInUnison.get -> bool
+Broadside.Forms.PdfSignatureField
+Broadside.Forms.PdfSignatureField.IsSigned.get -> bool
+Broadside.Forms.PdfSignatureField.IsVisible.get -> bool
+Broadside.Forms.PdfSignatureField.Lock.get -> Broadside.Forms.PdfSignatureFieldLock?
+Broadside.Forms.PdfSignatureField.SeedValue.get -> Broadside.Objects.CosDictionary?
+Broadside.Forms.PdfSignatureField.SignatureDictionary.get -> Broadside.Objects.CosDictionary?
+Broadside.Forms.PdfSignatureFieldLock
+Broadside.Forms.PdfSignatureFieldLock.Action.get -> Broadside.Forms.PdfSignatureFieldLockAction
+Broadside.Forms.PdfSignatureFieldLock.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Forms.PdfSignatureFieldLock.FieldNames.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.Forms.PdfSignatureFieldLock.Permissions.get -> int?
+Broadside.Forms.PdfSignatureFieldLockAction
+Broadside.Forms.PdfSignatureFieldLockAction.All = 1 -> Broadside.Forms.PdfSignatureFieldLockAction
+Broadside.Forms.PdfSignatureFieldLockAction.Exclude = 3 -> Broadside.Forms.PdfSignatureFieldLockAction
+Broadside.Forms.PdfSignatureFieldLockAction.Include = 2 -> Broadside.Forms.PdfSignatureFieldLockAction
+Broadside.Forms.PdfSignatureFieldLockAction.Unknown = 0 -> Broadside.Forms.PdfSignatureFieldLockAction
+Broadside.Forms.PdfSignatureFlags
+Broadside.Forms.PdfSignatureFlags.AppendOnly = 2 -> Broadside.Forms.PdfSignatureFlags
+Broadside.Forms.PdfSignatureFlags.None = 0 -> Broadside.Forms.PdfSignatureFlags
+Broadside.Forms.PdfSignatureFlags.SignaturesExist = 1 -> Broadside.Forms.PdfSignatureFlags
+Broadside.Forms.PdfTerminalField
+Broadside.Forms.PdfTerminalField.Widgets.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfWidgetAnnotation!>!
+Broadside.Forms.PdfTextField
+Broadside.Forms.PdfTextField.DefaultValue.get -> string?
+Broadside.Forms.PdfTextField.IsComb.get -> bool
+Broadside.Forms.PdfTextField.IsDoNotScroll.get -> bool
+Broadside.Forms.PdfTextField.IsDoNotSpellCheck.get -> bool
+Broadside.Forms.PdfTextField.IsFileSelect.get -> bool
+Broadside.Forms.PdfTextField.IsMultiline.get -> bool
+Broadside.Forms.PdfTextField.IsPassword.get -> bool
+Broadside.Forms.PdfTextField.IsRichText.get -> bool
+Broadside.Forms.PdfTextField.MaxLength.get -> int?
+Broadside.Forms.PdfTextField.Value.get -> string?
+Broadside.Forms.PdfToggleButtonField
+Broadside.Forms.PdfToggleButtonField.DefaultValue.get -> Broadside.Objects.CosName?
+Broadside.Forms.PdfToggleButtonField.ExportValue.get -> string?
+Broadside.Forms.PdfToggleButtonField.GetAppearanceState(Broadside.Annotations.PdfWidgetAnnotation! widget) -> Broadside.Objects.CosName!
+Broadside.Forms.PdfToggleButtonField.GetOnState(Broadside.Annotations.PdfWidgetAnnotation! widget) -> Broadside.Objects.CosName?
+Broadside.Forms.PdfToggleButtonField.GetWidgetExportValue(Broadside.Annotations.PdfWidgetAnnotation! widget) -> string?
+Broadside.Forms.PdfToggleButtonField.OnStateNames.get -> System.Collections.Generic.IReadOnlyList<Broadside.Objects.CosName!>!
+Broadside.Forms.PdfToggleButtonField.Options.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.Forms.PdfToggleButtonField.SelectedWidgets.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfWidgetAnnotation!>!
+Broadside.Forms.PdfToggleButtonField.Value.get -> Broadside.Objects.CosName!
+Broadside.Forms.PdfUnknownField
+Broadside.Forms.PdfXfaForm
+Broadside.Forms.PdfXfaForm.IsDynamic.get -> bool
+Broadside.Forms.PdfXfaForm.Packets.get -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfXfaPacket!>!
+Broadside.Forms.PdfXfaForm.Value.get -> Broadside.Objects.CosObject!
+Broadside.Forms.PdfXfaPacket
+Broadside.Forms.PdfXfaPacket.Name.get -> string?
+Broadside.Forms.PdfXfaPacket.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Forms.PdfXfaPacket.Stream.get -> Broadside.Objects.CosStream!
 Broadside.Graphics.BlendMode
 Broadside.Graphics.BlendMode.Color = 14 -> Broadside.Graphics.BlendMode
 Broadside.Graphics.BlendMode.ColorBurn = 7 -> Broadside.Graphics.BlendMode
@@ -774,6 +909,7 @@ Broadside.Objects.CosString.CosString(System.ReadOnlySpan<byte> bytes, bool hexa
 Broadside.Objects.CosString.DecodeText() -> string!
 Broadside.Objects.CosString.Equals(Broadside.Objects.CosString? other) -> bool
 Broadside.Objects.CosString.IsHexadecimal.get -> bool
+Broadside.PdfDocument.AcroForm.get -> Broadside.Forms.PdfAcroForm?
 Broadside.PdfPage.Annotations.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfAnnotation!>!
 Broadside.PdfAction.EnumerateActionTree(int maxDepth = 64) -> System.Collections.Generic.IEnumerable<Broadside.PdfAction!>!
 Broadside.PdfAction.Next.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfAction!>!
@@ -1351,6 +1487,7 @@ override Broadside.Content.CompositeContentProcessor.RestoreState(Broadside.Cont
 override Broadside.Content.CompositeContentProcessor.SaveState(Broadside.Content.ContentContext! context) -> void
 override Broadside.Content.CompositeContentProcessor.ShowGlyph(in Broadside.Content.GlyphEvent glyph, Broadside.Content.ContentContext! context) -> void
 override Broadside.Content.CompositeContentProcessor.VisitOperator(in Broadside.Content.ContentOperator op, Broadside.Content.ContentContext! context) -> void
+override Broadside.Forms.PdfChoiceOption.ToString() -> string!
 override Broadside.Graphics.Matrix.Equals(object? obj) -> bool
 override Broadside.Graphics.Matrix.GetHashCode() -> int
 override Broadside.Graphics.Matrix.ToString() -> string!

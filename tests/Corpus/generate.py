@@ -1731,6 +1731,91 @@ XMP = (b'<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
        b'<?xpacket end="w"?>')
 
 
+def gen_acroform_fields() -> bytes:
+    """12.7 interactive forms: one field of each type, PDF 2.0, two pages. AcroForm 4 (12.7.3 Table 224):
+    Fields, CO, DA, DR (Helv 5, ZaDb 6), Q, SigFlags 1. Fields (12.7.4, Tables 226-228): 10 `name` text
+    field merged with its widget (TU, TM, V, DV, MaxLen, DA, AA with a C trigger 26); 11 `person`
+    non-terminal carrying FT Tx, DA, Q 1 and Ff 2 (Required) for its merged kids 12 `first` (inherits all)
+    and 13 `last` (own Ff 1: ReadOnly only, UTF-16 V); 14 `agree` check box (12.7.5.2.3) with widgets 15
+    (page 3) and 25 (page 30), on state Yes; 16 `color` radio group (12.7.5.2.4, Ff Radio + NoToggleToOff,
+    Opt with a duplicate export value, index-named states /0 /1 /2, V /1); 20 `submit` push button whose A
+    is a reset-form action naming `person` and field 14; 21 `country` combo box (Combo + Edit, export/display
+    pairs, V the export value, DA from the AcroForm); 22 `toppings` multi-select list box (V array, I, TI);
+    23 `sig` invisible signature field (12.7.5.5, zero Rect) with Lock 27 and SV 28 (Tables 235-237)."""
+    text = b" /AP << /N 7 0 R >>"
+
+    def states(state: bytes) -> bytes:
+        return b" /AP << /N << /%s 8 0 R /Off 9 0 R >> /D << /%s 8 0 R /Off 9 0 R >> >>" % (state, state)
+
+    def widget(rect: bytes, page_num: int = 3) -> bytes:
+        return b"<< /Type /Annot /Subtype /Widget /Rect " + rect + b" /P %d 0 R /F 4" % page_num
+
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog(b" /AcroForm 4 0 R")),
+        (2, pages([3, 30])),
+        (3, page(extra=b" /Annots [10 0 R 12 0 R 13 0 R 15 0 R 17 0 R 18 0 R 19 0 R 20 0 R 21 0 R 22 0 R 23 0 R]")),
+        (4, b"<< /Fields [10 0 R 11 0 R 14 0 R 16 0 R 20 0 R 21 0 R 22 0 R 23 0 R] /CO [10 0 R]"
+            b" /DA (/Helv 0 Tf 0 g) /DR << /Font << /Helv 5 0 R /ZaDb 6 0 R >> >> /Q 0 /SigFlags 1 >>"),
+        (5, HELVETICA),
+        (6, b"<< /Type /Font /Subtype /Type1 /BaseFont /ZapfDingbats >>"),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 5 0 R >> >>",
+                   b"/Tx BMC BT /Helv 12 Tf 2 5 Td (Ada) Tj ET EMC")),
+        (8, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 20 20] /Resources << /Font << /ZaDb 6 0 R >> >>",
+                   b"q BT /ZaDb 12 Tf 4 5 Td (4) Tj ET Q")),
+        (9, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 20 20]", b"0 g 0 0 20 20 re S")),
+        (10, widget(b"[50 700 250 720]") + text + b" /FT /Tx /T (name) /TU (Your name) /TM (full_name)"
+             b" /V (Ada) /DV (Anonymous) /MaxLen 40 /DA (/Helv 12 Tf 0 g) /AA << /C 26 0 R >> >>"),
+        (11, b"<< /T (person) /FT /Tx /DA (/Helv 10 Tf 0 0 1 rg) /Q 1 /Ff 2 /Kids [12 0 R 13 0 R] >>"),
+        (12, widget(b"[50 670 150 690]") + text + b" /Parent 11 0 R /T (first) /V (Grace) >>"),
+        (13, widget(b"[160 670 260 690]") + text + b" /Parent 11 0 R /T (last) /Ff 1 /V <FEFF004C00F60076> >>"),
+        (14, b"<< /FT /Btn /T (agree) /V /Yes /DV /Off /Kids [15 0 R 25 0 R] >>"),
+        (15, widget(b"[50 640 70 660]") + states(b"Yes") + b" /Parent 14 0 R /AS /Yes /MK << /CA (4) >> >>"),
+        (16, b"<< /FT /Btn /Ff 49152 /T (color) /V /1 /Opt [(Red) (Green) (Green)] /Kids [17 0 R 18 0 R 19 0 R] >>"),
+        (17, widget(b"[50 610 70 630]") + states(b"0") + b" /Parent 16 0 R /AS /Off >>"),
+        (18, widget(b"[80 610 100 630]") + states(b"1") + b" /Parent 16 0 R /AS /1 >>"),
+        (19, widget(b"[110 610 130 630]") + states(b"2") + b" /Parent 16 0 R /AS /Off >>"),
+        (20, widget(b"[50 570 150 590]") + text + b" /FT /Btn /Ff 65536 /T (submit) /MK << /CA (Reset) >>"
+             b" /A << /S /ResetForm /Fields [(person) 14 0 R] >> >>"),
+        (21, widget(b"[50 540 250 560]") + text + b" /FT /Ch /Ff 393216 /T (country)"
+             b" /Opt [[(us) (United States)] [(ca) (Canada)]] /V (ca) >>"),
+        (22, widget(b"[50 460 250 530]") + text + b" /FT /Ch /Ff 2097152 /T (toppings) /Opt [(Cheese) (Ham) (Olives)]"
+             b" /V [(Cheese) (Olives)] /I [0 2] /TI 1 /DA (/Helv 10 Tf 0 g) >>"),
+        (23, widget(b"[0 0 0 0]") + b" /FT /Sig /T (sig) /Lock 27 0 R /SV 28 0 R >>"),
+        (25, widget(b"[50 700 70 720]", 30) + states(b"Yes") + b" /Parent 14 0 R /AS /Yes >>"),
+        (26, b"<< /S /JavaScript /JS (event.value = 1;) >>"),
+        (27, b"<< /Type /SigFieldLock /Action /Include /Fields [(name) (person.first)] /P 2 >>"),
+        (28, b"<< /Type /SV /Filter /Adobe.PPKLite /Ff 1 >>"),
+        (30, page(extra=b" /Annots [25 0 R]")),
+    ]
+    id0 = file_id("acroform-fields").hex().encode()
+    return simple_file(objects, version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_acroform_xfa() -> bytes:
+    """Annex K XFA forms (12.7.3 Table 224 XFA): one text field 10 merged with its widget, and an XFA entry
+    that is an array of packets [(xdp:xdp) 11 (template) 12 (datasets) 13 (</xdp:xdp>) 14] (Annex K example
+    1 shape). The catalog has no NeedsRendering (Table 29), so the XFA form is static. PDF 1.7."""
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog(b" /AcroForm 4 0 R")),
+        (2, pages()),
+        (3, page(extra=b" /Annots [10 0 R]")),
+        (4, b"<< /Fields [10 0 R] /DA (/Helv 0 Tf 0 g) /DR << /Font << /Helv 5 0 R >> >>"
+            b" /XFA [(xdp:xdp) 11 0 R (template) 12 0 R (datasets) 13 0 R (</xdp:xdp>) 14 0 R] >>"),
+        (5, HELVETICA),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 5 0 R >> >>",
+                   b"/Tx BMC BT /Helv 12 Tf 2 5 Td (Ada) Tj ET EMC")),
+        (10, b"<< /Type /Annot /Subtype /Widget /Rect [50 700 250 720] /P 3 0 R /F 4 /AP << /N 6 0 R >>"
+             b" /FT /Tx /T (name) /V (Ada) >>"),
+        (11, stream(b"", b'<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/">')),
+        (12, stream(b"", b'<template xmlns="http://www.xfa.org/schema/xfa-template/3.3/"><subform name="form1">'
+                         b'<field name="name"/></subform></template>')),
+        (13, stream(b"", b'<xfa:datasets xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/"><xfa:data>'
+                         b'<form1><name>Ada</name></form1></xfa:data></xfa:datasets>')),
+        (14, stream(b"", b"</xdp:xdp>")),
+    ]
+    return simple_file(objects)
+
+
 def gen_metadata_xmp() -> bytes:
     return simple_file([
         (1, catalog(b" /Metadata 4 0 R")),
@@ -2254,6 +2339,8 @@ FILES = {
     "declarations.pdf": gen_declarations,
     "actions-all.pdf": gen_actions_all,
     "actions-preserved.pdf": gen_actions_preserved,
+    "acroform-fields.pdf": gen_acroform_fields,
+    "acroform-xfa.pdf": gen_acroform_xfa,
 }
 
 

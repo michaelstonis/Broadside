@@ -973,6 +973,7 @@ public sealed partial class PdfDocument : IDisposable
 
             PdfLinearization? linearization = LinearizationReader.Read(source, loader, diagnostics);
             var document = new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security);
+            document.DetectXfa();
 
             // Table 15: ID is "required in PDF 2.0 or if an Encrypt entry is present" (the latter is the security handler's
             // EncryptionIdMissing).
