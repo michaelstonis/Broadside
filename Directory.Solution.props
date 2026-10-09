@@ -1,0 +1,11 @@
+<Project>
+
+  <!--
+    Imported by the solution build only. The platform backend projects (CoreGraphics, Android) import no SDK on a host
+    that cannot build them, so solution restore would warn NU1503 that they are skipped; that is the intent.
+  -->
+  <PropertyGroup>
+    <DisableWarnForInvalidRestoreProjects>true</DisableWarnForInvalidRestoreProjects>
+  </PropertyGroup>
+
+</Project>

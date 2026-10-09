@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>SkiaSharp backend for Broadside. Renders display lists onto SkiaSharp CPU and GPU surfaces for applications that already ship Skia, such as MAUI, Avalonia and Uno. Depends on SkiaSharp.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Broadside.Rendering/Broadside.Rendering.csproj" />
+    <PackageReference Include="SkiaSharp" />
+  </ItemGroup>
+
+</Project>

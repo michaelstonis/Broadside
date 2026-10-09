@@ -1,0 +1,35 @@
+<Project>
+
+  <!--
+    Platform gate. The Apple target frameworks need the macos, ios and maccatalyst workloads, which only install on
+    macOS. On any other host the SDK is not imported, so the project has no target frameworks and only the no-op
+    targets below, which let a solution build, restore or pack walk past it. Force the decision from CI or the
+    command line with -p:BroadsideBuildPlatformBackends=true|false. Machines without the workloads build
+    Broadside.Core.slnf.
+  -->
+  <PropertyGroup Label="Platform gate">
+    <BroadsideBuildPlatformBackends Condition="'$(BroadsideBuildPlatformBackends)' == ''">$([MSBuild]::IsOSPlatform('OSX'))</BroadsideBuildPlatformBackends>
+  </PropertyGroup>
+
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" Condition="'$(BroadsideBuildPlatformBackends)' == 'true'" />
+
+  <PropertyGroup>
+    <Description>CoreGraphics backend for Broadside. Renders display lists through the native Quartz 2D graphics context on macOS, iOS and Mac Catalyst. Depends on the Apple platform bindings shipped with the .NET workloads.</Description>
+    <TargetFramework />
+    <TargetFrameworks>net10.0-macos;net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Broadside.Rendering/Broadside.Rendering.csproj" />
+  </ItemGroup>
+
+  <!-- No-op targets for a host that cannot build this project. The SDK, when imported below, replaces every one of them. -->
+  <Target Name="Restore" />
+  <Target Name="Build" />
+  <Target Name="Rebuild" />
+  <Target Name="Clean" />
+  <Target Name="Pack" />
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" Condition="'$(BroadsideBuildPlatformBackends)' == 'true'" />
+
+</Project>

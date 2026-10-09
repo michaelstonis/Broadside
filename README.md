@@ -38,7 +38,15 @@ Target framework: `net10.0` only ([ADR 0002](docs/adr/0002-target-net10-only.md)
 
 ## Building
 
-Build instructions arrive with the package projects in [#2](https://github.com/michaelstonis/Broadside/issues/2).
+Requires the .NET SDK pinned in `global.json`.
+
+```sh
+dotnet build Broadside.slnx        # everything the host can build
+dotnet build Broadside.Core.slnf   # the net10.0 packages only; no workloads needed
+dotnet pack Broadside.Core.slnf -c Release   # packages land in artifacts/package/release/
+```
+
+`Broadside.Rendering.CoreGraphics` (macOS, iOS, Mac Catalyst) and `Broadside.Rendering.Android` need their .NET workloads. Each decides at evaluation time whether the host can build it (by default: yes on macOS, no elsewhere) and otherwise drops out of the solution build as a no-op, so `Broadside.slnx` builds on a Linux or Windows machine without workloads. Override the decision with `-p:BroadsideBuildPlatformBackends=true|false`. `Broadside.Core.slnf` is a solution filter that leaves those two projects out entirely, for machines where the default is wrong or an IDE wants only loadable projects. `Broadside.Rendering.Direct2D` targets Windows but builds everywhere, so it is part of the core set.
 
 ## Specifications
 

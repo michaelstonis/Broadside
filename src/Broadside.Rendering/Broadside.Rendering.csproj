@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>The fully managed rendering layer for Broadside: the software rasterizer that every other backend is measured against, the ICC color engine and the PNG encoder. Consumes display lists produced by the core and has no native dependencies.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Broadside/Broadside.csproj" />
+  </ItemGroup>
+
+</Project>
