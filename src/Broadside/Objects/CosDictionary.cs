@@ -46,8 +46,9 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
     }
 
     /// <summary>
-    /// Gets a number that changes on every mutation through the public API: caches of state derived from this dictionary (the
-    /// font model's encoding and width tables) compare it to know they are stale. Loading (<c>ReplaceLoaded</c>) does not change it.
+    /// Gets a number that changes every time an entry is added, replaced or removed through the public API, and never by reading
+    /// or loading: caches of state derived from the dictionary record it and rebuild when it differs. Changes to the values
+    /// themselves are not counted; a cache records each container it depends on.
     /// </summary>
     internal int Version { get; private set; }
 
@@ -90,7 +91,8 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
             }
 
             _entries[key] = value;
-            Changed();
+            _changed = true;
+            Version++;
         }
     }
 
@@ -113,7 +115,8 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
         }
 
         _entries.Add(key, value);
-        Changed();
+        _changed = true;
+        Version++;
     }
 
     /// <summary>Removes the entry for <paramref name="key"/>; marks the dictionary dirty when one was removed.</summary>
@@ -122,22 +125,16 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
     public bool Remove(CosName key)
     {
         bool removed = _entries.Remove(key);
-        if (removed)
-        {
-            Changed();
-        }
-
+        _changed |= removed;
+        Version += removed ? 1 : 0;
         return removed;
     }
 
     /// <summary>Removes every entry; marks the dictionary dirty when it was not already empty.</summary>
     public void Clear()
     {
-        if (_entries.Count > 0)
-        {
-            Changed();
-        }
-
+        _changed |= _entries.Count > 0;
+        Version += _entries.Count > 0 ? 1 : 0;
         _entries.Clear();
     }
 
@@ -169,11 +166,8 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
     bool ICollection<KeyValuePair<CosName, CosObject>>.Remove(KeyValuePair<CosName, CosObject> item)
     {
         bool removed = ((ICollection<KeyValuePair<CosName, CosObject>>)_entries).Remove(item);
-        if (removed)
-        {
-            Changed();
-        }
-
+        _changed |= removed;
+        Version += removed ? 1 : 0;
         return removed;
     }
 
@@ -189,11 +183,4 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
 
     /// <summary>Wraps entries the caller gives up ownership of, without copying them and without marking the dictionary dirty.</summary>
     internal static CosDictionary FromOwnedEntries(OrderedDictionary<CosName, CosObject> entries) => new(entries);
-
-    /// <summary>Marks the dictionary dirty and moves <see cref="Version"/> on.</summary>
-    private void Changed()
-    {
-        _changed = true;
-        Version++;
-    }
 }

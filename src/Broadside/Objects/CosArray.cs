@@ -55,8 +55,8 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     }
 
     /// <summary>
-    /// Gets a number that changes on every mutation through the public API: caches of state derived from this array (the
-    /// font model's encoding and width tables) compare it to know they are stale. Loading (<c>ReplaceLoaded</c>) does not change it.
+    /// Gets a number that changes every time an element is added, replaced or removed through the public API, and never by reading
+    /// or loading: caches of state derived from the array record it and rebuild when it differs.
     /// </summary>
     internal int Version { get; private set; }
 
@@ -75,7 +75,8 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
         {
             ArgumentNullException.ThrowIfNull(value);
             _items[index] = value;
-            Changed();
+            _changed = true;
+            Version++;
         }
     }
 
@@ -85,7 +86,8 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     {
         ArgumentNullException.ThrowIfNull(item);
         _items.Add(item);
-        Changed();
+        _changed = true;
+        Version++;
     }
 
     /// <summary>Inserts an element and marks the array dirty.</summary>
@@ -95,7 +97,8 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     {
         ArgumentNullException.ThrowIfNull(item);
         _items.Insert(index, item);
-        Changed();
+        _changed = true;
+        Version++;
     }
 
     /// <summary>Removes the element at <paramref name="index"/> and marks the array dirty.</summary>
@@ -103,7 +106,8 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     public void RemoveAt(int index)
     {
         _items.RemoveAt(index);
-        Changed();
+        _changed = true;
+        Version++;
     }
 
     /// <summary>Removes the first element equal to <paramref name="item"/>; marks the array dirty when one was removed.</summary>
@@ -112,22 +116,16 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     public bool Remove(CosObject item)
     {
         bool removed = _items.Remove(item);
-        if (removed)
-        {
-            Changed();
-        }
-
+        _changed |= removed;
+        Version += removed ? 1 : 0;
         return removed;
     }
 
     /// <summary>Removes every element; marks the array dirty when it was not already empty.</summary>
     public void Clear()
     {
-        if (_items.Count > 0)
-        {
-            Changed();
-        }
-
+        _changed |= _items.Count > 0;
+        Version += _items.Count > 0 ? 1 : 0;
         _items.Clear();
     }
 
@@ -153,11 +151,4 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
 
     /// <summary>Wraps a list the caller gives up ownership of, without copying it and without marking the array dirty.</summary>
     internal static CosArray FromOwnedList(List<CosObject> items) => new(items, owned: true);
-
-    /// <summary>Marks the array dirty and moves <see cref="Version"/> on.</summary>
-    private void Changed()
-    {
-        _changed = true;
-        Version++;
-    }
 }

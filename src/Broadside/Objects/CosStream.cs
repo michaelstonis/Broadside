@@ -34,6 +34,12 @@ public sealed class CosStream : CosObject
         _deferred = encodedData;
     }
 
+    /// <summary>
+    /// Gets a number that changes every time the data is replaced through the public API, and never by reading or loading. The
+    /// dictionary has its own <see cref="CosDictionary.Version"/>.
+    /// </summary>
+    internal int Version { get; private set; }
+
     /// <summary>Gets the stream dictionary.</summary>
     public CosDictionary Dictionary { get; }
 
@@ -50,6 +56,7 @@ public sealed class CosStream : CosObject
             _encodedData = value;
             _deferred = null;
             _changed = true;
+            Version++;
         }
     }
 

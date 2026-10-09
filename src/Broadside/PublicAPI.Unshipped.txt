@@ -489,3 +489,25 @@ Broadside.Fonts.Standard14Font.TimesRoman = 8 -> Broadside.Fonts.Standard14Font
 Broadside.Fonts.Standard14Font.ZapfDingbats = 13 -> Broadside.Fonts.Standard14Font
 Broadside.PdfDocument.GetFont(Broadside.Objects.CosObject? font) -> Broadside.Fonts.PdfFont?
 Broadside.PdfPage.GetFont(string! resourceName) -> Broadside.Fonts.PdfFont?
+Broadside.PdfDocument.GetNameTree(Broadside.Objects.CosObject? root) -> Broadside.PdfNameTree?
+Broadside.PdfDocument.GetNumberTree(Broadside.Objects.CosObject? root) -> Broadside.PdfNumberTree?
+Broadside.PdfDocument.Names.get -> Broadside.PdfNameDictionary?
+Broadside.PdfNameDictionary
+Broadside.PdfNameDictionary.Dests.get -> Broadside.PdfNameTree?
+Broadside.PdfNameDictionary.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfNameDictionary.GetTree(Broadside.Objects.CosName! key) -> Broadside.PdfNameTree?
+Broadside.PdfNameTree
+Broadside.PdfNameTree.ContainsKey(Broadside.Objects.CosString! key) -> bool
+Broadside.PdfNameTree.GetEnumerator() -> System.Collections.Generic.IEnumerator<System.Collections.Generic.KeyValuePair<Broadside.Objects.CosString!, Broadside.Objects.CosObject!>>!
+Broadside.PdfNameTree.Root.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfNameTree.RootReference.get -> Broadside.Objects.CosReference?
+Broadside.PdfNameTree.TryGetValue(Broadside.Objects.CosString! key, out Broadside.Objects.CosObject! value) -> bool
+Broadside.PdfNameTree.TryGetValue(string! key, out Broadside.Objects.CosObject! value) -> bool
+Broadside.PdfNameTree.TryGetValue(System.ReadOnlySpan<byte> key, out Broadside.Objects.CosObject! value) -> bool
+Broadside.PdfNumberTree
+Broadside.PdfNumberTree.ContainsKey(int key) -> bool
+Broadside.PdfNumberTree.GetEnumerator() -> System.Collections.Generic.IEnumerator<System.Collections.Generic.KeyValuePair<int, Broadside.Objects.CosObject!>>!
+Broadside.PdfNumberTree.Root.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfNumberTree.RootReference.get -> Broadside.Objects.CosReference?
+Broadside.PdfNumberTree.TryGetFloor(int key, out int floorKey, out Broadside.Objects.CosObject! value) -> bool
+Broadside.PdfNumberTree.TryGetValue(int key, out Broadside.Objects.CosObject! value) -> bool
