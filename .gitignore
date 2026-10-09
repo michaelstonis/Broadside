@@ -9,7 +9,7 @@ artifacts/
 
 # Local-only inputs
 Specs/
-corpus/
+/corpus/
 
 # Test and bench output
 TestResults/
