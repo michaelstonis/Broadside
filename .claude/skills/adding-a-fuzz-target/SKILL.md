@@ -53,7 +53,7 @@ Smoke output ends with `no failures` and exit 0; a finding is written to `artifa
 The only target today, in `FuzzTargets.cs`:
 
 ```csharp
-/// <summary>Placeholder until the lexer lands (#11): decides whether the input starts with the <c>%PDF-</c> header marker.</summary>
+/// <summary>Placeholder until the COS parser lands (#36): decides whether the input starts with the <c>%PDF-</c> header marker.</summary>
 /// <remarks>ISO 32000-2 §7.5.2.</remarks>
 private static void PdfHeader(ReadOnlySpan<byte> data)
 {

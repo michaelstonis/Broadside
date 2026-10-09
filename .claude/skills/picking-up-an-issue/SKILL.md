@@ -70,7 +70,7 @@ Conventional Commits with the area as scope, the issue number in the subject, an
 
 ```sh
 cat > /tmp/commit-msg.txt <<'MSG'
-feat(cos): lexer over ReadOnlySpan<byte> (#11)
+feat(cos): parse COS objects from bytes (#36)
 
 Tokenizes the character set, delimiters, numbers, names, strings and
 comments of ISO 32000-2 clause 7.2 without allocating per token.

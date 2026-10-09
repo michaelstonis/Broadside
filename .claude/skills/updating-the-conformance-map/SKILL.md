@@ -85,7 +85,7 @@ becomes
 | 7.2 | Lexical conventions | partial | `Broadside.Cos.CosLexer` | `Broadside.Tests.Objects.LexerTests.Tokenizes_names` | Strings (7.3.4) and comments (7.2.4) pending |
 ```
 
-and `CosLexer` carries `<remarks>ISO 32000-2 §7.2.</remarks>`. When the follow-up PR finishes comments, split the row as in section 3 rather than growing the Notes cell. (`CosLexer` and `LexerTests` are illustrative names; the real ones come from issue #11.)
+and `CosLexer` carries `<remarks>ISO 32000-2 §7.2.</remarks>`. When the follow-up PR finishes comments, split the row as in section 3 rather than growing the Notes cell. (`CosLexer` and `LexerTests` are illustrative names; the real ones come from issue #36.)
 
 ## Checklist
 

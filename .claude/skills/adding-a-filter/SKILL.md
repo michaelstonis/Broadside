@@ -5,7 +5,7 @@ description: "Use when implementing a stream filter or image codec (FlateDecode,
 
 # Adding a filter
 
-> **The filter contract is defined by issue #18 (Standard filters, plan row 1.8). When it lands, replace the "Contract" section of this skill with the real signatures from `src/Broadside/Filters/` and `src/Broadside/PublicAPI.Unshipped.txt`.** Until then this is a design brief: it says what the contract must provide and what a filter PR must deliver. It does not spell the methods.
+> **The filter contract is defined by issue #38 (Decode streams through filters). When it lands, replace the "Contract" section of this skill with the real signatures from `src/Broadside/Filters/` and `src/Broadside/PublicAPI.Unshipped.txt`.** Until then this is a design brief: it says what the contract must provide and what a filter PR must deliver. It does not spell the methods.
 
 A filter is "a stream encoding named in a stream's `/Filter` entry, and the codec that decodes or encodes it. Image codecs are filters." (`CONTEXT.md`). Filters are an extension point: a public contract in the core with a fully managed default (`CLAUDE.md`, "Hard rules"; ADR 0001).
 
@@ -50,7 +50,7 @@ Every filter the PDF file format depends on ships in the core, written in C#. Al
 
 ## Checklist
 
-- [ ] Contract section of this skill replaced with the real signatures once #18 has landed
+- [ ] Contract section of this skill replaced with the real signatures once #38 has landed
 - [ ] Implementation in `Broadside.Filters`, managed only, `sealed`, clause-cited XML docs
 - [ ] Registered through `PdfOptions`, not a static registry
 - [ ] Lenient repairs recorded as `Diagnostic`; strict mode throws

@@ -5,7 +5,7 @@ description: "Use when implementing a parser for an embedded or substituted font
 
 # Adding a font program parser
 
-> **The font program parser contract is defined by the Phase 2A Fonts track (`docs/plan/README.md`, "Track 2A Fonts"); its issues are not filed yet. When the contract issue lands, replace the "Contract" section of this skill with the real signatures from `src/Broadside/Fonts/` and `src/Broadside/PublicAPI.Unshipped.txt`.** Until then this is a design brief: responsibilities and deliverables, not method names.
+> **The font program parser contract is defined by issue #50 (Embedded TrueType glyph outlines), the first Phase 2A Fonts ticket. When it lands, replace the "Contract" section of this skill with the real signatures from `src/Broadside/Fonts/` and `src/Broadside/PublicAPI.Unshipped.txt`.** Until then this is a design brief: responsibilities and deliverables, not method names.
 
 A font program is "the embedded or substituted glyph data in one of the formats PDF allows: TrueType, OpenType, CFF, Type 1, or Type 3 content streams" (`CONTEXT.md`). Font program parsers are extension points with a managed default (ADR 0001); the font resolver (which finds a program for a non-embedded font) is a separate extension point and not covered here.
 
