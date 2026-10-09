@@ -32,7 +32,12 @@ internal static partial class DiagnosticLog
     /// <param name="diagnostic">The diagnostic.</param>
     public static void Log(ILogger logger, Diagnostic diagnostic) => DiagnosticRecorded(
         logger,
-        diagnostic.Severity == DiagnosticSeverity.Error ? LogLevel.Error : LogLevel.Warning,
+        diagnostic.Severity switch
+        {
+            DiagnosticSeverity.Error => LogLevel.Error,
+            DiagnosticSeverity.Warning => LogLevel.Warning,
+            _ => LogLevel.Information,
+        },
         diagnostic.Severity,
         diagnostic.Code,
         diagnostic.ObjectReference,

@@ -169,14 +169,17 @@ public class CrossReferenceStreamTests
     }
 
     [Fact]
-    public void A_stream_whose_W_cannot_be_read_is_not_a_cross_reference_section()
+    public void A_stream_whose_W_cannot_be_read_is_not_a_cross_reference_section_so_the_file_is_rebuilt_by_scanning()
     {
         var pdf = new XrefStreamPdf().AddOnePage();
         byte[] file = pdf.Finish(4, "/Size 4 /Root 1 0 R /W [1 2]", W121, (0, 0, 255), (1, pdf.Offset(1), 0), (1, pdf.Offset(2), 0), (1, pdf.Offset(3), 0));
 
-        DiagnosticException error = Assert.Throws<DiagnosticException>(() => PdfDocument.Open(file));
+        using PdfDocument document = PdfDocument.Open(file);
 
-        Assert.Equal("XrefStreamWidthsInvalid", error.Diagnostic.Code);
+        Assert.Single(document.Pages);
+        Assert.Equal(["XrefStreamWidthsInvalid"], document.Diagnostics.Select(static diagnostic => diagnostic.Code));
+        Assert.Equal(new CosReference(1, 0), document.Trailer[new CosName("Root")]);
+        Assert.Throws<DiagnosticException>(() => PdfDocument.Open(file, new PdfOptions().UseStrict()));
     }
 
     [Fact]

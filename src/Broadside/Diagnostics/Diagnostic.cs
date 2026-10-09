@@ -8,10 +8,21 @@ namespace Broadside.Diagnostics;
 /// <remarks>
 /// <para>
 /// ADR 0005: in lenient mode a reader repairs what it can and records a diagnostic on the document; in strict mode the first
-/// diagnostic is thrown as a <see cref="DiagnosticException"/>. A well-formed file produces no diagnostics: a diagnostic means a
-/// "shall" of ISO 32000-2 was violated or the reader changed what it read, never that a "should" was not followed.
+/// <see cref="DiagnosticSeverity.Warning"/> or <see cref="DiagnosticSeverity.Error"/> is thrown as a <see cref="DiagnosticException"/>.
+/// A well-formed file produces no warnings and no errors: one means a "shall" of ISO 32000-2 was violated or the reader changed what
+/// it read, never that a "should" was not followed. <see cref="DiagnosticSeverity.Information"/> notes a valid feature the library
+/// preserves without supporting it, and is never thrown.
 /// </para>
-/// <para>Codes are stable PascalCase identifiers, such as <c>StreamLengthInvalid</c> or <c>PageTreeCountMismatch</c>.</para>
+/// <para>
+/// Codes are stable PascalCase identifiers, such as <c>StreamLengthInvalid</c> or <c>PageTreeCountMismatch</c>; match on
+/// <see cref="Code"/>, <see cref="Offset"/> and <see cref="ObjectReference"/>, never on <see cref="Message"/>. A document records each
+/// repair once: the same code at the same offset in the same object is not recorded twice, however often it is met.
+/// </para>
+/// <para>
+/// ISO 32000-2 §7.5 describes the file structure a reader repairs (cross-reference table, trailer, <c>startxref</c>) but does not
+/// specify repair; the codes for it are <c>StartxrefMissing</c>, <c>StartxrefInvalid</c>, <c>TrailerMissing</c>,
+/// <c>RootMissing</c>, <c>XrefEntryOffsetInvalid</c>, <c>MissingEndobj</c> and <c>StreamLengthInvalid</c>, among others.
+/// </para>
 /// </remarks>
 public sealed class Diagnostic
 {

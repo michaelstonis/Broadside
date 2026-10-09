@@ -8,7 +8,8 @@ namespace Broadside.Parsing;
 /// <remarks>
 /// ISO 32000-2 §7.5.2. Byte offsets in the file (<c>startxref</c>, cross-reference entries, <c>Prev</c>) are counted from the
 /// percent sign of the header, and arbitrary bytes may precede it (NOTE 1), so every offset the file states is relative to
-/// <see cref="Offset"/>. Issue #41 adds the retry with unshifted offsets for files whose writer counted from byte 0 anyway.
+/// <see cref="Offset"/>. A file whose writer counted from byte 0 anyway is repaired by the loader's object search and the
+/// nearest-section search for <c>startxref</c> (issue #41).
 /// </remarks>
 /// <param name="Offset">The absolute position of the <c>%</c> of <c>%PDF-</c>; 0 when no header was found.</param>
 /// <param name="Version">The version the header states, or <see langword="null"/> when it is missing or malformed.</param>

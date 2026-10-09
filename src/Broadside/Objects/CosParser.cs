@@ -512,7 +512,15 @@ internal ref struct CosParser
             return new CosStream(dictionary, source[dataStart..dataEnd].ToArray());
         }
 
+        // No endstream: the data ends at the stated Length, or at endobj when that comes first (as PDFBox does), or at the end.
         int end = declared >= 0 && declared <= source.Length - dataStart ? dataStart + (int)declared : source.Length;
+        int endobj = source[dataStart..].IndexOf("endobj"u8);
+        if (endobj >= 0 && dataStart + endobj < end)
+        {
+            end = dataStart + endobj;
+            end -= EndOfLineLengthBefore(source, dataStart, end);
+        }
+
         Report(CosRepairCodes.EndstreamMissing, keyword.Start, "The stream has no endstream keyword.");
         _lexer.Position = end;
         return new CosStream(dictionary, source[dataStart..end].ToArray());
