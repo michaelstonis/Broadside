@@ -14,6 +14,8 @@
     <Compile Include="../../tests/Broadside.TestSupport/CorpusLocator.cs" Link="CorpusLocator.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/FilterEncoders.cs" Link="FilterEncoders.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/DocumentWalker.cs" Link="DocumentWalker.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/AnnotationWalker.cs" Link="AnnotationWalker.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/ActionWalker.cs" Link="ActionWalker.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/ContentSamples.cs" Link="ContentSamples.cs" />
   </ItemGroup>
 
