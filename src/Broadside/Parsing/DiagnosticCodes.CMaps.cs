@@ -14,7 +14,6 @@ internal static partial class DiagnosticCodes
     public const string CMapUseCMapTooDeep = nameof(CMapUseCMapTooDeep);
     public const string CMapWritingModeMismatch = nameof(CMapWritingModeMismatch);
     public const string CMapUnavailable = nameof(CMapUnavailable);
-    public const string CMapInvalid = nameof(CMapInvalid);
 
     // Showing text in a composite font (§9.7.6.2, §9.7.6.3).
     public const string CMapCodeInvalid = nameof(CMapCodeInvalid);
@@ -30,5 +29,4 @@ internal static partial class DiagnosticCodes
     public const string CidFontVerticalMetricsInvalid = nameof(CidFontVerticalMetricsInvalid);
     public const string CidToGidMapMissing = nameof(CidToGidMapMissing);
     public const string CidToGidMapInvalid = nameof(CidToGidMapInvalid);
-    public const string CidFontNotEmbedded = nameof(CidFontNotEmbedded);
 }
