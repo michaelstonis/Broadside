@@ -40,6 +40,11 @@ public static class Corpus
         "outline.pdf",
         "name-tree-dests.pdf",
         "metadata-xmp.pdf",
+        "metadata-xmp-forms.pdf",
+        "info-dictionary.pdf",
+        "viewer-preferences.pdf",
+        "catalog-version-extensions.pdf",
+        "page-labels.pdf",
         "name-tree-deep.pdf",
         "number-tree-deep.pdf",
     ];

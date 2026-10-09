@@ -52,8 +52,7 @@ public partial class VeraPdfAgreementTests(ITestOutputHelper output)
 
         // Trailer (§7.5.5, §14.4).
         ["Isartor 6-1-3-t01"] = (VeraPdfTriage.PdfAOnly, "No ID in a PDF 1.4 trailer: Table 15 requires ID only in PDF 2.0 or with Encrypt."),
-        ["PDF_A-2b 6-1-3-t01"] = (VeraPdfTriage.PdfAOnly, "PDF 1.7 trailer without ID, with empty ID strings, or a linearized first-page trailer without ID: ID is optional before 2.0 and §14.4 sets no length."),
-        ["PDF_A-4 6-1-3-t01"] = (VeraPdfTriage.PdfAOnly, "ID present with an empty string: Table 15 and §14.4 require two byte strings but no length. (The PDF 2.0 trailer without ID now fails: TrailerIdMissing.)"),
+        ["PDF_A-2b 6-1-3-t01"] = (VeraPdfTriage.PdfAOnly, "PDF 1.7 trailer without ID, or a linearized first-page trailer without ID: ID is optional before 2.0. (An ID shorter than 16 bytes now fails: FileIdentifierInvalid, Table 15.)"),
         ["Isartor 6-1-3-t02"] = (VeraPdfTriage.PdfAOnly, "Encrypt in the trailer: PDF/A forbids encryption; ISO 32000-2 §7.6 defines it."),
         ["PDF_A-1b 6-1-3-t02"] = (VeraPdfTriage.PdfAOnly, "Encrypt in the trailer: PDF/A forbids encryption."),
         ["PDF_A-2b 6-1-3-t02"] = (VeraPdfTriage.PdfAOnly, "Encrypt in the trailer: PDF/A forbids encryption."),
@@ -103,15 +102,12 @@ public partial class VeraPdfAgreementTests(ITestOutputHelper output)
 
         // Implementation limits: ISO 32000-2 Annex C is informative advice, not requirements on a file.
         ["Isartor 6-1-12-t01"] = (VeraPdfTriage.PdfAOnly, "Array over 8191 elements, name over 127 bytes, integer over 2^31-1: PDF/A-1 limits (ISO 32000-2 Annex C is informative)."),
-        ["PDF_A-1b 6-1-12-t01"] = (VeraPdfTriage.PdfAOnly, "Integer outside 32 bits: a PDF/A-1 limit."),
         ["PDF_A-1b 6-1-12-t02"] = (VeraPdfTriage.PdfAOnly, "Real over 32767: a PDF/A-1 limit."),
         ["PDF_A-1b 6-1-12-t03"] = (VeraPdfTriage.PdfAOnly, "String over 65535 bytes: a PDF/A-1 limit."),
         ["PDF_A-1b 6-1-12-t04"] = (VeraPdfTriage.PdfAOnly, "Name over 127 bytes: a PDF/A-1 limit."),
         ["PDF_A-1b 6-1-12-t06"] = (VeraPdfTriage.PdfAOnly, "Dictionary over 4095 entries: a PDF/A-1 limit."),
         ["PDF_A-1b 6-1-12-t08"] = (VeraPdfTriage.PdfAOnly, "q/Q nesting over 28: a PDF/A-1 limit (and a content stream rule)."),
-        ["PDF_A-1b 6-1-12-t09"] = (VeraPdfTriage.PdfAOnly, "DeviceN over 8 components: a PDF/A-1 limit."),
         ["PDF_A-1b 6-1-12-t10"] = (VeraPdfTriage.PdfAOnly, "CID over 65535: a PDF/A-1 limit."),
-        ["PDF_A-2b 6-1-13-t01"] = (VeraPdfTriage.PdfAOnly, "Integer outside 32 bits: a PDF/A-2 limit."),
         ["PDF_A-2b 6-1-13-t03"] = (VeraPdfTriage.PdfAOnly, "String over 32767 bytes: a PDF/A-2 limit."),
         ["PDF_A-2b 6-1-13-t04"] = (VeraPdfTriage.PdfAOnly, "Name over 127 bytes: a PDF/A-2 limit."),
         ["PDF_A-2b 6-1-13-t08"] = (VeraPdfTriage.PdfAOnly, "q/Q nesting over 28: a PDF/A-2 limit."),

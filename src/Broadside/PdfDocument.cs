@@ -47,7 +47,7 @@ namespace Broadside;
 /// <see cref="ObjectDisposedException"/>.
 /// </para>
 /// </remarks>
-public sealed class PdfDocument : IDisposable
+public sealed partial class PdfDocument : IDisposable
 {
     private static readonly PdfVersion Pdf20 = new(2, 0);
 
