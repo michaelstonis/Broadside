@@ -1,4 +1,7 @@
 <Solution>
+  <Folder Name="/bench/">
+    <Project Path="bench/Broadside.Benchmarks/Broadside.Benchmarks.csproj" />
+  </Folder>
   <Folder Name="/solution-items/">
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
@@ -18,6 +21,15 @@
     <Project Path="src/Broadside.Rendering.Skia/Broadside.Rendering.Skia.csproj" />
     <Project Path="src/Broadside.Rendering/Broadside.Rendering.csproj" />
     <Project Path="src/Broadside/Broadside.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/Broadside.Fonts.Cmaps.Tests/Broadside.Fonts.Cmaps.Tests.csproj" />
+    <Project Path="tests/Broadside.Fonts.Standard14.Tests/Broadside.Fonts.Standard14.Tests.csproj" />
+    <Project Path="tests/Broadside.Fuzz/Broadside.Fuzz.csproj" />
+    <Project Path="tests/Broadside.Rendering.Skia.Tests/Broadside.Rendering.Skia.Tests.csproj" />
+    <Project Path="tests/Broadside.Rendering.Tests/Broadside.Rendering.Tests.csproj" />
+    <Project Path="tests/Broadside.Tests/Broadside.Tests.csproj" />
+    <Project Path="tests/Broadside.TestSupport/Broadside.TestSupport.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/CorpusFetcher/CorpusFetcher.csproj" />
