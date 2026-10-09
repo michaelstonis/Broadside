@@ -127,7 +127,7 @@ public sealed partial class PdfDocument : IDisposable
     {
         get
         {
-            if (!Catalog.TryGetValue(KnownNames.Names, out CosObject? entry))
+            if (!Catalog.TryGetValue(NavigationNames.Names, out CosObject? entry))
             {
                 return null;
             }
@@ -143,6 +143,37 @@ public sealed partial class PdfDocument : IDisposable
                 "The catalog's Names entry is not a dictionary; the document is read as having no name dictionary.",
                 objectReference: entry as CosReference);
             return null;
+        }
+    }
+
+    /// <summary>Gets the document outline (bookmarks), or <see langword="null"/> when the catalog has none.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.2, Table 29 (<c>Outlines</c>), and §12.3.3. Read from the catalog on every call. An entry that is not a
+    /// dictionary reads as none, with a diagnostic.
+    /// </remarks>
+    public PdfOutline? Outline
+    {
+        get
+        {
+            if (!Catalog.TryGetValue(NavigationNames.Outlines, out CosObject? entry))
+            {
+                return null;
+            }
+
+            switch (Resolve(entry))
+            {
+                case CosDictionary outline:
+                    return new PdfOutline(this, outline, entry as CosReference);
+                case CosNull:
+                    return null;
+                default:
+                    _diagnostics.Report(
+                        DiagnosticCodes.OutlineInvalid,
+                        DiagnosticSeverity.Warning,
+                        "The catalog's Outlines entry is not a dictionary; the document is read as having no outline.",
+                        objectReference: entry as CosReference);
+                    return null;
+            }
         }
     }
 
@@ -452,6 +483,113 @@ public sealed partial class PdfDocument : IDisposable
     /// </remarks>
     public PdfNumberTree? GetNumberTree(CosObject? root) =>
         GetNumberTreeReader(root) is { } reader ? new PdfNumberTree(reader) : null;
+
+    /// <summary>Looks up the destination a name (PDF 1.1) or string (PDF 1.2) names, as text.</summary>
+    /// <param name="name">The destination's name.</param>
+    /// <returns>
+    /// The explicit destination; <see langword="null"/> when the document has none of that name, or, with a diagnostic, when the
+    /// value it has is not a destination.
+    /// </returns>
+    /// <remarks>
+    /// ISO 32000-2 §12.3.2.4. The name dictionary's <c>Dests</c> tree first (the text as PDFDocEncoding, then UTF-16BE, then every key
+    /// decoded: <see cref="PdfNameTree.TryGetValue(string, out CosObject)"/>), then the catalog's <c>Dests</c> dictionary (the text as a
+    /// UTF-8 name). A value that is a dictionary resolves to its <c>D</c> entry.
+    /// </remarks>
+    public PdfExplicitDestination? GetNamedDestination(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        if (Names?.Dests is { } tree && tree.Reader.TryGetRawValue(name, out CosObject? value))
+        {
+            return ReadNamedDestinationValue(value);
+        }
+
+        if (!name.Contains('\0', StringComparison.Ordinal) && LegacyDestination(new CosName(name)) is { } legacy)
+        {
+            return ReadNamedDestinationValue(legacy);
+        }
+
+        return null;
+    }
+
+    /// <summary>Looks up the destination a byte string names (PDF 1.2).</summary>
+    /// <param name="name">The destination's name.</param>
+    /// <returns>The explicit destination, or <see langword="null"/>; see <see cref="GetNamedDestination(string)"/>.</returns>
+    /// <remarks>ISO 32000-2 §12.3.2.4 and Annex J.3.3: the <c>Dests</c> tree first, then the catalog's <c>Dests</c> dictionary, by bytes.</remarks>
+    public PdfExplicitDestination? GetNamedDestination(CosString name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        return FindNamedDestination(name, out _);
+    }
+
+    /// <summary>Looks up the destination a name object names (PDF 1.1).</summary>
+    /// <param name="name">The destination's name.</param>
+    /// <returns>The explicit destination, or <see langword="null"/>; see <see cref="GetNamedDestination(string)"/>.</returns>
+    /// <remarks>ISO 32000-2 §12.3.2.4 and Annex J.3.4: the catalog's <c>Dests</c> dictionary first, then the <c>Dests</c> tree, by bytes.</remarks>
+    public PdfExplicitDestination? GetNamedDestination(CosName name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        return FindNamedDestination(name, out _);
+    }
+
+    /// <summary>Looks a destination name up: a name in the catalog's <c>Dests</c> first, a string in the tree first, then the other.</summary>
+    /// <param name="name">A <see cref="CosName"/> or <see cref="CosString"/>.</param>
+    /// <param name="found">Whether the document holds the name, whatever its value.</param>
+    /// <returns>The explicit destination, or <see langword="null"/>.</returns>
+    internal PdfExplicitDestination? FindNamedDestination(CosObject name, out bool found)
+    {
+        CosObject? value = null;
+        switch (name)
+        {
+            case CosName key:
+                value = LegacyDestination(key) ?? TreeDestination(key.Bytes);
+                break;
+            case CosString key:
+                value = TreeDestination(key.Bytes);
+                if (value is null && key.Bytes.Length > 0 && !key.Bytes.Contains((byte)0))
+                {
+                    value = LegacyDestination(new CosName(key.Bytes));
+                }
+
+                break;
+        }
+
+        found = value is not null;
+        return value is null ? null : ReadNamedDestinationValue(value);
+    }
+
+    /// <summary>Reads a named destination's value: a destination array, or a dictionary whose <c>D</c> entry is one (§12.3.2.4).</summary>
+    private PdfExplicitDestination? ReadNamedDestinationValue(CosObject value)
+    {
+        var reference = value as CosReference;
+        CosObject resolved = Resolve(value);
+        if (resolved is CosDictionary dictionary && dictionary.TryGetValue(NavigationNames.D, out CosObject? d))
+        {
+            reference = d as CosReference ?? reference;
+            resolved = Resolve(d);
+        }
+
+        if (resolved is CosArray array)
+        {
+            return new PdfExplicitDestination(this, array, isRemote: false, reference);
+        }
+
+        _diagnostics.Report(
+            DiagnosticCodes.DestinationInvalid,
+            DiagnosticSeverity.Warning,
+            "A named destination's value is neither a destination array nor a dictionary with a D entry; the name shows no page.",
+            objectReference: reference);
+        return null;
+    }
+
+    private CosObject? TreeDestination(ReadOnlySpan<byte> key) =>
+        Names?.Dests is { } tree && tree.Reader.TryGetRawValue(new CosString(key), out CosObject? value) ? value : null;
+
+    private CosObject? LegacyDestination(CosName key) =>
+        Catalog.TryGetValue(NavigationNames.Dests, out CosObject? entry)
+            && Resolve(entry) is CosDictionary dests
+            && dests.TryGetValue(key, out CosObject? value)
+            ? value
+            : null;
 
     /// <summary>Returns the document's reader for the name tree rooted at <paramref name="root"/>, creating it on first use.</summary>
     /// <param name="root">The root node or a reference to it.</param>

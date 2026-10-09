@@ -36,7 +36,13 @@ public class StructureCorpusTests(ITestOutputHelper output)
 
         int elements = StructureWalker.Walk(document);
 
-        Assert.Equal(fileName == "tagged-structure.pdf" ? 18 : -1, elements);
+        int expected = fileName switch
+        {
+            "tagged-structure.pdf" => 18,
+            "outline-full.pdf" => 1, // the H1 an outline item's /SE points to (§12.3.3)
+            _ => -1,
+        };
+        Assert.Equal(expected, elements);
         Assert.Empty(document.Diagnostics);
     }
 

@@ -1360,6 +1360,92 @@ def gen_name_tree_broken() -> bytes:
     ])
 
 
+def gen_destinations_all() -> bytes:
+    """12.3.2.2 Table 149 and 12.3.2.4: a Dests name tree with one entry per explicit form (XYZ with
+    numbers, with nulls and with zoom 0; Fit; FitH with a number and with null; FitV; FitR; FitB;
+    FitBH; FitBV), a value in the dictionary form << /D [...] >> with an extra attribute, and a value
+    that is an indirect array; the PDF 1.1 catalog /Dests dictionary keyed by name (/Chap6); and an
+    outline whose items refer to a destination by name (/Dest /Chap6) and by string (/Dest (alpha))."""
+    names = [
+        (b"alpha", b"[3 0 R /XYZ 0 792 null]"),
+        (b"fit", b"[3 0 R /Fit]"),
+        (b"fitb", b"[3 0 R /FitB]"),
+        (b"fitbh", b"[3 0 R /FitBH 700]"),
+        (b"fitbv", b"[3 0 R /FitBV 36]"),
+        (b"fith", b"[3 0 R /FitH 650]"),
+        (b"fith-null", b"[3 0 R /FitH null]"),
+        (b"fitr", b"[3 0 R /FitR 10 20 300 400.5]"),
+        (b"fitv", b"[3 0 R /FitV 50]"),
+        (b"indirect", b"9 0 R"),
+        (b"with-d", b"<< /D [3 0 R /Fit] /Note (an additional attribute) >>"),
+        (b"xyz", b"[3 0 R /XYZ 72 720 1.5]"),
+        (b"xyz-null", b"[3 0 R /XYZ null null null]"),
+        (b"xyz-zero", b"[3 0 R /XYZ 10 20 0]"),
+    ]
+    assert [k for k, _ in names] == sorted(k for k, _ in names)
+    pairs = b" ".join(b"(" + k + b") " + v for k, v in names)
+    return simple_file([
+        (1, catalog(b" /Names << /Dests 4 0 R >> /Dests 5 0 R /Outlines 6 0 R")),
+        (2, pages()),
+        (3, page()),
+        (4, b"<< /Names [" + pairs + b"] >>"),
+        (5, b"<< /Chap6 [3 0 R /FitV 72] >>"),
+        (6, b"<< /Type /Outlines /First 7 0 R /Last 8 0 R /Count 2 >>"),
+        (7, b"<< /Title (Chapter 6) /Parent 6 0 R /Next 8 0 R /Dest /Chap6 >>"),
+        (8, b"<< /Title (Alpha) /Parent 6 0 R /Prev 7 0 R /Dest (alpha) >>"),
+        (9, b"[3 0 R /FitH 500]"),
+    ])
+
+
+def gen_outline_full() -> bytes:
+    """12.3.3 Tables 150-152: an outline three levels deep. Part I (open, Count 2) holds Chapter 1
+    (closed, Count -1, holding Section 1.1) and Chapter 2 (a URI action); Part II (closed, Count -2)
+    holds Chapter 3 (UTF-16BE title, red /C [1 0 0], bold italic /F 3, a GoTo action to the named
+    destination (alpha)) and Chapter 4 (an /SE structure element and an explicit destination).
+    The outline's Count is 4: the two parts and Part I's two children."""
+    utf16_title = b"<FEFF" + "Chapter 3 – Übersicht".encode("utf-16-be").hex().upper().encode() + b">"
+    return simple_file([
+        (1, catalog(b" /Outlines 4 0 R /PageMode /UseOutlines /StructTreeRoot 12 0 R"
+                    b" /Names << /Dests << /Names [(alpha) [3 0 R /XYZ 0 792 null]] >> >>")),
+        (2, pages()),
+        (3, page()),
+        (4, b"<< /Type /Outlines /First 5 0 R /Last 9 0 R /Count 4 >>"),
+        (5, b"<< /Title (Part I) /Parent 4 0 R /Next 9 0 R /First 6 0 R /Last 8 0 R /Count 2"
+            b" /Dest [3 0 R /Fit] >>"),
+        (6, b"<< /Title (Chapter 1) /Parent 5 0 R /Next 8 0 R /First 7 0 R /Last 7 0 R /Count -1"
+            b" /Dest [3 0 R /FitH 700] >>"),
+        (7, b"<< /Title (Section 1.1) /Parent 6 0 R /Dest [3 0 R /XYZ 72 700 null] >>"),
+        (8, b"<< /Title (Chapter 2) /Parent 5 0 R /Prev 6 0 R"
+            b" /A << /S /URI /URI (https://example.org/chapter-2) >> >>"),
+        (9, b"<< /Title (Part II) /Parent 4 0 R /Prev 5 0 R /First 10 0 R /Last 11 0 R /Count -2 >>"),
+        (10, b"<< /Title " + utf16_title + b" /Parent 9 0 R /Next 11 0 R /C [1 0 0] /F 3"
+             b" /A << /S /GoTo /D (alpha) >> >>"),
+        (11, b"<< /Title (Chapter 4) /Parent 9 0 R /Prev 10 0 R /SE 13 0 R /Dest [3 0 R /FitB] >>"),
+        (12, b"<< /Type /StructTreeRoot /K 13 0 R >>"),
+        (13, b"<< /Type /StructElem /S /H1 /P 12 0 R >>"),
+    ])
+
+
+def gen_outline_broken() -> bytes:
+    """12.3.3 Tables 150-151, broken: item 5 has both /Dest and /A; item 6 has no /Title; item 7's
+    /Next points back at item 6 (a cycle in the sibling chain); item 8's /First points at its
+    ancestor 5; the outline's /Last names item 6, not 7 where the chain ends; item 7 has a child
+    but Count 0 (neither open nor closed); the outline's Count is negative."""
+    return simple_file([
+        (1, catalog(b" /Outlines 4 0 R")),
+        (2, pages()),
+        (3, page()),
+        (4, b"<< /Type /Outlines /First 5 0 R /Last 6 0 R /Count -5 >>"),
+        (5, b"<< /Title (One) /Parent 4 0 R /Next 6 0 R /First 8 0 R /Last 8 0 R /Count 1"
+            b" /Dest [3 0 R /Fit] /A << /S /URI /URI (https://example.org/) >> >>"),
+        (6, b"<< /Parent 4 0 R /Prev 5 0 R /Next 7 0 R /Dest [3 0 R /Fit] >>"),
+        (7, b"<< /Title (Three) /Parent 4 0 R /Prev 6 0 R /Next 6 0 R /First 9 0 R /Last 9 0 R"
+            b" /Count 0 >>"),
+        (8, b"<< /Title (One.One) /Parent 5 0 R /First 5 0 R /Last 5 0 R >>"),
+        (9, b"<< /Title (Three.One) /Parent 7 0 R >>"),
+    ])
+
+
 XMP = (b'<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
        b'<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
        b' <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
@@ -1602,6 +1688,9 @@ FILES = {
     "number-tree-deep.pdf": gen_number_tree_deep,
     "name-tree-broken.pdf": gen_name_tree_broken,
     "tagged-structure.pdf": gen_tagged_structure,
+    "destinations-all.pdf": gen_destinations_all,
+    "outline-full.pdf": gen_outline_full,
+    "outline-broken.pdf": gen_outline_broken,
 }
 
 

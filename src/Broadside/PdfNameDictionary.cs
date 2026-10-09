@@ -28,7 +28,7 @@ public sealed class PdfNameDictionary
     /// ISO 32000-2 §7.7.4, Table 32 (PDF 1.2), and §12.3.2.4: each value is a destination array, or a dictionary whose <c>D</c> entry
     /// is one. Named destinations of PDF 1.1 (name keys) are in the catalog's own <c>Dests</c> dictionary instead.
     /// </remarks>
-    public PdfNameTree? Dests => GetTree(KnownNames.Dests);
+    public PdfNameTree? Dests => GetTree(NavigationNames.Dests);
 
     /// <summary>Gets the name tree under <paramref name="key"/>, or <see langword="null"/> when the entry is absent.</summary>
     /// <param name="key">The entry, for example <c>EmbeddedFiles</c> or <c>JavaScript</c>.</param>
