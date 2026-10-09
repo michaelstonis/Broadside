@@ -37,6 +37,7 @@ internal static class FuzzTargets
         ["decrypt"] = Decrypt,
         ["mac-token"] = MacToken,
         ["public-key"] = PublicKey.Target,
+        ["structure-tree"] = StructureTree.Target,
     };
 
     private static readonly CosName ContentsKey = new("Contents");

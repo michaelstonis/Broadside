@@ -1291,6 +1291,67 @@ def gen_metadata_xmp() -> bytes:
     ], trailer_extra=b" /Info 5 0 R")
 
 
+def gen_tagged_structure() -> bytes:
+    """14.6 marked content, 14.7 logical structure and 14.8 tagged PDF: a heading, a paragraph with a
+    Link annotation (OBJR, StructParent), a two-item list and a two-by-two table, all as MCIDs 0..9 on
+    one page (StructParents 0), plus a pagination artifact outside the tree. ParentTree (14.7.5.4),
+    IDTree, RoleMap (Para -> P in the default 1.7 namespace), ClassMap with C and A on the heading
+    (14.7.6.2: A wins), namespaces (14.7.4) PDF 2.0 and a custom one whose RoleMapNS maps Chapter to
+    [/Sect <2.0>] (14.8.6.2), and one marked-content reference dictionary (Table 357) for MCID 9."""
+    content = b"\n".join([
+        b"/Artifact <</Type /Pagination /Subtype /PageNum>> BDC BT /F1 10 Tf 300 40 Td (1) Tj ET EMC",
+        b"/H1 <</MCID 0>> BDC BT /F1 24 Tf 72 720 Td (Broadside) Tj ET EMC",
+        b"/P <</MCID 1>> BDC BT /F1 12 Tf 72 690 Td (A paragraph with a link.) Tj ET EMC",
+        b"/Lbl <</MCID 2>> BDC BT /F1 12 Tf 72 660 Td (1.) Tj ET EMC",
+        b"/LBody <</MCID 3>> BDC BT /F1 12 Tf 96 660 Td (First item) Tj ET EMC",
+        b"/Lbl <</MCID 4>> BDC BT /F1 12 Tf 72 645 Td (2.) Tj ET EMC",
+        b"/LBody <</MCID 5>> BDC BT /F1 12 Tf 96 645 Td (Second item) Tj ET EMC",
+        b"/TH <</MCID 6>> BDC BT /F1 12 Tf 72 610 Td (Name) Tj ET EMC",
+        b"/TH <</MCID 7>> BDC BT /F1 12 Tf 200 610 Td (Value) Tj ET EMC",
+        b"/TD <</MCID 8>> BDC BT /F1 12 Tf 72 595 Td (Alpha) Tj ET EMC",
+        b"/TD <</MCID 9>> BDC BT /F1 12 Tf 200 595 Td (1) Tj ET EMC",
+    ])
+    ns20 = b"/NS 7 0 R"
+    id0 = file_id("tagged-structure").hex().encode()
+
+    def elem(s: bytes, parent: int, extra: bytes) -> bytes:
+        return b"<< /Type /StructElem /S /%s /P %d 0 R %s >>" % (s, parent, extra)
+
+    return simple_file([
+        (1, catalog(b" /MarkInfo << /Marked true >> /StructTreeRoot 10 0 R /Lang (en-US)")),
+        (2, pages()),
+        (3, page(contents=4, font=6, extra=b" /StructParents 0 /Tabs /S /Annots [5 0 R]")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Annot /Subtype /Link /Rect [72 686 240 702] /Border [0 0 0] "
+            b"/A << /S /URI /URI (https://example.com/) >> /StructParent 1 >>"),
+        (6, HELVETICA),
+        (7, b"<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>"),
+        (8, b"<< /Type /Namespace /NS (https://example.com/broadside-corpus) /RoleMapNS << /Chapter [/Sect 7 0 R] >> >>"),
+        (10, b"<< /Type /StructTreeRoot /K [11 0 R] "
+             b"/ParentTree << /Nums [0 [13 0 R 14 0 R 17 0 R 18 0 R 20 0 R 21 0 R 24 0 R 25 0 R 27 0 R 28 0 R] 1 14 0 R] >> "
+             b"/ParentTreeNextKey 2 /IDTree << /Names [(h1) 24 0 R (tbl1) 22 0 R] >> /RoleMap << /Para /P >> "
+             b"/ClassMap << /Centered << /O /Layout /TextAlign /Center /SpaceAfter 6 >> >> /Namespaces [7 0 R 8 0 R] >>"),
+        (11, elem(b"Document", 10, ns20 + b" /K [12 0 R]")),
+        (12, elem(b"Chapter", 11, b"/NS 8 0 R /T (Chapter 1) /K [13 0 R 14 0 R 15 0 R 22 0 R]")),
+        (13, elem(b"H1", 12, ns20 + b" /Pg 3 0 R /K 0 /C /Centered /A << /O /Layout /SpaceAfter 12 >>")),
+        (14, elem(b"Para", 12, b"/Pg 3 0 R /K [1 << /Type /OBJR /Obj 5 0 R >>] /A << /O /Layout /TextAlign /Justify >>")),
+        (15, elem(b"L", 12, ns20 + b" /A << /O /List /ListNumbering /Decimal >> /K [16 0 R 19 0 R]")),
+        (16, elem(b"LI", 15, ns20 + b" /K [17 0 R 18 0 R]")),
+        (17, elem(b"Lbl", 16, ns20 + b" /Pg 3 0 R /K 2")),
+        (18, elem(b"LBody", 16, ns20 + b" /Pg 3 0 R /K 3")),
+        (19, elem(b"LI", 15, ns20 + b" /K [20 0 R 21 0 R]")),
+        (20, elem(b"Lbl", 19, ns20 + b" /Pg 3 0 R /K 4")),
+        (21, elem(b"LBody", 19, ns20 + b" /Pg 3 0 R /K 5")),
+        (22, elem(b"Table", 12, ns20 + b" /ID (tbl1) /A << /O /Table /Summary (Names and values) >> /K [23 0 R 26 0 R]")),
+        (23, elem(b"TR", 22, ns20 + b" /K [24 0 R 25 0 R]")),
+        (24, elem(b"TH", 23, ns20 + b" /ID (h1) /Pg 3 0 R /K 6 /A [<< /O /Table /Scope /Column >> 0]")),
+        (25, elem(b"TH", 23, ns20 + b" /Pg 3 0 R /K 7")),
+        (26, elem(b"TR", 22, ns20 + b" /K [27 0 R 28 0 R]")),
+        (27, elem(b"TD", 26, ns20 + b" /Pg 3 0 R /K 8 /A << /O /Table /Headers [(h1)] >>")),
+        (28, elem(b"TD", 26, ns20 + b" /K << /Type /MCR /MCID 9 /Pg 3 0 R >>")),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -1337,6 +1398,7 @@ FILES = {
     "name-tree-deep.pdf": gen_name_tree_deep,
     "number-tree-deep.pdf": gen_number_tree_deep,
     "name-tree-broken.pdf": gen_name_tree_broken,
+    "tagged-structure.pdf": gen_tagged_structure,
 }
 
 

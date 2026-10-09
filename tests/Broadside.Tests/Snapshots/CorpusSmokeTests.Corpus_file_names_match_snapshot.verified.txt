@@ -40,6 +40,7 @@
   png-predictor.pdf,
   runlength-stream.pdf,
   startxref-wrong.pdf,
+  tagged-structure.pdf,
   text-standard14.pdf,
   text-truetype-embedded.pdf,
   wrong-stream-length.pdf,

@@ -6,6 +6,7 @@ using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
 using Broadside.Security;
+using Broadside.Structure;
 using Broadside.Writing;
 
 namespace Broadside;
@@ -57,6 +58,7 @@ public sealed class PdfDocument : IDisposable
     private readonly StreamDecoder _streams;
     private readonly ConditionalWeakTable<CosDictionary, NameTreeReader> _nameTrees = [];
     private readonly ConditionalWeakTable<CosDictionary, NumberTreeReader> _numberTrees = [];
+    private StructureContext? _structure;
 
     private PdfDocument(
         PdfSource source,
@@ -185,6 +187,54 @@ public sealed class PdfDocument : IDisposable
     /// </summary>
     /// <remarks>ISO 32000-2 §7.6.4.2, Table 22, and §7.6.5.2, Table 24. Readers are expected to respect them; PDF does not enforce them.</remarks>
     public PdfPermissions Permissions => Security?.Permissions ?? PdfPermissions.All;
+
+    /// <summary>Gets the document's mark information: whether it is a tagged PDF (<see cref="PdfMarkInfo.Marked"/>) and which conventions it uses.</summary>
+    /// <remarks>ISO 32000-2 §7.7.2, Table 29 (<c>MarkInfo</c>), §14.7.1, Table 353. Never <see langword="null"/>: without the dictionary every flag is false.</remarks>
+    public PdfMarkInfo MarkInfo => new(this);
+
+    /// <summary>Gets the root of the document's structure tree, or <see langword="null"/> when the document has none.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.2, Table 29 (<c>StructTreeRoot</c>), §14.7.2. Read when first asked for; an untagged document has no structure
+    /// tree and no diagnostic. A <c>StructTreeRoot</c> that is not a dictionary is ignored with a <c>StructTreeRootInvalid</c> diagnostic.
+    /// The views share indexes built on first use (see <see cref="PdfStructureTreeRoot"/>); they are rebuilt when the catalog's
+    /// <c>StructTreeRoot</c> entry is replaced.
+    /// </remarks>
+    public PdfStructureTreeRoot? StructureTree
+    {
+        get
+        {
+            if (!Catalog.TryGetValue(StructureNames.StructTreeRoot, out CosObject? value))
+            {
+                return null;
+            }
+
+            CosReference? reference = value as CosReference;
+            if (Resolve(value) is not CosDictionary root)
+            {
+                if (Resolve(value) is not CosNull)
+                {
+                    _diagnostics.Report(DiagnosticCodes.StructTreeRootInvalid, DiagnosticSeverity.Warning, "The catalog's StructTreeRoot is not a dictionary (Table 29); the document is read without a structure tree.", offset: null, reference);
+                }
+
+                return null;
+            }
+
+            StructureContext? current = Volatile.Read(ref _structure);
+            if (current is null || !ReferenceEquals(current.Root, root))
+            {
+                if (root.TryGetValue(KnownNames.Type, out CosObject? type) && !StructureNames.StructTreeRoot.Equals(Resolve(type)))
+                {
+                    _diagnostics.Report(DiagnosticCodes.StructTreeRootInvalid, DiagnosticSeverity.Warning, "The structure tree root's Type is not StructTreeRoot (Table 354); read as the root.", offset: null, reference);
+                }
+
+                var created = new StructureContext(this, root, reference);
+                StructureContext? previous = Interlocked.CompareExchange(ref _structure, created, current);
+                current = ReferenceEquals(previous, current) ? created : previous!;
+            }
+
+            return new PdfStructureTreeRoot(current);
+        }
+    }
 
     /// <summary>Gets the deviations found so far, in the order they were found. Empty for a well-formed file.</summary>
     /// <remarks>

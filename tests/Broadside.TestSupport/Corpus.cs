@@ -42,6 +42,7 @@ public static class Corpus
         "metadata-xmp.pdf",
         "name-tree-deep.pdf",
         "number-tree-deep.pdf",
+        "tagged-structure.pdf",
     ];
 
     private static readonly string[] Malformed =
