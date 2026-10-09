@@ -612,6 +612,91 @@ override Broadside.PdfPageRange.GetHashCode() -> int
 override Broadside.PdfPageRange.ToString() -> string!
 static Broadside.PdfPageRange.operator !=(Broadside.PdfPageRange left, Broadside.PdfPageRange right) -> bool
 static Broadside.PdfPageRange.operator ==(Broadside.PdfPageRange left, Broadside.PdfPageRange right) -> bool
+Broadside.Fonts.PdfFont
+Broadside.Fonts.PdfFont.BaseFont.get -> string?
+Broadside.Fonts.PdfFont.Descriptor.get -> Broadside.Fonts.PdfFontDescriptor?
+Broadside.Fonts.PdfFont.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Fonts.PdfFont.FontType.get -> Broadside.Fonts.PdfFontType
+Broadside.Fonts.PdfFont.IsEmbedded.get -> bool
+Broadside.Fonts.PdfFont.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Fonts.PdfFontDescriptor
+Broadside.Fonts.PdfFontDescriptor.Ascent.get -> double
+Broadside.Fonts.PdfFontDescriptor.AvgWidth.get -> double
+Broadside.Fonts.PdfFontDescriptor.CapHeight.get -> double
+Broadside.Fonts.PdfFontDescriptor.CharSet.get -> string?
+Broadside.Fonts.PdfFontDescriptor.Descent.get -> double
+Broadside.Fonts.PdfFontDescriptor.Dictionary.get -> Broadside.Objects.CosDictionary?
+Broadside.Fonts.PdfFontDescriptor.Flags.get -> Broadside.Fonts.PdfFontFlags
+Broadside.Fonts.PdfFontDescriptor.FontBBox.get -> Broadside.PdfRectangle
+Broadside.Fonts.PdfFontDescriptor.FontFamily.get -> string?
+Broadside.Fonts.PdfFontDescriptor.FontFile.get -> Broadside.Objects.CosStream?
+Broadside.Fonts.PdfFontDescriptor.FontFile2.get -> Broadside.Objects.CosStream?
+Broadside.Fonts.PdfFontDescriptor.FontFile3.get -> Broadside.Objects.CosStream?
+Broadside.Fonts.PdfFontDescriptor.FontName.get -> string?
+Broadside.Fonts.PdfFontDescriptor.FontStretch.get -> Broadside.Fonts.PdfFontStretch?
+Broadside.Fonts.PdfFontDescriptor.FontWeight.get -> int?
+Broadside.Fonts.PdfFontDescriptor.IsSynthesized.get -> bool
+Broadside.Fonts.PdfFontDescriptor.ItalicAngle.get -> double
+Broadside.Fonts.PdfFontDescriptor.Leading.get -> double
+Broadside.Fonts.PdfFontDescriptor.MaxWidth.get -> double
+Broadside.Fonts.PdfFontDescriptor.MissingWidth.get -> double
+Broadside.Fonts.PdfFontDescriptor.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Fonts.PdfFontDescriptor.StemH.get -> double
+Broadside.Fonts.PdfFontDescriptor.StemV.get -> double
+Broadside.Fonts.PdfFontDescriptor.XHeight.get -> double
+Broadside.Fonts.PdfFontFlags
+Broadside.Fonts.PdfFontFlags.AllCap = 65536 -> Broadside.Fonts.PdfFontFlags
+Broadside.Fonts.PdfFontFlags.FixedPitch = 1 -> Broadside.Fonts.PdfFontFlags
+Broadside.Fonts.PdfFontFlags.ForceBold = 262144 -> Broadside.Fonts.PdfFontFlags
+Broadside.Fonts.PdfFontFlags.Italic = 64 -> Broadside.Fonts.PdfFontFlags
+Broadside.Fonts.PdfFontFlags.None = 0 -> Broadside.Fonts.PdfFontFlags
+Broadside.Fonts.PdfFontFlags.Nonsymbolic = 32 -> Broadside.Fonts.PdfFontFlags
+Broadside.Fonts.PdfFontFlags.Script = 8 -> Broadside.Fonts.PdfFontFlags
+Broadside.Fonts.PdfFontFlags.Serif = 2 -> Broadside.Fonts.PdfFontFlags
+Broadside.Fonts.PdfFontFlags.SmallCap = 131072 -> Broadside.Fonts.PdfFontFlags
+Broadside.Fonts.PdfFontFlags.Symbolic = 4 -> Broadside.Fonts.PdfFontFlags
+Broadside.Fonts.PdfFontStretch
+Broadside.Fonts.PdfFontStretch.Condensed = 2 -> Broadside.Fonts.PdfFontStretch
+Broadside.Fonts.PdfFontStretch.Expanded = 6 -> Broadside.Fonts.PdfFontStretch
+Broadside.Fonts.PdfFontStretch.ExtraCondensed = 1 -> Broadside.Fonts.PdfFontStretch
+Broadside.Fonts.PdfFontStretch.ExtraExpanded = 7 -> Broadside.Fonts.PdfFontStretch
+Broadside.Fonts.PdfFontStretch.Normal = 4 -> Broadside.Fonts.PdfFontStretch
+Broadside.Fonts.PdfFontStretch.SemiCondensed = 3 -> Broadside.Fonts.PdfFontStretch
+Broadside.Fonts.PdfFontStretch.SemiExpanded = 5 -> Broadside.Fonts.PdfFontStretch
+Broadside.Fonts.PdfFontStretch.UltraCondensed = 0 -> Broadside.Fonts.PdfFontStretch
+Broadside.Fonts.PdfFontStretch.UltraExpanded = 8 -> Broadside.Fonts.PdfFontStretch
+Broadside.Fonts.PdfFontType
+Broadside.Fonts.PdfFontType.MMType1 = 1 -> Broadside.Fonts.PdfFontType
+Broadside.Fonts.PdfFontType.TrueType = 2 -> Broadside.Fonts.PdfFontType
+Broadside.Fonts.PdfFontType.Type0 = 4 -> Broadside.Fonts.PdfFontType
+Broadside.Fonts.PdfFontType.Type1 = 0 -> Broadside.Fonts.PdfFontType
+Broadside.Fonts.PdfFontType.Type3 = 3 -> Broadside.Fonts.PdfFontType
+Broadside.Fonts.PdfSimpleFont
+Broadside.Fonts.PdfSimpleFont.GetGlyphName(byte code) -> string!
+Broadside.Fonts.PdfSimpleFont.GetWidth(byte code) -> double
+Broadside.Fonts.PdfSimpleFont.Standard14.get -> Broadside.Fonts.Standard14Font?
+Broadside.Fonts.PdfTrueTypeFont
+Broadside.Fonts.PdfType0Font
+Broadside.Fonts.PdfType1Font
+Broadside.Fonts.PdfType1Font.IsMultipleMaster.get -> bool
+Broadside.Fonts.PdfType3Font
+Broadside.Fonts.Standard14Font
+Broadside.Fonts.Standard14Font.Courier = 0 -> Broadside.Fonts.Standard14Font
+Broadside.Fonts.Standard14Font.CourierBold = 1 -> Broadside.Fonts.Standard14Font
+Broadside.Fonts.Standard14Font.CourierBoldOblique = 3 -> Broadside.Fonts.Standard14Font
+Broadside.Fonts.Standard14Font.CourierOblique = 2 -> Broadside.Fonts.Standard14Font
+Broadside.Fonts.Standard14Font.Helvetica = 4 -> Broadside.Fonts.Standard14Font
+Broadside.Fonts.Standard14Font.HelveticaBold = 5 -> Broadside.Fonts.Standard14Font
+Broadside.Fonts.Standard14Font.HelveticaBoldOblique = 7 -> Broadside.Fonts.Standard14Font
+Broadside.Fonts.Standard14Font.HelveticaOblique = 6 -> Broadside.Fonts.Standard14Font
+Broadside.Fonts.Standard14Font.Symbol = 12 -> Broadside.Fonts.Standard14Font
+Broadside.Fonts.Standard14Font.TimesBold = 9 -> Broadside.Fonts.Standard14Font
+Broadside.Fonts.Standard14Font.TimesBoldItalic = 11 -> Broadside.Fonts.Standard14Font
+Broadside.Fonts.Standard14Font.TimesItalic = 10 -> Broadside.Fonts.Standard14Font
+Broadside.Fonts.Standard14Font.TimesRoman = 8 -> Broadside.Fonts.Standard14Font
+Broadside.Fonts.Standard14Font.ZapfDingbats = 13 -> Broadside.Fonts.Standard14Font
+Broadside.PdfDocument.GetFont(Broadside.Objects.CosObject? font) -> Broadside.Fonts.PdfFont?
+Broadside.PdfPage.GetFont(string! resourceName) -> Broadside.Fonts.PdfFont?
 Broadside.PdfDocument.GetNameTree(Broadside.Objects.CosObject? root) -> Broadside.PdfNameTree?
 Broadside.PdfDocument.GetNumberTree(Broadside.Objects.CosObject? root) -> Broadside.PdfNumberTree?
 Broadside.PdfDocument.Names.get -> Broadside.PdfNameDictionary?

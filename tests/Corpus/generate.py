@@ -704,6 +704,96 @@ def gen_text_truetype_embedded() -> bytes:
     ], binary=True)
 
 
+def codes_content(lines: list[tuple[str, bytes]]) -> bytes:
+    """One text line per (font resource, codes); codes as a hexadecimal string so any byte can be shown."""
+    out = b"BT /%s 24 Tf 72 700 Td <%s> Tj" % (lines[0][0].encode(), lines[0][1].hex().upper().encode())
+    for font, codes in lines[1:]:
+        out += b" /%s 24 Tf 0 -36 Td <%s> Tj" % (font.encode(), codes.hex().upper().encode())
+    return out + b" ET"
+
+
+def font_file(fonts: list[bytes], codes: list[bytes], extra: list[tuple[int, bytes]] | None = None) -> bytes:
+    """A page showing ``codes[i]`` in font ``F{i+1}`` (object 5 + i); ``extra`` objects follow the fonts."""
+    refs = b" ".join(b"/F%d %d 0 R" % (i + 1, 5 + i) for i in range(len(fonts)))
+    objects = [
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << %s >> >> >>" % (LETTER, refs)),
+        (4, stream(b"", codes_content([("F%d" % (i + 1), c) for i, c in enumerate(codes)]))),
+    ]
+    objects += [(5 + i, body) for i, body in enumerate(fonts)]
+    objects += extra or []
+    return simple_file(objects)
+
+
+def std14(base_font: bytes, entries: bytes = b"", subtype: bytes = b"Type1") -> bytes:
+    """9.6.2.2: a non-embedded standard 14 font dictionary without FirstChar, LastChar, Widths or FontDescriptor."""
+    return b"<< /Type /Font /Subtype /%s /BaseFont /%s%s >>" % (subtype, base_font, b" " + entries if entries else b"")
+
+
+def gen_text_standard14_differences() -> bytes:
+    """9.6.5.1 Table 112: an encoding dictionary without BaseEncoding on a non-embedded nonsymbolic font differs from
+    StandardEncoding; codes 0x27 0x60 0x80 0x81 0xC8."""
+    enc = b"/Encoding << /Type /Encoding /Differences [39 /quotesingle 128 /Euro /bullet 200 /Adieresis] >>"
+    return font_file([std14(b"Helvetica", enc)], [b"\x27\x60\x80\x81\xc8"])
+
+
+def gen_text_standard14_winansi_quirks() -> bytes:
+    """Annex D.2 and its notes 1, 2, 3, 5, 6: the WinAnsiEncoding codes that differ from StandardEncoding or are
+    shared by two names."""
+    return font_file([HELVETICA], [b"\x27\x60\x7f\x81\x80\xa0\xad\x8e"])
+
+
+def gen_text_standard14_macroman() -> bytes:
+    """Annex D.2: MacRomanEncoding, its note 6 (0xCA space) and its differences from Mac OS Roman (9.6.5.4 Table 113:
+    0xDB is currency, 0xAD is unused)."""
+    return font_file([std14(b"Times-Roman", b"/Encoding /MacRomanEncoding")], [b"\x80\xca\xdb\xa5\xad"])
+
+
+def gen_text_standard14_symbol() -> bytes:
+    """9.6.5.1 and Annex D.5: the Symbol font's built-in encoding; F2 names WinAnsiEncoding, which a reader ignores for
+    the non-embedded symbolic font (as pdf.js does, issue16464)."""
+    return font_file([std14(b"Symbol"), std14(b"Symbol", b"/Encoding /WinAnsiEncoding")], [b"abg\xa0", b"abg\xa0"])
+
+
+def gen_text_standard14_symbol_differences() -> bytes:
+    """9.6.5.1 Table 112: without BaseEncoding the differences of a symbolic font apply to its built-in encoding,
+    so 0x61 stays alpha."""
+    enc = b"/Encoding << /Type /Encoding /Differences [66 /Gamma] >>"
+    return font_file([std14(b"Symbol", enc)], [b"aB"])
+
+
+def gen_text_standard14_zapfdingbats() -> bytes:
+    """Annex D.6: the ZapfDingbats built-in encoding, including 0x80-0x8D, which its AFM file encodes but Table D.6
+    does not list."""
+    return font_file([std14(b"ZapfDingbats")], [b"\x21\x6c\x80\x8d"])
+
+
+def gen_text_standard14_widths() -> bytes:
+    """9.6.2.1 Table 109: a standard 14 font with all four of FirstChar, LastChar, Widths and FontDescriptor; the
+    Widths override the font's metrics and other codes take MissingWidth (9.8.1 Table 120)."""
+    font = std14(b"Courier", b"/FirstChar 65 /LastChar 66 /Widths [500 700] /Encoding /WinAnsiEncoding /FontDescriptor 6 0 R")
+    descriptor = (b"<< /Type /FontDescriptor /FontName /Courier /Flags 33 /FontBBox [-23 -250 715 805] /ItalicAngle 0 "
+                  b"/Ascent 629 /Descent -157 /CapHeight 562 /XHeight 426 /StemV 51 /StemH 51 /MissingWidth 777 >>")
+    return font_file([font], [b"ABC"], [(6, descriptor)])
+
+
+def gen_text_standard14_alias() -> bytes:
+    """9.6.2.2 and 9.6.3: a non-embedded TrueType font named /Arial,Bold, which readers take as Helvetica-Bold
+    (PDFBox Standard14Fonts, pdf.js getStdFontMap)."""
+    return font_file([std14(b"Arial,Bold", b"/Encoding /WinAnsiEncoding", subtype=b"TrueType")], [b"Hi!"])
+
+
+def gen_text_type1_symbolic_noencoding() -> bytes:
+    """9.6.5.1 and 9.8.2: a non-embedded symbolic Type 1 font that is not a standard 14 font and has no Encoding; its
+    built-in encoding is unknown without its program, and its widths come from Widths."""
+    font = (b"<< /Type /Font /Subtype /Type1 /BaseFont /BroadsideSymbolic /FirstChar 65 /LastChar 67 "
+            b"/Widths [600 650 700] /FontDescriptor 6 0 R >>")
+    descriptor = (b"<< /Type /FontDescriptor /FontName /BroadsideSymbolic /Flags 4 /FontBBox [0 -200 1000 800] "
+                  b"/ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 >>")
+    return font_file([font], [b"ABC"], [(6, descriptor)])
+
+
 def gen_xref_stream() -> bytes:
     f = File("1.5", binary=True)
     f.add(1, catalog())
@@ -1395,6 +1485,15 @@ FILES = {
     "pdf20-header.pdf": gen_pdf20_header,
     "text-standard14.pdf": gen_text_standard14,
     "text-truetype-embedded.pdf": gen_text_truetype_embedded,
+    "text-standard14-differences.pdf": gen_text_standard14_differences,
+    "text-standard14-winansi-quirks.pdf": gen_text_standard14_winansi_quirks,
+    "text-standard14-macroman.pdf": gen_text_standard14_macroman,
+    "text-standard14-symbol.pdf": gen_text_standard14_symbol,
+    "text-standard14-symbol-differences.pdf": gen_text_standard14_symbol_differences,
+    "text-standard14-zapfdingbats.pdf": gen_text_standard14_zapfdingbats,
+    "text-standard14-widths.pdf": gen_text_standard14_widths,
+    "text-standard14-alias.pdf": gen_text_standard14_alias,
+    "text-type1-symbolic-noencoding.pdf": gen_text_type1_symbolic_noencoding,
     "xref-stream.pdf": gen_xref_stream,
     "object-stream.pdf": gen_object_stream,
     "incremental-update.pdf": gen_incremental_update,

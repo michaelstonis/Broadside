@@ -1,6 +1,7 @@
 using System.Buffers;
 using Broadside.Diagnostics;
 using Broadside.Filters;
+using Broadside.Fonts;
 using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -42,6 +43,7 @@ internal static class FuzzTargets
     };
 
     private static readonly CosName ContentsKey = new("Contents");
+    private static readonly CosName FontKey = new("Font");
     private static readonly CosName InfoKey = new("Info");
 
     /// <summary>
@@ -94,10 +96,41 @@ internal static class FuzzTargets
                 throw new InvalidOperationException($"Rotation {page.Rotation} or user unit {page.UserUnit} is out of range.");
             }
 
-            _ = page.Resources;
+            ReadFonts(document, page);
             if (page.Dictionary.TryGetValue(ContentsKey, out CosObject? contents) && document.Resolve(contents) is CosStream stream)
             {
                 _ = document.DecodeStream(stream);
+            }
+        }
+    }
+
+    /// <summary>Reads every font of a page's resources through the font model (#49): each simple font's 256 names and widths, and its descriptor.</summary>
+    private static void ReadFonts(PdfDocument document, PdfPage page)
+    {
+        if (page.Resources is not { } resources
+            || !resources.TryGetValue(FontKey, out CosObject? value)
+            || document.Resolve(value) is not CosDictionary fonts)
+        {
+            return;
+        }
+
+        foreach (KeyValuePair<CosName, CosObject> entry in fonts)
+        {
+            PdfFont? font = document.GetFont(entry.Value);
+            if (font?.Descriptor is { } descriptor)
+            {
+                _ = (descriptor.Flags, descriptor.FontBBox, descriptor.FontStretch, descriptor.FontWeight, descriptor.MissingWidth, descriptor.FontFamily);
+            }
+
+            if (font is PdfSimpleFont simple)
+            {
+                for (int code = 0; code < 256; code++)
+                {
+                    if (simple.GetGlyphName((byte)code) is not { Length: > 0 } || !double.IsFinite(simple.GetWidth((byte)code)))
+                    {
+                        throw new InvalidOperationException($"Code {code} of font {entry.Key.Value} has no glyph name or a width that is not finite.");
+                    }
+                }
             }
         }
     }
