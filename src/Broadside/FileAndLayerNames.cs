@@ -34,6 +34,7 @@ internal static class FileAndLayerNames
     public static readonly CosName CheckSum = new("CheckSum");
     public static readonly CosName Unspecified = new("Unspecified");
     public static readonly CosName EmbeddedFile = new("EmbeddedFile");
+    public static readonly CosName EmbeddedFiles = new("EmbeddedFiles");
 
     // Associated files and metadata (§14.13, §14.3.2).
     public static readonly CosName AF = new("AF");

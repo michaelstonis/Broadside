@@ -78,6 +78,7 @@ Broadside.PdfCollectionItemValue.Data.get -> Broadside.Objects.CosObject!
 Broadside.PdfCollectionItemValue.Number.get -> double?
 Broadside.PdfCollectionItemValue.Prefix.get -> string?
 Broadside.PdfCollectionItemValue.Text.get -> string?
+Broadside.PdfDocument.EmbeddedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfEmbeddedFileEntry!>!
 Broadside.PdfDocument.GetFileSpecification(Broadside.Objects.CosObject? value) -> Broadside.PdfFileSpecification?
 Broadside.PdfDocument.OptionalContent.get -> Broadside.PdfOptionalContentProperties?
 Broadside.PdfEmbeddedFile
@@ -89,6 +90,12 @@ Broadside.PdfEmbeddedFile.Reference.get -> Broadside.Objects.CosReference?
 Broadside.PdfEmbeddedFile.Stream.get -> Broadside.Objects.CosStream!
 Broadside.PdfEmbeddedFile.Subtype.get -> string?
 Broadside.PdfEmbeddedFile.VerifyCheckSum() -> Broadside.PdfCheckSumStatus
+Broadside.PdfEmbeddedFileEntry
+Broadside.PdfEmbeddedFileEntry.File.get -> Broadside.PdfFileSpecification!
+Broadside.PdfEmbeddedFileEntry.FileName.get -> string!
+Broadside.PdfEmbeddedFileEntry.FolderId.get -> int?
+Broadside.PdfEmbeddedFileEntry.Key.get -> Broadside.Objects.CosString!
+Broadside.PdfEmbeddedFileEntry.Name.get -> string!
 Broadside.PdfEmbeddedFileParameters
 Broadside.PdfEmbeddedFileParameters.CheckSum.get -> System.ReadOnlyMemory<byte>?
 Broadside.PdfEmbeddedFileParameters.CreationDate.get -> Broadside.Objects.CosString?
@@ -127,6 +134,7 @@ Broadside.PdfFileSpecification.RelationshipName.get -> Broadside.Objects.CosName
 Broadside.PdfFileSpecification.SafeFileName.get -> string?
 Broadside.PdfFileSpecification.Thumbnail.get -> Broadside.Objects.CosStream?
 Broadside.PdfFileSpecification.Value.get -> Broadside.Objects.CosObject!
+Broadside.PdfNameDictionary.EmbeddedFiles.get -> Broadside.PdfNameTree?
 Broadside.PdfOptionalContentBaseState
 Broadside.PdfOptionalContentBaseState.Off = 1 -> Broadside.PdfOptionalContentBaseState
 Broadside.PdfOptionalContentBaseState.On = 0 -> Broadside.PdfOptionalContentBaseState
@@ -261,6 +269,7 @@ override Broadside.Objects.CosReference.GetHashCode() -> int
 override Broadside.Objects.CosStream.IsDirty.get -> bool
 override Broadside.Objects.CosString.Equals(object? obj) -> bool
 override Broadside.Objects.CosString.GetHashCode() -> int
+override Broadside.PdfEmbeddedFileEntry.ToString() -> string!
 override Broadside.PdfOptionalContentConfiguration.ToString() -> string!
 override Broadside.PdfOptionalContentGroup.ToString() -> string!
 override Broadside.PdfOptionalContentOrderItem.ToString() -> string!
@@ -585,3 +594,25 @@ Broadside.Security.PublicKeySecurityHandler.Filter.get -> Broadside.Objects.CosN
 Broadside.Security.PublicKeySecurityHandler.PublicKeySecurityHandler() -> void
 Broadside.Security.PublicKeySecurityHandler.SubFilters.get -> System.Collections.Generic.IReadOnlyCollection<Broadside.Objects.CosName!>!
 override Broadside.Security.PdfCertificateCredentials.ToString() -> string!
+Broadside.PdfDocument.GetNameTree(Broadside.Objects.CosObject? root) -> Broadside.PdfNameTree?
+Broadside.PdfDocument.GetNumberTree(Broadside.Objects.CosObject? root) -> Broadside.PdfNumberTree?
+Broadside.PdfDocument.Names.get -> Broadside.PdfNameDictionary?
+Broadside.PdfNameDictionary
+Broadside.PdfNameDictionary.Dests.get -> Broadside.PdfNameTree?
+Broadside.PdfNameDictionary.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfNameDictionary.GetTree(Broadside.Objects.CosName! key) -> Broadside.PdfNameTree?
+Broadside.PdfNameTree
+Broadside.PdfNameTree.ContainsKey(Broadside.Objects.CosString! key) -> bool
+Broadside.PdfNameTree.GetEnumerator() -> System.Collections.Generic.IEnumerator<System.Collections.Generic.KeyValuePair<Broadside.Objects.CosString!, Broadside.Objects.CosObject!>>!
+Broadside.PdfNameTree.Root.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfNameTree.RootReference.get -> Broadside.Objects.CosReference?
+Broadside.PdfNameTree.TryGetValue(Broadside.Objects.CosString! key, out Broadside.Objects.CosObject! value) -> bool
+Broadside.PdfNameTree.TryGetValue(string! key, out Broadside.Objects.CosObject! value) -> bool
+Broadside.PdfNameTree.TryGetValue(System.ReadOnlySpan<byte> key, out Broadside.Objects.CosObject! value) -> bool
+Broadside.PdfNumberTree
+Broadside.PdfNumberTree.ContainsKey(int key) -> bool
+Broadside.PdfNumberTree.GetEnumerator() -> System.Collections.Generic.IEnumerator<System.Collections.Generic.KeyValuePair<int, Broadside.Objects.CosObject!>>!
+Broadside.PdfNumberTree.Root.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfNumberTree.RootReference.get -> Broadside.Objects.CosReference?
+Broadside.PdfNumberTree.TryGetFloor(int key, out int floorKey, out Broadside.Objects.CosObject! value) -> bool
+Broadside.PdfNumberTree.TryGetValue(int key, out Broadside.Objects.CosObject! value) -> bool

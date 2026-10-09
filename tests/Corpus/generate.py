@@ -1185,6 +1185,91 @@ def gen_name_tree_dests() -> bytes:
     ])
 
 
+def tree_key(key: bytes) -> bytes:
+    """A name-tree key as a PDF string: literal when printable ASCII, hexadecimal otherwise (7.3.4)."""
+    if all(0x20 <= b < 0x7F and b not in b"()\\" for b in key):
+        return b"(" + key + b")"
+    return b"<" + key.hex().upper().encode() + b">"
+
+
+def build_tree(objects: list[tuple[int, bytes]], first_num: int, entries: list[tuple[bytes, bytes]],
+               fanouts: list[int], entries_key: bytes, key_bytes) -> int:
+    """7.9.6/7.9.7: lays sorted (key, value) pairs out as a balanced tree of indirect nodes, appended to
+    ``objects`` from ``first_num``. ``fanouts[0]`` pairs per leaf, then kids per node for each level up;
+    the root is written last, has only Kids and no Limits. Returns the root's object number."""
+    num = first_num
+    level = []  # (num, least key, greatest key)
+    for i in range(0, len(entries), fanouts[0]):
+        chunk = entries[i:i + fanouts[0]]
+        pairs = b" ".join(key_bytes(k) + b" " + v for k, v in chunk)
+        objects.append((num, b"<< /Limits [%s %s] /%s [%s] >>" % (
+            key_bytes(chunk[0][0]), key_bytes(chunk[-1][0]), entries_key, pairs)))
+        level.append((num, chunk[0][0], chunk[-1][0]))
+        num += 1
+    for fanout in fanouts[1:]:
+        upper = []
+        for i in range(0, len(level), fanout):
+            chunk = level[i:i + fanout]
+            kids = b" ".join(b"%d 0 R" % n for n, _, _ in chunk)
+            objects.append((num, b"<< /Limits [%s %s] /Kids [%s] >>" % (
+                key_bytes(chunk[0][1]), key_bytes(chunk[-1][2]), kids)))
+            upper.append((num, chunk[0][1], chunk[-1][2]))
+            num += 1
+        level = upper
+    objects.append((num, b"<< /Kids [%s] >>" % b" ".join(b"%d 0 R" % n for n, _, _ in level)))
+    return num
+
+
+def gen_name_tree_deep() -> bytes:
+    """7.9.6, Table 36; 12.3.2.4: a Dests name tree four levels deep (root, two intermediate levels,
+    leaves) holding 200 keys, sorted byte by byte: a key that is a prefix of another ((a) before (ab)),
+    PDFDocEncoding keys whose byte order differs from their text order (<18> breve sorts before (A);
+    <80> bullet before <E9> e-acute), and UTF-16BE keys with the BOM (<FEFF0061> also reads as "a").
+    Each value is [3 0 R /XYZ 0 i null] where i is the key's position in byte order."""
+    keys = [b"a", b"ab", b"\x18", b"\x80", b"\xe9", b"\xfe\xff\x00a", b"\xfe\xff\x00\xe9"]
+    keys += [b"n%03d" % i for i in range(1, 194)]
+    keys.sort()
+    entries = [(k, b"[3 0 R /XYZ 0 %d null]" % i) for i, k in enumerate(keys)]
+    objects = [(2, pages()), (3, page())]
+    root = build_tree(objects, 4, entries, [10, 4, 3], b"Names", tree_key)
+    return simple_file([(1, catalog(b" /Names << /Dests %d 0 R >>" % root))] + objects)
+
+
+def gen_number_tree_deep() -> bytes:
+    """7.9.7, Table 37; 12.4.2: twelve pages whose /PageLabels number tree has three levels (root,
+    intermediate nodes, leaves) and nine keys, so a page between two keys takes the nearest lower key."""
+    labels = [(0, b"<< /S /r >>"), (1, b"<< /S /D >>"), (2, b"<< /S /D /St 10 >>"), (4, b"<< /P (A-) >>"),
+              (5, b"<< /S /A >>"), (7, b"<< /S /a /P (x) >>"), (8, b"<< /S /R /St 4 >>"),
+              (10, b"<< /S /D /P (B-) /St 1 >>"), (11, b"<< /S /D >>")]
+    objects: list[tuple[int, bytes]] = []
+    root = build_tree(objects, 3, [(str(k).encode(), v) for k, v in labels], [3, 2], b"Nums",
+                      lambda k: k)
+    first_page = root + 1
+    page_nums = list(range(first_page, first_page + 12))
+    return simple_file([(1, catalog(b" /PageLabels %d 0 R" % root)), (2, pages(page_nums))]
+                       + objects + [(n, page()) for n in page_nums])
+
+
+def gen_name_tree_broken() -> bytes:
+    """7.9.6, Table 36, broken six ways: leaf 7's Limits [(a) (c)] do not hold its key (d); leaf 8's
+    keys are not sorted ((f) before (e)); intermediate node 6 has no Limits; key (g) is in leaf 8 and
+    again in leaf 9; node 6's Kids list the root 4 (a cycle); leaf 9's Names array has an odd length
+    (a dangling key (i)). Every key still resolves."""
+    def dest(top: int) -> bytes:
+        return b"[3 0 R /XYZ 0 %d null]" % top
+    return simple_file([
+        (1, catalog(b" /Names << /Dests 4 0 R >>")),
+        (2, pages()),
+        (3, page()),
+        (4, b"<< /Kids [5 0 R 6 0 R] >>"),
+        (5, b"<< /Limits [(a) (g)] /Kids [7 0 R 8 0 R] >>"),
+        (6, b"<< /Kids [9 0 R 4 0 R] >>"),
+        (7, b"<< /Limits [(a) (c)] /Names [(a) %s (b) %s (d) %s] >>" % (dest(1), dest(2), dest(4))),
+        (8, b"<< /Limits [(e) (g)] /Names [(f) %s (e) %s (g) %s] >>" % (dest(6), dest(5), dest(7))),
+        (9, b"<< /Limits [(g) (i)] /Names [(g) %s (h) %s (i)] >>" % (dest(70), dest(8))),
+    ])
+
+
 XMP = (b'<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
        b'<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
        b' <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
@@ -1244,6 +1329,67 @@ def gen_optional_content() -> bytes:
     ])
 
 
+def utf16_text(text: str) -> bytes:
+    """7.9.2.2 text string as a hexadecimal string: FEFF byte order mark, then UTF-16BE."""
+    return b"<FEFF" + text.encode("utf-16-be").hex().upper().encode() + b">"
+
+
+def gen_embedded_files() -> bytes:
+    """7.11.3-7.11.4 and 7.7.4 EmbeddedFiles: two file specifications in the name tree. hello.txt has
+    Subtype text/plain and Params Size, CreationDate, ModDate and CheckSum (the MD5 of the data, Table 45);
+    data.csv has a non-ASCII UF, Desc, a Flate-encoded stream and one related file (RF, 7.11.4.2)."""
+    hello = b"Hello, world!"
+    csv = b"name,value\nalpha,1\nbeta,2\n"
+    return simple_file([
+        (1, catalog(b" /Names << /EmbeddedFiles 4 0 R >>")),
+        (2, pages()),
+        (3, page()),
+        (4, b"<< /Names [(data.csv) 5 0 R (hello.txt) 7 0 R] >>"),
+        (5, b"<< /Type /Filespec /F (data.csv) /UF " + utf16_text("d\u00e4t\u00e4.csv") + b" /Desc (Comma-separated data)"
+            b" /EF << /F 6 0 R /UF 6 0 R >> /RF << /F 9 0 R /UF 9 0 R >> >>"),
+        (6, stream(b"/Type /EmbeddedFile /Subtype /text#2Fcsv /Filter /FlateDecode /Params << /Size %d >>" % len(csv), flate(csv))),
+        (7, b"<< /Type /Filespec /F (hello.txt) /UF (hello.txt) /EF << /F 8 0 R /UF 8 0 R >> >>"),
+        (8, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain /Params << /Size %d /CreationDate (D:20240102030405Z)"
+                   b" /ModDate (D:20240607080910+02'00) /CheckSum <%s> >>" % (len(hello), hashlib.md5(hello).hexdigest().encode()),
+                   hello)),
+        (9, b"[(data.schema) 10 0 R]"),
+        (10, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain", b"name:text,value:int")),
+    ])
+
+
+def gen_collection_portfolio() -> bytes:
+    """12.3.5 portable collection: Collection with View D, initial document D, Schema (S, D, N, F, Size fields
+    with O, V and E), Sort (S array, short A array), Colors, Split and a Folders tree (root ID 0 with Free,
+    child ID 1); EmbeddedFiles keys <1>report.txt (in folder 1) and notes.txt (root folder); collection items
+    with a subitem (7.11.6, Tables 46 and 47)."""
+    collection = (b"<< /Type /Collection /View /D /D (notes.txt)"
+                  b" /Schema << /Type /CollectionSchema"
+                  b" /name << /Type /CollectionField /Subtype /S /N (Name) /O 0 >>"
+                  b" /date << /Type /CollectionField /Subtype /D /N (Date) /O 1 >>"
+                  b" /pages << /Type /CollectionField /Subtype /N /N (Pages) /O 2 /V false >>"
+                  b" /fname << /Type /CollectionField /Subtype /F /N (File) /O 3 /E true >>"
+                  b" /size << /Type /CollectionField /Subtype /Size /N (Size) /O 4 >> >>"
+                  b" /Sort << /Type /CollectionSort /S [/date /name] /A [false] >>"
+                  b" /Colors << /Background [1 1 1] /CardBackground [0.9 0.9 0.9] /CardBorder [0 0 0]"
+                  b" /PrimaryText [0 0 0] /SecondaryText [0.5 0.5 0.5] >>"
+                  b" /Split << /Direction /V /Position 30 >> /Folders 10 0 R >>")
+    return simple_file([
+        (1, catalog(b" /Names << /EmbeddedFiles << /Names [(<1>report.txt) 5 0 R (notes.txt) 7 0 R] >> >> /Collection 9 0 R")),
+        (2, pages()),
+        (3, page()),
+        (5, b"<< /Type /Filespec /F (report.txt) /UF (report.txt) /EF << /F 12 0 R >> /CI 6 0 R >>"),
+        (6, b"<< /Type /CollectionItem /name << /Type /CollectionSubitem /D (Quarterly report) /P (Q1: ) >>"
+            b" /date (D:20240301000000Z) /pages 3 >>"),
+        (7, b"<< /Type /Filespec /F (notes.txt) /UF (notes.txt) /EF << /F 13 0 R >> /CI 8 0 R >>"),
+        (8, b"<< /Type /CollectionItem /name (Notes) /pages 1 >>"),
+        (9, collection),
+        (10, b"<< /Type /Folder /ID 0 /Name (Portfolio) /Child 11 0 R /Free [2 10] >>"),
+        (11, b"<< /Type /Folder /ID 1 /Name (Reports) /Parent 10 0 R /Desc (Quarterly reports) >>"),
+        (12, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain", b"Revenue up.")),
+        (13, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain", b"Remember the milk.")),
+    ])
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -1287,7 +1433,12 @@ FILES = {
     "outline.pdf": gen_outline,
     "name-tree-dests.pdf": gen_name_tree_dests,
     "metadata-xmp.pdf": gen_metadata_xmp,
+    "name-tree-deep.pdf": gen_name_tree_deep,
+    "number-tree-deep.pdf": gen_number_tree_deep,
+    "name-tree-broken.pdf": gen_name_tree_broken,
     "optional-content.pdf": gen_optional_content,
+    "embedded-files.pdf": gen_embedded_files,
+    "collection-portfolio.pdf": gen_collection_portfolio,
 }
 
 
