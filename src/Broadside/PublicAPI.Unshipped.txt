@@ -7,6 +7,8 @@ abstract Broadside.Fonts.FontProgram.FontMatrix.get -> Broadside.Graphics.Matrix
 abstract Broadside.Fonts.FontProgram.Format.get -> Broadside.Fonts.FontProgramFormat
 abstract Broadside.Fonts.FontProgram.GetOutline(int glyphId, Broadside.Fonts.GlyphOutline! outline) -> Broadside.Fonts.GlyphOutlineStatus
 abstract Broadside.Fonts.FontProgram.GlyphCount.get -> int
+abstract Broadside.Graphics.PdfColorSpace.ComponentCount.get -> int
+abstract Broadside.Graphics.PdfColorSpace.Family.get -> Broadside.Graphics.PdfColorSpaceFamily
 abstract Broadside.Objects.CosNumber.ToDouble() -> double
 Broadside.Annotations.Pdf3DAnnotation
 Broadside.Annotations.Pdf3DAnnotation.Activation.get -> Broadside.Objects.CosDictionary?
@@ -329,6 +331,7 @@ Broadside.Annotations.PdfWidgetAnnotation
 Broadside.Annotations.PdfWidgetAnnotation.Action.get -> Broadside.PdfAction?
 Broadside.Annotations.PdfWidgetAnnotation.AdditionalActions.get -> Broadside.PdfAnnotationAdditionalActions?
 Broadside.Annotations.PdfWidgetAnnotation.AppearanceCharacteristics.get -> Broadside.Annotations.PdfAppearanceCharacteristics?
+Broadside.Annotations.PdfWidgetAnnotation.Field.get -> Broadside.Forms.PdfTerminalField?
 Broadside.Annotations.PdfWidgetAnnotation.HighlightMode.get -> Broadside.Annotations.PdfHighlightMode
 Broadside.Annotations.PdfWidgetAnnotation.Parent.get -> Broadside.Objects.CosDictionary?
 abstract Broadside.PdfAction.Kind.get -> Broadside.PdfActionKind
@@ -360,9 +363,12 @@ Broadside.Content.ContentContext
 Broadside.Content.ContentContext.CancellationToken.get -> System.Threading.CancellationToken
 Broadside.Content.ContentContext.CurrentPartIndex.get -> int
 Broadside.Content.ContentContext.CurrentStream.get -> Broadside.Objects.CosReference?
+Broadside.Content.ContentContext.DefaultColorSpaces.get -> Broadside.Graphics.PdfDefaultColorSpaces!
 Broadside.Content.ContentContext.Depth.get -> int
 Broadside.Content.ContentContext.Document.get -> Broadside.PdfDocument!
 Broadside.Content.ContentContext.GetClip(int handle) -> Broadside.Content.ClipView
+Broadside.Content.ContentContext.GetColorSpace(Broadside.Objects.CosObject! colorSpace) -> Broadside.Graphics.PdfColorSpace!
+Broadside.Content.ContentContext.GetInlineImageColorSpace(Broadside.Objects.CosObject! colorSpace) -> Broadside.Graphics.PdfColorSpace!
 Broadside.Content.ContentContext.IsHidden.get -> bool
 Broadside.Content.ContentContext.Page.get -> Broadside.PdfPage?
 Broadside.Content.ContentContext.Resources.get -> Broadside.Objects.CosDictionary?
@@ -657,6 +663,140 @@ Broadside.Fonts.CMapContext.MaxUseCMapDepth.get -> int
 Broadside.Fonts.CMapContext.MaxUseCMapDepth.init -> void
 Broadside.Fonts.CMapContext.ReadingMode.get -> Broadside.PdfReadingMode
 Broadside.Fonts.CMapContext.ReadingMode.init -> void
+Broadside.Forms.PdfAcroForm
+Broadside.Forms.PdfAcroForm.AllFields.get -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfField!>!
+Broadside.Forms.PdfAcroForm.CalculationOrder.get -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfField!>!
+Broadside.Forms.PdfAcroForm.DefaultAppearance.get -> string?
+Broadside.Forms.PdfAcroForm.DefaultResources.get -> Broadside.Objects.CosDictionary?
+Broadside.Forms.PdfAcroForm.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Forms.PdfAcroForm.Fields.get -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfField!>!
+Broadside.Forms.PdfAcroForm.FindField(Broadside.Objects.CosDictionary! dictionary) -> Broadside.Forms.PdfField?
+Broadside.Forms.PdfAcroForm.FindField(string! fullyQualifiedName) -> Broadside.Forms.PdfField?
+Broadside.Forms.PdfAcroForm.FindFields(Broadside.PdfActionTarget! target) -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfField!>!
+Broadside.Forms.PdfAcroForm.FindFields(string! fullyQualifiedName) -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfField!>!
+Broadside.Forms.PdfAcroForm.NeedAppearances.get -> bool
+Broadside.Forms.PdfAcroForm.Quadding.get -> Broadside.Annotations.PdfTextJustification
+Broadside.Forms.PdfAcroForm.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Forms.PdfAcroForm.SignatureFlags.get -> Broadside.Forms.PdfSignatureFlags
+Broadside.Forms.PdfAcroForm.TerminalFields.get -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfTerminalField!>!
+Broadside.Forms.PdfAcroForm.Xfa.get -> Broadside.Forms.PdfXfaForm?
+Broadside.Forms.PdfButtonField
+Broadside.Forms.PdfCheckBoxField
+Broadside.Forms.PdfCheckBoxField.IsChecked.get -> bool
+Broadside.Forms.PdfChoiceField
+Broadside.Forms.PdfChoiceField.DefaultValues.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.Forms.PdfChoiceField.IsCommitOnSelectionChange.get -> bool
+Broadside.Forms.PdfChoiceField.IsMultiSelect.get -> bool
+Broadside.Forms.PdfChoiceField.IsSort.get -> bool
+Broadside.Forms.PdfChoiceField.Options.get -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfChoiceOption!>!
+Broadside.Forms.PdfChoiceField.SelectedIndices.get -> System.Collections.Generic.IReadOnlyList<int>!
+Broadside.Forms.PdfChoiceField.StoredIndices.get -> System.Collections.Generic.IReadOnlyList<int>!
+Broadside.Forms.PdfChoiceField.TopIndex.get -> int
+Broadside.Forms.PdfChoiceField.Values.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.Forms.PdfChoiceOption
+Broadside.Forms.PdfChoiceOption.DisplayText.get -> string!
+Broadside.Forms.PdfChoiceOption.ExportValue.get -> string!
+Broadside.Forms.PdfComboBoxField
+Broadside.Forms.PdfComboBoxField.IsDoNotSpellCheck.get -> bool
+Broadside.Forms.PdfComboBoxField.IsEditable.get -> bool
+Broadside.Forms.PdfField
+Broadside.Forms.PdfField.AdditionalActions.get -> Broadside.PdfFieldAdditionalActions?
+Broadside.Forms.PdfField.AlternateName.get -> string?
+Broadside.Forms.PdfField.DefaultAppearance.get -> string?
+Broadside.Forms.PdfField.DefaultStyle.get -> string?
+Broadside.Forms.PdfField.DefaultValueObject.get -> Broadside.Objects.CosObject?
+Broadside.Forms.PdfField.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Forms.PdfField.FieldType.get -> Broadside.Forms.PdfFieldType
+Broadside.Forms.PdfField.FieldTypeName.get -> Broadside.Objects.CosName?
+Broadside.Forms.PdfField.Flags.get -> uint
+Broadside.Forms.PdfField.Form.get -> Broadside.Forms.PdfAcroForm!
+Broadside.Forms.PdfField.FullyQualifiedName.get -> string!
+Broadside.Forms.PdfField.IsNoExport.get -> bool
+Broadside.Forms.PdfField.IsReadOnly.get -> bool
+Broadside.Forms.PdfField.IsRequired.get -> bool
+Broadside.Forms.PdfField.Kind.get -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfField.MappingName.get -> string?
+Broadside.Forms.PdfField.Parent.get -> Broadside.Forms.PdfNonTerminalField?
+Broadside.Forms.PdfField.PartialName.get -> string!
+Broadside.Forms.PdfField.Quadding.get -> Broadside.Annotations.PdfTextJustification
+Broadside.Forms.PdfField.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Forms.PdfField.RichValue.get -> string?
+Broadside.Forms.PdfField.ValueObject.get -> Broadside.Objects.CosObject?
+Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.CheckBox = 4 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.ComboBox = 6 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.ListBox = 7 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.NonTerminal = 1 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.PushButton = 3 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.RadioButton = 5 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.Signature = 8 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.Text = 2 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldKind.Unknown = 0 -> Broadside.Forms.PdfFieldKind
+Broadside.Forms.PdfFieldType
+Broadside.Forms.PdfFieldType.Button = 1 -> Broadside.Forms.PdfFieldType
+Broadside.Forms.PdfFieldType.Choice = 3 -> Broadside.Forms.PdfFieldType
+Broadside.Forms.PdfFieldType.Signature = 4 -> Broadside.Forms.PdfFieldType
+Broadside.Forms.PdfFieldType.Text = 2 -> Broadside.Forms.PdfFieldType
+Broadside.Forms.PdfFieldType.Unknown = 0 -> Broadside.Forms.PdfFieldType
+Broadside.Forms.PdfListBoxField
+Broadside.Forms.PdfNonTerminalField
+Broadside.Forms.PdfNonTerminalField.Children.get -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfField!>!
+Broadside.Forms.PdfPushButtonField
+Broadside.Forms.PdfRadioButtonField
+Broadside.Forms.PdfRadioButtonField.IsNoToggleToOff.get -> bool
+Broadside.Forms.PdfRadioButtonField.IsRadiosInUnison.get -> bool
+Broadside.Forms.PdfSignatureField
+Broadside.Forms.PdfSignatureField.IsSigned.get -> bool
+Broadside.Forms.PdfSignatureField.IsVisible.get -> bool
+Broadside.Forms.PdfSignatureField.Lock.get -> Broadside.Forms.PdfSignatureFieldLock?
+Broadside.Forms.PdfSignatureField.SeedValue.get -> Broadside.Objects.CosDictionary?
+Broadside.Forms.PdfSignatureField.SignatureDictionary.get -> Broadside.Objects.CosDictionary?
+Broadside.Forms.PdfSignatureFieldLock
+Broadside.Forms.PdfSignatureFieldLock.Action.get -> Broadside.Forms.PdfSignatureFieldLockAction
+Broadside.Forms.PdfSignatureFieldLock.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Forms.PdfSignatureFieldLock.FieldNames.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.Forms.PdfSignatureFieldLock.Permissions.get -> int?
+Broadside.Forms.PdfSignatureFieldLockAction
+Broadside.Forms.PdfSignatureFieldLockAction.All = 1 -> Broadside.Forms.PdfSignatureFieldLockAction
+Broadside.Forms.PdfSignatureFieldLockAction.Exclude = 3 -> Broadside.Forms.PdfSignatureFieldLockAction
+Broadside.Forms.PdfSignatureFieldLockAction.Include = 2 -> Broadside.Forms.PdfSignatureFieldLockAction
+Broadside.Forms.PdfSignatureFieldLockAction.Unknown = 0 -> Broadside.Forms.PdfSignatureFieldLockAction
+Broadside.Forms.PdfSignatureFlags
+Broadside.Forms.PdfSignatureFlags.AppendOnly = 2 -> Broadside.Forms.PdfSignatureFlags
+Broadside.Forms.PdfSignatureFlags.None = 0 -> Broadside.Forms.PdfSignatureFlags
+Broadside.Forms.PdfSignatureFlags.SignaturesExist = 1 -> Broadside.Forms.PdfSignatureFlags
+Broadside.Forms.PdfTerminalField
+Broadside.Forms.PdfTerminalField.Widgets.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfWidgetAnnotation!>!
+Broadside.Forms.PdfTextField
+Broadside.Forms.PdfTextField.DefaultValue.get -> string?
+Broadside.Forms.PdfTextField.IsComb.get -> bool
+Broadside.Forms.PdfTextField.IsDoNotScroll.get -> bool
+Broadside.Forms.PdfTextField.IsDoNotSpellCheck.get -> bool
+Broadside.Forms.PdfTextField.IsFileSelect.get -> bool
+Broadside.Forms.PdfTextField.IsMultiline.get -> bool
+Broadside.Forms.PdfTextField.IsPassword.get -> bool
+Broadside.Forms.PdfTextField.IsRichText.get -> bool
+Broadside.Forms.PdfTextField.MaxLength.get -> int?
+Broadside.Forms.PdfTextField.Value.get -> string?
+Broadside.Forms.PdfToggleButtonField
+Broadside.Forms.PdfToggleButtonField.DefaultValue.get -> Broadside.Objects.CosName?
+Broadside.Forms.PdfToggleButtonField.ExportValue.get -> string?
+Broadside.Forms.PdfToggleButtonField.GetAppearanceState(Broadside.Annotations.PdfWidgetAnnotation! widget) -> Broadside.Objects.CosName!
+Broadside.Forms.PdfToggleButtonField.GetOnState(Broadside.Annotations.PdfWidgetAnnotation! widget) -> Broadside.Objects.CosName?
+Broadside.Forms.PdfToggleButtonField.GetWidgetExportValue(Broadside.Annotations.PdfWidgetAnnotation! widget) -> string?
+Broadside.Forms.PdfToggleButtonField.OnStateNames.get -> System.Collections.Generic.IReadOnlyList<Broadside.Objects.CosName!>!
+Broadside.Forms.PdfToggleButtonField.Options.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.Forms.PdfToggleButtonField.SelectedWidgets.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfWidgetAnnotation!>!
+Broadside.Forms.PdfToggleButtonField.Value.get -> Broadside.Objects.CosName!
+Broadside.Forms.PdfUnknownField
+Broadside.Forms.PdfXfaForm
+Broadside.Forms.PdfXfaForm.IsDynamic.get -> bool
+Broadside.Forms.PdfXfaForm.Packets.get -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfXfaPacket!>!
+Broadside.Forms.PdfXfaForm.Value.get -> Broadside.Objects.CosObject!
+Broadside.Forms.PdfXfaPacket
+Broadside.Forms.PdfXfaPacket.Name.get -> string?
+Broadside.Forms.PdfXfaPacket.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Forms.PdfXfaPacket.Stream.get -> Broadside.Objects.CosStream!
 Broadside.Fonts.FontCharacterMap
 Broadside.Fonts.FontCharacterMap.FontCharacterMap() -> void
 Broadside.Fonts.FontProgram
@@ -754,6 +894,10 @@ Broadside.Fonts.TrueType.TrueTypeFontProgramParser.TrueTypeFontProgramParser() -
 Broadside.Fonts.WritingMode
 Broadside.Fonts.WritingMode.Horizontal = 0 -> Broadside.Fonts.WritingMode
 Broadside.Fonts.WritingMode.Vertical = 1 -> Broadside.Fonts.WritingMode
+Broadside.Graphics.BlackPointCompensation
+Broadside.Graphics.BlackPointCompensation.Default = 0 -> Broadside.Graphics.BlackPointCompensation
+Broadside.Graphics.BlackPointCompensation.Off = 2 -> Broadside.Graphics.BlackPointCompensation
+Broadside.Graphics.BlackPointCompensation.On = 1 -> Broadside.Graphics.BlackPointCompensation
 Broadside.Graphics.BlendMode
 Broadside.Graphics.BlendMode.Color = 14 -> Broadside.Graphics.BlendMode
 Broadside.Graphics.BlendMode.ColorBurn = 7 -> Broadside.Graphics.BlendMode
@@ -771,11 +915,49 @@ Broadside.Graphics.BlendMode.Overlay = 3 -> Broadside.Graphics.BlendMode
 Broadside.Graphics.BlendMode.Saturation = 13 -> Broadside.Graphics.BlendMode
 Broadside.Graphics.BlendMode.Screen = 2 -> Broadside.Graphics.BlendMode
 Broadside.Graphics.BlendMode.SoftLight = 9 -> Broadside.Graphics.BlendMode
+Broadside.Graphics.CieXyz
+Broadside.Graphics.CieXyz.CieXyz() -> void
+Broadside.Graphics.CieXyz.CieXyz(double X, double Y, double Z) -> void
+Broadside.Graphics.CieXyz.X.get -> double
+Broadside.Graphics.CieXyz.X.init -> void
+Broadside.Graphics.CieXyz.Y.get -> double
+Broadside.Graphics.CieXyz.Y.init -> void
+Broadside.Graphics.CieXyz.Z.get -> double
+Broadside.Graphics.CieXyz.Z.init -> void
+Broadside.Graphics.CmykConversion
+Broadside.Graphics.CmykConversion.Characterized = 0 -> Broadside.Graphics.CmykConversion
+Broadside.Graphics.CmykConversion.Classic = 1 -> Broadside.Graphics.CmykConversion
+Broadside.Graphics.ColorConversion
+Broadside.Graphics.ColorConversion.BlackGeneration.get -> Broadside.Graphics.PdfFunction?
+Broadside.Graphics.ColorConversion.BlackGeneration.init -> void
+Broadside.Graphics.ColorConversion.BlackPointCompensation.get -> Broadside.Graphics.BlackPointCompensation
+Broadside.Graphics.ColorConversion.BlackPointCompensation.init -> void
+Broadside.Graphics.ColorConversion.ColorConversion() -> void
+Broadside.Graphics.ColorConversion.CompensatesBlackPoint.get -> bool
+Broadside.Graphics.ColorConversion.Intent.get -> Broadside.Graphics.RenderingIntent
+Broadside.Graphics.ColorConversion.Intent.init -> void
+Broadside.Graphics.ColorConversion.Target.get -> Broadside.Graphics.DeviceColorModel
+Broadside.Graphics.ColorConversion.Target.init -> void
+Broadside.Graphics.ColorConversion.UndercolorRemoval.get -> Broadside.Graphics.PdfFunction?
+Broadside.Graphics.ColorConversion.UndercolorRemoval.init -> void
+Broadside.Graphics.ComponentRange
+Broadside.Graphics.ComponentRange.Clamp(double value) -> double
+Broadside.Graphics.ComponentRange.ComponentRange() -> void
+Broadside.Graphics.ComponentRange.ComponentRange(double Minimum, double Maximum) -> void
+Broadside.Graphics.ComponentRange.Maximum.get -> double
+Broadside.Graphics.ComponentRange.Maximum.init -> void
+Broadside.Graphics.ComponentRange.Minimum.get -> double
+Broadside.Graphics.ComponentRange.Minimum.init -> void
+Broadside.Graphics.DeviceColorModel
+Broadside.Graphics.DeviceColorModel.Cmyk = 2 -> Broadside.Graphics.DeviceColorModel
+Broadside.Graphics.DeviceColorModel.Gray = 1 -> Broadside.Graphics.DeviceColorModel
+Broadside.Graphics.DeviceColorModel.Rgb = 0 -> Broadside.Graphics.DeviceColorModel
 Broadside.Graphics.FillRule
 Broadside.Graphics.FillRule.EvenOdd = 1 -> Broadside.Graphics.FillRule
 Broadside.Graphics.FillRule.NonZero = 0 -> Broadside.Graphics.FillRule
 Broadside.Graphics.GraphicsState
 Broadside.Graphics.GraphicsState.AlphaIsShape.get -> bool
+Broadside.Graphics.GraphicsState.BlackPointCompensation.get -> Broadside.Graphics.BlackPointCompensation
 Broadside.Graphics.GraphicsState.BlendMode.get -> Broadside.Graphics.BlendMode
 Broadside.Graphics.GraphicsState.CharacterSpacing.get -> double
 Broadside.Graphics.GraphicsState.ClipHandle.get -> int
@@ -783,6 +965,7 @@ Broadside.Graphics.GraphicsState.Ctm.get -> Broadside.Graphics.Matrix
 Broadside.Graphics.GraphicsState.DashArray.get -> System.ReadOnlySpan<double>
 Broadside.Graphics.GraphicsState.DashPhase.get -> double
 Broadside.Graphics.GraphicsState.FillAlpha.get -> double
+Broadside.Graphics.GraphicsState.FillColor.get -> Broadside.Graphics.PdfColor
 Broadside.Graphics.GraphicsState.FillOverprint.get -> bool
 Broadside.Graphics.GraphicsState.Flatness.get -> double
 Broadside.Graphics.GraphicsState.FontSize.get -> double
@@ -797,11 +980,29 @@ Broadside.Graphics.GraphicsState.OverprintMode.get -> int
 Broadside.Graphics.GraphicsState.RenderingIntent.get -> Broadside.Graphics.RenderingIntent
 Broadside.Graphics.GraphicsState.StrokeAdjustment.get -> bool
 Broadside.Graphics.GraphicsState.StrokeAlpha.get -> double
+Broadside.Graphics.GraphicsState.StrokeColor.get -> Broadside.Graphics.PdfColor
 Broadside.Graphics.GraphicsState.StrokeOverprint.get -> bool
 Broadside.Graphics.GraphicsState.TextKnockout.get -> bool
 Broadside.Graphics.GraphicsState.TextRenderingMode.get -> Broadside.Graphics.TextRenderingMode
 Broadside.Graphics.GraphicsState.TextRise.get -> double
 Broadside.Graphics.GraphicsState.WordSpacing.get -> double
+Broadside.Graphics.IccProfileHeader
+Broadside.Graphics.IccProfileHeader.ComponentCount.get -> int
+Broadside.Graphics.IccProfileHeader.ConnectionSpace.get -> string!
+Broadside.Graphics.IccProfileHeader.DataColorSpace.get -> string!
+Broadside.Graphics.IccProfileHeader.DeviceClass.get -> string!
+Broadside.Graphics.IccProfileHeader.Illuminant.get -> Broadside.Graphics.CieXyz
+Broadside.Graphics.IccProfileHeader.IsSupportedForPdf.get -> bool
+Broadside.Graphics.IccProfileHeader.PreferredCmm.get -> string!
+Broadside.Graphics.IccProfileHeader.ProfileSize.get -> long
+Broadside.Graphics.IccProfileHeader.RenderingIntent.get -> Broadside.Graphics.RenderingIntent
+Broadside.Graphics.IccProfileHeader.Version.get -> System.Version!
+Broadside.Graphics.IColorConverter
+Broadside.Graphics.IColorConverter.Convert(System.ReadOnlySpan<float> source, System.Span<float> destination, int count) -> void
+Broadside.Graphics.IColorConverter.InputCount.get -> int
+Broadside.Graphics.IColorConverter.OutputCount.get -> int
+Broadside.Graphics.IColorManagement
+Broadside.Graphics.IColorManagement.CreateConverter(Broadside.Graphics.PdfColorSpace! source, Broadside.Graphics.ColorConversion conversion) -> Broadside.Graphics.IColorConverter!
 Broadside.Graphics.LineCap
 Broadside.Graphics.LineCap.Butt = 0 -> Broadside.Graphics.LineCap
 Broadside.Graphics.LineCap.ProjectingSquare = 2 -> Broadside.Graphics.LineCap
@@ -810,6 +1011,10 @@ Broadside.Graphics.LineJoin
 Broadside.Graphics.LineJoin.Bevel = 2 -> Broadside.Graphics.LineJoin
 Broadside.Graphics.LineJoin.Miter = 0 -> Broadside.Graphics.LineJoin
 Broadside.Graphics.LineJoin.Round = 1 -> Broadside.Graphics.LineJoin
+Broadside.Graphics.ManagedColorManagement
+Broadside.Graphics.ManagedColorManagement.CmykConversion.get -> Broadside.Graphics.CmykConversion
+Broadside.Graphics.ManagedColorManagement.CreateConverter(Broadside.Graphics.PdfColorSpace! source, Broadside.Graphics.ColorConversion conversion) -> Broadside.Graphics.IColorConverter!
+Broadside.Graphics.ManagedColorManagement.ManagedColorManagement(Broadside.Graphics.CmykConversion cmykConversion = Broadside.Graphics.CmykConversion.Characterized) -> void
 Broadside.Graphics.Matrix
 Broadside.Graphics.Matrix.A.get -> double
 Broadside.Graphics.Matrix.B.get -> double
@@ -860,6 +1065,113 @@ Broadside.Graphics.PdfFormXObject.Resources.get -> Broadside.Objects.CosDictiona
 Broadside.Graphics.PdfFormXObject.Stream.get -> Broadside.Objects.CosStream!
 Broadside.Graphics.PdfFormXObject.StructParent.get -> int?
 Broadside.Graphics.PdfFormXObject.StructParents.get -> int?
+Broadside.Graphics.PdfCalGrayColorSpace
+Broadside.Graphics.PdfCalGrayColorSpace.BlackPoint.get -> Broadside.Graphics.CieXyz
+Broadside.Graphics.PdfCalGrayColorSpace.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Graphics.PdfCalGrayColorSpace.Gamma.get -> double
+Broadside.Graphics.PdfCalGrayColorSpace.WhitePoint.get -> Broadside.Graphics.CieXyz
+Broadside.Graphics.PdfCalRgbColorSpace
+Broadside.Graphics.PdfCalRgbColorSpace.BlackPoint.get -> Broadside.Graphics.CieXyz
+Broadside.Graphics.PdfCalRgbColorSpace.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Graphics.PdfCalRgbColorSpace.Gamma.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfCalRgbColorSpace.Matrix.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfCalRgbColorSpace.WhitePoint.get -> Broadside.Graphics.CieXyz
+Broadside.Graphics.PdfColor
+Broadside.Graphics.PdfColor.ColorSpace.get -> Broadside.Graphics.PdfColorSpace!
+Broadside.Graphics.PdfColor.ComponentCount.get -> int
+Broadside.Graphics.PdfColor.Components.get -> System.ReadOnlySpan<float>
+Broadside.Graphics.PdfColor.Equals(Broadside.Graphics.PdfColor other) -> bool
+Broadside.Graphics.PdfColor.Pattern.get -> Broadside.Objects.CosObject?
+Broadside.Graphics.PdfColor.PatternMatrix.get -> Broadside.Graphics.Matrix
+Broadside.Graphics.PdfColor.PatternName.get -> Broadside.Objects.CosName?
+Broadside.Graphics.PdfColor.PdfColor() -> void
+Broadside.Graphics.PdfColor.PdfColor(Broadside.Graphics.PdfColorSpace! colorSpace, System.ReadOnlySpan<float> components) -> void
+Broadside.Graphics.PdfColor.this[int index].get -> float
+Broadside.Graphics.PdfColorConverter
+Broadside.Graphics.PdfColorConverter.Conversion.get -> Broadside.Graphics.ColorConversion
+Broadside.Graphics.PdfColorConverter.Convert(in Broadside.Graphics.PdfColor color, System.Span<float> destination) -> void
+Broadside.Graphics.PdfColorConverter.Convert(System.ReadOnlySpan<byte> source, System.Span<byte> destination, int count) -> void
+Broadside.Graphics.PdfColorConverter.Convert(System.ReadOnlySpan<float> components, System.Span<float> destination) -> void
+Broadside.Graphics.PdfColorConverter.Convert(System.ReadOnlySpan<float> source, System.Span<float> destination, int count) -> void
+Broadside.Graphics.PdfColorConverter.InputCount.get -> int
+Broadside.Graphics.PdfColorConverter.OutputCount.get -> int
+Broadside.Graphics.PdfColorConverter.PaintsNothing.get -> bool
+Broadside.Graphics.PdfColorConverter.Source.get -> Broadside.Graphics.PdfColorSpace!
+Broadside.Graphics.PdfColorSpace
+Broadside.Graphics.PdfColorSpace.CosObject.get -> Broadside.Objects.CosObject!
+Broadside.Graphics.PdfColorSpace.GetComponentRange(int index) -> Broadside.Graphics.ComponentRange
+Broadside.Graphics.PdfColorSpace.GetDefaultDecode(int bitsPerComponent) -> double[]!
+Broadside.Graphics.PdfColorSpace.GetInitialColor() -> Broadside.Graphics.PdfColor
+Broadside.Graphics.PdfColorSpace.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Graphics.PdfColorSpaceFamily
+Broadside.Graphics.PdfColorSpaceFamily.CalGray = 3 -> Broadside.Graphics.PdfColorSpaceFamily
+Broadside.Graphics.PdfColorSpaceFamily.CalRgb = 4 -> Broadside.Graphics.PdfColorSpaceFamily
+Broadside.Graphics.PdfColorSpaceFamily.DeviceCmyk = 2 -> Broadside.Graphics.PdfColorSpaceFamily
+Broadside.Graphics.PdfColorSpaceFamily.DeviceGray = 0 -> Broadside.Graphics.PdfColorSpaceFamily
+Broadside.Graphics.PdfColorSpaceFamily.DeviceN = 10 -> Broadside.Graphics.PdfColorSpaceFamily
+Broadside.Graphics.PdfColorSpaceFamily.DeviceRgb = 1 -> Broadside.Graphics.PdfColorSpaceFamily
+Broadside.Graphics.PdfColorSpaceFamily.IccBased = 6 -> Broadside.Graphics.PdfColorSpaceFamily
+Broadside.Graphics.PdfColorSpaceFamily.Indexed = 7 -> Broadside.Graphics.PdfColorSpaceFamily
+Broadside.Graphics.PdfColorSpaceFamily.Lab = 5 -> Broadside.Graphics.PdfColorSpaceFamily
+Broadside.Graphics.PdfColorSpaceFamily.Pattern = 8 -> Broadside.Graphics.PdfColorSpaceFamily
+Broadside.Graphics.PdfColorSpaceFamily.Separation = 9 -> Broadside.Graphics.PdfColorSpaceFamily
+Broadside.Graphics.PdfDefaultColorSpaces
+Broadside.Graphics.PdfDefaultColorSpaces.Cmyk.get -> Broadside.Graphics.PdfColorSpace?
+Broadside.Graphics.PdfDefaultColorSpaces.Gray.get -> Broadside.Graphics.PdfColorSpace?
+Broadside.Graphics.PdfDefaultColorSpaces.IsEmpty.get -> bool
+Broadside.Graphics.PdfDefaultColorSpaces.Remap(Broadside.Graphics.PdfColorSpace! colorSpace) -> Broadside.Graphics.PdfColorSpace!
+Broadside.Graphics.PdfDefaultColorSpaces.Rgb.get -> Broadside.Graphics.PdfColorSpace?
+Broadside.Graphics.PdfDeviceCmykColorSpace
+Broadside.Graphics.PdfDeviceGrayColorSpace
+Broadside.Graphics.PdfDeviceNAttributes
+Broadside.Graphics.PdfDeviceNAttributes.Colorants.get -> System.Collections.Generic.IReadOnlyDictionary<Broadside.Objects.CosName!, Broadside.Graphics.PdfColorSpace!>!
+Broadside.Graphics.PdfDeviceNAttributes.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Graphics.PdfDeviceNAttributes.IsNChannel.get -> bool
+Broadside.Graphics.PdfDeviceNAttributes.MixingHints.get -> Broadside.Graphics.PdfDeviceNMixingHints?
+Broadside.Graphics.PdfDeviceNAttributes.Process.get -> Broadside.Graphics.PdfDeviceNProcess?
+Broadside.Graphics.PdfDeviceNAttributes.Subtype.get -> Broadside.Objects.CosName!
+Broadside.Graphics.PdfDeviceNColorSpace
+Broadside.Graphics.PdfDeviceNColorSpace.Alternate.get -> Broadside.Graphics.PdfColorSpace!
+Broadside.Graphics.PdfDeviceNColorSpace.AreAllNone.get -> bool
+Broadside.Graphics.PdfDeviceNColorSpace.Attributes.get -> Broadside.Graphics.PdfDeviceNAttributes?
+Broadside.Graphics.PdfDeviceNColorSpace.ColorantNames.get -> System.Collections.Generic.IReadOnlyList<Broadside.Objects.CosName!>!
+Broadside.Graphics.PdfDeviceNColorSpace.IsNChannel.get -> bool
+Broadside.Graphics.PdfDeviceNColorSpace.TintTransform.get -> Broadside.Graphics.PdfFunction?
+Broadside.Graphics.PdfDeviceNMixingHints
+Broadside.Graphics.PdfDeviceNMixingHints.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Graphics.PdfDeviceNMixingHints.DotGain.get -> System.Collections.Generic.IReadOnlyDictionary<Broadside.Objects.CosName!, Broadside.Graphics.PdfFunction!>!
+Broadside.Graphics.PdfDeviceNMixingHints.PrintingOrder.get -> System.Collections.Generic.IReadOnlyList<Broadside.Objects.CosName!>!
+Broadside.Graphics.PdfDeviceNMixingHints.Solidities.get -> System.Collections.Generic.IReadOnlyDictionary<Broadside.Objects.CosName!, double>!
+Broadside.Graphics.PdfDeviceNProcess
+Broadside.Graphics.PdfDeviceNProcess.ColorSpace.get -> Broadside.Graphics.PdfColorSpace?
+Broadside.Graphics.PdfDeviceNProcess.Components.get -> System.Collections.Generic.IReadOnlyList<Broadside.Objects.CosName!>!
+Broadside.Graphics.PdfDeviceNProcess.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Graphics.PdfDeviceRgbColorSpace
+Broadside.Graphics.PdfIccBasedColorSpace
+Broadside.Graphics.PdfIccBasedColorSpace.Alternate.get -> Broadside.Graphics.PdfColorSpace!
+Broadside.Graphics.PdfIccBasedColorSpace.DeclaredComponentCount.get -> int?
+Broadside.Graphics.PdfIccBasedColorSpace.GetProfileData() -> System.ReadOnlyMemory<byte>
+Broadside.Graphics.PdfIccBasedColorSpace.Metadata.get -> Broadside.Objects.CosStream?
+Broadside.Graphics.PdfIccBasedColorSpace.ProfileHeader.get -> Broadside.Graphics.IccProfileHeader?
+Broadside.Graphics.PdfIccBasedColorSpace.Range.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfIccBasedColorSpace.Stream.get -> Broadside.Objects.CosStream!
+Broadside.Graphics.PdfIndexedColorSpace
+Broadside.Graphics.PdfIndexedColorSpace.Base.get -> Broadside.Graphics.PdfColorSpace!
+Broadside.Graphics.PdfIndexedColorSpace.GetLookup() -> System.ReadOnlyMemory<byte>
+Broadside.Graphics.PdfIndexedColorSpace.HighValue.get -> int
+Broadside.Graphics.PdfLabColorSpace
+Broadside.Graphics.PdfLabColorSpace.BlackPoint.get -> Broadside.Graphics.CieXyz
+Broadside.Graphics.PdfLabColorSpace.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Graphics.PdfLabColorSpace.Range.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfLabColorSpace.WhitePoint.get -> Broadside.Graphics.CieXyz
+Broadside.Graphics.PdfPatternColorSpace
+Broadside.Graphics.PdfPatternColorSpace.Underlying.get -> Broadside.Graphics.PdfColorSpace?
+Broadside.Graphics.PdfSeparationColorSpace
+Broadside.Graphics.PdfSeparationColorSpace.Alternate.get -> Broadside.Graphics.PdfColorSpace!
+Broadside.Graphics.PdfSeparationColorSpace.ColorantName.get -> Broadside.Objects.CosName!
+Broadside.Graphics.PdfSeparationColorSpace.IsAll.get -> bool
+Broadside.Graphics.PdfSeparationColorSpace.IsNone.get -> bool
+Broadside.Graphics.PdfSeparationColorSpace.TintTransform.get -> Broadside.Graphics.PdfFunction?
 Broadside.Graphics.RenderingIntent
 Broadside.Graphics.RenderingIntent.AbsoluteColorimetric = 1 -> Broadside.Graphics.RenderingIntent
 Broadside.Graphics.RenderingIntent.Perceptual = 3 -> Broadside.Graphics.RenderingIntent
@@ -939,6 +1251,7 @@ Broadside.Objects.CosString.CosString(System.ReadOnlySpan<byte> bytes, bool hexa
 Broadside.Objects.CosString.DecodeText() -> string!
 Broadside.Objects.CosString.Equals(Broadside.Objects.CosString? other) -> bool
 Broadside.Objects.CosString.IsHexadecimal.get -> bool
+Broadside.PdfDocument.AcroForm.get -> Broadside.Forms.PdfAcroForm?
 Broadside.PdfOptions.UseFontProgramParser(Broadside.Fonts.IFontProgramParser! parser) -> Broadside.PdfOptions!
 Broadside.PdfPage.Annotations.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfAnnotation!>!
 Broadside.PdfAction.EnumerateActionTree(int maxDepth = 64) -> System.Collections.Generic.IEnumerable<Broadside.PdfAction!>!
@@ -1073,6 +1386,12 @@ Broadside.PdfOcgStateOperation.Off = 1 -> Broadside.PdfOcgStateOperation
 Broadside.PdfOcgStateOperation.On = 0 -> Broadside.PdfOcgStateOperation
 Broadside.PdfOcgStateOperation.Toggle = 2 -> Broadside.PdfOcgStateOperation
 Broadside.PdfPage.AdditionalActions.get -> Broadside.PdfPageAdditionalActions?
+Broadside.PdfDocument.GetColorConverter(Broadside.Graphics.PdfColorSpace! source) -> Broadside.Graphics.PdfColorConverter!
+Broadside.PdfDocument.GetColorConverter(Broadside.Graphics.PdfColorSpace! source, Broadside.Graphics.ColorConversion conversion, Broadside.Graphics.PdfDefaultColorSpaces? defaults = null) -> Broadside.Graphics.PdfColorConverter!
+Broadside.PdfDocument.GetColorConverter(Broadside.Graphics.PdfColorSpace! source, Broadside.Graphics.PdfDefaultColorSpaces? defaults) -> Broadside.Graphics.PdfColorConverter!
+Broadside.PdfDocument.GetColorSpace(Broadside.Objects.CosObject! colorSpace) -> Broadside.Graphics.PdfColorSpace!
+Broadside.PdfDocument.GetDefaultColorSpaces(Broadside.Objects.CosDictionary? resources) -> Broadside.Graphics.PdfDefaultColorSpaces!
+Broadside.PdfOptions.UseColorManagement(Broadside.Graphics.IColorManagement! colorManagement) -> Broadside.PdfOptions!
 Broadside.PdfPage.ProcessContent(Broadside.Content.ContentProcessor! processor) -> void
 Broadside.PdfPage.ProcessContent(Broadside.Content.ContentProcessor! processor, Broadside.Content.ContentOptions! options) -> void
 Broadside.PdfPageAdditionalActions
@@ -1493,6 +1812,8 @@ Broadside.PdfVisibilityPolicy.AllOff = 3 -> Broadside.PdfVisibilityPolicy
 Broadside.PdfVisibilityPolicy.AllOn = 0 -> Broadside.PdfVisibilityPolicy
 Broadside.PdfVisibilityPolicy.AnyOff = 2 -> Broadside.PdfVisibilityPolicy
 Broadside.PdfVisibilityPolicy.AnyOn = 1 -> Broadside.PdfVisibilityPolicy
+const Broadside.Graphics.IccProfileHeader.Length = 128 -> int
+const Broadside.Graphics.PdfColor.MaxComponents = 32 -> int
 const Broadside.Objects.CosReference.MaxGeneration = 65535 -> int
 override Broadside.Annotations.PdfDeviceColor.Equals(object? obj) -> bool
 override Broadside.Annotations.PdfDeviceColor.GetHashCode() -> int
@@ -1521,10 +1842,37 @@ override Broadside.Content.CompositeContentProcessor.RestoreState(Broadside.Cont
 override Broadside.Content.CompositeContentProcessor.SaveState(Broadside.Content.ContentContext! context) -> void
 override Broadside.Content.CompositeContentProcessor.ShowGlyph(in Broadside.Content.GlyphEvent glyph, Broadside.Content.ContentContext! context) -> void
 override Broadside.Content.CompositeContentProcessor.VisitOperator(in Broadside.Content.ContentOperator op, Broadside.Content.ContentContext! context) -> void
+override Broadside.Forms.PdfChoiceOption.ToString() -> string!
 override Broadside.Graphics.Matrix.Equals(object? obj) -> bool
 override Broadside.Graphics.Matrix.GetHashCode() -> int
 override Broadside.Graphics.Matrix.ToString() -> string!
 override Broadside.Graphics.PathPoint.ToString() -> string!
+override Broadside.Graphics.PdfCalGrayColorSpace.ComponentCount.get -> int
+override Broadside.Graphics.PdfCalGrayColorSpace.Family.get -> Broadside.Graphics.PdfColorSpaceFamily
+override Broadside.Graphics.PdfCalRgbColorSpace.ComponentCount.get -> int
+override Broadside.Graphics.PdfCalRgbColorSpace.Family.get -> Broadside.Graphics.PdfColorSpaceFamily
+override Broadside.Graphics.PdfColor.Equals(object? obj) -> bool
+override Broadside.Graphics.PdfColor.GetHashCode() -> int
+override Broadside.Graphics.PdfDeviceCmykColorSpace.ComponentCount.get -> int
+override Broadside.Graphics.PdfDeviceCmykColorSpace.Family.get -> Broadside.Graphics.PdfColorSpaceFamily
+override Broadside.Graphics.PdfDeviceGrayColorSpace.ComponentCount.get -> int
+override Broadside.Graphics.PdfDeviceGrayColorSpace.Family.get -> Broadside.Graphics.PdfColorSpaceFamily
+override Broadside.Graphics.PdfDeviceNColorSpace.ComponentCount.get -> int
+override Broadside.Graphics.PdfDeviceNColorSpace.Family.get -> Broadside.Graphics.PdfColorSpaceFamily
+override Broadside.Graphics.PdfDeviceNColorSpace.MinimumVersion.get -> Broadside.PdfVersion
+override Broadside.Graphics.PdfDeviceRgbColorSpace.ComponentCount.get -> int
+override Broadside.Graphics.PdfDeviceRgbColorSpace.Family.get -> Broadside.Graphics.PdfColorSpaceFamily
+override Broadside.Graphics.PdfIccBasedColorSpace.ComponentCount.get -> int
+override Broadside.Graphics.PdfIccBasedColorSpace.Family.get -> Broadside.Graphics.PdfColorSpaceFamily
+override Broadside.Graphics.PdfIndexedColorSpace.ComponentCount.get -> int
+override Broadside.Graphics.PdfIndexedColorSpace.Family.get -> Broadside.Graphics.PdfColorSpaceFamily
+override Broadside.Graphics.PdfIndexedColorSpace.MinimumVersion.get -> Broadside.PdfVersion
+override Broadside.Graphics.PdfLabColorSpace.ComponentCount.get -> int
+override Broadside.Graphics.PdfLabColorSpace.Family.get -> Broadside.Graphics.PdfColorSpaceFamily
+override Broadside.Graphics.PdfPatternColorSpace.ComponentCount.get -> int
+override Broadside.Graphics.PdfPatternColorSpace.Family.get -> Broadside.Graphics.PdfColorSpaceFamily
+override Broadside.Graphics.PdfSeparationColorSpace.ComponentCount.get -> int
+override Broadside.Graphics.PdfSeparationColorSpace.Family.get -> Broadside.Graphics.PdfColorSpaceFamily
 override Broadside.Objects.CosArray.IsDirty.get -> bool
 override Broadside.Objects.CosBoolean.Equals(object? obj) -> bool
 override Broadside.Objects.CosBoolean.GetHashCode() -> int
@@ -1570,6 +1918,12 @@ override Broadside.PdfUriAction.Kind.get -> Broadside.PdfActionKind
 static Broadside.Fonts.CMap.IdentityH.get -> Broadside.Fonts.CMap!
 static Broadside.Fonts.CMap.IdentityV.get -> Broadside.Fonts.CMap!
 static Broadside.Fonts.CMap.Parse(System.ReadOnlySpan<byte> data, Broadside.Fonts.CMapContext? context = null) -> Broadside.Fonts.CMap!
+static Broadside.Graphics.CieXyz.D50.get -> Broadside.Graphics.CieXyz
+static Broadside.Graphics.CieXyz.D65.get -> Broadside.Graphics.CieXyz
+static Broadside.Graphics.ColorConversion.FromState(in Broadside.Graphics.GraphicsState state, Broadside.Graphics.DeviceColorModel target) -> Broadside.Graphics.ColorConversion
+static Broadside.Graphics.IccProfileHeader.Parse(System.ReadOnlySpan<byte> profile) -> Broadside.Graphics.IccProfileHeader?
+static Broadside.Graphics.ManagedColorManagement.Classic.get -> Broadside.Graphics.ManagedColorManagement!
+static Broadside.Graphics.ManagedColorManagement.Default.get -> Broadside.Graphics.ManagedColorManagement!
 static Broadside.Graphics.Matrix.CreateScale(double sx, double sy) -> Broadside.Graphics.Matrix
 static Broadside.Graphics.Matrix.CreateTranslation(double tx, double ty) -> Broadside.Graphics.Matrix
 static Broadside.Graphics.Matrix.Identity.get -> Broadside.Graphics.Matrix
@@ -1590,6 +1944,12 @@ override Broadside.PdfOptionalContentConfiguration.ToString() -> string!
 override Broadside.PdfOptionalContentGroup.ToString() -> string!
 override Broadside.PdfOptionalContentOrderItem.ToString() -> string!
 override Broadside.PdfVisibilityExpression.ToString() -> string!
+static Broadside.Graphics.PdfColor.operator !=(Broadside.Graphics.PdfColor left, Broadside.Graphics.PdfColor right) -> bool
+static Broadside.Graphics.PdfColor.operator ==(Broadside.Graphics.PdfColor left, Broadside.Graphics.PdfColor right) -> bool
+static Broadside.Graphics.PdfDefaultColorSpaces.None.get -> Broadside.Graphics.PdfDefaultColorSpaces!
+static Broadside.Graphics.PdfDeviceCmykColorSpace.Instance.get -> Broadside.Graphics.PdfDeviceCmykColorSpace!
+static Broadside.Graphics.PdfDeviceGrayColorSpace.Instance.get -> Broadside.Graphics.PdfDeviceGrayColorSpace!
+static Broadside.Graphics.PdfDeviceRgbColorSpace.Instance.get -> Broadside.Graphics.PdfDeviceRgbColorSpace!
 static Broadside.Objects.CosBoolean.False.get -> Broadside.Objects.CosBoolean!
 static Broadside.Objects.CosBoolean.True.get -> Broadside.Objects.CosBoolean!
 static Broadside.Objects.CosNull.Instance.get -> Broadside.Objects.CosNull!
@@ -1627,6 +1987,7 @@ virtual Broadside.Fonts.FontProgram.PostScriptName.get -> string?
 virtual Broadside.Fonts.FontProgram.TryGetGlyphId(string! glyphName, out int glyphId) -> bool
 static Broadside.PdfCollectionIdRange.operator !=(Broadside.PdfCollectionIdRange left, Broadside.PdfCollectionIdRange right) -> bool
 static Broadside.PdfCollectionIdRange.operator ==(Broadside.PdfCollectionIdRange left, Broadside.PdfCollectionIdRange right) -> bool
+virtual Broadside.Graphics.PdfColorSpace.MinimumVersion.get -> Broadside.PdfVersion
 virtual Broadside.Objects.CosObject.IsDirty.get -> bool
 Broadside.Diagnostics.Diagnostic
 Broadside.Diagnostics.Diagnostic.Code.get -> string!

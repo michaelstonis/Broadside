@@ -67,9 +67,10 @@ internal sealed class AnnotationIndex
 
     /// <summary>
     /// Returns the annotation <paramref name="value"/> names, as the page that holds it lists it: the page of <paramref name="from"/>
-    /// first, then any page; an annotation no page holds gets a view without a page. <see langword="null"/> when the value is not a dictionary.
+    /// first (when given), then any page; an annotation no page holds gets a view without a page. <see langword="null"/> when the value
+    /// is not a dictionary.
     /// </summary>
-    public PdfAnnotation? Find(CosObject? value, PdfAnnotation from)
+    public PdfAnnotation? Find(CosObject? value, PdfAnnotation? from)
     {
         if (_document.Resolve(value) is not CosDictionary dictionary)
         {
@@ -81,7 +82,7 @@ internal sealed class AnnotationIndex
             return known;
         }
 
-        if (from.Page is { } page)
+        if (from?.Page is { } page)
         {
             _ = page.Annotations;
             if (TryGetCurrent(dictionary) is { } onPage)

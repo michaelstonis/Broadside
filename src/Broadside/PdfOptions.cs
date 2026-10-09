@@ -1,5 +1,6 @@
 using Broadside.Filters;
 using Broadside.Fonts;
+using Broadside.Graphics;
 using Broadside.Objects;
 using Broadside.Security;
 using Microsoft.Extensions.Logging;
@@ -152,6 +153,24 @@ public sealed class PdfOptions
     public PdfOptions WithLoggerFactory(ILoggerFactory? loggerFactory)
     {
         LoggerFactory = loggerFactory;
+        return this;
+    }
+
+    /// <summary>Gets the colour management set with <see cref="UseColorManagement"/>; <see cref="ManagedColorManagement.Default"/> otherwise.</summary>
+    /// <remarks>Not public, so configuration binding never sees it.</remarks>
+    internal IColorManagement ColorManagement { get; private set; } = ManagedColorManagement.Default;
+
+    /// <summary>
+    /// Uses <paramref name="colorManagement"/> to convert colours of device, CIE-based and ICCBased spaces to device colours, in place
+    /// of <see cref="ManagedColorManagement.Default"/>.
+    /// </summary>
+    /// <param name="colorManagement">The colour management. Shared by every document and thread of the engine.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §8.6.5, §10.3 and §10.4. The colour-management extension point (ADR 0001).</remarks>
+    public PdfOptions UseColorManagement(IColorManagement colorManagement)
+    {
+        ArgumentNullException.ThrowIfNull(colorManagement);
+        ColorManagement = colorManagement;
         return this;
     }
 

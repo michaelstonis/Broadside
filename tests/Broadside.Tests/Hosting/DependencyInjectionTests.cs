@@ -27,7 +27,7 @@ public class DependencyInjectionTests
 
         Assert.Equal(DocumentProjection.Of(fromStatic), DocumentProjection.Of(fromContainer));
         Assert.Equal(fromStatic.Pages.Count, fromContainer.Pages.Count);
-        Assert.Empty(fromContainer.Diagnostics);
+        Assert.DoesNotContain(fromContainer.Diagnostics, diagnostic => diagnostic.Severity > Broadside.Diagnostics.DiagnosticSeverity.Information);
     }
 
     [Fact]

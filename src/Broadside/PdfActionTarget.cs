@@ -7,8 +7,8 @@ namespace Broadside;
 /// of a hide action's <c>T</c> or of a form action's <c>Fields</c>.
 /// </summary>
 /// <remarks>
-/// ISO 32000-2 §12.6.4.11, Table 214, and §12.7.6.2-12.7.6.3, Tables 239 and 241. Field names are not resolved here: that needs the
-/// field tree (§12.7.4.2).
+/// ISO 32000-2 §12.6.4.11, Table 214, and §12.7.6.2-12.7.6.3, Tables 239 and 241. Resolve a target to the fields it names with
+/// <see cref="Forms.PdfAcroForm.FindFields(PdfActionTarget)"/> (§12.7.4.2).
 /// </remarks>
 public sealed class PdfActionTarget
 {

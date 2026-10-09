@@ -2188,6 +2188,91 @@ XMP = (b'<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
        b'<?xpacket end="w"?>')
 
 
+def gen_acroform_fields() -> bytes:
+    """12.7 interactive forms: one field of each type, PDF 2.0, two pages. AcroForm 4 (12.7.3 Table 224):
+    Fields, CO, DA, DR (Helv 5, ZaDb 6), Q, SigFlags 1. Fields (12.7.4, Tables 226-228): 10 `name` text
+    field merged with its widget (TU, TM, V, DV, MaxLen, DA, AA with a C trigger 26); 11 `person`
+    non-terminal carrying FT Tx, DA, Q 1 and Ff 2 (Required) for its merged kids 12 `first` (inherits all)
+    and 13 `last` (own Ff 1: ReadOnly only, UTF-16 V); 14 `agree` check box (12.7.5.2.3) with widgets 15
+    (page 3) and 25 (page 30), on state Yes; 16 `color` radio group (12.7.5.2.4, Ff Radio + NoToggleToOff,
+    Opt with a duplicate export value, index-named states /0 /1 /2, V /1); 20 `submit` push button whose A
+    is a reset-form action naming `person` and field 14; 21 `country` combo box (Combo + Edit, export/display
+    pairs, V the export value, DA from the AcroForm); 22 `toppings` multi-select list box (V array, I, TI);
+    23 `sig` invisible signature field (12.7.5.5, zero Rect) with Lock 27 and SV 28 (Tables 235-237)."""
+    text = b" /AP << /N 7 0 R >>"
+
+    def states(state: bytes) -> bytes:
+        return b" /AP << /N << /%s 8 0 R /Off 9 0 R >> /D << /%s 8 0 R /Off 9 0 R >> >>" % (state, state)
+
+    def widget(rect: bytes, page_num: int = 3) -> bytes:
+        return b"<< /Type /Annot /Subtype /Widget /Rect " + rect + b" /P %d 0 R /F 4" % page_num
+
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog(b" /AcroForm 4 0 R")),
+        (2, pages([3, 30])),
+        (3, page(extra=b" /Annots [10 0 R 12 0 R 13 0 R 15 0 R 17 0 R 18 0 R 19 0 R 20 0 R 21 0 R 22 0 R 23 0 R]")),
+        (4, b"<< /Fields [10 0 R 11 0 R 14 0 R 16 0 R 20 0 R 21 0 R 22 0 R 23 0 R] /CO [10 0 R]"
+            b" /DA (/Helv 0 Tf 0 g) /DR << /Font << /Helv 5 0 R /ZaDb 6 0 R >> >> /Q 0 /SigFlags 1 >>"),
+        (5, HELVETICA),
+        (6, b"<< /Type /Font /Subtype /Type1 /BaseFont /ZapfDingbats >>"),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 5 0 R >> >>",
+                   b"/Tx BMC BT /Helv 12 Tf 2 5 Td (Ada) Tj ET EMC")),
+        (8, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 20 20] /Resources << /Font << /ZaDb 6 0 R >> >>",
+                   b"q BT /ZaDb 12 Tf 4 5 Td (4) Tj ET Q")),
+        (9, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 20 20]", b"0 g 0 0 20 20 re S")),
+        (10, widget(b"[50 700 250 720]") + text + b" /FT /Tx /T (name) /TU (Your name) /TM (full_name)"
+             b" /V (Ada) /DV (Anonymous) /MaxLen 40 /DA (/Helv 12 Tf 0 g) /AA << /C 26 0 R >> >>"),
+        (11, b"<< /T (person) /FT /Tx /DA (/Helv 10 Tf 0 0 1 rg) /Q 1 /Ff 2 /Kids [12 0 R 13 0 R] >>"),
+        (12, widget(b"[50 670 150 690]") + text + b" /Parent 11 0 R /T (first) /V (Grace) >>"),
+        (13, widget(b"[160 670 260 690]") + text + b" /Parent 11 0 R /T (last) /Ff 1 /V <FEFF004C00F60076> >>"),
+        (14, b"<< /FT /Btn /T (agree) /V /Yes /DV /Off /Kids [15 0 R 25 0 R] >>"),
+        (15, widget(b"[50 640 70 660]") + states(b"Yes") + b" /Parent 14 0 R /AS /Yes /MK << /CA (4) >> >>"),
+        (16, b"<< /FT /Btn /Ff 49152 /T (color) /V /1 /Opt [(Red) (Green) (Green)] /Kids [17 0 R 18 0 R 19 0 R] >>"),
+        (17, widget(b"[50 610 70 630]") + states(b"0") + b" /Parent 16 0 R /AS /Off >>"),
+        (18, widget(b"[80 610 100 630]") + states(b"1") + b" /Parent 16 0 R /AS /1 >>"),
+        (19, widget(b"[110 610 130 630]") + states(b"2") + b" /Parent 16 0 R /AS /Off >>"),
+        (20, widget(b"[50 570 150 590]") + text + b" /FT /Btn /Ff 65536 /T (submit) /MK << /CA (Reset) >>"
+             b" /A << /S /ResetForm /Fields [(person) 14 0 R] >> >>"),
+        (21, widget(b"[50 540 250 560]") + text + b" /FT /Ch /Ff 393216 /T (country)"
+             b" /Opt [[(us) (United States)] [(ca) (Canada)]] /V (ca) >>"),
+        (22, widget(b"[50 460 250 530]") + text + b" /FT /Ch /Ff 2097152 /T (toppings) /Opt [(Cheese) (Ham) (Olives)]"
+             b" /V [(Cheese) (Olives)] /I [0 2] /TI 1 /DA (/Helv 10 Tf 0 g) >>"),
+        (23, widget(b"[0 0 0 0]") + b" /FT /Sig /T (sig) /Lock 27 0 R /SV 28 0 R >>"),
+        (25, widget(b"[50 700 70 720]", 30) + states(b"Yes") + b" /Parent 14 0 R /AS /Yes >>"),
+        (26, b"<< /S /JavaScript /JS (event.value = 1;) >>"),
+        (27, b"<< /Type /SigFieldLock /Action /Include /Fields [(name) (person.first)] /P 2 >>"),
+        (28, b"<< /Type /SV /Filter /Adobe.PPKLite /Ff 1 >>"),
+        (30, page(extra=b" /Annots [25 0 R]")),
+    ]
+    id0 = file_id("acroform-fields").hex().encode()
+    return simple_file(objects, version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_acroform_xfa() -> bytes:
+    """Annex K XFA forms (12.7.3 Table 224 XFA): one text field 10 merged with its widget, and an XFA entry
+    that is an array of packets [(xdp:xdp) 11 (template) 12 (datasets) 13 (</xdp:xdp>) 14] (Annex K example
+    1 shape). The catalog has no NeedsRendering (Table 29), so the XFA form is static. PDF 1.7."""
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog(b" /AcroForm 4 0 R")),
+        (2, pages()),
+        (3, page(extra=b" /Annots [10 0 R]")),
+        (4, b"<< /Fields [10 0 R] /DA (/Helv 0 Tf 0 g) /DR << /Font << /Helv 5 0 R >> >>"
+            b" /XFA [(xdp:xdp) 11 0 R (template) 12 0 R (datasets) 13 0 R (</xdp:xdp>) 14 0 R] >>"),
+        (5, HELVETICA),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 5 0 R >> >>",
+                   b"/Tx BMC BT /Helv 12 Tf 2 5 Td (Ada) Tj ET EMC")),
+        (10, b"<< /Type /Annot /Subtype /Widget /Rect [50 700 250 720] /P 3 0 R /F 4 /AP << /N 6 0 R >>"
+             b" /FT /Tx /T (name) /V (Ada) >>"),
+        (11, stream(b"", b'<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/">')),
+        (12, stream(b"", b'<template xmlns="http://www.xfa.org/schema/xfa-template/3.3/"><subform name="form1">'
+                         b'<field name="name"/></subform></template>')),
+        (13, stream(b"", b'<xfa:datasets xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/"><xfa:data>'
+                         b'<form1><name>Ada</name></form1></xfa:data></xfa:datasets>')),
+        (14, stream(b"", b"</xdp:xdp>")),
+    ]
+    return simple_file(objects)
+
+
 def gen_metadata_xmp() -> bytes:
     return simple_file([
         (1, catalog(b" /Metadata 4 0 R")),
@@ -2635,6 +2720,201 @@ def gen_functions() -> bytes:
     ]
     return simple_file(objects)
 
+# ---------------------------------------------------------------------------
+# Colour spaces (clause 8.6)
+# ---------------------------------------------------------------------------
+
+def s15f16(value: float) -> bytes:
+    """ICC.1:2022 4.6 s15Fixed16Number."""
+    return struct.pack(">i", round(value * 65536))
+
+
+def icc_profile(device_class: bytes, space: bytes, tags: list[tuple[bytes, bytes]]) -> bytes:
+    """A version 2.1 ICC profile (ICC.1:2022 7.2 header, 7.3 tag table): XYZ PCS, D50 illuminant, the tags 4-byte aligned."""
+    count = len(tags)
+    offset = 128 + 4 + 12 * count
+    table = struct.pack(">I", count)
+    data = b""
+    for sig, body in tags:
+        table += sig + struct.pack(">II", offset + len(data), len(body))
+        data += body + b"\x00" * (-len(body) % 4)
+    size = 128 + len(table) + len(data)
+    header = (struct.pack(">I", size) + b"\x00" * 4 + bytes([2, 0x10, 0, 0]) + device_class + space + b"XYZ "
+              + struct.pack(">6H", 2026, 1, 1, 0, 0, 0) + b"acsp" + b"\x00" * 24 + struct.pack(">I", 0)
+              + s15f16(0.9642) + s15f16(1.0) + s15f16(0.8249) + b"\x00" * 48)
+    assert len(header) == 128
+    return header + table + data
+
+
+def icc_desc(text: bytes) -> bytes:
+    """ICC.1:2001 textDescriptionType (version 2 profiles): ASCII, empty Unicode and ScriptCode parts."""
+    return b"desc" + b"\x00" * 4 + struct.pack(">I", len(text) + 1) + text + b"\x00" + b"\x00" * 8 + b"\x00" * 3 + b"\x00" * 67
+
+
+def icc_xyz(x: float, y: float, z: float) -> bytes:
+    return b"XYZ " + b"\x00" * 4 + s15f16(x) + s15f16(y) + s15f16(z)
+
+
+def icc_gamma(gamma: float) -> bytes:
+    """curveType with one entry, a u8Fixed8Number gamma."""
+    return b"curv" + b"\x00" * 4 + struct.pack(">IH", 1, round(gamma * 256))
+
+
+ICC_COPYRIGHT = b"text" + b"\x00" * 4 + b"No copyright, use freely\x00"
+
+
+def icc_rgb_profile() -> bytes:
+    """Display (mntr) RGB matrix/TRC profile: the sRGB primaries adapted to D50 (IEC 61966-2-1 Annex), gamma 2.2."""
+    return icc_profile(b"mntr", b"RGB ", [
+        (b"desc", icc_desc(b"Broadside RGB gamma 2.2")),
+        (b"cprt", ICC_COPYRIGHT),
+        (b"wtpt", icc_xyz(0.9642, 1.0, 0.8249)),
+        (b"rXYZ", icc_xyz(0.4361, 0.2225, 0.0139)),
+        (b"gXYZ", icc_xyz(0.3851, 0.7169, 0.0971)),
+        (b"bXYZ", icc_xyz(0.1431, 0.0606, 0.7141)),
+        (b"rTRC", icc_gamma(2.2)),
+        (b"gTRC", icc_gamma(2.2)),
+        (b"bTRC", icc_gamma(2.2)),
+    ])
+
+
+def icc_gray_profile() -> bytes:
+    """Display (mntr) GRAY profile: a gamma 2.2 tone curve."""
+    return icc_profile(b"mntr", b"GRAY", [
+        (b"desc", icc_desc(b"Broadside gray gamma 2.2")),
+        (b"cprt", ICC_COPYRIGHT),
+        (b"wtpt", icc_xyz(0.9642, 1.0, 0.8249)),
+        (b"kTRC", icc_gamma(2.2)),
+    ])
+
+
+D65 = b"/WhitePoint [0.9505 1 1.089]"
+SRGB_MATRIX = b"/Matrix [0.4124 0.2126 0.0193 0.3576 0.7152 0.1192 0.1805 0.0722 0.9505]"
+
+
+def colour_rects(entries: list[tuple[bytes, bytes]], columns: int = 4) -> bytes:
+    """One 100 x 100 rectangle per (colour space resource, colour operator text), left to right, top to bottom."""
+    content = b""
+    for i, (name, colour) in enumerate(entries):
+        x = 40 + (i % columns) * 140
+        y = 640 - (i // columns) * 140
+        content += b"/%s cs %s %d %d 100 100 re f\n" % (name, colour, x, y)
+    return content
+
+
+def gen_colorspace_families() -> bytes:
+    """8.6.3 Table 61: one ColorSpace resource per family and one filled rectangle each (8.6.4 to 8.6.6), in reading order:
+    CS0 DeviceGray 0.5; CS1 DeviceRGB 1 0 0; CS2 DeviceCMYK 0 1 0 0; CS3 CalGray (D65, gamma 2.2) 0.5; CS4 CalRGB (D65, sRGB
+    primaries, gamma 2.2) 0 0 1; CS5 Lab (D50) 50 60 40; CS6 ICCBased RGB (an ICC v2 mntr matrix/TRC profile, /Alternate
+    /DeviceRGB) 0 1 0; CS7 ICCBased GRAY (gamma 2.2, no Alternate) 0.25; CS8 Indexed DeviceRGB, index 2 of red, green, blue;
+    CS9 Separation /Spot to DeviceCMYK (Type 2, C1 [0 0.4 1 0]) at 1; CS10 DeviceN [/Cyan /Magenta] to DeviceCMYK (Type 4
+    {0 0}) at 1 0.4 (both CMYK values are IT8.7/3 patches measured in CGATS TR 001); CS11 [/Pattern /DeviceRGB] with the uncoloured tiling pattern P0 (a 10 x 10 cell, half filled) in 0 0.5 0."""
+    entries = [(b"CS%d" % i, colour) for i, colour in enumerate([
+        b"0.5 sc", b"1 0 0 sc", b"0 1 0 0 sc", b"0.5 sc", b"0 0 1 sc", b"50 60 40 sc", b"0 1 0 scn", b"0.25 scn",
+        b"2 sc", b"1 scn", b"1 0.4 scn", b"0 0.5 0 /P0 scn"])]
+    spaces = [
+        b"/DeviceGray", b"/DeviceRGB", b"/DeviceCMYK",
+        b"[/CalGray << " + D65 + b" /Gamma 2.2 >>]",
+        b"[/CalRGB << " + D65 + b" /Gamma [2.2 2.2 2.2] " + SRGB_MATRIX + b" >>]",
+        b"[/Lab << /WhitePoint [0.9642 1 0.8249] /Range [-128 127 -128 127] >>]",
+        b"[/ICCBased 6 0 R]", b"[/ICCBased 7 0 R]",
+        b"[/Indexed /DeviceRGB 2 <FF0000 00FF00 0000FF>]",
+        b"[/Separation /Spot /DeviceCMYK << /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [0 0.4 1 0] /N 1 >>]",
+        b"[/DeviceN [/Cyan /Magenta] /DeviceCMYK 8 0 R]",
+        b"[/Pattern /DeviceRGB]",
+    ]
+    resources = (b"<< /ColorSpace << " + b" ".join(b"/CS%d %s" % (i, s) for i, s in enumerate(spaces))
+                 + b" >> /Pattern << /P0 5 0 R >> >>")
+    rgb = icc_rgb_profile()
+    gray = icc_gray_profile()
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", colour_rects(entries))),
+        (5, stream(b"/PatternType 1 /PaintType 2 /TilingType 1 /BBox [0 0 10 10] /XStep 10 /YStep 10 /Resources << >>",
+                   b"0 0 10 5 re f")),
+        (6, stream(b"/N 3 /Alternate /DeviceRGB", rgb)),
+        (7, stream(b"/N 1", gray)),
+        (8, stream(b"/FunctionType 4 /Domain [0 1 0 1] /Range [0 1 0 1 0 1 0 1]", b"{0 0}")),
+    ], binary=True)
+
+
+def gen_color_operators() -> bytes:
+    """8.6.8 Table 73: all twelve colour operators, each followed by a filled and stroked rectangle (B), in reading order:
+    (1) 0.25 G 0.75 g; (2) 1 0 0 RG 0 0 1 rg; (3) 0 0 0 1 K 0 1 0 0 k; (4) /CS0 CS 0.2 SC /CS0 cs 0.8 sc with CS0 CalGray;
+    (5) /CS1 CS /CS1 cs with CS1 Separation (CS resets both colours to the initial tint 1.0); (6) /CS1 CS 0.5 SCN /CS1 cs
+    0.25 scn; (7) /CS2 CS 0 0 1 /P0 SCN /CS2 cs 1 0 0 /P0 scn with CS2 [/Pattern /DeviceRGB] and the uncoloured tiling pattern
+    P0; (8) /DeviceCMYK CS /DeviceRGB cs (initial colours 0 0 0 1 and 0 0 0). Then an inline image (8.9.7 Tables 91-92) in
+    the abbreviated Indexed space /CS [/I /RGB 1 <FF0000 0000FF>], two pixels: red, blue."""
+    ops = [b"0.25 G 0.75 g", b"1 0 0 RG 0 0 1 rg", b"0 0 0 1 K 0 1 0 0 k", b"/CS0 CS 0.2 SC /CS0 cs 0.8 sc",
+           b"/CS1 CS /CS1 cs", b"/CS1 CS 0.5 SCN /CS1 cs 0.25 scn", b"/CS2 CS 0 0 1 /P0 SCN /CS2 cs 1 0 0 /P0 scn",
+           b"/DeviceCMYK CS /DeviceRGB cs"]
+    content = b"8 w\n"
+    for i, op in enumerate(ops):
+        x = 40 + (i % 4) * 140
+        y = 640 - (i // 4) * 140
+        content += b"%s %d %d 100 100 re B\n" % (op, x, y)
+    content += b"q 200 0 0 100 40 300 cm BI /W 2 /H 1 /CS [/I /RGB 1 <FF0000 0000FF>] /BPC 8 ID \x00\x01 EI Q\n"
+    resources = (b"<< /ColorSpace << /CS0 [/CalGray << " + D65 + b" >>] "
+                 b"/CS1 [/Separation /Spot /DeviceGray << /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >>] "
+                 b"/CS2 [/Pattern /DeviceRGB] >> /Pattern << /P0 5 0 R >> >>")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/PatternType 1 /PaintType 2 /TilingType 1 /BBox [0 0 10 10] /XStep 10 /YStep 10 /Resources << >>",
+                   b"0 0 10 5 re f")),
+    ], binary=True)
+
+
+def gen_default_colorspaces() -> bytes:
+    """8.6.5.6 default colour spaces. The page's ColorSpace resources have DefaultRGB = CalRGB (D50 white, gamma 1, the sRGB
+    primaries adapted to D50) and DefaultGray = CalGray (D50, gamma 1), so a remapped 0.5 is linear and shows as sRGB 188, a
+    device 0.5 as 128. Reading order: (1) 0.5 0.5 0.5 rg rectangle; (2) 0.5 g rectangle; (3) the Form XObject Fm0, whose own
+    Resources have DefaultRGB = CalRGB (D65, gamma 2.2, sRGB primaries), painting 0.5 0.5 0.5 rg (inside it its DefaultRGB
+    applies, found at paint time: 128); (4) Im0, a 2 x 1 image in [/Indexed /DeviceRGB 1 <FF0000 808080>] (the base DeviceRGB
+    remapped to the page's DefaultRGB), pixels 0 and 1."""
+    d50 = b"/WhitePoint [0.9642 1 0.8249]"
+    d50_matrix = b"/Matrix [0.4361 0.2225 0.0139 0.3851 0.7169 0.0971 0.1431 0.0606 0.7141]"
+    content = (b"0.5 0.5 0.5 rg 40 640 100 100 re f\n"
+               b"0.5 g 180 640 100 100 re f\n"
+               b"q 1 0 0 1 320 640 cm /Fm0 Do Q\n"
+               b"q 100 0 0 100 460 640 cm /Im0 Do Q\n")
+    resources = (b"<< /ColorSpace << /DefaultRGB [/CalRGB << " + d50 + b" " + d50_matrix + b" >>] "
+                 b"/DefaultGray [/CalGray << " + d50 + b" >>] >> /XObject << /Fm0 5 0 R /Im0 6 0 R >> >>")
+    form_resources = b"<< /ColorSpace << /DefaultRGB [/CalRGB << " + D65 + b" /Gamma [2.2 2.2 2.2] " + SRGB_MATRIX + b" >>] >> >>"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Resources " + form_resources,
+                   b"0.5 0.5 0.5 rg 0 0 100 100 re f")),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 1 /BitsPerComponent 8 "
+                   b"/ColorSpace [/Indexed /DeviceRGB 1 <FF0000 808080>]", b"\x00\x01")),
+    ], binary=True)
+
+
+def gen_separation_special() -> bytes:
+    """8.6.6.4 and 8.6.6.5 special colourant names, one rectangle each at tint 0.5 over a light gray (0.8) band: CS0 Separation
+    /All (every colourant; on an RGB device 1 - tint on every component, a 50% gray); CS1 Separation /None (paints nothing, the
+    band shows through); CS2 DeviceN [/None /None] (never paints). The tint transforms, which would paint white, are ignored."""
+    tint = b"<< /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [1] /N 1 >>"
+    content = (b"0.8 g 0 600 612 160 re f\n"
+               + colour_rects([(b"CS0", b"0.5 scn"), (b"CS1", b"0.5 scn"), (b"CS2", b"0.5 0.5 scn")]))
+    resources = (b"<< /ColorSpace << /CS0 [/Separation /All /DeviceGray " + tint + b"] /CS1 [/Separation /None /DeviceGray "
+                 + tint + b"] /CS2 [/DeviceN [/None /None] /DeviceGray 5 0 R] >> >>")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/FunctionType 4 /Domain [0 1 0 1] /Range [0 1]", b"{pop pop 1}")),
+    ])
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -2718,6 +2998,12 @@ FILES = {
     "declarations.pdf": gen_declarations,
     "actions-all.pdf": gen_actions_all,
     "actions-preserved.pdf": gen_actions_preserved,
+    "acroform-fields.pdf": gen_acroform_fields,
+    "acroform-xfa.pdf": gen_acroform_xfa,
+    "colorspace-families.pdf": gen_colorspace_families,
+    "color-operators.pdf": gen_color_operators,
+    "default-colorspaces.pdf": gen_default_colorspaces,
+    "separation-special.pdf": gen_separation_special,
 }
 
 

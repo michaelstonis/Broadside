@@ -16,7 +16,7 @@ public class WellFormedCorpusTests
 
         int expectedPages = fileName switch
         {
-            "page-tree-inherited.pdf" or "linearized.pdf" or "linearized-xref-stream.pdf" => 2,
+            "page-tree-inherited.pdf" or "linearized.pdf" or "linearized-xref-stream.pdf" or "acroform-fields.pdf" => 2,
             "number-tree-deep.pdf" or "page-labels.pdf" => 12,
             _ => 1,
         };
@@ -27,6 +27,7 @@ public class WellFormedCorpusTests
             Assert.NotNull(page.Resources);
         }
 
-        Assert.Empty(document.Diagnostics);
+        // Information records a legal feature Broadside keeps but does not use, such as an XFA form (#41, #74).
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Severity > Broadside.Diagnostics.DiagnosticSeverity.Information);
     }
 }

@@ -65,7 +65,7 @@ public class EngineTests
         using PdfDocument document = PdfDocument.Open(Corpus.Path(fileName), new PdfOptions().UseStrict());
 
         Assert.NotEmpty(document.Pages);
-        Assert.Empty(document.Diagnostics);
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Severity > Broadside.Diagnostics.DiagnosticSeverity.Information);
     }
 
     [Fact]
