@@ -89,8 +89,11 @@ public sealed class PdfEngine
     /// <remarks>ISO 32000-2 §7.5.</remarks>
     public PdfDocument Open(ReadOnlyMemory<byte> bytes) => PdfDocument.Read(PdfSource.FromMemory(bytes), _configuration);
 
-    /// <summary>Creates a new, empty document.</summary>
-    /// <returns>The document.</returns>
-    /// <exception cref="NotSupportedException">Always, for now: writing arrives in a later version.</exception>
-    public PdfDocument Create() => throw new NotSupportedException("Creating a document is not implemented yet.");
+    /// <summary>Creates a new document with one empty US Letter page (612 by 792 points).</summary>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.2 (catalog), §7.7.3 (page tree) and §7.5.2: the document is PDF 2.0, has a catalog, a page tree root and one
+    /// page with empty resources and no content, and reads like a file of those three objects.
+    /// </remarks>
+    public PdfDocument Create() => PdfDocument.CreateNew(_configuration);
 }

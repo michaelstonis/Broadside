@@ -60,6 +60,11 @@ jobs:
         timeout-minutes: 20
         run: dotnet workload install macos ios maccatalyst android
 
+      - name: Install qpdf and poppler-utils (Linux)
+        # Written files are checked with qpdf --check and pdfinfo (issue #44); the tests skip where the tools are missing.
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y qpdf poppler-utils
+
       - name: Restore
         run: dotnet restore Broadside.slnx
 

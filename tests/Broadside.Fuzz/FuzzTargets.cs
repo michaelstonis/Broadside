@@ -20,6 +20,7 @@ internal static class FuzzTargets
         ["lexer"] = Lexer,
         ["object-parser"] = ObjectParser,
         ["document"] = Document,
+        ["save"] = Save,
         ["hint-tables"] = HintTables,
         ["xref-stream"] = XrefStream,
         ["object-stream"] = ObjectStreamTarget,
@@ -88,6 +89,40 @@ internal static class FuzzTargets
             {
                 _ = document.DecodeStream(stream);
             }
+        }
+    }
+
+    /// <summary>
+    /// Opens the input as a whole file in lenient mode, saves it in the layout the input's length selects, and reopens the output.
+    /// Whatever opened must save, and what was saved must open again with the same number of pages: a full save writes every object
+    /// (repaired ones re-serialized), so nothing the first open could read may become unreadable. <see cref="NotSupportedException"/>
+    /// is the documented outcome for an encrypted file or one with object numbers above the save limit.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.5 (issue #44).</remarks>
+    private static void Save(ReadOnlySpan<byte> data)
+    {
+        using PdfDocument? document = OpenOrNull(data);
+        if (document is null)
+        {
+            return;
+        }
+
+        int pages = document.Pages.Count;
+        var layout = (PdfCrossReferenceLayout)(data.Length % 3);
+        using var output = new MemoryStream();
+        try
+        {
+            document.Save(output, new PdfSaveOptions().WithCrossReferenceLayout(layout));
+        }
+        catch (NotSupportedException)
+        {
+            return;
+        }
+
+        using PdfDocument saved = PdfDocument.Open(output.ToArray());
+        if (saved.Pages.Count != pages)
+        {
+            throw new InvalidOperationException($"The saved file has {saved.Pages.Count} pages; the input had {pages}.");
         }
     }
 

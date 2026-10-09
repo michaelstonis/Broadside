@@ -127,8 +127,23 @@ internal sealed class ObjectStream
     /// <param name="index">The index from the type 2 cross-reference entry (Table 18).</param>
     /// <param name="diagnostics">Where to report deviations.</param>
     /// <returns>The object, or <see cref="CosNull"/> when the object stream does not hold it.</returns>
-    public CosObject Parse(CosReference member, int index, DiagnosticSink diagnostics)
+    public CosObject Parse(CosReference member, int index, DiagnosticSink diagnostics) => Parse(member, index, diagnostics, out _);
+
+    /// <summary>
+    /// Parses the member <paramref name="member"/> the cross-reference stream places at <paramref name="index"/> and returns the bytes it
+    /// was read from, so a writer can copy them (issue #44).
+    /// </summary>
+    /// <param name="member">The member's reference (generation 0).</param>
+    /// <param name="index">The index from the type 2 cross-reference entry (Table 18).</param>
+    /// <param name="diagnostics">Where to report deviations.</param>
+    /// <param name="memberBytes">
+    /// The member's bytes without surrounding white-space, when it was read without any repair and is not a stream (which an object
+    /// stream shall not hold); otherwise <see langword="null"/>.
+    /// </param>
+    /// <returns>The object, or <see cref="CosNull"/> when the object stream does not hold it.</returns>
+    public CosObject Parse(CosReference member, int index, DiagnosticSink diagnostics, out ReadOnlyMemory<byte>? memberBytes)
     {
+        memberBytes = null;
         if (!IsReadable)
         {
             return CosNull.Instance;
@@ -171,8 +186,31 @@ internal sealed class ObjectStream
                 "A stream shall not be stored in an object stream (§7.5.7); it is read anyway.",
                 objectReference: member);
         }
+        else if (repairs.Count == 0)
+        {
+            memberBytes = Trim(_data[_starts[position].._ends[position]]);
+        }
 
         return value;
+    }
+
+    /// <summary>Removes the white-space around a member's bytes (§7.2.3, Table 1).</summary>
+    private static ReadOnlyMemory<byte> Trim(ReadOnlyMemory<byte> bytes)
+    {
+        ReadOnlySpan<byte> span = bytes.Span;
+        int start = 0;
+        while (start < span.Length && CosLexer.IsWhitespace(span[start]))
+        {
+            start++;
+        }
+
+        int end = span.Length;
+        while (end > start && CosLexer.IsWhitespace(span[end - 1]))
+        {
+            end--;
+        }
+
+        return bytes[start..end];
     }
 
     /// <summary>Returns, for each start, the nearest greater start of another member, or the end of the data.</summary>

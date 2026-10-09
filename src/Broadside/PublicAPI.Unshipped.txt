@@ -266,3 +266,17 @@ Broadside.PdfOptions.WithLoggerFactory(Microsoft.Extensions.Logging.ILoggerFacto
 Microsoft.Extensions.DependencyInjection.BroadsideServiceCollectionExtensions
 static Microsoft.Extensions.DependencyInjection.BroadsideServiceCollectionExtensions.AddBroadside(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Microsoft.Extensions.DependencyInjection.BroadsideServiceCollectionExtensions.AddBroadside(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Broadside.PdfOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+Broadside.PdfCrossReferenceLayout
+Broadside.PdfCrossReferenceLayout.Stream = 1 -> Broadside.PdfCrossReferenceLayout
+Broadside.PdfCrossReferenceLayout.StreamWithObjectStreams = 2 -> Broadside.PdfCrossReferenceLayout
+Broadside.PdfCrossReferenceLayout.Table = 0 -> Broadside.PdfCrossReferenceLayout
+Broadside.PdfDocument.Save(string! path) -> void
+Broadside.PdfDocument.Save(string! path, Broadside.PdfSaveOptions! options) -> void
+Broadside.PdfDocument.Save(System.IO.Stream! stream) -> void
+Broadside.PdfDocument.Save(System.IO.Stream! stream, Broadside.PdfSaveOptions! options) -> void
+Broadside.PdfDocument.SaveAsync(System.IO.Stream! stream, Broadside.PdfSaveOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.PdfSaveOptions
+Broadside.PdfSaveOptions.CrossReferenceLayout.get -> Broadside.PdfCrossReferenceLayout
+Broadside.PdfSaveOptions.CrossReferenceLayout.set -> void
+Broadside.PdfSaveOptions.PdfSaveOptions() -> void
+Broadside.PdfSaveOptions.WithCrossReferenceLayout(Broadside.PdfCrossReferenceLayout layout) -> Broadside.PdfSaveOptions!
