@@ -383,3 +383,24 @@ Broadside.PdfSaveOptions.CrossReferenceLayout.get -> Broadside.PdfCrossReference
 Broadside.PdfSaveOptions.CrossReferenceLayout.set -> void
 Broadside.PdfSaveOptions.PdfSaveOptions() -> void
 Broadside.PdfSaveOptions.WithCrossReferenceLayout(Broadside.PdfCrossReferenceLayout layout) -> Broadside.PdfSaveOptions!
+Broadside.Security.PdfCertificateCredentials
+Broadside.Security.PdfCertificateCredentials.Certificates.get -> System.Collections.Generic.IReadOnlyList<System.Security.Cryptography.X509Certificates.X509Certificate2!>!
+Broadside.Security.PdfCertificateCredentials.PdfCertificateCredentials(System.Collections.Generic.IEnumerable<System.Security.Cryptography.X509Certificates.X509Certificate2!>! certificates) -> void
+Broadside.Security.PdfCertificateCredentials.PdfCertificateCredentials(System.Security.Cryptography.X509Certificates.X509Certificate2! certificate) -> void
+Broadside.Security.PdfCertificateException
+Broadside.Security.PdfCertificateException.Failure.get -> Broadside.Security.PdfCertificateFailure
+Broadside.Security.PdfCertificateException.PdfCertificateException() -> void
+Broadside.Security.PdfCertificateException.PdfCertificateException(Broadside.Security.PdfCertificateFailure failure, System.Collections.Generic.IEnumerable<System.Security.Cryptography.Pkcs.SubjectIdentifier!>! recipients) -> void
+Broadside.Security.PdfCertificateException.PdfCertificateException(string? message) -> void
+Broadside.Security.PdfCertificateException.PdfCertificateException(string? message, System.Exception? innerException) -> void
+Broadside.Security.PdfCertificateException.Recipients.get -> System.Collections.Generic.IReadOnlyList<System.Security.Cryptography.Pkcs.SubjectIdentifier!>!
+Broadside.Security.PdfCertificateFailure
+Broadside.Security.PdfCertificateFailure.NoMatchingRecipient = 1 -> Broadside.Security.PdfCertificateFailure
+Broadside.Security.PdfCertificateFailure.PrivateKeyUnavailable = 2 -> Broadside.Security.PdfCertificateFailure
+Broadside.Security.PdfCertificateFailure.Required = 0 -> Broadside.Security.PdfCertificateFailure
+Broadside.Security.PublicKeySecurityHandler
+Broadside.Security.PublicKeySecurityHandler.Authenticate(Broadside.Security.SecurityHandlerContext! context) -> Broadside.Security.SecurityHandlerResult!
+Broadside.Security.PublicKeySecurityHandler.Filter.get -> Broadside.Objects.CosName!
+Broadside.Security.PublicKeySecurityHandler.PublicKeySecurityHandler() -> void
+Broadside.Security.PublicKeySecurityHandler.SubFilters.get -> System.Collections.Generic.IReadOnlyCollection<Broadside.Objects.CosName!>!
+override Broadside.Security.PdfCertificateCredentials.ToString() -> string!

@@ -119,7 +119,8 @@ public sealed class PdfEngine
     /// <exception cref="Diagnostics.DiagnosticException">
     /// The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.
     /// </exception>
-    /// <exception cref="PdfPasswordException">The document is encrypted and the credentials do not open it.</exception>
+    /// <exception cref="PdfPasswordException">The document is encrypted with a password and the credentials do not open it.</exception>
+    /// <exception cref="PdfCertificateException">The document is encrypted for certificate recipients and the credentials do not open it.</exception>
     /// <exception cref="PdfEncryptionNotSupportedException">The document is encrypted in a way this engine cannot decrypt.</exception>
     /// <remarks>ISO 32000-2 §7.5 and §7.6. For an unencrypted file the credentials are ignored.</remarks>
     public PdfDocument Open(string path, PdfCredentials credentials)
@@ -136,7 +137,8 @@ public sealed class PdfEngine
     /// <exception cref="Diagnostics.DiagnosticException">
     /// The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.
     /// </exception>
-    /// <exception cref="PdfPasswordException">The document is encrypted and the credentials do not open it.</exception>
+    /// <exception cref="PdfPasswordException">The document is encrypted with a password and the credentials do not open it.</exception>
+    /// <exception cref="PdfCertificateException">The document is encrypted for certificate recipients and the credentials do not open it.</exception>
     /// <exception cref="PdfEncryptionNotSupportedException">The document is encrypted in a way this engine cannot decrypt.</exception>
     /// <remarks>ISO 32000-2 §7.5 and §7.6. For an unencrypted file the credentials are ignored.</remarks>
     public PdfDocument Open(Stream stream, PdfCredentials credentials)
@@ -153,7 +155,8 @@ public sealed class PdfEngine
     /// <exception cref="Diagnostics.DiagnosticException">
     /// The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.
     /// </exception>
-    /// <exception cref="PdfPasswordException">The document is encrypted and the credentials do not open it.</exception>
+    /// <exception cref="PdfPasswordException">The document is encrypted with a password and the credentials do not open it.</exception>
+    /// <exception cref="PdfCertificateException">The document is encrypted for certificate recipients and the credentials do not open it.</exception>
     /// <exception cref="PdfEncryptionNotSupportedException">The document is encrypted in a way this engine cannot decrypt.</exception>
     /// <remarks>ISO 32000-2 §7.5 and §7.6. For an unencrypted file the credentials are ignored.</remarks>
     public PdfDocument Open(ReadOnlyMemory<byte> bytes, PdfCredentials credentials)

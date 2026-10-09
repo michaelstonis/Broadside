@@ -33,7 +33,8 @@ public interface ISecurityHandler
     /// <summary>Authenticates the credentials against the encryption dictionary.</summary>
     /// <param name="context">The encryption dictionary, the file identifier, the credentials and the diagnostics.</param>
     /// <returns>The file encryption key, the access level and the permissions.</returns>
-    /// <exception cref="PdfPasswordException">The credentials do not open the document.</exception>
+    /// <exception cref="PdfPasswordException">The password does not open the document.</exception>
+    /// <exception cref="PdfCertificateException">The certificates do not open the document.</exception>
     /// <exception cref="PdfEncryptionNotSupportedException">The handler does not implement what the dictionary asks for.</exception>
     /// <exception cref="DiagnosticException">The dictionary is too damaged to authenticate against.</exception>
     SecurityHandlerResult Authenticate(SecurityHandlerContext context);
@@ -126,7 +127,8 @@ public sealed class SecurityHandlerResult
 
     /// <summary>
     /// Gets keys for named crypt filters that do not use the file encryption key, such as a public-key handler's crypt filters with
-    /// their own recipients (§7.6.6, Table 27); <see langword="null"/> when every crypt filter uses the file encryption key.
+    /// their own recipients (§7.6.6, Table 27); <see langword="null"/> when every crypt filter uses the file encryption key. An empty
+    /// key marks a crypt filter the credentials are not authorized for: streams that name it stay encrypted (§7.6.6).
     /// </summary>
     public IReadOnlyDictionary<CosName, ReadOnlyMemory<byte>>? CryptFilterKeys { get; init; }
 }
