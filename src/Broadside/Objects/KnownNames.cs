@@ -62,4 +62,13 @@ internal static class KnownNames
 
     /// <summary><c>/UserUnit</c>, the size of a default user space unit (§7.7.3.3, Table 31).</summary>
     public static readonly CosName UserUnit = new("UserUnit");
+
+    /// <summary><c>/Info</c>, the trailer's document information dictionary (§7.5.5, Table 15).</summary>
+    public static readonly CosName Info = new("Info");
+
+    /// <summary><c>/Encrypt</c>, the trailer's encryption dictionary (§7.5.5, Table 15).</summary>
+    public static readonly CosName Encrypt = new("Encrypt");
+
+    /// <summary><c>/ID</c>, the trailer's file identifier (§7.5.5, Table 15).</summary>
+    public static readonly CosName ID = new("ID");
 }

@@ -22,7 +22,7 @@ public class WellFormedCorpusTests
 
         using PdfDocument document = PdfDocument.Open(Corpus.Path(fileName));
 
-        int expectedPages = fileName == "page-tree-inherited.pdf" ? 2 : 1;
+        int expectedPages = fileName is "page-tree-inherited.pdf" or "linearized.pdf" ? 2 : 1;
         Assert.Equal(expectedPages, document.Pages.Count);
         foreach (PdfPage page in document.Pages)
         {

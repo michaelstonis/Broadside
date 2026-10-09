@@ -6,7 +6,7 @@ The fuzz harness: one console application, one target per parser or codec, selec
 dotnet run -c Release --project tests/Broadside.Fuzz -- --list
 ```
 
-Targets live in `FuzzTargets.cs` as a dictionary from name to `ReadOnlySpanAction`. A target takes one input, calls into `Broadside`, and either returns or throws; any exception that escapes is a finding. The targets today are `lexer` (the COS lexer over the whole input: every token inside the input, always making progress) and `object-parser` (the lenient COS object parser scanning the input as a file body, checking that every object it reads writes back to syntax that parses, without repair, to an equal object; it also runs the strict public `CosObject.TryParse`) and `document` (opens the input as a whole file in lenient mode and reads the version, trailer and every page's boxes, rotation, user unit and resources; a `DiagnosticException` for a file whose cross-reference information cannot be read is the one allowed outcome until #41 reconstructs it). Every parser and codec after them adds its own (CLAUDE.md, "Code conventions").
+Targets live in `FuzzTargets.cs` as a dictionary from name to `ReadOnlySpanAction`. A target takes one input, calls into `Broadside`, and either returns or throws; any exception that escapes is a finding. The targets today are `lexer` (the COS lexer over the whole input: every token inside the input, always making progress) and `object-parser` (the lenient COS object parser scanning the input as a file body, checking that every object it reads writes back to syntax that parses, without repair, to an equal object; it also runs the strict public `CosObject.TryParse`) and `document` (opens the input as a whole file in lenient mode and reads the version, trailer and every page's boxes, rotation, user unit and resources; a `DiagnosticException` for a file whose cross-reference information cannot be read is the one allowed outcome until #41 reconstructs it; it also reads the revisions and a linearized file's parameter dictionary and hint tables) and `hint-tables` (the linearization hint table decoder of Annex F over raw hint stream data: byte 0 selects the page count, bytes 1 and 2 the position of the shared object table, the rest is the data; it either fails with a reason or returns one entry per page). Every parser and codec after them adds its own (CLAUDE.md, "Code conventions").
 
 Exit codes: 0 no finding, 1 a finding, 2 usage error.
 
@@ -25,7 +25,12 @@ dotnet run -c Release --project tests/Broadside.Fuzz -- --run object-parser arti
 
 `--run <target> <file>` executes the target once on one input, which is also how to replay a crash found by libFuzzer or AFL.
 
-Whole corpus files are the right seeds for `lexer` and `object-parser`, which read any bytes as a file body, and for `document`, which reads whole files.
+Whole corpus files are the right seeds for `lexer` and `object-parser`, which read any bytes as a file body, and for `document`, which reads whole files. `hint-tables` reads raw hint stream data, for which whole files are a weak seed; for libFuzzer and AFL seed it with the hint stream of `linearized.pdf` behind its three control bytes (two pages, shared table at 44):
+
+```sh
+mkdir -p artifacts/fuzz/seeds-hints
+{ printf '\001\000\054'; qpdf --show-object=7 --raw-stream-data tests/Corpus/linearized.pdf; } > artifacts/fuzz/seeds-hints/linearized.bin
+```
 
 Smoke mode is a regression net, not a fuzzer: it has no coverage feedback and finds only shallow bugs. Use a real fuzzer for anything that parses.
 
