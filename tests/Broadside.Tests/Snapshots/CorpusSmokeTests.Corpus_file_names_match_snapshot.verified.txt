@@ -1,4 +1,6 @@
 ﻿[
+  actions-all.pdf,
+  actions-preserved.pdf,
   annotations-link.pdf,
   ascii85-stream.pdf,
   asciihex-stream.pdf,

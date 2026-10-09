@@ -66,6 +66,8 @@ public static class Corpus
         "associated-files.pdf",
         "object-metadata.pdf",
         "declarations.pdf",
+        "actions-all.pdf",
+        "actions-preserved.pdf",
     ];
 
     private static readonly string[] Malformed =

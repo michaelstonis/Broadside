@@ -11,6 +11,9 @@ public sealed class PdfGoToAction : PdfAction
     {
     }
 
+    /// <inheritdoc/>
+    public override PdfActionKind Kind => PdfActionKind.GoTo;
+
     /// <summary>Gets the destination to show, the <c>D</c> entry: explicit or named; <see langword="null"/> when absent or invalid.</summary>
     /// <remarks>ISO 32000-2 §12.6.4.2, Table 202, and §12.3.2.</remarks>
     public PdfDestination? Destination =>
