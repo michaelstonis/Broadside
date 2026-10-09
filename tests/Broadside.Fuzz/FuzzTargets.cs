@@ -966,8 +966,10 @@ internal static class FuzzTargets
 
         if (document.PageLabels is { } labels)
         {
+            // A label is its range's prefix (any length, Table 161) and a number of at most MaxNumeralLength characters.
             IReadOnlyList<string> all = labels.GetLabels();
-            if (all.Count != document.Pages.Count || all.Any(label => label.Length > PdfPageLabelRange.MaxNumeralLength + 4096))
+            int longestPrefix = labels.Ranges.Select(range => range.Prefix.Length).DefaultIfEmpty(0).Max();
+            if (all.Count != document.Pages.Count || all.Any(label => label.Length > longestPrefix + PdfPageLabelRange.MaxNumeralLength))
             {
                 throw new InvalidOperationException("Page labels must give one bounded label per page.");
             }
