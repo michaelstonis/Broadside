@@ -2958,3 +2958,11 @@ override Broadside.Graphics.PdfExponentialFunction.FunctionType.get -> Broadside
 override Broadside.Graphics.PdfPostScriptFunction.FunctionType.get -> Broadside.Graphics.PdfFunctionType
 override Broadside.Graphics.PdfSampledFunction.FunctionType.get -> Broadside.Graphics.PdfFunctionType
 override Broadside.Graphics.PdfStitchingFunction.FunctionType.get -> Broadside.Graphics.PdfFunctionType
+Broadside.Fonts.Cff.CffFontProgramParser
+Broadside.Fonts.Cff.CffFontProgramParser.CanParse(System.ReadOnlySpan<byte> data) -> bool
+Broadside.Fonts.Cff.CffFontProgramParser.CffFontProgramParser() -> void
+Broadside.Fonts.Cff.CffFontProgramParser.Formats.get -> System.Collections.Generic.IReadOnlyList<Broadside.Fonts.FontProgramFormat>!
+Broadside.Fonts.Cff.CffFontProgramParser.Parse(System.ReadOnlyMemory<byte> data, Broadside.Fonts.FontProgramContext! context) -> Broadside.Fonts.FontProgram?
+Broadside.Fonts.FontProgramContext.MaxCharStringOperators.get -> int
+Broadside.Fonts.FontProgramContext.MaxCharStringOperators.init -> void
+const Broadside.Fonts.FontProgramContext.DefaultMaxCharStringOperators = 100000 -> int

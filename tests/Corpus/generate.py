@@ -911,6 +911,201 @@ def ttf_rect(x0: int, y0: int, x1: int, y1: int) -> TtfGlyph:
 
 
 # ---------------------------------------------------------------------------
+# Minimal CFF font program (Adobe TN 5176 CFF, TN 5177 Type 2 charstrings; PDF clause 9.9)
+# ---------------------------------------------------------------------------
+
+T2_OPERATORS = {
+    "hstem": [1], "vstem": [3], "vmoveto": [4], "rlineto": [5], "hlineto": [6], "vlineto": [7], "rrcurveto": [8],
+    "callsubr": [10], "return": [11], "endchar": [14], "hstemhm": [18], "hintmask": [19], "cntrmask": [20],
+    "rmoveto": [21], "hmoveto": [22], "vstemhm": [23], "rcurveline": [24], "rlinecurve": [25], "vvcurveto": [26],
+    "hhcurveto": [27], "callgsubr": [29], "vhcurveto": [30], "hvcurveto": [31],
+    "div": [12, 12], "flex": [12, 35], "hflex": [12, 34], "hflex1": [12, 36], "flex1": [12, 37],
+}
+
+# The standard strings (TN 5176 Appendix A) the corpus fonts use; other names go to the String INDEX.
+CFF_STANDARD_SIDS = {".notdef": 0, "space": 1, "A": 34, "H": 41, "I": 42, "O": 48, "S": 52, "acute": 125, "Aacute": 171}
+
+
+def t2_number(value: int) -> bytes:
+    """TN 5177 Table 1: integers in the shortest form (32-246, 247-254 two-byte, 28 three-byte)."""
+    if -107 <= value <= 107:
+        return bytes([value + 139])
+    if 108 <= value <= 1131:
+        return bytes([((value - 108) >> 8) + 247, (value - 108) & 0xFF])
+    if -1131 <= value <= -108:
+        return bytes([((-value - 108) >> 8) + 251, (-value - 108) & 0xFF])
+    return b"\x1c" + struct.pack(">h", value)
+
+
+def t2(*tokens) -> bytes:
+    """A Type 2 charstring: ints are operands, strings operator names, bytes raw (hint masks)."""
+    out = b""
+    for token in tokens:
+        if isinstance(token, int):
+            out += t2_number(token)
+        elif isinstance(token, str):
+            out += bytes(T2_OPERATORS[token])
+        else:
+            out += token
+    return out
+
+
+def cff_index(items: list[bytes]) -> bytes:
+    """TN 5176 section 5 Table 7: count, offSize from the largest offset, 1-based offsets, data."""
+    if not items:
+        return b"\x00\x00"
+    total = sum(len(i) for i in items) + 1
+    off_size = 1 if total < 0x100 else 2 if total < 0x10000 else 3 if total < 0x1000000 else 4
+    out = struct.pack(">HB", len(items), off_size)
+    offset = 1
+    for i in range(len(items) + 1):
+        out += offset.to_bytes(off_size, "big")
+        if i < len(items):
+            offset += len(items[i])
+    return out + b"".join(items)
+
+
+def cff_dict_int(value: int) -> bytes:
+    """TN 5176 Table 3, in the 5-byte form (operator 29) so every offset has a fixed size."""
+    return b"\x1d" + struct.pack(">i", value)
+
+
+def cff_font(name: bytes, glyphs: list[tuple[str, bytes]], encoding: bytes, local_subrs: list[bytes],
+             global_subrs: list[bytes], default_width: int, nominal_width: int) -> bytes:
+    """A one-font CFF program: header, Name, Top DICT, String and Global Subr INDEXes, a format 0 charset, the
+    given custom encoding, CharStrings, Private DICT (defaultWidthX, nominalWidthX, Subrs) and local Subrs."""
+    strings: list[bytes] = []
+
+    def sid(glyph: str) -> int:
+        if glyph in CFF_STANDARD_SIDS:
+            return CFF_STANDARD_SIDS[glyph]
+        if glyph.encode() not in strings:
+            strings.append(glyph.encode())
+        return 391 + strings.index(glyph.encode())
+
+    charset = b"\x00" + b"".join(struct.pack(">H", sid(g)) for g, _ in glyphs[1:])
+    char_strings = cff_index([cs for _, cs in glyphs])
+    subrs = cff_index(local_subrs) if local_subrs else b""
+    private = cff_dict_int(default_width) + b"\x14" + cff_dict_int(nominal_width) + b"\x15"
+    if local_subrs:
+        private += cff_dict_int(len(private) + 6) + b"\x13"  # Subrs, relative to the Private DICT (TN 5176 p.25)
+
+    def top(charset_off: int, encoding_off: int, char_strings_off: int, private_off: int) -> bytes:
+        return (cff_dict_int(charset_off) + b"\x0f" + cff_dict_int(encoding_off) + b"\x10"
+                + cff_dict_int(char_strings_off) + b"\x11" + cff_dict_int(len(private)) + cff_dict_int(private_off) + b"\x12")
+
+    head = b"\x01\x00\x04\x04" + cff_index([name])
+    top_len = len(cff_index([top(0, 0, 0, 0)]))
+    body = cff_index(strings) + cff_index(global_subrs)
+    charset_off = len(head) + top_len + len(body)
+    encoding_off = charset_off + len(charset)
+    char_strings_off = encoding_off + len(encoding)
+    private_off = char_strings_off + len(char_strings)
+    top_dict = cff_index([top(charset_off, encoding_off, char_strings_off, private_off)])
+    assert len(top_dict) == top_len
+    return head + top_dict + body + charset + encoding + char_strings + private + subrs
+
+
+def minimal_cff() -> tuple[bytes, list[tuple[str, int, int]]]:
+    """A CFF font (TN 5176) with Type 2 charstrings (TN 5177) covering lines, curves, hints, subroutines, flex,
+    an arithmetic operand, an accented character and both width forms. Returns the program and, per glyph after
+    .notdef, (name, code in the custom encoding, advance). nominalWidthX 500, defaultWidthX 600.
+
+    Outlines, in glyph space (1000 units per em):
+      H      M 100,0 L 100,700 L 300,700 L 300,400 L 500,400 L 500,700 L 700,700 L 700,0 L 500,0 L 500,300
+             L 300,300 L 300,0 Z  (vlineto, hlineto, rlineto; hstemhm, vstemhm, hintmask; width 500 + 300)
+      I      M 100,0 L 100,700 L 300,700 L 300,0 Z M 50,0 L 350,0 L 350,50 L 50,50 Z  (body in local subr 0,
+             serif in global subr 0, both called with the bias 107; default width)
+      O      M 400,0 C 550,0 650,200 650,400 C 650,600 550,800 400,800 C 250,800 150,600 150,400
+             C 150,200 250,0 400,0 Z  (hvcurveto, vhcurveto, rrcurveto; width 500 + 200)
+      A      M 0,0 L 300,700 L 600,0 Z
+      acute  M 0,0 L 100,100 L 150,50 Z  (width 500 - 300)
+      Aacute A, then acute moved by (150, 750): endchar with adx ady bchar achar (StandardEncoding 65 and 194)
+      S      M 0,300 C 100,350 200,400 300,400 C 400,400 500,350 600,300 L 600,0 L 0,0 Z  (rmoveto dy = 600 2 div,
+             flex)
+    Custom encoding format 1 (0x80: with a supplement): ranges H I (0x48-0x49), O (0x4F), A (0x41), acute (0xC2),
+    Aacute (0xC1), S (0x53); the supplement also encodes A at 0x61 (TN 5176 section 12, Table 14)."""
+    glyphs = [
+        (".notdef", t2("endchar")),
+        ("H", t2(300, 0, 50, 650, 50, "hstemhm", 100, 200, 400, 200, "vstemhm", "hintmask", b"\xf0",
+                 100, 0, "rmoveto", 700, 200, -300, "vlineto", 200, 300, 200, "hlineto", 0, -700, -200, 0, "rlineto",
+                 300, -200, -300, "vlineto", "endchar")),
+        ("I", t2(-107, "callsubr", -107, "callgsubr", "endchar")),
+        ("O", t2(200, 400, 0, "rmoveto", 150, 100, 200, 200, "hvcurveto", 200, -100, 200, -150, "vhcurveto",
+                 -150, 0, -100, -200, 0, -200, "rrcurveto", -200, 100, -200, 150, "vhcurveto", "endchar")),
+        ("A", t2(0, 0, "rmoveto", 300, 700, 300, -700, "rlineto", "endchar")),
+        ("acute", t2(-300, 0, 0, "rmoveto", 100, 100, 50, -50, "rlineto", "endchar")),
+        ("Aacute", t2(150, 750, 65, 194, "endchar")),
+        ("S", t2(0, 600, 2, "div", "rmoveto", 100, 50, 100, 50, 100, 0, 100, 0, 100, -50, 100, -50, 50, "flex",
+                 -300, "vlineto", -600, "hlineto", "endchar")),
+    ]
+    local_subrs = [t2(100, 0, "rmoveto", 700, 200, -700, "vlineto", "return")]
+    global_subrs = [t2(-250, 0, "rmoveto", 300, 50, -300, "hlineto", "return")]
+    ranges = [(0x48, 1), (0x4F, 0), (0x41, 0), (0xC2, 0), (0xC1, 0), (0x53, 0)]
+    encoding = bytes([0x81, len(ranges)]) + b"".join(bytes(r) for r in ranges)
+    encoding += bytes([1, 0x61]) + struct.pack(">H", CFF_STANDARD_SIDS["A"])
+    font = cff_font(b"BroadsideCff", glyphs, encoding, local_subrs, global_subrs, 600, 500)
+    advances = {"H": 800, "I": 600, "O": 700, "A": 600, "acute": 200, "Aacute": 600, "S": 600}
+    codes = {"H": 0x48, "I": 0x49, "O": 0x4F, "A": 0x41, "acute": 0xC2, "Aacute": 0xC1, "S": 0x53}
+    return font, [(g, codes[g], advances[g]) for g, _ in glyphs[1:]]
+
+
+def sfnt(version: int, tables: dict[bytes, bytes]) -> bytes:
+    """An sfnt file (OpenType "Organization of an OpenType font"): sorted table directory with checksums, tables
+    padded to 4 bytes, head.checkSumAdjustment set."""
+    tags = sorted(tables)
+    n = len(tags)
+    es = n.bit_length() - 1
+    sr = (1 << es) * 16
+    font = bytearray(struct.pack(">IHHHH", version, n, sr, es, n * 16 - sr))
+    offset = 12 + 16 * n
+    body = bytearray()
+    head_off = None
+    for tag in tags:
+        data = tables[tag]
+        if tag == b"head":
+            head_off = offset + len(body)
+        font += tag + struct.pack(">III", _checksum(data), offset + len(body), len(data))
+        body += data + bytes((-len(data)) % 4)
+    font += body
+    if head_off is not None:
+        adj = (0xB1B0AFBA - _checksum(bytes(font))) & 0xFFFFFFFF
+        font[head_off + 8:head_off + 12] = struct.pack(">I", adj)
+    return bytes(font)
+
+
+def minimal_otf_cff() -> bytes:
+    """minimal_cff() wrapped in an OpenType font (OTTO) with the tables an OpenType CFF font has: CFF, cmap ((3,1)
+    format 4 consistent with the charset), head, hhea, hmtx, maxp 0.5, name, OS/2, post 3.0."""
+    cff, glyphs = minimal_cff()
+    unicode = {"H": 0x48, "I": 0x49, "O": 0x4F, "A": 0x41, "acute": 0xB4, "Aacute": 0xC1, "S": 0x53}
+    gid = {g: i + 1 for i, (g, _, _) in enumerate(glyphs)}
+    segments = sorted((unicode[g], gid[g]) for g in unicode)
+    cmap = cmap_table([(3, 1, cmap_format4([(u, u, (g - u) & 0xFFFF, None) for u, g in segments]))])
+    advances = [600] + [adv for _, _, adv in glyphs]
+    head = struct.pack(">IIIIHHqqhhhhHHhhh", 0x00010000, 0x00010000, 0, 0x5F0F3CF5, 0x000B, 1000, 0, 0,
+                       0, 0, 700, 850, 0, 8, 2, 0, 0)
+    hhea = struct.pack(">IhhhHhhhhhhhhhhhH", 0x00010000, 800, -200, 0, max(advances), 0, 0, 700, 1, 0, 0, 0, 0,
+                       0, 0, 0, len(advances))
+    hmtx = b"".join(struct.pack(">Hh", a, 0) for a in advances)
+    maxp = struct.pack(">IH", 0x00005000, len(advances))
+    names = [(1, "Broadside Cff"), (2, "Regular"), (4, "Broadside Cff"), (6, "BroadsideCff")]
+    name_data, recs = b"", b""
+    for nid, text in names:
+        enc = text.encode("utf-16-be")
+        recs += struct.pack(">HHHHHH", 3, 1, 0x409, nid, len(enc), len(name_data))
+        name_data += enc
+    name = struct.pack(">HHH", 0, len(names), 6 + 12 * len(names)) + recs + name_data
+    os2 = struct.pack(">HhHHH" + "h" * 11, 3, 600, 400, 5, 0, 500, 300, 0, 0, 500, 300, 0, 0, 50, 300, 0)
+    os2 += bytes(10) + struct.pack(">IIII", 1, 0, 0, 0) + b"BRDS"
+    os2 += struct.pack(">HHHhhhHHIIhhHHH", 0x0040, 0x41, 0xC1, 800, -200, 0, 850, 200, 1, 0, 500, 700, 0, 0, 0)
+    assert len(os2) == 96
+    post = struct.pack(">IiHHIIIII", 0x00030000, 0, 0, 0, 0, 0, 0, 0, 0)
+    return sfnt(0x4F54544F, {b"CFF ": cff, b"cmap": cmap, b"head": head, b"hhea": hhea, b"hmtx": hmtx,
+                             b"maxp": maxp, b"name": name, b"OS/2": os2, b"post": post})
+
+
+# ---------------------------------------------------------------------------
 # The corpus
 # ---------------------------------------------------------------------------
 
@@ -1161,6 +1356,45 @@ def gen_text_truetype_loca_long() -> bytes:
     return truetype_file(font, b"BroadsideLongLoca", 32, 0x48, [800, 400], b"/WinAnsiEncoding", b"HI")
 
 
+def cff_file(subtype: bytes, font: bytes, flags: int, widths: dict[int, int], encoding: bytes | None,
+             codes: bytes) -> bytes:
+    """A page showing ``codes`` in a Type 1 font dictionary whose program is a FontFile3 stream (9.6.2, 9.9 Tables
+    124 and 125: Subtype required, no Length1/2/3)."""
+    first, last = min(widths), max(widths)
+    w = b" ".join(b"%d" % widths.get(c, 0) for c in range(first, last + 1))
+    enc = b" /Encoding " + encoding if encoding is not None else b""
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>" % LETTER),
+        (4, stream(b"", codes_content([("F1", codes)]))),
+        (5, b"<< /Type /Font /Subtype /Type1 /BaseFont /BroadsideCff /FirstChar %d /LastChar %d /Widths [%s]%s "
+            b"/FontDescriptor 6 0 R >>" % (first, last, w, enc)),
+        (6, b"<< /Type /FontDescriptor /FontName /BroadsideCff /Flags %d /FontBBox [0 0 700 850] /ItalicAngle 0 "
+            b"/Ascent 800 /Descent -200 /CapHeight 700 /StemV 200 /FontFile3 7 0 R >>" % flags),
+        (7, stream(b"/Subtype /" + subtype, font)),
+    ], binary=True)
+
+
+def gen_text_cff_embedded() -> bytes:
+    """9.6.5.2, 9.9 (Tables 124, 125): an embedded CFF program (FontFile3 /Type1C) in a symbolic Type 1 font with no
+    Encoding, so the program's custom encoding (TN 5176 section 12, with a supplement) selects the glyphs. Shows H I O
+    (lines with hints, subroutines, curves), Aacute (endchar seac), the supplement code 0x61 (A) and S (flex, div);
+    outlines in minimal_cff()."""
+    font, glyphs = minimal_cff()
+    widths = {code: advance for _, code, advance in glyphs}
+    widths[0x61] = 600
+    return cff_file(b"Type1C", font, 4, widths, None, b"HIO\xc1aS")
+
+
+def gen_text_opentype_cff_embedded() -> bytes:
+    """9.6.5.2, 9.9 (Table 124 OpenType, p.370): the same CFF program inside an OpenType font (FontFile3 /OpenType)
+    in a nonsymbolic Type 1 font with WinAnsiEncoding: the codes' glyph names are looked up in the CFF charset, not
+    the "cmap" table. Shows H I O, Aacute (0xC1), A, S and acute (0xB4)."""
+    _, glyphs = minimal_cff()
+    winansi = {"H": 0x48, "I": 0x49, "O": 0x4F, "A": 0x41, "acute": 0xB4, "Aacute": 0xC1, "S": 0x53}
+    widths = {winansi[name]: advance for name, _, advance in glyphs}
+    return cff_file(b"OpenType", minimal_otf_cff(), 32, widths, b"/WinAnsiEncoding", b"HIO\xc1AS\xb4")
 # ---------------------------------------------------------------------------
 # Type 1 font programs (9.9 Table 125; Adobe Type 1 Font Format, TN 5015, TN 5040)
 # ---------------------------------------------------------------------------
@@ -3145,6 +3379,8 @@ FILES = {
     "text-truetype-symbolic.pdf": gen_text_truetype_symbolic,
     "text-truetype-macroman.pdf": gen_text_truetype_macroman,
     "text-truetype-loca-long.pdf": gen_text_truetype_loca_long,
+    "text-cff-embedded.pdf": gen_text_cff_embedded,
+    "text-opentype-cff-embedded.pdf": gen_text_opentype_cff_embedded,
     "text-type1-embedded.pdf": gen_text_type1_embedded,
     "text-cid-identity-h.pdf": gen_text_cid_identity_h,
     "text-cid-identity-v.pdf": gen_text_cid_identity_v,

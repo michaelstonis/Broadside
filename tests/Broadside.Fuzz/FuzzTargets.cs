@@ -3,6 +3,7 @@ using Broadside.Content;
 using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Fonts;
+using Broadside.Fonts.Cff;
 using Broadside.Fonts.TrueType;
 using Broadside.Fonts.Type1;
 using Broadside.Graphics;
@@ -52,6 +53,7 @@ internal static class FuzzTargets
         ["function-sampled"] = FunctionSampled,
         ["optional-content"] = OptionalContentTarget.Target,
         ["font-truetype"] = FontTrueType,
+        ["font-cff"] = FontCff,
         ["font-type1"] = FontType1,
         ["cmap"] = CMapFile,
         ["colorspace"] = ColorSpaceTarget,
@@ -487,6 +489,82 @@ internal static class FuzzTargets
     }
 
     /// <summary>A glyph outline must be contours of moveto, segments and close, with the points its verbs take, all finite.</summary>
+    /// <summary>
+    /// Parses the input as a CFF or OpenType-CFF program (issue #51) and reads all of it: every glyph's outline and advance (up to
+    /// 4,096 glyphs, with a 10,000-operator budget per glyph so hostile subroutine fan-out stays fast), every glyph name and its
+    /// reverse lookup, the built-in encoding of every code, and the "cmap" subtables. An input that starts with <c>%PDF-</c> is
+    /// read from its first <c>OTTO</c>, else from its first CFF header (<c>01 00 04</c>), so the CFF corpus files seed the target
+    /// with their unfiltered programs. Every outline must be well formed and every glyph id inside the program.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.9 and §9.6.5.2; Adobe Technical Notes #5176 (CFF) and #5177 (Type 2 charstrings).</remarks>
+    private static void FontCff(ReadOnlySpan<byte> data)
+    {
+        if (data.StartsWith("%PDF-"u8))
+        {
+            int start = data.IndexOf("OTTO"u8);
+            if (start < 0)
+            {
+                start = data.IndexOf((ReadOnlySpan<byte>)[1, 0, 4]);
+            }
+
+            if (start < 0)
+            {
+                return;
+            }
+
+            data = data[start..];
+        }
+
+        byte[] bytes = data.ToArray();
+        var parser = new CffFontProgramParser();
+        _ = parser.CanParse(bytes);
+        if (parser.Parse(bytes, new FontProgramContext { MaxCharStringOperators = 10_000 }) is not { } program)
+        {
+            return;
+        }
+
+        _ = (program.FontBBox, program.PostScriptName, program.FontMatrix, program.Format);
+        var outline = new GlyphOutline();
+        int glyphs = Math.Min(program.GlyphCount, 4096);
+        for (int glyph = -1; glyph <= glyphs; glyph++)
+        {
+            CheckOutline(program.GetOutline(glyph, outline), outline);
+            if (!double.IsFinite(program.GetMetrics(glyph).AdvanceWidth))
+            {
+                throw new InvalidOperationException($"Glyph {glyph} has an advance that is not finite.");
+            }
+
+            if (program.GetGlyphName(glyph) is { } name && (!program.TryGetGlyphId(name, out int named) || named > glyph))
+            {
+                throw new InvalidOperationException($"Glyph {glyph} is named {name}, but the name finds glyph {named}.");
+            }
+        }
+
+        if (program.BuiltInEncoding is { } encoding)
+        {
+            if (encoding.Count != 256)
+            {
+                throw new InvalidOperationException($"The built-in encoding has {encoding.Count} codes.");
+            }
+
+            foreach (string name in encoding)
+            {
+                if (program.TryGetGlyphId(name, out int glyph) && (uint)glyph >= (uint)program.GlyphCount)
+                {
+                    throw new InvalidOperationException($"The built-in encoding's {name} selects glyph {glyph} of {program.GlyphCount}.");
+                }
+            }
+        }
+
+        foreach (FontCharacterMap map in program.CharacterMaps)
+        {
+            for (int code = 0; code < 0x200; code++)
+            {
+                CheckGlyphId(map, code, program.GlyphCount);
+            }
+        }
+    }
+
     private static void CheckOutline(GlyphOutlineStatus status, GlyphOutline outline)
     {
         PathView path = outline.Path;

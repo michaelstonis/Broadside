@@ -106,14 +106,17 @@ public class TrueTypeGlyphSelectionTests
     }
 
     [Fact]
-    public void A_CFF_OpenType_program_is_unsupported_until_a_parser_reads_it()
+    public void A_CFF_OpenType_program_is_read_by_the_CFF_parser_and_its_cmap_selects_the_glyphs()
     {
-        byte[] program = TrueTypeBuilder.Sfnt(new Dictionary<string, byte[]> { ["CFF "] = [1, 0, 4, 1] }, 0x4F54544F);
+        var cff = new CffBuilder { Glyphs = { (".notdef", CffBuilder.T2("endchar")), ("A", CffBuilder.T2(0, 0, "rmoveto", 10, 0, "rlineto", "endchar")) } };
+        byte[] cmap = TrueTypeBuilder.CmapTable((3, 1, TrueTypeBuilder.Format4((0x41, 0x41, 1 - 0x41))));
+        byte[] program = CffBuilder.OpenType(cff.Build(), new Dictionary<string, byte[]> { ["cmap"] = cmap });
         using PdfDocument document = Open(program, flags: 32, encoding: "/WinAnsiEncoding", key: "FontFile3", subtype: "/OpenType");
+        var font = Assert.IsType<PdfTrueTypeFont>(FontPdf.Font(document));
 
-        Assert.Null(FontPdf.Font(document).Program);
-        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
-        Assert.Equal(("FontProgramUnsupported", DiagnosticSeverity.Information), (diagnostic.Code, diagnostic.Severity));
+        Assert.Equal(FontProgramFormat.OpenType, font.Program!.Format);
+        Assert.Equal(1, font.GetGlyphId(0x41));
+        Assert.Empty(document.Diagnostics);
     }
 
     [Fact]
