@@ -1,3 +1,4 @@
+using System.Globalization;
 using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.IO;
@@ -22,8 +23,9 @@ namespace Broadside.Parsing;
 /// <c>Prev</c> is not followed ("not meaningful in hybrid-reference files", Table 17) and its dictionary is not a trailer.
 /// </para>
 /// <para>
-/// Extension: issue #41 locates <c>startxref</c> when it is wrong and reconstructs the table when nothing here can be read
-/// (<see cref="Read"/> returns <see langword="null"/>).
+/// Repair (issue #41): a <c>startxref</c> or <c>Prev</c> offset that points at neither <c>xref</c> nor <c>N G obj</c> reads the
+/// nearest section found by a <see cref="FileScan"/>; when nothing can be read, <see cref="Read"/> returns <see langword="null"/>
+/// and the caller rebuilds the table with <see cref="CrossReferenceReconstructor"/>.
 /// </para>
 /// </remarks>
 internal static class CrossReferenceReader
@@ -38,9 +40,14 @@ internal static class CrossReferenceReader
     /// <param name="header">The header, whose offset every stated offset is relative to.</param>
     /// <param name="streams">The filter pipeline cross-reference streams are decoded with.</param>
     /// <param name="diagnostics">Where to report deviations.</param>
+    /// <param name="scan">
+    /// The scan of the file a wrong <c>startxref</c> or <c>Prev</c> offset is repaired from, run only when one is wrong; a new one
+    /// when <see langword="null"/>.
+    /// </param>
     /// <returns>The cross-reference information, or <see langword="null"/> when no section could be read.</returns>
-    public static CrossReference? Read(PdfSource source, FileHeader header, StreamDecoder streams, DiagnosticSink diagnostics)
+    public static CrossReference? Read(PdfSource source, FileHeader header, StreamDecoder streams, DiagnosticSink diagnostics, Lazy<FileScan>? scan = null)
     {
+        scan ??= new Lazy<FileScan>(() => FileScan.Run(source));
         if (!TryReadStartxref(source, header, diagnostics, out long first))
         {
             return null;
@@ -61,7 +68,7 @@ internal static class CrossReferenceReader
                 break;
             }
 
-            XrefSection? section = ReadSection(source, offset, isFirst: sections.Count == 0, streams, diagnostics);
+            XrefSection? section = ReadSection(source, offset, isFirst: sections.Count == 0, streams, diagnostics, scan, visited);
             if (section is null)
             {
                 break;
@@ -119,7 +126,10 @@ internal static class CrossReferenceReader
         long keyword = FindLast(source, "startxref"u8);
         if (keyword < 0)
         {
-            diagnostics.Report(DiagnosticCodes.StartxrefMissing, DiagnosticSeverity.Error, "The file has no startxref keyword.");
+            diagnostics.Report(
+                DiagnosticCodes.StartxrefMissing,
+                DiagnosticSeverity.Warning,
+                "The file has no startxref keyword; the cross-reference information is rebuilt by scanning the file.");
             return false;
         }
 
@@ -130,8 +140,8 @@ internal static class CrossReferenceReader
         {
             diagnostics.Report(
                 DiagnosticCodes.StartxrefInvalid,
-                DiagnosticSeverity.Error,
-                "The startxref keyword is not followed by a byte offset.",
+                DiagnosticSeverity.Warning,
+                "The startxref keyword is not followed by a byte offset; the cross-reference information is rebuilt by scanning the file.",
                 keyword);
             return false;
         }
@@ -149,14 +159,29 @@ internal static class CrossReferenceReader
         return true;
     }
 
-    /// <summary>Reads the section at <paramref name="offset"/>: a table when it starts with <c>xref</c>, else a stream.</summary>
-    private static XrefSection? ReadSection(PdfSource source, long offset, bool isFirst, StreamDecoder streams, DiagnosticSink diagnostics)
+    /// <summary>
+    /// Reads the section at <paramref name="offset"/>: a table when it starts with <c>xref</c>, a stream when it starts with
+    /// <c>N G obj</c>. When neither is there, reads the section whose start is nearest to <paramref name="offset"/> instead (issue
+    /// #41, as PDFBox does): a table wins a tie, and a section already read is never chosen again.
+    /// </summary>
+    private static XrefSection? ReadSection(
+        PdfSource source,
+        long offset,
+        bool isFirst,
+        StreamDecoder streams,
+        DiagnosticSink diagnostics,
+        Lazy<FileScan>? scan,
+        HashSet<long> visited)
     {
         ReadOnlySpan<byte> window = source.GetWindow(offset).Span;
         var lexer = new CosLexer(window);
         CosToken first = lexer.Next();
         bool isTable = StructureTokens.IsKeyword(window, first, "xref"u8);
-        if (isTable || first.Kind == CosTokenKind.Integer)
+        bool isStream = !isTable
+            && first.Kind == CosTokenKind.Integer
+            && StructureTokens.TryReadUnsigned(ref lexer, out _)
+            && StructureTokens.TryReadKeyword(ref lexer, "obj"u8);
+        if (isTable || isStream)
         {
             if (first.Start != 0)
             {
@@ -173,14 +198,61 @@ internal static class CrossReferenceReader
             return isTable ? XrefTableReader.Read(window, offset, diagnostics) : XrefStreamReader.Read(source, offset, streams, diagnostics);
         }
 
+        string stated = isFirst ? "startxref" : "Prev";
+        if (scan is not null && FindNearestSection(scan.Value, offset, visited) is { } nearest)
+        {
+            diagnostics.Report(
+                isFirst ? DiagnosticCodes.StartxrefInvalid : DiagnosticCodes.TrailerPrevInvalid,
+                DiagnosticSeverity.Warning,
+                string.Create(CultureInfo.InvariantCulture, $"The {stated} offset does not point at a cross-reference section; the section nearest to it, at offset {nearest}, is read instead."),
+                offset);
+            visited.Add(nearest);
+            return ReadSection(source, nearest, isFirst, streams, diagnostics, scan: null, visited);
+        }
+
         diagnostics.Report(
             isFirst ? DiagnosticCodes.StartxrefInvalid : DiagnosticCodes.TrailerPrevInvalid,
-            DiagnosticSeverity.Error,
+            isFirst ? DiagnosticSeverity.Warning : DiagnosticSeverity.Error,
             isFirst
-                ? "The startxref offset does not point at a cross-reference section."
-                : "The Prev offset does not point at a cross-reference section.",
+                ? "The startxref offset does not point at a cross-reference section, and the file has none; the cross-reference information is rebuilt by scanning the file."
+                : "The Prev offset does not point at a cross-reference section; older sections are not read.",
             offset);
         return null;
+    }
+
+    /// <summary>
+    /// Returns the start of the cross-reference section nearest to <paramref name="offset"/> that has not been read: an <c>xref</c>
+    /// keyword, or the header of an object whose dictionary names the type <c>/XRef</c>.
+    /// </summary>
+    private static long? FindNearestSection(FileScan scan, long offset, HashSet<long> visited)
+    {
+        long? nearest = null;
+        long distance = long.MaxValue;
+        foreach (long table in scan.XrefKeywords)
+        {
+            Consider(table);
+        }
+
+        foreach (long name in scan.XrefStreamNames)
+        {
+            if (scan.TryFindObjectBefore(name, out ScannedObject header))
+            {
+                Consider(header.Offset);
+            }
+        }
+
+        return nearest;
+
+        // Tables are considered first, so on a tie (equal distance) the table wins.
+        void Consider(long candidate)
+        {
+            long candidateDistance = Math.Abs(candidate - offset);
+            if (candidateDistance < distance && !visited.Contains(candidate))
+            {
+                nearest = candidate;
+                distance = candidateDistance;
+            }
+        }
     }
 
     /// <summary>

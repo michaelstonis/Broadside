@@ -30,6 +30,13 @@ internal static class RevisionReader
         for (int index = 0; index < revisions.Count; index++)
         {
             bool newest = index == revisions.Count - 1;
+            if (revisions[index].LastInFile.IsReconstructed)
+            {
+                // A rebuilt cross-reference has no trailer of its own to end at: the one revision is the whole file.
+                ends[index] = source.Length;
+                continue;
+            }
+
             ends[index] = FindEnd(source, revisions[index].LastInFile.End, reportMissing: !newest, diagnostics);
         }
 

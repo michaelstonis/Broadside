@@ -23,6 +23,7 @@ internal static class FuzzTargets
         ["hint-tables"] = HintTables,
         ["xref-stream"] = XrefStream,
         ["object-stream"] = ObjectStreamTarget,
+        ["repair"] = Repair,
         ["filter-asciihex"] = data => Filter(new AsciiHexDecodeFilter(), data, parameters: null, maxRatio: 1),
         ["filter-ascii85"] = data => Filter(new Ascii85DecodeFilter(), data, parameters: null, maxRatio: 4),
         ["filter-lzw"] = Lzw,
@@ -190,6 +191,58 @@ internal static class FuzzTargets
                 || decoded.Pages.Any(page => page.ObjectCount < 0 || page.Length < 0)))
         {
             throw new InvalidOperationException("Decoded hint tables are inconsistent with the layout.");
+        }
+    }
+
+    /// <summary>
+    /// Scans the input as a damaged file and rebuilds its cross-reference information from the scan, as a lenient open does when the
+    /// file's own cannot be read. Every position the scan reports must lie inside the input, in file order, and every rebuilt in-use
+    /// entry must point at an object header the scan found.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.5.4, §7.5.5 and §7.5.7 (repair itself is not specified; issue #41).</remarks>
+    private static void Repair(ReadOnlySpan<byte> data)
+    {
+        var diagnostics = new DiagnosticSink(strict: false);
+        var streams = new StreamDecoder(FilterRegistry.Create([]), PdfOptions.DefaultMaxDecodedStreamLength, diagnostics, static value => value ?? CosNull.Instance);
+        using PdfSource source = PdfSource.FromMemory(data.ToArray());
+        FileHeader header = FileHeader.Locate(source, diagnostics);
+
+        FileScan scan = FileScan.Run(source);
+        CrossReference? crossReference = CrossReferenceReconstructor.Reconstruct(source, header, scan, streams, diagnostics);
+
+        IReadOnlyList<long>[] found =
+        [
+            scan.XrefKeywords, scan.TrailerKeywords, scan.XrefStreamNames, scan.ObjectStreamNames, scan.CatalogNames,
+            [.. scan.Objects.Select(static item => item.Offset)],
+        ];
+        foreach (IReadOnlyList<long> positions in found)
+        {
+            for (int index = 0; index < positions.Count; index++)
+            {
+                if (positions[index] < 0 || positions[index] >= data.Length || (index > 0 && positions[index] <= positions[index - 1]))
+                {
+                    throw new InvalidOperationException($"Scan position {positions[index]} is outside the input or out of order.");
+                }
+            }
+        }
+
+        if (crossReference is null)
+        {
+            return;
+        }
+
+        HashSet<long> headers = [.. scan.Objects.Select(static item => item.Offset)];
+        foreach (XrefEntry entry in crossReference.Sections.SelectMany(static section => section.Entries.Values))
+        {
+            if (entry.Kind == XrefEntryKind.InUse && !headers.Contains(header.Offset + entry.Offset))
+            {
+                throw new InvalidOperationException($"Rebuilt entry offset {entry.Offset} is not an object header the scan found.");
+            }
+        }
+
+        if (!crossReference.Trailer.ContainsKey(KnownNames.Root))
+        {
+            throw new InvalidOperationException("A rebuilt cross-reference has a trailer without Root.");
         }
     }
 

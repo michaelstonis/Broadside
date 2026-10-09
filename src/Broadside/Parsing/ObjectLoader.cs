@@ -18,8 +18,8 @@ namespace Broadside.Parsing;
 /// </para>
 /// <para>
 /// Order for every object (see <see cref="ObjectLoaderHooks"/>): cache lookup; locate; parse, with hook 1 resolving stream extents;
-/// hook 2 decryption; hook 3 cache publication. Issue #41 adds recovery when the header at an offset does not match in
-/// <see cref="LoadMisplaced"/>.
+/// hook 2 decryption; hook 3 cache publication. When the header at an entry's offset does not match, <see cref="LoadMisplaced"/>
+/// looks for the object near the offset and then in a scan of the whole file (issue #41).
 /// </para>
 /// <para>
 /// An object stored in an object stream (§7.5.7, a <see cref="XrefEntryKind.Compressed"/> entry) is parsed from its container's
@@ -33,6 +33,9 @@ internal sealed class ObjectLoader
 {
     /// <summary>How many loads may nest (an indirect <c>Length</c> loads while its stream loads) before the inner one reads null.</summary>
     public const int MaxDepth = 32;
+
+    /// <summary>How far before and after a wrong offset the object's header is looked for before the whole file is scanned.</summary>
+    private const int NearSearchDistance = 1024;
 
     private static readonly CosName ObjStm = new("ObjStm");
     private static readonly CosName N = new("N");
@@ -68,6 +71,7 @@ internal sealed class ObjectLoader
         CrossReference = crossReference;
         _diagnostics = diagnostics;
         Hooks = hooks;
+        Scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     /// <summary>Gets the file header.</summary>
@@ -78,6 +82,12 @@ internal sealed class ObjectLoader
 
     /// <summary>Gets the hooks.</summary>
     public ObjectLoaderHooks Hooks { get; }
+
+    /// <summary>
+    /// Gets the scan of the whole file that objects whose entries are wrong are searched in, run on first use (issue #41). The open
+    /// path shares one scan between cross-reference repair and the loader.
+    /// </summary>
+    public Lazy<FileScan> Scan { get; init; }
 
     /// <summary>Returns <paramref name="value"/>, or the object it refers to when it is an indirect reference.</summary>
     /// <param name="value">A direct object, a reference, or <see langword="null"/> for an absent entry.</param>
@@ -221,16 +231,35 @@ internal sealed class ObjectLoader
 
     private CosObject Resolve(CosObject? value, int depth) => value is CosReference reference ? Load(reference, depth) : value ?? CosNull.Instance;
 
-    /// <summary>Handles an entry whose offset does not hold the expected <c>N G obj</c> header. Issue #41 searches for the object.</summary>
-    private CosNull LoadMisplaced(in ObjectLoadContext context)
+    /// <summary>
+    /// Handles an entry whose offset does not hold the expected <c>N G obj</c> header: looks for the header near the stated offset,
+    /// then anywhere in the file (the newest copy), and parses the object where it is found (issue #41).
+    /// </summary>
+    private CosObject LoadMisplaced(in ObjectLoadContext context)
     {
+        CosReference reference = context.Reference;
+        long nearStart = context.Offset - NearSearchDistance;
+        bool found = FileScan.Run(_source, nearStart, context.Offset + NearSearchDistance)
+            .TryFindObject(reference.ObjectNumber, reference.Generation, context.Offset, out long offset)
+            || Scan.Value.TryFindObject(reference.ObjectNumber, reference.Generation, near: null, out offset);
+        if (!found || offset == context.Offset)
+        {
+            _diagnostics.Report(
+                DiagnosticCodes.XrefEntryOffsetInvalid,
+                DiagnosticSeverity.Error,
+                "The cross-reference entry's offset does not point at the object's header, and the file holds no such header; read as null.",
+                context.Offset,
+                reference);
+            return CosNull.Instance;
+        }
+
         _diagnostics.Report(
             DiagnosticCodes.XrefEntryOffsetInvalid,
-            DiagnosticSeverity.Error,
-            "The cross-reference entry's offset does not point at the object's header; read as null.",
+            DiagnosticSeverity.Warning,
+            string.Create(CultureInfo.InvariantCulture, $"The cross-reference entry's offset does not point at the object's header; the object is read from offset {offset}, where its header is."),
             context.Offset,
-            context.Reference);
-        return CosNull.Instance;
+            reference);
+        return ParseIndirectObject(context with { Offset = offset });
     }
 
     /// <summary>Parses <c>N G obj</c> object <c>endobj</c> at the context's offset (§7.3.10).</summary>
