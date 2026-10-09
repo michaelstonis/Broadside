@@ -91,3 +91,98 @@ static Broadside.Objects.CosObject.DeepEquals(Broadside.Objects.CosObject? left,
 static Broadside.Objects.CosObject.Parse(System.ReadOnlySpan<byte> bytes) -> Broadside.Objects.CosObject!
 static Broadside.Objects.CosObject.TryParse(System.ReadOnlySpan<byte> bytes, out Broadside.Objects.CosObject? result) -> bool
 virtual Broadside.Objects.CosObject.IsDirty.get -> bool
+Broadside.Diagnostics.Diagnostic
+Broadside.Diagnostics.Diagnostic.Code.get -> string!
+Broadside.Diagnostics.Diagnostic.Diagnostic(string! code, Broadside.Diagnostics.DiagnosticSeverity severity, string! message, long? offset = null, Broadside.Objects.CosReference? objectReference = null) -> void
+Broadside.Diagnostics.Diagnostic.Message.get -> string!
+Broadside.Diagnostics.Diagnostic.ObjectReference.get -> Broadside.Objects.CosReference?
+Broadside.Diagnostics.Diagnostic.Offset.get -> long?
+Broadside.Diagnostics.Diagnostic.Severity.get -> Broadside.Diagnostics.DiagnosticSeverity
+Broadside.Diagnostics.DiagnosticException
+Broadside.Diagnostics.DiagnosticException.Diagnostic.get -> Broadside.Diagnostics.Diagnostic!
+Broadside.Diagnostics.DiagnosticException.DiagnosticException() -> void
+Broadside.Diagnostics.DiagnosticException.DiagnosticException(Broadside.Diagnostics.Diagnostic! diagnostic) -> void
+Broadside.Diagnostics.DiagnosticException.DiagnosticException(string? message) -> void
+Broadside.Diagnostics.DiagnosticException.DiagnosticException(string? message, System.Exception? innerException) -> void
+Broadside.Diagnostics.DiagnosticSeverity
+Broadside.Diagnostics.DiagnosticSeverity.Error = 1 -> Broadside.Diagnostics.DiagnosticSeverity
+Broadside.Diagnostics.DiagnosticSeverity.Warning = 0 -> Broadside.Diagnostics.DiagnosticSeverity
+Broadside.PdfDocument
+Broadside.PdfDocument.Catalog.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfDocument.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.PdfDocument.Dispose() -> void
+Broadside.PdfDocument.Pages.get -> Broadside.PdfPageCollection!
+Broadside.PdfDocument.Resolve(Broadside.Objects.CosObject? value) -> Broadside.Objects.CosObject!
+Broadside.PdfDocument.Trailer.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfDocument.Version.get -> Broadside.PdfVersion
+Broadside.PdfEngine
+Broadside.PdfEngine.Create() -> Broadside.PdfDocument!
+Broadside.PdfEngine.Open(string! path) -> Broadside.PdfDocument!
+Broadside.PdfEngine.Open(System.IO.Stream! stream) -> Broadside.PdfDocument!
+Broadside.PdfEngine.Open(System.ReadOnlyMemory<byte> bytes) -> Broadside.PdfDocument!
+Broadside.PdfEngine.PdfEngine() -> void
+Broadside.PdfEngine.PdfEngine(Broadside.PdfOptions! options) -> void
+Broadside.PdfOptions
+Broadside.PdfOptions.PdfOptions() -> void
+Broadside.PdfOptions.ReadingMode.get -> Broadside.PdfReadingMode
+Broadside.PdfOptions.ReadingMode.set -> void
+Broadside.PdfOptions.UseLenient() -> Broadside.PdfOptions!
+Broadside.PdfOptions.UseStrict() -> Broadside.PdfOptions!
+Broadside.PdfPage
+Broadside.PdfPage.ArtBox.get -> Broadside.PdfRectangle
+Broadside.PdfPage.BleedBox.get -> Broadside.PdfRectangle
+Broadside.PdfPage.CropBox.get -> Broadside.PdfRectangle
+Broadside.PdfPage.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfPage.MediaBox.get -> Broadside.PdfRectangle
+Broadside.PdfPage.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfPage.Resources.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfPage.Rotation.get -> int
+Broadside.PdfPage.TrimBox.get -> Broadside.PdfRectangle
+Broadside.PdfPage.UserUnit.get -> double
+Broadside.PdfPageCollection
+Broadside.PdfPageCollection.Count.get -> int
+Broadside.PdfPageCollection.GetEnumerator() -> System.Collections.Generic.IEnumerator<Broadside.PdfPage!>!
+Broadside.PdfPageCollection.this[int index].get -> Broadside.PdfPage!
+Broadside.PdfReadingMode
+Broadside.PdfReadingMode.Lenient = 0 -> Broadside.PdfReadingMode
+Broadside.PdfReadingMode.Strict = 1 -> Broadside.PdfReadingMode
+Broadside.PdfRectangle
+Broadside.PdfRectangle.Bottom.get -> double
+Broadside.PdfRectangle.Equals(Broadside.PdfRectangle other) -> bool
+Broadside.PdfRectangle.Height.get -> double
+Broadside.PdfRectangle.Left.get -> double
+Broadside.PdfRectangle.PdfRectangle() -> void
+Broadside.PdfRectangle.PdfRectangle(double x1, double y1, double x2, double y2) -> void
+Broadside.PdfRectangle.Right.get -> double
+Broadside.PdfRectangle.Top.get -> double
+Broadside.PdfRectangle.Width.get -> double
+Broadside.PdfVersion
+Broadside.PdfVersion.CompareTo(Broadside.PdfVersion other) -> int
+Broadside.PdfVersion.Equals(Broadside.PdfVersion other) -> bool
+Broadside.PdfVersion.Major.get -> int
+Broadside.PdfVersion.Minor.get -> int
+Broadside.PdfVersion.PdfVersion() -> void
+Broadside.PdfVersion.PdfVersion(int major, int minor) -> void
+override Broadside.Diagnostics.Diagnostic.ToString() -> string!
+override Broadside.PdfRectangle.Equals(object? obj) -> bool
+override Broadside.PdfRectangle.GetHashCode() -> int
+override Broadside.PdfRectangle.ToString() -> string!
+override Broadside.PdfVersion.Equals(object? obj) -> bool
+override Broadside.PdfVersion.GetHashCode() -> int
+override Broadside.PdfVersion.ToString() -> string!
+static Broadside.PdfDocument.Create() -> Broadside.PdfDocument!
+static Broadside.PdfDocument.Create(Broadside.PdfOptions! options) -> Broadside.PdfDocument!
+static Broadside.PdfDocument.Open(string! path) -> Broadside.PdfDocument!
+static Broadside.PdfDocument.Open(string! path, Broadside.PdfOptions! options) -> Broadside.PdfDocument!
+static Broadside.PdfDocument.Open(System.IO.Stream! stream) -> Broadside.PdfDocument!
+static Broadside.PdfDocument.Open(System.IO.Stream! stream, Broadside.PdfOptions! options) -> Broadside.PdfDocument!
+static Broadside.PdfDocument.Open(System.ReadOnlyMemory<byte> bytes) -> Broadside.PdfDocument!
+static Broadside.PdfDocument.Open(System.ReadOnlyMemory<byte> bytes, Broadside.PdfOptions! options) -> Broadside.PdfDocument!
+static Broadside.PdfRectangle.operator !=(Broadside.PdfRectangle left, Broadside.PdfRectangle right) -> bool
+static Broadside.PdfRectangle.operator ==(Broadside.PdfRectangle left, Broadside.PdfRectangle right) -> bool
+static Broadside.PdfVersion.operator !=(Broadside.PdfVersion left, Broadside.PdfVersion right) -> bool
+static Broadside.PdfVersion.operator <(Broadside.PdfVersion left, Broadside.PdfVersion right) -> bool
+static Broadside.PdfVersion.operator <=(Broadside.PdfVersion left, Broadside.PdfVersion right) -> bool
+static Broadside.PdfVersion.operator ==(Broadside.PdfVersion left, Broadside.PdfVersion right) -> bool
+static Broadside.PdfVersion.operator >(Broadside.PdfVersion left, Broadside.PdfVersion right) -> bool
+static Broadside.PdfVersion.operator >=(Broadside.PdfVersion left, Broadside.PdfVersion right) -> bool
