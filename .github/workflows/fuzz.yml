@@ -1,6 +1,6 @@
 # Real fuzzing: every fuzz target under libFuzzer (SharpFuzz instrumentation, libfuzzer-dotnet driver) in parallel jobs, once a
-# week and on the "Run workflow" button. One scheduled run gives each target 75 minutes on every core of its runner, so the run
-# as a whole adds up to more than 24 hours of fuzzing (issue #48). Each target's corpus is cached between runs, so coverage
+# week and on the "Run workflow" button. One scheduled run gives each target 80 minutes on every core of its runner, so the run
+# as a whole adds up to more than 24 hours of fuzzing (19 targets: 25.3 hours of wall-clock time; issue #48). Each target's corpus is cached between runs, so coverage
 # accumulates. Findings fail the job and are uploaded with a replay of each. See .github/workflows/README.md and
 # tests/Broadside.Fuzz/README.md ("Real fuzzing").
 name: Fuzz
@@ -13,7 +13,7 @@ on:
     inputs:
       minutes:
         description: Minutes of fuzzing per target (each job must stay under GitHub's 6-hour limit, so at most 300)
-        default: "75"
+        default: "80"
       targets:
         description: Space-separated targets to fuzz (empty = every target from --list)
         default: ""
@@ -61,7 +61,7 @@ jobs:
         shell: bash
         env:
           REQUESTED: ${{ inputs.targets }}
-          MINUTES: ${{ inputs.minutes || '75' }}
+          MINUTES: ${{ inputs.minutes || '80' }}
         run: |
           all=$(dotnet artifacts/bin/Broadside.Fuzz/release/Broadside.Fuzz.dll --list)
           if [ -n "${REQUESTED}" ]; then
@@ -127,7 +127,7 @@ jobs:
         uses: actions/cache@v6
         with:
           path: corpus
-          key: seed-corpora-${{ env.SEED_CORPORA }}-${{ hashFiles('tools/CorpusFetcher/corpora.json') }}
+          key: seed-corpora-${{ hashFiles('tools/CorpusFetcher/corpora.json', '.github/workflows/fuzz.yml') }}
 
       - name: Fetch the real-world seed corpora
         run: dotnet run --project tools/CorpusFetcher -- --only "${SEED_CORPORA}"
