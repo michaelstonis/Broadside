@@ -32,12 +32,6 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
 
     private CosArray(List<CosObject> items, bool owned) => _items = owned ? items : [.. items];
 
-    /// <summary>
-    /// Gets a number that changes on every change made through the public API (never by reading), so a cache of state derived from
-    /// this object can tell that it is stale by comparing the number it was built from. Does not cover the objects it contains.
-    /// </summary>
-    internal int Version { get; private set; }
-
     /// <inheritdoc/>
     public override bool IsDirty
     {
@@ -59,6 +53,12 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
             return false;
         }
     }
+
+    /// <summary>
+    /// Gets a number that changes every time an element is added, replaced or removed through the public API, and never by reading
+    /// or loading: caches of state derived from the array record it and rebuild when it differs.
+    /// </summary>
+    internal int Version { get; private set; }
 
     /// <summary>Gets the number of elements.</summary>
     public int Count => _items.Count;
@@ -116,24 +116,16 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     public bool Remove(CosObject item)
     {
         bool removed = _items.Remove(item);
-        if (removed)
-        {
-            _changed = true;
-            Version++;
-        }
-
+        _changed |= removed;
+        Version += removed ? 1 : 0;
         return removed;
     }
 
     /// <summary>Removes every element; marks the array dirty when it was not already empty.</summary>
     public void Clear()
     {
-        if (_items.Count > 0)
-        {
-            _changed = true;
-            Version++;
-        }
-
+        _changed |= _items.Count > 0;
+        Version += _items.Count > 0 ? 1 : 0;
         _items.Clear();
     }
 

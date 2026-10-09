@@ -40,6 +40,13 @@ public static class Corpus
         "outline.pdf",
         "name-tree-dests.pdf",
         "metadata-xmp.pdf",
+        "metadata-xmp-forms.pdf",
+        "info-dictionary.pdf",
+        "viewer-preferences.pdf",
+        "catalog-version-extensions.pdf",
+        "page-labels.pdf",
+        "name-tree-deep.pdf",
+        "number-tree-deep.pdf",
         "functions.pdf",
     ];
 
@@ -53,6 +60,7 @@ public static class Corpus
         "encrypted-mac-tampered.pdf",
         "encrypted-owner-key-variant.pdf",
         "encrypted-rc4-length-missing.pdf",
+        "name-tree-broken.pdf",
     ];
 
     private static readonly (string FileName, string UserPassword)[] PasswordProtected =

@@ -38,6 +38,8 @@ internal static class FuzzTargets
         ["decrypt"] = Decrypt,
         ["mac-token"] = MacToken,
         ["public-key"] = PublicKey.Target,
+        ["xmp"] = Xmp,
+        ["pdf-date"] = PdfDateTarget,
         ["function-type4"] = FunctionType4,
         ["function-sampled"] = FunctionSampled,
     };
@@ -79,6 +81,7 @@ internal static class FuzzTargets
             _ = linearization.Hints?.Pages.Count;
         }
 
+        ReadCatalogEssentials(document);
         foreach (PdfPage page in document.Pages)
         {
             foreach (PdfRectangle box in (ReadOnlySpan<PdfRectangle>)[page.MediaBox, page.CropBox, page.BleedBox, page.TrimBox, page.ArtBox])
@@ -738,6 +741,152 @@ internal static class FuzzTargets
         if (!CosObject.DeepEquals(parsed, reparsed))
         {
             throw new InvalidOperationException($"Writing and reparsing a {parsed.GetType().Name} changed it: {parsed} became {reparsed}.");
+        }
+    }
+
+    /// <summary>
+    /// Reads every document-level entry of issue #69 (version, extensions, requirements, layout, mode, viewer preferences, language,
+    /// page labels of every page, Info, XMP packet, resolved properties, file identifier): none may throw in lenient mode.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.7.2, §7.12, §12.2, §12.4.2, §12.11, §14.3, §14.4.</remarks>
+    private static void ReadCatalogEssentials(PdfDocument document)
+    {
+        _ = (document.HeaderVersion, document.CatalogVersion, document.PageLayout, document.PageMode, document.Language);
+        foreach (PdfDeveloperExtension extension in document.Extensions)
+        {
+            _ = (extension.BaseVersion, extension.ExtensionLevel, extension.Url, extension.ExtensionRevision);
+        }
+
+        foreach (PdfRequirement requirement in document.Requirements)
+        {
+            _ = (requirement.RequirementType, requirement.Version, requirement.Penalty);
+            foreach (PdfRequirementHandler handler in requirement.Handlers)
+            {
+                _ = (handler.HandlerType, handler.Script);
+            }
+        }
+
+        if (document.ViewerPreferences is { } preferences)
+        {
+            _ = (preferences.HideToolbar, preferences.HideMenubar, preferences.HideWindowUI, preferences.FitWindow, preferences.CenterWindow);
+            _ = (preferences.DisplayDocTitle, preferences.NonFullScreenPageMode, preferences.Direction, preferences.ViewArea, preferences.ViewClip);
+            _ = (preferences.PrintArea, preferences.PrintClip, preferences.PrintScaling, preferences.Duplex, preferences.PickTrayByPdfSize);
+            _ = (preferences.PrintPageRange, preferences.NumCopies, preferences.Enforce);
+        }
+
+        if (document.PageLabels is { } labels)
+        {
+            IReadOnlyList<string> all = labels.GetLabels();
+            if (all.Count != document.Pages.Count || all.Any(label => label.Length > PdfPageLabelRange.MaxNumeralLength + 4096))
+            {
+                throw new InvalidOperationException("Page labels must give one bounded label per page.");
+            }
+
+            foreach (PdfPageLabelRange range in labels.Ranges)
+            {
+                _ = (range.Style, range.Prefix, range.FirstNumber);
+            }
+        }
+
+        if (document.Information is { } info)
+        {
+            _ = (info.Title, info.Author, info.Subject, info.Keywords, info.Creator, info.Producer, info.CreationDate, info.ModificationDate, info.Trapped);
+        }
+
+        if (document.Metadata?.Packet is { } packet)
+        {
+            WalkPacket(packet);
+        }
+
+        PdfDocumentProperties properties = document.Properties;
+        _ = (properties.Title, properties.Author, properties.Subject, properties.Keywords, properties.Creator, properties.Producer);
+        _ = (properties.CreationDate, properties.ModificationDate, document.FileIdentifier);
+    }
+
+    /// <summary>
+    /// Reads the input as an XMP packet (ISO 16684-1 §7) through the reader the document uses. The packet is null exactly when an
+    /// Error diagnostic says why; a readable packet's every property, item, field and qualifier, and every typed getter, must read.
+    /// The XML reader must refuse document type declarations, so no input can expand entities or fetch anything.
+    /// </summary>
+    private static void Xmp(ReadOnlySpan<byte> data)
+    {
+        // Whole corpus files are the smoke seeds: start at a packet when the input holds one, so mutations reach the XML.
+        int packet = data.IndexOf("<?xpacket"u8);
+        XmpSlice(data);
+        if (packet > 0)
+        {
+            XmpSlice(data[packet..]);
+        }
+    }
+
+    private static void XmpSlice(ReadOnlySpan<byte> data)
+    {
+        var errors = new List<string>();
+        XmpPacket? packet = XmpPacketReader.Read(data, (code, severity, _) =>
+        {
+            if (severity == DiagnosticSeverity.Error)
+            {
+                errors.Add(code);
+            }
+        });
+        if ((packet is null) != (errors.Count > 0))
+        {
+            throw new InvalidOperationException($"An XMP packet must be null exactly when an error is reported; errors: {string.Join(", ", errors)}.");
+        }
+
+        if (XmpPacket.TryParse(data, out XmpPacket? again) != packet is not null || (again?.Properties.Count ?? 0) != (packet?.Properties.Count ?? 0))
+        {
+            throw new InvalidOperationException("TryParse must agree with the document's reader.");
+        }
+
+        if (packet is not null)
+        {
+            WalkPacket(packet);
+        }
+    }
+
+    private static void WalkPacket(XmpPacket packet)
+    {
+        _ = (packet.About, packet.Title, packet.Description, packet.Creators, packet.Subjects, packet.Format, packet.CreateDate, packet.ModifyDate);
+        _ = (packet.MetadataDate, packet.CreatorTool, packet.Producer, packet.Keywords, packet.PdfVersion, packet.Trapped, packet.PdfAPart);
+        _ = (packet.PdfAConformance, packet.PdfUAPart, packet.DocumentId, packet.InstanceId);
+        var pending = new Stack<XmpProperty>(packet.Properties);
+        while (pending.TryPop(out XmpProperty? property))
+        {
+            if ((property.Kind == XmpPropertyKind.Simple) != (property.Value is not null))
+            {
+                throw new InvalidOperationException($"Only a simple XMP property has a value: {property.Name} is {property.Kind}.");
+            }
+
+            foreach (XmpProperty child in property.Items.Concat(property.Fields).Concat(property.Qualifiers))
+            {
+                pending.Push(child);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reads the input as a date (ISO 32000-2 §7.9.4 and ISO 16684-1 §8.2.1.2), as Latin-1 text; neither parser may throw, a parsed
+    /// date keeps the text it was read from, and an offset beyond what <see cref="DateTimeOffset"/> holds keeps the instant in UTC.
+    /// </summary>
+    private static void PdfDateTarget(ReadOnlySpan<byte> data)
+    {
+        string text = System.Text.Encoding.Latin1.GetString(data);
+        DateParseOutcome outcome = PdfDate.Parse(text, out PdfDate date);
+        if ((outcome != DateParseOutcome.Unreadable) != PdfDate.TryParse(text, out _))
+        {
+            throw new InvalidOperationException("PdfDate.TryParse must agree with the outcome of parsing.");
+        }
+
+        if (outcome != DateParseOutcome.Unreadable
+            && (date.Text != text || Math.Abs(date.Value.Offset.TotalHours) > 14 || date.UtcOffsetMinutes is < -(23 * 60) - 59 or > (23 * 60) + 59))
+        {
+            throw new InvalidOperationException($"Date {text} parsed inconsistently: {date.Value:O}, offset {date.UtcOffsetMinutes}.");
+        }
+
+        if (XmpDate.TryParse(text, out XmpDate xmp) && xmp.Text != text)
+        {
+            throw new InvalidOperationException("An XMP date must keep its text.");
         }
     }
 }

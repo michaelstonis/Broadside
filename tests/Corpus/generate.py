@@ -1185,6 +1185,91 @@ def gen_name_tree_dests() -> bytes:
     ])
 
 
+def tree_key(key: bytes) -> bytes:
+    """A name-tree key as a PDF string: literal when printable ASCII, hexadecimal otherwise (7.3.4)."""
+    if all(0x20 <= b < 0x7F and b not in b"()\\" for b in key):
+        return b"(" + key + b")"
+    return b"<" + key.hex().upper().encode() + b">"
+
+
+def build_tree(objects: list[tuple[int, bytes]], first_num: int, entries: list[tuple[bytes, bytes]],
+               fanouts: list[int], entries_key: bytes, key_bytes) -> int:
+    """7.9.6/7.9.7: lays sorted (key, value) pairs out as a balanced tree of indirect nodes, appended to
+    ``objects`` from ``first_num``. ``fanouts[0]`` pairs per leaf, then kids per node for each level up;
+    the root is written last, has only Kids and no Limits. Returns the root's object number."""
+    num = first_num
+    level = []  # (num, least key, greatest key)
+    for i in range(0, len(entries), fanouts[0]):
+        chunk = entries[i:i + fanouts[0]]
+        pairs = b" ".join(key_bytes(k) + b" " + v for k, v in chunk)
+        objects.append((num, b"<< /Limits [%s %s] /%s [%s] >>" % (
+            key_bytes(chunk[0][0]), key_bytes(chunk[-1][0]), entries_key, pairs)))
+        level.append((num, chunk[0][0], chunk[-1][0]))
+        num += 1
+    for fanout in fanouts[1:]:
+        upper = []
+        for i in range(0, len(level), fanout):
+            chunk = level[i:i + fanout]
+            kids = b" ".join(b"%d 0 R" % n for n, _, _ in chunk)
+            objects.append((num, b"<< /Limits [%s %s] /Kids [%s] >>" % (
+                key_bytes(chunk[0][1]), key_bytes(chunk[-1][2]), kids)))
+            upper.append((num, chunk[0][1], chunk[-1][2]))
+            num += 1
+        level = upper
+    objects.append((num, b"<< /Kids [%s] >>" % b" ".join(b"%d 0 R" % n for n, _, _ in level)))
+    return num
+
+
+def gen_name_tree_deep() -> bytes:
+    """7.9.6, Table 36; 12.3.2.4: a Dests name tree four levels deep (root, two intermediate levels,
+    leaves) holding 200 keys, sorted byte by byte: a key that is a prefix of another ((a) before (ab)),
+    PDFDocEncoding keys whose byte order differs from their text order (<18> breve sorts before (A);
+    <80> bullet before <E9> e-acute), and UTF-16BE keys with the BOM (<FEFF0061> also reads as "a").
+    Each value is [3 0 R /XYZ 0 i null] where i is the key's position in byte order."""
+    keys = [b"a", b"ab", b"\x18", b"\x80", b"\xe9", b"\xfe\xff\x00a", b"\xfe\xff\x00\xe9"]
+    keys += [b"n%03d" % i for i in range(1, 194)]
+    keys.sort()
+    entries = [(k, b"[3 0 R /XYZ 0 %d null]" % i) for i, k in enumerate(keys)]
+    objects = [(2, pages()), (3, page())]
+    root = build_tree(objects, 4, entries, [10, 4, 3], b"Names", tree_key)
+    return simple_file([(1, catalog(b" /Names << /Dests %d 0 R >>" % root))] + objects)
+
+
+def gen_number_tree_deep() -> bytes:
+    """7.9.7, Table 37; 12.4.2: twelve pages whose /PageLabels number tree has three levels (root,
+    intermediate nodes, leaves) and nine keys, so a page between two keys takes the nearest lower key."""
+    labels = [(0, b"<< /S /r >>"), (1, b"<< /S /D >>"), (2, b"<< /S /D /St 10 >>"), (4, b"<< /P (A-) >>"),
+              (5, b"<< /S /A >>"), (7, b"<< /S /a /P (x) >>"), (8, b"<< /S /R /St 4 >>"),
+              (10, b"<< /S /D /P (B-) /St 1 >>"), (11, b"<< /S /D >>")]
+    objects: list[tuple[int, bytes]] = []
+    root = build_tree(objects, 3, [(str(k).encode(), v) for k, v in labels], [3, 2], b"Nums",
+                      lambda k: k)
+    first_page = root + 1
+    page_nums = list(range(first_page, first_page + 12))
+    return simple_file([(1, catalog(b" /PageLabels %d 0 R" % root)), (2, pages(page_nums))]
+                       + objects + [(n, page()) for n in page_nums])
+
+
+def gen_name_tree_broken() -> bytes:
+    """7.9.6, Table 36, broken six ways: leaf 7's Limits [(a) (c)] do not hold its key (d); leaf 8's
+    keys are not sorted ((f) before (e)); intermediate node 6 has no Limits; key (g) is in leaf 8 and
+    again in leaf 9; node 6's Kids list the root 4 (a cycle); leaf 9's Names array has an odd length
+    (a dangling key (i)). Every key still resolves."""
+    def dest(top: int) -> bytes:
+        return b"[3 0 R /XYZ 0 %d null]" % top
+    return simple_file([
+        (1, catalog(b" /Names << /Dests 4 0 R >>")),
+        (2, pages()),
+        (3, page()),
+        (4, b"<< /Kids [5 0 R 6 0 R] >>"),
+        (5, b"<< /Limits [(a) (g)] /Kids [7 0 R 8 0 R] >>"),
+        (6, b"<< /Kids [9 0 R 4 0 R] >>"),
+        (7, b"<< /Limits [(a) (c)] /Names [(a) %s (b) %s (d) %s] >>" % (dest(1), dest(2), dest(4))),
+        (8, b"<< /Limits [(e) (g)] /Names [(f) %s (e) %s (g) %s] >>" % (dest(6), dest(5), dest(7))),
+        (9, b"<< /Limits [(g) (i)] /Names [(g) %s (h) %s (i)] >>" % (dest(70), dest(8))),
+    ])
+
+
 XMP = (b'<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
        b'<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
        b' <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
@@ -1204,6 +1289,105 @@ def gen_metadata_xmp() -> bytes:
         (4, stream(b"/Type /Metadata /Subtype /XML", XMP)),
         (5, b"<< /Title (Broadside) >>"),
     ], trailer_extra=b" /Info 5 0 R")
+
+
+def gen_info_dictionary() -> bytes:
+    """14.3.3 Table 349: every key, a custom key, Trapped as a name; 7.9.4 dates with an offset, with Z and in the
+    legacy form with the terminating apostrophe (NOTE 2); 7.9.2.2 a UTF-16BE title with its byte order marker."""
+    title = b"\xfe\xff" + "Broadside – Info".encode("utf-16-be")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page()),
+        (4, b"<< /Title <" + title.hex().upper().encode() + b"> /Author (Ada Lovelace) /Subject (Document information)"
+            b" /Keywords (info, metadata) /Creator (generate.py) /Producer (Broadside corpus)"
+            b" /CreationDate (D:20140314124211+01'00) /ModDate (D:20140924212303Z) /Trapped /True"
+            b" /Printed (D:19981223195200-08'00') /Department (Corpus) >>"),
+    ], trailer_extra=b" /Info 4 0 R")
+
+
+XMP_FORMS = (b'<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
+             b'<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
+             b' <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
+             b'  <rdf:Description rdf:about="" xmlns:pdf="http://ns.adobe.com/pdf/1.3/"'
+             b' xmlns:xmp="http://ns.adobe.com/xap/1.0/" pdf:Producer="Broadside corpus"'
+             b' xmp:CreateDate="2014-09-24T21:23:03+02:00">\n'
+             b'   <pdf:Keywords>xmp, forms</pdf:Keywords>\n'
+             b'  </rdf:Description>\n'
+             b'  <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/"'
+             b' xmlns:ex="http://example.com/broadside/">\n'
+             b'   <dc:title><rdf:Alt><rdf:li xml:lang="x-default">XMP forms</rdf:li>'
+             b'<rdf:li xml:lang="de">XMP-Formen</rdf:li></rdf:Alt></dc:title>\n'
+             b'   <dc:creator><rdf:Seq><rdf:li>Ada Lovelace</rdf:li><rdf:li>Grace Hopper</rdf:li></rdf:Seq></dc:creator>\n'
+             b'   <dc:subject><rdf:Bag><rdf:li>pdf</rdf:li><rdf:li>xmp</rdf:li></rdf:Bag></dc:subject>\n'
+             b'   <ex:Resource rdf:parseType="Resource"><ex:Name>parseType</ex:Name><ex:Count>2</ex:Count></ex:Resource>\n'
+             b'  </rdf:Description>\n'
+             b'  <rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/"'
+             b' xmlns:pdfuaid="http://www.aiim.org/pdfua/ns/id/" xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/"'
+             b' pdfaid:part="2" pdfaid:conformance="B" pdfuaid:part="1">\n'
+             b'   <xmpMM:DocumentID>uuid:6b1f3c2e-69a0-4c6b-9d1e-000000000069</xmpMM:DocumentID>\n'
+             b'   <xmpMM:InstanceID>uuid:6b1f3c2e-69a0-4c6b-9d1e-000000000070</xmpMM:InstanceID>\n'
+             b'  </rdf:Description>\n'
+             b' </rdf:RDF>\n'
+             b'</x:xmpmeta>\n'
+             + b' ' * 2048 + b'\n'
+             b'<?xpacket end="w"?>')
+
+
+def gen_metadata_xmp_forms() -> bytes:
+    """14.3.2 metadata stream; ISO 16684-1 7.3 packet wrapper with padding, 7.5-7.7 attribute and element forms,
+    arrays of the three kinds, a language alternative, a parseType="Resource" structure, several rdf:Description."""
+    return simple_file([
+        (1, catalog(b" /Metadata 4 0 R")),
+        (2, pages()),
+        (3, page()),
+        (4, stream(b"/Type /Metadata /Subtype /XML", XMP_FORMS)),
+    ])
+
+
+def gen_viewer_preferences() -> bytes:
+    """12.2 Tables 147 and 148: every viewer preference with a value other than its default, Enforce (PDF 2.0);
+    7.7.2 Table 29 PageLayout and PageMode."""
+    id0 = file_id("viewer-preferences").hex().encode()
+    prefs = (b"<< /HideToolbar true /HideMenubar true /HideWindowUI true /FitWindow true /CenterWindow true"
+             b" /DisplayDocTitle true /NonFullScreenPageMode /UseOutlines /Direction /R2L /ViewArea /MediaBox"
+             b" /ViewClip /BleedBox /PrintArea /TrimBox /PrintClip /ArtBox /PrintScaling /None"
+             b" /Duplex /DuplexFlipLongEdge /PickTrayByPDFSize true /PrintPageRange [1 1 1 1] /NumCopies 2"
+             b" /Enforce [/PrintScaling] >>")
+    return simple_file([
+        (1, catalog(b" /ViewerPreferences " + prefs + b" /PageLayout /TwoPageRight /PageMode /UseOC")),
+        (2, pages()),
+        (3, page()),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_catalog_version_extensions() -> bytes:
+    """7.7.2 Table 29 Version later than the header; 7.12 Tables 48-49 developer extensions as a dictionary and, in
+    PDF 2.0, as an array (the ISO/TS 32001 declaration); 12.11 Tables 273-274 Requirements; 14.4 distinct IDs."""
+    id0 = file_id("catalog-version-extensions").hex().encode()
+    id1 = hashlib.md5(b"broadside-corpus:catalog-version-extensions:changed").hexdigest().encode()
+    extra = (b" /Version /2.0 /Extensions << /Type /Extensions /ADBE << /BaseVersion /1.7 /ExtensionLevel 3 >>"
+             b" /ISO_ [<< /Type /DeveloperExtensions /BaseVersion /2.0 /ExtensionLevel 32001 /ExtensionRevision (:2022)"
+             b" /URL (https://www.iso.org/standard/45874.html) >>] >>"
+             b" /Requirements [<< /Type /Requirement /S /EnableJavaScripts /Penalty 50 /RH << /Type /ReqHandler /S /NoOp >> >>]")
+    return simple_file([
+        (1, catalog(extra)),
+        (2, pages()),
+        (3, page()),
+    ], version="1.7", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id1))
+
+
+def gen_page_labels() -> bytes:
+    """12.4.2 Table 161: page label ranges of every numbering style, St, P, a prefix-only range; 7.9.7 a number tree
+    whose root holds Nums."""
+    count = 12
+    kids = list(range(3, 3 + count))
+    labels = (b" /PageLabels << /Nums [0 << /S /r >> 3 << /S /D >> 5 << /Type /PageLabel /S /R /St 4 >>"
+              b" 7 << /S /A /St 26 >> 9 << /S /a /St 52 /P (A-) >> 11 << /P (Cover) >>] >>")
+    return simple_file([
+        (1, catalog(labels)),
+        (2, pages(kids=kids)),
+    ] + [(k, page()) for k in kids])
 
 
 def gen_functions() -> bytes:
@@ -1286,6 +1470,14 @@ FILES = {
     "outline.pdf": gen_outline,
     "name-tree-dests.pdf": gen_name_tree_dests,
     "metadata-xmp.pdf": gen_metadata_xmp,
+    "metadata-xmp-forms.pdf": gen_metadata_xmp_forms,
+    "info-dictionary.pdf": gen_info_dictionary,
+    "viewer-preferences.pdf": gen_viewer_preferences,
+    "catalog-version-extensions.pdf": gen_catalog_version_extensions,
+    "page-labels.pdf": gen_page_labels,
+    "name-tree-deep.pdf": gen_name_tree_deep,
+    "number-tree-deep.pdf": gen_number_tree_deep,
+    "name-tree-broken.pdf": gen_name_tree_broken,
     "functions.pdf": gen_functions,
 }
 

@@ -34,6 +34,12 @@ public sealed class CosStream : CosObject
         _deferred = encodedData;
     }
 
+    /// <summary>
+    /// Gets a number that changes every time the data is replaced through the public API, and never by reading or loading. The
+    /// dictionary has its own <see cref="CosDictionary.Version"/>.
+    /// </summary>
+    internal int Version { get; private set; }
+
     /// <summary>Gets the stream dictionary.</summary>
     public CosDictionary Dictionary { get; }
 
@@ -64,12 +70,6 @@ public sealed class CosStream : CosObject
 
     /// <summary>Gets the length of <see cref="EncodedData"/> without reading it.</summary>
     internal int EncodedLength => _deferred is { } deferred ? deferred.Length : _encodedData.Length;
-
-    /// <summary>
-    /// Gets a number that changes on every change made through the public API (never by reading), so a cache of state derived from
-    /// this object can tell that it is stale by comparing the number it was built from. Does not cover the objects it contains.
-    /// </summary>
-    internal int Version { get; private set; }
 
     /// <inheritdoc/>
     public override bool IsDirty => _changed || Dictionary.IsDirty;
