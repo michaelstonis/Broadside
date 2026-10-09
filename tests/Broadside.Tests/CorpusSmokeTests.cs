@@ -48,6 +48,6 @@ public class CorpusSmokeTests
     [Fact]
     public void Package_assembly_loads()
     {
-        Assert.Equal("Broadside", typeof(AssemblyMarker).Assembly.GetName().Name);
+        Assert.Equal("Broadside", typeof(Broadside.Objects.CosObject).Assembly.GetName().Name);
     }
 }

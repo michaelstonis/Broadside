@@ -83,5 +83,5 @@ dotnet run -c Release --project bench/Broadside.Benchmarks -- --list flat       
 `tests/Broadside.Fuzz` holds one SharpFuzz target per parser and codec. Without any fuzzer installed, `--smoke <target> [seconds]` runs the target over the corpus and random mutations of it; CI runs that for 60 s per target. Real fuzzing with libFuzzer or AFL is described in [Broadside.Fuzz/README.md](Broadside.Fuzz/README.md).
 
 ```sh
-dotnet run -c Release --project tests/Broadside.Fuzz -- --smoke pdf-header 10
+dotnet run -c Release --project tests/Broadside.Fuzz -- --smoke object-parser 10
 ```
