@@ -3126,6 +3126,250 @@ def gen_separation_special() -> bytes:
         (5, stream(b"/FunctionType 4 /Domain [0 1 0 1] /Range [0 1]", b"{pop pop 1}")),
     ])
 
+# ---------------------------------------------------------------------------
+# Shadings and patterns (clause 8.7)
+# ---------------------------------------------------------------------------
+
+class BitWriter:
+    """Packs unsigned fields most significant bit first (8.7.4.5.5: mesh data is a bit stream)."""
+
+    def __init__(self) -> None:
+        self.bits: list[int] = []
+
+    def write(self, value: int, width: int) -> None:
+        assert 0 <= value < (1 << width), (value, width)
+        for i in range(width - 1, -1, -1):
+            self.bits.append((value >> i) & 1)
+
+    def align(self) -> None:
+        while len(self.bits) % 8:
+            self.bits.append(0)
+
+    def data(self) -> bytes:
+        self.align()
+        return bytes(int("".join(map(str, self.bits[i:i + 8])), 2) for i in range(0, len(self.bits), 8))
+
+
+def mesh_raw(value: float, low: float, high: float, bits: int) -> int:
+    """The inverse of the 8.9.5.2 Decode formula: the raw field that decodes to ``value``."""
+    return round((value - low) * ((1 << bits) - 1) / (high - low))
+
+
+def shading_page(shading: bytes, clip: bytes = b"0 0 612 792", extra_objects: list[tuple[int, bytes]] | None = None,
+                 version: str = "1.7") -> bytes:
+    """One page painting shading 5 0 R (8.7.4.2 sh) inside a rectangular clip: q <clip> re W n /Sh0 sh Q."""
+    content = b"q %s re W n /Sh0 sh Q\n" % clip
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /Shading << /Sh0 5 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, shading),
+    ] + (extra_objects or []), version=version, binary=True)
+
+
+def gen_shading_type1() -> bytes:
+    """8.7.4.5.2 Table 78 function-based shading: DeviceRGB, Domain [0 1 0 1] mapped by Matrix [200 0 0 200 100 400] onto
+    the square 100..300 x 400..600; Function a 7.10.2 Type 0 sampled function with 2 inputs and 3 outputs, 2 x 2 samples at
+    8 bits: (0,0) red, (1,0) green, (0,1) blue, (1,1) white, interpolated bilinearly."""
+    samples = bytes([255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255])
+    return shading_page(
+        b"<< /ShadingType 1 /ColorSpace /DeviceRGB /Domain [0 1 0 1] /Matrix [200 0 0 200 100 400] /Function 6 0 R >>",
+        extra_objects=[(6, stream(b"/FunctionType 0 /Domain [0 1 0 1] /Range [0 1 0 1 0 1] /Size [2 2] /BitsPerSample 8",
+                                  samples))])
+
+
+def gen_shading_type2() -> bytes:
+    """8.7.4.5.3 Table 79 axial shading: Coords [72 400 540 400], Domain default [0 1], a 7.10.3 Type 2 function from red to
+    blue, Extend [true false]: left of x = 72 is red, right of x = 540 unpainted; clipped to 0 300 612 200."""
+    return shading_page(
+        b"<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [72 400 540 400] "
+        b"/Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >> /Extend [true false] >>",
+        clip=b"0 300 612 200")
+
+
+def gen_shading_type3() -> bytes:
+    """8.7.4.5.4 Table 80 radial shading with non-nested circles (a cone): Coords [200 400 20 400 420 100], red to blue,
+    Extend [true true]. Where blend circles overlap, the greatest s decides the colour."""
+    return shading_page(
+        b"<< /ShadingType 3 /ColorSpace /DeviceRGB /Coords [200 400 20 400 420 100] "
+        b"/Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >> /Extend [true true] >>",
+        clip=b"0 200 612 400")
+
+
+def gen_shading_type4() -> bytes:
+    """8.7.4.5.5 Table 81 free-form triangle mesh: BitsPerFlag 2, BitsPerCoordinate 12, BitsPerComponent 4, DeviceRGB, so a
+    vertex is 2 + 12 + 12 + 3 x 4 = 38 bits padded to 40. Flags 0 0 0 1 2 make three triangles: (v0 v1 v2), (v1 v2 v3) and
+    (v1 v3 v4). Decode [0 4095 0 4095 0 1 0 1 0 1] so raw coordinates are user-space units."""
+    vertices = [(0, 100, 100, (15, 0, 0)), (0, 300, 100, (0, 15, 0)), (0, 200, 300, (0, 0, 15)),
+                (1, 400, 300, (15, 0, 0)), (2, 300, 500, (0, 15, 0))]
+    w = BitWriter()
+    for flag, x, y, rgb in vertices:
+        w.write(flag, 2)
+        w.write(x, 12)
+        w.write(y, 12)
+        for c in rgb:
+            w.write(c, 4)
+        w.align()
+    return shading_page(stream(
+        b"/ShadingType 4 /ColorSpace /DeviceRGB /BitsPerCoordinate 12 /BitsPerComponent 4 /BitsPerFlag 2 "
+        b"/Decode [0 4095 0 4095 0 1 0 1 0 1]", w.data()))
+
+
+def gen_shading_type5() -> bytes:
+    """8.7.4.5.6 Table 82 lattice-form triangle mesh: VerticesPerRow 3, three rows, BitsPerCoordinate 12, BitsPerComponent 4
+    with a Type 2 Function of t (red to blue), so a vertex is 12 + 12 + 4 = 28 bits padded to 32 (pdf.js does not pad).
+    Rows at y 100, 250, 400, columns at x 100, 250, 400; t = (column + row) / 4 encoded in 4 bits."""
+    w = BitWriter()
+    for row in range(3):
+        for column in range(3):
+            w.write(100 + 150 * column, 12)
+            w.write(100 + 150 * row, 12)
+            w.write(mesh_raw((column + row) / 4, 0, 1, 4), 4)
+            w.align()
+    return shading_page(stream(
+        b"/ShadingType 5 /ColorSpace /DeviceRGB /BitsPerCoordinate 12 /BitsPerComponent 4 /VerticesPerRow 3 "
+        b"/Decode [0 4095 0 4095 0 1] /Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >>", w.data()))
+
+
+# Four patches sharing edges through flags 0, 1, 2 and 3 (8.7.4.5.7 Table 84): corners (p00, p03, p33, p30), straight edges.
+PATCH_CORNERS = [((100, 100), (100, 250), (250, 250), (250, 100)),
+                 ((100, 250), (250, 250), (250, 400), (100, 400)),
+                 ((250, 400), (100, 400), (100, 550), (250, 550)),
+                 ((250, 550), (250, 400), (400, 400), (400, 550))]
+# Stream order of the control points by (column i, row j): 12 for Coons (8.7.4.5.7), 16 for tensor (8.7.4.5.8, Table 85).
+RING = [(0, 0), (0, 1), (0, 2), (0, 3), (1, 3), (2, 3), (3, 3), (3, 2), (3, 1), (3, 0), (2, 0), (1, 0)]
+INNER = [(1, 1), (1, 2), (2, 2), (2, 1)]
+
+
+def patch_point(corners, i: int, j: int) -> tuple[float, float]:
+    """p_ij of a straight-edged patch: the bilinear blend of its corners at u = i/3, v = j/3."""
+    (p00, p03, p33, p30) = corners
+    u, v = i / 3, j / 3
+    x = (1 - u) * ((1 - v) * p00[0] + v * p03[0]) + u * ((1 - v) * p30[0] + v * p33[0])
+    y = (1 - u) * ((1 - v) * p00[1] + v * p03[1]) + u * ((1 - v) * p30[1] + v * p33[1])
+    return x, y
+
+
+def patch_mesh(tensor: bool, bits_coordinate: int, bits_component: int, colours) -> bytes:
+    """Patch mesh data for PATCH_CORNERS with flags 0 1 2 3: a flag-0 patch writes every point and four colours, the others
+    skip the four points and two colours shared with the previous patch (Tables 84 and 85). No per-patch padding."""
+    order = RING + (INNER if tensor else [])
+    w = BitWriter()
+    for flag, corners in enumerate(PATCH_CORNERS):
+        w.write(flag, 8)
+        points = order if flag == 0 else order[4:]
+        for (i, j) in points:
+            x, y = patch_point(corners, i, j)
+            w.write(mesh_raw(x, 0, 1000, bits_coordinate), bits_coordinate)
+            w.write(mesh_raw(y, 0, 1000, bits_coordinate), bits_coordinate)
+        for colour in (colours[flag] if flag == 0 else colours[flag][2:]):
+            for c in colour:
+                w.write(c, bits_component)
+    return w.data()
+
+
+def gen_shading_type6() -> bytes:
+    """8.7.4.5.7 Tables 83-84 Coons patch mesh: four patches with flags 0, 1, 2, 3; BitsPerCoordinate 32 (Decode 0..1000),
+    BitsPerComponent 16, BitsPerFlag 8, DeviceRGB. Corner colours (c1..c4 at p00 p03 p33 p30) per patch; implicit ones repeat."""
+    r, g, b, k = (65535, 0, 0), (0, 65535, 0), (0, 0, 65535), (0, 0, 0)
+    colours = [[r, g, b, k], [g, b, r, g], [r, g, b, r], [b, r, g, b]]
+    return shading_page(stream(
+        b"/ShadingType 6 /ColorSpace /DeviceRGB /BitsPerCoordinate 32 /BitsPerComponent 16 /BitsPerFlag 8 "
+        b"/Decode [0 1000 0 1000 0 1 0 1 0 1]", patch_mesh(False, 32, 16, colours)))
+
+
+def gen_shading_type7() -> bytes:
+    """8.7.4.5.8 Table 85 tensor-product patch mesh: four patches with flags 0, 1, 2, 3; BitsPerCoordinate 24 (Decode
+    0..1000), BitsPerComponent 8, BitsPerFlag 8, DeviceCMYK; the 16 points in stream order 1 p00 ... 16 p21."""
+    c, m, y, k = (255, 0, 0, 0), (0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255)
+    colours = [[c, m, y, k], [m, y, c, m], [c, m, y, c], [y, c, m, y]]
+    return shading_page(stream(
+        b"/ShadingType 7 /ColorSpace /DeviceCMYK /BitsPerCoordinate 24 /BitsPerComponent 8 /BitsPerFlag 8 "
+        b"/Decode [0 1000 0 1000 0 1 0 1 0 1 0 1]", patch_mesh(True, 24, 8, colours)))
+
+
+def pattern_page(content: bytes, resources: bytes, objects: list[tuple[int, bytes]]) -> bytes:
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", content)),
+    ] + objects, binary=True)
+
+
+def gen_pattern_tiling_colored() -> bytes:
+    """8.7.3.1 Table 74 and 8.7.3.2 coloured tiling pattern: PaintType 1, TilingType 1, BBox [0 0 20 20], XStep 25, YStep 25,
+    Matrix [1 0 0 1 10 10]; the cell paints a red and a blue square with rg. The page scales by 2 (cm) before the fill: the
+    pattern is not scaled, because the pattern matrix maps to the page's default space (8.7.2)."""
+    return pattern_page(
+        b"2 0 0 2 0 0 cm /Pattern cs /P1 scn 0 0 200 200 re f\n",
+        b"<< /Pattern << /P1 5 0 R >> >>",
+        [(5, stream(b"/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 20 20] /XStep 25 /YStep 25 "
+                    b"/Matrix [1 0 0 1 10 10] /Resources << >>",
+                    b"1 0 0 rg 0 0 10 10 re f 0 0 1 rg 10 10 10 10 re f"))])
+
+
+def gen_pattern_tiling_uncolored() -> bytes:
+    """8.7.3.3 uncoloured tiling pattern: PaintType 2, colour space /Cs1 [/Pattern /DeviceRGB], 0.8 0.2 0 /P1 scn; the cell
+    has no colour operators (a stencil painted in the underlying colour)."""
+    return pattern_page(
+        b"/Cs1 cs 0.8 0.2 0 /P1 scn 50 50 300 300 re f\n",
+        b"<< /ColorSpace << /Cs1 [/Pattern /DeviceRGB] >> /Pattern << /P1 5 0 R >> >>",
+        [(5, stream(b"/Type /Pattern /PatternType 1 /PaintType 2 /TilingType 2 /BBox [0 0 12 12] /XStep 15 /YStep 15 "
+                    b"/Resources << >>", b"0 0 m 12 0 l 6 12 l f"))])
+
+
+def gen_pattern_shading() -> bytes:
+    """8.7.4.1 Table 75 shading pattern: PatternType 2, Matrix [0.5 0 0 0.5 0 0], an axial shading with a Background (light
+    gray, 8.7.4.3 Table 77) and an ExtGState with CA 0.5; the page fills a rectangle with it (re f)."""
+    return pattern_page(
+        b"/Pattern cs /P1 scn 50 50 500 500 re f\n",
+        b"<< /Pattern << /P1 5 0 R >> >>",
+        [(5, b"<< /Type /Pattern /PatternType 2 /Matrix [0.5 0 0 0.5 0 0] /Shading 6 0 R /ExtGState << /CA 0.5 >> >>"),
+         (6, b"<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [200 0 800 0] /Background [0.9 0.9 0.9] "
+             b"/Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >> >>")])
+
+
+def gen_pattern_in_form() -> bytes:
+    """8.7.2 pattern in a form XObject: the form (Matrix [0.5 0 0 0.5 100 100]) has its own Pattern resource and fills with
+    it; the page paints the form after 1 0 0 1 50 50 cm, so the pattern matrix maps to the form's space at Do."""
+    return pattern_page(
+        b"1 0 0 1 50 50 cm /Fm0 Do\n",
+        b"<< /XObject << /Fm0 5 0 R >> >>",
+        [(5, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 400 400] /Matrix [0.5 0 0 0.5 100 100] "
+                    b"/Resources << /Pattern << /P1 6 0 R >> >>", b"/Pattern cs /P1 scn 0 0 400 400 re f")),
+         (6, stream(b"/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 20 20] /XStep 20 /YStep 20 "
+                    b"/Resources << >>", b"0 0.5 0 rg 0 0 10 10 re f"))])
+
+
+def gen_pattern_recursive() -> bytes:
+    """Broken (8.7.3.1): the tiling pattern's cell fills with the pattern itself, an endless recursion."""
+    return pattern_page(
+        b"/Pattern cs /P1 scn 0 0 200 200 re f\n",
+        b"<< /Pattern << /P1 5 0 R >> >>",
+        [(5, stream(b"/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 20 20] /XStep 20 /YStep 20 "
+                    b"/Resources << /Pattern << /P1 5 0 R >> >>", b"/Pattern cs /P1 scn 0 0 10 10 re f"))])
+
+
+def gen_shading_mesh_truncated() -> bytes:
+    """Broken (8.7.4.5.5): a Type 4 mesh with two whole triangles (flags 0 0 0 1) whose data stops in the middle of a fifth
+    vertex (flag 2): 5 bytes per vertex, 22 bytes in all."""
+    vertices = [(0, 100, 100, (15, 0, 0)), (0, 300, 100, (0, 15, 0)), (0, 200, 300, (0, 0, 15)),
+                (1, 400, 300, (15, 0, 0)), (2, 300, 500, (0, 15, 0))]
+    w = BitWriter()
+    for flag, x, y, rgb in vertices:
+        w.write(flag, 2)
+        w.write(x, 12)
+        w.write(y, 12)
+        for c in rgb:
+            w.write(c, 4)
+        w.align()
+    return shading_page(stream(
+        b"/ShadingType 4 /ColorSpace /DeviceRGB /BitsPerCoordinate 12 /BitsPerComponent 4 /BitsPerFlag 2 "
+        b"/Decode [0 4095 0 4095 0 1 0 1 0 1]", w.data()[:22]))
+
+
 
 FILES = {
     "empty-page.pdf": gen_empty_page,
@@ -3220,6 +3464,19 @@ FILES = {
     "color-operators.pdf": gen_color_operators,
     "default-colorspaces.pdf": gen_default_colorspaces,
     "separation-special.pdf": gen_separation_special,
+    "shading-type1-function.pdf": gen_shading_type1,
+    "shading-type2-axial.pdf": gen_shading_type2,
+    "shading-type3-radial.pdf": gen_shading_type3,
+    "shading-type4-freeform.pdf": gen_shading_type4,
+    "shading-type5-lattice.pdf": gen_shading_type5,
+    "shading-type6-coons.pdf": gen_shading_type6,
+    "shading-type7-tensor.pdf": gen_shading_type7,
+    "pattern-tiling-colored.pdf": gen_pattern_tiling_colored,
+    "pattern-tiling-uncolored.pdf": gen_pattern_tiling_uncolored,
+    "pattern-shading-axial.pdf": gen_pattern_shading,
+    "pattern-in-form.pdf": gen_pattern_in_form,
+    "pattern-recursive.pdf": gen_pattern_recursive,
+    "shading-mesh-truncated.pdf": gen_shading_mesh_truncated,
 }
 
 
