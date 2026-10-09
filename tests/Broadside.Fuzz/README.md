@@ -6,24 +6,26 @@ The fuzz harness: one console application, one target per parser or codec, selec
 dotnet run -c Release --project tests/Broadside.Fuzz -- --list
 ```
 
-Targets live in `FuzzTargets.cs` as a dictionary from name to `ReadOnlySpanAction`. A target takes one input, calls into `Broadside`, and either returns or throws; any exception that escapes is a finding. The only target today is `pdf-header`, a placeholder that checks for the `%PDF-` marker; the lexer target replaces it when #11 lands, and every parser and codec after that adds its own (CLAUDE.md, "Code conventions").
+Targets live in `FuzzTargets.cs` as a dictionary from name to `ReadOnlySpanAction`. A target takes one input, calls into `Broadside`, and either returns or throws; any exception that escapes is a finding. The targets today are `lexer` (the COS lexer over the whole input: every token inside the input, always making progress) and `object-parser` (the lenient COS object parser scanning the input as a file body, checking that every object it reads writes back to syntax that parses, without repair, to an equal object; it also runs the strict public `CosObject.TryParse`). Every parser and codec after them adds its own (CLAUDE.md, "Code conventions").
 
 Exit codes: 0 no finding, 1 a finding, 2 usage error.
 
 ## Smoke mode: no fuzzer needed
 
 ```sh
-dotnet run -c Release --project tests/Broadside.Fuzz -- --smoke pdf-header 10          # 10 seconds, random seed
-dotnet run -c Release --project tests/Broadside.Fuzz -- --smoke pdf-header 60 12345    # 60 seconds, fixed seed
+dotnet run -c Release --project tests/Broadside.Fuzz -- --smoke object-parser 10          # 10 seconds, random seed
+dotnet run -c Release --project tests/Broadside.Fuzz -- --smoke object-parser 60 12345    # 60 seconds, fixed seed
 ```
 
 `--smoke <target> [seconds] [seed]` runs the target over every file in `tests/Corpus/`, then for the given time (default 10 s) over random mutations of those files: bit flips, byte overwrites, truncation, insertion, deletion and chunk copies, one to four per input. It needs no instrumentation and no external binary, so it is what CI runs (60 s per target, issue #4) and what you run before opening a PR. The seed is printed; pass it back to replay a run. On a finding the input is written to `artifacts/fuzz/<target>/` and the command to replay it is printed:
 
 ```sh
-dotnet run -c Release --project tests/Broadside.Fuzz -- --run pdf-header artifacts/fuzz/pdf-header/smoke-seed12345-iter1234.bin
+dotnet run -c Release --project tests/Broadside.Fuzz -- --run object-parser artifacts/fuzz/object-parser/smoke-seed12345-iter1234.bin
 ```
 
 `--run <target> <file>` executes the target once on one input, which is also how to replay a crash found by libFuzzer or AFL.
+
+Whole corpus files are the right seeds for both `lexer` and `object-parser`, which read any bytes as a file body.
 
 Smoke mode is a regression net, not a fuzzer: it has no coverage feedback and finds only shallow bugs. Use a real fuzzer for anything that parses.
 
@@ -39,7 +41,7 @@ dotnet build -c Release tests/Broadside.Fuzz
 sharpfuzz artifacts/bin/Broadside.Fuzz/release/Broadside.dll
 ```
 
-The instrumented file replaces the original in place; rebuild to get a clean one back. The `pdf-header` placeholder calls only the BCL, so with it alone the fuzzer reports no coverage; that is expected until a target calls instrumented code.
+The instrumented file replaces the original in place; rebuild to get a clean one back.
 
 ### 2a. libFuzzer (`--fuzz`): the primary driver
 
@@ -60,7 +62,7 @@ Run, with the corpus as the seed directory (any directory of inputs works; libFu
 
 ```sh
 mkdir -p artifacts/fuzz/seeds && cp tests/Corpus/*.pdf artifacts/fuzz/seeds/
-BROADSIDE_FUZZ_TARGET=pdf-header ./libfuzzer-dotnet \
+BROADSIDE_FUZZ_TARGET=object-parser ./libfuzzer-dotnet \
   --target_path=dotnet \
   --target_arg=artifacts/bin/Broadside.Fuzz/release/Broadside.Fuzz.dll \
   artifacts/fuzz/seeds
@@ -75,7 +77,7 @@ Crashes land as `crash-<hash>` files in the working directory; replay them with 
 ```sh
 mkdir -p artifacts/fuzz/seeds && cp tests/Corpus/*.pdf artifacts/fuzz/seeds/
 afl-fuzz -i artifacts/fuzz/seeds -o artifacts/fuzz/findings -t 5000 -m none \
-  dotnet artifacts/bin/Broadside.Fuzz/release/Broadside.Fuzz.dll --afl pdf-header
+  dotnet artifacts/bin/Broadside.Fuzz/release/Broadside.Fuzz.dll --afl object-parser
 ```
 
 On macOS afl-fuzz refuses to start until the crash reporter is disabled; it prints the `launchctl` commands to run. Findings land in `artifacts/fuzz/findings/crashes/`.

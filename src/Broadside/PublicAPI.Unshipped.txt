@@ -1,1 +1,93 @@
 #nullable enable
+abstract Broadside.Objects.CosNumber.ToDouble() -> double
+Broadside.Objects.CosArray
+Broadside.Objects.CosArray.Add(Broadside.Objects.CosObject! item) -> void
+Broadside.Objects.CosArray.Clear() -> void
+Broadside.Objects.CosArray.Contains(Broadside.Objects.CosObject! item) -> bool
+Broadside.Objects.CosArray.CopyTo(Broadside.Objects.CosObject![]! array, int arrayIndex) -> void
+Broadside.Objects.CosArray.CosArray() -> void
+Broadside.Objects.CosArray.CosArray(System.Collections.Generic.IEnumerable<Broadside.Objects.CosObject!>! items) -> void
+Broadside.Objects.CosArray.Count.get -> int
+Broadside.Objects.CosArray.GetEnumerator() -> System.Collections.Generic.IEnumerator<Broadside.Objects.CosObject!>!
+Broadside.Objects.CosArray.IndexOf(Broadside.Objects.CosObject! item) -> int
+Broadside.Objects.CosArray.Insert(int index, Broadside.Objects.CosObject! item) -> void
+Broadside.Objects.CosArray.Remove(Broadside.Objects.CosObject! item) -> bool
+Broadside.Objects.CosArray.RemoveAt(int index) -> void
+Broadside.Objects.CosArray.this[int index].get -> Broadside.Objects.CosObject!
+Broadside.Objects.CosArray.this[int index].set -> void
+Broadside.Objects.CosBoolean
+Broadside.Objects.CosBoolean.Equals(Broadside.Objects.CosBoolean? other) -> bool
+Broadside.Objects.CosBoolean.Value.get -> bool
+Broadside.Objects.CosDictionary
+Broadside.Objects.CosDictionary.Add(Broadside.Objects.CosName! key, Broadside.Objects.CosObject! value) -> void
+Broadside.Objects.CosDictionary.Clear() -> void
+Broadside.Objects.CosDictionary.ContainsKey(Broadside.Objects.CosName! key) -> bool
+Broadside.Objects.CosDictionary.CosDictionary() -> void
+Broadside.Objects.CosDictionary.Count.get -> int
+Broadside.Objects.CosDictionary.GetEnumerator() -> System.Collections.Generic.IEnumerator<System.Collections.Generic.KeyValuePair<Broadside.Objects.CosName!, Broadside.Objects.CosObject!>>!
+Broadside.Objects.CosDictionary.Keys.get -> System.Collections.Generic.ICollection<Broadside.Objects.CosName!>!
+Broadside.Objects.CosDictionary.Remove(Broadside.Objects.CosName! key) -> bool
+Broadside.Objects.CosDictionary.this[Broadside.Objects.CosName! key].get -> Broadside.Objects.CosObject!
+Broadside.Objects.CosDictionary.this[Broadside.Objects.CosName! key].set -> void
+Broadside.Objects.CosDictionary.TryGetValue(Broadside.Objects.CosName! key, out Broadside.Objects.CosObject! value) -> bool
+Broadside.Objects.CosDictionary.Values.get -> System.Collections.Generic.ICollection<Broadside.Objects.CosObject!>!
+Broadside.Objects.CosInteger
+Broadside.Objects.CosInteger.CosInteger(long value) -> void
+Broadside.Objects.CosInteger.Equals(Broadside.Objects.CosInteger? other) -> bool
+Broadside.Objects.CosInteger.Value.get -> long
+Broadside.Objects.CosName
+Broadside.Objects.CosName.Bytes.get -> System.ReadOnlySpan<byte>
+Broadside.Objects.CosName.CosName(string! value) -> void
+Broadside.Objects.CosName.CosName(System.ReadOnlySpan<byte> bytes) -> void
+Broadside.Objects.CosName.Equals(Broadside.Objects.CosName? other) -> bool
+Broadside.Objects.CosName.Value.get -> string!
+Broadside.Objects.CosNull
+Broadside.Objects.CosNumber
+Broadside.Objects.CosObject
+Broadside.Objects.CosObject.WriteTo(System.Buffers.IBufferWriter<byte>! writer) -> void
+Broadside.Objects.CosReal
+Broadside.Objects.CosReal.CosReal(double value) -> void
+Broadside.Objects.CosReal.Equals(Broadside.Objects.CosReal? other) -> bool
+Broadside.Objects.CosReal.Value.get -> double
+Broadside.Objects.CosReference
+Broadside.Objects.CosReference.CosReference(int objectNumber, int generation) -> void
+Broadside.Objects.CosReference.Equals(Broadside.Objects.CosReference? other) -> bool
+Broadside.Objects.CosReference.Generation.get -> int
+Broadside.Objects.CosReference.ObjectNumber.get -> int
+Broadside.Objects.CosStream
+Broadside.Objects.CosStream.CosStream(Broadside.Objects.CosDictionary! dictionary, System.ReadOnlyMemory<byte> encodedData) -> void
+Broadside.Objects.CosStream.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Objects.CosStream.EncodedData.get -> System.ReadOnlyMemory<byte>
+Broadside.Objects.CosStream.EncodedData.set -> void
+Broadside.Objects.CosString
+Broadside.Objects.CosString.Bytes.get -> System.ReadOnlySpan<byte>
+Broadside.Objects.CosString.CosString(System.ReadOnlySpan<byte> bytes, bool hexadecimal = false) -> void
+Broadside.Objects.CosString.DecodeText() -> string!
+Broadside.Objects.CosString.Equals(Broadside.Objects.CosString? other) -> bool
+Broadside.Objects.CosString.IsHexadecimal.get -> bool
+const Broadside.Objects.CosReference.MaxGeneration = 65535 -> int
+override Broadside.Objects.CosArray.IsDirty.get -> bool
+override Broadside.Objects.CosBoolean.Equals(object? obj) -> bool
+override Broadside.Objects.CosBoolean.GetHashCode() -> int
+override Broadside.Objects.CosDictionary.IsDirty.get -> bool
+override Broadside.Objects.CosInteger.Equals(object? obj) -> bool
+override Broadside.Objects.CosInteger.GetHashCode() -> int
+override Broadside.Objects.CosInteger.ToDouble() -> double
+override Broadside.Objects.CosName.Equals(object? obj) -> bool
+override Broadside.Objects.CosName.GetHashCode() -> int
+override Broadside.Objects.CosObject.ToString() -> string!
+override Broadside.Objects.CosReal.Equals(object? obj) -> bool
+override Broadside.Objects.CosReal.GetHashCode() -> int
+override Broadside.Objects.CosReal.ToDouble() -> double
+override Broadside.Objects.CosReference.Equals(object? obj) -> bool
+override Broadside.Objects.CosReference.GetHashCode() -> int
+override Broadside.Objects.CosStream.IsDirty.get -> bool
+override Broadside.Objects.CosString.Equals(object? obj) -> bool
+override Broadside.Objects.CosString.GetHashCode() -> int
+static Broadside.Objects.CosBoolean.False.get -> Broadside.Objects.CosBoolean!
+static Broadside.Objects.CosBoolean.True.get -> Broadside.Objects.CosBoolean!
+static Broadside.Objects.CosNull.Instance.get -> Broadside.Objects.CosNull!
+static Broadside.Objects.CosObject.DeepEquals(Broadside.Objects.CosObject? left, Broadside.Objects.CosObject? right) -> bool
+static Broadside.Objects.CosObject.Parse(System.ReadOnlySpan<byte> bytes) -> Broadside.Objects.CosObject!
+static Broadside.Objects.CosObject.TryParse(System.ReadOnlySpan<byte> bytes, out Broadside.Objects.CosObject? result) -> bool
+virtual Broadside.Objects.CosObject.IsDirty.get -> bool
