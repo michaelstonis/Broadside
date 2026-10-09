@@ -11,6 +11,9 @@ artifacts/
 Specs/
 /corpus/
 
+# Documentation site build output (Lunet); site/.lunet/layouts is source
+site/.lunet/build/
+
 # Test and bench output
 TestResults/
 BenchmarkDotNet.Artifacts/

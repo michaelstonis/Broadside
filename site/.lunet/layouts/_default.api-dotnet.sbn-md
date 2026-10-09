@@ -1,0 +1,10 @@
++++
+layout = site.api.dotnet.layout ?? site.layout ?? "_default"
+layout_type = site.api.dotnet.layout_type ?? "api-dotnet-base"
++++
+{{~ # Lunet 1.1.1's default API root layout, plus a note while no package has public API yet. ~}}
+{{~ if (api.namespaces | array.size) == 0 ~}}
+No public API yet. Broadside is pre-alpha: these pages are generated from the XML documentation of the shipping packages and fill in as public types land, starting with the COS layer in Phase 1. See the [roadmap](../articles/roadmap.md).
+{{~ end ~}}
+{{~ $members_class = site.api.dotnet.members_class ?? site.api.dotnet.table_class ?? "api-dotnet-members list-group list-group-flush" }}
+{{ api_dotnet_members_render api "namespaces" "Namespaces" $members_class }}

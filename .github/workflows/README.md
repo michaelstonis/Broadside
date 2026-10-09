@@ -12,6 +12,19 @@
 
 A newer push to the same PR or branch cancels the older run. NuGet packages are cached per OS, keyed on `Directory.Packages.props` and every `.csproj`. `DiffEngine_Disabled=true` keeps Verify from launching a diff tool.
 
+## `docs.yml`: the documentation site
+
+Runs on pull requests and pushes to `main` that touch `site/**`, `src/**`, `docs/**`, `.config/**`, `check-docs.sh`, `Directory.Build.props`, `Directory.Packages.props`, `global.json` or the workflow itself, and on the "Run workflow" button.
+
+| Job | Runs on | What it does |
+|---|---|---|
+| `build` | ubuntu | `./check-docs.sh`: restores the local tools (`.config/dotnet-tools.json`, Lunet), builds `site/` with `lunet build` into `site/.lunet/build/www`, and fails on a Lunet error, a missing route (home, each article, `/api/`, the search index), a raw `.md` link, or an internal link or asset that does not resolve. Lunet's `api.dotnet` module builds `Broadside`, `Broadside.Rendering`, `Broadside.Rendering.Skia`, `Broadside.Fonts.Standard14` and `Broadside.Fonts.Cmaps` in Release and turns their XML docs into `/api/`. On `main` it also uploads the output as the Pages artifact. |
+| `deploy` | ubuntu (`main` only) | `actions/deploy-pages` publishes the artifact to <https://michaelstonis.github.io/Broadside/> through the `github-pages` environment. |
+
+Pull requests only build and check. GitHub Pages is configured with the "GitHub Actions" source (`build_type: workflow`), so nothing is pushed to a `gh-pages` branch.
+
+Locally, `./check-docs.sh` runs the same build and checks. To preview with live reload, `cd site && dotnet tool run lunet serve` (the dev environment drops the `/Broadside` base path).
+
 ## `release.yml`: tags `v*` and the "Run workflow" button
 
 1. `build-linux`: builds, tests and packs the core packages (`Broadside.Core.slnf`).
