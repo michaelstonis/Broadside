@@ -36,7 +36,7 @@ public class StructureCorpusTests(ITestOutputHelper output)
 
         int elements = StructureWalker.Walk(document);
 
-        Assert.Equal(fileName == "tagged-structure.pdf" ? 18 : -1, elements);
+        Assert.Equal(fileName switch { "tagged-structure.pdf" => 18, "associated-files.pdf" => 1, _ => -1 }, elements);
         Assert.Empty(document.Diagnostics);
     }
 
