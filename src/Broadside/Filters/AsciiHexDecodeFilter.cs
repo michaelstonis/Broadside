@@ -12,8 +12,8 @@ namespace Broadside.Filters;
 /// digit decodes as if a 0 followed it. Takes no parameters.
 /// </para>
 /// <para>
-/// Lenient repairs: any other character is skipped (<c>FilterDataInvalid</c>); data without the <c>&gt;</c> marker decodes to
-/// its end (<c>FilterDataTruncated</c>).
+/// Lenient repairs: any other character is skipped (<c>FilterDataInvalid</c>). Data without the <c>&gt;</c> marker decodes to its end
+/// with no diagnostic: the clause defines the marker but does not require it.
 /// </para>
 /// </remarks>
 public sealed class AsciiHexDecodeFilter : IStreamFilter
@@ -35,12 +35,10 @@ public sealed class AsciiHexDecodeFilter : IStreamFilter
         var writer = new FilterOutput(output);
         int high = -1;
         bool invalidReported = false;
-        bool ended = false;
         foreach (byte character in input)
         {
             if (character == (byte)'>')
             {
-                ended = true;
                 break;
             }
 
@@ -70,11 +68,8 @@ public sealed class AsciiHexDecodeFilter : IStreamFilter
             writer.Write((byte)(high << 4));
         }
 
+        // Data without the > marker simply ends: §7.4.2 defines the marker but, unlike §7.4.3, does not require it.
         writer.Flush();
-        if (!ended)
-        {
-            context.Report(DiagnosticCodes.FilterDataTruncated, DiagnosticSeverity.Warning, "ASCIIHexDecode data ends without the > end-of-data marker; it is decoded to its end.");
-        }
     }
 
     /// <summary>The value of each byte as a hexadecimal digit; -1 for white-space (§7.2.3), <see cref="Invalid"/> otherwise.</summary>

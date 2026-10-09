@@ -197,6 +197,21 @@ public class FilterPipelineTests
     }
 
     [Fact]
+    public void Data_in_an_external_file_is_a_legal_unsupported_feature_that_strict_mode_does_not_reject()
+    {
+        // Table 5 allows F (PDF 1.2); not reading the file is a limit of this reader, not a deviation of the file, so the diagnostic
+        // is Information (issue #41's severity rule). The veraPDF agreement check of issue #47 found it thrown in strict mode.
+        byte[] file = FilterTesting.FileWithStream("/F (data.bin) /Filter /ASCIIHexDecode", "41>"u8);
+
+        (byte[] decoded, PdfDocument document) = FilterTesting.Decode(file, new PdfOptions().UseStrict());
+        using (document)
+        {
+            Assert.Equal("A", Encoding.Latin1.GetString(decoded));
+            Assert.Equal(Broadside.Diagnostics.DiagnosticSeverity.Information, Assert.Single(document.Diagnostics).Severity);
+        }
+    }
+
+    [Fact]
     public void The_maximum_decoded_length_must_be_positive()
     {
         Assert.Throws<ArgumentOutOfRangeException>(() => new PdfOptions().WithMaxDecodedStreamLength(0));

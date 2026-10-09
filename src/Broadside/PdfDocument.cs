@@ -48,6 +48,8 @@ namespace Broadside;
 /// </remarks>
 public sealed class PdfDocument : IDisposable
 {
+    private static readonly PdfVersion Pdf20 = new(2, 0);
+
     private readonly PdfSource _source;
     private readonly DiagnosticSink _diagnostics;
     private readonly ObjectLoader _loader;
@@ -476,7 +478,19 @@ public sealed class PdfDocument : IDisposable
             }
 
             PdfLinearization? linearization = LinearizationReader.Read(source, loader, diagnostics);
-            return new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security);
+            var document = new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security);
+
+            // Table 15: ID is "required in PDF 2.0 or if an Encrypt entry is present" (the latter is the security handler's
+            // EncryptionIdMissing).
+            if (security is null && document.Version >= Pdf20 && !loader.CrossReference.Trailer.ContainsKey(KnownNames.ID))
+            {
+                diagnostics.Report(
+                    DiagnosticCodes.TrailerIdMissing,
+                    DiagnosticSeverity.Warning,
+                    "The document is PDF 2.0, whose trailer shall have an ID entry; it has none.");
+            }
+
+            return document;
         }
         catch
         {

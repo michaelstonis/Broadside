@@ -201,8 +201,41 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         bool encryptMetadata = version < 4 || revision < 4 || (ReadBoolean(context, dictionary, EncryptMetadata) ?? true);
         byte[] owner = ReadEntry(context, dictionary, O, 32, required: true)!;
         byte[] user = ReadEntry(context, dictionary, U, 32, required: true)!;
-        var legacy = new LegacyKeys(revision, keyLength, owner, user, rawPermissions, context.DocumentId.Span.ToArray(), encryptMetadata);
+        byte[] documentId = context.DocumentId.Span.ToArray();
+        var legacy = new LegacyKeys(revision, keyLength, owner, user, rawPermissions, documentId, encryptMetadata);
+        if (TryLegacyPasswords(context, legacy, password, revision, rawPermissions) is { } result)
+        {
+            return result;
+        }
 
+        // Table 20: Length is optional and defaults to 40 bits. A writer that left it out for a 128-bit key (qpdf's test file
+        // bad-encryption-length.pdf; qpdf assumes 128 bits whenever Length is missing) is read by trying 128 bits once 40 bits
+        // authenticate nothing.
+        if (revision >= 3 && version is 2 or 3 && !dictionary.ContainsKey(LengthName))
+        {
+            var longer = new LegacyKeys(revision, 16, owner, user, rawPermissions, documentId, encryptMetadata);
+            if (TryLegacyPasswords(context, longer, password, revision, rawPermissions) is { } repaired)
+            {
+                context.Report(
+                    DiagnosticCodes.EncryptionKeyLengthInvalid,
+                    DiagnosticSeverity.Warning,
+                    "The encryption dictionary has no Length entry, so the key is 40 bits long (Table 20), but only a 128-bit key authenticates; it is read as 128 bits.");
+                return repaired;
+            }
+        }
+
+        throw new PdfPasswordException(password is null || password.IsEmpty ? PdfPasswordFailure.Required : PdfPasswordFailure.Incorrect);
+    }
+
+    /// <summary>Algorithms 6 and 7 for every encoding of <paramref name="password"/>: the user password first, then the owner password.</summary>
+    /// <returns>The result, or <see langword="null"/> when no encoding authenticates.</returns>
+    private static SecurityHandlerResult? TryLegacyPasswords(
+        SecurityHandlerContext context,
+        LegacyKeys legacy,
+        PdfPassword? password,
+        int revision,
+        int rawPermissions)
+    {
         PdfPermissions userPermissions = UserPermissions(rawPermissions, revision);
         foreach (byte[] candidate in PasswordEncoding.Legacy(password))
         {
@@ -211,13 +244,14 @@ public sealed class StandardSecurityHandler : ISecurityHandler
                 return new SecurityHandlerResult(userKey, PdfAccessLevel.User, userPermissions, rawPermissions) { Revision = revision };
             }
 
-            if (candidate.Length > 0 && legacy.TryOwner(candidate, context) is { } ownerKey)
+            // The empty string is a password like any other: Algorithm 7 does not exclude it.
+            if (legacy.TryOwner(candidate, context) is { } ownerKey)
             {
                 return new SecurityHandlerResult(ownerKey, PdfAccessLevel.Owner, PdfPermissions.All, rawPermissions) { Revision = revision };
             }
         }
 
-        throw new PdfPasswordException(password is null || password.IsEmpty ? PdfPasswordFailure.Required : PdfPasswordFailure.Incorrect);
+        return null;
     }
 
     private static SecurityHandlerResult AuthenticateModern(
@@ -243,8 +277,9 @@ public sealed class StandardSecurityHandler : ISecurityHandler
             {
                 access = PdfAccessLevel.User;
             }
-            else if (candidate.Length > 0 && (key = TryModernOwner(revision, candidate, owner, user, ownerEncryption)) is not null)
+            else if ((key = TryModernOwner(revision, candidate, owner, user, ownerEncryption)) is not null)
             {
+                // An empty owner password is a password like any other (Algorithms 9 and 12; pdf.js test file pr6531_2.pdf).
                 access = PdfAccessLevel.Owner;
             }
 

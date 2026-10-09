@@ -33,6 +33,7 @@ public static class Corpus
         "encrypted-crypt-filters.pdf",
         "encrypted-aes-gcm.pdf",
         "encrypted-mac.pdf",
+        "encrypted-empty-owner-password.pdf",
         "inline-image.pdf",
         "page-tree-inherited.pdf",
         "annotations-link.pdf",
@@ -50,6 +51,7 @@ public static class Corpus
         "startxref-wrong.pdf",
         "encrypted-mac-tampered.pdf",
         "encrypted-owner-key-variant.pdf",
+        "encrypted-rc4-length-missing.pdf",
     ];
 
     private static readonly (string FileName, string UserPassword)[] PasswordProtected =

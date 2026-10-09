@@ -14,7 +14,12 @@ public class VersionTests
     [InlineData("%PDF-1.0", "", "1.0")]
     public void The_catalog_version_overrides_the_header_only_when_later(string header, string catalogEntries, string expected)
     {
-        using PdfDocument document = PdfDocument.Open(TestPdf.OnePage("/MediaBox [0 0 612 792]", catalogEntries, header));
+        // Table 15: a PDF 2.0 file's trailer shall have an ID, so every variant carries one.
+        byte[] file = new TestPdf { Header = header, TrailerEntries = "/ID [<0123> <0123>]" }.Build(
+            $"<< /Type /Catalog /Pages 2 0 R {catalogEntries} >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /Resources << >> /MediaBox [0 0 612 792] >>");
+        using PdfDocument document = PdfDocument.Open(file);
 
         Assert.Equal(expected, document.Version.ToString());
         Assert.Empty(document.Diagnostics);

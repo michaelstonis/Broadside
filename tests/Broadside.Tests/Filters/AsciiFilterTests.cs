@@ -33,12 +33,14 @@ public class AsciiFilterTests
     }
 
     [Fact]
-    public void Ascii_hex_without_the_end_marker_decodes_to_its_end_with_a_diagnostic()
+    public void Ascii_hex_without_the_end_marker_decodes_to_its_end_without_a_diagnostic()
     {
+        // §7.4.2 says > "indicates EOD"; unlike §7.4.3 for ASCII85 it never requires the marker, so data that simply ends is not
+        // a deviation. veraPDF passes such a stream (veraPDF corpus PDF_A-1b 6-1-2-t01-pass-a.pdf; issue #47).
         (byte[] decoded, string[] codes) = FilterTesting.Run(new AsciiHexDecodeFilter(), "414"u8);
 
         Assert.Equal<byte>([0x41, 0x40], decoded);
-        Assert.Equal(["FilterDataTruncated"], codes);
+        Assert.Empty(codes);
     }
 
     [Theory]

@@ -55,7 +55,9 @@ public class IntegrityTests
         using PdfDocument document = PdfDocument.Open(file);
 
         Assert.Equal(PdfIntegrityStatus.Failed, document.Security!.Integrity);
-        Assert.Equal("IntegrityCodeIncomplete", Assert.Single(document.Diagnostics).Code);
+
+        // The appended line also follows the last %%EOF, which §7.5.5 forbids (issue #47).
+        Assert.Equal(["EndOfFileMarkerNotLast", "IntegrityCodeIncomplete"], document.Diagnostics.Select(diagnostic => diagnostic.Code));
     }
 
     [Fact]

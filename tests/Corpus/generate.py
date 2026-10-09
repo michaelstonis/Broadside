@@ -677,7 +677,10 @@ def gen_empty_page() -> bytes:
 
 
 def gen_pdf20_header() -> bytes:
-    return simple_file([(1, catalog(b" /Version /2.0")), (2, pages()), (3, page())], version="2.0")
+    """7.5.2 header and 7.7.2 Table 29 Version; 7.5.5 Table 15: a PDF 2.0 trailer shall carry ID."""
+    id0 = file_id("pdf20-header").hex().encode()
+    return simple_file([(1, catalog(b" /Version /2.0")), (2, pages()), (3, page())], version="2.0",
+                       trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
 
 
 def gen_text_standard14() -> bytes:
@@ -830,7 +833,10 @@ def encrypted_file(name: str, version: str, label: bytes, encrypt_dict, encrypt_
     return f.finish_classic(b"<< /Size 7 /Root 1 0 R /Encrypt 6 0 R /ID [<%s> <%s>] >>" % ((id0.hex().encode(),) * 2))
 
 
-def gen_encrypted_legacy(name: str, r: int, label: bytes, n: int | None = None, rehash_first_n: bool = False) -> bytes:
+def gen_encrypted_legacy(name: str, r: int, label: bytes, n: int | None = None, rehash_first_n: bool = False,
+                         omit_length: bool = False) -> bytes:
+    """Standard security handler R2-R4. ``omit_length`` drops /Length although the key is longer than the 40-bit default
+    (7.6.2 Table 20: "Default value: 40"), the defect of ``encrypted-rc4-length-missing.pdf``."""
     id0 = file_id(name)
     n = n or (5 if r == 2 else 16)
     o = legacy_o_entry(OWNER_PASSWORD, USER_PASSWORD, r, n, rehash_first_n)
@@ -839,6 +845,8 @@ def gen_encrypted_legacy(name: str, r: int, label: bytes, n: int | None = None, 
     aes = r == 4
     common = b"<< /Filter /Standard /R %d /Length %d /P %d /O <%s> /U <%s>" % (
         r, n * 8, PERMISSIONS, o.hex().encode(), u.hex().encode())
+    if omit_length:
+        common = common.replace(b" /Length %d" % (n * 8), b"")
     if r == 2:
         enc = common + b" /V 1 >>"
         version = "1.1"
@@ -960,6 +968,25 @@ def gen_encrypted_user_password(name: str = "encrypted-user-password") -> bytes:
     f.add(6, enc)
     f.add(7, b"<< /Title %s >>" % hex_string(encrypt(7, "title", b"Protected")))
     return f.finish_classic(b"<< /Size 8 /Root 1 0 R /Info 7 0 R /Encrypt 6 0 R /ID [<%s> <%s>] >>" % ((id0.hex().encode(),) * 2))
+
+
+def gen_encrypted_empty_owner_password(name: str = "encrypted-empty-owner-password") -> bytes:
+    """R6 (V 5, AES-256) whose owner password is empty and whose user password is ``user`` (7.6.4.4.7-7.6.4.4.9
+    Algorithms 8-10 with an empty owner password string): opening without a password authenticates as the owner
+    (7.6.4.3.3 Algorithm 2.A tries the owner password first). The case of pdf.js's pr6531_2.pdf."""
+    key = fixed_bytes(name + ":file-key", 32)
+    encrypt = aes256_encryptor(name, key)
+    enc = (b"<< /Filter /Standard /V 5 /R 6 /Length 256 " + r6_entries(name, key, b"user", b"", PERMISSIONS)
+           + b" /CF << /StdCF << /CFM /AESV3 /AuthEvent /DocOpen /Length 32 >> >> /StmF /StdCF /StrF /StdCF >>")
+    id0 = file_id(name)
+    f = File("2.0", binary=True)
+    f.add(1, catalog())
+    f.add(2, pages())
+    f.add(3, page(contents=4, font=5))
+    f.add(4, stream(b"", encrypt(4, "stream", text_content(b"Empty owner password (R6)"))))
+    f.add(5, HELVETICA)
+    f.add(6, enc)
+    return f.finish_classic(b"<< /Size 7 /Root 1 0 R /Encrypt 6 0 R /ID [<%s> <%s>] >>" % ((id0.hex().encode(),) * 2))
 
 
 def gen_encrypted_rc4_user_password(name: str = "encrypted-rc4-user-password") -> bytes:
@@ -1203,11 +1230,14 @@ FILES = {
     "encrypted-crypt-filters.pdf": gen_encrypted_crypt_filters,
     "encrypted-aes-gcm.pdf": gen_encrypted_aes_gcm,
     "encrypted-mac.pdf": gen_encrypted_mac,
+    "encrypted-empty-owner-password.pdf": gen_encrypted_empty_owner_password,
     "encrypted-user-password.pdf": gen_encrypted_user_password,
     "encrypted-rc4-user-password.pdf": gen_encrypted_rc4_user_password,
     "encrypted-mac-tampered.pdf": gen_encrypted_mac_tampered,
     "encrypted-owner-key-variant.pdf": lambda: gen_encrypted_legacy(
         "encrypted-owner-key-variant", 3, b"RC4 40-bit (R3), qpdf owner key", n=5, rehash_first_n=True),
+    "encrypted-rc4-length-missing.pdf": lambda: gen_encrypted_legacy(
+        "encrypted-rc4-length-missing", 3, b"RC4 128-bit (R3), no Length", omit_length=True),
     "broken-xref-offsets.pdf": gen_broken_xref_offsets,
     "missing-endobj.pdf": gen_missing_endobj,
     "wrong-stream-length.pdf": gen_wrong_stream_length,
