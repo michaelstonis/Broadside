@@ -105,8 +105,9 @@ Broadside.Diagnostics.DiagnosticException.DiagnosticException(Broadside.Diagnost
 Broadside.Diagnostics.DiagnosticException.DiagnosticException(string? message) -> void
 Broadside.Diagnostics.DiagnosticException.DiagnosticException(string? message, System.Exception? innerException) -> void
 Broadside.Diagnostics.DiagnosticSeverity
-Broadside.Diagnostics.DiagnosticSeverity.Error = 1 -> Broadside.Diagnostics.DiagnosticSeverity
-Broadside.Diagnostics.DiagnosticSeverity.Warning = 0 -> Broadside.Diagnostics.DiagnosticSeverity
+Broadside.Diagnostics.DiagnosticSeverity.Error = 2 -> Broadside.Diagnostics.DiagnosticSeverity
+Broadside.Diagnostics.DiagnosticSeverity.Information = 0 -> Broadside.Diagnostics.DiagnosticSeverity
+Broadside.Diagnostics.DiagnosticSeverity.Warning = 1 -> Broadside.Diagnostics.DiagnosticSeverity
 Broadside.Filters.Ascii85DecodeFilter
 Broadside.Filters.Ascii85DecodeFilter.Ascii85DecodeFilter() -> void
 Broadside.Filters.Ascii85DecodeFilter.Decode(System.ReadOnlyMemory<byte> encoded, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.FilterContext! context) -> void

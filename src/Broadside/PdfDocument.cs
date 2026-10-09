@@ -19,7 +19,15 @@ namespace Broadside;
 /// <para>
 /// Reading is lenient by default: deviations are repaired and recorded in <see cref="Diagnostics"/>. In strict mode the first
 /// deviation throws a <see cref="DiagnosticException"/>; deviations in objects loaded after open (the page tree, for instance) throw
-/// from the member that loads them.
+/// from the member that loads them, so strict validation at open is not exhaustive.
+/// </para>
+/// <para>
+/// Repairs (ISO 32000-2 §7.5 describes the structure but not its repair; ADR 0005): a wrong <c>startxref</c> or <c>Prev</c> offset
+/// reads the nearest cross-reference section; an entry whose offset does not hold its object is looked up near that offset, then
+/// anywhere in the file; a missing or unusable cross-reference table or trailer is rebuilt by scanning the file for object headers,
+/// object streams and trailers, and the catalog is found by its type when no trailer leads to it; a wrong stream <c>Length</c> is
+/// recovered from <c>endstream</c> (or <c>endobj</c>), without changing the <c>Length</c> entry; a missing <c>endobj</c> ends the
+/// object at the next keyword.
 /// </para>
 /// <para>Safe for concurrent reads from several threads while nobody changes it; changes are single-threaded.</para>
 /// </remarks>
@@ -360,10 +368,26 @@ public sealed class PdfDocument : IDisposable
                 configuration.MaxDecodedStreamLength,
                 diagnostics,
                 value => loader is not null ? loader.Resolve(value) : value is null or CosReference ? CosNull.Instance : value);
-            CrossReference crossReference = CrossReferenceReader.Read(source, header, streams, diagnostics) ?? Reconstruct(diagnostics);
-            loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks(), streams);
+            var scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.ExecutionAndPublication);
+            CrossReference? crossReference = CrossReferenceReader.Read(source, header, streams, diagnostics, scan);
+            bool reconstructed = crossReference is null;
+            crossReference ??= Reconstruct(source, header, scan.Value, streams, diagnostics, reportMissingTrailer: true);
+            loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks(), streams) { Scan = scan };
+            CosDictionary? catalog = ReadCatalog(loader, diagnostics, reportUnusableRoot: reconstructed);
+            if (catalog is null)
+            {
+                // §7.5.5: the trailer's Root shall lead to the catalog. When it does not, the cross-reference information is not
+                // trusted either: rebuild it by scanning, which also finds a catalog no trailer names.
+                diagnostics.Report(
+                    DiagnosticCodes.RootMissing,
+                    DiagnosticSeverity.Warning,
+                    "The trailer has no Root entry that resolves to the catalog dictionary; the cross-reference information is rebuilt by scanning the file.");
+                crossReference = Reconstruct(source, header, scan.Value, streams, diagnostics, reportMissingTrailer: false);
+                loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks(), streams) { Scan = scan };
+                catalog = ReadCatalog(loader, diagnostics, reportUnusableRoot: true)!;
+            }
+
             IReadOnlyList<PdfRevision> revisions = ReadRevisions(source, crossReference, diagnostics);
-            CosDictionary catalog = ReadCatalog(loader, diagnostics);
             PdfLinearization? linearization = LinearizationReader.Read(source, loader, diagnostics);
             return new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization);
         }
@@ -387,14 +411,32 @@ public sealed class PdfDocument : IDisposable
         return revisions;
     }
 
-    /// <summary>Rebuilds the cross-reference information by scanning the file when it cannot be read (§7.5.4). Issue #41.</summary>
-    private static CrossReference Reconstruct(DiagnosticSink diagnostics) =>
-        throw new DiagnosticException(diagnostics.Snapshot() is [.., var last]
-            ? last
-            : new Diagnostic(DiagnosticCodes.StartxrefMissing, DiagnosticSeverity.Error, "The cross-reference information cannot be read."));
+    /// <summary>
+    /// Rebuilds the cross-reference information by scanning the file when it cannot be read or does not lead to the catalog (§7.5.4,
+    /// §7.5.5; issue #41). Throws when the file holds no catalog at all.
+    /// </summary>
+    private static CrossReference Reconstruct(
+        PdfSource source,
+        FileHeader header,
+        FileScan scan,
+        StreamDecoder streams,
+        DiagnosticSink diagnostics,
+        bool reportMissingTrailer)
+    {
+        CrossReference? crossReference = CrossReferenceReconstructor.Reconstruct(source, header, scan, streams, diagnostics, reportMissingTrailer);
+        if (crossReference is null)
+        {
+            diagnostics.Fail(
+                DiagnosticCodes.CatalogNotFound,
+                "The cross-reference information cannot be read, and scanning the file finds no catalog dictionary: the file cannot be read.");
+        }
+
+        return crossReference;
+    }
 
     /// <summary>Loads the catalog through the trailer's <c>Root</c> and checks its <c>Type</c> and <c>Version</c> (§7.7.2).</summary>
-    private static CosDictionary ReadCatalog(ObjectLoader loader, DiagnosticSink diagnostics)
+    /// <returns>The catalog, or <see langword="null"/> when <c>Root</c> does not resolve to a dictionary.</returns>
+    private static CosDictionary? ReadCatalog(ObjectLoader loader, DiagnosticSink diagnostics, bool reportUnusableRoot)
     {
         CosDictionary trailer = loader.CrossReference.Trailer;
         trailer.TryGetValue(KnownNames.Root, out CosObject? root);
@@ -408,7 +450,11 @@ public sealed class PdfDocument : IDisposable
 
         if (loader.Resolve(root) is not CosDictionary catalog)
         {
-            diagnostics.Fail(DiagnosticCodes.RootMissing, "The trailer has no Root entry that resolves to the catalog dictionary.");
+            if (reportUnusableRoot)
+            {
+                diagnostics.Fail(DiagnosticCodes.RootMissing, "The trailer has no Root entry that resolves to the catalog dictionary.");
+            }
+
             return null;
         }
 

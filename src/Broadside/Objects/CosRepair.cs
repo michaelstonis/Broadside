@@ -6,8 +6,8 @@ namespace Broadside.Objects;
 /// One deviation from ISO 32000-2 §7.2 or §7.3 the parser found, and repaired, while reading objects.
 /// </summary>
 /// <remarks>
-/// Internal until the public diagnostic model lands (issue #41), which is expected to adopt <see cref="Code"/> as its diagnostic
-/// code. Codes are stable PascalCase identifiers, listed in <see cref="CosRepairCodes"/>.
+/// The object loader turns each repair into a public <see cref="Diagnostics.Diagnostic"/> with the same <see cref="Code"/>, the
+/// absolute offset and the object (issue #41). Codes are stable PascalCase identifiers, listed in <see cref="CosRepairCodes"/>.
 /// </remarks>
 /// <param name="Code">The stable identifier of the kind of deviation.</param>
 /// <param name="Offset">The byte offset in the parsed source where the deviation was found.</param>

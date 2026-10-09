@@ -66,6 +66,12 @@ internal sealed record XrefSection(long Offset, long End, XrefSectionKind Kind, 
 
     /// <summary>Gets the cross-reference stream object of a <see cref="XrefSectionKind.Stream"/> section, as parsed.</summary>
     public CosStream? Stream { get; init; }
+
+    /// <summary>
+    /// Gets a value indicating whether the section was rebuilt by scanning the file rather than read from it (issue #41,
+    /// <see cref="CrossReferenceReconstructor"/>). Such a section is the only one, and its revision spans the whole file.
+    /// </summary>
+    public bool IsReconstructed { get; init; }
 }
 
 /// <summary>

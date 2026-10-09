@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.TestSupport;
 
@@ -15,6 +16,24 @@ public class SaveTests
         {
             var data = new TheoryData<string, PdfCrossReferenceLayout>();
             foreach (string file in Corpus.WellFormedFileNames.Where(name => !name.StartsWith("encrypted-", StringComparison.Ordinal)))
+            {
+                foreach (PdfCrossReferenceLayout layout in Layouts)
+                {
+                    data.Add(file, layout);
+                }
+            }
+
+            return data;
+        }
+    }
+
+    /// <summary>Every deliberately broken corpus file with every layout.</summary>
+    public static TheoryData<string, PdfCrossReferenceLayout> BrokenFilesAndLayouts
+    {
+        get
+        {
+            var data = new TheoryData<string, PdfCrossReferenceLayout>();
+            foreach (string file in Corpus.MalformedFileNames)
             {
                 foreach (PdfCrossReferenceLayout layout in Layouts)
                 {
@@ -135,19 +154,21 @@ public class SaveTests
     }
 
     [Theory]
-    [InlineData("missing-endobj.pdf", "MissingEndobj")]
-    [InlineData("wrong-stream-length.pdf", "StreamLengthInvalid")]
-    public void A_repaired_object_is_written_as_repaired_so_the_saved_file_needs_no_repair(string fileName, string repair)
+    [MemberData(nameof(BrokenFilesAndLayouts))]
+    public void A_repaired_file_is_saved_with_a_new_cross_reference_section_and_reopens_without_warnings_or_errors(string fileName, PdfCrossReferenceLayout layout)
     {
+        // The broken corpus files: wrong xref offsets, missing endobj, wrong stream Length, no xref, wrong startxref (#41 repairs
+        // them on open). A save writes what was read, repaired objects serialized, under a cross-reference section of its own.
         using PdfDocument source = PdfDocument.Open(Corpus.Path(fileName));
-        Assert.Equal(source.Pages.Count, source.Pages.Count);
 
-        byte[] saved = Save(source, PdfCrossReferenceLayout.Table);
+        byte[] saved = Save(source, layout);
 
-        Assert.Contains(source.Diagnostics, diagnostic => diagnostic.Code == repair);
+        Assert.Contains(source.Diagnostics, diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning);
         using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Equal(source.Pages.Count, reopened.Pages.Count);
         AssertSameObjectGraph(source, reopened);
-        Assert.Empty(reopened.Diagnostics);
+        Assert.DoesNotContain(reopened.Diagnostics, diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning);
+        Assert.Single(reopened.Revisions);
         (int exitCode, string output) = ExternalTool.Run("qpdf", saved, "--check");
         Assert.True(exitCode == 0, output);
     }

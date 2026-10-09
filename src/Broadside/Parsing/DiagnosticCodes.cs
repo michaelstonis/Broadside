@@ -4,7 +4,10 @@ namespace Broadside.Parsing;
 /// The codes of the diagnostics the file reader and the document model record, grouped by area. Object syntax codes are in
 /// <see cref="Objects.CosRepairCodes"/>. Codes are stable: tests, logs and users match on them.
 /// </summary>
-/// <remarks>Issue #41 owns the public catalogue of codes; every ticket adds its own group here.</remarks>
+/// <remarks>
+/// Every ticket adds its own group here. The catalogue is internal while parallel tickets add codes; the codes reach users as
+/// <see cref="Diagnostics.Diagnostic.Code"/> strings.
+/// </remarks>
 internal static class DiagnosticCodes
 {
     // File header (ISO 32000-2 §7.5.2).
@@ -20,9 +23,14 @@ internal static class DiagnosticCodes
     public const string RootMissing = nameof(RootMissing);
     public const string RootNotIndirect = nameof(RootNotIndirect);
 
+    // Repair by scanning (§7.5; issue #41).
+    public const string CatalogNotFound = nameof(CatalogNotFound);
+
     // Cross-reference table (§7.5.4).
     public const string XrefSectionInvalid = nameof(XrefSectionInvalid);
     public const string XrefEntryInvalid = nameof(XrefEntryInvalid);
+    public const string XrefEntryFormatInvalid = nameof(XrefEntryFormatInvalid);
+    public const string XrefSubsectionNumberingInvalid = nameof(XrefSubsectionNumberingInvalid);
     public const string XrefPrevLoop = nameof(XrefPrevLoop);
 
     // Cross-reference streams and hybrid files (§7.5.8).
