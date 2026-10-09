@@ -159,12 +159,12 @@ public class CrossReferenceStreamTests
     [Fact]
     public void A_cross_reference_stream_holds_no_more_entries_than_the_file_has_bytes()
     {
-        const int FreeEntries = 8_000_000;
+        const int freeEntries = 8_000_000;
         var pdf = new XrefStreamPdf().AddOnePage();
         byte[] head = XrefStreamPdf.Rows([1, 4, 0], (1, pdf.Offset(1), 0), (1, pdf.Offset(2), 0), (1, pdf.Offset(3), 0));
-        byte[] data = new byte[head.Length + (FreeEntries * 5)];
+        byte[] data = new byte[head.Length + (freeEntries * 5)];
         head.CopyTo(data, 0);
-        byte[] file = pdf.Finish(4, $"/Size {FreeEntries + 4} /Index [1 3 4 {FreeEntries}] /Root 1 0 R /W [1 4 0] /Filter /FlateDecode", FilterEncoders.Zlib(data));
+        byte[] file = pdf.Finish(4, $"/Size {freeEntries + 4} /Index [1 3 4 {freeEntries}] /Root 1 0 R /W [1 4 0] /Filter /FlateDecode", FilterEncoders.Zlib(data));
         Assert.InRange(file.Length, 0, 100_000);
 
         long allocated = Allocations.Measure(
