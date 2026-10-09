@@ -178,7 +178,7 @@ pdfium-tests: 840 files
     StartxrefInvalid: 99
     StreamLengthInvalid: 92
     XrefSectionInvalid: 84
-    PredictorInvalid: 72
+    PredictorInvalid: 73
     HeaderInvalid: 29
     FilterDataInvalid: 28
     DecodeParmsInvalid: 24

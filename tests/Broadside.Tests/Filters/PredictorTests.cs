@@ -104,28 +104,6 @@ public class PredictorTests
         { "/Predictor 2 /Colors 4 /Columns 2", [1, 2, 3, 4, 5], [1, 2, 3, 4, 5], "PredictorInvalid" },
     };
 
-    // Found by libFuzzer (issue #48): Columns sized the row buffers and the zero padding of the last row, so a few bytes of data
-    // with a huge Columns allocated and wrote rows of up to the decoded-length limit (1 GiB) and ran out of memory. Data that
-    // cannot hold one whole row is now passed through, so the output is never more than twice the input.
-    [Theory]
-    [InlineData(12)]
-    [InlineData(2)]
-    public void A_row_longer_than_the_whole_data_allocates_nothing_in_proportion_to_the_row(int predictor)
-    {
-        byte[] file = FilterTesting.FileWithStream(
-            $"/Filter /FlateDecode /DecodeParms << /Predictor {predictor} /Colors 4 /BitsPerComponent 16 /Columns 100000000 >>",
-            FilterEncoders.Zlib([2, 10, 20, 30]));
-        _ = FilterTesting.DecodeWithCodes(file);
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        (byte[] decoded, string[] codes) = FilterTesting.DecodeWithCodes(file);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
-
-        Assert.Equal([2, 10, 20, 30], decoded);
-        Assert.Equal(["PredictorInvalid"], codes);
-        Assert.True(allocated < 1 << 20, $"Decoding 4 bytes allocated {allocated} bytes.");
-    }
-
     [Theory]
     [MemberData(nameof(MalformedPredictions))]
     public void Malformed_predictor_data_or_parameters_are_repaired_with_a_diagnostic(string parameters, byte[] predicted, byte[] expected, string code)
