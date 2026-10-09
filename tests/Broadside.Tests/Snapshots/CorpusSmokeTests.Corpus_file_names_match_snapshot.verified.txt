@@ -22,6 +22,7 @@
   encrypted-user-password.pdf,
   filter-chain.pdf,
   flate-stream.pdf,
+  functions.pdf,
   hybrid-xref.pdf,
   incremental-update.pdf,
   info-dictionary.pdf,
