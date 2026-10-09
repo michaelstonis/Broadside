@@ -43,6 +43,8 @@ internal static class SeedWriter
     private static readonly CosName EarlyChange = new("EarlyChange");
     private static readonly CosName AuthCode = new("AuthCode");
     private static readonly CosName Mac = new("MAC");
+    private static readonly CosName Metadata = new("Metadata");
+    private static readonly CosName Contents = new("Contents");
 
     private static readonly Dictionary<string, string> FilterTargets = new(StringComparer.Ordinal)
     {
@@ -98,6 +100,9 @@ internal static class SeedWriter
         "object-stream" => Streams(file).Select(stream => ObjectStreamSeed(stream.Document, stream.Value)).OfType<byte[]>(),
         "hint-tables" => Streams(file).Select(stream => HintSeed(stream.Document, stream.Value)).OfType<byte[]>(),
         "mac-token" => MacTokens(file),
+        "content-lexer" or "content-interpreter" => ContentStreams(file),
+        "xmp" => Streams(file).Where(stream => Metadata.Equals(stream.Value.Dictionary.TryGetValue(Type, out CosObject? type) ? type : null))
+            .Select(stream => stream.Document.DecodeStream(stream.Value).ToArray()),
         "decrypt" => EncryptedBodies(file),
         _ when FilterTargets.TryGetValue(target, out string? filter) =>
             Streams(file).Where(stream => FirstFilter(stream.Value) == filter).Select(stream => stream.Value.EncodedData.ToArray()),
@@ -227,6 +232,29 @@ internal static class SeedWriter
         byte[] seed = [(byte)((document.Pages.Count - 1) & 15), 0, 0, .. document.DecodeStream(stream).Span];
         BinaryPrimitives.WriteUInt16BigEndian(seed.AsSpan(1), (ushort)shared);
         return seed;
+    }
+
+    /// <summary><c>content-lexer</c> and <c>content-interpreter</c>: every page's content streams, decoded.</summary>
+    private static IEnumerable<byte[]> ContentStreams(byte[] file)
+    {
+        using PdfDocument? document = Open(file);
+        if (document is null)
+        {
+            yield break;
+        }
+
+        foreach (PdfPage page in document.Pages)
+        {
+            CosObject contents = document.Resolve(page.Dictionary.TryGetValue(Contents, out CosObject? value) ? value : null);
+            IEnumerable<CosObject> items = contents is CosArray array ? array : [contents];
+            foreach (CosObject item in items)
+            {
+                if (document.Resolve(item) is CosStream stream)
+                {
+                    yield return document.DecodeStream(stream).ToArray();
+                }
+            }
+        }
     }
 
     /// <summary><c>mac-token</c>: the DER token of a standalone PDF MAC (ISO/TS 32004).</summary>

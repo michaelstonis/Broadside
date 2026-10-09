@@ -1,6 +1,6 @@
 # Real fuzzing: every fuzz target under libFuzzer (SharpFuzz instrumentation, libfuzzer-dotnet driver) in parallel jobs, once a
 # week and on the "Run workflow" button. One scheduled run gives each target 80 minutes on every core of its runner, so the run
-# as a whole adds up to more than 24 hours of fuzzing (19 targets: 25.3 hours of wall-clock time; issue #48). Each target's corpus is cached between runs, so coverage
+# as a whole adds up to more than 24 hours of fuzzing (issue #48: the 19 Phase 1 targets alone make 25.3 hours of wall-clock time). Each target's corpus is cached between runs, so coverage
 # accumulates. Findings fail the job and are uploaded with a replay of each. See .github/workflows/README.md and
 # tests/Broadside.Fuzz/README.md ("Real fuzzing").
 name: Fuzz

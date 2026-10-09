@@ -1,6 +1,9 @@
 using System.Buffers;
+using Broadside.Content;
 using Broadside.Diagnostics;
 using Broadside.Filters;
+using Broadside.Fonts;
+using Broadside.Graphics;
 using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -20,6 +23,8 @@ internal static class FuzzTargets
     public static IReadOnlyDictionary<string, ReadOnlySpanAction> All { get; } = new Dictionary<string, ReadOnlySpanAction>(StringComparer.Ordinal)
     {
         ["lexer"] = Lexer,
+        ["content-lexer"] = ContentLexer,
+        ["content-interpreter"] = ContentInterpreterTarget,
         ["object-parser"] = ObjectParser,
         ["document"] = Document,
         ["windowed-document"] = WindowedDocument,
@@ -38,7 +43,15 @@ internal static class FuzzTargets
         ["decrypt"] = Decrypt,
         ["mac-token"] = MacToken,
         ["public-key"] = PublicKey.Target,
+        ["xmp"] = Xmp,
+        ["pdf-date"] = PdfDateTarget,
+        ["structure-tree"] = StructureTree.Target,
+        ["function-type4"] = FunctionType4,
+        ["function-sampled"] = FunctionSampled,
+        ["optional-content"] = OptionalContentTarget.Target,
     };
+
+    private static readonly Lazy<PdfDocument> EmptyDocument = new(() => PdfDocument.Create());
 
     /// <summary>
     /// Names the targets use, kept out of this class's static constructor: under libFuzzer, code of the instrumented library must
@@ -47,16 +60,17 @@ internal static class FuzzTargets
     private static class Names
     {
         public static readonly CosName Contents = new("Contents");
+        public static readonly CosName Font = new("Font");
         public static readonly CosName Info = new("Info");
     }
 
     /// <summary>
     /// Opens the input as a whole file in lenient mode and reads everything the document model exposes: version, trailer, every
-    /// page's boxes, rotation, user unit and resources, the revisions, and the linearization dictionary and hint tables, then walks
-    /// every object and decodes every stream (<see cref="DocumentWalker"/>). A <see cref="DiagnosticException"/> (no catalog even
-    /// after a scan) and the password, certificate and unsupported-encryption exceptions are the documented outcomes; any other
-    /// exception is a finding. Every box must be normalized and every rotation one of 0, 90, 180, 270; every revision must be a
-    /// non-empty prefix of the input at its own index.
+    /// page's boxes, rotation, user unit, resources, fonts and content, the revisions, the linearization dictionary and hint tables,
+    /// the outline and the named destinations, then walks every object and decodes every stream (<see cref="DocumentWalker"/>). A
+    /// <see cref="DiagnosticException"/> (no catalog even after a scan) and the password, certificate and unsupported-encryption
+    /// exceptions are the documented outcomes; any other exception is a finding. Every box must be normalized and every rotation one
+    /// of 0, 90, 180, 270; every revision must be a non-empty prefix of the input at its own index.
     /// </summary>
     /// <remarks>ISO 32000-2 §7.5.1 to §7.5.6, §7.7.2, §7.7.3, Annex F.</remarks>
     private static void Document(ReadOnlySpan<byte> data)
@@ -85,6 +99,7 @@ internal static class FuzzTargets
             _ = linearization.Hints?.Pages.Count;
         }
 
+        ReadCatalogEssentials(document);
         foreach (PdfPage page in document.Pages)
         {
             foreach (PdfRectangle box in (ReadOnlySpan<PdfRectangle>)[page.MediaBox, page.CropBox, page.BleedBox, page.TrimBox, page.ArtBox])
@@ -100,7 +115,11 @@ internal static class FuzzTargets
                 throw new InvalidOperationException($"Rotation {page.Rotation} or user unit {page.UserUnit} is out of range.");
             }
 
+            ReadFonts(document, page);
+            page.ProcessContent(new CheckingProcessor());
         }
+
+        Navigation(document);
 
         // Then everything else the document model exposes: every object reachable from the trailer or numbered below Size, and
         // every stream decoded through its filters (the walk the real-world corpus gate runs, issue #47).
@@ -108,6 +127,94 @@ internal static class FuzzTargets
         if (walk.Pages != document.Pages.Count || walk.Streams > walk.Objects)
         {
             throw new InvalidOperationException($"The walk saw {walk.Pages} pages and {walk.Streams} streams in {walk.Objects} objects; the document has {document.Pages.Count} pages.");
+        }
+    }
+
+    /// <summary>
+    /// Walks the outline and the named destinations (issue #70) and checks what the walk promises: every item below the 256-level cap,
+    /// each item reached once, every resolved page index inside the page list, every name-tree key enumerated once.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.9.6, §12.3.2, §12.3.3.</remarks>
+    private static void Navigation(PdfDocument document)
+    {
+        var seen = new HashSet<CosDictionary>(ReferenceEqualityComparer.Instance);
+        var pending = new Stack<PdfOutlineItem>(document.Outline?.Items ?? []);
+        while (pending.TryPop(out PdfOutlineItem? item))
+        {
+            if (!seen.Add(item.Dictionary) || item.Level >= 256)
+            {
+                throw new InvalidOperationException($"Outline item at level {item.Level} is repeated or below the depth cap.");
+            }
+
+            _ = (item.Title, item.Color, item.Flags, item.Count, item.StructureElement);
+            CheckDestination(document, item.Destination);
+            if (item.Action is PdfGoToAction goTo)
+            {
+                CheckDestination(document, goTo.Destination);
+            }
+
+            foreach (PdfOutlineItem child in item.Children)
+            {
+                pending.Push(child);
+            }
+        }
+
+        if (document.Names?.Dests is { } tree)
+        {
+            // After a complete walk, lookups agree with enumeration even in a damaged tree (the walk's first deviation switches
+            // lookups to the index); before it, a lookup follows the Limits it finds.
+            var keys = new HashSet<CosString>();
+            foreach (KeyValuePair<CosString, CosObject> entry in tree.ToList())
+            {
+                if (!keys.Add(entry.Key) || !tree.TryGetValue(entry.Key, out CosObject? value) || !ReferenceEquals(value, entry.Value))
+                {
+                    throw new InvalidOperationException("A name tree key is enumerated twice or looks up to another value.");
+                }
+
+                CheckDestination(document, document.GetNamedDestination(entry.Key));
+            }
+        }
+    }
+
+    private static void CheckDestination(PdfDocument document, PdfDestination? destination)
+    {
+        PdfExplicitDestination? resolved = destination is PdfNamedDestination named ? named.Resolve() : destination as PdfExplicitDestination;
+        if (resolved?.PageIndex is { } index && (index < 0 || index >= document.Pages.Count))
+        {
+            throw new InvalidOperationException($"Destination page index {index} is outside the {document.Pages.Count} pages.");
+        }
+
+        _ = (resolved?.View, resolved?.Left, resolved?.Top, resolved?.Right, resolved?.Bottom, resolved?.Zoom, resolved?.IsValid, resolved?.TargetKind);
+    }
+
+    /// <summary>Reads every font of a page's resources through the font model (#49): each simple font's 256 names and widths, and its descriptor.</summary>
+    private static void ReadFonts(PdfDocument document, PdfPage page)
+    {
+        if (page.Resources is not { } resources
+            || !resources.TryGetValue(Names.Font, out CosObject? value)
+            || document.Resolve(value) is not CosDictionary fonts)
+        {
+            return;
+        }
+
+        foreach (KeyValuePair<CosName, CosObject> entry in fonts)
+        {
+            PdfFont? font = document.GetFont(entry.Value);
+            if (font?.Descriptor is { } descriptor)
+            {
+                _ = (descriptor.Flags, descriptor.FontBBox, descriptor.FontStretch, descriptor.FontWeight, descriptor.MissingWidth, descriptor.FontFamily);
+            }
+
+            if (font is PdfSimpleFont simple)
+            {
+                for (int code = 0; code < 256; code++)
+                {
+                    if (simple.GetGlyphName((byte)code) is not { Length: > 0 } || !double.IsFinite(simple.GetWidth((byte)code)))
+                    {
+                        throw new InvalidOperationException($"Code {code} of font {entry.Key.Value} has no glyph name or a width that is not finite.");
+                    }
+                }
+            }
         }
     }
 
@@ -444,7 +551,7 @@ internal static class FuzzTargets
         }
     }
 
-    private static PdfDocument? OpenOrNull(ReadOnlySpan<byte> data)
+    internal static PdfDocument? OpenOrNull(ReadOnlySpan<byte> data)
     {
         try
         {
@@ -559,6 +666,124 @@ internal static class FuzzTargets
         }
     }
 
+    /// <summary>
+    /// Compiles the input as a Type 4 program and evaluates it at fixed points. Byte 0 picks m (1 to 4 inputs, Domain [-1 1] each)
+    /// and n (1 to 4 outputs, Range [-10 10] each); the rest is the program. Compiling never throws in lenient mode; every output
+    /// must lie in the range, and once warm an evaluation must allocate nothing.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.10.5, Annex B.</remarks>
+    private static void FunctionType4(ReadOnlySpan<byte> data)
+    {
+        if (data.IsEmpty)
+        {
+            return;
+        }
+
+        int inputs = 1 + (data[0] % 4);
+        int outputs = 1 + ((data[0] >> 2) % 4);
+        var dictionary = new CosDictionary
+        {
+            [new CosName("FunctionType")] = new CosInteger(4),
+            [new CosName("Domain")] = Pairs(inputs, -1, 1),
+            [new CosName("Range")] = Pairs(outputs, -10, 10),
+        };
+        EvaluateFunction(new CosStream(dictionary, data[1..].ToArray()), inputs, outputs, -10, 10);
+    }
+
+    /// <summary>
+    /// Builds a Type 0 function from the input and evaluates it at fixed points. Byte 0 picks m (1 to 3) and n (1 to 4), byte 1
+    /// BitsPerSample (one of the eight, or 3 or 5), Order (1 or 3) and whether Encode reverses the first input, bytes 2 to 4 the Size
+    /// of each input (1 to 8); the rest is the sample data, as short or long as it comes. Every output must lie in the Range [0 1].
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.10.2.</remarks>
+    private static void FunctionSampled(ReadOnlySpan<byte> data)
+    {
+        if (data.Length < 5)
+        {
+            return;
+        }
+
+        int[] widths = [1, 2, 4, 8, 12, 16, 24, 32, 3, 5];
+        int inputs = 1 + (data[0] % 3);
+        int outputs = 1 + ((data[0] >> 2) % 4);
+        var size = new CosArray();
+        for (int i = 0; i < inputs; i++)
+        {
+            size.Add(new CosInteger(1 + (data[2 + i] % 8)));
+        }
+
+        var dictionary = new CosDictionary
+        {
+            [new CosName("FunctionType")] = new CosInteger(0),
+            [new CosName("Domain")] = Pairs(inputs, -1, 1),
+            [new CosName("Range")] = Pairs(outputs, 0, 1),
+            [new CosName("Size")] = size,
+            [new CosName("BitsPerSample")] = new CosInteger(widths[data[1] % widths.Length]),
+            [new CosName("Order")] = new CosInteger((data[1] & 0x10) != 0 ? 3 : 1),
+        };
+        if ((data[1] & 0x20) != 0)
+        {
+            var encode = Pairs(inputs, 0, 1);
+            encode[0] = new CosInteger(1 + (data[2] % 8));
+            encode[1] = new CosInteger(0);
+            dictionary[new CosName("Encode")] = encode;
+        }
+
+        EvaluateFunction(new CosStream(dictionary, data[5..].ToArray()), inputs, outputs, 0, 1);
+    }
+
+    private static CosArray Pairs(int count, int low, int high)
+    {
+        var pairs = new CosArray();
+        for (int i = 0; i < count; i++)
+        {
+            pairs.Add(new CosInteger(low));
+            pairs.Add(new CosInteger(high));
+        }
+
+        return pairs;
+    }
+
+    /// <summary>Evaluates a function at inputs below, inside and above its domain; checks the outputs and that warm evaluations allocate nothing.</summary>
+    private static void EvaluateFunction(CosStream stream, int inputs, int outputs, double low, double high)
+    {
+        using PdfDocument document = PdfDocument.Create();
+        PdfFunction function = document.GetFunction(stream) ?? throw new InvalidOperationException("A function stream was not seen as a function.");
+        if (function.IsValid && (function.InputCount != inputs || function.OutputCount != outputs))
+        {
+            throw new InvalidOperationException($"A valid function has {function.InputCount} inputs and {function.OutputCount} outputs; the dictionary says {inputs} and {outputs}.");
+        }
+
+        float[] points = [-2f, -1f, -0.5f, 0f, 0.3f, 1f, 2f, float.NaN];
+        Span<float> input = stackalloc float[inputs];
+        Span<float> output = stackalloc float[outputs];
+        long allocated = long.MaxValue;
+        for (int round = 0; round < 3 && allocated != 0; round++)
+        {
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            foreach (float point in points)
+            {
+                input.Fill(point);
+                input[0] = -point;
+                function.Evaluate(input, output);
+                foreach (float value in output[..function.OutputCount])
+                {
+                    if (!(value >= low && value <= high))
+                    {
+                        throw new InvalidOperationException($"Output {value} is outside the range [{low} {high}].");
+                    }
+                }
+            }
+
+            allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        }
+
+        if (allocated != 0)
+        {
+            throw new InvalidOperationException($"Evaluating allocated {allocated} bytes in every round.");
+        }
+    }
+
     /// <summary>Parses the input as a DER-encoded PDF MAC token (a CMS AuthenticatedData) and checks its structure.</summary>
     /// <remarks>ISO/TS 32004 §6.2-6.3; RFC 5652 §9.</remarks>
     private static void MacToken(ReadOnlySpan<byte> data) => _ = IntegrityVerifier.TryParseToken(data.ToArray(), out _);
@@ -593,6 +818,51 @@ internal static class FuzzTargets
             previousEnd = token.End;
         }
     }
+
+    /// <summary>
+    /// Reads the input as decoded content: operator by operator, with operands. Every operator's ranges must lie inside the input,
+    /// after the previous operator, with a keyword of one byte or more (so the reader always progresses), and every operand,
+    /// nested ones included, must be readable.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.8.2 (issue #55).</remarks>
+    private static void ContentLexer(ReadOnlySpan<byte> data)
+    {
+        var arena = new OperandArena();
+        var reader = new ContentReader(data, arena);
+        int previousEnd = 0;
+        while (reader.Next(out ReadOperator op))
+        {
+            if (op.Start > op.KeywordStart || op.KeywordStart < previousEnd || op.KeywordLength < 1 || op.KeywordStart + op.KeywordLength > op.End
+                || op.End > data.Length || op.DataStart < 0 || op.DataLength < 0 || op.DataStart + op.DataLength > data.Length)
+            {
+                throw new InvalidOperationException($"Operator {op} lies outside the input of {data.Length} bytes or before the previous end {previousEnd}.");
+            }
+
+            _ = Walk(arena.Operands);
+            arena.Clear();
+            previousEnd = op.KeywordStart + op.KeywordLength;
+        }
+    }
+
+    private static double Walk(ContentOperands operands)
+    {
+        double sum = 0;
+        foreach (ContentOperand operand in operands)
+        {
+            sum += operand.Number + operand.Bytes.Length + Walk(operand.Items);
+        }
+
+        return sum;
+    }
+
+    /// <summary>
+    /// Runs the input as a page's decoded content through the interpreter with a processor that asks for every event and checks
+    /// what it receives: path verbs and points agree, clip handles resolve and chain back to the initial clip, the state stack is
+    /// balanced at the end of the run. Lenient mode: no exception may escape.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.8.2, §8.4, §8.5 (issue #55).</remarks>
+    private static void ContentInterpreterTarget(ReadOnlySpan<byte> data) =>
+        ContentInterpreter.RunBytes(data, EmptyDocument.Value, new CheckingProcessor(), ContentInterpreter.DefaultOptions);
 
     /// <summary>
     /// Parses the input as a sequence of objects in lenient mode, the way a reader scans a file body, then checks the round-trip
@@ -635,6 +905,212 @@ internal static class FuzzTargets
         if (!CosObject.DeepEquals(parsed, reparsed))
         {
             throw new InvalidOperationException($"Writing and reparsing a {parsed.GetType().Name} changed it: {parsed} became {reparsed}.");
+        }
+    }
+
+    /// <summary>
+    /// Reads every document-level entry of issue #69 (version, extensions, requirements, layout, mode, viewer preferences, language,
+    /// page labels of every page, Info, XMP packet, resolved properties, file identifier): none may throw in lenient mode.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.7.2, §7.12, §12.2, §12.4.2, §12.11, §14.3, §14.4.</remarks>
+    private static void ReadCatalogEssentials(PdfDocument document)
+    {
+        _ = (document.HeaderVersion, document.CatalogVersion, document.PageLayout, document.PageMode, document.Language);
+        foreach (PdfDeveloperExtension extension in document.Extensions)
+        {
+            _ = (extension.BaseVersion, extension.ExtensionLevel, extension.Url, extension.ExtensionRevision);
+        }
+
+        foreach (PdfRequirement requirement in document.Requirements)
+        {
+            _ = (requirement.RequirementType, requirement.Version, requirement.Penalty);
+            foreach (PdfRequirementHandler handler in requirement.Handlers)
+            {
+                _ = (handler.HandlerType, handler.Script);
+            }
+        }
+
+        if (document.ViewerPreferences is { } preferences)
+        {
+            _ = (preferences.HideToolbar, preferences.HideMenubar, preferences.HideWindowUI, preferences.FitWindow, preferences.CenterWindow);
+            _ = (preferences.DisplayDocTitle, preferences.NonFullScreenPageMode, preferences.Direction, preferences.ViewArea, preferences.ViewClip);
+            _ = (preferences.PrintArea, preferences.PrintClip, preferences.PrintScaling, preferences.Duplex, preferences.PickTrayByPdfSize);
+            _ = (preferences.PrintPageRange, preferences.NumCopies, preferences.Enforce);
+        }
+
+        if (document.PageLabels is { } labels)
+        {
+            IReadOnlyList<string> all = labels.GetLabels();
+            if (all.Count != document.Pages.Count || all.Any(label => label.Length > PdfPageLabelRange.MaxNumeralLength + 4096))
+            {
+                throw new InvalidOperationException("Page labels must give one bounded label per page.");
+            }
+
+            foreach (PdfPageLabelRange range in labels.Ranges)
+            {
+                _ = (range.Style, range.Prefix, range.FirstNumber);
+            }
+        }
+
+        if (document.Information is { } info)
+        {
+            _ = (info.Title, info.Author, info.Subject, info.Keywords, info.Creator, info.Producer, info.CreationDate, info.ModificationDate, info.Trapped);
+        }
+
+        if (document.Metadata?.Packet is { } packet)
+        {
+            WalkPacket(packet);
+        }
+
+        PdfDocumentProperties properties = document.Properties;
+        _ = (properties.Title, properties.Author, properties.Subject, properties.Keywords, properties.Creator, properties.Producer);
+        _ = (properties.CreationDate, properties.ModificationDate, document.FileIdentifier);
+    }
+
+    /// <summary>
+    /// Reads the input as an XMP packet (ISO 16684-1 §7) through the reader the document uses. The packet is null exactly when an
+    /// Error diagnostic says why; a readable packet's every property, item, field and qualifier, and every typed getter, must read.
+    /// The XML reader must refuse document type declarations, so no input can expand entities or fetch anything.
+    /// </summary>
+    private static void Xmp(ReadOnlySpan<byte> data)
+    {
+        // Whole corpus files are the smoke seeds: start at a packet when the input holds one, so mutations reach the XML.
+        int packet = data.IndexOf("<?xpacket"u8);
+        XmpSlice(data);
+        if (packet > 0)
+        {
+            XmpSlice(data[packet..]);
+        }
+    }
+
+    private static void XmpSlice(ReadOnlySpan<byte> data)
+    {
+        var errors = new List<string>();
+        XmpPacket? packet = XmpPacketReader.Read(data, (code, severity, _) =>
+        {
+            if (severity == DiagnosticSeverity.Error)
+            {
+                errors.Add(code);
+            }
+        });
+        if ((packet is null) != (errors.Count > 0))
+        {
+            throw new InvalidOperationException($"An XMP packet must be null exactly when an error is reported; errors: {string.Join(", ", errors)}.");
+        }
+
+        if (XmpPacket.TryParse(data, out XmpPacket? again) != packet is not null || (again?.Properties.Count ?? 0) != (packet?.Properties.Count ?? 0))
+        {
+            throw new InvalidOperationException("TryParse must agree with the document's reader.");
+        }
+
+        if (packet is not null)
+        {
+            WalkPacket(packet);
+        }
+    }
+
+    private static void WalkPacket(XmpPacket packet)
+    {
+        _ = (packet.About, packet.Title, packet.Description, packet.Creators, packet.Subjects, packet.Format, packet.CreateDate, packet.ModifyDate);
+        _ = (packet.MetadataDate, packet.CreatorTool, packet.Producer, packet.Keywords, packet.PdfVersion, packet.Trapped, packet.PdfAPart);
+        _ = (packet.PdfAConformance, packet.PdfUAPart, packet.DocumentId, packet.InstanceId);
+        var pending = new Stack<XmpProperty>(packet.Properties);
+        while (pending.TryPop(out XmpProperty? property))
+        {
+            if ((property.Kind == XmpPropertyKind.Simple) != (property.Value is not null))
+            {
+                throw new InvalidOperationException($"Only a simple XMP property has a value: {property.Name} is {property.Kind}.");
+            }
+
+            foreach (XmpProperty child in property.Items.Concat(property.Fields).Concat(property.Qualifiers))
+            {
+                pending.Push(child);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reads the input as a date (ISO 32000-2 §7.9.4 and ISO 16684-1 §8.2.1.2), as Latin-1 text; neither parser may throw, a parsed
+    /// date keeps the text it was read from, and an offset beyond what <see cref="DateTimeOffset"/> holds keeps the instant in UTC.
+    /// </summary>
+    private static void PdfDateTarget(ReadOnlySpan<byte> data)
+    {
+        string text = System.Text.Encoding.Latin1.GetString(data);
+        DateParseOutcome outcome = PdfDate.Parse(text, out PdfDate date);
+        if ((outcome != DateParseOutcome.Unreadable) != PdfDate.TryParse(text, out _))
+        {
+            throw new InvalidOperationException("PdfDate.TryParse must agree with the outcome of parsing.");
+        }
+
+        if (outcome != DateParseOutcome.Unreadable
+            && (date.Text != text || Math.Abs(date.Value.Offset.TotalHours) > 14 || date.UtcOffsetMinutes is < -(23 * 60) - 59 or > (23 * 60) + 59))
+        {
+            throw new InvalidOperationException($"Date {text} parsed inconsistently: {date.Value:O}, offset {date.UtcOffsetMinutes}.");
+        }
+
+        if (XmpDate.TryParse(text, out XmpDate xmp) && xmp.Text != text)
+        {
+            throw new InvalidOperationException("An XMP date must keep its text.");
+        }
+    }
+}
+
+/// <summary>A processor for the content targets: asks for every event and throws when what it receives is inconsistent.</summary>
+internal sealed class CheckingProcessor : ContentProcessor
+{
+    private int _saves;
+
+    public override void BeginRun(ContentContext context) => _saves = 0;
+
+    public override void SaveState(ContentContext context) => _saves++;
+
+    public override void RestoreState(ContentContext context) => _saves--;
+
+    public override void EndRun(ContentContext context)
+    {
+        if (_saves != 0 || context.StateDepth != 0)
+        {
+            throw new InvalidOperationException($"The state stack is unbalanced at the end of the run: {_saves} saves, depth {context.StateDepth}.");
+        }
+    }
+
+    public override void PaintPath(in PathEvent path, ContentContext context) => Check(path.Path);
+
+    public override void IntersectClip(in ClipEvent clip, ContentContext context)
+    {
+        Check(clip.Path);
+        if (context.State.ClipHandle != clip.Handle || clip.ParentHandle >= clip.Handle)
+        {
+            throw new InvalidOperationException($"Clip {clip.Handle} (parent {clip.ParentHandle}) is not the state's clip {context.State.ClipHandle}.");
+        }
+
+        int steps = 0;
+        for (int handle = clip.Handle; handle != 0; handle = context.GetClip(handle).ParentHandle)
+        {
+            if (++steps > clip.Handle)
+            {
+                throw new InvalidOperationException($"Clip {clip.Handle} does not chain back to the initial clip.");
+            }
+        }
+    }
+
+    private static void Check(PathView path)
+    {
+        int points = 0;
+        foreach (PathVerb verb in path.Verbs)
+        {
+            points += verb switch
+            {
+                PathVerb.MoveTo or PathVerb.LineTo => 1,
+                PathVerb.QuadTo => 2,
+                PathVerb.CubicTo => 3,
+                _ => 0,
+            };
+        }
+
+        if (points != path.Points.Length || (path.Verbs.Length > 0 && path.Verbs[0] != PathVerb.MoveTo))
+        {
+            throw new InvalidOperationException($"A path with {path.Verbs.Length} verbs has {path.Points.Length} points, expected {points}, or does not start with a moveto.");
         }
     }
 }

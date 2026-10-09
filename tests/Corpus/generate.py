@@ -704,6 +704,96 @@ def gen_text_truetype_embedded() -> bytes:
     ], binary=True)
 
 
+def codes_content(lines: list[tuple[str, bytes]]) -> bytes:
+    """One text line per (font resource, codes); codes as a hexadecimal string so any byte can be shown."""
+    out = b"BT /%s 24 Tf 72 700 Td <%s> Tj" % (lines[0][0].encode(), lines[0][1].hex().upper().encode())
+    for font, codes in lines[1:]:
+        out += b" /%s 24 Tf 0 -36 Td <%s> Tj" % (font.encode(), codes.hex().upper().encode())
+    return out + b" ET"
+
+
+def font_file(fonts: list[bytes], codes: list[bytes], extra: list[tuple[int, bytes]] | None = None) -> bytes:
+    """A page showing ``codes[i]`` in font ``F{i+1}`` (object 5 + i); ``extra`` objects follow the fonts."""
+    refs = b" ".join(b"/F%d %d 0 R" % (i + 1, 5 + i) for i in range(len(fonts)))
+    objects = [
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << %s >> >> >>" % (LETTER, refs)),
+        (4, stream(b"", codes_content([("F%d" % (i + 1), c) for i, c in enumerate(codes)]))),
+    ]
+    objects += [(5 + i, body) for i, body in enumerate(fonts)]
+    objects += extra or []
+    return simple_file(objects)
+
+
+def std14(base_font: bytes, entries: bytes = b"", subtype: bytes = b"Type1") -> bytes:
+    """9.6.2.2: a non-embedded standard 14 font dictionary without FirstChar, LastChar, Widths or FontDescriptor."""
+    return b"<< /Type /Font /Subtype /%s /BaseFont /%s%s >>" % (subtype, base_font, b" " + entries if entries else b"")
+
+
+def gen_text_standard14_differences() -> bytes:
+    """9.6.5.1 Table 112: an encoding dictionary without BaseEncoding on a non-embedded nonsymbolic font differs from
+    StandardEncoding; codes 0x27 0x60 0x80 0x81 0xC8."""
+    enc = b"/Encoding << /Type /Encoding /Differences [39 /quotesingle 128 /Euro /bullet 200 /Adieresis] >>"
+    return font_file([std14(b"Helvetica", enc)], [b"\x27\x60\x80\x81\xc8"])
+
+
+def gen_text_standard14_winansi_quirks() -> bytes:
+    """Annex D.2 and its notes 1, 2, 3, 5, 6: the WinAnsiEncoding codes that differ from StandardEncoding or are
+    shared by two names."""
+    return font_file([HELVETICA], [b"\x27\x60\x7f\x81\x80\xa0\xad\x8e"])
+
+
+def gen_text_standard14_macroman() -> bytes:
+    """Annex D.2: MacRomanEncoding, its note 6 (0xCA space) and its differences from Mac OS Roman (9.6.5.4 Table 113:
+    0xDB is currency, 0xAD is unused)."""
+    return font_file([std14(b"Times-Roman", b"/Encoding /MacRomanEncoding")], [b"\x80\xca\xdb\xa5\xad"])
+
+
+def gen_text_standard14_symbol() -> bytes:
+    """9.6.5.1 and Annex D.5: the Symbol font's built-in encoding; F2 names WinAnsiEncoding, which a reader ignores for
+    the non-embedded symbolic font (as pdf.js does, issue16464)."""
+    return font_file([std14(b"Symbol"), std14(b"Symbol", b"/Encoding /WinAnsiEncoding")], [b"abg\xa0", b"abg\xa0"])
+
+
+def gen_text_standard14_symbol_differences() -> bytes:
+    """9.6.5.1 Table 112: without BaseEncoding the differences of a symbolic font apply to its built-in encoding,
+    so 0x61 stays alpha."""
+    enc = b"/Encoding << /Type /Encoding /Differences [66 /Gamma] >>"
+    return font_file([std14(b"Symbol", enc)], [b"aB"])
+
+
+def gen_text_standard14_zapfdingbats() -> bytes:
+    """Annex D.6: the ZapfDingbats built-in encoding, including 0x80-0x8D, which its AFM file encodes but Table D.6
+    does not list."""
+    return font_file([std14(b"ZapfDingbats")], [b"\x21\x6c\x80\x8d"])
+
+
+def gen_text_standard14_widths() -> bytes:
+    """9.6.2.1 Table 109: a standard 14 font with all four of FirstChar, LastChar, Widths and FontDescriptor; the
+    Widths override the font's metrics and other codes take MissingWidth (9.8.1 Table 120)."""
+    font = std14(b"Courier", b"/FirstChar 65 /LastChar 66 /Widths [500 700] /Encoding /WinAnsiEncoding /FontDescriptor 6 0 R")
+    descriptor = (b"<< /Type /FontDescriptor /FontName /Courier /Flags 33 /FontBBox [-23 -250 715 805] /ItalicAngle 0 "
+                  b"/Ascent 629 /Descent -157 /CapHeight 562 /XHeight 426 /StemV 51 /StemH 51 /MissingWidth 777 >>")
+    return font_file([font], [b"ABC"], [(6, descriptor)])
+
+
+def gen_text_standard14_alias() -> bytes:
+    """9.6.2.2 and 9.6.3: a non-embedded TrueType font named /Arial,Bold, which readers take as Helvetica-Bold
+    (PDFBox Standard14Fonts, pdf.js getStdFontMap)."""
+    return font_file([std14(b"Arial,Bold", b"/Encoding /WinAnsiEncoding", subtype=b"TrueType")], [b"Hi!"])
+
+
+def gen_text_type1_symbolic_noencoding() -> bytes:
+    """9.6.5.1 and 9.8.2: a non-embedded symbolic Type 1 font that is not a standard 14 font and has no Encoding; its
+    built-in encoding is unknown without its program, and its widths come from Widths."""
+    font = (b"<< /Type /Font /Subtype /Type1 /BaseFont /BroadsideSymbolic /FirstChar 65 /LastChar 67 "
+            b"/Widths [600 650 700] /FontDescriptor 6 0 R >>")
+    descriptor = (b"<< /Type /FontDescriptor /FontName /BroadsideSymbolic /Flags 4 /FontBBox [0 -200 1000 800] "
+                  b"/ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 >>")
+    return font_file([font], [b"ABC"], [(6, descriptor)])
+
+
 def gen_xref_stream() -> bytes:
     f = File("1.5", binary=True)
     f.add(1, catalog())
@@ -1185,6 +1275,177 @@ def gen_name_tree_dests() -> bytes:
     ])
 
 
+def tree_key(key: bytes) -> bytes:
+    """A name-tree key as a PDF string: literal when printable ASCII, hexadecimal otherwise (7.3.4)."""
+    if all(0x20 <= b < 0x7F and b not in b"()\\" for b in key):
+        return b"(" + key + b")"
+    return b"<" + key.hex().upper().encode() + b">"
+
+
+def build_tree(objects: list[tuple[int, bytes]], first_num: int, entries: list[tuple[bytes, bytes]],
+               fanouts: list[int], entries_key: bytes, key_bytes) -> int:
+    """7.9.6/7.9.7: lays sorted (key, value) pairs out as a balanced tree of indirect nodes, appended to
+    ``objects`` from ``first_num``. ``fanouts[0]`` pairs per leaf, then kids per node for each level up;
+    the root is written last, has only Kids and no Limits. Returns the root's object number."""
+    num = first_num
+    level = []  # (num, least key, greatest key)
+    for i in range(0, len(entries), fanouts[0]):
+        chunk = entries[i:i + fanouts[0]]
+        pairs = b" ".join(key_bytes(k) + b" " + v for k, v in chunk)
+        objects.append((num, b"<< /Limits [%s %s] /%s [%s] >>" % (
+            key_bytes(chunk[0][0]), key_bytes(chunk[-1][0]), entries_key, pairs)))
+        level.append((num, chunk[0][0], chunk[-1][0]))
+        num += 1
+    for fanout in fanouts[1:]:
+        upper = []
+        for i in range(0, len(level), fanout):
+            chunk = level[i:i + fanout]
+            kids = b" ".join(b"%d 0 R" % n for n, _, _ in chunk)
+            objects.append((num, b"<< /Limits [%s %s] /Kids [%s] >>" % (
+                key_bytes(chunk[0][1]), key_bytes(chunk[-1][2]), kids)))
+            upper.append((num, chunk[0][1], chunk[-1][2]))
+            num += 1
+        level = upper
+    objects.append((num, b"<< /Kids [%s] >>" % b" ".join(b"%d 0 R" % n for n, _, _ in level)))
+    return num
+
+
+def gen_name_tree_deep() -> bytes:
+    """7.9.6, Table 36; 12.3.2.4: a Dests name tree four levels deep (root, two intermediate levels,
+    leaves) holding 200 keys, sorted byte by byte: a key that is a prefix of another ((a) before (ab)),
+    PDFDocEncoding keys whose byte order differs from their text order (<18> breve sorts before (A);
+    <80> bullet before <E9> e-acute), and UTF-16BE keys with the BOM (<FEFF0061> also reads as "a").
+    Each value is [3 0 R /XYZ 0 i null] where i is the key's position in byte order."""
+    keys = [b"a", b"ab", b"\x18", b"\x80", b"\xe9", b"\xfe\xff\x00a", b"\xfe\xff\x00\xe9"]
+    keys += [b"n%03d" % i for i in range(1, 194)]
+    keys.sort()
+    entries = [(k, b"[3 0 R /XYZ 0 %d null]" % i) for i, k in enumerate(keys)]
+    objects = [(2, pages()), (3, page())]
+    root = build_tree(objects, 4, entries, [10, 4, 3], b"Names", tree_key)
+    return simple_file([(1, catalog(b" /Names << /Dests %d 0 R >>" % root))] + objects)
+
+
+def gen_number_tree_deep() -> bytes:
+    """7.9.7, Table 37; 12.4.2: twelve pages whose /PageLabels number tree has three levels (root,
+    intermediate nodes, leaves) and nine keys, so a page between two keys takes the nearest lower key."""
+    labels = [(0, b"<< /S /r >>"), (1, b"<< /S /D >>"), (2, b"<< /S /D /St 10 >>"), (4, b"<< /P (A-) >>"),
+              (5, b"<< /S /A >>"), (7, b"<< /S /a /P (x) >>"), (8, b"<< /S /R /St 4 >>"),
+              (10, b"<< /S /D /P (B-) /St 1 >>"), (11, b"<< /S /D >>")]
+    objects: list[tuple[int, bytes]] = []
+    root = build_tree(objects, 3, [(str(k).encode(), v) for k, v in labels], [3, 2], b"Nums",
+                      lambda k: k)
+    first_page = root + 1
+    page_nums = list(range(first_page, first_page + 12))
+    return simple_file([(1, catalog(b" /PageLabels %d 0 R" % root)), (2, pages(page_nums))]
+                       + objects + [(n, page()) for n in page_nums])
+
+
+def gen_name_tree_broken() -> bytes:
+    """7.9.6, Table 36, broken six ways: leaf 7's Limits [(a) (c)] do not hold its key (d); leaf 8's
+    keys are not sorted ((f) before (e)); intermediate node 6 has no Limits; key (g) is in leaf 8 and
+    again in leaf 9; node 6's Kids list the root 4 (a cycle); leaf 9's Names array has an odd length
+    (a dangling key (i)). Every key still resolves."""
+    def dest(top: int) -> bytes:
+        return b"[3 0 R /XYZ 0 %d null]" % top
+    return simple_file([
+        (1, catalog(b" /Names << /Dests 4 0 R >>")),
+        (2, pages()),
+        (3, page()),
+        (4, b"<< /Kids [5 0 R 6 0 R] >>"),
+        (5, b"<< /Limits [(a) (g)] /Kids [7 0 R 8 0 R] >>"),
+        (6, b"<< /Kids [9 0 R 4 0 R] >>"),
+        (7, b"<< /Limits [(a) (c)] /Names [(a) %s (b) %s (d) %s] >>" % (dest(1), dest(2), dest(4))),
+        (8, b"<< /Limits [(e) (g)] /Names [(f) %s (e) %s (g) %s] >>" % (dest(6), dest(5), dest(7))),
+        (9, b"<< /Limits [(g) (i)] /Names [(g) %s (h) %s (i)] >>" % (dest(70), dest(8))),
+    ])
+
+
+def gen_destinations_all() -> bytes:
+    """12.3.2.2 Table 149 and 12.3.2.4: a Dests name tree with one entry per explicit form (XYZ with
+    numbers, with nulls and with zoom 0; Fit; FitH with a number and with null; FitV; FitR; FitB;
+    FitBH; FitBV), a value in the dictionary form << /D [...] >> with an extra attribute, and a value
+    that is an indirect array; the PDF 1.1 catalog /Dests dictionary keyed by name (/Chap6); and an
+    outline whose items refer to a destination by name (/Dest /Chap6) and by string (/Dest (alpha))."""
+    names = [
+        (b"alpha", b"[3 0 R /XYZ 0 792 null]"),
+        (b"fit", b"[3 0 R /Fit]"),
+        (b"fitb", b"[3 0 R /FitB]"),
+        (b"fitbh", b"[3 0 R /FitBH 700]"),
+        (b"fitbv", b"[3 0 R /FitBV 36]"),
+        (b"fith", b"[3 0 R /FitH 650]"),
+        (b"fith-null", b"[3 0 R /FitH null]"),
+        (b"fitr", b"[3 0 R /FitR 10 20 300 400.5]"),
+        (b"fitv", b"[3 0 R /FitV 50]"),
+        (b"indirect", b"9 0 R"),
+        (b"with-d", b"<< /D [3 0 R /Fit] /Note (an additional attribute) >>"),
+        (b"xyz", b"[3 0 R /XYZ 72 720 1.5]"),
+        (b"xyz-null", b"[3 0 R /XYZ null null null]"),
+        (b"xyz-zero", b"[3 0 R /XYZ 10 20 0]"),
+    ]
+    assert [k for k, _ in names] == sorted(k for k, _ in names)
+    pairs = b" ".join(b"(" + k + b") " + v for k, v in names)
+    return simple_file([
+        (1, catalog(b" /Names << /Dests 4 0 R >> /Dests 5 0 R /Outlines 6 0 R")),
+        (2, pages()),
+        (3, page()),
+        (4, b"<< /Names [" + pairs + b"] >>"),
+        (5, b"<< /Chap6 [3 0 R /FitV 72] >>"),
+        (6, b"<< /Type /Outlines /First 7 0 R /Last 8 0 R /Count 2 >>"),
+        (7, b"<< /Title (Chapter 6) /Parent 6 0 R /Next 8 0 R /Dest /Chap6 >>"),
+        (8, b"<< /Title (Alpha) /Parent 6 0 R /Prev 7 0 R /Dest (alpha) >>"),
+        (9, b"[3 0 R /FitH 500]"),
+    ])
+
+
+def gen_outline_full() -> bytes:
+    """12.3.3 Tables 150-152: an outline three levels deep. Part I (open, Count 2) holds Chapter 1
+    (closed, Count -1, holding Section 1.1) and Chapter 2 (a URI action); Part II (closed, Count -2)
+    holds Chapter 3 (UTF-16BE title, red /C [1 0 0], bold italic /F 3, a GoTo action to the named
+    destination (alpha)) and Chapter 4 (an /SE structure element and an explicit destination).
+    The outline's Count is 4: the two parts and Part I's two children."""
+    utf16_title = b"<FEFF" + "Chapter 3 – Übersicht".encode("utf-16-be").hex().upper().encode() + b">"
+    return simple_file([
+        (1, catalog(b" /Outlines 4 0 R /PageMode /UseOutlines /StructTreeRoot 12 0 R"
+                    b" /Names << /Dests << /Names [(alpha) [3 0 R /XYZ 0 792 null]] >> >>")),
+        (2, pages()),
+        (3, page()),
+        (4, b"<< /Type /Outlines /First 5 0 R /Last 9 0 R /Count 4 >>"),
+        (5, b"<< /Title (Part I) /Parent 4 0 R /Next 9 0 R /First 6 0 R /Last 8 0 R /Count 2"
+            b" /Dest [3 0 R /Fit] >>"),
+        (6, b"<< /Title (Chapter 1) /Parent 5 0 R /Next 8 0 R /First 7 0 R /Last 7 0 R /Count -1"
+            b" /Dest [3 0 R /FitH 700] >>"),
+        (7, b"<< /Title (Section 1.1) /Parent 6 0 R /Dest [3 0 R /XYZ 72 700 null] >>"),
+        (8, b"<< /Title (Chapter 2) /Parent 5 0 R /Prev 6 0 R"
+            b" /A << /S /URI /URI (https://example.org/chapter-2) >> >>"),
+        (9, b"<< /Title (Part II) /Parent 4 0 R /Prev 5 0 R /First 10 0 R /Last 11 0 R /Count -2 >>"),
+        (10, b"<< /Title " + utf16_title + b" /Parent 9 0 R /Next 11 0 R /C [1 0 0] /F 3"
+             b" /A << /S /GoTo /D (alpha) >> >>"),
+        (11, b"<< /Title (Chapter 4) /Parent 9 0 R /Prev 10 0 R /SE 13 0 R /Dest [3 0 R /FitB] >>"),
+        (12, b"<< /Type /StructTreeRoot /K 13 0 R >>"),
+        (13, b"<< /Type /StructElem /S /H1 /P 12 0 R >>"),
+    ])
+
+
+def gen_outline_broken() -> bytes:
+    """12.3.3 Tables 150-151, broken: item 5 has both /Dest and /A; item 6 has no /Title; item 7's
+    /Next points back at item 6 (a cycle in the sibling chain); item 8's /First points at its
+    ancestor 5; the outline's /Last names item 6, not 7 where the chain ends; item 7 has a child
+    but Count 0 (neither open nor closed); the outline's Count is negative."""
+    return simple_file([
+        (1, catalog(b" /Outlines 4 0 R")),
+        (2, pages()),
+        (3, page()),
+        (4, b"<< /Type /Outlines /First 5 0 R /Last 6 0 R /Count -5 >>"),
+        (5, b"<< /Title (One) /Parent 4 0 R /Next 6 0 R /First 8 0 R /Last 8 0 R /Count 1"
+            b" /Dest [3 0 R /Fit] /A << /S /URI /URI (https://example.org/) >> >>"),
+        (6, b"<< /Parent 4 0 R /Prev 5 0 R /Next 7 0 R /Dest [3 0 R /Fit] >>"),
+        (7, b"<< /Title (Three) /Parent 4 0 R /Prev 6 0 R /Next 6 0 R /First 9 0 R /Last 9 0 R"
+            b" /Count 0 >>"),
+        (8, b"<< /Title (One.One) /Parent 5 0 R /First 5 0 R /Last 5 0 R >>"),
+        (9, b"<< /Title (Three.One) /Parent 7 0 R >>"),
+    ])
+
+
 XMP = (b'<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
        b'<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
        b' <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
@@ -1206,11 +1467,457 @@ def gen_metadata_xmp() -> bytes:
     ], trailer_extra=b" /Info 5 0 R")
 
 
+def gen_info_dictionary() -> bytes:
+    """14.3.3 Table 349: every key, a custom key, Trapped as a name; 7.9.4 dates with an offset, with Z and in the
+    legacy form with the terminating apostrophe (NOTE 2); 7.9.2.2 a UTF-16BE title with its byte order marker."""
+    title = b"\xfe\xff" + "Broadside – Info".encode("utf-16-be")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page()),
+        (4, b"<< /Title <" + title.hex().upper().encode() + b"> /Author (Ada Lovelace) /Subject (Document information)"
+            b" /Keywords (info, metadata) /Creator (generate.py) /Producer (Broadside corpus)"
+            b" /CreationDate (D:20140314124211+01'00) /ModDate (D:20140924212303Z) /Trapped /True"
+            b" /Printed (D:19981223195200-08'00') /Department (Corpus) >>"),
+    ], trailer_extra=b" /Info 4 0 R")
+
+
+XMP_FORMS = (b'<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
+             b'<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
+             b' <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
+             b'  <rdf:Description rdf:about="" xmlns:pdf="http://ns.adobe.com/pdf/1.3/"'
+             b' xmlns:xmp="http://ns.adobe.com/xap/1.0/" pdf:Producer="Broadside corpus"'
+             b' xmp:CreateDate="2014-09-24T21:23:03+02:00">\n'
+             b'   <pdf:Keywords>xmp, forms</pdf:Keywords>\n'
+             b'  </rdf:Description>\n'
+             b'  <rdf:Description rdf:about="" xmlns:dc="http://purl.org/dc/elements/1.1/"'
+             b' xmlns:ex="http://example.com/broadside/">\n'
+             b'   <dc:title><rdf:Alt><rdf:li xml:lang="x-default">XMP forms</rdf:li>'
+             b'<rdf:li xml:lang="de">XMP-Formen</rdf:li></rdf:Alt></dc:title>\n'
+             b'   <dc:creator><rdf:Seq><rdf:li>Ada Lovelace</rdf:li><rdf:li>Grace Hopper</rdf:li></rdf:Seq></dc:creator>\n'
+             b'   <dc:subject><rdf:Bag><rdf:li>pdf</rdf:li><rdf:li>xmp</rdf:li></rdf:Bag></dc:subject>\n'
+             b'   <ex:Resource rdf:parseType="Resource"><ex:Name>parseType</ex:Name><ex:Count>2</ex:Count></ex:Resource>\n'
+             b'  </rdf:Description>\n'
+             b'  <rdf:Description rdf:about="" xmlns:pdfaid="http://www.aiim.org/pdfa/ns/id/"'
+             b' xmlns:pdfuaid="http://www.aiim.org/pdfua/ns/id/" xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/"'
+             b' pdfaid:part="2" pdfaid:conformance="B" pdfuaid:part="1">\n'
+             b'   <xmpMM:DocumentID>uuid:6b1f3c2e-69a0-4c6b-9d1e-000000000069</xmpMM:DocumentID>\n'
+             b'   <xmpMM:InstanceID>uuid:6b1f3c2e-69a0-4c6b-9d1e-000000000070</xmpMM:InstanceID>\n'
+             b'  </rdf:Description>\n'
+             b' </rdf:RDF>\n'
+             b'</x:xmpmeta>\n'
+             + b' ' * 2048 + b'\n'
+             b'<?xpacket end="w"?>')
+
+
+def gen_metadata_xmp_forms() -> bytes:
+    """14.3.2 metadata stream; ISO 16684-1 7.3 packet wrapper with padding, 7.5-7.7 attribute and element forms,
+    arrays of the three kinds, a language alternative, a parseType="Resource" structure, several rdf:Description."""
+    return simple_file([
+        (1, catalog(b" /Metadata 4 0 R")),
+        (2, pages()),
+        (3, page()),
+        (4, stream(b"/Type /Metadata /Subtype /XML", XMP_FORMS)),
+    ])
+
+
+def gen_viewer_preferences() -> bytes:
+    """12.2 Tables 147 and 148: every viewer preference with a value other than its default, Enforce (PDF 2.0);
+    7.7.2 Table 29 PageLayout and PageMode."""
+    id0 = file_id("viewer-preferences").hex().encode()
+    prefs = (b"<< /HideToolbar true /HideMenubar true /HideWindowUI true /FitWindow true /CenterWindow true"
+             b" /DisplayDocTitle true /NonFullScreenPageMode /UseOutlines /Direction /R2L /ViewArea /MediaBox"
+             b" /ViewClip /BleedBox /PrintArea /TrimBox /PrintClip /ArtBox /PrintScaling /None"
+             b" /Duplex /DuplexFlipLongEdge /PickTrayByPDFSize true /PrintPageRange [1 1 1 1] /NumCopies 2"
+             b" /Enforce [/PrintScaling] >>")
+    return simple_file([
+        (1, catalog(b" /ViewerPreferences " + prefs + b" /PageLayout /TwoPageRight /PageMode /UseOC")),
+        (2, pages()),
+        (3, page()),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_catalog_version_extensions() -> bytes:
+    """7.7.2 Table 29 Version later than the header; 7.12 Tables 48-49 developer extensions as a dictionary and, in
+    PDF 2.0, as an array (the ISO/TS 32001 declaration); 12.11 Tables 273-274 Requirements; 14.4 distinct IDs."""
+    id0 = file_id("catalog-version-extensions").hex().encode()
+    id1 = hashlib.md5(b"broadside-corpus:catalog-version-extensions:changed").hexdigest().encode()
+    extra = (b" /Version /2.0 /Extensions << /Type /Extensions /ADBE << /BaseVersion /1.7 /ExtensionLevel 3 >>"
+             b" /ISO_ [<< /Type /DeveloperExtensions /BaseVersion /2.0 /ExtensionLevel 32001 /ExtensionRevision (:2022)"
+             b" /URL (https://www.iso.org/standard/45874.html) >>] >>"
+             b" /Requirements [<< /Type /Requirement /S /EnableJavaScripts /Penalty 50 /RH << /Type /ReqHandler /S /NoOp >> >>]")
+    return simple_file([
+        (1, catalog(extra)),
+        (2, pages()),
+        (3, page()),
+    ], version="1.7", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id1))
+
+
+def gen_page_labels() -> bytes:
+    """12.4.2 Table 161: page label ranges of every numbering style, St, P, a prefix-only range; 7.9.7 a number tree
+    whose root holds Nums."""
+    count = 12
+    kids = list(range(3, 3 + count))
+    labels = (b" /PageLabels << /Nums [0 << /S /r >> 3 << /S /D >> 5 << /Type /PageLabel /S /R /St 4 >>"
+              b" 7 << /S /A /St 26 >> 9 << /S /a /St 52 /P (A-) >> 11 << /P (Cover) >>] >>")
+    return simple_file([
+        (1, catalog(labels)),
+        (2, pages(kids=kids)),
+    ] + [(k, page()) for k in kids])
+# ---------------------------------------------------------------------------
+# Optional content, files, associated files, object metadata, declarations (issue #76)
+# ---------------------------------------------------------------------------
+
+
+def gen_optional_content() -> bytes:
+    """8.11: four groups (A, B in D's OFF, C with Intent Design, D2 with a View usage OFF but no AS),
+    OCMD 9 (/OCGs [A B] /P /AllOff) and OCMD 10 (/VE [/Or A [/Not B]]), content sections /OC /a, /m1, /m2
+    and /a nested in /b, a form XObject with /OC B, an annotation with /OC C; D carries Order (a label and
+    an unlabelled nested array), RBGroups and Locked; Configs has one alternate configuration
+    (8.11.4.3 Table 99: BaseState OFF, ON [C], Intent All)."""
+    content = (b"/OC /a BDC 0 0 10 10 re f EMC\n"
+               b"/OC /m1 BDC 20 0 10 10 re f EMC\n"
+               b"/OC /m2 BDC 40 0 10 10 re f EMC\n"
+               b"/OC /b BDC /OC /a BDC 60 0 10 10 re f EMC EMC\n"
+               b"/Fm Do\n")
+    ocprops = (b" /OCProperties << /OCGs [5 0 R 6 0 R 7 0 R 8 0 R]"
+               b" /D << /Name (Default) /Creator (Broadside corpus) /OFF [6 0 R]"
+               b" /Order [5 0 R [(Labelled) 6 0 R 7 0 R] [8 0 R]] /RBGroups [[5 0 R 6 0 R]] /Locked [7 0 R] >>"
+               b" /Configs [<< /Name (Only C) /BaseState /OFF /ON [7 0 R] /Intent /All /ListMode /VisiblePages >>] >>")
+    return simple_file([
+        (1, catalog(ocprops)),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << /Properties << /a 5 0 R /b 6 0 R /m1 9 0 R /m2 10 0 R >>"
+                       b" /XObject << /Fm 11 0 R >> >> /Annots [12 0 R]")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /OCG /Name (A) >>"),
+        (6, b"<< /Type /OCG /Name (B) >>"),
+        (7, b"<< /Type /OCG /Name (C) /Intent /Design /Usage << /CreatorInfo << /Creator (Broadside) /Subtype /Technical >> >> >>"),
+        (8, b"<< /Type /OCG /Name (D2) /Usage << /View << /ViewState /OFF >> /Zoom << /min 1.5 >> >> >>"),
+        (9, b"<< /Type /OCMD /OCGs [5 0 R 6 0 R] /P /AllOff >>"),
+        (10, b"<< /Type /OCMD /VE [/Or 5 0 R [/Not 6 0 R]] >>"),
+        (11, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10] /OC 6 0 R", b"80 0 10 10 re f")),
+        (12, b"<< /Type /Annot /Subtype /Square /Rect [100 100 200 200] /OC 7 0 R >>"),
+    ])
+
+
+def utf16_text(text: str) -> bytes:
+    """7.9.2.2 text string as a hexadecimal string: FEFF byte order mark, then UTF-16BE."""
+    return b"<FEFF" + text.encode("utf-16-be").hex().upper().encode() + b">"
+
+
+def gen_embedded_files() -> bytes:
+    """7.11.3-7.11.4 and 7.7.4 EmbeddedFiles: two file specifications in the name tree. hello.txt has
+    Subtype text/plain and Params Size, CreationDate, ModDate and CheckSum (the MD5 of the data, Table 45);
+    data.csv has a non-ASCII UF, Desc, a Flate-encoded stream and one related file (RF, 7.11.4.2)."""
+    hello = b"Hello, world!"
+    csv = b"name,value\nalpha,1\nbeta,2\n"
+    return simple_file([
+        (1, catalog(b" /Names << /EmbeddedFiles 4 0 R >>")),
+        (2, pages()),
+        (3, page()),
+        (4, b"<< /Names [(data.csv) 5 0 R (hello.txt) 7 0 R] >>"),
+        (5, b"<< /Type /Filespec /F (data.csv) /UF " + utf16_text("d\u00e4t\u00e4.csv") + b" /Desc (Comma-separated data)"
+            b" /EF << /F 6 0 R /UF 6 0 R >> /RF << /F 9 0 R /UF 9 0 R >> >>"),
+        (6, stream(b"/Type /EmbeddedFile /Subtype /text#2Fcsv /Filter /FlateDecode /Params << /Size %d >>" % len(csv), flate(csv))),
+        (7, b"<< /Type /Filespec /F (hello.txt) /UF (hello.txt) /EF << /F 8 0 R /UF 8 0 R >> >>"),
+        (8, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain /Params << /Size %d /CreationDate (D:20240102030405Z)"
+                   b" /ModDate (D:20240607080910+02'00) /CheckSum <%s> >>" % (len(hello), hashlib.md5(hello).hexdigest().encode()),
+                   hello)),
+        (9, b"[(data.schema) 10 0 R]"),
+        (10, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain", b"name:text,value:int")),
+    ])
+
+
+def gen_collection_portfolio() -> bytes:
+    """12.3.5 portable collection: Collection with View D, initial document D, Schema (S, D, N, F, Size fields
+    with O, V and E), Sort (S array, short A array), Colors, Split and a Folders tree (root ID 0 with Free,
+    child ID 1); EmbeddedFiles keys <1>report.txt (in folder 1) and notes.txt (root folder); collection items
+    with a subitem (7.11.6, Tables 46 and 47)."""
+    collection = (b"<< /Type /Collection /View /D /D (notes.txt)"
+                  b" /Schema << /Type /CollectionSchema"
+                  b" /name << /Type /CollectionField /Subtype /S /N (Name) /O 0 >>"
+                  b" /date << /Type /CollectionField /Subtype /D /N (Date) /O 1 >>"
+                  b" /pages << /Type /CollectionField /Subtype /N /N (Pages) /O 2 /V false >>"
+                  b" /fname << /Type /CollectionField /Subtype /F /N (File) /O 3 /E true >>"
+                  b" /size << /Type /CollectionField /Subtype /Size /N (Size) /O 4 >> >>"
+                  b" /Sort << /Type /CollectionSort /S [/date /name] /A [false] >>"
+                  b" /Colors << /Background [1 1 1] /CardBackground [0.9 0.9 0.9] /CardBorder [0 0 0]"
+                  b" /PrimaryText [0 0 0] /SecondaryText [0.5 0.5 0.5] >>"
+                  b" /Split << /Direction /V /Position 30 >> /Folders 10 0 R >>")
+    return simple_file([
+        (1, catalog(b" /Names << /EmbeddedFiles << /Names [(<1>report.txt) 5 0 R (notes.txt) 7 0 R] >> >> /Collection 9 0 R")),
+        (2, pages()),
+        (3, page()),
+        (5, b"<< /Type /Filespec /F (report.txt) /UF (report.txt) /EF << /F 12 0 R >> /CI 6 0 R >>"),
+        (6, b"<< /Type /CollectionItem /name << /Type /CollectionSubitem /D (Quarterly report) /P (Q1: ) >>"
+            b" /date (D:20240301000000Z) /pages 3 >>"),
+        (7, b"<< /Type /Filespec /F (notes.txt) /UF (notes.txt) /EF << /F 13 0 R >> /CI 8 0 R >>"),
+        (8, b"<< /Type /CollectionItem /name (Notes) /pages 1 >>"),
+        (9, collection),
+        (10, b"<< /Type /Folder /ID 0 /Name (Portfolio) /Child 11 0 R /Free [2 10] >>"),
+        (11, b"<< /Type /Folder /ID 1 /Name (Reports) /Parent 10 0 R /Desc (Quarterly reports) >>"),
+        (12, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain", b"Revenue up.")),
+        (13, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain", b"Remember the milk.")),
+    ])
+
+
+def xmp_titled(title: bytes) -> bytes:
+    """A minimal XMP packet (14.3.2) whose dc:title is ``title``."""
+    return XMP.replace(b">Broadside<", b">" + title + b"<")
+
+
+def af_filespec(name: bytes, relationship: bytes | None, ef: int | None = None) -> bytes:
+    """7.11.3 file specification for an associated file (14.13): embedded when ``ef`` is given, else external."""
+    body = b"<< /Type /Filespec /F (%s) /UF (%s)" % (name, name)
+    if relationship is not None:
+        body += b" /AFRelationship /" + relationship
+    if ef is not None:
+        body += b" /EF << /F %d 0 R /UF %d 0 R >>" % (ef, ef)
+    return body + b" >>"
+
+
+def gen_associated_files() -> bytes:
+    """14.13 associated files at every location: catalog (Source, embedded), page (Data), form XObject
+    (Supplement, embedded application/mathml+xml), image XObject (Data), annotation (no AFRelationship:
+    Unspecified), structure tree root (Alternative), structure element (Alternative), DPart (Source),
+    metadata stream (Schema), marked content /AF /MF1 with an MCAF property list (errata Table 409a) and
+    /AF /MF2 with a bare array resource (14.13.5 Example 2). PDF 2.0 with a trailer ID (7.5.5)."""
+    id0 = file_id("associated-files").hex().encode()
+    content = b"/AF /MF1 BDC 0 0 10 10 re f EMC\n/AF /MF2 BDC /Fm Do EMC\nq 10 0 0 10 20 0 cm /Im Do Q\n"
+    return simple_file([
+        (1, catalog(b" /AF [20 0 R] /StructTreeRoot 6 0 R /DPartRoot 8 0 R /Metadata 10 0 R /MarkInfo << /Marked true >>")),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /AF [21 0 R] /DPart 9 0 R /Annots [5 0 R] /Resources << /XObject << /Fm 11 0 R /Im 12 0 R >>"
+                       b" /Properties << /MF1 13 0 R /MF2 [31 0 R] >> >>")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Annot /Subtype /Square /Rect [100 100 200 200] /AF [22 0 R] >>"),
+        (6, b"<< /Type /StructTreeRoot /K 7 0 R /AF [23 0 R] >>"),
+        (7, b"<< /Type /StructElem /S /Document /P 6 0 R /AF [24 0 R] >>"),
+        (8, b"<< /Type /DPartRoot /DPartRootNode 9 0 R >>"),
+        (9, b"<< /Type /DPart /Parent 8 0 R /Start 3 0 R /End 3 0 R /AF [25 0 R] >>"),
+        (10, stream(b"/Type /Metadata /Subtype /XML /AF [26 0 R]", XMP)),
+        (11, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10] /AF [27 0 R]", b"40 0 10 10 re f")),
+        (12, stream(b"/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /AF [28 0 R]", b"\x80")),
+        (13, b"<< /MCAF [29 0 R] >>"),
+        (20, af_filespec(b"source.txt", b"Source", ef=30)),
+        (21, af_filespec(b"page-data.csv", b"Data")),
+        (22, af_filespec(b"annotation.txt", None)),
+        (23, af_filespec(b"tree.txt", b"Alternative")),
+        (24, af_filespec(b"element.txt", b"Alternative")),
+        (25, af_filespec(b"part.txt", b"Source")),
+        (26, af_filespec(b"schema.xsd", b"Schema")),
+        (27, af_filespec(b"equation.mml", b"Supplement", ef=32)),
+        (28, af_filespec(b"image-data.csv", b"Data")),
+        (29, af_filespec(b"marked.csv", b"Data")),
+        (30, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain /Params << /ModDate (D:20240101000000Z) /Size 6 >>", b"source")),
+        (31, af_filespec(b"marked-legacy.txt", b"Supplement")),
+        (32, stream(b"/Type /EmbeddedFile /Subtype /application#2Fmathml+xml /Params << /ModDate (D:20240101000000Z) >>",
+                    b"<math><mi>x</mi></math>")),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_object_metadata() -> bytes:
+    """14.3.2 and PDF 2.0 Application Note 003: a Metadata stream, each with a distinct dc:title, on the catalog
+    (Document), a page, an image XObject, a form XObject, an ICCBased colour space stream, an embedded TrueType
+    font program (FontFile2), a tiling pattern, a shading dictionary, a marked-content property list, an
+    optional content group, an annotation and an embedded file stream."""
+    font, widths = minimal_truetype()
+    first, last = min(widths), max(widths)
+    w = b" ".join(b"%d" % widths[c] for c in range(first, last + 1))
+    titles = [b"Document", b"Page", b"Image", b"Form", b"ICC profile", b"Font program", b"Tiling pattern",
+              b"Shading", b"Marked content", b"Optional content", b"Annotation", b"Embedded file"]
+    meta = {title: 40 + i for i, title in enumerate(titles)}
+    objects = [
+        (1, catalog(b" /Metadata %d 0 R /OCProperties << /OCGs [15 0 R] /D << >> >>"
+                    b" /Names << /EmbeddedFiles << /Names [(attached.txt) 16 0 R] >> >>" % meta[b"Document"])),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Metadata %d 0 R /Annots [14 0 R] /Resources << /XObject << /Im 5 0 R /Fm 6 0 R >>"
+                       b" /ColorSpace << /CS0 [/ICCBased 7 0 R] >> /Font << /F1 8 0 R >> /Pattern << /P0 10 0 R >>"
+                       b" /Shading << /Sh0 11 0 R >> /Properties << /MC0 12 0 R /OC0 15 0 R >> >>" % meta[b"Page"])),
+        (4, stream(b"", b"/Im Do /Fm Do /Span /MC0 BDC EMC /OC /OC0 BDC EMC BT /F1 24 Tf 72 700 Td (HI) Tj ET\n")),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Metadata %d 0 R"
+                   % meta[b"Image"], b"\x80")),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10] /Metadata %d 0 R" % meta[b"Form"], b"0 0 10 10 re f")),
+        (7, stream(b"/N 1 /Alternate /DeviceGray /Metadata %d 0 R" % meta[b"ICC profile"], b"ICC")),
+        (8, b"<< /Type /Font /Subtype /TrueType /BaseFont /BroadsideMinimal /FirstChar %d /LastChar %d "
+            b"/Widths [%s] /Encoding /WinAnsiEncoding /FontDescriptor 9 0 R >>" % (first, last, w)),
+        (9, b"<< /Type /FontDescriptor /FontName /BroadsideMinimal /Flags 32 /FontBBox [0 0 700 700] "
+            b"/ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 200 /FontFile2 13 0 R >>"),
+        (10, stream(b"/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 10 10] /XStep 10 /YStep 10"
+                    b" /Resources << >> /Metadata %d 0 R" % meta[b"Tiling pattern"], b"0 0 5 5 re f")),
+        (11, b"<< /ShadingType 2 /ColorSpace /DeviceGray /Coords [0 0 1 0] /Function << /FunctionType 2 /Domain [0 1]"
+             b" /C0 [0] /C1 [1] /N 1 >> /Metadata %d 0 R >>" % meta[b"Shading"]),
+        (12, b"<< /Metadata %d 0 R >>" % meta[b"Marked content"]),
+        (13, stream(b"/Length1 %d /Metadata %d 0 R" % (len(font), meta[b"Font program"]), font)),
+        (14, b"<< /Type /Annot /Subtype /Square /Rect [100 100 200 200] /Metadata %d 0 R >>" % meta[b"Annotation"]),
+        (15, b"<< /Type /OCG /Name (Layer) /Metadata %d 0 R >>" % meta[b"Optional content"]),
+        (16, b"<< /Type /Filespec /F (attached.txt) /UF (attached.txt) /EF << /F 17 0 R /UF 17 0 R >> >>"),
+        (17, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain /Metadata %d 0 R" % meta[b"Embedded file"], b"attached")),
+    ]
+    objects += [(meta[title], stream(b"/Type /Metadata /Subtype /XML", xmp_titled(title))) for title in titles]
+    return simple_file(objects, binary=True)
+
+
+def declarations_xmp(namespace: bytes, body: bytes) -> bytes:
+    """An XMP packet (ISO 16684-1) holding a pdfd:declarations bag (PDF Declarations 7.1, 8.1)."""
+    return (b'<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
+            b'<x:xmpmeta xmlns:x="adobe:ns:meta/">\n'
+            b' <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">\n'
+            b'  <rdf:Description rdf:about="" xmlns:pdfd="' + namespace + b'">\n'
+            b'   <pdfd:declarations><rdf:Bag>\n' + body +
+            b'   </rdf:Bag></pdfd:declarations>\n'
+            b'  </rdf:Description>\n'
+            b' </rdf:RDF>\n'
+            b'</x:xmpmeta>\n'
+            b'<?xpacket end="w"?>')
+
+
+def gen_declarations() -> bytes:
+    """PDF Declarations 7-8: the catalog XMP holds two declarations, ISO/TS 32005 with one claim (claimBy,
+    claimDate, claimCredentials, claimReport as an Annex O #ef= fragment) written with rdf:parseType="Resource",
+    and WTPDF reuse written as a nested rdf:Description with white space around the URI; the page XMP holds one
+    object-level declaration under the https namespace TS 32005 Table 1 shows. PDF 2.0 with a trailer ID."""
+    id0 = file_id("declarations").hex().encode()
+    document = declarations_xmp(b"http://pdfa.org/declarations/",
+        b'    <rdf:li rdf:parseType="Resource">\n'
+        b'     <pdfd:conformsTo>https://pdfa.org/declarations#iso32005</pdfd:conformsTo>\n'
+        b'     <pdfd:claimData><rdf:Bag><rdf:li rdf:parseType="Resource">\n'
+        b'      <pdfd:claimBy>Broadside corpus</pdfd:claimBy>\n'
+        b'      <pdfd:claimDate>2024-05-06</pdfd:claimDate>\n'
+        b'      <pdfd:claimCredentials>Generated by generate.py</pdfd:claimCredentials>\n'
+        b'      <pdfd:claimReport>#ef=report.html</pdfd:claimReport>\n'
+        b'     </rdf:li></rdf:Bag></pdfd:claimData>\n'
+        b'    </rdf:li>\n'
+        b'    <rdf:li><rdf:Description>\n'
+        b'     <pdfd:conformsTo>\n       http://pdfa.org/declarations/wtpdf/#reuse1.0\n     </pdfd:conformsTo>\n'
+        b'    </rdf:Description></rdf:li>\n')
+    page_xmp = declarations_xmp(b"https://pdfa.org/declarations/",
+        b'    <rdf:li rdf:parseType="Resource"><pdfd:conformsTo>http://pdfa.org/declarations/wtpdf/#accessibility1.0</pdfd:conformsTo></rdf:li>\n')
+    return simple_file([
+        (1, catalog(b" /Metadata 4 0 R")),
+        (2, pages()),
+        (3, page(extra=b" /Metadata 5 0 R")),
+        (4, stream(b"/Type /Metadata /Subtype /XML", document)),
+        (5, stream(b"/Type /Metadata /Subtype /XML", page_xmp)),
+    ], version="2.0", binary=True, trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_tagged_structure() -> bytes:
+    """14.6 marked content, 14.7 logical structure and 14.8 tagged PDF: a heading, a paragraph with a
+    Link annotation (OBJR, StructParent), a two-item list and a two-by-two table, all as MCIDs 0..9 on
+    one page (StructParents 0), plus a pagination artifact outside the tree. ParentTree (14.7.5.4),
+    IDTree, RoleMap (Para -> P in the default 1.7 namespace), ClassMap with C and A on the heading
+    (14.7.6.2: A wins), namespaces (14.7.4) PDF 2.0 and a custom one whose RoleMapNS maps Chapter to
+    [/Sect <2.0>] (14.8.6.2), and one marked-content reference dictionary (Table 357) for MCID 9."""
+    content = b"\n".join([
+        b"/Artifact <</Type /Pagination /Subtype /PageNum>> BDC BT /F1 10 Tf 300 40 Td (1) Tj ET EMC",
+        b"/H1 <</MCID 0>> BDC BT /F1 24 Tf 72 720 Td (Broadside) Tj ET EMC",
+        b"/P <</MCID 1>> BDC BT /F1 12 Tf 72 690 Td (A paragraph with a link.) Tj ET EMC",
+        b"/Lbl <</MCID 2>> BDC BT /F1 12 Tf 72 660 Td (1.) Tj ET EMC",
+        b"/LBody <</MCID 3>> BDC BT /F1 12 Tf 96 660 Td (First item) Tj ET EMC",
+        b"/Lbl <</MCID 4>> BDC BT /F1 12 Tf 72 645 Td (2.) Tj ET EMC",
+        b"/LBody <</MCID 5>> BDC BT /F1 12 Tf 96 645 Td (Second item) Tj ET EMC",
+        b"/TH <</MCID 6>> BDC BT /F1 12 Tf 72 610 Td (Name) Tj ET EMC",
+        b"/TH <</MCID 7>> BDC BT /F1 12 Tf 200 610 Td (Value) Tj ET EMC",
+        b"/TD <</MCID 8>> BDC BT /F1 12 Tf 72 595 Td (Alpha) Tj ET EMC",
+        b"/TD <</MCID 9>> BDC BT /F1 12 Tf 200 595 Td (1) Tj ET EMC",
+    ])
+    ns20 = b"/NS 7 0 R"
+    id0 = file_id("tagged-structure").hex().encode()
+
+    def elem(s: bytes, parent: int, extra: bytes) -> bytes:
+        return b"<< /Type /StructElem /S /%s /P %d 0 R %s >>" % (s, parent, extra)
+
+    return simple_file([
+        (1, catalog(b" /MarkInfo << /Marked true >> /StructTreeRoot 10 0 R /Lang (en-US)")),
+        (2, pages()),
+        (3, page(contents=4, font=6, extra=b" /StructParents 0 /Tabs /S /Annots [5 0 R]")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Annot /Subtype /Link /Rect [72 686 240 702] /Border [0 0 0] "
+            b"/A << /S /URI /URI (https://example.com/) >> /StructParent 1 >>"),
+        (6, HELVETICA),
+        (7, b"<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>"),
+        (8, b"<< /Type /Namespace /NS (https://example.com/broadside-corpus) /RoleMapNS << /Chapter [/Sect 7 0 R] >> >>"),
+        (10, b"<< /Type /StructTreeRoot /K [11 0 R] "
+             b"/ParentTree << /Nums [0 [13 0 R 14 0 R 17 0 R 18 0 R 20 0 R 21 0 R 24 0 R 25 0 R 27 0 R 28 0 R] 1 14 0 R] >> "
+             b"/ParentTreeNextKey 2 /IDTree << /Names [(h1) 24 0 R (tbl1) 22 0 R] >> /RoleMap << /Para /P >> "
+             b"/ClassMap << /Centered << /O /Layout /TextAlign /Center /SpaceAfter 6 >> >> /Namespaces [7 0 R 8 0 R] >>"),
+        (11, elem(b"Document", 10, ns20 + b" /K [12 0 R]")),
+        (12, elem(b"Chapter", 11, b"/NS 8 0 R /T (Chapter 1) /K [13 0 R 14 0 R 15 0 R 22 0 R]")),
+        (13, elem(b"H1", 12, ns20 + b" /Pg 3 0 R /K 0 /C /Centered /A << /O /Layout /SpaceAfter 12 >>")),
+        (14, elem(b"Para", 12, b"/Pg 3 0 R /K [1 << /Type /OBJR /Obj 5 0 R >>] /A << /O /Layout /TextAlign /Justify >>")),
+        (15, elem(b"L", 12, ns20 + b" /A << /O /List /ListNumbering /Decimal >> /K [16 0 R 19 0 R]")),
+        (16, elem(b"LI", 15, ns20 + b" /K [17 0 R 18 0 R]")),
+        (17, elem(b"Lbl", 16, ns20 + b" /Pg 3 0 R /K 2")),
+        (18, elem(b"LBody", 16, ns20 + b" /Pg 3 0 R /K 3")),
+        (19, elem(b"LI", 15, ns20 + b" /K [20 0 R 21 0 R]")),
+        (20, elem(b"Lbl", 19, ns20 + b" /Pg 3 0 R /K 4")),
+        (21, elem(b"LBody", 19, ns20 + b" /Pg 3 0 R /K 5")),
+        (22, elem(b"Table", 12, ns20 + b" /ID (tbl1) /A << /O /Table /Summary (Names and values) >> /K [23 0 R 26 0 R]")),
+        (23, elem(b"TR", 22, ns20 + b" /K [24 0 R 25 0 R]")),
+        (24, elem(b"TH", 23, ns20 + b" /ID (h1) /Pg 3 0 R /K 6 /A [<< /O /Table /Scope /Column >> 0]")),
+        (25, elem(b"TH", 23, ns20 + b" /Pg 3 0 R /K 7")),
+        (26, elem(b"TR", 22, ns20 + b" /K [27 0 R 28 0 R]")),
+        (27, elem(b"TD", 26, ns20 + b" /Pg 3 0 R /K 8 /A << /O /Table /Headers [(h1)] >>")),
+        (28, elem(b"TD", 26, ns20 + b" /K << /Type /MCR /MCID 9 /Pg 3 0 R >>")),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_functions() -> bytes:
+    """7.10 functions as Separation tint transforms (8.6.6.4), one rectangle per colour space.
+    CS0: Type 0 (7.10.2), 8-bit, 1 in, 4 out (DeviceCMYK), Size [3], painted at 0.5 (the middle sample).
+    CS1: Type 2 (7.10.3) N 1 to DeviceRGB, at 0.5. CS2: Type 2 N 2 to DeviceGray, at 0.5.
+    CS3: Type 3 (7.10.4) stitching two Type 2 halves (N 1 and N 2) with Bounds [0.5] and Encode [0 1 1 0], at 0.75.
+    CS4: Type 4 (7.10.5), the LogoGreen example of 8.6.6.4, at 0.5. CS5 shares CS1's indirect function, at 0.25."""
+    spaces = [(b"Sampled", b"DeviceCMYK", 11, b"0.5"), (b"Linear", b"DeviceRGB", 12, b"0.5"),
+              (b"Square", b"DeviceGray", 13, b"0.5"), (b"Stitched", b"DeviceGray", 14, b"0.75"),
+              (b"LogoGreen", b"DeviceCMYK", 17, b"0.5"), (b"Shared", b"DeviceRGB", 12, b"0.25")]
+    content = b""
+    for i, (_, _, _, tint) in enumerate(spaces):
+        x = 50 + (i % 3) * 180
+        y = 550 if i < 3 else 350
+        content += b"/CS%d cs %s scn %d %d 150 150 re f\n" % (i, tint, x, y)
+    color_spaces = b" ".join(b"/CS%d %d 0 R" % (i, 5 + i) for i in range(len(spaces)))
+    objects = [
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /ColorSpace << " + color_spaces + b" >> >>")),
+        (4, stream(b"", content)),
+    ]
+    for i, (name, alternate, function, _) in enumerate(spaces):
+        objects.append((5 + i, b"[/Separation /%s /%s %d 0 R]" % (name, alternate, function)))
+    # Samples at t = 0, 0.5, 1: (0 0 0 0), (0.2 0.4 0 0), (1 0 0 0.2); 8-bit, Decode = Range = [0 1] x 4.
+    samples = bytes([0, 0, 0, 0, 51, 102, 0, 0, 255, 0, 0, 51])
+    objects += [
+        (11, stream(b"/FunctionType 0 /Domain [0 1] /Range [0 1 0 1 0 1 0 1] /Size [3] /BitsPerSample 8", samples)),
+        (12, b"<< /FunctionType 2 /Domain [0 1] /C0 [1 1 1] /C1 [0 0 1] /N 1 >>"),
+        (13, b"<< /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 2 >>"),
+        (14, b"<< /FunctionType 3 /Domain [0 1] /Functions [15 0 R 16 0 R] /Bounds [0.5] /Encode [0 1 1 0] >>"),
+        (15, b"<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >>"),
+        (16, b"<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 2 >>"),
+        (17, stream(b"/FunctionType 4 /Domain [0.0 1.0] /Range [0.0 1.0 0.0 1.0 0.0 1.0 0.0 1.0]",
+                    b"{dup 0.84 mul\nexch 0.00 exch dup 0.44 mul exch 0.21 mul\n}")),
+    ]
+    return simple_file(objects)
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
     "text-standard14.pdf": gen_text_standard14,
     "text-truetype-embedded.pdf": gen_text_truetype_embedded,
+    "text-standard14-differences.pdf": gen_text_standard14_differences,
+    "text-standard14-winansi-quirks.pdf": gen_text_standard14_winansi_quirks,
+    "text-standard14-macroman.pdf": gen_text_standard14_macroman,
+    "text-standard14-symbol.pdf": gen_text_standard14_symbol,
+    "text-standard14-symbol-differences.pdf": gen_text_standard14_symbol_differences,
+    "text-standard14-zapfdingbats.pdf": gen_text_standard14_zapfdingbats,
+    "text-standard14-widths.pdf": gen_text_standard14_widths,
+    "text-standard14-alias.pdf": gen_text_standard14_alias,
+    "text-type1-symbolic-noencoding.pdf": gen_text_type1_symbolic_noencoding,
     "xref-stream.pdf": gen_xref_stream,
     "object-stream.pdf": gen_object_stream,
     "incremental-update.pdf": gen_incremental_update,
@@ -1249,6 +1956,25 @@ FILES = {
     "outline.pdf": gen_outline,
     "name-tree-dests.pdf": gen_name_tree_dests,
     "metadata-xmp.pdf": gen_metadata_xmp,
+    "metadata-xmp-forms.pdf": gen_metadata_xmp_forms,
+    "info-dictionary.pdf": gen_info_dictionary,
+    "viewer-preferences.pdf": gen_viewer_preferences,
+    "catalog-version-extensions.pdf": gen_catalog_version_extensions,
+    "page-labels.pdf": gen_page_labels,
+    "name-tree-deep.pdf": gen_name_tree_deep,
+    "number-tree-deep.pdf": gen_number_tree_deep,
+    "name-tree-broken.pdf": gen_name_tree_broken,
+    "tagged-structure.pdf": gen_tagged_structure,
+    "destinations-all.pdf": gen_destinations_all,
+    "outline-full.pdf": gen_outline_full,
+    "outline-broken.pdf": gen_outline_broken,
+    "functions.pdf": gen_functions,
+    "optional-content.pdf": gen_optional_content,
+    "embedded-files.pdf": gen_embedded_files,
+    "collection-portfolio.pdf": gen_collection_portfolio,
+    "associated-files.pdf": gen_associated_files,
+    "object-metadata.pdf": gen_object_metadata,
+    "declarations.pdf": gen_declarations,
 }
 
 

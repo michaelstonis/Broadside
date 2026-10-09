@@ -1,10 +1,15 @@
 using System.Buffers;
+using System.Runtime.CompilerServices;
 using Broadside.Diagnostics;
 using Broadside.Filters;
+using Broadside.Fonts;
+using Broadside.Graphics;
+using Broadside.Graphics.Functions;
 using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
 using Broadside.Security;
+using Broadside.Structure;
 using Broadside.Writing;
 
 namespace Broadside;
@@ -46,7 +51,7 @@ namespace Broadside;
 /// <see cref="ObjectDisposedException"/>.
 /// </para>
 /// </remarks>
-public sealed class PdfDocument : IDisposable
+public sealed partial class PdfDocument : IDisposable
 {
     private static readonly PdfVersion Pdf20 = new(2, 0);
 
@@ -54,6 +59,11 @@ public sealed class PdfDocument : IDisposable
     private readonly DiagnosticSink _diagnostics;
     private readonly ObjectLoader _loader;
     private readonly StreamDecoder _streams;
+    private readonly ConditionalWeakTable<CosDictionary, PdfFont> _fonts = [];
+    private readonly ConditionalWeakTable<CosDictionary, NameTreeReader> _nameTrees = [];
+    private readonly ConditionalWeakTable<CosDictionary, NumberTreeReader> _numberTrees = [];
+    private StructureContext? _structure;
+    private PdfOptionalContentProperties? _optionalContent;
 
     private PdfDocument(
         PdfSource source,
@@ -74,6 +84,7 @@ public sealed class PdfDocument : IDisposable
         Revisions = revisions;
         Linearization = linearization;
         Pages = new PdfPageCollection(() => PageTreeReader.Read(this, diagnostics));
+        Functions = new FunctionCache(this, diagnostics);
     }
 
     /// <summary>
@@ -110,6 +121,65 @@ public sealed class PdfDocument : IDisposable
     /// <summary>Gets the pages, in page order. The page tree is read on first use.</summary>
     /// <remarks>ISO 32000-2 §7.7.3.</remarks>
     public PdfPageCollection Pages { get; }
+
+    /// <summary>Gets the document's name dictionary, or <see langword="null"/> when the catalog has none.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.2, Table 29 (<c>Names</c>, PDF 1.2), and §7.7.4. Read from the catalog on every call. An entry that is not a
+    /// dictionary reads as none, with a diagnostic.
+    /// </remarks>
+    public PdfNameDictionary? Names
+    {
+        get
+        {
+            if (!Catalog.TryGetValue(NavigationNames.Names, out CosObject? entry))
+            {
+                return null;
+            }
+
+            if (Resolve(entry) is CosDictionary names)
+            {
+                return new PdfNameDictionary(this, names);
+            }
+
+            _diagnostics.Report(
+                DiagnosticCodes.NameDictionaryInvalid,
+                DiagnosticSeverity.Warning,
+                "The catalog's Names entry is not a dictionary; the document is read as having no name dictionary.",
+                objectReference: entry as CosReference);
+            return null;
+        }
+    }
+
+    /// <summary>Gets the document outline (bookmarks), or <see langword="null"/> when the catalog has none.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.2, Table 29 (<c>Outlines</c>), and §12.3.3. Read from the catalog on every call. An entry that is not a
+    /// dictionary reads as none, with a diagnostic.
+    /// </remarks>
+    public PdfOutline? Outline
+    {
+        get
+        {
+            if (!Catalog.TryGetValue(NavigationNames.Outlines, out CosObject? entry))
+            {
+                return null;
+            }
+
+            switch (Resolve(entry))
+            {
+                case CosDictionary outline:
+                    return new PdfOutline(this, outline, entry as CosReference);
+                case CosNull:
+                    return null;
+                default:
+                    _diagnostics.Report(
+                        DiagnosticCodes.OutlineInvalid,
+                        DiagnosticSeverity.Warning,
+                        "The catalog's Outlines entry is not a dictionary; the document is read as having no outline.",
+                        objectReference: entry as CosReference);
+                    return null;
+            }
+        }
+    }
 
     /// <summary>Gets the revisions of the file, oldest first: the original file, then one per incremental update.</summary>
     /// <remarks>
@@ -154,6 +224,54 @@ public sealed class PdfDocument : IDisposable
     /// </summary>
     /// <remarks>ISO 32000-2 §7.6.4.2, Table 22, and §7.6.5.2, Table 24. Readers are expected to respect them; PDF does not enforce them.</remarks>
     public PdfPermissions Permissions => Security?.Permissions ?? PdfPermissions.All;
+
+    /// <summary>Gets the document's mark information: whether it is a tagged PDF (<see cref="PdfMarkInfo.Marked"/>) and which conventions it uses.</summary>
+    /// <remarks>ISO 32000-2 §7.7.2, Table 29 (<c>MarkInfo</c>), §14.7.1, Table 353. Never <see langword="null"/>: without the dictionary every flag is false.</remarks>
+    public PdfMarkInfo MarkInfo => new(this);
+
+    /// <summary>Gets the root of the document's structure tree, or <see langword="null"/> when the document has none.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.2, Table 29 (<c>StructTreeRoot</c>), §14.7.2. Read when first asked for; an untagged document has no structure
+    /// tree and no diagnostic. A <c>StructTreeRoot</c> that is not a dictionary is ignored with a <c>StructTreeRootInvalid</c> diagnostic.
+    /// The views share indexes built on first use (see <see cref="PdfStructureTreeRoot"/>); they are rebuilt when the catalog's
+    /// <c>StructTreeRoot</c> entry is replaced.
+    /// </remarks>
+    public PdfStructureTreeRoot? StructureTree
+    {
+        get
+        {
+            if (!Catalog.TryGetValue(StructureNames.StructTreeRoot, out CosObject? value))
+            {
+                return null;
+            }
+
+            CosReference? reference = value as CosReference;
+            if (Resolve(value) is not CosDictionary root)
+            {
+                if (Resolve(value) is not CosNull)
+                {
+                    _diagnostics.Report(DiagnosticCodes.StructTreeRootInvalid, DiagnosticSeverity.Warning, "The catalog's StructTreeRoot is not a dictionary (Table 29); the document is read without a structure tree.", offset: null, reference);
+                }
+
+                return null;
+            }
+
+            StructureContext? current = Volatile.Read(ref _structure);
+            if (current is null || !ReferenceEquals(current.Root, root))
+            {
+                if (root.TryGetValue(KnownNames.Type, out CosObject? type) && !StructureNames.StructTreeRoot.Equals(Resolve(type)))
+                {
+                    _diagnostics.Report(DiagnosticCodes.StructTreeRootInvalid, DiagnosticSeverity.Warning, "The structure tree root's Type is not StructTreeRoot (Table 354); read as the root.", offset: null, reference);
+                }
+
+                var created = new StructureContext(this, root, reference);
+                StructureContext? previous = Interlocked.CompareExchange(ref _structure, created, current);
+                current = ReferenceEquals(previous, current) ? created : previous!;
+            }
+
+            return new PdfStructureTreeRoot(current);
+        }
+    }
 
     /// <summary>Gets the deviations found so far, in the order they were found. Empty for a well-formed file.</summary>
     /// <remarks>
@@ -344,6 +462,306 @@ public sealed class PdfDocument : IDisposable
     /// <remarks>ISO 32000-2 §7.3.10.</remarks>
     public CosObject Resolve(CosObject? value) => _loader.Resolve(value);
 
+    /// <summary>Returns a view of the name tree whose root node is <paramref name="root"/>.</summary>
+    /// <param name="root">The root node dictionary, or a reference to it, from this document.</param>
+    /// <returns>
+    /// The tree, read lazily; <see langword="null"/> when <paramref name="root"/> is <see langword="null"/> or resolves to null, or,
+    /// with a diagnostic, to something other than a dictionary.
+    /// </returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.9.6. For name trees the document model does not expose by name. Views of the same root share one reader, so
+    /// the index a damaged tree needs is built once per document.
+    /// </remarks>
+    public PdfNameTree? GetNameTree(CosObject? root) =>
+        GetNameTreeReader(root) is { } reader ? new PdfNameTree(reader) : null;
+
+    /// <summary>Returns a view of the number tree whose root node is <paramref name="root"/>.</summary>
+    /// <param name="root">The root node dictionary, or a reference to it, from this document.</param>
+    /// <returns>
+    /// The tree, read lazily; <see langword="null"/> when <paramref name="root"/> is <see langword="null"/> or resolves to null, or,
+    /// with a diagnostic, to something other than a dictionary.
+    /// </returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.9.7. For number trees such as the catalog's <c>PageLabels</c> or a structure tree's <c>ParentTree</c>. Views of
+    /// the same root share one reader.
+    /// </remarks>
+    public PdfNumberTree? GetNumberTree(CosObject? root) =>
+        GetNumberTreeReader(root) is { } reader ? new PdfNumberTree(reader) : null;
+
+    /// <summary>Looks up the destination a name (PDF 1.1) or string (PDF 1.2) names, as text.</summary>
+    /// <param name="name">The destination's name.</param>
+    /// <returns>
+    /// The explicit destination; <see langword="null"/> when the document has none of that name, or, with a diagnostic, when the
+    /// value it has is not a destination.
+    /// </returns>
+    /// <remarks>
+    /// ISO 32000-2 §12.3.2.4. The name dictionary's <c>Dests</c> tree first (the text as PDFDocEncoding, then UTF-16BE, then every key
+    /// decoded: <see cref="PdfNameTree.TryGetValue(string, out CosObject)"/>), then the catalog's <c>Dests</c> dictionary (the text as a
+    /// UTF-8 name). A value that is a dictionary resolves to its <c>D</c> entry.
+    /// </remarks>
+    public PdfExplicitDestination? GetNamedDestination(string name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        if (Names?.Dests is { } tree && tree.Reader.TryGetRawValue(name, out CosObject? value))
+        {
+            return ReadNamedDestinationValue(value);
+        }
+
+        if (!name.Contains('\0', StringComparison.Ordinal) && LegacyDestination(new CosName(name)) is { } legacy)
+        {
+            return ReadNamedDestinationValue(legacy);
+        }
+
+        return null;
+    }
+
+    /// <summary>Looks up the destination a byte string names (PDF 1.2).</summary>
+    /// <param name="name">The destination's name.</param>
+    /// <returns>The explicit destination, or <see langword="null"/>; see <see cref="GetNamedDestination(string)"/>.</returns>
+    /// <remarks>ISO 32000-2 §12.3.2.4 and Annex J.3.3: the <c>Dests</c> tree first, then the catalog's <c>Dests</c> dictionary, by bytes.</remarks>
+    public PdfExplicitDestination? GetNamedDestination(CosString name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        return FindNamedDestination(name, out _);
+    }
+
+    /// <summary>Looks up the destination a name object names (PDF 1.1).</summary>
+    /// <param name="name">The destination's name.</param>
+    /// <returns>The explicit destination, or <see langword="null"/>; see <see cref="GetNamedDestination(string)"/>.</returns>
+    /// <remarks>ISO 32000-2 §12.3.2.4 and Annex J.3.4: the catalog's <c>Dests</c> dictionary first, then the <c>Dests</c> tree, by bytes.</remarks>
+    public PdfExplicitDestination? GetNamedDestination(CosName name)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        return FindNamedDestination(name, out _);
+    }
+
+    /// <summary>Looks a destination name up: a name in the catalog's <c>Dests</c> first, a string in the tree first, then the other.</summary>
+    /// <param name="name">A <see cref="CosName"/> or <see cref="CosString"/>.</param>
+    /// <param name="found">Whether the document holds the name, whatever its value.</param>
+    /// <returns>The explicit destination, or <see langword="null"/>.</returns>
+    internal PdfExplicitDestination? FindNamedDestination(CosObject name, out bool found)
+    {
+        CosObject? value = null;
+        switch (name)
+        {
+            case CosName key:
+                value = LegacyDestination(key) ?? TreeDestination(key.Bytes);
+                break;
+            case CosString key:
+                value = TreeDestination(key.Bytes);
+                if (value is null && key.Bytes.Length > 0 && !key.Bytes.Contains((byte)0))
+                {
+                    value = LegacyDestination(new CosName(key.Bytes));
+                }
+
+                break;
+        }
+
+        found = value is not null;
+        return value is null ? null : ReadNamedDestinationValue(value);
+    }
+
+    /// <summary>Reads a named destination's value: a destination array, or a dictionary whose <c>D</c> entry is one (§12.3.2.4).</summary>
+    private PdfExplicitDestination? ReadNamedDestinationValue(CosObject value)
+    {
+        var reference = value as CosReference;
+        CosObject resolved = Resolve(value);
+        if (resolved is CosDictionary dictionary && dictionary.TryGetValue(NavigationNames.D, out CosObject? d))
+        {
+            reference = d as CosReference ?? reference;
+            resolved = Resolve(d);
+        }
+
+        if (resolved is CosArray array)
+        {
+            return new PdfExplicitDestination(this, array, isRemote: false, reference);
+        }
+
+        _diagnostics.Report(
+            DiagnosticCodes.DestinationInvalid,
+            DiagnosticSeverity.Warning,
+            "A named destination's value is neither a destination array nor a dictionary with a D entry; the name shows no page.",
+            objectReference: reference);
+        return null;
+    }
+
+    private CosObject? TreeDestination(ReadOnlySpan<byte> key) =>
+        Names?.Dests is { } tree && tree.Reader.TryGetRawValue(new CosString(key), out CosObject? value) ? value : null;
+
+    private CosObject? LegacyDestination(CosName key) =>
+        Catalog.TryGetValue(NavigationNames.Dests, out CosObject? entry)
+            && Resolve(entry) is CosDictionary dests
+            && dests.TryGetValue(key, out CosObject? value)
+            ? value
+            : null;
+
+    /// <summary>Returns the document's reader for the name tree rooted at <paramref name="root"/>, creating it on first use.</summary>
+    /// <param name="root">The root node or a reference to it.</param>
+    /// <returns>The reader; <see langword="null"/> when the root does not resolve to a dictionary.</returns>
+    internal NameTreeReader? GetNameTreeReader(CosObject? root) =>
+        ResolveTreeRoot(root, DiagnosticCodes.NameTreeNodeInvalid, "name tree") is { } node
+            ? _nameTrees.GetValue(node, dictionary => new NameTreeReader(dictionary, root as CosReference, Resolve, _diagnostics))
+            : null;
+
+    /// <summary>Returns the document's reader for the number tree rooted at <paramref name="root"/>, creating it on first use.</summary>
+    /// <param name="root">The root node or a reference to it.</param>
+    /// <returns>The reader; <see langword="null"/> when the root does not resolve to a dictionary.</returns>
+    internal NumberTreeReader? GetNumberTreeReader(CosObject? root) =>
+        ResolveTreeRoot(root, DiagnosticCodes.NumberTreeNodeInvalid, "number tree") is { } node
+            ? _numberTrees.GetValue(node, dictionary => new NumberTreeReader(dictionary, root as CosReference, Resolve, _diagnostics))
+            : null;
+
+    /// <summary>Gets the diagnostics sink, for document-model views that report what they find on first read.</summary>
+    internal DiagnosticSink DiagnosticSink => _diagnostics;
+    /// <summary>Gets the document's optional content (layers), or <see langword="null"/> when the catalog has no <c>OCProperties</c>.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §8.11 and §7.7.2, Table 29 (PDF 1.5). Without <c>OCProperties</c> every optional content structure is ignored and all
+    /// content is visible (§8.11.4.2). The same view is returned while the catalog's <c>OCProperties</c> is the same dictionary; its
+    /// group list is a snapshot taken on first use.
+    /// </remarks>
+    public PdfOptionalContentProperties? OptionalContent
+    {
+        get
+        {
+            if (Resolve(Catalog.TryGetValue(FileAndLayerNames.OCProperties, out CosObject? entry) ? entry : null) is not CosDictionary dictionary)
+            {
+                return null;
+            }
+
+            PdfOptionalContentProperties? cached = Volatile.Read(ref _optionalContent);
+            if (cached is not null && ReferenceEquals(cached.Dictionary, dictionary))
+            {
+                return cached;
+            }
+
+            CosReference? reference = entry as CosReference ?? (Trailer.TryGetValue(KnownNames.Root, out CosObject? root) ? root as CosReference : null);
+            var created = new PdfOptionalContentProperties(this, dictionary, reference);
+            PdfOptionalContentProperties? raced = Interlocked.CompareExchange(ref _optionalContent, created, cached);
+            return raced == cached ? created : (ReferenceEquals(raced!.Dictionary, dictionary) ? raced : created);
+        }
+    }
+
+    /// <summary>Gets the document's embedded files: the entries of the name dictionary's <c>EmbeddedFiles</c> tree, in tree order.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.4, Table 32 (PDF 1.4), and §7.11.4. Read on every call. An entry whose value is not a file specification is
+    /// skipped with a <c>FileSpecificationInvalid</c> diagnostic. Files attached only to annotations or associated files are not
+    /// listed here (PDF 2.0 Application Note 002 §6.2): see <see cref="EnumerateAssociatedFiles"/>.
+    /// </remarks>
+    public IReadOnlyList<PdfEmbeddedFileEntry> EmbeddedFiles
+    {
+        get
+        {
+            if (Names?.EmbeddedFiles is not { } tree)
+            {
+                return [];
+            }
+
+            var entries = new List<PdfEmbeddedFileEntry>();
+            foreach (KeyValuePair<CosString, CosObject> entry in tree)
+            {
+                if (PdfFileSpecification.Create(this, entry.Value) is { } file)
+                {
+                    entries.Add(new PdfEmbeddedFileEntry(entry.Key, file));
+                }
+                else
+                {
+                    ViewReading.Warn(this, DiagnosticCodes.FileSpecificationInvalid, $"The EmbeddedFiles entry '{entry.Key.DecodeText()}' is not a file specification; it is skipped.", tree.RootReference);
+                }
+            }
+
+            return entries;
+        }
+    }
+
+    /// <summary>Gets the document's portable collection (<c>Collection</c>), or <see langword="null"/> when it is not a portfolio.</summary>
+    /// <remarks>ISO 32000-2 §7.7.2, Table 29 (PDF 1.7), and §12.3.5. Read from the catalog on every call.</remarks>
+    public PdfCollection? Collection =>
+        Resolve(Catalog.TryGetValue(FileAndLayerNames.Collection, out CosObject? entry) ? entry : null) is CosDictionary dictionary
+            ? new PdfCollection(this, dictionary, entry as CosReference)
+            : null;
+
+    /// <summary>Gets the PDF Declarations of the whole document, from the XMP of the catalog's <c>Metadata</c>.</summary>
+    /// <remarks>PDF Declarations §7 and §8. Declarations live only in XMP; there is no catalog key. Read on every call (the packet is parsed once).</remarks>
+    public IReadOnlyList<PdfDeclaration> Declarations => PdfDeclaration.Read(Metadata?.Packet);
+
+    /// <summary>Gets the files associated with the whole document (the catalog's <c>AF</c>).</summary>
+    /// <remarks>ISO 32000-2 §7.7.2, Table 29 (PDF 2.0), and §14.13.3. Read on every call.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => ReadAssociatedFiles(Catalog, CatalogReference);
+
+    /// <summary>Returns the associated files listed in the <c>AF</c> entry of <paramref name="owner"/>.</summary>
+    /// <param name="owner">Any dictionary or stream dictionary of this document: a structure element, an annotation, a form field.</param>
+    /// <param name="ownerReference">The owner's indirect reference, for diagnostics.</param>
+    /// <returns>The file specifications, in order.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §14.13.2 (PDF 2.0): <c>AF</c> is an array of file specification dictionaries. A single dictionary is read as an
+    /// array of one and a file specification string is accepted, both with an <c>AssociatedFilesInvalid</c> diagnostic. An embedded
+    /// associated file without <c>Subtype</c>, or with <c>Params</c> but no <c>ModDate</c>, is reported. A missing
+    /// <c>AFRelationship</c> means Unspecified and is not reported.
+    /// </remarks>
+    public IReadOnlyList<PdfFileSpecification> ReadAssociatedFiles(CosDictionary owner, CosReference? ownerReference = null)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        return owner.TryGetValue(FileAndLayerNames.AF, out CosObject? value) ? AssociatedFileReader.Read(this, value, ownerReference) : [];
+    }
+
+    /// <summary>Returns the associated files of a marked-content sequence, from the property list of its <c>/AF</c> tag.</summary>
+    /// <param name="properties">The property list operand of <c>/AF ... BDC</c>, resolved from the <c>Properties</c> resource, or a reference to it.</param>
+    /// <returns>The file specifications.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §14.13.5 and errata Table 409a: a property list dictionary whose <c>MCAF</c> array lists the files (each shall
+    /// have <c>AFRelationship</c>), or, as in the original text's Example 2, a resource that is the array itself. Both are accepted.
+    /// </remarks>
+    public IReadOnlyList<PdfFileSpecification> ReadMarkedContentAssociatedFiles(CosObject? properties) =>
+        AssociatedFileReader.ReadMarkedContent(this, properties, properties as CosReference);
+
+    /// <summary>Enumerates every associated file of the document with the object it is associated with.</summary>
+    /// <param name="deep">
+    /// <see langword="false"/> walks the known locations: the catalog and its metadata, the structure tree, document parts, and every
+    /// page with its resources (form and image XObjects, marked-content property lists, recursively through forms) and annotations.
+    /// <see langword="true"/> also scans every object of the file for an <c>AF</c> entry (Application Note 002 §3.2: AF may appear on
+    /// any object), reporting those as <see cref="PdfAssociatedFileLocation.Other"/>.
+    /// </param>
+    /// <returns>A lazy sequence; each object is reported once. Nothing is cached.</returns>
+    /// <remarks>ISO 32000-2 §14.13 and PDF 2.0 Application Note 002 §6.2.</remarks>
+    public IEnumerable<PdfAssociatedFile> EnumerateAssociatedFiles(bool deep = false) => AssociatedFileReader.Enumerate(this, deep);
+
+    /// <summary>Enumerates every object-level metadata stream of the document with the object it describes.</summary>
+    /// <param name="deep">
+    /// <see langword="false"/> walks the locations Application Note 003 lists: the catalog, optional content groups, threads,
+    /// structure elements, document parts, embedded files, pages, XObjects, ICC profiles, embedded font programs, Type 3 fonts, tiling
+    /// patterns, shadings, marked-content property lists, annotations and 3D artwork. <see langword="true"/> also scans every object
+    /// of the file for a <c>Metadata</c> entry, reporting those as <see cref="PdfMetadataLocation.Other"/>.
+    /// </param>
+    /// <returns>A lazy sequence; each object is reported once. Nothing is cached.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §14.3.2 (PDF 1.4), Tables 347 and 348, and PDF 2.0 Application Note 003. A metadata stream without <c>Type</c>
+    /// <c>Metadata</c> and <c>Subtype</c> <c>XML</c> is still reported, with a <c>MetadataStreamInvalid</c> diagnostic.
+    /// </remarks>
+    public IEnumerable<PdfObjectMetadata> EnumerateObjectMetadata(bool deep = false) => AssociatedFileReader.EnumerateMetadata(this, deep);
+
+    /// <summary>Enumerates the reference of every object the cross-reference information lists as in use, by object number.</summary>
+    internal IEnumerable<CosReference> EnumerateObjectReferences()
+    {
+        foreach (KeyValuePair<int, XrefEntry> entry in _loader.CrossReference.Entries.OrderBy(entry => entry.Key))
+        {
+            switch (entry.Value.Kind)
+            {
+                case XrefEntryKind.InUse:
+                    yield return new CosReference(entry.Key, entry.Value.Generation);
+                    break;
+                case XrefEntryKind.Compressed:
+                    yield return new CosReference(entry.Key, 0);
+                    break;
+            }
+        }
+    }
+
+    /// <summary>Returns a view over a file specification held by <paramref name="value"/>, resolving it first.</summary>
+    /// <param name="value">A file specification string or dictionary, or a reference to one, of this document.</param>
+    /// <returns>The view, or <see langword="null"/> when the value is neither a string nor a dictionary.</returns>
+    /// <remarks>ISO 32000-2 §7.11. For file specifications the document model does not reach itself (an action's <c>F</c>, say).</remarks>
+    public PdfFileSpecification? GetFileSpecification(CosObject? value) => PdfFileSpecification.Create(this, value);
+
     /// <summary>Returns the data of <paramref name="stream"/> decoded through the filters its <c>Filter</c> entry names.</summary>
     /// <param name="stream">A stream of this document.</param>
     /// <returns>The decoded data; for a stream without filters, its <see cref="CosStream.EncodedData"/> itself.</returns>
@@ -371,8 +789,72 @@ public sealed class PdfDocument : IDisposable
         _streams.Decode(stream, output);
     }
 
+    /// <summary>Returns the font view over a font dictionary of this document.</summary>
+    /// <param name="font">A font dictionary, or an indirect reference to one, such as an entry of a resource dictionary's <c>Font</c> subdictionary.</param>
+    /// <returns>
+    /// The view, of the type the dictionary's <c>Subtype</c> selects; <see langword="null"/> when <paramref name="font"/> is not a
+    /// dictionary and does not refer to one. The same dictionary always gives the same view instance.
+    /// </returns>
+    /// <exception cref="DiagnosticException">In strict mode, when the dictionary's <c>Type</c> or <c>Subtype</c> is not a font's.</exception>
+    /// <remarks>ISO 32000-2 §9.5, Table 108, and §7.8.3.</remarks>
+    public PdfFont? GetFont(CosObject? font)
+    {
+        if (Resolve(font) is not CosDictionary dictionary)
+        {
+            return null;
+        }
+
+        if (_fonts.TryGetValue(dictionary, out PdfFont? existing))
+        {
+            return existing;
+        }
+
+        // Two threads may create a view each; the first one added is the one everybody gets.
+        PdfFont created = PdfFont.Create(this, dictionary, font as CosReference);
+        return _fonts.TryAdd(dictionary, created) || !_fonts.TryGetValue(dictionary, out PdfFont? winner) ? created : winner;
+    }
+
+    /// <summary>Returns the view of a function object of this document.</summary>
+    /// <param name="function">A function dictionary or stream, or an indirect reference to one.</param>
+    /// <returns>
+    /// The view, shared by every caller asking for the same object; <see langword="null"/>, with a diagnostic, when
+    /// <paramref name="function"/> is not a dictionary or stream with a <c>FunctionType</c> of 0, 2, 3 or 4. A function of a known
+    /// type that cannot be used is returned with <see cref="PdfFunction.IsValid"/> <see langword="false"/>.
+    /// </returns>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found in the function.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.10. The function is compiled once, here, and again only when an object it was compiled from changes. Deviations
+    /// are recorded on <see cref="Diagnostics"/> against <paramref name="function"/> when it is a reference.
+    /// </remarks>
+    public PdfFunction? GetFunction(CosObject function)
+    {
+        ArgumentNullException.ThrowIfNull(function);
+        return Functions.Get(function);
+    }
+
     /// <inheritdoc/>
     public void Dispose() => _source.Dispose();
+
+    /// <summary>Gets the document's functions, compiled once each (issue #78): the seam colour spaces, graphics states and shadings use.</summary>
+    internal FunctionCache Functions { get; }
+
+    private CosDictionary? ResolveTreeRoot(CosObject? root, string code, string kind)
+    {
+        switch (Resolve(root))
+        {
+            case CosDictionary dictionary:
+                return dictionary;
+            case CosNull:
+                return null;
+            default:
+                _diagnostics.Report(
+                    code,
+                    DiagnosticSeverity.Warning,
+                    $"The root of a {kind} is not a dictionary; the tree is read as absent.",
+                    objectReference: root as CosReference);
+                return null;
+        }
+    }
 
     /// <summary>Builds the bytes of a new one-page document and opens them (issue #44).</summary>
     /// <param name="configuration">The engine's configuration.</param>

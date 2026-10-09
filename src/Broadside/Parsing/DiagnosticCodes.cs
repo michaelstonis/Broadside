@@ -8,7 +8,7 @@ namespace Broadside.Parsing;
 /// Every ticket adds its own group here. The catalogue is internal while parallel tickets add codes; the codes reach users as
 /// <see cref="Diagnostics.Diagnostic.Code"/> strings.
 /// </remarks>
-internal static class DiagnosticCodes
+internal static partial class DiagnosticCodes
 {
     // File header (ISO 32000-2 §7.5.2).
     public const string HeaderMissing = nameof(HeaderMissing);
@@ -132,4 +132,36 @@ internal static class DiagnosticCodes
     public const string PageResourcesMissing = nameof(PageResourcesMissing);
     public const string PageResourcesInvalid = nameof(PageResourcesInvalid);
     public const string PageUserUnitInvalid = nameof(PageUserUnitInvalid);
+
+    // Content streams (§7.8.2, §8.2, §8.4, §8.5; issue #55). Reported once per code per content stream (DiagnosticSink.ReportOnce),
+    // on the stream's object (or the page's when the stream is direct), with the part and decoded offset in the message.
+    public const string ContentStreamInvalid = nameof(ContentStreamInvalid);
+    public const string ContentUnknownOperator = nameof(ContentUnknownOperator);
+    public const string ContentOperandCount = nameof(ContentOperandCount);
+    public const string ContentOperandType = nameof(ContentOperandType);
+    public const string ContentOperandOverflow = nameof(ContentOperandOverflow);
+    public const string ContentSyntaxInvalid = nameof(ContentSyntaxInvalid);
+    public const string ContentGluedTokens = nameof(ContentGluedTokens);
+    public const string ContentOperatorOutOfContext = nameof(ContentOperatorOutOfContext);
+    public const string ContentStackUnderflow = nameof(ContentStackUnderflow);
+    public const string ContentStackOverflow = nameof(ContentStackOverflow);
+    public const string ContentUnbalancedSave = nameof(ContentUnbalancedSave);
+    public const string ContentNoCurrentPoint = nameof(ContentNoCurrentPoint);
+    public const string ContentNoCurrentPath = nameof(ContentNoCurrentPath);
+    public const string ContentPathNotPainted = nameof(ContentPathNotPainted);
+    public const string ContentGraphicsStateRange = nameof(ContentGraphicsStateRange);
+    public const string ContentCompatibilityUnbalanced = nameof(ContentCompatibilityUnbalanced);
+    public const string ContentTextObjectUnbalanced = nameof(ContentTextObjectUnbalanced);
+    public const string ContentInlineImageInvalid = nameof(ContentInlineImageInvalid);
+
+    // Functions (§7.10, issue #78).
+    public const string FunctionInvalid = nameof(FunctionInvalid);
+    public const string FunctionEntryInvalid = nameof(FunctionEntryInvalid);
+    public const string FunctionSampleDataTruncated = nameof(FunctionSampleDataTruncated);
+    public const string FunctionOrderUnsupported = nameof(FunctionOrderUnsupported);
+    public const string FunctionProgramSyntaxInvalid = nameof(FunctionProgramSyntaxInvalid);
+    public const string FunctionProgramStackInvalid = nameof(FunctionProgramStackInvalid);
+    public const string FunctionCycle = nameof(FunctionCycle);
+    public const string FunctionTooDeep = nameof(FunctionTooDeep);
+    public const string FunctionEvaluationRepaired = nameof(FunctionEvaluationRepaired);
 }

@@ -45,6 +45,13 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
         }
     }
 
+    /// <summary>
+    /// Gets a number that changes every time an entry is added, replaced or removed through the public API, and never by reading
+    /// or loading: caches of state derived from the dictionary record it and rebuild when it differs. Changes to the values
+    /// themselves are not counted; a cache records each container it depends on.
+    /// </summary>
+    internal int Version { get; private set; }
+
     /// <summary>Gets the number of entries.</summary>
     public int Count => _entries.Count;
 
@@ -85,6 +92,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
 
             _entries[key] = value;
             _changed = true;
+            Version++;
         }
     }
 
@@ -108,6 +116,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
 
         _entries.Add(key, value);
         _changed = true;
+        Version++;
     }
 
     /// <summary>Removes the entry for <paramref name="key"/>; marks the dictionary dirty when one was removed.</summary>
@@ -117,6 +126,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
     {
         bool removed = _entries.Remove(key);
         _changed |= removed;
+        Version += removed ? 1 : 0;
         return removed;
     }
 
@@ -124,6 +134,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
     public void Clear()
     {
         _changed |= _entries.Count > 0;
+        Version += _entries.Count > 0 ? 1 : 0;
         _entries.Clear();
     }
 
@@ -156,6 +167,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
     {
         bool removed = ((ICollection<KeyValuePair<CosName, CosObject>>)_entries).Remove(item);
         _changed |= removed;
+        Version += removed ? 1 : 0;
         return removed;
     }
 

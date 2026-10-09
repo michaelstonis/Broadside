@@ -13,7 +13,7 @@ public sealed record DocumentWalkResult(int Pages, int Objects, int Streams, lon
 /// <summary>
 /// Reads everything the document model exposes, so that "the file opens" means more than "the trailer parsed" (objects load
 /// lazily, issue #45): version, trailer, revisions, linearization and hint tables, security, every page's boxes, rotation, user unit
-/// and resources, every indirect object reachable from the trailer and every object number below the trailer's <c>Size</c>, and
+/// and resources, the outline and every named destination (issue #70), every indirect object reachable from the trailer and every object number below the trailer's <c>Size</c>, and
 /// every stream decoded through the filter pipeline (image filters that are not implemented yet end in a diagnostic, not an
 /// exception). Used by the real-world corpus gate (issue #47) and meant to be shared with the open-and-walk fuzz target and
 /// benchmark (issue #48): link this file as source there, as <see cref="CorpusLocator"/> is. Public API only.
@@ -25,6 +25,8 @@ public static class DocumentWalker
     public const int MaxObjectNumber = 8_388_607;
 
     private static readonly CosName SizeKey = new("Size");
+
+    private static readonly CosName DestsKey = new("Dests");
 
     /// <summary>Walks <paramref name="document"/>. Every exception the library throws propagates to the caller.</summary>
     /// <param name="document">An open document.</param>
@@ -56,6 +58,9 @@ public static class DocumentWalker
             _ = (page.MediaBox, page.CropBox, page.BleedBox, page.TrimBox, page.ArtBox, page.Rotation, page.UserUnit, page.Resources?.Count);
         }
 
+        ReadCatalogEssentials(document);
+        WalkNavigation(document);
+
         var walk = new GraphWalk(document);
         walk.Visit(document.Trailer);
         long size = document.Trailer.TryGetValue(SizeKey, out CosObject? entry) && entry is CosInteger integer ? integer.Value : 0;
@@ -65,6 +70,105 @@ public static class DocumentWalker
         }
 
         return new DocumentWalkResult(pages, walk.Objects, walk.Streams, walk.DecodedBytes);
+    }
+
+    /// <summary>
+    /// Reads the outline (every item's title, style, destination and action, named destinations resolved) and every named
+    /// destination of the name dictionary's Dests tree and the catalog's Dests dictionary (ISO 32000-2 §12.3).
+    /// </summary>
+    private static void WalkNavigation(PdfDocument document)
+    {
+        var pending = new Stack<PdfOutlineItem>(document.Outline?.Items ?? []);
+        while (pending.TryPop(out PdfOutlineItem? item))
+        {
+            _ = (item.Title, item.Color, item.IsBold, item.IsOpen, item.StructureElement);
+            WalkDestination(item.Destination);
+            if (item.Action is PdfGoToAction goTo)
+            {
+                WalkDestination(goTo.Destination);
+                WalkDestination(goTo.StructureDestination);
+            }
+            else if (item.Action is PdfUriAction uri)
+            {
+                _ = (uri.Uri, uri.IsMap);
+            }
+
+            foreach (PdfOutlineItem child in item.Children)
+            {
+                pending.Push(child);
+            }
+        }
+
+        if (document.Names?.Dests is { } tree)
+        {
+            foreach (KeyValuePair<CosString, CosObject> entry in tree)
+            {
+                WalkDestination(document.GetNamedDestination(entry.Key));
+            }
+        }
+
+        if (document.Resolve(document.Catalog.TryGetValue(DestsKey, out CosObject? dests) ? dests : null) is CosDictionary legacy)
+        {
+            foreach (CosName name in legacy.Keys)
+            {
+                WalkDestination(document.GetNamedDestination(name));
+            }
+        }
+    }
+
+    private static void WalkDestination(PdfDestination? destination)
+    {
+        PdfExplicitDestination? explicitDestination = destination switch
+        {
+            PdfNamedDestination named => named.Resolve(),
+            PdfExplicitDestination value => value,
+            _ => null,
+        };
+        if (explicitDestination is not null)
+        {
+            _ = (explicitDestination.PageIndex, explicitDestination.TargetKind, explicitDestination.View, explicitDestination.Left,
+                explicitDestination.Top, explicitDestination.Right, explicitDestination.Bottom, explicitDestination.Zoom, explicitDestination.IsValid);
+        }
+    }
+
+    /// <summary>
+    /// Reads the document-level entries (issue #69): version, extensions, requirements, layout, mode, viewer preferences, language,
+    /// every page label, the Info dictionary, the XMP packet and every property in it, the resolved properties, the file identifier.
+    /// </summary>
+    private static void ReadCatalogEssentials(PdfDocument document)
+    {
+        _ = (document.HeaderVersion, document.CatalogVersion, document.PageLayout, document.PageMode, document.Language, document.FileIdentifier);
+        foreach (PdfDeveloperExtension extension in document.Extensions)
+        {
+            _ = (extension.BaseVersion, extension.ExtensionLevel, extension.Url, extension.ExtensionRevision);
+        }
+
+        foreach (PdfRequirement requirement in document.Requirements)
+        {
+            _ = (requirement.RequirementType, requirement.Penalty, requirement.Handlers.Select(handler => handler.Script).ToList());
+        }
+
+        if (document.ViewerPreferences is { } preferences)
+        {
+            _ = (preferences.HideToolbar, preferences.HideMenubar, preferences.HideWindowUI, preferences.FitWindow, preferences.CenterWindow);
+            _ = (preferences.DisplayDocTitle, preferences.NonFullScreenPageMode, preferences.Direction, preferences.ViewArea, preferences.ViewClip);
+            _ = (preferences.PrintArea, preferences.PrintClip, preferences.PrintScaling, preferences.Duplex, preferences.PickTrayByPdfSize);
+            _ = (preferences.PrintPageRange, preferences.NumCopies, preferences.Enforce);
+        }
+
+        _ = document.PageLabels?.GetLabels();
+        if (document.Information is { } info)
+        {
+            _ = (info.Title, info.Author, info.Subject, info.Keywords, info.Creator, info.Producer, info.CreationDate, info.ModificationDate, info.Trapped);
+        }
+
+        if (document.Metadata?.Packet is { } packet)
+        {
+            _ = (packet.Title, packet.Creators, packet.Subjects, packet.CreateDate, packet.ModifyDate, packet.PdfAPart, packet.PdfUAPart);
+        }
+
+        PdfDocumentProperties properties = document.Properties;
+        _ = (properties.Title, properties.Author, properties.CreationDate, properties.ModificationDate);
     }
 
     /// <summary>An iterative depth-first walk (no recursion: real files nest deeply) over references, containers and streams.</summary>

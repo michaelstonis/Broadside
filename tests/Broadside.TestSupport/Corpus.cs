@@ -12,6 +12,15 @@ public static class Corpus
         "pdf20-header.pdf",
         "text-standard14.pdf",
         "text-truetype-embedded.pdf",
+        "text-standard14-differences.pdf",
+        "text-standard14-winansi-quirks.pdf",
+        "text-standard14-macroman.pdf",
+        "text-standard14-symbol.pdf",
+        "text-standard14-symbol-differences.pdf",
+        "text-standard14-zapfdingbats.pdf",
+        "text-standard14-widths.pdf",
+        "text-standard14-alias.pdf",
+        "text-type1-symbolic-noencoding.pdf",
         "xref-stream.pdf",
         "object-stream.pdf",
         "incremental-update.pdf",
@@ -40,6 +49,23 @@ public static class Corpus
         "outline.pdf",
         "name-tree-dests.pdf",
         "metadata-xmp.pdf",
+        "metadata-xmp-forms.pdf",
+        "info-dictionary.pdf",
+        "viewer-preferences.pdf",
+        "catalog-version-extensions.pdf",
+        "page-labels.pdf",
+        "name-tree-deep.pdf",
+        "number-tree-deep.pdf",
+        "tagged-structure.pdf",
+        "destinations-all.pdf",
+        "outline-full.pdf",
+        "functions.pdf",
+        "optional-content.pdf",
+        "embedded-files.pdf",
+        "collection-portfolio.pdf",
+        "associated-files.pdf",
+        "object-metadata.pdf",
+        "declarations.pdf",
     ];
 
     private static readonly string[] Malformed =
@@ -52,6 +78,8 @@ public static class Corpus
         "encrypted-mac-tampered.pdf",
         "encrypted-owner-key-variant.pdf",
         "encrypted-rc4-length-missing.pdf",
+        "name-tree-broken.pdf",
+        "outline-broken.pdf",
     ];
 
     private static readonly (string FileName, string UserPassword)[] PasswordProtected =

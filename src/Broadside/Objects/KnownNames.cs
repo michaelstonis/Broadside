@@ -1,7 +1,7 @@
 namespace Broadside.Objects;
 
 /// <summary>Names the library itself looks up, created once. Add a name here when code needs it, not before.</summary>
-internal static class KnownNames
+internal static partial class KnownNames
 {
     /// <summary><c>/Length</c>, the stream dictionary entry that gives the extent of the data (ISO 32000-2 §7.3.8.2, Table 5).</summary>
     public static readonly CosName Length = new("Length");
@@ -26,6 +26,9 @@ internal static class KnownNames
 
     /// <summary><c>/Pages</c>, the catalog entry referring to the page tree root, and the type of a page tree node (§7.7.2, §7.7.3.2).</summary>
     public static readonly CosName Pages = new("Pages");
+
+    /// <summary><c>/Contents</c>, the page entry holding its content stream or array of streams (§7.7.3.3, Table 31).</summary>
+    public static readonly CosName Contents = new("Contents");
 
     /// <summary><c>/Page</c>, the type of a page object (§7.7.3.3, Table 31).</summary>
     public static readonly CosName Page = new("Page");
