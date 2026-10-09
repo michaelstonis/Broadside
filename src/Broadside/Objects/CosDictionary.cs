@@ -23,6 +23,12 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
 
     private CosDictionary(OrderedDictionary<CosName, CosObject> entries) => _entries = entries;
 
+    /// <summary>
+    /// Gets a number that changes on every change made through the public API (never by reading), so a cache of state derived from
+    /// this object can tell that it is stale by comparing the number it was built from. Does not cover the objects it contains.
+    /// </summary>
+    internal int Version { get; private set; }
+
     /// <inheritdoc/>
     public override bool IsDirty
     {
@@ -85,6 +91,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
 
             _entries[key] = value;
             _changed = true;
+            Version++;
         }
     }
 
@@ -108,6 +115,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
 
         _entries.Add(key, value);
         _changed = true;
+        Version++;
     }
 
     /// <summary>Removes the entry for <paramref name="key"/>; marks the dictionary dirty when one was removed.</summary>
@@ -116,14 +124,24 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
     public bool Remove(CosName key)
     {
         bool removed = _entries.Remove(key);
-        _changed |= removed;
+        if (removed)
+        {
+            _changed = true;
+            Version++;
+        }
+
         return removed;
     }
 
     /// <summary>Removes every entry; marks the dictionary dirty when it was not already empty.</summary>
     public void Clear()
     {
-        _changed |= _entries.Count > 0;
+        if (_entries.Count > 0)
+        {
+            _changed = true;
+            Version++;
+        }
+
         _entries.Clear();
     }
 
@@ -155,7 +173,12 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
     bool ICollection<KeyValuePair<CosName, CosObject>>.Remove(KeyValuePair<CosName, CosObject> item)
     {
         bool removed = ((ICollection<KeyValuePair<CosName, CosObject>>)_entries).Remove(item);
-        _changed |= removed;
+        if (removed)
+        {
+            _changed = true;
+            Version++;
+        }
+
         return removed;
     }
 

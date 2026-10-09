@@ -32,6 +32,12 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
 
     private CosArray(List<CosObject> items, bool owned) => _items = owned ? items : [.. items];
 
+    /// <summary>
+    /// Gets a number that changes on every change made through the public API (never by reading), so a cache of state derived from
+    /// this object can tell that it is stale by comparing the number it was built from. Does not cover the objects it contains.
+    /// </summary>
+    internal int Version { get; private set; }
+
     /// <inheritdoc/>
     public override bool IsDirty
     {
@@ -70,6 +76,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
             ArgumentNullException.ThrowIfNull(value);
             _items[index] = value;
             _changed = true;
+            Version++;
         }
     }
 
@@ -80,6 +87,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
         ArgumentNullException.ThrowIfNull(item);
         _items.Add(item);
         _changed = true;
+        Version++;
     }
 
     /// <summary>Inserts an element and marks the array dirty.</summary>
@@ -90,6 +98,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
         ArgumentNullException.ThrowIfNull(item);
         _items.Insert(index, item);
         _changed = true;
+        Version++;
     }
 
     /// <summary>Removes the element at <paramref name="index"/> and marks the array dirty.</summary>
@@ -98,6 +107,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     {
         _items.RemoveAt(index);
         _changed = true;
+        Version++;
     }
 
     /// <summary>Removes the first element equal to <paramref name="item"/>; marks the array dirty when one was removed.</summary>
@@ -106,14 +116,24 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     public bool Remove(CosObject item)
     {
         bool removed = _items.Remove(item);
-        _changed |= removed;
+        if (removed)
+        {
+            _changed = true;
+            Version++;
+        }
+
         return removed;
     }
 
     /// <summary>Removes every element; marks the array dirty when it was not already empty.</summary>
     public void Clear()
     {
-        _changed |= _items.Count > 0;
+        if (_items.Count > 0)
+        {
+            _changed = true;
+            Version++;
+        }
+
         _items.Clear();
     }
 

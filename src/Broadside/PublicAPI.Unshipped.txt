@@ -404,3 +404,43 @@ Broadside.Security.PublicKeySecurityHandler.Filter.get -> Broadside.Objects.CosN
 Broadside.Security.PublicKeySecurityHandler.PublicKeySecurityHandler() -> void
 Broadside.Security.PublicKeySecurityHandler.SubFilters.get -> System.Collections.Generic.IReadOnlyCollection<Broadside.Objects.CosName!>!
 override Broadside.Security.PdfCertificateCredentials.ToString() -> string!
+abstract Broadside.Graphics.PdfFunction.FunctionType.get -> Broadside.Graphics.PdfFunctionType
+Broadside.Graphics.PdfExponentialFunction
+Broadside.Graphics.PdfExponentialFunction.C0.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfExponentialFunction.C1.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfExponentialFunction.Exponent.get -> double?
+Broadside.Graphics.PdfFunction
+Broadside.Graphics.PdfFunction.CosObject.get -> Broadside.Objects.CosObject!
+Broadside.Graphics.PdfFunction.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Graphics.PdfFunction.Domain.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfFunction.Evaluate(System.ReadOnlySpan<float> input, System.Span<float> output) -> void
+Broadside.Graphics.PdfFunction.Evaluate(System.ReadOnlySpan<float> inputs, System.Span<float> outputs, int count) -> void
+Broadside.Graphics.PdfFunction.InputCount.get -> int
+Broadside.Graphics.PdfFunction.IsValid.get -> bool
+Broadside.Graphics.PdfFunction.MinimumVersion.get -> Broadside.PdfVersion
+Broadside.Graphics.PdfFunction.OutputCount.get -> int
+Broadside.Graphics.PdfFunction.Range.get -> System.Collections.Generic.IReadOnlyList<double>?
+Broadside.Graphics.PdfFunction.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Graphics.PdfFunctionType
+Broadside.Graphics.PdfFunctionType.Exponential = 2 -> Broadside.Graphics.PdfFunctionType
+Broadside.Graphics.PdfFunctionType.PostScriptCalculator = 4 -> Broadside.Graphics.PdfFunctionType
+Broadside.Graphics.PdfFunctionType.Sampled = 0 -> Broadside.Graphics.PdfFunctionType
+Broadside.Graphics.PdfFunctionType.Stitching = 3 -> Broadside.Graphics.PdfFunctionType
+Broadside.Graphics.PdfPostScriptFunction
+Broadside.Graphics.PdfPostScriptFunction.Stream.get -> Broadside.Objects.CosStream?
+Broadside.Graphics.PdfSampledFunction
+Broadside.Graphics.PdfSampledFunction.BitsPerSample.get -> int?
+Broadside.Graphics.PdfSampledFunction.Decode.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfSampledFunction.Encode.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfSampledFunction.Order.get -> int
+Broadside.Graphics.PdfSampledFunction.Size.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfSampledFunction.Stream.get -> Broadside.Objects.CosStream?
+Broadside.Graphics.PdfStitchingFunction
+Broadside.Graphics.PdfStitchingFunction.Bounds.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfStitchingFunction.Encode.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfStitchingFunction.Functions.get -> System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PdfFunction?>!
+Broadside.PdfDocument.GetFunction(Broadside.Objects.CosObject! function) -> Broadside.Graphics.PdfFunction?
+override Broadside.Graphics.PdfExponentialFunction.FunctionType.get -> Broadside.Graphics.PdfFunctionType
+override Broadside.Graphics.PdfPostScriptFunction.FunctionType.get -> Broadside.Graphics.PdfFunctionType
+override Broadside.Graphics.PdfSampledFunction.FunctionType.get -> Broadside.Graphics.PdfFunctionType
+override Broadside.Graphics.PdfStitchingFunction.FunctionType.get -> Broadside.Graphics.PdfFunctionType

@@ -40,6 +40,7 @@ public static class Corpus
         "outline.pdf",
         "name-tree-dests.pdf",
         "metadata-xmp.pdf",
+        "functions.pdf",
     ];
 
     private static readonly string[] Malformed =

@@ -1206,6 +1206,43 @@ def gen_metadata_xmp() -> bytes:
     ], trailer_extra=b" /Info 5 0 R")
 
 
+def gen_functions() -> bytes:
+    """7.10 functions as Separation tint transforms (8.6.6.4), one rectangle per colour space.
+    CS0: Type 0 (7.10.2), 8-bit, 1 in, 4 out (DeviceCMYK), Size [3], painted at 0.5 (the middle sample).
+    CS1: Type 2 (7.10.3) N 1 to DeviceRGB, at 0.5. CS2: Type 2 N 2 to DeviceGray, at 0.5.
+    CS3: Type 3 (7.10.4) stitching two Type 2 halves (N 1 and N 2) with Bounds [0.5] and Encode [0 1 1 0], at 0.75.
+    CS4: Type 4 (7.10.5), the LogoGreen example of 8.6.6.4, at 0.5. CS5 shares CS1's indirect function, at 0.25."""
+    spaces = [(b"Sampled", b"DeviceCMYK", 11, b"0.5"), (b"Linear", b"DeviceRGB", 12, b"0.5"),
+              (b"Square", b"DeviceGray", 13, b"0.5"), (b"Stitched", b"DeviceGray", 14, b"0.75"),
+              (b"LogoGreen", b"DeviceCMYK", 17, b"0.5"), (b"Shared", b"DeviceRGB", 12, b"0.25")]
+    content = b""
+    for i, (_, _, _, tint) in enumerate(spaces):
+        x = 50 + (i % 3) * 180
+        y = 550 if i < 3 else 350
+        content += b"/CS%d cs %s scn %d %d 150 150 re f\n" % (i, tint, x, y)
+    color_spaces = b" ".join(b"/CS%d %d 0 R" % (i, 5 + i) for i in range(len(spaces)))
+    objects = [
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /ColorSpace << " + color_spaces + b" >> >>")),
+        (4, stream(b"", content)),
+    ]
+    for i, (name, alternate, function, _) in enumerate(spaces):
+        objects.append((5 + i, b"[/Separation /%s /%s %d 0 R]" % (name, alternate, function)))
+    # Samples at t = 0, 0.5, 1: (0 0 0 0), (0.2 0.4 0 0), (1 0 0 0.2); 8-bit, Decode = Range = [0 1] x 4.
+    samples = bytes([0, 0, 0, 0, 51, 102, 0, 0, 255, 0, 0, 51])
+    objects += [
+        (11, stream(b"/FunctionType 0 /Domain [0 1] /Range [0 1 0 1 0 1 0 1] /Size [3] /BitsPerSample 8", samples)),
+        (12, b"<< /FunctionType 2 /Domain [0 1] /C0 [1 1 1] /C1 [0 0 1] /N 1 >>"),
+        (13, b"<< /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 2 >>"),
+        (14, b"<< /FunctionType 3 /Domain [0 1] /Functions [15 0 R 16 0 R] /Bounds [0.5] /Encode [0 1 1 0] >>"),
+        (15, b"<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >>"),
+        (16, b"<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 2 >>"),
+        (17, stream(b"/FunctionType 4 /Domain [0.0 1.0] /Range [0.0 1.0 0.0 1.0 0.0 1.0 0.0 1.0]",
+                    b"{dup 0.84 mul\nexch 0.00 exch dup 0.44 mul exch 0.21 mul\n}")),
+    ]
+    return simple_file(objects)
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -1249,6 +1286,7 @@ FILES = {
     "outline.pdf": gen_outline,
     "name-tree-dests.pdf": gen_name_tree_dests,
     "metadata-xmp.pdf": gen_metadata_xmp,
+    "functions.pdf": gen_functions,
 }
 
 

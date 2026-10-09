@@ -1,6 +1,7 @@
 using System.Buffers;
 using Broadside.Diagnostics;
 using Broadside.Filters;
+using Broadside.Graphics;
 using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -37,6 +38,8 @@ internal static class FuzzTargets
         ["decrypt"] = Decrypt,
         ["mac-token"] = MacToken,
         ["public-key"] = PublicKey.Target,
+        ["function-type4"] = FunctionType4,
+        ["function-sampled"] = FunctionSampled,
     };
 
     private static readonly CosName ContentsKey = new("Contents");
@@ -538,6 +541,124 @@ internal static class FuzzTargets
         if (plain.Length > data.Length - 1)
         {
             throw new InvalidOperationException($"{plain.Length} bytes of plaintext from {data.Length - 1} bytes of ciphertext.");
+        }
+    }
+
+    /// <summary>
+    /// Compiles the input as a Type 4 program and evaluates it at fixed points. Byte 0 picks m (1 to 4 inputs, Domain [-1 1] each)
+    /// and n (1 to 4 outputs, Range [-10 10] each); the rest is the program. Compiling never throws in lenient mode; every output
+    /// must lie in the range, and once warm an evaluation must allocate nothing.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.10.5, Annex B.</remarks>
+    private static void FunctionType4(ReadOnlySpan<byte> data)
+    {
+        if (data.IsEmpty)
+        {
+            return;
+        }
+
+        int inputs = 1 + (data[0] % 4);
+        int outputs = 1 + ((data[0] >> 2) % 4);
+        var dictionary = new CosDictionary
+        {
+            [new CosName("FunctionType")] = new CosInteger(4),
+            [new CosName("Domain")] = Pairs(inputs, -1, 1),
+            [new CosName("Range")] = Pairs(outputs, -10, 10),
+        };
+        EvaluateFunction(new CosStream(dictionary, data[1..].ToArray()), inputs, outputs, -10, 10);
+    }
+
+    /// <summary>
+    /// Builds a Type 0 function from the input and evaluates it at fixed points. Byte 0 picks m (1 to 3) and n (1 to 4), byte 1
+    /// BitsPerSample (one of the eight, or 3 or 5), Order (1 or 3) and whether Encode reverses the first input, bytes 2 to 4 the Size
+    /// of each input (1 to 8); the rest is the sample data, as short or long as it comes. Every output must lie in the Range [0 1].
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.10.2.</remarks>
+    private static void FunctionSampled(ReadOnlySpan<byte> data)
+    {
+        if (data.Length < 5)
+        {
+            return;
+        }
+
+        int[] widths = [1, 2, 4, 8, 12, 16, 24, 32, 3, 5];
+        int inputs = 1 + (data[0] % 3);
+        int outputs = 1 + ((data[0] >> 2) % 4);
+        var size = new CosArray();
+        for (int i = 0; i < inputs; i++)
+        {
+            size.Add(new CosInteger(1 + (data[2 + i] % 8)));
+        }
+
+        var dictionary = new CosDictionary
+        {
+            [new CosName("FunctionType")] = new CosInteger(0),
+            [new CosName("Domain")] = Pairs(inputs, -1, 1),
+            [new CosName("Range")] = Pairs(outputs, 0, 1),
+            [new CosName("Size")] = size,
+            [new CosName("BitsPerSample")] = new CosInteger(widths[data[1] % widths.Length]),
+            [new CosName("Order")] = new CosInteger((data[1] & 0x10) != 0 ? 3 : 1),
+        };
+        if ((data[1] & 0x20) != 0)
+        {
+            var encode = Pairs(inputs, 0, 1);
+            encode[0] = new CosInteger(1 + (data[2] % 8));
+            encode[1] = new CosInteger(0);
+            dictionary[new CosName("Encode")] = encode;
+        }
+
+        EvaluateFunction(new CosStream(dictionary, data[5..].ToArray()), inputs, outputs, 0, 1);
+    }
+
+    private static CosArray Pairs(int count, int low, int high)
+    {
+        var pairs = new CosArray();
+        for (int i = 0; i < count; i++)
+        {
+            pairs.Add(new CosInteger(low));
+            pairs.Add(new CosInteger(high));
+        }
+
+        return pairs;
+    }
+
+    /// <summary>Evaluates a function at inputs below, inside and above its domain; checks the outputs and that warm evaluations allocate nothing.</summary>
+    private static void EvaluateFunction(CosStream stream, int inputs, int outputs, double low, double high)
+    {
+        using PdfDocument document = PdfDocument.Create();
+        PdfFunction function = document.GetFunction(stream) ?? throw new InvalidOperationException("A function stream was not seen as a function.");
+        if (function.IsValid && (function.InputCount != inputs || function.OutputCount != outputs))
+        {
+            throw new InvalidOperationException($"A valid function has {function.InputCount} inputs and {function.OutputCount} outputs; the dictionary says {inputs} and {outputs}.");
+        }
+
+        float[] points = [-2f, -1f, -0.5f, 0f, 0.3f, 1f, 2f, float.NaN];
+        Span<float> input = stackalloc float[inputs];
+        Span<float> output = stackalloc float[outputs];
+        long allocated = long.MaxValue;
+        for (int round = 0; round < 3 && allocated != 0; round++)
+        {
+            long before = GC.GetAllocatedBytesForCurrentThread();
+            foreach (float point in points)
+            {
+                input.Fill(point);
+                input[0] = -point;
+                function.Evaluate(input, output);
+                foreach (float value in output[..function.OutputCount])
+                {
+                    if (!(value >= low && value <= high))
+                    {
+                        throw new InvalidOperationException($"Output {value} is outside the range [{low} {high}].");
+                    }
+                }
+            }
+
+            allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        }
+
+        if (allocated != 0)
+        {
+            throw new InvalidOperationException($"Evaluating allocated {allocated} bytes in every round.");
         }
     }
 
