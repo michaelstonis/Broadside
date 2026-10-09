@@ -15,4 +15,4 @@ A fully managed .NET implementation of the PDF specification (ISO 32000-2 and it
 
 ## Specifications
 
-`Specs/` is not committed. Place ISO 32000-2:2020 and the ISO/TS 32001 through 32005 documents there (free sponsored copies are available from the PDF Association), and download the free font, image and color references listed in [docs/specs-sources.md](docs/specs-sources.md) into `Specs/References/`.
+`Specs/` is not committed. Place ISO 32000-2:2020, the ISO/TS 32001 through 32005 documents, and the ISO 14289 (PDF/UA) documents there (free sponsored copies are available from the PDF Association), and download the free font, image and color references listed in [docs/specs-sources.md](docs/specs-sources.md) into `Specs/References/`.
