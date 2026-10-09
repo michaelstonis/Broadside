@@ -5,6 +5,10 @@
     <ProjectReference Include="../Broadside.TestSupport/Broadside.TestSupport.csproj" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Verify.XunitV3" />
+    <PackageReference Include="Microsoft.Extensions.Configuration" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
   </ItemGroup>
 
 </Project>

@@ -216,3 +216,8 @@ static Broadside.PdfVersion.operator <=(Broadside.PdfVersion left, Broadside.Pdf
 static Broadside.PdfVersion.operator ==(Broadside.PdfVersion left, Broadside.PdfVersion right) -> bool
 static Broadside.PdfVersion.operator >(Broadside.PdfVersion left, Broadside.PdfVersion right) -> bool
 static Broadside.PdfVersion.operator >=(Broadside.PdfVersion left, Broadside.PdfVersion right) -> bool
+Broadside.PdfEngine.PdfEngine(Microsoft.Extensions.Options.IOptions<Broadside.PdfOptions!>! options, Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory = null) -> void
+Broadside.PdfOptions.WithLoggerFactory(Microsoft.Extensions.Logging.ILoggerFactory? loggerFactory) -> Broadside.PdfOptions!
+Microsoft.Extensions.DependencyInjection.BroadsideServiceCollectionExtensions
+static Microsoft.Extensions.DependencyInjection.BroadsideServiceCollectionExtensions.AddBroadside(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+static Microsoft.Extensions.DependencyInjection.BroadsideServiceCollectionExtensions.AddBroadside(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Broadside.PdfOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!

@@ -186,7 +186,7 @@ public sealed class PdfDocument : IDisposable
     {
         try
         {
-            var diagnostics = new DiagnosticSink(configuration.ReadingMode == PdfReadingMode.Strict);
+            var diagnostics = new DiagnosticSink(configuration.ReadingMode == PdfReadingMode.Strict, configuration.DiagnosticObserver);
             FileHeader header = FileHeader.Locate(source, diagnostics);
             CrossReference crossReference = CrossReferenceReader.Read(source, header, diagnostics) ?? Reconstruct(diagnostics);
             var loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks());
