@@ -24,15 +24,21 @@ internal ref struct CosParser
 
     private CosLexer _lexer;
     private readonly CosRepairLog? _repairs;
+    private readonly IStreamLengthResolver? _lengthResolver;
 
     /// <summary>Initializes a new instance of the <see cref="CosParser"/> struct.</summary>
     /// <param name="source">The bytes to parse.</param>
     /// <param name="repairs">Where to report repairs, or <see langword="null"/> to discard them.</param>
     /// <param name="position">The offset to start at.</param>
-    public CosParser(ReadOnlySpan<byte> source, CosRepairLog? repairs, int position = 0)
+    /// <param name="lengthResolver">
+    /// Resolves a stream's <c>Length</c> entry when it is an indirect reference (§7.3.8.2), or <see langword="null"/> when there is no
+    /// file to resolve it in; the data then ends at <c>endstream</c> without a repair.
+    /// </param>
+    public CosParser(ReadOnlySpan<byte> source, CosRepairLog? repairs, int position = 0, IStreamLengthResolver? lengthResolver = null)
     {
         _lexer = new CosLexer(source, position);
         _repairs = repairs;
+        _lengthResolver = lengthResolver;
     }
 
     /// <summary>Gets or sets the offset of the next byte to read.</summary>
@@ -475,7 +481,12 @@ internal ref struct CosParser
         ReadOnlySpan<byte> source = _lexer.Source;
         int dataStart = SkipStreamKeywordEndOfLine(keyword);
         dictionary.TryGetValue(KnownNames.Length, out CosObject? lengthEntry);
-        long declared = lengthEntry is CosInteger { Value: >= 0 } length ? length.Value : -1;
+        long declared = lengthEntry switch
+        {
+            CosInteger { Value: >= 0 } length => length.Value,
+            CosReference when _lengthResolver?.ResolveLength(lengthEntry) is >= 0 and long resolved => resolved,
+            _ => -1,
+        };
 
         if (declared >= 0 && declared <= source.Length - dataStart && TryMatchEndstream(source, dataStart + (int)declared, out int afterEndstream))
         {
@@ -488,7 +499,8 @@ internal ref struct CosParser
         {
             int dataEnd = dataStart + found;
             dataEnd -= EndOfLineLengthBefore(source, dataStart, dataEnd);
-            if (lengthEntry is not CosReference)
+            // Without a resolver an indirect Length cannot be checked, so finding the data by endstream is not a repair.
+            if (lengthEntry is not CosReference || _lengthResolver is not null)
             {
                 Report(
                     CosRepairCodes.StreamLengthInvalid,
