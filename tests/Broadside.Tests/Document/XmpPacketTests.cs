@@ -56,22 +56,22 @@ public class XmpPacketTests
         Assert.Equal(XmpPropertyKind.OrderedArray, packet.GetProperty(XmpNamespaces.DublinCore, "creator")!.Kind);
         Assert.Equal(XmpPropertyKind.UnorderedArray, packet.GetProperty(XmpNamespaces.DublinCore, "subject")!.Kind);
 
-        const string Ex = "http://example.com/ns/";
-        XmpProperty resource = packet.GetProperty(Ex, "Resource")!;
+        const string ex = "http://example.com/ns/";
+        XmpProperty resource = packet.GetProperty(ex, "Resource")!;
         Assert.Equal(XmpPropertyKind.Structure, resource.Kind);
-        Assert.Equal("Resource form", resource.GetField(Ex, "Name")!.Value);
-        Assert.Equal("2", resource.GetField(Ex, "Count")!.Value);
-        XmpProperty nested = packet.GetProperty(Ex, "Nested")!;
+        Assert.Equal("Resource form", resource.GetField(ex, "Name")!.Value);
+        Assert.Equal("2", resource.GetField(ex, "Count")!.Value);
+        XmpProperty nested = packet.GetProperty(ex, "Nested")!;
         Assert.Equal(XmpPropertyKind.Structure, nested.Kind);
         Assert.Equal(["Attribute field", "3"], nested.Fields.Select(field => field.Value));
-        Assert.Equal("Shorthand", packet.GetProperty(Ex, "Short")!.GetField(Ex, "Name")!.Value);
-        Assert.Equal("http://example.com/", packet.GetProperty(Ex, "Link")!.Value);
+        Assert.Equal("Shorthand", packet.GetProperty(ex, "Short")!.GetField(ex, "Name")!.Value);
+        Assert.Equal("http://example.com/", packet.GetProperty(ex, "Link")!.Value);
 
-        XmpProperty qualified = packet.GetProperty(Ex, "WithQualifier")!;
+        XmpProperty qualified = packet.GetProperty(ex, "WithQualifier")!;
         Assert.Equal(XmpPropertyKind.Simple, qualified.Kind);
         Assert.Equal("42", qualified.Value);
         Assert.Equal("mm", Assert.Single(qualified.Qualifiers).Value);
-        Assert.Null(packet.GetProperty(Ex, "Missing"));
+        Assert.Null(packet.GetProperty(ex, "Missing"));
         Assert.Equal(17, packet.Properties.Count);
     }
 
@@ -177,9 +177,14 @@ public class XmpPacketTests
         Assert.Equal("A & B ☺ <", packet.Title);
     }
 
+    public static TheoryData<string> DocumentTypeDeclarations => new()
+    {
+        "<!DOCTYPE lolz [<!ENTITY lol \"lol\"><!ENTITY lol2 \"&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;\">]>",
+        "<!DOCTYPE x SYSTEM \"file:///etc/passwd\">",
+    };
+
     [Theory]
-    [InlineData("<!DOCTYPE lolz [<!ENTITY lol \"lol\"><!ENTITY lol2 \"&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;&lol;\">]>")]
-    [InlineData("<!DOCTYPE x SYSTEM \"file:///etc/passwd\">")]
+    [MemberData(nameof(DocumentTypeDeclarations))]
     public void A_document_type_declaration_is_refused_so_entities_never_expand(string doctype)
     {
         byte[] bytes = Encoding.UTF8.GetBytes(doctype + Title("&lol2;"));

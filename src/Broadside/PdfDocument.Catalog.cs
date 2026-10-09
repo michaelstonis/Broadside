@@ -12,6 +12,7 @@ public sealed partial class PdfDocument
     private static readonly CosName PageModeKey = new("PageMode");
     private static readonly CosName ViewerPreferencesKey = new("ViewerPreferences");
     private static readonly CosName LangKey = new("Lang");
+    private static readonly CosName PageLabelsKey = new("PageLabels");
     private static readonly CosName MetadataKey = new("Metadata");
     private static readonly CosName RequirementsKey = new("Requirements");
     private static readonly CosName MetadataType = new("Metadata");
@@ -79,6 +80,14 @@ public sealed partial class PdfDocument
             }
         }
     }
+
+    /// <summary>Gets the page labels (<c>PageLabels</c>, PDF 1.3), or <see langword="null"/> when the catalog has none: pages are then numbered from 1.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.2, Table 29, and §12.4.2. An entry that is not a number tree dictionary is ignored with a
+    /// <c>NumberTreeNodeInvalid</c> diagnostic.
+    /// </remarks>
+    public PdfPageLabels? PageLabels =>
+        GetNumberTreeReader(Catalog.GetValueOrDefault(PageLabelsKey)) is { } tree ? new PdfPageLabels(this, tree) : null;
 
     /// <summary>Gets the natural language of the document's text (<c>Lang</c>), such as <c>en-US</c>, or <see langword="null"/> when unknown.</summary>
     /// <remarks>ISO 32000-2 §7.7.2, Table 29 (PDF 1.4), and §14.9.2. Not checked against BCP 47.</remarks>
@@ -184,10 +193,10 @@ public sealed partial class PdfDocument
                 return [];
             }
 
-            const string Message = "The catalog's Requirements entry shall be an array of requirement dictionaries, each with a type and a penalty from 0 to 100 (Table 273).";
+            const string message = "The catalog's Requirements entry shall be an array of requirement dictionaries, each with a type and a penalty from 0 to 100 (Table 273).";
             if (value is not CosArray array)
             {
-                CatalogView.Report(DiagnosticCodes.RequirementInvalid, Message);
+                CatalogView.Report(DiagnosticCodes.RequirementInvalid, message);
                 return [];
             }
 
@@ -208,7 +217,7 @@ public sealed partial class PdfDocument
 
             if (invalid)
             {
-                CatalogView.Report(DiagnosticCodes.RequirementInvalid, Message);
+                CatalogView.Report(DiagnosticCodes.RequirementInvalid, message);
             }
 
             return requirements;

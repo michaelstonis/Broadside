@@ -286,10 +286,15 @@ public class DocumentInformationTests
         Assert.Empty(document.Diagnostics);
     }
 
+    public static TheoryData<string, bool> MalformedIdentifiers => new()
+    {
+        { "/ID [<0123> <0123>]", true },
+        { "/ID [<00112233445566778899AABBCCDDEEFF>]", false },
+        { "/ID (one)", false },
+    };
+
     [Theory]
-    [InlineData("/ID [<0123> <0123>]", true)]
-    [InlineData("/ID [<00112233445566778899AABBCCDDEEFF>]", false)]
-    [InlineData("/ID (one)", false)]
+    [MemberData(nameof(MalformedIdentifiers))]
     public void A_malformed_identifier_is_reported(string entry, bool exposed)
     {
         byte[] file = new TestPdf { TrailerEntries = entry }.Build(

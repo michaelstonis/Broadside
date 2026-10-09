@@ -89,18 +89,23 @@ public class CatalogEntryTests
         Assert.Empty(document.Diagnostics);
     }
 
+    public static TheoryData<string> MalformedViewerPreferences => new()
+    {
+        "/HideToolbar /true",
+        "/NonFullScreenPageMode /FullScreen",
+        "/Direction /TopToBottom",
+        "/ViewArea /PageBox",
+        "/PrintScaling /Fit",
+        "/Duplex /Triplex",
+        "/NumCopies 0",
+        "/PrintPageRange [1 2 3]",
+        "/PrintPageRange [3 2]",
+        "/Enforce [/HideToolbar]",
+        "/Enforce [/PrintScaling]",
+    };
+
     [Theory]
-    [InlineData("/HideToolbar /true")]
-    [InlineData("/NonFullScreenPageMode /FullScreen")]
-    [InlineData("/Direction /TopToBottom")]
-    [InlineData("/ViewArea /PageBox")]
-    [InlineData("/PrintScaling /Fit")]
-    [InlineData("/Duplex /Triplex")]
-    [InlineData("/NumCopies 0")]
-    [InlineData("/PrintPageRange [1 2 3]")]
-    [InlineData("/PrintPageRange [3 2]")]
-    [InlineData("/Enforce [/HideToolbar]")]
-    [InlineData("/Enforce [/PrintScaling]")]
+    [MemberData(nameof(MalformedViewerPreferences))]
     public void A_malformed_viewer_preference_reads_as_its_default_with_a_warning(string entry)
     {
         using PdfDocument document = PdfDocument.Open(TestPdf.OnePage("/MediaBox [0 0 612 792]", $"/ViewerPreferences << {entry} >>"));
@@ -129,10 +134,15 @@ public class CatalogEntryTests
         Assert.Empty(document.Diagnostics);
     }
 
+    public static TheoryData<string, string> UnknownCatalogEntries => new()
+    {
+        { "/PageLayout /Spread", "PageLayoutInvalid" },
+        { "/PageMode (UseOutlines)", "PageModeInvalid" },
+        { "/ViewerPreferences [1]", "ViewerPreferencesInvalid" },
+    };
+
     [Theory]
-    [InlineData("/PageLayout /Spread", "PageLayoutInvalid")]
-    [InlineData("/PageMode (UseOutlines)", "PageModeInvalid")]
-    [InlineData("/ViewerPreferences [1]", "ViewerPreferencesInvalid")]
+    [MemberData(nameof(UnknownCatalogEntries))]
     public void An_unknown_layout_mode_or_preferences_entry_reads_as_the_default_with_a_warning(string entry, string code)
     {
         using PdfDocument document = PdfDocument.Open(TestPdf.OnePage("/MediaBox [0 0 612 792]", entry));
@@ -209,11 +219,16 @@ public class CatalogEntryTests
         Assert.Empty(document.Diagnostics);
     }
 
+    public static TheoryData<string> MalformedRequirements => new()
+    {
+        "/Requirements << /S /Navigation >>",
+        "/Requirements [(x) << /S /Navigation >>]",
+        "/Requirements [<< /S /Navigation /Penalty 101 >>]",
+        "/Requirements [<< /Penalty 1 >>]",
+    };
+
     [Theory]
-    [InlineData("/Requirements << /S /Navigation >>")]
-    [InlineData("/Requirements [(x) << /S /Navigation >>]")]
-    [InlineData("/Requirements [<< /S /Navigation /Penalty 101 >>]")]
-    [InlineData("/Requirements [<< /Penalty 1 >>]")]
+    [MemberData(nameof(MalformedRequirements))]
     public void A_malformed_requirement_is_reported(string entry)
     {
         using PdfDocument document = PdfDocument.Open(TestPdf.OnePage("/MediaBox [0 0 612 792]", entry));
@@ -222,11 +237,16 @@ public class CatalogEntryTests
         Assert.Equal("RequirementInvalid", Assert.Single(document.Diagnostics).Code);
     }
 
+    public static TheoryData<string, string, int> MalformedExtensions => new()
+    {
+        { "/Extensions [1]", "ExtensionsInvalid", 0 },
+        { "/Extensions << /ADBE 5 >>", "DeveloperExtensionInvalid", 0 },
+        { "/Extensions << /ADBE << /ExtensionLevel 3 >> >>", "DeveloperExtensionInvalid", 1 },
+        { "/Extensions << /ADBE << /BaseVersion /1.7 /ExtensionLevel 3.5 >> >>", "DeveloperExtensionInvalid", 1 },
+    };
+
     [Theory]
-    [InlineData("/Extensions [1]", "ExtensionsInvalid", 0)]
-    [InlineData("/Extensions << /ADBE 5 >>", "DeveloperExtensionInvalid", 0)]
-    [InlineData("/Extensions << /ADBE << /ExtensionLevel 3 >> >>", "DeveloperExtensionInvalid", 1)]
-    [InlineData("/Extensions << /ADBE << /BaseVersion /1.7 /ExtensionLevel 3.5 >> >>", "DeveloperExtensionInvalid", 1)]
+    [MemberData(nameof(MalformedExtensions))]
     public void A_malformed_extensions_entry_is_reported(string entry, string code, int count)
     {
         using PdfDocument document = PdfDocument.Open(TestPdf.OnePage("/MediaBox [0 0 612 792]", entry));

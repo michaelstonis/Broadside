@@ -17,7 +17,7 @@ public class WellFormedCorpusTests
         int expectedPages = fileName switch
         {
             "page-tree-inherited.pdf" or "linearized.pdf" or "linearized-xref-stream.pdf" => 2,
-            "number-tree-deep.pdf" => 12,
+            "number-tree-deep.pdf" or "page-labels.pdf" => 12,
             _ => 1,
         };
         Assert.Equal(expectedPages, document.Pages.Count);

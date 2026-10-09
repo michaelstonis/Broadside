@@ -634,3 +634,22 @@ Broadside.PdfNumberTree.Root.get -> Broadside.Objects.CosDictionary!
 Broadside.PdfNumberTree.RootReference.get -> Broadside.Objects.CosReference?
 Broadside.PdfNumberTree.TryGetFloor(int key, out int floorKey, out Broadside.Objects.CosObject! value) -> bool
 Broadside.PdfNumberTree.TryGetValue(int key, out Broadside.Objects.CosObject! value) -> bool
+Broadside.PdfDocument.PageLabels.get -> Broadside.PdfPageLabels?
+Broadside.PdfPageLabelRange
+Broadside.PdfPageLabelRange.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfPageLabelRange.FirstNumber.get -> int
+Broadside.PdfPageLabelRange.Prefix.get -> string!
+Broadside.PdfPageLabelRange.StartPageIndex.get -> int
+Broadside.PdfPageLabelRange.Style.get -> Broadside.PdfPageLabelStyle
+Broadside.PdfPageLabels
+Broadside.PdfPageLabels.GetLabel(int pageIndex) -> string!
+Broadside.PdfPageLabels.GetLabels() -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.PdfPageLabels.Ranges.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfPageLabelRange!>!
+Broadside.PdfPageLabels.Root.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfPageLabelStyle
+Broadside.PdfPageLabelStyle.Arabic = 1 -> Broadside.PdfPageLabelStyle
+Broadside.PdfPageLabelStyle.LowercaseLetters = 5 -> Broadside.PdfPageLabelStyle
+Broadside.PdfPageLabelStyle.LowercaseRoman = 3 -> Broadside.PdfPageLabelStyle
+Broadside.PdfPageLabelStyle.None = 0 -> Broadside.PdfPageLabelStyle
+Broadside.PdfPageLabelStyle.UppercaseLetters = 4 -> Broadside.PdfPageLabelStyle
+Broadside.PdfPageLabelStyle.UppercaseRoman = 2 -> Broadside.PdfPageLabelStyle
