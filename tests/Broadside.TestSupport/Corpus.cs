@@ -78,6 +78,17 @@ public static class Corpus
         "color-operators.pdf",
         "default-colorspaces.pdf",
         "separation-special.pdf",
+        "shading-type1-function.pdf",
+        "shading-type2-axial.pdf",
+        "shading-type3-radial.pdf",
+        "shading-type4-freeform.pdf",
+        "shading-type5-lattice.pdf",
+        "shading-type6-coons.pdf",
+        "shading-type7-tensor.pdf",
+        "pattern-tiling-colored.pdf",
+        "pattern-tiling-uncolored.pdf",
+        "pattern-shading-axial.pdf",
+        "pattern-in-form.pdf",
     ];
 
     private static readonly string[] Malformed =
@@ -93,6 +104,8 @@ public static class Corpus
         "name-tree-broken.pdf",
         "outline-broken.pdf",
         "annotations-malformed.pdf",
+        "pattern-recursive.pdf",
+        "shading-mesh-truncated.pdf",
     ];
 
     private static readonly (string FileName, string UserPassword)[] PasswordProtected =

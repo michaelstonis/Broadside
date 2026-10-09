@@ -123,6 +123,56 @@ public sealed class ContentContext
         return PdfDeviceGrayColorSpace.Instance;
     }
 
+    /// <summary>Returns the pattern a Pattern colour selected, such as <see cref="GraphicsState.FillColor"/> when painting with a pattern.</summary>
+    /// <param name="color">The colour.</param>
+    /// <returns>
+    /// The pattern's model; <see langword="null"/> for a colour that is not a pattern, the initial Pattern colour (which paints
+    /// nothing) and an object that is not a pattern.
+    /// </returns>
+    /// <remarks>
+    /// ISO 32000-2 §8.7.3 and §8.7.4.1. Map pattern space with <see cref="PdfPattern.GetPatternSpace"/>: the pattern matrix followed by
+    /// the matrix of the stream that selected the pattern (<see cref="PdfColor.PatternMatrix"/>), never the CTM at the paint (§8.7.2).
+    /// A shading pattern gives its <see cref="PdfShadingPattern.Shading"/>, Background and ExtGState; a tiling pattern's cell runs with
+    /// <see cref="RunPatternCell"/>.
+    /// </remarks>
+    public PdfPattern? GetPattern(in PdfColor color) => _interpreter.GetPattern(color);
+
+    /// <summary>
+    /// Runs the cell of the tiling pattern a colour selected, reporting its events to <paramref name="processor"/>, in the middle of
+    /// the current event: call it from a processor callback, as often as the processor needs (once per pattern and scale, say).
+    /// </summary>
+    /// <param name="color">The pattern colour, such as <see cref="GraphicsState.FillColor"/> in <see cref="ContentProcessor.PaintPath"/>.</param>
+    /// <param name="processor">The processor that receives the cell's events (this run's or another).</param>
+    /// <returns>
+    /// <see langword="true"/> when the cell ran; <see langword="false"/> when the colour does not select a valid tiling pattern, or
+    /// the cell would run inside itself (recorded as <c>ContentPatternRecursion</c>) or deeper than
+    /// <see cref="ContentOptions.MaxNestingDepth"/> (<c>ContentNestingTooDeep</c>).
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §8.7.3.1, steps a to d: the cell runs between an implicit save and restore (<see cref="ContentProcessor.SaveState"/>
+    /// and <see cref="ContentProcessor.RestoreState"/>), from the graphics state at the beginning of the stream that selected the
+    /// pattern, with the CTM set to the pattern space (<see cref="PdfPattern.GetPatternSpace"/>), the clip intersected with the cell's
+    /// bounding box (a <see cref="ClipKind.Rectangle"/> clip event), <see cref="RunKind"/> <see cref="ContentRunKind.Pattern"/> and the
+    /// pattern's resources (the current ones when it has none). One cell is run, at the origin of pattern space; replicating it every
+    /// XStep and YStep is the processor's.
+    /// </para>
+    /// <para>
+    /// §8.7.3.3: for an uncoloured pattern the current colours are the colour given with the pattern, in the underlying colour space,
+    /// and colour operators, <c>sh</c> and anything run from the cell that sets colours are ignored with a diagnostic.
+    /// </para>
+    /// </remarks>
+    public bool RunPatternCell(in PdfColor color, ContentProcessor processor)
+    {
+        ArgumentNullException.ThrowIfNull(processor);
+        if (Document is null)
+        {
+            throw new InvalidOperationException("A pattern cell can only run during a content run's callbacks.");
+        }
+
+        return _interpreter.RunPatternCell(color, processor);
+    }
+
     /// <summary>Returns the clip node a clip handle refers to, such as <see cref="GraphicsState.ClipHandle"/>.</summary>
     /// <param name="handle">The handle; 0 for the run's initial clipping path.</param>
     /// <returns>The node; a node of kind <see cref="ClipKind.Initial"/> for 0 and for a handle this run did not issue.</returns>

@@ -52,6 +52,7 @@ internal static class FuzzTargets
         ["optional-content"] = OptionalContentTarget.Target,
         ["font-truetype"] = FontTrueType,
         ["colorspace"] = ColorSpaceTarget,
+        ["shading-mesh"] = ShadingMeshTarget.Target,
     };
 
     private static readonly CosName ContentsKey = new("Contents");
@@ -1318,7 +1319,42 @@ internal sealed class CheckingProcessor : ContentProcessor
         }
     }
 
-    public override void PaintPath(in PathEvent path, ContentContext context) => Check(path.Path);
+    public override void PaintPath(in PathEvent path, ContentContext context)
+    {
+        Check(path.Path);
+
+        // Pattern fills (issue #79): resolve the pattern and run tiling cells a few levels deep (deeper nesting is exponential work).
+        PdfColor color = context.State.FillColor;
+        if (context.GetPattern(color) is PdfTilingPattern && context.Depth < 3)
+        {
+            int depth = context.StateDepth;
+            context.RunPatternCell(color, this);
+            Check(path.Path);
+            if (context.StateDepth != depth)
+            {
+                throw new InvalidOperationException("A pattern cell changed the state depth of the paint that ran it.");
+            }
+        }
+    }
+
+    public override void PaintShading(in ShadingEvent shading, ContentContext context)
+    {
+        // Mesh shadings decode on first access (issue #79): every triangle names a vertex.
+        if (shading.Model is PdfTriangleMeshShading mesh)
+        {
+            foreach (int vertex in mesh.Triangles)
+            {
+                if ((uint)vertex >= (uint)mesh.VertexCount)
+                {
+                    throw new InvalidOperationException("A mesh triangle names a vertex that was not decoded.");
+                }
+            }
+        }
+        else if (shading.Model is PdfPatchMeshShading patches && patches.ControlPoints.Length != patches.PatchCount * 16)
+        {
+            throw new InvalidOperationException("A patch mesh does not have 16 control points per patch.");
+        }
+    }
 
     public override void IntersectClip(in ClipEvent clip, ContentContext context)
     {
