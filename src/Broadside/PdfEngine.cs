@@ -1,4 +1,6 @@
 using Broadside.IO;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Options;
 
 namespace Broadside;
 
@@ -26,6 +28,27 @@ public sealed class PdfEngine
     {
         ArgumentNullException.ThrowIfNull(options);
         _configuration = EngineConfiguration.From(options);
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="PdfEngine"/> class from the options pattern: the constructor dependency injection
+    /// uses, which <see cref="Microsoft.Extensions.DependencyInjection.BroadsideServiceCollectionExtensions.AddBroadside(Microsoft.Extensions.DependencyInjection.IServiceCollection)"/>
+    /// registers.
+    /// </summary>
+    /// <param name="options">
+    /// The options. Their <see cref="IOptions{TOptions}.Value"/> is read once, here, and copied, so the engine behaves exactly like
+    /// one built with <see cref="PdfEngine(PdfOptions)"/> from the same values.
+    /// </param>
+    /// <param name="loggerFactory">
+    /// Where diagnostics are logged, unless the options name their own logger factory through
+    /// <see cref="PdfOptions.WithLoggerFactory"/>; <see langword="null"/> logs nothing.
+    /// </param>
+    /// <remarks>Spec #33, user stories 43 and 45: one engine for the fluent and the hosted paths.</remarks>
+    public PdfEngine(IOptions<PdfOptions> options, ILoggerFactory? loggerFactory = null)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        PdfOptions value = options.Value ?? throw new ArgumentException("The options have no value.", nameof(options));
+        _configuration = EngineConfiguration.From(value, loggerFactory);
     }
 
     /// <summary>Gets the engine the static entry points use when no options are given: default options, no state.</summary>

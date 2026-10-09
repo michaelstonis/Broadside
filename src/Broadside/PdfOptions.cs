@@ -1,3 +1,5 @@
+using Microsoft.Extensions.Logging;
+
 namespace Broadside;
 
 /// <summary>
@@ -27,6 +29,28 @@ public sealed class PdfOptions
     public PdfOptions UseStrict()
     {
         ReadingMode = PdfReadingMode.Strict;
+        return this;
+    }
+
+    /// <summary>Gets the logger factory set by <see cref="WithLoggerFactory"/>, or <see langword="null"/>.</summary>
+    /// <remarks>Not a property, so configuration binding never sees it.</remarks>
+    internal ILoggerFactory? LoggerFactory { get; private set; }
+
+    /// <summary>
+    /// Logs every diagnostic through <paramref name="loggerFactory"/> as well as recording it on the document. Without it, an engine
+    /// built through dependency injection logs through the container's logger factory and any other engine logs nothing.
+    /// </summary>
+    /// <param name="loggerFactory">The logger factory, or <see langword="null"/> to use the container's or none.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>
+    /// ADR 0005 and spec #33, user story 45. Diagnostics are logged under the category <c>Broadside.PdfDocument</c> with event id 1,
+    /// <c>Diagnostic</c>, at <see cref="LogLevel.Warning"/> or <see cref="LogLevel.Error"/> after their severity, with the structured
+    /// values <c>Code</c>, <c>Severity</c>, <c>Offset</c>, <c>ObjectReference</c> and <c>Message</c>. In strict mode the deviation is
+    /// logged before it is thrown.
+    /// </remarks>
+    public PdfOptions WithLoggerFactory(ILoggerFactory? loggerFactory)
+    {
+        LoggerFactory = loggerFactory;
         return this;
     }
 }
