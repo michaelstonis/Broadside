@@ -3,6 +3,7 @@ using Broadside.Content;
 using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Fonts;
+using Broadside.Fonts.TrueType;
 using Broadside.Graphics;
 using Broadside.IO;
 using Broadside.Objects;
@@ -49,6 +50,7 @@ internal static class FuzzTargets
         ["function-type4"] = FunctionType4,
         ["function-sampled"] = FunctionSampled,
         ["optional-content"] = OptionalContentTarget.Target,
+        ["font-truetype"] = FontTrueType,
     };
 
     private static readonly CosName ContentsKey = new("Contents");
@@ -227,6 +229,127 @@ internal static class FuzzTargets
                         throw new InvalidOperationException($"Code {code} of font {entry.Key.Value} has no glyph name or a width that is not finite.");
                     }
                 }
+            }
+
+            if (font is PdfTrueTypeFont trueType && trueType.Program is { } program)
+            {
+                var outline = new GlyphOutline();
+                for (int code = 0; code < 256; code++)
+                {
+                    int glyph = trueType.GetGlyphId((byte)code);
+                    if (glyph < 0 || (glyph > 0 && glyph >= program.GlyphCount))
+                    {
+                        throw new InvalidOperationException($"Code {code} of font {entry.Key.Value} selects glyph {glyph} of {program.GlyphCount}.");
+                    }
+
+                    CheckOutline(program.GetOutline(glyph, outline), outline);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Parses the input as a TrueType program (issue #50) and reads all of it: every glyph's outline (up to 4,096 glyphs) and metrics,
+    /// every "cmap" subtable for the codes 0 to 0x1FF and 0xF000 to 0xF0FF, every "post" name and its reverse lookup. An input that
+    /// starts with <c>%PDF-</c> is read from its first <c>00 01 00 00</c>, so the TrueType corpus files seed the target with their
+    /// unfiltered programs. Every outline must be well formed (each contour a moveto ... close, as many points as its verbs take,
+    /// finite coordinates, empty exactly when not <see cref="GlyphOutlineStatus.Complete"/>) and every glyph id inside the program.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.9 and §9.6.5.4; OpenType "glyf", "loca", "cmap", "post", "hmtx" tables.</remarks>
+    private static void FontTrueType(ReadOnlySpan<byte> data)
+    {
+        if (data.StartsWith("%PDF-"u8))
+        {
+            int start = data.IndexOf((ReadOnlySpan<byte>)[0, 1, 0, 0]);
+            if (start < 0)
+            {
+                return;
+            }
+
+            data = data[start..];
+        }
+
+        byte[] bytes = data.ToArray();
+        var parser = new TrueTypeFontProgramParser();
+        _ = parser.CanParse(bytes);
+        if (parser.Parse(bytes, new FontProgramContext()) is not { } program)
+        {
+            return;
+        }
+
+        _ = (program.FontBBox, program.Ascender, program.Descender, program.LineGap, program.PostScriptName, program.FontMatrix);
+        var outline = new GlyphOutline();
+        int glyphs = Math.Min(program.GlyphCount, 4096);
+        for (int glyph = -1; glyph <= glyphs; glyph++)
+        {
+            CheckOutline(program.GetOutline(glyph, outline), outline);
+            GlyphMetrics metrics = program.GetMetrics(glyph);
+            if (!double.IsFinite(metrics.AdvanceWidth) || !double.IsFinite(metrics.LeftSideBearing))
+            {
+                throw new InvalidOperationException($"Glyph {glyph} has metrics that are not finite.");
+            }
+
+            if (program.GetGlyphName(glyph) is { } name && (!program.TryGetGlyphId(name, out int named) || named > glyph))
+            {
+                throw new InvalidOperationException($"Glyph {glyph} is named {name}, but the name finds glyph {named}.");
+            }
+        }
+
+        foreach (FontCharacterMap map in program.CharacterMaps)
+        {
+            for (int code = 0; code < 0x200; code++)
+            {
+                CheckGlyphId(map, code, program.GlyphCount);
+            }
+
+            for (int code = 0xF000; code < 0xF100; code++)
+            {
+                CheckGlyphId(map, code, program.GlyphCount);
+            }
+        }
+    }
+
+    private static void CheckGlyphId(FontCharacterMap map, int code, int glyphCount)
+    {
+        int glyph = map.GetGlyphId(code);
+        if (glyph < 0 || (glyph > 0 && glyph >= glyphCount))
+        {
+            throw new InvalidOperationException($"The ({map.PlatformId}, {map.EncodingId}) subtable maps code {code} to glyph {glyph} of {glyphCount}.");
+        }
+    }
+
+    /// <summary>A glyph outline must be contours of moveto, segments and close, with the points its verbs take, all finite.</summary>
+    private static void CheckOutline(GlyphOutlineStatus status, GlyphOutline outline)
+    {
+        PathView path = outline.Path;
+        if ((status == GlyphOutlineStatus.Complete) == path.IsEmpty)
+        {
+            throw new InvalidOperationException($"Status {status} with {path.Verbs.Length} verbs.");
+        }
+
+        int points = 0;
+        bool open = false;
+        foreach (PathVerb verb in path.Verbs)
+        {
+            if (open == (verb == PathVerb.MoveTo) || (!open && verb == PathVerb.Close))
+            {
+                throw new InvalidOperationException($"A {verb} where a contour is {(open ? "open" : "not open")}.");
+            }
+
+            open = verb != PathVerb.Close;
+            points += verb switch { PathVerb.MoveTo or PathVerb.LineTo => 1, PathVerb.QuadTo => 2, PathVerb.CubicTo => 3, _ => 0 };
+        }
+
+        if (open || points != path.Points.Length)
+        {
+            throw new InvalidOperationException($"The outline ends inside a contour or has {path.Points.Length} points for verbs taking {points}.");
+        }
+
+        foreach (PathPoint point in path.Points)
+        {
+            if (!double.IsFinite(point.X) || !double.IsFinite(point.Y))
+            {
+                throw new InvalidOperationException($"Point {point} is not finite.");
             }
         }
     }

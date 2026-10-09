@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Runtime.CompilerServices;
 using Broadside.Annotations;
+using Broadside.Caching;
 using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Fonts;
@@ -61,6 +62,8 @@ public sealed partial class PdfDocument : IDisposable
     private readonly ObjectLoader _loader;
     private readonly StreamDecoder _streams;
     private readonly ConditionalWeakTable<CosDictionary, PdfFont> _fonts = [];
+    private readonly FontProgramParserRegistry _fontProgramParsers;
+    private readonly OnceCache<FontFileKey, FontProgram?> _fontPrograms = new();
     private readonly ConditionalWeakTable<CosDictionary, NameTreeReader> _nameTrees = [];
     private readonly ConditionalWeakTable<CosDictionary, NumberTreeReader> _numberTrees = [];
     private StructureContext? _structure;
@@ -75,8 +78,10 @@ public sealed partial class PdfDocument : IDisposable
         CosDictionary catalog,
         IReadOnlyList<PdfRevision> revisions,
         PdfLinearization? linearization,
-        PdfSecurity? security)
+        PdfSecurity? security,
+        FontProgramParserRegistry fontProgramParsers)
     {
+        _fontProgramParsers = fontProgramParsers;
         Security = security;
         _source = source;
         _diagnostics = diagnostics;
@@ -847,6 +852,24 @@ public sealed partial class PdfDocument : IDisposable
     /// <inheritdoc/>
     public void Dispose() => _source.Dispose();
 
+    /// <summary>
+    /// Returns the parsed program of a font file stream, parsing it on first use with the engine's font program parsers (issue #50):
+    /// once per stream however many fonts and threads ask, again only after the stream changes.
+    /// </summary>
+    /// <param name="stream">The font file stream.</param>
+    /// <param name="reference">The reference it was reached through, which its diagnostics carry.</param>
+    /// <param name="source">The font descriptor entry it comes from.</param>
+    /// <param name="isCidFont">Whether it belongs to a CIDFont.</param>
+    /// <param name="font">The font asking, whose <c>BaseFont</c> picks the font of a font collection.</param>
+    /// <returns>The program, or <see langword="null"/> when no parser reads it.</returns>
+    /// <remarks>ISO 32000-2 §9.9.</remarks>
+    internal FontProgram? GetFontProgram(CosStream stream, CosReference? reference, FontProgramSource source, bool isCidFont, PdfFont font) =>
+        _fontPrograms.GetOrCreate(
+            new FontFileKey(stream, stream.Version),
+            (Document: this, Reference: reference, Source: source, IsCidFont: isCidFont, Font: font),
+            static (key, state) => new Created<FontProgram?>(state.Document.ParseFontProgram(key.Stream, state.Reference, state.Source, state.IsCidFont, state.Font.FaceName)),
+            static (_, _) => null);
+
     /// <summary>Gets the document's functions, compiled once each (issue #78): the seam colour spaces, graphics states and shadings use.</summary>
     internal FunctionCache Functions { get; }
 
@@ -972,7 +995,7 @@ public sealed partial class PdfDocument : IDisposable
             }
 
             PdfLinearization? linearization = LinearizationReader.Read(source, loader, diagnostics);
-            var document = new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security);
+            var document = new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security, configuration.FontProgramParsers);
 
             // Table 15: ID is "required in PDF 2.0 or if an Encrypt entry is present" (the latter is the security handler's
             // EncryptionIdMissing).

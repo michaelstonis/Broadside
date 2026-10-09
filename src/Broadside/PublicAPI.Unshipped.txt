@@ -1,4 +1,12 @@
 #nullable enable
+abstract Broadside.Fonts.FontCharacterMap.EncodingId.get -> int
+abstract Broadside.Fonts.FontCharacterMap.Format.get -> int
+abstract Broadside.Fonts.FontCharacterMap.GetGlyphId(int code) -> int
+abstract Broadside.Fonts.FontCharacterMap.PlatformId.get -> int
+abstract Broadside.Fonts.FontProgram.FontMatrix.get -> Broadside.Graphics.Matrix
+abstract Broadside.Fonts.FontProgram.Format.get -> Broadside.Fonts.FontProgramFormat
+abstract Broadside.Fonts.FontProgram.GetOutline(int glyphId, Broadside.Fonts.GlyphOutline! outline) -> Broadside.Fonts.GlyphOutlineStatus
+abstract Broadside.Fonts.FontProgram.GlyphCount.get -> int
 abstract Broadside.Objects.CosNumber.ToDouble() -> double
 Broadside.Annotations.Pdf3DAnnotation
 Broadside.Annotations.Pdf3DAnnotation.Activation.get -> Broadside.Objects.CosDictionary?
@@ -589,6 +597,78 @@ Broadside.Content.ShadingEvent.IsHidden.get -> bool
 Broadside.Content.ShadingEvent.ResourceName.get -> System.ReadOnlySpan<byte>
 Broadside.Content.ShadingEvent.Shading.get -> Broadside.Objects.CosObject?
 Broadside.Content.ShadingEvent.ShadingEvent() -> void
+Broadside.Fonts.FontCharacterMap
+Broadside.Fonts.FontCharacterMap.FontCharacterMap() -> void
+Broadside.Fonts.FontProgram
+Broadside.Fonts.FontProgram.FontProgram() -> void
+Broadside.Fonts.FontProgramContext
+Broadside.Fonts.FontProgramContext.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.Fonts.FontProgramContext.FaceIndex.get -> int
+Broadside.Fonts.FontProgramContext.FaceIndex.init -> void
+Broadside.Fonts.FontProgramContext.FaceName.get -> string?
+Broadside.Fonts.FontProgramContext.FaceName.init -> void
+Broadside.Fonts.FontProgramContext.FontProgramContext() -> void
+Broadside.Fonts.FontProgramContext.IsCidFont.get -> bool
+Broadside.Fonts.FontProgramContext.IsCidFont.init -> void
+Broadside.Fonts.FontProgramContext.Length1.get -> long?
+Broadside.Fonts.FontProgramContext.Length1.init -> void
+Broadside.Fonts.FontProgramContext.Length2.get -> long?
+Broadside.Fonts.FontProgramContext.Length2.init -> void
+Broadside.Fonts.FontProgramContext.Length3.get -> long?
+Broadside.Fonts.FontProgramContext.Length3.init -> void
+Broadside.Fonts.FontProgramContext.MaxCompositeDepth.get -> int
+Broadside.Fonts.FontProgramContext.MaxCompositeDepth.init -> void
+Broadside.Fonts.FontProgramContext.MaxGlyphPoints.get -> int
+Broadside.Fonts.FontProgramContext.MaxGlyphPoints.init -> void
+Broadside.Fonts.FontProgramContext.ReadingMode.get -> Broadside.PdfReadingMode
+Broadside.Fonts.FontProgramContext.ReadingMode.init -> void
+Broadside.Fonts.FontProgramContext.Report(string! code, Broadside.Diagnostics.DiagnosticSeverity severity, string! message) -> void
+Broadside.Fonts.FontProgramContext.Source.get -> Broadside.Fonts.FontProgramSource
+Broadside.Fonts.FontProgramContext.Source.init -> void
+Broadside.Fonts.FontProgramContext.Subtype.get -> Broadside.Objects.CosName?
+Broadside.Fonts.FontProgramContext.Subtype.init -> void
+Broadside.Fonts.FontProgramFormat
+Broadside.Fonts.FontProgramFormat.Cff = 2 -> Broadside.Fonts.FontProgramFormat
+Broadside.Fonts.FontProgramFormat.OpenType = 1 -> Broadside.Fonts.FontProgramFormat
+Broadside.Fonts.FontProgramFormat.TrueType = 0 -> Broadside.Fonts.FontProgramFormat
+Broadside.Fonts.FontProgramFormat.Type1 = 3 -> Broadside.Fonts.FontProgramFormat
+Broadside.Fonts.FontProgramSource
+Broadside.Fonts.FontProgramSource.FontFile = 1 -> Broadside.Fonts.FontProgramSource
+Broadside.Fonts.FontProgramSource.FontFile2 = 2 -> Broadside.Fonts.FontProgramSource
+Broadside.Fonts.FontProgramSource.FontFile3 = 3 -> Broadside.Fonts.FontProgramSource
+Broadside.Fonts.FontProgramSource.Unspecified = 0 -> Broadside.Fonts.FontProgramSource
+Broadside.Fonts.GlyphMetrics
+Broadside.Fonts.GlyphMetrics.AdvanceWidth.get -> double
+Broadside.Fonts.GlyphMetrics.AdvanceWidth.init -> void
+Broadside.Fonts.GlyphMetrics.GlyphMetrics() -> void
+Broadside.Fonts.GlyphMetrics.GlyphMetrics(double AdvanceWidth, double LeftSideBearing) -> void
+Broadside.Fonts.GlyphMetrics.LeftSideBearing.get -> double
+Broadside.Fonts.GlyphMetrics.LeftSideBearing.init -> void
+Broadside.Fonts.GlyphOutline
+Broadside.Fonts.GlyphOutline.Clear() -> void
+Broadside.Fonts.GlyphOutline.Close() -> void
+Broadside.Fonts.GlyphOutline.CubicTo(double control1X, double control1Y, double control2X, double control2Y, double x, double y) -> void
+Broadside.Fonts.GlyphOutline.GlyphOutline() -> void
+Broadside.Fonts.GlyphOutline.IsEmpty.get -> bool
+Broadside.Fonts.GlyphOutline.LineTo(double x, double y) -> void
+Broadside.Fonts.GlyphOutline.MoveTo(double x, double y) -> void
+Broadside.Fonts.GlyphOutline.Path.get -> Broadside.Graphics.PathView
+Broadside.Fonts.GlyphOutline.QuadTo(double controlX, double controlY, double x, double y) -> void
+Broadside.Fonts.GlyphOutlineStatus
+Broadside.Fonts.GlyphOutlineStatus.Complete = 0 -> Broadside.Fonts.GlyphOutlineStatus
+Broadside.Fonts.GlyphOutlineStatus.Empty = 1 -> Broadside.Fonts.GlyphOutlineStatus
+Broadside.Fonts.GlyphOutlineStatus.Invalid = 2 -> Broadside.Fonts.GlyphOutlineStatus
+Broadside.Fonts.IFontProgramParser
+Broadside.Fonts.IFontProgramParser.CanParse(System.ReadOnlySpan<byte> data) -> bool
+Broadside.Fonts.IFontProgramParser.Formats.get -> System.Collections.Generic.IReadOnlyList<Broadside.Fonts.FontProgramFormat>!
+Broadside.Fonts.IFontProgramParser.Parse(System.ReadOnlyMemory<byte> data, Broadside.Fonts.FontProgramContext! context) -> Broadside.Fonts.FontProgram?
+Broadside.Fonts.PdfFont.Program.get -> Broadside.Fonts.FontProgram?
+Broadside.Fonts.PdfTrueTypeFont.GetGlyphId(byte code) -> int
+Broadside.Fonts.TrueType.TrueTypeFontProgramParser
+Broadside.Fonts.TrueType.TrueTypeFontProgramParser.CanParse(System.ReadOnlySpan<byte> data) -> bool
+Broadside.Fonts.TrueType.TrueTypeFontProgramParser.Formats.get -> System.Collections.Generic.IReadOnlyList<Broadside.Fonts.FontProgramFormat>!
+Broadside.Fonts.TrueType.TrueTypeFontProgramParser.Parse(System.ReadOnlyMemory<byte> data, Broadside.Fonts.FontProgramContext! context) -> Broadside.Fonts.FontProgram?
+Broadside.Fonts.TrueType.TrueTypeFontProgramParser.TrueTypeFontProgramParser() -> void
 Broadside.Graphics.BlendMode
 Broadside.Graphics.BlendMode.Color = 14 -> Broadside.Graphics.BlendMode
 Broadside.Graphics.BlendMode.ColorBurn = 7 -> Broadside.Graphics.BlendMode
@@ -774,6 +854,7 @@ Broadside.Objects.CosString.CosString(System.ReadOnlySpan<byte> bytes, bool hexa
 Broadside.Objects.CosString.DecodeText() -> string!
 Broadside.Objects.CosString.Equals(Broadside.Objects.CosString? other) -> bool
 Broadside.Objects.CosString.IsHexadecimal.get -> bool
+Broadside.PdfOptions.UseFontProgramParser(Broadside.Fonts.IFontProgramParser! parser) -> Broadside.PdfOptions!
 Broadside.PdfPage.Annotations.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfAnnotation!>!
 Broadside.PdfAction.EnumerateActionTree(int maxDepth = 64) -> System.Collections.Generic.IEnumerable<Broadside.PdfAction!>!
 Broadside.PdfAction.Next.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfAction!>!
@@ -997,6 +1078,8 @@ Broadside.PdfWindowsLaunchParameters.Parameters.get -> Broadside.Objects.CosStri
 const Broadside.Content.ContentOptions.DefaultMaxNestingDepth = 50 -> int
 const Broadside.Content.ContentOptions.DefaultMaxOperands = 65536 -> int
 const Broadside.Content.ContentOptions.DefaultMaxSaveDepth = 4096 -> int
+const Broadside.Fonts.FontProgramContext.DefaultMaxCompositeDepth = 16 -> int
+const Broadside.Fonts.FontProgramContext.DefaultMaxGlyphPoints = 65536 -> int
 Broadside.PdfAssociatedFile
 Broadside.PdfAssociatedFile.File.get -> Broadside.PdfFileSpecification!
 Broadside.PdfAssociatedFile.Location.get -> Broadside.PdfAssociatedFileLocation
@@ -1443,6 +1526,15 @@ virtual Broadside.Content.ContentProcessor.RestoreState(Broadside.Content.Conten
 virtual Broadside.Content.ContentProcessor.SaveState(Broadside.Content.ContentContext! context) -> void
 virtual Broadside.Content.ContentProcessor.ShowGlyph(in Broadside.Content.GlyphEvent glyph, Broadside.Content.ContentContext! context) -> void
 virtual Broadside.Content.ContentProcessor.VisitOperator(in Broadside.Content.ContentOperator op, Broadside.Content.ContentContext! context) -> void
+virtual Broadside.Fonts.FontProgram.Ascender.get -> double
+virtual Broadside.Fonts.FontProgram.CharacterMaps.get -> System.Collections.Generic.IReadOnlyList<Broadside.Fonts.FontCharacterMap!>!
+virtual Broadside.Fonts.FontProgram.Descender.get -> double
+virtual Broadside.Fonts.FontProgram.FontBBox.get -> Broadside.PdfRectangle
+virtual Broadside.Fonts.FontProgram.GetGlyphName(int glyphId) -> string?
+virtual Broadside.Fonts.FontProgram.GetMetrics(int glyphId) -> Broadside.Fonts.GlyphMetrics
+virtual Broadside.Fonts.FontProgram.LineGap.get -> double
+virtual Broadside.Fonts.FontProgram.PostScriptName.get -> string?
+virtual Broadside.Fonts.FontProgram.TryGetGlyphId(string! glyphName, out int glyphId) -> bool
 static Broadside.PdfCollectionIdRange.operator !=(Broadside.PdfCollectionIdRange left, Broadside.PdfCollectionIdRange right) -> bool
 static Broadside.PdfCollectionIdRange.operator ==(Broadside.PdfCollectionIdRange left, Broadside.PdfCollectionIdRange right) -> bool
 virtual Broadside.Objects.CosObject.IsDirty.get -> bool

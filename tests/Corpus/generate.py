@@ -654,6 +654,262 @@ def minimal_truetype() -> tuple[bytes, dict[int, int]]:
     return bytes(font), {c: advances[g] for c, g in chars.items()}
 
 
+# The standard Macintosh glyph order of the 'post' table (Apple TrueType Reference Manual, "The 'post' table").
+MAC_STANDARD_NAMES = (
+    ".notdef .null nonmarkingreturn space exclam quotedbl numbersign dollar percent ampersand quotesingle parenleft "
+    "parenright asterisk plus comma hyphen period slash zero one two three four five six seven eight nine colon "
+    "semicolon less equal greater question at A B C D E F G H I J K L M N O P Q R S T U V W X Y Z bracketleft "
+    "backslash bracketright asciicircum underscore grave a b c d e f g h i j k l m n o p q r s t u v w x y z "
+    "braceleft bar braceright asciitilde Adieresis Aring Ccedilla Eacute Ntilde Odieresis Udieresis aacute agrave "
+    "acircumflex adieresis atilde aring ccedilla eacute egrave ecircumflex edieresis iacute igrave icircumflex "
+    "idieresis ntilde oacute ograve ocircumflex odieresis otilde uacute ugrave ucircumflex udieresis dagger degree "
+    "cent sterling section bullet paragraph germandbls registered copyright trademark acute dieresis notequal AE "
+    "Oslash infinity plusminus lessequal greaterequal yen mu partialdiff summation product pi integral ordfeminine "
+    "ordmasculine Omega ae oslash questiondown exclamdown logicalnot radical florin approxequal Delta guillemotleft "
+    "guillemotright ellipsis nonbreakingspace Agrave Atilde Otilde OE oe endash emdash quotedblleft quotedblright "
+    "quoteleft quoteright divide lozenge ydieresis Ydieresis fraction currency guilsinglleft guilsinglright fi fl "
+    "daggerdbl periodcentered quotesinglbase quotedblbase perthousand Acircumflex Ecircumflex Aacute Edieresis Egrave "
+    "Iacute Icircumflex Idieresis Igrave Oacute Ocircumflex apple Ograve Uacute Ucircumflex Ugrave dotlessi "
+    "circumflex tilde macron breve dotaccent ring cedilla hungarumlaut ogonek caron Lslash lslash Scaron scaron "
+    "Zcaron zcaron brokenbar Eth eth Yacute yacute Thorn thorn minus multiply onesuperior twosuperior threesuperior "
+    "onehalf onequarter threequarters franc Gbreve gbreve Idotaccent Scedilla scedilla Cacute cacute Ccaron ccaron "
+    "dcroat").split()
+assert len(MAC_STANDARD_NAMES) == 258
+
+# Composite glyph component flags (OpenType 'glyf' table).
+ARG_WORDS, ARGS_XY, HAVE_SCALE, MORE_COMPONENTS = 0x0001, 0x0002, 0x0008, 0x0020
+HAVE_X_AND_Y_SCALE, HAVE_TWO_BY_TWO, HAVE_INSTRUCTIONS, USE_MY_METRICS = 0x0040, 0x0080, 0x0100, 0x0200
+SCALED_OFFSET, UNSCALED_OFFSET = 0x0800, 0x1000
+
+
+def f2dot14(value: float) -> bytes:
+    return struct.pack(">h", round(value * 16384))
+
+
+class TtfGlyph:
+    """A glyph of a synthesized TrueType font: simple (points with on-curve flags) or composite (component records)."""
+
+    def __init__(self, contours=None, components=None, instructions: bytes = b""):
+        self.contours = contours or []      # [[(x, y, on_curve), ...], ...]
+        self.components = components or []  # [(flags, glyph, arg1, arg2, transform), ...]
+        self.instructions = instructions
+
+
+def _f2(data: bytes) -> list[float]:
+    return [v / 16384 for v in struct.unpack(">%dh" % (len(data) // 2), data)]
+
+
+def _glyph_points(glyphs: list[TtfGlyph], gid: int) -> list[tuple[float, float]]:
+    """The points of a glyph with composites applied (only to compute the header bounding boxes)."""
+    g = glyphs[gid]
+    if not g.components:
+        return [(x, y) for c in g.contours for x, y, _ in c]
+    points: list[tuple[float, float]] = []
+    for flags, child, a1, a2, transform in g.components:
+        pts = _glyph_points(glyphs, child)
+        m = [1.0, 0.0, 0.0, 1.0]  # xscale, scale01, scale10, yscale
+        if flags & HAVE_SCALE:
+            s = _f2(transform)[0]
+            m = [s, 0.0, 0.0, s]
+        elif flags & HAVE_X_AND_Y_SCALE:
+            sx, sy = _f2(transform)
+            m = [sx, 0.0, 0.0, sy]
+        elif flags & HAVE_TWO_BY_TWO:
+            m = _f2(transform)
+        pts = [(m[0] * x + m[2] * y, m[1] * x + m[3] * y) for x, y in pts]
+        if flags & ARGS_XY:
+            dx, dy = a1, a2
+            if transform and flags & SCALED_OFFSET and not flags & UNSCALED_OFFSET:
+                dx, dy = dx * (m[0] ** 2 + m[2] ** 2) ** 0.5, dy * (m[3] ** 2 + m[1] ** 2) ** 0.5
+        else:
+            dx, dy = points[a1][0] - pts[a2][0], points[a1][1] - pts[a2][1]
+        points += [(x + dx, y + dy) for x, y in pts]
+    return points
+
+
+def _glyph_bbox(glyphs: list[TtfGlyph], gid: int) -> tuple[int, int, int, int]:
+    pts = _glyph_points(glyphs, gid)
+    if not pts:
+        return (0, 0, 0, 0)
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    return (int(min(xs)), int(min(ys)), int(max(xs)), int(max(ys)))
+
+
+def _encode_glyph(glyphs: list[TtfGlyph], gid: int) -> bytes:
+    """Encodes a glyph description: simple glyphs with short and same coordinates and repeated flags where they fit."""
+    g = glyphs[gid]
+    if not g.contours and not g.components:
+        return b""
+    bbox = _glyph_bbox(glyphs, gid)
+    if g.components:
+        out = struct.pack(">hhhhh", -1, *bbox)
+        for i, (flags, child, a1, a2, transform) in enumerate(g.components):
+            last = i == len(g.components) - 1
+            flags |= 0 if last else MORE_COMPONENTS
+            if last and g.instructions:
+                flags |= HAVE_INSTRUCTIONS
+            out += struct.pack(">HH", flags, child)
+            fmt = (">hh" if flags & ARGS_XY else ">HH") if flags & ARG_WORDS else (">bb" if flags & ARGS_XY else ">BB")
+            out += struct.pack(fmt, a1, a2) + transform
+        if g.instructions:
+            out += struct.pack(">H", len(g.instructions)) + g.instructions
+        return out
+    pts = [p for c in g.contours for p in c]
+    out = struct.pack(">hhhhh", len(g.contours), *bbox)
+    end = -1
+    for c in g.contours:
+        end += len(c)
+        out += struct.pack(">H", end)
+    out += struct.pack(">H", len(g.instructions)) + g.instructions
+    flags, xs, ys = [], b"", b""
+    px = py = 0
+    for x, y, on in pts:
+        dx, dy = x - px, y - py
+        px, py = x, y
+        f = 0x01 if on else 0x00
+        if dx == 0:
+            f |= 0x10
+        elif -255 <= dx <= 255:
+            f |= 0x02 | (0x10 if dx > 0 else 0)
+            xs += bytes([abs(dx)])
+        else:
+            xs += struct.pack(">h", dx)
+        if dy == 0:
+            f |= 0x20
+        elif -255 <= dy <= 255:
+            f |= 0x04 | (0x20 if dy > 0 else 0)
+            ys += bytes([abs(dy)])
+        else:
+            ys += struct.pack(">h", dy)
+        flags.append(f)
+    packed = b""
+    i = 0
+    while i < len(flags):  # a run of equal flags is written once with REPEAT (0x08) and a count
+        run = 1
+        while i + run < len(flags) and flags[i + run] == flags[i] and run < 256:
+            run += 1
+        packed += bytes([flags[i] | 0x08, run - 1]) if run > 1 else bytes([flags[i]])
+        i += run
+    return out + packed + xs + ys
+
+
+def cmap_format0(mapping: dict[int, int]) -> bytes:
+    return struct.pack(">HHH", 0, 262, 0) + bytes(mapping.get(c, 0) for c in range(256))
+
+
+def cmap_format4(segments: list[tuple[int, int, int, list[int] | None]]) -> bytes:
+    """Segments (start, end, idDelta, glyph ids or None); glyph ids go through idRangeOffset into glyphIdArray."""
+    segments = segments + [(0xFFFF, 0xFFFF, 1, None)]
+    n = len(segments)
+    ends = b"".join(struct.pack(">H", e) for _, e, _, _ in segments)
+    starts = b"".join(struct.pack(">H", s) for s, _, _, _ in segments)
+    deltas = b"".join(struct.pack(">H", d & 0xFFFF) for _, _, d, _ in segments)
+    offsets, array = b"", b""
+    for i, (_, _, _, ids) in enumerate(segments):
+        if ids is None:
+            offsets += struct.pack(">H", 0)
+        else:
+            offsets += struct.pack(">H", 2 * (n - i) + len(array))
+            array += b"".join(struct.pack(">H", g) for g in ids)
+    es = n.bit_length() - 1
+    body = struct.pack(">HHHH", 2 * n, 2 * (1 << es), es, 2 * n - 2 * (1 << es)) + ends + b"\0\0" + starts + deltas + offsets + array
+    return struct.pack(">HHH", 4, 6 + len(body), 0) + body
+
+
+def cmap_format6(first: int, ids: list[int]) -> bytes:
+    return struct.pack(">HHHHH", 6, 10 + 2 * len(ids), 0, first, len(ids)) + b"".join(struct.pack(">H", g) for g in ids)
+
+
+def cmap_format12(groups: list[tuple[int, int, int]]) -> bytes:
+    body = b"".join(struct.pack(">III", s, e, g) for s, e, g in groups)
+    return struct.pack(">HHIII", 12, 0, 16 + len(body), 0, len(groups)) + body
+
+
+def cmap_table(subtables: list[tuple[int, int, bytes]]) -> bytes:
+    subtables = sorted(subtables, key=lambda t: (t[0], t[1]))
+    out = struct.pack(">HH", 0, len(subtables))
+    offset = 4 + 8 * len(subtables)
+    data = b""
+    for platform, encoding, sub in subtables:
+        out += struct.pack(">HHI", platform, encoding, offset + len(data))
+        data += sub
+    return out + data
+
+
+def post_table(version: int, names: list[str] | None = None) -> bytes:
+    """'post' version 0x00010000, 0x00020000 (names: index into the standard order or Pascal strings) or 0x00030000."""
+    out = struct.pack(">IiHHIIIII", version, 0, 0, 0, 0, 0, 0, 0, 0)
+    if version == 0x00020000:
+        indexes, strings = [], b""
+        custom: list[str] = []
+        for name in names or []:
+            if name in MAC_STANDARD_NAMES:
+                indexes.append(MAC_STANDARD_NAMES.index(name))
+            else:
+                indexes.append(258 + len(custom))
+                custom.append(name)
+                strings += bytes([len(name)]) + name.encode("ascii")
+        out += struct.pack(">H", len(indexes)) + b"".join(struct.pack(">H", i) for i in indexes) + strings
+    return out
+
+
+def ttf_font(glyphs: list[TtfGlyph], metrics: list[tuple[int, int]], n_hmetrics: int, cmap: bytes, post: bytes,
+             ps_name: str, long_loca: bool = False, pad: bool = True) -> bytes:
+    """A TrueType program from glyphs, (advance, lsb) per glyph (advances past n_hmetrics are dropped), cmap and post.
+
+    Tables: head, hhea, maxp, hmtx, loca, glyf, cmap, name, post (the ones ISO 32000-2 Table 124 and 9.9 require, plus
+    name and post). Glyphs are padded to 4 bytes unless ``pad`` is false (long loca permits odd offsets)."""
+    upem = 1000
+    glyf = bytearray()
+    loca = []
+    for gid in range(len(glyphs)):
+        loca.append(len(glyf))
+        data = _encode_glyph(glyphs, gid)
+        glyf += data + (bytes((-len(data)) % 4) if pad else b"")
+    loca.append(len(glyf))
+    loca_tbl = b"".join(struct.pack(">I", o) if long_loca else struct.pack(">H", o // 2) for o in loca)
+    boxes = [_glyph_bbox(glyphs, g) for g in range(len(glyphs)) if glyphs[g].contours or glyphs[g].components]
+    bbox = (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
+    hmtx = b"".join(struct.pack(">Hh", a, l) for a, l in metrics[:n_hmetrics])
+    hmtx += b"".join(struct.pack(">h", l) for _, l in metrics[n_hmetrics:])
+    head = struct.pack(">IIIIHHqqhhhhHHhhh", 0x00010000, 0x00010000, 0, 0x5F0F3CF5, 0x000B, upem, 0, 0,
+                       *bbox, 0, 8, 2, 1 if long_loca else 0, 0)
+    hhea = struct.pack(">IhhhHhhhhhhhhhhhH", 0x00010000, 800, -200, 0, max(a for a, _ in metrics), 0, 0, bbox[2],
+                       1, 0, 0, 0, 0, 0, 0, 0, n_hmetrics)
+    maxp = struct.pack(">IHHHHHHHHHHHHHH", 0x00010000, len(glyphs), 64, 4, 64, 4, 2, 0, 0, 0, 0, 0, 0, 4, 2)
+    names = [(1, ps_name), (2, "Regular"), (4, ps_name), (6, ps_name)]
+    name_data, recs = b"", b""
+    for nid, text in names:
+        enc = text.encode("utf-16-be")
+        recs += struct.pack(">HHHHHH", 3, 1, 0x409, nid, len(enc), len(name_data))
+        name_data += enc
+    name = struct.pack(">HHH", 0, len(names), 6 + 12 * len(names)) + recs + name_data
+    tables = {b"cmap": cmap, b"glyf": bytes(glyf), b"head": head, b"hhea": hhea, b"hmtx": hmtx, b"loca": loca_tbl,
+              b"maxp": maxp, b"name": name, b"post": post}
+    tags = sorted(tables)
+    n = len(tags)
+    es = n.bit_length() - 1
+    sr = (1 << es) * 16
+    font = bytearray(struct.pack(">IHHHH", 0x00010000, n, sr, es, n * 16 - sr))
+    offset = 12 + 16 * n
+    body = bytearray()
+    head_off = 0
+    for tag in tags:
+        data = tables[tag]
+        if tag == b"head":
+            head_off = offset + len(body)
+        font += tag + struct.pack(">III", _checksum(data), offset + len(body), len(data))
+        body += data + bytes((-len(data)) % 4)
+    font += body
+    adj = (0xB1B0AFBA - _checksum(bytes(font))) & 0xFFFFFFFF
+    font[head_off + 8:head_off + 12] = struct.pack(">I", adj)
+    return bytes(font)
+
+
+def ttf_rect(x0: int, y0: int, x1: int, y1: int) -> TtfGlyph:
+    return TtfGlyph([[(x0, y0, True), (x0, y1, True), (x1, y1, True), (x1, y0, True)]])
+
+
 # ---------------------------------------------------------------------------
 # The corpus
 # ---------------------------------------------------------------------------
@@ -792,6 +1048,117 @@ def gen_text_type1_symbolic_noencoding() -> bytes:
     descriptor = (b"<< /Type /FontDescriptor /FontName /BroadsideSymbolic /Flags 4 /FontBBox [0 -200 1000 800] "
                   b"/ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 >>")
     return font_file([font], [b"ABC"], [(6, descriptor)])
+
+
+def truetype_file(font: bytes, base_font: bytes, flags: int, first: int, widths: list[int], encoding: bytes | None,
+                  codes: bytes) -> bytes:
+    """A page showing ``codes`` in an embedded TrueType font (9.6.3, 9.8, 9.9 Table 125: Length1 is the program length)."""
+    enc = b" /Encoding " + encoding if encoding is not None else b""
+    w = b" ".join(b"%d" % x for x in widths)
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>" % LETTER),
+        (4, stream(b"", codes_content([("F1", codes)]))),
+        (5, b"<< /Type /Font /Subtype /TrueType /BaseFont /%s /FirstChar %d /LastChar %d /Widths [%s]%s "
+            b"/FontDescriptor 6 0 R >>" % (base_font, first, first + len(widths) - 1, w, enc)),
+        (6, b"<< /Type /FontDescriptor /FontName /%s /Flags %d /FontBBox [-300 0 700 1400] /ItalicAngle 0 /Ascent 800 "
+            b"/Descent -200 /CapHeight 700 /StemV 200 /FontFile2 7 0 R >>" % (base_font, flags)),
+        (7, stream(b"/Length1 %d" % len(font), font)),
+    ], binary=True)
+
+
+def gen_text_truetype_composite() -> bytes:
+    """9.6.3, 9.6.5.4, 9.9: simple glyphs with off-curve points (an all-off-curve contour, a contour starting off-curve),
+    short, same and repeated coordinate flags, and composite glyphs with every argument and transform form of the
+    OpenType 'glyf' table (word and byte offsets, scale with SCALED/UNSCALED/neither offset flag, x-and-y scale, 2x2,
+    point matching, nesting, USE_MY_METRICS, instructions). hmtx has fewer advances than glyphs; the (3,1) format 4
+    cmap has a glyphIdArray segment (with a 0 entry that stays 0) and negative deltas. Glyph 15 has lsb != xMin."""
+    I = ttf_rect(100, 0, 300, 700)
+    glyphs = [
+        TtfGlyph(),                                                                          # 0 .notdef
+        I,                                                                                   # 1 'I'
+        TtfGlyph([[(250, 0, False), (500, 250, False), (250, 500, False), (0, 250, False)]]),  # 2 'o': all off-curve
+        TtfGlyph([[(0, 0, False), (200, 0, True), (200, 200, True), (0, 200, True)]]),        # 3 'c': starts off-curve
+        TtfGlyph(components=[(ARG_WORDS | ARGS_XY, 1, 400, 300, b"")]),                      # 4 word offset
+        TtfGlyph(components=[(ARGS_XY, 1, 10, 20, b"")]),                                    # 5 byte offset
+        TtfGlyph(components=[(ARGS_XY | HAVE_SCALE | SCALED_OFFSET, 1, 100, 40, f2dot14(0.5))]),    # 6
+        TtfGlyph(components=[(ARGS_XY | HAVE_SCALE | UNSCALED_OFFSET, 1, 100, 40, f2dot14(0.5))]),  # 7
+        TtfGlyph(components=[(ARGS_XY | HAVE_SCALE, 1, 100, 40, f2dot14(0.5))]),                    # 8
+        TtfGlyph(components=[(ARG_WORDS | ARGS_XY | HAVE_X_AND_Y_SCALE, 1, 400, 0,
+                              f2dot14(-1) + f2dot14(1))]),                                   # 9 mirror
+        TtfGlyph(components=[(ARG_WORDS | ARGS_XY | HAVE_TWO_BY_TWO, 1, 700, 0,
+                              f2dot14(0) + f2dot14(1) + f2dot14(-1) + f2dot14(0))]),         # 10 rotation by 90
+        TtfGlyph(components=[(ARGS_XY, 1, 0, 0, b""), (0, 1, 2, 0, b"")]),                   # 11 point matching
+        TtfGlyph(components=[(ARGS_XY, 5, 0, 100, b"")]),                                    # 12 nested
+        TtfGlyph(components=[(ARGS_XY | USE_MY_METRICS, 3, 50, 0, b"")]),                    # 13 USE_MY_METRICS
+        TtfGlyph(components=[(ARGS_XY, 2, 0, 0, b"")], instructions=b"\x00\x01\x02"),        # 14 instructions
+        ttf_rect(100, 0, 300, 700),                                                          # 15 lsb 150, xMin 100
+    ]
+    advances = [500, 400, 500, 300, 700, 400, 400, 400, 400, 400, 700, 600]
+    metrics = []
+    for gid in range(len(glyphs)):
+        lsb = _glyph_bbox(glyphs, gid)[0] + (50 if gid == 15 else 0)
+        metrics.append((advances[min(gid, len(advances) - 1)], lsb))
+    cmap = cmap_table([(3, 1, cmap_format4([
+        (0x30, 0x3C, 1, [g - 1 for g in range(4, 15)] + [0, 14]),  # '0'..':' -> 4..14, ';' -> 0, '<' -> 15
+        (0x49, 0x49, 1 - 0x49, None),
+        (0x63, 0x63, 3 - 0x63, None),
+        (0x6F, 0x6F, 2 - 0x6F, None),
+    ]))])
+    font = ttf_font(glyphs, metrics, len(advances), cmap, post_table(0x00030000), "BroadsideComposite")
+    codes = b"Ioc0123456789:;<"
+    gids = {0x49: 1, 0x6F: 2, 0x63: 3, 0x3B: 0, 0x3C: 15}
+    gids.update({0x30 + i: 4 + i for i in range(11)})
+    widths = [metrics[gids[c]][0] if c in gids else 0 for c in range(0x30, 0x70)]
+    return truetype_file(font, b"BroadsideComposite", 32, 0x30, widths, b"/WinAnsiEncoding", codes)
+
+
+def gen_text_truetype_symbolic() -> bytes:
+    """9.6.5.4: a symbolic font (Flags 4) without Encoding selects glyphs by code: the (3,0) subtable at 0xF000 + code
+    comes before the (1,0) subtable, which maps the same codes to other glyphs; code 0x44 is only in (1,0)."""
+    glyphs = [TtfGlyph(), ttf_rect(100, 0, 300, 700), ttf_rect(100, 0, 500, 500), ttf_rect(100, 0, 700, 300)]
+    metrics = [(500, 0), (400, 100), (600, 100), (800, 100)]
+    cmap = cmap_table([
+        (1, 0, cmap_format0({0x41: 3, 0x42: 2, 0x43: 1, 0x44: 2})),
+        (3, 0, cmap_format4([(0xF041, 0xF043, 1 - 0xF041, None)])),
+    ])
+    font = ttf_font(glyphs, metrics, len(metrics), cmap, post_table(0x00030000), "BroadsideSymbolic")
+    return truetype_file(font, b"BroadsideSymbolic", 4, 0x41, [400, 600, 800, 600], None, b"ABCD")
+
+
+def gen_text_truetype_macroman() -> bytes:
+    """9.6.5.4 and Table 113: a nonsymbolic font whose program has only a (1,0) cmap (format 6): names from the encoding
+    (WinAnsi base with Differences) map to Mac OS Roman codes (Euro is 219, eacute 0x8E); a name with no Mac OS Roman code
+    (brds.alt) is found through the 'post' format 2 names."""
+    glyphs = [TtfGlyph(), ttf_rect(100, 0, 300, 700), ttf_rect(100, 0, 500, 500), ttf_rect(100, 0, 700, 300)]
+    metrics = [(500, 0), (400, 100), (600, 100), (800, 100)]
+    ids = [0] * (0xDB - 0x8E + 1)
+    ids[0] = 2            # 0x8E eacute
+    ids[0xDB - 0x8E] = 1  # 0xDB Euro (Table 113)
+    cmap = cmap_table([(1, 0, cmap_format6(0x8E, ids))])
+    post = post_table(0x00020000, [".notdef", "Euro", "eacute", "brds.alt"])
+    font = ttf_font(glyphs, metrics, len(metrics), cmap, post, "BroadsideMacRoman")
+    widths = [0] * (0xE9 - 0x80 + 1)
+    widths[0], widths[1], widths[0xE9 - 0x80] = 400, 800, 600
+    return truetype_file(font, b"BroadsideMacRoman", 32, 0x80, widths,
+                         b"<< /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [129 /brds.alt] >>",
+                         b"\x80\xe9\x81")
+
+
+def gen_text_truetype_loca_long() -> bytes:
+    """9.6.5.4 and the OpenType 'loca' table: long offsets (indexToLocFormat 1) with an odd-length, unpadded glyph; the
+    only cmap is (3,10) format 12, a Unicode subtable that stands in for (3,1); 'post' version 1.0."""
+    H = TtfGlyph([[(x, y, True) for x, y in [(100, 0), (100, 700), (300, 700), (300, 400), (500, 400), (500, 700),
+                                             (700, 700), (700, 0), (500, 0), (500, 300), (300, 300), (300, 0)]]],
+                 instructions=b"\x00")
+    glyphs = [TtfGlyph(), H, ttf_rect(100, 0, 300, 700)]
+    metrics = [(500, 0), (800, 100), (400, 100)]
+    cmap = cmap_table([(3, 10, cmap_format12([(0x48, 0x49, 1), (0x1F600, 0x1F600, 2)]))])
+    font = ttf_font(glyphs, metrics, len(metrics), cmap, post_table(0x00010000), "BroadsideLongLoca",
+                    long_loca=True, pad=False)
+    assert len(_encode_glyph(glyphs, 1)) % 2 == 1
+    return truetype_file(font, b"BroadsideLongLoca", 32, 0x48, [800, 400], b"/WinAnsiEncoding", b"HI")
 
 
 def gen_xref_stream() -> bytes:
@@ -2192,6 +2559,10 @@ FILES = {
     "text-standard14-widths.pdf": gen_text_standard14_widths,
     "text-standard14-alias.pdf": gen_text_standard14_alias,
     "text-type1-symbolic-noencoding.pdf": gen_text_type1_symbolic_noencoding,
+    "text-truetype-composite.pdf": gen_text_truetype_composite,
+    "text-truetype-symbolic.pdf": gen_text_truetype_symbolic,
+    "text-truetype-macroman.pdf": gen_text_truetype_macroman,
+    "text-truetype-loca-long.pdf": gen_text_truetype_loca_long,
     "xref-stream.pdf": gen_xref_stream,
     "object-stream.pdf": gen_object_stream,
     "incremental-update.pdf": gen_incremental_update,
