@@ -78,6 +78,18 @@ public static class Corpus
         "color-operators.pdf",
         "default-colorspaces.pdf",
         "separation-special.pdf",
+        "image-stencil-mask.pdf",
+        "image-explicit-mask.pdf",
+        "image-color-key-mask.pdf",
+        "image-smask.pdf",
+        "image-smask-matte.pdf",
+        "image-1bpc.pdf",
+        "image-2bpc.pdf",
+        "image-4bpc-indexed.pdf",
+        "image-16bpc.pdf",
+        "image-decode-inverted.pdf",
+        "inline-image-filters.pdf",
+        "inline-image-ei-in-data.pdf",
     ];
 
     private static readonly string[] Malformed =

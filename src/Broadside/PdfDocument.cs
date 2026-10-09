@@ -624,6 +624,9 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Gets the diagnostics sink, for document-model views that report what they find on first read.</summary>
     internal DiagnosticSink DiagnosticSink => _diagnostics;
 
+    /// <summary>Gets the document's filter pipeline, for the image layer (issue #60), which stops it before an image codec.</summary>
+    internal StreamDecoder Streams => _streams;
+
     /// <summary>Gets the document's annotation views and the page each belongs to (issue #71).</summary>
     internal AnnotationIndex AnnotationIndex
     {
@@ -1016,7 +1019,10 @@ public sealed partial class PdfDocument : IDisposable
                 configuration.Filters,
                 configuration.MaxDecodedStreamLength,
                 diagnostics,
-                value => loader is not null ? loader.Resolve(value) : value is null or CosReference ? CosNull.Instance : value);
+                value => loader is not null ? loader.Resolve(value) : value is null or CosReference ? CosNull.Instance : value)
+            {
+                MaxImagePixels = configuration.MaxImagePixels,
+            };
             var scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.ExecutionAndPublication);
             CrossReference? crossReference = CrossReferenceReader.Read(source, header, streams, diagnostics, scan);
             bool reconstructed = crossReference is null;

@@ -1,6 +1,6 @@
 ﻿pdfjs: 989 files
-  Clean: 659
-  Diagnostics: 316
+  Clean: 729
+  Diagnostics: 246
   PasswordRequired: 12
   CertificateRequired: 0
   EncryptionUnsupported: 0
@@ -8,7 +8,6 @@
   Crash: 0
   Timeout: 0
   files with each diagnostic code:
-    FilterUnsupported: 186
     XrefEntryInvalid: 112
     RootMissing: 110
     XrefEntryOffsetInvalid: 26
@@ -64,6 +63,7 @@
     EncryptedDataInvalid: 1
     EndOfFileMarkerNotLast: 1
     EndstreamMissing: 1
+    FilterUnsupported: 1
     HeaderMissing: 1
     HeaderVersionInvalid: 1
     HexStringInvalidDigit: 1
@@ -91,8 +91,8 @@
     XrefStreamSizeInvalid: 1
     XrefSubsectionNumberingInvalid: 1
 pdfbox: 137 files
-  Clean: 101
-  Diagnostics: 28
+  Clean: 106
+  Diagnostics: 23
   PasswordRequired: 3
   CertificateRequired: 4
   EncryptionUnsupported: 0
@@ -100,7 +100,6 @@ pdfbox: 137 files
   Crash: 0
   Timeout: 0
   files with each diagnostic code:
-    FilterUnsupported: 6
     PageResourcesMissing: 6
     EndOfFileMarkerMissing: 4
     XrefEntryInvalid: 3
@@ -119,8 +118,8 @@ pdfbox: 137 files
     StartxrefInvalid: 1
     StreamLengthInvalid: 1
 qpdf: 639 files
-  Clean: 418
-  Diagnostics: 184
+  Clean: 439
+  Diagnostics: 163
   PasswordRequired: 23
   CertificateRequired: 0
   EncryptionUnsupported: 1
@@ -128,7 +127,6 @@ qpdf: 639 files
   Crash: 0
   Timeout: 0
   files with each diagnostic code:
-    FilterUnsupported: 33
     MissingEndobj: 18
     FilterDataInvalid: 17
     XrefEntryOffsetInvalid: 15
@@ -141,6 +139,7 @@ qpdf: 639 files
     DestinationInvalid: 8
     PopupLinkMismatch: 8
     CatalogTypeInvalid: 7
+    FilterUnsupported: 7
     ObjectStreamIndexMismatch: 7
     XrefEntryInvalid: 7
     PageTreeCountMismatch: 6
@@ -209,8 +208,8 @@ qpdf: 639 files
     XrefStreamWidthsInvalid: 1
     XrefSubsectionHeaderInvalid: 1
 pdfium-tests: 840 files
-  Clean: 221
-  Diagnostics: 612
+  Clean: 307
+  Diagnostics: 526
   PasswordRequired: 2
   CertificateRequired: 4
   EncryptionUnsupported: 0
@@ -218,7 +217,6 @@ pdfium-tests: 840 files
   Crash: 0
   Timeout: 0
   files with each diagnostic code:
-    FilterUnsupported: 247
     XrefEntryInvalid: 158
     RootMissing: 151
     StartxrefInvalid: 99
@@ -285,8 +283,8 @@ pdfium-tests: 840 files
     PageTreeKidInvalid: 1
     PageTreeKidNotIndirect: 1
 pdf20examples: 7 files
-  Clean: 6
-  Diagnostics: 1
+  Clean: 7
+  Diagnostics: 0
   PasswordRequired: 0
   CertificateRequired: 0
   EncryptionUnsupported: 0
@@ -294,4 +292,3 @@ pdf20examples: 7 files
   Crash: 0
   Timeout: 0
   files with each diagnostic code:
-    FilterUnsupported: 1

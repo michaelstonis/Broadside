@@ -23,11 +23,15 @@ public sealed class PdfOptions
     /// <summary>The default of <see cref="StreamBufferLimit"/>: 64 MiB.</summary>
     public const long DefaultStreamBufferLimit = 64L << 20;
 
+    /// <summary>The default of <see cref="MaxImagePixels"/>: 2^28 (268,435,456) pixels, a 16384 x 16384 image.</summary>
+    public const long DefaultMaxImagePixels = 1L << 28;
+
     private readonly List<IStreamFilter> _filters = [];
     private readonly List<ISecurityHandler> _securityHandlers = [];
     private readonly List<IFontProgramParser> _fontProgramParsers = [];
     private long _maxDecodedStreamLength = DefaultMaxDecodedStreamLength;
     private long _streamBufferLimit = DefaultStreamBufferLimit;
+    private long _maxImagePixels = DefaultMaxImagePixels;
 
     /// <summary>Gets or sets how deviations from the specification are treated. The default is <see cref="PdfReadingMode.Lenient"/>.</summary>
     /// <remarks>ADR 0005.</remarks>
@@ -89,6 +93,36 @@ public sealed class PdfOptions
         }
 
         _filters.Add(filter);
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the most pixels (width x height) one image may have; a larger image is not decoded, with a diagnostic. Default
+    /// 2^28. The bytes of its samples are also limited by <see cref="MaxDecodedStreamLength"/>.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §8.9.5.1, Table 87: <c>Width</c> and <c>Height</c> come from the file, so a few bytes can claim an image of any
+    /// size; the limit is checked before any memory is taken.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not positive.</exception>
+    public long MaxImagePixels
+    {
+        get => _maxImagePixels;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
+            _maxImagePixels = value;
+        }
+    }
+
+    /// <summary>Sets <see cref="MaxImagePixels"/>.</summary>
+    /// <param name="maxPixels">The most pixels one image may have.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxPixels"/> is not positive.</exception>
+    /// <remarks>ISO 32000-2 §8.9.5.1.</remarks>
+    public PdfOptions WithMaxImagePixels(long maxPixels)
+    {
+        MaxImagePixels = maxPixels;
         return this;
     }
 

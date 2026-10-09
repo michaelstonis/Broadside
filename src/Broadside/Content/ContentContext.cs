@@ -1,6 +1,7 @@
 using Broadside.Diagnostics;
 using Broadside.Graphics;
 using Broadside.Graphics.Colors;
+using Broadside.Images;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -121,6 +122,41 @@ public sealed class ContentContext
 
         Document.ColorSpaces.ReportFailure(owner, ColorSpaceFailure.Invalid, "an inline image's colour space");
         return PdfDeviceGrayColorSpace.Instance;
+    }
+
+    /// <summary>Returns the image view over an inline image: the <see cref="ContentOperatorCode.BeginInlineImage"/> operator's dictionary and data.</summary>
+    /// <param name="op">The operator, as given to <see cref="ContentProcessor.VisitOperator"/>.</param>
+    /// <returns>
+    /// The image, with its dictionary's abbreviations expanded, its colour space resolved against <see cref="Resources"/>, and a copy
+    /// of its data, so it outlives the callback; <see langword="null"/> when <paramref name="op"/> is not an inline image.
+    /// </returns>
+    /// <remarks>
+    /// ISO 32000-2 §8.9.7, Tables 90 to 92. The image's data ends where the content reader found <c>EI</c>: by <c>L</c> (PDF 2.0)
+    /// when it leads there, by the data length when the image is unfiltered, by the end-of-data marker of its first filter, else by
+    /// the first <c>EI</c> followed by content that parses.
+    /// </remarks>
+    public PdfImage? GetInlineImage(in ContentOperator op)
+    {
+        if (op.Code != ContentOperatorCode.BeginInlineImage || op.Operands.Count == 0
+            || op.Operands[op.Operands.Count - 1].Kind != ContentOperandKind.Dictionary
+            || op.Operands[op.Operands.Count - 1].ToCosObject() is not CosDictionary written)
+        {
+            return null;
+        }
+
+        CosReference? owner = CurrentStream ?? Page?.Reference;
+        CosDictionary expanded = InlineImageDictionary.Expand(written, Document.DiagnosticSink, owner);
+        PdfColorSpace? space = null;
+        if (!expanded.ContainsKey(ImageNames.ImageMask) || expanded[ImageNames.ImageMask] is not CosBoolean { Value: true })
+        {
+            if ((written.TryGetValue(ImageNames.CS, out CosObject? value) || written.TryGetValue(ImageNames.ColorSpace, out value)) && value is not CosNull)
+            {
+                space = GetInlineImageColorSpace(value);
+            }
+        }
+
+        var stream = new CosStream(expanded, op.Data.ToArray());
+        return new PdfImage(Document, stream, reference: null, PdfImage.ImageRole.Inline, owner: owner, inlineColorSpace: space);
     }
 
     /// <summary>Returns the clip node a clip handle refers to, such as <see cref="GraphicsState.ClipHandle"/>.</summary>

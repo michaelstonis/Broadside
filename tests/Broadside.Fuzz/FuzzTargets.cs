@@ -52,6 +52,7 @@ internal static class FuzzTargets
         ["optional-content"] = OptionalContentTarget.Target,
         ["font-truetype"] = FontTrueType,
         ["colorspace"] = ColorSpaceTarget,
+        ["image-decode"] = ImageDecodeTarget.Target,
     };
 
     private static readonly CosName ContentsKey = new("Contents");

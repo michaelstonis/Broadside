@@ -98,6 +98,12 @@ internal static class FilterNames
     /// <returns><see langword="true"/> for a standard filter.</returns>
     public static bool IsStandard(CosName name) => Standard.Contains(name);
 
+    /// <summary>Returns whether <paramref name="name"/> is one of the image codecs of §7.4.6 to §7.4.9.</summary>
+    /// <param name="name">A full filter name.</param>
+    /// <returns><see langword="true"/> for CCITTFaxDecode, JBIG2Decode, DCTDecode and JPXDecode.</returns>
+    public static bool IsImageCodec(CosName name) =>
+        name.Equals(CcittFaxDecode) || name.Equals(Jbig2Decode) || name.Equals(DctDecode) || name.Equals(JpxDecode);
+
     /// <summary>Returns whether the predictor functions of §7.4.4.4 apply after the filter named <paramref name="name"/>.</summary>
     /// <param name="name">A full filter name.</param>
     /// <returns><see langword="true"/> for LZWDecode and FlateDecode.</returns>

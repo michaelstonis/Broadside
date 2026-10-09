@@ -563,6 +563,11 @@ internal sealed partial class ContentInterpreter
         {
             Report(ContentIssue.InlineImageInvalid, offset, "An inline image lacks ID or EI, or its dictionary holds something that is not a value; the image ends there.");
         }
+
+        if ((issues & ReaderIssues.InlineImageRepaired) != 0)
+        {
+            Report(ContentIssue.InlineImageInvalid, offset, "An inline image's data does not end where its L entry says, or ID is followed by CR LF, or no EI is followed by content; the end found is used.");
+        }
     }
 
     /// <summary>
