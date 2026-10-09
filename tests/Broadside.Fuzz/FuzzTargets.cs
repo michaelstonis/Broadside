@@ -9,6 +9,7 @@ using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
 using Broadside.Security;
+using Broadside.TestSupport;
 using SharpFuzz;
 
 namespace Broadside.Fuzz;
@@ -48,6 +49,7 @@ internal static class FuzzTargets
         ["structure-tree"] = StructureTree.Target,
         ["function-type4"] = FunctionType4,
         ["function-sampled"] = FunctionSampled,
+        ["optional-content"] = OptionalContentTarget.Target,
         ["font-truetype"] = FontTrueType,
     };
 
@@ -116,6 +118,31 @@ internal static class FuzzTargets
         }
 
         Navigation(document);
+        _ = ActionWalker.Walk(document);
+        Annotations(document);
+    }
+
+    /// <summary>
+    /// Reads every annotation of every page with every appearance (issue #71) and checks what the model promises: every rectangle
+    /// normalized, every annotation on the page that lists it, the same view for the same dictionary.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.5.</remarks>
+    private static void Annotations(PdfDocument document)
+    {
+        _ = Broadside.TestSupport.AnnotationWalker.Walk(document);
+        foreach (PdfPage page in document.Pages)
+        {
+            IReadOnlyList<Broadside.Annotations.PdfAnnotation> annotations = page.Annotations;
+            for (int index = 0; index < annotations.Count; index++)
+            {
+                Broadside.Annotations.PdfAnnotation annotation = annotations[index];
+                PdfRectangle rect = annotation.Rect;
+                if (!(rect.Left <= rect.Right && rect.Bottom <= rect.Top) || annotation.Page is null || !ReferenceEquals(annotation, page.Annotations[index]))
+                {
+                    throw new InvalidOperationException("An annotation's rectangle is not normalized, it has no page, or a second read gave another view.");
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -654,7 +681,7 @@ internal static class FuzzTargets
         }
     }
 
-    private static PdfDocument? OpenOrNull(ReadOnlySpan<byte> data)
+    internal static PdfDocument? OpenOrNull(ReadOnlySpan<byte> data)
     {
         try
         {
