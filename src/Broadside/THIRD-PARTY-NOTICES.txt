@@ -1,0 +1,109 @@
+Broadside (core package) third-party notices
+=============================================
+
+Broadside is licensed under the MIT License (LICENSE). The core package also carries data derived from the third-party
+sources below, each under its own terms. The source files are in the repository under src/Broadside/Fonts/Data/; the
+generated C# tables (src/Broadside/Fonts/*.g.cs, produced by src/Broadside/Fonts/Data/generate.py) carry the same notices.
+
+
+1. Adobe Core 14 AFM files (Standard 14 font metrics)
+------------------------------------------------------
+
+Source:   https://github.com/apache/pdfbox, commit 8712d47b075511a4c5a2829c3713ba2d538999bb,
+          pdfbox/src/main/resources/org/apache/pdfbox/resources/afm/
+Licence:  the notice in MustRead.html (SPDX: APAFML), shipped in this package as licenses/adobe-core14-afm/MustRead.html
+Used as:  per-glyph widths, font-wide metrics and the Symbol and ZapfDingbats built-in encodings, in
+          src/Broadside/Fonts/Standard14Data.g.cs and src/Broadside/Fonts/GlyphNameTable.g.cs.
+Modified: yes. The AFM files were converted to C# tables; kerning, ligature and glyph bounding-box data were removed.
+          The unmodified files are in the repository.
+
+Notice (MustRead.html, verbatim):
+
+  This file and the 14 PostScript(R) AFM files it accompanies may be used, copied, and distributed for any purpose and
+  without charge, with or without modification, provided that all copyright notices are retained; that the AFM files
+  are not distributed without this file; that all modifications to this file or any of the AFM files are prominently
+  noted in the modified file(s); and that this paragraph is not modified. Adobe Systems has no responsibility or
+  obligation to support the use of the AFM files.
+
+Copyright notices of the AFM files:
+
+  Courier, Courier-Bold, Courier-Oblique, Courier-BoldOblique:
+    Copyright (c) 1989, 1990, 1991, 1992, 1993, 1997 Adobe Systems Incorporated.  All Rights Reserved.
+    Copyright (c) 1989, 1990, 1991, 1993, 1997 Adobe Systems Incorporated.  All Rights Reserved.
+  Helvetica, Helvetica-Bold, Helvetica-Oblique, Helvetica-BoldOblique:
+    Copyright (c) 1985, 1987, 1989, 1990, 1997 Adobe Systems Incorporated.  All Rights Reserved.
+    Helvetica is a trademark of Linotype-Hell AG and/or its subsidiaries.
+  Times-Roman, Times-Bold, Times-Italic, Times-BoldItalic:
+    Copyright (c) 1985, 1987, 1989, 1990, 1993, 1997 Adobe Systems Incorporated.  All Rights Reserved.
+    Times is a trademark of Linotype-Hell AG and/or its subsidiaries.
+  Symbol:
+    Copyright (c) 1985, 1987, 1989, 1990, 1997 Adobe Systems Incorporated. All rights reserved.
+  ZapfDingbats:
+    Copyright (c) 1985, 1987, 1988, 1989, 1997 Adobe Systems Incorporated. All Rights Reserved.
+    ITC Zapf Dingbats is a registered trademark of International Typeface Corporation.
+
+SHA-256 of the source files:
+
+  e72833dda79161e3aaf385adfeb59c61c89a4a3e184f27d21c178056eea30e17  Courier.afm
+  1e86f0a949e316c08df32adc2fc2e2a92ed9902ffd54e3516e5a66a32db856da  Courier-Bold.afm
+  9e3494b4abb127a6586c095a377924514dd6956973f8f3b0bd7d6d00fcc89ea6  Courier-Oblique.afm
+  e1349f5f306b16338972eaf7f43d7913535cc075a15189b5f3efc841aee3d02e  Courier-BoldOblique.afm
+  5654761eab868ccb3080122accf13b4fb79edf37af09e1c57a881c35c334ee03  Helvetica.afm
+  59ac93091bc7e76eb6baf60210526a4df88fe107dd5e13eb0ae70c9fc6d91fb9  Helvetica-Bold.afm
+  8c00ac46ca5963df22d4fc1153ea1246c8778475820378640c8d54d4fd3a46fe  Helvetica-Oblique.afm
+  1f848276efd76c0e5020ef98ccb459005f5a022f56cb8579e52c98e33ffab03b  Helvetica-BoldOblique.afm
+  b6dbde33196ff61f051f8468fb81a0dece63997a80b7fba058e8295f49480026  Times-Roman.afm
+  37efa084183acfb06f45ad73bd75f6dd09b20d1e498c66ce1b9aa72b00db4ac7  Times-Bold.afm
+  2f34d3bc49530532daa690aec165b68368162d4c27d24fbe6a3fb24aae49a74a  Times-Italic.afm
+  1bf83cee5300d4de1ce90681a2a2d70fd1876c664e91c1c4c6b6b5b12873b6da  Times-BoldItalic.afm
+  13eeef80def2f9a8d3a31a980731376823e8b48340ff3891ffc1cc0299c0b4fe  Symbol.afm
+  d3e7b9f6366ab0df06acbb217c8586c5962ff2efbd4e1b5566c7eaf5b745dd41  ZapfDingbats.afm
+  b226bfc00e1b8b8a80c7b3cfbbc322d13b4b0401f94cdeafdd93b2210ad802eb  MustRead.html
+
+
+2. Adobe Glyph List and ITC Zapf Dingbats Glyph List
+-----------------------------------------------------
+
+Source:   https://github.com/adobe-type-tools/agl-aglfn, commit 4036a9ca80a62f64f9de4f7321a9a045ad0ecfd6
+          (glyphlist.txt, zapfdingbats.txt, LICENSE.md)
+Licence:  BSD-3-Clause, shipped in this package as licenses/adobe-glyph-list/LICENSE.md
+Used as:  glyph name to Unicode tables in src/Broadside/Fonts/AdobeGlyphList.g.cs and Standard14Data.g.cs.
+Modified: converted to C# tables.
+
+SHA-256 of the source files:
+
+  a3b2f61ced9f3644cc0d4ecde5c59df34ca286c689d9484a43a710a81c466789  glyphlist.txt
+  f6394e3cb8a447e84a1dad75d4baaf2aa7f45dc104faf369f4720e1a774ef2dc  zapfdingbats.txt
+  58147d341e7a34aa2196862395a34d2fd95716c41d5ed26efb59ab0e12f92089  LICENSE.md
+
+Licence text:
+
+  Copyright 2002-2019 Adobe (http://www.adobe.com/).
+
+  Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
+  following conditions are met:
+
+  Redistributions of source code must retain the above copyright notice, this list of conditions and the following
+  disclaimer.
+
+  Redistributions in binary form must reproduce the above copyright notice, this list of conditions and the following
+  disclaimer in the documentation and/or other materials provided with the distribution.
+
+  Neither the name of Adobe nor the names of its contributors may be used to endorse or promote products derived from
+  this software without specific prior written permission.
+
+  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+  INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+  DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+  SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+  SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+  WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+  THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+
+3. Font encodings (ISO 32000-2:2020 Annex D)
+---------------------------------------------
+
+StandardEncoding, WinAnsiEncoding, MacRomanEncoding, MacExpertEncoding and the Mac OS Roman additions of Table 113
+(src/Broadside/Fonts/Data/encodings.txt) are the code-to-glyph-name assignments of ISO 32000-2:2020 Annex D and
+§9.6.5.4, cross-checked against the AFM files above and pdf.js (Apache-2.0); no pdf.js code or data is included.

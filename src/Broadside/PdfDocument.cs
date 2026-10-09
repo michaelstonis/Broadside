@@ -1,6 +1,8 @@
 using System.Buffers;
+using System.Runtime.CompilerServices;
 using Broadside.Diagnostics;
 using Broadside.Filters;
+using Broadside.Fonts;
 using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -54,6 +56,7 @@ public sealed class PdfDocument : IDisposable
     private readonly DiagnosticSink _diagnostics;
     private readonly ObjectLoader _loader;
     private readonly StreamDecoder _streams;
+    private readonly ConditionalWeakTable<CosDictionary, PdfFont> _fonts = [];
 
     private PdfDocument(
         PdfSource source,
@@ -371,8 +374,36 @@ public sealed class PdfDocument : IDisposable
         _streams.Decode(stream, output);
     }
 
+    /// <summary>Returns the font view over a font dictionary of this document.</summary>
+    /// <param name="font">A font dictionary, or an indirect reference to one, such as an entry of a resource dictionary's <c>Font</c> subdictionary.</param>
+    /// <returns>
+    /// The view, of the type the dictionary's <c>Subtype</c> selects; <see langword="null"/> when <paramref name="font"/> is not a
+    /// dictionary and does not refer to one. The same dictionary always gives the same view instance.
+    /// </returns>
+    /// <exception cref="DiagnosticException">In strict mode, when the dictionary's <c>Type</c> or <c>Subtype</c> is not a font's.</exception>
+    /// <remarks>ISO 32000-2 §9.5, Table 108, and §7.8.3.</remarks>
+    public PdfFont? GetFont(CosObject? font)
+    {
+        if (Resolve(font) is not CosDictionary dictionary)
+        {
+            return null;
+        }
+
+        if (_fonts.TryGetValue(dictionary, out PdfFont? existing))
+        {
+            return existing;
+        }
+
+        // Two threads may create a view each; the first one added is the one everybody gets.
+        PdfFont created = PdfFont.Create(this, dictionary, font as CosReference);
+        return _fonts.TryAdd(dictionary, created) || !_fonts.TryGetValue(dictionary, out PdfFont? winner) ? created : winner;
+    }
+
     /// <inheritdoc/>
     public void Dispose() => _source.Dispose();
+
+    /// <summary>Gets the sink this document records diagnostics in.</summary>
+    internal DiagnosticSink DiagnosticSink => _diagnostics;
 
     /// <summary>Builds the bytes of a new one-page document and opens them (issue #44).</summary>
     /// <param name="configuration">The engine's configuration.</param>

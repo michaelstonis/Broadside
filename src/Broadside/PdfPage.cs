@@ -1,3 +1,5 @@
+using Broadside.Diagnostics;
+using Broadside.Fonts;
 using Broadside.Objects;
 
 namespace Broadside;
@@ -72,6 +74,22 @@ public sealed class PdfPage
     /// <summary>Gets the size of a default user space unit in multiples of 1/72 inch. 1.0 when absent or not positive.</summary>
     /// <remarks>ISO 32000-2 §7.7.3.3, Table 31 (PDF 1.6).</remarks>
     public double UserUnit => ReadUserUnit(out double value) == PageAttributeState.Valid ? value : 1.0;
+
+    /// <summary>Returns the font the page's resources name <paramref name="resourceName"/>, as the <c>Tf</c> operator selects it.</summary>
+    /// <param name="resourceName">The key in the <c>Font</c> subdictionary of the page's (possibly inherited) resource dictionary, without the slash.</param>
+    /// <returns>The font view, or <see langword="null"/> when the resources have no font of that name.</returns>
+    /// <exception cref="DiagnosticException">In strict mode, when the font dictionary's <c>Type</c> or <c>Subtype</c> is not a font's.</exception>
+    /// <remarks>ISO 32000-2 §7.8.3, Table 34 (<c>Font</c>), and §9.5. The same font dictionary always gives the same view.</remarks>
+    public PdfFont? GetFont(string resourceName)
+    {
+        ArgumentNullException.ThrowIfNull(resourceName);
+        return Resources is { } resources
+            && resources.TryGetValue(FontNames.Font, out CosObject? fonts)
+            && _document.Resolve(fonts) is CosDictionary fontResources
+            && fontResources.TryGetValue(new CosName(resourceName), out CosObject? font)
+            ? _document.GetFont(font)
+            : null;
+    }
 
     /// <summary>Reads a page boundary; for an inheritable one, from the nearest node that has it.</summary>
     internal PageAttributeState ReadBox(CosName key, bool inheritable, out PdfRectangle box)
