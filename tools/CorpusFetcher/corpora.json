@@ -1,0 +1,151 @@
+{
+  "corpora": [
+    {
+      "id": "pdfjs",
+      "description": "pdf.js regression corpus: ~1000 real-world PDFs (broken xref tables, odd fonts, every image filter, forms, annotations) kept in-repo under test/pdfs. A further 460 entries are .link files pointing at external URLs; those are fetched only with --include-linked.",
+      "license": "Apache-2.0 (pdf.js repository license). Individual linked PDFs belong to their original publishers and are not redistributable.",
+      "kind": "git-sparse",
+      "homepage": "https://github.com/mozilla/pdf.js/tree/master/test/pdfs",
+      "urls": [
+        "https://github.com/mozilla/pdf.js/archive/c53f395e4057b501f478a7e98ed03d47c7c62a04.zip"
+      ],
+      "ref": "c53f395e4057b501f478a7e98ed03d47c7c62a04",
+      "stripPrefix": 1,
+      "subpath": "test/pdfs",
+      "extensions": [".pdf", ".link"],
+      "approximateSize": "archive 106 MB; 989 PDFs, 119 MB on disk; .link targets add several hundred MB",
+      "notes": "Pinned to master on 2026-10-09. Many .link targets are web.archive.org snapshots and some are dead; link failures are reported, not fatal."
+    },
+    {
+      "id": "pdf20examples",
+      "description": "PDF Association PDF 2.0 example files: UTF-8 strings, black point compensation, page-level output intents, incremental update to 2.0, non-zero file start offset.",
+      "license": "CC BY-SA 4.0 (LICENSE.md in the repository).",
+      "kind": "git-sparse",
+      "homepage": "https://github.com/pdf-association/pdf20examples",
+      "urls": [
+        "https://github.com/pdf-association/pdf20examples/archive/c20f2c17bfcc4baab7cfe62e70fae64caf14d5fa.zip"
+      ],
+      "ref": "c20f2c17bfcc4baab7cfe62e70fae64caf14d5fa",
+      "stripPrefix": 1,
+      "extensions": [".pdf"],
+      "approximateSize": "7 PDFs, 55 KB",
+      "notes": "Pinned to master on 2026-10-09."
+    },
+    {
+      "id": "verapdf-corpus",
+      "description": "veraPDF test corpus: atomic pass/fail files for PDF/A-1a..4f and PDF/UA-1/2, plus ISO 32000-1/-2 edge cases, the Isartor PDF/A-1 suite and the TWG test files. Each file documents its purpose in its outline.",
+      "license": "CC BY 4.0 (README.md in the repository). The embedded Isartor files remain subject to the PDF Association Isartor terms of use (see the isartor entry).",
+      "kind": "git-sparse",
+      "homepage": "https://github.com/veraPDF/veraPDF-corpus",
+      "urls": [
+        "https://github.com/veraPDF/veraPDF-corpus/archive/bb75f4f0073d9350dfd058c0162a367e6fadf25e.zip"
+      ],
+      "ref": "bb75f4f0073d9350dfd058c0162a367e6fadf25e",
+      "stripPrefix": 1,
+      "extensions": [".pdf"],
+      "approximateSize": "archive 149 MB; 2906 PDFs, 160 MB on disk",
+      "notes": "Pinned to the default branch (staging) on 2026-10-09. Folder names carry spaces (e.g. 'Isartor test files/'); keep them, the names encode the clause under test."
+    },
+    {
+      "id": "pdfbox",
+      "description": "Apache PDFBox test resources from the pdfbox module: PDFBOX-NNNN regression PDFs, expected text extractions, fonts, images and signing keystores.",
+      "license": "Apache-2.0 (Apache PDFBox LICENSE and NOTICE). Some regression files originate from JIRA reporters; see NOTICE.txt in the repository.",
+      "kind": "git-sparse",
+      "homepage": "https://github.com/apache/pdfbox/tree/trunk/pdfbox/src/test/resources",
+      "urls": [
+        "https://github.com/apache/pdfbox/archive/8712d47b075511a4c5a2829c3713ba2d538999bb.zip"
+      ],
+      "ref": "8712d47b075511a4c5a2829c3713ba2d538999bb",
+      "stripPrefix": 1,
+      "subpath": "pdfbox/src/test/resources",
+      "approximateSize": "archive 22 MB; 303 files (137 PDFs), 14 MB on disk",
+      "notes": "Pinned to trunk on 2026-10-09. Only pdfbox/src/test/resources is kept; the many JIRA attachments PDFBox tests download at test time are not included."
+    },
+    {
+      "id": "gwg-output-suite",
+      "description": "Ghent Workgroup PDF Output Suite 5.0: 48 numbered PDF/X-4 patches plus a six-page test document for print-production rendering (overprint, transparency, ICC-based color, spot colors).",
+      "license": "Copyright Ghent Workgroup. Free to download and use for testing; redistribution of the files requires permission from admin@gwg.org (https://gwg.org/terms-of-service/). Do not commit or package these files.",
+      "kind": "zip",
+      "homepage": "https://gwg.org/resources/ghent-pdf-output-suite/",
+      "urls": [
+        "https://gwg.org/wp-content/uploads/2026/05/Ghent_PDF_Output_Suite_V50_Testpages.zip",
+        "https://gwg.org/wp-content/uploads/2026/05/Ghent_PDF_Output_Suite_V50_Patches-2.zip"
+      ],
+      "approximateSize": "two zips, 24 MB + 132 MB",
+      "notes": "Direct download, no form required as of 2026-10-09. Extracted as-is, including the GWG documentation PDFs."
+    },
+    {
+      "id": "safedocs",
+      "description": "DARPA SafeDocs / Digital Corpora CC-MAIN-2021-31-PDF-UNTRUNCATED: ~7.9 million untruncated PDFs re-fetched from the Common Crawl July/August 2021 crawl, packaged 1000 per zip (7,933 zips of 1.0-2.8 GB each) under zipfiles/NNNN-NNNN/NNNN.zip.",
+      "license": "Common Crawl terms of use (https://commoncrawl.org/terms-of-use) apply to the PDFs; Digital Corpora's own metadata is CC0 (https://digitalcorpora.org/about-digitalcorpora/terms-of-use/). Files are third-party web content: use for testing only.",
+      "kind": "zip",
+      "homepage": "https://digitalcorpora.org/cc-main-2021-31-pdf-untruncated/",
+      "urls": [
+        "https://downloads.digitalcorpora.org/corpora/files/CC-MAIN-2021-31-PDF-UNTRUNCATED/",
+        "https://downloads.digitalcorpora.org/corpora/files/CC-MAIN-2021-31-PDF-UNTRUNCATED/zipfiles/0000-0999/0000.zip"
+      ],
+      "approximateSize": "~8 TB total; a single zip such as zipfiles/0000-0999/0000.zip is 1.27 GB",
+      "manual": true,
+      "notes": "Never downloaded by this tool. For a sample, download one zip by hand (or via s3://digitalcorpora/corpora/files/CC-MAIN-2021-31-PDF-UNTRUNCATED/) into corpus/safedocs/ and extract it there. Treat the files as hostile input."
+    },
+    {
+      "id": "pdfium-tests",
+      "description": "PDFium test corpus (pdfium_tests repository, checked out at testing/corpus in PDFium builds): thousands of small PDFs covering rendering, forms, JavaScript, XFA and fuzzer-found crashes, with expected PNGs omitted here.",
+      "license": "BSD-3-Clause (LICENSE in the repository, 'PDFium Authors'). The third_party/ subtree contains files under their own licenses; check before redistributing.",
+      "kind": "git-sparse",
+      "homepage": "https://pdfium.googlesource.com/pdfium_tests/",
+      "urls": [
+        "https://pdfium.googlesource.com/pdfium_tests/+archive/141d7ba49d797e856f57fd7e76a9b7f73468988e.tar.gz"
+      ],
+      "ref": "141d7ba49d797e856f57fd7e76a9b7f73468988e",
+      "stripPrefix": 0,
+      "extensions": [".pdf"],
+      "approximateSize": "archive 318 MB tar.gz (includes expected PNGs); PDFs only on disk",
+      "notes": "Ref is pdfium_tests_revision from PDFium main DEPS on 2026-10-09. Gitiles archives have no top-level folder, hence stripPrefix 0. Note the task's https://pdfium.googlesource.com/pdfium/testing/corpus path no longer exists; the corpus is the separate pdfium_tests repository."
+    },
+    {
+      "id": "qpdf",
+      "description": "qpdf test suite PDFs (qpdf/qtest/qpdf): hand-crafted files for object streams, cross-reference streams, encryption (RC4/AES, all revisions), linearization, damaged files and recovery.",
+      "license": "Apache-2.0 (qpdf 7.0+; see LICENSE.txt and NOTICE.md in the repository).",
+      "kind": "git-sparse",
+      "homepage": "https://github.com/qpdf/qpdf/tree/main/qpdf/qtest/qpdf",
+      "urls": [
+        "https://github.com/qpdf/qpdf/archive/4eba95899886e851cc41d76886483b347612f2a8.zip"
+      ],
+      "ref": "4eba95899886e851cc41d76886483b347612f2a8",
+      "stripPrefix": 1,
+      "subpath": "qpdf/qtest/qpdf",
+      "extensions": [".pdf"],
+      "approximateSize": "archive 21 MB; 628 PDFs, ~35 MB on disk",
+      "notes": "Pinned to main on 2026-10-09. Expected outputs (.out, .check) are not kept."
+    },
+    {
+      "id": "bfo-pdfa-testsuite",
+      "description": "BFO PDF/A-2 test suite: pass and fail files named after the ISO 19005-2 clause they exercise, in the Isartor layout.",
+      "license": "No license file in the repository; published by BFO (bfo.com) as a community test suite with contributions invited. Use for conformance testing; ask support@bfo.com before redistributing.",
+      "kind": "git-sparse",
+      "homepage": "https://github.com/bfosupport/pdfa-testsuite",
+      "urls": [
+        "https://github.com/bfosupport/pdfa-testsuite/archive/c22d80260c7ec975a511f9bfcc6590b7ceb1cf18.zip"
+      ],
+      "ref": "c22d80260c7ec975a511f9bfcc6590b7ceb1cf18",
+      "stripPrefix": 1,
+      "extensions": [".pdf"],
+      "approximateSize": "~30 PDFs, 340 KB",
+      "notes": "Pinned to master on 2026-10-09."
+    },
+    {
+      "id": "isartor",
+      "description": "PDF Association Isartor test suite: 204 PDF/A-1b files, each violating exactly one clause of ISO 19005-1.",
+      "license": "PDF Association Isartor terms of use: free to use for checking PDF validation software and for publishing conformance declarations; all other rights reserved; not for third-party certification.",
+      "kind": "zip",
+      "homepage": "https://pdfa.org/resource/isartor-test-suite/",
+      "urls": [
+        "https://pdfa.org/isartor-test-suite-terms-of-use-download/"
+      ],
+      "approximateSize": "~8 MB zip",
+      "manual": true,
+      "notes": "pdfa.org answers automated requests with HTTP 403 and the download sits behind a terms-of-use acceptance page, so this entry is manual. The same files are already fetched as part of verapdf-corpus under 'Isartor test files/'."
+    }
+  ]
+}
