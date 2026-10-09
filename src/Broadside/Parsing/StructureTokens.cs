@@ -6,6 +6,19 @@ namespace Broadside.Parsing;
 /// <summary>Reads the tokens of file structure (§7.5): unsigned integers and keywords, from a <see cref="CosLexer"/>.</summary>
 internal static class StructureTokens
 {
+    /// <summary>
+    /// Returns whether the token after <paramref name="position"/> starts and ends inside <paramref name="window"/>, so what was
+    /// parsed up to <paramref name="position"/> cannot depend on bytes past the window (issue #45: windowed sources).
+    /// </summary>
+    /// <param name="window">The window.</param>
+    /// <param name="position">Where the parse ended.</param>
+    /// <returns><see langword="true"/> when a whole token follows inside the window.</returns>
+    public static bool NextTokenEndsInside(ReadOnlySpan<byte> window, int position)
+    {
+        CosToken next = new CosLexer(window, position).Next();
+        return next.Kind != CosTokenKind.EndOfInput && next.End < window.Length;
+    }
+
     /// <summary>Reads the next token as an unsigned decimal integer.</summary>
     /// <param name="lexer">The lexer; advanced past the token whether or not it is an integer.</param>
     /// <param name="value">The value.</param>

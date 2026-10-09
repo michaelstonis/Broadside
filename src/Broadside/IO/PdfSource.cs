@@ -3,6 +3,14 @@ using Broadside.Objects;
 
 namespace Broadside.IO;
 
+/// <summary>One attempt of <see cref="PdfSource.ReadGrowing"/>: parse <paramref name="window"/>, or ask for a larger one.</summary>
+/// <typeparam name="T">What the parse produces.</typeparam>
+/// <param name="window">The bytes from the offset on.</param>
+/// <param name="final">Whether a larger window is impossible: the parse must finish, repairing what is missing.</param>
+/// <param name="result">The result, when the attempt succeeds.</param>
+/// <returns><see langword="false"/> to be called again with a larger window.</returns>
+internal delegate bool WindowAttempt<T>(ReadOnlySpan<byte> window, bool final, out T result);
+
 /// <summary>The bytes of one PDF file, read by position.</summary>
 /// <remarks>
 /// <para>
@@ -27,10 +35,17 @@ internal abstract class PdfSource : IDisposable
 
     private const int CopyBufferLength = 81920;
 
+
     private volatile bool _disposed;
 
     /// <summary>Gets the length of the file in bytes.</summary>
     public abstract long Length { get; }
+
+    /// <summary>
+    /// Gets the first window <see cref="ReadGrowing"/> and the object loader ask for: the most a parse usually needs. Only matters
+    /// for a source that reads in windows; the fuzz target <c>windowed-document</c> makes it tiny to exercise every growth path.
+    /// </summary>
+    public virtual int InitialWindow => 64 * 1024;
 
     /// <summary>Creates a source over bytes the caller promises not to change while the source is in use. The bytes are not copied.</summary>
     /// <param name="bytes">The file.</param>
@@ -175,6 +190,35 @@ internal abstract class PdfSource : IDisposable
     /// <param name="minimumLength">The least number of bytes the caller needs, when the file has them.</param>
     /// <returns>The view, empty when <paramref name="offset"/> is at or past the end of the file.</returns>
     public abstract ReadOnlyMemory<byte> GetWindow(long offset, int minimumLength);
+
+    /// <summary>
+    /// Parses something of unknown length at <paramref name="offset"/>: <paramref name="attempt"/> gets a window and says whether it
+    /// held enough; while it does not and the window is not <c>final</c> (the rest of the file, or the largest span possible), the
+    /// window doubles. Whole-file sources pass the first window as final, so this costs them nothing.
+    /// </summary>
+    /// <typeparam name="T">What the parse produces.</typeparam>
+    /// <param name="offset">The offset of the first byte to parse.</param>
+    /// <param name="attempt">
+    /// Parses one window; returns <see langword="false"/> (reporting nothing) when the window ended before the parse could, which it
+    /// may only do for a window that is not final.
+    /// </param>
+    /// <returns>The result of the attempt that succeeded.</returns>
+    public T ReadGrowing<T>(long offset, WindowAttempt<T> attempt)
+    {
+        long available = Math.Max(0, Length - offset);
+        int minimum = InitialWindow;
+        while (true)
+        {
+            ReadOnlyMemory<byte> window = GetWindow(offset, minimum);
+            bool final = window.Length >= available || window.Length >= Array.MaxLength / 2 || window.Length < minimum;
+            if (attempt(window.Span, final, out T result))
+            {
+                return result;
+            }
+
+            minimum = (int)Math.Min(Array.MaxLength, (long)window.Length * 2);
+        }
+    }
 
     /// <summary>Creates the stream object for data at <paramref name="offset"/>, without copying the data out of the source.</summary>
     /// <param name="dictionary">The stream dictionary.</param>

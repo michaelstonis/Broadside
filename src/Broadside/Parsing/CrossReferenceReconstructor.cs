@@ -210,8 +210,15 @@ internal static class CrossReferenceReconstructor
         var candidates = new List<(long Offset, CosDictionary Trailer)>();
         foreach (long keyword in scan.TrailerKeywords)
         {
-            ReadOnlySpan<byte> window = source.GetWindow(keyword + "trailer"u8.Length).Span;
-            if (new CosParser(window, new CosRepairLog()).ParseObject() is CosDictionary trailer)
+            // A windowed source reads again in a larger window while the dictionary does not end inside it (issue #45).
+            CosObject parsed = source.ReadGrowing(keyword + "trailer"u8.Length, (ReadOnlySpan<byte> window, bool final, out CosObject value) =>
+            {
+                var repairs = new CosRepairLog();
+                var parser = new CosParser(window, repairs);
+                value = parser.ParseObject();
+                return final || (repairs.Count == 0 && StructureTokens.NextTokenEndsInside(window, parser.Position));
+            });
+            if (parsed is CosDictionary trailer)
             {
                 candidates.Add((keyword, trailer));
             }

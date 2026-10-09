@@ -109,6 +109,14 @@ internal static class FuzzTargets
         {
             throw new InvalidOperationException($"Reading in windows differs from reading the whole file:\n{whole}\n---\n{windowed}");
         }
+
+        // Windows that start at 16 bytes and double: every object and section is read through the growth paths.
+        using var tiny = new MemoryStream(bytes, writable: false);
+        string grown = ReadEverything(() => PdfDocument.Read(new StreamSource(tiny, ownsStream: false, initialWindow: 16), EngineConfiguration.From(new PdfOptions())));
+        if (whole != grown)
+        {
+            throw new InvalidOperationException($"Reading in growing windows differs from reading the whole file:\n{whole}\n---\n{grown}");
+        }
     }
 
     private static string ReadEverything(Func<PdfDocument> open)

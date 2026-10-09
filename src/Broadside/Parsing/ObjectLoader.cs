@@ -346,7 +346,7 @@ internal sealed class ObjectLoader
     private CosObject ParseIndirectObject(in ObjectLoadContext context)
     {
         long available = _source.Length - context.Offset;
-        int minimum = InitialObjectWindow;
+        int minimum = Math.Min(InitialObjectWindow, _source.InitialWindow);
         while (true)
         {
             ReadOnlyMemory<byte> window = _source.GetWindow(context.Offset, minimum);
@@ -373,7 +373,8 @@ internal sealed class ObjectLoader
             || number != context.Reference.ObjectNumber
             || generation != context.Reference.Generation)
         {
-            return LoadMisplaced(context);
+            // A header cut off by the end of a window that is not final is read again in a larger one.
+            return !final && lexer.Position >= window.Length ? null : LoadMisplaced(context);
         }
 
         lexer.SkipWhitespaceAndComments();
@@ -385,7 +386,8 @@ internal sealed class ObjectLoader
         lexer.Position = parser.Position;
         CosToken end = lexer.Next();
         bool ended = StructureTokens.IsKeyword(window, end, "endobj"u8);
-        if (!final && (!ended || repairs.Count > 0))
+        // Not final: read again in a larger window unless the object, and the token after it, end inside this one.
+        if (!final && (!ended || repairs.Count > 0 || end.End >= window.Length))
         {
             return null;
         }

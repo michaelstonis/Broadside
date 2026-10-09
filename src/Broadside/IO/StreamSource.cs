@@ -20,8 +20,10 @@ internal sealed class StreamSource : PdfSource
     /// <summary>Initializes a new instance of the <see cref="StreamSource"/> class over <paramref name="stream"/> from its current position.</summary>
     /// <param name="stream">The stream; seekable and readable.</param>
     /// <param name="ownsStream">Whether the source disposes the stream.</param>
-    public StreamSource(Stream stream, bool ownsStream)
+    /// <param name="initialWindow">The first window a growing read asks for (<see cref="PdfSource.InitialWindow"/>).</param>
+    public StreamSource(Stream stream, bool ownsStream, int initialWindow = 64 * 1024)
     {
+        InitialWindow = initialWindow;
         _stream = stream;
         _ownsStream = ownsStream;
         _start = stream.Position;
@@ -30,6 +32,9 @@ internal sealed class StreamSource : PdfSource
 
     /// <inheritdoc/>
     public override long Length => _length;
+
+    /// <inheritdoc/>
+    public override int InitialWindow { get; }
 
     /// <inheritdoc/>
     public override int Read(long offset, Span<byte> destination)

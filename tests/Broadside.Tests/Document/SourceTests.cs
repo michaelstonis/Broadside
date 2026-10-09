@@ -11,6 +11,9 @@ public class SourceTests
 {
     private const int ContentLength = 64 * 1024;
 
+    /// <summary>The window a windowed source first reads a structure in, before #45 grew it: 4 MiB.</summary>
+    private const int PdfSectionBound = 4 << 20;
+
     [Fact]
     public void A_seekable_stream_is_read_in_place_only_where_objects_are_needed()
     {
@@ -44,6 +47,56 @@ public class SourceTests
         var contents = (CosStream)document.Resolve(new CosReference(4, 0));
         Assert.Equal(content, contents.EncodedData.ToArray());
         Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void A_cross_reference_table_larger_than_4_MiB_is_read_whole_through_a_seekable_stream()
+    {
+        // 300 000 entries of 20 bytes: a 6 MB section, whose last entry names the object resolved here.
+        const int last = 300_000;
+        var text = new System.Text.StringBuilder("%PDF-1.7\n");
+        var offsets = new int[last + 1];
+        string[] bodies = [.. XrefStreamPdf.OnePage];
+        for (int index = 0; index < bodies.Length; index++)
+        {
+            offsets[index + 1] = text.Length;
+            text.Append(System.Globalization.CultureInfo.InvariantCulture, $"{index + 1} 0 obj\n{bodies[index]}\nendobj\n");
+        }
+
+        offsets[last] = text.Length;
+        text.Append(System.Globalization.CultureInfo.InvariantCulture, $"{last} 0 obj\n(the last object)\nendobj\n");
+        int xref = text.Length;
+        text.Append(System.Globalization.CultureInfo.InvariantCulture, $"xref\n0 {last + 1}\n0000000000 65535 f \n");
+        for (int number = 1; number <= last; number++)
+        {
+            text.Append(offsets[number] > 0 ? $"{offsets[number]:D10} 00000 n \n" : "0000000000 00001 f \n");
+        }
+
+        text.Append(System.Globalization.CultureInfo.InvariantCulture, $"trailer\n<< /Size {last + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+        byte[] file = System.Text.Encoding.Latin1.GetBytes(text.ToString());
+        Assert.True(file.Length - xref > PdfSectionBound, $"The section is {file.Length - xref} bytes.");
+
+        AssertLastObjectReads(file, last);
+    }
+
+    [Fact]
+    public void A_cross_reference_stream_larger_than_4_MiB_is_read_whole_through_a_seekable_stream()
+    {
+        // 800 000 unfiltered rows of 7 bytes: a 5.6 MB stream, whose last row places the object resolved here.
+        const int last = 800_000;
+        int[] widths = [1, 4, 2];
+        var pdf = new XrefStreamPdf().AddOnePage().Add(last, "(the last object)");
+        var rows = new (long Type, long Field2, long Field3)[last + 2];
+        rows[0] = (0, 0, 65535);
+        for (int number = 1; number <= last; number++)
+        {
+            rows[number] = number is <= 3 or last ? (1, pdf.Offset(number), 0) : (0, 0, 1);
+        }
+
+        rows[last + 1] = (1, pdf.Position, 0);
+        byte[] file = pdf.Finish(last + 1, $"/Size {last + 2} /Root 1 0 R /W [1 4 2]", widths, rows);
+
+        AssertLastObjectReads(file, last);
     }
 
     [Fact]
@@ -151,6 +204,24 @@ public class SourceTests
 
         Assert.True(System.Runtime.InteropServices.MemoryMarshal.TryGetArray(contents.EncodedData, out ArraySegment<byte> segment));
         Assert.Same(file, segment.Array);
+    }
+
+    /// <summary>
+    /// Opens <paramref name="file"/> through a seekable stream that is not a <see cref="FileStream"/> (read in windows) and from
+    /// bytes, and requires both to resolve object <paramref name="last"/> with no diagnostic.
+    /// </summary>
+    private static void AssertLastObjectReads(byte[] file, int last)
+    {
+        using var stream = new ProbeStream(file);
+        using PdfDocument windowed = PdfDocument.Open(stream);
+        using PdfDocument whole = PdfDocument.Open(file);
+
+        foreach (PdfDocument document in (PdfDocument[])[windowed, whole])
+        {
+            Assert.Equal("the last object", Assert.IsType<CosString>(document.Resolve(new CosReference(last, 0))).DecodeText());
+            Assert.Single(document.Pages);
+            Assert.Empty(document.Diagnostics);
+        }
     }
 
     /// <summary>A file of <paramref name="pageCount"/> pages, each with a content stream of <see cref="ContentLength"/> bytes.</summary>
