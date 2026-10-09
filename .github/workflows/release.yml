@@ -1,0 +1,223 @@
+# Release: build and test on Linux and macOS, pack every package, publish to NuGet.org and create a GitHub release.
+#
+# Triggers:
+#   - a tag v* (MinVer turns the tag into the package version; see Directory.Build.props)
+#   - the "Run workflow" button in the Actions tab, with dry_run (default true): build, test and pack,
+#     and upload the packages as a workflow artifact, but push nothing and create no release.
+#
+# Publishing uses NuGet trusted publishing (OIDC), so the repository holds no NuGet API key. Before the first
+# real release the owner must register this workflow as a trusted publisher on nuget.org:
+#   nuget.org -> sign in as michaelstonis -> profile -> Trusted Publishing -> Add
+#     Repository owner: michaelstonis
+#     Repository:       Broadside
+#     Workflow file:    release.yml
+#     Environment:      (leave empty)
+# NuGet/login exchanges the job's GitHub OIDC token for a short-lived API key that is used once by dotnet nuget push.
+# The dry_run path never calls NuGet/login and needs no secrets or registration.
+# See .github/workflows/README.md.
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: Build, test and pack only. Do not push to NuGet.org and do not create a GitHub release.
+        type: boolean
+        default: true
+
+# Never cancel a release in flight.
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_GENERATE_ASPNET_CERTIFICATE: false
+  DiffEngine_Disabled: true
+
+jobs:
+  # Core packages (net10.0 only, no workloads): Broadside, Rendering, Rendering.Skia, Rendering.Direct2D, Fonts.*.
+  build-linux:
+    name: build and pack core (Linux)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore Broadside.slnx
+
+      - name: Build
+        run: dotnet build Broadside.slnx -c Release -warnaserror --no-restore
+
+      - name: Test
+        run: dotnet test Broadside.Core.slnf -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
+
+      - name: Pack the core packages
+        run: dotnet pack Broadside.Core.slnf -c Release --no-build
+
+      - name: Upload core packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages-core
+          path: |
+            artifacts/package/release/*.nupkg
+            artifacts/package/release/*.snupkg
+          if-no-files-found: error
+
+  # Platform packages that need the Apple and Android workloads: Rendering.CoreGraphics and Rendering.Android.
+  # The full solution is built and tested here too; only the two platform packages are uploaded, the Linux job
+  # provides the rest so that every package comes from exactly one build.
+  build-macos:
+    name: build and pack platform backends (macOS)
+    runs-on: macos-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Install platform workloads
+        timeout-minutes: 20
+        run: dotnet workload install macos ios maccatalyst android
+
+      - name: Restore
+        run: dotnet restore Broadside.slnx
+
+      - name: Build
+        run: dotnet build Broadside.slnx -c Release -warnaserror --no-restore
+
+      - name: Test
+        run: dotnet test Broadside.Core.slnf -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
+
+      - name: Pack the full solution
+        run: dotnet pack Broadside.slnx -c Release --no-build
+
+      - name: Upload platform packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages-platform
+          path: |
+            artifacts/package/release/Broadside.Rendering.CoreGraphics.*.nupkg
+            artifacts/package/release/Broadside.Rendering.CoreGraphics.*.snupkg
+            artifacts/package/release/Broadside.Rendering.Android.*.nupkg
+            artifacts/package/release/Broadside.Rendering.Android.*.snupkg
+          if-no-files-found: error
+
+  # Merge the packages, then (tag and not a dry run) push them to NuGet.org and create the GitHub release.
+  publish:
+    name: publish
+    needs: [build-linux, build-macos]
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    permissions:
+      contents: write # create the GitHub release
+      id-token: write # OIDC token for NuGet trusted publishing
+    steps:
+      - name: Decide whether to publish
+        id: decide
+        shell: bash
+        env:
+          IS_TAG: ${{ startsWith(github.ref, 'refs/tags/v') }}
+          DRY_RUN: ${{ github.event_name == 'workflow_dispatch' && inputs.dry_run }}
+        run: |
+          if [ "${IS_TAG}" = "true" ] && [ "${DRY_RUN}" != "true" ]; then
+            echo "publish=true" >> "${GITHUB_OUTPUT}"
+            echo "This run publishes to NuGet.org and creates a GitHub release for ${GITHUB_REF_NAME}."
+          else
+            echo "publish=false" >> "${GITHUB_OUTPUT}"
+            echo "Dry run (tag: ${IS_TAG}, dry_run: ${DRY_RUN:-n/a}): packages are built and uploaded as an artifact only."
+          fi
+
+      - name: Download packages
+        uses: actions/download-artifact@v8
+        with:
+          pattern: packages-*
+          merge-multiple: true
+          path: artifacts/package/release
+
+      - name: List packages
+        shell: bash
+        run: |
+          {
+            echo "## Packages"
+            echo
+            echo "Publish: \`${{ steps.decide.outputs.publish }}\`"
+            echo
+            echo '```'
+            ls -1 artifacts/package/release
+            echo '```'
+          } >> "${GITHUB_STEP_SUMMARY}"
+          ls -l artifacts/package/release
+
+      - name: Upload merged packages
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: artifacts/package/release
+          if-no-files-found: error
+
+      - name: Set up .NET
+        if: steps.decide.outputs.publish == 'true'
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Log in to NuGet.org (trusted publishing)
+        if: steps.decide.outputs.publish == 'true'
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: michaelstonis
+
+      - name: Push to NuGet.org
+        if: steps.decide.outputs.publish == 'true'
+        run: dotnet nuget push 'artifacts/package/release/*.nupkg' --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source https://api.nuget.org/v3/index.json --skip-duplicate
+
+      - name: Create the GitHub release
+        if: steps.decide.outputs.publish == 'true'
+        uses: softprops/action-gh-release@v3
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: ${{ github.ref_name }}
+          generate_release_notes: true
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true
+          files: |
+            artifacts/package/release/*.nupkg
+            artifacts/package/release/*.snupkg

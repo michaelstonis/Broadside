@@ -1,0 +1,250 @@
+# Continuous integration: every pull request and every push to main.
+# See .github/workflows/README.md for what each job does and which OS it runs on.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# One run per PR or branch; a newer push cancels the older run.
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_GENERATE_ASPNET_CERTIFICATE: false
+  # Verify must never try to launch a diff tool on a build agent (tests/README.md, "Snapshots").
+  DiffEngine_Disabled: true
+
+jobs:
+  # Build the whole solution, run the core tests, and (on Linux) pack the core packages.
+  # The CoreGraphics and Android backends drop out of the build on Linux and Windows through the
+  # BroadsideBuildPlatformBackends gate in their project files; macOS installs the workloads and builds them.
+  # Everything is built once in Release so that test and pack can run with --no-build.
+  build-test:
+    name: build-test (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          # MinVer computes the package version from the tag history.
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Install platform workloads (macOS)
+        if: runner.os == 'macOS'
+        timeout-minutes: 20
+        run: dotnet workload install macos ios maccatalyst android
+
+      - name: Restore
+        run: dotnet restore Broadside.slnx
+
+      - name: Build
+        run: dotnet build Broadside.slnx -c Release -warnaserror --no-restore
+
+      - name: Test
+        run: dotnet test Broadside.Core.slnf -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: test-results-${{ matrix.os }}
+          path: artifacts/test-results/**/*.trx
+          if-no-files-found: warn
+
+      - name: Pack (Linux)
+        if: runner.os == 'Linux'
+        run: dotnet pack Broadside.Core.slnf -c Release --no-build
+
+      - name: Upload packages (Linux)
+        if: runner.os == 'Linux'
+        uses: actions/upload-artifact@v7
+        with:
+          name: packages
+          path: |
+            artifacts/package/release/*.nupkg
+            artifacts/package/release/*.snupkg
+          if-no-files-found: error
+
+  # Shows the public API diff of the PR in the job summary for human review. It never fails: the
+  # PublicApiAnalyzers (RS0016/RS0017) already fail the build when the API files and the code disagree.
+  api-surface:
+    name: api-surface
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Public API diff against the base branch
+        shell: bash
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          base="origin/${BASE_REF}"
+          diff=$(git diff "${base}..." -- 'src/**/PublicAPI.*.txt' || true)
+          {
+            echo "## Public API surface"
+            echo
+            echo "Diff of \`src/**/PublicAPI.Shipped.txt\` and \`PublicAPI.Unshipped.txt\` against the merge base with \`${base}\`."
+            echo
+            if [ -z "${diff}" ]; then
+              echo "_No public API changes._"
+            else
+              echo '```diff'
+              echo "${diff}"
+              echo '```'
+            fi
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  # Checks docs/conformance/ with tools/ConformanceCheck (issue #7). The tool is written in parallel with this
+  # workflow, so the steps are skipped until tools/ConformanceCheck/ConformanceCheck.csproj exists on the branch.
+  # (hashFiles() only sees the workspace after checkout, so the guard is on the steps, not on the job.)
+  conformance-map:
+    name: conformance-map
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        if: hashFiles('tools/ConformanceCheck/ConformanceCheck.csproj') != ''
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        if: hashFiles('tools/ConformanceCheck/ConformanceCheck.csproj') != ''
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Check the conformance map
+        if: hashFiles('tools/ConformanceCheck/ConformanceCheck.csproj') != ''
+        shell: bash
+        run: dotnet run --project tools/ConformanceCheck -- --root . --summary >> "${GITHUB_STEP_SUMMARY}"
+
+      - name: Report that the checker is not on this branch yet
+        if: hashFiles('tools/ConformanceCheck/ConformanceCheck.csproj') == ''
+        shell: bash
+        run: |
+          {
+            echo "## Conformance map"
+            echo
+            echo "Skipped: \`tools/ConformanceCheck\` is not on this branch yet (issue #7)."
+          } >> "${GITHUB_STEP_SUMMARY}"
+
+  # Runs every fuzz target in smoke mode for 60 s (tests/Broadside.Fuzz/README.md).
+  fuzz-smoke:
+    name: fuzz-smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Build the fuzz harness
+        run: dotnet build tests/Broadside.Fuzz -c Release -warnaserror
+
+      - name: Smoke every target for 60 s
+        shell: bash
+        run: |
+          targets=$(dotnet run -c Release --project tests/Broadside.Fuzz --no-build -- --list)
+          if [ -z "${targets}" ]; then
+            echo "::error::--list returned no fuzz targets"
+            exit 1
+          fi
+          status=0
+          for target in ${targets}; do
+            echo "::group::${target}"
+            if ! dotnet run -c Release --project tests/Broadside.Fuzz --no-build -- --smoke "${target}" 60; then
+              echo "::error::fuzz target ${target} reported a finding"
+              status=1
+            fi
+            echo "::endgroup::"
+          done
+          exit "${status}"
+
+      - name: Upload findings
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-findings
+          path: artifacts/fuzz/**
+          if-no-files-found: ignore
+
+  # Runs every benchmark once in BenchmarkDotNet's dry job so the harness cannot rot (tests/README.md, "Benchmarks").
+  bench-dry:
+    name: bench-dry
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Build the benchmarks
+        run: dotnet build bench/Broadside.Benchmarks -c Release -warnaserror
+
+      - name: Dry run every benchmark
+        run: dotnet run -c Release --project bench/Broadside.Benchmarks --no-build -- --filter '*' --job dry
