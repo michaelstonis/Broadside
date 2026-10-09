@@ -46,6 +46,8 @@ public static class Corpus
         "inline-image.pdf",
         "page-tree-inherited.pdf",
         "annotations-link.pdf",
+        "annotations-subtypes.pdf",
+        "annotations-appearance.pdf",
         "outline.pdf",
         "name-tree-dests.pdf",
         "metadata-xmp.pdf",
@@ -66,6 +68,8 @@ public static class Corpus
         "associated-files.pdf",
         "object-metadata.pdf",
         "declarations.pdf",
+        "actions-all.pdf",
+        "actions-preserved.pdf",
     ];
 
     private static readonly string[] Malformed =
@@ -80,6 +84,7 @@ public static class Corpus
         "encrypted-rc4-length-missing.pdf",
         "name-tree-broken.pdf",
         "outline-broken.pdf",
+        "annotations-malformed.pdf",
     ];
 
     private static readonly (string FileName, string UserPassword)[] PasswordProtected =

@@ -1253,6 +1253,136 @@ def gen_annotations_link() -> bytes:
     ])
 
 
+def annotation(subtype: bytes, rect: bytes, extra: bytes = b"", ap: bool = True) -> bytes:
+    """12.5.2 Table 166: an annotation dictionary on page 3 (/P) whose normal appearance is form 4."""
+    body = b"<< /Type /Annot /Subtype /" + subtype + b" /Rect " + rect + b" /P 3 0 R"
+    if ap:
+        body += b" /AP << /N 4 0 R >>"
+    return body + extra + b" >>"
+
+
+def gen_annotations_subtypes() -> bytes:
+    """12.5.6 Table 171: one annotation of each of the 28 standard subtypes on one page, plus one of the
+    unknown subtype XBroadsideTest with every flag bit of Table 167 set; TrapNet is last (12.5.6.21). Every
+    annotation that needs one (12.5.2: all but Popup, Link and a zero-size Projection) shares the normal
+    appearance form 4. Relations: Text 10 <-> Popup 11 (Popup/Parent), reply 12 (IRT 10, RT R, State
+    Accepted in the Review model); colours C/IC with 1, 3 and 4 components; Border array with a dash, BS
+    and BE dictionaries; QuadPoints on Link, text markup and Redact; the Widget is a push button field
+    listed in the catalog's AcroForm."""
+    def rect(i: int) -> bytes:
+        x, y = 40 + (i % 6) * 90, 700 - (i // 6) * 90
+        return b"[%d %d %d %d]" % (x, y, x + 60, y + 40)
+
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog(b" /AcroForm << /Fields [34 0 R] >>")),
+        (2, pages()),
+        (3, page(extra=b" /Annots [%s]" % b" ".join(b"%d 0 R" % n for n in [
+            10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 30, 32, 33, 34, 35, 36,
+            37, 39, 40, 41, 42, 43]))),
+        (4, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"0 g 0 0 10 10 re f")),
+        (10, annotation(b"Text", rect(0), b" /Contents (Note text) /NM (note-1) /M (D:20240102030405Z)"
+                        b" /F 28 /C [1 1 0] /T (Alice) /Subj (Review) /CreationDate (D:20240101120000Z)"
+                        b" /Popup 11 0 R /Name /Comment /Open true")),
+        (11, annotation(b"Popup", b"[300 600 450 700]", b" /Parent 10 0 R /Open true", ap=False)),
+        (12, annotation(b"Text", rect(2), b" /T (Bob) /IRT 10 0 R /RT /R /State (Accepted) /StateModel (Review)")),
+        (13, annotation(b"Link", b"[220 700 280 740]", b" /Dest [3 0 R /Fit] /H /O"
+                        b" /QuadPoints [222 702 278 702 278 738 222 738] /BS << /W 2 /S /U >>", ap=False)),
+        (14, annotation(b"FreeText", rect(4), b" /DA (/Helv 12 Tf 0 g) /Q 1 /IT /FreeTextCallout"
+                        b" /CL [10 10 50 50 60 50] /LE /OpenArrow /DS (font: 12pt Helvetica) /RC (<p>rich</p>)")),
+        (15, annotation(b"Line", rect(5), b" /L [100 100 200 200] /LE [/Circle /ClosedArrow] /IC [1 0 0]"
+                        b" /LL 10 /LLE 2 /LLO 1 /Cap true /CP /Top /CO [0 5] /IT /LineDimension")),
+        (16, annotation(b"Square", rect(6), b" /BS << /Type /Border /W 2 /S /D /D [3 2] >> /IC [0 0 1]"
+                        b" /BE << /S /C /I 1 >> /RD [1 2 3 4]")),
+        (17, annotation(b"Circle", rect(7), b" /Border [0 0 2 [4 1]] /IC [0.5] /C [0 0 0 1]")),
+        (18, annotation(b"Polygon", rect(8), b" /Vertices [10 10 50 10 30 40] /IT /PolygonCloud /BE << /S /C /I 2 >>")),
+        (19, annotation(b"PolyLine", rect(9), b" /Path [[10 10] [50 10] [60 20 70 30 80 10]] /LE [/Square /Slash]")),
+        (20, annotation(b"Highlight", rect(10), b" /QuadPoints [10 10 50 10 50 20 10 20]")),
+        (21, annotation(b"Underline", rect(11), b" /QuadPoints [10 30 50 30 50 40 10 40]")),
+        (22, annotation(b"Squiggly", rect(12), b" /QuadPoints [10 50 50 50 50 60 10 60]")),
+        (23, annotation(b"StrikeOut", rect(13), b" /QuadPoints [10 70 50 70 50 80 10 80 60 70 90 70 90 80 60 80]")),
+        (24, annotation(b"Caret", rect(14), b" /Sy /P /RD [1 1 1 1]")),
+        (25, annotation(b"Stamp", rect(15), b" /IT /StampImage")),
+        (26, annotation(b"Ink", rect(16), b" /InkList [[10 10 20 20 30 10] [40 40 50 50]]")),
+        (27, annotation(b"FileAttachment", rect(17), b" /FS 28 0 R /Name /Paperclip /Contents (An attached file)"
+                        b" /AF [28 0 R]")),
+        (28, b"<< /Type /Filespec /F (a.txt) /UF (a.txt) /AFRelationship /Data /EF << /F 29 0 R /UF 29 0 R >> >>"),
+        (29, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain", b"attached")),
+        (30, annotation(b"Sound", rect(18), b" /Sound 31 0 R /Name /Mic")),
+        (31, stream(b"/Type /Sound /R 8000", b"\x00\x40\x80\xc0")),
+        (32, annotation(b"Movie", rect(19), b" /T (Clip) /Movie << /F (movie.mp4) >> /A false")),
+        (33, annotation(b"Screen", rect(20), b" /T (Screen) /MK << /R 90 /BC [1 0 0] /BG [1] /CA (Play) >>"
+                        b" /A << /S /URI /URI (https://example.org/media) >>")),
+        (34, annotation(b"Widget", rect(21), b" /FT /Btn /Ff 65536 /T (push) /H /P /MK << /CA (Push) /TP 0 >>")),
+        (35, annotation(b"PrinterMark", rect(22), b" /F 68 /MN /ColorBar")),
+        (36, annotation(b"Watermark", rect(23), b" /FixedPrint << /Type /FixedPrint /Matrix [1 0 0 1 72 -72] /H 0 /V 1 >>")),
+        (37, annotation(b"3D", rect(24), b" /3DD 38 0 R /3DI false /3DB [0 0 60 40]")),
+        (38, stream(b"/Type /3D /Subtype /U3D", b"U3D\x00")),
+        (39, annotation(b"Redact", rect(25), b" /QuadPoints [10 10 50 10 50 20 10 20] /IC [1 0 0]"
+                        b" /OverlayText (X) /Repeat true /DA (/Helv 10 Tf 0 g) /Q 2")),
+        (40, annotation(b"Projection", b"[0 0 0 0]", ap=False)),
+        (41, annotation(b"RichMedia", rect(27), b" /RichMediaContent << >> /RichMediaSettings << >>")),
+        (42, annotation(b"XBroadsideTest", rect(28), b" /F 1023")),
+        (43, annotation(b"TrapNet", b"[0 0 612 792]", b" /F 68 /LastModified (D:20240101000000Z) /AS /T1", ap=False)[:-3]
+            + b" /AP << /N << /T1 4 0 R >> >> >>"),
+    ]
+    id0 = file_id("annotations-subtypes").hex().encode()
+    return simple_file(objects, version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_annotations_appearance() -> bytes:
+    """12.5.5 Algorithm "Appearance streams" and Table 170. Square 10: N stream with BBox [0 0 100 50] and
+    Matrix [0 1 -1 0 0 0] on Rect [100 100 150 200] (AA = [0 1 -1 0 150 100]). Circle 11: Rect written
+    unnormalized as [50 30 10 10] (7.9.5) with N BBox [0 0 20 20] (AA = [2 0 0 1 10 10]). Square 12: N is a
+    state subdictionary (On, Off), D has only On, R is absent, AS /On."""
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog()),
+        (2, pages()),
+        (3, page(extra=b" /Annots [10 0 R 11 0 R 12 0 R]")),
+        (4, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 100 50] /Matrix [0 1 -1 0 0 0]", b"1 0 0 rg 0 0 100 50 re f")),
+        (5, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 20 20]", b"0 0 1 rg 0 0 20 20 re f")),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"0 1 0 rg 0 0 10 10 re f")),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"0.5 g 0 0 10 10 re f")),
+        (8, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"0 g 0 0 10 10 re f")),
+        (10, b"<< /Type /Annot /Subtype /Square /Rect [100 100 150 200] /AP << /N 4 0 R >> >>"),
+        (11, b"<< /Type /Annot /Subtype /Circle /Rect [50 30 10 10] /AP << /N 5 0 R >> >>"),
+        (12, b"<< /Type /Annot /Subtype /Square /Rect [300 300 340 340] /AS /On"
+             b" /AP << /N << /On 6 0 R /Off 7 0 R >> /D << /On 8 0 R >> >> >>"),
+    ]
+    return simple_file(objects)
+
+
+def gen_annotations_malformed() -> bytes:
+    """12.5 real-world deviations, two pages. Page 3's Annots: [null 9 0 R (an integer) 10 10 11 12 13 14 15
+    16 << direct >>]: 10 is listed twice; 11 has no Subtype; 12 has a three-number Rect; 13 is a Highlight
+    with 7 QuadPoints numbers; 14 has an N state subdictionary but no AS; 15's N stream has no BBox; 16's P
+    names page 4, whose Annots lists 16 too. Page 4 also holds 17: a Line with RT but no IRT, Popup -> 18
+    (a Popup whose Parent is 19), State without StateModel, F 2048, C with two components, Border [1],
+    and a Link 19 with both A and Dest. PDF 1.7, so a missing appearance is not a deviation."""
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog()),
+        (2, pages([3, 4])),
+        (3, page(extra=b" /Annots [null 9 0 R 10 0 R 10 0 R 11 0 R 12 0 R 13 0 R 14 0 R 15 0 R 16 0 R"
+                       b" << /Type /Annot /Subtype /Square /Rect [0 0 10 10] >>]")),
+        (4, page(extra=b" /Annots [16 0 R 17 0 R 18 0 R 19 0 R]")),
+        (5, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"0 g 0 0 10 10 re f")),
+        (6, stream(b"/Type /XObject /Subtype /Form", b"0 g 0 0 10 10 re f")),
+        (9, b"42"),
+        (10, b"<< /Type /Annot /Subtype /Square /Rect [10 10 20 20] /P 3 0 R >>"),
+        (11, b"<< /Type /Annot /Rect [30 10 40 20] /P 3 0 R >>"),
+        (12, b"<< /Type /Annot /Subtype /Circle /Rect [1 2 3] /P 3 0 R >>"),
+        (13, b"<< /Type /Annot /Subtype /Highlight /Rect [50 10 60 20] /P 3 0 R /QuadPoints [1 2 3 4 5 6 7] >>"),
+        (14, b"<< /Type /Annot /Subtype /Square /Rect [70 10 80 20] /P 3 0 R /AP << /N << /On 5 0 R >> >> >>"),
+        (15, b"<< /Type /Annot /Subtype /Square /Rect [90 10 100 20] /P 3 0 R /AP << /N 6 0 R >> >>"),
+        (16, b"<< /Type /Annot /Subtype /Square /Rect [110 10 120 20] /P 4 0 R >>"),
+        (17, b"<< /Type /Annot /Subtype /Text /Rect [10 50 20 60] /P 4 0 R /RT /Group /Popup 18 0 R"
+             b" /State (Accepted) /F 2048 /C [1 0] /Border [1] >>"),
+        (18, b"<< /Type /Annot /Subtype /Popup /Rect [30 50 90 90] /P 4 0 R /Parent 19 0 R >>"),
+        (19, b"<< /Type /Annot /Subtype /Link /Rect [10 100 50 120] /P 4 0 R /Dest [4 0 R /Fit]"
+             b" /A << /S /URI /URI (https://example.com/) >> >>"),
+    ]
+    return simple_file(objects)
+
+
 def gen_outline() -> bytes:
     return simple_file([
         (1, catalog(b" /Outlines 4 0 R /PageMode /UseOutlines")),
@@ -1443,6 +1573,150 @@ def gen_outline_broken() -> bytes:
             b" /Count 0 >>"),
         (8, b"<< /Title (One.One) /Parent 5 0 R /First 5 0 R /Last 5 0 R >>"),
         (9, b"<< /Title (Three.One) /Parent 7 0 R >>"),
+    ])
+
+
+def link(action: bytes) -> bytes:
+    """12.5.6.5 Table 176: a link annotation with no border whose A entry is ``action``."""
+    return b"<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /A " + action + b" >>"
+
+
+def gen_actions_all() -> bytes:
+    """12.6 Actions: every action type of Table 201, each in the A entry of its own link annotation
+    (objects 40-59, in table order: GoTo with D and SD, GoToR with a string F and a page number, GoToE
+    with a nested target dictionary three levels deep (Table 205), GoToDp, Launch with a file
+    specification dictionary and the deprecated Win dictionary (Table 208), Thread with an index
+    into the catalog's Threads and a bead index, URI relative to the catalog's URI Base (Table 211)
+    with IsMap, Sound, Movie naming a movie annotation, Hide with an annotation and a field name,
+    Named NextPage with a non-standard /Print next, SubmitForm (12.7.6.2: URL file specification,
+    Fields mixing a reference and a name, Flags 13, CharSet), ResetForm (Flags 1), ImportData,
+    SetOCGState with PreserveRB false, Rendition with OP 0 and JS, Trans, GoTo3DView with the
+    name /F, JavaScript in a stream, RichMediaExecute with a command and two arguments). The GoTo
+    action's Next is an array of two actions, the first of which has a Next of its own.
+    Trigger events (12.6.3): the catalog's OpenAction (a go-to action) and AA (Table 200: WC WS DS WP
+    DP), the page's AA (Table 198: O C), a link annotation's AA (Table 197: E X D U PO PC PV PI) and
+    a widget merged with its text field (object 69) whose AA has Table 199's K F V C and Table 197's
+    Fo Bl. The name dictionary's JavaScript tree has one document-level script (7.7.4)."""
+    id0 = file_id("actions-all").hex().encode()
+
+    def js(text: bytes) -> bytes:
+        return b"<< /S /JavaScript /JS (" + text + b") >>"
+
+    catalog_aa = b" ".join(b"/%s %s" % (k, js(k + b"\\(\\);")) for k in [b"WC", b"WS", b"DS", b"WP", b"DP"])
+    annot_aa = b" ".join(b"/%s %s" % (k, js(k + b"\\(\\);")) for k in [b"E", b"X", b"D", b"U", b"PO", b"PC", b"PV", b"PI"])
+    field_aa = b" ".join(b"/%s %s" % (k, js(k + b"\\(\\);")) for k in [b"K", b"F", b"V", b"C", b"Fo", b"Bl"])
+    appearance = b" /AP << /N 81 0 R >>"
+    annots = list(range(40, 60)) + [60, 68, 69, 72, 74, 77]
+    return simple_file([
+        (1, catalog(b" /OpenAction << /S /GoTo /D [3 0 R /Fit] >>"
+                    b" /AA << " + catalog_aa + b" >>"
+                    b" /URI << /Base (https://example.com/) >>"
+                    b" /Names << /JavaScript << /Names [(init) 79 0 R] >> >>"
+                    b" /Threads [65 0 R] /OCProperties << /OCGs [70 0 R 71 0 R] /D << /Order [70 0 R 71 0 R] >> >>"
+                    b" /AcroForm << /Fields [69 0 R] /CO [69 0 R] >> /StructTreeRoot 61 0 R /DPartRoot 63 0 R")),
+        (2, pages()),
+        (3, page(extra=b" /AA << /O << /S /Named /N /FirstPage >> /C " + js(b"pageClosed\\(\\);") + b" >>"
+                       b" /B [66 0 R] /Annots [" + b" ".join(b"%d 0 R" % n for n in annots) + b"]")),
+        (40, link(b"<< /Type /Action /S /GoTo /D [3 0 R /XYZ 0 792 null] /SD [62 0 R /Fit]"
+                  b" /Next [<< /S /Named /N /LastPage /Next " + js(b"nested\\(\\);") + b" >>"
+                  b" << /S /URI /URI (https://example.com/next) >>] >>")),
+        (41, link(b"<< /S /GoToR /F (other.pdf) /D [0 /Fit] /NewWindow true >>")),
+        (42, link(b"<< /S /GoToE /D (Chapter 1) /NewWindow false"
+                  b" /T << /R /P /T << /R /C /N (embedded.pdf) /T << /R /C /P 0 /A (attached) >> >> >> >>")),
+        (43, link(b"<< /S /GoToDp /Dp 82 0 R >>")),
+        (44, link(b"<< /S /Launch /F << /Type /Filespec /F (readme.txt) /UF (readme.txt) >>"
+                  b" /Win << /F (notepad.exe) /D (C:\\\\Temp) /O (print) /P (readme.txt) >> /NewWindow true >>")),
+        (45, link(b"<< /S /Thread /D 0 /B 0 >>")),
+        (46, link(b"<< /S /URI /URI (docs/index.html) /IsMap true >>")),
+        (47, link(b"<< /S /Sound /Sound 67 0 R /Volume 0.25 /Synchronous true /Repeat false /Mix true >>")),
+        (48, link(b"<< /S /Movie /Annotation 68 0 R /Operation /Pause >>")),
+        (49, link(b"<< /S /Hide /T [40 0 R (email)] /H false >>")),
+        (50, link(b"<< /S /Named /N /NextPage /Next << /S /Named /N /Print >> >>")),
+        (51, link(b"<< /S /SubmitForm /F << /FS /URL /F (https://example.com/submit) >>"
+                  b" /Fields [69 0 R (name.first)] /Flags 13 /CharSet (utf-8) >>")),
+        (52, link(b"<< /S /ResetForm /Fields [(email)] /Flags 1 >>")),
+        (53, link(b"<< /S /ImportData /F (data.fdf) >>")),
+        (54, link(b"<< /S /SetOCGState /State [/OFF 70 0 R /Toggle 71 0 R 70 0 R] /PreserveRB false >>")),
+        (55, link(b"<< /S /Rendition /OP 0 /AN 72 0 R /R 73 0 R /JS (play\\(\\);) >>")),
+        (56, link(b"<< /S /Trans /Trans << /Type /Trans /S /Dissolve /D 0.5 >> >>")),
+        (57, link(b"<< /S /GoTo3DView /TA 74 0 R /V /F >>")),
+        (58, link(b"<< /S /JavaScript /JS 76 0 R >>")),
+        (59, link(b"<< /S /RichMediaExecute /TA 77 0 R /TI 78 0 R"
+                  b" /CMD << /Type /RichMediaCommand /C (play) /A [(intro) 2 true] >> >>")),
+        (60, b"<< /Type /Annot /Subtype /Link /Rect [0 0 10 10] /Border [0 0 0] /AA << " + annot_aa + b" >> >>"),
+        (61, b"<< /Type /StructTreeRoot /K 62 0 R >>"),
+        (62, b"<< /Type /StructElem /S /P /P 61 0 R /Pg 3 0 R >>"),
+        (63, b"<< /Type /DPartRoot /DPartRootNode 64 0 R >>"),
+        (64, b"<< /Type /DPart /Parent 63 0 R /DParts [[82 0 R]] >>"),
+        (65, b"<< /Type /Thread /F 66 0 R /I << /Title (Article) >> >>"),
+        (66, b"<< /Type /Bead /T 65 0 R /N 66 0 R /V 66 0 R /P 3 0 R /R [0 0 100 100] >>"),
+        (67, stream(b"/Type /Sound /R 8000 /C 1 /B 8 /E /Raw", b"\x80\xa0\x80\x60")),
+        (68, b"<< /Type /Annot /Subtype /Movie /Rect [0 0 10 10] /T (Clip) /Movie << /F (clip.mov) >>" + appearance + b" >>"),
+        (69, b"<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /P 3 0 R /FT /Tx /T (email)"
+             b" /AA << " + field_aa + b" >>" + appearance + b" >>"),
+        (70, b"<< /Type /OCG /Name (One) >>"),
+        (71, b"<< /Type /OCG /Name (Two) >>"),
+        (72, b"<< /Type /Annot /Subtype /Screen /Rect [0 0 10 10] /P 3 0 R" + appearance + b" >>"),
+        (73, b"<< /Type /Rendition /S /MR /C << /Type /MediaClip /S /MCD /D << /Type /Filespec /F (clip.mp4) >> /CT (video/mp4) >> >>"),
+        (74, b"<< /Type /Annot /Subtype /3D /Rect [0 0 10 10] /3DD 75 0 R" + appearance + b" >>"),
+        (75, stream(b"/Type /3D /Subtype /U3D", b"")),
+        (76, stream(b"", b'app.alert("stream");')),
+        (77, b"<< /Type /Annot /Subtype /RichMedia /Rect [0 0 10 10] /RichMediaContent << /Configurations [] >>"
+             + appearance + b" >>"),
+        (78, b"<< /Type /RichMediaInstance /Subtype /Video >>"),
+        (79, js(b"var initialised = true;")),
+        (82, b"<< /Type /DPart /Parent 64 0 R /Start 3 0 R >>"),
+        (81, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"")),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_actions_preserved() -> bytes:
+    """12.6 Actions that the library keeps as data and never performs (JavaScript 12.6.4.17, Sound
+    12.6.4.9, Movie 12.6.4.10, Rendition 12.6.4.14, Rich-Media-Execute 12.6.4.18), each an indirect
+    object written in bytes a re-serializer would change, so that a save proves they are copied
+    byte for byte: object 10, a script in a literal string with escapes (\\( \\" \\053 \\r \\n, 7.3.4.2
+    Table 3) and a backslash-EOL continuation; 11, a script in a hexadecimal string; 12, a script in a
+    Flate stream (object 27; the catalog's OpenAction); 13, a script action whose type is written /Java#53cript
+    (7.3.5: the same name as /JavaScript); 14, a sound action with /Volume .50 and a four-sample raw
+    sound (13.3, object 15); 16, a rendition action with a rendition dictionary and a script stream
+    (object 17); 18, a movie action naming the movie annotation 19; 20, a rich-media-execute action
+    with TA, TI and CMD; 23 and 24, two go-to actions whose Next entries name each other (a cycle).
+    Objects 30-37 are the link annotations holding them; object 13 is the name dictionary's
+    document-level script (7.7.4) and object 11 the page's open action (Table 198)."""
+    sound = bytes([0x80, 0xA0, 0x80, 0x60])
+    script = b"app.alert('flate');"
+    links = list(range(30, 38))
+    return simple_file([
+        (1, catalog(b" /OpenAction 12 0 R /Names << /JavaScript << /Names [(doc) 13 0 R] >> >>")),
+        (2, pages()),
+        (3, page(extra=b" /AA << /O 11 0 R >> /Annots [" + b" ".join(b"%d 0 R" % n for n in links + [19, 21]) + b"]")),
+        (10, b"<<  /S/JavaScript /JS (app.alert\\(\\\"hi\\\"\\);\\053\\r\\n// one \\\nline) >>"),
+        (11, b"<</S /JavaScript/JS <6170702E616C6572742827686578272920>>>"),
+        (12, b"<< /S /JavaScript /JS 27 0 R >>"),
+        (13, b"<< /Type /Action /S /Java#53cript /JS (var x = 1;) >>"),
+        (14, b"<< /S /Sound /Sound 15 0 R /Volume .50 /Mix true >>"),
+        (15, stream(b"/Type /Sound /R 8000 /C 1 /B 8 /E /Raw", sound)),
+        (16, b"<< /S /Rendition /OP 4 /AN 21 0 R /R << /Type /Rendition /S /MR"
+             b" /C << /Type /MediaClip /S /MCD /D << /Type /Filespec /F (clip.mp4) >> /CT (video/mp4) >> >> /JS 17 0 R >>"),
+        (17, stream(b"", b"play();")),
+        (18, b"<< /S /Movie /Annotation 19 0 R /Operation /Play /Rate 2.0 >>"),
+        (19, b"<< /Type /Annot /Subtype /Movie /Rect [0 0 10 10] /Movie << /F (clip.mov) >> /AP << /N 25 0 R >> >>"),
+        (20, b"<< /S /RichMediaExecute /TA 22 0 R /TI 26 0 R /CMD << /C (rewind) /A 0.0 >> >>"),
+        (21, b"<< /Type /Annot /Subtype /Screen /Rect [0 0 10 10] /P 3 0 R /AP << /N 25 0 R >> >>"),
+        (22, b"<< /Type /Annot /Subtype /RichMedia /Rect [0 0 10 10] /RichMediaContent << >> /AP << /N 25 0 R >> >>"),
+        (23, b"<< /S /GoTo /D [3 0 R /Fit] /Next 24 0 R >>"),
+        (24, b"<< /S /GoTo /D [3 0 R /FitH 700] /Next [23 0 R] >>"),
+        (25, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"")),
+        (26, b"<< /Type /RichMediaInstance /Subtype /Video >>"),
+        (27, stream(b"/Filter /FlateDecode", flate(script))),
+        (30, link(b"10 0 R")),
+        (31, link(b"11 0 R")),
+        (32, link(b"13 0 R")),
+        (33, link(b"14 0 R")),
+        (34, link(b"16 0 R")),
+        (35, link(b"18 0 R")),
+        (36, link(b"20 0 R")),
+        (37, link(b"23 0 R")),
     ])
 
 
@@ -1953,6 +2227,9 @@ FILES = {
     "inline-image.pdf": gen_inline_image,
     "page-tree-inherited.pdf": gen_page_tree_inherited,
     "annotations-link.pdf": gen_annotations_link,
+    "annotations-subtypes.pdf": gen_annotations_subtypes,
+    "annotations-appearance.pdf": gen_annotations_appearance,
+    "annotations-malformed.pdf": gen_annotations_malformed,
     "outline.pdf": gen_outline,
     "name-tree-dests.pdf": gen_name_tree_dests,
     "metadata-xmp.pdf": gen_metadata_xmp,
@@ -1975,6 +2252,8 @@ FILES = {
     "associated-files.pdf": gen_associated_files,
     "object-metadata.pdf": gen_object_metadata,
     "declarations.pdf": gen_declarations,
+    "actions-all.pdf": gen_actions_all,
+    "actions-preserved.pdf": gen_actions_preserved,
 }
 
 
