@@ -3,7 +3,7 @@ using Broadside.Objects;
 namespace Broadside.Annotations;
 
 /// <summary>A widget annotation: the appearance of an interactive form field on a page.</summary>
-/// <remarks>ISO 32000-2 §12.5.6.19, Table 191 (PDF 1.2). A field with one widget may merge both into one dictionary; the field's entries are read through the form field model. Additional actions (<c>AA</c>) are read through <see cref="PdfAnnotation.Dictionary"/> until the action ticket types them.</remarks>
+/// <remarks>ISO 32000-2 §12.5.6.19, Table 191 (PDF 1.2). A field with one widget may merge both into one dictionary; the field's entries are read through the form field model.</remarks>
 public sealed class PdfWidgetAnnotation : PdfAnnotation
 {
     internal PdfWidgetAnnotation(PdfDocument document, CosDictionary dictionary, CosReference? reference, PdfPage? page)
@@ -22,6 +22,11 @@ public sealed class PdfWidgetAnnotation : PdfAnnotation
     /// <summary>Gets the action performed when the annotation is activated (<c>A</c>, PDF 1.1), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.19, Table 191, and §12.6.</remarks>
     public PdfAction? Action => ReadAction(AnnotationNames.A);
+
+    /// <summary>Gets the actions performed on the annotation's trigger events (<c>AA</c>, PDF 1.2), or <see langword="null"/>.</summary>
+    /// <remarks>ISO 32000-2 §12.5.6.19, Table 191, and §12.6.3, Table 197; read through <see cref="PdfDocument.GetAnnotationAdditionalActions"/>.</remarks>
+    public PdfAnnotationAdditionalActions? AdditionalActions =>
+        Dictionary.TryGetValue(AnnotationNames.AA, out CosObject? value) ? Document.GetAnnotationAdditionalActions(value, DiagnosticReference) : null;
 
     /// <summary>Gets the field dictionary this widget is a kid of (<c>Parent</c>), as stored, or <see langword="null"/>; required when the field has several widgets.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.19, Table 191, and §12.7.4.</remarks>

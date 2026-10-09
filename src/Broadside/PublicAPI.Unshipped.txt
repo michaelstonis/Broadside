@@ -283,6 +283,7 @@ Broadside.Annotations.PdfRichMediaAnnotation.Content.get -> Broadside.Objects.Co
 Broadside.Annotations.PdfRichMediaAnnotation.Settings.get -> Broadside.Objects.CosDictionary?
 Broadside.Annotations.PdfScreenAnnotation
 Broadside.Annotations.PdfScreenAnnotation.Action.get -> Broadside.PdfAction?
+Broadside.Annotations.PdfScreenAnnotation.AdditionalActions.get -> Broadside.PdfAnnotationAdditionalActions?
 Broadside.Annotations.PdfScreenAnnotation.AppearanceCharacteristics.get -> Broadside.Annotations.PdfAppearanceCharacteristics?
 Broadside.Annotations.PdfScreenAnnotation.ScreenTitle.get -> string?
 Broadside.Annotations.PdfSoundAnnotation
@@ -318,9 +319,11 @@ Broadside.Annotations.PdfWatermarkAnnotation
 Broadside.Annotations.PdfWatermarkAnnotation.FixedPrint.get -> Broadside.Annotations.PdfFixedPrint?
 Broadside.Annotations.PdfWidgetAnnotation
 Broadside.Annotations.PdfWidgetAnnotation.Action.get -> Broadside.PdfAction?
+Broadside.Annotations.PdfWidgetAnnotation.AdditionalActions.get -> Broadside.PdfAnnotationAdditionalActions?
 Broadside.Annotations.PdfWidgetAnnotation.AppearanceCharacteristics.get -> Broadside.Annotations.PdfAppearanceCharacteristics?
 Broadside.Annotations.PdfWidgetAnnotation.HighlightMode.get -> Broadside.Annotations.PdfHighlightMode
 Broadside.Annotations.PdfWidgetAnnotation.Parent.get -> Broadside.Objects.CosDictionary?
+abstract Broadside.PdfAction.Kind.get -> Broadside.PdfActionKind
 Broadside.Content.ClipEvent
 Broadside.Content.ClipEvent.ClipEvent() -> void
 Broadside.Content.ClipEvent.Ctm.get -> Broadside.Graphics.Matrix
@@ -772,8 +775,225 @@ Broadside.Objects.CosString.DecodeText() -> string!
 Broadside.Objects.CosString.Equals(Broadside.Objects.CosString? other) -> bool
 Broadside.Objects.CosString.IsHexadecimal.get -> bool
 Broadside.PdfPage.Annotations.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfAnnotation!>!
+Broadside.PdfAction.EnumerateActionTree(int maxDepth = 64) -> System.Collections.Generic.IEnumerable<Broadside.PdfAction!>!
+Broadside.PdfAction.Next.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfAction!>!
+Broadside.PdfActionKind
+Broadside.PdfActionKind.GoTo = 1 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.GoTo3DView = 18 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.GoToDp = 4 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.GoToE = 3 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.GoToR = 2 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.Hide = 10 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.ImportData = 14 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.JavaScript = 19 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.Launch = 5 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.Movie = 9 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.Named = 11 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.Rendition = 16 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.ResetForm = 13 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.RichMediaExecute = 20 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.SetOcgState = 15 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.Sound = 8 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.SubmitForm = 12 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.Thread = 6 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.Transition = 17 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.Unknown = 0 -> Broadside.PdfActionKind
+Broadside.PdfActionKind.Uri = 7 -> Broadside.PdfActionKind
+Broadside.PdfActionTarget
+Broadside.PdfActionTarget.Dictionary.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfActionTarget.FieldName.get -> string?
+Broadside.PdfActionTarget.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfAdditionalActions
+Broadside.PdfAdditionalActions.Actions.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<Broadside.Objects.CosName!, Broadside.PdfAction!>>!
+Broadside.PdfAdditionalActions.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfAdditionalActions.GetAction(Broadside.Objects.CosName! trigger) -> Broadside.PdfAction?
+Broadside.PdfAdditionalActions.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfAnnotationAdditionalActions
+Broadside.PdfAnnotationAdditionalActions.Blur.get -> Broadside.PdfAction?
+Broadside.PdfAnnotationAdditionalActions.CursorEnter.get -> Broadside.PdfAction?
+Broadside.PdfAnnotationAdditionalActions.CursorExit.get -> Broadside.PdfAction?
+Broadside.PdfAnnotationAdditionalActions.Focus.get -> Broadside.PdfAction?
+Broadside.PdfAnnotationAdditionalActions.MouseDown.get -> Broadside.PdfAction?
+Broadside.PdfAnnotationAdditionalActions.MouseUp.get -> Broadside.PdfAction?
+Broadside.PdfAnnotationAdditionalActions.PageClose.get -> Broadside.PdfAction?
+Broadside.PdfAnnotationAdditionalActions.PageInvisible.get -> Broadside.PdfAction?
+Broadside.PdfAnnotationAdditionalActions.PageOpen.get -> Broadside.PdfAction?
+Broadside.PdfAnnotationAdditionalActions.PageVisible.get -> Broadside.PdfAction?
+Broadside.PdfDocument.AdditionalActions.get -> Broadside.PdfDocumentAdditionalActions?
+Broadside.PdfDocument.GetAction(Broadside.Objects.CosObject? value, Broadside.Objects.CosReference? ownerReference = null) -> Broadside.PdfAction?
+Broadside.PdfDocument.GetAnnotationAdditionalActions(Broadside.Objects.CosObject? value, Broadside.Objects.CosReference? ownerReference = null) -> Broadside.PdfAnnotationAdditionalActions?
+Broadside.PdfDocument.GetFieldAdditionalActions(Broadside.Objects.CosObject? value, Broadside.Objects.CosReference? ownerReference = null) -> Broadside.PdfFieldAdditionalActions?
+Broadside.PdfDocument.OpenAction.get -> Broadside.PdfAction?
+Broadside.PdfDocument.OpenDestination.get -> Broadside.PdfDestination?
+Broadside.PdfDocument.UriBase.get -> System.Uri?
+Broadside.PdfDocumentAdditionalActions
+Broadside.PdfDocumentAdditionalActions.DidPrint.get -> Broadside.PdfAction?
+Broadside.PdfDocumentAdditionalActions.DidSave.get -> Broadside.PdfAction?
+Broadside.PdfDocumentAdditionalActions.WillClose.get -> Broadside.PdfAction?
+Broadside.PdfDocumentAdditionalActions.WillPrint.get -> Broadside.PdfAction?
+Broadside.PdfDocumentAdditionalActions.WillSave.get -> Broadside.PdfAction?
+Broadside.PdfEmbeddedGoToAction
+Broadside.PdfEmbeddedGoToAction.Destination.get -> Broadside.PdfDestination?
+Broadside.PdfEmbeddedGoToAction.File.get -> Broadside.PdfFileSpecification?
+Broadside.PdfEmbeddedGoToAction.NewWindow.get -> bool?
+Broadside.PdfEmbeddedGoToAction.Target.get -> Broadside.PdfEmbeddedTarget?
+Broadside.PdfEmbeddedTarget
+Broadside.PdfEmbeddedTarget.AnnotationIndex.get -> int?
+Broadside.PdfEmbeddedTarget.AnnotationName.get -> string?
+Broadside.PdfEmbeddedTarget.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfEmbeddedTarget.EmbeddedFileName.get -> Broadside.Objects.CosString?
+Broadside.PdfEmbeddedTarget.PageName.get -> Broadside.Objects.CosString?
+Broadside.PdfEmbeddedTarget.PageNumber.get -> int?
+Broadside.PdfEmbeddedTarget.Relationship.get -> Broadside.PdfEmbeddedTargetRelationship
+Broadside.PdfEmbeddedTarget.Target.get -> Broadside.PdfEmbeddedTarget?
+Broadside.PdfEmbeddedTargetRelationship
+Broadside.PdfEmbeddedTargetRelationship.Child = 2 -> Broadside.PdfEmbeddedTargetRelationship
+Broadside.PdfEmbeddedTargetRelationship.Parent = 1 -> Broadside.PdfEmbeddedTargetRelationship
+Broadside.PdfEmbeddedTargetRelationship.Unknown = 0 -> Broadside.PdfEmbeddedTargetRelationship
+Broadside.PdfFieldAdditionalActions
+Broadside.PdfFieldAdditionalActions.Calculate.get -> Broadside.PdfAction?
+Broadside.PdfFieldAdditionalActions.Format.get -> Broadside.PdfAction?
+Broadside.PdfFieldAdditionalActions.Keystroke.get -> Broadside.PdfAction?
+Broadside.PdfFieldAdditionalActions.Validate.get -> Broadside.PdfAction?
+Broadside.PdfGoTo3DViewAction
+Broadside.PdfGoTo3DViewAction.Annotation.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfGoTo3DViewAction.View.get -> Broadside.Objects.CosObject?
+Broadside.PdfGoTo3DViewAction.ViewDictionary.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfGoTo3DViewAction.ViewIndex.get -> int?
+Broadside.PdfGoTo3DViewAction.ViewKeyword.get -> Broadside.Objects.CosName?
+Broadside.PdfGoTo3DViewAction.ViewName.get -> string?
+Broadside.PdfGoToDocumentPartAction
+Broadside.PdfGoToDocumentPartAction.DocumentPart.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfHideAction
+Broadside.PdfHideAction.Hide.get -> bool
+Broadside.PdfHideAction.Targets.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfActionTarget!>!
+Broadside.PdfImportDataAction
+Broadside.PdfImportDataAction.File.get -> Broadside.PdfFileSpecification?
+Broadside.PdfJavaScriptAction
+Broadside.PdfJavaScriptAction.Script.get -> string?
+Broadside.PdfJavaScriptAction.ScriptObject.get -> Broadside.Objects.CosObject?
+Broadside.PdfLaunchAction
+Broadside.PdfLaunchAction.File.get -> Broadside.PdfFileSpecification?
+Broadside.PdfLaunchAction.Mac.get -> Broadside.Objects.CosObject?
+Broadside.PdfLaunchAction.NewWindow.get -> bool?
+Broadside.PdfLaunchAction.Unix.get -> Broadside.Objects.CosObject?
+Broadside.PdfLaunchAction.Windows.get -> Broadside.PdfWindowsLaunchParameters?
+Broadside.PdfMovieAction
+Broadside.PdfMovieAction.Annotation.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfMovieAction.Operation.get -> Broadside.PdfMovieOperation
+Broadside.PdfMovieAction.Title.get -> string?
+Broadside.PdfMovieOperation
+Broadside.PdfMovieOperation.Pause = 2 -> Broadside.PdfMovieOperation
+Broadside.PdfMovieOperation.Play = 0 -> Broadside.PdfMovieOperation
+Broadside.PdfMovieOperation.Resume = 3 -> Broadside.PdfMovieOperation
+Broadside.PdfMovieOperation.Stop = 1 -> Broadside.PdfMovieOperation
+Broadside.PdfNamedAction
+Broadside.PdfNamedAction.Name.get -> Broadside.Objects.CosName?
+Broadside.PdfNamedAction.Operation.get -> Broadside.PdfNamedOperation
+Broadside.PdfNameDictionary.JavaScript.get -> Broadside.PdfNameTree?
+Broadside.PdfNameDictionary.JavaScriptActions.get -> System.Collections.Generic.IReadOnlyList<System.Collections.Generic.KeyValuePair<Broadside.Objects.CosString!, Broadside.PdfJavaScriptAction!>>!
+Broadside.PdfNamedOperation
+Broadside.PdfNamedOperation.FirstPage = 3 -> Broadside.PdfNamedOperation
+Broadside.PdfNamedOperation.LastPage = 4 -> Broadside.PdfNamedOperation
+Broadside.PdfNamedOperation.NextPage = 1 -> Broadside.PdfNamedOperation
+Broadside.PdfNamedOperation.Other = 0 -> Broadside.PdfNamedOperation
+Broadside.PdfNamedOperation.PreviousPage = 2 -> Broadside.PdfNamedOperation
+Broadside.PdfOcgStateChange
+Broadside.PdfOcgStateChange.Group.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfOcgStateChange.GroupReference.get -> Broadside.Objects.CosReference?
+Broadside.PdfOcgStateChange.Operation.get -> Broadside.PdfOcgStateOperation
+Broadside.PdfOcgStateOperation
+Broadside.PdfOcgStateOperation.Off = 1 -> Broadside.PdfOcgStateOperation
+Broadside.PdfOcgStateOperation.On = 0 -> Broadside.PdfOcgStateOperation
+Broadside.PdfOcgStateOperation.Toggle = 2 -> Broadside.PdfOcgStateOperation
+Broadside.PdfPage.AdditionalActions.get -> Broadside.PdfPageAdditionalActions?
 Broadside.PdfPage.ProcessContent(Broadside.Content.ContentProcessor! processor) -> void
 Broadside.PdfPage.ProcessContent(Broadside.Content.ContentProcessor! processor, Broadside.Content.ContentOptions! options) -> void
+Broadside.PdfPageAdditionalActions
+Broadside.PdfPageAdditionalActions.Close.get -> Broadside.PdfAction?
+Broadside.PdfPageAdditionalActions.Open.get -> Broadside.PdfAction?
+Broadside.PdfRemoteGoToAction
+Broadside.PdfRemoteGoToAction.Destination.get -> Broadside.PdfDestination?
+Broadside.PdfRemoteGoToAction.File.get -> Broadside.PdfFileSpecification?
+Broadside.PdfRemoteGoToAction.NewWindow.get -> bool?
+Broadside.PdfRemoteGoToAction.StructureDestination.get -> Broadside.PdfExplicitDestination?
+Broadside.PdfRenditionAction
+Broadside.PdfRenditionAction.Operation.get -> Broadside.PdfRenditionOperation?
+Broadside.PdfRenditionAction.OperationValue.get -> int?
+Broadside.PdfRenditionAction.Rendition.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfRenditionAction.ScreenAnnotation.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfRenditionAction.Script.get -> string?
+Broadside.PdfRenditionAction.ScriptObject.get -> Broadside.Objects.CosObject?
+Broadside.PdfRenditionOperation
+Broadside.PdfRenditionOperation.Pause = 2 -> Broadside.PdfRenditionOperation
+Broadside.PdfRenditionOperation.Play = 0 -> Broadside.PdfRenditionOperation
+Broadside.PdfRenditionOperation.PlayOrResume = 4 -> Broadside.PdfRenditionOperation
+Broadside.PdfRenditionOperation.Resume = 3 -> Broadside.PdfRenditionOperation
+Broadside.PdfRenditionOperation.Stop = 1 -> Broadside.PdfRenditionOperation
+Broadside.PdfResetFormAction
+Broadside.PdfResetFormAction.Fields.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfActionTarget!>?
+Broadside.PdfResetFormAction.Flags.get -> Broadside.PdfResetFormFlags
+Broadside.PdfResetFormFlags
+Broadside.PdfResetFormFlags.Exclude = 1 -> Broadside.PdfResetFormFlags
+Broadside.PdfResetFormFlags.None = 0 -> Broadside.PdfResetFormFlags
+Broadside.PdfRichMediaCommand
+Broadside.PdfRichMediaCommand.Arguments.get -> System.Collections.Generic.IReadOnlyList<Broadside.Objects.CosObject!>!
+Broadside.PdfRichMediaCommand.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfRichMediaCommand.Name.get -> string?
+Broadside.PdfRichMediaExecuteAction
+Broadside.PdfRichMediaExecuteAction.Annotation.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfRichMediaExecuteAction.Command.get -> Broadside.PdfRichMediaCommand?
+Broadside.PdfRichMediaExecuteAction.Instance.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfSetOcgStateAction
+Broadside.PdfSetOcgStateAction.ApplyTo(Broadside.PdfOptionalContentState! state) -> Broadside.PdfOptionalContentState!
+Broadside.PdfSetOcgStateAction.Changes.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOcgStateChange!>!
+Broadside.PdfSetOcgStateAction.PreserveRadioButtons.get -> bool
+Broadside.PdfSetOcgStateAction.State.get -> Broadside.Objects.CosArray?
+Broadside.PdfSoundAction
+Broadside.PdfSoundAction.IsSynchronous.get -> bool
+Broadside.PdfSoundAction.Mixes.get -> bool
+Broadside.PdfSoundAction.Repeats.get -> bool
+Broadside.PdfSoundAction.Sound.get -> Broadside.Objects.CosStream?
+Broadside.PdfSoundAction.Volume.get -> double
+Broadside.PdfSubmitFormAction
+Broadside.PdfSubmitFormAction.CharacterSet.get -> string?
+Broadside.PdfSubmitFormAction.Fields.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfActionTarget!>?
+Broadside.PdfSubmitFormAction.File.get -> Broadside.PdfFileSpecification?
+Broadside.PdfSubmitFormAction.Flags.get -> Broadside.PdfSubmitFormFlags
+Broadside.PdfSubmitFormFlags
+Broadside.PdfSubmitFormFlags.CanonicalFormat = 512 -> Broadside.PdfSubmitFormFlags
+Broadside.PdfSubmitFormFlags.EmbedForm = 8192 -> Broadside.PdfSubmitFormFlags
+Broadside.PdfSubmitFormFlags.Exclude = 1 -> Broadside.PdfSubmitFormFlags
+Broadside.PdfSubmitFormFlags.ExcludeFKey = 2048 -> Broadside.PdfSubmitFormFlags
+Broadside.PdfSubmitFormFlags.ExcludeNonUserAnnotations = 1024 -> Broadside.PdfSubmitFormFlags
+Broadside.PdfSubmitFormFlags.ExportFormat = 4 -> Broadside.PdfSubmitFormFlags
+Broadside.PdfSubmitFormFlags.GetMethod = 8 -> Broadside.PdfSubmitFormFlags
+Broadside.PdfSubmitFormFlags.IncludeAnnotations = 128 -> Broadside.PdfSubmitFormFlags
+Broadside.PdfSubmitFormFlags.IncludeAppendSaves = 64 -> Broadside.PdfSubmitFormFlags
+Broadside.PdfSubmitFormFlags.IncludeNoValueFields = 2 -> Broadside.PdfSubmitFormFlags
+Broadside.PdfSubmitFormFlags.None = 0 -> Broadside.PdfSubmitFormFlags
+Broadside.PdfSubmitFormFlags.SubmitCoordinates = 16 -> Broadside.PdfSubmitFormFlags
+Broadside.PdfSubmitFormFlags.SubmitPdf = 256 -> Broadside.PdfSubmitFormFlags
+Broadside.PdfSubmitFormFlags.Xfdf = 32 -> Broadside.PdfSubmitFormFlags
+Broadside.PdfThreadAction
+Broadside.PdfThreadAction.Bead.get -> Broadside.Objects.CosObject?
+Broadside.PdfThreadAction.BeadDictionary.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfThreadAction.BeadIndex.get -> int?
+Broadside.PdfThreadAction.File.get -> Broadside.PdfFileSpecification?
+Broadside.PdfThreadAction.Thread.get -> Broadside.Objects.CosObject?
+Broadside.PdfThreadAction.ThreadDictionary.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfThreadAction.ThreadIndex.get -> int?
+Broadside.PdfThreadAction.ThreadTitle.get -> string?
+Broadside.PdfTransitionAction
+Broadside.PdfTransitionAction.Transition.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfUriAction.ResolveUri() -> System.Uri?
+Broadside.PdfUriAction.UriObject.get -> Broadside.Objects.CosObject?
+Broadside.PdfWindowsLaunchParameters
+Broadside.PdfWindowsLaunchParameters.DefaultDirectory.get -> Broadside.Objects.CosString?
+Broadside.PdfWindowsLaunchParameters.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfWindowsLaunchParameters.FileName.get -> Broadside.Objects.CosString?
+Broadside.PdfWindowsLaunchParameters.Operation.get -> string!
+Broadside.PdfWindowsLaunchParameters.Parameters.get -> Broadside.Objects.CosString?
 const Broadside.Content.ContentOptions.DefaultMaxNestingDepth = 50 -> int
 const Broadside.Content.ContentOptions.DefaultMaxOperands = 65536 -> int
 const Broadside.Content.ContentOptions.DefaultMaxSaveDepth = 4096 -> int
@@ -1110,6 +1330,7 @@ override Broadside.Annotations.PdfDeviceColor.ToString() -> string!
 override Broadside.Annotations.PdfQuadrilateral.Equals(object? obj) -> bool
 override Broadside.Annotations.PdfQuadrilateral.GetHashCode() -> int
 override Broadside.Annotations.PdfQuadrilateral.ToString() -> string!
+const Broadside.PdfAction.DefaultMaxTreeDepth = 64 -> int
 override Broadside.Content.CompositeContentProcessor.BeginForm(in Broadside.Content.FormEvent form, Broadside.Content.ContentContext! context) -> Broadside.Content.ContentVisit
 override Broadside.Content.CompositeContentProcessor.BeginMarkedContent(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
 override Broadside.Content.CompositeContentProcessor.BeginRun(Broadside.Content.ContentContext! context) -> void
@@ -1155,6 +1376,27 @@ override Broadside.Objects.CosString.GetHashCode() -> int
 static Broadside.Annotations.PdfAnnotation.ComputeAppearanceMatrix(Broadside.PdfRectangle rect, Broadside.PdfRectangle boundingBox, Broadside.Graphics.Matrix matrix) -> Broadside.Graphics.Matrix?
 static Broadside.Annotations.PdfQuadrilateral.operator !=(Broadside.Annotations.PdfQuadrilateral left, Broadside.Annotations.PdfQuadrilateral right) -> bool
 static Broadside.Annotations.PdfQuadrilateral.operator ==(Broadside.Annotations.PdfQuadrilateral left, Broadside.Annotations.PdfQuadrilateral right) -> bool
+override Broadside.PdfEmbeddedGoToAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfGoTo3DViewAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfGoToAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfGoToDocumentPartAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfHideAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfImportDataAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfJavaScriptAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfLaunchAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfMovieAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfNamedAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfRemoteGoToAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfRenditionAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfResetFormAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfRichMediaExecuteAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfSetOcgStateAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfSoundAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfSubmitFormAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfThreadAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfTransitionAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfUnknownAction.Kind.get -> Broadside.PdfActionKind
+override Broadside.PdfUriAction.Kind.get -> Broadside.PdfActionKind
 static Broadside.Graphics.Matrix.CreateScale(double sx, double sy) -> Broadside.Graphics.Matrix
 static Broadside.Graphics.Matrix.CreateTranslation(double tx, double ty) -> Broadside.Graphics.Matrix
 static Broadside.Graphics.Matrix.Identity.get -> Broadside.Graphics.Matrix

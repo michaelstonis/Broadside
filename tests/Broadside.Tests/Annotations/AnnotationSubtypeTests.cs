@@ -1,6 +1,7 @@
 using Broadside.Annotations;
 using Broadside.Graphics;
 using Broadside.Objects;
+using Broadside.Tests.Document;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.Annotations;
@@ -64,6 +65,27 @@ public class AnnotationSubtypeTests
 
         Assert.All(results, result => Assert.Equal(results[0], result, ReferenceEqualityComparer.Instance));
         Assert.Same(results[0][0], results[0][30]);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void Screen_and_widget_annotations_expose_their_trigger_event_actions()
+    {
+        byte[] file = new TestPdf().Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Annots [4 0 R 5 0 R] >>",
+            "<< /Type /Annot /Subtype /Screen /Rect [0 0 10 10] /P 3 0 R /AA << /PO << /S /URI /URI (https://example.org/open) >> >> >>",
+            "<< /Type /Annot /Subtype /Widget /Rect [0 0 10 10] /P 3 0 R /AA << /Fo << /S /URI /URI (https://example.org/focus) >> >> >>");
+        using PdfDocument document = PdfDocument.Open(file);
+        IReadOnlyList<PdfAnnotation> annotations = document.Pages[0].Annotations;
+
+        PdfAnnotationAdditionalActions screen = Assert.IsType<PdfScreenAnnotation>(annotations[0]).AdditionalActions!;
+        PdfAnnotationAdditionalActions widget = Assert.IsType<PdfWidgetAnnotation>(annotations[1]).AdditionalActions!;
+
+        Assert.Equal("https://example.org/open", Assert.IsType<PdfUriAction>(screen.PageOpen).Uri);
+        Assert.Equal("https://example.org/focus", Assert.IsType<PdfUriAction>(widget.Focus).Uri);
+        Assert.Null(widget.CursorEnter);
         Assert.Empty(document.Diagnostics);
     }
 
