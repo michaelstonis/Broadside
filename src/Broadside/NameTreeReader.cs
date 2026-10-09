@@ -1,4 +1,5 @@
 using System.Diagnostics.CodeAnalysis;
+using System.Text;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -34,7 +35,7 @@ internal sealed class NameTreeReader : TreeReader<CosString>
     }
 
     /// <inheritdoc/>
-    private protected override CosName EntriesKey => KnownNames.Names;
+    private protected override CosName EntriesKey => NavigationNames.Names;
 
     /// <inheritdoc/>
     private protected override TreeCodes Codes => NameTreeCodes;
@@ -53,6 +54,51 @@ internal sealed class NameTreeReader : TreeReader<CosString>
     /// <param name="value">The value, resolved one level, when found.</param>
     /// <returns><see langword="true"/> when the tree holds the key.</returns>
     internal bool TryGetValue(ReadOnlySpan<byte> key, [MaybeNullWhen(false)] out CosObject value) => TryGetValue(new CosString(key), out value);
+
+    /// <summary>Looks up the key that reads as <paramref name="key"/>; see <see cref="TryGetRawValue(string, out CosObject)"/>.</summary>
+    /// <param name="key">The key as text.</param>
+    /// <param name="value">The value, resolved one level, when found.</param>
+    /// <returns><see langword="true"/> when the tree holds a key that reads as <paramref name="key"/>.</returns>
+    internal bool TryGetValue(string key, [MaybeNullWhen(false)] out CosObject value)
+    {
+        if (TryGetRawValue(key, out CosObject? raw))
+        {
+            value = Resolve(raw);
+            return true;
+        }
+
+        value = null;
+        return false;
+    }
+
+    /// <summary>Looks up the key that reads as <paramref name="key"/>: as PDFDocEncoding bytes, as UTF-16BE with the marker, then every key decoded.</summary>
+    /// <param name="key">The key as text.</param>
+    /// <param name="value">The value as stored, when found.</param>
+    /// <returns><see langword="true"/> when the tree holds a key that reads as <paramref name="key"/>.</returns>
+    internal bool TryGetRawValue(string key, [MaybeNullWhen(false)] out CosObject value)
+    {
+        if (TextStringEncoder.TryEncodePdfDoc(key, out byte[]? encoded) && TryGetRawValue(new CosString(encoded), out value))
+        {
+            return true;
+        }
+
+        if (TryGetRawValue(new CosString([0xFE, 0xFF, .. Encoding.BigEndianUnicode.GetBytes(key)]), out value))
+        {
+            return true;
+        }
+
+        foreach ((CosString candidate, CosObject found) in EnumerateRaw())
+        {
+            if (string.Equals(candidate.DecodeText(), key, StringComparison.Ordinal))
+            {
+                value = found;
+                return true;
+            }
+        }
+
+        value = null;
+        return false;
+    }
 
     /// <inheritdoc/>
     private protected override KeyState ReadKey(CosObject key, [MaybeNullWhen(false)] out CosString value, out string? message)

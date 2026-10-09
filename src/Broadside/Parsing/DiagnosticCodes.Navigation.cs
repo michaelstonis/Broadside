@@ -24,6 +24,20 @@ internal static partial class DiagnosticCodes
     public const string NumberTreeCycle = nameof(NumberTreeCycle);
     public const string NumberTreeTooDeep = nameof(NumberTreeTooDeep);
 
+    // Destinations (§12.3.2).
+    public const string DestinationInvalid = nameof(DestinationInvalid);
+    public const string DestinationPageNotFound = nameof(DestinationPageNotFound);
+    public const string NamedDestinationNotFound = nameof(NamedDestinationNotFound);
+
+    // Document outline (§12.3.3).
+    public const string OutlineInvalid = nameof(OutlineInvalid);
+    public const string OutlineItemInvalid = nameof(OutlineItemInvalid);
+    public const string OutlineCycle = nameof(OutlineCycle);
+    public const string OutlineTooDeep = nameof(OutlineTooDeep);
+    public const string OutlineLinkInconsistent = nameof(OutlineLinkInconsistent);
+    public const string OutlineCountInvalid = nameof(OutlineCountInvalid);
+    public const string OutlineDestAndAction = nameof(OutlineDestAndAction);
+
     // Actions (§12.6.2, Table 196).
     public const string ActionInvalid = nameof(ActionInvalid);
 }

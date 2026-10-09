@@ -23,7 +23,8 @@ namespace Broadside;
 /// <para>
 /// The walk visits nodes in tree order (a root's own pairs, then its kids, depth first), with one visited set for the whole walk
 /// and a depth cap, iteratively, so a cycle or a very deep chain ends. It reports each deviation once per node. A key seen
-/// earlier in the walk is a duplicate and is skipped, so the first occurrence in tree order is the one every API returns.
+/// earlier in the walk is a duplicate and is skipped, so the first occurrence in tree order is the one every API returns; the first
+/// deviation a walk meets switches every later lookup to the index, so lookups agree with enumeration from then on.
 /// </para>
 /// <para>
 /// Values are returned resolved one level: a value that is an indirect reference comes back as the object it refers to.
@@ -90,9 +91,24 @@ internal abstract class TreeReader<TKey>
     /// <returns><see langword="true"/> when the tree holds the key.</returns>
     public bool TryGetValue(TKey key, [MaybeNullWhen(false)] out CosObject value)
     {
-        if (!_limitsUntrusted && _index is null && TryDescend(key, out CosObject? found))
+        if (TryGetRawValue(key, out CosObject? raw))
         {
-            value = Resolve(found);
+            value = Resolve(raw);
+            return true;
+        }
+
+        value = null;
+        return false;
+    }
+
+    /// <summary>Looks <paramref name="key"/> up and returns its value as stored: an indirect reference stays a reference.</summary>
+    /// <param name="key">The key.</param>
+    /// <param name="value">The value as stored in the <c>Names</c> or <c>Nums</c> array, when found.</param>
+    /// <returns><see langword="true"/> when the tree holds the key.</returns>
+    public bool TryGetRawValue(TKey key, [MaybeNullWhen(false)] out CosObject value)
+    {
+        if (!_limitsUntrusted && _index is null && TryDescend(key, out value))
+        {
             return true;
         }
 
@@ -104,7 +120,7 @@ internal abstract class TreeReader<TKey>
             return false;
         }
 
-        value = Resolve(index.Values[position]);
+        value = index.Values[position];
         return true;
     }
 
@@ -143,6 +159,10 @@ internal abstract class TreeReader<TKey>
             yield return (key, Resolve(value));
         }
     }
+
+    /// <summary>As <see cref="Enumerate"/>, with each value as stored: an indirect reference stays a reference.</summary>
+    /// <returns>The pairs, in tree order.</returns>
+    public IEnumerable<(TKey Key, CosObject Value)> EnumerateRaw() => Walk(stamps: null);
 
     /// <summary>Reads a key from the <c>Names</c> or <c>Nums</c> array.</summary>
     /// <param name="key">The array element, resolved.</param>
@@ -286,7 +306,7 @@ internal abstract class TreeReader<TKey>
     {
         least = default;
         greatest = default;
-        return node.TryGetValue(KnownNames.Limits, out CosObject? entry)
+        return node.TryGetValue(NavigationNames.Limits, out CosObject? entry)
             && Resolve(entry) is CosArray { Count: 2 } limits
             && ReadKey(Resolve(limits[0]), out least, out _) == KeyState.Valid
             && ReadKey(Resolve(limits[1]), out greatest, out _) == KeyState.Valid
@@ -304,7 +324,6 @@ internal abstract class TreeReader<TKey>
         var seen = new HashSet<TKey>(KeyEquality);
         bool hasPrevious = false;
         TKey previous = default!;
-        bool anomalies = false;
 
         if (RootReference is not null)
         {
@@ -318,12 +337,12 @@ internal abstract class TreeReader<TKey>
         {
             CosDictionary node = frame.Node;
             stamps?.Add((node, node.Version));
-            Bounds? bounds = CheckLimits(frame, ref anomalies);
+            Bounds? bounds = CheckLimits(frame);
             bool hasEntries = node.TryGetValue(EntriesKey, out CosObject? entriesEntry);
             bool hasKids = node.TryGetValue(KnownNames.Kids, out CosObject? kidsEntry);
             if (hasEntries == hasKids)
             {
-                anomalies = true;
+                _limitsUntrusted = true;
                 Report(
                     Codes.NodeInvalid,
                     DiagnosticSeverity.Warning,
@@ -337,7 +356,7 @@ internal abstract class TreeReader<TKey>
             {
                 if (Resolve(entriesEntry) is not CosArray entries)
                 {
-                    anomalies = true;
+                    _limitsUntrusted = true;
                     Report(Codes.NodeInvalid, DiagnosticSeverity.Warning, $"A {Kind} node's {EntriesKey.Value} is not an array; it holds no keys.", frame.Reference);
                 }
                 else
@@ -345,7 +364,7 @@ internal abstract class TreeReader<TKey>
                     stamps?.Add((entries, entries.Version));
                     if (entries.Count % 2 != 0)
                     {
-                        anomalies = true;
+                        _limitsUntrusted = true;
                         Report(
                             Codes.NodeInvalid,
                             DiagnosticSeverity.Warning,
@@ -358,7 +377,7 @@ internal abstract class TreeReader<TKey>
                         KeyState state = ReadKey(Resolve(entries[index]), out TKey? key, out string? message);
                         if (state != KeyState.Valid)
                         {
-                            anomalies = true;
+                            _limitsUntrusted = true;
                             Report(Codes.KeyInvalid, DiagnosticSeverity.Warning, message!, frame.Reference);
                             if (state == KeyState.Invalid)
                             {
@@ -368,12 +387,12 @@ internal abstract class TreeReader<TKey>
 
                         if (!IsWithin(key!, frame.Ancestors, bounds, frame.Reference))
                         {
-                            anomalies = true;
+                            _limitsUntrusted = true;
                         }
 
                         if (!seen.Add(key!))
                         {
-                            anomalies = true;
+                            _limitsUntrusted = true;
                             Report(
                                 Codes.DuplicateKey,
                                 DiagnosticSeverity.Warning,
@@ -384,7 +403,7 @@ internal abstract class TreeReader<TKey>
 
                         if (hasPrevious && KeyComparer.Compare(key!, previous) < 0)
                         {
-                            anomalies = true;
+                            _limitsUntrusted = true;
                             Report(
                                 Codes.KeysUnsorted,
                                 DiagnosticSeverity.Warning,
@@ -401,16 +420,11 @@ internal abstract class TreeReader<TKey>
 
             if (hasKids)
             {
-                foreach (Frame kid in ReadKids(frame, kidsEntry, bounds, visitedReferences, visitedNodes, stamps, ref anomalies))
+                foreach (Frame kid in ReadKids(frame, kidsEntry, bounds, visitedReferences, visitedNodes, stamps))
                 {
                     stack.Push(kid);
                 }
             }
-        }
-
-        if (anomalies)
-        {
-            _limitsUntrusted = true;
         }
     }
 
@@ -421,13 +435,12 @@ internal abstract class TreeReader<TKey>
         Bounds? bounds,
         HashSet<CosReference> visitedReferences,
         HashSet<CosDictionary> visitedNodes,
-        List<(CosObject Container, int Version)>? stamps,
-        ref bool anomalies)
+        List<(CosObject Container, int Version)>? stamps)
     {
         var kids = new List<Frame>();
         if (Resolve(kidsEntry) is not CosArray array)
         {
-            anomalies = true;
+            _limitsUntrusted = true;
             Report(Codes.NodeInvalid, DiagnosticSeverity.Warning, $"A {Kind} node's Kids is not an array; it has no kids.", frame.Reference);
             return kids;
         }
@@ -435,7 +448,7 @@ internal abstract class TreeReader<TKey>
         stamps?.Add((array, array.Version));
         if (frame.Depth >= MaxDepth)
         {
-            anomalies = true;
+            _limitsUntrusted = true;
             Report(
                 Codes.TooDeep,
                 DiagnosticSeverity.Error,
@@ -450,20 +463,20 @@ internal abstract class TreeReader<TKey>
             var reference = kid as CosReference;
             if (Resolve(kid) is not CosDictionary child)
             {
-                anomalies = true;
+                _limitsUntrusted = true;
                 Report(Codes.NodeInvalid, DiagnosticSeverity.Warning, $"A {Kind} Kids entry is not a node dictionary; it is skipped.", reference ?? frame.Reference);
                 continue;
             }
 
             if (reference is null)
             {
-                anomalies = true;
+                _limitsUntrusted = true;
                 Report(Codes.NodeInvalid, DiagnosticSeverity.Warning, $"A {Kind} Kids entry shall be an indirect reference; it is a direct dictionary, used as is.", frame.Reference);
             }
 
             if ((reference is not null && !visitedReferences.Add(reference)) || !visitedNodes.Add(child))
             {
-                anomalies = true;
+                _limitsUntrusted = true;
                 Report(
                     Codes.Cycle,
                     DiagnosticSeverity.Error,
@@ -480,14 +493,14 @@ internal abstract class TreeReader<TKey>
     }
 
     /// <summary>Checks a node's <c>Limits</c> entry; returns the bounds when they are usable.</summary>
-    private Bounds? CheckLimits(Frame frame, ref bool anomalies)
+    private Bounds? CheckLimits(Frame frame)
     {
-        bool present = frame.Node.TryGetValue(KnownNames.Limits, out CosObject? entry);
+        bool present = frame.Node.TryGetValue(NavigationNames.Limits, out CosObject? entry);
         if (frame.IsRoot)
         {
             if (present)
             {
-                anomalies = true;
+                _limitsUntrusted = true;
                 Report(Codes.LimitsInvalid, DiagnosticSeverity.Warning, $"The root of a {Kind} shall not have Limits; they are ignored.", frame.Reference);
             }
 
@@ -503,7 +516,7 @@ internal abstract class TreeReader<TKey>
             return new Bounds(least, greatest);
         }
 
-        anomalies = true;
+        _limitsUntrusted = true;
         Report(
             Codes.LimitsInvalid,
             DiagnosticSeverity.Warning,

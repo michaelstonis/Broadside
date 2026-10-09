@@ -44,7 +44,7 @@ internal static class FuzzTargets
 
     /// <summary>
     /// Opens the input as a whole file in lenient mode and reads everything the document model exposes: version, trailer, every
-    /// page's boxes, rotation, user unit and resources, the revisions, and the linearization dictionary and hint tables. A <see cref="DiagnosticException"/> is the one documented outcome for a file
+    /// page's boxes, rotation, user unit and resources, the revisions, the linearization dictionary and hint tables, the outline and the named destinations. A <see cref="DiagnosticException"/> is the one documented outcome for a file
     /// whose cross-reference information cannot be read at all (until issue #41 reconstructs it); any other exception is a finding.
     /// Every box must be normalized and every rotation one of 0, 90, 180, 270; every revision must be a non-empty prefix of the input
     /// at its own index.
@@ -97,6 +97,65 @@ internal static class FuzzTargets
                 _ = document.DecodeStream(stream);
             }
         }
+
+        Navigation(document);
+    }
+
+    /// <summary>
+    /// Walks the outline and the named destinations (issue #70) and checks what the walk promises: every item below the 256-level cap,
+    /// each item reached once, every resolved page index inside the page list, every name-tree key enumerated once.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.9.6, §12.3.2, §12.3.3.</remarks>
+    private static void Navigation(PdfDocument document)
+    {
+        var seen = new HashSet<CosDictionary>(ReferenceEqualityComparer.Instance);
+        var pending = new Stack<PdfOutlineItem>(document.Outline?.Items ?? []);
+        while (pending.TryPop(out PdfOutlineItem? item))
+        {
+            if (!seen.Add(item.Dictionary) || item.Level >= 256)
+            {
+                throw new InvalidOperationException($"Outline item at level {item.Level} is repeated or below the depth cap.");
+            }
+
+            _ = (item.Title, item.Color, item.Flags, item.Count, item.StructureElement);
+            CheckDestination(document, item.Destination);
+            if (item.Action is PdfGoToAction goTo)
+            {
+                CheckDestination(document, goTo.Destination);
+            }
+
+            foreach (PdfOutlineItem child in item.Children)
+            {
+                pending.Push(child);
+            }
+        }
+
+        if (document.Names?.Dests is { } tree)
+        {
+            // After a complete walk, lookups agree with enumeration even in a damaged tree (the walk's first deviation switches
+            // lookups to the index); before it, a lookup follows the Limits it finds.
+            var keys = new HashSet<CosString>();
+            foreach (KeyValuePair<CosString, CosObject> entry in tree.ToList())
+            {
+                if (!keys.Add(entry.Key) || !tree.TryGetValue(entry.Key, out CosObject? value) || !ReferenceEquals(value, entry.Value))
+                {
+                    throw new InvalidOperationException("A name tree key is enumerated twice or looks up to another value.");
+                }
+
+                CheckDestination(document, document.GetNamedDestination(entry.Key));
+            }
+        }
+    }
+
+    private static void CheckDestination(PdfDocument document, PdfDestination? destination)
+    {
+        PdfExplicitDestination? resolved = destination is PdfNamedDestination named ? named.Resolve() : destination as PdfExplicitDestination;
+        if (resolved?.PageIndex is { } index && (index < 0 || index >= document.Pages.Count))
+        {
+            throw new InvalidOperationException($"Destination page index {index} is outside the {document.Pages.Count} pages.");
+        }
+
+        _ = (resolved?.View, resolved?.Left, resolved?.Top, resolved?.Right, resolved?.Bottom, resolved?.Zoom, resolved?.IsValid, resolved?.TargetKind);
     }
 
     /// <summary>

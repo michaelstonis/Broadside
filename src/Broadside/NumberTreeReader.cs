@@ -33,7 +33,7 @@ internal sealed class NumberTreeReader : TreeReader<int>
     }
 
     /// <inheritdoc/>
-    private protected override CosName EntriesKey => KnownNames.Nums;
+    private protected override CosName EntriesKey => NavigationNames.Nums;
 
     /// <inheritdoc/>
     private protected override TreeCodes Codes => NumberTreeCodes;
