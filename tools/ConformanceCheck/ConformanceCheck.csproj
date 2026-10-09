@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Validates docs/conformance/*.md: cell layout, statuses, and that every cited test and implementing type exists. See README.md. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Broadside.Tools.ConformanceCheck</RootNamespace>
+    <AssemblyName>ConformanceCheck</AssemblyName>
+    <Description>Checks the conformance map in docs/conformance/ against the rules in docs/conformance/README.md.</Description>
+  </PropertyGroup>
+
+</Project>
