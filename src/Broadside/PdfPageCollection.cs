@@ -13,12 +13,12 @@ namespace Broadside;
 public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
 {
     private readonly Lazy<IReadOnlyList<PdfPage>> _pages;
-    private readonly Lazy<Dictionary<CosDictionary, PdfPage>> _byObject;
+    private readonly Lazy<Dictionary<CosDictionary, int>> _indexes;
 
     internal PdfPageCollection(Func<IReadOnlyList<PdfPage>> walk)
     {
         _pages = new Lazy<IReadOnlyList<PdfPage>>(walk, LazyThreadSafetyMode.ExecutionAndPublication);
-        _byObject = new Lazy<Dictionary<CosDictionary, PdfPage>>(IndexPages, LazyThreadSafetyMode.ExecutionAndPublication);
+        _indexes = new Lazy<Dictionary<CosDictionary, int>>(IndexPages, LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     /// <summary>Gets the number of pages.</summary>
@@ -33,20 +33,37 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
     /// <inheritdoc/>
     public IEnumerator<PdfPage> GetEnumerator() => _pages.Value.GetEnumerator();
 
+    /// <summary>Returns the index of the page whose page object is <paramref name="page"/>, or -1 when no page has it.</summary>
+    /// <param name="page">A page object, as resolved through the document (resolving returns the same instance every time).</param>
+    /// <returns>The 0-based index, or -1.</returns>
+    /// <remarks>For destinations (§12.3.2.2) and any other object that refers to a page. Built once, like the page list.</remarks>
+    internal int IndexOf(CosDictionary page) => _indexes.Value.TryGetValue(page, out int index) ? index : -1;
+
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
     /// <summary>Finds the page whose page object is <paramref name="pageObject"/> (by identity), for references such as a structure element's <c>Pg</c>.</summary>
-    internal bool TryGetPage(CosDictionary pageObject, [MaybeNullWhen(false)] out PdfPage page) => _byObject.Value.TryGetValue(pageObject, out page);
-
-    private Dictionary<CosDictionary, PdfPage> IndexPages()
+    internal bool TryGetPage(CosDictionary pageObject, [MaybeNullWhen(false)] out PdfPage page)
     {
-        var index = new Dictionary<CosDictionary, PdfPage>(ReferenceEqualityComparer.Instance);
-        foreach (PdfPage page in _pages.Value)
+        if (_indexes.Value.TryGetValue(pageObject, out int index))
         {
-            index.TryAdd(page.Dictionary, page);
+            page = _pages.Value[index];
+            return true;
         }
 
-        return index;
+        page = null;
+        return false;
+    }
+
+    private Dictionary<CosDictionary, int> IndexPages()
+    {
+        IReadOnlyList<PdfPage> pages = _pages.Value;
+        var indexes = new Dictionary<CosDictionary, int>(pages.Count, ReferenceEqualityComparer.Instance);
+        for (int index = 0; index < pages.Count; index++)
+        {
+            indexes.TryAdd(pages[index].Dictionary, index);
+        }
+
+        return indexes;
     }
 }

@@ -45,10 +45,10 @@ public class CollectionTests
         using PdfDocument document = OpenCorpus();
         PdfCollection collection = document.Collection!;
 
-        Assert.Equal(new PdfCollectionColor(1, 1, 1), collection.Colors!.Background);
-        Assert.Equal(new PdfCollectionColor(0.9, 0.9, 0.9), collection.Colors.CardBackground);
-        Assert.Equal(new PdfCollectionColor(0, 0, 0), collection.Colors.CardBorder);
-        Assert.Equal(new PdfCollectionColor(0.5, 0.5, 0.5), collection.Colors.SecondaryText);
+        Assert.Equal(new PdfRgbColor(1, 1, 1), collection.Colors!.Background);
+        Assert.Equal(new PdfRgbColor(0.9, 0.9, 0.9), collection.Colors.CardBackground);
+        Assert.Equal(new PdfRgbColor(0, 0, 0), collection.Colors.CardBorder);
+        Assert.Equal(new PdfRgbColor(0.5, 0.5, 0.5), collection.Colors.SecondaryText);
         Assert.Equal(PdfCollectionSplitDirection.Vertical, collection.Split.Direction);
         Assert.Equal(30, collection.Split.Position);
     }

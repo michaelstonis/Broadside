@@ -69,55 +69,6 @@ public enum PdfCollectionSplitDirection
     None,
 }
 
-/// <summary>An RGB colour of a collection's user interface, each component 0 to 1.</summary>
-/// <remarks>ISO 32000-2 §12.3.5, Table 157 (PDF 2.0): an array of three numbers in DeviceRGB.</remarks>
-public readonly struct PdfCollectionColor : IEquatable<PdfCollectionColor>
-{
-    /// <summary>Initializes a new instance of the <see cref="PdfCollectionColor"/> struct.</summary>
-    /// <param name="red">The red component.</param>
-    /// <param name="green">The green component.</param>
-    /// <param name="blue">The blue component.</param>
-    public PdfCollectionColor(double red, double green, double blue)
-    {
-        Red = red;
-        Green = green;
-        Blue = blue;
-    }
-
-    /// <summary>Gets the red component.</summary>
-    public double Red { get; }
-
-    /// <summary>Gets the green component.</summary>
-    public double Green { get; }
-
-    /// <summary>Gets the blue component.</summary>
-    public double Blue { get; }
-
-    /// <summary>Compares two values.</summary>
-    /// <param name="left">The first value.</param>
-    /// <param name="right">The second value.</param>
-    /// <returns><see langword="true"/> when equal.</returns>
-    public static bool operator ==(PdfCollectionColor left, PdfCollectionColor right) => left.Equals(right);
-
-    /// <summary>Compares two values.</summary>
-    /// <param name="left">The first value.</param>
-    /// <param name="right">The second value.</param>
-    /// <returns><see langword="true"/> when different.</returns>
-    public static bool operator !=(PdfCollectionColor left, PdfCollectionColor right) => !left.Equals(right);
-
-    /// <inheritdoc/>
-    public bool Equals(PdfCollectionColor other) => Red.Equals(other.Red) && Green.Equals(other.Green) && Blue.Equals(other.Blue);
-
-    /// <inheritdoc/>
-    public override bool Equals(object? obj) => obj is PdfCollectionColor other && Equals(other);
-
-    /// <inheritdoc/>
-    public override int GetHashCode() => HashCode.Combine(Red, Green, Blue);
-
-    /// <inheritdoc/>
-    public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"[{Red} {Green} {Blue}]");
-}
-
 /// <summary>A range of folder IDs that are free for new folders.</summary>
 /// <remarks>ISO 32000-2 §12.3.5, Table 159 (<c>Free</c>, PDF 2.0).</remarks>
 public readonly struct PdfCollectionIdRange : IEquatable<PdfCollectionIdRange>
@@ -297,28 +248,28 @@ public sealed class PdfCollectionColors
 
     /// <summary>Gets the background colour (<c>Background</c>).</summary>
     /// <remarks>ISO 32000-2 §12.3.5, Table 157.</remarks>
-    public PdfCollectionColor? Background => Read(FileAndLayerNames.Background);
+    public PdfRgbColor? Background => Read(FileAndLayerNames.Background);
 
     /// <summary>Gets the background colour of a card (<c>CardBackground</c>).</summary>
     /// <remarks>ISO 32000-2 §12.3.5, Table 157.</remarks>
-    public PdfCollectionColor? CardBackground => Read(FileAndLayerNames.CardBackground);
+    public PdfRgbColor? CardBackground => Read(FileAndLayerNames.CardBackground);
 
     /// <summary>Gets the border colour of a card (<c>CardBorder</c>).</summary>
     /// <remarks>ISO 32000-2 §12.3.5, Table 157.</remarks>
-    public PdfCollectionColor? CardBorder => Read(FileAndLayerNames.CardBorder);
+    public PdfRgbColor? CardBorder => Read(FileAndLayerNames.CardBorder);
 
     /// <summary>Gets the colour of primary text (<c>PrimaryText</c>).</summary>
     /// <remarks>ISO 32000-2 §12.3.5, Table 157.</remarks>
-    public PdfCollectionColor? PrimaryText => Read(FileAndLayerNames.PrimaryText);
+    public PdfRgbColor? PrimaryText => Read(FileAndLayerNames.PrimaryText);
 
     /// <summary>Gets the colour of secondary text (<c>SecondaryText</c>).</summary>
     /// <remarks>ISO 32000-2 §12.3.5, Table 157.</remarks>
-    public PdfCollectionColor? SecondaryText => Read(FileAndLayerNames.SecondaryText);
+    public PdfRgbColor? SecondaryText => Read(FileAndLayerNames.SecondaryText);
 
-    private PdfCollectionColor? Read(CosName key) =>
+    private PdfRgbColor? Read(CosName key) =>
         ViewReading.Get(_document, Dictionary, key) is CosArray { Count: 3 } array
         && _document.Resolve(array[0]) is CosNumber red && _document.Resolve(array[1]) is CosNumber green && _document.Resolve(array[2]) is CosNumber blue
-            ? new PdfCollectionColor(red.ToDouble(), green.ToDouble(), blue.ToDouble())
+            ? new PdfRgbColor(red.ToDouble(), green.ToDouble(), blue.ToDouble())
             : null;
 }
 

@@ -1,6 +1,5 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
 using Broadside.Objects;
 
 namespace Broadside;
@@ -18,7 +17,7 @@ namespace Broadside;
 /// a key that appears twice, a node reached twice (a cycle), a tree deeper than 64 levels, an odd-length <c>Names</c> array, and a key
 /// that is not a string are each reported once per node as a diagnostic; lookups then fall back to an index of every key, built once
 /// by walking the whole tree and kept until a node of the tree changes. When a key appears twice, the first occurrence in tree order
-/// is the one both lookups and enumeration return. Diagnostics are reported when the damage is first read, so in strict mode the
+/// is the one both lookups and enumeration return once a walk has met the damage (until then a lookup follows the Limits it finds). Diagnostics are reported when the damage is first read, so in strict mode the
 /// lookup or enumeration that meets it throws a <see cref="Diagnostics.DiagnosticException"/>, not <see cref="PdfDocument.Open(string)"/>.
 /// </para>
 /// <para>Safe for concurrent reads while nobody changes the document.</para>
@@ -67,29 +66,11 @@ public sealed class PdfNameTree : IEnumerable<KeyValuePair<CosString, CosObject>
     public bool TryGetValue(string key, [MaybeNullWhen(false)] out CosObject value)
     {
         ArgumentNullException.ThrowIfNull(key);
-        if (TextStringEncoder.TryEncodePdfDoc(key, out byte[]? encoded) && _reader.TryGetValue(encoded, out value))
-        {
-            return true;
-        }
-
-        byte[] utf16 = [0xFE, 0xFF, .. Encoding.BigEndianUnicode.GetBytes(key)];
-        if (_reader.TryGetValue(utf16, out value))
-        {
-            return true;
-        }
-
-        foreach ((CosString candidate, CosObject found) in _reader.Enumerate())
-        {
-            if (string.Equals(candidate.DecodeText(), key, StringComparison.Ordinal))
-            {
-                value = found;
-                return true;
-            }
-        }
-
-        value = null;
-        return false;
+        return _reader.TryGetValue(key, out value);
     }
+
+    /// <summary>Gets the reader, for the document model's typed views that need values as stored.</summary>
+    internal NameTreeReader Reader => _reader;
 
     /// <summary>Determines whether the tree holds the key with the same bytes as <paramref name="key"/>.</summary>
     /// <param name="key">The key.</param>

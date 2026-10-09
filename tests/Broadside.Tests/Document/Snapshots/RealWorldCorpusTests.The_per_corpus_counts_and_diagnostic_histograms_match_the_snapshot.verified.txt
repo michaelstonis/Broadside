@@ -1,6 +1,6 @@
 ﻿pdfjs: 989 files
-  Clean: 681
-  Diagnostics: 294
+  Clean: 670
+  Diagnostics: 305
   PasswordRequired: 12
   CertificateRequired: 0
   EncryptionUnsupported: 0
@@ -16,6 +16,7 @@
     StartxrefInvalid: 21
     MissingEndobj: 12
     PageResourcesMissing: 11
+    NameTreeLimitsInvalid: 8
     TrailerPrevInvalid: 8
     UnexpectedToken: 8
     XrefEntryFormatInvalid: 8
@@ -29,6 +30,7 @@
     DictionaryDuplicateKey: 4
     PageMediaBoxMissing: 4
     DateInvalid: 3
+    DestinationInvalid: 3
     DictionaryUnterminated: 3
     FileIdentifierInvalid: 3
     PageTreeNodeTypeInvalid: 3
@@ -62,6 +64,8 @@
     NumberTreeDuplicateKey: 1
     ObjectStreamIndexMismatch: 1
     ObjectStreamInvalid: 1
+    OutlineCountInvalid: 1
+    OutlineLinkInconsistent: 1
     PageModeInvalid: 1
     PageResourcesInvalid: 1
     PageTreeCycle: 1
@@ -101,8 +105,8 @@ pdfbox: 137 files
     StartxrefInvalid: 1
     StreamLengthInvalid: 1
 qpdf: 639 files
-  Clean: 441
-  Diagnostics: 161
+  Clean: 432
+  Diagnostics: 170
   PasswordRequired: 23
   CertificateRequired: 0
   EncryptionUnsupported: 1
@@ -120,6 +124,7 @@ qpdf: 639 files
     DictionaryKeyNotName: 10
     RootMissing: 10
     StreamLengthInvalid: 10
+    DestinationInvalid: 8
     CatalogTypeInvalid: 7
     ObjectStreamIndexMismatch: 7
     XrefEntryInvalid: 7
@@ -168,6 +173,9 @@ qpdf: 639 files
     ObjectStreamHeaderInvalid: 1
     ObjectStreamInvalid: 1
     ObjectStreamTypeInvalid: 1
+    OutlineCycle: 1
+    OutlineInvalid: 1
+    OutlineLinkInconsistent: 1
     PageBoxInvalid: 1
     PageLabelInvalid: 1
     PageTreeKidInvalid: 1
@@ -181,8 +189,8 @@ qpdf: 639 files
     XrefStreamWidthsInvalid: 1
     XrefSubsectionHeaderInvalid: 1
 pdfium-tests: 840 files
-  Clean: 299
-  Diagnostics: 534
+  Clean: 281
+  Diagnostics: 552
   PasswordRequired: 2
   CertificateRequired: 4
   EncryptionUnsupported: 0
@@ -203,8 +211,11 @@ pdfium-tests: 840 files
     HeaderInvalid: 29
     FilterDataInvalid: 28
     DecodeParmsInvalid: 24
+    OutlineLinkInconsistent: 22
     XrefEntryOffsetInvalid: 21
     MissingEndobj: 12
+    OutlineCountInvalid: 12
+    OutlineItemInvalid: 12
     UnexpectedToken: 10
     CatalogTypeInvalid: 5
     DictionaryDuplicateKey: 5
@@ -213,18 +224,22 @@ pdfium-tests: 840 files
     PageResourcesMissing: 5
     PageTreeNodeTypeInvalid: 5
     PageTreeParentMismatch: 5
+    DestinationInvalid: 4
     DictionaryUnterminated: 4
     StartxrefMissing: 4
     XrefEntryFormatInvalid: 4
     DictionaryKeyNotName: 3
     MetadataNotEncrypted: 3
+    NameTreeLimitsInvalid: 3
     StringUnterminated: 3
     ArrayUnterminated: 2
     EncryptionRevisionInvalid: 2
     EndOfFileMarkerNotLast: 2
+    NamedDestinationNotFound: 2
     TrailerMissing: 2
     ViewerPreferenceInvalid: 2
     XrefSubsectionHeaderInvalid: 2
+    ActionInvalid: 1
     DictionaryValueMissing: 1
     EncryptDictionaryInvalid: 1
     EndOfFileMarkerMissing: 1
@@ -232,7 +247,9 @@ pdfium-tests: 840 files
     HeaderMissing: 1
     HexStringInvalidDigit: 1
     LinearizationHintsInvalid: 1
+    NameTreeKeysUnsorted: 1
     NumberTreeLimitsInvalid: 1
+    OutlineDestAndAction: 1
     PageTreeCountMismatch: 1
     PageTreeKidInvalid: 1
     PageTreeKidNotIndirect: 1
