@@ -153,6 +153,34 @@ public class CrossReferenceStreamTests
         Assert.Equal("XrefStreamDataTruncated", Assert.Single(document.Diagnostics).Code);
     }
 
+    // Found by libFuzzer (issue #48): Flate expands a cross-reference stream about 1000 times and every entry costs tens of bytes
+    // in the cross-reference dictionaries, so an 11 KB file made the reader allocate 2.3 GB. A document reads at most one stream
+    // entry per byte of the file (and at least 2^20), whatever the data holds.
+    [Fact]
+    public void A_cross_reference_stream_holds_no_more_entries_than_the_file_has_bytes()
+    {
+        const int FreeEntries = 8_000_000;
+        var pdf = new XrefStreamPdf().AddOnePage();
+        byte[] head = XrefStreamPdf.Rows([1, 4, 0], (1, pdf.Offset(1), 0), (1, pdf.Offset(2), 0), (1, pdf.Offset(3), 0));
+        byte[] data = new byte[head.Length + (FreeEntries * 5)];
+        head.CopyTo(data, 0);
+        byte[] file = pdf.Finish(4, $"/Size {FreeEntries + 4} /Index [1 3 4 {FreeEntries}] /Root 1 0 R /W [1 4 0] /Filter /FlateDecode", FilterEncoders.Zlib(data));
+        Assert.InRange(file.Length, 0, 100_000);
+
+        long allocated = Allocations.Measure(
+            () =>
+            {
+                using PdfDocument opened = PdfDocument.Open(file);
+                _ = opened.Pages.Count;
+            },
+            warmUpCalls: 0);
+        using PdfDocument document = PdfDocument.Open(file);
+
+        Assert.Single(document.Pages);
+        Assert.Equal(["CrossReferenceEntryLimitExceeded"], document.Diagnostics.Select(diagnostic => diagnostic.Code));
+        Assert.InRange(allocated, 0, 384L << 20); // mostly the 40 MB of decoded data and its growing buffers; 8 million entries took gigabytes
+    }
+
     [Fact]
     public void A_stream_without_type_XRef_is_read_with_a_diagnostic()
     {

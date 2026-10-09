@@ -42,12 +42,14 @@ internal static class XrefStreamReader
     /// <param name="offset">The absolute offset of the stream object.</param>
     /// <param name="streams">The document's filter pipeline.</param>
     /// <param name="diagnostics">Where to report deviations.</param>
+    /// <param name="budget">The entries the document may still read, shared by its sections; a new one for the file when <see langword="null"/>.</param>
     /// <returns>
     /// The section, whose <see cref="XrefSection.Trailer"/> is the stream dictionary without the entries that describe the stream
     /// itself; <see langword="null"/> when no cross-reference stream can be read there.
     /// </returns>
-    public static XrefSection? Read(PdfSource source, long offset, StreamDecoder streams, DiagnosticSink diagnostics)
+    public static XrefSection? Read(PdfSource source, long offset, StreamDecoder streams, DiagnosticSink diagnostics, XrefEntryBudget? budget = null)
     {
+        budget ??= XrefEntryBudget.For(source);
         if (!TryParseStreamObject(source, offset, diagnostics, out CosStream? stream, out CosReference? reference, out long end))
         {
             return null;
@@ -76,7 +78,7 @@ internal static class XrefStreamReader
         long? size = ReadSize(dictionary, offset, reference, diagnostics);
         List<(long First, long Count)> subsections = ReadIndex(dictionary, size ?? (data.Length / entryWidth), offset, reference, diagnostics);
         var entries = new Dictionary<int, XrefEntry>();
-        ReadEntries(data, widths, subsections, size, entries, offset, reference, diagnostics);
+        ReadEntries(data, widths, subsections, size, entries, offset, reference, budget, diagnostics);
         return new XrefSection(offset, end, XrefSectionKind.Stream, entries, Trailer(dictionary)) { Stream = stream };
     }
 
@@ -281,6 +283,7 @@ internal static class XrefStreamReader
         Dictionary<int, XrefEntry> entries,
         long offset,
         CosReference? reference,
+        XrefEntryBudget budget,
         DiagnosticSink diagnostics)
     {
         int entryWidth = widths[0] + widths[1] + widths[2];
@@ -309,6 +312,18 @@ internal static class XrefStreamReader
                 {
                     // §7.5.4: object number 0 is the head of the free list and never names an object.
                     continue;
+                }
+
+                if (!budget.TryTake())
+                {
+                    Report(
+                        diagnostics,
+                        DiagnosticCodes.CrossReferenceEntryLimitExceeded,
+                        DiagnosticSeverity.Error,
+                        string.Create(CultureInfo.InvariantCulture, $"The cross-reference streams describe more objects than the file has bytes (at least {XrefEntryBudget.Minimum}); the entries from object {number} on are not read."),
+                        offset,
+                        reference);
+                    break;
                 }
 
                 beyondSize |= number >= size;

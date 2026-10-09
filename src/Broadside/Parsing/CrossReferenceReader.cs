@@ -59,6 +59,7 @@ internal static class CrossReferenceReader
 
         var sections = new List<XrefSection>();
         var visited = new HashSet<long>();
+        XrefEntryBudget budget = XrefEntryBudget.For(source);
         long? next = first;
         while (next is { } offset)
         {
@@ -72,14 +73,14 @@ internal static class CrossReferenceReader
                 break;
             }
 
-            XrefSection? section = ReadSection(source, offset, isFirst: sections.Count == 0, streams, diagnostics, scan, visited);
+            XrefSection? section = ReadSection(source, offset, isFirst: sections.Count == 0, streams, diagnostics, scan, visited, budget);
             if (section is null)
             {
                 break;
             }
 
             XrefSection? hybridStream = section.Kind == XrefSectionKind.Table
-                ? ReadHybridStream(source, header, section, visited, streams, diagnostics)
+                ? ReadHybridStream(source, header, section, visited, streams, diagnostics, budget)
                 : null;
             if (hybridStream is not null)
             {
@@ -186,7 +187,8 @@ internal static class CrossReferenceReader
         StreamDecoder streams,
         DiagnosticSink diagnostics,
         Lazy<FileScan>? scan,
-        HashSet<long> visited)
+        HashSet<long> visited,
+        XrefEntryBudget budget)
     {
         ReadOnlySpan<byte> window = source.GetWindow(offset).Span;
         var lexer = new CosLexer(window);
@@ -210,7 +212,7 @@ internal static class CrossReferenceReader
                 window = window[first.Start..];
             }
 
-            return isTable ? ReadTable(source, offset, diagnostics) : XrefStreamReader.Read(source, offset, streams, diagnostics);
+            return isTable ? ReadTable(source, offset, diagnostics) : XrefStreamReader.Read(source, offset, streams, diagnostics, budget);
         }
 
         string stated = isFirst ? "startxref" : "Prev";
@@ -222,7 +224,7 @@ internal static class CrossReferenceReader
                 string.Create(CultureInfo.InvariantCulture, $"The {stated} offset does not point at a cross-reference section; the section nearest to it, at offset {nearest}, is read instead."),
                 offset);
             visited.Add(nearest);
-            return ReadSection(source, nearest, isFirst, streams, diagnostics, scan: null, visited);
+            return ReadSection(source, nearest, isFirst, streams, diagnostics, scan: null, visited, budget);
         }
 
         diagnostics.Report(
@@ -320,7 +322,8 @@ internal static class CrossReferenceReader
         XrefSection table,
         HashSet<long> visited,
         StreamDecoder streams,
-        DiagnosticSink diagnostics)
+        DiagnosticSink diagnostics,
+        XrefEntryBudget budget)
     {
         if (!table.Trailer.TryGetValue(XRefStm, out CosObject? entry))
         {
@@ -370,7 +373,7 @@ internal static class CrossReferenceReader
             offset += first.Start;
         }
 
-        return XrefStreamReader.Read(source, offset, streams, diagnostics) is { } section
+        return XrefStreamReader.Read(source, offset, streams, diagnostics, budget) is { } section
             ? section with { Trailer = new CosDictionary() }
             : null;
     }
