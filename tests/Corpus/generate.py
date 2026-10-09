@@ -1161,6 +1161,96 @@ def gen_text_truetype_loca_long() -> bytes:
     return truetype_file(font, b"BroadsideLongLoca", 32, 0x48, [800, 400], b"/WinAnsiEncoding", b"HI")
 
 
+# ---------------------------------------------------------------------------
+# Composite fonts (clause 9.7): Type 0 font over a CIDFontType2 descendant
+# ---------------------------------------------------------------------------
+
+def cmap_stream(name: bytes, body: bytes, cmap_type: int = 1, extra: bytes = b"", wmode: int | None = None,
+                registry: bytes = b"Adobe", ordering: bytes = b"Identity", supplement: int = 0) -> bytes:
+    """A CMap file (Adobe TN 5014 §7, TN 5099 §1.3) as a stream (9.7.5.3 Table 118); ``body`` holds the range blocks."""
+    ros = b"<< /Registry (%s) /Ordering (%s) /Supplement %d >>" % (registry, ordering, supplement)
+    text = (b"%!PS-Adobe-3.0 Resource-CMap\n/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n"
+            b"/CIDSystemInfo 3 dict dup begin\n  /Registry (" + registry + b") def\n  /Ordering (" + ordering
+            + b") def\n  /Supplement %d def\nend def\n/CMapName /%s def\n/CMapType %d def\n" % (supplement, name, cmap_type))
+    if wmode is not None:
+        text += b"/WMode %d def\n" % wmode
+    text += body + b"endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n"
+    entries = b"/Type /CMap /CMapName /%s /CIDSystemInfo %s" % (name, ros)
+    if wmode is not None:
+        entries += b" /WMode %d" % wmode
+    return stream(entries + extra, text)
+
+
+def to_unicode(codespace: bytes, mappings: bytes) -> bytes:
+    """9.10.3 ToUnicode CMap: a codespace block and bfchar/bfrange blocks (TN 5099 §1.4)."""
+    return cmap_stream(b"Adobe-Identity-UCS", codespace + mappings, cmap_type=2, ordering=b"UCS")
+
+
+def cid_file(encoding: bytes, cid_entries: bytes, codes: list[bytes], tounicode: bytes,
+             extra: list[tuple[int, bytes]] | None = None, origin: bytes = b"72 700") -> bytes:
+    """A page showing each of ``codes`` (one Tj each) in a Type 0 font (9.7.6.1 Table 119) whose descendant is an
+    embedded CIDFontType2 (9.7.4.1 Table 115) over ``minimal_truetype()``: GID 1 'H' 800, GID 2 'I' 400, upem 1000."""
+    font, _ = minimal_truetype()
+    shows = b" ".join((b"<%s> Tj" % c.hex().upper().encode()) if c[:1] != b"(" else c + b" Tj" for c in codes)
+    content = b"BT /F1 24 Tf " + origin + b" Td " + shows + b" ET"
+    objects = [
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>" % LETTER),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Font /Subtype /Type0 /BaseFont /BroadsideMinimal /Encoding %s /DescendantFonts [8 0 R] "
+            b"/ToUnicode 9 0 R >>" % encoding),
+        (6, b"<< /Type /FontDescriptor /FontName /BroadsideMinimal /Flags 4 /FontBBox [0 0 700 700] /ItalicAngle 0 "
+            b"/Ascent 800 /Descent -200 /CapHeight 700 /StemV 200 /FontFile2 7 0 R >>"),
+        (7, stream(b"/Length1 %d" % len(font), font)),
+        (8, b"<< /Type /Font /Subtype /CIDFontType2 /BaseFont /BroadsideMinimal "
+            b"/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 6 0 R %s >>"
+            % cid_entries),
+        (9, tounicode),
+    ]
+    return simple_file(objects + (extra or []), binary=True)
+
+
+def gen_text_cid_identity_h() -> bytes:
+    """9.7.4.1 Table 115, 9.7.4.3, 9.7.5.2, 9.7.6: Identity-H over CIDFontType2 with CIDToGIDMap /Identity; W in both
+    forms (1 [800] and 2 2 400) and DW 600. Codes 0001 0003 0002: CID 3 is past the program's 3 glyphs, so it shows
+    the CID 0 glyph with the DW width."""
+    tu = to_unicode(b"1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n",
+                    b"2 beginbfchar\n<0001> <0048>\n<0003> <0020>\nendbfchar\n"
+                    b"1 beginbfrange\n<0002> <0002> <0049>\nendbfrange\n")
+    return cid_file(b"/Identity-H", b"/CIDToGIDMap /Identity /DW 600 /W [1 [800] 2 2 400]",
+                    [b"\x00\x01\x00\x03\x00\x02"], tu)
+
+
+def gen_text_cid_identity_v() -> bytes:
+    """9.7.4.1 Table 115 (CIDToGIDMap stream, DW2, W2), 9.7.4.3 (W2 in both forms, DW2 fallback, v.x = w0/2), 9.7.5.2
+    Identity-V. The map covers CIDs 0 to 0x22 (0x21 -> 1, 0x22 -> 2); CID 0x23 is past its end and shows CID 0's glyph."""
+    gid_map = bytearray(2 * 0x23)
+    gid_map[2 * 0x21:2 * 0x21 + 2] = b"\x00\x01"
+    gid_map[2 * 0x22:2 * 0x22 + 2] = b"\x00\x02"
+    tu = to_unicode(b"1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n",
+                    b"3 beginbfchar\n<0021> <0048>\n<0022> <0049>\n<0023> <0020>\nendbfchar\n")
+    return cid_file(b"/Identity-V", b"/CIDToGIDMap 10 0 R /DW2 [900 -1100] /W2 [33 [-1200 400 880] 34 34 -900 200 880]",
+                    [b"\x00\x21\x00\x22\x00\x23"], tu, [(10, stream(b"", bytes(gid_map)))], origin=b"300 700")
+
+
+def gen_text_cid_embedded_cmap() -> bytes:
+    """9.7.5.3 Table 118, 9.7.5.4, 9.7.6.2, 9.7.6.3, Adobe TN 5014 §5.4 and §7: an embedded CMap stream whose UseCMap is
+    another embedded CMap stream (in-file usecmap names it too). The parent has a mixed codespace (1-byte <00>-<7F>,
+    2-byte <8140>-<9FFC>), a cidrange and a cidchar; the child adds one cidchar. <8210> is invalid by the per-byte
+    rule (its second byte is below 0x40) and consumes two bytes, showing CID 0."""
+    parent = cmap_stream(b"Broadside-Parent-H",
+                         b"2 begincodespacerange\n<00> <7F>\n<8140> <9FFC>\nendcodespacerange\n"
+                         b"1 begincidrange\n<48> <49> 1\nendcidrange\n"
+                         b"1 begincidchar\n<8140> 1\nendcidchar\n")
+    child = cmap_stream(b"Broadside-Child-H", b"/Broadside-Parent-H usecmap\n1 begincidchar\n<8141> 2\nendcidchar\n",
+                        extra=b" /UseCMap 11 0 R")
+    tu = to_unicode(b"2 begincodespacerange\n<00> <7F>\n<8140> <9FFC>\nendcodespacerange\n",
+                    b"4 beginbfchar\n<48> <0048>\n<49> <0049>\n<8140> <0048>\n<8141> <0049>\nendbfchar\n")
+    return cid_file(b"10 0 R", b"/CIDToGIDMap /Identity /W [1 [800 400]]",
+                    [b"(HI)", b"\x81\x41\x81\x40", b"\x82\x10"], tu, [(10, child), (11, parent)])
+
+
 def gen_xref_stream() -> bytes:
     f = File("1.5", binary=True)
     f.add(1, catalog())
@@ -2843,6 +2933,9 @@ FILES = {
     "text-truetype-symbolic.pdf": gen_text_truetype_symbolic,
     "text-truetype-macroman.pdf": gen_text_truetype_macroman,
     "text-truetype-loca-long.pdf": gen_text_truetype_loca_long,
+    "text-cid-identity-h.pdf": gen_text_cid_identity_h,
+    "text-cid-identity-v.pdf": gen_text_cid_identity_v,
+    "text-cid-embedded-cmap.pdf": gen_text_cid_embedded_cmap,
     "xref-stream.pdf": gen_xref_stream,
     "object-stream.pdf": gen_object_stream,
     "incremental-update.pdf": gen_incremental_update,

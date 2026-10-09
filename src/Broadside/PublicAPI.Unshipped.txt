@@ -603,6 +603,66 @@ Broadside.Content.ShadingEvent.IsHidden.get -> bool
 Broadside.Content.ShadingEvent.ResourceName.get -> System.ReadOnlySpan<byte>
 Broadside.Content.ShadingEvent.Shading.get -> Broadside.Objects.CosObject?
 Broadside.Content.ShadingEvent.ShadingEvent() -> void
+Broadside.Fonts.CharacterCode
+Broadside.Fonts.CharacterCode.CharacterCode() -> void
+Broadside.Fonts.CharacterCode.CharacterCode(uint Value, int Length, bool IsValid) -> void
+Broadside.Fonts.CharacterCode.IsValid.get -> bool
+Broadside.Fonts.CharacterCode.IsValid.init -> void
+Broadside.Fonts.CharacterCode.Length.get -> int
+Broadside.Fonts.CharacterCode.Length.init -> void
+Broadside.Fonts.CharacterCode.Value.get -> uint
+Broadside.Fonts.CharacterCode.Value.init -> void
+Broadside.Fonts.CidGlyph
+Broadside.Fonts.CidGlyph.AppliesWordSpacing.get -> bool
+Broadside.Fonts.CidGlyph.Cid.get -> int
+Broadside.Fonts.CidGlyph.Cid.init -> void
+Broadside.Fonts.CidGlyph.CidGlyph() -> void
+Broadside.Fonts.CidGlyph.CidGlyph(Broadside.Fonts.CharacterCode Code, int Cid, int GlyphId, double Width, Broadside.Fonts.CidVerticalMetrics VerticalMetrics) -> void
+Broadside.Fonts.CidGlyph.Code.get -> Broadside.Fonts.CharacterCode
+Broadside.Fonts.CidGlyph.Code.init -> void
+Broadside.Fonts.CidGlyph.GlyphId.get -> int
+Broadside.Fonts.CidGlyph.GlyphId.init -> void
+Broadside.Fonts.CidGlyph.VerticalMetrics.get -> Broadside.Fonts.CidVerticalMetrics
+Broadside.Fonts.CidGlyph.VerticalMetrics.init -> void
+Broadside.Fonts.CidGlyph.Width.get -> double
+Broadside.Fonts.CidGlyph.Width.init -> void
+Broadside.Fonts.CidSystemInfo
+Broadside.Fonts.CidSystemInfo.CidSystemInfo(string! Registry, string! Ordering, int Supplement) -> void
+Broadside.Fonts.CidSystemInfo.IsCompatibleWith(Broadside.Fonts.CidSystemInfo! other) -> bool
+Broadside.Fonts.CidSystemInfo.Ordering.get -> string!
+Broadside.Fonts.CidSystemInfo.Ordering.init -> void
+Broadside.Fonts.CidSystemInfo.Registry.get -> string!
+Broadside.Fonts.CidSystemInfo.Registry.init -> void
+Broadside.Fonts.CidSystemInfo.Supplement.get -> int
+Broadside.Fonts.CidSystemInfo.Supplement.init -> void
+Broadside.Fonts.CidVerticalMetrics
+Broadside.Fonts.CidVerticalMetrics.CidVerticalMetrics() -> void
+Broadside.Fonts.CidVerticalMetrics.CidVerticalMetrics(double VerticalAdvance, double PositionX, double PositionY) -> void
+Broadside.Fonts.CidVerticalMetrics.PositionX.get -> double
+Broadside.Fonts.CidVerticalMetrics.PositionX.init -> void
+Broadside.Fonts.CidVerticalMetrics.PositionY.get -> double
+Broadside.Fonts.CidVerticalMetrics.PositionY.init -> void
+Broadside.Fonts.CidVerticalMetrics.VerticalAdvance.get -> double
+Broadside.Fonts.CidVerticalMetrics.VerticalAdvance.init -> void
+Broadside.Fonts.CMap
+Broadside.Fonts.CMap.GetCid(Broadside.Fonts.CharacterCode code) -> int
+Broadside.Fonts.CMap.IsIdentity.get -> bool
+Broadside.Fonts.CMap.Name.get -> string?
+Broadside.Fonts.CMap.Parent.get -> Broadside.Fonts.CMap?
+Broadside.Fonts.CMap.ReadCode(System.ReadOnlySpan<byte> text) -> Broadside.Fonts.CharacterCode
+Broadside.Fonts.CMap.SystemInfo.get -> Broadside.Fonts.CidSystemInfo?
+Broadside.Fonts.CMap.TryGetCid(Broadside.Fonts.CharacterCode code, out int cid) -> bool
+Broadside.Fonts.CMap.TryGetNotdefCid(Broadside.Fonts.CharacterCode code, out int cid) -> bool
+Broadside.Fonts.CMap.WritingMode.get -> Broadside.Fonts.WritingMode
+Broadside.Fonts.CMapContext
+Broadside.Fonts.CMapContext.CMapContext() -> void
+Broadside.Fonts.CMapContext.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.Fonts.CMapContext.MaxEntries.get -> int
+Broadside.Fonts.CMapContext.MaxEntries.init -> void
+Broadside.Fonts.CMapContext.MaxUseCMapDepth.get -> int
+Broadside.Fonts.CMapContext.MaxUseCMapDepth.init -> void
+Broadside.Fonts.CMapContext.ReadingMode.get -> Broadside.PdfReadingMode
+Broadside.Fonts.CMapContext.ReadingMode.init -> void
 Broadside.Forms.PdfAcroForm
 Broadside.Forms.PdfAcroForm.AllFields.get -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfField!>!
 Broadside.Forms.PdfAcroForm.CalculationOrder.get -> System.Collections.Generic.IReadOnlyList<Broadside.Forms.PdfField!>!
@@ -802,13 +862,38 @@ Broadside.Fonts.IFontProgramParser
 Broadside.Fonts.IFontProgramParser.CanParse(System.ReadOnlySpan<byte> data) -> bool
 Broadside.Fonts.IFontProgramParser.Formats.get -> System.Collections.Generic.IReadOnlyList<Broadside.Fonts.FontProgramFormat>!
 Broadside.Fonts.IFontProgramParser.Parse(System.ReadOnlyMemory<byte> data, Broadside.Fonts.FontProgramContext! context) -> Broadside.Fonts.FontProgram?
+Broadside.Fonts.PdfCidFont
+Broadside.Fonts.PdfCidFont.BaseFont.get -> string?
+Broadside.Fonts.PdfCidFont.CidFontType.get -> Broadside.Fonts.PdfCidFontType
+Broadside.Fonts.PdfCidFont.DefaultWidth.get -> double
+Broadside.Fonts.PdfCidFont.Descriptor.get -> Broadside.Fonts.PdfFontDescriptor?
+Broadside.Fonts.PdfCidFont.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Fonts.PdfCidFont.GetGlyphId(int cid) -> int
+Broadside.Fonts.PdfCidFont.GetVerticalMetrics(int cid) -> Broadside.Fonts.CidVerticalMetrics
+Broadside.Fonts.PdfCidFont.GetWidth(int cid) -> double
+Broadside.Fonts.PdfCidFont.IsEmbedded.get -> bool
+Broadside.Fonts.PdfCidFont.Program.get -> Broadside.Fonts.FontProgram?
+Broadside.Fonts.PdfCidFont.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Fonts.PdfCidFont.SystemInfo.get -> Broadside.Fonts.CidSystemInfo?
+Broadside.Fonts.PdfCidFontType
+Broadside.Fonts.PdfCidFontType.CidFontType0 = 0 -> Broadside.Fonts.PdfCidFontType
+Broadside.Fonts.PdfCidFontType.CidFontType2 = 1 -> Broadside.Fonts.PdfCidFontType
+Broadside.Fonts.PdfCidFontType0
+Broadside.Fonts.PdfCidFontType2
 Broadside.Fonts.PdfFont.Program.get -> Broadside.Fonts.FontProgram?
 Broadside.Fonts.PdfTrueTypeFont.GetGlyphId(byte code) -> int
+Broadside.Fonts.PdfType0Font.DescendantFont.get -> Broadside.Fonts.PdfCidFont?
+Broadside.Fonts.PdfType0Font.Encoding.get -> Broadside.Fonts.CMap!
+Broadside.Fonts.PdfType0Font.ReadGlyph(System.ReadOnlySpan<byte> text) -> Broadside.Fonts.CidGlyph
+Broadside.Fonts.PdfType0Font.WritingMode.get -> Broadside.Fonts.WritingMode
 Broadside.Fonts.TrueType.TrueTypeFontProgramParser
 Broadside.Fonts.TrueType.TrueTypeFontProgramParser.CanParse(System.ReadOnlySpan<byte> data) -> bool
 Broadside.Fonts.TrueType.TrueTypeFontProgramParser.Formats.get -> System.Collections.Generic.IReadOnlyList<Broadside.Fonts.FontProgramFormat>!
 Broadside.Fonts.TrueType.TrueTypeFontProgramParser.Parse(System.ReadOnlyMemory<byte> data, Broadside.Fonts.FontProgramContext! context) -> Broadside.Fonts.FontProgram?
 Broadside.Fonts.TrueType.TrueTypeFontProgramParser.TrueTypeFontProgramParser() -> void
+Broadside.Fonts.WritingMode
+Broadside.Fonts.WritingMode.Horizontal = 0 -> Broadside.Fonts.WritingMode
+Broadside.Fonts.WritingMode.Vertical = 1 -> Broadside.Fonts.WritingMode
 Broadside.Graphics.BlackPointCompensation
 Broadside.Graphics.BlackPointCompensation.Default = 0 -> Broadside.Graphics.BlackPointCompensation
 Broadside.Graphics.BlackPointCompensation.Off = 2 -> Broadside.Graphics.BlackPointCompensation
@@ -1397,6 +1482,8 @@ Broadside.PdfWindowsLaunchParameters.Parameters.get -> Broadside.Objects.CosStri
 const Broadside.Content.ContentOptions.DefaultMaxNestingDepth = 50 -> int
 const Broadside.Content.ContentOptions.DefaultMaxOperands = 65536 -> int
 const Broadside.Content.ContentOptions.DefaultMaxSaveDepth = 4096 -> int
+const Broadside.Fonts.CMapContext.DefaultMaxEntries = 1000000 -> int
+const Broadside.Fonts.CMapContext.DefaultMaxUseCMapDepth = 5 -> int
 const Broadside.Fonts.FontProgramContext.DefaultMaxCompositeDepth = 16 -> int
 const Broadside.Fonts.FontProgramContext.DefaultMaxGlyphPoints = 65536 -> int
 Broadside.PdfAssociatedFile
@@ -1828,6 +1915,9 @@ override Broadside.PdfThreadAction.Kind.get -> Broadside.PdfActionKind
 override Broadside.PdfTransitionAction.Kind.get -> Broadside.PdfActionKind
 override Broadside.PdfUnknownAction.Kind.get -> Broadside.PdfActionKind
 override Broadside.PdfUriAction.Kind.get -> Broadside.PdfActionKind
+static Broadside.Fonts.CMap.IdentityH.get -> Broadside.Fonts.CMap!
+static Broadside.Fonts.CMap.IdentityV.get -> Broadside.Fonts.CMap!
+static Broadside.Fonts.CMap.Parse(System.ReadOnlySpan<byte> data, Broadside.Fonts.CMapContext? context = null) -> Broadside.Fonts.CMap!
 static Broadside.Graphics.CieXyz.D50.get -> Broadside.Graphics.CieXyz
 static Broadside.Graphics.CieXyz.D65.get -> Broadside.Graphics.CieXyz
 static Broadside.Graphics.ColorConversion.FromState(in Broadside.Graphics.GraphicsState state, Broadside.Graphics.DeviceColorModel target) -> Broadside.Graphics.ColorConversion
