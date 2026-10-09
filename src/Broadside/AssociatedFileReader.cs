@@ -224,7 +224,7 @@ internal static class AssociatedFileReader
             ViewReading.Warn(document, DiagnosticCodes.EmbeddedFileSubtypeMissing, "An embedded file used as an associated file shall have a Subtype (MIME type); application/octet-stream is assumed.", embedded.Reference ?? where);
         }
 
-        if (embedded.Parameters is { } parameters && parameters.ModificationDate is null)
+        if (embedded.Parameters is { } parameters && !parameters.Dictionary.ContainsKey(FileAndLayerNames.ModDate))
         {
             ViewReading.Warn(document, DiagnosticCodes.EmbeddedFileParamsInvalid, "The parameters of an embedded file used as an associated file shall have a ModDate.", embedded.Reference ?? where);
         }

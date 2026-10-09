@@ -8,10 +8,13 @@ public sealed class PdfEmbeddedFileParameters
 {
     private readonly PdfDocument _document;
 
-    internal PdfEmbeddedFileParameters(PdfDocument document, CosDictionary dictionary)
+    private readonly CosReference? _reference;
+
+    internal PdfEmbeddedFileParameters(PdfDocument document, CosDictionary dictionary, CosReference? reference)
     {
         _document = document;
         Dictionary = dictionary;
+        _reference = reference;
     }
 
     /// <summary>Gets the embedded file parameter dictionary.</summary>
@@ -22,13 +25,13 @@ public sealed class PdfEmbeddedFileParameters
     /// <remarks>ISO 32000-2 §7.11.4.1, Table 45.</remarks>
     public long? Size => ViewReading.Integer(_document, Dictionary, FileAndLayerNames.Size);
 
-    /// <summary>Gets the creation date as written (<c>CreationDate</c>, a §7.9.4 date string), or <see langword="null"/>.</summary>
-    /// <remarks>ISO 32000-2 §7.11.4.1, Table 45.</remarks>
-    public CosString? CreationDate => ViewReading.Get(_document, Dictionary, FileAndLayerNames.CreationDate) as CosString;
+    /// <summary>Gets the date the file was created (<c>CreationDate</c>), or <see langword="null"/> when absent or unreadable.</summary>
+    /// <remarks>ISO 32000-2 §7.11.4.1, Table 45, and §7.9.4. A repaired date is reported as <c>DateInvalid</c>, an unreadable one as <c>DateUnreadable</c>.</remarks>
+    public PdfDate? CreationDate => ViewReading.Date(_document, Dictionary, FileAndLayerNames.CreationDate, _reference);
 
-    /// <summary>Gets the date the file was last modified as written (<c>ModDate</c>, a §7.9.4 date string), or <see langword="null"/>.</summary>
-    /// <remarks>ISO 32000-2 §7.11.4.1, Table 45. Required when the file is an associated file (§14.13.2).</remarks>
-    public CosString? ModificationDate => ViewReading.Get(_document, Dictionary, FileAndLayerNames.ModDate) as CosString;
+    /// <summary>Gets the date the file was last modified (<c>ModDate</c>), or <see langword="null"/> when absent or unreadable.</summary>
+    /// <remarks>ISO 32000-2 §7.11.4.1, Table 45, and §7.9.4. Required when the file is an associated file (§14.13.2).</remarks>
+    public PdfDate? ModificationDate => ViewReading.Date(_document, Dictionary, FileAndLayerNames.ModDate, _reference);
 
     /// <summary>Gets the recorded MD5 checksum of the uncompressed file (<c>CheckSum</c>, 16 bytes), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §7.11.4.1, Table 45. Compare with <see cref="PdfEmbeddedFile.VerifyCheckSum"/>.</remarks>

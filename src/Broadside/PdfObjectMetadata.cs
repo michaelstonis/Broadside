@@ -105,6 +105,10 @@ public sealed class PdfObjectMetadata
     /// <remarks>ISO 32000-2 §14.3.2. Nothing is cached.</remarks>
     public ReadOnlyMemory<byte> Decode() => _document.DecodeStream(Stream);
 
+    /// <summary>Gets the parsed XMP packet, or <see langword="null"/> when the stream does not hold well-formed XMP (with a diagnostic).</summary>
+    /// <remarks>ISO 32000-2 §14.3.2 and ISO 16684-1. Parsed once per stream and document; a changed stream is parsed again.</remarks>
+    public XmpPacket? Packet => _document.ReadXmpPacket(Stream, Reference ?? OwnerReference);
+
     /// <inheritdoc/>
     public override string ToString() => Location.ToString();
 }

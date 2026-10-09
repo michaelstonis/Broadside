@@ -38,7 +38,7 @@ public sealed class PdfEmbeddedFile
     /// <summary>Gets the embedded file parameters (<c>Params</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §7.11.4.1, Tables 44 and 45.</remarks>
     public PdfEmbeddedFileParameters? Parameters =>
-        ViewReading.Get(_document, Stream.Dictionary, FileAndLayerNames.Params) is CosDictionary parameters ? new PdfEmbeddedFileParameters(_document, parameters) : null;
+        ViewReading.Get(_document, Stream.Dictionary, FileAndLayerNames.Params) is CosDictionary parameters ? new PdfEmbeddedFileParameters(_document, parameters, Reference) : null;
 
     /// <summary>Returns the file's contents: the stream data decoded through its filters.</summary>
     /// <returns>The decoded bytes.</returns>

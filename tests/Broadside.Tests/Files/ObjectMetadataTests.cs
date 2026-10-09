@@ -1,4 +1,3 @@
-using System.Xml.Linq;
 using Broadside.Objects;
 using Broadside.Tests.Document;
 using Broadside.TestSupport;
@@ -8,11 +7,7 @@ namespace Broadside.Tests.Files;
 /// <summary>Metadata streams at the object-level locations of ISO 32000-2 §14.3.2 and PDF 2.0 Application Note 003.</summary>
 public class ObjectMetadataTests
 {
-    private static readonly XNamespace Dc = "http://purl.org/dc/elements/1.1/";
-
-    private static string Title(PdfObjectMetadata metadata) =>
-        XDocument.Parse(System.Text.Encoding.UTF8.GetString(metadata.Decode().Span).TrimStart('﻿').Split("?>", 2)[1].Split("<?xpacket end")[0])
-            .Descendants(Dc + "title").Single().Value;
+    private static string Title(PdfObjectMetadata metadata) => metadata.Packet!.Title!;
 
     [Fact]
     public void Enumeration_finds_each_metadata_stream_with_its_location()

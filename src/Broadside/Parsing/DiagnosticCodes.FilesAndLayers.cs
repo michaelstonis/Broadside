@@ -26,6 +26,5 @@ internal static partial class DiagnosticCodes
     public const string CollectionFolderCycle = nameof(CollectionFolderCycle);
     public const string CollectionFolderIdDuplicate = nameof(CollectionFolderIdDuplicate);
 
-    // Object-level metadata (§14.3.2; issue #76).
-    public const string MetadataStreamInvalid = nameof(MetadataStreamInvalid);
+    // Object-level metadata (§14.3.2; issue #76) reports MetadataStreamInvalid from DiagnosticCodes.Catalog.cs.
 }

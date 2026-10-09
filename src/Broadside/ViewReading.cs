@@ -37,6 +37,30 @@ internal static class ViewReading
     public static double? Number(PdfDocument document, CosDictionary dictionary, CosName key) =>
         Get(document, dictionary, key) is CosNumber value ? value.ToDouble() : null;
 
+    /// <summary>
+    /// The entry read as a date (ISO 32000-2 §7.9.4): a repaired date is reported as <c>DateInvalid</c>, an unreadable one as
+    /// <c>DateUnreadable</c> (and read as <see langword="null"/>); a value that is not a string reads as <see langword="null"/>.
+    /// </summary>
+    public static PdfDate? Date(PdfDocument document, CosDictionary dictionary, CosName key, CosReference? reference)
+    {
+        if (Get(document, dictionary, key) is not CosString value)
+        {
+            return null;
+        }
+
+        switch (PdfDate.Parse(value.DecodeText(), out PdfDate date))
+        {
+            case DateParseOutcome.Valid:
+                return date;
+            case DateParseOutcome.Repaired:
+                Warn(document, Parsing.DiagnosticCodes.DateInvalid, $"The {key.Value} entry does not follow the date format of §7.9.4; it is read with the deviating fields repaired.", reference);
+                return date;
+            default:
+                Warn(document, Parsing.DiagnosticCodes.DateUnreadable, $"The {key.Value} entry is not a date (§7.9.4); its date is unknown.", reference);
+                return null;
+        }
+    }
+
     /// <summary>The indirect reference an entry holds, or <see langword="null"/> when the entry is direct or absent.</summary>
     public static CosReference? ReferenceOf(CosDictionary dictionary, CosName key) =>
         dictionary.TryGetValue(key, out CosObject? value) ? value as CosReference : null;

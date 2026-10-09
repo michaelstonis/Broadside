@@ -86,7 +86,7 @@ public class CollectionTests
         Assert.Equal(["name", "date", "pages"], report.Keys);
         Assert.Equal("Quarterly report", report.GetValue("name")!.Text);
         Assert.Equal("Q1: ", report.GetValue("name")!.Prefix);
-        Assert.Equal("D:20240301000000Z", report.GetValue("date")!.Text);
+        Assert.Equal(new DateTimeOffset(2024, 3, 1, 0, 0, 0, TimeSpan.Zero), report.GetValue("date")!.Date!.Value.Value);
         Assert.Equal(3, report.GetValue("pages")!.Number);
         Assert.Null(report.GetValue("size"));
         Assert.Equal("Notes", files[1].File.CollectionItem!.GetValue("name")!.Text);

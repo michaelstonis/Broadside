@@ -31,8 +31,8 @@ public class EmbeddedFileTests
         Assert.Equal("Hello, world!"u8.ToArray(), hello.Decode().ToArray());
         PdfEmbeddedFileParameters parameters = hello.Parameters!;
         Assert.Equal(13, parameters.Size);
-        Assert.Equal("D:20240102030405Z", parameters.CreationDate!.DecodeText());
-        Assert.Equal("D:20240607080910+02'00", parameters.ModificationDate!.DecodeText());
+        Assert.Equal(new DateTimeOffset(2024, 1, 2, 3, 4, 5, TimeSpan.Zero), parameters.CreationDate!.Value.Value);
+        Assert.Equal(new DateTimeOffset(2024, 6, 7, 8, 9, 10, TimeSpan.FromHours(2)), parameters.ModificationDate!.Value.Value);
         Assert.Equal(PdfCheckSumStatus.Matches, hello.VerifyCheckSum());
         Assert.Empty(document.Diagnostics);
     }

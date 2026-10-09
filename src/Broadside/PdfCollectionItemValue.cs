@@ -23,6 +23,10 @@ public sealed class PdfCollectionItemValue
     /// <summary>Gets the value decoded as text when it is a string, else <see langword="null"/>.</summary>
     public string? Text => Data is CosString value ? value.DecodeText() : null;
 
+    /// <summary>Gets the value read as a date (§7.9.4) when it is a string that holds one, else <see langword="null"/>.</summary>
+    /// <remarks>ISO 32000-2 §7.11.6 and §7.9.4: the value of a schema field of subtype <c>D</c>.</remarks>
+    public PdfDate? Date => Data is CosString value && PdfDate.TryParse(value.DecodeText(), out PdfDate date) ? date : null;
+
     /// <summary>Gets the value when it is a number, else <see langword="null"/>.</summary>
     public double? Number => Data is CosNumber value ? value.ToDouble() : null;
 }

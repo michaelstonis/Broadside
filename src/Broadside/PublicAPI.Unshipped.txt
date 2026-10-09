@@ -138,12 +138,12 @@ Broadside.PdfCollectionFieldType.Unknown = 9 -> Broadside.PdfCollectionFieldType
 Broadside.PdfCollectionFolder
 Broadside.PdfCollectionFolder.Children.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfCollectionFolder!>!
 Broadside.PdfCollectionFolder.CollectionItem.get -> Broadside.PdfCollectionItem?
-Broadside.PdfCollectionFolder.CreationDate.get -> Broadside.Objects.CosString?
+Broadside.PdfCollectionFolder.CreationDate.get -> Broadside.PdfDate?
 Broadside.PdfCollectionFolder.Description.get -> string?
 Broadside.PdfCollectionFolder.Dictionary.get -> Broadside.Objects.CosDictionary!
 Broadside.PdfCollectionFolder.FreeIds.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfCollectionIdRange>!
 Broadside.PdfCollectionFolder.Id.get -> int
-Broadside.PdfCollectionFolder.ModificationDate.get -> Broadside.Objects.CosString?
+Broadside.PdfCollectionFolder.ModificationDate.get -> Broadside.PdfDate?
 Broadside.PdfCollectionFolder.Name.get -> string!
 Broadside.PdfCollectionFolder.Parent.get -> Broadside.PdfCollectionFolder?
 Broadside.PdfCollectionFolder.Reference.get -> Broadside.Objects.CosReference?
@@ -160,6 +160,7 @@ Broadside.PdfCollectionItem.GetValue(string! fieldKey) -> Broadside.PdfCollectio
 Broadside.PdfCollectionItem.Keys.get -> System.Collections.Generic.IReadOnlyList<string!>!
 Broadside.PdfCollectionItemValue
 Broadside.PdfCollectionItemValue.Data.get -> Broadside.Objects.CosObject!
+Broadside.PdfCollectionItemValue.Date.get -> Broadside.PdfDate?
 Broadside.PdfCollectionItemValue.Number.get -> double?
 Broadside.PdfCollectionItemValue.Prefix.get -> string?
 Broadside.PdfCollectionItemValue.Text.get -> string?
@@ -205,10 +206,10 @@ Broadside.PdfEmbeddedFileEntry.Key.get -> Broadside.Objects.CosString!
 Broadside.PdfEmbeddedFileEntry.Name.get -> string!
 Broadside.PdfEmbeddedFileParameters
 Broadside.PdfEmbeddedFileParameters.CheckSum.get -> System.ReadOnlyMemory<byte>?
-Broadside.PdfEmbeddedFileParameters.CreationDate.get -> Broadside.Objects.CosString?
+Broadside.PdfEmbeddedFileParameters.CreationDate.get -> Broadside.PdfDate?
 Broadside.PdfEmbeddedFileParameters.Dictionary.get -> Broadside.Objects.CosDictionary!
 Broadside.PdfEmbeddedFileParameters.Mac.get -> Broadside.Objects.CosDictionary?
-Broadside.PdfEmbeddedFileParameters.ModificationDate.get -> Broadside.Objects.CosString?
+Broadside.PdfEmbeddedFileParameters.ModificationDate.get -> Broadside.PdfDate?
 Broadside.PdfEmbeddedFileParameters.Size.get -> long?
 Broadside.PdfFileRelationship
 Broadside.PdfFileRelationship.Alternative = 3 -> Broadside.PdfFileRelationship
@@ -266,6 +267,7 @@ Broadside.PdfObjectMetadata.Decode() -> System.ReadOnlyMemory<byte>
 Broadside.PdfObjectMetadata.Location.get -> Broadside.PdfMetadataLocation
 Broadside.PdfObjectMetadata.Owner.get -> Broadside.Objects.CosObject!
 Broadside.PdfObjectMetadata.OwnerReference.get -> Broadside.Objects.CosReference?
+Broadside.PdfObjectMetadata.Packet.get -> Broadside.XmpPacket?
 Broadside.PdfObjectMetadata.PageIndex.get -> int?
 Broadside.PdfObjectMetadata.Reference.get -> Broadside.Objects.CosReference?
 Broadside.PdfObjectMetadata.Stream.get -> Broadside.Objects.CosStream!
@@ -743,6 +745,214 @@ Broadside.Security.PublicKeySecurityHandler.Filter.get -> Broadside.Objects.CosN
 Broadside.Security.PublicKeySecurityHandler.PublicKeySecurityHandler() -> void
 Broadside.Security.PublicKeySecurityHandler.SubFilters.get -> System.Collections.Generic.IReadOnlyCollection<Broadside.Objects.CosName!>!
 override Broadside.Security.PdfCertificateCredentials.ToString() -> string!
+Broadside.PdfDate
+Broadside.PdfDate.Equals(Broadside.PdfDate other) -> bool
+Broadside.PdfDate.PdfDate() -> void
+Broadside.PdfDate.Precision.get -> Broadside.PdfDatePrecision
+Broadside.PdfDate.Text.get -> string!
+Broadside.PdfDate.UtcOffsetMinutes.get -> int?
+Broadside.PdfDate.Value.get -> System.DateTimeOffset
+Broadside.PdfDatePrecision
+Broadside.PdfDatePrecision.Day = 2 -> Broadside.PdfDatePrecision
+Broadside.PdfDatePrecision.FractionOfSecond = 6 -> Broadside.PdfDatePrecision
+Broadside.PdfDatePrecision.Hour = 3 -> Broadside.PdfDatePrecision
+Broadside.PdfDatePrecision.Minute = 4 -> Broadside.PdfDatePrecision
+Broadside.PdfDatePrecision.Month = 1 -> Broadside.PdfDatePrecision
+Broadside.PdfDatePrecision.Second = 5 -> Broadside.PdfDatePrecision
+Broadside.PdfDatePrecision.Year = 0 -> Broadside.PdfDatePrecision
+Broadside.XmpDate
+Broadside.XmpDate.Equals(Broadside.XmpDate other) -> bool
+Broadside.XmpDate.HasTimeZone.get -> bool
+Broadside.XmpDate.Precision.get -> Broadside.PdfDatePrecision
+Broadside.XmpDate.Text.get -> string!
+Broadside.XmpDate.Value.get -> System.DateTimeOffset
+Broadside.XmpDate.XmpDate() -> void
+override Broadside.PdfDate.Equals(object? obj) -> bool
+override Broadside.PdfDate.GetHashCode() -> int
+override Broadside.PdfDate.ToString() -> string!
+override Broadside.XmpDate.Equals(object? obj) -> bool
+override Broadside.XmpDate.GetHashCode() -> int
+override Broadside.XmpDate.ToString() -> string!
+static Broadside.PdfDate.operator !=(Broadside.PdfDate left, Broadside.PdfDate right) -> bool
+static Broadside.PdfDate.operator ==(Broadside.PdfDate left, Broadside.PdfDate right) -> bool
+static Broadside.PdfDate.TryParse(string? text, out Broadside.PdfDate date) -> bool
+static Broadside.XmpDate.operator !=(Broadside.XmpDate left, Broadside.XmpDate right) -> bool
+static Broadside.XmpDate.operator ==(Broadside.XmpDate left, Broadside.XmpDate right) -> bool
+static Broadside.XmpDate.TryParse(string? text, out Broadside.XmpDate date) -> bool
+Broadside.XmpNamespaces
+const Broadside.XmpNamespaces.DublinCore = "http://purl.org/dc/elements/1.1/" -> string!
+const Broadside.XmpNamespaces.Pdf = "http://ns.adobe.com/pdf/1.3/" -> string!
+const Broadside.XmpNamespaces.PdfAIdentification = "http://www.aiim.org/pdfa/ns/id/" -> string!
+const Broadside.XmpNamespaces.PdfUAIdentification = "http://www.aiim.org/pdfua/ns/id/" -> string!
+const Broadside.XmpNamespaces.Rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#" -> string!
+const Broadside.XmpNamespaces.Xmp = "http://ns.adobe.com/xap/1.0/" -> string!
+const Broadside.XmpNamespaces.XmpMediaManagement = "http://ns.adobe.com/xap/1.0/mm/" -> string!
+const Broadside.XmpNamespaces.XmpMeta = "adobe:ns:meta/" -> string!
+Broadside.XmpPropertyKind
+Broadside.XmpPropertyKind.Alternative = 4 -> Broadside.XmpPropertyKind
+Broadside.XmpPropertyKind.OrderedArray = 3 -> Broadside.XmpPropertyKind
+Broadside.XmpPropertyKind.Simple = 0 -> Broadside.XmpPropertyKind
+Broadside.XmpPropertyKind.Structure = 1 -> Broadside.XmpPropertyKind
+Broadside.XmpPropertyKind.UnorderedArray = 2 -> Broadside.XmpPropertyKind
+Broadside.XmpProperty
+Broadside.XmpProperty.Fields.get -> System.Collections.Generic.IReadOnlyList<Broadside.XmpProperty!>!
+Broadside.XmpProperty.GetField(string! namespaceName, string! name) -> Broadside.XmpProperty?
+Broadside.XmpProperty.Items.get -> System.Collections.Generic.IReadOnlyList<Broadside.XmpProperty!>!
+Broadside.XmpProperty.Kind.get -> Broadside.XmpPropertyKind
+Broadside.XmpProperty.Language.get -> string?
+Broadside.XmpProperty.Name.get -> string!
+Broadside.XmpProperty.NamespaceName.get -> string!
+Broadside.XmpProperty.Qualifiers.get -> System.Collections.Generic.IReadOnlyList<Broadside.XmpProperty!>!
+Broadside.XmpProperty.Value.get -> string?
+Broadside.XmpPacket
+Broadside.XmpPacket.About.get -> string?
+Broadside.XmpPacket.CreateDate.get -> Broadside.XmpDate?
+Broadside.XmpPacket.CreatorTool.get -> string?
+Broadside.XmpPacket.Creators.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.XmpPacket.Description.get -> string?
+Broadside.XmpPacket.DocumentId.get -> string?
+Broadside.XmpPacket.Format.get -> string?
+Broadside.XmpPacket.GetLanguageAlternative(string! namespaceName, string! name, string? language = null) -> string?
+Broadside.XmpPacket.GetProperty(string! namespaceName, string! name) -> Broadside.XmpProperty?
+Broadside.XmpPacket.GetText(string! namespaceName, string! name) -> string?
+Broadside.XmpPacket.InstanceId.get -> string?
+Broadside.XmpPacket.Keywords.get -> string?
+Broadside.XmpPacket.MetadataDate.get -> Broadside.XmpDate?
+Broadside.XmpPacket.ModifyDate.get -> Broadside.XmpDate?
+Broadside.XmpPacket.PdfAConformance.get -> string?
+Broadside.XmpPacket.PdfAPart.get -> int?
+Broadside.XmpPacket.PdfUAPart.get -> int?
+Broadside.XmpPacket.PdfVersion.get -> string?
+Broadside.XmpPacket.Producer.get -> string?
+Broadside.XmpPacket.Properties.get -> System.Collections.Generic.IReadOnlyList<Broadside.XmpProperty!>!
+Broadside.XmpPacket.Subjects.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.XmpPacket.Title.get -> string?
+Broadside.XmpPacket.Trapped.get -> string?
+static Broadside.XmpPacket.TryParse(System.ReadOnlySpan<byte> data, out Broadside.XmpPacket? packet) -> bool
+Broadside.PdfDeveloperExtension
+Broadside.PdfDeveloperExtension.BaseVersion.get -> Broadside.PdfVersion?
+Broadside.PdfDeveloperExtension.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfDeveloperExtension.ExtensionLevel.get -> int?
+Broadside.PdfDeveloperExtension.ExtensionRevision.get -> string?
+Broadside.PdfDeveloperExtension.Prefix.get -> Broadside.Objects.CosName!
+Broadside.PdfDeveloperExtension.Url.get -> System.Uri?
+Broadside.PdfDocument.CatalogVersion.get -> Broadside.PdfVersion?
+Broadside.PdfDocument.Extensions.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfDeveloperExtension!>!
+Broadside.PdfDocument.FileIdentifier.get -> Broadside.PdfFileIdentifier?
+Broadside.PdfDocument.HeaderVersion.get -> Broadside.PdfVersion?
+Broadside.PdfDocument.Information.get -> Broadside.PdfDocumentInformation?
+Broadside.PdfDocument.Language.get -> string?
+Broadside.PdfDocument.Metadata.get -> Broadside.PdfMetadata?
+Broadside.PdfDocument.PageLayout.get -> Broadside.PdfPageLayout
+Broadside.PdfDocument.PageMode.get -> Broadside.PdfPageMode
+Broadside.PdfDocument.Properties.get -> Broadside.PdfDocumentProperties!
+Broadside.PdfDocument.Requirements.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfRequirement!>!
+Broadside.PdfDocument.ViewerPreferences.get -> Broadside.PdfViewerPreferences?
+Broadside.PdfDocumentInformation
+Broadside.PdfDocumentInformation.Author.get -> string?
+Broadside.PdfDocumentInformation.CreationDate.get -> Broadside.PdfDate?
+Broadside.PdfDocumentInformation.Creator.get -> string?
+Broadside.PdfDocumentInformation.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfDocumentInformation.GetDate(string! key) -> Broadside.PdfDate?
+Broadside.PdfDocumentInformation.GetText(string! key) -> string?
+Broadside.PdfDocumentInformation.Keywords.get -> string?
+Broadside.PdfDocumentInformation.ModificationDate.get -> Broadside.PdfDate?
+Broadside.PdfDocumentInformation.Producer.get -> string?
+Broadside.PdfDocumentInformation.Subject.get -> string?
+Broadside.PdfDocumentInformation.Title.get -> string?
+Broadside.PdfDocumentInformation.Trapped.get -> Broadside.PdfTrapped
+Broadside.PdfDocumentProperties
+Broadside.PdfDocumentProperties.Author.get -> string?
+Broadside.PdfDocumentProperties.CreationDate.get -> System.DateTimeOffset?
+Broadside.PdfDocumentProperties.Creator.get -> string?
+Broadside.PdfDocumentProperties.Keywords.get -> string?
+Broadside.PdfDocumentProperties.ModificationDate.get -> System.DateTimeOffset?
+Broadside.PdfDocumentProperties.Producer.get -> string?
+Broadside.PdfDocumentProperties.Subject.get -> string?
+Broadside.PdfDocumentProperties.Title.get -> string?
+Broadside.PdfDuplex
+Broadside.PdfDuplex.DuplexFlipLongEdge = 2 -> Broadside.PdfDuplex
+Broadside.PdfDuplex.DuplexFlipShortEdge = 1 -> Broadside.PdfDuplex
+Broadside.PdfDuplex.Simplex = 0 -> Broadside.PdfDuplex
+Broadside.PdfFileIdentifier
+Broadside.PdfFileIdentifier.Changing.get -> System.ReadOnlyMemory<byte>
+Broadside.PdfFileIdentifier.Permanent.get -> System.ReadOnlyMemory<byte>
+Broadside.PdfMetadata
+Broadside.PdfMetadata.Data.get -> System.ReadOnlyMemory<byte>
+Broadside.PdfMetadata.Packet.get -> Broadside.XmpPacket?
+Broadside.PdfMetadata.Stream.get -> Broadside.Objects.CosStream!
+Broadside.PdfPageBoundary
+Broadside.PdfPageBoundary.ArtBox = 4 -> Broadside.PdfPageBoundary
+Broadside.PdfPageBoundary.BleedBox = 2 -> Broadside.PdfPageBoundary
+Broadside.PdfPageBoundary.CropBox = 0 -> Broadside.PdfPageBoundary
+Broadside.PdfPageBoundary.MediaBox = 1 -> Broadside.PdfPageBoundary
+Broadside.PdfPageBoundary.TrimBox = 3 -> Broadside.PdfPageBoundary
+Broadside.PdfPageLayout
+Broadside.PdfPageLayout.OneColumn = 1 -> Broadside.PdfPageLayout
+Broadside.PdfPageLayout.SinglePage = 0 -> Broadside.PdfPageLayout
+Broadside.PdfPageLayout.TwoColumnLeft = 2 -> Broadside.PdfPageLayout
+Broadside.PdfPageLayout.TwoColumnRight = 3 -> Broadside.PdfPageLayout
+Broadside.PdfPageLayout.TwoPageLeft = 4 -> Broadside.PdfPageLayout
+Broadside.PdfPageLayout.TwoPageRight = 5 -> Broadside.PdfPageLayout
+Broadside.PdfPageMode
+Broadside.PdfPageMode.FullScreen = 3 -> Broadside.PdfPageMode
+Broadside.PdfPageMode.UseAttachments = 5 -> Broadside.PdfPageMode
+Broadside.PdfPageMode.UseNone = 0 -> Broadside.PdfPageMode
+Broadside.PdfPageMode.UseOC = 4 -> Broadside.PdfPageMode
+Broadside.PdfPageMode.UseOutlines = 1 -> Broadside.PdfPageMode
+Broadside.PdfPageMode.UseThumbs = 2 -> Broadside.PdfPageMode
+Broadside.PdfPageRange
+Broadside.PdfPageRange.Equals(Broadside.PdfPageRange other) -> bool
+Broadside.PdfPageRange.First.get -> int
+Broadside.PdfPageRange.Last.get -> int
+Broadside.PdfPageRange.PdfPageRange() -> void
+Broadside.PdfPageRange.PdfPageRange(int first, int last) -> void
+Broadside.PdfPrintScaling
+Broadside.PdfPrintScaling.AppDefault = 1 -> Broadside.PdfPrintScaling
+Broadside.PdfPrintScaling.None = 0 -> Broadside.PdfPrintScaling
+Broadside.PdfReadingDirection
+Broadside.PdfReadingDirection.LeftToRight = 0 -> Broadside.PdfReadingDirection
+Broadside.PdfReadingDirection.RightToLeft = 1 -> Broadside.PdfReadingDirection
+Broadside.PdfRequirement
+Broadside.PdfRequirement.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfRequirement.Handlers.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfRequirementHandler!>!
+Broadside.PdfRequirement.Penalty.get -> int
+Broadside.PdfRequirement.RequirementType.get -> Broadside.Objects.CosName?
+Broadside.PdfRequirement.Version.get -> Broadside.Objects.CosObject?
+Broadside.PdfRequirementHandler
+Broadside.PdfRequirementHandler.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfRequirementHandler.HandlerType.get -> Broadside.Objects.CosName?
+Broadside.PdfRequirementHandler.Script.get -> string?
+Broadside.PdfTrapped
+Broadside.PdfTrapped.False = 2 -> Broadside.PdfTrapped
+Broadside.PdfTrapped.True = 1 -> Broadside.PdfTrapped
+Broadside.PdfTrapped.Unknown = 0 -> Broadside.PdfTrapped
+Broadside.PdfViewerPreferences
+Broadside.PdfViewerPreferences.CenterWindow.get -> bool
+Broadside.PdfViewerPreferences.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfViewerPreferences.Direction.get -> Broadside.PdfReadingDirection
+Broadside.PdfViewerPreferences.DisplayDocTitle.get -> bool
+Broadside.PdfViewerPreferences.Duplex.get -> Broadside.PdfDuplex?
+Broadside.PdfViewerPreferences.Enforce.get -> System.Collections.Generic.IReadOnlyList<Broadside.Objects.CosName!>!
+Broadside.PdfViewerPreferences.FitWindow.get -> bool
+Broadside.PdfViewerPreferences.HideMenubar.get -> bool
+Broadside.PdfViewerPreferences.HideToolbar.get -> bool
+Broadside.PdfViewerPreferences.HideWindowUI.get -> bool
+Broadside.PdfViewerPreferences.NonFullScreenPageMode.get -> Broadside.PdfPageMode
+Broadside.PdfViewerPreferences.NumCopies.get -> int?
+Broadside.PdfViewerPreferences.PickTrayByPdfSize.get -> bool?
+Broadside.PdfViewerPreferences.PrintArea.get -> Broadside.PdfPageBoundary
+Broadside.PdfViewerPreferences.PrintClip.get -> Broadside.PdfPageBoundary
+Broadside.PdfViewerPreferences.PrintPageRange.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfPageRange>?
+Broadside.PdfViewerPreferences.PrintScaling.get -> Broadside.PdfPrintScaling
+Broadside.PdfViewerPreferences.ViewArea.get -> Broadside.PdfPageBoundary
+Broadside.PdfViewerPreferences.ViewClip.get -> Broadside.PdfPageBoundary
+override Broadside.PdfFileIdentifier.ToString() -> string!
+override Broadside.PdfPageRange.Equals(object? obj) -> bool
+override Broadside.PdfPageRange.GetHashCode() -> int
+override Broadside.PdfPageRange.ToString() -> string!
+static Broadside.PdfPageRange.operator !=(Broadside.PdfPageRange left, Broadside.PdfPageRange right) -> bool
+static Broadside.PdfPageRange.operator ==(Broadside.PdfPageRange left, Broadside.PdfPageRange right) -> bool
 Broadside.PdfDocument.GetNameTree(Broadside.Objects.CosObject? root) -> Broadside.PdfNameTree?
 Broadside.PdfDocument.GetNumberTree(Broadside.Objects.CosObject? root) -> Broadside.PdfNumberTree?
 Broadside.PdfDocument.Names.get -> Broadside.PdfNameDictionary?
@@ -765,3 +975,22 @@ Broadside.PdfNumberTree.Root.get -> Broadside.Objects.CosDictionary!
 Broadside.PdfNumberTree.RootReference.get -> Broadside.Objects.CosReference?
 Broadside.PdfNumberTree.TryGetFloor(int key, out int floorKey, out Broadside.Objects.CosObject! value) -> bool
 Broadside.PdfNumberTree.TryGetValue(int key, out Broadside.Objects.CosObject! value) -> bool
+Broadside.PdfDocument.PageLabels.get -> Broadside.PdfPageLabels?
+Broadside.PdfPageLabelRange
+Broadside.PdfPageLabelRange.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfPageLabelRange.FirstNumber.get -> int
+Broadside.PdfPageLabelRange.Prefix.get -> string!
+Broadside.PdfPageLabelRange.StartPageIndex.get -> int
+Broadside.PdfPageLabelRange.Style.get -> Broadside.PdfPageLabelStyle
+Broadside.PdfPageLabels
+Broadside.PdfPageLabels.GetLabel(int pageIndex) -> string!
+Broadside.PdfPageLabels.GetLabels() -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.PdfPageLabels.Ranges.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfPageLabelRange!>!
+Broadside.PdfPageLabels.Root.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfPageLabelStyle
+Broadside.PdfPageLabelStyle.Arabic = 1 -> Broadside.PdfPageLabelStyle
+Broadside.PdfPageLabelStyle.LowercaseLetters = 5 -> Broadside.PdfPageLabelStyle
+Broadside.PdfPageLabelStyle.LowercaseRoman = 3 -> Broadside.PdfPageLabelStyle
+Broadside.PdfPageLabelStyle.None = 0 -> Broadside.PdfPageLabelStyle
+Broadside.PdfPageLabelStyle.UppercaseLetters = 4 -> Broadside.PdfPageLabelStyle
+Broadside.PdfPageLabelStyle.UppercaseRoman = 2 -> Broadside.PdfPageLabelStyle

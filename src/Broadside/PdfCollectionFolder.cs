@@ -53,13 +53,13 @@ public sealed class PdfCollectionFolder
     public PdfCollectionItem? CollectionItem =>
         ViewReading.Get(_document, Dictionary, FileAndLayerNames.CI) is CosDictionary item ? new PdfCollectionItem(_document, item) : null;
 
-    /// <summary>Gets the creation date as written (<c>CreationDate</c>), or <see langword="null"/>.</summary>
+    /// <summary>Gets the creation date (<c>CreationDate</c>), or <see langword="null"/> when absent or unreadable.</summary>
     /// <remarks>ISO 32000-2 §12.3.5, Table 159, and §7.9.4.</remarks>
-    public CosString? CreationDate => ViewReading.Get(_document, Dictionary, FileAndLayerNames.CreationDate) as CosString;
+    public PdfDate? CreationDate => ViewReading.Date(_document, Dictionary, FileAndLayerNames.CreationDate, Reference);
 
-    /// <summary>Gets the modification date as written (<c>ModDate</c>), or <see langword="null"/>.</summary>
+    /// <summary>Gets the modification date (<c>ModDate</c>), or <see langword="null"/> when absent or unreadable.</summary>
     /// <remarks>ISO 32000-2 §12.3.5, Table 159, and §7.9.4.</remarks>
-    public CosString? ModificationDate => ViewReading.Get(_document, Dictionary, FileAndLayerNames.ModDate) as CosString;
+    public PdfDate? ModificationDate => ViewReading.Date(_document, Dictionary, FileAndLayerNames.ModDate, Reference);
 
     /// <summary>Gets the folder's thumbnail image (<c>Thumb</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.3.5, Table 159, and §12.3.4.</remarks>

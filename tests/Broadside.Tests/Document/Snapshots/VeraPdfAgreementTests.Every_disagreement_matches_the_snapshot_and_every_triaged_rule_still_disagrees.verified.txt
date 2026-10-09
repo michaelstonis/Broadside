@@ -1,4 +1,4 @@
-﻿171 files, 53 agree, 118 disagree
+﻿171 files, 62 agree, 109 disagree
 PdfAOnly | Isartor 6-1-12-t01 | veraPDF fail, strict pass | verapdf-corpus/Isartor test files/PDFA-1b/6.1 File structure/6.1.12 Implementation Limits/isartor-6-1-12-t01-fail-a.pdf
 PdfAOnly | Isartor 6-1-12-t01 | veraPDF fail, strict pass | verapdf-corpus/Isartor test files/PDFA-1b/6.1 File structure/6.1.12 Implementation Limits/isartor-6-1-12-t01-fail-b.pdf
 PdfAOnly | Isartor 6-1-12-t01 | veraPDF fail, strict pass | verapdf-corpus/Isartor test files/PDFA-1b/6.1 File structure/6.1.12 Implementation Limits/isartor-6-1-12-t01-fail-c.pdf
@@ -20,12 +20,10 @@ PdfAOnly | Isartor 6-1-8-t03 | veraPDF fail, strict pass | verapdf-corpus/Isarto
 PdfAOnly | Isartor 6-1-8-t04 | veraPDF fail, strict pass | verapdf-corpus/Isartor test files/PDFA-1b/6.1 File structure/6.1.8 Indirect objects/isartor-6-1-8-t04-fail-a.pdf
 PdfAOnly | Isartor 6-1-8-t05 | veraPDF fail, strict pass | verapdf-corpus/Isartor test files/PDFA-1b/6.1 File structure/6.1.8 Indirect objects/isartor-6-1-8-t05-fail-a.pdf
 PdfAOnly | Isartor 6-1-8-t06 | veraPDF fail, strict pass | verapdf-corpus/Isartor test files/PDFA-1b/6.1 File structure/6.1.8 Indirect objects/isartor-6-1-8-t06-fail-a.pdf
-PdfAOnly | PDF_A-1b 6-1-12-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t01-fail-a.pdf
 PdfAOnly | PDF_A-1b 6-1-12-t02 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t02-fail-c.pdf
 PdfAOnly | PDF_A-1b 6-1-12-t02 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t02-fail-d.pdf
 PdfAOnly | PDF_A-1b 6-1-12-t02 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t02-fail-e.pdf
 PdfAOnly | PDF_A-1b 6-1-12-t02 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t02-fail-f.pdf
-PdfAOnly | PDF_A-1b 6-1-12-t02 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t02-fail-l.pdf
 PdfAOnly | PDF_A-1b 6-1-12-t03 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t03-fail-a.pdf
 PdfAOnly | PDF_A-1b 6-1-12-t03 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t03-fail-b.pdf
 PdfAOnly | PDF_A-1b 6-1-12-t03 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t03-fail-c.pdf
@@ -33,7 +31,6 @@ PdfAOnly | PDF_A-1b 6-1-12-t03 | veraPDF fail, strict pass | verapdf-corpus/PDF_
 PdfAOnly | PDF_A-1b 6-1-12-t04 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t04-fail-a.pdf
 PdfAOnly | PDF_A-1b 6-1-12-t06 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t06-fail-a.pdf
 PdfAOnly | PDF_A-1b 6-1-12-t08 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t08-fail-a.pdf
-PdfAOnly | PDF_A-1b 6-1-12-t09 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t09-fail-a.pdf
 PdfAOnly | PDF_A-1b 6-1-12-t10 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t10-fail-a.pdf
 PdfAOnly | PDF_A-1b 6-1-12-t10 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t10-fail-b.pdf
 StrictTooLenient | PDF_A-1b 6-1-2-t02 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.2 File header/veraPDF test suite 6-1-2-t02-fail-a.pdf
@@ -46,9 +43,6 @@ PdfAOnly | PDF_A-1b 6-1-4-t03 | veraPDF fail, strict pass | verapdf-corpus/PDF_A
 PdfAOnly | PDF_A-1b 6-1-6-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.6 String objects/veraPDF test suite 6-1-6-t01-fail-a.pdf
 PdfAOnly | PDF_A-1b 6-1-6-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.6 String objects/veraPDF test suite 6-1-6-t01-fail-b.pdf
 PdfAOnly | PDF_A-1b 6-1-8-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.8 Indirect objects/veraPDF test suite 6-1-8-t01-fail-a.pdf
-PdfAOnly | PDF_A-2b 6-1-13-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.13 Implementation limits/veraPDF test suite 6-1-13-t01-fail-a.pdf
-PdfAOnly | PDF_A-2b 6-1-13-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.13 Implementation limits/veraPDF test suite 6-1-13-t01-fail-b.pdf
-PdfAOnly | PDF_A-2b 6-1-13-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.13 Implementation limits/veraPDF test suite 6-1-13-t01-fail-c.pdf
 PdfAOnly | PDF_A-2b 6-1-13-t03 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.13 Implementation limits/veraPDF test suite 6-1-13-t03-fail-a.pdf
 PdfAOnly | PDF_A-2b 6-1-13-t03 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.13 Implementation limits/veraPDF test suite 6-1-13-t03-fail-d.pdf
 PdfAOnly | PDF_A-2b 6-1-13-t04 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.13 Implementation limits/veraPDF test suite 6-1-13-t04-fail-a.pdf
@@ -69,7 +63,6 @@ StrictTooLenient | PDF_A-2b 6-1-2-t02 | veraPDF fail, strict pass | verapdf-corp
 StrictTooLenient | PDF_A-2b 6-1-2-t02 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.2 File header/veraPDF test suite 6-1-2-t02-fail-c.pdf
 StrictTooLenient | PDF_A-2b 6-1-2-t02 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.2 File header/veraPDF test suite 6-1-2-t02-fail-d.pdf
 PdfAOnly | PDF_A-2b 6-1-3-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.3 File trailer/veraPDF test suite 6-1-3-t01-fail-a.pdf
-PdfAOnly | PDF_A-2b 6-1-3-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.3 File trailer/veraPDF test suite 6-1-3-t01-fail-b.pdf
 PdfAOnly | PDF_A-2b 6-1-3-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.3 File trailer/veraPDF test suite 6-1-3-t01-fail-c.pdf
 PdfAOnly | PDF_A-2b 6-1-3-t02 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.3 File trailer/veraPDF test suite 6-1-3-t02-fail-a.pdf
 PdfAOnly | PDF_A-2b 6-1-4-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t01-fail-a.pdf
@@ -80,7 +73,6 @@ PdfAOnly | PDF_A-2b 6-1-7-1-t02 | veraPDF fail, strict pass | verapdf-corpus/PDF
 PdfAOnly | PDF_A-2b 6-1-7-1-t04 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.7.1 General/veraPDF test suite 6-1-7-1-t04-fail-a.pdf
 PdfAOnly | PDF_A-2b 6-1-7-1-t04 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.7.1 General/veraPDF test suite 6-1-7-1-t04-fail-b.pdf
 PdfAOnly | PDF_A-2b 6-1-7-1-t04 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.7.1 General/veraPDF test suite 6-1-7-1-t04-fail-c.pdf
-PdfAOnly | PDF_A-2b 6-1-8-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.8 Name objects/veraPDF test suite 6-1-8-t01-fail-a.pdf
 PdfAOnly | PDF_A-2b 6-1-8-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.8 Name objects/veraPDF test suite 6-1-8-t01-fail-b.pdf
 PdfAOnly | PDF_A-2b 6-1-9-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.9 Indirect objects/veraPDF test suite 6-1-9-t01-fail-a.pdf
 PdfAOnly | PDF_A-2b 6-1-9-t02 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.9 Indirect objects/veraPDF test suite 6-1-9-t02-fail-a.pdf
@@ -95,7 +87,6 @@ StrictTooLenient | PDF_A-4 6-1-2-t02 | veraPDF fail, strict pass | verapdf-corpu
 StrictTooLenient | PDF_A-4 6-1-2-t02 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-4/6.1 File structure/6.1.2 File header/veraPDF test suite 6-1-2-t02-fail-b.pdf
 StrictTooLenient | PDF_A-4 6-1-2-t02 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-4/6.1 File structure/6.1.2 File header/veraPDF test suite 6-1-2-t02-fail-c.pdf
 StrictTooLenient | PDF_A-4 6-1-2-t02 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-4/6.1 File structure/6.1.2 File header/veraPDF test suite 6-1-2-t02-fail-d.pdf
-PdfAOnly | PDF_A-4 6-1-3-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-4/6.1 File structure/6.1.3 File trailer/veraPDF test suite 6-1-3-t01-fail-b.pdf
 PdfAOnly | PDF_A-4 6-1-3-t04 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-4/6.1 File structure/6.1.3 File trailer/veraPDF test suite 6-1-3-t04-fail-a.pdf
 PdfAOnly | PDF_A-4 6-1-3-t05 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-4/6.1 File structure/6.1.3 File trailer/veraPDF test suite 6-1-3-t05-fail-a.pdf
 PdfAOnly | PDF_A-4 6-1-4-t01 | veraPDF fail, strict pass | verapdf-corpus/PDF_A-4/6.1 File structure/6.1.4 Cross reference table/veraPDF test suite 6-1-4-t01-fail-a.pdf

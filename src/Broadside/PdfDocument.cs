@@ -47,7 +47,7 @@ namespace Broadside;
 /// <see cref="ObjectDisposedException"/>.
 /// </para>
 /// </remarks>
-public sealed class PdfDocument : IDisposable
+public sealed partial class PdfDocument : IDisposable
 {
     private static readonly PdfVersion Pdf20 = new(2, 0);
 
@@ -541,9 +541,6 @@ public sealed class PdfDocument : IDisposable
     /// <c>Metadata</c> and <c>Subtype</c> <c>XML</c> is still reported, with a <c>MetadataStreamInvalid</c> diagnostic.
     /// </remarks>
     public IEnumerable<PdfObjectMetadata> EnumerateObjectMetadata(bool deep = false) => AssociatedFileReader.EnumerateMetadata(this, deep);
-
-    /// <summary>Gets the catalog's indirect reference, from the trailer.</summary>
-    internal CosReference? CatalogReference => Trailer.TryGetValue(KnownNames.Root, out CosObject? root) ? root as CosReference : null;
 
     /// <summary>Enumerates the reference of every object the cross-reference information lists as in use, by object number.</summary>
     internal IEnumerable<CosReference> EnumerateObjectReferences()
