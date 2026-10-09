@@ -1,3 +1,6 @@
+using Broadside.Diagnostics;
+using Microsoft.Extensions.Logging;
+
 namespace Broadside;
 
 /// <summary>
@@ -14,8 +17,18 @@ internal sealed class EngineConfiguration
     /// <summary>Gets how deviations are treated.</summary>
     public PdfReadingMode ReadingMode { get; }
 
+    /// <summary>
+    /// Gets what sees each diagnostic as it is recorded, before strict mode throws it: the logger, or <see langword="null"/> when
+    /// nothing logs, so a document without logging pays nothing.
+    /// </summary>
+    public Action<Diagnostic>? DiagnosticObserver { get; private init; }
+
     /// <summary>Copies the current values of <paramref name="options"/>.</summary>
     /// <param name="options">The options.</param>
+    /// <param name="hostLoggerFactory">The container's logger factory, used when the options set none.</param>
     /// <returns>The snapshot.</returns>
-    public static EngineConfiguration From(PdfOptions options) => new(options.ReadingMode);
+    public static EngineConfiguration From(PdfOptions options, ILoggerFactory? hostLoggerFactory = null) => new(options.ReadingMode)
+    {
+        DiagnosticObserver = DiagnosticLog.CreateObserver(options.LoggerFactory ?? hostLoggerFactory),
+    };
 }
