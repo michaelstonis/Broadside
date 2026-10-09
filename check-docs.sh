@@ -32,9 +32,13 @@ trap 'rm -f "${LUNET_LOG}"' EXIT
 
 (cd "${SITE}" && dotnet tool run lunet --stacktrace build) 2>&1 | tee "${LUNET_LOG}"
 
-# Lunet logs build errors (broken xref, failed API extraction) and still exits 0.
-if grep -E ' ERR |Error while building api dotnet|Unable to select the api dotnet output|Unable to build api dotnet' "${LUNET_LOG}" >/dev/null; then
+# Lunet logs build errors (failed API extraction, template errors) and unresolved xrefs and still exits 0.
+# On CI runners the level is ANSI-colored ("\e[31mERR\e[39m"), so ERR may sit between "m" and ESC.
+if grep -E '(^|[[:space:]m])ERR([[:space:][:cntrl:]]|$)|Error while building api dotnet|Unable to select the api dotnet output|Unable to build api dotnet' "${LUNET_LOG}" >/dev/null; then
     fail "Lunet reported errors (lines above marked ERR)"
+fi
+if grep -E 'Unable to find xref' "${LUNET_LOG}" >/dev/null; then
+    fail "unresolved xref links (lines above: Unable to find xref)"
 fi
 
 # 1. Expected routes.
