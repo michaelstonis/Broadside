@@ -1,0 +1,55 @@
+# Broadside documentation site (Lunet). Build: ./check-docs.sh from the repository root.
+# Modelled on wieslawsoltes/TreeDataGrid site/config.scriban; see docs/research/doc-site-tooling.md.
+
+# Lunet's default theme: Bootstrap 5, light/dark/system mode, docs navigation, API rendering, search box.
+extend "lunet-io/templates"
+
+template_theme_default_mode = "system"
+
+site_project_baseurl = "https://michaelstonis.github.io"
+site_project_basepath = environment == "dev" ? "" : "/Broadside"
+site_project_name = "Broadside"
+site_project_description = "A fully managed .NET implementation of the PDF specification (ISO 32000-2): read, write, edit and render."
+site_project_package_id = "Broadside"
+site_project_github_user = "michaelstonis"
+site_project_github_repo = "Broadside"
+site_project_owner_name = "Michael Stonis"
+site_project_owner_alias = "michaelstonis"
+site_project_owner_url = "https://github.com/michaelstonis"
+site_project_content_license_name = "MIT"
+site_project_content_license_url = "https://github.com/michaelstonis/Broadside/blob/main/LICENSE"
+template_footer_content_license_html = $"- Content licensed under the <a href=\"{site_project_content_license_url}\">MIT license</a>"
+
+site_project_init
+
+# Client-side full-text search (SQLite FTS5 in the browser). The theme renders the search box
+# in the navbar whenever search is enabled; the index covers the articles and the API pages.
+with search
+    enable = true
+end
+
+# API reference from the XML documentation the compiler emits (GenerateDocumentationFile is on in
+# Directory.Build.props). Only the plain net10.0 packages are listed, so the site builds on Linux:
+# Broadside.Rendering.CoreGraphics and Broadside.Rendering.Android need platform workloads, and
+# Broadside.Rendering.Direct2D targets net10.0-windows. They join when the site build gains a runner for them.
+with api.dotnet
+    title = "Broadside .NET API Reference"
+    path = "/api"
+    menu_name = "api"
+    menu_title = "API Reference"
+    config = "Release"
+    # Lunet 1.1.1 picks the extractor's <name>.api.json by looking under the project directory; with
+    # the repository's artifacts/ layout (Directory.Build.props) the file lands outside it and the
+    # selection fails ("Unable to select the api dotnet output"). Build these projects with the
+    # classic per-project bin/ and obj/ folders instead (both gitignored).
+    properties = {
+        UseArtifactsOutput: "false"
+    }
+    projects = [
+        { name: "Broadside", path: "../src/Broadside/Broadside.csproj" },
+        { name: "Broadside.Rendering", path: "../src/Broadside.Rendering/Broadside.Rendering.csproj" },
+        { name: "Broadside.Rendering.Skia", path: "../src/Broadside.Rendering.Skia/Broadside.Rendering.Skia.csproj" },
+        { name: "Broadside.Fonts.Standard14", path: "../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" },
+        { name: "Broadside.Fonts.Cmaps", path: "../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" }
+    ]
+end
