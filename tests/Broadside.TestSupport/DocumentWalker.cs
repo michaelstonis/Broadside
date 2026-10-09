@@ -58,6 +58,7 @@ public static class DocumentWalker
             _ = (page.MediaBox, page.CropBox, page.BleedBox, page.TrimBox, page.ArtBox, page.Rotation, page.UserUnit, page.Resources?.Count);
         }
 
+        ReadCatalogEssentials(document);
         WalkNavigation(document);
 
         var walk = new GraphWalk(document);
@@ -128,6 +129,46 @@ public static class DocumentWalker
             _ = (explicitDestination.PageIndex, explicitDestination.TargetKind, explicitDestination.View, explicitDestination.Left,
                 explicitDestination.Top, explicitDestination.Right, explicitDestination.Bottom, explicitDestination.Zoom, explicitDestination.IsValid);
         }
+    }
+
+    /// <summary>
+    /// Reads the document-level entries (issue #69): version, extensions, requirements, layout, mode, viewer preferences, language,
+    /// every page label, the Info dictionary, the XMP packet and every property in it, the resolved properties, the file identifier.
+    /// </summary>
+    private static void ReadCatalogEssentials(PdfDocument document)
+    {
+        _ = (document.HeaderVersion, document.CatalogVersion, document.PageLayout, document.PageMode, document.Language, document.FileIdentifier);
+        foreach (PdfDeveloperExtension extension in document.Extensions)
+        {
+            _ = (extension.BaseVersion, extension.ExtensionLevel, extension.Url, extension.ExtensionRevision);
+        }
+
+        foreach (PdfRequirement requirement in document.Requirements)
+        {
+            _ = (requirement.RequirementType, requirement.Penalty, requirement.Handlers.Select(handler => handler.Script).ToList());
+        }
+
+        if (document.ViewerPreferences is { } preferences)
+        {
+            _ = (preferences.HideToolbar, preferences.HideMenubar, preferences.HideWindowUI, preferences.FitWindow, preferences.CenterWindow);
+            _ = (preferences.DisplayDocTitle, preferences.NonFullScreenPageMode, preferences.Direction, preferences.ViewArea, preferences.ViewClip);
+            _ = (preferences.PrintArea, preferences.PrintClip, preferences.PrintScaling, preferences.Duplex, preferences.PickTrayByPdfSize);
+            _ = (preferences.PrintPageRange, preferences.NumCopies, preferences.Enforce);
+        }
+
+        _ = document.PageLabels?.GetLabels();
+        if (document.Information is { } info)
+        {
+            _ = (info.Title, info.Author, info.Subject, info.Keywords, info.Creator, info.Producer, info.CreationDate, info.ModificationDate, info.Trapped);
+        }
+
+        if (document.Metadata?.Packet is { } packet)
+        {
+            _ = (packet.Title, packet.Creators, packet.Subjects, packet.CreateDate, packet.ModifyDate, packet.PdfAPart, packet.PdfUAPart);
+        }
+
+        PdfDocumentProperties properties = document.Properties;
+        _ = (properties.Title, properties.Author, properties.CreationDate, properties.ModificationDate);
     }
 
     /// <summary>An iterative depth-first walk (no recursion: real files nest deeply) over references, containers and streams.</summary>
