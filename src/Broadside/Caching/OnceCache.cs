@@ -20,6 +20,10 @@ internal readonly record struct Created<TValue>(TValue Value, bool Keep = true);
 /// </summary>
 /// <remarks>
 /// <para>
+/// Used for objects (ISO 32000-2 §7.5.3, §7.5.4) and object streams (§7.5.7); later caches of derived state (fonts, images,
+/// display lists) use it too, so the rule holds everywhere.
+/// </para>
+/// <para>
 /// Why not <see cref="Lazy{T}"/> with <see cref="LazyThreadSafetyMode.ExecutionAndPublication"/>: a factory that reaches its own
 /// value on the same thread makes <see cref="Lazy{T}"/> throw, and two threads each computing a value the other needs deadlock. A
 /// malformed file can do both (a stream whose <c>Length</c> is a stream whose <c>Length</c> is the first stream, an object stream

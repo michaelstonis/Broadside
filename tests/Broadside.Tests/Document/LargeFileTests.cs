@@ -14,6 +14,7 @@ namespace Broadside.Tests.Document;
 /// than 64 MiB, while the file is 2.1 GiB. Measured with <see cref="GC.GetTotalMemory(bool)"/>, not the working set, which counts
 /// the mapped (and reclaimable) pages of the file.
 /// </remarks>
+[Collection(HeavyTestCollection.Name)]
 public class LargeFileTests
 {
     private const int PageCount = 2100;

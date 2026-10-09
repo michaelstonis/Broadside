@@ -26,7 +26,7 @@ internal readonly record struct ObjectLoadContext(CosReference Reference, long O
 
 /// <summary>
 /// Hook 1 of the object loader: resolves a stream's <c>Length</c> so the parser can find the end of the data (§7.3.8.2). Runs during
-/// parsing. Issue #41 extends recovery of wrong lengths behind it.
+/// parsing. A <c>null</c> result makes the parser recover the extent from <c>endstream</c> with a diagnostic (issue #41).
 /// </summary>
 internal interface IStreamExtentResolver
 {
@@ -95,19 +95,43 @@ internal interface IObjectCache
     CosObject Publish(CosReference reference, CosObject value);
 }
 
-/// <summary>The default <see cref="IStreamExtentResolver"/>: a direct integer, or an indirect reference loaded through the loader.</summary>
+/// <summary>
+/// The default <see cref="IStreamExtentResolver"/>: a direct integer, or an indirect reference loaded through the loader. A
+/// <c>Length</c> that refers, directly or through other streams' lengths, to a stream whose length is being resolved on this thread
+/// is unknown, so the parser recovers the extent from <c>endstream</c> with a diagnostic instead of looping (issue #41).
+/// </summary>
 internal sealed class DefaultStreamExtentResolver : IStreamExtentResolver
 {
+    /// <summary>The streams whose <c>Length</c> this thread is resolving, across loaders.</summary>
+    [ThreadStatic]
+    private static List<(ObjectLoader Loader, CosReference Stream)>? _resolving;
+
     /// <summary>Gets the shared instance; it holds no state.</summary>
     public static DefaultStreamExtentResolver Instance { get; } = new();
 
     /// <inheritdoc/>
     public long? ResolveLength(CosObject lengthEntry, ObjectLoader loader, in ObjectLoadContext context)
     {
-        CosObject value = lengthEntry is CosReference reference && !reference.Equals(context.Reference)
-            ? loader.Load(reference, context.Depth + 1)
-            : lengthEntry;
-        return value is CosInteger { Value: >= 0 } length ? length.Value : null;
+        if (lengthEntry is not CosReference reference)
+        {
+            return lengthEntry is CosInteger { Value: >= 0 } direct ? direct.Value : null;
+        }
+
+        List<(ObjectLoader Loader, CosReference Stream)> resolving = _resolving ??= [];
+        if (reference.Equals(context.Reference) || resolving.Contains((loader, reference)))
+        {
+            return null;
+        }
+
+        resolving.Add((loader, context.Reference));
+        try
+        {
+            return loader.Load(reference, context.Depth + 1) is CosInteger { Value: >= 0 } length ? length.Value : null;
+        }
+        finally
+        {
+            resolving.RemoveAt(resolving.Count - 1);
+        }
     }
 }
 
@@ -126,6 +150,7 @@ internal sealed class NullObjectDecryptor : IObjectDecryptor
 /// resolving to one instance. Memory stays bounded by the objects' dictionaries and arrays: stream data is not held (a stream read
 /// from a file or stream source reads its data from the source on each access).
 /// </summary>
+/// <remarks>ISO 32000-2 §7.5.3 and §7.5.4: objects are loaded on demand through the cross-reference table, by number and generation.</remarks>
 internal sealed class ObjectCache : IObjectCache
 {
     private readonly OnceCache<CosReference, CosObject> _objects = new();
@@ -152,7 +177,7 @@ internal sealed class ObjectLoaderHooks
 {
     private volatile IObjectDecryptor _decryptor = NullObjectDecryptor.Instance;
 
-    /// <summary>Gets hook 1, stream extent resolution (issue #41 extends it).</summary>
+    /// <summary>Gets hook 1, stream extent resolution.</summary>
     public IStreamExtentResolver StreamExtent { get; init; } = DefaultStreamExtentResolver.Instance;
 
     /// <summary>

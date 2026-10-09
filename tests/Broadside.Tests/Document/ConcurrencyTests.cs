@@ -22,6 +22,7 @@ public enum ConcurrentSource
 /// every corpus file is read from many threads in parallel, repeatedly and in random order, through every kind of source.
 /// ISO 32000-2 §7.5.4 (random access to indirect objects through the cross-reference table).
 /// </summary>
+[Collection(HeavyTestCollection.Name)]
 public class ConcurrencyTests
 {
     private const int Repetitions = 50;

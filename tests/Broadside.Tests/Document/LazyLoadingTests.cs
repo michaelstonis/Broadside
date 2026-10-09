@@ -1,7 +1,7 @@
 using System.Collections.Concurrent;
 using Broadside.Objects;
-using Broadside.TestSupport;
 using Broadside.Tests.Hosting;
+using Broadside.TestSupport;
 using Microsoft.Extensions.Logging;
 
 namespace Broadside.Tests.Document;
@@ -125,7 +125,7 @@ public class LazyLoadingTests
 
         Assert.Equal("four"u8.ToArray(), first.EncodedData.ToArray());
         Assert.Equal("five"u8.ToArray(), second.EncodedData.ToArray());
-        Assert.Contains("ObjectReferenceCycle", document.Diagnostics.Select(diagnostic => diagnostic.Code));
+        Assert.Contains("StreamLengthInvalid", document.Diagnostics.Select(diagnostic => diagnostic.Code));
     }
 
     [Fact]

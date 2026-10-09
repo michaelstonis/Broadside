@@ -80,22 +80,40 @@ public class FileStructureTests
     }
 
     [Fact]
-    public void A_file_with_no_startxref_cannot_be_read_even_leniently()
+    public void A_file_with_no_startxref_is_rebuilt_by_scanning_and_keeps_its_trailer()
     {
         string text = Encoding.Latin1.GetString(Corpus.Bytes("empty-page.pdf")).Replace("startxref", "startxrex", StringComparison.Ordinal);
 
-        DiagnosticException error = Assert.Throws<DiagnosticException>(() => PdfDocument.Open(Encoding.Latin1.GetBytes(text)));
+        using PdfDocument document = PdfDocument.Open(Encoding.Latin1.GetBytes(text));
 
-        Assert.Equal("StartxrefMissing", error.Diagnostic.Code);
+        Assert.Equal(new PdfRectangle(0, 0, 612, 792), Assert.Single(document.Pages).MediaBox);
+        Assert.Equal("StartxrefMissing", Assert.Single(document.Diagnostics).Code);
+        Assert.Equal(new CosReference(1, 0), document.Trailer[new CosName("Root")]);
+        Assert.Equal(new CosInteger(4), document.Trailer[new CosName("Size")]);
+        Assert.Equal(text.Length, Assert.Single(document.Revisions).Length);
     }
 
     [Fact]
-    public void A_trailer_without_root_cannot_be_read()
+    public void A_file_that_holds_no_catalog_cannot_be_read_even_leniently()
+    {
+        DiagnosticException error = Assert.Throws<DiagnosticException>(() => PdfDocument.Open(Encoding.Latin1.GetBytes("%PDF-1.7\n1 0 obj\n(text)\nendobj\n")));
+
+        Assert.Equal("CatalogNotFound", error.Diagnostic.Code);
+    }
+
+    [Fact]
+    public void A_trailer_without_root_is_repaired_by_finding_the_catalog_by_scanning()
     {
         string text = Encoding.Latin1.GetString(Corpus.Bytes("empty-page.pdf")).Replace("/Root 1 0 R", "/Rood 1 0 R", StringComparison.Ordinal);
 
-        DiagnosticException error = Assert.Throws<DiagnosticException>(() => PdfDocument.Open(Encoding.Latin1.GetBytes(text)));
+        using PdfDocument document = PdfDocument.Open(Encoding.Latin1.GetBytes(text));
 
+        Assert.Single(document.Pages);
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal("RootMissing", diagnostic.Code);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal(new CosReference(1, 0), document.Trailer[new CosName("Root")]);
+        DiagnosticException error = Assert.Throws<DiagnosticException>(() => PdfDocument.Open(Encoding.Latin1.GetBytes(text), new PdfOptions().UseStrict()));
         Assert.Equal("RootMissing", error.Diagnostic.Code);
     }
 
@@ -172,7 +190,7 @@ public class FileStructureTests
     }
 
     [Fact]
-    public void An_entry_whose_offset_does_not_hold_the_object_reads_as_null_with_a_diagnostic()
+    public void An_entry_whose_offset_does_not_hold_the_object_is_read_from_where_its_header_is_with_a_diagnostic()
     {
         byte[] file = new TestPdf().Build("<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [] /Count 0 >>", "(three)");
         string text = Encoding.Latin1.GetString(file);
@@ -181,12 +199,30 @@ public class FileStructureTests
 
         using PdfDocument document = PdfDocument.Open(Encoding.Latin1.GetBytes(text));
 
+        CosObject three = document.Resolve(new CosReference(3, 0));
+        Assert.Equal(new CosString("three"u8), three);
+        Assert.Same(three, document.Resolve(new CosReference(3, 0)));
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal("XrefEntryOffsetInvalid", diagnostic.Code);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal(new CosReference(3, 0), diagnostic.ObjectReference);
+        Assert.Equal(third + 1, diagnostic.Offset);
+    }
+
+    [Fact]
+    public void An_entry_for_an_object_the_file_does_not_hold_reads_as_null_with_an_error()
+    {
+        byte[] file = new TestPdf().Build("<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [] /Count 0 >>", "(three)");
+        string text = Encoding.Latin1.GetString(file).Replace("3 0 obj", "4 0 obj", StringComparison.Ordinal);
+
+        using PdfDocument document = PdfDocument.Open(Encoding.Latin1.GetBytes(text));
+
         Assert.Same(CosNull.Instance, document.Resolve(new CosReference(3, 0)));
         Assert.Same(CosNull.Instance, document.Resolve(new CosReference(3, 0)));
         Diagnostic diagnostic = Assert.Single(document.Diagnostics);
         Assert.Equal("XrefEntryOffsetInvalid", diagnostic.Code);
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
         Assert.Equal(new CosReference(3, 0), diagnostic.ObjectReference);
-        Assert.Equal(third + 1, diagnostic.Offset);
     }
 
     [Fact]

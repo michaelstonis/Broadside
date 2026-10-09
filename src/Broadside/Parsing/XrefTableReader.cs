@@ -7,7 +7,8 @@ namespace Broadside.Parsing;
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §7.5.4 and §7.5.5. Entries are read as tokens, not as fixed 20-byte records, so a table with wrong line endings or
-/// padding still reads (as pdf.js and PDFBox do); whether such a table is reported is issue #41's decision.
+/// padding still reads (as pdf.js and PDFBox do), with one <see cref="DiagnosticCodes.XrefEntryFormatInvalid"/> per section. A
+/// subsection numbered from 1 whose first entry is the head of the free list is renumbered from 0, as pdf.js does.
 /// </para>
 /// <para>
 /// An in-use entry with offset 0 is read as free (as pdf.js does) with a diagnostic, and object number 0 is always free (§7.5.4)
@@ -67,6 +68,7 @@ internal static class XrefTableReader
     /// <returns><see langword="false"/> when the table is malformed; the lexer is then somewhere inside it.</returns>
     private static bool ReadSubsections(ref CosLexer lexer, Dictionary<int, XrefEntry> entries, long sectionOffset, DiagnosticSink diagnostics)
     {
+        bool formatReported = false;
         while (true)
         {
             CosToken next = lexer.Peek();
@@ -89,9 +91,9 @@ internal static class XrefTableReader
 
             for (long index = 0; index < count; index++)
             {
-                long entryStart = sectionOffset + lexer.Peek().Start;
-                long number = first + index;
-                if (!TryReadEntry(ref lexer, out XrefEntry entry) || number > int.MaxValue)
+                int entryPosition = lexer.Peek().Start;
+                long entryStart = sectionOffset + entryPosition;
+                if (!TryReadEntry(ref lexer, out XrefEntry entry) || first + index > int.MaxValue)
                 {
                     diagnostics.Report(
                         DiagnosticCodes.XrefEntryInvalid,
@@ -101,6 +103,30 @@ internal static class XrefTableReader
                     return false;
                 }
 
+                if (!formatReported && !IsTwentyByteEntry(lexer.Source[entryPosition..]))
+                {
+                    // §7.5.4: "each entry shall be exactly 20 bytes long, including the end-of-line marker". Read as tokens anyway.
+                    formatReported = true;
+                    diagnostics.Report(
+                        DiagnosticCodes.XrefEntryFormatInvalid,
+                        DiagnosticSeverity.Warning,
+                        "A cross-reference entry is not 20 bytes long (10-digit offset, space, 5-digit generation, space, n or f, two-byte end of line); the section is read entry by entry.",
+                        entryStart);
+                }
+
+                if (index == 0 && first == 1 && entry is { Kind: XrefEntryKind.Free, Offset: 0, Generation: CosReference.MaxGeneration })
+                {
+                    // The head of the free list is object 0 (§7.5.4); a writer that numbered the subsection from 1 shifted every
+                    // entry by one. Renumber from 0, as pdf.js does.
+                    first = 0;
+                    diagnostics.Report(
+                        DiagnosticCodes.XrefSubsectionNumberingInvalid,
+                        DiagnosticSeverity.Warning,
+                        "The subsection starts at object 1, but its first entry is the head of the free list, which is object 0; the subsection is read as starting at 0.",
+                        subsectionStart);
+                }
+
+                long number = first + index;
                 if (entry.Kind == XrefEntryKind.InUse && entry.Offset == 0)
                 {
                     diagnostics.Report(
@@ -118,6 +144,25 @@ internal static class XrefTableReader
                 }
             }
         }
+    }
+
+    /// <summary>Whether <paramref name="entry"/> starts with the exact 20-byte form of §7.5.4: <c>nnnnnnnnnn ggggg n</c> plus a two-byte end of line.</summary>
+    private static bool IsTwentyByteEntry(ReadOnlySpan<byte> entry)
+    {
+        if (entry.Length < 20 || entry[10] != (byte)' ' || entry[16] != (byte)' ' || entry[17] is not ((byte)'n' or (byte)'f'))
+        {
+            return false;
+        }
+
+        for (int index = 0; index < 16; index++)
+        {
+            if (index != 10 && entry[index] is < (byte)'0' or > (byte)'9')
+            {
+                return false;
+            }
+        }
+
+        return (entry[18], entry[19]) is ((byte)' ', (byte)'\r') or ((byte)' ', (byte)'\n') or ((byte)'\r', (byte)'\n');
     }
 
     private static bool TryReadEntry(ref CosLexer lexer, out XrefEntry entry)
