@@ -219,6 +219,7 @@ internal sealed partial class ContentInterpreter
         _part = 0;
         _inText = false;
         _pendingClip = null;
+        IgnoresColorOperators = false;
         _maxSaveDepth = options.MaxSaveDepth;
         _arena.Limit = options.MaxOperands;
         _path.Accumulate = (_events & (ContentEvents.Paths | ContentEvents.Clips)) != 0;

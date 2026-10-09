@@ -1,5 +1,8 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics;
+using Broadside.Graphics.Colors;
 using Broadside.Objects;
+using Broadside.Parsing;
 
 namespace Broadside.Content;
 
@@ -61,9 +64,91 @@ public sealed class ContentContext
     /// <summary>Gets the token that cancels the run.</summary>
     public CancellationToken CancellationToken { get; internal set; }
 
+    /// <summary>
+    /// Gets the default colour spaces of the current resources, which replace the device spaces of what is painted now: pass them to
+    /// <see cref="PdfDocument.GetColorConverter(PdfColorSpace, PdfDefaultColorSpaces?)"/> with the colour being painted.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §8.6.5.6: the look-up uses the resources current when the object is painted, so inside a form XObject the form's
+    /// own defaults apply. The initial DeviceGray colour is remapped too.
+    /// </remarks>
+    public PdfDefaultColorSpaces DefaultColorSpaces => Document.ColorSpaces.GetDefaults(Resources);
+
+    /// <summary>Returns the colour space a value names in the running content stream.</summary>
+    /// <param name="colorSpace">
+    /// A name, as the operand of <c>CS</c> and <c>cs</c> (DeviceGray, DeviceRGB, DeviceCMYK and Pattern name those spaces; any other
+    /// name is looked up in the <c>ColorSpace</c> subdictionary of <see cref="Resources"/>), or a colour space array.
+    /// </param>
+    /// <returns>The space; DeviceGray, with a diagnostic, when the value names none.</returns>
+    /// <remarks>ISO 32000-2 §8.6.8, Table 73; §7.8.3.</remarks>
+    public PdfColorSpace GetColorSpace(CosObject colorSpace)
+    {
+        ArgumentNullException.ThrowIfNull(colorSpace);
+        CosReference? owner = CurrentStream ?? Page?.Reference;
+        if (Document.Resolve(colorSpace) is not CosName name)
+        {
+            return Document.ColorSpaces.Get(colorSpace, owner);
+        }
+
+        PdfColorSpace? space = Document.ColorSpaces.FindNamed(Resources, name.Bytes, owner, out NamedLookup lookup);
+        ReportLookup(lookup, name);
+        return space ?? PdfDeviceGrayColorSpace.Instance;
+    }
+
+    /// <summary>Returns the colour space of an inline image's <c>ColorSpace</c> (or <c>CS</c>) entry.</summary>
+    /// <param name="colorSpace">The entry's value, such as from <see cref="ContentOperand.ToCosObject"/>.</param>
+    /// <returns>The space; DeviceGray, with a diagnostic, when the value names none.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §8.9.7, Tables 91 and 92: the abbreviations G, RGB, CMYK and I (Indexed, whose base may be abbreviated and whose
+    /// lookup table is a string) are allowed, and the full device names; G, RGB, CMYK and the device names never refer to resources,
+    /// any other name is a key of the <c>ColorSpace</c> subdictionary of the current resources (PDF 1.2).
+    /// </remarks>
+    public PdfColorSpace GetInlineImageColorSpace(CosObject colorSpace)
+    {
+        ArgumentNullException.ThrowIfNull(colorSpace);
+        CosReference? owner = CurrentStream ?? Page?.Reference;
+        if (Document.ColorSpaces.FindInline(colorSpace, owner) is { } space)
+        {
+            return space;
+        }
+
+        if (colorSpace is CosName name)
+        {
+            PdfColorSpace? named = Document.ColorSpaces.FindNamed(Resources, name.Bytes, owner, out NamedLookup lookup);
+            ReportLookup(lookup == NamedLookup.Abbreviation ? NamedLookup.Family : lookup, name);
+            return named ?? PdfDeviceGrayColorSpace.Instance;
+        }
+
+        Document.ColorSpaces.ReportFailure(owner, ColorSpaceFailure.Invalid, "an inline image's colour space");
+        return PdfDeviceGrayColorSpace.Instance;
+    }
+
     /// <summary>Returns the clip node a clip handle refers to, such as <see cref="GraphicsState.ClipHandle"/>.</summary>
     /// <param name="handle">The handle; 0 for the run's initial clipping path.</param>
     /// <returns>The node; a node of kind <see cref="ClipKind.Initial"/> for 0 and for a handle this run did not issue.</returns>
     /// <remarks>ISO 32000-2 §8.5.4.</remarks>
     public ClipView GetClip(int handle) => _interpreter.Clips.Get(handle);
+
+    private void ReportLookup(NamedLookup lookup, CosName name)
+    {
+        CosReference? owner = CurrentStream ?? Page?.Reference;
+        if (lookup == NamedLookup.Missing)
+        {
+            Document.DiagnosticSink.Report(
+                DiagnosticCodes.ContentColorSpaceMissing,
+                DiagnosticSeverity.Warning,
+                $"The colour space /{name.Value} is not in the resources' ColorSpace dictionary; DeviceGray is used.",
+                offset: null,
+                owner);
+        }
+        else if (lookup == NamedLookup.Abbreviation)
+        {
+            Document.DiagnosticSink.Report(
+                DiagnosticCodes.ContentColorSpaceAbbreviated,
+                DiagnosticSeverity.Warning,
+                $"The colour space /{name.Value} is an inline image abbreviation used outside an inline image; it is read as the device space.",
+                offset: null,
+                owner);
+        }
+    }
 }

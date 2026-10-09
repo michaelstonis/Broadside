@@ -74,6 +74,10 @@ public static class Corpus
         "declarations.pdf",
         "actions-all.pdf",
         "actions-preserved.pdf",
+        "colorspace-families.pdf",
+        "color-operators.pdf",
+        "default-colorspaces.pdf",
+        "separation-special.pdf",
     ];
 
     private static readonly string[] Malformed =
