@@ -47,6 +47,7 @@ internal static class FuzzTargets
         ["structure-tree"] = StructureTree.Target,
         ["function-type4"] = FunctionType4,
         ["function-sampled"] = FunctionSampled,
+        ["optional-content"] = OptionalContentTarget.Target,
     };
 
     private static readonly CosName ContentsKey = new("Contents");
@@ -531,7 +532,7 @@ internal static class FuzzTargets
         }
     }
 
-    private static PdfDocument? OpenOrNull(ReadOnlySpan<byte> data)
+    internal static PdfDocument? OpenOrNull(ReadOnlySpan<byte> data)
     {
         try
         {

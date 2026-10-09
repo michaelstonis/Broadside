@@ -30,6 +30,10 @@ public sealed class PdfNameDictionary
     /// </remarks>
     public PdfNameTree? Dests => GetTree(NavigationNames.Dests);
 
+    /// <summary>Gets the tree of embedded files (string keys to file specifications), or <see langword="null"/> when there is none.</summary>
+    /// <remarks>ISO 32000-2 §7.7.4, Table 32 (PDF 1.4), and §7.11.4. <see cref="PdfDocument.EmbeddedFiles"/> lists it typed.</remarks>
+    public PdfNameTree? EmbeddedFiles => GetTree(FileAndLayerNames.EmbeddedFiles);
+
     /// <summary>Gets the name tree under <paramref name="key"/>, or <see langword="null"/> when the entry is absent.</summary>
     /// <param name="key">The entry, for example <c>EmbeddedFiles</c> or <c>JavaScript</c>.</param>
     /// <returns>The tree, read lazily; <see langword="null"/> when the entry is absent or is not a dictionary (with a diagnostic).</returns>

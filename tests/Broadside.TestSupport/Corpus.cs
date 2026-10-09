@@ -60,6 +60,12 @@ public static class Corpus
         "destinations-all.pdf",
         "outline-full.pdf",
         "functions.pdf",
+        "optional-content.pdf",
+        "embedded-files.pdf",
+        "collection-portfolio.pdf",
+        "associated-files.pdf",
+        "object-metadata.pdf",
+        "declarations.pdf",
     ];
 
     private static readonly string[] Malformed =

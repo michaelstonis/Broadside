@@ -91,6 +91,9 @@ public sealed class PdfPage
             ? _document.GetFont(font)
             : null;
     }
+    /// <summary>Gets the files associated with the page (<c>AF</c>).</summary>
+    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31 (PDF 2.0), and §14.13.4. Read on every call; see <see cref="PdfDocument.ReadAssociatedFiles"/>.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => _document.ReadAssociatedFiles(Dictionary, Reference);
 
     /// <summary>Runs the page's content through the content interpreter and reports what it paints to <paramref name="processor"/>.</summary>
     /// <param name="processor">The processor; for several at once, a <see cref="CompositeContentProcessor"/>.</param>

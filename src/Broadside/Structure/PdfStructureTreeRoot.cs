@@ -93,9 +93,9 @@ public sealed class PdfStructureTreeRoot
     /// <remarks>ISO 32000-2 Table 354 (PDF 2.0), §14.9.6. Typed by the file specification view (issue #76).</remarks>
     public CosArray? PronunciationLexicon => StructureValues.Get(_context.Document, Dictionary, StructureNames.PronunciationLexicon) as CosArray;
 
-    /// <summary>Gets the associated files of the whole tree (<c>AF</c>) as their COS array, or <see langword="null"/>.</summary>
-    /// <remarks>ISO 32000-2 Table 354 (PDF 2.0), §14.13. Typed by the file specification view (issue #76).</remarks>
-    public CosArray? AssociatedFiles => StructureValues.Get(_context.Document, Dictionary, StructureNames.AF) as CosArray;
+    /// <summary>Gets the files associated with the whole tree (<c>AF</c>), in order.</summary>
+    /// <remarks>ISO 32000-2 Tables 354 and 355 (PDF 2.0), and §14.13.6. Read through <see cref="PdfDocument.ReadAssociatedFiles"/> on every call.</remarks>
+    public IReadOnlyList<PdfFileSpecification> AssociatedFiles => _context.Document.ReadAssociatedFiles(Dictionary, Reference);
 
     /// <summary>Gets every element reachable from the root, in document order: depth first, each element before its children, children in <c>K</c> order; an element reachable twice is listed once.</summary>
     /// <remarks>ISO 32000-2 §14.7.2, §14.8.2.5 (logical order). A snapshot, built once.</remarks>
