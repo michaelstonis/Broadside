@@ -19,4 +19,7 @@
     <Project Path="src/Broadside.Rendering/Broadside.Rendering.csproj" />
     <Project Path="src/Broadside/Broadside.csproj" />
   </Folder>
+  <Folder Name="/tools/">
+    <Project Path="tools/CorpusFetcher/CorpusFetcher.csproj" />
+  </Folder>
 </Solution>

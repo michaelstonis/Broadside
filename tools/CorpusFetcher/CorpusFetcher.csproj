@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Downloads real-world PDF corpora into the gitignored corpus/ folder. See README.md and docs/plan/README.md Phase 0. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Broadside.Tools.CorpusFetcher</RootNamespace>
+    <AssemblyName>CorpusFetcher</AssemblyName>
+    <Description>Fetches PDF test corpora (pdf.js, PDF Association, veraPDF, PDFBox, GWG, pdfium, qpdf) into corpus/.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="corpora.json" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
