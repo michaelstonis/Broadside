@@ -101,6 +101,9 @@ internal static class DiagnosticCodes
     public const string IntegrityCodeMismatch = nameof(IntegrityCodeMismatch);
     public const string IntegrityCodeIncomplete = nameof(IntegrityCodeIncomplete);
     public const string IntegrityCodeNotVerified = nameof(IntegrityCodeNotVerified);
+    public const string PublicKeyRecipientInvalid = nameof(PublicKeyRecipientInvalid);
+    public const string PublicKeyEnvelopeInvalid = nameof(PublicKeyEnvelopeInvalid);
+    public const string CryptFilterNotAuthorized = nameof(CryptFilterNotAuthorized);
 
     // Document catalog (§7.7.2).
     public const string CatalogTypeInvalid = nameof(CatalogTypeInvalid);

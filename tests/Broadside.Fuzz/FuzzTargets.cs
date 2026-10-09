@@ -36,6 +36,7 @@ internal static class FuzzTargets
         ["encrypted-document"] = EncryptedDocument,
         ["decrypt"] = Decrypt,
         ["mac-token"] = MacToken,
+        ["public-key"] = PublicKey.Target,
     };
 
     private static readonly CosName ContentsKey = new("Contents");
@@ -142,6 +143,10 @@ internal static class FuzzTargets
         catch (PdfEncryptionNotSupportedException exception)
         {
             return exception.Reason.ToString();
+        }
+        catch (PdfCertificateException exception)
+        {
+            return exception.Failure.ToString();
         }
 
         using (document)
@@ -439,6 +444,10 @@ internal static class FuzzTargets
         {
             return null;
         }
+        catch (PdfCertificateException)
+        {
+            return null;
+        }
     }
 
     /// <summary>
@@ -464,6 +473,10 @@ internal static class FuzzTargets
             return;
         }
         catch (PdfEncryptionNotSupportedException)
+        {
+            return;
+        }
+        catch (PdfCertificateException)
         {
             return;
         }

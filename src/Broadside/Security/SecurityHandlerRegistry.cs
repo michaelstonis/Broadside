@@ -5,8 +5,9 @@ namespace Broadside.Security;
 /// <summary>The security handlers of one engine, by <c>Filter</c> name and by <c>SubFilter</c> format. Immutable once built.</summary>
 /// <remarks>
 /// ISO 32000-2 §7.6.2, Table 20: the handler a document's <c>Filter</c> names opens it; when <c>SubFilter</c> is present, any handler
-/// implementing that format may. <see cref="StandardSecurityHandler"/> is the default for <c>Standard</c>; a handler registered later
-/// for the same name replaces an earlier one.
+/// implementing that format may. <see cref="StandardSecurityHandler"/> is the default for <c>Standard</c> and <see cref="PublicKeySecurityHandler"/>
+/// for <c>Adobe.PubSec</c> and the <c>adbe.pkcs7</c> SubFilters (§7.6.5); a handler registered later for the same name replaces an
+/// earlier one.
 /// </remarks>
 internal sealed class SecurityHandlerRegistry
 {
@@ -17,7 +18,7 @@ internal sealed class SecurityHandlerRegistry
     {
     }
 
-    /// <summary>Gets the registry of an engine with no handlers of its own: the standard handler only.</summary>
+    /// <summary>Gets the registry of an engine with no handlers of its own: the standard and public-key handlers.</summary>
     public static SecurityHandlerRegistry Default { get; } = Create([]);
 
     /// <summary>Builds a registry from the defaults and the handlers registered on the options, in order.</summary>
@@ -27,6 +28,7 @@ internal sealed class SecurityHandlerRegistry
     {
         var registry = new SecurityHandlerRegistry();
         registry.Add(new StandardSecurityHandler());
+        registry.Add(new PublicKeySecurityHandler());
         foreach (ISecurityHandler handler in handlers)
         {
             registry.Add(handler);

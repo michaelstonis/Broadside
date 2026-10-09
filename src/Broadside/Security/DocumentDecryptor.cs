@@ -163,6 +163,11 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
                             }
 
                             byte[] key = result.CryptFilterKeys is { } keys && keys.TryGetValue(name, out ReadOnlyMemory<byte> own) ? own.ToArray() : fileKey;
+                            if (key.Length == 0)
+                            {
+                                continue; // Not authorized (§7.6.6): streams naming it stay encrypted, StmF/StrF naming it is CryptFilterMissing.
+                            }
+
                             if (ReadFilter(name, resolve(entry) as CosDictionary, version, key, diagnostics, resolve, out string? problem) is { } filter)
                             {
                                 named[name] = filter;
@@ -202,7 +207,17 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
                     CryptFilter streams = Select(StmF, null);
                     CryptFilter strings = Select(StrF, null);
                     CryptFilter embedded = encryption.ContainsKey(EFF) ? Select(EFF, null) : streams;
-                    bool encryptMetadata = resolve(encryption.TryGetValue(EncryptMetadataName, out CosObject? flag) ? flag : null) is not CosBoolean { Value: false };
+                    // Table 21 puts EncryptMetadata in the encryption dictionary; Table 27 in the crypt filter StmF names (public-key handlers).
+                    CosObject flag = resolve(encryption.TryGetValue(EncryptMetadataName, out CosObject? flagEntry) ? flagEntry : null);
+                    if (flag is CosNull
+                        && resolve(encryption.TryGetValue(StmF, out CosObject? stmF) ? stmF : null) is CosName streamFilter
+                        && resolve(cf) is CosDictionary definitions
+                        && resolve(definitions.TryGetValue(streamFilter, out CosObject? definition) ? definition : null) is CosDictionary streamFilterDictionary)
+                    {
+                        flag = resolve(streamFilterDictionary.TryGetValue(EncryptMetadataName, out CosObject? filterFlag) ? filterFlag : null);
+                    }
+
+                    bool encryptMetadata = flag is not CosBoolean { Value: false };
                     return new DocumentDecryptor(strings, streams, embedded, named, encryptMetadata, diagnostics, resolve);
                 }
 

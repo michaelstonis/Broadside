@@ -33,7 +33,8 @@ internal static class DocumentSecurity
     /// </param>
     /// <param name="unusable">Set when the <c>Encrypt</c> entry does not resolve and <paramref name="reportUnusable"/> is false.</param>
     /// <returns>The document's security, or <see langword="null"/> when it is not encrypted.</returns>
-    /// <exception cref="PdfPasswordException">The credentials do not open the document.</exception>
+    /// <exception cref="PdfPasswordException">The password does not open the document.</exception>
+    /// <exception cref="PdfCertificateException">The certificates do not open the document.</exception>
     /// <exception cref="PdfEncryptionNotSupportedException">No handler or method for the document's encryption.</exception>
     public static PdfSecurity? Open(
         PdfSource source,
@@ -90,7 +91,16 @@ internal static class DocumentSecurity
         SecurityHandlerResult result = handler.Authenticate(context);
         if (version == 0)
         {
-            version = result.Revision switch { 2 => 1, 3 => 2, 4 => 4, 7 => 6, _ => 5 };
+            // No V: the standard handler's revision implies it; another handler's key length does (RC4 below 256 bits, AES-256 at 256).
+            version = result.Revision switch
+            {
+                2 => 1,
+                3 => 2,
+                4 => 4,
+                7 => 6,
+                null when result.FileEncryptionKey.Length < 32 => 2,
+                _ => 5,
+            };
         }
 
         DocumentDecryptor decryptor = DocumentDecryptor.Create(encryption, version, result, diagnostics, loader.Resolve);
