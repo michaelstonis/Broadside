@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Globalization;
 using Broadside.Diagnostics;
 using Broadside.Filters;
@@ -34,6 +35,9 @@ internal static class CrossReferenceReader
     private const int TailWindow = 1024;
 
     private static readonly CosName XRefStm = new("XRefStm");
+
+    /// <summary>The white-space characters of §7.2.3 Table 1.</summary>
+    private static readonly SearchValues<byte> WhiteSpace = SearchValues.Create("\0\t\n\f\r "u8);
 
     /// <summary>Reads the cross-reference sections of <paramref name="source"/>.</summary>
     /// <param name="source">The file.</param>
@@ -146,13 +150,24 @@ internal static class CrossReferenceReader
             return false;
         }
 
-        if (tail[lexer.Position..].IndexOf("%%EOF"u8) < 0)
+        int marker = tail[lexer.Position..].IndexOf("%%EOF"u8);
+        if (marker < 0)
         {
             diagnostics.Report(
                 DiagnosticCodes.EndOfFileMarkerMissing,
                 DiagnosticSeverity.Warning,
                 "The startxref offset is not followed by the %%EOF marker.",
                 keyword + lexer.Position);
+        }
+        else if (DataAfter(source, keyword + lexer.Position + marker + "%%EOF"u8.Length) is { } data)
+        {
+            // §7.5.5: "The last line of the file shall contain only the end-of-file marker, %%EOF." White-space after it (an
+            // end-of-line marker, padding) is not data.
+            diagnostics.Report(
+                DiagnosticCodes.EndOfFileMarkerNotLast,
+                DiagnosticSeverity.Warning,
+                "Data follows the %%EOF marker after the last startxref; the last line of the file shall contain only the marker. The data is ignored.",
+                data);
         }
 
         offset = header.Offset + stated;
@@ -378,6 +393,30 @@ internal static class CrossReferenceReader
             DiagnosticSeverity.Error,
             "The trailer's Prev entry is not a direct, non-negative integer; older sections are not read.",
             section.Offset);
+        return null;
+    }
+
+    /// <summary>The position of the first byte from <paramref name="offset"/> on that is not white-space (§7.2.3), if any.</summary>
+    private static long? DataAfter(PdfSource source, long offset)
+    {
+        Span<byte> buffer = stackalloc byte[TailWindow];
+        while (offset < source.Length)
+        {
+            Span<byte> window = buffer[..source.Read(offset, buffer[..(int)Math.Min(TailWindow, source.Length - offset)])];
+            if (window.IsEmpty)
+            {
+                return null;
+            }
+
+            int found = window.IndexOfAnyExcept(WhiteSpace);
+            if (found >= 0)
+            {
+                return offset + found;
+            }
+
+            offset += window.Length;
+        }
+
         return null;
     }
 

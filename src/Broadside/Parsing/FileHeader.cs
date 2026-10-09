@@ -9,7 +9,9 @@ namespace Broadside.Parsing;
 /// ISO 32000-2 §7.5.2. Byte offsets in the file (<c>startxref</c>, cross-reference entries, <c>Prev</c>) are counted from the
 /// percent sign of the header, and arbitrary bytes may precede it (NOTE 1), so every offset the file states is relative to
 /// <see cref="Offset"/>. A file whose writer counted from byte 0 anyway is repaired by the loader's object search and the
-/// nearest-section search for <c>startxref</c> (issue #41).
+/// nearest-section search for <c>startxref</c> (issue #41). A version followed by anything but an end-of-line marker is read with
+/// <see cref="DiagnosticCodes.HeaderInvalid"/> (issue #47). The binary comment line a file with binary data shall have is not
+/// checked: deciding whether the file holds binary data needs a scan of the whole file.
 /// </remarks>
 /// <param name="Offset">The absolute position of the <c>%</c> of <c>%PDF-</c>; 0 when no header was found.</param>
 /// <param name="Version">The version the header states, or <see langword="null"/> when it is missing or malformed.</param>
@@ -47,6 +49,16 @@ internal readonly record struct FileHeader(long Offset, PdfVersion? Version)
         ReadOnlySpan<byte> versionText = end < 0 ? afterMarker : afterMarker[..end];
         if (PdfVersion.TryParse(versionText, out PdfVersion version) && version.Major is 1 or 2)
         {
+            // "The file header shall consist of %PDF-1.n or %PDF-2.n followed by a single EOL marker" (added in 2020).
+            if (end >= 0 && afterMarker[end] is not ((byte)'\r' or (byte)'\n'))
+            {
+                diagnostics.Report(
+                    DiagnosticCodes.HeaderInvalid,
+                    DiagnosticSeverity.Warning,
+                    "The header's version shall be followed by an end-of-line marker; the version is read and the rest of the line is ignored.",
+                    offset: marker);
+            }
+
             return new FileHeader(marker, version);
         }
 

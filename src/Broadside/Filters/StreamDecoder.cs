@@ -256,7 +256,7 @@ internal sealed class StreamDecoder
         {
             Report(
                 DiagnosticCodes.StreamExternalFileUnsupported,
-                DiagnosticSeverity.Error,
+                DiagnosticSeverity.Information,
                 "The stream's data is in an external file (F), which is not read; the bytes in the stream itself are decoded instead.");
         }
     }

@@ -142,4 +142,48 @@ public class PasswordTests
         Assert.Equal(PdfAccessLevel.User, document.Security!.Access);
         Assert.Empty(document.Diagnostics);
     }
+
+    [Fact]
+    public void An_empty_owner_password_opens_the_document_with_owner_access()
+    {
+        // §7.6.4.3.3 Algorithm 2.A checks the password as the owner password first; the empty string is a password like any other
+        // (pdf.js test file pr6531_2.pdf, found by the real-world corpus gate, issue #47).
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("encrypted-empty-owner-password.pdf"));
+
+        Assert.Equal(PdfAccessLevel.Owner, document.Security!.Access);
+        Assert.Equal("BT /F1 24 Tf 72 700 Td (Empty owner password (R6)) Tj ET", EncryptedCorpusTests.ContentText(document));
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void The_user_password_of_a_document_with_an_empty_owner_password_gives_user_access()
+    {
+        using PdfDocument document = new PdfEngine().Open(Corpus.Path("encrypted-empty-owner-password.pdf"), new PdfPassword("user"));
+
+        Assert.Equal(PdfAccessLevel.User, document.Security!.Access);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void A_128_bit_key_without_a_length_entry_is_found_by_trying_128_bits_with_a_diagnostic()
+    {
+        // Table 20: Length defaults to 40 bits. qpdf guesses 128 when it is missing (qpdf test file bad-encryption-length.pdf,
+        // found by the real-world corpus gate, issue #47); the reader tries 128 bits when 40 bits authenticate nothing.
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("encrypted-rc4-length-missing.pdf"));
+
+        Assert.Equal(PdfAccessLevel.User, document.Security!.Access);
+        Assert.Equal(128, document.Security.KeyLength);
+        Assert.Equal("BT /F1 24 Tf 72 700 Td (RC4 128-bit (R3), no Length) Tj ET", EncryptedCorpusTests.ContentText(document));
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal("EncryptionKeyLengthInvalid", diagnostic.Code);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+    }
+
+    [Fact]
+    public void A_missing_length_entry_that_hides_a_128_bit_key_throws_in_strict_mode()
+    {
+        var exception = Assert.Throws<DiagnosticException>(() => PdfDocument.Open(Corpus.Path("encrypted-rc4-length-missing.pdf"), new PdfOptions().UseStrict()));
+
+        Assert.Equal("EncryptionKeyLengthInvalid", exception.Diagnostic.Code);
+    }
 }

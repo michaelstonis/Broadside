@@ -69,6 +69,7 @@ internal static class XrefTableReader
     private static bool ReadSubsections(ref CosLexer lexer, Dictionary<int, XrefEntry> entries, long sectionOffset, DiagnosticSink diagnostics)
     {
         bool formatReported = false;
+        bool headerReported = false;
         while (true)
         {
             CosToken next = lexer.Peek();
@@ -79,7 +80,10 @@ internal static class XrefTableReader
             }
 
             long subsectionStart = sectionOffset + next.Start;
-            if (!StructureTokens.TryReadUnsigned(ref lexer, out long first) || !StructureTokens.TryReadUnsigned(ref lexer, out long count))
+            bool readFirst = StructureTokens.TryReadUnsigned(ref lexer, out long first);
+            int firstEnd = lexer.Position;
+            int countStart = lexer.Peek().Start;
+            if (!readFirst || !StructureTokens.TryReadUnsigned(ref lexer, out long count))
             {
                 diagnostics.Report(
                     DiagnosticCodes.XrefSectionInvalid,
@@ -87,6 +91,18 @@ internal static class XrefTableReader
                     "Expected a subsection header (first object number and entry count) or the trailer keyword.",
                     subsectionStart);
                 return false;
+            }
+
+            if (!headerReported && !IsSubsectionHeaderLine(lexer.Source, next.Start, firstEnd, countStart, lexer.Position))
+            {
+                // §7.5.4: "The subsection shall begin with a line containing only two integers separated by a SPACE (20h) and
+                // terminated by an end-of-line marker". Read as tokens anyway.
+                headerReported = true;
+                diagnostics.Report(
+                    DiagnosticCodes.XrefSubsectionHeaderInvalid,
+                    DiagnosticSeverity.Warning,
+                    "A subsection header is not a line of exactly two integers separated by one space; it is read as tokens.",
+                    subsectionStart);
             }
 
             for (long index = 0; index < count; index++)
@@ -144,6 +160,27 @@ internal static class XrefTableReader
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Whether the subsection header from <paramref name="start"/> to <paramref name="countEnd"/> is a line of its own holding two
+    /// integers separated by exactly one space (§7.5.4). Spaces between the count and the end of the line are tolerated: many writers
+    /// (Acrobat among them) end the line with <c>SP EOL</c>, as an entry may, and no reader misreads it.
+    /// </summary>
+    private static bool IsSubsectionHeaderLine(ReadOnlySpan<byte> source, int start, int firstEnd, int countStart, int countEnd)
+    {
+        if (start == 0 || source[start - 1] is not ((byte)'\r' or (byte)'\n') || countStart != firstEnd + 1 || source[firstEnd] != (byte)' ')
+        {
+            return false;
+        }
+
+        int end = countEnd;
+        while (end < source.Length && source[end] == (byte)' ')
+        {
+            end++;
+        }
+
+        return end < source.Length && source[end] is (byte)'\r' or (byte)'\n';
     }
 
     /// <summary>Whether <paramref name="entry"/> starts with the exact 20-byte form of §7.5.4: <c>nnnnnnnnnn ggggg n</c> plus a two-byte end of line.</summary>

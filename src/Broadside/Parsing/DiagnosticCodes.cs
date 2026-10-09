@@ -13,11 +13,14 @@ internal static class DiagnosticCodes
     // File header (ISO 32000-2 §7.5.2).
     public const string HeaderMissing = nameof(HeaderMissing);
     public const string HeaderVersionInvalid = nameof(HeaderVersionInvalid);
+    public const string HeaderInvalid = nameof(HeaderInvalid);
 
     // File trailer and startxref (§7.5.5).
     public const string StartxrefMissing = nameof(StartxrefMissing);
     public const string StartxrefInvalid = nameof(StartxrefInvalid);
     public const string EndOfFileMarkerMissing = nameof(EndOfFileMarkerMissing);
+    public const string EndOfFileMarkerNotLast = nameof(EndOfFileMarkerNotLast);
+    public const string TrailerIdMissing = nameof(TrailerIdMissing);
     public const string TrailerMissing = nameof(TrailerMissing);
     public const string TrailerPrevInvalid = nameof(TrailerPrevInvalid);
     public const string RootMissing = nameof(RootMissing);
@@ -31,6 +34,7 @@ internal static class DiagnosticCodes
     public const string XrefEntryInvalid = nameof(XrefEntryInvalid);
     public const string XrefEntryFormatInvalid = nameof(XrefEntryFormatInvalid);
     public const string XrefSubsectionNumberingInvalid = nameof(XrefSubsectionNumberingInvalid);
+    public const string XrefSubsectionHeaderInvalid = nameof(XrefSubsectionHeaderInvalid);
     public const string XrefPrevLoop = nameof(XrefPrevLoop);
 
     // Cross-reference streams and hybrid files (§7.5.8).

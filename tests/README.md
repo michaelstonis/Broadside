@@ -46,7 +46,18 @@ public void Opens(string fileName) { ... }
 
 `Corpus.WellFormedFiles`, `Corpus.MalformedFiles` and `Corpus.AllFiles` are `TheoryData<string>` over the well-formed and broken tables in the corpus README (`Corpus.PasswordProtectedFiles` is `TheoryData<string, string>` of file name and user password over its password-protected table); `WellFormedFileNames`, `MalformedFileNames` and `AllFileNames` are the same lists as `IReadOnlyList<string>`. The lists are hard-coded and `CorpusSmokeTests.File_lists_match_the_corpus_directory` fails if they drift from the directory, so adding a corpus file means adding it to `Corpus.cs` and to the README table.
 
-The real-world corpora in `corpus/` (gitignored, fetched by `tools/CorpusFetcher`) will get a similar helper when that tool lands.
+## The real-world corpus gate
+
+The real-world corpora in `corpus/` (gitignored, fetched by `tools/CorpusFetcher`) are reached through `RealWorldCorpus` in `Broadside.TestSupport`. It finds `corpus/` in this checkout or the nearest enclosing one (so a worktree under `.claude/worktrees/` reuses the main checkout's corpora), or the directory named by `BROADSIDE_CORPUS_DIR`. CI does not fetch the corpora; every corpus test then skips.
+
+```sh
+dotnet run --project tools/CorpusFetcher -- --only pdfjs,pdfbox,qpdf,pdfium-tests,verapdf-corpus,pdf20examples
+dotnet test tests/Broadside.Tests -- --filter-trait "Category=Corpus"
+```
+
+- `RealWorldCorpusTests` (issue #47): one theory row per PDF of pdf.js, PDFBox, qpdf, PDFium and the PDF 2.0 examples, opened leniently and walked completely (`DocumentWalker`: pages, every object, every stream decoded) within 30 s. Password, certificate and unsupported-encryption outcomes are counted, not failures; a file lenient mode gives up on must be listed, with the reason qpdf and poppler fail too, in `RealWorldCorpusTests.Unreadable`. The per-corpus counts and diagnostic histograms are a Verify snapshot, so a change in what the reader reports shows as a diff.
+- `VeraPdfAgreementTests`: strict mode against the pass/fail verdict in each veraPDF corpus file name, on the syntactic "6.1 File structure" tests of PDF/A-1b, PDF/A-2b and PDF/A-4. Every disagreement is triaged per rule in `VeraPdfAgreementTests.Triage` and listed in the snapshot.
+- `DocumentWalker` is meant to be shared with the open-and-walk fuzz target and benchmark: link it as source, as `CorpusLocator` is.
 
 ## Snapshots (Verify)
 

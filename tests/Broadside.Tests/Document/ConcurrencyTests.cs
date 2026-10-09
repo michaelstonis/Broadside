@@ -30,6 +30,9 @@ public class ConcurrencyTests
     /// <summary>The owner password of the encrypted corpus files, so the password-protected ones open too (ignored elsewhere).</summary>
     private static readonly PdfOptions Options = new PdfOptions().WithPassword("owner");
 
+    /// <summary>No password for the one file whose owner password is empty: <c>owner</c> is neither of its passwords.</summary>
+    private static PdfOptions OptionsFor(string fileName) => fileName == "encrypted-empty-owner-password.pdf" ? new PdfOptions() : Options;
+
     public static TheoryData<string, ConcurrentSource> FilesBySource
     {
         get
@@ -54,7 +57,7 @@ public class ConcurrencyTests
         Reading expected;
         try
         {
-            using PdfDocument alone = PdfDocument.Open(Corpus.Bytes(fileName), Options);
+            using PdfDocument alone = PdfDocument.Open(Corpus.Bytes(fileName), OptionsFor(fileName));
             expected = Reading.Of(alone, References(alone));
         }
         catch (DiagnosticException unreadable)
@@ -126,18 +129,18 @@ public class ConcurrencyTests
 
     private static PdfDocument Open(string fileName, ConcurrentSource source) => source switch
     {
-        ConcurrentSource.Bytes => PdfDocument.Open(Corpus.Bytes(fileName), Options),
-        ConcurrentSource.Path => PdfDocument.Open(Corpus.Path(fileName), Options),
+        ConcurrentSource.Bytes => PdfDocument.Open(Corpus.Bytes(fileName), OptionsFor(fileName)),
+        ConcurrentSource.Path => PdfDocument.Open(Corpus.Path(fileName), OptionsFor(fileName)),
         ConcurrentSource.FileStream => OpenFileStream(fileName),
-        ConcurrentSource.SeekableStream => PdfDocument.Open(new ProbeStream(Corpus.Bytes(fileName)), Options),
-        _ => PdfDocument.Open(new ProbeStream(Corpus.Bytes(fileName), seekable: false), Options),
+        ConcurrentSource.SeekableStream => PdfDocument.Open(new ProbeStream(Corpus.Bytes(fileName)), OptionsFor(fileName)),
+        _ => PdfDocument.Open(new ProbeStream(Corpus.Bytes(fileName), seekable: false), OptionsFor(fileName)),
     };
 
     /// <summary>Opens through a <see cref="FileStream"/> the test then closes: the mapping outlives the caller's handle.</summary>
     private static PdfDocument OpenFileStream(string fileName)
     {
         using FileStream stream = Corpus.Open(fileName);
-        return PdfDocument.Open(stream, Options);
+        return PdfDocument.Open(stream, OptionsFor(fileName));
     }
 
     /// <summary>What one complete read of a document saw, as values.</summary>
