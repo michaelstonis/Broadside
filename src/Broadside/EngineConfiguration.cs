@@ -1,5 +1,6 @@
 using Broadside.Diagnostics;
 using Broadside.Filters;
+using Broadside.Security;
 using Microsoft.Extensions.Logging;
 
 namespace Broadside;
@@ -36,6 +37,11 @@ internal sealed class EngineConfiguration
     /// <summary>Gets the most bytes one stream may decode to (issue #38).</summary>
     public long MaxDecodedStreamLength { get; private init; } = PdfOptions.DefaultMaxDecodedStreamLength;
 
+    /// <summary>Gets the security handlers: the standard handler with the options' registrations applied (issue #42).</summary>
+    public SecurityHandlerRegistry SecurityHandlers { get; private init; } = SecurityHandlerRegistry.Default;
+
+    /// <summary>Gets the credentials offered to encrypted documents opened without their own (issue #42).</summary>
+    public PdfCredentials? Credentials { get; private init; }
     /// <summary>Gets how many bytes of a non-seekable stream are copied into memory before a temporary file is used (issue #45).</summary>
     public long StreamBufferLimit { get; private init; } = PdfOptions.DefaultStreamBufferLimit;
 
@@ -49,6 +55,8 @@ internal sealed class EngineConfiguration
         Logger = ObjectLog.CreateLogger(options.LoggerFactory ?? hostLoggerFactory),
         Filters = FilterRegistry.Create(options.Filters),
         MaxDecodedStreamLength = options.MaxDecodedStreamLength,
+        SecurityHandlers = options.SecurityHandlers.Count == 0 ? SecurityHandlerRegistry.Default : SecurityHandlerRegistry.Create(options.SecurityHandlers),
+        Credentials = options.Credentials,
         StreamBufferLimit = options.StreamBufferLimit,
     };
 }

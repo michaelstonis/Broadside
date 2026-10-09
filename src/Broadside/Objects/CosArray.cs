@@ -132,6 +132,11 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
 
+    /// <summary>Replaces the element at <paramref name="index"/> as part of loading (decryption), without marking the array dirty.</summary>
+    /// <param name="index">The element's position.</param>
+    /// <param name="value">The loaded value.</param>
+    internal void ReplaceLoaded(int index, CosObject value) => _items[index] = value;
+
     /// <summary>Wraps a list the caller gives up ownership of, without copying it and without marking the array dirty.</summary>
     internal static CosArray FromOwnedList(List<CosObject> items) => new(items, owned: true);
 }

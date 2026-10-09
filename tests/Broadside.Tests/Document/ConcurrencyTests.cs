@@ -27,6 +27,9 @@ public class ConcurrencyTests
 {
     private const int Repetitions = 50;
 
+    /// <summary>The owner password of the encrypted corpus files, so the password-protected ones open too (ignored elsewhere).</summary>
+    private static readonly PdfOptions Options = new PdfOptions().WithPassword("owner");
+
     public static TheoryData<string, ConcurrentSource> FilesBySource
     {
         get
@@ -51,7 +54,7 @@ public class ConcurrencyTests
         Reading expected;
         try
         {
-            using PdfDocument alone = PdfDocument.Open(Corpus.Bytes(fileName));
+            using PdfDocument alone = PdfDocument.Open(Corpus.Bytes(fileName), Options);
             expected = Reading.Of(alone, References(alone));
         }
         catch (DiagnosticException unreadable)
@@ -123,18 +126,18 @@ public class ConcurrencyTests
 
     private static PdfDocument Open(string fileName, ConcurrentSource source) => source switch
     {
-        ConcurrentSource.Bytes => PdfDocument.Open(Corpus.Bytes(fileName)),
-        ConcurrentSource.Path => PdfDocument.Open(Corpus.Path(fileName)),
+        ConcurrentSource.Bytes => PdfDocument.Open(Corpus.Bytes(fileName), Options),
+        ConcurrentSource.Path => PdfDocument.Open(Corpus.Path(fileName), Options),
         ConcurrentSource.FileStream => OpenFileStream(fileName),
-        ConcurrentSource.SeekableStream => PdfDocument.Open(new ProbeStream(Corpus.Bytes(fileName))),
-        _ => PdfDocument.Open(new ProbeStream(Corpus.Bytes(fileName), seekable: false)),
+        ConcurrentSource.SeekableStream => PdfDocument.Open(new ProbeStream(Corpus.Bytes(fileName)), Options),
+        _ => PdfDocument.Open(new ProbeStream(Corpus.Bytes(fileName), seekable: false), Options),
     };
 
     /// <summary>Opens through a <see cref="FileStream"/> the test then closes: the mapping outlives the caller's handle.</summary>
     private static PdfDocument OpenFileStream(string fileName)
     {
         using FileStream stream = Corpus.Open(fileName);
-        return PdfDocument.Open(stream);
+        return PdfDocument.Open(stream, Options);
     }
 
     /// <summary>What one complete read of a document saw, as values.</summary>

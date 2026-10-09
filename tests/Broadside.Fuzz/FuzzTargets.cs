@@ -4,6 +4,7 @@ using Broadside.Filters;
 using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
+using Broadside.Security;
 using SharpFuzz;
 
 namespace Broadside.Fuzz;
@@ -32,9 +33,13 @@ internal static class FuzzTargets
         ["filter-flate"] = data => Filter(new FlateDecodeFilter(), data, parameters: null, maxRatio: 1100),
         ["filter-runlength"] = data => Filter(new RunLengthDecodeFilter(), data, parameters: null, maxRatio: 128),
         ["filter-predictor"] = PredictorTarget,
+        ["encrypted-document"] = EncryptedDocument,
+        ["decrypt"] = Decrypt,
+        ["mac-token"] = MacToken,
     };
 
     private static readonly CosName ContentsKey = new("Contents");
+    private static readonly CosName InfoKey = new("Info");
 
     /// <summary>
     /// Opens the input as a whole file in lenient mode and reads everything the document model exposes: version, trailer, every
@@ -129,6 +134,14 @@ internal static class FuzzTargets
         catch (DiagnosticException exception)
         {
             return exception.Diagnostic.ToString();
+        }
+        catch (PdfPasswordException exception)
+        {
+            return exception.Failure.ToString();
+        }
+        catch (PdfEncryptionNotSupportedException exception)
+        {
+            return exception.Reason.ToString();
         }
 
         using (document)
@@ -418,7 +431,106 @@ internal static class FuzzTargets
         {
             return null;
         }
+        catch (PdfPasswordException)
+        {
+            return null;
+        }
+        catch (PdfEncryptionNotSupportedException)
+        {
+            return null;
+        }
     }
+
+    /// <summary>
+    /// Opens the input as an encrypted file with the corpus owner password <c>owner</c> (so mutations of the encrypted corpus files
+    /// get past authentication) and decodes every page's content streams and the Info dictionary's strings. A password or
+    /// unsupported-encryption exception is a documented outcome; anything else is a finding. A decoded stream is never longer than
+    /// the engine's limit.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004.</remarks>
+    private static void EncryptedDocument(ReadOnlySpan<byte> data)
+    {
+        PdfDocument document;
+        try
+        {
+            document = new PdfEngine().Open(data.ToArray(), new PdfPassword("owner"));
+        }
+        catch (DiagnosticException)
+        {
+            return;
+        }
+        catch (PdfPasswordException)
+        {
+            return;
+        }
+        catch (PdfEncryptionNotSupportedException)
+        {
+            return;
+        }
+
+        using (document)
+        {
+            _ = (document.Permissions, document.Security?.Integrity);
+            foreach (PdfPage page in document.Pages)
+            {
+                CosObject contents = document.Resolve(page.Dictionary.TryGetValue(ContentsKey, out CosObject? value) ? value : null);
+                IEnumerable<CosObject> streams = contents is CosArray array ? array : [contents];
+                foreach (CosObject item in streams)
+                {
+                    if (document.Resolve(item) is CosStream stream && document.DecodeStream(stream).Length > PdfOptions.DefaultMaxDecodedStreamLength)
+                    {
+                        throw new InvalidOperationException("A decoded stream exceeds the decoded-length limit.");
+                    }
+                }
+            }
+
+            if (document.Resolve(document.Trailer.TryGetValue(InfoKey, out CosObject? info) ? info : null) is CosDictionary dictionary)
+            {
+                foreach (KeyValuePair<CosName, CosObject> entry in dictionary)
+                {
+                    _ = (document.Resolve(entry.Value) as CosString)?.DecodeText();
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Decrypts the input as a string of object 1 0 with the crypt filter method its first byte selects (RC4, AES-128-CBC with
+    /// Algorithm 1's object key, AES-256-CBC, AES-256-GCM) and a fixed key, in lenient mode. The plaintext is never longer than the
+    /// ciphertext.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.6.3 Algorithms 1 and 1.A; ISO/TS 32003 §5.2.</remarks>
+    private static void Decrypt(ReadOnlySpan<byte> data)
+    {
+        if (data.IsEmpty)
+        {
+            return;
+        }
+
+        (int version, string method) = (data[0] % 4) switch
+        {
+            0 => (4, "V2"),
+            1 => (4, "AESV2"),
+            2 => (5, "AESV3"),
+            _ => (6, "AESV4"),
+        };
+        byte[] key = new byte[version == 4 ? 16 : 32];
+        key.AsSpan().Fill(0x42);
+        var encryption = (CosDictionary)CosObject.Parse(System.Text.Encoding.ASCII.GetBytes(
+            $"<< /V {version} /CF << /StdCF << /CFM /{method} >> >> /StmF /StdCF /StrF /StdCF >>"));
+        var diagnostics = new DiagnosticSink(strict: false);
+        DocumentDecryptor decryptor = DocumentDecryptor.Create(
+            encryption, version, new SecurityHandlerResult(key, PdfAccessLevel.User, PdfPermissions.All, -4), diagnostics, value => value ?? CosNull.Instance);
+        ReadOnlyMemory<byte> plain = decryptor.Apply(decryptor.Strings, data[1..], new CosReference(1, 0));
+        if (plain.Length > data.Length - 1)
+        {
+            throw new InvalidOperationException($"{plain.Length} bytes of plaintext from {data.Length - 1} bytes of ciphertext.");
+        }
+    }
+
+    /// <summary>Parses the input as a DER-encoded PDF MAC token (a CMS AuthenticatedData) and checks its structure.</summary>
+    /// <remarks>ISO/TS 32004 §6.2-6.3; RFC 5652 §9.</remarks>
+    private static void MacToken(ReadOnlySpan<byte> data) => _ = IntegrityVerifier.TryParseToken(data.ToArray(), out _);
 
     /// <summary>
     /// Tokenizes the whole input. Every token must lie inside the input and start at or after the previous one's end, and the lexer

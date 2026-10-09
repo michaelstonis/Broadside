@@ -14,6 +14,9 @@ internal static class TextStringDecoder
     /// </summary>
     private static readonly char[] PdfDocEncoding = BuildPdfDocEncoding();
 
+    /// <summary>Gets the PDFDocEncoding table (Annex D, Table D.3): the character each byte stands for.</summary>
+    public static ReadOnlySpan<char> PdfDocEncodingTable => PdfDocEncoding;
+
     public static string Decode(ReadOnlySpan<byte> bytes)
     {
         if (bytes.StartsWith((ReadOnlySpan<byte>)[0xFE, 0xFF]))

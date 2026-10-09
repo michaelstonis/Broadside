@@ -159,6 +159,16 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
         return removed;
     }
 
+    /// <summary>Replaces the value at <paramref name="index"/> as part of loading (decryption), without marking the dictionary dirty.</summary>
+    /// <param name="index">The entry's position.</param>
+    /// <param name="value">The loaded value; not <see cref="CosNull"/>.</param>
+    internal void ReplaceLoaded(int index, CosObject value) => _entries.SetAt(index, value);
+
+    /// <summary>Gets the entry at <paramref name="index"/> in insertion order.</summary>
+    /// <param name="index">The entry's position.</param>
+    /// <returns>The entry.</returns>
+    internal KeyValuePair<CosName, CosObject> GetAt(int index) => _entries.GetAt(index);
+
     /// <summary>Wraps entries the caller gives up ownership of, without copying them and without marking the dictionary dirty.</summary>
     internal static CosDictionary FromOwnedEntries(OrderedDictionary<CosName, CosObject> entries) => new(entries);
 }

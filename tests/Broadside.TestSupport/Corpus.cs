@@ -29,6 +29,10 @@ public static class Corpus
         "encrypted-rc4-128.pdf",
         "encrypted-aes-128.pdf",
         "encrypted-aes-256.pdf",
+        "encrypted-rc4-40-r3.pdf",
+        "encrypted-crypt-filters.pdf",
+        "encrypted-aes-gcm.pdf",
+        "encrypted-mac.pdf",
         "inline-image.pdf",
         "page-tree-inherited.pdf",
         "annotations-link.pdf",
@@ -44,6 +48,14 @@ public static class Corpus
         "wrong-stream-length.pdf",
         "no-xref.pdf",
         "startxref-wrong.pdf",
+        "encrypted-mac-tampered.pdf",
+        "encrypted-owner-key-variant.pdf",
+    ];
+
+    private static readonly (string FileName, string UserPassword)[] PasswordProtected =
+    [
+        ("encrypted-user-password.pdf", "p\u00e4sswort"),
+        ("encrypted-rc4-user-password.pdf", "caf\u00e9"),
     ];
 
     /// <summary>The absolute path of <c>tests/Corpus/</c>, found by walking up from the running assembly to the directory that holds <c>Broadside.slnx</c>.</summary>
@@ -55,8 +67,14 @@ public static class Corpus
     /// <summary>Names of the files in the "Deliberately broken files" table of the corpus README.</summary>
     public static IReadOnlyList<string> MalformedFileNames => Malformed;
 
+    /// <summary>Names of the files in the "Password-protected files" table: well-formed, but they open only with a password.</summary>
+    public static IReadOnlyList<string> PasswordProtectedFileNames { get; } = [.. PasswordProtected.Select(file => file.FileName)];
+
     /// <summary>Names of every file in the corpus, well-formed first.</summary>
-    public static IReadOnlyList<string> AllFileNames { get; } = [.. WellFormed, .. Malformed];
+    public static IReadOnlyList<string> AllFileNames { get; } = [.. WellFormed, .. Malformed, .. PasswordProtected.Select(file => file.FileName)];
+
+    /// <summary>Theory data over the password-protected files: the file name and its user password (the owner password is <c>owner</c>).</summary>
+    public static TheoryData<string, string> PasswordProtectedFiles => new(PasswordProtected.Select(file => (file.FileName, file.UserPassword)));
 
     /// <summary>Theory data over <see cref="WellFormedFileNames"/>.</summary>
     public static TheoryData<string> WellFormedFiles => new(WellFormed);

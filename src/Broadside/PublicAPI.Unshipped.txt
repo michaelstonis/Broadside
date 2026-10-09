@@ -266,6 +266,101 @@ Broadside.PdfOptions.WithLoggerFactory(Microsoft.Extensions.Logging.ILoggerFacto
 Microsoft.Extensions.DependencyInjection.BroadsideServiceCollectionExtensions
 static Microsoft.Extensions.DependencyInjection.BroadsideServiceCollectionExtensions.AddBroadside(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
 static Microsoft.Extensions.DependencyInjection.BroadsideServiceCollectionExtensions.AddBroadside(this Microsoft.Extensions.DependencyInjection.IServiceCollection! services, System.Action<Broadside.PdfOptions!>! configure) -> Microsoft.Extensions.DependencyInjection.IServiceCollection!
+Broadside.PdfAccessLevel
+Broadside.PdfAccessLevel.Owner = 1 -> Broadside.PdfAccessLevel
+Broadside.PdfAccessLevel.User = 0 -> Broadside.PdfAccessLevel
+Broadside.PdfDocument.IsEncrypted.get -> bool
+Broadside.PdfDocument.Permissions.get -> Broadside.PdfPermissions
+Broadside.PdfDocument.Security.get -> Broadside.PdfSecurity?
+Broadside.PdfEngine.Open(string! path, Broadside.Security.PdfCredentials! credentials) -> Broadside.PdfDocument!
+Broadside.PdfEngine.Open(System.IO.Stream! stream, Broadside.Security.PdfCredentials! credentials) -> Broadside.PdfDocument!
+Broadside.PdfEngine.Open(System.ReadOnlyMemory<byte> bytes, Broadside.Security.PdfCredentials! credentials) -> Broadside.PdfDocument!
+Broadside.PdfIntegrityStatus
+Broadside.PdfIntegrityStatus.Failed = 2 -> Broadside.PdfIntegrityStatus
+Broadside.PdfIntegrityStatus.Missing = 4 -> Broadside.PdfIntegrityStatus
+Broadside.PdfIntegrityStatus.None = 0 -> Broadside.PdfIntegrityStatus
+Broadside.PdfIntegrityStatus.NotVerified = 3 -> Broadside.PdfIntegrityStatus
+Broadside.PdfIntegrityStatus.Verified = 1 -> Broadside.PdfIntegrityStatus
+Broadside.PdfOptions.UseSecurityHandler(Broadside.Security.ISecurityHandler! handler) -> Broadside.PdfOptions!
+Broadside.PdfOptions.WithCredentials(Broadside.Security.PdfCredentials? credentials) -> Broadside.PdfOptions!
+Broadside.PdfOptions.WithPassword(string? password) -> Broadside.PdfOptions!
+Broadside.PdfPermissions
+Broadside.PdfPermissions.All = Broadside.PdfPermissions.Print | Broadside.PdfPermissions.Modify | Broadside.PdfPermissions.Extract | Broadside.PdfPermissions.Annotate | Broadside.PdfPermissions.FillForms | Broadside.PdfPermissions.Assemble | Broadside.PdfPermissions.PrintHighQuality -> Broadside.PdfPermissions
+Broadside.PdfPermissions.Annotate = 32 -> Broadside.PdfPermissions
+Broadside.PdfPermissions.Assemble = 1024 -> Broadside.PdfPermissions
+Broadside.PdfPermissions.Extract = 16 -> Broadside.PdfPermissions
+Broadside.PdfPermissions.FillForms = 256 -> Broadside.PdfPermissions
+Broadside.PdfPermissions.Modify = 8 -> Broadside.PdfPermissions
+Broadside.PdfPermissions.None = 0 -> Broadside.PdfPermissions
+Broadside.PdfPermissions.Print = 4 -> Broadside.PdfPermissions
+Broadside.PdfPermissions.PrintHighQuality = 2048 -> Broadside.PdfPermissions
+Broadside.PdfSecurity
+Broadside.PdfSecurity.Access.get -> Broadside.PdfAccessLevel
+Broadside.PdfSecurity.EncryptionDictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfSecurity.EncryptsMetadata.get -> bool
+Broadside.PdfSecurity.Handler.get -> Broadside.Objects.CosName!
+Broadside.PdfSecurity.Integrity.get -> Broadside.PdfIntegrityStatus
+Broadside.PdfSecurity.KeyLength.get -> int
+Broadside.PdfSecurity.Permissions.get -> Broadside.PdfPermissions
+Broadside.PdfSecurity.RawPermissions.get -> int
+Broadside.PdfSecurity.RequiresIntegrityCode.get -> bool
+Broadside.PdfSecurity.Revision.get -> int?
+Broadside.PdfSecurity.SubFilter.get -> Broadside.Objects.CosName?
+Broadside.PdfSecurity.Version.get -> int
+Broadside.Security.ISecurityHandler
+Broadside.Security.ISecurityHandler.Authenticate(Broadside.Security.SecurityHandlerContext! context) -> Broadside.Security.SecurityHandlerResult!
+Broadside.Security.ISecurityHandler.Filter.get -> Broadside.Objects.CosName!
+Broadside.Security.ISecurityHandler.SubFilters.get -> System.Collections.Generic.IReadOnlyCollection<Broadside.Objects.CosName!>!
+Broadside.Security.PdfCredentials
+Broadside.Security.PdfCredentials.PdfCredentials() -> void
+Broadside.Security.PdfEncryptionNotSupportedException
+Broadside.Security.PdfEncryptionNotSupportedException.PdfEncryptionNotSupportedException() -> void
+Broadside.Security.PdfEncryptionNotSupportedException.PdfEncryptionNotSupportedException(Broadside.Security.PdfEncryptionNotSupportedReason reason, string? message) -> void
+Broadside.Security.PdfEncryptionNotSupportedException.PdfEncryptionNotSupportedException(string? message) -> void
+Broadside.Security.PdfEncryptionNotSupportedException.PdfEncryptionNotSupportedException(string? message, System.Exception? innerException) -> void
+Broadside.Security.PdfEncryptionNotSupportedException.Reason.get -> Broadside.Security.PdfEncryptionNotSupportedReason
+Broadside.Security.PdfEncryptionNotSupportedReason
+Broadside.Security.PdfEncryptionNotSupportedReason.Algorithm = 1 -> Broadside.Security.PdfEncryptionNotSupportedReason
+Broadside.Security.PdfEncryptionNotSupportedReason.Handler = 0 -> Broadside.Security.PdfEncryptionNotSupportedReason
+Broadside.Security.PdfEncryptionNotSupportedReason.Platform = 2 -> Broadside.Security.PdfEncryptionNotSupportedReason
+Broadside.Security.PdfPassword
+Broadside.Security.PdfPassword.IsEmpty.get -> bool
+Broadside.Security.PdfPassword.PdfPassword(string! password) -> void
+Broadside.Security.PdfPassword.PdfPassword(System.ReadOnlySpan<byte> password) -> void
+Broadside.Security.PdfPassword.Text.get -> string?
+Broadside.Security.PdfPasswordException
+Broadside.Security.PdfPasswordException.Failure.get -> Broadside.Security.PdfPasswordFailure
+Broadside.Security.PdfPasswordException.PdfPasswordException() -> void
+Broadside.Security.PdfPasswordException.PdfPasswordException(Broadside.Security.PdfPasswordFailure failure) -> void
+Broadside.Security.PdfPasswordException.PdfPasswordException(string? message) -> void
+Broadside.Security.PdfPasswordException.PdfPasswordException(string? message, System.Exception? innerException) -> void
+Broadside.Security.PdfPasswordFailure
+Broadside.Security.PdfPasswordFailure.Incorrect = 1 -> Broadside.Security.PdfPasswordFailure
+Broadside.Security.PdfPasswordFailure.Required = 0 -> Broadside.Security.PdfPasswordFailure
+Broadside.Security.SecurityHandlerContext
+Broadside.Security.SecurityHandlerContext.Credentials.get -> Broadside.Security.PdfCredentials?
+Broadside.Security.SecurityHandlerContext.DocumentId.get -> System.ReadOnlyMemory<byte>
+Broadside.Security.SecurityHandlerContext.EncryptionDictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Security.SecurityHandlerContext.ReadingMode.get -> Broadside.PdfReadingMode
+Broadside.Security.SecurityHandlerContext.Report(string! code, Broadside.Diagnostics.DiagnosticSeverity severity, string! message) -> void
+Broadside.Security.SecurityHandlerContext.Resolve(Broadside.Objects.CosObject? value) -> Broadside.Objects.CosObject!
+Broadside.Security.SecurityHandlerResult
+Broadside.Security.SecurityHandlerResult.Access.get -> Broadside.PdfAccessLevel
+Broadside.Security.SecurityHandlerResult.CryptFilterKeys.get -> System.Collections.Generic.IReadOnlyDictionary<Broadside.Objects.CosName!, System.ReadOnlyMemory<byte>>?
+Broadside.Security.SecurityHandlerResult.CryptFilterKeys.init -> void
+Broadside.Security.SecurityHandlerResult.FileEncryptionKey.get -> System.ReadOnlyMemory<byte>
+Broadside.Security.SecurityHandlerResult.Permissions.get -> Broadside.PdfPermissions
+Broadside.Security.SecurityHandlerResult.RawPermissions.get -> int
+Broadside.Security.SecurityHandlerResult.Revision.get -> int?
+Broadside.Security.SecurityHandlerResult.Revision.init -> void
+Broadside.Security.SecurityHandlerResult.SecurityHandlerResult(System.ReadOnlySpan<byte> fileEncryptionKey, Broadside.PdfAccessLevel access, Broadside.PdfPermissions permissions, int rawPermissions) -> void
+Broadside.Security.StandardSecurityHandler
+Broadside.Security.StandardSecurityHandler.Authenticate(Broadside.Security.SecurityHandlerContext! context) -> Broadside.Security.SecurityHandlerResult!
+Broadside.Security.StandardSecurityHandler.Filter.get -> Broadside.Objects.CosName!
+Broadside.Security.StandardSecurityHandler.StandardSecurityHandler() -> void
+Broadside.Security.StandardSecurityHandler.SubFilters.get -> System.Collections.Generic.IReadOnlyCollection<Broadside.Objects.CosName!>!
+override Broadside.Security.PdfPassword.ToString() -> string!
+static Broadside.Security.StandardSecurityHandler.UserPermissions(int rawPermissions, int revision) -> Broadside.PdfPermissions
 Broadside.PdfEngine.OpenAsync(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
 Broadside.PdfOptions.StreamBufferLimit.get -> long
 Broadside.PdfOptions.StreamBufferLimit.set -> void

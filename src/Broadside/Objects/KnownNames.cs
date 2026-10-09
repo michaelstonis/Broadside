@@ -71,4 +71,16 @@ internal static class KnownNames
 
     /// <summary><c>/ID</c>, the trailer's file identifier (§7.5.5, Table 15).</summary>
     public static readonly CosName ID = new("ID");
+
+    /// <summary>The encryption dictionary's algorithm code (§7.6.2, Table 20).</summary>
+    public static readonly CosName V = new("V");
+
+    /// <summary>The catalog's extensions dictionary (§7.12).</summary>
+    public static readonly CosName Extensions = new("Extensions");
+
+    /// <summary>The ISO prefix of the extensions dictionary (§7.12.3).</summary>
+    public static readonly CosName IsoPrefix = new("ISO_");
+
+    /// <summary>A developer extensions dictionary's level (§7.12.3, Table 49).</summary>
+    public static readonly CosName ExtensionLevel = new("ExtensionLevel");
 }

@@ -4,6 +4,7 @@ using Broadside.Filters;
 using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
+using Broadside.Security;
 using Broadside.Writing;
 
 namespace Broadside;
@@ -59,8 +60,10 @@ public sealed class PdfDocument : IDisposable
         StreamDecoder streams,
         CosDictionary catalog,
         IReadOnlyList<PdfRevision> revisions,
-        PdfLinearization? linearization)
+        PdfLinearization? linearization,
+        PdfSecurity? security)
     {
+        Security = security;
         _source = source;
         _diagnostics = diagnostics;
         _loader = loader;
@@ -131,6 +134,24 @@ public sealed class PdfDocument : IDisposable
     /// </summary>
     /// <remarks>ISO 32000-2 Annex F, F.3.3.</remarks>
     public PdfLinearization? Linearization { get; }
+
+    /// <summary>Gets a value indicating whether the document is encrypted (its trailer has an <c>Encrypt</c> entry).</summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.6. An encrypted document opens transparently: strings and streams read through it are decrypted, so its COS
+    /// objects hold plaintext.
+    /// </remarks>
+    public bool IsEncrypted => Security is not null;
+
+    /// <summary>Gets how the document is encrypted and what the credential that opened it allows, or <see langword="null"/> when it is not encrypted.</summary>
+    /// <remarks>ISO 32000-2 §7.6; ISO/TS 32003; ISO/TS 32004.</remarks>
+    public PdfSecurity? Security { get; }
+
+    /// <summary>
+    /// Gets the operations the document permits: <see cref="PdfPermissions.All"/> when it is not encrypted or was opened with the
+    /// owner password, otherwise those its security handler grants.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.6.4.2, Table 22, and §7.6.5.2, Table 24. Readers are expected to respect them; PDF does not enforce them.</remarks>
+    public PdfPermissions Permissions => Security?.Permissions ?? PdfPermissions.All;
 
     /// <summary>Gets the deviations found so far, in the order they were found. Empty for a well-formed file.</summary>
     /// <remarks>
@@ -400,8 +421,9 @@ public sealed class PdfDocument : IDisposable
     /// <summary>The open path shared by every entry point: header, cross-reference information, trailer, catalog.</summary>
     /// <param name="source">The file; owned by the document, disposed if opening fails.</param>
     /// <param name="configuration">The engine's configuration.</param>
+    /// <param name="credentials">The credentials for an encrypted document; <see langword="null"/> for the configuration's.</param>
     /// <returns>The document.</returns>
-    internal static PdfDocument Read(PdfSource source, EngineConfiguration configuration)
+    internal static PdfDocument Read(PdfSource source, EngineConfiguration configuration, PdfCredentials? credentials = null)
     {
         try
         {
@@ -421,23 +443,40 @@ public sealed class PdfDocument : IDisposable
             bool reconstructed = crossReference is null;
             crossReference ??= Reconstruct(source, header, scan.Value, streams, diagnostics, reportMissingTrailer: true);
             loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks(), streams) { Scan = scan, Logger = configuration.Logger };
-            CosDictionary? catalog = ReadCatalog(loader, diagnostics, reportUnusableRoot: reconstructed);
+
+            // Decryption is installed on the loader before the catalog loads (§7.6.2): the Encrypt dictionary loads undecrypted,
+            // everything after it decrypted. A rebuilt loader gets it installed again.
+            PdfCredentials? offered = credentials ?? configuration.Credentials;
+            PdfSecurity? security = DocumentSecurity.Open(
+                source, loader, streams, configuration.SecurityHandlers, offered, diagnostics, reportUnusable: reconstructed, out bool encryptUnusable);
+            CosDictionary? catalog = encryptUnusable ? null : ReadCatalog(loader, diagnostics, reportUnusableRoot: reconstructed);
             if (catalog is null)
             {
-                // §7.5.5: the trailer's Root shall lead to the catalog. When it does not, the cross-reference information is not
-                // trusted either: rebuild it by scanning, which also finds a catalog no trailer names.
+                // §7.5.5: the trailer's Root shall lead to the catalog (and its Encrypt to the encryption dictionary). When it does
+                // not, the cross-reference information is not trusted either: rebuild it by scanning, which also finds a catalog no
+                // trailer names.
                 diagnostics.Report(
-                    DiagnosticCodes.RootMissing,
+                    encryptUnusable ? DiagnosticCodes.EncryptDictionaryInvalid : DiagnosticCodes.RootMissing,
                     DiagnosticSeverity.Warning,
-                    "The trailer has no Root entry that resolves to the catalog dictionary; the cross-reference information is rebuilt by scanning the file.");
+                    encryptUnusable
+                        ? "The trailer's Encrypt entry does not resolve to the encryption dictionary; the cross-reference information is rebuilt by scanning the file."
+                        : "The trailer has no Root entry that resolves to the catalog dictionary; the cross-reference information is rebuilt by scanning the file.");
                 crossReference = Reconstruct(source, header, scan.Value, streams, diagnostics, reportMissingTrailer: false);
                 loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks(), streams) { Scan = scan, Logger = configuration.Logger };
+                streams.CryptFilter = IdentityCryptFilterHandler.Instance;
+                security = DocumentSecurity.Open(
+                    source, loader, streams, configuration.SecurityHandlers, offered, diagnostics, reportUnusable: true, out _);
                 catalog = ReadCatalog(loader, diagnostics, reportUnusableRoot: true)!;
             }
 
             IReadOnlyList<PdfRevision> revisions = ReadRevisions(source, crossReference, diagnostics);
+            if (security is not null)
+            {
+                DocumentSecurity.CheckExtensions(security, catalog, loader.Resolve, diagnostics);
+            }
+
             PdfLinearization? linearization = LinearizationReader.Read(source, loader, diagnostics);
-            return new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization);
+            return new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security);
         }
         catch
         {

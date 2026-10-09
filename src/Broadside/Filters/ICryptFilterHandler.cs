@@ -9,8 +9,9 @@ namespace Broadside.Filters;
 /// <see cref="IdentityCryptFilterHandler"/> decodes only the <c>Identity</c> crypt filter.
 /// </summary>
 /// <remarks>
-/// A stream whose chain starts with <c>Crypt</c> is decrypted here with the named crypt filter's key used as is (§7.4.10), so the
-/// object decryptor (hook 2 of the object loader) must leave such a stream's data alone.
+/// The standard implementation (issue #42, <c>DocumentDecryptor</c>) decrypts a stream whose chain starts with <c>Crypt</c> when the
+/// stream's object loads (it needs the object number for Algorithm 1), with the named crypt filter; this stage then passes the data
+/// of a crypt filter the document defines through and returns <see langword="false"/> for an unknown one.
 /// </remarks>
 internal interface ICryptFilterHandler
 {
