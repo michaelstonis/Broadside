@@ -25,6 +25,7 @@ public static class Corpus
         "text-truetype-symbolic.pdf",
         "text-truetype-macroman.pdf",
         "text-truetype-loca-long.pdf",
+        "text-type1-embedded.pdf",
         "text-cid-identity-h.pdf",
         "text-cid-identity-v.pdf",
         "text-cid-embedded-cmap.pdf",
@@ -98,6 +99,9 @@ public static class Corpus
         "name-tree-broken.pdf",
         "outline-broken.pdf",
         "annotations-malformed.pdf",
+        "text-type1-pfb.pdf",
+        "text-type1-hex-eexec.pdf",
+        "text-type1-bad-lengths.pdf",
     ];
 
     private static readonly (string FileName, string UserPassword)[] PasswordProtected =

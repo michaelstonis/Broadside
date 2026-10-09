@@ -13,7 +13,7 @@ public class SaveTests
     /// Broken files whose damage is in a document-model structure read lazily (a name tree, an outline), not in the file structure:
     /// they open without a diagnostic and save byte for byte, damage included, so qpdf reports it again.
     /// </summary>
-    private static readonly HashSet<string> DamagedInTheDocumentModel = new(StringComparer.Ordinal) { "name-tree-broken.pdf", "outline-broken.pdf", "annotations-malformed.pdf" };
+    private static readonly HashSet<string> DamagedInTheDocumentModel = new(StringComparer.Ordinal) { "name-tree-broken.pdf", "outline-broken.pdf", "annotations-malformed.pdf", "text-type1-pfb.pdf", "text-type1-hex-eexec.pdf", "text-type1-bad-lengths.pdf" };
 
     /// <summary>
     /// Well-formed files qpdf 12.4.2 warns about because it compares name tree keys as decoded text, not byte by byte as ISO 32000-2

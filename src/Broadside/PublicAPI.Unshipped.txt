@@ -891,6 +891,11 @@ Broadside.Fonts.TrueType.TrueTypeFontProgramParser.CanParse(System.ReadOnlySpan<
 Broadside.Fonts.TrueType.TrueTypeFontProgramParser.Formats.get -> System.Collections.Generic.IReadOnlyList<Broadside.Fonts.FontProgramFormat>!
 Broadside.Fonts.TrueType.TrueTypeFontProgramParser.Parse(System.ReadOnlyMemory<byte> data, Broadside.Fonts.FontProgramContext! context) -> Broadside.Fonts.FontProgram?
 Broadside.Fonts.TrueType.TrueTypeFontProgramParser.TrueTypeFontProgramParser() -> void
+Broadside.Fonts.Type1.Type1FontProgramParser
+Broadside.Fonts.Type1.Type1FontProgramParser.CanParse(System.ReadOnlySpan<byte> data) -> bool
+Broadside.Fonts.Type1.Type1FontProgramParser.Formats.get -> System.Collections.Generic.IReadOnlyList<Broadside.Fonts.FontProgramFormat>!
+Broadside.Fonts.Type1.Type1FontProgramParser.Parse(System.ReadOnlyMemory<byte> data, Broadside.Fonts.FontProgramContext! context) -> Broadside.Fonts.FontProgram?
+Broadside.Fonts.Type1.Type1FontProgramParser.Type1FontProgramParser() -> void
 Broadside.Fonts.WritingMode
 Broadside.Fonts.WritingMode.Horizontal = 0 -> Broadside.Fonts.WritingMode
 Broadside.Fonts.WritingMode.Vertical = 1 -> Broadside.Fonts.WritingMode
@@ -1985,6 +1990,7 @@ virtual Broadside.Fonts.FontProgram.GetMetrics(int glyphId) -> Broadside.Fonts.G
 virtual Broadside.Fonts.FontProgram.LineGap.get -> double
 virtual Broadside.Fonts.FontProgram.PostScriptName.get -> string?
 virtual Broadside.Fonts.FontProgram.TryGetGlyphId(string! glyphName, out int glyphId) -> bool
+virtual Broadside.Fonts.FontProgram.BuiltInEncoding.get -> System.Collections.Generic.IReadOnlyList<string!>?
 static Broadside.PdfCollectionIdRange.operator !=(Broadside.PdfCollectionIdRange left, Broadside.PdfCollectionIdRange right) -> bool
 static Broadside.PdfCollectionIdRange.operator ==(Broadside.PdfCollectionIdRange left, Broadside.PdfCollectionIdRange right) -> bool
 virtual Broadside.Graphics.PdfColorSpace.MinimumVersion.get -> Broadside.PdfVersion
@@ -2577,6 +2583,7 @@ Broadside.Fonts.PdfTrueTypeFont
 Broadside.Fonts.PdfType0Font
 Broadside.Fonts.PdfType1Font
 Broadside.Fonts.PdfType1Font.IsMultipleMaster.get -> bool
+Broadside.Fonts.PdfType1Font.GetGlyphId(byte code) -> int
 Broadside.Fonts.PdfType3Font
 Broadside.Fonts.Standard14Font
 Broadside.Fonts.Standard14Font.Courier = 0 -> Broadside.Fonts.Standard14Font

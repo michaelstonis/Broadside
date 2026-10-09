@@ -1162,6 +1162,218 @@ def gen_text_truetype_loca_long() -> bytes:
 
 
 # ---------------------------------------------------------------------------
+# Type 1 font programs (9.9 Table 125; Adobe Type 1 Font Format, TN 5015, TN 5040)
+# ---------------------------------------------------------------------------
+
+T1_OPS = {"hstem": 1, "vstem": 3, "vmoveto": 4, "rlineto": 5, "hlineto": 6, "vlineto": 7, "rrcurveto": 8,
+          "closepath": 9, "callsubr": 10, "return": 11, "hsbw": 13, "endchar": 14, "rmoveto": 21, "hmoveto": 22,
+          "vhcurveto": 30, "hvcurveto": 31}
+T1_ESCAPES = {"dotsection": 0, "vstem3": 1, "hstem3": 2, "seac": 6, "sbw": 7, "div": 12, "callothersubr": 16,
+              "pop": 17, "setcurrentpoint": 33}
+
+
+def t1_num(v: int) -> bytes:
+    """Type 1 Font Format 6.2: charstring number encoding."""
+    if -107 <= v <= 107:
+        return bytes([v + 139])
+    if 108 <= v <= 1131:
+        v -= 108
+        return bytes([(v >> 8) + 247, v & 0xFF])
+    if -1131 <= v <= -108:
+        v = -v - 108
+        return bytes([(v >> 8) + 251, v & 0xFF])
+    return b"\xff" + struct.pack(">i", v)
+
+
+def t1_charstring(program: str) -> bytes:
+    """A plaintext charstring from text: integers and command names (6.4, Appendix 2)."""
+    out = b""
+    for token in program.split():
+        if token in T1_OPS:
+            out += bytes([T1_OPS[token]])
+        elif token in T1_ESCAPES:
+            out += bytes([12, T1_ESCAPES[token]])
+        else:
+            out += t1_num(int(token))
+    return out
+
+
+def t1_encrypt(plain: bytes, r: int) -> bytes:
+    """Type 1 Font Format 7.1: c = p ^ (r >> 8); r = ((c + r) * 52845 + 22719) mod 65536."""
+    out = bytearray()
+    for p in plain:
+        c = p ^ (r >> 8)
+        r = ((c + r) * 52845 + 22719) & 0xFFFF
+        out.append(c)
+    return bytes(out)
+
+
+def t1_decrypt(cipher: bytes, r: int) -> bytes:
+    out = bytearray()
+    for c in cipher:
+        out.append(c ^ (r >> 8))
+        r = ((c + r) * 52845 + 22719) & 0xFFFF
+    return bytes(out)
+
+
+def t1_eexec(plain: bytes, label: str) -> bytes:
+    """7.2: eexec encryption with four leading bytes chosen so that the first cipher byte is not white space and not all
+    of the first four are hexadecimal digits (the binary form a reader can tell from the hexadecimal one)."""
+    hexdigits = set(b"0123456789abcdefABCDEF")
+    i = 0
+    while True:
+        cipher = t1_encrypt(fixed_bytes("%s:%d" % (label, i), 4) + plain, 55665)
+        if cipher[0] not in b" \t\r\n" and not all(b in hexdigits for b in cipher[:4]):
+            return cipher
+        i += 1
+
+
+# The glyphs of BroadsideT1 (glyph space 1000 units per em). Each exercises a part of the charstring language:
+# hints, h/v line and curve shortcuts, nested subroutines, flex (Subrs 0-2, 8.3-8.4), hint replacement (OtherSubrs 3,
+# 8.2), the 5-byte number form with div, closepath leaving the current point, sbw, and seac (6.4, TN 5015 errata).
+T1_SUBRS = [
+    "3 0 callothersubr pop pop setcurrentpoint return",   # 0: flex end (8.4)
+    "0 1 callothersubr return",                            # 1: flex start
+    "0 2 callothersubr return",                            # 2: flex point
+    "return",                                              # 3: hint replacement fallback
+    "0 0 rmoveto 6 callsubr closepath return",             # 4: the I stem, through subr 6
+    "0 100 hstem 600 100 hstem 0 100 vstem return",        # 5: replacement hints for E
+    "200 hlineto 700 vlineto -200 hlineto return",         # 6: nested in 4
+]
+T1_GLYPHS = [
+    (".notdef", "0 500 hsbw endchar"),
+    ("H", "100 800 hsbw 0 200 vstem 400 200 vstem 0 0 rmoveto 200 hlineto 300 vlineto 200 hlineto -300 vlineto "
+          "200 hlineto 700 vlineto -200 hlineto -300 vlineto -200 hlineto 300 vlineto -200 hlineto closepath endchar"),
+    ("I", "100 400 hsbw 4 callsubr endchar"),
+    ("O", "50 800 hsbw 0 350 rmoveto -193 157 -157 193 vhcurveto 193 157 157 193 hvcurveto "
+          "0 193 -157 157 -193 0 rrcurveto -193 -157 -157 -193 hvcurveto closepath endchar"),
+    ("F", "100 300 hsbw 0 -10 rmoveto 1 callsubr 50 0 rmoveto 2 callsubr -35 0 rmoveto 2 callsubr "
+          "10 10 rmoveto 2 callsubr 25 0 rmoveto 2 callsubr 25 0 rmoveto 2 callsubr 10 -10 rmoveto 2 callsubr "
+          "15 0 rmoveto 2 callsubr 50 200 -10 0 callsubr 100 vlineto -100 hlineto closepath endchar"),
+    ("E", "100 600 hsbw 0 100 hstem 0 0 rmoveto 5 1 3 callothersubr pop callsubr 400 hlineto 100 vlineto "
+          "-300 hlineto 500 vlineto 300 hlineto 100 vlineto -400 hlineto closepath dotsection endchar"),
+    ("T", "50 500000 1000 div hsbw 0 600 rmoveto 400 hlineto 100 vlineto -400 hlineto closepath "
+          "150 -700 rmoveto 100 hlineto 600 vlineto -100 hlineto closepath endchar"),
+    ("A", "20 740 hsbw 0 0 rmoveto 200 hlineto 150 500 rlineto 150 -500 rlineto 200 hlineto -250 700 rlineto "
+          "-200 hlineto closepath endchar"),
+    ("acute", "200 0 400 0 sbw 0 600 rmoveto 100 hlineto 100 100 rlineto -100 hlineto closepath endchar"),
+    ("Aacute", "20 740 hsbw 200 150 150 65 194 seac"),
+]
+# Codes of the built-in encoding; 49 ('1') and 193 map glyphs StandardEncoding would not.
+T1_ENCODING = [(49, "H"), (65, "A"), (69, "E"), (70, "F"), (72, "H"), (73, "I"), (79, "O"), (84, "T"),
+               (193, "Aacute"), (194, "acute")]
+T1_TEXT = b"1HIOFETA\xc1"
+
+
+def minimal_type1() -> tuple[bytes, bytes, bytes]:
+    """A synthesized Type 1 program (no licence): clear text, eexec-encrypted portion, fixed portion (T1 2.2-2.6).
+    Entries alternate between the RD/ND/NP and -|/|-/| procedure names (2.5)."""
+    encoding = b"".join(b"dup %d /%s put\n" % (code, name.encode()) for code, name in T1_ENCODING)
+    clear = (b"%!PS-AdobeFont-1.0: BroadsideT1 001.000\n"
+             b"%%Title: BroadsideT1\n"
+             b"11 dict begin\n"
+             b"/FontInfo 2 dict dup begin\n"
+             b"/FullName (Broadside Type 1 \\(synthesized\\)) readonly def\n"
+             b"/Notice (Synthesized for the Broadside corpus) readonly def\n"
+             b"end readonly def\n"
+             b"/FontName /BroadsideT1 def\n"
+             b"/PaintType 0 def\n"
+             b"/FontType 1 def\n"
+             b"/FontMatrix [0.001 0 0 0.001 0 0] readonly def\n"
+             b"/FontBBox {0 -10 750 850} readonly def\n"
+             b"/Encoding 256 array\n"
+             b"0 1 255 {1 index exch /.notdef put} for\n" + encoding +
+             b"readonly def\n"
+             b"currentfile eexec\n")
+
+    def entry(cs: str) -> bytes:
+        return t1_encrypt(b"\x00\x00\x00\x00" + t1_charstring(cs), 4330)
+
+    private = (b"dup /Private 10 dict dup begin\n"
+               b"/RD{string currentfile exch readstring pop}executeonly def\n"
+               b"/ND{noaccess def}executeonly def\n"
+               b"/NP{noaccess put}executeonly def\n"
+               b"/-|{string currentfile exch readstring pop}executeonly def\n"
+               b"/|-{noaccess def}executeonly def\n"
+               b"/|{noaccess put}executeonly def\n"
+               b"/BlueValues [-10 0 700 710] def\n"
+               b"/MinFeature{16 16}def\n"
+               b"/password 5839 def\n"
+               b"/lenIV 4 def\n"
+               b"/OtherSubrs [{} {} {} {systemdict /internaldict known not {pop 3} {1183615869 systemdict "
+               b"/internaldict get exec dup /startlock known {/startlock get exec} {dup /strtlck known "
+               b"{/strtlck get exec} {pop 3} ifelse} ifelse} ifelse} executeonly] noaccess def\n"
+               b"/Subrs %d array\n" % len(T1_SUBRS))
+    for i, cs in enumerate(T1_SUBRS):
+        data = entry(cs)
+        rd, np = (b"RD", b"NP") if i % 2 == 0 else (b"-|", b"|")
+        private += b"dup %d %d %s %s %s\n" % (i, len(data), rd, data, np)
+    private += b"ND\n2 index /CharStrings %d dict dup begin\n" % len(T1_GLYPHS)
+    for i, (name, cs) in enumerate(T1_GLYPHS):
+        data = entry(cs)
+        rd, nd = (b"RD", b"ND") if i % 2 == 0 else (b"-|", b"|-")
+        private += b"/%s %d %s %s %s\n" % (name.encode(), len(data), rd, data, nd)
+    private += b"end\nend\nreadonly put\nnoaccess put\ndup/FontName get exch definefont pop\nmark currentfile closefile\n"
+    fixed = (b"0" * 64 + b"\n") * 8 + b"cleartomark\n"
+    return clear, t1_eexec(private, "type1-eexec"), fixed
+
+
+def type1_file(program: bytes, lengths: tuple[int, int, int]) -> bytes:
+    """A page showing every glyph of BroadsideT1, embedded with FontFile and no /Encoding, so the program's built-in
+    encoding applies (9.6.2.1 Table 109, 9.6.5.2, 9.9 Table 125)."""
+    first, last = min(T1_TEXT), max(T1_TEXT)
+    width_of = {"H": 800, "I": 400, "O": 800, "F": 300, "E": 600, "T": 500, "A": 740, "Aacute": 740, "acute": 400}
+    names = dict(T1_ENCODING)
+    w = b" ".join(b"%d" % width_of.get(names.get(c, ""), 0) for c in range(first, last + 1))
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>" % LETTER),
+        (4, stream(b"", codes_content([("F1", T1_TEXT)]))),
+        (5, b"<< /Type /Font /Subtype /Type1 /BaseFont /BroadsideT1 /FirstChar %d /LastChar %d /Widths [%s] "
+            b"/FontDescriptor 6 0 R >>" % (first, last, w)),
+        (6, b"<< /Type /FontDescriptor /FontName /BroadsideT1 /Flags 32 /FontBBox [0 -10 750 850] /ItalicAngle 0 "
+            b"/Ascent 850 /Descent -10 /CapHeight 700 /StemV 100 /FontFile 7 0 R >>"),
+        (7, stream(b"/Length1 %d /Length2 %d /Length3 %d" % lengths, program)),
+    ], binary=True)
+
+
+def gen_text_type1_embedded() -> bytes:
+    """9.9 Table 125: an embedded Type 1 program in the PDF layout (clear text, binary eexec portion, 512 zeros and
+    cleartomark), its lengths exact; the font dictionary has no Encoding (9.6.5.2: the program's applies)."""
+    clear, cipher, fixed = minimal_type1()
+    return type1_file(clear + cipher + fixed, (len(clear), len(cipher), len(fixed)))
+
+
+def pfb_segment(kind: int, data: bytes = b"") -> bytes:
+    """TN 5040 3.3 Table 1: 128, type (1 ASCII, 2 binary, 3 end of file), 4-byte little-endian length, data."""
+    return bytes([128, kind]) + (struct.pack("<I", len(data)) + data if kind != 3 else b"")
+
+
+def gen_text_type1_pfb() -> bytes:
+    """A whole PFB file (TN 5040) as the FontFile, the binary portion split over two segments; ISO 32000-2 9.9 wants the
+    unwrapped program, so a reader strips the segment headers with a diagnostic. Lengths are the unwrapped portions."""
+    clear, cipher, fixed = minimal_type1()
+    half = len(cipher) // 2
+    pfb = (pfb_segment(1, clear) + pfb_segment(2, cipher[:half]) + pfb_segment(2, cipher[half:]) +
+           pfb_segment(1, fixed) + pfb_segment(3))
+    return type1_file(pfb, (len(clear), len(cipher), len(fixed)))
+
+
+def gen_text_type1_hex_eexec() -> bytes:
+    """A PFA-style program: the eexec portion in hexadecimal, 64 digits per line (Type 1 Font Format 7.2); ISO 32000-2
+    9.9 allows only the binary form. Length2 counts the hexadecimal text."""
+    clear, cipher, fixed = minimal_type1()
+    digits = cipher.hex().encode()
+    hex_text = b"".join(digits[i:i + 64] + b"\n" for i in range(0, len(digits), 64))
+    return type1_file(clear + hex_text + fixed, (len(clear), len(hex_text), len(fixed)))
+
+
+def gen_text_type1_bad_lengths() -> bytes:
+    """Length1 five bytes short of the clear text (pdf.js issue5686), Length2 larger than the stream (issue3928 has
+    such values), Length3 0 and no fixed portion."""
+    clear, cipher, _ = minimal_type1()
+    return type1_file(clear + cipher, (len(clear) - 5, 99999999999, 0))
 # Composite fonts (clause 9.7): Type 0 font over a CIDFontType2 descendant
 # ---------------------------------------------------------------------------
 
@@ -2933,6 +3145,7 @@ FILES = {
     "text-truetype-symbolic.pdf": gen_text_truetype_symbolic,
     "text-truetype-macroman.pdf": gen_text_truetype_macroman,
     "text-truetype-loca-long.pdf": gen_text_truetype_loca_long,
+    "text-type1-embedded.pdf": gen_text_type1_embedded,
     "text-cid-identity-h.pdf": gen_text_cid_identity_h,
     "text-cid-identity-v.pdf": gen_text_cid_identity_v,
     "text-cid-embedded-cmap.pdf": gen_text_cid_embedded_cmap,
@@ -2974,6 +3187,9 @@ FILES = {
     "annotations-subtypes.pdf": gen_annotations_subtypes,
     "annotations-appearance.pdf": gen_annotations_appearance,
     "annotations-malformed.pdf": gen_annotations_malformed,
+    "text-type1-pfb.pdf": gen_text_type1_pfb,
+    "text-type1-hex-eexec.pdf": gen_text_type1_hex_eexec,
+    "text-type1-bad-lengths.pdf": gen_text_type1_bad_lengths,
     "outline.pdf": gen_outline,
     "name-tree-dests.pdf": gen_name_tree_dests,
     "metadata-xmp.pdf": gen_metadata_xmp,
@@ -3030,6 +3246,15 @@ def self_test() -> None:
     assert aes_key_wrap(bytes(range(32)), bytes.fromhex(
         "00112233445566778899AABBCCDDEEFF000102030405060708090A0B0C0D0E0F")) == bytes.fromhex(
         "28C9F404C4B810F4CBCCB35CFB87F8263F5786E2D80ED326CBC7F0E71A99F43BFB988B9B7A02DD21")
+    # Type 1 Font Format 7.3: the charstring of the letter C (6.6), encrypted with four zero bytes (r = 4330)
+    c_plain = bytes.fromhex("BDF9B40D8BEF038BEF01F8ECEF018B16F95006EF07FCEC06F88807F8EC06EF07FD5006090E")
+    c_cipher = bytes.fromhex("10BF31704FAB5B1F03F9B68B1F39A66521B1841F1481697F8E12B7F7DDD6E3D7248D965B1CD45E2114")
+    assert t1_encrypt(bytes(4) + c_plain, 4330) == c_cipher
+    assert t1_charstring("50 800 hsbw 0 100 vstem 0 100 hstem 600 100 hstem 0 hmoveto 700 hlineto 100 vlineto "
+                         "-600 hlineto 500 vlineto 600 hlineto 100 vlineto -700 hlineto closepath endchar") == c_plain
+    # TN 5015 section 6 errata: the corrected eexec text of the Symbol font begins its Private dictionary
+    assert t1_decrypt(bytes.fromhex("a8686bfddf470dd119f86e1b8e5b290ae7d910e9317a36f6768d8de89e7ed5b8"), 55665)[4:] \
+        == b"dup /Private 13 dict dup beg"
     # RFC 5869 A.1
     assert hkdf_sha256(b"\x0b" * 22, bytes(range(13)), bytes(range(0xF0, 0xFA)), 42) == bytes.fromhex(
         "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865")
