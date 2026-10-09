@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Drives tools/ConformanceCheck against fixture repositories (one per rule) and against this checkout. -->
+  <PropertyGroup>
+    <RootNamespace>Broadside.Tools.ConformanceCheck.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../tools/ConformanceCheck/ConformanceCheck.csproj" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+  <!-- Fixtures are tiny fake repositories: their .cs files are scanned by the checker, never compiled, and are copied next to the test assembly. -->
+  <ItemGroup>
+    <Compile Remove="Fixtures/**" />
+    <None Remove="Fixtures/**" />
+    <None Include="Fixtures/**" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>
