@@ -161,6 +161,9 @@ public sealed class PdfDocument : IDisposable
     /// </remarks>
     public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics.Snapshot();
 
+    /// <summary>Gets the sink the document model's views report the deviations they find to (lazy diagnostics).</summary>
+    internal DiagnosticSink DiagnosticSink => _diagnostics;
+
     /// <summary>Opens the PDF file at <paramref name="path"/> with default options.</summary>
     /// <param name="path">The file path. The file is memory-mapped and shared for reading: do not change it until the document is disposed.</param>
     /// <returns>The document. Dispose it when done.</returns>
@@ -343,6 +346,12 @@ public sealed class PdfDocument : IDisposable
     /// </returns>
     /// <remarks>ISO 32000-2 §7.3.10.</remarks>
     public CosObject Resolve(CosObject? value) => _loader.Resolve(value);
+
+    /// <summary>Returns a view over a file specification held by <paramref name="value"/>, resolving it first.</summary>
+    /// <param name="value">A file specification string or dictionary, or a reference to one, of this document.</param>
+    /// <returns>The view, or <see langword="null"/> when the value is neither a string nor a dictionary.</returns>
+    /// <remarks>ISO 32000-2 §7.11. For file specifications the document model does not reach itself (an action's <c>F</c>, say).</remarks>
+    public PdfFileSpecification? GetFileSpecification(CosObject? value) => PdfFileSpecification.Create(this, value);
 
     /// <summary>Returns the data of <paramref name="stream"/> decoded through the filters its <c>Filter</c> entry names.</summary>
     /// <param name="stream">A stream of this document.</param>

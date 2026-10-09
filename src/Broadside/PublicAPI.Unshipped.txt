@@ -65,6 +65,71 @@ Broadside.Objects.CosString.CosString(System.ReadOnlySpan<byte> bytes, bool hexa
 Broadside.Objects.CosString.DecodeText() -> string!
 Broadside.Objects.CosString.Equals(Broadside.Objects.CosString? other) -> bool
 Broadside.Objects.CosString.IsHexadecimal.get -> bool
+Broadside.PdfCheckSumStatus
+Broadside.PdfCheckSumStatus.Absent = 0 -> Broadside.PdfCheckSumStatus
+Broadside.PdfCheckSumStatus.DoesNotMatch = 2 -> Broadside.PdfCheckSumStatus
+Broadside.PdfCheckSumStatus.Matches = 1 -> Broadside.PdfCheckSumStatus
+Broadside.PdfCollectionItem
+Broadside.PdfCollectionItem.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfCollectionItem.GetValue(string! fieldKey) -> Broadside.PdfCollectionItemValue?
+Broadside.PdfCollectionItem.Keys.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.PdfCollectionItemValue
+Broadside.PdfCollectionItemValue.Data.get -> Broadside.Objects.CosObject!
+Broadside.PdfCollectionItemValue.Number.get -> double?
+Broadside.PdfCollectionItemValue.Prefix.get -> string?
+Broadside.PdfCollectionItemValue.Text.get -> string?
+Broadside.PdfDocument.GetFileSpecification(Broadside.Objects.CosObject? value) -> Broadside.PdfFileSpecification?
+Broadside.PdfEmbeddedFile
+Broadside.PdfEmbeddedFile.Decode() -> System.ReadOnlyMemory<byte>
+Broadside.PdfEmbeddedFile.Decode(System.Buffers.IBufferWriter<byte>! output) -> void
+Broadside.PdfEmbeddedFile.MediaType.get -> string!
+Broadside.PdfEmbeddedFile.Parameters.get -> Broadside.PdfEmbeddedFileParameters?
+Broadside.PdfEmbeddedFile.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfEmbeddedFile.Stream.get -> Broadside.Objects.CosStream!
+Broadside.PdfEmbeddedFile.Subtype.get -> string?
+Broadside.PdfEmbeddedFile.VerifyCheckSum() -> Broadside.PdfCheckSumStatus
+Broadside.PdfEmbeddedFileParameters
+Broadside.PdfEmbeddedFileParameters.CheckSum.get -> System.ReadOnlyMemory<byte>?
+Broadside.PdfEmbeddedFileParameters.CreationDate.get -> Broadside.Objects.CosString?
+Broadside.PdfEmbeddedFileParameters.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfEmbeddedFileParameters.Mac.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfEmbeddedFileParameters.ModificationDate.get -> Broadside.Objects.CosString?
+Broadside.PdfEmbeddedFileParameters.Size.get -> long?
+Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.Alternative = 3 -> Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.Data = 2 -> Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.EncryptedPayload = 5 -> Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.FormData = 6 -> Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.Other = 8 -> Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.Schema = 7 -> Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.Source = 1 -> Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.Supplement = 4 -> Broadside.PdfFileRelationship
+Broadside.PdfFileRelationship.Unspecified = 0 -> Broadside.PdfFileRelationship
+Broadside.PdfFileSpecification
+Broadside.PdfFileSpecification.CollectionItem.get -> Broadside.PdfCollectionItem?
+Broadside.PdfFileSpecification.Description.get -> string?
+Broadside.PdfFileSpecification.Dictionary.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfFileSpecification.EmbeddedFile.get -> Broadside.PdfEmbeddedFile?
+Broadside.PdfFileSpecification.EncryptedPayload.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfFileSpecification.FileIdentifier.get -> Broadside.Objects.CosArray?
+Broadside.PdfFileSpecification.FileName.get -> string?
+Broadside.PdfFileSpecification.FileNameString.get -> Broadside.Objects.CosString?
+Broadside.PdfFileSpecification.FileSystem.get -> Broadside.Objects.CosName?
+Broadside.PdfFileSpecification.IsAbsolute.get -> bool
+Broadside.PdfFileSpecification.IsUrl.get -> bool
+Broadside.PdfFileSpecification.IsVolatile.get -> bool
+Broadside.PdfFileSpecification.PathComponents.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.PdfFileSpecification.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfFileSpecification.RelatedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfRelatedFile!>!
+Broadside.PdfFileSpecification.Relationship.get -> Broadside.PdfFileRelationship
+Broadside.PdfFileSpecification.RelationshipName.get -> Broadside.Objects.CosName!
+Broadside.PdfFileSpecification.SafeFileName.get -> string?
+Broadside.PdfFileSpecification.Thumbnail.get -> Broadside.Objects.CosStream?
+Broadside.PdfFileSpecification.Value.get -> Broadside.Objects.CosObject!
+Broadside.PdfRelatedFile
+Broadside.PdfRelatedFile.File.get -> Broadside.PdfEmbeddedFile!
+Broadside.PdfRelatedFile.Name.get -> string!
+Broadside.PdfRelatedFile.NameString.get -> Broadside.Objects.CosString!
 const Broadside.Objects.CosReference.MaxGeneration = 65535 -> int
 override Broadside.Objects.CosArray.IsDirty.get -> bool
 override Broadside.Objects.CosBoolean.Equals(object? obj) -> bool
