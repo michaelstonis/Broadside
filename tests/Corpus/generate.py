@@ -704,6 +704,96 @@ def gen_text_truetype_embedded() -> bytes:
     ], binary=True)
 
 
+def codes_content(lines: list[tuple[str, bytes]]) -> bytes:
+    """One text line per (font resource, codes); codes as a hexadecimal string so any byte can be shown."""
+    out = b"BT /%s 24 Tf 72 700 Td <%s> Tj" % (lines[0][0].encode(), lines[0][1].hex().upper().encode())
+    for font, codes in lines[1:]:
+        out += b" /%s 24 Tf 0 -36 Td <%s> Tj" % (font.encode(), codes.hex().upper().encode())
+    return out + b" ET"
+
+
+def font_file(fonts: list[bytes], codes: list[bytes], extra: list[tuple[int, bytes]] | None = None) -> bytes:
+    """A page showing ``codes[i]`` in font ``F{i+1}`` (object 5 + i); ``extra`` objects follow the fonts."""
+    refs = b" ".join(b"/F%d %d 0 R" % (i + 1, 5 + i) for i in range(len(fonts)))
+    objects = [
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << %s >> >> >>" % (LETTER, refs)),
+        (4, stream(b"", codes_content([("F%d" % (i + 1), c) for i, c in enumerate(codes)]))),
+    ]
+    objects += [(5 + i, body) for i, body in enumerate(fonts)]
+    objects += extra or []
+    return simple_file(objects)
+
+
+def std14(base_font: bytes, entries: bytes = b"", subtype: bytes = b"Type1") -> bytes:
+    """9.6.2.2: a non-embedded standard 14 font dictionary without FirstChar, LastChar, Widths or FontDescriptor."""
+    return b"<< /Type /Font /Subtype /%s /BaseFont /%s%s >>" % (subtype, base_font, b" " + entries if entries else b"")
+
+
+def gen_text_standard14_differences() -> bytes:
+    """9.6.5.1 Table 112: an encoding dictionary without BaseEncoding on a non-embedded nonsymbolic font differs from
+    StandardEncoding; codes 0x27 0x60 0x80 0x81 0xC8."""
+    enc = b"/Encoding << /Type /Encoding /Differences [39 /quotesingle 128 /Euro /bullet 200 /Adieresis] >>"
+    return font_file([std14(b"Helvetica", enc)], [b"\x27\x60\x80\x81\xc8"])
+
+
+def gen_text_standard14_winansi_quirks() -> bytes:
+    """Annex D.2 and its notes 1, 2, 3, 5, 6: the WinAnsiEncoding codes that differ from StandardEncoding or are
+    shared by two names."""
+    return font_file([HELVETICA], [b"\x27\x60\x7f\x81\x80\xa0\xad\x8e"])
+
+
+def gen_text_standard14_macroman() -> bytes:
+    """Annex D.2: MacRomanEncoding, its note 6 (0xCA space) and its differences from Mac OS Roman (9.6.5.4 Table 113:
+    0xDB is currency, 0xAD is unused)."""
+    return font_file([std14(b"Times-Roman", b"/Encoding /MacRomanEncoding")], [b"\x80\xca\xdb\xa5\xad"])
+
+
+def gen_text_standard14_symbol() -> bytes:
+    """9.6.5.1 and Annex D.5: the Symbol font's built-in encoding; F2 names WinAnsiEncoding, which a reader ignores for
+    the non-embedded symbolic font (as pdf.js does, issue16464)."""
+    return font_file([std14(b"Symbol"), std14(b"Symbol", b"/Encoding /WinAnsiEncoding")], [b"abg\xa0", b"abg\xa0"])
+
+
+def gen_text_standard14_symbol_differences() -> bytes:
+    """9.6.5.1 Table 112: without BaseEncoding the differences of a symbolic font apply to its built-in encoding,
+    so 0x61 stays alpha."""
+    enc = b"/Encoding << /Type /Encoding /Differences [66 /Gamma] >>"
+    return font_file([std14(b"Symbol", enc)], [b"aB"])
+
+
+def gen_text_standard14_zapfdingbats() -> bytes:
+    """Annex D.6: the ZapfDingbats built-in encoding, including 0x80-0x8D, which its AFM file encodes but Table D.6
+    does not list."""
+    return font_file([std14(b"ZapfDingbats")], [b"\x21\x6c\x80\x8d"])
+
+
+def gen_text_standard14_widths() -> bytes:
+    """9.6.2.1 Table 109: a standard 14 font with all four of FirstChar, LastChar, Widths and FontDescriptor; the
+    Widths override the font's metrics and other codes take MissingWidth (9.8.1 Table 120)."""
+    font = std14(b"Courier", b"/FirstChar 65 /LastChar 66 /Widths [500 700] /Encoding /WinAnsiEncoding /FontDescriptor 6 0 R")
+    descriptor = (b"<< /Type /FontDescriptor /FontName /Courier /Flags 33 /FontBBox [-23 -250 715 805] /ItalicAngle 0 "
+                  b"/Ascent 629 /Descent -157 /CapHeight 562 /XHeight 426 /StemV 51 /StemH 51 /MissingWidth 777 >>")
+    return font_file([font], [b"ABC"], [(6, descriptor)])
+
+
+def gen_text_standard14_alias() -> bytes:
+    """9.6.2.2 and 9.6.3: a non-embedded TrueType font named /Arial,Bold, which readers take as Helvetica-Bold
+    (PDFBox Standard14Fonts, pdf.js getStdFontMap)."""
+    return font_file([std14(b"Arial,Bold", b"/Encoding /WinAnsiEncoding", subtype=b"TrueType")], [b"Hi!"])
+
+
+def gen_text_type1_symbolic_noencoding() -> bytes:
+    """9.6.5.1 and 9.8.2: a non-embedded symbolic Type 1 font that is not a standard 14 font and has no Encoding; its
+    built-in encoding is unknown without its program, and its widths come from Widths."""
+    font = (b"<< /Type /Font /Subtype /Type1 /BaseFont /BroadsideSymbolic /FirstChar 65 /LastChar 67 "
+            b"/Widths [600 650 700] /FontDescriptor 6 0 R >>")
+    descriptor = (b"<< /Type /FontDescriptor /FontName /BroadsideSymbolic /Flags 4 /FontBBox [0 -200 1000 800] "
+                  b"/ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 >>")
+    return font_file([font], [b"ABC"], [(6, descriptor)])
+
+
 def gen_xref_stream() -> bytes:
     f = File("1.5", binary=True)
     f.add(1, catalog())
@@ -1630,11 +1720,81 @@ def gen_declarations() -> bytes:
     ], version="2.0", binary=True, trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
 
 
+def gen_tagged_structure() -> bytes:
+    """14.6 marked content, 14.7 logical structure and 14.8 tagged PDF: a heading, a paragraph with a
+    Link annotation (OBJR, StructParent), a two-item list and a two-by-two table, all as MCIDs 0..9 on
+    one page (StructParents 0), plus a pagination artifact outside the tree. ParentTree (14.7.5.4),
+    IDTree, RoleMap (Para -> P in the default 1.7 namespace), ClassMap with C and A on the heading
+    (14.7.6.2: A wins), namespaces (14.7.4) PDF 2.0 and a custom one whose RoleMapNS maps Chapter to
+    [/Sect <2.0>] (14.8.6.2), and one marked-content reference dictionary (Table 357) for MCID 9."""
+    content = b"\n".join([
+        b"/Artifact <</Type /Pagination /Subtype /PageNum>> BDC BT /F1 10 Tf 300 40 Td (1) Tj ET EMC",
+        b"/H1 <</MCID 0>> BDC BT /F1 24 Tf 72 720 Td (Broadside) Tj ET EMC",
+        b"/P <</MCID 1>> BDC BT /F1 12 Tf 72 690 Td (A paragraph with a link.) Tj ET EMC",
+        b"/Lbl <</MCID 2>> BDC BT /F1 12 Tf 72 660 Td (1.) Tj ET EMC",
+        b"/LBody <</MCID 3>> BDC BT /F1 12 Tf 96 660 Td (First item) Tj ET EMC",
+        b"/Lbl <</MCID 4>> BDC BT /F1 12 Tf 72 645 Td (2.) Tj ET EMC",
+        b"/LBody <</MCID 5>> BDC BT /F1 12 Tf 96 645 Td (Second item) Tj ET EMC",
+        b"/TH <</MCID 6>> BDC BT /F1 12 Tf 72 610 Td (Name) Tj ET EMC",
+        b"/TH <</MCID 7>> BDC BT /F1 12 Tf 200 610 Td (Value) Tj ET EMC",
+        b"/TD <</MCID 8>> BDC BT /F1 12 Tf 72 595 Td (Alpha) Tj ET EMC",
+        b"/TD <</MCID 9>> BDC BT /F1 12 Tf 200 595 Td (1) Tj ET EMC",
+    ])
+    ns20 = b"/NS 7 0 R"
+    id0 = file_id("tagged-structure").hex().encode()
+
+    def elem(s: bytes, parent: int, extra: bytes) -> bytes:
+        return b"<< /Type /StructElem /S /%s /P %d 0 R %s >>" % (s, parent, extra)
+
+    return simple_file([
+        (1, catalog(b" /MarkInfo << /Marked true >> /StructTreeRoot 10 0 R /Lang (en-US)")),
+        (2, pages()),
+        (3, page(contents=4, font=6, extra=b" /StructParents 0 /Tabs /S /Annots [5 0 R]")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Annot /Subtype /Link /Rect [72 686 240 702] /Border [0 0 0] "
+            b"/A << /S /URI /URI (https://example.com/) >> /StructParent 1 >>"),
+        (6, HELVETICA),
+        (7, b"<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>"),
+        (8, b"<< /Type /Namespace /NS (https://example.com/broadside-corpus) /RoleMapNS << /Chapter [/Sect 7 0 R] >> >>"),
+        (10, b"<< /Type /StructTreeRoot /K [11 0 R] "
+             b"/ParentTree << /Nums [0 [13 0 R 14 0 R 17 0 R 18 0 R 20 0 R 21 0 R 24 0 R 25 0 R 27 0 R 28 0 R] 1 14 0 R] >> "
+             b"/ParentTreeNextKey 2 /IDTree << /Names [(h1) 24 0 R (tbl1) 22 0 R] >> /RoleMap << /Para /P >> "
+             b"/ClassMap << /Centered << /O /Layout /TextAlign /Center /SpaceAfter 6 >> >> /Namespaces [7 0 R 8 0 R] >>"),
+        (11, elem(b"Document", 10, ns20 + b" /K [12 0 R]")),
+        (12, elem(b"Chapter", 11, b"/NS 8 0 R /T (Chapter 1) /K [13 0 R 14 0 R 15 0 R 22 0 R]")),
+        (13, elem(b"H1", 12, ns20 + b" /Pg 3 0 R /K 0 /C /Centered /A << /O /Layout /SpaceAfter 12 >>")),
+        (14, elem(b"Para", 12, b"/Pg 3 0 R /K [1 << /Type /OBJR /Obj 5 0 R >>] /A << /O /Layout /TextAlign /Justify >>")),
+        (15, elem(b"L", 12, ns20 + b" /A << /O /List /ListNumbering /Decimal >> /K [16 0 R 19 0 R]")),
+        (16, elem(b"LI", 15, ns20 + b" /K [17 0 R 18 0 R]")),
+        (17, elem(b"Lbl", 16, ns20 + b" /Pg 3 0 R /K 2")),
+        (18, elem(b"LBody", 16, ns20 + b" /Pg 3 0 R /K 3")),
+        (19, elem(b"LI", 15, ns20 + b" /K [20 0 R 21 0 R]")),
+        (20, elem(b"Lbl", 19, ns20 + b" /Pg 3 0 R /K 4")),
+        (21, elem(b"LBody", 19, ns20 + b" /Pg 3 0 R /K 5")),
+        (22, elem(b"Table", 12, ns20 + b" /ID (tbl1) /A << /O /Table /Summary (Names and values) >> /K [23 0 R 26 0 R]")),
+        (23, elem(b"TR", 22, ns20 + b" /K [24 0 R 25 0 R]")),
+        (24, elem(b"TH", 23, ns20 + b" /ID (h1) /Pg 3 0 R /K 6 /A [<< /O /Table /Scope /Column >> 0]")),
+        (25, elem(b"TH", 23, ns20 + b" /Pg 3 0 R /K 7")),
+        (26, elem(b"TR", 22, ns20 + b" /K [27 0 R 28 0 R]")),
+        (27, elem(b"TD", 26, ns20 + b" /Pg 3 0 R /K 8 /A << /O /Table /Headers [(h1)] >>")),
+        (28, elem(b"TD", 26, ns20 + b" /K << /Type /MCR /MCID 9 /Pg 3 0 R >>")),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
     "text-standard14.pdf": gen_text_standard14,
     "text-truetype-embedded.pdf": gen_text_truetype_embedded,
+    "text-standard14-differences.pdf": gen_text_standard14_differences,
+    "text-standard14-winansi-quirks.pdf": gen_text_standard14_winansi_quirks,
+    "text-standard14-macroman.pdf": gen_text_standard14_macroman,
+    "text-standard14-symbol.pdf": gen_text_standard14_symbol,
+    "text-standard14-symbol-differences.pdf": gen_text_standard14_symbol_differences,
+    "text-standard14-zapfdingbats.pdf": gen_text_standard14_zapfdingbats,
+    "text-standard14-widths.pdf": gen_text_standard14_widths,
+    "text-standard14-alias.pdf": gen_text_standard14_alias,
+    "text-type1-symbolic-noencoding.pdf": gen_text_type1_symbolic_noencoding,
     "xref-stream.pdf": gen_xref_stream,
     "object-stream.pdf": gen_object_stream,
     "incremental-update.pdf": gen_incremental_update,
@@ -1681,6 +1841,7 @@ FILES = {
     "name-tree-deep.pdf": gen_name_tree_deep,
     "number-tree-deep.pdf": gen_number_tree_deep,
     "name-tree-broken.pdf": gen_name_tree_broken,
+    "tagged-structure.pdf": gen_tagged_structure,
     "optional-content.pdf": gen_optional_content,
     "embedded-files.pdf": gen_embedded_files,
     "collection-portfolio.pdf": gen_collection_portfolio,

@@ -40,7 +40,14 @@ internal readonly record struct Created<TValue>(TValue Value, bool Keep = true);
 internal sealed class OnceCache<TKey, TValue>
     where TKey : notnull
 {
-    private readonly ConcurrentDictionary<TKey, Entry> _entries = new();
+    private readonly ConcurrentDictionary<TKey, Entry> _entries;
+
+    /// <summary>Creates an empty cache comparing keys with their default equality.</summary>
+    public OnceCache() => _entries = new();
+
+    /// <summary>Creates an empty cache comparing keys with <paramref name="comparer"/> (for instance by reference, for COS containers).</summary>
+    /// <param name="comparer">The key comparer.</param>
+    public OnceCache(IEqualityComparer<TKey> comparer) => _entries = new(comparer);
 
     /// <summary>Returns the cached value for <paramref name="key"/>, when one has been computed.</summary>
     /// <param name="key">The key.</param>

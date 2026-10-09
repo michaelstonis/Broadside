@@ -1,4 +1,6 @@
 using System.Collections;
+using System.Diagnostics.CodeAnalysis;
+using Broadside.Objects;
 
 namespace Broadside;
 
@@ -11,9 +13,13 @@ namespace Broadside;
 public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
 {
     private readonly Lazy<IReadOnlyList<PdfPage>> _pages;
+    private readonly Lazy<Dictionary<CosDictionary, PdfPage>> _byObject;
 
-    internal PdfPageCollection(Func<IReadOnlyList<PdfPage>> walk) =>
+    internal PdfPageCollection(Func<IReadOnlyList<PdfPage>> walk)
+    {
         _pages = new Lazy<IReadOnlyList<PdfPage>>(walk, LazyThreadSafetyMode.ExecutionAndPublication);
+        _byObject = new Lazy<Dictionary<CosDictionary, PdfPage>>(IndexPages, LazyThreadSafetyMode.ExecutionAndPublication);
+    }
 
     /// <summary>Gets the number of pages.</summary>
     public int Count => _pages.Value.Count;
@@ -29,4 +35,18 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
 
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    /// <summary>Finds the page whose page object is <paramref name="pageObject"/> (by identity), for references such as a structure element's <c>Pg</c>.</summary>
+    internal bool TryGetPage(CosDictionary pageObject, [MaybeNullWhen(false)] out PdfPage page) => _byObject.Value.TryGetValue(pageObject, out page);
+
+    private Dictionary<CosDictionary, PdfPage> IndexPages()
+    {
+        var index = new Dictionary<CosDictionary, PdfPage>(ReferenceEqualityComparer.Instance);
+        foreach (PdfPage page in _pages.Value)
+        {
+            index.TryAdd(page.Dictionary, page);
+        }
+
+        return index;
+    }
 }
