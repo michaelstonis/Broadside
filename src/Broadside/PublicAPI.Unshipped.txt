@@ -69,6 +69,72 @@ Broadside.PdfCheckSumStatus
 Broadside.PdfCheckSumStatus.Absent = 0 -> Broadside.PdfCheckSumStatus
 Broadside.PdfCheckSumStatus.DoesNotMatch = 2 -> Broadside.PdfCheckSumStatus
 Broadside.PdfCheckSumStatus.Matches = 1 -> Broadside.PdfCheckSumStatus
+Broadside.PdfCollection
+Broadside.PdfCollection.Colors.get -> Broadside.PdfCollectionColors?
+Broadside.PdfCollection.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfCollection.FindFolder(int id) -> Broadside.PdfCollectionFolder?
+Broadside.PdfCollection.GetFolder(Broadside.PdfEmbeddedFileEntry! file) -> Broadside.PdfCollectionFolder?
+Broadside.PdfCollection.InitialDocument.get -> string?
+Broadside.PdfCollection.Navigator.get -> Broadside.Objects.CosDictionary?
+Broadside.PdfCollection.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfCollection.RootFolder.get -> Broadside.PdfCollectionFolder?
+Broadside.PdfCollection.Schema.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfCollectionField!>!
+Broadside.PdfCollection.Sort.get -> Broadside.PdfCollectionSort?
+Broadside.PdfCollection.Split.get -> Broadside.PdfCollectionSplit!
+Broadside.PdfCollection.View.get -> Broadside.PdfCollectionView
+Broadside.PdfCollectionColor
+Broadside.PdfCollectionColor.Blue.get -> double
+Broadside.PdfCollectionColor.Equals(Broadside.PdfCollectionColor other) -> bool
+Broadside.PdfCollectionColor.Green.get -> double
+Broadside.PdfCollectionColor.PdfCollectionColor() -> void
+Broadside.PdfCollectionColor.PdfCollectionColor(double red, double green, double blue) -> void
+Broadside.PdfCollectionColor.Red.get -> double
+Broadside.PdfCollectionColors
+Broadside.PdfCollectionColors.Background.get -> Broadside.PdfCollectionColor?
+Broadside.PdfCollectionColors.CardBackground.get -> Broadside.PdfCollectionColor?
+Broadside.PdfCollectionColors.CardBorder.get -> Broadside.PdfCollectionColor?
+Broadside.PdfCollectionColors.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfCollectionColors.PrimaryText.get -> Broadside.PdfCollectionColor?
+Broadside.PdfCollectionColors.SecondaryText.get -> Broadside.PdfCollectionColor?
+Broadside.PdfCollectionField
+Broadside.PdfCollectionField.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfCollectionField.IsEditable.get -> bool
+Broadside.PdfCollectionField.IsVisible.get -> bool
+Broadside.PdfCollectionField.Key.get -> string!
+Broadside.PdfCollectionField.Name.get -> string!
+Broadside.PdfCollectionField.Order.get -> int?
+Broadside.PdfCollectionField.Type.get -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionField.TypeName.get -> Broadside.Objects.CosName?
+Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.CompressedSize = 8 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.CreationDate = 6 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.Date = 1 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.Description = 4 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.FileName = 3 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.ModificationDate = 5 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.Number = 2 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.Size = 7 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.Text = 0 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFieldType.Unknown = 9 -> Broadside.PdfCollectionFieldType
+Broadside.PdfCollectionFolder
+Broadside.PdfCollectionFolder.Children.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfCollectionFolder!>!
+Broadside.PdfCollectionFolder.CollectionItem.get -> Broadside.PdfCollectionItem?
+Broadside.PdfCollectionFolder.CreationDate.get -> Broadside.Objects.CosString?
+Broadside.PdfCollectionFolder.Description.get -> string?
+Broadside.PdfCollectionFolder.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfCollectionFolder.FreeIds.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfCollectionIdRange>!
+Broadside.PdfCollectionFolder.Id.get -> int
+Broadside.PdfCollectionFolder.ModificationDate.get -> Broadside.Objects.CosString?
+Broadside.PdfCollectionFolder.Name.get -> string!
+Broadside.PdfCollectionFolder.Parent.get -> Broadside.PdfCollectionFolder?
+Broadside.PdfCollectionFolder.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfCollectionFolder.Thumbnail.get -> Broadside.Objects.CosStream?
+Broadside.PdfCollectionIdRange
+Broadside.PdfCollectionIdRange.Equals(Broadside.PdfCollectionIdRange other) -> bool
+Broadside.PdfCollectionIdRange.High.get -> int
+Broadside.PdfCollectionIdRange.Low.get -> int
+Broadside.PdfCollectionIdRange.PdfCollectionIdRange() -> void
+Broadside.PdfCollectionIdRange.PdfCollectionIdRange(int low, int high) -> void
 Broadside.PdfCollectionItem
 Broadside.PdfCollectionItem.Dictionary.get -> Broadside.Objects.CosDictionary!
 Broadside.PdfCollectionItem.GetValue(string! fieldKey) -> Broadside.PdfCollectionItemValue?
@@ -78,6 +144,23 @@ Broadside.PdfCollectionItemValue.Data.get -> Broadside.Objects.CosObject!
 Broadside.PdfCollectionItemValue.Number.get -> double?
 Broadside.PdfCollectionItemValue.Prefix.get -> string?
 Broadside.PdfCollectionItemValue.Text.get -> string?
+Broadside.PdfCollectionSort
+Broadside.PdfCollectionSort.Ascending.get -> System.Collections.Generic.IReadOnlyList<bool>!
+Broadside.PdfCollectionSort.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfCollectionSort.Keys.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.PdfCollectionSplit
+Broadside.PdfCollectionSplit.Direction.get -> Broadside.PdfCollectionSplitDirection
+Broadside.PdfCollectionSplit.Position.get -> double?
+Broadside.PdfCollectionSplitDirection
+Broadside.PdfCollectionSplitDirection.Horizontal = 0 -> Broadside.PdfCollectionSplitDirection
+Broadside.PdfCollectionSplitDirection.None = 2 -> Broadside.PdfCollectionSplitDirection
+Broadside.PdfCollectionSplitDirection.Vertical = 1 -> Broadside.PdfCollectionSplitDirection
+Broadside.PdfCollectionView
+Broadside.PdfCollectionView.Details = 0 -> Broadside.PdfCollectionView
+Broadside.PdfCollectionView.Hidden = 2 -> Broadside.PdfCollectionView
+Broadside.PdfCollectionView.Navigator = 3 -> Broadside.PdfCollectionView
+Broadside.PdfCollectionView.Tile = 1 -> Broadside.PdfCollectionView
+Broadside.PdfDocument.Collection.get -> Broadside.PdfCollection?
 Broadside.PdfDocument.EmbeddedFiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfEmbeddedFileEntry!>!
 Broadside.PdfDocument.GetFileSpecification(Broadside.Objects.CosObject? value) -> Broadside.PdfFileSpecification?
 Broadside.PdfDocument.OptionalContent.get -> Broadside.PdfOptionalContentProperties?
@@ -269,6 +352,14 @@ override Broadside.Objects.CosReference.GetHashCode() -> int
 override Broadside.Objects.CosStream.IsDirty.get -> bool
 override Broadside.Objects.CosString.Equals(object? obj) -> bool
 override Broadside.Objects.CosString.GetHashCode() -> int
+override Broadside.PdfCollectionColor.Equals(object? obj) -> bool
+override Broadside.PdfCollectionColor.GetHashCode() -> int
+override Broadside.PdfCollectionColor.ToString() -> string!
+override Broadside.PdfCollectionField.ToString() -> string!
+override Broadside.PdfCollectionFolder.ToString() -> string!
+override Broadside.PdfCollectionIdRange.Equals(object? obj) -> bool
+override Broadside.PdfCollectionIdRange.GetHashCode() -> int
+override Broadside.PdfCollectionIdRange.ToString() -> string!
 override Broadside.PdfEmbeddedFileEntry.ToString() -> string!
 override Broadside.PdfOptionalContentConfiguration.ToString() -> string!
 override Broadside.PdfOptionalContentGroup.ToString() -> string!
@@ -280,6 +371,10 @@ static Broadside.Objects.CosNull.Instance.get -> Broadside.Objects.CosNull!
 static Broadside.Objects.CosObject.DeepEquals(Broadside.Objects.CosObject? left, Broadside.Objects.CosObject? right) -> bool
 static Broadside.Objects.CosObject.Parse(System.ReadOnlySpan<byte> bytes) -> Broadside.Objects.CosObject!
 static Broadside.Objects.CosObject.TryParse(System.ReadOnlySpan<byte> bytes, out Broadside.Objects.CosObject? result) -> bool
+static Broadside.PdfCollectionColor.operator !=(Broadside.PdfCollectionColor left, Broadside.PdfCollectionColor right) -> bool
+static Broadside.PdfCollectionColor.operator ==(Broadside.PdfCollectionColor left, Broadside.PdfCollectionColor right) -> bool
+static Broadside.PdfCollectionIdRange.operator !=(Broadside.PdfCollectionIdRange left, Broadside.PdfCollectionIdRange right) -> bool
+static Broadside.PdfCollectionIdRange.operator ==(Broadside.PdfCollectionIdRange left, Broadside.PdfCollectionIdRange right) -> bool
 virtual Broadside.Objects.CosObject.IsDirty.get -> bool
 Broadside.Diagnostics.Diagnostic
 Broadside.Diagnostics.Diagnostic.Code.get -> string!

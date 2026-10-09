@@ -480,6 +480,13 @@ public sealed class PdfDocument : IDisposable
         }
     }
 
+    /// <summary>Gets the document's portable collection (<c>Collection</c>), or <see langword="null"/> when it is not a portfolio.</summary>
+    /// <remarks>ISO 32000-2 §7.7.2, Table 29 (PDF 1.7), and §12.3.5. Read from the catalog on every call.</remarks>
+    public PdfCollection? Collection =>
+        Resolve(Catalog.TryGetValue(FileAndLayerNames.Collection, out CosObject? entry) ? entry : null) is CosDictionary dictionary
+            ? new PdfCollection(this, dictionary, entry as CosReference)
+            : null;
+
     /// <summary>Returns a view over a file specification held by <paramref name="value"/>, resolving it first.</summary>
     /// <param name="value">A file specification string or dictionary, or a reference to one, of this document.</param>
     /// <returns>The view, or <see langword="null"/> when the value is neither a string nor a dictionary.</returns>
