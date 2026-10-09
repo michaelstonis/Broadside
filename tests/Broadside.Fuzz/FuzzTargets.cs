@@ -8,6 +8,7 @@ using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
 using Broadside.Security;
+using Broadside.TestSupport;
 using SharpFuzz;
 
 namespace Broadside.Fuzz;
@@ -115,6 +116,7 @@ internal static class FuzzTargets
         }
 
         Navigation(document);
+        _ = ActionWalker.Walk(document);
     }
 
     /// <summary>

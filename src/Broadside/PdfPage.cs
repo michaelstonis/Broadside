@@ -41,6 +41,11 @@ public sealed class PdfPage
     /// <summary>Gets the indirect reference to the page object, or <see langword="null"/> when the page tree holds it directly.</summary>
     public CosReference? Reference { get; }
 
+    /// <summary>Gets the page's additional actions (<c>AA</c>, PDF 1.2): actions when the page opens and closes; <see langword="null"/> when absent.</summary>
+    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §12.6.3, Table 198. Not inheritable; read on every call, never created by reading.</remarks>
+    public PdfPageAdditionalActions? AdditionalActions =>
+        PdfAdditionalActions.Create(_document, Dictionary.TryGetValue(ActionNames.AA, out CosObject? aa) ? aa : null, Reference, static (d, a, r, o) => new PdfPageAdditionalActions(d, a, r, o));
+
     /// <summary>Gets the media box: the boundaries of the physical medium the page is displayed or printed on. Inheritable.</summary>
     /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Required; when missing or malformed, US Letter <c>[0 0 612 792]</c>.</remarks>
     public PdfRectangle MediaBox => ReadBox(KnownNames.MediaBox, inheritable: true, out PdfRectangle box) == PageAttributeState.Valid ? box : DefaultMediaBox;

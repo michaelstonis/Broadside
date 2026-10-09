@@ -74,7 +74,7 @@ public abstract class PdfAction
                 case CosNull:
                     return [];
                 case CosDictionary:
-                    return Create(Document, next, DiagnosticReference) is { } action ? [action] : [];
+                    return Create(Document, next, DiagnosticReference) is { } single ? [single] : [];
                 case CosArray array:
                     var actions = new List<PdfAction>(array.Count);
                     foreach (CosObject element in array)
@@ -83,9 +83,9 @@ public abstract class PdfAction
                         {
                             Report(DiagnosticCodes.ActionNextInvalid, $"An element of the {ActionType.Value} action's Next array is not an action dictionary; it is skipped.");
                         }
-                        else if (Create(Document, element, DiagnosticReference) is { } action)
+                        else if (Create(Document, element, DiagnosticReference) is { } following)
                         {
-                            actions.Add(action);
+                            actions.Add(following);
                         }
                     }
 
@@ -251,19 +251,21 @@ public abstract class PdfAction
         }
     }
 
-    /// <summary>Reads a file specification entry (§7.11): a string or a dictionary, as stored after resolving; anything else reads as absent with a diagnostic.</summary>
-    private protected CosObject? ReadFileSpecification(CosName key)
+    /// <summary>Reads a file specification entry (§7.11): a string or a dictionary; anything else reads as absent with a diagnostic.</summary>
+    private protected PdfFileSpecification? ReadFileSpecification(CosName key)
     {
-        switch (Get(key))
+        if (Get(key) is null)
         {
-            case null:
-                return null;
-            case CosString or CosDictionary and var value:
-                return value;
-            default:
-                ReportEntry(key, "a file specification (a string or a dictionary)");
-                return null;
+            return null;
         }
+
+        PdfFileSpecification? file = PdfFileSpecification.Create(Document, Dictionary[key]);
+        if (file is null)
+        {
+            ReportEntry(key, "a file specification (a string or a dictionary)");
+        }
+
+        return file;
     }
 
     /// <summary>Reads a text string or text stream entry (§7.9.2.2, §7.9.3), decoded; anything else reads as absent with a diagnostic.</summary>
@@ -283,6 +285,10 @@ public abstract class PdfAction
                 return null;
         }
     }
+
+    /// <summary>Reads an annotation or field target, or an array of them (Tables 214, 239, 241); <see langword="null"/> when absent.</summary>
+    private protected List<PdfActionTarget>? ReadTargets(CosName key, string expected) =>
+        Dictionary.TryGetValue(key, out CosObject? value) ? PdfActionTarget.Read(Document, value, () => ReportEntry(key, expected)) : null;
 
     /// <summary>Reads a destination entry (§12.3.2) with the remote flag for go-to actions of other documents.</summary>
     private protected PdfDestination? ReadDestination(CosName key, bool isRemote) =>

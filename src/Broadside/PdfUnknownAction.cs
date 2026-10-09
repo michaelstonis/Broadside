@@ -13,4 +13,7 @@ public sealed class PdfUnknownAction : PdfAction
         : base(document, dictionary, reference, actionType)
     {
     }
+
+    /// <inheritdoc/>
+    public override PdfActionKind Kind => PdfActionKind.Unknown;
 }

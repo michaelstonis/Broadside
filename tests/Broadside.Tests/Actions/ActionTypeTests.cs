@@ -52,5 +52,5 @@ public class ActionTypeTests
 
     /// <summary>The actions of the link annotations 40 to 59, in page order.</summary>
     internal static IReadOnlyList<PdfAction> LinkActions(PdfDocument document) =>
-        [.. Enumerable.Range(40, 20).Select(number => document.GetAction(((CosDictionary)document.Resolve(new CosReference(number, 0)))[A])!)];
+        [.. Enumerable.Range(40, 20).Select(number => document.GetAction(((CosDictionary)document.Resolve(new CosReference(number, 0)))[A], new CosReference(number, 0))!)];
 }

@@ -1506,7 +1506,7 @@ def gen_actions_all() -> bytes:
                   b" /Fields [69 0 R (name.first)] /Flags 13 /CharSet (utf-8) >>")),
         (52, link(b"<< /S /ResetForm /Fields [(email)] /Flags 1 >>")),
         (53, link(b"<< /S /ImportData /F (data.fdf) >>")),
-        (54, link(b"<< /S /SetOCGState /State [/OFF 70 0 R /Toggle 71 0 R 70 0 R /ON 71 0 R] /PreserveRB false >>")),
+        (54, link(b"<< /S /SetOCGState /State [/OFF 70 0 R /Toggle 71 0 R 70 0 R] /PreserveRB false >>")),
         (55, link(b"<< /S /Rendition /OP 0 /AN 72 0 R /R 73 0 R /JS (play\\(\\);) >>")),
         (56, link(b"<< /S /Trans /Trans << /Type /Trans /S /Dissolve /D 0.5 >> >>")),
         (57, link(b"<< /S /GoTo3DView /TA 74 0 R /V /F >>")),
