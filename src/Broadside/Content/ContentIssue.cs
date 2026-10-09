@@ -29,6 +29,14 @@ internal enum ContentIssue
     CompatibilityUnbalanced,
     TextObjectUnbalanced,
     InlineImageInvalid,
+    ColorSpaceMissing,
+    ColorSpaceAbbreviated,
+    ColorOperandCount,
+    ColorOperatorMismatch,
+    ColorOperatorInvalid,
+    ColorOperatorIgnored,
+    PatternMissing,
+    ColorComponentLimit,
 }
 
 /// <summary>The code and severity of each <see cref="ContentIssue"/>.</summary>
@@ -53,12 +61,21 @@ internal static class ContentIssues
         ContentIssue.GraphicsStateRange => DiagnosticCodes.ContentGraphicsStateRange,
         ContentIssue.CompatibilityUnbalanced => DiagnosticCodes.ContentCompatibilityUnbalanced,
         ContentIssue.TextObjectUnbalanced => DiagnosticCodes.ContentTextObjectUnbalanced,
+        ContentIssue.ColorSpaceMissing => DiagnosticCodes.ContentColorSpaceMissing,
+        ContentIssue.ColorSpaceAbbreviated => DiagnosticCodes.ContentColorSpaceAbbreviated,
+        ContentIssue.ColorOperandCount => DiagnosticCodes.ContentColorOperandCount,
+        ContentIssue.ColorOperatorMismatch => DiagnosticCodes.ContentColorOperatorMismatch,
+        ContentIssue.ColorOperatorInvalid => DiagnosticCodes.ContentColorOperatorInvalid,
+        ContentIssue.ColorOperatorIgnored => DiagnosticCodes.ContentColorOperatorIgnored,
+        ContentIssue.PatternMissing => DiagnosticCodes.ContentPatternMissing,
+        ContentIssue.ColorComponentLimit => DiagnosticCodes.ColorComponentLimitExceeded,
         _ => DiagnosticCodes.ContentInlineImageInvalid,
     };
 
     public static DiagnosticSeverity Severity(ContentIssue issue) => issue switch
     {
-        ContentIssue.GluedTokens or ContentIssue.OperatorOutOfContext or ContentIssue.PathNotPainted => DiagnosticSeverity.Information,
+        ContentIssue.GluedTokens or ContentIssue.OperatorOutOfContext or ContentIssue.PathNotPainted or ContentIssue.ColorComponentLimit
+            => DiagnosticSeverity.Information,
         _ => DiagnosticSeverity.Warning,
     };
 }

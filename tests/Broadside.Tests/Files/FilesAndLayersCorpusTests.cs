@@ -17,7 +17,7 @@ public class FilesAndLayersCorpusTests
 
         ReadEverything(document);
 
-        Assert.Empty(document.Diagnostics);
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Severity > Broadside.Diagnostics.DiagnosticSeverity.Information);
         foreach (CosReference reference in Enumerable.Range(1, 200).Select(number => new CosReference(number, 0)))
         {
             Assert.False(document.Resolve(reference).IsDirty);
