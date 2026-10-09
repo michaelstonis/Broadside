@@ -1,0 +1,3 @@
+# PDF 2.0 is the canonical object model
+
+The object model is built around ISO 32000-2 (PDF 2.0). Files of any earlier version are read into that model with absent features simply absent; the library never maintains separate per-version models. On write, each feature knows the minimum PDF version it requires and the file's header version is raised to the highest minimum used, with an optional strict mode that throws instead of raising. This mirrors how the ISO specification itself is written (2.0 is a superset with deprecations marked inline) and how PDFBox and pdf.js behave, and it avoids an N-way model split that no real-world file set justifies.

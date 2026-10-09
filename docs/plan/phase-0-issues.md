@@ -1,0 +1,16 @@
+# Phase 0 issues (Scaffold)
+
+Each row becomes a GitHub issue from the task template, milestone "Phase 0". Order is dependency order; rows with the same "after" value run in parallel.
+
+| # | Title | Scope | Acceptance | After |
+|---|---|---|---|---|
+| 0.1 | Solution and build conventions | `Broadside.slnx`, `Directory.Build.props` (nullable, warnings as errors, latest analyzers, deterministic, SourceLink, CPM via `Directory.Packages.props`), `global.json` pinned to SDK 10.0.4xx, MinVer, `.editorconfig` | `dotnet build` succeeds with zero warnings on an empty solution | – |
+| 0.2 | Package projects | Empty class libraries for `Broadside`, `.Rendering`, `.Rendering.Skia`, `.Rendering.CoreGraphics`, `.Rendering.Direct2D`, `.Rendering.Android`, `.Fonts.Standard14`, `.Fonts.Cmaps`; each with `PublicAPI.Shipped.txt`/`Unshipped.txt` and the public API analyzer; platform projects conditioned on OS | `dotnet pack` produces every package; API analyzer runs | 0.1 |
+| 0.3 | Test, bench, fuzz projects | xUnit v3 test project per package, `bench/Broadside.Benchmarks` (BenchmarkDotNet), `tests/Broadside.Fuzz` (SharpFuzz) with a placeholder target, Verify configured for snapshots | `dotnet test` runs green; one benchmark runs; fuzz harness runs 10 s | 0.1 |
+| 0.4 | CI workflows | Build + test matrix (ubuntu, windows, macos), API-diff job, conformance-map checker job, fuzz smoke job (60 s per target), pack job on tags publishing to NuGet with trusted publishing | All jobs green on a PR; a tag produces a NuGet push dry run | 0.2, 0.3 |
+| 0.5 | Corpus fetcher | `tools/CorpusFetcher` downloading pdf.js test files, PDFBox regression files, veraPDF corpus, GhentPDF Output Suite, PDF Association PDF 2.0 examples, SafeDocs into `corpus/` with a manifest and checksums | Running it populates `corpus/` and re-running is a no-op | 0.1 |
+| 0.6 | Minimal corpus | `tests/Corpus/` with the first 20 hand-written PDFs (empty page, one text line per font type, one image per filter, xref stream, object stream, incremental update, encrypted RC4/AES, broken xref, missing endobj) and a README | Each file opens in at least one external viewer; README lists each | 0.1 |
+| 0.7 | Conformance map checker | `tools/ConformanceCheck` that parses `docs/conformance/*.md`, fails on a `done` row without a test, and reports counts per status; wired as a test | Runs in CI; fails on a deliberately broken fixture | 0.3 |
+| 0.8 | Docs site | Lunet as a dotnet local tool (`site/config.scriban` with `api.dotnet` and `search` modules), `GenerateDocumentationFile` on, narrative `articles/`, `check-docs.sh` link assertions, GitHub Pages deploy on release; see `docs/research/doc-site-tooling.md` | Site builds in CI and publishes on a tag | 0.4 |
+| 0.9 | Repository hygiene | `README.md` (positioning, status, install), `CONTRIBUTING.md` (DCO, worktree flow, issue flow), `SPONSORS.md` (tiers; priority never access), `SECURITY.md`, `LICENSE` (MIT), labels (`phase:*`, `track:*`, `area:*`, `in-progress`, `task`), milestones Phase 0–6, project board | All present; labels and milestones exist in GitHub | – |
+| 0.10 | Agent skills | `.claude/skills/` for: adding a filter, adding a font program parser, adding a backend, updating the conformance map, writing a minimal corpus file, adding a benchmark | Each skill has a worked example referencing real files | 0.2 |

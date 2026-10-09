@@ -1,0 +1,3 @@
+# Lenient reading by default, with diagnostics
+
+Reading is lenient by default: malformed cross-reference tables are rebuilt by scanning, wrong stream lengths are recovered, missing keywords are tolerated, and every repair is recorded as a diagnostic on the document rather than thrown. A strict mode, opted into per document, throws on the first deviation. A large share of real-world files are malformed in some way, and a library that rejects them is unusable regardless of how correct it is; pdf.js and PDFBox both arrived at this posture after years of bug reports. The diagnostics make the leniency observable, which strict-only designs lose.

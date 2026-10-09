@@ -1,0 +1,3 @@
+# MIT license; sponsorship is asked for, not enforced
+
+The library is MIT licensed. A source-available license (PolyForm Shield, BSL) that forbids repackaging into competing paid products was considered and rejected: the goal is to be the PDF library every .NET project reaches for, and OSI-license-only organizations and open-source frameworks will not depend on a restricted library. Revenue from commercial users is pursued through sponsorship tiers tied to support and feature prioritization, never through the license. Contributions require a DCO sign-off so the project retains freedom to adjust licensing later.

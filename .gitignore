@@ -1,0 +1,20 @@
+# Build
+bin/
+obj/
+artifacts/
+*.user
+.vs/
+.idea/
+*.swp
+
+# Local-only inputs
+Specs/
+corpus/
+
+# Test and bench output
+TestResults/
+BenchmarkDotNet.Artifacts/
+*.received.*
+
+# OS
+.DS_Store

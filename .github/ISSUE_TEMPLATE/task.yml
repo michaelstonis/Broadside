@@ -1,0 +1,49 @@
+name: Task
+description: A unit of work for an agent or contributor
+title: "[Track] "
+labels: ["task"]
+body:
+  - type: input
+    id: phase-track
+    attributes:
+      label: Phase and track
+      placeholder: "Phase 2, Track 2A Fonts"
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What this task delivers and, just as important, what it does not.
+    validations:
+      required: true
+  - type: textarea
+    id: clauses
+    attributes:
+      label: Spec clauses
+      description: Every clause this task implements, one per line, as they appear in docs/conformance.
+      placeholder: "ISO 32000-2 §9.6.2, §9.6.3"
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: The tests that prove it. Name the test classes or corpus files.
+    validations:
+      required: true
+  - type: textarea
+    id: blocked-by
+    attributes:
+      label: Blocked by
+      placeholder: "#12, #14"
+  - type: checkboxes
+    id: deliverables
+    attributes:
+      label: Deliverables
+      options:
+        - label: Code with XML docs citing clauses
+        - label: Tests (unit, corpus, snapshot or fuzz as appropriate)
+        - label: Conformance map rows updated
+        - label: PublicAPI.Unshipped.txt updated if the public surface changed
+        - label: Benchmark if on a hot path
