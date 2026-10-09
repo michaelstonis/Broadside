@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Glyph data for the Standard 14 fonts of Broadside: the Liberation families (SIL Open Font License) standing in for Helvetica, Times and Courier, and the Foxit Symbol and Dingbats fonts (BSD). Wire it in with one configuration call so pages that use non-embedded Standard 14 fonts render without system fonts. The metrics ship in the core; this package carries only the glyphs. No native dependencies.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Broadside/Broadside.csproj" />
+  </ItemGroup>
+
+</Project>

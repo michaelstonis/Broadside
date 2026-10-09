@@ -1,0 +1,13 @@
+{
+  "solution": {
+    "path": "Broadside.slnx",
+    "projects": [
+      "src/Broadside/Broadside.csproj",
+      "src/Broadside.Rendering/Broadside.Rendering.csproj",
+      "src/Broadside.Rendering.Skia/Broadside.Rendering.Skia.csproj",
+      "src/Broadside.Rendering.Direct2D/Broadside.Rendering.Direct2D.csproj",
+      "src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj",
+      "src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj"
+    ]
+  }
+}

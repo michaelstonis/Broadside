@@ -2,10 +2,21 @@
   <Folder Name="/solution-items/">
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
+    <File Path="Directory.Solution.props" />
     <File Path="global.json" />
     <File Path="nuget.config" />
     <File Path=".editorconfig" />
     <File Path="CLAUDE.md" />
     <File Path="CONTEXT.md" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
+    <Project Path="src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <Project Path="src/Broadside.Rendering.Android/Broadside.Rendering.Android.csproj" />
+    <Project Path="src/Broadside.Rendering.CoreGraphics/Broadside.Rendering.CoreGraphics.csproj" />
+    <Project Path="src/Broadside.Rendering.Direct2D/Broadside.Rendering.Direct2D.csproj" />
+    <Project Path="src/Broadside.Rendering.Skia/Broadside.Rendering.Skia.csproj" />
+    <Project Path="src/Broadside.Rendering/Broadside.Rendering.csproj" />
+    <Project Path="src/Broadside/Broadside.csproj" />
   </Folder>
 </Solution>

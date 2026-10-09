@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>The Adobe predefined CMaps and CID-to-Unicode tables for Broadside, used to map character codes to CIDs and Unicode for composite fonts that name a predefined CMap instead of embedding one. No native dependencies.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Broadside/Broadside.csproj" />
+  </ItemGroup>
+
+</Project>
