@@ -13,8 +13,12 @@ public class DocumentOpenBenchmarks
 {
     private byte[] _bytes = [];
 
-    /// <summary>The corpus file to open: one page, a two-level page tree with inheritance, an updated file and a linearized file.</summary>
-    [Params("empty-page.pdf", "page-tree-inherited.pdf", "incremental-update.pdf", "linearized.pdf")]
+    /// <summary>
+    /// The corpus file to open: one page, a two-level page tree with inheritance, an updated file, a linearized file, and the
+    /// compressed structures of §7.5.7 and §7.5.8 (a cross-reference stream, an object stream, a Flate and PNG-predicted
+    /// cross-reference stream, a hybrid file).
+    /// </summary>
+    [Params("empty-page.pdf", "page-tree-inherited.pdf", "incremental-update.pdf", "linearized.pdf", "xref-stream.pdf", "object-stream.pdf", "png-predictor.pdf", "hybrid-xref.pdf")]
     public string File { get; set; } = "";
 
     [GlobalSetup]

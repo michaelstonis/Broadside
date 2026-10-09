@@ -220,9 +220,17 @@ public sealed class PdfDocument : IDisposable
         {
             var diagnostics = new DiagnosticSink(configuration.ReadingMode == PdfReadingMode.Strict, configuration.DiagnosticObserver);
             FileHeader header = FileHeader.Locate(source, diagnostics);
-            CrossReference crossReference = CrossReferenceReader.Read(source, header, diagnostics) ?? Reconstruct(diagnostics);
-            var loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks());
-            var streams = new StreamDecoder(configuration.Filters, configuration.MaxDecodedStreamLength, diagnostics, loader.Resolve);
+
+            // Cross-reference streams are decoded before any object can be loaded; their Filter and DecodeParms are direct
+            // (§7.5.8.2), so until the loader exists a reference resolves to null.
+            ObjectLoader? loader = null;
+            var streams = new StreamDecoder(
+                configuration.Filters,
+                configuration.MaxDecodedStreamLength,
+                diagnostics,
+                value => loader is not null ? loader.Resolve(value) : value is null or CosReference ? CosNull.Instance : value);
+            CrossReference crossReference = CrossReferenceReader.Read(source, header, streams, diagnostics) ?? Reconstruct(diagnostics);
+            loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks(), streams);
             IReadOnlyList<PdfRevision> revisions = ReadRevisions(source, crossReference, diagnostics);
             CosDictionary catalog = ReadCatalog(loader, diagnostics);
             PdfLinearization? linearization = LinearizationReader.Read(source, loader, diagnostics);

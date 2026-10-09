@@ -17,6 +17,7 @@ public static class Corpus
         "incremental-update.pdf",
         "hybrid-xref.pdf",
         "linearized.pdf",
+        "linearized-xref-stream.pdf",
         "flate-stream.pdf",
         "lzw-stream.pdf",
         "ascii85-stream.pdf",

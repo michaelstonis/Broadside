@@ -24,7 +24,24 @@ internal static class DiagnosticCodes
     public const string XrefSectionInvalid = nameof(XrefSectionInvalid);
     public const string XrefEntryInvalid = nameof(XrefEntryInvalid);
     public const string XrefPrevLoop = nameof(XrefPrevLoop);
-    public const string XrefStreamUnsupported = nameof(XrefStreamUnsupported);
+
+    // Cross-reference streams and hybrid files (§7.5.8).
+    public const string XrefStreamTypeInvalid = nameof(XrefStreamTypeInvalid);
+    public const string XrefStreamWidthsInvalid = nameof(XrefStreamWidthsInvalid);
+    public const string XrefStreamIndexInvalid = nameof(XrefStreamIndexInvalid);
+    public const string XrefStreamSizeInvalid = nameof(XrefStreamSizeInvalid);
+    public const string XrefStreamDataTruncated = nameof(XrefStreamDataTruncated);
+    public const string TrailerXRefStmInvalid = nameof(TrailerXRefStmInvalid);
+
+    // Object streams (§7.5.7).
+    public const string ObjectStreamInvalid = nameof(ObjectStreamInvalid);
+    public const string ObjectStreamTypeInvalid = nameof(ObjectStreamTypeInvalid);
+    public const string ObjectStreamHeaderInvalid = nameof(ObjectStreamHeaderInvalid);
+    public const string ObjectStreamIndexMismatch = nameof(ObjectStreamIndexMismatch);
+    public const string ObjectStreamMemberMissing = nameof(ObjectStreamMemberMissing);
+    public const string ObjectStreamMemberInvalid = nameof(ObjectStreamMemberInvalid);
+    public const string ObjectStreamNested = nameof(ObjectStreamNested);
+    public const string ObjectStreamCycle = nameof(ObjectStreamCycle);
 
     // Incremental updates (§7.5.6).
     public const string TrailerEntryFromOlderRevision = nameof(TrailerEntryFromOlderRevision);

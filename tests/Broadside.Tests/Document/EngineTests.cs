@@ -11,8 +11,6 @@ public class EngineTests
     [MemberData(nameof(Corpus.WellFormedFiles), MemberType = typeof(Corpus))]
     public void The_static_entry_point_and_an_engine_instance_open_documents_identically(string fileName)
     {
-        Assert.SkipWhen(WellFormedCorpusTests.NeedsCrossReferenceStreams(fileName), "Needs cross-reference streams (#39).");
-
         var engine = new PdfEngine(new PdfOptions());
         using PdfDocument fromEngine = engine.Open(Corpus.Bytes(fileName));
         using PdfDocument fromStatic = PdfDocument.Open(Corpus.Bytes(fileName));
@@ -64,8 +62,6 @@ public class EngineTests
     [MemberData(nameof(Corpus.WellFormedFiles), MemberType = typeof(Corpus))]
     public void Strict_mode_opens_every_well_formed_file(string fileName)
     {
-        Assert.SkipWhen(WellFormedCorpusTests.NeedsCrossReferenceStreams(fileName), "Needs cross-reference streams (#39).");
-
         using PdfDocument document = PdfDocument.Open(Corpus.Path(fileName), new PdfOptions().UseStrict());
 
         Assert.NotEmpty(document.Pages);
