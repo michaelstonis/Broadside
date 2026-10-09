@@ -10,9 +10,10 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Broadside/Broadside.csproj" />
     <PackageReference Include="BenchmarkDotNet" />
-    <!-- Shared corpus locator and filter encoders, linked as source so this project does not drag xunit and Verify in through Broadside.TestSupport. -->
+    <!-- Shared corpus locator, filter encoders and document walker, linked as source so this project does not drag xunit and Verify in through Broadside.TestSupport. -->
     <Compile Include="../../tests/Broadside.TestSupport/CorpusLocator.cs" Link="CorpusLocator.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/FilterEncoders.cs" Link="FilterEncoders.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/DocumentWalker.cs" Link="DocumentWalker.cs" />
   </ItemGroup>
 
 </Project>

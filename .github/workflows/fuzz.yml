@@ -1,0 +1,209 @@
+# Real fuzzing: every fuzz target under libFuzzer (SharpFuzz instrumentation, libfuzzer-dotnet driver) in parallel jobs, once a
+# week and on the "Run workflow" button. One scheduled run gives each target 75 minutes on every core of its runner, so the run
+# as a whole adds up to more than 24 hours of fuzzing (issue #48). Each target's corpus is cached between runs, so coverage
+# accumulates. Findings fail the job and are uploaded with a replay of each. See .github/workflows/README.md and
+# tests/Broadside.Fuzz/README.md ("Real fuzzing").
+name: Fuzz
+
+on:
+  schedule:
+    # Sundays 03:17 UTC, away from the top of the hour when scheduled runs queue.
+    - cron: "17 3 * * 0"
+  workflow_dispatch:
+    inputs:
+      minutes:
+        description: Minutes of fuzzing per target (each job must stay under GitHub's 6-hour limit, so at most 300)
+        default: "75"
+      targets:
+        description: Space-separated targets to fuzz (empty = every target from --list)
+        default: ""
+
+# One run at a time per branch: two runs would race to save the same corpus cache.
+concurrency:
+  group: fuzz-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_GENERATE_ASPNET_CERTIFICATE: false
+  SHARPFUZZ_VERSION: "2.3.0"
+  # Real-world seeds besides tests/Corpus: small pinned corpora fetched by tools/CorpusFetcher (files up to 256 KB are used).
+  SEED_CORPORA: pdf20examples,qpdf
+
+jobs:
+  # The matrix: every registered target, or the ones asked for.
+  targets:
+    name: targets
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    outputs:
+      targets: ${{ steps.list.outputs.targets }}
+      seconds: ${{ steps.list.outputs.seconds }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Build the fuzz harness
+        run: dotnet build tests/Broadside.Fuzz -c Release -warnaserror
+
+      - name: List the targets
+        id: list
+        shell: bash
+        env:
+          REQUESTED: ${{ inputs.targets }}
+          MINUTES: ${{ inputs.minutes || '75' }}
+        run: |
+          all=$(dotnet artifacts/bin/Broadside.Fuzz/release/Broadside.Fuzz.dll --list)
+          if [ -n "${REQUESTED}" ]; then
+            for target in ${REQUESTED}; do
+              if ! grep -qx "${target}" <<< "${all}"; then
+                echo "::error::unknown fuzz target '${target}'"
+                exit 1
+              fi
+            done
+            selected="${REQUESTED}"
+          else
+            selected="${all}"
+          fi
+          if ! [[ "${MINUTES}" =~ ^[0-9]+$ ]] || [ "${MINUTES}" -lt 1 ] || [ "${MINUTES}" -gt 300 ]; then
+            echo "::error::minutes must be between 1 and 300"
+            exit 1
+          fi
+          echo "targets=$(printf '%s\n' ${selected} | jq -R . | jq -cs .)" >> "${GITHUB_OUTPUT}"
+          echo "seconds=$((MINUTES * 60))" >> "${GITHUB_OUTPUT}"
+
+  fuzz:
+    name: fuzz (${{ matrix.target }})
+    needs: targets
+    runs-on: ubuntu-latest
+    # Fuzzing time plus build, seeds and corpus merge; GitHub-hosted jobs stop at 360 minutes.
+    timeout-minutes: 355
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ${{ fromJSON(needs.targets.outputs.targets) }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Install clang with libFuzzer
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends clang libclang-rt-dev
+
+      - name: Build the libFuzzer driver
+        run: tests/Broadside.Fuzz/build-libfuzzer-dotnet.sh
+
+      - name: Install SharpFuzz
+        run: dotnet tool install --global SharpFuzz.CommandLine --version "${SHARPFUZZ_VERSION}"
+
+      # run-libfuzzer.sh instruments a copy of Broadside.dll; seeds and replays run on this plain build.
+      - name: Build the harness
+        run: dotnet build tests/Broadside.Fuzz -c Release -warnaserror
+
+      - name: Cache the real-world seed corpora
+        uses: actions/cache@v6
+        with:
+          path: corpus
+          key: seed-corpora-${{ env.SEED_CORPORA }}-${{ hashFiles('tools/CorpusFetcher/corpora.json') }}
+
+      - name: Fetch the real-world seed corpora
+        run: dotnet run --project tools/CorpusFetcher -- --only "${SEED_CORPORA}"
+
+      - name: Restore the fuzzing corpus
+        uses: actions/cache/restore@v6
+        with:
+          path: artifacts/fuzz/${{ matrix.target }}/corpus
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
+          restore-keys: fuzz-corpus-${{ matrix.target }}-
+
+      - name: Fuzz
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          SECONDS_PER_TARGET: ${{ needs.targets.outputs.seconds }}
+        run: |
+          IFS=, read -ra corpora <<< "${SEED_CORPORA}"
+          tests/Broadside.Fuzz/run-libfuzzer.sh "${TARGET}" "${SECONDS_PER_TARGET}" "${corpora[@]/#/corpus/}"
+
+      - name: Save the fuzzing corpus
+        if: always()
+        uses: actions/cache/save@v6
+        with:
+          path: artifacts/fuzz/${{ matrix.target }}/corpus
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.run_id }}
+
+      - name: Upload the statistics
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-stats-${{ matrix.target }}
+          path: artifacts/fuzz/${{ matrix.target }}/stats.json
+          if-no-files-found: ignore
+
+      - name: Upload findings
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: fuzz-findings-${{ matrix.target }}
+          path: |
+            artifacts/fuzz/${{ matrix.target }}/findings/**
+            artifacts/fuzz/${{ matrix.target }}/logs/**
+          if-no-files-found: ignore
+
+  # One table for the whole run: time, CPU-hours, executions and findings per target, and the cumulative total.
+  summary:
+    name: summary
+    needs: fuzz
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Download the statistics
+        uses: actions/download-artifact@v7
+        with:
+          pattern: fuzz-stats-*
+          path: stats
+          merge-multiple: false
+
+      - name: Write the summary
+        shell: bash
+        run: |
+          shopt -s nullglob
+          files=(stats/*/stats.json)
+          {
+            echo "## Fuzzing"
+            echo
+            if [ "${#files[@]}" -eq 0 ]; then
+              echo "No statistics were uploaded."
+              exit 0
+            fi
+            echo "| Target | Minutes | Workers | CPU-hours | Executions | Corpus | Findings |"
+            echo "|---|---:|---:|---:|---:|---:|---|"
+            jq -rs 'sort_by(.target)[] | "| \(.target) | \(.wallSeconds / 60 | floor) | \(.workers) | \(.cpuHours) | \(.executions) | \(.corpusFiles) | \(if (.findings | length) == 0 then "none" else (.findings | join(", ")) end) |"' "${files[@]}"
+            jq -rs '"| **total** | \((map(.wallSeconds) | add) / 60 | floor) | | \(map(.cpuHours) | add * 100 | round / 100) | \(map(.executions) | add) | | \(map(.findings | length) | add) |"' "${files[@]}"
+            echo
+            jq -rs '"Cumulative fuzzing time: \((map(.wallSeconds) | add) / 3600 * 10 | round / 10) hours of wall-clock time across \(length) targets, \(map(.cpuHours) | add | round) CPU-hours."' "${files[@]}"
+          } >> "${GITHUB_STEP_SUMMARY}"

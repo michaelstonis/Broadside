@@ -19,6 +19,7 @@
     <PackageReference Include="SharpFuzz" />
     <!-- Shared corpus locator, linked as source so this project does not drag xunit and Verify in through Broadside.TestSupport. -->
     <Compile Include="../Broadside.TestSupport/CorpusLocator.cs" Link="CorpusLocator.cs" />
+    <Compile Include="../Broadside.TestSupport/DocumentWalker.cs" Link="DocumentWalker.cs" />
     <!-- The folder props add a global using for xunit; this harness does not reference it. -->
     <Using Remove="Xunit" />
   </ItemGroup>

@@ -16,7 +16,7 @@ namespace Broadside.Security.Cryptography;
 internal sealed class AesCipher : IDisposable
 {
     private readonly Aes? _aes;
-    private readonly ManagedAes? _managed;
+    private ManagedAes? _managed;
 
     private AesCipher(ReadOnlySpan<byte> key)
     {
@@ -27,7 +27,7 @@ internal sealed class AesCipher : IDisposable
         else
         {
             _aes = Aes.Create();
-            _aes.Key = key.ToArray();
+            _aes.SetKey(key);
         }
     }
 
@@ -38,6 +38,23 @@ internal sealed class AesCipher : IDisposable
     /// <param name="key">16, 24 or 32 bytes.</param>
     /// <returns>The cipher. Dispose it.</returns>
     public static AesCipher Create(ReadOnlySpan<byte> key) => new(key);
+
+    /// <summary>
+    /// Replaces the key, keeping the platform cipher object: Algorithm 2.B re-keys AES in every one of its 64 or more rounds, and a
+    /// new cipher per round costs as much as the round's encryption on some platforms.
+    /// </summary>
+    /// <param name="key">16, 24 or 32 bytes.</param>
+    public void SetKey(ReadOnlySpan<byte> key)
+    {
+        if (_aes is not null)
+        {
+            _aes.SetKey(key);
+        }
+        else
+        {
+            _managed = new ManagedAes(key);
+        }
+    }
 
     /// <summary>Decrypts whole blocks in CBC mode without removing any padding.</summary>
     /// <param name="ciphertext">A multiple of 16 bytes.</param>
