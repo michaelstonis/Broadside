@@ -249,6 +249,29 @@ public class OptionalContentTests
         Assert.Equal([true, false, true, false], properties.Groups.Select(state.IsOn));
     }
 
+    [Theory]
+    [InlineData(1.5, "en-US", true, true, false, false)]
+    [InlineData(3.0, "en-GB", false, false, true, false)]
+    [InlineData(1.0, "fr", true, false, false, true)]
+    public void Auto_states_apply_zoom_and_language_recommendations_with_explicit_inputs(double zoom, string language, bool a, bool b, bool c, bool d)
+    {
+        byte[] file = OptionalContentPdf.Build(
+            "/OCGs [4 0 R 5 0 R 6 0 R 7 0 R] /D << /AS [<< /Event /View /Category [/Zoom /Language] /OCGs [4 0 R 5 0 R 6 0 R 7 0 R] >> << /Event /Print /Category [/Print] /OCGs [4 0 R] >>] >>",
+            "<< /Type /OCG /Name (A) /Usage << /Zoom << /min 1 /max 2 >> /Print << /PrintState /OFF >> >> >>",
+            "<< /Type /OCG /Name (B) /Usage << /Language << /Lang (en-US) >> >> >>",
+            "<< /Type /OCG /Name (C) /Usage << /Language << /Lang (en) /Preferred /ON >> >> >>",
+            "<< /Type /OCG /Name (D) /Usage << /Language << /Lang (fr) >> >> >>");
+        using PdfDocument document = PdfDocument.Open(file);
+        PdfOptionalContentProperties properties = document.OptionalContent!;
+
+        PdfOptionalContentState state = properties.ApplyAutoStates(
+            properties.GetDefaultStates(), PdfOptionalContentEvent.View, new PdfOptionalContentUsageContext { Zoom = zoom, Language = language });
+
+        Assert.Equal([a, b, c, d], properties.Groups.Select(state.IsOn));
+        Assert.False(properties.ApplyAutoStates(state, PdfOptionalContentEvent.Print, new PdfOptionalContentUsageContext()).IsOn(properties.Groups[0]));
+        Assert.Empty(document.Diagnostics);
+    }
+
     [Fact]
     public void A_document_without_OCProperties_has_no_optional_content()
     {
