@@ -1,4 +1,5 @@
 using Broadside.Diagnostics;
+using Broadside.Filters;
 using Microsoft.Extensions.Logging;
 
 namespace Broadside;
@@ -23,6 +24,12 @@ internal sealed class EngineConfiguration
     /// </summary>
     public Action<Diagnostic>? DiagnosticObserver { get; private init; }
 
+    /// <summary>Gets the filters by name: the managed defaults with the options' registrations applied (issue #38).</summary>
+    public FilterRegistry Filters { get; private init; } = FilterRegistry.Create([]);
+
+    /// <summary>Gets the most bytes one stream may decode to (issue #38).</summary>
+    public long MaxDecodedStreamLength { get; private init; } = PdfOptions.DefaultMaxDecodedStreamLength;
+
     /// <summary>Copies the current values of <paramref name="options"/>.</summary>
     /// <param name="options">The options.</param>
     /// <param name="hostLoggerFactory">The container's logger factory, used when the options set none.</param>
@@ -30,5 +37,7 @@ internal sealed class EngineConfiguration
     public static EngineConfiguration From(PdfOptions options, ILoggerFactory? hostLoggerFactory = null) => new(options.ReadingMode)
     {
         DiagnosticObserver = DiagnosticLog.CreateObserver(options.LoggerFactory ?? hostLoggerFactory),
+        Filters = FilterRegistry.Create(options.Filters),
+        MaxDecodedStreamLength = options.MaxDecodedStreamLength,
     };
 }

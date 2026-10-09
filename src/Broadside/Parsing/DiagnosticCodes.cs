@@ -38,6 +38,21 @@ internal static class DiagnosticCodes
     public const string MissingEndobj = nameof(MissingEndobj);
     public const string ReferenceChainTooDeep = nameof(ReferenceChainTooDeep);
 
+    // Stream filters (§7.3.8.2 Table 5, §7.4).
+    public const string FilterInvalid = nameof(FilterInvalid);
+    public const string FilterUnsupported = nameof(FilterUnsupported);
+    public const string FilterAbbreviationNotAllowed = nameof(FilterAbbreviationNotAllowed);
+    public const string FilterDataInvalid = nameof(FilterDataInvalid);
+    public const string FilterDataTruncated = nameof(FilterDataTruncated);
+    public const string FilterFailed = nameof(FilterFailed);
+    public const string DecodeParmsInvalid = nameof(DecodeParmsInvalid);
+    public const string PredictorInvalid = nameof(PredictorInvalid);
+    public const string CryptFilterNotFirst = nameof(CryptFilterNotFirst);
+    public const string CryptFilterUnsupported = nameof(CryptFilterUnsupported);
+    public const string StreamExternalFileUnsupported = nameof(StreamExternalFileUnsupported);
+    public const string StreamDecodedLengthExceeded = nameof(StreamDecodedLengthExceeded);
+    public const string StreamDecodingTooDeep = nameof(StreamDecodingTooDeep);
+
     // Document catalog (§7.7.2).
     public const string CatalogTypeInvalid = nameof(CatalogTypeInvalid);
     public const string CatalogVersionNotName = nameof(CatalogVersionNotName);

@@ -107,8 +107,47 @@ Broadside.Diagnostics.DiagnosticException.DiagnosticException(string? message, S
 Broadside.Diagnostics.DiagnosticSeverity
 Broadside.Diagnostics.DiagnosticSeverity.Error = 1 -> Broadside.Diagnostics.DiagnosticSeverity
 Broadside.Diagnostics.DiagnosticSeverity.Warning = 0 -> Broadside.Diagnostics.DiagnosticSeverity
+Broadside.Filters.Ascii85DecodeFilter
+Broadside.Filters.Ascii85DecodeFilter.Ascii85DecodeFilter() -> void
+Broadside.Filters.Ascii85DecodeFilter.Decode(System.ReadOnlyMemory<byte> encoded, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.FilterContext! context) -> void
+Broadside.Filters.Ascii85DecodeFilter.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.AsciiHexDecodeFilter
+Broadside.Filters.AsciiHexDecodeFilter.AsciiHexDecodeFilter() -> void
+Broadside.Filters.AsciiHexDecodeFilter.Decode(System.ReadOnlyMemory<byte> encoded, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.FilterContext! context) -> void
+Broadside.Filters.AsciiHexDecodeFilter.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.FilterContext
+Broadside.Filters.FilterContext.DecodeStream(Broadside.Objects.CosStream! stream) -> System.ReadOnlyMemory<byte>
+Broadside.Filters.FilterContext.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.Filters.FilterContext.FilterContext() -> void
+Broadside.Filters.FilterContext.MaxDecodedLength.get -> long
+Broadside.Filters.FilterContext.MaxDecodedLength.init -> void
+Broadside.Filters.FilterContext.Parameters.get -> Broadside.Objects.CosDictionary?
+Broadside.Filters.FilterContext.Parameters.init -> void
+Broadside.Filters.FilterContext.ReadingMode.get -> Broadside.PdfReadingMode
+Broadside.Filters.FilterContext.ReadingMode.init -> void
+Broadside.Filters.FilterContext.Report(string! code, Broadside.Diagnostics.DiagnosticSeverity severity, string! message) -> void
+Broadside.Filters.FilterContext.Resolve(Broadside.Objects.CosObject? value) -> Broadside.Objects.CosObject!
+Broadside.Filters.FilterContext.StreamDictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Filters.FilterContext.StreamDictionary.init -> void
+Broadside.Filters.FlateDecodeFilter
+Broadside.Filters.FlateDecodeFilter.Decode(System.ReadOnlyMemory<byte> encoded, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.FilterContext! context) -> void
+Broadside.Filters.FlateDecodeFilter.FlateDecodeFilter() -> void
+Broadside.Filters.FlateDecodeFilter.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.IStreamFilter
+Broadside.Filters.IStreamFilter.Decode(System.ReadOnlyMemory<byte> encoded, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.FilterContext! context) -> void
+Broadside.Filters.IStreamFilter.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.LzwDecodeFilter
+Broadside.Filters.LzwDecodeFilter.Decode(System.ReadOnlyMemory<byte> encoded, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.FilterContext! context) -> void
+Broadside.Filters.LzwDecodeFilter.LzwDecodeFilter() -> void
+Broadside.Filters.LzwDecodeFilter.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.RunLengthDecodeFilter
+Broadside.Filters.RunLengthDecodeFilter.Decode(System.ReadOnlyMemory<byte> encoded, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.FilterContext! context) -> void
+Broadside.Filters.RunLengthDecodeFilter.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.RunLengthDecodeFilter.RunLengthDecodeFilter() -> void
 Broadside.PdfDocument
 Broadside.PdfDocument.Catalog.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfDocument.DecodeStream(Broadside.Objects.CosStream! stream) -> System.ReadOnlyMemory<byte>
+Broadside.PdfDocument.DecodeStream(Broadside.Objects.CosStream! stream, System.Buffers.IBufferWriter<byte>! output) -> void
 Broadside.PdfDocument.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
 Broadside.PdfDocument.Dispose() -> void
 Broadside.PdfDocument.IsLinearized.get -> bool
@@ -138,11 +177,15 @@ Broadside.PdfLinearizationHints
 Broadside.PdfLinearizationHints.Pages.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfPageHint!>!
 Broadside.PdfLinearizationHints.SharedObjects.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfSharedObjectHint!>!
 Broadside.PdfOptions
+Broadside.PdfOptions.MaxDecodedStreamLength.get -> long
+Broadside.PdfOptions.MaxDecodedStreamLength.set -> void
 Broadside.PdfOptions.PdfOptions() -> void
 Broadside.PdfOptions.ReadingMode.get -> Broadside.PdfReadingMode
 Broadside.PdfOptions.ReadingMode.set -> void
+Broadside.PdfOptions.UseFilter(Broadside.Filters.IStreamFilter! filter) -> Broadside.PdfOptions!
 Broadside.PdfOptions.UseLenient() -> Broadside.PdfOptions!
 Broadside.PdfOptions.UseStrict() -> Broadside.PdfOptions!
+Broadside.PdfOptions.WithMaxDecodedStreamLength(long maxLength) -> Broadside.PdfOptions!
 Broadside.PdfPage
 Broadside.PdfPage.ArtBox.get -> Broadside.PdfRectangle
 Broadside.PdfPage.BleedBox.get -> Broadside.PdfRectangle
@@ -193,6 +236,7 @@ Broadside.PdfVersion.Major.get -> int
 Broadside.PdfVersion.Minor.get -> int
 Broadside.PdfVersion.PdfVersion() -> void
 Broadside.PdfVersion.PdfVersion(int major, int minor) -> void
+const Broadside.PdfOptions.DefaultMaxDecodedStreamLength = 1073741824 -> long
 override Broadside.Diagnostics.Diagnostic.ToString() -> string!
 override Broadside.PdfRectangle.Equals(object? obj) -> bool
 override Broadside.PdfRectangle.GetHashCode() -> int

@@ -5,8 +5,6 @@ description: "Use when implementing a stream filter or image codec (FlateDecode,
 
 # Adding a filter
 
-> **The filter contract is defined by issue #38 (Decode streams through filters). When it lands, replace the "Contract" section of this skill with the real signatures from `src/Broadside/Filters/` and `src/Broadside/PublicAPI.Unshipped.txt`.** Until then this is a design brief: it says what the contract must provide and what a filter PR must deliver. It does not spell the methods.
-
 A filter is "a stream encoding named in a stream's `/Filter` entry, and the codec that decodes or encodes it. Image codecs are filters." (`CONTEXT.md`). Filters are an extension point: a public contract in the core with a fully managed default (`CLAUDE.md`, "Hard rules"; ADR 0001).
 
 ## Where it lives
@@ -14,20 +12,58 @@ A filter is "a stream encoding named in a stream's `/Filter` entry, and the code
 - Contract and standard filters: namespace `Broadside.Filters` in `src/Broadside/`. Image codecs (DCT, CCITT, JBIG2, JPX; Phase 2B) implement the same contract, in the same namespace or a sub-namespace per codec.
 - Tests: `tests/Broadside.Tests/Filters/`, namespace `Broadside.Tests.Filters`, one class per filter.
 - Corpus: `tests/Corpus/<filter>-stream.pdf` (`flate-stream.pdf`, `lzw-stream.pdf`, `ascii85-stream.pdf`, `asciihex-stream.pdf`, `runlength-stream.pdf`, `filter-chain.pdf`, `png-predictor.pdf` exist); the encoder side of each lives in `tests/Corpus/generate.py` (`lzw_encode`, `ascii85_encode`, `png_up_predict`, ...).
-- Benchmarks: `bench/Broadside.Benchmarks/<Filter>Benchmarks.cs`. Fuzz: `tests/Broadside.Fuzz/FuzzTargets.cs`, target `filter-<name>`.
+- Benchmarks: a `<Filter>Benchmarks` class deriving from `FilterBenchmark` in `bench/Broadside.Benchmarks/FilterBenchmarks.cs` (256 KB of `FilterEncoders.SampleData`, encoded in setup with `tests/Broadside.TestSupport/FilterEncoders.cs`). Allocation proof: `tests/Broadside.Tests/Filters/FilterAllocationTests.cs`. Fuzz: `tests/Broadside.Fuzz/FuzzTargets.cs`, target `filter-<name>`.
 
-## Contract (responsibilities, not signatures)
+## Contract
 
-An implementation must be able to:
+The contract landed with #38 in `src/Broadside/Filters/` (public surface in `src/Broadside/PublicAPI.Unshipped.txt`):
 
-- name the filter as it appears in `/Filter` (§7.4 Table 6) and its inline-image abbreviation (§8.9.7 Table 92: `/Fl`, `/LZW`, `/A85`, `/AHx`, `/RL`, `/CCF`, `/DCT`);
-- decode a stream body given its `/DecodeParms` dictionary (§7.4.1; predictor parameters in §7.4.4.4 Table 10, CCITT in Table 11, JBIG2 in Table 12, DCT in Table 13, JPX in §7.4.9, Crypt in §7.4.10) into a caller-provided or pooled buffer, without per-byte or per-row allocation (codecs are a hot path);
-- participate in a chain: the `/Filter` array is applied in order on decode (`filter-chain.pdf` is `[/ASCII85Decode /FlateDecode]`), each stage consuming the previous stage's output;
-- repair and record in lenient mode: truncated data, a missing EOD marker, a wrong predictor row length produce a `Diagnostic` and the bytes decoded so far; strict mode throws (ADR 0005);
-- for image codecs, deliver samples as a planar or interleaved buffer with a declared colour space and bit depth (plan, Track 2B), including the DCT Adobe-marker CMYK/YCCK and JPX colour-space and SMask-in-data cases;
-- encode, for the filters the writer uses (Flate, DCT baseline, PNG predictors; Phase 4A). Decode-only filters say so.
+```csharp
+namespace Broadside.Filters;
 
-Registration goes through the options object: `PdfOptions.UseFilter(...)` (plan row 1.12; `Use*` selects an implementation, `CLAUDE.md` "Code conventions") replaces or adds a filter for one engine instance. There is no static registry: a consumer must be able to run two engines with different filter sets in one process, and tests must be able to inject a fake.
+public interface IStreamFilter
+{
+    CosName Name { get; }                       // full /Filter name (Table 6), the registry key; never an abbreviation
+    void Decode(ReadOnlyMemory<byte> encoded,   // never empty: the pipeline short-circuits empty data without a diagnostic
+                IBufferWriter<byte> output,
+                FilterContext context);
+}
+
+public sealed class FilterContext
+{
+    public FilterContext();                              // stand-alone: default filters, no document, own diagnostics
+    public CosDictionary? Parameters { get; init; }      // this filter's DecodeParms (values may be references: Resolve them)
+    public CosDictionary StreamDictionary { get; init; } // the stream's dictionary: Width, Height, BitsPerComponent, ColorSpace, Decode...
+    public PdfReadingMode ReadingMode { get; init; }     // Strict => Report throws
+    public long MaxDecodedLength { get; init; }          // check header-declared sizes against this before allocating
+    public IReadOnlyList<Diagnostic> Diagnostics { get; }// what was reported through this context
+    public void Report(string code, DiagnosticSeverity severity, string message); // lenient: record; strict: throw DiagnosticException
+    public CosObject Resolve(CosObject? value);          // indirect references of the document (CosNull outside one)
+    public ReadOnlyMemory<byte> DecodeStream(CosStream stream); // another stream through the same pipeline (JBIG2Globals)
+}
+
+// Registration, per engine (no static registry):
+new PdfOptions().UseFilter(IStreamFilter filter);     // replaces the default of filter.Name or adds a name; later wins
+new PdfOptions().WithMaxDecodedStreamLength(long);    // decompression-bomb limit, default PdfOptions.DefaultMaxDecodedStreamLength (1 GiB)
+
+// Consumption:
+ReadOnlyMemory<byte> PdfDocument.DecodeStream(CosStream stream);
+void PdfDocument.DecodeStream(CosStream stream, IBufferWriter<byte> output);
+```
+
+Managed defaults (`sealed`, stateless): `AsciiHexDecodeFilter`, `Ascii85DecodeFilter`, `LzwDecodeFilter`, `FlateDecodeFilter`, `RunLengthDecodeFilter`, listed in internal `FilterRegistry.Defaults`. A Phase 2B codec adds its instance there (one line; registration lines conflict trivially).
+
+What the pipeline (internal `StreamDecoder`, one per document) does so a filter does not:
+
+- reads `Filter`/`DecodeParms` (resolving references), repairs Table 5 deviations with `DecodeParmsInvalid`/`FilterInvalid`, expands the §8.9.7 Table 92 abbreviations (with `FilterAbbreviationNotAllowed` outside inline images), and runs the chain in order;
+- applies the §7.4.4.4 predictors (internal `Predictor`) after any filter named `LZWDecode` or `FlateDecode`, including a replacement: a replacement must not apply them itself;
+- routes `Crypt` (§7.4.10) to the internal `ICryptFilterHandler` slot (`StreamDecoder.CryptFilter`, set by #42); `Crypt` and abbreviations cannot be registered;
+- buffers between stages in pooled memory, truncates at `MaxDecodedLength` with `StreamDecodedLengthExceeded`, stops the chain at an unregistered name with `FilterUnsupported` and returns the data decoded so far;
+- converts any exception a filter throws (other than a strict-mode `DiagnosticException`) into `FilterFailed`, keeping what it wrote.
+
+Rules for an implementation: keep no state between calls (one instance serves every thread of every document of the engine); write through `IBufferWriter<byte>` in chunks (internal `FilterOutput` ref struct does this for the defaults); report each kind of deviation once per call with the codes in `Parsing/DiagnosticCodes.cs` ("Stream filters" group: `FilterDataInvalid`, `FilterDataTruncated`, ...); in lenient mode write what can be decoded and return.
+
+Image codecs (Phase 2B): read the image entries from `StreamDictionary`, resolve auxiliary streams with `Resolve` and decode them with `DecodeStream`, size-check against `MaxDecodedLength` before allocating, and write the §8.9.3 sample layout so a codec behaves like any filter in a chain. Codec metadata (DCT transform, JPX components and colour, alpha) is #60's optional image facet: a second interface the four codecs implement in addition to `IStreamFilter`, used when the codec is last in the chain. Encoding (Flate, DCT baseline, PNG predictors; Phase 4A) will be a separate interface, so decode-only filters need not change.
 
 ## Managed default
 
@@ -46,11 +82,10 @@ Every filter the PDF file format depends on ships in the core, written in C#. Al
 
 ## Worked example: LZWDecode
 
-`tests/Corpus/lzw-stream.pdf` holds a content stream encoded by `lzw_encode` in `generate.py` (9–12-bit codes, clear code 256 first, EOD 257 last, `EarlyChange` 1). The decoder lives in `Broadside.Filters`, cites `<remarks>ISO 32000-2 §7.4.4.2.</remarks>`, handles `/EarlyChange 0` from `/DecodeParms` (Table 8), and then the TIFF and PNG predictors from §7.4.4.4 run as a second stage shared with Flate. Tests: the Table 7 sequence `45 45 45 45 45 65 45 45 45 66` decodes from `80 0B 60 50 22 0C 0C 85 01` (the known answer `self_test()` in `generate.py` already checks for the encoder); `lzw-stream.pdf` decodes to the bytes `pdftotext` shows (`LZWDecode`); a truncated body yields a diagnostic in lenient mode and throws in strict mode. Fuzz target `filter-lzw`, benchmark `LzwBenchmarks.Decode` over the corpus stream, row `7.4.4` done with those tests named.
+`tests/Corpus/lzw-stream.pdf` holds a content stream encoded by `lzw_encode` in `generate.py` (9–12-bit codes, clear code 256 first, EOD 257 last, `EarlyChange` 1). The decoder lives in `Broadside.Filters`, cites `<remarks>ISO 32000-2 §7.4.4.2.</remarks>`, handles `/EarlyChange 0` from `/DecodeParms` (Table 8), and then the TIFF and PNG predictors from §7.4.4.4 run as a second stage shared with Flate. Tests: the Table 7 sequence `45 45 45 45 45 65 45 45 45 66` decodes from `80 0B 60 50 22 0C 0C 85 01` (the known answer `self_test()` in `generate.py` already checks for the encoder); `lzw-stream.pdf` decodes to the bytes `pdftotext` shows (`LZWDecode`); a truncated body yields a diagnostic in lenient mode and throws in strict mode. Fuzz target `filter-lzw`, benchmark `LzwBenchmarks.Decode`, row `7.4.4` done with those tests named.
 
 ## Checklist
 
-- [ ] Contract section of this skill replaced with the real signatures once #38 has landed
 - [ ] Implementation in `Broadside.Filters`, managed only, `sealed`, clause-cited XML docs
 - [ ] Registered through `PdfOptions`, not a static registry
 - [ ] Lenient repairs recorded as `Diagnostic`; strict mode throws
