@@ -258,7 +258,7 @@ pdfium-tests: 840 files
     StreamLengthInvalid: 92
     XrefSectionInvalid: 84
     AppearanceNotForm: 82
-    PredictorInvalid: 73
+    PredictorInvalid: 72
     DateInvalid: 56
     XmpMalformed: 43
     XmpPropertyDuplicate: 37

@@ -19,8 +19,8 @@ namespace Broadside.Filters;
 /// <para>
 /// Lenient repairs, one <c>PredictorInvalid</c> diagnostic each: an unknown Predictor passes the data through unchanged; a PNG tag
 /// above 4 is read as None; a final partial row is padded with zeros. Parameters out of range take their defaults
-/// (<c>DecodeParmsInvalid</c>); a row longer than the decoded-length limit, or than the whole data, passes the data through, so
-/// the output is never more than twice the input.
+/// (<c>DecodeParmsInvalid</c>); a row longer than the decoded-length limit passes the data through. Data shorter than one row is
+/// decoded as one partial row sized to the data, not padded to <c>Columns</c>, so the output is never larger than the input.
 /// </para>
 /// </remarks>
 internal static class Predictor
@@ -62,14 +62,15 @@ internal static class Predictor
             return;
         }
 
-        if (rowLength > data.Length)
+        long dataRow = predictor == 2 ? data.Length : data.Length - 1;
+        if (rowLength > dataRow && !data.IsEmpty)
         {
             // Not one whole row: Columns, not the data, would size the row buffers and the zero padding of the last row, so a few
-            // bytes with a huge Columns would decode to up to the decoded-length limit. Passing them through keeps the output of
-            // any predicted data under twice its input (fuzzing finding, issue #48).
-            context.Report(DiagnosticCodes.PredictorInvalid, DiagnosticSeverity.Error, "The predictor's rows are longer than the whole data; the data is passed through unpredicted.");
-            output.Write(data);
-            return;
+            // bytes with a huge Columns would decode to up to the decoded-length limit (fuzzing finding, issue #48). The data is one
+            // partial row: decode it sized to the data, without padding.
+            context.Report(DiagnosticCodes.PredictorInvalid, DiagnosticSeverity.Warning, "The predicted data is shorter than one row; it is decoded as one partial row, not padded.");
+            rowLength = Math.Max(dataRow, 0);
+            columns = rowLength * 8 / (colors * bitsPerComponent);
         }
 
         int bytesPerPixel = Math.Max(1, ((colors * bitsPerComponent) + 7) / 8);

@@ -56,11 +56,11 @@ public class FilterAllocationTests
 
     // Found by libFuzzer (issue #48): Columns sized the row buffers and the zero padding of the last row, so a few bytes of data
     // with a huge Columns allocated and wrote rows of up to the decoded-length limit (1 GiB) and ran out of memory. Data that
-    // cannot hold one whole row is now passed through, so the output is never more than twice the input.
+    // cannot hold one whole row is decoded as one partial row sized to the data, so the output is never larger than the input.
     [Theory]
-    [InlineData(12)]
-    [InlineData(2)]
-    public void A_row_longer_than_the_whole_data_allocates_nothing_in_proportion_to_the_row(int predictor)
+    [InlineData(12, new byte[] { 10, 20, 30 })]
+    [InlineData(2, new byte[] { 2, 10, 20, 30 })]
+    public void A_row_longer_than_the_whole_data_allocates_nothing_in_proportion_to_the_row(int predictor, byte[] expected)
     {
         byte[] file = FilterTesting.FileWithStream(
             $"/Filter /FlateDecode /DecodeParms << /Predictor {predictor} /Colors 4 /BitsPerComponent 16 /Columns 100000000 >>",
@@ -68,7 +68,7 @@ public class FilterAllocationTests
         (byte[] decoded, string[] codes) = FilterTesting.DecodeWithCodes(file);
         long allocated = Allocations.Measure(() => FilterTesting.DecodeWithCodes(file), warmUpCalls: 1);
 
-        Assert.Equal([2, 10, 20, 30], decoded);
+        Assert.Equal(expected, decoded);
         Assert.Equal(["PredictorInvalid"], codes);
         Assert.True(allocated < 1 << 20, $"Decoding 4 bytes allocated {allocated} bytes.");
     }
