@@ -1,3 +1,4 @@
+using Broadside.Filters.Codecs;
 using System.Buffers;
 using Broadside.Diagnostics;
 using Broadside.Images;
@@ -116,7 +117,7 @@ internal sealed class JpxPlane : IDisposable
 /// </remarks>
 internal static class JpxComposer
 {
-    public static void Compose(JpxImageSize size, JpxOutputPlan plan, JpxPlane?[] planes, DecodedImageBuilder builder, DecodedImageBuilder? alpha, JpxReporter reporter)
+    public static void Compose(JpxImageSize size, JpxOutputPlan plan, JpxPlane?[] planes, DecodedImageBuilder builder, DecodedImageBuilder? alpha, CodecReporter reporter)
     {
         int width = builder.Width;
         int height = builder.Height;

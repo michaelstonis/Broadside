@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Globalization;
 using Broadside.Diagnostics;
+using Broadside.Filters.Codecs;
 using Broadside.Images;
 using Broadside.Parsing;
 
@@ -45,15 +46,13 @@ internal sealed class JpegDecoder
     private readonly bool[] _quantizationWide = new bool[4];
     private readonly JpegComponent[] _components = [new(), new(), new(), new()];
     private readonly int[] _scanComponents = new int[MaxComponents];
-    private readonly HashSet<string> _reported = new(StringComparer.Ordinal);
+    private readonly CodecReporter _reporter = new();
     private readonly byte[] _dcStatistics = new byte[4 * DcStatisticsBins];
     private readonly byte[] _acStatistics = new byte[4 * AcStatisticsBins];
     private readonly byte[] _dcLower = [0, 0, 0, 0];
     private readonly byte[] _dcUpper = [1, 1, 1, 1];
     private readonly byte[] _acSplit = [5, 5, 5, 5];
 
-    private FilterContext? _context;
-    private bool _silent;
     private int _position;
     private bool _frameFound;
     private int _componentCount;
@@ -161,8 +160,7 @@ internal sealed class JpegDecoder
     /// <remarks>ITU-T T.81 §B.2.1, Figure B.2; §B.2.2 to §B.2.4.</remarks>
     public bool ReadHeaders(ReadOnlySpan<byte> data, FilterContext context, bool silent, int fallbackHeight)
     {
-        _context = context;
-        _silent = silent;
+        _reporter.Reset(context, silent);
         int start = data.IndexOf([(byte)0xFF, JpegMarkers.Soi]);
         if (start < 0)
         {
@@ -1797,17 +1795,9 @@ internal sealed class JpegDecoder
         return target;
     }
 
-    private bool ShouldReport(string code) => !_silent && !_reported.Contains(code);
+    private bool ShouldReport(string code) => _reporter.ShouldReport(code);
 
-    private void Report(string code, DiagnosticSeverity severity, string message)
-    {
-        if (_silent || !_reported.Add(code))
-        {
-            return;
-        }
-
-        _context!.Report(code, severity, message);
-    }
+    private void Report(string code, DiagnosticSeverity severity, string message) => _reporter.Report(code, severity, message);
 
     private void Reset()
     {
@@ -1820,9 +1810,7 @@ internal sealed class JpegDecoder
             _components[i].Release();
         }
 
-        _reported.Clear();
-        _context = null;
-        _silent = false;
+        _reporter.Reset(null);
         _position = 0;
         _frameFound = false;
         _componentCount = 0;
