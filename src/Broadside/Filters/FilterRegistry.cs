@@ -23,6 +23,7 @@ internal sealed class FilterRegistry
         new LzwDecodeFilter(),
         new FlateDecodeFilter(),
         new RunLengthDecodeFilter(),
+        new CcittFaxDecodeFilter(),
     ];
 
     /// <summary>Builds a registry of the defaults with <paramref name="registrations"/> applied in order; a later one replaces an earlier one of the same name.</summary>

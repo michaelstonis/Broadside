@@ -42,6 +42,7 @@ internal static class FuzzTargets
         ["filter-flate"] = data => Filter(new FlateDecodeFilter(), data, parameters: null, maxRatio: 1100),
         ["filter-runlength"] = data => Filter(new RunLengthDecodeFilter(), data, parameters: null, maxRatio: 128),
         ["filter-predictor"] = PredictorTarget,
+        ["filter-ccitt"] = CcittTarget.Target,
         ["encrypted-document"] = EncryptedDocument,
         ["decrypt"] = Decrypt,
         ["mac-token"] = MacToken,

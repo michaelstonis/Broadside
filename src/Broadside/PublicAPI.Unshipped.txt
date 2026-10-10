@@ -3218,3 +3218,9 @@ Broadside.Fonts.Cff.CffFontProgramParser.Parse(System.ReadOnlyMemory<byte> data,
 Broadside.Fonts.FontProgramContext.MaxCharStringOperators.get -> int
 Broadside.Fonts.FontProgramContext.MaxCharStringOperators.init -> void
 const Broadside.Fonts.FontProgramContext.DefaultMaxCharStringOperators = 100000 -> int
+Broadside.Filters.CcittFaxDecodeFilter
+Broadside.Filters.CcittFaxDecodeFilter.CcittFaxDecodeFilter() -> void
+Broadside.Filters.CcittFaxDecodeFilter.Decode(System.ReadOnlyMemory<byte> encoded, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.FilterContext! context) -> void
+Broadside.Filters.CcittFaxDecodeFilter.DecodeImage(System.ReadOnlyMemory<byte> encoded, Broadside.Filters.ImageFilterContext! context) -> Broadside.Images.DecodedImage?
+Broadside.Filters.CcittFaxDecodeFilter.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.CcittFaxDecodeFilter.TryReadHeader(System.ReadOnlySpan<byte> encoded, Broadside.Filters.ImageFilterContext! context, out Broadside.Filters.ImageHeader header) -> bool
