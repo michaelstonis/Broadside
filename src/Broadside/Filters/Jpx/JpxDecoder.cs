@@ -69,6 +69,15 @@ internal static class JpxDecoder
             return null;
         }
 
+        if (stream.HighThroughput)
+        {
+            reporter.Report(
+                DiagnosticCodes.JpxHighThroughputUnsupported,
+                DiagnosticSeverity.Error,
+                "The JPEG 2000 codestream uses high-throughput block coding (HTJ2K, ISO/IEC 15444-15), which is outside the JPX baseline ISO 32000-2 §7.4.9 limits PDF images to; the image is not decoded.");
+            return null;
+        }
+
         JpxImageSize size = stream.Size;
         long width = size.Width - size.OriginX;
         long height = size.Height - size.OriginY;

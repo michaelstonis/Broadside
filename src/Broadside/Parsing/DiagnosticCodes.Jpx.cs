@@ -13,6 +13,9 @@ internal static partial class DiagnosticCodes
     public const string JpxTilePartOrder = nameof(JpxTilePartOrder);
     public const string JpxPocInvalid = nameof(JpxPocInvalid);
     public const string JpxPpmInvalid = nameof(JpxPpmInvalid);
+    public const string JpxCodestreamRaw = nameof(JpxCodestreamRaw);
+    public const string JpxCodestreamsIgnored = nameof(JpxCodestreamsIgnored);
+    public const string JpxHighThroughputUnsupported = nameof(JpxHighThroughputUnsupported);
 
     // Packets (Annex B), code-blocks (Annex D) and the component transformation (Annex G).
     public const string JpxPacketHeaderTruncated = nameof(JpxPacketHeaderTruncated);
