@@ -134,7 +134,12 @@ public abstract class ContentProcessor
     /// <param name="glyph">The glyph.</param>
     /// <param name="context">The run.</param>
     /// <returns><see cref="ContentVisit.Enter"/> to receive the procedure's events.</returns>
-    /// <remarks>ISO 32000-2 §9.6.4.</remarks>
+    /// <remarks>
+    /// ISO 32000-2 §9.6.4. Called after <see cref="ShowGlyph"/>, except in text rendering modes 3 and 7, which paint nothing. Entered,
+    /// the procedure's paths, images, forms and nested text arrive as ordinary events in glyph space (CTM = FontMatrix × T<sub>rm</sub>),
+    /// with <see cref="ContentContext.RunKind"/> <see cref="ContentRunKind.Type3Glyph"/>; a glyph declared with <c>d1</c> paints in the
+    /// text's colour, because its colour operators and non-mask images are ignored (§8.6.8).
+    /// </remarks>
     public virtual ContentVisit BeginType3Glyph(in GlyphEvent glyph, ContentContext context) => ContentVisit.Skip;
 
     /// <summary>Called after a Type 3 glyph's procedure ran, for a glyph whose <see cref="BeginType3Glyph"/> returned <see cref="ContentVisit.Enter"/>.</summary>

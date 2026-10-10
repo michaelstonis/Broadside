@@ -83,7 +83,7 @@ internal static class ContentObjectsTargets
             "<< /Type /Catalog /Pages 2 0 R /OCProperties << /OCGs [12 0 R] /D << /OFF [12 0 R] >> >> >>",
             "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
             "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources 4 0 R >>",
-            "<< /Font << /F1 5 0 R /F2 6 0 R /F3 8 0 R >> /XObject << /Fm 10 0 R /Fn 11 0 R /Im 13 0 R >> "
+            "<< /Font << /F1 5 0 R /F2 6 0 R /F3 8 0 R /F4 16 0 R >> /XObject << /Fm 10 0 R /Fn 11 0 R /Im 13 0 R >> "
                 + "/ExtGState << /G 14 0 R /H 15 0 R >> /Properties << /P << /MCID 0 >> /OC 12 0 R >> >>",
             "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
             "<< /Type /Font /Subtype /Type0 /BaseFont /C /Encoding /Identity-H /DescendantFonts [7 0 R] >>",
@@ -97,6 +97,10 @@ internal static class ContentObjectsTargets
             Stream("\u0080", "/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8"),
             "<< /LW 2 /D [[1 2] 0] /BM /Multiply /CA 0.5 /Font [5 0 R 9] /SMask << /S /Alpha /G 11 0 R >> >>",
             "<< /SMask /None /TR /Identity /OP true >>",
+            "<< /Type /Font /Subtype /Type3 /FontBBox [0 0 0 0] /FontMatrix [0.01 0 0 0.01 0 0] /CharProcs << /a 17 0 R /b 18 0 R >> "
+                + "/Encoding << /Type /Encoding /Differences [97 /a /b] >> /FirstChar 97 /LastChar 98 /Widths [50 50] >>",
+            Stream("50 0 0 0 50 50 d1 1 0 0 rg /G gs 0 0 50 50 re f BI /W 1 /H 1 /IM true ID \u0080 EI /Im Do BT (ab) Tj ET", string.Empty),
+            Stream("0 0 10 10 re f 50 0 d0 /F4 1 Tf (a) Tj", string.Empty),
         ];
         var text = new StringBuilder("%PDF-1.7\n");
         var offsets = new List<int>();

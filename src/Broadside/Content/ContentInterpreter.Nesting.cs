@@ -153,33 +153,6 @@ internal sealed partial class ContentInterpreter
         }
     }
 
-    /// <summary>Runs a Type 3 glyph's description (§9.6.4) for a processor that entered it: glyph space is the font matrix times the glyph's text matrix.</summary>
-    private void RunType3Glyph(in GlyphEvent glyph, PdfType3Font font, byte code, ContentProcessor processor)
-    {
-        if (processor.BeginType3Glyph(glyph, _context) == ContentVisit.Skip)
-        {
-            return;
-        }
-
-        if (font.GetCharProc(code) is { } procedure)
-        {
-            GraphicsState initial = State;
-            initial.Ctm = font.FontMatrix * glyph.TextMatrix * glyph.Ctm;
-            var run = new NestedRun
-            {
-                Kind = ContentRunKind.Type3Glyph,
-                Identity = procedure,
-                Content = _context.Document.ContentResources.GetContent(procedure),
-                Resources = font.Resources ?? _context.Resources,
-                InitialState = initial,
-                Processor = processor,
-            };
-            ReportNesting(RunNested(run), -1);
-        }
-
-        processor.EndType3Glyph(glyph, _context);
-    }
-
     /// <summary><see cref="ContentContext.RunForm"/>: the form's events go to another processor.</summary>
     internal void RunFormWith(PdfFormXObject form, ContentProcessor processor)
     {

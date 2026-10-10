@@ -3283,3 +3283,4 @@ Broadside.Fonts.Cff.CffFontProgramParser.Parse(System.ReadOnlyMemory<byte> data,
 Broadside.Fonts.FontProgramContext.MaxCharStringOperators.get -> int
 Broadside.Fonts.FontProgramContext.MaxCharStringOperators.init -> void
 const Broadside.Fonts.FontProgramContext.DefaultMaxCharStringOperators = 100000 -> int
+Broadside.Fonts.PdfType3Font.FontBBox.get -> Broadside.PdfRectangle
