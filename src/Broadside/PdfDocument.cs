@@ -642,8 +642,8 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Gets the document's optional content (layers), or <see langword="null"/> when the catalog has no <c>OCProperties</c>.</summary>
     /// <remarks>
     /// ISO 32000-2 §8.11 and §7.7.2, Table 29 (PDF 1.5). Without <c>OCProperties</c> every optional content structure is ignored and all
-    /// content is visible (§8.11.4.2). The same view is returned while the catalog's <c>OCProperties</c> is the same dictionary; its
-    /// group list is a snapshot taken on first use.
+    /// content is visible (§8.11.4.2). The same view is returned while the catalog's <c>OCProperties</c> is the same dictionary and
+    /// nothing its group list was read from has changed; otherwise a new view is created.
     /// </remarks>
     public PdfOptionalContentProperties? OptionalContent
     {
@@ -655,7 +655,7 @@ public sealed partial class PdfDocument : IDisposable
             }
 
             PdfOptionalContentProperties? cached = Volatile.Read(ref _optionalContent);
-            if (cached is not null && ReferenceEquals(cached.Dictionary, dictionary))
+            if (cached is not null && ReferenceEquals(cached.Dictionary, dictionary) && cached.IsCurrent)
             {
                 return cached;
             }
@@ -663,7 +663,7 @@ public sealed partial class PdfDocument : IDisposable
             CosReference? reference = entry as CosReference ?? (Trailer.TryGetValue(KnownNames.Root, out CosObject? root) ? root as CosReference : null);
             var created = new PdfOptionalContentProperties(this, dictionary, reference);
             PdfOptionalContentProperties? raced = Interlocked.CompareExchange(ref _optionalContent, created, cached);
-            return raced == cached ? created : (ReferenceEquals(raced!.Dictionary, dictionary) ? raced : created);
+            return raced == cached ? created : (ReferenceEquals(raced!.Dictionary, dictionary) && raced.IsCurrent ? raced : created);
         }
     }
 

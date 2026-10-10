@@ -1,3 +1,4 @@
+using Broadside.Caching;
 using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -20,7 +21,7 @@ internal sealed class FieldTree
     /// <summary>The deepest nesting of field dictionaries read; deeper ones are cut with a diagnostic.</summary>
     public const int MaxDepth = 256;
 
-    private readonly List<(CosObject Container, int Version)> _tracked = [];
+    private readonly ContainerStamps _tracked = new();
     private readonly CosObject? _fieldsEntry;
     private readonly Dictionary<CosDictionary, FieldTree> _orphans = new(ReferenceEqualityComparer.Instance);
 
@@ -77,26 +78,7 @@ internal sealed class FieldTree
     public bool IsCurrent(CosDictionary acroForm)
     {
         acroForm.TryGetValue(FormNames.Fields, out CosObject? entry);
-        if (!ReferenceEquals(entry, _fieldsEntry))
-        {
-            return false;
-        }
-
-        foreach ((CosObject container, int version) in _tracked)
-        {
-            int now = container switch
-            {
-                CosDictionary dictionary => dictionary.Version,
-                CosArray array => array.Version,
-                _ => version,
-            };
-            if (now != version)
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return ReferenceEquals(entry, _fieldsEntry) && _tracked.IsCurrent;
     }
 
     /// <summary>
@@ -148,7 +130,7 @@ internal sealed class FieldTree
 
         lock (_orphans)
         {
-            if (!_orphans.TryGetValue(top, out FieldTree? orphan))
+            if (!_orphans.TryGetValue(top, out FieldTree? orphan) || !orphan._tracked.IsCurrent)
             {
                 orphan = new FieldTree(fieldsEntry: null);
                 var builder = new Builder(form, orphan);
@@ -161,12 +143,7 @@ internal sealed class FieldTree
         }
     }
 
-    private void Track(CosObject container) => _tracked.Add((container, container switch
-    {
-        CosDictionary dictionary => dictionary.Version,
-        CosArray array => array.Version,
-        _ => 0,
-    }));
+    private void Track(CosObject container) => _tracked.Add(container);
 
     /// <summary>A dictionary waiting to be read as a field: how it was reached, under which field, through which unnamed levels.</summary>
     private readonly record struct Pending(CosObject Element, CosDictionary Dictionary, PdfNonTerminalField? Parent, CosDictionary[] Intermediates, int Depth);

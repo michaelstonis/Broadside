@@ -40,6 +40,18 @@ public class MalformedFormTests
         "<< /Length 0 >>\nstream\n\nendstream");
 
     [Fact]
+    public void A_field_found_outside_the_tree_follows_changes_to_its_dictionaries()
+    {
+        using PdfDocument document = PdfDocument.Open(MalformedTree());
+        var orphan = (PdfWidgetAnnotation)document.Pages[0].Annotations[3];
+        Assert.Equal("orphan", orphan.Field!.FullyQualifiedName);
+
+        orphan.Dictionary[new CosName("T")] = new CosString("renamed"u8);
+
+        Assert.Equal("renamed", orphan.Field!.FullyQualifiedName);
+    }
+
+    [Fact]
     public void A_malformed_field_tree_reads_what_it_can_with_exactly_the_documented_diagnostics()
     {
         using PdfDocument document = PdfDocument.Open(MalformedTree());

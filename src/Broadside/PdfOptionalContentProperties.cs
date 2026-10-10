@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using Broadside.Caching;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -15,10 +16,11 @@ namespace Broadside;
 /// <see langword="null"/>; all content is visible).
 /// </para>
 /// <para>
-/// The group list (<c>OCGs</c>), each group's intents and each membership dictionary's compiled visibility are read once, when first
-/// needed, and kept as a snapshot: <see cref="PdfDocument.OptionalContent"/> returns a new view after <c>OCProperties</c> is replaced.
-/// Everything else (configurations, names, usage) reads the COS objects on every call. Nothing is ever written to the file:
-/// a missing <c>D</c> reads as an empty configuration with a diagnostic.
+/// The group list (<c>OCGs</c>) and each group's intents are read when the view is created, recording the version of every container
+/// read: <see cref="PdfDocument.OptionalContent"/> returns a new view once <c>OCProperties</c> is replaced or any of them has changed
+/// (ADR 0004), and states computed from the old view are refused by the new one. Each membership dictionary's compiled visibility is
+/// recompiled when its dictionary or arrays change. Everything else (configurations, names, usage) reads the COS objects on every
+/// call. Nothing is ever written to the file: a missing <c>D</c> reads as an empty configuration with a diagnostic.
 /// </para>
 /// <para>
 /// Visibility (§8.11.2, §8.11.3): content marked with a group listed in <c>OCGs</c> is visible when the group is ON; with a
@@ -35,7 +37,8 @@ public sealed class PdfOptionalContentProperties
     private readonly CosReference? _reference;
     private readonly PdfOptionalContentGroup[] _groups;
     private readonly Dictionary<CosDictionary, PdfOptionalContentGroup> _byDictionary = new(ReferenceEqualityComparer.Instance);
-    private readonly OnceCache<CosDictionary, VisibilityProgram> _programs = new();
+    private readonly ConcurrentDictionary<CosDictionary, CompiledVisibility> _programs = new(ReferenceEqualityComparer.Instance);
+    private readonly ContainerStamps _stamps = new();
     private readonly CosDictionary _missingDefault = new();
 
     internal PdfOptionalContentProperties(PdfDocument document, CosDictionary dictionary, CosReference? reference)
@@ -44,13 +47,17 @@ public sealed class PdfOptionalContentProperties
         Dictionary = dictionary;
         _reference = reference;
         var groups = new List<PdfOptionalContentGroup>();
+        _stamps.Add(dictionary);
         if (ViewReading.Get(document, dictionary, FileAndLayerNames.OCGs) is CosArray array)
         {
+            _stamps.Add(array);
             foreach (CosObject entry in array)
             {
                 switch (document.Resolve(entry))
                 {
                     case CosDictionary group when !_byDictionary.ContainsKey(group):
+                        _stamps.Add(group);
+                        _stamps.Add(ViewReading.Get(document, group, FileAndLayerNames.Intent));
                         if (ViewReading.Name(document, group, KnownNames.Type) is { } type && !type.Equals(FileAndLayerNames.OCG))
                         {
                             Warn(DiagnosticCodes.OptionalContentGroupInvalid, $"An OCGs entry is a /{type.Value} dictionary, not an optional content group; it is ignored.", entry as CosReference);
@@ -115,6 +122,9 @@ public sealed class PdfOptionalContentProperties
 
     /// <summary>Gets the document.</summary>
     internal PdfDocument Document { get; }
+
+    /// <summary>Gets a value indicating whether nothing the group list was read from has changed (<c>OCProperties</c>, <c>OCGs</c>, the groups and their intents).</summary>
+    internal bool IsCurrent => _stamps.IsCurrent;
 
     /// <summary>Gets each group's intents by ordinal, read once.</summary>
     internal CosName[][] GroupIntents { get; }
@@ -192,12 +202,14 @@ public sealed class PdfOptionalContentProperties
             return !state.Effective[group.Ordinal] || state.On[group.Ordinal];
         }
 
-        VisibilityProgram program = _programs.GetOrCreate(
-            dictionary,
-            (Properties: this, Reference: ocgOrOcmd as CosReference),
-            static (dictionary, context) => new Created<VisibilityProgram>(context.Properties.Compile(dictionary, context.Reference)),
-            static (_, _) => VisibilityProgram.AlwaysVisible);
-        return program.Evaluate(state.On, state.Effective);
+        if (!_programs.TryGetValue(dictionary, out CompiledVisibility? compiled) || !compiled.Stamps.IsCurrent)
+        {
+            var stamps = new ContainerStamps();
+            compiled = new CompiledVisibility(Compile(dictionary, ocgOrOcmd as CosReference, stamps), stamps);
+            _programs[dictionary] = compiled;
+        }
+
+        return compiled.Program.Evaluate(state.On, state.Effective);
     }
 
     /// <summary>
@@ -342,7 +354,7 @@ public sealed class PdfOptionalContentProperties
     }
 
     /// <summary>Parses a visibility expression; <see langword="null"/> (with a diagnostic) when it is unusable.</summary>
-    internal PdfVisibilityExpression? ParseExpression(CosArray array, CosReference? owner)
+    internal PdfVisibilityExpression? ParseExpression(CosArray array, CosReference? owner, ContainerStamps? stamps = null)
     {
         int nodes = 0;
         var path = new HashSet<CosArray>(ReferenceEqualityComparer.Instance);
@@ -363,6 +375,7 @@ public sealed class PdfOptionalContentProperties
                 return null;
             }
 
+            stamps?.Add(node);
             if (!path.Add(node))
             {
                 problem = "A visibility expression contains itself; the OCGs and P entries are used instead.";
@@ -433,8 +446,9 @@ public sealed class PdfOptionalContentProperties
     }
 
     /// <summary>Compiles the visibility of a dictionary that is not a listed group.</summary>
-    private VisibilityProgram Compile(CosDictionary dictionary, CosReference? reference)
+    private VisibilityProgram Compile(CosDictionary dictionary, CosReference? reference, ContainerStamps stamps)
     {
+        stamps.Add(dictionary);
         CosName? type = ViewReading.Name(Document, dictionary, KnownNames.Type);
         if (type is not null && type.Equals(FileAndLayerNames.OCG))
         {
@@ -447,7 +461,7 @@ public sealed class PdfOptionalContentProperties
             return VisibilityProgram.AlwaysVisible;
         }
 
-        if (ViewReading.Get(Document, dictionary, FileAndLayerNames.VE) is CosArray expression && ParseExpression(expression, reference) is { } parsed)
+        if (ViewReading.Get(Document, dictionary, FileAndLayerNames.VE) is CosArray expression && ParseExpression(expression, reference, stamps) is { } parsed)
         {
             return VisibilityProgram.Compile(parsed);
         }
@@ -459,7 +473,9 @@ public sealed class PdfOptionalContentProperties
             Warn(DiagnosticCodes.VisibilityPolicyInvalid, $"The visibility policy /{policyName.Value} is not AllOn, AnyOn, AnyOff or AllOff; AnyOn is used.", reference);
         }
 
-        return VisibilityProgram.Compile(ReadGroupList(ViewReading.Get(Document, dictionary, FileAndLayerNames.OCGs), reference), policy ?? PdfVisibilityPolicy.AnyOn);
+        CosObject? groups = ViewReading.Get(Document, dictionary, FileAndLayerNames.OCGs);
+        stamps.Add(groups);
+        return VisibilityProgram.Compile(ReadGroupList(groups, reference), policy ?? PdfVisibilityPolicy.AnyOn);
     }
 
     private PdfOptionalContentState ComputeStates(PdfOptionalContentConfiguration configuration, PdfOptionalContentState? current)
@@ -562,4 +578,7 @@ public sealed class PdfOptionalContentProperties
                 return null;
         }
     }
+
+    /// <summary>A compiled visibility and the containers it was compiled from.</summary>
+    private sealed record CompiledVisibility(VisibilityProgram Program, ContainerStamps Stamps);
 }
