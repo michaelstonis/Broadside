@@ -1,3 +1,4 @@
+using Broadside.IO;
 using Broadside.Objects;
 
 namespace Broadside.Parsing;
@@ -31,6 +32,40 @@ internal readonly record struct XrefEntry(XrefEntryKind Kind, long Offset, int G
 {
     /// <summary>A free entry with no successor, what an absent or zero-offset entry reads as.</summary>
     public static readonly XrefEntry Free = new(XrefEntryKind.Free, 0, 0);
+}
+
+/// <summary>
+/// How many cross-reference stream entries one document may still read: one per byte of the file, and at least
+/// <see cref="Minimum"/>. A classic table spends 20 bytes of the file per entry (§7.5.4), but a cross-reference stream's data is
+/// filtered (§7.5.8), so Flate lets a few kilobytes describe millions of entries, each of which costs tens of bytes in the
+/// cross-reference dictionaries: without a budget an 11 KB file made the reader allocate 2.3 GB (libFuzzer finding, issue #48).
+/// A real file spends far more than a byte on each object it holds, so the budget only cuts entries no file needs.
+/// </summary>
+/// <remarks>ISO 32000-2 §7.5.8.2 and §7.5.8.3.</remarks>
+internal sealed class XrefEntryBudget(long limit)
+{
+    /// <summary>The smallest budget, whatever the file length: 2^20 entries, enough for any small file's sparse numbering.</summary>
+    public const long Minimum = 1 << 20;
+
+    private long _remaining = limit;
+
+    /// <summary>Returns the budget for one document read from <paramref name="source"/>.</summary>
+    /// <param name="source">The file.</param>
+    /// <returns>A new budget.</returns>
+    public static XrefEntryBudget For(PdfSource source) => new(Math.Max(Minimum, source.Length));
+
+    /// <summary>Spends one entry.</summary>
+    /// <returns><see langword="false"/> when the budget is spent.</returns>
+    public bool TryTake()
+    {
+        if (_remaining <= 0)
+        {
+            return false;
+        }
+
+        _remaining--;
+        return true;
+    }
 }
 
 /// <summary>Whether a cross-reference section is a classic table (§7.5.4) or a cross-reference stream (§7.5.8).</summary>

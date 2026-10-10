@@ -26,6 +26,34 @@ internal static class ContentPdf
         return new TestPdf().Build(objects);
     }
 
+    /// <summary>
+    /// A one-page document whose content stream (object 4) is <paramref name="content"/>, whose page resources are
+    /// <paramref name="resources"/> (the text between <c>&lt;&lt;</c> and <c>&gt;&gt;</c>) and whose further objects, numbered from 5,
+    /// are <paramref name="objects"/>.
+    /// </summary>
+    public static byte[] BuildWith(string resources, string content, params string[] objects) =>
+        BuildWithCatalog(string.Empty, resources, content, objects);
+
+    /// <summary>As <see cref="BuildWith"/>, with extra catalog entries.</summary>
+    public static byte[] BuildWithCatalog(string catalogEntries, string resources, string content, params string[] objects) => new TestPdf().Build(
+    [
+        $"<< /Type /Catalog /Pages 2 0 R {catalogEntries} >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << {resources} >> /Contents 4 0 R >>",
+        Stream(content),
+        .. objects,
+    ]);
+
+    /// <summary>A stream object whose data is <paramref name="data"/>, with <paramref name="entries"/> in its dictionary.</summary>
+    public static string Stream(string data, string entries = "") =>
+        $"<< {entries} /Length {Encoding.Latin1.GetByteCount(data)} >>\nstream\n{data}\nendstream";
+
+    /// <summary>The page resources that name Helvetica (object 5, <see cref="Helvetica"/>) as /F1.</summary>
+    public const string HelveticaResources = "/Font << /F1 5 0 R >>";
+
+    /// <summary>A non-embedded Helvetica with WinAnsiEncoding.</summary>
+    public const string Helvetica = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>";
+
     /// <summary>Opens a one-page document with <paramref name="content"/> and records the events of its page.</summary>
     public static (RecordingProcessor Events, IReadOnlyList<Diagnostic> Diagnostics) Run(string content, ContentEvents events = ContentEvents.All) =>
         Run([content], events);

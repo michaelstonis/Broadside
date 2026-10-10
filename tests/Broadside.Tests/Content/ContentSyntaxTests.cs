@@ -17,7 +17,7 @@ public class ContentSyntaxTests
             ContentEvents.Operators);
 
         Assert.Equal(["Op /Span <</MCID 3 /Alt (a)b) /On true /Off false /N null>> BDC", "Op [(A) -250 (AB) 1.5] TJ", "Op EMC"], events.Body);
-        Assert.Equal(["ContentOperatorOutOfContext"], ContentPdf.Codes(diagnostics));
+        Assert.Equal(["ContentOperatorOutOfContext", "ContentFontMissing"], ContentPdf.Codes(diagnostics));
     }
 
     [Fact]

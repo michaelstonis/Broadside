@@ -43,4 +43,11 @@ public readonly ref struct ImageEvent
 
     /// <summary>Gets a value indicating whether optional content hides the image (§8.11.3.1).</summary>
     public bool IsHidden { get; internal init; }
+
+    /// <summary>
+    /// Gets the image: its dictionary entries, masks and decoding (issue #60). For an inline image, a view over a copy of the
+    /// dictionary (abbreviations expanded, colour space resolved in the current resources) and of the data, which outlives the callback.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §8.9.5 and §8.9.7.</remarks>
+    public Images.PdfImage? Image { get; internal init; }
 }

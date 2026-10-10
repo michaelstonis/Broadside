@@ -10,10 +10,10 @@ public class SaveTests
     private static readonly PdfCrossReferenceLayout[] Layouts = Enum.GetValues<PdfCrossReferenceLayout>();
 
     /// <summary>
-    /// Broken files whose damage is in a document-model structure read lazily (a name tree, an outline, a pattern, mesh data), not in the file structure:
+    /// Broken files whose damage is in a document-model structure read lazily (a name tree, an outline, a pattern, mesh data, a Type 3 glyph), not in the file structure:
     /// they open without a diagnostic and save byte for byte, damage included, so qpdf reports it again.
     /// </summary>
-    private static readonly HashSet<string> DamagedInTheDocumentModel = new(StringComparer.Ordinal) { "name-tree-broken.pdf", "outline-broken.pdf", "annotations-malformed.pdf", "text-type1-pfb.pdf", "text-type1-hex-eexec.pdf", "text-type1-bad-lengths.pdf", "pattern-recursive.pdf", "shading-mesh-truncated.pdf" };
+    private static readonly HashSet<string> DamagedInTheDocumentModel = new(StringComparer.Ordinal) { "name-tree-broken.pdf", "outline-broken.pdf", "annotations-malformed.pdf", "text-type1-pfb.pdf", "text-type1-hex-eexec.pdf", "text-type1-bad-lengths.pdf", "pattern-recursive.pdf", "shading-mesh-truncated.pdf", "text-type3-recursive.pdf", "ccitt-g3-damaged.pdf", "ccitt-g4-truncated.pdf" };
 
     /// <summary>
     /// Well-formed files qpdf 12.4.2 warns about because it compares name tree keys as decoded text, not byte by byte as ISO 32000-2
@@ -268,6 +268,40 @@ public class SaveTests
 
         Assert.Throws<NotSupportedException>(() => source.Save(output));
         Assert.Equal(0, output.Length);
+    }
+
+    // Found by libFuzzer (issue #48): an 11 KB file whose one object is numbered 6,600,016 saved to a 132 MB file (a classic table
+    // lists every number up to the largest), which then took 2.3 GB to open again. Saving a numbering that sparse needs
+    // renumbering, so it is refused like numbers above the limit; a large but dense numbering still saves.
+    [Fact]
+    public void A_document_whose_numbering_is_far_sparser_than_its_objects_is_not_saved()
+    {
+        byte[] file = Document.TestPdf.AppendUpdate(
+            Document.TestPdf.OnePage(string.Empty),
+            "/Size 2000001 /Root 1 0 R",
+            (2_000_000, 0, "<< /Unused true >>"));
+        using PdfDocument source = PdfDocument.Open(file);
+        using var output = new MemoryStream();
+
+        NotSupportedException error = Assert.Throws<NotSupportedException>(() => source.Save(output));
+        Assert.Contains("renumbering", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, output.Length);
+    }
+
+    [Fact]
+    public void A_document_with_a_sparse_numbering_below_a_million_is_saved()
+    {
+        byte[] file = Document.TestPdf.AppendUpdate(
+            Document.TestPdf.OnePage(string.Empty),
+            "/Size 1000001 /Root 1 0 R",
+            (1_000_000, 0, "<< /Unused true >>"));
+        using PdfDocument source = PdfDocument.Open(file);
+        using var output = new MemoryStream();
+
+        source.Save(output);
+
+        using PdfDocument saved = PdfDocument.Open(output.ToArray());
+        Assert.Single(saved.Pages);
     }
 
     [Fact]

@@ -1,6 +1,7 @@
 using Broadside.Diagnostics;
 using Broadside.Fonts;
 using Broadside.Fonts.TrueType;
+using Broadside.Tests.Document;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.Fonts;
@@ -10,6 +11,7 @@ namespace Broadside.Tests.Fonts;
 /// in memory so each table can be made malformed. Vectors follow the OpenType "glyf", "cmap" and "post" table specifications and
 /// fontTools' composite tests (offset, SCALED/UNSCALED offsets, point matching with a rotation). ISO 32000-2 §9.9.
 /// </summary>
+[Collection(HeavyTestCollection.Name)]
 public class TrueTypeProgramTests
 {
     private static readonly byte[] None = [];
@@ -341,14 +343,8 @@ public class TrueTypeProgramTests
         byte[] curve = TrueTypeBuilder.Simple([(0, 0, false), (100, 0, true), (100, 100, false), (0, 100, false)]);
         FontProgram program = Parse(new TrueTypeBuilder { Glyphs = { None, Square, curve, composite } });
         var outline = new GlyphOutline();
-        for (int warm = 0; warm < 50; warm++)
-        {
-            Outline(program, outline);
-        }
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        int segments = Outline(program, outline);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        int segments = default;
+        long allocated = Allocations.Measure(() => segments = Outline(program, outline), 50);
 
         Assert.True(segments > 1_000);
         Assert.Equal(0, allocated);

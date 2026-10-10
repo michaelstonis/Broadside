@@ -22,6 +22,12 @@ public readonly ref struct MarkedContentEvent
     /// <summary>Gets the property list named in the resources, resolved, or <see langword="null"/>.</summary>
     public CosDictionary? Properties { get; internal init; }
 
+    /// <summary>
+    /// Gets the value a named property list resolves to: the same dictionary as <see cref="Properties"/>, or, for an <c>AF</c>
+    /// sequence, a bare array of file specifications (§14.13.5, Example 2); <see langword="null"/> for an inline or missing one.
+    /// </summary>
+    public CosObject? PropertiesObject { get; internal init; }
+
     /// <summary>Gets the marked-content identifier <c>MCID</c> (§14.7.5.2), or <see langword="null"/>.</summary>
     public int? Mcid { get; internal init; }
 
@@ -30,4 +36,19 @@ public readonly ref struct MarkedContentEvent
 
     /// <summary>Gets a value indicating whether optional content hides the sequence (§8.11.3.1).</summary>
     public bool IsHidden { get; internal init; }
+
+    /// <summary>Gets a value indicating whether the sequence is tagged <c>OC</c>: optional content whose visibility its property list decides (§8.11.3.2).</summary>
+    public bool IsOptionalContent { get; internal init; }
+
+    /// <summary>
+    /// Gets the content stream that holds the sequence when it is a form XObject or other nested stream; <see langword="null"/> for
+    /// a page's content. Marked-content identifiers are scoped to it (§14.7.5.2).
+    /// </summary>
+    public CosStream? ContentStream { get; internal init; }
+
+    /// <summary>
+    /// Gets the <c>StructParents</c> key of the stream that holds the sequence (the page's or the form's), through which
+    /// <see cref="Mcid"/> resolves in the structural parent tree (§14.7.5.4); see <see cref="ContentContext.FindStructureElement"/>.
+    /// </summary>
+    public int? StructParents { get; internal init; }
 }

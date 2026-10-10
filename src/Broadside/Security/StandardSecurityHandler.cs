@@ -135,6 +135,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         int maxSequence = password.Length + 64 + userKey.Length;
         byte[] k1 = ArrayPool<byte>.Shared.Rent(maxSequence * 64);
         byte[] e = ArrayPool<byte>.Shared.Rent(maxSequence * 64);
+        using AesCipher aes = AesCipher.Create(k[..16]);
         try
         {
             for (int round = 1; ; round++)
@@ -151,11 +152,9 @@ public sealed class StandardSecurityHandler : ISecurityHandler
                     first.CopyTo(k1.AsSpan(offset, sequence));
                 }
 
-                // b) E = AES-128-CBC(key K[0..16], IV K[16..32], no padding).
-                using (AesCipher aes = AesCipher.Create(k[..16]))
-                {
-                    aes.EncryptCbc(k1.AsSpan(0, length), k[16..32], e);
-                }
+                // b) E = AES-128-CBC(key K[0..16], IV K[16..32], no padding), one cipher re-keyed each round.
+                aes.SetKey(k[..16]);
+                aes.EncryptCbc(k1.AsSpan(0, length), k[16..32], e);
 
                 // c) The first 16 bytes of E as a big-endian integer, modulo 3: since 256 ≡ 1 (mod 3), the sum of the bytes.
                 int sum = 0;

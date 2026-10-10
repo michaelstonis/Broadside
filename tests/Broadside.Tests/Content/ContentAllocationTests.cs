@@ -1,4 +1,5 @@
 using Broadside.Content;
+using Broadside.Tests.Document;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.Content;
@@ -9,6 +10,7 @@ namespace Broadside.Tests.Content;
 /// <c>bench/Broadside.Benchmarks</c> are the measuring half. The lexer test drives the internal reader because no public seam
 /// exposes it alone; the interpreter test goes through <see cref="PdfPage.ProcessContent(ContentProcessor)"/>.
 /// </summary>
+[Collection(HeavyTestCollection.Name)]
 public class ContentAllocationTests
 {
     private const int WarmUp = 50;
@@ -18,14 +20,9 @@ public class ContentAllocationTests
     {
         byte[] content = ContentSamples.PathHeavy(1 << 20);
         var arena = new OperandArena();
-        for (int pass = 0; pass < WarmUp; pass++)
-        {
-            ReadAll(content, arena);
-        }
+        int operators = 0;
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        int operators = ReadAll(content, arena);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = Allocations.Measure(() => operators = ReadAll(content, arena), WarmUp);
 
         Assert.True(operators > 100_000, $"Only {operators} operators.");
         Assert.Equal(0, allocated);
@@ -37,14 +34,9 @@ public class ContentAllocationTests
         using PdfDocument document = PdfDocument.Open(Corpus.Path("filter-chain.pdf"));
         byte[] content = document.DecodeStream(Filters.CorpusFilterTests.ContentStream(document)).ToArray();
         var arena = new OperandArena();
-        for (int pass = 0; pass < WarmUp; pass++)
-        {
-            ReadAll(content, arena);
-        }
+        int operators = 0;
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        int operators = ReadAll(content, arena);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = Allocations.Measure(() => operators = ReadAll(content, arena), WarmUp);
 
         Assert.Equal(5, operators);
         Assert.Equal(0, allocated);
@@ -56,18 +48,94 @@ public class ContentAllocationTests
         using PdfDocument document = PdfDocument.Open(ContentPdf.Build(System.Text.Encoding.ASCII.GetString(ContentSamples.PathHeavy(1 << 20))));
         PdfPage page = document.Pages[0];
         var processor = new CountingProcessor();
-        for (int pass = 0; pass < WarmUp; pass++)
-        {
-            page.ProcessContent(processor);
-        }
 
-        processor.Reset();
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        page.ProcessContent(processor);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = Allocations.Measure(
+            () =>
+            {
+                processor.Reset();
+                page.ProcessContent(processor);
+            },
+            WarmUp);
 
         Assert.True(processor.Paints > 20_000, $"Only {processor.Paints} paints.");
         Assert.True(processor.Clips > 5_000, $"Only {processor.Clips} clips.");
+        Assert.Equal(0, allocated);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void Showing_text_allocates_nothing_per_glyph_once_warm()
+    {
+        string content = System.Text.Encoding.ASCII.GetString(ContentSamples.TextHeavy(10_000));
+        using PdfDocument document = PdfDocument.Open(ContentPdf.BuildWith(ContentPdf.HelveticaResources, content, ContentPdf.Helvetica));
+        PdfPage page = document.Pages[0];
+        var processor = new GlyphCounter();
+
+        long allocated = Allocations.Measure(
+            () =>
+            {
+                processor.Glyphs = 0;
+                page.ProcessContent(processor);
+            },
+            WarmUp);
+
+        Assert.True(processor.Glyphs >= 10_000, $"Only {processor.Glyphs} glyphs.");
+        Assert.Equal(0, allocated);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void Running_forms_marked_content_and_graphics_states_allocates_nothing_once_warm()
+    {
+        string form = ContentPdf.Stream("/Span << /MCID 0 >> BDC 0 0 1 1 re f EMC /G gs", "/Type /XObject /Subtype /Form /BBox [0 0 10 10]");
+        string content = string.Concat(Enumerable.Repeat("q /Fm Do /G gs /P /Pr BDC 0 0 1 1 re f EMC Q\n", 2_000));
+        using PdfDocument document = PdfDocument.Open(ContentPdf.BuildWith(
+            "/XObject << /Fm 5 0 R >> /ExtGState << /G 6 0 R >> /Properties << /Pr 7 0 R >>",
+            content,
+            form,
+            "<< /LW 2 /CA 0.5 /BM /Multiply /D [[1 1] 0] >>",
+            "<< /MCID 1 >>"));
+        PdfPage page = document.Pages[0];
+        var processor = new CountingProcessor();
+
+        long allocated = Allocations.Measure(
+            () =>
+            {
+                processor.Reset();
+                page.ProcessContent(processor);
+            },
+            WarmUp);
+
+        Assert.Equal(4_000, processor.Paints);
+        Assert.Equal(0, allocated);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void Running_type3_glyph_descriptions_allocates_nothing_once_warm()
+    {
+        string font = "<< /Type /Font /Subtype /Type3 /FontBBox [0 0 1000 1000] /FontMatrix [0.001 0 0 0.001 0 0] /CharProcs << /a 6 0 R /b 7 0 R >> "
+            + "/Encoding << /Type /Encoding /Differences [97 /a /b] >> /FirstChar 97 /LastChar 98 /Widths [1000 500] /Resources << /XObject << /Fm 8 0 R >> >> >>";
+        string content = "BT /T3 12 Tf " + string.Concat(Enumerable.Repeat("(abab) Tj\n", 1_000)) + "ET";
+        using PdfDocument document = PdfDocument.Open(ContentPdf.BuildWith(
+            "/Font << /T3 5 0 R >>",
+            content,
+            font,
+            ContentPdf.Stream("1000 0 0 0 1000 1000 d1 0 0 1000 1000 re f /Fm Do"),
+            ContentPdf.Stream("500 0 d0 1 0 0 rg 0 0 m 500 1000 l 500 0 l f"),
+            ContentPdf.Stream("0 0 10 10 re f", "/Type /XObject /Subtype /Form /BBox [0 0 100 100]")));
+        PdfPage page = document.Pages[0];
+        var processor = new Type3Counter();
+
+        long allocated = Allocations.Measure(
+            () =>
+            {
+                processor.Paints = 0;
+                page.ProcessContent(processor);
+            },
+            WarmUp);
+
+        Assert.Equal(6_000, processor.Paints);
         Assert.Equal(0, allocated);
         Assert.Empty(document.Diagnostics);
     }
@@ -84,6 +152,40 @@ public class ContentAllocationTests
 
         arena.Clear();
         return count;
+    }
+}
+
+/// <summary>Counts glyphs and reads what a text extractor reads from each, without allocating.</summary>
+internal sealed class GlyphCounter : ContentProcessor
+{
+    public int Glyphs { get; set; }
+
+    public double Checksum { get; private set; }
+
+    public override ContentEvents Events => ContentEvents.Glyphs | ContentEvents.Text | ContentEvents.Clips;
+
+    public override void ShowGlyph(in GlyphEvent glyph, ContentContext context)
+    {
+        Glyphs++;
+        Checksum += glyph.TextMatrix.E + glyph.AdvanceX + glyph.CharacterCode + glyph.Adjustment;
+    }
+}
+
+/// <summary>Enters every Type 3 glyph and counts the paths its description paints, reading the fill colour.</summary>
+internal sealed class Type3Counter : ContentProcessor
+{
+    public int Paints { get; set; }
+
+    public double Checksum { get; private set; }
+
+    public override ContentEvents Events => ContentEvents.Glyphs | ContentEvents.Paths | ContentEvents.Forms | ContentEvents.Type3GlyphContent;
+
+    public override ContentVisit BeginType3Glyph(in GlyphEvent glyph, ContentContext context) => ContentVisit.Enter;
+
+    public override void PaintPath(in PathEvent path, ContentContext context)
+    {
+        Paints++;
+        Checksum += context.State.Ctm.E + context.State.FillColor[0];
     }
 }
 

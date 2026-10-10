@@ -84,6 +84,7 @@
     HexStringInvalidDigit: 1
     InfoDictionaryInvalid: 1
     InfoValueNotTextString: 1
+    JpxLimitExceeded: 1
     MetadataStreamInvalid: 1
     NumberMalformed: 1
     NumberTreeDuplicateKey: 1
@@ -252,7 +253,7 @@ pdfium-tests: 840 files
     StreamLengthInvalid: 92
     XrefSectionInvalid: 84
     AppearanceNotForm: 82
-    PredictorInvalid: 72
+    PredictorInvalid: 73
     DateInvalid: 56
     XmpMalformed: 43
     XmpPropertyDuplicate: 37
