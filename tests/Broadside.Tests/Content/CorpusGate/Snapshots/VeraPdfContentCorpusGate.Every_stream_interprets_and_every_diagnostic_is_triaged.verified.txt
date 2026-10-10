@@ -1,0 +1,126 @@
+﻿corpus: verapdf-corpus @ bb75f4f0073d9350dfd058c0162a367e6fadf25e
+files: 2906
+well-formed files: 2792
+outcomes:
+  Interpreted: 2906
+  PasswordRequired: 0
+  CertificateRequired: 0
+  EncryptionUnsupported: 0
+  Rejected: 0
+  Crash: 0
+  Timeout: 0
+pages: 12949
+appearance streams: 249
+concurrent passes: 19
+page events:
+  Runs: 12949
+  Operators: 123733
+  UnknownOperators: 12
+  StateSaves: 6504
+  PathVerbs: 46641
+  PathsStroked: 566
+  PathsFilled: 2053
+  PathsFilledAndStroked: 1077
+  PathsEnded: 1179
+  ClipsPath: 1179
+  ClipsRectangle: 1236
+  ClipsText: 0
+  TextObjects: 1908
+  GlyphsType1: 3939
+  GlyphsMMType1: 74
+  GlyphsTrueType: 272522
+  GlyphsType3: 228
+  GlyphsType0: 4957
+  Type3GlyphsRun: 89
+  ImagesXObject: 167
+  ImagesInline: 45
+  ImagesStencil: 0
+  ImagesUnresolved: 0
+  ShadingsFunction: 1
+  ShadingsAxialRadial: 13
+  ShadingsMesh: 0
+  ShadingsUnresolved: 0
+  MeshesDecoded: 0
+  PatternFillsTiling: 89
+  PatternFillsShading: 0
+  PatternCellsRun: 53
+  FormsEntered: 1172
+  TransparencyGroups: 27
+  SoftMaskGroupsRun: 11
+  MarkedContentSequences: 2639
+  OptionalContentSequences: 0
+  MarkedContentPoints: 0
+  MaxDepth: 33
+appearance events:
+  Runs: 246
+  Operators: 7174
+  UnknownOperators: 1
+  StateSaves: 324
+  PathVerbs: 6269
+  PathsStroked: 140
+  PathsFilled: 340
+  PathsFilledAndStroked: 11
+  PathsEnded: 15
+  ClipsPath: 11
+  ClipsRectangle: 268
+  ClipsText: 0
+  TextObjects: 12
+  GlyphsType1: 9
+  GlyphsMMType1: 0
+  GlyphsTrueType: 78
+  GlyphsType3: 0
+  GlyphsType0: 10
+  Type3GlyphsRun: 0
+  ImagesXObject: 1
+  ImagesInline: 0
+  ImagesStencil: 0
+  ImagesUnresolved: 0
+  ShadingsFunction: 0
+  ShadingsAxialRadial: 2
+  ShadingsMesh: 0
+  ShadingsUnresolved: 0
+  MeshesDecoded: 0
+  PatternFillsTiling: 0
+  PatternFillsShading: 0
+  PatternCellsRun: 0
+  FormsEntered: 20
+  TransparencyGroups: 8
+  SoftMaskGroupsRun: 2
+  MarkedContentSequences: 11
+  OptionalContentSequences: 0
+  MarkedContentPoints: 0
+  MaxDepth: 2
+diagnostics on well-formed files (files, total):
+  CMapCodeInvalid: 2, 2
+  CMapEntryInvalid: 6, 6
+  CMapWritingModeMismatch: 9, 9
+  CidSystemInfoMismatch: 10, 10
+  CidToGidMapInvalid: 8, 8
+  CidToGidMapMissing: 6, 6
+  ColorSpaceEntryInvalid: 1, 1
+  ContentColorOperandCount: 1, 1
+  ContentColorOperatorIgnored: 3, 3
+  ContentColorOperatorMismatch: 15, 15
+  ContentColorSpaceMissing: 2, 2
+  ContentExtGStateInvalid: 4, 4
+  ContentStackUnderflow: 2, 2
+  ContentSyntaxInvalid: 3, 3
+  ContentUnbalancedSave: 1, 1
+  ContentUnknownOperator: 5, 5
+  ContentXObjectMissing: 1, 1
+  FontEncodingInvalid: 8, 8
+  FontProgramInvalid: 2, 2
+  FontTableInvalid: 1, 1
+  FunctionProgramStackInvalid: 7, 7
+  IccComponentCountMismatch: 1, 1
+  Type0IdentityNotEmbedded: 2, 2
+diagnostics on other files (files, total):
+  AnnotationNotIndirect: 2, 2
+  AnnotationPageMismatch: 1, 1
+  AppearanceEntryInvalid: 2, 2
+  AppearanceMissing: 22, 22
+  ContentUnknownOperator: 1, 1
+  FilterUnsupported: 1, 1
+  FunctionProgramStackInvalid: 1, 1
+  StreamKeywordEndOfLine: 2, 2
+  StreamLengthInvalid: 1, 1

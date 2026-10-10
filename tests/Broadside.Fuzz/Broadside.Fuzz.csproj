@@ -23,6 +23,8 @@
     <Compile Include="../Broadside.TestSupport/AnnotationWalker.cs" Link="AnnotationWalker.cs" />
     <Compile Include="../Broadside.TestSupport/ActionWalker.cs" Link="ActionWalker.cs" />
     <Compile Include="../Broadside.TestSupport/FormWalker.cs" Link="FormWalker.cs" />
+    <!-- The content corpus gate's counting processor (issue #80). -->
+    <Compile Include="../Broadside.TestSupport/CountingContentProcessor.cs" Link="CountingContentProcessor.cs" />
     <!-- The folder props add a global using for xunit; this harness does not reference it. -->
     <Using Remove="Xunit" />
   </ItemGroup>

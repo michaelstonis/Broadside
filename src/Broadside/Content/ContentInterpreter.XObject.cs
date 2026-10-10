@@ -23,6 +23,7 @@ internal sealed partial class ContentInterpreter
     private static readonly CosName XObjectName = new("XObject");
     private static readonly CosName SubtypeName = new("Subtype");
     private static readonly CosName ImageMaskName = new("ImageMask");
+    private static readonly CosName ImageMaskAbbreviation = new("IM");
     private static readonly CosName StructParentName = new("StructParent");
     private static readonly PdfVersion Pdf20 = new(2, 0);
 
@@ -79,7 +80,9 @@ internal sealed partial class ContentInterpreter
     private void PaintImageXObject(CosStream stream, CosReference? reference, ReadOnlySpan<byte> name)
     {
         CosDictionary dictionary = stream.Dictionary;
-        bool stencil = dictionary.TryGetValue(ImageMaskName, out CosObject? mask) && _context.Document.Resolve(mask) is CosBoolean { Value: true };
+        // ImageMask, or its inline abbreviation IM, which the image layer reads on an XObject too (ImageKeyAbbreviated).
+        bool stencil = (dictionary.TryGetValue(ImageMaskName, out CosObject? mask) || dictionary.TryGetValue(ImageMaskAbbreviation, out mask))
+            && _context.Document.Resolve(mask) is CosBoolean { Value: true };
         if (IgnoresColorOperators && !stencil)
         {
             Report(ContentIssue.ColorOperatorIgnored, -1, "An image that is not an image mask is painted inside a d1 glyph or an uncoloured pattern, where only image masks are allowed; it is ignored.");
@@ -98,14 +101,14 @@ internal sealed partial class ContentInterpreter
         }
 
         PdfDocument document = _context.Document;
-        Images.PdfImage? model = document.GetImage((CosObject?)reference ?? stream);
+        Images.PdfImage? model = document.ContentResources.GetImage(stream, reference);
         var image = new ImageEvent
         {
             Stream = stream,
             Reference = reference,
             ResourceName = name,
             Image = model,
-            IsStencil = model?.IsStencil ?? stencil,
+            IsStencil = stencil,
             Ctm = State.Ctm,
             StructParent = Annotations.AnnotationValues.ReadInteger(document, dictionary.TryGetValue(StructParentName, out CosObject? key) ? key : null),
             IsHidden = hidden,

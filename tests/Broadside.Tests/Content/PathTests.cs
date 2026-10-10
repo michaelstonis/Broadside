@@ -90,6 +90,21 @@ public class PathTests
         Assert.Equal(["ContentNoCurrentPath"], ContentPdf.Codes(diagnostics));
     }
 
+    [Theory]
+    [InlineData("n")]
+    [InlineData("S")]
+    [InlineData("q 1 0 0 1 0 0 cm Q n")]
+    [InlineData("W n")]
+    public void Painting_or_clipping_without_a_path_is_a_figure_9_violation_recorded_as_information_and_strict_mode_reads_on(string content)
+    {
+        // pdfTeX writes a bare n after its form XObjects; nothing is painted either way (issue #80 triage: 24 well-formed files).
+        using PdfDocument document = PdfDocument.Open(ContentPdf.Build(content), new PdfOptions().UseStrict());
+        document.Pages[0].ProcessContent(new RecordingProcessor());
+
+        Diagnostics.Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal(("ContentNoCurrentPath", Diagnostics.DiagnosticSeverity.Information), (diagnostic.Code, diagnostic.Severity));
+    }
+
     [Fact]
     public void Painting_without_a_path_paints_nothing_and_is_recorded()
     {

@@ -209,7 +209,8 @@ internal sealed partial class ContentInterpreter
         return rented.AsMemory(0, position);
     }
 
-    private void Begin(PdfDocument document, PdfPage? page, ContentProcessor processor, ContentOptions options, CosReference? fallbackReference)
+    /// <summary>Resets the interpreter for a top-level run of a page's content: initial state, empty stacks, the page's resources.</summary>
+    private void Prepare(PdfDocument document, PdfPage? page, ContentProcessor processor, ContentOptions options, CosReference? fallbackReference)
     {
         _processor = processor;
         _events = processor.Events;
@@ -244,8 +245,20 @@ internal sealed partial class ContentInterpreter
         _context.ContentStream = null;
         _context.StructParents = page is null ? null : Annotations.AnnotationValues.ReadInteger(document, page.Dictionary.TryGetValue(StructParentsName, out CosObject? key) ? key : null);
         _context.CancellationToken = options.CancellationToken;
-        options.CancellationToken.ThrowIfCancellationRequested();
-        processor.BeginRun(_context);
+    }
+
+    /// <summary>Prepares a top-level run (<see cref="Prepare"/>) and starts it.</summary>
+    private void Begin(PdfDocument document, PdfPage? page, ContentProcessor processor, ContentOptions options, CosReference? fallbackReference)
+    {
+        Prepare(document, page, processor, options, fallbackReference);
+        Start();
+    }
+
+    /// <summary>Starts a prepared run: checks cancellation and reports <see cref="ContentProcessor.BeginRun"/>.</summary>
+    private void Start()
+    {
+        _context.CancellationToken.ThrowIfCancellationRequested();
+        _processor.BeginRun(_context);
     }
 
     private void End()

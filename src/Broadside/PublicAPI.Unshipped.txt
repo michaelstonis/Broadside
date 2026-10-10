@@ -3283,3 +3283,5 @@ Broadside.Fonts.Cff.CffFontProgramParser.Parse(System.ReadOnlyMemory<byte> data,
 Broadside.Fonts.FontProgramContext.MaxCharStringOperators.get -> int
 Broadside.Fonts.FontProgramContext.MaxCharStringOperators.init -> void
 const Broadside.Fonts.FontProgramContext.DefaultMaxCharStringOperators = 100000 -> int
+Broadside.Annotations.PdfAnnotation.ProcessAppearance(Broadside.Graphics.PdfFormXObject! appearance, Broadside.Content.ContentProcessor! processor) -> bool
+Broadside.Annotations.PdfAnnotation.ProcessAppearance(Broadside.Graphics.PdfFormXObject! appearance, Broadside.Content.ContentProcessor! processor, Broadside.Content.ContentOptions! options) -> bool

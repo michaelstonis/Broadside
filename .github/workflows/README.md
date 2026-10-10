@@ -12,6 +12,14 @@
 
 A newer push to the same PR or branch cancels the older run. NuGet packages are cached per OS, keyed on `Directory.Packages.props` and every `.csproj`. `DiffEngine_Disabled=true` keeps Verify from launching a diff tool.
 
+## `corpus.yml`: weekly (Monday 04:17 UTC) and the "Run workflow" button
+
+| Job | Runs on | What it does |
+|---|---|---|
+| `corpus-gates` | ubuntu | Fetches every non-manual corpus with `tools/CorpusFetcher`, builds in Release, and runs `tests/Broadside.Tests` with `--filter-trait "Category=Corpus"` and `BROADSIDE_CORPUS_DIR` set: the open-and-walk gate (#47), the veraPDF agreement, the real-world font, image and colour sweeps, and the content interpreter gate (#80, one class per corpus, with its allowlist and snapshots). Uploads `artifacts/corpus-gate/*.json` (per-file counts, diagnostics, time and allocation) as `corpus-gate`. |
+
+The corpus tests skip when `corpus/` is absent, which is why `ci.yml` cannot catch a regression in them; this workflow is where they run.
+
 ## `docs.yml`: the documentation site
 
 Runs on pull requests and pushes to `main` that touch `site/**`, `src/**`, `docs/**`, `.config/**`, `check-docs.sh`, `Directory.Build.props`, `Directory.Packages.props`, `global.json` or the workflow itself, and on the "Run workflow" button.

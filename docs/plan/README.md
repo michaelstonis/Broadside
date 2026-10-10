@@ -69,6 +69,8 @@ Exit criteria: every file in the pdf.js and PDFBox corpora opens without an exce
 
 Exit criteria per track: conformance rows for the listed clauses `done`; corpus-driven tests that every font and image in the corpora decodes; interpreter replays every content stream in the corpora without diagnostics on well-formed files.
 
+Track 2D exit gate (#80): `tests/Broadside.Tests/Content/CorpusGate/` interprets every page and annotation appearance of every fetched corpus file, with no exception and every diagnostic on a well-formed file triaged in `content-diagnostics.allowlist.txt`; `.github/workflows/corpus.yml` runs it weekly. The interpretation baseline over a pinned real-world subset is [`docs/benchmarks/phase-2-content-baseline.md`](../benchmarks/phase-2-content-baseline.md).
+
 ### Phase 3: Rendering (parallel tracks after 3A)
 
 **Track 3A Display list** (ADR 0006): struct-based op buffer, interned resources (decoded images, glyph outlines, shadings), text runs with font reference + glyph ids + positions, clip stack, transparency group markers, annotation appearance ops as a separate layer, hit-test index for text. Render options per Q39 (scale/DPI, rotation, clip rectangle, layers, intent, anti-aliasing, `ForceOutlines`, cancellation, progress). The display list is replayable on any thread.
