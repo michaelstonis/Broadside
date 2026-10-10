@@ -17,10 +17,9 @@ namespace Broadside.Content;
 /// Several processors share one run through <see cref="CompositeContentProcessor"/>.
 /// </para>
 /// <para>
-/// Which events are reported today: runs, operators, the state stack, paths, clips and text object boundaries (issue #55), and
-/// shadings (issue #79; a tiling pattern's cell runs on request through <see cref="ContentContext.RunPatternCell"/>). Glyphs,
-/// images, forms and marked content come with issue #56; their methods and payloads are declared now so that processors written
-/// today keep working.
+/// Every event is reported: runs, operators, the state stack, paths and clips (issue #55); glyphs, text clips, images, forms, Type 3
+/// glyph descriptions and marked content (issue #56); shadings (issue #79; a tiling pattern's cell runs on request through
+/// <see cref="ContentContext.RunPatternCell"/>). Payloads gain members over time; their existing members never change.
 /// </para>
 /// </remarks>
 public abstract class ContentProcessor

@@ -13,7 +13,9 @@ internal sealed class ClipArena
     private Node[] _nodes = ArrayPool<Node>.Shared.Rent(16);
     private PathVerb[] _verbs = ArrayPool<PathVerb>.Shared.Rent(64);
     private PathPoint[] _points = ArrayPool<PathPoint>.Shared.Rent(128);
+    private TextClipGlyph[] _glyphs = [];
     private int _nodeCount;
+    private int _glyphCount;
     private int _verbCount;
     private int _pointCount;
 
@@ -23,6 +25,8 @@ internal sealed class ClipArena
         _nodeCount = 0;
         _verbCount = 0;
         _pointCount = 0;
+        _glyphs.AsSpan(0, _glyphCount).Clear();
+        _glyphCount = 0;
         if (_points.Length > 1 << 16)
         {
             ArrayPool<Node>.Shared.Return(_nodes);
@@ -54,9 +58,30 @@ internal sealed class ClipArena
 
         path.Verbs.CopyTo(_verbs.AsSpan(_verbCount));
         path.Points.CopyTo(_points.AsSpan(_pointCount));
-        _nodes[_nodeCount++] = new Node(parent, kind, rule, _verbCount, path.Verbs.Length, _pointCount, path.Points.Length, ctm);
+        _nodes[_nodeCount++] = new Node(parent, kind, rule, _verbCount, path.Verbs.Length, _pointCount, path.Points.Length, ctm, 0, 0);
         _verbCount += path.Verbs.Length;
         _pointCount += path.Points.Length;
+        return _nodeCount;
+    }
+
+    /// <summary>Adds a text clip node intersecting <paramref name="parent"/> with the outlines of a copy of <paramref name="glyphs"/>; returns its handle.</summary>
+    public int AddText(int parent, ReadOnlySpan<TextClipGlyph> glyphs, Matrix ctm)
+    {
+        if (_nodeCount == _nodes.Length)
+        {
+            Grow(ref _nodes, _nodeCount, _nodeCount + 1);
+        }
+
+        if (_glyphCount + glyphs.Length > _glyphs.Length)
+        {
+            var larger = new TextClipGlyph[Math.Max(_glyphCount + glyphs.Length, Math.Max(16, _glyphs.Length * 2))];
+            _glyphs.AsSpan(0, _glyphCount).CopyTo(larger);
+            _glyphs = larger;
+        }
+
+        glyphs.CopyTo(_glyphs.AsSpan(_glyphCount));
+        _nodes[_nodeCount++] = new Node(parent, ClipKind.Text, FillRule.NonZero, 0, 0, 0, 0, ctm, _glyphCount, glyphs.Length);
+        _glyphCount += glyphs.Length;
         return _nodeCount;
     }
 
@@ -77,6 +102,7 @@ internal sealed class ClipArena
             Rule = node.Rule,
             Path = new PathView(_verbs.AsSpan(node.VerbStart, node.VerbCount), _points.AsSpan(node.PointStart, node.PointCount)),
             Ctm = node.Ctm,
+            Glyphs = _glyphs.AsSpan(node.GlyphStart, node.GlyphCount),
         };
     }
 
@@ -88,5 +114,5 @@ internal sealed class ClipArena
         array = larger;
     }
 
-    private readonly record struct Node(int Parent, ClipKind Kind, FillRule Rule, int VerbStart, int VerbCount, int PointStart, int PointCount, Matrix Ctm);
+    private readonly record struct Node(int Parent, ClipKind Kind, FillRule Rule, int VerbStart, int VerbCount, int PointStart, int PointCount, Matrix Ctm, int GlyphStart, int GlyphCount);
 }

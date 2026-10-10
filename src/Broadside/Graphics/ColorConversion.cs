@@ -31,7 +31,7 @@ public readonly record struct ColorConversion
     /// <remarks>ISO 32000-2 §8.6.5.9: with AbsoluteColorimetric "black point compensation shall not be used".</remarks>
     public bool CompensatesBlackPoint => BlackPointCompensation != BlackPointCompensation.Off && Intent != RenderingIntent.AbsoluteColorimetric;
 
-    /// <summary>Returns the conversion the graphics state asks for: its rendering intent and black point compensation.</summary>
+    /// <summary>Returns the conversion the graphics state asks for: its rendering intent, black point compensation, black generation and undercolour removal.</summary>
     /// <param name="state">The graphics state.</param>
     /// <param name="target">The device colour model converted to.</param>
     /// <returns>The conversion.</returns>
@@ -40,5 +40,7 @@ public readonly record struct ColorConversion
         Target = target,
         Intent = state.RenderingIntent,
         BlackPointCompensation = state.BlackPointCompensation,
+        BlackGeneration = state.BlackGeneration,
+        UndercolorRemoval = state.UndercolorRemoval,
     };
 }

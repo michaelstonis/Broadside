@@ -72,6 +72,56 @@ public class ContentAllocationTests
         Assert.Empty(document.Diagnostics);
     }
 
+    [Fact]
+    public void Showing_text_allocates_nothing_per_glyph_once_warm()
+    {
+        string content = System.Text.Encoding.ASCII.GetString(ContentSamples.TextHeavy(10_000));
+        using PdfDocument document = PdfDocument.Open(ContentPdf.BuildWith(ContentPdf.HelveticaResources, content, ContentPdf.Helvetica));
+        PdfPage page = document.Pages[0];
+        var processor = new GlyphCounter();
+        for (int pass = 0; pass < WarmUp; pass++)
+        {
+            page.ProcessContent(processor);
+        }
+
+        processor.Glyphs = 0;
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        page.ProcessContent(processor);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.True(processor.Glyphs >= 10_000, $"Only {processor.Glyphs} glyphs.");
+        Assert.Equal(0, allocated);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void Running_forms_marked_content_and_graphics_states_allocates_nothing_once_warm()
+    {
+        string form = ContentPdf.Stream("/Span << /MCID 0 >> BDC 0 0 1 1 re f EMC /G gs", "/Type /XObject /Subtype /Form /BBox [0 0 10 10]");
+        string content = string.Concat(Enumerable.Repeat("q /Fm Do /G gs /P /Pr BDC 0 0 1 1 re f EMC Q\n", 2_000));
+        using PdfDocument document = PdfDocument.Open(ContentPdf.BuildWith(
+            "/XObject << /Fm 5 0 R >> /ExtGState << /G 6 0 R >> /Properties << /Pr 7 0 R >>",
+            content,
+            form,
+            "<< /LW 2 /CA 0.5 /BM /Multiply /D [[1 1] 0] >>",
+            "<< /MCID 1 >>"));
+        PdfPage page = document.Pages[0];
+        var processor = new CountingProcessor();
+        for (int pass = 0; pass < WarmUp; pass++)
+        {
+            page.ProcessContent(processor);
+        }
+
+        processor.Reset();
+        long before = GC.GetAllocatedBytesForCurrentThread();
+        page.ProcessContent(processor);
+        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+
+        Assert.Equal(4_000, processor.Paints);
+        Assert.Equal(0, allocated);
+        Assert.Empty(document.Diagnostics);
+    }
+
     private static int ReadAll(ReadOnlySpan<byte> content, OperandArena arena)
     {
         var reader = new ContentReader(content, arena);
@@ -84,6 +134,22 @@ public class ContentAllocationTests
 
         arena.Clear();
         return count;
+    }
+}
+
+/// <summary>Counts glyphs and reads what a text extractor reads from each, without allocating.</summary>
+internal sealed class GlyphCounter : ContentProcessor
+{
+    public int Glyphs { get; set; }
+
+    public double Checksum { get; private set; }
+
+    public override ContentEvents Events => ContentEvents.Glyphs | ContentEvents.Text | ContentEvents.Clips;
+
+    public override void ShowGlyph(in GlyphEvent glyph, ContentContext context)
+    {
+        Glyphs++;
+        Checksum += glyph.TextMatrix.E + glyph.AdvanceX + glyph.CharacterCode + glyph.Adjustment;
     }
 }
 

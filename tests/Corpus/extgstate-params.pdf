@@ -1,0 +1,52 @@
+%PDF-2.0
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /ExtGState << /GS1 5 0 R /GS2 6 0 R >> >> >>
+endobj
+4 0 obj
+<<  /Length 75 >>
+stream
+q 2 0 0 2 0 0 cm /GS1 gs 0 0 10 10 re f Q /GS1 gs /GS2 gs 20 20 10 10 re S
+
+endstream
+endobj
+5 0 obj
+<< /Type /ExtGState /LW 3 /LC 1 /LJ 2 /ML 5 /D [[4 2] 1] /RI /Saturation /OP true /op false /OPM 1 /Font [9 0 R 14] /FL 2 /SA true /BM /Multiply /CA 0.5 /ca 0.25 /AIS true /TK false /UseBlackPtComp /ON /SMask << /Type /Mask /S /Luminosity /G 7 0 R /BC [0.5] /TR /Identity >> >>
+endobj
+6 0 obj
+<< /Type /ExtGState /SM 0.5 /HTO [1 2] /BG2 8 0 R /UCR2 8 0 R /TR2 /Identity /HT /Default /BM [/BroadsideUnknown /Screen] /SMask /None >>
+endobj
+7 0 obj
+<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Group << /S /Transparency /CS /DeviceGray >> /Length 20 >>
+stream
+0.5 g 0 0 10 10 re f
+endstream
+endobj
+8 0 obj
+<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >>
+endobj
+9 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 10
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000258 00000 n 
+0000000384 00000 n 
+0000000677 00000 n 
+0000000830 00000 n 
+0000000994 00000 n 
+0000001066 00000 n 
+trailer
+<< /Size 10 /Root 1 0 R /ID [<3aba2977082c7859e94d981a6bab0eff> <3aba2977082c7859e94d981a6bab0eff>] >>
+startxref
+1163
+%%EOF

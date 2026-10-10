@@ -48,4 +48,55 @@ public readonly ref struct FormEvent
 
     /// <summary>Gets the nesting depth of the form's run.</summary>
     public int Depth { get; internal init; }
+
+    /// <summary>Gets the form XObject's view.</summary>
+    /// <remarks>ISO 32000-2 §8.10.1, Table 93.</remarks>
+    public PdfFormXObject? Form { get; internal init; }
+
+    /// <summary>Gets a value indicating whether <see cref="BoundingBox"/> is the form's: false when its <c>BBox</c> is missing or malformed, and the content is not clipped.</summary>
+    public bool HasBoundingBox { get; internal init; }
+
+    /// <summary>Gets a value indicating whether the form is a transparency group XObject (<c>Group</c> with <c>S /Transparency</c>).</summary>
+    /// <remarks>ISO 32000-2 §11.6.6, Table 145.</remarks>
+    public bool IsTransparencyGroup { get; internal init; }
+
+    /// <summary>Gets a value indicating whether the transparency group is isolated (<c>I</c>).</summary>
+    /// <remarks>ISO 32000-2 §11.6.6, Table 145; §11.4.5.</remarks>
+    public bool IsIsolated { get; internal init; }
+
+    /// <summary>Gets a value indicating whether the transparency group is a knockout group (<c>K</c>).</summary>
+    /// <remarks>ISO 32000-2 §11.6.6, Table 145; §11.4.6.</remarks>
+    public bool IsKnockout { get; internal init; }
+
+    /// <summary>Gets the transparency group's colour space (<c>CS</c>), or <see langword="null"/> when it inherits its parent's.</summary>
+    /// <remarks>ISO 32000-2 §11.6.6, Table 145; §11.4.7.</remarks>
+    public PdfColorSpace? GroupColorSpace { get; internal init; }
+
+    /// <summary>
+    /// Gets the blend mode in effect at <c>Do</c>. For a transparency group it composites the group as a whole; inside, the blend mode
+    /// starts as Normal.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §11.6.6 (p.438).</remarks>
+    public BlendMode BlendMode { get; internal init; }
+
+    /// <summary>Gets the stroking alpha in effect at <c>Do</c>; inside a transparency group it starts at 1.</summary>
+    /// <remarks>ISO 32000-2 §11.6.6 (p.438).</remarks>
+    public double StrokeAlpha { get; internal init; }
+
+    /// <summary>Gets the nonstroking alpha in effect at <c>Do</c>, the group's opacity; inside a transparency group it starts at 1.</summary>
+    /// <remarks>ISO 32000-2 §11.6.6 (p.438).</remarks>
+    public double FillAlpha { get; internal init; }
+
+    /// <summary>Gets the soft mask in effect at <c>Do</c>, which masks a transparency group as a whole; inside, there is none.</summary>
+    /// <remarks>ISO 32000-2 §11.6.6 (p.438).</remarks>
+    public PdfSoftMask? SoftMask { get; internal init; }
+
+    /// <summary>Gets the CTM at which <see cref="SoftMask"/> was set (§11.6.5.1).</summary>
+    public Matrix SoftMaskMatrix { get; internal init; }
+
+    /// <summary>Gets the alpha source flag in effect at <c>Do</c> (§11.6.4.3).</summary>
+    public bool AlphaIsShape { get; internal init; }
+
+    /// <summary>Gets a value indicating whether optional content hides the form's content (§8.11.3.1).</summary>
+    public bool IsHidden { get; internal init; }
 }
