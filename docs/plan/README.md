@@ -110,9 +110,9 @@ Shared viewer core: document session, page layout modes (single, continuous, fac
 
 ### Phase 7: Hardening and v1 release (after Phases 3–5; Phase 6 not required)
 
-- **7A Coverage gaps**: spec stories and decisions the coverage audit found partial (platform-identical software rendering, wrapper documents, remaining round-trip and extraction cases).
-- **7B Deferred hardening**: findings deferred from the Phase 1–2 review (resource limits, partial codec features, strict-mode edges); JBIG2 extended templates are earmarked post-v1.
-- **7C Release engineering**: package metadata and signing, the NuGet preview (after Phase 3 renders real-world pages), guides and migration docs, threat model, performance comparison, the 1.x support policy, and the v1.0 release-candidate gate. v1.0 is the library and backends; the viewer ships as previews on its own track.
+- **7A Coverage gaps**: what the spec coverage audit found partial: bit-identical software rendering on every platform, unencrypted wrapper documents (read and write), order 3 sampled functions, bounded memory on multi-gigabyte files, the remaining silent repairs, hosted-engine option coverage, checked clause citations and conformance map closure.
+- **7B Deferred hardening**: what the Phase 1–2 review deferred: a public typed diagnostic-code catalogue (expand, migrate by area, contract), API tidy before the freeze (async overloads, images, annotation subtypes, associated files), DCT decoder split, performance (JPEG 2000 tier-1, CMap caching, graphics-state copies) and the remaining partial features (linearized file with a missing page tree, JPEG 2000 fragment tables). JBIG2 extended templates are earmarked post-v1.
+- **7C Release engineering**: API review guards and the v1 API freeze, the published diagnostic catalogue, versioning and the 1.x support policy, package validation and trusted publishing (first preview after Phase 3 renders real-world pages), the v1 documentation site and guides including migration from PdfSharp, iText and PdfPig, trimming/AOT/WASM verification, threat model and resource limits, a fuzzing and security review, a performance comparison with PDFium and pdf.js, and the v1.0 release-candidate gate. v1.0 is the library and backends; the viewer ships as previews on its own track.
 
 ## Dependency graph
 
