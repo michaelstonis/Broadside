@@ -50,6 +50,9 @@ internal sealed class StreamDecoder
     /// <summary>Gets the most bytes one stream may decode to.</summary>
     public long MaxDecodedLength { get; }
 
+    /// <summary>Gets the most pixels one image may have (issue #60).</summary>
+    public long MaxImagePixels { get; init; } = PdfOptions.DefaultMaxImagePixels;
+
     /// <summary>
     /// Gets or sets the security handler's crypt filters (issue #42). Set once during open, after the <c>Encrypt</c> dictionary is read.
     /// </summary>
@@ -101,8 +104,20 @@ internal sealed class StreamDecoder
     /// <param name="stream">The stream.</param>
     /// <param name="output">Where to write the decoded data.</param>
     /// <param name="depth">How many decodes are in progress beneath this one.</param>
-    public void Decode(CosStream stream, IBufferWriter<byte> output, int depth = 0)
+    public void Decode(CosStream stream, IBufferWriter<byte> output, int depth = 0) => Decode(stream, output, depth, stopBeforeImageFilter: false, out _);
+
+    /// <summary>
+    /// Decodes a stream into <paramref name="output"/>, optionally stopping before a last filter that has an image facet
+    /// (<see cref="IImageFilter"/>), which the image layer then runs itself.
+    /// </summary>
+    /// <param name="stream">The stream.</param>
+    /// <param name="output">Where to write the decoded data.</param>
+    /// <param name="depth">How many decodes are in progress beneath this one.</param>
+    /// <param name="stopBeforeImageFilter">Whether to leave a last image filter to the caller.</param>
+    /// <param name="outcome">Whether every filter ran, and the image filter left to the caller, if any.</param>
+    public void Decode(CosStream stream, IBufferWriter<byte> output, int depth, bool stopBeforeImageFilter, out ChainOutcome outcome)
     {
+        outcome = new ChainOutcome(Complete: true, ImageFilter: null, ImageContext: null);
         CheckExternalFile(stream);
         if (depth > MaxDepth)
         {
@@ -113,6 +128,17 @@ internal sealed class StreamDecoder
         }
 
         List<FilterStage> chain = ReadChain(stream.Dictionary);
+        if (stopBeforeImageFilter && chain.Count > 0 && _filters.TryGet(chain[^1].Name, out IStreamFilter? last) && last is IImageFilter imageFilter)
+        {
+            FilterStage stage = chain[^1];
+            chain.RemoveAt(chain.Count - 1);
+            outcome = outcome with
+            {
+                ImageFilter = imageFilter,
+                ImageContext = new FilterContext(this, depth) { Parameters = stage.Parameters, StreamDictionary = stream.Dictionary },
+            };
+        }
+
         ReadOnlyMemory<byte> data = stream.EncodedData;
         PooledBufferWriter? current = null;
         PooledBufferWriter? next = null;
@@ -139,6 +165,7 @@ internal sealed class StreamDecoder
                 data = current!.WrittenMemory;
                 if (stop)
                 {
+                    outcome = outcome with { Complete = false, ImageFilter = null, ImageContext = null };
                     break;
                 }
             }
@@ -170,13 +197,47 @@ internal sealed class StreamDecoder
 
         if (!_filters.TryGet(name, out IStreamFilter? filter))
         {
+            // A standard image codec that is not registered yet is legal content this engine cannot decode (issue #47): Information,
+            // so strict mode still opens the file. Anything else is an error in the file.
+            bool imageCodec = FilterNames.IsImageCodec(name);
             string kind = FilterNames.IsStandard(name) ? "is a standard filter this version does not implement" : "is not a filter this engine knows";
-            Report(DiagnosticCodes.FilterUnsupported, DiagnosticSeverity.Error, $"The filter /{name.Value} {kind}; the stream is left encoded from that filter on.");
+            Report(
+                DiagnosticCodes.FilterUnsupported,
+                imageCodec ? DiagnosticSeverity.Information : DiagnosticSeverity.Error,
+                $"The filter /{name.Value} {kind}; the stream is left encoded from that filter on.");
             output.Write(data.Span);
             return false;
         }
 
         return Guard(output, name, () => filter.Decode(data, output, context));
+    }
+
+    /// <summary>Runs an image filter's facet, converting its failures into a diagnostic and <see langword="null"/>.</summary>
+    /// <typeparam name="T">The result.</typeparam>
+    /// <param name="name">The filter's name.</param>
+    /// <param name="action">The call.</param>
+    /// <returns>The result; <see langword="null"/> when the filter threw.</returns>
+    public T? RunImageFilter<T>(CosName name, Func<T?> action)
+        where T : class
+    {
+        try
+        {
+            return action();
+        }
+        catch (DiagnosticException) when (_diagnostics.IsStrict)
+        {
+            throw;
+        }
+#pragma warning disable CA1031 // A filter is an extension point; whatever it throws becomes a diagnostic, never a crash (ADR 0005).
+        catch (Exception exception) when (exception is not OutOfMemoryException)
+#pragma warning restore CA1031
+        {
+            Report(
+                DiagnosticCodes.FilterFailed,
+                DiagnosticSeverity.Error,
+                $"The filter /{name.Value} failed to decode the image ({exception.GetType().Name}: {exception.Message}); the image is not decoded.");
+            return null;
+        }
     }
 
     private bool RunPredictor(ReadOnlyMemory<byte> data, PooledBufferWriter output, FilterContext context) =>
@@ -378,4 +439,10 @@ internal sealed class StreamDecoder
 
     /// <summary>One filter of a chain and its parameters.</summary>
     private readonly record struct FilterStage(CosName Name, CosDictionary? Parameters);
+
+    /// <summary>What <see cref="Decode(CosStream, IBufferWriter{byte}, int, bool, out ChainOutcome)"/> did.</summary>
+    /// <param name="Complete">Whether every filter ran; <see langword="false"/> when the chain stopped at a filter it could not run.</param>
+    /// <param name="ImageFilter">The last filter, left to the caller because it has an image facet; <see langword="null"/> otherwise.</param>
+    /// <param name="ImageContext">The context for that filter: its parameters and the stream dictionary.</param>
+    internal readonly record struct ChainOutcome(bool Complete, IImageFilter? ImageFilter, FilterContext? ImageContext);
 }

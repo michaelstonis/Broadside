@@ -1,5 +1,9 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics;
+using Broadside.Graphics.Colors;
+using Broadside.Images;
 using Broadside.Objects;
+using Broadside.Parsing;
 
 namespace Broadside.Content;
 
@@ -61,9 +65,176 @@ public sealed class ContentContext
     /// <summary>Gets the token that cancels the run.</summary>
     public CancellationToken CancellationToken { get; internal set; }
 
+    /// <summary>
+    /// Gets the default colour spaces of the current resources, which replace the device spaces of what is painted now: pass them to
+    /// <see cref="PdfDocument.GetColorConverter(PdfColorSpace, PdfDefaultColorSpaces?)"/> with the colour being painted.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §8.6.5.6: the look-up uses the resources current when the object is painted, so inside a form XObject the form's
+    /// own defaults apply. The initial DeviceGray colour is remapped too.
+    /// </remarks>
+    public PdfDefaultColorSpaces DefaultColorSpaces => Document.ColorSpaces.GetDefaults(Resources);
+
+    /// <summary>Returns the colour space a value names in the running content stream.</summary>
+    /// <param name="colorSpace">
+    /// A name, as the operand of <c>CS</c> and <c>cs</c> (DeviceGray, DeviceRGB, DeviceCMYK and Pattern name those spaces; any other
+    /// name is looked up in the <c>ColorSpace</c> subdictionary of <see cref="Resources"/>), or a colour space array.
+    /// </param>
+    /// <returns>The space; DeviceGray, with a diagnostic, when the value names none.</returns>
+    /// <remarks>ISO 32000-2 §8.6.8, Table 73; §7.8.3.</remarks>
+    public PdfColorSpace GetColorSpace(CosObject colorSpace)
+    {
+        ArgumentNullException.ThrowIfNull(colorSpace);
+        CosReference? owner = CurrentStream ?? Page?.Reference;
+        if (Document.Resolve(colorSpace) is not CosName name)
+        {
+            return Document.ColorSpaces.Get(colorSpace, owner);
+        }
+
+        PdfColorSpace? space = Document.ColorSpaces.FindNamed(Resources, name.Bytes, owner, out NamedLookup lookup);
+        ReportLookup(lookup, name);
+        return space ?? PdfDeviceGrayColorSpace.Instance;
+    }
+
+    /// <summary>Returns the colour space of an inline image's <c>ColorSpace</c> (or <c>CS</c>) entry.</summary>
+    /// <param name="colorSpace">The entry's value, such as from <see cref="ContentOperand.ToCosObject"/>.</param>
+    /// <returns>The space; DeviceGray, with a diagnostic, when the value names none.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §8.9.7, Tables 91 and 92: the abbreviations G, RGB, CMYK and I (Indexed, whose base may be abbreviated and whose
+    /// lookup table is a string) are allowed, and the full device names; G, RGB, CMYK and the device names never refer to resources,
+    /// any other name is a key of the <c>ColorSpace</c> subdictionary of the current resources (PDF 1.2).
+    /// </remarks>
+    public PdfColorSpace GetInlineImageColorSpace(CosObject colorSpace)
+    {
+        ArgumentNullException.ThrowIfNull(colorSpace);
+        CosReference? owner = CurrentStream ?? Page?.Reference;
+        if (Document.ColorSpaces.FindInline(colorSpace, owner) is { } space)
+        {
+            return space;
+        }
+
+        if (colorSpace is CosName name)
+        {
+            PdfColorSpace? named = Document.ColorSpaces.FindNamed(Resources, name.Bytes, owner, out NamedLookup lookup);
+            ReportLookup(lookup == NamedLookup.Abbreviation ? NamedLookup.Family : lookup, name);
+            return named ?? PdfDeviceGrayColorSpace.Instance;
+        }
+
+        Document.ColorSpaces.ReportFailure(owner, ColorSpaceFailure.Invalid, "an inline image's colour space");
+        return PdfDeviceGrayColorSpace.Instance;
+    }
+
+    /// <summary>Returns the image view over an inline image: the <see cref="ContentOperatorCode.BeginInlineImage"/> operator's dictionary and data.</summary>
+    /// <param name="op">The operator, as given to <see cref="ContentProcessor.VisitOperator"/>.</param>
+    /// <returns>
+    /// The image, with its dictionary's abbreviations expanded, its colour space resolved against <see cref="Resources"/>, and a copy
+    /// of its data, so it outlives the callback; <see langword="null"/> when <paramref name="op"/> is not an inline image.
+    /// </returns>
+    /// <remarks>
+    /// ISO 32000-2 §8.9.7, Tables 90 to 92. The image's data ends where the content reader found <c>EI</c>: by <c>L</c> (PDF 2.0)
+    /// when it leads there, by the data length when the image is unfiltered, by the end-of-data marker of its first filter, else by
+    /// the first <c>EI</c> followed by content that parses.
+    /// </remarks>
+    public PdfImage? GetInlineImage(in ContentOperator op)
+    {
+        if (op.Code != ContentOperatorCode.BeginInlineImage || op.Operands.Count == 0
+            || op.Operands[op.Operands.Count - 1].Kind != ContentOperandKind.Dictionary
+            || op.Operands[op.Operands.Count - 1].ToCosObject() is not CosDictionary written)
+        {
+            return null;
+        }
+
+        CosReference? owner = CurrentStream ?? Page?.Reference;
+        CosDictionary expanded = InlineImageDictionary.Expand(written, Document.DiagnosticSink, owner);
+        PdfColorSpace? space = null;
+        if (!expanded.ContainsKey(ImageNames.ImageMask) || expanded[ImageNames.ImageMask] is not CosBoolean { Value: true })
+        {
+            if ((written.TryGetValue(ImageNames.CS, out CosObject? value) || written.TryGetValue(ImageNames.ColorSpace, out value)) && value is not CosNull)
+            {
+                space = GetInlineImageColorSpace(value);
+            }
+        }
+
+        var stream = new CosStream(expanded, op.Data.ToArray());
+        return new PdfImage(Document, stream, reference: null, PdfImage.ImageRole.Inline, owner: owner, inlineColorSpace: space);
+    }
+
+    /// <summary>Returns the pattern a Pattern colour selected, such as <see cref="GraphicsState.FillColor"/> when painting with a pattern.</summary>
+    /// <param name="color">The colour.</param>
+    /// <returns>
+    /// The pattern's model; <see langword="null"/> for a colour that is not a pattern, the initial Pattern colour (which paints
+    /// nothing) and an object that is not a pattern.
+    /// </returns>
+    /// <remarks>
+    /// ISO 32000-2 §8.7.3 and §8.7.4.1. Map pattern space with <see cref="PdfPattern.GetPatternSpace"/>: the pattern matrix followed by
+    /// the matrix of the stream that selected the pattern (<see cref="PdfColor.PatternMatrix"/>), never the CTM at the paint (§8.7.2).
+    /// A shading pattern gives its <see cref="PdfShadingPattern.Shading"/>, Background and ExtGState; a tiling pattern's cell runs with
+    /// <see cref="RunPatternCell"/>.
+    /// </remarks>
+    public PdfPattern? GetPattern(in PdfColor color) => _interpreter.GetPattern(color);
+
+    /// <summary>
+    /// Runs the cell of the tiling pattern a colour selected, reporting its events to <paramref name="processor"/>, in the middle of
+    /// the current event: call it from a processor callback, as often as the processor needs (once per pattern and scale, say).
+    /// </summary>
+    /// <param name="color">The pattern colour, such as <see cref="GraphicsState.FillColor"/> in <see cref="ContentProcessor.PaintPath"/>.</param>
+    /// <param name="processor">The processor that receives the cell's events (this run's or another).</param>
+    /// <returns>
+    /// <see langword="true"/> when the cell ran; <see langword="false"/> when the colour does not select a valid tiling pattern, or
+    /// the cell would run inside itself (recorded as <c>ContentPatternRecursion</c>) or deeper than
+    /// <see cref="ContentOptions.MaxNestingDepth"/> (<c>ContentNestingTooDeep</c>).
+    /// </returns>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §8.7.3.1, steps a to d: the cell runs between an implicit save and restore (<see cref="ContentProcessor.SaveState"/>
+    /// and <see cref="ContentProcessor.RestoreState"/>), from the graphics state at the beginning of the stream that selected the
+    /// pattern, with the CTM set to the pattern space (<see cref="PdfPattern.GetPatternSpace"/>), the clip intersected with the cell's
+    /// bounding box (a <see cref="ClipKind.Rectangle"/> clip event), <see cref="RunKind"/> <see cref="ContentRunKind.Pattern"/> and the
+    /// pattern's resources (the current ones when it has none). One cell is run, at the origin of pattern space; replicating it every
+    /// XStep and YStep is the processor's.
+    /// </para>
+    /// <para>
+    /// §8.7.3.3: for an uncoloured pattern the current colours are the colour given with the pattern, in the underlying colour space,
+    /// and colour operators, <c>sh</c> and anything run from the cell that sets colours are ignored with a diagnostic.
+    /// </para>
+    /// </remarks>
+    public bool RunPatternCell(in PdfColor color, ContentProcessor processor)
+    {
+        ArgumentNullException.ThrowIfNull(processor);
+        if (Document is null)
+        {
+            throw new InvalidOperationException("A pattern cell can only run during a content run's callbacks.");
+        }
+
+        return _interpreter.RunPatternCell(color, processor);
+    }
+
     /// <summary>Returns the clip node a clip handle refers to, such as <see cref="GraphicsState.ClipHandle"/>.</summary>
     /// <param name="handle">The handle; 0 for the run's initial clipping path.</param>
     /// <returns>The node; a node of kind <see cref="ClipKind.Initial"/> for 0 and for a handle this run did not issue.</returns>
     /// <remarks>ISO 32000-2 §8.5.4.</remarks>
     public ClipView GetClip(int handle) => _interpreter.Clips.Get(handle);
+
+    private void ReportLookup(NamedLookup lookup, CosName name)
+    {
+        CosReference? owner = CurrentStream ?? Page?.Reference;
+        if (lookup == NamedLookup.Missing)
+        {
+            Document.DiagnosticSink.Report(
+                DiagnosticCodes.ContentColorSpaceMissing,
+                DiagnosticSeverity.Warning,
+                $"The colour space /{name.Value} is not in the resources' ColorSpace dictionary; DeviceGray is used.",
+                offset: null,
+                owner);
+        }
+        else if (lookup == NamedLookup.Abbreviation)
+        {
+            Document.DiagnosticSink.Report(
+                DiagnosticCodes.ContentColorSpaceAbbreviated,
+                DiagnosticSeverity.Warning,
+                $"The colour space /{name.Value} is an inline image abbreviation used outside an inline image; it is read as the device space.",
+                offset: null,
+                owner);
+        }
+    }
 }

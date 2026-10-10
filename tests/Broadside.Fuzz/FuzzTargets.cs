@@ -3,6 +3,9 @@ using Broadside.Content;
 using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Fonts;
+using Broadside.Fonts.Cff;
+using Broadside.Fonts.TrueType;
+using Broadside.Fonts.Type1;
 using Broadside.Graphics;
 using Broadside.IO;
 using Broadside.Objects;
@@ -49,6 +52,13 @@ internal static class FuzzTargets
         ["function-type4"] = FunctionType4,
         ["function-sampled"] = FunctionSampled,
         ["optional-content"] = OptionalContentTarget.Target,
+        ["font-truetype"] = FontTrueType,
+        ["font-cff"] = FontCff,
+        ["font-type1"] = FontType1,
+        ["cmap"] = CMapFile,
+        ["colorspace"] = ColorSpaceTarget,
+        ["image-decode"] = ImageDecodeTarget.Target,
+        ["shading-mesh"] = ShadingMeshTarget.Target,
     };
 
     private static readonly Lazy<PdfDocument> EmptyDocument = new(() => PdfDocument.Create());
@@ -240,6 +250,367 @@ internal static class FuzzTargets
                         throw new InvalidOperationException($"Code {code} of font {entry.Key.Value} has no glyph name or a width that is not finite.");
                     }
                 }
+            }
+
+            if (font is PdfType0Font composite)
+            {
+                ReadComposite(composite, entry.Key.Value);
+            }
+
+            if (font is PdfTrueTypeFont trueType && trueType.Program is { } program)
+            {
+                var outline = new GlyphOutline();
+                for (int code = 0; code < 256; code++)
+                {
+                    int glyph = trueType.GetGlyphId((byte)code);
+                    if (glyph < 0 || (glyph > 0 && glyph >= program.GlyphCount))
+                    {
+                        throw new InvalidOperationException($"Code {code} of font {entry.Key.Value} selects glyph {glyph} of {program.GlyphCount}.");
+                    }
+
+                    CheckOutline(program.GetOutline(glyph, outline), outline);
+                }
+            }
+
+            if (font is PdfType1Font type1 && type1.Program is { } type1Program)
+            {
+                var outline = new GlyphOutline();
+                for (int code = 0; code < 256; code++)
+                {
+                    int glyph = type1.GetGlyphId((byte)code);
+                    if (glyph < 0 || (glyph > 0 && glyph >= type1Program.GlyphCount))
+                    {
+                        throw new InvalidOperationException($"Code {code} of font {entry.Key.Value} selects glyph {glyph} of {type1Program.GlyphCount}.");
+                    }
+
+                    CheckOutline(type1Program.GetOutline(glyph, outline), outline);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Parses the input as a Type 1 program (issue #52) twice: stand-alone, and as a <c>FontFile</c> stream with <c>Length1</c> and
+    /// <c>Length2</c> near the true ones (the last two input bytes move them), so both the exact and the repaired layouts run. Reads all
+    /// of it: every glyph's outline (up to 4,096) and metrics, every glyph name and its reverse lookup, the built-in encoding. An input
+    /// starting with <c>%PDF-</c> is read from its first <c>%!</c> (or PFB header), so the Type 1 corpus files (unfiltered programs)
+    /// seed it. Outlines must be well-formed contours with finite points.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.9; Adobe Type 1 Font Format chapters 2, 6, 7 and 8; TN 5015; TN 5040 §3.3.</remarks>
+    private static void FontType1(ReadOnlySpan<byte> data)
+    {
+        if (data.StartsWith("%PDF-"u8))
+        {
+            int text = data[5..].IndexOf("%!"u8);
+            int pfb = data.IndexOf((ReadOnlySpan<byte>)[0x80, 0x01]);
+            int start = text < 0 ? pfb : pfb >= 0 ? Math.Min(text + 5, pfb) : text + 5;
+            if (start < 0)
+            {
+                return;
+            }
+
+            data = data[start..];
+        }
+
+        byte[] bytes = data.ToArray();
+        var parser = new Type1FontProgramParser();
+        _ = parser.CanParse(bytes);
+        ReadType1(parser.Parse(bytes, new FontProgramContext()));
+
+        int eexec = data.IndexOf("eexec"u8);
+        long length1 = (eexec < 0 ? data.Length / 2 : eexec + 6) + (data.Length > 0 ? (data[^1] % 7) - 3 : 0);
+        long length2 = data.Length - length1 - (data.Length > 1 ? data[^2] % 600 : 0);
+        ReadType1(parser.Parse(bytes, new FontProgramContext { Source = FontProgramSource.FontFile, Length1 = length1, Length2 = length2, Length3 = 0 }));
+    }
+
+    private static void ReadType1(FontProgram? program)
+    {
+        if (program is null)
+        {
+            return;
+        }
+
+        _ = (program.FontBBox, program.PostScriptName, program.FontMatrix);
+        if (program.BuiltInEncoding is { } encoding && encoding.Count != 256)
+        {
+            throw new InvalidOperationException($"The built-in encoding has {encoding.Count} entries.");
+        }
+
+        if (program.GlyphCount < 1 || program.GetGlyphName(0) != ".notdef")
+        {
+            throw new InvalidOperationException("Glyph 0 is not .notdef.");
+        }
+
+        var outline = new GlyphOutline();
+        int glyphs = Math.Min(program.GlyphCount, 4096);
+        for (int glyph = -1; glyph <= glyphs; glyph++)
+        {
+            CheckOutline(program.GetOutline(glyph, outline), outline);
+            GlyphMetrics metrics = program.GetMetrics(glyph);
+            if (!double.IsFinite(metrics.AdvanceWidth) || !double.IsFinite(metrics.LeftSideBearing))
+            {
+                throw new InvalidOperationException($"Glyph {glyph} has metrics that are not finite.");
+            }
+
+            if (program.GetGlyphName(glyph) is { } name && (!program.TryGetGlyphId(name, out int named) || named > glyph))
+            {
+                throw new InvalidOperationException($"Glyph {glyph} is named {name}, but the name finds glyph {named}.");
+            }
+        }
+    }
+
+    /// <summary>
+    /// Reads a Type 0 font (#53): its CMap and CIDFont, and every glyph of a fixed string of varied bytes. Each code takes 1 to 4
+    /// bytes of what is left, CIDs lie in 0 to 65,535, metrics are finite, and an embedded TrueType CIDFont's glyph ids lie inside
+    /// its program.
+    /// </summary>
+    private static void ReadComposite(PdfType0Font font, string name)
+    {
+        _ = (font.Encoding.Name, font.Encoding.SystemInfo, font.WritingMode);
+        if (font.DescendantFont is { } descendant)
+        {
+            _ = (descendant.BaseFont, descendant.SystemInfo, descendant.DefaultWidth, descendant.Descriptor?.Flags);
+        }
+
+        FontProgram? program = font.DescendantFont?.Program;
+        bool embedded = font.DescendantFont?.IsEmbedded == true;
+        Span<byte> text = stackalloc byte[512];
+        for (int index = 0; index < text.Length; index++)
+        {
+            text[index] = (byte)((index * 37) ^ (index >> 3));
+        }
+
+        ReadOnlySpan<byte> rest = text;
+        while (!rest.IsEmpty)
+        {
+            CidGlyph glyph = font.ReadGlyph(rest);
+            if (glyph.Code.Length < 1 || glyph.Code.Length > Math.Min(4, rest.Length) || glyph.Cid is < 0 or > 0xFFFF
+                || !double.IsFinite(glyph.Width) || !double.IsFinite(glyph.VerticalMetrics.VerticalAdvance)
+                || !double.IsFinite(glyph.VerticalMetrics.PositionX) || !double.IsFinite(glyph.VerticalMetrics.PositionY)
+                || (program is not null && embedded && (glyph.GlyphId < 0 || (glyph.GlyphId > 0 && glyph.GlyphId >= program.GlyphCount))))
+            {
+                throw new InvalidOperationException("Font " + name + " read " + glyph + " from " + rest.Length + " bytes.");
+            }
+
+            rest = rest[glyph.Code.Length..];
+        }
+    }
+
+    /// <summary>
+    /// Parses the input as a CMap file (issue #53) in lenient mode, with <c>usecmap</c> reaching only the built-in Identity CMaps,
+    /// then reads the input itself as a shown string with it: each code takes 1 to 4 bytes of what is left, the codes cover the
+    /// input exactly, and every CID lies in 0 to 65,535. Whole files are read as they are (the parser skips what is not a CMap
+    /// operator), so the corpus files with embedded CMap and ToUnicode streams are seeds in smoke mode.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.7.5 and §9.7.6.2-§9.7.6.3; Adobe TN 5014 §7.</remarks>
+    private static void CMapFile(ReadOnlySpan<byte> data)
+    {
+        CMap cmap = CMap.Parse(data, new CMapContext { MaxEntries = 100_000 });
+        _ = (cmap.Name, cmap.WritingMode, cmap.SystemInfo, cmap.Parent);
+        int consumed = 0;
+        ReadOnlySpan<byte> rest = data;
+        while (!rest.IsEmpty)
+        {
+            CharacterCode code = cmap.ReadCode(rest);
+            if (code.Length < 1 || code.Length > Math.Min(4, rest.Length))
+            {
+                throw new InvalidOperationException("A code of " + code.Length + " bytes was read from " + rest.Length + ".");
+            }
+
+            int cid = cmap.GetCid(code);
+            if (cid is < 0 or > 0xFFFF || (cmap.TryGetCid(code, out int mapped) && mapped is < 0 or > 0xFFFF))
+            {
+                throw new InvalidOperationException("Code " + code + " maps to CID " + cid + ".");
+            }
+
+            consumed += code.Length;
+            rest = rest[code.Length..];
+        }
+
+        if (consumed != data.Length)
+        {
+            throw new InvalidOperationException("The codes cover " + consumed + " of " + data.Length + " bytes.");
+        }
+    }
+
+    /// <summary>
+    /// Parses the input as a TrueType program (issue #50) and reads all of it: every glyph's outline (up to 4,096 glyphs) and metrics,
+    /// every "cmap" subtable for the codes 0 to 0x1FF and 0xF000 to 0xF0FF, every "post" name and its reverse lookup. An input that
+    /// starts with <c>%PDF-</c> is read from its first <c>00 01 00 00</c>, so the TrueType corpus files seed the target with their
+    /// unfiltered programs. Every outline must be well formed (each contour a moveto ... close, as many points as its verbs take,
+    /// finite coordinates, empty exactly when not <see cref="GlyphOutlineStatus.Complete"/>) and every glyph id inside the program.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.9 and §9.6.5.4; OpenType "glyf", "loca", "cmap", "post", "hmtx" tables.</remarks>
+    private static void FontTrueType(ReadOnlySpan<byte> data)
+    {
+        if (data.StartsWith("%PDF-"u8))
+        {
+            int start = data.IndexOf((ReadOnlySpan<byte>)[0, 1, 0, 0]);
+            if (start < 0)
+            {
+                return;
+            }
+
+            data = data[start..];
+        }
+
+        byte[] bytes = data.ToArray();
+        var parser = new TrueTypeFontProgramParser();
+        _ = parser.CanParse(bytes);
+        if (parser.Parse(bytes, new FontProgramContext()) is not { } program)
+        {
+            return;
+        }
+
+        _ = (program.FontBBox, program.Ascender, program.Descender, program.LineGap, program.PostScriptName, program.FontMatrix);
+        var outline = new GlyphOutline();
+        int glyphs = Math.Min(program.GlyphCount, 4096);
+        for (int glyph = -1; glyph <= glyphs; glyph++)
+        {
+            CheckOutline(program.GetOutline(glyph, outline), outline);
+            GlyphMetrics metrics = program.GetMetrics(glyph);
+            if (!double.IsFinite(metrics.AdvanceWidth) || !double.IsFinite(metrics.LeftSideBearing))
+            {
+                throw new InvalidOperationException($"Glyph {glyph} has metrics that are not finite.");
+            }
+
+            if (program.GetGlyphName(glyph) is { } name && (!program.TryGetGlyphId(name, out int named) || named > glyph))
+            {
+                throw new InvalidOperationException($"Glyph {glyph} is named {name}, but the name finds glyph {named}.");
+            }
+        }
+
+        foreach (FontCharacterMap map in program.CharacterMaps)
+        {
+            for (int code = 0; code < 0x200; code++)
+            {
+                CheckGlyphId(map, code, program.GlyphCount);
+            }
+
+            for (int code = 0xF000; code < 0xF100; code++)
+            {
+                CheckGlyphId(map, code, program.GlyphCount);
+            }
+        }
+    }
+
+    private static void CheckGlyphId(FontCharacterMap map, int code, int glyphCount)
+    {
+        int glyph = map.GetGlyphId(code);
+        if (glyph < 0 || (glyph > 0 && glyph >= glyphCount))
+        {
+            throw new InvalidOperationException($"The ({map.PlatformId}, {map.EncodingId}) subtable maps code {code} to glyph {glyph} of {glyphCount}.");
+        }
+    }
+
+    /// <summary>A glyph outline must be contours of moveto, segments and close, with the points its verbs take, all finite.</summary>
+    /// <summary>
+    /// Parses the input as a CFF or OpenType-CFF program (issue #51) and reads all of it: every glyph's outline and advance (up to
+    /// 4,096 glyphs, with a 10,000-operator budget per glyph so hostile subroutine fan-out stays fast), every glyph name and its
+    /// reverse lookup, the built-in encoding of every code, and the "cmap" subtables. An input that starts with <c>%PDF-</c> is
+    /// read from its first <c>OTTO</c>, else from its first CFF header (<c>01 00 04</c>), so the CFF corpus files seed the target
+    /// with their unfiltered programs. Every outline must be well formed and every glyph id inside the program.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.9 and §9.6.5.2; Adobe Technical Notes #5176 (CFF) and #5177 (Type 2 charstrings).</remarks>
+    private static void FontCff(ReadOnlySpan<byte> data)
+    {
+        if (data.StartsWith("%PDF-"u8))
+        {
+            int start = data.IndexOf("OTTO"u8);
+            if (start < 0)
+            {
+                start = data.IndexOf((ReadOnlySpan<byte>)[1, 0, 4]);
+            }
+
+            if (start < 0)
+            {
+                return;
+            }
+
+            data = data[start..];
+        }
+
+        byte[] bytes = data.ToArray();
+        var parser = new CffFontProgramParser();
+        _ = parser.CanParse(bytes);
+        if (parser.Parse(bytes, new FontProgramContext { MaxCharStringOperators = 10_000 }) is not { } program)
+        {
+            return;
+        }
+
+        _ = (program.FontBBox, program.PostScriptName, program.FontMatrix, program.Format);
+        var outline = new GlyphOutline();
+        int glyphs = Math.Min(program.GlyphCount, 4096);
+        for (int glyph = -1; glyph <= glyphs; glyph++)
+        {
+            CheckOutline(program.GetOutline(glyph, outline), outline);
+            if (!double.IsFinite(program.GetMetrics(glyph).AdvanceWidth))
+            {
+                throw new InvalidOperationException($"Glyph {glyph} has an advance that is not finite.");
+            }
+
+            if (program.GetGlyphName(glyph) is { } name && (!program.TryGetGlyphId(name, out int named) || named > glyph))
+            {
+                throw new InvalidOperationException($"Glyph {glyph} is named {name}, but the name finds glyph {named}.");
+            }
+        }
+
+        if (program.BuiltInEncoding is { } encoding)
+        {
+            if (encoding.Count != 256)
+            {
+                throw new InvalidOperationException($"The built-in encoding has {encoding.Count} codes.");
+            }
+
+            foreach (string name in encoding)
+            {
+                if (program.TryGetGlyphId(name, out int glyph) && (uint)glyph >= (uint)program.GlyphCount)
+                {
+                    throw new InvalidOperationException($"The built-in encoding's {name} selects glyph {glyph} of {program.GlyphCount}.");
+                }
+            }
+        }
+
+        foreach (FontCharacterMap map in program.CharacterMaps)
+        {
+            for (int code = 0; code < 0x200; code++)
+            {
+                CheckGlyphId(map, code, program.GlyphCount);
+            }
+        }
+    }
+
+    private static void CheckOutline(GlyphOutlineStatus status, GlyphOutline outline)
+    {
+        PathView path = outline.Path;
+        if ((status == GlyphOutlineStatus.Complete) == path.IsEmpty)
+        {
+            throw new InvalidOperationException($"Status {status} with {path.Verbs.Length} verbs.");
+        }
+
+        int points = 0;
+        bool open = false;
+        foreach (PathVerb verb in path.Verbs)
+        {
+            if (open == (verb == PathVerb.MoveTo) || (!open && verb == PathVerb.Close))
+            {
+                throw new InvalidOperationException($"A {verb} where a contour is {(open ? "open" : "not open")}.");
+            }
+
+            open = verb != PathVerb.Close;
+            points += verb switch { PathVerb.MoveTo or PathVerb.LineTo => 1, PathVerb.QuadTo => 2, PathVerb.CubicTo => 3, _ => 0 };
+        }
+
+        if (open || points != path.Points.Length)
+        {
+            throw new InvalidOperationException($"The outline ends inside a contour or has {path.Points.Length} points for verbs taking {points}.");
+        }
+
+        foreach (PathPoint point in path.Points)
+        {
+            if (!double.IsFinite(point.X) || !double.IsFinite(point.Y))
+            {
+                throw new InvalidOperationException($"Point {point} is not finite.");
             }
         }
     }
@@ -698,6 +1069,119 @@ internal static class FuzzTargets
     /// must lie in the range, and once warm an evaluation must allocate nothing.
     /// </summary>
     /// <remarks>ISO 32000-2 §7.10.5, Annex B.</remarks>
+    /// <summary>
+    /// Colour spaces (ISO 32000-2 §8.6). The input's first 128 bytes are read as an ICC profile header. An input that starts with
+    /// <c>%PDF-</c> is opened as a file and every value of its first page's <c>ColorSpace</c> resources is read (the corpus seed
+    /// <c>colorspace-families.pdf</c> mutates into every family); any other input is parsed leniently as one COS object and read as
+    /// a colour space. Each space is read completely (every view property) and converted to RGB, gray and CMYK, from floats inside
+    /// and outside the component ranges and from bytes: every output must lie in 0..1 and lenient reading must never throw.
+    /// </summary>
+    private static void ColorSpaceTarget(ReadOnlySpan<byte> data)
+    {
+        _ = IccProfileHeader.Parse(data);
+        if (data.StartsWith("%PDF-"u8))
+        {
+            using PdfDocument? file = OpenOrNull(data);
+            if (file is null || file.Pages.Count == 0
+                || file.Pages[0].Resources is not { } resources
+                || file.Resolve(resources.GetValueOrDefault(new CosName("ColorSpace"))) is not CosDictionary spaces)
+            {
+                return;
+            }
+
+            foreach (KeyValuePair<CosName, CosObject> entry in spaces)
+            {
+                ExerciseColorSpace(file, file.GetColorSpace(entry.Value), file.GetDefaultColorSpaces(resources));
+            }
+
+            return;
+        }
+
+        using PdfDocument document = PdfDocument.Create();
+        CosObject value = new CosParser(data, repairs: null).ParseObject();
+        ExerciseColorSpace(document, document.GetColorSpace(value), PdfDefaultColorSpaces.None);
+    }
+
+    private static void ExerciseColorSpace(PdfDocument document, PdfColorSpace space, PdfDefaultColorSpaces defaults)
+    {
+        int count = space.ComponentCount;
+        _ = (space.Family, space.MinimumVersion, space.GetDefaultDecode(8), space.GetInitialColor());
+        for (int i = 0; i < count; i++)
+        {
+            _ = space.GetComponentRange(i);
+        }
+
+        switch (space)
+        {
+            case PdfCalGrayColorSpace gray:
+                _ = (gray.WhitePoint, gray.BlackPoint, gray.Gamma);
+                break;
+            case PdfCalRgbColorSpace rgb:
+                _ = (rgb.WhitePoint, rgb.BlackPoint, rgb.Gamma.Count, rgb.Matrix.Count);
+                break;
+            case PdfLabColorSpace lab:
+                _ = (lab.WhitePoint, lab.Range.Count);
+                break;
+            case PdfIccBasedColorSpace icc:
+                _ = (icc.ProfileHeader?.IsSupportedForPdf, icc.Alternate, icc.Range.Count, icc.Metadata, icc.DeclaredComponentCount);
+                break;
+            case PdfIndexedColorSpace indexed:
+                _ = (indexed.Base, indexed.HighValue, indexed.GetLookup().Length);
+                break;
+            case PdfSeparationColorSpace separation:
+                _ = (separation.ColorantName, separation.IsAll, separation.IsNone, separation.Alternate, separation.TintTransform);
+                break;
+            case PdfDeviceNColorSpace deviceN:
+                _ = (deviceN.ColorantNames.Count, deviceN.AreAllNone, deviceN.Alternate, deviceN.TintTransform);
+                if (deviceN.Attributes is { } attributes)
+                {
+                    _ = (attributes.Subtype, attributes.Colorants.Count, attributes.Process?.ColorSpace, attributes.Process?.Components.Count);
+                    _ = (attributes.MixingHints?.Solidities.Count, attributes.MixingHints?.PrintingOrder.Count, attributes.MixingHints?.DotGain.Count);
+                }
+
+                break;
+            case PdfPatternColorSpace pattern:
+                _ = pattern.Underlying;
+                break;
+        }
+
+        int inputs = Math.Min(count, 64);
+        float[] components = new float[3 * Math.Max(inputs, 1)];
+        float[] points = [-1e30f, 0.5f, 300f];
+        for (int c = 0; c < 3; c++)
+        {
+            components.AsSpan(c * Math.Max(inputs, 1), Math.Max(inputs, 1)).Fill(points[c]);
+        }
+
+        byte[] samples = new byte[3 * Math.Max(inputs, 1)];
+        new Random(count).NextBytes(samples);
+        foreach (DeviceColorModel target in new[] { DeviceColorModel.Rgb, DeviceColorModel.Gray, DeviceColorModel.Cmyk })
+        {
+            PdfColorConverter converter = document.GetColorConverter(space, new ColorConversion { Target = target }, defaults);
+            if (converter.InputCount != count)
+            {
+                throw new InvalidOperationException($"A converter takes {converter.InputCount} components for a space of {count}.");
+            }
+
+            if (count > 64)
+            {
+                continue;
+            }
+
+            float[] colors = new float[3 * converter.OutputCount];
+            converter.Convert(components, colors, 3);
+            foreach (float value in colors)
+            {
+                if (!(value >= 0 && value <= 1))
+                {
+                    throw new InvalidOperationException($"A {space.Family} colour converted to {value}, outside 0..1.");
+                }
+            }
+
+            converter.Convert(samples, new byte[3 * converter.OutputCount], 3);
+        }
+    }
+
     private static void FunctionType4(ReadOnlySpan<byte> data)
     {
         if (data.IsEmpty)
@@ -1102,7 +1586,42 @@ internal sealed class CheckingProcessor : ContentProcessor
         }
     }
 
-    public override void PaintPath(in PathEvent path, ContentContext context) => Check(path.Path);
+    public override void PaintPath(in PathEvent path, ContentContext context)
+    {
+        Check(path.Path);
+
+        // Pattern fills (issue #79): resolve the pattern and run tiling cells a few levels deep (deeper nesting is exponential work).
+        PdfColor color = context.State.FillColor;
+        if (context.GetPattern(color) is PdfTilingPattern && context.Depth < 3)
+        {
+            int depth = context.StateDepth;
+            context.RunPatternCell(color, this);
+            Check(path.Path);
+            if (context.StateDepth != depth)
+            {
+                throw new InvalidOperationException("A pattern cell changed the state depth of the paint that ran it.");
+            }
+        }
+    }
+
+    public override void PaintShading(in ShadingEvent shading, ContentContext context)
+    {
+        // Mesh shadings decode on first access (issue #79): every triangle names a vertex.
+        if (shading.Model is PdfTriangleMeshShading mesh)
+        {
+            foreach (int vertex in mesh.Triangles)
+            {
+                if ((uint)vertex >= (uint)mesh.VertexCount)
+                {
+                    throw new InvalidOperationException("A mesh triangle names a vertex that was not decoded.");
+                }
+            }
+        }
+        else if (shading.Model is PdfPatchMeshShading patches && patches.ControlPoints.Length != patches.PatchCount * 16)
+        {
+            throw new InvalidOperationException("A patch mesh does not have 16 control points per patch.");
+        }
+    }
 
     public override void IntersectClip(in ClipEvent clip, ContentContext context)
     {

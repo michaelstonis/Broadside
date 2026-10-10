@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Globalization;
+using Broadside.Images;
 using Broadside.Objects;
 
 namespace Broadside.Content;
@@ -21,6 +22,9 @@ internal enum ReaderIssues
 
     /// <summary>An inline image had no <c>ID</c> or no <c>EI</c>, or a dictionary entry that is not a value.</summary>
     InlineImageInvalid = 8,
+
+    /// <summary>The end of an inline image's data was found despite a deviation: a wrong <c>L</c>, CR LF after <c>ID</c>, or no <c>EI</c> followed by content.</summary>
+    InlineImageRepaired = 16,
 }
 
 /// <summary>One operator read by <see cref="ContentReader"/>, with byte ranges in the content (its operands are in the arena).</summary>
@@ -46,16 +50,14 @@ internal readonly record struct ReadOperator(ContentOperatorCode Code, int Start
 /// A keyword that is not an operator but splits completely into operators and numbers (<c>q1</c>, <c>Qq</c>, <c>0cm</c>,
 /// <c>BTq</c>) is read as those tokens, as other readers do; any other keyword is an unknown operator. An inline image
 /// (§8.9.7) is read whole: <c>BI</c>, its dictionary as one dictionary operand, and the data between <c>ID</c> and <c>EI</c> as
-/// a byte range that is never tokenized. The end of the data is found from the dictionary's <c>L</c>/<c>Length</c> when it points
-/// at <c>EI</c>, else by looking for <c>EI</c> between white-space followed by text that is not binary.
+/// a byte range that is never tokenized. The end of the data is found by <see cref="InlineImageEnd"/>: from the dictionary's
+/// <c>L</c>/<c>Length</c>, the length of unfiltered data, the first filter's end-of-data marker, or an <c>EI</c> followed by content.
 /// </para>
 /// </remarks>
 internal ref struct ContentReader
 {
     private const int MaxGluedLength = 32;
-    private const int InlineImageLookahead = 64;
 
-    private static readonly SearchValues<byte> Whitespace = SearchValues.Create("\0\t\n\f\r "u8);
     private static readonly SearchValues<byte> NumberCharacters = SearchValues.Create("+-.0123456789"u8);
 
     private readonly OperandArena _arena;
@@ -150,35 +152,6 @@ internal ref struct ContentReader
             op = new ReadOperator(code, first, token.Start, length, token.Start + length);
             return true;
         }
-    }
-
-    /// <summary>
-    /// Finds where the data of an inline image ends, as the offset of its <c>EI</c>: the first <c>EI</c> after <paramref name="start"/>
-    /// with white-space before it and white-space or the end after it, followed by text that is not binary. -1 when there is none.
-    /// </summary>
-    /// <remarks>ISO 32000-2 §8.9.7. The same heuristic as pdf.js (<c>findDefaultInlineStreamEnd</c>), for data without a usable <c>L</c>.</remarks>
-    internal static int FindInlineImageEnd(ReadOnlySpan<byte> source, int start)
-    {
-        int position = start;
-        while (position < source.Length)
-        {
-            int found = source[position..].IndexOf("EI"u8);
-            if (found < 0)
-            {
-                return -1;
-            }
-
-            int candidate = position + found;
-            position = candidate + 1;
-            bool before = candidate == start || CosLexer.IsWhitespace(source[candidate - 1]);
-            bool after = candidate + 2 == source.Length || CosLexer.IsWhitespace(source[candidate + 2]);
-            if (before && after && !LooksBinary(source.Slice(candidate + 2, Math.Min(InlineImageLookahead, source.Length - candidate - 2))))
-            {
-                return candidate;
-            }
-        }
-
-        return -1;
     }
 
     /// <summary>
@@ -516,13 +489,7 @@ internal ref struct ContentReader
             dataStart++;
         }
 
-        int end = DeclaredInlineImageEnd(source, dataStart, out int dataEnd);
-        if (end < 0)
-        {
-            end = FindInlineImageEnd(source, dataStart);
-            dataEnd = end > dataStart && CosLexer.IsWhitespace(source[end - 1]) ? end - 1 : end;
-        }
-
+        int end = InlineImageEnd.Find(source, dataStart, ReadInlineLayout(), out dataStart, out int dataEnd, out bool repaired);
         if (end < 0)
         {
             Issue(ReaderIssues.InlineImageInvalid, keywordStart);
@@ -530,38 +497,97 @@ internal ref struct ContentReader
             return new ReadOperator(ContentOperatorCode.BeginInlineImage, first, keywordStart, 2, source.Length, dataStart, source.Length - dataStart);
         }
 
+        if (repaired)
+        {
+            Issue(ReaderIssues.InlineImageRepaired, keywordStart);
+        }
+
         _lexer.Position = end + 2;
         return new ReadOperator(ContentOperatorCode.BeginInlineImage, first, keywordStart, 2, end + 2, dataStart, Math.Max(0, dataEnd - dataStart));
     }
 
-    /// <summary>The offset of <c>EI</c> when the dictionary's <c>L</c> or <c>Length</c> leads to it (optional white-space between), else -1.</summary>
-    private readonly int DeclaredInlineImageEnd(ReadOnlySpan<byte> source, int dataStart, out int dataEnd)
+    /// <summary>Reads what the inline image dictionary just read into the arena says about its data length, without allocating.</summary>
+    private readonly InlineImageLayout ReadInlineLayout()
     {
-        dataEnd = -1;
         if (_arena.Count == 0 || _arena.Last(1)[0].Kind != ContentOperandKind.Dictionary)
         {
-            return -1;
+            return InlineImageLayout.Unknown;
         }
 
         ContentOperands entries = _arena.Last(1)[0].Items;
+        long length = -1;
+        long width = -1;
+        long height = -1;
+        long bits = -1;
+        int components = -1;
+        bool mask = false;
+        InlineImageFilter filter = InlineImageFilter.None;
         for (int index = 0; index + 1 < entries.Count; index += 2)
         {
             ContentOperand key = entries[index];
             ContentOperand value = entries[index + 1];
-            if ((key.IsName("L"u8) || key.IsName("Length"u8)) && value.Kind == ContentOperandKind.Integer && value.Number >= 0
-                && value.Number <= source.Length - dataStart)
+            long number = value.Kind == ContentOperandKind.Integer && value.Number >= 0 && value.Number <= int.MaxValue ? (long)value.Number : -1;
+            if (key.IsName("L"u8) || key.IsName("Length"u8))
             {
-                int position = dataStart + (int)value.Number;
-                int after = source[position..].IndexOfAnyExcept(Whitespace);
-                position = after < 0 ? source.Length : position + after;
-                if (source[position..].StartsWith("EI"u8) && (position + 2 == source.Length || !CosLexer.IsRegular(source[position + 2])))
-                {
-                    dataEnd = dataStart + (int)value.Number;
-                    return position;
-                }
+                length = number;
+            }
+            else if (key.IsName("W"u8) || key.IsName("Width"u8))
+            {
+                width = number;
+            }
+            else if (key.IsName("H"u8) || key.IsName("Height"u8))
+            {
+                height = number;
+            }
+            else if (key.IsName("BPC"u8) || key.IsName("BitsPerComponent"u8))
+            {
+                bits = number;
+            }
+            else if (key.IsName("IM"u8) || key.IsName("ImageMask"u8))
+            {
+                mask = value.Boolean;
+            }
+            else if (key.IsName("CS"u8) || key.IsName("ColorSpace"u8))
+            {
+                components = InlineComponents(value);
+            }
+            else if (key.IsName("F"u8) || key.IsName("Filter"u8))
+            {
+                filter = value.Kind == ContentOperandKind.Array
+                    ? value.Items.Count > 0 ? InlineFilter(value.Items[0]) : InlineImageFilter.None
+                    : InlineFilter(value);
             }
         }
 
-        return -1;
+        if (mask)
+        {
+            bits = 1;
+            components = 1;
+        }
+
+        long unfiltered = width > 0 && height > 0 && bits is >= 1 and <= 16 && components > 0
+            ? (((width * components * bits) + 7) >> 3) * height
+            : -1;
+        return new InlineImageLayout(length, filter, unfiltered);
     }
+
+    private static int InlineComponents(ContentOperand value)
+    {
+        if (value.Kind == ContentOperandKind.Array)
+        {
+            return value.Items.Count > 0 && (value.Items[0].IsName("I"u8) || value.Items[0].IsName("Indexed"u8)) ? 1 : -1;
+        }
+
+        return value.IsName("G"u8) || value.IsName("DeviceGray"u8) ? 1
+            : value.IsName("RGB"u8) || value.IsName("DeviceRGB"u8) ? 3
+            : value.IsName("CMYK"u8) || value.IsName("DeviceCMYK"u8) ? 4
+            : -1;
+    }
+
+    private static InlineImageFilter InlineFilter(ContentOperand value) =>
+        value.Kind != ContentOperandKind.Name ? InlineImageFilter.Other
+        : value.IsName("AHx"u8) || value.IsName("ASCIIHexDecode"u8) ? InlineImageFilter.AsciiHex
+        : value.IsName("A85"u8) || value.IsName("ASCII85Decode"u8) ? InlineImageFilter.Ascii85
+        : value.IsName("DCT"u8) || value.IsName("DCTDecode"u8) ? InlineImageFilter.Dct
+        : InlineImageFilter.Other;
 }

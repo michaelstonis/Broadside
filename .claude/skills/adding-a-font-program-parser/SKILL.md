@@ -5,18 +5,88 @@ description: "Use when implementing a parser for an embedded or substituted font
 
 # Adding a font program parser
 
-> **The font program parser contract is defined by issue #50 (Embedded TrueType glyph outlines), the first Phase 2A Fonts ticket. When it lands, replace the "Contract" section of this skill with the real signatures from `src/Broadside/Fonts/` and `src/Broadside/PublicAPI.Unshipped.txt`.** Until then this is a design brief: responsibilities and deliverables, not method names.
+> The contract below is the one #50 (Embedded TrueType glyph outlines) landed; the TrueType parser in `src/Broadside/Fonts/TrueType/` is the reference implementation.
 
 A font program is "the embedded or substituted glyph data in one of the formats PDF allows: TrueType, OpenType, CFF, Type 1, or Type 3 content streams" (`CONTEXT.md`). Font program parsers are extension points with a managed default (ADR 0001); the font resolver (which finds a program for a non-embedded font) is a separate extension point and not covered here.
 
 ## Where it lives
 
 - Contract and parsers: namespace `Broadside.Fonts` in `src/Broadside/`, one sub-namespace or folder per format (`Fonts/TrueType`, `Fonts/Cff`, `Fonts/Type1`). Standard 14 metrics (AFM) are in the core; their glyphs ship in `src/Broadside.Fonts.Standard14` (ADR 0007). Predefined CMaps ship in `src/Broadside.Fonts.Cmaps`.
-- Tests: `tests/Broadside.Tests/Fonts/<Format>/`, namespace `Broadside.Tests.Fonts`.
+- Tests: `tests/Broadside.Tests/Fonts/` (`<Format>CorpusTests`, `<Format>ProgramTests`), namespace `Broadside.Tests.Fonts`.
 - Corpus: `tests/Corpus/text-<format>-embedded.pdf`. `text-truetype-embedded.pdf` exists, built by `minimal_truetype()` in `generate.py`; the font is synthesized (`.notdef`, `H`, `I` as rectangles), carries no licence, and every other format follows that pattern. Never embed a real typeface.
 - Fuzz: target `font-<format>` over the raw program bytes. Benchmarks: `bench/Broadside.Benchmarks/<Format>Benchmarks.cs`.
 
-## Contract (responsibilities, not signatures)
+## Contract
+
+Defined by #50 in `src/Broadside/Fonts/` (namespace `Broadside.Fonts`); the public signatures are in `src/Broadside/PublicAPI.Unshipped.txt`.
+
+```csharp
+public interface IFontProgramParser
+{
+    IReadOnlyList<FontProgramFormat> Formats { get; }                          // formats it reads (fallback selection)
+    bool CanParse(ReadOnlySpan<byte> data);                                   // cheap signature sniff over the decoded program
+    FontProgram? Parse(ReadOnlyMemory<byte> data, FontProgramContext context); // null = nothing usable (after a diagnostic)
+}
+
+public enum FontProgramFormat { TrueType, OpenType, Cff, Type1 }
+public enum FontProgramSource { Unspecified, FontFile, FontFile2, FontFile3 }
+
+public sealed class FontProgramContext                 // public ctor = stand-alone (tests, fuzzing); documents build their own
+{
+    FontProgramSource Source { get; init; }            // descriptor key
+    CosName? Subtype { get; init; }                     // FontFile3 /Subtype: Type1C, CIDFontType0C, OpenType
+    long? Length1 / Length2 / Length3 { get; init; }   // Table 125, as written (may lie)
+    bool IsCidFont { get; init; }                       // a CIDFont's TrueType program needs no cmap (§9.9)
+    int FaceIndex { get; init; }  string? FaceName { get; init; }   // font collections
+    PdfReadingMode ReadingMode { get; init; }
+    int MaxCompositeDepth { get; init; }   // 16;  int MaxGlyphPoints { get; init; }  // 65,536
+    int MaxCharStringOperators { get; init; }   // 100,000 per glyph, subrs and seac components included (#51)
+    IReadOnlyList<Diagnostic> Diagnostics { get; }     // first of each code
+    void Report(string code, DiagnosticSeverity severity, string message);   // throws in strict mode (not for Information)
+}
+
+public abstract class FontProgram                      // immutable, shared across threads; lookups never throw
+{
+    protected FontProgram();
+    abstract FontProgramFormat Format { get; }
+    abstract int GlyphCount { get; }                    // glyph 0 is .notdef
+    abstract Matrix FontMatrix { get; }                 // glyph space -> text space (Broadside.Graphics.Matrix)
+    abstract GlyphOutlineStatus GetOutline(int glyphId, GlyphOutline outline);   // clears the outline first
+    virtual string? PostScriptName { get; }             // null
+    virtual PdfRectangle FontBBox { get; }              // default
+    virtual double Ascender / Descender / LineGap { get; }                      // 0
+    virtual IReadOnlyList<FontCharacterMap> CharacterMaps { get; }              // [] ("cmap" subtables)
+    virtual GlyphMetrics GetMetrics(int glyphId);       // default (advance, left side bearing)
+    virtual bool TryGetGlyphId(string glyphName, out int glyphId);              // false (post / charset / CharStrings)
+    virtual string? GetGlyphName(int glyphId);          // null
+    virtual IReadOnlyList<string>? BuiltInEncoding { get; }                     // null (256 names, .notdef unmapped: Type 1 /Encoding #52, CFF Encoding #51)
+}
+
+public abstract class FontCharacterMap { protected FontCharacterMap(); abstract int PlatformId, EncodingId, Format { get; } abstract int GetGlyphId(int code); }
+public enum GlyphOutlineStatus { Complete, Empty, Invalid }
+public readonly record struct GlyphMetrics(double AdvanceWidth, double LeftSideBearing);
+
+public sealed class GlyphOutline                       // reusable buffer over Broadside.Graphics path types
+{
+    PathView Path { get; }  bool IsEmpty { get; }  void Clear();
+    void MoveTo(double x, double y); void LineTo(double x, double y);
+    void QuadTo(double cx, double cy, double x, double y);
+    void CubicTo(double c1x, double c1y, double c2x, double c2y, double x, double y);
+    void Close();
+}
+```
+
+Registration and use:
+
+- `PdfOptions.UseFontProgramParser(IFontProgramParser)`; each engine snapshots the list into `EngineConfiguration.FontProgramParsers` (`FontProgramParserRegistry`, internal). Selection: the first parser whose `CanParse` accepts the bytes, registrations newest first, then the managed defaults (`FontProgramParserRegistry.Defaults`: add your parser there, one line); else the first whose `Formats` contain the format the stream declares (`FontProgramParserRegistry.DeclaredFormat`: `FontFile` Type1, `FontFile2` TrueType, `FontFile3` `Type1C`/`CIDFontType0C` Cff, `OpenType` OpenType); else `FontProgramUnsupported` (Information) and no program. A parser accepting bytes of another format than declared gets `FontProgramFormatMismatch` (Warning; an OpenType stream read by a TrueType parser is not a mismatch). An exception other than `DiagnosticException` from `Parse` becomes `FontProgramInvalid` (Error).
+- `PdfFont.Program` (public) parses the descriptor's first font file stream through `PdfDocument.GetFontProgram` (internal): decoded with the document's filters, parsed once per stream (an `OnceCache` keyed by the stream and its `Version`, so a changed stream is parsed again), diagnostics recorded once per code against the font file stream's reference.
+- Glyph selection belongs to the PDF font: `PdfTrueTypeFont.GetGlyphId(byte)` implements §9.6.5.4 (`TrueTypeGlyphSelector`). #51/#52 supply a simple font's built-in encoding through `PdfSimpleFont.GetProgramEncoding()` (internal virtual, #49) and add the lookups their format has as new virtual members of `FontProgram` (built-in encoding, CID to GID, FDSelect): adding a virtual member with a "not available" default does not break other parsers.
+- The sfnt container (`Fonts/TrueType/SfntFile`: table directory, TTC face selection, "name") is internal and meant to be shared with the OpenType-CFF parser (#51); "cmap" (`CmapSubtable`) and "post" (`PostTable`) readers likewise.
+- Simple Type 1 fonts select glyphs through `PdfType1Font.GetGlyphId(byte)` (§9.6.5.2): the encoding's glyph name (whose base is `FontProgram.BuiltInEncoding` for an embedded font, through #49's `GetProgramEncoding`) looked up with `FontProgram.TryGetGlyphId`. A Type 1 or CFF program implements `BuiltInEncoding`, `TryGetGlyphId` and `GetGlyphName`. The Type 1 interpreter is self-contained in `Fonts/Type1/` (#52); the Type 2 one is `Fonts/Cff/Type2CharStringInterpreter` over `src/Broadside/Fonts/CharStrings/` (`CharStringPath`, `CharStringStack`, `CharStringLimits`, `CharStringReporter`, `StandardEncodingNames`), which a later interpreter can reuse.
+- Diagnostic codes (`Parsing/DiagnosticCodes.Fonts.cs`): `FontProgramUnsupported`, `FontProgramFormatMismatch`, `FontProgramInvalid`, `FontProgramTruncated`, `FontTableInvalid`, `FontGlyphInvalid`, `FontCmapInvalid`, `FontGlyphMappingFallback`. Glyph-level problems are reported when the glyph is asked for, so strict mode throws from `GetOutline`.
+- Hot path: `GetOutline` into a reused `GlyphOutline` allocates nothing once warm (pooled point buffers, stack-allocated ancestor stack): prove it with an allocation test and `<Format>Benchmarks.Outlines` (`Allocated` = `-`).
+
+### Responsibilities
 
 A parser for one format must:
 
@@ -46,11 +116,15 @@ The core ships parsers for every format a PDF can embed: TrueType (`glyf`, `loca
 
 ## Worked example: the TrueType parser
 
-`tests/Corpus/text-truetype-embedded.pdf` embeds a font with tables `head hhea maxp OS/2 hmtx cmap(3,1 format 4) loca glyf name post` and the glyph set `.notdef`, `H` (code 72), `I` (code 73), 1000 units per em. The parser reads the table directory, locates the tables by tag, resolves `loca` by `indexToLocFormat`, and returns two rectangles for `H` and `I` with the widths `hmtx` stores; `cmap` (3,1) maps 0x48 and 0x49 to glyphs 1 and 2. Tests assert exactly that, since the generator defines every value. A `font-truetype` fuzz target parses the whole program and walks every glyph; `TrueTypeBenchmarks.Outlines` extracts every glyph's outline and returns the segment count. Rows `9.9` and `9.6.3` become `partial` or `done` with those tests named.
+What #50 shipped, as the pattern to follow:
+
+- Corpus: `text-truetype-embedded.pdf` (`.notdef`, `H`, `I`), plus `text-truetype-composite.pdf` (off-curve contours, every composite argument and transform form, USE_MY_METRICS, a monospace "hmtx" tail, lsb != xMin), `text-truetype-symbolic.pdf` ((3,0) before (1,0)), `text-truetype-macroman.pdf` ((1,0) format 6, Table 113, "post" 2.0) and `text-truetype-loca-long.pdf` (long "loca", odd glyph, (3,10) format 12), all from `ttf_font()` and `TtfGlyph` in `generate.py`, verified against poppler/FreeType renders.
+- Tests in `tests/Broadside.Tests/Fonts/`: `TrueTypeCorpusTests` (document API over the corpus: exact outline text through `OutlineText`), `TrueTypeProgramTests` (the contract over in-memory programs from `tests/Broadside.TestSupport/TrueTypeBuilder.cs`: composite math vectors, every malformed-table case, strict mode, allocation-free outlines), `TrueTypeGlyphSelectionTests` (§9.6.5.4 corner cases, diagnostics on the font file stream, reparse after a change), `FontProgramParserRegistrationTests` (counting decorator parsed once, replacement parser, second engine unaffected), `RealWorldTrueTypeTests` (every embedded TrueType program of the fetched corpora outlines every glyph).
+- Fuzz target `font-truetype` (an input starting with `%PDF-` is read from its first `00 01 00 00`, so the corpus files seed it) and `document` now outlines the glyph of every code of each TrueType font. Benchmark `TrueTypeBenchmarks` (`Outlines`, `GlyphIds`, `Parse`; composite and a real-world font).
+- Conformance rows `9.6.3`, `9.6.5.4` (done) and `9.9.1` (partial: the other formats are yours to add to its types and tests), `9.9.2` (not started).
 
 ## Checklist
 
-- [ ] Contract section of this skill replaced with the real signatures once the 2A contract issue has landed
 - [ ] Parser in `Broadside.Fonts`, managed only, `sealed`, clause-cited XML docs with the format reference
 - [ ] Registered through `PdfOptions`, not a static registry
 - [ ] Bounds-checked, recursion-capped, lenient on malformed programs with a `Diagnostic`

@@ -15,9 +15,9 @@ namespace Broadside.Graphics;
 /// path and the text matrices are not part of it (§8.5.2.1, §9.4.1).
 /// </para>
 /// <para>
-/// Parameters set by operators that later issues implement (the <c>gs</c> parameters of §8.4.5, colours of §8.6, text state of
-/// §9.3) hold their initial values until then; members for parameters whose values are document-model objects (font, colours,
-/// soft mask, transfer functions, halftone) are added with those objects. Numeric parameters are always within their valid ranges:
+/// Parameters set by operators that later issues implement (the <c>gs</c> parameters of §8.4.5, text state of §9.3) hold their
+/// initial values until then; members for parameters whose values are document-model objects (font, soft mask, transfer
+/// functions, halftone) are added with those objects. The colours (§8.6) are <see cref="PdfColor"/> values. Numeric parameters are always within their valid ranges:
 /// the interpreter clips out-of-range operands and records a diagnostic (§8.4.1).
 /// </para>
 /// </remarks>
@@ -27,6 +27,8 @@ public struct GraphicsState
     private DashBuffer _dash;
     private double[]? _dashOverflow;
     private int _dashCount;
+    private PdfColor _strokeColor;
+    private PdfColor _fillColor;
 
     /// <summary>Gets the current transformation matrix: user space to the run's default user space.</summary>
     /// <remarks>ISO 32000-2 §8.3.2.3, Table 51. Changed by <c>cm</c> (Table 56).</remarks>
@@ -63,6 +65,23 @@ public struct GraphicsState
     /// <summary>Gets the distance into the dash pattern at which a stroke starts, never negative; 0 for a solid line. Initially 0.</summary>
     /// <remarks>ISO 32000-2 §8.4.3.6: a negative phase is incremented by twice the sum of the dash array until it is not negative.</remarks>
     public double DashPhase { readonly get; internal set; }
+
+    /// <summary>Gets the colour used for stroking: its colour space and values. Initially DeviceGray black (0).</summary>
+    /// <remarks>
+    /// ISO 32000-2 §8.6.8, Tables 51 and 73. Set by <c>CS SC SCN G RG K</c>. The space is the one the operator selected; a default
+    /// colour space replaces a device space when painting (§8.6.5.6, <see cref="Content.ContentContext.DefaultColorSpaces"/>).
+    /// </remarks>
+    [UnscopedRef]
+    public readonly ref readonly PdfColor StrokeColor => ref _strokeColor;
+
+    /// <summary>Gets the colour used for all other painting: its colour space and values. Initially DeviceGray black (0).</summary>
+    /// <remarks>ISO 32000-2 §8.6.8, Tables 51 and 73. Set by <c>cs sc scn g rg k</c>; see <see cref="StrokeColor"/>.</remarks>
+    [UnscopedRef]
+    public readonly ref readonly PdfColor FillColor => ref _fillColor;
+
+    /// <summary>Gets whether colour conversions compensate for black points. Initially <see cref="BlackPointCompensation.Default"/>.</summary>
+    /// <remarks>ISO 32000-2 §8.6.5.9, Table 52. Set through <c>gs</c> (UseBlackPtComp, PDF 2.0).</remarks>
+    public BlackPointCompensation BlackPointCompensation { readonly get; internal set; }
 
     /// <summary>Gets the colour rendering intent. Initially <see cref="RenderingIntent.RelativeColorimetric"/>.</summary>
     /// <remarks>ISO 32000-2 §8.6.5.8, Table 52. Set by <c>ri</c> (Table 56).</remarks>
@@ -147,7 +166,24 @@ public struct GraphicsState
         FillAlpha = 1.0,
         TextKnockout = true,
         HorizontalScaling = 1.0,
+        _strokeColor = PdfDeviceGrayColorSpace.Instance.GetInitialColor(),
+        _fillColor = PdfDeviceGrayColorSpace.Instance.GetInitialColor(),
     };
+
+    /// <summary>Sets the stroking or the non-stroking colour.</summary>
+    /// <param name="stroke">Whether the stroking colour is set.</param>
+    /// <param name="color">The colour.</param>
+    internal void SetColor(bool stroke, in PdfColor color)
+    {
+        if (stroke)
+        {
+            _strokeColor = color;
+        }
+        else
+        {
+            _fillColor = color;
+        }
+    }
 
     /// <summary>Sets the dash pattern; the elements are copied. A pattern longer than the inline storage gets its own array.</summary>
     internal void SetDash(ReadOnlySpan<double> array, double phase)

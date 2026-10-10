@@ -654,6 +654,457 @@ def minimal_truetype() -> tuple[bytes, dict[int, int]]:
     return bytes(font), {c: advances[g] for c, g in chars.items()}
 
 
+# The standard Macintosh glyph order of the 'post' table (Apple TrueType Reference Manual, "The 'post' table").
+MAC_STANDARD_NAMES = (
+    ".notdef .null nonmarkingreturn space exclam quotedbl numbersign dollar percent ampersand quotesingle parenleft "
+    "parenright asterisk plus comma hyphen period slash zero one two three four five six seven eight nine colon "
+    "semicolon less equal greater question at A B C D E F G H I J K L M N O P Q R S T U V W X Y Z bracketleft "
+    "backslash bracketright asciicircum underscore grave a b c d e f g h i j k l m n o p q r s t u v w x y z "
+    "braceleft bar braceright asciitilde Adieresis Aring Ccedilla Eacute Ntilde Odieresis Udieresis aacute agrave "
+    "acircumflex adieresis atilde aring ccedilla eacute egrave ecircumflex edieresis iacute igrave icircumflex "
+    "idieresis ntilde oacute ograve ocircumflex odieresis otilde uacute ugrave ucircumflex udieresis dagger degree "
+    "cent sterling section bullet paragraph germandbls registered copyright trademark acute dieresis notequal AE "
+    "Oslash infinity plusminus lessequal greaterequal yen mu partialdiff summation product pi integral ordfeminine "
+    "ordmasculine Omega ae oslash questiondown exclamdown logicalnot radical florin approxequal Delta guillemotleft "
+    "guillemotright ellipsis nonbreakingspace Agrave Atilde Otilde OE oe endash emdash quotedblleft quotedblright "
+    "quoteleft quoteright divide lozenge ydieresis Ydieresis fraction currency guilsinglleft guilsinglright fi fl "
+    "daggerdbl periodcentered quotesinglbase quotedblbase perthousand Acircumflex Ecircumflex Aacute Edieresis Egrave "
+    "Iacute Icircumflex Idieresis Igrave Oacute Ocircumflex apple Ograve Uacute Ucircumflex Ugrave dotlessi "
+    "circumflex tilde macron breve dotaccent ring cedilla hungarumlaut ogonek caron Lslash lslash Scaron scaron "
+    "Zcaron zcaron brokenbar Eth eth Yacute yacute Thorn thorn minus multiply onesuperior twosuperior threesuperior "
+    "onehalf onequarter threequarters franc Gbreve gbreve Idotaccent Scedilla scedilla Cacute cacute Ccaron ccaron "
+    "dcroat").split()
+assert len(MAC_STANDARD_NAMES) == 258
+
+# Composite glyph component flags (OpenType 'glyf' table).
+ARG_WORDS, ARGS_XY, HAVE_SCALE, MORE_COMPONENTS = 0x0001, 0x0002, 0x0008, 0x0020
+HAVE_X_AND_Y_SCALE, HAVE_TWO_BY_TWO, HAVE_INSTRUCTIONS, USE_MY_METRICS = 0x0040, 0x0080, 0x0100, 0x0200
+SCALED_OFFSET, UNSCALED_OFFSET = 0x0800, 0x1000
+
+
+def f2dot14(value: float) -> bytes:
+    return struct.pack(">h", round(value * 16384))
+
+
+class TtfGlyph:
+    """A glyph of a synthesized TrueType font: simple (points with on-curve flags) or composite (component records)."""
+
+    def __init__(self, contours=None, components=None, instructions: bytes = b""):
+        self.contours = contours or []      # [[(x, y, on_curve), ...], ...]
+        self.components = components or []  # [(flags, glyph, arg1, arg2, transform), ...]
+        self.instructions = instructions
+
+
+def _f2(data: bytes) -> list[float]:
+    return [v / 16384 for v in struct.unpack(">%dh" % (len(data) // 2), data)]
+
+
+def _glyph_points(glyphs: list[TtfGlyph], gid: int) -> list[tuple[float, float]]:
+    """The points of a glyph with composites applied (only to compute the header bounding boxes)."""
+    g = glyphs[gid]
+    if not g.components:
+        return [(x, y) for c in g.contours for x, y, _ in c]
+    points: list[tuple[float, float]] = []
+    for flags, child, a1, a2, transform in g.components:
+        pts = _glyph_points(glyphs, child)
+        m = [1.0, 0.0, 0.0, 1.0]  # xscale, scale01, scale10, yscale
+        if flags & HAVE_SCALE:
+            s = _f2(transform)[0]
+            m = [s, 0.0, 0.0, s]
+        elif flags & HAVE_X_AND_Y_SCALE:
+            sx, sy = _f2(transform)
+            m = [sx, 0.0, 0.0, sy]
+        elif flags & HAVE_TWO_BY_TWO:
+            m = _f2(transform)
+        pts = [(m[0] * x + m[2] * y, m[1] * x + m[3] * y) for x, y in pts]
+        if flags & ARGS_XY:
+            dx, dy = a1, a2
+            if transform and flags & SCALED_OFFSET and not flags & UNSCALED_OFFSET:
+                dx, dy = dx * (m[0] ** 2 + m[2] ** 2) ** 0.5, dy * (m[3] ** 2 + m[1] ** 2) ** 0.5
+        else:
+            dx, dy = points[a1][0] - pts[a2][0], points[a1][1] - pts[a2][1]
+        points += [(x + dx, y + dy) for x, y in pts]
+    return points
+
+
+def _glyph_bbox(glyphs: list[TtfGlyph], gid: int) -> tuple[int, int, int, int]:
+    pts = _glyph_points(glyphs, gid)
+    if not pts:
+        return (0, 0, 0, 0)
+    xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+    return (int(min(xs)), int(min(ys)), int(max(xs)), int(max(ys)))
+
+
+def _encode_glyph(glyphs: list[TtfGlyph], gid: int) -> bytes:
+    """Encodes a glyph description: simple glyphs with short and same coordinates and repeated flags where they fit."""
+    g = glyphs[gid]
+    if not g.contours and not g.components:
+        return b""
+    bbox = _glyph_bbox(glyphs, gid)
+    if g.components:
+        out = struct.pack(">hhhhh", -1, *bbox)
+        for i, (flags, child, a1, a2, transform) in enumerate(g.components):
+            last = i == len(g.components) - 1
+            flags |= 0 if last else MORE_COMPONENTS
+            if last and g.instructions:
+                flags |= HAVE_INSTRUCTIONS
+            out += struct.pack(">HH", flags, child)
+            fmt = (">hh" if flags & ARGS_XY else ">HH") if flags & ARG_WORDS else (">bb" if flags & ARGS_XY else ">BB")
+            out += struct.pack(fmt, a1, a2) + transform
+        if g.instructions:
+            out += struct.pack(">H", len(g.instructions)) + g.instructions
+        return out
+    pts = [p for c in g.contours for p in c]
+    out = struct.pack(">hhhhh", len(g.contours), *bbox)
+    end = -1
+    for c in g.contours:
+        end += len(c)
+        out += struct.pack(">H", end)
+    out += struct.pack(">H", len(g.instructions)) + g.instructions
+    flags, xs, ys = [], b"", b""
+    px = py = 0
+    for x, y, on in pts:
+        dx, dy = x - px, y - py
+        px, py = x, y
+        f = 0x01 if on else 0x00
+        if dx == 0:
+            f |= 0x10
+        elif -255 <= dx <= 255:
+            f |= 0x02 | (0x10 if dx > 0 else 0)
+            xs += bytes([abs(dx)])
+        else:
+            xs += struct.pack(">h", dx)
+        if dy == 0:
+            f |= 0x20
+        elif -255 <= dy <= 255:
+            f |= 0x04 | (0x20 if dy > 0 else 0)
+            ys += bytes([abs(dy)])
+        else:
+            ys += struct.pack(">h", dy)
+        flags.append(f)
+    packed = b""
+    i = 0
+    while i < len(flags):  # a run of equal flags is written once with REPEAT (0x08) and a count
+        run = 1
+        while i + run < len(flags) and flags[i + run] == flags[i] and run < 256:
+            run += 1
+        packed += bytes([flags[i] | 0x08, run - 1]) if run > 1 else bytes([flags[i]])
+        i += run
+    return out + packed + xs + ys
+
+
+def cmap_format0(mapping: dict[int, int]) -> bytes:
+    return struct.pack(">HHH", 0, 262, 0) + bytes(mapping.get(c, 0) for c in range(256))
+
+
+def cmap_format4(segments: list[tuple[int, int, int, list[int] | None]]) -> bytes:
+    """Segments (start, end, idDelta, glyph ids or None); glyph ids go through idRangeOffset into glyphIdArray."""
+    segments = segments + [(0xFFFF, 0xFFFF, 1, None)]
+    n = len(segments)
+    ends = b"".join(struct.pack(">H", e) for _, e, _, _ in segments)
+    starts = b"".join(struct.pack(">H", s) for s, _, _, _ in segments)
+    deltas = b"".join(struct.pack(">H", d & 0xFFFF) for _, _, d, _ in segments)
+    offsets, array = b"", b""
+    for i, (_, _, _, ids) in enumerate(segments):
+        if ids is None:
+            offsets += struct.pack(">H", 0)
+        else:
+            offsets += struct.pack(">H", 2 * (n - i) + len(array))
+            array += b"".join(struct.pack(">H", g) for g in ids)
+    es = n.bit_length() - 1
+    body = struct.pack(">HHHH", 2 * n, 2 * (1 << es), es, 2 * n - 2 * (1 << es)) + ends + b"\0\0" + starts + deltas + offsets + array
+    return struct.pack(">HHH", 4, 6 + len(body), 0) + body
+
+
+def cmap_format6(first: int, ids: list[int]) -> bytes:
+    return struct.pack(">HHHHH", 6, 10 + 2 * len(ids), 0, first, len(ids)) + b"".join(struct.pack(">H", g) for g in ids)
+
+
+def cmap_format12(groups: list[tuple[int, int, int]]) -> bytes:
+    body = b"".join(struct.pack(">III", s, e, g) for s, e, g in groups)
+    return struct.pack(">HHIII", 12, 0, 16 + len(body), 0, len(groups)) + body
+
+
+def cmap_table(subtables: list[tuple[int, int, bytes]]) -> bytes:
+    subtables = sorted(subtables, key=lambda t: (t[0], t[1]))
+    out = struct.pack(">HH", 0, len(subtables))
+    offset = 4 + 8 * len(subtables)
+    data = b""
+    for platform, encoding, sub in subtables:
+        out += struct.pack(">HHI", platform, encoding, offset + len(data))
+        data += sub
+    return out + data
+
+
+def post_table(version: int, names: list[str] | None = None) -> bytes:
+    """'post' version 0x00010000, 0x00020000 (names: index into the standard order or Pascal strings) or 0x00030000."""
+    out = struct.pack(">IiHHIIIII", version, 0, 0, 0, 0, 0, 0, 0, 0)
+    if version == 0x00020000:
+        indexes, strings = [], b""
+        custom: list[str] = []
+        for name in names or []:
+            if name in MAC_STANDARD_NAMES:
+                indexes.append(MAC_STANDARD_NAMES.index(name))
+            else:
+                indexes.append(258 + len(custom))
+                custom.append(name)
+                strings += bytes([len(name)]) + name.encode("ascii")
+        out += struct.pack(">H", len(indexes)) + b"".join(struct.pack(">H", i) for i in indexes) + strings
+    return out
+
+
+def ttf_font(glyphs: list[TtfGlyph], metrics: list[tuple[int, int]], n_hmetrics: int, cmap: bytes, post: bytes,
+             ps_name: str, long_loca: bool = False, pad: bool = True) -> bytes:
+    """A TrueType program from glyphs, (advance, lsb) per glyph (advances past n_hmetrics are dropped), cmap and post.
+
+    Tables: head, hhea, maxp, hmtx, loca, glyf, cmap, name, post (the ones ISO 32000-2 Table 124 and 9.9 require, plus
+    name and post). Glyphs are padded to 4 bytes unless ``pad`` is false (long loca permits odd offsets)."""
+    upem = 1000
+    glyf = bytearray()
+    loca = []
+    for gid in range(len(glyphs)):
+        loca.append(len(glyf))
+        data = _encode_glyph(glyphs, gid)
+        glyf += data + (bytes((-len(data)) % 4) if pad else b"")
+    loca.append(len(glyf))
+    loca_tbl = b"".join(struct.pack(">I", o) if long_loca else struct.pack(">H", o // 2) for o in loca)
+    boxes = [_glyph_bbox(glyphs, g) for g in range(len(glyphs)) if glyphs[g].contours or glyphs[g].components]
+    bbox = (min(b[0] for b in boxes), min(b[1] for b in boxes), max(b[2] for b in boxes), max(b[3] for b in boxes))
+    hmtx = b"".join(struct.pack(">Hh", a, l) for a, l in metrics[:n_hmetrics])
+    hmtx += b"".join(struct.pack(">h", l) for _, l in metrics[n_hmetrics:])
+    head = struct.pack(">IIIIHHqqhhhhHHhhh", 0x00010000, 0x00010000, 0, 0x5F0F3CF5, 0x000B, upem, 0, 0,
+                       *bbox, 0, 8, 2, 1 if long_loca else 0, 0)
+    hhea = struct.pack(">IhhhHhhhhhhhhhhhH", 0x00010000, 800, -200, 0, max(a for a, _ in metrics), 0, 0, bbox[2],
+                       1, 0, 0, 0, 0, 0, 0, 0, n_hmetrics)
+    maxp = struct.pack(">IHHHHHHHHHHHHHH", 0x00010000, len(glyphs), 64, 4, 64, 4, 2, 0, 0, 0, 0, 0, 0, 4, 2)
+    names = [(1, ps_name), (2, "Regular"), (4, ps_name), (6, ps_name)]
+    name_data, recs = b"", b""
+    for nid, text in names:
+        enc = text.encode("utf-16-be")
+        recs += struct.pack(">HHHHHH", 3, 1, 0x409, nid, len(enc), len(name_data))
+        name_data += enc
+    name = struct.pack(">HHH", 0, len(names), 6 + 12 * len(names)) + recs + name_data
+    tables = {b"cmap": cmap, b"glyf": bytes(glyf), b"head": head, b"hhea": hhea, b"hmtx": hmtx, b"loca": loca_tbl,
+              b"maxp": maxp, b"name": name, b"post": post}
+    tags = sorted(tables)
+    n = len(tags)
+    es = n.bit_length() - 1
+    sr = (1 << es) * 16
+    font = bytearray(struct.pack(">IHHHH", 0x00010000, n, sr, es, n * 16 - sr))
+    offset = 12 + 16 * n
+    body = bytearray()
+    head_off = 0
+    for tag in tags:
+        data = tables[tag]
+        if tag == b"head":
+            head_off = offset + len(body)
+        font += tag + struct.pack(">III", _checksum(data), offset + len(body), len(data))
+        body += data + bytes((-len(data)) % 4)
+    font += body
+    adj = (0xB1B0AFBA - _checksum(bytes(font))) & 0xFFFFFFFF
+    font[head_off + 8:head_off + 12] = struct.pack(">I", adj)
+    return bytes(font)
+
+
+def ttf_rect(x0: int, y0: int, x1: int, y1: int) -> TtfGlyph:
+    return TtfGlyph([[(x0, y0, True), (x0, y1, True), (x1, y1, True), (x1, y0, True)]])
+
+
+# ---------------------------------------------------------------------------
+# Minimal CFF font program (Adobe TN 5176 CFF, TN 5177 Type 2 charstrings; PDF clause 9.9)
+# ---------------------------------------------------------------------------
+
+T2_OPERATORS = {
+    "hstem": [1], "vstem": [3], "vmoveto": [4], "rlineto": [5], "hlineto": [6], "vlineto": [7], "rrcurveto": [8],
+    "callsubr": [10], "return": [11], "endchar": [14], "hstemhm": [18], "hintmask": [19], "cntrmask": [20],
+    "rmoveto": [21], "hmoveto": [22], "vstemhm": [23], "rcurveline": [24], "rlinecurve": [25], "vvcurveto": [26],
+    "hhcurveto": [27], "callgsubr": [29], "vhcurveto": [30], "hvcurveto": [31],
+    "div": [12, 12], "flex": [12, 35], "hflex": [12, 34], "hflex1": [12, 36], "flex1": [12, 37],
+}
+
+# The standard strings (TN 5176 Appendix A) the corpus fonts use; other names go to the String INDEX.
+CFF_STANDARD_SIDS = {".notdef": 0, "space": 1, "A": 34, "H": 41, "I": 42, "O": 48, "S": 52, "acute": 125, "Aacute": 171}
+
+
+def t2_number(value: int) -> bytes:
+    """TN 5177 Table 1: integers in the shortest form (32-246, 247-254 two-byte, 28 three-byte)."""
+    if -107 <= value <= 107:
+        return bytes([value + 139])
+    if 108 <= value <= 1131:
+        return bytes([((value - 108) >> 8) + 247, (value - 108) & 0xFF])
+    if -1131 <= value <= -108:
+        return bytes([((-value - 108) >> 8) + 251, (-value - 108) & 0xFF])
+    return b"\x1c" + struct.pack(">h", value)
+
+
+def t2(*tokens) -> bytes:
+    """A Type 2 charstring: ints are operands, strings operator names, bytes raw (hint masks)."""
+    out = b""
+    for token in tokens:
+        if isinstance(token, int):
+            out += t2_number(token)
+        elif isinstance(token, str):
+            out += bytes(T2_OPERATORS[token])
+        else:
+            out += token
+    return out
+
+
+def cff_index(items: list[bytes]) -> bytes:
+    """TN 5176 section 5 Table 7: count, offSize from the largest offset, 1-based offsets, data."""
+    if not items:
+        return b"\x00\x00"
+    total = sum(len(i) for i in items) + 1
+    off_size = 1 if total < 0x100 else 2 if total < 0x10000 else 3 if total < 0x1000000 else 4
+    out = struct.pack(">HB", len(items), off_size)
+    offset = 1
+    for i in range(len(items) + 1):
+        out += offset.to_bytes(off_size, "big")
+        if i < len(items):
+            offset += len(items[i])
+    return out + b"".join(items)
+
+
+def cff_dict_int(value: int) -> bytes:
+    """TN 5176 Table 3, in the 5-byte form (operator 29) so every offset has a fixed size."""
+    return b"\x1d" + struct.pack(">i", value)
+
+
+def cff_font(name: bytes, glyphs: list[tuple[str, bytes]], encoding: bytes, local_subrs: list[bytes],
+             global_subrs: list[bytes], default_width: int, nominal_width: int) -> bytes:
+    """A one-font CFF program: header, Name, Top DICT, String and Global Subr INDEXes, a format 0 charset, the
+    given custom encoding, CharStrings, Private DICT (defaultWidthX, nominalWidthX, Subrs) and local Subrs."""
+    strings: list[bytes] = []
+
+    def sid(glyph: str) -> int:
+        if glyph in CFF_STANDARD_SIDS:
+            return CFF_STANDARD_SIDS[glyph]
+        if glyph.encode() not in strings:
+            strings.append(glyph.encode())
+        return 391 + strings.index(glyph.encode())
+
+    charset = b"\x00" + b"".join(struct.pack(">H", sid(g)) for g, _ in glyphs[1:])
+    char_strings = cff_index([cs for _, cs in glyphs])
+    subrs = cff_index(local_subrs) if local_subrs else b""
+    private = cff_dict_int(default_width) + b"\x14" + cff_dict_int(nominal_width) + b"\x15"
+    if local_subrs:
+        private += cff_dict_int(len(private) + 6) + b"\x13"  # Subrs, relative to the Private DICT (TN 5176 p.25)
+
+    def top(charset_off: int, encoding_off: int, char_strings_off: int, private_off: int) -> bytes:
+        return (cff_dict_int(charset_off) + b"\x0f" + cff_dict_int(encoding_off) + b"\x10"
+                + cff_dict_int(char_strings_off) + b"\x11" + cff_dict_int(len(private)) + cff_dict_int(private_off) + b"\x12")
+
+    head = b"\x01\x00\x04\x04" + cff_index([name])
+    top_len = len(cff_index([top(0, 0, 0, 0)]))
+    body = cff_index(strings) + cff_index(global_subrs)
+    charset_off = len(head) + top_len + len(body)
+    encoding_off = charset_off + len(charset)
+    char_strings_off = encoding_off + len(encoding)
+    private_off = char_strings_off + len(char_strings)
+    top_dict = cff_index([top(charset_off, encoding_off, char_strings_off, private_off)])
+    assert len(top_dict) == top_len
+    return head + top_dict + body + charset + encoding + char_strings + private + subrs
+
+
+def minimal_cff() -> tuple[bytes, list[tuple[str, int, int]]]:
+    """A CFF font (TN 5176) with Type 2 charstrings (TN 5177) covering lines, curves, hints, subroutines, flex,
+    an arithmetic operand, an accented character and both width forms. Returns the program and, per glyph after
+    .notdef, (name, code in the custom encoding, advance). nominalWidthX 500, defaultWidthX 600.
+
+    Outlines, in glyph space (1000 units per em):
+      H      M 100,0 L 100,700 L 300,700 L 300,400 L 500,400 L 500,700 L 700,700 L 700,0 L 500,0 L 500,300
+             L 300,300 L 300,0 Z  (vlineto, hlineto, rlineto; hstemhm, vstemhm, hintmask; width 500 + 300)
+      I      M 100,0 L 100,700 L 300,700 L 300,0 Z M 50,0 L 350,0 L 350,50 L 50,50 Z  (body in local subr 0,
+             serif in global subr 0, both called with the bias 107; default width)
+      O      M 400,0 C 550,0 650,200 650,400 C 650,600 550,800 400,800 C 250,800 150,600 150,400
+             C 150,200 250,0 400,0 Z  (hvcurveto, vhcurveto, rrcurveto; width 500 + 200)
+      A      M 0,0 L 300,700 L 600,0 Z
+      acute  M 0,0 L 100,100 L 150,50 Z  (width 500 - 300)
+      Aacute A, then acute moved by (150, 750): endchar with adx ady bchar achar (StandardEncoding 65 and 194)
+      S      M 0,300 C 100,350 200,400 300,400 C 400,400 500,350 600,300 L 600,0 L 0,0 Z  (rmoveto dy = 600 2 div,
+             flex)
+    Custom encoding format 1 (0x80: with a supplement): ranges H I (0x48-0x49), O (0x4F), A (0x41), acute (0xC2),
+    Aacute (0xC1), S (0x53); the supplement also encodes A at 0x61 (TN 5176 section 12, Table 14)."""
+    glyphs = [
+        (".notdef", t2("endchar")),
+        ("H", t2(300, 0, 50, 650, 50, "hstemhm", 100, 200, 400, 200, "vstemhm", "hintmask", b"\xf0",
+                 100, 0, "rmoveto", 700, 200, -300, "vlineto", 200, 300, 200, "hlineto", 0, -700, -200, 0, "rlineto",
+                 300, -200, -300, "vlineto", "endchar")),
+        ("I", t2(-107, "callsubr", -107, "callgsubr", "endchar")),
+        ("O", t2(200, 400, 0, "rmoveto", 150, 100, 200, 200, "hvcurveto", 200, -100, 200, -150, "vhcurveto",
+                 -150, 0, -100, -200, 0, -200, "rrcurveto", -200, 100, -200, 150, "vhcurveto", "endchar")),
+        ("A", t2(0, 0, "rmoveto", 300, 700, 300, -700, "rlineto", "endchar")),
+        ("acute", t2(-300, 0, 0, "rmoveto", 100, 100, 50, -50, "rlineto", "endchar")),
+        ("Aacute", t2(150, 750, 65, 194, "endchar")),
+        ("S", t2(0, 600, 2, "div", "rmoveto", 100, 50, 100, 50, 100, 0, 100, 0, 100, -50, 100, -50, 50, "flex",
+                 -300, "vlineto", -600, "hlineto", "endchar")),
+    ]
+    local_subrs = [t2(100, 0, "rmoveto", 700, 200, -700, "vlineto", "return")]
+    global_subrs = [t2(-250, 0, "rmoveto", 300, 50, -300, "hlineto", "return")]
+    ranges = [(0x48, 1), (0x4F, 0), (0x41, 0), (0xC2, 0), (0xC1, 0), (0x53, 0)]
+    encoding = bytes([0x81, len(ranges)]) + b"".join(bytes(r) for r in ranges)
+    encoding += bytes([1, 0x61]) + struct.pack(">H", CFF_STANDARD_SIDS["A"])
+    font = cff_font(b"BroadsideCff", glyphs, encoding, local_subrs, global_subrs, 600, 500)
+    advances = {"H": 800, "I": 600, "O": 700, "A": 600, "acute": 200, "Aacute": 600, "S": 600}
+    codes = {"H": 0x48, "I": 0x49, "O": 0x4F, "A": 0x41, "acute": 0xC2, "Aacute": 0xC1, "S": 0x53}
+    return font, [(g, codes[g], advances[g]) for g, _ in glyphs[1:]]
+
+
+def sfnt(version: int, tables: dict[bytes, bytes]) -> bytes:
+    """An sfnt file (OpenType "Organization of an OpenType font"): sorted table directory with checksums, tables
+    padded to 4 bytes, head.checkSumAdjustment set."""
+    tags = sorted(tables)
+    n = len(tags)
+    es = n.bit_length() - 1
+    sr = (1 << es) * 16
+    font = bytearray(struct.pack(">IHHHH", version, n, sr, es, n * 16 - sr))
+    offset = 12 + 16 * n
+    body = bytearray()
+    head_off = None
+    for tag in tags:
+        data = tables[tag]
+        if tag == b"head":
+            head_off = offset + len(body)
+        font += tag + struct.pack(">III", _checksum(data), offset + len(body), len(data))
+        body += data + bytes((-len(data)) % 4)
+    font += body
+    if head_off is not None:
+        adj = (0xB1B0AFBA - _checksum(bytes(font))) & 0xFFFFFFFF
+        font[head_off + 8:head_off + 12] = struct.pack(">I", adj)
+    return bytes(font)
+
+
+def minimal_otf_cff() -> bytes:
+    """minimal_cff() wrapped in an OpenType font (OTTO) with the tables an OpenType CFF font has: CFF, cmap ((3,1)
+    format 4 consistent with the charset), head, hhea, hmtx, maxp 0.5, name, OS/2, post 3.0."""
+    cff, glyphs = minimal_cff()
+    unicode = {"H": 0x48, "I": 0x49, "O": 0x4F, "A": 0x41, "acute": 0xB4, "Aacute": 0xC1, "S": 0x53}
+    gid = {g: i + 1 for i, (g, _, _) in enumerate(glyphs)}
+    segments = sorted((unicode[g], gid[g]) for g in unicode)
+    cmap = cmap_table([(3, 1, cmap_format4([(u, u, (g - u) & 0xFFFF, None) for u, g in segments]))])
+    advances = [600] + [adv for _, _, adv in glyphs]
+    head = struct.pack(">IIIIHHqqhhhhHHhhh", 0x00010000, 0x00010000, 0, 0x5F0F3CF5, 0x000B, 1000, 0, 0,
+                       0, 0, 700, 850, 0, 8, 2, 0, 0)
+    hhea = struct.pack(">IhhhHhhhhhhhhhhhH", 0x00010000, 800, -200, 0, max(advances), 0, 0, 700, 1, 0, 0, 0, 0,
+                       0, 0, 0, len(advances))
+    hmtx = b"".join(struct.pack(">Hh", a, 0) for a in advances)
+    maxp = struct.pack(">IH", 0x00005000, len(advances))
+    names = [(1, "Broadside Cff"), (2, "Regular"), (4, "Broadside Cff"), (6, "BroadsideCff")]
+    name_data, recs = b"", b""
+    for nid, text in names:
+        enc = text.encode("utf-16-be")
+        recs += struct.pack(">HHHHHH", 3, 1, 0x409, nid, len(enc), len(name_data))
+        name_data += enc
+    name = struct.pack(">HHH", 0, len(names), 6 + 12 * len(names)) + recs + name_data
+    os2 = struct.pack(">HhHHH" + "h" * 11, 3, 600, 400, 5, 0, 500, 300, 0, 0, 500, 300, 0, 0, 50, 300, 0)
+    os2 += bytes(10) + struct.pack(">IIII", 1, 0, 0, 0) + b"BRDS"
+    os2 += struct.pack(">HHHhhhHHIIhhHHH", 0x0040, 0x41, 0xC1, 800, -200, 0, 850, 200, 1, 0, 500, 700, 0, 0, 0)
+    assert len(os2) == 96
+    post = struct.pack(">IiHHIIIII", 0x00030000, 0, 0, 0, 0, 0, 0, 0, 0)
+    return sfnt(0x4F54544F, {b"CFF ": cff, b"cmap": cmap, b"head": head, b"hhea": hhea, b"hmtx": hmtx,
+                             b"maxp": maxp, b"name": name, b"OS/2": os2, b"post": post})
+
+
 # ---------------------------------------------------------------------------
 # The corpus
 # ---------------------------------------------------------------------------
@@ -792,6 +1243,458 @@ def gen_text_type1_symbolic_noencoding() -> bytes:
     descriptor = (b"<< /Type /FontDescriptor /FontName /BroadsideSymbolic /Flags 4 /FontBBox [0 -200 1000 800] "
                   b"/ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 >>")
     return font_file([font], [b"ABC"], [(6, descriptor)])
+
+
+def truetype_file(font: bytes, base_font: bytes, flags: int, first: int, widths: list[int], encoding: bytes | None,
+                  codes: bytes) -> bytes:
+    """A page showing ``codes`` in an embedded TrueType font (9.6.3, 9.8, 9.9 Table 125: Length1 is the program length)."""
+    enc = b" /Encoding " + encoding if encoding is not None else b""
+    w = b" ".join(b"%d" % x for x in widths)
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>" % LETTER),
+        (4, stream(b"", codes_content([("F1", codes)]))),
+        (5, b"<< /Type /Font /Subtype /TrueType /BaseFont /%s /FirstChar %d /LastChar %d /Widths [%s]%s "
+            b"/FontDescriptor 6 0 R >>" % (base_font, first, first + len(widths) - 1, w, enc)),
+        (6, b"<< /Type /FontDescriptor /FontName /%s /Flags %d /FontBBox [-300 0 700 1400] /ItalicAngle 0 /Ascent 800 "
+            b"/Descent -200 /CapHeight 700 /StemV 200 /FontFile2 7 0 R >>" % (base_font, flags)),
+        (7, stream(b"/Length1 %d" % len(font), font)),
+    ], binary=True)
+
+
+def gen_text_truetype_composite() -> bytes:
+    """9.6.3, 9.6.5.4, 9.9: simple glyphs with off-curve points (an all-off-curve contour, a contour starting off-curve),
+    short, same and repeated coordinate flags, and composite glyphs with every argument and transform form of the
+    OpenType 'glyf' table (word and byte offsets, scale with SCALED/UNSCALED/neither offset flag, x-and-y scale, 2x2,
+    point matching, nesting, USE_MY_METRICS, instructions). hmtx has fewer advances than glyphs; the (3,1) format 4
+    cmap has a glyphIdArray segment (with a 0 entry that stays 0) and negative deltas. Glyph 15 has lsb != xMin."""
+    I = ttf_rect(100, 0, 300, 700)
+    glyphs = [
+        TtfGlyph(),                                                                          # 0 .notdef
+        I,                                                                                   # 1 'I'
+        TtfGlyph([[(250, 0, False), (500, 250, False), (250, 500, False), (0, 250, False)]]),  # 2 'o': all off-curve
+        TtfGlyph([[(0, 0, False), (200, 0, True), (200, 200, True), (0, 200, True)]]),        # 3 'c': starts off-curve
+        TtfGlyph(components=[(ARG_WORDS | ARGS_XY, 1, 400, 300, b"")]),                      # 4 word offset
+        TtfGlyph(components=[(ARGS_XY, 1, 10, 20, b"")]),                                    # 5 byte offset
+        TtfGlyph(components=[(ARGS_XY | HAVE_SCALE | SCALED_OFFSET, 1, 100, 40, f2dot14(0.5))]),    # 6
+        TtfGlyph(components=[(ARGS_XY | HAVE_SCALE | UNSCALED_OFFSET, 1, 100, 40, f2dot14(0.5))]),  # 7
+        TtfGlyph(components=[(ARGS_XY | HAVE_SCALE, 1, 100, 40, f2dot14(0.5))]),                    # 8
+        TtfGlyph(components=[(ARG_WORDS | ARGS_XY | HAVE_X_AND_Y_SCALE, 1, 400, 0,
+                              f2dot14(-1) + f2dot14(1))]),                                   # 9 mirror
+        TtfGlyph(components=[(ARG_WORDS | ARGS_XY | HAVE_TWO_BY_TWO, 1, 700, 0,
+                              f2dot14(0) + f2dot14(1) + f2dot14(-1) + f2dot14(0))]),         # 10 rotation by 90
+        TtfGlyph(components=[(ARGS_XY, 1, 0, 0, b""), (0, 1, 2, 0, b"")]),                   # 11 point matching
+        TtfGlyph(components=[(ARGS_XY, 5, 0, 100, b"")]),                                    # 12 nested
+        TtfGlyph(components=[(ARGS_XY | USE_MY_METRICS, 3, 50, 0, b"")]),                    # 13 USE_MY_METRICS
+        TtfGlyph(components=[(ARGS_XY, 2, 0, 0, b"")], instructions=b"\x00\x01\x02"),        # 14 instructions
+        ttf_rect(100, 0, 300, 700),                                                          # 15 lsb 150, xMin 100
+    ]
+    advances = [500, 400, 500, 300, 700, 400, 400, 400, 400, 400, 700, 600]
+    metrics = []
+    for gid in range(len(glyphs)):
+        lsb = _glyph_bbox(glyphs, gid)[0] + (50 if gid == 15 else 0)
+        metrics.append((advances[min(gid, len(advances) - 1)], lsb))
+    cmap = cmap_table([(3, 1, cmap_format4([
+        (0x30, 0x3C, 1, [g - 1 for g in range(4, 15)] + [0, 14]),  # '0'..':' -> 4..14, ';' -> 0, '<' -> 15
+        (0x49, 0x49, 1 - 0x49, None),
+        (0x63, 0x63, 3 - 0x63, None),
+        (0x6F, 0x6F, 2 - 0x6F, None),
+    ]))])
+    font = ttf_font(glyphs, metrics, len(advances), cmap, post_table(0x00030000), "BroadsideComposite")
+    codes = b"Ioc0123456789:;<"
+    gids = {0x49: 1, 0x6F: 2, 0x63: 3, 0x3B: 0, 0x3C: 15}
+    gids.update({0x30 + i: 4 + i for i in range(11)})
+    widths = [metrics[gids[c]][0] if c in gids else 0 for c in range(0x30, 0x70)]
+    return truetype_file(font, b"BroadsideComposite", 32, 0x30, widths, b"/WinAnsiEncoding", codes)
+
+
+def gen_text_truetype_symbolic() -> bytes:
+    """9.6.5.4: a symbolic font (Flags 4) without Encoding selects glyphs by code: the (3,0) subtable at 0xF000 + code
+    comes before the (1,0) subtable, which maps the same codes to other glyphs; code 0x44 is only in (1,0)."""
+    glyphs = [TtfGlyph(), ttf_rect(100, 0, 300, 700), ttf_rect(100, 0, 500, 500), ttf_rect(100, 0, 700, 300)]
+    metrics = [(500, 0), (400, 100), (600, 100), (800, 100)]
+    cmap = cmap_table([
+        (1, 0, cmap_format0({0x41: 3, 0x42: 2, 0x43: 1, 0x44: 2})),
+        (3, 0, cmap_format4([(0xF041, 0xF043, 1 - 0xF041, None)])),
+    ])
+    font = ttf_font(glyphs, metrics, len(metrics), cmap, post_table(0x00030000), "BroadsideSymbolic")
+    return truetype_file(font, b"BroadsideSymbolic", 4, 0x41, [400, 600, 800, 600], None, b"ABCD")
+
+
+def gen_text_truetype_macroman() -> bytes:
+    """9.6.5.4 and Table 113: a nonsymbolic font whose program has only a (1,0) cmap (format 6): names from the encoding
+    (WinAnsi base with Differences) map to Mac OS Roman codes (Euro is 219, eacute 0x8E); a name with no Mac OS Roman code
+    (brds.alt) is found through the 'post' format 2 names."""
+    glyphs = [TtfGlyph(), ttf_rect(100, 0, 300, 700), ttf_rect(100, 0, 500, 500), ttf_rect(100, 0, 700, 300)]
+    metrics = [(500, 0), (400, 100), (600, 100), (800, 100)]
+    ids = [0] * (0xDB - 0x8E + 1)
+    ids[0] = 2            # 0x8E eacute
+    ids[0xDB - 0x8E] = 1  # 0xDB Euro (Table 113)
+    cmap = cmap_table([(1, 0, cmap_format6(0x8E, ids))])
+    post = post_table(0x00020000, [".notdef", "Euro", "eacute", "brds.alt"])
+    font = ttf_font(glyphs, metrics, len(metrics), cmap, post, "BroadsideMacRoman")
+    widths = [0] * (0xE9 - 0x80 + 1)
+    widths[0], widths[1], widths[0xE9 - 0x80] = 400, 800, 600
+    return truetype_file(font, b"BroadsideMacRoman", 32, 0x80, widths,
+                         b"<< /Type /Encoding /BaseEncoding /WinAnsiEncoding /Differences [129 /brds.alt] >>",
+                         b"\x80\xe9\x81")
+
+
+def gen_text_truetype_loca_long() -> bytes:
+    """9.6.5.4 and the OpenType 'loca' table: long offsets (indexToLocFormat 1) with an odd-length, unpadded glyph; the
+    only cmap is (3,10) format 12, a Unicode subtable that stands in for (3,1); 'post' version 1.0."""
+    H = TtfGlyph([[(x, y, True) for x, y in [(100, 0), (100, 700), (300, 700), (300, 400), (500, 400), (500, 700),
+                                             (700, 700), (700, 0), (500, 0), (500, 300), (300, 300), (300, 0)]]],
+                 instructions=b"\x00")
+    glyphs = [TtfGlyph(), H, ttf_rect(100, 0, 300, 700)]
+    metrics = [(500, 0), (800, 100), (400, 100)]
+    cmap = cmap_table([(3, 10, cmap_format12([(0x48, 0x49, 1), (0x1F600, 0x1F600, 2)]))])
+    font = ttf_font(glyphs, metrics, len(metrics), cmap, post_table(0x00010000), "BroadsideLongLoca",
+                    long_loca=True, pad=False)
+    assert len(_encode_glyph(glyphs, 1)) % 2 == 1
+    return truetype_file(font, b"BroadsideLongLoca", 32, 0x48, [800, 400], b"/WinAnsiEncoding", b"HI")
+
+
+def cff_file(subtype: bytes, font: bytes, flags: int, widths: dict[int, int], encoding: bytes | None,
+             codes: bytes) -> bytes:
+    """A page showing ``codes`` in a Type 1 font dictionary whose program is a FontFile3 stream (9.6.2, 9.9 Tables
+    124 and 125: Subtype required, no Length1/2/3)."""
+    first, last = min(widths), max(widths)
+    w = b" ".join(b"%d" % widths.get(c, 0) for c in range(first, last + 1))
+    enc = b" /Encoding " + encoding if encoding is not None else b""
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>" % LETTER),
+        (4, stream(b"", codes_content([("F1", codes)]))),
+        (5, b"<< /Type /Font /Subtype /Type1 /BaseFont /BroadsideCff /FirstChar %d /LastChar %d /Widths [%s]%s "
+            b"/FontDescriptor 6 0 R >>" % (first, last, w, enc)),
+        (6, b"<< /Type /FontDescriptor /FontName /BroadsideCff /Flags %d /FontBBox [0 0 700 850] /ItalicAngle 0 "
+            b"/Ascent 800 /Descent -200 /CapHeight 700 /StemV 200 /FontFile3 7 0 R >>" % flags),
+        (7, stream(b"/Subtype /" + subtype, font)),
+    ], binary=True)
+
+
+def gen_text_cff_embedded() -> bytes:
+    """9.6.5.2, 9.9 (Tables 124, 125): an embedded CFF program (FontFile3 /Type1C) in a symbolic Type 1 font with no
+    Encoding, so the program's custom encoding (TN 5176 section 12, with a supplement) selects the glyphs. Shows H I O
+    (lines with hints, subroutines, curves), Aacute (endchar seac), the supplement code 0x61 (A) and S (flex, div);
+    outlines in minimal_cff()."""
+    font, glyphs = minimal_cff()
+    widths = {code: advance for _, code, advance in glyphs}
+    widths[0x61] = 600
+    return cff_file(b"Type1C", font, 4, widths, None, b"HIO\xc1aS")
+
+
+def gen_text_opentype_cff_embedded() -> bytes:
+    """9.6.5.2, 9.9 (Table 124 OpenType, p.370): the same CFF program inside an OpenType font (FontFile3 /OpenType)
+    in a nonsymbolic Type 1 font with WinAnsiEncoding: the codes' glyph names are looked up in the CFF charset, not
+    the "cmap" table. Shows H I O, Aacute (0xC1), A, S and acute (0xB4)."""
+    _, glyphs = minimal_cff()
+    winansi = {"H": 0x48, "I": 0x49, "O": 0x4F, "A": 0x41, "acute": 0xB4, "Aacute": 0xC1, "S": 0x53}
+    widths = {winansi[name]: advance for name, _, advance in glyphs}
+    return cff_file(b"OpenType", minimal_otf_cff(), 32, widths, b"/WinAnsiEncoding", b"HIO\xc1AS\xb4")
+# ---------------------------------------------------------------------------
+# Type 1 font programs (9.9 Table 125; Adobe Type 1 Font Format, TN 5015, TN 5040)
+# ---------------------------------------------------------------------------
+
+T1_OPS = {"hstem": 1, "vstem": 3, "vmoveto": 4, "rlineto": 5, "hlineto": 6, "vlineto": 7, "rrcurveto": 8,
+          "closepath": 9, "callsubr": 10, "return": 11, "hsbw": 13, "endchar": 14, "rmoveto": 21, "hmoveto": 22,
+          "vhcurveto": 30, "hvcurveto": 31}
+T1_ESCAPES = {"dotsection": 0, "vstem3": 1, "hstem3": 2, "seac": 6, "sbw": 7, "div": 12, "callothersubr": 16,
+              "pop": 17, "setcurrentpoint": 33}
+
+
+def t1_num(v: int) -> bytes:
+    """Type 1 Font Format 6.2: charstring number encoding."""
+    if -107 <= v <= 107:
+        return bytes([v + 139])
+    if 108 <= v <= 1131:
+        v -= 108
+        return bytes([(v >> 8) + 247, v & 0xFF])
+    if -1131 <= v <= -108:
+        v = -v - 108
+        return bytes([(v >> 8) + 251, v & 0xFF])
+    return b"\xff" + struct.pack(">i", v)
+
+
+def t1_charstring(program: str) -> bytes:
+    """A plaintext charstring from text: integers and command names (6.4, Appendix 2)."""
+    out = b""
+    for token in program.split():
+        if token in T1_OPS:
+            out += bytes([T1_OPS[token]])
+        elif token in T1_ESCAPES:
+            out += bytes([12, T1_ESCAPES[token]])
+        else:
+            out += t1_num(int(token))
+    return out
+
+
+def t1_encrypt(plain: bytes, r: int) -> bytes:
+    """Type 1 Font Format 7.1: c = p ^ (r >> 8); r = ((c + r) * 52845 + 22719) mod 65536."""
+    out = bytearray()
+    for p in plain:
+        c = p ^ (r >> 8)
+        r = ((c + r) * 52845 + 22719) & 0xFFFF
+        out.append(c)
+    return bytes(out)
+
+
+def t1_decrypt(cipher: bytes, r: int) -> bytes:
+    out = bytearray()
+    for c in cipher:
+        out.append(c ^ (r >> 8))
+        r = ((c + r) * 52845 + 22719) & 0xFFFF
+    return bytes(out)
+
+
+def t1_eexec(plain: bytes, label: str) -> bytes:
+    """7.2: eexec encryption with four leading bytes chosen so that the first cipher byte is not white space and not all
+    of the first four are hexadecimal digits (the binary form a reader can tell from the hexadecimal one)."""
+    hexdigits = set(b"0123456789abcdefABCDEF")
+    i = 0
+    while True:
+        cipher = t1_encrypt(fixed_bytes("%s:%d" % (label, i), 4) + plain, 55665)
+        if cipher[0] not in b" \t\r\n" and not all(b in hexdigits for b in cipher[:4]):
+            return cipher
+        i += 1
+
+
+# The glyphs of BroadsideT1 (glyph space 1000 units per em). Each exercises a part of the charstring language:
+# hints, h/v line and curve shortcuts, nested subroutines, flex (Subrs 0-2, 8.3-8.4), hint replacement (OtherSubrs 3,
+# 8.2), the 5-byte number form with div, closepath leaving the current point, sbw, and seac (6.4, TN 5015 errata).
+T1_SUBRS = [
+    "3 0 callothersubr pop pop setcurrentpoint return",   # 0: flex end (8.4)
+    "0 1 callothersubr return",                            # 1: flex start
+    "0 2 callothersubr return",                            # 2: flex point
+    "return",                                              # 3: hint replacement fallback
+    "0 0 rmoveto 6 callsubr closepath return",             # 4: the I stem, through subr 6
+    "0 100 hstem 600 100 hstem 0 100 vstem return",        # 5: replacement hints for E
+    "200 hlineto 700 vlineto -200 hlineto return",         # 6: nested in 4
+]
+T1_GLYPHS = [
+    (".notdef", "0 500 hsbw endchar"),
+    ("H", "100 800 hsbw 0 200 vstem 400 200 vstem 0 0 rmoveto 200 hlineto 300 vlineto 200 hlineto -300 vlineto "
+          "200 hlineto 700 vlineto -200 hlineto -300 vlineto -200 hlineto 300 vlineto -200 hlineto closepath endchar"),
+    ("I", "100 400 hsbw 4 callsubr endchar"),
+    ("O", "50 800 hsbw 0 350 rmoveto -193 157 -157 193 vhcurveto 193 157 157 193 hvcurveto "
+          "0 193 -157 157 -193 0 rrcurveto -193 -157 -157 -193 hvcurveto closepath endchar"),
+    ("F", "100 300 hsbw 0 -10 rmoveto 1 callsubr 50 0 rmoveto 2 callsubr -35 0 rmoveto 2 callsubr "
+          "10 10 rmoveto 2 callsubr 25 0 rmoveto 2 callsubr 25 0 rmoveto 2 callsubr 10 -10 rmoveto 2 callsubr "
+          "15 0 rmoveto 2 callsubr 50 200 -10 0 callsubr 100 vlineto -100 hlineto closepath endchar"),
+    ("E", "100 600 hsbw 0 100 hstem 0 0 rmoveto 5 1 3 callothersubr pop callsubr 400 hlineto 100 vlineto "
+          "-300 hlineto 500 vlineto 300 hlineto 100 vlineto -400 hlineto closepath dotsection endchar"),
+    ("T", "50 500000 1000 div hsbw 0 600 rmoveto 400 hlineto 100 vlineto -400 hlineto closepath "
+          "150 -700 rmoveto 100 hlineto 600 vlineto -100 hlineto closepath endchar"),
+    ("A", "20 740 hsbw 0 0 rmoveto 200 hlineto 150 500 rlineto 150 -500 rlineto 200 hlineto -250 700 rlineto "
+          "-200 hlineto closepath endchar"),
+    ("acute", "200 0 400 0 sbw 0 600 rmoveto 100 hlineto 100 100 rlineto -100 hlineto closepath endchar"),
+    ("Aacute", "20 740 hsbw 200 150 150 65 194 seac"),
+]
+# Codes of the built-in encoding; 49 ('1') and 193 map glyphs StandardEncoding would not.
+T1_ENCODING = [(49, "H"), (65, "A"), (69, "E"), (70, "F"), (72, "H"), (73, "I"), (79, "O"), (84, "T"),
+               (193, "Aacute"), (194, "acute")]
+T1_TEXT = b"1HIOFETA\xc1"
+
+
+def minimal_type1() -> tuple[bytes, bytes, bytes]:
+    """A synthesized Type 1 program (no licence): clear text, eexec-encrypted portion, fixed portion (T1 2.2-2.6).
+    Entries alternate between the RD/ND/NP and -|/|-/| procedure names (2.5)."""
+    encoding = b"".join(b"dup %d /%s put\n" % (code, name.encode()) for code, name in T1_ENCODING)
+    clear = (b"%!PS-AdobeFont-1.0: BroadsideT1 001.000\n"
+             b"%%Title: BroadsideT1\n"
+             b"11 dict begin\n"
+             b"/FontInfo 2 dict dup begin\n"
+             b"/FullName (Broadside Type 1 \\(synthesized\\)) readonly def\n"
+             b"/Notice (Synthesized for the Broadside corpus) readonly def\n"
+             b"end readonly def\n"
+             b"/FontName /BroadsideT1 def\n"
+             b"/PaintType 0 def\n"
+             b"/FontType 1 def\n"
+             b"/FontMatrix [0.001 0 0 0.001 0 0] readonly def\n"
+             b"/FontBBox {0 -10 750 850} readonly def\n"
+             b"/Encoding 256 array\n"
+             b"0 1 255 {1 index exch /.notdef put} for\n" + encoding +
+             b"readonly def\n"
+             b"currentfile eexec\n")
+
+    def entry(cs: str) -> bytes:
+        return t1_encrypt(b"\x00\x00\x00\x00" + t1_charstring(cs), 4330)
+
+    private = (b"dup /Private 10 dict dup begin\n"
+               b"/RD{string currentfile exch readstring pop}executeonly def\n"
+               b"/ND{noaccess def}executeonly def\n"
+               b"/NP{noaccess put}executeonly def\n"
+               b"/-|{string currentfile exch readstring pop}executeonly def\n"
+               b"/|-{noaccess def}executeonly def\n"
+               b"/|{noaccess put}executeonly def\n"
+               b"/BlueValues [-10 0 700 710] def\n"
+               b"/MinFeature{16 16}def\n"
+               b"/password 5839 def\n"
+               b"/lenIV 4 def\n"
+               b"/OtherSubrs [{} {} {} {systemdict /internaldict known not {pop 3} {1183615869 systemdict "
+               b"/internaldict get exec dup /startlock known {/startlock get exec} {dup /strtlck known "
+               b"{/strtlck get exec} {pop 3} ifelse} ifelse} ifelse} executeonly] noaccess def\n"
+               b"/Subrs %d array\n" % len(T1_SUBRS))
+    for i, cs in enumerate(T1_SUBRS):
+        data = entry(cs)
+        rd, np = (b"RD", b"NP") if i % 2 == 0 else (b"-|", b"|")
+        private += b"dup %d %d %s %s %s\n" % (i, len(data), rd, data, np)
+    private += b"ND\n2 index /CharStrings %d dict dup begin\n" % len(T1_GLYPHS)
+    for i, (name, cs) in enumerate(T1_GLYPHS):
+        data = entry(cs)
+        rd, nd = (b"RD", b"ND") if i % 2 == 0 else (b"-|", b"|-")
+        private += b"/%s %d %s %s %s\n" % (name.encode(), len(data), rd, data, nd)
+    private += b"end\nend\nreadonly put\nnoaccess put\ndup/FontName get exch definefont pop\nmark currentfile closefile\n"
+    fixed = (b"0" * 64 + b"\n") * 8 + b"cleartomark\n"
+    return clear, t1_eexec(private, "type1-eexec"), fixed
+
+
+def type1_file(program: bytes, lengths: tuple[int, int, int]) -> bytes:
+    """A page showing every glyph of BroadsideT1, embedded with FontFile and no /Encoding, so the program's built-in
+    encoding applies (9.6.2.1 Table 109, 9.6.5.2, 9.9 Table 125)."""
+    first, last = min(T1_TEXT), max(T1_TEXT)
+    width_of = {"H": 800, "I": 400, "O": 800, "F": 300, "E": 600, "T": 500, "A": 740, "Aacute": 740, "acute": 400}
+    names = dict(T1_ENCODING)
+    w = b" ".join(b"%d" % width_of.get(names.get(c, ""), 0) for c in range(first, last + 1))
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>" % LETTER),
+        (4, stream(b"", codes_content([("F1", T1_TEXT)]))),
+        (5, b"<< /Type /Font /Subtype /Type1 /BaseFont /BroadsideT1 /FirstChar %d /LastChar %d /Widths [%s] "
+            b"/FontDescriptor 6 0 R >>" % (first, last, w)),
+        (6, b"<< /Type /FontDescriptor /FontName /BroadsideT1 /Flags 32 /FontBBox [0 -10 750 850] /ItalicAngle 0 "
+            b"/Ascent 850 /Descent -10 /CapHeight 700 /StemV 100 /FontFile 7 0 R >>"),
+        (7, stream(b"/Length1 %d /Length2 %d /Length3 %d" % lengths, program)),
+    ], binary=True)
+
+
+def gen_text_type1_embedded() -> bytes:
+    """9.9 Table 125: an embedded Type 1 program in the PDF layout (clear text, binary eexec portion, 512 zeros and
+    cleartomark), its lengths exact; the font dictionary has no Encoding (9.6.5.2: the program's applies)."""
+    clear, cipher, fixed = minimal_type1()
+    return type1_file(clear + cipher + fixed, (len(clear), len(cipher), len(fixed)))
+
+
+def pfb_segment(kind: int, data: bytes = b"") -> bytes:
+    """TN 5040 3.3 Table 1: 128, type (1 ASCII, 2 binary, 3 end of file), 4-byte little-endian length, data."""
+    return bytes([128, kind]) + (struct.pack("<I", len(data)) + data if kind != 3 else b"")
+
+
+def gen_text_type1_pfb() -> bytes:
+    """A whole PFB file (TN 5040) as the FontFile, the binary portion split over two segments; ISO 32000-2 9.9 wants the
+    unwrapped program, so a reader strips the segment headers with a diagnostic. Lengths are the unwrapped portions."""
+    clear, cipher, fixed = minimal_type1()
+    half = len(cipher) // 2
+    pfb = (pfb_segment(1, clear) + pfb_segment(2, cipher[:half]) + pfb_segment(2, cipher[half:]) +
+           pfb_segment(1, fixed) + pfb_segment(3))
+    return type1_file(pfb, (len(clear), len(cipher), len(fixed)))
+
+
+def gen_text_type1_hex_eexec() -> bytes:
+    """A PFA-style program: the eexec portion in hexadecimal, 64 digits per line (Type 1 Font Format 7.2); ISO 32000-2
+    9.9 allows only the binary form. Length2 counts the hexadecimal text."""
+    clear, cipher, fixed = minimal_type1()
+    digits = cipher.hex().encode()
+    hex_text = b"".join(digits[i:i + 64] + b"\n" for i in range(0, len(digits), 64))
+    return type1_file(clear + hex_text + fixed, (len(clear), len(hex_text), len(fixed)))
+
+
+def gen_text_type1_bad_lengths() -> bytes:
+    """Length1 five bytes short of the clear text (pdf.js issue5686), Length2 larger than the stream (issue3928 has
+    such values), Length3 0 and no fixed portion."""
+    clear, cipher, _ = minimal_type1()
+    return type1_file(clear + cipher, (len(clear) - 5, 99999999999, 0))
+# Composite fonts (clause 9.7): Type 0 font over a CIDFontType2 descendant
+# ---------------------------------------------------------------------------
+
+def cmap_stream(name: bytes, body: bytes, cmap_type: int = 1, extra: bytes = b"", wmode: int | None = None,
+                registry: bytes = b"Adobe", ordering: bytes = b"Identity", supplement: int = 0) -> bytes:
+    """A CMap file (Adobe TN 5014 §7, TN 5099 §1.3) as a stream (9.7.5.3 Table 118); ``body`` holds the range blocks."""
+    ros = b"<< /Registry (%s) /Ordering (%s) /Supplement %d >>" % (registry, ordering, supplement)
+    text = (b"%!PS-Adobe-3.0 Resource-CMap\n/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n"
+            b"/CIDSystemInfo 3 dict dup begin\n  /Registry (" + registry + b") def\n  /Ordering (" + ordering
+            + b") def\n  /Supplement %d def\nend def\n/CMapName /%s def\n/CMapType %d def\n" % (supplement, name, cmap_type))
+    if wmode is not None:
+        text += b"/WMode %d def\n" % wmode
+    text += body + b"endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n"
+    entries = b"/Type /CMap /CMapName /%s /CIDSystemInfo %s" % (name, ros)
+    if wmode is not None:
+        entries += b" /WMode %d" % wmode
+    return stream(entries + extra, text)
+
+
+def to_unicode(codespace: bytes, mappings: bytes) -> bytes:
+    """9.10.3 ToUnicode CMap: a codespace block and bfchar/bfrange blocks (TN 5099 §1.4)."""
+    return cmap_stream(b"Adobe-Identity-UCS", codespace + mappings, cmap_type=2, ordering=b"UCS")
+
+
+def cid_file(encoding: bytes, cid_entries: bytes, codes: list[bytes], tounicode: bytes,
+             extra: list[tuple[int, bytes]] | None = None, origin: bytes = b"72 700") -> bytes:
+    """A page showing each of ``codes`` (one Tj each) in a Type 0 font (9.7.6.1 Table 119) whose descendant is an
+    embedded CIDFontType2 (9.7.4.1 Table 115) over ``minimal_truetype()``: GID 1 'H' 800, GID 2 'I' 400, upem 1000."""
+    font, _ = minimal_truetype()
+    shows = b" ".join((b"<%s> Tj" % c.hex().upper().encode()) if c[:1] != b"(" else c + b" Tj" for c in codes)
+    content = b"BT /F1 24 Tf " + origin + b" Td " + shows + b" ET"
+    objects = [
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>" % LETTER),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Font /Subtype /Type0 /BaseFont /BroadsideMinimal /Encoding %s /DescendantFonts [8 0 R] "
+            b"/ToUnicode 9 0 R >>" % encoding),
+        (6, b"<< /Type /FontDescriptor /FontName /BroadsideMinimal /Flags 4 /FontBBox [0 0 700 700] /ItalicAngle 0 "
+            b"/Ascent 800 /Descent -200 /CapHeight 700 /StemV 200 /FontFile2 7 0 R >>"),
+        (7, stream(b"/Length1 %d" % len(font), font)),
+        (8, b"<< /Type /Font /Subtype /CIDFontType2 /BaseFont /BroadsideMinimal "
+            b"/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 6 0 R %s >>"
+            % cid_entries),
+        (9, tounicode),
+    ]
+    return simple_file(objects + (extra or []), binary=True)
+
+
+def gen_text_cid_identity_h() -> bytes:
+    """9.7.4.1 Table 115, 9.7.4.3, 9.7.5.2, 9.7.6: Identity-H over CIDFontType2 with CIDToGIDMap /Identity; W in both
+    forms (1 [800] and 2 2 400) and DW 600. Codes 0001 0003 0002: CID 3 is past the program's 3 glyphs, so it shows
+    the CID 0 glyph with the DW width."""
+    tu = to_unicode(b"1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n",
+                    b"2 beginbfchar\n<0001> <0048>\n<0003> <0020>\nendbfchar\n"
+                    b"1 beginbfrange\n<0002> <0002> <0049>\nendbfrange\n")
+    return cid_file(b"/Identity-H", b"/CIDToGIDMap /Identity /DW 600 /W [1 [800] 2 2 400]",
+                    [b"\x00\x01\x00\x03\x00\x02"], tu)
+
+
+def gen_text_cid_identity_v() -> bytes:
+    """9.7.4.1 Table 115 (CIDToGIDMap stream, DW2, W2), 9.7.4.3 (W2 in both forms, DW2 fallback, v.x = w0/2), 9.7.5.2
+    Identity-V. The map covers CIDs 0 to 0x22 (0x21 -> 1, 0x22 -> 2); CID 0x23 is past its end and shows CID 0's glyph."""
+    gid_map = bytearray(2 * 0x23)
+    gid_map[2 * 0x21:2 * 0x21 + 2] = b"\x00\x01"
+    gid_map[2 * 0x22:2 * 0x22 + 2] = b"\x00\x02"
+    tu = to_unicode(b"1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n",
+                    b"3 beginbfchar\n<0021> <0048>\n<0022> <0049>\n<0023> <0020>\nendbfchar\n")
+    return cid_file(b"/Identity-V", b"/CIDToGIDMap 10 0 R /DW2 [900 -1100] /W2 [33 [-1200 400 880] 34 34 -900 200 880]",
+                    [b"\x00\x21\x00\x22\x00\x23"], tu, [(10, stream(b"", bytes(gid_map)))], origin=b"300 700")
+
+
+def gen_text_cid_embedded_cmap() -> bytes:
+    """9.7.5.3 Table 118, 9.7.5.4, 9.7.6.2, 9.7.6.3, Adobe TN 5014 §5.4 and §7: an embedded CMap stream whose UseCMap is
+    another embedded CMap stream (in-file usecmap names it too). The parent has a mixed codespace (1-byte <00>-<7F>,
+    2-byte <8140>-<9FFC>), a cidrange and a cidchar; the child adds one cidchar. <8210> is invalid by the per-byte
+    rule (its second byte is below 0x40) and consumes two bytes, showing CID 0."""
+    parent = cmap_stream(b"Broadside-Parent-H",
+                         b"2 begincodespacerange\n<00> <7F>\n<8140> <9FFC>\nendcodespacerange\n"
+                         b"1 begincidrange\n<48> <49> 1\nendcidrange\n"
+                         b"1 begincidchar\n<8140> 1\nendcidchar\n")
+    child = cmap_stream(b"Broadside-Child-H", b"/Broadside-Parent-H usecmap\n1 begincidchar\n<8141> 2\nendcidchar\n",
+                        extra=b" /UseCMap 11 0 R")
+    tu = to_unicode(b"2 begincodespacerange\n<00> <7F>\n<8140> <9FFC>\nendcodespacerange\n",
+                    b"4 beginbfchar\n<48> <0048>\n<49> <0049>\n<8140> <0048>\n<8141> <0049>\nendbfchar\n")
+    return cid_file(b"10 0 R", b"/CIDToGIDMap /Identity /W [1 [800 400]]",
+                    [b"(HI)", b"\x81\x41\x81\x40", b"\x82\x10"], tu, [(10, child), (11, parent)])
 
 
 def gen_xref_stream() -> bytes:
@@ -1731,6 +2634,91 @@ XMP = (b'<?xpacket begin="\xef\xbb\xbf" id="W5M0MpCehiHzreSzNTczkc9d"?>\n'
        b'<?xpacket end="w"?>')
 
 
+def gen_acroform_fields() -> bytes:
+    """12.7 interactive forms: one field of each type, PDF 2.0, two pages. AcroForm 4 (12.7.3 Table 224):
+    Fields, CO, DA, DR (Helv 5, ZaDb 6), Q, SigFlags 1. Fields (12.7.4, Tables 226-228): 10 `name` text
+    field merged with its widget (TU, TM, V, DV, MaxLen, DA, AA with a C trigger 26); 11 `person`
+    non-terminal carrying FT Tx, DA, Q 1 and Ff 2 (Required) for its merged kids 12 `first` (inherits all)
+    and 13 `last` (own Ff 1: ReadOnly only, UTF-16 V); 14 `agree` check box (12.7.5.2.3) with widgets 15
+    (page 3) and 25 (page 30), on state Yes; 16 `color` radio group (12.7.5.2.4, Ff Radio + NoToggleToOff,
+    Opt with a duplicate export value, index-named states /0 /1 /2, V /1); 20 `submit` push button whose A
+    is a reset-form action naming `person` and field 14; 21 `country` combo box (Combo + Edit, export/display
+    pairs, V the export value, DA from the AcroForm); 22 `toppings` multi-select list box (V array, I, TI);
+    23 `sig` invisible signature field (12.7.5.5, zero Rect) with Lock 27 and SV 28 (Tables 235-237)."""
+    text = b" /AP << /N 7 0 R >>"
+
+    def states(state: bytes) -> bytes:
+        return b" /AP << /N << /%s 8 0 R /Off 9 0 R >> /D << /%s 8 0 R /Off 9 0 R >> >>" % (state, state)
+
+    def widget(rect: bytes, page_num: int = 3) -> bytes:
+        return b"<< /Type /Annot /Subtype /Widget /Rect " + rect + b" /P %d 0 R /F 4" % page_num
+
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog(b" /AcroForm 4 0 R")),
+        (2, pages([3, 30])),
+        (3, page(extra=b" /Annots [10 0 R 12 0 R 13 0 R 15 0 R 17 0 R 18 0 R 19 0 R 20 0 R 21 0 R 22 0 R 23 0 R]")),
+        (4, b"<< /Fields [10 0 R 11 0 R 14 0 R 16 0 R 20 0 R 21 0 R 22 0 R 23 0 R] /CO [10 0 R]"
+            b" /DA (/Helv 0 Tf 0 g) /DR << /Font << /Helv 5 0 R /ZaDb 6 0 R >> >> /Q 0 /SigFlags 1 >>"),
+        (5, HELVETICA),
+        (6, b"<< /Type /Font /Subtype /Type1 /BaseFont /ZapfDingbats >>"),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 5 0 R >> >>",
+                   b"/Tx BMC BT /Helv 12 Tf 2 5 Td (Ada) Tj ET EMC")),
+        (8, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 20 20] /Resources << /Font << /ZaDb 6 0 R >> >>",
+                   b"q BT /ZaDb 12 Tf 4 5 Td (4) Tj ET Q")),
+        (9, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 20 20]", b"0 g 0 0 20 20 re S")),
+        (10, widget(b"[50 700 250 720]") + text + b" /FT /Tx /T (name) /TU (Your name) /TM (full_name)"
+             b" /V (Ada) /DV (Anonymous) /MaxLen 40 /DA (/Helv 12 Tf 0 g) /AA << /C 26 0 R >> >>"),
+        (11, b"<< /T (person) /FT /Tx /DA (/Helv 10 Tf 0 0 1 rg) /Q 1 /Ff 2 /Kids [12 0 R 13 0 R] >>"),
+        (12, widget(b"[50 670 150 690]") + text + b" /Parent 11 0 R /T (first) /V (Grace) >>"),
+        (13, widget(b"[160 670 260 690]") + text + b" /Parent 11 0 R /T (last) /Ff 1 /V <FEFF004C00F60076> >>"),
+        (14, b"<< /FT /Btn /T (agree) /V /Yes /DV /Off /Kids [15 0 R 25 0 R] >>"),
+        (15, widget(b"[50 640 70 660]") + states(b"Yes") + b" /Parent 14 0 R /AS /Yes /MK << /CA (4) >> >>"),
+        (16, b"<< /FT /Btn /Ff 49152 /T (color) /V /1 /Opt [(Red) (Green) (Green)] /Kids [17 0 R 18 0 R 19 0 R] >>"),
+        (17, widget(b"[50 610 70 630]") + states(b"0") + b" /Parent 16 0 R /AS /Off >>"),
+        (18, widget(b"[80 610 100 630]") + states(b"1") + b" /Parent 16 0 R /AS /1 >>"),
+        (19, widget(b"[110 610 130 630]") + states(b"2") + b" /Parent 16 0 R /AS /Off >>"),
+        (20, widget(b"[50 570 150 590]") + text + b" /FT /Btn /Ff 65536 /T (submit) /MK << /CA (Reset) >>"
+             b" /A << /S /ResetForm /Fields [(person) 14 0 R] >> >>"),
+        (21, widget(b"[50 540 250 560]") + text + b" /FT /Ch /Ff 393216 /T (country)"
+             b" /Opt [[(us) (United States)] [(ca) (Canada)]] /V (ca) >>"),
+        (22, widget(b"[50 460 250 530]") + text + b" /FT /Ch /Ff 2097152 /T (toppings) /Opt [(Cheese) (Ham) (Olives)]"
+             b" /V [(Cheese) (Olives)] /I [0 2] /TI 1 /DA (/Helv 10 Tf 0 g) >>"),
+        (23, widget(b"[0 0 0 0]") + b" /FT /Sig /T (sig) /Lock 27 0 R /SV 28 0 R >>"),
+        (25, widget(b"[50 700 70 720]", 30) + states(b"Yes") + b" /Parent 14 0 R /AS /Yes >>"),
+        (26, b"<< /S /JavaScript /JS (event.value = 1;) >>"),
+        (27, b"<< /Type /SigFieldLock /Action /Include /Fields [(name) (person.first)] /P 2 >>"),
+        (28, b"<< /Type /SV /Filter /Adobe.PPKLite /Ff 1 >>"),
+        (30, page(extra=b" /Annots [25 0 R]")),
+    ]
+    id0 = file_id("acroform-fields").hex().encode()
+    return simple_file(objects, version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_acroform_xfa() -> bytes:
+    """Annex K XFA forms (12.7.3 Table 224 XFA): one text field 10 merged with its widget, and an XFA entry
+    that is an array of packets [(xdp:xdp) 11 (template) 12 (datasets) 13 (</xdp:xdp>) 14] (Annex K example
+    1 shape). The catalog has no NeedsRendering (Table 29), so the XFA form is static. PDF 1.7."""
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog(b" /AcroForm 4 0 R")),
+        (2, pages()),
+        (3, page(extra=b" /Annots [10 0 R]")),
+        (4, b"<< /Fields [10 0 R] /DA (/Helv 0 Tf 0 g) /DR << /Font << /Helv 5 0 R >> >>"
+            b" /XFA [(xdp:xdp) 11 0 R (template) 12 0 R (datasets) 13 0 R (</xdp:xdp>) 14 0 R] >>"),
+        (5, HELVETICA),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 5 0 R >> >>",
+                   b"/Tx BMC BT /Helv 12 Tf 2 5 Td (Ada) Tj ET EMC")),
+        (10, b"<< /Type /Annot /Subtype /Widget /Rect [50 700 250 720] /P 3 0 R /F 4 /AP << /N 6 0 R >>"
+             b" /FT /Tx /T (name) /V (Ada) >>"),
+        (11, stream(b"", b'<xdp:xdp xmlns:xdp="http://ns.adobe.com/xdp/">')),
+        (12, stream(b"", b'<template xmlns="http://www.xfa.org/schema/xfa-template/3.3/"><subform name="form1">'
+                         b'<field name="name"/></subform></template>')),
+        (13, stream(b"", b'<xfa:datasets xmlns:xfa="http://www.xfa.org/schema/xfa-data/1.0/"><xfa:data>'
+                         b'<form1><name>Ada</name></form1></xfa:data></xfa:datasets>')),
+        (14, stream(b"", b"</xdp:xdp>")),
+    ]
+    return simple_file(objects)
+
+
 def gen_metadata_xmp() -> bytes:
     return simple_file([
         (1, catalog(b" /Metadata 4 0 R")),
@@ -2178,6 +3166,642 @@ def gen_functions() -> bytes:
     ]
     return simple_file(objects)
 
+# ---------------------------------------------------------------------------
+# Colour spaces (clause 8.6)
+# ---------------------------------------------------------------------------
+
+def s15f16(value: float) -> bytes:
+    """ICC.1:2022 4.6 s15Fixed16Number."""
+    return struct.pack(">i", round(value * 65536))
+
+
+def icc_profile(device_class: bytes, space: bytes, tags: list[tuple[bytes, bytes]]) -> bytes:
+    """A version 2.1 ICC profile (ICC.1:2022 7.2 header, 7.3 tag table): XYZ PCS, D50 illuminant, the tags 4-byte aligned."""
+    count = len(tags)
+    offset = 128 + 4 + 12 * count
+    table = struct.pack(">I", count)
+    data = b""
+    for sig, body in tags:
+        table += sig + struct.pack(">II", offset + len(data), len(body))
+        data += body + b"\x00" * (-len(body) % 4)
+    size = 128 + len(table) + len(data)
+    header = (struct.pack(">I", size) + b"\x00" * 4 + bytes([2, 0x10, 0, 0]) + device_class + space + b"XYZ "
+              + struct.pack(">6H", 2026, 1, 1, 0, 0, 0) + b"acsp" + b"\x00" * 24 + struct.pack(">I", 0)
+              + s15f16(0.9642) + s15f16(1.0) + s15f16(0.8249) + b"\x00" * 48)
+    assert len(header) == 128
+    return header + table + data
+
+
+def icc_desc(text: bytes) -> bytes:
+    """ICC.1:2001 textDescriptionType (version 2 profiles): ASCII, empty Unicode and ScriptCode parts."""
+    return b"desc" + b"\x00" * 4 + struct.pack(">I", len(text) + 1) + text + b"\x00" + b"\x00" * 8 + b"\x00" * 3 + b"\x00" * 67
+
+
+def icc_xyz(x: float, y: float, z: float) -> bytes:
+    return b"XYZ " + b"\x00" * 4 + s15f16(x) + s15f16(y) + s15f16(z)
+
+
+def icc_gamma(gamma: float) -> bytes:
+    """curveType with one entry, a u8Fixed8Number gamma."""
+    return b"curv" + b"\x00" * 4 + struct.pack(">IH", 1, round(gamma * 256))
+
+
+ICC_COPYRIGHT = b"text" + b"\x00" * 4 + b"No copyright, use freely\x00"
+
+
+def icc_rgb_profile() -> bytes:
+    """Display (mntr) RGB matrix/TRC profile: the sRGB primaries adapted to D50 (IEC 61966-2-1 Annex), gamma 2.2."""
+    return icc_profile(b"mntr", b"RGB ", [
+        (b"desc", icc_desc(b"Broadside RGB gamma 2.2")),
+        (b"cprt", ICC_COPYRIGHT),
+        (b"wtpt", icc_xyz(0.9642, 1.0, 0.8249)),
+        (b"rXYZ", icc_xyz(0.4361, 0.2225, 0.0139)),
+        (b"gXYZ", icc_xyz(0.3851, 0.7169, 0.0971)),
+        (b"bXYZ", icc_xyz(0.1431, 0.0606, 0.7141)),
+        (b"rTRC", icc_gamma(2.2)),
+        (b"gTRC", icc_gamma(2.2)),
+        (b"bTRC", icc_gamma(2.2)),
+    ])
+
+
+def icc_gray_profile() -> bytes:
+    """Display (mntr) GRAY profile: a gamma 2.2 tone curve."""
+    return icc_profile(b"mntr", b"GRAY", [
+        (b"desc", icc_desc(b"Broadside gray gamma 2.2")),
+        (b"cprt", ICC_COPYRIGHT),
+        (b"wtpt", icc_xyz(0.9642, 1.0, 0.8249)),
+        (b"kTRC", icc_gamma(2.2)),
+    ])
+
+
+D65 = b"/WhitePoint [0.9505 1 1.089]"
+SRGB_MATRIX = b"/Matrix [0.4124 0.2126 0.0193 0.3576 0.7152 0.1192 0.1805 0.0722 0.9505]"
+
+
+def colour_rects(entries: list[tuple[bytes, bytes]], columns: int = 4) -> bytes:
+    """One 100 x 100 rectangle per (colour space resource, colour operator text), left to right, top to bottom."""
+    content = b""
+    for i, (name, colour) in enumerate(entries):
+        x = 40 + (i % columns) * 140
+        y = 640 - (i // columns) * 140
+        content += b"/%s cs %s %d %d 100 100 re f\n" % (name, colour, x, y)
+    return content
+
+
+def gen_colorspace_families() -> bytes:
+    """8.6.3 Table 61: one ColorSpace resource per family and one filled rectangle each (8.6.4 to 8.6.6), in reading order:
+    CS0 DeviceGray 0.5; CS1 DeviceRGB 1 0 0; CS2 DeviceCMYK 0 1 0 0; CS3 CalGray (D65, gamma 2.2) 0.5; CS4 CalRGB (D65, sRGB
+    primaries, gamma 2.2) 0 0 1; CS5 Lab (D50) 50 60 40; CS6 ICCBased RGB (an ICC v2 mntr matrix/TRC profile, /Alternate
+    /DeviceRGB) 0 1 0; CS7 ICCBased GRAY (gamma 2.2, no Alternate) 0.25; CS8 Indexed DeviceRGB, index 2 of red, green, blue;
+    CS9 Separation /Spot to DeviceCMYK (Type 2, C1 [0 0.4 1 0]) at 1; CS10 DeviceN [/Cyan /Magenta] to DeviceCMYK (Type 4
+    {0 0}) at 1 0.4 (both CMYK values are IT8.7/3 patches measured in CGATS TR 001); CS11 [/Pattern /DeviceRGB] with the uncoloured tiling pattern P0 (a 10 x 10 cell, half filled) in 0 0.5 0."""
+    entries = [(b"CS%d" % i, colour) for i, colour in enumerate([
+        b"0.5 sc", b"1 0 0 sc", b"0 1 0 0 sc", b"0.5 sc", b"0 0 1 sc", b"50 60 40 sc", b"0 1 0 scn", b"0.25 scn",
+        b"2 sc", b"1 scn", b"1 0.4 scn", b"0 0.5 0 /P0 scn"])]
+    spaces = [
+        b"/DeviceGray", b"/DeviceRGB", b"/DeviceCMYK",
+        b"[/CalGray << " + D65 + b" /Gamma 2.2 >>]",
+        b"[/CalRGB << " + D65 + b" /Gamma [2.2 2.2 2.2] " + SRGB_MATRIX + b" >>]",
+        b"[/Lab << /WhitePoint [0.9642 1 0.8249] /Range [-128 127 -128 127] >>]",
+        b"[/ICCBased 6 0 R]", b"[/ICCBased 7 0 R]",
+        b"[/Indexed /DeviceRGB 2 <FF0000 00FF00 0000FF>]",
+        b"[/Separation /Spot /DeviceCMYK << /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [0 0.4 1 0] /N 1 >>]",
+        b"[/DeviceN [/Cyan /Magenta] /DeviceCMYK 8 0 R]",
+        b"[/Pattern /DeviceRGB]",
+    ]
+    resources = (b"<< /ColorSpace << " + b" ".join(b"/CS%d %s" % (i, s) for i, s in enumerate(spaces))
+                 + b" >> /Pattern << /P0 5 0 R >> >>")
+    rgb = icc_rgb_profile()
+    gray = icc_gray_profile()
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", colour_rects(entries))),
+        (5, stream(b"/PatternType 1 /PaintType 2 /TilingType 1 /BBox [0 0 10 10] /XStep 10 /YStep 10 /Resources << >>",
+                   b"0 0 10 5 re f")),
+        (6, stream(b"/N 3 /Alternate /DeviceRGB", rgb)),
+        (7, stream(b"/N 1", gray)),
+        (8, stream(b"/FunctionType 4 /Domain [0 1 0 1] /Range [0 1 0 1 0 1 0 1]", b"{0 0}")),
+    ], binary=True)
+
+
+def gen_color_operators() -> bytes:
+    """8.6.8 Table 73: all twelve colour operators, each followed by a filled and stroked rectangle (B), in reading order:
+    (1) 0.25 G 0.75 g; (2) 1 0 0 RG 0 0 1 rg; (3) 0 0 0 1 K 0 1 0 0 k; (4) /CS0 CS 0.2 SC /CS0 cs 0.8 sc with CS0 CalGray;
+    (5) /CS1 CS /CS1 cs with CS1 Separation (CS resets both colours to the initial tint 1.0); (6) /CS1 CS 0.5 SCN /CS1 cs
+    0.25 scn; (7) /CS2 CS 0 0 1 /P0 SCN /CS2 cs 1 0 0 /P0 scn with CS2 [/Pattern /DeviceRGB] and the uncoloured tiling pattern
+    P0; (8) /DeviceCMYK CS /DeviceRGB cs (initial colours 0 0 0 1 and 0 0 0). Then an inline image (8.9.7 Tables 91-92) in
+    the abbreviated Indexed space /CS [/I /RGB 1 <FF0000 0000FF>], two pixels: red, blue."""
+    ops = [b"0.25 G 0.75 g", b"1 0 0 RG 0 0 1 rg", b"0 0 0 1 K 0 1 0 0 k", b"/CS0 CS 0.2 SC /CS0 cs 0.8 sc",
+           b"/CS1 CS /CS1 cs", b"/CS1 CS 0.5 SCN /CS1 cs 0.25 scn", b"/CS2 CS 0 0 1 /P0 SCN /CS2 cs 1 0 0 /P0 scn",
+           b"/DeviceCMYK CS /DeviceRGB cs"]
+    content = b"8 w\n"
+    for i, op in enumerate(ops):
+        x = 40 + (i % 4) * 140
+        y = 640 - (i // 4) * 140
+        content += b"%s %d %d 100 100 re B\n" % (op, x, y)
+    content += b"q 200 0 0 100 40 300 cm BI /W 2 /H 1 /CS [/I /RGB 1 <FF0000 0000FF>] /BPC 8 ID \x00\x01 EI Q\n"
+    resources = (b"<< /ColorSpace << /CS0 [/CalGray << " + D65 + b" >>] "
+                 b"/CS1 [/Separation /Spot /DeviceGray << /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >>] "
+                 b"/CS2 [/Pattern /DeviceRGB] >> /Pattern << /P0 5 0 R >> >>")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/PatternType 1 /PaintType 2 /TilingType 1 /BBox [0 0 10 10] /XStep 10 /YStep 10 /Resources << >>",
+                   b"0 0 10 5 re f")),
+    ], binary=True)
+
+
+def gen_default_colorspaces() -> bytes:
+    """8.6.5.6 default colour spaces. The page's ColorSpace resources have DefaultRGB = CalRGB (D50 white, gamma 1, the sRGB
+    primaries adapted to D50) and DefaultGray = CalGray (D50, gamma 1), so a remapped 0.5 is linear and shows as sRGB 188, a
+    device 0.5 as 128. Reading order: (1) 0.5 0.5 0.5 rg rectangle; (2) 0.5 g rectangle; (3) the Form XObject Fm0, whose own
+    Resources have DefaultRGB = CalRGB (D65, gamma 2.2, sRGB primaries), painting 0.5 0.5 0.5 rg (inside it its DefaultRGB
+    applies, found at paint time: 128); (4) Im0, a 2 x 1 image in [/Indexed /DeviceRGB 1 <FF0000 808080>] (the base DeviceRGB
+    remapped to the page's DefaultRGB), pixels 0 and 1."""
+    d50 = b"/WhitePoint [0.9642 1 0.8249]"
+    d50_matrix = b"/Matrix [0.4361 0.2225 0.0139 0.3851 0.7169 0.0971 0.1431 0.0606 0.7141]"
+    content = (b"0.5 0.5 0.5 rg 40 640 100 100 re f\n"
+               b"0.5 g 180 640 100 100 re f\n"
+               b"q 1 0 0 1 320 640 cm /Fm0 Do Q\n"
+               b"q 100 0 0 100 460 640 cm /Im0 Do Q\n")
+    resources = (b"<< /ColorSpace << /DefaultRGB [/CalRGB << " + d50 + b" " + d50_matrix + b" >>] "
+                 b"/DefaultGray [/CalGray << " + d50 + b" >>] >> /XObject << /Fm0 5 0 R /Im0 6 0 R >> >>")
+    form_resources = b"<< /ColorSpace << /DefaultRGB [/CalRGB << " + D65 + b" /Gamma [2.2 2.2 2.2] " + SRGB_MATRIX + b" >>] >> >>"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Resources " + form_resources,
+                   b"0.5 0.5 0.5 rg 0 0 100 100 re f")),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 1 /BitsPerComponent 8 "
+                   b"/ColorSpace [/Indexed /DeviceRGB 1 <FF0000 808080>]", b"\x00\x01")),
+    ], binary=True)
+
+
+def gen_separation_special() -> bytes:
+    """8.6.6.4 and 8.6.6.5 special colourant names, one rectangle each at tint 0.5 over a light gray (0.8) band: CS0 Separation
+    /All (every colourant; on an RGB device 1 - tint on every component, a 50% gray); CS1 Separation /None (paints nothing, the
+    band shows through); CS2 DeviceN [/None /None] (never paints). The tint transforms, which would paint white, are ignored."""
+    tint = b"<< /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [1] /N 1 >>"
+    content = (b"0.8 g 0 600 612 160 re f\n"
+               + colour_rects([(b"CS0", b"0.5 scn"), (b"CS1", b"0.5 scn"), (b"CS2", b"0.5 0.5 scn")]))
+    resources = (b"<< /ColorSpace << /CS0 [/Separation /All /DeviceGray " + tint + b"] /CS1 [/Separation /None /DeviceGray "
+                 + tint + b"] /CS2 [/DeviceN [/None /None] /DeviceGray 5 0 R] >> >>")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/FunctionType 4 /Domain [0 1 0 1] /Range [0 1]", b"{pop pop 1}")),
+    ])
+
+# ---------------------------------------------------------------------------
+# Shadings and patterns (clause 8.7)
+# ---------------------------------------------------------------------------
+
+class BitWriter:
+    """Packs unsigned fields most significant bit first (8.7.4.5.5: mesh data is a bit stream)."""
+
+    def __init__(self) -> None:
+        self.bits: list[int] = []
+
+    def write(self, value: int, width: int) -> None:
+        assert 0 <= value < (1 << width), (value, width)
+        for i in range(width - 1, -1, -1):
+            self.bits.append((value >> i) & 1)
+
+    def align(self) -> None:
+        while len(self.bits) % 8:
+            self.bits.append(0)
+
+    def data(self) -> bytes:
+        self.align()
+        return bytes(int("".join(map(str, self.bits[i:i + 8])), 2) for i in range(0, len(self.bits), 8))
+
+
+def mesh_raw(value: float, low: float, high: float, bits: int) -> int:
+    """The inverse of the 8.9.5.2 Decode formula: the raw field that decodes to ``value``."""
+    return round((value - low) * ((1 << bits) - 1) / (high - low))
+
+
+def shading_page(shading: bytes, clip: bytes = b"0 0 612 792", extra_objects: list[tuple[int, bytes]] | None = None,
+                 version: str = "1.7") -> bytes:
+    """One page painting shading 5 0 R (8.7.4.2 sh) inside a rectangular clip: q <clip> re W n /Sh0 sh Q."""
+    content = b"q %s re W n /Sh0 sh Q\n" % clip
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /Shading << /Sh0 5 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, shading),
+    ] + (extra_objects or []), version=version, binary=True)
+
+
+def gen_shading_type1() -> bytes:
+    """8.7.4.5.2 Table 78 function-based shading: DeviceRGB, Domain [0 1 0 1] mapped by Matrix [200 0 0 200 100 400] onto
+    the square 100..300 x 400..600; Function a 7.10.2 Type 0 sampled function with 2 inputs and 3 outputs, 2 x 2 samples at
+    8 bits: (0,0) red, (1,0) green, (0,1) blue, (1,1) white, interpolated bilinearly."""
+    samples = bytes([255, 0, 0, 0, 255, 0, 0, 0, 255, 255, 255, 255])
+    return shading_page(
+        b"<< /ShadingType 1 /ColorSpace /DeviceRGB /Domain [0 1 0 1] /Matrix [200 0 0 200 100 400] /Function 6 0 R >>",
+        extra_objects=[(6, stream(b"/FunctionType 0 /Domain [0 1 0 1] /Range [0 1 0 1 0 1] /Size [2 2] /BitsPerSample 8",
+                                  samples))])
+
+
+def gen_shading_type2() -> bytes:
+    """8.7.4.5.3 Table 79 axial shading: Coords [72 400 540 400], Domain default [0 1], a 7.10.3 Type 2 function from red to
+    blue, Extend [true false]: left of x = 72 is red, right of x = 540 unpainted; clipped to 0 300 612 200."""
+    return shading_page(
+        b"<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [72 400 540 400] "
+        b"/Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >> /Extend [true false] >>",
+        clip=b"0 300 612 200")
+
+
+def gen_shading_type3() -> bytes:
+    """8.7.4.5.4 Table 80 radial shading with non-nested circles (a cone): Coords [200 400 20 400 420 100], red to blue,
+    Extend [true true]. Where blend circles overlap, the greatest s decides the colour."""
+    return shading_page(
+        b"<< /ShadingType 3 /ColorSpace /DeviceRGB /Coords [200 400 20 400 420 100] "
+        b"/Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >> /Extend [true true] >>",
+        clip=b"0 200 612 400")
+
+
+def gen_shading_type4() -> bytes:
+    """8.7.4.5.5 Table 81 free-form triangle mesh: BitsPerFlag 2, BitsPerCoordinate 12, BitsPerComponent 4, DeviceRGB, so a
+    vertex is 2 + 12 + 12 + 3 x 4 = 38 bits padded to 40. Flags 0 0 0 1 2 make three triangles: (v0 v1 v2), (v1 v2 v3) and
+    (v1 v3 v4). Decode [0 4095 0 4095 0 1 0 1 0 1] so raw coordinates are user-space units."""
+    vertices = [(0, 100, 100, (15, 0, 0)), (0, 300, 100, (0, 15, 0)), (0, 200, 300, (0, 0, 15)),
+                (1, 400, 300, (15, 0, 0)), (2, 300, 500, (0, 15, 0))]
+    w = BitWriter()
+    for flag, x, y, rgb in vertices:
+        w.write(flag, 2)
+        w.write(x, 12)
+        w.write(y, 12)
+        for c in rgb:
+            w.write(c, 4)
+        w.align()
+    return shading_page(stream(
+        b"/ShadingType 4 /ColorSpace /DeviceRGB /BitsPerCoordinate 12 /BitsPerComponent 4 /BitsPerFlag 2 "
+        b"/Decode [0 4095 0 4095 0 1 0 1 0 1]", w.data()))
+
+
+def gen_shading_type5() -> bytes:
+    """8.7.4.5.6 Table 82 lattice-form triangle mesh: VerticesPerRow 3, three rows, BitsPerCoordinate 12, BitsPerComponent 4
+    with a Type 2 Function of t (red to blue), so a vertex is 12 + 12 + 4 = 28 bits padded to 32 (pdf.js does not pad).
+    Rows at y 100, 250, 400, columns at x 100, 250, 400; t = (column + row) / 4 encoded in 4 bits."""
+    w = BitWriter()
+    for row in range(3):
+        for column in range(3):
+            w.write(100 + 150 * column, 12)
+            w.write(100 + 150 * row, 12)
+            w.write(mesh_raw((column + row) / 4, 0, 1, 4), 4)
+            w.align()
+    return shading_page(stream(
+        b"/ShadingType 5 /ColorSpace /DeviceRGB /BitsPerCoordinate 12 /BitsPerComponent 4 /VerticesPerRow 3 "
+        b"/Decode [0 4095 0 4095 0 1] /Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >>", w.data()))
+
+
+# Four patches sharing edges through flags 0, 1, 2 and 3 (8.7.4.5.7 Table 84): corners (p00, p03, p33, p30), straight edges.
+PATCH_CORNERS = [((100, 100), (100, 250), (250, 250), (250, 100)),
+                 ((100, 250), (250, 250), (250, 400), (100, 400)),
+                 ((250, 400), (100, 400), (100, 550), (250, 550)),
+                 ((250, 550), (250, 400), (400, 400), (400, 550))]
+# Stream order of the control points by (column i, row j): 12 for Coons (8.7.4.5.7), 16 for tensor (8.7.4.5.8, Table 85).
+RING = [(0, 0), (0, 1), (0, 2), (0, 3), (1, 3), (2, 3), (3, 3), (3, 2), (3, 1), (3, 0), (2, 0), (1, 0)]
+INNER = [(1, 1), (1, 2), (2, 2), (2, 1)]
+
+
+def patch_point(corners, i: int, j: int) -> tuple[float, float]:
+    """p_ij of a straight-edged patch: the bilinear blend of its corners at u = i/3, v = j/3."""
+    (p00, p03, p33, p30) = corners
+    u, v = i / 3, j / 3
+    x = (1 - u) * ((1 - v) * p00[0] + v * p03[0]) + u * ((1 - v) * p30[0] + v * p33[0])
+    y = (1 - u) * ((1 - v) * p00[1] + v * p03[1]) + u * ((1 - v) * p30[1] + v * p33[1])
+    return x, y
+
+
+def patch_mesh(tensor: bool, bits_coordinate: int, bits_component: int, colours) -> bytes:
+    """Patch mesh data for PATCH_CORNERS with flags 0 1 2 3: a flag-0 patch writes every point and four colours, the others
+    skip the four points and two colours shared with the previous patch (Tables 84 and 85). No per-patch padding."""
+    order = RING + (INNER if tensor else [])
+    w = BitWriter()
+    for flag, corners in enumerate(PATCH_CORNERS):
+        w.write(flag, 8)
+        points = order if flag == 0 else order[4:]
+        for (i, j) in points:
+            x, y = patch_point(corners, i, j)
+            w.write(mesh_raw(x, 0, 1000, bits_coordinate), bits_coordinate)
+            w.write(mesh_raw(y, 0, 1000, bits_coordinate), bits_coordinate)
+        for colour in (colours[flag] if flag == 0 else colours[flag][2:]):
+            for c in colour:
+                w.write(c, bits_component)
+    return w.data()
+
+
+def gen_shading_type6() -> bytes:
+    """8.7.4.5.7 Tables 83-84 Coons patch mesh: four patches with flags 0, 1, 2, 3; BitsPerCoordinate 32 (Decode 0..1000),
+    BitsPerComponent 16, BitsPerFlag 8, DeviceRGB. Corner colours (c1..c4 at p00 p03 p33 p30) per patch; implicit ones repeat."""
+    r, g, b, k = (65535, 0, 0), (0, 65535, 0), (0, 0, 65535), (0, 0, 0)
+    colours = [[r, g, b, k], [g, b, r, g], [r, g, b, r], [b, r, g, b]]
+    return shading_page(stream(
+        b"/ShadingType 6 /ColorSpace /DeviceRGB /BitsPerCoordinate 32 /BitsPerComponent 16 /BitsPerFlag 8 "
+        b"/Decode [0 1000 0 1000 0 1 0 1 0 1]", patch_mesh(False, 32, 16, colours)))
+
+
+def gen_shading_type7() -> bytes:
+    """8.7.4.5.8 Table 85 tensor-product patch mesh: four patches with flags 0, 1, 2, 3; BitsPerCoordinate 24 (Decode
+    0..1000), BitsPerComponent 8, BitsPerFlag 8, DeviceCMYK; the 16 points in stream order 1 p00 ... 16 p21."""
+    c, m, y, k = (255, 0, 0, 0), (0, 255, 0, 0), (0, 0, 255, 0), (0, 0, 0, 255)
+    colours = [[c, m, y, k], [m, y, c, m], [c, m, y, c], [y, c, m, y]]
+    return shading_page(stream(
+        b"/ShadingType 7 /ColorSpace /DeviceCMYK /BitsPerCoordinate 24 /BitsPerComponent 8 /BitsPerFlag 8 "
+        b"/Decode [0 1000 0 1000 0 1 0 1 0 1 0 1]", patch_mesh(True, 24, 8, colours)))
+
+
+def pattern_page(content: bytes, resources: bytes, objects: list[tuple[int, bytes]]) -> bytes:
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", content)),
+    ] + objects, binary=True)
+
+
+def gen_pattern_tiling_colored() -> bytes:
+    """8.7.3.1 Table 74 and 8.7.3.2 coloured tiling pattern: PaintType 1, TilingType 1, BBox [0 0 20 20], XStep 25, YStep 25,
+    Matrix [1 0 0 1 10 10]; the cell paints a red and a blue square with rg. The page scales by 2 (cm) before the fill: the
+    pattern is not scaled, because the pattern matrix maps to the page's default space (8.7.2)."""
+    return pattern_page(
+        b"2 0 0 2 0 0 cm /Pattern cs /P1 scn 0 0 200 200 re f\n",
+        b"<< /Pattern << /P1 5 0 R >> >>",
+        [(5, stream(b"/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 20 20] /XStep 25 /YStep 25 "
+                    b"/Matrix [1 0 0 1 10 10] /Resources << >>",
+                    b"1 0 0 rg 0 0 10 10 re f 0 0 1 rg 10 10 10 10 re f"))])
+
+
+def gen_pattern_tiling_uncolored() -> bytes:
+    """8.7.3.3 uncoloured tiling pattern: PaintType 2, colour space /Cs1 [/Pattern /DeviceRGB], 0.8 0.2 0 /P1 scn; the cell
+    has no colour operators (a stencil painted in the underlying colour)."""
+    return pattern_page(
+        b"/Cs1 cs 0.8 0.2 0 /P1 scn 50 50 300 300 re f\n",
+        b"<< /ColorSpace << /Cs1 [/Pattern /DeviceRGB] >> /Pattern << /P1 5 0 R >> >>",
+        [(5, stream(b"/Type /Pattern /PatternType 1 /PaintType 2 /TilingType 2 /BBox [0 0 12 12] /XStep 15 /YStep 15 "
+                    b"/Resources << >>", b"0 0 m 12 0 l 6 12 l f"))])
+
+
+def gen_pattern_shading() -> bytes:
+    """8.7.4.1 Table 75 shading pattern: PatternType 2, Matrix [0.5 0 0 0.5 0 0], an axial shading with a Background (light
+    gray, 8.7.4.3 Table 77) and an ExtGState with CA 0.5; the page fills a rectangle with it (re f)."""
+    return pattern_page(
+        b"/Pattern cs /P1 scn 50 50 500 500 re f\n",
+        b"<< /Pattern << /P1 5 0 R >> >>",
+        [(5, b"<< /Type /Pattern /PatternType 2 /Matrix [0.5 0 0 0.5 0 0] /Shading 6 0 R /ExtGState << /CA 0.5 >> >>"),
+         (6, b"<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [200 0 800 0] /Background [0.9 0.9 0.9] "
+             b"/Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >> >>")])
+
+
+def gen_pattern_in_form() -> bytes:
+    """8.7.2 pattern in a form XObject: the form (Matrix [0.5 0 0 0.5 100 100]) has its own Pattern resource and fills with
+    it; the page paints the form after 1 0 0 1 50 50 cm, so the pattern matrix maps to the form's space at Do."""
+    return pattern_page(
+        b"1 0 0 1 50 50 cm /Fm0 Do\n",
+        b"<< /XObject << /Fm0 5 0 R >> >>",
+        [(5, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 400 400] /Matrix [0.5 0 0 0.5 100 100] "
+                    b"/Resources << /Pattern << /P1 6 0 R >> >>", b"/Pattern cs /P1 scn 0 0 400 400 re f")),
+         (6, stream(b"/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 20 20] /XStep 20 /YStep 20 "
+                    b"/Resources << >>", b"0 0.5 0 rg 0 0 10 10 re f"))])
+
+
+def gen_pattern_recursive() -> bytes:
+    """Broken (8.7.3.1): the tiling pattern's cell fills with the pattern itself, an endless recursion."""
+    return pattern_page(
+        b"/Pattern cs /P1 scn 0 0 200 200 re f\n",
+        b"<< /Pattern << /P1 5 0 R >> >>",
+        [(5, stream(b"/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 20 20] /XStep 20 /YStep 20 "
+                    b"/Resources << /Pattern << /P1 5 0 R >> >>", b"/Pattern cs /P1 scn 0 0 10 10 re f"))])
+
+
+def gen_shading_mesh_truncated() -> bytes:
+    """Broken (8.7.4.5.5): a Type 4 mesh with two whole triangles (flags 0 0 0 1) whose data stops in the middle of a fifth
+    vertex (flag 2): 5 bytes per vertex, 22 bytes in all."""
+    vertices = [(0, 100, 100, (15, 0, 0)), (0, 300, 100, (0, 15, 0)), (0, 200, 300, (0, 0, 15)),
+                (1, 400, 300, (15, 0, 0)), (2, 300, 500, (0, 15, 0))]
+    w = BitWriter()
+    for flag, x, y, rgb in vertices:
+        w.write(flag, 2)
+        w.write(x, 12)
+        w.write(y, 12)
+        for c in rgb:
+            w.write(c, 4)
+        w.align()
+    return shading_page(stream(
+        b"/ShadingType 4 /ColorSpace /DeviceRGB /BitsPerCoordinate 12 /BitsPerComponent 4 /BitsPerFlag 2 "
+        b"/Decode [0 4095 0 4095 0 1 0 1 0 1]", w.data()[:22]))
+
+
+
+# ---------------------------------------------------------------------------
+# Images (clause 8.9): one masking mode or sample depth per file
+# ---------------------------------------------------------------------------
+
+def pack_samples(rows: list[list[int]], bpc: int) -> bytes:
+    """8.9.3 sample layout: each row's samples (components interleaved) packed MSB-first at ``bpc`` bits, 16-bit samples
+    big-endian, every row starting on a byte boundary. Padding bits are set to 1 so a reader that uses them is caught."""
+    out = bytearray()
+    for row in rows:
+        if bpc == 16:
+            out += b"".join(struct.pack(">H", v) for v in row)
+            continue
+        acc = 0
+        nbits = 0
+        for v in row:
+            assert 0 <= v < (1 << bpc)
+            acc = (acc << bpc) | v
+            nbits += bpc
+            while nbits >= 8:
+                nbits -= 8
+                out.append((acc >> nbits) & 0xFF)
+        if nbits:
+            pad = 8 - nbits
+            out.append(((acc << pad) | ((1 << pad) - 1)) & 0xFF)
+    return bytes(out)
+
+
+def image_page(objects: list[tuple[int, bytes]], version: str = "1.7", fill: bytes = b"") -> bytes:
+    """A Letter page whose resources name object 5 as the XObject ``/Im0`` and whose content paints it into a 100 x 100 square at
+    (72, 600), after ``fill``; ``objects`` are object 5 and anything it refers to."""
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /XObject << /Im0 5 0 R >> >>")),
+        (4, stream(b"", fill + b"q 100 0 0 100 72 600 cm /Im0 Do Q")),
+    ] + objects, version=version, binary=True)
+
+
+def one_image(entries: bytes, data: bytes, version: str = "1.7", fill: bytes = b"") -> bytes:
+    """A page painting one image XObject (object 5) with the dictionary entries ``entries`` and the data ``data``."""
+    return image_page([(5, stream(b"/Type /XObject /Subtype /Image " + entries, data))], version, fill)
+
+
+STENCIL_ARROW = [
+    [0, 0, 0, 1, 0, 0, 0, 0],
+    [0, 0, 0, 1, 1, 0, 0, 0],
+    [1, 1, 1, 1, 1, 1, 0, 0],
+    [1, 1, 1, 1, 1, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1, 0, 0],
+    [0, 0, 0, 1, 1, 0, 0, 0],
+    [0, 0, 0, 1, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+]
+
+
+def gen_image_stencil_mask() -> bytes:
+    """8.9.6.2 stencil mask: an 8 x 8 /ImageMask true /Decode [1 0] (no ColorSpace, no BitsPerComponent) right-pointing arrow,
+    painted in red: with Decode [1 0] a sample 1 paints and 0 leaves the backdrop."""
+    return one_image(b"/Width 8 /Height 8 /ImageMask true /Decode [1 0]", pack_samples(STENCIL_ARROW, 1),
+                     fill=b"1 0 0 rg ")
+
+
+def rgb_ramp_4x4() -> list[list[int]]:
+    """A 4 x 4 RGB image with every pixel distinct: R = 60 x, G = 60 y, B = 255 - 16 (4y + x)."""
+    return [[c for x in range(4) for c in (60 * x, 60 * y, 255 - 16 * (4 * y + x))] for y in range(4)]
+
+
+def gen_image_explicit_mask() -> bytes:
+    """8.9.6.3 explicit masking: a 4 x 4 DeviceRGB 8-bit image whose /Mask is a 16 x 16 image mask (a disc of radius 7 about the
+    centre; sample 0, inside, shows the image) at a different resolution."""
+    disc = [[0 if (x - 7.5) ** 2 + (y - 7.5) ** 2 <= 49 else 1 for x in range(16)] for y in range(16)]
+    return image_page([
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 4 /Height 4 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Mask 6 0 R",
+                   pack_samples(rgb_ramp_4x4(), 8))),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 16 /Height 16 /ImageMask true", pack_samples(disc, 1))),
+    ])
+
+
+COLOR_KEY_PIXELS = [
+    [(255, 0, 0), (252, 3, 1), (249, 0, 0), (255, 6, 0)],
+    [(0, 0, 255), (255, 0, 0), (0, 255, 0), (250, 5, 5)],
+    [(128, 128, 128), (0, 0, 0), (255, 255, 255), (251, 2, 4)],
+    [(10, 20, 30), (40, 50, 60), (255, 0, 6), (250, 0, 0)],
+]
+
+
+def gen_image_color_key_mask() -> bytes:
+    """8.9.6.4 colour key masking: a 4 x 4 DeviceRGB 8-bit image with /Mask [250 255 0 5 0 5], which masks out every pixel whose
+    red is 250-255 and green and blue 0-5 (exact red, (252 3 1), (250 5 5) ...) but not (249 0 0), (255 6 0) or (255 0 6). A blue
+    square is painted first, so the masked pixels show blue."""
+    rows = [[c for px in row for c in px] for row in COLOR_KEY_PIXELS]
+    return one_image(b"/Width 4 /Height 4 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Mask [250 255 0 5 0 5]",
+                     pack_samples(rows, 8), fill=b"0 0 1 rg 72 600 100 100 re f ")
+
+
+def gen_image_smask() -> bytes:
+    """11.6.5.2 soft-mask image: a 4 x 4 DeviceRGB 8-bit image (Flate) whose /SMask is a 2 x 8 DeviceGray 8-bit image (Flate),
+    alpha 32 y + 16 x, at a different width and height from its parent."""
+    alpha = [[32 * y + 16 * x for x in range(2)] for y in range(8)]
+    return image_page([
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 4 /Height 4 /ColorSpace /DeviceRGB /BitsPerComponent 8 "
+                   b"/SMask 6 0 R /Filter /FlateDecode", flate(pack_samples(rgb_ramp_4x4(), 8)))),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 8 /ColorSpace /DeviceGray /BitsPerComponent 8 "
+                   b"/Filter /FlateDecode", flate(pack_samples(alpha, 8)))),
+    ])
+
+
+MATTE_ORIGINAL = [(10, 20, 30), (0, 128, 255), (200, 100, 50), (40, 80, 160)]
+MATTE_ALPHA = [0, 64, 128, 255]
+
+
+def gen_image_smask_matte() -> bytes:
+    """11.6.5.2 Table 144 Matte: a 2 x 2 DeviceRGB image pre-blended against /Matte [1 1 1] with the alphas 0, 64, 128, 255 of its
+    same-size SMask: c' = m + alpha (c - m), rounded to 8 bits, from the colours MATTE_ORIGINAL (the alpha 0 pixel is any colour:
+    it pre-blends to the matte)."""
+    blended = [[int(255 + a / 255 * (c - 255) + 0.5) for c in px] for px, a in zip(MATTE_ORIGINAL, MATTE_ALPHA)]
+    rows = [blended[0] + blended[1], blended[2] + blended[3]]
+    return image_page([
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8 /SMask 6 0 R",
+                   pack_samples(rows, 8))),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceGray /BitsPerComponent 8 "
+                   b"/Matte [1 1 1]", pack_samples([MATTE_ALPHA[0:2], MATTE_ALPHA[2:4]], 8))),
+    ])
+
+
+def gen_image_1bpc() -> bytes:
+    """8.9.3 sample layout at 1 bit: a 10 x 3 DeviceGray image, 2 bytes per row with 6 padding bits (set to 1); also
+    /Interpolate true (8.9.5.3) and /Intent /Perceptual (8.6.5.8)."""
+    rows = [[1, 0, 0, 0, 0, 0, 0, 0, 0, 1], [0, 1, 0, 1, 0, 1, 0, 1, 0, 1], [1, 1, 1, 1, 1, 0, 0, 0, 0, 0]]
+    return one_image(b"/Width 10 /Height 3 /ColorSpace /DeviceGray /BitsPerComponent 1 /Interpolate true /Intent /Perceptual",
+                     pack_samples(rows, 1))
+
+
+def gen_image_2bpc() -> bytes:
+    """8.9.3 sample layout at 2 bits: a 5 x 2 DeviceGray image (values 0-3, gray 0, 85, 170, 255), 2 bytes per row with 6
+    padding bits."""
+    return one_image(b"/Width 5 /Height 2 /ColorSpace /DeviceGray /BitsPerComponent 2",
+                     pack_samples([[0, 1, 2, 3, 0], [3, 3, 2, 1, 1]], 2))
+
+
+INDEXED_PALETTE = bytes(v for i in range(16) for v in (i * 17, 255 - i * 17, (i * 51) % 256))
+
+
+def gen_image_4bpc_indexed() -> bytes:
+    """8.6.6.3 Indexed at 4 bits: a 3 x 2 image in [/Indexed /DeviceRGB 15 <48 bytes>] (default Decode [0 15]); 12 bits per row
+    -> 2 bytes with 4 padding bits."""
+    return one_image(b"/Width 3 /Height 2 /BitsPerComponent 4 /ColorSpace [/Indexed /DeviceRGB 15 <"
+                     + INDEXED_PALETTE.hex().upper().encode() + b">]",
+                     pack_samples([[0, 5, 15], [9, 1, 14]], 4))
+
+
+def gen_image_16bpc() -> bytes:
+    """8.9.2 16-bit components (PDF 1.5): a 3 x 2 DeviceRGB image whose samples have distinct high and low bytes (0x12FF,
+    0xFF12 ...), so byte order matters."""
+    rows = [[0x12FF, 0xFF12, 0x0001, 0x8000, 0x7FFF, 0xFFFF, 0x0000, 0x1234, 0xABCD],
+            [0xFFFF, 0x0000, 0x00FF, 0xFF00, 0x4321, 0x8001, 0x0F0F, 0xF0F0, 0x5555]]
+    return one_image(b"/Width 3 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 16", pack_samples(rows, 16), version="1.5")
+
+
+def gen_image_decode_inverted() -> bytes:
+    """8.9.5.2 Table 88 Decode: a 4 x 1 DeviceGray 8-bit ramp 0, 85, 170, 255 with /Decode [1 0], which reverses it."""
+    return one_image(b"/Width 4 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Decode [1 0]", bytes([0, 85, 170, 255]))
+
+
+INLINE_FILTERS_SAMPLES = bytes(range(0, 240, 5))
+
+
+def gen_inline_image_filters() -> bytes:
+    """8.9.7 Tables 91-92 abbreviations: an inline 4 x 4 RGB 8-bit image with /F [/AHx /Fl], /DP [null null], /I true
+    (Interpolate), /D [1 0 1 0 1 0] and the PDF 2.0 /L (the length of the ASCII hex data, its '>' included). PDF 2.0."""
+    data = asciihex_encode(flate(INLINE_FILTERS_SAMPLES))
+    content = (b"q 100 0 0 100 72 600 cm BI /W 4 /H 4 /BPC 8 /CS /RGB /F [/AHx /Fl] /DP [null null] /I true "
+               b"/D [1 0 1 0 1 0] /L %d ID " % len(data) + data + b" EI Q")
+    id0 = file_id("inline-image-filters").hex().encode()
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4)),
+        (4, stream(b"", content)),
+    ], version="2.0", binary=True, trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+INLINE_EI_SAMPLES = b"\nEI Q \n "
+
+
+def gen_inline_image_ei_in_data() -> bytes:
+    """8.9.7: an unfiltered inline 8 x 1 DeviceGray image without /L whose data contains "EI Q" between white-space; only the
+    computed data length (W x H x BPC / 8) finds the real EI."""
+    content = b"q 100 0 0 10 72 600 cm BI /W 8 /H 1 /CS /G /BPC 8 ID " + INLINE_EI_SAMPLES + b" EI Q"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4)),
+        (4, stream(b"", content)),
+    ], binary=True)
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -2192,6 +3816,16 @@ FILES = {
     "text-standard14-widths.pdf": gen_text_standard14_widths,
     "text-standard14-alias.pdf": gen_text_standard14_alias,
     "text-type1-symbolic-noencoding.pdf": gen_text_type1_symbolic_noencoding,
+    "text-truetype-composite.pdf": gen_text_truetype_composite,
+    "text-truetype-symbolic.pdf": gen_text_truetype_symbolic,
+    "text-truetype-macroman.pdf": gen_text_truetype_macroman,
+    "text-truetype-loca-long.pdf": gen_text_truetype_loca_long,
+    "text-cff-embedded.pdf": gen_text_cff_embedded,
+    "text-opentype-cff-embedded.pdf": gen_text_opentype_cff_embedded,
+    "text-type1-embedded.pdf": gen_text_type1_embedded,
+    "text-cid-identity-h.pdf": gen_text_cid_identity_h,
+    "text-cid-identity-v.pdf": gen_text_cid_identity_v,
+    "text-cid-embedded-cmap.pdf": gen_text_cid_embedded_cmap,
     "xref-stream.pdf": gen_xref_stream,
     "object-stream.pdf": gen_object_stream,
     "incremental-update.pdf": gen_incremental_update,
@@ -2230,6 +3864,9 @@ FILES = {
     "annotations-subtypes.pdf": gen_annotations_subtypes,
     "annotations-appearance.pdf": gen_annotations_appearance,
     "annotations-malformed.pdf": gen_annotations_malformed,
+    "text-type1-pfb.pdf": gen_text_type1_pfb,
+    "text-type1-hex-eexec.pdf": gen_text_type1_hex_eexec,
+    "text-type1-bad-lengths.pdf": gen_text_type1_bad_lengths,
     "outline.pdf": gen_outline,
     "name-tree-dests.pdf": gen_name_tree_dests,
     "metadata-xmp.pdf": gen_metadata_xmp,
@@ -2254,6 +3891,37 @@ FILES = {
     "declarations.pdf": gen_declarations,
     "actions-all.pdf": gen_actions_all,
     "actions-preserved.pdf": gen_actions_preserved,
+    "acroform-fields.pdf": gen_acroform_fields,
+    "acroform-xfa.pdf": gen_acroform_xfa,
+    "colorspace-families.pdf": gen_colorspace_families,
+    "color-operators.pdf": gen_color_operators,
+    "default-colorspaces.pdf": gen_default_colorspaces,
+    "separation-special.pdf": gen_separation_special,
+    "image-stencil-mask.pdf": gen_image_stencil_mask,
+    "image-explicit-mask.pdf": gen_image_explicit_mask,
+    "image-color-key-mask.pdf": gen_image_color_key_mask,
+    "image-smask.pdf": gen_image_smask,
+    "image-smask-matte.pdf": gen_image_smask_matte,
+    "image-1bpc.pdf": gen_image_1bpc,
+    "image-2bpc.pdf": gen_image_2bpc,
+    "image-4bpc-indexed.pdf": gen_image_4bpc_indexed,
+    "image-16bpc.pdf": gen_image_16bpc,
+    "image-decode-inverted.pdf": gen_image_decode_inverted,
+    "inline-image-filters.pdf": gen_inline_image_filters,
+    "inline-image-ei-in-data.pdf": gen_inline_image_ei_in_data,
+    "shading-type1-function.pdf": gen_shading_type1,
+    "shading-type2-axial.pdf": gen_shading_type2,
+    "shading-type3-radial.pdf": gen_shading_type3,
+    "shading-type4-freeform.pdf": gen_shading_type4,
+    "shading-type5-lattice.pdf": gen_shading_type5,
+    "shading-type6-coons.pdf": gen_shading_type6,
+    "shading-type7-tensor.pdf": gen_shading_type7,
+    "pattern-tiling-colored.pdf": gen_pattern_tiling_colored,
+    "pattern-tiling-uncolored.pdf": gen_pattern_tiling_uncolored,
+    "pattern-shading-axial.pdf": gen_pattern_shading,
+    "pattern-in-form.pdf": gen_pattern_in_form,
+    "pattern-recursive.pdf": gen_pattern_recursive,
+    "shading-mesh-truncated.pdf": gen_shading_mesh_truncated,
 }
 
 
@@ -2280,9 +3948,22 @@ def self_test() -> None:
     assert aes_key_wrap(bytes(range(32)), bytes.fromhex(
         "00112233445566778899AABBCCDDEEFF000102030405060708090A0B0C0D0E0F")) == bytes.fromhex(
         "28C9F404C4B810F4CBCCB35CFB87F8263F5786E2D80ED326CBC7F0E71A99F43BFB988B9B7A02DD21")
+    # Type 1 Font Format 7.3: the charstring of the letter C (6.6), encrypted with four zero bytes (r = 4330)
+    c_plain = bytes.fromhex("BDF9B40D8BEF038BEF01F8ECEF018B16F95006EF07FCEC06F88807F8EC06EF07FD5006090E")
+    c_cipher = bytes.fromhex("10BF31704FAB5B1F03F9B68B1F39A66521B1841F1481697F8E12B7F7DDD6E3D7248D965B1CD45E2114")
+    assert t1_encrypt(bytes(4) + c_plain, 4330) == c_cipher
+    assert t1_charstring("50 800 hsbw 0 100 vstem 0 100 hstem 600 100 hstem 0 hmoveto 700 hlineto 100 vlineto "
+                         "-600 hlineto 500 vlineto 600 hlineto 100 vlineto -700 hlineto closepath endchar") == c_plain
+    # TN 5015 section 6 errata: the corrected eexec text of the Symbol font begins its Private dictionary
+    assert t1_decrypt(bytes.fromhex("a8686bfddf470dd119f86e1b8e5b290ae7d910e9317a36f6768d8de89e7ed5b8"), 55665)[4:] \
+        == b"dup /Private 13 dict dup beg"
     # RFC 5869 A.1
     assert hkdf_sha256(b"\x0b" * 22, bytes(range(13)), bytes(range(0xF0, 0xFA)), 42) == bytes.fromhex(
         "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865")
+    # 8.9.3 sample packing: MSB first, rows padded to a byte with 1 bits, 16-bit big-endian
+    assert pack_samples([[1, 0, 1]], 1) == bytes([0b10111111])
+    assert pack_samples([[3, 0, 1, 2, 3]], 2) == bytes([0xC6, 0xFF])
+    assert pack_samples([[0x12FF]], 16) == bytes([0x12, 0xFF])
 
 
 def main(argv: list[str]) -> int:

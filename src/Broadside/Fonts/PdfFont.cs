@@ -74,6 +74,25 @@ public abstract class PdfFont
     /// <remarks>ISO 32000-2 §9.8.1, Table 120, and §9.9.</remarks>
     public bool IsEmbedded => DescriptorDictionary is { } descriptor && IsEmbeddedIn(descriptor);
 
+    /// <summary>
+    /// Gets the font's embedded font program, parsed by the engine's font program parsers; <see langword="null"/> when the font is
+    /// not embedded, no parser reads the program's format, or the program is unusable (each recorded as a diagnostic).
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §9.9: the program in the font descriptor's <c>FontFile</c>, <c>FontFile2</c> or <c>FontFile3</c> stream, decoded
+    /// through its filters. The parser is picked by the program's bytes, then by the format the stream declares (Table 124); see
+    /// <see cref="IFontProgramParser"/>. The managed defaults read TrueType and Type 1 programs.
+    /// </para>
+    /// <para>
+    /// The program is parsed once per font file stream and shared by every font and thread that uses it; it is parsed again only
+    /// after the stream changes. Selecting a glyph for a character code is the font's job (§9.6.5): for a TrueType font,
+    /// <see cref="PdfTrueTypeFont.GetGlyphId"/>.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="DiagnosticException">In strict mode, when the program deviates from its format.</exception>
+    public FontProgram? Program => DescriptorDictionary is { } descriptor ? GetProgram(descriptor, isCidFont: false) : null;
+
     /// <summary>Gets the document the font belongs to.</summary>
     internal PdfDocument Document { get; }
 
@@ -140,6 +159,35 @@ public abstract class PdfFont
         GetFrom(descriptor, FontNames.FontFile) is CosStream
         || GetFrom(descriptor, FontNames.FontFile2) is CosStream
         || GetFrom(descriptor, FontNames.FontFile3) is CosStream;
+
+    /// <summary>The program of a font descriptor's first font file stream, parsed once per stream (§9.9).</summary>
+    /// <param name="descriptor">The font descriptor dictionary.</param>
+    /// <param name="isCidFont">Whether the descriptor belongs to a CIDFont.</param>
+    /// <returns>The program, or <see langword="null"/>.</returns>
+    internal FontProgram? GetProgram(CosDictionary descriptor, bool isCidFont)
+    {
+        foreach ((CosName key, FontProgramSource source) in ProgramEntries)
+        {
+            if (descriptor.TryGetValue(key, out CosObject? value) && Document.Resolve(value) is CosStream stream)
+            {
+                return Document.GetFontProgram(stream, value as CosReference, source, isCidFont, this);
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>The font descriptor entries that hold a program, and what each holds (Table 120).</summary>
+    private static readonly (CosName Key, FontProgramSource Source)[] ProgramEntries =
+    [
+        (FontNames.FontFile, FontProgramSource.FontFile),
+        (FontNames.FontFile2, FontProgramSource.FontFile2),
+        (FontNames.FontFile3, FontProgramSource.FontFile3),
+    ];
+
+    /// <summary>The <c>BaseFont</c> without a subset tag (six uppercase letters and a plus sign, §9.9.2).</summary>
+    internal string? FaceName =>
+        BaseFont is { Length: > 7 } name && name[6] == '+' && name.AsSpan(0, 6).ContainsAnyExceptInRange('A', 'Z') is false ? name[7..] : BaseFont;
 
     /// <summary>The font dictionary's entry, resolved; <see langword="null"/> when absent or a reference to nothing.</summary>
     internal CosObject? Get(CosName key) => GetFrom(Dictionary, key);

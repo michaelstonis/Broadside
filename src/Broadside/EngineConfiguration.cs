@@ -1,5 +1,7 @@
 using Broadside.Diagnostics;
 using Broadside.Filters;
+using Broadside.Fonts;
+using Broadside.Graphics;
 using Broadside.Security;
 using Microsoft.Extensions.Logging;
 
@@ -42,8 +44,18 @@ internal sealed class EngineConfiguration
 
     /// <summary>Gets the credentials offered to encrypted documents opened without their own (issue #42).</summary>
     public PdfCredentials? Credentials { get; private init; }
+
+    /// <summary>Gets the font program parsers: the options' registrations, newest first, then the managed defaults (issue #50).</summary>
+    public FontProgramParserRegistry FontProgramParsers { get; private init; } = FontProgramParserRegistry.Default;
+
+    /// <summary>Gets the colour management colours are converted through (issue #77).</summary>
+    public IColorManagement ColorManagement { get; private init; } = ManagedColorManagement.Default;
+
     /// <summary>Gets how many bytes of a non-seekable stream are copied into memory before a temporary file is used (issue #45).</summary>
     public long StreamBufferLimit { get; private init; } = PdfOptions.DefaultStreamBufferLimit;
+
+    /// <summary>Gets the most pixels one image may have (issue #60).</summary>
+    public long MaxImagePixels { get; private init; } = PdfOptions.DefaultMaxImagePixels;
 
     /// <summary>Copies the current values of <paramref name="options"/>.</summary>
     /// <param name="options">The options.</param>
@@ -58,5 +70,8 @@ internal sealed class EngineConfiguration
         SecurityHandlers = options.SecurityHandlers.Count == 0 ? SecurityHandlerRegistry.Default : SecurityHandlerRegistry.Create(options.SecurityHandlers),
         Credentials = options.Credentials,
         StreamBufferLimit = options.StreamBufferLimit,
+        MaxImagePixels = options.MaxImagePixels,
+        FontProgramParsers = FontProgramParserRegistry.Create(options.FontProgramParsers),
+        ColorManagement = options.ColorManagement,
     };
 }

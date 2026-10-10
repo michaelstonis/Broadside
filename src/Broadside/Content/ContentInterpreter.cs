@@ -32,10 +32,10 @@ internal sealed partial class ContentInterpreter
     [ThreadStatic]
     private static ContentInterpreter? _cached;
 
-    private readonly OperandArena _arena = new();
-    private readonly PathBuilder _path = new();
+    private OperandArena _arena = new();
+    private PathBuilder _path = new();
     private readonly ContentContext _context;
-    private readonly List<(int Start, CosReference? Reference)> _parts = [];
+    private List<(int Start, CosReference? Reference)> _parts = [];
     private GraphicsState[] _states = ArrayPool<GraphicsState>.Shared.Rent(16);
     private ContentProcessor _processor = null!;
     private ContentEvents _events;
@@ -219,10 +219,14 @@ internal sealed partial class ContentInterpreter
         _part = 0;
         _inText = false;
         _pendingClip = null;
+        IgnoresColorOperators = false;
         _maxSaveDepth = options.MaxSaveDepth;
         _arena.Limit = options.MaxOperands;
         _path.Accumulate = (_events & (ContentEvents.Paths | ContentEvents.Clips)) != 0;
         _states[0] = GraphicsState.CreateInitial();
+        _maxNestingDepth = options.MaxNestingDepth;
+        _frames.Clear();
+        _frames.Add(new RunFrame(null, Matrix.Identity, _states[0]));
         _parts.Clear();
         _context.RunKind = ContentRunKind.Page;
         _context.Depth = 0;
@@ -248,6 +252,7 @@ internal sealed partial class ContentInterpreter
         _path.Trim();
         Clips.Reset();
         _parts.Clear();
+        _frames.Clear();
         _processor = null!;
         _diagnostics = null;
         _context.Document = null!;
@@ -561,6 +566,11 @@ internal sealed partial class ContentInterpreter
         if ((issues & ReaderIssues.InlineImageInvalid) != 0)
         {
             Report(ContentIssue.InlineImageInvalid, offset, "An inline image lacks ID or EI, or its dictionary holds something that is not a value; the image ends there.");
+        }
+
+        if ((issues & ReaderIssues.InlineImageRepaired) != 0)
+        {
+            Report(ContentIssue.InlineImageInvalid, offset, "An inline image's data does not end where its L entry says, or ID is followed by CR LF, or no EI is followed by content; the end found is used.");
         }
     }
 
