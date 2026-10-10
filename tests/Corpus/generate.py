@@ -3968,6 +3968,275 @@ def gen_text_type3_recursive() -> bytes:
     ])
 
 
+# ---------------------------------------------------------------------------
+# CCITT fax images (clause 7.4.6; ITU-T T.4 clause 4, T.6 clause 2): one mode or framing per file. The decoded samples are
+# ccitt_pack(ccitt_sample_bitmap(w, h)), which the C# twin CcittEncoder.SampleBitmap / Pack reproduces for the tests.
+# ---------------------------------------------------------------------------
+
+# T.4 Table 2 (terminating 0-63) and Table 3a (make-up 64-1728) code words, white and black; Table 3b (1792-2560, both).
+CCITT_WHITE_TERM = (
+    "00110101 000111 0111 1000 1011 1100 1110 1111 10011 10100 00111 01000 001000 000011 110100 110101 101010 101011 "
+    "0100111 0001100 0001000 0010111 0000011 0000100 0101000 0101011 0010011 0100100 0011000 00000010 00000011 00011010 "
+    "00011011 00010010 00010011 00010100 00010101 00010110 00010111 00101000 00101001 00101010 00101011 00101100 00101101 "
+    "00000100 00000101 00001010 00001011 01010010 01010011 01010100 01010101 00100100 00100101 01011000 01011001 01011010 "
+    "01011011 01001010 01001011 00110010 00110011 00110100").split()
+CCITT_BLACK_TERM = (
+    "0000110111 010 11 10 011 0011 0010 00011 000101 000100 0000100 0000101 0000111 00000100 00000111 000011000 0000010111 "
+    "0000011000 0000001000 00001100111 00001101000 00001101100 00000110111 00000101000 00000010111 00000011000 000011001010 "
+    "000011001011 000011001100 000011001101 000001101000 000001101001 000001101010 000001101011 000011010010 000011010011 "
+    "000011010100 000011010101 000011010110 000011010111 000001101100 000001101101 000011011010 000011011011 000001010100 "
+    "000001010101 000001010110 000001010111 000001100100 000001100101 000001010010 000001010011 000000100100 000000110111 "
+    "000000111000 000000100111 000000101000 000001011000 000001011001 000000101011 000000101100 000001011010 000001100110 "
+    "000001100111").split()
+CCITT_WHITE_MAKEUP = (
+    "11011 10010 010111 0110111 00110110 00110111 01100100 01100101 01101000 01100111 011001100 011001101 011010010 "
+    "011010011 011010100 011010101 011010110 011010111 011011000 011011001 011011010 011011011 010011000 010011001 010011010 "
+    "011000 010011011").split()
+CCITT_BLACK_MAKEUP = (
+    "0000001111 000011001000 000011001001 000001011011 000000110011 000000110100 000000110101 0000001101100 0000001101101 "
+    "0000001001010 0000001001011 0000001001100 0000001001101 0000001110010 0000001110011 0000001110100 0000001110101 "
+    "0000001110110 0000001110111 0000001010010 0000001010011 0000001010100 0000001010101 0000001011010 0000001011011 "
+    "0000001100100 0000001100101").split()
+CCITT_EXT_MAKEUP = (
+    "00000001000 00000001100 00000001101 000000010010 000000010011 000000010100 000000010101 000000010110 000000010111 "
+    "000000011100 000000011101 000000011110 000000011111").split()
+CCITT_EOL = "000000000001"
+CCITT_VERTICAL = {-3: "0000010", -2: "000010", -1: "010", 0: "1", 1: "011", 2: "000011", 3: "0000011"}  # T.4 Table 4
+
+
+def ccitt_run_codes(run: int, black: bool) -> str:
+    """T.4 4.1.2 / T.6 2.2.4 Step 2 iii: make-up codes (2560 repeated for runs >= 2624) then one terminating code."""
+    out = ""
+    while run >= 2560:
+        out += CCITT_EXT_MAKEUP[-1]
+        run -= 2560
+    if run >= 64:
+        m = run // 64
+        out += (CCITT_BLACK_MAKEUP if black else CCITT_WHITE_MAKEUP)[m - 1] if m <= 27 else CCITT_EXT_MAKEUP[m - 28]
+        run %= 64
+    return out + (CCITT_BLACK_TERM if black else CCITT_WHITE_TERM)[run]
+
+
+def ccitt_encode_1d(row: list[bool]) -> str:
+    """T.4 4.1: alternating runs from white (the first white run may be 0)."""
+    out, pos, black = "", 0, False
+    while pos < len(row):
+        end = pos
+        while end < len(row) and row[end] == black:
+            end += 1
+        out += ccitt_run_codes(end - pos, black)
+        pos, black = end, not black
+    return out
+
+
+def ccitt_encode_2d(row: list[bool], ref: list[bool]) -> str:
+    """T.4 4.2.1.3 Figure 7 / T.6 2.2: pass, vertical and horizontal modes against the reference line."""
+    w = len(row)
+
+    def px(line: list[bool], x: int) -> bool:
+        return x >= 0 and line[x]
+
+    def next_change(line: list[bool], after: int, colour: bool) -> int:
+        p = after + 1
+        while p < w and line[p] == colour:
+            p += 1
+        return min(p, w)
+
+    out, a0, colour = "", -1, False
+    while a0 < w:
+        a1 = next_change(row, a0, colour)
+        b1 = a0 + 1
+        while b1 < w and not (px(ref, b1) != px(ref, b1 - 1) and px(ref, b1) != colour):
+            b1 += 1
+        b2 = b1 + 1
+        while b2 < w and px(ref, b2) == px(ref, b1):
+            b2 += 1
+        b2 = min(b2, w)
+        if b2 < a1:
+            out += "0001"
+            a0 = b2
+        elif abs(a1 - b1) <= 3:
+            out += CCITT_VERTICAL[a1 - b1]
+            a0, colour = a1, not colour
+        else:
+            a2 = next_change(row, a1, not colour)
+            out += "001" + ccitt_run_codes(a1 - max(a0, 0), colour) + ccitt_run_codes(a2 - a1, not colour)
+            a0 = a2
+    return out
+
+
+def ccitt_encode(rows: list[list[bool]], k: int = 0, end_of_line: bool = False, byte_align: bool = False,
+                 end_of_block: bool = True) -> bytes:
+    """Frames coded lines as CCITTFaxDecode (Table 11) expects: EOL (+ tag bit for K > 0, T.4 4.2.2) before each line when
+    EndOfLine or K > 0, fill so the EOL ends on a byte boundary (or pad before the line when there are no EOLs) under
+    EncodedByteAlign, then EOFB (2 EOL, T.6 2.4.1.1) or RTC (6 EOL / 6 EOL+1, T.4 4.1.4, 4.2.4); zero pad to a byte."""
+    bits: list[str] = []
+    count = 0
+
+    def put(s: str) -> None:
+        nonlocal count
+        bits.append(s)
+        count += len(s)
+
+    def pad_to(multiple_end: int = 0) -> None:
+        while (count + multiple_end) % 8:
+            put("0")
+
+    width = len(rows[0]) if rows else 0
+    prev = [False] * width
+    for i, row in enumerate(rows):
+        two_d = k < 0 or (k > 0 and i % k != 0)
+        if end_of_line or k > 0:
+            eol = CCITT_EOL + ("" if k <= 0 else ("0" if two_d else "1"))
+            if byte_align:
+                pad_to(len(eol))
+            put(eol)
+        elif byte_align:
+            pad_to()
+        put(ccitt_encode_2d(row, prev) if two_d else ccitt_encode_1d(row))
+        prev = row
+    if end_of_block:
+        if byte_align:
+            pad_to()
+        put(CCITT_EOL * 2 if k < 0 else (CCITT_EOL + ("1" if k > 0 else "")) * 6)
+    pad_to()
+    s = "".join(bits)
+    return bytes(int(s[i:i + 8], 2) for i in range(0, len(s), 8))
+
+
+def ccitt_sample_bitmap(width: int, height: int, seed: int = 63) -> list[list[bool]]:
+    """A deterministic bitmap (port of CcittEncoder.SampleBitmap): every 8 rows a white row, a black row, a dithered gradient, a
+    row starting with a long black run, and four rows of drifting text-like strokes (vertical and pass modes)."""
+    state = seed
+    rows = []
+    for y in range(height):
+        kind = y % 8
+        if kind == 0:
+            row = [False] * width
+        elif kind == 1:
+            row = [True] * width
+        elif kind == 2:
+            row = []
+            for x in range(width):
+                state = (state * 1664525 + 1013904223) & 0xFFFFFFFF
+                row.append((state >> 16) % width < x)
+        elif kind == 3:
+            row = [x < width * 2 // 3 or x % 97 == 5 for x in range(width)]
+        else:
+            row = []
+            for x in range(width):
+                phase = (x + y // 3 + seed) % 23
+                row.append(phase < 3 or (phase in (9, 10) and y % 3 != 0) or ((x // 41) % 5 == y % 5 and phase < 15))
+        rows.append(row)
+    return rows
+
+
+def ccitt_pack(rows: list[list[bool]], black_is_1: bool = False) -> bytes:
+    """The expected CCITTFaxDecode output: ceil(w/8) bytes per row, MSB first, black 0 (1 under BlackIs1), pad bits white."""
+    out = bytearray()
+    for row in rows:
+        bits = [(1 if b else 0) if black_is_1 else (0 if b else 1) for b in row]
+        bits += [0 if black_is_1 else 1] * (-len(row) % 8)
+        out += bytes(int("".join(map(str, bits[i:i + 8])), 2) for i in range(0, len(bits), 8))
+    return bytes(out)
+
+
+def ccitt_image(width: int, height: int, parms: bytes, data: bytes, extra: bytes = b"") -> bytes:
+    """A page painting one DeviceGray 1-bit CCITTFaxDecode image of ``width`` x ``height`` with DecodeParms ``parms``."""
+    return one_image(b"/Width %d /Height %d /ColorSpace /DeviceGray /BitsPerComponent 1 /Filter /CCITTFaxDecode "
+                     b"/DecodeParms << %s >>%s" % (width, height, parms, extra), data)
+
+
+def gen_ccitt_g3_1d() -> bytes:
+    """7.4.6 Group 3 1-D (K 0): 203 x 40 (Columns not a multiple of 8), no EOLs, no RTC (EndOfBlock false, Rows 40)."""
+    rows = ccitt_sample_bitmap(203, 40)
+    return ccitt_image(203, 40, b"/K 0 /Columns 203 /Rows 40 /EndOfBlock false", ccitt_encode(rows, 0, end_of_block=False))
+
+
+def gen_ccitt_g3_1d_eol_align() -> bytes:
+    """7.4.6 Group 3 1-D with EndOfLine and EncodedByteAlign: fill before each EOL so it ends on a byte boundary, RTC, no Rows."""
+    rows = ccitt_sample_bitmap(150, 30)
+    return ccitt_image(150, 30, b"/K 0 /Columns 150 /EndOfLine true /EncodedByteAlign true",
+                       ccitt_encode(rows, 0, end_of_line=True, byte_align=True))
+
+
+def gen_ccitt_g3_2d() -> bytes:
+    """7.4.6 Group 3 2-D (K 4): EOL + tag bit before every line, a 1-D line every 4th, 2600 columns (extended make-up codes,
+    T.4 Table 3b), RTC of 6 x (EOL + 1)."""
+    rows = ccitt_sample_bitmap(2600, 30)
+    return ccitt_image(2600, 30, b"/K 4 /Columns 2600 /Rows 30 /EndOfLine true", ccitt_encode(rows, 4, end_of_line=True))
+
+
+def gen_ccitt_g4() -> bytes:
+    """7.4.6 Group 4 (K -1): 1728 x 40 (Columns given explicitly at its default), EOFB, no Rows."""
+    rows = ccitt_sample_bitmap(1728, 40)
+    return ccitt_image(1728, 40, b"/K -1 /Columns 1728", ccitt_encode(rows, -1))
+
+
+def gen_ccitt_g4_no_eob() -> bytes:
+    """7.4.6 Group 4 without EOFB: EndOfBlock false, Rows 40 ends the data."""
+    rows = ccitt_sample_bitmap(120, 40)
+    return ccitt_image(120, 40, b"/K -1 /Columns 120 /Rows 40 /EndOfBlock false", ccitt_encode(rows, -1, end_of_block=False))
+
+
+def gen_ccitt_g4_align() -> bytes:
+    """7.4.6 Group 4 with EncodedByteAlign: every line starts on a byte boundary (no EOLs), EOFB aligned too."""
+    rows = ccitt_sample_bitmap(77, 24)
+    return ccitt_image(77, 24, b"/K -1 /Columns 77 /EncodedByteAlign true", ccitt_encode(rows, -1, byte_align=True))
+
+
+def gen_ccitt_blackis1_mask() -> bytes:
+    """7.4.6 BlackIs1 and 8.9.6.2 stencil masks: /Im0 is a Group 4 /ImageMask with BlackIs1 true and /Decode [1 0] (black pixels
+    are 1 and paint), painted red; /Im1 the same bitmap with BlackIs1 false and the default Decode [0 1] (black pixels are 0 and
+    paint), painted blue below it."""
+    rows = ccitt_sample_bitmap(48, 16)
+    data = ccitt_encode(rows, -1)
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /XObject << /Im0 5 0 R /Im1 6 0 R >> >>")),
+        (4, stream(b"", b"1 0 0 rg q 192 0 0 64 72 600 cm /Im0 Do Q 0 0 1 rg q 192 0 0 64 72 520 cm /Im1 Do Q")),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 48 /Height 16 /ImageMask true /Decode [1 0] /Filter /CCITTFaxDecode "
+                   b"/DecodeParms << /K -1 /Columns 48 /BlackIs1 true >>", data)),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 48 /Height 16 /ImageMask true /Filter /CCITTFaxDecode "
+                   b"/DecodeParms << /K -1 /Columns 48 >>", data)),
+    ], binary=True)
+
+
+def gen_ccitt_inline() -> bytes:
+    """8.9.7 inline image with the /CCF abbreviation: /F /CCF /DP << /K -1 /Columns 64 >> (DecodeParms keys are not
+    abbreviated), a 64 x 16 image mask, EOFB, and /L."""
+    data = ccitt_encode(ccitt_sample_bitmap(64, 16), -1)
+    content = (b"q 128 0 0 32 72 600 cm BI /W 64 /H 16 /IM true /F /CCF /DP << /K -1 /Columns 64 >> /L %d ID " % len(data)
+               + data + b" EI Q")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4)),
+        (4, stream(b"", content)),
+    ], binary=True)
+
+
+def gen_ccitt_g3_damaged() -> bytes:
+    """Broken: Group 3 1-D with EOLs and DamagedRowsBeforeError 2 whose row 5 (of 24) holds an invalid code (13 bits that are
+    neither a run code nor an EOL); a decoder resynchronizes at the next EOL and replaces the row by row 4."""
+    rows = ccitt_sample_bitmap(96, 24)
+    bits = "".join(CCITT_EOL + ("0000000000111" if y == 5 else ccitt_encode_1d(row)) for y, row in enumerate(rows))
+    bits += CCITT_EOL * 6
+    bits += "0" * (-len(bits) % 8)
+    data = bytes(int(bits[i:i + 8], 2) for i in range(0, len(bits), 8))
+    return ccitt_image(96, 24, b"/K 0 /Columns 96 /EndOfLine true /DamagedRowsBeforeError 2", data)
+
+
+def gen_ccitt_g4_truncated() -> bytes:
+    """Broken: a 64 x 32 Group 4 image whose data is cut in the middle of row 20 (the first 20 rows' bytes plus 3 more)."""
+    rows = ccitt_sample_bitmap(64, 32)
+    whole = ccitt_encode(rows, -1, end_of_block=False)
+    head = len(ccitt_encode(rows[:20], -1, end_of_block=False))
+    assert head + 3 < len(ccitt_encode(rows[:21], -1, end_of_block=False))
+    return ccitt_image(64, 32, b"/K -1 /Columns 64", whole[:head + 3])
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -4094,6 +4363,16 @@ FILES = {
     "pattern-recursive.pdf": gen_pattern_recursive,
     "shading-mesh-truncated.pdf": gen_shading_mesh_truncated,
     "text-type3-recursive.pdf": gen_text_type3_recursive,
+    "ccitt-g3-1d.pdf": gen_ccitt_g3_1d,
+    "ccitt-g3-1d-eol-align.pdf": gen_ccitt_g3_1d_eol_align,
+    "ccitt-g3-2d.pdf": gen_ccitt_g3_2d,
+    "ccitt-g4.pdf": gen_ccitt_g4,
+    "ccitt-g4-no-eob.pdf": gen_ccitt_g4_no_eob,
+    "ccitt-g4-align.pdf": gen_ccitt_g4_align,
+    "ccitt-blackis1-mask.pdf": gen_ccitt_blackis1_mask,
+    "ccitt-inline.pdf": gen_ccitt_inline,
+    "ccitt-g3-damaged.pdf": gen_ccitt_g3_damaged,
+    "ccitt-g4-truncated.pdf": gen_ccitt_g4_truncated,
 }
 
 
@@ -4136,6 +4415,15 @@ def self_test() -> None:
     assert pack_samples([[1, 0, 1]], 1) == bytes([0b10111111])
     assert pack_samples([[3, 0, 1, 2, 3]], 2) == bytes([0xC6, 0xFF])
     assert pack_samples([[0x12FF]], 16) == bytes([0x12, 0xFF])
+    # CCITT (T.4 Tables 2-3): prefix-free code tables (EOL included); an all-white 1728 line in 1-D is make-up 1728 + white 0,
+    # in 2-D against a white reference V(0); a line starting black begins with white 0.
+    for table in (CCITT_WHITE_TERM + CCITT_WHITE_MAKEUP + CCITT_EXT_MAKEUP, CCITT_BLACK_TERM + CCITT_BLACK_MAKEUP + CCITT_EXT_MAKEUP):
+        codes = table + [CCITT_EOL]
+        assert all(a == b or not b.startswith(a) for a in codes for b in codes)
+    assert ccitt_encode_1d([False] * 1728) == "010011011" + "00110101"
+    assert ccitt_encode_2d([False] * 1728, [False] * 1728) == "1"
+    assert ccitt_encode_1d([True] * 3 + [False] * 5) == "00110101" + "10" + "1100"
+    assert ccitt_run_codes(2624 + 2560, False) == "000000011111" * 2 + "11011" + "00110101"
 
 
 def main(argv: list[str]) -> int:

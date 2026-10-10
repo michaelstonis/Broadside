@@ -114,6 +114,14 @@ public static class Corpus
         "pattern-shading-axial.pdf",
         "pattern-in-form.pdf",
         "text-type3.pdf",
+        "ccitt-g3-1d.pdf",
+        "ccitt-g3-1d-eol-align.pdf",
+        "ccitt-g3-2d.pdf",
+        "ccitt-g4.pdf",
+        "ccitt-g4-no-eob.pdf",
+        "ccitt-g4-align.pdf",
+        "ccitt-blackis1-mask.pdf",
+        "ccitt-inline.pdf",
     ];
 
     private static readonly string[] Malformed =
@@ -135,6 +143,8 @@ public static class Corpus
         "pattern-recursive.pdf",
         "shading-mesh-truncated.pdf",
         "text-type3-recursive.pdf",
+        "ccitt-g3-damaged.pdf",
+        "ccitt-g4-truncated.pdf",
     ];
 
     private static readonly (string FileName, string UserPassword)[] PasswordProtected =

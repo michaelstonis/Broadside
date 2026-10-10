@@ -3346,3 +3346,9 @@ Broadside.Fonts.SystemFontResolver.SystemFontResolver() -> void
 Broadside.Fonts.SystemFontResolver.SystemFontResolver(System.Collections.Generic.IEnumerable<string!>! directories) -> void
 Broadside.PdfOptions.UseFontResolver(Broadside.Fonts.IFontResolver! resolver) -> Broadside.PdfOptions!
 Broadside.PdfOptions.UseSystemFontResolver(Broadside.Fonts.IFontResolver? resolver) -> Broadside.PdfOptions!
+Broadside.Filters.CcittFaxDecodeFilter
+Broadside.Filters.CcittFaxDecodeFilter.CcittFaxDecodeFilter() -> void
+Broadside.Filters.CcittFaxDecodeFilter.Decode(System.ReadOnlyMemory<byte> encoded, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.FilterContext! context) -> void
+Broadside.Filters.CcittFaxDecodeFilter.DecodeImage(System.ReadOnlyMemory<byte> encoded, Broadside.Filters.ImageFilterContext! context) -> Broadside.Images.DecodedImage?
+Broadside.Filters.CcittFaxDecodeFilter.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.CcittFaxDecodeFilter.TryReadHeader(System.ReadOnlySpan<byte> encoded, Broadside.Filters.ImageFilterContext! context, out Broadside.Filters.ImageHeader header) -> bool
