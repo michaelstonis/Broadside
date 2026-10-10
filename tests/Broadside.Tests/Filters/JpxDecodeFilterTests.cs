@@ -221,4 +221,84 @@ public class JpxDecodeFilterTests
         Assert.True(new JpxDecodeFilter().TryReadHeader(JpxSamples.Vector("Signed12").Data, context, out header));
         Assert.Equal(new ImageHeader(11, 6, 1, 12) { ColorModel = ImageColorModel.Gray }, header);
     }
+
+    [Fact]
+    public void A_bare_codestream_decodes_with_an_information_diagnostic_and_strict_mode_does_not_throw()
+    {
+        var context = new FilterContext { ReadingMode = PdfReadingMode.Strict };
+
+        using DecodedImage? image = new JpxDecodeFilter().DecodeImage(JpxSamples.WorkedExample, new ImageFilterContext(context));
+
+        Assert.NotNull(image);
+        Assert.Equal(JpxSamples.WorkedExampleSamples, image.Samples.ToArray());
+        Diagnostic diagnostic = Assert.Single(context.Diagnostics);
+        Assert.Equal(("JpxCodestreamRaw", DiagnosticSeverity.Information), (diagnostic.Code, diagnostic.Severity));
+    }
+
+    [Fact]
+    public void A_codestream_in_a_JP2_file_decodes_without_diagnostics()
+    {
+        using DecodedImage image = JpxTesting.DecodeImage(JpxEditing.Jp2(JpxSamples.WorkedExample), out string[] codes);
+
+        Assert.Equal(JpxSamples.WorkedExampleSamples, image.Samples.ToArray());
+        Assert.Empty(codes);
+    }
+
+    [Fact]
+    public void A_high_throughput_codestream_signalled_by_a_CAP_marker_is_not_decoded_with_a_diagnostic()
+    {
+        byte[] file = JpxEditing.Jp2(JpxEditing.WithCapabilities(JpxSamples.WorkedExample, 0x0002_0000, [0x0000]));
+
+        DecodedImage? image = JpxTesting.TryDecodeImage(file, out string[] codes);
+
+        Assert.Null(image);
+        Assert.Equal(["JpxHighThroughputUnsupported"], codes);
+    }
+
+    [Fact]
+    public void A_high_throughput_code_block_style_is_not_decoded_and_throws_in_strict_mode()
+    {
+        byte[] file = JpxEditing.Jp2(JpxEditing.WithCodeBlockStyle(JpxSamples.WorkedExample, 0x40));
+
+        Assert.Null(JpxTesting.TryDecodeImage(file, out string[] codes));
+        Assert.Equal(["JpxHighThroughputUnsupported"], codes);
+        DiagnosticException exception = Assert.Throws<DiagnosticException>(() => JpxTesting.TryDecodeImage(file, out _, mode: PdfReadingMode.Strict));
+        Assert.Equal("JpxHighThroughputUnsupported", exception.Diagnostic.Code);
+    }
+
+    [Fact]
+    public void A_capability_other_than_high_throughput_is_skipped_and_the_codestream_decodes()
+    {
+        byte[] file = JpxEditing.Jp2(JpxEditing.WithCapabilities(JpxSamples.WorkedExample, 0x0000_4000, [0x0000]));
+
+        using DecodedImage image = JpxTesting.DecodeImage(file, out string[] codes);
+
+        Assert.Equal(JpxSamples.WorkedExampleSamples, image.Samples.ToArray());
+        Assert.Empty(codes);
+    }
+
+    [Fact]
+    public void A_JPX_file_with_more_than_one_codestream_decodes_the_first_with_a_diagnostic()
+    {
+        byte[] second = JpxSamples.Vector("Tiled").Data;
+        byte[] file = [.. JpxEditing.Jp2(JpxSamples.WorkedExample), .. JpxEditing.Box("jp2c", second)];
+
+        using DecodedImage image = JpxTesting.DecodeImage(file, out string[] codes);
+
+        Assert.Equal(JpxSamples.WorkedExampleSamples, image.Samples.ToArray());
+        Assert.Equal(["JpxCodestreamsIgnored"], codes);
+    }
+
+    [Fact]
+    public void A_JPX_file_with_a_fragment_table_reports_that_the_fragmented_codestream_is_not_read()
+    {
+        byte[] fragmentList = new byte[2 + 14];
+        fragmentList[1] = 1;
+        byte[] file = [.. JpxEditing.Jp2(JpxSamples.WorkedExample), .. JpxEditing.Box("ftbl", JpxEditing.Box("flst", fragmentList))];
+
+        using DecodedImage image = JpxTesting.DecodeImage(file, out string[] codes);
+
+        Assert.Equal(JpxSamples.WorkedExampleSamples, image.Samples.ToArray());
+        Assert.Equal(["JpxCodestreamsIgnored"], codes);
+    }
 }

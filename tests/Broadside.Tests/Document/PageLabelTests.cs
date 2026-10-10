@@ -150,6 +150,19 @@ public sealed partial class PageLabelTests
     }
 
     [Fact]
+    public void Every_label_of_a_prefix_only_range_shares_one_string()
+    {
+        using PdfDocument document = Labelled(4, "0 << /P (Front matter) >> 3 << /S /D /P (Body-) >>");
+
+        IReadOnlyList<string> labels = document.PageLabels!.GetLabels();
+
+        Assert.Equal(["Front matter", "Front matter", "Front matter", "Body-1"], labels);
+        Assert.Same(labels[0], labels[1]);
+        Assert.Same(labels[0], labels[2]);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
     public void Pages_before_the_first_range_are_numbered_in_decimal_with_a_warning()
     {
         using PdfDocument document = Labelled(3, "2 << /S /r >>");

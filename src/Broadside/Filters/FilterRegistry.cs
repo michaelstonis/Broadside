@@ -8,7 +8,7 @@ namespace Broadside.Filters;
 /// One engine's filters by name: the managed defaults, with the replacements and additions its options registered. Immutable; built
 /// once when the engine is constructed and shared by every document it opens. There is no static or global registry.
 /// </summary>
-/// <remarks>ISO 32000-2 §7.4.1, Table 6. The image codecs of §7.4.6 to §7.4.9 join the defaults as Phase 2B implements them.</remarks>
+/// <remarks>ISO 32000-2 §7.4.1, Table 6: every standard filter is a default here, including the image codecs of §7.4.6 to §7.4.9, except <c>Crypt</c> (§7.4.10), which the stream decoder applies through its crypt filter handler.</remarks>
 internal sealed class FilterRegistry
 {
     private readonly FrozenDictionary<CosName, IStreamFilter> _filters;

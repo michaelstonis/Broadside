@@ -62,6 +62,19 @@ public sealed class PdfNamedDestination : PdfDestination
         return destination;
     }
 
+    /// <summary>Looks the name up and returns the structure destination its value carries, if any.</summary>
+    /// <returns>
+    /// The <c>SD</c> entry of the named destination's dictionary value as a destination; <see langword="null"/> when the destination
+    /// is remote, the name does not resolve, its value is an array, or the dictionary has no usable <c>SD</c>.
+    /// </returns>
+    /// <remarks>
+    /// ISO 32000-2 §12.3.2.4: a named destination's value may be a dictionary with a <c>D</c> entry that "may optionally contain an
+    /// SD entry as defined in Table 201", which should take precedence over <c>D</c> (§12.3.2.3). An <c>SD</c> that is not an array
+    /// is reported (<c>DestinationInvalid</c>) and read as absent.
+    /// </remarks>
+    public PdfExplicitDestination? ResolveStructureDestination() =>
+        IsRemote ? null : Document.FindNamedStructureDestination(Name);
+
     private static string Escape(string text)
     {
         var builder = new StringBuilder(text.Length);

@@ -36,15 +36,19 @@ public sealed class DecodedImageBuilder : IDisposable
     }
 
     /// <summary>Gets the number of samples in each row.</summary>
+    /// <remarks>ISO 32000-2 §8.9.2.</remarks>
     public int Width { get; }
 
     /// <summary>Gets the number of rows.</summary>
+    /// <remarks>ISO 32000-2 §8.9.2.</remarks>
     public int Height { get; }
 
     /// <summary>Gets the number of components in each sample.</summary>
+    /// <remarks>ISO 32000-2 §8.9.2.</remarks>
     public int Components { get; }
 
     /// <summary>Gets the logical bits per component.</summary>
+    /// <remarks>ISO 32000-2 §8.9.2, §8.9.5.2 (the Decode formula divides by 2^n − 1).</remarks>
     public int BitsPerComponent { get; }
 
     /// <summary>Gets the bits each component occupies in the buffer: 1, 2, 4, 8 or 16.</summary>
@@ -52,14 +56,17 @@ public sealed class DecodedImageBuilder : IDisposable
     public int StorageBits { get; }
 
     /// <summary>Gets the number of bytes in each row.</summary>
+    /// <remarks>ISO 32000-2 §8.9.3: rows start on byte boundaries.</remarks>
     public int Stride { get; }
 
     /// <summary>Gets the whole buffer, for a codec that writes all rows at once.</summary>
     /// <exception cref="InvalidOperationException">The builder was built or disposed.</exception>
+    /// <remarks>ISO 32000-2 §8.9.3.</remarks>
     public Span<byte> Samples => Buffer.AsSpan(0, _length);
 
     /// <summary>Gets or sets the number of rows actually decoded; the default is <see cref="Height"/>.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value is negative or greater than <see cref="Height"/>.</exception>
+    /// <remarks>ISO 32000-2 §8.9.3: the rows after these are zero.</remarks>
     public int DecodedRows
     {
         get => _decodedRows;
@@ -72,27 +79,35 @@ public sealed class DecodedImageBuilder : IDisposable
     }
 
     /// <summary>Gets or sets a value indicating whether the samples have the opposite polarity to the PDF convention (see <see cref="DecodedImage.SamplesInverted"/>).</summary>
+    /// <remarks>ISO 32000-2 §8.9.5.2: the image layer folds an inversion into the Decode mapping.</remarks>
     public bool SamplesInverted { get; set; }
 
     /// <summary>Gets or sets the colour model of the samples.</summary>
+    /// <remarks>ISO 32000-2 §7.4.9: used only when the image dictionary has no <c>ColorSpace</c>.</remarks>
     public ImageColorModel ColorModel { get; set; }
 
     /// <summary>Gets or sets the ICC profile the codestream carries.</summary>
+    /// <remarks>ISO 32000-2 §7.4.9.</remarks>
     public ReadOnlyMemory<byte> IccProfile { get; set; }
 
     /// <summary>Gets or sets the palette left unapplied.</summary>
+    /// <remarks>ISO 32000-2 §7.4.9 and §8.6.6.3.</remarks>
     public ReadOnlyMemory<byte> Palette { get; set; }
 
     /// <summary>Gets or sets the Adobe APP14 transform code.</summary>
+    /// <remarks>ISO 32000-2 §7.4.8, Table 13; Adobe Technical Note 5116.</remarks>
     public int? AdobeTransform { get; set; }
 
     /// <summary>Gets or sets a value indicating whether a YCbCr or YCCK transform was applied.</summary>
+    /// <remarks>ISO 32000-2 §7.4.8, Table 13 (<c>ColorTransform</c>).</remarks>
     public bool ColorTransformApplied { get; set; }
 
     /// <summary>Gets a value indicating whether the colour was premultiplied by the alpha created with <see cref="TryCreateAlpha"/>.</summary>
+    /// <remarks>ISO 32000-2 §8.9.5.1 Table 87 (<c>SMaskInData</c>).</remarks>
     public bool AlphaPremultiplied { get; private set; }
 
     /// <summary>Gets the alpha builder created with <see cref="TryCreateAlpha"/>, or <see langword="null"/>.</summary>
+    /// <remarks>ISO 32000-2 §7.4.9 and §8.9.5.1 Table 87 (<c>SMaskInData</c>).</remarks>
     public DecodedImageBuilder? Alpha => _alpha;
 
     private byte[] Buffer => _buffer ?? throw new InvalidOperationException("The image was already built or disposed.");
@@ -101,6 +116,7 @@ public sealed class DecodedImageBuilder : IDisposable
     /// <param name="y">The row, from 0 at the top.</param>
     /// <returns>The row's <see cref="Stride"/> bytes.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="y"/> is not a row.</exception>
+    /// <remarks>ISO 32000-2 §8.9.3.</remarks>
     public Span<byte> GetRow(int y)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(y);

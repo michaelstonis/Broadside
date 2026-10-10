@@ -1,4 +1,5 @@
 using Broadside.Diagnostics;
+using Broadside.Filters.Codecs;
 using Broadside.Graphics;
 using Broadside.Images;
 using Broadside.Objects;
@@ -77,10 +78,10 @@ internal sealed class JpxOutputPlan
     public required bool[] UsedComponents { get; init; }
 
     /// <summary>Plans the output of a codestream of <paramref name="size"/> with the JP2 boxes <paramref name="file"/>.</summary>
-    public static JpxOutputPlan Create(JpxImageSize size, JpxFileHeader file, ImageFilterContext context, JpxReporter reporter)
+    public static JpxOutputPlan Create(JpxImageSize size, JpxFileHeader file, ImageFilterContext context, CodecReporter reporter)
     {
         JpxComponentInfo[] components = size.Components;
-        if (context.IsMask || IsIndexed(context))
+        if (context.IsStencil || IsIndexed(context))
         {
             return Finish([Direct(components, 0)], null, false, ImageColorModel.Unknown, null, JpxColorConversion.None, [], null, components.Length);
         }
@@ -233,7 +234,7 @@ internal sealed class JpxOutputPlan
     private static JpxChannelSource Direct(JpxComponentInfo[] components, int c) => new(c, -1, Math.Min(components[c].Depth, 16));
 
     /// <summary>The JP2 channels: through the component mapping box (and palette), else one per component (I.5.3.4, I.5.3.5).</summary>
-    private static List<JpxChannelSource> Channels(JpxComponentInfo[] components, JpxFileHeader file, JpxReporter reporter)
+    private static List<JpxChannelSource> Channels(JpxComponentInfo[] components, JpxFileHeader file, CodecReporter reporter)
     {
         var channels = new List<JpxChannelSource>();
         if (file.Palette is { } palette && file.Mapping is { } mapping)
@@ -270,7 +271,7 @@ internal sealed class JpxOutputPlan
     }
 
     /// <summary>The colour channels in association order and the opacity channel of a channel definition box (I.5.3.6).</summary>
-    private static (List<int> Colors, int Alpha, bool Premultiplied) Classify(JpxChannelDefinition[] definitions, int channelCount, JpxReporter reporter)
+    private static (List<int> Colors, int Alpha, bool Premultiplied) Classify(JpxChannelDefinition[] definitions, int channelCount, CodecReporter reporter)
     {
         var colors = new List<(int Association, int Order, int Channel)>();
         int alpha = -1;
@@ -353,7 +354,7 @@ internal sealed class JpxOutputPlan
         _ => 0,
     };
 
-    private static (ImageColorModel Model, JpxColorConversion Conversion, byte[]? Profile) Interpret(JpxColorSpecification? specification, int count, JpxReporter reporter)
+    private static (ImageColorModel Model, JpxColorConversion Conversion, byte[]? Profile) Interpret(JpxColorSpecification? specification, int count, CodecReporter reporter)
     {
         ImageColorModel byCount = count switch
         {

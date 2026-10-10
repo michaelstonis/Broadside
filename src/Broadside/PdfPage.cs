@@ -277,8 +277,7 @@ public sealed class PdfPage
     }
 
     /// <summary>The page's own entry, resolved; <see langword="null"/> when absent or a reference to nothing.</summary>
-    private CosObject? Find(CosName key) =>
-        Dictionary.TryGetValue(key, out CosObject? value) && _document.Resolve(value) is not CosNull and var resolved ? resolved : null;
+    private CosObject? Find(CosName key) => EntryReader.Get(_document, Dictionary, key);
 
     /// <summary>The page's entry, or the nearest ancestor's, resolved, used as-is (§7.7.3.4).</summary>
     private CosObject? FindInheritable(CosName key)
@@ -290,7 +289,7 @@ public sealed class PdfPage
 
         for (PageTreeAncestor? node = _ancestors; node is not null; node = node.Parent)
         {
-            if (node.Dictionary.TryGetValue(key, out CosObject? value) && _document.Resolve(value) is not CosNull and var resolved)
+            if (EntryReader.Get(_document, node.Dictionary, key) is { } resolved)
             {
                 return resolved;
             }

@@ -18,11 +18,10 @@ internal sealed record RecordedGlyph(
     double Adjustment,
     bool WordSpacingApplied,
     TextRenderingMode Mode,
-    bool IsHidden)
-{
-    /// <summary>Gets the glyph origin in default user space: the text matrix's translation mapped by the CTM.</summary>
-    public PathPoint Origin => Ctm.Transform(TextMatrix.E, TextMatrix.F);
-}
+    bool IsHidden,
+    PathPoint DeviceOrigin,
+    double DeviceAdvanceX,
+    double DeviceAdvanceY);
 
 /// <summary>Records glyph events and the text clips set at ET.</summary>
 internal sealed class GlyphRecorder(ContentEvents events = ContentEvents.Glyphs | ContentEvents.Text | ContentEvents.Clips) : ContentProcessor
@@ -54,7 +53,10 @@ internal sealed class GlyphRecorder(ContentEvents events = ContentEvents.Glyphs 
             glyph.Adjustment,
             glyph.WordSpacingApplied,
             glyph.RenderingMode,
-            glyph.IsHidden));
+            glyph.IsHidden,
+            glyph.DeviceOrigin,
+            glyph.DeviceAdvanceX,
+            glyph.DeviceAdvanceY));
     }
 
     public override void IntersectClip(in ClipEvent clip, ContentContext context)

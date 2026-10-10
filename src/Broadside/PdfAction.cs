@@ -192,16 +192,17 @@ public abstract class PdfAction
     private protected void ReportOutOfScope(string what) =>
         Report(DiagnosticCodes.ActionOutOfScope, $"A {ActionType.Value} action is kept as data and never performed: {what} is out of scope.", DiagnosticSeverity.Information);
 
-    /// <summary>Returns the entry for <paramref name="key"/>, resolved; <see langword="null"/> when absent or a reference to nothing.</summary>
-    private protected CosObject? Get(CosName key) =>
-        Dictionary.TryGetValue(key, out CosObject? value) && Document.Resolve(value) is not CosNull and var resolved ? resolved : null;
+    /// <summary>Returns the entry for <paramref name="key"/>, resolved; <see langword="null"/> when absent, null, or a reference to nothing.</summary>
+    private protected CosObject? Get(CosName key) => EntryReader.Get(Document, Dictionary, key);
 
     /// <summary>Returns the entry for <paramref name="key"/> as stored when it is an indirect reference.</summary>
     private protected CosReference? GetReference(CosName key) => Dictionary.TryGetValue(key, out CosObject? value) ? value as CosReference : null;
 
     /// <summary>Reports an entry of the wrong type (<c>ActionEntryInvalid</c>), which is then read as absent.</summary>
-    private protected void ReportEntry(CosName key, string expected) =>
-        Report(DiagnosticCodes.ActionEntryInvalid, $"The {ActionType.Value} action's {key.Value} entry shall be {expected}; it is ignored.");
+    private protected void ReportEntry(CosName key, string expected) => Issue.Ignored(key, expected);
+
+    /// <summary>The report for an entry of the wrong type (<c>ActionEntryInvalid</c>).</summary>
+    private protected EntryReport Issue => new(Document, DiagnosticCodes.ActionEntryInvalid, DiagnosticReference, $"The {ActionType.Value} action");
 
     /// <summary>Reads a dictionary entry; another type reads as absent with a diagnostic.</summary>
     private protected CosDictionary? ReadDictionary(CosName key) => Read<CosDictionary>(key, "a dictionary");
@@ -216,40 +217,16 @@ public abstract class PdfAction
     private protected CosName? ReadName(CosName key) => Read<CosName>(key, "a name");
 
     /// <summary>Reads a boolean entry; another type reads as absent with a diagnostic.</summary>
-    private protected bool? ReadBoolean(CosName key) => Read<CosBoolean>(key, "a boolean")?.Value;
+    private protected bool? ReadBoolean(CosName key) => EntryReader.Boolean(Get(key), key, Issue);
 
-    /// <summary>Reads a text string entry (§7.9.2.2), decoded; another type reads as absent with a diagnostic.</summary>
-    private protected string? ReadText(CosName key) => ReadString(key)?.DecodeText();
+    /// <summary>Reads a text string entry (§7.9.2.2), decoded, with <see cref="EntryReader"/>'s repairs.</summary>
+    private protected string? ReadText(CosName key) => EntryReader.Text(Get(key), key, Issue);
 
-    /// <summary>Reads an integer entry that fits in 32 bits; anything else reads as absent with a diagnostic.</summary>
-    private protected int? ReadInteger(CosName key)
-    {
-        switch (Get(key))
-        {
-            case null:
-                return null;
-            case CosInteger { Value: >= int.MinValue and <= int.MaxValue } integer:
-                return (int)integer.Value;
-            default:
-                ReportEntry(key, "an integer");
-                return null;
-        }
-    }
+    /// <summary>Reads an integer entry that fits in 32 bits, with <see cref="EntryReader"/>'s repairs.</summary>
+    private protected int? ReadInteger(CosName key) => EntryReader.Int32(Get(key), key, Issue);
 
-    /// <summary>Reads a number entry; anything else reads as absent with a diagnostic.</summary>
-    private protected double? ReadNumber(CosName key)
-    {
-        switch (Get(key))
-        {
-            case null:
-                return null;
-            case CosNumber number:
-                return number.ToDouble();
-            default:
-                ReportEntry(key, "a number");
-                return null;
-        }
-    }
+    /// <summary>Reads a finite number entry; anything else reads as absent with a diagnostic.</summary>
+    private protected double? ReadNumber(CosName key) => EntryReader.Number(Get(key), key, Issue);
 
     /// <summary>Reads a file specification entry (§7.11): a string or a dictionary; anything else reads as absent with a diagnostic.</summary>
     private protected PdfFileSpecification? ReadFileSpecification(CosName key)
@@ -298,19 +275,7 @@ public abstract class PdfAction
         document.DiagnosticSink.Report(DiagnosticCodes.ActionInvalid, DiagnosticSeverity.Warning, message, objectReference: reference);
 
     private T? Read<T>(CosName key, string expected)
-        where T : CosObject
-    {
-        switch (Get(key))
-        {
-            case null:
-                return null;
-            case T value:
-                return value;
-            default:
-                ReportEntry(key, expected);
-                return null;
-        }
-    }
+        where T : CosObject => EntryReader.Typed<T>(Get(key), key, expected, Issue);
 
     private IEnumerable<PdfAction> WalkTree(int maxDepth)
     {

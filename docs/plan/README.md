@@ -125,7 +125,7 @@ Phase 0 → Phase 1 → {2A, 2B, 2C, 2D} → 3A → {3B, 3C, 3D, 3E, 3F, 3G, 3H,
 
 - [Phase 0](phase-0-issues.md) (scaffold, horizontal by nature)
 - [Phase 1](phase-1-issues.md) and [Phase 2](phase-2-issues.md): vertical slices of the [spec](spec-broadside-v1.md), published as sub-issues of #33
-- Phases 3 to 6: cut when Phase 2 is underway
+- [Phase 3](phase-3-issues.md), [Phase 4](phase-4-issues.md), [Phase 5](phase-5-issues.md) and [Phase 6](phase-6-issues.md, provisional): vertical slices published 2026-10-10 under phase parents #86–#89
 
 ## Working agreement
 

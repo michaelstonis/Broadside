@@ -71,7 +71,7 @@ public class MarkedContentTests
         // §8.11.3.1: "a" is not reported, but it moved the text matrix by 5.56 and Tc 2 still applies to "b".
         RecordedGlyph b = Assert.Single(recorder.Glyphs);
         Assert.Equal(98u, b.Code);
-        Assert.Equal(5.56, b.Origin.X, 9);
+        Assert.Equal(5.56, b.DeviceOrigin.X, 9);
         Assert.Equal(7.56, b.AdvanceX, 9);
     }
 

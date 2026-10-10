@@ -71,8 +71,6 @@ internal static class FuzzTargets
         ["shading-mesh"] = ShadingMeshTarget.Target,
     };
 
-    private static readonly Lazy<PdfDocument> EmptyDocument = new(() => PdfDocument.Create());
-
     /// <summary>
     /// Names the targets use, kept out of this class's static constructor: under libFuzzer, code of the instrumented library must
     /// not run before <c>Fuzzer.LibFuzzer.Run</c> has attached the coverage memory, and looking up a target runs that constructor.
@@ -1147,11 +1145,15 @@ internal static class FuzzTargets
         }
     }
 
-    internal static PdfDocument? OpenOrNull(ReadOnlySpan<byte> data)
+    /// <summary>Opens fuzz input, or returns <see langword="null"/> for the documented outcomes (unreadable, password, certificate, unsupported encryption).</summary>
+    /// <param name="data">The input.</param>
+    /// <param name="engine">The engine to open with (a target's own limits), or <see langword="null"/> for the default one.</param>
+    /// <returns>The document, or <see langword="null"/>.</returns>
+    internal static PdfDocument? OpenOrNull(ReadOnlySpan<byte> data, PdfEngine? engine = null)
     {
         try
         {
-            return PdfDocument.Open(data.ToArray());
+            return engine is null ? PdfDocument.Open(data.ToArray()) : engine.Open(data.ToArray());
         }
         catch (DiagnosticException)
         {
@@ -1567,11 +1569,15 @@ internal static class FuzzTargets
     /// <summary>
     /// Runs the input as a page's decoded content through the interpreter with a processor that asks for every event and checks
     /// what it receives: path verbs and points agree, clip handles resolve and chain back to the initial clip, the state stack is
-    /// balanced at the end of the run. Lenient mode: no exception may escape.
+    /// balanced at the end of the run. Lenient mode: no exception may escape. Each call runs in a new empty document, so no
+    /// diagnostic or cache carries over and <c>--run</c> replays a finding exactly.
     /// </summary>
     /// <remarks>ISO 32000-2 §7.8.2, §8.4, §8.5 (issue #55).</remarks>
-    private static void ContentInterpreterTarget(ReadOnlySpan<byte> data) =>
-        ContentInterpreter.RunBytes(data, EmptyDocument.Value, new CheckingProcessor(), ContentInterpreter.DefaultOptions);
+    private static void ContentInterpreterTarget(ReadOnlySpan<byte> data)
+    {
+        using PdfDocument document = PdfDocument.Create();
+        ContentInterpreter.RunBytes(data, document, new CheckingProcessor(), ContentInterpreter.DefaultOptions);
+    }
 
     /// <summary>
     /// Parses the input as a sequence of objects in lenient mode, the way a reader scans a file body, then checks the round-trip

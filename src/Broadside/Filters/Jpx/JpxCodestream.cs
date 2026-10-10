@@ -187,6 +187,10 @@ internal sealed class JpxMarkerSet(int components)
 
     /// <summary>Gets the progression volumes of the POC marker segments, in codestream order (A.6.6).</summary>
     public List<JpxProgressionVolume> Volumes { get; } = [];
+
+    /// <summary>Gets or sets a value indicating whether the header signals high-throughput (HTJ2K) block coding: a CAP marker segment with <c>Pcap15</c> set, or a COD or COC code-block style with bit 6 set.</summary>
+    /// <remarks>ITU-T T.800 (06/2019) A.5.2; ISO/IEC 15444-15 (not in Specs/; the bits OpenJPEG and OpenJPH test).</remarks>
+    public bool HighThroughput { get; set; }
 }
 
 /// <summary>One tile: its tile-parts' packet data, its tile-part header markers, and its packed packet headers.</summary>
@@ -283,6 +287,9 @@ internal sealed class JpxCodestream
     public bool HasMainPacketHeaders { get; init; }
 
     public required JpxMarkerSet Main { get; init; }
+
+    /// <summary>Gets a value indicating whether any header signals high-throughput (HTJ2K, ISO/IEC 15444-15) block coding, which this decoder does not implement.</summary>
+    public bool HighThroughput { get; init; }
 
     /// <summary>Gets the tiles that have at least one tile-part, in order of their index.</summary>
     public required IReadOnlyList<JpxTile> Tiles { get; init; }

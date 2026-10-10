@@ -77,9 +77,9 @@ internal static class KidReader
 
     private static Kid ClassifyDictionary(StructureContext context, CosDictionary dictionary, CosReference? reference, CosReference? where)
     {
-        CosName? type = StructureValues.Name(context.Document, dictionary, KnownNames.Type);
+        CosName? type = ViewReading.Name(context.Document, dictionary, KnownNames.Type);
         bool hasStructureType = dictionary.ContainsKey(StructureNames.S);
-        CosObject? mcid = StructureValues.Get(context.Document, dictionary, StructureNames.MCID);
+        CosObject? mcid = ViewReading.Get(context.Document, dictionary, StructureNames.MCID);
         bool hasObject = dictionary.ContainsKey(StructureNames.Obj);
         if (type is null || StructureNames.StructElem.Equals(type))
         {

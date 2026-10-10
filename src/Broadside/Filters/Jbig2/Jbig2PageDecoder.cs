@@ -79,7 +79,7 @@ internal sealed class Jbig2PageDecoder : IDisposable
             }
         }
 
-        using var decoder = new Jbig2PageDecoder(reporter, context.MaxPixels, context.MaxBytes, globals?.Results);
+        using var decoder = new Jbig2PageDecoder(reporter, context.MaxPixels, context.MaxDecodedLength, globals?.Results);
         return decoder.Run(page, context, width, height);
     }
 

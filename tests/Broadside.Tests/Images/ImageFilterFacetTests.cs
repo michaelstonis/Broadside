@@ -25,7 +25,7 @@ public class ImageFilterFacetTests
         Assert.Equal((2, 3), (decoded.Width, decoded.Height));
         Assert.All(decoded.Samples.ToArray(), value => Assert.Equal(7, value));
         Assert.Equal(["ImageDimensionMismatch"], Codes(document));
-        Assert.Equal((4, 4, 8, 1, false, false), (codec.Context!.Width, codec.Context.Height, codec.Context.BitsPerComponent, codec.Context.ColorComponents, codec.Context.IsMask, codec.Context.WantsAlpha));
+        Assert.Equal((4, 4, 8, 1, false, false), (codec.Context!.Width, codec.Context.Height, codec.Context.BitsPerComponent, codec.Context.ColorComponents, codec.Context.IsStencil, codec.Context.WantsAlpha));
     }
 
     [Theory]
@@ -123,7 +123,7 @@ public class ImageFilterFacetTests
 
         // JBIG2 1 = black = paint: with the inversion folded in, the two 1 bits paint although Decode is [0 1].
         Assert.Equal([0.0, 1.0], stencil.DecodeArray);
-        Assert.True(stencilCodec.Context!.IsMask);
+        Assert.True(stencilCodec.Context!.IsStencil);
         ImageDecodeMap map = stencil.CreateDecodeMap(stencilSamples);
         Assert.True(map.IsInverted);
         byte[] coverage = new byte[8];
@@ -215,13 +215,55 @@ public class ImageFilterFacetTests
     }
 
     [Fact]
-    public void A_codec_with_another_component_count_than_the_colour_space_gives_no_image()
+    public void A_codec_with_more_components_than_the_colour_space_gives_the_first_ones_with_a_diagnostic()
     {
-        var codec = new FakeImageFilter("JPXDecode") { Make = context => Gray(context, 1, 1, 0) };
-        using PdfDocument document = Open(codec, "/Width 1 /Height 1 /ColorSpace /DeviceRGB /Filter /JPXDecode");
+        var codec = new FakeImageFilter("DCTDecode") { Make = context => Image(context, 2, 3, 8, [10, 20, 30, 40, 50, 60]) };
+        using PdfDocument document = Open(codec, "/Width 2 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /DCTDecode");
 
-        Assert.Null(document.Pages[0].GetImage("Im0")!.Decode());
+        using DecodedImage decoded = document.Pages[0].GetImage("Im0")!.Decode()!;
+
+        Assert.Equal((2, 1, 1, 8), (decoded.Width, decoded.Height, decoded.Components, decoded.BitsPerComponent));
+        Assert.Equal<byte>([10, 40], decoded.Samples.ToArray());
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal(("ImageComponentMismatch", DiagnosticSeverity.Warning), (diagnostic.Code, diagnostic.Severity));
+    }
+
+    [Fact]
+    public void A_codec_with_fewer_components_than_the_colour_space_gives_zero_for_the_missing_ones_with_a_diagnostic()
+    {
+        var codec = new FakeImageFilter("DCTDecode") { Make = context => Image(context, 2, 1, 8, [7, 9]) };
+        using PdfDocument document = Open(codec, "/Width 2 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode");
+
+        using DecodedImage decoded = document.Pages[0].GetImage("Im0")!.Decode()!;
+
+        Assert.Equal(3, decoded.Components);
+        Assert.Equal<byte>([7, 0, 0, 9, 0, 0], decoded.Samples.ToArray());
         Assert.Equal(["ImageComponentMismatch"], Codes(document));
+    }
+
+    [Fact]
+    public void Components_of_fewer_than_8_bits_are_repacked_when_the_count_is_repaired()
+    {
+        // Eight 1-bit pixels 1 0 1 1 0 0 0 0 become RGB triplets with the first component kept and the others 0.
+        var codec = new FakeImageFilter("CCITTFaxDecode") { Make = context => Image(context, 8, 1, 1, [0b1011_0000]) };
+        using PdfDocument document = Open(codec, "/Width 8 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 1 /Filter /CCITTFaxDecode");
+
+        using DecodedImage decoded = document.Pages[0].GetImage("Im0")!.Decode()!;
+
+        Assert.Equal((3, 1), (decoded.Components, decoded.BitsPerComponent));
+        Assert.Equal<byte>([0b1000_0010, 0b0100_0000, 0b0000_0000], decoded.Samples.ToArray());
+        Assert.Equal(["ImageComponentMismatch"], Codes(document));
+    }
+
+    [Fact]
+    public void A_component_count_repair_throws_in_strict_mode()
+    {
+        var codec = new FakeImageFilter("DCTDecode") { Make = context => Image(context, 2, 1, 8, [7, 9]) };
+        using PdfDocument document = Open(codec, "/Width 2 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode", new PdfOptions { ReadingMode = PdfReadingMode.Strict });
+
+        DiagnosticException exception = Assert.Throws<DiagnosticException>(() => document.Pages[0].GetImage("Im0")!.Decode());
+
+        Assert.Equal("ImageComponentMismatch", exception.Diagnostic.Code);
     }
 
     [Fact]
@@ -240,6 +282,14 @@ public class ImageFilterFacetTests
 
     private static PdfDocument Open(FakeImageFilter codec, string entries, PdfOptions? options = null) =>
         PdfDocument.Open(OneImage(entries, "codestream"), (options ?? new PdfOptions()).UseFilter(codec));
+
+    private static DecodedImage Image(ImageFilterContext context, int width, int components, int bits, byte[] samples)
+    {
+        Assert.True(context.TryCreateImage(width, 1, components, bits, out DecodedImageBuilder? created));
+        using DecodedImageBuilder builder = created;
+        samples.CopyTo(builder.Samples);
+        return builder.Build();
+    }
 
     private static DecodedImage Gray(ImageFilterContext context, int width, int height, byte value)
     {

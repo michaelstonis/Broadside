@@ -92,6 +92,9 @@ internal enum MeshIssues
 
     /// <summary>The mesh has more vertices than the limit; the rest is dropped.</summary>
     LimitExceeded = 8,
+
+    /// <summary>Patches were written back to back, without the padding to whole bytes; they are read as one bit stream.</summary>
+    PatchesUnpadded = 16,
 }
 
 /// <summary>Decoded mesh geometry and colours, one array each.</summary>
@@ -126,4 +129,7 @@ internal sealed class MeshData
     public int PatchCount { get; }
 
     public MeshIssues Issues { get; }
+
+    /// <summary>Returns the same mesh with <paramref name="issue"/> added to <see cref="Issues"/>.</summary>
+    public MeshData With(MeshIssues issue) => new(Points, Colors, Triangles, VertexCount, TriangleCount, PatchCount, Issues | issue);
 }

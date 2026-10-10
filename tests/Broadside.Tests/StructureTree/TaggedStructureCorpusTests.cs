@@ -4,7 +4,7 @@ using Broadside.Objects;
 using Broadside.Structure;
 using Broadside.TestSupport;
 
-namespace Broadside.Tests.LogicalStructure;
+namespace Broadside.Tests.StructureTree;
 
 /// <summary>The tagged corpus file read through the structure tree. ISO 32000-2 §14.6-§14.8; ISO/TS 32005 §5.</summary>
 public partial class TaggedStructureCorpusTests

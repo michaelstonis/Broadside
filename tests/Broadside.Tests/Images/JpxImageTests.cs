@@ -130,7 +130,7 @@ public class JpxImageTests
             Assert.Equal(expected.Where((_, i) => i % 4 != 3), ImageTesting.Raw(decoded).Select(v => (int)v));
             Assert.True(decoded.AlphaPremultiplied);
             Assert.Equal(expected.Where((_, i) => i % 4 == 3), ImageTesting.Raw(decoded.Alpha!).Select(v => (int)v));
-            Assert.Empty(ImageTesting.Codes(document));
+            Assert.Equal(["JpxCodestreamRaw"], ImageTesting.Codes(document));
         }
     }
 

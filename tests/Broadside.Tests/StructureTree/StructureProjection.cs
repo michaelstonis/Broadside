@@ -3,7 +3,7 @@ using System.Text;
 using Broadside.Objects;
 using Broadside.Structure;
 
-namespace Broadside.Tests.LogicalStructure;
+namespace Broadside.Tests.StructureTree;
 
 /// <summary>
 /// Writes a structure tree as indented text through the public API only: one line per element (type, namespace, the standard type

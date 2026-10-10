@@ -1,6 +1,7 @@
 using Broadside.Filters;
 using Broadside.Fonts;
 using Broadside.Graphics;
+using Broadside.Images;
 using Broadside.Objects;
 using Broadside.Security;
 using Microsoft.Extensions.Logging;
@@ -86,7 +87,7 @@ public sealed class PdfOptions
     {
         ArgumentNullException.ThrowIfNull(filter);
         CosName name = filter.Name ?? throw new ArgumentException("The filter has no name.", nameof(filter));
-        if (name.Equals(FilterNames.Crypt) || FilterNames.TryExpandAbbreviation(name, out _))
+        if (name.Equals(FilterNames.Crypt) || InlineImageAbbreviations.TryExpandFilter(name, out _))
         {
             throw new ArgumentException(
                 $"A filter cannot be registered under /{name.Value}: Crypt belongs to the security handler and abbreviations are read as full names.",

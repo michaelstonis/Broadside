@@ -50,6 +50,42 @@ public static class JpxEditing
         ];
     }
 
+    /// <summary>
+    /// Inserts a CAP marker segment (T.800 A.5.2, Table A.11bis) after the SIZ marker segment of <paramref name="codestream"/>:
+    /// <c>Pcap</c> and one 16-bit <c>Ccap</c> per set bit; sets the second-most-significant bit of Rsiz.
+    /// </summary>
+    public static byte[] WithCapabilities(byte[] codestream, uint pcap, ushort[] ccap)
+    {
+        int sizEnd = 4 + BinaryPrimitives.ReadUInt16BigEndian(codestream.AsSpan(4));
+        byte[] cap = new byte[2 + 2 + 4 + (2 * ccap.Length)];
+        BinaryPrimitives.WriteUInt16BigEndian(cap, 0xFF50);
+        BinaryPrimitives.WriteUInt16BigEndian(cap.AsSpan(2), (ushort)(cap.Length - 2));
+        BinaryPrimitives.WriteUInt32BigEndian(cap.AsSpan(4), pcap);
+        for (int i = 0; i < ccap.Length; i++)
+        {
+            BinaryPrimitives.WriteUInt16BigEndian(cap.AsSpan(8 + (2 * i)), ccap[i]);
+        }
+
+        byte[] edited = [.. codestream.AsSpan(0, sizEnd), .. cap, .. codestream.AsSpan(sizEnd)];
+        edited[6] |= 0x40;
+        return edited;
+    }
+
+    /// <summary>Sets the code-block style byte (SPcod, T.800 A.6.1 Table A.19) of the main header's COD marker segment.</summary>
+    public static byte[] WithCodeBlockStyle(byte[] codestream, byte style)
+    {
+        byte[] edited = (byte[])codestream.Clone();
+        int position = 4 + BinaryPrimitives.ReadUInt16BigEndian(codestream.AsSpan(4));
+        while (BinaryPrimitives.ReadUInt16BigEndian(edited.AsSpan(position)) != 0xFF52)
+        {
+            position += 2 + BinaryPrimitives.ReadUInt16BigEndian(edited.AsSpan(position + 2));
+        }
+
+        // Lcod, Scod, SGcod (4 bytes), then SPcod: levels, xcb, ycb, style.
+        edited[position + 2 + 2 + 1 + 4 + 3] |= style;
+        return edited;
+    }
+
     /// <summary>An enumerated Colour Specification box (I.5.3.3): METH 1, PREC, APPROX, EnumCS.</summary>
     public static byte[] Color(int enumerated, int precedence = 0, int approximation = 0)
     {

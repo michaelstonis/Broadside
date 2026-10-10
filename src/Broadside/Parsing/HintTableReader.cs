@@ -1,4 +1,3 @@
-using System.Buffers;
 using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.IO;
@@ -20,9 +19,8 @@ namespace Broadside.Parsing;
 /// </para>
 /// <para>
 /// Hints are information only. A table that cannot be read yields <see langword="null"/> and a
-/// <see cref="DiagnosticCodes.LinearizationHintsInvalid"/> diagnostic; it never affects how the document reads. The hint streams
-/// are decoded through the document's filter pipeline (§7.4): qpdf and Acrobat compress them with <c>FlateDecode</c> by default.
-/// A filter chain that cannot decode a hint stream completely makes the table unreadable.
+/// <see cref="DiagnosticCodes.LinearizationHintsInvalid"/> diagnostic; it never affects how the document reads. Filtered hint
+/// streams (qpdf writes FlateDecode by default) are decoded through the document's filter pipeline (§7.4) first.
 /// </para>
 /// </remarks>
 internal static class HintTableReader
@@ -37,9 +35,10 @@ internal static class HintTableReader
     /// <param name="loader">The object loader.</param>
     /// <param name="parameters">The linearization parameter dictionary, already validated.</param>
     /// <param name="hintStreams">The <c>H</c> array: offset and length of the primary hint stream, then of the overflow stream.</param>
+    /// <param name="streams">The document's filter pipeline, which decodes filtered hint streams.</param>
     /// <param name="diagnostics">Where to report a malformed table.</param>
     /// <returns>The tables, or <see langword="null"/>.</returns>
-    public static PdfLinearizationHints? Read(PdfSource source, ObjectLoader loader, CosDictionary parameters, long[] hintStreams, DiagnosticSink diagnostics)
+    public static PdfLinearizationHints? Read(PdfSource source, ObjectLoader loader, CosDictionary parameters, long[] hintStreams, StreamDecoder streams, DiagnosticSink diagnostics)
     {
         CosStream? primary = LoadStream(source, loader, hintStreams[0]);
         CosStream? overflow = null;
@@ -48,15 +47,10 @@ internal static class HintTableReader
             return Invalid(diagnostics, "The H entry of the linearization parameter dictionary does not point at a hint stream.");
         }
 
-        var data = new ArrayBufferWriter<byte>();
-        if (!TryDecode(loader.Streams, primary, data) || (overflow is not null && !TryDecode(loader.Streams, overflow, data)))
-        {
-            return Invalid(diagnostics, "The filters of a hint stream cannot decode it completely.");
-        }
-
+        byte[] data = [.. streams.Decode(primary).Span, .. overflow is null ? [] : streams.Decode(overflow).Span];
         if (!primary.Dictionary.TryGetValue(SharedObjectTable, out CosObject? sharedEntry)
             || sharedEntry is not CosInteger { Value: >= 0 } shared
-            || shared.Value >= data.WrittenCount)
+            || shared.Value >= data.Length)
         {
             return Invalid(diagnostics, "The primary hint stream's S entry does not give the position of the shared object hint table.");
         }
@@ -67,7 +61,7 @@ internal static class HintTableReader
             hintStreams[1],
             ReadInteger(parameters, PdfLinearization.Names.O),
             ReadInteger(parameters, PdfLinearization.Names.N));
-        PdfLinearizationHints? hints = Parse(data.WrittenSpan, (int)shared.Value, layout, out string? error);
+        PdfLinearizationHints? hints = Parse(data, (int)shared.Value, layout, out string? error);
         return error is null ? hints : Invalid(diagnostics, error);
     }
 
@@ -238,14 +232,6 @@ internal static class HintTableReader
         }
 
         return true;
-    }
-
-    /// <summary>Appends the decoded data of <paramref name="stream"/> to <paramref name="output"/>.</summary>
-    /// <returns><see langword="false"/> when a filter of the chain could not run (the decoder reported why).</returns>
-    private static bool TryDecode(StreamDecoder streams, CosStream stream, ArrayBufferWriter<byte> output)
-    {
-        streams.Decode(stream, output, depth: 0, stopBeforeImageFilter: false, out StreamDecoder.ChainOutcome outcome);
-        return outcome.Complete;
     }
 
     /// <summary>Loads the stream whose <c>N G obj</c> header is at <paramref name="offset"/> (relative to the header).</summary>

@@ -14,7 +14,9 @@ namespace Broadside.Graphics;
 /// <para>
 /// Edge flags 1, 2 and 3 share an edge (four points) and two corner colours with the previous patch, as Tables 84 and 85 give; they
 /// are filled in here, so every patch is complete. A patch with such a flag and no patch before it is dropped with a
-/// <c>MeshEdgeFlagInvalid</c> diagnostic. Patches are read without padding between them.
+/// <c>MeshEdgeFlagInvalid</c> diagnostic. Each patch is read as a whole number of bytes, the Type 4 format the clauses defer to
+/// (§8.7.4.5.5); data whose patches were written back to back (as pdf.js and PDFBox read them) is read that way when only that
+/// reading consumes it cleanly, with a <c>MeshPatchesUnpadded</c> information diagnostic.
 /// </para>
 /// </remarks>
 public sealed class PdfPatchMeshShading : PdfMeshShading

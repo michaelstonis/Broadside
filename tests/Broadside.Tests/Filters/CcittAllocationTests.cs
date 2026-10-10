@@ -2,6 +2,7 @@ using System.Buffers;
 using Broadside.Filters;
 using Broadside.Filters.Ccitt;
 using Broadside.Objects;
+using Broadside.Tests.Document;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.Filters;
@@ -11,7 +12,8 @@ namespace Broadside.Tests.Filters;
 /// the MMR seam (CLAUDE.md, "Code conventions"). <c>CcittBenchmarks</c> in <c>bench/Broadside.Benchmarks</c> is the measuring half.
 /// ISO 32000-2 §7.4.6.
 /// </summary>
-public class CcittAllocationTests
+[Collection(HeavyTestCollection.Name)]
+public sealed class CcittAllocationTests
 {
     public static TheoryData<int> Modes => new() { -1, 0, 4 };
 
@@ -25,17 +27,11 @@ public class CcittAllocationTests
         var context = new FilterContext { Parameters = Parameters(k) };
         var output = new ArrayBufferWriter<byte>(216 * 400);
 
-        // Past tiered compilation's call-count threshold first, so the runtime's own bookkeeping is not counted.
-        for (int warmUp = 0; warmUp < 40; warmUp++)
+        long allocated = Allocations.Measure(() =>
         {
             output.ResetWrittenCount();
             filter.Decode(encoded, output, context);
-        }
-
-        output.ResetWrittenCount();
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        filter.Decode(encoded, output, context);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        });
 
         Assert.Equal(216 * 400, output.WrittenCount);
         Assert.Equal(0, allocated);
@@ -56,14 +52,8 @@ public class CcittAllocationTests
         bool[][] bitmap = CcittEncoder.SampleBitmap(500, 300);
         byte[] encoded = CcittEncoder.Encode(bitmap, new CcittEncoding(K: -1));
         byte[] destination = new byte[63 * 300];
-        for (int warmUp = 0; warmUp < 40; warmUp++)
-        {
-            MmrDecoder.Decode(encoded, 500, 300, destination, 63);
-        }
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        MmrResult result = MmrDecoder.Decode(encoded, 500, 300, destination, 63);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        MmrResult result = default;
+        long allocated = Allocations.Measure(() => result = MmrDecoder.Decode(encoded, 500, 300, destination, 63));
 
         Assert.Equal(MmrStatus.Ok, result.Status);
         Assert.Equal(0, allocated);
@@ -74,14 +64,7 @@ public class CcittAllocationTests
         byte[] encoded = CcittEncoder.Encode(CcittEncoder.SampleBitmap(300, rows), new CcittEncoding(K: -1));
         var filter = new CcittFaxDecodeFilter();
         var context = new ImageFilterContext(new FilterContext { Parameters = Parameters(-1, 300) }) { Width = 300, Height = rows, BitsPerComponent = 1, ColorComponents = 1 };
-        for (int warmUp = 0; warmUp < 40; warmUp++)
-        {
-            filter.DecodeImage(encoded, context)!.Dispose();
-        }
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        filter.DecodeImage(encoded, context)!.Dispose();
-        return GC.GetAllocatedBytesForCurrentThread() - before;
+        return Allocations.Measure(() => filter.DecodeImage(encoded, context)!.Dispose());
     }
 
     private static CosDictionary Parameters(int k, int columns = 1728) => new()

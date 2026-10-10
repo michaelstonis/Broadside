@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Globalization;
 using Broadside.Diagnostics;
+using Broadside.Images;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -431,7 +432,7 @@ internal sealed class StreamDecoder
 
     private CosName Expand(CosName name)
     {
-        if (!FilterNames.TryExpandAbbreviation(name, out CosName? fullName))
+        if (!InlineImageAbbreviations.TryExpandFilter(name, out CosName? fullName))
         {
             return name;
         }

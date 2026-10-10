@@ -29,23 +29,23 @@ public sealed class PdfTextField : PdfTerminalField
 
     /// <summary>Gets a value indicating whether the text may span several lines (<c>Ff</c> bit 13, Multiline).</summary>
     /// <remarks>ISO 32000-2 §12.7.5.3, Table 231.</remarks>
-    public bool IsMultiline => HasFlag(13);
+    public bool IsMultiline => HasFlag(PdfFieldFlags.Multiline);
 
     /// <summary>Gets a value indicating whether the field is for a password, not echoed (<c>Ff</c> bit 14, Password).</summary>
     /// <remarks>ISO 32000-2 §12.7.5.3, Table 231.</remarks>
-    public bool IsPassword => HasFlag(14);
+    public bool IsPassword => HasFlag(PdfFieldFlags.Password);
 
     /// <summary>Gets a value indicating whether the text is the path of a file submitted as the value (<c>Ff</c> bit 21, FileSelect, PDF 1.4).</summary>
     /// <remarks>ISO 32000-2 §12.7.5.3, Table 231.</remarks>
-    public bool IsFileSelect => HasFlag(21);
+    public bool IsFileSelect => HasFlag(PdfFieldFlags.FileSelect);
 
     /// <summary>Gets a value indicating whether the text shall not be spell-checked (<c>Ff</c> bit 23, DoNotSpellCheck, PDF 1.4).</summary>
     /// <remarks>ISO 32000-2 §12.7.5.3, Table 231.</remarks>
-    public bool IsDoNotSpellCheck => HasFlag(23);
+    public bool IsDoNotSpellCheck => HasFlag(PdfFieldFlags.DoNotSpellCheck);
 
     /// <summary>Gets a value indicating whether the field shall not scroll to fit more text (<c>Ff</c> bit 24, DoNotScroll, PDF 1.4).</summary>
     /// <remarks>ISO 32000-2 §12.7.5.3, Table 231.</remarks>
-    public bool IsDoNotScroll => HasFlag(24);
+    public bool IsDoNotScroll => HasFlag(PdfFieldFlags.DoNotScroll);
 
     /// <summary>Gets a value indicating whether the field is divided into <see cref="MaxLength"/> equally spaced combs (<c>Ff</c> bit 25, Comb, PDF 1.5).</summary>
     /// <remarks>
@@ -56,7 +56,7 @@ public sealed class PdfTextField : PdfTerminalField
     {
         get
         {
-            if (!HasFlag(25))
+            if (!HasFlag(PdfFieldFlags.Comb))
             {
                 return false;
             }
@@ -72,5 +72,5 @@ public sealed class PdfTextField : PdfTerminalField
 
     /// <summary>Gets a value indicating whether the value is rich text, held in <see cref="PdfField.RichValue"/> (<c>Ff</c> bit 26, RichText, PDF 1.5).</summary>
     /// <remarks>ISO 32000-2 §12.7.5.3, Table 231.</remarks>
-    public bool IsRichText => HasFlag(26);
+    public bool IsRichText => HasFlag(PdfFieldFlags.RichText);
 }

@@ -550,6 +550,42 @@ public sealed partial class PdfDocument : IDisposable
     /// <returns>The explicit destination, or <see langword="null"/>.</returns>
     internal PdfExplicitDestination? FindNamedDestination(CosObject name, out bool found)
     {
+        CosObject? value = FindNamedDestinationValue(name);
+        found = value is not null;
+        return value is null ? null : ReadNamedDestinationValue(value);
+    }
+
+    /// <summary>Looks a destination name up and reads the <c>SD</c> entry of a dictionary value (§12.3.2.4, Table 201).</summary>
+    /// <param name="name">A <see cref="CosName"/> or <see cref="CosString"/>.</param>
+    /// <returns>The structure destination, or <see langword="null"/>.</returns>
+    internal PdfExplicitDestination? FindNamedStructureDestination(CosObject name)
+    {
+        CosObject? value = FindNamedDestinationValue(name);
+        if (Resolve(value) is not CosDictionary dictionary || !dictionary.TryGetValue(NavigationNames.SD, out CosObject? sd))
+        {
+            return null;
+        }
+
+        CosReference? reference = sd as CosReference ?? value as CosReference;
+        switch (Resolve(sd))
+        {
+            case CosArray array:
+                return new PdfExplicitDestination(this, array, isRemote: false, reference);
+            case CosNull:
+                return null;
+            default:
+                _diagnostics.Report(
+                    DiagnosticCodes.DestinationInvalid,
+                    DiagnosticSeverity.Warning,
+                    "A named destination's SD entry is not a destination array; it is ignored and D is used.",
+                    objectReference: reference);
+                return null;
+        }
+    }
+
+    /// <summary>The raw value a destination name maps to: a name in the catalog's <c>Dests</c> first, a string in the tree first.</summary>
+    private CosObject? FindNamedDestinationValue(CosObject name)
+    {
         CosObject? value = null;
         switch (name)
         {
@@ -566,8 +602,7 @@ public sealed partial class PdfDocument : IDisposable
                 break;
         }
 
-        found = value is not null;
-        return value is null ? null : ReadNamedDestinationValue(value);
+        return value;
     }
 
     /// <summary>Reads a named destination's value: a destination array, or a dictionary whose <c>D</c> entry is one (§12.3.2.4).</summary>
@@ -638,8 +673,8 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Gets the document's optional content (layers), or <see langword="null"/> when the catalog has no <c>OCProperties</c>.</summary>
     /// <remarks>
     /// ISO 32000-2 §8.11 and §7.7.2, Table 29 (PDF 1.5). Without <c>OCProperties</c> every optional content structure is ignored and all
-    /// content is visible (§8.11.4.2). The same view is returned while the catalog's <c>OCProperties</c> is the same dictionary; its
-    /// group list is a snapshot taken on first use.
+    /// content is visible (§8.11.4.2). The same view is returned while the catalog's <c>OCProperties</c> is the same dictionary and
+    /// nothing its group list was read from has changed; otherwise a new view is created.
     /// </remarks>
     public PdfOptionalContentProperties? OptionalContent
     {
@@ -651,7 +686,7 @@ public sealed partial class PdfDocument : IDisposable
             }
 
             PdfOptionalContentProperties? cached = Volatile.Read(ref _optionalContent);
-            if (cached is not null && ReferenceEquals(cached.Dictionary, dictionary))
+            if (cached is not null && ReferenceEquals(cached.Dictionary, dictionary) && cached.IsCurrent)
             {
                 return cached;
             }
@@ -659,7 +694,7 @@ public sealed partial class PdfDocument : IDisposable
             CosReference? reference = entry as CosReference ?? (Trailer.TryGetValue(KnownNames.Root, out CosObject? root) ? root as CosReference : null);
             var created = new PdfOptionalContentProperties(this, dictionary, reference);
             PdfOptionalContentProperties? raced = Interlocked.CompareExchange(ref _optionalContent, created, cached);
-            return raced == cached ? created : (ReferenceEquals(raced!.Dictionary, dictionary) ? raced : created);
+            return raced == cached ? created : (ReferenceEquals(raced!.Dictionary, dictionary) && raced.IsCurrent ? raced : created);
         }
     }
 
@@ -1068,7 +1103,7 @@ public sealed partial class PdfDocument : IDisposable
                 DocumentSecurity.CheckExtensions(security, catalog, loader.Resolve, diagnostics);
             }
 
-            PdfLinearization? linearization = LinearizationReader.Read(source, loader, diagnostics);
+            PdfLinearization? linearization = LinearizationReader.Read(source, loader, streams, diagnostics);
             var document = new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security, configuration.FontProgramParsers, configuration.ColorManagement, configuration.FontResolvers);
             document.DetectXfa();
 

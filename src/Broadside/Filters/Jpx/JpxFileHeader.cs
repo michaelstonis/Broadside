@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using Broadside.Diagnostics;
+using Broadside.Filters.Codecs;
 using Broadside.Parsing;
 
 namespace Broadside.Filters.Jpx;
@@ -83,7 +84,7 @@ internal sealed class JpxFileHeader
     public JpxChannelDefinition[]? Channels { get; private set; }
 
     /// <summary>Reads the JP2 Header box of a JP2/JPX file, or returns <see cref="Empty"/> for a raw codestream or a file without one.</summary>
-    public static JpxFileHeader Read(ReadOnlySpan<byte> data, JpxReporter reporter)
+    public static JpxFileHeader Read(ReadOnlySpan<byte> data, CodecReporter reporter)
     {
         if (data.Length < 12 || BinaryPrimitives.ReadUInt32BigEndian(data[4..]) != 0x6A502020)
         {
@@ -131,7 +132,7 @@ internal sealed class JpxFileHeader
     /// The boxes in [<paramref name="start"/>, <paramref name="end"/>) as (type, content offset, content length): LBox 1 reads XLBox,
     /// LBox 0 runs to the end of the enclosing box (I.4); a box overrunning its parent is cut there.
     /// </summary>
-    public static List<(uint Type, int Offset, int Length)> Boxes(ReadOnlySpan<byte> data, int start, int end, JpxReporter reporter)
+    public static List<(uint Type, int Offset, int Length)> Boxes(ReadOnlySpan<byte> data, int start, int end, CodecReporter reporter)
     {
         var boxes = new List<(uint, int, int)>();
         long position = start;
@@ -218,7 +219,7 @@ internal sealed class JpxFileHeader
         };
     }
 
-    private static JpxPalette? ReadPalette(ReadOnlySpan<byte> body, JpxReporter reporter)
+    private static JpxPalette? ReadPalette(ReadOnlySpan<byte> body, CodecReporter reporter)
     {
         if (body.Length < 3)
         {
@@ -280,7 +281,7 @@ internal sealed class JpxFileHeader
         return new JpxPalette { Entries = entries, Depths = depths, Signed = signed, Values = table };
     }
 
-    private static JpxPalette? InvalidPalette(JpxReporter reporter)
+    private static JpxPalette? InvalidPalette(CodecReporter reporter)
     {
         reporter.Report(DiagnosticCodes.JpxBoxInvalid, DiagnosticSeverity.Warning, "The JPEG 2000 palette box is outside Table I.13's ranges; it is ignored.");
         return null;

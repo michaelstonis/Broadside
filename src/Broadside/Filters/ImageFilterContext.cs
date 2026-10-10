@@ -25,7 +25,7 @@ public sealed class ImageFilterContext
     {
         ArgumentNullException.ThrowIfNull(filter);
         Filter = filter;
-        MaxBytes = filter.MaxDecodedLength;
+        MaxDecodedLength = filter.MaxDecodedLength;
     }
 
     /// <summary>Gets the filter context: <see cref="FilterContext.Parameters"/>, <see cref="FilterContext.StreamDictionary"/>, diagnostics.</summary>
@@ -47,9 +47,9 @@ public sealed class ImageFilterContext
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87; §7.4.9 (a JPEG 2000 image may omit it).</remarks>
     public int ColorComponents { get; init; }
 
-    /// <summary>Gets a value indicating whether the image is an image mask (<c>ImageMask true</c>): one component, one bit.</summary>
+    /// <summary>Gets a value indicating whether the image is a stencil mask (<c>ImageMask true</c>, as <see cref="Images.PdfImage.IsStencil"/>): one component, one bit.</summary>
     /// <remarks>ISO 32000-2 §8.9.6.2; §7.4.9 (a JPEG 2000 image mask has one 1-bit channel).</remarks>
-    public bool IsMask { get; init; }
+    public bool IsStencil { get; init; }
 
     /// <summary>Gets a value indicating whether the dictionary's <c>SMaskInData</c> asks for the codestream's opacity channel; without it a codec may skip that work.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87.</remarks>
@@ -58,12 +58,12 @@ public sealed class ImageFilterContext
     /// <summary>Gets the most pixels one image may have.</summary>
     public long MaxPixels { get; init; } = PdfOptions.DefaultMaxImagePixels;
 
-    /// <summary>Gets the most bytes one image's samples may take.</summary>
-    public long MaxBytes { get; init; }
+    /// <summary>Gets the most bytes one image's samples may take; the same limit as <see cref="FilterContext.MaxDecodedLength"/>, which it defaults to.</summary>
+    public long MaxDecodedLength { get; init; }
 
     /// <summary>
     /// Creates the builder an image is decoded into, after checking its size against <see cref="MaxPixels"/> and
-    /// <see cref="MaxBytes"/>; reports <c>ImageTooLarge</c> instead when it is too large.
+    /// <see cref="MaxDecodedLength"/>; reports <c>ImageTooLarge</c> instead when it is too large.
     /// </summary>
     /// <param name="width">The number of samples in each row, at least 1.</param>
     /// <param name="height">The number of rows, at least 1.</param>
@@ -82,7 +82,7 @@ public sealed class ImageFilterContext
         ArgumentOutOfRangeException.ThrowIfGreaterThan(components, ImageGeometry.MaxComponents);
         ArgumentOutOfRangeException.ThrowIfLessThan(bitsPerComponent, 1);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(bitsPerComponent, 16);
-        if (ImageGeometry.CheckLimits(width, height, components, bitsPerComponent, MaxPixels, MaxBytes) is { } reason)
+        if (ImageGeometry.CheckLimits(width, height, components, bitsPerComponent, MaxPixels, MaxDecodedLength) is { } reason)
         {
             Filter.Report(DiagnosticCodes.ImageTooLarge, DiagnosticSeverity.Error, $"The image is not decoded: {reason}.");
             image = null;

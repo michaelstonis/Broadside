@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Runtime.InteropServices;
 using Broadside.Diagnostics;
+using Broadside.Filters.Codecs;
 using Broadside.Images;
 using Broadside.Parsing;
 
@@ -30,14 +31,14 @@ internal static class JpxDecoder
     public static bool TryReadHeader(ReadOnlySpan<byte> data, ImageFilterContext context, out ImageHeader header)
     {
         header = default;
-        var reporter = new JpxReporter(context.Filter);
+        var reporter = new CodecReporter(context.Filter);
         if (JpxCodestreamReader.Locate(data, reporter) is not { } range
             || JpxCodestreamReader.ReadSize(data.Slice(range.Offset, range.Length), reporter) is not { } size)
         {
             return false;
         }
 
-        var quiet = new JpxReporter(context.Filter, silent: true);
+        var quiet = new CodecReporter(context.Filter, silent: true);
         JpxOutputPlan plan = JpxOutputPlan.Create(size, JpxFileHeader.Read(data, quiet), context, quiet);
         header = new ImageHeader(
             (int)Math.Min(size.Width - size.OriginX, int.MaxValue),
@@ -54,7 +55,7 @@ internal static class JpxDecoder
     /// <summary>Decodes the image, or returns <see langword="null"/> after reporting why it cannot be.</summary>
     public static DecodedImage? Decode(ReadOnlySpan<byte> data, ImageFilterContext context)
     {
-        var reporter = new JpxReporter(context.Filter);
+        var reporter = new CodecReporter(context.Filter);
         if (JpxCodestreamReader.Locate(data, reporter) is not { } range)
         {
             reporter.Report(DiagnosticCodes.JpxSignatureInvalid, DiagnosticSeverity.Error, "The JPXDecode data holds no JPEG 2000 codestream.");
@@ -65,6 +66,15 @@ internal static class JpxDecoder
         ReadOnlySpan<byte> codestream = data.Slice(range.Offset, range.Length);
         if (JpxCodestreamReader.Read(codestream, reporter) is not { } stream)
         {
+            return null;
+        }
+
+        if (stream.HighThroughput)
+        {
+            reporter.Report(
+                DiagnosticCodes.JpxHighThroughputUnsupported,
+                DiagnosticSeverity.Error,
+                "The JPEG 2000 codestream uses high-throughput block coding (HTJ2K, ISO/IEC 15444-15), which is outside the JPX baseline ISO 32000-2 §7.4.9 limits PDF images to; the image is not decoded.");
             return null;
         }
 
@@ -135,7 +145,7 @@ internal static class JpxDecoder
         }
     }
 
-    private static bool CheckLimits(JpxCodestream stream, JpxOutputPlan plan, ImageFilterContext context, JpxReporter reporter)
+    private static bool CheckLimits(JpxCodestream stream, JpxOutputPlan plan, ImageFilterContext context, CodecReporter reporter)
     {
         JpxImageSize size = stream.Size;
         foreach (JpxTile tile in stream.Tiles)
@@ -173,7 +183,7 @@ internal static class JpxDecoder
         return true;
     }
 
-    private static void DecodeTile(JpxCodestream stream, JpxTile tile, ReadOnlySpan<byte> codestream, JpxTileDecoder decoder, JpxPlane?[] planes, JpxReporter reporter)
+    private static void DecodeTile(JpxCodestream stream, JpxTile tile, ReadOnlySpan<byte> codestream, JpxTileDecoder decoder, JpxPlane?[] planes, CodecReporter reporter)
     {
         JpxImageSize size = stream.Size;
         (long tx0, long ty0, long tx1, long ty1) = size.TileBounds(tile.Index);
@@ -256,7 +266,7 @@ internal static class JpxDecoder
     /// The inverse component transformation of components 0 to 2 (G.2.2, G.3.2): the RCT when they use the 5/3 filter, the ICT when
     /// they use the 9/7 one; skipped with a diagnostic when they differ in size or filter.
     /// </summary>
-    private static void ApplyComponentTransform(JpxTileParameters parameters, JpxTileComponent[] components, int[][] buffers, JpxReporter reporter)
+    private static void ApplyComponentTransform(JpxTileParameters parameters, JpxTileComponent[] components, int[][] buffers, CodecReporter reporter)
     {
         if (parameters.Coding.Transform != 1 || components.Length < 3)
         {

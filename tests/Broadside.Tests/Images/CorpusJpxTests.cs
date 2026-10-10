@@ -39,6 +39,29 @@ public class CorpusJpxTests
     }
 
     [Fact]
+    public void With_SMaskInData_1_the_opacity_channel_of_the_corpus_file_becomes_the_alpha_plane()
+    {
+        // jpx-smask-in-data.pdf: four components (R, G, B, opacity) with a cdef box marking the fourth as opacity (Typ 1) for the
+        // whole image, no ColorSpace and SMaskInData 1 (ISO 32000-2 §8.9.5.1 Table 87, §11.6.5.3; ITU-T T.800 I.5.3.6).
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("jpx-smask-in-data.pdf"));
+        PdfImage image = document.Pages[0].GetImage("Im0")!;
+
+        using DecodedImage decoded = image.Decode()!;
+
+        Assert.Equal((PdfImageMaskKind.SoftInData, 1), (image.MaskKind, image.SoftMaskInData));
+        Assert.Equal((15, 11, 3, 8), (decoded.Width, decoded.Height, decoded.Components, decoded.BitsPerComponent));
+        Assert.Equal(ImageColorModel.Rgb, decoded.ColorModel);
+        Assert.Equal(Source(15, 11), decoded.Samples.ToArray());
+        DecodedImage alpha = Assert.IsType<DecodedImage>(decoded.Alpha);
+        Assert.False(decoded.AlphaPremultiplied);
+        Assert.Equal((15, 11, 1, 8), (alpha.Width, alpha.Height, alpha.Components, alpha.BitsPerComponent));
+        Assert.Equal(
+            Enumerable.Range(0, 11).SelectMany(y => Enumerable.Range(0, 15).Select(x => (byte)JpxSamples.Sample(x, y, 3, 8))),
+            alpha.Samples.ToArray());
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
     public void Sub_sampled_components_are_replicated_over_the_image_grid()
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Path("jpx-subsampled.pdf"));

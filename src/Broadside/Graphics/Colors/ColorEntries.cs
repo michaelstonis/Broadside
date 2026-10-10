@@ -64,6 +64,13 @@ internal static class ColorEntries
         return numbers;
     }
 
+    /// <summary>Reads an array of names, each resolved; elements that are not names are skipped.</summary>
+    /// <param name="cache">The document's colour spaces, for resolving.</param>
+    /// <param name="value">The value.</param>
+    /// <returns>The names; empty when the value is not an array.</returns>
+    public static IReadOnlyList<CosName> Names(ColorSpaceCache cache, CosObject? value) =>
+        cache.Resolve(value) is CosArray array ? [.. array.Select(item => cache.Resolve(item)).OfType<CosName>()] : [];
+
     /// <summary>Reads a number.</summary>
     /// <param name="cache">The document's colour spaces, for resolving.</param>
     /// <param name="value">The value.</param>

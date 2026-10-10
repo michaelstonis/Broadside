@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Globalization;
 using Broadside.Diagnostics;
+using Broadside.Filters.Codecs;
 using Broadside.Images;
 using Broadside.Parsing;
 
@@ -31,7 +32,14 @@ namespace Broadside.Filters.Dct;
 /// </remarks>
 internal sealed class JpegDecoder
 {
-    private const int MaxComponents = 4;
+    /// <summary>The most components in one scan (ITU-T T.81 §B.2.3, Table B.3: Ns 1 to 4).</summary>
+    private const int MaxScanComponents = 4;
+
+    /// <summary>
+    /// The most components in a frame: T.81 §B.2.2 allows 255, a PDF colour space has at most 32 (ISO 32000-2 Annex C, the image
+    /// buffer's <see cref="ImageGeometry.MaxComponents"/>). More than four are coded in several scans.
+    /// </summary>
+    private const int MaxFrameComponents = ImageGeometry.MaxComponents;
     private const int DcStatisticsBins = 64;
     private const int AcStatisticsBins = 256;
 
@@ -43,20 +51,18 @@ internal sealed class JpegDecoder
     private readonly int[][] _quantization = [new int[64], new int[64], new int[64], new int[64]];
     private readonly bool[] _quantizationDefined = new bool[4];
     private readonly bool[] _quantizationWide = new bool[4];
-    private readonly JpegComponent[] _components = [new(), new(), new(), new()];
-    private readonly int[] _scanComponents = new int[MaxComponents];
-    private readonly HashSet<string> _reported = new(StringComparer.Ordinal);
+    private readonly int[] _scanComponents = new int[MaxScanComponents];
+    private readonly CodecReporter _reporter = new();
     private readonly byte[] _dcStatistics = new byte[4 * DcStatisticsBins];
     private readonly byte[] _acStatistics = new byte[4 * AcStatisticsBins];
     private readonly byte[] _dcLower = [0, 0, 0, 0];
     private readonly byte[] _dcUpper = [1, 1, 1, 1];
     private readonly byte[] _acSplit = [5, 5, 5, 5];
 
-    private FilterContext? _context;
-    private bool _silent;
     private int _position;
     private bool _frameFound;
     private int _componentCount;
+    private JpegComponent[] _components = [new(), new(), new(), new()];
     private int _hMax;
     private int _vMax;
     private int _mcusX;
@@ -161,8 +167,7 @@ internal sealed class JpegDecoder
     /// <remarks>ITU-T T.81 §B.2.1, Figure B.2; §B.2.2 to §B.2.4.</remarks>
     public bool ReadHeaders(ReadOnlySpan<byte> data, FilterContext context, bool silent, int fallbackHeight)
     {
-        _context = context;
-        _silent = silent;
+        _reporter.Reset(context, silent);
         int start = data.IndexOf([(byte)0xFF, JpegMarkers.Soi]);
         if (start < 0)
         {
@@ -245,8 +250,11 @@ internal sealed class JpegDecoder
     /// <param name="colorTransform">The DecodeParms <c>ColorTransform</c> value, or -1 when absent.</param>
     /// <remarks>
     /// ISO 32000-2 §7.4.8, Table 13: the APP14 transform flag wins; otherwise the parameter; otherwise 1 for three components and 0
-    /// for others; ignored for one or two components. Three components identified as R, G, B (what libjpeg writes for RGB data, and
-    /// pdf.js and libjpeg read so) are not transformed without APP14 or the parameter. An APP14 code that does not fit the
+    /// for others; ignored for one or two components. Compatibility fallback, a documented deviation from Table 13's "shall be 1":
+    /// three components identified as R, G, B (what libjpeg writes for RGB data, and libjpeg and pdf.js read so) are not transformed
+    /// without APP14 or the parameter, and <c>DctColorTransformInferred</c> (Information) says so; the one real-world file of this
+    /// kind in the corpora (pdf.js issue11931.pdf) differs from libjpeg-turbo by up to 135 per sample when transformed. An APP14
+    /// code that does not fit the
     /// component count (2 or more with three components, 1 or more than 2 with four) is reported and read as YCbCr or YCCK, as
     /// libjpeg, pdf.js and PDFBox do (Adobe Technical Note #5116 §18: 1 = YCbCr, 2 = YCCK).
     /// </remarks>
@@ -260,11 +268,20 @@ internal sealed class JpegDecoder
                 Invariant($"The APP14 transform code {_adobeTransform} does not fit {_componentCount} components; {(_componentCount == 3 ? "YCbCr" : "YCCK")} is assumed."));
         }
 
+        bool rgbIdentifiers = _componentCount == 3 && _components[0].Id == 'R' && _components[1].Id == 'G' && _components[2].Id == 'B';
+        if (rgbIdentifiers && !_adobe && colorTransform < 0)
+        {
+            Report(
+                DiagnosticCodes.DctColorTransformInferred,
+                DiagnosticSeverity.Information,
+                "The three DCT components are identified R, G, B and there is neither an APP14 segment nor a ColorTransform parameter; they are read as RGB (as libjpeg does), not with the default ColorTransform 1 of ISO 32000-2 Table 13.");
+        }
+
         bool transform = _componentCount switch
         {
             3 when _adobe => _adobeTransform != 0,
             3 when colorTransform >= 0 => colorTransform == 1,
-            3 => !(_components[0].Id == 'R' && _components[1].Id == 'G' && _components[2].Id == 'B'),
+            3 => !rgbIdentifiers,
             4 when _adobe => _adobeTransform != 0,
             4 => colorTransform == 1,
             _ => false,
@@ -640,7 +657,7 @@ internal sealed class JpegDecoder
             Report(DiagnosticCodes.DctPrecisionReduced, DiagnosticSeverity.Information, "The DCT data has 12-bit samples; they are delivered reduced to 8 bits, as ISO 32000-2 Table 87 requires.");
         }
 
-        if (width == 0 || count is 0 or > MaxComponents || body.Length < 6 + (3 * count))
+        if (width == 0 || count is 0 or > MaxFrameComponents || body.Length < 6 + (3 * count))
         {
             Report(DiagnosticCodes.DctFrameInvalid, DiagnosticSeverity.Error, Invariant($"The DCT frame header is unusable ({width} samples per line, {count} components); the image is not decoded."));
             return false;
@@ -651,6 +668,7 @@ internal sealed class JpegDecoder
             Report(DiagnosticCodes.DctComponentCountInvalid, DiagnosticSeverity.Warning, "The DCT data has two components, which PDF does not allow; they are decoded without a colour transform.");
         }
 
+        EnsureComponents(count);
         for (int c = 0; c < count; c++)
         {
             JpegComponent component = _components[c];
@@ -742,7 +760,7 @@ internal sealed class JpegDecoder
     private bool ReadScanHeader(ReadOnlySpan<byte> header)
     {
         int count = header.IsEmpty ? 0 : header[0];
-        if (count is < 1 or > MaxComponents || header.Length < 1 + (2 * count) + 3)
+        if (count is < 1 or > MaxScanComponents || header.Length < 1 + (2 * count) + 3)
         {
             Report(DiagnosticCodes.DctScanInvalid, DiagnosticSeverity.Warning, "A DCT scan header is invalid; the scan was skipped.");
             return false;
@@ -1797,17 +1815,25 @@ internal sealed class JpegDecoder
         return target;
     }
 
-    private bool ShouldReport(string code) => !_silent && !_reported.Contains(code);
-
-    private void Report(string code, DiagnosticSeverity severity, string message)
+    /// <summary>Grows the component records to <paramref name="count"/> (a frame of more than four components; kept for the thread).</summary>
+    private void EnsureComponents(int count)
     {
-        if (_silent || !_reported.Add(code))
+        if (count <= _components.Length)
         {
             return;
         }
 
-        _context!.Report(code, severity, message);
+        int previous = _components.Length;
+        Array.Resize(ref _components, count);
+        for (int c = previous; c < count; c++)
+        {
+            _components[c] = new JpegComponent();
+        }
     }
+
+    private bool ShouldReport(string code) => _reporter.ShouldReport(code);
+
+    private void Report(string code, DiagnosticSeverity severity, string message) => _reporter.Report(code, severity, message);
 
     private void Reset()
     {
@@ -1817,12 +1843,14 @@ internal sealed class JpegDecoder
             _acTables[i].Clear();
             _quantizationDefined[i] = false;
             _quantizationWide[i] = false;
-            _components[i].Release();
         }
 
-        _reported.Clear();
-        _context = null;
-        _silent = false;
+        foreach (JpegComponent component in _components)
+        {
+            component.Release();
+        }
+
+        _reporter.Reset(null);
         _position = 0;
         _frameFound = false;
         _componentCount = 0;

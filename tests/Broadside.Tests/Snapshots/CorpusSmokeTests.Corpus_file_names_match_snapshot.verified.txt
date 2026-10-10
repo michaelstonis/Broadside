@@ -73,6 +73,7 @@
   jbig2-generic-mmr.pdf,
   jbig2-generic.pdf,
   jpx-lossless.pdf,
+  jpx-smask-in-data.pdf,
   jpx-subsampled.pdf,
   linearized-flate-hints.pdf,
   linearized-xref-stream.pdf,
