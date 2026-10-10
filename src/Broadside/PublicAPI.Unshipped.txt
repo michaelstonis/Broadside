@@ -802,7 +802,7 @@ Broadside.Forms.PdfField.DefaultValueObject.get -> Broadside.Objects.CosObject?
 Broadside.Forms.PdfField.Dictionary.get -> Broadside.Objects.CosDictionary!
 Broadside.Forms.PdfField.FieldType.get -> Broadside.Forms.PdfFieldType
 Broadside.Forms.PdfField.FieldTypeName.get -> Broadside.Objects.CosName?
-Broadside.Forms.PdfField.Flags.get -> uint
+Broadside.Forms.PdfField.Flags.get -> Broadside.Forms.PdfFieldFlags
 Broadside.Forms.PdfField.Form.get -> Broadside.Forms.PdfAcroForm!
 Broadside.Forms.PdfField.FullyQualifiedName.get -> string!
 Broadside.Forms.PdfField.IsNoExport.get -> bool
@@ -859,6 +859,27 @@ Broadside.Forms.PdfSignatureFlags
 Broadside.Forms.PdfSignatureFlags.AppendOnly = 2 -> Broadside.Forms.PdfSignatureFlags
 Broadside.Forms.PdfSignatureFlags.None = 0 -> Broadside.Forms.PdfSignatureFlags
 Broadside.Forms.PdfSignatureFlags.SignaturesExist = 1 -> Broadside.Forms.PdfSignatureFlags
+Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.None = 0 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.ReadOnly = 1 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.Required = 2 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.NoExport = 4 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.Multiline = 4096 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.Password = 8192 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.NoToggleToOff = 16384 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.Radio = 32768 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.Pushbutton = 65536 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.Combo = 131072 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.Edit = 262144 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.Sort = 524288 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.FileSelect = 1048576 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.MultiSelect = 2097152 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.DoNotSpellCheck = 4194304 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.DoNotScroll = 8388608 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.Comb = 16777216 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.RichText = 33554432 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.RadiosInUnison = 33554432 -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldFlags.CommitOnSelChange = 67108864 -> Broadside.Forms.PdfFieldFlags
 Broadside.Forms.PdfTerminalField
 Broadside.Forms.PdfTerminalField.Widgets.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfWidgetAnnotation!>!
 Broadside.Forms.PdfTextField
@@ -3215,6 +3236,7 @@ Broadside.PdfGoToAction.StructureDestination.get -> Broadside.PdfExplicitDestina
 Broadside.PdfNamedDestination
 Broadside.PdfNamedDestination.Name.get -> Broadside.Objects.CosObject!
 Broadside.PdfNamedDestination.Resolve() -> Broadside.PdfExplicitDestination?
+Broadside.PdfNamedDestination.ResolveStructureDestination() -> Broadside.PdfExplicitDestination?
 Broadside.PdfNamedDestination.Text.get -> string!
 Broadside.PdfOutline
 Broadside.PdfOutline.Count.get -> int?
@@ -3228,7 +3250,7 @@ Broadside.PdfOutlineItem.Color.get -> Broadside.PdfRgbColor
 Broadside.PdfOutlineItem.Count.get -> int?
 Broadside.PdfOutlineItem.Destination.get -> Broadside.PdfDestination?
 Broadside.PdfOutlineItem.Dictionary.get -> Broadside.Objects.CosDictionary!
-Broadside.PdfOutlineItem.Flags.get -> int
+Broadside.PdfOutlineItem.Flags.get -> Broadside.PdfOutlineItemFlags
 Broadside.PdfOutlineItem.IsBold.get -> bool
 Broadside.PdfOutlineItem.IsItalic.get -> bool
 Broadside.PdfOutlineItem.IsOpen.get -> bool
@@ -3237,6 +3259,10 @@ Broadside.PdfOutlineItem.Parent.get -> Broadside.PdfOutlineItem?
 Broadside.PdfOutlineItem.Reference.get -> Broadside.Objects.CosReference?
 Broadside.PdfOutlineItem.StructureElement.get -> Broadside.Objects.CosDictionary?
 Broadside.PdfOutlineItem.Title.get -> string!
+Broadside.PdfOutlineItemFlags
+Broadside.PdfOutlineItemFlags.None = 0 -> Broadside.PdfOutlineItemFlags
+Broadside.PdfOutlineItemFlags.Italic = 1 -> Broadside.PdfOutlineItemFlags
+Broadside.PdfOutlineItemFlags.Bold = 2 -> Broadside.PdfOutlineItemFlags
 Broadside.PdfRgbColor
 Broadside.PdfRgbColor.Blue.get -> double
 Broadside.PdfRgbColor.Equals(Broadside.PdfRgbColor other) -> bool

@@ -128,32 +128,10 @@ public sealed class PdfPageLabelRange
     }
 
     /// <summary>Returns the label of the page at <paramref name="offset"/> from the range's first page.</summary>
-    internal string GetLabel(int offset)
-    {
-        PdfPageLabelStyle style = Style;
-        string prefix = Prefix;
-        if (style == PdfPageLabelStyle.None)
-        {
-            return prefix;
-        }
+    internal string GetLabel(int offset) => CreateFormatter().Format(offset);
 
-        long number = FirstNumber + (long)offset;
-        string? numeral = style switch
-        {
-            PdfPageLabelStyle.UppercaseRoman => Roman(number, upper: true),
-            PdfPageLabelStyle.LowercaseRoman => Roman(number, upper: false),
-            PdfPageLabelStyle.UppercaseLetters => Letters(number, 'A'),
-            PdfPageLabelStyle.LowercaseLetters => Letters(number, 'a'),
-            _ => Decimal(number),
-        };
-        if (numeral is null)
-        {
-            _view.Report(DiagnosticCodes.PageLabelTooLong, "A page number is too large to write in letters or roman numerals; it is written in decimal.");
-            numeral = Decimal(number);
-        }
-
-        return prefix + numeral;
-    }
+    /// <summary>Reads the range's style, prefix and first number once, for labelling many of its pages.</summary>
+    internal LabelFormatter CreateFormatter() => new(this, Style, Prefix, FirstNumber);
 
     private static string Decimal(long number) => number.ToString(CultureInfo.InvariantCulture);
 
@@ -192,6 +170,39 @@ public sealed class PdfPageLabelRange
         if (_view.Get(KnownNames.Type) is { } type && !PageLabelType.Equals(type))
         {
             _view.Report(DiagnosticCodes.PageLabelInvalid, "A page label dictionary's Type entry, if present, shall be PageLabel; it is ignored.");
+        }
+    }
+
+    /// <summary>
+    /// Labels pages of one range from its entries read once: the prefix is decoded once and shared, so a range without a numbering
+    /// style gives every page the same string.
+    /// </summary>
+    internal sealed class LabelFormatter(PdfPageLabelRange range, PdfPageLabelStyle style, string prefix, int firstNumber)
+    {
+        /// <summary>Returns the label of the page at <paramref name="offset"/> from the range's first page.</summary>
+        public string Format(int offset)
+        {
+            if (style == PdfPageLabelStyle.None)
+            {
+                return prefix;
+            }
+
+            long number = firstNumber + (long)offset;
+            string? numeral = style switch
+            {
+                PdfPageLabelStyle.UppercaseRoman => Roman(number, upper: true),
+                PdfPageLabelStyle.LowercaseRoman => Roman(number, upper: false),
+                PdfPageLabelStyle.UppercaseLetters => Letters(number, 'A'),
+                PdfPageLabelStyle.LowercaseLetters => Letters(number, 'a'),
+                _ => Decimal(number),
+            };
+            if (numeral is null)
+            {
+                range._view.Report(DiagnosticCodes.PageLabelTooLong, "A page number is too large to write in letters or roman numerals; it is written in decimal.");
+                numeral = Decimal(number);
+            }
+
+            return prefix.Length == 0 ? numeral : prefix + numeral;
         }
     }
 }

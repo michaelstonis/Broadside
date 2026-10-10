@@ -19,14 +19,31 @@ public sealed class PdfTextAnnotation : PdfMarkupAnnotation
     /// <remarks>ISO 32000-2 §12.5.6.4, Table 175.</remarks>
     public string IconName => ReadIconName("Note");
 
-    /// <summary>Gets the state this annotation sets on the one it replies to (<c>State</c>, PDF 1.5), such as <c>Accepted</c>, or <see langword="null"/>.</summary>
-    /// <remarks>ISO 32000-2 §12.5.6.4, Table 175, and §12.5.6.3, Table 174. Without a <c>StateModel</c>, which is then required, <c>StateModelMissing</c> is recorded.</remarks>
+    /// <summary>
+    /// Gets the state this annotation sets on the one it replies to (<c>State</c>, PDF 1.5), such as <c>Accepted</c>; when absent, the
+    /// default of its <see cref="StateModel"/> (<c>Unmarked</c> for <c>Marked</c>, <c>None</c> for <c>Review</c>), else <see langword="null"/>.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §12.5.6.4, Table 175 ("Default: Unmarked if StateModel is Marked; None if StateModel is Review"), and §12.5.6.3,
+    /// Table 174. Without a <c>StateModel</c>, which is then required, <c>StateModelMissing</c> is recorded. A state model the
+    /// specification does not define has no default.
+    /// </remarks>
     public string? State
     {
         get
         {
             string? state = ReadText(AnnotationNames.State);
-            if (state is not null && !Dictionary.ContainsKey(AnnotationNames.StateModel))
+            if (state is null)
+            {
+                return StateModel switch
+                {
+                    "Marked" => "Unmarked",
+                    "Review" => "None",
+                    _ => null,
+                };
+            }
+
+            if (!Dictionary.ContainsKey(AnnotationNames.StateModel))
             {
                 Report(Parsing.DiagnosticCodes.StateModelMissing, "The text annotation has a State but no StateModel, which Table 175 requires with it.");
             }

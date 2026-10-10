@@ -23,7 +23,7 @@ public sealed class PdfEmbeddedFileParameters
 
     /// <summary>Gets the size of the uncompressed file in bytes (<c>Size</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §7.11.4.1, Table 45.</remarks>
-    public long? Size => ViewReading.Integer(_document, Dictionary, FileAndLayerNames.Size);
+    public long? Size => ViewReading.Integer(_document, Dictionary, FileAndLayerNames.Size, new EntryReport(_document, Parsing.DiagnosticCodes.EmbeddedFileParamsInvalid, _reference, "The embedded file parameters"));
 
     /// <summary>Gets the date the file was created (<c>CreationDate</c>), or <see langword="null"/> when absent or unreadable.</summary>
     /// <remarks>ISO 32000-2 §7.11.4.1, Table 45, and §7.9.4. A repaired date is reported as <c>DateInvalid</c>, an unreadable one as <c>DateUnreadable</c>.</remarks>

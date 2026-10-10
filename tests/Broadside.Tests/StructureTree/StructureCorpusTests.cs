@@ -5,7 +5,7 @@ using Broadside.Diagnostics;
 using Broadside.Security;
 using Broadside.TestSupport;
 
-namespace Broadside.Tests.LogicalStructure;
+namespace Broadside.Tests.StructureTree;
 
 /// <summary>
 /// The structure tree of every corpus file: the hand-written well-formed files read with no diagnostic, and every real-world file

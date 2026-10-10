@@ -115,6 +115,7 @@ internal static class AnnotationNames
     // Appearance characteristics (§12.5.6.19 Table 192).
     public static readonly CosName BC = new("BC");
     public static readonly CosName BG = new("BG");
+    public static readonly CosName NormalCaption = new("CA");
     public static readonly CosName AC = new("AC");
     public static readonly CosName RI = new("RI");
     public static readonly CosName IX = new("IX");

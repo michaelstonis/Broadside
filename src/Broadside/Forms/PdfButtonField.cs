@@ -306,9 +306,9 @@ public sealed class PdfRadioButtonField : PdfToggleButtonField
 
     /// <summary>Gets a value indicating whether exactly one button shall be on at all times (<c>Ff</c> bit 15, NoToggleToOff).</summary>
     /// <remarks>ISO 32000-2 §12.7.5.2.4, Table 229.</remarks>
-    public bool IsNoToggleToOff => HasFlag(15);
+    public bool IsNoToggleToOff => HasFlag(PdfFieldFlags.NoToggleToOff);
 
     /// <summary>Gets a value indicating whether buttons with the same on state turn on and off together (<c>Ff</c> bit 26, RadiosInUnison, PDF 1.5).</summary>
     /// <remarks>ISO 32000-2 §12.7.5.2.4, Table 229.</remarks>
-    public bool IsRadiosInUnison => HasFlag(26);
+    public bool IsRadiosInUnison => HasFlag(PdfFieldFlags.RadiosInUnison);
 }
