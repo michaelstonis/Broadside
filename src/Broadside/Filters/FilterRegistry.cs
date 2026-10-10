@@ -26,6 +26,7 @@ internal sealed class FilterRegistry
         new DctDecodeFilter(),
         new CcittFaxDecodeFilter(),
         new JpxDecodeFilter(),
+        new Jbig2DecodeFilter(),
     ];
 
     /// <summary>Builds a registry of the defaults with <paramref name="registrations"/> applied in order; a later one replaces an earlier one of the same name.</summary>

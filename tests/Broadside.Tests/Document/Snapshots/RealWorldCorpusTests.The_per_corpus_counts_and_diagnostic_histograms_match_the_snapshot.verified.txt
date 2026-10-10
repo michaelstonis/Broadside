@@ -1,6 +1,6 @@
 ﻿pdfjs: 989 files
-  Clean: 723
-  Diagnostics: 252
+  Clean: 721
+  Diagnostics: 254
   PasswordRequired: 12
   CertificateRequired: 0
   EncryptionUnsupported: 0
@@ -34,6 +34,7 @@
     DctExtraneousData: 3
     DictionaryUnterminated: 3
     FileIdentifierInvalid: 3
+    Jbig2EndOfPagePresent: 3
     NameTreeNodeInvalid: 3
     PageTreeNodeTypeInvalid: 3
     PagesMissing: 3
@@ -51,6 +52,7 @@
     FieldReferenceInvalid: 2
     FilterAbbreviationNotAllowed: 2
     InfoTrappedInvalid: 2
+    Jbig2CombinationOperatorMismatch: 2
     LinearizationHintsInvalid: 2
     PageTreeKidsInvalid: 2
     PageTreeParentMismatch: 2
@@ -82,8 +84,10 @@
     HeaderMissing: 1
     HeaderVersionInvalid: 1
     HexStringInvalidDigit: 1
+    ImageTooLarge: 1
     InfoDictionaryInvalid: 1
     InfoValueNotTextString: 1
+    Jbig2FileHeaderPresent: 1
     JpxLimitExceeded: 1
     MetadataStreamInvalid: 1
     NumberMalformed: 1
@@ -313,6 +317,8 @@ pdfium-tests: 840 files
     FieldNameDuplicateInconsistent: 1
     HeaderMissing: 1
     HexStringInvalidDigit: 1
+    Jbig2PageNumberNotOne: 1
+    Jbig2SegmentTruncated: 1
     LinearizationHintsInvalid: 1
     LinkActionAndDest: 1
     NameTreeKeysUnsorted: 1

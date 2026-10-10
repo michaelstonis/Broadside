@@ -225,16 +225,17 @@ public class ImageFilterFacetTests
     }
 
     [Fact]
-    public void A_standard_image_codec_that_is_not_registered_is_information_and_the_image_is_not_decoded()
+    public void An_image_filter_the_engine_does_not_know_is_an_error_and_the_image_is_not_decoded()
     {
-        // JBIG2Decode is the last standard image codec without a managed default (issue #64); DCT, CCITT and JPX have theirs.
-        byte[] file = OneImage("/Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 1 /Filter /JBIG2Decode", "jbig2");
-        using PdfDocument document = PdfDocument.Open(file, new PdfOptions().UseStrict());
+        // DCT, CCITT, JBIG2 and JPX all have managed defaults now (issues #61-#68), so no standard image codec is unregistered; an
+        // unknown name stops the chain with FilterUnsupported as an error in the file.
+        byte[] file = OneImage("/Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 1 /Filter /NotARealDecode", "data");
+        using PdfDocument document = PdfDocument.Open(file);
         PdfImage image = document.Pages[0].GetImage("Im0")!;
 
         Assert.Null(image.Decode());
         Diagnostic diagnostic = Assert.Single(document.Diagnostics);
-        Assert.Equal(("FilterUnsupported", DiagnosticSeverity.Information), (diagnostic.Code, diagnostic.Severity));
+        Assert.Equal(("FilterUnsupported", DiagnosticSeverity.Error), (diagnostic.Code, diagnostic.Severity));
     }
 
     private static PdfDocument Open(FakeImageFilter codec, string entries, PdfOptions? options = null) =>

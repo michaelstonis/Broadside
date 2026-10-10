@@ -1,6 +1,6 @@
 ﻿corpus: pdfjs @ c53f395e4057b501f478a7e98ed03d47c7c62a04
 files: 989
-well-formed files: 723
+well-formed files: 721
 outcomes:
   Interpreted: 975
   PasswordRequired: 12
@@ -14,8 +14,8 @@ appearance streams: 1381
 concurrent passes: 63
 page events:
   Runs: 1830
-  Operators: 2127219
-  UnknownOperators: 191
+  Operators: 2127186
+  UnknownOperators: 158
   StateSaves: 115960
   PathVerbs: 996687
   PathsStroked: 134137
@@ -113,7 +113,7 @@ diagnostics on well-formed files (files, total):
   ContentTextObjectUnbalanced: 3, 3
   ContentType3GlyphMetricsMissing: 1, 1
   ContentUnbalancedSave: 4, 4
-  ContentUnknownOperator: 5, 5
+  ContentUnknownOperator: 4, 4
   ContentXObjectInvalid: 1, 1
   ContentXObjectMissing: 1, 1
   FontBaseFontMissing: 1, 2
@@ -173,6 +173,7 @@ diagnostics on other files (files, total):
   FontProgramInvalid: 1, 1
   FontStandard14EntriesIncomplete: 2, 6
   FontTableInvalid: 1, 1
+  ImageTooLarge: 1, 1
   MissingEndobj: 5, 35
   PatternEntryInvalid: 1, 1
   StreamKeywordEndOfLine: 2, 7
