@@ -13,18 +13,25 @@ namespace Broadside.Filters;
 /// ISO 32000-2 §7.4.9 and Table 87; ITU-T T.800 | ISO/IEC 15444-1 Annexes A (codestream syntax), B (packets and progression),
 /// C (MQ decoder), D (EBCOT tier-1), E (reconstruction), F (inverse wavelet transform), G (DC level shift and component
 /// transformation) and I (JP2 boxes). The codestream's width, height and precision win over the image dictionary; with a
-/// <c>ColorSpace</c> in the dictionary, the image has that many channels (the codestream's first components).
+/// <c>ColorSpace</c> in the dictionary, the image has that many channels.
 /// </para>
 /// <para>
-/// Implemented: main and tile-part headers (COD, COC, QCD, QCC with their precedence), any number of tiles, tile-parts and layers,
-/// any precinct and code-block partition, LRCP and RLCP progressions, SOP and EPH markers, tier-1 with the "reset context
-/// probabilities", "segmentation symbols" and "predictable termination" code-block styles, the reversible 5/3 filter, the
-/// reversible component transformation and the DC level shift. Other Part 1 features are recorded as <c>JpxUnsupportedFeature</c>
-/// (Information: legal content not decoded yet) and the image is not decoded.
+/// All of Part 1: main and tile-part headers (COD, COC, QCD, QCC, RGN, POC, PPM, PPT, with their precedence), any number of tiles,
+/// tile-parts (in TPsot order) and layers, any precinct and code-block partition, the five progressions and progression volumes,
+/// SOP and EPH markers, packed packet headers, tier-1 with every code-block style, region-of-interest Maxshift, the 5/3 and 9/7
+/// filters with dequantization, the RCT and ICT, the DC level shift and sub-sampled components (replicated over the image grid).
 /// </para>
 /// <para>
-/// Through <see cref="IStreamFilter.Decode"/> the output is the samples of <see cref="DecodeImage"/> in the §8.9.3 layout: one channel
-/// per codestream component, at the bits per component of the greatest precision (rounded up to 8 or 16 for 3 to 7 and 9 to 15).
+/// The JP2 wrapper follows ISO 32000-2 §7.4.9: with an <c>Indexed</c> ColorSpace the codestream's indices are the samples; with
+/// another ColorSpace its first N colour channels (in channel definition order) are, and the JP2 colour boxes are ignored; without
+/// one, the palette and component mapping, the channel definitions and the colour specification of highest precedence decide the
+/// channels and the colour model (<see cref="DecodedImage.ColorModel"/>, <see cref="DecodedImage.IccProfile"/>), sYCC, YCbCr and
+/// CIELab converted to RGB. With <c>SMaskInData</c> the opacity channel becomes <see cref="DecodedImage.Alpha"/>, premultiplied for
+/// <c>SMaskInData 2</c> or a premultiplied channel definition.
+/// </para>
+/// <para>
+/// Through <see cref="IStreamFilter.Decode"/> the output is the colour samples of <see cref="DecodeImage"/> in the §8.9.3 layout, at
+/// the bits per component of the greatest precision (rounded up to 8 or 16 for 3 to 7 and 9 to 15).
 /// Lenient repair: a truncated codestream decodes what is present (<c>JpxCodestreamTruncated</c>); strict mode throws instead.
 /// Stateless and thread-safe.
 /// </para>

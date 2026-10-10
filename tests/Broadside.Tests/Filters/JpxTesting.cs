@@ -52,4 +52,28 @@ internal static class JpxTesting
 
         return values;
     }
+
+    /// <summary>
+    /// Asserts that <paramref name="actual"/> is within a peak absolute error and a mean squared error of <paramref name="expected"/> in
+    /// every component (the measures of ITU-T T.803 / ISO/IEC 15444-4 the conformance tests use).
+    /// </summary>
+    public static void AssertWithinTolerance(int[] expected, int[] actual, int components, int peak, double meanSquare)
+    {
+        Assert.Equal(expected.Length, actual.Length);
+        for (int c = 0; c < components; c++)
+        {
+            int worst = 0;
+            double sum = 0;
+            int count = 0;
+            for (int i = c; i < expected.Length; i += components)
+            {
+                int difference = Math.Abs(expected[i] - actual[i]);
+                worst = Math.Max(worst, difference);
+                sum += difference * difference;
+                count++;
+            }
+
+            Assert.True(worst <= peak && sum / count <= meanSquare, $"component {c}: peak error {worst}, mean squared error {sum / count:F3}");
+        }
+    }
 }

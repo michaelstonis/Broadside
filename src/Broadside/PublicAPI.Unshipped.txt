@@ -589,6 +589,16 @@ Broadside.Content.GlyphEvent.GlyphEvent() -> void
 Broadside.Content.GlyphEvent.HorizontalDisplacement.get -> double
 Broadside.Content.GlyphEvent.IsHidden.get -> bool
 Broadside.Content.GlyphEvent.IsVertical.get -> bool
+Broadside.Content.GlyphEvent.Unicode.get -> System.ReadOnlySpan<char>
+Broadside.Content.GlyphEvent.UnicodeSource.get -> Broadside.Fonts.UnicodeSource
+Broadside.Fonts.PdfFont.GetUnicode(Broadside.Fonts.CharacterCode code) -> string!
+Broadside.Fonts.PdfFont.GetUnicode(Broadside.Fonts.CharacterCode code, System.Span<char> destination, out Broadside.Fonts.UnicodeSource source) -> int
+Broadside.Fonts.UnicodeSource
+Broadside.Fonts.UnicodeSource.CidCollection = 3 -> Broadside.Fonts.UnicodeSource
+Broadside.Fonts.UnicodeSource.FontProgram = 4 -> Broadside.Fonts.UnicodeSource
+Broadside.Fonts.UnicodeSource.GlyphName = 2 -> Broadside.Fonts.UnicodeSource
+Broadside.Fonts.UnicodeSource.ToUnicode = 1 -> Broadside.Fonts.UnicodeSource
+Broadside.Fonts.UnicodeSource.Unmapped = 0 -> Broadside.Fonts.UnicodeSource
 Broadside.Content.GlyphEvent.RenderingMode.get -> Broadside.Graphics.TextRenderingMode
 Broadside.Content.GlyphEvent.SourceBytes.get -> System.ReadOnlySpan<byte>
 Broadside.Content.GlyphEvent.SourceIndex.get -> int

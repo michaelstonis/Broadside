@@ -1797,6 +1797,27 @@ def gen_text_cidcff_predefined_cmap() -> bytes:
     ], binary=True)
 
 
+def gen_text_tounicode_bf() -> bytes:
+    """9.10.3 ToUnicode CMap destinations: a bfchar to one character and one to a surrogate pair (U+1F600 as <D83DDE00>), a
+    bfrange with an array (a two-letter ligature) and a bfrange with a string incremented per code. Identity-H over the
+    CIDFontType2 of cid_file(); CIDs 3-6 have no glyph (CID 0's), which does not matter to their text. Shows
+    <000100020003000400050006>: H, fi (two letters), U+1F600, A, B, C."""
+    tu = to_unicode(b"1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n",
+                    b"2 beginbfchar\n<0001> <0048>\n<0003> <D83DDE00>\nendbfchar\n"
+                    b"2 beginbfrange\n<0002> <0002> [<00660069>]\n<0004> <0006> <0041>\nendbfrange\n")
+    return cid_file(b"/Identity-H", b"/CIDToGIDMap /Identity /DW 600",
+                    [b"\x00\x01\x00\x02\x00\x03\x00\x04\x00\x05\x00\x06"], tu)
+
+
+def gen_text_glyph_names() -> bytes:
+    """9.10.2 (second method) with the Adobe Glyph List specification's algorithm: non-embedded Helvetica whose Differences
+    give codes 1-6 the names H.sc (suffix dropped), uni0049, f_i (two components, not U+FB01), u1F600, uni00410042 (two
+    groups) and Lcommaaccent (in the list). No widths (9.6.2.2): the AFM has none of the names but the last."""
+    enc = (b"/Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding "
+           b"/Differences [1 /H.sc /uni0049 /f_i /u1F600 /uni00410042 /Lcommaaccent] >>")
+    return font_file([std14(b"Helvetica", enc)], [b"\x01\x02\x03\x04\x05\x06"])
+
+
 def gen_xref_stream() -> bytes:
     f = File("1.5", binary=True)
     f.add(1, catalog())
@@ -4267,9 +4288,13 @@ def _j2k_passes(w: _BitWriter, n: int) -> None:
         w.bits(n - 37, 7)
 
 
-def j2k_codestream(components: list[list[list[int]]], depth: int, levels: int, mct: bool, guard: int = 2) -> bytes:
+def j2k_codestream(components: list[list[list[int]]], depth: int, levels: int, mct: bool, guard: int = 2,
+                   separations: list[tuple[int, int]] | None = None) -> bytes:
     """A lossless codestream (T.800 Annex A) of unsigned ``depth``-bit components: one tile, LRCP, one layer, 64 x 64
-    code-blocks (each sub-band one code-block), no precincts, quantization style 0 with exponent depth + log2(gain)."""
+    code-blocks (each sub-band one code-block), no precincts, quantization style 0 with exponent depth + log2(gain).
+    ``separations`` gives each component's (XRsiz, YRsiz) (A.5.1); component 0 is then full size and component i holds
+    ceil(width / XRsiz) x ceil(height / YRsiz) samples (B-2 with origin 0)."""
+    separations = separations or [(1, 1)] * len(components)
     height, width = len(components[0]), len(components[0][0])
     shifted = [[[v - (1 << (depth - 1)) for v in row] for row in comp] for comp in components]
     if mct:  # T.800 G.2.1 forward RCT
@@ -4307,7 +4332,7 @@ def j2k_codestream(components: list[list[list[int]]], depth: int, levels: int, m
                 bodies.append(body)
             data += w.finish() + b"".join(bodies)
     siz = struct.pack(">HIIIIIIIIH", 0, width, height, 0, 0, width, height, 0, 0, len(components))
-    siz += b"".join(bytes([depth - 1, 1, 1]) for _ in components)
+    siz += b"".join(bytes([depth - 1, dx, dy]) for dx, dy in separations)
     cod = bytes([0, 0]) + struct.pack(">H", 1) + bytes([1 if mct else 0, levels, 4, 4, 0, 1])
     qcd = bytes([guard << 5]) + bytes(e << 3 for e in exponents)
 
@@ -4334,6 +4359,20 @@ def jp2_file(codestream: bytes, width: int, height: int, components: int, depth:
 def jpx_sample(x: int, y: int, c: int) -> int:
     """The 8-bit source image of jpx-lossless.pdf (the same formula as JpxSamples.Sample in the tests)."""
     return (x * 3 + y * 5 + c * 40 + ((x * x + 3 * y * y + 7 * x * y + 11 * c) % 23)) & 0xFF
+
+
+def gen_jpx_subsampled() -> bytes:
+    """7.4.9 JPXDecode with sub-sampled components (ITU-T T.800 A.5.1 XRsiz/YRsiz, B.2, G.4): a 21 x 15 8-bit image of three
+    components, the second and third at half resolution both ways (11 x 8 samples each), coded losslessly (5/3, two levels, no
+    component transformation) in a JP2 file with enumerated sRGB. /ColorSpace /DeviceRGB: a reader replicates each sub-sampled
+    sample over the 2 x 2 image samples it covers, so the image's channel c at (x, y) is jpx_sample(x // XRsiz, y // YRsiz, c)."""
+    width, height = 21, 15
+    separations = [(1, 1), (2, 2), (2, 2)]
+    comps = [[[jpx_sample(x, y, c) for x in range(-(-width // dx))] for y in range(-(-height // dy))]
+             for c, (dx, dy) in enumerate(separations)]
+    data = jp2_file(j2k_codestream(comps, 8, 2, mct=False, separations=separations), width, height, 3, 8, 16)
+    return one_image(b"/Width 21 /Height 15 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /JPXDecode", data,
+                     version="1.5")
 
 
 def gen_jpx_lossless() -> bytes:
@@ -4935,6 +4974,186 @@ def dct_gray_jpeg() -> bytes:
     return jpeg_encode(37, 21, [plane], [(1, 1)], jfif=False)
 
 
+def jpeg_component_blocks(width: int, height: int, planes: list[list[list[int]]], sampling: list[tuple[int, int]]):
+    """Per component (h, v, blocks wide, blocks high, quantized blocks over the extent padded to whole MCUs), as ``jpeg_encode``
+    computes them (box-averaged subsampling, edge replication, K.1/K.2 tables: component 0 luminance, the others chrominance)."""
+    hmax = max(h for h, _ in sampling)
+    vmax = max(v for _, v in sampling)
+    mcus_x = -(-width // (8 * hmax))
+    mcus_y = -(-height // (8 * vmax))
+    out = []
+    for c, (h, v) in enumerate(sampling):
+        sx, sy = hmax // h, vmax // v
+        cw, ch = -(-width * h // hmax), -(-height * v // vmax)
+        plane = planes[c]
+        samples = [[0] * cw for _ in range(ch)]
+        for y in range(ch):
+            for x in range(cw):
+                box = [plane[min(height - 1, y * sy + j)][min(width - 1, x * sx + i)] for j in range(sy) for i in range(sx)]
+                samples[y][x] = (sum(box) + len(box) // 2) // len(box)
+        quant = JPEG_LUMA_QUANT if c == 0 else JPEG_CHROMA_QUANT
+        blocks = [[jpeg_fdct_quantize([samples[min(ch - 1, by * 8 + j)][min(cw - 1, bx * 8 + i)] - 128
+                                       for j in range(8) for i in range(8)], quant)
+                   for bx in range(mcus_x * h)] for by in range(mcus_y * v)]
+        out.append((h, v, -(-cw // 8), -(-ch // 8), blocks))
+    return mcus_x, mcus_y, out
+
+
+def jpeg_encode_progressive(width: int, height: int, planes: list[list[list[int]]], sampling: list[tuple[int, int]]) -> bytes:
+    """A progressive (SOF2) JPEG of three components, Huffman-coded with the Annex K tables (T.81 Annex G): an interleaved DC
+    first scan with successive approximation (Al = 1, G.1.2.1), one AC first scan per component and band (1-5, then 6-63, Al = 0,
+    each band ending with EOB0, so EOBRUN is always 1; G.1.2.2), and the interleaved DC refinement scan (Ah = 1, Al = 0: one raw
+    bit per block)."""
+    mcus_x, mcus_y, components = jpeg_component_blocks(width, height, planes, sampling)
+    dc = [jpeg_huffman_codes(JPEG_DC_LUMA), jpeg_huffman_codes(JPEG_DC_CHROMA)]
+    ac = [jpeg_huffman_codes(JPEG_AC_LUMA), jpeg_huffman_codes(JPEG_AC_CHROMA)]
+    ids = b"\x01\x02\x03"
+    scans = bytearray()
+
+    def interleaved(visit) -> None:
+        for my in range(mcus_y):
+            for mx in range(mcus_x):
+                for c, (h, v, _, _, blocks) in enumerate(components):
+                    for by in range(v):
+                        for bx in range(h):
+                            visit(c, blocks[my * v + by][mx * h + bx])
+
+    def scan(selector: bytes, ss: int, se: int, ah: int, al: int, data: bytes) -> None:
+        scans.extend(jpeg_segment(0xDA, bytes([len(selector) // 2]) + selector + bytes([ss, se, (ah << 4) | al])) + data)
+
+    # DC first: the differences of the DC coefficients shifted right by Al (an arithmetic shift, A.4).
+    w = JpegBitWriter()
+    predictors = [0, 0, 0]
+
+    def dc_first(c: int, block: list[int]) -> None:
+        value = block[0] >> 1
+        diff = value - predictors[c]
+        predictors[c] = value
+        size = jpeg_category(diff)
+        w.write(*dc[min(c, 1)][size])
+        if size:
+            w.write(diff if diff > 0 else diff - 1, size)
+
+    interleaved(dc_first)
+    w.flush()
+    scan(b"\x01\x00\x02\x11\x03\x11", 0, 0, 0, 1, bytes(w.out))
+
+    for c, (_, _, wide, high, blocks) in enumerate(components):
+        for ss, se in ((1, 5), (6, 63)):
+            w = JpegBitWriter()
+            table = ac[min(c, 1)]
+            for by in range(high):
+                for bx in range(wide):
+                    block = blocks[by][bx]
+                    run = 0
+                    for k in range(ss, se + 1):
+                        value = block[JPEG_ZIGZAG[k]]
+                        if value == 0:
+                            run += 1
+                            continue
+                        while run > 15:
+                            w.write(*table[0xF0])
+                            run -= 16
+                        size = jpeg_category(value)
+                        w.write(*table[(run << 4) | size])
+                        w.write(value if value > 0 else value - 1, size)
+                        run = 0
+                    if run:
+                        w.write(*table[0x00])
+            w.flush()
+            scan(bytes([ids[c], min(c, 1)]), ss, se, 0, 0, bytes(w.out))
+
+    # DC refinement: bit 0 of each DC coefficient, no Huffman coding (G.1.2.1).
+    w = JpegBitWriter()
+    interleaved(lambda c, block: w.write(block[0] & 1, 1))
+    w.flush()
+    scan(b"\x01\x00\x02\x00\x03\x00", 0, 0, 1, 0, bytes(w.out))
+
+    out = bytearray(b"\xff\xd8")
+    out += jpeg_segment(0xE0, b"JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00")
+    out += jpeg_segment(0xDB, b"".join(bytes([t]) + bytes(q[JPEG_ZIGZAG[k]] for k in range(64))
+                                       for t, q in enumerate((JPEG_LUMA_QUANT, JPEG_CHROMA_QUANT))))
+    out += jpeg_segment(0xC2, struct.pack(">BHHB", 8, height, width, 3) + b"".join(
+        bytes([ids[c], (h << 4) | v, min(c, 1)]) for c, (h, v) in enumerate(sampling)))
+    huffman = [(0x00, JPEG_DC_LUMA), (0x10, JPEG_AC_LUMA), (0x01, JPEG_DC_CHROMA), (0x11, JPEG_AC_CHROMA)]
+    out += jpeg_segment(0xC4, b"".join(bytes([tc]) + bytes(bits) + bytes(values) for tc, (bits, values) in huffman))
+    out += scans + b"\xff\xd9"
+    return bytes(out)
+
+
+def dct_progressive_jpeg() -> bytes:
+    """51 x 35 YCbCr 4:2:0 progressive (partial MCUs on both axes)."""
+    picture = dct_test_picture(51, 35)
+    ycc = [[rgb_to_ycbcr(*pixel) for pixel in row] for row in picture]
+    planes = [[[pixel[c] for pixel in row] for row in ycc] for c in range(3)]
+    return jpeg_encode_progressive(51, 35, planes, [(2, 2), (1, 1), (1, 1)])
+
+
+def dct_cmyk_picture(width: int, height: int) -> list[list[tuple[int, int, int, int]]]:
+    """CMYK from the test picture: C, M, Y = 255 - R, G, B less a black ramp K growing to the right."""
+    picture = []
+    for y, row in enumerate(dct_test_picture(width, height)):
+        cmyk = []
+        for x, (r, g, b) in enumerate(row):
+            k = (x * 160) // (width - 1)
+            cmyk.append((max(0, 255 - r - k), max(0, 255 - g - k), max(0, 255 - b - k), k))
+        picture.append(cmyk)
+    return picture
+
+
+def dct_cmyk_jpeg() -> bytes:
+    """41 x 27 CMYK, Adobe APP14 transform 0 (no colour transform), 4:4:4, no JFIF."""
+    picture = dct_cmyk_picture(41, 27)
+    planes = [[[pixel[c] for pixel in row] for row in picture] for c in range(4)]
+    return jpeg_encode(41, 27, planes, [(1, 1)] * 4, ids=b"CMYK", jfif=False, adobe_transform=0)
+
+
+def dct_ycck_jpeg() -> bytes:
+    """41 x 27 YCCK, Adobe APP14 transform 2, the inverted CMYK convention of Adobe's writers (stored value = 255 - ink), C and K
+    sampled 2x2 and M, Y 1x1 as in pdf.js's cmykjpeg.pdf; YCCK = YCbCr of (255 - C, 255 - M, 255 - Y) and K (Adobe TN 5116
+    §13.1)."""
+    picture = dct_cmyk_picture(41, 27)
+    ycck = []
+    for row in picture:
+        out = []
+        for c, m, y, k in row:
+            stored = (255 - c, 255 - m, 255 - y, 255 - k)
+            out.append(rgb_to_ycbcr(255 - stored[0], 255 - stored[1], 255 - stored[2]) + (stored[3],))
+        ycck.append(out)
+    planes = [[[pixel[c] for pixel in row] for row in ycck] for c in range(4)]
+    return jpeg_encode(41, 27, planes, [(2, 2), (1, 1), (1, 1), (2, 2)], ids=b"\x01\x02\x03\x04", jfif=False, adobe_transform=2)
+
+
+def gen_dct_progressive() -> bytes:
+    """7.4.8 DCTDecode: a progressive (ITU-T T.81 Annex G) JPEG image XObject, 51 x 35 DeviceRGB, YCbCr 4:2:0, with DC
+    successive approximation and AC spectral selection, written by ``jpeg_encode_progressive``. PDF 1.3 is the first version
+    with progressive JPEG (7.4.8)."""
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /XObject << /Im0 5 0 R >> >>")),
+        (4, stream(b"", b"q 204 0 0 140 72 600 cm /Im0 Do Q")),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 51 /Height 35 /ColorSpace /DeviceRGB /BitsPerComponent 8 "
+                   b"/Filter /DCTDecode", dct_progressive_jpeg())),
+    ], binary=True)
+
+
+def gen_dct_cmyk() -> bytes:
+    """7.4.8 DCTDecode with four components, 8.9.5.2 Decode: `/Im0` a 41 x 27 CMYK JPEG (APP14 transform 0) in DeviceCMYK;
+    `/Im1` the same picture as an Adobe-inverted YCCK JPEG (APP14 transform 2), whose `/Decode [1 0 1 0 1 0 1 0]` undoes the
+    inversion (Table 13: the APP14 code selects YCCK; the inversion is the Decode array's, never the codec's)."""
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /XObject << /Im0 5 0 R /Im1 6 0 R >> >>")),
+        (4, stream(b"", b"q 164 0 0 108 72 600 cm /Im0 Do Q q 164 0 0 108 300 600 cm /Im1 Do Q")),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 41 /Height 27 /ColorSpace /DeviceCMYK /BitsPerComponent 8 "
+                   b"/Filter /DCTDecode", dct_cmyk_jpeg())),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 41 /Height 27 /ColorSpace /DeviceCMYK /BitsPerComponent 8 "
+                   b"/Decode [1 0 1 0 1 0 1 0] /Filter /DCTDecode", dct_ycck_jpeg())),
+    ], binary=True)
+
+
 def gen_dct_baseline() -> bytes:
     """7.4.8 DCTDecode: two baseline JPEG image XObjects painted side by side, a 45 x 29 YCbCr 4:2:0 DeviceRGB image with a
     restart interval (Im0) and a 37 x 21 DeviceGray image (Im1), both encoded by ``jpeg_encode``."""
@@ -5108,6 +5327,8 @@ FILES = {
     "text-cid-identity-v.pdf": gen_text_cid_identity_v,
     "text-cid-embedded-cmap.pdf": gen_text_cid_embedded_cmap,
     "text-cidcff-predefined-cmap.pdf": gen_text_cidcff_predefined_cmap,
+    "text-tounicode-bf.pdf": gen_text_tounicode_bf,
+    "text-glyph-names.pdf": gen_text_glyph_names,
     "xref-stream.pdf": gen_xref_stream,
     "object-stream.pdf": gen_object_stream,
     "incremental-update.pdf": gen_incremental_update,
@@ -5193,9 +5414,12 @@ FILES = {
     "image-16bpc.pdf": gen_image_16bpc,
     "image-decode-inverted.pdf": gen_image_decode_inverted,
     "jpx-lossless.pdf": gen_jpx_lossless,
+    "jpx-subsampled.pdf": gen_jpx_subsampled,
     "inline-image-filters.pdf": gen_inline_image_filters,
     "inline-image-ei-in-data.pdf": gen_inline_image_ei_in_data,
     "dct-baseline.pdf": gen_dct_baseline,
+    "dct-progressive.pdf": gen_dct_progressive,
+    "dct-cmyk.pdf": gen_dct_cmyk,
     "shading-type1-function.pdf": gen_shading_type1,
     "shading-type2-axial.pdf": gen_shading_type2,
     "shading-type3-radial.pdf": gen_shading_type3,

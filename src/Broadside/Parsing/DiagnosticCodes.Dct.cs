@@ -1,6 +1,6 @@
 namespace Broadside.Parsing;
 
-/// <summary>Diagnostic codes of the <c>DCTDecode</c> filter (issue #61; ISO 32000-2 §7.4.8, ITU-T T.81).</summary>
+/// <summary>Diagnostic codes of the <c>DCTDecode</c> filter (issues #61 and #62; ISO 32000-2 §7.4.8, ITU-T T.81).</summary>
 internal static partial class DiagnosticCodes
 {
     /// <summary>Bytes before the SOI marker were skipped (Warning).</summary>
@@ -18,7 +18,7 @@ internal static partial class DiagnosticCodes
     /// <summary>A second frame header; the first frame is kept (Warning).</summary>
     public const string DctFrameRepeated = nameof(DctFrameRepeated);
 
-    /// <summary>A coding process this decoder does not implement (Information when PDF allows it, else Error; no samples).</summary>
+    /// <summary>The lossless or hierarchical coding process, which PDF does not use (Error; no samples).</summary>
     public const string DctProcessUnsupported = nameof(DctProcessUnsupported);
 
     /// <summary>A table a scan needs was never defined (Warning for Huffman tables, which fall back to Annex K; Error for quantization tables).</summary>
@@ -47,4 +47,10 @@ internal static partial class DiagnosticCodes
 
     /// <summary>The frame's number of lines is 0 and came from a DNL segment or the image dictionary (Warning).</summary>
     public const string DctLinesFromDnl = nameof(DctLinesFromDnl);
+
+    /// <summary>The frame has 12-bit samples, which the filter delivers reduced to 8 bits (ISO 32000-2 Table 87) (Information).</summary>
+    public const string DctPrecisionReduced = nameof(DctPrecisionReduced);
+
+    /// <summary>The APP14 transform code does not fit the component count; YCbCr (three) or YCCK (four) is assumed (Warning).</summary>
+    public const string DctAdobeTransformInvalid = nameof(DctAdobeTransformInvalid);
 }

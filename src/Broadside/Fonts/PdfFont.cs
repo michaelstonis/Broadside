@@ -22,6 +22,7 @@ namespace Broadside.Fonts;
 public abstract class PdfFont
 {
     private PdfFontDescriptor? _descriptor;
+    private int _unicodeReports;
 
     private protected PdfFont(PdfDocument document, CosDictionary dictionary, CosReference? reference, PdfFontType fontType)
     {
@@ -230,4 +231,78 @@ public abstract class PdfFont
     /// <summary>Records a deviation found in this font.</summary>
     internal void Report(string code, DiagnosticSeverity severity, string message) =>
         Document.DiagnosticSink.Report(code, severity, message, objectReference: Reference);
+
+    /// <summary>Maps a character code to the Unicode text it stands for.</summary>
+    /// <param name="code">
+    /// The code: for a simple font one byte (<see cref="CharacterCode.Length"/> 1); for a Type 0 font as its CMap reads it
+    /// (<see cref="PdfType0Font.ReadGlyph"/>, <see cref="CMap.ReadCode"/>), an invalid code selecting CID 0.
+    /// </param>
+    /// <param name="destination">
+    /// Where the UTF-16 text goes. One code can stand for several characters (a ligature, a surrogate pair, a decomposed sequence);
+    /// 512 units always suffice, and text that does not fit is cut at a character boundary.
+    /// </param>
+    /// <param name="source">Which method mapped the code; <see cref="UnicodeSource.Unmapped"/> when none did.</param>
+    /// <returns>The number of UTF-16 units written: 0 for a code a ToUnicode CMap maps to an empty string.</returns>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §9.10.2, in its priority order, per code (a ToUnicode CMap that lacks a code falls through to the next method):
+    /// the font's ToUnicode CMap (§9.10.3; a code is looked up under its own length, then by value under the other lengths); for a
+    /// simple font, the glyph name its encoding gives the code (§9.6.5) through the Adobe Glyph List specification's algorithm; for
+    /// a Type 0 font whose CMap is a predefined CMap other than Identity-H/V, or whose CIDFont uses the Adobe-GB1, -CNS1,
+    /// -Japan1, -Korea1 or -KR collection, the code's CID through the collection's Registry-Ordering-UCS2 table (from the engine's
+    /// font resolvers: the Broadside.Fonts.Cmaps package). When all fail, the glyph's code point in a Unicode "cmap" subtable of
+    /// the embedded TrueType program, as PDFBox does. Otherwise the text is U+FFFD, never the code itself.
+    /// </para>
+    /// <para>
+    /// An unmapped code is recorded once per font as an information diagnostic (§9.10.2 allows it; strict mode does not throw), or,
+    /// when the UCS2 table is missing, that is recorded instead. A malformed ToUnicode CMap is recorded when first used and throws in
+    /// strict mode. The tables are built on first use and kept until the font's dictionaries or ToUnicode stream change; a lookup
+    /// then allocates nothing. Safe for concurrent use.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="DiagnosticException">In strict mode, for a deviation in the font, its encoding or its ToUnicode CMap.</exception>
+    public int GetUnicode(CharacterCode code, Span<char> destination, out UnicodeSource source) => MapUnicode(code, destination, out source);
+
+    /// <summary>Maps a character code to the Unicode text it stands for, as a new string.</summary>
+    /// <param name="code">The code; see <see cref="GetUnicode(CharacterCode, Span{char}, out UnicodeSource)"/>.</param>
+    /// <returns>The text; U+FFFD when nothing maps the code.</returns>
+    /// <remarks>ISO 32000-2 §9.10.2; see <see cref="GetUnicode(CharacterCode, Span{char}, out UnicodeSource)"/>, which allocates nothing.</remarks>
+    /// <exception cref="DiagnosticException">In strict mode, for a deviation in the font, its encoding or its ToUnicode CMap.</exception>
+    public string GetUnicode(CharacterCode code)
+    {
+        Span<char> buffer = stackalloc char[FontUnicode.MaxLength];
+        int written = MapUnicode(code, buffer, out _);
+        return new string(buffer[..written]);
+    }
+
+    /// <summary>Maps a code to Unicode (§9.10.2): the font kind's part of <see cref="GetUnicode(CharacterCode, Span{char}, out UnicodeSource)"/>.</summary>
+    internal abstract int MapUnicode(CharacterCode code, Span<char> destination, out UnicodeSource source);
+
+    /// <summary>Reads the first character code of a non-empty shown string, as <see cref="ReadShownGlyph"/> does, and maps it to Unicode.</summary>
+    internal virtual int ReadUnicode(ReadOnlySpan<byte> text, Span<char> destination, out UnicodeSource source) =>
+        MapUnicode(new CharacterCode(text[0], 1, IsValid: true), destination, out source);
+
+    /// <summary>Whether a once-per-font Unicode diagnostic is still to be recorded (strict mode records Warnings every time, so they throw).</summary>
+    internal bool NeedsUnicodeReport(int report, DiagnosticSeverity severity) =>
+        (Volatile.Read(ref _unicodeReports) & report) == 0 || (severity != DiagnosticSeverity.Information && Document.DiagnosticSink.IsStrict);
+
+    /// <summary>Records a once-per-font Unicode diagnostic (<see cref="FontUnicodeReports"/>).</summary>
+    internal void ReportUnicode(int report, string code, DiagnosticSeverity severity, string message)
+    {
+        Interlocked.Or(ref _unicodeReports, report);
+        Report(code, severity, message);
+    }
+
+    /// <summary>Records, once per font, that a shown code maps to no Unicode value (§9.10.2, last paragraph).</summary>
+    internal void ReportUnmapped(uint code, int length)
+    {
+        if (NeedsUnicodeReport(FontUnicodeReports.Unmapped, DiagnosticSeverity.Information))
+        {
+            ReportUnicode(
+                FontUnicodeReports.Unmapped,
+                DiagnosticCodes.TextUnicodeUnmapped,
+                DiagnosticSeverity.Information,
+                $"No method of ISO 32000-2 §9.10.2 maps code 0x{code.ToString(length == 1 ? "X2" : "X" + (2 * Math.Clamp(length, 1, 4)), System.Globalization.CultureInfo.InvariantCulture)} of the font to Unicode (no ToUnicode entry for it, no usable glyph name or character collection); its text is U+FFFD. Further codes of this font are not reported.");
+        }
+    }
 }

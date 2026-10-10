@@ -63,6 +63,7 @@ internal static class FuzzTargets
         ["font-scanner"] = FontScanner,
         ["font-type1"] = FontType1,
         ["cmap"] = CMapFile,
+        ["tounicode"] = ToUnicodeFile,
         ["colorspace"] = ColorSpaceTarget,
         ["content-objects"] = ContentObjectsTargets.ContentWithResources,
         ["inline-image-end"] = ContentObjectsTargets.InlineImageEnd,
@@ -267,6 +268,8 @@ internal static class FuzzTargets
                     {
                         throw new InvalidOperationException($"Code {code} of font {entry.Key.Value} has no glyph name or a width that is not finite.");
                     }
+
+                    CheckUnicode(simple, new CharacterCode((uint)code, 1, IsValid: true), entry.Key.Value);
                 }
             }
 
@@ -410,8 +413,36 @@ internal static class FuzzTargets
                 throw new InvalidOperationException("Font " + name + " read " + glyph + " from " + rest.Length + " bytes.");
             }
 
+            CheckUnicode(font, glyph.Code, name);
             rest = rest[glyph.Code.Length..];
         }
+    }
+
+    /// <summary>Maps a code to Unicode (§9.10.2, #58): at most 512 units, never an unpaired surrogate, U+FFFD when unmapped.</summary>
+    private static void CheckUnicode(PdfFont font, CharacterCode code, string name)
+    {
+        Span<char> buffer = stackalloc char[512];
+        int written = font.GetUnicode(code, buffer, out UnicodeSource source);
+        ReadOnlySpan<char> text = buffer[..written];
+        if (written is < 0 or > 512 || (source == UnicodeSource.Unmapped && !text.SequenceEqual("�")) || !IsWellFormed(text))
+        {
+            throw new InvalidOperationException($"Font {name} maps {code} to {written} units from {source}.");
+        }
+    }
+
+    private static bool IsWellFormed(ReadOnlySpan<char> text)
+    {
+        while (!text.IsEmpty)
+        {
+            if (System.Text.Rune.DecodeFromUtf16(text, out _, out int consumed) != System.Buffers.OperationStatus.Done)
+            {
+                return false;
+            }
+
+            text = text[consumed..];
+        }
+
+        return true;
     }
 
     /// <summary>
@@ -448,6 +479,45 @@ internal static class FuzzTargets
         if (consumed != data.Length)
         {
             throw new InvalidOperationException("The codes cover " + consumed + " of " + data.Length + " bytes.");
+        }
+    }
+
+    /// <summary>
+    /// The input as a ToUnicode CMap file, parsed leniently (a <c>usecmap</c> can name only Identity-H/V); then every 1-, 2- and
+    /// 4-byte window of the input (the first 4,096 positions) is looked up as a code of that length into a 1,024-unit buffer. The
+    /// parse must not throw; a lookup must write no more than the buffer and never an unpaired surrogate.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.10.3; Adobe TN 5014 §7.4 (beginbfchar, beginbfrange).</remarks>
+    private static void ToUnicodeFile(ReadOnlySpan<byte> data)
+    {
+        ToUnicodeMap map = ToUnicodeMap.Parse(data, new CMapContext { MaxEntries = 100_000 });
+        Span<char> buffer = stackalloc char[1024];
+        int positions = Math.Min(data.Length, 4096);
+        foreach (int length in (ReadOnlySpan<int>)[1, 2, 4])
+        {
+            for (int position = 0; position + length <= positions; position++)
+            {
+                uint code = 0;
+                for (int index = 0; index < length; index++)
+                {
+                    code = (code << 8) | data[position + index];
+                }
+
+                if (!map.TryMap(code, length, buffer, out int written, out _))
+                {
+                    continue;
+                }
+
+                if (written is < 0 or > 1024)
+                {
+                    throw new InvalidOperationException("Code " + code + " wrote " + written + " units.");
+                }
+
+                if (!IsWellFormed(buffer[..written]))
+                {
+                    throw new InvalidOperationException("Code " + code + " maps to an unpaired surrogate.");
+                }
+            }
         }
     }
 
@@ -815,8 +885,9 @@ internal static class FuzzTargets
     /// <summary>
     /// JPXDecode: the input is a JPEG 2000 file or codestream (a whole PDF is read from its first JP2 signature or SOC + SIZ, so
     /// <c>jpx-lossless.pdf</c> seeds it in smoke mode), decoded through the image facet with a 2^16-pixel limit and through the
-    /// plain filter path. A decoded image must have the size its header declares and exactly Stride x Height bytes, and the plain
-    /// path must write those same bytes.
+    /// plain filter path; an odd-length input also asks for the opacity channel (SMaskInData). A decoded image must have the size,
+    /// channels and alpha its header declares and exactly Stride x Height bytes (its alpha plane too), and without the opacity
+    /// channel the plain path must write those same bytes.
     /// </summary>
     /// <remarks>ISO 32000-2 §7.4.9; ITU-T T.800 | ISO/IEC 15444-1 Annexes A to G and I.</remarks>
     private static void Jpx(ReadOnlySpan<byte> data)
@@ -835,7 +906,8 @@ internal static class FuzzTargets
         }
 
         var filter = new JpxDecodeFilter();
-        var context = new ImageFilterContext(new FilterContext { MaxDecodedLength = 1 << 20 }) { MaxPixels = 1 << 16 };
+        bool wantsAlpha = (data.Length & 1) == 1;
+        var context = new ImageFilterContext(new FilterContext { MaxDecodedLength = 1 << 20 }) { MaxPixels = 1 << 16, WantsAlpha = wantsAlpha };
         bool hasHeader = filter.TryReadHeader(data, context, out ImageHeader header);
         byte[] bytes = data.ToArray();
         using DecodedImage? image = filter.DecodeImage(bytes, context);
@@ -844,10 +916,16 @@ internal static class FuzzTargets
             return;
         }
 
-        if (!hasHeader || (image.Width, image.Height, image.Components, image.BitsPerComponent) != (header.Width, header.Height, header.Components, header.BitsPerComponent)
-            || image.Samples.Length != (long)image.Stride * image.Height)
+        if (!hasHeader || (image.Width, image.Height, image.Components, image.BitsPerComponent, image.Alpha is not null) != (header.Width, header.Height, header.Components, header.BitsPerComponent, header.HasAlpha)
+            || image.Samples.Length != (long)image.Stride * image.Height
+            || (image.Alpha is { } alpha && (alpha.Width, alpha.Height, alpha.Samples.Length) != (image.Width, image.Height, alpha.Stride * alpha.Height)))
         {
             throw new InvalidOperationException($"JPXDecode made a {image.Width} x {image.Height} x {image.Components} image of {image.Samples.Length} bytes where the header says {header}.");
+        }
+
+        if (wantsAlpha)
+        {
+            return;
         }
 
         var output = new ArrayBufferWriter<byte>();

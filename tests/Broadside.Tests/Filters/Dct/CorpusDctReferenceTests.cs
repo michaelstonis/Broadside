@@ -11,8 +11,9 @@ namespace Broadside.Tests.Filters.Dct;
 
 /// <summary>
 /// The JPEGs of the fetched real-world corpora decode within ±1 of libjpeg-turbo (<c>djpeg -dct int -nosmooth</c>), for every
-/// image that <c>make_corpus_references.py</c> (next to this file) wrote a reference for: baseline and extended sequential, one
-/// or three components, decoded by libjpeg-turbo without a warning. Skips when the corpora or the references are absent.
+/// image that <c>make_corpus_references.py</c> (next to this file) wrote a reference for: baseline, extended, progressive or
+/// arithmetic-coded, one, three or four components (CMYK and YCCK against TurboJPEG's raw CMYK), decoded by libjpeg-turbo
+/// without a warning. Skips when the corpora or the references are absent.
 /// ISO 32000-2 §7.4.8.
 /// </summary>
 [Trait("Category", "Corpus")]

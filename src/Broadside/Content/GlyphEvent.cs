@@ -20,6 +20,10 @@ namespace Broadside.Content;
 /// </remarks>
 public readonly ref struct GlyphEvent
 {
+    /// <summary>The per-thread buffer <see cref="Unicode"/> writes into.</summary>
+    [ThreadStatic]
+    private static char[]? _unicodeBuffer;
+
     /// <summary>Gets the font dictionary named by <c>Tf</c>.</summary>
     /// <remarks>ISO 32000-2 §9.5, Table 109.</remarks>
     public CosDictionary? FontDictionary { get; internal init; }
@@ -75,4 +79,46 @@ public readonly ref struct GlyphEvent
 
     /// <summary>Gets a value indicating whether optional content hides the glyph (§8.11.3.1).</summary>
     public bool IsHidden { get; internal init; }
+
+    /// <summary>
+    /// Gets the Unicode text the character code stands for, worked out by <see cref="Font"/> when read: one or more UTF-16 units
+    /// (a ligature, a surrogate pair), empty for a code mapped to no text, U+FFFD when nothing maps it.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §9.10.2; see <see cref="PdfFont.GetUnicode(Fonts.CharacterCode, Span{char}, out Fonts.UnicodeSource)"/>. The
+    /// span lives in a buffer of the calling thread: it is valid until <see cref="Unicode"/> is read again on that thread, so copy it
+    /// to keep it. Allocates nothing once the font's tables are built.
+    /// </remarks>
+    public ReadOnlySpan<char> Unicode
+    {
+        get
+        {
+            Span<char> buffer = UnicodeBuffer;
+            int written = MapUnicode(buffer, out _);
+            return buffer[..written];
+        }
+    }
+
+    /// <summary>Gets which method of ISO 32000-2 §9.10.2 mapped the character code to <see cref="Unicode"/>.</summary>
+    public UnicodeSource UnicodeSource
+    {
+        get
+        {
+            MapUnicode(UnicodeBuffer, out UnicodeSource source);
+            return source;
+        }
+    }
+
+    private static Span<char> UnicodeBuffer => _unicodeBuffer ??= new char[Fonts.FontUnicode.MaxLength];
+
+    private int MapUnicode(Span<char> buffer, out UnicodeSource source)
+    {
+        if (Font is null || SourceIndex < 0 || SourceIndex >= SourceBytes.Length)
+        {
+            source = UnicodeSource.Unmapped;
+            return 0;
+        }
+
+        return Font.ReadUnicode(SourceBytes[SourceIndex..], buffer, out source);
+    }
 }
