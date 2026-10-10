@@ -24,8 +24,8 @@ public class FilterPipelineTests
     [Fact]
     public void A_chain_stops_at_the_first_filter_it_cannot_run_keeping_what_was_decoded()
     {
-        // ASCIIHex decodes to the bytes of a JPEG marker; DCTDecode is a Phase 2B filter not registered yet.
-        byte[] file = FilterTesting.FileWithStream("/Filter [/ASCIIHexDecode /DCTDecode]", "FFD8FFE0>"u8);
+        // ASCIIHex decodes to four bytes; no filter is registered under the second name.
+        byte[] file = FilterTesting.FileWithStream("/Filter [/ASCIIHexDecode /NoSuchDecode]", "FFD8FFE0>"u8);
 
         (byte[] decoded, string[] codes) = FilterTesting.DecodeWithCodes(file);
 

@@ -107,3 +107,23 @@ Licence text:
 StandardEncoding, WinAnsiEncoding, MacRomanEncoding, MacExpertEncoding and the Mac OS Roman additions of Table 113
 (src/Broadside/Fonts/Data/encodings.txt) are the code-to-glyph-name assignments of ISO 32000-2:2020 Annex D and
 §9.6.5.4, cross-checked against the AFM files above and pdf.js (Apache-2.0); no pdf.js code or data is included.
+
+
+4. The Independent JPEG Group's software (via libjpeg-turbo), in the DCTDecode filter
+-------------------------------------------------------------------------------------
+
+This software is based in part on the work of the Independent JPEG Group.
+
+Source:   https://github.com/libjpeg-turbo/libjpeg-turbo, commit 43ea809765004508d8da72ebe562cf570c6a62b2:
+          src/jidctint.c (jpeg_idct_islow) and src/jdcolor.c (build_ycc_rgb_table, ycc_rgb_convert, ycck_cmyk_convert)
+Licence:  the IJG License in README.ijg (LEGAL ISSUES section), shipped in this package as licenses/ijg/README.ijg and in
+          the repository as src/Broadside/Filters/Dct/README.ijg (SHA-256
+          75815e3bf6484201a3c3d17a1bbf10f2e8e3237f84df10a2357ea896db2a81d6). libjpeg-turbo's LICENSE.md places code
+          inherited from libjpeg, and modifications to it, under that licence.
+Used as:  src/Broadside/Filters/Dct/InverseDct.cs (the integer inverse DCT and its range-limit table) and
+          src/Broadside/Filters/Dct/JpegColor.cs (the fixed-point YCbCr and YCCK conversion tables).
+Modified: yes. Translated to C#; coefficients in natural order with an int quantization table, 32-bit arithmetic, 8-bit
+          samples only, the YCC tables built as int arrays indexed by sample, YCCK computed from the same tables. The rest of
+          the decoder (marker parsing, Huffman decoding, scan and restart control, upsampling) is written from ITU-T T.81;
+          its handling of out-of-sequence restart markers follows the decision table of jpeg_resync_to_restart
+          (src/jdmarker.c).

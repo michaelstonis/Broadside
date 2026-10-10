@@ -227,7 +227,8 @@ public class ImageFilterFacetTests
     [Fact]
     public void A_standard_image_codec_that_is_not_registered_is_information_and_the_image_is_not_decoded()
     {
-        byte[] file = OneImage("/Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /DCTDecode", "jpeg");
+        // JBIG2Decode is the last standard image codec without a managed default (issue #64); DCT, CCITT and JPX have theirs.
+        byte[] file = OneImage("/Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 1 /Filter /JBIG2Decode", "jbig2");
         using PdfDocument document = PdfDocument.Open(file, new PdfOptions().UseStrict());
         PdfImage image = document.Pages[0].GetImage("Im0")!;
 

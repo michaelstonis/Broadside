@@ -23,6 +23,7 @@ internal sealed class FilterRegistry
         new LzwDecodeFilter(),
         new FlateDecodeFilter(),
         new RunLengthDecodeFilter(),
+        new DctDecodeFilter(),
         new CcittFaxDecodeFilter(),
         new JpxDecodeFilter(),
     ];

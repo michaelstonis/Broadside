@@ -2337,6 +2337,12 @@ Broadside.Filters.AsciiHexDecodeFilter
 Broadside.Filters.AsciiHexDecodeFilter.AsciiHexDecodeFilter() -> void
 Broadside.Filters.AsciiHexDecodeFilter.Decode(System.ReadOnlyMemory<byte> encoded, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.FilterContext! context) -> void
 Broadside.Filters.AsciiHexDecodeFilter.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.DctDecodeFilter
+Broadside.Filters.DctDecodeFilter.DctDecodeFilter() -> void
+Broadside.Filters.DctDecodeFilter.Decode(System.ReadOnlyMemory<byte> encoded, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.FilterContext! context) -> void
+Broadside.Filters.DctDecodeFilter.DecodeImage(System.ReadOnlyMemory<byte> encoded, Broadside.Filters.ImageFilterContext! context) -> Broadside.Images.DecodedImage?
+Broadside.Filters.DctDecodeFilter.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.DctDecodeFilter.TryReadHeader(System.ReadOnlySpan<byte> encoded, Broadside.Filters.ImageFilterContext! context, out Broadside.Filters.ImageHeader header) -> bool
 Broadside.Filters.FilterContext
 Broadside.Filters.FilterContext.DecodeStream(Broadside.Objects.CosStream! stream) -> System.ReadOnlyMemory<byte>
 Broadside.Filters.FilterContext.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
