@@ -80,6 +80,7 @@
     HexStringInvalidDigit: 1
     InfoDictionaryInvalid: 1
     InfoValueNotTextString: 1
+    JpxLimitExceeded: 1
     MetadataStreamInvalid: 1
     NumberMalformed: 1
     NumberTreeDuplicateKey: 1

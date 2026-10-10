@@ -8,6 +8,7 @@ using Broadside.Fonts.TrueType;
 using Broadside.Fonts.Type1;
 using Broadside.Graphics;
 using Broadside.IO;
+using Broadside.Images;
 using Broadside.Objects;
 using Broadside.Parsing;
 using Broadside.Security;
@@ -42,6 +43,7 @@ internal static class FuzzTargets
         ["filter-flate"] = data => Filter(new FlateDecodeFilter(), data, parameters: null, maxRatio: 1100),
         ["filter-runlength"] = data => Filter(new RunLengthDecodeFilter(), data, parameters: null, maxRatio: 128),
         ["filter-predictor"] = PredictorTarget,
+        ["filter-jpx"] = Jpx,
         ["encrypted-document"] = EncryptedDocument,
         ["decrypt"] = Decrypt,
         ["mac-token"] = MacToken,
@@ -721,6 +723,52 @@ internal static class FuzzTargets
         if (output.WrittenCount > (data.Length * maxRatio) + 8)
         {
             throw new InvalidOperationException($"{filter.Name.Value} decoded {data.Length} bytes to {output.WrittenCount}, more than the encoding allows.");
+        }
+    }
+
+    /// <summary>
+    /// JPXDecode: the input is a JPEG 2000 file or codestream (a whole PDF is read from its first JP2 signature or SOC + SIZ, so
+    /// <c>jpx-lossless.pdf</c> seeds it in smoke mode), decoded through the image facet with a 2^16-pixel limit and through the
+    /// plain filter path. A decoded image must have the size its header declares and exactly Stride x Height bytes, and the plain
+    /// path must write those same bytes.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.4.9; ITU-T T.800 | ISO/IEC 15444-1 Annexes A to G and I.</remarks>
+    private static void Jpx(ReadOnlySpan<byte> data)
+    {
+        if (data.StartsWith("%PDF-"u8))
+        {
+            int jp2 = data.IndexOf((ReadOnlySpan<byte>)[0x00, 0x00, 0x00, 0x0C, 0x6A, 0x50, 0x20, 0x20]);
+            int soc = data.IndexOf((ReadOnlySpan<byte>)[0xFF, 0x4F, 0xFF, 0x51]);
+            int start = jp2 >= 0 && (soc < 0 || jp2 < soc) ? jp2 : soc;
+            if (start < 0)
+            {
+                return;
+            }
+
+            data = data[start..];
+        }
+
+        var filter = new JpxDecodeFilter();
+        var context = new ImageFilterContext(new FilterContext { MaxDecodedLength = 1 << 20 }) { MaxPixels = 1 << 16 };
+        bool hasHeader = filter.TryReadHeader(data, context, out ImageHeader header);
+        byte[] bytes = data.ToArray();
+        using DecodedImage? image = filter.DecodeImage(bytes, context);
+        if (image is null)
+        {
+            return;
+        }
+
+        if (!hasHeader || (image.Width, image.Height, image.Components, image.BitsPerComponent) != (header.Width, header.Height, header.Components, header.BitsPerComponent)
+            || image.Samples.Length != (long)image.Stride * image.Height)
+        {
+            throw new InvalidOperationException($"JPXDecode made a {image.Width} x {image.Height} x {image.Components} image of {image.Samples.Length} bytes where the header says {header}.");
+        }
+
+        var output = new ArrayBufferWriter<byte>();
+        filter.Decode(bytes, output, new FilterContext { MaxDecodedLength = 1 << 20 });
+        if (!output.WrittenSpan.SequenceEqual(image.Samples) && output.WrittenCount != 0)
+        {
+            throw new InvalidOperationException("JPXDecode's plain filter path wrote other bytes than the image facet decoded.");
         }
     }
 

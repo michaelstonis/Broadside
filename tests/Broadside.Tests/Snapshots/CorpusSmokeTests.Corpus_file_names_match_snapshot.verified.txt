@@ -53,6 +53,7 @@
   inline-image-ei-in-data.pdf,
   inline-image-filters.pdf,
   inline-image.pdf,
+  jpx-lossless.pdf,
   linearized-xref-stream.pdf,
   linearized.pdf,
   lzw-stream.pdf,

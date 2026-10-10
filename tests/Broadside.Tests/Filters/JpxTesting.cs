@@ -1,0 +1,55 @@
+using System.Buffers;
+using Broadside.Filters;
+using Broadside.Images;
+
+namespace Broadside.Tests.Filters;
+
+/// <summary>Calls the JPXDecode filter through its public contract with a stand-alone context (ISO 32000-2 §7.4.9).</summary>
+internal static class JpxTesting
+{
+    /// <summary>Decodes <paramref name="encoded"/> through <see cref="IImageFilter.DecodeImage"/>; fails when nothing is decoded.</summary>
+    public static DecodedImage DecodeImage(byte[] encoded, out string[] codes, int colorComponents = 0, PdfReadingMode mode = PdfReadingMode.Lenient)
+    {
+        DecodedImage? image = TryDecodeImage(encoded, out codes, colorComponents, mode);
+        Assert.NotNull(image);
+        return image;
+    }
+
+    /// <summary>Decodes <paramref name="encoded"/> through <see cref="IImageFilter.DecodeImage"/>.</summary>
+    public static DecodedImage? TryDecodeImage(byte[] encoded, out string[] codes, int colorComponents = 0, PdfReadingMode mode = PdfReadingMode.Lenient)
+    {
+        var filter = new JpxDecodeFilter();
+        var context = new FilterContext { ReadingMode = mode };
+        var imageContext = new ImageFilterContext(context) { ColorComponents = colorComponents };
+        DecodedImage? image = filter.DecodeImage(encoded, imageContext);
+        codes = [.. context.Diagnostics.Select(diagnostic => diagnostic.Code)];
+        return image;
+    }
+
+    /// <summary>Decodes <paramref name="encoded"/> through the plain <see cref="IStreamFilter.Decode"/> path.</summary>
+    public static (byte[] Decoded, string[] Codes) Decode(byte[] encoded, PdfReadingMode mode = PdfReadingMode.Lenient)
+    {
+        var context = new FilterContext { ReadingMode = mode };
+        var output = new ArrayBufferWriter<byte>();
+        new JpxDecodeFilter().Decode(encoded, output, context);
+        return (output.WrittenSpan.ToArray(), [.. context.Diagnostics.Select(diagnostic => diagnostic.Code)]);
+    }
+
+    /// <summary>Unpacks every sample of an image into raw values, row by row, component by component.</summary>
+    public static int[] Raw(DecodedImage image)
+    {
+        int count = image.Width * image.Components;
+        int[] values = new int[count * image.Height];
+        ushort[] row = new ushort[count];
+        for (int y = 0; y < image.Height; y++)
+        {
+            ImageRows.Unpack(image.GetRow(y), image.StorageBits, count, row);
+            for (int i = 0; i < count; i++)
+            {
+                values[(y * count) + i] = row[i];
+            }
+        }
+
+        return values;
+    }
+}
