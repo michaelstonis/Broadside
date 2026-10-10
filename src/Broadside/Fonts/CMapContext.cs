@@ -24,22 +24,19 @@ public sealed class CMapContext
     /// <summary>The default of <see cref="MaxUseCMapDepth"/>: Adobe TN 5014 §7.4 allows <c>usecmap</c> to nest five levels.</summary>
     public const int DefaultMaxUseCMapDepth = 5;
 
-    private readonly DiagnosticSink? _sink;
-    private readonly CosReference? _objectReference;
-    private readonly List<Diagnostic> _diagnostics = [];
-    private readonly HashSet<string> _codes = [];
+    private readonly ContextDiagnostics _diagnostics;
 
     /// <summary>Initializes a new instance of the <see cref="CMapContext"/> class that stands alone, outside any document.</summary>
     public CMapContext()
     {
+        _diagnostics = new ContextDiagnostics(null, null);
     }
 
     /// <summary>Initializes a new instance of the <see cref="CMapContext"/> class for a CMap stream of a document.</summary>
     internal CMapContext(DiagnosticSink sink, CosReference? objectReference)
     {
-        _sink = sink;
-        _objectReference = objectReference;
-        ReadingMode = sink.IsStrict ? PdfReadingMode.Strict : PdfReadingMode.Lenient;
+        _diagnostics = new ContextDiagnostics(sink, objectReference);
+        ReadingMode = _diagnostics.DefaultReadingMode;
     }
 
     /// <summary>Gets how deviations are treated: in <see cref="PdfReadingMode.Strict"/> mode the first one throws.</summary>
@@ -57,37 +54,12 @@ public sealed class CMapContext
     public int MaxUseCMapDepth { get; init; } = DefaultMaxUseCMapDepth;
 
     /// <summary>Gets the diagnostics reported through this context: the first of each code, in order.</summary>
-    public IReadOnlyList<Diagnostic> Diagnostics
-    {
-        get
-        {
-            lock (_diagnostics)
-            {
-                return [.. _diagnostics];
-            }
-        }
-    }
+    public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics.Items;
 
     /// <summary>Records a deviation; only the first of each code is kept.</summary>
     /// <exception cref="DiagnosticException">In strict mode, unless the severity is <see cref="DiagnosticSeverity.Information"/>.</exception>
     internal void Report(string code, DiagnosticSeverity severity, string message)
     {
-        var diagnostic = new Diagnostic(code, severity, message, objectReference: _objectReference);
-        lock (_diagnostics)
-        {
-            if (_codes.Add(code))
-            {
-                _diagnostics.Add(diagnostic);
-            }
-        }
-
-        if (_sink is not null)
-        {
-            _sink.ReportOnce(code, severity, message, objectReference: _objectReference);
-        }
-        else if (ReadingMode == PdfReadingMode.Strict && severity != DiagnosticSeverity.Information)
-        {
-            throw new DiagnosticException(diagnostic);
-        }
+        _diagnostics.Report(code, severity, message, ReadingMode);
     }
 }
