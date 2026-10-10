@@ -53,4 +53,44 @@ public static class ContentSamples
 
         return Encoding.ASCII.GetBytes(text.ToString());
     }
+
+    /// <summary>
+    /// A one-page file whose content stream (object 4) is <paramref name="content"/>, whose page resources are
+    /// <paramref name="resources"/> (the inside of the dictionary) and whose further objects, numbered from 5, are
+    /// <paramref name="objects"/> (ISO 32000-2 §7.5, §7.7.3.3).
+    /// </summary>
+    public static byte[] OnePage(byte[] content, string resources = "", params string[] objects) => File(
+    [
+        "<< /Type /Catalog /Pages 2 0 R >>",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << {resources} >> /Contents 4 0 R >>",
+        Stream(Encoding.Latin1.GetString(content)),
+        .. objects,
+    ]);
+
+    /// <summary>A file of the objects, numbered from 1 (object 1 the catalog), with a cross-reference table (ISO 32000-2 §7.5).</summary>
+    public static byte[] File(string[] objects)
+    {
+        var text = new StringBuilder("%PDF-1.7\n");
+        var offsets = new List<int>();
+        for (int index = 0; index < objects.Length; index++)
+        {
+            offsets.Add(text.Length);
+            text.Append(CultureInfo.InvariantCulture, $"{index + 1} 0 obj\n{objects[index]}\nendobj\n");
+        }
+
+        int xref = text.Length;
+        text.Append(CultureInfo.InvariantCulture, $"xref\n0 {objects.Length + 1}\n0000000000 65535 f \n");
+        foreach (int offset in offsets)
+        {
+            text.Append(CultureInfo.InvariantCulture, $"{offset:D10} 00000 n \n");
+        }
+
+        text.Append(CultureInfo.InvariantCulture, $"trailer\n<< /Size {objects.Length + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
+        return Encoding.Latin1.GetBytes(text.ToString());
+    }
+
+    /// <summary>A stream object whose data is <paramref name="data"/> (Latin-1), with <paramref name="entries"/> in its dictionary.</summary>
+    public static string Stream(string data, string entries = "") =>
+        $"<< {entries} /Length {Encoding.Latin1.GetByteCount(data)} >>\nstream\n{data}\nendstream";
 }
