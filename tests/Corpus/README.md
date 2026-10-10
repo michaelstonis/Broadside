@@ -2,7 +2,7 @@
 
 Hand-written PDF files, one feature per file, for the Phase 1 unit tests. Every file is as small as it can be while remaining a complete document: a catalog, a page tree and one page (two in `page-tree-inherited.pdf`), plus only the objects the feature needs.
 
-All files but one are produced by `generate.py`:
+All files but three (the linearized ones, below) are produced by `generate.py`:
 
 ```sh
 python3 -I tests/Corpus/generate.py          # rewrites every PDF in place

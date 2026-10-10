@@ -20,9 +20,28 @@ namespace Broadside.Fonts;
 /// </remarks>
 public abstract class FontProgram
 {
+    private CharacterMapSelection? _characterMapSelection;
+
     /// <summary>Initializes a new instance of the <see cref="FontProgram"/> class.</summary>
     protected FontProgram()
     {
+    }
+
+    /// <summary>Gets the "cmap" subtables PDF glyph selection and Unicode mapping use, chosen once for this program.</summary>
+    /// <remarks>ISO 32000-2 §9.6.5.4. Per-program data, kept on the program (ADR 0009: nothing per program is process-wide).</remarks>
+    internal CharacterMapSelection CharacterMapSelection
+    {
+        get
+        {
+            CharacterMapSelection? selection = Volatile.Read(ref _characterMapSelection);
+            if (selection is null)
+            {
+                selection = new CharacterMapSelection(CharacterMaps, GlyphCount);
+                selection = Interlocked.CompareExchange(ref _characterMapSelection, selection, null) ?? selection;
+            }
+
+            return selection;
+        }
     }
 
     /// <summary>Gets the format of the program.</summary>

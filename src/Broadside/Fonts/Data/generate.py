@@ -148,7 +148,10 @@ def wrap(items: list[str], indent: str, width: int = 120) -> list[str]:
 
 
 def span(name: str, kind: str, values: list[int], doc: str) -> list[str]:
-    return ([f"    /// <summary>{doc}</summary>", f"    internal static ReadOnlySpan<{kind}> {name} =>", "    ["]
+    # A span over a static array, not a "static ReadOnlySpan<T> X => [...]" property: for element types wider than a byte that
+    # compiles to RuntimeHelpers.CreateSpan, which allocates on every access in unoptimized (Debug, tier-0) code.
+    return ([f"    /// <summary>{doc}</summary>", f"    internal static ReadOnlySpan<{kind}> {name} => {name}Data;", "",
+             f"    private static readonly {kind}[] {name}Data =", "    ["]
             + wrap([str(v) for v in values], "        ") + ["    ];", ""])
 
 
@@ -261,7 +264,7 @@ def main() -> int:
     lines = header([AFM_NOTICE])
     lines += [
         "/// <summary>Glyph names the built-in encodings and the Standard 14 metrics use, and the built-in encodings as name indexes.</summary>",
-        "/// <remarks>ISO 32000-2 Annex D (Tables D.2, D.4, D.5, D.6) and §9.6.5.4 Table 113.</remarks>",
+        "/// <remarks>ISO 32000-2 Annex D (Tables D.2, D.4, D.5, D.6) and §9.6.5.4 Table 113; PostScript Language Reference Appendix E.7 (ISOLatin1Encoding).</remarks>",
         "internal static partial class GlyphNameTable",
         "{",
         "    /// <summary>Every glyph name, in ordinal order.</summary>",
@@ -271,7 +274,7 @@ def main() -> int:
     lines += wrap([cs_string(n) for n in names], "        ")
     lines += ["    ];", ""]
     order = ["StandardEncoding", "WinAnsiEncoding", "MacRomanEncoding", "MacExpertEncoding", "SymbolEncoding",
-             "ZapfDingbatsEncoding", "MacOSRomanEncoding"]
+             "ZapfDingbatsEncoding", "MacOSRomanEncoding", "ISOLatin1Encoding"]
     for label in order:
         table = encodings[label]
         lines += span(label, "short", [index[n] if n else -1 for n in table],

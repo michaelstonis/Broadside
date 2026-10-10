@@ -988,6 +988,7 @@ Broadside.Fonts.PdfCidFont.GetVerticalMetrics(int cid) -> Broadside.Fonts.CidVer
 Broadside.Fonts.PdfCidFont.GetWidth(int cid) -> double
 Broadside.Fonts.PdfCidFont.IsEmbedded.get -> bool
 Broadside.Fonts.PdfCidFont.Program.get -> Broadside.Fonts.FontProgram?
+Broadside.Fonts.PdfCidFont.Substitute.get -> Broadside.Fonts.FontSubstitute?
 Broadside.Fonts.PdfCidFont.Reference.get -> Broadside.Objects.CosReference?
 Broadside.Fonts.PdfCidFont.SystemInfo.get -> Broadside.Fonts.CidSystemInfo?
 Broadside.Fonts.PdfCidFontType
@@ -2885,6 +2886,11 @@ Broadside.Fonts.PdfFontDescriptor.Ascent.get -> double
 Broadside.Fonts.PdfFontDescriptor.AvgWidth.get -> double
 Broadside.Fonts.PdfFontDescriptor.CapHeight.get -> double
 Broadside.Fonts.PdfFontDescriptor.CharSet.get -> string?
+Broadside.Fonts.PdfFontDescriptor.CidSet.get -> Broadside.Objects.CosStream?
+Broadside.Fonts.PdfFontDescriptor.ClassDescriptors.get -> System.Collections.Generic.IReadOnlyDictionary<string!, Broadside.Fonts.PdfFontDescriptor!>!
+Broadside.Fonts.PdfFontDescriptor.ContainsCid(int cid) -> bool?
+Broadside.Fonts.PdfFontDescriptor.Language.get -> string?
+Broadside.Fonts.PdfFontDescriptor.Panose.get -> System.ReadOnlyMemory<byte>?
 Broadside.Fonts.PdfFontDescriptor.Descent.get -> double
 Broadside.Fonts.PdfFontDescriptor.Dictionary.get -> Broadside.Objects.CosDictionary?
 Broadside.Fonts.PdfFontDescriptor.Flags.get -> Broadside.Fonts.PdfFontFlags

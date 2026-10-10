@@ -67,6 +67,7 @@ internal sealed class SimpleFontMetrics
     {
         CosDictionary dictionary => dictionary.Version,
         CosArray array => array.Version,
+        CosStream stream => stream.Version,
         _ => 0,
     };
 
@@ -462,7 +463,11 @@ internal sealed class SimpleFontMetrics
             font.Report(
                 DiagnosticCodes.FontWidthsMissing,
                 DiagnosticSeverity.Warning,
-                "The font has no Widths and is not a Standard 14 font (ISO 32000-2 §9.6.2.1, Table 109); every width is 0.");
+                "The font has no Widths and is not a Standard 14 font (ISO 32000-2 §9.6.2.1, Table 109); each code takes its glyph's own width (the embedded program's advance, or a Type 3 glyph's d0 or d1 width), else 0.");
+            for (int code = 0; code < 256; code++)
+            {
+                _widths[code] = font.GetGlyphWidth(names[code], _sources) ?? 0;
+            }
         }
 
         private void ReadWidthsArray(CosArray widths, string[] names)
@@ -487,7 +492,7 @@ internal sealed class SimpleFontMetrics
                 {
                     ReportWidthsInvalid(string.Create(
                         CultureInfo.InvariantCulture,
-                        $"Widths has {count} elements, but LastChar - FirstChar + 1 is {last - first + 1}; codes without an element have MissingWidth"));
+                        $"Widths has {count} elements, but LastChar - FirstChar + 1 is {last - first + 1}; codes without an element take their glyph's own width (the embedded program's advance, or a Type 3 glyph's d0 or d1 width), else MissingWidth"));
                 }
             }
             else
@@ -511,7 +516,14 @@ internal sealed class SimpleFontMetrics
                         continue;
                     }
 
-                    ReportWidthsInvalid("an element of Widths is not a number; MissingWidth is used for its code");
+                    ReportWidthsInvalid("an element of Widths is not a number; its code takes its glyph's own width (the embedded program's advance, or a Type 3 glyph's d0 or d1 width), else MissingWidth");
+                }
+
+                // A code in range without a usable width: the glyph's own width, as pdf.js does (its element is already reported).
+                if (code >= first && code <= last && font.GetGlyphWidth(names[code], _sources) is { } own)
+                {
+                    _widths[code] = own;
+                    continue;
                 }
 
                 _widths[code] = missingWidth ?? Standard14Width(_standard14!.Value, names[code]);

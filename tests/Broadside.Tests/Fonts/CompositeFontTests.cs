@@ -120,17 +120,19 @@ public class CompositeFontTests
     }
 
     [Fact]
-    public void A_non_embedded_TrueType_CIDFont_with_Identity_H_is_reported_and_takes_CIDs_as_glyph_ids()
+    public void A_non_embedded_TrueType_CIDFont_with_Identity_H_is_reported_and_without_a_substitute_has_no_glyphs()
     {
-        using PdfDocument document = Open();
+        // The glyph comes from the CIDFont's substitute (CidFontSubstitutionTests); with no resolver there is none, which is recorded.
+        using PdfDocument document = Open(options: new PdfOptions().UseSystemFontResolver(null));
         PdfType0Font font = CompositeFontCorpusTests.Font(document);
 
         CidGlyph glyph = font.ReadGlyph([0x01, 0x02]);
 
         Assert.False(font.DescendantFont!.IsEmbedded);
         Assert.Null(font.DescendantFont.Program);
-        Assert.Equal((0x102, 0x102), (glyph.Cid, glyph.GlyphId));
-        Assert.Equal(["Type0IdentityNotEmbedded"], document.Diagnostics.Select(diagnostic => diagnostic.Code));
+        Assert.Null(font.DescendantFont.Substitute);
+        Assert.Equal((0x102, 0), (glyph.Cid, glyph.GlyphId));
+        Assert.Equal(["Type0IdentityNotEmbedded", "FontProgramNotFound"], document.Diagnostics.Select(diagnostic => diagnostic.Code));
     }
 
     [Theory]

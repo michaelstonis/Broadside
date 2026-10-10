@@ -1,4 +1,6 @@
 using Broadside.Diagnostics;
+using Broadside.Fonts.Cff;
+using Broadside.Fonts.Resolution;
 using Broadside.Objects;
 
 namespace Broadside.Fonts;
@@ -19,6 +21,7 @@ namespace Broadside.Fonts;
 public abstract class PdfCidFont
 {
     private volatile CidFontMetrics? _metrics;
+    private volatile SubstituteState? _substitute;
     private PdfFontDescriptor? _descriptor;
 
     private protected PdfCidFont(PdfType0Font parent, CosDictionary dictionary, CosReference? reference, PdfCidFontType cidFontType)
@@ -82,6 +85,28 @@ public abstract class PdfCidFont
     /// <exception cref="DiagnosticException">In strict mode, when the program deviates from its format.</exception>
     public FontProgram? Program => Metrics.Program;
 
+    /// <summary>
+    /// Gets the font program the CIDFont is drawn with when it has no usable embedded program, found by the engine's font resolvers
+    /// (<see cref="PdfOptions.UseFontResolver"/>, the operating system's fonts); <see langword="null"/> when it has a usable embedded
+    /// program or no resolver has one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §9.7.4 and ADR 0009, as <see cref="PdfSimpleFont.Substitute"/>: the resolvers are asked for the CIDFont by name,
+    /// with its CIDFont type, character collection and descriptor facts (<see cref="FontQuery"/>), then for the most similar Standard
+    /// 14 font. A substitute standing in for another font records an information diagnostic naming both; when nothing is found, an
+    /// information diagnostic says so (never thrown in strict mode: which fonts a machine has is not a deviation of the file).
+    /// </para>
+    /// <para>
+    /// <see cref="GetGlyphId"/> then selects the substitute's glyph: a CID-keyed CFF substitute by its charset; otherwise the CID's
+    /// Unicode value from the collection's CID-to-Unicode table (§9.10.2, <c>Adobe-Japan1-UCS2</c> and the like, through
+    /// <see cref="FontResourceKind.CidToUnicode"/>) looked up in the substitute's Unicode "cmap"; and for an
+    /// <see cref="FontMatchKind.Exact"/> substitute of a CIDFontType2 without such a table (Adobe-Identity), the CID as the glyph id,
+    /// since an Identity CIDFont's CIDs are the glyph ids of the font it was made from. Text keeps the CIDFont's own widths.
+    /// </para>
+    /// </remarks>
+    public FontSubstitute? Substitute => GetSubstituteState()?.Substitute;
+
     /// <summary>Gets the default width of the CIDFont's glyphs (<c>DW</c>), in glyph space units; 1000 when absent.</summary>
     /// <remarks>ISO 32000-2 §9.7.4.1, Table 115, and §9.7.4.3.</remarks>
     public double DefaultWidth => Metrics.DefaultWidth;
@@ -135,6 +160,44 @@ public abstract class PdfCidFont
     /// <summary>Returns whether the CIDFont has a glyph for a CID, and its glyph id.</summary>
     internal abstract bool TryGetGlyphId(int cid, out int glyphId);
 
+    /// <summary>Returns whether the CIDFont's substitute has a glyph for a CID, and its glyph id there (see <see cref="Substitute"/>).</summary>
+    internal bool TryGetSubstituteGlyphId(int cid, out int glyphId)
+    {
+        glyphId = 0;
+        if (GetSubstituteState() is not { Substitute: { } substitute } state)
+        {
+            return false;
+        }
+
+        FontProgram program = substitute.Program;
+        if (program is CffFontProgram { Font.IsCidKeyed: true } cff)
+        {
+            return cff.Font.TryGetGlyphForCid(cid, out glyphId) && glyphId < program.GlyphCount;
+        }
+
+        if (state.Ucs2 is { } ucs2)
+        {
+            Span<char> text = stackalloc char[16];
+            if (cid != 0 && ucs2.TryMap((uint)cid, 2, text, out int written, out _) && written > 0
+                && System.Text.Rune.DecodeFromUtf16(text[..written], out System.Text.Rune rune, out _) == System.Buffers.OperationStatus.Done
+                && rune.Value != FontUnicode.Replacement)
+            {
+                glyphId = program.CharacterMapSelection.GetGlyphIdForUnicode(rune.Value, out _);
+                return glyphId != 0;
+            }
+
+            return false;
+        }
+
+        if (CidFontType == PdfCidFontType.CidFontType2 && substitute.MatchKind == FontMatchKind.Exact && (uint)cid < (uint)program.GlyphCount)
+        {
+            glyphId = cid;
+            return cid != 0 || program.GlyphCount > 0;
+        }
+
+        return false;
+    }
+
     /// <summary>The program of the descriptor's font file (§9.9), parsed once per stream, as for a CIDFont.</summary>
     internal FontProgram? GetProgram(CosDictionary descriptor)
     {
@@ -175,6 +238,29 @@ public abstract class PdfCidFont
             : null;
     }
 
+    /// <summary>The substitute and the table its CIDs reach Unicode through, rebuilt when the metrics change; <see langword="null"/> with a usable program.</summary>
+    private SubstituteState? GetSubstituteState()
+    {
+        CidFontMetrics metrics = Metrics;
+        if (metrics.Program is not null)
+        {
+            return null;
+        }
+
+        SubstituteState? state = _substitute;
+        if (state is null || state.Metrics != metrics)
+        {
+            FontSubstitute? substitute = FontSubstitution.Resolve(this);
+            ToUnicodeMap? ucs2 = substitute is not null && Type0FontUnicode.Ucs2Collection(Parent, Parent.State) is { } collection
+                ? Document.FindCidToUnicode(Type0FontUnicode.Ucs2TableName(collection))
+                : null;
+            state = new SubstituteState(metrics, substitute, ucs2);
+            _substitute = state;
+        }
+
+        return state;
+    }
+
     /// <summary>The font descriptor entries that hold a program, and what each holds (Table 120).</summary>
     private static readonly (CosName Key, FontProgramSource Source)[] ProgramEntries =
     [
@@ -182,6 +268,9 @@ public abstract class PdfCidFont
         (FontNames.FontFile2, FontProgramSource.FontFile2),
         (FontNames.FontFile3, FontProgramSource.FontFile3),
     ];
+
+    /// <summary>A resolved substitute, with the metrics it was resolved for and the CID-to-Unicode table of the font's collection.</summary>
+    private sealed record SubstituteState(CidFontMetrics Metrics, FontSubstitute? Substitute, ToUnicodeMap? Ucs2);
 
     /// <summary>The <c>BaseFont</c> without a subset tag, which picks the font of a font collection.</summary>
     private string? FaceName =>

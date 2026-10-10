@@ -9,7 +9,13 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <PropertyGroup Label="Licence: MIT for the code plus the terms of the third-party data and code the package carries (APAFML, BSD-3-Clause, IJG). APAFML is not an SPDX expression nuget.org accepts, so the package declares a licence file rather than an expression.">
+    <PackageLicenseExpression></PackageLicenseExpression>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+  </PropertyGroup>
+
   <ItemGroup Label="Third-party notices (issues #49, #61): the AFM terms require MustRead.html to travel with data derived from the AFM files; the IJG licence requires README.ijg with code derived from libjpeg">
+    <None Include="LICENSE.txt" Pack="true" PackagePath="/" />
     <None Include="THIRD-PARTY-NOTICES.txt" Pack="true" PackagePath="/" />
     <None Include="Fonts/Data/Afm/MustRead.html" Pack="true" PackagePath="licenses/adobe-core14-afm/" />
     <None Include="Fonts/Data/GlyphList/LICENSE.md" Pack="true" PackagePath="licenses/adobe-glyph-list/" />

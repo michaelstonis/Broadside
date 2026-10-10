@@ -86,7 +86,13 @@ internal sealed class PostTable
     /// <summary>Finds the first glyph of a name.</summary>
     public bool TryGetGlyphId(string name, out int glyphId)
     {
-        Dictionary<string, int> byName = LazyInitializer.EnsureInitialized(ref _byName, BuildIndex);
+        Dictionary<string, int>? byName = Volatile.Read(ref _byName);
+        if (byName is null)
+        {
+            byName = BuildIndex();
+            byName = Interlocked.CompareExchange(ref _byName, byName, null) ?? byName;
+        }
+
         return byName.TryGetValue(name, out glyphId);
     }
 

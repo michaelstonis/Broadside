@@ -1,4 +1,5 @@
 using Broadside.Annotations;
+using Broadside.Content;
 using Broadside.Diagnostics;
 using Broadside.Graphics;
 using Broadside.Objects;
@@ -162,6 +163,52 @@ public sealed class PdfType3Font : PdfSimpleFont
             }
 
             return table;
+        }
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// ISO 32000-2 §9.6.4, Table 111: <c>wx</c>, the first operand of the <c>d0</c> or <c>d1</c> operator that begins the glyph's
+    /// <c>CharProcs</c> stream, in glyph space. None when the glyph has no stream or the stream does not begin with one.
+    /// </remarks>
+    internal override double? GetGlyphWidth(string glyphName, List<CosObject> sources)
+    {
+        if (Get(CharProcsKey) is not CosDictionary procedures)
+        {
+            return null;
+        }
+
+        AddOnce(sources, procedures);
+        if (!procedures.TryGetValue(new CosName(glyphName), out CosObject? value) || Document.Resolve(value) is not CosStream stream)
+        {
+            return null;
+        }
+
+        AddOnce(sources, stream);
+        ReadOnlyMemory<byte> data = Document.DecodeStream(stream);
+        var arena = new OperandArena();
+        var reader = new ContentReader(data.Span, arena);
+        if (!reader.Next(out ReadOperator op)
+            || op.Code is not (ContentOperatorCode.SetGlyphWidth or ContentOperatorCode.SetGlyphWidthAndBoundingBox))
+        {
+            return null;
+        }
+
+        ContentOperands operands = arena.Operands;
+        int expected = op.Code == ContentOperatorCode.SetGlyphWidth ? 2 : 6;
+        return operands.Count == expected && operands[0].IsNumber ? operands[0].Number : null;
+
+        static void AddOnce(List<CosObject> sources, CosObject source)
+        {
+            foreach (CosObject known in sources)
+            {
+                if (ReferenceEquals(known, source))
+                {
+                    return;
+                }
+            }
+
+            sources.Add(source);
         }
     }
 

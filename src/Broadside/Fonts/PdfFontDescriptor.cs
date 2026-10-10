@@ -141,6 +141,77 @@ public sealed class PdfFontDescriptor
     /// <remarks>ISO 32000-2 §9.8.1, Table 120, <c>CharSet</c> (PDF 1.1; deprecated in PDF 2.0).</remarks>
     public string? CharSet => (Get(FontNames.CharSet) as CosString)?.DecodeText();
 
+    /// <summary>
+    /// Gets the 12-byte Panose classification of a CIDFont's glyphs, from the <c>Panose</c> entry of its <c>Style</c> dictionary: the
+    /// font family class and subclass of the "OS/2" table, then the ten PANOSE bytes; <see langword="null"/> when absent or not 12 bytes.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.8.3.1, Table 122 (<c>Style</c>), and §9.8.3.2.</remarks>
+    public ReadOnlyMemory<byte>? Panose =>
+        Get(FontNames.Style) is CosDictionary style && Resolve(style, FontNames.Panose) is CosString { Bytes.Length: 12 } panose
+            ? new ReadOnlyMemory<byte>(panose.Bytes.ToArray())
+            : default(ReadOnlyMemory<byte>?);
+
+    /// <summary>Gets the language of a CIDFont, a BCP 47 language tag such as <c>ja</c>; <see langword="null"/> when absent or not a name.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §9.8.3.1, Table 122, <c>Lang</c> (PDF 1.5). Its absence says nothing about the language of the document.
+    /// </remarks>
+    public string? Language => (Get(FontNames.Lang) as CosName)?.Value;
+
+    /// <summary>
+    /// Gets the font descriptors that override this one's metrics for classes of a CIDFont's glyphs, by class name (such as
+    /// <c>Proportional</c> or <c>HKana</c>, Table 123); empty when there are none. Entries that are not dictionaries, or that name a
+    /// font file, are left out.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §9.8.3.1, Table 122 (<c>FD</c>), and §9.8.3.3: each value holds metric entries only, overriding this descriptor's for
+    /// that class. A new dictionary of live views is built on each call.
+    /// </remarks>
+    public IReadOnlyDictionary<string, PdfFontDescriptor> ClassDescriptors
+    {
+        get
+        {
+            var classes = new Dictionary<string, PdfFontDescriptor>(StringComparer.Ordinal);
+            if (Get(FontNames.FD) is CosDictionary fd)
+            {
+                foreach (KeyValuePair<CosName, CosObject> entry in fd)
+                {
+                    if (_document!.Resolve(entry.Value) is CosDictionary dictionary && !NamesFontFile(dictionary))
+                    {
+                        classes[entry.Key.Value] = new PdfFontDescriptor(_document, dictionary, entry.Value as CosReference);
+                    }
+                }
+            }
+
+            return classes;
+        }
+    }
+
+    /// <summary>Gets the stream that lists which CIDs a CIDFont subset has, or <see langword="null"/> when absent or not a stream.</summary>
+    /// <remarks>ISO 32000-2 §9.8.3.1, Table 122, <c>CIDSet</c> (deprecated in PDF 2.0); <see cref="ContainsCid"/> reads it.</remarks>
+    public CosStream? CidSet => Get(FontNames.CidSet) as CosStream;
+
+    /// <summary>Returns whether a CIDFont subset's <c>CIDSet</c> lists a CID; <see langword="null"/> when there is no <c>CIDSet</c>.</summary>
+    /// <param name="cid">The CID.</param>
+    /// <returns>Whether the CID's bit is set; <see langword="false"/> for a CID past the end of the table.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §9.8.3.1, Table 122: a table of bits indexed by CID, high-order bit first, the most significant bit of the first
+    /// byte for CID 0. The stream is decoded on each call.
+    /// </remarks>
+    public bool? ContainsCid(int cid)
+    {
+        if (CidSet is not { } stream)
+        {
+            return null;
+        }
+
+        ReadOnlySpan<byte> bits = _document!.DecodeStream(stream).Span;
+        return cid >= 0 && cid / 8 < bits.Length && (bits[cid / 8] & (0x80 >> (cid % 8))) != 0;
+    }
+
+    /// <summary>Whether a descriptor names a font file (FontFile, FontFile2 or FontFile3).</summary>
+    internal static bool NamesFontFile(CosDictionary descriptor) =>
+        descriptor.ContainsKey(FontNames.FontFile) || descriptor.ContainsKey(FontNames.FontFile2) || descriptor.ContainsKey(FontNames.FontFile3);
+
     /// <summary>Reads <c>Flags</c> from a descriptor dictionary: the low 32 bits of an integer, none otherwise.</summary>
     internal static PdfFontFlags ReadFlags(CosDictionary dictionary, PdfDocument document) =>
         dictionary.TryGetValue(FontNames.Flags, out CosObject? value) && document.Resolve(value) is CosInteger flags
@@ -179,8 +250,8 @@ public sealed class PdfFontDescriptor
         return Get(key) is CosNumber number ? number.ToDouble() : 0;
     }
 
-    private CosObject? Get(CosName key) =>
-        Dictionary is not null && Dictionary.TryGetValue(key, out CosObject? value) && _document!.Resolve(value) is not CosNull and var resolved
-            ? resolved
-            : null;
+    private CosObject? Get(CosName key) => Dictionary is null ? null : Resolve(Dictionary, key);
+
+    private CosObject? Resolve(CosDictionary dictionary, CosName key) =>
+        dictionary.TryGetValue(key, out CosObject? value) && _document!.Resolve(value) is not CosNull and var resolved ? resolved : null;
 }

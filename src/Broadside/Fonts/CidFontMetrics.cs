@@ -343,8 +343,65 @@ internal sealed class CidFontMetrics
             }
 
             Sources.Add(descriptor);
+            CheckCidEntries(descriptor);
             IsEmbedded = font.IsEmbeddedIn(descriptor);
             Program = font.GetProgram(descriptor);
+        }
+
+        /// <summary>
+        /// The descriptor entries only CIDFonts have (§9.8.3.1, Table 122): a malformed one is ignored by
+        /// <see cref="PdfFontDescriptor"/>, so it is reported here, once, with every problem found.
+        /// </summary>
+        private void CheckCidEntries(CosDictionary descriptor)
+        {
+            var problems = new List<string>();
+            switch (Entry(descriptor, FontNames.Style))
+            {
+                case null:
+                    break;
+                case CosDictionary style when Entry(style, FontNames.Panose) is null or CosString { Bytes.Length: 12 }:
+                    break;
+                default:
+                    problems.Add("Style is not a dictionary whose Panose is a 12-byte string (§9.8.3.2)");
+                    break;
+            }
+
+            if (Entry(descriptor, FontNames.Lang) is not (null or CosName))
+            {
+                problems.Add("Lang is not a name");
+            }
+
+            switch (Entry(descriptor, FontNames.FD))
+            {
+                case null:
+                    break;
+                case CosDictionary fd:
+                    foreach (KeyValuePair<CosName, CosObject> entry in fd)
+                    {
+                        if (font.Document.Resolve(entry.Value) is not CosDictionary classDescriptor || PdfFontDescriptor.NamesFontFile(classDescriptor))
+                        {
+                            problems.Add($"the FD entry /{entry.Key.Value} is not a font descriptor of metrics only (§9.8.3.3)");
+                        }
+                    }
+
+                    break;
+                default:
+                    problems.Add("FD is not a dictionary");
+                    break;
+            }
+
+            if (Entry(descriptor, FontNames.CidSet) is not (null or CosStream))
+            {
+                problems.Add("CIDSet is not a stream");
+            }
+
+            if (problems.Count > 0)
+            {
+                Report(DiagnosticCodes.FontDescriptorInvalid, $"The CIDFont's font descriptor deviates from ISO 32000-2 §9.8.3, Table 122: {string.Join("; ", problems)}. Those entries are ignored.");
+            }
+
+            CosObject? Entry(CosDictionary dictionary, CosName key) =>
+                dictionary.TryGetValue(key, out CosObject? value) && font.Document.Resolve(value) is not CosNull and var resolved ? resolved : null;
         }
 
         /// <summary><c>CIDToGIDMap</c> (§9.7.4.1, §9.7.4.2): only an embedded CIDFontType2 uses it.</summary>

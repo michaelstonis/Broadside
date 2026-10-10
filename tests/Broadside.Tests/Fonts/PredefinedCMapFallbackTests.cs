@@ -27,7 +27,8 @@ public class PredefinedCMapFallbackTests
         Assert.All(glyphs, glyph => Assert.True(glyph.Code.IsValid));
         Assert.All(glyphs, glyph => Assert.Equal(0, glyph.Cid));
         Assert.Equal(("90ms-RKSJ-H", "Japan1", 2, WritingMode.Horizontal), (font.Encoding.Name, font.Encoding.SystemInfo?.Ordering, font.Encoding.SystemInfo?.Supplement, font.WritingMode));
-        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        // The non-embedded CIDFont also records that no resolver has its program (FontProgramNotFound) once its glyphs are asked for.
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code != "FontProgramNotFound");
         Assert.Equal(("CMapUnavailable", DiagnosticSeverity.Information), (diagnostic.Code, diagnostic.Severity));
         Assert.Contains("90ms-RKSJ-H", diagnostic.Message, StringComparison.Ordinal);
         Assert.Contains("UsePredefinedCMaps()", diagnostic.Message, StringComparison.Ordinal);

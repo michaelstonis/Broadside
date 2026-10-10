@@ -12,46 +12,30 @@ namespace Broadside.Fonts.Resolution;
 /// (3, 0) subtable with the high byte 0xF0). A substitute's program is unrelated to the font's encoding, so names are the common
 /// ground: the code's name from the font's encoding, then the program's own names (a CFF charset, Type 1 CharStrings, TrueType
 /// "post"), its Unicode value in the Unicode subtables, its Mac OS Roman code in the (1, 0) subtable. A symbolic font tries the code
-/// first, through (3, 0) as 0xF000 plus the code and (1, 0) as the code, as PDFBox does for SymbolMT.
+/// first, through (3, 0) with the high bytes of §9.6.5.4 and (1, 0) as the code, as PDFBox does for SymbolMT. Subtables are ranked by
+/// <see cref="CharacterMapSelection"/>, as for embedded programs.
 /// </para>
 /// </remarks>
-internal sealed class SubstituteGlyphSelector
+internal sealed class SubstituteGlyphSelector(SimpleFontMetrics metrics, FontSubstitute substitute)
 {
-    private static readonly (int Platform, int Encoding)[] UnicodeSubtables = [(3, 1), (0, 3), (0, 0), (0, 1), (3, 10), (0, 4)];
-
-    private readonly int[] _glyphs = new int[256];
-    private readonly FontCharacterMap[] _unicode;
-    private readonly FontCharacterMap? _symbol;
-    private readonly FontCharacterMap? _macintosh;
-
-    public SubstituteGlyphSelector(SimpleFontMetrics metrics, FontSubstitute substitute)
-    {
-        Metrics = metrics;
-        Substitute = substitute;
-        Array.Fill(_glyphs, -1);
-        IReadOnlyList<FontCharacterMap> maps = substitute.Program.CharacterMaps;
-        _unicode = [.. UnicodeSubtables.Select(id => Find(maps, id.Platform, id.Encoding)).OfType<FontCharacterMap>()];
-        _symbol = Find(maps, 3, 0);
-        _macintosh = Find(maps, 1, 0);
-    }
+    private readonly GlyphIdCache _glyphs = new();
+    private readonly CharacterMapSelection _maps = substitute.Program.CharacterMapSelection;
 
     /// <summary>Gets the names the selector was built from.</summary>
-    public SimpleFontMetrics Metrics { get; }
+    public SimpleFontMetrics Metrics { get; } = metrics;
 
     /// <summary>Gets the substitute the selector was built for.</summary>
-    public FontSubstitute Substitute { get; }
+    public FontSubstitute Substitute { get; } = substitute;
 
     /// <summary>Gets the glyph id of a code; 0 when the substitute has no glyph for it.</summary>
     public int GetGlyphId(byte code)
     {
-        int cached = _glyphs[code];
-        if (cached >= 0)
+        if (!_glyphs.TryGet(code, out int glyph))
         {
-            return cached;
+            glyph = Select(code);
+            _glyphs.Set(code, glyph);
         }
 
-        int glyph = Select(code);
-        _glyphs[code] = glyph;
         return glyph;
     }
 
@@ -67,18 +51,8 @@ internal sealed class SubstituteGlyphSelector
 
     private int ByCode(byte code)
     {
-        if (_symbol is not null)
-        {
-            foreach (int high in (ReadOnlySpan<int>)[0xF000, 0x0000, 0xF100, 0xF200])
-            {
-                if (_symbol.GetGlyphId(high | code) is var glyph and > 0)
-                {
-                    return glyph;
-                }
-            }
-        }
-
-        return _macintosh?.GetGlyphId(code) ?? 0;
+        int glyph = _maps.GetGlyphIdForSymbolCode(code);
+        return glyph > 0 ? glyph : _maps.GetGlyphIdForMacintoshCode(code);
     }
 
     private int ByName(string name)
@@ -88,46 +62,16 @@ internal sealed class SubstituteGlyphSelector
             return 0;
         }
 
-        FontProgram program = Substitute.Program;
-        if (program.TryGetGlyphId(name, out int glyph) && glyph > 0)
+        if (Substitute.Program.TryGetGlyphId(name, out int glyph) && glyph > 0)
         {
             return glyph;
         }
 
-        if (AdobeGlyphList.TryGetScalar(name, Substitute.IsZapfDingbats, out int scalar))
+        if (AdobeGlyphList.TryGetScalar(name, Substitute.IsZapfDingbats, out int scalar) && _maps.GetGlyphIdForUnicode(scalar, out _) is var byUnicode and > 0)
         {
-            foreach (FontCharacterMap map in _unicode)
-            {
-                if (map.GetGlyphId(scalar) is var byUnicode and > 0)
-                {
-                    return byUnicode;
-                }
-            }
+            return byUnicode;
         }
 
-        if (_macintosh is not null)
-        {
-            ReadOnlySpan<short> macOsRoman = GlyphNameTable.Table(BuiltInEncoding.MacOSRoman);
-            int index = GlyphNameTable.IndexOf(name);
-            if (index >= 0 && macOsRoman.IndexOf((short)index) is var macCode and >= 0 && _macintosh.GetGlyphId(macCode) is var byMac and > 0)
-            {
-                return byMac;
-            }
-        }
-
-        return 0;
-    }
-
-    private static FontCharacterMap? Find(IReadOnlyList<FontCharacterMap> maps, int platform, int encoding)
-    {
-        foreach (FontCharacterMap map in maps)
-        {
-            if (map.PlatformId == platform && map.EncodingId == encoding)
-            {
-                return map;
-            }
-        }
-
-        return null;
+        return Math.Max(0, _maps.GetGlyphIdForMacOSRomanName(name));
     }
 }

@@ -111,26 +111,42 @@ public sealed class PdfType0Font : PdfFont
 
     /// <inheritdoc/>
     /// <remarks>
+    /// <para>
     /// ISO 32000-2 §9.7.4.3: w0 is the CID's width; in vertical writing w1 is its vertical advance and the glyph's horizontal origin
     /// lies at the position vector v from the current point. Word spacing applies only to the single-byte code 32 (§9.3.3).
+    /// </para>
+    /// <para>
+    /// Positioning needs the CID's metrics only, not its glyph: the glyph is not selected here, so a CIDFont's program (or, without
+    /// one, its substitute) is not looked for until a glyph is asked for (<see cref="ReadGlyph"/>), as for simple fonts.
+    /// </para>
     /// </remarks>
     internal override ShownGlyph ReadShownGlyph(ReadOnlySpan<byte> text)
     {
-        CidGlyph glyph = ReadGlyph(text);
-        int length = Math.Max(1, glyph.Code.Length);
-        if (WritingMode != WritingMode.Vertical)
+        Type0FontState state = State;
+        CMap cmap = state.Encoding;
+        CharacterCode code = cmap.ReadCode(text);
+        if (!code.IsValid && code.Length > 0)
         {
-            return new ShownGlyph(glyph.Code.Value, length, glyph.Width / 1000, 0, default, glyph.AppliesWordSpacing);
+            ReportInvalidCode(code);
         }
 
-        CidVerticalMetrics vertical = glyph.VerticalMetrics;
+        int cid = cmap.GetCid(code);
+        int length = Math.Max(1, code.Length);
+        bool wordSpacing = code.Length == 1 && code.Value == 32;
+        double width = state.Descendant is { } descendant ? descendant.Metrics.GetWidth(cid) : 1000;
+        if (WritingMode != WritingMode.Vertical)
+        {
+            return new ShownGlyph(code.Value, length, width / 1000, 0, default, wordSpacing);
+        }
+
+        CidVerticalMetrics vertical = state.Descendant is { } vertically ? vertically.Metrics.GetVerticalMetrics(cid) : new CidVerticalMetrics(-1000, 500, 880);
         return new ShownGlyph(
-            glyph.Code.Value,
+            code.Value,
             length,
-            glyph.Width / 1000,
+            width / 1000,
             vertical.VerticalAdvance / 1000,
             new Graphics.PathPoint(vertical.PositionX / 1000, vertical.PositionY / 1000),
-            glyph.AppliesWordSpacing);
+            wordSpacing);
     }
 
     /// <inheritdoc/>
