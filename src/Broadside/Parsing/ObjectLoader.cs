@@ -383,7 +383,7 @@ internal sealed class ObjectLoader
         lexer.SkipWhitespaceAndComments();
         int bodyStart = lexer.Position;
         var repairs = new CosRepairLog(keepAll: true);
-        var parser = new CosParser(window, repairs, bodyStart, new LengthResolver(this, context), new StreamDataFactory(_source, context.Offset));
+        var parser = new CosParser(window, repairs, bodyStart, new StreamLengthResolver(this, context), new StreamDataFactory(_source, context.Offset));
         CosObject value = parser.ParseObject();
         int bodyEnd = parser.Position;
         lexer.Position = parser.Position;
@@ -422,11 +422,5 @@ internal sealed class ObjectLoader
     private sealed class StreamDataFactory(PdfSource source, long windowOffset) : IStreamDataFactory
     {
         public CosStream CreateStream(CosDictionary dictionary, int start, int length) => source.CreateStream(dictionary, windowOffset + start, length);
-    }
-
-    /// <summary>Adapts hook 1 to the parser's resolver contract for one object load.</summary>
-    private sealed class LengthResolver(ObjectLoader loader, ObjectLoadContext context) : IStreamLengthResolver
-    {
-        public long? ResolveLength(CosObject lengthEntry) => loader.Hooks.StreamExtent.ResolveLength(lengthEntry, loader, context);
     }
 }

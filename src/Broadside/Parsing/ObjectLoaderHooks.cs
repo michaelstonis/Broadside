@@ -25,20 +25,6 @@ internal enum ObjectOrigin : byte
 internal readonly record struct ObjectLoadContext(CosReference Reference, long Offset, ObjectOrigin Origin, int Depth);
 
 /// <summary>
-/// Hook 1 of the object loader: resolves a stream's <c>Length</c> so the parser can find the end of the data (§7.3.8.2). Runs during
-/// parsing. A <c>null</c> result makes the parser recover the extent from <c>endstream</c> with a diagnostic (issue #41).
-/// </summary>
-internal interface IStreamExtentResolver
-{
-    /// <summary>Returns the byte count a stream's <c>Length</c> entry stands for, or <see langword="null"/> when unknown.</summary>
-    /// <param name="lengthEntry">The <c>Length</c> entry as stored, a direct integer or an indirect reference.</param>
-    /// <param name="loader">The loader, to resolve a reference with.</param>
-    /// <param name="context">The stream object being loaded.</param>
-    /// <returns>The length, or <see langword="null"/>.</returns>
-    long? ResolveLength(CosObject lengthEntry, ObjectLoader loader, in ObjectLoadContext context);
-}
-
-/// <summary>
 /// Hook 2 of the object loader: decrypts the strings and stream data of a freshly parsed object (§7.6). Runs after parsing and before
 /// the object is published to the cache. Issue #42 supplies the security-handler implementation; until a file's <c>Encrypt</c>
 /// dictionary has been read the loader uses <see cref="NullObjectDecryptor"/>.
@@ -96,21 +82,21 @@ internal interface IObjectCache
 }
 
 /// <summary>
-/// The default <see cref="IStreamExtentResolver"/>: a direct integer, or an indirect reference loaded through the loader. A
-/// <c>Length</c> that refers, directly or through other streams' lengths, to a stream whose length is being resolved on this thread
-/// is unknown, so the parser recovers the extent from <c>endstream</c> with a diagnostic instead of looping (issue #41).
+/// Hook 1 of the object loader, the parser's <see cref="IStreamLengthResolver"/> for one object load: resolves a stream's
+/// <c>Length</c> so the parser can find the end of the data (§7.3.8.2), a direct integer or an indirect reference loaded through the
+/// loader. A <c>Length</c> that refers, directly or through other streams' lengths, to a stream whose length is being resolved on
+/// this thread is unknown, so the parser recovers the extent from <c>endstream</c> with a diagnostic instead of looping (issue #41).
 /// </summary>
-internal sealed class DefaultStreamExtentResolver : IStreamExtentResolver
+/// <param name="loader">The loader, to resolve a reference with.</param>
+/// <param name="context">The stream object being loaded.</param>
+internal sealed class StreamLengthResolver(ObjectLoader loader, ObjectLoadContext context) : IStreamLengthResolver
 {
     /// <summary>The streams whose <c>Length</c> this thread is resolving, across loaders.</summary>
     [ThreadStatic]
     private static List<(ObjectLoader Loader, CosReference Stream)>? _resolving;
 
-    /// <summary>Gets the shared instance; it holds no state.</summary>
-    public static DefaultStreamExtentResolver Instance { get; } = new();
-
     /// <inheritdoc/>
-    public long? ResolveLength(CosObject lengthEntry, ObjectLoader loader, in ObjectLoadContext context)
+    public long? ResolveLength(CosObject lengthEntry)
     {
         if (lengthEntry is not CosReference reference)
         {
@@ -171,14 +157,12 @@ internal sealed class ObjectCache : IObjectCache
 
 /// <summary>
 /// The hooks of one document's <see cref="ObjectLoader"/>, which runs them in a fixed order for every object: stream extent (during
-/// parsing), then decryption, then cache publication. Later issues implement a hook; they do not restructure the loader.
+/// parsing, <see cref="StreamLengthResolver"/>), then decryption, then cache publication. Later issues implement a hook; they do not
+/// restructure the loader.
 /// </summary>
 internal sealed class ObjectLoaderHooks
 {
     private volatile IObjectDecryptor _decryptor = NullObjectDecryptor.Instance;
-
-    /// <summary>Gets hook 1, stream extent resolution.</summary>
-    public IStreamExtentResolver StreamExtent { get; init; } = DefaultStreamExtentResolver.Instance;
 
     /// <summary>
     /// Gets or sets hook 2, decryption (issue #42). Set once during open, after the <c>Encrypt</c> dictionary is read and before the
