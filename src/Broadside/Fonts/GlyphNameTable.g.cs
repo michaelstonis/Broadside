@@ -18,7 +18,7 @@
 namespace Broadside.Fonts;
 
 /// <summary>Glyph names the built-in encodings and the Standard 14 metrics use, and the built-in encodings as name indexes.</summary>
-/// <remarks>ISO 32000-2 Annex D (Tables D.2, D.4, D.5, D.6) and §9.6.5.4 Table 113.</remarks>
+/// <remarks>ISO 32000-2 Annex D (Tables D.2, D.4, D.5, D.6) and §9.6.5.4 Table 113; PostScript Language Reference Appendix E.7 (ISOLatin1Encoding).</remarks>
 internal static partial class GlyphNameTable
 {
     /// <summary>Every glyph name, in ordinal order.</summary>
@@ -234,5 +234,23 @@ internal static partial class GlyphNameTable
         526, 698, 699, 700, 701, 503, 607, 792, 192, 558, 60, 570, 571, 545, 552, 496, 676, 702, 697, 680, 6, 46, 3,
         48, 51, 73, 75, 77, 81, 116, 118, 420, 123, 167, 169, 173, 509, 481, 761, 611, 463, 508, 716, 473, 574, 637,
         469,
+    ];
+
+    /// <summary>ISOLatin1Encoding: for each code, the index of its glyph name in <see cref="Names"/>, or -1.</summary>
+    internal static ReadOnlySpan<short> ISOLatin1Encoding => ISOLatin1EncodingData;
+
+    private static readonly short[] ISOLatin1EncodingData =
+    [
+        -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        -1, -1, -1, -1, 740, 536, 696, 631, 504, 674, 414, 701, 661, 667, 437, 684, 485, 612, 675, 739, 798, 644, 766,
+        754, 554, 547, 735, 727, 519, 621, 483, 726, 602, 531, 566, 692, 440, 0, 21, 25, 35, 42, 61, 63, 69, 72, 87,
+        89, 93, 101, 105, 113, 134, 139, 141, 149, 157, 166, 182, 184, 186, 189, 195, 455, 443, 459, 435, 779, 700,
+        202, 442, 467, 494, 512, 541, 559, 572, 578, 593, 594, 597, 610, 617, 632, 659, 691, 704, 719, 746, 772, 785,
+        786, 788, 790, 794, 447, 444, 451, 436, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
+        509, 565, 407, 481, 761, 611, 463, 508, 502, -1, 716, 473, -1, 574, 637, 469, 740, 537, 474, 743, 493, 793,
+        464, 725, 502, 490, 654, 568, 605, 575, 712, 611, 499, 685, 770, 760, 407, 615, 660, 676, 473, 652, 655, 569,
+        651, 648, 758, 693, 11, 3, 6, 19, 9, 16, 1, 29, 51, 43, 46, 48, 81, 73, 75, 77, 58, 110, 123, 116, 118, 132,
+        120, 616, 129, 173, 167, 169, 171, 190, 162, 563, 410, 404, 406, 441, 408, 422, 409, 472, 518, 513, 515, 516,
+        582, 579, 580, 581, 535, 629, 638, 633, 634, 658, 635, 503, 656, 776, 773, 774, 775, 791, 753, 792,
     ];
 }

@@ -264,7 +264,7 @@ def main() -> int:
     lines = header([AFM_NOTICE])
     lines += [
         "/// <summary>Glyph names the built-in encodings and the Standard 14 metrics use, and the built-in encodings as name indexes.</summary>",
-        "/// <remarks>ISO 32000-2 Annex D (Tables D.2, D.4, D.5, D.6) and §9.6.5.4 Table 113.</remarks>",
+        "/// <remarks>ISO 32000-2 Annex D (Tables D.2, D.4, D.5, D.6) and §9.6.5.4 Table 113; PostScript Language Reference Appendix E.7 (ISOLatin1Encoding).</remarks>",
         "internal static partial class GlyphNameTable",
         "{",
         "    /// <summary>Every glyph name, in ordinal order.</summary>",
@@ -274,7 +274,7 @@ def main() -> int:
     lines += wrap([cs_string(n) for n in names], "        ")
     lines += ["    ];", ""]
     order = ["StandardEncoding", "WinAnsiEncoding", "MacRomanEncoding", "MacExpertEncoding", "SymbolEncoding",
-             "ZapfDingbatsEncoding", "MacOSRomanEncoding"]
+             "ZapfDingbatsEncoding", "MacOSRomanEncoding", "ISOLatin1Encoding"]
     for label in order:
         table = encodings[label]
         lines += span(label, "short", [index[n] if n else -1 for n in table],

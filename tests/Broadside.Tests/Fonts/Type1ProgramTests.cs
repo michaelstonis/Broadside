@@ -151,6 +151,22 @@ public class Type1ProgramTests
     }
 
     [Fact]
+    public void ISOLatin1Encoding_by_name_is_the_PostScript_encoding_vector()
+    {
+        // PostScript Language Reference (3rd ed.) Appendix E.7, with the names of E.5: 047 quoteright, 055 minus, 140 quoteleft,
+        // 221 grave and 264 acute (accents duplicated in 220-237), 240 space, 255 hyphen, 351 eacute; 200 is unused.
+        Type1Builder builder = Builder().Glyph("C", C);
+        builder.Encoding = "ISOLatin1Encoding def\n";
+        var context = new FontProgramContext();
+        IReadOnlyList<string> encoding = Parse(builder, context).BuiltInEncoding!;
+
+        Assert.Equal(
+            ["quoteright", "minus", "quoteleft", "grave", "acute", "space", "hyphen", "eacute", ".notdef"],
+            [encoding[0x27], encoding[0x2D], encoding[0x60], encoding[0x91], encoding[0xB4], encoding[0xA0], encoding[0xAD], encoding[0xE9], encoding[0x80]]);
+        Assert.Empty(context.Diagnostics);
+    }
+
+    [Fact]
     public void StandardEncoding_by_name_and_an_unusable_FontMatrix_fall_back_to_the_defaults()
     {
         Type1Builder builder = Builder().Glyph("C", C);

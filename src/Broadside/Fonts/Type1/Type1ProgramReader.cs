@@ -310,26 +310,33 @@ internal sealed class Type1ProgramReader
     }
 
     /// <summary>
-    /// Type 1 Font Format §2.3 and §10.3: <c>StandardEncoding</c>, or an array filled by <c>dup code /name put</c> entries up to
-    /// <c>def</c> (the <c>for</c> loop that fills it with <c>.notdef</c> is skipped).
+    /// Type 1 Font Format §2.3 and §10.3: <c>StandardEncoding</c> or <c>ISOLatin1Encoding</c> (PostScript Language Reference
+    /// Appendix E.7) by name, or an array filled by <c>dup code /name put</c> entries up to <c>def</c> (the <c>for</c> loop that
+    /// fills it with <c>.notdef</c> is skipped).
     /// </summary>
     private void ReadEncoding(ref PostScriptTokenizer tokenizer)
     {
         PostScriptToken first = tokenizer.Next();
         if (first.Kind == PostScriptTokenKind.Name)
         {
-            if (!tokenizer.Text(first).SequenceEqual("StandardEncoding"u8))
+            ReadOnlySpan<byte> name = tokenizer.Text(first);
+            BuiltInEncoding named = BuiltInEncoding.Standard;
+            if (name.SequenceEqual("ISOLatin1Encoding"u8))
+            {
+                named = BuiltInEncoding.ISOLatin1;
+            }
+            else if (!name.SequenceEqual("StandardEncoding"u8))
             {
                 _context.Report(
                     DiagnosticCodes.FontType1EncodingInvalid,
                     DiagnosticSeverity.Information,
-                    $"The Type 1 program's Encoding is the named encoding {NameOf(tokenizer.Text(first))}, which is not read; StandardEncoding is used.");
+                    $"The Type 1 program's Encoding is the named encoding {NameOf(name)}, which is not read; StandardEncoding is used.");
             }
 
-            ReadOnlySpan<short> standard = GlyphNameTable.Table(BuiltInEncoding.Standard);
+            ReadOnlySpan<short> table = GlyphNameTable.Table(named);
             for (int code = 0; code < 256; code++)
             {
-                Encoding[code] = standard[code] >= 0 ? GlyphNameTable.Names[standard[code]] : GlyphNameTable.NotDef;
+                Encoding[code] = table[code] >= 0 ? GlyphNameTable.Names[table[code]] : GlyphNameTable.NotDef;
             }
 
             return;

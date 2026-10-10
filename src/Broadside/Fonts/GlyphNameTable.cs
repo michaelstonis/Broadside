@@ -23,6 +23,7 @@ internal static partial class GlyphNameTable
         BuiltInEncoding.Symbol => SymbolEncoding,
         BuiltInEncoding.ZapfDingbats => ZapfDingbatsEncoding,
         BuiltInEncoding.MacOSRoman => MacOSRomanEncoding,
+        BuiltInEncoding.ISOLatin1 => ISOLatin1Encoding,
         _ => throw new ArgumentOutOfRangeException(nameof(encoding)),
     };
 
@@ -57,4 +58,10 @@ internal enum BuiltInEncoding : byte
 
     /// <summary>Mac OS Roman: MacRomanEncoding with the §9.6.5.4 Table 113 additions, for TrueType "cmap" (1, 0) lookups.</summary>
     MacOSRoman,
+
+    /// <summary>
+    /// ISOLatin1Encoding (PostScript Language Reference, Appendix E.7): not a PDF encoding, but one a Type 1 program may name as its
+    /// built-in encoding (Type 1 Font Format §2.3).
+    /// </summary>
+    ISOLatin1,
 }
