@@ -13,8 +13,8 @@ pages: 1831
 appearance streams: 1381
 concurrent passes: 63
 page events:
-  Runs: 1830
-  Operators: 2127190
+  Runs: 1831
+  Operators: 2127195
   UnknownOperators: 158
   StateSaves: 115961
   PathVerbs: 996692
