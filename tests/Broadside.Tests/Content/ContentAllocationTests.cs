@@ -126,15 +126,14 @@ public class ContentAllocationTests
             ContentPdf.Stream("0 0 10 10 re f", "/Type /XObject /Subtype /Form /BBox [0 0 100 100]")));
         PdfPage page = document.Pages[0];
         var processor = new Type3Counter();
-        for (int pass = 0; pass < WarmUp; pass++)
-        {
-            page.ProcessContent(processor);
-        }
 
-        processor.Paints = 0;
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        page.ProcessContent(processor);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = Allocations.Measure(
+            () =>
+            {
+                processor.Paints = 0;
+                page.ProcessContent(processor);
+            },
+            WarmUp);
 
         Assert.Equal(6_000, processor.Paints);
         Assert.Equal(0, allocated);
