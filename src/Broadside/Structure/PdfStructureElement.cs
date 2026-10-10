@@ -50,7 +50,7 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
 
     /// <summary>Gets the structure type (<c>S</c>), or <see langword="null"/> when the element has none.</summary>
     /// <remarks>ISO 32000-2 §14.7.3, Table 355 (required).</remarks>
-    public CosName? StructureType => StructureValues.Name(_context.Document, Dictionary, StructureNames.S);
+    public CosName? StructureType => ViewReading.Name(_context.Document, Dictionary, StructureNames.S);
 
     /// <summary>
     /// Gets the namespace the element is in: its <c>NS</c> namespace dictionary, or <see cref="PdfStructureNamespace.Pdf17"/>, the
@@ -112,15 +112,15 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
 
     /// <summary>Gets the element identifier (<c>ID</c>), a byte string unique in the document, or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 355; looked up through <see cref="PdfStructureTreeRoot.FindElementById(ReadOnlySpan{byte})"/>.</remarks>
-    public CosString? Id => StructureValues.Get(_context.Document, Dictionary, StructureNames.ID) as CosString;
+    public CosString? Id => ViewReading.Get(_context.Document, Dictionary, StructureNames.ID) as CosString;
 
     /// <summary>Gets the title (<c>T</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 355.</remarks>
-    public string? Title => StructureValues.Text(_context.Document, Dictionary, StructureNames.T);
+    public string? Title => ViewReading.Text(_context.Document, Dictionary, StructureNames.T);
 
     /// <summary>Gets the element's own natural language (<c>Lang</c>, a BCP 47 tag), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 355 (PDF 1.4), §14.9.2.</remarks>
-    public string? Language => StructureValues.Text(_context.Document, Dictionary, StructureNames.Lang);
+    public string? Language => ViewReading.Text(_context.Document, Dictionary, StructureNames.Lang);
 
     /// <summary>Gets the natural language in effect: <see cref="Language"/>, else the nearest ancestor's, else the catalog's <c>Lang</c>; <see langword="null"/> when none says.</summary>
     /// <remarks>ISO 32000-2 §14.9.2.3: a language specification applies to the element and everything nested in it.</remarks>
@@ -136,25 +136,25 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
                 }
             }
 
-            return StructureValues.Text(_context.Document, _context.Document.Catalog, StructureNames.Lang);
+            return ViewReading.Text(_context.Document, _context.Document.Catalog, StructureNames.Lang);
         }
     }
 
     /// <summary>Gets the alternate description (<c>Alt</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 355, §14.9.3.</remarks>
-    public string? AlternateDescription => StructureValues.Text(_context.Document, Dictionary, StructureNames.Alt);
+    public string? AlternateDescription => ViewReading.Text(_context.Document, Dictionary, StructureNames.Alt);
 
     /// <summary>Gets the expansion of an abbreviation or acronym (<c>E</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 355 (PDF 1.5), §14.9.5.</remarks>
-    public string? Expansion => StructureValues.Text(_context.Document, Dictionary, StructureNames.E);
+    public string? Expansion => ViewReading.Text(_context.Document, Dictionary, StructureNames.E);
 
     /// <summary>Gets the replacement text (<c>ActualText</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 355 (PDF 1.4), §14.9.4.</remarks>
-    public string? ActualText => StructureValues.Text(_context.Document, Dictionary, StructureNames.ActualText);
+    public string? ActualText => ViewReading.Text(_context.Document, Dictionary, StructureNames.ActualText);
 
     /// <summary>Gets the element's revision number (<c>R</c>); 0 when absent.</summary>
     /// <remarks>ISO 32000-2 Table 355, §14.7.6.3 (deprecated in PDF 2.0).</remarks>
-    public int Revision => StructureValues.Integer(_context.Document, Dictionary, StructureNames.R) is { } revision and >= 0 ? revision : 0;
+    public int Revision => ViewReading.Int32(_context.Document, Dictionary, StructureNames.R) is { } revision and >= 0 ? revision : 0;
 
     /// <summary>Gets the phonetic alphabet in effect for <see cref="Phoneme"/>: the element's <c>PhoneticAlphabet</c>, else the nearest ancestor's, else <c>ipa</c>.</summary>
     /// <remarks>ISO 32000-2 Table 355 (PDF 2.0), §14.9.6.</remarks>
@@ -164,7 +164,7 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
         {
             for (PdfStructureElement? element = this; element is not null; element = element.Parent)
             {
-                if (StructureValues.Name(_context.Document, element.Dictionary, StructureNames.PhoneticAlphabet) is { } alphabet)
+                if (ViewReading.Name(_context.Document, element.Dictionary, StructureNames.PhoneticAlphabet) is { } alphabet)
                 {
                     return alphabet.Value;
                 }
@@ -176,7 +176,7 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
 
     /// <summary>Gets the pronunciation hint (<c>Phoneme</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 355 (PDF 2.0), §14.9.6.</remarks>
-    public string? Phoneme => StructureValues.Text(_context.Document, Dictionary, StructureNames.Phoneme);
+    public string? Phoneme => ViewReading.Text(_context.Document, Dictionary, StructureNames.Phoneme);
 
     /// <summary>Gets the page named by the element's own <c>Pg</c>, or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 355. Content items carry their effective page (<see cref="PdfMarkedContentReference.Page"/>).</remarks>
@@ -188,7 +188,7 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
     {
         get
         {
-            if (StructureValues.Get(_context.Document, Dictionary, StructureNames.Ref) is not CosArray array)
+            if (ViewReading.Get(_context.Document, Dictionary, StructureNames.Ref) is not CosArray array)
             {
                 return [];
             }
@@ -339,8 +339,8 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
     internal PdfMarkedContentReference CreateMarkedContent(Kid kid)
     {
         CosDictionary? mcr = kid.Dictionary;
-        CosStream? stream = mcr is null ? null : StructureValues.Get(_context.Document, mcr, StructureNames.Stm) as CosStream;
-        CosObject? owner = mcr is null ? null : StructureValues.Get(_context.Document, mcr, StructureNames.StmOwn);
+        CosStream? stream = mcr is null ? null : ViewReading.Get(_context.Document, mcr, StructureNames.Stm) as CosStream;
+        CosObject? owner = mcr is null ? null : ViewReading.Get(_context.Document, mcr, StructureNames.StmOwn);
         CosDictionary? pageObject = EffectivePage(mcr, kid.Mcid, reportMissing: stream is null);
         PdfPage? page = pageObject is not null && _context.Document.Pages.TryGetPage(pageObject, out PdfPage? found) ? found : null;
         return new PdfMarkedContentReference(this, mcr, kid.Mcid, page, pageObject, stream, owner);
@@ -352,9 +352,9 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
         CosDictionary objr = kid.Dictionary!;
         objr.TryGetValue(StructureNames.Obj, out CosObject? target);
         CosObject referenced = _context.Resolve(target);
-        CosDictionary? pageObject = StructureValues.Get(_context.Document, objr, StructureNames.Pg) as CosDictionary
-            ?? StructureValues.Get(_context.Document, Dictionary, StructureNames.Pg) as CosDictionary
-            ?? (referenced is CosDictionary annotation ? StructureValues.Get(_context.Document, annotation, StructureNames.P) as CosDictionary : null);
+        CosDictionary? pageObject = ViewReading.Get(_context.Document, objr, StructureNames.Pg) as CosDictionary
+            ?? ViewReading.Get(_context.Document, Dictionary, StructureNames.Pg) as CosDictionary
+            ?? (referenced is CosDictionary annotation ? ViewReading.Get(_context.Document, annotation, StructureNames.P) as CosDictionary : null);
         PdfPage? page = pageObject is not null && _context.Document.Pages.TryGetPage(pageObject, out PdfPage? found) ? found : null;
         return new PdfObjectReference(this, objr, referenced, target as CosReference, page);
     }
@@ -366,19 +366,19 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
     /// </summary>
     internal CosDictionary? EffectivePage(CosDictionary? item, int mcid, bool reportMissing)
     {
-        if (item is not null && StructureValues.Get(_context.Document, item, StructureNames.Pg) is CosDictionary itemPage)
+        if (item is not null && ViewReading.Get(_context.Document, item, StructureNames.Pg) is CosDictionary itemPage)
         {
             return itemPage;
         }
 
-        if (StructureValues.Get(_context.Document, Dictionary, StructureNames.Pg) is CosDictionary ownPage)
+        if (ViewReading.Get(_context.Document, Dictionary, StructureNames.Pg) is CosDictionary ownPage)
         {
             return ownPage;
         }
 
         for (PdfStructureElement? ancestor = Parent; ancestor is not null; ancestor = ancestor.Parent)
         {
-            if (StructureValues.Get(_context.Document, ancestor.Dictionary, StructureNames.Pg) is CosDictionary inherited)
+            if (ViewReading.Get(_context.Document, ancestor.Dictionary, StructureNames.Pg) is CosDictionary inherited)
             {
                 _context.Report(DiagnosticCodes.StructElemPageMissing, "A structure element holds MCIDs but has no Pg (Table 355); the nearest ancestor's page is used.", Reference);
                 return inherited;

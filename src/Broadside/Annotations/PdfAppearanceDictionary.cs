@@ -35,9 +35,11 @@ public sealed class PdfAppearanceDictionary
     public PdfAppearanceEntry? Down => Dictionary.ContainsKey(AnnotationNames.D) ? Read(AnnotationNames.D, required: false) : Normal;
 
     /// <summary>Gets a value indicating whether the dictionary has its own rollover entry (<c>R</c>).</summary>
+    /// <remarks>ISO 32000-2 §12.5.5, Table 170 (<c>R</c>, optional; when absent the normal appearance is used).</remarks>
     public bool HasRollover => Dictionary.ContainsKey(AnnotationNames.R);
 
     /// <summary>Gets a value indicating whether the dictionary has its own down entry (<c>D</c>).</summary>
+    /// <remarks>ISO 32000-2 §12.5.5, Table 170 (<c>D</c>, optional; when absent the normal appearance is used).</remarks>
     public bool HasDown => Dictionary.ContainsKey(AnnotationNames.D);
 
     /// <summary>Returns the entry for <paramref name="mode"/>, with the defaults of <see cref="Rollover"/> and <see cref="Down"/>.</summary>

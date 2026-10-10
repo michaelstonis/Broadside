@@ -121,7 +121,7 @@ internal sealed class StructureWalk
             context.Report(DiagnosticCodes.StructElemParentMismatch, "A structure element's P is not the element (or root) whose K holds it (Table 355); the K hierarchy is used.", where);
         }
 
-        if (StructureValues.Get(context.Document, dictionary, StructureNames.ID) is CosString id)
+        if (ViewReading.Get(context.Document, dictionary, StructureNames.ID) is CosString id)
         {
             if (!_ids.TryAdd(Encoding.Latin1.GetString(id.Bytes), element))
             {

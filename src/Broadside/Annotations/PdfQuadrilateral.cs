@@ -16,6 +16,7 @@ public readonly struct PdfQuadrilateral : IEquatable<PdfQuadrilateral>
     /// <param name="point2">The second point, (x2, y2).</param>
     /// <param name="point3">The third point, (x3, y3).</param>
     /// <param name="point4">The fourth point, (x4, y4).</param>
+    /// <remarks>ISO 32000-2 §12.5.6.10, Table 182 (<c>QuadPoints</c>): eight numbers per quadrilateral, in default user space.</remarks>
     public PdfQuadrilateral(PathPoint point1, PathPoint point2, PathPoint point3, PathPoint point4)
     {
         Point1 = point1;
@@ -24,19 +25,24 @@ public readonly struct PdfQuadrilateral : IEquatable<PdfQuadrilateral>
         Point4 = point4;
     }
 
-    /// <summary>Gets the first point.</summary>
+    /// <summary>Gets the first point, (x1, y1).</summary>
+    /// <remarks>ISO 32000-2 §12.5.6.10, Table 182 (<c>QuadPoints</c>): eight numbers per quadrilateral, in default user space.</remarks>
     public PathPoint Point1 { get; }
 
-    /// <summary>Gets the second point.</summary>
+    /// <summary>Gets the second point, (x2, y2).</summary>
+    /// <remarks>ISO 32000-2 §12.5.6.10, Table 182 (<c>QuadPoints</c>): eight numbers per quadrilateral, in default user space.</remarks>
     public PathPoint Point2 { get; }
 
-    /// <summary>Gets the third point.</summary>
+    /// <summary>Gets the third point, (x3, y3).</summary>
+    /// <remarks>ISO 32000-2 §12.5.6.10, Table 182 (<c>QuadPoints</c>): eight numbers per quadrilateral, in default user space.</remarks>
     public PathPoint Point3 { get; }
 
-    /// <summary>Gets the fourth point.</summary>
+    /// <summary>Gets the fourth point, (x4, y4).</summary>
+    /// <remarks>ISO 32000-2 §12.5.6.10, Table 182 (<c>QuadPoints</c>): eight numbers per quadrilateral, in default user space.</remarks>
     public PathPoint Point4 { get; }
 
     /// <summary>Gets the smallest upright rectangle containing the four points.</summary>
+    /// <remarks>ISO 32000-2 §12.5.6.10, Table 182: the points need not lie inside the annotation's <c>Rect</c>.</remarks>
     public PdfRectangle Bounds => new(
         Math.Min(Math.Min(Point1.X, Point2.X), Math.Min(Point3.X, Point4.X)),
         Math.Min(Math.Min(Point1.Y, Point2.Y), Math.Min(Point3.Y, Point4.Y)),

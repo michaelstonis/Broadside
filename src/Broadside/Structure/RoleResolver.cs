@@ -40,7 +40,7 @@ internal static class RoleResolver
             }
 
             CosDictionary? map = current.Dictionary is null
-                ? current.IsDefault ? StructureValues.Get(context.Document, context.Root, StructureNames.RoleMap) as CosDictionary : null
+                ? current.IsDefault ? ViewReading.Get(context.Document, context.Root, StructureNames.RoleMap) as CosDictionary : null
                 : current.RoleMap;
             if (map is null || !map.TryGetValue(currentName, out CosObject? mapped))
             {

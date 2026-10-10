@@ -30,7 +30,7 @@ public class OutlineTests
             Assert.False(item.IsOpen);
             Assert.Empty(item.Children);
             Assert.Equal(PdfRgbColor.Black, item.Color);
-            Assert.Equal(0, item.Flags);
+            Assert.Equal(PdfOutlineItemFlags.None, item.Flags);
             Assert.False(item.IsBold || item.IsItalic);
             Assert.Null(item.Action);
             Assert.Null(item.StructureElement);
@@ -81,7 +81,7 @@ public class OutlineTests
 
         PdfOutlineItem chapter3 = parts[1].Children[0];
         Assert.Equal(new PdfRgbColor(1, 0, 0), chapter3.Color);
-        Assert.Equal(3, chapter3.Flags);
+        Assert.Equal(PdfOutlineItemFlags.Italic | PdfOutlineItemFlags.Bold, chapter3.Flags);
         Assert.True(chapter3.IsBold && chapter3.IsItalic);
         PdfGoToAction goTo = Assert.IsType<PdfGoToAction>(chapter3.Action);
         Assert.Null(goTo.StructureDestination);
@@ -176,9 +176,9 @@ public class OutlineTests
         IReadOnlyList<PdfOutlineItem> items = document.Outline!.Items;
 
         Assert.Equal(new PdfRgbColor(1, 0.5, 0), items[0].Color);
-        Assert.Equal(7, items[0].Flags); // bits other than 1 and 2 are kept as stored
+        Assert.Equal((PdfOutlineItemFlags)7, items[0].Flags); // bits other than 1 and 2 are kept as stored
         Assert.Equal(PdfRgbColor.Black, items[1].Color);
-        Assert.Equal(0, items[1].Flags);
+        Assert.Equal(PdfOutlineItemFlags.None, items[1].Flags);
         Assert.Null(items[2].Destination);
         Assert.Equal("https://example.org/", Assert.IsType<PdfUriAction>(items[2].Action).Uri);
         PdfNamedDestination missing = Assert.IsType<PdfNamedDestination>(items[3].Destination);

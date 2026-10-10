@@ -31,7 +31,7 @@ internal sealed class MarkedContentIndex
     public static MarkedContentIndex Build(StructureContext context, CosObject owner)
     {
         CosDictionary? ownerDictionary = owner as CosDictionary ?? (owner as CosStream)?.Dictionary;
-        int? key = ownerDictionary is null ? null : StructureValues.Integer(context.Document, ownerDictionary, StructureNames.StructParents);
+        int? key = ownerDictionary is null ? null : ViewReading.Int32(context.Document, ownerDictionary, StructureNames.StructParents);
         if (context.ParentTree is not { } tree)
         {
             StructureWalk walk = context.Walk;

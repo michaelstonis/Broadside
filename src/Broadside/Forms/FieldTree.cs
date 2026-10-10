@@ -1,3 +1,4 @@
+using Broadside.Caching;
 using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -20,7 +21,7 @@ internal sealed class FieldTree
     /// <summary>The deepest nesting of field dictionaries read; deeper ones are cut with a diagnostic.</summary>
     public const int MaxDepth = 256;
 
-    private readonly List<(CosObject Container, int Version)> _tracked = [];
+    private readonly ContainerStamps _tracked = new();
     private readonly CosObject? _fieldsEntry;
     private readonly Dictionary<CosDictionary, FieldTree> _orphans = new(ReferenceEqualityComparer.Instance);
 
@@ -42,8 +43,7 @@ internal sealed class FieldTree
     public Dictionary<CosDictionary, PdfTerminalField> ByWidget { get; } = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>The entry, resolved; <see langword="null"/> when absent or a reference to nothing.</summary>
-    public static CosObject? Get(PdfDocument document, CosDictionary dictionary, CosName key) =>
-        dictionary.TryGetValue(key, out CosObject? value) && document.Resolve(value) is not CosNull and var resolved ? resolved : null;
+    public static CosObject? Get(PdfDocument document, CosDictionary dictionary, CosName key) => EntryReader.Get(document, dictionary, key);
 
     /// <summary>Builds the tree of <paramref name="form"/> from its <c>Fields</c> array.</summary>
     public static FieldTree Build(PdfAcroForm form)
@@ -78,26 +78,7 @@ internal sealed class FieldTree
     public bool IsCurrent(CosDictionary acroForm)
     {
         acroForm.TryGetValue(FormNames.Fields, out CosObject? entry);
-        if (!ReferenceEquals(entry, _fieldsEntry))
-        {
-            return false;
-        }
-
-        foreach ((CosObject container, int version) in _tracked)
-        {
-            int now = container switch
-            {
-                CosDictionary dictionary => dictionary.Version,
-                CosArray array => array.Version,
-                _ => version,
-            };
-            if (now != version)
-            {
-                return false;
-            }
-        }
-
-        return true;
+        return ReferenceEquals(entry, _fieldsEntry) && _tracked.IsCurrent;
     }
 
     /// <summary>
@@ -149,7 +130,7 @@ internal sealed class FieldTree
 
         lock (_orphans)
         {
-            if (!_orphans.TryGetValue(top, out FieldTree? orphan))
+            if (!_orphans.TryGetValue(top, out FieldTree? orphan) || !orphan._tracked.IsCurrent)
             {
                 orphan = new FieldTree(fieldsEntry: null);
                 var builder = new Builder(form, orphan);
@@ -162,12 +143,7 @@ internal sealed class FieldTree
         }
     }
 
-    private void Track(CosObject container) => _tracked.Add((container, container switch
-    {
-        CosDictionary dictionary => dictionary.Version,
-        CosArray array => array.Version,
-        _ => 0,
-    }));
+    private void Track(CosObject container) => _tracked.Add(container);
 
     /// <summary>A dictionary waiting to be read as a field: how it was reached, under which field, through which unnamed levels.</summary>
     private readonly record struct Pending(CosObject Element, CosDictionary Dictionary, PdfNonTerminalField? Parent, CosDictionary[] Intermediates, int Depth);
@@ -459,12 +435,12 @@ internal sealed class FieldTree
         {
             CosName? type = Inherited(info, FormNames.FT) as CosName;
             CosObject? flagsValue = Inherited(info, FormNames.Ff);
-            uint flags = flagsValue is CosNumber number && double.IsFinite(number.ToDouble()) ? (uint)(long)number.ToDouble() : 0;
+            var flags = (PdfFieldFlags)(int)(flagsValue is CosNumber number && double.IsFinite(number.ToDouble()) ? (uint)(long)number.ToDouble() : 0);
             switch (type?.Value)
             {
                 case "Btn":
-                    bool push = (flags & (1u << 16)) != 0;
-                    bool radio = (flags & (1u << 15)) != 0;
+                    bool push = (flags & PdfFieldFlags.Pushbutton) != 0;
+                    bool radio = (flags & PdfFieldFlags.Radio) != 0;
                     PdfTerminalField button = push
                         ? new PdfPushButtonField(info, widgets)
                         : radio ? new PdfRadioButtonField(info, widgets) : new PdfCheckBoxField(info, widgets);
@@ -477,7 +453,7 @@ internal sealed class FieldTree
                 case "Tx":
                     return new PdfTextField(info, widgets);
                 case "Ch":
-                    return (flags & (1u << 17)) != 0 ? new PdfComboBoxField(info, widgets) : new PdfListBoxField(info, widgets);
+                    return (flags & PdfFieldFlags.Combo) != 0 ? new PdfComboBoxField(info, widgets) : new PdfListBoxField(info, widgets);
                 case "Sig":
                     return new PdfSignatureField(info, widgets);
                 default:
@@ -498,9 +474,10 @@ internal sealed class FieldTree
                 return own;
             }
 
-            foreach (CosDictionary intermediate in info.Intermediates)
+            // Unnamed levels are listed outermost first; the nearest one wins (Table 226: the nearest ancestor's value).
+            for (int index = info.Intermediates.Length - 1; index >= 0; index--)
             {
-                if (Get(_document, intermediate, key) is { } carried)
+                if (Get(_document, info.Intermediates[index], key) is { } carried)
                 {
                     return carried;
                 }

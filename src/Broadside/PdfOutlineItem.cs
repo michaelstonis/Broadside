@@ -86,15 +86,15 @@ public sealed class PdfOutlineItem
 
     /// <summary>Gets the style flags (<c>F</c>, PDF 1.4) as stored; 0 when absent or not an integer.</summary>
     /// <remarks>ISO 32000-2 §12.3.3, Tables 151 and 152.</remarks>
-    public int Flags => ReadFlags(out _);
+    public PdfOutlineItemFlags Flags => (PdfOutlineItemFlags)ReadFlags(out _);
 
     /// <summary>Gets a value indicating whether the item's text is displayed in italic (flag bit 1).</summary>
     /// <remarks>ISO 32000-2 §12.3.3, Table 152.</remarks>
-    public bool IsItalic => (Flags & 1) != 0;
+    public bool IsItalic => (Flags & PdfOutlineItemFlags.Italic) != 0;
 
     /// <summary>Gets a value indicating whether the item's text is displayed in bold (flag bit 2).</summary>
     /// <remarks>ISO 32000-2 §12.3.3, Table 152.</remarks>
-    public bool IsBold => (Flags & 2) != 0;
+    public bool IsBold => (Flags & PdfOutlineItemFlags.Bold) != 0;
 
     /// <summary>Gets the <c>Count</c> entry as stored, or <see langword="null"/> when absent or not an integer.</summary>
     /// <remarks>

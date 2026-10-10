@@ -88,5 +88,5 @@ public sealed class PdfEmbeddedTarget
         }
     }
 
-    private CosObject? Get(CosName key) => Dictionary.TryGetValue(key, out CosObject? value) ? _document.Resolve(value) : null;
+    private CosObject? Get(CosName key) => EntryReader.Get(_document, Dictionary, key);
 }

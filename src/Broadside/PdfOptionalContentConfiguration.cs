@@ -66,7 +66,7 @@ public sealed class PdfOptionalContentConfiguration
     /// <c>All</c> means every intent; an empty list means no group counts and all content is visible.
     /// </summary>
     /// <remarks>ISO 32000-2 §8.11.4.3, Table 99, and §8.11.2.3. In the default configuration it shall be View.</remarks>
-    public IReadOnlyList<CosName> Intents => PdfOptionalContentGroup.ReadIntents(_properties.Document, Dictionary);
+    public IReadOnlyList<CosName> Intents => PdfOptionalContentGroup.ReadIntents(_properties.Document, Dictionary, new EntryReport(_properties.Document, Parsing.DiagnosticCodes.OptionalContentIntentInvalid, Reference, "The optional content configuration"));
 
     /// <summary>Gets the auto-state usage application dictionaries (<c>AS</c>).</summary>
     /// <remarks>ISO 32000-2 §8.11.4.3, Table 99, and §8.11.4.4, Table 101.</remarks>

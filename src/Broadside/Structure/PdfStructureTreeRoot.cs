@@ -55,11 +55,11 @@ public sealed class PdfStructureTreeRoot
 
     /// <summary>Gets the role map (<c>RoleMap</c>): structure types of the default namespace mapped to other types, or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 354, §14.7.3. Applied by <see cref="PdfStructureElement.StandardType"/>.</remarks>
-    public CosDictionary? RoleMap => StructureValues.Get(_context.Document, Dictionary, StructureNames.RoleMap) as CosDictionary;
+    public CosDictionary? RoleMap => ViewReading.Get(_context.Document, Dictionary, StructureNames.RoleMap) as CosDictionary;
 
     /// <summary>Gets the class map (<c>ClassMap</c>): attribute class names mapped to attribute objects, or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 354, §14.7.6.2. Applied by <see cref="PdfStructureElement.ClassAttributes"/>.</remarks>
-    public CosDictionary? ClassMap => StructureValues.Get(_context.Document, Dictionary, StructureNames.ClassMap) as CosDictionary;
+    public CosDictionary? ClassMap => ViewReading.Get(_context.Document, Dictionary, StructureNames.ClassMap) as CosDictionary;
 
     /// <summary>Gets the namespaces the document declares (<c>Namespaces</c>), in order.</summary>
     /// <remarks>ISO 32000-2 Table 354 (PDF 2.0), §14.7.4.</remarks>
@@ -67,7 +67,7 @@ public sealed class PdfStructureTreeRoot
     {
         get
         {
-            if (StructureValues.Get(_context.Document, Dictionary, StructureNames.Namespaces) is not CosArray array)
+            if (ViewReading.Get(_context.Document, Dictionary, StructureNames.Namespaces) is not CosArray array)
             {
                 return [];
             }
@@ -87,11 +87,11 @@ public sealed class PdfStructureTreeRoot
 
     /// <summary>Gets <c>ParentTreeNextKey</c>, the key the next parent-tree entry will use, or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 354, §14.7.5.4.</remarks>
-    public int? ParentTreeNextKey => StructureValues.Integer(_context.Document, Dictionary, StructureNames.ParentTreeNextKey);
+    public int? ParentTreeNextKey => ViewReading.Int32(_context.Document, Dictionary, StructureNames.ParentTreeNextKey);
 
     /// <summary>Gets the pronunciation lexicons (<c>PronunciationLexicon</c>) as their COS array of file specifications, or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 354 (PDF 2.0), §14.9.6. Typed by the file specification view (issue #76).</remarks>
-    public CosArray? PronunciationLexicon => StructureValues.Get(_context.Document, Dictionary, StructureNames.PronunciationLexicon) as CosArray;
+    public CosArray? PronunciationLexicon => ViewReading.Get(_context.Document, Dictionary, StructureNames.PronunciationLexicon) as CosArray;
 
     /// <summary>Gets the files associated with the whole tree (<c>AF</c>), in order.</summary>
     /// <remarks>ISO 32000-2 Tables 354 and 355 (PDF 2.0), and §14.13.6. Read through <see cref="PdfDocument.ReadAssociatedFiles"/> on every call.</remarks>
@@ -100,6 +100,13 @@ public sealed class PdfStructureTreeRoot
     /// <summary>Gets every element reachable from the root, in document order: depth first, each element before its children, children in <c>K</c> order; an element reachable twice is listed once.</summary>
     /// <remarks>ISO 32000-2 §14.7.2, §14.8.2.5 (logical order). A snapshot, built once.</remarks>
     public IReadOnlyList<PdfStructureElement> Elements => _context.Walk.Elements;
+
+    /// <summary>Returns a view over the structure element <paramref name="dictionary"/>, wherever it is in the tree.</summary>
+    /// <param name="dictionary">The structure element dictionary.</param>
+    /// <param name="reference">The reference it was reached through, or <see langword="null"/>.</param>
+    /// <returns>The view; its parent is read from its <c>P</c> entry.</returns>
+    internal PdfStructureElement GetElement(CosDictionary dictionary, CosReference? reference) =>
+        new(_context, dictionary, reference, parent: null, parentKnown: false, depth: 0);
 
     /// <summary>Finds the element whose <c>ID</c> is <paramref name="id"/>.</summary>
     /// <param name="id">The identifier's bytes (IDs are byte strings, compared byte for byte).</param>
@@ -112,7 +119,7 @@ public sealed class PdfStructureTreeRoot
     {
         if (_context.IdTree is { } tree && tree.TryGetValue(id, out CosObject? value) && value is CosDictionary dictionary)
         {
-            if (StructureValues.Get(_context.Document, dictionary, StructureNames.ID) is CosString own && own.Bytes.SequenceEqual(id))
+            if (ViewReading.Get(_context.Document, dictionary, StructureNames.ID) is CosString own && own.Bytes.SequenceEqual(id))
             {
                 return new PdfStructureElement(_context, dictionary, null, null, parentKnown: false, depth: 0);
             }
@@ -176,7 +183,7 @@ public sealed class PdfStructureTreeRoot
         CosDictionary? dictionary = resolved as CosDictionary ?? (resolved as CosStream)?.Dictionary;
         if (_context.ParentTree is { } tree
             && dictionary is not null
-            && StructureValues.Integer(_context.Document, dictionary, StructureNames.StructParent) is { } key
+            && ViewReading.Int32(_context.Document, dictionary, StructureNames.StructParent) is { } key
             && tree.TryGetValue(key, out CosObject? value))
         {
             if (value is CosDictionary parent)
