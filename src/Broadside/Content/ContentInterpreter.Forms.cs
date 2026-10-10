@@ -1,13 +1,14 @@
-using Broadside.Fonts;
 using Broadside.Graphics;
 using Broadside.Objects;
 
 namespace Broadside.Content;
 
 /// <summary>
-/// Form XObjects (§8.10.1), Type 3 glyph descriptions (§9.6.4) and soft-mask groups (§11.6.5.1) run as nested streams on the shared
-/// nested-run core (<see cref="RunNested"/>): one depth budget and one visited set for every kind, an implicit <c>q</c> that sets the
-/// stack's floor, and the stream's own operand arena, path, text object and marked-content floor.
+/// Form XObjects run as nested streams: painted with <c>Do</c> (§8.10.1), as an annotation appearance (§12.5.5) and as a soft mask's
+/// transparency group (§11.6.5.1), on the shared nested-run core of <c>ContentInterpreter.NestedRunCore.cs</c>
+/// (<see cref="RunNested"/>): one depth budget and one visited set for every kind, an implicit <c>q</c> that sets the stack's floor,
+/// and the stream's own operand arena, path, text object and marked-content floor. Type 3 glyph descriptions use the same core from
+/// <c>ContentInterpreter.Type3.cs</c>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -198,13 +199,6 @@ internal sealed partial class ContentInterpreter
     {
         EnsureRunning();
         PaintForm(form, [], -1, processor);
-    }
-
-    /// <summary><see cref="ContentContext.RunType3Glyph"/>.</summary>
-    internal void RunType3GlyphWith(in GlyphEvent glyph, PdfType3Font font, ContentProcessor processor)
-    {
-        EnsureRunning();
-        RunType3Glyph(glyph, font, (byte)glyph.CharacterCode, processor);
     }
 
     /// <summary>
