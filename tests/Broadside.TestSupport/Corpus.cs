@@ -20,6 +20,7 @@ public static class Corpus
         "text-standard14-zapfdingbats.pdf",
         "text-standard14-widths.pdf",
         "text-standard14-alias.pdf",
+        "text-nonembedded-substitute.pdf",
         "text-type1-symbolic-noencoding.pdf",
         "text-truetype-composite.pdf",
         "text-truetype-symbolic.pdf",

@@ -4,6 +4,7 @@ using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Fonts;
 using Broadside.Fonts.Cff;
+using Broadside.Fonts.Resolution;
 using Broadside.Fonts.TrueType;
 using Broadside.Fonts.Type1;
 using Broadside.Graphics;
@@ -54,6 +55,7 @@ internal static class FuzzTargets
         ["optional-content"] = OptionalContentTarget.Target,
         ["font-truetype"] = FontTrueType,
         ["font-cff"] = FontCff,
+        ["font-scanner"] = FontScanner,
         ["font-type1"] = FontType1,
         ["cmap"] = CMapFile,
         ["colorspace"] = ColorSpaceTarget,
@@ -432,6 +434,50 @@ internal static class FuzzTargets
         if (consumed != data.Length)
         {
             throw new InvalidOperationException("The codes cover " + consumed + " of " + data.Length + " bytes.");
+        }
+    }
+
+    /// <summary>
+    /// The operating-system font scanner (#59) over the input as an installed font file: TrueType, OpenType or a collection,
+    /// read through the same bounded reads a font directory scan makes. Every face found must have a face index inside the
+    /// collection limit, a non-empty PostScript name and family without a vertical bar or NUL, and a weight from 1 to 1,000; the
+    /// faces are then indexed and each must be found by its own PostScript name. An input starting with <c>%PDF-</c> is read from
+    /// its first <c>00 01 00 00</c>, so the embedded TrueType programs of the corpus seed it.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.6.2.1 and §9.8 (finding a non-embedded font's program); OpenType table directory, "ttcf", "name", "OS/2", "head", "post", "cmap".</remarks>
+    private static void FontScanner(ReadOnlySpan<byte> data)
+    {
+        if (data.StartsWith("%PDF-"u8))
+        {
+            int start = data.IndexOf((ReadOnlySpan<byte>)[0, 1, 0, 0]);
+            if (start < 0)
+            {
+                return;
+            }
+
+            data = data[start..];
+        }
+
+        List<SystemFontFace> faces = FontFaceScanner.Scan(new MemoryFontFileReader(data.ToArray()), "fuzz.ttf");
+        foreach (SystemFontFace face in faces)
+        {
+            if (face.FaceIndex is < 0 or >= 256 || string.IsNullOrEmpty(face.PostScriptName) || string.IsNullOrEmpty(face.Family)
+                || face.PostScriptName.Contains('|', StringComparison.Ordinal) || face.Family.Contains('\0', StringComparison.Ordinal)
+                || face.Weight is < 1 or > 1000)
+            {
+                throw new InvalidOperationException($"The scanner returned an impossible face: {face}.");
+            }
+        }
+
+        SystemFontIndex index = SystemFontIndex.FromFaces(faces);
+        foreach (SystemFontFace face in faces)
+        {
+            if (!index.ByPostScriptName.ContainsKey(face.PostScriptName))
+            {
+                throw new InvalidOperationException($"A scanned face is not found by its own PostScript name {face.PostScriptName}.");
+            }
+
+            _ = new FontQuery(face.PostScriptName) { FontFamily = face.Family }.IsBold;
         }
     }
 

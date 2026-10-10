@@ -54,14 +54,17 @@ public class FontProgramParserRegistrationTests
     [Fact]
     public void A_parser_that_throws_leaves_the_font_without_a_program_and_a_diagnostic()
     {
-        using PdfDocument document = TrueTypeCorpusTests.Open("text-truetype-embedded.pdf", new PdfOptions().UseFontProgramParser(new ThrowingParser()));
+        using PdfDocument document = TrueTypeCorpusTests.Open("text-truetype-embedded.pdf", new PdfOptions().UseFontProgramParser(new ThrowingParser()).UseSystemFontResolver(null));
         PdfTrueTypeFont font = TrueTypeCorpusTests.Font(document, "F1");
 
         Assert.Null(font.Program);
         Assert.Equal(0, font.GetGlyphId(0x48));
-        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics, d => d.Severity > DiagnosticSeverity.Information);
         Assert.Equal("FontProgramInvalid", diagnostic.Code);
         Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
+
+        // An unusable embedded program is treated as not embedded: the resolvers are asked (issue #59), here with none.
+        Assert.Contains(document.Diagnostics, d => d.Code == "FontProgramNotFound");
     }
 
     [Fact]
