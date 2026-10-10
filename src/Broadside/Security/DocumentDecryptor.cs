@@ -56,8 +56,9 @@ internal sealed record CryptFilter(CosName Name, CryptMethod Method, byte[] Key)
 /// <para>
 /// A stream whose <c>Filter</c> starts with <c>Crypt</c> is decrypted here too, with the crypt filter its <c>DecodeParms</c> name
 /// (default <c>Identity</c>) and that filter's key used as is (§7.4.10), not with <c>StmF</c>; the pipeline's <c>Crypt</c> stage then
-/// passes the already decrypted data through. So <see cref="CosStream.EncodedData"/> of every loaded stream holds plaintext. For an
-/// AES-128 crypt filter whose data does not decrypt with the key as is, Algorithm 1's per-object key (what Table 25 describes for
+/// passes the already decrypted data through. So <see cref="CosStream.EncodedData"/> of every loaded stream holds plaintext,
+/// decrypted when it is first read and kept (issue #45: loading a stream object neither reads nor decrypts its data). For an AES-128
+/// crypt filter whose data does not decrypt with the key as is, Algorithm 1's per-object key (what Table 25 describes for
 /// <c>AESV2</c>, and what qpdf uses) is tried before the data is reported damaged.
 /// </para>
 /// <para>
@@ -470,19 +471,24 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
             return;
         }
 
-        // A stream opened from a file reads its data from the source on every access (#45): read it once, store the plaintext.
-        ReadOnlyMemory<byte> data = stream.EncodedData;
-        if (IsType(dictionary, Metadata) && data.Span.StartsWith("<?xpacket "u8))
+        // Decrypted when the data is first read, then kept (#45: loading a stream does not read or decrypt its data).
+        bool metadata = IsType(dictionary, Metadata);
+        stream.TransformLoadedData(data => DecryptStreamData(filter, data, id, perObjectKey, metadata));
+    }
+
+    private ReadOnlyMemory<byte> DecryptStreamData(CryptFilter filter, ReadOnlyMemory<byte> data, CosReference id, bool perObjectKey, bool metadata)
+    {
+        if (metadata && data.Span.StartsWith("<?xpacket "u8))
         {
             _diagnostics.Report(
                 DiagnosticCodes.MetadataNotEncrypted,
                 DiagnosticSeverity.Warning,
                 "The metadata stream is plaintext XMP although EncryptMetadata is true; it is read as it is.",
                 objectReference: id);
-            return;
+            return data;
         }
 
-        stream.ReplaceLoadedData(Apply(filter, data.Span, id, perObjectKey));
+        return Apply(filter, data.Span, id, perObjectKey);
     }
 
     /// <summary>
