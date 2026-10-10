@@ -583,6 +583,9 @@ Broadside.Content.GlyphEvent.AdvanceY.get -> double
 Broadside.Content.GlyphEvent.CharacterCode.get -> uint
 Broadside.Content.GlyphEvent.CodeLength.get -> int
 Broadside.Content.GlyphEvent.Ctm.get -> Broadside.Graphics.Matrix
+Broadside.Content.GlyphEvent.DeviceAdvanceX.get -> double
+Broadside.Content.GlyphEvent.DeviceAdvanceY.get -> double
+Broadside.Content.GlyphEvent.DeviceOrigin.get -> Broadside.Graphics.PathPoint
 Broadside.Content.GlyphEvent.Font.get -> Broadside.Fonts.PdfFont?
 Broadside.Content.GlyphEvent.FontDictionary.get -> Broadside.Objects.CosDictionary?
 Broadside.Content.GlyphEvent.GlyphEvent() -> void

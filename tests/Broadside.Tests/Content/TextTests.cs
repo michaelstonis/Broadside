@@ -33,14 +33,14 @@ public class TextTests
         {
             RecordedGlyph glyph = recorder.Glyphs[index];
             Assert.Equal(widths[index] / 1000.0, glyph.Width, Precision);
-            Assert.Equal(x, glyph.Origin.X, Precision);
-            Assert.Equal(700, glyph.Origin.Y, Precision);
+            Assert.Equal(x, glyph.DeviceOrigin.X, Precision);
+            Assert.Equal(700, glyph.DeviceOrigin.Y, Precision);
             Assert.Equal(widths[index] * 24 / 1000.0, glyph.AdvanceX, Precision);
             Assert.Equal("Helvetica", glyph.Font?.BaseFont);
             x += widths[index] * 24 / 1000.0;
         }
 
-        Assert.Equal(234.72, recorder.Glyphs[^1].Origin.X, Precision);
+        Assert.Equal(234.72, recorder.Glyphs[^1].DeviceOrigin.X, Precision);
         Assert.Empty(document.Diagnostics);
     }
 
@@ -55,8 +55,8 @@ public class TextTests
         // Widths [800 400] for codes 72 (H) and 73 (I).
         Assert.Equal([72u, 73u], recorder.Glyphs.Select(glyph => glyph.Code));
         Assert.Equal([0.8, 0.4], recorder.Glyphs.Select(glyph => glyph.Width));
-        Assert.Equal(72, recorder.Glyphs[0].Origin.X, Precision);
-        Assert.Equal(91.2, recorder.Glyphs[1].Origin.X, Precision);
+        Assert.Equal(72, recorder.Glyphs[0].DeviceOrigin.X, Precision);
+        Assert.Equal(91.2, recorder.Glyphs[1].DeviceOrigin.X, Precision);
         Assert.IsType<PdfTrueTypeFont>(recorder.Glyphs[0].Font);
         Assert.Empty(document.Diagnostics);
     }
@@ -70,10 +70,29 @@ public class TextTests
         Assert.Equal(3, recorder.Glyphs.Count);
         Assert.Equal(new Matrix(5, 0, 0, 10, 100, 200), recorder.Glyphs[0].TextMatrix);
         Assert.Equal(3.78, recorder.Glyphs[0].AdvanceX, Precision);
-        Assert.Equal(103.78, recorder.Glyphs[1].Origin.X, Precision);
+        Assert.Equal(103.78, recorder.Glyphs[1].DeviceOrigin.X, Precision);
         Assert.Equal(3.89, recorder.Glyphs[1].AdvanceX, Precision);
-        Assert.Equal(107.67, recorder.Glyphs[2].Origin.X, Precision);
+        Assert.Equal(107.67, recorder.Glyphs[2].DeviceOrigin.X, Precision);
         Assert.Equal([false, true, false], recorder.Glyphs.Select(glyph => glyph.WordSpacingApplied));
+        Assert.Empty(diagnostics);
+    }
+
+    [Fact]
+    public void Each_glyph_reports_its_origin_and_advance_in_device_space()
+    {
+        // Tfs 10, Tc 2, Th 0.5, Trise 5; Tm rotates 90 degrees to (100, 200); CTM [2 0 0 3 10 20]. "a" and "b" are 556 wide.
+        // Origin: Tm maps (0, Trise) to (95, 200), the CTM to (200, 620). Advance tx = (0.556 * 10 + 2) * 0.5 = 3.78 along text x,
+        // which Tm turns to (0, 3.78) and the CTM to (0, 11.34).
+        (GlyphRecorder recorder, var diagnostics) = GlyphRecorder.Run("2 0 0 3 10 20 cm BT /F1 10 Tf 2 Tc 50 Tz 5 Ts 0 1 -1 0 100 200 Tm (ab) Tj ET");
+
+        Assert.Equal(2, recorder.Glyphs.Count);
+        RecordedGlyph first = recorder.Glyphs[0];
+        Assert.Equal(200, first.DeviceOrigin.X, Precision);
+        Assert.Equal(620, first.DeviceOrigin.Y, Precision);
+        Assert.Equal(0, first.DeviceAdvanceX, Precision);
+        Assert.Equal(11.34, first.DeviceAdvanceY, Precision);
+        Assert.Equal(200, recorder.Glyphs[1].DeviceOrigin.X, Precision);
+        Assert.Equal(631.34, recorder.Glyphs[1].DeviceOrigin.Y, Precision);
         Assert.Empty(diagnostics);
     }
 
@@ -100,13 +119,13 @@ public class TextTests
     {
         (GlyphRecorder recorder, var diagnostics) = GlyphRecorder.Run("BT /F1 10 Tf [(a) -500 (b) 250 100 (c)] TJ ET");
 
-        Assert.Equal(0, recorder.Glyphs[0].Origin.X, Precision);
+        Assert.Equal(0, recorder.Glyphs[0].DeviceOrigin.X, Precision);
         Assert.Equal(0, recorder.Glyphs[0].Adjustment);
-        Assert.Equal(10.56, recorder.Glyphs[1].Origin.X, Precision);
+        Assert.Equal(10.56, recorder.Glyphs[1].DeviceOrigin.X, Precision);
         Assert.Equal(-500, recorder.Glyphs[1].Adjustment);
 
         // b advances 5.56; then 350 thousandths of 10 back: 16.12 - 3.5.
-        Assert.Equal(12.62, recorder.Glyphs[2].Origin.X, Precision);
+        Assert.Equal(12.62, recorder.Glyphs[2].DeviceOrigin.X, Precision);
         Assert.Equal(350, recorder.Glyphs[2].Adjustment);
         Assert.Empty(diagnostics);
     }
@@ -118,7 +137,7 @@ public class TextTests
 
         Assert.Equal(new Matrix(10, 0, 0, 10, 0, 3), recorder.Glyphs[0].TextMatrix);
         Assert.Equal(new Matrix(2, 0, 0, 2, 10, 10), recorder.Glyphs[0].Ctm);
-        Assert.Equal(16, recorder.Glyphs[0].Origin.Y, Precision);
+        Assert.Equal(16, recorder.Glyphs[0].DeviceOrigin.Y, Precision);
         Assert.Empty(diagnostics);
     }
 
@@ -200,7 +219,7 @@ public class TextTests
         Assert.Equal(0.556, recorder.Glyphs[0].Width, Precision);
 
         // Size 0: only Tc advances.
-        Assert.Equal(1, recorder.Glyphs[1].Origin.X, Precision);
+        Assert.Equal(1, recorder.Glyphs[1].DeviceOrigin.X, Precision);
         Assert.Equal(["ContentFontMissing"], ContentPdf.Codes(diagnostics));
     }
 
@@ -209,7 +228,7 @@ public class TextTests
     {
         (GlyphRecorder recorder, var diagnostics) = GlyphRecorder.Run("BT /F9 10 Tf (a) Tj (b) Tj ET");
 
-        Assert.Equal(5.56, recorder.Glyphs[1].Origin.X, Precision);
+        Assert.Equal(5.56, recorder.Glyphs[1].DeviceOrigin.X, Precision);
         Assert.Equal(["ContentFontMissing"], ContentPdf.Codes(diagnostics));
     }
 
@@ -218,8 +237,8 @@ public class TextTests
     {
         (GlyphRecorder recorder, var diagnostics) = GlyphRecorder.Run("BT /F1 10 Tf 50 50 Td ET (a) Tj (b) Tj");
 
-        Assert.Equal(0, recorder.Glyphs[0].Origin.X, Precision);
-        Assert.Equal(5.56, recorder.Glyphs[1].Origin.X, Precision);
+        Assert.Equal(0, recorder.Glyphs[0].DeviceOrigin.X, Precision);
+        Assert.Equal(5.56, recorder.Glyphs[1].DeviceOrigin.X, Precision);
         Assert.Equal(["ContentOperatorOutOfContext"], ContentPdf.Codes(diagnostics));
     }
 
@@ -228,7 +247,7 @@ public class TextTests
     {
         (GlyphRecorder recorder, var diagnostics) = GlyphRecorder.Run("BT /F1 10 Tf q (a) Tj Q (b) Tj ET");
 
-        Assert.Equal(5.56, recorder.Glyphs[1].Origin.X, Precision);
+        Assert.Equal(5.56, recorder.Glyphs[1].DeviceOrigin.X, Precision);
         Assert.Empty(diagnostics);
     }
 
@@ -279,6 +298,8 @@ public class TextTests
         Assert.Equal((288, 628), Point(recorder.Glyphs[2]));
         Assert.Equal(-28.8, recorder.Glyphs[0].AdvanceY, Precision);
         Assert.Equal(0, recorder.Glyphs[0].AdvanceX);
+        Assert.Equal(-28.8, recorder.Glyphs[0].DeviceAdvanceY, Precision);
+        Assert.Equal(0, recorder.Glyphs[0].DeviceAdvanceX, Precision);
     }
 
     [Fact]
@@ -299,7 +320,7 @@ public class TextTests
         Assert.Empty(document.Diagnostics);
     }
 
-    private static (double X, double Y) Point(RecordedGlyph glyph) => (Math.Round(glyph.Origin.X, Precision), Math.Round(glyph.Origin.Y, Precision));
+    private static (double X, double Y) Point(RecordedGlyph glyph) => (Math.Round(glyph.DeviceOrigin.X, Precision), Math.Round(glyph.DeviceOrigin.Y, Precision));
 
     private sealed class Type3Recorder(bool enter) : ContentProcessor
     {
