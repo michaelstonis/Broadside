@@ -58,6 +58,7 @@ public static class Corpus
         "encrypted-aes-gcm.pdf",
         "encrypted-mac.pdf",
         "encrypted-empty-owner-password.pdf",
+        "encrypted-embedded-file-open.pdf",
         "inline-image.pdf",
         "page-tree-inherited.pdf",
         "annotations-link.pdf",

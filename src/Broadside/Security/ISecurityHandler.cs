@@ -80,6 +80,19 @@ public sealed class SecurityHandlerContext
     /// <param name="message">What deviates and what was done about it.</param>
     public void Report(string code, DiagnosticSeverity severity, string message) => _diagnostics.Report(code, severity, message);
 
+    /// <summary>
+    /// Records an encryption dictionary the handler cannot use (<c>EncryptDictionaryInvalid</c>, Error) and returns the exception to
+    /// throw; in strict mode the record itself throws.
+    /// </summary>
+    /// <param name="message">What is wrong.</param>
+    /// <returns>The exception.</returns>
+    internal DiagnosticException Fail(string message)
+    {
+        var diagnostic = new Diagnostic(DiagnosticCodes.EncryptDictionaryInvalid, DiagnosticSeverity.Error, message);
+        Report(diagnostic.Code, diagnostic.Severity, diagnostic.Message);
+        return new DiagnosticException(diagnostic);
+    }
+
     /// <summary>Returns <paramref name="value"/>, or the object it refers to, read without decryption.</summary>
     /// <param name="value">An entry of the encryption dictionary, or <see langword="null"/>.</param>
     /// <returns>The direct object; <see cref="CosNull"/> for an absent entry.</returns>

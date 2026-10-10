@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The repository builds every project with InvariantGlobalization (Directory.Build.props), under which string.Normalize leaves
+    non-ASCII text unchanged. The revision 6 password path normalizes with NFKC (SASLprep, ISO 32000-2 §7.6.4.1), so it is tested
+    here, in a host that has the platform's globalization data, as an application using the library normally does.
+  -->
+  <PropertyGroup>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside/Broadside.csproj" />
+    <ProjectReference Include="../Broadside.TestSupport/Broadside.TestSupport.csproj" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+</Project>

@@ -4,7 +4,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Document;
 
 /// <summary>Walking the page tree and inheriting page attributes. ISO 32000-2 §7.7.3.1 to §7.7.3.4.</summary>
-public class PageTreeTests
+public sealed class PageTreeTests
 {
     [Fact]
     public void Pages_come_in_kids_order_depth_first_across_intermediate_nodes()

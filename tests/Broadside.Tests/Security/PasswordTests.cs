@@ -8,7 +8,7 @@ namespace Broadside.Tests.Security;
 /// Passwords: the default user password, user and owner passwords, their encodings by revision, and the distinct errors for a
 /// missing or wrong password. ISO 32000-2 §7.6.4.1-7.6.4.4.
 /// </summary>
-public class PasswordTests
+public sealed class PasswordTests
 {
     public static TheoryData<string, string, string> ProtectedContent => new()
     {

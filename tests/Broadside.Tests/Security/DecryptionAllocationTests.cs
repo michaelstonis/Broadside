@@ -9,7 +9,7 @@ namespace Broadside.Tests.Security;
 /// <c>SecurityBenchmarks</c>). ISO 32000-2 §7.6.3.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class DecryptionAllocationTests
+public sealed class DecryptionAllocationTests
 {
     private static readonly byte[] Key = [.. Enumerable.Range(0, 32).Select(i => (byte)i)];
 

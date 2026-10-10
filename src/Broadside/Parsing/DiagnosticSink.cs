@@ -21,13 +21,18 @@ namespace Broadside.Parsing;
 /// repeat many times inside one object, such as an operator error in every line of a page's content. A dropped duplicate is not
 /// observed and not added, but strict mode still throws it: the operation that met it failed again.
 /// </para>
+/// <para>
+/// The key keeps the most severe diagnostic: a repeat of higher severity than the one recorded replaces it in place (and is
+/// observed), so an <see cref="DiagnosticSeverity.Error"/> is never hidden behind an <see cref="DiagnosticSeverity.Information"/>
+/// with the same code, such as a filter that one stream names as an unsupported standard filter and another as unknown.
+/// </para>
 /// </remarks>
 internal sealed class DiagnosticSink(bool strict, Action<Diagnostic>? observer = null)
 {
     private readonly Lock _gate = new();
     private readonly List<Diagnostic> _diagnostics = [];
-    private readonly HashSet<(string Code, long? Offset, CosReference? Reference)> _recorded = [];
-    private HashSet<(string Code, CosReference? Reference)>? _recordedPerObject;
+    private readonly Dictionary<(string Code, long? Offset, CosReference? Reference), int> _recorded = [];
+    private Dictionary<(string Code, CosReference? Reference), int>? _recordedPerObject;
 
     /// <summary>Gets a value indicating whether the first deviation throws.</summary>
     public bool IsStrict => strict;
@@ -45,11 +50,7 @@ internal sealed class DiagnosticSink(bool strict, Action<Diagnostic>? observer =
         bool added;
         lock (_gate)
         {
-            added = _recorded.Add((code, offset, objectReference));
-            if (added)
-            {
-                _diagnostics.Add(diagnostic);
-            }
+            added = Record(diagnostic, perObject: false);
         }
 
         Publish(diagnostic, added);
@@ -71,11 +72,7 @@ internal sealed class DiagnosticSink(bool strict, Action<Diagnostic>? observer =
         bool added;
         lock (_gate)
         {
-            added = (_recordedPerObject ??= []).Add((code, objectReference)) && _recorded.Add((code, offset, objectReference));
-            if (added)
-            {
-                _diagnostics.Add(diagnostic);
-            }
+            added = Record(diagnostic, perObject: true);
         }
 
         Publish(diagnostic, added);
@@ -93,11 +90,7 @@ internal sealed class DiagnosticSink(bool strict, Action<Diagnostic>? observer =
         bool added;
         lock (_gate)
         {
-            added = _recorded.Add((code, offset, null));
-            if (added)
-            {
-                _diagnostics.Add(diagnostic);
-            }
+            added = Record(diagnostic, perObject: false);
         }
 
         if (added)
@@ -116,6 +109,50 @@ internal sealed class DiagnosticSink(bool strict, Action<Diagnostic>? observer =
         {
             return [.. _diagnostics];
         }
+    }
+
+    /// <summary>
+    /// Adds <paramref name="diagnostic"/> unless its key is recorded with the same or a higher severity; a higher severity replaces
+    /// the recorded diagnostic in place. Called under the gate.
+    /// </summary>
+    /// <param name="diagnostic">The diagnostic.</param>
+    /// <param name="perObject">Whether the code is also keyed per object whatever the offset (<see cref="ReportOnce"/>).</param>
+    /// <returns><see langword="true"/> when the diagnostic was added or replaced a less severe one.</returns>
+    private bool Record(Diagnostic diagnostic, bool perObject)
+    {
+        var key = (diagnostic.Code, diagnostic.Offset, diagnostic.ObjectReference);
+        int index = -1;
+        if (perObject && (_recordedPerObject ??= []).TryGetValue((diagnostic.Code, diagnostic.ObjectReference), out int perObjectIndex))
+        {
+            index = perObjectIndex;
+        }
+        else if (_recorded.TryGetValue(key, out int keyIndex))
+        {
+            index = keyIndex;
+        }
+
+        if (index >= 0)
+        {
+            if (diagnostic.Severity <= _diagnostics[index].Severity)
+            {
+                return false;
+            }
+
+            _diagnostics[index] = diagnostic;
+        }
+        else
+        {
+            index = _diagnostics.Count;
+            _diagnostics.Add(diagnostic);
+        }
+
+        _recorded[key] = index;
+        if (perObject)
+        {
+            _recordedPerObject![(diagnostic.Code, diagnostic.ObjectReference)] = index;
+        }
+
+        return true;
     }
 
     private void Publish(Diagnostic diagnostic, bool added)

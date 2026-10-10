@@ -11,7 +11,7 @@ namespace Broadside.Tests.Document;
 /// Damage the minimal corpus does not cover, built in the test from a well-formed corpus file: lenient reading repairs it with
 /// diagnostics (ADR 0005). ISO 32000-2 §7.3.8.2, §7.5.2, §7.5.4, §7.5.5, §7.5.6, §7.5.7, §7.5.8.
 /// </summary>
-public partial class RepairTests
+public sealed partial class RepairTests
 {
     [Fact]
     public void A_file_whose_line_endings_were_converted_to_crlf_opens_with_the_intact_pages()

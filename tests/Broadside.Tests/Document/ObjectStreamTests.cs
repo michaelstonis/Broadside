@@ -8,7 +8,7 @@ namespace Broadside.Tests.Document;
 /// Objects stored in object streams resolve like any other object, through the type 2 entries of a cross-reference stream.
 /// ISO 32000-2 §7.5.7 (Table 16) and §7.5.8.3 (Table 18).
 /// </summary>
-public class ObjectStreamTests
+public sealed class ObjectStreamTests
 {
     private static readonly int[] W121 = [1, 2, 1];
 

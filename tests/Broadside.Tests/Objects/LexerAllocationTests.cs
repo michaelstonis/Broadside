@@ -10,7 +10,7 @@ namespace Broadside.Tests.Objects;
 /// because no public seam exposes tokens.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class LexerAllocationTests
+public sealed class LexerAllocationTests
 {
     [Fact]
     public void Tokenizing_the_whole_corpus_allocates_nothing()

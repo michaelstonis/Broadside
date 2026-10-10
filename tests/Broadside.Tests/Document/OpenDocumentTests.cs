@@ -12,7 +12,7 @@ public enum SourceKind
 }
 
 /// <summary>Opening a well-formed file through the public document API. ISO 32000-2 §7.5.1 to §7.5.5, §7.7.2, §7.7.3.</summary>
-public class OpenDocumentTests
+public sealed class OpenDocumentTests
 {
     public static TheoryData<string, SourceKind> AcceptanceFilesBySource => new()
     {

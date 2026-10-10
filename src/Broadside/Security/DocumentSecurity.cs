@@ -13,12 +13,17 @@ namespace Broadside.Security;
 /// information is read and before the catalog loads, so the encryption dictionary (and anything it refers to) loads undecrypted and
 /// every object loaded afterwards is decrypted. The newest trailer's <c>Encrypt</c> and <c>ID</c> apply (§7.6.2: the entry "should be
 /// identical in all copies of the trailer").
+/// <para>
+/// A document whose strings and streams are not encrypted (<c>StmF</c> and <c>StrF</c> <c>Identity</c>) and whose embedded files
+/// use a crypt filter with <c>AuthEvent /EFOpen</c> opens without the user password (§7.6.5, Table 25: the user is authenticated
+/// "when accessing embedded files"); its embedded files then stay encrypted, each with a <c>CryptFilterNotAuthorized</c>
+/// Information diagnostic when it loads.
+/// </para>
 /// </remarks>
 internal static class DocumentSecurity
 {
-    private static readonly CosName SubFilterName = new("SubFilter");
-    private static readonly CosName StandardName = new("Standard");
-    private static readonly CosName R = new("R");
+    private static readonly CosName AuthEvent = new("AuthEvent");
+    private static readonly CosName EFOpen = new("EFOpen");
 
     /// <summary>Reads the trailer's <c>Encrypt</c> entry and, for an encrypted document, installs decryption on the loader and pipeline.</summary>
     /// <param name="source">The file.</param>
@@ -69,14 +74,14 @@ internal static class DocumentSecurity
         }
 
         CosName? filter = loader.Resolve(encryption.TryGetValue(FilterNames.Filter, out CosObject? named) ? named : null) as CosName;
-        CosName? subFilter = loader.Resolve(encryption.TryGetValue(SubFilterName, out CosObject? sub) ? sub : null) as CosName;
-        if (filter is null && encryption.ContainsKey(R))
+        CosName? subFilter = loader.Resolve(encryption.TryGetValue(KnownNames.SubFilter, out CosObject? sub) ? sub : null) as CosName;
+        if (filter is null && encryption.ContainsKey(KnownNames.R))
         {
             diagnostics.Report(
                 DiagnosticCodes.EncryptDictionaryInvalid,
                 DiagnosticSeverity.Warning,
                 "The encryption dictionary has no Filter entry; its R entry marks it as the standard security handler's.");
-            filter = StandardName;
+            filter = KnownNames.Standard;
         }
 
         ISecurityHandler handler = handlers.Find(filter, subFilter) ?? throw new PdfEncryptionNotSupportedException(
@@ -88,7 +93,16 @@ internal static class DocumentSecurity
             : 0;
         ReadOnlyMemory<byte> documentId = ReadDocumentId(trailer, diagnostics);
         var context = new SecurityHandlerContext(encryption, documentId, credentials, diagnostics, loader.Resolve);
-        SecurityHandlerResult result = handler.Authenticate(context);
+        SecurityHandlerResult result;
+        try
+        {
+            result = handler.Authenticate(context);
+        }
+        catch (PdfPasswordException) when (version >= 4 && OnlyEmbeddedFilesNeedThePassword(encryption, loader.Resolve))
+        {
+            return OpenWithoutAuthentication(source, loader, streams, encryption, handler.Filter, subFilter, version, diagnostics);
+        }
+
         if (version == 0)
         {
             // No V: the standard handler's revision implies it; another handler's key length does (RC4 below 256 bits, AES-256 at 256).
@@ -107,7 +121,7 @@ internal static class DocumentSecurity
         loader.Hooks.Decryptor = decryptor;
         streams.CryptFilter = decryptor;
 
-        PdfIntegrityStatus integrity = IntegrityVerifier.Verify(source, loader, version, result, diagnostics);
+        PdfIntegrityStatus integrity = IntegrityVerifier.Verify(source, loader, version, result.RawPermissions, result.FileEncryptionKey.Span, diagnostics);
         return new PdfSecurity(
             encryption,
             handler.Filter,
@@ -118,6 +132,64 @@ internal static class DocumentSecurity
             result.Access,
             result.Permissions,
             result.RawPermissions,
+            decryptor.EncryptMetadata,
+            integrity);
+    }
+
+    /// <summary>
+    /// Whether nothing but embedded files is encrypted, with a crypt filter that authenticates when they are accessed: <c>StmF</c>
+    /// and <c>StrF</c> are <c>Identity</c> (or absent, Table 20) and <c>EFF</c> names a <c>CF</c> filter whose <c>AuthEvent</c> is
+    /// <c>EFOpen</c> (Table 25).
+    /// </summary>
+    private static bool OnlyEmbeddedFilesNeedThePassword(CosDictionary encryption, Func<CosObject?, CosObject> resolve)
+    {
+        bool IsIdentity(CosName key) =>
+            resolve(encryption.TryGetValue(key, out CosObject? entry) ? entry : null) is CosNull or CosName { Value: "Identity" };
+
+        return IsIdentity(KnownNames.StmF)
+            && IsIdentity(KnownNames.StrF)
+            && resolve(encryption.TryGetValue(KnownNames.EFF, out CosObject? eff) ? eff : null) is CosName embedded
+            && resolve(encryption.TryGetValue(KnownNames.CF, out CosObject? cf) ? cf : null) is CosDictionary filters
+            && resolve(filters.TryGetValue(embedded, out CosObject? definition) ? definition : null) is CosDictionary filter
+            && EFOpen.Equals(resolve(filter.TryGetValue(AuthEvent, out CosObject? authEvent) ? authEvent : null));
+    }
+
+    /// <summary>
+    /// Installs decryption for a document opened without its user password: every crypt filter is locked, so embedded files stay
+    /// encrypted; the permissions are the stated <c>P</c>, unverified without the file encryption key.
+    /// </summary>
+    private static PdfSecurity OpenWithoutAuthentication(
+        PdfSource source,
+        ObjectLoader loader,
+        StreamDecoder streams,
+        CosDictionary encryption,
+        CosName handler,
+        CosName? subFilter,
+        int version,
+        DiagnosticSink diagnostics)
+    {
+        DocumentDecryptor decryptor = DocumentDecryptor.Create(encryption, version, result: null, diagnostics, loader.Resolve);
+        loader.Hooks.Decryptor = decryptor;
+        streams.CryptFilter = decryptor;
+
+        int? revision = loader.Resolve(encryption.TryGetValue(KnownNames.R, out CosObject? r) ? r : null) is CosInteger { Value: >= 0 and <= int.MaxValue } rValue
+            ? (int)rValue.Value
+            : null;
+        int rawPermissions = loader.Resolve(encryption.TryGetValue(KnownNames.P, out CosObject? p) ? p : null) is CosInteger pValue ? unchecked((int)pValue.Value) : 0;
+        int keyLength = loader.Resolve(encryption.TryGetValue(KnownNames.Length, out CosObject? length) ? length : null) is CosInteger { Value: > 0 and <= 4096 } bits
+            ? (int)bits.Value
+            : 0;
+        PdfIntegrityStatus integrity = IntegrityVerifier.Verify(source, loader, version, rawPermissions, ReadOnlySpan<byte>.Empty, diagnostics);
+        return new PdfSecurity(
+            encryption,
+            handler,
+            subFilter,
+            version,
+            revision,
+            keyLength,
+            PdfAccessLevel.User,
+            StandardSecurityHandler.UserPermissions(rawPermissions, revision ?? 0),
+            rawPermissions,
             decryptor.EncryptMetadata,
             integrity);
     }

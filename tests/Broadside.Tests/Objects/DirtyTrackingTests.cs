@@ -6,7 +6,7 @@ namespace Broadside.Tests.Objects;
 /// Every COS object carries a dirty flag: false after parse, true after any mutation through the public API. The flag is what an
 /// incremental update (ISO 32000-2 §7.5.6) writes from.
 /// </summary>
-public class DirtyTrackingTests
+public sealed class DirtyTrackingTests
 {
     private static readonly CosName A = new("A");
     private static readonly CosName B = new("B");

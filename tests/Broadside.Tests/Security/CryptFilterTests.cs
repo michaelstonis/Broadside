@@ -11,7 +11,7 @@ namespace Broadside.Tests.Security;
 /// Crypt filters: <c>StmF</c> and <c>StrF</c>, the <c>Identity</c> crypt filter, a stream that names its own crypt filter, and
 /// <c>EncryptMetadata false</c>; and how damaged ciphertext is repaired. ISO 32000-2 §7.4.10, §7.6.3, §7.6.6; ISO/TS 32003 §5.2.
 /// </summary>
-public class CryptFilterTests
+public sealed class CryptFilterTests
 {
     [Fact]
     public void Each_content_stream_decrypts_with_the_crypt_filter_it_names_or_the_default_one()

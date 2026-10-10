@@ -416,10 +416,7 @@ public sealed partial class PdfDocument : IDisposable
     public void Save(Stream stream, PdfSaveOptions options)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        foreach (ReadOnlyMemory<byte> chunk in PlanSave(options).Write())
-        {
-            stream.Write(chunk.Span);
-        }
+        WriteTo(PlanSave(options), stream);
     }
 
     /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it, with a classic cross-reference table.</summary>
@@ -438,12 +435,11 @@ public sealed partial class PdfDocument : IDisposable
     public void Save(string path, PdfSaveOptions options)
     {
         ArgumentException.ThrowIfNullOrEmpty(path);
+
+        // Planned before the file is created, so a document that cannot be saved leaves an existing file alone.
         FileWriter writer = PlanSave(options);
         using FileStream stream = File.Create(path);
-        foreach (ReadOnlyMemory<byte> chunk in writer.Write())
-        {
-            stream.Write(chunk.Span);
-        }
+        WriteTo(writer, stream);
     }
 
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file, writing asynchronously.</summary>
@@ -1032,6 +1028,15 @@ public sealed partial class PdfDocument : IDisposable
     }
 
     /// <summary>Plans a full save; throws for what cannot be saved before anything is written.</summary>
+    /// <summary>Writes every chunk of <paramref name="writer"/>'s file to <paramref name="stream"/>.</summary>
+    private static void WriteTo(FileWriter writer, Stream stream)
+    {
+        foreach (ReadOnlyMemory<byte> chunk in writer.Write())
+        {
+            stream.Write(chunk.Span);
+        }
+    }
+
     private FileWriter PlanSave(PdfSaveOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);

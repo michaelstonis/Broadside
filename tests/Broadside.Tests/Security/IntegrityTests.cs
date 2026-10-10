@@ -6,7 +6,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Security;
 
 /// <summary>The integrity MAC of an encrypted document. ISO/TS 32004 §5, §6, Annex B.</summary>
-public class IntegrityTests
+public sealed class IntegrityTests
 {
     [Fact]
     public void A_standalone_mac_that_covers_the_whole_file_is_verified()

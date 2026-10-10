@@ -23,7 +23,7 @@ public enum ConcurrentSource
 /// ISO 32000-2 §7.5.4 (random access to indirect objects through the cross-reference table).
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class ConcurrencyTests
+public sealed class ConcurrencyTests
 {
     private const int Repetitions = 50;
 

@@ -11,7 +11,7 @@ namespace Broadside.Tests.Security;
 /// SP 800-38D, RFC 3394, RFC 4013) for the managed implementations the browser uses, and agreement with the base class library on
 /// random data where the platform has it.
 /// </summary>
-public class CryptographyTests
+public sealed class CryptographyTests
 {
     public static TheoryData<string, string> Md5Vectors => new()
     {

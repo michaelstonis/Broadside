@@ -38,21 +38,14 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         0x28, 0xBF, 0x4E, 0x5E, 0x4E, 0x75, 0x8A, 0x41, 0x64, 0x00, 0x4E, 0x56, 0xFF, 0xFA, 0x01, 0x08,
         0x2E, 0x2E, 0x00, 0xB6, 0xD0, 0x68, 0x3E, 0x80, 0x2F, 0x0C, 0xA9, 0xFE, 0x64, 0x53, 0x69, 0x7A,
     ];
-
-    private static readonly CosName StandardName = new("Standard");
-    private static readonly CosName V = new("V");
-    private static readonly CosName R = new("R");
     private static readonly CosName O = new("O");
     private static readonly CosName U = new("U");
     private static readonly CosName OE = new("OE");
     private static readonly CosName UE = new("UE");
-    private static readonly CosName P = new("P");
     private static readonly CosName Perms = new("Perms");
-    private static readonly CosName LengthName = new("Length");
-    private static readonly CosName EncryptMetadata = new("EncryptMetadata");
 
     /// <summary>Gets <c>Standard</c>, the name of the built-in password-based handler (Table 20).</summary>
-    public CosName Filter => StandardName;
+    public CosName Filter => KnownNames.Standard;
 
     /// <summary>Gets no formats: the standard handler is chosen by <c>Filter</c> only.</summary>
     public IReadOnlyCollection<CosName> SubFilters => [];
@@ -99,7 +92,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
     {
         ArgumentNullException.ThrowIfNull(context);
         CosDictionary dictionary = context.EncryptionDictionary;
-        int revision = ReadInteger(context, dictionary, R) ?? throw Fail(context, "The standard encryption dictionary has no R (revision) entry.");
+        int revision = ReadInteger(context, dictionary, KnownNames.R) ?? throw context.Fail("The standard encryption dictionary has no R (revision) entry.");
         if (revision is < 2 or > 7)
         {
             throw new PdfEncryptionNotSupportedException(
@@ -107,8 +100,8 @@ public sealed class StandardSecurityHandler : ISecurityHandler
                 string.Create(CultureInfo.InvariantCulture, $"Revision {revision} of the standard security handler is not defined."));
         }
 
-        int version = ReadInteger(context, dictionary, V) ?? DefaultVersion(context, revision);
-        int rawPermissions = ReadInteger(context, dictionary, P) ?? throw Fail(context, "The standard encryption dictionary has no P (permissions) entry.");
+        int version = ReadInteger(context, dictionary, KnownNames.V) ?? DefaultVersion(context, revision);
+        int rawPermissions = ReadInteger(context, dictionary, KnownNames.P) ?? throw context.Fail("The standard encryption dictionary has no P (permissions) entry.");
         PdfPassword? password = context.Credentials as PdfPassword;
         if (revision == 5)
         {
@@ -197,7 +190,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         int rawPermissions)
     {
         int keyLength = LegacyKeyLength(context, dictionary, version, revision);
-        bool encryptMetadata = version < 4 || revision < 4 || (ReadBoolean(context, dictionary, EncryptMetadata) ?? true);
+        bool encryptMetadata = version < 4 || revision < 4 || (ReadBoolean(context, dictionary, KnownNames.EncryptMetadata) ?? true);
         byte[] owner = ReadEntry(context, dictionary, O, 32, required: true)!;
         byte[] user = ReadEntry(context, dictionary, U, 32, required: true)!;
         byte[] documentId = context.DocumentId.Span.ToArray();
@@ -210,7 +203,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         // Table 20: Length is optional and defaults to 40 bits. A writer that left it out for a 128-bit key (qpdf's test file
         // bad-encryption-length.pdf; qpdf assumes 128 bits whenever Length is missing) is read by trying 128 bits once 40 bits
         // authenticate nothing.
-        if (revision >= 3 && version is 2 or 3 && !dictionary.ContainsKey(LengthName))
+        if (revision >= 3 && version is 2 or 3 && !dictionary.ContainsKey(KnownNames.Length))
         {
             var longer = new LegacyKeys(revision, 16, owner, user, rawPermissions, documentId, encryptMetadata);
             if (TryLegacyPasswords(context, longer, password, revision, rawPermissions) is { } repaired)
@@ -265,7 +258,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         byte[] ownerEncryption = ReadEntry(context, dictionary, OE, 32, required: true)!;
         byte[] userEncryption = ReadEntry(context, dictionary, UE, 32, required: true)!;
         byte[]? permissionsEntry = ReadEntry(context, dictionary, Perms, 16, required: revision >= 6);
-        bool encryptMetadata = ReadBoolean(context, dictionary, EncryptMetadata) ?? true;
+        bool encryptMetadata = ReadBoolean(context, dictionary, KnownNames.EncryptMetadata) ?? true;
 
         List<byte[]> candidates = revision == 5 ? PasswordEncoding.Utf8(password) : PasswordEncoding.Unicode(password);
         foreach (byte[] candidate in candidates)
@@ -395,7 +388,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
             return 16;
         }
 
-        int? bits = ReadInteger(context, dictionary, LengthName);
+        int? bits = ReadInteger(context, dictionary, KnownNames.Length);
         switch (bits)
         {
             case null:
@@ -460,7 +453,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         if (!dictionary.TryGetValue(key, out CosObject? entry) || context.Resolve(entry) is not CosString value)
         {
             return required
-                ? throw Fail(context, $"The standard encryption dictionary has no {key.Value} string, which the revision requires.")
+                ? throw context.Fail($"The standard encryption dictionary has no {key.Value} string, which the revision requires.")
                 : null;
         }
 
@@ -477,13 +470,6 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         byte[] fixedLength = new byte[length];
         bytes[..Math.Min(length, bytes.Length)].CopyTo(fixedLength);
         return fixedLength;
-    }
-
-    private static DiagnosticException Fail(SecurityHandlerContext context, string message)
-    {
-        var diagnostic = new Diagnostic(DiagnosticCodes.EncryptDictionaryInvalid, DiagnosticSeverity.Error, message);
-        context.Report(diagnostic.Code, diagnostic.Severity, diagnostic.Message);
-        return new DiagnosticException(diagnostic);
     }
 
     /// <summary>The key computations of revisions 2 to 4 for one encryption dictionary.</summary>

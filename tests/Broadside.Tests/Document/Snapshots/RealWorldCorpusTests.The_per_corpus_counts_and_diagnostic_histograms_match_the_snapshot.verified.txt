@@ -1,7 +1,7 @@
 ﻿pdfjs: 989 files
-  Clean: 721
+  Clean: 722
   Diagnostics: 254
-  PasswordRequired: 12
+  PasswordRequired: 11
   CertificateRequired: 0
   EncryptionUnsupported: 0
   Rejected: 2
@@ -139,8 +139,8 @@ pdfbox: 137 files
     StreamLengthInvalid: 1
 qpdf: 639 files
   Clean: 400
-  Diagnostics: 202
-  PasswordRequired: 23
+  Diagnostics: 205
+  PasswordRequired: 20
   CertificateRequired: 0
   EncryptionUnsupported: 1
   Rejected: 13
@@ -155,19 +155,19 @@ qpdf: 639 files
     PageResourcesMissing: 11
     UnexpectedToken: 11
     DictionaryKeyNotName: 10
-    RootMissing: 10
     StreamLengthInvalid: 10
+    RootMissing: 9
     DestinationInvalid: 8
     FilterUnsupported: 8
     PopupLinkMismatch: 8
     CatalogTypeInvalid: 7
     ObjectStreamIndexMismatch: 7
+    PagesMissing: 7
     WidgetNotInFieldTree: 7
     XrefEntryInvalid: 7
     FieldNameMissing: 6
     FieldParentMissing: 6
     PageTreeCountMismatch: 6
-    PagesMissing: 6
     XrefEntryFormatInvalid: 6
     DecodeParmsInvalid: 5
     DictionaryUnterminated: 5
@@ -177,6 +177,7 @@ qpdf: 639 files
     PageTreeNodeTypeInvalid: 5
     PageTreeParentMismatch: 5
     DeveloperExtensionInvalid: 4
+    EncryptionEntryLengthInvalid: 4
     PageMediaBoxMissing: 4
     PredictorInvalid: 4
     AnnotationSharedAcrossPages: 3
@@ -214,7 +215,6 @@ qpdf: 639 files
     AppearanceNotForm: 1
     ChoiceValueNotInOptions: 1
     DefaultAppearanceMissing: 1
-    EncryptionEntryLengthInvalid: 1
     EncryptionIdMissing: 1
     EncryptionKeyLengthInvalid: 1
     FieldNotIndirect: 1
@@ -244,8 +244,8 @@ qpdf: 639 files
     XrefSubsectionHeaderInvalid: 1
 pdfium-tests: 840 files
   Clean: 304
-  Diagnostics: 529
-  PasswordRequired: 2
+  Diagnostics: 531
+  PasswordRequired: 0
   CertificateRequired: 4
   EncryptionUnsupported: 0
   Rejected: 1
@@ -258,7 +258,7 @@ pdfium-tests: 840 files
     StreamLengthInvalid: 92
     XrefSectionInvalid: 84
     AppearanceNotForm: 82
-    PredictorInvalid: 73
+    PredictorInvalid: 74
     DateInvalid: 56
     XmpMalformed: 43
     XmpPropertyDuplicate: 37
@@ -266,8 +266,8 @@ pdfium-tests: 840 files
     FilterDataInvalid: 28
     DctFrameInvalid: 26
     DecodeParmsInvalid: 24
+    XrefEntryOffsetInvalid: 23
     OutlineLinkInconsistent: 22
-    XrefEntryOffsetInvalid: 21
     MissingEndobj: 12
     OutlineCountInvalid: 12
     OutlineItemInvalid: 12
@@ -315,6 +315,7 @@ pdfium-tests: 840 files
     DctTruncated: 1
     DictionaryValueMissing: 1
     EncryptDictionaryInvalid: 1
+    EncryptionEntryLengthInvalid: 1
     EndOfFileMarkerMissing: 1
     EndstreamMissing: 1
     FieldNameDuplicateInconsistent: 1

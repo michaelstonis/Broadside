@@ -56,8 +56,18 @@ internal sealed class ObjectStream
     /// <param name="count">The resolved <c>N</c> entry.</param>
     /// <param name="first">The resolved <c>First</c> entry.</param>
     /// <param name="diagnostics">Where to report deviations.</param>
+    /// <param name="budget">
+    /// The document's entry budget, which each header pair takes from (rebuilding the cross-reference information indexes every
+    /// object stream; issue #48); <see langword="null"/> for none.
+    /// </param>
     /// <returns>The contents; <see cref="Unreadable"/> when <c>N</c> or <c>First</c> cannot be used.</returns>
-    public static ObjectStream Read(CosReference reference, ReadOnlyMemory<byte> data, CosObject count, CosObject first, DiagnosticSink diagnostics)
+    public static ObjectStream Read(
+        CosReference reference,
+        ReadOnlyMemory<byte> data,
+        CosObject count,
+        CosObject first,
+        DiagnosticSink diagnostics,
+        XrefEntryBudget? budget = null)
     {
         if (count is not CosInteger { Value: >= 0 } n || first is not CosInteger { Value: >= 0 } firstOffset || firstOffset.Value > data.Length)
         {
@@ -80,6 +90,16 @@ internal sealed class ObjectStream
         bool dropped = false;
         for (long index = 0; index < n.Value; index++)
         {
+            if (budget is not null && !budget.TryTake())
+            {
+                diagnostics.Report(
+                    DiagnosticCodes.CrossReferenceEntryLimitExceeded,
+                    DiagnosticSeverity.Error,
+                    string.Create(CultureInfo.InvariantCulture, $"Rebuilding the cross-reference information indexes more objects than the file has bytes (at least {XrefEntryBudget.Minimum}); the object stream's pairs from index {index} on are not read."),
+                    objectReference: reference);
+                break;
+            }
+
             if (!StructureTokens.TryReadUnsigned(ref lexer, out long number) || !StructureTokens.TryReadUnsigned(ref lexer, out long offset))
             {
                 diagnostics.Report(

@@ -4,7 +4,7 @@ using Broadside.Objects;
 namespace Broadside.Tests.Document;
 
 /// <summary>The document's effective version: the header's, overridden by the catalog's Version when later. ISO 32000-2 §7.5.2, §7.7.2 Table 29.</summary>
-public class VersionTests
+public sealed class VersionTests
 {
     [Theory]
     [InlineData("%PDF-1.4", "/Version /1.7", "1.7")]

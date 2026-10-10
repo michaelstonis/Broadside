@@ -13,7 +13,7 @@ namespace Broadside.Tests.Document;
 /// are absent. ISO 32000-2 §7.
 /// </summary>
 [Trait("Category", "Corpus")]
-public class RealWorldCorpusTests(ITestOutputHelper output)
+public sealed class RealWorldCorpusTests(ITestOutputHelper output)
 {
     /// <summary>The corpora of the gate, by fetcher id.</summary>
     public static readonly string[] CorpusIds = ["pdfjs", "pdfbox", "qpdf", "pdfium-tests", "pdf20examples"];

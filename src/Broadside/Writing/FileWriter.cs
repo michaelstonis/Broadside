@@ -45,16 +45,6 @@ internal sealed class FileWriter
     private const long MaxTableOffset = 9_999_999_999;
 
     private static readonly PdfVersion StreamVersion = new(1, 5);
-    private static readonly CosName XRef = new("XRef");
-    private static readonly CosName ObjStm = new("ObjStm");
-    private static readonly CosName FlateDecode = new("FlateDecode");
-    private static readonly CosName W = new("W");
-    private static readonly CosName N = new("N");
-    private static readonly CosName First = new("First");
-    private static readonly CosName Filter = new("Filter");
-    private static readonly CosName DecodeParms = new("DecodeParms");
-    private static readonly CosName Predictor = new("Predictor");
-    private static readonly CosName Columns = new("Columns");
 
     private readonly PdfSource? _source;
     private readonly PdfVersion _version;
@@ -246,21 +236,16 @@ internal sealed class FileWriter
         }
 
         header.Write("\n"u8);
-        var data = new MemoryStream();
-        using (var zlib = new ZLibStream(data, CompressionLevel.Optimal, leaveOpen: true))
-        {
-            zlib.Write(header.WrittenSpan);
-            zlib.Write(bodies.WrittenSpan);
-        }
+        byte[] data = Deflate(header.WrittenSpan, bodies.WrittenSpan);
 
         var dictionary = new CosDictionary
         {
-            [KnownNames.Type] = ObjStm,
-            [N] = new CosInteger(count),
-            [First] = new CosInteger(header.WrittenCount),
-            [Filter] = FlateDecode,
+            [KnownNames.Type] = KnownNames.ObjStm,
+            [KnownNames.N] = new CosInteger(count),
+            [KnownNames.First] = new CosInteger(header.WrittenCount),
+            [FilterNames.Filter] = FilterNames.FlateDecode,
         };
-        return new CosStream(dictionary, data.ToArray());
+        return new CosStream(dictionary, data);
     }
 
     /// <summary>Writes a classic cross-reference table and trailer (§7.5.4, §7.5.5).</summary>
@@ -343,27 +328,23 @@ internal sealed class FileWriter
             (previous, row) = (row, previous);
         }
 
-        var data = new MemoryStream();
-        using (var zlib = new ZLibStream(data, CompressionLevel.Optimal, leaveOpen: true))
-        {
-            zlib.Write(rows);
-        }
+        byte[] data = Deflate(rows, []);
 
         var dictionary = new CosDictionary
         {
-            [KnownNames.Type] = XRef,
+            [KnownNames.Type] = KnownNames.XRef,
         };
         foreach (KeyValuePair<CosName, CosObject> entry in TrailerDictionary(size, identifier))
         {
             dictionary[entry.Key] = entry.Value;
         }
 
-        dictionary[W] = new CosArray([new CosInteger(1), new CosInteger(middle), new CosInteger(2)]);
-        dictionary[Filter] = FlateDecode;
-        dictionary[DecodeParms] = new CosDictionary { [Predictor] = new CosInteger(12), [Columns] = new CosInteger(columns) };
+        dictionary[KnownNames.W] = new CosArray([new CosInteger(1), new CosInteger(middle), new CosInteger(2)]);
+        dictionary[FilterNames.Filter] = FilterNames.FlateDecode;
+        dictionary[FilterNames.DecodeParms] = new CosDictionary { [FilterNames.Predictor] = new CosInteger(12), [FilterNames.Columns] = new CosInteger(columns) };
 
         var reference = new CosReference(number, 0);
-        WriteIndirectObject(buffer, reference, new WriterObject(reference, new CosStream(dictionary, data.ToArray()), null), source: null);
+        WriteIndirectObject(buffer, reference, new WriterObject(reference, new CosStream(dictionary, data), null), source: null);
         WriteEnd(buffer, offset);
     }
 
@@ -405,6 +386,23 @@ internal sealed class FileWriter
     }
 
     /// <summary>Writes <c>startxref</c>, the offset of the cross-reference information, and <c>%%EOF</c> (§7.5.5).</summary>
+    /// <summary>
+    /// The zlib/deflate encoding (RFC 1950, RFC 1951) of <paramref name="first"/> followed by <paramref name="second"/>: the data of a
+    /// <c>FlateDecode</c> stream (§7.4.4). Encoders are not behind the filter extension point yet (Phase 4A), so this is the writer's
+    /// one direct use of the BCL's <see cref="ZLibStream"/>.
+    /// </summary>
+    private static byte[] Deflate(ReadOnlySpan<byte> first, ReadOnlySpan<byte> second)
+    {
+        var data = new MemoryStream();
+        using (var zlib = new ZLibStream(data, CompressionLevel.Optimal, leaveOpen: true))
+        {
+            zlib.Write(first);
+            zlib.Write(second);
+        }
+
+        return data.ToArray();
+    }
+
     private static void WriteEnd(IBufferWriter<byte> buffer, long xrefOffset)
     {
         buffer.Write("\nstartxref\n"u8);

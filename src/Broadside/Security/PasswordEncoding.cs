@@ -11,6 +11,12 @@ namespace Broadside.Security;
 /// or that fails, is retried as Latin-1 (what pdf.js and PDFBox send); for revision 6 a password SASLprep rejects or changes is also
 /// tried as plain UTF-8 (pdf.js). The bidirectional-text check of RFC 3454 §6 is not applied (pdf.js does not either). The
 /// deprecated revision 5 uses plain UTF-8.
+/// <para>
+/// SASLprep's NFKC step uses <see cref="string.Normalize(NormalizationForm)"/>, which needs the host's globalization data: in an
+/// application built with <c>InvariantGlobalization</c> it leaves non-ASCII text unchanged, so a password typed decomposed (or with
+/// compatibility characters) matches only when the document's password was set the same way. The mapping and prohibition steps
+/// apply everywhere. <c>tests/Broadside.Globalization.Tests</c> covers NFKC with globalization on.
+/// </para>
 /// </remarks>
 internal static class PasswordEncoding
 {

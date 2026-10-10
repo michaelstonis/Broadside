@@ -22,6 +22,15 @@ internal interface ICryptFilterHandler
     /// <param name="context">The Crypt filter's context; its parameters may hold entries private to the security handler.</param>
     /// <returns><see langword="false"/> when no crypt filter of that name is known; nothing was written.</returns>
     bool TryDecrypt(CosName cryptFilterName, ReadOnlySpan<byte> data, IBufferWriter<byte> output, FilterContext context);
+
+    /// <summary>
+    /// Whether the stream's data is encrypted with a crypt filter the credentials do not unlock (§7.6.6; §7.6.5 Table 25, an
+    /// <c>AuthEvent /EFOpen</c> filter when the document opened without the user password): the pipeline then leaves the data as it
+    /// is and runs none of its filters, and the security handler has said why.
+    /// </summary>
+    /// <param name="streamDictionary">The stream's dictionary.</param>
+    /// <returns><see langword="true"/> when the stream stays encrypted.</returns>
+    bool IsLocked(CosDictionary streamDictionary);
 }
 
 /// <summary>The <see cref="ICryptFilterHandler"/> of an unencrypted document: only <c>Identity</c>, which copies the data (§7.6.6 Table 26).</summary>
@@ -41,4 +50,7 @@ internal sealed class IdentityCryptFilterHandler : ICryptFilterHandler
         output.Write(data);
         return true;
     }
+
+    /// <inheritdoc/>
+    public bool IsLocked(CosDictionary streamDictionary) => false;
 }

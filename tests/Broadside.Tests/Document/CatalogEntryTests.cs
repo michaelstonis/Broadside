@@ -8,7 +8,7 @@ namespace Broadside.Tests.Document;
 /// The catalog entries a viewer reads before showing a page: Version, Extensions, Requirements, Lang, PageLayout, PageMode and
 /// ViewerPreferences. ISO 32000-2 §7.7.2 Table 29, §7.12, §12.2, §12.11.
 /// </summary>
-public class CatalogEntryTests
+public sealed class CatalogEntryTests
 {
     [Fact]
     public void Viewer_preferences_pdf_types_every_table_147_entry()

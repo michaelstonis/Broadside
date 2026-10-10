@@ -5,7 +5,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Writing;
 
 /// <summary>Saving an opened document as a complete new file. ISO 32000-2 §7.5, §7.3.8, §7.3.10.</summary>
-public class SaveTests
+public sealed class SaveTests
 {
     private static readonly PdfCrossReferenceLayout[] Layouts = Enum.GetValues<PdfCrossReferenceLayout>();
 

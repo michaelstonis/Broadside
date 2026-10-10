@@ -51,16 +51,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
     private static readonly CosName S3 = new("adbe.pkcs7.s3");
     private static readonly CosName S4 = new("adbe.pkcs7.s4");
     private static readonly CosName S5 = new("adbe.pkcs7.s5");
-    private static readonly CosName SubFilterName = new("SubFilter");
     private static readonly CosName RecipientsName = new("Recipients");
-    private static readonly CosName CF = new("CF");
-    private static readonly CosName StmF = new("StmF");
-    private static readonly CosName StrF = new("StrF");
-    private static readonly CosName CFM = new("CFM");
-    private static readonly CosName AESV2 = new("AESV2");
-    private static readonly CosName AESV3 = new("AESV3");
-    private static readonly CosName LengthName = new("Length");
-    private static readonly CosName EncryptMetadata = new("EncryptMetadata");
 
     /// <summary>Permission bit 2 (Table 24): change the encryption, and every other permission.</summary>
     private const int ChangeEncryption = 1 << 1;
@@ -86,7 +77,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
         }
 
         CosDictionary encryption = context.EncryptionDictionary;
-        CosName? subFilter = context.Resolve(Get(encryption, SubFilterName)) as CosName;
+        CosName? subFilter = context.Resolve(Get(encryption, KnownNames.SubFilter)) as CosName;
         int version = context.Resolve(Get(encryption, KnownNames.V)) is CosInteger { Value: >= 0 and <= int.MaxValue } v ? (int)v.Value : 0;
         if (version == 0)
         {
@@ -97,7 +88,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
         }
 
         IReadOnlyList<X509Certificate2> certificates = (context.Credentials as PdfCertificateCredentials)?.Certificates ?? [];
-        CosDictionary? filters = context.Resolve(Get(encryption, CF)) as CosDictionary;
+        CosDictionary? filters = context.Resolve(Get(encryption, KnownNames.CF)) as CosDictionary;
 
         // The document-level recipients: the encryption dictionary's (s3, s4), else those of the crypt filter StmF or StrF names (s5).
         CosName? documentFilter = null;
@@ -105,7 +96,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
         CosObject recipientsEntry = context.Resolve(Get(encryption, RecipientsName));
         if (recipientsEntry is CosNull)
         {
-            foreach (CosName key in (ReadOnlySpan<CosName>)[StmF, StrF])
+            foreach (CosName key in (ReadOnlySpan<CosName>)[KnownNames.StmF, KnownNames.StrF])
             {
                 if (context.Resolve(Get(encryption, key)) is CosName name
                     && !name.Equals(FilterNames.Identity)
@@ -121,10 +112,10 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
 
             if (documentFilter is null)
             {
-                throw Fail(context, "The public-key encryption dictionary has no Recipients, neither its own (Table 23) nor in the crypt filter StmF or StrF names (Table 27).");
+                throw context.Fail("The public-key encryption dictionary has no Recipients, neither its own (Table 23) nor in the crypt filter StmF or StrF names (Table 27).");
             }
         }
-        else if (version >= 4 && context.Resolve(Get(encryption, StmF)) is CosName stmF && context.Resolve(Get(filters, stmF)) is CosDictionary stmFilter)
+        else if (version >= 4 && context.Resolve(Get(encryption, KnownNames.StmF)) is CosName stmF && context.Resolve(Get(filters, stmF)) is CosDictionary stmFilter)
         {
             documentFilterDictionary = stmFilter;
         }
@@ -138,9 +129,9 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
         }
 
         byte[][] recipients = ReadRecipients(context, recipientsEntry, "the document");
-        bool encryptMetadata = context.Resolve(Get(documentFilterDictionary, EncryptMetadata)) is CosBoolean filterFlag
+        bool encryptMetadata = context.Resolve(Get(documentFilterDictionary, KnownNames.EncryptMetadata)) is CosBoolean filterFlag
             ? filterFlag.Value
-            : context.Resolve(Get(encryption, EncryptMetadata)) is not CosBoolean { Value: false };
+            : context.Resolve(Get(encryption, KnownNames.EncryptMetadata)) is not CosBoolean { Value: false };
         int keyLength = KeyLength(context, encryption, documentFilterDictionary, version, documentFilter is null ? "the encryption dictionary" : $"the crypt filter /{documentFilter.Value}");
 
         Envelope envelope = Open(context, recipients, certificates, "the document")
@@ -151,7 +142,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
 
         if (envelope.Content.Length < 20)
         {
-            throw Fail(context, string.Create(CultureInfo.InvariantCulture, $"The enveloped data of the document's recipient list shall hold a 20-byte seed and 4 bytes of permissions (§7.6.5.3); it has {envelope.Content.Length} bytes."));
+            throw context.Fail(string.Create(CultureInfo.InvariantCulture, $"The enveloped data of the document's recipient list shall hold a 20-byte seed and 4 bytes of permissions (§7.6.5.3); it has {envelope.Content.Length} bytes."));
         }
 
         int rawPermissions = 0;
@@ -268,21 +259,21 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
             return 32;
         }
 
-        CosName? method = context.Resolve(Get(filter, CFM)) as CosName;
-        if (AESV3.Equals(method))
+        CosName? method = context.Resolve(Get(filter, KnownNames.CFM)) as CosName;
+        if (KnownNames.AESV3.Equals(method))
         {
             return 32;
         }
 
-        if (AESV2.Equals(method))
+        if (KnownNames.AESV2.Equals(method))
         {
             return 16;
         }
 
-        CosObject length = context.Resolve(Get(filter, LengthName));
+        CosObject length = context.Resolve(Get(filter, KnownNames.Length));
         if (length is CosNull)
         {
-            length = context.Resolve(Get(encryption, LengthName));
+            length = context.Resolve(Get(encryption, KnownNames.Length));
         }
 
         if (length is not CosInteger { Value: var bits })
@@ -333,7 +324,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
 
         if (recipients.Count == 0)
         {
-            throw Fail(context, $"The Recipients of {label} hold no CMS object.");
+            throw context.Fail($"The Recipients of {label} hold no CMS object.");
         }
 
         return [.. recipients];
@@ -499,13 +490,6 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
 
     private static CosObject? Get(CosDictionary? dictionary, CosName key) =>
         dictionary is not null && dictionary.TryGetValue(key, out CosObject? value) ? value : null;
-
-    private static DiagnosticException Fail(SecurityHandlerContext context, string message)
-    {
-        var diagnostic = new Diagnostic(DiagnosticCodes.EncryptDictionaryInvalid, DiagnosticSeverity.Error, message);
-        context.Report(diagnostic.Code, diagnostic.Severity, diagnostic.Message);
-        return new DiagnosticException(diagnostic);
-    }
 
     /// <summary>The decrypted enveloped data of the recipient list that names the reader.</summary>
     private sealed record Envelope(byte[] Content);

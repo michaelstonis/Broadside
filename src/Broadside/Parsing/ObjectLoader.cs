@@ -45,10 +45,6 @@ internal sealed class ObjectLoader
     /// <summary>How far before and after a wrong offset the object's header is looked for before the whole file is scanned.</summary>
     private const int NearSearchDistance = 1024;
 
-    private static readonly CosName ObjStm = new("ObjStm");
-    private static readonly CosName N = new("N");
-    private static readonly CosName First = new("First");
-
     private readonly PdfSource _source;
     private readonly DiagnosticSink _diagnostics;
     private readonly StreamDecoder _streams;
@@ -179,7 +175,9 @@ internal sealed class ObjectLoader
         }
 
         var context = new ObjectLoadContext(reference, Header.Offset + entry.Offset, ObjectOrigin.FileBody, depth);
-        CosObject loaded = ParseIndirectObject(context);
+
+        // Offset 0 is the header, never an object (an object right after it would otherwise parse from there, past the comment).
+        CosObject loaded = entry.Offset == 0 ? LoadMisplaced(context) : ParseIndirectObject(context);
         if (Logger is { } logger)
         {
             ObjectLog.ObjectParsed(logger, reference.ObjectNumber, reference.Generation, context.Offset, objectStream: null);
@@ -266,7 +264,7 @@ internal sealed class ObjectLoader
             return ObjectStream.Unreadable(reference);
         }
 
-        if (!stream.Dictionary.TryGetValue(KnownNames.Type, out CosObject? type) || !ObjStm.Equals(type))
+        if (!stream.Dictionary.TryGetValue(KnownNames.Type, out CosObject? type) || !KnownNames.ObjStm.Equals(type))
         {
             _diagnostics.Report(
                 DiagnosticCodes.ObjectStreamTypeInvalid,
@@ -275,8 +273,8 @@ internal sealed class ObjectLoader
                 objectReference: reference);
         }
 
-        CosObject count = Resolve(stream.Dictionary.TryGetValue(N, out CosObject? n) ? n : null, depth + 1);
-        CosObject first = Resolve(stream.Dictionary.TryGetValue(First, out CosObject? f) ? f : null, depth + 1);
+        CosObject count = Resolve(stream.Dictionary.TryGetValue(KnownNames.N, out CosObject? n) ? n : null, depth + 1);
+        CosObject first = Resolve(stream.Dictionary.TryGetValue(KnownNames.First, out CosObject? f) ? f : null, depth + 1);
         ObjectStream container = ObjectStream.Read(reference, _streams.Decode(stream), count, first, _diagnostics);
         if (Logger is { } logger)
         {
@@ -310,14 +308,16 @@ internal sealed class ObjectLoader
 
     /// <summary>
     /// Handles an entry whose offset does not hold the expected <c>N G obj</c> header: looks for the header near the stated offset,
-    /// then anywhere in the file (the newest copy), and parses the object where it is found (issue #41).
+    /// then anywhere in the file (the newest copy), and parses the object where it is found (issue #41). An entry at offset 0 (the
+    /// header) says nothing about where the object is: only the newest copy in the file is looked for.
     /// </summary>
     private CosObject LoadMisplaced(in ObjectLoadContext context)
     {
         CosReference reference = context.Reference;
         long nearStart = context.Offset - NearSearchDistance;
-        bool found = FileScan.Run(_source, nearStart, context.Offset + NearSearchDistance)
-            .TryFindObject(reference.ObjectNumber, reference.Generation, context.Offset, out long offset)
+        bool atHeader = context.Offset == Header.Offset;
+        bool found = (!atHeader && FileScan.Run(_source, nearStart, context.Offset + NearSearchDistance)
+                .TryFindObject(reference.ObjectNumber, reference.Generation, context.Offset, out long offset))
             || Scan.Value.TryFindObject(reference.ObjectNumber, reference.Generation, near: null, out offset);
         if (!found || offset == context.Offset)
         {
@@ -380,7 +380,7 @@ internal sealed class ObjectLoader
         lexer.SkipWhitespaceAndComments();
         int bodyStart = lexer.Position;
         var repairs = new CosRepairLog(keepAll: true);
-        var parser = new CosParser(window, repairs, bodyStart, new LengthResolver(this, context), new StreamDataFactory(_source, context.Offset));
+        var parser = new CosParser(window, repairs, bodyStart, new StreamLengthResolver(this, context), new StreamDataFactory(_source, context.Offset));
         CosObject value = parser.ParseObject();
         int bodyEnd = parser.Position;
         lexer.Position = parser.Position;
@@ -419,11 +419,5 @@ internal sealed class ObjectLoader
     private sealed class StreamDataFactory(PdfSource source, long windowOffset) : IStreamDataFactory
     {
         public CosStream CreateStream(CosDictionary dictionary, int start, int length) => source.CreateStream(dictionary, windowOffset + start, length);
-    }
-
-    /// <summary>Adapts hook 1 to the parser's resolver contract for one object load.</summary>
-    private sealed class LengthResolver(ObjectLoader loader, ObjectLoadContext context) : IStreamLengthResolver
-    {
-        public long? ResolveLength(CosObject lengthEntry) => loader.Hooks.StreamExtent.ResolveLength(lengthEntry, loader, context);
     }
 }

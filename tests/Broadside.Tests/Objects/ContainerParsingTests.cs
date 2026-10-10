@@ -5,7 +5,7 @@ using static Broadside.Tests.Objects.ScalarParsingTests;
 namespace Broadside.Tests.Objects;
 
 /// <summary>ISO 32000-2 §7.3.6 (arrays), §7.3.7 (dictionaries) and §7.3.8 (streams).</summary>
-public class ContainerParsingTests
+public sealed class ContainerParsingTests
 {
     [Fact]
     public void Parses_the_array_example()

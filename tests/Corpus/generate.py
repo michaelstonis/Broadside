@@ -132,6 +132,8 @@ def xref_stream_rows(entries: list[tuple[int, int, int]]) -> bytes:
 
 def simple_file(objects: list[tuple[int, bytes]], version: str = "1.7", binary: bool = False,
                 trailer_extra: bytes = b"") -> bytes:
+    # 7.5.2: a file with binary data (any byte of 128 or more) shall have the binary comment line after its header.
+    binary = binary or any(b >= 0x80 for _, body in objects for b in body)
     f = File(version, binary)
     for num, body in objects:
         f.add(num, body)
@@ -2063,6 +2065,27 @@ def gen_encrypted_aes_gcm(name: str = "encrypted-aes-gcm") -> bytes:
     f.add(6, enc)
     f.add(7, b"<< /Title %s >>" % hex_string(encrypt(7, "title", b"AES-GCM")))
     return f.finish_classic(b"<< /Size 8 /Root 1 0 R /Info 7 0 R /Encrypt 6 0 R /ID [<%s> <%s>] >>" % ((id0.hex().encode(),) * 2))
+
+
+def gen_encrypted_embedded_file_open(name: str = "encrypted-embedded-file-open") -> bytes:
+    """7.6.5 Table 25 AuthEvent /EFOpen: R6 (V 5, AES-256) with user password "p\u00e4sswort", StmF and StrF
+    /Identity, and EFF naming /StdCF whose AuthEvent is /EFOpen. Only the embedded file (object 7, unfiltered,
+    7.11.4) is encrypted: the document opens without the user password, which is needed for the attachment."""
+    key = fixed_bytes(name + ":file-key", 32)
+    encrypt = aes256_encryptor(name, key)
+    enc = (b"<< /Filter /Standard /V 5 /R 6 /Length 256 " + r6_entries(name, key, USER_PASSWORD_R6, OWNER_PASSWORD, PERMISSIONS)
+           + b" /CF << /StdCF << /CFM /AESV3 /AuthEvent /EFOpen /Length 32 >> >> /StmF /Identity /StrF /Identity /EFF /StdCF >>")
+    id0 = file_id(name)
+    f = File("2.0", binary=True)
+    f.add(1, catalog(b" /Names << /EmbeddedFiles << /Names [(secret.txt) 6 0 R] >> >>"))
+    f.add(2, pages())
+    f.add(3, page(contents=4, font=5))
+    f.add(4, stream(b"", text_content(b"Attachment needs a password")))
+    f.add(5, HELVETICA)
+    f.add(6, b"<< /Type /Filespec /F (secret.txt) /UF (secret.txt) /EF << /F 7 0 R /UF 7 0 R >> >>")
+    f.add(7, stream(b"/Type /EmbeddedFile /Subtype /text#2Fplain", encrypt(7, "file", b"Embedded secret")))
+    f.add(8, enc)
+    return f.finish_classic(b"<< /Size 9 /Root 1 0 R /Encrypt 8 0 R /ID [<%s> <%s>] >>" % ((id0.hex().encode(),) * 2))
 
 
 def gen_encrypted_user_password(name: str = "encrypted-user-password") -> bytes:
@@ -5367,6 +5390,7 @@ FILES = {
     "encrypted-aes-gcm.pdf": gen_encrypted_aes_gcm,
     "encrypted-mac.pdf": gen_encrypted_mac,
     "encrypted-empty-owner-password.pdf": gen_encrypted_empty_owner_password,
+    "encrypted-embedded-file-open.pdf": gen_encrypted_embedded_file_open,
     "encrypted-user-password.pdf": gen_encrypted_user_password,
     "encrypted-rc4-user-password.pdf": gen_encrypted_rc4_user_password,
     "encrypted-mac-tampered.pdf": gen_encrypted_mac_tampered,

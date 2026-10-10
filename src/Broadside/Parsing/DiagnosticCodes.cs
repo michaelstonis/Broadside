@@ -14,6 +14,7 @@ internal static partial class DiagnosticCodes
     public const string HeaderMissing = nameof(HeaderMissing);
     public const string HeaderVersionInvalid = nameof(HeaderVersionInvalid);
     public const string HeaderInvalid = nameof(HeaderInvalid);
+    public const string HeaderBinaryCommentMissing = nameof(HeaderBinaryCommentMissing);
 
     // File trailer and startxref (§7.5.5).
     public const string StartxrefMissing = nameof(StartxrefMissing);

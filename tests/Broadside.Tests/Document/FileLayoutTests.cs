@@ -9,7 +9,7 @@ namespace Broadside.Tests.Document;
 /// found strict mode accepting; each is read leniently with one diagnostic, and strict mode throws it. ISO 32000-2 §7.5.2, §7.5.4,
 /// §7.5.5 Table 15.
 /// </summary>
-public class FileLayoutTests
+public sealed class FileLayoutTests
 {
     public static TheoryData<string, string> Deviations => new()
     {

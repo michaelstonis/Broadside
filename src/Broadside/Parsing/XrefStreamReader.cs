@@ -26,14 +26,10 @@ internal static class XrefStreamReader
     /// <summary>The widest field this reader accepts, in bytes: offsets and object numbers fit in a <see cref="long"/>.</summary>
     public const int MaxFieldWidth = 8;
 
-    private static readonly CosName XRef = new("XRef");
-    private static readonly CosName W = new("W");
-    private static readonly CosName Index = new("Index");
-
     /// <summary>The keys of a cross-reference stream's dictionary that describe the stream, not the file (Table 5 and Table 17).</summary>
     private static readonly CosName[] StreamOnlyKeys =
     [
-        KnownNames.Type, KnownNames.Length, W, Index, FilterNames.Filter, FilterNames.DecodeParms, FilterNames.DL, FilterNames.F,
+        KnownNames.Type, KnownNames.Length, KnownNames.W, KnownNames.Index, FilterNames.Filter, FilterNames.DecodeParms, FilterNames.DL, FilterNames.F,
         new("FFilter"), new("FDecodeParms"),
     ];
 
@@ -56,7 +52,7 @@ internal static class XrefStreamReader
         }
 
         CosDictionary dictionary = stream.Dictionary;
-        if (!dictionary.TryGetValue(KnownNames.Type, out CosObject? type) || !XRef.Equals(type))
+        if (!dictionary.TryGetValue(KnownNames.Type, out CosObject? type) || !KnownNames.XRef.Equals(type))
         {
             Report(diagnostics, DiagnosticCodes.XrefStreamTypeInvalid, DiagnosticSeverity.Warning, "The cross-reference stream's Type entry shall be /XRef; the stream is read as one.", offset, reference);
         }
@@ -198,7 +194,7 @@ internal static class XrefStreamReader
     private static bool TryReadWidths(CosDictionary dictionary, out int[] widths)
     {
         widths = new int[3];
-        if (!dictionary.TryGetValue(W, out CosObject? entry) || entry is not CosArray { Count: 3 } array)
+        if (!dictionary.TryGetValue(KnownNames.W, out CosObject? entry) || entry is not CosArray { Count: 3 } array)
         {
             return false;
         }
@@ -238,7 +234,7 @@ internal static class XrefStreamReader
     private static List<(long First, long Count)> ReadIndex(CosDictionary dictionary, long defaultCount, long offset, CosReference? reference, DiagnosticSink diagnostics)
     {
         var subsections = new List<(long First, long Count)>();
-        if (!dictionary.TryGetValue(Index, out CosObject? entry))
+        if (!dictionary.TryGetValue(KnownNames.Index, out CosObject? entry))
         {
             subsections.Add((0, defaultCount));
             return subsections;
@@ -330,12 +326,11 @@ internal static class XrefStreamReader
                 string? problem = DecodeEntry(row, widths, out XrefEntry entry);
                 if (problem is not null)
                 {
-                    string what = problem == DiagnosticCodes.XrefEntryOffsetInvalid ? "is in use at offset 0, where the header is" : "has a field out of range";
                     Report(
                         diagnostics,
                         problem,
                         DiagnosticSeverity.Error,
-                        string.Create(CultureInfo.InvariantCulture, $"The cross-reference stream entry for object {number} {what}; the object is read as free."),
+                        string.Create(CultureInfo.InvariantCulture, $"The cross-reference stream entry for object {number} has a field out of range; the object is read as free."),
                         offset,
                         reference);
                 }
@@ -369,9 +364,8 @@ internal static class XrefStreamReader
             case 0:
                 entry = new XrefEntry(XrefEntryKind.Free, Math.Max(field2, 0), (int)Math.Clamp(field3, 0, CosReference.MaxGeneration));
                 return null;
-            case 1 when field2 == 0:
-                return DiagnosticCodes.XrefEntryOffsetInvalid;
-            case 1 when field2 > 0 && field3 is >= 0 and <= CosReference.MaxGeneration:
+            case 1 when field2 >= 0 && field3 is >= 0 and <= CosReference.MaxGeneration:
+                // Offset 0 is the header, never an object; the entry stays in use and the loader looks for the object's header.
                 entry = new XrefEntry(XrefEntryKind.InUse, field2, (int)field3);
                 return null;
             case 2 when field2 is > 0 and <= int.MaxValue && field3 is >= 0 and <= int.MaxValue:

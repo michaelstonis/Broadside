@@ -6,7 +6,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Document;
 
 /// <summary>Header, cross-reference table, trailer and indirect objects. ISO 32000-2 §7.3.10, §7.5.1 to §7.5.5.</summary>
-public class FileStructureTests
+public sealed class FileStructureTests
 {
     [Fact]
     public void Offsets_count_from_the_header_so_bytes_before_it_do_not_matter()
@@ -189,6 +189,40 @@ public class FileStructureTests
         Assert.Equal(new CosReference(2, 0), diagnostic.ObjectReference);
     }
 
+    public static TheoryData<string, byte[]> BinaryCommentFiles => new()
+    {
+        // §7.5.2: a file with binary data has, right after the header, a comment line with at least four bytes of 128 or more.
+        { "%PDF-1.7\n%âãÏÓ", [0x80, 0xFF] },
+        { "%PDF-1.7\r\n%âãÏÓ comment\r", [0x80, 0xFF] },
+        { "%PDF-1.7", "text"u8.ToArray() },
+    };
+
+    [Theory]
+    [MemberData(nameof(BinaryCommentFiles))]
+    public void Strict_mode_accepts_a_binary_comment_after_the_header_or_a_file_without_binary_data(string header, byte[] data)
+    {
+        byte[] file = FileWithStreamData(header, data);
+
+        using PdfDocument document = PdfDocument.Open(file, new PdfOptions().UseStrict());
+
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Theory]
+    [InlineData("%PDF-1.7")]
+    [InlineData("%PDF-1.7\n%âãÏ")]
+    [InlineData("%PDF-1.7\n%abcd")]
+    [InlineData("%PDF-1.7\n\n%âãÏÓ")]
+    public void Strict_mode_rejects_a_file_with_binary_data_and_no_binary_comment_line(string header)
+    {
+        byte[] file = FileWithStreamData(header, [0x80, 0xFF]);
+
+        DiagnosticException exception = Assert.Throws<DiagnosticException>(() => PdfDocument.Open(file, new PdfOptions().UseStrict()));
+
+        Assert.Equal("HeaderBinaryCommentMissing", exception.Diagnostic.Code);
+        Assert.Equal(DiagnosticSeverity.Warning, exception.Diagnostic.Severity);
+    }
+
     [Fact]
     public void An_entry_whose_offset_does_not_hold_the_object_is_read_from_where_its_header_is_with_a_diagnostic()
     {
@@ -207,6 +241,44 @@ public class FileStructureTests
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
         Assert.Equal(new CosReference(3, 0), diagnostic.ObjectReference);
         Assert.Equal(third + 1, diagnostic.Offset);
+    }
+
+    [Fact]
+    public void An_in_use_entry_at_offset_0_is_read_from_where_its_header_is_with_a_diagnostic()
+    {
+        // Offset 0 is the header, never an object: the entry is wrong, not free. pdf.js finds such objects by scanning; so does the
+        // misplaced-object search.
+        byte[] file = new TestPdf().Build("<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [] /Count 0 >>", "(three)");
+        string text = Encoding.Latin1.GetString(file);
+        int third = text.IndexOf("3 0 obj", StringComparison.Ordinal);
+        text = text.Replace($"{third:D10} 00000 n", "0000000000 00000 n", StringComparison.Ordinal);
+
+        using PdfDocument document = PdfDocument.Open(Encoding.Latin1.GetBytes(text));
+
+        Assert.Equal(new CosString("three"u8), document.Resolve(new CosReference(3, 0)));
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal("XrefEntryOffsetInvalid", diagnostic.Code);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal(new CosReference(3, 0), diagnostic.ObjectReference);
+    }
+
+    [Fact]
+    public void An_in_use_entry_at_offset_0_in_an_update_reads_the_newest_copy_of_the_object()
+    {
+        // The update rewrites object 3 but its table gives offset 0: the object is still in use, and its newest header is the copy.
+        byte[] original = new TestPdf().Build("<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [] /Count 0 >>", "(old)");
+        string text = Encoding.Latin1.GetString(original);
+        int previous = text.LastIndexOf("startxref", StringComparison.Ordinal);
+        string previousOffset = text[(previous + "startxref".Length)..].Trim().Split('\n')[0].Trim();
+        int xref = text.Length + "3 0 obj\n(new)\nendobj\n".Length;
+        text += "3 0 obj\n(new)\nendobj\n"
+            + "xref\n3 1\n0000000000 00000 n \n"
+            + $"trailer\n<< /Size 4 /Root 1 0 R /Prev {previousOffset} >>\nstartxref\n{xref}\n%%EOF\n";
+
+        using PdfDocument document = PdfDocument.Open(Encoding.Latin1.GetBytes(text));
+
+        Assert.Equal(new CosString("new"u8), document.Resolve(new CosReference(3, 0)));
+        Assert.Equal(["XrefEntryOffsetInvalid"], document.Diagnostics.Select(static diagnostic => diagnostic.Code));
     }
 
     [Fact]
@@ -235,6 +307,14 @@ public class FileStructureTests
         Assert.Equal("MissingEndobj", diagnostic.Code);
         Assert.Equal(new CosReference(3, 0), diagnostic.ObjectReference);
     }
+
+    /// <summary>A one-page file whose header lines (without their last end-of-line marker) are <paramref name="header"/> and whose object 4 is a stream of <paramref name="data"/>.</summary>
+    private static byte[] FileWithStreamData(string header, byte[] data) =>
+        new TestPdf { Header = header, BinaryComment = false }.Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /Resources << >> /MediaBox [0 0 612 792] >>",
+            $"<< /Length {data.Length} >>\nstream\n{Encoding.Latin1.GetString(data)}\nendstream");
 
     private static byte[] WithTrailerEntries(Func<int, string> entries)
     {

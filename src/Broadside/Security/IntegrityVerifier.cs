@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Formats.Asn1;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -39,26 +40,36 @@ internal static class IntegrityVerifier
     private const string ContentTypeAttributeOid = "1.2.840.113549.1.9.3";
     private const string MessageDigestAttributeOid = "1.2.840.113549.1.9.4";
 
+    /// <summary>The digest algorithms of ISO/TS 32004 Table 8: object identifier, name, and whether this platform implements it.</summary>
+    private static readonly (string Oid, HashAlgorithmName Name, Func<bool> IsSupported)[] Digests =
+    [
+        ("2.16.840.1.101.3.4.2.1", HashAlgorithmName.SHA256, static () => true),
+        ("2.16.840.1.101.3.4.2.2", HashAlgorithmName.SHA384, static () => true),
+        ("2.16.840.1.101.3.4.2.3", HashAlgorithmName.SHA512, static () => true),
+        ("2.16.840.1.101.3.4.2.8", HashAlgorithmName.SHA3_256, static () => SHA3_256.IsSupported),
+        ("2.16.840.1.101.3.4.2.9", HashAlgorithmName.SHA3_384, static () => SHA3_384.IsSupported),
+        ("2.16.840.1.101.3.4.2.10", HashAlgorithmName.SHA3_512, static () => SHA3_512.IsSupported),
+    ];
+
     private static readonly CosName AuthCode = new("AuthCode");
     private static readonly CosName MacLocation = new("MACLocation");
     private static readonly CosName Standalone = new("Standalone");
     private static readonly CosName AttachedToSig = new("AttachedToSig");
-    private static readonly CosName ByteRange = new("ByteRange");
     private static readonly CosName SigObjRef = new("SigObjRef");
     private static readonly CosName KdfSalt = new("KDFSalt");
-    private static readonly CosName Contents = new("Contents");
 
     /// <summary>Checks the document's PDF MAC token, if it has or needs one.</summary>
     /// <param name="source">The file.</param>
     /// <param name="loader">The loader, decryption installed.</param>
     /// <param name="version">The encryption dictionary's <c>V</c>.</param>
-    /// <param name="result">The security handler's result: the file encryption key and the permissions.</param>
+    /// <param name="rawPermissions">The permissions word (<c>P</c>); bit 13 clear requires a token.</param>
+    /// <param name="fileKey">The file encryption key; empty when the document opened without authentication (not checkable).</param>
     /// <param name="diagnostics">Where to report the outcome.</param>
     /// <returns>The outcome.</returns>
-    public static PdfIntegrityStatus Verify(PdfSource source, ObjectLoader loader, int version, SecurityHandlerResult result, DiagnosticSink diagnostics)
+    public static PdfIntegrityStatus Verify(PdfSource source, ObjectLoader loader, int version, int rawPermissions, ReadOnlySpan<byte> fileKey, DiagnosticSink diagnostics)
     {
         CosDictionary trailer = loader.CrossReference.Sections[0].Trailer;
-        bool required = version >= 5 && (result.RawPermissions & (1 << 12)) == 0;
+        bool required = version >= 5 && (rawPermissions & (1 << 12)) == 0;
         if (!trailer.TryGetValue(AuthCode, out CosObject? entry))
         {
             if (!required)
@@ -73,8 +84,17 @@ internal static class IntegrityVerifier
             return PdfIntegrityStatus.Missing;
         }
 
+        if (fileKey.IsEmpty)
+        {
+            diagnostics.Report(
+                DiagnosticCodes.IntegrityCodeNotVerified,
+                DiagnosticSeverity.Information,
+                "The document opened without its user password, so the PDF MAC token cannot be checked without the file encryption key.");
+            return PdfIntegrityStatus.NotVerified;
+        }
+
         var verifier = new Verification(source, loader, diagnostics);
-        return verifier.Run(entry, version, result.FileEncryptionKey.Span);
+        return verifier.Run(entry, version, fileKey);
     }
 
     /// <summary>Parses a PDF MAC token and checks its structure (§6.3) without any key: the parser the fuzz target drives.</summary>
@@ -183,7 +203,7 @@ internal static class IntegrityVerifier
         {
             if (!authCode.TryGetValue(SigObjRef, out CosObject? reference)
                 || loader.Resolve(reference) is not CosDictionary signature
-                || loader.Resolve(signature.TryGetValue(Contents, out CosObject? contents) ? contents : null) is not CosString container)
+                || loader.Resolve(signature.TryGetValue(KnownNames.Contents, out CosObject? contents) ? contents : null) is not CosString container)
             {
                 return Invalid("The AuthCode SigObjRef shall refer to a signature dictionary with a Contents string (ISO/TS 32004 Table 6).");
             }
@@ -306,7 +326,7 @@ internal static class IntegrityVerifier
         private bool TryReadByteRange(CosDictionary dictionary, out long[] range)
         {
             range = new long[4];
-            if (loader.Resolve(dictionary.TryGetValue(ByteRange, out CosObject? entry) ? entry : null) is not CosArray { Count: 4 } array)
+            if (loader.Resolve(dictionary.TryGetValue(KnownNames.ByteRange, out CosObject? entry) ? entry : null) is not CosArray { Count: 4 } array)
             {
                 return false;
             }
@@ -339,15 +359,15 @@ internal static class IntegrityVerifier
                 return false;
             }
 
-            try
-            {
-                token = Convert.FromHexString(Encoding.ASCII.GetString(region, 1, region.Length - 2));
-                return true;
-            }
-            catch (FormatException)
+            byte[] decoded = new byte[(region.Length - 2) / 2];
+            if (Convert.FromHexString(Encoding.Latin1.GetString(region, 1, region.Length - 2), decoded, out _, out int written) != OperationStatus.Done
+                || written != decoded.Length)
             {
                 return false;
             }
+
+            token = decoded;
+            return true;
         }
 
         private byte[] DigestRange(HashAlgorithmName name, long[] range)
@@ -404,30 +424,27 @@ internal static class IntegrityVerifier
             }
         }
 
-        private static byte[] Hash(HashAlgorithmName name, ReadOnlySpan<byte> data) => name.Name switch
+        private static byte[] Hash(HashAlgorithmName name, ReadOnlySpan<byte> data)
         {
-            "SHA256" => SHA256.HashData(data),
-            "SHA384" => SHA384.HashData(data),
-            "SHA512" => SHA512.HashData(data),
-            "SHA3-256" => SHA3_256.HashData(data),
-            "SHA3-384" => SHA3_384.HashData(data),
-            _ => SHA3_512.HashData(data),
-        };
+            using var hash = IncrementalHash.CreateHash(name);
+            hash.AppendData(data);
+            return hash.GetHashAndReset();
+        }
 
-        /// <summary>ISO/TS 32004 Table 8.</summary>
+        /// <summary>Finds the digest algorithm <paramref name="oid"/> names in <see cref="Digests"/>, when this platform has it.</summary>
         private static bool TryCreateDigest(string oid, out HashAlgorithmName name)
         {
-            (name, bool supported) = oid switch
+            foreach ((string known, HashAlgorithmName algorithm, Func<bool> isSupported) in Digests)
             {
-                "2.16.840.1.101.3.4.2.1" => (HashAlgorithmName.SHA256, true),
-                "2.16.840.1.101.3.4.2.2" => (HashAlgorithmName.SHA384, true),
-                "2.16.840.1.101.3.4.2.3" => (HashAlgorithmName.SHA512, true),
-                "2.16.840.1.101.3.4.2.8" => (HashAlgorithmName.SHA3_256, SHA3_256.IsSupported),
-                "2.16.840.1.101.3.4.2.9" => (HashAlgorithmName.SHA3_384, SHA3_384.IsSupported),
-                "2.16.840.1.101.3.4.2.10" => (HashAlgorithmName.SHA3_512, SHA3_512.IsSupported),
-                _ => (default, false),
-            };
-            return supported;
+                if (known == oid)
+                {
+                    name = algorithm;
+                    return isSupported();
+                }
+            }
+
+            name = default;
+            return false;
         }
     }
 

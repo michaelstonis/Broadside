@@ -9,7 +9,8 @@ namespace Broadside.Tests.Document;
 /// Cross-reference streams read exactly like classic tables: their dictionary is the trailer, their binary entries locate objects.
 /// ISO 32000-2 §7.5.8.1 to §7.5.8.3, Tables 17 and 18.
 /// </summary>
-public class CrossReferenceStreamTests
+[Collection(HeavyTestCollection.Name)]
+public sealed class CrossReferenceStreamTests
 {
     private static readonly int[] W121 = [1, 2, 1];
 
@@ -140,6 +141,19 @@ public class CrossReferenceStreamTests
     }
 
     [Fact]
+    public void An_in_use_entry_at_offset_0_is_read_from_where_its_header_is_with_a_diagnostic()
+    {
+        var pdf = new XrefStreamPdf().AddOnePage().Add(4, "(four)");
+        byte[] file = pdf.Finish(5, "/Size 5 /Root 1 0 R /W [1 2 1]", W121, (0, 0, 255), (1, pdf.Offset(1), 0), (1, pdf.Offset(2), 0), (1, pdf.Offset(3), 0), (1, 0, 0));
+
+        using PdfDocument document = PdfDocument.Open(file);
+
+        Assert.Equal("four", Text(document, 4));
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal(("XrefEntryOffsetInvalid", DiagnosticSeverity.Warning), (diagnostic.Code, diagnostic.Severity));
+    }
+
+    [Fact]
     public void Data_shorter_than_the_entries_ends_the_section_where_the_data_ends()
     {
         var pdf = new XrefStreamPdf().AddOnePage().Add(4, "(four)");
@@ -173,12 +187,48 @@ public class CrossReferenceStreamTests
                 using PdfDocument opened = PdfDocument.Open(file);
                 _ = opened.Pages.Count;
             },
-            warmUpCalls: 0);
+            warmUpCalls: 1);
         using PdfDocument document = PdfDocument.Open(file);
 
         Assert.Single(document.Pages);
         Assert.Equal(["CrossReferenceEntryLimitExceeded"], document.Diagnostics.Select(diagnostic => diagnostic.Code));
-        Assert.InRange(allocated, 0, 384L << 20); // mostly the 40 MB of decoded data and its growing buffers; 8 million entries took gigabytes
+        // Steady state about 264 MiB: the 40 MB of decoded data and its growing buffers, and the 2^20 entries the budget lets the
+        // cross-reference dictionaries hold; 8 million entries took gigabytes.
+        Assert.InRange(allocated, 0, 320L << 20);
+    }
+
+    // Issue #48 follow-up: rebuilding the cross-reference information indexes the header of every object stream the scan finds; a
+    // Flate-compressed header of millions of pairs costs as much as millions of stream entries, so it takes from the same budget.
+    [Fact]
+    public void Rebuilding_the_cross_reference_indexes_no_more_object_stream_pairs_than_the_budget()
+    {
+        const int pairs = 3_000_000;
+        byte[] header = Encoding.ASCII.GetBytes(string.Concat(Enumerable.Repeat("10 0 ", pairs)));
+        byte[] data = [.. header, .. "(member)"u8];
+        string objectStream = $"<< /Type /ObjStm /N {pairs} /First {header.Length} /Filter /FlateDecode /Length {FilterEncoders.Zlib(data).Length} >>\n"
+            + $"stream\n{Encoding.Latin1.GetString(FilterEncoders.Zlib(data))}\nendstream";
+        string text = Encoding.Latin1.GetString(new TestPdf().Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>",
+            objectStream));
+        // No cross-reference table and no startxref: the reader rebuilds the information by scanning.
+        byte[] file = Encoding.Latin1.GetBytes(text[..text.LastIndexOf("xref\n", StringComparison.Ordinal)] + "%%EOF\n");
+        Assert.InRange(file.Length, 0, 100_000);
+
+        long allocated = Allocations.Measure(
+            () =>
+            {
+                using PdfDocument opened = PdfDocument.Open(file);
+                _ = opened.Pages.Count;
+            },
+            warmUpCalls: 1);
+        using PdfDocument document = PdfDocument.Open(file);
+
+        Assert.Single(document.Pages);
+        Assert.Contains(document.Diagnostics, static diagnostic => diagnostic.Code == "CrossReferenceEntryLimitExceeded");
+        // The decoded header (15 MB) and at most 2^20 indexed pairs; all 3 million took about twice as much.
+        Assert.InRange(allocated, 0, 64L << 20);
     }
 
     [Fact]

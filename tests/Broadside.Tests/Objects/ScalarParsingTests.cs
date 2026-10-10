@@ -3,7 +3,7 @@ using Broadside.Objects;
 namespace Broadside.Tests.Objects;
 
 /// <summary>ISO 32000-2 §7.3.2, §7.3.3, §7.3.9 and §7.3.10: the scalar objects, parsed through <see cref="CosObject.Parse"/>.</summary>
-public class ScalarParsingTests
+public sealed class ScalarParsingTests
 {
     [Theory]
     [InlineData("true", true)]

@@ -1,3 +1,5 @@
+using Broadside.Caching;
+
 namespace Broadside.Objects;
 
 /// <summary>A stream object: a stream dictionary and a sequence of bytes, written <c>&lt;&lt;…&gt;&gt; stream … endstream</c>.</summary>
@@ -60,17 +62,40 @@ public sealed class CosStream : CosObject
         }
     }
 
-    /// <summary>Replaces the encoded data as part of loading (decryption), without marking the stream dirty.</summary>
-    /// <param name="encodedData">The data.</param>
-    internal void ReplaceLoadedData(ReadOnlyMemory<byte> encodedData)
+    /// <summary>
+    /// Replaces the encoded data, as part of loading, with <paramref name="transform"/> of it, computed when the data is first read
+    /// and kept (decryption, issue #45: loading a stream does not read or decrypt its data). Does not mark the stream dirty.
+    /// </summary>
+    /// <param name="transform">Turns the data as loaded into the data the stream holds; runs at most once.</param>
+    internal void TransformLoadedData(Func<ReadOnlyMemory<byte>, ReadOnlyMemory<byte>> transform)
     {
-        _encodedData = encodedData;
-        _deferred = null;
+        _deferred = new TransformedData(_deferred, _encodedData, transform);
+        _encodedData = default;
     }
 
-    /// <summary>Gets the length of <see cref="EncodedData"/> without reading it.</summary>
+    /// <summary>
+    /// Gets the length of <see cref="EncodedData"/> without reading it; for data transformed on first read and not read yet, the
+    /// length before the transform (decryption only shortens the data).
+    /// </summary>
     internal int EncodedLength => _deferred is { } deferred ? deferred.Length : _encodedData.Length;
 
     /// <inheritdoc/>
     public override bool IsDirty => _changed || Dictionary.IsDirty;
+
+    /// <summary>Data computed from the loaded data on first read, once however many threads read it (<see cref="OnceCache{TKey, TValue}"/>).</summary>
+    private sealed class TransformedData(DeferredStreamData? source, ReadOnlyMemory<byte> loaded, Func<ReadOnlyMemory<byte>, ReadOnlyMemory<byte>> transform)
+        : DeferredStreamData
+    {
+        private readonly OnceCache<int, ReadOnlyMemory<byte>> _value = new();
+
+        public override int Length => _value.TryGet(0, out ReadOnlyMemory<byte> value) ? value.Length : source?.Length ?? loaded.Length;
+
+        public override ReadOnlyMemory<byte> Read() => _value.GetOrCreate(
+            0,
+            this,
+            static (_, data) => new Created<ReadOnlyMemory<byte>>(data.Compute()),
+            static (_, data) => data.Compute());
+
+        private ReadOnlyMemory<byte> Compute() => transform(source?.Read() ?? loaded);
+    }
 }

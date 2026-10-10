@@ -40,10 +40,6 @@ internal static class SavePlan
     /// <summary>The most object numbers per object above <see cref="MaxSparseObjectNumber"/>.</summary>
     public const int MaxNumbersPerObject = 16;
 
-    private static readonly CosName XRef = new("XRef");
-    private static readonly CosName ObjStm = new("ObjStm");
-    private static readonly CosName XRefStm = new("XRefStm");
-
     /// <summary>Plans the save of an opened document.</summary>
     /// <param name="source">The document's file.</param>
     /// <param name="loader">The document's loader.</param>
@@ -139,7 +135,7 @@ internal static class SavePlan
         var trailer = new CosDictionary();
         foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
         {
-            if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(XRefStm) && !entry.Key.Equals(KnownNames.ID))
+            if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID))
             {
                 trailer[entry.Key] = entry.Value;
             }
@@ -225,7 +221,7 @@ internal static class SavePlan
     private static bool IsFileStructure(CosObject value) =>
         value is CosStream stream
         && stream.Dictionary.TryGetValue(KnownNames.Type, out CosObject? type)
-        && (XRef.Equals(type) || ObjStm.Equals(type));
+        && (KnownNames.XRef.Equals(type) || KnownNames.ObjStm.Equals(type));
 
     /// <summary>Adds the objects at the hint stream offsets the linearization dictionary's <c>H</c> entry gives (F.3.3, Table F.1).</summary>
     private static void AddHintStreams(PdfLinearization linearization, CrossReference crossReference, HashSet<int> candidates)

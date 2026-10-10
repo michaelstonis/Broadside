@@ -9,7 +9,7 @@ namespace Broadside.Tests.Document;
 /// Linearized files: detection, the parameter dictionary, the first-page objects and the hint tables. ISO 32000-2 Annex F. Expected
 /// values come from <c>qpdf --show-linearization tests/Corpus/linearized.pdf</c> (qpdf 12.4.2), recorded in the corpus README.
 /// </summary>
-public class LinearizationTests
+public sealed class LinearizationTests
 {
     [Fact]
     public void A_linearized_file_is_detected_and_exposes_its_parameter_dictionary()
@@ -72,6 +72,18 @@ public class LinearizationTests
                 Assert.Equal([2, 3, 4], second.SharedObjects);
             });
         Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void A_hint_stream_whose_filter_fails_leaves_the_file_without_hints_and_with_a_diagnostic()
+    {
+        byte[] file = Replace(Corpus.Bytes("linearized-flate-hints.pdf"), "/Filter /FlateDecode /S 44", "/Filter /NoSuchCodec /S 44");
+
+        using PdfDocument document = PdfDocument.Open(file);
+
+        Assert.True(document.IsLinearized);
+        Assert.Null(document.Linearization!.Hints);
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "LinearizationHintsInvalid");
     }
 
     [Fact]

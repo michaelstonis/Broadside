@@ -11,7 +11,7 @@ namespace Broadside.Tests.Security;
 /// The security handler extension point: handlers chosen by <c>Filter</c> or <c>SubFilter</c>, the standard handler as the
 /// default, and the errors for encryption no handler implements. ISO 32000-2 §7.6.2, Table 20; §7.6.6, Table 25.
 /// </summary>
-public class SecurityHandlerExtensionPointTests
+public sealed class SecurityHandlerExtensionPointTests
 {
     /// <summary>The file encryption key generate.py fixed for encrypted-aes-256.pdf.</summary>
     private static readonly byte[] Aes256FileKey = SHA256.HashData("broadside-corpus:encrypted-aes-256:file-key:0"u8);
