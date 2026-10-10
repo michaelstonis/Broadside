@@ -100,6 +100,7 @@ diagnostics on well-formed files (files, total):
   FontTypeInvalid: 3, 3
   OptionalContentConfigMissing: 2, 2
 diagnostics on other files (files, total):
+  AppearanceResourcesMissing: 1, 1
   CidToGidMapMissing: 2, 2
   ContentColorOperatorMismatch: 2, 2
   FilterAbbreviationNotAllowed: 1, 1

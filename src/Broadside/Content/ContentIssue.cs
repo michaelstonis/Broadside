@@ -55,6 +55,7 @@ internal enum ContentIssue
     Type3GlyphMetricsMissing,
     Type3GlyphMetricsMisplaced,
     Type3GlyphRecursion,
+    AppearanceResourcesMissing,
 }
 
 /// <summary>The code and severity of each <see cref="ContentIssue"/>.</summary>
@@ -104,6 +105,7 @@ internal static class ContentIssues
         ContentIssue.Type3GlyphMetricsMissing => DiagnosticCodes.ContentType3GlyphMetricsMissing,
         ContentIssue.Type3GlyphMetricsMisplaced => DiagnosticCodes.ContentType3GlyphMetricsMisplaced,
         ContentIssue.Type3GlyphRecursion => DiagnosticCodes.ContentType3GlyphRecursion,
+        ContentIssue.AppearanceResourcesMissing => DiagnosticCodes.AppearanceResourcesMissing,
         _ => DiagnosticCodes.ContentInlineImageInvalid,
     };
 

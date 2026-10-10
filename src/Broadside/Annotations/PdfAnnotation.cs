@@ -367,7 +367,8 @@ public abstract class PdfAnnotation
     /// ISO 32000-2 §12.5.5, Algorithm "Appearance streams", and §8.10.1: one top-level run of kind <see cref="ContentRunKind.Appearance"/>
     /// in default user space, from the initial graphics state with the CTM set to the matrix <c>AA</c> (<see cref="GetAppearanceMatrix"/>;
     /// the form matrix is part of it and is not applied again), the clip intersected with the form's <c>BBox</c> in form space, names
-    /// resolving in the form's resources (the page's when it has none). An appearance that draws itself is not run inside itself
+    /// resolving in the form's resources (the page's when it has none, with <c>AppearanceResourcesMissing</c>: §7.8.3 requires an
+    /// appearance's own). An appearance that draws itself is not run inside itself
     /// (<c>ContentFormCycle</c>). <c>NoZoom</c>, <c>NoRotate</c>, optional content and the annotation's transparency group are the caller's.
     /// </remarks>
     public bool ProcessAppearance(PdfFormXObject appearance, ContentProcessor processor, ContentOptions options)

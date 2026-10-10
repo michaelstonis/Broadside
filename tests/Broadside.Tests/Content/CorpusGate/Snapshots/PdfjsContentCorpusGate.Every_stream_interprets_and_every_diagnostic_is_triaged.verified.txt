@@ -91,6 +91,7 @@ appearance events:
   MarkedContentPoints: 2
   MaxDepth: 4
 diagnostics on well-formed files (files, total):
+  AppearanceResourcesMissing: 9, 65
   CMapCodeInvalid: 1, 1
   CMapOperatorNotAllowed: 1, 1
   CidSystemInfoMismatch: 1, 1
@@ -144,6 +145,7 @@ diagnostics on other files (files, total):
   AnnotationRectInvalid: 1, 4
   AnnotationSubtypeMissing: 1, 1
   AppearanceEntryInvalid: 2, 3
+  AppearanceResourcesMissing: 6, 275
   CidToGidMapMissing: 5, 8
   ContentColorOperandCount: 2, 2
   ContentColorOperatorMismatch: 7, 40
