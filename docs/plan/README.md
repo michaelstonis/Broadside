@@ -108,6 +108,12 @@ Viewer-driven requirements folded in here (from `docs/research/pdf-viewer-landsc
 
 Shared viewer core: document session, page layout modes (single, continuous, facing, with and without snapping), tile scheduler with render-ahead and viewport priority, zoom with low-res-first progressive paint, selection over the hit-test index, search with background indexing, outline and thumbnails, annotation and form layers, smart dark mode, memory budget. Then one shell per framework. Capability targets are the ranked list in `docs/research/pdf-viewer-landscape.md` §5.
 
+### Phase 7: Hardening and v1 release (after Phases 3–5; Phase 6 not required)
+
+- **7A Coverage gaps**: spec stories and decisions the coverage audit found partial (platform-identical software rendering, wrapper documents, remaining round-trip and extraction cases).
+- **7B Deferred hardening**: findings deferred from the Phase 1–2 review (resource limits, partial codec features, strict-mode edges); JBIG2 extended templates are earmarked post-v1.
+- **7C Release engineering**: package metadata and signing, the NuGet preview (after Phase 3 renders real-world pages), guides and migration docs, threat model, performance comparison, the 1.x support policy, and the v1.0 release-candidate gate. v1.0 is the library and backends; the viewer ships as previews on its own track.
+
 ## Dependency graph
 
 ```
@@ -119,6 +125,7 @@ Phase 0 → Phase 1 → {2A, 2B, 2C, 2D} → 3A → {3B, 3C, 3D, 3E, 3F, 3G, 3H,
                                         5C (needs Phase 1, 4B, 4A for appearances)
                                         5E (needs Phase 1)
                      Phase 6 (needs 3A–3D, 5A; 5B improves it)
+                     Phase 7 (needs 3–5; ships v1.0 without waiting on 6)
 ```
 
 ## Ticket lists
@@ -126,6 +133,7 @@ Phase 0 → Phase 1 → {2A, 2B, 2C, 2D} → 3A → {3B, 3C, 3D, 3E, 3F, 3G, 3H,
 - [Phase 0](phase-0-issues.md) (scaffold, horizontal by nature)
 - [Phase 1](phase-1-issues.md) and [Phase 2](phase-2-issues.md): vertical slices of the [spec](spec-broadside-v1.md), published as sub-issues of #33
 - [Phase 3](phase-3-issues.md), [Phase 4](phase-4-issues.md), [Phase 5](phase-5-issues.md) and [Phase 6](phase-6-issues.md, provisional): vertical slices published 2026-10-10 under phase parents #86–#89
+- [Phase 7](phase-7-issues.md): hardening and v1 release under #231; earmarked post-v1 work under #232
 
 ## Working agreement
 
