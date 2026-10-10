@@ -1,6 +1,8 @@
 using Broadside.Diagnostics;
 using Broadside.Fonts;
 using Broadside.Objects;
+using Broadside.Tests.Document;
+using Broadside.TestSupport;
 
 namespace Broadside.Tests.Fonts;
 
@@ -8,6 +10,7 @@ namespace Broadside.Tests.Fonts;
 /// Widths of simple fonts: <c>FirstChar</c>, <c>LastChar</c>, <c>Widths</c>, <c>MissingWidth</c>, and the repairs of malformed
 /// entries. ISO 32000-2 §9.6.2.1 Table 109, §9.8.1 Table 120, §9.2.4.
 /// </summary>
+[Collection(HeavyTestCollection.Name)]
 public class WidthTests
 {
     private const string Descriptor =
@@ -136,14 +139,8 @@ public class WidthTests
         using PdfDocument document = FontPdf.Open("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding << /Differences [ 65 /B ] >> >>");
         PdfSimpleFont font = FontPdf.SimpleFont(document);
         double total = 0;
-        for (int warmUp = 0; warmUp < 50; warmUp++)
-        {
-            total += Sum(font);
-        }
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        total += Sum(font);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = Allocations.Measure(() => total += Sum(font), warmUpCalls: 50);
 
         Assert.Equal(0, allocated);
         Assert.True(total > 0);

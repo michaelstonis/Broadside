@@ -1,3 +1,4 @@
+using Broadside.Fonts;
 using Broadside.Graphics;
 using Broadside.Objects;
 
@@ -22,6 +23,13 @@ public readonly ref struct GlyphEvent
     /// <summary>Gets the font dictionary named by <c>Tf</c>.</summary>
     /// <remarks>ISO 32000-2 §9.5, Table 109.</remarks>
     public CosDictionary? FontDictionary { get; internal init; }
+
+    /// <summary>
+    /// Gets the font the glyph is shown in: the one <c>Tf</c> (or the <c>Font</c> entry of a graphics state parameter dictionary)
+    /// selected; Helvetica's Standard 14 metrics when text is shown before any font is selected or the font is missing.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.3.1 and §9.5. Glyph selection and Unicode mapping are the font's, on demand.</remarks>
+    public PdfFont? Font { get; internal init; }
 
     /// <summary>Gets the character code (§9.4.3): one byte for a simple font, one to four for a composite font's CMap.</summary>
     public uint CharacterCode { get; internal init; }

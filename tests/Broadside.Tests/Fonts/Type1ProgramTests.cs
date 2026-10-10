@@ -1,6 +1,7 @@
 using Broadside.Diagnostics;
 using Broadside.Fonts;
 using Broadside.Fonts.Type1;
+using Broadside.Tests.Document;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.Fonts;
@@ -10,6 +11,7 @@ namespace Broadside.Tests.Fonts;
 /// in memory (<see cref="Type1Builder"/>) so each part can be made malformed. Vectors come from the Adobe Type 1 Font Format: the
 /// letter C of §6.6 and its encryption in §7.3, the flex example of §8.3. ISO 32000-2 §9.9.
 /// </summary>
+[Collection(HeavyTestCollection.Name)]
 public class Type1ProgramTests
 {
     private const string Box = "0 500 hsbw 0 0 rmoveto 100 hlineto 100 vlineto -100 hlineto closepath endchar";
@@ -385,14 +387,8 @@ public class Type1ProgramTests
             .Build();
         FontProgram program = Parse(bytes);
         var outline = new GlyphOutline();
-        for (int warm = 0; warm < 50; warm++)
-        {
-            Outline(program, outline);
-        }
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        int segments = Outline(program, outline);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        int segments = default;
+        long allocated = Allocations.Measure(() => segments = Outline(program, outline), 50);
 
         Assert.True(segments > 1_000);
         Assert.Equal(0, allocated);

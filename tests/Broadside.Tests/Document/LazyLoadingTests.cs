@@ -11,6 +11,7 @@ namespace Broadside.Tests.Document;
 /// ISO 32000-2 §7.5.1 and §7.5.4: the cross-reference table "permits random access to indirect objects ... so that the entire PDF
 /// file need not be read". The parse count is observed through the engine's trace log (event 2, <c>ObjectParsed</c>).
 /// </summary>
+[Collection(HeavyTestCollection.Name)]
 public class LazyLoadingTests
 {
     private const int PageCount = 40;
@@ -74,15 +75,7 @@ public class LazyLoadingTests
         using PdfDocument document = PdfDocument.Open(ManyPages());
         CosReference[] references = [.. Enumerable.Range(1, 2 + (3 * PageCount)).Select(number => new CosReference(number, 0))];
 
-        // Warm up past tiered compilation, which allocates on its own.
-        for (int round = 0; round < 50; round++)
-        {
-            ResolveAll(document, references);
-        }
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        ResolveAll(document, references);
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(0, Allocations.Measure(() => ResolveAll(document, references)));
 
         static void ResolveAll(PdfDocument document, CosReference[] references)
         {

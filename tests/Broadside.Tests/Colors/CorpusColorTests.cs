@@ -79,7 +79,10 @@ public class CorpusColorTests
         var recorder = new ColorRecorder();
         document.Pages[0].ProcessContent(recorder);
 
-        Assert.Equal(["DeviceRgb 0.5 0.5 0.5", "DeviceGray 0.5"], recorder.Paints.Select(p => p.FillText));
+        // The third paint is inside the form XObject, whose own DefaultRGB is current there (§8.6.5.6, issue #56).
+        Assert.Equal(["DeviceRgb 0.5 0.5 0.5", "DeviceGray 0.5", "DeviceRgb 0.5 0.5 0.5"], recorder.Paints.Select(p => p.FillText));
+        Near([0.504f, 0.504f, 0.504f], recorder.Paints[2].FillRgb, 3e-3);
+        Assert.NotSame(recorder.Paints[0].Defaults.Rgb, recorder.Paints[2].Defaults.Rgb);
         Assert.IsType<PdfCalRgbColorSpace>(recorder.Paints[0].Defaults.Rgb);
 
         // The page's CalRGB and CalGray defaults (gamma 1, D50) take 0.5 to linear 0.5, sRGB 188/255; poppler shows (188, 188, 188)

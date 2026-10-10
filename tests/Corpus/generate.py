@@ -3605,6 +3605,78 @@ def gen_shading_mesh_truncated() -> bytes:
 
 
 
+
+# Content streams: text, form XObjects, graphics state parameters, marked content (issue #56)
+
+def gen_form_xobject_nested() -> bytes:
+    """8.10.1 form XObjects: the page paints form A (/Matrix [2 0 0 2 100 100], /BBox [0 0 50 50], its own
+    /Resources with form B and font F1, /StructParents 3); A paints form B, which has no /Resources and so
+    uses A's (7.8.3: F1 resolves through them); then the page paints form C, whose own resources name C
+    itself: a cycle (one ContentFormCycle diagnostic, C's content runs once)."""
+    content = b"q /FA Do Q /FC Do\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /XObject << /FA 5 0 R /FC 7 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, stream(b"/Type /XObject /Subtype /Form /Matrix [2 0 0 2 100 100] /BBox [0 0 50 50] /StructParents 3"
+                   b" /Resources << /XObject << /FB 6 0 R >> /Font << /F1 8 0 R >> >>",
+                   b"0 0 10 10 re f /FB Do")),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 20 20]",
+                   b"BT /F1 12 Tf 1 2 Td (B) Tj ET 5 5 m 6 6 l S")),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 30 30] /Resources << /XObject << /FC 7 0 R >> >>",
+                   b"1 1 m 2 2 l S /FC Do")),
+        (8, HELVETICA),
+    ])
+
+
+def gen_extgstate_params() -> bytes:
+    """8.4.5 Table 57 graphics state parameter dictionaries (PDF 2.0): GS1 sets LW LC LJ ML D RI OP op OPM Font FL SA
+    BM CA ca AIS TK UseBlackPtComp and a Luminosity soft mask (11.6.5.1 Table 142) whose group G (11.6.6) is a
+    DeviceGray transparency group, with BC and TR /Identity; GS2 sets SM, HTO, BG2/UCR2 (Type 2 functions, 7.10.3),
+    TR2 /Identity, HT /Default, a deprecated blend-mode array whose first known name is Screen, and SMask /None.
+    The first rectangle is painted under GS1 with the CTM scaled by 2 (the soft mask records that CTM), the second
+    after Q under GS1 then GS2."""
+    content = b"q 2 0 0 2 0 0 cm /GS1 gs 0 0 10 10 re f Q /GS1 gs /GS2 gs 20 20 10 10 re S\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /ExtGState << /GS1 5 0 R /GS2 6 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /ExtGState /LW 3 /LC 1 /LJ 2 /ML 5 /D [[4 2] 1] /RI /Saturation /OP true /op false /OPM 1"
+            b" /Font [9 0 R 14] /FL 2 /SA true /BM /Multiply /CA 0.5 /ca 0.25 /AIS true /TK false /UseBlackPtComp /ON"
+            b" /SMask << /Type /Mask /S /Luminosity /G 7 0 R /BC [0.5] /TR /Identity >> >>"),
+        (6, b"<< /Type /ExtGState /SM 0.5 /HTO [1 2] /BG2 8 0 R /UCR2 8 0 R /TR2 /Identity /HT /Default"
+            b" /BM [/BroadsideUnknown /Screen] /SMask /None >>"),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10] /Group << /S /Transparency /CS /DeviceGray >>",
+                   b"0.5 g 0 0 10 10 re f")),
+        (8, b"<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >>"),
+        (9, HELVETICA),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (file_id("extgstate-params").hex().encode(), file_id("extgstate-params").hex().encode()))
+
+
+def gen_marked_content() -> bytes:
+    """14.6 marked content: BMC /Artifact; BDC /P with an inline <</MCID 0>>; BDC /Span naming /P1 in the page's
+    /Properties (MCID 1, Lang); MP /Pt; DP /Pt2 with an inline property list; BDC /OC naming an optional content
+    group that is OFF in the default configuration (8.11.3.2: its rectangle is hidden); BDC /Span with an inline
+    /ActualText (x). One text line in each of the /P and the last /Span sequences."""
+    content = (b"/Artifact BMC 0 0 1 1 re f EMC\n"
+               b"/P << /MCID 0 >> BDC BT /F1 12 Tf 72 700 Td (a) Tj ET EMC\n"
+               b"/Span /P1 BDC 0 0 2 2 re f EMC\n"
+               b"/Pt MP\n"
+               b"/Pt2 << /X 1 >> DP\n"
+               b"/OC /oc1 BDC 0 0 3 3 re f EMC\n"
+               b"/Span << /ActualText (x) >> BDC BT /F1 12 Tf 72 680 Td (y) Tj ET EMC\n")
+    return simple_file([
+        (1, catalog(b" /OCProperties << /OCGs [6 0 R] /D << /OFF [6 0 R] >> >>")),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << /Font << /F1 7 0 R >> /Properties << /P1 5 0 R /oc1 6 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, b"<< /MCID 1 /Lang (en) >>"),
+        (6, b"<< /Type /OCG /Name (Hidden layer) >>"),
+        (7, HELVETICA),
+    ])
 # ---------------------------------------------------------------------------
 # Images (clause 8.9): one masking mode or sample depth per file
 # ---------------------------------------------------------------------------
@@ -4166,6 +4238,9 @@ FILES = {
     "color-operators.pdf": gen_color_operators,
     "default-colorspaces.pdf": gen_default_colorspaces,
     "separation-special.pdf": gen_separation_special,
+    "form-xobject-nested.pdf": gen_form_xobject_nested,
+    "extgstate-params.pdf": gen_extgstate_params,
+    "marked-content.pdf": gen_marked_content,
     "image-stencil-mask.pdf": gen_image_stencil_mask,
     "image-explicit-mask.pdf": gen_image_explicit_mask,
     "image-color-key-mask.pdf": gen_image_color_key_mask,

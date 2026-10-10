@@ -19,7 +19,8 @@ namespace Broadside.Filters;
 /// <para>
 /// Lenient repairs, one <c>PredictorInvalid</c> diagnostic each: an unknown Predictor passes the data through unchanged; a PNG tag
 /// above 4 is read as None; a final partial row is padded with zeros. Parameters out of range take their defaults
-/// (<c>DecodeParmsInvalid</c>); a row longer than the decoded-length limit passes the data through.
+/// (<c>DecodeParmsInvalid</c>); a row longer than the decoded-length limit, or than the whole data, passes the data through, so
+/// the output is never more than twice the input.
 /// </para>
 /// </remarks>
 internal static class Predictor
@@ -57,6 +58,16 @@ internal static class Predictor
         if (rowLength > Math.Min(context.MaxDecodedLength, Array.MaxLength - 1))
         {
             context.Report(DiagnosticCodes.PredictorInvalid, DiagnosticSeverity.Error, "The predictor's rows are longer than the decoded-length limit; the data is passed through unpredicted.");
+            output.Write(data);
+            return;
+        }
+
+        if (rowLength > data.Length)
+        {
+            // Not one whole row: Columns, not the data, would size the row buffers and the zero padding of the last row, so a few
+            // bytes with a huge Columns would decode to up to the decoded-length limit. Passing them through keeps the output of
+            // any predicted data under twice its input (fuzzing finding, issue #48).
+            context.Report(DiagnosticCodes.PredictorInvalid, DiagnosticSeverity.Error, "The predictor's rows are longer than the whole data; the data is passed through unpredicted.");
             output.Write(data);
             return;
         }

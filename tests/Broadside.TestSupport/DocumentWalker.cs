@@ -233,10 +233,15 @@ public static class DocumentWalker
         }
     }
 
-    /// <summary>Counts what the filter pipeline writes and keeps none of it, so decoding a large file holds no decoded data.</summary>
+    /// <summary>
+    /// Counts what the filter pipeline writes and keeps none of it, so decoding a large file holds no decoded data. The scratch
+    /// buffer is per thread and outlives the walk, so the open-and-walk benchmark's <c>Allocated</c> shows the library's
+    /// allocations, not the walker's.
+    /// </summary>
     private sealed class DiscardingWriter : IBufferWriter<byte>
     {
-        private byte[] _buffer = new byte[64 * 1024];
+        [ThreadStatic]
+        private static byte[]? _scratch;
 
         public long Written { get; private set; }
 
@@ -246,14 +251,14 @@ public static class DocumentWalker
 
         public Span<byte> GetSpan(int sizeHint = 0) => Buffer(sizeHint);
 
-        private byte[] Buffer(int sizeHint)
+        private static byte[] Buffer(int sizeHint)
         {
-            if (sizeHint > _buffer.Length)
+            if (_scratch is null || sizeHint > _scratch.Length)
             {
-                _buffer = new byte[sizeHint];
+                _scratch = new byte[Math.Max(sizeHint, 64 * 1024)];
             }
 
-            return _buffer;
+            return _scratch;
         }
     }
 }
