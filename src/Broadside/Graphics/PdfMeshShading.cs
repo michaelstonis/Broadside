@@ -180,8 +180,17 @@ public abstract class PdfMeshShading : PdfShading
         {
             Report(DiagnosticCodes.MeshSizeExceeded, "The mesh has more vertices than the limit; the rest is dropped.");
         }
+
+        if ((issues & MeshIssues.PatchesUnpadded) != 0)
+        {
+            // pdf.js and PDFBox write and read patches this way; the reading is recorded, nothing is lost.
+            Report(
+                DiagnosticCodes.MeshPatchesUnpadded,
+                "The patches are not padded to whole bytes (each set of data shall occupy a whole number of bytes, §8.7.4.5.5); they are read back to back.",
+                Diagnostics.DiagnosticSeverity.Information);
+        }
     }
 
-    private void Report(string code, string message) =>
-        Document.DiagnosticSink.Report(code, Diagnostics.DiagnosticSeverity.Warning, message, offset: null, DiagnosticReference);
+    private void Report(string code, string message, Diagnostics.DiagnosticSeverity severity = Diagnostics.DiagnosticSeverity.Warning) =>
+        Document.DiagnosticSink.Report(code, severity, message, offset: null, DiagnosticReference);
 }

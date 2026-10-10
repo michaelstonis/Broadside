@@ -19,6 +19,7 @@ internal static partial class DiagnosticCodes
     public const string MeshEdgeFlagInvalid = nameof(MeshEdgeFlagInvalid);
     public const string MeshLatticeIncomplete = nameof(MeshLatticeIncomplete);
     public const string MeshSizeExceeded = nameof(MeshSizeExceeded);
+    public const string MeshPatchesUnpadded = nameof(MeshPatchesUnpadded);
 
     // Patterns (§8.7.2, §8.7.3, Tables 74 and 75).
     public const string PatternTypeInvalid = nameof(PatternTypeInvalid);
