@@ -197,6 +197,40 @@ public class CrossReferenceStreamTests
         Assert.InRange(allocated, 0, 320L << 20);
     }
 
+    // Issue #48 follow-up: rebuilding the cross-reference information indexes the header of every object stream the scan finds; a
+    // Flate-compressed header of millions of pairs costs as much as millions of stream entries, so it takes from the same budget.
+    [Fact]
+    public void Rebuilding_the_cross_reference_indexes_no_more_object_stream_pairs_than_the_budget()
+    {
+        const int pairs = 3_000_000;
+        byte[] header = Encoding.ASCII.GetBytes(string.Concat(Enumerable.Repeat("10 0 ", pairs)));
+        byte[] data = [.. header, .. "(member)"u8];
+        string objectStream = $"<< /Type /ObjStm /N {pairs} /First {header.Length} /Filter /FlateDecode /Length {FilterEncoders.Zlib(data).Length} >>\n"
+            + $"stream\n{Encoding.Latin1.GetString(FilterEncoders.Zlib(data))}\nendstream";
+        string text = Encoding.Latin1.GetString(new TestPdf().Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>",
+            objectStream));
+        // No cross-reference table and no startxref: the reader rebuilds the information by scanning.
+        byte[] file = Encoding.Latin1.GetBytes(text[..text.LastIndexOf("xref\n", StringComparison.Ordinal)] + "%%EOF\n");
+        Assert.InRange(file.Length, 0, 100_000);
+
+        long allocated = Allocations.Measure(
+            () =>
+            {
+                using PdfDocument opened = PdfDocument.Open(file);
+                _ = opened.Pages.Count;
+            },
+            warmUpCalls: 1);
+        using PdfDocument document = PdfDocument.Open(file);
+
+        Assert.Single(document.Pages);
+        Assert.Contains(document.Diagnostics, static diagnostic => diagnostic.Code == "CrossReferenceEntryLimitExceeded");
+        // The decoded header (15 MB) and at most 2^20 indexed pairs; all 3 million took about twice as much.
+        Assert.InRange(allocated, 0, 64L << 20);
+    }
+
     [Fact]
     public void A_stream_without_type_XRef_is_read_with_a_diagnostic()
     {

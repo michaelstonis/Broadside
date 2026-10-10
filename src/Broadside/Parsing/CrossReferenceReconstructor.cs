@@ -62,12 +62,14 @@ internal static class CrossReferenceReconstructor
         DiagnosticSink diagnostics,
         bool reportMissingTrailer = true)
     {
-        // 1. File-body objects: the last copy of each number wins.
+        // 1. File-body objects: the last copy of each number wins. Every object indexed, here and in object streams, takes from one
+        //    entry budget, as cross-reference streams do (issue #48).
+        var budget = XrefEntryBudget.For(source);
         var entries = new Dictionary<int, XrefEntry>();
         var bodyOffsets = new Dictionary<int, long>();
         foreach (ScannedObject found in scan.Objects)
         {
-            if (found.Offset < header.Offset)
+            if (found.Offset < header.Offset || !budget.TryTake())
             {
                 continue;
             }
@@ -79,7 +81,7 @@ internal static class CrossReferenceReconstructor
         ObjectLoader loader = LoaderOver(source, header, entries, new CosDictionary(), streams, diagnostics);
 
         // 2. Members of object streams, unless a later file-body copy supersedes them.
-        if (AddObjectStreamMembers(scan, loader, entries, bodyOffsets, streams, diagnostics))
+        if (AddObjectStreamMembers(scan, loader, entries, bodyOffsets, streams, diagnostics, budget))
         {
             loader = LoaderOver(source, header, entries, new CosDictionary(), streams, diagnostics);
         }
@@ -154,7 +156,8 @@ internal static class CrossReferenceReconstructor
         Dictionary<int, XrefEntry> entries,
         Dictionary<int, long> bodyOffsets,
         StreamDecoder streams,
-        DiagnosticSink diagnostics)
+        DiagnosticSink diagnostics,
+        XrefEntryBudget budget)
     {
         var containers = new SortedSet<(long Offset, int Number)>();
         foreach (long name in scan.ObjectStreamNames)
@@ -183,7 +186,7 @@ internal static class CrossReferenceReconstructor
 
             CosObject count = loader.Resolve(stream.Dictionary.TryGetValue(N, out CosObject? n) ? n : null);
             CosObject first = loader.Resolve(stream.Dictionary.TryGetValue(First, out CosObject? f) ? f : null);
-            ObjectStream objectStream = ObjectStream.Read(new CosReference(number, 0), streams.Decode(stream), count, first, diagnostics);
+            ObjectStream objectStream = ObjectStream.Read(new CosReference(number, 0), streams.Decode(stream), count, first, diagnostics, budget);
             IReadOnlyList<int> members = objectStream.ObjectNumbers;
             for (int index = 0; index < members.Count; index++)
             {
