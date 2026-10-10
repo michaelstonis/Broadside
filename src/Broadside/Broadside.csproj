@@ -13,6 +13,7 @@
     <None Include="THIRD-PARTY-NOTICES.txt" Pack="true" PackagePath="/" />
     <None Include="Fonts/Data/Afm/MustRead.html" Pack="true" PackagePath="licenses/adobe-core14-afm/" />
     <None Include="Fonts/Data/GlyphList/LICENSE.md" Pack="true" PackagePath="licenses/adobe-glyph-list/" />
+    <None Include="Fonts/Data/CMaps/LICENSE.md" Pack="true" PackagePath="licenses/adobe-cmap-resources/" />
     <None Include="Filters/Dct/README.ijg" Pack="true" PackagePath="licenses/ijg/" />
   </ItemGroup>
 

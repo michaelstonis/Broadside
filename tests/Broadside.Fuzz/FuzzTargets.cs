@@ -640,6 +640,19 @@ internal static class FuzzTargets
                 CheckGlyphId(map, code, program.GlyphCount);
             }
         }
+
+        // A CID-keyed program (#54): the CID of every glyph finds that glyph or an earlier one with the same CID.
+        if (program is CffFontProgram { Font: { IsCidKeyed: true } cid })
+        {
+            for (int glyph = 0; glyph < glyphs; glyph++)
+            {
+                int key = cid.Charset[glyph];
+                if (!cid.TryGetGlyphForCid(key, out int found) || found > glyph || cid.Charset[found] != key)
+                {
+                    throw new InvalidOperationException($"CID {key} of glyph {glyph} finds glyph {found}.");
+                }
+            }
+        }
     }
 
     private static void CheckOutline(GlyphOutlineStatus status, GlyphOutline outline)

@@ -35,10 +35,10 @@ internal enum CffEncodingKind
 /// <remarks>
 /// Adobe Technical Note #5176: header, Name, Top DICT, String and Global Subr INDEXes (§6-10, §16), charsets (§13), encodings
 /// (§12), CharStrings INDEX (§14) and the Private DICT (§15). ISO 32000-2 §9.9 (p.369): an embedded CFF shall hold exactly one
-/// font, so the first is read. CID-keyed fonts (§18, ROS/FDArray/FDSelect) are recognized and their offsets kept; reading their
-/// per-font-dictionary Private DICTs is issue #54's.
+/// font, so the first is read. CID-keyed fonts (§18-19): the FDArray's Font DICTs with their own Private DICTs and FontMatrix,
+/// FDSelect, and the charset read as CIDs (see <c>CffFont.Cid.cs</c>).
 /// </remarks>
-internal sealed class CffFont
+internal sealed partial class CffFont
 {
     private const int StandardStringCount = 391;
     private const int MaxHeaderShift = 64;
@@ -46,10 +46,11 @@ internal sealed class CffFont
     private readonly CffPrivate _private;
     private NameTables? _names;
 
-    private CffFont(ReadOnlyMemory<byte> data, CffPrivate privateValues)
+    private CffFont(ReadOnlyMemory<byte> data, CffPrivate privateValues, CidTables? cid)
     {
         Data = data;
         _private = privateValues;
+        _cid = cid;
     }
 
     /// <summary>Gets the CFF data (the whole program, or the "CFF " table of an OpenType program).</summary>
@@ -103,10 +104,11 @@ internal sealed class CffFont
     /// <summary>Gets why the font's outlines cannot be interpreted, or <see langword="null"/> when they can.</summary>
     public string? OutlinesUnsupported { get; private init; }
 
-    /// <summary>Gets the Private DICT values of a glyph's charstring (#54 selects them through FDSelect for CID-keyed fonts).</summary>
+    /// <summary>Gets the Private DICT values of a glyph's charstring: the Top DICT's, or in a CID-keyed font those of the Font DICT FDSelect gives the glyph.</summary>
     /// <param name="glyphId">The glyph id.</param>
     /// <returns>The values.</returns>
-    public CffPrivate GetPrivate(int glyphId) => _private;
+    /// <remarks>Adobe Technical Note #5176 §18 (each Font DICT has its own Private DICT) and §19 (FDSelect).</remarks>
+    public CffPrivate GetPrivate(int glyphId) => _cid is { } cid ? cid.GetPrivate(glyphId) : _private;
 
     /// <summary>Gets a glyph's name through the charset; <see langword="null"/> in a CID-keyed font or when the charset names none.</summary>
     public string? GetGlyphName(int glyphId) => (uint)glyphId < (uint)GlyphCount ? Names.ByGlyph[glyphId] : null;
@@ -204,13 +206,12 @@ internal sealed class CffFont
             return null;
         }
 
-        CffPrivate privateValues = top.IsCid ? new CffPrivate(default, Bias(0), 0, 0, 0) : ReadPrivate(span, top, context);
-        string? unsupported = top.IsCid
-            ? "it is a CID-keyed CFF font, whose glyphs are read through FDArray and FDSelect (Adobe Technical Note #5176 §18-19)"
-            : top.IsSynthetic ? "it is a synthetic font (SyntheticBase), which ISO 32000-2 does not allow and Broadside does not read (Adobe Technical Note #5176 §17)"
+        CffPrivate privateValues = top.IsCid ? new CffPrivate(default, Bias(0), 0, 0, 0) : ReadPrivate(span, top.PrivateOffset, top.PrivateSize, context, "Top DICT");
+        CidTables? cid = top.IsCid ? ReadCidTables(span, top, charStrings.Count, context) : null;
+        string? unsupported = top.IsSynthetic && !top.IsCid ? "it is a synthetic font (SyntheticBase), which ISO 32000-2 does not allow and Broadside does not read (Adobe Technical Note #5176 §17)"
             : top.CharstringType != 2 ? string.Create(CultureInfo.InvariantCulture, $"its CharstringType is {top.CharstringType}; only Type 2 charstrings are read")
             : null;
-        if (unsupported is not null && !top.IsCid)
+        if (unsupported is not null)
         {
             Report(context, DiagnosticCodes.FontProgramUnsupported, DiagnosticSeverity.Information, $"The CFF program's outlines are not read: {unsupported}.");
         }
@@ -223,14 +224,14 @@ internal sealed class CffFont
                 1 => (CffEncodingKind.Expert, []),
                 _ => (CffEncodingKind.Custom, ReadEncoding(span, top.Encoding, charset, context)),
             };
-        return new CffFont(data, privateValues)
+        return new CffFont(data, privateValues, cid)
         {
             Name = name,
             Strings = strings,
             GlobalSubrs = globals,
             GlobalSubrBias = Bias(globals.Count),
             CharStrings = charStrings,
-            FontMatrix = top.Matrix,
+            FontMatrix = cid?.FontMatrix ?? top.Matrix,
             FontBBox = top.BBox,
             IsCidKeyed = top.IsCid,
             CidCount = top.CidCount,
@@ -285,6 +286,7 @@ internal sealed class CffFont
                     break;
                 case 1207 when reader.OperandCount >= 6:
                     top.Matrix = new Matrix(reader[0], reader[1], reader[2], reader[3], reader[4], reader[5]);
+                    top.HasMatrix = true;
                     break;
                 case 1206:
                     top.CharstringType = (int)reader[0];
@@ -317,24 +319,23 @@ internal sealed class CffFont
         return top;
     }
 
-    private static CffPrivate ReadPrivate(ReadOnlySpan<byte> data, TopDict top, FontProgramContext context)
+    private static CffPrivate ReadPrivate(ReadOnlySpan<byte> data, int offset, int size, FontProgramContext context, string owner)
     {
-        if (top.PrivateOffset < 0 || top.PrivateSize < 0 || top.PrivateOffset > data.Length)
+        if (offset < 0 || size < 0 || offset > data.Length)
         {
-            Report(context, DiagnosticCodes.FontCffPrivateMissing, DiagnosticSeverity.Warning, top.PrivateOffset < 0
-                ? "The CFF Top DICT has no Private entry, which a CFF font shall have (Adobe Technical Note #5176 §9, Table 9); the Private DICT defaults are used."
+            Report(context, DiagnosticCodes.FontCffPrivateMissing, DiagnosticSeverity.Warning, offset < 0
+                ? $"The CFF {owner} has no Private entry, which a CFF font shall have (Adobe Technical Note #5176 §9, Table 9, and §18); the Private DICT defaults are used."
                 : "The CFF Private DICT lies outside the program (Adobe Technical Note #5176 §15); the Private DICT defaults are used.");
             return new CffPrivate(default, Bias(0), 0, 0, 0);
         }
 
-        int size = top.PrivateSize;
-        if (size > data.Length - top.PrivateOffset)
+        if (size > data.Length - offset)
         {
             Report(context, DiagnosticCodes.FontCffPrivateMissing, DiagnosticSeverity.Warning, "The CFF Private DICT runs past the end of the program (Adobe Technical Note #5176 §15); the part present is read.");
-            size = data.Length - top.PrivateOffset;
+            size = data.Length - offset;
         }
 
-        var reader = new CffDictReader(data.Slice(top.PrivateOffset, size));
+        var reader = new CffDictReader(data.Slice(offset, size));
         int subrs = -1;
         double defaultWidth = 0;
         double nominalWidth = 0;
@@ -367,7 +368,7 @@ internal sealed class CffFont
         if (subrs >= 0)
         {
             // 5176 §15 (p.25): the Subrs offset is relative to the start of the Private DICT.
-            local = ReadIndex(data, (int)Math.Min((long)top.PrivateOffset + subrs, int.MaxValue), context, "local Subrs");
+            local = ReadIndex(data, (int)Math.Min((long)offset + subrs, int.MaxValue), context, "local Subrs");
         }
 
         return new CffPrivate(local, Bias(local.Count), defaultWidth, nominalWidth, seed);
@@ -387,7 +388,8 @@ internal sealed class CffFont
         {
             if (isCid)
             {
-                // A CID-keyed font has no predefined charset; read the GIDs as CIDs, as Adobe Reader and PDFBox do (#54 reports).
+                // A CID-keyed font has no predefined charset; read the GIDs as CIDs, as Adobe Reader and PDFBox do.
+                ReportCharset(context, "of a CID-keyed font names a predefined charset, which CID-keyed fonts do not have (Adobe Technical Note #5176 §13 and §18); glyph ids are read as CIDs");
                 for (int glyph = 1; glyph < glyphCount; glyph++)
                 {
                     charset[glyph] = (ushort)Math.Min(glyph, ushort.MaxValue);
@@ -668,6 +670,7 @@ internal sealed class CffFont
         public int PrivateSize = -1;
         public int PrivateOffset = -1;
         public Matrix Matrix = Matrix.CreateScale(0.001, 0.001);
+        public bool HasMatrix;
         public PdfRectangle BBox;
         public int CharstringType = 2;
         public bool IsSynthetic;

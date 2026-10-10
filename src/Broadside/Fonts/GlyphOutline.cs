@@ -84,6 +84,15 @@ public sealed class GlyphOutline
         _verbs[_verbCount++] = PathVerb.Close;
     }
 
+    /// <summary>Maps every point through a matrix (a CID-keyed CFF glyph whose Font DICT has its own FontMatrix).</summary>
+    internal void Transform(Matrix matrix)
+    {
+        for (int index = 0; index < _pointCount; index++)
+        {
+            _points[index] = matrix.Transform(_points[index]);
+        }
+    }
+
     private void Append(PathVerb verb, PathPoint point)
     {
         EnsureCapacity(1);

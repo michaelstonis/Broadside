@@ -1710,6 +1710,93 @@ def gen_text_cid_embedded_cmap() -> bytes:
                     [b"(HI)", b"\x81\x41\x81\x40", b"\x82\x10"], tu, [(10, child), (11, parent)])
 
 
+def cff_real(text: bytes) -> bytes:
+    """TN 5176 Table 5: a real DICT operand from its decimal text (digits, '.', '-')."""
+    nibbles = [{ord("."): 0xA, ord("-"): 0xE}.get(c, c - 0x30) for c in text] + [0xF]
+    if len(nibbles) % 2:
+        nibbles.append(0xF)
+    return b"\x1e" + bytes((nibbles[i] << 4) | nibbles[i + 1] for i in range(0, len(nibbles), 2))
+
+
+def minimal_cid_cff() -> bytes:
+    """A CID-keyed CFF font (TN 5176 sections 18-19) for Adobe-Japan1-2: ROS first in the Top DICT, Top FontMatrix
+    [1 0 0 1 0 0] and FontMatrix [0.001 0 0 0.001 0 0] in each of two Font DICTs (TN 5014 p.25: concatenated), a format 0
+    charset that is not the identity (GID 1-3 are CIDs 264, 3284, 3722), and a format 3 FDSelect (GID 0-1 FD 0, GID 2-3
+    FD 1). FD 0: nominalWidthX 100, no subrs. FD 1: nominalWidthX 200, one local subr (called with the bias 107).
+
+    Outlines, in glyph space (1000 units per em):
+      GID 1 (CID 264, FD 0)   M 50,0 L 450,0 L 450,700 L 50,700 Z  (width 100 + 400)
+      GID 2 (CID 3284, FD 1)  M 100,0 L 900,0 L 900,800 L 100,800 Z M 200,100 L 200,700 L 800,700 L 800,100 Z
+                              (outer box in the FD 1 local subr, inner counter in global subr 0; width 200 + 800)
+      GID 3 (CID 3722, FD 1)  M 100,0 L 900,0 L 900,800 L 100,800 Z  (the local subr alone; width 200 + 800)"""
+    strings = [b"Adobe", b"Japan1", b"BroadsideCID-Minimal-FD0", b"BroadsideCID-Minimal-FD1"]
+    glyphs = [
+        t2("endchar"),
+        t2(400, 50, 0, "rmoveto", 400, 0, "rlineto", 0, 700, "rlineto", -400, 0, "rlineto", "endchar"),
+        t2(800, 100, 0, "rmoveto", -107, "callsubr", -107, "callgsubr", "endchar"),
+        t2(800, 100, 0, "rmoveto", -107, "callsubr", "endchar"),
+    ]
+    local_subrs = [t2(800, 0, "rlineto", 0, 800, "rlineto", -800, 0, "rlineto", "return")]
+    global_subrs = [t2(100, -700, "rmoveto", 0, 600, "rlineto", 600, 0, "rlineto", 0, -600, "rlineto", "return")]
+    charset = b"\x00" + struct.pack(">HHH", 264, 3284, 3722)
+    fd_select = b"\x03" + struct.pack(">HHBHBH", 2, 0, 0, 2, 1, len(glyphs))
+    char_strings = cff_index(glyphs)
+    thousandth = cff_real(b".001") + b"\x8b\x8b" + cff_real(b".001") + b"\x8b\x8b\x0c\x07"
+    privates = [cff_dict_int(100) + b"\x15",
+                cff_dict_int(200) + b"\x15" + cff_dict_int(len(cff_dict_int(200) + b"\x15") + 6) + b"\x13"]
+    tails = [privates[0], privates[1] + cff_index(local_subrs)]
+
+    def font_dict(fd: int, private_off: int) -> bytes:
+        # FontName (12 38), FontMatrix (12 7), Private (size, offset) (TN 5176 section 18).
+        return (cff_dict_int(393 + fd) + b"\x0c\x26" + thousandth
+                + cff_dict_int(len(privates[fd])) + cff_dict_int(private_off) + b"\x12")
+
+    def top(charset_off: int, char_strings_off: int, fd_array_off: int, fd_select_off: int) -> bytes:
+        return (cff_dict_int(391) + cff_dict_int(392) + cff_dict_int(2) + b"\x0c\x1e"  # ROS
+                + b"\x8c\x8b\x8b\x8c\x8b\x8b\x0c\x07"  # FontMatrix [1 0 0 1 0 0]
+                + cff_dict_int(charset_off) + b"\x0f" + cff_dict_int(char_strings_off) + b"\x11"
+                + cff_dict_int(fd_array_off) + b"\x0c\x24" + cff_dict_int(fd_select_off) + b"\x0c\x25")
+
+    head = b"\x01\x00\x04\x04" + cff_index([b"BroadsideCID-Minimal"])
+    top_len = len(cff_index([top(0, 0, 0, 0)]))
+    body = cff_index(strings) + cff_index(global_subrs)
+    charset_off = len(head) + top_len + len(body)
+    fd_select_off = charset_off + len(charset)
+    char_strings_off = fd_select_off + len(fd_select)
+    fd_array_off = char_strings_off + len(char_strings)
+    fd_array_len = len(cff_index([font_dict(0, 0), font_dict(1, 0)]))
+    private0 = fd_array_off + fd_array_len
+    private1 = private0 + len(tails[0])
+    fd_array = cff_index([font_dict(0, private0), font_dict(1, private1)])
+    assert len(fd_array) == fd_array_len
+    top_dict = cff_index([top(charset_off, char_strings_off, fd_array_off, fd_select_off)])
+    assert len(top_dict) == top_len
+    return head + top_dict + body + charset + fd_select + char_strings + fd_array + tails[0] + tails[1]
+
+
+def gen_text_cidcff_predefined_cmap() -> bytes:
+    """9.7.4.2 (CIDFontType0 with a CID-keyed CFF: CID -> GID through the charset), 9.7.5.2 Table 116 (the predefined
+    CMap 90ms-RKSJ-H, mixed 1- and 2-byte Shift-JIS codes), 9.9 Table 124 (FontFile3 /CIDFontType0C), TN 5176 sections
+    18-19. The string <41 93FA 967B> is one 1-byte and two 2-byte codes, CIDs 264, 3284 and 3722 in 90ms-RKSJ-H
+    (Adobe-Japan1 cid2code.txt), Unicode A 日 本 through Adobe-Japan1-UCS2. No ToUnicode. Outlines in minimal_cid_cff()."""
+    font = minimal_cid_cff()
+    content = b"BT /F1 24 Tf 72 700 Td <4193FA967B> Tj ET"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>" % LETTER),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Font /Subtype /Type0 /BaseFont /BroadsideCID-Minimal-90ms-RKSJ-H /Encoding /90ms-RKSJ-H "
+            b"/DescendantFonts [6 0 R] >>"),
+        (6, b"<< /Type /Font /Subtype /CIDFontType0 /BaseFont /BroadsideCID-Minimal "
+            b"/CIDSystemInfo << /Registry (Adobe) /Ordering (Japan1) /Supplement 2 >> /FontDescriptor 7 0 R "
+            b"/DW 1000 /W [264 [500]] >>"),
+        (7, b"<< /Type /FontDescriptor /FontName /BroadsideCID-Minimal /Flags 4 /FontBBox [0 0 900 800] /ItalicAngle 0 "
+            b"/Ascent 880 /Descent -120 /CapHeight 700 /StemV 80 /FontFile3 8 0 R >>"),
+        (8, stream(b"/Subtype /CIDFontType0C", font)),
+    ], binary=True)
+
+
 def gen_xref_stream() -> bytes:
     f = File("1.5", binary=True)
     f.add(1, catalog())
@@ -4975,6 +5062,7 @@ FILES = {
     "text-cid-identity-h.pdf": gen_text_cid_identity_h,
     "text-cid-identity-v.pdf": gen_text_cid_identity_v,
     "text-cid-embedded-cmap.pdf": gen_text_cid_embedded_cmap,
+    "text-cidcff-predefined-cmap.pdf": gen_text_cidcff_predefined_cmap,
     "xref-stream.pdf": gen_xref_stream,
     "object-stream.pdf": gen_object_stream,
     "incremental-update.pdf": gen_incremental_update,

@@ -28,11 +28,14 @@ public sealed class PdfType0Font : PdfFont
     }
 
     /// <summary>
-    /// Gets the CMap that maps the font's character codes to CIDs: a built-in Identity CMap or an embedded CMap stream. When the
-    /// <c>Encoding</c> entry is missing, malformed, or names a predefined CMap that is not available, codes are read as
+    /// Gets the CMap that maps the font's character codes to CIDs: a built-in Identity CMap, a predefined CMap from the engine's
+    /// font resolvers (the Broadside.Fonts.Cmaps package, <c>options.UsePredefinedCMaps()</c>), or an embedded CMap stream. A
+    /// predefined CMap of Table 116 that no resolver supplies is recorded as unavailable and stood in for by a CMap with its
+    /// codespace, character collection and writing mode but no mappings (every code selects CID 0). When the <c>Encoding</c> entry
+    /// is missing, malformed, or names a CMap that is not in Table 116 and that no resolver supplies, codes are read as
     /// <see cref="CMap.IdentityH"/>, with a diagnostic.
     /// </summary>
-    /// <remarks>ISO 32000-2 §9.7.5 and §9.7.6.1, Table 119 (<c>Encoding</c>).</remarks>
+    /// <remarks>ISO 32000-2 §9.7.5, §9.7.5.2 (Table 116) and §9.7.6.1, Table 119 (<c>Encoding</c>).</remarks>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found in the font, its CMap or its CIDFont.</exception>
     public CMap Encoding => State.Encoding;
 

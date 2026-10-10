@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Broadside/Broadside.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
     <PackageReference Include="BenchmarkDotNet" />
     <!-- Shared corpus locator, filter encoders and document walker, linked as source so this project does not drag xunit and Verify in through Broadside.TestSupport. -->
     <Compile Include="../../tests/Broadside.TestSupport/CorpusLocator.cs" Link="CorpusLocator.cs" />
