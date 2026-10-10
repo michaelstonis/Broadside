@@ -1,8 +1,11 @@
 using Broadside.Diagnostics;
+using Broadside.Fonts;
 using Broadside.Graphics;
 using Broadside.Graphics.Colors;
+using Broadside.Images;
 using Broadside.Objects;
 using Broadside.Parsing;
+using Broadside.Structure;
 
 namespace Broadside.Content;
 
@@ -49,8 +52,39 @@ public sealed class ContentContext
     public Matrix StreamBaseMatrix { get; internal set; } = Matrix.Identity;
 
     /// <summary>Gets a value indicating whether optional content currently hides what is painted.</summary>
-    /// <remarks>ISO 32000-2 §8.11.3.1. Always false until optional content is evaluated (issue #76).</remarks>
+    /// <remarks>
+    /// ISO 32000-2 §8.11.3.1: inside a marked-content sequence tagged <c>OC</c> whose group or membership is off (in the states
+    /// <see cref="ContentOptions.OptionalContentState"/> gives, by default those of the document's default configuration). Hidden
+    /// content still changes the graphics state and advances text; only its paint, glyph, image and shading events are withheld,
+    /// unless the processor asks for <see cref="ContentEvents.HiddenContent"/>, which flags them instead.
+    /// </remarks>
     public bool IsHidden { get; internal set; }
+
+    /// <summary>
+    /// Gets the stream whose content is running when it is a form XObject, a Type 3 glyph description or another nested stream;
+    /// <see langword="null"/> for a page's own content.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §8.10.1 and §14.7.5.2: marked-content identifiers are scoped to the content stream that holds them.</remarks>
+    public CosStream? ContentStream { get; internal set; }
+
+    /// <summary>
+    /// Gets the <c>StructParents</c> key of the running content stream: the page's, or the form XObject's; <see langword="null"/>
+    /// when it has none. Marked-content identifiers in the stream resolve through this entry of the structural parent tree.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §14.7.5.4, Tables 31 and 93.</remarks>
+    public int? StructParents { get; internal set; }
+
+    /// <summary>Gets the text matrix T<sub>m</sub>: valid inside a text object.</summary>
+    /// <remarks>ISO 32000-2 §9.4.2. Not part of the graphics state: <c>Q</c> does not restore it.</remarks>
+    public Matrix TextMatrix => _interpreter.TextMatrix;
+
+    /// <summary>Gets the text line matrix T<sub>lm</sub>: valid inside a text object.</summary>
+    /// <remarks>ISO 32000-2 §9.4.2.</remarks>
+    public Matrix TextLineMatrix => _interpreter.TextLineMatrix;
+
+    /// <summary>Gets the number of marked-content sequences open at this point, in this stream and the streams that invoked it.</summary>
+    /// <remarks>ISO 32000-2 §14.6.</remarks>
+    public int MarkedContentDepth => _interpreter.MarkedContentDepth;
 
     /// <summary>
     /// Gets the content stream the current operator is in, or <see langword="null"/> when that stream is a direct object; for a
@@ -121,6 +155,115 @@ public sealed class ContentContext
 
         Document.ColorSpaces.ReportFailure(owner, ColorSpaceFailure.Invalid, "an inline image's colour space");
         return PdfDeviceGrayColorSpace.Instance;
+    }
+
+    /// <summary>Returns the structure element a marked-content identifier of the running content stream belongs to.</summary>
+    /// <param name="mcid">The <c>MCID</c> of a marked-content sequence, such as <see cref="MarkedContentEvent.Mcid"/>.</param>
+    /// <returns>The element, or <see langword="null"/> when the document has no structure tree or the tree does not list it.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §14.7.5.2 and §14.7.5.4: an identifier in a page's content resolves through the page's <c>StructParents</c>; one in
+    /// a form XObject's content through the form's own <c>StructParents</c> (<see cref="ContentStream"/>).
+    /// </remarks>
+    public PdfStructureElement? FindStructureElement(int mcid)
+    {
+        if (Document.StructureTree is not { } tree)
+        {
+            return null;
+        }
+
+        if (ContentStream is { } stream)
+        {
+            return tree.FindElement(stream, mcid);
+        }
+
+        return Page is { } page ? tree.FindElement(page, mcid) : null;
+    }
+
+    /// <summary>
+    /// Runs a form XObject's content here, with the current graphics state, reporting its events to <paramref name="processor"/>
+    /// instead of this run's processor; as the <c>Do</c> operator would, with its matrix, bounding box, group and resources.
+    /// </summary>
+    /// <param name="form">The form.</param>
+    /// <param name="processor">The processor that receives the form's events, from <see cref="ContentProcessor.BeginForm"/> to <see cref="ContentProcessor.EndForm"/>.</param>
+    /// <exception cref="InvalidOperationException">Called outside a callback of a running run.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §8.10.1. For a processor that answered <see cref="ContentVisit.Skip"/> to a form and paints it its own way, such
+    /// as into a cached sub-list. The run's nesting limit and cycle check apply.
+    /// </remarks>
+    public void RunForm(PdfFormXObject form, ContentProcessor processor)
+    {
+        ArgumentNullException.ThrowIfNull(form);
+        ArgumentNullException.ThrowIfNull(processor);
+        _interpreter.RunFormWith(form, processor);
+    }
+
+    /// <summary>
+    /// Runs the glyph description of a Type 3 glyph, reporting its events to <paramref name="processor"/>: the glyph's
+    /// <c>CharProcs</c> stream, in glyph space mapped by the font matrix and the glyph's text matrix, with the font's resources.
+    /// </summary>
+    /// <param name="glyph">A glyph of a Type 3 font, as received by <see cref="ContentProcessor.ShowGlyph"/>.</param>
+    /// <param name="processor">The processor that receives the glyph's events, from <see cref="ContentProcessor.BeginType3Glyph"/> to <see cref="ContentProcessor.EndType3Glyph"/>.</param>
+    /// <exception cref="ArgumentException">The glyph's font is not a Type 3 font.</exception>
+    /// <exception cref="InvalidOperationException">Called outside a callback of a running run.</exception>
+    /// <remarks>ISO 32000-2 §9.6.4. The nesting limit is shared with forms, patterns and soft masks.</remarks>
+    public void RunType3Glyph(in GlyphEvent glyph, ContentProcessor processor)
+    {
+        ArgumentNullException.ThrowIfNull(processor);
+        if (glyph.Font is not PdfType3Font font)
+        {
+            throw new ArgumentException("The glyph's font is not a Type 3 font.", nameof(glyph));
+        }
+
+        _interpreter.RunType3GlyphWith(glyph, font, processor);
+    }
+
+    /// <summary>
+    /// Runs the transparency group of the current soft mask (<see cref="GraphicsState.SoftMask"/>), reporting its events to
+    /// <paramref name="processor"/>: the group in the coordinate system of <see cref="GraphicsState.SoftMaskMatrix"/>, from the
+    /// initial graphics state otherwise. Does nothing when there is no soft mask.
+    /// </summary>
+    /// <param name="processor">The processor that receives the group's events.</param>
+    /// <exception cref="InvalidOperationException">Called outside a callback of a running run.</exception>
+    /// <remarks>ISO 32000-2 §11.6.5.1 and §11.6.6. The nesting limit is shared with forms, patterns and Type 3 glyphs.</remarks>
+    public void RunSoftMaskGroup(ContentProcessor processor)
+    {
+        ArgumentNullException.ThrowIfNull(processor);
+        _interpreter.RunSoftMaskGroupWith(processor);
+    }
+
+    /// <summary>Returns the image view over an inline image: the <see cref="ContentOperatorCode.BeginInlineImage"/> operator's dictionary and data.</summary>
+    /// <param name="op">The operator, as given to <see cref="ContentProcessor.VisitOperator"/>.</param>
+    /// <returns>
+    /// The image, with its dictionary's abbreviations expanded, its colour space resolved against <see cref="Resources"/>, and a copy
+    /// of its data, so it outlives the callback; <see langword="null"/> when <paramref name="op"/> is not an inline image.
+    /// </returns>
+    /// <remarks>
+    /// ISO 32000-2 §8.9.7, Tables 90 to 92. The image's data ends where the content reader found <c>EI</c>: by <c>L</c> (PDF 2.0)
+    /// when it leads there, by the data length when the image is unfiltered, by the end-of-data marker of its first filter, else by
+    /// the first <c>EI</c> followed by content that parses.
+    /// </remarks>
+    public PdfImage? GetInlineImage(in ContentOperator op)
+    {
+        if (op.Code != ContentOperatorCode.BeginInlineImage || op.Operands.Count == 0
+            || op.Operands[op.Operands.Count - 1].Kind != ContentOperandKind.Dictionary
+            || op.Operands[op.Operands.Count - 1].ToCosObject() is not CosDictionary written)
+        {
+            return null;
+        }
+
+        CosReference? owner = CurrentStream ?? Page?.Reference;
+        CosDictionary expanded = InlineImageDictionary.Expand(written, Document.DiagnosticSink, owner);
+        PdfColorSpace? space = null;
+        if (!expanded.ContainsKey(ImageNames.ImageMask) || expanded[ImageNames.ImageMask] is not CosBoolean { Value: true })
+        {
+            if ((written.TryGetValue(ImageNames.CS, out CosObject? value) || written.TryGetValue(ImageNames.ColorSpace, out value)) && value is not CosNull)
+            {
+                space = GetInlineImageColorSpace(value);
+            }
+        }
+
+        var stream = new CosStream(expanded, op.Data.ToArray());
+        return new PdfImage(Document, stream, reference: null, PdfImage.ImageRole.Inline, owner: owner, inlineColorSpace: space);
     }
 
     /// <summary>Returns the pattern a Pattern colour selected, such as <see cref="GraphicsState.FillColor"/> when painting with a pattern.</summary>

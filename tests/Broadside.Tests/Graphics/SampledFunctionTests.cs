@@ -1,5 +1,6 @@
 using System.Globalization;
 using Broadside.Graphics;
+using Broadside.TestSupport;
 using static Broadside.Tests.Graphics.FunctionTesting;
 
 namespace Broadside.Tests.Graphics;
@@ -222,9 +223,10 @@ public class SampledFunctionTests
     public void A_size_that_would_need_too_many_samples_is_rejected_without_allocating_them()
     {
         using PdfDocument document = PdfDocument.Create();
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        PdfFunction function = document.Function(Stream("<< /FunctionType 0 /Domain [0 1 0 1 0 1] /Range [0 1] /Size [100000 100000 100000] /BitsPerSample 8 >>", [1, 2, 3]));
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        PdfFunction function = null!;
+        long allocated = Allocations.Measure(
+            () => function = document.Function(Stream("<< /FunctionType 0 /Domain [0 1 0 1 0 1] /Range [0 1] /Size [100000 100000 100000] /BitsPerSample 8 >>", [1, 2, 3])),
+            warmUpCalls: 0);
 
         Assert.False(function.IsValid);
         Assert.Equal(["FunctionInvalid"], document.Codes());

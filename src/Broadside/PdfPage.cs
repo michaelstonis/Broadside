@@ -2,6 +2,7 @@ using Broadside.Annotations;
 using Broadside.Content;
 using Broadside.Diagnostics;
 using Broadside.Fonts;
+using Broadside.Images;
 using Broadside.Objects;
 
 namespace Broadside;
@@ -96,6 +97,21 @@ public sealed class PdfPage
             && _document.Resolve(fonts) is CosDictionary fontResources
             && fontResources.TryGetValue(new CosName(resourceName), out CosObject? font)
             ? _document.GetFont(font)
+            : null;
+    }
+
+    /// <summary>Returns the image XObject the page's resources name <paramref name="resourceName"/>, as the <c>Do</c> operator paints it.</summary>
+    /// <param name="resourceName">The key in the <c>XObject</c> subdictionary of the page's (possibly inherited) resource dictionary, without the slash.</param>
+    /// <returns>The image view; <see langword="null"/> when the resources have no XObject of that name or it is not an image.</returns>
+    /// <remarks>ISO 32000-2 §7.8.3, Table 34 (<c>XObject</c>), §8.8 and §8.9.5.</remarks>
+    public PdfImage? GetImage(string resourceName)
+    {
+        ArgumentNullException.ThrowIfNull(resourceName);
+        return Resources is { } resources
+            && resources.TryGetValue(ImageNames.XObject, out CosObject? xobjects)
+            && _document.Resolve(xobjects) is CosDictionary xobjectResources
+            && xobjectResources.TryGetValue(new CosName(resourceName), out CosObject? image)
+            ? _document.GetImage(image)
             : null;
     }
     /// <summary>Gets the files associated with the page (<c>AF</c>).</summary>

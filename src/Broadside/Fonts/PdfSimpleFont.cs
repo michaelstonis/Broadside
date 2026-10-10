@@ -104,6 +104,9 @@ public abstract class PdfSimpleFont : PdfFont
         }
     }
 
+    /// <inheritdoc/>
+    internal override double GetHorizontalDisplacement(byte code) => Metrics.Widths[code] / 1000;
+
     /// <summary>Gets the names and widths of all 256 codes, rebuilt when an object they come from has changed.</summary>
     internal SimpleFontMetrics Metrics
     {

@@ -12,6 +12,18 @@
 
 A newer push to the same PR or branch cancels the older run. NuGet packages are cached per OS, keyed on `Directory.Packages.props` and every `.csproj`. `DiffEngine_Disabled=true` keeps Verify from launching a diff tool.
 
+## `fuzz.yml`: real fuzzing, weekly and on the "Run workflow" button
+
+Every fuzz target under libFuzzer through SharpFuzz, one parallel job per target (issue #48; `tests/Broadside.Fuzz/README.md`, "Scheduled runs in CI").
+
+| Job | Runs on | What it does |
+|---|---|---|
+| `targets` | ubuntu | Builds the harness and turns `--list` (or the `targets` input) into the matrix; checks the `minutes` input (default 80, at most 300 so every job stays under GitHub's 6-hour limit). |
+| `fuzz (<target>)` | ubuntu | Builds the libfuzzer-dotnet driver from pinned, hash-checked source with clang; installs SharpFuzz.CommandLine 2.3.0; builds the harness in Release; fetches `pdf20examples` and `qpdf` with `tools/CorpusFetcher` (cached) as extra seeds; restores the target's libFuzzer corpus from the previous run (`actions/cache`, key `fuzz-corpus-<target>-<run id>`); runs `tests/Broadside.Fuzz/run-libfuzzer.sh` (which instruments a copy of `Broadside.dll`) for the given minutes on every core; saves the minimized corpus; uploads `stats.json` as `fuzz-stats-<target>`, and on a finding fails and uploads `fuzz-findings-<target>` (inputs, replays, worker logs). |
+| `summary` | ubuntu | One table in the job summary: minutes, workers, CPU-hours, executions, corpus size and findings per target, and the cumulative fuzzing time of the run. |
+
+Schedule: Sundays 03:17 UTC. A scheduled run fuzzes every registered target for 80 minutes: the 19 Phase 1 targets alone make 25.3 hours of wall-clock time (about 100 CPU-hours on the 4-core runners), and every target added later adds 80 minutes. Runs on one branch never overlap (they would race to save the same cache). From a terminal: `gh workflow run fuzz.yml --ref main -f minutes=30 -f targets="document save"`. A finding is fixed in a PR with a regression test next to the feature that rebuilds the input's mechanism (issue #48's are in `PredictorTests`/`FilterAllocationTests`, `CrossReferenceStreamTests`, `SaveTests` and `PageLabelTests`); replay the uploaded input with `--run` first.
+
 ## `docs.yml`: the documentation site
 
 Runs on pull requests and pushes to `main` that touch `site/**`, `src/**`, `docs/**`, `.config/**`, `check-docs.sh`, `Directory.Build.props`, `Directory.Packages.props`, `global.json` or the workflow itself, and on the "Run workflow" button.

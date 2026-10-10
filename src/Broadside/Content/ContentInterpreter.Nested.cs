@@ -35,6 +35,9 @@ internal readonly struct NestedRun
 
     /// <summary>Gets a value indicating whether colour operators are ignored inside (inherited by every stream run from it).</summary>
     public bool IgnoresColorOperators { get; init; }
+
+    /// <summary>Gets the <c>StructParents</c> of the stream (a form's), which its marked-content identifiers resolve through (§14.7.5.4).</summary>
+    public int? StructParents { get; init; }
 }
 
 /// <summary>Why a nested run did not run.</summary>
@@ -48,8 +51,9 @@ internal enum NestedRunResult
 /// <summary>Nested runs: a content stream run from inside another, sharing the state stack and clip arena (§8.7.3.1, §8.10.1).</summary>
 /// <remarks>
 /// ISO 32000-2 §8.7.3.1 (a pattern cell is painted with q, the parent stream's initial state with the pattern matrix, the cell, Q),
-/// §8.10.1 (forms the same way, from issue #56). The run gets operand and path buffers of its own, so the outer operator's operands and
-/// path survive a run started from a processor callback; its <c>q</c>/<c>Q</c> cannot pop below its floor; one depth budget
+/// §8.10.1 (forms the same way, issue #56). The run gets operand and path buffers of its own, so the outer operator's operands and
+/// path survive a run started from a processor callback; its text object, marked-content sequences and text clip are its own (an
+/// outer text object is set aside and resumes after it, §8.10.1, §14.6); its <c>q</c>/<c>Q</c> cannot pop below its floor; one depth budget
 /// (<see cref="ContentOptions.MaxNestingDepth"/>) and one visited set of streams guard every kind of nesting.
 /// </remarks>
 internal sealed partial class ContentInterpreter
@@ -79,17 +83,9 @@ internal sealed partial class ContentInterpreter
     /// <summary>Runs a nested content stream; see <see cref="NestedRun"/>.</summary>
     internal NestedRunResult RunNested(in NestedRun run)
     {
-        if (_context.Depth >= _maxNestingDepth)
+        if (CanNest(run.Identity) is not NestedRunResult.Ran and var refused)
         {
-            return NestedRunResult.TooDeep;
-        }
-
-        foreach (RunFrame frame in _frames)
-        {
-            if (ReferenceEquals(frame.Identity, run.Identity))
-            {
-                return NestedRunResult.Recursive;
-            }
+            return refused;
         }
 
         _context.CancellationToken.ThrowIfCancellationRequested();
@@ -124,6 +120,12 @@ internal sealed partial class ContentInterpreter
             _context.Depth = depth + 1;
             _context.Resources = run.Resources;
             _context.StreamBaseMatrix = run.InitialState.Ctm;
+            _context.ContentStream = run.Identity as CosStream;
+            _context.StructParents = run.StructParents;
+            _textMatricesValid = false;
+            _textClipStart = _clipGlyphCount;
+            _pendingAdjustment = 0;
+            _markedFloor = _markedCount;
             PushNestedState(run.InitialState);
             pushed = true;
             _floor = _depth;
@@ -153,6 +155,28 @@ internal sealed partial class ContentInterpreter
             }
 
             saved.Restore(this);
+        }
+
+        return NestedRunResult.Ran;
+    }
+
+    /// <summary>
+    /// Returns whether a stream could run nested here: <see cref="NestedRunResult.Ran"/>, or why not (it is already running, or the
+    /// depth budget is spent). Lets a caller decide before it reports the stream's begin event.
+    /// </summary>
+    internal NestedRunResult CanNest(CosObject identity)
+    {
+        if (_context.Depth >= _maxNestingDepth)
+        {
+            return NestedRunResult.TooDeep;
+        }
+
+        foreach (RunFrame frame in _frames)
+        {
+            if (ReferenceEquals(frame.Identity, identity))
+            {
+                return NestedRunResult.Recursive;
+            }
         }
 
         return NestedRunResult.Ran;
@@ -243,9 +267,25 @@ internal sealed partial class ContentInterpreter
         private readonly int _contextDepth;
         private readonly CosDictionary? _resources;
         private readonly Matrix _baseMatrix;
+        private readonly CosStream? _contentStream;
+        private readonly int? _structParents;
+        private readonly Matrix _textMatrix;
+        private readonly Matrix _lineMatrix;
+        private readonly bool _textMatricesValid;
+        private readonly int _textClipStart;
+        private readonly double _pendingAdjustment;
+        private readonly int _markedFloor;
 
         public SavedRun(ContentInterpreter interpreter)
         {
+            _contentStream = interpreter._context.ContentStream;
+            _structParents = interpreter._context.StructParents;
+            _textMatrix = interpreter._textMatrix;
+            _lineMatrix = interpreter._lineMatrix;
+            _textMatricesValid = interpreter._textMatricesValid;
+            _textClipStart = interpreter._textClipStart;
+            _pendingAdjustment = interpreter._pendingAdjustment;
+            _markedFloor = interpreter._markedFloor;
             _processor = interpreter._processor;
             _events = interpreter._events;
             _arena = interpreter._arena;
@@ -288,6 +328,14 @@ internal sealed partial class ContentInterpreter
             interpreter._context.Depth = _contextDepth;
             interpreter._context.Resources = _resources;
             interpreter._context.StreamBaseMatrix = _baseMatrix;
+            interpreter._context.ContentStream = _contentStream;
+            interpreter._context.StructParents = _structParents;
+            interpreter._textMatrix = _textMatrix;
+            interpreter._lineMatrix = _lineMatrix;
+            interpreter._textMatricesValid = _textMatricesValid;
+            interpreter._textClipStart = _textClipStart;
+            interpreter._pendingAdjustment = _pendingAdjustment;
+            interpreter._markedFloor = _markedFloor;
         }
     }
 }

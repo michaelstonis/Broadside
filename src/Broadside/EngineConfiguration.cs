@@ -58,6 +58,9 @@ internal sealed class EngineConfiguration
     /// <summary>Gets how many bytes of a non-seekable stream are copied into memory before a temporary file is used (issue #45).</summary>
     public long StreamBufferLimit { get; private init; } = PdfOptions.DefaultStreamBufferLimit;
 
+    /// <summary>Gets the most pixels one image may have (issue #60).</summary>
+    public long MaxImagePixels { get; private init; } = PdfOptions.DefaultMaxImagePixels;
+
     /// <summary>Copies the current values of <paramref name="options"/>.</summary>
     /// <param name="options">The options.</param>
     /// <param name="hostLoggerFactory">The container's logger factory, used when the options set none.</param>
@@ -71,6 +74,7 @@ internal sealed class EngineConfiguration
         SecurityHandlers = options.SecurityHandlers.Count == 0 ? SecurityHandlerRegistry.Default : SecurityHandlerRegistry.Create(options.SecurityHandlers),
         Credentials = options.Credentials,
         StreamBufferLimit = options.StreamBufferLimit,
+        MaxImagePixels = options.MaxImagePixels,
         FontProgramParsers = FontProgramParserRegistry.Create(options.FontProgramParsers),
         ColorManagement = options.ColorManagement,
         FontResolvers = options.FontResolvers.Count == 0 && ReferenceEquals(options.SystemFontResolver, SystemFontResolver.Shared)

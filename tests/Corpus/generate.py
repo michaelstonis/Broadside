@@ -3617,6 +3617,275 @@ def gen_shading_mesh_truncated() -> bytes:
 
 
 
+
+# Content streams: text, form XObjects, graphics state parameters, marked content (issue #56)
+
+def gen_form_xobject_nested() -> bytes:
+    """8.10.1 form XObjects: the page paints form A (/Matrix [2 0 0 2 100 100], /BBox [0 0 50 50], its own
+    /Resources with form B and font F1, /StructParents 3); A paints form B, which has no /Resources and so
+    uses A's (7.8.3: F1 resolves through them); then the page paints form C, whose own resources name C
+    itself: a cycle (one ContentFormCycle diagnostic, C's content runs once)."""
+    content = b"q /FA Do Q /FC Do\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /XObject << /FA 5 0 R /FC 7 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, stream(b"/Type /XObject /Subtype /Form /Matrix [2 0 0 2 100 100] /BBox [0 0 50 50] /StructParents 3"
+                   b" /Resources << /XObject << /FB 6 0 R >> /Font << /F1 8 0 R >> >>",
+                   b"0 0 10 10 re f /FB Do")),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 20 20]",
+                   b"BT /F1 12 Tf 1 2 Td (B) Tj ET 5 5 m 6 6 l S")),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 30 30] /Resources << /XObject << /FC 7 0 R >> >>",
+                   b"1 1 m 2 2 l S /FC Do")),
+        (8, HELVETICA),
+    ])
+
+
+def gen_extgstate_params() -> bytes:
+    """8.4.5 Table 57 graphics state parameter dictionaries (PDF 2.0): GS1 sets LW LC LJ ML D RI OP op OPM Font FL SA
+    BM CA ca AIS TK UseBlackPtComp and a Luminosity soft mask (11.6.5.1 Table 142) whose group G (11.6.6) is a
+    DeviceGray transparency group, with BC and TR /Identity; GS2 sets SM, HTO, BG2/UCR2 (Type 2 functions, 7.10.3),
+    TR2 /Identity, HT /Default, a deprecated blend-mode array whose first known name is Screen, and SMask /None.
+    The first rectangle is painted under GS1 with the CTM scaled by 2 (the soft mask records that CTM), the second
+    after Q under GS1 then GS2."""
+    content = b"q 2 0 0 2 0 0 cm /GS1 gs 0 0 10 10 re f Q /GS1 gs /GS2 gs 20 20 10 10 re S\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /ExtGState << /GS1 5 0 R /GS2 6 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /ExtGState /LW 3 /LC 1 /LJ 2 /ML 5 /D [[4 2] 1] /RI /Saturation /OP true /op false /OPM 1"
+            b" /Font [9 0 R 14] /FL 2 /SA true /BM /Multiply /CA 0.5 /ca 0.25 /AIS true /TK false /UseBlackPtComp /ON"
+            b" /SMask << /Type /Mask /S /Luminosity /G 7 0 R /BC [0.5] /TR /Identity >> >>"),
+        (6, b"<< /Type /ExtGState /SM 0.5 /HTO [1 2] /BG2 8 0 R /UCR2 8 0 R /TR2 /Identity /HT /Default"
+            b" /BM [/BroadsideUnknown /Screen] /SMask /None >>"),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10] /Group << /S /Transparency /CS /DeviceGray >>",
+                   b"0.5 g 0 0 10 10 re f")),
+        (8, b"<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >>"),
+        (9, HELVETICA),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (file_id("extgstate-params").hex().encode(), file_id("extgstate-params").hex().encode()))
+
+
+def gen_marked_content() -> bytes:
+    """14.6 marked content: BMC /Artifact; BDC /P with an inline <</MCID 0>>; BDC /Span naming /P1 in the page's
+    /Properties (MCID 1, Lang); MP /Pt; DP /Pt2 with an inline property list; BDC /OC naming an optional content
+    group that is OFF in the default configuration (8.11.3.2: its rectangle is hidden); BDC /Span with an inline
+    /ActualText (x). One text line in each of the /P and the last /Span sequences."""
+    content = (b"/Artifact BMC 0 0 1 1 re f EMC\n"
+               b"/P << /MCID 0 >> BDC BT /F1 12 Tf 72 700 Td (a) Tj ET EMC\n"
+               b"/Span /P1 BDC 0 0 2 2 re f EMC\n"
+               b"/Pt MP\n"
+               b"/Pt2 << /X 1 >> DP\n"
+               b"/OC /oc1 BDC 0 0 3 3 re f EMC\n"
+               b"/Span << /ActualText (x) >> BDC BT /F1 12 Tf 72 680 Td (y) Tj ET EMC\n")
+    return simple_file([
+        (1, catalog(b" /OCProperties << /OCGs [6 0 R] /D << /OFF [6 0 R] >> >>")),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << /Font << /F1 7 0 R >> /Properties << /P1 5 0 R /oc1 6 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, b"<< /MCID 1 /Lang (en) >>"),
+        (6, b"<< /Type /OCG /Name (Hidden layer) >>"),
+        (7, HELVETICA),
+    ])
+# ---------------------------------------------------------------------------
+# Images (clause 8.9): one masking mode or sample depth per file
+# ---------------------------------------------------------------------------
+
+def pack_samples(rows: list[list[int]], bpc: int) -> bytes:
+    """8.9.3 sample layout: each row's samples (components interleaved) packed MSB-first at ``bpc`` bits, 16-bit samples
+    big-endian, every row starting on a byte boundary. Padding bits are set to 1 so a reader that uses them is caught."""
+    out = bytearray()
+    for row in rows:
+        if bpc == 16:
+            out += b"".join(struct.pack(">H", v) for v in row)
+            continue
+        acc = 0
+        nbits = 0
+        for v in row:
+            assert 0 <= v < (1 << bpc)
+            acc = (acc << bpc) | v
+            nbits += bpc
+            while nbits >= 8:
+                nbits -= 8
+                out.append((acc >> nbits) & 0xFF)
+        if nbits:
+            pad = 8 - nbits
+            out.append(((acc << pad) | ((1 << pad) - 1)) & 0xFF)
+    return bytes(out)
+
+
+def image_page(objects: list[tuple[int, bytes]], version: str = "1.7", fill: bytes = b"") -> bytes:
+    """A Letter page whose resources name object 5 as the XObject ``/Im0`` and whose content paints it into a 100 x 100 square at
+    (72, 600), after ``fill``; ``objects`` are object 5 and anything it refers to."""
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /XObject << /Im0 5 0 R >> >>")),
+        (4, stream(b"", fill + b"q 100 0 0 100 72 600 cm /Im0 Do Q")),
+    ] + objects, version=version, binary=True)
+
+
+def one_image(entries: bytes, data: bytes, version: str = "1.7", fill: bytes = b"") -> bytes:
+    """A page painting one image XObject (object 5) with the dictionary entries ``entries`` and the data ``data``."""
+    return image_page([(5, stream(b"/Type /XObject /Subtype /Image " + entries, data))], version, fill)
+
+
+STENCIL_ARROW = [
+    [0, 0, 0, 1, 0, 0, 0, 0],
+    [0, 0, 0, 1, 1, 0, 0, 0],
+    [1, 1, 1, 1, 1, 1, 0, 0],
+    [1, 1, 1, 1, 1, 1, 1, 0],
+    [1, 1, 1, 1, 1, 1, 0, 0],
+    [0, 0, 0, 1, 1, 0, 0, 0],
+    [0, 0, 0, 1, 0, 0, 0, 0],
+    [0, 0, 0, 0, 0, 0, 0, 0],
+]
+
+
+def gen_image_stencil_mask() -> bytes:
+    """8.9.6.2 stencil mask: an 8 x 8 /ImageMask true /Decode [1 0] (no ColorSpace, no BitsPerComponent) right-pointing arrow,
+    painted in red: with Decode [1 0] a sample 1 paints and 0 leaves the backdrop."""
+    return one_image(b"/Width 8 /Height 8 /ImageMask true /Decode [1 0]", pack_samples(STENCIL_ARROW, 1),
+                     fill=b"1 0 0 rg ")
+
+
+def rgb_ramp_4x4() -> list[list[int]]:
+    """A 4 x 4 RGB image with every pixel distinct: R = 60 x, G = 60 y, B = 255 - 16 (4y + x)."""
+    return [[c for x in range(4) for c in (60 * x, 60 * y, 255 - 16 * (4 * y + x))] for y in range(4)]
+
+
+def gen_image_explicit_mask() -> bytes:
+    """8.9.6.3 explicit masking: a 4 x 4 DeviceRGB 8-bit image whose /Mask is a 16 x 16 image mask (a disc of radius 7 about the
+    centre; sample 0, inside, shows the image) at a different resolution."""
+    disc = [[0 if (x - 7.5) ** 2 + (y - 7.5) ** 2 <= 49 else 1 for x in range(16)] for y in range(16)]
+    return image_page([
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 4 /Height 4 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Mask 6 0 R",
+                   pack_samples(rgb_ramp_4x4(), 8))),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 16 /Height 16 /ImageMask true", pack_samples(disc, 1))),
+    ])
+
+
+COLOR_KEY_PIXELS = [
+    [(255, 0, 0), (252, 3, 1), (249, 0, 0), (255, 6, 0)],
+    [(0, 0, 255), (255, 0, 0), (0, 255, 0), (250, 5, 5)],
+    [(128, 128, 128), (0, 0, 0), (255, 255, 255), (251, 2, 4)],
+    [(10, 20, 30), (40, 50, 60), (255, 0, 6), (250, 0, 0)],
+]
+
+
+def gen_image_color_key_mask() -> bytes:
+    """8.9.6.4 colour key masking: a 4 x 4 DeviceRGB 8-bit image with /Mask [250 255 0 5 0 5], which masks out every pixel whose
+    red is 250-255 and green and blue 0-5 (exact red, (252 3 1), (250 5 5) ...) but not (249 0 0), (255 6 0) or (255 0 6). A blue
+    square is painted first, so the masked pixels show blue."""
+    rows = [[c for px in row for c in px] for row in COLOR_KEY_PIXELS]
+    return one_image(b"/Width 4 /Height 4 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Mask [250 255 0 5 0 5]",
+                     pack_samples(rows, 8), fill=b"0 0 1 rg 72 600 100 100 re f ")
+
+
+def gen_image_smask() -> bytes:
+    """11.6.5.2 soft-mask image: a 4 x 4 DeviceRGB 8-bit image (Flate) whose /SMask is a 2 x 8 DeviceGray 8-bit image (Flate),
+    alpha 32 y + 16 x, at a different width and height from its parent."""
+    alpha = [[32 * y + 16 * x for x in range(2)] for y in range(8)]
+    return image_page([
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 4 /Height 4 /ColorSpace /DeviceRGB /BitsPerComponent 8 "
+                   b"/SMask 6 0 R /Filter /FlateDecode", flate(pack_samples(rgb_ramp_4x4(), 8)))),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 8 /ColorSpace /DeviceGray /BitsPerComponent 8 "
+                   b"/Filter /FlateDecode", flate(pack_samples(alpha, 8)))),
+    ])
+
+
+MATTE_ORIGINAL = [(10, 20, 30), (0, 128, 255), (200, 100, 50), (40, 80, 160)]
+MATTE_ALPHA = [0, 64, 128, 255]
+
+
+def gen_image_smask_matte() -> bytes:
+    """11.6.5.2 Table 144 Matte: a 2 x 2 DeviceRGB image pre-blended against /Matte [1 1 1] with the alphas 0, 64, 128, 255 of its
+    same-size SMask: c' = m + alpha (c - m), rounded to 8 bits, from the colours MATTE_ORIGINAL (the alpha 0 pixel is any colour:
+    it pre-blends to the matte)."""
+    blended = [[int(255 + a / 255 * (c - 255) + 0.5) for c in px] for px, a in zip(MATTE_ORIGINAL, MATTE_ALPHA)]
+    rows = [blended[0] + blended[1], blended[2] + blended[3]]
+    return image_page([
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8 /SMask 6 0 R",
+                   pack_samples(rows, 8))),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceGray /BitsPerComponent 8 "
+                   b"/Matte [1 1 1]", pack_samples([MATTE_ALPHA[0:2], MATTE_ALPHA[2:4]], 8))),
+    ])
+
+
+def gen_image_1bpc() -> bytes:
+    """8.9.3 sample layout at 1 bit: a 10 x 3 DeviceGray image, 2 bytes per row with 6 padding bits (set to 1); also
+    /Interpolate true (8.9.5.3) and /Intent /Perceptual (8.6.5.8)."""
+    rows = [[1, 0, 0, 0, 0, 0, 0, 0, 0, 1], [0, 1, 0, 1, 0, 1, 0, 1, 0, 1], [1, 1, 1, 1, 1, 0, 0, 0, 0, 0]]
+    return one_image(b"/Width 10 /Height 3 /ColorSpace /DeviceGray /BitsPerComponent 1 /Interpolate true /Intent /Perceptual",
+                     pack_samples(rows, 1))
+
+
+def gen_image_2bpc() -> bytes:
+    """8.9.3 sample layout at 2 bits: a 5 x 2 DeviceGray image (values 0-3, gray 0, 85, 170, 255), 2 bytes per row with 6
+    padding bits."""
+    return one_image(b"/Width 5 /Height 2 /ColorSpace /DeviceGray /BitsPerComponent 2",
+                     pack_samples([[0, 1, 2, 3, 0], [3, 3, 2, 1, 1]], 2))
+
+
+INDEXED_PALETTE = bytes(v for i in range(16) for v in (i * 17, 255 - i * 17, (i * 51) % 256))
+
+
+def gen_image_4bpc_indexed() -> bytes:
+    """8.6.6.3 Indexed at 4 bits: a 3 x 2 image in [/Indexed /DeviceRGB 15 <48 bytes>] (default Decode [0 15]); 12 bits per row
+    -> 2 bytes with 4 padding bits."""
+    return one_image(b"/Width 3 /Height 2 /BitsPerComponent 4 /ColorSpace [/Indexed /DeviceRGB 15 <"
+                     + INDEXED_PALETTE.hex().upper().encode() + b">]",
+                     pack_samples([[0, 5, 15], [9, 1, 14]], 4))
+
+
+def gen_image_16bpc() -> bytes:
+    """8.9.2 16-bit components (PDF 1.5): a 3 x 2 DeviceRGB image whose samples have distinct high and low bytes (0x12FF,
+    0xFF12 ...), so byte order matters."""
+    rows = [[0x12FF, 0xFF12, 0x0001, 0x8000, 0x7FFF, 0xFFFF, 0x0000, 0x1234, 0xABCD],
+            [0xFFFF, 0x0000, 0x00FF, 0xFF00, 0x4321, 0x8001, 0x0F0F, 0xF0F0, 0x5555]]
+    return one_image(b"/Width 3 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 16", pack_samples(rows, 16), version="1.5")
+
+
+def gen_image_decode_inverted() -> bytes:
+    """8.9.5.2 Table 88 Decode: a 4 x 1 DeviceGray 8-bit ramp 0, 85, 170, 255 with /Decode [1 0], which reverses it."""
+    return one_image(b"/Width 4 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Decode [1 0]", bytes([0, 85, 170, 255]))
+
+
+INLINE_FILTERS_SAMPLES = bytes(range(0, 240, 5))
+
+
+def gen_inline_image_filters() -> bytes:
+    """8.9.7 Tables 91-92 abbreviations: an inline 4 x 4 RGB 8-bit image with /F [/AHx /Fl], /DP [null null], /I true
+    (Interpolate), /D [1 0 1 0 1 0] and the PDF 2.0 /L (the length of the ASCII hex data, its '>' included). PDF 2.0."""
+    data = asciihex_encode(flate(INLINE_FILTERS_SAMPLES))
+    content = (b"q 100 0 0 100 72 600 cm BI /W 4 /H 4 /BPC 8 /CS /RGB /F [/AHx /Fl] /DP [null null] /I true "
+               b"/D [1 0 1 0 1 0] /L %d ID " % len(data) + data + b" EI Q")
+    id0 = file_id("inline-image-filters").hex().encode()
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4)),
+        (4, stream(b"", content)),
+    ], version="2.0", binary=True, trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+INLINE_EI_SAMPLES = b"\nEI Q \n "
+
+
+def gen_inline_image_ei_in_data() -> bytes:
+    """8.9.7: an unfiltered inline 8 x 1 DeviceGray image without /L whose data contains "EI Q" between white-space; only the
+    computed data length (W x H x BPC / 8) finds the real EI."""
+    content = b"q 100 0 0 10 72 600 cm BI /W 8 /H 1 /CS /G /BPC 8 ID " + INLINE_EI_SAMPLES + b" EI Q"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4)),
+        (4, stream(b"", content)),
+    ], binary=True)
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -3713,6 +3982,21 @@ FILES = {
     "color-operators.pdf": gen_color_operators,
     "default-colorspaces.pdf": gen_default_colorspaces,
     "separation-special.pdf": gen_separation_special,
+    "form-xobject-nested.pdf": gen_form_xobject_nested,
+    "extgstate-params.pdf": gen_extgstate_params,
+    "marked-content.pdf": gen_marked_content,
+    "image-stencil-mask.pdf": gen_image_stencil_mask,
+    "image-explicit-mask.pdf": gen_image_explicit_mask,
+    "image-color-key-mask.pdf": gen_image_color_key_mask,
+    "image-smask.pdf": gen_image_smask,
+    "image-smask-matte.pdf": gen_image_smask_matte,
+    "image-1bpc.pdf": gen_image_1bpc,
+    "image-2bpc.pdf": gen_image_2bpc,
+    "image-4bpc-indexed.pdf": gen_image_4bpc_indexed,
+    "image-16bpc.pdf": gen_image_16bpc,
+    "image-decode-inverted.pdf": gen_image_decode_inverted,
+    "inline-image-filters.pdf": gen_inline_image_filters,
+    "inline-image-ei-in-data.pdf": gen_inline_image_ei_in_data,
     "shading-type1-function.pdf": gen_shading_type1,
     "shading-type2-axial.pdf": gen_shading_type2,
     "shading-type3-radial.pdf": gen_shading_type3,
@@ -3764,6 +4048,10 @@ def self_test() -> None:
     # RFC 5869 A.1
     assert hkdf_sha256(b"\x0b" * 22, bytes(range(13)), bytes(range(0xF0, 0xFA)), 42) == bytes.fromhex(
         "3cb25f25faacd57a90434f64d0362f2a2d2d0a90cf1a5a4c5db02d56ecc4c5bf34007208d5b887185865")
+    # 8.9.3 sample packing: MSB first, rows padded to a byte with 1 bits, 16-bit big-endian
+    assert pack_samples([[1, 0, 1]], 1) == bytes([0b10111111])
+    assert pack_samples([[3, 0, 1, 2, 3]], 2) == bytes([0xC6, 0xFF])
+    assert pack_samples([[0x12FF]], 16) == bytes([0x12, 0xFF])
 
 
 def main(argv: list[str]) -> int:

@@ -100,6 +100,8 @@ public class PredictorTests
         { "/Predictor 12 /Columns 3", [2, 10, 20, 30, 0, 5], [10, 20, 30, 5, 0, 0], "PredictorInvalid" },
         { "/Predictor 12 /Columns 0", [2, 10, 2, 5], [10, 15], "DecodeParmsInvalid" },
         { "/Predictor 12 /Columns 1 /BitsPerComponent 3", [2, 10, 2, 5], [10, 15], "DecodeParmsInvalid" },
+        { "/Predictor 12 /Columns 100000000", [2, 10, 20, 30], [2, 10, 20, 30], "PredictorInvalid" },
+        { "/Predictor 2 /Colors 4 /Columns 2", [1, 2, 3, 4, 5], [1, 2, 3, 4, 5], "PredictorInvalid" },
     };
 
     [Theory]

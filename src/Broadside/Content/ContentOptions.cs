@@ -71,6 +71,22 @@ public sealed class ContentOptions
     /// <summary>Gets or sets the token that cancels the run; it is checked every 1,024 operators and at every nested run.</summary>
     public CancellationToken CancellationToken { get; set; }
 
+    /// <summary>
+    /// Gets or sets the states of the optional content groups that decide what is hidden (<see cref="ContentContext.IsHidden"/>);
+    /// <see langword="null"/>, the default, for the document's default configuration.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §8.11.2 and §8.11.4.3.</remarks>
+    public PdfOptionalContentState? OptionalContentState { get; set; }
+
+    /// <summary>Sets <see cref="OptionalContentState"/>.</summary>
+    /// <param name="state">The group states, or <see langword="null"/> for the document's defaults.</param>
+    /// <returns>These options.</returns>
+    public ContentOptions WithOptionalContentState(PdfOptionalContentState? state)
+    {
+        OptionalContentState = state;
+        return this;
+    }
+
     /// <summary>Sets <see cref="MaxOperands"/>.</summary>
     /// <param name="maxOperands">The limit, at least 16.</param>
     /// <returns>These options.</returns>

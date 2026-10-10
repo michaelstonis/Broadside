@@ -92,12 +92,17 @@ internal sealed partial class ContentInterpreter
     /// Runs decoded content bytes as the top-level stream of a page run; for benchmarks and fuzzing, which have content without a
     /// file around it.
     /// </summary>
-    internal static void RunBytes(ReadOnlySpan<byte> content, PdfDocument document, ContentProcessor processor, ContentOptions options)
+    internal static void RunBytes(ReadOnlySpan<byte> content, PdfDocument document, ContentProcessor processor, ContentOptions options) =>
+        RunBytes(content, document, processor, options, resources: null);
+
+    /// <summary>As <see cref="RunBytes(ReadOnlySpan{byte}, PdfDocument, ContentProcessor, ContentOptions)"/>, with names resolving in <paramref name="resources"/>.</summary>
+    internal static void RunBytes(ReadOnlySpan<byte> content, PdfDocument document, ContentProcessor processor, ContentOptions options, CosDictionary? resources)
     {
         ContentInterpreter interpreter = Rent();
         try
         {
             interpreter.Begin(document, page: null, processor, options, document.Pages.Count > 0 ? document.Pages[0].Reference : null);
+            interpreter._context.Resources = resources;
             interpreter._parts.Add((0, null));
             interpreter.Execute(content);
             interpreter.End();
@@ -221,6 +226,7 @@ internal sealed partial class ContentInterpreter
         _pendingClip = null;
         IgnoresColorOperators = false;
         _maxSaveDepth = options.MaxSaveDepth;
+        BeginNesting(document, page, options);
         _arena.Limit = options.MaxOperands;
         _path.Accumulate = (_events & (ContentEvents.Paths | ContentEvents.Clips)) != 0;
         _states[0] = GraphicsState.CreateInitial();
@@ -235,6 +241,8 @@ internal sealed partial class ContentInterpreter
         _context.Resources = page?.Resources;
         _context.StreamBaseMatrix = Matrix.Identity;
         _context.IsHidden = false;
+        _context.ContentStream = null;
+        _context.StructParents = page is null ? null : Annotations.AnnotationValues.ReadInteger(document, page.Dictionary.TryGetValue(StructParentsName, out CosObject? key) ? key : null);
         _context.CancellationToken = options.CancellationToken;
         options.CancellationToken.ThrowIfCancellationRequested();
         processor.BeginRun(_context);
@@ -248,6 +256,7 @@ internal sealed partial class ContentInterpreter
 
     private void Release()
     {
+        EndNesting();
         _arena.Trim();
         _path.Trim();
         Clips.Reset();
@@ -292,7 +301,7 @@ internal sealed partial class ContentInterpreter
                 ReportOperator(op, content);
             }
 
-            Execute(op);
+            Execute(op, content);
             _arena.Clear();
         }
 
@@ -326,7 +335,7 @@ internal sealed partial class ContentInterpreter
         _processor.VisitOperator(report, _context);
     }
 
-    private void Execute(ReadOperator op)
+    private void Execute(ReadOperator op, ReadOnlySpan<byte> content)
     {
         ContentOperatorCode code = op.Code;
         int offset = op.KeywordStart;
@@ -372,7 +381,7 @@ internal sealed partial class ContentInterpreter
                 ExecuteShading(code, operands, offset);
                 break;
             case OperatorCategory.InlineImage or OperatorCategory.XObject:
-                ExecuteXObject(code, operands, op, offset);
+                ExecuteXObject(code, operands, op, content, offset);
                 break;
             case OperatorCategory.MarkedContent:
                 ExecuteMarkedContent(code, operands, offset);
@@ -519,6 +528,8 @@ internal sealed partial class ContentInterpreter
             EndTextObject();
         }
 
+        CloseMarkedContent();
+
         if (_compatibilityDepth > 0)
         {
             Report(ContentIssue.CompatibilityUnbalanced, -1, "The content stream ends inside a compatibility section (BX without EX).");
@@ -566,6 +577,11 @@ internal sealed partial class ContentInterpreter
         if ((issues & ReaderIssues.InlineImageInvalid) != 0)
         {
             Report(ContentIssue.InlineImageInvalid, offset, "An inline image lacks ID or EI, or its dictionary holds something that is not a value; the image ends there.");
+        }
+
+        if ((issues & ReaderIssues.InlineImageRepaired) != 0)
+        {
+            Report(ContentIssue.InlineImageInvalid, offset, "An inline image's data does not end where its L entry says, or ID is followed by CR LF, or no EI is followed by content; the end found is used.");
         }
     }
 
