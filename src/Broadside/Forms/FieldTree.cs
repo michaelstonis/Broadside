@@ -42,8 +42,7 @@ internal sealed class FieldTree
     public Dictionary<CosDictionary, PdfTerminalField> ByWidget { get; } = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>The entry, resolved; <see langword="null"/> when absent or a reference to nothing.</summary>
-    public static CosObject? Get(PdfDocument document, CosDictionary dictionary, CosName key) =>
-        dictionary.TryGetValue(key, out CosObject? value) && document.Resolve(value) is not CosNull and var resolved ? resolved : null;
+    public static CosObject? Get(PdfDocument document, CosDictionary dictionary, CosName key) => EntryReader.Get(document, dictionary, key);
 
     /// <summary>Builds the tree of <paramref name="form"/> from its <c>Fields</c> array.</summary>
     public static FieldTree Build(PdfAcroForm form)

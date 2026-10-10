@@ -36,12 +36,12 @@ public sealed class PdfStructureNamespace : IEquatable<PdfStructureNamespace>
         _context = context;
         Dictionary = dictionary;
         Reference = reference;
-        if (StructureValues.Get(context.Document, dictionary, StructureNames.NS) is not CosString)
+        if (ViewReading.Get(context.Document, dictionary, StructureNames.NS) is not CosString)
         {
             context.Report(DiagnosticCodes.NamespaceInvalid, "A namespace dictionary has no NS text string (Table 356); its namespace name reads as empty.", reference);
         }
 
-        if (StructureValues.Get(context.Document, dictionary, Objects.KnownNames.Type) is { } type && !StructureNames.Namespace.Equals(type))
+        if (ViewReading.Get(context.Document, dictionary, Objects.KnownNames.Type) is { } type && !StructureNames.Namespace.Equals(type))
         {
             context.Report(DiagnosticCodes.NamespaceInvalid, "A namespace dictionary's Type is not Namespace (Table 356); read as a namespace.", reference);
         }
@@ -75,7 +75,7 @@ public sealed class PdfStructureNamespace : IEquatable<PdfStructureNamespace>
             PdfStructureNamespaceKind.Pdf20 => Pdf20Name,
             _ => MathMLName,
         }
-        : StructureValues.Text(_context?.Document, Dictionary, StructureNames.NS) ?? string.Empty;
+        : ViewReading.Text(_context?.Document, Dictionary, StructureNames.NS) ?? string.Empty;
 
     /// <summary>Gets which namespace this is, from its namespace name.</summary>
     /// <remarks>ISO 32000-2 §14.8.6.</remarks>
@@ -98,11 +98,11 @@ public sealed class PdfStructureNamespace : IEquatable<PdfStructureNamespace>
     /// ISO 32000-2 §14.7.4.2, Table 356: each key is a type in this namespace; each value a type name in the default namespace, or
     /// <c>[name namespace]</c> naming a type in another namespace.
     /// </remarks>
-    public CosDictionary? RoleMap => Dictionary is null ? null : StructureValues.Get(_context?.Document, Dictionary, StructureNames.RoleMapNS) as CosDictionary;
+    public CosDictionary? RoleMap => Dictionary is null ? null : ViewReading.Get(_context?.Document, Dictionary, StructureNames.RoleMapNS) as CosDictionary;
 
     /// <summary>Gets the schema file specification (<c>Schema</c>), as its COS object, or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §14.7.4.2, Table 356.</remarks>
-    public CosObject? Schema => Dictionary is null ? null : StructureValues.Get(_context?.Document, Dictionary, StructureNames.Schema);
+    public CosObject? Schema => Dictionary is null ? null : ViewReading.Get(_context?.Document, Dictionary, StructureNames.Schema);
 
     /// <summary>Returns whether <paramref name="type"/> is a standard structure type of this namespace.</summary>
     /// <param name="type">The structure type name.</param>

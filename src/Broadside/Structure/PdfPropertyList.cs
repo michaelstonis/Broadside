@@ -42,7 +42,7 @@ public sealed class PdfPropertyList
 
     /// <summary>Gets the marked-content identifier (<c>MCID</c>), when the sequence is a content item of a structure element.</summary>
     /// <remarks>ISO 32000-2 §14.7.5.2.</remarks>
-    public int? Mcid => Properties is { } properties && StructureValues.Integer(_document, properties, StructureNames.MCID) is >= 0 and var mcid ? mcid : null;
+    public int? Mcid => Properties is { } properties && ViewReading.Int32(_document, properties, StructureNames.MCID) is >= 0 and var mcid ? mcid : null;
 
     /// <summary>Gets a value indicating whether the sequence is an artifact (tag <c>Artifact</c>): content that is not part of the document's real content.</summary>
     /// <remarks>ISO 32000-2 §14.8.2.2.</remarks>
@@ -58,7 +58,7 @@ public sealed class PdfPropertyList
 
     /// <summary>Gets the artifact's bounding box (<c>BBox</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §14.8.2.2.2, Table 363.</remarks>
-    public PdfRectangle? ArtifactBoundingBox => IsArtifact && Properties is { } properties ? StructureValues.Rectangle(_document, properties, StructureNames.BBox) : null;
+    public PdfRectangle? ArtifactBoundingBox => IsArtifact && Properties is { } properties ? ViewReading.Rectangle(_document, properties, StructureNames.BBox) : null;
 
     /// <summary>Gets the page edges a pagination artifact is attached to (<c>Attached</c>): Top, Bottom, Left, Right.</summary>
     /// <remarks>ISO 32000-2 §14.8.2.2.2, Table 363.</remarks>
@@ -66,7 +66,7 @@ public sealed class PdfPropertyList
     {
         get
         {
-            if (!IsArtifact || Properties is not { } properties || StructureValues.Get(_document, properties, StructureNames.Attached) is not CosArray array)
+            if (!IsArtifact || Properties is not { } properties || ViewReading.Get(_document, properties, StructureNames.Attached) is not CosArray array)
             {
                 return [];
             }
@@ -100,7 +100,7 @@ public sealed class PdfPropertyList
     /// <remarks>ISO 32000-2 §14.9.5, Table 352a (<c>Span</c>, PDF 1.5).</remarks>
     public string? Expansion => TextEntry(StructureNames.E);
 
-    private string? TextEntry(CosName key) => Properties is { } properties ? StructureValues.Text(_document, properties, key) : null;
+    private string? TextEntry(CosName key) => Properties is { } properties ? ViewReading.Text(_document, properties, key) : null;
 
-    private string? ArtifactName(CosName key) => IsArtifact && Properties is { } properties ? StructureValues.Name(_document, properties, key)?.Value : null;
+    private string? ArtifactName(CosName key) => IsArtifact && Properties is { } properties ? ViewReading.Name(_document, properties, key)?.Value : null;
 }
