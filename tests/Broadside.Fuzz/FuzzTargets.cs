@@ -1147,11 +1147,15 @@ internal static class FuzzTargets
         }
     }
 
-    internal static PdfDocument? OpenOrNull(ReadOnlySpan<byte> data)
+    /// <summary>Opens fuzz input, or returns <see langword="null"/> for the documented outcomes (unreadable, password, certificate, unsupported encryption).</summary>
+    /// <param name="data">The input.</param>
+    /// <param name="engine">The engine to open with (a target's own limits), or <see langword="null"/> for the default one.</param>
+    /// <returns>The document, or <see langword="null"/>.</returns>
+    internal static PdfDocument? OpenOrNull(ReadOnlySpan<byte> data, PdfEngine? engine = null)
     {
         try
         {
-            return PdfDocument.Open(data.ToArray());
+            return engine is null ? PdfDocument.Open(data.ToArray()) : engine.Open(data.ToArray());
         }
         catch (DiagnosticException)
         {
