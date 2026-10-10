@@ -129,6 +129,42 @@ public class OptionalContentRepairTests
         Assert.Equal(["OptionalContentInlineProperties"], document.Diagnostics.Select(diagnostic => diagnostic.Code));
     }
 
+    [Theory]
+    [InlineData("<< /Type /OCG >>", "")]
+    [InlineData("<< /Type /OCG /Name 12 >>", "12")]
+    [InlineData("<< /Type /OCG /Name /Layer >>", "Layer")]
+    [InlineData("<< /Type /OCG /Name [(A)] >>", "")]
+    public void A_missing_or_mistyped_group_name_is_repaired_with_a_diagnostic(string group, string expected)
+    {
+        using PdfDocument document = PdfDocument.Open(OptionalContentPdf.Build("/OCGs [4 0 R] /D << >>", group));
+
+        PdfOptionalContentGroup layer = Assert.Single(document.OptionalContent!.Groups);
+
+        Assert.Equal(expected, layer.Name);
+        Assert.Equal(["OptionalContentGroupInvalid 4"], document.Diagnostics.Select(diagnostic => $"{diagnostic.Code} {diagnostic.ObjectReference?.ObjectNumber}"));
+    }
+
+    [Fact]
+    public void Intent_elements_that_are_not_names_are_skipped_with_a_diagnostic()
+    {
+        using PdfDocument document = PdfDocument.Open(OptionalContentPdf.Build("/OCGs [4 0 R] /D << >>", "<< /Type /OCG /Name (A) /Intent [/Design 7 (View)] >>"));
+
+        PdfOptionalContentGroup layer = Assert.Single(document.OptionalContent!.Groups);
+
+        Assert.Equal(["Design"], layer.Intents.Select(intent => intent.Value));
+        Assert.Equal(["OptionalContentGroupInvalid 4"], document.Diagnostics.Select(diagnostic => $"{diagnostic.Code} {diagnostic.ObjectReference?.ObjectNumber}"));
+    }
+
+    [Fact]
+    public void A_missing_group_name_throws_in_strict_mode()
+    {
+        using PdfDocument document = PdfDocument.Open(OptionalContentPdf.Build("/OCGs [4 0 R] /D << >>", "<< /Type /OCG >>"), new PdfOptions().UseStrict());
+
+        PdfOptionalContentGroup layer = Assert.Single(document.OptionalContent!.Groups);
+
+        Assert.Equal("OptionalContentGroupInvalid", Assert.Throws<DiagnosticException>(() => layer.Name).Diagnostic.Code);
+    }
+
     [Fact]
     public void A_state_from_another_document_is_refused()
     {

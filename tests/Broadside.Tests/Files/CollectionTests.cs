@@ -142,4 +142,36 @@ public class CollectionTests
         Assert.Equal("A", document.Collection.FindFolder(1)!.Name);
         Assert.Equal(["CollectionFolderCycle", "CollectionFolderIdDuplicate"], document.Diagnostics.Select(diagnostic => diagnostic.Code).Distinct().Order());
     }
+
+    [Fact]
+    public void A_schema_field_order_written_as_a_whole_real_reads_as_that_integer_with_a_diagnostic()
+    {
+        using PdfDocument document = PdfDocument.Open(TestPdf.OnePage("/MediaBox [0 0 612 792]", "/Collection << /Schema << /a << /Subtype /S /N (A) /O 2.0 >> >> >>"));
+
+        PdfCollectionField field = Assert.Single(document.Collection!.Schema);
+
+        Assert.Equal(2, field.Order);
+        Assert.Equal(["CollectionInvalid"], document.Diagnostics.Select(diagnostic => diagnostic.Code));
+    }
+
+    [Theory]
+    [InlineData("/Type /Folder", -1, "")]
+    [InlineData("/Type /Folder /ID -3 /Name (Root)", -1, "Root")]
+    [InlineData("/Type /Folder /ID (zero) /Name (Root)", -1, "Root")]
+    [InlineData("/Type /Folder /ID 2.0 /Name /Root", 2, "Root")]
+    public void A_missing_or_invalid_folder_id_or_name_is_repaired_with_a_diagnostic(string entries, int id, string name)
+    {
+        byte[] file = new TestPdf().Build(
+            "<< /Type /Catalog /Pages 2 0 R /Collection << /Folders 4 0 R >> >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /Resources << >> /MediaBox [0 0 612 792] >>",
+            $"<< {entries} >>");
+        using PdfDocument document = PdfDocument.Open(file);
+        PdfCollectionFolder root = document.Collection!.RootFolder!;
+
+        (int Id, string Name) read = (root.Id, root.Name);
+
+        Assert.Equal((id, name), read);
+        Assert.Equal(["CollectionFolderInvalid 4"], document.Diagnostics.Select(diagnostic => $"{diagnostic.Code} {diagnostic.ObjectReference?.ObjectNumber}").Distinct());
+    }
 }

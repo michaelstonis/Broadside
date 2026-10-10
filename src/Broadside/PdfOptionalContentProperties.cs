@@ -80,7 +80,7 @@ public sealed class PdfOptionalContentProperties
         }
 
         _groups = [.. groups];
-        GroupIntents = [.. _groups.Select(group => PdfOptionalContentGroup.ReadIntents(document, group.Dictionary))];
+        GroupIntents = [.. _groups.Select(group => PdfOptionalContentGroup.ReadIntents(document, group.Dictionary, group.Issue))];
     }
 
     /// <summary>Gets the optional content properties dictionary (<c>OCProperties</c>).</summary>
