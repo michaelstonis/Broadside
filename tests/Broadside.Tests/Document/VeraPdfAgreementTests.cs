@@ -45,10 +45,7 @@ public partial class VeraPdfAgreementTests(ITestOutputHelper output)
         ["Isartor 6-1-2-t01"] = (VeraPdfTriage.PdfAOnly, "Bytes before %PDF-: §7.5.2 NOTE 1 allows them; offsets count from the header."),
         ["PDF_A-2b 6-1-2-t01"] = (VeraPdfTriage.PdfAOnly, "%PDF-2.0 or %PDF-1.9 in PDF/A-2, or bytes before the header: ISO 32000-2 accepts 1.0-2.0 and leading bytes."),
         ["PDF_A-4 6-1-2-t01"] = (VeraPdfTriage.PdfAOnly, "%PDF-1.7 in PDF/A-4 (which requires 2.n), or bytes before the header: both legal in ISO 32000-2."),
-        ["Isartor 6-1-2-t02"] = (VeraPdfTriage.StrictTooLenient, "Binary comment line missing or short. §7.5.2: a file with binary data shall have it. Not checked: it needs a whole-file scan for binary bytes; follow-up."),
-        ["PDF_A-1b 6-1-2-t02"] = (VeraPdfTriage.StrictTooLenient, "Binary comment line missing or short (§7.5.2); not checked yet, follow-up."),
-        ["PDF_A-2b 6-1-2-t02"] = (VeraPdfTriage.StrictTooLenient, "Binary comment line missing, short or not immediately after the header (§7.5.2); not checked yet, follow-up."),
-        ["PDF_A-4 6-1-2-t02"] = (VeraPdfTriage.StrictTooLenient, "Binary comment line missing, short or not immediately after the header (§7.5.2); not checked yet, follow-up."),
+        ["PDF_A-1b 6-1-2-t02"] = (VeraPdfTriage.PdfAOnly, "A binary comment line whose four bytes of 128 or more are not its first four (%\\366\\344\\374n\\337): PDF/A-1 asks for four binary bytes right after the %; §7.5.2 only for at least four binary characters in the line, which strict mode checks (HeaderBinaryCommentMissing)."),
 
         // Trailer (§7.5.5, §14.4).
         ["Isartor 6-1-3-t01"] = (VeraPdfTriage.PdfAOnly, "No ID in a PDF 1.4 trailer: Table 15 requires ID only in PDF 2.0 or with Encrypt."),

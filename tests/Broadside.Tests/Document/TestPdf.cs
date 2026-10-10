@@ -13,6 +13,12 @@ internal sealed class TestPdf
     /// <summary>Gets the header line, without its end-of-line marker.</summary>
     public string Header { get; init; } = "%PDF-1.7";
 
+    /// <summary>
+    /// Gets whether the comment line of four bytes of 128 or more follows the header (§7.5.2: a file with binary data shall have it);
+    /// <see langword="null"/>, the default, writes it when an object holds such a byte.
+    /// </summary>
+    public bool? BinaryComment { get; init; }
+
     /// <summary>Gets bytes written before the header.</summary>
     public string Prefix { get; init; } = string.Empty;
 
@@ -65,6 +71,11 @@ internal sealed class TestPdf
     {
         var text = new StringBuilder();
         text.Append(Prefix).Append(Header).Append('\n');
+        if (BinaryComment ?? objects.Any(static body => body.Any(static c => c >= '\u0080')))
+        {
+            text.Append("%\u00e2\u00e3\u00cf\u00d3\n");
+        }
+
         var offsets = new List<int>();
         for (int index = 0; index < objects.Length; index++)
         {

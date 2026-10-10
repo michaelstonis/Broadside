@@ -57,9 +57,14 @@ public class FilterAllocationTests
     // Found by libFuzzer (issue #48): Columns sized the row buffers and the zero padding of the last row, so a few bytes of data
     // with a huge Columns allocated and wrote rows of up to the decoded-length limit (1 GiB) and ran out of memory. Data that
     // cannot hold one whole row is decoded as one partial row sized to the data, so the output is never larger than the input.
+    public static TheoryData<int, byte[]> ShortPredictedData => new()
+    {
+        { 12, [10, 20, 30] },
+        { 2, [2, 10, 20, 30] },
+    };
+
     [Theory]
-    [InlineData(12, new byte[] { 10, 20, 30 })]
-    [InlineData(2, new byte[] { 2, 10, 20, 30 })]
+    [MemberData(nameof(ShortPredictedData))]
     public void A_row_longer_than_the_whole_data_allocates_nothing_in_proportion_to_the_row(int predictor, byte[] expected)
     {
         byte[] file = FilterTesting.FileWithStream(

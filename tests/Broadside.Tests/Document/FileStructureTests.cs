@@ -189,6 +189,40 @@ public class FileStructureTests
         Assert.Equal(new CosReference(2, 0), diagnostic.ObjectReference);
     }
 
+    public static TheoryData<string, byte[]> BinaryCommentFiles => new()
+    {
+        // §7.5.2: a file with binary data has, right after the header, a comment line with at least four bytes of 128 or more.
+        { "%PDF-1.7\n%âãÏÓ", [0x80, 0xFF] },
+        { "%PDF-1.7\r\n%âãÏÓ comment\r", [0x80, 0xFF] },
+        { "%PDF-1.7", "text"u8.ToArray() },
+    };
+
+    [Theory]
+    [MemberData(nameof(BinaryCommentFiles))]
+    public void Strict_mode_accepts_a_binary_comment_after_the_header_or_a_file_without_binary_data(string header, byte[] data)
+    {
+        byte[] file = FileWithStreamData(header, data);
+
+        using PdfDocument document = PdfDocument.Open(file, new PdfOptions().UseStrict());
+
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Theory]
+    [InlineData("%PDF-1.7")]
+    [InlineData("%PDF-1.7\n%âãÏ")]
+    [InlineData("%PDF-1.7\n%abcd")]
+    [InlineData("%PDF-1.7\n\n%âãÏÓ")]
+    public void Strict_mode_rejects_a_file_with_binary_data_and_no_binary_comment_line(string header)
+    {
+        byte[] file = FileWithStreamData(header, [0x80, 0xFF]);
+
+        DiagnosticException exception = Assert.Throws<DiagnosticException>(() => PdfDocument.Open(file, new PdfOptions().UseStrict()));
+
+        Assert.Equal("HeaderBinaryCommentMissing", exception.Diagnostic.Code);
+        Assert.Equal(DiagnosticSeverity.Warning, exception.Diagnostic.Severity);
+    }
+
     [Fact]
     public void An_entry_whose_offset_does_not_hold_the_object_is_read_from_where_its_header_is_with_a_diagnostic()
     {
@@ -273,6 +307,14 @@ public class FileStructureTests
         Assert.Equal("MissingEndobj", diagnostic.Code);
         Assert.Equal(new CosReference(3, 0), diagnostic.ObjectReference);
     }
+
+    /// <summary>A one-page file whose header lines (without their last end-of-line marker) are <paramref name="header"/> and whose object 4 is a stream of <paramref name="data"/>.</summary>
+    private static byte[] FileWithStreamData(string header, byte[] data) =>
+        new TestPdf { Header = header, BinaryComment = false }.Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /Resources << >> /MediaBox [0 0 612 792] >>",
+            $"<< /Length {data.Length} >>\nstream\n{Encoding.Latin1.GetString(data)}\nendstream");
 
     private static byte[] WithTrailerEntries(Func<int, string> entries)
     {

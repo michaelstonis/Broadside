@@ -132,6 +132,8 @@ def xref_stream_rows(entries: list[tuple[int, int, int]]) -> bytes:
 
 def simple_file(objects: list[tuple[int, bytes]], version: str = "1.7", binary: bool = False,
                 trailer_extra: bytes = b"") -> bytes:
+    # 7.5.2: a file with binary data (any byte of 128 or more) shall have the binary comment line after its header.
+    binary = binary or any(b >= 0x80 for _, body in objects for b in body)
     f = File(version, binary)
     for num, body in objects:
         f.add(num, body)
