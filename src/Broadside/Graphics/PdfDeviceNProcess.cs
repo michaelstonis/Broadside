@@ -21,12 +21,9 @@ public sealed class PdfDeviceNProcess
     /// <summary>Gets the process colour space (a device or CIE-based space other than Lab), or <see langword="null"/> when missing.</summary>
     /// <remarks>ISO 32000-2 Table 71 (required).</remarks>
     public PdfColorSpace? ColorSpace =>
-        Dictionary.TryGetValue(ColorSpaceNames.ColorSpace, out CosObject? value) ? _owner.Cache!.Find(value, _owner.DiagnosticReference, inline: false, out _) : null;
+        Dictionary.TryGetValue(ColorSpaceNames.ColorSpace, out CosObject? value) ? _owner.FindRelatedSpace(value) : null;
 
     /// <summary>Gets the names of the DeviceN components that correspond to the process space's components, in its order.</summary>
     /// <remarks>ISO 32000-2 Table 71 (required).</remarks>
-    public IReadOnlyList<CosName> Components =>
-        _owner.Cache!.Resolve(Dictionary.GetValueOrDefault(ColorSpaceNames.Components)) is CosArray array
-            ? [.. array.Select(item => _owner.Cache.Resolve(item)).OfType<CosName>()]
-            : [];
+    public IReadOnlyList<CosName> Components => ColorEntries.Names(_owner.Cache!, Dictionary.GetValueOrDefault(ColorSpaceNames.Components));
 }

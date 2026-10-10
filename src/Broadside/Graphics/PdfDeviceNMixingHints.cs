@@ -42,10 +42,7 @@ public sealed class PdfDeviceNMixingHints
 
     /// <summary>Gets <c>PrintingOrder</c>: the colourant names in the order they are printed.</summary>
     /// <remarks>ISO 32000-2 Table 72 (required when Solidities is present).</remarks>
-    public IReadOnlyList<CosName> PrintingOrder =>
-        Cache.Resolve(Dictionary.GetValueOrDefault(ColorSpaceNames.PrintingOrder)) is CosArray array
-            ? [.. array.Select(item => Cache.Resolve(item)).OfType<CosName>()]
-            : [];
+    public IReadOnlyList<CosName> PrintingOrder => ColorEntries.Names(Cache, Dictionary.GetValueOrDefault(ColorSpaceNames.PrintingOrder));
 
     /// <summary>Gets <c>DotGain</c>: for each colourant (and <c>Default</c>), the function mapping tint to dot gain.</summary>
     /// <remarks>ISO 32000-2 Table 72 and §7.10. Entries that are not functions are skipped.</remarks>

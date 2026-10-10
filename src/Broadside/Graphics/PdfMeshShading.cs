@@ -163,34 +163,31 @@ public abstract class PdfMeshShading : PdfShading
     {
         if ((issues & MeshIssues.Truncated) != 0)
         {
-            Report(DiagnosticCodes.MeshDataTruncated, "The mesh data ends inside a vertex, triangle or patch; the complete ones before it are kept.");
+            Diagnostics.Report(DiagnosticCodes.MeshDataTruncated, "The mesh data ends inside a vertex, triangle or patch; the complete ones before it are kept.");
         }
 
         if ((issues & MeshIssues.FlagInvalid) != 0)
         {
-            Report(DiagnosticCodes.MeshEdgeFlagInvalid, "An edge flag is not allowed or continues a triangle or patch that does not exist; the data it covers is skipped.");
+            Diagnostics.Report(DiagnosticCodes.MeshEdgeFlagInvalid, "An edge flag is not allowed or continues a triangle or patch that does not exist; the data it covers is skipped.");
         }
 
         if ((issues & MeshIssues.LatticeIncomplete) != 0)
         {
-            Report(DiagnosticCodes.MeshLatticeIncomplete, "The lattice's last row is incomplete, or it has fewer than two rows; the incomplete row is dropped.");
+            Diagnostics.Report(DiagnosticCodes.MeshLatticeIncomplete, "The lattice's last row is incomplete, or it has fewer than two rows; the incomplete row is dropped.");
         }
 
         if ((issues & MeshIssues.LimitExceeded) != 0)
         {
-            Report(DiagnosticCodes.MeshSizeExceeded, "The mesh has more vertices than the limit; the rest is dropped.");
+            Diagnostics.Report(DiagnosticCodes.MeshSizeExceeded, "The mesh has more vertices than the limit; the rest is dropped.");
         }
 
         if ((issues & MeshIssues.PatchesUnpadded) != 0)
         {
             // pdf.js and PDFBox write and read patches this way; the reading is recorded, nothing is lost.
-            Report(
+            Diagnostics.Report(
                 DiagnosticCodes.MeshPatchesUnpadded,
                 "The patches are not padded to whole bytes (each set of data shall occupy a whole number of bytes, §8.7.4.5.5); they are read back to back.",
-                Diagnostics.DiagnosticSeverity.Information);
+                Broadside.Diagnostics.DiagnosticSeverity.Information);
         }
     }
-
-    private void Report(string code, string message, Diagnostics.DiagnosticSeverity severity = Diagnostics.DiagnosticSeverity.Warning) =>
-        Document.DiagnosticSink.Report(code, severity, message, offset: null, DiagnosticReference);
 }
