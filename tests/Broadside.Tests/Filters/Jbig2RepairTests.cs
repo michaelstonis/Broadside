@@ -9,7 +9,7 @@ namespace Broadside.Tests.Filters;
 
 /// <summary>
 /// JBIG2Decode on streams that break ISO 32000-2 §7.4.7 or ITU-T T.88 the ways real producers do: lenient mode decodes what it can
-/// and records each deviation once; strict mode throws on the first; features not decoded yet decline the image with Information.
+/// and records each deviation once; strict mode throws on the first; features not decoded (extended templates, colour) decline the image with Information.
 /// </summary>
 public class Jbig2RepairTests
 {
@@ -81,17 +81,19 @@ public class Jbig2RepairTests
     }
 
     [Theory]
+    [InlineData(0)]
     [InlineData(6)]
+    [InlineData(16)]
     [InlineData(22)]
     [InlineData(42)]
-    public void A_region_type_not_decoded_yet_declines_the_image_with_information_even_in_strict_mode(int type)
+    public void A_dictionary_or_region_shorter_than_its_data_header_is_skipped_with_a_diagnostic(int type)
     {
-        byte[] page = [.. Info(), .. Region(), .. Segment(2, type, 1, new byte[24])];
+        byte[] page = [.. Info(), .. Region(), .. Segment(2, type, type is 0 or 16 ? 0u : 1u, new byte[type is 0 or 16 ? 1 : 18])];
 
-        DecodedImage? image = Jbig2Testing.TryDecodeImage(page, 40, 16, out string[] codes, mode: PdfReadingMode.Strict);
+        using DecodedImage image = Jbig2Testing.DecodeImage(page, 40, 16, out string[] codes);
 
-        Assert.Null(image);
-        Assert.Equal(["Jbig2UnsupportedFeature"], codes);
+        Assert.Equal(PackPdf(Bitmap, 40), image.Samples.ToArray());
+        Assert.Equal(["Jbig2SegmentInvalid"], codes);
     }
 
     [Fact]
@@ -207,6 +209,77 @@ public class Jbig2RepairTests
 
         Assert.Equal(Jbig2Samples.AnnexHGenericPageSha256, Jbig2Testing.Sha256(image.Samples));
         Assert.Equal(["Jbig2GlobalsInvalid"], context.Diagnostics.Select(diagnostic => diagnostic.Code));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_symbol_dictionary_cut_inside_a_height_class_keeps_the_symbols_decoded_so_far(bool huffman)
+    {
+        bool[][][] symbols = [CcittEncoder.SampleBitmap(5, 6, seed: 1), CcittEncoder.SampleBitmap(7, 6, seed: 2), CcittEncoder.SampleBitmap(4, 9, seed: 3)];
+        byte[] dictionary = huffman ? HuffmanSymbolDictionary(symbols, mmr: false, out _) : SymbolDictionary(symbols, 0, out _);
+        byte[] page = [.. Info(), .. Segment(1, 0, 1, [], dictionary.AsSpan(0, dictionary.Length * 2 / 3)), .. Region(2)];
+
+        using DecodedImage image = Jbig2Testing.DecodeImage(page, 40, 16, out string[] codes);
+
+        Assert.Equal(PackPdf(Bitmap, 40), image.Samples.ToArray());
+        Assert.Contains(codes, code => code is "Jbig2RegionDataTruncated" or "Jbig2RegionDataInvalid" or "Jbig2SymbolCountMismatch");
+    }
+
+    [Fact]
+    public void A_damaged_code_table_is_reported_and_the_text_region_needing_it_is_not_decoded()
+    {
+        byte[] symbols = HuffmanSymbolDictionary([CcittEncoder.SampleBitmap(5, 6)], mmr: false, out _);
+        byte[] region = TextRegion(40, 16, 0, 0, 0, [CcittEncoder.SampleBitmap(5, 6)], [new(0, 1, 1)], new Jbig2TextOptions { Huffman = true });
+        byte[] page = [.. Info(), .. Segment(1, 53, 0, TableB1Segment.AsSpan(0, 10)), .. Segment(2, 0, 1, [], symbols), .. Segment(3, 6, 1, [1, 2], region)];
+
+        using DecodedImage image = Jbig2Testing.DecodeImage(page, 40, 16, out string[] codes);
+
+        Assert.All(image.Samples.ToArray(), value => Assert.Equal(0xFF, value));
+        Assert.Equal(["Jbig2TableInvalid", "Jbig2ReferredSegmentMissing"], codes);
+    }
+
+    [Fact]
+    public void Reusing_statistics_a_dictionary_did_not_retain_resets_them_with_a_diagnostic()
+    {
+        bool[][][] first = [CcittEncoder.SampleBitmap(5, 6, seed: 1)];
+        bool[][][] second = [CcittEncoder.SampleBitmap(6, 6, seed: 2)];
+        byte[] one = SymbolDictionary(first, 0, out _);
+        byte[] two = SymbolDictionary(second, 0, out _, contextUsed: true, inputCount: 1);
+        byte[] region = TextRegion(40, 16, 0, 0, 0, [.. first, .. second], [new(1, 2, 2)], new Jbig2TextOptions());
+        byte[] page = [.. Info(), .. Segment(1, 0, 1, [], one), .. Segment(2, 0, 1, [1], two), .. Segment(3, 6, 1, [1, 2], region)];
+
+        using DecodedImage image = Jbig2Testing.DecodeImage(page, 40, 16, out string[] codes);
+
+        bool[][] expected = [.. Enumerable.Range(0, 16).Select(y => Enumerable.Range(0, 40).Select(x => x >= 2 && x < 8 && y >= 2 && y < 8 && second[0][y - 2][x - 2]).ToArray())];
+        Assert.Equal(PackPdf(expected, 40), image.Samples.ToArray());
+        Assert.Equal(["Jbig2ContextReuseInvalid"], codes);
+    }
+
+    [Fact]
+    public void A_refinement_referring_to_no_intermediate_region_refines_the_page_with_a_diagnostic()
+    {
+        bool[][] inverse = [.. Bitmap.Select(row => row.Select(pixel => !pixel).ToArray())];
+        byte[] page = [.. Info(), .. Region(1), .. Segment(2, 42, 1, [7], RefinementRegion(inverse, Bitmap, 0, 0, 4, 1, typicalPrediction: false))];
+
+        using DecodedImage image = Jbig2Testing.DecodeImage(page, 40, 16, out string[] codes);
+
+        Assert.Equal(PackPdf(inverse, 40), image.Samples.ToArray());
+        Assert.Equal(["Jbig2RefinementReferenceMissing"], codes);
+    }
+
+    [Fact]
+    public void Gray_values_beyond_the_pattern_dictionary_use_its_last_pattern()
+    {
+        bool[][][] patterns = [.. Enumerable.Range(0, 3).Select(i => CcittEncoder.SampleBitmap(4, 4, seed: 30 + i))];
+        int[][] gray = [[0, 1, 2, 3], [3, 2, 1, 0]];
+        byte[] page = [.. Info(), .. Segment(1, 16, 1, PatternDictionary(patterns, 4, 1, mmr: false)), .. Segment(2, 22, 1, [1], HalftoneRegion(16, 8, 0, gray, 3, 4, 0, 0, 1, mmr: false))];
+
+        using DecodedImage image = Jbig2Testing.DecodeImage(page, 40, 16, out string[] codes);
+
+        bool[][] expected = [.. Enumerable.Range(0, 16).Select(y => Enumerable.Range(0, 40).Select(x => y < 8 && x < 16 && patterns[Math.Min(2, gray[y / 4][x / 4])][y % 4][x % 4]).ToArray())];
+        Assert.Equal(PackPdf(expected, 40), image.Samples.ToArray());
+        Assert.Equal(["Jbig2GrayValueOutOfRange"], codes);
     }
 
     [Fact]

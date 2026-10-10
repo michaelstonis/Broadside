@@ -29,4 +29,24 @@ public class Jbig2ImageTests
         Assert.False(image.CreateDecodeMap(decoded).IsInverted);
         Assert.Empty(document.Diagnostics);
     }
+
+    [Fact]
+    public void The_Annex_H_pages_decode_through_one_shared_JBIG2Globals_stream()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("jbig2-annex-h.pdf"));
+        PdfPage page = document.Pages[0];
+        string[] expected = [Jbig2Samples.AnnexHPageSha256, Jbig2Samples.AnnexHPageSha256, Jbig2Samples.AnnexHPage3Sha256];
+
+        for (int i = 0; i < 3; i++)
+        {
+            PdfImage image = page.GetImage("Im" + i)!;
+            using DecodedImage decoded = image.Decode()!;
+            byte[] bytes = document.DecodeStream(image.Stream!).ToArray();
+
+            Assert.Equal(expected[i], Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(decoded.Samples)));
+            Assert.Equal(expected[i], Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(bytes)));
+        }
+
+        Assert.Empty(document.Diagnostics);
+    }
 }

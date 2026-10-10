@@ -39,6 +39,7 @@ internal ref struct MqDecoder
     private uint _c;
     private uint _a;
     private int _ct;
+    private int _markerBytes;
 
     /// <summary>Initializes a new instance of the <see cref="MqDecoder"/> struct over one codeword segment (INITDEC).</summary>
     /// <param name="data">The segment, without the two terminating <c>0xFF</c> bytes.</param>
@@ -53,6 +54,12 @@ internal ref struct MqDecoder
         _ct -= 7;
         _a = 0x8000;
     }
+
+    /// <summary>
+    /// Gets how many times BYTEIN met the end of the segment or a marker and fed 1-bits instead of data. A well-formed segment needs
+    /// at most a few; JBIG2 uses it to stop counting loops (symbols, instances, export runs) over damaged or truncated data.
+    /// </summary>
+    public readonly int MarkerBytes => _markerBytes;
 
     /// <summary>The number of probability states.</summary>
     public const int StateCount = 47;
@@ -155,6 +162,7 @@ internal ref struct MqDecoder
             {
                 _c += 0xFF00;
                 _ct = 8;
+                _markerBytes += _markerBytes < int.MaxValue ? 1 : 0;
             }
             else
             {

@@ -31,8 +31,8 @@ internal static partial class DiagnosticCodes
     public const string Jbig2SegmentInvalid = nameof(Jbig2SegmentInvalid);
 
     /// <summary>
-    /// The stream uses a JBIG2 feature this decoder does not implement yet (symbol, text, halftone and refinement regions, extended
-    /// templates, colour, a necessary extension); when it paints the page the image is not decoded (Information).
+    /// The stream uses a JBIG2 feature this decoder does not implement (extended templates, colour, a necessary extension); when it
+    /// paints the page the image is not decoded (Information).
     /// </summary>
     public const string Jbig2UnsupportedFeature = nameof(Jbig2UnsupportedFeature);
 
@@ -53,4 +53,31 @@ internal static partial class DiagnosticCodes
 
     /// <summary>A region is larger than the image limits allow; it is not decoded (Error).</summary>
     public const string Jbig2LimitExceeded = nameof(Jbig2LimitExceeded);
+
+    /// <summary>A text region instance or a refinement/aggregate symbol names a symbol ID beyond its symbols; an empty symbol is used (Error).</summary>
+    public const string Jbig2SymbolIdOutOfRange = nameof(Jbig2SymbolIdOutOfRange);
+
+    /// <summary>A symbol dictionary's export run goes past its last symbol (T.88 §6.5.10); the run is cut (Warning).</summary>
+    public const string Jbig2ExportRunOverflow = nameof(Jbig2ExportRunOverflow);
+
+    /// <summary>A symbol dictionary exports another number of symbols than its SDNUMEXSYMS (T.88 §6.5.10); the flagged symbols are exported (Warning).</summary>
+    public const string Jbig2SymbolCountMismatch = nameof(Jbig2SymbolCountMismatch);
+
+    /// <summary>
+    /// A symbol dictionary reuses the coding statistics of a referred dictionary that did not retain them or differs in its coding
+    /// parameters (T.88 §7.4.2.2 step 3); the statistics are reset (Warning).
+    /// </summary>
+    public const string Jbig2ContextReuseInvalid = nameof(Jbig2ContextReuseInvalid);
+
+    /// <summary>A code table segment is malformed, or a segment selects a reserved or missing Huffman table (T.88 Annex B, §7.4.2.1.6, §7.4.3.1.6); what depends on it is not decoded (Error).</summary>
+    public const string Jbig2TableInvalid = nameof(Jbig2TableInvalid);
+
+    /// <summary>A refinement region refers to no intermediate region still held (T.88 §7.4.7.4); it refines the page instead (Error).</summary>
+    public const string Jbig2RefinementReferenceMissing = nameof(Jbig2RefinementReferenceMissing);
+
+    /// <summary>A segment refers to a segment that is absent or could not be decoded (T.88 §7.2.5); it is decoded without it (Error).</summary>
+    public const string Jbig2ReferredSegmentMissing = nameof(Jbig2ReferredSegmentMissing);
+
+    /// <summary>A halftone region has gray-scale values beyond its pattern dictionary (T.88 §6.6.5.2); the last pattern is used (Warning).</summary>
+    public const string Jbig2GrayValueOutOfRange = nameof(Jbig2GrayValueOutOfRange);
 }

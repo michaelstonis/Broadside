@@ -177,6 +177,43 @@ public class Jbig2DecodeFilterTests
         Assert.Equal(Jbig2Samples.AnnexHGenericPageSha256, Jbig2Testing.Sha256(image.Samples));
     }
 
+    public static TheoryData<string, string, int, int, string> AnnexHPages => new()
+    {
+        { "1", "Huffman symbol dictionaries and text region, MMR generic, pattern dictionary and halftone", 64, 56, Jbig2Samples.AnnexHPageSha256 },
+        { "2", "arithmetic symbol dictionary, text region, generic region, pattern dictionary and halftone", 64, 56, Jbig2Samples.AnnexHPageSha256 },
+        { "3", "refinement/aggregate symbol dictionary and a refined text instance", 37, 8, Jbig2Samples.AnnexHPage3Sha256 },
+    };
+
+    [Theory]
+    [MemberData(nameof(AnnexHPages))]
+    public void Each_page_of_the_Annex_H_datastream_decodes_to_the_page_jbig2dec_gives(string page, string features, int width, int height, string sha256)
+    {
+        byte[] data = page switch { "1" => Jbig2Samples.AnnexHPage1, "2" => Jbig2Samples.AnnexHPage2, _ => Jbig2Samples.AnnexHPage3 };
+
+        using DecodedImage image = Jbig2Testing.DecodeImage(data, width, height, out string[] codes, Jbig2Samples.AnnexHGlobals);
+
+        Assert.True(sha256 == Jbig2Testing.Sha256(image.Samples), features);
+        Assert.Empty(codes);
+    }
+
+    [Fact]
+    public void The_ISO_32000_example_with_a_symbol_dictionary_in_JBIG2Globals_decodes_to_two_letters()
+    {
+        using DecodedImage image = Jbig2Testing.DecodeImage(Jbig2Samples.IsoExamplePage, 52, 66, out string[] codes, Jbig2Samples.IsoExampleGlobals);
+
+        Assert.Equal(Jbig2Samples.IsoExamplePageSha256, Jbig2Testing.Sha256(image.Samples));
+        Assert.Empty(codes);
+    }
+
+    [Fact]
+    public void Without_its_JBIG2Globals_a_text_region_reports_the_missing_dictionary_and_draws_nothing()
+    {
+        using DecodedImage image = Jbig2Testing.DecodeImage(Jbig2Samples.IsoExamplePage, 52, 66, out string[] codes);
+
+        Assert.All(image.Samples.ToArray(), b => Assert.Equal(0xFF, b | 0x0F));
+        Assert.Contains("Jbig2ReferredSegmentMissing", codes);
+    }
+
     private static void BinaryPrimitivesWriteHeight(byte[] region, uint height) => System.Buffers.Binary.BinaryPrimitives.WriteUInt32BigEndian(region.AsSpan(4), height);
 
     /// <summary>A page stream: page information for <paramref name="width"/> x <paramref name="height"/> and one immediate lossless generic region.</summary>

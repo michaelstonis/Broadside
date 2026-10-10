@@ -23,6 +23,7 @@
     <Compile Include="../../tests/Broadside.TestSupport/MeshSamples.cs" Link="MeshSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/JpxSamples.cs" Link="JpxSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/Jbig2Encoder.cs" Link="Jbig2Encoder.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/Jbig2Encoder.Symbols.cs" Link="Jbig2Encoder.Symbols.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/Jbig2Samples.cs" Link="Jbig2Samples.cs" />
   </ItemGroup>
 

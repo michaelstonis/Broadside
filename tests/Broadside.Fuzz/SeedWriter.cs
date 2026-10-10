@@ -104,10 +104,46 @@ internal static class SeedWriter
         "xmp" => Streams(file).Where(stream => Metadata.Equals(stream.Value.Dictionary.TryGetValue(Type, out CosObject? type) ? type : null))
             .Select(stream => stream.Document.DecodeStream(stream.Value).ToArray()),
         "decrypt" => EncryptedBodies(file),
+        "filter-jbig2" => Streams(file).Select(stream => Jbig2Seed(stream.Document, stream.Value)).OfType<byte[]>(),
         _ when FilterTargets.TryGetValue(target, out string? filter) =>
             Streams(file).Where(stream => FirstFilter(stream.Value) == filter).Select(stream => stream.Value.EncodedData.ToArray()),
         _ => [file],
     };
+
+    /// <summary>
+    /// A <c>filter-jbig2</c> input from a JBIG2Decode image: Width - 1 and Height - 1 (big-endian 16-bit, kept below 512), the
+    /// globals length, the decoded JBIG2Globals stream, then the page stream as the filters before JBIG2Decode leave it.
+    /// </summary>
+    private static byte[]? Jbig2Seed(PdfDocument document, CosStream stream)
+    {
+        CosObject? filter = document.Resolve(stream.Dictionary.TryGetValue(Filter, out CosObject? value) ? value : null);
+        bool last = filter switch
+        {
+            CosName name => name.Value == "JBIG2Decode",
+            CosArray { Count: > 0 } array => document.Resolve(array[^1]) is CosName name && name.Value == "JBIG2Decode",
+            _ => false,
+        };
+        if (!last || filter is CosArray { Count: > 1 })
+        {
+            return null;
+        }
+
+        int Dimension(string key) => document.Resolve(stream.Dictionary.TryGetValue(new CosName(key), out CosObject? v) ? v : null) is CosInteger { Value: > 0 } i
+            ? (int)Math.Min(511, i.Value - 1)
+            : 0;
+        byte[] globals = [];
+        CosObject? parameters = document.Resolve(stream.Dictionary.TryGetValue(DecodeParms, out CosObject? p) ? p : null);
+        if (parameters is CosDictionary dictionary && document.Resolve(dictionary.TryGetValue(new CosName("JBIG2Globals"), out CosObject? g) ? g : null) is CosStream globalsStream)
+        {
+            globals = document.DecodeStream(globalsStream).ToArray();
+        }
+
+        byte[] header = new byte[8];
+        BinaryPrimitives.WriteUInt16BigEndian(header, (ushort)Dimension("Width"));
+        BinaryPrimitives.WriteUInt16BigEndian(header.AsSpan(2), (ushort)Dimension("Height"));
+        BinaryPrimitives.WriteUInt32BigEndian(header.AsSpan(4), (uint)globals.Length);
+        return [.. header, .. globals, .. stream.EncodedData.Span];
+    }
 
     /// <summary>Every stream object of the file, numbers 1 to <c>Size</c> - 1, generation 0; nothing when the file does not open.</summary>
     private static IEnumerable<(PdfDocument Document, CosStream Value)> Streams(byte[] file)

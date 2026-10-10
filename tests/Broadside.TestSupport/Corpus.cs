@@ -127,6 +127,7 @@ public static class Corpus
         "ccitt-inline.pdf",
         "jbig2-generic.pdf",
         "jbig2-generic-mmr.pdf",
+        "jbig2-annex-h.pdf",
     ];
 
     private static readonly string[] Malformed =
