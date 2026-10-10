@@ -134,16 +134,19 @@ public class CompositeFontTests
     }
 
     [Fact]
-    public void A_missing_encoding_or_an_unavailable_predefined_CMap_reads_codes_as_Identity_H()
+    public void A_missing_encoding_reads_codes_as_Identity_H_and_an_unavailable_predefined_CMap_by_its_codespace()
     {
         using PdfDocument missing = OpenEmbedded("/CIDToGIDMap /Identity", encoding: null);
-        using PdfDocument predefined = OpenEmbedded("/CIDToGIDMap /Identity", encoding: "/90ms-RKSJ-H", options: new PdfOptions().UseStrict());
+        using PdfDocument predefined = OpenEmbedded("/CIDToGIDMap /Identity", encoding: "/90ms-RKSJ-H");
 
         Assert.Same(CMap.IdentityH, CompositeFontCorpusTests.Font(missing).Encoding);
-        Assert.Same(CMap.IdentityH, CompositeFontCorpusTests.Font(predefined).Encoding);
+        Assert.Equal(("90ms-RKSJ-H", false), (CompositeFontCorpusTests.Font(predefined).Encoding.Name, CompositeFontCorpusTests.Font(predefined).Encoding.IsIdentity));
         Assert.Equal(["Type0EncodingMissing"], Codes(missing));
-        Diagnostic diagnostic = Assert.Single(predefined.Diagnostics);
-        Assert.Equal(("CMapUnavailable", DiagnosticSeverity.Information), (diagnostic.Code, diagnostic.Severity));
+        Diagnostic diagnostic = Assert.Single(predefined.Diagnostics, d => d.Code == "CMapUnavailable");
+        Assert.Equal(DiagnosticSeverity.Information, diagnostic.Severity);
+
+        // The stand-in keeps the CMap's character collection, so a CIDFont of another collection is still noticed (§9.7.3).
+        Assert.Equal(["CMapUnavailable", "CidSystemInfoMismatch"], Codes(predefined));
     }
 
     [Fact]
@@ -237,12 +240,14 @@ public class CompositeFontTests
     }
 
     [Fact]
-    public void A_UseCMap_naming_a_predefined_CMap_that_is_not_built_in_is_reported_as_unavailable()
+    public void A_UseCMap_naming_a_predefined_CMap_no_resolver_supplies_is_reported_as_unavailable_and_gives_only_its_codespace()
     {
         string cmap = CMapStream("1 begincodespacerange <00> <FF> endcodespacerange", "/UseCMap /UniJIS-UCS2-H");
         using PdfDocument document = Open(encoding: "6 0 R", objects: cmap);
 
-        Assert.Null(CompositeFontCorpusTests.Font(document).Encoding.Parent);
+        CMap? parent = CompositeFontCorpusTests.Font(document).Encoding.Parent;
+        Assert.Equal("UniJIS-UCS2-H", parent?.Name);
+        Assert.Equal(0, parent!.GetCid(parent.ReadCode([0x4E, 0x00])));
         Assert.Contains("CMapUnavailable", Codes(document));
     }
 
@@ -291,7 +296,7 @@ public class CompositeFontTests
     }
 
     [Fact]
-    public void A_CIDFontType0_reads_its_metrics_and_has_no_glyphs_until_CFF_programs_are_read()
+    public void A_CIDFontType0_without_a_program_reads_its_metrics_and_has_no_glyphs()
     {
         using PdfDocument document = Open(subtype: "/CIDFontType0", cidEntries: "/W [1 [450]]");
         PdfCidFont font = Assert.IsType<PdfCidFontType0>(CompositeFontCorpusTests.Font(document).DescendantFont);

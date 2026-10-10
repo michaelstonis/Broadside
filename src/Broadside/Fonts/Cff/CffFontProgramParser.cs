@@ -19,8 +19,11 @@ namespace Broadside.Fonts.Cff;
 /// </para>
 /// <para>
 /// Hints are parsed and ignored; the deprecated <c>dotsection</c> is a no-op; <c>endchar</c> with four arguments composes an accented
-/// character from StandardEncoding components. A CID-keyed CFF program (<c>CIDFontType0C</c>, or a CFF with ROS) is recognized; its
-/// outlines need its FDArray and FDSelect and are read by a later version. CFF2 (OpenType variable fonts) is not read.
+/// character from StandardEncoding components. A CID-keyed CFF program (<c>CIDFontType0C</c>, or any CFF whose Top DICT begins with
+/// ROS; §18-19) draws each glyph with the Private DICT (local subroutines, bias, widths) of the Font DICT its FDSelect entry names,
+/// in the space of the first Font DICT's FontMatrix concatenated with the Top DICT's (Adobe Technical Note #5014 §4.2); a glyph
+/// whose Font DICT has another matrix is mapped into that space. Its charset holds CIDs, so it has no glyph names and no built-in
+/// encoding; a CIDFontType0 selects its glyphs by CID. CFF2 (OpenType variable fonts) is not read.
 /// </para>
 /// <para>
 /// Leniency follows ADR 0005: a damaged INDEX, DICT, charset or encoding is read as far as it goes, with a diagnostic; a damaged

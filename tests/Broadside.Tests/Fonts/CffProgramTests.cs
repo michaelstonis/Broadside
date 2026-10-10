@@ -194,7 +194,7 @@ public class CffProgramTests
     }
 
     [Fact]
-    public void A_CID_keyed_program_is_recognized_and_has_no_names_or_encoding_until_its_font_dictionaries_are_read()
+    public void A_CID_keyed_program_has_no_glyph_names_or_built_in_encoding()
     {
         // ROS (12 30) with SIDs 391 and 392 and supplement 0: the font is CID-keyed (5176 §18).
         var builder = Glyphs(new CffBuilder { PredefinedEncoding = 0, TopDictPrefix = [.. CffBuilder.DictInteger(391), .. CffBuilder.DictInteger(392), 139, 12, 30] }, "x");
@@ -205,8 +205,8 @@ public class CffProgramTests
         Assert.Equal(2, program.GlyphCount);
         Assert.Null(program.BuiltInEncoding);
         Assert.Null(program.GetGlyphName(1));
-        Assert.Equal("Invalid", OutlineText.Of(program, 1));
-        Assert.Equal(DiagnosticSeverity.Information, Assert.Single(context.Diagnostics, d => d.Code == "FontProgramUnsupported").Severity);
+        Assert.Equal("Empty", OutlineText.Of(program, 1));
+        Assert.Equal(["FontCffFdArrayMissing"], context.Diagnostics.Select(d => d.Code));
     }
 
     [Fact]

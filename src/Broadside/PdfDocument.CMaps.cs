@@ -105,22 +105,25 @@ public sealed partial class PdfDocument
     }
 
     /// <summary>
-    /// A predefined CMap by name (§9.7.5.2, Table 116), recorded as unavailable when no font resolver has it; see
-    /// <see cref="FindPredefinedCMap(string, int)"/>.
+    /// A predefined CMap by name (§9.7.5.2, Table 116), recorded as unavailable when no font resolver has it, in which case a
+    /// Table 116 name still gives its codespace (<see cref="PredefinedCMapTable"/>); see <see cref="FindPredefinedCMap(string, int)"/>.
     /// </summary>
     private CMap? FindPredefinedCMap(string name, CMapContext context, int depth)
     {
-        CMap? cmap = FindPredefinedCMap(name, depth + 1);
-        if (cmap is null)
+        if (FindPredefinedCMap(name, depth + 1) is { } cmap)
         {
-            context.Report(
-                Parsing.DiagnosticCodes.CMapUnavailable,
-                DiagnosticSeverity.Information,
-                $"The predefined CMap /{name} is not available (ISO 32000-2 §9.7.5.2, Table 116); it needs the CMaps package or a font resolver that supplies it.");
+            return cmap;
         }
 
-        return cmap;
+        CMap? fallback = PredefinedCMapTable.CreateFallback(name);
+        context.Report(Parsing.DiagnosticCodes.CMapUnavailable, DiagnosticSeverity.Information, UnavailableMessage(name, fallback is not null));
+        return fallback;
     }
+
+    /// <summary>The message of <c>CMapUnavailable</c>: names the CMap, the package that has it, and what is read instead.</summary>
+    internal static string UnavailableMessage(string name, bool known) => known
+        ? $"The predefined CMap /{name} is not available (ISO 32000-2 §9.7.5.2, Table 116): add the Broadside.Fonts.Cmaps package and call options.UsePredefinedCMaps(), or register a font resolver that supplies it. Codes are split by its codespace and show the glyph of CID 0."
+        : $"/{name} is not a predefined CMap of ISO 32000-2 Table 116 and no font resolver supplies it (§9.7.5.2); codes are read as Identity-H.";
 
     /// <summary>
     /// Returns a predefined CMap by name (§9.7.5.2, Table 116): Identity-H and Identity-V are built in; any other comes from the

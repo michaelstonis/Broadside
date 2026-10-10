@@ -109,6 +109,33 @@ public sealed class CffBuilder
     /// <summary>Gets the strings of the String INDEX, in SID order from 391.</summary>
     public List<string> Strings { get; } = [];
 
+    /// <summary>
+    /// Gets or sets the ROS of a CID-keyed font (5176 §18), or <see langword="null"/> for a name-keyed one. A CID-keyed font is
+    /// written with ROS first in its Top DICT, an FDArray of <see cref="FontDicts"/> and an FDSelect, and no Encoding or Private.
+    /// </summary>
+    public (string Registry, string Ordering, int Supplement)? Ros { get; set; }
+
+    /// <summary>Gets the Font DICTs of a CID-keyed font's FDArray, each with its own Private DICT and local subroutines.</summary>
+    public List<CffFontDict> FontDicts { get; } = [];
+
+    /// <summary>Gets or sets a CID-keyed font's FDSelect bytes (format byte first); <see langword="null"/> writes format 0 with every glyph in FD 0.</summary>
+    public byte[]? FdSelect { get; set; }
+
+    /// <summary>Gets or sets a value indicating whether a CID-keyed font's Top DICT has FDArray and FDSelect entries.</summary>
+    public bool WriteFdArray { get; set; } = true;
+
+    /// <summary>A format 0 charset (5176 §13) listing the SIDs or CIDs of glyphs 1 and up.</summary>
+    /// <param name="ids">The SIDs or CIDs.</param>
+    /// <returns>The charset bytes.</returns>
+    public static byte[] CharsetFormat0(params int[] ids) => [0, .. ids.SelectMany(BigEndian16)];
+
+    /// <summary>A format 3 FDSelect (5176 §19, Table 28): ranges (first glyph, FD) and the sentinel (the glyph count).</summary>
+    /// <param name="sentinel">The sentinel.</param>
+    /// <param name="ranges">The ranges.</param>
+    /// <returns>The FDSelect bytes.</returns>
+    public static byte[] FdSelectFormat3(int sentinel, params (int First, int Fd)[] ranges) =>
+        [3, .. BigEndian16(ranges.Length), .. ranges.SelectMany(range => (byte[])[.. BigEndian16(range.First), (byte)range.Fd]), .. BigEndian16(sentinel)];
+
     /// <summary>Assembles a Type 2 charstring: integers and doubles are operands (doubles as 16.16 Fixed), strings operators, byte arrays raw.</summary>
     /// <param name="tokens">The tokens.</param>
     /// <returns>The charstring.</returns>
@@ -253,6 +280,11 @@ public sealed class CffBuilder
     /// <returns>The CFF bytes.</returns>
     public byte[] Build()
     {
+        if (Ros is not null)
+        {
+            return BuildCid();
+        }
+
         List<(string Name, byte[] CharString)> glyphs = Glyphs.Count > 0 ? Glyphs : [(".notdef", T2("endchar"))];
         var strings = new List<string>(Strings);
         int Sid(string name)
@@ -293,6 +325,86 @@ public sealed class CffBuilder
         privateDict = BuildPrivate(LocalSubrs.Count > 0 ? BuildPrivate(0).Length : 0);
         byte[] top = BuildTop(charsetOffset, encodingOffset, charStringsOffset, privateDict.Length, privateOffset);
         return [.. header, .. names, .. Index([top]), .. stringIndex, .. globalSubrs, .. charset, .. encoding, .. charStrings, .. privateDict, .. localSubrs];
+    }
+
+    /// <summary>A CID-keyed font (5176 §18-19): ROS, FDArray INDEX of Font DICTs, FDSelect, per-FD Private DICTs and local subrs.</summary>
+    private byte[] BuildCid()
+    {
+        List<(string Name, byte[] CharString)> glyphs = Glyphs.Count > 0 ? Glyphs : [(".notdef", T2("endchar"))];
+        var strings = new List<string>(Strings);
+        int Sid(string name)
+        {
+            int index = strings.IndexOf(name);
+            if (index < 0)
+            {
+                strings.Add(name);
+                index = strings.Count - 1;
+            }
+
+            return 391 + index;
+        }
+
+        (string registry, string ordering, int supplement) = Ros!.Value;
+        byte[] ros = [.. DictInteger(Sid(registry)), .. DictInteger(Sid(ordering)), .. DictInteger(supplement), 12, 30];
+        int[] fontNames = [.. FontDicts.Select((fd, index) => Sid(fd.Name ?? $"{Name}-FD{index}"))];
+        byte[] charset = Charset ?? (glyphs.Count > 1 ? [2, 0, 1, .. BigEndian16(glyphs.Count - 2)] : [0]);
+        byte[] fdSelect = FdSelect ?? [0, .. new byte[glyphs.Count]];
+        byte[] charStrings = Index([.. glyphs.Select(glyph => glyph.CharString)]);
+        byte[] header = [1, 0, 4, 4];
+        byte[] names = Index([System.Text.Encoding.ASCII.GetBytes(Name)]);
+        byte[] stringIndex = Index([.. strings.Select(s => System.Text.Encoding.ASCII.GetBytes(s))]);
+        byte[] globalSubrs = Index(GlobalSubrs);
+        byte[][] privates = [.. FontDicts.Select(fd => fd.BuildPrivate())];
+        byte[][] locals = [.. FontDicts.Select(fd => fd.LocalSubrs.Count > 0 ? Index(fd.LocalSubrs) : [])];
+
+        int topLength = BuildCidTop(ros, 0, 0, 0, 0).Length;
+        int charsetOffset = header.Length + names.Length + Index([new byte[topLength]]).Length + stringIndex.Length + globalSubrs.Length;
+        int fdSelectOffset = charsetOffset + charset.Length;
+        int charStringsOffset = fdSelectOffset + fdSelect.Length;
+        int fdArrayOffset = charStringsOffset + charStrings.Length;
+        int fdArrayLength = Index([.. FontDicts.Select((fd, index) => fd.BuildDict(fontNames[index], 0, 0))]).Length;
+        var fontDicts = new List<byte[]>();
+        int privateOffset = fdArrayOffset + fdArrayLength;
+        var tail = new List<byte>();
+        for (int index = 0; index < FontDicts.Count; index++)
+        {
+            fontDicts.Add(FontDicts[index].BuildDict(fontNames[index], privates[index].Length, privateOffset));
+            tail.AddRange(privates[index]);
+            tail.AddRange(locals[index]);
+            privateOffset += privates[index].Length + locals[index].Length;
+        }
+
+        byte[] top = BuildCidTop(ros, charsetOffset, charStringsOffset, fdArrayOffset, fdSelectOffset);
+        return [.. header, .. names, .. Index([top]), .. stringIndex, .. globalSubrs, .. charset, .. fdSelect, .. charStrings, .. Index(fontDicts), .. tail];
+    }
+
+    private byte[] BuildCidTop(byte[] ros, int charset, int charStrings, int fdArray, int fdSelect)
+    {
+        var top = new List<byte>(ros);
+        top.AddRange(TopDictPrefix);
+        if (FontMatrix is { } matrix)
+        {
+            foreach (double value in matrix)
+            {
+                top.AddRange(DictReal(value));
+            }
+
+            top.AddRange([12, 7]);
+        }
+
+        top.AddRange(PredefinedCharset is { } predefinedCharset ? DictInteger(predefinedCharset) : DictInteger32(charset));
+        top.Add(15);
+        top.AddRange(DictInteger32(charStrings));
+        top.Add(17);
+        if (WriteFdArray)
+        {
+            top.AddRange(DictInteger32(fdArray));
+            top.AddRange([12, 36]);
+            top.AddRange(DictInteger32(fdSelect));
+            top.AddRange([12, 37]);
+        }
+
+        return [.. top];
     }
 
     /// <summary>The standard strings with SIDs 0 to 95 and a few accents (5176 Appendix A); other names go to the String INDEX.</summary>

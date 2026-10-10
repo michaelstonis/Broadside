@@ -32,6 +32,7 @@ public static class Corpus
         "text-cid-identity-h.pdf",
         "text-cid-identity-v.pdf",
         "text-cid-embedded-cmap.pdf",
+        "text-cidcff-predefined-cmap.pdf",
         "xref-stream.pdf",
         "object-stream.pdf",
         "incremental-update.pdf",

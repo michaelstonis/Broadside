@@ -82,11 +82,9 @@ internal sealed class Type0FontState
                     return predefined;
                 }
 
-                font.Report(
-                    DiagnosticCodes.CMapUnavailable,
-                    DiagnosticSeverity.Information,
-                    $"The predefined CMap /{name.Value} is not available (ISO 32000-2 §9.7.5.2, Table 116); it needs the CMaps package or a font resolver that supplies it. Codes are read as Identity-H.");
-                return CMap.IdentityH;
+                CMap? fallback = PredefinedCMapTable.CreateFallback(name.Value);
+                font.Report(DiagnosticCodes.CMapUnavailable, DiagnosticSeverity.Information, PdfDocument.UnavailableMessage(name.Value, fallback is not null));
+                return fallback ?? CMap.IdentityH;
             case CosStream stream:
                 sources.Add(stream);
                 if (font.Document.GetCMap(stream, raw as CosReference) is { } cmap)

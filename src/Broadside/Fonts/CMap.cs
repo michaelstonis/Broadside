@@ -105,9 +105,10 @@ public sealed class CMap
     /// block runs to its end operator. Operators glued to what follows them (<c>endcidchar1</c>) are split.
     /// </para>
     /// <para>
-    /// A <c>usecmap</c> standing alone can only name <c>Identity-H</c> or <c>Identity-V</c>; any other name is recorded as
-    /// unavailable and the CMap is read without a parent. Inside a document, the stream's <c>UseCMap</c> entry may name another
-    /// embedded CMap stream.
+    /// A <c>usecmap</c> standing alone can only resolve <c>Identity-H</c> or <c>Identity-V</c>; another name of Table 116 is
+    /// recorded as unavailable and only its codespace is used, and any other name is recorded and the CMap read without a parent.
+    /// Inside a document, predefined CMaps come from the engine's font resolvers (the Broadside.Fonts.Cmaps package), and the
+    /// stream's <c>UseCMap</c> entry may name another embedded CMap stream.
     /// </para>
     /// </remarks>
     public static CMap Parse(ReadOnlySpan<byte> data, CMapContext? context = null)
@@ -120,10 +121,13 @@ public sealed class CMap
             parent = FindBuiltIn(name);
             if (parent is null)
             {
+                parent = PredefinedCMapTable.CreateFallback(name);
                 context.Report(
                     DiagnosticCodes.CMapUnavailable,
                     DiagnosticSeverity.Information,
-                    $"The CMap uses /{name}, which is not available (Adobe TN 5014 §7.4, usecmap); read without it.");
+                    parent is null
+                        ? $"The CMap uses /{name}, which is not available (Adobe TN 5014 §7.4, usecmap); read without it."
+                        : $"The CMap uses the predefined CMap /{name} (ISO 32000-2 §9.7.5.2, Table 116), whose mappings a stand-alone parse does not have; only its codespace is used.");
             }
         }
 
@@ -299,6 +303,13 @@ public sealed class CMap
         {
             codespace.Add(new CodespaceRange(2, 0, 0xFFFF));
         }
+    }
+
+    /// <summary>A predefined CMap without its mappings (§9.7.6.3: every code selects CID 0), for one no font resolver supplies.</summary>
+    internal static CMap CreateFallback(string name, int writingMode, CidSystemInfo systemInfo, CodespaceRange[] codespace)
+    {
+        IntervalTable[] empty = [IntervalTable.Empty, IntervalTable.Empty, IntervalTable.Empty, IntervalTable.Empty];
+        return new CMap(name, writingMode == 1 ? WritingMode.Vertical : WritingMode.Horizontal, systemInfo, codespace, empty, empty, parent: null, isIdentity: false);
     }
 
     private static CMap CreateIdentity(string name, WritingMode writingMode)
