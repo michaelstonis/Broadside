@@ -39,6 +39,7 @@ public abstract class PdfShading
         Dictionary = reader.Dictionary;
         Reference = reader.Reference;
         DiagnosticReference = reader.DiagnosticReference;
+        Diagnostics = reader.Diagnostics;
 
         PdfColorSpace? space = ReadColorSpace(reader);
         ColorSpace = space ?? PdfDeviceGrayColorSpace.Instance;
@@ -122,6 +123,9 @@ public abstract class PdfShading
     /// <summary>Gets the reference diagnostics about the shading are recorded on.</summary>
     internal CosReference? DiagnosticReference { get; }
 
+    /// <summary>Gets the recorder of this shading's diagnostics, on <see cref="DiagnosticReference"/>.</summary>
+    private protected ObjectDiagnostics Diagnostics { get; }
+
     /// <summary>Gets the document the shading belongs to.</summary>
     internal PdfDocument Document => _document;
 
@@ -154,12 +158,7 @@ public abstract class PdfShading
         FunctionStatus status = evaluator.Evaluate(input, outputs);
         if (status != FunctionStatus.Ok)
         {
-            _document.DiagnosticSink.ReportOnce(
-                DiagnosticCodes.FunctionEvaluationRepaired,
-                DiagnosticSeverity.Warning,
-                "A shading's function met an error while evaluating; its outputs were repaired.",
-                offset: null,
-                DiagnosticReference);
+            Diagnostics.ReportOnce(DiagnosticCodes.FunctionEvaluationRepaired, "A shading's function met an error while evaluating; its outputs were repaired.");
         }
 
         for (int i = 0; i < _ranges.Length; i++)

@@ -65,6 +65,31 @@ public readonly ref struct GlyphEvent
     /// <summary>Gets the vertical advance t_y applied to the text matrix after the glyph, spacing included (§9.4.4).</summary>
     public double AdvanceY { get; internal init; }
 
+    /// <summary>
+    /// Gets the glyph's origin in device space, the space the CTM maps to: text space's origin mapped by <see cref="TextMatrix"/>
+    /// and then <see cref="Ctm"/>. For a page run, whose initial CTM is the identity, this is default user space (device-independent).
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §9.4.4 and §8.3.2.3: <c>(0, 0) × T_rm × CTM</c>. For vertical writing the text matrix already places the glyph at
+    /// the current point minus its position vector (§9.7.4.3).
+    /// </remarks>
+    public PathPoint DeviceOrigin => Ctm.Transform(TextMatrix.Transform(0, 0));
+
+    /// <summary>
+    /// Gets the horizontal component of the glyph's advance in device space: the text-space advance (<see cref="AdvanceX"/>,
+    /// <see cref="AdvanceY"/>) mapped by the text matrix <c>T_m</c> and the CTM, so the next glyph's <see cref="DeviceOrigin"/> is this
+    /// one's plus the advance (when no <c>TJ</c> number, spacing change or text positioning comes between them).
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.4.4: the advance translates <c>T_m</c>; §8.3.2.3: the CTM maps user space to device space.</remarks>
+    public double DeviceAdvanceX => DeviceAdvance.X;
+
+    /// <summary>Gets the vertical component of the glyph's advance in device space; see <see cref="DeviceAdvanceX"/>.</summary>
+    /// <remarks>ISO 32000-2 §9.4.4 and §8.3.2.3.</remarks>
+    public double DeviceAdvanceY => DeviceAdvance.Y;
+
+    /// <summary>Gets the text matrix <c>T_m</c> before the glyph's advance, without the font size, scaling and rise.</summary>
+    internal Matrix LineTextMatrix { get; init; }
+
     /// <summary>Gets the <c>TJ</c> number that came right before the glyph, in thousandths of text space units; 0 when none (§9.4.3).</summary>
     public double Adjustment { get; internal init; }
 
@@ -106,6 +131,15 @@ public readonly ref struct GlyphEvent
         {
             MapUnicode(UnicodeBuffer, out UnicodeSource source);
             return source;
+        }
+    }
+
+    private PathPoint DeviceAdvance
+    {
+        get
+        {
+            PathPoint user = LineTextMatrix.TransformVector(AdvanceX, AdvanceY);
+            return Ctm.TransformVector(user.X, user.Y);
         }
     }
 

@@ -16,7 +16,8 @@ namespace Broadside.Content;
 /// <para>
 /// Repairs, each recorded once per run: a name not in the resources reads as DeviceGray (an abbreviation G, RGB or CMYK as the
 /// device space); too few components skip the operator, too many use the last ones; <c>sc</c> in a Pattern space, <c>scn</c> with a
-/// name in another space and <c>scn</c> without a name in a Pattern space are skipped; <c>SC</c>/<c>sc</c> in a space that wants
+/// name in another space and <c>scn</c> without a name in a Pattern space are skipped (a coloured pattern's name alone selects it in
+/// a Pattern space with an underlying space, §8.7.3.2); <c>SC</c>/<c>sc</c> in a space that wants
 /// <c>SCN</c>/<c>scn</c> is accepted. Allocates nothing once the spaces are cached.
 /// </para>
 /// </remarks>
@@ -113,9 +114,18 @@ internal sealed partial class ContentInterpreter
                 return;
             }
 
+            ReadOnlySpan<byte> patternName = operands[count - 1].Bytes;
+            if (numbers == 0 && pattern.ComponentCount > 0 && NamesColoredPattern(patternName))
+            {
+                // §8.7.3.2: a coloured pattern is selected by its name alone in any Pattern space; the underlying space's components
+                // are for uncoloured patterns (§8.7.3.3).
+                SetPattern(stroke, pattern, [], patternName, offset);
+                return;
+            }
+
             if (TakeComponents(operands, numbers, pattern.ComponentCount, offset, out Span<float> components))
             {
-                SetPattern(stroke, pattern, components, operands[count - 1].Bytes, offset);
+                SetPattern(stroke, pattern, components, patternName, offset);
             }
 
             return;
@@ -174,6 +184,27 @@ internal sealed partial class ContentInterpreter
 
         CosObject? pattern = value is null ? null : spaces.Resolve(value);
         State.SetColor(stroke, new PdfColor(space, components, key, pattern, _context.StreamBaseMatrix));
+    }
+
+    /// <summary>
+    /// Returns whether <paramref name="name"/> names a pattern that is not an uncoloured tiling pattern: a coloured tiling pattern,
+    /// a shading pattern, or one whose <c>PaintType</c> the colour decides.
+    /// </summary>
+    private bool NamesColoredPattern(ReadOnlySpan<byte> name)
+    {
+        PdfDocument document = _context.Document;
+        CosObject? value = document.ColorSpaces.FindResource(_context.Resources, ColorSpaceNames.Pattern, name, out _);
+        if (value is null)
+        {
+            return false;
+        }
+
+        return document.Shadings.GetPattern(value, CurrentStream ?? _fallbackReference) switch
+        {
+            null => false,
+            PdfTilingPattern tiling => !tiling.IsPaintTypeKnown || tiling.PaintType == PdfTilingPaintType.Colored,
+            _ => true,
+        };
     }
 
     /// <summary>A component as stored: the operand's value, kept within the float range.</summary>

@@ -5,8 +5,9 @@ namespace Broadside.Content;
 
 /// <summary>The deviations the content interpreter records, each mapped to one diagnostic code and severity.</summary>
 /// <remarks>
-/// Information for deviations that do not change what is painted (Figure 9 context rules, glued tokens, a path never painted);
-/// Warning for operators skipped or repaired. Each is recorded at most once per run, so malformed content costs one diagnostic per
+/// Information for deviations that do not change what is painted (Figure 9 context rules, glued tokens, a path never painted)
+/// and for operators the specification itself says to ignore (colour operators in a <c>d1</c> glyph or an uncoloured tiling
+/// pattern, §8.6.8); Warning for operators skipped or repaired. Each is recorded at most once per run, so malformed content costs one diagnostic per
 /// kind, not one per operator.
 /// </remarks>
 internal enum ContentIssue
@@ -109,7 +110,7 @@ internal static class ContentIssues
     public static DiagnosticSeverity Severity(ContentIssue issue) => issue switch
     {
         ContentIssue.GluedTokens or ContentIssue.OperatorOutOfContext or ContentIssue.PathNotPainted or ContentIssue.NoCurrentPath or ContentIssue.ColorComponentLimit
-            or ContentIssue.PostScriptXObject or ContentIssue.InlineImageLengthMissing
+            or ContentIssue.PostScriptXObject or ContentIssue.InlineImageLengthMissing or ContentIssue.ColorOperatorIgnored
             => DiagnosticSeverity.Information,
         _ => DiagnosticSeverity.Warning,
     };

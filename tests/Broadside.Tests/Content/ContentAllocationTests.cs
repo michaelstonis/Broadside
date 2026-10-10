@@ -6,7 +6,7 @@ namespace Broadside.Tests.Content;
 
 /// <summary>
 /// The content lexer and interpreter are hot paths and allocate nothing per operator (CLAUDE.md, "Code conventions"). This is
-/// the build-breaking half of that rule; <c>ContentLexerBenchmarks</c> and <c>ContentInterpreterBenchmarks</c> in
+/// the build-breaking half of that rule; <c>ContentLexerBenchmarks</c> and <c>ContentInterpretationBenchmarks</c> in
 /// <c>bench/Broadside.Benchmarks</c> are the measuring half. The lexer test drives the internal reader because no public seam
 /// exposes it alone; the interpreter test goes through <see cref="PdfPage.ProcessContent(ContentProcessor)"/>.
 /// </summary>

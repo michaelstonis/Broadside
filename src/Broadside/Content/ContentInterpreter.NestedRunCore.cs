@@ -108,7 +108,7 @@ internal sealed partial class ContentInterpreter
             _path.Accumulate = (_events & (ContentEvents.Paths | ContentEvents.Clips)) != 0;
             _parts = buffers.Parts;
             _parts.Clear();
-            _parts.Add((0, run.Reference));
+            _parts.Add(new ContentPart(0, run.Reference));
             _part = 0;
             _reported = 0;
             _inText = false;
@@ -245,7 +245,7 @@ internal sealed partial class ContentInterpreter
 
         public PathBuilder Path { get; } = new();
 
-        public List<(int Start, CosReference? Reference)> Parts { get; } = [];
+        public List<ContentPart> Parts { get; } = [];
     }
 
     /// <summary>The outer run's interpreter state, restored when a nested run ends.</summary>
@@ -255,7 +255,7 @@ internal sealed partial class ContentInterpreter
         private readonly ContentEvents _events;
         private readonly OperandArena _arena;
         private readonly PathBuilder _path;
-        private readonly List<(int Start, CosReference? Reference)> _parts;
+        private readonly List<ContentPart> _parts;
         private readonly int _part;
         private readonly ulong _reported;
         private readonly bool _inText;

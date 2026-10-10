@@ -66,9 +66,17 @@ public class ColorConversionBenchmarks
 
     /// <summary>A megapixel of 8-bit samples to 8-bit RGB (the Lab samples map 0..255 onto L* 0..100 and a*, b* -128..127).</summary>
     [Benchmark]
-    public void ConvertBytes() => _converter!.Convert(_samples, _bytes, Pixels);
+    public int ConvertBytes()
+    {
+        _converter!.Convert(_samples, _bytes, Pixels);
+        return _bytes[^1];
+    }
 
     /// <summary>A megapixel of float components to float RGB.</summary>
     [Benchmark]
-    public void ConvertFloats() => _converter!.Convert(_components, _colors, Pixels);
+    public float ConvertFloats()
+    {
+        _converter!.Convert(_components, _colors, Pixels);
+        return _colors[^1];
+    }
 }

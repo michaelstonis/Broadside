@@ -158,7 +158,15 @@ public abstract class PdfColorSpace
     /// <param name="message">What was found and what is done about it.</param>
     /// <param name="severity">The severity; Warning unless given.</param>
     internal void Report(string code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
-        Cache?.Diagnostics.Report(code, severity, message, offset: null, DiagnosticReference);
+        new ObjectDiagnostics(Cache?.Diagnostics, DiagnosticReference).Report(code, message, severity);
+
+    /// <summary>
+    /// Returns the colour space <paramref name="value"/> describes, read by this space's document with diagnostics on this space (a
+    /// DeviceN Process dictionary's space); <see langword="null"/> outside a document, for a cycle or nesting too deep.
+    /// </summary>
+    /// <param name="value">The space's name or array, or a reference to it.</param>
+    /// <returns>The space.</returns>
+    internal PdfColorSpace? FindRelatedSpace(CosObject value) => Cache?.Find(value, DiagnosticReference, inline: false, out _);
 
     /// <summary>Returns the nested colour space at array element <paramref name="index"/>, or <see langword="null"/> when there is none.</summary>
     /// <param name="index">The element.</param>
