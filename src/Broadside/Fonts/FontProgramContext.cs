@@ -28,22 +28,19 @@ public sealed class FontProgramContext
     /// <summary>The default of <see cref="MaxCharStringOperators"/>.</summary>
     public const int DefaultMaxCharStringOperators = 100_000;
 
-    private readonly DiagnosticSink? _sink;
-    private readonly CosReference? _objectReference;
-    private readonly List<Diagnostic> _diagnostics = [];
-    private readonly HashSet<string> _codes = [];
+    private readonly ContextDiagnostics _diagnostics;
 
     /// <summary>Initializes a new instance of the <see cref="FontProgramContext"/> class that stands alone, outside any document.</summary>
     public FontProgramContext()
     {
+        _diagnostics = new ContextDiagnostics(null, null);
     }
 
     /// <summary>Initializes a new instance of the <see cref="FontProgramContext"/> class for a font file stream of a document.</summary>
     internal FontProgramContext(DiagnosticSink sink, CosReference? objectReference)
     {
-        _sink = sink;
-        _objectReference = objectReference;
-        ReadingMode = sink.IsStrict ? PdfReadingMode.Strict : PdfReadingMode.Lenient;
+        _diagnostics = new ContextDiagnostics(sink, objectReference);
+        ReadingMode = _diagnostics.DefaultReadingMode;
     }
 
     /// <summary>Gets the font descriptor entry the program comes from; <see cref="FontProgramSource.Unspecified"/> outside a document.</summary>
@@ -108,16 +105,7 @@ public sealed class FontProgramContext
     public int MaxCharStringOperators { get; init; } = DefaultMaxCharStringOperators;
 
     /// <summary>Gets the diagnostics reported through this context: the first of each code, in order.</summary>
-    public IReadOnlyList<Diagnostic> Diagnostics
-    {
-        get
-        {
-            lock (_diagnostics)
-            {
-                return [.. _diagnostics];
-            }
-        }
-    }
+    public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics.Items;
 
     /// <summary>Records a deviation found in the program and what the parser did about it. Only the first of each code is kept.</summary>
     /// <param name="code">A stable PascalCase identifier of the kind of deviation, such as <c>FontGlyphInvalid</c>.</param>
@@ -129,22 +117,6 @@ public sealed class FontProgramContext
     {
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(message);
-        var diagnostic = new Diagnostic(code, severity, message, objectReference: _objectReference);
-        lock (_diagnostics)
-        {
-            if (_codes.Add(code))
-            {
-                _diagnostics.Add(diagnostic);
-            }
-        }
-
-        if (_sink is not null)
-        {
-            _sink.ReportOnce(code, severity, message, objectReference: _objectReference);
-        }
-        else if (ReadingMode == PdfReadingMode.Strict && severity != DiagnosticSeverity.Information)
-        {
-            throw new DiagnosticException(diagnostic);
-        }
+        _diagnostics.Report(code, severity, message, ReadingMode);
     }
 }

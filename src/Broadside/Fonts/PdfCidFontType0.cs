@@ -15,8 +15,8 @@ namespace Broadside.Fonts;
 /// (§9.7.6.3).
 /// </para>
 /// <para>
-/// <c>CIDToGIDMap</c> is defined for CIDFontType2 only (Table 115) and is ignored here. A font without an embedded program has no
-/// glyphs: <see cref="PdfCidFont.GetGlyphId"/> returns 0.
+/// <c>CIDToGIDMap</c> is defined for CIDFontType2 only (Table 115) and is ignored here. A font without a usable embedded program is
+/// drawn with its <see cref="PdfCidFont.Substitute"/>; without one it has no glyphs: <see cref="PdfCidFont.GetGlyphId"/> returns 0.
 /// </para>
 /// </remarks>
 public sealed class PdfCidFontType0 : PdfCidFont
@@ -31,8 +31,7 @@ public sealed class PdfCidFontType0 : PdfCidFont
     {
         if (Metrics.Program is not { } program)
         {
-            glyphId = 0;
-            return false;
+            return TryGetSubstituteGlyphId(cid, out glyphId);
         }
 
         if (program is CffFontProgram { Font.IsCidKeyed: true } cff)

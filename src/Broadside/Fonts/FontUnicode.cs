@@ -59,7 +59,6 @@ internal sealed class SimpleFontUnicode : FontUnicode
         Metrics = metrics;
         bool zapfDingbats = font.Standard14 == Standard14Font.ZapfDingbats
             || (font.FaceName is { } face && Standard14Data.TryMatch(face, out Standard14Font matched, out _) && matched == Standard14Font.ZapfDingbats);
-        bool program = font is PdfTrueTypeFont && font.IsEmbedded;
         Span<char> buffer = stackalloc char[MaxLength];
         for (int code = 0; code < 256; code++)
         {
@@ -72,7 +71,7 @@ internal sealed class SimpleFontUnicode : FontUnicode
             int named = AdobeGlyphList.MapName(metrics.Names[code], zapfDingbats, buffer, out bool nonStandard);
             _entries[code] = named > 0
                 ? new Entry(Text(buffer[..named]), UnicodeSource.GlyphName, nonStandard ? Flags.NonStandardName : Flags.None)
-                : program ? PendingEntry : ReplacementEntry;
+                : PendingEntry;
         }
     }
 
@@ -131,10 +130,9 @@ internal sealed class SimpleFontUnicode : FontUnicode
 
     private static string Text(ReadOnlySpan<char> text) => text.IsEmpty ? string.Empty : new string(text);
 
-    /// <summary>The fourth method, beyond §9.10.2: the glyph's code point in the embedded TrueType program's Unicode "cmap".</summary>
+    /// <summary>The fourth method, beyond §9.10.2: the code point the font's program gives the code's glyph, when the font kind has one.</summary>
     private static Entry ResolveFromProgram(PdfSimpleFont font, byte code) =>
-        font is PdfTrueTypeFont trueType && trueType.Program is { } program
-            && ReverseCharacterMap.TryGetCodePoint(program, trueType.GetGlyphId(code), out int codePoint)
+        font.TryGetProgramCodePoint(code, out int codePoint)
             ? new Entry(char.ConvertFromUtf32(codePoint), UnicodeSource.FontProgram, Flags.None)
             : ReplacementEntry;
 
@@ -154,20 +152,9 @@ internal sealed class Type0FontUnicode : FontUnicode
         : base(font)
     {
         State = state;
-        CidSystemInfo? collection = null;
-        if (font.Get(FontNames.Encoding) is CosName { Value: not ("Identity-H" or "Identity-V") } encoding && PredefinedCMapTable.Contains(encoding.Value))
+        if (Ucs2Collection(font, state) is { } collection)
         {
-            collection = state.Encoding.SystemInfo;
-        }
-
-        if (collection is null && state.Descendant?.SystemInfo is { Registry: "Adobe" } info && Collections.Contains(info.Ordering))
-        {
-            collection = info;
-        }
-
-        if (collection is not null)
-        {
-            Ucs2Name = $"{collection.Registry}-{collection.Ordering}-UCS2";
+            Ucs2Name = Ucs2TableName(collection);
             Ucs2 = font.Document.FindCidToUnicode(Ucs2Name);
         }
     }
@@ -183,6 +170,25 @@ internal sealed class Type0FontUnicode : FontUnicode
 
     /// <summary>Builds the state of a Type 0 font.</summary>
     public static Type0FontUnicode Build(PdfType0Font font, Type0FontState state) => new(font, state);
+
+    /// <summary>
+    /// The character collection whose Registry-Ordering-UCS2 table a Type 0 font's CIDs map to Unicode through (§9.10.2 step c): the
+    /// collection of its predefined CMap (other than Identity-H/V), else its CIDFont's when that is Adobe GB1, CNS1, Japan1, Korea1
+    /// or KR; <see langword="null"/> when the method does not apply.
+    /// </summary>
+    public static CidSystemInfo? Ucs2Collection(PdfType0Font font, Type0FontState state)
+    {
+        if (font.Get(FontNames.Encoding) is CosName { Value: not ("Identity-H" or "Identity-V") } encoding && PredefinedCMapTable.Contains(encoding.Value)
+            && state.Encoding.SystemInfo is { } predefined)
+        {
+            return predefined;
+        }
+
+        return state.Descendant?.SystemInfo is { Registry: "Adobe" } info && Collections.Contains(info.Ordering) ? info : null;
+    }
+
+    /// <summary>The resource name of a collection's CID-to-Unicode table, as Adobe names it (<c>Adobe-Japan1-UCS2</c>).</summary>
+    public static string Ucs2TableName(CidSystemInfo collection) => $"{collection.Registry}-{collection.Ordering}-UCS2";
 
     /// <summary>Gets a value indicating whether the state is still the font's.</summary>
     public bool IsCurrent(Type0FontState state) => ReferenceEquals(state, State) && IsStreamCurrent;
@@ -233,7 +239,7 @@ internal sealed class Type0FontUnicode : FontUnicode
         }
 
         if (State.Descendant is { } descendant && descendant.Program is { } program
-            && descendant.TryGetGlyphId(cid, out int glyphId) && ReverseCharacterMap.TryGetCodePoint(program, glyphId, out int codePoint))
+            && descendant.TryGetGlyphId(cid, out int glyphId) && program.CharacterMapSelection.TryGetCodePoint(glyphId, out int codePoint))
         {
             source = UnicodeSource.FontProgram;
             return new System.Text.Rune(codePoint).TryEncodeToUtf16(destination, out written) ? written : 0;

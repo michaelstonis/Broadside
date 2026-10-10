@@ -107,6 +107,8 @@ Licence text:
 StandardEncoding, WinAnsiEncoding, MacRomanEncoding, MacExpertEncoding and the Mac OS Roman additions of Table 113
 (src/Broadside/Fonts/Data/encodings.txt) are the code-to-glyph-name assignments of ISO 32000-2:2020 Annex D and
 §9.6.5.4, cross-checked against the AFM files above and pdf.js (Apache-2.0); no pdf.js code or data is included.
+ISOLatin1Encoding, which a Type 1 program may name as its built-in encoding, is the code-to-glyph-name assignment of the
+PostScript Language Reference, third edition, Appendix E.7 (with the names of Appendix E.5).
 
 
 4. The Independent JPEG Group's software (via libjpeg-turbo), in the DCTDecode filter

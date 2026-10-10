@@ -117,9 +117,21 @@ internal sealed partial class TrueTypeFontProgram : FontProgram
     /// <summary>Gets the units per em, from "head".</summary>
     internal int UnitsPerEm => _unitsPerEm;
 
-    private PostTable Post => LazyInitializer.EnsureInitialized(
-        ref _postTable,
-        () => _post is { } post ? PostTable.Read(post.Span, _glyphCount, _context) : PostTable.None);
+    /// <summary>Gets the "post" names, read on first use. A plain volatile read once published: no delegate per call.</summary>
+    private PostTable Post
+    {
+        get
+        {
+            PostTable? table = Volatile.Read(ref _postTable);
+            if (table is null)
+            {
+                table = _post is { } post ? PostTable.Read(post.Span, _glyphCount, _context) : PostTable.None;
+                table = Interlocked.CompareExchange(ref _postTable, table, null) ?? table;
+            }
+
+            return table;
+        }
+    }
 
     /// <summary>Builds the program from its located tables, repairing missing or inconsistent ones with diagnostics.</summary>
     internal static TrueTypeFontProgram Create(

@@ -43,6 +43,22 @@ public sealed class PdfType1Font : PdfSimpleFont
     }
 
     /// <inheritdoc/>
+    /// <remarks>
+    /// The advance of the glyph of that name in the embedded program (Type 1 Font Format §6.4: <c>hsbw</c> or <c>sbw</c>; a CFF
+    /// program's width), mapped to thousandths of text space through the program's font matrix. None for a font without an embedded
+    /// program or a name the program lacks.
+    /// </remarks>
+    internal override double? GetGlyphWidth(string glyphName, List<CosObject> sources)
+    {
+        if (Program is not { } program || !program.TryGetGlyphId(glyphName, out int glyph) || glyph == 0)
+        {
+            return null;
+        }
+
+        return program.FontMatrix.TransformVector(program.GetMetrics(glyph).AdvanceWidth, 0).X * 1000;
+    }
+
+    /// <inheritdoc/>
     /// <remarks>ISO 32000-2 §9.6.5.2: the embedded program's <c>/Encoding</c> (<see cref="FontProgram.BuiltInEncoding"/>).</remarks>
     internal override string?[]? GetProgramEncoding() =>
         Program?.BuiltInEncoding is { Count: 256 } encoding ? [.. encoding] : null;

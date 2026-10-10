@@ -9,45 +9,19 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
+  <PropertyGroup Label="Licence: MIT for the code plus the terms of the third-party data and code the package carries (APAFML, BSD-3-Clause, IJG). APAFML is not an SPDX expression nuget.org accepts, so the package declares a licence file rather than an expression.">
+    <PackageLicenseExpression></PackageLicenseExpression>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+  </PropertyGroup>
+
   <ItemGroup Label="Third-party notices (issues #49, #61): the AFM terms require MustRead.html to travel with data derived from the AFM files; the IJG licence requires README.ijg with code derived from libjpeg">
+    <None Include="LICENSE.txt" Pack="true" PackagePath="/" />
     <None Include="THIRD-PARTY-NOTICES.txt" Pack="true" PackagePath="/" />
     <None Include="Fonts/Data/Afm/MustRead.html" Pack="true" PackagePath="licenses/adobe-core14-afm/" />
     <None Include="Fonts/Data/GlyphList/LICENSE.md" Pack="true" PackagePath="licenses/adobe-glyph-list/" />
     <None Include="Fonts/Data/CMaps/LICENSE.md" Pack="true" PackagePath="licenses/adobe-cmap-resources/" />
     <None Include="Filters/Dct/README.ijg" Pack="true" PackagePath="licenses/ijg/" />
   </ItemGroup>
-
-  <!--
-    The package ships data and code under other licences besides MIT (APAFML for the AFM metrics, BSD-3-Clause for the Adobe glyph
-    list and CMap resources, the IJG licence for the islow IDCT), so its licence is a file, not the MIT expression: the repository's
-    LICENSE followed by THIRD-PARTY-NOTICES.txt, joined when the package is built so neither text is duplicated in the repository.
-  -->
-  <PropertyGroup>
-    <PackageLicenseExpression />
-    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
-  </PropertyGroup>
-
-  <UsingTask TaskName="BroadsideJoinTextFiles" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
-    <ParameterGroup>
-      <Inputs ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
-      <Output ParameterType="System.String" Required="true" />
-    </ParameterGroup>
-    <Task>
-      <Using Namespace="System.IO" />
-      <Using Namespace="System.Linq" />
-      <Code Type="Fragment" Language="cs"><![CDATA[
-        Directory.CreateDirectory(Path.GetDirectoryName(Output));
-        File.WriteAllText(Output, string.Join("\n\n\n", Inputs.Select(input => File.ReadAllText(input.ItemSpec).Replace("\r\n", "\n").TrimEnd())) + "\n");
-      ]]></Code>
-    </Task>
-  </UsingTask>
-
-  <Target Name="BroadsideWritePackageLicense" BeforeTargets="_GetPackageFiles">
-    <BroadsideJoinTextFiles Inputs="$(MSBuildThisFileDirectory)../../LICENSE;$(MSBuildThisFileDirectory)THIRD-PARTY-NOTICES.txt" Output="$(IntermediateOutputPath)package/LICENSE.txt" />
-    <ItemGroup>
-      <None Include="$(IntermediateOutputPath)package/LICENSE.txt" Pack="true" PackagePath="/" />
-    </ItemGroup>
-  </Target>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />

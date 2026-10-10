@@ -199,6 +199,65 @@ public class TrueTypeProgramTests
         Assert.Equal(["FontTableInvalid"], context.Diagnostics.Select(diagnostic => diagnostic.Code).Distinct());
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(-1)]
+    public void Table_offsets_all_off_by_one_byte_are_recovered_from_where_each_table_starts(int shift)
+    {
+        // Every offset of the table directory one byte past (or before) its table: each table with a recognizable start (the "head"
+        // magic number 0x5F0F3CF5, versions, ascending "loca" offsets, a plausible first glyph) is read where it starts.
+        byte[] good = new TrueTypeBuilder { Glyphs = { None, Square, TrueTypeBuilder.Rectangle(10, 20, 30, 40) } }.Build();
+        byte[] font = [.. good, 0];
+        int count = (font[4] << 8) | font[5];
+        if (shift > 0)
+        {
+            // Each stated offset one byte past its table.
+            for (int index = 0; index < count; index++)
+            {
+                int record = 12 + (16 * index) + 8;
+                WriteUInt32(font, record, (uint)(((font[record] << 24) | (font[record + 1] << 16) | (font[record + 2] << 8) | font[record + 3]) + 1));
+            }
+        }
+        else
+        {
+            // Each table one byte past its stated offset: every byte after the directory moves one place on.
+            int directoryEnd = 12 + (16 * count);
+            Array.Copy(good, directoryEnd, font, directoryEnd + 1, good.Length - directoryEnd);
+        }
+
+        var context = new FontProgramContext();
+        FontProgram program = Parse(font, context);
+
+        Assert.Equal("M 0,0 L 0,100 L 100,100 L 100,0 Z", OutlineText.Of(program, 1));
+        Assert.Equal("M 10,20 L 10,40 L 30,40 L 30,20 Z", OutlineText.Of(program, 2));
+        Diagnostic diagnostic = Assert.Single(context.Diagnostics);
+        Assert.Equal(("FontTableInvalid", DiagnosticSeverity.Warning), (diagnostic.Code, diagnostic.Severity));
+    }
+
+    [Fact]
+    public void A_byte_lost_after_glyf_moves_only_the_tables_after_it()
+    {
+        // As in pdfjs/bug1050040.pdf: the tables before the lost byte ("cmap", "glyf") are where the directory says, those after it
+        // ("head", "hhea", "hmtx", "loca", "maxp", "name", "post") one byte earlier.
+        // The last glyph carries one unused trailing byte, which is the byte lost.
+        byte[] last = [.. TrueTypeBuilder.Rectangle(10, 20, 30, 40), 0xAA];
+        var builder = new TrueTypeBuilder { Glyphs = { None, Square, last } };
+        byte[] good = builder.Build();
+        int lost = TableOffset(good, "glyf") + TableLength(good, "glyf") - 1;
+        byte[] font = [.. good[..lost], .. good[(lost + 1)..]];
+        var context = new FontProgramContext();
+        FontProgram program = Parse(font, context);
+
+        Assert.Equal(3, program.GlyphCount);
+        Assert.Equal("M 0,0 L 0,100 L 100,100 L 100,0 Z", OutlineText.Of(program, 1));
+        Assert.Equal("M 10,20 L 10,40 L 30,40 L 30,20 Z", OutlineText.Of(program, 2));
+        Assert.Equal(new GlyphMetrics(500, 10), program.GetMetrics(2));
+        Assert.Equal("BroadsideTest", program.PostScriptName);
+        Diagnostic diagnostic = Assert.Single(context.Diagnostics);
+        Assert.Equal("FontTableInvalid", diagnostic.Code);
+        Assert.DoesNotContain("glyf", diagnostic.Message, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void A_program_without_glyf_is_not_usable()
     {
@@ -379,6 +438,21 @@ public class TrueTypeProgramTests
             if (System.Text.Encoding.ASCII.GetString(font, record, 4) == tag)
             {
                 return (font[record + 8] << 24) | (font[record + 9] << 16) | (font[record + 10] << 8) | font[record + 11];
+            }
+        }
+
+        throw new InvalidOperationException(tag);
+    }
+
+    private static int TableLength(byte[] font, string tag)
+    {
+        int count = (font[4] << 8) | font[5];
+        for (int index = 0; index < count; index++)
+        {
+            int record = 12 + (16 * index);
+            if (System.Text.Encoding.ASCII.GetString(font, record, 4) == tag)
+            {
+                return (font[record + 12] << 24) | (font[record + 13] << 16) | (font[record + 14] << 8) | font[record + 15];
             }
         }
 

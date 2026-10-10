@@ -61,7 +61,7 @@ public class PredefinedCMapPackageTests
             Assert.Equal((code.Length / 2, true, cid), (glyph.Code.Length, glyph.Code.IsValid, glyph.Cid));
         }
 
-        Assert.Empty(document.Diagnostics);
+        Assert.Empty(DiagnosticsBesidesNoProgram(document));
     }
 
     [Theory]
@@ -103,7 +103,7 @@ public class PredefinedCMapPackageTests
         PdfType0Font font = Font(document);
 
         Assert.Equal([5, 3284], new byte[][] { [0x41], [0x93, 0xFA] }.Select(code => font.ReadGlyph(code).Cid));
-        Assert.Empty(document.Diagnostics);
+        Assert.Empty(DiagnosticsBesidesNoProgram(document));
     }
 
     [Theory]
@@ -207,6 +207,13 @@ public class PredefinedCMapPackageTests
 
         return glyphs;
     }
+
+    /// <summary>
+    /// The diagnostics other than the one a CIDFont that is not embedded records when its glyphs are asked for and no resolver has a
+    /// program for it (FontProgramNotFound, Information; ADR 0009).
+    /// </summary>
+    private static IEnumerable<Diagnostics.Diagnostic> DiagnosticsBesidesNoProgram(PdfDocument document) =>
+        document.Diagnostics.Where(diagnostic => diagnostic.Code != "FontProgramNotFound");
 
     private static PdfType0Font Font(PdfDocument document) => Assert.IsType<PdfType0Font>(Assert.Single(document.Pages).GetFont("F1"));
 

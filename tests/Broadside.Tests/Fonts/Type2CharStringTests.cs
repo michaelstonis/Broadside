@@ -302,7 +302,9 @@ public class Type2CharStringTests
         FontProgram program = Program(context, ("A", CffBuilder.T2([.. Enumerable.Repeat<object>(1, 49), "endchar"])));
 
         Assert.Equal("Invalid", OutlineText.Of(program, 1));
-        Assert.Equal("FontCharstringStackOverflow", Assert.Single(context.Diagnostics).Code);
+        Diagnostic diagnostic = Assert.Single(context.Diagnostics);
+        Assert.Equal("FontCharstringStackOverflow", diagnostic.Code);
+        Assert.Equal(DiagnosticSeverity.Error, diagnostic.Severity);
     }
 
     [Fact]

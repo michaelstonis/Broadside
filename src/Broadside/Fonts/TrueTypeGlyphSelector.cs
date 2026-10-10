@@ -21,19 +21,15 @@ namespace Broadside.Fonts;
 /// When the prescribed route finds nothing, "a PDF processor may supply a mapping of its choosing" (§9.6.5.4, last paragraph):
 /// the other route, then the code as a Unicode value in a Unicode subtable (as pdf.js and PDFBox do for symbolic fonts that carry
 /// a Unicode "cmap"), then, for a symbolic font whose program has no usable "cmap", the code as the glyph id (as pdf.js does).
-/// Each such choice is recorded as an information diagnostic. The (0, 3), (0, 0), (0, 1), (3, 10) and (0, 4) subtables stand in
-/// for (3, 1) as Unicode subtables.
+/// Each such choice is recorded as an information diagnostic. The program's other Unicode subtables stand in for (3, 1), in the
+/// order <see cref="CharacterMapSelection"/> gives (shared with substitutes and Unicode mapping).
 /// </para>
 /// </remarks>
 internal sealed class TrueTypeGlyphSelector
 {
-    private static readonly (int Platform, int Encoding)[] UnicodeSubtables = [(3, 1), (0, 3), (0, 0), (0, 1), (3, 10), (0, 4)];
-
     private readonly PdfTrueTypeFont _font;
-    private readonly int[] _glyphs = new int[256];
-    private readonly FontCharacterMap[] _unicode;
-    private readonly FontCharacterMap? _symbol;
-    private readonly FontCharacterMap? _macintosh;
+    private readonly GlyphIdCache _glyphs = new();
+    private readonly CharacterMapSelection? _maps;
     private readonly bool _byName;
     private readonly bool _encodingGiven;
 
@@ -42,11 +38,7 @@ internal sealed class TrueTypeGlyphSelector
         _font = font;
         Metrics = metrics;
         Program = program;
-        Array.Fill(_glyphs, -1);
-        IReadOnlyList<FontCharacterMap> maps = program?.CharacterMaps ?? [];
-        _unicode = [.. UnicodeSubtables.Select(id => Find(maps, id.Platform, id.Encoding)).OfType<FontCharacterMap>()];
-        _symbol = Find(maps, 3, 0);
-        _macintosh = Find(maps, 1, 0);
+        _maps = program?.CharacterMapSelection;
 
         CosObject? encoding = font.Get(FontNames.Encoding);
         bool winOrMac = FontNames.WinAnsiEncoding.Equals(encoding) || FontNames.MacRomanEncoding.Equals(encoding);
@@ -81,35 +73,21 @@ internal sealed class TrueTypeGlyphSelector
     /// <summary>Gets the glyph id of a character code; 0 (the missing glyph) when none applies.</summary>
     public int GetGlyphId(byte code)
     {
-        int glyph = Volatile.Read(ref _glyphs[code]);
-        if (glyph < 0)
+        if (!_glyphs.TryGet(code, out int glyph))
         {
-            glyph = Program is null ? 0 : Select(code);
-            Volatile.Write(ref _glyphs[code], glyph);
+            glyph = _maps is null ? 0 : Select(code, _maps);
+            _glyphs.Set(code, glyph);
         }
 
         return glyph;
     }
 
-    private static FontCharacterMap? Find(IReadOnlyList<FontCharacterMap> maps, int platform, int encoding)
-    {
-        foreach (FontCharacterMap map in maps)
-        {
-            if (map.PlatformId == platform && map.EncodingId == encoding)
-            {
-                return map;
-            }
-        }
-
-        return null;
-    }
-
-    private int Select(byte code)
+    private int Select(byte code, CharacterMapSelection maps)
     {
         if (_byName)
         {
-            int glyph = ByName(code);
-            if (glyph == 0 && (glyph = ByCode(code)) != 0)
+            int glyph = ByName(code, maps);
+            if (glyph == 0 && (glyph = ByCode(code, maps)) != 0)
             {
                 ReportFallback(code, "its glyph name selects no glyph, so the code itself is looked up in the (3, 0) or (1, 0) \"cmap\" subtable");
             }
@@ -117,28 +95,25 @@ internal sealed class TrueTypeGlyphSelector
             return glyph;
         }
 
-        int selected = ByCode(code);
+        int selected = ByCode(code, maps);
         if (selected != 0)
         {
             return selected;
         }
 
-        if (_encodingGiven && (selected = ByName(code)) != 0)
+        if (_encodingGiven && (selected = ByName(code, maps)) != 0)
         {
             ReportFallback(code, "the code selects no glyph through the (3, 0) or (1, 0) \"cmap\" subtable, so its glyph name from the encoding is used");
             return selected;
         }
 
-        foreach (FontCharacterMap map in _unicode)
+        if ((selected = maps.GetGlyphIdForUnicode(code, out FontCharacterMap? map)) != 0)
         {
-            if ((selected = map.GetGlyphId(code)) != 0)
-            {
-                ReportFallback(code, string.Create(CultureInfo.InvariantCulture, $"the code selects no glyph through the (3, 0) or (1, 0) \"cmap\" subtable, so it is looked up as a Unicode value in the ({map.PlatformId}, {map.EncodingId}) subtable"));
-                return selected;
-            }
+            ReportFallback(code, string.Create(CultureInfo.InvariantCulture, $"the code selects no glyph through the (3, 0) or (1, 0) \"cmap\" subtable, so it is looked up as a Unicode value in the ({map!.PlatformId}, {map.EncodingId}) subtable"));
+            return selected;
         }
 
-        if (_symbol is null && _macintosh is null && _unicode.Length == 0 && code < Program!.GlyphCount)
+        if (maps.IsEmpty && code < Program!.GlyphCount)
         {
             ReportFallback(code, "the font program has no usable \"cmap\" subtable, so the code is used as the glyph id");
             return code;
@@ -148,7 +123,7 @@ internal sealed class TrueTypeGlyphSelector
     }
 
     /// <summary>The name route: encoding name, then (3, 1) by Unicode or (1, 0) by Mac OS Roman code, then "post".</summary>
-    private int ByName(byte code)
+    private int ByName(byte code, CharacterMapSelection maps)
     {
         string name = Metrics.Names[code];
         if (name == GlyphNameTable.NotDef)
@@ -157,20 +132,14 @@ internal sealed class TrueTypeGlyphSelector
         }
 
         int glyph;
-        if (_unicode.Length > 0)
+        if (maps.Unicode.Length > 0)
         {
-            if (AdobeGlyphList.TryGetScalar(name, zapfDingbats: false, out int scalar))
+            if (AdobeGlyphList.TryGetScalar(name, zapfDingbats: false, out int scalar) && (glyph = maps.GetGlyphIdForUnicode(scalar, out _)) != 0)
             {
-                foreach (FontCharacterMap map in _unicode)
-                {
-                    if ((glyph = map.GetGlyphId(scalar)) != 0)
-                    {
-                        return glyph;
-                    }
-                }
+                return glyph;
             }
         }
-        else if (_macintosh is not null && MacOSRomanCode(name) is >= 0 and var macCode && (glyph = _macintosh.GetGlyphId(macCode)) != 0)
+        else if ((glyph = maps.GetGlyphIdForMacOSRomanName(name)) != 0)
         {
             return glyph;
         }
@@ -179,52 +148,25 @@ internal sealed class TrueTypeGlyphSelector
     }
 
     /// <summary>The code route: (3, 0) with each of the four high bytes, then (1, 0).</summary>
-    private int ByCode(byte code)
+    private int ByCode(byte code, CharacterMapSelection maps)
     {
-        int glyph;
-        if (_symbol is not null)
+        int glyph = maps.GetGlyphIdForSymbolCode(code);
+        if (glyph != 0)
         {
-            foreach (int high in (ReadOnlySpan<int>)[0x00, 0xF0, 0xF1, 0xF2])
-            {
-                if ((glyph = _symbol.GetGlyphId((high << 8) | code)) != 0)
-                {
-                    return glyph;
-                }
-            }
+            return glyph;
         }
 
-        if (_macintosh is null || (glyph = _macintosh.GetGlyphId(code)) == 0)
+        if ((glyph = maps.GetGlyphIdForMacintoshCode(code)) == 0)
         {
             return 0;
         }
 
-        if (_symbol is not null)
+        if (maps.Symbol is not null)
         {
             ReportFallback(code, "the (3, 0) \"cmap\" subtable does not map the code, so the (1, 0) subtable is used");
         }
 
         return glyph;
-    }
-
-    /// <summary>The Mac OS Roman code of a glyph name: MacRomanEncoding with the Table 113 additions (§9.6.5.4).</summary>
-    private static int MacOSRomanCode(string name)
-    {
-        int index = GlyphNameTable.IndexOf(name);
-        if (index < 0)
-        {
-            return -1;
-        }
-
-        ReadOnlySpan<short> table = GlyphNameTable.Table(BuiltInEncoding.MacOSRoman);
-        for (int code = 0; code < table.Length; code++)
-        {
-            if (table[code] == index)
-            {
-                return code;
-            }
-        }
-
-        return -1;
     }
 
     private void ReportFallback(byte code, string what) => _font.Report(

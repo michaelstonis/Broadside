@@ -60,6 +60,29 @@ public abstract class PdfSimpleFont : PdfFont
     public double GetWidth(byte code) => Metrics.Widths[code];
 
     /// <summary>
+    /// Gets the width a glyph gives itself, for a code whose <c>Widths</c> element is missing or malformed: the embedded program's
+    /// advance, or a Type 3 glyph's <c>d0</c>/<c>d1</c> width. In glyph space units (thousandths of text space except for Type 3).
+    /// </summary>
+    /// <param name="glyphName">The code's glyph name.</param>
+    /// <param name="sources">Where to record the COS objects the width was read from, so a change to them rebuilds the metrics.</param>
+    /// <returns>The width, or <see langword="null"/> when the font kind or the glyph gives none (the default).</returns>
+    /// <remarks>Beyond ISO 32000-2 §9.6.2.1, which leaves such codes to <c>MissingWidth</c>: pdf.js uses the glyph's own width.</remarks>
+    internal virtual double? GetGlyphWidth(string glyphName, List<CosObject> sources) => null;
+
+    /// <summary>
+    /// Looks up the Unicode code point the font's embedded program gives a code's glyph: the last resort of Unicode mapping, beyond
+    /// ISO 32000-2 §9.10.2. Only a font kind that selects glyphs through a Unicode "cmap" has one; the default has none.
+    /// </summary>
+    /// <param name="code">The character code.</param>
+    /// <param name="codePoint">The code point.</param>
+    /// <returns>Whether the program maps the code's glyph to a code point.</returns>
+    internal virtual bool TryGetProgramCodePoint(byte code, out int codePoint)
+    {
+        codePoint = 0;
+        return false;
+    }
+
+    /// <summary>
     /// Gets the font program the font is drawn with when it has no usable embedded program, found by the engine's font resolvers;
     /// <see langword="null"/> when the font has a usable embedded program (<see cref="PdfFont.Program"/>), is a Type 3 font, or no
     /// resolver has a program for it.
