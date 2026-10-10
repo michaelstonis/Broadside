@@ -28,6 +28,21 @@ internal sealed class SfntFile
     /// <summary>The tag of a TrueType collection header (<c>ttcf</c>).</summary>
     public const uint CollectionTag = 0x74746366;
 
+    private const uint HeadTag = 0x68656164;
+    private const uint MaxpTag = 0x6D617870;
+    private const uint HheaTag = 0x68686561;
+    private const uint PostTag = 0x706F7374;
+    private const uint CmapTag = 0x636D6170;
+    private const uint Os2Tag = 0x4F532F32;
+    private const uint NameTag = 0x6E616D65;
+    private const uint LocaTag = 0x6C6F6361;
+    private const uint GlyfTag = 0x676C7966;
+    private const uint HmtxTag = 0x686D7478;
+
+    /// <summary>The tables whose offsets are checked, those checked against others after them.</summary>
+    private static readonly uint[] RecoveryOrder = [HeadTag, MaxpTag, HheaTag, PostTag, CmapTag, Os2Tag, NameTag, LocaTag, HmtxTag, GlyfTag];
+
+
     private readonly Table[] _tables;
 
     private SfntFile(ReadOnlyMemory<byte> data, uint version, Table[] tables)
@@ -293,7 +308,222 @@ internal sealed class SfntFile
             tables.Add(new Table(tag, (int)offset, (int)length));
         }
 
+        RecoverShiftedOffsets(span, tables, context);
         return new SfntFile(data, version, [.. tables]);
+    }
+
+    /// <summary>
+    /// Moves a table whose stated offset is off by one byte (pdfjs/bug1050040.pdf lost a byte inside "glyf", so every table after it
+    /// starts one byte before its offset): a table whose start can be recognized, not found at its offset but one byte before or
+    /// after it, is read there. Recognized: the "head" magic number; the versions of "maxp", "hhea", "post", "cmap" and "OS/2"
+    /// (with plausible weight and width classes); the "name" format and record count; "loca" offsets that start at 0 and ascend
+    /// within "glyf"; "hmtx" advances within the "hhea" maximum; a plausible header for the first "glyf" glyph.
+    /// </summary>
+    private static void RecoverShiftedOffsets(ReadOnlySpan<byte> span, List<Table> tables, FontProgramContext? context)
+    {
+        List<string>? moved = null;
+
+        // One byte before, then one byte after; once "head" (whose magic number is unambiguous) has moved, its way first.
+        int preferred = -1;
+        foreach (uint tag in RecoveryOrder)
+        {
+            int index = tables.FindIndex(table => table.Tag == tag);
+            if (index < 0 || StartsAt(span, tables, tag, tables[index].Offset) is not false)
+            {
+                continue;
+            }
+
+            foreach (int shift in (int[])[preferred, -preferred])
+            {
+                if (StartsAt(span, tables, tag, tables[index].Offset + shift) == true)
+                {
+                    if (tag == HeadTag)
+                    {
+                        preferred = shift;
+                    }
+
+                    Table table = tables[index];
+                    int offset = table.Offset + shift;
+                    tables[index] = table with { Offset = offset, Length = Math.Min(table.Length, span.Length - offset) };
+                    (moved ??= []).Add(TagText(tag));
+                    break;
+                }
+            }
+        }
+
+        if (moved is not null)
+        {
+            context?.Report(
+                DiagnosticCodes.FontTableInvalid,
+                DiagnosticSeverity.Warning,
+                $"The table directory gives offsets one byte away from where these tables start: {string.Join(", ", moved.Select(tag => $"\"{tag}\""))}; they are read where they start.");
+        }
+    }
+
+    /// <summary>
+    /// Whether a table's recognizable start is at an offset; <see langword="null"/> when the table has no recognizable start or a
+    /// table it is checked against is not where it should be.
+    /// </summary>
+    private static bool? StartsAt(ReadOnlySpan<byte> span, List<Table> tables, uint tag, int offset)
+    {
+        Table table = tables.Find(entry => entry.Tag == tag);
+        int length = Math.Min(table.Length, span.Length - Math.Max(0, offset));
+        if (offset < 0 || length < 4)
+        {
+            return false;
+        }
+
+        ReadOnlySpan<byte> data = span.Slice(offset, length);
+        uint version = BinaryPrimitives.ReadUInt32BigEndian(data);
+        ushort first = BinaryPrimitives.ReadUInt16BigEndian(data);
+        switch (tag)
+        {
+            case HeadTag:
+                return length >= 54 && BinaryPrimitives.ReadUInt32BigEndian(data[12..]) == 0x5F0F3CF5;
+            case MaxpTag:
+                return version is 0x00005000 or 0x00010000;
+            case HheaTag:
+                return length >= 36 && version == 0x00010000;
+            case PostTag:
+                return version is 0x00010000 or 0x00020000 or 0x00025000 or 0x00030000 or 0x00040000;
+            case CmapTag:
+                ushort subtables = BinaryPrimitives.ReadUInt16BigEndian(data[2..]);
+                return first == 0 && subtables > 0 && 4 + (8 * subtables) <= length;
+            case Os2Tag:
+                return length >= 8 && first <= 5 && BinaryPrimitives.ReadUInt16BigEndian(data[4..]) is >= 1 and <= 1000
+                    && BinaryPrimitives.ReadUInt16BigEndian(data[6..]) is >= 1 and <= 9;
+            case NameTag:
+                return length >= 6 && first <= 1 && 6 + (12 * BinaryPrimitives.ReadUInt16BigEndian(data[2..])) <= length;
+            case LocaTag:
+                return Located(span, tables, HeadTag, out ReadOnlySpan<byte> head) && Find(tables, GlyfTag) is { } glyfTable
+                    ? LocaAscends(data, BinaryPrimitives.ReadInt16BigEndian(head[50..]) == 1, glyfTable.Length)
+                    : null;
+            case HmtxTag:
+                if (!Located(span, tables, HheaTag, out ReadOnlySpan<byte> hhea))
+                {
+                    return null;
+                }
+
+                int maximum = BinaryPrimitives.ReadUInt16BigEndian(hhea[10..]);
+                int minimumBearing = BinaryPrimitives.ReadInt16BigEndian(hhea[12..]);
+                int metrics = Math.Min(BinaryPrimitives.ReadUInt16BigEndian(hhea[34..]), length / 4);
+                for (int index = 0; index < metrics; index++)
+                {
+                    if (BinaryPrimitives.ReadUInt16BigEndian(data[(4 * index)..]) > maximum
+                        || BinaryPrimitives.ReadInt16BigEndian(data[((4 * index) + 2)..]) < minimumBearing)
+                    {
+                        return false;
+                    }
+                }
+
+                return metrics > 0;
+            case GlyfTag:
+                return Located(span, tables, LocaTag, out ReadOnlySpan<byte> loca) && Located(span, tables, HeadTag, out ReadOnlySpan<byte> header)
+                    ? FirstGlyphPlausible(data, loca, BinaryPrimitives.ReadInt16BigEndian(header[50..]) == 1)
+                    : null;
+            default:
+                return null;
+        }
+    }
+
+    /// <summary>Gets a table's bytes when its recognizable start is where the (possibly moved) directory entry says.</summary>
+    private static bool Located(ReadOnlySpan<byte> span, List<Table> tables, uint tag, out ReadOnlySpan<byte> data)
+    {
+        data = default;
+        if (Find(tables, tag) is not { } table || StartsAt(span, tables, tag, table.Offset) != true)
+        {
+            return false;
+        }
+
+        data = span.Slice(table.Offset, table.Length);
+        return true;
+    }
+
+    private static Table? Find(List<Table> tables, uint tag)
+    {
+        int index = tables.FindIndex(table => table.Tag == tag);
+        return index < 0 ? null : tables[index];
+    }
+
+    /// <summary>Whether "loca" starts at 0 and ascends to no more than the "glyf" length.</summary>
+    private static bool LocaAscends(ReadOnlySpan<byte> loca, bool longOffsets, int glyfLength)
+    {
+        int size = longOffsets ? 4 : 2;
+        int count = loca.Length / size;
+        long previous = 0;
+        for (int index = 0; index < count; index++)
+        {
+            long value = longOffsets ? BinaryPrimitives.ReadUInt32BigEndian(loca[(index * size)..]) : BinaryPrimitives.ReadUInt16BigEndian(loca[(index * size)..]) * 2L;
+            if ((index == 0 && value != 0) || value < previous || value > glyfLength)
+            {
+                return false;
+            }
+
+            previous = value;
+        }
+
+        return count >= 2;
+    }
+
+    /// <summary>
+    /// Whether the first glyph with data has a plausible header: numberOfContours of −1 or more, an ordered box, and for a simple glyph
+    /// ascending contour end points and instructions that fit the glyph.
+    /// </summary>
+    private static bool FirstGlyphPlausible(ReadOnlySpan<byte> glyf, ReadOnlySpan<byte> loca, bool longOffsets)
+    {
+        int size = longOffsets ? 4 : 2;
+        for (int index = 0; index + 1 < loca.Length / size; index++)
+        {
+            long start = longOffsets ? BinaryPrimitives.ReadUInt32BigEndian(loca[(index * size)..]) : BinaryPrimitives.ReadUInt16BigEndian(loca[(index * size)..]) * 2L;
+            long end = longOffsets ? BinaryPrimitives.ReadUInt32BigEndian(loca[((index + 1) * size)..]) : BinaryPrimitives.ReadUInt16BigEndian(loca[((index + 1) * size)..]) * 2L;
+            if (end <= start)
+            {
+                continue;
+            }
+
+            if (end > glyf.Length || end - start < 10)
+            {
+                return false;
+            }
+
+            ReadOnlySpan<byte> header = glyf[(int)start..(int)end];
+            short contours = BinaryPrimitives.ReadInt16BigEndian(header);
+            short xMin = BinaryPrimitives.ReadInt16BigEndian(header[2..]);
+            short yMin = BinaryPrimitives.ReadInt16BigEndian(header[4..]);
+            short xMax = BinaryPrimitives.ReadInt16BigEndian(header[6..]);
+            short yMax = BinaryPrimitives.ReadInt16BigEndian(header[8..]);
+            if (contours < -1 || xMin > xMax || yMin > yMax)
+            {
+                return false;
+            }
+
+            if (contours <= 0)
+            {
+                return true;
+            }
+
+            int instructions = 10 + (2 * contours);
+            if (instructions + 2 > header.Length)
+            {
+                return false;
+            }
+
+            int previousEnd = -1;
+            for (int contour = 0; contour < contours; contour++)
+            {
+                int endPoint = BinaryPrimitives.ReadUInt16BigEndian(header[(10 + (2 * contour))..]);
+                if (endPoint <= previousEnd)
+                {
+                    return false;
+                }
+
+                previousEnd = endPoint;
+            }
+
+            return instructions + 2 + BinaryPrimitives.ReadUInt16BigEndian(header[instructions..]) <= header.Length;
+        }
+
+        return false;
     }
 
     /// <summary>A tag as text, for messages.</summary>
