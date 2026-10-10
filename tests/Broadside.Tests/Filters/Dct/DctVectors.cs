@@ -22,13 +22,19 @@ internal static class DctVectors
     /// <summary>The bytes of a vector.</summary>
     public static byte[] Jpeg(string name) => File.ReadAllBytes(Path.Combine(Directory, name + ".jpg"));
 
-    /// <summary>The golden of a vector: <c>djpeg -dct int -nosmooth -pnm</c>, gzipped.</summary>
+    /// <summary>
+    /// The golden of a vector: <c>djpeg -dct int -nosmooth -pnm</c>, or for CMYK and YCCK a PAM of TurboJPEG's raw CMYK samples,
+    /// gzipped; 12-bit samples reduced to 8 bits as the filter delivers them.
+    /// </summary>
     public static DctGolden Golden(string name)
     {
         string path = Path.Combine(Directory, name + ".ppm.gz");
-        if (!File.Exists(path))
+        foreach (string kind in (string[])[".pgm.gz", ".pam.gz"])
         {
-            path = Path.Combine(Directory, name + ".pgm.gz");
+            if (!File.Exists(path))
+            {
+                path = Path.Combine(Directory, name + kind);
+            }
         }
 
         using var gzip = new GZipStream(File.OpenRead(path), CompressionMode.Decompress);
@@ -37,19 +43,52 @@ internal static class DctVectors
         return ParsePnm(buffer.ToArray());
     }
 
-    /// <summary>Parses a binary PGM (P5) or PPM (P6) with maxval 255.</summary>
+    /// <summary>
+    /// Parses a binary PGM (P5), PPM (P6) or four-channel PAM (P7, the CMYK goldens) with maxval 255, or 4095 (12-bit samples,
+    /// two bytes each, big-endian), which are reduced to 8 bits by (255 v + 2047) / 4095 as ISO 32000-2 Table 87 has the filter do.
+    /// </summary>
     public static DctGolden ParsePnm(byte[] data)
     {
         int position = 0;
         string magic = Token(data, ref position);
-        int width = int.Parse(Token(data, ref position), System.Globalization.CultureInfo.InvariantCulture);
-        int height = int.Parse(Token(data, ref position), System.Globalization.CultureInfo.InvariantCulture);
-        int maxValue = int.Parse(Token(data, ref position), System.Globalization.CultureInfo.InvariantCulture);
-        Assert.Equal(255, maxValue);
+        int width, height, maxValue, components;
+        if (magic == "P7")
+        {
+            var fields = new Dictionary<string, string>(StringComparer.Ordinal);
+            for (string key = Token(data, ref position); key != "ENDHDR"; key = Token(data, ref position))
+            {
+                fields[key] = Token(data, ref position);
+            }
+
+            (width, height, components, maxValue) = (Number(fields["WIDTH"]), Number(fields["HEIGHT"]), Number(fields["DEPTH"]), Number(fields["MAXVAL"]));
+        }
+        else
+        {
+            width = Number(Token(data, ref position));
+            height = Number(Token(data, ref position));
+            maxValue = Number(Token(data, ref position));
+            components = magic == "P5" ? 1 : 3;
+        }
+
         position++;
-        int components = magic == "P5" ? 1 : 3;
-        return new DctGolden(width, height, components, data.AsSpan(position, width * height * components).ToArray());
+        int count = width * height * components;
+        if (maxValue == 255)
+        {
+            return new DctGolden(width, height, components, data.AsSpan(position, count).ToArray());
+        }
+
+        Assert.Equal(4095, maxValue);
+        byte[] samples = new byte[count];
+        for (int i = 0; i < count; i++)
+        {
+            int value = (data[position + (2 * i)] << 8) | data[position + (2 * i) + 1];
+            samples[i] = (byte)(((255 * value) + 2047) / 4095);
+        }
+
+        return new DctGolden(width, height, components, samples);
     }
+
+    private static int Number(string text) => int.Parse(text, System.Globalization.CultureInfo.InvariantCulture);
 
     /// <summary>Decodes through <see cref="IStreamFilter.Decode"/> with a stand-alone context.</summary>
     public static (byte[] Samples, FilterContext Context) DecodeBytes(byte[] jpeg, string? parameters = null, PdfReadingMode mode = PdfReadingMode.Lenient)

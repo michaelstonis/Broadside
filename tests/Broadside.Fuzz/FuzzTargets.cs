@@ -885,8 +885,9 @@ internal static class FuzzTargets
     /// <summary>
     /// JPXDecode: the input is a JPEG 2000 file or codestream (a whole PDF is read from its first JP2 signature or SOC + SIZ, so
     /// <c>jpx-lossless.pdf</c> seeds it in smoke mode), decoded through the image facet with a 2^16-pixel limit and through the
-    /// plain filter path. A decoded image must have the size its header declares and exactly Stride x Height bytes, and the plain
-    /// path must write those same bytes.
+    /// plain filter path; an odd-length input also asks for the opacity channel (SMaskInData). A decoded image must have the size,
+    /// channels and alpha its header declares and exactly Stride x Height bytes (its alpha plane too), and without the opacity
+    /// channel the plain path must write those same bytes.
     /// </summary>
     /// <remarks>ISO 32000-2 §7.4.9; ITU-T T.800 | ISO/IEC 15444-1 Annexes A to G and I.</remarks>
     private static void Jpx(ReadOnlySpan<byte> data)
@@ -905,7 +906,8 @@ internal static class FuzzTargets
         }
 
         var filter = new JpxDecodeFilter();
-        var context = new ImageFilterContext(new FilterContext { MaxDecodedLength = 1 << 20 }) { MaxPixels = 1 << 16 };
+        bool wantsAlpha = (data.Length & 1) == 1;
+        var context = new ImageFilterContext(new FilterContext { MaxDecodedLength = 1 << 20 }) { MaxPixels = 1 << 16, WantsAlpha = wantsAlpha };
         bool hasHeader = filter.TryReadHeader(data, context, out ImageHeader header);
         byte[] bytes = data.ToArray();
         using DecodedImage? image = filter.DecodeImage(bytes, context);
@@ -914,10 +916,16 @@ internal static class FuzzTargets
             return;
         }
 
-        if (!hasHeader || (image.Width, image.Height, image.Components, image.BitsPerComponent) != (header.Width, header.Height, header.Components, header.BitsPerComponent)
-            || image.Samples.Length != (long)image.Stride * image.Height)
+        if (!hasHeader || (image.Width, image.Height, image.Components, image.BitsPerComponent, image.Alpha is not null) != (header.Width, header.Height, header.Components, header.BitsPerComponent, header.HasAlpha)
+            || image.Samples.Length != (long)image.Stride * image.Height
+            || (image.Alpha is { } alpha && (alpha.Width, alpha.Height, alpha.Samples.Length) != (image.Width, image.Height, alpha.Stride * alpha.Height)))
         {
             throw new InvalidOperationException($"JPXDecode made a {image.Width} x {image.Height} x {image.Components} image of {image.Samples.Length} bytes where the header says {header}.");
+        }
+
+        if (wantsAlpha)
+        {
+            return;
         }
 
         var output = new ArrayBufferWriter<byte>();

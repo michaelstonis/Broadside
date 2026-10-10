@@ -87,14 +87,16 @@ internal static class JpxCodestreamReader
 
         int components = size.Components.Length;
         var main = new JpxMarkerSet(components);
+        var mainPacked = new List<(int Index, byte[] Data)>();
         int position = 4 + BinaryPrimitives.ReadUInt16BigEndian(codestream[4..]);
-        bool ended = !ReadMarkers(codestream, ref position, main, size, inTile: false, reporter);
+        bool ended = !ReadMarkers(codestream, ref position, main, mainPacked, size, inTile: false, reporter);
         if (main.Cod is null || main.Qcd is null)
         {
             reporter.Report(DiagnosticCodes.JpxMarkerSegmentInvalid, DiagnosticSeverity.Error, "The JPEG 2000 main header has no COD or no QCD marker segment.");
             return null;
         }
 
+        var ppm = new PpmCursor(mainPacked);
         int tileCount = size.TilesWide * size.TilesHigh;
         var tiles = new JpxTile?[tileCount];
         while (!ended && position + 2 <= codestream.Length)
@@ -134,8 +136,11 @@ internal static class JpxCodestreamReader
             }
             else if (length < 14)
             {
-                reporter.Report(DiagnosticCodes.JpxPsotInvalid, DiagnosticSeverity.Warning, $"A JPEG 2000 tile-part length Psot of {length} is impossible; the rest of the codestream is ignored.");
-                break;
+                end = FindNextTilePart(codestream, start + 12, tileCount);
+                reporter.Report(
+                    DiagnosticCodes.JpxPsotInvalid,
+                    DiagnosticSeverity.Warning,
+                    $"A JPEG 2000 tile-part length Psot of {length} is impossible; the tile-part is taken to end at the next tile-part or the end of the codestream.");
             }
             else
             {
@@ -158,15 +163,21 @@ internal static class JpxCodestreamReader
             }
 
             position = start + 12;
-            JpxMarkerSet markers = tile is not null && part == 0 && tile.Parts.Count == 0 ? tile.Markers : new JpxMarkerSet(components);
+            var markers = new JpxMarkerSet(components);
+            var packed = new List<(int Index, byte[] Data)>();
             int headerEnd = (int)end;
-            if (!ReadMarkers(codestream[..headerEnd], ref position, markers, size, inTile: true, reporter))
+            if (!ReadMarkers(codestream[..headerEnd], ref position, markers, packed, size, inTile: true, reporter))
             {
                 Truncated(reporter);
                 break;
             }
 
-            tile?.Parts.Add((position, headerEnd - position));
+            byte[]? mainHeaders = mainPacked.Count > 0 ? ppm.Next(reporter) : null;
+            if (tile is not null)
+            {
+                AddTilePart(tile, part, markers, packed, mainHeaders, (position, headerEnd - position), reporter);
+            }
+
             position = headerEnd;
         }
 
@@ -175,6 +186,7 @@ internal static class JpxCodestreamReader
         {
             if (tile is not null)
             {
+                Finish(tile);
                 present.Add(tile);
             }
         }
@@ -184,7 +196,103 @@ internal static class JpxCodestreamReader
             Truncated(reporter);
         }
 
-        return new JpxCodestream { Size = size, Main = main, Tiles = present };
+        return new JpxCodestream { Size = size, Main = main, Tiles = present, HasMainPacketHeaders = mainPacked.Count > 0 };
+    }
+
+    /// <summary>Records one tile-part: its packet data, and its header's markers by the rules of A.4.2 and A.6.</summary>
+    private static void AddTilePart(JpxTile tile, int part, JpxMarkerSet markers, List<(int Index, byte[] Data)> packed, byte[]? mainHeaders, (int Offset, int Length) data, JpxReporter reporter)
+    {
+        foreach ((int seen, int _, int _) in tile.Parts)
+        {
+            if (seen == part)
+            {
+                reporter.Report(DiagnosticCodes.JpxTilePartOrder, DiagnosticSeverity.Warning, $"Tile {tile.Index} has two tile-parts with TPsot {part}; the second is ignored.");
+                return;
+            }
+        }
+
+        if (tile.Parts.Count > 0 && tile.Parts[^1].Part > part)
+        {
+            reporter.Report(DiagnosticCodes.JpxTilePartOrder, DiagnosticSeverity.Warning, $"The tile-parts of tile {tile.Index} are not in TPsot order; they are read in that order.");
+        }
+
+        tile.Parts.Add((part, data.Offset, data.Length));
+        if (part == 0)
+        {
+            JpxMarkerSet target = tile.Markers;
+            target.Cod = markers.Cod;
+            markers.Coc.CopyTo(target.Coc, 0);
+            target.Qcd = markers.Qcd;
+            markers.Qcc.CopyTo(target.Qcc, 0);
+            markers.RoiShift.CopyTo(target.RoiShift, 0);
+        }
+        else if (markers.Cod is not null || markers.Qcd is not null || Array.Exists(markers.Coc, c => c is not null) || Array.Exists(markers.Qcc, q => q is not null))
+        {
+            reporter.Report(DiagnosticCodes.JpxMarkerUnexpected, DiagnosticSeverity.Warning, "A JPEG 2000 tile-part other than the first of its tile holds COD, COC, QCD or QCC; they are ignored (A.4.2).");
+        }
+
+        foreach (JpxProgressionVolume volume in markers.Volumes)
+        {
+            tile.PartVolumes.Add((part, volume));
+        }
+
+        tile.PacketHeaderSegments.AddRange(packed);
+        if (mainHeaders is not null)
+        {
+            tile.MainPacketHeaders.Add((part, mainHeaders));
+        }
+    }
+
+    /// <summary>Puts a tile's tile-parts, POC volumes and packed headers in the orders A.4.2, A.6.6, A.7.4 and A.7.5 give.</summary>
+    private static void Finish(JpxTile tile)
+    {
+        StableSort(tile.Parts, static p => p.Part);
+        StableSort(tile.PartVolumes, static v => v.Part);
+        StableSort(tile.PacketHeaderSegments, static p => p.Index);
+        StableSort(tile.MainPacketHeaders, static p => p.Part);
+        foreach ((int _, JpxProgressionVolume volume) in tile.PartVolumes)
+        {
+            tile.Markers.Volumes.Add(volume);
+        }
+    }
+
+    private static void StableSort<T>(List<T> list, Func<T, int> key)
+    {
+        if (list.Count < 2)
+        {
+            return;
+        }
+
+        T[] sorted = [.. list.Select((item, i) => (item, i)).OrderBy(p => key(p.item)).ThenBy(p => p.i).Select(p => p.item)];
+        list.Clear();
+        list.AddRange(sorted);
+    }
+
+    /// <summary>The offset of the next plausible SOT (Lsot 10, a tile index in range) or EOC after <paramref name="from"/>, else the end.</summary>
+    /// <remarks>Compressed data cannot hold 0xFF90 to 0xFFFF (B.10.1, C.3.4, D.6), so a match is a marker.</remarks>
+    private static int FindNextTilePart(ReadOnlySpan<byte> codestream, int from, int tileCount)
+    {
+        for (int i = Math.Max(from, 0); i + 1 < codestream.Length; i++)
+        {
+            if (codestream[i] != 0xFF)
+            {
+                continue;
+            }
+
+            if (codestream[i + 1] == 0xD9)
+            {
+                return i;
+            }
+
+            if (codestream[i + 1] == 0x90 && i + 12 <= codestream.Length
+                && BinaryPrimitives.ReadUInt16BigEndian(codestream[(i + 2)..]) == 10
+                && BinaryPrimitives.ReadUInt16BigEndian(codestream[(i + 4)..]) < tileCount)
+            {
+                return i;
+            }
+        }
+
+        return codestream.Length;
     }
 
     private static void Truncated(JpxReporter reporter) => reporter.Report(
@@ -196,7 +304,7 @@ internal static class JpxCodestreamReader
     /// Reads marker segments from <paramref name="position"/> up to the first SOT (main header) or past the SOD (tile-part header).
     /// </summary>
     /// <returns><see langword="false"/> when the header is cut short or broken.</returns>
-    private static bool ReadMarkers(ReadOnlySpan<byte> data, ref int position, JpxMarkerSet markers, JpxImageSize size, bool inTile, JpxReporter reporter)
+    private static bool ReadMarkers(ReadOnlySpan<byte> data, ref int position, JpxMarkerSet markers, List<(int Index, byte[] Data)> packed, JpxImageSize size, bool inTile, JpxReporter reporter)
     {
         while (position + 2 <= data.Length)
         {
@@ -243,13 +351,19 @@ internal static class JpxCodestreamReader
                     markers.Qcc[c] = quantization;
                     break;
                 case Rgn:
-                    reporter.ReportUnsupported("a region of interest (RGN)");
+                    ParseRegion(body, size, markers, reporter);
                     break;
                 case Poc:
-                    reporter.ReportUnsupported("progression order changes (POC)");
+                    ParseProgressionChanges(body, size, markers, reporter);
+                    break;
+                case Ppm when !inTile && body.Length >= 1:
+                    packed.Add((body[0], body[1..].ToArray()));
+                    break;
+                case Ppt when inTile && body.Length >= 1:
+                    packed.Add((body[0], body[1..].ToArray()));
                     break;
                 case Ppm or Ppt:
-                    reporter.ReportUnsupported("packed packet headers (PPM, PPT)");
+                    reporter.Report(DiagnosticCodes.JpxPpmInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 PPM or PPT marker segment is empty or in the wrong header (A.7.4, A.7.5); it is ignored.");
                     break;
             }
 
@@ -257,6 +371,88 @@ internal static class JpxCodestreamReader
         }
 
         return false;
+    }
+
+    /// <summary>RGN (A.6.3, Tables A.24 to A.26): the Maxshift shift of one component.</summary>
+    private static void ParseRegion(ReadOnlySpan<byte> body, JpxImageSize size, JpxMarkerSet markers, JpxReporter reporter)
+    {
+        if (!ParseComponentIndex(body, size, reporter, out int c, out int used) || body.Length < used + 2 || body[used] != 0)
+        {
+            Invalid(reporter, "RGN");
+            return;
+        }
+
+        markers.RoiShift[c] = body[used + 1];
+    }
+
+    /// <summary>POC (A.6.6, Table A.32): progression volumes of 7 bytes (9 when Csiz &gt;= 257).</summary>
+    private static void ParseProgressionChanges(ReadOnlySpan<byte> body, JpxImageSize size, JpxMarkerSet markers, JpxReporter reporter)
+    {
+        bool wide = size.Components.Length >= 257;
+        int entry = wide ? 9 : 7;
+        if (body.Length < entry || body.Length % entry != 0)
+        {
+            reporter.Report(DiagnosticCodes.JpxPocInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 POC marker segment has a length that is not a whole number of progression volumes; the whole ones are used.");
+        }
+
+        for (int offset = 0; offset + entry <= body.Length; offset += entry)
+        {
+            ReadOnlySpan<byte> e = body[offset..];
+            int rs = e[0];
+            int cs = wide ? BinaryPrimitives.ReadUInt16BigEndian(e[1..]) : e[1];
+            int i = wide ? 3 : 2;
+            int lye = BinaryPrimitives.ReadUInt16BigEndian(e[i..]);
+            int re = e[i + 2];
+            int ce = wide ? BinaryPrimitives.ReadUInt16BigEndian(e[(i + 3)..]) : e[i + 3];
+            int order = e[wide ? 8 : 6];
+            if (ce == 0)
+            {
+                ce = wide ? 16384 : 256;
+            }
+
+            if (order > 4 || rs >= re || cs >= ce || lye == 0)
+            {
+                reporter.Report(DiagnosticCodes.JpxPocInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 progression volume of a POC marker segment is empty or has an unknown order; it is skipped.");
+                continue;
+            }
+
+            markers.Volumes.Add(new JpxProgressionVolume(rs, cs, lye, re, ce, order));
+        }
+    }
+
+    /// <summary>Reads the Nppm records of the main header's concatenated PPM marker segments, one per tile-part (A.7.4).</summary>
+    private sealed class PpmCursor
+    {
+        private readonly byte[] _data;
+        private int _position;
+
+        public PpmCursor(List<(int Index, byte[] Data)> segments)
+        {
+            StableSort(segments, static s => s.Index);
+            _data = [.. segments.SelectMany(s => s.Data)];
+        }
+
+        public byte[] Next(JpxReporter reporter)
+        {
+            if (_position + 4 > _data.Length)
+            {
+                reporter.Report(DiagnosticCodes.JpxPpmInvalid, DiagnosticSeverity.Warning, "The JPEG 2000 PPM marker segments hold fewer packet-header records than there are tile-parts; the rest have none.");
+                _position = _data.Length;
+                return [];
+            }
+
+            long count = BinaryPrimitives.ReadUInt32BigEndian(_data.AsSpan(_position));
+            _position += 4;
+            if (count > _data.Length - _position)
+            {
+                reporter.Report(DiagnosticCodes.JpxPpmInvalid, DiagnosticSeverity.Warning, "A JPEG 2000 PPM packet-header record runs past the PPM data; it is cut there.");
+                count = _data.Length - _position;
+            }
+
+            byte[] record = _data.AsSpan(_position, (int)count).ToArray();
+            _position += (int)count;
+            return record;
+        }
     }
 
     /// <summary>Returns the body of the marker segment at <paramref name="position"/> (after its length field).</summary>

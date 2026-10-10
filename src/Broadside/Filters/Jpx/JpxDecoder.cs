@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Runtime.InteropServices;
 using Broadside.Diagnostics;
 using Broadside.Images;
 using Broadside.Parsing;
@@ -6,21 +7,21 @@ using Broadside.Parsing;
 namespace Broadside.Filters.Jpx;
 
 /// <summary>
-/// Decodes a JPEG 2000 file or codestream into a <see cref="DecodedImage"/>: locates the codestream, reads its headers, decodes each
-/// tile, applies the inverse component transform and DC level shift, and writes the samples in the §8.9.3 layout.
+/// Decodes a JPEG 2000 file or codestream into a <see cref="DecodedImage"/>: locates the codestream and the JP2 colour boxes, reads the
+/// codestream's headers, decodes each tile, applies the inverse component transform and DC level shift, and composes the channels
+/// the PDF image needs (component mapping, palette, channel definitions, colour conversion, opacity) in the §8.9.3 layout.
 /// </summary>
 /// <remarks>
 /// <para>
-/// ISO 32000-2 §7.4.9; ITU-T T.800 | ISO/IEC 15444-1 Annexes A to G and I. The output has one channel per component of the PDF
-/// colour space when the dictionary has one (the first components; zeros with a diagnostic when the codestream has fewer), else one
-/// per codestream component; its bits per component are the components' greatest precision (at most 16). Components of a smaller
-/// precision are scaled to it so the full range maps to the full range; samples keep their precision otherwise (§8.9.5.2: the
-/// Decode domain is 0 to 2^n - 1 with n the JPX precision). Signed components are offset by 2^(n-1) to be unsigned.
+/// ISO 32000-2 §7.4.9 and Table 87; ITU-T T.800 | ISO/IEC 15444-1 Annexes A to I. Tiles are decoded into one plane per component at
+/// the component's own resolution (unsigned, after the DC level shift and clipping, at most 16 bits); the channels are then composed
+/// per row, a sub-sampled component replicated over the image grid (each image sample takes the component sample at or before it,
+/// G.4). <see cref="JpxOutputPlan"/> decides the channels.
 /// </para>
 /// <para>
-/// Not decoded yet (<c>JpxUnsupportedFeature</c>, Information, no image): sub-sampled components, the 9/7 irreversible filter and
-/// ICT, progressions other than LRCP and RLCP, progression order changes, regions of interest, packed packet headers, and the
-/// bypass, termination-on-each-pass and vertically-causal code-block styles. Multiple tiles and tile-parts are decoded.
+/// The output's bits per component are the colour channels' greatest precision (at most 16); channels of a smaller precision are
+/// scaled to it so the full range maps to the full range; samples keep their precision otherwise (§8.9.5.2: the Decode domain is 0 to
+/// 2^n - 1 with n the JPX precision). Signed components are offset by 2^(n-1) to be unsigned.
 /// </para>
 /// </remarks>
 internal static class JpxDecoder
@@ -36,12 +37,17 @@ internal static class JpxDecoder
             return false;
         }
 
-        (int channels, int bits) = Output(size, context);
+        var quiet = new JpxReporter(context.Filter, silent: true);
+        JpxOutputPlan plan = JpxOutputPlan.Create(size, JpxFileHeader.Read(data, quiet), context, quiet);
         header = new ImageHeader(
             (int)Math.Min(size.Width - size.OriginX, int.MaxValue),
             (int)Math.Min(size.Height - size.OriginY, int.MaxValue),
-            channels,
-            bits);
+            plan.Colors.Length,
+            plan.Bits)
+        {
+            HasAlpha = plan.Alpha is not null,
+            ColorModel = plan.Model,
+        };
         return true;
     }
 
@@ -55,8 +61,9 @@ internal static class JpxDecoder
             return null;
         }
 
+        JpxFileHeader file = JpxFileHeader.Read(data, reporter);
         ReadOnlySpan<byte> codestream = data.Slice(range.Offset, range.Length);
-        if (JpxCodestreamReader.Read(codestream, reporter) is not { } stream || !CheckSupported(stream, reporter))
+        if (JpxCodestreamReader.Read(codestream, reporter) is not { } stream)
         {
             return null;
         }
@@ -64,21 +71,73 @@ internal static class JpxDecoder
         JpxImageSize size = stream.Size;
         long width = size.Width - size.OriginX;
         long height = size.Height - size.OriginY;
-        (int channels, int bits) = Output(size, context);
         if (width > int.MaxValue || height > int.MaxValue)
         {
             reporter.Report(DiagnosticCodes.JpxLimitExceeded, DiagnosticSeverity.Error, $"The JPEG 2000 image of {width} x {height} samples is too large.");
             return null;
         }
 
-        if (channels > size.Components.Length)
+        JpxOutputPlan plan = JpxOutputPlan.Create(size, file, context, reporter);
+        if (!CheckLimits(stream, plan, context, reporter))
         {
-            reporter.Report(
-                DiagnosticCodes.JpxChannelCountMismatch,
-                DiagnosticSeverity.Warning,
-                $"The JPEG 2000 codestream has {size.Components.Length} components where the colour space needs {channels}; the missing ones are zero.");
+            return null;
         }
 
+        DecodedImageBuilder? builder = null;
+        var planes = new JpxPlane?[size.Components.Length];
+        try
+        {
+            if (!context.TryCreateImage((int)width, (int)height, Math.Clamp(plan.Colors.Length, 1, ImageGeometry.MaxComponents), plan.Bits, out builder))
+            {
+                return null;
+            }
+
+            DecodedImageBuilder? alpha = null;
+            if (plan.Alpha is { } opacity && !builder.TryCreateAlpha(opacity.Depth, plan.Premultiplied, out alpha))
+            {
+                alpha = null;
+            }
+
+            for (int c = 0; c < planes.Length; c++)
+            {
+                if (plan.UsedComponents[c])
+                {
+                    planes[c] = new JpxPlane(size, c);
+                }
+            }
+
+            using (var tiles = new JpxTileDecoder(reporter))
+            {
+                foreach (JpxTile tile in stream.Tiles)
+                {
+                    DecodeTile(stream, tile, codestream, tiles, planes, reporter);
+                }
+            }
+
+            JpxComposer.Compose(size, plan, planes, builder, alpha, reporter);
+            builder.ColorModel = plan.Model;
+            if (plan.IccProfile is { } profile)
+            {
+                builder.IccProfile = profile;
+            }
+
+            DecodedImage image = builder.Build();
+            builder = null;
+            return image;
+        }
+        finally
+        {
+            builder?.Dispose();
+            foreach (JpxPlane? plane in planes)
+            {
+                plane?.Dispose();
+            }
+        }
+    }
+
+    private static bool CheckLimits(JpxCodestream stream, JpxOutputPlan plan, ImageFilterContext context, JpxReporter reporter)
+    {
+        JpxImageSize size = stream.Size;
         foreach (JpxTile tile in stream.Tiles)
         {
             (long tx0, long ty0, long tx1, long ty1) = size.TileBounds(tile.Index);
@@ -89,108 +148,39 @@ internal static class JpxDecoder
                     DiagnosticCodes.JpxLimitExceeded,
                     DiagnosticSeverity.Error,
                     $"A JPEG 2000 tile holds {samples} samples over its components, more than the limit of {context.MaxPixels}; the image is not decoded.");
-                return null;
+                return false;
             }
         }
 
-        DecodedImageBuilder? builder = null;
-        try
+        long planes = 0;
+        for (int c = 0; c < size.Components.Length; c++)
         {
-            if (!context.TryCreateImage((int)width, (int)height, Math.Clamp(channels, 1, ImageGeometry.MaxComponents), bits, out builder))
+            if (plan.UsedComponents[c])
             {
-                return null;
+                planes += JpxPlane.Area(size, c);
             }
-
-            using var tiles = new JpxTileDecoder(reporter);
-            foreach (JpxTile tile in stream.Tiles)
-            {
-                DecodeTile(stream, tile, codestream, tiles, builder, reporter);
-            }
-
-            DecodedImage image = builder.Build();
-            builder = null;
-            return image;
         }
-        finally
+
+        if (planes > context.MaxPixels || planes > Array.MaxLength)
         {
-            builder?.Dispose();
+            reporter.Report(
+                DiagnosticCodes.JpxLimitExceeded,
+                DiagnosticSeverity.Error,
+                $"The JPEG 2000 components the image needs hold {planes} samples, more than the limit of {context.MaxPixels}; the image is not decoded.");
+            return false;
         }
+
+        return true;
     }
 
-    /// <summary>The number of output channels and their bits per component.</summary>
-    private static (int Channels, int Bits) Output(JpxImageSize size, ImageFilterContext context)
-    {
-        int channels = context.IsMask ? 1 : context.ColorComponents > 0 ? context.ColorComponents : size.Components.Length;
-        int bits = 1;
-        for (int c = 0; c < Math.Min(channels, size.Components.Length); c++)
-        {
-            bits = Math.Max(bits, Math.Min(size.Components[c].Depth, 16));
-        }
-
-        return (channels, bits);
-    }
-
-    private static bool CheckSupported(JpxCodestream stream, JpxReporter reporter)
-    {
-        foreach (JpxComponentInfo component in stream.Size.Components)
-        {
-            if (component.Dx != 1 || component.Dy != 1)
-            {
-                reporter.ReportUnsupported("sub-sampled components (XRsiz or YRsiz above 1)");
-            }
-        }
-
-        Check(stream.Main, reporter);
-        foreach (JpxTile tile in stream.Tiles)
-        {
-            Check(tile.Markers, reporter);
-        }
-
-        return !reporter.Unsupported;
-
-        static void Check(JpxMarkerSet markers, JpxReporter reporter)
-        {
-            if (markers.Cod is { } coding)
-            {
-                if (coding.Progression > 1)
-                {
-                    reporter.ReportUnsupported("a position- or component-first progression (RPCL, PCRL or CPRL)");
-                }
-
-                CheckComponent(coding.Component, reporter);
-            }
-
-            foreach (JpxComponentStyle? component in markers.Coc)
-            {
-                if (component is not null)
-                {
-                    CheckComponent(component, reporter);
-                }
-            }
-        }
-
-        static void CheckComponent(JpxComponentStyle component, JpxReporter reporter)
-        {
-            if (!component.Reversible)
-            {
-                reporter.ReportUnsupported("the 9/7 irreversible wavelet filter");
-            }
-
-            if ((component.BlockStyle & (JpxComponentStyle.Bypass | JpxComponentStyle.TerminateEachPass | JpxComponentStyle.VerticallyCausal)) != 0)
-            {
-                reporter.ReportUnsupported("the bypass, termination-on-each-pass or vertically causal code-block styles");
-            }
-        }
-    }
-
-    private static void DecodeTile(JpxCodestream stream, JpxTile tile, ReadOnlySpan<byte> codestream, JpxTileDecoder decoder, DecodedImageBuilder builder, JpxReporter reporter)
+    private static void DecodeTile(JpxCodestream stream, JpxTile tile, ReadOnlySpan<byte> codestream, JpxTileDecoder decoder, JpxPlane?[] planes, JpxReporter reporter)
     {
         JpxImageSize size = stream.Size;
         (long tx0, long ty0, long tx1, long ty1) = size.TileBounds(tile.Index);
         int count = size.Components.Length;
         long area = (tx1 - tx0) * (ty1 - ty0);
         int length = 0;
-        foreach ((int _, int partLength) in tile.Parts)
+        foreach ((int _, int _, int partLength) in tile.Parts)
         {
             length += partLength;
         }
@@ -208,7 +198,7 @@ internal static class JpxDecoder
             {
                 joined = ArrayPool<byte>.Shared.Rent(Math.Max(1, length));
                 int written = 0;
-                foreach ((int offset, int partLength) in tile.Parts)
+                foreach ((int _, int offset, int partLength) in tile.Parts)
                 {
                     codestream.Slice(offset, partLength).CopyTo(joined.AsSpan(written));
                     written += partLength;
@@ -223,13 +213,27 @@ internal static class JpxDecoder
             }
 
             JpxTileParameters parameters = JpxTileParameters.Resolve(stream.Main, tile.Markers);
-            if (decoder.Decode(size, parameters, tile.Index, data, buffers) is not { } components)
+            byte[]? headers = tile.PackedHeaders();
+            if (headers is null && stream.HasMainPacketHeaders)
+            {
+                headers = [];
+            }
+
+            if (decoder.Decode(size, parameters, tile.Index, data, headers, buffers) is not { } components)
             {
                 return;
             }
 
             ApplyComponentTransform(parameters, components, buffers, reporter);
-            Write(size, components, buffers, builder);
+            for (int c = 0; c < count; c++)
+            {
+                if (!components[c].Style.Reversible)
+                {
+                    RoundToIntegers(buffers[c].AsSpan(0, components[c].Width * components[c].Height));
+                }
+
+                planes[c]?.Write(components[c], buffers[c]);
+            }
         }
         finally
         {
@@ -248,7 +252,10 @@ internal static class JpxDecoder
         }
     }
 
-    /// <summary>The inverse reversible component transformation (G.2.2, equations G-6 to G-8) of components 0 to 2.</summary>
+    /// <summary>
+    /// The inverse component transformation of components 0 to 2 (G.2.2, G.3.2): the RCT when they use the 5/3 filter, the ICT when
+    /// they use the 9/7 one; skipped with a diagnostic when they differ in size or filter.
+    /// </summary>
     private static void ApplyComponentTransform(JpxTileParameters parameters, JpxTileComponent[] components, int[][] buffers, JpxReporter reporter)
     {
         if (parameters.Coding.Transform != 1 || components.Length < 3)
@@ -256,77 +263,59 @@ internal static class JpxDecoder
             return;
         }
 
+        bool reversible = components[0].Style.Reversible;
         if (components[1].Width != components[0].Width || components[2].Width != components[0].Width
-            || components[1].Height != components[0].Height || components[2].Height != components[0].Height)
+            || components[1].Height != components[0].Height || components[2].Height != components[0].Height
+            || components[1].Style.Reversible != reversible || components[2].Style.Reversible != reversible)
         {
             reporter.Report(
-                DiagnosticCodes.JpxMarkerSegmentInvalid,
+                DiagnosticCodes.JpxMctSkipped,
                 DiagnosticSeverity.Warning,
-                "The JPEG 2000 component transformation needs components 0 to 2 of one size; it is not applied.");
+                "The JPEG 2000 component transformation needs components 0 to 2 of one size and one wavelet filter; it is not applied.");
             return;
         }
 
-        Span<int> y0 = buffers[0].AsSpan(0, components[0].Width * components[0].Height);
-        Span<int> y1 = buffers[1].AsSpan(0, y0.Length);
-        Span<int> y2 = buffers[2].AsSpan(0, y0.Length);
-        for (int i = 0; i < y0.Length; i++)
+        int count = components[0].Width * components[0].Height;
+        if (reversible)
         {
-            int g = y0[i] - ((y1[i] + y2[i]) >> 2);
-            y0[i] = y2[i] + g;
-            y2[i] = y1[i] + g;
-            y1[i] = g;
-        }
-    }
-
-    /// <summary>The inverse DC level shift (G.1.2), clipping, and the samples written into the image at the tile's place.</summary>
-    private static void Write(JpxImageSize size, JpxTileComponent[] components, int[][] buffers, DecodedImageBuilder builder)
-    {
-        int channels = Math.Min(builder.Components, components.Length);
-        int bits = builder.BitsPerComponent;
-        int storage = builder.StorageBits;
-        int outMax = (1 << bits) - 1;
-        for (int c = 0; c < channels; c++)
-        {
-            JpxTileComponent component = components[c];
-            int depth = size.Components[c].Depth;
-            long shift = 1L << (depth - 1);
-            long max = (1L << depth) - 1;
-            int left = (int)(component.X0 - size.OriginX);
-            int top = (int)(component.Y0 - size.OriginY);
-            int[] buffer = buffers[c];
-            for (int y = 0; y < component.Height; y++)
+            // G-6 to G-8.
+            Span<int> y0 = buffers[0].AsSpan(0, count);
+            Span<int> y1 = buffers[1].AsSpan(0, count);
+            Span<int> y2 = buffers[2].AsSpan(0, count);
+            for (int i = 0; i < y0.Length; i++)
             {
-                Span<byte> row = builder.GetRow(top + y);
-                for (int x = 0; x < component.Width; x++)
-                {
-                    long value = Math.Clamp(buffer[(y * component.Width) + x] + shift, 0, max);
-                    if (depth != bits)
-                    {
-                        value = ((value * outMax) + (max / 2)) / max;
-                    }
-
-                    int index = ((left + x) * builder.Components) + c;
-                    Store(row, index, storage, (int)value);
-                }
+                int g = y0[i] - ((y1[i] + y2[i]) >> 2);
+                y0[i] = y2[i] + g;
+                y2[i] = y1[i] + g;
+                y1[i] = g;
             }
+
+            return;
+        }
+
+        // G-12 to G-14.
+        Span<float> f0 = MemoryMarshal.Cast<int, float>(buffers[0].AsSpan(0, count));
+        Span<float> f1 = MemoryMarshal.Cast<int, float>(buffers[1].AsSpan(0, count));
+        Span<float> f2 = MemoryMarshal.Cast<int, float>(buffers[2].AsSpan(0, count));
+        for (int i = 0; i < f0.Length; i++)
+        {
+            float y = f0[i];
+            float cb = f1[i];
+            float cr = f2[i];
+            f0[i] = y + (1.402f * cr);
+            f1[i] = y - (0.34413f * cb) - (0.71414f * cr);
+            f2[i] = y + (1.772f * cb);
         }
     }
 
-    private static void Store(Span<byte> row, int index, int storage, int value)
+    /// <summary>Rounds an irreversible tile-component's reconstructed values to integers in place (G.1.2, before the DC level shift).</summary>
+    private static void RoundToIntegers(Span<int> buffer)
     {
-        switch (storage)
+        Span<float> values = MemoryMarshal.Cast<int, float>(buffer);
+        for (int i = 0; i < buffer.Length; i++)
         {
-            case 8:
-                row[index] = (byte)value;
-                break;
-            case 16:
-                row[2 * index] = (byte)(value >> 8);
-                row[(2 * index) + 1] = (byte)value;
-                break;
-            default:
-                int bit = index * storage;
-                row[bit >> 3] |= (byte)(value << (8 - storage - (bit & 7)));
-                break;
+            float value = values[i];
+            buffer[i] = value >= int.MaxValue ? int.MaxValue : value <= int.MinValue ? int.MinValue : float.IsNaN(value) ? 0 : (int)MathF.Round(value);
         }
     }
 }

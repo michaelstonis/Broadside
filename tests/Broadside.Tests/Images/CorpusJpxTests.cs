@@ -38,6 +38,32 @@ public class CorpusJpxTests
         Assert.Empty(document.Diagnostics);
     }
 
+    [Fact]
+    public void Sub_sampled_components_are_replicated_over_the_image_grid()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("jpx-subsampled.pdf"));
+
+        using DecodedImage decoded = document.Pages[0].GetImage("Im0")!.Decode()!;
+
+        // T.800 G.4 and B.2: image sample (x, y) of component c lies over component sample (x / XRsiz, y / YRsiz).
+        byte[] expected = new byte[21 * 15 * 3];
+        for (int y = 0; y < 15; y++)
+        {
+            for (int x = 0; x < 21; x++)
+            {
+                for (int c = 0; c < 3; c++)
+                {
+                    int separation = c == 0 ? 1 : 2;
+                    expected[(((y * 21) + x) * 3) + c] = (byte)JpxSamples.Sample(x / separation, y / separation, c, 8);
+                }
+            }
+        }
+
+        Assert.Equal((21, 15, 3, 8), (decoded.Width, decoded.Height, decoded.Components, decoded.BitsPerComponent));
+        Assert.Equal(expected, decoded.Samples.ToArray());
+        Assert.Empty(document.Diagnostics);
+    }
+
     private static byte[] Source(int width, int height)
     {
         byte[] samples = new byte[width * height * 3];

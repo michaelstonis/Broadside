@@ -129,11 +129,11 @@ public class DctRepairTests
     }
 
     [Theory]
-    [InlineData(0xC2, DiagnosticSeverity.Information)]
-    [InlineData(0xC3, DiagnosticSeverity.Error)]
-    [InlineData(0xC9, DiagnosticSeverity.Error)]
-    [InlineData(0xCA, DiagnosticSeverity.Error)]
-    public void Processes_other_than_sequential_decode_nothing_and_say_why(int marker, DiagnosticSeverity severity)
+    [InlineData(0xC3, "lossless")]
+    [InlineData(0xC5, "differential sequential (hierarchical)")]
+    [InlineData(0xCB, "lossless, arithmetic-coded")]
+    [InlineData(0xCD, "differential sequential, arithmetic-coded")]
+    public void The_lossless_and_hierarchical_processes_decode_nothing_and_say_why(int marker, string process)
     {
         byte[] jpeg = Jpeg("testorig");
         jpeg[FindMarker(jpeg, 0xC0) + 1] = (byte)marker;
@@ -142,19 +142,7 @@ public class DctRepairTests
 
         Assert.Empty(samples);
         Diagnostic diagnostic = Assert.Single(context.Diagnostics);
-        Assert.Equal(("DctProcessUnsupported", severity), (diagnostic.Code, diagnostic.Severity));
-    }
-
-    [Fact]
-    public void Progressive_data_is_information_so_strict_mode_does_not_throw()
-    {
-        byte[] jpeg = Jpeg("testorig");
-        jpeg[FindMarker(jpeg, 0xC0) + 1] = 0xC2;
-
-        (byte[] samples, Broadside.Filters.FilterContext context) = DecodeBytes(jpeg, mode: PdfReadingMode.Strict);
-
-        Assert.Empty(samples);
-        Assert.Equal(["DctProcessUnsupported"], Codes(context));
+        Assert.True((diagnostic.Code, diagnostic.Severity) == ("DctProcessUnsupported", DiagnosticSeverity.Error), process);
     }
 
     [Theory]
