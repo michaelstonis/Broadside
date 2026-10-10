@@ -1,6 +1,6 @@
 ﻿corpus: pdfium-tests @ 141d7ba49d797e856f57fd7e76a9b7f73468988e
 files: 840
-well-formed files: 305
+well-formed files: 304
 outcomes:
   Interpreted: 833
   PasswordRequired: 2
