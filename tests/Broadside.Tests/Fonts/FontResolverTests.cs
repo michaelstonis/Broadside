@@ -238,6 +238,31 @@ public class FontResolverTests
         Assert.Contains("FontSubstituteUnreadable", document.Diagnostics.Select(diagnostic => diagnostic.Code));
     }
 
+    [Fact]
+    public void A_symbolic_substitute_reads_its_3_0_subtable_with_the_high_bytes_in_the_order_an_embedded_program_is_read()
+    {
+        // ISO 32000-2 §9.6.5.4: the code with the high byte 0x00, 0xF0, 0xF1 or 0xF2 selects the glyph in the (3, 0) subtable. This
+        // program maps both 0x0041 (glyph 1) and 0xF041 (glyph 2): substitute and embedded program agree on glyph 1.
+        var builder = new TrueTypeBuilder
+        {
+            Cmap = TrueTypeBuilder.CmapTable((3, 0, TrueTypeBuilder.Format4((0x41, 0x41, 1 - 0x41), (0xF041, 0xF041, 2 - 0xF041)))),
+            Metrics = [(500, 0), (600, 0), (600, 0)],
+        };
+        builder.Glyphs.Add([]);
+        builder.Glyphs.Add(TrueTypeBuilder.Rectangle(0, 0, 500, 700));
+        builder.Glyphs.Add(TrueTypeBuilder.Rectangle(0, 0, 400, 700));
+        byte[] program = builder.Build();
+        var options = new PdfOptions().UseSystemFontResolver(null).UseFontResolver(new FakeResolver(_ => new FontResolution(program, "BroadsideSymbol", FontMatchKind.Exact)));
+        using PdfDocument document = FontPdf.Open(
+            "<< /Type /Font /Subtype /TrueType /BaseFont /BroadsideSymbol /FirstChar 65 /LastChar 65 /Widths [600] /FontDescriptor 5 0 R >>",
+            options,
+            "<< /Type /FontDescriptor /FontName /BroadsideSymbol /Flags 4 /FontBBox [0 0 1000 1000] /ItalicAngle 0 /Ascent 750 /Descent -250 /CapHeight 700 /StemV 80 >>");
+        PdfTrueTypeFont font = Assert.IsType<PdfTrueTypeFont>(FontPdf.SimpleFont(document));
+
+        Assert.NotNull(font.Substitute);
+        Assert.Equal(1, font.GetGlyphId(0x41));
+    }
+
     /// <summary>A TrueType program whose glyph 1 is a 600-unit-wide square mapped from one character by its (3, 1) "cmap".</summary>
     internal static byte[] OneGlyphProgram(char character)
     {

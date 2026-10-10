@@ -134,7 +134,7 @@ internal sealed class SimpleFontUnicode : FontUnicode
     /// <summary>The fourth method, beyond §9.10.2: the glyph's code point in the embedded TrueType program's Unicode "cmap".</summary>
     private static Entry ResolveFromProgram(PdfSimpleFont font, byte code) =>
         font is PdfTrueTypeFont trueType && trueType.Program is { } program
-            && ReverseCharacterMap.TryGetCodePoint(program, trueType.GetGlyphId(code), out int codePoint)
+            && program.CharacterMapSelection.TryGetCodePoint(trueType.GetGlyphId(code), out int codePoint)
             ? new Entry(char.ConvertFromUtf32(codePoint), UnicodeSource.FontProgram, Flags.None)
             : ReplacementEntry;
 
@@ -233,7 +233,7 @@ internal sealed class Type0FontUnicode : FontUnicode
         }
 
         if (State.Descendant is { } descendant && descendant.Program is { } program
-            && descendant.TryGetGlyphId(cid, out int glyphId) && ReverseCharacterMap.TryGetCodePoint(program, glyphId, out int codePoint))
+            && descendant.TryGetGlyphId(cid, out int glyphId) && program.CharacterMapSelection.TryGetCodePoint(glyphId, out int codePoint))
         {
             source = UnicodeSource.FontProgram;
             return new System.Text.Rune(codePoint).TryEncodeToUtf16(destination, out written) ? written : 0;
