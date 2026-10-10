@@ -30,17 +30,12 @@ namespace Broadside.Parsing;
 /// </remarks>
 internal static class CrossReferenceReconstructor
 {
-    private static readonly CosName XRef = new("XRef");
-    private static readonly CosName ObjStm = new("ObjStm");
-    private static readonly CosName N = new("N");
-    private static readonly CosName First = new("First");
-    private static readonly CosName XRefStm = new("XRefStm");
 
     /// <summary>The cross-reference stream entries that describe the stream, not the file (§7.5.8.2, Table 17).</summary>
     private static readonly CosName[] StreamOnlyKeys =
     [
-        KnownNames.Type, KnownNames.Length, new("W"), new("Index"), new("Filter"), new("DecodeParms"), new("DL"), new("F"),
-        new("FFilter"), new("FDecodeParms"),
+        KnownNames.Type, KnownNames.Length, KnownNames.W, KnownNames.Index, FilterNames.Filter, FilterNames.DecodeParms, FilterNames.DL,
+        FilterNames.F, new("FFilter"), new("FDecodeParms"),
     ];
 
     /// <summary>Rebuilds the cross-reference information of <paramref name="source"/>.</summary>
@@ -93,7 +88,7 @@ internal static class CrossReferenceReconstructor
         {
             if (candidate.TryGetValue(KnownNames.Root, out CosObject? root) && IsCatalog(loader, loader.Resolve(root)))
             {
-                chosen = Without(candidate, KnownNames.Prev, XRefStm, KnownNames.Size);
+                chosen = Without(candidate, KnownNames.Prev, KnownNames.XRefStm, KnownNames.Size);
                 break;
             }
         }
@@ -179,13 +174,13 @@ internal static class CrossReferenceReconstructor
             var reference = new CosReference(number, entry.Generation);
             if (loader.Load(reference) is not CosStream stream
                 || !stream.Dictionary.TryGetValue(KnownNames.Type, out CosObject? type)
-                || !ObjStm.Equals(type))
+                || !KnownNames.ObjStm.Equals(type))
             {
                 continue;
             }
 
-            CosObject count = loader.Resolve(stream.Dictionary.TryGetValue(N, out CosObject? n) ? n : null);
-            CosObject first = loader.Resolve(stream.Dictionary.TryGetValue(First, out CosObject? f) ? f : null);
+            CosObject count = loader.Resolve(stream.Dictionary.TryGetValue(KnownNames.N, out CosObject? n) ? n : null);
+            CosObject first = loader.Resolve(stream.Dictionary.TryGetValue(KnownNames.First, out CosObject? f) ? f : null);
             ObjectStream objectStream = ObjectStream.Read(new CosReference(number, 0), streams.Decode(stream), count, first, diagnostics, budget);
             IReadOnlyList<int> members = objectStream.ObjectNumbers;
             for (int index = 0; index < members.Count; index++)
@@ -237,7 +232,7 @@ internal static class CrossReferenceReconstructor
                 && entry.Offset + loader.Header.Offset == header.Offset
                 && loader.Load(new CosReference(header.Number, header.Generation)) is CosStream stream
                 && stream.Dictionary.TryGetValue(KnownNames.Type, out CosObject? type)
-                && XRef.Equals(type))
+                && KnownNames.XRef.Equals(type))
             {
                 candidates.Add((header.Offset, CosDictionary.FromOwnedEntries(Without(stream.Dictionary, StreamOnlyKeys))));
             }

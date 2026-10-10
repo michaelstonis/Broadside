@@ -45,10 +45,6 @@ internal sealed class ObjectLoader
     /// <summary>How far before and after a wrong offset the object's header is looked for before the whole file is scanned.</summary>
     private const int NearSearchDistance = 1024;
 
-    private static readonly CosName ObjStm = new("ObjStm");
-    private static readonly CosName N = new("N");
-    private static readonly CosName First = new("First");
-
     private readonly PdfSource _source;
     private readonly DiagnosticSink _diagnostics;
     private readonly StreamDecoder _streams;
@@ -271,7 +267,7 @@ internal sealed class ObjectLoader
             return ObjectStream.Unreadable(reference);
         }
 
-        if (!stream.Dictionary.TryGetValue(KnownNames.Type, out CosObject? type) || !ObjStm.Equals(type))
+        if (!stream.Dictionary.TryGetValue(KnownNames.Type, out CosObject? type) || !KnownNames.ObjStm.Equals(type))
         {
             _diagnostics.Report(
                 DiagnosticCodes.ObjectStreamTypeInvalid,
@@ -280,8 +276,8 @@ internal sealed class ObjectLoader
                 objectReference: reference);
         }
 
-        CosObject count = Resolve(stream.Dictionary.TryGetValue(N, out CosObject? n) ? n : null, depth + 1);
-        CosObject first = Resolve(stream.Dictionary.TryGetValue(First, out CosObject? f) ? f : null, depth + 1);
+        CosObject count = Resolve(stream.Dictionary.TryGetValue(KnownNames.N, out CosObject? n) ? n : null, depth + 1);
+        CosObject first = Resolve(stream.Dictionary.TryGetValue(KnownNames.First, out CosObject? f) ? f : null, depth + 1);
         ObjectStream container = ObjectStream.Read(reference, _streams.Decode(stream), count, first, _diagnostics);
         if (Logger is { } logger)
         {

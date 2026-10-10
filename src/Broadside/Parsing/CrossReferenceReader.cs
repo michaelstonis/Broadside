@@ -34,8 +34,6 @@ internal static class CrossReferenceReader
     /// <summary>How many bytes the backward search for <c>startxref</c> reads at a time.</summary>
     private const int TailWindow = 1024;
 
-    private static readonly CosName XRefStm = new("XRefStm");
-
     /// <summary>The white-space characters of §7.2.3 Table 1.</summary>
     private static readonly SearchValues<byte> WhiteSpace = SearchValues.Create("\0\t\n\f\r "u8);
 
@@ -325,7 +323,7 @@ internal static class CrossReferenceReader
         DiagnosticSink diagnostics,
         XrefEntryBudget budget)
     {
-        if (!table.Trailer.TryGetValue(XRefStm, out CosObject? entry))
+        if (!table.Trailer.TryGetValue(KnownNames.XRefStm, out CosObject? entry))
         {
             return null;
         }

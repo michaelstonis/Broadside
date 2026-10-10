@@ -43,10 +43,8 @@ internal static class IntegrityVerifier
     private static readonly CosName MacLocation = new("MACLocation");
     private static readonly CosName Standalone = new("Standalone");
     private static readonly CosName AttachedToSig = new("AttachedToSig");
-    private static readonly CosName ByteRange = new("ByteRange");
     private static readonly CosName SigObjRef = new("SigObjRef");
     private static readonly CosName KdfSalt = new("KDFSalt");
-    private static readonly CosName Contents = new("Contents");
 
     /// <summary>Checks the document's PDF MAC token, if it has or needs one.</summary>
     /// <param name="source">The file.</param>
@@ -193,7 +191,7 @@ internal static class IntegrityVerifier
         {
             if (!authCode.TryGetValue(SigObjRef, out CosObject? reference)
                 || loader.Resolve(reference) is not CosDictionary signature
-                || loader.Resolve(signature.TryGetValue(Contents, out CosObject? contents) ? contents : null) is not CosString container)
+                || loader.Resolve(signature.TryGetValue(KnownNames.Contents, out CosObject? contents) ? contents : null) is not CosString container)
             {
                 return Invalid("The AuthCode SigObjRef shall refer to a signature dictionary with a Contents string (ISO/TS 32004 Table 6).");
             }
@@ -316,7 +314,7 @@ internal static class IntegrityVerifier
         private bool TryReadByteRange(CosDictionary dictionary, out long[] range)
         {
             range = new long[4];
-            if (loader.Resolve(dictionary.TryGetValue(ByteRange, out CosObject? entry) ? entry : null) is not CosArray { Count: 4 } array)
+            if (loader.Resolve(dictionary.TryGetValue(KnownNames.ByteRange, out CosObject? entry) ? entry : null) is not CosArray { Count: 4 } array)
             {
                 return false;
             }

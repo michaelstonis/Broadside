@@ -69,24 +69,13 @@ internal sealed record CryptFilter(CosName Name, CryptMethod Method, byte[] Key)
 /// </remarks>
 internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
 {
-    private static readonly CosName CF = new("CF");
-    private static readonly CosName StmF = new("StmF");
-    private static readonly CosName StrF = new("StrF");
-    private static readonly CosName EFF = new("EFF");
-    private static readonly CosName CFM = new("CFM");
-    private static readonly CosName EncryptMetadataName = new("EncryptMetadata");
     private static readonly CosName None = new("None");
     private static readonly CosName V2 = new("V2");
-    private static readonly CosName AESV2 = new("AESV2");
-    private static readonly CosName AESV3 = new("AESV3");
     private static readonly CosName AESV4 = new("AESV4");
-    private static readonly CosName XRef = new("XRef");
     private static readonly CosName Metadata = new("Metadata");
     private static readonly CosName EmbeddedFile = new("EmbeddedFile");
     private static readonly CosName Sig = new("Sig");
     private static readonly CosName DocTimeStamp = new("DocTimeStamp");
-    private static readonly CosName Contents = new("Contents");
-    private static readonly CosName ByteRange = new("ByteRange");
     private static readonly CosName StandardFilterName = new("StdCF");
 
     private readonly CryptFilter _strings;
@@ -163,7 +152,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
                 {
                     var named = new Dictionary<CosName, CryptFilter>();
                     var unsupported = new Dictionary<CosName, string>();
-                    if (resolve(encryption.TryGetValue(CF, out CosObject? cf) ? cf : null) is CosDictionary filters)
+                    if (resolve(encryption.TryGetValue(KnownNames.CF, out CosObject? cf) ? cf : null) is CosDictionary filters)
                     {
                         for (int index = 0; index < filters.Count; index++)
                         {
@@ -217,17 +206,17 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
                         return identity;
                     }
 
-                    CryptFilter streams = Select(StmF, null);
-                    CryptFilter strings = Select(StrF, null);
-                    CryptFilter embedded = encryption.ContainsKey(EFF) ? Select(EFF, null) : streams;
+                    CryptFilter streams = Select(KnownNames.StmF, null);
+                    CryptFilter strings = Select(KnownNames.StrF, null);
+                    CryptFilter embedded = encryption.ContainsKey(KnownNames.EFF) ? Select(KnownNames.EFF, null) : streams;
                     // Table 21 puts EncryptMetadata in the encryption dictionary; Table 27 in the crypt filter StmF names (public-key handlers).
-                    CosObject flag = resolve(encryption.TryGetValue(EncryptMetadataName, out CosObject? flagEntry) ? flagEntry : null);
+                    CosObject flag = resolve(encryption.TryGetValue(KnownNames.EncryptMetadata, out CosObject? flagEntry) ? flagEntry : null);
                     if (flag is CosNull
-                        && resolve(encryption.TryGetValue(StmF, out CosObject? stmF) ? stmF : null) is CosName streamFilter
+                        && resolve(encryption.TryGetValue(KnownNames.StmF, out CosObject? stmF) ? stmF : null) is CosName streamFilter
                         && resolve(cf) is CosDictionary definitions
                         && resolve(definitions.TryGetValue(streamFilter, out CosObject? definition) ? definition : null) is CosDictionary streamFilterDictionary)
                     {
-                        flag = resolve(streamFilterDictionary.TryGetValue(EncryptMetadataName, out CosObject? filterFlag) ? filterFlag : null);
+                        flag = resolve(streamFilterDictionary.TryGetValue(KnownNames.EncryptMetadata, out CosObject? filterFlag) ? filterFlag : null);
                     }
 
                     bool encryptMetadata = flag is not CosBoolean { Value: false };
@@ -301,7 +290,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
         out string? problem)
     {
         problem = null;
-        CosName method = resolve(dictionary?.TryGetValue(CFM, out CosObject? entry) == true ? entry : null) as CosName ?? None;
+        CosName method = resolve(dictionary?.TryGetValue(KnownNames.CFM, out CosObject? entry) == true ? entry : null) as CosName ?? None;
         if (method.Equals(None))
         {
             diagnostics.Report(
@@ -316,7 +305,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
             return new CryptFilter(name, CryptMethod.Rc4, key);
         }
 
-        if (method.Equals(AESV2))
+        if (method.Equals(KnownNames.AESV2))
         {
             if (version >= 5)
             {
@@ -330,7 +319,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
             return new CryptFilter(name, CryptMethod.AesV2, Fit(name, key, 16, diagnostics));
         }
 
-        if (method.Equals(AESV3))
+        if (method.Equals(KnownNames.AESV3))
         {
             return Aes256(name, CryptMethod.AesV3, key, out problem);
         }
@@ -386,7 +375,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
     /// <summary>A signature dictionary's <c>Contents</c> is never encrypted (§7.6.2): Type Sig or DocTimeStamp, or Contents with ByteRange.</summary>
     private static bool IsSignature(CosDictionary dictionary) =>
         IsType(dictionary, Sig) || IsType(dictionary, DocTimeStamp)
-        || (dictionary.TryGetValue(Contents, out CosObject? contents) && contents is CosString && dictionary.TryGetValue(ByteRange, out CosObject? range) && range is CosArray);
+        || (dictionary.TryGetValue(KnownNames.Contents, out CosObject? contents) && contents is CosString && dictionary.TryGetValue(KnownNames.ByteRange, out CosObject? range) && range is CosArray);
 
     private CosString DecryptString(CosString text, CosReference id)
     {
@@ -413,7 +402,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
             (CosName key, CosObject value) = dictionary.GetAt(index);
             switch (value)
             {
-                case CosString text when !(signature && key.Equals(Contents)):
+                case CosString text when !(signature && key.Equals(KnownNames.Contents)):
                     dictionary.ReplaceLoaded(index, DecryptString(text, id));
                     break;
                 case CosDictionary inner:
@@ -452,7 +441,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
     private void DecryptStream(CosStream stream, CosReference id)
     {
         CosDictionary dictionary = stream.Dictionary;
-        if (IsType(dictionary, XRef))
+        if (IsType(dictionary, KnownNames.XRef))
         {
             return; // §7.5.8.2: cross-reference streams are never encrypted, nor their dictionaries' strings.
         }
@@ -499,7 +488,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
     private CryptFilter? SelectStreamFilter(CosDictionary dictionary, out bool perObjectKey)
     {
         perObjectKey = true;
-        if (IsType(dictionary, XRef))
+        if (IsType(dictionary, KnownNames.XRef))
         {
             return null;
         }

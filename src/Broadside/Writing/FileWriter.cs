@@ -45,16 +45,6 @@ internal sealed class FileWriter
     private const long MaxTableOffset = 9_999_999_999;
 
     private static readonly PdfVersion StreamVersion = new(1, 5);
-    private static readonly CosName XRef = new("XRef");
-    private static readonly CosName ObjStm = new("ObjStm");
-    private static readonly CosName FlateDecode = new("FlateDecode");
-    private static readonly CosName W = new("W");
-    private static readonly CosName N = new("N");
-    private static readonly CosName First = new("First");
-    private static readonly CosName Filter = new("Filter");
-    private static readonly CosName DecodeParms = new("DecodeParms");
-    private static readonly CosName Predictor = new("Predictor");
-    private static readonly CosName Columns = new("Columns");
 
     private readonly PdfSource? _source;
     private readonly PdfVersion _version;
@@ -255,10 +245,10 @@ internal sealed class FileWriter
 
         var dictionary = new CosDictionary
         {
-            [KnownNames.Type] = ObjStm,
-            [N] = new CosInteger(count),
-            [First] = new CosInteger(header.WrittenCount),
-            [Filter] = FlateDecode,
+            [KnownNames.Type] = KnownNames.ObjStm,
+            [KnownNames.N] = new CosInteger(count),
+            [KnownNames.First] = new CosInteger(header.WrittenCount),
+            [FilterNames.Filter] = FilterNames.FlateDecode,
         };
         return new CosStream(dictionary, data.ToArray());
     }
@@ -351,16 +341,16 @@ internal sealed class FileWriter
 
         var dictionary = new CosDictionary
         {
-            [KnownNames.Type] = XRef,
+            [KnownNames.Type] = KnownNames.XRef,
         };
         foreach (KeyValuePair<CosName, CosObject> entry in TrailerDictionary(size, identifier))
         {
             dictionary[entry.Key] = entry.Value;
         }
 
-        dictionary[W] = new CosArray([new CosInteger(1), new CosInteger(middle), new CosInteger(2)]);
-        dictionary[Filter] = FlateDecode;
-        dictionary[DecodeParms] = new CosDictionary { [Predictor] = new CosInteger(12), [Columns] = new CosInteger(columns) };
+        dictionary[KnownNames.W] = new CosArray([new CosInteger(1), new CosInteger(middle), new CosInteger(2)]);
+        dictionary[FilterNames.Filter] = FilterNames.FlateDecode;
+        dictionary[FilterNames.DecodeParms] = new CosDictionary { [FilterNames.Predictor] = new CosInteger(12), [FilterNames.Columns] = new CosInteger(columns) };
 
         var reference = new CosReference(number, 0);
         WriteIndirectObject(buffer, reference, new WriterObject(reference, new CosStream(dictionary, data.ToArray()), null), source: null);

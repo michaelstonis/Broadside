@@ -22,14 +22,6 @@ namespace Broadside.Security;
 /// </remarks>
 internal static class DocumentSecurity
 {
-    private static readonly CosName SubFilterName = new("SubFilter");
-    private static readonly CosName StandardName = new("Standard");
-    private static readonly CosName R = new("R");
-    private static readonly CosName P = new("P");
-    private static readonly CosName CF = new("CF");
-    private static readonly CosName StmF = new("StmF");
-    private static readonly CosName StrF = new("StrF");
-    private static readonly CosName EFF = new("EFF");
     private static readonly CosName AuthEvent = new("AuthEvent");
     private static readonly CosName EFOpen = new("EFOpen");
 
@@ -82,14 +74,14 @@ internal static class DocumentSecurity
         }
 
         CosName? filter = loader.Resolve(encryption.TryGetValue(FilterNames.Filter, out CosObject? named) ? named : null) as CosName;
-        CosName? subFilter = loader.Resolve(encryption.TryGetValue(SubFilterName, out CosObject? sub) ? sub : null) as CosName;
-        if (filter is null && encryption.ContainsKey(R))
+        CosName? subFilter = loader.Resolve(encryption.TryGetValue(KnownNames.SubFilter, out CosObject? sub) ? sub : null) as CosName;
+        if (filter is null && encryption.ContainsKey(KnownNames.R))
         {
             diagnostics.Report(
                 DiagnosticCodes.EncryptDictionaryInvalid,
                 DiagnosticSeverity.Warning,
                 "The encryption dictionary has no Filter entry; its R entry marks it as the standard security handler's.");
-            filter = StandardName;
+            filter = KnownNames.Standard;
         }
 
         ISecurityHandler handler = handlers.Find(filter, subFilter) ?? throw new PdfEncryptionNotSupportedException(
@@ -154,10 +146,10 @@ internal static class DocumentSecurity
         bool IsIdentity(CosName key) =>
             resolve(encryption.TryGetValue(key, out CosObject? entry) ? entry : null) is CosNull or CosName { Value: "Identity" };
 
-        return IsIdentity(StmF)
-            && IsIdentity(StrF)
-            && resolve(encryption.TryGetValue(EFF, out CosObject? eff) ? eff : null) is CosName embedded
-            && resolve(encryption.TryGetValue(CF, out CosObject? cf) ? cf : null) is CosDictionary filters
+        return IsIdentity(KnownNames.StmF)
+            && IsIdentity(KnownNames.StrF)
+            && resolve(encryption.TryGetValue(KnownNames.EFF, out CosObject? eff) ? eff : null) is CosName embedded
+            && resolve(encryption.TryGetValue(KnownNames.CF, out CosObject? cf) ? cf : null) is CosDictionary filters
             && resolve(filters.TryGetValue(embedded, out CosObject? definition) ? definition : null) is CosDictionary filter
             && EFOpen.Equals(resolve(filter.TryGetValue(AuthEvent, out CosObject? authEvent) ? authEvent : null));
     }
@@ -180,10 +172,10 @@ internal static class DocumentSecurity
         loader.Hooks.Decryptor = decryptor;
         streams.CryptFilter = decryptor;
 
-        int? revision = loader.Resolve(encryption.TryGetValue(R, out CosObject? r) ? r : null) is CosInteger { Value: >= 0 and <= int.MaxValue } rValue
+        int? revision = loader.Resolve(encryption.TryGetValue(KnownNames.R, out CosObject? r) ? r : null) is CosInteger { Value: >= 0 and <= int.MaxValue } rValue
             ? (int)rValue.Value
             : null;
-        int rawPermissions = loader.Resolve(encryption.TryGetValue(P, out CosObject? p) ? p : null) is CosInteger pValue ? unchecked((int)pValue.Value) : 0;
+        int rawPermissions = loader.Resolve(encryption.TryGetValue(KnownNames.P, out CosObject? p) ? p : null) is CosInteger pValue ? unchecked((int)pValue.Value) : 0;
         int keyLength = loader.Resolve(encryption.TryGetValue(KnownNames.Length, out CosObject? length) ? length : null) is CosInteger { Value: > 0 and <= 4096 } bits
             ? (int)bits.Value
             : 0;
