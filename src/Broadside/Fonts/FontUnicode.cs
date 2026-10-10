@@ -59,7 +59,6 @@ internal sealed class SimpleFontUnicode : FontUnicode
         Metrics = metrics;
         bool zapfDingbats = font.Standard14 == Standard14Font.ZapfDingbats
             || (font.FaceName is { } face && Standard14Data.TryMatch(face, out Standard14Font matched, out _) && matched == Standard14Font.ZapfDingbats);
-        bool program = font is PdfTrueTypeFont && font.IsEmbedded;
         Span<char> buffer = stackalloc char[MaxLength];
         for (int code = 0; code < 256; code++)
         {
@@ -72,7 +71,7 @@ internal sealed class SimpleFontUnicode : FontUnicode
             int named = AdobeGlyphList.MapName(metrics.Names[code], zapfDingbats, buffer, out bool nonStandard);
             _entries[code] = named > 0
                 ? new Entry(Text(buffer[..named]), UnicodeSource.GlyphName, nonStandard ? Flags.NonStandardName : Flags.None)
-                : program ? PendingEntry : ReplacementEntry;
+                : PendingEntry;
         }
     }
 
@@ -131,10 +130,9 @@ internal sealed class SimpleFontUnicode : FontUnicode
 
     private static string Text(ReadOnlySpan<char> text) => text.IsEmpty ? string.Empty : new string(text);
 
-    /// <summary>The fourth method, beyond §9.10.2: the glyph's code point in the embedded TrueType program's Unicode "cmap".</summary>
+    /// <summary>The fourth method, beyond §9.10.2: the code point the font's program gives the code's glyph, when the font kind has one.</summary>
     private static Entry ResolveFromProgram(PdfSimpleFont font, byte code) =>
-        font is PdfTrueTypeFont trueType && trueType.Program is { } program
-            && program.CharacterMapSelection.TryGetCodePoint(trueType.GetGlyphId(code), out int codePoint)
+        font.TryGetProgramCodePoint(code, out int codePoint)
             ? new Entry(char.ConvertFromUtf32(codePoint), UnicodeSource.FontProgram, Flags.None)
             : ReplacementEntry;
 

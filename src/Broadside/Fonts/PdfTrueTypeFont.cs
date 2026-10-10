@@ -57,4 +57,12 @@ public sealed class PdfTrueTypeFont : PdfSimpleFont
 
         return selector.GetGlyphId(code);
     }
+
+    /// <inheritdoc/>
+    /// <remarks>The glyph <see cref="GetGlyphId"/> selects, through the embedded program's Unicode "cmap" subtables (reverse map).</remarks>
+    internal override bool TryGetProgramCodePoint(byte code, out int codePoint)
+    {
+        codePoint = 0;
+        return Program is { } program && program.CharacterMapSelection.TryGetCodePoint(GetGlyphId(code), out codePoint);
+    }
 }

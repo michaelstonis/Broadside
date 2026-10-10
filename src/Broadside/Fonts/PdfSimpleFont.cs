@@ -60,6 +60,19 @@ public abstract class PdfSimpleFont : PdfFont
     public double GetWidth(byte code) => Metrics.Widths[code];
 
     /// <summary>
+    /// Looks up the Unicode code point the font's embedded program gives a code's glyph: the last resort of Unicode mapping, beyond
+    /// ISO 32000-2 §9.10.2. Only a font kind that selects glyphs through a Unicode "cmap" has one; the default has none.
+    /// </summary>
+    /// <param name="code">The character code.</param>
+    /// <param name="codePoint">The code point.</param>
+    /// <returns>Whether the program maps the code's glyph to a code point.</returns>
+    internal virtual bool TryGetProgramCodePoint(byte code, out int codePoint)
+    {
+        codePoint = 0;
+        return false;
+    }
+
+    /// <summary>
     /// Gets the font program the font is drawn with when it has no usable embedded program, found by the engine's font resolvers;
     /// <see langword="null"/> when the font has a usable embedded program (<see cref="PdfFont.Program"/>), is a Type 3 font, or no
     /// resolver has a program for it.
