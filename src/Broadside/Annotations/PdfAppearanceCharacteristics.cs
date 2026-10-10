@@ -52,7 +52,7 @@ public sealed class PdfAppearanceCharacteristics
 
     /// <summary>Gets the normal caption (<c>CA</c>, button fields), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.19, Table 192.</remarks>
-    public string? NormalCaption => ReadText(AnnotationNames.StrokingOpacity);
+    public string? NormalCaption => ReadText(AnnotationNames.NormalCaption);
 
     /// <summary>Gets the rollover caption (<c>RC</c>, push buttons), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.19, Table 192.</remarks>

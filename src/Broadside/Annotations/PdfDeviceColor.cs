@@ -18,6 +18,7 @@ public sealed class PdfDeviceColor : IEquatable<PdfDeviceColor>
     /// <summary>Initializes a new instance of the <see cref="PdfDeviceColor"/> class.</summary>
     /// <param name="components">0, 1, 3 or 4 components.</param>
     /// <exception cref="ArgumentException"><paramref name="components"/> has 2 or more than 4 elements.</exception>
+    /// <remarks>ISO 32000-2 §12.5.2, Table 166 (<c>C</c>).</remarks>
     public PdfDeviceColor(params ReadOnlySpan<double> components)
     {
         ColorSpace = components.Length switch
@@ -32,12 +33,15 @@ public sealed class PdfDeviceColor : IEquatable<PdfDeviceColor>
     }
 
     /// <summary>Gets the colour space the number of components selects.</summary>
+    /// <remarks>ISO 32000-2 §12.5.2, Table 166 (<c>C</c>): 0 none, 1 DeviceGray, 3 DeviceRGB, 4 DeviceCMYK.</remarks>
     public PdfDeviceColorSpace ColorSpace { get; }
 
     /// <summary>Gets the components, in the order of the colour space (gray; red, green, blue; cyan, magenta, yellow, black).</summary>
+    /// <remarks>ISO 32000-2 §12.5.2, Table 166 (<c>C</c>): each from 0.0 to 1.0, kept as the file gives them.</remarks>
     public IReadOnlyList<double> Components => _components;
 
     /// <summary>Gets a value indicating whether this is no colour at all (an empty array): transparent.</summary>
+    /// <remarks>ISO 32000-2 §12.5.2, Table 166 (<c>C</c>): 0 elements, "No colour; transparent".</remarks>
     public bool IsTransparent => ColorSpace == PdfDeviceColorSpace.None;
 
     /// <inheritdoc/>

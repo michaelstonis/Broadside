@@ -1,7 +1,7 @@
 using Broadside.Objects;
 using Broadside.Structure;
 
-namespace Broadside.Tests.LogicalStructure;
+namespace Broadside.Tests.StructureTree;
 
 /// <summary>Attribute objects, classes, revision numbers, typed owners and inheritance. ISO 32000-2 §14.7.6, §14.8.5.</summary>
 public class AttributeTests

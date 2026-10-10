@@ -18,12 +18,15 @@ namespace Broadside.Structure;
 public sealed class PdfStructureNamespace : IEquatable<PdfStructureNamespace>
 {
     /// <summary>The namespace name of the standard structure namespace for PDF 1.7, the default namespace (§14.8.6.1).</summary>
+    /// <remarks>ISO 32000-2 §14.8.6.1.</remarks>
     public const string Pdf17Name = "http://iso.org/pdf/ssn";
 
     /// <summary>The namespace name of the standard structure namespace for PDF 2.0 (§14.8.6.1).</summary>
+    /// <remarks>ISO 32000-2 §14.8.6.1.</remarks>
     public const string Pdf20Name = "http://iso.org/pdf2/ssn";
 
     /// <summary>The namespace name of MathML 3.0 (§14.8.6.3).</summary>
+    /// <remarks>ISO 32000-2 §14.8.6.3.</remarks>
     public const string MathMLName = "http://www.w3.org/1998/Math/MathML";
 
     private readonly StructureContext? _context;

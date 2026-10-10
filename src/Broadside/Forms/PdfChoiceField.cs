@@ -14,9 +14,11 @@ public sealed class PdfChoiceOption
     }
 
     /// <summary>Gets the value exported when the option is selected.</summary>
+    /// <remarks>ISO 32000-2 §12.7.5.4, Table 234 (<c>Opt</c>): the first element of a two-element array, or the text string itself.</remarks>
     public string ExportValue { get; }
 
     /// <summary>Gets the text shown for the option.</summary>
+    /// <remarks>ISO 32000-2 §12.7.5.4, Table 234 (<c>Opt</c>): the second element of a two-element array, or the text string itself.</remarks>
     public string DisplayText { get; }
 
     /// <inheritdoc/>
