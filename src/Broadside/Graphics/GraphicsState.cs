@@ -1,5 +1,7 @@
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.CompilerServices;
+using Broadside.Fonts;
+using Broadside.Objects;
 
 namespace Broadside.Graphics;
 
@@ -15,9 +17,9 @@ namespace Broadside.Graphics;
 /// path and the text matrices are not part of it (§8.5.2.1, §9.4.1).
 /// </para>
 /// <para>
-/// Parameters set by operators that later issues implement (the <c>gs</c> parameters of §8.4.5, text state of §9.3) hold their
-/// initial values until then; members for parameters whose values are document-model objects (font, soft mask, transfer
-/// functions, halftone) are added with those objects. The colours (§8.6) are <see cref="PdfColor"/> values. Numeric parameters are always within their valid ranges:
+/// The text state (§9.3) is set by its operators and the parameters of Table 57 through <c>gs</c> (§8.4.5). Parameters whose
+/// values are document-model objects (font, soft mask, transfer, black generation, undercolour removal) are live views; a halftone
+/// is kept as written. The colours (§8.6) are <see cref="PdfColor"/> values. Numeric parameters are always within their valid ranges:
 /// the interpreter clips out-of-range operands and records a diagnostic (§8.4.1).
 /// </para>
 /// </remarks>
@@ -127,6 +129,50 @@ public struct GraphicsState
     /// <remarks>ISO 32000-2 §8.6.7, Table 52. Set through <c>gs</c> (OPM).</remarks>
     public int OverprintMode { readonly get; internal set; }
 
+    /// <summary>
+    /// Gets the soft mask: where it comes from and how it gives shape or opacity values; <see langword="null"/> for none. Initially none.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §11.6.5.1, Tables 52 and 142. Set through <c>gs</c> (SMask, PDF 1.4).</remarks>
+    public PdfSoftMask? SoftMask { readonly get; internal set; }
+
+    /// <summary>
+    /// Gets the CTM at the <c>gs</c> that set <see cref="SoftMask"/>: the mask's group is painted in that coordinate system, not the
+    /// one current when something is painted through it. The identity when there is no soft mask.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §11.6.5.1 (Table 142, <c>G</c>): the group's matrix is concatenated to the CTM in effect when the mask was set.</remarks>
+    public Matrix SoftMaskMatrix { readonly get; internal set; }
+
+    /// <summary>Gets the black-generation function, or <see langword="null"/> for the device's default. Initially the default.</summary>
+    /// <remarks>ISO 32000-2 §10.4.2.4, Table 52. Set through <c>gs</c> (BG, BG2, PDF 1.3); pass it to <see cref="ColorConversion"/>.</remarks>
+    public PdfFunction? BlackGeneration { readonly get; internal set; }
+
+    /// <summary>Gets the undercolour-removal function, or <see langword="null"/> for the device's default. Initially the default.</summary>
+    /// <remarks>ISO 32000-2 §10.4.2.4, Table 52. Set through <c>gs</c> (UCR, UCR2, PDF 1.3); pass it to <see cref="ColorConversion"/>.</remarks>
+    public PdfFunction? UndercolorRemoval { readonly get; internal set; }
+
+    /// <summary>Gets the transfer function, or <see langword="null"/> for the device's default. Initially the default.</summary>
+    /// <remarks>ISO 32000-2 §10.5, Table 52. Set through <c>gs</c> (TR, TR2; deprecated in PDF 2.0).</remarks>
+    public PdfTransferFunction? TransferFunction { readonly get; internal set; }
+
+    /// <summary>
+    /// Gets the halftone as written (a halftone dictionary or stream), or <see langword="null"/> for the device's default. Initially
+    /// the default. Halftones are a device concern and are not interpreted.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §10.6, Table 52. Set through <c>gs</c> (HT).</remarks>
+    public CosObject? Halftone { readonly get; internal set; }
+
+    /// <summary>Gets the halftone origin in device space, or <see langword="null"/> when not set. Initially not set.</summary>
+    /// <remarks>ISO 32000-2 §10.6.5, Table 57. Set through <c>gs</c> (HTO, PDF 2.0).</remarks>
+    public PathPoint? HalftoneOrigin { readonly get; internal set; }
+
+    /// <summary>Gets the smoothness tolerance for shadings, 0 to 1. Initially 0 (the device's default).</summary>
+    /// <remarks>ISO 32000-2 §10.7.3, Table 52. Set through <c>gs</c> (SM, PDF 1.3).</remarks>
+    public double Smoothness { readonly get; internal set; }
+
+    /// <summary>Gets the text font: the font <c>Tf</c> selected, or the <c>Font</c> entry of a graphics state parameter dictionary; <see langword="null"/> until one is selected.</summary>
+    /// <remarks>ISO 32000-2 §9.3.1, Table 102 (T<sub>f</sub>, no initial value).</remarks>
+    public PdfFont? Font { readonly get; internal set; }
+
     /// <summary>Gets the character spacing T<sub>c</sub>, in unscaled text space units. Initially 0.</summary>
     /// <remarks>ISO 32000-2 §9.3.2, Table 102. Set by <c>Tc</c>.</remarks>
     public double CharacterSpacing { readonly get; internal set; }
@@ -159,6 +205,7 @@ public struct GraphicsState
     internal static GraphicsState CreateInitial() => new()
     {
         Ctm = Matrix.Identity,
+        SoftMaskMatrix = Matrix.Identity,
         LineWidth = 1.0,
         MiterLimit = 10.0,
         Flatness = 1.0,

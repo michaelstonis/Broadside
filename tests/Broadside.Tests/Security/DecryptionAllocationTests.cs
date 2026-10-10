@@ -1,4 +1,5 @@
 using Broadside.Security.Cryptography;
+using Broadside.Tests.Document;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.Security;
@@ -7,7 +8,7 @@ namespace Broadside.Tests.Security;
 /// The decryption hot paths allocate nothing per call into a caller's buffer (CLAUDE.md, hot paths; the benchmarks are
 /// <c>SecurityBenchmarks</c>). ISO 32000-2 §7.6.3.
 /// </summary>
-[Collection("Heavy")]
+[Collection(HeavyTestCollection.Name)]
 public class DecryptionAllocationTests
 {
     private static readonly byte[] Key = [.. Enumerable.Range(0, 32).Select(i => (byte)i)];
@@ -42,15 +43,5 @@ public class DecryptionAllocationTests
         }
     }
 
-    private static long Measure(Action action)
-    {
-        for (int i = 0; i < 40; i++)
-        {
-            action(); // past tiered compilation
-        }
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        action();
-        return GC.GetAllocatedBytesForCurrentThread() - before;
-    }
+    private static long Measure(Action action) => Allocations.Measure(action);
 }

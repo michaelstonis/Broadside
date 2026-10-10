@@ -86,6 +86,9 @@ public static class Corpus
         "color-operators.pdf",
         "default-colorspaces.pdf",
         "separation-special.pdf",
+        "form-xobject-nested.pdf",
+        "extgstate-params.pdf",
+        "marked-content.pdf",
         "image-stencil-mask.pdf",
         "image-explicit-mask.pdf",
         "image-color-key-mask.pdf",
@@ -110,6 +113,7 @@ public static class Corpus
         "pattern-tiling-uncolored.pdf",
         "pattern-shading-axial.pdf",
         "pattern-in-form.pdf",
+        "text-type3.pdf",
     ];
 
     private static readonly string[] Malformed =
@@ -130,6 +134,7 @@ public static class Corpus
         "text-type1-bad-lengths.pdf",
         "pattern-recursive.pdf",
         "shading-mesh-truncated.pdf",
+        "text-type3-recursive.pdf",
     ];
 
     private static readonly (string FileName, string UserPassword)[] PasswordProtected =

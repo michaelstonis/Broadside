@@ -102,6 +102,33 @@ public sealed class PdfType0Font : PdfFont
         return new CidGlyph(code, cid, glyphId, metrics.GetWidth(cid), metrics.GetVerticalMetrics(cid));
     }
 
+    /// <inheritdoc/>
+    internal override bool IsVertical => WritingMode == WritingMode.Vertical;
+
+    /// <inheritdoc/>
+    /// <remarks>
+    /// ISO 32000-2 §9.7.4.3: w0 is the CID's width; in vertical writing w1 is its vertical advance and the glyph's horizontal origin
+    /// lies at the position vector v from the current point. Word spacing applies only to the single-byte code 32 (§9.3.3).
+    /// </remarks>
+    internal override ShownGlyph ReadShownGlyph(ReadOnlySpan<byte> text)
+    {
+        CidGlyph glyph = ReadGlyph(text);
+        int length = Math.Max(1, glyph.Code.Length);
+        if (WritingMode != WritingMode.Vertical)
+        {
+            return new ShownGlyph(glyph.Code.Value, length, glyph.Width / 1000, 0, default, glyph.AppliesWordSpacing);
+        }
+
+        CidVerticalMetrics vertical = glyph.VerticalMetrics;
+        return new ShownGlyph(
+            glyph.Code.Value,
+            length,
+            glyph.Width / 1000,
+            vertical.VerticalAdvance / 1000,
+            new Graphics.PathPoint(vertical.PositionX / 1000, vertical.PositionY / 1000),
+            glyph.AppliesWordSpacing);
+    }
+
     private void ReportInvalidCode(CharacterCode code)
     {
         if (_invalidCodeReported && !Document.DiagnosticSink.IsStrict)

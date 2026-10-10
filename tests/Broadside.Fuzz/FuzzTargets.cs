@@ -59,21 +59,32 @@ internal static class FuzzTargets
         ["font-type1"] = FontType1,
         ["cmap"] = CMapFile,
         ["colorspace"] = ColorSpaceTarget,
+        ["content-objects"] = ContentObjectsTargets.ContentWithResources,
+        ["inline-image-end"] = ContentObjectsTargets.InlineImageEnd,
         ["image-decode"] = ImageDecodeTarget.Target,
         ["shading-mesh"] = ShadingMeshTarget.Target,
     };
 
-    private static readonly CosName ContentsKey = new("Contents");
-    private static readonly CosName FontKey = new("Font");
     private static readonly Lazy<PdfDocument> EmptyDocument = new(() => PdfDocument.Create());
-    private static readonly CosName InfoKey = new("Info");
+
+    /// <summary>
+    /// Names the targets use, kept out of this class's static constructor: under libFuzzer, code of the instrumented library must
+    /// not run before <c>Fuzzer.LibFuzzer.Run</c> has attached the coverage memory, and looking up a target runs that constructor.
+    /// </summary>
+    private static class Names
+    {
+        public static readonly CosName Contents = new("Contents");
+        public static readonly CosName Font = new("Font");
+        public static readonly CosName Info = new("Info");
+    }
 
     /// <summary>
     /// Opens the input as a whole file in lenient mode and reads everything the document model exposes: version, trailer, every
-    /// page's boxes, rotation, user unit and resources, the revisions, the linearization dictionary and hint tables, the outline and the named destinations. A <see cref="DiagnosticException"/> is the one documented outcome for a file
-    /// whose cross-reference information cannot be read at all (until issue #41 reconstructs it); any other exception is a finding.
-    /// Every box must be normalized and every rotation one of 0, 90, 180, 270; every revision must be a non-empty prefix of the input
-    /// at its own index.
+    /// page's boxes, rotation, user unit, resources, fonts and content, the revisions, the linearization dictionary and hint tables,
+    /// the outline and the named destinations, then walks every object and decodes every stream (<see cref="DocumentWalker"/>). A
+    /// <see cref="DiagnosticException"/> (no catalog even after a scan) and the password, certificate and unsupported-encryption
+    /// exceptions are the documented outcomes; any other exception is a finding. Every box must be normalized and every rotation one
+    /// of 0, 90, 180, 270; every revision must be a non-empty prefix of the input at its own index.
     /// </summary>
     /// <remarks>ISO 32000-2 §7.5.1 to §7.5.6, §7.7.2, §7.7.3, Annex F.</remarks>
     private static void Document(ReadOnlySpan<byte> data)
@@ -119,15 +130,19 @@ internal static class FuzzTargets
             }
 
             ReadFonts(document, page);
-            if (page.Dictionary.TryGetValue(ContentsKey, out CosObject? contents) && document.Resolve(contents) is CosStream stream)
-            {
-                _ = document.DecodeStream(stream);
-            }
-
             page.ProcessContent(new CheckingProcessor());
         }
 
         Navigation(document);
+
+        // Then everything else the document model exposes: every object reachable from the trailer or numbered below Size, and
+        // every stream decoded through its filters (the walk the real-world corpus gate runs, issue #47).
+        DocumentWalkResult walk = DocumentWalker.Walk(document);
+        if (walk.Pages != document.Pages.Count || walk.Streams > walk.Objects)
+        {
+            throw new InvalidOperationException($"The walk saw {walk.Pages} pages and {walk.Streams} streams in {walk.Objects} objects; the document has {document.Pages.Count} pages.");
+        }
+
         _ = ActionWalker.Walk(document);
         Annotations(document);
     }
@@ -216,7 +231,7 @@ internal static class FuzzTargets
     private static void ReadFonts(PdfDocument document, PdfPage page)
     {
         if (page.Resources is not { } resources
-            || !resources.TryGetValue(FontKey, out CosObject? value)
+            || !resources.TryGetValue(Names.Font, out CosObject? value)
             || document.Resolve(value) is not CosDictionary fonts)
         {
             return;
@@ -789,8 +804,9 @@ internal static class FuzzTargets
 
     /// <summary>
     /// The LZW and Flate predictor functions over the input: the first four bytes select Predictor (1, 2, 10 to 15, or an invalid 3),
-    /// Colors (1 to 4), BitsPerComponent (1, 2, 4, 8, 16) and Columns (1 to 64); the rest is the filter's output to undo. The result
-    /// must be whole rows, and no more rows than the input holds.
+    /// Colors (1 to 4), BitsPerComponent (1, 2, 4, 8, 16) and Columns (1 to 64, or a power of two up to 2^30 when byte 3 is 192 or
+    /// more: rows far longer than the data, issue #48); the rest is the filter's output to undo. The output is never more than twice
+    /// the input, and when the data holds at least one row it is whole rows, no more than the input holds.
     /// </summary>
     /// <remarks>ISO 32000-2 §7.4.4.3 Table 8 and §7.4.4.4.</remarks>
     private static void PredictorTarget(ReadOnlySpan<byte> data)
@@ -805,7 +821,7 @@ internal static class FuzzTargets
         int predictor = predictors[data[0] % predictors.Length];
         int colors = 1 + (data[1] % 4);
         int bitsPerComponent = depths[data[2] % depths.Length];
-        int columns = 1 + (data[3] % 64);
+        long columns = data[3] >= 192 ? 1L << Math.Min(data[3] - 192, 30) : 1 + (data[3] % 64);
         var parameters = new CosDictionary
         {
             [new CosName("Predictor")] = new CosInteger(predictor),
@@ -817,9 +833,14 @@ internal static class FuzzTargets
         var output = new ArrayBufferWriter<byte>();
         Predictor.Decode(body, output, new FilterContext { Parameters = parameters });
 
-        int row = ((colors * bitsPerComponent * columns) + 7) / 8;
-        int rowsIn = predictor >= 10 ? (body.Length + row) / (row + 1) : (body.Length + row - 1) / row;
-        bool passedThrough = predictor is 1 or 3;
+        if (output.WrittenCount > (2L * body.Length) + 8)
+        {
+            throw new InvalidOperationException($"Predictor {predictor} with Columns {columns} turned {body.Length} bytes into {output.WrittenCount}.");
+        }
+
+        long row = (((long)colors * bitsPerComponent * columns) + 7) / 8;
+        bool passedThrough = predictor is 1 or 3 || row > body.Length;
+        long rowsIn = passedThrough ? 0 : predictor >= 10 ? (body.Length + row) / (row + 1) : (body.Length + row - 1) / row;
         if (!passedThrough && (output.WrittenCount % row != 0 || output.WrittenCount > rowsIn * row))
         {
             throw new InvalidOperationException($"Predictor {predictor} turned {body.Length} bytes into {output.WrittenCount}, not whole rows of {row}.");
@@ -1037,7 +1058,7 @@ internal static class FuzzTargets
             _ = (document.Permissions, document.Security?.Integrity);
             foreach (PdfPage page in document.Pages)
             {
-                CosObject contents = document.Resolve(page.Dictionary.TryGetValue(ContentsKey, out CosObject? value) ? value : null);
+                CosObject contents = document.Resolve(page.Dictionary.TryGetValue(Names.Contents, out CosObject? value) ? value : null);
                 IEnumerable<CosObject> streams = contents is CosArray array ? array : [contents];
                 foreach (CosObject item in streams)
                 {
@@ -1048,7 +1069,7 @@ internal static class FuzzTargets
                 }
             }
 
-            if (document.Resolve(document.Trailer.TryGetValue(InfoKey, out CosObject? info) ? info : null) is CosDictionary dictionary)
+            if (document.Resolve(document.Trailer.TryGetValue(Names.Info, out CosObject? info) ? info : null) is CosDictionary dictionary)
             {
                 foreach (KeyValuePair<CosName, CosObject> entry in dictionary)
                 {
@@ -1479,8 +1500,10 @@ internal static class FuzzTargets
 
         if (document.PageLabels is { } labels)
         {
+            // A label is its range's prefix (any length, Table 161) and a number of at most MaxNumeralLength characters.
             IReadOnlyList<string> all = labels.GetLabels();
-            if (all.Count != document.Pages.Count || all.Any(label => label.Length > PdfPageLabelRange.MaxNumeralLength + 4096))
+            int longestPrefix = labels.Ranges.Select(range => range.Prefix.Length).DefaultIfEmpty(0).Max();
+            if (all.Count != document.Pages.Count || all.Any(label => label.Length > longestPrefix + PdfPageLabelRange.MaxNumeralLength))
             {
                 throw new InvalidOperationException("Page labels must give one bounded label per page.");
             }

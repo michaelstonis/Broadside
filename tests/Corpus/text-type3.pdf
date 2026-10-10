@@ -1,0 +1,130 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /T3a 5 0 R /T3b 6 0 R >> /XObject << /Fm0 16 0 R >> >> >>
+endobj
+4 0 obj
+<<  /Length 81 >>
+stream
+0 0 1 rg BT /T3a 24 Tf 72 700 Td (abc) Tj ET BT /T3b 24 Tf 72 650 Td (abc) Tj ET
+
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type3 /FontBBox [0 0 750 750] /FontMatrix [0.001 0 0 0.001 0 0] /CharProcs << /square 7 0 R /triangle 8 0 R /bitmap 9 0 R >> /Encoding << /Type /Encoding /Differences [97 /square /triangle /bitmap] >> /FirstChar 97 /LastChar 99 /Widths [1000 1000 1000] /Resources << /XObject << /Fm0 10 0 R >> >> /ToUnicode 15 0 R >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type3 /FontBBox [0 0 75 75] /FontMatrix [0.01 0 0 0.01 0 0] /CharProcs << /square 11 0 R /triangle 12 0 R /bitmap 13 0 R >> /Encoding << /Type /Encoding /Differences [97 /square /triangle /bitmap] >> /FirstChar 97 /LastChar 99 /Widths [100 100 100] /Resources << /XObject << /Fm0 14 0 R >> >> /ToUnicode 15 0 R >>
+endobj
+7 0 obj
+<<  /Length 55 >>
+stream
+1000 0 0 0 750 750 d1 0 1 0 rg 0 0 750 750 re f /Fm0 Do
+endstream
+endobj
+8 0 obj
+<<  /Length 44 >>
+stream
+1000 0 d0 1 0 0 rg 0 0 m 375 750 l 750 0 l f
+endstream
+endobj
+9 0 obj
+<<  /Length 129 >>
+stream
+1000 0 0 0 750 750 d1 q 750 0 0 750 0 0 cm BI /W 8 /H 1 /IM true /F /AHx ID AA> EI BI /W 1 /H 1 /CS /G /BPC 8 /F /AHx ID 00> EI Q
+endstream
+endobj
+10 0 obj
+<< /Type /XObject /Subtype /Form /BBox [0 0 750 750] /Length 29 >>
+stream
+1 0 0 rg 100 100 200 200 re f
+endstream
+endobj
+11 0 obj
+<<  /Length 50 >>
+stream
+100 0 0 0 75 75 d1 0 1 0 rg 0 0 75 75 re f /Fm0 Do
+endstream
+endobj
+12 0 obj
+<<  /Length 42 >>
+stream
+100 0 d0 1 0 0 rg 0 0 m 37.5 75 l 75 0 l f
+endstream
+endobj
+13 0 obj
+<<  /Length 124 >>
+stream
+100 0 0 0 75 75 d1 q 75 0 0 75 0 0 cm BI /W 8 /H 1 /IM true /F /AHx ID AA> EI BI /W 1 /H 1 /CS /G /BPC 8 /F /AHx ID 00> EI Q
+endstream
+endobj
+14 0 obj
+<< /Type /XObject /Subtype /Form /BBox [0 0 75 75] /Length 25 >>
+stream
+1 0 0 rg 10 10 20 20 re f
+endstream
+endobj
+15 0 obj
+<< /Type /CMap /CMapName /Adobe-Identity-UCS /CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> /Length 418 >>
+stream
+%!PS-Adobe-3.0 Resource-CMap
+/CIDInit /ProcSet findresource begin
+12 dict begin
+begincmap
+/CIDSystemInfo 3 dict dup begin
+  /Registry (Adobe) def
+  /Ordering (UCS) def
+  /Supplement 0 def
+end def
+/CMapName /Adobe-Identity-UCS def
+/CMapType 2 def
+1 begincodespacerange
+<00> <FF>
+endcodespacerange
+3 beginbfchar
+<61> <25A0>
+<62> <25B2>
+<63> <25CF>
+endbfchar
+endcmap
+CMapName currentdict /CMap defineresource pop
+end
+end
+
+endstream
+endobj
+16 0 obj
+<< /Type /XObject /Subtype /Form /BBox [0 0 612 792] /Length 20 >>
+stream
+0 g 0 0 612 792 re f
+endstream
+endobj
+xref
+0 17
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000280 00000 n 
+0000000412 00000 n 
+0000000770 00000 n 
+0000001124 00000 n 
+0000001230 00000 n 
+0000001325 00000 n 
+0000001506 00000 n 
+0000001636 00000 n 
+0000001738 00000 n 
+0000001832 00000 n 
+0000002009 00000 n 
+0000002133 00000 n 
+0000002714 00000 n 
+trailer
+<< /Size 17 /Root 1 0 R >>
+startxref
+2835
+%%EOF

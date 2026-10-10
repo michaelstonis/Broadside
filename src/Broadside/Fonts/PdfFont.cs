@@ -1,4 +1,5 @@
 using Broadside.Diagnostics;
+using Broadside.Graphics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -195,6 +196,36 @@ public abstract class PdfFont
     /// <summary>A dictionary's entry, resolved; <see langword="null"/> when absent or a reference to nothing.</summary>
     internal CosObject? GetFrom(CosDictionary dictionary, CosName key) =>
         dictionary.TryGetValue(key, out CosObject? value) && Document.Resolve(value) is not CosNull and var resolved ? resolved : null;
+
+    /// <summary>The font matrix of every font but Type 3: glyph space is a thousandth of text space (§9.2.4).</summary>
+    internal static readonly Matrix ThousandthMatrix = new(0.001, 0, 0, 0.001, 0, 0);
+
+    /// <summary>
+    /// Gets the matrix from glyph space to text space: a thousandth for every font type but Type 3, whose <c>FontMatrix</c> it is.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.2.4 and §9.6.4 (Table 110, <c>FontMatrix</c>).</remarks>
+    internal virtual Matrix GlyphSpaceMatrix => ThousandthMatrix;
+
+    /// <summary>Gets a value indicating whether the font writes vertically (writing mode 1, §9.7.4.3); only composite fonts can.</summary>
+    internal virtual bool IsVertical => false;
+
+    /// <summary>
+    /// Reads the first character code of <paramref name="text"/> (a non-empty rest of a string a text-showing operator shows) and the
+    /// metrics of its glyph: the content interpreter's font contract (issue #56). Allocation-free once the font's tables are built.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §9.4.3 and §9.2.4: one byte per code for a simple font, whose width maps from glyph space to text space; a
+    /// composite font's CMap decides the code length and its CIDFont the metrics (§9.7.4.3, §9.7.6.2).
+    /// </remarks>
+    internal virtual ShownGlyph ReadShownGlyph(ReadOnlySpan<byte> text)
+    {
+        byte code = text[0];
+        return new ShownGlyph(code, 1, GetHorizontalDisplacement(code), 0, default, code == 32);
+    }
+
+    /// <summary>Returns the glyph's horizontal displacement w0 for a one-byte code, in text space units (before the font size).</summary>
+    /// <remarks>ISO 32000-2 §9.2.4: the glyph width mapped from glyph space to text space.</remarks>
+    internal virtual double GetHorizontalDisplacement(byte code) => 0;
 
     /// <summary>Records a deviation found in this font.</summary>
     internal void Report(string code, DiagnosticSeverity severity, string message) =>

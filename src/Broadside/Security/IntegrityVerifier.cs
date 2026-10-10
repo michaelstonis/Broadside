@@ -198,7 +198,7 @@ internal static class IntegrityVerifier
             try
             {
                 var signed = new SignedCms();
-                signed.Decode(TrimTrailingZeros(container.Bytes));
+                signed.Decode(WithoutPadding(container.Bytes));
                 SignerInfo signer = signed.SignerInfos[0];
                 signatureValue = signer.GetSignature();
                 foreach (CryptographicAttributeObject attribute in signer.UnsignedAttributes)
@@ -388,16 +388,20 @@ internal static class IntegrityVerifier
             return PdfIntegrityStatus.Failed;
         }
 
-        private static byte[] TrimTrailingZeros(ReadOnlySpan<byte> container)
+        private static byte[] WithoutPadding(ReadOnlySpan<byte> container)
         {
-            // Signature containers are padded with zeros to fill their reserved space (ISO 32000-2 §12.8.3.3.1).
-            int end = container.Length;
-            while (end > 0 && container[end - 1] == 0)
+            // Signature containers are padded with zeros to fill their reserved space (ISO 32000-2 §12.8.3.3.1). The padding is
+            // whatever follows the container's outer DER element: trimming trailing zero bytes instead would also cut a container
+            // whose own last byte is zero (the token's MAC ends it, so one in 256). An unreadable length is left to the decoder.
+            try
             {
-                end--;
+                AsnDecoder.ReadEncodedValue(container, AsnEncodingRules.BER, out _, out _, out int consumed);
+                return container[..consumed].ToArray();
             }
-
-            return container[..end].ToArray();
+            catch (AsnContentException)
+            {
+                return container.ToArray();
+            }
         }
 
         private static byte[] Hash(HashAlgorithmName name, ReadOnlySpan<byte> data) => name.Name switch

@@ -3605,6 +3605,78 @@ def gen_shading_mesh_truncated() -> bytes:
 
 
 
+
+# Content streams: text, form XObjects, graphics state parameters, marked content (issue #56)
+
+def gen_form_xobject_nested() -> bytes:
+    """8.10.1 form XObjects: the page paints form A (/Matrix [2 0 0 2 100 100], /BBox [0 0 50 50], its own
+    /Resources with form B and font F1, /StructParents 3); A paints form B, which has no /Resources and so
+    uses A's (7.8.3: F1 resolves through them); then the page paints form C, whose own resources name C
+    itself: a cycle (one ContentFormCycle diagnostic, C's content runs once)."""
+    content = b"q /FA Do Q /FC Do\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /XObject << /FA 5 0 R /FC 7 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, stream(b"/Type /XObject /Subtype /Form /Matrix [2 0 0 2 100 100] /BBox [0 0 50 50] /StructParents 3"
+                   b" /Resources << /XObject << /FB 6 0 R >> /Font << /F1 8 0 R >> >>",
+                   b"0 0 10 10 re f /FB Do")),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 20 20]",
+                   b"BT /F1 12 Tf 1 2 Td (B) Tj ET 5 5 m 6 6 l S")),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 30 30] /Resources << /XObject << /FC 7 0 R >> >>",
+                   b"1 1 m 2 2 l S /FC Do")),
+        (8, HELVETICA),
+    ])
+
+
+def gen_extgstate_params() -> bytes:
+    """8.4.5 Table 57 graphics state parameter dictionaries (PDF 2.0): GS1 sets LW LC LJ ML D RI OP op OPM Font FL SA
+    BM CA ca AIS TK UseBlackPtComp and a Luminosity soft mask (11.6.5.1 Table 142) whose group G (11.6.6) is a
+    DeviceGray transparency group, with BC and TR /Identity; GS2 sets SM, HTO, BG2/UCR2 (Type 2 functions, 7.10.3),
+    TR2 /Identity, HT /Default, a deprecated blend-mode array whose first known name is Screen, and SMask /None.
+    The first rectangle is painted under GS1 with the CTM scaled by 2 (the soft mask records that CTM), the second
+    after Q under GS1 then GS2."""
+    content = b"q 2 0 0 2 0 0 cm /GS1 gs 0 0 10 10 re f Q /GS1 gs /GS2 gs 20 20 10 10 re S\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /ExtGState << /GS1 5 0 R /GS2 6 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /ExtGState /LW 3 /LC 1 /LJ 2 /ML 5 /D [[4 2] 1] /RI /Saturation /OP true /op false /OPM 1"
+            b" /Font [9 0 R 14] /FL 2 /SA true /BM /Multiply /CA 0.5 /ca 0.25 /AIS true /TK false /UseBlackPtComp /ON"
+            b" /SMask << /Type /Mask /S /Luminosity /G 7 0 R /BC [0.5] /TR /Identity >> >>"),
+        (6, b"<< /Type /ExtGState /SM 0.5 /HTO [1 2] /BG2 8 0 R /UCR2 8 0 R /TR2 /Identity /HT /Default"
+            b" /BM [/BroadsideUnknown /Screen] /SMask /None >>"),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10] /Group << /S /Transparency /CS /DeviceGray >>",
+                   b"0.5 g 0 0 10 10 re f")),
+        (8, b"<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >>"),
+        (9, HELVETICA),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (file_id("extgstate-params").hex().encode(), file_id("extgstate-params").hex().encode()))
+
+
+def gen_marked_content() -> bytes:
+    """14.6 marked content: BMC /Artifact; BDC /P with an inline <</MCID 0>>; BDC /Span naming /P1 in the page's
+    /Properties (MCID 1, Lang); MP /Pt; DP /Pt2 with an inline property list; BDC /OC naming an optional content
+    group that is OFF in the default configuration (8.11.3.2: its rectangle is hidden); BDC /Span with an inline
+    /ActualText (x). One text line in each of the /P and the last /Span sequences."""
+    content = (b"/Artifact BMC 0 0 1 1 re f EMC\n"
+               b"/P << /MCID 0 >> BDC BT /F1 12 Tf 72 700 Td (a) Tj ET EMC\n"
+               b"/Span /P1 BDC 0 0 2 2 re f EMC\n"
+               b"/Pt MP\n"
+               b"/Pt2 << /X 1 >> DP\n"
+               b"/OC /oc1 BDC 0 0 3 3 re f EMC\n"
+               b"/Span << /ActualText (x) >> BDC BT /F1 12 Tf 72 680 Td (y) Tj ET EMC\n")
+    return simple_file([
+        (1, catalog(b" /OCProperties << /OCGs [6 0 R] /D << /OFF [6 0 R] >> >>")),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << /Font << /F1 7 0 R >> /Properties << /P1 5 0 R /oc1 6 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, b"<< /MCID 1 /Lang (en) >>"),
+        (6, b"<< /Type /OCG /Name (Hidden layer) >>"),
+        (7, HELVETICA),
+    ])
 # ---------------------------------------------------------------------------
 # Images (clause 8.9): one masking mode or sample depth per file
 # ---------------------------------------------------------------------------
@@ -4175,6 +4247,88 @@ def gen_jpx_lossless() -> bytes:
                      version="1.5")
 
 
+def type3_font(scale: int, char_procs: int, resources: int, tounicode: int) -> bytes:
+    """9.6.4 Table 110 Type 3 font dictionary for gen_text_type3(): glyph space is 1000/``scale`` units per em, so the
+    FontMatrix is ``scale``/1000 and every width and coordinate is divided by ``scale``."""
+    unit = 1000 // scale
+    return (b"<< /Type /Font /Subtype /Type3 /FontBBox [0 0 %d %d] /FontMatrix [%s 0 0 %s 0 0]"
+            b" /CharProcs << /square %d 0 R /triangle %d 0 R /bitmap %d 0 R >>"
+            b" /Encoding << /Type /Encoding /Differences [97 /square /triangle /bitmap] >>"
+            b" /FirstChar 97 /LastChar 99 /Widths [%d %d %d] /Resources << /XObject << /Fm0 %d 0 R >> >>"
+            b" /ToUnicode %d 0 R >>"
+            % (750 // scale, 750 // scale, (b"0.001" if scale == 1 else b"0.01"), (b"0.001" if scale == 1 else b"0.01"),
+               char_procs, char_procs + 1, char_procs + 2, unit, unit, unit, resources, tounicode))
+
+
+def type3_glyphs(scale: int) -> list[bytes]:
+    """The square (d1), triangle (d0) and bitmap (d1) glyph descriptions of gen_text_type3(), in a glyph space of
+    1000/``scale`` units per em. Numbers are written as integers or with one decimal, exactly."""
+    def n(value: float) -> bytes:
+        value = value / scale
+        return (b"%d" % value) if value == int(value) else (b"%.1f" % value)
+    square = b"%s 0 0 0 %s %s d1 0 1 0 rg 0 0 %s %s re f /Fm0 Do" % (n(1000), n(750), n(750), n(750), n(750))
+    triangle = b"%s 0 d0 1 0 0 rg 0 0 m %s %s l %s 0 l f" % (n(1000), n(375), n(750), n(750))
+    bitmap = (b"%s 0 0 0 %s %s d1 q %s 0 0 %s 0 0 cm BI /W 8 /H 1 /IM true /F /AHx ID AA> EI"
+              b" BI /W 1 /H 1 /CS /G /BPC 8 /F /AHx ID 00> EI Q" % (n(1000), n(750), n(750), n(750), n(750)))
+    return [square, triangle, bitmap]
+
+
+def gen_text_type3() -> bytes:
+    """9.6.4 Type 3 fonts (Tables 110, 111), 8.6.8 (d1 colour restriction), 9.2.4 (FontMatrix), 7.8.3 (font Resources).
+    Two fonts with the same three glyphs: T3a in a 1000-unit glyph space (FontMatrix 0.001), T3b in a 100-unit one
+    (FontMatrix 0.01, every number divided by 10), so both render identically. Glyph a (square, d1) sets 0 1 0 rg (ignored)
+    and paints its font's own form /Fm0, whose 1 0 0 rg is ignored too (8.6.8: the restriction holds in every stream the
+    glyph invokes); glyph b (triangle, d0) paints red; glyph c (bitmap, d1) paints an 8x1 inline image mask and a 1x1
+    DeviceGray inline image (ignored in d1). The page defines a different /Fm0 (a page-sized square) that the glyphs must
+    not find. The page fills blue, shows (abc) in T3a 24 pt at (72, 700) and in T3b 24 pt at (72, 650). A ToUnicode CMap
+    maps 97-99 to U+25A0, U+25B2, U+25CF."""
+    content = b"0 0 1 rg BT /T3a 24 Tf 72 700 Td (abc) Tj ET BT /T3b 24 Tf 72 650 Td (abc) Tj ET\n"
+    tounicode = to_unicode(b"1 begincodespacerange\n<00> <FF>\nendcodespacerange\n",
+                           b"3 beginbfchar\n<61> <25A0>\n<62> <25B2>\n<63> <25CF>\nendbfchar\n")
+    a_square, a_triangle, a_bitmap = type3_glyphs(1)
+    b_square, b_triangle, b_bitmap = type3_glyphs(10)
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << /Font << /T3a 5 0 R /T3b 6 0 R >> /XObject << /Fm0 16 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, type3_font(1, 7, 10, 15)),
+        (6, type3_font(10, 11, 14, 15)),
+        (7, stream(b"", a_square)),
+        (8, stream(b"", a_triangle)),
+        (9, stream(b"", a_bitmap)),
+        (10, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 750 750]", b"1 0 0 rg 100 100 200 200 re f")),
+        (11, stream(b"", b_square)),
+        (12, stream(b"", b_triangle)),
+        (13, stream(b"", b_bitmap)),
+        (14, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 75 75]", b"1 0 0 rg 10 10 20 20 re f")),
+        (15, tounicode),
+        (16, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 612 792]", b"0 g 0 0 612 792 re f")),
+    ])
+
+
+def gen_text_type3_recursive() -> bytes:
+    """9.6.4: a Type 3 font (FontMatrix 0.001, no Resources: names resolve in the page's) whose glyph r shows text
+    without Tf, so in the inherited current font, which is the font itself: (a) runs glyph a (legal: another glyph of
+    the same font), (r) would run glyph r inside itself (refused, ContentType3GlyphRecursion). Glyph n has no d0 or d1
+    (Table 111: it shall be the first operator; ContentType3GlyphMetricsMissing, run as d0). The page shows (arn) at
+    24 pt from (72, 700)."""
+    content = b"BT /T3 24 Tf 72 700 Td (arn) Tj ET\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /Font << /T3 5 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Font /Subtype /Type3 /FontBBox [0 0 1000 1000] /FontMatrix [0.001 0 0 0.001 0 0]"
+            b" /CharProcs << /a 6 0 R /r 7 0 R /n 8 0 R >> /Encoding << /Type /Encoding /Differences [97 /a 110 /n 114 /r] >>"
+            b" /FirstChar 97 /LastChar 114 /Widths [1000 0 0 0 0 0 0 0 0 0 0 0 0 1000 0 0 0 1000] >>"),
+        (6, stream(b"", b"1000 0 0 0 1000 1000 d1 0 0 1000 1000 re f")),
+        (7, stream(b"", b"1000 0 d0 BT (ar) Tj ET")),
+        (8, stream(b"", b"0 0 500 500 re f")),
+    ])
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -4270,6 +4424,9 @@ FILES = {
     "color-operators.pdf": gen_color_operators,
     "default-colorspaces.pdf": gen_default_colorspaces,
     "separation-special.pdf": gen_separation_special,
+    "form-xobject-nested.pdf": gen_form_xobject_nested,
+    "extgstate-params.pdf": gen_extgstate_params,
+    "marked-content.pdf": gen_marked_content,
     "image-stencil-mask.pdf": gen_image_stencil_mask,
     "image-explicit-mask.pdf": gen_image_explicit_mask,
     "image-color-key-mask.pdf": gen_image_color_key_mask,
@@ -4294,8 +4451,10 @@ FILES = {
     "pattern-tiling-uncolored.pdf": gen_pattern_tiling_uncolored,
     "pattern-shading-axial.pdf": gen_pattern_shading,
     "pattern-in-form.pdf": gen_pattern_in_form,
+    "text-type3.pdf": gen_text_type3,
     "pattern-recursive.pdf": gen_pattern_recursive,
     "shading-mesh-truncated.pdf": gen_shading_mesh_truncated,
+    "text-type3-recursive.pdf": gen_text_type3_recursive,
 }
 
 

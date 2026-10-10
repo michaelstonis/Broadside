@@ -17,10 +17,9 @@ namespace Broadside.Content;
 /// Several processors share one run through <see cref="CompositeContentProcessor"/>.
 /// </para>
 /// <para>
-/// Which events are reported today: runs, operators, the state stack, paths, clips and text object boundaries (issue #55), and
-/// shadings (issue #79; a tiling pattern's cell runs on request through <see cref="ContentContext.RunPatternCell"/>). Glyphs,
-/// images, forms and marked content come with issue #56; their methods and payloads are declared now so that processors written
-/// today keep working.
+/// Every event is reported: runs, operators, the state stack, paths and clips (issue #55); glyphs, text clips, images, forms, Type 3
+/// glyph descriptions and marked content (issue #56); shadings (issue #79; a tiling pattern's cell runs on request through
+/// <see cref="ContentContext.RunPatternCell"/>). Payloads gain members over time; their existing members never change.
 /// </para>
 /// </remarks>
 public abstract class ContentProcessor
@@ -135,7 +134,12 @@ public abstract class ContentProcessor
     /// <param name="glyph">The glyph.</param>
     /// <param name="context">The run.</param>
     /// <returns><see cref="ContentVisit.Enter"/> to receive the procedure's events.</returns>
-    /// <remarks>ISO 32000-2 §9.6.4.</remarks>
+    /// <remarks>
+    /// ISO 32000-2 §9.6.4. Called after <see cref="ShowGlyph"/>, except in text rendering modes 3 and 7, which paint nothing. Entered,
+    /// the procedure's paths, images, forms and nested text arrive as ordinary events in glyph space (CTM = FontMatrix × T<sub>rm</sub>),
+    /// with <see cref="ContentContext.RunKind"/> <see cref="ContentRunKind.Type3Glyph"/>; a glyph declared with <c>d1</c> paints in the
+    /// text's colour, because its colour operators and non-mask images are ignored (§8.6.8).
+    /// </remarks>
     public virtual ContentVisit BeginType3Glyph(in GlyphEvent glyph, ContentContext context) => ContentVisit.Skip;
 
     /// <summary>Called after a Type 3 glyph's procedure ran, for a glyph whose <see cref="BeginType3Glyph"/> returned <see cref="ContentVisit.Enter"/>.</summary>

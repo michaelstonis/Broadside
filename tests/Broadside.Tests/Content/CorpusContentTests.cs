@@ -10,6 +10,19 @@ namespace Broadside.Tests.Content;
 /// </summary>
 public class CorpusContentTests
 {
+    /// <summary>
+    /// Well-formed files whose content shows something deliberately invalid that only interpretation finds: text-cid-embedded-cmap
+    /// shows the code &lt;8210&gt;, in no codespace range of its CMap (§9.7.6.3), form-xobject-nested has a form that paints
+    /// itself (§8.10.1), and text-type3 has colour operators and an image inside d1 glyphs, which are ignored (§8.6.8), as their
+    /// README rows say.
+    /// </summary>
+    private static readonly Dictionary<string, string> ExpectedContentWarnings = new()
+    {
+        ["text-cid-embedded-cmap.pdf"] = "CMapCodeInvalid",
+        ["form-xobject-nested.pdf"] = "ContentFormCycle",
+        ["text-type3.pdf"] = "ContentColorOperatorIgnored",
+    };
+
     public static TheoryData<string> FilterFiles => new()
     {
         "flate-stream.pdf",
@@ -63,6 +76,7 @@ public class CorpusContentTests
             Assert.Equal(1, processor.Count("EndRun"));
         }
 
-        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Severity > DiagnosticSeverity.Information);
+        string? expected = ExpectedContentWarnings.GetValueOrDefault(fileName);
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Severity > DiagnosticSeverity.Information && diagnostic.Code != expected);
     }
 }
