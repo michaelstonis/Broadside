@@ -330,12 +330,11 @@ internal static class XrefStreamReader
                 string? problem = DecodeEntry(row, widths, out XrefEntry entry);
                 if (problem is not null)
                 {
-                    string what = problem == DiagnosticCodes.XrefEntryOffsetInvalid ? "is in use at offset 0, where the header is" : "has a field out of range";
                     Report(
                         diagnostics,
                         problem,
                         DiagnosticSeverity.Error,
-                        string.Create(CultureInfo.InvariantCulture, $"The cross-reference stream entry for object {number} {what}; the object is read as free."),
+                        string.Create(CultureInfo.InvariantCulture, $"The cross-reference stream entry for object {number} has a field out of range; the object is read as free."),
                         offset,
                         reference);
                 }
@@ -369,9 +368,8 @@ internal static class XrefStreamReader
             case 0:
                 entry = new XrefEntry(XrefEntryKind.Free, Math.Max(field2, 0), (int)Math.Clamp(field3, 0, CosReference.MaxGeneration));
                 return null;
-            case 1 when field2 == 0:
-                return DiagnosticCodes.XrefEntryOffsetInvalid;
-            case 1 when field2 > 0 && field3 is >= 0 and <= CosReference.MaxGeneration:
+            case 1 when field2 >= 0 && field3 is >= 0 and <= CosReference.MaxGeneration:
+                // Offset 0 is the header, never an object; the entry stays in use and the loader looks for the object's header.
                 entry = new XrefEntry(XrefEntryKind.InUse, field2, (int)field3);
                 return null;
             case 2 when field2 is > 0 and <= int.MaxValue && field3 is >= 0 and <= int.MaxValue:

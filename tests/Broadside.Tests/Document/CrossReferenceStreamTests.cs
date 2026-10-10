@@ -140,6 +140,19 @@ public class CrossReferenceStreamTests
     }
 
     [Fact]
+    public void An_in_use_entry_at_offset_0_is_read_from_where_its_header_is_with_a_diagnostic()
+    {
+        var pdf = new XrefStreamPdf().AddOnePage().Add(4, "(four)");
+        byte[] file = pdf.Finish(5, "/Size 5 /Root 1 0 R /W [1 2 1]", W121, (0, 0, 255), (1, pdf.Offset(1), 0), (1, pdf.Offset(2), 0), (1, pdf.Offset(3), 0), (1, 0, 0));
+
+        using PdfDocument document = PdfDocument.Open(file);
+
+        Assert.Equal("four", Text(document, 4));
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal(("XrefEntryOffsetInvalid", DiagnosticSeverity.Warning), (diagnostic.Code, diagnostic.Severity));
+    }
+
+    [Fact]
     public void Data_shorter_than_the_entries_ends_the_section_where_the_data_ends()
     {
         var pdf = new XrefStreamPdf().AddOnePage().Add(4, "(four)");

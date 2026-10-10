@@ -155,19 +155,19 @@ qpdf: 639 files
     PageResourcesMissing: 11
     UnexpectedToken: 11
     DictionaryKeyNotName: 10
-    RootMissing: 10
     StreamLengthInvalid: 10
+    RootMissing: 9
     DestinationInvalid: 8
     FilterUnsupported: 8
     PopupLinkMismatch: 8
     CatalogTypeInvalid: 7
     ObjectStreamIndexMismatch: 7
+    PagesMissing: 7
     WidgetNotInFieldTree: 7
     XrefEntryInvalid: 7
     FieldNameMissing: 6
     FieldParentMissing: 6
     PageTreeCountMismatch: 6
-    PagesMissing: 6
     XrefEntryFormatInvalid: 6
     DecodeParmsInvalid: 5
     DictionaryUnterminated: 5
@@ -184,6 +184,7 @@ qpdf: 639 files
     EndstreamMissing: 3
     FileIdentifierInvalid: 3
     FilterDataTruncated: 3
+    LinearizationHintsInvalid: 3
     NameInvalidEscape: 3
     ObjectStreamNested: 3
     StartxrefMissing: 3

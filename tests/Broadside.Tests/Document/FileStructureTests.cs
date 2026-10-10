@@ -210,6 +210,44 @@ public class FileStructureTests
     }
 
     [Fact]
+    public void An_in_use_entry_at_offset_0_is_read_from_where_its_header_is_with_a_diagnostic()
+    {
+        // Offset 0 is the header, never an object: the entry is wrong, not free. pdf.js finds such objects by scanning; so does the
+        // misplaced-object search.
+        byte[] file = new TestPdf().Build("<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [] /Count 0 >>", "(three)");
+        string text = Encoding.Latin1.GetString(file);
+        int third = text.IndexOf("3 0 obj", StringComparison.Ordinal);
+        text = text.Replace($"{third:D10} 00000 n", "0000000000 00000 n", StringComparison.Ordinal);
+
+        using PdfDocument document = PdfDocument.Open(Encoding.Latin1.GetBytes(text));
+
+        Assert.Equal(new CosString("three"u8), document.Resolve(new CosReference(3, 0)));
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal("XrefEntryOffsetInvalid", diagnostic.Code);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal(new CosReference(3, 0), diagnostic.ObjectReference);
+    }
+
+    [Fact]
+    public void An_in_use_entry_at_offset_0_in_an_update_reads_the_newest_copy_of_the_object()
+    {
+        // The update rewrites object 3 but its table gives offset 0: the object is still in use, and its newest header is the copy.
+        byte[] original = new TestPdf().Build("<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [] /Count 0 >>", "(old)");
+        string text = Encoding.Latin1.GetString(original);
+        int previous = text.LastIndexOf("startxref", StringComparison.Ordinal);
+        string previousOffset = text[(previous + "startxref".Length)..].Trim().Split('\n')[0].Trim();
+        int xref = text.Length + "3 0 obj\n(new)\nendobj\n".Length;
+        text += "3 0 obj\n(new)\nendobj\n"
+            + "xref\n3 1\n0000000000 00000 n \n"
+            + $"trailer\n<< /Size 4 /Root 1 0 R /Prev {previousOffset} >>\nstartxref\n{xref}\n%%EOF\n";
+
+        using PdfDocument document = PdfDocument.Open(Encoding.Latin1.GetBytes(text));
+
+        Assert.Equal(new CosString("new"u8), document.Resolve(new CosReference(3, 0)));
+        Assert.Equal(["XrefEntryOffsetInvalid"], document.Diagnostics.Select(static diagnostic => diagnostic.Code));
+    }
+
+    [Fact]
     public void An_entry_for_an_object_the_file_does_not_hold_reads_as_null_with_an_error()
     {
         byte[] file = new TestPdf().Build("<< /Type /Catalog /Pages 2 0 R >>", "<< /Type /Pages /Kids [] /Count 0 >>", "(three)");

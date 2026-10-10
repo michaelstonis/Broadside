@@ -182,7 +182,9 @@ internal sealed class ObjectLoader
         }
 
         var context = new ObjectLoadContext(reference, Header.Offset + entry.Offset, ObjectOrigin.FileBody, depth);
-        CosObject loaded = ParseIndirectObject(context);
+
+        // Offset 0 is the header, never an object (an object right after it would otherwise parse from there, past the comment).
+        CosObject loaded = entry.Offset == 0 ? LoadMisplaced(context) : ParseIndirectObject(context);
         if (Logger is { } logger)
         {
             ObjectLog.ObjectParsed(logger, reference.ObjectNumber, reference.Generation, context.Offset, objectStream: null);
@@ -313,14 +315,16 @@ internal sealed class ObjectLoader
 
     /// <summary>
     /// Handles an entry whose offset does not hold the expected <c>N G obj</c> header: looks for the header near the stated offset,
-    /// then anywhere in the file (the newest copy), and parses the object where it is found (issue #41).
+    /// then anywhere in the file (the newest copy), and parses the object where it is found (issue #41). An entry at offset 0 (the
+    /// header) says nothing about where the object is: only the newest copy in the file is looked for.
     /// </summary>
     private CosObject LoadMisplaced(in ObjectLoadContext context)
     {
         CosReference reference = context.Reference;
         long nearStart = context.Offset - NearSearchDistance;
-        bool found = FileScan.Run(_source, nearStart, context.Offset + NearSearchDistance)
-            .TryFindObject(reference.ObjectNumber, reference.Generation, context.Offset, out long offset)
+        bool atHeader = context.Offset == Header.Offset;
+        bool found = (!atHeader && FileScan.Run(_source, nearStart, context.Offset + NearSearchDistance)
+                .TryFindObject(reference.ObjectNumber, reference.Generation, context.Offset, out long offset))
             || Scan.Value.TryFindObject(reference.ObjectNumber, reference.Generation, near: null, out offset);
         if (!found || offset == context.Offset)
         {

@@ -142,17 +142,9 @@ internal static class XrefTableReader
                         subsectionStart);
                 }
 
+                // An in-use entry at offset 0 (the header) stays in use: the object loader looks for its header in the file when it
+                // is loaded (issue #41), rather than hiding it and every older revision's copy behind a free entry.
                 long number = first + index;
-                if (entry.Kind == XrefEntryKind.InUse && entry.Offset == 0)
-                {
-                    diagnostics.Report(
-                        DiagnosticCodes.XrefEntryOffsetInvalid,
-                        DiagnosticSeverity.Error,
-                        "An in-use entry has offset 0, where the header is; the object is read as free.",
-                        entryStart);
-                    entry = XrefEntry.Free;
-                }
-
                 // §7.5.4: object number 0 is always free and is the head of the free list; it never names an object.
                 if (number != 0)
                 {
