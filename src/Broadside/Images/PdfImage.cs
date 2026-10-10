@@ -824,12 +824,87 @@ public sealed class PdfImage
         if (layout.Components > 0 && decoded.Components != layout.Components)
         {
             Report(DiagnosticCodes.ImageComponentMismatch, FormattableString.Invariant(
-                $"The {filter.Name.Value} data has {decoded.Components} components where the colour space has {layout.Components}; the image cannot be painted."));
-            decoded.Dispose();
-            return null;
+                $"The {filter.Name.Value} data has {decoded.Components} components where the colour space has {layout.Components}; {(decoded.Components > layout.Components ? "the first ones are used" : "the missing ones are 0")}."));
+            using (decoded)
+            {
+                return WithComponents(decoded, layout.Components, context);
+            }
         }
 
         return decoded;
+    }
+
+    /// <summary>
+    /// Copies <paramref name="decoded"/> with <paramref name="components"/> components per sample: the first ones it has, 0 for those
+    /// it lacks (the rule JPXDecode applies to its channels, ISO 32000-2 §7.4.9); depth, rows decoded, polarity and alpha are kept.
+    /// </summary>
+    /// <returns>The copy, or <see langword="null"/> when it is over the image limits (reported by <see cref="ImageFilterContext.TryCreateImage"/>).</returns>
+    /// <remarks>ISO 32000-2 §8.9.5.1, Table 87: the colour space decides the number of components; ADR 0005: repaired, not dropped.</remarks>
+    private static DecodedImage? WithComponents(DecodedImage decoded, int components, ImageFilterContext context)
+    {
+        DecodedImageBuilder? builder = null;
+        try
+        {
+            if (!context.TryCreateImage(decoded.Width, decoded.Height, components, decoded.BitsPerComponent, out builder))
+            {
+                return null;
+            }
+
+            int kept = Math.Min(components, decoded.Components);
+            int bits = decoded.StorageBits;
+            ushort[] row = new ushort[decoded.Width * decoded.Components];
+            for (int y = 0; y < decoded.Height; y++)
+            {
+                ImageRows.Unpack(decoded.GetRow(y), bits, row.Length, row);
+                Span<byte> target = builder.GetRow(y);
+                for (int x = 0; x < decoded.Width; x++)
+                {
+                    for (int c = 0; c < kept; c++)
+                    {
+                        WriteSample(target, ((x * components) + c) * bits, bits, row[(x * decoded.Components) + c]);
+                    }
+                }
+            }
+
+            builder.DecodedRows = decoded.DecodedRows;
+            builder.SamplesInverted = decoded.SamplesInverted;
+            builder.Palette = decoded.Palette;
+            builder.AdobeTransform = decoded.AdobeTransform;
+            builder.ColorTransformApplied = decoded.ColorTransformApplied;
+            if (decoded.Alpha is { } alpha && builder.TryCreateAlpha(alpha.BitsPerComponent, decoded.AlphaPremultiplied, out DecodedImageBuilder? copy))
+            {
+                alpha.Samples.CopyTo(copy.Samples);
+                copy.DecodedRows = alpha.DecodedRows;
+            }
+
+            DecodedImage image = builder.Build();
+            builder = null;
+            return image;
+        }
+        finally
+        {
+            builder?.Dispose();
+        }
+    }
+
+    /// <summary>Writes one sample of <paramref name="bits"/> bits (1, 2, 4, 8 or 16; 16 big-endian) at bit <paramref name="bitPosition"/> of a §8.9.3 row.</summary>
+    private static void WriteSample(Span<byte> row, int bitPosition, int bits, int value)
+    {
+        switch (bits)
+        {
+            case 16:
+                row[bitPosition >> 3] = (byte)(value >> 8);
+                row[(bitPosition >> 3) + 1] = (byte)value;
+                break;
+            case 8:
+                row[bitPosition >> 3] = (byte)value;
+                break;
+            default:
+                int shift = 8 - bits - (bitPosition & 7);
+                int mask = ((1 << bits) - 1) << shift;
+                row[bitPosition >> 3] = (byte)((row[bitPosition >> 3] & ~mask) | ((value << shift) & mask));
+                break;
+        }
     }
 
     private CosName? LastFilter()
