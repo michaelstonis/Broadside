@@ -1,7 +1,7 @@
-using Broadside.Images;
 using System.Buffers;
 using System.Globalization;
 using Broadside.Diagnostics;
+using Broadside.Images;
 using Broadside.Objects;
 using Broadside.Parsing;
 

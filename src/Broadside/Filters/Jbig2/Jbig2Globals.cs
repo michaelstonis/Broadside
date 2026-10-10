@@ -1,6 +1,6 @@
-using Broadside.Filters.Codecs;
 using System.Runtime.CompilerServices;
 using Broadside.Diagnostics;
+using Broadside.Filters.Codecs;
 using Broadside.Objects;
 
 namespace Broadside.Filters.Jbig2;

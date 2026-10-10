@@ -1,6 +1,6 @@
-using Broadside.Filters.Codecs;
 using System.Buffers.Binary;
 using Broadside.Diagnostics;
+using Broadside.Filters.Codecs;
 using Broadside.Parsing;
 
 namespace Broadside.Filters.Jpx;

@@ -1,7 +1,7 @@
-using Broadside.Filters.Codecs;
 using System.Buffers;
 using System.Runtime.InteropServices;
 using Broadside.Diagnostics;
+using Broadside.Filters.Codecs;
 using Broadside.Parsing;
 
 namespace Broadside.Filters.Jpx;

@@ -1,6 +1,6 @@
-using Broadside.Filters.Codecs;
 using System.Buffers;
 using Broadside.Diagnostics;
+using Broadside.Filters.Codecs;
 using Broadside.Images;
 using Broadside.Parsing;
 
