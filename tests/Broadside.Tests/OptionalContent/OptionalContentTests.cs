@@ -4,7 +4,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.OptionalContent;
 
 /// <summary>Optional content groups, membership dictionaries, configurations and visibility. ISO 32000-2 §8.11.</summary>
-public class OptionalContentTests
+public sealed class OptionalContentTests
 {
     private static PdfDocument OpenCorpus() => PdfDocument.Open(Corpus.Path("optional-content.pdf"));
 

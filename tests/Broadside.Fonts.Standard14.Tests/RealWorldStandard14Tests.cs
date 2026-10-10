@@ -11,7 +11,7 @@ namespace Broadside.Fonts.Standard14.Tests;
 /// ISO 32000-2 §9.6.2.2, §9.8.
 /// </summary>
 [Trait("Category", "Corpus")]
-public class RealWorldStandard14Tests(ITestOutputHelper output)
+public sealed class RealWorldStandard14Tests(ITestOutputHelper output)
 {
     public static TheoryData<string> CorpusIds => new(["pdfjs", "pdfbox", "qpdf", "pdfium-tests", "pdf20examples"]);
 

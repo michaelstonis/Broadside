@@ -9,7 +9,7 @@ namespace Broadside.Tests.Fonts;
 /// entries and Table 121 flags, Standard 14 name matching, and the diagnostics of malformed dictionaries. ISO 32000-2 §9.5
 /// Table 108, §9.6.1, §9.6.2, §9.8.
 /// </summary>
-public class FontModelTests
+public sealed class FontModelTests
 {
     private const string Descriptor =
         "<< /Type /FontDescriptor /FontName /Plain /Flags 32 /FontBBox [ 0 -200 1000 800 ] /ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 >>";

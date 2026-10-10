@@ -10,7 +10,7 @@ namespace Broadside.Tests.Graphics;
 /// What every function shares (ISO 32000-2 §7.10.1, Table 38) and how <see cref="PdfFunction"/> behaves as a live view
 /// (ADR 0004): one view per object, recompiled after a change, batch evaluation, and the forms consumers accept.
 /// </summary>
-public class FunctionViewTests
+public sealed class FunctionViewTests
 {
     [Fact]
     public void The_same_object_gives_the_same_view()

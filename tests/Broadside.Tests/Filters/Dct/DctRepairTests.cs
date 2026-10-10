@@ -7,7 +7,7 @@ namespace Broadside.Tests.Filters.Dct;
 /// Damaged and unusual DCT data through the filter contract: lenient mode decodes what it can and reports each deviation once
 /// (ADR 0005), strict mode throws at the first; unsupported processes decode nothing.
 /// </summary>
-public class DctRepairTests
+public sealed class DctRepairTests
 {
     [Fact]
     public void A_frame_with_zero_lines_takes_its_height_from_the_DNL_segment()

@@ -11,7 +11,7 @@ namespace Broadside.Tests.Colors;
 /// (<c>pdftoppm -r 72</c>, rectangle centres) where both apply the same model, and otherwise the managed default's documented
 /// values: poppler converts CMYK with its own formula and uses the ICC profiles, which Phase 3 brings.
 /// </summary>
-public class CorpusColorTests
+public sealed class CorpusColorTests
 {
     [Fact]
     public void Every_family_of_colorspace_families_pdf_is_typed_and_painted()

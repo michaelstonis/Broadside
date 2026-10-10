@@ -7,7 +7,7 @@ namespace Broadside.Tests.Files;
 /// Reading optional content, embedded files, collections, associated files and object metadata of every well-formed corpus file
 /// records no diagnostic and changes no object (ADR 0004, ADR 0005; ISO 32000-2 §7.11, §8.11, §12.3.5, §14.3.2, §14.13).
 /// </summary>
-public class FilesAndLayersCorpusTests
+public sealed class FilesAndLayersCorpusTests
 {
     [Theory]
     [MemberData(nameof(Corpus.WellFormedFiles), MemberType = typeof(Corpus))]

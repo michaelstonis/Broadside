@@ -12,7 +12,7 @@ namespace Broadside.Tests.Images;
 /// decoded buffer keeps the §8.9.3 layout's invariants. Skips when the corpora are not fetched. ISO 32000-2 §8.9.
 /// </summary>
 [Trait("Category", "Corpus")]
-public class RealWorldImageTests(ITestOutputHelper output)
+public sealed class RealWorldImageTests(ITestOutputHelper output)
 {
     public static TheoryData<string> CorpusIds => new(RealWorldCorpusTests.CorpusIds);
 

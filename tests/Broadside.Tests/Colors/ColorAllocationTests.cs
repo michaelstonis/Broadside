@@ -13,7 +13,7 @@ namespace Broadside.Tests.Colors;
 /// collection, like the other allocation tests.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class ColorAllocationTests
+public sealed class ColorAllocationTests
 {
     private const int WarmUp = 50;
 

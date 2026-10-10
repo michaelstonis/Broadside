@@ -7,7 +7,7 @@ namespace Broadside.Tests.Fonts;
 /// Type 0 fonts over CIDFontType2 descendants in the composite corpus files, through the public document API. Expected values are
 /// the ones <c>tests/Corpus/generate.py</c> writes and the corpus README lists. ISO 32000-2 §9.7.4, §9.7.5, §9.7.6.
 /// </summary>
-public class CompositeFontCorpusTests
+public sealed class CompositeFontCorpusTests
 {
     [Fact]
     public void Identity_H_with_an_identity_glyph_map_selects_glyphs_by_CID_and_widths_from_W_and_DW()

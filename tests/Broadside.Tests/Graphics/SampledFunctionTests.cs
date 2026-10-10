@@ -6,7 +6,7 @@ using static Broadside.Tests.Graphics.FunctionTesting;
 namespace Broadside.Tests.Graphics;
 
 /// <summary>Type 0 (sampled) functions, ISO 32000-2 §7.10.2, Table 39.</summary>
-public class SampledFunctionTests
+public sealed class SampledFunctionTests
 {
     private static readonly int[] AllBitsPerSample = [1, 2, 4, 8, 12, 16, 24, 32];
 

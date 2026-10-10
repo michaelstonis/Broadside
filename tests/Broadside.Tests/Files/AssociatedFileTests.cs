@@ -6,7 +6,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Files;
 
 /// <summary>Associated files at every location ISO 32000-2 §14.13 and PDF 2.0 Application Note 002 list.</summary>
-public class AssociatedFileTests
+public sealed class AssociatedFileTests
 {
     [Fact]
     public void Enumeration_finds_each_associated_file_with_its_location()

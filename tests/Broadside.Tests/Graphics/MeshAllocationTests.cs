@@ -15,7 +15,7 @@ namespace Broadside.Tests.Graphics;
 /// show at once. Evaluating a shading's function allocates nothing.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class MeshAllocationTests
+public sealed class MeshAllocationTests
 {
     private const int Vertices = 10_000;
     private const int Patches = 1_000;

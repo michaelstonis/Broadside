@@ -6,7 +6,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Annotations;
 
 /// <summary>Appearance streams (ISO 32000-2 §12.5.5, Table 170) and Algorithm "Appearance streams".</summary>
-public class AppearanceTests
+public sealed class AppearanceTests
 {
     public static TheoryData<double[], double[], double[], double[]?> AlgorithmVectors => new()
     {

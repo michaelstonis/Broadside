@@ -9,7 +9,7 @@ namespace Broadside.Tests.Fonts;
 /// the coordinates <c>minimal_cff()</c> in <c>tests/Corpus/generate.py</c> documents (cross-checked with fontTools).
 /// ISO 32000-2 §9.6.5.2, §9.9.
 /// </summary>
-public class CffCorpusTests
+public sealed class CffCorpusTests
 {
     private const string H = "M 100,0 L 100,700 L 300,700 L 300,400 L 500,400 L 500,700 L 700,700 L 700,0 L 500,0 L 500,300 L 300,300 L 300,0 Z";
     private const string I = "M 100,0 L 100,700 L 300,700 L 300,0 Z M 50,0 L 350,0 L 350,50 L 50,50 Z";

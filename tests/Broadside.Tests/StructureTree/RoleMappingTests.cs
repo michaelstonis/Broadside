@@ -7,7 +7,7 @@ namespace Broadside.Tests.StructureTree;
 /// Resolving structure types to standard types through role maps and namespaces. ISO 32000-2 §14.7.3, §14.7.4, §14.8.4, §14.8.6,
 /// Annex M; ISO/TS 32005 §5.
 /// </summary>
-public class RoleMappingTests
+public sealed class RoleMappingTests
 {
     private const string Pdf20 = "<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>";
 

@@ -11,7 +11,7 @@ namespace Broadside.Tests.Images;
 /// JP2 one (ISO 32000-2 §7.4.9 and Table 87; ITU-T T.800 I.5.3). Inputs are lossless OpenJPEG vectors wrapped in JP2 boxes built
 /// for each case, so the expected samples follow from the vector's source and the boxes' definitions.
 /// </summary>
-public class JpxImageTests
+public sealed class JpxImageTests
 {
     private static readonly int[][] Ramp = [.. Enumerable.Range(0, 256).Select(i => new[] { i, 255 - i, (i * 7) & 255 })];
 

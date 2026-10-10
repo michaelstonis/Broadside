@@ -8,7 +8,7 @@ namespace Broadside.Tests.Fonts;
 /// ISO 32000-2 §9.10: every text corpus file maps to the text it was written with (the strings and names in generate.py, and
 /// what poppler's pdftotext prints where it agrees), read through <see cref="Content.GlyphEvent.Unicode"/>.
 /// </summary>
-public class UnicodeCorpusTests
+public sealed class UnicodeCorpusTests
 {
     private const string Replacement = "�";
 

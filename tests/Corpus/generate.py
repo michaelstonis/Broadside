@@ -2380,16 +2380,17 @@ def gen_annotations_appearance() -> bytes:
     """12.5.5 Algorithm "Appearance streams" and Table 170. Square 10: N stream with BBox [0 0 100 50] and
     Matrix [0 1 -1 0 0 0] on Rect [100 100 150 200] (AA = [0 1 -1 0 150 100]). Circle 11: Rect written
     unnormalized as [50 30 10 10] (7.9.5) with N BBox [0 0 20 20] (AA = [2 0 0 1 10 10]). Square 12: N is a
-    state subdictionary (On, Off), D has only On, R is absent, AS /On."""
+    state subdictionary (On, Off), D has only On, R is absent, AS /On. Every appearance stream has its own
+    (empty) Resources, as 7.8.3 requires."""
     objects: list[tuple[int, bytes]] = [
         (1, catalog()),
         (2, pages()),
         (3, page(extra=b" /Annots [10 0 R 11 0 R 12 0 R]")),
-        (4, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 100 50] /Matrix [0 1 -1 0 0 0]", b"1 0 0 rg 0 0 100 50 re f")),
-        (5, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 20 20]", b"0 0 1 rg 0 0 20 20 re f")),
-        (6, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"0 1 0 rg 0 0 10 10 re f")),
-        (7, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"0.5 g 0 0 10 10 re f")),
-        (8, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10]", b"0 g 0 0 10 10 re f")),
+        (4, stream(b"/Type /XObject /Subtype /Form /Resources << >> /BBox [0 0 100 50] /Matrix [0 1 -1 0 0 0]", b"1 0 0 rg 0 0 100 50 re f")),
+        (5, stream(b"/Type /XObject /Subtype /Form /Resources << >> /BBox [0 0 20 20]", b"0 0 1 rg 0 0 20 20 re f")),
+        (6, stream(b"/Type /XObject /Subtype /Form /Resources << >> /BBox [0 0 10 10]", b"0 1 0 rg 0 0 10 10 re f")),
+        (7, stream(b"/Type /XObject /Subtype /Form /Resources << >> /BBox [0 0 10 10]", b"0.5 g 0 0 10 10 re f")),
+        (8, stream(b"/Type /XObject /Subtype /Form /Resources << >> /BBox [0 0 10 10]", b"0 g 0 0 10 10 re f")),
         (10, b"<< /Type /Annot /Subtype /Square /Rect [100 100 150 200] /AP << /N 4 0 R >> >>"),
         (11, b"<< /Type /Annot /Subtype /Circle /Rect [50 30 10 10] /AP << /N 5 0 R >> >>"),
         (12, b"<< /Type /Annot /Subtype /Square /Rect [300 300 340 340] /AS /On"

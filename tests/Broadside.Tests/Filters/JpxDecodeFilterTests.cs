@@ -9,7 +9,7 @@ namespace Broadside.Tests.Filters;
 /// The JPXDecode filter through its public contract (<see cref="IStreamFilter"/> and the image facet <see cref="IImageFilter"/>):
 /// ISO 32000-2 §7.4.9 and ITU-T T.800 | ISO/IEC 15444-1.
 /// </summary>
-public class JpxDecodeFilterTests
+public sealed class JpxDecodeFilterTests
 {
     public static TheoryData<string> LosslessVectors => new(JpxSamples.Vectors.Where(v => v.IsLossless).Select(v => v.Name));
 

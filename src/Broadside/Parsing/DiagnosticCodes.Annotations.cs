@@ -31,6 +31,7 @@ internal static partial class DiagnosticCodes
     public const string AppearanceEntryInvalid = nameof(AppearanceEntryInvalid);
     public const string AppearanceBBoxMissing = nameof(AppearanceBBoxMissing);
     public const string AppearanceNotForm = nameof(AppearanceNotForm);
+    public const string AppearanceResourcesMissing = nameof(AppearanceResourcesMissing);
 
     // Relations between annotations (§12.5.6.2, §12.5.6.3, §12.5.6.14, §12.5.6.21).
     public const string PopupLinkMismatch = nameof(PopupLinkMismatch);

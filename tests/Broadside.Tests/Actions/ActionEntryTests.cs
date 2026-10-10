@@ -5,7 +5,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Actions;
 
 /// <summary>The entries of each action type (ISO 32000-2 §12.6.4.2 to §12.6.4.18, §12.7.6.2 to §12.7.6.4), read from <c>actions-all.pdf</c>.</summary>
-public class ActionEntryTests
+public sealed class ActionEntryTests
 {
     [Fact]
     public void Go_to_actions_read_their_local_remote_and_embedded_destinations()

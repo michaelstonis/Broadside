@@ -11,7 +11,7 @@ namespace Broadside.Tests.Filters;
 /// JBIG2Decode on streams that break ISO 32000-2 §7.4.7 or ITU-T T.88 the ways real producers do: lenient mode decodes what it can
 /// and records each deviation once; strict mode throws on the first; features not decoded (extended templates, colour) decline the image with Information.
 /// </summary>
-public class Jbig2RepairTests
+public sealed class Jbig2RepairTests
 {
     private static readonly bool[][] Bitmap = CcittEncoder.SampleBitmap(40, 16);
 

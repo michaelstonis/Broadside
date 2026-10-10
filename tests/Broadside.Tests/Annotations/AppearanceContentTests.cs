@@ -1,5 +1,6 @@
 using Broadside.Annotations;
 using Broadside.Content;
+using Broadside.Diagnostics;
 using Broadside.Graphics;
 using Broadside.Objects;
 using Broadside.Tests.Content;
@@ -9,7 +10,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Annotations;
 
 /// <summary>Interpreting an annotation's appearance stream on its rectangle (ISO 32000-2 §12.5.5, Algorithm "Appearance streams").</summary>
-public class AppearanceContentTests
+public sealed class AppearanceContentTests
 {
     [Fact]
     public void An_appearance_runs_with_the_appearance_matrix_clipped_to_its_bounding_box()
@@ -78,5 +79,31 @@ public class AppearanceContentTests
         Assert.Equal(1, recorder.Counts.GetValueOrDefault("PaintPath"));
         Assert.Equal(0, recorder.Counts.GetValueOrDefault("BeginForm"));
         Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "ContentFormCycle");
+    }
+
+    [Fact]
+    public void An_appearance_without_resources_uses_the_pages_and_is_reported()
+    {
+        const string content = "BT /F1 10 Tf (a) Tj ET";
+        byte[] file = new TestPdf().Build(
+        [
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 6 0 R >> >> /Annots [4 0 R] >>",
+            "<< /Type /Annot /Subtype /FreeText /Rect [0 0 10 10] /DA (/F1 10 Tf) /AP << /N 5 0 R >> >>",
+            $"<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /Length {content.Length} >>\nstream\n{content}\nendstream",
+            ContentPdf.Helvetica,
+        ]);
+        using PdfDocument document = PdfDocument.Open(file);
+        PdfAnnotation annotation = document.Pages[0].Annotations[0];
+        var recorder = new GlyphRecorder();
+
+        Assert.True(annotation.ProcessAppearance(annotation.GetAppearance()!, recorder));
+
+        Assert.Equal("Helvetica", Assert.Single(recorder.Glyphs).Font?.BaseFont);
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal("AppearanceResourcesMissing", diagnostic.Code);
+        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
+        Assert.Equal(new CosReference(5, 0), diagnostic.ObjectReference);
     }
 }

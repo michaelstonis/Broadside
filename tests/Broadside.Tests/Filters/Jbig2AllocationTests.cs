@@ -11,7 +11,7 @@ namespace Broadside.Tests.Filters;
 /// bench/Broadside.Benchmarks is the measuring half.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class Jbig2AllocationTests
+public sealed class Jbig2AllocationTests
 {
     [Theory]
     [InlineData(false)]

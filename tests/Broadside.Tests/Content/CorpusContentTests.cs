@@ -8,7 +8,7 @@ namespace Broadside.Tests.Content;
 /// A counting processor run over the corpus pages through the public seam (<see cref="PdfPage.ProcessContent(ContentProcessor)"/>)
 /// sees the events each file's content stream describes. ISO 32000-2 §7.8.2, §8.2.
 /// </summary>
-public class CorpusContentTests
+public sealed class CorpusContentTests
 {
     /// <summary>
     /// Well-formed files whose content shows something deliberately invalid that only interpretation finds: text-cid-embedded-cmap

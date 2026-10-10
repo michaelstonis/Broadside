@@ -11,7 +11,7 @@ namespace Broadside.Tests.Fonts;
 /// entries. ISO 32000-2 §9.6.2.1 Table 109, §9.8.1 Table 120, §9.2.4.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class WidthTests
+public sealed class WidthTests
 {
     private const string Descriptor =
         "<< /Type /FontDescriptor /FontName /Plain /Flags 32 /FontBBox [ 0 -200 1000 800 ] /ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 80 /MissingWidth 99 >>";

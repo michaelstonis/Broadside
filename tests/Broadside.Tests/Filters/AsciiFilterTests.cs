@@ -6,7 +6,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Filters;
 
 /// <summary>ASCIIHexDecode and ASCII85Decode through the filter contract. ISO 32000-2 §7.4.2 and §7.4.3.</summary>
-public class AsciiFilterTests
+public sealed class AsciiFilterTests
 {
     [Theory]
     [InlineData("48656C6C6F>", "Hello")]

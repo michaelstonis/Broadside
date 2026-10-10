@@ -9,7 +9,7 @@ namespace Broadside.Fonts.Cmaps.Tests;
 /// The predefined CMaps package through the document API: one options call gives every Type 0 font that names a Table 116 CMap
 /// that CMap's mappings, read by the core's CMap parser. ISO 32000-2 §9.7.5.2 (Table 116), §9.7.6.2-§9.7.6.3; Adobe TN 5014, 5099.
 /// </summary>
-public class PredefinedCMapPackageTests
+public sealed class PredefinedCMapPackageTests
 {
     /// <summary>ISO 32000-2:2020 Table 116, in table order.</summary>
     private static readonly string[] Table116 =

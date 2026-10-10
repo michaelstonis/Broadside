@@ -13,7 +13,7 @@ namespace Broadside.Tests.Graphics;
 /// show up in this thread's count.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class FunctionAllocationTests
+public sealed class FunctionAllocationTests
 {
     private const int Evaluations = 10_000;
 

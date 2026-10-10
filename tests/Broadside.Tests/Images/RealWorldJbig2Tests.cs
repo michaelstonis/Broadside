@@ -20,7 +20,7 @@ namespace Broadside.Tests.Images;
 /// <c>make_jbig2_corpus_references.py</c> recomputes both for every listed image.
 /// </remarks>
 [Trait("Category", "Corpus")]
-public class RealWorldJbig2Tests
+public sealed class RealWorldJbig2Tests
 {
     /// <summary>The results list: file, object, size, SHA-256 of the PDF samples, verdict, JBIG2 codes, reference or reason.</summary>
     public static readonly string ResultsPath = Path.GetFullPath(Path.Combine(Corpus.Directory, "..", "Broadside.Tests", "Images", "Jbig2CorpusResults.txt"));

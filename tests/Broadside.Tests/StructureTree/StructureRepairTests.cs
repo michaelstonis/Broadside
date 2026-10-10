@@ -9,7 +9,7 @@ namespace Broadside.Tests.StructureTree;
 /// Damaged structure trees: each repair is made in the view, recorded once as a diagnostic in lenient mode, and thrown in strict mode.
 /// ISO 32000-2 §14.7.2-§14.7.6 and ADR 0005.
 /// </summary>
-public class StructureRepairTests
+public sealed class StructureRepairTests
 {
     /// <summary>Each case: the diagnostic code it must produce (and nothing else), the root entries, and the objects from 5 on.</summary>
     public static TheoryData<string, string, string[]> Damaged => new()

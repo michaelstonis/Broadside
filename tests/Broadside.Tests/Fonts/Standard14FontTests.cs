@@ -7,7 +7,7 @@ namespace Broadside.Tests.Fonts;
 /// Non-embedded Standard 14 fonts: glyph names from the encoding, widths from the AFM metrics. ISO 32000-2 §9.6.2.1 (Table 109
 /// and the paragraph after it), §9.6.2.2, §9.6.5.
 /// </summary>
-public class Standard14FontTests
+public sealed class Standard14FontTests
 {
     [Fact]
     public void Text_standard14_pdf_gives_each_code_its_glyph_name_and_its_Helvetica_width()

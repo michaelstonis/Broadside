@@ -13,7 +13,7 @@ namespace Broadside.Tests.Fonts;
 /// space (FontMatrix × T<sub>rm</sub>), with the font's own resources; <c>d1</c> glyphs take their colour from the text's graphics
 /// state (§8.6.8), <c>d0</c> glyphs set their own.
 /// </summary>
-public class Type3FontTests
+public sealed class Type3FontTests
 {
     private const int Precision = 6;
 

@@ -5,7 +5,7 @@ using Broadside.Tests.Document;
 namespace Broadside.Tests.Files;
 
 /// <summary>File specifications in string and dictionary form, embedded file streams and related files. ISO 32000-2 §7.11.</summary>
-public class FileSpecificationTests
+public sealed class FileSpecificationTests
 {
     private static PdfDocument OpenWith(params string[] extraObjects) => OpenWith(new PdfOptions(), extraObjects);
 

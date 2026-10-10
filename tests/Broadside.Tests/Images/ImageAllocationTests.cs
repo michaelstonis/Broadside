@@ -14,7 +14,7 @@ namespace Broadside.Tests.Images;
 /// because no public seam exposes reading alone.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class ImageAllocationTests
+public sealed class ImageAllocationTests
 {
     private const int Width = 1021;
     private const int Rows = 200;

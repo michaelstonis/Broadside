@@ -4,7 +4,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Annotations;
 
 /// <summary>Link annotations (ISO 32000-2 §12.5.6.5, Table 176) and the common entries they share (§12.5.2, Table 166).</summary>
-public class LinkAnnotationTests
+public sealed class LinkAnnotationTests
 {
     [Fact]
     public void Annotations_link_pdf_yields_one_link_whose_action_is_a_uri_action()

@@ -10,7 +10,7 @@ namespace Broadside.Tests.Graphics;
 /// collection because it saturates the machine.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class FunctionConcurrencyTests
+public sealed class FunctionConcurrencyTests
 {
     [Fact]
     public void Concurrent_evaluations_agree_with_a_single_threaded_one()

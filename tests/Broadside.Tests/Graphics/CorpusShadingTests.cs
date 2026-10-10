@@ -8,7 +8,7 @@ namespace Broadside.Tests.Graphics;
 /// The seven shading corpus files (tests/Corpus/README.md), one per type, each painted with <c>sh</c> inside a clip: the event
 /// reports the resolved model, and the model holds what the generator wrote (ISO 32000-2 §8.7.4.5).
 /// </summary>
-public class CorpusShadingTests
+public sealed class CorpusShadingTests
 {
     [Fact]
     public void Sh_in_shading_type1_function_pdf_reports_a_function_based_shading_evaluated_by_its_sampled_function()

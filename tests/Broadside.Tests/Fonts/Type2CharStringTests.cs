@@ -12,7 +12,7 @@ namespace Broadside.Tests.Fonts;
 /// compared with the absolute points the operator definitions of Adobe Technical Note #5177 give (worked by hand in each case).
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class Type2CharStringTests
+public sealed class Type2CharStringTests
 {
     public static TheoryData<string, object[], string> PathOperators => new()
     {

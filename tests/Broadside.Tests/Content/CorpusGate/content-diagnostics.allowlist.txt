@@ -44,9 +44,36 @@ pdfium-tests/fx/FRC_8.2.4_part1/FRC_6_8.2.4_Schema_8.6__remove_obj.pdf	Type0Iden
 pdfium-tests/fx/FRC_8.2.4_part1/FRC_7_8.2.4_View_H.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
 pdfium-tests/fx/FRC_8.2.4_part1/FRC_8_8.2.4_View_D.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
 pdfium-tests/fx/FRC_8.2.4_part1/FRC_9_8.2.4_View_T.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfium-tests/fx/FRC_8.4_part1/FRC_8.4.1_Annotations_AP_N_.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/FRC_8.4_part1/FRC_8.4.1_Annotations_C.pdf	AppearanceResourcesMissing	3	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/FRC_8.4_part1/FRC_8.4.1_Annotations_Rect.pdf	AppearanceResourcesMissing	5	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/FRC_8.5_part1/FRC_8.5_Link_URL.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/FRC_8.5_part1/FRC_8.5_Page_C_SubmitForm.pdf	AppearanceResourcesMissing	9	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/FRC_8.5_part1/FRC_8.5_Page_PI_ResetForm_Phantom.pdf	AppearanceResourcesMissing	8	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/action/7_dashed.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/action/9_shapes.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/action/action_hide_show_form.pdf	AppearanceResourcesMissing	72	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/action/action_open_a_file.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/action/action_reset.pdf	AppearanceResourcesMissing	72	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
 pdfium-tests/fx/mulobj/1/1_10_watermark.pdf	ContentUnbalancedSave	4	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/mulobj/1/1_6_link2.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/mulobj/1/1_8_link4.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/mulobj/1/1_9_link5.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/mulobj/2/2_0_distance.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/mulobj/2/2_10_signature.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/mulobj/2/2_1_link.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/mulobj/2/2_2_area.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/mulobj/2/2_3_pencil.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/mulobj/3/3_0_cloud.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
 pdfium-tests/fx/mulobj/4/4_1.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
 pdfium-tests/fx/mulobj/4/4_2.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/mulobj/new/comments/new_arrow.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/mulobj/new/comments/new_line.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/mulobj/new/comments/new_oval.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/mulobj/new/comments/new_perimeter.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/mulobj/new/comments/new_polygon.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/mulobj/new/comments/new_polyline.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/mulobj/new/comments/new_rectangle.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
 pdfium-tests/fx/mulobj/new/signature/new_certify1.pdf	ContentUnbalancedSave	3	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
 pdfium-tests/fx/mulobj/new/signature/new_signature1.pdf	ContentUnbalancedSave	3	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
 pdfium-tests/fx/mulobj/new/signature/new_signature2.pdf	ContentUnbalancedSave	3	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
@@ -55,6 +82,13 @@ pdfium-tests/fx/new/ch_7/ch_7_2.pdf	FunctionEntryInvalid	1	7.10.4 Table 41 Bound
 pdfium-tests/fx/new/ch_7/ch_7_2.pdf	ShadingCoordsInvalid	1	8.7.4.5.3 Table 79 axial shading Coords not four numbers
 pdfium-tests/fx/new/ch_7/ch_7_5.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
 pdfium-tests/fx/new/ch_7/ch_7_7.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/new/form/form_checkbox.pdf	AppearanceResourcesMissing	4	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/new/form/form_checkbox1.pdf	AppearanceResourcesMissing	4	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/new/form/form_checkbox2.pdf	AppearanceResourcesMissing	4	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/new/form/form_checkbox3.pdf	AppearanceResourcesMissing	4	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/new/form/form_radio.pdf	AppearanceResourcesMissing	4	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/new/form/form_sign_url.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfium-tests/fx/new/form/form_signature.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
 pdfium-tests/fx/new/shading_2/shading_2_15.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
 pdfium-tests/fx/new/shading_2/shading_2_17.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
 pdfium-tests/fx/new/shading_2/shading_2_4.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
@@ -63,12 +97,15 @@ pdfium-tests/fx/new/shading_2/shading_2_6.pdf	ContentUnbalancedSave	1	8.4.2 q wi
 pdfium-tests/fx/new/shading_2/shading_2_7.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
 pdfium-tests/fx/new/shading_2/shading_2_8.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
 pdfium-tests/fx/new/shading_2/shading_2_9.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/text/en_diy.pdf	AppearanceResourcesMissing	3	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
 pdfium-tests/pdfium/bug_691967.pdf	IccProfileInvalid	3	8.6.5.5 ICCBased stream holds no ICC profile
 pdfium-tests/pdfium/bug_880920.pdf	FontStandard14EntriesIncomplete	2	9.6.2.1 Table 109 Standard 14 font with only some of FirstChar, LastChar, Widths, FontDescriptor (all or none)
 pdfjs/ArabicCIDTrueType.pdf	CidToGidMapMissing	4	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
 pdfjs/SimFang-variant.pdf	FontDescriptorInvalid	1	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
 pdfjs/Test-plusminus.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
 pdfjs/XiaoBiaoSong.pdf	FontDescriptorInvalid	2	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/annotation-freetext.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
+pdfjs/annotation-line.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
 pdfjs/axial_shading_many_inputs.pdf	ShadingFunctionInvalid	16	8.7.4.5.3 Table 79 axial shading Function is not a 1-in function
 pdfjs/bug1065245.pdf	ContentTextObjectUnbalanced	1	9.4.1 Figure 9 BT/ET not balanced in the content stream
 pdfjs/bug1068432.pdf	FontDescriptorInvalid	1	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
@@ -86,9 +123,11 @@ pdfjs/bug1898053_minimal.pdf	ContentMarkedContentUnbalanced	1	14.6 BMC/BDC and E
 pdfjs/bug1953099.pdf	ContentSyntaxInvalid	1	7.2 / 7.3 malformed token in the content stream (stray delimiter, malformed number or string)
 pdfjs/bug1992868.pdf	ContentColorOperatorMismatch	8	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
 pdfjs/bug1992868.pdf	FontDescriptorInvalid	15	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/bug2035197_1.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
 pdfjs/bug859204.pdf	FontEncodingInvalid	1	9.6.5.1 Table 111 Encoding names no predefined encoding (MacRoman, MacExpert, WinAnsi)
 pdfjs/bug860632.pdf	FontType1PfbWrapped	1	9.9 Table 124 FontFile holds a PFB-wrapped program
 pdfjs/bug868745.pdf	FontDescriptorInvalid	1	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/bug886717.pdf	AppearanceResourcesMissing	45	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
 pdfjs/bug911034.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
 pdfjs/bug911034.pdf	FontTableInvalid	1	TrueType/OpenType table inconsistent (hmtx/loca/head/sfnt version or table past the end)
 pdfjs/bug920426.pdf	CMapOperatorNotAllowed	1	9.7.5.4 c bfchar/bfrange in a CMap used as a Type 0 encoding
@@ -101,7 +140,9 @@ pdfjs/freeculture.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontTyp
 pdfjs/freetexts.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
 pdfjs/freetexts.pdf	FontTypeInvalid	1	9.6.2.1 Table 109 font dictionary Type is missing or not /Font
 pdfjs/images_1bit_grayscale.pdf	ImageMaskConflict	3	8.9.6.2 image mask (XObject or inline) with ColorSpace, Mask or SMask
+pdfjs/inks.pdf	AppearanceResourcesMissing	6	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
 pdfjs/inks.pdf	ContentColorOperatorMismatch	3	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/inks_basic.pdf	AppearanceResourcesMissing	3	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
 pdfjs/issue10572.pdf	FunctionEntryInvalid	1	7.10.4 Table 41 Bounds of a stitching function malformed
 pdfjs/issue11045.pdf	ColorSpaceInvalid	1	8.6.3 a ColorSpace value that is neither a name nor an array
 pdfjs/issue11131_reduced.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
@@ -134,6 +175,7 @@ pdfjs/issue15977_reduced.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V use
 pdfjs/issue16316.pdf	FontDescriptorInvalid	12	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
 pdfjs/issue16633.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
 pdfjs/issue16633.pdf	FontTypeInvalid	1	9.6.2.1 Table 109 font dictionary Type is missing or not /Font
+pdfjs/issue17064_readonly.pdf	AppearanceResourcesMissing	4	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
 pdfjs/issue17679.pdf	ContentPropertiesMissing	1	14.6.2 BDC names a property list absent from the Properties resources
 pdfjs/issue17679_2.pdf	ContentMarkedContentUnbalanced	1	14.6 BMC/BDC and EMC not balanced within the content stream
 pdfjs/issue17679_2.pdf	ContentOperandType	1	7.8.2 operand of the wrong type for its operator
@@ -229,8 +271,10 @@ pdfjs/tracemonkey_annotation_on_page_8.pdf	ContentColorOperatorMismatch	8	8.6.8 
 pdfjs/tracemonkey_annotation_on_page_8.pdf	FontDescriptorInvalid	15	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
 pdfjs/tracemonkey_freetext.pdf	ContentColorOperatorMismatch	8	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
 pdfjs/tracemonkey_freetext.pdf	FontDescriptorInvalid	15	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/tracemonkey_with_annotations.pdf	AppearanceResourcesMissing	2	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
 pdfjs/tracemonkey_with_annotations.pdf	ContentColorOperatorMismatch	8	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
 pdfjs/tracemonkey_with_annotations.pdf	FontDescriptorInvalid	15	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/tracemonkey_with_editable_annotations.pdf	AppearanceResourcesMissing	2	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
 pdfjs/tracemonkey_with_editable_annotations.pdf	ContentColorOperatorMismatch	8	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
 pdfjs/tracemonkey_with_editable_annotations.pdf	FontDescriptorInvalid	15	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
 pdfjs/transfer_maps.pdf	ContentExtGStateInvalid	1	8.4.5 Table 57 an ExtGState entry out of range or of the wrong type

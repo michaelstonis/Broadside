@@ -4,7 +4,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Actions;
 
 /// <summary>Every action type of ISO 32000-2 Table 201 (§12.6.4, §12.7.6), read from <c>actions-all.pdf</c>.</summary>
-public class ActionTypeTests
+public sealed class ActionTypeTests
 {
     private static readonly CosName A = new("A");
 

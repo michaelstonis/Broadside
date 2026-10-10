@@ -10,7 +10,7 @@ namespace Broadside.Tests.Images;
 /// the §8.9.3 layout, Decode mapping and masks. Expected values come from the samples each file was generated from and from poppler's
 /// rendering of it (recorded in the README).
 /// </summary>
-public class CorpusImageTests
+public sealed class CorpusImageTests
 {
     [Fact]
     public void A_1_bit_image_keeps_its_row_padding_out_of_the_samples_and_reports_Interpolate_and_Intent()

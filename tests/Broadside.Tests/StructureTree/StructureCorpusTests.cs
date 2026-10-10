@@ -13,7 +13,7 @@ namespace Broadside.Tests.StructureTree;
 /// real-world summary (how many files are tagged, how many elements, which structure diagnostics) is a snapshot reviewed by hand.
 /// ISO 32000-2 §14.7, §14.8.
 /// </summary>
-public class StructureCorpusTests(ITestOutputHelper output)
+public sealed class StructureCorpusTests(ITestOutputHelper output)
 {
     private static readonly string[] CorpusIds = ["pdfjs", "pdfbox", "qpdf", "pdfium-tests", "pdf20examples", "verapdf-corpus"];
 

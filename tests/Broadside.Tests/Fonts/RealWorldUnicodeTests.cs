@@ -13,7 +13,7 @@ namespace Broadside.Tests.Fonts;
 /// §9.10.2 mapped. Skips when the corpora are not fetched.
 /// </summary>
 [Trait("Category", "Corpus")]
-public class RealWorldUnicodeTests(ITestOutputHelper output)
+public sealed class RealWorldUnicodeTests(ITestOutputHelper output)
 {
     public static TheoryData<string> CorpusIds => new(Document.RealWorldCorpusTests.CorpusIds);
 

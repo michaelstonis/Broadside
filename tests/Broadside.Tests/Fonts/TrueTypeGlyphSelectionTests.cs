@@ -10,7 +10,7 @@ namespace Broadside.Tests.Fonts;
 /// Character code to glyph id for simple TrueType fonts (ISO 32000-2 §9.6.5.4) in the cases the corpus files do not cover, and the
 /// font program as a document-level object: parsed from the font file stream, diagnostics on that stream, reparsed after a change.
 /// </summary>
-public class TrueTypeGlyphSelectionTests
+public sealed class TrueTypeGlyphSelectionTests
 {
     private static readonly byte[] None = [];
 

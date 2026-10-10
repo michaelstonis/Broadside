@@ -13,7 +13,7 @@ namespace Broadside.Tests.Images;
 /// Inline images (ISO 32000-2 §8.9.7) through <see cref="Broadside.Content.ContentContext.GetInlineImage"/>: abbreviation expansion,
 /// decoding, and where the data ends. The end-detection vectors include PDFBox's (<c>PDFStreamParserTest</c>, Apache-2.0).
 /// </summary>
-public class InlineImageTests
+public sealed class InlineImageTests
 {
     public static TheoryData<string, string, string[]> EndVectors => new()
     {

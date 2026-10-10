@@ -11,7 +11,7 @@ namespace Broadside.Tests.Fonts;
 /// program. Skips when the corpora are not fetched. ISO 32000-2 §9.7.
 /// </summary>
 [Trait("Category", "Corpus")]
-public class RealWorldCompositeFontTests(ITestOutputHelper output)
+public sealed class RealWorldCompositeFontTests(ITestOutputHelper output)
 {
     public static TheoryData<string> CorpusIds => new(Document.RealWorldCorpusTests.CorpusIds);
 

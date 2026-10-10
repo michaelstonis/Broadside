@@ -10,7 +10,7 @@ namespace Broadside.Tests.Images;
 /// decodes <c>jpx-lossless.pdf</c> bit-exactly (ISO 32000-2 §7.4.9). Expected samples are the generator's source image, which
 /// OpenJPEG and poppler both return from the file (tests/Corpus/README.md).
 /// </summary>
-public class CorpusJpxTests
+public sealed class CorpusJpxTests
 {
     [Fact]
     public void A_lossless_JPEG_2000_image_decodes_to_its_source_samples_through_the_default_filters()

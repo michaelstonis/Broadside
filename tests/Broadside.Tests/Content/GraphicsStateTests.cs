@@ -8,7 +8,7 @@ namespace Broadside.Tests.Content;
 /// The graphics state operators of Table 56 set the state processors read at each paint; <c>q</c> and <c>Q</c> save and restore
 /// it. ISO 32000-2 §8.4.1 to §8.4.4.
 /// </summary>
-public class GraphicsStateTests
+public sealed class GraphicsStateTests
 {
     [Fact]
     public void A_path_is_painted_with_the_initial_state_of_tables_51_and_52()

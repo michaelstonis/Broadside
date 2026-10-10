@@ -157,7 +157,9 @@ internal sealed partial class ContentInterpreter
     /// <summary>
     /// Runs an annotation's appearance stream as a top-level run (§12.5.5): from the initial graphics state with the CTM set to
     /// <paramref name="matrix"/> (the algorithm's AA, which already holds the form matrix), the clip intersected with the form's
-    /// bounding box in form space, names resolving in the form's resources (the page's when it has none).
+    /// bounding box in form space, names resolving in the form's resources. An appearance without Resources resolves names in the
+    /// page's, with <c>AppearanceResourcesMissing</c> (Warning): unlike forms and Type 3 fonts (the last bullet of §7.8.3), an
+    /// appearance stream has no earlier-version allowance to omit them.
     /// </summary>
     internal static void RunAppearance(PdfFormXObject form, Matrix matrix, PdfPage? page, CosReference? owner, PdfDocument document, ContentProcessor processor, ContentOptions options)
     {
@@ -183,6 +185,15 @@ internal sealed partial class ContentInterpreter
         _states[0].Ctm = matrix;
         _parts.Add(new ContentPart(0, form.Reference));
         Start();
+        if (form.Resources is null)
+        {
+            // §7.8.3 requires an appearance stream's own Resources; the earlier-version allowance covers only forms and Type 3 fonts.
+            Report(
+                ContentIssue.AppearanceResourcesMissing,
+                -1,
+                "An annotation appearance stream has no Resources dictionary, which §7.8.3 requires; names resolve in the page's resources.");
+        }
+
         if (form.BoundingBox is { } box)
         {
             IntersectBox(box);

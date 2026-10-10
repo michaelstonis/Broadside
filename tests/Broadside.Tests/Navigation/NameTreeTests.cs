@@ -13,7 +13,7 @@ namespace Broadside.Tests.Navigation;
 /// Name trees (ISO 32000-2 §7.9.6, Table 36; Annex J.3.3) read through <see cref="PdfDocument.Names"/> and
 /// <see cref="PdfDocument.GetNameTree"/>: Limits-guided lookups, byte-wise key order, lenient reading of damaged trees.
 /// </summary>
-public class NameTreeTests
+public sealed class NameTreeTests
 {
     private static readonly CosName Dests = new("Dests");
 

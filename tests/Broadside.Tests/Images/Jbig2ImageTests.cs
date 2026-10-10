@@ -8,7 +8,7 @@ namespace Broadside.Tests.Images;
 /// JBIG2 images through <see cref="PdfImage.Decode"/> and <see cref="PdfDocument.DecodeStream(CosStream)"/>: the default filter,
 /// JBIG2Globals resolved through the document, PDF polarity for gray images and image masks. ISO 32000-2 §7.4.7, §8.9.5.2, §8.9.6.2.
 /// </summary>
-public class Jbig2ImageTests
+public sealed class Jbig2ImageTests
 {
     [Theory]
     [InlineData("jbig2-generic.pdf", false)]

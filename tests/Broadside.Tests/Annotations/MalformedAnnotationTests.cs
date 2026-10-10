@@ -7,7 +7,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Annotations;
 
 /// <summary>Real-world deviations in Annots arrays and annotation dictionaries: lenient repairs with diagnostics, strict throws (ISO 32000-2 §12.5, ADR 0005).</summary>
-public class MalformedAnnotationTests
+public sealed class MalformedAnnotationTests
 {
     [Fact]
     public void Annotations_malformed_pdf_reads_what_it_can_with_exactly_the_documented_diagnostics()

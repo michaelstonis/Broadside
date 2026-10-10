@@ -11,7 +11,7 @@ namespace Broadside.Tests.Filters;
 /// (Ghostscript 10.08.0), SHA-256 of the output. Skips when the corpora are not fetched. ISO 32000-2 §7.4.6.
 /// </summary>
 [Trait("Category", "Corpus")]
-public class RealWorldCcittTests
+public sealed class RealWorldCcittTests
 {
     public static TheoryData<string, int, string> GhostscriptDecodes => new()
     {

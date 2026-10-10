@@ -9,7 +9,7 @@ namespace Broadside.Tests.Fonts;
 /// algorithm, §3 examples), and what happens past the methods the specification lists: the program's Unicode "cmap" (beyond the
 /// specification), and U+FFFD for names that mean nothing, such as a Type 3 font's own names (no pdf.js-style guessing).
 /// </summary>
-public class GlyphNameUnicodeTests
+public sealed class GlyphNameUnicodeTests
 {
     /// <summary>Glyph name, expected text (empty: maps to nothing, so U+FFFD).</summary>
     public static TheoryData<string, string> SpecificationExamples => new()

@@ -8,7 +8,7 @@ namespace Broadside.Tests.Fonts;
 /// Glyph outlines and glyph selection of the embedded TrueType corpus files, through the public document API. Expected values
 /// are the coordinates and tables <c>tests/Corpus/generate.py</c> writes. ISO 32000-2 §9.6.3, §9.6.5.4, §9.9.
 /// </summary>
-public class TrueTypeCorpusTests
+public sealed class TrueTypeCorpusTests
 {
     [Fact]
     public void Every_code_of_the_embedded_TrueType_page_has_its_quadratic_outline()

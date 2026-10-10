@@ -9,7 +9,7 @@ namespace Broadside.Tests.Fonts;
 /// adjustment of a Font DICT with its own matrix) and looking CIDs up through the inverse charset. ISO 32000-2 §9.7.4.2.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class CidCffAllocationTests
+public sealed class CidCffAllocationTests
 {
     private static readonly int[] Cids = [0, 264, 3284, 3722, 1, 9000];
 

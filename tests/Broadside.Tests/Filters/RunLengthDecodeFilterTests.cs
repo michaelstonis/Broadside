@@ -6,7 +6,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Filters;
 
 /// <summary>RunLengthDecode through the filter contract. ISO 32000-2 §7.4.5.</summary>
-public class RunLengthDecodeFilterTests
+public sealed class RunLengthDecodeFilterTests
 {
     public static TheoryData<byte[], string> WellFormed => new()
     {

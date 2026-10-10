@@ -9,7 +9,7 @@ namespace Broadside.Tests.Graphics;
 /// Type 4 (PostScript calculator) functions, ISO 32000-2 §7.10.5 and Annex B, with the operator semantics and examples of the
 /// PostScript Language Reference, Third Edition, §8.2.
 /// </summary>
-public class PostScriptFunctionTests
+public sealed class PostScriptFunctionTests
 {
     /// <summary>Each row: a program body run on an empty stack, and the values it leaves. Expected values are PLRM's own examples where it gives one.</summary>
     public static TheoryData<string, float[]> OperatorExamples => new()

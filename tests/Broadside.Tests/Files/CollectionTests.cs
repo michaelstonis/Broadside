@@ -4,7 +4,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Files;
 
 /// <summary>Portable collections (portfolios): schema, sort, colours, split, folders and collection items. ISO 32000-2 §12.3.5, §7.11.6.</summary>
-public class CollectionTests
+public sealed class CollectionTests
 {
     private static PdfDocument OpenCorpus() => PdfDocument.Open(Corpus.Path("collection-portfolio.pdf"));
 

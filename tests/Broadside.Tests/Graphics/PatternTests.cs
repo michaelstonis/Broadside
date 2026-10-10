@@ -13,7 +13,7 @@ namespace Broadside.Tests.Graphics;
 /// Tiling and shading patterns through the content interpreter: the paint's colour selects the pattern, the pattern matrix maps to
 /// the space of the stream that selected it (ISO 32000-2 §8.7.2), and a tiling pattern's cell runs on demand (§8.7.3.1).
 /// </summary>
-public class PatternTests
+public sealed class PatternTests
 {
     [Fact]
     public void A_coloured_tiling_pattern_reports_its_cell_and_maps_to_the_page_space_not_the_ctm_at_the_fill()

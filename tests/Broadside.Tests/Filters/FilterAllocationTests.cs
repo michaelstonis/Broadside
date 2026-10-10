@@ -12,7 +12,7 @@ namespace Broadside.Tests.Filters;
 /// half of that rule; the <c>*Benchmarks</c> classes in <c>bench/Broadside.Benchmarks</c> are the measuring half. ISO 32000-2 §7.4.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class FilterAllocationTests
+public sealed class FilterAllocationTests
 {
     public static TheoryData<string> AllocationFreeFilters => new() { "ASCIIHexDecode", "ASCII85Decode", "LZWDecode", "RunLengthDecode" };
 

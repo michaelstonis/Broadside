@@ -8,7 +8,7 @@ namespace Broadside.Tests.Content;
 /// Graphics state parameter dictionaries (ISO 32000-2 §8.4.5, Table 57) applied by <c>gs</c>, with the soft mask's CTM captured
 /// at the <c>gs</c> (§11.6.5.1), asserted on the state each path is painted with.
 /// </summary>
-public class ExtGStateTests
+public sealed class ExtGStateTests
 {
     [Fact]
     public void Every_parameter_of_extgstate_params_is_applied()

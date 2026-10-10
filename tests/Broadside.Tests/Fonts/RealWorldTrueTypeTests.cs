@@ -12,7 +12,7 @@ namespace Broadside.Tests.Fonts;
 /// ISO 32000-2 §9.6.3, §9.6.5.4, §9.9.
 /// </summary>
 [Trait("Category", "Corpus")]
-public class RealWorldTrueTypeTests(ITestOutputHelper output)
+public sealed class RealWorldTrueTypeTests(ITestOutputHelper output)
 {
     private const int MaxGlyphsPerProgram = 4096;
 

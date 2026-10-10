@@ -13,7 +13,7 @@ namespace Broadside.Tests.Filters.Dct;
 /// The <c>DCTDecode</c> filter's image facet and its place in documents: header, metadata, truncation, the ISO 32000-2 Table 13
 /// colour-transform rules, chains and inline images (§7.4.8, §8.9).
 /// </summary>
-public class DctImageFilterTests
+public sealed class DctImageFilterTests
 {
     [Fact]
     public void An_image_XObject_decodes_through_the_registered_default_filter()

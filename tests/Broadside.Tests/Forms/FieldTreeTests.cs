@@ -6,7 +6,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Forms;
 
 /// <summary>The field hierarchy of an interactive form and its links to widget annotations (ISO 32000-2 §12.7.1 to §12.7.4).</summary>
-public class FieldTreeTests
+public sealed class FieldTreeTests
 {
     [Fact]
     public void Acroform_fields_pdf_reads_the_field_hierarchy_with_fully_qualified_names_and_typed_fields()

@@ -5,7 +5,7 @@ using static Broadside.Tests.Graphics.FunctionTesting;
 namespace Broadside.Tests.Graphics;
 
 /// <summary>Type 2 (exponential interpolation) functions, ISO 32000-2 §7.10.3, Table 40.</summary>
-public class ExponentialFunctionTests
+public sealed class ExponentialFunctionTests
 {
     [Fact]
     public void Interpolates_between_C0_and_C1_by_x_to_the_N()

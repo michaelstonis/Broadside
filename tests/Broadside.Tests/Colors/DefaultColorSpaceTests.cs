@@ -7,7 +7,7 @@ namespace Broadside.Tests.Colors;
 /// DefaultGray, DefaultRGB and DefaultCMYK (ISO 32000-2 §8.6.5.6) as a processor sees them at paint time: the colour keeps the space
 /// the operator selected, the converter with the current defaults paints it in the default space, including nested device spaces.
 /// </summary>
-public class DefaultColorSpaceTests
+public sealed class DefaultColorSpaceTests
 {
     /// <summary>CalGray and CalRGB whose gamma-1 values are linear sRGB, so a remapped 0.5 paints as 0.7354, not 0.5.</summary>
     private const string Defaults =

@@ -10,7 +10,7 @@ namespace Broadside.Tests.Navigation;
 /// Explicit and named destinations (ISO 32000-2 §12.3.2.2, Table 149, and §12.3.2.4) read through
 /// <see cref="PdfDocument.GetNamedDestination(string)"/> and outline items.
 /// </summary>
-public class DestinationTests
+public sealed class DestinationTests
 {
     /// <summary>Key in destinations-all.pdf, then "View left bottom right top zoom" with "-" for null.</summary>
     public static TheoryData<string, string> EveryForm => new()

@@ -6,7 +6,7 @@ namespace Broadside.Tests.Content;
 /// Path construction and painting operators drive <see cref="ContentProcessor.PaintPath"/> with the path in user space, as
 /// Tables 58 and 59 define them. ISO 32000-2 §8.5.2, §8.5.3.
 /// </summary>
-public class PathTests
+public sealed class PathTests
 {
     [Fact]
     public void A_stroked_polyline_is_reported_in_user_space_with_the_identity_ctm()

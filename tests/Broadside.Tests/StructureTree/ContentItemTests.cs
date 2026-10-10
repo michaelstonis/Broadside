@@ -4,7 +4,7 @@ using Broadside.Structure;
 namespace Broadside.Tests.StructureTree;
 
 /// <summary>Content items, their pages and streams, and the per-stream MCID index. ISO 32000-2 §14.7.5, Tables 357-359.</summary>
-public class ContentItemTests
+public sealed class ContentItemTests
 {
     private const string Form = "<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /StructParents 1 /Length 0 >>\nstream\n\nendstream";
 

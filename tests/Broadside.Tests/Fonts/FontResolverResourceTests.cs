@@ -7,7 +7,7 @@ namespace Broadside.Tests.Fonts;
 /// The font resolver's second duty: named resources. A predefined CMap a Type 0 font names comes from the resolvers, with the
 /// CMap its <c>usecmap</c> names, so the CMaps package plugs in without another extension point. ISO 32000-2 §9.7.5.2, Table 116.
 /// </summary>
-public class FontResolverResourceTests
+public sealed class FontResolverResourceTests
 {
     private const string Horizontal = """
         %!PS-Adobe-3.0 Resource-CMap

@@ -6,7 +6,7 @@ namespace Broadside.Tests.Content;
 /// <c>W</c> and <c>W*</c> narrow the clip after the painting operator of their path object, never before it, and <c>Q</c> brings
 /// the earlier clip back. ISO 32000-2 §8.5.4, Table 60.
 /// </summary>
-public class ClipTests
+public sealed class ClipTests
 {
     private const ContentEvents PathsAndClips = ContentEvents.Paths | ContentEvents.Clips;
 

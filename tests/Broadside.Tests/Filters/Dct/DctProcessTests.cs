@@ -11,7 +11,7 @@ namespace Broadside.Tests.Filters.Dct;
 /// §G.1.3) and 12-bit extended and progressive frames, each within ±1 of libjpeg-turbo (<c>djpeg -dct int -nosmooth</c>) on the
 /// vectors next to this file (provenance in README.md there).
 /// </summary>
-public class DctProcessTests
+public sealed class DctProcessTests
 {
     [Theory]
     [InlineData("progressive", "testorig", "jpegtran -progressive: interleaved DC with Al 1, AC bands 1-5 and 6-63, refinements")]

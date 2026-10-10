@@ -10,7 +10,7 @@ namespace Broadside.Tests.Fonts;
 /// The font program parser extension point: parsers registered through <see cref="PdfOptions.UseFontProgramParser"/> come before
 /// the managed TrueType default, per engine, with no static state. ISO 32000-2 §9.9; ADR 0001.
 /// </summary>
-public class FontProgramParserRegistrationTests
+public sealed class FontProgramParserRegistrationTests
 {
     private const string Expected = "M 100,0 L 100,700 L 300,700 L 300,0 Z";
 

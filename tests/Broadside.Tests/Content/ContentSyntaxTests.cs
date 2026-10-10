@@ -7,7 +7,7 @@ namespace Broadside.Tests.Content;
 /// Content stream syntax as the interpreter reads it, and the repairs it makes for malformed content: operands, glued tokens,
 /// compatibility sections, unknown operators and operand-count recovery. ISO 32000-2 §7.8.2, Table 33.
 /// </summary>
-public class ContentSyntaxTests
+public sealed class ContentSyntaxTests
 {
     [Fact]
     public void Operators_are_reported_with_their_operands_of_every_type()

@@ -4,7 +4,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Actions;
 
 /// <summary>Trigger events (ISO 32000-2 §12.6.3, Tables 197-200), the catalog's OpenAction and the document-level scripts (§7.7.2, §7.7.4), and Next chains (§12.6.2).</summary>
-public class TriggerEventTests
+public sealed class TriggerEventTests
 {
     private static readonly CosName AA = new("AA");
 

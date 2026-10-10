@@ -11,7 +11,7 @@ namespace Broadside.Tests.Fonts;
 /// Type 0 fonts and CIDFonts the corpus has no file for: metrics edge cases, glyph selection fallbacks, CMap streams that use other
 /// CMaps, and damaged dictionaries, built in memory and read through the public document API. ISO 32000-2 §9.7.
 /// </summary>
-public class CompositeFontTests
+public sealed class CompositeFontTests
 {
     private const string Type0 = "<< /Type /Font /Subtype /Type0 /BaseFont /BroadsideMinimal /Encoding /Identity-H /DescendantFonts [5 0 R] >>";
     private const string SystemInfo = "/CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >>";

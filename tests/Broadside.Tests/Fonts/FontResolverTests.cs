@@ -8,7 +8,7 @@ namespace Broadside.Tests.Fonts;
 /// The font resolver extension point through the document API: a non-embedded font gets a program from the configured resolvers,
 /// then the system fonts, then a Standard 14 stand-in, or records that none was found. ISO 32000-2 §9.6.2.2, §9.8.
 /// </summary>
-public class FontResolverTests
+public sealed class FontResolverTests
 {
     [Fact]
     public void Without_a_resolver_or_system_fonts_a_non_embedded_Helvetica_records_that_no_program_was_found()
