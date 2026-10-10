@@ -14,16 +14,16 @@ appearance streams: 1381
 concurrent passes: 63
 page events:
   Runs: 1830
-  Operators: 2127186
+  Operators: 2127190
   UnknownOperators: 158
-  StateSaves: 115960
-  PathVerbs: 996687
+  StateSaves: 115961
+  PathVerbs: 996692
   PathsStroked: 134137
   PathsFilled: 18806
-  PathsFilledAndStroked: 73
+  PathsFilledAndStroked: 74
   PathsEnded: 30568
   ClipsPath: 30578
-  ClipsRectangle: 1910
+  ClipsRectangle: 1911
   ClipsText: 5
   TextObjects: 46146
   GlyphsType1: 1593328
@@ -41,9 +41,9 @@ page events:
   ShadingsMesh: 20
   ShadingsUnresolved: 0
   MeshesDecoded: 28
-  PatternFillsTiling: 680
+  PatternFillsTiling: 681
   PatternFillsShading: 246
-  PatternCellsRun: 664
+  PatternCellsRun: 665
   FormsEntered: 1117
   TransparencyGroups: 624
   SoftMaskGroupsRun: 131
@@ -97,8 +97,6 @@ diagnostics on well-formed files (files, total):
   CidToGidMapMissing: 20, 24
   ColorSpaceEntryInvalid: 1, 1
   ColorSpaceInvalid: 1, 1
-  ContentColorOperandCount: 1, 1
-  ContentColorOperatorIgnored: 3, 54
   ContentColorOperatorMismatch: 19, 90
   ContentExtGStateInvalid: 3, 3
   ContentFontMissing: 2, 16

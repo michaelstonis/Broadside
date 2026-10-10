@@ -11,9 +11,11 @@ namespace Broadside.Graphics.Shadings;
 /// with the raw value unsigned (32-bit fields included).
 /// </para>
 /// <para>
-/// Padding: every vertex of Types 4 and 5 occupies a whole number of bytes (§8.7.4.5.5, which Type 5 shares: "the same format");
-/// patches of Types 6 and 7 are read as one continuous bit stream, without padding between patches (the spec defers to Type 4 only
-/// "for further details"; pdf.js and PDFBox agree). Edge flags use their low two bits.
+/// Padding: every vertex of Types 4 and 5 occupies a whole number of bytes (§8.7.4.5.5, which Type 5 shares: "the same format").
+/// Types 6 and 7 defer to Type 4 "for further details on the format of the data", read here as: each patch occupies a whole number
+/// of bytes. pdf.js and PDFBox read patches back to back instead; the readings differ only when a patch's bit count is not a
+/// multiple of 8. When the padded reading ends inside a patch and the continuous one consumes the data cleanly, the continuous
+/// reading is used and recorded (<see cref="MeshIssues.PatchesUnpadded"/>). Edge flags use their low two bits.
 /// </para>
 /// <para>
 /// Repairs (each reported once through <see cref="MeshData.Issues"/>): an incomplete trailing vertex, triangle or patch is dropped and
@@ -143,6 +145,29 @@ internal static class MeshDecoder
 
     private static MeshData DecodePatches(MeshLayout layout, ReadOnlySpan<byte> data)
     {
+        MeshData padded = DecodePatches(layout, data, padded: true);
+        if ((padded.Issues & MeshIssues.Truncated) == 0 || PatchesAreWholeBytes(layout))
+        {
+            return padded;
+        }
+
+        MeshData continuous = DecodePatches(layout, data, padded: false);
+        return (continuous.Issues & MeshIssues.Truncated) == 0 ? continuous.With(MeshIssues.PatchesUnpadded) : padded;
+    }
+
+    /// <summary>Returns whether every patch, full or sharing an edge, takes a whole number of bytes, so both readings agree.</summary>
+    private static bool PatchesAreWholeBytes(MeshLayout layout)
+    {
+        int pointCount = layout.ShadingType == 7 ? 16 : 12;
+        long pointBits = 2L * layout.BitsPerCoordinate;
+        long colorBits = (long)layout.ValueCount * layout.BitsPerComponent;
+        long full = layout.BitsPerFlag + (pointCount * pointBits) + (4 * colorBits);
+        long shared = layout.BitsPerFlag + ((pointCount - 4) * pointBits) + (2 * colorBits);
+        return full % 8 == 0 && shared % 8 == 0;
+    }
+
+    private static MeshData DecodePatches(MeshLayout layout, ReadOnlySpan<byte> data, bool padded)
+    {
         bool tensor = layout.ShadingType == 7;
         int pointCount = tensor ? 16 : 12;
         int pointBits = 2 * layout.BitsPerCoordinate;
@@ -181,6 +206,11 @@ internal static class MeshDecoder
             {
                 issues |= MeshIssues.FlagInvalid;
                 reader.Seek(reader.Position + needed);
+                if (padded)
+                {
+                    reader.AlignToByte();
+                }
+
                 continue;
             }
 
@@ -220,6 +250,10 @@ internal static class MeshDecoder
             }
 
             patches++;
+            if (padded)
+            {
+                reader.AlignToByte();
+            }
         }
 
         return new MeshData(points, colors, [], patches * 16, 0, patches, issues);

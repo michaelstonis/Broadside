@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Broadside.Caching;
 using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -11,19 +12,15 @@ namespace Broadside.Annotations;
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §12.5.2 and §7.7.3.3. Thread-safe: views are created and published with first-publisher-wins semantics; the page map
-/// is computed at most once per document (a snapshot of the page tree and the <c>Annots</c> arrays at that time).
+/// is built on first use and rebuilt when a page dictionary or an <c>Annots</c> array it read has changed (ADR 0004).
 /// </remarks>
 internal sealed class AnnotationIndex
 {
     private readonly PdfDocument _document;
     private readonly ConditionalWeakTable<CosDictionary, PdfAnnotation> _views = [];
-    private readonly Lazy<Dictionary<CosDictionary, PdfPage>> _owners;
+    private OwnerIndex? _owners;
 
-    public AnnotationIndex(PdfDocument document)
-    {
-        _document = document;
-        _owners = new Lazy<Dictionary<CosDictionary, PdfPage>>(IndexOwners, LazyThreadSafetyMode.PublicationOnly);
-    }
+    public AnnotationIndex(PdfDocument document) => _document = document;
 
     /// <summary>Reads the annotations of <paramref name="page"/> from its <c>Annots</c> array, recording what the array gets wrong.</summary>
     public IReadOnlyList<PdfAnnotation> Read(PdfPage page, CosObject? annots, bool inherited)
@@ -82,25 +79,31 @@ internal sealed class AnnotationIndex
             return known;
         }
 
-        if (from?.Page is { } page)
+        if (from?.Page is { } page && FindOnPage(page, dictionary) is { } onPage)
         {
-            _ = page.Annotations;
-            if (TryGetCurrent(dictionary) is { } onPage)
-            {
-                return onPage;
-            }
+            return onPage;
         }
 
-        if (_owners.Value.TryGetValue(dictionary, out PdfPage? owner))
+        if (Owners().TryGetValue(dictionary, out PdfPage? owner) && FindOnPage(owner, dictionary) is { } onOwner)
         {
-            _ = owner.Annotations;
-            if (TryGetCurrent(dictionary) is { } onOwner)
-            {
-                return onOwner;
-            }
+            return onOwner;
         }
 
         return GetOrCreate(dictionary, value as CosReference, page: null);
+    }
+
+    /// <summary>The view <paramref name="page"/> lists for <paramref name="dictionary"/>, or <see langword="null"/>.</summary>
+    private static PdfAnnotation? FindOnPage(PdfPage page, CosDictionary dictionary)
+    {
+        foreach (PdfAnnotation annotation in page.Annotations)
+        {
+            if (ReferenceEquals(annotation.Dictionary, dictionary))
+            {
+                return annotation;
+            }
+        }
+
+        return null;
     }
 
     private PdfAnnotation? TryGetCurrent(CosDictionary dictionary) =>
@@ -163,20 +166,34 @@ internal sealed class AnnotationIndex
         return [.. annotations];
     }
 
-    private Dictionary<CosDictionary, PdfPage> IndexOwners()
+    /// <summary>The map from annotation dictionary to the first page that lists it, rebuilt when anything it read has changed.</summary>
+    private Dictionary<CosDictionary, PdfPage> Owners()
     {
+        OwnerIndex? cached = Volatile.Read(ref _owners);
+        if (cached is not null && cached.Stamps.IsCurrent)
+        {
+            return cached.Pages;
+        }
+
         var owners = new Dictionary<CosDictionary, PdfPage>(ReferenceEqualityComparer.Instance);
+        var stamps = new ContainerStamps();
         foreach (PdfPage page in _document.Pages)
         {
+            stamps.Add(page.Dictionary);
+            stamps.Add(_document.Resolve(page.Dictionary.TryGetValue(AnnotationNames.Annots, out CosObject? annots) ? annots : null));
             foreach (PdfAnnotation annotation in page.Annotations)
             {
                 owners.TryAdd(annotation.Dictionary, page);
             }
         }
 
+        Volatile.Write(ref _owners, new OwnerIndex(owners, stamps));
         return owners;
     }
 
     private void Report(string code, string message, CosReference? reference) =>
         _document.DiagnosticSink.Report(code, DiagnosticSeverity.Warning, message, objectReference: reference);
+
+    /// <summary>A page map and the containers it was built from.</summary>
+    private sealed record OwnerIndex(Dictionary<CosDictionary, PdfPage> Pages, ContainerStamps Stamps);
 }

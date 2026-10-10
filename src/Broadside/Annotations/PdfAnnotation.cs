@@ -225,7 +225,7 @@ public abstract class PdfAnnotation
     internal PdfDocument Document { get; }
 
     /// <summary>Gets the reference diagnostics name: the annotation's own, or the page's when the annotation is direct.</summary>
-    private protected CosReference? DiagnosticReference => Reference ?? Page?.Reference;
+    internal CosReference? DiagnosticReference => Reference ?? Page?.Reference;
 
     /// <summary>Gets the subtype the view was created for, to tell when a mutation changed it.</summary>
     internal CosName? CreatedSubtype { get; private set; }
@@ -471,32 +471,21 @@ public abstract class PdfAnnotation
     internal void Report(string code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
         Document.DiagnosticSink.Report(code, severity, message, objectReference: DiagnosticReference);
 
-    /// <summary>Returns the entry for <paramref name="key"/>, resolved; <see langword="null"/> when absent or a reference to nothing.</summary>
-    private protected CosObject? Get(CosName key) =>
-        Dictionary.TryGetValue(key, out CosObject? value) && Document.Resolve(value) is not CosNull and var resolved ? resolved : null;
+    /// <summary>Returns the entry for <paramref name="key"/>, resolved; <see langword="null"/> when absent, null, or a reference to nothing.</summary>
+    private protected CosObject? Get(CosName key) => EntryReader.Get(Document, Dictionary, key);
 
     /// <summary>Records that a required entry is absent.</summary>
     private protected void ReportMissing(CosName key, string table) =>
         Report(DiagnosticCodes.AnnotationRequiredEntryMissing, $"The {Kind} annotation has no {key.Value} entry, which {table} requires.");
 
     /// <summary>Records that an entry has the wrong type and is ignored.</summary>
-    private protected void ReportInvalid(CosName key, string expected) =>
-        Report(DiagnosticCodes.AnnotationValueInvalid, $"The annotation's {key.Value} entry shall be {expected}; it is ignored.");
+    private protected void ReportInvalid(CosName key, string expected) => Issue.Ignored(key, expected);
 
-    /// <summary>Reads a text string entry (§7.9.2.2).</summary>
-    private protected string? ReadText(CosName key)
-    {
-        switch (Get(key))
-        {
-            case null:
-                return null;
-            case CosString text:
-                return text.DecodeText();
-            default:
-                ReportInvalid(key, "a text string");
-                return null;
-        }
-    }
+    /// <summary>The report for an entry of the wrong type (<c>AnnotationValueInvalid</c>).</summary>
+    private protected EntryReport Issue => new(Document, DiagnosticCodes.AnnotationValueInvalid, DiagnosticReference, "The annotation");
+
+    /// <summary>Reads a text string entry (§7.9.2.2) with <see cref="EntryReader"/>'s repairs.</summary>
+    private protected string? ReadText(CosName key) => EntryReader.Text(Get(key), key, Issue);
 
     /// <summary>Reads a text string or text stream entry (§7.9.3): a stream's decoded bytes read as a text string.</summary>
     private protected string? ReadTextOrStream(CosName key)
@@ -531,73 +520,19 @@ public abstract class PdfAnnotation
     }
 
     /// <summary>Reads a boolean entry.</summary>
-    private protected bool ReadBoolean(CosName key, bool fallback)
-    {
-        switch (Get(key))
-        {
-            case null:
-                return fallback;
-            case CosBoolean boolean:
-                return boolean.Value;
-            default:
-                ReportInvalid(key, "a boolean");
-                return fallback;
-        }
-    }
+    private protected bool ReadBoolean(CosName key, bool fallback) => EntryReader.Boolean(Get(key), key, Issue) ?? fallback;
 
     /// <summary>Reads a number entry.</summary>
     private protected double ReadNumber(CosName key, double fallback) => ReadOptionalNumber(key) ?? fallback;
 
     /// <summary>Reads an optional number entry.</summary>
-    private protected double? ReadOptionalNumber(CosName key)
-    {
-        CosObject? value = Get(key);
-        if (value is null)
-        {
-            return null;
-        }
+    private protected double? ReadOptionalNumber(CosName key) => EntryReader.Number(Get(key), key, Issue);
 
-        if (AnnotationValues.ReadNumber(Document, value) is { } number)
-        {
-            return number;
-        }
-
-        ReportInvalid(key, "a number");
-        return null;
-    }
-
-    /// <summary>Reads an integer entry.</summary>
-    private protected int? ReadInteger(CosName key)
-    {
-        CosObject? value = Get(key);
-        if (value is null)
-        {
-            return null;
-        }
-
-        if (AnnotationValues.ReadInteger(Document, value) is { } integer)
-        {
-            return integer;
-        }
-
-        ReportInvalid(key, "an integer");
-        return null;
-    }
+    /// <summary>Reads an integer entry with <see cref="EntryReader"/>'s repairs.</summary>
+    private protected int? ReadInteger(CosName key) => EntryReader.Int32(Get(key), key, Issue);
 
     /// <summary>Reads a name entry.</summary>
-    private protected CosName? ReadName(CosName key)
-    {
-        switch (Get(key))
-        {
-            case null:
-                return null;
-            case CosName name:
-                return name;
-            default:
-                ReportInvalid(key, "a name");
-                return null;
-        }
-    }
+    private protected CosName? ReadName(CosName key) => EntryReader.Typed<CosName>(Get(key), key, "a name", Issue);
 
     /// <summary>Reads a name entry from a fixed set; an unknown name reads as <paramref name="fallback"/> silently (the sets are open), another type with a diagnostic.</summary>
     private protected T ReadChoice<T>(CosName key, T fallback, params ReadOnlySpan<(string Name, T Value)> choices)
@@ -617,49 +552,13 @@ public abstract class PdfAnnotation
     }
 
     /// <summary>Reads a dictionary entry.</summary>
-    private protected CosDictionary? ReadDictionary(CosName key)
-    {
-        switch (Get(key))
-        {
-            case null:
-                return null;
-            case CosDictionary dictionary:
-                return dictionary;
-            default:
-                ReportInvalid(key, "a dictionary");
-                return null;
-        }
-    }
+    private protected CosDictionary? ReadDictionary(CosName key) => EntryReader.Typed<CosDictionary>(Get(key), key, "a dictionary", Issue);
 
     /// <summary>Reads a stream entry.</summary>
-    private protected CosStream? ReadStream(CosName key)
-    {
-        switch (Get(key))
-        {
-            case null:
-                return null;
-            case CosStream stream:
-                return stream;
-            default:
-                ReportInvalid(key, "a stream");
-                return null;
-        }
-    }
+    private protected CosStream? ReadStream(CosName key) => EntryReader.Typed<CosStream>(Get(key), key, "a stream", Issue);
 
     /// <summary>Reads an array entry.</summary>
-    private protected CosArray? ReadArray(CosName key)
-    {
-        switch (Get(key))
-        {
-            case null:
-                return null;
-            case CosArray array:
-                return array;
-            default:
-                ReportInvalid(key, "an array");
-                return null;
-        }
-    }
+    private protected CosArray? ReadArray(CosName key) => EntryReader.Typed<CosArray>(Get(key), key, "an array", Issue);
 
     /// <summary>Reads a colour array entry (Table 166 <c>C</c>).</summary>
     private protected PdfDeviceColor? ReadColor(CosName key)

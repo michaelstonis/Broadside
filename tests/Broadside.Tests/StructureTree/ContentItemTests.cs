@@ -1,7 +1,7 @@
 using Broadside.Objects;
 using Broadside.Structure;
 
-namespace Broadside.Tests.LogicalStructure;
+namespace Broadside.Tests.StructureTree;
 
 /// <summary>Content items, their pages and streams, and the per-stream MCID index. ISO 32000-2 §14.7.5, Tables 357-359.</summary>
 public class ContentItemTests

@@ -14,9 +14,11 @@ public sealed class PdfChoiceOption
     }
 
     /// <summary>Gets the value exported when the option is selected.</summary>
+    /// <remarks>ISO 32000-2 §12.7.5.4, Table 234 (<c>Opt</c>): the first element of a two-element array, or the text string itself.</remarks>
     public string ExportValue { get; }
 
     /// <summary>Gets the text shown for the option.</summary>
+    /// <remarks>ISO 32000-2 §12.7.5.4, Table 234 (<c>Opt</c>): the second element of a two-element array, or the text string itself.</remarks>
     public string DisplayText { get; }
 
     /// <inheritdoc/>
@@ -167,15 +169,15 @@ public abstract class PdfChoiceField : PdfTerminalField
 
     /// <summary>Gets a value indicating whether the writer is asked to sort the options (<c>Ff</c> bit 20, Sort); readers keep <c>Opt</c> order.</summary>
     /// <remarks>ISO 32000-2 §12.7.5.4, Table 233.</remarks>
-    public bool IsSort => HasFlag(20);
+    public bool IsSort => HasFlag(PdfFieldFlags.Sort);
 
     /// <summary>Gets a value indicating whether several options may be selected at once (<c>Ff</c> bit 22, MultiSelect, PDF 1.4).</summary>
     /// <remarks>ISO 32000-2 §12.7.5.4, Table 233.</remarks>
-    public bool IsMultiSelect => HasFlag(22);
+    public bool IsMultiSelect => HasFlag(PdfFieldFlags.MultiSelect);
 
     /// <summary>Gets a value indicating whether a new selection is committed as soon as it is made (<c>Ff</c> bit 27, CommitOnSelChange, PDF 1.5).</summary>
     /// <remarks>ISO 32000-2 §12.7.5.4, Table 233.</remarks>
-    public bool IsCommitOnSelectionChange => HasFlag(27);
+    public bool IsCommitOnSelectionChange => HasFlag(PdfFieldFlags.CommitOnSelChange);
 
     /// <summary>Gets a value indicating whether a value need not be one of the options.</summary>
     private protected virtual bool AllowsFreeText => false;
@@ -268,11 +270,11 @@ public sealed class PdfComboBoxField : PdfChoiceField
 
     /// <summary>Gets a value indicating whether the combo box includes an editable text box (<c>Ff</c> bit 19, Edit).</summary>
     /// <remarks>ISO 32000-2 §12.7.5.4, Table 233.</remarks>
-    public bool IsEditable => HasFlag(19);
+    public bool IsEditable => HasFlag(PdfFieldFlags.Edit);
 
     /// <summary>Gets a value indicating whether text typed into the editable box shall not be spell-checked (<c>Ff</c> bit 23, DoNotSpellCheck, PDF 1.4).</summary>
     /// <remarks>ISO 32000-2 §12.7.5.4, Table 233: meaningful only with Combo and Edit set.</remarks>
-    public bool IsDoNotSpellCheck => HasFlag(23);
+    public bool IsDoNotSpellCheck => HasFlag(PdfFieldFlags.DoNotSpellCheck);
 
     /// <inheritdoc/>
     private protected override bool AllowsFreeText => IsEditable;

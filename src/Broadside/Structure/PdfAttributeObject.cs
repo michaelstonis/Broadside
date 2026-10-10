@@ -28,7 +28,7 @@ public class PdfAttributeObject
     {
         _context = context;
         Stream = source as CosStream;
-        Dictionary = StructureValues.DictionaryOf(source) ?? new CosDictionary();
+        Dictionary = ViewReading.DictionaryOf(source) ?? new CosDictionary();
         Reference = reference;
         Revision = revision;
     }
@@ -46,7 +46,7 @@ public class PdfAttributeObject
 
     /// <summary>Gets the owner (<c>O</c>), or <see langword="null"/> when the entry is missing.</summary>
     /// <remarks>ISO 32000-2 §14.7.6.1, Table 360 (required); Table 376 lists the standard owners.</remarks>
-    public CosName? Owner => StructureValues.Name(Document, Dictionary, StructureNames.O);
+    public CosName? Owner => ViewReading.Name(Document, Dictionary, StructureNames.O);
 
     /// <summary>Gets the namespace that owns the attributes when <see cref="Owner"/> is <c>NSO</c>, else <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §14.7.6.1, Table 360 (<c>NS</c>, PDF 2.0, an indirect reference to a namespace dictionary).</remarks>
@@ -72,14 +72,14 @@ public class PdfAttributeObject
     public CosObject? GetValue(CosName name)
     {
         ArgumentNullException.ThrowIfNull(name);
-        return StructureValues.Get(Document, Dictionary, name);
+        return ViewReading.Get(Document, Dictionary, name);
     }
 
     /// <summary>Creates the view for an attribute object, typed by its owner.</summary>
     internal static PdfAttributeObject Create(StructureContext context, CosObject source, CosReference? reference, int revision)
     {
-        CosDictionary dictionary = StructureValues.DictionaryOf(source) ?? new CosDictionary();
-        CosName? owner = StructureValues.Name(context.Document, dictionary, StructureNames.O);
+        CosDictionary dictionary = ViewReading.DictionaryOf(source) ?? new CosDictionary();
+        CosName? owner = ViewReading.Name(context.Document, dictionary, StructureNames.O);
         return owner switch
         {
             _ when StructureNames.Layout.Equals(owner) => new PdfLayoutAttributes(context, source, reference, revision),
@@ -93,20 +93,20 @@ public class PdfAttributeObject
     }
 
     /// <summary>A name-valued attribute as a string.</summary>
-    private protected string? NameValue(CosName name) => StructureValues.Name(Document, Dictionary, name)?.Value;
+    private protected string? NameValue(CosName name) => ViewReading.Name(Document, Dictionary, name)?.Value;
 
     /// <summary>A number-valued attribute.</summary>
-    private protected double? NumberValue(CosName name) => StructureValues.Number(Document, Dictionary, name);
+    private protected double? NumberValue(CosName name) => ViewReading.Number(Document, Dictionary, name);
 
     /// <summary>An integer-valued attribute.</summary>
-    private protected int? IntegerValue(CosName name) => StructureValues.Integer(Document, Dictionary, name);
+    private protected int? IntegerValue(CosName name) => ViewReading.Int32(Document, Dictionary, name);
 
     /// <summary>A text-string-valued attribute.</summary>
-    private protected string? TextValue(CosName name) => StructureValues.Text(Document, Dictionary, name);
+    private protected string? TextValue(CosName name) => ViewReading.Text(Document, Dictionary, name);
 
     /// <summary>An array of numbers.</summary>
-    private protected IReadOnlyList<double>? NumbersValue(CosName name) => StructureValues.Numbers(Document, Dictionary, name);
+    private protected IReadOnlyList<double>? NumbersValue(CosName name) => ViewReading.Numbers(Document, Dictionary, name);
 
     /// <summary>A rectangle.</summary>
-    private protected PdfRectangle? RectangleValue(CosName name) => StructureValues.Rectangle(Document, Dictionary, name);
+    private protected PdfRectangle? RectangleValue(CosName name) => ViewReading.Rectangle(Document, Dictionary, name);
 }

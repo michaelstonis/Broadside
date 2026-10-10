@@ -293,6 +293,7 @@ internal sealed partial class ContentInterpreter
                     SourceIndex = position,
                     CodeLength = length,
                     TextMatrix = glyphMatrix,
+                    LineTextMatrix = _textMatrix,
                     Ctm = State.Ctm,
                     HorizontalDisplacement = w0,
                     VerticalDisplacement = w1,

@@ -3,7 +3,7 @@ using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Structure;
 
-namespace Broadside.Tests.LogicalStructure;
+namespace Broadside.Tests.StructureTree;
 
 /// <summary>
 /// Damaged structure trees: each repair is made in the view, recorded once as a diagnostic in lenient mode, and thrown in strict mode.

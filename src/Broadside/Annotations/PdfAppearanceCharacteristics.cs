@@ -52,7 +52,7 @@ public sealed class PdfAppearanceCharacteristics
 
     /// <summary>Gets the normal caption (<c>CA</c>, button fields), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.19, Table 192.</remarks>
-    public string? NormalCaption => ReadText(AnnotationNames.StrokingOpacity);
+    public string? NormalCaption => ReadText(AnnotationNames.NormalCaption);
 
     /// <summary>Gets the rollover caption (<c>RC</c>, push buttons), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.19, Table 192.</remarks>
@@ -100,8 +100,7 @@ public sealed class PdfAppearanceCharacteristics
         }
     }
 
-    private CosObject? Get(CosName key) =>
-        Dictionary.TryGetValue(key, out CosObject? value) && _owner.Document.Resolve(value) is not CosNull and var resolved ? resolved : null;
+    private CosObject? Get(CosName key) => EntryReader.Get(_owner.Document, Dictionary, key);
 
     private PdfDeviceColor? ReadColor(CosName key)
     {
@@ -114,19 +113,8 @@ public sealed class PdfAppearanceCharacteristics
         return color;
     }
 
-    private string? ReadText(CosName key)
-    {
-        switch (Get(key))
-        {
-            case null:
-                return null;
-            case CosString text:
-                return text.DecodeText();
-            default:
-                _owner.Report(DiagnosticCodes.AnnotationValueInvalid, $"The appearance characteristics' {key.Value} entry shall be a text string; it is ignored.");
-                return null;
-        }
-    }
+    private string? ReadText(CosName key) =>
+        EntryReader.Text(Get(key), key, new EntryReport(_owner.Document, DiagnosticCodes.AnnotationValueInvalid, _owner.DiagnosticReference, "The appearance characteristics"));
 
     private PdfFormXObject? ReadForm(CosName key)
     {

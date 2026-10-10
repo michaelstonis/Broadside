@@ -65,15 +65,17 @@ public sealed class PdfExplicitDestination : PdfDestination
     /// <remarks>ISO 32000-2 §12.3.2.2: for a remote destination, the 0-based number of a page in the other document.</remarks>
     public int? PageNumber => Target is CosInteger { Value: >= int.MinValue and <= int.MaxValue } number ? (int)number.Value : null;
 
-    /// <summary>Gets the page of this document the destination shows, or <see langword="null"/> when it is remote, a structure destination or its page is not in the page tree.</summary>
-    /// <remarks>ISO 32000-2 §12.3.2.2. A structure destination's page is found from its structure element (§12.3.2.3), which this version does not do yet.</remarks>
+    /// <summary>Gets the page of this document the destination shows, or <see langword="null"/> when it is remote or its page is not in the page tree.</summary>
+    /// <remarks>ISO 32000-2 §12.3.2.2 and §12.3.2.3: a structure destination's page is found from its structure element.</remarks>
     public PdfPage? Page => PageIndex is { } index ? Document.Pages[index] : null;
 
     /// <summary>Gets the 0-based index of <see cref="Page"/> in <see cref="PdfDocument.Pages"/>, or <see langword="null"/>.</summary>
     /// <exception cref="DiagnosticException">In strict mode, when the destination names a page that is not in the page tree.</exception>
     /// <remarks>
     /// ISO 32000-2 §12.3.2.2. A remote destination's page number is never resolved in this document. A local destination whose first
-    /// element is an integer uses it as the index, with a diagnostic when the destination is read.
+    /// element is an integer uses it as the index, with a diagnostic when the destination is read. A structure destination
+    /// (§12.3.2.3) uses the page of the first marked-content or object reference among its element's kids, processed in array order
+    /// and descending into child elements; when none identifies a page, the first page.
     /// </remarks>
     public int? PageIndex
     {
@@ -107,11 +109,12 @@ public sealed class PdfExplicitDestination : PdfDestination
                 return index;
             }
 
-            if (!IsStructureElement(node))
+            if (IsStructureElement(node))
             {
-                ReportPageNotFound("A destination refers to a page object that is not in the page tree.");
+                return StructurePageIndex(node, target as CosReference);
             }
 
+            ReportPageNotFound("A destination refers to a page object that is not in the page tree.");
             return null;
         }
     }
@@ -167,6 +170,40 @@ public sealed class PdfExplicitDestination : PdfDestination
         node.TryGetValue(KnownNames.Type, out CosObject? type)
             ? NavigationNames.StructElem.Equals(type)
             : node.ContainsKey(NavigationNames.S) && node.ContainsKey(NavigationNames.P);
+
+    /// <summary>
+    /// The page of a structure destination (§12.3.2.3): the page of the first marked-content or object reference found among the
+    /// element's kids in array order, descending into child elements; the first page when none is found.
+    /// </summary>
+    private int? StructurePageIndex(CosDictionary element, CosReference? reference)
+    {
+        if (Document.Pages.Count == 0)
+        {
+            return null;
+        }
+
+        PdfPage? page = Document.StructureTree is { } tree ? FirstContentPage(tree.GetElement(element, reference)) : null;
+        return page is not null && Document.Pages.IndexOf(page.Dictionary) is >= 0 and var index ? index : 0;
+    }
+
+    /// <summary>The page of the first content item under <paramref name="element"/> whose page is known, depth first in <c>K</c> order.</summary>
+    private static PdfPage? FirstContentPage(Structure.PdfStructureElement element)
+    {
+        foreach (Structure.PdfStructureItem kid in element.Children)
+        {
+            switch (kid)
+            {
+                case Structure.PdfMarkedContentReference { Page: { } page }:
+                    return page;
+                case Structure.PdfObjectReference { Page: { } page }:
+                    return page;
+                case Structure.PdfStructureElement child when FirstContentPage(child) is { } found:
+                    return found;
+            }
+        }
+
+        return null;
+    }
 
     private static PdfDestinationView ViewOf(CosName? name) => name?.Value switch
     {

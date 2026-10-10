@@ -82,5 +82,5 @@ public sealed class PdfWindowsLaunchParameters
     /// <remarks>ISO 32000-2 §12.6.4.6, Table 208.</remarks>
     public CosString? Parameters => Get(P) as CosString;
 
-    private CosObject? Get(CosName key) => Dictionary.TryGetValue(key, out CosObject? value) ? _document.Resolve(value) : null;
+    private CosObject? Get(CosName key) => EntryReader.Get(_document, Dictionary, key);
 }

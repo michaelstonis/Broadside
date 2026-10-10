@@ -1,7 +1,7 @@
 using Broadside.Objects;
 using Broadside.Structure;
 
-namespace Broadside.Tests.LogicalStructure;
+namespace Broadside.Tests.StructureTree;
 
 /// <summary>
 /// Reads a document's whole structure tree through the public API: every element reached through <see cref="PdfStructureElement.Children"/>

@@ -2,7 +2,6 @@ using System.Globalization;
 using System.Text;
 using Broadside.Content;
 using Broadside.Graphics;
-using Broadside.Objects;
 
 namespace Broadside.Fuzz;
 
@@ -12,7 +11,8 @@ namespace Broadside.Fuzz;
 /// </summary>
 internal static class ContentObjectsTargets
 {
-    private static readonly Lazy<(PdfDocument Document, CosDictionary Resources)> ResourceDocument = new(BuildResourceDocument);
+    /// <summary>The bytes of the resource document: immutable, so sharing them keeps calls independent; each call opens its own document.</summary>
+    private static readonly Lazy<byte[]> ResourceFile = new(BuildResourceFile);
 
     /// <summary>
     /// Runs the input as content whose names resolve in a fixed resource dictionary: <c>/F1</c> Helvetica, <c>/F2</c> an Identity-H
@@ -20,13 +20,14 @@ internal static class ContentObjectsTargets
     /// <c>/Im</c> an image, <c>/G</c> and <c>/H</c> graphics state parameter dictionaries (one with a soft mask), <c>/P</c> and
     /// <c>/OC</c> property lists (the latter an optional content group that is off). The checking processor of
     /// <c>content-interpreter</c> also checks that glyph events are finite and well placed in their string, that text objects, forms,
-    /// Type 3 glyphs and marked-content sequences open and close in pairs, and that the run ends with nothing open.
+    /// Type 3 glyphs and marked-content sequences open and close in pairs, and that the run ends with nothing open. The document is
+    /// opened per call, so its diagnostics and caches never carry over and <c>--run</c> replays a finding exactly.
     /// </summary>
     /// <remarks>ISO 32000-2 §8.4.5, §8.8 to §8.10, §9.3, §9.4, §14.6.</remarks>
     public static void ContentWithResources(ReadOnlySpan<byte> data)
     {
-        (PdfDocument document, CosDictionary resources) = ResourceDocument.Value;
-        ContentInterpreter.RunBytes(data, document, new ObjectsCheckingProcessor(), ContentInterpreter.DefaultOptions, resources);
+        using PdfDocument document = PdfDocument.Open(ResourceFile.Value);
+        ContentInterpreter.RunBytes(data, document, new ObjectsCheckingProcessor(), ContentInterpreter.DefaultOptions, document.Pages[0].Resources);
     }
 
     /// <summary>
@@ -73,10 +74,11 @@ internal static class ContentObjectsTargets
             previousEnd = op.End;
         }
 
-        ContentInterpreter.RunBytes(content, ResourceDocument.Value.Document, new ObjectsCheckingProcessor(), ContentInterpreter.DefaultOptions);
+        using PdfDocument document = PdfDocument.Open(ResourceFile.Value);
+        ContentInterpreter.RunBytes(content, document, new ObjectsCheckingProcessor(), ContentInterpreter.DefaultOptions);
     }
 
-    private static (PdfDocument Document, CosDictionary Resources) BuildResourceDocument()
+    private static byte[] BuildResourceFile()
     {
         string[] objects =
         [
@@ -118,8 +120,7 @@ internal static class ContentObjectsTargets
         }
 
         text.Append(CultureInfo.InvariantCulture, $"trailer\n<< /Size {objects.Length + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
-        PdfDocument document = PdfDocument.Open(Encoding.Latin1.GetBytes(text.ToString()));
-        return (document, document.Pages[0].Resources!);
+        return Encoding.Latin1.GetBytes(text.ToString());
 
         static string Stream(string data, string entries) =>
             $"<< {entries} /Length {Encoding.Latin1.GetByteCount(data)} >>\nstream\n{data}\nendstream";

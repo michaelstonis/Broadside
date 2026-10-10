@@ -87,7 +87,54 @@ public class PatternTests
 
         Assert.Contains("Paint depth 1 Pattern [1 0 0 1 0 0] DeviceRgb 0 1 0", processor.Cell);
         Assert.Empty(processor.Shadings);
-        Assert.Equal(["ContentColorOperatorIgnored"], document.Codes());
+
+        // §8.6.8: PDF 2.0 ignores them there, so the content is legal and the diagnostic is information.
+        Assert.Equal([("ContentColorOperatorIgnored", DiagnosticSeverity.Information)], document.Diagnostics.Select(static d => (d.Code, d.Severity)));
+    }
+
+    [Fact]
+    public void A_coloured_pattern_named_alone_in_a_pattern_space_with_an_underlying_space_is_selected()
+    {
+        // §8.7.3.2: "a coloured tiling pattern shall be selected ... by supplying its name as the single operand to the SCN or scn
+        // operator" whatever Pattern space is current; the underlying space's components are only for uncoloured patterns
+        // (§8.7.3.3). pdf.js does the same (pdfjs/tiling-pattern-large-steps.pdf).
+        string cell = StreamObject(
+            "/PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 10 10] /XStep 10 /YStep 10 /Resources << >>",
+            "0 0 1 rg 0 0 5 5 re f");
+        byte[] file = Page(
+            "/C cs /P scn 0 0 100 100 re f",
+            "<< /ColorSpace << /C [/Pattern /DeviceRGB] >> /Pattern << /P 5 0 R >> >>",
+            cell);
+        using PdfDocument document = PdfDocument.Open(file);
+        var processor = new CellRunner();
+
+        document.Pages[0].ProcessContent(processor);
+
+        PaintSeen fill = Assert.Single(processor.Paints, paint => paint.Depth == 0);
+        Assert.Equal(PdfTilingPaintType.Colored, Assert.IsType<PdfTilingPattern>(fill.Pattern).PaintType);
+        Assert.Equal([true], processor.CellResults);
+        Assert.Contains("Paint depth 1 Pattern [1 0 0 1 0 0] DeviceRgb 0 0 1", processor.Cell);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void An_uncoloured_pattern_named_without_its_components_is_still_skipped()
+    {
+        string cell = StreamObject(
+            "/PatternType 1 /PaintType 2 /TilingType 1 /BBox [0 0 10 10] /XStep 10 /YStep 10 /Resources << >>",
+            "0 0 5 5 re f");
+        byte[] file = Page(
+            "/C cs /P scn 0 0 100 100 re f",
+            "<< /ColorSpace << /C [/Pattern /DeviceRGB] >> /Pattern << /P 5 0 R >> >>",
+            cell);
+        using PdfDocument document = PdfDocument.Open(file);
+        var processor = new CellRunner();
+
+        document.Pages[0].ProcessContent(processor);
+
+        // The initial colour of a Pattern space (§8.6.6.2: a pattern object that paints nothing) is kept.
+        Assert.Null(Assert.Single(processor.Paints).Pattern);
+        Assert.Equal(["ContentColorOperandCount"], document.Codes());
     }
 
     [Fact]

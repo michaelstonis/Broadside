@@ -21,6 +21,7 @@ internal sealed class ShadingReader
         Dictionary = dictionary;
         Reference = reference;
         DiagnosticReference = reference ?? owner;
+        Diagnostics = new ObjectDiagnostics(document.DiagnosticSink, DiagnosticReference);
     }
 
     public PdfDocument Document { get; }
@@ -33,6 +34,9 @@ internal sealed class ShadingReader
 
     public CosReference? DiagnosticReference { get; }
 
+    /// <summary>Gets the recorder of this object's diagnostics, kept by the model for what it finds later (mesh data, functions).</summary>
+    public ObjectDiagnostics Diagnostics { get; }
+
     /// <summary>Gets a value indicating whether nothing found so far makes the object unusable.</summary>
     public bool IsValid { get; private set; } = true;
 
@@ -41,14 +45,13 @@ internal sealed class ShadingReader
     public CosObject Resolve(CosObject? value) => Document.Resolve(value);
 
     /// <summary>Records a repair: the object stays usable.</summary>
-    public void Report(string code, string message) =>
-        Document.DiagnosticSink.Report(code, DiagnosticSeverity.Warning, message, offset: null, DiagnosticReference);
+    public void Report(string code, string message) => Diagnostics.Report(code, message);
 
     /// <summary>Records why the object cannot be used: it paints nothing.</summary>
     public void Invalid(string code, string message)
     {
         IsValid = false;
-        Document.DiagnosticSink.Report(code, DiagnosticSeverity.Error, message, offset: null, DiagnosticReference);
+        Diagnostics.Report(code, message, DiagnosticSeverity.Error);
     }
 
     /// <summary>Reads an array of finite numbers; <see langword="null"/> when absent or anything else.</summary>

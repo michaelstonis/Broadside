@@ -1,7 +1,7 @@
 using Broadside.Structure;
 using Broadside.Tests.Document;
 
-namespace Broadside.Tests.LogicalStructure;
+namespace Broadside.Tests.StructureTree;
 
 /// <summary>
 /// Resolving structure types to standard types through role maps and namespaces. ISO 32000-2 §14.7.3, §14.7.4, §14.8.4, §14.8.6,

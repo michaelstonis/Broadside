@@ -35,7 +35,7 @@ internal sealed partial class ContentInterpreter
     private OperandArena _arena = new();
     private PathBuilder _path = new();
     private readonly ContentContext _context;
-    private List<(int Start, CosReference? Reference)> _parts = [];
+    private List<ContentPart> _parts = [];
     private GraphicsState[] _states = ArrayPool<GraphicsState>.Shared.Rent(16);
     private ContentProcessor _processor = null!;
     private ContentEvents _events;
@@ -103,7 +103,7 @@ internal sealed partial class ContentInterpreter
         {
             interpreter.Begin(document, page: null, processor, options, document.Pages.Count > 0 ? document.Pages[0].Reference : null);
             interpreter._context.Resources = resources;
-            interpreter._parts.Add((0, null));
+            interpreter._parts.Add(new ContentPart(0, null));
             interpreter.Execute(content);
             interpreter.End();
         }
@@ -158,7 +158,7 @@ internal sealed partial class ContentInterpreter
             case CosNull:
                 return ReadOnlyMemory<byte>.Empty;
             case CosStream stream:
-                _parts.Add((0, entry as CosReference));
+                _parts.Add(new ContentPart(0, entry as CosReference));
                 return document.DecodeStream(stream);
             case CosArray { Count: > 0 } array:
                 return ReadParts(array, document, ref rented);
@@ -194,7 +194,7 @@ internal sealed partial class ContentInterpreter
         {
             if (document.Resolve(array[index]) is CosStream)
             {
-                _parts.Add((position, array[index] as CosReference));
+                _parts.Add(new ContentPart(position, array[index] as CosReference));
                 decoded[index].Span.CopyTo(rented.AsSpan(position));
                 position += decoded[index].Length;
                 rented[position++] = (byte)'\n';
@@ -203,7 +203,7 @@ internal sealed partial class ContentInterpreter
 
         if (_parts.Count == 0)
         {
-            _parts.Add((0, null));
+            _parts.Add(new ContentPart(0, null));
         }
 
         return rented.AsMemory(0, position);

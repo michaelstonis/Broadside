@@ -1,5 +1,6 @@
 using System.Globalization;
 using Broadside.Content;
+using Broadside.Diagnostics;
 using Broadside.Fonts;
 using Broadside.Graphics;
 using Broadside.Tests.Content;
@@ -76,7 +77,7 @@ public class Type3FontTests
         Assert.DoesNotContain(recorder.Lines, line => line.Contains("rgb=0,1,0", StringComparison.Ordinal));
         Assert.DoesNotContain(recorder.Lines, line => line.StartsWith("Image", StringComparison.Ordinal));
         Assert.Equal(2, recorder.Lines.Count(line => line.Contains("rgb=1,0,0", StringComparison.Ordinal)));
-        Assert.Equal(["ContentColorOperatorIgnored"], ContentPdf.Codes(document.Diagnostics).Distinct());
+        Assert.Equal([("ContentColorOperatorIgnored", DiagnosticSeverity.Information)], document.Diagnostics.Select(static d => (d.Code, d.Severity)).Distinct());
     }
 
     [Fact]

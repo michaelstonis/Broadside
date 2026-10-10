@@ -118,7 +118,6 @@ pdfjs/issue11915.pdf	Type0IdentityNotEmbedded	5	9.7.5.2 Identity-H/V used with a
 pdfjs/issue12337.pdf	ContentColorOperatorMismatch	8	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
 pdfjs/issue12337.pdf	FontDescriptorInvalid	15	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
 pdfjs/issue12418_reduced.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
-pdfjs/issue12705.pdf	ContentColorOperatorIgnored	15	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours
 pdfjs/issue13107_reduced.pdf	FontDescriptorInvalid	1	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
 pdfjs/issue1350.pdf	ContentStackUnderflow	3	8.4.2 Q without a matching q (q/Q shall be balanced)
 pdfjs/issue1350.pdf	FontBaseFontMissing	2	9.6.2.1 Table 109 font dictionary without the required BaseFont
@@ -126,7 +125,6 @@ pdfjs/issue13916.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a
 pdfjs/issue14165.pdf	ContentTextObjectUnbalanced	1	9.4.1 Figure 9 BT/ET not balanced in the content stream
 pdfjs/issue14618.pdf	FontProgramTruncated	1	9.9 Table 125 Length1 larger than the font program data
 pdfjs/issue14618.pdf	FontTableInvalid	1	TrueType/OpenType table inconsistent (hmtx/loca/head/sfnt version or table past the end)
-pdfjs/issue14953.pdf	ContentColorOperatorIgnored	14	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours
 pdfjs/issue15340.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
 pdfjs/issue15441.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
 pdfjs/issue15443.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
@@ -152,7 +150,6 @@ pdfjs/issue19239.pdf	FontDescriptorInvalid	15	9.8.1 Table 120 font descriptor la
 pdfjs/issue19532.pdf	ImageMaskConflict	13	8.9.6.2 image mask (XObject or inline) with ColorSpace, Mask or SMask
 pdfjs/issue19550.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
 pdfjs/issue19633.pdf	ContentGraphicsStateRange	1	8.4.3.2 negative line width (orchestrator decision: absolute value + diagnostic)
-pdfjs/issue19634.pdf	ContentColorOperatorIgnored	25	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours
 pdfjs/issue19695.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
 pdfjs/issue19971.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
 pdfjs/issue20232.pdf	FontEncodingInvalid	1	9.6.5.1 Table 111 Encoding names no predefined encoding (MacRoman, MacExpert, WinAnsi)
@@ -225,7 +222,6 @@ pdfjs/pdfjsbad1586.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used 
 pdfjs/sci-notation.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
 pdfjs/sci-notation.pdf	ContentUnknownOperator	1	7.8.2 a keyword that is not an operator outside BX/EX
 pdfjs/scorecard_reduced.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
-pdfjs/tiling-pattern-large-steps.pdf	ContentColorOperandCount	1	8.6.8 Table 73 colour operator operand count does not match the colour space
 pdfjs/tracemonkey.pdf	ContentColorOperatorMismatch	8	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
 pdfjs/tracemonkey.pdf	FontDescriptorInvalid	15	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
 pdfjs/tracemonkey_a11y.pdf	FontDescriptorInvalid	12	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
@@ -295,8 +291,6 @@ verapdf-corpus/Isartor test files/PDFA-1b/6.4 Transparency/isartor-6-4-t01-fail-
 verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t10-fail-a.pdf	CMapEntryInvalid	1	9.7.5.4 / TN 5014 a CMap maps to a CID outside 0-65535 (veraPDF/Isartor negative test file)
 verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t10-fail-b.pdf	CMapEntryInvalid	1	9.7.5.4 / TN 5014 a CMap maps to a CID outside 0-65535 (veraPDF/Isartor negative test file)
 verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.6 String objects/veraPDF test suite 6-1-6-t01-fail-b.pdf	ContentSyntaxInvalid	1	7.2 / 7.3 malformed token in the content stream (stray delimiter, malformed number or string) (veraPDF/Isartor negative test file)
-verapdf-corpus/PDF_A-1b/6.2 Graphics/6.2.3.3 Uncalibrated color space/veraPDF test suite 6-2-3-3-t03-fail-b.pdf	ContentColorOperatorIgnored	1	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours (veraPDF/Isartor negative test file)
-verapdf-corpus/PDF_A-1b/6.2 Graphics/6.2.3.3 Uncalibrated color space/veraPDF test suite 6-2-3-3-t03-pass-k.pdf	ContentColorOperatorIgnored	1	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours
 verapdf-corpus/PDF_A-1b/6.3 Fonts/6.3.3.1 General/veraPDF test suite 6-3-3-1-t01-fail-a.pdf	CidSystemInfoMismatch	1	9.7.3 CMap and CIDFont Registry/Ordering differ (veraPDF/Isartor negative test file)
 verapdf-corpus/PDF_A-1b/6.3 Fonts/6.3.3.1 General/veraPDF test suite 6-3-3-1-t01-fail-b.pdf	CidSystemInfoMismatch	1	9.7.3 CMap and CIDFont Registry/Ordering differ (veraPDF/Isartor negative test file)
 verapdf-corpus/PDF_A-1b/6.3 Fonts/6.3.3.2 CIDFonts/veraPDF test suite 6-3-3-2-t01-pass-a.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
@@ -328,8 +322,6 @@ verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.2 ICCBased colour spaces/veraPDF test
 verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.2 ICCBased colour spaces/veraPDF test suite 6-2-4-2-t02-pass-a.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
 verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.2 ICCBased colour spaces/veraPDF test suite 6-2-4-2-t02-pass-b.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
 verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.2 ICCBased colour spaces/veraPDF test suite 6-2-4-2-t02-pass-c.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
-verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t02-fail-g.pdf	ContentColorOperatorIgnored	1	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours (veraPDF/Isartor negative test file)
-verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t02-pass-d.pdf	ContentColorOperatorIgnored	1	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours
 verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t03-fail-d.pdf	ContentStackUnderflow	1	8.4.2 Q without a matching q (q/Q shall be balanced) (veraPDF/Isartor negative test file)
 verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.4 Separation and DeviceN colour spaces/veraPDF test suite 6-2-4-4-t01-fail-g.pdf	FunctionProgramStackInvalid	1	7.10.5.1 Type 4 function leaves more values than Range outputs (shall be an error) (veraPDF/Isartor negative test file)
 verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.4 Separation and DeviceN colour spaces/veraPDF test suite 6-2-4-4-t01-fail-h.pdf	FunctionProgramStackInvalid	1	7.10.5.1 Type 4 function leaves more values than Range outputs (shall be an error) (veraPDF/Isartor negative test file)
@@ -354,10 +346,7 @@ verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2
 verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t02-fail-d.pdf	ContentColorSpaceMissing	1	7.8.3 / 8.6.8 cs/CS names a colour space absent from the ColorSpace resources (veraPDF/Isartor negative test file)
 verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t03-fail-a.pdf	ContentColorSpaceMissing	1	7.8.3 / 8.6.8 cs/CS names a colour space absent from the ColorSpace resources (veraPDF/Isartor negative test file)
 verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t03-fail-b.pdf	ContentXObjectMissing	1	7.8.3 / 8.8 Do names an XObject absent from the XObject resources (veraPDF/Isartor negative test file)
-verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t02-fail-g.pdf	ContentColorOperatorIgnored	1	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours (veraPDF/Isartor negative test file)
-verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t02-pass-d.pdf	ContentColorOperatorIgnored	1	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours
 verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t03-fail-d.pdf	ContentStackUnderflow	1	8.4.2 Q without a matching q (q/Q shall be balanced) (veraPDF/Isartor negative test file)
-verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t04-pass-h.pdf	ContentColorOperatorIgnored	1	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours
 verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.4 Separation and DeviceN colour spaces/veraPDF test suite 6-2-4-4-t01-fail-g.pdf	FunctionProgramStackInvalid	1	7.10.5.1 Type 4 function leaves more values than Range outputs (shall be an error) (veraPDF/Isartor negative test file)
 verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.4 Separation and DeviceN colour spaces/veraPDF test suite 6-2-4-4-t01-fail-h.pdf	FunctionProgramStackInvalid	1	7.10.5.1 Type 4 function leaves more values than Range outputs (shall be an error) (veraPDF/Isartor negative test file)
 verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.4 Separation and DeviceN colour spaces/veraPDF test suite 6-2-4-4-t01-pass-d.pdf	FunctionProgramStackInvalid	1	7.10.5.1 Type 4 function leaves more values than Range outputs (shall be an error)
@@ -393,4 +382,3 @@ verapdf-corpus/TWG test files/TWG test suite A024-pdfa2-pass-a.pdf	ContentColorO
 verapdf-corpus/TWG test files/TWG test suite A024-pdfa2-pass-b.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
 verapdf-corpus/TWG test files/TWG test suite A024-pdfa2-pass-c.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
 verapdf-corpus/Undefined/veraPDF test suite 6-2-3-2-t01-undefined-a.pdf	ColorSpaceEntryInvalid	1	8.6.3 / 8.6.5.5 malformed colour space array (device family as array, or ICCBased N invalid)
-verapdf-corpus/Undefined/veraPDF test suite 6-2-3-3-t04-undefined-c.pdf	ContentColorOperatorIgnored	2	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours

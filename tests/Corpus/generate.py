@@ -3608,7 +3608,8 @@ def patch_point(corners, i: int, j: int) -> tuple[float, float]:
 
 def patch_mesh(tensor: bool, bits_coordinate: int, bits_component: int, colours) -> bytes:
     """Patch mesh data for PATCH_CORNERS with flags 0 1 2 3: a flag-0 patch writes every point and four colours, the others
-    skip the four points and two colours shared with the previous patch (Tables 84 and 85). No per-patch padding."""
+    skip the four points and two colours shared with the previous patch (Tables 84 and 85). The widths used make every patch a
+    whole number of bytes, so the per-patch padding question (Broadside pads, pdf.js and PDFBox do not) does not arise."""
     order = RING + (INNER if tensor else [])
     w = BitWriter()
     for flag, corners in enumerate(PATCH_CORNERS):

@@ -99,4 +99,11 @@ internal sealed partial class ContentInterpreter
             IgnoresColorOperators = true;
         }
     }
+
+    /// <summary><see cref="ContentContext.RunType3Glyph"/>.</summary>
+    internal void RunType3GlyphWith(in GlyphEvent glyph, PdfType3Font font, ContentProcessor processor)
+    {
+        EnsureRunning();
+        RunType3Glyph(glyph, font, (byte)glyph.CharacterCode, processor);
+    }
 }

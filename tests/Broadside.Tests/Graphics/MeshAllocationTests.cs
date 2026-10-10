@@ -1,4 +1,5 @@
 using Broadside.Graphics;
+using Broadside.Objects;
 using Broadside.Tests.Content;
 using Broadside.Tests.Document;
 using Broadside.TestSupport;
@@ -8,9 +9,10 @@ namespace Broadside.Tests.Graphics;
 
 /// <summary>
 /// Mesh decoding allocates its output arrays once per mesh and nothing per vertex or patch (CLAUDE.md "Code conventions"; ISO
-/// 32000-2 §8.7.4.5.5 to §8.7.4.5.8). The build-breaking half of <c>MeshShadingBenchmarks</c>: the bytes a first geometry access
-/// allocates are the arrays plus a constant, so a per-vertex allocation over 10,000 vertices would show at once. Evaluating a
-/// shading's function allocates nothing.
+/// 32000-2 §8.7.4.5.5 to §8.7.4.5.8). The build-breaking half of <c>MeshShadingBenchmarks</c>. Decoding happens once per shading,
+/// on the first geometry access, so each measured call (through <see cref="Allocations.Measure"/>) reads a new shading over the same
+/// data: it allocates the shading model, its output arrays and a constant, and a per-vertex allocation over 10,000 vertices would
+/// show at once. Evaluating a shading's function allocates nothing.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
 public class MeshAllocationTests
@@ -18,39 +20,40 @@ public class MeshAllocationTests
     private const int Vertices = 10_000;
     private const int Patches = 1_000;
 
+    /// <summary>The most a shading's model, layout, stream wrapper and cache entry may take besides the output arrays.</summary>
+    private const long ModelBytes = 4096;
+
     [Fact]
     public void Decoding_a_free_form_mesh_allocates_only_its_output_arrays()
     {
         using PdfDocument document = PdfDocument.Open(ContentPdf.Build(string.Empty));
-        Warm(document);
-        var shading = (PdfTriangleMeshShading)document.GetShading(Stream($"<< {MeshSamples.FreeFormEntries} >>", MeshSamples.FreeForm(Vertices)))!;
+        var dictionary = (CosDictionary)Cos($"<< {MeshSamples.FreeFormEntries} >>");
+        byte[] data = MeshSamples.FreeForm(Vertices);
+        int triangles = 0;
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        int triangles = shading.TriangleCount;
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = Allocations.Measure(() => triangles = ((PdfTriangleMeshShading)document.GetShading(new CosStream(dictionary, data))!).TriangleCount);
 
         Assert.Equal(Vertices - 2, triangles);
         long arrays = (Vertices * 16L) + (Vertices * 3L * 4) + ((Vertices - 2) * 3L * 4);
-        Assert.InRange(allocated, arrays, arrays + 1024);
+        Assert.InRange(allocated, arrays, arrays + ModelBytes);
     }
 
     [Fact]
     public void Decoding_a_tensor_mesh_allocates_only_its_output_arrays()
     {
         using PdfDocument document = PdfDocument.Open(ContentPdf.Build(string.Empty));
-        Warm(document);
-        var shading = (PdfPatchMeshShading)document.GetShading(Stream($"<< {MeshSamples.TensorEntries} >>", MeshSamples.Tensor(Patches)))!;
+        var dictionary = (CosDictionary)Cos($"<< {MeshSamples.TensorEntries} >>");
+        byte[] data = MeshSamples.Tensor(Patches);
+        int patches = 0;
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        int patches = shading.PatchCount;
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = Allocations.Measure(() => patches = ((PdfPatchMeshShading)document.GetShading(new CosStream(dictionary, data))!).PatchCount);
 
         Assert.Equal(Patches, patches);
 
         // Sized for the smallest patches (flags 1 to 3): at most 16/12 of the patches fit, so the arrays hold up to 1,333 slots.
         long slots = (Patches * 4L / 3) + 1;
         long arrays = (slots * 16 * 16) + (slots * 4 * 4 * 4);
-        Assert.InRange(allocated, Patches * 320L, arrays + 1024);
+        Assert.InRange(allocated, Patches * 320L, arrays + ModelBytes);
     }
 
     [Fact]
@@ -107,17 +110,6 @@ public class MeshAllocationTests
                     Seen += context.RunPatternCell(context.State.FillColor, this) ? 1 : 0;
                     break;
             }
-        }
-    }
-
-    private static void Warm(PdfDocument document)
-    {
-        for (int i = 0; i < 3; i++)
-        {
-            var warm = (PdfTriangleMeshShading)document.GetShading(Stream($"<< {MeshSamples.FreeFormEntries} >>", MeshSamples.FreeForm(8)))!;
-            _ = warm.TriangleCount;
-            var tensor = (PdfPatchMeshShading)document.GetShading(Stream($"<< {MeshSamples.TensorEntries} >>", MeshSamples.Tensor(4)))!;
-            _ = tensor.PatchCount;
         }
     }
 }

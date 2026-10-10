@@ -10,7 +10,8 @@ namespace Broadside.Tests.Graphics;
 /// Mesh data (Types 4 to 7) for every combination of field widths the tables allow, written by a small encoder here and decoded
 /// through <see cref="PdfDocument.GetShading"/>: every field read MSB first with the §8.9.5.2 Decode formula (within one ulp of
 /// D<sub>min</sub> + raw × (D<sub>max</sub> − D<sub>min</sub>) / (2<sup>n</sup> − 1) in double), vertices padded to whole bytes for
-/// Types 4 and 5, patches unpadded for Types 6 and 7, flags masked to their low two bits, and the triangle or patch topology.
+/// Types 4 and 5 and each patch padded to whole bytes for Types 6 and 7 (which defer to Type 4 for "the format of the data"), flags
+/// masked to their low two bits, and the triangle or patch topology.
 /// </summary>
 public class MeshDecodingTests
 {
@@ -45,6 +46,22 @@ public class MeshDecodingTests
         Assert.Empty(document.Diagnostics);
     }
 
+    [Theory]
+    [InlineData(6)]
+    [InlineData(7)]
+    public void Patches_written_without_padding_decode_as_a_continuous_bit_stream_with_a_diagnostic(int type)
+    {
+        // pdf.js and PDFBox read patches back to back. Data written that way fails the padded reading (it ends inside a patch) and
+        // reads cleanly as one bit stream, so it is decoded that way and the reading is recorded.
+        using PdfDocument document = PdfDocument.Open(ContentPdf.Build(string.Empty));
+        var mesh = new Mesh(type, coordinateBits: 12, componentBits: 4, flagBits: 2, function: false, padPatches: false);
+
+        PdfMeshShading shading = Assert.IsAssignableFrom<PdfMeshShading>(document.GetShading(mesh.ToStream()));
+        mesh.Verify(shading);
+
+        Assert.Equal([("MeshPatchesUnpadded", Broadside.Diagnostics.DiagnosticSeverity.Information)], document.Diagnostics.Select(static d => (d.Code, d.Severity)));
+    }
+
     /// <summary>A mesh of known raw fields, its encoding, and the checks on what the document decodes.</summary>
     private sealed class Mesh
     {
@@ -71,14 +88,16 @@ public class MeshDecodingTests
         private readonly int _componentBits;
         private readonly int _flagBits;
         private readonly bool _function;
+        private readonly bool _padPatches;
         private readonly int _values;
         private readonly double[] _decode;
         private readonly List<(ulong X, ulong Y, ulong[] Colors)> _vertices = [];
         private readonly List<int> _flags = [];
         private ulong _seed = 0x9E3779B97F4A7C15;
 
-        public Mesh(int type, int coordinateBits, int componentBits, int flagBits, bool function)
+        public Mesh(int type, int coordinateBits, int componentBits, int flagBits, bool function, bool padPatches = true)
         {
+            _padPatches = padPatches;
             _type = type;
             _coordinateBits = coordinateBits;
             _componentBits = componentBits;
@@ -132,6 +151,11 @@ public class MeshDecodingTests
                             {
                                 writer.Write(value, _componentBits);
                             }
+                        }
+
+                        if (_padPatches)
+                        {
+                            writer.Align();
                         }
                     }
 

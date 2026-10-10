@@ -136,7 +136,7 @@ internal static class AttributeReader
     /// <summary>The attribute objects of class <paramref name="name"/> in the root's <c>ClassMap</c>, carrying <paramref name="revision"/>.</summary>
     public static List<PdfAttributeObject> ReadClass(StructureContext context, CosName name, int revision, CosReference? where)
     {
-        if (StructureValues.Get(context.Document, context.Root, StructureNames.ClassMap) is not CosDictionary classMap
+        if (ViewReading.Get(context.Document, context.Root, StructureNames.ClassMap) is not CosDictionary classMap
             || !classMap.TryGetValue(name, out CosObject? value))
         {
             return [];
