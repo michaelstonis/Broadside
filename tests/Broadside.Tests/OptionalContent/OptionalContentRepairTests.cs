@@ -133,7 +133,7 @@ public class OptionalContentRepairTests
     [InlineData("<< /Type /OCG >>", "")]
     [InlineData("<< /Type /OCG /Name 12 >>", "12")]
     [InlineData("<< /Type /OCG /Name /Layer >>", "Layer")]
-    [InlineData("<< /Type /OCG /Name [(A)] >>", "")]
+    [InlineData("<< /Type /OCG /Name << /A 1 >> >>", "")]
     public void A_missing_or_mistyped_group_name_is_repaired_with_a_diagnostic(string group, string expected)
     {
         using PdfDocument document = PdfDocument.Open(OptionalContentPdf.Build("/OCGs [4 0 R] /D << >>", group));
