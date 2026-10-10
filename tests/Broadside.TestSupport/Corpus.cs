@@ -105,6 +105,8 @@ public static class Corpus
         "inline-image-filters.pdf",
         "inline-image-ei-in-data.pdf",
         "dct-baseline.pdf",
+        "dct-progressive.pdf",
+        "dct-cmyk.pdf",
         "shading-type1-function.pdf",
         "shading-type2-axial.pdf",
         "shading-type3-radial.pdf",

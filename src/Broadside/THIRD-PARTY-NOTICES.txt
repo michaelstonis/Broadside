@@ -115,18 +115,22 @@ StandardEncoding, WinAnsiEncoding, MacRomanEncoding, MacExpertEncoding and the M
 This software is based in part on the work of the Independent JPEG Group.
 
 Source:   https://github.com/libjpeg-turbo/libjpeg-turbo, commit 43ea809765004508d8da72ebe562cf570c6a62b2:
-          src/jidctint.c (jpeg_idct_islow) and src/jdcolor.c (build_ycc_rgb_table, ycc_rgb_convert, ycck_cmyk_convert)
+          src/jidctint.c (jpeg_idct_islow, 8-bit and 12-bit), src/jdcolor.c (build_ycc_rgb_table, ycc_rgb_convert,
+          ycck_cmyk_convert), src/jdarith.c (arith_decode) and src/jaricom.c (jpeg_aritab)
 Licence:  the IJG License in README.ijg (LEGAL ISSUES section), shipped in this package as licenses/ijg/README.ijg and in
           the repository as src/Broadside/Filters/Dct/README.ijg (SHA-256
           75815e3bf6484201a3c3d17a1bbf10f2e8e3237f84df10a2357ea896db2a81d6). libjpeg-turbo's LICENSE.md places code
           inherited from libjpeg, and modifications to it, under that licence.
-Used as:  src/Broadside/Filters/Dct/InverseDct.cs (the integer inverse DCT and its range-limit table) and
-          src/Broadside/Filters/Dct/JpegColor.cs (the fixed-point YCbCr and YCCK conversion tables).
-Modified: yes. Translated to C#; coefficients in natural order with an int quantization table, 32-bit arithmetic, 8-bit
-          samples only, the YCC tables built as int arrays indexed by sample, YCCK computed from the same tables. The rest of
-          the decoder (marker parsing, Huffman decoding, scan and restart control, upsampling) is written from ITU-T T.81;
-          its handling of out-of-sequence restart markers follows the decision table of jpeg_resync_to_restart
-          (src/jdmarker.c).
+Used as:  src/Broadside/Filters/Dct/InverseDct.cs (the integer inverse DCT and its range-limit tables),
+          src/Broadside/Filters/Dct/JpegColor.cs (the fixed-point YCbCr and YCCK conversions) and
+          src/Broadside/Filters/Dct/ArithmeticDecoder.cs (the QM decoder's register layout and the packed form of the
+          ITU-T T.81 Table D.3 state machine, with a fixed-probability state).
+Modified: yes. Translated to C#; coefficients in natural order with an int quantization table, 32-bit arithmetic for 8-bit
+          samples and 64-bit for 12-bit samples, the YCC tables built as int arrays indexed by sample (computed inline for
+          12-bit samples), YCCK computed from the same tables. The rest of the decoder (marker parsing, Huffman and
+          arithmetic statistical models, progressive scan decoding, scan and restart control, upsampling) is written from
+          ITU-T T.81, checked against src/jdphuff.c and src/jdarith.c; its handling of out-of-sequence restart markers
+          follows the decision table of jpeg_resync_to_restart (src/jdmarker.c).
 
 
 5. Adobe CMap resources (codespaces of the predefined CMaps, ISO 32000-2:2020 Table 116)

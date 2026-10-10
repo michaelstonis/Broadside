@@ -11,6 +11,8 @@ internal static class JpegMarkers
     public const byte Dht = 0xC4;
     public const byte Sof15 = 0xCF;
     public const byte Jpg = 0xC8;
+    public const byte Sof9 = 0xC9;
+    public const byte Sof10 = 0xCA;
     public const byte Dac = 0xCC;
     public const byte Rst0 = 0xD0;
     public const byte Rst7 = 0xD7;

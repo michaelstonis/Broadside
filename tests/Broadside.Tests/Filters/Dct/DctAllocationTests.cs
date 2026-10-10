@@ -13,7 +13,11 @@ namespace Broadside.Tests.Filters.Dct;
 [Collection("Heavy")]
 public class DctAllocationTests
 {
-    public static TheoryData<string> Vectors => new() { "testorig", "sampling-411", "gray-2x2", "multiscan", "restart-blocks" };
+    public static TheoryData<string> Vectors => new()
+    {
+        "testorig", "sampling-411", "gray-2x2", "multiscan", "restart-blocks", "progressive", "progressive-scans", "arithmetic",
+        "arithmetic-progressive-scans", "ycck", "ycck-progressive",
+    };
 
     [Theory]
     [MemberData(nameof(Vectors))]
@@ -24,13 +28,7 @@ public class DctAllocationTests
         var context = new FilterContext();
         var output = new ArrayBufferWriter<byte>(256 * 1024);
 
-        // Past tiered compilation's call-count threshold first, so the runtime's own bookkeeping is not counted.
-        for (int warmUp = 0; warmUp < 40; warmUp++)
-        {
-            Decode(filter, jpeg, output, context);
-        }
-
-        long allocated = Decode(filter, jpeg, output, context);
+        long allocated = Broadside.TestSupport.Allocations.Measure(() => Decode(filter, jpeg, output, context));
 
         Assert.True(output.WrittenCount > 0);
         Assert.Equal(0, allocated);
