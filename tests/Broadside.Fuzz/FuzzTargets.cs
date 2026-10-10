@@ -953,7 +953,8 @@ internal static class FuzzTargets
     /// The LZW and Flate predictor functions over the input: the first four bytes select Predictor (1, 2, 10 to 15, or an invalid 3),
     /// Colors (1 to 4), BitsPerComponent (1, 2, 4, 8, 16) and Columns (1 to 64, or a power of two up to 2^30 when byte 3 is 192 or
     /// more: rows far longer than the data, issue #48); the rest is the filter's output to undo. The output is never more than twice
-    /// the input, and when the data holds at least one row it is whole rows, no more than the input holds.
+    /// the input; when the data holds at least one full row it is whole rows, no more than the input holds, and shorter data yields at
+    /// most one partial row.
     /// </summary>
     /// <remarks>ISO 32000-2 §7.4.4.3 Table 8 and §7.4.4.4.</remarks>
     private static void PredictorTarget(ReadOnlySpan<byte> data)
@@ -986,9 +987,25 @@ internal static class FuzzTargets
         }
 
         long row = (((long)colors * bitsPerComponent * columns) + 7) / 8;
-        bool passedThrough = predictor is 1 or 3 || row > body.Length;
-        long rowsIn = passedThrough ? 0 : predictor >= 10 ? (body.Length + row) / (row + 1) : (body.Length + row - 1) / row;
-        if (!passedThrough && (output.WrittenCount % row != 0 || output.WrittenCount > rowsIn * row))
+        if (predictor is 1 or 3)
+        {
+            return;
+        }
+
+        // A PNG row carries one tag byte before its samples. Data shorter than one full row decodes as a single partial row (#48 review fix).
+        long fullRow = predictor >= 10 ? row + 1 : row;
+        if (fullRow > body.Length)
+        {
+            if (output.WrittenCount > row)
+            {
+                throw new InvalidOperationException($"Predictor {predictor} turned {body.Length} bytes, shorter than one row of {row}, into {output.WrittenCount}.");
+            }
+
+            return;
+        }
+
+        long rowsIn = predictor >= 10 ? (body.Length + row) / (row + 1) : (body.Length + row - 1) / row;
+        if (output.WrittenCount % row != 0 || output.WrittenCount > rowsIn * row)
         {
             throw new InvalidOperationException($"Predictor {predictor} turned {body.Length} bytes into {output.WrittenCount}, not whole rows of {row}.");
         }
