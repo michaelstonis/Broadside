@@ -100,8 +100,10 @@ public class SaveTests
 
         if (QpdfComparesNameTreeKeysAsText.Contains(fileName))
         {
-            // Exit code 3: warnings only, and every warning is qpdf's text-order complaint.
-            Assert.True(exitCode == 3, output);
+            // qpdf 12 compares name-tree keys as decoded text and warns (exit code 3); qpdf 11 compares
+            // bytes as ISO 32000-2 §7.9.6 requires and passes cleanly (exit code 0). Accept either, and
+            // when there are warnings every one must be that text-order complaint.
+            Assert.True(exitCode is 0 or 3, output);
             Assert.All(
                 output.Split('\n').Where(line => line.StartsWith("WARNING", StringComparison.Ordinal)),
                 line => Assert.Contains("keys are not sorted", line, StringComparison.Ordinal));
