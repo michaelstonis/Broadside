@@ -140,6 +140,50 @@ public class ContentAllocationTests
         Assert.Empty(document.Diagnostics);
     }
 
+    /// <summary>
+    /// The minimal-corpus pages the content benchmark falls back to (issue #80), each a different part of the interpreter: text in
+    /// four font kinds, forms, transparency and graphics states, marked and optional content, colour spaces, shadings including
+    /// meshes, patterns and image XObjects (not inline images: their image view copies the data, by design of #56).
+    /// </summary>
+    public static TheoryData<string> WarmPassFiles => new(
+        "text-standard14.pdf",
+        "text-truetype-embedded.pdf",
+        "text-type1-embedded.pdf",
+        "text-cid-identity-h.pdf",
+        "pattern-in-form.pdf",
+        "extgstate-params.pdf",
+        "marked-content.pdf",
+        "optional-content.pdf",
+        "colorspace-families.pdf",
+        "shading-type2-axial.pdf",
+        "shading-type4-freeform.pdf",
+        "shading-type6-coons.pdf",
+        "pattern-tiling-colored.pdf",
+        "pattern-shading-axial.pdf",
+        "image-smask.pdf",
+        "image-stencil-mask.pdf");
+
+    [Theory]
+    [MemberData(nameof(WarmPassFiles))]
+    public void Interpreting_a_page_with_every_event_requested_allocates_nothing_once_warm(string file)
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes(file)); // from memory: a file source rereads stream data per run (#45), a per-run cost
+        PdfPage page = document.Pages[0];
+        var processor = new EverythingSink();
+
+        long allocated = Allocations.Measure(
+            () =>
+            {
+                processor.Operators = 0;
+                page.ProcessContent(processor);
+            },
+            WarmUp);
+
+        Assert.True(processor.Operators > 0, "No operator was interpreted.");
+        Assert.Equal(0, allocated / processor.Operators);
+        Assert.Equal(0, allocated);
+    }
+
     private static int ReadAll(ReadOnlySpan<byte> content, OperandArena arena)
     {
         var reader = new ContentReader(content, arena);
@@ -226,4 +270,14 @@ internal sealed class CountingProcessor : ContentProcessor
         Clips++;
         Checksum += context.GetClip(clip.ParentHandle).Path.Points.Length;
     }
+}
+
+/// <summary>Requests every event and does nothing with it but count operators: the benchmark's processor (issue #80).</summary>
+internal sealed class EverythingSink : ContentProcessor
+{
+    public int Operators { get; set; }
+
+    public override ContentEvents Events => ContentEvents.All;
+
+    public override void VisitOperator(in ContentOperator op, ContentContext context) => Operators++;
 }

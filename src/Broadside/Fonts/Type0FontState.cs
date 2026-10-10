@@ -53,10 +53,10 @@ internal sealed class Type0FontState
     {
         var sources = new List<CosObject> { font.Dictionary };
         PdfCidFont? descendant = ReadDescendant(font, previous, sources);
-        CMap encoding = ReadEncoding(font, sources);
+        CMap encoding = ReadEncoding(font, sources, out bool standIn);
         if (descendant is not null)
         {
-            Check(font, encoding, descendant);
+            Check(font, encoding, standIn, descendant);
         }
 
         return new Type0FontState(encoding, descendant, sources);
@@ -70,9 +70,10 @@ internal sealed class Type0FontState
         _ => 0,
     };
 
-    /// <summary><c>Encoding</c> (Table 119): a predefined CMap name or an embedded CMap stream; Identity-H when unusable.</summary>
-    private static CMap ReadEncoding(PdfType0Font font, List<CosObject> sources)
+    /// <summary><c>Encoding</c> (Table 119): a predefined CMap name or an embedded CMap stream; Identity-H when unusable (<paramref name="standIn"/>).</summary>
+    private static CMap ReadEncoding(PdfType0Font font, List<CosObject> sources, out bool standIn)
     {
+        standIn = false;
         CosObject? value = font.Dictionary.TryGetValue(FontNames.Encoding, out CosObject? raw) ? font.Document.Resolve(raw) : null;
         switch (value)
         {
@@ -84,6 +85,7 @@ internal sealed class Type0FontState
 
                 CMap? fallback = PredefinedCMapTable.CreateFallback(name.Value);
                 font.Report(DiagnosticCodes.CMapUnavailable, DiagnosticSeverity.Information, PdfDocument.UnavailableMessage(name.Value, fallback is not null));
+                standIn = fallback is null;
                 return fallback ?? CMap.IdentityH;
             case CosStream stream:
                 sources.Add(stream);
@@ -101,6 +103,7 @@ internal sealed class Type0FontState
                 break;
         }
 
+        standIn = true;
         return CMap.IdentityH;
     }
 
@@ -170,8 +173,11 @@ internal sealed class Type0FontState
             : new PdfCidFontType2(font, dictionary, reference);
     }
 
-    /// <summary>The rules that relate the CMap and the CIDFont (§9.7.3, §9.7.4.1, §9.7.5.2 and the text after Table 117).</summary>
-    private static void Check(PdfType0Font font, CMap encoding, PdfCidFont descendant)
+    /// <summary>
+    /// The rules that relate the CMap and the CIDFont (§9.7.3, §9.7.4.1, §9.7.5.2 and the text after Table 117). The Identity rule
+    /// applies to an encoding written as Identity-H or Identity-V, not to Identity-H standing in for an unusable encoding.
+    /// </summary>
+    private static void Check(PdfType0Font font, CMap encoding, bool standIn, PdfCidFont descendant)
     {
         CosObject? systemInfo = descendant.Get(CompositeFontNames.CidSystemInfo);
         CidSystemInfo? fontInfo = PdfCidFont.ReadSystemInfo(font.Document, systemInfo);
@@ -190,7 +196,7 @@ internal sealed class Type0FontState
                 $"The CMap's character collection {cmapInfo.Registry}-{cmapInfo.Ordering} differs from the CIDFont's {fontInfo.Registry}-{fontInfo.Ordering} (ISO 32000-2 §9.7.3); the CIDs are used as they are.");
         }
 
-        if (encoding.IsIdentity && descendant.CidFontType == PdfCidFontType.CidFontType2 && !descendant.IsEmbedded)
+        if (encoding.IsIdentity && !standIn && descendant.CidFontType == PdfCidFontType.CidFontType2 && !descendant.IsEmbedded)
         {
             font.Report(
                 DiagnosticCodes.Type0IdentityNotEmbedded,

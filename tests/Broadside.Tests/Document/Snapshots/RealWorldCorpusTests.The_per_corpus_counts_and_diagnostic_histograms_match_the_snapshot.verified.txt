@@ -1,6 +1,6 @@
 ﻿pdfjs: 989 files
-  Clean: 725
-  Diagnostics: 250
+  Clean: 723
+  Diagnostics: 252
   PasswordRequired: 12
   CertificateRequired: 0
   EncryptionUnsupported: 0
@@ -31,6 +31,7 @@
     DictionaryDuplicateKey: 4
     PageMediaBoxMissing: 4
     DateInvalid: 3
+    DctExtraneousData: 3
     DictionaryUnterminated: 3
     FileIdentifierInvalid: 3
     NameTreeNodeInvalid: 3
@@ -66,6 +67,9 @@
     ButtonOnStateMissing: 1
     ButtonOptLengthMismatch: 1
     ButtonValueStateMismatch: 1
+    DctEndMissing: 1
+    DctFrameInvalid: 1
+    DctScanInvalid: 1
     DictionaryValueMissing: 1
     EncryptDictionaryInvalid: 1
     EncryptedDataInvalid: 1
@@ -130,8 +134,8 @@ pdfbox: 137 files
     StartxrefInvalid: 1
     StreamLengthInvalid: 1
 qpdf: 639 files
-  Clean: 403
-  Diagnostics: 199
+  Clean: 400
+  Diagnostics: 202
   PasswordRequired: 23
   CertificateRequired: 0
   EncryptionUnsupported: 1
@@ -150,9 +154,9 @@ qpdf: 639 files
     RootMissing: 10
     StreamLengthInvalid: 10
     DestinationInvalid: 8
+    FilterUnsupported: 8
     PopupLinkMismatch: 8
     CatalogTypeInvalid: 7
-    FilterUnsupported: 7
     ObjectStreamIndexMismatch: 7
     WidgetNotInFieldTree: 7
     XrefEntryInvalid: 7
@@ -182,6 +186,7 @@ qpdf: 639 files
     TrailerPrevInvalid: 3
     ArrayUnterminated: 2
     ButtonValueUnknownState: 2
+    DctFrameInvalid: 2
     DictionaryDuplicateKey: 2
     EndOfFileMarkerMissing: 2
     ExtensionsNotDirect: 2
@@ -254,6 +259,7 @@ pdfium-tests: 840 files
     XmpPropertyDuplicate: 37
     HeaderInvalid: 29
     FilterDataInvalid: 28
+    DctFrameInvalid: 26
     DecodeParmsInvalid: 24
     OutlineLinkInconsistent: 22
     XrefEntryOffsetInvalid: 21

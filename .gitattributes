@@ -16,3 +16,4 @@
 *.pfb binary
 *.icc binary
 *.deflate binary
+*.gz binary

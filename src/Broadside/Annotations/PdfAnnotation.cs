@@ -1,3 +1,4 @@
+using Broadside.Content;
 using Broadside.Diagnostics;
 using Broadside.Graphics;
 using Broadside.Objects;
@@ -345,6 +346,42 @@ public abstract class PdfAnnotation
         PdfRectangle rect = Rect;
         PdfRectangle box = appearance.BoundingBox ?? new PdfRectangle(0, 0, rect.Width, rect.Height);
         return ComputeAppearanceMatrix(rect, box, appearance.Matrix);
+    }
+
+    /// <summary>Runs one of this annotation's appearance streams through the content interpreter, placed on the annotation rectangle.</summary>
+    /// <param name="appearance">The appearance, such as <see cref="GetAppearance()"/> or one state of <see cref="AppearanceDictionary"/>.</param>
+    /// <param name="processor">The processor; for several at once, a <see cref="CompositeContentProcessor"/>.</param>
+    /// <returns><see langword="true"/> when the appearance ran; <see langword="false"/> when nothing can be drawn (<see cref="GetAppearanceMatrix"/> is null).</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
+    /// <remarks>As <see cref="ProcessAppearance(PdfFormXObject, ContentProcessor, ContentOptions)"/> with default limits.</remarks>
+    public bool ProcessAppearance(PdfFormXObject appearance, ContentProcessor processor) => ProcessAppearance(appearance, processor, ContentInterpreter.DefaultOptions);
+
+    /// <summary>Runs one of this annotation's appearance streams through the content interpreter, placed on the annotation rectangle, with limits and cancellation.</summary>
+    /// <param name="appearance">The appearance, such as <see cref="GetAppearance()"/> or one state of <see cref="AppearanceDictionary"/>.</param>
+    /// <param name="processor">The processor; for several at once, a <see cref="CompositeContentProcessor"/>.</param>
+    /// <param name="options">Limits and cancellation for the run.</param>
+    /// <returns><see langword="true"/> when the appearance ran; <see langword="false"/> when nothing can be drawn (<see cref="GetAppearanceMatrix"/> is null).</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
+    /// <exception cref="OperationCanceledException">The options' cancellation token was canceled.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §12.5.5, Algorithm "Appearance streams", and §8.10.1: one top-level run of kind <see cref="ContentRunKind.Appearance"/>
+    /// in default user space, from the initial graphics state with the CTM set to the matrix <c>AA</c> (<see cref="GetAppearanceMatrix"/>;
+    /// the form matrix is part of it and is not applied again), the clip intersected with the form's <c>BBox</c> in form space, names
+    /// resolving in the form's resources (the page's when it has none). An appearance that draws itself is not run inside itself
+    /// (<c>ContentFormCycle</c>). <c>NoZoom</c>, <c>NoRotate</c>, optional content and the annotation's transparency group are the caller's.
+    /// </remarks>
+    public bool ProcessAppearance(PdfFormXObject appearance, ContentProcessor processor, ContentOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(appearance);
+        ArgumentNullException.ThrowIfNull(processor);
+        ArgumentNullException.ThrowIfNull(options);
+        if (GetAppearanceMatrix(appearance) is not { } matrix)
+        {
+            return false;
+        }
+
+        ContentInterpreter.RunAppearance(appearance, matrix, Page, Reference ?? Page?.Reference, Document, processor, options);
+        return true;
     }
 
     /// <summary>Creates the view of the class the dictionary's subtype selects, recording what the dictionary's type entries lack.</summary>

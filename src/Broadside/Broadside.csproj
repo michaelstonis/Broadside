@@ -9,11 +9,12 @@
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
-  <ItemGroup Label="Third-party data notices (issue #49): the AFM terms require MustRead.html to travel with data derived from the AFM files">
+  <ItemGroup Label="Third-party notices (issues #49, #61): the AFM terms require MustRead.html to travel with data derived from the AFM files; the IJG licence requires README.ijg with code derived from libjpeg">
     <None Include="THIRD-PARTY-NOTICES.txt" Pack="true" PackagePath="/" />
     <None Include="Fonts/Data/Afm/MustRead.html" Pack="true" PackagePath="licenses/adobe-core14-afm/" />
     <None Include="Fonts/Data/GlyphList/LICENSE.md" Pack="true" PackagePath="licenses/adobe-glyph-list/" />
     <None Include="Fonts/Data/CMaps/LICENSE.md" Pack="true" PackagePath="licenses/adobe-cmap-resources/" />
+    <None Include="Filters/Dct/README.ijg" Pack="true" PackagePath="licenses/ijg/" />
   </ItemGroup>
 
   <ItemGroup>

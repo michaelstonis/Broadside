@@ -25,6 +25,7 @@
   collection-portfolio.pdf,
   color-operators.pdf,
   colorspace-families.pdf,
+  dct-baseline.pdf,
   declarations.pdf,
   default-colorspaces.pdf,
   destinations-all.pdf,
