@@ -190,6 +190,7 @@ public sealed class MalformedFormTests
         { "/FT /Ch /DA (x) /Opt [(a) (b)] /I [1 0 5]", "StoredIndices", "ChoiceIndicesInvalid 4" },
         { "/FT /Btn /Opt [(a) (b)] /Kids [5 0 R]", "Options", "ButtonOptLengthMismatch 4" },
         { "/FT /Btn /V /Maybe /Kids [5 0 R]", "Value", "ButtonValueUnknownState 4" },
+        { "/FT /Btn /V (On\\000) /Kids [5 0 R]", "Value", "FieldValueTypeInvalid 4" },
         { "/FT /Btn /V /Off /Kids [6 0 R]", "Value", "ButtonValueStateMismatch 4" },
         { "/FT /Btn /V /Yes /Kids [7 0 R]", "OnStateNames", "ButtonStatesAmbiguous 4" },
         { "/FT /Btn /V /Off /Kids [8 0 R]", "OnStateNames", "ButtonOnStateMissing 4" },

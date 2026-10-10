@@ -249,6 +249,9 @@ public abstract class PdfToggleButtonField : PdfButtonField
                 return null;
             case CosName name:
                 return name;
+            case CosString text when text.Bytes.Contains((byte)0):
+                ReportValueType(key, "a name; it is a string holding the byte 0, which no name can contain (§7.3.5), so it reads as Off");
+                return null;
             case CosString text:
                 ReportValueType(key, "a name; it is a string, read as the name it spells");
                 return new CosName(text.Bytes);
