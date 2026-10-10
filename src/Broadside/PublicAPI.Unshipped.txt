@@ -964,6 +964,7 @@ Broadside.Fonts.PdfCidFont.GetVerticalMetrics(int cid) -> Broadside.Fonts.CidVer
 Broadside.Fonts.PdfCidFont.GetWidth(int cid) -> double
 Broadside.Fonts.PdfCidFont.IsEmbedded.get -> bool
 Broadside.Fonts.PdfCidFont.Program.get -> Broadside.Fonts.FontProgram?
+Broadside.Fonts.PdfCidFont.Substitute.get -> Broadside.Fonts.FontSubstitute?
 Broadside.Fonts.PdfCidFont.Reference.get -> Broadside.Objects.CosReference?
 Broadside.Fonts.PdfCidFont.SystemInfo.get -> Broadside.Fonts.CidSystemInfo?
 Broadside.Fonts.PdfCidFontType

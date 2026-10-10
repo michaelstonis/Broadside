@@ -11,8 +11,9 @@ namespace Broadside.Fonts;
 /// other than 0 mean "no glyph", and the font shows the glyph of CID 0 (§9.7.6.3).
 /// </para>
 /// <para>
-/// A program that is not embedded is selected by the predefined CMap's encoding and the font's "cmap" table, which needs the font
-/// resolver and the predefined CMaps; until then the CID is used as the glyph id. <c>CIDToGIDMap</c> is ignored then (§9.7.4.2).
+/// Without a usable embedded program, the CIDFont is drawn with its <see cref="PdfCidFont.Substitute"/>, whose glyph a CID selects
+/// through the collection's Unicode values and the substitute's "cmap" (§9.7.4.2: a non-embedded TrueType CIDFont is reached through
+/// the "cmap" table); <c>CIDToGIDMap</c> is ignored then.
 /// </para>
 /// </remarks>
 public sealed class PdfCidFontType2 : PdfCidFont
@@ -26,10 +27,9 @@ public sealed class PdfCidFontType2 : PdfCidFont
     internal override bool TryGetGlyphId(int cid, out int glyphId)
     {
         CidFontMetrics metrics = Metrics;
-        if (!metrics.IsEmbedded)
+        if (metrics.Program is null)
         {
-            glyphId = cid;
-            return true;
+            return TryGetSubstituteGlyphId(cid, out glyphId);
         }
 
         if (metrics.Program is not { } program || !metrics.TryMapGlyph(cid, out glyphId) || glyphId >= program.GlyphCount || (glyphId == 0 && cid != 0))
