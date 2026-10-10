@@ -48,79 +48,79 @@ internal static class Program
                 return 0;
 
             case "--fuzz":
-            {
-                string? name = args.Length > 1 ? args[1] : Environment.GetEnvironmentVariable(TargetEnvironmentVariable);
-                if (!TryGetTarget(name, out ReadOnlySpanAction? target))
                 {
-                    return Usage();
-                }
+                    string? name = args.Length > 1 ? args[1] : Environment.GetEnvironmentVariable(TargetEnvironmentVariable);
+                    if (!TryGetTarget(name, out ReadOnlySpanAction? target))
+                    {
+                        return Usage();
+                    }
 
-                if (Environment.GetEnvironmentVariable(LibFuzzerEnvironmentVariable) is null)
-                {
-                    // Without the driver SharpFuzz would read a file named by the first argument, which is our mode switch.
-                    Console.Error.WriteLine("--fuzz must be started by the libfuzzer-dotnet driver (see README.md). Use --smoke or --run to execute a target directly.");
-                    return 2;
-                }
+                    if (Environment.GetEnvironmentVariable(LibFuzzerEnvironmentVariable) is null)
+                    {
+                        // Without the driver SharpFuzz would read a file named by the first argument, which is our mode switch.
+                        Console.Error.WriteLine("--fuzz must be started by the libfuzzer-dotnet driver (see README.md). Use --smoke or --run to execute a target directly.");
+                        return 2;
+                    }
 
-                Fuzzer.LibFuzzer.Run(target);
-                return 0;
-            }
+                    Fuzzer.LibFuzzer.Run(target);
+                    return 0;
+                }
 
             case "--afl":
-            {
-                if (args.Length < 2 || !TryGetTarget(args[1], out ReadOnlySpanAction? target))
                 {
-                    return Usage();
-                }
+                    if (args.Length < 2 || !TryGetTarget(args[1], out ReadOnlySpanAction? target))
+                    {
+                        return Usage();
+                    }
 
-                Fuzzer.Run(stream =>
-                {
-                    using var buffer = new MemoryStream();
-                    stream.CopyTo(buffer);
-                    target(buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
-                });
-                return 0;
-            }
+                    Fuzzer.Run(stream =>
+                    {
+                        using var buffer = new MemoryStream();
+                        stream.CopyTo(buffer);
+                        target(buffer.GetBuffer().AsSpan(0, (int)buffer.Length));
+                    });
+                    return 0;
+                }
 
             case "--smoke":
-            {
-                if (args.Length < 2 || !TryGetTarget(args[1], out ReadOnlySpanAction? target))
                 {
-                    return Usage();
-                }
+                    if (args.Length < 2 || !TryGetTarget(args[1], out ReadOnlySpanAction? target))
+                    {
+                        return Usage();
+                    }
 
-                if (!TryParseInt(args, index: 2, DefaultSmokeSeconds, out int seconds) || seconds < 0
-                    || !TryParseInt(args, index: 3, Random.Shared.Next(), out int seed))
-                {
-                    return Usage();
-                }
+                    if (!TryParseInt(args, index: 2, DefaultSmokeSeconds, out int seconds) || seconds < 0
+                        || !TryParseInt(args, index: 3, Random.Shared.Next(), out int seed))
+                    {
+                        return Usage();
+                    }
 
-                return SmokeRunner.Run(args[1], target, TimeSpan.FromSeconds(seconds), seed);
-            }
+                    return SmokeRunner.Run(args[1], target, TimeSpan.FromSeconds(seconds), seed);
+                }
 
             case "--run":
-            {
-                if (args.Length < 3 || !TryGetTarget(args[1], out ReadOnlySpanAction? target))
                 {
-                    return Usage();
-                }
+                    if (args.Length < 3 || !TryGetTarget(args[1], out ReadOnlySpanAction? target))
+                    {
+                        return Usage();
+                    }
 
-                target(File.ReadAllBytes(args[2]));
-                Console.WriteLine("ok");
-                return 0;
-            }
+                    target(File.ReadAllBytes(args[2]));
+                    Console.WriteLine("ok");
+                    return 0;
+                }
 
             case "--seeds":
-            {
-                if (args.Length < 3 || !TryGetTarget(args[1], out _))
                 {
-                    return Usage();
-                }
+                    if (args.Length < 3 || !TryGetTarget(args[1], out _))
+                    {
+                        return Usage();
+                    }
 
-                int count = SeedWriter.Write(args[1], args[2], args[3..]);
-                Console.WriteLine(SeedWriter.Describe(args[1], count, args[2]));
-                return 0;
-            }
+                    int count = SeedWriter.Write(args[1], args[2], args[3..]);
+                    Console.WriteLine(SeedWriter.Describe(args[1], count, args[2]));
+                    return 0;
+                }
 
             default:
                 return Usage();

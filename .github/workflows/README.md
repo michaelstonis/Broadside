@@ -7,7 +7,8 @@
 | `build-test` | ubuntu, windows, macos | `dotnet build Broadside.slnx -c Release -warnaserror`, then `dotnet test Broadside.Core.slnf` with TRX reports uploaded as `test-results-<os>`. On Linux and Windows the CoreGraphics and Android backends drop out through the `BroadsideBuildPlatformBackends` gate; macOS installs the `macos ios maccatalyst android` workloads first and builds them. Linux also packs the core packages and uploads them as `packages`. |
 | `api-surface` | ubuntu (PRs only) | Writes the diff of every `src/**/PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt` against the base branch to the job summary. Never fails; the PublicApiAnalyzers already fail the build on an undeclared API change. |
 | `conformance-map` | ubuntu | `dotnet run --project tools/ConformanceCheck -- --root . --summary` into the job summary; fails on a `done` row without a test. Its steps are skipped, with a note in the summary, until `tools/ConformanceCheck` lands (issue #7). |
-| `fuzz-smoke` | ubuntu | `--list`s the fuzz targets and runs `--smoke <target> 60` for each; uploads `artifacts/fuzz/**` as `fuzz-findings` on failure. |
+| `format` | ubuntu | `dotnet format --verify-no-changes` on `Broadside.Core.slnf`, `tests/Broadside.Fuzz` and `bench/Broadside.Benchmarks` (the last two are outside the solution filter). |
+| `fuzz-smoke (<shard>/6)` | ubuntu | Six parallel shards: each `--list`s the fuzz targets and runs `--smoke <target> 60` for every target whose index modulo 6 is its shard; uploads `artifacts/fuzz/**` as `fuzz-findings-<shard>` on failure. |
 | `bench-dry` | ubuntu | `dotnet run --project bench/Broadside.Benchmarks -- --filter '*' --job dry`: one iteration of every benchmark, no measurement. |
 
 A newer push to the same PR or branch cancels the older run. NuGet packages are cached per OS, keyed on `Directory.Packages.props` and every `.csproj`. `DiffEngine_Disabled=true` keeps Verify from launching a diff tool.
