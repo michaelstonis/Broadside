@@ -3,7 +3,7 @@ using System.Text;
 namespace Broadside.Tests.Document;
 
 /// <summary>The XMP packet reader (ISO 16684-1 §7) over bytes, without a PDF: the seam #76 and the fuzz target use.</summary>
-public class XmpPacketTests
+public sealed class XmpPacketTests
 {
     private const string Rdf = "http://www.w3.org/1999/02/22-rdf-syntax-ns#";
 

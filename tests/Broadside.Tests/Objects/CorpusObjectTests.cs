@@ -10,7 +10,7 @@ namespace Broadside.Tests.Objects;
 /// Every indirect object in the minimal corpus, cut out between <c>N G obj</c> and <c>endobj</c> by the test (file structure is
 /// issue #37's), parses through <see cref="CosObject.Parse"/> and survives a write-then-parse round trip. ISO 32000-2 §7.3.
 /// </summary>
-public partial class CorpusObjectTests
+public sealed partial class CorpusObjectTests
 {
     [Theory]
     [MemberData(nameof(Corpus.WellFormedFiles), MemberType = typeof(Corpus))]

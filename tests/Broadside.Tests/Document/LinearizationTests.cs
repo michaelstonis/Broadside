@@ -9,7 +9,7 @@ namespace Broadside.Tests.Document;
 /// Linearized files: detection, the parameter dictionary, the first-page objects and the hint tables. ISO 32000-2 Annex F. Expected
 /// values come from <c>qpdf --show-linearization tests/Corpus/linearized.pdf</c> (qpdf 12.4.2), recorded in the corpus README.
 /// </summary>
-public class LinearizationTests
+public sealed class LinearizationTests
 {
     [Fact]
     public void A_linearized_file_is_detected_and_exposes_its_parameter_dictionary()

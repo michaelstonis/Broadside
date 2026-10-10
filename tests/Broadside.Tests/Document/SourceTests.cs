@@ -7,7 +7,7 @@ namespace Broadside.Tests.Document;
 /// Where a document's bytes come from: memory, a memory-mapped file, a seekable stream read in place, or a non-seekable stream
 /// buffered when it is opened. ISO 32000-2 §7.5.1 (a file is read at random through its cross-reference table) and §7.5.4.
 /// </summary>
-public class SourceTests
+public sealed class SourceTests
 {
     private const int ContentLength = 64 * 1024;
 

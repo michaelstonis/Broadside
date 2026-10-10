@@ -4,7 +4,7 @@ using static Broadside.Tests.Objects.ScalarParsingTests;
 namespace Broadside.Tests.Objects;
 
 /// <summary>ISO 32000-2 §7.3.4 (strings) and §7.3.5 (names), with the expected values taken from the clauses' own examples.</summary>
-public class StringAndNameParsingTests
+public sealed class StringAndNameParsingTests
 {
     [Theory]
     [InlineData("(This is a string)", "This is a string")]

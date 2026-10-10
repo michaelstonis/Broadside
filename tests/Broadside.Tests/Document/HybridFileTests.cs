@@ -9,7 +9,7 @@ namespace Broadside.Tests.Document;
 /// Hybrid-reference files: a classic table whose trailer names a cross-reference stream through <c>XRefStm</c>, consulted after the
 /// table and before older sections. ISO 32000-2 §7.5.8.4, Table 19.
 /// </summary>
-public class HybridFileTests
+public sealed class HybridFileTests
 {
     [Fact]
     public void An_object_only_the_XRefStm_stream_lists_is_found()

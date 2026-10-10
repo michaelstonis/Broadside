@@ -12,7 +12,7 @@ namespace Broadside.Tests.Document;
 /// <summary>
 /// The public diagnostic model (ADR 0005): severities, what strict mode throws, and that each repair is recorded once.
 /// </summary>
-public class DiagnosticModelTests
+public sealed class DiagnosticModelTests
 {
     [Fact]
     public void Severities_are_ordered_from_information_to_error()

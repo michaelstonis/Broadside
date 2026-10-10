@@ -3,7 +3,7 @@ using Broadside.Objects;
 namespace Broadside.Tests.Objects;
 
 /// <summary>ISO 32000-2 §7.9.2.2 and Annex D: decoding string objects as text strings.</summary>
-public class TextStringTests
+public sealed class TextStringTests
 {
     [Fact]
     public void Decodes_utf16be_after_its_byte_order_marker()

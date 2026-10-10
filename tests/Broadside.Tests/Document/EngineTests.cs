@@ -5,7 +5,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Document;
 
 /// <summary>The engine and options: one open path for the static entry point and engine instances, lenient and strict reading (ADR 0005).</summary>
-public class EngineTests
+public sealed class EngineTests
 {
     [Theory]
     [MemberData(nameof(Corpus.WellFormedFiles), MemberType = typeof(Corpus))]

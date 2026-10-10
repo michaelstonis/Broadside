@@ -1,7 +1,7 @@
 namespace Broadside.Tests.Document;
 
 /// <summary>PDF dates (ISO 32000-2 §7.9.4) and XMP dates (ISO 16684-1 §8.2.1.2), parsed without ever throwing.</summary>
-public class DateTests
+public sealed class DateTests
 {
     public static TheoryData<string, string, PdfDatePrecision, int?> WellFormedDates => new()
     {

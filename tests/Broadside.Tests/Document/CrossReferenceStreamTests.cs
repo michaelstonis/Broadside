@@ -10,7 +10,7 @@ namespace Broadside.Tests.Document;
 /// ISO 32000-2 §7.5.8.1 to §7.5.8.3, Tables 17 and 18.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class CrossReferenceStreamTests
+public sealed class CrossReferenceStreamTests
 {
     private static readonly int[] W121 = [1, 2, 1];
 

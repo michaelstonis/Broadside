@@ -20,7 +20,7 @@ namespace Broadside.Tests.Document;
 /// garbage collector keeps committed for other tests of the run does not count (measured growth: about 5 MB).
 /// </remarks>
 [Collection(HeavyTestCollection.Name)]
-public class LargeFileTests
+public sealed class LargeFileTests
 {
     private const int PageCount = 2100;
     private const int ContentLength = 1 << 20;

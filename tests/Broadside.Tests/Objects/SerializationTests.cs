@@ -8,7 +8,7 @@ namespace Broadside.Tests.Objects;
 /// <summary>
 /// Writing COS objects back to bytes (ISO 32000-2 §7.2, §7.3) and the equality a write-then-parse round trip preserves.
 /// </summary>
-public class SerializationTests
+public sealed class SerializationTests
 {
     public static TheoryData<string, string> CanonicalSyntax => new()
     {

@@ -6,7 +6,7 @@ namespace Broadside.Tests.Document;
 /// Every well-formed corpus file opens with zero diagnostics (tests/Corpus/README.md, "Well-formed files"; ADR 0005): a diagnostic
 /// means a "shall" was violated or data was repaired, never that a "should" was not followed. ISO 32000-2 §7.5, §7.7.
 /// </summary>
-public class WellFormedCorpusTests
+public sealed class WellFormedCorpusTests
 {
     [Theory]
     [MemberData(nameof(Corpus.WellFormedFiles), MemberType = typeof(Corpus))]

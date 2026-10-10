@@ -11,7 +11,7 @@ namespace Broadside.Tests.Security;
 /// The encrypted corpus files open with the empty user password and with the owner password <c>owner</c>, and their strings and
 /// content streams decrypt to what <c>tests/Corpus/generate.py</c> encrypted. ISO 32000-2 §7.6; ISO/TS 32003.
 /// </summary>
-public class EncryptedCorpusTests
+public sealed class EncryptedCorpusTests
 {
     public static TheoryData<string, string> EncryptedFiles => new()
     {

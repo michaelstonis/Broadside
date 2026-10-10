@@ -10,7 +10,7 @@ namespace Broadside.Tests.Document;
 /// exactly the documented diagnostics and the same pages as its intact counterpart, and strict mode throws the first of them.
 /// ISO 32000-2 §7.3.8.2, §7.3.10, §7.5.4, §7.5.5.
 /// </summary>
-public class BrokenCorpusTests
+public sealed class BrokenCorpusTests
 {
     /// <summary>File, intact counterpart, then the expected diagnostics as "Code object offset" ("-" when unknown), in order.</summary>
     public static TheoryData<string, string, string[]> BrokenFiles => new()

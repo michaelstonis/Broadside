@@ -12,7 +12,7 @@ namespace Broadside.Tests.Document;
 /// file need not be read". The parse count is observed through the engine's trace log (event 2, <c>ObjectParsed</c>).
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class LazyLoadingTests
+public sealed class LazyLoadingTests
 {
     private const int PageCount = 40;
 

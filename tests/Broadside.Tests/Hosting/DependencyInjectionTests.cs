@@ -14,7 +14,7 @@ namespace Broadside.Tests.Hosting;
 /// A hosted application registers Broadside once and gets the same behavior as the static entry point, with options bound
 /// through the options pattern and diagnostics logged to its pipeline (spec #33 user stories 43 to 45; issue #46; ADR 0005).
 /// </summary>
-public class DependencyInjectionTests
+public sealed class DependencyInjectionTests
 {
     [Theory]
     [MemberData(nameof(Corpus.WellFormedFiles), MemberType = typeof(Corpus))]

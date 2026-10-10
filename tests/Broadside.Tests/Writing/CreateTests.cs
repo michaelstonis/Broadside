@@ -3,7 +3,7 @@ using Broadside.Objects;
 namespace Broadside.Tests.Writing;
 
 /// <summary>Creating a document from scratch. ISO 32000-2 §7.5.2, §7.7.2, §7.7.3, §14.4.</summary>
-public class CreateTests
+public sealed class CreateTests
 {
     [Fact]
     public void A_created_document_has_one_empty_letter_page_and_is_PDF_2_0()

@@ -6,7 +6,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Document;
 
 /// <summary>Page labels: ranges in a number tree, numbered in a style with a prefix. ISO 32000-2 §12.4.2, Table 161; §7.9.7.</summary>
-public partial class PageLabelTests
+public sealed partial class PageLabelTests
 {
     private static readonly string[] PageLabelsPdfLabels = ["i", "ii", "iii", "1", "2", "IV", "V", "Z", "AA", "A-zz", "A-aaa", "Cover"];
 

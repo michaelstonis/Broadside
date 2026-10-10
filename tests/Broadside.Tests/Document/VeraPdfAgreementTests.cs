@@ -29,7 +29,7 @@ public enum VeraPdfTriage
 /// disagreement is triaged, by rule, in <see cref="Triage"/>; the snapshot lists each one. ISO 32000-2 §7.2-§7.5.
 /// </summary>
 [Trait("Category", "Corpus")]
-public partial class VeraPdfAgreementTests(ITestOutputHelper output)
+public sealed partial class VeraPdfAgreementTests(ITestOutputHelper output)
 {
     /// <summary>The syntactic folders, below <c>6.1 File structure/</c> of each profile.</summary>
     private static readonly string[] SyntacticFolders =

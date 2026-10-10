@@ -16,7 +16,7 @@ namespace Broadside.Tests.Security;
 /// incremental update of <c>encrypted-aes-256.pdf</c> adds a <c>KDFSalt</c>, a signature dictionary signed with a throwaway
 /// certificate, and the trailer's <c>AuthCode</c> pointing at it.
 /// </summary>
-public class SignatureIntegrityTests
+public sealed class SignatureIntegrityTests
 {
     private const string IntegrityInfoOid = "1.0.32004.1.0";
 

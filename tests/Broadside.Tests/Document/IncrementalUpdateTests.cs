@@ -6,7 +6,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Document;
 
 /// <summary>Incremental updates: revisions, their byte ranges and the newest copy of each object. ISO 32000-2 §7.5.6, §7.5.4, H.7.</summary>
-public class IncrementalUpdateTests
+public sealed class IncrementalUpdateTests
 {
     [Fact]
     public void An_updated_file_has_one_revision_per_update_and_the_first_is_the_original_file()

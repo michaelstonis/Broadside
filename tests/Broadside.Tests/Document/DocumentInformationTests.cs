@@ -6,7 +6,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Document;
 
 /// <summary>The Info dictionary, the document's XMP metadata and the file identifier. ISO 32000-2 §14.3, §14.4, §7.9.4.</summary>
-public class DocumentInformationTests
+public sealed class DocumentInformationTests
 {
     [Fact]
     public void Metadata_xmp_pdf_yields_its_title_from_the_info_dictionary_and_from_xmp()

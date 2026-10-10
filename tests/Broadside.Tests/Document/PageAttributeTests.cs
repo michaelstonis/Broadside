@@ -7,7 +7,7 @@ namespace Broadside.Tests.Document;
 /// Page boundaries, rotation and user unit with the defaults the specification defines. ISO 32000-2 §7.7.3.3 Table 31, §7.9.5,
 /// §14.11.2.
 /// </summary>
-public class PageAttributeTests
+public sealed class PageAttributeTests
 {
     private static readonly PdfRectangle Letter = new(0, 0, 612, 792);
 

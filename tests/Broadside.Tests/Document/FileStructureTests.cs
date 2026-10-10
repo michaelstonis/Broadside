@@ -6,7 +6,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Document;
 
 /// <summary>Header, cross-reference table, trailer and indirect objects. ISO 32000-2 §7.3.10, §7.5.1 to §7.5.5.</summary>
-public class FileStructureTests
+public sealed class FileStructureTests
 {
     [Fact]
     public void Offsets_count_from_the_header_so_bytes_before_it_do_not_matter()
