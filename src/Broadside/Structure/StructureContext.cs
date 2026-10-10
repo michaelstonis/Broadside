@@ -102,7 +102,7 @@ internal sealed class StructureContext
         var pageByKey = new Dictionary<int, CosDictionary>();
         foreach (PdfPage page in Document.Pages)
         {
-            if (StructureValues.Integer(Document, page.Dictionary, StructureNames.StructParents) is { } key)
+            if (ViewReading.Int32(Document, page.Dictionary, StructureNames.StructParents) is { } key)
             {
                 pageByKey.TryAdd(key, page.Dictionary);
             }

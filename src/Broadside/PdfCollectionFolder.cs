@@ -29,12 +29,54 @@ public sealed class PdfCollectionFolder
     public CosReference? Reference { get; }
 
     /// <summary>Gets the folder's ID (<c>ID</c>, a non-negative integer unique in the collection), or -1 when missing or invalid.</summary>
-    /// <remarks>ISO 32000-2 §12.3.5, Table 159 (required).</remarks>
-    public int Id => ViewReading.Integer(_document, Dictionary, FileAndLayerNames.ID) is { } id and >= 0 and <= int.MaxValue ? (int)id : -1;
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, when the ID is missing or invalid.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §12.3.5, Table 159 (required). A missing, negative or non-integer ID reads as -1 and a real holding a whole number
+    /// as that number, each with a <c>CollectionFolderInvalid</c> diagnostic.
+    /// </remarks>
+    public int Id
+    {
+        get
+        {
+            switch (ViewReading.Int32(_document, Dictionary, FileAndLayerNames.ID, Issue))
+            {
+                case >= 0 and var id:
+                    return id;
+                case { }:
+                    Issue.Report("The collection folder's ID shall be a non-negative integer; it reads as -1.");
+                    return -1;
+                case null when ViewReading.Get(_document, Dictionary, FileAndLayerNames.ID) is null:
+                    Issue.Report("The collection folder has no ID, which Table 159 requires; it reads as -1.");
+                    return -1;
+                default:
+                    return -1;
+            }
+        }
+    }
 
     /// <summary>Gets the folder's name (<c>Name</c>); empty when missing.</summary>
-    /// <remarks>ISO 32000-2 §12.3.5, Table 159 (required; file-name rules apply).</remarks>
-    public string Name => ViewReading.Text(_document, Dictionary, FileAndLayerNames.Name) ?? string.Empty;
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, when the name is missing or not a text string.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §12.3.5, Table 159 (required; file-name rules apply). A missing name reads as empty and a name or number as its
+    /// text, each with a <c>CollectionFolderInvalid</c> diagnostic.
+    /// </remarks>
+    public string Name
+    {
+        get
+        {
+            if (ViewReading.Text(_document, Dictionary, FileAndLayerNames.Name, Issue) is { } name)
+            {
+                return name;
+            }
+
+            if (ViewReading.Get(_document, Dictionary, FileAndLayerNames.Name) is null)
+            {
+                Issue.Report("The collection folder has no Name, which Table 159 requires; it reads as empty.");
+            }
+
+            return string.Empty;
+        }
+    }
 
     /// <summary>Gets the folder's description (<c>Desc</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.3.5, Table 159.</remarks>
@@ -94,4 +136,6 @@ public sealed class PdfCollectionFolder
     public override string ToString() => Name;
 
     internal void AddChild(PdfCollectionFolder child) => _children.Add(child);
+
+    private EntryReport Issue => new(_document, Parsing.DiagnosticCodes.CollectionFolderInvalid, Reference, "The collection folder");
 }

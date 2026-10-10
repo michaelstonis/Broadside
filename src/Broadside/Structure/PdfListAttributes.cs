@@ -31,7 +31,7 @@ public sealed class PdfListAttributes : PdfAttributeObject
 
     /// <summary>Gets <c>ContinuedList</c>: whether the list continues a previous one (PDF 2.0).</summary>
     /// <remarks>ISO 32000-2 Table 382.</remarks>
-    public bool? ContinuedList => StructureValues.Boolean(Document, Dictionary, ContinuedListName);
+    public bool? ContinuedList => ViewReading.Boolean(Document, Dictionary, ContinuedListName);
 
     /// <summary>Gets <c>ContinuedFrom</c>: the ID of the list this one continues (PDF 2.0).</summary>
     /// <remarks>ISO 32000-2 Table 382.</remarks>

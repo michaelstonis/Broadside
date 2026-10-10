@@ -17,7 +17,7 @@ public sealed class PdfMarkInfo
 
     /// <summary>Gets the mark information dictionary, or <see langword="null"/> when the catalog has none.</summary>
     /// <remarks>ISO 32000-2 §7.7.2, Table 29 (<c>MarkInfo</c>), and Table 353.</remarks>
-    public CosDictionary? Dictionary => StructureValues.Get(_document, _document.Catalog, StructureNames.MarkInfo) as CosDictionary;
+    public CosDictionary? Dictionary => ViewReading.Get(_document, _document.Catalog, StructureNames.MarkInfo) as CosDictionary;
 
     /// <summary>Gets a value indicating whether the document conforms to tagged PDF conventions (<c>Marked</c>).</summary>
     /// <remarks>ISO 32000-2 Table 353 (PDF 1.4 for tagged PDF); §14.8.1.</remarks>
@@ -33,7 +33,7 @@ public sealed class PdfMarkInfo
 
     private bool Flag(CosName key)
     {
-        if (Dictionary is not { } dictionary || StructureValues.Get(_document, dictionary, key) is not { } value)
+        if (Dictionary is not { } dictionary || ViewReading.Get(_document, dictionary, key) is not { } value)
         {
             return false;
         }

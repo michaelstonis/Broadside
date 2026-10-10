@@ -69,6 +69,5 @@ public sealed class PdfRichMediaCommand
         var value => [value],
     };
 
-    private CosObject? Get(CosName key) =>
-        Dictionary.TryGetValue(key, out CosObject? value) && _document.Resolve(value) is not CosNull and var resolved ? resolved : null;
+    private CosObject? Get(CosName key) => EntryReader.Get(_document, Dictionary, key);
 }

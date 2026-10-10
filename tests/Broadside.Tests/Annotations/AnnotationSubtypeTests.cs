@@ -267,4 +267,19 @@ public class AnnotationSubtypeTests
 
         Assert.Empty(document.Diagnostics);
     }
+
+    [Theory]
+    [InlineData("/StateModel (Marked)", "Unmarked")]
+    [InlineData("/StateModel (Review)", "None")]
+    [InlineData("/StateModel (Custom)", null)]
+    [InlineData("", null)]
+    [InlineData("/StateModel (Review) /State (Rejected)", "Rejected")]
+    public void A_text_annotation_without_State_reads_the_default_of_its_state_model(string entries, string? expected)
+    {
+        using PdfDocument document = PdfDocument.Open(TestPdf.OnePage($"/MediaBox [0 0 612 792] /Annots [<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] {entries} >>]"));
+
+        PdfTextAnnotation note = Assert.IsType<PdfTextAnnotation>(Assert.Single(document.Pages[0].Annotations));
+
+        Assert.Equal(expected, note.State);
+    }
 }

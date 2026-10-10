@@ -1,7 +1,7 @@
 using Broadside.Structure;
 using Broadside.Tests.Document;
 
-namespace Broadside.Tests.LogicalStructure;
+namespace Broadside.Tests.StructureTree;
 
 /// <summary>
 /// Builds a one-page tagged file in memory: object 1 the catalog (<c>MarkInfo</c> Marked true), 2 the page tree, 3 the page
