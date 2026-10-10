@@ -243,8 +243,11 @@ internal sealed class JpegDecoder
     /// <param name="colorTransform">The DecodeParms <c>ColorTransform</c> value, or -1 when absent.</param>
     /// <remarks>
     /// ISO 32000-2 §7.4.8, Table 13: the APP14 transform flag wins; otherwise the parameter; otherwise 1 for three components and 0
-    /// for others; ignored for one or two components. Three components identified as R, G, B (what libjpeg writes for RGB data, and
-    /// pdf.js and libjpeg read so) are not transformed without APP14 or the parameter. An APP14 code that does not fit the
+    /// for others; ignored for one or two components. Compatibility fallback, a documented deviation from Table 13's "shall be 1":
+    /// three components identified as R, G, B (what libjpeg writes for RGB data, and libjpeg and pdf.js read so) are not transformed
+    /// without APP14 or the parameter, and <c>DctColorTransformInferred</c> (Information) says so; the one real-world file of this
+    /// kind in the corpora (pdf.js issue11931.pdf) differs from libjpeg-turbo by up to 135 per sample when transformed. An APP14
+    /// code that does not fit the
     /// component count (2 or more with three components, 1 or more than 2 with four) is reported and read as YCbCr or YCCK, as
     /// libjpeg, pdf.js and PDFBox do (Adobe Technical Note #5116 §18: 1 = YCbCr, 2 = YCCK).
     /// </remarks>
@@ -258,11 +261,20 @@ internal sealed class JpegDecoder
                 Invariant($"The APP14 transform code {_adobeTransform} does not fit {_componentCount} components; {(_componentCount == 3 ? "YCbCr" : "YCCK")} is assumed."));
         }
 
+        bool rgbIdentifiers = _componentCount == 3 && _components[0].Id == 'R' && _components[1].Id == 'G' && _components[2].Id == 'B';
+        if (rgbIdentifiers && !_adobe && colorTransform < 0)
+        {
+            Report(
+                DiagnosticCodes.DctColorTransformInferred,
+                DiagnosticSeverity.Information,
+                "The three DCT components are identified R, G, B and there is neither an APP14 segment nor a ColorTransform parameter; they are read as RGB (as libjpeg does), not with the default ColorTransform 1 of ISO 32000-2 Table 13.");
+        }
+
         bool transform = _componentCount switch
         {
             3 when _adobe => _adobeTransform != 0,
             3 when colorTransform >= 0 => colorTransform == 1,
-            3 => !(_components[0].Id == 'R' && _components[1].Id == 'G' && _components[2].Id == 'B'),
+            3 => !rgbIdentifiers,
             4 when _adobe => _adobeTransform != 0,
             4 => colorTransform == 1,
             _ => false,
