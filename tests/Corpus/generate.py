@@ -1797,6 +1797,27 @@ def gen_text_cidcff_predefined_cmap() -> bytes:
     ], binary=True)
 
 
+def gen_text_tounicode_bf() -> bytes:
+    """9.10.3 ToUnicode CMap destinations: a bfchar to one character and one to a surrogate pair (U+1F600 as <D83DDE00>), a
+    bfrange with an array (a two-letter ligature) and a bfrange with a string incremented per code. Identity-H over the
+    CIDFontType2 of cid_file(); CIDs 3-6 have no glyph (CID 0's), which does not matter to their text. Shows
+    <000100020003000400050006>: H, fi (two letters), U+1F600, A, B, C."""
+    tu = to_unicode(b"1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n",
+                    b"2 beginbfchar\n<0001> <0048>\n<0003> <D83DDE00>\nendbfchar\n"
+                    b"2 beginbfrange\n<0002> <0002> [<00660069>]\n<0004> <0006> <0041>\nendbfrange\n")
+    return cid_file(b"/Identity-H", b"/CIDToGIDMap /Identity /DW 600",
+                    [b"\x00\x01\x00\x02\x00\x03\x00\x04\x00\x05\x00\x06"], tu)
+
+
+def gen_text_glyph_names() -> bytes:
+    """9.10.2 (second method) with the Adobe Glyph List specification's algorithm: non-embedded Helvetica whose Differences
+    give codes 1-6 the names H.sc (suffix dropped), uni0049, f_i (two components, not U+FB01), u1F600, uni00410042 (two
+    groups) and Lcommaaccent (in the list). No widths (9.6.2.2): the AFM has none of the names but the last."""
+    enc = (b"/Encoding << /Type /Encoding /BaseEncoding /WinAnsiEncoding "
+           b"/Differences [1 /H.sc /uni0049 /f_i /u1F600 /uni00410042 /Lcommaaccent] >>")
+    return font_file([std14(b"Helvetica", enc)], [b"\x01\x02\x03\x04\x05\x06"])
+
+
 def gen_xref_stream() -> bytes:
     f = File("1.5", binary=True)
     f.add(1, catalog())
@@ -5063,6 +5084,8 @@ FILES = {
     "text-cid-identity-v.pdf": gen_text_cid_identity_v,
     "text-cid-embedded-cmap.pdf": gen_text_cid_embedded_cmap,
     "text-cidcff-predefined-cmap.pdf": gen_text_cidcff_predefined_cmap,
+    "text-tounicode-bf.pdf": gen_text_tounicode_bf,
+    "text-glyph-names.pdf": gen_text_glyph_names,
     "xref-stream.pdf": gen_xref_stream,
     "object-stream.pdf": gen_object_stream,
     "incremental-update.pdf": gen_incremental_update,
