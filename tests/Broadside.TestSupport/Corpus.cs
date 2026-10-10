@@ -101,6 +101,7 @@ public static class Corpus
         "image-16bpc.pdf",
         "image-decode-inverted.pdf",
         "jpx-lossless.pdf",
+        "jpx-subsampled.pdf",
         "inline-image-filters.pdf",
         "inline-image-ei-in-data.pdf",
         "shading-type1-function.pdf",

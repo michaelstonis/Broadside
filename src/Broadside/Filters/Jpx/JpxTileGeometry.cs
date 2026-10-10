@@ -29,9 +29,12 @@ internal struct JpxCodeBlock
     /// <summary>The bytes received so far.</summary>
     public int DataLength;
 
-    /// <summary>The passes and bytes the packet being read contributes.</summary>
-    public int PendingPasses;
-    public int PendingLength;
+    /// <summary>The passes in the codeword segment being filled, and the most it may hold (B.10.7.2, Table D.9).</summary>
+    public int SegmentPasses;
+    public int SegmentMax;
+
+    /// <summary>The index of the codeword segment being filled, -1 before the first.</summary>
+    public int SegmentIndex;
 }
 
 /// <summary>One chunk of a code-block's compressed data: the bytes one packet contributed.</summary>
@@ -39,7 +42,11 @@ internal struct JpxCodeBlock
 /// <param name="Length">The number of bytes.</param>
 /// <param name="Passes">The coding passes the bytes carry.</param>
 /// <param name="Next">The next chunk of the same code-block, or -1.</param>
-internal record struct JpxChunk(int Offset, int Length, int Passes, int Next);
+/// <param name="StartsSegment">Whether the chunk starts a new codeword segment (B.10.7.2).</param>
+internal record struct JpxChunk(int Offset, int Length, int Passes, int Next, bool StartsSegment);
+
+/// <summary>One codeword segment of a code-block, ready for tier-1: its bytes in the joined data and its coding passes.</summary>
+internal readonly record struct JpxSegment(int Start, int Length, int Passes);
 
 /// <summary>The code-blocks of one precinct in one sub-band, with its two tag trees.</summary>
 /// <remarks>ITU-T T.800 B.6 and B.10.2.</remarks>
@@ -80,6 +87,9 @@ internal sealed class JpxBand
     /// <summary>The number of magnitude bit-planes Mb (E-2).</summary>
     public int MagnitudeBits { get; init; }
 
+    /// <summary>The irreversible reconstruction factor: half the quantization step size of E-3 (the tier-1 values are doubled), or 0 for the 5/3 path.</summary>
+    public float Scale { get; init; }
+
     /// <summary>The code-block exponents in this sub-band, after the precinct limits (B-17, B-18).</summary>
     public int BlockWidthExponent { get; init; }
 
@@ -102,6 +112,14 @@ internal sealed class JpxResolution
 
     public int PrecinctsHigh { get; init; }
 
+    /// <summary>The precinct exponents PPx and PPy of this resolution level (A.6.1, Table A.21).</summary>
+    public int PrecinctExponentX { get; init; }
+
+    public int PrecinctExponentY { get; init; }
+
+    /// <summary>The next layer each precinct expects: packets already read are skipped when progression volumes overlap (B.12.2).</summary>
+    public required int[] NextLayer { get; init; }
+
     /// <summary>LL for level 0; HL, LH, HH otherwise.</summary>
     public required JpxBand[] Bands { get; init; }
 
@@ -122,6 +140,14 @@ internal sealed class JpxTileComponent
     public int Height { get; init; }
 
     public required JpxComponentStyle Style { get; init; }
+
+    /// <summary>The component's separations XRsiz and YRsiz.</summary>
+    public int Dx { get; init; } = 1;
+
+    public int Dy { get; init; } = 1;
+
+    /// <summary>The region-of-interest shift s (A.6.3, H.1), 0 without one.</summary>
+    public int RoiShift { get; init; }
 
     public required JpxResolution[] Resolutions { get; init; }
 }

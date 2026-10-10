@@ -4179,9 +4179,13 @@ def _j2k_passes(w: _BitWriter, n: int) -> None:
         w.bits(n - 37, 7)
 
 
-def j2k_codestream(components: list[list[list[int]]], depth: int, levels: int, mct: bool, guard: int = 2) -> bytes:
+def j2k_codestream(components: list[list[list[int]]], depth: int, levels: int, mct: bool, guard: int = 2,
+                   separations: list[tuple[int, int]] | None = None) -> bytes:
     """A lossless codestream (T.800 Annex A) of unsigned ``depth``-bit components: one tile, LRCP, one layer, 64 x 64
-    code-blocks (each sub-band one code-block), no precincts, quantization style 0 with exponent depth + log2(gain)."""
+    code-blocks (each sub-band one code-block), no precincts, quantization style 0 with exponent depth + log2(gain).
+    ``separations`` gives each component's (XRsiz, YRsiz) (A.5.1); component 0 is then full size and component i holds
+    ceil(width / XRsiz) x ceil(height / YRsiz) samples (B-2 with origin 0)."""
+    separations = separations or [(1, 1)] * len(components)
     height, width = len(components[0]), len(components[0][0])
     shifted = [[[v - (1 << (depth - 1)) for v in row] for row in comp] for comp in components]
     if mct:  # T.800 G.2.1 forward RCT
@@ -4219,7 +4223,7 @@ def j2k_codestream(components: list[list[list[int]]], depth: int, levels: int, m
                 bodies.append(body)
             data += w.finish() + b"".join(bodies)
     siz = struct.pack(">HIIIIIIIIH", 0, width, height, 0, 0, width, height, 0, 0, len(components))
-    siz += b"".join(bytes([depth - 1, 1, 1]) for _ in components)
+    siz += b"".join(bytes([depth - 1, dx, dy]) for dx, dy in separations)
     cod = bytes([0, 0]) + struct.pack(">H", 1) + bytes([1 if mct else 0, levels, 4, 4, 0, 1])
     qcd = bytes([guard << 5]) + bytes(e << 3 for e in exponents)
 
@@ -4246,6 +4250,20 @@ def jp2_file(codestream: bytes, width: int, height: int, components: int, depth:
 def jpx_sample(x: int, y: int, c: int) -> int:
     """The 8-bit source image of jpx-lossless.pdf (the same formula as JpxSamples.Sample in the tests)."""
     return (x * 3 + y * 5 + c * 40 + ((x * x + 3 * y * y + 7 * x * y + 11 * c) % 23)) & 0xFF
+
+
+def gen_jpx_subsampled() -> bytes:
+    """7.4.9 JPXDecode with sub-sampled components (ITU-T T.800 A.5.1 XRsiz/YRsiz, B.2, G.4): a 21 x 15 8-bit image of three
+    components, the second and third at half resolution both ways (11 x 8 samples each), coded losslessly (5/3, two levels, no
+    component transformation) in a JP2 file with enumerated sRGB. /ColorSpace /DeviceRGB: a reader replicates each sub-sampled
+    sample over the 2 x 2 image samples it covers, so the image's channel c at (x, y) is jpx_sample(x // XRsiz, y // YRsiz, c)."""
+    width, height = 21, 15
+    separations = [(1, 1), (2, 2), (2, 2)]
+    comps = [[[jpx_sample(x, y, c) for x in range(-(-width // dx))] for y in range(-(-height // dy))]
+             for c, (dx, dy) in enumerate(separations)]
+    data = jp2_file(j2k_codestream(comps, 8, 2, mct=False, separations=separations), width, height, 3, 8, 16)
+    return one_image(b"/Width 21 /Height 15 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /JPXDecode", data,
+                     version="1.5")
 
 
 def gen_jpx_lossless() -> bytes:
@@ -4720,6 +4738,7 @@ FILES = {
     "image-16bpc.pdf": gen_image_16bpc,
     "image-decode-inverted.pdf": gen_image_decode_inverted,
     "jpx-lossless.pdf": gen_jpx_lossless,
+    "jpx-subsampled.pdf": gen_jpx_subsampled,
     "inline-image-filters.pdf": gen_inline_image_filters,
     "inline-image-ei-in-data.pdf": gen_inline_image_ei_in_data,
     "shading-type1-function.pdf": gen_shading_type1,
