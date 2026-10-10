@@ -133,4 +133,19 @@ internal static class FontNames
 
     /// <summary><c>/CharSet</c> (§9.8.1 Table 120).</summary>
     public static readonly CosName CharSet = new("CharSet");
+
+    /// <summary><c>/Style</c> (§9.8.3.1 Table 122).</summary>
+    public static readonly CosName Style = new("Style");
+
+    /// <summary><c>/Panose</c> (§9.8.3.2).</summary>
+    public static readonly CosName Panose = new("Panose");
+
+    /// <summary><c>/Lang</c> (§9.8.3.1 Table 122).</summary>
+    public static readonly CosName Lang = new("Lang");
+
+    /// <summary><c>/FD</c> (§9.8.3.1 Table 122).</summary>
+    public static readonly CosName FD = new("FD");
+
+    /// <summary><c>/CIDSet</c> (§9.8.3.1 Table 122).</summary>
+    public static readonly CosName CidSet = new("CIDSet");
 }

@@ -108,6 +108,7 @@ diagnostics on well-formed files (files, total):
   ContentUnbalancedSave: 1, 1
   ContentUnknownOperator: 5, 5
   ContentXObjectMissing: 1, 1
+  FontDescriptorInvalid: 6, 6
   FontEncodingInvalid: 8, 8
   FontProgramInvalid: 2, 2
   FontTableInvalid: 1, 1
