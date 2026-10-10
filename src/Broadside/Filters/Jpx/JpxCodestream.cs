@@ -136,6 +136,9 @@ internal sealed class JpxQuantization
     /// <summary>Gets the mantissas, parallel to <see cref="Exponents"/> (zero for style 0).</summary>
     public required int[] Mantissas { get; init; }
 
+    /// <summary>Returns the mantissa of sub-band index <paramref name="band"/> (the derived style uses the LL one, E-5).</summary>
+    public int Mantissa(int band) => Mantissas.Length == 0 ? 0 : Style == 1 ? Mantissas[0] : Mantissas[Math.Min(band, Mantissas.Length - 1)];
+
     /// <summary>Returns the exponent of sub-band index <paramref name="band"/> (0 = LL, else 1 + 3 (r - 1) + orientation - 1).</summary>
     /// <param name="band">The sub-band index.</param>
     /// <param name="levels">NL of the component.</param>
@@ -157,8 +160,18 @@ internal sealed class JpxQuantization
     }
 }
 
-/// <summary>The COD, COC, QCD and QCC marker segments of one header (main or tile-part).</summary>
-/// <remarks>ITU-T T.800 A.6: tile-part COC &gt; tile-part COD &gt; main COC &gt; main COD; QCC and QCD alike.</remarks>
+/// <summary>One progression volume of a POC marker segment.</summary>
+/// <param name="ResolutionStart">RSpoc, the first resolution level (inclusive).</param>
+/// <param name="ComponentStart">CSpoc, the first component (inclusive).</param>
+/// <param name="LayerEnd">LYEpoc, the layer after the last one.</param>
+/// <param name="ResolutionEnd">REpoc, the resolution level after the last one.</param>
+/// <param name="ComponentEnd">CEpoc, the component after the last one (0 read as 256).</param>
+/// <param name="Progression">Ppoc, the progression order (Table A.16).</param>
+/// <remarks>ITU-T T.800 A.6.6, Table A.32; B.12.2.</remarks>
+internal readonly record struct JpxProgressionVolume(int ResolutionStart, int ComponentStart, int LayerEnd, int ResolutionEnd, int ComponentEnd, int Progression);
+
+/// <summary>The COD, COC, QCD, QCC, RGN and POC marker segments of one header (main or tile-part).</summary>
+/// <remarks>ITU-T T.800 A.6: tile-part COC &gt; tile-part COD &gt; main COC &gt; main COD; QCC and QCD alike; RGN per component.</remarks>
 internal sealed class JpxMarkerSet(int components)
 {
     public JpxCodingStyle? Cod { get; set; }
@@ -168,19 +181,56 @@ internal sealed class JpxMarkerSet(int components)
     public JpxQuantization? Qcd { get; set; }
 
     public JpxQuantization?[] Qcc { get; } = new JpxQuantization?[components];
+
+    /// <summary>Gets the region-of-interest shift SPrgn of each component with an RGN marker segment (A.6.3).</summary>
+    public int?[] RoiShift { get; } = new int?[components];
+
+    /// <summary>Gets the progression volumes of the POC marker segments, in codestream order (A.6.6).</summary>
+    public List<JpxProgressionVolume> Volumes { get; } = [];
 }
 
-/// <summary>One tile: its tile-parts' packet data and its tile-part header markers.</summary>
-/// <remarks>ITU-T T.800 A.4.2 and B.3: the tile-parts of a tile hold its packets in order.</remarks>
+/// <summary>One tile: its tile-parts' packet data, its tile-part header markers, and its packed packet headers.</summary>
+/// <remarks>ITU-T T.800 A.4.2 and B.3: the tile-parts of a tile hold its packets in order (of TPsot); A.7.4 and A.7.5.</remarks>
 internal sealed class JpxTile(int index, int components)
 {
     public int Index { get; } = index;
 
-    /// <summary>Gets the packet data of each tile-part, as (offset, length) into the codestream, in order.</summary>
-    public List<(int Offset, int Length)> Parts { get; } = [];
+    /// <summary>Gets the packet data of each tile-part, as (TPsot, offset, length) into the codestream, in TPsot order once read.</summary>
+    public List<(int Part, int Offset, int Length)> Parts { get; } = [];
 
-    /// <summary>Gets the markers of the tile's first tile-part header.</summary>
+    /// <summary>Gets the markers of the tile's first tile-part header (TPsot 0), with the POC volumes of all its tile-parts.</summary>
     public JpxMarkerSet Markers { get; } = new(components);
+
+    /// <summary>Gets the PPT marker segments' packet headers as (Zppt, bytes), in Zppt order once read (A.7.5).</summary>
+    public List<(int Index, byte[] Data)> PacketHeaderSegments { get; } = [];
+
+    /// <summary>Gets the POC volumes of every tile-part header as (TPsot, volume), in codestream order.</summary>
+    public List<(int Part, JpxProgressionVolume Volume)> PartVolumes { get; } = [];
+
+    /// <summary>Gets the PPM packet headers of each tile-part as (TPsot, bytes), in TPsot order once read (A.7.4).</summary>
+    public List<(int Part, byte[] Data)> MainPacketHeaders { get; } = [];
+
+    /// <summary>Returns the tile's packed packet headers, PPT or PPM concatenated in order, or <see langword="null"/> when its packet headers are in the bitstream.</summary>
+    public byte[]? PackedHeaders()
+    {
+        if (PacketHeaderSegments.Count == 0 && MainPacketHeaders.Count == 0)
+        {
+            return null;
+        }
+
+        var joined = new List<byte>();
+        foreach ((int _, byte[] data) in MainPacketHeaders)
+        {
+            joined.AddRange(data);
+        }
+
+        foreach ((int _, byte[] data) in PacketHeaderSegments)
+        {
+            joined.AddRange(data);
+        }
+
+        return [.. joined];
+    }
 }
 
 /// <summary>The coding parameters in force for one tile, after the precedence of A.6.</summary>
@@ -192,6 +242,12 @@ internal sealed class JpxTileParameters
 
     public required JpxQuantization[] Quantization { get; init; }
 
+    /// <summary>Gets the region-of-interest shift s of each component, 0 without an RGN marker segment (A.6.3, H.1).</summary>
+    public required int[] RoiShifts { get; init; }
+
+    /// <summary>Gets the progression volumes: the tile's POC, else the main header's, else empty (one volume in the COD order).</summary>
+    public required IReadOnlyList<JpxProgressionVolume> Volumes { get; init; }
+
     /// <summary>Resolves the parameters of <paramref name="tile"/> from the main header and its own.</summary>
     public static JpxTileParameters Resolve(JpxMarkerSet main, JpxMarkerSet tile)
     {
@@ -199,13 +255,22 @@ internal sealed class JpxTileParameters
         int count = main.Coc.Length;
         var components = new JpxComponentStyle[count];
         var quantization = new JpxQuantization[count];
+        int[] shifts = new int[count];
         for (int c = 0; c < count; c++)
         {
             components[c] = tile.Coc[c] ?? tile.Cod?.Component ?? main.Coc[c] ?? main.Cod!.Component;
             quantization[c] = tile.Qcc[c] ?? tile.Qcd ?? main.Qcc[c] ?? main.Qcd!;
+            shifts[c] = tile.RoiShift[c] ?? main.RoiShift[c] ?? 0;
         }
 
-        return new JpxTileParameters { Coding = coding, Components = components, Quantization = quantization };
+        return new JpxTileParameters
+        {
+            Coding = coding,
+            Components = components,
+            Quantization = quantization,
+            RoiShifts = shifts,
+            Volumes = tile.Volumes.Count > 0 ? tile.Volumes : main.Volumes,
+        };
     }
 }
 
@@ -213,6 +278,9 @@ internal sealed class JpxTileParameters
 internal sealed class JpxCodestream
 {
     public required JpxImageSize Size { get; init; }
+
+    /// <summary>Gets a value indicating whether the main header holds PPM marker segments (A.7.4).</summary>
+    public bool HasMainPacketHeaders { get; init; }
 
     public required JpxMarkerSet Main { get; init; }
 

@@ -33,6 +33,8 @@ internal static class ImageNames
     public static readonly CosName DeviceRgb = new("DeviceRGB");
     public static readonly CosName DeviceCmyk = new("DeviceCMYK");
     public static readonly CosName Indexed = new("Indexed");
+    public static readonly CosName IccBased = new("ICCBased");
+    public static readonly CosName N = new("N");
     public static readonly CosName XObject = new("XObject");
 
     // Table 91 abbreviated keys.

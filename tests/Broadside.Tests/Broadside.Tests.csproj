@@ -11,4 +11,8 @@
     <PackageReference Include="Microsoft.Extensions.Options.ConfigurationExtensions" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="Images/jpx-corpus-references.txt" CopyToOutputDirectory="PreserveNewest" LinkBase="Images" />
+  </ItemGroup>
+
 </Project>

@@ -344,13 +344,17 @@ public sealed class PdfImage
     }
 
     /// <summary>
-    /// Returns the colour space of samples decoded as <paramref name="decoded"/>: the image's <see cref="ColorSpace"/>, else the colour
-    /// model the codec reported, else the device space with as many components (1 gray, 3 RGB, 4 CMYK).
+    /// Returns the colour space of samples decoded as <paramref name="decoded"/>: the image's <see cref="ColorSpace"/>, else an
+    /// ICCBased space over the ICC profile the codec reported (when its header is usable and its component count matches), else the
+    /// colour model the codec reported, else the device space with as many components (1 gray, 3 RGB, 4 CMYK).
     /// </summary>
     /// <param name="decoded">The samples, from <see cref="Decode"/>.</param>
     /// <returns>The space; <see langword="null"/> for an image mask or when none fits.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="decoded"/> is <see langword="null"/>.</exception>
-    /// <remarks>ISO 32000-2 §7.4.9: the dictionary's ColorSpace overrides the codestream's colour specification.</remarks>
+    /// <remarks>
+    /// ISO 32000-2 §7.4.9: the dictionary's ColorSpace overrides the codestream's colour specification; a JPEG 2000 ICC profile
+    /// becomes an ICCBased space (§8.6.5.5) whose conversion goes through the colour-management extension point.
+    /// </remarks>
     public PdfColorSpace? ResolveColorSpace(DecodedImage decoded)
     {
         ArgumentNullException.ThrowIfNull(decoded);
@@ -362,6 +366,14 @@ public sealed class PdfImage
         if (ColorSpace is { } space)
         {
             return space;
+        }
+
+        if (!decoded.IccProfile.IsEmpty
+            && IccProfileHeader.Parse(decoded.IccProfile.Span) is { IsSupportedForPdf: true } header
+            && header.ComponentCount == decoded.Components)
+        {
+            var profile = new CosDictionary { [ImageNames.N] = new CosInteger(header.ComponentCount) };
+            return _document.ColorSpaces.Get(new CosArray([ImageNames.IccBased, new CosStream(profile, decoded.IccProfile)]), Reference ?? _owner);
         }
 
         return decoded.ColorModel switch
