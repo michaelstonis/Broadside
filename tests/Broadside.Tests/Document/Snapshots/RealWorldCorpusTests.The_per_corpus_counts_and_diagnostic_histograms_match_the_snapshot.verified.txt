@@ -320,6 +320,7 @@ pdfium-tests: 840 files
     HeaderMissing: 1
     HexStringInvalidDigit: 1
     Jbig2PageNumberNotOne: 1
+    Jbig2SegmentInvalid: 1
     Jbig2SegmentTruncated: 1
     LinearizationHintsInvalid: 1
     LinkActionAndDest: 1

@@ -5256,6 +5256,51 @@ def gen_jbig2_generic_mmr() -> bytes:
     return one_image(b"/Width 150 /Height 48 /ImageMask true /Filter /JBIG2Decode", page, version="1.4")
 
 
+# ITU-T T.88 Annex H.1, cut into embedded streams: segments 0 and 16 (the global symbol dictionaries), then each page's segments
+# without its end-of-page segment, page associations rewritten to 1 (ISO 32000-2 7.4.7). The same bytes as Jbig2Samples.cs.
+JBIG2_ANNEX_H_GLOBALS = bytes.fromhex(
+    "000000000001000000001800010000000100000001e9cbf40026af04bff0782fe000400000001000010000000016080002ff00000001000000014fe78d681b142f3fffac")
+JBIG2_ANNEX_H_PAGES = [
+    bytes.fromhex(
+        "000000013000010000001300000040000000380000000000000000010000000000020001010000001c00010000000200000002e5cdf80079e0841081f0821086"
+        "1079f000800000000307420002010000003100000025000000080000000400000001000c0900100000000501100000000000000000000000000000000c400708"
+        "7041d0000000042700010000002c000000360000002c000000040000000b000126a071cea7fffffffffffffffffffffffffffffffffffffff8f0000000051001"
+        "010000002d0104040000000f20d184611845f2f97c8f11c39e45f2f97d42850aaa84622feeec446222352a0a83b9dcee7780000000061720050100000057000000"
+        "2000000024000000100000000f00010000000800000009000000000000000004000000aaaaaaaa8008008036d5556b5ad40040042ee952d2d2d28aa54a002002"
+        "23e09524b4928a4a925492d24a292a4940040040"),
+    bytes.fromhex(
+        "000000083000010000001300000040000000380000000000000000010000000000090001010000001b080002ff00000002000000024fe78c200e1dc7cf0111c4"
+        "b26fffac0000000a07400009010000001f00000025000000080000000400000001000c08000000058d6e5a124085ffac0000000b270001000000230000003600"
+        "00002c000000040000000b000803fffdff02fefefe04eeed87fbcb2bffac0000000c1001010000001c0604040000000f90716b6d99a7aa497df2e5481fdc68bc"
+        "6e40bbffac0000000d17200c010000003e0000002000000024000000100000000f0002000000080000000900000000000000000400000087cb821e66a414eb3c"
+        "4a15faccd6f3b16f4cedbfa7bfffac"),
+    bytes.fromhex(
+        "0000000f3000010000001300000025000000080000000000000000010000000000110021100100000020080202ffffffffff00000003000000024fe9d7d590c3"
+        "b526a7fb6d14983fffac00000012072011010000002500000025000000080000000000000000008c1200000004a95c8bf4c37d966a28e5768fffac"),
+]
+
+
+def gen_jbig2_annex_h() -> bytes:
+    """7.4.7 JBIG2Decode with symbol dictionaries, text regions, pattern dictionaries, halftone regions and refinement: the three
+    pages of ITU-T T.88 Annex H.1 as three image XObjects sharing one JBIG2Globals stream (object 8, the two global symbol
+    dictionaries). /Im0 is page 1 (64 x 56, Huffman and MMR coded), /Im1 page 2 (the same page arithmetically coded), /Im2 page 3
+    (37 x 8, a refinement/aggregate dictionary and a refined text instance)."""
+    images = b"".join(b"/Im%d %d 0 R " % (i, 5 + i) for i in range(3))
+    content = b"q 64 0 0 56 72 600 cm /Im0 Do Q q 64 0 0 56 172 600 cm /Im1 Do Q q 37 0 0 8 272 600 cm /Im2 Do Q"
+    sizes = [(64, 56), (64, 56), (37, 8)]
+    objects = [
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /XObject << " + images + b">> >>")),
+        (4, stream(b"", content)),
+    ]
+    for i, (data, (w, h)) in enumerate(zip(JBIG2_ANNEX_H_PAGES, sizes)):
+        objects.append((5 + i, stream(b"/Type /XObject /Subtype /Image /Width %d /Height %d /ColorSpace /DeviceGray /BitsPerComponent 1"
+                                      b" /Filter /JBIG2Decode /DecodeParms << /JBIG2Globals 8 0 R >>" % (w, h), data)))
+    objects.append((8, stream(b"", JBIG2_ANNEX_H_GLOBALS)))
+    return simple_file(objects, version="1.4", binary=True)
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -5402,6 +5447,7 @@ FILES = {
     "ccitt-g4-truncated.pdf": gen_ccitt_g4_truncated,
     "jbig2-generic.pdf": gen_jbig2_generic,
     "jbig2-generic-mmr.pdf": gen_jbig2_generic_mmr,
+    "jbig2-annex-h.pdf": gen_jbig2_annex_h,
 }
 
 

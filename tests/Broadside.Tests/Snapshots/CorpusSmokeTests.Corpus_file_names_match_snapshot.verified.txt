@@ -68,6 +68,7 @@
   inline-image-ei-in-data.pdf,
   inline-image-filters.pdf,
   inline-image.pdf,
+  jbig2-annex-h.pdf,
   jbig2-generic-mmr.pdf,
   jbig2-generic.pdf,
   jpx-lossless.pdf,

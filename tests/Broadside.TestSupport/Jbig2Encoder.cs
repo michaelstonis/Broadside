@@ -25,7 +25,7 @@ public readonly record struct Jbig2AtPixels(params (int X, int Y)[] Pixels)
 /// The context is gathered pixel by pixel from a table of template positions (not rolled, as the decoder does), so an encoder and
 /// decoder that agree are evidence for both. AT pixels keep the context bit of their nominal location (§6.2.5.7 allows any fixed order).
 /// </remarks>
-public static class Jbig2Encoder
+public static partial class Jbig2Encoder
 {
     // T.88 Table E.1: Qe, NMPS, NLPS, SWITCH.
     private static readonly (int Qe, int Nmps, int Nlps, int Switch)[] States =
@@ -55,9 +55,15 @@ public static class Jbig2Encoder
     /// <summary>Encodes a bitmap with template-based arithmetic coding (§6.2.5), terminated by FLUSH and the marker 0xFF 0xAC.</summary>
     public static byte[] EncodeGeneric(bool[][] rows, int template, bool typicalPrediction, Jbig2AtPixels? at = null)
     {
-        (int X, int Y)[] pixels = (at ?? Jbig2AtPixels.Nominal(template)).Pixels;
         var coder = new MqEncoder();
-        byte[] contexts = new byte[65536];
+        EncodeGeneric(coder, new byte[65536], rows, template, typicalPrediction, at, skip: null);
+        return [.. coder.Flush(), 0xFF, 0xAC];
+    }
+
+    /// <summary>The generic region encoder continuing <paramref name="coder"/> and <paramref name="contexts"/>; skipped pixels are not coded.</summary>
+    private static void EncodeGeneric(MqEncoder coder, byte[] contexts, bool[][] rows, int template, bool typicalPrediction, Jbig2AtPixels? at, bool[][]? skip)
+    {
+        (int X, int Y)[] pixels = (at ?? Jbig2AtPixels.Nominal(template)).Pixels;
         int width = rows.Length == 0 ? 0 : rows[0].Length;
         bool ltp = false;
         for (int y = 0; y < rows.Length; y++)
@@ -75,6 +81,11 @@ public static class Jbig2Encoder
 
             for (int x = 0; x < width; x++)
             {
+                if (skip is not null && skip[y][x])
+                {
+                    continue;
+                }
+
                 int context = 0;
                 foreach ((int dx, int dy, int index) in Templates[template])
                 {
@@ -85,8 +96,6 @@ public static class Jbig2Encoder
                 coder.Encode(contexts, context, rows[y][x] ? 1 : 0);
             }
         }
-
-        return [.. coder.Flush(), 0xFF, 0xAC];
     }
 
     /// <summary>Encodes a bitmap with MMR (§6.2.6): T.6 two-dimensional coding, with or without EOFB.</summary>

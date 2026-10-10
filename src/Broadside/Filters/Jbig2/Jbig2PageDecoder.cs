@@ -16,52 +16,71 @@ namespace Broadside.Filters.Jbig2;
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §7.4.7: the image is page 1 of an embedded (D.3), sequential (D.1) bit stream whose global segments are in the
-/// <c>JBIG2Globals</c> stream. The page buffer is the image's <c>Width</c> x <c>Height</c> (the page information size, when it
-/// differs, is reported and regions are clipped), filled with the page's default pixel; immediate generic regions are combined at
-/// their location with their operator, or with the page default operator when the page does not allow overriding it (§7.4.8.5).
+/// <c>JBIG2Globals</c> stream (decoded once per stream, <see cref="Jbig2Globals"/>). The page buffer is the image's <c>Width</c> x
+/// <c>Height</c> (the page information size, when it differs, is reported and regions are clipped), filled with the page's default
+/// pixel. Immediate regions (generic, text, halftone, refinement) are combined at their location with their own operator (§8.2 step
+/// 5 a); intermediate regions are kept in auxiliary buffers that refinement regions refine and finally draw (§8.2 steps 5 b to e);
+/// a refinement region without a referred region refines the page itself.
 /// </para>
 /// <para>
 /// JBIG2 pixels are 1 for black, PDF 1-bit gray samples 1 for white (§8.9.5.2): the composed page is inverted and its row padding
 /// cleared, so the image's <c>Decode</c> array then applies as for any image.
 /// </para>
 /// </remarks>
-internal sealed class Jbig2PageDecoder
+internal sealed class Jbig2PageDecoder : IDisposable
 {
+    private const int RegionInfoLength = 17;
+
     private readonly Jbig2Reporter _reporter;
-    private readonly ImageFilterContext _context;
+    private readonly long _maxPixels;
+    private readonly long _maxBytes;
+    private readonly IReadOnlyDictionary<uint, object>? _globals;
+    private readonly Dictionary<uint, object> _results = [];
+    private readonly Dictionary<uint, AuxiliaryRegion> _auxiliary = [];
+    private readonly Jbig2Statistics _statistics = new();
     private bool _havePage;
     private Jbig2CombinationOperator _defaultOperator;
     private bool _operatorOverridden = true;
-    private int _intermediateRegions;
-    private byte[]? _contexts;
 
-    private Jbig2PageDecoder(ImageFilterContext context)
+    /// <summary>Initializes a new instance of the <see cref="Jbig2PageDecoder"/> class.</summary>
+    /// <param name="reporter">Where deviations go.</param>
+    /// <param name="maxPixels">The image pixel limit, which (with eight times the byte limit) also bounds every region, dictionary and grid.</param>
+    /// <param name="maxBytes">The image byte limit.</param>
+    /// <param name="globals">The decoded global segments, or null.</param>
+    internal Jbig2PageDecoder(Jbig2Reporter reporter, long maxPixels, long maxBytes, IReadOnlyDictionary<uint, object>? globals)
     {
-        _context = context;
-        _reporter = new Jbig2Reporter(context.Filter);
+        _reporter = reporter;
+        _maxBytes = maxBytes <= 0 ? Array.MaxLength : maxBytes;
+
+        // One bit per pixel: the byte limit bounds every region, dictionary, grid and instance budget as well.
+        _maxPixels = Math.Min(maxPixels, _maxBytes * 8);
+        _globals = globals;
     }
+
+    /// <summary>Gets the results of the dictionary and table segments decoded so far, by segment number.</summary>
+    internal IReadOnlyDictionary<uint, object> Results => _results;
 
     /// <summary>Decodes the image: <paramref name="width"/> x <paramref name="height"/>, one 1-bit component, PDF polarity.</summary>
     /// <param name="page">The image stream's data (after any filters before JBIG2Decode).</param>
-    /// <param name="globals">The decoded <c>JBIG2Globals</c> stream, or empty.</param>
+    /// <param name="globals">The decoded <c>JBIG2Globals</c> segments, or null.</param>
     /// <param name="context">The image context: limits and diagnostics.</param>
     /// <param name="width">The image width.</param>
     /// <param name="height">The image height.</param>
-    /// <returns>The image; <see langword="null"/> when it is too large or uses features not decoded yet.</returns>
-    public static DecodedImage? Decode(ReadOnlySpan<byte> page, ReadOnlySpan<byte> globals, ImageFilterContext context, int width, int height)
+    /// <returns>The image; <see langword="null"/> when it is too large or uses features not decoded.</returns>
+    public static DecodedImage? Decode(ReadOnlySpan<byte> page, Jbig2Globals? globals, ImageFilterContext context, int width, int height)
     {
-        var decoder = new Jbig2PageDecoder(context);
-        try
+        var reporter = new Jbig2Reporter(context.Filter);
+        if (globals is not null)
         {
-            return decoder.Run(page, globals, width, height);
-        }
-        finally
-        {
-            if (decoder._contexts is not null)
+            reporter.Replay(globals.Diagnostics);
+            if (globals.Undecodable)
             {
-                ArrayPool<byte>.Shared.Return(decoder._contexts);
+                reporter.MarkUndecodable();
             }
         }
+
+        using var decoder = new Jbig2PageDecoder(reporter, context.MaxPixels, context.MaxBytes, globals?.Results);
+        return decoder.Run(page, context, width, height);
     }
 
     /// <summary>
@@ -99,38 +118,46 @@ internal sealed class Jbig2PageDecoder
         return width > 0 && height > 0;
     }
 
-    private DecodedImage? Run(ReadOnlySpan<byte> page, ReadOnlySpan<byte> globals, int width, int height)
+    /// <inheritdoc/>
+    public void Dispose() => _statistics.Dispose();
+
+    /// <summary>
+    /// Processes the segments of a <c>JBIG2Globals</c> stream (dictionaries and tables; page segments there are reported and
+    /// ignored). Returns <see langword="false"/> when an end-of-file segment stopped it.
+    /// </summary>
+    /// <param name="globals">The decoded globals stream.</param>
+    internal void ProcessGlobals(ReadOnlySpan<byte> globals)
+    {
+        using Jbig2SegmentList list = Jbig2SegmentList.Parse(globals, _reporter, "globals");
+        foreach (Jbig2Segment segment in list.Segments)
+        {
+            if (segment.Page != 0)
+            {
+                _reporter.Report(
+                    DiagnosticCodes.Jbig2GlobalsInvalid,
+                    DiagnosticSeverity.Warning,
+                    "The JBIG2Globals stream holds segments associated with a page, which belong in the image stream (ISO 32000-2 §7.4.7); they are ignored.");
+                continue;
+            }
+
+            if (!ProcessUnassociated(segment, globals.Slice(segment.DataStart, segment.DataLength), list))
+            {
+                break;
+            }
+        }
+    }
+
+    private DecodedImage? Run(ReadOnlySpan<byte> page, ImageFilterContext context, int width, int height)
     {
         DecodedImageBuilder? image = null;
         try
         {
-            if (!_context.TryCreateImage(width, height, 1, 1, out image))
+            if (!context.TryCreateImage(width, height, 1, 1, out image))
             {
                 return null;
             }
 
             var bitmap = new Jbig2Bitmap(image.Samples, width, height, image.Stride);
-            if (!globals.IsEmpty)
-            {
-                using Jbig2SegmentList globalList = Jbig2SegmentList.Parse(globals, _reporter, "globals");
-                foreach (Jbig2Segment segment in globalList.Segments)
-                {
-                    if (segment.Page != 0)
-                    {
-                        _reporter.Report(
-                            DiagnosticCodes.Jbig2GlobalsInvalid,
-                            DiagnosticSeverity.Warning,
-                            "The JBIG2Globals stream holds segments associated with a page, which belong in the image stream (ISO 32000-2 §7.4.7); they are ignored.");
-                        continue;
-                    }
-
-                    if (!ProcessUnassociated(segment, globals.Slice(segment.DataStart, segment.DataLength)))
-                    {
-                        break;
-                    }
-                }
-            }
-
             using Jbig2SegmentList list = Jbig2SegmentList.Parse(page, _reporter, "page");
             uint pageNumber = SelectPage(list.Segments);
             foreach (Jbig2Segment segment in list.Segments)
@@ -138,7 +165,7 @@ internal sealed class Jbig2PageDecoder
                 ReadOnlySpan<byte> data = page.Slice(segment.DataStart, segment.DataLength);
                 if (segment.Page == 0)
                 {
-                    if (!ProcessUnassociated(segment, data))
+                    if (!ProcessUnassociated(segment, data, list))
                     {
                         break;
                     }
@@ -156,7 +183,7 @@ internal sealed class Jbig2PageDecoder
                     continue;
                 }
 
-                if (!ProcessPageSegment(segment, data, bitmap))
+                if (!ProcessPageSegment(segment, data, list, bitmap))
                 {
                     break;
                 }
@@ -167,12 +194,13 @@ internal sealed class Jbig2PageDecoder
                 return null;
             }
 
-            if (_intermediateRegions > 0)
+            int unused = _auxiliary.Count;
+            if (unused > 0)
             {
                 _reporter.Report(
                     DiagnosticCodes.Jbig2IntermediateRegionUnused,
                     DiagnosticSeverity.Warning,
-                    string.Create(CultureInfo.InvariantCulture, $"The JBIG2 page has {_intermediateRegions} intermediate region(s) no refinement region refers to (ITU-T T.88 §8.2 step 6); they are dropped."));
+                    string.Create(CultureInfo.InvariantCulture, $"The JBIG2 page has {unused} intermediate region(s) no refinement region refers to (ITU-T T.88 §8.2 step 6); they are dropped."));
             }
 
             bitmap.Invert();
@@ -214,18 +242,33 @@ internal sealed class Jbig2PageDecoder
     }
 
     /// <summary>A segment associated with no page: dictionaries, tables, profiles, extensions. Returns <see langword="false"/> to stop.</summary>
-    private bool ProcessUnassociated(in Jbig2Segment segment, ReadOnlySpan<byte> data)
+    private bool ProcessUnassociated(in Jbig2Segment segment, ReadOnlySpan<byte> data, Jbig2SegmentList list)
     {
         switch (segment.Type)
         {
             case Jbig2SegmentType.SymbolDictionary:
-                _reporter.ReportUnsupported("symbol dictionaries (ITU-T T.88 §6.5)", paintsPage: false);
+                ProcessSymbolDictionary(segment, data, list);
                 return true;
             case Jbig2SegmentType.PatternDictionary:
-                _reporter.ReportUnsupported("pattern dictionaries (ITU-T T.88 §6.7)", paintsPage: false);
+                if (Jbig2PatternDictionary.Decode(segment, data, _statistics, _reporter, _maxPixels) is { } patterns)
+                {
+                    _results[segment.Number] = patterns;
+                }
+
                 return true;
             case Jbig2SegmentType.Tables:
-                _reporter.ReportUnsupported("code tables (ITU-T T.88 Annex B)", paintsPage: false);
+                if (Jbig2HuffmanTable.TryParse(data, out Jbig2HuffmanTable? table, out string? error))
+                {
+                    _results[segment.Number] = table!;
+                }
+                else
+                {
+                    _reporter.Report(
+                        DiagnosticCodes.Jbig2TableInvalid,
+                        DiagnosticSeverity.Error,
+                        string.Create(CultureInfo.InvariantCulture, $"The JBIG2 code table segment {segment.Number} {error}; segments that refer to it are not decoded."));
+                }
+
                 return true;
             case Jbig2SegmentType.Profiles:
                 return true;
@@ -251,7 +294,7 @@ internal sealed class Jbig2PageDecoder
     }
 
     /// <summary>A segment of the page being decoded. Returns <see langword="false"/> to stop decoding the page.</summary>
-    private bool ProcessPageSegment(in Jbig2Segment segment, ReadOnlySpan<byte> data, Jbig2Bitmap bitmap)
+    private bool ProcessPageSegment(in Jbig2Segment segment, ReadOnlySpan<byte> data, Jbig2SegmentList list, Jbig2Bitmap bitmap)
     {
         switch (segment.Type)
         {
@@ -267,17 +310,20 @@ internal sealed class Jbig2PageDecoder
             case Jbig2SegmentType.IntermediateTextRegion:
             case Jbig2SegmentType.ImmediateTextRegion:
             case Jbig2SegmentType.ImmediateLosslessTextRegion:
-                _reporter.ReportUnsupported("text regions (ITU-T T.88 §6.4)", paintsPage: true);
+                RequirePage();
+                ProcessTextRegion(segment, data, list, bitmap);
                 return true;
             case Jbig2SegmentType.IntermediateHalftoneRegion:
             case Jbig2SegmentType.ImmediateHalftoneRegion:
             case Jbig2SegmentType.ImmediateLosslessHalftoneRegion:
-                _reporter.ReportUnsupported("halftone regions (ITU-T T.88 §6.6)", paintsPage: true);
+                RequirePage();
+                ProcessHalftoneRegion(segment, data, list, bitmap);
                 return true;
             case Jbig2SegmentType.IntermediateRefinementRegion:
             case Jbig2SegmentType.ImmediateRefinementRegion:
             case Jbig2SegmentType.ImmediateLosslessRefinementRegion:
-                _reporter.ReportUnsupported("generic refinement regions (ITU-T T.88 §6.3)", paintsPage: true);
+                RequirePage();
+                ProcessRefinementRegion(segment, data, list, bitmap);
                 return true;
             case Jbig2SegmentType.EndOfPage:
                 ReportEnd("an end-of-page segment");
@@ -286,7 +332,7 @@ internal sealed class Jbig2PageDecoder
                 // T.88 §7.4.10: the end row only bounds later regions; the page buffer is the image's whole height already.
                 return true;
             default:
-                return ProcessUnassociated(segment, data);
+                return ProcessUnassociated(segment, data, list);
         }
     }
 
@@ -375,38 +421,68 @@ internal sealed class Jbig2PageDecoder
             "The JBIG2 page has no page information segment before its regions (ITU-T T.88 §7.4.8); the page is white (0) and regions use their own operators.");
     }
 
+    /// <summary>The region segment information field (§7.4.1), or false when the data is too short or uses colour.</summary>
+    private bool TryReadRegion(in Jbig2Segment segment, ReadOnlySpan<byte> data, int headerLength, string kind, out RegionInfo region)
+    {
+        region = default;
+        if (data.Length < headerLength)
+        {
+            ReportInvalid(segment, kind, string.Create(CultureInfo.InvariantCulture, $"has {data.Length} data bytes, fewer than its {headerLength}-byte data header (ITU-T T.88 §7.4)"));
+            return false;
+        }
+
+        byte flags = data[16];
+        if ((flags & 0x08) != 0)
+        {
+            _reporter.ReportUnsupported("colour (the region colour extension flag, ITU-T T.88 Amendment 3, forbidden by ISO 32000-2 §7.4.7)", paintsPage: true);
+            return false;
+        }
+
+        int op = flags & 7;
+        if (op > 4)
+        {
+            ReportInvalid(segment, kind, string.Create(CultureInfo.InvariantCulture, $"has the external combination operator {op}, which ITU-T T.88 §7.4.1.5 does not define; OR is used"));
+            op = 0;
+        }
+
+        region = new RegionInfo(
+            BinaryPrimitives.ReadUInt32BigEndian(data),
+            BinaryPrimitives.ReadUInt32BigEndian(data[4..]),
+            BinaryPrimitives.ReadUInt32BigEndian(data[8..]),
+            BinaryPrimitives.ReadUInt32BigEndian(data[12..]),
+            (Jbig2CombinationOperator)op);
+        return true;
+    }
+
+    /// <summary>Whether a region of <paramref name="width"/> x <paramref name="height"/> fits the limits; reports when not.</summary>
+    private bool FitsLimits(in Jbig2Segment segment, string kind, long width, long height)
+    {
+        if (width * height <= _maxPixels && width <= int.MaxValue - 7 && (long)Jbig2Bitmap.StrideOf((int)Math.Min(int.MaxValue - 7, width)) * height <= Math.Min(_maxBytes, Array.MaxLength))
+        {
+            return true;
+        }
+
+        _reporter.Report(
+            DiagnosticCodes.Jbig2LimitExceeded,
+            DiagnosticSeverity.Error,
+            string.Create(CultureInfo.InvariantCulture, $"The JBIG2 {kind} segment {segment.Number} is {width} x {height} pixels, more than the image limits allow; it is not decoded."));
+        return false;
+    }
+
     /// <summary>T.88 §7.4.6 and §8.2 step 5 a) and b).</summary>
     private void ProcessGenericRegion(in Jbig2Segment segment, ReadOnlySpan<byte> data, Jbig2Bitmap page)
     {
-        if (data.Length < 18)
+        const string kind = "generic region";
+        if (!TryReadRegion(segment, data, 18, kind, out RegionInfo info))
         {
-            ReportInvalid(segment, $"has {data.Length} data bytes, fewer than its 18-byte header (ITU-T T.88 §7.4.6.1)");
             return;
         }
 
-        uint width = BinaryPrimitives.ReadUInt32BigEndian(data);
-        uint height = BinaryPrimitives.ReadUInt32BigEndian(data[4..]);
-        uint x = BinaryPrimitives.ReadUInt32BigEndian(data[8..]);
-        uint y = BinaryPrimitives.ReadUInt32BigEndian(data[12..]);
-        byte regionFlags = data[16];
         byte flags = data[17];
-        if ((regionFlags & 0x08) != 0)
-        {
-            _reporter.ReportUnsupported("colour (the region colour extension flag, ITU-T T.88 Amendment 3, forbidden by ISO 32000-2 §7.4.7)", paintsPage: true);
-            return;
-        }
-
         if ((flags & 0x10) != 0)
         {
             _reporter.ReportUnsupported("extended templates (EXTTEMPLATE, ITU-T T.88 Amendment 2)", paintsPage: true);
             return;
-        }
-
-        int op = regionFlags & 7;
-        if (op > 4)
-        {
-            ReportInvalid(segment, string.Create(CultureInfo.InvariantCulture, $"has the external combination operator {op}, which ITU-T T.88 §7.4.1.5 does not define; OR is used"));
-            op = 0;
         }
 
         bool mmr = (flags & 1) != 0;
@@ -418,7 +494,7 @@ internal sealed class Jbig2PageDecoder
             int atBytes = template == 0 ? 8 : 2;
             if (data.Length < position + atBytes)
             {
-                ReportInvalid(segment, "ends inside its AT flags (ITU-T T.88 §7.4.6.3)");
+                ReportInvalid(segment, kind, "ends inside its AT flags (ITU-T T.88 §7.4.6.3)");
                 return;
             }
 
@@ -443,72 +519,501 @@ internal sealed class Jbig2PageDecoder
                 int atY = (sbyte)at[i + 1];
                 if (atY > 0 || (atY == 0 && atX >= 0))
                 {
-                    ReportInvalid(segment, string.Create(CultureInfo.InvariantCulture, $"places an AT pixel at ({atX}, {atY}), outside the field of ITU-T T.88 Figure 7; it reads pixels not decoded yet as 0"));
+                    ReportInvalid(segment, kind, string.Create(CultureInfo.InvariantCulture, $"places an AT pixel at ({atX}, {atY}), outside the field of ITU-T T.88 Figure 7; it reads pixels not decoded yet as 0"));
                     break;
                 }
             }
         }
 
         ReadOnlySpan<byte> coded = data[position..];
-        long rows = height;
+        long rows = info.Height;
         if (segment.UnknownLength)
         {
             rows = BinaryPrimitives.ReadUInt32BigEndian(data[^4..]);
             coded = data[position..^6];
-            if (rows > height)
+            if (rows > info.Height)
             {
-                ReportInvalid(segment, string.Create(CultureInfo.InvariantCulture, $"has the row count {rows}, more than its height {height} (ITU-T T.88 §7.4.6.4); the height is used"));
-                rows = height;
+                ReportInvalid(segment, kind, string.Create(CultureInfo.InvariantCulture, $"has the row count {rows}, more than its height {info.Height} (ITU-T T.88 §7.4.6.4); the height is used"));
+                rows = info.Height;
             }
         }
 
-        if (width == 0 || rows == 0)
+        if (info.Width == 0 || rows == 0 || !FitsLimits(segment, kind, info.Width, rows))
         {
             return;
         }
 
-        int stride = Jbig2Bitmap.StrideOf((int)Math.Min(int.MaxValue - 7, width));
-        if ((long)width * rows > _context.MaxPixels || width > int.MaxValue - 7 || (long)stride * rows > Math.Min(_context.MaxBytes, Array.MaxLength))
+        bool intermediate = segment.Type == Jbig2SegmentType.IntermediateGenericRegion;
+        using var region = new RegionBuffer(intermediate, (int)info.Width, (int)rows);
+        if (mmr)
+        {
+            MmrResult result = Jbig2GenericRegion.DecodeMmr(coded, region.View);
+            ReportMmr(segment, result, (int)rows);
+        }
+        else
+        {
+            _statistics.ResetGeneric();
+            var decoder = new MqDecoder(coded);
+            Jbig2GenericRegion.Decode(ref decoder, _statistics.Generic, parameters, region.View, default);
+        }
+
+        Place(segment, intermediate, region, info, page);
+    }
+
+    /// <summary>T.88 §7.4.3 and §8.2: a text region from the referred symbol dictionaries and code tables.</summary>
+    private void ProcessTextRegion(in Jbig2Segment segment, ReadOnlySpan<byte> data, Jbig2SegmentList list, Jbig2Bitmap page)
+    {
+        const string kind = "text region";
+        if (!TryReadRegion(segment, data, RegionInfoLength + 2, kind, out RegionInfo info))
+        {
+            return;
+        }
+
+        int flags = BinaryPrimitives.ReadUInt16BigEndian(data[RegionInfoLength..]);
+        bool huffman = (flags & 1) != 0;
+        bool refine = (flags & 2) != 0;
+        int logStrips = (flags >> 2) & 3;
+        int corner = (flags >> 4) & 3;
+        bool transposed = (flags & 0x40) != 0;
+        var combination = (Jbig2CombinationOperator)((flags >> 7) & 3);
+        int defaultPixel = (flags >> 9) & 1;
+        int dsOffset = (flags >> 10) & 31;
+        if (dsOffset >= 16)
+        {
+            dsOffset -= 32;
+        }
+
+        int refinementTemplate = (flags >> 15) & 1;
+        int position = RegionInfoLength + 2;
+        int huffmanFlags = 0;
+        if (huffman)
+        {
+            if (data.Length < position + 2)
+            {
+                ReportInvalid(segment, kind, "ends inside its Huffman flags (ITU-T T.88 §7.4.3.1.2)");
+                return;
+            }
+
+            huffmanFlags = BinaryPrimitives.ReadUInt16BigEndian(data[position..]);
+            position += 2;
+        }
+
+        var refinement = Jbig2RefinementParameters.Nominal(refinementTemplate);
+        if (refine && refinementTemplate == 0)
+        {
+            if (data.Length < position + 4)
+            {
+                ReportInvalid(segment, kind, "ends inside its refinement AT flags (ITU-T T.88 §7.4.3.1.3)");
+                return;
+            }
+
+            refinement = refinement with { AtX1 = (sbyte)data[position], AtY1 = (sbyte)data[position + 1], AtX2 = (sbyte)data[position + 2], AtY2 = (sbyte)data[position + 3] };
+            position += 4;
+        }
+
+        if (data.Length < position + 4)
+        {
+            ReportInvalid(segment, kind, "ends before its number of symbol instances (ITU-T T.88 §7.4.3.1.4)");
+            return;
+        }
+
+        long instances = BinaryPrimitives.ReadUInt32BigEndian(data[position..]);
+        position += 4;
+
+        var symbols = new List<Jbig2Image>();
+        var tables = new List<Jbig2HuffmanTable>();
+        long symbolTotal = 0;
+        foreach (uint number in list.ReferredTo(segment))
+        {
+            switch (Find(number))
+            {
+                case Jbig2SymbolDictionary dictionary:
+                    symbolTotal += dictionary.Exported.Length;
+                    if (symbolTotal <= Jbig2SymbolDictionary.MaxSymbols)
+                    {
+                        symbols.AddRange(dictionary.Exported);
+                    }
+
+                    break;
+                case Jbig2HuffmanTable table:
+                    tables.Add(table);
+                    break;
+                case null:
+                    ReportMissing(segment, kind, number);
+                    break;
+            }
+        }
+
+        if (symbolTotal > Jbig2SymbolDictionary.MaxSymbols)
         {
             _reporter.Report(
                 DiagnosticCodes.Jbig2LimitExceeded,
                 DiagnosticSeverity.Error,
-                string.Create(CultureInfo.InvariantCulture, $"The JBIG2 generic region segment {segment.Number} is {width} x {rows} pixels, more than the image limits allow; it is not decoded."));
+                string.Create(CultureInfo.InvariantCulture, $"The JBIG2 text region segment {segment.Number} refers to {symbolTotal} symbols, more than the {Jbig2SymbolDictionary.MaxSymbols} allowed; it is not decoded."));
             return;
         }
 
-        int length = stride * (int)rows;
-        byte[] buffer = ArrayPool<byte>.Shared.Rent(length);
-        try
+        if (!FitsLimits(segment, kind, info.Width, info.Height))
         {
-            buffer.AsSpan(0, length).Clear();
-            var region = new Jbig2Bitmap(buffer, (int)width, (int)rows, stride);
-            if (mmr)
-            {
-                MmrResult result = Jbig2GenericRegion.DecodeMmr(coded, region);
-                ReportMmr(segment, result, region.Height);
-            }
-            else
-            {
-                Span<byte> contexts = Contexts();
-                var decoder = new MqDecoder(coded);
-                Jbig2GenericRegion.Decode(ref decoder, contexts, parameters, region, default);
-            }
+            return;
+        }
 
-            if (segment.Type == Jbig2SegmentType.IntermediateGenericRegion)
+        int symbolCodeLength = Jbig2SymbolDictionary.CeilLog2(symbols.Count);
+        _statistics.ResetGeneric();
+        _statistics.ResetRefinement();
+        _statistics.ResetIntegers(huffman ? 0 : symbolCodeLength);
+        var coder = new Jbig2Coder(data[position..], huffman, _statistics);
+        var parameters = new Jbig2TextParameters
+        {
+            Refine = refine,
+            Instances = instances,
+            LogStrips = logStrips,
+            Symbols = symbols,
+            SymbolCount = symbols.Count,
+            SymbolCodeLength = symbolCodeLength,
+            DefaultPixel = defaultPixel,
+            CombinationOperator = combination,
+            Transposed = transposed,
+            ReferenceCorner = corner,
+            DsOffset = dsOffset,
+            Refinement = refinement,
+        };
+        if (huffman)
+        {
+            if (!TrySelectTextTables(huffmanFlags, refine, tables, ref parameters))
             {
-                // §8.2 step 5 b): an auxiliary buffer that only a refinement region (issue #65) would draw.
-                _intermediateRegions++;
+                _reporter.Report(
+                    DiagnosticCodes.Jbig2TableInvalid,
+                    DiagnosticSeverity.Error,
+                    string.Create(CultureInfo.InvariantCulture, $"The JBIG2 text region segment {segment.Number} selects a reserved Huffman table or a custom table it does not refer to (ITU-T T.88 §7.4.3.1.6); it is not decoded."));
                 return;
             }
 
-            page.Compose(region, x, y, Operator(segment, (Jbig2CombinationOperator)op));
+            Jbig2HuffmanTable? codes = ReadSymbolCodes(ref coder.Bits, symbols.Count);
+            if (codes is null)
+            {
+                ReportInvalid(segment, kind, "has a symbol ID Huffman table that cannot be decoded (ITU-T T.88 §7.4.3.1.7)");
+                return;
+            }
+
+            parameters = parameters with { SymbolCodes = codes };
         }
-        finally
+
+        bool intermediate = segment.Type == Jbig2SegmentType.IntermediateTextRegion;
+        using var region = new RegionBuffer(intermediate, (int)info.Width, (int)info.Height);
+        if (defaultPixel != 0)
         {
-            ArrayPool<byte>.Shared.Return(buffer);
+            region.View.Fill(1);
+        }
+
+        Jbig2TextResult result = Jbig2TextRegion.Decode(ref coder, parameters, region.View, _maxPixels, 4 * _maxPixels);
+        ReportText(segment, result);
+        Place(segment, intermediate, region, info, page);
+    }
+
+    /// <summary>§7.4.3.1.6: the text region's tables, custom ones in the order FS, DS, DT, RDW, RDH, RDX, RDY, RSIZE.</summary>
+    private static bool TrySelectTextTables(int flags, bool refine, List<Jbig2HuffmanTable> tables, ref Jbig2TextParameters parameters)
+    {
+        int custom = 0;
+        bool ok = true;
+        Jbig2HuffmanTable? Pick(int selector, int customSelector, ReadOnlySpan<int> standard, ref int custom, ref bool ok)
+        {
+            if (selector == customSelector)
+            {
+                if (custom < tables.Count)
+                {
+                    return tables[custom++];
+                }
+            }
+            else if (selector < standard.Length)
+            {
+                return Jbig2HuffmanTable.Standard(standard[selector]);
+            }
+
+            ok = false;
+            return null;
+        }
+
+        parameters = parameters with
+        {
+            FirstS = Pick(flags & 3, 3, [6, 7], ref custom, ref ok),
+            DeltaS = Pick((flags >> 2) & 3, 3, [8, 9, 10], ref custom, ref ok),
+            DeltaT = Pick((flags >> 4) & 3, 3, [11, 12, 13], ref custom, ref ok),
+        };
+        if (refine)
+        {
+            parameters = parameters with
+            {
+                RefinementDeltaWidth = Pick((flags >> 6) & 3, 3, [14, 15], ref custom, ref ok),
+                RefinementDeltaHeight = Pick((flags >> 8) & 3, 3, [14, 15], ref custom, ref ok),
+                RefinementX = Pick((flags >> 10) & 3, 3, [14, 15], ref custom, ref ok),
+                RefinementY = Pick((flags >> 12) & 3, 3, [14, 15], ref custom, ref ok),
+                RefinementSize = Pick((flags >> 14) & 1, 1, [1], ref custom, ref ok),
+            };
+        }
+
+        return ok;
+    }
+
+    /// <summary>§7.4.3.1.7: the run-length coded symbol ID code lengths, then SBSYMCODES by B.3; null when the table is damaged.</summary>
+    private static Jbig2HuffmanTable? ReadSymbolCodes(ref Jbig2BitReader bits, int symbolCount)
+    {
+        Span<int> runLengths = stackalloc int[35];
+        for (int i = 0; i < 35; i++)
+        {
+            runLengths[i] = (int)bits.ReadBits(4);
+        }
+
+        Jbig2HuffmanTable runCodes = Jbig2HuffmanTable.FromCodeLengths(runLengths);
+        int[] lengths = new int[symbolCount];
+        int index = 0;
+        int previous = -1;
+        while (index < symbolCount)
+        {
+            long code = runCodes.Decode(ref bits);
+            if (code is Jbig2HuffmanTable.Invalid or Jbig2HuffmanTable.Oob || bits.IsExhausted)
+            {
+                return null;
+            }
+
+            int repeat;
+            int length;
+            switch (code)
+            {
+                case < 32:
+                    (length, repeat) = ((int)code, 1);
+                    break;
+                case 32:
+                    if (previous < 0)
+                    {
+                        return null;
+                    }
+
+                    (length, repeat) = (previous, 3 + (int)bits.ReadBits(2));
+                    break;
+                case 33:
+                    (length, repeat) = (0, 3 + (int)bits.ReadBits(3));
+                    break;
+                default:
+                    (length, repeat) = (0, 11 + (int)bits.ReadBits(7));
+                    break;
+            }
+
+            for (int i = 0; i < repeat && index < symbolCount; i++)
+            {
+                lengths[index++] = length;
+            }
+
+            previous = length;
+        }
+
+        bits.Align();
+        return Jbig2HuffmanTable.FromCodeLengths(lengths);
+    }
+
+    /// <summary>T.88 §7.4.5 and §8.2: a halftone region drawn from its pattern dictionary.</summary>
+    private void ProcessHalftoneRegion(in Jbig2Segment segment, ReadOnlySpan<byte> data, Jbig2SegmentList list, Jbig2Bitmap page)
+    {
+        const string kind = "halftone region";
+        if (!TryReadRegion(segment, data, RegionInfoLength + 21, kind, out RegionInfo info))
+        {
+            return;
+        }
+
+        byte flags = data[RegionInfoLength];
+        ReadOnlySpan<byte> header = data[(RegionInfoLength + 1)..];
+        int op = (flags >> 4) & 7;
+        var parameters = new Jbig2HalftoneParameters
+        {
+            Mmr = (flags & 1) != 0,
+            Template = (flags >> 1) & 3,
+            EnableSkip = (flags & 8) != 0,
+            CombinationOperator = op > 4 ? Jbig2CombinationOperator.Or : (Jbig2CombinationOperator)op,
+            DefaultPixel = (flags >> 7) & 1,
+            GridWidth = BinaryPrimitives.ReadUInt32BigEndian(header),
+            GridHeight = BinaryPrimitives.ReadUInt32BigEndian(header[4..]),
+            GridX = BinaryPrimitives.ReadInt32BigEndian(header[8..]),
+            GridY = BinaryPrimitives.ReadInt32BigEndian(header[12..]),
+            VectorX = BinaryPrimitives.ReadUInt16BigEndian(header[16..]),
+            VectorY = BinaryPrimitives.ReadUInt16BigEndian(header[18..]),
+        };
+
+        Jbig2PatternDictionary? patterns = null;
+        foreach (uint number in list.ReferredTo(segment))
+        {
+            object? found = Find(number);
+            if (found is Jbig2PatternDictionary dictionary)
+            {
+                patterns ??= dictionary;
+            }
+            else if (found is null)
+            {
+                ReportMissing(segment, kind, number);
+            }
+        }
+
+        if (patterns is null || patterns.Patterns.Length == 0)
+        {
+            ReportInvalid(segment, kind, "refers to no pattern dictionary (ITU-T T.88 §7.4.5.2); it is not decoded");
+            return;
+        }
+
+        if (!FitsLimits(segment, kind, info.Width, info.Height))
+        {
+            return;
+        }
+
+        bool intermediate = segment.Type == Jbig2SegmentType.IntermediateHalftoneRegion;
+        using var region = new RegionBuffer(intermediate, (int)info.Width, (int)info.Height);
+        if (parameters.DefaultPixel != 0)
+        {
+            region.View.Fill(1);
+        }
+
+        uint segmentNumber = segment.Number;
+        Jbig2Reporter reporter = _reporter;
+        bool decoded = Jbig2HalftoneRegion.Decode(
+            data[(RegionInfoLength + 21)..],
+            parameters,
+            patterns,
+            _statistics,
+            region.View,
+            (code, severity, what) => reporter.Report(code, severity, string.Create(CultureInfo.InvariantCulture, $"The JBIG2 halftone region segment {segmentNumber} {what}.")),
+            _maxPixels);
+        if (!decoded)
+        {
+            _reporter.Report(
+                DiagnosticCodes.Jbig2LimitExceeded,
+                DiagnosticSeverity.Error,
+                string.Create(CultureInfo.InvariantCulture, $"The JBIG2 halftone region segment {segment.Number} has a grid of {parameters.GridWidth} x {parameters.GridHeight} cells, more than the image limits allow; it is not decoded."));
+            return;
+        }
+
+        Place(segment, intermediate, region, info, page);
+    }
+
+    /// <summary>T.88 §7.4.7 and §8.2 steps 5 c) to e): refines an intermediate region's buffer, or the page itself.</summary>
+    private void ProcessRefinementRegion(in Jbig2Segment segment, ReadOnlySpan<byte> data, Jbig2SegmentList list, Jbig2Bitmap page)
+    {
+        const string kind = "refinement region";
+        if (!TryReadRegion(segment, data, RegionInfoLength + 1, kind, out RegionInfo info))
+        {
+            return;
+        }
+
+        byte flags = data[RegionInfoLength];
+        int template = flags & 1;
+        var parameters = Jbig2RefinementParameters.Nominal(template) with { TypicalPrediction = (flags & 2) != 0 };
+        int position = RegionInfoLength + 1;
+        if (template == 0)
+        {
+            if (data.Length < position + 4)
+            {
+                ReportInvalid(segment, kind, "ends inside its AT flags (ITU-T T.88 §7.4.7.3)");
+                return;
+            }
+
+            parameters = parameters with { AtX1 = (sbyte)data[position], AtY1 = (sbyte)data[position + 1], AtX2 = (sbyte)data[position + 2], AtY2 = (sbyte)data[position + 3] };
+            position += 4;
+        }
+
+        AuxiliaryRegion? referred = null;
+        uint referredNumber = 0;
+        foreach (uint number in list.ReferredTo(segment))
+        {
+            if (_auxiliary.TryGetValue(number, out AuxiliaryRegion? auxiliary))
+            {
+                referred = auxiliary;
+                referredNumber = number;
+                break;
+            }
+        }
+
+        if (referred is null && segment.ReferredCount > 0)
+        {
+            _reporter.Report(
+                DiagnosticCodes.Jbig2RefinementReferenceMissing,
+                DiagnosticSeverity.Error,
+                string.Create(CultureInfo.InvariantCulture, $"The JBIG2 refinement region segment {segment.Number} refers to no intermediate region still held (ITU-T T.88 §7.4.7.4); it refines the page instead."));
+        }
+
+        if (info.Width == 0 || info.Height == 0 || !FitsLimits(segment, kind, info.Width, info.Height))
+        {
+            return;
+        }
+
+        bool intermediate = segment.Type == Jbig2SegmentType.IntermediateRefinementRegion;
+        using var region = new RegionBuffer(intermediate, (int)info.Width, (int)info.Height);
+        using var pageCopy = new RegionBuffer(false, referred is null ? (int)info.Width : 0, referred is null ? (int)info.Height : 0);
+        Jbig2Bitmap reference;
+        if (referred is not null)
+        {
+            reference = referred.Image.View;
+            _auxiliary.Remove(referredNumber);
+        }
+        else
+        {
+            // §7.4.7.4: the page buffer as composed so far, restricted to the region's rectangle (outside the page reads 0).
+            reference = pageCopy.View;
+            reference.Compose(page, -(long)info.X, -(long)info.Y, Jbig2CombinationOperator.Replace);
+            if (info.Operator != Jbig2CombinationOperator.Replace)
+            {
+                ReportInvalid(segment, kind, "refines the page with an external combination operator other than REPLACE (ITU-T T.88 §7.4.7.5 step 1); its own operator is used");
+            }
+        }
+
+        _statistics.ResetRefinement();
+        var decoder = new MqDecoder(data[position..]);
+        Jbig2RefinementRegion.Decode(ref decoder, _statistics.Refinement, parameters, reference, region.View);
+
+        // A refinement of the page itself replaces it whatever the page's default operator (§7.4.7.5 step 1).
+        Place(segment, intermediate, region, info, page, checkOperator: referred is not null);
+    }
+
+    /// <summary>§8.2 step 5: an intermediate region goes to an auxiliary buffer, an immediate one onto the page with its operator.</summary>
+    private void Place(in Jbig2Segment segment, bool intermediate, in RegionBuffer region, in RegionInfo info, Jbig2Bitmap page, bool checkOperator = true)
+    {
+        if (intermediate)
+        {
+            _auxiliary[segment.Number] = new AuxiliaryRegion(region.Image!);
+            return;
+        }
+
+        page.Compose(region.View, info.X, info.Y, checkOperator ? Operator(segment, info.Operator) : info.Operator);
+    }
+
+    /// <summary>§7.4.2: a symbol dictionary from its referred dictionaries and tables.</summary>
+    private void ProcessSymbolDictionary(in Jbig2Segment segment, ReadOnlySpan<byte> data, Jbig2SegmentList list)
+    {
+        var inputs = new List<Jbig2SymbolDictionary>();
+        var tables = new List<Jbig2HuffmanTable>();
+        foreach (uint number in list.ReferredTo(segment))
+        {
+            switch (Find(number))
+            {
+                case Jbig2SymbolDictionary dictionary:
+                    inputs.Add(dictionary);
+                    break;
+                case Jbig2HuffmanTable table:
+                    tables.Add(table);
+                    break;
+                case null:
+                    ReportMissing(segment, "symbol dictionary", number);
+                    break;
+            }
+        }
+
+        if (Jbig2SymbolDictionary.Decode(segment, data, inputs, tables, _statistics, _reporter, _maxPixels) is { } decoded)
+        {
+            _results[segment.Number] = decoded;
         }
     }
+
+    /// <summary>A referred segment's result: this stream's first, then the globals'.</summary>
+    private object? Find(uint number) =>
+        _results.TryGetValue(number, out object? result) ? result
+        : _globals is not null && _globals.TryGetValue(number, out result) ? result
+        : null;
 
     /// <summary>
     /// The operator a direct region is combined with: its own (§8.2 step 5 a), as jbig2dec and PDFium do; a page that does not allow
@@ -545,17 +1050,85 @@ internal sealed class Jbig2PageDecoder
         }
     }
 
-    private void ReportInvalid(in Jbig2Segment segment, string what) => _reporter.Report(
+    private void ReportText(in Jbig2Segment segment, Jbig2TextResult result)
+    {
+        switch (result)
+        {
+            case Jbig2TextResult.Truncated:
+                _reporter.Report(
+                    DiagnosticCodes.Jbig2RegionDataTruncated,
+                    DiagnosticSeverity.Warning,
+                    string.Create(CultureInfo.InvariantCulture, $"The data of JBIG2 text region segment {segment.Number} ends or becomes invalid before its last symbol instance; the instances decoded so far are drawn."));
+                break;
+            case Jbig2TextResult.SymbolIdOutOfRange:
+                _reporter.Report(
+                    DiagnosticCodes.Jbig2SymbolIdOutOfRange,
+                    DiagnosticSeverity.Error,
+                    string.Create(CultureInfo.InvariantCulture, $"The JBIG2 text region segment {segment.Number} has a symbol instance whose ID is beyond its symbols (ITU-T T.88 §6.4.10); it is drawn as an empty symbol."));
+                break;
+            case Jbig2TextResult.LimitExceeded:
+                _reporter.Report(
+                    DiagnosticCodes.Jbig2LimitExceeded,
+                    DiagnosticSeverity.Error,
+                    string.Create(CultureInfo.InvariantCulture, $"The JBIG2 text region segment {segment.Number} has more symbol instance pixels, or a larger refined instance, than the image limits allow; decoding of the region stops there."));
+                break;
+        }
+    }
+
+    private void ReportMissing(in Jbig2Segment segment, string kind, uint number) => _reporter.Report(
+        DiagnosticCodes.Jbig2ReferredSegmentMissing,
+        DiagnosticSeverity.Error,
+        string.Create(CultureInfo.InvariantCulture, $"The JBIG2 {kind} segment {segment.Number} refers to segment {number}, which is absent or could not be decoded (ITU-T T.88 §7.2.5); it is decoded without it."));
+
+    private void ReportInvalid(in Jbig2Segment segment, string kind, string what) => _reporter.Report(
         DiagnosticCodes.Jbig2SegmentInvalid,
         DiagnosticSeverity.Error,
-        string.Create(CultureInfo.InvariantCulture, $"The JBIG2 generic region segment {segment.Number} {what}."));
+        string.Create(CultureInfo.InvariantCulture, $"The JBIG2 {kind} segment {segment.Number} {what}."));
 
-    /// <summary>The GB contexts, reset for a new segment (§7.4.6.4 step 2, E.3.7: state 0, MPS 0).</summary>
-    private Span<byte> Contexts()
+    /// <summary>The region segment information field (§7.4.1).</summary>
+    private readonly record struct RegionInfo(uint Width, uint Height, uint X, uint Y, Jbig2CombinationOperator Operator);
+
+    /// <summary>A region's bitmap: kept (an auxiliary buffer) for an intermediate region, else pooled for the time of the segment.</summary>
+    private readonly struct RegionBuffer : IDisposable
     {
-        _contexts ??= ArrayPool<byte>.Shared.Rent(Jbig2GenericRegion.ContextCount);
-        Span<byte> contexts = _contexts.AsSpan(0, Jbig2GenericRegion.ContextCount);
-        contexts.Clear();
-        return contexts;
+        private readonly byte[]? _rented;
+        private readonly int _width;
+        private readonly int _height;
+        private readonly int _stride;
+
+        public RegionBuffer(bool keep, int width, int height)
+        {
+            _width = width;
+            _height = height;
+            _stride = Jbig2Bitmap.StrideOf(width);
+            if (keep)
+            {
+                Image = new Jbig2Image(width, height);
+            }
+            else if (width > 0 && height > 0)
+            {
+                int length = _stride * height;
+                _rented = ArrayPool<byte>.Shared.Rent(length);
+                _rented.AsSpan(0, length).Clear();
+            }
+        }
+
+        public Jbig2Image? Image { get; }
+
+        public Jbig2Bitmap View => Image is not null ? Image.View : _rented is null ? default : new Jbig2Bitmap(_rented, _width, _height, _stride);
+
+        public void Dispose()
+        {
+            if (_rented is not null)
+            {
+                ArrayPool<byte>.Shared.Return(_rented);
+            }
+        }
+    }
+
+    /// <summary>An intermediate region's auxiliary buffer (§8.2 step 5 b).</summary>
+    private sealed class AuxiliaryRegion(Jbig2Image image)
+    {
+        public Jbig2Image Image => image;
     }
 }
