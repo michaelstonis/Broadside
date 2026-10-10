@@ -22,6 +22,9 @@ namespace Broadside.Fonts;
 /// </remarks>
 internal sealed class CharacterMapSelection
 {
+    /// <summary>The high bytes of the (3, 0) code ranges, in the order §9.6.5.4 lists them. An array: a span literal of ints allocates in unoptimized code.</summary>
+    private static readonly int[] SymbolHighBytes = [0x00, 0xF0, 0xF1, 0xF2];
+
     private readonly int _glyphCount;
     private int[]? _reverse;
 
@@ -75,7 +78,7 @@ internal sealed class CharacterMapSelection
             return 0;
         }
 
-        foreach (int high in (ReadOnlySpan<int>)[0x00, 0xF0, 0xF1, 0xF2])
+        foreach (int high in SymbolHighBytes)
         {
             int glyph = Symbol.GetGlyphId((high << 8) | code);
             if (glyph != 0)

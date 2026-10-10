@@ -109,7 +109,9 @@ internal static partial class Standard14Data
     internal const int MetricsStride = 12;
 
     /// <summary>For each font (in <see cref="Standard14Font"/> order) and each glyph name index, the AFM WX width, or -1 when the font has no such glyph.</summary>
-    internal static ReadOnlySpan<short> Widths =>
+    internal static ReadOnlySpan<short> Widths => WidthsData;
+
+    private static readonly short[] WidthsData =
     [
         600, 600, -1, 600, -1, 600, 600, -1, -1, 600, -1, 600, -1, -1, 600, 600, 600, -1, -1, 600, -1, 600, -1, -1, -1,
         600, 600, -1, 600, 600, -1, -1, -1, -1, -1, 600, 600, 600, 600, -1, -1, -1, 600, 600, -1, 600, 600, -1, 600,
@@ -560,7 +562,9 @@ internal static partial class Standard14Data
     ];
 
     /// <summary>For each font: FontBBox (4 values), ItalicAngle x 10, CapHeight, XHeight, Ascent, Descent, StdVW, StdHW and the ISO 32000-2 Table 121 flags.</summary>
-    internal static ReadOnlySpan<short> FontMetrics =>
+    internal static ReadOnlySpan<short> FontMetrics => FontMetricsData;
+
+    private static readonly short[] FontMetricsData =
     [
         -23, -250, 715, 805, 0, 562, 426, 629, -157, 51, 51, 33, -113, -250, 749, 801, 0, 562, 439, 629, -157, 106, 84,
         33, -27, -250, 849, 805, -120, 562, 426, 629, -157, 51, 51, 97, -57, -250, 869, 801, -120, 562, 439, 629, -157,
@@ -573,7 +577,9 @@ internal static partial class Standard14Data
     ];
 
     /// <summary>Unicode values of the Latin character set's glyphs, ascending; parallel to <see cref="LatinUnicodeNames"/>.</summary>
-    internal static ReadOnlySpan<ushort> LatinUnicodes =>
+    internal static ReadOnlySpan<ushort> LatinUnicodes => LatinUnicodesData;
+
+    private static readonly ushort[] LatinUnicodesData =
     [
         32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59,
         60, 61, 62, 63, 64, 65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 76, 77, 78, 79, 80, 81, 82, 83, 84, 85, 86, 87,
@@ -592,7 +598,9 @@ internal static partial class Standard14Data
     ];
 
     /// <summary>For each value of <see cref="LatinUnicodes"/>, the index of the glyph's name in <see cref="GlyphNameTable.Names"/>.</summary>
-    internal static ReadOnlySpan<short> LatinUnicodeNames =>
+    internal static ReadOnlySpan<short> LatinUnicodeNames => LatinUnicodeNamesData;
+
+    private static readonly short[] LatinUnicodeNamesData =
     [
         740, 536, 696, 631, 504, 674, 414, 703, 661, 667, 437, 684, 485, 575, 675, 739, 798, 644, 766, 754, 554, 547,
         735, 727, 519, 621, 483, 726, 602, 531, 566, 692, 440, 0, 21, 25, 35, 42, 61, 63, 69, 72, 87, 89, 93, 101, 105,
@@ -611,7 +619,9 @@ internal static partial class Standard14Data
     ];
 
     /// <summary>Unicode values of the Symbol character set's glyphs, ascending; parallel to <see cref="SymbolUnicodeNames"/>.</summary>
-    internal static ReadOnlySpan<ushort> SymbolUnicodes =>
+    internal static ReadOnlySpan<ushort> SymbolUnicodes => SymbolUnicodesData;
+
+    private static readonly ushort[] SymbolUnicodesData =
     [
         32, 33, 35, 37, 38, 40, 41, 43, 44, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57, 58, 59, 60, 61, 62, 63, 91,
         93, 95, 123, 124, 125, 172, 176, 177, 181, 215, 247, 402, 913, 914, 915, 917, 918, 919, 920, 921, 922, 923,
@@ -626,7 +636,9 @@ internal static partial class Standard14Data
     ];
 
     /// <summary>For each value of <see cref="SymbolUnicodes"/>, the index of the glyph's name in <see cref="GlyphNameTable.Names"/>.</summary>
-    internal static ReadOnlySpan<short> SymbolUnicodeNames =>
+    internal static ReadOnlySpan<short> SymbolUnicodeNames => SymbolUnicodeNamesData;
+
+    private static readonly short[] SymbolUnicodeNamesData =
     [
         740, 536, 631, 674, 414, 661, 667, 684, 485, 675, 739, 798, 644, 766, 754, 554, 547, 735, 727, 519, 621, 483,
         726, 602, 531, 566, 692, 455, 459, 779, 447, 444, 451, 605, 499, 685, 615, 616, 503, 553, 13, 22, 64, 55, 200,
@@ -640,7 +652,9 @@ internal static partial class Standard14Data
     ];
 
     /// <summary>Unicode values of the ZapfDingbats character set's glyphs, ascending; parallel to <see cref="ZapfDingbatsUnicodeNames"/>.</summary>
-    internal static ReadOnlySpan<ushort> ZapfDingbatsUnicodes =>
+    internal static ReadOnlySpan<ushort> ZapfDingbatsUnicodes => ZapfDingbatsUnicodesData;
+
+    private static readonly ushort[] ZapfDingbatsUnicodesData =
     [
         8594, 8596, 8597, 9312, 9313, 9314, 9315, 9316, 9317, 9318, 9319, 9320, 9321, 9632, 9650, 9660, 9670, 9679,
         9687, 9733, 9742, 9755, 9758, 9824, 9827, 9829, 9830, 9985, 9986, 9987, 9988, 9990, 9991, 9992, 9993, 9996,
@@ -658,7 +672,9 @@ internal static partial class Standard14Data
     ];
 
     /// <summary>For each value of <see cref="ZapfDingbatsUnicodes"/>, the index of the glyph's name in <see cref="GlyphNameTable.Names"/>.</summary>
-    internal static ReadOnlySpan<short> ZapfDingbatsUnicodeNames =>
+    internal static ReadOnlySpan<short> ZapfDingbatsUnicodeNames => ZapfDingbatsUnicodeNamesData;
+
+    private static readonly short[] ZapfDingbatsUnicodeNamesData =
     [
         268, 270, 271, 223, 224, 225, 226, 227, 228, 229, 230, 231, 232, 376, 379, 380, 381, 374, 384, 334, 339, 215,
         222, 214, 218, 216, 217, 203, 310, 314, 328, 350, 221, 220, 219, 233, 244, 255, 266, 210, 277, 288, 299, 311,

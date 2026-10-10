@@ -148,7 +148,10 @@ def wrap(items: list[str], indent: str, width: int = 120) -> list[str]:
 
 
 def span(name: str, kind: str, values: list[int], doc: str) -> list[str]:
-    return ([f"    /// <summary>{doc}</summary>", f"    internal static ReadOnlySpan<{kind}> {name} =>", "    ["]
+    # A span over a static array, not a "static ReadOnlySpan<T> X => [...]" property: for element types wider than a byte that
+    # compiles to RuntimeHelpers.CreateSpan, which allocates on every access in unoptimized (Debug, tier-0) code.
+    return ([f"    /// <summary>{doc}</summary>", f"    internal static ReadOnlySpan<{kind}> {name} => {name}Data;", "",
+             f"    private static readonly {kind}[] {name}Data =", "    ["]
             + wrap([str(v) for v in values], "        ") + ["    ];", ""])
 
 

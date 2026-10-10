@@ -664,7 +664,9 @@ internal static partial class AdobeGlyphList
         "katakanazparenzretroflexhookzstrokezuhiraganazukatakana";
 
     /// <summary>Where each name starts in the names; one more entry than there are names.</summary>
-    internal static ReadOnlySpan<ushort> AglNameOffsets =>
+    internal static ReadOnlySpan<ushort> AglNameOffsets => AglNameOffsetsData;
+
+    private static readonly ushort[] AglNameOffsetsData =
     [
         0, 1, 3, 10, 18, 25, 31, 42, 48, 59, 73, 87, 98, 113, 124, 130, 137, 148, 164, 183, 199, 219, 235, 251, 256,
         266, 275, 284, 293, 310, 325, 339, 348, 358, 364, 375, 385, 396, 410, 415, 425, 432, 442, 449, 454, 464, 474,
@@ -987,7 +989,9 @@ internal static partial class AdobeGlyphList
         "\u3117\u017E\u24E9\u1E91\u0291\u017C\u017C\u1E93\u0437\u0499\u04DF\u305C\u30BC0\u0660\u09E6\u0966\u0AE6\u0A66\u0660\u2080\uFF10\uF730\u06F0\u2070\u0E50\uFEFF\u200C\u200B\u03B6\u3113\u056A\u04C2\u0436\u0497\u04DD\u3058\u30B8\u05AE\u1E95\uFF5A\u305E\u30BE\u24B5\u0290\u01B6\u305A\u30BA";
 
     /// <summary>Where each value starts in the values; one more entry than there are names.</summary>
-    internal static ReadOnlySpan<ushort> AglValueOffsets =>
+    internal static ReadOnlySpan<ushort> AglValueOffsets => AglValueOffsetsData;
+
+    private static readonly ushort[] AglValueOffsetsData =
     [
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
         30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57,
@@ -1233,7 +1237,9 @@ internal static partial class AdobeGlyphList
         "1a82a83a84a85a86a87a88a89a9a90a91a92a93a94a95a96a97a98a99";
 
     /// <summary>Where each name starts in the names; one more entry than there are names.</summary>
-    internal static ReadOnlySpan<ushort> ZapfNameOffsets =>
+    internal static ReadOnlySpan<ushort> ZapfNameOffsets => ZapfNameOffsetsData;
+
+    private static readonly ushort[] ZapfNameOffsetsData =
     [
         0, 2, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 48, 52, 56, 60, 64, 68, 72, 75, 79, 83, 87, 91, 95, 99, 103,
         107, 111, 115, 118, 122, 126, 130, 134, 138, 142, 146, 150, 154, 158, 161, 165, 169, 173, 177, 181, 185, 189,
@@ -1253,7 +1259,9 @@ internal static partial class AdobeGlyphList
         "\u2742\u2743\u2744\u2745\u2746\u2747\u2748\u2749\u274A\u271E\u274B\u25CF\u274D\u25A0\u274F\u2751\u25B2\u25BC\u25C6\u2756\u271F\u25D7\u2758\u2759\u275A\u276F\u2771\u2772\u2773\u2768\u2720\u2769\u276C\u276D\u276A\u276B\u2774\u2775\u275B\u275C\u275D";
 
     /// <summary>Where each value starts in the values; one more entry than there are names.</summary>
-    internal static ReadOnlySpan<ushort> ZapfValueOffsets =>
+    internal static ReadOnlySpan<ushort> ZapfValueOffsets => ZapfValueOffsetsData;
+
+    private static readonly ushort[] ZapfValueOffsetsData =
     [
         0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29,
         30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43, 44, 45, 46, 47, 48, 49, 50, 51, 52, 53, 54, 55, 56, 57,

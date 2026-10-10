@@ -108,7 +108,9 @@ internal static partial class GlyphNameTable
     ];
 
     /// <summary>StandardEncoding: for each code, the index of its glyph name in <see cref="Names"/>, or -1.</summary>
-    internal static ReadOnlySpan<short> StandardEncoding =>
+    internal static ReadOnlySpan<short> StandardEncoding => StandardEncodingData;
+
+    private static readonly short[] StandardEncodingData =
     [
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
         -1, -1, -1, -1, 740, 536, 696, 631, 504, 674, 414, 701, 661, 667, 437, 684, 485, 575, 675, 739, 798, 644, 766,
@@ -124,7 +126,9 @@ internal static partial class GlyphNameTable
     ];
 
     /// <summary>WinAnsiEncoding: for each code, the index of its glyph name in <see cref="Names"/>, or -1.</summary>
-    internal static ReadOnlySpan<short> WinAnsiEncoding =>
+    internal static ReadOnlySpan<short> WinAnsiEncoding => WinAnsiEncodingData;
+
+    private static readonly short[] WinAnsiEncodingData =
     [
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
         -1, -1, -1, -1, 740, 536, 696, 631, 504, 674, 414, 703, 661, 667, 437, 684, 485, 575, 675, 739, 798, 644, 766,
@@ -141,7 +145,9 @@ internal static partial class GlyphNameTable
     ];
 
     /// <summary>MacRomanEncoding: for each code, the index of its glyph name in <see cref="Names"/>, or -1.</summary>
-    internal static ReadOnlySpan<short> MacRomanEncoding =>
+    internal static ReadOnlySpan<short> MacRomanEncoding => MacRomanEncodingData;
+
+    private static readonly short[] MacRomanEncodingData =
     [
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
         -1, -1, -1, -1, 740, 536, 696, 631, 504, 674, 414, 703, 661, 667, 437, 684, 485, 575, 675, 739, 798, 644, 766,
@@ -157,7 +163,9 @@ internal static partial class GlyphNameTable
     ];
 
     /// <summary>MacExpertEncoding: for each code, the index of its glyph name in <see cref="Names"/>, or -1.</summary>
-    internal static ReadOnlySpan<short> MacExpertEncoding =>
+    internal static ReadOnlySpan<short> MacExpertEncoding => MacExpertEncodingData;
+
+    private static readonly short[] MacExpertEncodingData =
     [
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
         -1, -1, -1, -1, 740, 539, 71, 476, 506, 507, 415, 8, 665, 671, 767, 645, 485, 575, 675, 558, 800, 650, 769,
@@ -173,7 +181,9 @@ internal static partial class GlyphNameTable
     ];
 
     /// <summary>SymbolEncoding: for each code, the index of its glyph name in <see cref="Names"/>, or -1.</summary>
-    internal static ReadOnlySpan<short> SymbolEncoding =>
+    internal static ReadOnlySpan<short> SymbolEncoding => SymbolEncodingData;
+
+    private static readonly short[] SymbolEncodingData =
     [
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
         -1, -1, -1, -1, 740, 536, 781, 631, 540, 674, 414, 744, 661, 667, 438, 684, 485, 612, 675, 739, 798, 644, 766,
@@ -189,7 +199,9 @@ internal static partial class GlyphNameTable
     ];
 
     /// <summary>ZapfDingbatsEncoding: for each code, the index of its glyph name in <see cref="Names"/>, or -1.</summary>
-    internal static ReadOnlySpan<short> ZapfDingbatsEncoding =>
+    internal static ReadOnlySpan<short> ZapfDingbatsEncoding => ZapfDingbatsEncodingData;
+
+    private static readonly short[] ZapfDingbatsEncodingData =
     [
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
         -1, -1, -1, -1, 740, 203, 310, 314, 328, 339, 350, 221, 220, 219, 215, 222, 233, 244, 255, 266, 210, 277, 288,
@@ -206,7 +218,9 @@ internal static partial class GlyphNameTable
     ];
 
     /// <summary>MacOSRomanEncoding: for each code, the index of its glyph name in <see cref="Names"/>, or -1.</summary>
-    internal static ReadOnlySpan<short> MacOSRomanEncoding =>
+    internal static ReadOnlySpan<short> MacOSRomanEncoding => MacOSRomanEncodingData;
+
+    private static readonly short[] MacOSRomanEncodingData =
     [
         -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1,
         -1, -1, -1, -1, 740, 536, 696, 631, 504, 674, 414, 703, 661, 667, 437, 684, 485, 575, 675, 739, 798, 644, 766,
