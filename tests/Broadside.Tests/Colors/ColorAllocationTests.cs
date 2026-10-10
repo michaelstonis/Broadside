@@ -2,6 +2,7 @@ using System.Text;
 using Broadside.Content;
 using Broadside.Graphics;
 using Broadside.Tests.Document;
+using Broadside.TestSupport;
 using static Broadside.Tests.Colors.ColorTesting;
 
 namespace Broadside.Tests.Colors;
@@ -36,15 +37,13 @@ public class ColorAllocationTests
             "<< /PatternType 1 /PaintType 2 /TilingType 1 /BBox [0 0 1 1] /XStep 1 /YStep 1 /Resources << >> /Length 0 >>\nstream\n\nendstream"));
         PdfPage page = document.Pages[0];
         var processor = new ColorCounter();
-        for (int pass = 0; pass < WarmUp; pass++)
-        {
-            page.ProcessContent(processor);
-        }
-
-        processor.Paints = 0;
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        page.ProcessContent(processor);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = Allocations.Measure(
+            () =>
+            {
+                processor.Paints = 0;
+                page.ProcessContent(processor);
+            },
+            WarmUp);
 
         Assert.Equal(500, processor.Paints);
         Assert.Equal(0, allocated);
@@ -66,14 +65,7 @@ public class ColorAllocationTests
         byte[] output = new byte[4096 * 3];
         float[] components = new float[256 * 4];
         float[] colors = new float[256 * 3];
-        for (int pass = 0; pass < WarmUp; pass++)
-        {
-            Run();
-        }
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        Run();
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = Allocations.Measure(() => Run(), WarmUp);
 
         Assert.Equal(0, allocated);
 

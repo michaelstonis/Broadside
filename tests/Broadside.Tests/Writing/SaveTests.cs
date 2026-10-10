@@ -270,6 +270,40 @@ public class SaveTests
         Assert.Equal(0, output.Length);
     }
 
+    // Found by libFuzzer (issue #48): an 11 KB file whose one object is numbered 6,600,016 saved to a 132 MB file (a classic table
+    // lists every number up to the largest), which then took 2.3 GB to open again. Saving a numbering that sparse needs
+    // renumbering, so it is refused like numbers above the limit; a large but dense numbering still saves.
+    [Fact]
+    public void A_document_whose_numbering_is_far_sparser_than_its_objects_is_not_saved()
+    {
+        byte[] file = Document.TestPdf.AppendUpdate(
+            Document.TestPdf.OnePage(string.Empty),
+            "/Size 2000001 /Root 1 0 R",
+            (2_000_000, 0, "<< /Unused true >>"));
+        using PdfDocument source = PdfDocument.Open(file);
+        using var output = new MemoryStream();
+
+        NotSupportedException error = Assert.Throws<NotSupportedException>(() => source.Save(output));
+        Assert.Contains("renumbering", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0, output.Length);
+    }
+
+    [Fact]
+    public void A_document_with_a_sparse_numbering_below_a_million_is_saved()
+    {
+        byte[] file = Document.TestPdf.AppendUpdate(
+            Document.TestPdf.OnePage(string.Empty),
+            "/Size 1000001 /Root 1 0 R",
+            (1_000_000, 0, "<< /Unused true >>"));
+        using PdfDocument source = PdfDocument.Open(file);
+        using var output = new MemoryStream();
+
+        source.Save(output);
+
+        using PdfDocument saved = PdfDocument.Open(output.ToArray());
+        Assert.Single(saved.Pages);
+    }
+
     [Fact]
     public void An_encrypted_document_is_not_saved()
     {

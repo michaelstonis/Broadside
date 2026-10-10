@@ -1,8 +1,11 @@
 using Broadside.Fonts;
+using Broadside.Tests.Document;
+using Broadside.TestSupport;
 
 namespace Broadside.Tests.Fonts;
 
 /// <summary>Reading glyphs of a composite font is a hot path: once the font's tables are built it allocates nothing (CLAUDE.md, hot paths).</summary>
+[Collection(HeavyTestCollection.Name)]
 public class CompositeFontAllocationTests
 {
     [Theory]
@@ -20,14 +23,7 @@ public class CompositeFontAllocationTests
         }
 
         double total = 0;
-        for (int warmUp = 0; warmUp < 50; warmUp++)
-        {
-            total += Read(font, text);
-        }
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        total += Read(font, text);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = Allocations.Measure(() => total += Read(font, text), 50);
 
         Assert.Equal(0, allocated);
         Assert.True(total > 0);

@@ -42,6 +42,7 @@ internal static partial class DiagnosticCodes
     public const string XrefStreamWidthsInvalid = nameof(XrefStreamWidthsInvalid);
     public const string XrefStreamIndexInvalid = nameof(XrefStreamIndexInvalid);
     public const string XrefStreamSizeInvalid = nameof(XrefStreamSizeInvalid);
+    public const string CrossReferenceEntryLimitExceeded = nameof(CrossReferenceEntryLimitExceeded);
     public const string XrefStreamDataTruncated = nameof(XrefStreamDataTruncated);
     public const string TrailerXRefStmInvalid = nameof(TrailerXRefStmInvalid);
 

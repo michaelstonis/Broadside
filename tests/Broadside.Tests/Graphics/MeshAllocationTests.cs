@@ -60,21 +60,19 @@ public class MeshAllocationTests
         PdfAxialShading shading = ShadingTesting.OnlyShading<PdfAxialShading>(document);
         float[] input = new float[1];
         float[] color = new float[3];
-        for (int i = 0; i < 64; i++)
-        {
-            shading.EvaluateFunction(input, color);
-            _ = shading.TryGetParameter(i, 400, out _);
-        }
+        long allocated = Allocations.Measure(
+            () =>
+            {
+                for (int i = 0; i < 1000; i++)
+                {
+                    input[0] = i / 1000f;
+                    shading.EvaluateFunction(input, color);
+                    _ = shading.TryGetParameter(i, 400, out _);
+                }
+            },
+            warmUpCalls: 1);
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 1000; i++)
-        {
-            input[0] = i / 1000f;
-            shading.EvaluateFunction(input, color);
-            _ = shading.TryGetParameter(i, 400, out _);
-        }
-
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(0, allocated);
     }
 
     [Theory]
@@ -85,15 +83,9 @@ public class MeshAllocationTests
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Bytes(file));
         var processor = new PatternReader();
-        for (int i = 0; i < 64; i++)
-        {
-            document.Pages[0].ProcessContent(processor);
-        }
+        long allocated = Allocations.Measure(() => document.Pages[0].ProcessContent(processor), warmUpCalls: 64);
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        document.Pages[0].ProcessContent(processor);
-
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(0, allocated);
         Assert.True(processor.Seen > 0);
     }
 
