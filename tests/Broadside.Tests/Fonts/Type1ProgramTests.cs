@@ -270,18 +270,20 @@ public class Type1ProgramTests
 
     public static TheoryData<string, string, string> Repairs => new()
     {
-        // charstring, outline, diagnostic code
-        { "0 500 hsbw 0 0 rmoveto 100 hlineto raw:00 100 vlineto closepath endchar", "M 0,0 L 100,0 L 100,100 Z", "FontType1UnknownOperator" },
-        { "0 500 hsbw 0 0 rmoveto 100 0 div hlineto 100 vlineto closepath endchar", "M 0,0 L 0,0 L 0,100 Z", "FontType1DivideByZero" },
-        { "0 500 hsbw 0 0 rmoveto hlineto 100 vlineto closepath endchar", "M 0,0 L 0,100 Z", "FontType1StackUnderflow" },
-        { "0 500 hsbw 0 0 rmoveto pop hlineto closepath endchar", "M 0,0 L 0,0 Z", "FontType1StackUnderflow" },
-        { "0 500 hsbw 0 0 rmoveto 100 hlineto closepath", "M 0,0 L 100,0 Z", "FontType1EndcharMissing" },
+        // charstring, outline, diagnostic code (the charstring codes Type 1 shares with Type 2, plus the Type 1 only ones)
+        { "0 500 hsbw 0 0 rmoveto 100 hlineto raw:00 100 vlineto closepath endchar", "M 0,0 L 100,0 L 100,100 Z", "FontCharstringUnknownOperator" },
+        { "0 500 hsbw 0 0 rmoveto 100 0 div hlineto 100 vlineto closepath endchar", "M 0,0 L 0,0 L 0,100 Z", "FontCharstringOperandInvalid" },
+        { "0 500 hsbw 0 0 rmoveto hlineto 100 vlineto closepath endchar", "M 0,0 L 0,100 Z", "FontCharstringArgumentCount" },
+        { "0 500 hsbw 0 0 rmoveto pop hlineto closepath endchar", "M 0,0 L 0,0 Z", "FontCharstringArgumentCount" },
+        { "0 500 hsbw 0 0 rmoveto callsubr 100 hlineto closepath endchar", "M 0,0 L 100,0 Z", "FontCharstringArgumentCount" },
+        { "0 500 hsbw 0 0 rmoveto 100 hlineto 5 callsubr 100 vlineto closepath endchar", "M 0,0 L 100,0 L 100,100 Z", "FontCharstringSubrOutOfRange" },
+        { "0 500 hsbw 0 0 rmoveto 100 hlineto closepath", "M 0,0 L 100,0 Z", "FontCharstringNoEndchar" },
         { "0 0 rmoveto 100 hlineto closepath endchar", "M 0,0 L 100,0 Z", "FontType1NoWidth" },
         { "0 500 hsbw 0 0 rmoveto 0 2 callothersubr 100 hlineto closepath endchar", "M 0,0 L 100,0 Z", "FontType1FlexMalformed" },
         { "0 500 hsbw 0 0 rmoveto 0 1 callothersubr 50 0 0 3 0 callothersubr pop pop setcurrentpoint 100 hlineto closepath endchar", "M 0,0 L 100,0 Z", "FontType1FlexMalformed" },
-        { "0 500 hsbw 0 0 0 65 66 seac", "M 0,0 L 100,0 L 100,100 L 0,100 Z", "FontType1SeacMissingComponent" },
-        { "0 500 hsbw 0 0 0 65 67 seac", "M 0,0 L 100,0 L 100,100 L 0,100 Z", "FontType1SeacNested" },
-        { "0 500 hsbw 0 0 rmoveto 100 hlineto 0 return closepath endchar", "M 0,0 L 100,0 Z", "FontType1UnknownOperator" },
+        { "0 500 hsbw 0 0 0 65 66 seac", "M 0,0 L 100,0 L 100,100 L 0,100 Z", "FontCharstringSeacComponentMissing" },
+        { "0 500 hsbw 0 0 0 65 67 seac", "M 0,0 L 100,0 L 100,100 L 0,100 Z", "FontCharstringSeacComponentMissing" },
+        { "0 500 hsbw 0 0 rmoveto 100 hlineto 0 return closepath endchar", "M 0,0 L 100,0 Z", "FontCharstringUnknownOperator" },
     };
 
     [Theory]
@@ -300,13 +302,11 @@ public class Type1ProgramTests
 
     public static TheoryData<string, string> Failures => new()
     {
-        { "0 500 hsbw 0 0 rmoveto 100 hlineto 5 callsubr endchar", "FontType1SubrMissing" },
-        { "0 500 hsbw 0 0 rmoveto 100 hlineto 0 callsubr endchar", "FontType1SubrDepthExceeded" },
-        { "0 500 hsbw 0 0 rmoveto 100 hlineto raw:FF raw:00", "FontType1CharstringTruncated" },
-        { "0 500 hsbw 0 0 rmoveto 100 raw:F7", "FontType1CharstringTruncated" },
-        { "0 500 hsbw 0 0 rmoveto 100 hlineto raw:0C", "FontType1CharstringTruncated" },
-        { "0 500 hsbw " + string.Join(' ', Enumerable.Repeat("1", 49)) + " endchar", "FontType1StackOverflow" },
-        { "0 500 hsbw callsubr endchar", "FontType1StackUnderflow" },
+        { "0 500 hsbw 0 0 rmoveto 100 hlineto 0 callsubr endchar", "FontCharstringSubrDepth" },
+        { "0 500 hsbw 0 0 rmoveto 100 hlineto raw:FF raw:00", "FontCharstringTruncated" },
+        { "0 500 hsbw 0 0 rmoveto 100 raw:F7", "FontCharstringTruncated" },
+        { "0 500 hsbw 0 0 rmoveto 100 hlineto raw:0C", "FontCharstringTruncated" },
+        { "0 500 hsbw " + string.Join(' ', Enumerable.Repeat("1", 49)) + " endchar", "FontCharstringStackOverflow" },
     };
 
     [Theory]
@@ -326,9 +326,9 @@ public class Type1ProgramTests
     [Fact]
     public void Fan_out_through_subroutines_is_bounded()
     {
-        // Each subroutine calls the next one ten times: 10^12 calls unbounded.
+        // Each subroutine calls the next one ten times: 10^9 calls unbounded.
         Type1Builder builder = Builder().Glyph("x", "0 500 hsbw 0 callsubr endchar");
-        for (int subr = 0; subr < 12; subr++)
+        for (int subr = 0; subr < 9; subr++)
         {
             builder.Subr(string.Concat(Enumerable.Repeat($"{subr + 1} callsubr ", 10)) + "return");
         }
@@ -337,7 +337,60 @@ public class Type1ProgramTests
         var context = new FontProgramContext();
 
         Assert.Equal("Invalid", OutlineText.Of(Parse(builder, context), 1));
-        Assert.Contains(Codes(context), code => code is "FontType1GlyphTooComplex");
+        Assert.Equal(["FontCharstringBudgetExceeded"], Codes(context));
+        Assert.Equal(DiagnosticSeverity.Error, context.Diagnostics[0].Severity);
+    }
+
+    [Fact]
+    public void The_operator_budget_is_the_contexts_MaxCharStringOperators()
+    {
+        // Two levels of ten calls of "1 0 rlineto return": about 400 operators and operands, under the default, over a budget of 300.
+        Type1Builder builder = Builder()
+            .Glyph("x", "0 500 hsbw 0 0 rmoveto 0 callsubr closepath endchar")
+            .Subr(string.Concat(Enumerable.Repeat("1 callsubr ", 10)) + "return")
+            .Subr(string.Concat(Enumerable.Repeat("2 callsubr ", 10)) + "return")
+            .Subr("1 0 rlineto return");
+
+        Assert.StartsWith("M 0,0 L 1,0", OutlineText.Of(Parse(builder), 1));
+
+        var context = new FontProgramContext { MaxCharStringOperators = 300 };
+        Assert.Equal("Invalid", OutlineText.Of(Parse(builder, context), 1));
+        Assert.Equal(["FontCharstringBudgetExceeded"], Codes(context));
+    }
+
+    [Fact]
+    public void Subroutines_nest_ten_levels_deep_as_the_shared_charstring_limit_allows()
+    {
+        // Type 1 Font Format §8.1 and Adobe Technical Note #5177 Appendix B: ten levels. Subr n calls subr n + 1; the last draws.
+        static Type1Builder Chain(int levels)
+        {
+            Type1Builder builder = Builder().Glyph("x", "0 500 hsbw 0 0 rmoveto 0 callsubr closepath endchar");
+            for (int subr = 0; subr < levels - 1; subr++)
+            {
+                builder.Subr($"{subr + 1} callsubr return");
+            }
+
+            return builder.Subr("1 0 rlineto return");
+        }
+
+        var ten = new FontProgramContext();
+        Assert.Equal("M 0,0 L 1,0 Z", OutlineText.Of(Parse(Chain(10), ten), 1));
+        Assert.Empty(ten.Diagnostics);
+
+        var eleven = new FontProgramContext();
+        Assert.Equal("Invalid", OutlineText.Of(Parse(Chain(11), eleven), 1));
+        Assert.Equal(["FontCharstringSubrDepth"], Codes(eleven));
+    }
+
+    [Fact]
+    public void A_charstring_diagnostic_names_the_glyph()
+    {
+        var context = new FontProgramContext();
+        FontProgram program = Parse(Builder().Glyph("A", Box).Glyph("x", "0 500 hsbw 0 0 rmoveto 100 0 div hlineto endchar"), context);
+
+        OutlineText.Of(program, 2);
+
+        Assert.Contains("Glyph 2 of the Type 1 program", Assert.Single(context.Diagnostics).Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -346,7 +399,7 @@ public class Type1ProgramTests
         FontProgram program = Parse(Builder().Glyph("x", "0 500 hsbw 0 0 rmoveto 100 0 div hlineto endchar"), new FontProgramContext { ReadingMode = PdfReadingMode.Strict });
 
         DiagnosticException exception = Assert.Throws<DiagnosticException>(() => program.GetOutline(1, new GlyphOutline()));
-        Assert.Equal("FontType1DivideByZero", exception.Diagnostic.Code);
+        Assert.Equal("FontCharstringOperandInvalid", exception.Diagnostic.Code);
     }
 
     [Fact]

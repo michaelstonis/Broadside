@@ -1,7 +1,6 @@
 using System.Buffers.Binary;
-using Broadside.Diagnostics;
+using Broadside.Fonts.CharStrings;
 using Broadside.Graphics;
-using Broadside.Parsing;
 
 namespace Broadside.Fonts.Type1;
 
@@ -22,21 +21,18 @@ namespace Broadside.Fonts.Type1;
 /// move the current point (§6.4); a contour starts at the first drawing command after a move, so consecutive moves make no empty
 /// contours. Flex is always drawn as its two curves (the flex height only matters to hinting).
 /// </para>
+/// <para>
+/// Limits and diagnostics are the ones Type 2 charstrings use (<see cref="CharStringLimits"/>, <see cref="CharStringReporter"/>):
+/// 48 operands, 10 subroutine levels (Type 1 Font Format §8.1), and <see cref="FontProgramContext.MaxCharStringOperators"/> operators
+/// and operands per glyph, subroutines and <c>seac</c> components included.
+/// </para>
 /// </remarks>
-internal ref struct Type1CharstringInterpreter
+internal ref struct Type1CharStringInterpreter
 {
-    /// <summary>The operand stack size: 24 in Type 1 Font Format §6.1, doubled for multiple master and counter control data.</summary>
-    private const int StackSize = 48;
-
-    /// <summary>Subroutine nesting: 10 in Type 1 Font Format §8.1; 16 as FreeType allows.</summary>
-    private const int MaxDepth = 16;
-
-    /// <summary>The most bytes one glyph may execute, subroutines and seac components included, so fan-out through subroutines ends.</summary>
-    private const int MaxOperations = 1 << 20;
-
     private const int Escape = 12;
 
     private readonly Type1FontProgram _program;
+    private readonly int _budget;
     private readonly GlyphOutline? _outline;
     private readonly bool _metricsOnly;
     private readonly int _maxPoints;
@@ -60,17 +56,19 @@ internal ref struct Type1CharstringInterpreter
     private double _sideBearingX;
     private int _operations;
     private int _points;
+    private int _glyphId;
 
-    /// <summary>Initializes a new instance of the <see cref="Type1CharstringInterpreter"/> struct.</summary>
+    /// <summary>Initializes a new instance of the <see cref="Type1CharStringInterpreter"/> struct.</summary>
     /// <param name="program">The program whose charstrings run.</param>
     /// <param name="outline">Where the outline goes; <see langword="null"/> with <paramref name="metricsOnly"/>.</param>
     /// <param name="metricsOnly">Whether to stop at <c>hsbw</c> or <c>sbw</c>.</param>
-    public Type1CharstringInterpreter(Type1FontProgram program, GlyphOutline? outline, bool metricsOnly)
+    public Type1CharStringInterpreter(Type1FontProgram program, GlyphOutline? outline, bool metricsOnly)
     {
         _program = program;
         _outline = outline;
         _metricsOnly = metricsOnly;
         _maxPoints = program.Context.MaxGlyphPoints;
+        _budget = Math.Max(1, program.Context.MaxCharStringOperators);
     }
 
     /// <summary>Gets the advance width and left side bearing from the glyph's <c>hsbw</c> or <c>sbw</c>.</summary>
@@ -80,7 +78,11 @@ internal ref struct Type1CharstringInterpreter
     /// <param name="glyphId">The glyph id, in range.</param>
     /// <returns><see langword="false"/> when the charstring could not be finished and the glyph is dropped.</returns>
     /// <remarks>An empty charstring (the stand-in for a missing <c>.notdef</c>, already reported) draws nothing, silently.</remarks>
-    public bool Run(int glyphId) => _program.Glyphs[glyphId].Length == 0 || Execute(_program.Glyphs[glyphId]) != Outcome.Failed;
+    public bool Run(int glyphId)
+    {
+        _glyphId = glyphId;
+        return _program.Glyphs[glyphId].Length == 0 || Execute(_program.Glyphs[glyphId]) != Outcome.Failed;
+    }
 
     private enum Outcome
     {
@@ -100,7 +102,7 @@ internal ref struct Type1CharstringInterpreter
             {
                 if (depth == 0)
                 {
-                    Report(DiagnosticCodes.FontType1EndcharMissing, DiagnosticSeverity.Warning, "a charstring ends without endchar; the glyph ends there");
+                    Report(CharStringIssue.NoEndchar);
                     return Finish();
                 }
 
@@ -111,9 +113,9 @@ internal ref struct Type1CharstringInterpreter
                 continue;
             }
 
-            if (++_operations > MaxOperations)
+            if (++_operations > _budget)
             {
-                return Fail(DiagnosticCodes.FontType1GlyphTooComplex, "a charstring runs more than 1,048,576 bytes through its subroutines; the glyph is dropped");
+                return Fail(CharStringIssue.BudgetExceeded);
             }
 
             int b0 = pool[position++];
@@ -128,7 +130,7 @@ internal ref struct Type1CharstringInterpreter
                 {
                     if (position >= end)
                     {
-                        return Fail(DiagnosticCodes.FontType1CharstringTruncated, "a charstring ends inside a number; the glyph is dropped");
+                        return Fail(CharStringIssue.Truncated);
                     }
 
                     int b1 = pool[position++];
@@ -138,7 +140,7 @@ internal ref struct Type1CharstringInterpreter
                 {
                     if (end - position < 4)
                     {
-                        return Fail(DiagnosticCodes.FontType1CharstringTruncated, "a charstring ends inside a number; the glyph is dropped");
+                        return Fail(CharStringIssue.Truncated);
                     }
 
                     value = BinaryPrimitives.ReadInt32BigEndian(pool.Slice(position, 4));
@@ -158,7 +160,7 @@ internal ref struct Type1CharstringInterpreter
             {
                 if (position >= end)
                 {
-                    return Fail(DiagnosticCodes.FontType1CharstringTruncated, "a charstring ends after the escape byte; the glyph is dropped");
+                    return Fail(CharStringIssue.Truncated);
                 }
 
                 op = 32 + pool[position++];
@@ -177,19 +179,21 @@ internal ref struct Type1CharstringInterpreter
                     {
                         if (_count < 1)
                         {
-                            return Fail(DiagnosticCodes.FontType1StackUnderflow, "callsubr has no subroutine number; the glyph is dropped");
+                            Report(CharStringIssue.ArgumentCount);
+                            break;
                         }
 
                         double number = _stack[--_count];
                         (int Start, int Length)[] subrs = _program.Subrs;
                         if (number != Math.Floor(number) || number < 0 || number >= subrs.Length || subrs[(int)number].Length < 0)
                         {
-                            return Fail(DiagnosticCodes.FontType1SubrMissing, "callsubr calls a subroutine the program does not have; the glyph is dropped");
+                            Report(CharStringIssue.SubroutineOutOfRange);
+                            break;
                         }
 
-                        if (depth + 1 >= MaxDepth)
+                        if (depth >= CharStringLimits.MaxSubroutineDepth)
                         {
-                            return Fail(DiagnosticCodes.FontType1SubrDepthExceeded, "subroutines nest more than 16 deep (Type 1 Font Format §8.1 allows 10); the glyph is dropped");
+                            return Fail(CharStringIssue.SubroutineDepth);
                         }
 
                         _frames[depth] = new Frame(end, position);
@@ -203,7 +207,7 @@ internal ref struct Type1CharstringInterpreter
                 case Op.Return:
                     if (depth == 0)
                     {
-                        Report(DiagnosticCodes.FontType1UnknownOperator, DiagnosticSeverity.Warning, "return outside a subroutine is ignored");
+                        Report(CharStringIssue.UnknownOperator);
                         break;
                     }
 
@@ -251,7 +255,7 @@ internal ref struct Type1CharstringInterpreter
                 case Op.Div:
                     if (_count < 2)
                     {
-                        Report(DiagnosticCodes.FontType1StackUnderflow, DiagnosticSeverity.Warning, "div has fewer than two operands; 0 is used");
+                        Report(CharStringIssue.ArgumentCount);
                         _count = 0;
                         _stack[_count++] = 0;
                         break;
@@ -262,7 +266,7 @@ internal ref struct Type1CharstringInterpreter
                     double quotient = divisor == 0 ? 0 : dividend / divisor;
                     if (divisor == 0 || !double.IsFinite(quotient))
                     {
-                        Report(DiagnosticCodes.FontType1DivideByZero, DiagnosticSeverity.Warning, "div divides by zero or overflows; 0 is used");
+                        Report(CharStringIssue.OperandInvalid);
                         quotient = 0;
                     }
 
@@ -284,7 +288,7 @@ internal ref struct Type1CharstringInterpreter
                     }
                     else
                     {
-                        Report(DiagnosticCodes.FontType1StackUnderflow, DiagnosticSeverity.Warning, "pop has no OtherSubr result to take; 0 is used");
+                        Report(CharStringIssue.ArgumentCount);
                         if (!Push(0))
                         {
                             return Outcome.Failed;
@@ -297,7 +301,7 @@ internal ref struct Type1CharstringInterpreter
                     if (_metricsOnly)
                     {
                         // Metrics come from the first command; anything else before it means there are none.
-                        Report(DiagnosticCodes.FontType1NoWidth, DiagnosticSeverity.Warning, "a charstring does not start with hsbw or sbw (Type 1 Font Format §6.4); its width is 0");
+                        Report(CharStringIssue.NoWidth);
                         return Outcome.Failed;
                     }
 
@@ -356,7 +360,7 @@ internal ref struct Type1CharstringInterpreter
                 return true; // too few operands: reported and the stack cleared by Arguments
             default:
                 _count = 0;
-                Report(DiagnosticCodes.FontType1UnknownOperator, DiagnosticSeverity.Warning, "a charstring has an unknown command; it is skipped and the stack cleared");
+                Report(CharStringIssue.UnknownOperator);
                 return true;
         }
     }
@@ -366,7 +370,7 @@ internal ref struct Type1CharstringInterpreter
     {
         if (_count < 2)
         {
-            Report(DiagnosticCodes.FontType1StackUnderflow, DiagnosticSeverity.Warning, "callothersubr has fewer than two operands; it is skipped");
+            Report(CharStringIssue.ArgumentCount);
             _count = 0;
             return;
         }
@@ -376,7 +380,7 @@ internal ref struct Type1CharstringInterpreter
         int n = declared >= 0 && declared <= _count ? (int)declared : -1;
         if (n < 0)
         {
-            Report(DiagnosticCodes.FontType1StackUnderflow, DiagnosticSeverity.Warning, "callothersubr declares more arguments than the stack holds; it takes those present");
+            Report(CharStringIssue.ArgumentCount);
             n = _count;
         }
 
@@ -396,7 +400,7 @@ internal ref struct Type1CharstringInterpreter
             case 2:
                 if (!_inFlex || _flexCount == FlexBuffer.Size)
                 {
-                    Report(DiagnosticCodes.FontType1FlexMalformed, DiagnosticSeverity.Warning, "a flex point is recorded outside a flex or after the seventh; it is ignored");
+                    Report(CharStringIssue.FlexMalformed);
                 }
                 else
                 {
@@ -448,7 +452,7 @@ internal ref struct Type1CharstringInterpreter
         }
         else
         {
-            Report(DiagnosticCodes.FontType1FlexMalformed, DiagnosticSeverity.Warning, "a flex does not record seven points between OtherSubrs 1 and 0 (Type 1 Font Format §8.3); it is dropped");
+            Report(CharStringIssue.FlexMalformed);
         }
 
         _inFlex = false;
@@ -469,7 +473,7 @@ internal ref struct Type1CharstringInterpreter
         Span<double> results = stackalloc double[6];
         if (weights is null || arguments.Length != values * weights.Length)
         {
-            Report(DiagnosticCodes.FontType1BlendUnavailable, DiagnosticSeverity.Warning, "a multiple master blend has no matching WeightVector (TN 5015 §3.13); the first master's values are used");
+            Report(CharStringIssue.BlendUnavailable);
             int present = Math.Min(values, arguments.Length);
             arguments[..present].CopyTo(results);
             SetResults(results[..present]);
@@ -499,7 +503,7 @@ internal ref struct Type1CharstringInterpreter
     {
         if (_inSeac)
         {
-            Report(DiagnosticCodes.FontType1SeacNested, DiagnosticSeverity.Warning, "a seac component is itself a seac character; it is not drawn");
+            Report(CharStringIssue.SeacComponentMissing);
             return Outcome.Finished;
         }
 
@@ -508,7 +512,7 @@ internal ref struct Type1CharstringInterpreter
         int accentGlyph = accentCode == Math.Floor(accentCode) ? _program.StandardGlyph((int)Math.Clamp(accentCode, -1, 256)) : -1;
         if (baseGlyph < 0 || accentGlyph < 0)
         {
-            Report(DiagnosticCodes.FontType1SeacMissingComponent, DiagnosticSeverity.Warning, "a seac component is not a StandardEncoding code of a glyph the program has; it is not drawn");
+            Report(CharStringIssue.SeacComponentMissing);
         }
 
         double accentX = _sideBearingX + adx - asb;
@@ -559,9 +563,9 @@ internal ref struct Type1CharstringInterpreter
         return Outcome.Finished;
     }
 
-    private readonly Outcome Fail(string code, string problem)
+    private readonly Outcome Fail(CharStringIssue issue)
     {
-        Report(code, DiagnosticSeverity.Error, problem);
+        Report(issue);
         return Outcome.Failed;
     }
 
@@ -569,7 +573,7 @@ internal ref struct Type1CharstringInterpreter
     {
         if (_count == StackBuffer.Size)
         {
-            Report(DiagnosticCodes.FontType1StackOverflow, DiagnosticSeverity.Error, "a charstring pushes more than 48 operands; the glyph is dropped");
+            Report(CharStringIssue.StackOverflow);
             return false;
         }
 
@@ -584,7 +588,7 @@ internal ref struct Type1CharstringInterpreter
         _count = 0;
         if (at < 0)
         {
-            Report(DiagnosticCodes.FontType1StackUnderflow, DiagnosticSeverity.Warning, "a command has too few operands; it is skipped");
+            Report(CharStringIssue.ArgumentCount);
             return false;
         }
 
@@ -649,20 +653,20 @@ internal ref struct Type1CharstringInterpreter
     {
         if (!finite || !double.IsFinite(_x) || !double.IsFinite(_y))
         {
-            Report(DiagnosticCodes.FontType1GlyphTooComplex, DiagnosticSeverity.Error, "a glyph's coordinates overflow; it is dropped");
+            Report(CharStringIssue.GlyphTooComplex);
             return false;
         }
 
         if (!_haveWidth)
         {
-            Report(DiagnosticCodes.FontType1NoWidth, DiagnosticSeverity.Warning, "a charstring draws before hsbw or sbw (Type 1 Font Format §6.4); its side bearing is 0");
+            Report(CharStringIssue.NoWidth);
             _haveWidth = true;
         }
 
         _points += points + (_open ? 0 : 1);
         if (_points > _maxPoints)
         {
-            Report(DiagnosticCodes.FontType1GlyphTooComplex, DiagnosticSeverity.Error, "a glyph has more points than the limit; it is dropped");
+            Report(CharStringIssue.GlyphTooComplex);
             return false;
         }
 
@@ -684,8 +688,7 @@ internal ref struct Type1CharstringInterpreter
         }
     }
 
-    private readonly void Report(string code, DiagnosticSeverity severity, string problem) =>
-        _program.Context.Report(code, severity, $"Type 1 charstring: {problem}.");
+    private readonly void Report(CharStringIssue issue) => _program.Reporter.Report(issue, _glyphId);
 
     /// <summary>Command codes; escaped commands are 32 + their second byte.</summary>
     private static class Op
@@ -722,11 +725,11 @@ internal ref struct Type1CharstringInterpreter
     [System.Runtime.CompilerServices.InlineArray(Size)]
     private struct StackBuffer
     {
-        public const int Size = StackSize;
+        public const int Size = CharStringLimits.MaxArguments;
         private double _element;
     }
 
-    [System.Runtime.CompilerServices.InlineArray(MaxDepth)]
+    [System.Runtime.CompilerServices.InlineArray(CharStringLimits.MaxSubroutineDepth)]
     private struct FrameBuffer
     {
         private Frame _element;

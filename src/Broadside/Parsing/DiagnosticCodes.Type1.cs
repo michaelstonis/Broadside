@@ -18,19 +18,11 @@ internal static partial class DiagnosticCodes
     public const string FontType1CharStringsMissing = nameof(FontType1CharStringsMissing);
     public const string FontType1NotdefMissing = nameof(FontType1NotdefMissing);
 
-    // Charstrings (Type 1 Font Format chapters 6 and 8; TN 5015).
+    // Charstrings (Type 1 Font Format chapters 6 and 8; TN 5015): what has no Type 2 counterpart. The rest are the shared
+    // FontCharstring* codes (DiagnosticCodes.CharStrings.cs).
     public const string FontType1CharstringTruncated = nameof(FontType1CharstringTruncated);
-    public const string FontType1EndcharMissing = nameof(FontType1EndcharMissing);
-    public const string FontType1UnknownOperator = nameof(FontType1UnknownOperator);
-    public const string FontType1StackOverflow = nameof(FontType1StackOverflow);
-    public const string FontType1StackUnderflow = nameof(FontType1StackUnderflow);
-    public const string FontType1SubrDepthExceeded = nameof(FontType1SubrDepthExceeded);
-    public const string FontType1SubrMissing = nameof(FontType1SubrMissing);
     public const string FontType1FlexMalformed = nameof(FontType1FlexMalformed);
     public const string FontType1BlendUnavailable = nameof(FontType1BlendUnavailable);
-    public const string FontType1SeacMissingComponent = nameof(FontType1SeacMissingComponent);
-    public const string FontType1SeacNested = nameof(FontType1SeacNested);
-    public const string FontType1DivideByZero = nameof(FontType1DivideByZero);
     public const string FontType1NoWidth = nameof(FontType1NoWidth);
     public const string FontType1GlyphTooComplex = nameof(FontType1GlyphTooComplex);
 }

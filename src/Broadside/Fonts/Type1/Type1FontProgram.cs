@@ -1,3 +1,4 @@
+using Broadside.Fonts.CharStrings;
 using Broadside.Graphics;
 
 namespace Broadside.Fonts.Type1;
@@ -26,6 +27,7 @@ internal sealed class Type1FontProgram : FontProgram
         Subrs = subrs;
         Pool = pool;
         Context = context;
+        Reporter = new CharStringReporter(context, "Type 1");
         _encoding = reader.Encoding;
         WeightVector = reader.WeightVector;
         PostScriptName = reader.FontName;
@@ -86,6 +88,9 @@ internal sealed class Type1FontProgram : FontProgram
     /// <summary>Gets the context diagnostics are reported to.</summary>
     internal FontProgramContext Context { get; }
 
+    /// <summary>Gets where charstring issues go: once per kind per program in lenient mode.</summary>
+    internal CharStringReporter Reporter { get; }
+
     /// <summary>Builds a program from a reader, or returns <see langword="null"/> when it found no glyphs.</summary>
     internal static Type1FontProgram? Create(Type1ProgramReader reader, ReadOnlySpan<byte> plain, FontProgramContext context) =>
         reader.TryBuild(plain, out string[] names, out (int, int)[] glyphs, out (int, int)[] subrs, out byte[] pool)
@@ -111,7 +116,7 @@ internal sealed class Type1FontProgram : FontProgram
             return GlyphOutlineStatus.Invalid;
         }
 
-        var interpreter = new Type1CharstringInterpreter(this, outline, metricsOnly: false);
+        var interpreter = new Type1CharStringInterpreter(this, outline, metricsOnly: false);
         if (!interpreter.Run(glyphId))
         {
             outline.Clear();
@@ -130,7 +135,7 @@ internal sealed class Type1FontProgram : FontProgram
             return default;
         }
 
-        var interpreter = new Type1CharstringInterpreter(this, null, metricsOnly: true);
+        var interpreter = new Type1CharStringInterpreter(this, null, metricsOnly: true);
         return interpreter.Run(glyphId) ? interpreter.Metrics : default;
     }
 
