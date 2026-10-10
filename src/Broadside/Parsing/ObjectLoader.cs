@@ -82,6 +82,9 @@ internal sealed class ObjectLoader
     /// <summary>Gets the file header.</summary>
     public FileHeader Header { get; }
 
+    /// <summary>Gets the filter pipeline the document's streams are decoded with.</summary>
+    public StreamDecoder Streams => _streams;
+
     /// <summary>Gets the cross-reference information the loader locates objects with.</summary>
     public CrossReference CrossReference { get; }
 

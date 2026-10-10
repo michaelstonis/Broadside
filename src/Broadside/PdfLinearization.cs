@@ -1,3 +1,4 @@
+using Broadside.Caching;
 using Broadside.Objects;
 
 namespace Broadside;
@@ -21,14 +22,15 @@ namespace Broadside;
 /// </remarks>
 public sealed class PdfLinearization
 {
-    private readonly Lazy<PdfLinearizationHints?> _hints;
+    private readonly OnceCache<int, PdfLinearizationHints?> _hints = new();
+    private readonly Func<PdfLinearizationHints?> _readHints;
 
     internal PdfLinearization(CosDictionary dictionary, CosReference reference, IReadOnlyList<CosReference> firstPageObjects, Func<PdfLinearizationHints?> readHints)
     {
         Dictionary = dictionary;
         Reference = reference;
         FirstPageObjects = firstPageObjects;
-        _hints = new Lazy<PdfLinearizationHints?>(readHints, LazyThreadSafetyMode.ExecutionAndPublication);
+        _readHints = readHints;
     }
 
     /// <summary>Gets the linearization parameter dictionary, the first object in the file.</summary>
@@ -64,11 +66,15 @@ public sealed class PdfLinearization
     public IReadOnlyList<CosReference> FirstPageObjects { get; }
 
     /// <summary>
-    /// Gets the page offset and shared object hint tables, read on first use; <see langword="null"/> when the hint stream cannot be
-    /// read (a diagnostic says why) or uses a filter.
+    /// Gets the page offset and shared object hint tables, read on first use (hint streams are decoded through the document's
+    /// filters); <see langword="null"/> when the hint streams cannot be decoded or read (a diagnostic says why).
     /// </summary>
     /// <remarks>ISO 32000-2 F.3.6, F.4.1, F.4.2 and F.4.3.</remarks>
-    public PdfLinearizationHints? Hints => _hints.Value;
+    public PdfLinearizationHints? Hints => _hints.GetOrCreate(
+        0,
+        _readHints,
+        static (_, read) => new Created<PdfLinearizationHints?>(read()),
+        static (_, _) => null);
 
     private long ReadInteger(CosName key) => Dictionary.TryGetValue(key, out CosObject? value) && value is CosInteger integer ? integer.Value : 0;
 

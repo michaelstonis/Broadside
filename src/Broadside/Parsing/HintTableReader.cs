@@ -1,4 +1,6 @@
+using System.Buffers;
 using Broadside.Diagnostics;
+using Broadside.Filters;
 using Broadside.IO;
 using Broadside.Objects;
 
@@ -18,8 +20,9 @@ namespace Broadside.Parsing;
 /// </para>
 /// <para>
 /// Hints are information only. A table that cannot be read yields <see langword="null"/> and a
-/// <see cref="DiagnosticCodes.LinearizationHintsInvalid"/> diagnostic; it never affects how the document reads. A hint stream with
-/// a filter yields <see langword="null"/> without a diagnostic until stream decoding (issue #38) is wired in here.
+/// <see cref="DiagnosticCodes.LinearizationHintsInvalid"/> diagnostic; it never affects how the document reads. The hint streams
+/// are decoded through the document's filter pipeline (§7.4): qpdf and Acrobat compress them with <c>FlateDecode</c> by default.
+/// A filter chain that cannot decode a hint stream completely makes the table unreadable.
 /// </para>
 /// </remarks>
 internal static class HintTableReader
@@ -27,7 +30,6 @@ internal static class HintTableReader
     /// <summary>The most pages, shared references or shared groups a table may describe; more is treated as a malformed table.</summary>
     private const int MaxEntries = 1 << 20;
 
-    private static readonly CosName Filter = new("Filter");
     private static readonly CosName SharedObjectTable = new("S");
 
     /// <summary>Reads the hint tables.</summary>
@@ -46,15 +48,15 @@ internal static class HintTableReader
             return Invalid(diagnostics, "The H entry of the linearization parameter dictionary does not point at a hint stream.");
         }
 
-        if (primary.Dictionary.ContainsKey(Filter) || (overflow?.Dictionary.ContainsKey(Filter) ?? false))
+        var data = new ArrayBufferWriter<byte>();
+        if (!TryDecode(loader.Streams, primary, data) || (overflow is not null && !TryDecode(loader.Streams, overflow, data)))
         {
-            return null;
+            return Invalid(diagnostics, "The filters of a hint stream cannot decode it completely.");
         }
 
-        byte[] data = [.. primary.EncodedData.Span, .. overflow is null ? [] : overflow.EncodedData.Span];
         if (!primary.Dictionary.TryGetValue(SharedObjectTable, out CosObject? sharedEntry)
             || sharedEntry is not CosInteger { Value: >= 0 } shared
-            || shared.Value >= data.Length)
+            || shared.Value >= data.WrittenCount)
         {
             return Invalid(diagnostics, "The primary hint stream's S entry does not give the position of the shared object hint table.");
         }
@@ -65,7 +67,7 @@ internal static class HintTableReader
             hintStreams[1],
             ReadInteger(parameters, PdfLinearization.Names.O),
             ReadInteger(parameters, PdfLinearization.Names.N));
-        PdfLinearizationHints? hints = Parse(data, (int)shared.Value, layout, out string? error);
+        PdfLinearizationHints? hints = Parse(data.WrittenSpan, (int)shared.Value, layout, out string? error);
         return error is null ? hints : Invalid(diagnostics, error);
     }
 
@@ -236,6 +238,14 @@ internal static class HintTableReader
         }
 
         return true;
+    }
+
+    /// <summary>Appends the decoded data of <paramref name="stream"/> to <paramref name="output"/>.</summary>
+    /// <returns><see langword="false"/> when a filter of the chain could not run (the decoder reported why).</returns>
+    private static bool TryDecode(StreamDecoder streams, CosStream stream, ArrayBufferWriter<byte> output)
+    {
+        streams.Decode(stream, output, depth: 0, stopBeforeImageFilter: false, out StreamDecoder.ChainOutcome outcome);
+        return outcome.Complete;
     }
 
     /// <summary>Loads the stream whose <c>N G obj</c> header is at <paramref name="offset"/> (relative to the header).</summary>

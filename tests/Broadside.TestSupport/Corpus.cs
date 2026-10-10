@@ -41,6 +41,7 @@ public static class Corpus
         "hybrid-xref.pdf",
         "linearized.pdf",
         "linearized-xref-stream.pdf",
+        "linearized-flate-hints.pdf",
         "flate-stream.pdf",
         "lzw-stream.pdf",
         "ascii85-stream.pdf",

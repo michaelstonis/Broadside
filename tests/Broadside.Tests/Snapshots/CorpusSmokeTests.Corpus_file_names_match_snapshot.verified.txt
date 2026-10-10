@@ -73,6 +73,7 @@
   jbig2-generic.pdf,
   jpx-lossless.pdf,
   jpx-subsampled.pdf,
+  linearized-flate-hints.pdf,
   linearized-xref-stream.pdf,
   linearized.pdf,
   lzw-stream.pdf,

@@ -16,7 +16,7 @@ public class WellFormedCorpusTests
 
         int expectedPages = fileName switch
         {
-            "page-tree-inherited.pdf" or "linearized.pdf" or "linearized-xref-stream.pdf" or "acroform-fields.pdf" => 2,
+            "page-tree-inherited.pdf" or "linearized.pdf" or "linearized-xref-stream.pdf" or "linearized-flate-hints.pdf" or "acroform-fields.pdf" => 2,
             "number-tree-deep.pdf" or "page-labels.pdf" => 12,
             _ => 1,
         };

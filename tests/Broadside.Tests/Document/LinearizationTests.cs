@@ -75,6 +75,37 @@ public class LinearizationTests
     }
 
     [Fact]
+    public void A_flate_compressed_hint_stream_is_decoded_through_the_filters()
+    {
+        // linearized-flate-hints.pdf: qpdf's default output, whose hint stream (object 7) is /FlateDecode. Expected values from
+        // qpdf --show-linearization (qpdf 12.4.2) and the first-page cross-reference section.
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("linearized-flate-hints.pdf"));
+
+        PdfLinearizationHints hints = Assert.IsType<PdfLinearizationHints>(document.Linearization!.Hints);
+
+        Assert.Equal(
+            [(8, 5, 721L, 388L), (1, 2, 1109L, 213L)],
+            hints.Pages.Select(page => (page.FirstObjectNumber, page.ObjectCount, page.Offset, page.Length)));
+        Assert.Equal([2, 3, 4], hints.Pages[1].SharedObjects);
+        Assert.Equal(
+            [(8, 721L, 98L), (9, 819L, 115L), (10, 934L, 98L), (11, 1032L, 32L), (12, 1064L, 45L)],
+            hints.SharedObjects.Select(group => (group.FirstObjectNumber, group.Offset, group.Length)));
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void A_hint_stream_whose_filter_fails_leaves_the_file_without_hints_and_with_a_diagnostic()
+    {
+        byte[] file = Replace(Corpus.Bytes("linearized-flate-hints.pdf"), "/Filter /FlateDecode /S 44", "/Filter /NoSuchCodec /S 44");
+
+        using PdfDocument document = PdfDocument.Open(file);
+
+        Assert.True(document.IsLinearized);
+        Assert.Null(document.Linearization!.Hints);
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "LinearizationHintsInvalid");
+    }
+
+    [Fact]
     public void The_shared_object_hint_table_locates_each_group()
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Path("linearized.pdf"));
