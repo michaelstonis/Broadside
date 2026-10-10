@@ -138,4 +138,91 @@ public class DctProcessTests
         AssertWithinOne(Golden("precision12"), samples);
         Assert.Equal(["DctSegmentInvalid", "DctPrecisionReduced"], Codes(context));
     }
+
+    [Theory]
+    [InlineData(5)]
+    [InlineData(8)]
+    public void A_frame_of_more_than_four_components_decodes_each_component_from_its_own_scan(int components)
+    {
+        // T.81 §B.2.2 allows up to 255 components in a frame and §B.2.3 at most four in a scan, so such a frame is coded in several
+        // scans. Each component here repeats the single non-interleaved scan of gray-2x2.jpg, so each decodes to its golden.
+        byte[] jpeg = Repeated(Jpeg("gray-2x2"), components);
+        DctGolden gray = Golden("gray-2x2");
+
+        (byte[] samples, FilterContext context) = DecodeBytes(jpeg);
+
+        Assert.Equal(gray.Samples.SelectMany(value => Enumerable.Repeat(value, components)), samples);
+        Assert.Empty(context.Diagnostics);
+    }
+
+    [Fact]
+    public void The_image_facet_delivers_every_component_of_a_five_component_frame()
+    {
+        byte[] jpeg = Repeated(Jpeg("gray-2x2"), 5);
+        DctGolden gray = Golden("gray-2x2");
+        var filter = new DctDecodeFilter();
+        var context = new ImageFilterContext(new FilterContext());
+
+        Assert.True(filter.TryReadHeader(jpeg, context, out ImageHeader header));
+        using DecodedImage decoded = filter.DecodeImage(jpeg, context)!;
+
+        Assert.Equal(new ImageHeader(gray.Width, gray.Height, 5, 8), header with { ColorModel = ImageColorModel.Unknown });
+        Assert.Equal((gray.Width, gray.Height, 5), (decoded.Width, decoded.Height, decoded.Components));
+        Assert.Equal(gray.Samples.SelectMany(value => Enumerable.Repeat(value, 5)), decoded.Samples.ToArray());
+        Assert.False(decoded.ColorTransformApplied);
+    }
+
+    /// <summary>
+    /// A baseline frame of <paramref name="components"/> components (ids 1 to n, factors 1x1, the source's quantization table), each
+    /// coded by its own copy of the one non-interleaved scan of a single-component JPEG (ITU-T T.81 §B.2.2, §B.2.3, §A.2.2).
+    /// </summary>
+    private static byte[] Repeated(byte[] single, int components)
+    {
+        var tables = new List<byte>();
+        byte[]? frame = null;
+        byte[]? scanHeader = null;
+        int entropyStart = -1;
+        int position = 2;
+        while (entropyStart < 0)
+        {
+            byte marker = single[position + 1];
+            int length = (single[position + 2] << 8) | single[position + 3];
+            byte[] segment = single[position..(position + 2 + length)];
+            switch (marker)
+            {
+                case 0xC0:
+                    frame = segment;
+                    break;
+                case 0xDA:
+                    scanHeader = segment;
+                    entropyStart = position + 2 + length;
+                    break;
+                case 0xDB or 0xC4 or 0xDD:
+                    tables.AddRange(segment);
+                    break;
+            }
+
+            position += 2 + length;
+        }
+
+        int entropyEnd = single.AsSpan().LastIndexOf([(byte)0xFF, (byte)0xD9]);
+        byte[] entropy = single[entropyStart..entropyEnd];
+        int frameLength = 8 + (3 * components);
+        var output = new List<byte> { 0xFF, 0xD8 };
+        output.AddRange(tables);
+        output.AddRange([0xFF, 0xC0, (byte)(frameLength >> 8), (byte)frameLength, frame![4], frame[5], frame[6], frame[7], frame[8], (byte)components]);
+        for (int c = 0; c < components; c++)
+        {
+            output.AddRange([(byte)(c + 1), 0x11, frame[12]]);
+        }
+
+        for (int c = 0; c < components; c++)
+        {
+            output.AddRange([0xFF, 0xDA, 0x00, 0x08, 0x01, (byte)(c + 1), scanHeader![6], scanHeader[7], scanHeader[8], scanHeader[9]]);
+            output.AddRange(entropy);
+        }
+
+        output.AddRange([0xFF, 0xD9]);
+        return [.. output];
+    }
 }

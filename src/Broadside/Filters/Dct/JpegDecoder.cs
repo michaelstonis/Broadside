@@ -32,7 +32,14 @@ namespace Broadside.Filters.Dct;
 /// </remarks>
 internal sealed class JpegDecoder
 {
-    private const int MaxComponents = 4;
+    /// <summary>The most components in one scan (ITU-T T.81 §B.2.3, Table B.3: Ns 1 to 4).</summary>
+    private const int MaxScanComponents = 4;
+
+    /// <summary>
+    /// The most components in a frame: T.81 §B.2.2 allows 255, a PDF colour space has at most 32 (ISO 32000-2 Annex C, the image
+    /// buffer's <see cref="ImageGeometry.MaxComponents"/>). More than four are coded in several scans.
+    /// </summary>
+    private const int MaxFrameComponents = ImageGeometry.MaxComponents;
     private const int DcStatisticsBins = 64;
     private const int AcStatisticsBins = 256;
 
@@ -44,8 +51,7 @@ internal sealed class JpegDecoder
     private readonly int[][] _quantization = [new int[64], new int[64], new int[64], new int[64]];
     private readonly bool[] _quantizationDefined = new bool[4];
     private readonly bool[] _quantizationWide = new bool[4];
-    private readonly JpegComponent[] _components = [new(), new(), new(), new()];
-    private readonly int[] _scanComponents = new int[MaxComponents];
+    private readonly int[] _scanComponents = new int[MaxScanComponents];
     private readonly CodecReporter _reporter = new();
     private readonly byte[] _dcStatistics = new byte[4 * DcStatisticsBins];
     private readonly byte[] _acStatistics = new byte[4 * AcStatisticsBins];
@@ -56,6 +62,7 @@ internal sealed class JpegDecoder
     private int _position;
     private bool _frameFound;
     private int _componentCount;
+    private JpegComponent[] _components = [new(), new(), new(), new()];
     private int _hMax;
     private int _vMax;
     private int _mcusX;
@@ -650,7 +657,7 @@ internal sealed class JpegDecoder
             Report(DiagnosticCodes.DctPrecisionReduced, DiagnosticSeverity.Information, "The DCT data has 12-bit samples; they are delivered reduced to 8 bits, as ISO 32000-2 Table 87 requires.");
         }
 
-        if (width == 0 || count is 0 or > MaxComponents || body.Length < 6 + (3 * count))
+        if (width == 0 || count is 0 or > MaxFrameComponents || body.Length < 6 + (3 * count))
         {
             Report(DiagnosticCodes.DctFrameInvalid, DiagnosticSeverity.Error, Invariant($"The DCT frame header is unusable ({width} samples per line, {count} components); the image is not decoded."));
             return false;
@@ -661,6 +668,7 @@ internal sealed class JpegDecoder
             Report(DiagnosticCodes.DctComponentCountInvalid, DiagnosticSeverity.Warning, "The DCT data has two components, which PDF does not allow; they are decoded without a colour transform.");
         }
 
+        EnsureComponents(count);
         for (int c = 0; c < count; c++)
         {
             JpegComponent component = _components[c];
@@ -752,7 +760,7 @@ internal sealed class JpegDecoder
     private bool ReadScanHeader(ReadOnlySpan<byte> header)
     {
         int count = header.IsEmpty ? 0 : header[0];
-        if (count is < 1 or > MaxComponents || header.Length < 1 + (2 * count) + 3)
+        if (count is < 1 or > MaxScanComponents || header.Length < 1 + (2 * count) + 3)
         {
             Report(DiagnosticCodes.DctScanInvalid, DiagnosticSeverity.Warning, "A DCT scan header is invalid; the scan was skipped.");
             return false;
@@ -1807,6 +1815,22 @@ internal sealed class JpegDecoder
         return target;
     }
 
+    /// <summary>Grows the component records to <paramref name="count"/> (a frame of more than four components; kept for the thread).</summary>
+    private void EnsureComponents(int count)
+    {
+        if (count <= _components.Length)
+        {
+            return;
+        }
+
+        int previous = _components.Length;
+        Array.Resize(ref _components, count);
+        for (int c = previous; c < count; c++)
+        {
+            _components[c] = new JpegComponent();
+        }
+    }
+
     private bool ShouldReport(string code) => _reporter.ShouldReport(code);
 
     private void Report(string code, DiagnosticSeverity severity, string message) => _reporter.Report(code, severity, message);
@@ -1819,7 +1843,11 @@ internal sealed class JpegDecoder
             _acTables[i].Clear();
             _quantizationDefined[i] = false;
             _quantizationWide[i] = false;
-            _components[i].Release();
+        }
+
+        foreach (JpegComponent component in _components)
+        {
+            component.Release();
         }
 
         _reporter.Reset(null);
