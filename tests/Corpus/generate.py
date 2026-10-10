@@ -3886,6 +3886,379 @@ def gen_inline_image_ei_in_data() -> bytes:
     ], binary=True)
 
 
+# ---------------------------------------------------------------------------
+# JPEG 2000 (clause 7.4.9; ITU-T T.800 | ISO/IEC 15444-1): a minimal lossless encoder, the inverse of the reader's
+# decoding path: DC level shift, reversible colour transform, 5/3 wavelet, EBCOT tier-1 with the MQ coder, one layer,
+# one tile, one precinct, one code-block per sub-band, LRCP packets, and the JP2 boxes around the codestream.
+# ---------------------------------------------------------------------------
+
+# T.800 Table C.2: (Qe, NMPS, NLPS, SWITCH) per state.
+MQ_STATES = [
+    (0x5601, 1, 1, 1), (0x3401, 2, 6, 0), (0x1801, 3, 9, 0), (0x0AC1, 4, 12, 0), (0x0521, 5, 29, 0), (0x0221, 38, 33, 0),
+    (0x5601, 7, 6, 1), (0x5401, 8, 14, 0), (0x4801, 9, 14, 0), (0x3801, 10, 14, 0), (0x3001, 11, 17, 0), (0x2401, 12, 18, 0),
+    (0x1C01, 13, 20, 0), (0x1601, 29, 21, 0), (0x5601, 15, 14, 1), (0x5401, 16, 14, 0), (0x5101, 17, 15, 0), (0x4801, 18, 16, 0),
+    (0x3801, 19, 17, 0), (0x3401, 20, 18, 0), (0x3001, 21, 19, 0), (0x2801, 22, 19, 0), (0x2401, 23, 20, 0), (0x2201, 24, 21, 0),
+    (0x1C01, 25, 22, 0), (0x1801, 26, 23, 0), (0x1601, 27, 24, 0), (0x1401, 28, 25, 0), (0x1201, 29, 26, 0), (0x1101, 30, 27, 0),
+    (0x0AC1, 31, 28, 0), (0x09C1, 32, 29, 0), (0x08A1, 33, 30, 0), (0x0521, 34, 31, 0), (0x0441, 35, 32, 0), (0x02A1, 36, 33, 0),
+    (0x0221, 37, 34, 0), (0x0141, 38, 35, 0), (0x0111, 39, 36, 0), (0x0085, 40, 37, 0), (0x0049, 41, 38, 0), (0x0025, 42, 39, 0),
+    (0x0015, 43, 40, 0), (0x0009, 44, 41, 0), (0x0005, 45, 42, 0), (0x0001, 45, 43, 0), (0x5601, 46, 46, 0),
+]
+
+
+class MqEncoder:
+    """T.800 C.2: INITENC, ENCODE (CODEMPS, CODELPS), RENORME, BYTEOUT and FLUSH (with SETBITS), software conventions."""
+
+    def __init__(self) -> None:
+        self.a = 0x8000
+        self.c = 0
+        self.ct = 12
+        self.out = bytearray([0])  # out[0] is the byte before the first one (BP = BPST - 1)
+
+    def encode(self, cx: list[int], label: int, d: int) -> None:
+        state, mps = cx[label] >> 1, cx[label] & 1
+        qe, nmps, nlps, switch = MQ_STATES[state]
+        self.a -= qe
+        if d == mps:
+            if self.a & 0x8000:
+                self.c += qe
+                return
+            if self.a < qe:
+                self.a = qe
+            else:
+                self.c += qe
+            cx[label] = (nmps << 1) | mps
+        else:
+            if self.a < qe:
+                self.c += qe
+            else:
+                self.a = qe
+            cx[label] = (nlps << 1) | (mps ^ switch)
+        while True:
+            self.a = (self.a << 1) & 0xFFFF
+            self.c = (self.c << 1) & 0xFFFFFFFF
+            self.ct -= 1
+            if self.ct == 0:
+                self._byte_out()
+            if self.a & 0x8000:
+                break
+
+    def _byte_out(self) -> None:
+        if self.out[-1] == 0xFF:
+            self.out.append((self.c >> 20) & 0xFF)
+            self.c &= 0xFFFFF
+            self.ct = 7
+        elif not self.c & 0x8000000:
+            self.out.append((self.c >> 19) & 0xFF)
+            self.c &= 0x7FFFF
+            self.ct = 8
+        else:
+            self.out[-1] += 1
+            if self.out[-1] == 0xFF:
+                self.c &= 0x7FFFFFF
+                self.out.append((self.c >> 20) & 0xFF)
+                self.c &= 0xFFFFF
+                self.ct = 7
+            else:
+                self.out.append((self.c >> 19) & 0xFF)
+                self.c &= 0x7FFFF
+                self.ct = 8
+
+    def flush(self) -> bytes:
+        temp = self.c + self.a
+        self.c |= 0xFFFF
+        if self.c >= temp:
+            self.c -= 0x8000
+        self.c = (self.c << self.ct) & 0xFFFFFFFF
+        self._byte_out()
+        self.c = (self.c << self.ct) & 0xFFFFFFFF
+        self._byte_out()
+        data = bytes(self.out[1:])
+        return data[:-1] if data.endswith(b"\xff") else data  # D.4.1: a codeword segment never ends with 0xFF
+
+
+def _j2k_zc_context(orientation: int, h: int, v: int, d: int) -> int:
+    """T.800 Table D.1."""
+    if orientation == 3:
+        hv = h + v
+        if d >= 3:
+            return 8
+        if d == 2:
+            return 7 if hv >= 1 else 6
+        if d == 1:
+            return 5 if hv >= 2 else 4 if hv == 1 else 3
+        return 2 if hv >= 2 else hv
+    if orientation == 1:
+        h, v = v, h
+    if h == 2:
+        return 8
+    if h == 1:
+        return 7 if v >= 1 else 6 if d >= 1 else 5
+    return 4 if v == 2 else 3 if v == 1 else 2 if d >= 2 else d
+
+
+# T.800 Tables D.2 and D.3: (H, V) -> (context label, XOR bit).
+J2K_SIGN = {(1, 1): (13, 0), (1, 0): (12, 0), (1, -1): (11, 0), (0, 1): (10, 0), (0, 0): (9, 0),
+            (0, -1): (10, 1), (-1, 1): (11, 1), (-1, 0): (12, 1), (-1, -1): (13, 1)}
+
+
+def j2k_encode_block(coefficients: list[list[int]], orientation: int, mb: int) -> tuple[int, int, bytes]:
+    """T.800 Annex D: every coding pass of one code-block (no style bits), one codeword segment. Returns (P, passes, bytes);
+    P = Mb when every coefficient is zero (the code-block is then never included)."""
+    h = len(coefficients)
+    w = len(coefficients[0]) if h else 0
+    mag = [[abs(v) for v in row] for row in coefficients]
+    neg = [[v < 0 for v in row] for row in coefficients]
+    top = max((m for row in mag for m in row), default=0).bit_length()
+    assert top <= mb, "a coefficient needs more than Mb magnitude bit-planes"
+    if top == 0:
+        return mb, 0, b""
+    sig = [[False] * w for _ in range(h)]
+    visited = [[False] * w for _ in range(h)]
+    refined = [[False] * w for _ in range(h)]
+    cx = [0] * 19
+    cx[0], cx[17], cx[18] = 4 << 1, 3 << 1, 46 << 1  # Table D.7
+    mq = MqEncoder()
+
+    def s(y: int, x: int) -> int:
+        return 1 if 0 <= y < h and 0 <= x < w and sig[y][x] else 0
+
+    def zc(y: int, x: int) -> int:
+        return _j2k_zc_context(orientation, s(y, x - 1) + s(y, x + 1), s(y - 1, x) + s(y + 1, x),
+                               s(y - 1, x - 1) + s(y - 1, x + 1) + s(y + 1, x - 1) + s(y + 1, x + 1))
+
+    def contribution(y: int, x: int) -> int:
+        return 0 if not s(y, x) else (-1 if neg[y][x] else 1)
+
+    def code_sign(y: int, x: int) -> None:
+        hc = max(-1, min(1, contribution(y, x - 1) + contribution(y, x + 1)))
+        vc = max(-1, min(1, contribution(y - 1, x) + contribution(y + 1, x)))
+        label, xor = J2K_SIGN[(hc, vc)]
+        mq.encode(cx, label, (1 if neg[y][x] else 0) ^ xor)
+
+    def bit(y: int, x: int, p: int) -> int:
+        return (mag[y][x] >> p) & 1
+
+    def scan():
+        for y0 in range(0, h, 4):
+            for x in range(w):
+                for y in range(y0, min(y0 + 4, h)):
+                    yield y, x
+
+    passes = 0
+    for p in range(top - 1, -1, -1):
+        if p != top - 1:
+            for y, x in scan():  # D.3.1 significance propagation
+                if not sig[y][x] and zc(y, x):
+                    visited[y][x] = True
+                    mq.encode(cx, zc(y, x), bit(y, x, p))
+                    if bit(y, x, p):
+                        code_sign(y, x)
+                        sig[y][x] = True
+            for y, x in scan():  # D.3.3 magnitude refinement
+                if sig[y][x] and not visited[y][x]:
+                    if refined[y][x]:
+                        label = 16
+                    else:
+                        label = 15 if any(s(y + dy, x + dx) for dy in (-1, 0, 1) for dx in (-1, 0, 1) if dy or dx) else 14
+                    mq.encode(cx, label, bit(y, x, p))
+                    refined[y][x] = True
+            passes += 2
+        for y0 in range(0, h, 4):  # D.3.4 cleanup
+            for x in range(w):
+                y = y0
+                rows = range(y0, min(y0 + 4, h))
+                if len(rows) == 4 and all(not sig[r][x] and not visited[r][x] and zc(r, x) == 0 for r in rows):
+                    first = next((r for r in rows if bit(r, x, p)), None)
+                    if first is None:
+                        mq.encode(cx, 17, 0)
+                        continue
+                    mq.encode(cx, 17, 1)
+                    mq.encode(cx, 18, (first - y0) >> 1)
+                    mq.encode(cx, 18, (first - y0) & 1)
+                    code_sign(first, x)
+                    sig[first][x] = True
+                    y = first + 1
+                for r in range(y, min(y0 + 4, h)):
+                    if not sig[r][x] and not visited[r][x]:
+                        mq.encode(cx, zc(r, x), bit(r, x, p))
+                        if bit(r, x, p):
+                            code_sign(r, x)
+                            sig[r][x] = True
+        passes += 1
+        visited = [[False] * w for _ in range(h)]
+    return mb - top, passes, mq.flush()
+
+
+def _pseo(i: int, n: int) -> int:
+    """T.800 F-4 for a signal starting at 0: the mirrored index of ``i``."""
+    if n == 1:
+        return 0
+    period = 2 * (n - 1)
+    i %= period
+    return min(i, period - i)
+
+
+def j2k_forward_53(x: list[int]) -> list[int]:
+    """T.800 F.4.8.2 (F-9, F-10 as corrected in T.800 (2019)): the 5/3 forward lifting of a signal starting at index 0."""
+    n = len(x)
+    if n == 1:
+        return list(x)
+    y = list(x)
+    for k in range(1, n, 2):
+        y[k] = x[k] - ((x[_pseo(k - 1, n)] + x[_pseo(k + 1, n)]) >> 1)
+    for k in range(0, n, 2):
+        y[k] = x[k] + ((y[_pseo(k - 1, n)] + y[_pseo(k + 1, n)] + 2) >> 2)
+    return y
+
+
+def j2k_bands(samples: list[list[int]], levels: int) -> list[tuple[int, int, list[list[int]]]]:
+    """T.800 F.4 (FDWT with origin 0): the sub-bands as (orientation, decomposition level, rows), in the codestream's order
+    (LL, then HL, LH, HH from the lowest resolution up)."""
+    a = [list(row) for row in samples]
+    h, w = len(a), len(a[0])
+    found = []
+    for level in range(1, levels + 1):
+        for x in range(w):  # VER_SD
+            col = j2k_forward_53([a[y][x] for y in range(h)])
+            for y in range(h):
+                a[y][x] = col[y]
+        for y in range(h):  # HOR_SD
+            a[y][:w] = j2k_forward_53(a[y][:w])
+        lw, lh = (w + 1) // 2, (h + 1) // 2
+        found.append((level, [
+            (1, [[a[y][x] for x in range(1, w, 2)] for y in range(0, h, 2)]),
+            (2, [[a[y][x] for x in range(0, w, 2)] for y in range(1, h, 2)]),
+            (3, [[a[y][x] for x in range(1, w, 2)] for y in range(1, h, 2)])]))
+        low = [[a[y][x] for x in range(0, w, 2)] for y in range(0, h, 2)]
+        for y in range(lh):
+            a[y][:lw] = low[y]
+        w, h = lw, lh
+    bands = [(0, levels, [row[:w] for row in a[:h]])]
+    for level, details in reversed(found):
+        bands += [(orientation, level, rows) for orientation, rows in details]
+    return bands
+
+
+class _BitWriter:
+    """T.800 B.10.1: packet header bits, MSB first, a stuffed 0 bit after every 0xFF byte."""
+
+    def __init__(self) -> None:
+        self.out = bytearray()
+        self.acc = 0
+        self.n = 0
+
+    def bits(self, value: int, count: int) -> None:
+        for i in range(count - 1, -1, -1):
+            self.acc = (self.acc << 1) | ((value >> i) & 1)
+            self.n += 1
+            if self.n == (7 if self.out and self.out[-1] == 0xFF else 8):
+                self.out.append(self.acc)
+                self.acc = self.n = 0
+
+    def finish(self) -> bytes:
+        if self.n:
+            self.bits(0, (7 if self.out and self.out[-1] == 0xFF else 8) - self.n)
+        if self.out and self.out[-1] == 0xFF:
+            self.out.append(0)
+        return bytes(self.out)
+
+
+def _j2k_passes(w: _BitWriter, n: int) -> None:
+    """T.800 Table B.4."""
+    if n == 1:
+        w.bits(0, 1)
+    elif n == 2:
+        w.bits(0b10, 2)
+    elif n <= 5:
+        w.bits(0b1100 | (n - 3), 4)
+    elif n <= 36:
+        w.bits(0b1111, 4)
+        w.bits(n - 6, 5)
+    else:
+        w.bits(0b111111111, 9)
+        w.bits(n - 37, 7)
+
+
+def j2k_codestream(components: list[list[list[int]]], depth: int, levels: int, mct: bool, guard: int = 2) -> bytes:
+    """A lossless codestream (T.800 Annex A) of unsigned ``depth``-bit components: one tile, LRCP, one layer, 64 x 64
+    code-blocks (each sub-band one code-block), no precincts, quantization style 0 with exponent depth + log2(gain)."""
+    height, width = len(components[0]), len(components[0][0])
+    shifted = [[[v - (1 << (depth - 1)) for v in row] for row in comp] for comp in components]
+    if mct:  # T.800 G.2.1 forward RCT
+        r, g, b = shifted[:3]
+        shifted[:3] = [[[(r[y][x] + 2 * g[y][x] + b[y][x]) >> 2 for x in range(width)] for y in range(height)],
+                       [[b[y][x] - g[y][x] for x in range(width)] for y in range(height)],
+                       [[r[y][x] - g[y][x] for x in range(width)] for y in range(height)]]
+    gain = [0, 1, 1, 2]
+    exponents = [depth + gain[o] for o, _, _ in j2k_bands(shifted[0], levels)]
+    data = bytearray()
+    per_component = [j2k_bands(comp, levels) for comp in shifted]
+    for res in range(levels + 1):
+        for bands in per_component:
+            chosen = bands[:1] if res == 0 else bands[1 + 3 * (res - 1):4 + 3 * (res - 1)]
+            w = _BitWriter()
+            w.bits(1, 1)
+            bodies = []
+            for orientation, _, rows in chosen:
+                mb = guard + depth + gain[orientation] - 1
+                if not rows or not rows[0]:
+                    continue
+                zero, passes, body = j2k_encode_block(rows, orientation, mb)
+                if passes == 0:
+                    w.bits(0, 1)
+                    continue
+                w.bits(1, 1)
+                w.bits(1, zero + 1)  # tag tree of one node: P zeros, then a one
+                _j2k_passes(w, passes)
+                lblock, extra = 3, passes.bit_length() - 1
+                while len(body) >= 1 << (lblock + extra):
+                    w.bits(1, 1)
+                    lblock += 1
+                w.bits(0, 1)
+                w.bits(len(body), lblock + extra)
+                bodies.append(body)
+            data += w.finish() + b"".join(bodies)
+    siz = struct.pack(">HIIIIIIIIH", 0, width, height, 0, 0, width, height, 0, 0, len(components))
+    siz += b"".join(bytes([depth - 1, 1, 1]) for _ in components)
+    cod = bytes([0, 0]) + struct.pack(">H", 1) + bytes([1 if mct else 0, levels, 4, 4, 0, 1])
+    qcd = bytes([guard << 5]) + bytes(e << 3 for e in exponents)
+
+    def segment(marker: int, body: bytes) -> bytes:
+        return struct.pack(">HH", marker, len(body) + 2) + body
+
+    tile_header = struct.pack(">HHHIBB", 0xFF90, 10, 0, 14 + len(data), 0, 1) + b"\xff\x93"
+    return (b"\xff\x4f" + segment(0xFF51, siz) + segment(0xFF5C, qcd) + segment(0xFF52, cod)
+            + tile_header + bytes(data) + b"\xff\xd9")
+
+
+def jp2_file(codestream: bytes, width: int, height: int, components: int, depth: int, enumerated: int) -> bytes:
+    """T.800 Annex I: signature, File Type ('jp2 '), JP2 Header (Image Header, Colour Specification with an enumerated colour
+    space) and Contiguous Codestream boxes."""
+    def box(kind: bytes, body: bytes) -> bytes:
+        return struct.pack(">I", len(body) + 8) + kind + body
+
+    ihdr = struct.pack(">IIHBBBB", height, width, components, depth - 1, 7, 0, 0)
+    colr = bytes([1, 0, 0]) + struct.pack(">I", enumerated)
+    return (box(b"jP  ", b"\r\n\x87\n") + box(b"ftyp", b"jp2 " + struct.pack(">I", 0) + b"jp2 ")
+            + box(b"jp2h", box(b"ihdr", ihdr) + box(b"colr", colr)) + box(b"jp2c", codestream))
+
+
+def jpx_sample(x: int, y: int, c: int) -> int:
+    """The 8-bit source image of jpx-lossless.pdf (the same formula as JpxSamples.Sample in the tests)."""
+    return (x * 3 + y * 5 + c * 40 + ((x * x + 3 * y * y + 7 * x * y + 11 * c) % 23)) & 0xFF
+
+
+def gen_jpx_lossless() -> bytes:
+    """7.4.9 JPXDecode: a 17 x 13 8-bit RGB image in a JP2 file (enumerated sRGB), coded losslessly: RCT, two levels of the
+    5/3 wavelet, one tile, one layer, LRCP. The dictionary's ColorSpace DeviceRGB wins over the file's colour box and its
+    BitsPerComponent is ignored (Table 87). Odd sizes exercise the symmetric extension at both parities."""
+    width, height = 17, 13
+    comps = [[[jpx_sample(x, y, c) for x in range(width)] for y in range(height)] for c in range(3)]
+    data = jp2_file(j2k_codestream(comps, 8, 2, mct=True), width, height, 3, 8, 16)
+    return one_image(b"/Width 17 /Height 13 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /JPXDecode", data,
+                     version="1.5")
+
+
 def type3_font(scale: int, char_procs: int, resources: int, tounicode: int) -> bytes:
     """9.6.4 Table 110 Type 3 font dictionary for gen_text_type3(): glyph space is 1000/``scale`` units per em, so the
     FontMatrix is ``scale``/1000 and every width and coordinate is divided by ``scale``."""
@@ -4346,6 +4719,7 @@ FILES = {
     "image-4bpc-indexed.pdf": gen_image_4bpc_indexed,
     "image-16bpc.pdf": gen_image_16bpc,
     "image-decode-inverted.pdf": gen_image_decode_inverted,
+    "jpx-lossless.pdf": gen_jpx_lossless,
     "inline-image-filters.pdf": gen_inline_image_filters,
     "inline-image-ei-in-data.pdf": gen_inline_image_ei_in_data,
     "shading-type1-function.pdf": gen_shading_type1,
@@ -4424,6 +4798,14 @@ def self_test() -> None:
     assert ccitt_encode_2d([False] * 1728, [False] * 1728) == "1"
     assert ccitt_encode_1d([True] * 3 + [False] * 5) == "00110101" + "10" + "1100"
     assert ccitt_run_codes(2624 + 2560, False) == "000000011111" * 2 + "11011" + "00110101"
+    # T.800 J.11: the worked example's samples re-encode to its codestream, except the last byte of each of the two codeword
+    # segments (offsets 90 and 97), where its encoder used a shorter termination than C.2.9 FLUSH; both decode alike.
+    j11 = bytes.fromhex(
+        "FF4FFF510029000000000001000000090000000000000000000000010000000900000000000000000001070101FF5C00074040484850"
+        "FF52000C00000001000104040001FF90000A00000000001E0001FF93C7D40C018F0DC8755DC07C21800FB176FFD9")
+    ours = j2k_codestream([[[v] for v in [101, 103, 104, 105, 96, 97, 96, 102, 109]]], 8, 1, mct=False)
+    assert len(ours) == len(j11) and (ours[90], ours[97]) == (0x7F, 0x7F)
+    assert ours[:90] == j11[:90] and ours[91:97] == j11[91:97] and ours[98:] == j11[98:]
 
 
 def main(argv: list[str]) -> int:
