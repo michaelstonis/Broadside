@@ -87,6 +87,25 @@ public class LinearizationTests
     }
 
     [Fact]
+    public void A_Flate_compressed_hint_stream_is_decoded_through_the_filters_and_read()
+    {
+        // linearized-flate-hints.pdf is qpdf's default output (the hint stream is /FlateDecode); expected values from
+        // qpdf --show-linearization (qpdf 12.4.2) and the first-page cross-reference section.
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("linearized-flate-hints.pdf"));
+
+        PdfLinearizationHints hints = Assert.IsType<PdfLinearizationHints>(document.Linearization!.Hints);
+
+        Assert.Equal(
+            [(8, 5, 721L, 388L), (1, 2, 1109L, 213L)],
+            hints.Pages.Select(page => (page.FirstObjectNumber, page.ObjectCount, page.Offset, page.Length)));
+        Assert.Equal([2, 3, 4], hints.Pages[1].SharedObjects);
+        Assert.Equal(
+            [(8, 1, 721L, 98L), (9, 1, 819L, 115L), (10, 1, 934L, 98L), (11, 1, 1032L, 32L), (12, 1, 1064L, 45L)],
+            hints.SharedObjects.Select(group => (group.FirstObjectNumber, group.ObjectCount, group.Offset, group.Length)));
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
     public void Hint_offsets_count_from_byte_0_of_the_file_when_bytes_precede_the_header()
     {
         byte[] file = [.. "Junk\n"u8, .. Corpus.Bytes("linearized.pdf")];

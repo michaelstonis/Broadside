@@ -1063,7 +1063,7 @@ public sealed partial class PdfDocument : IDisposable
                 DocumentSecurity.CheckExtensions(security, catalog, loader.Resolve, diagnostics);
             }
 
-            PdfLinearization? linearization = LinearizationReader.Read(source, loader, diagnostics);
+            PdfLinearization? linearization = LinearizationReader.Read(source, loader, streams, diagnostics);
             var document = new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security, configuration.FontProgramParsers, configuration.ColorManagement, configuration.FontResolvers);
             document.DetectXfa();
 

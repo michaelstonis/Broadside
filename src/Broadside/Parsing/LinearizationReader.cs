@@ -1,4 +1,5 @@
 using Broadside.Diagnostics;
+using Broadside.Filters;
 using Broadside.IO;
 using Broadside.Objects;
 
@@ -25,9 +26,10 @@ internal static class LinearizationReader
     /// <summary>Reads the linearization information of the file, if it has any.</summary>
     /// <param name="source">The file.</param>
     /// <param name="loader">The object loader.</param>
+    /// <param name="streams">The document's filter pipeline, for filtered hint streams.</param>
     /// <param name="diagnostics">Where to report an invalid parameter dictionary or hint table.</param>
     /// <returns>The information, or <see langword="null"/> when the file does not start with a valid parameter dictionary.</returns>
-    public static PdfLinearization? Read(PdfSource source, ObjectLoader loader, DiagnosticSink diagnostics)
+    public static PdfLinearization? Read(PdfSource source, ObjectLoader loader, StreamDecoder streams, DiagnosticSink diagnostics)
     {
         long headerOffset = loader.Header.Offset;
         Span<byte> buffer = stackalloc byte[SearchLength];
@@ -68,7 +70,7 @@ internal static class LinearizationReader
             dictionary,
             reference,
             firstPageObjects,
-            () => HintTableReader.Read(source, loader, dictionary, hintStreams, diagnostics));
+            () => HintTableReader.Read(source, loader, dictionary, hintStreams, streams, diagnostics));
     }
 
     /// <summary>Checks the entries of Table F.1: all required ones present, direct and of the right type and range.</summary>
