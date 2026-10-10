@@ -22,7 +22,8 @@ namespace Broadside.Content;
 /// Repairs: text shown before <c>Tf</c>, or with a font name the resources lack, is measured with Helvetica's Standard 14 metrics
 /// (as PDFBox does; the size stays 0 when no <c>Tf</c> set one, so only T<sub>c</sub> and T<sub>w</sub> advance) with
 /// <c>ContentFontMissing</c>; text positioned or shown outside a text object starts from the identity matrix (pdf.js keeps it, PDFBox
-/// drops it); a <c>TJ</c> element that is neither a string nor a number is skipped. <c>d0</c> and <c>d1</c> are issue #57's.
+/// drops it); a <c>TJ</c> element that is neither a string nor a number is skipped. <c>d0</c>, <c>d1</c> and the glyph descriptions
+/// of Type 3 fonts are in <c>ContentInterpreter.Type3.cs</c>.
 /// </para>
 /// </remarks>
 internal sealed partial class ContentInterpreter

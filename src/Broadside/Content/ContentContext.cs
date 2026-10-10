@@ -205,7 +205,10 @@ public sealed class ContentContext
     /// <param name="processor">The processor that receives the glyph's events, from <see cref="ContentProcessor.BeginType3Glyph"/> to <see cref="ContentProcessor.EndType3Glyph"/>.</param>
     /// <exception cref="ArgumentException">The glyph's font is not a Type 3 font.</exception>
     /// <exception cref="InvalidOperationException">Called outside a callback of a running run.</exception>
-    /// <remarks>ISO 32000-2 §9.6.4. The nesting limit is shared with forms, patterns and soft masks.</remarks>
+    /// <remarks>
+    /// ISO 32000-2 §9.6.4 (Table 111 <c>d0</c>/<c>d1</c>, §8.6.8 for <c>d1</c>). Without font resources, names resolve in the current
+    /// stream's. The nesting limit and the recursion guard are shared with forms, patterns and soft masks.
+    /// </remarks>
     public void RunType3Glyph(in GlyphEvent glyph, ContentProcessor processor)
     {
         ArgumentNullException.ThrowIfNull(processor);
