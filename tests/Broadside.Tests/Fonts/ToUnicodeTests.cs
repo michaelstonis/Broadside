@@ -11,7 +11,7 @@ namespace Broadside.Tests.Fonts;
 /// per-code fallback of §9.10.2, and the vectors of ISO Example 2, pdf.js's cmap_spec.js and PDFBox's malformed bfrange files
 /// (rewritten here; expected values from the spec text and those projects' assertions).
 /// </summary>
-public class ToUnicodeTests
+public sealed class ToUnicodeTests
 {
     [Fact]
     public void The_example_of_ISO_32000_2_9_10_3_maps_a_range_ligatures_and_a_surrogate_pair()

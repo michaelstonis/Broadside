@@ -11,7 +11,7 @@ namespace Broadside.Tests.Filters;
 /// The filter extension point: filters are registered per engine through the options, never in a static registry, and a
 /// registered filter replaces the managed default of its name or adds a new one. ISO 32000-2 §7.4.1; ADR 0001.
 /// </summary>
-public class FilterExtensionPointTests
+public sealed class FilterExtensionPointTests
 {
     [Fact]
     public void A_decorator_registered_through_the_options_replaces_the_default_flate_filter()

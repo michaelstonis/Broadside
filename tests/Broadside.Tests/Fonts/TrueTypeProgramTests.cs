@@ -12,7 +12,7 @@ namespace Broadside.Tests.Fonts;
 /// fontTools' composite tests (offset, SCALED/UNSCALED offsets, point matching with a rotation). ISO 32000-2 §9.9.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class TrueTypeProgramTests
+public sealed class TrueTypeProgramTests
 {
     private static readonly byte[] None = [];
     private static readonly byte[] Square = TrueTypeBuilder.Rectangle(0, 0, 100, 100);

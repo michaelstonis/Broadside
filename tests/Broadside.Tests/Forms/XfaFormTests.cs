@@ -7,7 +7,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Forms;
 
 /// <summary>XFA resources are detected and kept, never rendered (ISO 32000-2 Annex K, §12.7.3 Table 224, §7.7.2 Table 29).</summary>
-public class XfaFormTests
+public sealed class XfaFormTests
 {
     [Fact]
     public void Opening_a_form_with_an_xfa_resource_records_an_information_diagnostic_and_exposes_the_packets()

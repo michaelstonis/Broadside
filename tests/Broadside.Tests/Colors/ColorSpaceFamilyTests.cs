@@ -9,7 +9,7 @@ namespace Broadside.Tests.Colors;
 /// Every colour space family of ISO 32000-2 §8.6.3 (Table 61) read through <see cref="PdfDocument.GetColorSpace"/>: the typed
 /// views, their initial colours (Table 73), default decode arrays (Table 88) and the repairs lenient reading applies.
 /// </summary>
-public class ColorSpaceFamilyTests
+public sealed class ColorSpaceFamilyTests
 {
     private static readonly CosReference Five = new(5, 0);
 

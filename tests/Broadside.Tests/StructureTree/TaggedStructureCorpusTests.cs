@@ -7,7 +7,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.StructureTree;
 
 /// <summary>The tagged corpus file read through the structure tree. ISO 32000-2 §14.6-§14.8; ISO/TS 32005 §5.</summary>
-public partial class TaggedStructureCorpusTests
+public sealed partial class TaggedStructureCorpusTests
 {
     [Fact]
     public Task The_tagged_file_yields_the_expected_tree()

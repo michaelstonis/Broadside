@@ -10,7 +10,7 @@ namespace Broadside.Fonts.Cmaps.Tests;
 /// collection's Registry-Ordering-UCS2 table, which the package supplies (mapping-resources-pdf 2dd5e53f). Expected values are the
 /// tables' own lines (spot-checked in pdf2unicode/Adobe-Japan1-UCS2 and Adobe-KR-UCS2) and the corpus file's known text.
 /// </summary>
-public class CidToUnicodePackageTests
+public sealed class CidToUnicodePackageTests
 {
     [Fact]
     public void Text_cidcff_predefined_cmap_maps_its_CIDs_through_Adobe_Japan1_UCS2_with_the_package()

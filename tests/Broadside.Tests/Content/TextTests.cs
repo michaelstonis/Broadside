@@ -11,7 +11,7 @@ namespace Broadside.Tests.Content;
 /// matrix and advanced by the displacement formula of §9.4.4 (p.326). Expected positions are worked out by hand from the
 /// spec's formulas and the AFM widths of Helvetica (thousandths of text space).
 /// </summary>
-public class TextTests
+public sealed class TextTests
 {
     private const int Precision = 9;
 

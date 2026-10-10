@@ -5,7 +5,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Filters;
 
 /// <summary>LZWDecode through the filter contract. ISO 32000-2 §7.4.4.2 and §7.4.4.3 Table 8.</summary>
-public class LzwDecodeFilterTests
+public sealed class LzwDecodeFilterTests
 {
     [Fact]
     public void Decodes_the_packed_example_after_table_7()

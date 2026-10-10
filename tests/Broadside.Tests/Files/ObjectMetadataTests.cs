@@ -5,7 +5,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Files;
 
 /// <summary>Metadata streams at the object-level locations of ISO 32000-2 §14.3.2 and PDF 2.0 Application Note 003.</summary>
-public class ObjectMetadataTests
+public sealed class ObjectMetadataTests
 {
     private static string Title(PdfObjectMetadata metadata) => metadata.Packet!.Title!;
 

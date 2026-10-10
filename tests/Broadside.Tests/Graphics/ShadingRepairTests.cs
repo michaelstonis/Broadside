@@ -12,7 +12,7 @@ namespace Broadside.Tests.Graphics;
 /// Malformed shadings and patterns (ISO 32000-2 §8.7): each repair keeps what can be used and records one diagnostic; what cannot be
 /// used is marked invalid (it paints nothing); strict mode throws the first deviation.
 /// </summary>
-public class ShadingRepairTests
+public sealed class ShadingRepairTests
 {
     private const string Red = "/Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >>";
 

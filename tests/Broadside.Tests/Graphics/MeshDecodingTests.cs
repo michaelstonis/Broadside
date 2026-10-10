@@ -13,7 +13,7 @@ namespace Broadside.Tests.Graphics;
 /// Types 4 and 5 and each patch padded to whole bytes for Types 6 and 7 (which defer to Type 4 for "the format of the data"), flags
 /// masked to their low two bits, and the triangle or patch topology.
 /// </summary>
-public class MeshDecodingTests
+public sealed class MeshDecodingTests
 {
     private static readonly int[] CoordinateWidths = [1, 2, 4, 8, 12, 16, 24, 32];
     private static readonly int[] ComponentWidths = [1, 2, 4, 8, 12, 16];

@@ -3,7 +3,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests;
 
 /// <summary>Proves the test wiring: the corpus helper finds the files, theories enumerate them, and Verify writes snapshots.</summary>
-public class CorpusSmokeTests
+public sealed class CorpusSmokeTests
 {
     [Theory]
     [MemberData(nameof(Corpus.WellFormedFiles), MemberType = typeof(Corpus))]

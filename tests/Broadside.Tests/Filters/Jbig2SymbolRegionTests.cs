@@ -9,7 +9,7 @@ namespace Broadside.Tests.Filters;
 /// the test encoder, through the public filter contract: each page decodes to the picture its instances, cells and refinements
 /// describe. ISO 32000-2 §7.4.7; ITU-T T.88 §6.3 to §6.7, §7.4.2 to §7.4.7, §8.2, Annexes A to C.
 /// </summary>
-public class Jbig2SymbolRegionTests
+public sealed class Jbig2SymbolRegionTests
 {
     // Symbols of different widths and heights, so a wrong corner, axis or CURS update moves pixels.
     private static readonly bool[][][] Symbols =

@@ -9,7 +9,7 @@ namespace Broadside.Tests.Content;
 /// Form XObjects (ISO 32000-2 §8.10.1): <c>Do</c> saves the state, concatenates the form matrix, clips to the bounding box, runs
 /// the form's content with its own (or the inherited) resources and restores the state; nesting is bounded and cycles are refused.
 /// </summary>
-public class FormTests
+public sealed class FormTests
 {
     [Fact]
     public void Nested_forms_run_with_their_matrix_bounding_box_and_resources()

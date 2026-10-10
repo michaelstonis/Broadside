@@ -23,7 +23,7 @@ namespace Broadside.Tests.Images;
 /// data and decoded samples there for the script.
 /// </summary>
 [Trait("Category", "Corpus")]
-public class RealWorldJpxTests(ITestOutputHelper output)
+public sealed class RealWorldJpxTests(ITestOutputHelper output)
 {
     private const string DumpVariable = "BROADSIDE_JPX_DUMP";
 

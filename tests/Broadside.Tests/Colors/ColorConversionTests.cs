@@ -9,7 +9,7 @@ namespace Broadside.Tests.Colors;
 /// ISO 32000-2 §10.4.2 (with the clause's own example), the CIE-based spaces of §8.6.5 against sRGB reference values, and the
 /// special spaces of §8.6.6.
 /// </summary>
-public class ColorConversionTests
+public sealed class ColorConversionTests
 {
     /// <summary>The sRGB (IEC 61966-2-1) primaries as a CalRGB Matrix with the D65 white: linear CalRGB values are linear sRGB.</summary>
     private const string SrgbCalRgb = "[/CalRGB << /WhitePoint [0.95047 1 1.08883] /Matrix [0.4124564 0.2126729 0.0193339 0.3575761 0.7151522 0.1191920 0.1804375 0.0721750 0.9503041] >>]";

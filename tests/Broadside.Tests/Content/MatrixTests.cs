@@ -3,7 +3,7 @@ using Broadside.Graphics;
 namespace Broadside.Tests.Content;
 
 /// <summary>Transformation matrices as §8.3.3 and §8.3.4 define them: row vectors, premultiplication, inverses.</summary>
-public class MatrixTests
+public sealed class MatrixTests
 {
     [Fact]
     public void A_point_maps_as_a_row_vector()

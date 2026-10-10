@@ -9,7 +9,7 @@ namespace Broadside.Tests.Images;
 /// Malformed image dictionaries and data: the repair lenient mode makes (ADR 0005) and the diagnostic it records, and that strict
 /// mode throws instead (ISO 32000-2 §8.9.5 Table 87: "inconsistent entries shall cause an error").
 /// </summary>
-public class BrokenImageTests
+public sealed class BrokenImageTests
 {
     public static TheoryData<string, string, string> UnusableImages => new()
     {

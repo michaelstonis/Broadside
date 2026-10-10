@@ -9,7 +9,7 @@ namespace Broadside.Tests.Filters.Dct;
 /// and Adobe-inverted YCCK) decodes within ±1 of libjpeg-turbo's decode of the same stream (ISO 32000-2 §7.4.8, §8.9); the
 /// inverted one's Decode array, not the codec, undoes the inversion (§8.9.5.2).
 /// </summary>
-public class CorpusDctTests
+public sealed class CorpusDctTests
 {
     [Theory]
     [InlineData("dct-baseline.pdf", "Im0", "dct-baseline-color", ImageColorModel.Rgb)]

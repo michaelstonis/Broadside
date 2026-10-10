@@ -11,7 +11,7 @@ namespace Broadside.Tests.Fonts;
 /// font is reached through a <c>Differences</c> array, so the whole table is checked through the public font model.
 /// ISO 32000-2 §9.6.2.2, §9.6.5.1, Annex D.2, D.5, D.6.
 /// </summary>
-public class Standard14MetricsTests
+public sealed class Standard14MetricsTests
 {
     public static TheoryData<string, Standard14Font> Fonts => new()
     {

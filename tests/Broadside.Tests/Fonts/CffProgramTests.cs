@@ -9,7 +9,7 @@ namespace Broadside.Tests.Fonts;
 /// The CFF parser through the font program contract: bytes in, names, encodings, metrics and outlines out. Vectors are the example
 /// font of Adobe Technical Note #5176 Appendix D and programs built in memory with <see cref="CffBuilder"/>. ISO 32000-2 §9.9.
 /// </summary>
-public class CffProgramTests
+public sealed class CffProgramTests
 {
     /// <summary>5176 Appendix D (p.51): the 147-byte example font, a renamed Times subset with .notdef and space.</summary>
     private static readonly byte[] AppendixD = Convert.FromHexString(

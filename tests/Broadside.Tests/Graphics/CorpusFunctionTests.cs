@@ -10,7 +10,7 @@ namespace Broadside.Tests.Graphics;
 /// indirect function, read from a file and evaluated at the tints the page paints with. The expected values are what poppler renders
 /// (tests/Corpus/README.md).
 /// </summary>
-public class CorpusFunctionTests
+public sealed class CorpusFunctionTests
 {
     public static TheoryData<string, PdfFunctionType, float, float[]> TintTransforms => new()
     {

@@ -10,7 +10,7 @@ namespace Broadside.Tests.Graphics;
 /// Type 3 (stitching) functions, ISO 32000-2 §7.10.4, Table 41. Function i of the tests below returns 10 × i + x′, so an output
 /// shows both which subdomain was chosen and the encoded input x′.
 /// </summary>
-public class StitchingFunctionTests
+public sealed class StitchingFunctionTests
 {
     public static TheoryData<string, string, string, float, float> IntervalCases => new()
     {

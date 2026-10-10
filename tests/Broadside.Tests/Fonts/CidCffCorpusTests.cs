@@ -10,7 +10,7 @@ namespace Broadside.Tests.Fonts;
 /// Private DICT and the concatenated FontMatrix, and the predefined CMap it names (90ms-RKSJ-H) is reported as unavailable while
 /// its codespace still splits the string. With the CMaps package, see the package's tests. ISO 32000-2 §9.7.4.2, §9.7.5.2, §9.9.
 /// </summary>
-public class CidCffCorpusTests
+public sealed class CidCffCorpusTests
 {
     private const string File = "text-cidcff-predefined-cmap.pdf";
 

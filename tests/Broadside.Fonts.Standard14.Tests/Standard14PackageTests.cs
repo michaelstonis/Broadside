@@ -11,7 +11,7 @@ namespace Broadside.Fonts.Standard14.Tests;
 /// The Standard 14 glyph package through the document API: one options call gives every non-embedded Standard 14 font the glyphs
 /// of its Liberation or Foxit stand-in. ISO 32000-2 §9.6.2.2, §9.6.5.2, §9.6.5.4, §9.8; ADR 0007.
 /// </summary>
-public class Standard14PackageTests
+public sealed class Standard14PackageTests
 {
     public static TheoryData<Standard14Font, string, string> Programs => new()
     {

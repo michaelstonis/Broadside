@@ -8,7 +8,7 @@ namespace Broadside.Tests.Filters;
 /// The filter corpus files decode, through the public document API, to exactly the content stream <c>tests/Corpus/generate.py</c>
 /// encoded (its <c>gen_*</c> functions; <c>pdftotext</c> prints the text each one shows). ISO 32000-2 §7.4.
 /// </summary>
-public class CorpusFilterTests
+public sealed class CorpusFilterTests
 {
     public static TheoryData<string, string> FilteredContentStreams => new()
     {

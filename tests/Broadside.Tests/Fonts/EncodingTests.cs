@@ -7,7 +7,7 @@ namespace Broadside.Tests.Fonts;
 /// Simple-font encodings: the predefined encodings of Annex D (rows checked against Tables D.2 and D.4), encoding dictionaries with
 /// <c>BaseEncoding</c> and <c>Differences</c>, and how malformed entries are repaired. ISO 32000-2 §9.6.5.1, §9.6.5.2, Annex D.
 /// </summary>
-public class EncodingTests
+public sealed class EncodingTests
 {
     public static TheoryData<string, int, string> PredefinedRows => new()
     {

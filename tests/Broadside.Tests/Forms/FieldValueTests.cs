@@ -7,7 +7,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Forms;
 
 /// <summary>Inherited entries, flags and decoded values of each field type (ISO 32000-2 §12.7.3 to §12.7.5).</summary>
-public class FieldValueTests
+public sealed class FieldValueTests
 {
     [Fact]
     public void The_interactive_form_dictionary_exposes_its_defaults_resources_flags_and_calculation_order()

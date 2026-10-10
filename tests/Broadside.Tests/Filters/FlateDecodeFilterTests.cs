@@ -6,7 +6,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Filters;
 
 /// <summary>FlateDecode through the filter contract. ISO 32000-2 §7.4.4.1; RFC 1950 and RFC 1951.</summary>
-public class FlateDecodeFilterTests
+public sealed class FlateDecodeFilterTests
 {
     private static readonly byte[] Data = FilterEncoders.SampleData(100_000, alphabet: 4);
 

@@ -6,7 +6,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Filters;
 
 /// <summary>CCITTFaxDecode through the filter contract. ISO 32000-2 §7.4.6, Table 11; ITU-T T.4 §4; ITU-T T.6 §2.</summary>
-public class CcittFaxDecodeFilterTests
+public sealed class CcittFaxDecodeFilterTests
 {
     private static readonly CcittFaxDecodeFilter Filter = new();
 

@@ -9,7 +9,7 @@ namespace Broadside.Tests.Fonts;
 /// outlines are the coordinates of the charstrings <c>minimal_type1()</c> in <c>tests/Corpus/generate.py</c> writes (worked out by
 /// hand from the Type 1 Font Format command definitions). ISO 32000-2 §9.6.2, §9.6.5.2, §9.9.
 /// </summary>
-public class Type1CorpusTests
+public sealed class Type1CorpusTests
 {
     /// <summary>Glyph name and its outline: one glyph per charstring feature.</summary>
     public static TheoryData<string, string> Outlines => new()

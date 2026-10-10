@@ -10,7 +10,7 @@ namespace Broadside.Tests.Images;
 /// CCITT fax images through <see cref="PdfImage.Decode"/>: the codec's image facet, the image's Width and Height against Columns and
 /// Rows, and polarity with image masks. ISO 32000-2 §7.4.6, §8.9.5, §8.9.6.2.
 /// </summary>
-public class CcittImageTests
+public sealed class CcittImageTests
 {
     public static TheoryData<string, int, int> CorpusFiles => new()
     {

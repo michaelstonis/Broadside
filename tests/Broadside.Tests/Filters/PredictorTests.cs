@@ -7,7 +7,7 @@ namespace Broadside.Tests.Filters;
 /// The LZW and Flate predictor functions, through the document API: hand-computed vectors for TIFF Predictor 2 and each PNG
 /// algorithm. ISO 32000-2 §7.4.4.3 Table 8 and §7.4.4.4 Tables 9 and 10; PNG algorithms per ISO/IEC 15948 §9.
 /// </summary>
-public class PredictorTests
+public sealed class PredictorTests
 {
     /// <summary>Two rows of three 8-bit gray samples: 10 20 30 / 15 25 40.</summary>
     private static readonly byte[] Samples = [10, 20, 30, 15, 25, 40];

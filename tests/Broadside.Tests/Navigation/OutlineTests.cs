@@ -7,7 +7,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Navigation;
 
 /// <summary>The document outline (ISO 32000-2 §12.3.3, Tables 150 to 152) and the actions of its items (§12.6.4.2, §12.6.4.8).</summary>
-public class OutlineTests
+public sealed class OutlineTests
 {
     [Fact]
     public void Outline_pdf_yields_two_closed_leaf_items_with_their_destinations_and_default_style()

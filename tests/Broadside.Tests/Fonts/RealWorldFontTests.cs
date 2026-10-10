@@ -12,7 +12,7 @@ namespace Broadside.Tests.Fonts;
 /// not fetched. ISO 32000-2 §9.5, §9.6, §9.8.
 /// </summary>
 [Trait("Category", "Corpus")]
-public class RealWorldFontTests(ITestOutputHelper output)
+public sealed class RealWorldFontTests(ITestOutputHelper output)
 {
     public static TheoryData<string> CorpusIds => new(RealWorldCorpusTests.CorpusIds);
 

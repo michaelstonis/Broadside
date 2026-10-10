@@ -8,7 +8,7 @@ namespace Broadside.Tests.Colors;
 /// The colour operators of ISO 32000-2 §8.6.8, Table 73, observed through the public processor seam: the fill and stroke colours of
 /// the graphics state at each paint.
 /// </summary>
-public class ColorOperatorTests
+public sealed class ColorOperatorTests
 {
     private const string Rect = " 0 0 10 10 re f\n";
 

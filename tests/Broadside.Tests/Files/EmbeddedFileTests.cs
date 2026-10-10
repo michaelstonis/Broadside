@@ -5,7 +5,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Files;
 
 /// <summary>The EmbeddedFiles name tree and the embedded files it lists. ISO 32000-2 §7.7.4, §7.11.3, §7.11.4.</summary>
-public class EmbeddedFileTests
+public sealed class EmbeddedFileTests
 {
     [Fact]
     public void The_EmbeddedFiles_name_tree_lists_each_file_with_its_names_parameters_and_data()

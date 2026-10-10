@@ -13,7 +13,7 @@ namespace Broadside.Tests.Fonts;
 /// coordinates. Skips when the corpora are not fetched. ISO 32000-2 §9.6.2, §9.6.5.2, §9.9.
 /// </summary>
 [Trait("Category", "Corpus")]
-public class RealWorldType1Tests(ITestOutputHelper output)
+public sealed class RealWorldType1Tests(ITestOutputHelper output)
 {
     private const int MaxGlyphsPerProgram = 4096;
 

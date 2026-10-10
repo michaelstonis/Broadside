@@ -4,7 +4,7 @@ using Broadside.Objects;
 namespace Broadside.Tests.OptionalContent;
 
 /// <summary>Malformed optional content is repaired with a diagnostic in lenient mode and throws in strict mode. ISO 32000-2 §8.11.</summary>
-public class OptionalContentRepairTests
+public sealed class OptionalContentRepairTests
 {
     private const string TwoGroups = "<< /Type /OCG /Name (A) >>";
 

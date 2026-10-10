@@ -7,7 +7,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Annotations;
 
 /// <summary>Every annotation type of ISO 32000-2 Table 171 and its entries (§12.5.6, Tables 172 to 195, 309, 333, 398, 403).</summary>
-public class AnnotationSubtypeTests
+public sealed class AnnotationSubtypeTests
 {
     [Fact]
     public void Annotations_subtypes_pdf_maps_each_standard_subtype_to_its_class_and_an_unknown_one_to_the_generic_class()

@@ -10,7 +10,7 @@ namespace Broadside.Tests.Fonts;
 /// a name-keyed one uses the CID as the glyph id, and a CID without a glyph falls back to the notdef mapping, then CID 0.
 /// ISO 32000-2 §9.7.4.2 (p.346-347), §9.7.6.3 and §9.9 (Table 124).
 /// </summary>
-public class CidFontType0Tests
+public sealed class CidFontType0Tests
 {
     private const string SystemInfo = "/CIDSystemInfo << /Registry (Adobe) /Ordering (Japan1) /Supplement 2 >>";
 

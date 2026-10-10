@@ -17,7 +17,7 @@ namespace Broadside.Tests.Filters.Dct;
 /// ISO 32000-2 §7.4.8.
 /// </summary>
 [Trait("Category", "Corpus")]
-public class CorpusDctReferenceTests(ITestOutputHelper output)
+public sealed class CorpusDctReferenceTests(ITestOutputHelper output)
 {
     public static TheoryData<string> CorpusIds => new(RealWorldCorpusTests.CorpusIds);
 

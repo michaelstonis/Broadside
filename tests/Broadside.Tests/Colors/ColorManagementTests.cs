@@ -9,7 +9,7 @@ namespace Broadside.Tests.Colors;
 /// The colour-management extension point (ADR 0001; ISO 32000-2 §10.3, §10.4): replaced through the options, used for every
 /// conversion of a base space, never handed an Indexed, Separation, DeviceN or Pattern space.
 /// </summary>
-public class ColorManagementTests
+public sealed class ColorManagementTests
 {
     [Fact]
     public void A_decorator_sees_only_device_CIE_based_and_ICCBased_spaces_while_a_page_of_every_family_is_painted()

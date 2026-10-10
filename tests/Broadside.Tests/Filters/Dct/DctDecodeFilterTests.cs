@@ -6,7 +6,7 @@ namespace Broadside.Tests.Filters.Dct;
 /// The <c>DCTDecode</c> filter through the filter contract (ISO 32000-2 §7.4.8; ITU-T T.81 baseline and extended sequential):
 /// samples within ±1 of libjpeg-turbo (<c>djpeg -dct int -nosmooth</c>) on the vectors next to this file.
 /// </summary>
-public class DctDecodeFilterTests
+public sealed class DctDecodeFilterTests
 {
     [Fact]
     public void A_baseline_YCbCr_JPEG_decodes_to_interleaved_RGB_within_one_of_the_reference()

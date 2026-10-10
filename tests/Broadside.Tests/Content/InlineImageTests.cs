@@ -11,7 +11,7 @@ namespace Broadside.Tests.Content;
 /// or by an <c>EI</c> followed by content operators (issue #60's finder, through the interpreter here). The scan vectors are
 /// PDFBox's (PDFStreamParserTest, Apache-2.0).
 /// </summary>
-public class InlineImageTests
+public sealed class InlineImageTests
 {
     public static TheoryData<string, string> DataVectors => new()
     {

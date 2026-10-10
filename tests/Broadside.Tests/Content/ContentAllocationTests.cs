@@ -11,7 +11,7 @@ namespace Broadside.Tests.Content;
 /// exposes it alone; the interpreter test goes through <see cref="PdfPage.ProcessContent(ContentProcessor)"/>.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class ContentAllocationTests
+public sealed class ContentAllocationTests
 {
     private const int WarmUp = 50;
 

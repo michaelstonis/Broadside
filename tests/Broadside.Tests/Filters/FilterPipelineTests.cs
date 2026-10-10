@@ -8,7 +8,7 @@ namespace Broadside.Tests.Filters;
 /// How a document reads <c>Filter</c> and <c>DecodeParms</c> and runs the chain, including the repairs of deviations from Table 5.
 /// ISO 32000-2 §7.3.8.2 Table 5, §7.4.1, §7.4.10, §8.9.7 Table 92.
 /// </summary>
-public class FilterPipelineTests
+public sealed class FilterPipelineTests
 {
     [Fact]
     public void An_unknown_filter_leaves_the_stream_readable_as_raw_bytes_with_a_diagnostic()

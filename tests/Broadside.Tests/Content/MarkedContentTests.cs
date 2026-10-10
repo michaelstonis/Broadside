@@ -9,7 +9,7 @@ namespace Broadside.Tests.Content;
 /// Marked content (ISO 32000-2 §14.6): tags, property lists inline or named in the resources, MCIDs (§14.7.5.2) resolved through the
 /// stream's StructParents, and optional content sections (§8.11.3.2) that hide what they enclose.
 /// </summary>
-public class MarkedContentTests
+public sealed class MarkedContentTests
 {
     [Fact]
     public void Every_operator_of_marked_content_pdf_is_reported_with_its_properties()

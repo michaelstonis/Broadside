@@ -7,7 +7,7 @@ namespace Broadside.Tests.Colors;
 /// Every real-world deviation of colour spaces and colour operators (ISO 32000-2 §8.6) as a lenient/strict pair: lenient reading
 /// repairs it, paints the page and records exactly one kind of diagnostic; strict reading throws that diagnostic (ADR 0005).
 /// </summary>
-public class ColorRepairTests
+public sealed class ColorRepairTests
 {
     private const string Paint = " 0 0 10 10 re f";
 

@@ -9,7 +9,7 @@ namespace Broadside.Tests.Filters;
 /// The JBIG2Decode filter through its public contract (<see cref="IStreamFilter"/> and the image facet <see cref="IImageFilter"/>):
 /// ISO 32000-2 §7.4.7 and ITU-T T.88 | ISO/IEC 14492.
 /// </summary>
-public class Jbig2DecodeFilterTests
+public sealed class Jbig2DecodeFilterTests
 {
     [Fact]
     public void The_MMR_generic_region_of_Annex_H_decodes_to_the_page_jbig2dec_gives()

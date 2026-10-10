@@ -7,7 +7,7 @@ namespace Broadside.Tests.Fonts;
 
 /// <summary>Mapping shown codes to Unicode runs once per glyph: once the font's tables are built it allocates nothing (CLAUDE.md, hot paths).</summary>
 [Collection(HeavyTestCollection.Name)]
-public class UnicodeAllocationTests
+public sealed class UnicodeAllocationTests
 {
     [Theory]
     [InlineData("text-standard14.pdf")]

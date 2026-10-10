@@ -6,7 +6,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Actions;
 
 /// <summary>Actions that break a "shall" of ISO 32000-2 §12.6 read leniently with a diagnostic, and throw in strict mode only when read.</summary>
-public class MalformedActionTests
+public sealed class MalformedActionTests
 {
     private static readonly CosReference Owner = new(3, 0);
 

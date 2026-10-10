@@ -10,7 +10,7 @@ namespace Broadside.Tests.Fonts;
 /// codespace (Table 116 CMaps mix 1-, 2- and 4-byte codes) and read in its writing mode, each selecting CID 0.
 /// ISO 32000-2 §9.7.5.2 (Table 116), §9.7.6.2 and §9.7.6.3.
 /// </summary>
-public class PredefinedCMapFallbackTests
+public sealed class PredefinedCMapFallbackTests
 {
     private const string SystemInfo = "/CIDSystemInfo << /Registry (Adobe) /Ordering (Japan1) /Supplement 2 >>";
 

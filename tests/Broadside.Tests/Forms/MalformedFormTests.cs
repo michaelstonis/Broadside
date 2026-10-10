@@ -7,7 +7,7 @@ using Broadside.Tests.Document;
 namespace Broadside.Tests.Forms;
 
 /// <summary>Real-world deviations in field trees and field entries: lenient repairs with diagnostics, strict throws (ISO 32000-2 §12.7, ADR 0005).</summary>
-public class MalformedFormTests
+public sealed class MalformedFormTests
 {
     private const int FieldTreeDepth = 256;
 

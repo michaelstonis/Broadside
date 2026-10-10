@@ -7,7 +7,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Navigation;
 
 /// <summary>Number trees (ISO 32000-2 §7.9.7, Table 37) read through <see cref="PdfDocument.GetNumberTree"/>.</summary>
-public class NumberTreeTests
+public sealed class NumberTreeTests
 {
     private static readonly CosName PageLabels = new("PageLabels");
 

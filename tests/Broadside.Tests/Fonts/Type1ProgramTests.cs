@@ -12,7 +12,7 @@ namespace Broadside.Tests.Fonts;
 /// letter C of §6.6 and its encryption in §7.3, the flex example of §8.3. ISO 32000-2 §9.9.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class Type1ProgramTests
+public sealed class Type1ProgramTests
 {
     private const string Box = "0 500 hsbw 0 0 rmoveto 100 hlineto 100 vlineto -100 hlineto closepath endchar";
     private const string C = "50 800 hsbw 0 100 vstem 0 100 hstem 600 100 hstem 0 hmoveto 700 hlineto 100 vlineto -600 hlineto 500 vlineto 600 hlineto 100 vlineto -700 hlineto closepath endchar";

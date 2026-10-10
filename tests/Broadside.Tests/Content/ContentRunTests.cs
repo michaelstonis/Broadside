@@ -7,7 +7,7 @@ namespace Broadside.Tests.Content;
 /// What a run reads and how processors take part: the page's <c>Contents</c> forms (Table 31), text object boundaries (Table 105),
 /// fan-out to several processors and runs started from inside a callback. ISO 32000-2 §7.7.3.3, §7.8.2, §9.4.1.
 /// </summary>
-public class ContentRunTests
+public sealed class ContentRunTests
 {
     [Fact]
     public void Text_objects_are_reported_at_bt_and_et()

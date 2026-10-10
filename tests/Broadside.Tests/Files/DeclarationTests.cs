@@ -3,7 +3,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Files;
 
 /// <summary>PDF Declarations in document-level and object-level XMP. PDF Declarations §7 and §8.</summary>
-public class DeclarationTests
+public sealed class DeclarationTests
 {
     [Fact]
     public void Document_declarations_come_from_the_catalog_XMP_with_trimmed_URIs_and_claims()

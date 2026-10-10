@@ -8,7 +8,7 @@ namespace Broadside.Tests.Fonts;
 /// The glyph name and width of each code of the simple-font corpus files. Expected widths are the AFM WX values of the Adobe Core
 /// 14 files; expected names come from ISO 32000-2 Annex D. ISO 32000-2 §9.6.2.1, §9.6.2.2, §9.6.5.1, §9.8, Annex D.2, D.5, D.6.
 /// </summary>
-public class SimpleFontCorpusTests
+public sealed class SimpleFontCorpusTests
 {
     [Fact]
     public void Differences_without_a_base_encoding_change_StandardEncoding_for_a_nonsymbolic_font()

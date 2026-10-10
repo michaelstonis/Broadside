@@ -10,7 +10,7 @@ using Broadside.TestSupport;
 namespace Broadside.Tests.Annotations;
 
 /// <summary>Interpreting an annotation's appearance stream on its rectangle (ISO 32000-2 §12.5.5, Algorithm "Appearance streams").</summary>
-public class AppearanceContentTests
+public sealed class AppearanceContentTests
 {
     [Fact]
     public void An_appearance_runs_with_the_appearance_matrix_clipped_to_its_bounding_box()

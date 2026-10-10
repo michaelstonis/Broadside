@@ -13,7 +13,7 @@ namespace Broadside.Tests.Fonts;
 /// (Figure 6, §5.2, §5.4, §7.4), TN 5099 §1.5, ISO 32000-2 §9.7.6.2-§9.7.6.3, and the cases FontBox's <c>TestCMapParser</c> and
 /// pdf.js's <c>cmap_spec.js</c> cover (rewritten here, not copied).
 /// </summary>
-public class CMapParserTests
+public sealed class CMapParserTests
 {
     /// <summary>The codespace of 90ms-RKSJ-H (ISO 32000-2 §9.7.6.3 example; TN 5014 Figure 6): one- and two-byte Shift-JIS.</summary>
     private const string ShiftJisCodespace = "4 begincodespacerange <00> <80> <8140> <9FFC> <A0> <DF> <E040> <FCFC> endcodespacerange\n";

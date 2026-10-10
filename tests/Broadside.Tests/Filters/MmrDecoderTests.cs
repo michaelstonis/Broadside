@@ -7,7 +7,7 @@ namespace Broadside.Tests.Filters;
 /// The MMR seam JBIG2 decodes through (<see cref="MmrDecoder"/>): T.6 coding without PDF parameters, 1 = black, EOFB optional,
 /// consumption rounded up to a byte. ITU-T T.88 §6.2.6; ITU-T T.6 §2.
 /// </summary>
-public class MmrDecoderTests
+public sealed class MmrDecoderTests
 {
     [Theory]
     [InlineData(true)]

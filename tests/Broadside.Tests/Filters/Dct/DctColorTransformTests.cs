@@ -11,7 +11,7 @@ namespace Broadside.Tests.Filters.Dct;
 /// <c>ColorTransform</c> applies only without it; YCCK becomes CMYK (Adobe TN 5116 §13.2); the codec never inverts, an inverted
 /// image says so with its <c>Decode</c> array (§8.9.5.2). References are TurboJPEG's raw CMYK decodes (README.md next to this file).
 /// </summary>
-public class DctColorTransformTests
+public sealed class DctColorTransformTests
 {
     [Theory]
     [InlineData("cmyk", "cmyk", 0, false)]

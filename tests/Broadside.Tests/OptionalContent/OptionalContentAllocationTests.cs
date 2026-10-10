@@ -9,7 +9,7 @@ namespace Broadside.Tests.OptionalContent;
 /// membership is compiled (ISO 32000-2 §8.11; CLAUDE.md hot-path rule). Benchmark: <c>OptionalContentBenchmarks</c>.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
-public class OptionalContentAllocationTests
+public sealed class OptionalContentAllocationTests
 {
     [Fact]
     public void Visibility_checks_and_section_tracking_allocate_nothing()

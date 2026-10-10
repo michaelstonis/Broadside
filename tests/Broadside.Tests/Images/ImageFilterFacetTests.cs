@@ -12,7 +12,7 @@ namespace Broadside.Tests.Images;
 /// The image-codec facet (<see cref="IImageFilter"/>) and the decoded-image buffer as the contract later codecs fill, exercised with
 /// a fake codec registered through the options: what the codec reports wins over the dictionary where §7.4.9 says so.
 /// </summary>
-public class ImageFilterFacetTests
+public sealed class ImageFilterFacetTests
 {
     [Fact]
     public void The_codec_size_wins_over_the_dictionary_with_a_diagnostic()

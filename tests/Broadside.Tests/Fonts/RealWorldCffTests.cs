@@ -13,7 +13,7 @@ namespace Broadside.Tests.Fonts;
 /// ISO 32000-2 §9.6.5.2, §9.9; Adobe Technical Notes #5176 and #5177.
 /// </summary>
 [Trait("Category", "Corpus")]
-public class RealWorldCffTests(ITestOutputHelper output)
+public sealed class RealWorldCffTests(ITestOutputHelper output)
 {
     private const int MaxGlyphsPerProgram = 4096;
     private static readonly CosName FontName = new("Font");

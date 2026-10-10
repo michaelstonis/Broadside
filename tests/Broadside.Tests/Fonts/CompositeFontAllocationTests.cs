@@ -6,7 +6,7 @@ namespace Broadside.Tests.Fonts;
 
 /// <summary>Reading glyphs of a composite font is a hot path: once the font's tables are built it allocates nothing (CLAUDE.md, hot paths).</summary>
 [Collection(HeavyTestCollection.Name)]
-public class CompositeFontAllocationTests
+public sealed class CompositeFontAllocationTests
 {
     [Theory]
     [InlineData("text-cid-identity-h.pdf")]

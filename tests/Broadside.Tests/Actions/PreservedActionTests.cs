@@ -9,7 +9,7 @@ namespace Broadside.Tests.Actions;
 /// Actions the library keeps as data (ISO 32000-2 §12.6.4.9, §12.6.4.10, §12.6.4.14, §12.6.4.17, §12.6.4.18): reading them through
 /// every typed view changes nothing, and saving the document copies them byte for byte (<c>actions-preserved.pdf</c>).
 /// </summary>
-public class PreservedActionTests
+public sealed class PreservedActionTests
 {
     private static readonly CosName A = new("A");
 

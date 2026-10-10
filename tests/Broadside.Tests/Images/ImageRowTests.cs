@@ -8,7 +8,7 @@ namespace Broadside.Tests.Images;
 /// The row helpers and the Decode mapping with spec-derived vectors (ISO 32000-2 §8.9.3, §8.9.5.2 Table 88 and its Note 4, §8.6.6.3,
 /// §8.9.6.4, §11.6.5.2), and odd depths decoded through documents.
 /// </summary>
-public class ImageRowTests
+public sealed class ImageRowTests
 {
     public static TheoryData<int, byte[], int, ushort[]> UnpackVectors => new()
     {

@@ -11,7 +11,7 @@ namespace Broadside.Tests.Fonts;
 /// widths) of the Font DICT that FDSelect gives it, and outlines are in the space of the program's FontMatrix. Programs are built in
 /// memory with <see cref="CffBuilder"/>. Adobe Technical Note #5176 §18-19; ISO 32000-2 §9.7.4.2 and §9.9.
 /// </summary>
-public class CidCffProgramTests
+public sealed class CidCffProgramTests
 {
     private const string FirstBox = "M 10,20 L 110,20 L 110,120 Z";
     private const string SecondBox = "M 10,20 L 210,20 L 210,220 Z";
