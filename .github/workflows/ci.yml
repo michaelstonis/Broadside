@@ -60,6 +60,11 @@ jobs:
         timeout-minutes: 20
         run: dotnet workload install macos ios maccatalyst android
 
+      - name: Install qpdf and poppler-utils (Linux)
+        # Written files are checked with qpdf --check and pdfinfo (issue #44); the tests skip where the tools are missing.
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y qpdf poppler-utils
+
       - name: Restore
         run: dotnet restore Broadside.slnx
 
@@ -167,11 +172,46 @@ jobs:
             echo "Skipped: \`tools/ConformanceCheck\` is not on this branch yet (issue #7)."
           } >> "${GITHUB_STEP_SUMMARY}"
 
-  # Runs every fuzz target in smoke mode for 60 s (tests/Broadside.Fuzz/README.md).
-  fuzz-smoke:
-    name: fuzz-smoke
+  # Checks the formatting of everything dotnet format can see: the core solution filter, and the fuzz and benchmark projects,
+  # which are outside it.
+  format:
+    name: format
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 20
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Check formatting
+        run: |
+          dotnet format Broadside.Core.slnf --verify-no-changes
+          dotnet format tests/Broadside.Fuzz/Broadside.Fuzz.csproj --verify-no-changes
+          dotnet format bench/Broadside.Benchmarks/Broadside.Benchmarks.csproj --verify-no-changes
+
+  # Runs every fuzz target in smoke mode for 60 s (tests/Broadside.Fuzz/README.md), the targets of the --list split over
+  # parallel shards (target i runs in shard i mod the shard count) so the run stays far below its timeout as targets are added.
+  fuzz-smoke:
+    name: fuzz-smoke (${{ matrix.shard }}/${{ strategy.job-total }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3, 4, 5]
     steps:
       - name: Check out
         uses: actions/checkout@v7
@@ -193,16 +233,23 @@ jobs:
       - name: Build the fuzz harness
         run: dotnet build tests/Broadside.Fuzz -c Release -warnaserror
 
-      - name: Smoke every target for 60 s
+      - name: Smoke this shard's targets for 60 s each
         shell: bash
+        env:
+          SHARD: ${{ matrix.shard }}
+          SHARDS: ${{ strategy.job-total }}
         run: |
-          targets=$(dotnet run -c Release --project tests/Broadside.Fuzz --no-build -- --list)
-          if [ -z "${targets}" ]; then
+          mapfile -t targets < <(dotnet run -c Release --project tests/Broadside.Fuzz --no-build -- --list)
+          if [ "${#targets[@]}" -eq 0 ]; then
             echo "::error::--list returned no fuzz targets"
             exit 1
           fi
           status=0
-          for target in ${targets}; do
+          for index in "${!targets[@]}"; do
+            if [ $((index % SHARDS)) -ne "${SHARD}" ]; then
+              continue
+            fi
+            target="${targets[${index}]}"
             echo "::group::${target}"
             if ! dotnet run -c Release --project tests/Broadside.Fuzz --no-build -- --smoke "${target}" 60; then
               echo "::error::fuzz target ${target} reported a finding"
@@ -216,7 +263,7 @@ jobs:
         if: failure()
         uses: actions/upload-artifact@v7
         with:
-          name: fuzz-findings
+          name: fuzz-findings-${{ matrix.shard }}
           path: artifacts/fuzz/**
           if-no-files-found: ignore
 

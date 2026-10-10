@@ -34,3 +34,4 @@ Broadside's vocabulary lives in [`CONTEXT.md`](https://github.com/michaelstonis/
 | [0006](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0006-display-list-rendering-architecture.md) | Rendering goes through a display list; no backend sees content-stream operators. |
 | [0007](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0007-standard-14-glyphs-in-separate-package.md) | Standard 14 glyph data ships in a separate package; the core carries only metrics. |
 | [0008](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0008-mit-license-sponsorship-not-restriction.md) | MIT license; sponsorship is asked for, not enforced. |
+| [0009](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0009-font-resolver-contract.md) | One font resolver interface, asked in order (configured resolvers, then system fonts), serves font programs and named CMap resources. |

@@ -1,0 +1,36 @@
+Document (2.0) -> Document (2.0)
+  Chapter (https://example.com/broadside-corpus) -> Sect (2.0) T=Chapter 1
+    H1 (2.0) -> H1 (2.0)
+      A Layout SpaceAfter=12
+      C Centered
+      MCID 0 page 1
+    Para (1.7) -> P (1.7)
+      A Layout TextAlign=/Justify
+      MCID 1 page 1
+      OBJR Link page 1
+    L (2.0) -> L (2.0)
+      A List ListNumbering=/Decimal
+      LI (2.0) -> LI (2.0)
+        Lbl (2.0) -> Lbl (2.0)
+          MCID 2 page 1
+        LBody (2.0) -> LBody (2.0)
+          MCID 3 page 1
+      LI (2.0) -> LI (2.0)
+        Lbl (2.0) -> Lbl (2.0)
+          MCID 4 page 1
+        LBody (2.0) -> LBody (2.0)
+          MCID 5 page 1
+    Table (2.0) -> Table (2.0) ID=tbl1
+      A Table Summary=(Names and values)
+      TR (2.0) -> TR (2.0)
+        TH (2.0) -> TH (2.0) ID=h1
+          A Table Scope=/Column
+          MCID 6 page 1
+        TH (2.0) -> TH (2.0)
+          MCID 7 page 1
+      TR (2.0) -> TR (2.0)
+        TD (2.0) -> TD (2.0)
+          A Table Headers=[(h1)]
+          MCID 8 page 1
+        TD (2.0) -> TD (2.0)
+          MCR MCID 9 page 1

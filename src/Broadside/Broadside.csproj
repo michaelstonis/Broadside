@@ -4,6 +4,25 @@
     <Description>The core of Broadside, a fully managed .NET implementation of ISO 32000-2: the COS object layer, the document model, stream filters, font program parsers, image codecs, the content interpreter, the display list and backend contract, text extraction, the layout tree, logical structure, forms, annotations, security handlers, signatures, canvas writing, diagnostics and dependency-injection registration. No native dependencies.</Description>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <!-- Memory-mapped file windows (issue #45): spans over the mapping, so parsing a large file copies nothing. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+  </PropertyGroup>
+
+  <PropertyGroup Label="Licence: MIT for the code plus the terms of the third-party data and code the package carries (APAFML, BSD-3-Clause, IJG). APAFML is not an SPDX expression nuget.org accepts, so the package declares a licence file rather than an expression.">
+    <PackageLicenseExpression></PackageLicenseExpression>
+    <PackageLicenseFile>LICENSE.txt</PackageLicenseFile>
+  </PropertyGroup>
+
+  <ItemGroup Label="Third-party notices (issues #49, #61): the AFM terms require MustRead.html to travel with data derived from the AFM files; the IJG licence requires README.ijg with code derived from libjpeg">
+    <None Include="LICENSE.txt" Pack="true" PackagePath="/" />
+    <None Include="THIRD-PARTY-NOTICES.txt" Pack="true" PackagePath="/" />
+    <None Include="Fonts/Data/Afm/MustRead.html" Pack="true" PackagePath="licenses/adobe-core14-afm/" />
+    <None Include="Fonts/Data/GlyphList/LICENSE.md" Pack="true" PackagePath="licenses/adobe-glyph-list/" />
+    <None Include="Fonts/Data/CMaps/LICENSE.md" Pack="true" PackagePath="licenses/adobe-cmap-resources/" />
+    <None Include="Filters/Dct/README.ijg" Pack="true" PackagePath="licenses/ijg/" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
     <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
