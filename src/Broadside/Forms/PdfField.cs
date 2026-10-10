@@ -90,19 +90,19 @@ public abstract class PdfField
     /// with a <c>FieldFlagsInvalid</c> diagnostic; so is a bit no field type defines, which is kept. The type-specific bits are the
     /// properties of each field class.
     /// </remarks>
-    public uint Flags => ReadFlags(Inherited(FormNames.Ff), report: true);
+    public PdfFieldFlags Flags => (PdfFieldFlags)(int)ReadFlags(Inherited(FormNames.Ff), report: true);
 
     /// <summary>Gets a value indicating whether the user may not change the field's value (<c>Ff</c> bit 1, ReadOnly).</summary>
     /// <remarks>ISO 32000-2 §12.7.4.1, Table 227.</remarks>
-    public bool IsReadOnly => HasFlag(1);
+    public bool IsReadOnly => HasFlag(PdfFieldFlags.ReadOnly);
 
     /// <summary>Gets a value indicating whether the field shall have a value when it is exported by a submit-form action (<c>Ff</c> bit 2, Required).</summary>
     /// <remarks>ISO 32000-2 §12.7.4.1, Table 227.</remarks>
-    public bool IsRequired => HasFlag(2);
+    public bool IsRequired => HasFlag(PdfFieldFlags.Required);
 
     /// <summary>Gets a value indicating whether a submit-form action shall not export the field (<c>Ff</c> bit 3, NoExport).</summary>
     /// <remarks>ISO 32000-2 §12.7.4.1, Table 227.</remarks>
-    public bool IsNoExport => HasFlag(3);
+    public bool IsNoExport => HasFlag(PdfFieldFlags.NoExport);
 
     /// <summary>Gets the field's value (<c>V</c>, inheritable) as stored and resolved, or <see langword="null"/>; the field classes decode it.</summary>
     /// <remarks>ISO 32000-2 §12.7.4.1, Table 226. Never falls back to <see cref="DefaultValueObject"/>.</remarks>
@@ -300,8 +300,8 @@ public abstract class PdfField
         return (uint)bits;
     }
 
-    /// <summary>Whether flag bit <paramref name="position"/> (1-based, as the tables number them) is set.</summary>
-    private protected bool HasFlag(int position) => (Flags & (1u << (position - 1))) != 0;
+    /// <summary>Whether <paramref name="flag"/> is set in <see cref="Flags"/>.</summary>
+    private protected bool HasFlag(PdfFieldFlags flag) => (Flags & flag) != 0;
 
     /// <summary>Reads the field's own text string entry (§7.9.2.2); another type reads as absent with a diagnostic.</summary>
     private protected string? ReadOwnText(CosName key) => Own(key) switch

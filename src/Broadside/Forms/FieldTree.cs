@@ -435,12 +435,12 @@ internal sealed class FieldTree
         {
             CosName? type = Inherited(info, FormNames.FT) as CosName;
             CosObject? flagsValue = Inherited(info, FormNames.Ff);
-            uint flags = flagsValue is CosNumber number && double.IsFinite(number.ToDouble()) ? (uint)(long)number.ToDouble() : 0;
+            var flags = (PdfFieldFlags)(int)(flagsValue is CosNumber number && double.IsFinite(number.ToDouble()) ? (uint)(long)number.ToDouble() : 0);
             switch (type?.Value)
             {
                 case "Btn":
-                    bool push = (flags & (1u << 16)) != 0;
-                    bool radio = (flags & (1u << 15)) != 0;
+                    bool push = (flags & PdfFieldFlags.Pushbutton) != 0;
+                    bool radio = (flags & PdfFieldFlags.Radio) != 0;
                     PdfTerminalField button = push
                         ? new PdfPushButtonField(info, widgets)
                         : radio ? new PdfRadioButtonField(info, widgets) : new PdfCheckBoxField(info, widgets);
@@ -453,7 +453,7 @@ internal sealed class FieldTree
                 case "Tx":
                     return new PdfTextField(info, widgets);
                 case "Ch":
-                    return (flags & (1u << 17)) != 0 ? new PdfComboBoxField(info, widgets) : new PdfListBoxField(info, widgets);
+                    return (flags & PdfFieldFlags.Combo) != 0 ? new PdfComboBoxField(info, widgets) : new PdfListBoxField(info, widgets);
                 case "Sig":
                     return new PdfSignatureField(info, widgets);
                 default:

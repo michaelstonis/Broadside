@@ -38,8 +38,8 @@ public class FieldValueTests
         var country = (PdfComboBoxField)form.FindField("country")!;
 
         Assert.Equal((PdfFieldType.Text, new CosName("Tx")), (first.FieldType, first.FieldTypeName));
-        Assert.Equal((2u, true, false), (first.Flags, first.IsRequired, first.IsReadOnly));
-        Assert.Equal((1u, false, true), (last.Flags, last.IsRequired, last.IsReadOnly));
+        Assert.Equal((PdfFieldFlags.Required, true, false), (first.Flags, first.IsRequired, first.IsReadOnly));
+        Assert.Equal((PdfFieldFlags.ReadOnly, false, true), (last.Flags, last.IsRequired, last.IsReadOnly));
         Assert.Equal(("/Helv 10 Tf 0 0 1 rg", PdfTextJustification.Centered), (first.DefaultAppearance, first.Quadding));
         Assert.Equal(("/Helv 0 Tf 0 g", PdfTextJustification.Left), (country.DefaultAppearance, country.Quadding));
         Assert.Equal("Grace", first.Value);
