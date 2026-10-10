@@ -68,6 +68,9 @@ internal static class FilterNames
     /// <summary><c>/EarlyChange</c> (§7.4.4.3, Table 8).</summary>
     public static readonly CosName EarlyChange = new("EarlyChange");
 
+    /// <summary><c>/ColorTransform</c>, the DCTDecode parameter (§7.4.8, Table 13).</summary>
+    public static readonly CosName ColorTransform = new("ColorTransform");
+
     /// <summary>
     /// The filter name abbreviations of §8.9.7, Table 92, which are valid only in inline images, and the full names they stand for.
     /// </summary>

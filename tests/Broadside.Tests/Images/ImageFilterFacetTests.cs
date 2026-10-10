@@ -227,7 +227,8 @@ public class ImageFilterFacetTests
     [Fact]
     public void A_standard_image_codec_that_is_not_registered_is_information_and_the_image_is_not_decoded()
     {
-        byte[] file = OneImage("/Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /DCTDecode", "jpeg");
+        // JPXDecode is a standard image codec with no managed default yet (issue #67); DCTDecode has one since issue #61.
+        byte[] file = OneImage("/Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Filter /JPXDecode", "jpx");
         using PdfDocument document = PdfDocument.Open(file, new PdfOptions().UseStrict());
         PdfImage image = document.Pages[0].GetImage("Im0")!;
 

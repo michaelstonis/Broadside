@@ -98,6 +98,7 @@ public static class Corpus
         "image-decode-inverted.pdf",
         "inline-image-filters.pdf",
         "inline-image-ei-in-data.pdf",
+        "dct-baseline.pdf",
         "shading-type1-function.pdf",
         "shading-type2-axial.pdf",
         "shading-type3-radial.pdf",

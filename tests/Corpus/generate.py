@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import math
 import os
 import struct
 import sys
@@ -3802,6 +3803,260 @@ def gen_inline_image_ei_in_data() -> bytes:
     ], binary=True)
 
 
+# ---------------------------------------------------------------------------
+# DCTDecode (clause 7.4.8): a minimal baseline JPEG encoder (ITU-T T.81), integer arithmetic only so the bytes never depend on
+# the platform's floating point
+# ---------------------------------------------------------------------------
+
+# T.81 Figure A.6: the natural (row-major) index of each zig-zag position.
+JPEG_ZIGZAG = [
+    0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5, 12, 19, 26, 33, 40, 48, 41, 34, 27, 20, 13, 6, 7, 14, 21, 28,
+    35, 42, 49, 56, 57, 50, 43, 36, 29, 22, 15, 23, 30, 37, 44, 51, 58, 59, 52, 45, 38, 31, 39, 46, 53, 60, 61, 54, 47, 55,
+    62, 63,
+]
+
+# T.81 Tables K.1 and K.2 (natural order): the example luminance and chrominance quantization tables.
+JPEG_LUMA_QUANT = [
+    16, 11, 10, 16, 24, 40, 51, 61, 12, 12, 14, 19, 26, 58, 60, 55, 14, 13, 16, 24, 40, 57, 69, 56, 14, 17, 22, 29, 51, 87,
+    80, 62, 18, 22, 37, 56, 68, 109, 103, 77, 24, 35, 55, 64, 81, 104, 113, 92, 49, 64, 78, 87, 103, 121, 120, 101, 72, 92,
+    95, 98, 112, 100, 103, 99,
+]
+JPEG_CHROMA_QUANT = [
+    17, 18, 24, 47, 99, 99, 99, 99, 18, 21, 26, 66, 99, 99, 99, 99, 24, 26, 56, 99, 99, 99, 99, 99, 47, 66, 99, 99, 99, 99,
+    99, 99] + [99] * 32
+
+# T.81 Tables K.3 to K.6: the typical Huffman tables as (BITS, HUFFVAL).
+JPEG_DC_LUMA = ([0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0], list(range(12)))
+JPEG_DC_CHROMA = ([0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0], list(range(12)))
+JPEG_AC_LUMA = ([0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 125], list(bytes.fromhex(
+    "01020300041105122131410613516107227114328191a1082342b1c11552d1f02433627282090a161718191a25262728292a3435363738393a"
+    "434445464748494a535455565758595a636465666768696a737475767778797a838485868788898a92939495969798999aa2a3a4a5a6a7a8a9"
+    "aab2b3b4b5b6b7b8b9bac2c3c4c5c6c7c8c9cad2d3d4d5d6d7d8d9dae1e2e3e4e5e6e7e8e9eaf1f2f3f4f5f6f7f8f9fa")))
+JPEG_AC_CHROMA = ([0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 119], list(bytes.fromhex(
+    "000102031104052131061241510761711322328108144291a1b1c109233352f0156272d10a162434e125f11718191a262728292a3536373839"
+    "3a434445464748494a535455565758595a636465666768696a737475767778797a82838485868788898a92939495969798999aa2a3a4a5a6a7"
+    "a8a9aab2b3b4b5b6b7b8b9bac2c3c4c5c6c7c8c9cad2d3d4d5d6d7d8d9dae2e3e4e5e6e7e8e9eaf2f3f4f5f6f7f8f9fa")))
+
+# cos((2x + 1) u pi / 16) scaled by 2^13, and C(u) (1/sqrt 2 for u = 0) scaled by 2^13 (T.81 A.3.3).
+JPEG_COS = [[round(math.cos((2 * x + 1) * u * math.pi / 16) * 8192) for u in range(8)] for x in range(8)]
+JPEG_CU = [round(8192 / math.sqrt(2))] + [8192] * 7
+
+
+def jpeg_huffman_codes(table: tuple[list[int], list[int]]) -> dict[int, tuple[int, int]]:
+    """T.81 Annex C (Figures C.1 to C.3): symbol -> (code, length)."""
+    bits, values = table
+    codes: dict[int, tuple[int, int]] = {}
+    code = 0
+    k = 0
+    for length in range(1, 17):
+        for _ in range(bits[length - 1]):
+            codes[values[k]] = (code, length)
+            code += 1
+            k += 1
+        code <<= 1
+    return codes
+
+
+def jpeg_round_div(numerator: int, denominator: int) -> int:
+    """numerator / denominator rounded half away from zero (denominator > 0)."""
+    q = (abs(numerator) * 2 + denominator) // (2 * denominator)
+    return q if numerator >= 0 else -q
+
+
+def jpeg_fdct_quantize(block: list[int], quant: list[int]) -> list[int]:
+    """T.81 A.3.3 forward DCT of 64 level-shifted samples (natural order), then A.3.4 quantization; integer arithmetic."""
+    rows = [[sum(block[8 * y + x] * JPEG_COS[x][u] for x in range(8)) for u in range(8)] for y in range(8)]
+    out = []
+    for v in range(8):
+        for u in range(8):
+            total = sum(rows[y][u] * JPEG_COS[y][v] for y in range(8)) * JPEG_CU[u] * JPEG_CU[v]
+            coefficient = jpeg_round_div(total, 4 << 52)
+            out.append(jpeg_round_div(coefficient, quant[8 * v + u]))
+    return out
+
+
+class JpegBitWriter:
+    """T.81 B.1.1.5 entropy-coded segment: MSB first, a 00 stuffed after every FF, padding with 1 bits."""
+
+    def __init__(self) -> None:
+        self.out = bytearray()
+        self.acc = 0
+        self.n = 0
+
+    def write(self, value: int, length: int) -> None:
+        self.acc = (self.acc << length) | (value & ((1 << length) - 1))
+        self.n += length
+        while self.n >= 8:
+            self.n -= 8
+            byte = (self.acc >> self.n) & 0xFF
+            self.out.append(byte)
+            if byte == 0xFF:
+                self.out.append(0)
+        self.acc &= (1 << self.n) - 1
+
+    def flush(self) -> None:
+        if self.n:
+            self.write((1 << (8 - self.n)) - 1, 8 - self.n)
+
+
+def jpeg_category(value: int) -> int:
+    return abs(value).bit_length()
+
+
+def jpeg_encode_block(w: JpegBitWriter, coefficients: list[int], previous_dc: int, dc: dict, ac: dict) -> int:
+    """T.81 F.1.2.1 and F.1.2.2 (Figures F.1 to F.5): the DC difference and the AC run/size codes of one block."""
+    diff = coefficients[0] - previous_dc
+    size = jpeg_category(diff)
+    w.write(*dc[size])
+    if size:
+        w.write(diff if diff > 0 else diff - 1, size)
+    run = 0
+    for k in range(1, 64):
+        value = coefficients[JPEG_ZIGZAG[k]]
+        if value == 0:
+            run += 1
+            continue
+        while run > 15:
+            w.write(*ac[0xF0])
+            run -= 16
+        size = jpeg_category(value)
+        w.write(*ac[(run << 4) | size])
+        w.write(value if value > 0 else value - 1, size)
+        run = 0
+    if run:
+        w.write(*ac[0x00])
+    return coefficients[0]
+
+
+def jpeg_segment(marker: int, body: bytes) -> bytes:
+    return bytes([0xFF, marker]) + struct.pack(">H", len(body) + 2) + body
+
+
+def jpeg_encode(width: int, height: int, planes: list[list[list[int]]], sampling: list[tuple[int, int]],
+                restart_interval: int = 0, ids: bytes = b"\x01\x02\x03", jfif: bool = True,
+                adobe_transform: int | None = None) -> bytes:
+    """A baseline (SOF0) JPEG of 1 to 4 components, one interleaved scan, the K.1/K.2 quantization tables (component 0 uses the
+    luminance tables, the others the chrominance ones) and the K.3-K.6 Huffman tables. ``planes`` are full-resolution sample
+    planes (planes[c][y][x], 0-255, already in the coded colour space); a subsampled component is the mean of each Hmax/H x
+    Vmax/V box of its plane (A.1.1), padded by edge replication to whole MCUs (A.2.4)."""
+    count = len(planes)
+    hmax = max(h for h, _ in sampling)
+    vmax = max(v for _, v in sampling)
+    if count == 1:
+        sampling = [(1, 1)]
+        hmax = vmax = 1
+    mcus_x = -(-width // (8 * hmax))
+    mcus_y = -(-height // (8 * vmax))
+    components = []
+    for c, (h, v) in enumerate(sampling):
+        sx, sy = hmax // h, vmax // v
+        cw, ch = -(-width * h // hmax), -(-height * v // vmax)
+        plane = planes[c]
+        samples = [[0] * cw for _ in range(ch)]
+        for y in range(ch):
+            for x in range(cw):
+                box = [plane[min(height - 1, y * sy + j)][min(width - 1, x * sx + i)] for j in range(sy) for i in range(sx)]
+                samples[y][x] = (sum(box) + len(box) // 2) // len(box)
+        components.append((h, v, cw, ch, samples))
+
+    quant = [JPEG_LUMA_QUANT, JPEG_CHROMA_QUANT]
+    dc = [jpeg_huffman_codes(JPEG_DC_LUMA), jpeg_huffman_codes(JPEG_DC_CHROMA)]
+    ac = [jpeg_huffman_codes(JPEG_AC_LUMA), jpeg_huffman_codes(JPEG_AC_CHROMA)]
+    w = JpegBitWriter()
+    predictors = [0] * count
+    mcu = 0
+    restarts = 0
+    for my in range(mcus_y):
+        for mx in range(mcus_x):
+            if restart_interval and mcu and mcu % restart_interval == 0:
+                w.flush()
+                w.out += bytes([0xFF, 0xD0 + restarts % 8])
+                restarts += 1
+                predictors = [0] * count
+            for c, (h, v, cw, ch, samples) in enumerate(components):
+                t = min(c, 1)
+                for by in range(v):
+                    for bx in range(h):
+                        x0, y0 = (mx * h + bx) * 8, (my * v + by) * 8
+                        block = [samples[min(ch - 1, y0 + j)][min(cw - 1, x0 + i)] - 128 for j in range(8) for i in range(8)]
+                        predictors[c] = jpeg_encode_block(w, jpeg_fdct_quantize(block, quant[t]), predictors[c], dc[t], ac[t])
+            mcu += 1
+    w.flush()
+
+    out = bytearray(b"\xff\xd8")
+    if jfif:
+        out += jpeg_segment(0xE0, b"JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00")
+    if adobe_transform is not None:
+        out += jpeg_segment(0xEE, b"Adobe" + struct.pack(">HHHB", 100, 0, 0, adobe_transform))
+    tables = 1 if count == 1 else 2
+    out += jpeg_segment(0xDB, b"".join(bytes([t]) + bytes(quant[t][JPEG_ZIGZAG[k]] for k in range(64)) for t in range(tables)))
+    out += jpeg_segment(0xC0, struct.pack(">BHHB", 8, height, width, count) + b"".join(
+        bytes([ids[c], (h << 4) | v, min(c, 1)]) for c, (h, v, _, _, _) in enumerate(components)))
+    huffman = [(0x00, JPEG_DC_LUMA), (0x10, JPEG_AC_LUMA), (0x01, JPEG_DC_CHROMA), (0x11, JPEG_AC_CHROMA)][:2 * tables]
+    out += jpeg_segment(0xC4, b"".join(bytes([tc]) + bytes(bits) + bytes(values) for tc, (bits, values) in huffman))
+    if restart_interval:
+        out += jpeg_segment(0xDD, struct.pack(">H", restart_interval))
+    out += jpeg_segment(0xDA, bytes([count]) + b"".join(bytes([ids[c], 0x11 * min(c, 1)]) for c in range(count)) + b"\x00\x3f\x00")
+    out += w.out + b"\xff\xd9"
+    return bytes(out)
+
+
+def rgb_to_ycbcr(r: int, g: int, b: int) -> tuple[int, int, int]:
+    """The JFIF / CCIR 601-1 RGB to YCbCr transform (Adobe TN 5116 13.1) in 16-bit fixed point, clamped."""
+    y = (19595 * r + 38470 * g + 7471 * b + 32768) >> 16
+    cb = (-11059 * r - 21709 * g + 32768 * b + (128 << 16) + 32767) >> 16
+    cr = (32768 * r - 27439 * g - 5329 * b + (128 << 16) + 32767) >> 16
+    return y, max(0, min(255, cb)), max(0, min(255, cr))
+
+
+def dct_test_picture(width: int, height: int) -> list[list[tuple[int, int, int]]]:
+    """A smooth RGB picture with sharp features: a diagonal ramp, a dark disc and a white bar, so every coefficient band is used."""
+    picture = []
+    for y in range(height):
+        row = []
+        for x in range(width):
+            r, g, b = (255 * x) // (width - 1), (255 * y) // (height - 1), 255 - (127 * (x + y)) // (width + height - 2)
+            if (2 * x - width) ** 2 + (2 * y - height) ** 2 <= (height * 3 // 5) ** 2:
+                r, g, b = r // 4, g // 4, 64
+            if height // 3 <= y < height // 3 + 3:
+                r = g = b = 255
+            row.append((r, g, b))
+        picture.append(row)
+    return picture
+
+
+def dct_color_jpeg() -> bytes:
+    """45 x 29 YCbCr 4:2:0 (partial MCUs on both axes), JFIF, restart interval of 2 MCUs."""
+    picture = dct_test_picture(45, 29)
+    ycc = [[rgb_to_ycbcr(*pixel) for pixel in row] for row in picture]
+    planes = [[[pixel[c] for pixel in row] for row in ycc] for c in range(3)]
+    return jpeg_encode(45, 29, planes, [(2, 2), (1, 1), (1, 1)], restart_interval=2)
+
+
+def dct_gray_jpeg() -> bytes:
+    """37 x 21 grayscale, one component, no JFIF segment."""
+    picture = dct_test_picture(37, 21)
+    plane = [[(r * 77 + g * 150 + b * 29 + 128) >> 8 for r, g, b in row] for row in picture]
+    return jpeg_encode(37, 21, [plane], [(1, 1)], jfif=False)
+
+
+def gen_dct_baseline() -> bytes:
+    """7.4.8 DCTDecode: two baseline JPEG image XObjects painted side by side, a 45 x 29 YCbCr 4:2:0 DeviceRGB image with a
+    restart interval (Im0) and a 37 x 21 DeviceGray image (Im1), both encoded by ``jpeg_encode``."""
+    color = dct_color_jpeg()
+    gray = dct_gray_jpeg()
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /XObject << /Im0 5 0 R /Im1 6 0 R >> >>")),
+        (4, stream(b"", b"q 180 0 0 116 72 600 cm /Im0 Do Q q 148 0 0 84 300 600 cm /Im1 Do Q")),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 45 /Height 29 /ColorSpace /DeviceRGB /BitsPerComponent 8 "
+                   b"/Filter /DCTDecode", color)),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 37 /Height 21 /ColorSpace /DeviceGray /BitsPerComponent 8 "
+                   b"/Filter /DCTDecode", gray)),
+    ], binary=True)
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -3909,6 +4164,7 @@ FILES = {
     "image-decode-inverted.pdf": gen_image_decode_inverted,
     "inline-image-filters.pdf": gen_inline_image_filters,
     "inline-image-ei-in-data.pdf": gen_inline_image_ei_in_data,
+    "dct-baseline.pdf": gen_dct_baseline,
     "shading-type1-function.pdf": gen_shading_type1,
     "shading-type2-axial.pdf": gen_shading_type2,
     "shading-type3-radial.pdf": gen_shading_type3,
@@ -3964,6 +4220,13 @@ def self_test() -> None:
     assert pack_samples([[1, 0, 1]], 1) == bytes([0b10111111])
     assert pack_samples([[3, 0, 1, 2, 3]], 2) == bytes([0xC6, 0xFF])
     assert pack_samples([[0x12FF]], 16) == bytes([0x12, 0xFF])
+    # T.81 Annex K: the typical tables hold 12 DC and 162 AC symbols; the first luminance DC code is 00 (Table K.3)
+    for bits, values in (JPEG_DC_LUMA, JPEG_DC_CHROMA, JPEG_AC_LUMA, JPEG_AC_CHROMA):
+        assert sum(bits) == len(values) and len(set(values)) == len(values)
+    assert len(JPEG_AC_LUMA[1]) == len(JPEG_AC_CHROMA[1]) == 162
+    assert jpeg_huffman_codes(JPEG_DC_LUMA)[0] == (0, 2) and jpeg_huffman_codes(JPEG_AC_LUMA)[0x00] == (0b1010, 4)
+    # T.81 A.3.3: a flat block of 100 has F(0,0) = 1/4 x 1/2 x 64 x 100 = 800 and no AC energy
+    assert jpeg_fdct_quantize([100] * 64, [1] * 64) == [800] + [0] * 63
 
 
 def main(argv: list[str]) -> int:
