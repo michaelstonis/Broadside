@@ -92,7 +92,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
     {
         ArgumentNullException.ThrowIfNull(context);
         CosDictionary dictionary = context.EncryptionDictionary;
-        int revision = ReadInteger(context, dictionary, KnownNames.R) ?? throw Fail(context, "The standard encryption dictionary has no R (revision) entry.");
+        int revision = ReadInteger(context, dictionary, KnownNames.R) ?? throw context.Fail("The standard encryption dictionary has no R (revision) entry.");
         if (revision is < 2 or > 7)
         {
             throw new PdfEncryptionNotSupportedException(
@@ -101,7 +101,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         }
 
         int version = ReadInteger(context, dictionary, KnownNames.V) ?? DefaultVersion(context, revision);
-        int rawPermissions = ReadInteger(context, dictionary, KnownNames.P) ?? throw Fail(context, "The standard encryption dictionary has no P (permissions) entry.");
+        int rawPermissions = ReadInteger(context, dictionary, KnownNames.P) ?? throw context.Fail("The standard encryption dictionary has no P (permissions) entry.");
         PdfPassword? password = context.Credentials as PdfPassword;
         if (revision == 5)
         {
@@ -453,7 +453,7 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         if (!dictionary.TryGetValue(key, out CosObject? entry) || context.Resolve(entry) is not CosString value)
         {
             return required
-                ? throw Fail(context, $"The standard encryption dictionary has no {key.Value} string, which the revision requires.")
+                ? throw context.Fail($"The standard encryption dictionary has no {key.Value} string, which the revision requires.")
                 : null;
         }
 
@@ -470,13 +470,6 @@ public sealed class StandardSecurityHandler : ISecurityHandler
         byte[] fixedLength = new byte[length];
         bytes[..Math.Min(length, bytes.Length)].CopyTo(fixedLength);
         return fixedLength;
-    }
-
-    private static DiagnosticException Fail(SecurityHandlerContext context, string message)
-    {
-        var diagnostic = new Diagnostic(DiagnosticCodes.EncryptDictionaryInvalid, DiagnosticSeverity.Error, message);
-        context.Report(diagnostic.Code, diagnostic.Severity, diagnostic.Message);
-        return new DiagnosticException(diagnostic);
     }
 
     /// <summary>The key computations of revisions 2 to 4 for one encryption dictionary.</summary>

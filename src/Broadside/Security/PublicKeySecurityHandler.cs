@@ -112,7 +112,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
 
             if (documentFilter is null)
             {
-                throw Fail(context, "The public-key encryption dictionary has no Recipients, neither its own (Table 23) nor in the crypt filter StmF or StrF names (Table 27).");
+                throw context.Fail("The public-key encryption dictionary has no Recipients, neither its own (Table 23) nor in the crypt filter StmF or StrF names (Table 27).");
             }
         }
         else if (version >= 4 && context.Resolve(Get(encryption, KnownNames.StmF)) is CosName stmF && context.Resolve(Get(filters, stmF)) is CosDictionary stmFilter)
@@ -142,7 +142,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
 
         if (envelope.Content.Length < 20)
         {
-            throw Fail(context, string.Create(CultureInfo.InvariantCulture, $"The enveloped data of the document's recipient list shall hold a 20-byte seed and 4 bytes of permissions (§7.6.5.3); it has {envelope.Content.Length} bytes."));
+            throw context.Fail(string.Create(CultureInfo.InvariantCulture, $"The enveloped data of the document's recipient list shall hold a 20-byte seed and 4 bytes of permissions (§7.6.5.3); it has {envelope.Content.Length} bytes."));
         }
 
         int rawPermissions = 0;
@@ -324,7 +324,7 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
 
         if (recipients.Count == 0)
         {
-            throw Fail(context, $"The Recipients of {label} hold no CMS object.");
+            throw context.Fail($"The Recipients of {label} hold no CMS object.");
         }
 
         return [.. recipients];
@@ -490,13 +490,6 @@ public sealed class PublicKeySecurityHandler : ISecurityHandler
 
     private static CosObject? Get(CosDictionary? dictionary, CosName key) =>
         dictionary is not null && dictionary.TryGetValue(key, out CosObject? value) ? value : null;
-
-    private static DiagnosticException Fail(SecurityHandlerContext context, string message)
-    {
-        var diagnostic = new Diagnostic(DiagnosticCodes.EncryptDictionaryInvalid, DiagnosticSeverity.Error, message);
-        context.Report(diagnostic.Code, diagnostic.Severity, diagnostic.Message);
-        return new DiagnosticException(diagnostic);
-    }
 
     /// <summary>The decrypted enveloped data of the recipient list that names the reader.</summary>
     private sealed record Envelope(byte[] Content);

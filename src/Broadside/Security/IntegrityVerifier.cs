@@ -1,3 +1,4 @@
+using System.Buffers;
 using System.Formats.Asn1;
 using System.Globalization;
 using System.Security.Cryptography;
@@ -38,6 +39,17 @@ internal static class IntegrityVerifier
     private const string HmacSha256Oid = "1.2.840.113549.2.9";
     private const string ContentTypeAttributeOid = "1.2.840.113549.1.9.3";
     private const string MessageDigestAttributeOid = "1.2.840.113549.1.9.4";
+
+    /// <summary>The digest algorithms of ISO/TS 32004 Table 8: object identifier, name, and whether this platform implements it.</summary>
+    private static readonly (string Oid, HashAlgorithmName Name, Func<bool> IsSupported)[] Digests =
+    [
+        ("2.16.840.1.101.3.4.2.1", HashAlgorithmName.SHA256, static () => true),
+        ("2.16.840.1.101.3.4.2.2", HashAlgorithmName.SHA384, static () => true),
+        ("2.16.840.1.101.3.4.2.3", HashAlgorithmName.SHA512, static () => true),
+        ("2.16.840.1.101.3.4.2.8", HashAlgorithmName.SHA3_256, static () => SHA3_256.IsSupported),
+        ("2.16.840.1.101.3.4.2.9", HashAlgorithmName.SHA3_384, static () => SHA3_384.IsSupported),
+        ("2.16.840.1.101.3.4.2.10", HashAlgorithmName.SHA3_512, static () => SHA3_512.IsSupported),
+    ];
 
     private static readonly CosName AuthCode = new("AuthCode");
     private static readonly CosName MacLocation = new("MACLocation");
@@ -347,15 +359,15 @@ internal static class IntegrityVerifier
                 return false;
             }
 
-            try
-            {
-                token = Convert.FromHexString(Encoding.ASCII.GetString(region, 1, region.Length - 2));
-                return true;
-            }
-            catch (FormatException)
+            byte[] decoded = new byte[(region.Length - 2) / 2];
+            if (Convert.FromHexString(Encoding.Latin1.GetString(region, 1, region.Length - 2), decoded, out _, out int written) != OperationStatus.Done
+                || written != decoded.Length)
             {
                 return false;
             }
+
+            token = decoded;
+            return true;
         }
 
         private byte[] DigestRange(HashAlgorithmName name, long[] range)
@@ -412,30 +424,27 @@ internal static class IntegrityVerifier
             }
         }
 
-        private static byte[] Hash(HashAlgorithmName name, ReadOnlySpan<byte> data) => name.Name switch
+        private static byte[] Hash(HashAlgorithmName name, ReadOnlySpan<byte> data)
         {
-            "SHA256" => SHA256.HashData(data),
-            "SHA384" => SHA384.HashData(data),
-            "SHA512" => SHA512.HashData(data),
-            "SHA3-256" => SHA3_256.HashData(data),
-            "SHA3-384" => SHA3_384.HashData(data),
-            _ => SHA3_512.HashData(data),
-        };
+            using var hash = IncrementalHash.CreateHash(name);
+            hash.AppendData(data);
+            return hash.GetHashAndReset();
+        }
 
-        /// <summary>ISO/TS 32004 Table 8.</summary>
+        /// <summary>Finds the digest algorithm <paramref name="oid"/> names in <see cref="Digests"/>, when this platform has it.</summary>
         private static bool TryCreateDigest(string oid, out HashAlgorithmName name)
         {
-            (name, bool supported) = oid switch
+            foreach ((string known, HashAlgorithmName algorithm, Func<bool> isSupported) in Digests)
             {
-                "2.16.840.1.101.3.4.2.1" => (HashAlgorithmName.SHA256, true),
-                "2.16.840.1.101.3.4.2.2" => (HashAlgorithmName.SHA384, true),
-                "2.16.840.1.101.3.4.2.3" => (HashAlgorithmName.SHA512, true),
-                "2.16.840.1.101.3.4.2.8" => (HashAlgorithmName.SHA3_256, SHA3_256.IsSupported),
-                "2.16.840.1.101.3.4.2.9" => (HashAlgorithmName.SHA3_384, SHA3_384.IsSupported),
-                "2.16.840.1.101.3.4.2.10" => (HashAlgorithmName.SHA3_512, SHA3_512.IsSupported),
-                _ => (default, false),
-            };
-            return supported;
+                if (known == oid)
+                {
+                    name = algorithm;
+                    return isSupported();
+                }
+            }
+
+            name = default;
+            return false;
         }
     }
 
