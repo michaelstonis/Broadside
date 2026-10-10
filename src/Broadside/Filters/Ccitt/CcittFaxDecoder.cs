@@ -51,8 +51,6 @@ internal enum CcittIssues
     /// <summary>The data ended before Rows rows (no EOFB or RTC).</summary>
     FewerRows = 1 << 6,
 
-    /// <summary>Uncompressed mode was used; the rest of that row is white.</summary>
-    Uncompressed = 1 << 7,
 }
 
 /// <summary>
@@ -192,7 +190,7 @@ internal ref struct CcittFaxDecoder
                 _ended = true;
                 break;
             default:
-                Damaged(status);
+                Damaged();
                 break;
         }
 
@@ -205,16 +203,13 @@ internal ref struct CcittFaxDecoder
     /// <param name="row">The destination.</param>
     public readonly void WriteRow(Span<byte> row) => _line.PackCurrent(row, _parameters.BlackIs1);
 
-    private void Damaged(CcittLineStatus status)
+    private void Damaged()
     {
-        // Uncompressed mode is legal data this decoder does not read: reported on its own, not as damage.
-        bool unsupported = status == CcittLineStatus.Uncompressed;
-        Note(unsupported ? CcittIssues.Uncompressed : CcittIssues.None);
         DamagedRows++;
         if (!_eolMode)
         {
             // Nothing to resynchronize at: keep the partial row and stop.
-            Note(unsupported ? CcittIssues.None : CcittIssues.DamagedData);
+            Note(CcittIssues.DamagedData);
             _ended = true;
             return;
         }
@@ -223,7 +218,7 @@ internal ref struct CcittFaxDecoder
         bool tolerated = _parameters.EndOfLine && _parameters.K >= 0 && _consecutiveDamaged <= _parameters.DamagedRowsBeforeError;
         if (tolerated)
         {
-            Note(unsupported ? CcittIssues.None : CcittIssues.DamagedRowReplaced);
+            Note(CcittIssues.DamagedRowReplaced);
             if (_previousDamaged)
             {
                 _line.ClearCurrent();
@@ -235,7 +230,7 @@ internal ref struct CcittFaxDecoder
         }
         else
         {
-            Note(unsupported ? CcittIssues.None : CcittIssues.DamagedRowResynchronized);
+            Note(CcittIssues.DamagedRowResynchronized);
         }
 
         _previousDamaged = true;

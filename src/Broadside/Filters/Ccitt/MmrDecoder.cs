@@ -31,7 +31,8 @@ internal readonly record struct MmrResult(MmrStatus Status, int Rows, int BytesC
 /// <remarks>
 /// ITU-T T.88 §6.2.6 and ITU-T T.6 §2.2-2.4: pure two-dimensional coding, first reference line white, no EOLs or alignment between
 /// rows, EOFB optional when the byte count is known (running out of data while looking for it is normal), extension codes
-/// (uncompressed mode included) not allowed, consumption rounded up to a byte so several bitmaps can be read back to back.
+/// (uncompressed mode included: "must not be present in the MMR-encoded data") invalid, consumption rounded up to a byte so several
+/// bitmaps can be read back to back.
 /// </remarks>
 internal static class MmrDecoder
 {
@@ -54,7 +55,7 @@ internal static class MmrDecoder
         int[] second = ArrayPool<int>.Shared.Rent(work);
         try
         {
-            var line = new CcittLineDecoder(data, width, first, second);
+            var line = new CcittLineDecoder(data, width, first, second, allowUncompressed: false);
             for (int row = 0; row < height; row++)
             {
                 long start = line.BitPosition;

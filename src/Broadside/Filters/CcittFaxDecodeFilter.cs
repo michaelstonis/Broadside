@@ -33,8 +33,8 @@ namespace Broadside.Filters;
 /// replaced by the previous row (or a white row after another damaged one) within <c>DamagedRowsBeforeError</c>
 /// (<c>CcittDamagedRowReplaced</c>); decoding resumes at the next EOL, or stops when the data has none. Runs past the last column
 /// are cut (<c>CcittRunTooLong</c>); data that ends inside a row, or before <c>Rows</c> rows, keeps what decoded
-/// (<c>FilterDataTruncated</c>). Uncompressed mode (T.4 Table 5) is not decoded: the rest of that row is white
-/// (<c>CcittUncompressedMode</c>, Information). Invalid parameters take their defaults (<c>DecodeParmsInvalid</c>).
+/// (<c>FilterDataTruncated</c>). Uncompressed mode (T.4 Table 5, T.6 Table 4) is decoded, its patterns running on across line ends
+/// as T.6 §2.3.1 says. Invalid parameters take their defaults (<c>DecodeParmsInvalid</c>).
 /// </para>
 /// <para>Stateless; each call allocates only its two pooled changing-element arrays, nothing per row.</para>
 /// </remarks>
@@ -269,11 +269,6 @@ public sealed class CcittFaxDecodeFilter : IImageFilter
         }
 
         string at = string.Create(CultureInfo.InvariantCulture, $"row {decoder.FirstIssueRow + 1}");
-        if ((issues & CcittIssues.Uncompressed) != 0)
-        {
-            context.Report(DiagnosticCodes.CcittUncompressedMode, DiagnosticSeverity.Information, $"CCITTFaxDecode data uses uncompressed mode (ITU-T T.4 Table 5), which is not decoded; the rest of the row is white (first issue at {at}).");
-        }
-
         if ((issues & CcittIssues.MissingEol) != 0)
         {
             context.Report(DiagnosticCodes.CcittMissingEol, DiagnosticSeverity.Warning, $"CCITTFaxDecode EndOfLine is true but lines have no EOL before them; they are decoded without (first issue at {at}).");
