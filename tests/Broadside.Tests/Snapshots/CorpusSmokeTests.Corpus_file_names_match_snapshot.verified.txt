@@ -26,6 +26,8 @@
   color-operators.pdf,
   colorspace-families.pdf,
   dct-baseline.pdf,
+  dct-cmyk.pdf,
+  dct-progressive.pdf,
   declarations.pdf,
   default-colorspaces.pdf,
   destinations-all.pdf,

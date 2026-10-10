@@ -238,8 +238,8 @@ qpdf: 639 files
     XrefStreamWidthsInvalid: 1
     XrefSubsectionHeaderInvalid: 1
 pdfium-tests: 840 files
-  Clean: 305
-  Diagnostics: 528
+  Clean: 304
+  Diagnostics: 529
   PasswordRequired: 2
   CertificateRequired: 4
   EncryptionUnsupported: 0
@@ -306,6 +306,8 @@ pdfium-tests: 840 files
     AnnotationRectInvalid: 1
     AppearanceEntryInvalid: 1
     ButtonValueStateMismatch: 1
+    DctDataInvalid: 1
+    DctTruncated: 1
     DictionaryValueMissing: 1
     EncryptDictionaryInvalid: 1
     EndOfFileMarkerMissing: 1

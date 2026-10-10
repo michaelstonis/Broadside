@@ -8,34 +8,40 @@ using Broadside.Parsing;
 namespace Broadside.Filters;
 
 /// <summary>
-/// The <c>DCTDecode</c> filter: JPEG baseline and extended sequential (8-bit, Huffman-coded) image data, decoded in managed code
-/// to 8-bit samples, interleaved, in the §8.9.3 layout. Decode only.
+/// The <c>DCTDecode</c> filter: JPEG baseline, extended sequential and progressive image data, Huffman- or arithmetic-coded, 8- or
+/// 12-bit, decoded in managed code to 8-bit samples, interleaved, in the §8.9.3 layout. Decode only.
 /// </summary>
 /// <remarks>
 /// <para>
-/// ISO 32000-2 §7.4.8 (DCTDecode, Table 13 <c>ColorTransform</c>); ITU-T T.81 (ISO/IEC 10918-1) Annex B (interchange syntax),
-/// Annex C (Huffman tables), Annex E (decoder control, restart intervals), Annex F §F.2 (sequential DCT decoding: baseline and
-/// extended 8-bit, up to four tables of each class), Annex A (MCU geometry, IDCT), Annex K.3 (typical tables, used when a scan's
-/// table was never defined); Adobe Technical Note #5116 (APP14 marker, colour transforms, replication upsampling). §8.9.5.1 Table
-/// 87: the filter always delivers 8 bits per component, whatever the image dictionary says.
+/// ISO 32000-2 §7.4.8 (DCTDecode, Table 13 <c>ColorTransform</c>; progressive JPEG from PDF 1.3); ITU-T T.81 (ISO/IEC 10918-1)
+/// Annex B (interchange syntax), Annex C (Huffman tables), Annex D (the QM arithmetic decoder, its own 113-state probability
+/// estimation, not the MQ decoder of JBIG2 and JPEG 2000), Annex E (decoder control, restart intervals), Annex F §F.2 (sequential
+/// DCT decoding: baseline and extended, 8 and 12 bits, Huffman with up to four tables of each class or arithmetic coding with DAC
+/// conditioning), Annex G (progressive DCT decoding: spectral selection and successive approximation, Huffman or arithmetic),
+/// Annex A (MCU geometry, IDCT), Annex K.3 (typical tables, used when a scan's table was never defined); Adobe Technical Note
+/// #5116 (APP14 marker, colour transforms, replication upsampling). §8.9.5.1 Table 87: the filter always delivers 8 bits per
+/// component, whatever the image dictionary says, so 12-bit samples are reduced to 8 bits (reported as <c>DctPrecisionReduced</c>,
+/// Information).
 /// </para>
 /// <para>
 /// Samples equal libjpeg-turbo's with <c>-dct int -nosmooth</c> (the islow IDCT and the integer YCbCr tables are ported from the
 /// Independent JPEG Group's software; see THIRD-PARTY-NOTICES.txt): subsampled components are replicated, as Adobe's DCTDecode
 /// does, never interpolated. Three components are converted from YCbCr to RGB and four from YCCK to CMYK when the Adobe APP14
-/// segment's transform flag says so, else when <c>ColorTransform</c> is 1, else (three components only) unless the components are
-/// identified as R, G, B. The codec never inverts samples: an Adobe-inverted CMYK image carries its own <c>Decode</c> array, which
-/// the image layer applies (§8.9.5.2).
+/// segment's transform code says so (Table 13: a present APP14 segment decides and <c>ColorTransform</c> is ignored), else when
+/// <c>ColorTransform</c> is 1, else (three components only) unless the components are identified as R, G, B. The codec never
+/// inverts samples: an Adobe-inverted CMYK image carries its own <c>Decode</c> array, which the image layer applies (§8.9.5.2).
 /// </para>
 /// <para>
-/// Not decoded yet (recorded as <c>DctProcessUnsupported</c> at Information, no samples): progressive and 12-bit data (issue
-/// #62). Never decoded (Error): the lossless, hierarchical and arithmetic-coded processes, which PDF does not use.
+/// Never decoded (<c>DctProcessUnsupported</c>, Error, no samples): the lossless and hierarchical processes, which PDF does not
+/// use.
 /// </para>
 /// <para>
 /// Lenient repair, each reported once per image: junk before SOI or between segments is skipped; undefined Huffman tables fall
 /// back to Annex K; a frame height of 0 comes from the DNL segment or the image dictionary; restart markers out of sequence are
 /// resynchronized; data that ends early leaves the missing blocks mid-grey (<see cref="DecodedImage.DecodedRows"/> on the image
-/// path); a missing quantization table or an unusable frame decodes nothing. Strict mode throws at the first deviation.
+/// path, except that a truncated progressive image keeps every row its first DC scan reached); invalid progressive scans are
+/// skipped and out-of-order ones decoded as given; a missing quantization table or an unusable frame decodes nothing. Strict mode
+/// throws at the first deviation.
 /// </para>
 /// <para>
 /// Stateless and thread-safe; a decode allocates nothing per block or row (the per-image buffers are pooled).
