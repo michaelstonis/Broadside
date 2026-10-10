@@ -30,7 +30,7 @@ page events:
   GlyphsMMType1: 39
   GlyphsTrueType: 50830
   GlyphsType3: 1446
-  GlyphsType0: 100157
+  GlyphsType0: 100232
   Type3GlyphsRun: 113
   ImagesXObject: 1447
   ImagesInline: 0
@@ -69,7 +69,7 @@ appearance events:
   GlyphsMMType1: 0
   GlyphsTrueType: 2560
   GlyphsType3: 0
-  GlyphsType0: 675
+  GlyphsType0: 683
   Type3GlyphsRun: 0
   ImagesXObject: 152
   ImagesInline: 0
@@ -104,7 +104,6 @@ diagnostics on other files (files, total):
   AnnotationRectInvalid: 1, 1
   AppearanceEntryInvalid: 1, 1
   ArrayUnterminated: 1, 1
-  CMapCodeInvalid: 4, 10
   CidToGidMapMissing: 4, 5
   ContentColorOperatorInvalid: 4, 4
   ContentColorOperatorMismatch: 21, 69

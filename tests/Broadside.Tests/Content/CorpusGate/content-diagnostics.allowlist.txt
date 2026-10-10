@@ -73,6 +73,7 @@ pdfjs/axial_shading_many_inputs.pdf	ShadingFunctionInvalid	16	8.7.4.5.3 Table 79
 pdfjs/bomb_giant.pdf	ContentUnknownOperator	1	7.8.2 a keyword that is not an operator outside BX/EX
 pdfjs/bug1065245.pdf	ContentTextObjectUnbalanced	1	9.4.1 Figure 9 BT/ET not balanced in the content stream
 pdfjs/bug1068432.pdf	FontDescriptorInvalid	1	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/bug1146106.pdf	FontCffFdSelectInvalid	1	Adobe TN 5176 §19 Table 28 CID-keyed CFF FDSelect format 3 whose first range does not start at glyph 0 (recovered as pdf.js does)
 pdfjs/bug1157493.pdf	ContentStackUnderflow	1	8.4.2 Q without a matching q (q/Q shall be balanced)
 pdfjs/bug1186827.pdf	FontProgramFormatMismatch	1	9.9 Table 124 FontFile/FontFile2 holds a CFF or OpenType program of another kind
 pdfjs/bug1308536.pdf	FontCffDictInvalid	1	Adobe TN 5176 malformed real number in the CFF Private DICT
@@ -159,7 +160,6 @@ pdfjs/issue20232.pdf	FontEncodingInvalid	1	9.6.5.1 Table 111 Encoding names no p
 pdfjs/issue20504.pdf	ContentColorOperatorMismatch	5	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
 pdfjs/issue2099-1.pdf	FontDescriptorInvalid	1	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
 pdfjs/issue2099-1.pdf	FontStandard14EntriesIncomplete	1	9.6.2.1 Table 109 Standard 14 font with only some of FirstChar, LastChar, Widths, FontDescriptor (all or none)
-pdfjs/issue2128r.pdf	CMapCodeInvalid	1	9.7.6.2 a shown code lies in no codespace range of the CMap
 pdfjs/issue21570.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
 pdfjs/issue2391-1.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
 pdfjs/issue2391-1.pdf	ContentUnknownOperator	1	7.8.2 a keyword that is not an operator outside BX/EX
@@ -220,6 +220,7 @@ pdfjs/issue8702.pdf	ContentXObjectInvalid	1	8.8 Do names an XObject that is not 
 pdfjs/issue8798r.pdf	ImageMaskConflict	1	8.9.6.2 image mask (XObject or inline) with ColorSpace, Mask or SMask
 pdfjs/issue8823.pdf	ImageMaskConflict	1	8.9.6.2 image mask (XObject or inline) with ColorSpace, Mask or SMask
 pdfjs/issue9084.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue9278.pdf	FontCffPrivateMissing	2	Adobe TN 5176 §18 CID-keyed CFF Font DICT without the Private DICT each Font DICT shall have (defaults used, as PDFBox does)
 pdfjs/issue9458.pdf	ContentTextObjectUnbalanced	1	9.4.1 Figure 9 BT/ET not balanced in the content stream
 pdfjs/pdfjsbad1586.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
 pdfjs/sci-notation.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream

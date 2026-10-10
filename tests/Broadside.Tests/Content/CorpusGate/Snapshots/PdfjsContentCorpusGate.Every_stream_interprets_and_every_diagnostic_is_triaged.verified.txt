@@ -30,7 +30,7 @@ page events:
   GlyphsMMType1: 51
   GlyphsTrueType: 254853
   GlyphsType3: 2264
-  GlyphsType0: 58261
+  GlyphsType0: 58273
   Type3GlyphsRun: 507
   ImagesXObject: 2150
   ImagesInline: 2530
@@ -91,7 +91,7 @@ appearance events:
   MarkedContentPoints: 2
   MaxDepth: 4
 diagnostics on well-formed files (files, total):
-  CMapCodeInvalid: 2, 2
+  CMapCodeInvalid: 1, 1
   CMapOperatorNotAllowed: 1, 1
   CidSystemInfoMismatch: 1, 1
   CidToGidMapMissing: 20, 24
@@ -118,6 +118,8 @@ diagnostics on well-formed files (files, total):
   ContentXObjectMissing: 1, 1
   FontBaseFontMissing: 1, 2
   FontCffDictInvalid: 1, 1
+  FontCffFdSelectInvalid: 1, 1
+  FontCffPrivateMissing: 1, 2
   FontCmapInvalid: 1, 1
   FontDescriptorInvalid: 20, 180
   FontDescriptorMissing: 3, 3
