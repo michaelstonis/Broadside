@@ -3233,6 +3233,7 @@ Broadside.PdfGoToAction.StructureDestination.get -> Broadside.PdfExplicitDestina
 Broadside.PdfNamedDestination
 Broadside.PdfNamedDestination.Name.get -> Broadside.Objects.CosObject!
 Broadside.PdfNamedDestination.Resolve() -> Broadside.PdfExplicitDestination?
+Broadside.PdfNamedDestination.ResolveStructureDestination() -> Broadside.PdfExplicitDestination?
 Broadside.PdfNamedDestination.Text.get -> string!
 Broadside.PdfOutline
 Broadside.PdfOutline.Count.get -> int?

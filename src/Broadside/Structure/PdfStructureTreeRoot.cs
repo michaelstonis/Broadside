@@ -101,6 +101,13 @@ public sealed class PdfStructureTreeRoot
     /// <remarks>ISO 32000-2 §14.7.2, §14.8.2.5 (logical order). A snapshot, built once.</remarks>
     public IReadOnlyList<PdfStructureElement> Elements => _context.Walk.Elements;
 
+    /// <summary>Returns a view over the structure element <paramref name="dictionary"/>, wherever it is in the tree.</summary>
+    /// <param name="dictionary">The structure element dictionary.</param>
+    /// <param name="reference">The reference it was reached through, or <see langword="null"/>.</param>
+    /// <returns>The view; its parent is read from its <c>P</c> entry.</returns>
+    internal PdfStructureElement GetElement(CosDictionary dictionary, CosReference? reference) =>
+        new(_context, dictionary, reference, parent: null, parentKnown: false, depth: 0);
+
     /// <summary>Finds the element whose <c>ID</c> is <paramref name="id"/>.</summary>
     /// <param name="id">The identifier's bytes (IDs are byte strings, compared byte for byte).</param>
     /// <returns>The element, or <see langword="null"/>.</returns>

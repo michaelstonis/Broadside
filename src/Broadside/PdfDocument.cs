@@ -554,6 +554,42 @@ public sealed partial class PdfDocument : IDisposable
     /// <returns>The explicit destination, or <see langword="null"/>.</returns>
     internal PdfExplicitDestination? FindNamedDestination(CosObject name, out bool found)
     {
+        CosObject? value = FindNamedDestinationValue(name);
+        found = value is not null;
+        return value is null ? null : ReadNamedDestinationValue(value);
+    }
+
+    /// <summary>Looks a destination name up and reads the <c>SD</c> entry of a dictionary value (§12.3.2.4, Table 201).</summary>
+    /// <param name="name">A <see cref="CosName"/> or <see cref="CosString"/>.</param>
+    /// <returns>The structure destination, or <see langword="null"/>.</returns>
+    internal PdfExplicitDestination? FindNamedStructureDestination(CosObject name)
+    {
+        CosObject? value = FindNamedDestinationValue(name);
+        if (Resolve(value) is not CosDictionary dictionary || !dictionary.TryGetValue(NavigationNames.SD, out CosObject? sd))
+        {
+            return null;
+        }
+
+        CosReference? reference = sd as CosReference ?? value as CosReference;
+        switch (Resolve(sd))
+        {
+            case CosArray array:
+                return new PdfExplicitDestination(this, array, isRemote: false, reference);
+            case CosNull:
+                return null;
+            default:
+                _diagnostics.Report(
+                    DiagnosticCodes.DestinationInvalid,
+                    DiagnosticSeverity.Warning,
+                    "A named destination's SD entry is not a destination array; it is ignored and D is used.",
+                    objectReference: reference);
+                return null;
+        }
+    }
+
+    /// <summary>The raw value a destination name maps to: a name in the catalog's <c>Dests</c> first, a string in the tree first.</summary>
+    private CosObject? FindNamedDestinationValue(CosObject name)
+    {
         CosObject? value = null;
         switch (name)
         {
@@ -570,8 +606,7 @@ public sealed partial class PdfDocument : IDisposable
                 break;
         }
 
-        found = value is not null;
-        return value is null ? null : ReadNamedDestinationValue(value);
+        return value;
     }
 
     /// <summary>Reads a named destination's value: a destination array, or a dictionary whose <c>D</c> entry is one (§12.3.2.4).</summary>
