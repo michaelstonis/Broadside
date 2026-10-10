@@ -181,7 +181,7 @@ internal sealed partial class ContentInterpreter
         _context.ContentStream = form.Stream;
         _context.StructParents = form.StructParents;
         _states[0].Ctm = matrix;
-        _parts.Add((0, form.Reference));
+        _parts.Add(new ContentPart(0, form.Reference));
         Start();
         if (form.BoundingBox is { } box)
         {
