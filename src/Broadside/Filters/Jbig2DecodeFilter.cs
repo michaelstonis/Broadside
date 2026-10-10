@@ -136,7 +136,7 @@ public sealed class Jbig2DecodeFilter : IImageFilter
             case CosNull:
                 return null;
             case CosStream stream when !UsesJbig2(stream, context):
-                return Jbig2Globals.Get(stream, () => context.DecodeStream(stream), image.MaxPixels, image.MaxBytes);
+                return Jbig2Globals.Get(stream, () => context.DecodeStream(stream), image.MaxPixels, image.MaxDecodedLength);
             case CosStream:
                 context.Report(
                     DiagnosticCodes.Jbig2GlobalsInvalid,

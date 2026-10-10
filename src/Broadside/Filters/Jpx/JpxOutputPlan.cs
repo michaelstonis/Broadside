@@ -81,7 +81,7 @@ internal sealed class JpxOutputPlan
     public static JpxOutputPlan Create(JpxImageSize size, JpxFileHeader file, ImageFilterContext context, CodecReporter reporter)
     {
         JpxComponentInfo[] components = size.Components;
-        if (context.IsMask || IsIndexed(context))
+        if (context.IsStencil || IsIndexed(context))
         {
             return Finish([Direct(components, 0)], null, false, ImageColorModel.Unknown, null, JpxColorConversion.None, [], null, components.Length);
         }

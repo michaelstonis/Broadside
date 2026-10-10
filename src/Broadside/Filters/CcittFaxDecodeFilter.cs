@@ -118,7 +118,7 @@ public sealed class CcittFaxDecodeFilter : IImageFilter
         if (height > 0)
         {
             parameters = ReadParameters(filter, context.Width, report: true);
-            if (!FitsLimit(parameters, context.MaxBytes, filter))
+            if (!FitsLimit(parameters, context.MaxDecodedLength, filter))
             {
                 return null;
             }
@@ -192,7 +192,7 @@ public sealed class CcittFaxDecodeFilter : IImageFilter
 
     private DecodedImage? DecodeUnknownHeight(ReadOnlyMemory<byte> encoded, FilterContext filter, ImageFilterContext context, CcittParameters parameters, int width)
     {
-        using var rows = new PooledBufferWriter(parameters.RowBytes * 64L, context.MaxBytes);
+        using var rows = new PooledBufferWriter(parameters.RowBytes * 64L, context.MaxDecodedLength);
         try
         {
             Decode(encoded, rows, filter);

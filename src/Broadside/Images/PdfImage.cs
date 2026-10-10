@@ -105,7 +105,7 @@ public sealed class PdfImage
 
     /// <summary>Gets a value indicating whether the image is a stencil mask (<c>ImageMask true</c>), painted with the current fill colour.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87, and §8.9.6.2.</remarks>
-    public bool IsStencil => ReadLayout().IsMask;
+    public bool IsStencil => ReadLayout().IsStencil;
 
     /// <summary>
     /// Gets the colour space of the samples; <see langword="null"/> for an image mask, for a JPEG 2000 image without one (see
@@ -720,7 +720,7 @@ public sealed class PdfImage
             {
                 builder.DecodedRows = rows;
                 Report(DiagnosticCodes.ImageDataTruncated, string.Create(CultureInfo.InvariantCulture, $"The image data has {data.Length} bytes where {needed} are needed; {rows} of {height} rows are complete and the rest are zero."));
-                if (layout.IsMask && layout.Decode is not [1, 0])
+                if (layout.IsStencil && layout.Decode is not [1, 0])
                 {
                     // Missing rows of a mask paint nothing: with Decode [0 1] that is sample 1.
                     int start = (int)Math.Min(data.Length, needed);
@@ -788,10 +788,10 @@ public sealed class PdfImage
             Height = layout.Height,
             BitsPerComponent = layout.BitsPerComponent,
             ColorComponents = layout.Components,
-            IsMask = layout.IsMask,
+            IsStencil = layout.IsStencil,
             WantsAlpha = SoftMaskInData != 0,
             MaxPixels = streams.MaxImagePixels,
-            MaxBytes = streams.MaxDecodedLength,
+            MaxDecodedLength = streams.MaxDecodedLength,
         };
 
         if (data.IsEmpty)
@@ -902,5 +902,5 @@ public sealed class PdfImage
 
     /// <summary>The dictionary values decoding needs, read with their defaults.</summary>
     private readonly record struct ImageLayout(
-        int Width, int Height, int BitsPerComponent, int Components, bool IsMask, PdfColorSpace? ColorSpace, double[] Decode, bool IsDecodable);
+        int Width, int Height, int BitsPerComponent, int Components, bool IsStencil, PdfColorSpace? ColorSpace, double[] Decode, bool IsDecodable);
 }

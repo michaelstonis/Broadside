@@ -25,7 +25,7 @@ public class ImageFilterFacetTests
         Assert.Equal((2, 3), (decoded.Width, decoded.Height));
         Assert.All(decoded.Samples.ToArray(), value => Assert.Equal(7, value));
         Assert.Equal(["ImageDimensionMismatch"], Codes(document));
-        Assert.Equal((4, 4, 8, 1, false, false), (codec.Context!.Width, codec.Context.Height, codec.Context.BitsPerComponent, codec.Context.ColorComponents, codec.Context.IsMask, codec.Context.WantsAlpha));
+        Assert.Equal((4, 4, 8, 1, false, false), (codec.Context!.Width, codec.Context.Height, codec.Context.BitsPerComponent, codec.Context.ColorComponents, codec.Context.IsStencil, codec.Context.WantsAlpha));
     }
 
     [Theory]
@@ -123,7 +123,7 @@ public class ImageFilterFacetTests
 
         // JBIG2 1 = black = paint: with the inversion folded in, the two 1 bits paint although Decode is [0 1].
         Assert.Equal([0.0, 1.0], stencil.DecodeArray);
-        Assert.True(stencilCodec.Context!.IsMask);
+        Assert.True(stencilCodec.Context!.IsStencil);
         ImageDecodeMap map = stencil.CreateDecodeMap(stencilSamples);
         Assert.True(map.IsInverted);
         byte[] coverage = new byte[8];

@@ -139,7 +139,7 @@ public sealed class DctDecodeFilter : IImageFilter
             }
 
             var sink = new ImageRowSink(image);
-            if (!decoder.Decode(data, ref sink, context.MaxBytes))
+            if (!decoder.Decode(data, ref sink, context.MaxDecodedLength))
             {
                 return null;
             }
