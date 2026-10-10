@@ -33,21 +33,25 @@ description: "Use when a PR touches a hot path (lexer, content interpreter, rast
 Two layers:
 
 1. The benchmark. With `[MemoryDiagnoser]` the `Allocated` column must read `-` (0 B) for a hot path. Any number there is a regression, whatever the baseline says. Read it from the console table or from `BenchmarkDotNet.Artifacts/results/<Class>-report-github.md`.
-2. A unit test next to the feature that fails the build on regressions, because BenchmarkDotNet only reports. After one warm-up call:
+2. A unit test next to the feature that fails the build on regressions, because BenchmarkDotNet only reports. Measure through `Broadside.TestSupport.Allocations.Measure` and put the class in the non-parallel `Heavy` collection:
 
    ```csharp
-   [Fact]
-   public void Tokenizing_allocates_nothing()
+   [Collection(HeavyTestCollection.Name)]
+   public class TokenizerAllocationTests
    {
-       byte[] bytes = Corpus.Bytes("text-standard14.pdf");
-       RunHotPath(bytes);                                               // warm up: JIT, static init
-       long before = GC.GetAllocatedBytesForCurrentThread();
-       RunHotPath(bytes);
-       Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+       [Fact]
+       public void Tokenizing_allocates_nothing()
+       {
+           byte[] bytes = Corpus.Bytes("text-standard14.pdf");
+
+           long allocated = Allocations.Measure(() => RunHotPath(bytes));   // warm-up, then the cheapest of several calls
+
+           Assert.Equal(0, allocated);
+       }
    }
    ```
 
-   Put only the per-item work inside `RunHotPath`; one-time buffers (`ArrayPool<T>` rentals, the output list) are allowed per call, so size the input to make per-token allocations visible.
+   Never measure one call after a fixed warm-up: under load that is flaky (issue #48), because the per-thread counter also sees unoptimized code still running while the background compiler is starved (tier 0 does not stack-allocate non-escaping objects), `ArrayPool<T>.Shared` arrays trimmed by another test's gen-2 collection, and first-use runtime work. `Measure` warms up, then takes the fewest bytes over several calls with a short pause between them, stopping at zero; a real per-item allocation shows on every call. The `Heavy` collection keeps parallel tests' collections and compilation away from the measurement. Put only the per-item work inside the delegate and create the delegate before the call; one-time buffers (`ArrayPool<T>` rentals, the output list) are allowed per call, so size the input to make per-token allocations visible.
 
 ## Running
 
@@ -85,5 +89,5 @@ Track 3I (`docs/plan/README.md`) adds a CI job that runs the suite and compares 
 - [ ] Class in `bench/Broadside.Benchmarks/`, `[MemoryDiagnoser]`, no job attributes
 - [ ] Inputs loaded in `[GlobalSetup]`; body is only the hot path; result returned
 - [ ] `--job dry` exits 0; `--job short` numbers quoted in the PR
-- [ ] `Allocated` reads `-` on hot paths; `GC.GetAllocatedBytesForCurrentThread` test added next to the feature
+- [ ] `Allocated` reads `-` on hot paths; an `Allocations.Measure` test in the `Heavy` collection added next to the feature
 - [ ] Names stable; any rename called out in the PR body

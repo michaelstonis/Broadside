@@ -29,6 +29,7 @@ public sealed class PdfOptions
     private readonly List<IStreamFilter> _filters = [];
     private readonly List<ISecurityHandler> _securityHandlers = [];
     private readonly List<IFontProgramParser> _fontProgramParsers = [];
+    private readonly List<IFontResolver> _fontResolvers = [];
     private long _maxDecodedStreamLength = DefaultMaxDecodedStreamLength;
     private long _streamBufferLimit = DefaultStreamBufferLimit;
     private long _maxImagePixels = DefaultMaxImagePixels;
@@ -261,6 +262,46 @@ public sealed class PdfOptions
     {
         ArgumentNullException.ThrowIfNull(parser);
         _fontProgramParsers.Add(parser);
+        return this;
+    }
+
+    /// <summary>Gets the font resolvers registered with <see cref="UseFontResolver"/>, in registration order.</summary>
+    /// <remarks>ISO 32000-2 §9.6.2.2. Not public, so configuration binding never sees it; resolvers are code.</remarks>
+    internal IReadOnlyList<IFontResolver> FontResolvers => _fontResolvers;
+
+    /// <summary>Gets the operating system's font resolver, asked after the registered ones; <see langword="null"/> when turned off.</summary>
+    /// <remarks>Not public, so configuration binding never sees it.</remarks>
+    internal IFontResolver? SystemFontResolver { get; private set; } = Fonts.SystemFontResolver.Shared;
+
+    /// <summary>
+    /// Uses <paramref name="resolver"/> to find font programs for fonts that are not embedded, and named font resources (predefined
+    /// CMaps, CID-to-Unicode tables). Resolvers are asked in registration order, all before the operating system's fonts; the first
+    /// answer wins.
+    /// </summary>
+    /// <param name="resolver">The resolver. Shared by every document and thread of the engine: it must keep no state between calls.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §9.6.2.2, §9.7.5.2 and §9.8. The font resolver extension point (ADR 0001, ADR 0007, ADR 0009). The Standard 14
+    /// fonts package registers its resolver with one call, <c>UseStandard14Fonts()</c>.
+    /// </remarks>
+    public PdfOptions UseFontResolver(IFontResolver resolver)
+    {
+        ArgumentNullException.ThrowIfNull(resolver);
+        _fontResolvers.Add(resolver);
+        return this;
+    }
+
+    /// <summary>
+    /// Uses <paramref name="resolver"/> in place of the operating system's fonts (<see cref="Fonts.SystemFontResolver"/>), asked after
+    /// every resolver registered with <see cref="UseFontResolver"/>; <see langword="null"/> asks no operating-system fonts at all, so
+    /// output does not depend on the machine.
+    /// </summary>
+    /// <param name="resolver">The resolver, or <see langword="null"/> for none.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §9.5 NOTE 5 and §9.6.2.2. The default reads the platform's font directories, lazily, on the first font no other resolver has.</remarks>
+    public PdfOptions UseSystemFontResolver(IFontResolver? resolver)
+    {
+        SystemFontResolver = resolver;
         return this;
     }
 

@@ -137,6 +137,18 @@ public partial class PageLabelTests
         Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
     }
 
+    // The fuzz harness assumed prefixes under 4 KB and reported an 8 KB one as a finding (issue #48): Table 161 sets no length on P,
+    // so the label is the whole prefix followed by the number.
+    [Fact]
+    public void A_long_prefix_is_kept_whole()
+    {
+        string prefix = new('x', 8192);
+        using PdfDocument document = OnePageLabelled($"/S /D /P ({prefix}) /St 7");
+
+        Assert.Equal(prefix + "7", document.PageLabels!.GetLabel(0));
+        Assert.Empty(document.Diagnostics);
+    }
+
     [Fact]
     public void Pages_before_the_first_range_are_numbered_in_decimal_with_a_warning()
     {

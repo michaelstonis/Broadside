@@ -4,10 +4,12 @@ using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Fonts;
 using Broadside.Fonts.Cff;
+using Broadside.Fonts.Resolution;
 using Broadside.Fonts.TrueType;
 using Broadside.Fonts.Type1;
 using Broadside.Graphics;
 using Broadside.IO;
+using Broadside.Images;
 using Broadside.Objects;
 using Broadside.Parsing;
 using Broadside.Security;
@@ -42,6 +44,8 @@ internal static class FuzzTargets
         ["filter-flate"] = data => Filter(new FlateDecodeFilter(), data, parameters: null, maxRatio: 1100),
         ["filter-runlength"] = data => Filter(new RunLengthDecodeFilter(), data, parameters: null, maxRatio: 128),
         ["filter-predictor"] = PredictorTarget,
+        ["filter-ccitt"] = CcittTarget.Target,
+        ["filter-jpx"] = Jpx,
         ["encrypted-document"] = EncryptedDocument,
         ["decrypt"] = Decrypt,
         ["mac-token"] = MacToken,
@@ -54,6 +58,7 @@ internal static class FuzzTargets
         ["optional-content"] = OptionalContentTarget.Target,
         ["font-truetype"] = FontTrueType,
         ["font-cff"] = FontCff,
+        ["font-scanner"] = FontScanner,
         ["font-type1"] = FontType1,
         ["cmap"] = CMapFile,
         ["colorspace"] = ColorSpaceTarget,
@@ -63,17 +68,26 @@ internal static class FuzzTargets
         ["shading-mesh"] = ShadingMeshTarget.Target,
     };
 
-    private static readonly CosName ContentsKey = new("Contents");
-    private static readonly CosName FontKey = new("Font");
     private static readonly Lazy<PdfDocument> EmptyDocument = new(() => PdfDocument.Create());
-    private static readonly CosName InfoKey = new("Info");
+
+    /// <summary>
+    /// Names the targets use, kept out of this class's static constructor: under libFuzzer, code of the instrumented library must
+    /// not run before <c>Fuzzer.LibFuzzer.Run</c> has attached the coverage memory, and looking up a target runs that constructor.
+    /// </summary>
+    private static class Names
+    {
+        public static readonly CosName Contents = new("Contents");
+        public static readonly CosName Font = new("Font");
+        public static readonly CosName Info = new("Info");
+    }
 
     /// <summary>
     /// Opens the input as a whole file in lenient mode and reads everything the document model exposes: version, trailer, every
-    /// page's boxes, rotation, user unit and resources, the revisions, the linearization dictionary and hint tables, the outline and the named destinations. A <see cref="DiagnosticException"/> is the one documented outcome for a file
-    /// whose cross-reference information cannot be read at all (until issue #41 reconstructs it); any other exception is a finding.
-    /// Every box must be normalized and every rotation one of 0, 90, 180, 270; every revision must be a non-empty prefix of the input
-    /// at its own index.
+    /// page's boxes, rotation, user unit, resources, fonts and content, the revisions, the linearization dictionary and hint tables,
+    /// the outline and the named destinations, then walks every object and decodes every stream (<see cref="DocumentWalker"/>). A
+    /// <see cref="DiagnosticException"/> (no catalog even after a scan) and the password, certificate and unsupported-encryption
+    /// exceptions are the documented outcomes; any other exception is a finding. Every box must be normalized and every rotation one
+    /// of 0, 90, 180, 270; every revision must be a non-empty prefix of the input at its own index.
     /// </summary>
     /// <remarks>ISO 32000-2 §7.5.1 to §7.5.6, §7.7.2, §7.7.3, Annex F.</remarks>
     private static void Document(ReadOnlySpan<byte> data)
@@ -119,11 +133,6 @@ internal static class FuzzTargets
             }
 
             ReadFonts(document, page);
-            if (page.Dictionary.TryGetValue(ContentsKey, out CosObject? contents) && document.Resolve(contents) is CosStream stream)
-            {
-                _ = document.DecodeStream(stream);
-            }
-
             page.ProcessContent(new CheckingProcessor());
 
             // The content corpus gate's processor (issue #80): every event, each pattern cell, Type 3 glyph and soft mask entered once.
@@ -131,6 +140,15 @@ internal static class FuzzTargets
         }
 
         Navigation(document);
+
+        // Then everything else the document model exposes: every object reachable from the trailer or numbered below Size, and
+        // every stream decoded through its filters (the walk the real-world corpus gate runs, issue #47).
+        DocumentWalkResult walk = DocumentWalker.Walk(document);
+        if (walk.Pages != document.Pages.Count || walk.Streams > walk.Objects)
+        {
+            throw new InvalidOperationException($"The walk saw {walk.Pages} pages and {walk.Streams} streams in {walk.Objects} objects; the document has {document.Pages.Count} pages.");
+        }
+
         _ = ActionWalker.Walk(document);
         Annotations(document);
     }
@@ -225,7 +243,7 @@ internal static class FuzzTargets
     private static void ReadFonts(PdfDocument document, PdfPage page)
     {
         if (page.Resources is not { } resources
-            || !resources.TryGetValue(FontKey, out CosObject? value)
+            || !resources.TryGetValue(Names.Font, out CosObject? value)
             || document.Resolve(value) is not CosDictionary fonts)
         {
             return;
@@ -428,6 +446,50 @@ internal static class FuzzTargets
         if (consumed != data.Length)
         {
             throw new InvalidOperationException("The codes cover " + consumed + " of " + data.Length + " bytes.");
+        }
+    }
+
+    /// <summary>
+    /// The operating-system font scanner (#59) over the input as an installed font file: TrueType, OpenType or a collection,
+    /// read through the same bounded reads a font directory scan makes. Every face found must have a face index inside the
+    /// collection limit, a non-empty PostScript name and family without a vertical bar or NUL, and a weight from 1 to 1,000; the
+    /// faces are then indexed and each must be found by its own PostScript name. An input starting with <c>%PDF-</c> is read from
+    /// its first <c>00 01 00 00</c>, so the embedded TrueType programs of the corpus seed it.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.6.2.1 and §9.8 (finding a non-embedded font's program); OpenType table directory, "ttcf", "name", "OS/2", "head", "post", "cmap".</remarks>
+    private static void FontScanner(ReadOnlySpan<byte> data)
+    {
+        if (data.StartsWith("%PDF-"u8))
+        {
+            int start = data.IndexOf((ReadOnlySpan<byte>)[0, 1, 0, 0]);
+            if (start < 0)
+            {
+                return;
+            }
+
+            data = data[start..];
+        }
+
+        List<SystemFontFace> faces = FontFaceScanner.Scan(new MemoryFontFileReader(data.ToArray()), "fuzz.ttf");
+        foreach (SystemFontFace face in faces)
+        {
+            if (face.FaceIndex is < 0 or >= 256 || string.IsNullOrEmpty(face.PostScriptName) || string.IsNullOrEmpty(face.Family)
+                || face.PostScriptName.Contains('|', StringComparison.Ordinal) || face.Family.Contains('\0', StringComparison.Ordinal)
+                || face.Weight is < 1 or > 1000)
+            {
+                throw new InvalidOperationException($"The scanner returned an impossible face: {face}.");
+            }
+        }
+
+        SystemFontIndex index = SystemFontIndex.FromFaces(faces);
+        foreach (SystemFontFace face in faces)
+        {
+            if (!index.ByPostScriptName.ContainsKey(face.PostScriptName))
+            {
+                throw new InvalidOperationException($"A scanned face is not found by its own PostScript name {face.PostScriptName}.");
+            }
+
+            _ = new FontQuery(face.PostScriptName) { FontFamily = face.Family }.IsBold;
         }
     }
 
@@ -735,6 +797,52 @@ internal static class FuzzTargets
         }
     }
 
+    /// <summary>
+    /// JPXDecode: the input is a JPEG 2000 file or codestream (a whole PDF is read from its first JP2 signature or SOC + SIZ, so
+    /// <c>jpx-lossless.pdf</c> seeds it in smoke mode), decoded through the image facet with a 2^16-pixel limit and through the
+    /// plain filter path. A decoded image must have the size its header declares and exactly Stride x Height bytes, and the plain
+    /// path must write those same bytes.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.4.9; ITU-T T.800 | ISO/IEC 15444-1 Annexes A to G and I.</remarks>
+    private static void Jpx(ReadOnlySpan<byte> data)
+    {
+        if (data.StartsWith("%PDF-"u8))
+        {
+            int jp2 = data.IndexOf((ReadOnlySpan<byte>)[0x00, 0x00, 0x00, 0x0C, 0x6A, 0x50, 0x20, 0x20]);
+            int soc = data.IndexOf((ReadOnlySpan<byte>)[0xFF, 0x4F, 0xFF, 0x51]);
+            int start = jp2 >= 0 && (soc < 0 || jp2 < soc) ? jp2 : soc;
+            if (start < 0)
+            {
+                return;
+            }
+
+            data = data[start..];
+        }
+
+        var filter = new JpxDecodeFilter();
+        var context = new ImageFilterContext(new FilterContext { MaxDecodedLength = 1 << 20 }) { MaxPixels = 1 << 16 };
+        bool hasHeader = filter.TryReadHeader(data, context, out ImageHeader header);
+        byte[] bytes = data.ToArray();
+        using DecodedImage? image = filter.DecodeImage(bytes, context);
+        if (image is null)
+        {
+            return;
+        }
+
+        if (!hasHeader || (image.Width, image.Height, image.Components, image.BitsPerComponent) != (header.Width, header.Height, header.Components, header.BitsPerComponent)
+            || image.Samples.Length != (long)image.Stride * image.Height)
+        {
+            throw new InvalidOperationException($"JPXDecode made a {image.Width} x {image.Height} x {image.Components} image of {image.Samples.Length} bytes where the header says {header}.");
+        }
+
+        var output = new ArrayBufferWriter<byte>();
+        filter.Decode(bytes, output, new FilterContext { MaxDecodedLength = 1 << 20 });
+        if (!output.WrittenSpan.SequenceEqual(image.Samples) && output.WrittenCount != 0)
+        {
+            throw new InvalidOperationException("JPXDecode's plain filter path wrote other bytes than the image facet decoded.");
+        }
+    }
+
     /// <summary>LZWDecode: the first byte's low bit selects EarlyChange (Table 8); the rest is the stream body.</summary>
     /// <remarks>ISO 32000-2 §7.4.4.2 and §7.4.4.3.</remarks>
     private static void Lzw(ReadOnlySpan<byte> data)
@@ -752,8 +860,9 @@ internal static class FuzzTargets
 
     /// <summary>
     /// The LZW and Flate predictor functions over the input: the first four bytes select Predictor (1, 2, 10 to 15, or an invalid 3),
-    /// Colors (1 to 4), BitsPerComponent (1, 2, 4, 8, 16) and Columns (1 to 64); the rest is the filter's output to undo. The result
-    /// must be whole rows, and no more rows than the input holds.
+    /// Colors (1 to 4), BitsPerComponent (1, 2, 4, 8, 16) and Columns (1 to 64, or a power of two up to 2^30 when byte 3 is 192 or
+    /// more: rows far longer than the data, issue #48); the rest is the filter's output to undo. The output is never more than twice
+    /// the input, and when the data holds at least one row it is whole rows, no more than the input holds.
     /// </summary>
     /// <remarks>ISO 32000-2 §7.4.4.3 Table 8 and §7.4.4.4.</remarks>
     private static void PredictorTarget(ReadOnlySpan<byte> data)
@@ -768,7 +877,7 @@ internal static class FuzzTargets
         int predictor = predictors[data[0] % predictors.Length];
         int colors = 1 + (data[1] % 4);
         int bitsPerComponent = depths[data[2] % depths.Length];
-        int columns = 1 + (data[3] % 64);
+        long columns = data[3] >= 192 ? 1L << Math.Min(data[3] - 192, 30) : 1 + (data[3] % 64);
         var parameters = new CosDictionary
         {
             [new CosName("Predictor")] = new CosInteger(predictor),
@@ -780,9 +889,14 @@ internal static class FuzzTargets
         var output = new ArrayBufferWriter<byte>();
         Predictor.Decode(body, output, new FilterContext { Parameters = parameters });
 
-        int row = ((colors * bitsPerComponent * columns) + 7) / 8;
-        int rowsIn = predictor >= 10 ? (body.Length + row) / (row + 1) : (body.Length + row - 1) / row;
-        bool passedThrough = predictor is 1 or 3;
+        if (output.WrittenCount > (2L * body.Length) + 8)
+        {
+            throw new InvalidOperationException($"Predictor {predictor} with Columns {columns} turned {body.Length} bytes into {output.WrittenCount}.");
+        }
+
+        long row = (((long)colors * bitsPerComponent * columns) + 7) / 8;
+        bool passedThrough = predictor is 1 or 3 || row > body.Length;
+        long rowsIn = passedThrough ? 0 : predictor >= 10 ? (body.Length + row) / (row + 1) : (body.Length + row - 1) / row;
         if (!passedThrough && (output.WrittenCount % row != 0 || output.WrittenCount > rowsIn * row))
         {
             throw new InvalidOperationException($"Predictor {predictor} turned {body.Length} bytes into {output.WrittenCount}, not whole rows of {row}.");
@@ -1000,7 +1114,7 @@ internal static class FuzzTargets
             _ = (document.Permissions, document.Security?.Integrity);
             foreach (PdfPage page in document.Pages)
             {
-                CosObject contents = document.Resolve(page.Dictionary.TryGetValue(ContentsKey, out CosObject? value) ? value : null);
+                CosObject contents = document.Resolve(page.Dictionary.TryGetValue(Names.Contents, out CosObject? value) ? value : null);
                 IEnumerable<CosObject> streams = contents is CosArray array ? array : [contents];
                 foreach (CosObject item in streams)
                 {
@@ -1011,7 +1125,7 @@ internal static class FuzzTargets
                 }
             }
 
-            if (document.Resolve(document.Trailer.TryGetValue(InfoKey, out CosObject? info) ? info : null) is CosDictionary dictionary)
+            if (document.Resolve(document.Trailer.TryGetValue(Names.Info, out CosObject? info) ? info : null) is CosDictionary dictionary)
             {
                 foreach (KeyValuePair<CosName, CosObject> entry in dictionary)
                 {
@@ -1442,8 +1556,10 @@ internal static class FuzzTargets
 
         if (document.PageLabels is { } labels)
         {
+            // A label is its range's prefix (any length, Table 161) and a number of at most MaxNumeralLength characters.
             IReadOnlyList<string> all = labels.GetLabels();
-            if (all.Count != document.Pages.Count || all.Any(label => label.Length > PdfPageLabelRange.MaxNumeralLength + 4096))
+            int longestPrefix = labels.Ranges.Select(range => range.Prefix.Length).DefaultIfEmpty(0).Max();
+            if (all.Count != document.Pages.Count || all.Any(label => label.Length > longestPrefix + PdfPageLabelRange.MaxNumeralLength))
             {
                 throw new InvalidOperationException("Page labels must give one bounded label per page.");
             }

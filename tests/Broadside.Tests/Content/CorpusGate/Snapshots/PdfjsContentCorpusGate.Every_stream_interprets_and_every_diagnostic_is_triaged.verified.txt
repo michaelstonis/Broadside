@@ -32,7 +32,7 @@ page events:
   GlyphsType3: 2264
   GlyphsType0: 58261
   Type3GlyphsRun: 507
-  ImagesXObject: 2175
+  ImagesXObject: 2150
   ImagesInline: 2530
   ImagesStencil: 2553
   ImagesUnresolved: 0
@@ -98,6 +98,7 @@ diagnostics on well-formed files (files, total):
   ColorSpaceEntryInvalid: 1, 1
   ColorSpaceInvalid: 1, 1
   ContentColorOperandCount: 1, 1
+  ContentColorOperatorIgnored: 3, 54
   ContentColorOperatorMismatch: 19, 90
   ContentExtGStateInvalid: 3, 3
   ContentFontMissing: 2, 16
@@ -110,6 +111,7 @@ diagnostics on well-formed files (files, total):
   ContentStackUnderflow: 3, 5
   ContentSyntaxInvalid: 2, 2
   ContentTextObjectUnbalanced: 3, 3
+  ContentType3GlyphMetricsMissing: 1, 1
   ContentUnbalancedSave: 4, 4
   ContentUnknownOperator: 5, 5
   ContentXObjectInvalid: 1, 1
@@ -133,7 +135,7 @@ diagnostics on well-formed files (files, total):
   FontWidthsMissing: 3, 3
   FunctionEntryInvalid: 1, 1
   ImageDimensionInvalid: 1, 1
-  ImageMaskConflict: 4, 6
+  ImageMaskConflict: 4, 18
   ImageMaskInvalid: 1, 1
   ShadingFunctionInvalid: 1, 16
   Type0IdentityNotEmbedded: 20, 29
@@ -155,8 +157,9 @@ diagnostics on other files (files, total):
   ContentPropertiesMissing: 1, 2
   ContentSyntaxInvalid: 2, 12
   ContentTextObjectUnbalanced: 1, 5
+  ContentType3GlyphMetricsMissing: 1, 1
   ContentUnbalancedSave: 5, 13
-  ContentUnknownOperator: 3, 14
+  ContentUnknownOperator: 3, 15
   DecodeParmsInvalid: 1, 1
   DictionaryDuplicateKey: 2, 2
   DictionaryKeyNotName: 1, 3
@@ -170,12 +173,12 @@ diagnostics on other files (files, total):
   FontProgramInvalid: 1, 1
   FontStandard14EntriesIncomplete: 2, 6
   FontTableInvalid: 1, 1
-  MissingEndobj: 5, 8
+  MissingEndobj: 5, 35
   PatternEntryInvalid: 1, 1
   StreamKeywordEndOfLine: 2, 7
-  StreamLengthInvalid: 17, 23
+  StreamLengthInvalid: 17, 50
   TilingPatternStepInvalid: 1, 1
   Type0DescendantFontsInvalid: 1, 1
   Type0IdentityNotEmbedded: 3, 3
-  UnexpectedToken: 4, 7
+  UnexpectedToken: 4, 34
   XrefEntryOffsetInvalid: 9, 42

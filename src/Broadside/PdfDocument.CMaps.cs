@@ -9,6 +9,7 @@ namespace Broadside;
 public sealed partial class PdfDocument
 {
     private readonly OnceCache<CMapKey, CMap?> _cmaps = new();
+    private readonly OnceCache<string, CMap?> _predefinedCMaps = new(StringComparer.Ordinal);
 
     /// <summary>
     /// Returns the parsed program of a font file stream for a CIDFont, as <see cref="GetFontProgram(CosStream, CosReference?, FontProgramSource, bool, PdfFont)"/>
@@ -74,12 +75,12 @@ public sealed partial class PdfDocument
 
                 break;
             case CosName name:
-                parent = FindPredefinedCMap(name.Value, context);
+                parent = FindPredefinedCMap(name.Value, context, depth);
                 break;
             case null or CosNull:
                 if (file.UseCMapName is { } named)
                 {
-                    parent = FindPredefinedCMap(named, context);
+                    parent = FindPredefinedCMap(named, context, depth);
                 }
 
                 break;
@@ -104,21 +105,70 @@ public sealed partial class PdfDocument
     }
 
     /// <summary>
-    /// A predefined CMap by name (§9.7.5.2, Table 116): Identity-H and Identity-V are built in; the others come with the CMaps package,
-    /// and are recorded as unavailable without it.
+    /// A predefined CMap by name (§9.7.5.2, Table 116), recorded as unavailable when no font resolver has it; see
+    /// <see cref="FindPredefinedCMap(string, int)"/>.
     /// </summary>
-    private static CMap? FindPredefinedCMap(string name, CMapContext context)
+    private CMap? FindPredefinedCMap(string name, CMapContext context, int depth)
     {
-        CMap? cmap = CMap.FindBuiltIn(name);
+        CMap? cmap = FindPredefinedCMap(name, depth + 1);
         if (cmap is null)
         {
             context.Report(
                 Parsing.DiagnosticCodes.CMapUnavailable,
                 DiagnosticSeverity.Information,
-                $"The predefined CMap /{name} is not available (ISO 32000-2 §9.7.5.2, Table 116); it needs the CMaps package.");
+                $"The predefined CMap /{name} is not available (ISO 32000-2 §9.7.5.2, Table 116); it needs the CMaps package or a font resolver that supplies it.");
         }
 
         return cmap;
+    }
+
+    /// <summary>
+    /// Returns a predefined CMap by name (§9.7.5.2, Table 116): Identity-H and Identity-V are built in; any other comes from the
+    /// engine's font resolvers (issue #59, <see cref="FontResourceKind.CMap"/>), parsed once per document, with the CMap its
+    /// <c>usecmap</c> names found the same way.
+    /// </summary>
+    /// <param name="name">The CMap's name.</param>
+    /// <param name="depth">How many CMaps use this one through <c>usecmap</c> on the way here.</param>
+    /// <returns>The CMap, or <see langword="null"/> when no resolver has it (the caller records that).</returns>
+    /// <remarks>Adobe TN 5014 §7.4: usecmap nests at most five levels; deeper, or in a cycle, the CMap is not available.</remarks>
+    internal CMap? FindPredefinedCMap(string name, int depth = 0)
+    {
+        if (CMap.FindBuiltIn(name) is { } builtIn)
+        {
+            return builtIn;
+        }
+
+        if (depth > CMapContext.DefaultMaxUseCMapDepth)
+        {
+            return null;
+        }
+
+        return _predefinedCMaps.GetOrCreate(
+            name,
+            (Document: this, Depth: depth),
+            static (key, state) => new Created<CMap?>(state.Document.LoadPredefinedCMap(key, state.Depth)),
+            static (key, state) =>
+            {
+                state.Document._diagnostics.Report(
+                    Parsing.DiagnosticCodes.CMapUseCMapCycle,
+                    DiagnosticSeverity.Error,
+                    $"The predefined CMap /{key} uses itself through its usecmap chain (Adobe TN 5014 §7.4); the chain is cut there.");
+                return null;
+            });
+    }
+
+    /// <summary>Reads a predefined CMap a font resolver supplies (TN 5014 text syntax) and the CMap it uses.</summary>
+    private CMap? LoadPredefinedCMap(string name, int depth)
+    {
+        if (!FontResolvers.TryResolveResource(FontResourceKind.CMap, name, out ReadOnlyMemory<byte> data))
+        {
+            return null;
+        }
+
+        var context = new CMapContext(_diagnostics, objectReference: null);
+        CMapFile file = Fonts.CMapParser.Parse(data.Span, context);
+        CMap? parent = file.UseCMapName is { } used ? FindPredefinedCMap(used, context, depth) : null;
+        return CMap.Create(file, parent, file.WMode ?? 0, context);
     }
 
     /// <summary>A CMap stream at one version: a changed stream is parsed again.</summary>

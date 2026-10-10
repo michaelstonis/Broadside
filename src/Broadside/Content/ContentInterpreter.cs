@@ -226,6 +226,7 @@ internal sealed partial class ContentInterpreter
         _inText = false;
         _pendingClip = null;
         IgnoresColorOperators = false;
+        _glyphHeadPending = false;
         _maxSaveDepth = options.MaxSaveDepth;
         BeginNesting(document, page, options);
         _arena.Limit = options.MaxOperands;
@@ -352,6 +353,7 @@ internal sealed partial class ContentInterpreter
     {
         ContentOperatorCode code = op.Code;
         int offset = op.KeywordStart;
+        bool glyphHead = TakeGlyphHead(code, offset);
         if (code == ContentOperatorCode.Unknown)
         {
             if (_compatibilityDepth == 0)
@@ -383,9 +385,11 @@ internal sealed partial class ContentInterpreter
             case OperatorCategory.ClippingPath:
                 ExecuteClip(code, offset);
                 break;
-            case OperatorCategory.TextObject or OperatorCategory.TextState or OperatorCategory.TextPositioning or OperatorCategory.TextShowing
-                or OperatorCategory.Type3Font:
+            case OperatorCategory.TextObject or OperatorCategory.TextState or OperatorCategory.TextPositioning or OperatorCategory.TextShowing:
                 ExecuteText(code, operands, offset);
+                break;
+            case OperatorCategory.Type3Font:
+                ExecuteGlyphMetrics(code, offset, glyphHead);
                 break;
             case OperatorCategory.Color:
                 ExecuteColor(code, operands, offset);

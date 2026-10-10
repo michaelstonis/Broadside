@@ -1,1 +1,7 @@
 #nullable enable
+Broadside.Fonts.Standard14.Standard14FontResolver
+Broadside.Fonts.Standard14.Standard14FontResolver.ResolveFont(Broadside.Fonts.FontQuery! query) -> Broadside.Fonts.FontResolution?
+Broadside.Fonts.Standard14.Standard14FontResolver.Standard14FontResolver() -> void
+Broadside.Standard14PdfOptionsExtensions
+static Broadside.Fonts.Standard14.Standard14FontResolver.GetProgram(Broadside.Fonts.Standard14Font font) -> System.ReadOnlyMemory<byte>
+static Broadside.Standard14PdfOptionsExtensions.UseStandard14Fonts(this Broadside.PdfOptions! options) -> Broadside.PdfOptions!

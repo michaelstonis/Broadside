@@ -57,6 +57,8 @@ Single track with internal parallelism once the lexer exists.
 
 Exit criteria: every file in the pdf.js and PDFBox corpora opens without an exception in lenient mode; strict mode agrees with veraPDF on the well-formed subset; fuzzing finds no crash in 24 h; round-trip serialization is byte-identical for untouched objects.
 
+Evidence (issue #48): real fuzzing of every Phase 1 target runs weekly in [`.github/workflows/fuzz.yml`](../../.github/workflows/fuzz.yml) (more than 24 h of fuzzing per run, findings fail the run); the performance baseline the Phase 3I regression gate compares against, with allocation figures, is [`bench/baselines/phase1/`](../../bench/baselines/phase1/README.md).
+
 ### Phase 2: Model and codecs (four tracks)
 
 **Track 2A Fonts** (§9): font dictionaries and encodings (§9.6), Type 1 (eexec, charstrings Type 1), CFF/Type 2 charstrings and CID-keyed CFF, TrueType (glyf, loca, cmap, post, hmtx; composite glyphs), OpenType wrapper, Type 3, Type 0 composite fonts with CIDFontType0/2, CMaps embedded and predefined (package), AFM metrics for the Standard 14, font-matching for substitution, ToUnicode. Glyph outline output as paths in glyph space. Font program parsers are extension points.

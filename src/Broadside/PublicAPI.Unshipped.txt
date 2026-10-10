@@ -3283,5 +3283,80 @@ Broadside.Fonts.Cff.CffFontProgramParser.Parse(System.ReadOnlyMemory<byte> data,
 Broadside.Fonts.FontProgramContext.MaxCharStringOperators.get -> int
 Broadside.Fonts.FontProgramContext.MaxCharStringOperators.init -> void
 const Broadside.Fonts.FontProgramContext.DefaultMaxCharStringOperators = 100000 -> int
+Broadside.Filters.JpxDecodeFilter
+Broadside.Filters.JpxDecodeFilter.Decode(System.ReadOnlyMemory<byte> encoded, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.FilterContext! context) -> void
+Broadside.Filters.JpxDecodeFilter.DecodeImage(System.ReadOnlyMemory<byte> encoded, Broadside.Filters.ImageFilterContext! context) -> Broadside.Images.DecodedImage?
+Broadside.Filters.JpxDecodeFilter.JpxDecodeFilter() -> void
+Broadside.Filters.JpxDecodeFilter.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.JpxDecodeFilter.TryReadHeader(System.ReadOnlySpan<byte> encoded, Broadside.Filters.ImageFilterContext! context, out Broadside.Filters.ImageHeader header) -> bool
+Broadside.Fonts.PdfType3Font.FontBBox.get -> Broadside.PdfRectangle
+Broadside.Fonts.FontMatchKind
+Broadside.Fonts.FontMatchKind.Exact = 0 -> Broadside.Fonts.FontMatchKind
+Broadside.Fonts.FontMatchKind.Family = 2 -> Broadside.Fonts.FontMatchKind
+Broadside.Fonts.FontMatchKind.Similar = 3 -> Broadside.Fonts.FontMatchKind
+Broadside.Fonts.FontMatchKind.Standard14 = 1 -> Broadside.Fonts.FontMatchKind
+Broadside.Fonts.FontQuery
+Broadside.Fonts.FontQuery.CidFontType.get -> Broadside.Fonts.PdfCidFontType?
+Broadside.Fonts.FontQuery.CidFontType.init -> void
+Broadside.Fonts.FontQuery.FamilyName.get -> string!
+Broadside.Fonts.FontQuery.Flags.get -> Broadside.Fonts.PdfFontFlags
+Broadside.Fonts.FontQuery.Flags.init -> void
+Broadside.Fonts.FontQuery.FontFamily.get -> string?
+Broadside.Fonts.FontQuery.FontFamily.init -> void
+Broadside.Fonts.FontQuery.FontQuery(string! name) -> void
+Broadside.Fonts.FontQuery.FontStretch.get -> Broadside.Fonts.PdfFontStretch?
+Broadside.Fonts.FontQuery.FontStretch.init -> void
+Broadside.Fonts.FontQuery.FontType.get -> Broadside.Fonts.PdfFontType
+Broadside.Fonts.FontQuery.FontType.init -> void
+Broadside.Fonts.FontQuery.FontWeight.get -> int?
+Broadside.Fonts.FontQuery.FontWeight.init -> void
+Broadside.Fonts.FontQuery.IsBold.get -> bool
+Broadside.Fonts.FontQuery.IsFixedPitch.get -> bool
+Broadside.Fonts.FontQuery.IsItalic.get -> bool
+Broadside.Fonts.FontQuery.IsSerif.get -> bool
+Broadside.Fonts.FontQuery.IsSymbolic.get -> bool
+Broadside.Fonts.FontQuery.ItalicAngle.get -> double
+Broadside.Fonts.FontQuery.ItalicAngle.init -> void
+Broadside.Fonts.FontQuery.Name.get -> string!
+Broadside.Fonts.FontQuery.PostScriptName.get -> string!
+Broadside.Fonts.FontQuery.Standard14.get -> Broadside.Fonts.Standard14Font?
+Broadside.Fonts.FontQuery.Standard14.init -> void
+Broadside.Fonts.FontQuery.StemV.get -> double
+Broadside.Fonts.FontQuery.StemV.init -> void
+Broadside.Fonts.FontQuery.SystemInfo.get -> Broadside.Fonts.CidSystemInfo?
+Broadside.Fonts.FontQuery.SystemInfo.init -> void
+Broadside.Fonts.FontResolution
+Broadside.Fonts.FontResolution.Data.get -> System.ReadOnlyMemory<byte>
+Broadside.Fonts.FontResolution.FaceIndex.get -> int
+Broadside.Fonts.FontResolution.FaceIndex.init -> void
+Broadside.Fonts.FontResolution.FontResolution(System.ReadOnlyMemory<byte> data, string! name, Broadside.Fonts.FontMatchKind matchKind) -> void
+Broadside.Fonts.FontResolution.MatchKind.get -> Broadside.Fonts.FontMatchKind
+Broadside.Fonts.FontResolution.Name.get -> string!
+Broadside.Fonts.FontResourceKind
+Broadside.Fonts.FontResourceKind.CidToUnicode = 1 -> Broadside.Fonts.FontResourceKind
+Broadside.Fonts.FontResourceKind.CMap = 0 -> Broadside.Fonts.FontResourceKind
+Broadside.Fonts.FontSubstitute
+Broadside.Fonts.FontSubstitute.GetWidth(int glyphId) -> double
+Broadside.Fonts.FontSubstitute.MatchKind.get -> Broadside.Fonts.FontMatchKind
+Broadside.Fonts.FontSubstitute.Name.get -> string!
+Broadside.Fonts.FontSubstitute.Program.get -> Broadside.Fonts.FontProgram!
+Broadside.Fonts.FontSubstitute.RequestedName.get -> string?
+Broadside.Fonts.IFontResolver
+Broadside.Fonts.IFontResolver.ResolveFont(Broadside.Fonts.FontQuery! query) -> Broadside.Fonts.FontResolution?
+Broadside.Fonts.IFontResolver.TryResolveResource(Broadside.Fonts.FontResourceKind kind, string! name, out System.ReadOnlyMemory<byte> data) -> bool
+Broadside.Fonts.PdfSimpleFont.Substitute.get -> Broadside.Fonts.FontSubstitute?
+Broadside.Fonts.SystemFontResolver
+Broadside.Fonts.SystemFontResolver.Directories.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.Fonts.SystemFontResolver.ResolveFont(Broadside.Fonts.FontQuery! query) -> Broadside.Fonts.FontResolution?
+Broadside.Fonts.SystemFontResolver.SystemFontResolver() -> void
+Broadside.Fonts.SystemFontResolver.SystemFontResolver(System.Collections.Generic.IEnumerable<string!>! directories) -> void
+Broadside.PdfOptions.UseFontResolver(Broadside.Fonts.IFontResolver! resolver) -> Broadside.PdfOptions!
+Broadside.PdfOptions.UseSystemFontResolver(Broadside.Fonts.IFontResolver? resolver) -> Broadside.PdfOptions!
+Broadside.Filters.CcittFaxDecodeFilter
+Broadside.Filters.CcittFaxDecodeFilter.CcittFaxDecodeFilter() -> void
+Broadside.Filters.CcittFaxDecodeFilter.Decode(System.ReadOnlyMemory<byte> encoded, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.FilterContext! context) -> void
+Broadside.Filters.CcittFaxDecodeFilter.DecodeImage(System.ReadOnlyMemory<byte> encoded, Broadside.Filters.ImageFilterContext! context) -> Broadside.Images.DecodedImage?
+Broadside.Filters.CcittFaxDecodeFilter.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.CcittFaxDecodeFilter.TryReadHeader(System.ReadOnlySpan<byte> encoded, Broadside.Filters.ImageFilterContext! context, out Broadside.Filters.ImageHeader header) -> bool
 Broadside.Annotations.PdfAnnotation.ProcessAppearance(Broadside.Graphics.PdfFormXObject! appearance, Broadside.Content.ContentProcessor! processor) -> bool
 Broadside.Annotations.PdfAnnotation.ProcessAppearance(Broadside.Graphics.PdfFormXObject! appearance, Broadside.Content.ContentProcessor! processor, Broadside.Content.ContentOptions! options) -> bool

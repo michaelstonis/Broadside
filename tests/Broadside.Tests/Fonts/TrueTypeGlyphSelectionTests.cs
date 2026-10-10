@@ -76,10 +76,12 @@ public class TrueTypeGlyphSelectionTests
     [Fact]
     public void A_font_without_a_program_selects_no_glyph()
     {
-        using PdfDocument document = FontPdf.Open("<< /Type /Font /Subtype /TrueType /BaseFont /Arial >>");
+        // No embedded program and no font resolver (system fonts off): nothing to select from (issue #59 adds substitutes).
+        using PdfDocument document = FontPdf.Open("<< /Type /Font /Subtype /TrueType /BaseFont /Arial >>", new PdfOptions().UseSystemFontResolver(null));
         PdfTrueTypeFont font = Assert.IsType<PdfTrueTypeFont>(FontPdf.Font(document));
 
         Assert.Null(font.Program);
+        Assert.Null(font.Substitute);
         Assert.Equal(0, font.GetGlyphId(0x41));
     }
 

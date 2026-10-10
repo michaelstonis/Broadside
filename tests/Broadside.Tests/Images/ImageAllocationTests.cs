@@ -3,6 +3,7 @@ using Broadside.Content;
 using Broadside.Graphics;
 using Broadside.Images;
 using Broadside.Tests.Document;
+using Broadside.TestSupport;
 
 namespace Broadside.Tests.Images;
 
@@ -57,14 +58,7 @@ public class ImageAllocationTests
             }
         }
 
-        for (int warm = 0; warm < 40; warm++)
-        {
-            Pass();
-        }
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        Pass();
-        Assert.Equal(0, GC.GetAllocatedBytesForCurrentThread() - before);
+        Assert.Equal(0, Allocations.Measure(Pass));
     }
 
     [Fact]
@@ -81,14 +75,8 @@ public class ImageAllocationTests
 
         byte[] source = Encoding.Latin1.GetBytes(content.ToString());
         var arena = new OperandArena();
-        for (int warm = 0; warm < 50; warm++)
-        {
-            ReadAll(source, arena);
-        }
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        int images = ReadAll(source, arena);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        int images = default;
+        long allocated = Allocations.Measure(() => images = ReadAll(source, arena), 50);
 
         Assert.Equal(800, images);
         Assert.Equal(0, allocated);

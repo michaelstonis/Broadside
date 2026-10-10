@@ -99,7 +99,7 @@ diagnostics on well-formed files (files, total):
   CidToGidMapMissing: 6, 6
   ColorSpaceEntryInvalid: 1, 1
   ContentColorOperandCount: 1, 1
-  ContentColorOperatorIgnored: 3, 3
+  ContentColorOperatorIgnored: 8, 9
   ContentColorOperatorMismatch: 15, 15
   ContentColorSpaceMissing: 2, 2
   ContentExtGStateInvalid: 4, 4

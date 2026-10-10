@@ -78,15 +78,15 @@ internal sealed class Type0FontState
         switch (value)
         {
             case CosName name:
-                if (CMap.FindBuiltIn(name.Value) is { } builtIn)
+                if (font.Document.FindPredefinedCMap(name.Value) is { } predefined)
                 {
-                    return builtIn;
+                    return predefined;
                 }
 
                 font.Report(
                     DiagnosticCodes.CMapUnavailable,
                     DiagnosticSeverity.Information,
-                    $"The predefined CMap /{name.Value} is not available (ISO 32000-2 §9.7.5.2, Table 116); it needs the CMaps package. Codes are read as Identity-H.");
+                    $"The predefined CMap /{name.Value} is not available (ISO 32000-2 §9.7.5.2, Table 116); it needs the CMaps package or a font resolver that supplies it. Codes are read as Identity-H.");
                 standIn = true;
                 return CMap.IdentityH;
             case CosStream stream:

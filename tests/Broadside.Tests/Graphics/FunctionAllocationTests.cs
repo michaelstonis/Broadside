@@ -1,6 +1,7 @@
 using Broadside.Graphics;
 using Broadside.Objects;
 using Broadside.Tests.Document;
+using Broadside.TestSupport;
 using static Broadside.Tests.Graphics.FunctionTesting;
 
 namespace Broadside.Tests.Graphics;
@@ -61,9 +62,7 @@ public class FunctionAllocationTests
         float[] outputs = new float[function.OutputCount * 16];
         Run(function, input, output, inputs, outputs, 1_000);
 
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        Run(function, input, output, inputs, outputs, Evaluations);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = Allocations.Measure(() => Run(function, input, output, inputs, outputs, Evaluations), warmUpCalls: 0);
 
         Assert.True(function.IsValid);
         Assert.Empty(document.Diagnostics);

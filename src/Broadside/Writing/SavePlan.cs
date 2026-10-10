@@ -29,6 +29,17 @@ internal static class SavePlan
     /// </summary>
     public const int MaxObjectNumber = 8_388_607;
 
+    /// <summary>
+    /// The highest object number saved whatever the numbering's density. Above it, the highest number may be at most
+    /// <see cref="MaxNumbersPerObject"/> times the number of objects: a classic table lists every number up to the highest (20 bytes
+    /// each), so a tiny file with one object numbered in the millions would save to a file a hundred megabytes long (libFuzzer
+    /// finding, issue #48). Such numberings need renumbering, which is not supported yet.
+    /// </summary>
+    public const int MaxSparseObjectNumber = 1 << 20;
+
+    /// <summary>The most object numbers per object above <see cref="MaxSparseObjectNumber"/>.</summary>
+    public const int MaxNumbersPerObject = 16;
+
     private static readonly CosName XRef = new("XRef");
     private static readonly CosName ObjStm = new("ObjStm");
     private static readonly CosName XRefStm = new("XRefStm");
@@ -39,7 +50,10 @@ internal static class SavePlan
     /// <param name="linearization">The document's linearization information, whose objects are dropped.</param>
     /// <param name="layout">The cross-reference layout.</param>
     /// <returns>The writer.</returns>
-    /// <exception cref="NotSupportedException">The document is encrypted, or uses object numbers above <see cref="MaxObjectNumber"/>.</exception>
+    /// <exception cref="NotSupportedException">
+    /// The document is encrypted, uses object numbers above <see cref="MaxObjectNumber"/>, or numbers its objects far more sparsely
+    /// than <see cref="MaxNumbersPerObject"/> numbers per object above <see cref="MaxSparseObjectNumber"/>.
+    /// </exception>
     public static FileWriter Create(PdfSource source, ObjectLoader loader, PdfLinearization? linearization, PdfCrossReferenceLayout layout)
     {
         CrossReference crossReference = loader.CrossReference;
@@ -54,6 +68,24 @@ internal static class SavePlan
         {
             throw new NotSupportedException(
                 $"The document uses object numbers above {MaxObjectNumber}; saving it needs renumbering, which is not supported yet.");
+        }
+
+        int inUse = 0;
+        int highest = 0;
+        foreach (KeyValuePair<int, XrefEntry> entry in crossReference.Entries)
+        {
+            if (entry.Value.Kind != XrefEntryKind.Free)
+            {
+                inUse++;
+                highest = Math.Max(highest, entry.Key);
+            }
+        }
+
+        if (highest > MaxSparseObjectNumber && highest > (long)MaxNumbersPerObject * inUse)
+        {
+            throw new NotSupportedException(string.Create(
+                System.Globalization.CultureInfo.InvariantCulture,
+                $"The document numbers {inUse} objects up to {highest}; saving a numbering that sparse needs renumbering, which is not supported yet."));
         }
 
         var candidates = new HashSet<int>();

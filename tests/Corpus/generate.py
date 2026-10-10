@@ -1235,6 +1235,18 @@ def gen_text_standard14_alias() -> bytes:
     return font_file([std14(b"Arial,Bold", b"/Encoding /WinAnsiEncoding", subtype=b"TrueType")], [b"Hi!"])
 
 
+def gen_text_nonembedded_substitute() -> bytes:
+    """9.6.2.1 Table 109, 9.8.1 Table 120 and 9.8.2 Table 121: a non-embedded Type 1 font that is not a standard 14
+    font, /BroadsideSerif-Italic, whose descriptor says serif, nonsymbolic and italic (Flags 98, ItalicAngle -12), so a
+    reader without that font substitutes a similar one (Times-Italic) and keeps the Widths."""
+    widths = b" ".join(b"611" if code == 83 else b"500" for code in range(83, 115))
+    font = (b"<< /Type /Font /Subtype /Type1 /BaseFont /BroadsideSerif-Italic /FirstChar 83 /LastChar 114 /Widths ["
+            + widths + b"] /Encoding /WinAnsiEncoding /FontDescriptor 6 0 R >>")
+    descriptor = (b"<< /Type /FontDescriptor /FontName /BroadsideSerif-Italic /Flags 98 /FontBBox [-169 -217 1010 883] "
+                  b"/ItalicAngle -12 /Ascent 683 /Descent -217 /CapHeight 653 /XHeight 441 /StemV 76 >>")
+    return font_file([font], [b"Serif"], [(6, descriptor)])
+
+
 def gen_text_type1_symbolic_noencoding() -> bytes:
     """9.6.5.1 and 9.8.2: a non-embedded symbolic Type 1 font that is not a standard 14 font and has no Encoding; its
     built-in encoding is unknown without its program, and its widths come from Widths."""
@@ -3874,6 +3886,730 @@ def gen_inline_image_ei_in_data() -> bytes:
     ], binary=True)
 
 
+# ---------------------------------------------------------------------------
+# JPEG 2000 (clause 7.4.9; ITU-T T.800 | ISO/IEC 15444-1): a minimal lossless encoder, the inverse of the reader's
+# decoding path: DC level shift, reversible colour transform, 5/3 wavelet, EBCOT tier-1 with the MQ coder, one layer,
+# one tile, one precinct, one code-block per sub-band, LRCP packets, and the JP2 boxes around the codestream.
+# ---------------------------------------------------------------------------
+
+# T.800 Table C.2: (Qe, NMPS, NLPS, SWITCH) per state.
+MQ_STATES = [
+    (0x5601, 1, 1, 1), (0x3401, 2, 6, 0), (0x1801, 3, 9, 0), (0x0AC1, 4, 12, 0), (0x0521, 5, 29, 0), (0x0221, 38, 33, 0),
+    (0x5601, 7, 6, 1), (0x5401, 8, 14, 0), (0x4801, 9, 14, 0), (0x3801, 10, 14, 0), (0x3001, 11, 17, 0), (0x2401, 12, 18, 0),
+    (0x1C01, 13, 20, 0), (0x1601, 29, 21, 0), (0x5601, 15, 14, 1), (0x5401, 16, 14, 0), (0x5101, 17, 15, 0), (0x4801, 18, 16, 0),
+    (0x3801, 19, 17, 0), (0x3401, 20, 18, 0), (0x3001, 21, 19, 0), (0x2801, 22, 19, 0), (0x2401, 23, 20, 0), (0x2201, 24, 21, 0),
+    (0x1C01, 25, 22, 0), (0x1801, 26, 23, 0), (0x1601, 27, 24, 0), (0x1401, 28, 25, 0), (0x1201, 29, 26, 0), (0x1101, 30, 27, 0),
+    (0x0AC1, 31, 28, 0), (0x09C1, 32, 29, 0), (0x08A1, 33, 30, 0), (0x0521, 34, 31, 0), (0x0441, 35, 32, 0), (0x02A1, 36, 33, 0),
+    (0x0221, 37, 34, 0), (0x0141, 38, 35, 0), (0x0111, 39, 36, 0), (0x0085, 40, 37, 0), (0x0049, 41, 38, 0), (0x0025, 42, 39, 0),
+    (0x0015, 43, 40, 0), (0x0009, 44, 41, 0), (0x0005, 45, 42, 0), (0x0001, 45, 43, 0), (0x5601, 46, 46, 0),
+]
+
+
+class MqEncoder:
+    """T.800 C.2: INITENC, ENCODE (CODEMPS, CODELPS), RENORME, BYTEOUT and FLUSH (with SETBITS), software conventions."""
+
+    def __init__(self) -> None:
+        self.a = 0x8000
+        self.c = 0
+        self.ct = 12
+        self.out = bytearray([0])  # out[0] is the byte before the first one (BP = BPST - 1)
+
+    def encode(self, cx: list[int], label: int, d: int) -> None:
+        state, mps = cx[label] >> 1, cx[label] & 1
+        qe, nmps, nlps, switch = MQ_STATES[state]
+        self.a -= qe
+        if d == mps:
+            if self.a & 0x8000:
+                self.c += qe
+                return
+            if self.a < qe:
+                self.a = qe
+            else:
+                self.c += qe
+            cx[label] = (nmps << 1) | mps
+        else:
+            if self.a < qe:
+                self.c += qe
+            else:
+                self.a = qe
+            cx[label] = (nlps << 1) | (mps ^ switch)
+        while True:
+            self.a = (self.a << 1) & 0xFFFF
+            self.c = (self.c << 1) & 0xFFFFFFFF
+            self.ct -= 1
+            if self.ct == 0:
+                self._byte_out()
+            if self.a & 0x8000:
+                break
+
+    def _byte_out(self) -> None:
+        if self.out[-1] == 0xFF:
+            self.out.append((self.c >> 20) & 0xFF)
+            self.c &= 0xFFFFF
+            self.ct = 7
+        elif not self.c & 0x8000000:
+            self.out.append((self.c >> 19) & 0xFF)
+            self.c &= 0x7FFFF
+            self.ct = 8
+        else:
+            self.out[-1] += 1
+            if self.out[-1] == 0xFF:
+                self.c &= 0x7FFFFFF
+                self.out.append((self.c >> 20) & 0xFF)
+                self.c &= 0xFFFFF
+                self.ct = 7
+            else:
+                self.out.append((self.c >> 19) & 0xFF)
+                self.c &= 0x7FFFF
+                self.ct = 8
+
+    def flush(self) -> bytes:
+        temp = self.c + self.a
+        self.c |= 0xFFFF
+        if self.c >= temp:
+            self.c -= 0x8000
+        self.c = (self.c << self.ct) & 0xFFFFFFFF
+        self._byte_out()
+        self.c = (self.c << self.ct) & 0xFFFFFFFF
+        self._byte_out()
+        data = bytes(self.out[1:])
+        return data[:-1] if data.endswith(b"\xff") else data  # D.4.1: a codeword segment never ends with 0xFF
+
+
+def _j2k_zc_context(orientation: int, h: int, v: int, d: int) -> int:
+    """T.800 Table D.1."""
+    if orientation == 3:
+        hv = h + v
+        if d >= 3:
+            return 8
+        if d == 2:
+            return 7 if hv >= 1 else 6
+        if d == 1:
+            return 5 if hv >= 2 else 4 if hv == 1 else 3
+        return 2 if hv >= 2 else hv
+    if orientation == 1:
+        h, v = v, h
+    if h == 2:
+        return 8
+    if h == 1:
+        return 7 if v >= 1 else 6 if d >= 1 else 5
+    return 4 if v == 2 else 3 if v == 1 else 2 if d >= 2 else d
+
+
+# T.800 Tables D.2 and D.3: (H, V) -> (context label, XOR bit).
+J2K_SIGN = {(1, 1): (13, 0), (1, 0): (12, 0), (1, -1): (11, 0), (0, 1): (10, 0), (0, 0): (9, 0),
+            (0, -1): (10, 1), (-1, 1): (11, 1), (-1, 0): (12, 1), (-1, -1): (13, 1)}
+
+
+def j2k_encode_block(coefficients: list[list[int]], orientation: int, mb: int) -> tuple[int, int, bytes]:
+    """T.800 Annex D: every coding pass of one code-block (no style bits), one codeword segment. Returns (P, passes, bytes);
+    P = Mb when every coefficient is zero (the code-block is then never included)."""
+    h = len(coefficients)
+    w = len(coefficients[0]) if h else 0
+    mag = [[abs(v) for v in row] for row in coefficients]
+    neg = [[v < 0 for v in row] for row in coefficients]
+    top = max((m for row in mag for m in row), default=0).bit_length()
+    assert top <= mb, "a coefficient needs more than Mb magnitude bit-planes"
+    if top == 0:
+        return mb, 0, b""
+    sig = [[False] * w for _ in range(h)]
+    visited = [[False] * w for _ in range(h)]
+    refined = [[False] * w for _ in range(h)]
+    cx = [0] * 19
+    cx[0], cx[17], cx[18] = 4 << 1, 3 << 1, 46 << 1  # Table D.7
+    mq = MqEncoder()
+
+    def s(y: int, x: int) -> int:
+        return 1 if 0 <= y < h and 0 <= x < w and sig[y][x] else 0
+
+    def zc(y: int, x: int) -> int:
+        return _j2k_zc_context(orientation, s(y, x - 1) + s(y, x + 1), s(y - 1, x) + s(y + 1, x),
+                               s(y - 1, x - 1) + s(y - 1, x + 1) + s(y + 1, x - 1) + s(y + 1, x + 1))
+
+    def contribution(y: int, x: int) -> int:
+        return 0 if not s(y, x) else (-1 if neg[y][x] else 1)
+
+    def code_sign(y: int, x: int) -> None:
+        hc = max(-1, min(1, contribution(y, x - 1) + contribution(y, x + 1)))
+        vc = max(-1, min(1, contribution(y - 1, x) + contribution(y + 1, x)))
+        label, xor = J2K_SIGN[(hc, vc)]
+        mq.encode(cx, label, (1 if neg[y][x] else 0) ^ xor)
+
+    def bit(y: int, x: int, p: int) -> int:
+        return (mag[y][x] >> p) & 1
+
+    def scan():
+        for y0 in range(0, h, 4):
+            for x in range(w):
+                for y in range(y0, min(y0 + 4, h)):
+                    yield y, x
+
+    passes = 0
+    for p in range(top - 1, -1, -1):
+        if p != top - 1:
+            for y, x in scan():  # D.3.1 significance propagation
+                if not sig[y][x] and zc(y, x):
+                    visited[y][x] = True
+                    mq.encode(cx, zc(y, x), bit(y, x, p))
+                    if bit(y, x, p):
+                        code_sign(y, x)
+                        sig[y][x] = True
+            for y, x in scan():  # D.3.3 magnitude refinement
+                if sig[y][x] and not visited[y][x]:
+                    if refined[y][x]:
+                        label = 16
+                    else:
+                        label = 15 if any(s(y + dy, x + dx) for dy in (-1, 0, 1) for dx in (-1, 0, 1) if dy or dx) else 14
+                    mq.encode(cx, label, bit(y, x, p))
+                    refined[y][x] = True
+            passes += 2
+        for y0 in range(0, h, 4):  # D.3.4 cleanup
+            for x in range(w):
+                y = y0
+                rows = range(y0, min(y0 + 4, h))
+                if len(rows) == 4 and all(not sig[r][x] and not visited[r][x] and zc(r, x) == 0 for r in rows):
+                    first = next((r for r in rows if bit(r, x, p)), None)
+                    if first is None:
+                        mq.encode(cx, 17, 0)
+                        continue
+                    mq.encode(cx, 17, 1)
+                    mq.encode(cx, 18, (first - y0) >> 1)
+                    mq.encode(cx, 18, (first - y0) & 1)
+                    code_sign(first, x)
+                    sig[first][x] = True
+                    y = first + 1
+                for r in range(y, min(y0 + 4, h)):
+                    if not sig[r][x] and not visited[r][x]:
+                        mq.encode(cx, zc(r, x), bit(r, x, p))
+                        if bit(r, x, p):
+                            code_sign(r, x)
+                            sig[r][x] = True
+        passes += 1
+        visited = [[False] * w for _ in range(h)]
+    return mb - top, passes, mq.flush()
+
+
+def _pseo(i: int, n: int) -> int:
+    """T.800 F-4 for a signal starting at 0: the mirrored index of ``i``."""
+    if n == 1:
+        return 0
+    period = 2 * (n - 1)
+    i %= period
+    return min(i, period - i)
+
+
+def j2k_forward_53(x: list[int]) -> list[int]:
+    """T.800 F.4.8.2 (F-9, F-10 as corrected in T.800 (2019)): the 5/3 forward lifting of a signal starting at index 0."""
+    n = len(x)
+    if n == 1:
+        return list(x)
+    y = list(x)
+    for k in range(1, n, 2):
+        y[k] = x[k] - ((x[_pseo(k - 1, n)] + x[_pseo(k + 1, n)]) >> 1)
+    for k in range(0, n, 2):
+        y[k] = x[k] + ((y[_pseo(k - 1, n)] + y[_pseo(k + 1, n)] + 2) >> 2)
+    return y
+
+
+def j2k_bands(samples: list[list[int]], levels: int) -> list[tuple[int, int, list[list[int]]]]:
+    """T.800 F.4 (FDWT with origin 0): the sub-bands as (orientation, decomposition level, rows), in the codestream's order
+    (LL, then HL, LH, HH from the lowest resolution up)."""
+    a = [list(row) for row in samples]
+    h, w = len(a), len(a[0])
+    found = []
+    for level in range(1, levels + 1):
+        for x in range(w):  # VER_SD
+            col = j2k_forward_53([a[y][x] for y in range(h)])
+            for y in range(h):
+                a[y][x] = col[y]
+        for y in range(h):  # HOR_SD
+            a[y][:w] = j2k_forward_53(a[y][:w])
+        lw, lh = (w + 1) // 2, (h + 1) // 2
+        found.append((level, [
+            (1, [[a[y][x] for x in range(1, w, 2)] for y in range(0, h, 2)]),
+            (2, [[a[y][x] for x in range(0, w, 2)] for y in range(1, h, 2)]),
+            (3, [[a[y][x] for x in range(1, w, 2)] for y in range(1, h, 2)])]))
+        low = [[a[y][x] for x in range(0, w, 2)] for y in range(0, h, 2)]
+        for y in range(lh):
+            a[y][:lw] = low[y]
+        w, h = lw, lh
+    bands = [(0, levels, [row[:w] for row in a[:h]])]
+    for level, details in reversed(found):
+        bands += [(orientation, level, rows) for orientation, rows in details]
+    return bands
+
+
+class _BitWriter:
+    """T.800 B.10.1: packet header bits, MSB first, a stuffed 0 bit after every 0xFF byte."""
+
+    def __init__(self) -> None:
+        self.out = bytearray()
+        self.acc = 0
+        self.n = 0
+
+    def bits(self, value: int, count: int) -> None:
+        for i in range(count - 1, -1, -1):
+            self.acc = (self.acc << 1) | ((value >> i) & 1)
+            self.n += 1
+            if self.n == (7 if self.out and self.out[-1] == 0xFF else 8):
+                self.out.append(self.acc)
+                self.acc = self.n = 0
+
+    def finish(self) -> bytes:
+        if self.n:
+            self.bits(0, (7 if self.out and self.out[-1] == 0xFF else 8) - self.n)
+        if self.out and self.out[-1] == 0xFF:
+            self.out.append(0)
+        return bytes(self.out)
+
+
+def _j2k_passes(w: _BitWriter, n: int) -> None:
+    """T.800 Table B.4."""
+    if n == 1:
+        w.bits(0, 1)
+    elif n == 2:
+        w.bits(0b10, 2)
+    elif n <= 5:
+        w.bits(0b1100 | (n - 3), 4)
+    elif n <= 36:
+        w.bits(0b1111, 4)
+        w.bits(n - 6, 5)
+    else:
+        w.bits(0b111111111, 9)
+        w.bits(n - 37, 7)
+
+
+def j2k_codestream(components: list[list[list[int]]], depth: int, levels: int, mct: bool, guard: int = 2) -> bytes:
+    """A lossless codestream (T.800 Annex A) of unsigned ``depth``-bit components: one tile, LRCP, one layer, 64 x 64
+    code-blocks (each sub-band one code-block), no precincts, quantization style 0 with exponent depth + log2(gain)."""
+    height, width = len(components[0]), len(components[0][0])
+    shifted = [[[v - (1 << (depth - 1)) for v in row] for row in comp] for comp in components]
+    if mct:  # T.800 G.2.1 forward RCT
+        r, g, b = shifted[:3]
+        shifted[:3] = [[[(r[y][x] + 2 * g[y][x] + b[y][x]) >> 2 for x in range(width)] for y in range(height)],
+                       [[b[y][x] - g[y][x] for x in range(width)] for y in range(height)],
+                       [[r[y][x] - g[y][x] for x in range(width)] for y in range(height)]]
+    gain = [0, 1, 1, 2]
+    exponents = [depth + gain[o] for o, _, _ in j2k_bands(shifted[0], levels)]
+    data = bytearray()
+    per_component = [j2k_bands(comp, levels) for comp in shifted]
+    for res in range(levels + 1):
+        for bands in per_component:
+            chosen = bands[:1] if res == 0 else bands[1 + 3 * (res - 1):4 + 3 * (res - 1)]
+            w = _BitWriter()
+            w.bits(1, 1)
+            bodies = []
+            for orientation, _, rows in chosen:
+                mb = guard + depth + gain[orientation] - 1
+                if not rows or not rows[0]:
+                    continue
+                zero, passes, body = j2k_encode_block(rows, orientation, mb)
+                if passes == 0:
+                    w.bits(0, 1)
+                    continue
+                w.bits(1, 1)
+                w.bits(1, zero + 1)  # tag tree of one node: P zeros, then a one
+                _j2k_passes(w, passes)
+                lblock, extra = 3, passes.bit_length() - 1
+                while len(body) >= 1 << (lblock + extra):
+                    w.bits(1, 1)
+                    lblock += 1
+                w.bits(0, 1)
+                w.bits(len(body), lblock + extra)
+                bodies.append(body)
+            data += w.finish() + b"".join(bodies)
+    siz = struct.pack(">HIIIIIIIIH", 0, width, height, 0, 0, width, height, 0, 0, len(components))
+    siz += b"".join(bytes([depth - 1, 1, 1]) for _ in components)
+    cod = bytes([0, 0]) + struct.pack(">H", 1) + bytes([1 if mct else 0, levels, 4, 4, 0, 1])
+    qcd = bytes([guard << 5]) + bytes(e << 3 for e in exponents)
+
+    def segment(marker: int, body: bytes) -> bytes:
+        return struct.pack(">HH", marker, len(body) + 2) + body
+
+    tile_header = struct.pack(">HHHIBB", 0xFF90, 10, 0, 14 + len(data), 0, 1) + b"\xff\x93"
+    return (b"\xff\x4f" + segment(0xFF51, siz) + segment(0xFF5C, qcd) + segment(0xFF52, cod)
+            + tile_header + bytes(data) + b"\xff\xd9")
+
+
+def jp2_file(codestream: bytes, width: int, height: int, components: int, depth: int, enumerated: int) -> bytes:
+    """T.800 Annex I: signature, File Type ('jp2 '), JP2 Header (Image Header, Colour Specification with an enumerated colour
+    space) and Contiguous Codestream boxes."""
+    def box(kind: bytes, body: bytes) -> bytes:
+        return struct.pack(">I", len(body) + 8) + kind + body
+
+    ihdr = struct.pack(">IIHBBBB", height, width, components, depth - 1, 7, 0, 0)
+    colr = bytes([1, 0, 0]) + struct.pack(">I", enumerated)
+    return (box(b"jP  ", b"\r\n\x87\n") + box(b"ftyp", b"jp2 " + struct.pack(">I", 0) + b"jp2 ")
+            + box(b"jp2h", box(b"ihdr", ihdr) + box(b"colr", colr)) + box(b"jp2c", codestream))
+
+
+def jpx_sample(x: int, y: int, c: int) -> int:
+    """The 8-bit source image of jpx-lossless.pdf (the same formula as JpxSamples.Sample in the tests)."""
+    return (x * 3 + y * 5 + c * 40 + ((x * x + 3 * y * y + 7 * x * y + 11 * c) % 23)) & 0xFF
+
+
+def gen_jpx_lossless() -> bytes:
+    """7.4.9 JPXDecode: a 17 x 13 8-bit RGB image in a JP2 file (enumerated sRGB), coded losslessly: RCT, two levels of the
+    5/3 wavelet, one tile, one layer, LRCP. The dictionary's ColorSpace DeviceRGB wins over the file's colour box and its
+    BitsPerComponent is ignored (Table 87). Odd sizes exercise the symmetric extension at both parities."""
+    width, height = 17, 13
+    comps = [[[jpx_sample(x, y, c) for x in range(width)] for y in range(height)] for c in range(3)]
+    data = jp2_file(j2k_codestream(comps, 8, 2, mct=True), width, height, 3, 8, 16)
+    return one_image(b"/Width 17 /Height 13 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /JPXDecode", data,
+                     version="1.5")
+
+
+def type3_font(scale: int, char_procs: int, resources: int, tounicode: int) -> bytes:
+    """9.6.4 Table 110 Type 3 font dictionary for gen_text_type3(): glyph space is 1000/``scale`` units per em, so the
+    FontMatrix is ``scale``/1000 and every width and coordinate is divided by ``scale``."""
+    unit = 1000 // scale
+    return (b"<< /Type /Font /Subtype /Type3 /FontBBox [0 0 %d %d] /FontMatrix [%s 0 0 %s 0 0]"
+            b" /CharProcs << /square %d 0 R /triangle %d 0 R /bitmap %d 0 R >>"
+            b" /Encoding << /Type /Encoding /Differences [97 /square /triangle /bitmap] >>"
+            b" /FirstChar 97 /LastChar 99 /Widths [%d %d %d] /Resources << /XObject << /Fm0 %d 0 R >> >>"
+            b" /ToUnicode %d 0 R >>"
+            % (750 // scale, 750 // scale, (b"0.001" if scale == 1 else b"0.01"), (b"0.001" if scale == 1 else b"0.01"),
+               char_procs, char_procs + 1, char_procs + 2, unit, unit, unit, resources, tounicode))
+
+
+def type3_glyphs(scale: int) -> list[bytes]:
+    """The square (d1), triangle (d0) and bitmap (d1) glyph descriptions of gen_text_type3(), in a glyph space of
+    1000/``scale`` units per em. Numbers are written as integers or with one decimal, exactly."""
+    def n(value: float) -> bytes:
+        value = value / scale
+        return (b"%d" % value) if value == int(value) else (b"%.1f" % value)
+    square = b"%s 0 0 0 %s %s d1 0 1 0 rg 0 0 %s %s re f /Fm0 Do" % (n(1000), n(750), n(750), n(750), n(750))
+    triangle = b"%s 0 d0 1 0 0 rg 0 0 m %s %s l %s 0 l f" % (n(1000), n(375), n(750), n(750))
+    bitmap = (b"%s 0 0 0 %s %s d1 q %s 0 0 %s 0 0 cm BI /W 8 /H 1 /IM true /F /AHx ID AA> EI"
+              b" BI /W 1 /H 1 /CS /G /BPC 8 /F /AHx ID 00> EI Q" % (n(1000), n(750), n(750), n(750), n(750)))
+    return [square, triangle, bitmap]
+
+
+def gen_text_type3() -> bytes:
+    """9.6.4 Type 3 fonts (Tables 110, 111), 8.6.8 (d1 colour restriction), 9.2.4 (FontMatrix), 7.8.3 (font Resources).
+    Two fonts with the same three glyphs: T3a in a 1000-unit glyph space (FontMatrix 0.001), T3b in a 100-unit one
+    (FontMatrix 0.01, every number divided by 10), so both render identically. Glyph a (square, d1) sets 0 1 0 rg (ignored)
+    and paints its font's own form /Fm0, whose 1 0 0 rg is ignored too (8.6.8: the restriction holds in every stream the
+    glyph invokes); glyph b (triangle, d0) paints red; glyph c (bitmap, d1) paints an 8x1 inline image mask and a 1x1
+    DeviceGray inline image (ignored in d1). The page defines a different /Fm0 (a page-sized square) that the glyphs must
+    not find. The page fills blue, shows (abc) in T3a 24 pt at (72, 700) and in T3b 24 pt at (72, 650). A ToUnicode CMap
+    maps 97-99 to U+25A0, U+25B2, U+25CF."""
+    content = b"0 0 1 rg BT /T3a 24 Tf 72 700 Td (abc) Tj ET BT /T3b 24 Tf 72 650 Td (abc) Tj ET\n"
+    tounicode = to_unicode(b"1 begincodespacerange\n<00> <FF>\nendcodespacerange\n",
+                           b"3 beginbfchar\n<61> <25A0>\n<62> <25B2>\n<63> <25CF>\nendbfchar\n")
+    a_square, a_triangle, a_bitmap = type3_glyphs(1)
+    b_square, b_triangle, b_bitmap = type3_glyphs(10)
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << /Font << /T3a 5 0 R /T3b 6 0 R >> /XObject << /Fm0 16 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, type3_font(1, 7, 10, 15)),
+        (6, type3_font(10, 11, 14, 15)),
+        (7, stream(b"", a_square)),
+        (8, stream(b"", a_triangle)),
+        (9, stream(b"", a_bitmap)),
+        (10, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 750 750]", b"1 0 0 rg 100 100 200 200 re f")),
+        (11, stream(b"", b_square)),
+        (12, stream(b"", b_triangle)),
+        (13, stream(b"", b_bitmap)),
+        (14, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 75 75]", b"1 0 0 rg 10 10 20 20 re f")),
+        (15, tounicode),
+        (16, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 612 792]", b"0 g 0 0 612 792 re f")),
+    ])
+
+
+def gen_text_type3_recursive() -> bytes:
+    """9.6.4: a Type 3 font (FontMatrix 0.001, no Resources: names resolve in the page's) whose glyph r shows text
+    without Tf, so in the inherited current font, which is the font itself: (a) runs glyph a (legal: another glyph of
+    the same font), (r) would run glyph r inside itself (refused, ContentType3GlyphRecursion). Glyph n has no d0 or d1
+    (Table 111: it shall be the first operator; ContentType3GlyphMetricsMissing, run as d0). The page shows (arn) at
+    24 pt from (72, 700)."""
+    content = b"BT /T3 24 Tf 72 700 Td (arn) Tj ET\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /Font << /T3 5 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Font /Subtype /Type3 /FontBBox [0 0 1000 1000] /FontMatrix [0.001 0 0 0.001 0 0]"
+            b" /CharProcs << /a 6 0 R /r 7 0 R /n 8 0 R >> /Encoding << /Type /Encoding /Differences [97 /a 110 /n 114 /r] >>"
+            b" /FirstChar 97 /LastChar 114 /Widths [1000 0 0 0 0 0 0 0 0 0 0 0 0 1000 0 0 0 1000] >>"),
+        (6, stream(b"", b"1000 0 0 0 1000 1000 d1 0 0 1000 1000 re f")),
+        (7, stream(b"", b"1000 0 d0 BT (ar) Tj ET")),
+        (8, stream(b"", b"0 0 500 500 re f")),
+    ])
+
+
+# ---------------------------------------------------------------------------
+# CCITT fax images (clause 7.4.6; ITU-T T.4 clause 4, T.6 clause 2): one mode or framing per file. The decoded samples are
+# ccitt_pack(ccitt_sample_bitmap(w, h)), which the C# twin CcittEncoder.SampleBitmap / Pack reproduces for the tests.
+# ---------------------------------------------------------------------------
+
+# T.4 Table 2 (terminating 0-63) and Table 3a (make-up 64-1728) code words, white and black; Table 3b (1792-2560, both).
+CCITT_WHITE_TERM = (
+    "00110101 000111 0111 1000 1011 1100 1110 1111 10011 10100 00111 01000 001000 000011 110100 110101 101010 101011 "
+    "0100111 0001100 0001000 0010111 0000011 0000100 0101000 0101011 0010011 0100100 0011000 00000010 00000011 00011010 "
+    "00011011 00010010 00010011 00010100 00010101 00010110 00010111 00101000 00101001 00101010 00101011 00101100 00101101 "
+    "00000100 00000101 00001010 00001011 01010010 01010011 01010100 01010101 00100100 00100101 01011000 01011001 01011010 "
+    "01011011 01001010 01001011 00110010 00110011 00110100").split()
+CCITT_BLACK_TERM = (
+    "0000110111 010 11 10 011 0011 0010 00011 000101 000100 0000100 0000101 0000111 00000100 00000111 000011000 0000010111 "
+    "0000011000 0000001000 00001100111 00001101000 00001101100 00000110111 00000101000 00000010111 00000011000 000011001010 "
+    "000011001011 000011001100 000011001101 000001101000 000001101001 000001101010 000001101011 000011010010 000011010011 "
+    "000011010100 000011010101 000011010110 000011010111 000001101100 000001101101 000011011010 000011011011 000001010100 "
+    "000001010101 000001010110 000001010111 000001100100 000001100101 000001010010 000001010011 000000100100 000000110111 "
+    "000000111000 000000100111 000000101000 000001011000 000001011001 000000101011 000000101100 000001011010 000001100110 "
+    "000001100111").split()
+CCITT_WHITE_MAKEUP = (
+    "11011 10010 010111 0110111 00110110 00110111 01100100 01100101 01101000 01100111 011001100 011001101 011010010 "
+    "011010011 011010100 011010101 011010110 011010111 011011000 011011001 011011010 011011011 010011000 010011001 010011010 "
+    "011000 010011011").split()
+CCITT_BLACK_MAKEUP = (
+    "0000001111 000011001000 000011001001 000001011011 000000110011 000000110100 000000110101 0000001101100 0000001101101 "
+    "0000001001010 0000001001011 0000001001100 0000001001101 0000001110010 0000001110011 0000001110100 0000001110101 "
+    "0000001110110 0000001110111 0000001010010 0000001010011 0000001010100 0000001010101 0000001011010 0000001011011 "
+    "0000001100100 0000001100101").split()
+CCITT_EXT_MAKEUP = (
+    "00000001000 00000001100 00000001101 000000010010 000000010011 000000010100 000000010101 000000010110 000000010111 "
+    "000000011100 000000011101 000000011110 000000011111").split()
+CCITT_EOL = "000000000001"
+CCITT_VERTICAL = {-3: "0000010", -2: "000010", -1: "010", 0: "1", 1: "011", 2: "000011", 3: "0000011"}  # T.4 Table 4
+
+
+def ccitt_run_codes(run: int, black: bool) -> str:
+    """T.4 4.1.2 / T.6 2.2.4 Step 2 iii: make-up codes (2560 repeated for runs >= 2624) then one terminating code."""
+    out = ""
+    while run >= 2560:
+        out += CCITT_EXT_MAKEUP[-1]
+        run -= 2560
+    if run >= 64:
+        m = run // 64
+        out += (CCITT_BLACK_MAKEUP if black else CCITT_WHITE_MAKEUP)[m - 1] if m <= 27 else CCITT_EXT_MAKEUP[m - 28]
+        run %= 64
+    return out + (CCITT_BLACK_TERM if black else CCITT_WHITE_TERM)[run]
+
+
+def ccitt_encode_1d(row: list[bool]) -> str:
+    """T.4 4.1: alternating runs from white (the first white run may be 0)."""
+    out, pos, black = "", 0, False
+    while pos < len(row):
+        end = pos
+        while end < len(row) and row[end] == black:
+            end += 1
+        out += ccitt_run_codes(end - pos, black)
+        pos, black = end, not black
+    return out
+
+
+def ccitt_encode_2d(row: list[bool], ref: list[bool]) -> str:
+    """T.4 4.2.1.3 Figure 7 / T.6 2.2: pass, vertical and horizontal modes against the reference line."""
+    w = len(row)
+
+    def px(line: list[bool], x: int) -> bool:
+        return x >= 0 and line[x]
+
+    def next_change(line: list[bool], after: int, colour: bool) -> int:
+        p = after + 1
+        while p < w and line[p] == colour:
+            p += 1
+        return min(p, w)
+
+    out, a0, colour = "", -1, False
+    while a0 < w:
+        a1 = next_change(row, a0, colour)
+        b1 = a0 + 1
+        while b1 < w and not (px(ref, b1) != px(ref, b1 - 1) and px(ref, b1) != colour):
+            b1 += 1
+        b2 = b1 + 1
+        while b2 < w and px(ref, b2) == px(ref, b1):
+            b2 += 1
+        b2 = min(b2, w)
+        if b2 < a1:
+            out += "0001"
+            a0 = b2
+        elif abs(a1 - b1) <= 3:
+            out += CCITT_VERTICAL[a1 - b1]
+            a0, colour = a1, not colour
+        else:
+            a2 = next_change(row, a1, not colour)
+            out += "001" + ccitt_run_codes(a1 - max(a0, 0), colour) + ccitt_run_codes(a2 - a1, not colour)
+            a0 = a2
+    return out
+
+
+def ccitt_encode(rows: list[list[bool]], k: int = 0, end_of_line: bool = False, byte_align: bool = False,
+                 end_of_block: bool = True) -> bytes:
+    """Frames coded lines as CCITTFaxDecode (Table 11) expects: EOL (+ tag bit for K > 0, T.4 4.2.2) before each line when
+    EndOfLine or K > 0, fill so the EOL ends on a byte boundary (or pad before the line when there are no EOLs) under
+    EncodedByteAlign, then EOFB (2 EOL, T.6 2.4.1.1) or RTC (6 EOL / 6 EOL+1, T.4 4.1.4, 4.2.4); zero pad to a byte."""
+    bits: list[str] = []
+    count = 0
+
+    def put(s: str) -> None:
+        nonlocal count
+        bits.append(s)
+        count += len(s)
+
+    def pad_to(multiple_end: int = 0) -> None:
+        while (count + multiple_end) % 8:
+            put("0")
+
+    width = len(rows[0]) if rows else 0
+    prev = [False] * width
+    for i, row in enumerate(rows):
+        two_d = k < 0 or (k > 0 and i % k != 0)
+        if end_of_line or k > 0:
+            eol = CCITT_EOL + ("" if k <= 0 else ("0" if two_d else "1"))
+            if byte_align:
+                pad_to(len(eol))
+            put(eol)
+        elif byte_align:
+            pad_to()
+        put(ccitt_encode_2d(row, prev) if two_d else ccitt_encode_1d(row))
+        prev = row
+    if end_of_block:
+        if byte_align:
+            pad_to()
+        put(CCITT_EOL * 2 if k < 0 else (CCITT_EOL + ("1" if k > 0 else "")) * 6)
+    pad_to()
+    s = "".join(bits)
+    return bytes(int(s[i:i + 8], 2) for i in range(0, len(s), 8))
+
+
+def ccitt_sample_bitmap(width: int, height: int, seed: int = 63) -> list[list[bool]]:
+    """A deterministic bitmap (port of CcittEncoder.SampleBitmap): every 8 rows a white row, a black row, a dithered gradient, a
+    row starting with a long black run, and four rows of drifting text-like strokes (vertical and pass modes)."""
+    state = seed
+    rows = []
+    for y in range(height):
+        kind = y % 8
+        if kind == 0:
+            row = [False] * width
+        elif kind == 1:
+            row = [True] * width
+        elif kind == 2:
+            row = []
+            for x in range(width):
+                state = (state * 1664525 + 1013904223) & 0xFFFFFFFF
+                row.append((state >> 16) % width < x)
+        elif kind == 3:
+            row = [x < width * 2 // 3 or x % 97 == 5 for x in range(width)]
+        else:
+            row = []
+            for x in range(width):
+                phase = (x + y // 3 + seed) % 23
+                row.append(phase < 3 or (phase in (9, 10) and y % 3 != 0) or ((x // 41) % 5 == y % 5 and phase < 15))
+        rows.append(row)
+    return rows
+
+
+def ccitt_pack(rows: list[list[bool]], black_is_1: bool = False) -> bytes:
+    """The expected CCITTFaxDecode output: ceil(w/8) bytes per row, MSB first, black 0 (1 under BlackIs1), pad bits white."""
+    out = bytearray()
+    for row in rows:
+        bits = [(1 if b else 0) if black_is_1 else (0 if b else 1) for b in row]
+        bits += [0 if black_is_1 else 1] * (-len(row) % 8)
+        out += bytes(int("".join(map(str, bits[i:i + 8])), 2) for i in range(0, len(bits), 8))
+    return bytes(out)
+
+
+def ccitt_image(width: int, height: int, parms: bytes, data: bytes, extra: bytes = b"") -> bytes:
+    """A page painting one DeviceGray 1-bit CCITTFaxDecode image of ``width`` x ``height`` with DecodeParms ``parms``."""
+    return one_image(b"/Width %d /Height %d /ColorSpace /DeviceGray /BitsPerComponent 1 /Filter /CCITTFaxDecode "
+                     b"/DecodeParms << %s >>%s" % (width, height, parms, extra), data)
+
+
+def gen_ccitt_g3_1d() -> bytes:
+    """7.4.6 Group 3 1-D (K 0): 203 x 40 (Columns not a multiple of 8), no EOLs, no RTC (EndOfBlock false, Rows 40)."""
+    rows = ccitt_sample_bitmap(203, 40)
+    return ccitt_image(203, 40, b"/K 0 /Columns 203 /Rows 40 /EndOfBlock false", ccitt_encode(rows, 0, end_of_block=False))
+
+
+def gen_ccitt_g3_1d_eol_align() -> bytes:
+    """7.4.6 Group 3 1-D with EndOfLine and EncodedByteAlign: fill before each EOL so it ends on a byte boundary, RTC, no Rows."""
+    rows = ccitt_sample_bitmap(150, 30)
+    return ccitt_image(150, 30, b"/K 0 /Columns 150 /EndOfLine true /EncodedByteAlign true",
+                       ccitt_encode(rows, 0, end_of_line=True, byte_align=True))
+
+
+def gen_ccitt_g3_2d() -> bytes:
+    """7.4.6 Group 3 2-D (K 4): EOL + tag bit before every line, a 1-D line every 4th, 2600 columns (extended make-up codes,
+    T.4 Table 3b), RTC of 6 x (EOL + 1)."""
+    rows = ccitt_sample_bitmap(2600, 30)
+    return ccitt_image(2600, 30, b"/K 4 /Columns 2600 /Rows 30 /EndOfLine true", ccitt_encode(rows, 4, end_of_line=True))
+
+
+def gen_ccitt_g4() -> bytes:
+    """7.4.6 Group 4 (K -1): 1728 x 40 (Columns given explicitly at its default), EOFB, no Rows."""
+    rows = ccitt_sample_bitmap(1728, 40)
+    return ccitt_image(1728, 40, b"/K -1 /Columns 1728", ccitt_encode(rows, -1))
+
+
+def gen_ccitt_g4_no_eob() -> bytes:
+    """7.4.6 Group 4 without EOFB: EndOfBlock false, Rows 40 ends the data."""
+    rows = ccitt_sample_bitmap(120, 40)
+    return ccitt_image(120, 40, b"/K -1 /Columns 120 /Rows 40 /EndOfBlock false", ccitt_encode(rows, -1, end_of_block=False))
+
+
+def gen_ccitt_g4_align() -> bytes:
+    """7.4.6 Group 4 with EncodedByteAlign: every line starts on a byte boundary (no EOLs), EOFB aligned too."""
+    rows = ccitt_sample_bitmap(77, 24)
+    return ccitt_image(77, 24, b"/K -1 /Columns 77 /EncodedByteAlign true", ccitt_encode(rows, -1, byte_align=True))
+
+
+def gen_ccitt_blackis1_mask() -> bytes:
+    """7.4.6 BlackIs1 and 8.9.6.2 stencil masks: /Im0 is a Group 4 /ImageMask with BlackIs1 true and /Decode [1 0] (black pixels
+    are 1 and paint), painted red; /Im1 the same bitmap with BlackIs1 false and the default Decode [0 1] (black pixels are 0 and
+    paint), painted blue below it."""
+    rows = ccitt_sample_bitmap(48, 16)
+    data = ccitt_encode(rows, -1)
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /XObject << /Im0 5 0 R /Im1 6 0 R >> >>")),
+        (4, stream(b"", b"1 0 0 rg q 192 0 0 64 72 600 cm /Im0 Do Q 0 0 1 rg q 192 0 0 64 72 520 cm /Im1 Do Q")),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 48 /Height 16 /ImageMask true /Decode [1 0] /Filter /CCITTFaxDecode "
+                   b"/DecodeParms << /K -1 /Columns 48 /BlackIs1 true >>", data)),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 48 /Height 16 /ImageMask true /Filter /CCITTFaxDecode "
+                   b"/DecodeParms << /K -1 /Columns 48 >>", data)),
+    ], binary=True)
+
+
+def gen_ccitt_inline() -> bytes:
+    """8.9.7 inline image with the /CCF abbreviation: /F /CCF /DP << /K -1 /Columns 64 >> (DecodeParms keys are not
+    abbreviated), a 64 x 16 image mask, EOFB, and /L."""
+    data = ccitt_encode(ccitt_sample_bitmap(64, 16), -1)
+    content = (b"q 128 0 0 32 72 600 cm BI /W 64 /H 16 /IM true /F /CCF /DP << /K -1 /Columns 64 >> /L %d ID " % len(data)
+               + data + b" EI Q")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4)),
+        (4, stream(b"", content)),
+    ], binary=True)
+
+
+def gen_ccitt_g3_damaged() -> bytes:
+    """Broken: Group 3 1-D with EOLs and DamagedRowsBeforeError 2 whose row 5 (of 24) holds an invalid code (13 bits that are
+    neither a run code nor an EOL); a decoder resynchronizes at the next EOL and replaces the row by row 4."""
+    rows = ccitt_sample_bitmap(96, 24)
+    bits = "".join(CCITT_EOL + ("0000000000111" if y == 5 else ccitt_encode_1d(row)) for y, row in enumerate(rows))
+    bits += CCITT_EOL * 6
+    bits += "0" * (-len(bits) % 8)
+    data = bytes(int(bits[i:i + 8], 2) for i in range(0, len(bits), 8))
+    return ccitt_image(96, 24, b"/K 0 /Columns 96 /EndOfLine true /DamagedRowsBeforeError 2", data)
+
+
+def gen_ccitt_g4_truncated() -> bytes:
+    """Broken: a 64 x 32 Group 4 image whose data is cut in the middle of row 20 (the first 20 rows' bytes plus 3 more)."""
+    rows = ccitt_sample_bitmap(64, 32)
+    whole = ccitt_encode(rows, -1, end_of_block=False)
+    head = len(ccitt_encode(rows[:20], -1, end_of_block=False))
+    assert head + 3 < len(ccitt_encode(rows[:21], -1, end_of_block=False))
+    return ccitt_image(64, 32, b"/K -1 /Columns 64", whole[:head + 3])
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -3887,6 +4623,7 @@ FILES = {
     "text-standard14-zapfdingbats.pdf": gen_text_standard14_zapfdingbats,
     "text-standard14-widths.pdf": gen_text_standard14_widths,
     "text-standard14-alias.pdf": gen_text_standard14_alias,
+    "text-nonembedded-substitute.pdf": gen_text_nonembedded_substitute,
     "text-type1-symbolic-noencoding.pdf": gen_text_type1_symbolic_noencoding,
     "text-truetype-composite.pdf": gen_text_truetype_composite,
     "text-truetype-symbolic.pdf": gen_text_truetype_symbolic,
@@ -3982,6 +4719,7 @@ FILES = {
     "image-4bpc-indexed.pdf": gen_image_4bpc_indexed,
     "image-16bpc.pdf": gen_image_16bpc,
     "image-decode-inverted.pdf": gen_image_decode_inverted,
+    "jpx-lossless.pdf": gen_jpx_lossless,
     "inline-image-filters.pdf": gen_inline_image_filters,
     "inline-image-ei-in-data.pdf": gen_inline_image_ei_in_data,
     "shading-type1-function.pdf": gen_shading_type1,
@@ -3995,8 +4733,20 @@ FILES = {
     "pattern-tiling-uncolored.pdf": gen_pattern_tiling_uncolored,
     "pattern-shading-axial.pdf": gen_pattern_shading,
     "pattern-in-form.pdf": gen_pattern_in_form,
+    "text-type3.pdf": gen_text_type3,
     "pattern-recursive.pdf": gen_pattern_recursive,
     "shading-mesh-truncated.pdf": gen_shading_mesh_truncated,
+    "text-type3-recursive.pdf": gen_text_type3_recursive,
+    "ccitt-g3-1d.pdf": gen_ccitt_g3_1d,
+    "ccitt-g3-1d-eol-align.pdf": gen_ccitt_g3_1d_eol_align,
+    "ccitt-g3-2d.pdf": gen_ccitt_g3_2d,
+    "ccitt-g4.pdf": gen_ccitt_g4,
+    "ccitt-g4-no-eob.pdf": gen_ccitt_g4_no_eob,
+    "ccitt-g4-align.pdf": gen_ccitt_g4_align,
+    "ccitt-blackis1-mask.pdf": gen_ccitt_blackis1_mask,
+    "ccitt-inline.pdf": gen_ccitt_inline,
+    "ccitt-g3-damaged.pdf": gen_ccitt_g3_damaged,
+    "ccitt-g4-truncated.pdf": gen_ccitt_g4_truncated,
 }
 
 
@@ -4039,6 +4789,23 @@ def self_test() -> None:
     assert pack_samples([[1, 0, 1]], 1) == bytes([0b10111111])
     assert pack_samples([[3, 0, 1, 2, 3]], 2) == bytes([0xC6, 0xFF])
     assert pack_samples([[0x12FF]], 16) == bytes([0x12, 0xFF])
+    # CCITT (T.4 Tables 2-3): prefix-free code tables (EOL included); an all-white 1728 line in 1-D is make-up 1728 + white 0,
+    # in 2-D against a white reference V(0); a line starting black begins with white 0.
+    for table in (CCITT_WHITE_TERM + CCITT_WHITE_MAKEUP + CCITT_EXT_MAKEUP, CCITT_BLACK_TERM + CCITT_BLACK_MAKEUP + CCITT_EXT_MAKEUP):
+        codes = table + [CCITT_EOL]
+        assert all(a == b or not b.startswith(a) for a in codes for b in codes)
+    assert ccitt_encode_1d([False] * 1728) == "010011011" + "00110101"
+    assert ccitt_encode_2d([False] * 1728, [False] * 1728) == "1"
+    assert ccitt_encode_1d([True] * 3 + [False] * 5) == "00110101" + "10" + "1100"
+    assert ccitt_run_codes(2624 + 2560, False) == "000000011111" * 2 + "11011" + "00110101"
+    # T.800 J.11: the worked example's samples re-encode to its codestream, except the last byte of each of the two codeword
+    # segments (offsets 90 and 97), where its encoder used a shorter termination than C.2.9 FLUSH; both decode alike.
+    j11 = bytes.fromhex(
+        "FF4FFF510029000000000001000000090000000000000000000000010000000900000000000000000001070101FF5C00074040484850"
+        "FF52000C00000001000104040001FF90000A00000000001E0001FF93C7D40C018F0DC8755DC07C21800FB176FFD9")
+    ours = j2k_codestream([[[v] for v in [101, 103, 104, 105, 96, 97, 96, 102, 109]]], 8, 1, mct=False)
+    assert len(ours) == len(j11) and (ours[90], ours[97]) == (0x7F, 0x7F)
+    assert ours[:90] == j11[:90] and ours[91:97] == j11[91:97] and ours[98:] == j11[98:]
 
 
 def main(argv: list[str]) -> int:

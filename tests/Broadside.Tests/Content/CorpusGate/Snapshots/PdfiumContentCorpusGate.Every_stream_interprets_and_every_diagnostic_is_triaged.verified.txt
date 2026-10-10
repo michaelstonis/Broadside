@@ -112,6 +112,8 @@ diagnostics on other files (files, total):
   ContentFontMissing: 5, 5
   ContentFormInvalid: 5, 5
   ContentOperandCount: 4, 4
+  ContentType3GlyphMetricsMisplaced: 1, 1
+  ContentType3GlyphMetricsMissing: 1, 1
   ContentUnbalancedSave: 4, 4
   ContentUnknownOperator: 4, 4
   DictionaryDuplicateKey: 2, 2
@@ -124,6 +126,7 @@ diagnostics on other files (files, total):
   FontEncodingInvalid: 2, 3
   FontProgramInvalid: 24, 24
   FontProgramTruncated: 24, 24
+  FontType3CharProcsInvalid: 1, 1
   FontWidthsInvalid: 1, 1
   FontWidthsMissing: 1, 1
   IccProfileInvalid: 24, 24

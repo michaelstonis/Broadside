@@ -1,6 +1,6 @@
 # Phase 2 content interpretation baseline
 
-The Track 2D exit benchmark (issue #80): `bench/Broadside.Benchmarks/ContentInterpretationBenchmarks.cs` over the real-world subset pinned in `bench/Broadside.Benchmarks/content-subset.json`. The full BenchmarkDotNet export is [`phase-2-content-baseline.json`](phase-2-content-baseline.json).
+The Track 2D exit benchmark (issue #80): `bench/Broadside.Benchmarks/ContentInterpretationBenchmarks.cs` over the real-world subset pinned in `bench/Broadside.Benchmarks/content-subset.json`. The full BenchmarkDotNet JSON export (every iteration, statistics and allocation figures) is [`bench/baselines/phase2/ContentInterpretationBenchmarks.json`](../../bench/baselines/phase2/ContentInterpretationBenchmarks.json), next to the Phase 1 reports of #48 (`bench/baselines/phase1/`) for the Phase 3I regression gate.
 
 ## What is measured
 
@@ -62,6 +62,7 @@ The warm pass allocates nothing per operator, glyph or path: `ContentAllocationT
 
 - Apple M4 Max, 16 cores (16 logical, 16 physical), 64 GB, macOS 27.0.1 (26A434), arm64.
 - BenchmarkDotNet v0.15.8; .NET SDK 10.0.401 (Homebrew), runtime .NET 10.0.12 (10.0.1226.42308), Arm64 RyuJIT armv8.0-a.
+- Not a quiet machine: other build agents shared it (load average about 32 just after the run). As for the Phase 1 baseline (`bench/baselines/phase1/README.md`), treat the times as indicative and compare them with a tolerance; the allocation figures do not depend on load and are exact.
 
 `dotnet --info` (abridged):
 
