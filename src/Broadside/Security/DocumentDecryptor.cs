@@ -25,6 +25,13 @@ internal enum CryptMethod
 
     /// <summary>AES-256-GCM with the file key (ISO/TS 32003 §5.2; CFM <c>AESV4</c>).</summary>
     AesV4,
+
+    /// <summary>
+    /// A crypt filter the credentials do not unlock: a public-key filter without the reader among its recipients (§7.6.6), or an
+    /// <c>AuthEvent /EFOpen</c> filter when the document opened without the user password (§7.6.5, Table 25). Its data stays
+    /// encrypted.
+    /// </summary>
+    Locked,
 }
 
 /// <summary>A crypt filter of the document: its method and key.</summary>
@@ -118,7 +125,10 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
     /// <summary>Reads the crypt filters of an encryption dictionary (Table 20, §7.6.6) for the key a handler returned.</summary>
     /// <param name="encryption">The encryption dictionary.</param>
     /// <param name="version">Its <c>V</c>.</param>
-    /// <param name="result">What the handler returned.</param>
+    /// <param name="result">
+    /// What the handler returned; <see langword="null"/> for a document opened without authentication (only its <c>AuthEvent
+    /// /EFOpen</c> crypt filters are encrypted, <see cref="DocumentSecurity"/>): every crypt filter of <c>CF</c> is then locked.
+    /// </param>
     /// <param name="diagnostics">Where to report deviations.</param>
     /// <param name="resolve">Resolves references without decryption.</param>
     /// <returns>The decryptor.</returns>
@@ -126,11 +136,11 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
     public static DocumentDecryptor Create(
         CosDictionary encryption,
         int version,
-        SecurityHandlerResult result,
+        SecurityHandlerResult? result,
         DiagnosticSink diagnostics,
         Func<CosObject?, CosObject> resolve)
     {
-        byte[] fileKey = result.FileEncryptionKey.ToArray();
+        byte[] fileKey = result?.FileEncryptionKey.ToArray() ?? [];
         var identity = new CryptFilter(FilterNames.Identity, CryptMethod.Identity, []);
         switch (version)
         {
@@ -162,10 +172,12 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
                                 continue; // Table 20: standard crypt filter names in CF shall be ignored.
                             }
 
-                            byte[] key = result.CryptFilterKeys is { } keys && keys.TryGetValue(name, out ReadOnlyMemory<byte> own) ? own.ToArray() : fileKey;
+                            byte[] key = result?.CryptFilterKeys is { } keys && keys.TryGetValue(name, out ReadOnlyMemory<byte> own) ? own.ToArray() : fileKey;
                             if (key.Length == 0)
                             {
-                                continue; // Not authorized (§7.6.6): streams naming it stay encrypted, StmF/StrF naming it is CryptFilterMissing.
+                                // Not authorized (§7.6.6) or not authenticated (Table 25 EFOpen): what names it stays encrypted.
+                                named[name] = new CryptFilter(name, CryptMethod.Locked, []);
+                                continue;
                             }
 
                             if (ReadFilter(name, resolve(entry) as CosDictionary, version, key, diagnostics, resolve, out string? problem) is { } filter)
@@ -254,6 +266,9 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
                 return value;
         }
     }
+
+    /// <inheritdoc/>
+    public bool IsLocked(CosDictionary streamDictionary) => SelectStreamFilter(streamDictionary, out _)?.Method == CryptMethod.Locked;
 
     /// <inheritdoc/>
     /// <remarks>The loader decrypted the stream already (see the class remarks); a known crypt filter passes the data through.</remarks>
@@ -379,6 +394,12 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
             return text;
         }
 
+        if (_strings.Method == CryptMethod.Locked)
+        {
+            ReportLocked(_strings, id);
+            return text;
+        }
+
         ReadOnlyMemory<byte> plain = Apply(_strings, text.Bytes, id, perObjectKey: true);
         return CosString.FromOwnedBytes(plain.ToArray(), text.IsHexadecimal);
     }
@@ -436,29 +457,16 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
         }
 
         DecryptStrings(dictionary, id);
-        CryptFilter filter;
-        bool perObjectKey = true;
-        if (TryReadCryptFilterName(dictionary, out CosName? cryptFilterName))
-        {
-            if (cryptFilterName.Equals(FilterNames.Identity) || !_named.TryGetValue(cryptFilterName, out CryptFilter? named))
-            {
-                return; // Identity, or unknown: the pipeline reports CryptFilterUnsupported when the stream is decoded.
-            }
 
-            filter = named;
-            perObjectKey = false; // §7.4.10: the crypt filter's key is used as is.
-        }
-        else if (IsType(dictionary, Metadata) && !EncryptMetadata)
+        // Identity, or an unknown crypt filter (the pipeline reports CryptFilterUnsupported when the stream is decoded).
+        if (SelectStreamFilter(dictionary, out bool perObjectKey) is not { } filter || filter.Method == CryptMethod.Identity || stream.EncodedLength == 0)
         {
             return;
         }
-        else
-        {
-            filter = IsType(dictionary, EmbeddedFile) ? _embeddedFiles : _streams;
-        }
 
-        if (filter.Method == CryptMethod.Identity || stream.EncodedLength == 0)
+        if (filter.Method == CryptMethod.Locked)
         {
+            ReportLocked(filter, id);
             return;
         }
 
@@ -476,6 +484,41 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
 
         stream.ReplaceLoadedData(Apply(filter, data.Span, id, perObjectKey));
     }
+
+    /// <summary>
+    /// The crypt filter a stream's data is decrypted with: the one its <c>Crypt</c> filter names (its key used as is), else
+    /// <c>EFF</c> for an embedded file and <c>StmF</c> for any other stream; <see langword="null"/> for a cross-reference stream, an
+    /// unencrypted metadata stream or an unknown crypt filter.
+    /// </summary>
+    private CryptFilter? SelectStreamFilter(CosDictionary dictionary, out bool perObjectKey)
+    {
+        perObjectKey = true;
+        if (IsType(dictionary, XRef))
+        {
+            return null;
+        }
+
+        if (TryReadCryptFilterName(dictionary, out CosName? cryptFilterName))
+        {
+            perObjectKey = false; // §7.4.10: the crypt filter's key is used as is.
+            return cryptFilterName.Equals(FilterNames.Identity) ? null : _named.GetValueOrDefault(cryptFilterName);
+        }
+
+        if (IsType(dictionary, Metadata) && !EncryptMetadata)
+        {
+            return null;
+        }
+
+        return IsType(dictionary, EmbeddedFile) ? _embeddedFiles : _streams;
+    }
+
+    /// <summary>Records, once per object, that data encrypted with a locked crypt filter stays encrypted.</summary>
+    private void ReportLocked(CryptFilter filter, CosReference id) =>
+        _diagnostics.ReportOnce(
+            DiagnosticCodes.CryptFilterNotAuthorized,
+            DiagnosticSeverity.Information,
+            $"The data is encrypted with the crypt filter /{filter.Name.Value}, which the credentials given do not unlock: a public-key filter that does not name the reader (§7.6.6), or one whose AuthEvent is EFOpen, which needs the user password when an embedded file is accessed (Table 25); it stays encrypted.",
+            objectReference: id);
 
     /// <summary>Reads the crypt filter a stream names when its first filter is <c>Crypt</c> (§7.4.10, Table 14; default Identity).</summary>
     private bool TryReadCryptFilterName(CosDictionary dictionary, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out CosName? name)

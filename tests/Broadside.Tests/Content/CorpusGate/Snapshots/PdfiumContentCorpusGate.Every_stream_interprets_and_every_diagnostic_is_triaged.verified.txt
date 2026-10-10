@@ -2,42 +2,42 @@
 files: 840
 well-formed files: 304
 outcomes:
-  Interpreted: 833
-  PasswordRequired: 2
+  Interpreted: 835
+  PasswordRequired: 0
   CertificateRequired: 4
   EncryptionUnsupported: 0
   Rejected: 1
   Crash: 0
   Timeout: 0
-pages: 1143
-appearance streams: 1808
+pages: 1145
+appearance streams: 1817
 concurrent passes: 32
 page events:
-  Runs: 1143
-  Operators: 489679
+  Runs: 1145
+  Operators: 489877
   UnknownOperators: 4
-  StateSaves: 16198
-  PathVerbs: 189378
-  PathsStroked: 9972
+  StateSaves: 16211
+  PathVerbs: 189418
+  PathsStroked: 9974
   PathsFilled: 14810
   PathsFilledAndStroked: 232
-  PathsEnded: 2133
-  ClipsPath: 2137
+  PathsEnded: 2135
+  ClipsPath: 2139
   ClipsRectangle: 1500
   ClipsText: 11
-  TextObjects: 39172
-  GlyphsType1: 216024
+  TextObjects: 39176
+  GlyphsType1: 216190
   GlyphsMMType1: 39
   GlyphsTrueType: 50830
   GlyphsType3: 1446
   GlyphsType0: 100232
   Type3GlyphsRun: 113
-  ImagesXObject: 1447
+  ImagesXObject: 1450
   ImagesInline: 0
   ImagesStencil: 182
   ImagesUnresolved: 0
   ShadingsFunction: 2
-  ShadingsAxialRadial: 81
+  ShadingsAxialRadial: 83
   ShadingsMesh: 7
   ShadingsUnresolved: 0
   MeshesDecoded: 7
@@ -52,22 +52,22 @@ page events:
   MarkedContentPoints: 39
   MaxDepth: 5
 appearance events:
-  Runs: 1797
-  Operators: 41974
+  Runs: 1806
+  Operators: 42269
   UnknownOperators: 0
-  StateSaves: 3986
-  PathVerbs: 28259
-  PathsStroked: 1162
+  StateSaves: 3989
+  PathVerbs: 28500
+  PathsStroked: 1164
   PathsFilled: 2581
-  PathsFilledAndStroked: 46
-  PathsEnded: 737
-  ClipsPath: 737
-  ClipsRectangle: 1983
+  PathsFilledAndStroked: 50
+  PathsEnded: 740
+  ClipsPath: 740
+  ClipsRectangle: 1992
   ClipsText: 0
-  TextObjects: 894
+  TextObjects: 897
   GlyphsType1: 5674
   GlyphsMMType1: 0
-  GlyphsTrueType: 2560
+  GlyphsTrueType: 2600
   GlyphsType3: 0
   GlyphsType0: 683
   Type3GlyphsRun: 0
@@ -86,7 +86,7 @@ appearance events:
   FormsEntered: 186
   TransparencyGroups: 10
   SoftMaskGroupsRun: 0
-  MarkedContentSequences: 304
+  MarkedContentSequences: 307
   OptionalContentSequences: 3
   MarkedContentPoints: 0
   MaxDepth: 4

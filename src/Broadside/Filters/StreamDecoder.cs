@@ -127,6 +127,14 @@ internal sealed class StreamDecoder
             return;
         }
 
+        if (CryptFilter.IsLocked(stream.Dictionary))
+        {
+            // Encrypted with a crypt filter the credentials do not unlock: decoding the ciphertext would only report damage.
+            outcome = outcome with { Complete = false };
+            output.Write(stream.EncodedData.Span);
+            return;
+        }
+
         List<FilterStage> chain = ReadChain(stream.Dictionary);
         if (stopBeforeImageFilter && chain.Count > 0 && _filters.TryGet(chain[^1].Name, out IStreamFilter? last) && last is IImageFilter imageFilter)
         {

@@ -1,20 +1,20 @@
 ﻿corpus: pdfjs @ c53f395e4057b501f478a7e98ed03d47c7c62a04
 files: 989
-well-formed files: 721
+well-formed files: 722
 outcomes:
-  Interpreted: 975
-  PasswordRequired: 12
+  Interpreted: 976
+  PasswordRequired: 11
   CertificateRequired: 0
   EncryptionUnsupported: 0
   Rejected: 2
   Crash: 0
   Timeout: 0
-pages: 1830
+pages: 1831
 appearance streams: 1381
 concurrent passes: 63
 page events:
-  Runs: 1830
-  Operators: 2127186
+  Runs: 1831
+  Operators: 2127191
   UnknownOperators: 158
   StateSaves: 115960
   PathVerbs: 996687
@@ -25,8 +25,8 @@ page events:
   ClipsPath: 30578
   ClipsRectangle: 1910
   ClipsText: 5
-  TextObjects: 46146
-  GlyphsType1: 1593328
+  TextObjects: 46147
+  GlyphsType1: 1593335
   GlyphsMMType1: 51
   GlyphsTrueType: 254853
   GlyphsType3: 2264

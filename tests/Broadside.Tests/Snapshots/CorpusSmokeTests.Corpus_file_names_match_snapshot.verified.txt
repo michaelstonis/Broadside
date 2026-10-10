@@ -37,6 +37,7 @@
   encrypted-aes-256.pdf,
   encrypted-aes-gcm.pdf,
   encrypted-crypt-filters.pdf,
+  encrypted-embedded-file-open.pdf,
   encrypted-empty-owner-password.pdf,
   encrypted-mac-tampered.pdf,
   encrypted-mac.pdf,

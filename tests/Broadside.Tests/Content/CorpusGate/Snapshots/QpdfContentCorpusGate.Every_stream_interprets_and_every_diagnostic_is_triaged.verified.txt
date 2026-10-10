@@ -2,19 +2,19 @@
 files: 639
 well-formed files: 400
 outcomes:
-  Interpreted: 602
-  PasswordRequired: 23
+  Interpreted: 605
+  PasswordRequired: 20
   CertificateRequired: 0
   EncryptionUnsupported: 1
   Rejected: 13
   Crash: 0
   Timeout: 0
-pages: 3515
-appearance streams: 1881
+pages: 3575
+appearance streams: 1882
 concurrent passes: 168
 page events:
-  Runs: 3515
-  Operators: 144847
+  Runs: 3575
+  Operators: 145147
   UnknownOperators: 74
   StateSaves: 15686
   PathVerbs: 42459
@@ -25,8 +25,8 @@ page events:
   ClipsPath: 828
   ClipsRectangle: 647
   ClipsText: 0
-  TextObjects: 5468
-  GlyphsType1: 172693
+  TextObjects: 5528
+  GlyphsType1: 173213
   GlyphsMMType1: 0
   GlyphsTrueType: 9864
   GlyphsType3: 0
@@ -52,8 +52,8 @@ page events:
   MarkedContentPoints: 0
   MaxDepth: 2
 appearance events:
-  Runs: 1881
-  Operators: 16456
+  Runs: 1882
+  Operators: 16461
   UnknownOperators: 0
   StateSaves: 927
   PathVerbs: 7388
@@ -62,10 +62,10 @@ appearance events:
   PathsFilledAndStroked: 31
   PathsEnded: 11
   ClipsPath: 11
-  ClipsRectangle: 1884
+  ClipsRectangle: 1885
   ClipsText: 0
-  TextObjects: 830
-  GlyphsType1: 1667
+  TextObjects: 831
+  GlyphsType1: 1688
   GlyphsMMType1: 0
   GlyphsTrueType: 819
   GlyphsType3: 0
@@ -108,7 +108,7 @@ diagnostics on other files (files, total):
   AnnotationNotIndirect: 1, 1
   AnnotationSharedAcrossPages: 3, 33
   AppearanceEntryInvalid: 1, 1
-  ContentFontMissing: 1, 1
+  ContentFontMissing: 2, 2
   ContentOperandCount: 2, 2
   ContentOperandType: 1, 1
   ContentStreamInvalid: 2, 3

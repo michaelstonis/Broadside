@@ -278,7 +278,8 @@ public sealed class PublicKeySecurityTests : IDisposable
         Assert.Equal(PublicKeyTestFile.Content, EncryptedCorpusTests.ContentText(document));
         Assert.True(document.DecodeStream(stream).Span.SequenceEqual(stream.EncodedData.Span));
         Assert.Contains(document.Diagnostics, d => d.Code == "CryptFilterNotAuthorized");
-        Assert.Contains(document.Diagnostics, d => d.Code == "CryptFilterUnsupported");
+        // A filter the reader is not a recipient of is legal (§7.6.6): Information only, no CryptFilterUnsupported error.
+        Assert.DoesNotContain(document.Diagnostics, d => d.Severity > DiagnosticSeverity.Information);
     }
 
     [Fact]

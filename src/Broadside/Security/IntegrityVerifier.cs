@@ -52,13 +52,14 @@ internal static class IntegrityVerifier
     /// <param name="source">The file.</param>
     /// <param name="loader">The loader, decryption installed.</param>
     /// <param name="version">The encryption dictionary's <c>V</c>.</param>
-    /// <param name="result">The security handler's result: the file encryption key and the permissions.</param>
+    /// <param name="rawPermissions">The permissions word (<c>P</c>); bit 13 clear requires a token.</param>
+    /// <param name="fileKey">The file encryption key; empty when the document opened without authentication (not checkable).</param>
     /// <param name="diagnostics">Where to report the outcome.</param>
     /// <returns>The outcome.</returns>
-    public static PdfIntegrityStatus Verify(PdfSource source, ObjectLoader loader, int version, SecurityHandlerResult result, DiagnosticSink diagnostics)
+    public static PdfIntegrityStatus Verify(PdfSource source, ObjectLoader loader, int version, int rawPermissions, ReadOnlySpan<byte> fileKey, DiagnosticSink diagnostics)
     {
         CosDictionary trailer = loader.CrossReference.Sections[0].Trailer;
-        bool required = version >= 5 && (result.RawPermissions & (1 << 12)) == 0;
+        bool required = version >= 5 && (rawPermissions & (1 << 12)) == 0;
         if (!trailer.TryGetValue(AuthCode, out CosObject? entry))
         {
             if (!required)
@@ -73,8 +74,17 @@ internal static class IntegrityVerifier
             return PdfIntegrityStatus.Missing;
         }
 
+        if (fileKey.IsEmpty)
+        {
+            diagnostics.Report(
+                DiagnosticCodes.IntegrityCodeNotVerified,
+                DiagnosticSeverity.Information,
+                "The document opened without its user password, so the PDF MAC token cannot be checked without the file encryption key.");
+            return PdfIntegrityStatus.NotVerified;
+        }
+
         var verifier = new Verification(source, loader, diagnostics);
-        return verifier.Run(entry, version, result.FileEncryptionKey.Span);
+        return verifier.Run(entry, version, fileKey);
     }
 
     /// <summary>Parses a PDF MAC token and checks its structure (§6.3) without any key: the parser the fuzz target drives.</summary>
