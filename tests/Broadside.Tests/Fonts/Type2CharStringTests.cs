@@ -2,6 +2,7 @@ using System.Globalization;
 using Broadside.Diagnostics;
 using Broadside.Fonts;
 using Broadside.Fonts.Cff;
+using Broadside.Tests.Document;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.Fonts;
@@ -10,6 +11,7 @@ namespace Broadside.Tests.Fonts;
 /// Type 2 charstrings through the font program contract: one charstring per case wrapped in a synthesized CFF program, its outline
 /// compared with the absolute points the operator definitions of Adobe Technical Note #5177 give (worked by hand in each case).
 /// </summary>
+[Collection(HeavyTestCollection.Name)]
 public class Type2CharStringTests
 {
     public static TheoryData<string, object[], string> PathOperators => new()
@@ -386,14 +388,8 @@ public class Type2CharStringTests
         };
         FontProgram program = Parse(builder.Build());
         var outline = new GlyphOutline();
-        for (int warm = 0; warm < 50; warm++)
-        {
-            Outline(program, outline);
-        }
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        int segments = Outline(program, outline);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        int segments = default;
+        long allocated = Allocations.Measure(() => segments = Outline(program, outline), 50);
 
         Assert.True(segments > 1_000);
         Assert.Equal(0, allocated);

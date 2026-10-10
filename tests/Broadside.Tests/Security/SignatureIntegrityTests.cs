@@ -20,19 +20,25 @@ public class SignatureIntegrityTests
 {
     private const string IntegrityInfoOid = "1.0.32004.1.0";
 
-    [Fact]
-    public void A_mac_attached_to_a_signature_is_verified()
+    // The container is padded with zeros to its reserved space, and its last DER byte is the last byte of the token's MAC: both
+    // values are covered so that a reader trimming the padding cannot also trim the container (1 run in 256 used to fail).
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_mac_attached_to_a_signature_is_verified(bool containerEndsInZeroByte)
     {
-        using PdfDocument document = PdfDocument.Open(SignedFile(tamperSignature: false));
+        using PdfDocument document = PdfDocument.Open(SignedFile(tamperSignature: false, containerEndsInZeroByte));
 
         Assert.Equal(PdfIntegrityStatus.Verified, document.Security!.Integrity);
         Assert.Empty(document.Diagnostics);
     }
 
-    [Fact]
-    public void A_mac_attached_to_a_different_signature_value_does_not_match()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_mac_attached_to_a_different_signature_value_does_not_match(bool containerEndsInZeroByte)
     {
-        using PdfDocument document = PdfDocument.Open(SignedFile(tamperSignature: true));
+        using PdfDocument document = PdfDocument.Open(SignedFile(tamperSignature: true, containerEndsInZeroByte));
 
         Assert.Equal(PdfIntegrityStatus.Failed, document.Security!.Integrity);
         Diagnostic diagnostic = Assert.Single(document.Diagnostics);
@@ -40,7 +46,7 @@ public class SignatureIntegrityTests
         Assert.Contains("signatureDigest", diagnostic.Message, StringComparison.Ordinal);
     }
 
-    private static byte[] SignedFile(bool tamperSignature)
+    private static byte[] SignedFile(bool tamperSignature, bool containerEndsInZeroByte)
     {
         byte[] original = Corpus.Bytes("encrypted-aes-256.pdf");
         string text = Encoding.Latin1.GetString(original);
@@ -79,15 +85,20 @@ public class SignatureIntegrityTests
         }
 
         byte[] fileKey = SHA256.HashData("broadside-corpus:encrypted-aes-256:file-key:0"u8);
-        byte[] token = Token(fileKey, salt, SHA256.HashData(covered), SHA256.HashData(signatureValue));
+        byte[] token = Token(fileKey, salt, SHA256.HashData(covered), SHA256.HashData(signatureValue), containerEndsInZeroByte);
         signed.SignerInfos[0].AddUnsignedAttribute(new AsnEncodedData("1.0.32004.1.2", token));
-        string contents = Convert.ToHexString(signed.Encode()).PadRight(2 * 4096, '0');
+        byte[] container = signed.Encode();
+        Assert.Equal(containerEndsInZeroByte, container[^1] == 0);
+        string contents = Convert.ToHexString(container).PadRight(2 * 4096, '0');
         Encoding.Latin1.GetBytes(contents).CopyTo(file, l1 + 1);
         return file;
     }
 
-    /// <summary>ISO/TS 32004 §6.3: the AuthenticatedData token, written with the base class library's ASN.1 writer.</summary>
-    private static byte[] Token(byte[] fileKey, byte[] salt, byte[] dataDigest, byte[] signatureDigest)
+    /// <summary>
+    /// ISO/TS 32004 §6.3: the AuthenticatedData token, written with the base class library's ASN.1 writer. The token ends with the
+    /// MAC, so the MAC key is chosen (it is random in a real writer) to make the MAC's last byte zero or not, as asked.
+    /// </summary>
+    private static byte[] Token(byte[] fileKey, byte[] salt, byte[] dataDigest, byte[] signatureDigest, bool macEndsInZeroByte)
     {
         byte[] macKey = [.. Enumerable.Range(1, 32).Select(i => (byte)i)];
         var infoWriter = new AsnWriter(AsnEncodingRules.DER);
@@ -111,6 +122,12 @@ public class SignatureIntegrityTests
 
         byte[] attributesAsSet = setWriter.Encode();
         byte[] mac = HMACSHA256.HashData(macKey, attributesAsSet);
+        for (int attempt = 1; (mac[^1] == 0) != macEndsInZeroByte; attempt++)
+        {
+            System.Buffers.Binary.BinaryPrimitives.WriteInt32LittleEndian(macKey, attempt);
+            mac = HMACSHA256.HashData(macKey, attributesAsSet);
+        }
+
         byte[] keyEncryptionKey = HKDF.DeriveKey(HashAlgorithmName.SHA256, fileKey, 32, salt, "PDFMAC"u8.ToArray());
 
         var writer = new AsnWriter(AsnEncodingRules.DER);

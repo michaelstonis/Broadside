@@ -2,6 +2,7 @@ using System.Buffers;
 using System.Text;
 using Broadside.Filters;
 using Broadside.Objects;
+using Broadside.Tests.Document;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.Filters;
@@ -10,6 +11,7 @@ namespace Broadside.Tests.Filters;
 /// Filters are a hot path and allocate nothing per byte, code or row (CLAUDE.md, "Code conventions"). This is the build-breaking
 /// half of that rule; the <c>*Benchmarks</c> classes in <c>bench/Broadside.Benchmarks</c> are the measuring half. ISO 32000-2 §7.4.
 /// </summary>
+[Collection(HeavyTestCollection.Name)]
 public class FilterAllocationTests
 {
     public static TheoryData<string> AllocationFreeFilters => new() { "ASCIIHexDecode", "ASCII85Decode", "LZWDecode", "RunLengthDecode" };
@@ -22,13 +24,7 @@ public class FilterAllocationTests
         var context = new FilterContext();
         var output = new ArrayBufferWriter<byte>(400_000);
 
-        // Past tiered compilation's call-count threshold first, so the runtime's own bookkeeping is not counted.
-        for (int warmUp = 0; warmUp < 40; warmUp++)
-        {
-            Decode(filter, encoded, output, context);
-        }
-
-        long allocated = Decode(filter, encoded, output, context);
+        long allocated = Allocations.Measure(() => Decode(filter, encoded, output, context));
 
         Assert.True(output.WrittenCount >= 200_000);
         Assert.Equal(0, allocated);
@@ -42,14 +38,9 @@ public class FilterAllocationTests
         var output = new ArrayBufferWriter<byte>(1_000_000);
         byte[] small = FilterEncoders.Zlib(FilterEncoders.SampleData(1_000));
         byte[] large = FilterEncoders.Zlib(FilterEncoders.SampleData(900_000));
-        for (int warmUp = 0; warmUp < 40; warmUp++)
-        {
-            Decode(filter, small, output, context);
-            Decode(filter, large, output, context);
-        }
 
-        long forSmall = Decode(filter, small, output, context);
-        long forLarge = Decode(filter, large, output, context);
+        long forSmall = Allocations.Measure(() => Decode(filter, small, output, context));
+        long forLarge = Allocations.Measure(() => Decode(filter, large, output, context));
 
         Assert.InRange(forLarge, 0, forSmall + 64);
     }
@@ -61,6 +52,25 @@ public class FilterAllocationTests
         long forLarge = PredictedStreamAllocation(rows: 20_000);
 
         Assert.InRange(forLarge, 0, forSmall + 64);
+    }
+
+    // Found by libFuzzer (issue #48): Columns sized the row buffers and the zero padding of the last row, so a few bytes of data
+    // with a huge Columns allocated and wrote rows of up to the decoded-length limit (1 GiB) and ran out of memory. Data that
+    // cannot hold one whole row is now passed through, so the output is never more than twice the input.
+    [Theory]
+    [InlineData(12)]
+    [InlineData(2)]
+    public void A_row_longer_than_the_whole_data_allocates_nothing_in_proportion_to_the_row(int predictor)
+    {
+        byte[] file = FilterTesting.FileWithStream(
+            $"/Filter /FlateDecode /DecodeParms << /Predictor {predictor} /Colors 4 /BitsPerComponent 16 /Columns 100000000 >>",
+            FilterEncoders.Zlib([2, 10, 20, 30]));
+        (byte[] decoded, string[] codes) = FilterTesting.DecodeWithCodes(file);
+        long allocated = Allocations.Measure(() => FilterTesting.DecodeWithCodes(file), warmUpCalls: 1);
+
+        Assert.Equal([2, 10, 20, 30], decoded);
+        Assert.Equal(["PredictorInvalid"], codes);
+        Assert.True(allocated < 1 << 20, $"Decoding 4 bytes allocated {allocated} bytes.");
     }
 
     private static long PredictedStreamAllocation(int rows)
@@ -76,27 +86,20 @@ public class FilterAllocationTests
         using PdfDocument document = PdfDocument.Open(file);
         var stream = (CosStream)document.Resolve(FilterTesting.StreamReference);
         var output = new ArrayBufferWriter<byte>(rows * 4);
-        for (int warmUp = 0; warmUp < 40; warmUp++)
+
+        long allocated = Allocations.Measure(() =>
         {
             output.ResetWrittenCount();
             document.DecodeStream(stream, output);
-        }
-
-        output.ResetWrittenCount();
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
-        document.DecodeStream(stream, output);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        });
         Assert.Equal(rows * 4, output.WrittenCount);
         return allocated;
     }
 
-    private static long Decode(IStreamFilter filter, byte[] encoded, ArrayBufferWriter<byte> output, FilterContext context)
+    private static void Decode(IStreamFilter filter, byte[] encoded, ArrayBufferWriter<byte> output, FilterContext context)
     {
         output.ResetWrittenCount();
-        long before = GC.GetAllocatedBytesForCurrentThread();
         filter.Decode(encoded, output, context);
-        return GC.GetAllocatedBytesForCurrentThread() - before;
     }
 
     private static (IStreamFilter Filter, byte[] Encoded) Encoded(string name, byte[] data) => name switch

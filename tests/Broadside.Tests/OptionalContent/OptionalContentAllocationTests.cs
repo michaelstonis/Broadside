@@ -1,4 +1,5 @@
 using Broadside.Objects;
+using Broadside.Tests.Document;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.OptionalContent;
@@ -7,6 +8,7 @@ namespace Broadside.Tests.OptionalContent;
 /// The visibility checks a content interpreter makes per <c>/OC</c> section and per optional XObject allocate nothing once each
 /// membership is compiled (ISO 32000-2 §8.11; CLAUDE.md hot-path rule). Benchmark: <c>OptionalContentBenchmarks</c>.
 /// </summary>
+[Collection(HeavyTestCollection.Name)]
 public class OptionalContentAllocationTests
 {
     [Fact]
@@ -18,19 +20,18 @@ public class OptionalContentAllocationTests
         var tracker = new PdfOptionalContentTracker(properties, state);
         var oc = new CosName("OC");
         CosObject[] operands = [.. ((CosDictionary)document.Resolve(document.Pages[0].Resources![new CosName("Properties")])).Values];
-        for (int warmUp = 0; warmUp < 50; warmUp++)
-        {
-            Run();
-        }
-
-        long before = GC.GetAllocatedBytesForCurrentThread();
         int visible = 0;
-        for (int iteration = 0; iteration < 1000; iteration++)
-        {
-            visible += Run();
-        }
 
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
+        long allocated = Allocations.Measure(
+            () =>
+            {
+                visible = 0;
+                for (int iteration = 0; iteration < 1000; iteration++)
+                {
+                    visible += Run();
+                }
+            },
+            warmUpCalls: 1);
 
         Assert.Equal(1000 * 3, visible);
         Assert.Equal(0, allocated);
