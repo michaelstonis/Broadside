@@ -1,0 +1,143 @@
+﻿corpus: pdfium-tests @ 141d7ba49d797e856f57fd7e76a9b7f73468988e
+files: 840
+well-formed files: 305
+outcomes:
+  Interpreted: 833
+  PasswordRequired: 2
+  CertificateRequired: 4
+  EncryptionUnsupported: 0
+  Rejected: 1
+  Crash: 0
+  Timeout: 0
+pages: 1143
+appearance streams: 1808
+concurrent passes: 32
+page events:
+  Runs: 1143
+  Operators: 489679
+  UnknownOperators: 4
+  StateSaves: 16198
+  PathVerbs: 189378
+  PathsStroked: 9972
+  PathsFilled: 14810
+  PathsFilledAndStroked: 232
+  PathsEnded: 2133
+  ClipsPath: 2137
+  ClipsRectangle: 1500
+  ClipsText: 11
+  TextObjects: 39172
+  GlyphsType1: 216024
+  GlyphsMMType1: 39
+  GlyphsTrueType: 50830
+  GlyphsType3: 1446
+  GlyphsType0: 100157
+  Type3GlyphsRun: 113
+  ImagesXObject: 1447
+  ImagesInline: 0
+  ImagesStencil: 182
+  ImagesUnresolved: 0
+  ShadingsFunction: 2
+  ShadingsAxialRadial: 81
+  ShadingsMesh: 7
+  ShadingsUnresolved: 0
+  MeshesDecoded: 7
+  PatternFillsTiling: 783
+  PatternFillsShading: 73
+  PatternCellsRun: 41
+  FormsEntered: 1139
+  TransparencyGroups: 887
+  SoftMaskGroupsRun: 343
+  MarkedContentSequences: 1361
+  OptionalContentSequences: 65
+  MarkedContentPoints: 39
+  MaxDepth: 5
+appearance events:
+  Runs: 1797
+  Operators: 41974
+  UnknownOperators: 0
+  StateSaves: 3986
+  PathVerbs: 28259
+  PathsStroked: 1162
+  PathsFilled: 2581
+  PathsFilledAndStroked: 46
+  PathsEnded: 737
+  ClipsPath: 737
+  ClipsRectangle: 1983
+  ClipsText: 0
+  TextObjects: 894
+  GlyphsType1: 5674
+  GlyphsMMType1: 0
+  GlyphsTrueType: 2560
+  GlyphsType3: 0
+  GlyphsType0: 675
+  Type3GlyphsRun: 0
+  ImagesXObject: 152
+  ImagesInline: 0
+  ImagesStencil: 0
+  ImagesUnresolved: 0
+  ShadingsFunction: 0
+  ShadingsAxialRadial: 2
+  ShadingsMesh: 0
+  ShadingsUnresolved: 0
+  MeshesDecoded: 0
+  PatternFillsTiling: 0
+  PatternFillsShading: 0
+  PatternCellsRun: 0
+  FormsEntered: 186
+  TransparencyGroups: 10
+  SoftMaskGroupsRun: 0
+  MarkedContentSequences: 304
+  OptionalContentSequences: 3
+  MarkedContentPoints: 0
+  MaxDepth: 4
+diagnostics on well-formed files (files, total):
+  ContentFormInvalid: 11, 11
+  ContentUnbalancedSave: 17, 26
+  FontStandard14EntriesIncomplete: 1, 2
+  FunctionEntryInvalid: 1, 1
+  IccProfileInvalid: 1, 3
+  ShadingCoordsInvalid: 1, 1
+  Type0IdentityNotEmbedded: 14, 28
+diagnostics on other files (files, total):
+  AnnotationDuplicate: 1, 1
+  AnnotationEntryInvalid: 1, 4
+  AnnotationRectInvalid: 1, 1
+  AppearanceEntryInvalid: 1, 1
+  ArrayUnterminated: 1, 1
+  CMapCodeInvalid: 4, 10
+  CidToGidMapMissing: 4, 5
+  ContentColorOperatorInvalid: 4, 4
+  ContentColorOperatorMismatch: 21, 69
+  ContentExtGStateInvalid: 1, 1
+  ContentFontMissing: 5, 5
+  ContentFormInvalid: 5, 5
+  ContentOperandCount: 4, 4
+  ContentType3GlyphMetricsMisplaced: 1, 1
+  ContentType3GlyphMetricsMissing: 1, 1
+  ContentUnbalancedSave: 4, 4
+  ContentUnknownOperator: 4, 4
+  DictionaryDuplicateKey: 2, 2
+  DictionaryKeyNotName: 1, 2
+  DictionaryUnterminated: 1, 1
+  DictionaryValueMissing: 1, 2
+  EndstreamMissing: 1, 2
+  FilterDataInvalid: 24, 24
+  FontDescriptorInvalid: 1, 1
+  FontEncodingInvalid: 2, 3
+  FontProgramInvalid: 24, 24
+  FontProgramTruncated: 24, 24
+  FontType3CharProcsInvalid: 1, 1
+  FontWidthsInvalid: 1, 1
+  FontWidthsMissing: 1, 1
+  IccProfileInvalid: 24, 24
+  ImageBitsPerComponentInvalid: 1, 1
+  ImageColorSpaceMissing: 1, 1
+  MissingEndobj: 4, 4
+  OptionalContentBaseStateInvalid: 2, 2
+  OptionalContentGroupInvalid: 2, 2
+  OptionalContentGroupNotListed: 1, 1
+  StreamLengthInvalid: 89, 152
+  StringUnterminated: 1, 1
+  Type0IdentityNotEmbedded: 24, 48
+  UnexpectedToken: 2, 2
+  XrefEntryOffsetInvalid: 6, 19

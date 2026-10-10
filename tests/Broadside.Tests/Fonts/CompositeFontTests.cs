@@ -133,6 +133,19 @@ public class CompositeFontTests
         Assert.Equal(["Type0IdentityNotEmbedded"], document.Diagnostics.Select(diagnostic => diagnostic.Code));
     }
 
+    [Theory]
+    [InlineData("/GBK-EUC-H")]
+    [InlineData(null)]
+    public void A_non_embedded_TrueType_CIDFont_whose_encoding_only_falls_back_to_Identity_H_is_not_reported_for_using_Identity_H(string? encoding)
+    {
+        // Issue #80 triage: pdfium's FRC_8.2.2 files use /GBK-EUC-H with a non-embedded CIDFontType2; §9.7.5.2 forbids only Identity-H/V written as such.
+        using PdfDocument document = Open(encoding: encoding);
+
+        _ = CompositeFontCorpusTests.Font(document).ReadGlyph([0x01, 0x02]);
+
+        Assert.DoesNotContain("Type0IdentityNotEmbedded", document.Diagnostics.Select(diagnostic => diagnostic.Code));
+    }
+
     [Fact]
     public void A_missing_encoding_or_an_unavailable_predefined_CMap_reads_codes_as_Identity_H()
     {

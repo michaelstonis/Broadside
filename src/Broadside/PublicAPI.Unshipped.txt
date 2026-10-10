@@ -3364,3 +3364,11 @@ Broadside.Filters.CcittFaxDecodeFilter.Decode(System.ReadOnlyMemory<byte> encode
 Broadside.Filters.CcittFaxDecodeFilter.DecodeImage(System.ReadOnlyMemory<byte> encoded, Broadside.Filters.ImageFilterContext! context) -> Broadside.Images.DecodedImage?
 Broadside.Filters.CcittFaxDecodeFilter.Name.get -> Broadside.Objects.CosName!
 Broadside.Filters.CcittFaxDecodeFilter.TryReadHeader(System.ReadOnlySpan<byte> encoded, Broadside.Filters.ImageFilterContext! context, out Broadside.Filters.ImageHeader header) -> bool
+Broadside.Filters.Jbig2DecodeFilter
+Broadside.Filters.Jbig2DecodeFilter.Decode(System.ReadOnlyMemory<byte> encoded, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.FilterContext! context) -> void
+Broadside.Filters.Jbig2DecodeFilter.DecodeImage(System.ReadOnlyMemory<byte> encoded, Broadside.Filters.ImageFilterContext! context) -> Broadside.Images.DecodedImage?
+Broadside.Filters.Jbig2DecodeFilter.Jbig2DecodeFilter() -> void
+Broadside.Filters.Jbig2DecodeFilter.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.Jbig2DecodeFilter.TryReadHeader(System.ReadOnlySpan<byte> encoded, Broadside.Filters.ImageFilterContext! context, out Broadside.Filters.ImageHeader header) -> bool
+Broadside.Annotations.PdfAnnotation.ProcessAppearance(Broadside.Graphics.PdfFormXObject! appearance, Broadside.Content.ContentProcessor! processor) -> bool
+Broadside.Annotations.PdfAnnotation.ProcessAppearance(Broadside.Graphics.PdfFormXObject! appearance, Broadside.Content.ContentProcessor! processor, Broadside.Content.ContentOptions! options) -> bool
