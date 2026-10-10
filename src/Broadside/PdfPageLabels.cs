@@ -73,22 +73,41 @@ public sealed class PdfPageLabels
     {
         int count = _document.Pages.Count;
         string[] labels = new string[count];
+        int formatterStart = -1;
+        PdfPageLabelRange.LabelFormatter? formatter = null;
         for (int index = 0; index < count; index++)
         {
-            labels[index] = Label(index);
+            if (FindRange(index, out int start) is not { } range)
+            {
+                labels[index] = Unlabelled(index);
+                continue;
+            }
+
+            // Pages of one range share its entries read once, and a prefix-only range one string.
+            if (formatter is null || start != formatterStart)
+            {
+                formatter = range.CreateFormatter();
+                formatterStart = start;
+            }
+
+            labels[index] = formatter.Format(index - start);
         }
 
         return labels;
     }
 
-    private string Label(int pageIndex)
+    private string Label(int pageIndex) =>
+        FindRange(pageIndex, out int start) is { } range ? range.GetLabel(pageIndex - start) : Unlabelled(pageIndex);
+
+    /// <summary>The range that labels <paramref name="pageIndex"/> and the page index it starts at, or <see langword="null"/>.</summary>
+    private PdfPageLabelRange? FindRange(int pageIndex, out int start)
     {
         int key = pageIndex;
-        while (_tree.TryGetFloor(key, out int start, out CosObject? value))
+        while (_tree.TryGetFloor(key, out start, out CosObject? value))
         {
             if (Range(start, value) is { } range)
             {
-                return range.GetLabel(pageIndex - start);
+                return range;
             }
 
             if (start <= 0)
@@ -99,6 +118,13 @@ public sealed class PdfPageLabels
             key = start - 1;
         }
 
+        start = 0;
+        return null;
+    }
+
+    /// <summary>The label of a page before the first range: decimal from 1, reported.</summary>
+    private string Unlabelled(int pageIndex)
+    {
         Report(DiagnosticCodes.PageLabelsMissingZeroKey, "The page labels number tree shall have a range for page index 0; pages before its first range are numbered in decimal from 1.");
         return (pageIndex + 1).ToString(System.Globalization.CultureInfo.InvariantCulture);
     }
