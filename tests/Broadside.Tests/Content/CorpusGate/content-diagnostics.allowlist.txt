@@ -70,7 +70,6 @@ pdfjs/SimFang-variant.pdf	FontDescriptorInvalid	1	9.8.1 Table 120 font descripto
 pdfjs/Test-plusminus.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
 pdfjs/XiaoBiaoSong.pdf	FontDescriptorInvalid	2	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
 pdfjs/axial_shading_many_inputs.pdf	ShadingFunctionInvalid	16	8.7.4.5.3 Table 79 axial shading Function is not a 1-in function
-pdfjs/bomb_giant.pdf	ContentUnknownOperator	1	7.8.2 a keyword that is not an operator outside BX/EX
 pdfjs/bug1065245.pdf	ContentTextObjectUnbalanced	1	9.4.1 Figure 9 BT/ET not balanced in the content stream
 pdfjs/bug1068432.pdf	FontDescriptorInvalid	1	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
 pdfjs/bug1157493.pdf	ContentStackUnderflow	1	8.4.2 Q without a matching q (q/Q shall be balanced)

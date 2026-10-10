@@ -4865,6 +4865,91 @@ def gen_dct_baseline() -> bytes:
     ], binary=True)
 
 
+# T.88 Figures 3 to 6 in reading order: (dx, dy) of a fixed pixel, or ("A", n) for AT pixel n at its nominal slot.
+JBIG2_TEMPLATES = [
+    [("A", 4), (-1, -2), (0, -2), (1, -2), ("A", 3), ("A", 2), (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1), ("A", 1),
+     (-4, 0), (-3, 0), (-2, 0), (-1, 0)],
+    [(-1, -2), (0, -2), (1, -2), (2, -2), (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1), ("A", 1), (-3, 0), (-2, 0), (-1, 0)],
+    [(-1, -2), (0, -2), (1, -2), (-2, -1), (-1, -1), (0, -1), (1, -1), ("A", 1), (-2, 0), (-1, 0)],
+    [(-3, -1), (-2, -1), (-1, -1), (0, -1), (1, -1), ("A", 1), (-4, 0), (-3, 0), (-2, 0), (-1, 0)],
+]
+JBIG2_NOMINAL_AT = [[(3, -1), (-3, -1), (2, -2), (-2, -2)], [(3, -1)], [(2, -1)], [(2, -1)]]
+JBIG2_SLTP = [0x9B25, 0x0795, 0x00E5, 0x0195]  # Figures 8 to 11 gathered in the same order
+
+
+def jbig2_encode_generic(rows: list[list[bool]], template: int, tpgdon: bool, at: list[tuple[int, int]] | None = None) -> bytes:
+    """T.88 6.2.5: template-based arithmetic coding of a bitmap (True = 1 = black) with typical prediction, through the MQ
+    coder of E.2 (shared with JPEG 2000), terminated by FLUSH and the 0xFF 0xAC marker. AT pixels keep their nominal bit."""
+    at = at or JBIG2_NOMINAL_AT[template]
+    height, width = len(rows), len(rows[0]) if rows else 0
+    mq, cx, ltp = MqEncoder(), [0] * 65536, False
+
+    def px(x: int, y: int) -> int:
+        return 1 if 0 <= y < height and 0 <= x < width and rows[y][x] else 0
+
+    for y in range(height):
+        if tpgdon:
+            typical = rows[y] == (rows[y - 1] if y else [False] * width)
+            mq.encode(cx, JBIG2_SLTP[template], int(typical != ltp))
+            ltp = typical
+            if ltp:
+                continue
+        for x in range(width):
+            context = 0
+            for a, b in JBIG2_TEMPLATES[template]:
+                dx, dy = at[b - 1] if a == "A" else (a, b)
+                context = (context << 1) | px(x + dx, y + dy)
+            mq.encode(cx, context, int(rows[y][x]))
+    return mq.flush() + b"\xff\xac"
+
+
+def jbig2_segment(number: int, seg_type: int, page: int, data: bytes) -> bytes:
+    """T.88 7.2: a segment header (short page association, no referred-to segments) followed by its data part (D.1)."""
+    return struct.pack(">IBBBI", number, seg_type, 0, page, len(data)) + data
+
+
+def jbig2_page_info(width: int, height: int, flags: int = 0) -> bytes:
+    """T.88 7.4.8: width, height, unknown resolution, page flags, no striping."""
+    return struct.pack(">IIIIBH", width, height, 0, 0, flags, 0)
+
+
+def jbig2_generic_region(rows: list[list[bool]], mmr: bool, template: int = 0, tpgdon: bool = False) -> bytes:
+    """T.88 7.4.6: region information at (0, 0) with OR, generic region flags, nominal AT bytes, the coded bitmap."""
+    header = struct.pack(">IIIIB", len(rows[0]), len(rows), 0, 0, 0) + bytes([int(mmr) | (template << 1) | (int(tpgdon) << 3)])
+    if mmr:
+        return header + ccitt_encode(rows, -1)
+    at = b"".join(struct.pack(">bb", x, y) for x, y in JBIG2_NOMINAL_AT[template])
+    return header + at + jbig2_encode_generic(rows, template, tpgdon)
+
+
+def jbig2_comment(name: bytes, value: bytes) -> bytes:
+    """T.88 7.4.15.1: a single-byte coded comment extension."""
+    return struct.pack(">I", 0x20000000) + name + b"\0" + value + b"\0\0"
+
+
+def gen_jbig2_generic() -> bytes:
+    """7.4.7 JBIG2Decode with Table 12's JBIG2Globals: a 150 x 48 page (the CCITT sample bitmap, 1 = black) coded as one immediate
+    lossless generic region, template 0 with typical prediction (T.88 6.2.5, 7.4.6); the globals stream holds one comment
+    extension segment (page 0, 7.4.15.1). Embedded sequential organisation, page association 1, no file header, no EOP."""
+    rows = ccitt_sample_bitmap(150, 48)
+    page = (jbig2_segment(1, 48, 1, jbig2_page_info(150, 48))
+            + jbig2_segment(2, 39, 1, jbig2_generic_region(rows, mmr=False, template=0, tpgdon=True)))
+    globals_ = jbig2_segment(0, 62, 0, jbig2_comment(b"Title", b"Broadside JBIG2 globals"))
+    return image_page([
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 150 /Height 48 /ColorSpace /DeviceGray /BitsPerComponent 1"
+                   b" /Filter /JBIG2Decode /DecodeParms << /JBIG2Globals 6 0 R >>", page)),
+        (6, stream(b"", globals_)),
+    ], version="1.4")
+
+
+def gen_jbig2_generic_mmr() -> bytes:
+    """7.4.7 JBIG2Decode as an image mask (8.9.6.2): the same 150 x 48 bitmap as one MMR generic region (T.88 6.2.6, T.6 with
+    EOFB); the filter's 0 = black samples paint with the default Decode [0 1]. No JBIG2Globals."""
+    rows = ccitt_sample_bitmap(150, 48)
+    page = jbig2_segment(0, 48, 1, jbig2_page_info(150, 48)) + jbig2_segment(1, 39, 1, jbig2_generic_region(rows, mmr=True))
+    return one_image(b"/Width 150 /Height 48 /ImageMask true /Filter /JBIG2Decode", page, version="1.4")
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -5003,6 +5088,8 @@ FILES = {
     "ccitt-inline.pdf": gen_ccitt_inline,
     "ccitt-g3-damaged.pdf": gen_ccitt_g3_damaged,
     "ccitt-g4-truncated.pdf": gen_ccitt_g4_truncated,
+    "jbig2-generic.pdf": gen_jbig2_generic,
+    "jbig2-generic-mmr.pdf": gen_jbig2_generic_mmr,
 }
 
 
@@ -5069,6 +5156,13 @@ def self_test() -> None:
     ours = j2k_codestream([[[v] for v in [101, 103, 104, 105, 96, 97, 96, 102, 109]]], 8, 1, mct=False)
     assert len(ours) == len(j11) and (ours[90], ours[97]) == (0x7F, 0x7F)
     assert ours[:90] == j11[:90] and ours[91:97] == j11[91:97] and ours[98:] == j11[98:]
+    # T.88 H.2: the arithmetic coder test sequence (one context, I = 0, MPS = 0) encodes to the listed 30 bytes once the 0xFF 0xAC
+    # marker JBIG2 generic regions end with is appended.
+    h2 = bytes.fromhex("00020051000000C00352872AAAAAAAAA82C02000FCD79EF6BF7FED904F46A3BF")
+    mq, cx = MqEncoder(), [0]
+    for bit in (b >> (7 - i) & 1 for b in h2 for i in range(8)):
+        mq.encode(cx, 0, bit)
+    assert mq.flush() + b"\xff\xac" == bytes.fromhex("84C73BFCE1A1430402200000410DBB86F4317FFF88FF37471ADB6ADFFFAC")
 
 
 def main(argv: list[str]) -> int:

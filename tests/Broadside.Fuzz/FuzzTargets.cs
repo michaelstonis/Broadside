@@ -47,6 +47,7 @@ internal static class FuzzTargets
         ["filter-dct"] = DctTarget.Target,
         ["filter-ccitt"] = CcittTarget.Target,
         ["filter-jpx"] = Jpx,
+        ["filter-jbig2"] = Jbig2Target.Target,
         ["encrypted-document"] = EncryptedDocument,
         ["decrypt"] = Decrypt,
         ["mac-token"] = MacToken,
