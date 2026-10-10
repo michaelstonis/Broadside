@@ -21,6 +21,7 @@ public sealed class PdfType0Font : PdfFont
 {
     private volatile Type0FontState? _state;
     private volatile bool _invalidCodeReported;
+    private volatile Type0FontUnicode? _unicode;
 
     internal PdfType0Font(PdfDocument document, CosDictionary dictionary, CosReference? reference)
         : base(document, dictionary, reference, PdfFontType.Type0)
@@ -131,6 +132,24 @@ public sealed class PdfType0Font : PdfFont
             new Graphics.PathPoint(vertical.PositionX / 1000, vertical.PositionY / 1000),
             glyph.AppliesWordSpacing);
     }
+
+    /// <inheritdoc/>
+    internal override int MapUnicode(CharacterCode code, Span<char> destination, out UnicodeSource source)
+    {
+        Type0FontState state = State;
+        Type0FontUnicode? unicode = _unicode;
+        if (unicode is null || !unicode.IsCurrent(state))
+        {
+            unicode = Type0FontUnicode.Build(this, state);
+            _unicode = unicode;
+        }
+
+        return unicode.Map(this, code, destination, out source);
+    }
+
+    /// <inheritdoc/>
+    internal override int ReadUnicode(ReadOnlySpan<byte> text, Span<char> destination, out UnicodeSource source) =>
+        MapUnicode(State.Encoding.ReadCode(text), destination, out source);
 
     private void ReportInvalidCode(CharacterCode code)
     {

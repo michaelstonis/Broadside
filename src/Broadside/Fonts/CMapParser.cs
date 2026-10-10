@@ -20,6 +20,11 @@ namespace Broadside.Fonts;
 /// Codes are hexadecimal strings of 1 to 4 bytes (TN 5014 §7.1); a literal string is accepted with a diagnostic. A range whose two
 /// codes differ in length takes the upper code's length (pdf.js). CIDs are integers 0 to 65,535 (TN 5014 §7.4).
 /// </para>
+/// <para>
+/// The same reader reads ToUnicode CMaps and the Registry-Ordering-UCS2 tables (ISO 32000-2 §9.10.3): with Unicode destinations,
+/// <c>beginbfchar</c>/<c>beginbfrange</c> keep their UTF-16BE strings (and array forms) in <see cref="CMapFile.Bf"/> instead of
+/// reading them as CIDs.
+/// </para>
 /// </remarks>
 internal static class CMapParser
 {
@@ -88,13 +93,22 @@ internal static class CMapParser
         EndUseMatrix,
     }
 
+    /// <summary>The longest destination string of a ToUnicode CMap, in bytes (ISO 32000-2 §9.10.3).</summary>
+    public const int MaxDestinationBytes = 512;
+
     /// <summary>Reads a CMap file.</summary>
     /// <param name="data">The file's bytes.</param>
     /// <param name="context">Limits and diagnostics.</param>
+    /// <param name="unicodeDestinations">
+    /// Whether the file is a ToUnicode CMap (or a Registry-Ordering-UCS2 table): <c>beginbfchar</c> and <c>beginbfrange</c>
+    /// destinations are then kept as UTF-16 text in <see cref="CMapFile.Bf"/> (§9.10.3), and CID operators, which do not belong
+    /// there, map codes to the Unicode value of their CID with a diagnostic. Otherwise bf destinations are read as CIDs
+    /// (§9.7.5.4 c).
+    /// </param>
     /// <returns>What the file says.</returns>
-    public static CMapFile Parse(ReadOnlySpan<byte> data, CMapContext context)
+    public static CMapFile Parse(ReadOnlySpan<byte> data, CMapContext context, bool unicodeDestinations = false)
     {
-        var reader = new Reader(context);
+        var reader = new Reader(context, unicodeDestinations);
         var lexer = new CosLexer(data);
         CosToken previous = default;
         while (true)
@@ -199,8 +213,48 @@ internal static class CMapParser
         return length > 0;
     }
 
+    /// <summary>
+    /// Decodes a hexadecimal string token into bytes (an odd final digit is followed by an assumed 0, §7.3.4.3), writing at most
+    /// <paramref name="bytes"/>' length and returning the full byte count.
+    /// </summary>
+    private static int DecodeHexBytes(ReadOnlySpan<byte> token, Span<byte> bytes, out bool valid)
+    {
+        valid = true;
+        ReadOnlySpan<byte> digits = token[1..];
+        if (!digits.IsEmpty && digits[^1] == (byte)'>')
+        {
+            digits = digits[..^1];
+        }
+
+        int count = 0;
+        foreach (byte digit in digits)
+        {
+            if (CosLexer.IsWhitespace(digit))
+            {
+                continue;
+            }
+
+            int nibble = CosParser.HexValue(digit);
+            if (nibble < 0)
+            {
+                valid = false;
+                return 0;
+            }
+
+            int index = count / 2;
+            if (index < bytes.Length)
+            {
+                bytes[index] = count % 2 == 0 ? (byte)(nibble << 4) : (byte)(bytes[index] | nibble);
+            }
+
+            count++;
+        }
+
+        return (count + 1) / 2;
+    }
+
     /// <summary>The state of one parse.</summary>
-    private sealed class Reader(CMapContext context)
+    private sealed class Reader(CMapContext context, bool unicode)
     {
         private int _entries;
         private bool _limitReported;
@@ -209,6 +263,8 @@ internal static class CMapParser
         private string? _ordering;
         private int _supplement;
         private bool _bfReported;
+        private bool _cidReported;
+        private bool _overflowReported;
 
         public CMapFile File { get; } = new();
 
@@ -361,7 +417,7 @@ internal static class CMapParser
         {
             Operator end = begin + 1;
             bool isRange = begin is Operator.BeginCodespaceRange or Operator.BeginCidRange or Operator.BeginNotdefRange or Operator.BeginBfRange;
-            if (begin is Operator.BeginBfChar or Operator.BeginBfRange && !_bfReported)
+            if (begin is Operator.BeginBfChar or Operator.BeginBfRange && !unicode && !_bfReported)
             {
                 _bfReported = true;
                 Report(
@@ -451,7 +507,14 @@ internal static class CMapParser
                     case Operator.BeginNotdefChar:
                         if (TryReadCid(lexer.Source, token, out int cid))
                         {
-                            AddMapping(begin is Operator.BeginNotdefRange or Operator.BeginNotdefChar, first, second, cid);
+                            if (unicode)
+                            {
+                                AddCidAsUnicode(begin is Operator.BeginNotdefRange or Operator.BeginNotdefChar, first, second, cid);
+                            }
+                            else
+                            {
+                                AddMapping(begin is Operator.BeginNotdefRange or Operator.BeginNotdefChar, first, second, cid);
+                            }
                         }
                         else if (token.Kind == CosTokenKind.HexString && TryReadCode(lexer.Source, token, out Code restart))
                         {
@@ -462,7 +525,15 @@ internal static class CMapParser
 
                         break;
                     default:
-                        ReadBfDestination(ref lexer, token, first, second);
+                        if (unicode)
+                        {
+                            ReadUnicodeDestination(ref lexer, token, first, second, begin == Operator.BeginBfRange);
+                        }
+                        else
+                        {
+                            ReadBfDestination(ref lexer, token, first, second);
+                        }
+
                         break;
                 }
             }
@@ -625,6 +696,260 @@ internal static class CMapParser
             3 => (int)(value >> 8),
             _ => (int)(value >> 16),
         };
+
+        /// <summary>A destination of a ToUnicode CMap (§9.10.3): a UTF-16BE string, or for a range an array of them.</summary>
+        private void ReadUnicodeDestination(ref CosLexer lexer, CosToken token, Code low, Code high, bool isRange)
+        {
+            ReadOnlySpan<byte> data = lexer.Source;
+            int start = File.BfText.Count;
+            switch (token.Kind)
+            {
+                case CosTokenKind.HexString:
+                case CosTokenKind.LiteralString:
+                    if (AppendString(data, token))
+                    {
+                        AddBf(low, high, isArray: false, start, File.BfText.Count - start, increment: isRange);
+                    }
+
+                    break;
+                case CosTokenKind.Name:
+                    AppendName(data, token);
+                    AddBf(low, high, isArray: false, start, File.BfText.Count - start, increment: isRange);
+                    break;
+                case CosTokenKind.Integer when AppendInteger(data, token):
+                    AddBf(low, high, isArray: false, start, File.BfText.Count - start, increment: isRange);
+                    break;
+                case CosTokenKind.ArrayStart:
+                    ReadUnicodeArray(ref lexer, low, high, isRange);
+                    break;
+                default:
+                    Syntax("a token that is not a destination where a destination belongs; the entry is dropped");
+                    break;
+            }
+        }
+
+        private void ReadUnicodeArray(ref CosLexer lexer, Code low, Code high, bool isRange)
+        {
+            ReadOnlySpan<byte> data = lexer.Source;
+            int first = File.BfArrayElements.Count;
+            bool skipped = false;
+            while (true)
+            {
+                CosToken element = lexer.Next();
+                if (element.Kind is CosTokenKind.ArrayEnd or CosTokenKind.EndOfInput)
+                {
+                    break;
+                }
+
+                int start = File.BfText.Count;
+                bool read = element.Kind switch
+                {
+                    CosTokenKind.HexString or CosTokenKind.LiteralString => AppendString(data, element),
+                    CosTokenKind.Name => AppendName(data, element),
+                    CosTokenKind.Integer => AppendInteger(data, element),
+                    _ => false,
+                };
+                if (read)
+                {
+                    File.BfArrayElements.Add((start, File.BfText.Count - start));
+                }
+                else
+                {
+                    skipped = true;
+                }
+            }
+
+            if (skipped)
+            {
+                Destination("an array element that is not a string; it is skipped");
+            }
+
+            int count = File.BfArrayElements.Count - first;
+            if (!isRange)
+            {
+                Destination("an array after beginbfchar, where only beginbfrange allows one; its first element is used");
+                count = Math.Min(count, 1);
+            }
+
+            (Code alignedLow, Code alignedHigh) = Align(low, high);
+            if (isRange && alignedHigh.Value >= alignedLow.Value && count != (long)alignedHigh.Value - alignedLow.Value + 1)
+            {
+                Destination($"an array of {count} strings for a range of {(long)alignedHigh.Value - alignedLow.Value + 1} codes (m = srcCode2 - srcCode1 + 1); the codes with a string are mapped");
+            }
+
+            if (count > 0)
+            {
+                AddBf(low, high, isArray: true, first, count, increment: false);
+            }
+        }
+
+        /// <summary>Appends a string token's bytes as UTF-16BE: an odd byte count gets a leading zero byte, unpaired surrogates become U+FFFD.</summary>
+        private bool AppendString(ReadOnlySpan<byte> data, CosToken token)
+        {
+            Span<byte> bytes = stackalloc byte[MaxDestinationBytes + 1];
+            int count;
+            if (token.Kind == CosTokenKind.HexString)
+            {
+                count = DecodeHexBytes(data.Slice(token.Start, token.Length), bytes, out bool valid);
+                if (!valid)
+                {
+                    Report(DiagnosticCodes.CMapEntryInvalid, "A destination shall be a hexadecimal string (Adobe TN 5014 §7.1); the entry is dropped.");
+                    return false;
+                }
+            }
+            else
+            {
+                var parser = new CosParser(data, repairs: null, token.Start);
+                ReadOnlySpan<byte> literal = parser.ParseObject() is CosString text ? text.Bytes : [];
+                count = Math.Min(literal.Length, bytes.Length);
+                literal[..count].CopyTo(bytes);
+                Destination("a literal string; its bytes are read as UTF-16BE");
+            }
+
+            if (count > MaxDestinationBytes)
+            {
+                Destination($"a string longer than {MaxDestinationBytes} bytes (ISO 32000-2 §9.10.3); it is cut there");
+                count = MaxDestinationBytes;
+            }
+
+            if (count == 0)
+            {
+                Destination("an empty string; the code maps to no text");
+                return true;
+            }
+
+            int offset = 0;
+            if (count % 2 == 1)
+            {
+                // A one-byte <41> means U+0041 (pdf.js, and PDFBox reads one byte as ISO 8859-1, which is the same).
+                Destination("an odd number of bytes; a leading zero byte is assumed");
+                File.BfText.Add((char)bytes[0]);
+                offset = 1;
+            }
+
+            bool unpaired = false;
+            for (int index = offset; index + 1 < count; index += 2)
+            {
+                char unit = (char)((bytes[index] << 8) | bytes[index + 1]);
+                if (char.IsHighSurrogate(unit) && index + 3 < count)
+                {
+                    char next = (char)((bytes[index + 2] << 8) | bytes[index + 3]);
+                    if (char.IsLowSurrogate(next))
+                    {
+                        File.BfText.Add(unit);
+                        File.BfText.Add(next);
+                        index += 2;
+                        continue;
+                    }
+                }
+
+                if (char.IsSurrogate(unit))
+                {
+                    unpaired = true;
+                    unit = '�';
+                }
+
+                File.BfText.Add(unit);
+            }
+
+            if (unpaired)
+            {
+                Destination("an unpaired surrogate, which is not UTF-16BE; it is replaced by U+FFFD");
+            }
+
+            return true;
+        }
+
+        /// <summary>A glyph name destination (Adobe TN 5014 §7.4 allows names for base fonts): its Adobe Glyph List text.</summary>
+        private bool AppendName(ReadOnlySpan<byte> data, CosToken token)
+        {
+            var parser = new CosParser(data, repairs: null, token.Start);
+            string name = parser.ParseObject() is CosName value ? value.Value : string.Empty;
+            Destination($"the glyph name /{name} instead of a UTF-16BE string (ISO 32000-2 §9.10.3); its Adobe Glyph List value is used");
+            Span<char> text = stackalloc char[MaxDestinationBytes / 2];
+            int written = AdobeGlyphList.MapName(name, zapfDingbats: false, text, out _);
+            foreach (char unit in text[..written])
+            {
+                File.BfText.Add(unit);
+            }
+
+            return true;
+        }
+
+        /// <summary>An integer destination (pdf.js reads it as a character code): that Unicode value.</summary>
+        private bool AppendInteger(ReadOnlySpan<byte> data, CosToken token)
+        {
+            if (!CosParser.TryParseStrictInteger(data.Slice(token.Start, token.Length), out long number)
+                || number is < 0 or > 0x10FFFF or (>= 0xD800 and <= 0xDFFF))
+            {
+                return false;
+            }
+
+            Destination("an integer; read as that Unicode value");
+            AppendScalar((int)number);
+            return true;
+        }
+
+        private void AppendScalar(int scalar)
+        {
+            Span<char> units = stackalloc char[2];
+            int count = new System.Text.Rune(scalar).EncodeToUtf16(units);
+            for (int index = 0; index < count; index++)
+            {
+                File.BfText.Add(units[index]);
+            }
+        }
+
+        /// <summary>A cidchar/cidrange in a ToUnicode CMap: the code maps to the Unicode value of its CID (pdf.js; PDFBox reads such a CMap as Identity-H).</summary>
+        private void AddCidAsUnicode(bool notdef, Code low, Code high, int cid)
+        {
+            if (!_cidReported)
+            {
+                _cidReported = true;
+                Report(
+                    DiagnosticCodes.ToUnicodeCidMapping,
+                    "A ToUnicode CMap shall map codes with beginbfchar and beginbfrange (ISO 32000-2 §9.10.3); its CID mappings map each code to the Unicode value of its CID, and notdef mappings are ignored.");
+            }
+
+            if (notdef)
+            {
+                return;
+            }
+
+            int start = File.BfText.Count;
+            File.BfText.Add(char.IsSurrogate((char)cid) ? '�' : (char)cid);
+            AddBf(low, high, isArray: false, start, 1, increment: false);
+        }
+
+        private void AddBf(Code low, Code high, bool isArray, int start, int count, bool increment)
+        {
+            if (!Admit())
+            {
+                return;
+            }
+
+            (low, high) = Align(low, high);
+            if (low.Value > high.Value)
+            {
+                Report(DiagnosticCodes.CMapEntryInvalid, "A range's lower code shall not exceed its upper code (Adobe TN 5014 §7.4); the range is dropped.");
+                return;
+            }
+
+            if (increment && count > 0 && !_overflowReported && (File.BfText[start + count - 1] & 0xFF) + (long)(high.Value - low.Value) > 255)
+            {
+                _overflowReported = true;
+                Report(
+                    DiagnosticCodes.ToUnicodeBfRangeOverflow,
+                    "The last byte of a bfrange destination shall not exceed 255 - (srcCode2 - srcCode1) (ISO 32000-2 §9.10.3); the destination's last character is incremented as a whole.");
+            }
+
+            int entry = File.BfEntries.Count;
+            File.BfEntries.Add(new CMapFile.BfEntry(low.Value, isArray, start, count));
+            File.Bf[high.Length - 1].Add(new IntervalTable.Interval(low.Value, high.Value, entry));
+        }
+
+        private void Destination(string problem) =>
+            Report(DiagnosticCodes.ToUnicodeDestinationInvalid, $"A ToUnicode destination is {problem} (ISO 32000-2 §9.10.3).");
 
         private void AddCodespace(Code low, Code high)
         {

@@ -22,6 +22,7 @@ public abstract class PdfSimpleFont : PdfFont
     private volatile SimpleFontMetrics? _metrics;
     private volatile SubstituteState? _substitute;
     private volatile SubstituteGlyphSelector? _substituteGlyphs;
+    private volatile SimpleFontUnicode? _unicode;
 
     private protected PdfSimpleFont(PdfDocument document, CosDictionary dictionary, CosReference? reference, PdfFontType fontType)
         : base(document, dictionary, reference, fontType)
@@ -106,6 +107,28 @@ public abstract class PdfSimpleFont : PdfFont
 
     /// <inheritdoc/>
     internal override double GetHorizontalDisplacement(byte code) => Metrics.Widths[code] / 1000;
+
+    /// <inheritdoc/>
+    /// <remarks>ISO 32000-2 §9.10.2: a code that is not one byte maps to nothing (U+FFFD).</remarks>
+    internal override int MapUnicode(CharacterCode code, Span<char> destination, out UnicodeSource source)
+    {
+        if (code.Length != 1 || code.Value > 0xFF)
+        {
+            source = UnicodeSource.Unmapped;
+            ReportUnmapped(code.Value, code.Length);
+            return FontUnicode.WriteReplacement(destination);
+        }
+
+        SimpleFontMetrics metrics = Metrics;
+        SimpleFontUnicode? unicode = _unicode;
+        if (unicode is null || !unicode.IsCurrent(metrics))
+        {
+            unicode = SimpleFontUnicode.Build(this, metrics);
+            _unicode = unicode;
+        }
+
+        return unicode.Map(this, (byte)code.Value, destination, out source);
+    }
 
     /// <summary>Gets the names and widths of all 256 codes, rebuilt when an object they come from has changed.</summary>
     internal SimpleFontMetrics Metrics
