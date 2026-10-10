@@ -21,7 +21,10 @@ public sealed class PdfType1Font : PdfSimpleFont
 
     /// <summary>Gets the glyph id that a character code selects in the font's program; 0, the missing glyph (<c>.notdef</c>), when none.</summary>
     /// <param name="code">The character code.</param>
-    /// <returns>The glyph id in <see cref="PdfFont.Program"/>; 0 for every code when the font has no program.</returns>
+    /// <returns>
+    /// The glyph id in <see cref="PdfFont.Program"/>, or, for a font without a usable embedded program, in the program of
+    /// <see cref="PdfSimpleFont.Substitute"/>; 0 for every code when the font has neither.
+    /// </returns>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the font or its program.</exception>
     /// <remarks>
     /// ISO 32000-2 §9.6.5.2: the code's glyph name from the font's encoding (<see cref="PdfSimpleFont.GetGlyphName"/>, whose base is
@@ -30,8 +33,13 @@ public sealed class PdfType1Font : PdfSimpleFont
     /// </remarks>
     public int GetGlyphId(byte code)
     {
+        if (Program is not { } program)
+        {
+            return GetSubstituteGlyphId(code);
+        }
+
         string name = GetGlyphName(code);
-        return Program is { } program && program.TryGetGlyphId(name, out int glyphId) ? glyphId : 0;
+        return program.TryGetGlyphId(name, out int glyphId) ? glyphId : 0;
     }
 
     /// <inheritdoc/>

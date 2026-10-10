@@ -1235,6 +1235,18 @@ def gen_text_standard14_alias() -> bytes:
     return font_file([std14(b"Arial,Bold", b"/Encoding /WinAnsiEncoding", subtype=b"TrueType")], [b"Hi!"])
 
 
+def gen_text_nonembedded_substitute() -> bytes:
+    """9.6.2.1 Table 109, 9.8.1 Table 120 and 9.8.2 Table 121: a non-embedded Type 1 font that is not a standard 14
+    font, /BroadsideSerif-Italic, whose descriptor says serif, nonsymbolic and italic (Flags 98, ItalicAngle -12), so a
+    reader without that font substitutes a similar one (Times-Italic) and keeps the Widths."""
+    widths = b" ".join(b"611" if code == 83 else b"500" for code in range(83, 115))
+    font = (b"<< /Type /Font /Subtype /Type1 /BaseFont /BroadsideSerif-Italic /FirstChar 83 /LastChar 114 /Widths ["
+            + widths + b"] /Encoding /WinAnsiEncoding /FontDescriptor 6 0 R >>")
+    descriptor = (b"<< /Type /FontDescriptor /FontName /BroadsideSerif-Italic /Flags 98 /FontBBox [-169 -217 1010 883] "
+                  b"/ItalicAngle -12 /Ascent 683 /Descent -217 /CapHeight 653 /XHeight 441 /StemV 76 >>")
+    return font_file([font], [b"Serif"], [(6, descriptor)])
+
+
 def gen_text_type1_symbolic_noencoding() -> bytes:
     """9.6.5.1 and 9.8.2: a non-embedded symbolic Type 1 font that is not a standard 14 font and has no Encoding; its
     built-in encoding is unknown without its program, and its widths come from Widths."""
@@ -3618,6 +3630,7 @@ FILES = {
     "text-standard14-zapfdingbats.pdf": gen_text_standard14_zapfdingbats,
     "text-standard14-widths.pdf": gen_text_standard14_widths,
     "text-standard14-alias.pdf": gen_text_standard14_alias,
+    "text-nonembedded-substitute.pdf": gen_text_nonembedded_substitute,
     "text-type1-symbolic-noencoding.pdf": gen_text_type1_symbolic_noencoding,
     "text-truetype-composite.pdf": gen_text_truetype_composite,
     "text-truetype-symbolic.pdf": gen_text_truetype_symbolic,

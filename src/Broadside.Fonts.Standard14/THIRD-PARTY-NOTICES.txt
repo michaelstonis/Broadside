@@ -1,0 +1,64 @@
+Broadside.Fonts.Standard14 third-party notices
+===============================================
+
+Broadside is licensed under the MIT License (LICENSE). This package also carries the font programs below, each under its own
+terms, unmodified. They are embedded in the assembly as resources (Broadside.Fonts.Standard14.<file name>) and are in the
+repository under src/Broadside.Fonts.Standard14/Fonts/. The licence texts are in this package under licenses/.
+
+
+1. Liberation Fonts 2.1.5 (Sans, Serif, Mono)
+----------------------------------------------
+
+Used for:  Helvetica, Times and Courier (each in regular, bold, italic and bold italic).
+Source:    https://github.com/liberationfonts/liberation-fonts/releases/tag/2.1.5
+           (tag commit 4b0192046158094654e865245832c66d2104219e), release asset
+           https://github.com/liberationfonts/liberation-fonts/files/7261482/liberation-fonts-ttf-2.1.5.tar.gz
+           2,385,008 bytes, SHA-256 7191c669bf38899f73a2094ed00f7b800553364f90e2637010a69c0e268f25d0
+Licence:   SIL Open Font License, Version 1.1 (SPDX: OFL-1.1), shipped as licenses/liberation/LICENSE, with the font authors in
+           licenses/liberation/AUTHORS (both copied from the release tarball).
+Copyright: Digitized data copyright (c) 2010 Google Corporation with Reserved Font Arimo, Tinos and Cousine.
+           Copyright (c) 2012 Red Hat, Inc. with Reserved Font Name Liberation.
+Modified:  no. "Liberation", "Arimo", "Tinos" and "Cousine" are Reserved Font Names: a modified version (subset, converted,
+           re-hinted, renamed) may not use those names, so the files are shipped exactly as released and must stay so. The
+           package is bundled with software, as OFL condition 2 allows; the fonts are not sold by themselves.
+
+Note: pdf.js ships Liberation Sans 1.07.4 under GPLv2 with the Liberation font exception; those files are NOT used here.
+
+SHA-256 of the files:
+
+  76d04c18ea243f426b7de1f3ad208e927008f961dc5945e5aad352d0dfde8ee8  LiberationSans-Regular.ttf      (410,712 bytes)
+  788abee4c806d660e8aee46689dd8540cd4bb98da03dcc9d171ce3efd99a9173  LiberationSans-Bold.ttf         (414,456 bytes)
+  e5bae5c4cde31f22142753855f4f8fb86da6ff39955ed3c0a11248b0d16948b0  LiberationSans-Italic.ttf       (415,816 bytes)
+  698da70fc191cc5f33ad4d6d3fe830fe4624b898ea2e3169955928b7c491f1ee  LiberationSans-BoldItalic.ttf   (408,996 bytes)
+  058ea80864aef09a23f45cbec2bb5400bc3dfbdea01c3f10538a21fcb497fb74  LiberationSerif-Regular.ttf     (393,576 bytes)
+  d754ba427cfe0bca54ae052384baa8f842da5bd6550ad4da024ac441e7a7d5ce  LiberationSerif-Bold.ttf        (370,096 bytes)
+  0e3dea9f8d613e006ccfa62201f33e265d19167bd0907725c3e145368b04fc2e  LiberationSerif-Italic.ttf      (375,632 bytes)
+  f17db8af71e24d2066b587546021d4f0b296be389512b658dec3c09affeb11a7  LiberationSerif-BoldItalic.ttf  (376,772 bytes)
+  f2b83c763e8afd21709333370bed4774337fae82267937e2b5aea7e2fbd922c1  LiberationMono-Regular.ttf      (319,508 bytes)
+  bd62a0672d0b9b6710b01df434c80ad54fa5f0835207eb7b17b7a761463067bb  LiberationMono-Bold.ttf         (307,996 bytes)
+  605c01c711b44480a7508d349dfbf3264e81fa43d69e61cfa7d10b86e764c4d1  LiberationMono-Italic.ttf       (281,536 bytes)
+  79451f3c09fe25116098853b7a2ca6e2436220ccc11af022979adbcf195be130  LiberationMono-BoldItalic.ttf   (284,068 bytes)
+  93fed46019c38bbe566b479d22148e2e8a1e85ada614accb0211c37b2c61c19b  licenses/liberation/LICENSE     (4,414 bytes)
+  b627404917ef824675cb24c32e2facd0b57650627955f3fc3d8a8863c5d0adfc  licenses/liberation/AUTHORS     (379 bytes)
+
+
+2. Foxit Symbol and Foxit Dingbats (from PDFium)
+-------------------------------------------------
+
+Used for:  Symbol and ZapfDingbats.
+Source:    PDFium, https://pdfium.googlesource.com/pdfium/+/547d3f4ba2a309f059e4d0ccc12490690c1c23c7/core/fxge/fontdata/chromefontdata/
+           FoxitSymbol.cpp (kFoxitSymbolFontData) and FoxitDingbats.cpp (kFoxitDingbatsFontData). The bytes were taken from the
+           identical copies pdf.js distributes, https://github.com/mozilla/pdf.js/tree/c53f395e4057b501f478a7e98ed03d47c7c62a04/external/standard_fonts/
+           (FoxitSymbol.pfb, FoxitDingbats.pfb), and checked byte for byte against the PDFium arrays. Despite the .pfb name both
+           are bare CFF programs (Adobe Technical Note #5176), Name INDEX ChromSymbolOTF and ChromDingbatsOTF.
+Licence:   the PDFium LICENSE at that commit, shipped whole as licenses/pdfium/LICENSE: the BSD 3-Clause licence
+           ("Copyright 2014 The PDFium Authors"; SPDX: BSD-3-Clause), which the font data files name, followed by the Apache
+           License 2.0 (SPDX: Apache-2.0) that covers later PDFium contributions.
+Copyright: Copyright 2014 The PDFium Authors. Original code copyright 2014 Foxit Software Inc. http://www.foxitsoftware.com
+Modified:  no.
+
+SHA-256 of the files:
+
+  47967d055530e7357088a08403115425643ec2cdfd6201ba8af0fbd7116c1539  FoxitSymbol.pfb                 (16,729 bytes)
+  845c752392b6c914fb989c75a08b7792b88f542d2499042ef2889f8c814a16ed  FoxitDingbats.pfb               (29,513 bytes)
+  1fe9dea718fbd75cf149adaf4d8a22a4335604d964ddb76d1b45383dec8668c9  licenses/pdfium/LICENSE         (12,896 bytes)

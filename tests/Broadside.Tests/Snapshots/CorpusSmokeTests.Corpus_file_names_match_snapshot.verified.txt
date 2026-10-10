@@ -83,6 +83,7 @@
   text-cid-embedded-cmap.pdf,
   text-cid-identity-h.pdf,
   text-cid-identity-v.pdf,
+  text-nonembedded-substitute.pdf,
   text-opentype-cff-embedded.pdf,
   text-standard14-alias.pdf,
   text-standard14-differences.pdf,

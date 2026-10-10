@@ -5,6 +5,7 @@ using Broadside.Caching;
 using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Fonts;
+using Broadside.Fonts.Resolution;
 using Broadside.Graphics;
 using Broadside.Graphics.Colors;
 using Broadside.Graphics.Functions;
@@ -81,9 +82,11 @@ public sealed partial class PdfDocument : IDisposable
         PdfLinearization? linearization,
         PdfSecurity? security,
         FontProgramParserRegistry fontProgramParsers,
-        IColorManagement colorManagement)
+        IColorManagement colorManagement,
+        FontResolverChain fontResolvers)
     {
         _fontProgramParsers = fontProgramParsers;
+        FontResolvers = fontResolvers;
         Security = security;
         _source = source;
         _diagnostics = diagnostics;
@@ -1055,7 +1058,7 @@ public sealed partial class PdfDocument : IDisposable
             }
 
             PdfLinearization? linearization = LinearizationReader.Read(source, loader, diagnostics);
-            var document = new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security, configuration.FontProgramParsers, configuration.ColorManagement);
+            var document = new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security, configuration.FontProgramParsers, configuration.ColorManagement, configuration.FontResolvers);
             document.DetectXfa();
 
             // Table 15: ID is "required in PDF 2.0 or if an Encrypt entry is present" (the latter is the security handler's

@@ -1,3 +1,4 @@
+using Broadside.Fonts.Resolution;
 using Broadside.Objects;
 
 namespace Broadside.Fonts;
@@ -19,6 +20,8 @@ namespace Broadside.Fonts;
 public abstract class PdfSimpleFont : PdfFont
 {
     private volatile SimpleFontMetrics? _metrics;
+    private volatile SubstituteState? _substitute;
+    private volatile SubstituteGlyphSelector? _substituteGlyphs;
 
     private protected PdfSimpleFont(PdfDocument document, CosDictionary dictionary, CosReference? reference, PdfFontType fontType)
         : base(document, dictionary, reference, fontType)
@@ -55,6 +58,52 @@ public abstract class PdfSimpleFont : PdfFont
     /// </remarks>
     public double GetWidth(byte code) => Metrics.Widths[code];
 
+    /// <summary>
+    /// Gets the font program the font is drawn with when it has no usable embedded program, found by the engine's font resolvers;
+    /// <see langword="null"/> when the font has a usable embedded program (<see cref="PdfFont.Program"/>), is a Type 3 font, or no
+    /// resolver has a program for it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §9.6.2.2 (the Standard 14 fonts "or their font metrics and suitable substitution fonts, shall be available"),
+    /// §9.6.2.1 (Table 109: <c>BaseFont</c> "may be used to find the font program in the PDF processor or its environment") and §9.8
+    /// (the font descriptor "enables a PDF processor to synthesise a substitute font or select a similar font"). See
+    /// <see cref="IFontResolver"/> for the order resolvers are asked in. A Standard 14 font with the Standard 14 fonts package
+    /// configured gets one of its fonts (Liberation Sans for Helvetica, Foxit Symbol for Symbol).
+    /// </para>
+    /// <para>
+    /// Resolved on first use and kept until the font's dictionaries change. When the substitute is not the font itself or a stand-in
+    /// for a Standard 14 font (<see cref="FontMatchKind.Family"/>, <see cref="FontMatchKind.Similar"/>), an information diagnostic
+    /// names both; when nothing is found, an information diagnostic says so. Neither throws in strict mode: which fonts a machine has
+    /// is not a deviation of the file.
+    /// </para>
+    /// </remarks>
+    public FontSubstitute? Substitute
+    {
+        get
+        {
+            if (FontType == PdfFontType.Type3)
+            {
+                return null;
+            }
+
+            SimpleFontMetrics metrics = Metrics;
+            if (Program is not null)
+            {
+                return null;
+            }
+
+            SubstituteState? state = _substitute;
+            if (state is null || state.Metrics != metrics)
+            {
+                state = new SubstituteState(metrics, FontSubstitution.Resolve(this, metrics));
+                _substitute = state;
+            }
+
+            return state.Substitute;
+        }
+    }
+
     /// <summary>Gets the names and widths of all 256 codes, rebuilt when an object they come from has changed.</summary>
     internal SimpleFontMetrics Metrics
     {
@@ -82,4 +131,26 @@ public abstract class PdfSimpleFont : PdfFont
     /// is not read (the font program parsers supply it). Without it, an embedded font's default base encoding is StandardEncoding.
     /// </summary>
     internal virtual string?[]? GetProgramEncoding() => null;
+
+    /// <summary>The glyph id of a code in <see cref="Substitute"/>'s program; 0 without a substitute.</summary>
+    internal int GetSubstituteGlyphId(byte code)
+    {
+        if (Substitute is not { } substitute)
+        {
+            return 0;
+        }
+
+        SimpleFontMetrics metrics = Metrics;
+        SubstituteGlyphSelector? selector = _substituteGlyphs;
+        if (selector is null || selector.Metrics != metrics || selector.Substitute != substitute)
+        {
+            selector = new SubstituteGlyphSelector(metrics, substitute);
+            _substituteGlyphs = selector;
+        }
+
+        return selector.GetGlyphId(code);
+    }
+
+    /// <summary>A resolved substitute (or none) and the metrics it was resolved for.</summary>
+    private sealed record SubstituteState(SimpleFontMetrics Metrics, FontSubstitute? Substitute);
 }

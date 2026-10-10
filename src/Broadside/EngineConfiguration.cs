@@ -1,6 +1,7 @@
 using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Fonts;
+using Broadside.Fonts.Resolution;
 using Broadside.Graphics;
 using Broadside.Security;
 using Microsoft.Extensions.Logging;
@@ -48,6 +49,9 @@ internal sealed class EngineConfiguration
     /// <summary>Gets the font program parsers: the options' registrations, newest first, then the managed defaults (issue #50).</summary>
     public FontProgramParserRegistry FontProgramParsers { get; private init; } = FontProgramParserRegistry.Default;
 
+    /// <summary>Gets the font resolvers: the options' registrations, in order, then the operating system's (issue #59).</summary>
+    public FontResolverChain FontResolvers { get; private init; } = FontResolverChain.Default;
+
     /// <summary>Gets the colour management colours are converted through (issue #77).</summary>
     public IColorManagement ColorManagement { get; private init; } = ManagedColorManagement.Default;
 
@@ -69,5 +73,8 @@ internal sealed class EngineConfiguration
         StreamBufferLimit = options.StreamBufferLimit,
         FontProgramParsers = FontProgramParserRegistry.Create(options.FontProgramParsers),
         ColorManagement = options.ColorManagement,
+        FontResolvers = options.FontResolvers.Count == 0 && ReferenceEquals(options.SystemFontResolver, SystemFontResolver.Shared)
+            ? FontResolverChain.Default
+            : new FontResolverChain(options.FontResolvers, options.SystemFontResolver),
     };
 }
