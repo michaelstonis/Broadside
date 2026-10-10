@@ -474,9 +474,10 @@ internal sealed class FieldTree
                 return own;
             }
 
-            foreach (CosDictionary intermediate in info.Intermediates)
+            // Unnamed levels are listed outermost first; the nearest one wins (Table 226: the nearest ancestor's value).
+            for (int index = info.Intermediates.Length - 1; index >= 0; index--)
             {
-                if (Get(_document, intermediate, key) is { } carried)
+                if (Get(_document, info.Intermediates[index], key) is { } carried)
                 {
                     return carried;
                 }

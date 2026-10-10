@@ -157,6 +157,24 @@ public class MalformedFormTests
         Assert.Equal("FieldNameMissing 5", Describe(Assert.Single(document.Diagnostics)));
     }
 
+    [Fact]
+    public void Nested_unnamed_levels_pass_on_the_entries_of_the_nearest_one()
+    {
+        byte[] file = new TestPdf().Build(
+            "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [4 0 R] >> >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>",
+            "<< /T (named) /Kids [5 0 R] >>",
+            "<< /Parent 4 0 R /FT /Ch /DA (/Helv 9 Tf 0 g) /Kids [6 0 R] >>",
+            "<< /Parent 5 0 R /FT /Tx /DA (/Cour 12 Tf 0 g) /Kids [7 0 R] >>",
+            "<< /T (deep) /Parent 6 0 R >>");
+        using PdfDocument document = PdfDocument.Open(file);
+
+        var deep = Assert.IsType<PdfTextField>(Assert.Single(document.AcroForm!.TerminalFields));
+
+        Assert.Equal(("named.deep", PdfFieldType.Text, "/Cour 12 Tf 0 g"), (deep.FullyQualifiedName, deep.FieldType, deep.DefaultAppearance));
+    }
+
     public static TheoryData<string, string, string> ValueDeviations => new()
     {
         // field entries, property, expected diagnostic

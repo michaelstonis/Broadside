@@ -236,9 +236,10 @@ public abstract class PdfField
                 return value;
             }
 
-            foreach (CosDictionary intermediate in current._intermediates)
+            // Unnamed levels are listed outermost first; the nearest one wins (Table 226: the nearest ancestor's value).
+            for (int index = current._intermediates.Length - 1; index >= 0; index--)
             {
-                if (FieldTree.Get(Document, intermediate, key) is { } carried)
+                if (FieldTree.Get(Document, current._intermediates[index], key) is { } carried)
                 {
                     return carried;
                 }
