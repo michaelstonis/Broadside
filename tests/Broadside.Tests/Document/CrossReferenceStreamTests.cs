@@ -9,6 +9,7 @@ namespace Broadside.Tests.Document;
 /// Cross-reference streams read exactly like classic tables: their dictionary is the trailer, their binary entries locate objects.
 /// ISO 32000-2 §7.5.8.1 to §7.5.8.3, Tables 17 and 18.
 /// </summary>
+[Collection(HeavyTestCollection.Name)]
 public class CrossReferenceStreamTests
 {
     private static readonly int[] W121 = [1, 2, 1];
@@ -186,12 +187,14 @@ public class CrossReferenceStreamTests
                 using PdfDocument opened = PdfDocument.Open(file);
                 _ = opened.Pages.Count;
             },
-            warmUpCalls: 0);
+            warmUpCalls: 1);
         using PdfDocument document = PdfDocument.Open(file);
 
         Assert.Single(document.Pages);
         Assert.Equal(["CrossReferenceEntryLimitExceeded"], document.Diagnostics.Select(diagnostic => diagnostic.Code));
-        Assert.InRange(allocated, 0, 384L << 20); // mostly the 40 MB of decoded data and its growing buffers; 8 million entries took gigabytes
+        // Steady state about 264 MiB: the 40 MB of decoded data and its growing buffers, and the 2^20 entries the budget lets the
+        // cross-reference dictionaries hold; 8 million entries took gigabytes.
+        Assert.InRange(allocated, 0, 320L << 20);
     }
 
     [Fact]
