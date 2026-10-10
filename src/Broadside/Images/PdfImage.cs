@@ -841,7 +841,7 @@ public sealed class PdfImage
             CosArray { Count: > 0 } array => Resolve(array[^1]) as CosName,
             _ => null,
         };
-        return name is not null && FilterNames.TryExpandAbbreviation(name, out CosName? full) ? full : name;
+        return name is not null && InlineImageAbbreviations.TryExpandFilter(name, out CosName? full) ? full : name;
     }
 
     /// <summary>Reads an entry by its full name, else (with a diagnostic, outside inline images) by its abbreviation; resolved.</summary>

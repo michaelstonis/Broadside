@@ -71,30 +71,9 @@ internal static class FilterNames
     /// <summary><c>/ColorTransform</c>, the DCTDecode parameter (§7.4.8, Table 13).</summary>
     public static readonly CosName ColorTransform = new("ColorTransform");
 
-    /// <summary>
-    /// The filter name abbreviations of §8.9.7, Table 92, which are valid only in inline images, and the full names they stand for.
-    /// </summary>
-    private static readonly Dictionary<CosName, CosName> Abbreviations = new()
-    {
-        [new CosName("AHx")] = AsciiHexDecode,
-        [new CosName("A85")] = Ascii85Decode,
-        [new CosName("LZW")] = LzwDecode,
-        [new CosName("Fl")] = FlateDecode,
-        [new CosName("RL")] = RunLengthDecode,
-        [new CosName("CCF")] = CcittFaxDecode,
-        [new CosName("DCT")] = DctDecode,
-    };
-
     /// <summary>The standard filters of §7.4.1, Table 6.</summary>
     private static readonly HashSet<CosName> Standard =
         [AsciiHexDecode, Ascii85Decode, LzwDecode, FlateDecode, RunLengthDecode, CcittFaxDecode, Jbig2Decode, DctDecode, JpxDecode, Crypt];
-
-    /// <summary>Returns the full filter name an inline-image abbreviation stands for (§8.9.7, Table 92).</summary>
-    /// <param name="name">A filter name.</param>
-    /// <param name="fullName">The full name, when <paramref name="name"/> is an abbreviation.</param>
-    /// <returns><see langword="true"/> when <paramref name="name"/> is an abbreviation.</returns>
-    public static bool TryExpandAbbreviation(CosName name, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out CosName? fullName) =>
-        Abbreviations.TryGetValue(name, out fullName);
 
     /// <summary>Returns whether <paramref name="name"/> is one of the standard filters of Table 6.</summary>
     /// <param name="name">A full filter name.</param>
