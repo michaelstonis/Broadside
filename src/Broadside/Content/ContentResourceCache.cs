@@ -6,7 +6,7 @@ namespace Broadside.Content;
 
 /// <summary>
 /// What the content interpreter derives from a document's resources once and reuses on every run: the decoded content of form
-/// XObjects (and other nested streams) and the parameters of graphics state parameter dictionaries.
+/// XObjects (and other nested streams), form and image views, and the parameters of graphics state parameter dictionaries.
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §7.8.3, §8.4.5, §8.10. Entries are keyed by the object's identity and rebuilt when the object's <c>Version</c> moved
@@ -18,6 +18,27 @@ internal sealed class ContentResourceCache(PdfDocument document)
     private readonly ConditionalWeakTable<CosStream, DecodedContent> _streams = [];
     private readonly ConditionalWeakTable<CosDictionary, ExtGStateParameters> _graphicsStates = [];
     private readonly ConditionalWeakTable<CosStream, PdfFormXObject> _forms = [];
+    private readonly ConditionalWeakTable<CosStream, Images.PdfImage> _images = [];
+
+    /// <summary>
+    /// Returns the image view of an image XObject's stream, one per stream, so that painting an image allocates nothing (the view is
+    /// stateless and live: it reads the stream's dictionary on every access).
+    /// </summary>
+    public Images.PdfImage? GetImage(CosStream stream, CosReference? reference)
+    {
+        if (_images.TryGetValue(stream, out Images.PdfImage? image) && Equals(image.Reference, reference))
+        {
+            return image;
+        }
+
+        image = Images.PdfImage.Create(document, (CosObject?)reference ?? stream);
+        if (image is not null)
+        {
+            _images.AddOrUpdate(stream, image);
+        }
+
+        return image;
+    }
 
     /// <summary>Returns the form view of a form XObject's stream, one per stream, so that painting a form allocates nothing.</summary>
     public PdfFormXObject GetForm(CosStream stream, CosReference? reference)

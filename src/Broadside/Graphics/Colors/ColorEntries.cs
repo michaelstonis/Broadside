@@ -5,6 +5,32 @@ namespace Broadside.Graphics.Colors;
 /// <summary>Reads the numeric entries of colour space dictionaries (ISO 32000-2 Tables 62 to 72) as they are now.</summary>
 internal static class ColorEntries
 {
+    /// <summary>Reads an array of exactly <paramref name="destination"/>'s length of finite numbers, without allocating.</summary>
+    /// <param name="cache">The document's colour spaces, for resolving.</param>
+    /// <param name="dictionary">The dictionary, or <see langword="null"/>.</param>
+    /// <param name="key">The key.</param>
+    /// <param name="destination">Receives the numbers.</param>
+    /// <returns>Whether the entry is such an array.</returns>
+    public static bool TryReadNumbers(ColorSpaceCache cache, CosDictionary? dictionary, CosName key, Span<double> destination)
+    {
+        if (dictionary is null || !dictionary.TryGetValue(key, out CosObject? value) || cache.Resolve(value) is not CosArray array || array.Count != destination.Length)
+        {
+            return false;
+        }
+
+        for (int i = 0; i < destination.Length; i++)
+        {
+            if (cache.Resolve(array[i]) is not CosNumber number || !double.IsFinite(number.ToDouble()))
+            {
+                return false;
+            }
+
+            destination[i] = number.ToDouble();
+        }
+
+        return true;
+    }
+
     /// <summary>Reads an array of numbers.</summary>
     /// <param name="cache">The document's colour spaces, for resolving.</param>
     /// <param name="dictionary">The dictionary, or <see langword="null"/>.</param>

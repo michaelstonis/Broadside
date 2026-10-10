@@ -135,6 +135,9 @@ internal static class FuzzTargets
 
             ReadFonts(document, page);
             page.ProcessContent(new CheckingProcessor());
+
+            // The content corpus gate's processor (issue #80): every event, each pattern cell, Type 3 glyph and soft mask entered once.
+            page.ProcessContent(new Broadside.TestSupport.CountingContentProcessor());
         }
 
         Navigation(document);
@@ -169,6 +172,12 @@ internal static class FuzzTargets
                 if (!(rect.Left <= rect.Right && rect.Bottom <= rect.Top) || annotation.Page is null || !ReferenceEquals(annotation, page.Annotations[index]))
                 {
                     throw new InvalidOperationException("An annotation's rectangle is not normalized, it has no page, or a second read gave another view.");
+                }
+
+                // Appearance streams run on the annotation rectangle (§12.5.5, issue #80).
+                if (annotation.GetAppearance() is { } appearance)
+                {
+                    _ = annotation.ProcessAppearance(appearance, new Broadside.TestSupport.CountingContentProcessor());
                 }
             }
         }

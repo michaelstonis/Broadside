@@ -1,0 +1,390 @@
+# Content corpus gate allowlist (issue #80): diagnostics interpretation records on well-formed real-world files.
+# corpus/path<TAB>code<TAB>count<TAB>justification (clause and offending construct). Sorted by path, then code.
+# Exact equality: an unlisted diagnostic fails ("triage me"); a listed one that no longer occurs fails ("stale entry").
+# Never list a bug of ours here: fix it.
+pdfbox/input/PDFBOX-3044-010197-p5-ligatures.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
+pdfbox/input/PDFBOX-3062-N2MOQ7YZICIYGTPLQJAWJ4HLN6CCEMHZ-reduced.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfbox/input/PDFBOX-3110-poems-beads-cropbox.pdf	ContentColorOperatorMismatch	2	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfbox/input/PDFBOX-3110-poems-beads.pdf	ContentColorOperatorMismatch	2	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfbox/input/PDFBOX-3123-ADSFWTRB3HBZBZKEVESVTBRZC2MNKZF5_reduced.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfbox/input/PDFBOX-5350-JX57O5E5YG6XM4FZABPULQGTW4OXPCWA-p1-reduced.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfbox/input/PDFBOX-5350-JX57O5E5YG6XM4FZABPULQGTW4OXPCWA-p1-reduced.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfbox/input/PDFBOX-5838-0024320-reduced.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfbox/input/merge/PDFBOX-4417-054080.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfbox/input/merge/PDFBOX-5762-722238.pdf	OptionalContentConfigMissing	1	8.11.4.2 Table 98 OCProperties without the required D
+pdfbox/input/merge/PDFBOX-5809-509329.pdf	CidToGidMapMissing	2	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfbox/input/merge/PDFBOX-5809-509329.pdf	OptionalContentConfigMissing	1	8.11.4.2 Table 98 OCProperties without the required D
+pdfbox/input/rendering/PDFBOX-4372-2DAYCLVOFG3FTVO4RMAJJL3VTPNYDFRO-p4_reduced.pdf	ContentFormCycle	1	8.10.1 a form XObject draws itself (directly or through a nested form)
+pdfbox/org/apache/pdfbox/pdmodel/documentinterchange/logicalstructure/PDFBOX-2725-878725.pdf	FontStandard14EntriesIncomplete	1	9.6.2.1 Table 109 Standard 14 font with only some of FirstChar, LastChar, Widths, FontDescriptor (all or none)
+pdfbox/org/apache/pdfbox/pdmodel/interactive/form/AcroFormsBasicFields.pdf	FontTypeInvalid	1	9.6.2.1 Table 109 font dictionary Type is missing or not /Font
+pdfbox/org/apache/pdfbox/pdmodel/interactive/pagenavigation/transitions_test.pdf	FontTypeInvalid	1	9.6.2.1 Table 109 font dictionary Type is missing or not /Font
+pdfbox/org/apache/pdfbox/pdmodel/page_tree_multiple_levels.pdf	FontTypeInvalid	1	9.6.2.1 Table 109 font dictionary Type is missing or not /Font
+pdfium-tests/fx/FRC_8.2.2_part1/FRC_10_8.2.2__T8.3_original_file.pdf	ContentFormInvalid	1	8.10.2 Table 93 a form XObject without the required BBox
+pdfium-tests/fx/FRC_8.2.2_part1/FRC_12_8.2.2__T8.3_first_outline_obj_ID.pdf	ContentFormInvalid	1	8.10.2 Table 93 a form XObject without the required BBox
+pdfium-tests/fx/FRC_8.2.2_part1/FRC_13_8.2.2__T8.3_Count_edit300.pdf	ContentFormInvalid	1	8.10.2 Table 93 a form XObject without the required BBox
+pdfium-tests/fx/FRC_8.2.2_part1/FRC_14_8.2.2__T8.3_Count_edit0.pdf	ContentFormInvalid	1	8.10.2 Table 93 a form XObject without the required BBox
+pdfium-tests/fx/FRC_8.2.2_part1/FRC_15_8.2.2__T8.3_Count_edit1.pdf	ContentFormInvalid	1	8.10.2 Table 93 a form XObject without the required BBox
+pdfium-tests/fx/FRC_8.2.2_part1/FRC_3_8.2.2_Type_empty.pdf	ContentFormInvalid	1	8.10.2 Table 93 a form XObject without the required BBox
+pdfium-tests/fx/FRC_8.2.2_part1/FRC_4_8.2.2__T8.3_Count_empty.pdf	ContentFormInvalid	1	8.10.2 Table 93 a form XObject without the required BBox
+pdfium-tests/fx/FRC_8.2.2_part1/FRC_5_8.2.2__T8.3_First_remove.pdf	ContentFormInvalid	1	8.10.2 Table 93 a form XObject without the required BBox
+pdfium-tests/fx/FRC_8.2.2_part1/FRC_7_8.2.2_Type_remove.pdf	ContentFormInvalid	1	8.10.2 Table 93 a form XObject without the required BBox
+pdfium-tests/fx/FRC_8.2.2_part1/FRC_8_8.2.2__T8.3_Count_remove.pdf	ContentFormInvalid	1	8.10.2 Table 93 a form XObject without the required BBox
+pdfium-tests/fx/FRC_8.2.2_part1/FRC_9_8.2.2__T8.3_remove_first_item.pdf	ContentFormInvalid	1	8.10.2 Table 93 a form XObject without the required BBox
+pdfium-tests/fx/FRC_8.2.4_part1/FRC_11_8.2.4_View_edit.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfium-tests/fx/FRC_8.2.4_part1/FRC_12_8.2.4_View_remove_all.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfium-tests/fx/FRC_8.2.4_part1/FRC_13_8.2.4_View_remove_value.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfium-tests/fx/FRC_8.2.4_part1/FRC_14_8.2.4_Sort_remove_all.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfium-tests/fx/FRC_8.2.4_part1/FRC_15_8.2.4_Sort_remove_value.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfium-tests/fx/FRC_8.2.4_part1/FRC_1_8.2.4_Type_8.6_.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfium-tests/fx/FRC_8.2.4_part1/FRC_2_8.2.4_Type_8.6__remove_value.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfium-tests/fx/FRC_8.2.4_part1/FRC_3_8.2.4_Type_8.6__edit_.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfium-tests/fx/FRC_8.2.4_part1/FRC_4_8.2.4_Schema_8.6__remove_all.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfium-tests/fx/FRC_8.2.4_part1/FRC_5_8.2.4_Schema_8.6__remove_value.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfium-tests/fx/FRC_8.2.4_part1/FRC_6_8.2.4_Schema_8.6__remove_obj.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfium-tests/fx/FRC_8.2.4_part1/FRC_7_8.2.4_View_H.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfium-tests/fx/FRC_8.2.4_part1/FRC_8_8.2.4_View_D.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfium-tests/fx/FRC_8.2.4_part1/FRC_9_8.2.4_View_T.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfium-tests/fx/mulobj/1/1_10_watermark.pdf	ContentUnbalancedSave	4	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/mulobj/4/4_1.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/mulobj/4/4_2.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/mulobj/new/signature/new_certify1.pdf	ContentUnbalancedSave	3	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/mulobj/new/signature/new_signature1.pdf	ContentUnbalancedSave	3	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/mulobj/new/signature/new_signature2.pdf	ContentUnbalancedSave	3	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/new/ch_7/ch_7_2.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/new/ch_7/ch_7_2.pdf	FunctionEntryInvalid	1	7.10.4 Table 41 Bounds of a stitching function malformed
+pdfium-tests/fx/new/ch_7/ch_7_2.pdf	ShadingCoordsInvalid	1	8.7.4.5.3 Table 79 axial shading Coords not four numbers
+pdfium-tests/fx/new/ch_7/ch_7_5.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/new/ch_7/ch_7_7.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/new/shading_2/shading_2_15.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/new/shading_2/shading_2_17.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/new/shading_2/shading_2_4.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/new/shading_2/shading_2_5.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/new/shading_2/shading_2_6.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/new/shading_2/shading_2_7.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/new/shading_2/shading_2_8.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/fx/new/shading_2/shading_2_9.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfium-tests/pdfium/bug_691967.pdf	IccProfileInvalid	3	8.6.5.5 ICCBased stream holds no ICC profile
+pdfium-tests/pdfium/bug_880920.pdf	FontStandard14EntriesIncomplete	2	9.6.2.1 Table 109 Standard 14 font with only some of FirstChar, LastChar, Widths, FontDescriptor (all or none)
+pdfjs/ArabicCIDTrueType.pdf	CidToGidMapMissing	4	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/SimFang-variant.pdf	FontDescriptorInvalid	1	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/Test-plusminus.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/XiaoBiaoSong.pdf	FontDescriptorInvalid	2	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/axial_shading_many_inputs.pdf	ShadingFunctionInvalid	16	8.7.4.5.3 Table 79 axial shading Function is not a 1-in function
+pdfjs/bomb_giant.pdf	ContentUnknownOperator	1	7.8.2 a keyword that is not an operator outside BX/EX
+pdfjs/bug1065245.pdf	ContentTextObjectUnbalanced	1	9.4.1 Figure 9 BT/ET not balanced in the content stream
+pdfjs/bug1068432.pdf	FontDescriptorInvalid	1	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/bug1157493.pdf	ContentStackUnderflow	1	8.4.2 Q without a matching q (q/Q shall be balanced)
+pdfjs/bug1186827.pdf	FontProgramFormatMismatch	1	9.9 Table 124 FontFile/FontFile2 holds a CFF or OpenType program of another kind
+pdfjs/bug1308536.pdf	FontCffDictInvalid	1	Adobe TN 5176 malformed real number in the CFF Private DICT
+pdfjs/bug1365930.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/bug1627427_reduced.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/bug1650302_reduced.pdf	FontProgramTruncated	1	9.9 Table 125 Length1 larger than the font program data
+pdfjs/bug1669099.pdf	ContentFontMissing	15	9.3.1 / 7.8.3 Tf names a font absent from the Font resources (or text shown before Tf)
+pdfjs/bug1868759.pdf	CidToGidMapMissing	2	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/bug1885505.pdf	FontDescriptorInvalid	12	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/bug1898053_minimal.pdf	ContentMarkedContentUnbalanced	1	14.6 BMC/BDC and EMC not balanced within the content stream
+pdfjs/bug1953099.pdf	ContentSyntaxInvalid	1	7.2 / 7.3 malformed token in the content stream (stray delimiter, malformed number or string)
+pdfjs/bug1992868.pdf	ContentColorOperatorMismatch	8	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/bug1992868.pdf	FontDescriptorInvalid	15	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/bug859204.pdf	FontEncodingInvalid	1	9.6.5.1 Table 111 Encoding names no predefined encoding (MacRoman, MacExpert, WinAnsi)
+pdfjs/bug860632.pdf	FontType1PfbWrapped	1	9.9 Table 124 FontFile holds a PFB-wrapped program
+pdfjs/bug868745.pdf	FontDescriptorInvalid	1	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/bug911034.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/bug911034.pdf	FontTableInvalid	1	TrueType/OpenType table inconsistent (hmtx/loca/head/sfnt version or table past the end)
+pdfjs/bug920426.pdf	CMapOperatorNotAllowed	1	9.7.5.4 c bfchar/bfrange in a CMap used as a Type 0 encoding
+pdfjs/bug920426.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/copy_paste_ligatures.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/endchar.pdf	ContentExtGStateInvalid	1	8.4.5 Table 57 an ExtGState entry out of range or of the wrong type
+pdfjs/extgstate.pdf	ContentExtGStateInvalid	1	8.4.5 Table 57 an ExtGState entry out of range or of the wrong type
+pdfjs/franz_2.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/freeculture.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/freetexts.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/freetexts.pdf	FontTypeInvalid	1	9.6.2.1 Table 109 font dictionary Type is missing or not /Font
+pdfjs/images_1bit_grayscale.pdf	ImageMaskConflict	3	8.9.6.2 image mask (XObject or inline) with ColorSpace, Mask or SMask
+pdfjs/inks.pdf	ContentColorOperatorMismatch	3	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/issue10572.pdf	FunctionEntryInvalid	1	7.10.4 Table 41 Bounds of a stitching function malformed
+pdfjs/issue11045.pdf	ColorSpaceInvalid	1	8.6.3 a ColorSpace value that is neither a name nor an array
+pdfjs/issue11131_reduced.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/issue11150_reduced.pdf	FontWidthsMissing	1	9.6.2.1 Table 109 non-Standard-14 simple font without the required Widths
+pdfjs/issue11242_reduced.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue11403_reduced.pdf	FontStandard14EntriesIncomplete	1	9.6.2.1 Table 109 Standard 14 font with only some of FirstChar, LastChar, Widths, FontDescriptor (all or none)
+pdfjs/issue11477_reduced.pdf	FontDescriptorInvalid	1	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/issue11578_reduced.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue11740_reduced.pdf	FontType1HexEexec	1	9.9 Type 1 program with hexadecimal eexec section (binary required)
+pdfjs/issue11740_reduced.pdf	FontType1Length1Repaired	1	9.9 Table 125 Type 1 Length1 does not end at eexec
+pdfjs/issue11768_reduced.pdf	CMapCodeInvalid	1	9.7.6.2 a shown code lies in no codespace range of the CMap
+pdfjs/issue11768_reduced.pdf	FontTableInvalid	1	TrueType/OpenType table inconsistent (hmtx/loca/head/sfnt version or table past the end)
+pdfjs/issue11915.pdf	Type0IdentityNotEmbedded	5	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue12337.pdf	ContentColorOperatorMismatch	8	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/issue12337.pdf	FontDescriptorInvalid	15	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/issue12418_reduced.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue12705.pdf	ContentColorOperatorIgnored	15	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours
+pdfjs/issue13107_reduced.pdf	FontDescriptorInvalid	1	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/issue1350.pdf	ContentStackUnderflow	3	8.4.2 Q without a matching q (q/Q shall be balanced)
+pdfjs/issue1350.pdf	FontBaseFontMissing	2	9.6.2.1 Table 109 font dictionary without the required BaseFont
+pdfjs/issue13916.pdf	Type0IdentityNotEmbedded	2	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue14165.pdf	ContentTextObjectUnbalanced	1	9.4.1 Figure 9 BT/ET not balanced in the content stream
+pdfjs/issue14618.pdf	FontProgramTruncated	1	9.9 Table 125 Length1 larger than the font program data
+pdfjs/issue14618.pdf	FontTableInvalid	1	TrueType/OpenType table inconsistent (hmtx/loca/head/sfnt version or table past the end)
+pdfjs/issue14953.pdf	ContentColorOperatorIgnored	14	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours
+pdfjs/issue15340.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/issue15441.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue15443.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue15594_reduced.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue15629.pdf	ContentMarkedContentUnbalanced	1	14.6 BMC/BDC and EMC not balanced within the content stream
+pdfjs/issue15977_reduced.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue16316.pdf	FontDescriptorInvalid	12	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/issue16633.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/issue16633.pdf	FontTypeInvalid	1	9.6.2.1 Table 109 font dictionary Type is missing or not /Font
+pdfjs/issue17679.pdf	ContentPropertiesMissing	1	14.6.2 BDC names a property list absent from the Properties resources
+pdfjs/issue17679_2.pdf	ContentMarkedContentUnbalanced	1	14.6 BMC/BDC and EMC not balanced within the content stream
+pdfjs/issue17679_2.pdf	ContentOperandType	1	7.8.2 operand of the wrong type for its operator
+pdfjs/issue17929.pdf	FontDescriptorMissing	1	9.6.2.1 / 9.8 non-Standard-14 simple font without the required FontDescriptor
+pdfjs/issue18099_reduced.pdf	FontDescriptorMissing	1	9.6.2.1 / 9.8 non-Standard-14 simple font without the required FontDescriptor
+pdfjs/issue18099_reduced.pdf	FontWidthsMissing	1	9.6.2.1 Table 109 non-Standard-14 simple font without the required Widths
+pdfjs/issue18117.pdf	CidSystemInfoMismatch	1	9.7.3 CMap and CIDFont Registry/Ordering differ
+pdfjs/issue18529.pdf	ColorSpaceEntryInvalid	1	8.6.3 / 8.6.5.5 malformed colour space array (device family as array, or ICCBased N invalid)
+pdfjs/issue18911.pdf	ContentColorOperatorMismatch	8	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/issue18911.pdf	FontDescriptorInvalid	15	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/issue1905.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfjs/issue19239.pdf	ContentColorOperatorMismatch	8	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/issue19239.pdf	FontDescriptorInvalid	15	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/issue19532.pdf	ImageMaskConflict	13	8.9.6.2 image mask (XObject or inline) with ColorSpace, Mask or SMask
+pdfjs/issue19550.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue19633.pdf	ContentGraphicsStateRange	1	8.4.3.2 negative line width (orchestrator decision: absolute value + diagnostic)
+pdfjs/issue19634.pdf	ContentColorOperatorIgnored	25	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours
+pdfjs/issue19695.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue19971.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfjs/issue20232.pdf	FontEncodingInvalid	1	9.6.5.1 Table 111 Encoding names no predefined encoding (MacRoman, MacExpert, WinAnsi)
+pdfjs/issue20504.pdf	ContentColorOperatorMismatch	5	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/issue2099-1.pdf	FontDescriptorInvalid	1	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/issue2099-1.pdf	FontStandard14EntriesIncomplete	1	9.6.2.1 Table 109 Standard 14 font with only some of FirstChar, LastChar, Widths, FontDescriptor (all or none)
+pdfjs/issue2128r.pdf	CMapCodeInvalid	1	9.7.6.2 a shown code lies in no codespace range of the CMap
+pdfjs/issue21570.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
+pdfjs/issue2391-1.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
+pdfjs/issue2391-1.pdf	ContentUnknownOperator	1	7.8.2 a keyword that is not an operator outside BX/EX
+pdfjs/issue2391-2.pdf	FontDescriptorMissing	1	9.6.2.1 / 9.8 non-Standard-14 simple font without the required FontDescriptor
+pdfjs/issue2391-2.pdf	FontWidthsMissing	1	9.6.2.1 Table 109 non-Standard-14 simple font without the required Widths
+pdfjs/issue2537r.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/issue2537r.pdf	FontTableInvalid	1	TrueType/OpenType table inconsistent (hmtx/loca/head/sfnt version or table past the end)
+pdfjs/issue2840.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue2884_reduced.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/issue2884_reduced.pdf	FontTableInvalid	1	TrueType/OpenType table inconsistent (hmtx/loca/head/sfnt version or table past the end)
+pdfjs/issue3405r.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/issue3405r.pdf	FontTableInvalid	1	TrueType/OpenType table inconsistent (hmtx/loca/head/sfnt version or table past the end)
+pdfjs/issue4402_reduced.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/issue4575.pdf	ImageDimensionInvalid	1	8.9.5 Table 87 image Width/Height not a positive integer
+pdfjs/issue4630.pdf	FontType1HexEexec	1	9.9 Type 1 program with hexadecimal eexec section (binary required)
+pdfjs/issue4630.pdf	FontType1Length2Repaired	1	9.9 Table 125 Type 1 Length2 shorter than the encrypted data
+pdfjs/issue4722.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue5039.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
+pdfjs/issue5039.pdf	ContentType3GlyphMetricsMissing	1	9.6.4 Table 113 a Type 3 glyph description that does not begin with d0 or d1
+pdfjs/issue5039.pdf	ContentUnknownOperator	1	7.8.2 a keyword that is not an operator outside BX/EX
+pdfjs/issue5044.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/issue5044.pdf	ContentColorOperatorMismatch	3	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/issue5084.pdf	FontProgramFormatMismatch	1	9.9 Table 124 FontFile/FontFile2 holds a CFF or OpenType program of another kind
+pdfjs/issue5202.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/issue5244.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue5470.pdf	FontStandard14EntriesIncomplete	1	9.6.2.1 Table 109 Standard 14 font with only some of FirstChar, LastChar, Widths, FontDescriptor (all or none)
+pdfjs/issue5686.pdf	FontType1Length1Repaired	1	9.9 Table 125 Type 1 Length1 does not end at eexec
+pdfjs/issue5686.pdf	FontType1Length2Repaired	1	9.9 Table 125 Type 1 Length2 shorter than the encrypted data
+pdfjs/issue5701.pdf	FontEncodingInvalid	1	9.6.5.1 Table 111 Encoding names no predefined encoding (MacRoman, MacExpert, WinAnsi)
+pdfjs/issue5747.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue5751.pdf	FontProgramFormatMismatch	1	9.9 Table 124 FontFile/FontFile2 holds a CFF or OpenType program of another kind
+pdfjs/issue5801.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue5874.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/issue5954.pdf	ContentFontMissing	1	9.3.1 / 7.8.3 Tf names a font absent from the Font resources (or text shown before Tf)
+pdfjs/issue5994.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/issue6127.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/issue6127.pdf	Type0IdentityNotEmbedded	4	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue6298.pdf	ContentStackUnderflow	1	8.4.2 Q without a matching q (q/Q shall be balanced)
+pdfjs/issue6342.pdf	ContentNoCurrentPoint	1	8.5.2.1 a line or curve operator without a current point (path not begun with m or re)
+pdfjs/issue6342.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
+pdfjs/issue6342.pdf	ContentSyntaxInvalid	1	7.2 / 7.3 malformed token in the content stream (stray delimiter, malformed number or string)
+pdfjs/issue6342.pdf	ContentUnknownOperator	1	7.8.2 a keyword that is not an operator outside BX/EX
+pdfjs/issue6410.pdf	FontWidthsInvalid	4	9.6.2.1 Table 109 Widths length differs from LastChar - FirstChar + 1
+pdfjs/issue6413.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfjs/issue6541.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+pdfjs/issue6541.pdf	ContentXObjectMissing	1	7.8.3 / 8.8 Do names an XObject absent from the XObject resources
+pdfjs/issue6621.pdf	ImageMaskInvalid	1	8.9.5 Table 87 / 8.9.6.3 a Mask stream that is not an image mask (ImageMask true)
+pdfjs/issue7074_reduced.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/issue7180.pdf	FontDescriptorInvalid	1	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/issue7696.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/issue7696.pdf	FontTableInvalid	1	TrueType/OpenType table inconsistent (hmtx/loca/head/sfnt version or table past the end)
+pdfjs/issue7835.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue7855.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+pdfjs/issue8480.pdf	FontCmapInvalid	1	OpenType cmap subtable segment count inconsistent
+pdfjs/issue8480.pdf	FontProgramFormatMismatch	1	9.9 Table 124 FontFile/FontFile2 holds a CFF or OpenType program of another kind
+pdfjs/issue8480.pdf	FontTableInvalid	1	TrueType/OpenType table inconsistent (hmtx/loca/head/sfnt version or table past the end)
+pdfjs/issue8702.pdf	ContentXObjectInvalid	1	8.8 Do names an XObject that is not a stream
+pdfjs/issue8798r.pdf	ImageMaskConflict	1	8.9.6.2 image mask (XObject or inline) with ColorSpace, Mask or SMask
+pdfjs/issue8823.pdf	ImageMaskConflict	1	8.9.6.2 image mask (XObject or inline) with ColorSpace, Mask or SMask
+pdfjs/issue9084.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
+pdfjs/issue9458.pdf	ContentTextObjectUnbalanced	1	9.4.1 Figure 9 BT/ET not balanced in the content stream
+pdfjs/pdfjsbad1586.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/sci-notation.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
+pdfjs/sci-notation.pdf	ContentUnknownOperator	1	7.8.2 a keyword that is not an operator outside BX/EX
+pdfjs/scorecard_reduced.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/tiling-pattern-large-steps.pdf	ContentColorOperandCount	1	8.6.8 Table 73 colour operator operand count does not match the colour space
+pdfjs/tracemonkey.pdf	ContentColorOperatorMismatch	8	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/tracemonkey.pdf	FontDescriptorInvalid	15	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/tracemonkey_a11y.pdf	FontDescriptorInvalid	12	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/tracemonkey_annotation_on_page_8.pdf	ContentColorOperatorMismatch	8	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/tracemonkey_annotation_on_page_8.pdf	FontDescriptorInvalid	15	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/tracemonkey_freetext.pdf	ContentColorOperatorMismatch	8	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/tracemonkey_freetext.pdf	FontDescriptorInvalid	15	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/tracemonkey_with_annotations.pdf	ContentColorOperatorMismatch	8	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/tracemonkey_with_annotations.pdf	FontDescriptorInvalid	15	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/tracemonkey_with_editable_annotations.pdf	ContentColorOperatorMismatch	8	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+pdfjs/tracemonkey_with_editable_annotations.pdf	FontDescriptorInvalid	15	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
+pdfjs/transfer_maps.pdf	ContentExtGStateInvalid	1	8.4.5 Table 57 an ExtGState entry out of range or of the wrong type
+qpdf/appearances-a-more3.pdf	ContentFontMissing	2	9.3.1 / 7.8.3 Tf names a font absent from the Font resources (or text shown before Tf)
+qpdf/appearances-a-more3.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
+qpdf/coalesce-out.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
+qpdf/coalesce.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
+qpdf/content-stream-errors.pdf	ContentInlineImageInvalid	1	8.9.7 malformed inline image (missing ID/EI, wrong L, or stray ID/EI)
+qpdf/content-stream-errors.pdf	ContentOperandCount	2	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
+qpdf/damaged-inline-image.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+qpdf/eof-in-inline-image.pdf	ContentInlineImageInvalid	1	8.9.7 malformed inline image (missing ID/EI, wrong L, or stray ID/EI)
+qpdf/field-parse-errors-out.pdf	ContentSyntaxInvalid	1	7.2 / 7.3 malformed token in the content stream (stray delimiter, malformed number or string)
+qpdf/field-parse-errors.pdf	ContentSyntaxInvalid	1	7.2 / 7.3 malformed token in the content stream (stray delimiter, malformed number or string)
+qpdf/form-xobjects-some-resources1-out.pdf	ContentFontMissing	1	9.3.1 / 7.8.3 Tf names a font absent from the Font resources (or text shown before Tf)
+qpdf/form-xobjects-some-resources1-out.pdf	ContentXObjectMissing	1	7.8.3 / 8.8 Do names an XObject absent from the XObject resources
+qpdf/form-xobjects-some-resources1.pdf	ContentFontMissing	1	9.3.1 / 7.8.3 Tf names a font absent from the Font resources (or text shown before Tf)
+qpdf/form-xobjects-some-resources1.pdf	ContentXObjectMissing	1	7.8.3 / 8.8 Do names an XObject absent from the XObject resources
+qpdf/form-xobjects-some-resources2-out.pdf	ContentFontMissing	1	9.3.1 / 7.8.3 Tf names a font absent from the Font resources (or text shown before Tf)
+qpdf/form-xobjects-some-resources2-out.pdf	ContentXObjectMissing	1	7.8.3 / 8.8 Do names an XObject absent from the XObject resources
+qpdf/form-xobjects-some-resources2.pdf	ContentFontMissing	1	9.3.1 / 7.8.3 Tf names a font absent from the Font resources (or text shown before Tf)
+qpdf/form-xobjects-some-resources2.pdf	ContentXObjectMissing	1	7.8.3 / 8.8 Do names an XObject absent from the XObject resources
+qpdf/large-inline-image-ii-all.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+qpdf/large-inline-image-ii-some.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+qpdf/large-inline-image.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
+qpdf/nontrivial-crypt-filter-decrypted.pdf	ContentFontMissing	1	9.3.1 / 7.8.3 Tf names a font absent from the Font resources (or text shown before Tf)
+qpdf/pclm-in.pdf	ContentMarkedContentUnbalanced	1	14.6 BMC/BDC and EMC not balanced within the content stream
+qpdf/pclm-out.pdf	ContentMarkedContentUnbalanced	1	14.6 BMC/BDC and EMC not balanced within the content stream
+qpdf/reuse-xref-stream.pdf	FontDescriptorMissing	1	9.6.2.1 / 9.8 non-Standard-14 simple font without the required FontDescriptor
+qpdf/reuse-xref-stream.pdf	FontWidthsMissing	1	9.6.2.1 Table 109 non-Standard-14 simple font without the required Widths
+qpdf/split-tokens-split-1-2.pdf	ContentInlineImageInvalid	1	8.9.7 malformed inline image (missing ID/EI, wrong L, or stray ID/EI)
+qpdf/split-tokens-split-1-2.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
+qpdf/split-tokens-split-1-2.pdf	ContentSyntaxInvalid	1	7.2 / 7.3 malformed token in the content stream (stray delimiter, malformed number or string)
+qpdf/split-tokens.pdf	ContentInlineImageInvalid	1	8.9.7 malformed inline image (missing ID/EI, wrong L, or stray ID/EI)
+qpdf/split-tokens.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
+qpdf/split-tokens.pdf	ContentSyntaxInvalid	1	7.2 / 7.3 malformed token in the content stream (stray delimiter, malformed number or string)
+qpdf/terminate-parsing.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
+qpdf/terminate-parsing.pdf	ContentSyntaxInvalid	1	7.2 / 7.3 malformed token in the content stream (stray delimiter, malformed number or string)
+qpdf/test79.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
+qpdf/test79.pdf	ContentUnknownOperator	1	7.8.2 a keyword that is not an operator outside BX/EX
+qpdf/token-filters-out.pdf	ContentOperandCount	2	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
+qpdf/tokenize-content-streams.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
+qpdf/tokens.pdf	ContentFontMissing	1	9.3.1 / 7.8.3 Tf names a font absent from the Font resources (or text shown before Tf)
+qpdf/tokens.pdf	ContentInlineImageInvalid	1	8.9.7 malformed inline image (missing ID/EI, wrong L, or stray ID/EI)
+qpdf/tokens.pdf	ContentOperandCount	4	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
+qpdf/tokens.pdf	ContentSyntaxInvalid	3	7.2 / 7.3 malformed token in the content stream (stray delimiter, malformed number or string)
+qpdf/tokens.pdf	ContentTextObjectUnbalanced	3	9.4.1 Figure 9 BT/ET not balanced in the content stream
+qpdf/tokens.pdf	ContentUnknownOperator	1	7.8.2 a keyword that is not an operator outside BX/EX
+qpdf/unsupported-optimization.pdf	ColorSpaceInvalid	1	8.6.3 a ColorSpace value that is neither a name nor an array
+verapdf-corpus/ISO 32000-1/veraPDF test suite 6-2-3-2-t01-fail-b.pdf	ContentColorOperandCount	1	8.6.8 Table 73 colour operator operand count does not match the colour space (veraPDF/Isartor negative test file)
+verapdf-corpus/ISO 32000-1/veraPDF test suite 6-2-3-2-t01-fail-b.pdf	IccComponentCountMismatch	1	8.6.5.5 ICCBased N differs from the profile colour space (veraPDF/Isartor negative test file)
+verapdf-corpus/Isartor test files/PDFA-1b/6.2 Graphics/6.2.10 Content Streams/isartor-6-2-10-t01-fail-a.pdf	ContentUnknownOperator	1	7.8.2 a keyword that is not an operator outside BX/EX (veraPDF/Isartor negative test file)
+verapdf-corpus/Isartor test files/PDFA-1b/6.2 Graphics/6.2.8 Extended graphics state/isartor-6-2-8-t01-fail-d.pdf	ContentExtGStateInvalid	1	8.4.5 Table 57 an ExtGState entry out of range or of the wrong type (veraPDF/Isartor negative test file)
+verapdf-corpus/Isartor test files/PDFA-1b/6.3 Fonts/6.3.2 Font types/isartor-6-3-2-t01-fail-c.pdf	FontProgramInvalid	1	9.9 Table 124 TrueType program without glyf/loca (veraPDF/Isartor negative test file)
+verapdf-corpus/Isartor test files/PDFA-1b/6.3 Fonts/6.3.2 Font types/isartor-6-3-2-t01-fail-c.pdf	FontTableInvalid	1	TrueType/OpenType table inconsistent (hmtx/loca/head/sfnt version or table past the end) (veraPDF/Isartor negative test file)
+verapdf-corpus/Isartor test files/PDFA-1b/6.3 Fonts/6.3.3 Composite fonts/6.3.3.2 CIDFonts/isartor-6-3-3-2-t01-fail-a.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap (veraPDF/Isartor negative test file)
+verapdf-corpus/Isartor test files/PDFA-1b/6.3 Fonts/6.3.3 Composite fonts/6.3.3.3 CMaps/isartor-6-3-3-3-t02-fail-a.pdf	CMapWritingModeMismatch	1	9.7.5.4 Table 118 the CMap stream WMode differs from the CMap file (veraPDF/Isartor negative test file)
+verapdf-corpus/Isartor test files/PDFA-1b/6.4 Transparency/isartor-6-4-t01-fail-b.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t10-fail-a.pdf	CMapEntryInvalid	1	9.7.5.4 / TN 5014 a CMap maps to a CID outside 0-65535 (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.12 Implementation limits/veraPDF test suite 6-1-12-t10-fail-b.pdf	CMapEntryInvalid	1	9.7.5.4 / TN 5014 a CMap maps to a CID outside 0-65535 (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-1b/6.1 File structure/6.1.6 String objects/veraPDF test suite 6-1-6-t01-fail-b.pdf	ContentSyntaxInvalid	1	7.2 / 7.3 malformed token in the content stream (stray delimiter, malformed number or string) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-1b/6.2 Graphics/6.2.3.3 Uncalibrated color space/veraPDF test suite 6-2-3-3-t03-fail-b.pdf	ContentColorOperatorIgnored	1	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-1b/6.2 Graphics/6.2.3.3 Uncalibrated color space/veraPDF test suite 6-2-3-3-t03-pass-k.pdf	ContentColorOperatorIgnored	1	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours
+verapdf-corpus/PDF_A-1b/6.3 Fonts/6.3.3.1 General/veraPDF test suite 6-3-3-1-t01-fail-a.pdf	CidSystemInfoMismatch	1	9.7.3 CMap and CIDFont Registry/Ordering differ (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-1b/6.3 Fonts/6.3.3.1 General/veraPDF test suite 6-3-3-1-t01-fail-b.pdf	CidSystemInfoMismatch	1	9.7.3 CMap and CIDFont Registry/Ordering differ (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-1b/6.3 Fonts/6.3.3.2 CIDFonts/veraPDF test suite 6-3-3-2-t01-pass-a.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+verapdf-corpus/PDF_A-1b/6.4 Transparency/veraPDF test suite 6-4-t03-pass-b.pdf	ContentExtGStateInvalid	1	8.4.5 Table 57 an ExtGState entry out of range or of the wrong type
+verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.13 Implementation limits/veraPDF test suite 6-1-13-t08-fail-b.pdf	CMapEntryInvalid	1	9.7.5.4 / TN 5014 a CMap maps to a CID outside 0-65535 (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.13 Implementation limits/veraPDF test suite 6-1-13-t10-fail-a.pdf	CMapEntryInvalid	1	9.7.5.4 / TN 5014 a CMap maps to a CID outside 0-65535 (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.1 File structure/6.1.6 String objects/veraPDF test suite 6-1-6-t02-fail-a.pdf	ContentSyntaxInvalid	1	7.2 / 7.3 malformed token in the content stream (stray delimiter, malformed number or string) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.10 Transparency/veraPDF test suite 6-2-10-t02-fail-a.pdf	ContentExtGStateInvalid	1	8.4.5 Table 57 an ExtGState entry out of range or of the wrong type (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.3 Composite fonts/6.2.11.3.1 General/veraPDF test suite 6-2-11-3-1-t01-fail-a.pdf	CidSystemInfoMismatch	1	9.7.3 CMap and CIDFont Registry/Ordering differ (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.3 Composite fonts/6.2.11.3.1 General/veraPDF test suite 6-2-11-3-1-t01-fail-b.pdf	CidSystemInfoMismatch	1	9.7.3 CMap and CIDFont Registry/Ordering differ (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.3 Composite fonts/6.2.11.3.2 CIDFonts/veraPDF test suite 6-2-11-3-2-t01-fail-a.pdf	CidToGidMapInvalid	1	9.7.4.1 Table 115 CIDToGIDMap is neither a stream nor /Identity (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.3 Composite fonts/6.2.11.3.2 CIDFonts/veraPDF test suite 6-2-11-3-2-t01-fail-b.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.3 Composite fonts/6.2.11.3.2 CIDFonts/veraPDF test suite 6-2-11-3-2-t01-fail-c.pdf	CidToGidMapInvalid	1	9.7.4.1 Table 115 CIDToGIDMap is neither a stream nor /Identity (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.3 Composite fonts/6.2.11.3.3 CMaps/veraPDF test suite 6-2-11-3-3-t02-fail-a.pdf	CMapWritingModeMismatch	1	9.7.5.4 Table 118 the CMap stream WMode differs from the CMap file (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.3 Composite fonts/6.2.11.3.3 CMaps/veraPDF test suite 6-2-11-3-3-t02-fail-b.pdf	CMapWritingModeMismatch	1	9.7.5.4 Table 118 the CMap stream WMode differs from the CMap file (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.4 Embedding/6.2.11.4.1 General/veraPDF test suite 6-2-11-4-1-t01-fail-e.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2 (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.4 Embedding/6.2.11.4.1 General/veraPDF test suite 6-2-11-4-1-t02-fail-e.pdf	CMapCodeInvalid	1	9.7.6.2 a shown code lies in no codespace range of the CMap (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.6 Character encodings/veraPDF test suite 6-2-11-6-t02-fail-a.pdf	FontEncodingInvalid	1	9.6.5.1 Table 111 Encoding names no predefined encoding (MacRoman, MacExpert, WinAnsi) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.11 Fonts/6.2.11.6 Character encodings/veraPDF test suite 6-2-11-6-t03-fail-a.pdf	FontEncodingInvalid	1	9.6.5.1 Table 111 Encoding names no predefined encoding (MacRoman, MacExpert, WinAnsi) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t01-fail-a.pdf	ContentUnknownOperator	1	7.8.2 a keyword that is not an operator outside BX/EX (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t01-fail-b.pdf	ContentUnknownOperator	1	7.8.2 a keyword that is not an operator outside BX/EX (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.2 ICCBased colour spaces/veraPDF test suite 6-2-4-2-t01-pass-a.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.2 ICCBased colour spaces/veraPDF test suite 6-2-4-2-t02-fail-a.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.2 ICCBased colour spaces/veraPDF test suite 6-2-4-2-t02-fail-b.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.2 ICCBased colour spaces/veraPDF test suite 6-2-4-2-t02-fail-c.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.2 ICCBased colour spaces/veraPDF test suite 6-2-4-2-t02-pass-a.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.2 ICCBased colour spaces/veraPDF test suite 6-2-4-2-t02-pass-b.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.2 ICCBased colour spaces/veraPDF test suite 6-2-4-2-t02-pass-c.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t02-fail-g.pdf	ContentColorOperatorIgnored	1	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t02-pass-d.pdf	ContentColorOperatorIgnored	1	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t03-fail-d.pdf	ContentStackUnderflow	1	8.4.2 Q without a matching q (q/Q shall be balanced) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.4 Separation and DeviceN colour spaces/veraPDF test suite 6-2-4-4-t01-fail-g.pdf	FunctionProgramStackInvalid	1	7.10.5.1 Type 4 function leaves more values than Range outputs (shall be an error) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.4 Separation and DeviceN colour spaces/veraPDF test suite 6-2-4-4-t01-fail-h.pdf	FunctionProgramStackInvalid	1	7.10.5.1 Type 4 function leaves more values than Range outputs (shall be an error) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-2b/6.2 Graphics/6.2.4.4 Separation and DeviceN colour spaces/veraPDF test suite 6-2-4-4-t01-pass-f.pdf	FunctionProgramStackInvalid	1	7.10.5.1 Type 4 function leaves more values than Range outputs (shall be an error)
+verapdf-corpus/PDF_A-4/6.1 File structure/6.1.5 String objects/veraPDF test suite 6-1-5-t02-fail-a.pdf	ContentSyntaxInvalid	1	7.2 / 7.3 malformed token in the content stream (stray delimiter, malformed number or string) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.3 Composite fonts/6.2.10.3.1 General/veraPDF test suite 6-2-10-3-1-t01-fail-a.pdf	CidSystemInfoMismatch	1	9.7.3 CMap and CIDFont Registry/Ordering differ (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.3 Composite fonts/6.2.10.3.1 General/veraPDF test suite 6-2-10-3-1-t01-fail-b.pdf	CidSystemInfoMismatch	1	9.7.3 CMap and CIDFont Registry/Ordering differ (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.3 Composite fonts/6.2.10.3.2 CIDFonts/veraPDF test suite 6-2-10-3-2-t01-fail-a.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.3 Composite fonts/6.2.10.3.2 CIDFonts/veraPDF test suite 6-2-10-3-2-t01-fail-b.pdf	CidToGidMapInvalid	1	9.7.4.1 Table 115 CIDToGIDMap is neither a stream nor /Identity (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.3 Composite fonts/6.2.10.3.2 CIDFonts/veraPDF test suite 6-2-10-3-2-t01-fail-c.pdf	CidToGidMapInvalid	1	9.7.4.1 Table 115 CIDToGIDMap is neither a stream nor /Identity (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.3 Composite fonts/6.2.10.3.3 CMaps/veraPDF test suite 6-2-10-3-3-t02-fail-a.pdf	CMapWritingModeMismatch	1	9.7.5.4 Table 118 the CMap stream WMode differs from the CMap file (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.3 Composite fonts/6.2.10.3.3 CMaps/veraPDF test suite 6-2-10-3-3-t02-fail-b.pdf	CMapWritingModeMismatch	1	9.7.5.4 Table 118 the CMap stream WMode differs from the CMap file (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.4 Embedding/6.2.10.4.1 General/veraPDF test suite 6-2-10-4-1-t01-fail-e.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2 (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.4 Embedding/6.2.10.4.1 General/veraPDF test suite 6-2-10-4-1-t02-fail-e.pdf	CMapCodeInvalid	1	9.7.6.2 a shown code lies in no codespace range of the CMap (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.6 Character encodings/veraPDF test suite 6-2-10-6-t02-fail-a.pdf	FontEncodingInvalid	1	9.6.5.1 Table 111 Encoding names no predefined encoding (MacRoman, MacExpert, WinAnsi) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.6 Character encodings/veraPDF test suite 6-2-10-6-t03-fail-a.pdf	FontEncodingInvalid	1	9.6.5.1 Table 111 Encoding names no predefined encoding (MacRoman, MacExpert, WinAnsi) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t01-fail-a.pdf	ContentUnknownOperator	1	7.8.2 a keyword that is not an operator outside BX/EX (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t01-fail-b.pdf	ContentUnknownOperator	1	7.8.2 a keyword that is not an operator outside BX/EX (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t02-fail-d.pdf	ContentColorSpaceMissing	1	7.8.3 / 8.6.8 cs/CS names a colour space absent from the ColorSpace resources (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t03-fail-a.pdf	ContentColorSpaceMissing	1	7.8.3 / 8.6.8 cs/CS names a colour space absent from the ColorSpace resources (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.2 Content streams/veraPDF test suite 6-2-2-t03-fail-b.pdf	ContentXObjectMissing	1	7.8.3 / 8.8 Do names an XObject absent from the XObject resources (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t02-fail-g.pdf	ContentColorOperatorIgnored	1	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t02-pass-d.pdf	ContentColorOperatorIgnored	1	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t03-fail-d.pdf	ContentStackUnderflow	1	8.4.2 Q without a matching q (q/Q shall be balanced) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.3 Uncalibrated -Device colour spaces/veraPDF test suite 6-2-4-3-t04-pass-h.pdf	ContentColorOperatorIgnored	1	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.4 Separation and DeviceN colour spaces/veraPDF test suite 6-2-4-4-t01-fail-g.pdf	FunctionProgramStackInvalid	1	7.10.5.1 Type 4 function leaves more values than Range outputs (shall be an error) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.4 Separation and DeviceN colour spaces/veraPDF test suite 6-2-4-4-t01-fail-h.pdf	FunctionProgramStackInvalid	1	7.10.5.1 Type 4 function leaves more values than Range outputs (shall be an error) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.4 Separation and DeviceN colour spaces/veraPDF test suite 6-2-4-4-t01-pass-d.pdf	FunctionProgramStackInvalid	1	7.10.5.1 Type 4 function leaves more values than Range outputs (shall be an error)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.4 Colour spaces/6.2.4.4 Separation and DeviceN colour spaces/veraPDF test suite 6-2-4-4-t01-pass-h.pdf	FunctionProgramStackInvalid	1	7.10.5.1 Type 4 function leaves more values than Range outputs (shall be an error)
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.9 Transparency/veraPDF test suite 6-2-9-t02-fail-a.pdf	ContentExtGStateInvalid	1	8.4.5 Table 57 an ExtGState entry out of range or of the wrong type (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-1/7.2 Text/7.2-t22-pass-b.pdf	FontProgramInvalid	1	9.9 Table 124 TrueType program without glyf/loca
+verapdf-corpus/PDF_UA-1/7.21 Fonts/7.21.3 Composite fonts/7.21.3.1 General/7.21.3.1-t01-fail-a.pdf	CidSystemInfoMismatch	1	9.7.3 CMap and CIDFont Registry/Ordering differ (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-1/7.21 Fonts/7.21.3 Composite fonts/7.21.3.1 General/7.21.3.1-t01-fail-b.pdf	CidSystemInfoMismatch	1	9.7.3 CMap and CIDFont Registry/Ordering differ (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-1/7.21 Fonts/7.21.3 Composite fonts/7.21.3.2 CIDFonts/7.21.3.2-t01-fail-a.pdf	CidToGidMapInvalid	1	9.7.4.1 Table 115 CIDToGIDMap is neither a stream nor /Identity (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-1/7.21 Fonts/7.21.3 Composite fonts/7.21.3.2 CIDFonts/7.21.3.2-t01-fail-b.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-1/7.21 Fonts/7.21.3 Composite fonts/7.21.3.2 CIDFonts/7.21.3.2-t01-fail-c.pdf	CidToGidMapInvalid	1	9.7.4.1 Table 115 CIDToGIDMap is neither a stream nor /Identity (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-1/7.21 Fonts/7.21.3 Composite fonts/7.21.3.3 CMaps/7.21.3.3-t02-fail-a.pdf	CMapWritingModeMismatch	1	9.7.5.4 Table 118 the CMap stream WMode differs from the CMap file (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-1/7.21 Fonts/7.21.3 Composite fonts/7.21.3.3 CMaps/7.21.3.3-t02-fail-b.pdf	CMapWritingModeMismatch	1	9.7.5.4 Table 118 the CMap stream WMode differs from the CMap file (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-1/7.21 Fonts/7.21.6 Character encodings/7.21.6-t02-fail-a.pdf	FontEncodingInvalid	1	9.6.5.1 Table 111 Encoding names no predefined encoding (MacRoman, MacExpert, WinAnsi) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-1/7.21 Fonts/7.21.6 Character encodings/7.21.6-t03-fail-a.pdf	FontEncodingInvalid	1	9.6.5.1 Table 111 Encoding names no predefined encoding (MacRoman, MacExpert, WinAnsi) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.3 Composite fonts/8.4.5.3.1 General/8.4.5.3.1-t01-fail-a.pdf	CidSystemInfoMismatch	1	9.7.3 CMap and CIDFont Registry/Ordering differ (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.3 Composite fonts/8.4.5.3.1 General/8.4.5.3.1-t01-fail-b.pdf	CidSystemInfoMismatch	1	9.7.3 CMap and CIDFont Registry/Ordering differ (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.3 Composite fonts/8.4.5.3.2 CIDFonts/8.4.5.3.2-t01-fail-a.pdf	CidToGidMapInvalid	1	9.7.4.1 Table 115 CIDToGIDMap is neither a stream nor /Identity (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.3 Composite fonts/8.4.5.3.2 CIDFonts/8.4.5.3.2-t01-fail-b.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.3 Composite fonts/8.4.5.3.2 CIDFonts/8.4.5.3.2-t01-fail-c.pdf	CidToGidMapInvalid	1	9.7.4.1 Table 115 CIDToGIDMap is neither a stream nor /Identity (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.4 CMaps/8.4.5.4-t02-fail-a.pdf	CMapWritingModeMismatch	1	9.7.5.4 Table 118 the CMap stream WMode differs from the CMap file (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.4 CMaps/8.4.5.4-t02-fail-b.pdf	CMapWritingModeMismatch	1	9.7.5.4 Table 118 the CMap stream WMode differs from the CMap file (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.7 Character encodings/8.4.5.7-t02-fail-a.pdf	FontEncodingInvalid	1	9.6.5.1 Table 111 Encoding names no predefined encoding (MacRoman, MacExpert, WinAnsi) (veraPDF/Isartor negative test file)
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.7 Character encodings/8.4.5.7-t03-fail-a.pdf	FontEncodingInvalid	1	9.6.5.1 Table 111 Encoding names no predefined encoding (MacRoman, MacExpert, WinAnsi) (veraPDF/Isartor negative test file)
+verapdf-corpus/TWG test files/TWG test suite A003-pdfa1-pass-a.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+verapdf-corpus/TWG test files/TWG test suite A003-pdfa2-fail-a.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept) (veraPDF/Isartor negative test file)
+verapdf-corpus/TWG test files/TWG test suite A007-pdfa2-fail-a.pdf	CMapEntryInvalid	1	9.7.5.4 / TN 5014 a CMap maps to a CID outside 0-65535 (veraPDF/Isartor negative test file)
+verapdf-corpus/TWG test files/TWG test suite A007-pdfa2-fail-b.pdf	CMapEntryInvalid	1	9.7.5.4 / TN 5014 a CMap maps to a CID outside 0-65535 (veraPDF/Isartor negative test file)
+verapdf-corpus/TWG test files/TWG test suite A024-pdfa2-fail-a.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept) (veraPDF/Isartor negative test file)
+verapdf-corpus/TWG test files/TWG test suite A024-pdfa2-fail-b.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept) (veraPDF/Isartor negative test file)
+verapdf-corpus/TWG test files/TWG test suite A024-pdfa2-fail-c.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept) (veraPDF/Isartor negative test file)
+verapdf-corpus/TWG test files/TWG test suite A024-pdfa2-pass-a.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+verapdf-corpus/TWG test files/TWG test suite A024-pdfa2-pass-b.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+verapdf-corpus/TWG test files/TWG test suite A024-pdfa2-pass-c.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+verapdf-corpus/Undefined/veraPDF test suite 6-2-3-2-t01-undefined-a.pdf	ColorSpaceEntryInvalid	1	8.6.3 / 8.6.5.5 malformed colour space array (device family as array, or ICCBased N invalid)
+verapdf-corpus/Undefined/veraPDF test suite 6-2-3-3-t04-undefined-c.pdf	ContentColorOperatorIgnored	2	8.7.3.3 / 9.6.4 Table 113 an uncoloured tiling cell or a d1 glyph description (shape only, not colour) sets colours

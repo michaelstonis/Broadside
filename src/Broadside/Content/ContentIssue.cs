@@ -108,7 +108,7 @@ internal static class ContentIssues
 
     public static DiagnosticSeverity Severity(ContentIssue issue) => issue switch
     {
-        ContentIssue.GluedTokens or ContentIssue.OperatorOutOfContext or ContentIssue.PathNotPainted or ContentIssue.ColorComponentLimit
+        ContentIssue.GluedTokens or ContentIssue.OperatorOutOfContext or ContentIssue.PathNotPainted or ContentIssue.NoCurrentPath or ContentIssue.ColorComponentLimit
             or ContentIssue.PostScriptXObject or ContentIssue.InlineImageLengthMissing
             => DiagnosticSeverity.Information,
         _ => DiagnosticSeverity.Warning,

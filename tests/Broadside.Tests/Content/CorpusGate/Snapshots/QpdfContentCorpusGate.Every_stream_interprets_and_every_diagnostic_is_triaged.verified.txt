@@ -1,0 +1,135 @@
+﻿corpus: qpdf @ 4eba95899886e851cc41d76886483b347612f2a8
+files: 639
+well-formed files: 400
+outcomes:
+  Interpreted: 602
+  PasswordRequired: 23
+  CertificateRequired: 0
+  EncryptionUnsupported: 1
+  Rejected: 13
+  Crash: 0
+  Timeout: 0
+pages: 3515
+appearance streams: 1881
+concurrent passes: 168
+page events:
+  Runs: 3515
+  Operators: 144847
+  UnknownOperators: 74
+  StateSaves: 15686
+  PathVerbs: 42459
+  PathsStroked: 2064
+  PathsFilled: 1451
+  PathsFilledAndStroked: 463
+  PathsEnded: 828
+  ClipsPath: 828
+  ClipsRectangle: 647
+  ClipsText: 0
+  TextObjects: 5468
+  GlyphsType1: 172693
+  GlyphsMMType1: 0
+  GlyphsTrueType: 9864
+  GlyphsType3: 0
+  GlyphsType0: 2558
+  Type3GlyphsRun: 0
+  ImagesXObject: 6914
+  ImagesInline: 3652
+  ImagesStencil: 0
+  ImagesUnresolved: 0
+  ShadingsFunction: 0
+  ShadingsAxialRadial: 0
+  ShadingsMesh: 0
+  ShadingsUnresolved: 0
+  MeshesDecoded: 0
+  PatternFillsTiling: 0
+  PatternFillsShading: 0
+  PatternCellsRun: 0
+  FormsEntered: 646
+  TransparencyGroups: 1
+  SoftMaskGroupsRun: 1
+  MarkedContentSequences: 1953
+  OptionalContentSequences: 0
+  MarkedContentPoints: 0
+  MaxDepth: 2
+appearance events:
+  Runs: 1881
+  Operators: 16456
+  UnknownOperators: 0
+  StateSaves: 927
+  PathVerbs: 7388
+  PathsStroked: 372
+  PathsFilled: 641
+  PathsFilledAndStroked: 31
+  PathsEnded: 11
+  ClipsPath: 11
+  ClipsRectangle: 1884
+  ClipsText: 0
+  TextObjects: 830
+  GlyphsType1: 1667
+  GlyphsMMType1: 0
+  GlyphsTrueType: 819
+  GlyphsType3: 0
+  GlyphsType0: 0
+  Type3GlyphsRun: 0
+  ImagesXObject: 1
+  ImagesInline: 0
+  ImagesStencil: 0
+  ImagesUnresolved: 0
+  ShadingsFunction: 0
+  ShadingsAxialRadial: 0
+  ShadingsMesh: 0
+  ShadingsUnresolved: 0
+  MeshesDecoded: 0
+  PatternFillsTiling: 0
+  PatternFillsShading: 0
+  PatternCellsRun: 0
+  FormsEntered: 3
+  TransparencyGroups: 0
+  SoftMaskGroupsRun: 0
+  MarkedContentSequences: 1505
+  OptionalContentSequences: 0
+  MarkedContentPoints: 0
+  MaxDepth: 2
+diagnostics on well-formed files (files, total):
+  ColorSpaceInvalid: 1, 1
+  ContentFontMissing: 7, 8
+  ContentInlineImageInvalid: 5, 5
+  ContentMarkedContentUnbalanced: 2, 2
+  ContentOperandCount: 11, 16
+  ContentSyntaxInvalid: 6, 8
+  ContentTextObjectUnbalanced: 1, 3
+  ContentUnbalancedSave: 4, 4
+  ContentUnknownOperator: 2, 2
+  ContentXObjectMissing: 4, 4
+  FontDescriptorMissing: 1, 1
+  FontWidthsMissing: 1, 1
+diagnostics on other files (files, total):
+  AnnotationEntryInvalid: 1, 1
+  AnnotationNotIndirect: 1, 1
+  AnnotationSharedAcrossPages: 3, 33
+  AppearanceEntryInvalid: 1, 1
+  ContentFontMissing: 1, 1
+  ContentOperandCount: 2, 2
+  ContentOperandType: 1, 1
+  ContentStreamInvalid: 2, 3
+  ContentSyntaxInvalid: 3, 3
+  ContentTextObjectUnbalanced: 1, 1
+  ContentUnbalancedSave: 2, 2
+  ContentUnknownOperator: 10, 11
+  DecodeParmsInvalid: 2, 2
+  DictionaryKeyNotName: 1, 1
+  DictionaryUnterminated: 1, 1
+  EndstreamMissing: 1, 1
+  FilterDataInvalid: 7, 7
+  FilterDataTruncated: 2, 2
+  FilterUnsupported: 2, 2
+  FontDescriptorInvalid: 1, 6
+  FontEncodingInvalid: 1, 1
+  ImageDimensionInvalid: 1, 1
+  MissingEndobj: 9, 9
+  ObjectStreamIndexMismatch: 2, 2
+  PredictorInvalid: 1, 1
+  StreamKeywordEndOfLine: 1, 4
+  StreamLengthInvalid: 6, 9
+  UnexpectedToken: 1, 1
+  XrefEntryOffsetInvalid: 6, 6
