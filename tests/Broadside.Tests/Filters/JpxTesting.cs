@@ -5,8 +5,14 @@ using Broadside.Images;
 namespace Broadside.Tests.Filters;
 
 /// <summary>Calls the JPXDecode filter through its public contract with a stand-alone context (ISO 32000-2 §7.4.9).</summary>
+/// <remarks>
+/// The OpenJPEG vectors are bare codestreams, which the filter decodes with the Information diagnostic <c>JpxCodestreamRaw</c>;
+/// the codes these helpers return leave that one out (its own tests assert it), so a test reads the deviations of the codestream.
+/// </remarks>
 internal static class JpxTesting
 {
+    private const string RawCodestream = "JpxCodestreamRaw";
+
     /// <summary>Decodes <paramref name="encoded"/> through <see cref="IImageFilter.DecodeImage"/>; fails when nothing is decoded.</summary>
     public static DecodedImage DecodeImage(byte[] encoded, out string[] codes, int colorComponents = 0, PdfReadingMode mode = PdfReadingMode.Lenient)
     {
@@ -22,7 +28,7 @@ internal static class JpxTesting
         var context = new FilterContext { ReadingMode = mode };
         var imageContext = new ImageFilterContext(context) { ColorComponents = colorComponents };
         DecodedImage? image = filter.DecodeImage(encoded, imageContext);
-        codes = [.. context.Diagnostics.Select(diagnostic => diagnostic.Code)];
+        codes = Codes(context);
         return image;
     }
 
@@ -32,8 +38,11 @@ internal static class JpxTesting
         var context = new FilterContext { ReadingMode = mode };
         var output = new ArrayBufferWriter<byte>();
         new JpxDecodeFilter().Decode(encoded, output, context);
-        return (output.WrittenSpan.ToArray(), [.. context.Diagnostics.Select(diagnostic => diagnostic.Code)]);
+        return (output.WrittenSpan.ToArray(), Codes(context));
     }
+
+    /// <summary>The codes a context recorded, without <c>JpxCodestreamRaw</c>.</summary>
+    public static string[] Codes(FilterContext context) => [.. context.Diagnostics.Select(diagnostic => diagnostic.Code).Where(code => code != RawCodestream)];
 
     /// <summary>Unpacks every sample of an image into raw values, row by row, component by component.</summary>
     public static int[] Raw(DecodedImage image)

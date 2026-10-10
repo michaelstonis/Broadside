@@ -184,6 +184,7 @@ qpdf: 639 files
     EndstreamMissing: 3
     FileIdentifierInvalid: 3
     FilterDataTruncated: 3
+    LinearizationHintsInvalid: 3
     NameInvalidEscape: 3
     ObjectStreamNested: 3
     StartxrefMissing: 3

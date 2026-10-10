@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.Runtime.InteropServices;
 using Broadside.Diagnostics;
+using Broadside.Filters.Codecs;
 using Broadside.Parsing;
 
 namespace Broadside.Filters.Jpx;
@@ -28,7 +29,7 @@ internal sealed class JpxTileDecoder : IDisposable
     /// <summary>The most code-blocks and precincts one tile may have before it is refused.</summary>
     internal const int MaxStructures = 1 << 21;
 
-    private readonly JpxReporter _reporter;
+    private readonly CodecReporter _reporter;
     private readonly JpxCodeBlockDecoder _blocks = new();
     private JpxChunk[] _chunks = ArrayPool<JpxChunk>.Shared.Rent(64);
     private int _chunkCount;
@@ -38,7 +39,7 @@ internal sealed class JpxTileDecoder : IDisposable
     private byte[] _joined = ArrayPool<byte>.Shared.Rent(256);
     private int _structures;
 
-    public JpxTileDecoder(JpxReporter reporter) => _reporter = reporter;
+    public JpxTileDecoder(CodecReporter reporter) => _reporter = reporter;
 
     /// <summary>
     /// Decodes the tile's packets (<paramref name="data"/>, its tile-parts joined; <paramref name="headers"/>, its packed packet headers

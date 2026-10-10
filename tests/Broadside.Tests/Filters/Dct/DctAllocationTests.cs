@@ -1,6 +1,8 @@
 using System.Buffers;
 using Broadside.Filters;
 using Broadside.Images;
+using Broadside.Tests.Document;
+using Broadside.TestSupport;
 using static Broadside.Tests.Filters.Dct.DctVectors;
 
 namespace Broadside.Tests.Filters.Dct;
@@ -10,8 +12,8 @@ namespace Broadside.Tests.Filters.Dct;
 /// decode through the plain filter path allocates nothing at all (per-image buffers are pooled), and the image path allocates the
 /// same few objects whatever the image size. <c>DctBenchmarks</c> is the measuring half.
 /// </summary>
-[Collection("Heavy")]
-public class DctAllocationTests
+[Collection(HeavyTestCollection.Name)]
+public sealed class DctAllocationTests
 {
     public static TheoryData<string> Vectors => new()
     {
@@ -28,7 +30,7 @@ public class DctAllocationTests
         var context = new FilterContext();
         var output = new ArrayBufferWriter<byte>(256 * 1024);
 
-        long allocated = Broadside.TestSupport.Allocations.Measure(() => Decode(filter, jpeg, output, context));
+        long allocated = Allocations.Measure(() => Decode(filter, jpeg, output, context));
 
         Assert.True(output.WrittenCount > 0);
         Assert.Equal(0, allocated);
@@ -40,33 +42,22 @@ public class DctAllocationTests
         var filter = new DctDecodeFilter();
         byte[] small = Jpeg("sampling-420");
         byte[] large = Jpeg("testorig");
-        for (int warmUp = 0; warmUp < 40; warmUp++)
-        {
-            DecodeImage(filter, small);
-            DecodeImage(filter, large);
-        }
-
-        long forSmall = DecodeImage(filter, small);
-        long forLarge = DecodeImage(filter, large);
+        long forSmall = Allocations.Measure(() => DecodeImage(filter, small));
+        long forLarge = Allocations.Measure(() => DecodeImage(filter, large));
 
         Assert.InRange(forLarge, 0, forSmall);
     }
 
-    private static long Decode(DctDecodeFilter filter, byte[] jpeg, ArrayBufferWriter<byte> output, FilterContext context)
+    private static void Decode(DctDecodeFilter filter, byte[] jpeg, ArrayBufferWriter<byte> output, FilterContext context)
     {
         output.ResetWrittenCount();
-        long before = GC.GetAllocatedBytesForCurrentThread();
         filter.Decode(jpeg, output, context);
-        return GC.GetAllocatedBytesForCurrentThread() - before;
     }
 
-    private static long DecodeImage(DctDecodeFilter filter, byte[] jpeg)
+    private static void DecodeImage(DctDecodeFilter filter, byte[] jpeg)
     {
         var context = new ImageFilterContext(new FilterContext());
-        long before = GC.GetAllocatedBytesForCurrentThread();
         using DecodedImage? image = filter.DecodeImage(jpeg, context);
-        long allocated = GC.GetAllocatedBytesForCurrentThread() - before;
         Assert.NotNull(image);
-        return allocated;
     }
 }

@@ -57,9 +57,11 @@ public sealed class ImageDecodeMap
     }
 
     /// <summary>Gets the number of components per sample.</summary>
+    /// <remarks>ISO 32000-2 §8.9.5.2: the Decode array holds one Dmin, Dmax pair per component.</remarks>
     public int Components { get; }
 
     /// <summary>Gets the logical bits per component n: raw values run from 0 to 2^n − 1.</summary>
+    /// <remarks>ISO 32000-2 §8.9.5.2: the Decode formula divides by 2^n − 1.</remarks>
     public int BitsPerComponent { get; }
 
     /// <summary>Gets a value indicating whether the first component maps 0 above 2^n − 1 (Dmin &gt; Dmax): for an image mask, a sample 1 paints.</summary>
@@ -87,6 +89,7 @@ public sealed class ImageDecodeMap
     /// <param name="component">The component, from 0.</param>
     /// <param name="raw">The raw value, 0 to 2^n − 1 (larger values are masked to n bits).</param>
     /// <returns>The component value.</returns>
+    /// <remarks>ISO 32000-2 §8.9.5.2: Dmin + raw × (Dmax − Dmin) / (2^n − 1).</remarks>
     public float Map(int component, int raw)
     {
         int mask = (1 << BitsPerComponent) - 1;
@@ -99,6 +102,7 @@ public sealed class ImageDecodeMap
     /// <param name="raw">Raw values, such as from <see cref="ImageRows.Unpack(ReadOnlySpan{byte}, int, int, Span{byte})"/>.</param>
     /// <param name="output">At least as many values.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="output"/> is too short.</exception>
+    /// <remarks>ISO 32000-2 §8.9.5.2.</remarks>
     public void Map(ReadOnlySpan<byte> raw, Span<float> output)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(output.Length, raw.Length, nameof(output));
@@ -126,6 +130,7 @@ public sealed class ImageDecodeMap
     /// <param name="raw">Raw values, such as from <see cref="ImageRows.Unpack(ReadOnlySpan{byte}, int, int, Span{ushort})"/>.</param>
     /// <param name="output">At least as many values.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="output"/> is too short.</exception>
+    /// <remarks>ISO 32000-2 §8.9.5.2.</remarks>
     public void Map(ReadOnlySpan<ushort> raw, Span<float> output)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(output.Length, raw.Length, nameof(output));
@@ -171,7 +176,7 @@ public sealed class ImageDecodeMap
     /// <param name="indices">At least as many bytes.</param>
     /// <param name="highValue">The colour table's highest index (<see cref="PdfIndexedColorSpace.HighValue"/>).</param>
     /// <exception cref="ArgumentOutOfRangeException">A span is too short, or <paramref name="highValue"/> is not 0 to 255.</exception>
-    /// <remarks>ISO 32000-2 §8.6.6.3: "rounded to the nearest integer ... clipped to the range 0 to hival".</remarks>
+    /// <remarks>ISO 32000-2 §8.9.5.2 (the Decode mapping) and §8.6.6.3: "rounded to the nearest integer ... clipped to the range 0 to hival".</remarks>
     public void MapToIndices(ReadOnlySpan<ushort> raw, Span<byte> indices, int highValue)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(indices.Length, raw.Length, nameof(indices));

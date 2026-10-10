@@ -671,10 +671,10 @@ Broadside.Filters.ImageFilterContext.Filter.get -> Broadside.Filters.FilterConte
 Broadside.Filters.ImageFilterContext.Height.get -> int
 Broadside.Filters.ImageFilterContext.Height.init -> void
 Broadside.Filters.ImageFilterContext.ImageFilterContext(Broadside.Filters.FilterContext! filter) -> void
-Broadside.Filters.ImageFilterContext.IsMask.get -> bool
-Broadside.Filters.ImageFilterContext.IsMask.init -> void
-Broadside.Filters.ImageFilterContext.MaxBytes.get -> long
-Broadside.Filters.ImageFilterContext.MaxBytes.init -> void
+Broadside.Filters.ImageFilterContext.IsStencil.get -> bool
+Broadside.Filters.ImageFilterContext.IsStencil.init -> void
+Broadside.Filters.ImageFilterContext.MaxDecodedLength.get -> long
+Broadside.Filters.ImageFilterContext.MaxDecodedLength.init -> void
 Broadside.Filters.ImageFilterContext.MaxPixels.get -> long
 Broadside.Filters.ImageFilterContext.MaxPixels.init -> void
 Broadside.Filters.ImageFilterContext.TryCreateImage(int width, int height, int components, int bitsPerComponent, out Broadside.Images.DecodedImageBuilder? image) -> bool

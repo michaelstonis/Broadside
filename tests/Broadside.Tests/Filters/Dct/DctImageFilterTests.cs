@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Images;
 using Broadside.Objects;
@@ -137,12 +138,15 @@ public class DctImageFilterTests
     [Fact]
     public void Without_APP14_or_a_parameter_three_components_named_R_G_B_are_not_transformed()
     {
+        // A documented compatibility fallback from Table 13's default ColorTransform 1 (libjpeg reads R, G, B identifiers as RGB;
+        // pdf.js issue11931.pdf needs it), reported as Information so strict mode accepts it.
         byte[] jpeg = WithoutApp14(Jpeg("rgb"));
 
         (byte[] samples, FilterContext context) = DecodeBytes(jpeg);
 
         AssertWithinOne(Golden("rgb"), samples);
-        Assert.Empty(context.Diagnostics);
+        Diagnostic diagnostic = Assert.Single(context.Diagnostics);
+        Assert.Equal(("DctColorTransformInferred", DiagnosticSeverity.Information), (diagnostic.Code, diagnostic.Severity));
     }
 
     [Fact]

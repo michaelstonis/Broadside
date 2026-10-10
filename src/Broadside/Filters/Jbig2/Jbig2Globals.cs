@@ -1,5 +1,6 @@
 using System.Runtime.CompilerServices;
 using Broadside.Diagnostics;
+using Broadside.Filters.Codecs;
 using Broadside.Objects;
 
 namespace Broadside.Filters.Jbig2;
@@ -19,7 +20,7 @@ internal sealed class Jbig2Globals
     private readonly long _maxPixels;
     private readonly long _maxBytes;
 
-    private Jbig2Globals(IReadOnlyDictionary<uint, object> results, IReadOnlyList<(string, DiagnosticSeverity, string, string?)> diagnostics, bool undecodable, int version, int dictionaryVersion, long maxPixels, long maxBytes)
+    private Jbig2Globals(IReadOnlyDictionary<uint, object> results, IReadOnlyList<CodecDiagnostic> diagnostics, bool undecodable, int version, int dictionaryVersion, long maxPixels, long maxBytes)
     {
         Results = results;
         Diagnostics = diagnostics;
@@ -34,7 +35,7 @@ internal sealed class Jbig2Globals
     public IReadOnlyDictionary<uint, object> Results { get; }
 
     /// <summary>Gets the deviations met decoding the stream, in order.</summary>
-    public IReadOnlyList<(string Code, DiagnosticSeverity Severity, string Message, string? Key)> Diagnostics { get; }
+    public IReadOnlyList<CodecDiagnostic> Diagnostics { get; }
 
     /// <summary>Gets a value indicating whether a global segment uses a feature that paints the page and is not decoded.</summary>
     public bool Undecodable { get; }

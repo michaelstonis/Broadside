@@ -30,6 +30,8 @@ namespace Broadside.Filters;
 /// segment's transform code says so (Table 13: a present APP14 segment decides and <c>ColorTransform</c> is ignored), else when
 /// <c>ColorTransform</c> is 1, else (three components only) unless the components are identified as R, G, B. The codec never
 /// inverts samples: an Adobe-inverted CMYK image carries its own <c>Decode</c> array, which the image layer applies (§8.9.5.2).
+/// Frames of 1 to 32 components are decoded (T.81 §B.2.2 allows 255; a PDF colour space has at most 32); more than four, which
+/// T.81 §B.2.3 codes in several scans, are delivered untransformed, interleaved in frame order.
 /// </para>
 /// <para>
 /// Never decoded (<c>DctProcessUnsupported</c>, Error, no samples): the lossless and hierarchical processes, which PDF does not
@@ -139,7 +141,7 @@ public sealed class DctDecodeFilter : IImageFilter
             }
 
             var sink = new ImageRowSink(image);
-            if (!decoder.Decode(data, ref sink, context.MaxBytes))
+            if (!decoder.Decode(data, ref sink, context.MaxDecodedLength))
             {
                 return null;
             }

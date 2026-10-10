@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using Broadside.Diagnostics;
+using Broadside.Filters.Codecs;
 using Broadside.Parsing;
 
 namespace Broadside.Filters.Jpx;
@@ -14,6 +15,7 @@ namespace Broadside.Filters.Jpx;
 internal static class JpxCodestreamReader
 {
     private const ushort Soc = 0xFF4F;
+    private const ushort Cap = 0xFF50;
     private const ushort Siz = 0xFF51;
     private const ushort Cod = 0xFF52;
     private const ushort Coc = 0xFF53;
@@ -28,17 +30,28 @@ internal static class JpxCodestreamReader
     private const ushort Eoc = 0xFFD9;
 
     private const uint ContiguousCodestreamBox = 0x6A703263; // 'jp2c'
+    private const uint FragmentTableBox = 0x6674626C; // 'ftbl'
+    private const uint HighThroughputCapability = 0x0002_0000; // Pcap15
+    private const int HighThroughputBlockStyle = 0x40;
     private const int MaxTiles = 65535;
 
     private static ReadOnlySpan<byte> Signature => [0x00, 0x00, 0x00, 0x0C, 0x6A, 0x50, 0x20, 0x20, 0x0D, 0x0A, 0x87, 0x0A];
 
     /// <summary>Returns the range of the codestream inside <paramref name="data"/>: the data itself, or the first <c>jp2c</c> box.</summary>
     /// <returns>(offset, length), or <see langword="null"/> when no codestream is found.</returns>
-    /// <remarks>ISO 32000-2 §7.4.9 expects a JPX file; raw codestreams occur in practice and are read without a diagnostic.</remarks>
-    public static (int Offset, int Length)? Locate(ReadOnlySpan<byte> data, JpxReporter reporter)
+    /// <remarks>
+    /// ISO 32000-2 §7.4.9: "The JPXDecode filter shall expect to read a full JPX file structure". Bare codestreams occur in practice
+    /// and are read, with an Information diagnostic. A JPX file's other codestreams and fragment tables (ISO/IEC 15444-2 composition,
+    /// animation and fragmented codestreams, which §7.4.9 says are not supported in PDF files) are not read, with a diagnostic.
+    /// </remarks>
+    public static (int Offset, int Length)? Locate(ReadOnlySpan<byte> data, CodecReporter reporter)
     {
         if (data.Length >= 4 && BinaryPrimitives.ReadUInt16BigEndian(data) == Soc && BinaryPrimitives.ReadUInt16BigEndian(data[2..]) == Siz)
         {
+            reporter.Report(
+                DiagnosticCodes.JpxCodestreamRaw,
+                DiagnosticSeverity.Information,
+                "The JPXDecode data is a bare JPEG 2000 codestream, not the JPX file structure ISO 32000-2 §7.4.9 expects; it is decoded.");
             return (0, data.Length);
         }
 
@@ -46,6 +59,7 @@ internal static class JpxCodestreamReader
         {
             if (FindBox(data, ContiguousCodestreamBox, reporter) is { } box)
             {
+                ReportIgnoredCodestreams(data, reporter);
                 return box;
             }
 
@@ -60,8 +74,36 @@ internal static class JpxCodestreamReader
         return Scan(data);
     }
 
+    /// <summary>Reports the top-level boxes of a JPX file the decoder does not read: contiguous codestreams after the first, and fragment tables.</summary>
+    /// <remarks>ITU-T T.801 | ISO/IEC 15444-2 (multiple codestreams, fragment tables); ISO 32000-2 §7.4.9.</remarks>
+    private static void ReportIgnoredCodestreams(ReadOnlySpan<byte> data, CodecReporter reporter)
+    {
+        int codestreams = 0;
+        bool fragmented = false;
+        foreach ((uint type, int _, int _) in JpxFileHeader.Boxes(data, 0, data.Length, reporter))
+        {
+            codestreams += type == ContiguousCodestreamBox ? 1 : 0;
+            fragmented |= type == FragmentTableBox;
+        }
+
+        if (codestreams > 1)
+        {
+            reporter.Report(
+                DiagnosticCodes.JpxCodestreamsIgnored,
+                DiagnosticSeverity.Warning,
+                $"The JPX file holds {codestreams} codestreams (ISO/IEC 15444-2 composition or animation, not supported in PDF files by ISO 32000-2 §7.4.9); only the first is decoded.");
+        }
+        else if (fragmented)
+        {
+            reporter.Report(
+                DiagnosticCodes.JpxCodestreamsIgnored,
+                DiagnosticSeverity.Warning,
+                "The JPX file holds a fragment table (an ISO/IEC 15444-2 fragmented codestream), which is not read; only the contiguous codestream is decoded.");
+        }
+    }
+
     /// <summary>Reads the SIZ marker segment only.</summary>
-    public static JpxImageSize? ReadSize(ReadOnlySpan<byte> codestream, JpxReporter reporter)
+    public static JpxImageSize? ReadSize(ReadOnlySpan<byte> codestream, CodecReporter reporter)
     {
         if (codestream.Length < 4 || BinaryPrimitives.ReadUInt16BigEndian(codestream) != Soc || BinaryPrimitives.ReadUInt16BigEndian(codestream[2..]) != Siz)
         {
@@ -78,7 +120,7 @@ internal static class JpxCodestreamReader
     }
 
     /// <summary>Parses the main header and every tile-part header of <paramref name="codestream"/>.</summary>
-    public static JpxCodestream? Read(ReadOnlySpan<byte> codestream, JpxReporter reporter)
+    public static JpxCodestream? Read(ReadOnlySpan<byte> codestream, CodecReporter reporter)
     {
         if (ReadSize(codestream, reporter) is not { } size)
         {
@@ -90,6 +132,7 @@ internal static class JpxCodestreamReader
         var mainPacked = new List<(int Index, byte[] Data)>();
         int position = 4 + BinaryPrimitives.ReadUInt16BigEndian(codestream[4..]);
         bool ended = !ReadMarkers(codestream, ref position, main, mainPacked, size, inTile: false, reporter);
+        bool highThroughput = main.HighThroughput;
         if (main.Cod is null || main.Qcd is null)
         {
             reporter.Report(DiagnosticCodes.JpxMarkerSegmentInvalid, DiagnosticSeverity.Error, "The JPEG 2000 main header has no COD or no QCD marker segment.");
@@ -172,6 +215,8 @@ internal static class JpxCodestreamReader
                 break;
             }
 
+            highThroughput |= markers.HighThroughput;
+
             byte[]? mainHeaders = mainPacked.Count > 0 ? ppm.Next(reporter) : null;
             if (tile is not null)
             {
@@ -196,11 +241,11 @@ internal static class JpxCodestreamReader
             Truncated(reporter);
         }
 
-        return new JpxCodestream { Size = size, Main = main, Tiles = present, HasMainPacketHeaders = mainPacked.Count > 0 };
+        return new JpxCodestream { Size = size, Main = main, Tiles = present, HasMainPacketHeaders = mainPacked.Count > 0, HighThroughput = highThroughput };
     }
 
     /// <summary>Records one tile-part: its packet data, and its header's markers by the rules of A.4.2 and A.6.</summary>
-    private static void AddTilePart(JpxTile tile, int part, JpxMarkerSet markers, List<(int Index, byte[] Data)> packed, byte[]? mainHeaders, (int Offset, int Length) data, JpxReporter reporter)
+    private static void AddTilePart(JpxTile tile, int part, JpxMarkerSet markers, List<(int Index, byte[] Data)> packed, byte[]? mainHeaders, (int Offset, int Length) data, CodecReporter reporter)
     {
         foreach ((int seen, int _, int _) in tile.Parts)
         {
@@ -295,7 +340,7 @@ internal static class JpxCodestreamReader
         return codestream.Length;
     }
 
-    private static void Truncated(JpxReporter reporter) => reporter.Report(
+    private static void Truncated(CodecReporter reporter) => reporter.Report(
         DiagnosticCodes.JpxCodestreamTruncated,
         DiagnosticSeverity.Warning,
         "The JPEG 2000 codestream ends early; what is present is decoded and the rest of the image is left empty.");
@@ -304,7 +349,7 @@ internal static class JpxCodestreamReader
     /// Reads marker segments from <paramref name="position"/> up to the first SOT (main header) or past the SOD (tile-part header).
     /// </summary>
     /// <returns><see langword="false"/> when the header is cut short or broken.</returns>
-    private static bool ReadMarkers(ReadOnlySpan<byte> data, ref int position, JpxMarkerSet markers, List<(int Index, byte[] Data)> packed, JpxImageSize size, bool inTile, JpxReporter reporter)
+    private static bool ReadMarkers(ReadOnlySpan<byte> data, ref int position, JpxMarkerSet markers, List<(int Index, byte[] Data)> packed, JpxImageSize size, bool inTile, CodecReporter reporter)
     {
         while (position + 2 <= data.Length)
         {
@@ -338,11 +383,16 @@ internal static class JpxCodestreamReader
 
             switch (marker)
             {
+                case Cap when !inTile && body.Length >= 4:
+                    markers.HighThroughput |= (BinaryPrimitives.ReadUInt32BigEndian(body) & HighThroughputCapability) != 0;
+                    break;
                 case Cod when ParseCodingStyle(body, reporter) is { } style:
                     markers.Cod = style;
+                    markers.HighThroughput |= (style.Component.BlockStyle & HighThroughputBlockStyle) != 0;
                     break;
                 case Coc when ParseComponentIndex(body, size, reporter, out int c, out int used) && ParseComponentStyle(body[(used + 1)..], (body[used] & 1) != 0, reporter) is { } component:
                     markers.Coc[c] = component;
+                    markers.HighThroughput |= (component.BlockStyle & HighThroughputBlockStyle) != 0;
                     break;
                 case Qcd when ParseQuantization(body, reporter) is { } quantization:
                     markers.Qcd = quantization;
@@ -374,7 +424,7 @@ internal static class JpxCodestreamReader
     }
 
     /// <summary>RGN (A.6.3, Tables A.24 to A.26): the Maxshift shift of one component.</summary>
-    private static void ParseRegion(ReadOnlySpan<byte> body, JpxImageSize size, JpxMarkerSet markers, JpxReporter reporter)
+    private static void ParseRegion(ReadOnlySpan<byte> body, JpxImageSize size, JpxMarkerSet markers, CodecReporter reporter)
     {
         if (!ParseComponentIndex(body, size, reporter, out int c, out int used) || body.Length < used + 2 || body[used] != 0)
         {
@@ -386,7 +436,7 @@ internal static class JpxCodestreamReader
     }
 
     /// <summary>POC (A.6.6, Table A.32): progression volumes of 7 bytes (9 when Csiz &gt;= 257).</summary>
-    private static void ParseProgressionChanges(ReadOnlySpan<byte> body, JpxImageSize size, JpxMarkerSet markers, JpxReporter reporter)
+    private static void ParseProgressionChanges(ReadOnlySpan<byte> body, JpxImageSize size, JpxMarkerSet markers, CodecReporter reporter)
     {
         bool wide = size.Components.Length >= 257;
         int entry = wide ? 9 : 7;
@@ -432,7 +482,7 @@ internal static class JpxCodestreamReader
             _data = [.. segments.SelectMany(s => s.Data)];
         }
 
-        public byte[] Next(JpxReporter reporter)
+        public byte[] Next(CodecReporter reporter)
         {
             if (_position + 4 > _data.Length)
             {
@@ -456,7 +506,7 @@ internal static class JpxCodestreamReader
     }
 
     /// <summary>Returns the body of the marker segment at <paramref name="position"/> (after its length field).</summary>
-    private static bool TrySegment(ReadOnlySpan<byte> data, int position, JpxReporter reporter, out ReadOnlySpan<byte> body)
+    private static bool TrySegment(ReadOnlySpan<byte> data, int position, CodecReporter reporter, out ReadOnlySpan<byte> body)
     {
         body = default;
         if (position + 4 > data.Length)
@@ -482,7 +532,7 @@ internal static class JpxCodestreamReader
         return true;
     }
 
-    private static JpxImageSize? ParseSize(ReadOnlySpan<byte> body, JpxReporter reporter)
+    private static JpxImageSize? ParseSize(ReadOnlySpan<byte> body, CodecReporter reporter)
     {
         if (body.Length < 36)
         {
@@ -541,13 +591,13 @@ internal static class JpxCodestreamReader
         return size;
     }
 
-    private static JpxImageSize? InvalidSize(JpxReporter reporter, string reason)
+    private static JpxImageSize? InvalidSize(CodecReporter reporter, string reason)
     {
         reporter.Report(DiagnosticCodes.JpxMarkerSegmentInvalid, DiagnosticSeverity.Error, $"The JPEG 2000 SIZ marker segment cannot be used: {reason}.");
         return null;
     }
 
-    private static JpxCodingStyle? ParseCodingStyle(ReadOnlySpan<byte> body, JpxReporter reporter)
+    private static JpxCodingStyle? ParseCodingStyle(ReadOnlySpan<byte> body, CodecReporter reporter)
     {
         if (body.Length < 5)
         {
@@ -573,7 +623,7 @@ internal static class JpxCodestreamReader
         };
     }
 
-    private static JpxComponentStyle? ParseComponentStyle(ReadOnlySpan<byte> body, bool precinctsDefined, JpxReporter reporter)
+    private static JpxComponentStyle? ParseComponentStyle(ReadOnlySpan<byte> body, bool precinctsDefined, CodecReporter reporter)
     {
         if (body.Length < 5)
         {
@@ -613,7 +663,7 @@ internal static class JpxCodestreamReader
         };
     }
 
-    private static bool ParseComponentIndex(ReadOnlySpan<byte> body, JpxImageSize size, JpxReporter reporter, out int component, out int used)
+    private static bool ParseComponentIndex(ReadOnlySpan<byte> body, JpxImageSize size, CodecReporter reporter, out int component, out int used)
     {
         used = size.Components.Length < 257 ? 1 : 2;
         component = 0;
@@ -633,7 +683,7 @@ internal static class JpxCodestreamReader
         return true;
     }
 
-    private static JpxQuantization? ParseQuantization(ReadOnlySpan<byte> body, JpxReporter reporter)
+    private static JpxQuantization? ParseQuantization(ReadOnlySpan<byte> body, CodecReporter reporter)
     {
         if (body.Length < 2)
         {
@@ -670,7 +720,7 @@ internal static class JpxCodestreamReader
         return new JpxQuantization { Style = style, GuardBits = guard, Exponents = exponents, Mantissas = mantissas };
     }
 
-    private static void Invalid(JpxReporter reporter, string segment) => reporter.Report(
+    private static void Invalid(CodecReporter reporter, string segment) => reporter.Report(
         DiagnosticCodes.JpxMarkerSegmentInvalid,
         DiagnosticSeverity.Warning,
         $"A JPEG 2000 {segment} marker segment holds values outside Annex A's ranges; what can be used is kept.");
@@ -678,7 +728,7 @@ internal static class JpxCodestreamReader
     private static long U32(ReadOnlySpan<byte> data, int offset) => BinaryPrimitives.ReadUInt32BigEndian(data[offset..]);
 
     /// <summary>Walks the boxes of a JP2 file (I.4) and returns the contents of the first box of <paramref name="type"/>.</summary>
-    private static (int Offset, int Length)? FindBox(ReadOnlySpan<byte> data, uint type, JpxReporter reporter)
+    private static (int Offset, int Length)? FindBox(ReadOnlySpan<byte> data, uint type, CodecReporter reporter)
     {
         long position = 0;
         while (position + 8 <= data.Length)

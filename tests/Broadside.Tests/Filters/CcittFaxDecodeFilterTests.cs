@@ -236,15 +236,66 @@ public class CcittFaxDecodeFilterTests
     }
 
     [Fact]
-    public void Uncompressed_mode_is_not_decoded_and_is_reported_as_unsupported()
+    public void Uncompressed_mode_on_a_two_dimensional_line_paints_each_pixel_its_code_gives_then_returns_to_the_white_run_its_tag_names()
     {
-        // A 2-D line: V0 is not possible on a white reference with a black start, so enter uncompressed mode (0000001111).
-        string bits = "0000001111" + "1111";
+        // T.6 Table 4: entrance 0000001111; 1 = black; 01 = white, black; 001 = white, white, black; 00000001T = one white, then exit
+        // with T = 0 (the next run is white); back in 2-D coding, V0 against the white reference ends the line.
+        string bits = "0000001111" + "1" + "01" + "001" + "00000001" + "0" + "1";
 
         (byte[] decoded, string[] codes) = FilterTesting.Run(Filter, Pack(bits), "<< /K -1 /Columns 8 /Rows 1 >>");
 
-        Assert.Equal<byte>([0xFF], decoded);
-        Assert.Equal(["CcittUncompressedMode"], codes);
+        Assert.Equal<byte>([0b0101_1011], decoded);
+        Assert.Empty(codes);
+    }
+
+    [Fact]
+    public void A_tag_bit_of_1_makes_the_run_after_uncompressed_mode_black()
+    {
+        // 00001 = four whites and a black; 0000001 1 = exit with no white and the next run black; V0 makes it run to the end.
+        string bits = "0000001111" + "00001" + "0000001" + "1" + "1";
+
+        (byte[] decoded, string[] codes) = FilterTesting.Run(Filter, Pack(bits), "<< /K -1 /Columns 8 /Rows 1 >>");
+
+        Assert.Equal<byte>([0b1111_0000], decoded);
+        Assert.Empty(codes);
+    }
+
+    [Fact]
+    public void Uncompressed_mode_on_a_one_dimensional_line_returns_to_runs_of_the_tagged_colour()
+    {
+        // T.4 Table 5: entrance on a 1-D line 000000001111; 01 = white, black; 1 = black; 0000001 0 = exit, next run white;
+        // then the white run of 5 (1100) completes the 8 columns.
+        string bits = "000000001111" + "01" + "1" + "0000001" + "0" + "1100";
+
+        (byte[] decoded, string[] codes) = FilterTesting.Run(Filter, Pack(bits), "<< /K 0 /Columns 8 /Rows 1 >>");
+
+        Assert.Equal<byte>([0b1001_1111], decoded);
+        Assert.Empty(codes);
+    }
+
+    [Fact]
+    public void An_uncompressed_pattern_runs_on_from_the_end_of_one_line_into_the_next()
+    {
+        // T.6 §2.3.1: "the last picture elements of the end of the line and the first picture elements of the beginning of the
+        // following line are concatenated to one pattern". 000001 = five whites (four end row 0, one starts row 1); 1 = black;
+        // 00000001 0 = one white, exit, next run white; V0 against row 0 ends row 1.
+        string bits = "0000001111" + "000001" + "1" + "00000001" + "0" + "1";
+
+        (byte[] decoded, string[] codes) = FilterTesting.Run(Filter, Pack(bits), "<< /K -1 /Columns 4 /Rows 2 >>");
+
+        Assert.Equal<byte>([0xFF, 0b1011_1111], decoded);
+        Assert.Empty(codes);
+    }
+
+    [Fact]
+    public void An_EOL_inside_uncompressed_mode_ends_the_line_as_damage()
+    {
+        string bits = "0000001111" + "01" + "000000000001";
+
+        (byte[] decoded, string[] codes) = FilterTesting.Run(Filter, Pack(bits), "<< /K -1 /Columns 8 /Rows 1 >>");
+
+        Assert.Equal<byte>([0b1011_1111], decoded);
+        Assert.Equal(["CcittDataInvalid"], codes);
     }
 
     public static TheoryData<string, string> InvalidParameters => new()

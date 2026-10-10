@@ -15,8 +15,6 @@ internal static partial class DiagnosticCodes
     /// <summary>A row has an invalid code: kept as far as it decodes, white after; decoding resumes at the next EOL or stops (Error).</summary>
     public const string CcittDataInvalid = nameof(CcittDataInvalid);
 
-    /// <summary>Uncompressed mode (ITU-T T.4 Table 5) is not decoded: the rest of the row is white (Information).</summary>
-    public const string CcittUncompressedMode = nameof(CcittUncompressedMode);
 
     /// <summary>The image's Width differs from Columns: rows are decoded at Columns and cut or padded with white to Width (Warning).</summary>
     public const string CcittWidthMismatch = nameof(CcittWidthMismatch);

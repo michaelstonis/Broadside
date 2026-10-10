@@ -53,4 +53,10 @@ internal static partial class DiagnosticCodes
 
     /// <summary>The APP14 transform code does not fit the component count; YCbCr (three) or YCCK (four) is assumed (Warning).</summary>
     public const string DctAdobeTransformInvalid = nameof(DctAdobeTransformInvalid);
+
+    /// <summary>
+    /// Three components identified R, G, B without APP14 or <c>ColorTransform</c> are read as RGB, not with the default
+    /// ColorTransform 1 of ISO 32000-2 Table 13 (libjpeg compatibility) (Information).
+    /// </summary>
+    public const string DctColorTransformInferred = nameof(DctColorTransformInferred);
 }

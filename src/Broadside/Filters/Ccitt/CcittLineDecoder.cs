@@ -20,9 +20,19 @@ internal enum CcittLineStatus
 
     /// <summary>The data ended inside the line; the line is complete up to there and white after.</summary>
     EndOfData,
+}
 
-    /// <summary>An extension code with xxx = 111 switched to uncompressed mode (consumed); the line is white from there.</summary>
-    Uncompressed,
+/// <summary>What the uncompressed-mode pattern being painted ends with, after its white pixels (T.4 Table 5, T.6 Table 4).</summary>
+internal enum CcittPatternEnd : byte
+{
+    /// <summary>Nothing: five white pixels, still in uncompressed mode (code 000001).</summary>
+    None,
+
+    /// <summary>A black pixel (codes 1, 01, 001, 0001, 00001).</summary>
+    Black,
+
+    /// <summary>The exit from uncompressed mode, with the tag bit naming the colour of the next run (codes 0000001T to 00000000001T).</summary>
+    Exit,
 }
 
 /// <summary>
@@ -38,11 +48,21 @@ internal enum CcittLineStatus
 /// means black to the end. The reference line keeps three sentinels equal to Columns after its entries (the imaginary changing
 /// elements of T.4 §4.2.1.3.4 b). Statuses are returned, never thrown, so each user maps them to its own diagnostics.
 /// </para>
+/// <para>
+/// Uncompressed mode (T.4 §4.2.1.3.3 Note 2 and Table 5; T.6 §2.3.1 and Table 4): the extension code with xxx = 111 (in a mode code
+/// of a 2-D line, or 000000001111 in place of a run of a 1-D line) paints pixels one by one from the codes of Table 5 until an exit
+/// code, whose tag bit names the colour of the run that follows in the basic scheme. A pattern that reaches the last column carries
+/// on at the start of the next line (T.6 §2.3.1: the end of one line and the start of the next "are concatenated to one pattern"),
+/// so the decoder keeps the mode and the rest of the pattern across lines; an EOL, a new block or damage ends the mode.
+/// </para>
 /// </remarks>
 internal ref struct CcittLineDecoder
 {
     private const int Sentinels = 3;
     private const int RunCap = 1 << 30;
+    private const int UncompressedExtension = 0b111;
+    private const int EnterUncompressed = -2;
+    private const int LongestUncompressedZeros = 10;
 
     private CcittBitReader _reader;
     private Span<int> _reference;
@@ -50,15 +70,22 @@ internal ref struct CcittLineDecoder
     private int _referenceCount;
     private int _currentCount;
     private readonly int _columns;
+    private readonly bool _allowUncompressed;
     private bool _tooLong;
+    private bool _uncompressed;
+    private int _patternWhites;
+    private CcittPatternEnd _patternEnd;
+    private bool _exitTag;
 
     /// <summary>Initializes a new instance of the <see cref="CcittLineDecoder"/> struct, with an all-white reference line.</summary>
     /// <param name="data">The encoded data.</param>
     /// <param name="columns">The number of pixels in a line, at least 1.</param>
     /// <param name="first">Work memory of at least <see cref="WorkLength"/> ints.</param>
     /// <param name="second">More work memory of at least <see cref="WorkLength"/> ints.</param>
-    public CcittLineDecoder(ReadOnlySpan<byte> data, int columns, Span<int> first, Span<int> second)
+    /// <param name="allowUncompressed">Whether uncompressed mode is decoded (T.4, T.6) or its entrance code is invalid (JBIG2 MMR, T.88 §6.2.6).</param>
+    public CcittLineDecoder(ReadOnlySpan<byte> data, int columns, Span<int> first, Span<int> second, bool allowUncompressed = true)
     {
+        _allowUncompressed = allowUncompressed;
         _reader = new CcittBitReader(data);
         _columns = columns;
         _reference = first[..WorkLength(columns)];
@@ -66,6 +93,10 @@ internal ref struct CcittLineDecoder
         _referenceCount = 0;
         _currentCount = 0;
         _tooLong = false;
+        _uncompressed = false;
+        _patternWhites = 0;
+        _patternEnd = CcittPatternEnd.None;
+        _exitTag = false;
         SetReferenceWhite();
         _current[..Sentinels].Fill(columns);
     }
@@ -106,6 +137,7 @@ internal ref struct CcittLineDecoder
         if (zeros >= CcittCodes.EolLength - 1 && zeros < _reader.BitsLeft)
         {
             _reader.Skip((int)Math.Min(zeros + 1, int.MaxValue));
+            EndUncompressed();
             return true;
         }
 
@@ -154,6 +186,7 @@ internal ref struct CcittLineDecoder
     {
         _referenceCount = 0;
         _reference[..Sentinels].Fill(_columns);
+        EndUncompressed();
     }
 
     /// <summary>Makes the line decoded last the reference line for the next one.</summary>
@@ -186,9 +219,24 @@ internal ref struct CcittLineDecoder
         StartLine();
         int position = 0;
         bool black = false;
+        if (_uncompressed && !ContinueUncompressed(ref position, ref black, out CcittLineStatus carried))
+        {
+            return EndLine(carried, position);
+        }
+
         while (position < _columns)
         {
             int run = ReadRun(black, out CcittLineStatus status);
+            if (run == EnterUncompressed)
+            {
+                if (!StartUncompressed(ref position, ref black, out status))
+                {
+                    return EndLine(status, position);
+                }
+
+                continue;
+            }
+
             if (run < 0)
             {
                 return EndLine(status, position);
@@ -212,6 +260,18 @@ internal ref struct CcittLineDecoder
         int a0 = -1;
         bool black = false;
         int j = 0;
+        if (_uncompressed)
+        {
+            int position = 0;
+            if (!ContinueUncompressed(ref position, ref black, out CcittLineStatus carried))
+            {
+                return EndLine(carried, position);
+            }
+
+            a0 = position;
+            j = black ? 1 : 0;
+        }
+
         while (a0 < columns)
         {
             // b1: the first changing element of the reference line right of a0 whose colour is opposite to a0's (index parity).
@@ -246,7 +306,7 @@ internal ref struct CcittLineDecoder
                     int first = ReadRun(black, out CcittLineStatus status);
                     if (first < 0)
                     {
-                        return EndLine(status, start);
+                        return EndLine(first == EnterUncompressed ? CcittLineStatus.InvalidCode : status, start);
                     }
 
                     int a1 = (int)Math.Min((long)start + first, RunCap);
@@ -254,7 +314,7 @@ internal ref struct CcittLineDecoder
                     if (second < 0)
                     {
                         Push(a1);
-                        return EndLine(status, Math.Min(a1, columns));
+                        return EndLine(second == EnterUncompressed ? CcittLineStatus.InvalidCode : status, Math.Min(a1, columns));
                     }
 
                     int a2 = (int)Math.Min((long)a1 + second, RunCap);
@@ -270,7 +330,22 @@ internal ref struct CcittLineDecoder
 
                     int extension = _reader.Peek(CcittCodes.ExtensionBits);
                     _reader.Skip(CcittCodes.ExtensionBits);
-                    return EndLine(extension == 0b111 ? CcittLineStatus.Uncompressed : CcittLineStatus.InvalidCode, Math.Max(a0, 0));
+                    if (extension != UncompressedExtension || !_allowUncompressed)
+                    {
+                        return EndLine(CcittLineStatus.InvalidCode, Math.Max(a0, 0));
+                    }
+
+                    int at = Math.Max(a0, 0);
+                    if (!StartUncompressed(ref at, ref black, out CcittLineStatus uncompressed))
+                    {
+                        return EndLine(uncompressed, at);
+                    }
+
+                    // Back in the basic scheme at the pixel after the pattern, with the colour the tag bit named; b1 is searched
+                    // again from the start of the reference line with the parity of that colour.
+                    a0 = at;
+                    j = black ? 1 : 0;
+                    break;
                 default:
                     int vertical = b1 + VerticalOffset(mode);
                     if (vertical < 0 || vertical <= a0)
@@ -333,6 +408,134 @@ internal ref struct CcittLineDecoder
         row[last] ^= lastMask;
     }
 
+    /// <summary>Enters uncompressed mode at <paramref name="position"/> and paints until the exit code or the end of the line.</summary>
+    /// <returns><see langword="false"/> when the line ends here: filled while still in uncompressed mode (Ok) or damaged.</returns>
+    private bool StartUncompressed(ref int position, ref bool black, out CcittLineStatus status)
+    {
+        _uncompressed = true;
+        _patternWhites = 0;
+        _patternEnd = CcittPatternEnd.None;
+        return ContinueUncompressed(ref position, ref black, out status);
+    }
+
+    /// <summary>
+    /// Paints uncompressed-mode pixels from <paramref name="position"/>: the rest of the pattern carried over from the line before,
+    /// then pattern after pattern. On the exit code the colour of the next run is pushed and <paramref name="black"/> set to it.
+    /// </summary>
+    /// <returns><see langword="true"/> after the exit code; <see langword="false"/> when the line is full (Ok, the mode carries on) or damaged.</returns>
+    private bool ContinueUncompressed(ref int position, ref bool black, out CcittLineStatus status)
+    {
+        while (true)
+        {
+            if (_patternWhites == 0 && _patternEnd == CcittPatternEnd.None && !ReadPattern(out status))
+            {
+                EndUncompressed();
+                return false;
+            }
+
+            while (_patternWhites > 0)
+            {
+                if (position >= _columns)
+                {
+                    status = CcittLineStatus.Ok;
+                    return false;
+                }
+
+                Paint(position++, black: false);
+                _patternWhites--;
+            }
+
+            switch (_patternEnd)
+            {
+                case CcittPatternEnd.Black:
+                    if (position >= _columns)
+                    {
+                        status = CcittLineStatus.Ok;
+                        return false;
+                    }
+
+                    Paint(position++, black: true);
+                    _patternEnd = CcittPatternEnd.None;
+                    break;
+                case CcittPatternEnd.Exit:
+                    EndUncompressed();
+                    black = _exitTag;
+                    if (position < _columns)
+                    {
+                        Paint(position, black);
+                    }
+
+                    status = CcittLineStatus.Ok;
+                    return true;
+                default:
+                    if (position >= _columns)
+                    {
+                        status = CcittLineStatus.Ok;
+                        return false;
+                    }
+
+                    break;
+            }
+        }
+    }
+
+    /// <summary>Reads one uncompressed-mode code word of T.4 Table 5 into the pattern state.</summary>
+    /// <returns><see langword="false"/> with the status when the bits are no code word (an EOL, the end of the data).</returns>
+    private bool ReadPattern(out CcittLineStatus status)
+    {
+        long zeros = _reader.CountZeros(LongestUncompressedZeros + 1);
+        if (zeros > LongestUncompressedZeros)
+        {
+            status = ZeroBitsStatus();
+            return false;
+        }
+
+        // 1, 01, ..., 00001: zeros whites and a black; 000001: five whites; 0000001T to 00000000001T: zeros - 6 whites and the exit.
+        int length = (int)zeros + 1 + (zeros > 5 ? 1 : 0);
+        if (length > _reader.BitsLeft)
+        {
+            status = CcittLineStatus.EndOfData;
+            return false;
+        }
+
+        _reader.Skip((int)zeros + 1);
+        if (zeros <= 4)
+        {
+            _patternWhites = (int)zeros;
+            _patternEnd = CcittPatternEnd.Black;
+        }
+        else if (zeros == 5)
+        {
+            _patternWhites = 5;
+            _patternEnd = CcittPatternEnd.None;
+        }
+        else
+        {
+            _patternWhites = (int)zeros - 6;
+            _patternEnd = CcittPatternEnd.Exit;
+            _exitTag = _reader.ReadBit() == 1;
+        }
+
+        status = CcittLineStatus.Ok;
+        return true;
+    }
+
+    /// <summary>Makes pixel <paramref name="position"/> the given colour: a changing element when it differs from the colour so far.</summary>
+    private void Paint(int position, bool black)
+    {
+        if (((_currentCount & 1) == 1) != black)
+        {
+            Push(position);
+        }
+    }
+
+    private void EndUncompressed()
+    {
+        _uncompressed = false;
+        _patternWhites = 0;
+        _patternEnd = CcittPatternEnd.None;
+    }
+
     private static int VerticalOffset(CcittMode mode) => mode switch
     {
         CcittMode.VerticalRight1 => 1,
@@ -351,8 +554,9 @@ internal ref struct CcittLineDecoder
     }
 
     /// <summary>
-    /// Reads one run: any number of make-up codes and one terminating code. Returns the run, or -1 with the status when no run could
-    /// be read (an EOL or zero fill, an extension code, an invalid code, the end of the data).
+    /// Reads one run: any number of make-up codes and one terminating code. Returns the run; <see cref="EnterUncompressed"/> after
+    /// the 1-D extension code of uncompressed mode (consumed); or -1 with the status when no run could be read (an EOL or zero fill,
+    /// another extension code, an invalid code, the end of the data).
     /// </summary>
     private int ReadRun(bool black, out CcittLineStatus status)
     {
@@ -387,8 +591,8 @@ internal ref struct CcittLineDecoder
 
                 int extension = _reader.Peek(CcittCodes.ExtensionBits);
                 _reader.Skip(CcittCodes.ExtensionBits);
-                status = extension == 0b111 ? CcittLineStatus.Uncompressed : CcittLineStatus.InvalidCode;
-                return -1;
+                status = CcittLineStatus.InvalidCode;
+                return extension == UncompressedExtension && _allowUncompressed ? EnterUncompressed : -1;
             }
 
             total = Math.Min(total + run, RunCap);
@@ -434,6 +638,11 @@ internal ref struct CcittLineDecoder
         if (status != CcittLineStatus.Ok && (_currentCount & 1) == 1)
         {
             Push(Math.Min(position, _columns));
+        }
+
+        if (status != CcittLineStatus.Ok)
+        {
+            EndUncompressed();
         }
 
         while (_currentCount > 0 && _current[_currentCount - 1] >= _columns)

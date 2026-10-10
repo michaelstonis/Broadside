@@ -4345,16 +4345,19 @@ def j2k_codestream(components: list[list[list[int]]], depth: int, levels: int, m
             + tile_header + bytes(data) + b"\xff\xd9")
 
 
-def jp2_file(codestream: bytes, width: int, height: int, components: int, depth: int, enumerated: int) -> bytes:
-    """T.800 Annex I: signature, File Type ('jp2 '), JP2 Header (Image Header, Colour Specification with an enumerated colour
-    space) and Contiguous Codestream boxes."""
-    def box(kind: bytes, body: bytes) -> bytes:
-        return struct.pack(">I", len(body) + 8) + kind + body
+def jp2_box(kind: bytes, body: bytes) -> bytes:
+    """T.800 I.4: a box of LBox, TBox and its contents."""
+    return struct.pack(">I", len(body) + 8) + kind + body
 
+
+def jp2_file(codestream: bytes, width: int, height: int, components: int, depth: int, enumerated: int,
+             header_boxes: bytes = b"") -> bytes:
+    """T.800 Annex I: signature, File Type ('jp2 '), JP2 Header (Image Header, Colour Specification with an enumerated colour
+    space, then ``header_boxes``) and Contiguous Codestream boxes."""
     ihdr = struct.pack(">IIHBBBB", height, width, components, depth - 1, 7, 0, 0)
     colr = bytes([1, 0, 0]) + struct.pack(">I", enumerated)
-    return (box(b"jP  ", b"\r\n\x87\n") + box(b"ftyp", b"jp2 " + struct.pack(">I", 0) + b"jp2 ")
-            + box(b"jp2h", box(b"ihdr", ihdr) + box(b"colr", colr)) + box(b"jp2c", codestream))
+    return (jp2_box(b"jP  ", b"\r\n\x87\n") + jp2_box(b"ftyp", b"jp2 " + struct.pack(">I", 0) + b"jp2 ")
+            + jp2_box(b"jp2h", jp2_box(b"ihdr", ihdr) + jp2_box(b"colr", colr) + header_boxes) + jp2_box(b"jp2c", codestream))
 
 
 def jpx_sample(x: int, y: int, c: int) -> int:
@@ -4374,6 +4377,20 @@ def gen_jpx_subsampled() -> bytes:
     data = jp2_file(j2k_codestream(comps, 8, 2, mct=False, separations=separations), width, height, 3, 8, 16)
     return one_image(b"/Width 21 /Height 15 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /JPXDecode", data,
                      version="1.5")
+
+
+def gen_jpx_smask_in_data() -> bytes:
+    """7.4.9 JPXDecode with an opacity channel, 8.9.5.1 Table 87 SMaskInData 1, 11.6.5.3: a 15 x 11 8-bit image of four
+    components coded losslessly (RCT on the first three, two levels of the 5/3 wavelet) in a JP2 file with enumerated sRGB and a
+    Channel Definition box (T.800 I.5.3.6): channels 0-2 colour (Typ 0) for colours 1-3, channel 3 opacity (Typ 1) for the whole
+    image (Asoc 0). The image dictionary has no ColorSpace (the JP2 colour box gives sRGB) and SMaskInData 1, so a reader takes
+    the opacity channel as the image's soft mask: colour c at (x, y) is jpx_sample(x, y, c), opacity jpx_sample(x, y, 3)."""
+    width, height = 15, 11
+    comps = [[[jpx_sample(x, y, c) for x in range(width)] for y in range(height)] for c in range(4)]
+    cdef = struct.pack(">H", 4) + b"".join(struct.pack(">HHH", channel, typ, asoc)
+                                           for channel, typ, asoc in [(0, 0, 1), (1, 0, 2), (2, 0, 3), (3, 1, 0)])
+    data = jp2_file(j2k_codestream(comps, 8, 2, mct=True), width, height, 4, 8, 16, jp2_box(b"cdef", cdef))
+    return one_image(b"/Width 15 /Height 11 /SMaskInData 1 /Filter /JPXDecode", data, version="1.5")
 
 
 def gen_jpx_lossless() -> bytes:
@@ -5416,6 +5433,7 @@ FILES = {
     "image-decode-inverted.pdf": gen_image_decode_inverted,
     "jpx-lossless.pdf": gen_jpx_lossless,
     "jpx-subsampled.pdf": gen_jpx_subsampled,
+    "jpx-smask-in-data.pdf": gen_jpx_smask_in_data,
     "inline-image-filters.pdf": gen_inline_image_filters,
     "inline-image-ei-in-data.pdf": gen_inline_image_ei_in_data,
     "dct-baseline.pdf": gen_dct_baseline,

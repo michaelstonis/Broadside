@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.Globalization;
+using Broadside.Filters;
 using Broadside.Images;
 using Broadside.Objects;
 
@@ -527,31 +528,37 @@ internal ref struct ContentReader
             ContentOperand key = entries[index];
             ContentOperand value = entries[index + 1];
             long number = value.Kind == ContentOperandKind.Integer && value.Number >= 0 && value.Number <= int.MaxValue ? (long)value.Number : -1;
-            if (key.IsName("L"u8) || key.IsName("Length"u8))
+            CosName? full = key.Kind == ContentOperandKind.Name ? InlineImageAbbreviations.Key(key.Bytes) : null;
+            if (full is null)
+            {
+                continue;
+            }
+
+            if (full.Equals(ImageNames.Length))
             {
                 length = number;
             }
-            else if (key.IsName("W"u8) || key.IsName("Width"u8))
+            else if (full.Equals(ImageNames.Width))
             {
                 width = number;
             }
-            else if (key.IsName("H"u8) || key.IsName("Height"u8))
+            else if (full.Equals(ImageNames.Height))
             {
                 height = number;
             }
-            else if (key.IsName("BPC"u8) || key.IsName("BitsPerComponent"u8))
+            else if (full.Equals(ImageNames.BitsPerComponent))
             {
                 bits = number;
             }
-            else if (key.IsName("IM"u8) || key.IsName("ImageMask"u8))
+            else if (full.Equals(ImageNames.ImageMask))
             {
                 mask = value.Boolean;
             }
-            else if (key.IsName("CS"u8) || key.IsName("ColorSpace"u8))
+            else if (full.Equals(ImageNames.ColorSpace))
             {
                 components = InlineComponents(value);
             }
-            else if (key.IsName("F"u8) || key.IsName("Filter"u8))
+            else if (full.Equals(ImageNames.Filter))
             {
                 filter = value.Kind == ContentOperandKind.Array
                     ? value.Items.Count > 0 ? InlineFilter(value.Items[0]) : InlineImageFilter.None
@@ -575,19 +582,23 @@ internal ref struct ContentReader
     {
         if (value.Kind == ContentOperandKind.Array)
         {
-            return value.Items.Count > 0 && (value.Items[0].IsName("I"u8) || value.Items[0].IsName("Indexed"u8)) ? 1 : -1;
+            return value.Items.Count > 0 && value.Items[0].Kind == ContentOperandKind.Name
+                && ImageNames.Indexed.Equals(InlineImageAbbreviations.ColorSpace(value.Items[0].Bytes)) ? 1 : -1;
         }
 
-        return value.IsName("G"u8) || value.IsName("DeviceGray"u8) ? 1
-            : value.IsName("RGB"u8) || value.IsName("DeviceRGB"u8) ? 3
-            : value.IsName("CMYK"u8) || value.IsName("DeviceCMYK"u8) ? 4
+        CosName? space = value.Kind == ContentOperandKind.Name ? InlineImageAbbreviations.ColorSpace(value.Bytes) : null;
+        return ImageNames.DeviceGray.Equals(space) ? 1
+            : ImageNames.DeviceRgb.Equals(space) ? 3
+            : ImageNames.DeviceCmyk.Equals(space) ? 4
             : -1;
     }
 
-    private static InlineImageFilter InlineFilter(ContentOperand value) =>
-        value.Kind != ContentOperandKind.Name ? InlineImageFilter.Other
-        : value.IsName("AHx"u8) || value.IsName("ASCIIHexDecode"u8) ? InlineImageFilter.AsciiHex
-        : value.IsName("A85"u8) || value.IsName("ASCII85Decode"u8) ? InlineImageFilter.Ascii85
-        : value.IsName("DCT"u8) || value.IsName("DCTDecode"u8) ? InlineImageFilter.Dct
-        : InlineImageFilter.Other;
+    private static InlineImageFilter InlineFilter(ContentOperand value)
+    {
+        CosName? name = value.Kind == ContentOperandKind.Name ? InlineImageAbbreviations.Filter(value.Bytes) : null;
+        return FilterNames.AsciiHexDecode.Equals(name) ? InlineImageFilter.AsciiHex
+            : FilterNames.Ascii85Decode.Equals(name) ? InlineImageFilter.Ascii85
+            : FilterNames.DctDecode.Equals(name) ? InlineImageFilter.Dct
+            : InlineImageFilter.Other;
+    }
 }

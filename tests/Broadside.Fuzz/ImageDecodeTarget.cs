@@ -23,7 +23,7 @@ internal static class ImageDecodeTarget
     {
         if (data.StartsWith("%PDF-"u8))
         {
-            using PdfDocument? file = OpenOrNull(data.ToArray());
+            using PdfDocument? file = FuzzTargets.OpenOrNull(data, Engine);
             if (file is not null && file.Pages.Count > 0 && file.Pages[0].Resources is { } resources
                 && file.Resolve(resources.GetValueOrDefault(new CosName("XObject"))) is CosDictionary xobjects)
             {
@@ -108,20 +108,6 @@ internal static class ImageDecodeTarget
         {
             ImageRows.Unpack(decoded.GetRow(y), decoded.StorageBits, row.Length, row);
             map.Map(row, values);
-        }
-    }
-
-    private static PdfDocument? OpenOrNull(byte[] data)
-    {
-        try
-        {
-            return Engine.Open(data);
-        }
-#pragma warning disable CA1031 // Unreadable, password, certificate and unsupported-encryption outcomes are allowed results of opening fuzz input.
-        catch (Exception exception) when (exception is Diagnostics.DiagnosticException or Security.PdfPasswordException or Security.PdfCertificateException or NotSupportedException)
-#pragma warning restore CA1031
-        {
-            return null;
         }
     }
 

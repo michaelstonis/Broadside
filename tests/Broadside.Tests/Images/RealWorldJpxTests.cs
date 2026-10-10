@@ -1,5 +1,6 @@
 using System.Security.Cryptography;
 using System.Text;
+using Broadside.Diagnostics;
 using Broadside.Images;
 using Broadside.Objects;
 using Broadside.Security;
@@ -49,7 +50,7 @@ public class RealWorldJpxTests(ITestOutputHelper output)
 
         Assert.Equal(shape, $"{decoded.Width}x{decoded.Height}x{decoded.Components}@{decoded.BitsPerComponent}");
         Assert.Equal(sha256, Convert.ToHexStringLower(SHA256.HashData(decoded.Samples)));
-        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code.StartsWith("Jpx", StringComparison.Ordinal));
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code.StartsWith("Jpx", StringComparison.Ordinal) && diagnostic.Severity > DiagnosticSeverity.Information);
     }
 
     [Fact]
