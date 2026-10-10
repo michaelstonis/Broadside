@@ -27,4 +27,7 @@ public readonly ref struct ClipEvent
 
     /// <summary>Gets the CTM the path is in.</summary>
     public Matrix Ctm { get; internal init; }
+
+    /// <summary>Gets the glyphs whose outlines form the region for <see cref="ClipKind.Text"/> (§9.3.6); empty for other kinds.</summary>
+    public ReadOnlySpan<TextClipGlyph> Glyphs { get; internal init; }
 }

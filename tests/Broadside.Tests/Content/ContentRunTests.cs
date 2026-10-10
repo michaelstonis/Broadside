@@ -30,7 +30,7 @@ public class ContentRunTests
     [Fact]
     public void Text_showing_outside_a_text_object_is_out_of_context()
     {
-        Assert.Equal(["ContentOperatorOutOfContext"], ContentPdf.Codes(ContentPdf.Run("(x) Tj").Diagnostics));
+        Assert.Equal(["ContentOperatorOutOfContext", "ContentFontMissing"], ContentPdf.Codes(ContentPdf.Run("(x) Tj").Diagnostics));
     }
 
     [Fact]

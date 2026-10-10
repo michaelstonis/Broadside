@@ -29,4 +29,7 @@ public readonly ref struct ClipView
 
     /// <summary>Gets the CTM when the clip was set.</summary>
     public Matrix Ctm { get; internal init; }
+
+    /// <summary>Gets the glyphs whose outlines form the region of a <see cref="ClipKind.Text"/> node (§9.3.6); empty for other kinds.</summary>
+    public ReadOnlySpan<TextClipGlyph> Glyphs { get; internal init; }
 }

@@ -31,4 +31,26 @@ public static class ContentSamples
 
         return Encoding.ASCII.GetBytes(text.ToString());
     }
+
+    /// <summary>
+    /// A text-heavy content stream showing at least <paramref name="glyphs"/> glyphs in the font resource <c>/F1</c>: text objects with
+    /// every text state operator, <c>TJ</c> arrays with adjustments, and the positioning and next-line operators (ISO 32000-2 §9.3,
+    /// §9.4).
+    /// </summary>
+    public static byte[] TextHeavy(int glyphs)
+    {
+        var text = new StringBuilder(glyphs * 2);
+        int shown = 0;
+        int line = 0;
+        while (shown < glyphs)
+        {
+            text.Append(CultureInfo.InvariantCulture, $"BT /F1 {10 + (line % 3)} Tf {line % 2} Tc 0.5 Tw 95 Tz 12 TL {line % 3} Tr 0 Ts 72 {700 - (line % 50 * 12)} Td\n");
+            text.Append("[(Hello, ) -250 (Broadside) 120 (text) -33.5 (show)] TJ T* (word spacing 32) Tj 1 0.5 (quoted) \" (next) '\n");
+            text.Append("ET\n");
+            shown += 47;
+            line++;
+        }
+
+        return Encoding.ASCII.GetBytes(text.ToString());
+    }
 }
