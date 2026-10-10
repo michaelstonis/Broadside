@@ -20,7 +20,6 @@ internal sealed class CffFontProgram : FontProgram
     private readonly FontProgramContext _context;
     private readonly CharStringReporter _reporter;
     private readonly int _budget;
-    private int _unsupportedReported;
 
     internal CffFontProgram(CffFont font, FontProgramContext context, FontProgramFormat format, string? postScriptName, IReadOnlyList<FontCharacterMap> characterMaps)
     {
@@ -40,7 +39,7 @@ internal sealed class CffFontProgram : FontProgram
     public override int GlyphCount => _font.GlyphCount;
 
     /// <inheritdoc/>
-    /// <remarks>Adobe Technical Note #5176, Top DICT FontMatrix (default <c>[0.001 0 0 0.001 0 0]</c>).</remarks>
+    /// <remarks>Adobe Technical Note #5176, Top DICT FontMatrix (default <c>[0.001 0 0 0.001 0 0]</c>); in a CID-keyed font, the first Font DICT's FontMatrix concatenated with it (Adobe Technical Note #5014 §4.2).</remarks>
     public override Matrix FontMatrix => _font.FontMatrix;
 
     /// <inheritdoc/>
@@ -58,7 +57,7 @@ internal sealed class CffFontProgram : FontProgram
     /// <remarks>Adobe Technical Note #5176 §12, Note 4: StandardEncoding, ExpertEncoding or a custom encoding.</remarks>
     public override IReadOnlyList<string>? BuiltInEncoding => _font.BuiltInEncoding;
 
-    /// <summary>Gets the parsed tables (for the CID-keyed lookups of issue #54).</summary>
+    /// <summary>Gets the parsed tables (a CIDFontType0 maps CIDs to glyphs through them, §9.7.4.2).</summary>
     internal CffFont Font => _font;
 
     /// <inheritdoc/>
@@ -72,13 +71,8 @@ internal sealed class CffFontProgram : FontProgram
             return GlyphOutlineStatus.Invalid;
         }
 
-        if (_font.OutlinesUnsupported is { } reason)
+        if (_font.OutlinesUnsupported is not null)
         {
-            if (Interlocked.Exchange(ref _unsupportedReported, 1) == 0 && _font.IsCidKeyed)
-            {
-                _context.Report(DiagnosticCodes.FontProgramUnsupported, DiagnosticSeverity.Information, $"The CFF program's outlines are not read: {reason}.");
-            }
-
             return GlyphOutlineStatus.Invalid;
         }
 
@@ -86,6 +80,11 @@ internal sealed class CffFontProgram : FontProgram
         {
             outline.Clear();
             return GlyphOutlineStatus.Invalid;
+        }
+
+        if (_font.TryGetMatrixAdjustment(glyphId, out Matrix adjustment))
+        {
+            outline.Transform(adjustment);
         }
 
         return outline.IsEmpty ? GlyphOutlineStatus.Empty : GlyphOutlineStatus.Complete;
@@ -104,6 +103,11 @@ internal sealed class CffFontProgram : FontProgram
         }
 
         Type2CharStringInterpreter.Interpret(_font, glyphId, null, _reporter, _budget, out double width);
+        if (_font.TryGetMatrixAdjustment(glyphId, out Matrix adjustment))
+        {
+            width = adjustment.TransformVector(width, 0).X;
+        }
+
         return new GlyphMetrics(width, 0);
     }
 

@@ -44,8 +44,10 @@ internal static class FuzzTargets
         ["filter-flate"] = data => Filter(new FlateDecodeFilter(), data, parameters: null, maxRatio: 1100),
         ["filter-runlength"] = data => Filter(new RunLengthDecodeFilter(), data, parameters: null, maxRatio: 128),
         ["filter-predictor"] = PredictorTarget,
+        ["filter-dct"] = DctTarget.Target,
         ["filter-ccitt"] = CcittTarget.Target,
         ["filter-jpx"] = Jpx,
+        ["filter-jbig2"] = Jbig2Target.Target,
         ["encrypted-document"] = EncryptedDocument,
         ["decrypt"] = Decrypt,
         ["mac-token"] = MacToken,
@@ -134,6 +136,9 @@ internal static class FuzzTargets
 
             ReadFonts(document, page);
             page.ProcessContent(new CheckingProcessor());
+
+            // The content corpus gate's processor (issue #80): every event, each pattern cell, Type 3 glyph and soft mask entered once.
+            page.ProcessContent(new Broadside.TestSupport.CountingContentProcessor());
         }
 
         Navigation(document);
@@ -168,6 +173,12 @@ internal static class FuzzTargets
                 if (!(rect.Left <= rect.Right && rect.Bottom <= rect.Top) || annotation.Page is null || !ReferenceEquals(annotation, page.Annotations[index]))
                 {
                     throw new InvalidOperationException("An annotation's rectangle is not normalized, it has no page, or a second read gave another view.");
+                }
+
+                // Appearance streams run on the annotation rectangle (§12.5.5, issue #80).
+                if (annotation.GetAppearance() is { } appearance)
+                {
+                    _ = annotation.ProcessAppearance(appearance, new Broadside.TestSupport.CountingContentProcessor());
                 }
             }
         }
@@ -627,6 +638,19 @@ internal static class FuzzTargets
             for (int code = 0; code < 0x200; code++)
             {
                 CheckGlyphId(map, code, program.GlyphCount);
+            }
+        }
+
+        // A CID-keyed program (#54): the CID of every glyph finds that glyph or an earlier one with the same CID.
+        if (program is CffFontProgram { Font: { IsCidKeyed: true } cid })
+        {
+            for (int glyph = 0; glyph < glyphs; glyph++)
+            {
+                int key = cid.Charset[glyph];
+                if (!cid.TryGetGlyphForCid(key, out int found) || found > glyph || cid.Charset[found] != key)
+                {
+                    throw new InvalidOperationException($"CID {key} of glyph {glyph} finds glyph {found}.");
+                }
             }
         }
     }

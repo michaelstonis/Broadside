@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import math
 import os
 import struct
 import sys
@@ -1707,6 +1708,93 @@ def gen_text_cid_embedded_cmap() -> bytes:
                     b"4 beginbfchar\n<48> <0048>\n<49> <0049>\n<8140> <0048>\n<8141> <0049>\nendbfchar\n")
     return cid_file(b"10 0 R", b"/CIDToGIDMap /Identity /W [1 [800 400]]",
                     [b"(HI)", b"\x81\x41\x81\x40", b"\x82\x10"], tu, [(10, child), (11, parent)])
+
+
+def cff_real(text: bytes) -> bytes:
+    """TN 5176 Table 5: a real DICT operand from its decimal text (digits, '.', '-')."""
+    nibbles = [{ord("."): 0xA, ord("-"): 0xE}.get(c, c - 0x30) for c in text] + [0xF]
+    if len(nibbles) % 2:
+        nibbles.append(0xF)
+    return b"\x1e" + bytes((nibbles[i] << 4) | nibbles[i + 1] for i in range(0, len(nibbles), 2))
+
+
+def minimal_cid_cff() -> bytes:
+    """A CID-keyed CFF font (TN 5176 sections 18-19) for Adobe-Japan1-2: ROS first in the Top DICT, Top FontMatrix
+    [1 0 0 1 0 0] and FontMatrix [0.001 0 0 0.001 0 0] in each of two Font DICTs (TN 5014 p.25: concatenated), a format 0
+    charset that is not the identity (GID 1-3 are CIDs 264, 3284, 3722), and a format 3 FDSelect (GID 0-1 FD 0, GID 2-3
+    FD 1). FD 0: nominalWidthX 100, no subrs. FD 1: nominalWidthX 200, one local subr (called with the bias 107).
+
+    Outlines, in glyph space (1000 units per em):
+      GID 1 (CID 264, FD 0)   M 50,0 L 450,0 L 450,700 L 50,700 Z  (width 100 + 400)
+      GID 2 (CID 3284, FD 1)  M 100,0 L 900,0 L 900,800 L 100,800 Z M 200,100 L 200,700 L 800,700 L 800,100 Z
+                              (outer box in the FD 1 local subr, inner counter in global subr 0; width 200 + 800)
+      GID 3 (CID 3722, FD 1)  M 100,0 L 900,0 L 900,800 L 100,800 Z  (the local subr alone; width 200 + 800)"""
+    strings = [b"Adobe", b"Japan1", b"BroadsideCID-Minimal-FD0", b"BroadsideCID-Minimal-FD1"]
+    glyphs = [
+        t2("endchar"),
+        t2(400, 50, 0, "rmoveto", 400, 0, "rlineto", 0, 700, "rlineto", -400, 0, "rlineto", "endchar"),
+        t2(800, 100, 0, "rmoveto", -107, "callsubr", -107, "callgsubr", "endchar"),
+        t2(800, 100, 0, "rmoveto", -107, "callsubr", "endchar"),
+    ]
+    local_subrs = [t2(800, 0, "rlineto", 0, 800, "rlineto", -800, 0, "rlineto", "return")]
+    global_subrs = [t2(100, -700, "rmoveto", 0, 600, "rlineto", 600, 0, "rlineto", 0, -600, "rlineto", "return")]
+    charset = b"\x00" + struct.pack(">HHH", 264, 3284, 3722)
+    fd_select = b"\x03" + struct.pack(">HHBHBH", 2, 0, 0, 2, 1, len(glyphs))
+    char_strings = cff_index(glyphs)
+    thousandth = cff_real(b".001") + b"\x8b\x8b" + cff_real(b".001") + b"\x8b\x8b\x0c\x07"
+    privates = [cff_dict_int(100) + b"\x15",
+                cff_dict_int(200) + b"\x15" + cff_dict_int(len(cff_dict_int(200) + b"\x15") + 6) + b"\x13"]
+    tails = [privates[0], privates[1] + cff_index(local_subrs)]
+
+    def font_dict(fd: int, private_off: int) -> bytes:
+        # FontName (12 38), FontMatrix (12 7), Private (size, offset) (TN 5176 section 18).
+        return (cff_dict_int(393 + fd) + b"\x0c\x26" + thousandth
+                + cff_dict_int(len(privates[fd])) + cff_dict_int(private_off) + b"\x12")
+
+    def top(charset_off: int, char_strings_off: int, fd_array_off: int, fd_select_off: int) -> bytes:
+        return (cff_dict_int(391) + cff_dict_int(392) + cff_dict_int(2) + b"\x0c\x1e"  # ROS
+                + b"\x8c\x8b\x8b\x8c\x8b\x8b\x0c\x07"  # FontMatrix [1 0 0 1 0 0]
+                + cff_dict_int(charset_off) + b"\x0f" + cff_dict_int(char_strings_off) + b"\x11"
+                + cff_dict_int(fd_array_off) + b"\x0c\x24" + cff_dict_int(fd_select_off) + b"\x0c\x25")
+
+    head = b"\x01\x00\x04\x04" + cff_index([b"BroadsideCID-Minimal"])
+    top_len = len(cff_index([top(0, 0, 0, 0)]))
+    body = cff_index(strings) + cff_index(global_subrs)
+    charset_off = len(head) + top_len + len(body)
+    fd_select_off = charset_off + len(charset)
+    char_strings_off = fd_select_off + len(fd_select)
+    fd_array_off = char_strings_off + len(char_strings)
+    fd_array_len = len(cff_index([font_dict(0, 0), font_dict(1, 0)]))
+    private0 = fd_array_off + fd_array_len
+    private1 = private0 + len(tails[0])
+    fd_array = cff_index([font_dict(0, private0), font_dict(1, private1)])
+    assert len(fd_array) == fd_array_len
+    top_dict = cff_index([top(charset_off, char_strings_off, fd_array_off, fd_select_off)])
+    assert len(top_dict) == top_len
+    return head + top_dict + body + charset + fd_select + char_strings + fd_array + tails[0] + tails[1]
+
+
+def gen_text_cidcff_predefined_cmap() -> bytes:
+    """9.7.4.2 (CIDFontType0 with a CID-keyed CFF: CID -> GID through the charset), 9.7.5.2 Table 116 (the predefined
+    CMap 90ms-RKSJ-H, mixed 1- and 2-byte Shift-JIS codes), 9.9 Table 124 (FontFile3 /CIDFontType0C), TN 5176 sections
+    18-19. The string <41 93FA 967B> is one 1-byte and two 2-byte codes, CIDs 264, 3284 and 3722 in 90ms-RKSJ-H
+    (Adobe-Japan1 cid2code.txt), Unicode A 日 本 through Adobe-Japan1-UCS2. No ToUnicode. Outlines in minimal_cid_cff()."""
+    font = minimal_cid_cff()
+    content = b"BT /F1 24 Tf 72 700 Td <4193FA967B> Tj ET"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>" % LETTER),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Font /Subtype /Type0 /BaseFont /BroadsideCID-Minimal-90ms-RKSJ-H /Encoding /90ms-RKSJ-H "
+            b"/DescendantFonts [6 0 R] >>"),
+        (6, b"<< /Type /Font /Subtype /CIDFontType0 /BaseFont /BroadsideCID-Minimal "
+            b"/CIDSystemInfo << /Registry (Adobe) /Ordering (Japan1) /Supplement 2 >> /FontDescriptor 7 0 R "
+            b"/DW 1000 /W [264 [500]] >>"),
+        (7, b"<< /Type /FontDescriptor /FontName /BroadsideCID-Minimal /Flags 4 /FontBBox [0 0 900 800] /ItalicAngle 0 "
+            b"/Ascent 880 /Descent -120 /CapHeight 700 /StemV 80 /FontFile3 8 0 R >>"),
+        (8, stream(b"/Subtype /CIDFontType0C", font)),
+    ], binary=True)
 
 
 def gen_xref_stream() -> bytes:
@@ -4628,6 +4716,525 @@ def gen_ccitt_g4_truncated() -> bytes:
     return ccitt_image(64, 32, b"/K -1 /Columns 64", whole[:head + 3])
 
 
+# ---------------------------------------------------------------------------
+# DCTDecode (clause 7.4.8): a minimal baseline JPEG encoder (ITU-T T.81), integer arithmetic only so the bytes never depend on
+# the platform's floating point
+# ---------------------------------------------------------------------------
+
+# T.81 Figure A.6: the natural (row-major) index of each zig-zag position.
+JPEG_ZIGZAG = [
+    0, 1, 8, 16, 9, 2, 3, 10, 17, 24, 32, 25, 18, 11, 4, 5, 12, 19, 26, 33, 40, 48, 41, 34, 27, 20, 13, 6, 7, 14, 21, 28,
+    35, 42, 49, 56, 57, 50, 43, 36, 29, 22, 15, 23, 30, 37, 44, 51, 58, 59, 52, 45, 38, 31, 39, 46, 53, 60, 61, 54, 47, 55,
+    62, 63,
+]
+
+# T.81 Tables K.1 and K.2 (natural order): the example luminance and chrominance quantization tables.
+JPEG_LUMA_QUANT = [
+    16, 11, 10, 16, 24, 40, 51, 61, 12, 12, 14, 19, 26, 58, 60, 55, 14, 13, 16, 24, 40, 57, 69, 56, 14, 17, 22, 29, 51, 87,
+    80, 62, 18, 22, 37, 56, 68, 109, 103, 77, 24, 35, 55, 64, 81, 104, 113, 92, 49, 64, 78, 87, 103, 121, 120, 101, 72, 92,
+    95, 98, 112, 100, 103, 99,
+]
+JPEG_CHROMA_QUANT = [
+    17, 18, 24, 47, 99, 99, 99, 99, 18, 21, 26, 66, 99, 99, 99, 99, 24, 26, 56, 99, 99, 99, 99, 99, 47, 66, 99, 99, 99, 99,
+    99, 99] + [99] * 32
+
+# T.81 Tables K.3 to K.6: the typical Huffman tables as (BITS, HUFFVAL).
+JPEG_DC_LUMA = ([0, 1, 5, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0], list(range(12)))
+JPEG_DC_CHROMA = ([0, 3, 1, 1, 1, 1, 1, 1, 1, 1, 1, 0, 0, 0, 0, 0], list(range(12)))
+JPEG_AC_LUMA = ([0, 2, 1, 3, 3, 2, 4, 3, 5, 5, 4, 4, 0, 0, 1, 125], list(bytes.fromhex(
+    "01020300041105122131410613516107227114328191a1082342b1c11552d1f02433627282090a161718191a25262728292a3435363738393a"
+    "434445464748494a535455565758595a636465666768696a737475767778797a838485868788898a92939495969798999aa2a3a4a5a6a7a8a9"
+    "aab2b3b4b5b6b7b8b9bac2c3c4c5c6c7c8c9cad2d3d4d5d6d7d8d9dae1e2e3e4e5e6e7e8e9eaf1f2f3f4f5f6f7f8f9fa")))
+JPEG_AC_CHROMA = ([0, 2, 1, 2, 4, 4, 3, 4, 7, 5, 4, 4, 0, 1, 2, 119], list(bytes.fromhex(
+    "000102031104052131061241510761711322328108144291a1b1c109233352f0156272d10a162434e125f11718191a262728292a3536373839"
+    "3a434445464748494a535455565758595a636465666768696a737475767778797a82838485868788898a92939495969798999aa2a3a4a5a6a7"
+    "a8a9aab2b3b4b5b6b7b8b9bac2c3c4c5c6c7c8c9cad2d3d4d5d6d7d8d9dae2e3e4e5e6e7e8e9eaf2f3f4f5f6f7f8f9fa")))
+
+# cos((2x + 1) u pi / 16) scaled by 2^13, and C(u) (1/sqrt 2 for u = 0) scaled by 2^13 (T.81 A.3.3).
+JPEG_COS = [[round(math.cos((2 * x + 1) * u * math.pi / 16) * 8192) for u in range(8)] for x in range(8)]
+JPEG_CU = [round(8192 / math.sqrt(2))] + [8192] * 7
+
+
+def jpeg_huffman_codes(table: tuple[list[int], list[int]]) -> dict[int, tuple[int, int]]:
+    """T.81 Annex C (Figures C.1 to C.3): symbol -> (code, length)."""
+    bits, values = table
+    codes: dict[int, tuple[int, int]] = {}
+    code = 0
+    k = 0
+    for length in range(1, 17):
+        for _ in range(bits[length - 1]):
+            codes[values[k]] = (code, length)
+            code += 1
+            k += 1
+        code <<= 1
+    return codes
+
+
+def jpeg_round_div(numerator: int, denominator: int) -> int:
+    """numerator / denominator rounded half away from zero (denominator > 0)."""
+    q = (abs(numerator) * 2 + denominator) // (2 * denominator)
+    return q if numerator >= 0 else -q
+
+
+def jpeg_fdct_quantize(block: list[int], quant: list[int]) -> list[int]:
+    """T.81 A.3.3 forward DCT of 64 level-shifted samples (natural order), then A.3.4 quantization; integer arithmetic."""
+    rows = [[sum(block[8 * y + x] * JPEG_COS[x][u] for x in range(8)) for u in range(8)] for y in range(8)]
+    out = []
+    for v in range(8):
+        for u in range(8):
+            total = sum(rows[y][u] * JPEG_COS[y][v] for y in range(8)) * JPEG_CU[u] * JPEG_CU[v]
+            coefficient = jpeg_round_div(total, 4 << 52)
+            out.append(jpeg_round_div(coefficient, quant[8 * v + u]))
+    return out
+
+
+class JpegBitWriter:
+    """T.81 B.1.1.5 entropy-coded segment: MSB first, a 00 stuffed after every FF, padding with 1 bits."""
+
+    def __init__(self) -> None:
+        self.out = bytearray()
+        self.acc = 0
+        self.n = 0
+
+    def write(self, value: int, length: int) -> None:
+        self.acc = (self.acc << length) | (value & ((1 << length) - 1))
+        self.n += length
+        while self.n >= 8:
+            self.n -= 8
+            byte = (self.acc >> self.n) & 0xFF
+            self.out.append(byte)
+            if byte == 0xFF:
+                self.out.append(0)
+        self.acc &= (1 << self.n) - 1
+
+    def flush(self) -> None:
+        if self.n:
+            self.write((1 << (8 - self.n)) - 1, 8 - self.n)
+
+
+def jpeg_category(value: int) -> int:
+    return abs(value).bit_length()
+
+
+def jpeg_encode_block(w: JpegBitWriter, coefficients: list[int], previous_dc: int, dc: dict, ac: dict) -> int:
+    """T.81 F.1.2.1 and F.1.2.2 (Figures F.1 to F.5): the DC difference and the AC run/size codes of one block."""
+    diff = coefficients[0] - previous_dc
+    size = jpeg_category(diff)
+    w.write(*dc[size])
+    if size:
+        w.write(diff if diff > 0 else diff - 1, size)
+    run = 0
+    for k in range(1, 64):
+        value = coefficients[JPEG_ZIGZAG[k]]
+        if value == 0:
+            run += 1
+            continue
+        while run > 15:
+            w.write(*ac[0xF0])
+            run -= 16
+        size = jpeg_category(value)
+        w.write(*ac[(run << 4) | size])
+        w.write(value if value > 0 else value - 1, size)
+        run = 0
+    if run:
+        w.write(*ac[0x00])
+    return coefficients[0]
+
+
+def jpeg_segment(marker: int, body: bytes) -> bytes:
+    return bytes([0xFF, marker]) + struct.pack(">H", len(body) + 2) + body
+
+
+def jpeg_encode(width: int, height: int, planes: list[list[list[int]]], sampling: list[tuple[int, int]],
+                restart_interval: int = 0, ids: bytes = b"\x01\x02\x03", jfif: bool = True,
+                adobe_transform: int | None = None) -> bytes:
+    """A baseline (SOF0) JPEG of 1 to 4 components, one interleaved scan, the K.1/K.2 quantization tables (component 0 uses the
+    luminance tables, the others the chrominance ones) and the K.3-K.6 Huffman tables. ``planes`` are full-resolution sample
+    planes (planes[c][y][x], 0-255, already in the coded colour space); a subsampled component is the mean of each Hmax/H x
+    Vmax/V box of its plane (A.1.1), padded by edge replication to whole MCUs (A.2.4)."""
+    count = len(planes)
+    hmax = max(h for h, _ in sampling)
+    vmax = max(v for _, v in sampling)
+    if count == 1:
+        sampling = [(1, 1)]
+        hmax = vmax = 1
+    mcus_x = -(-width // (8 * hmax))
+    mcus_y = -(-height // (8 * vmax))
+    components = []
+    for c, (h, v) in enumerate(sampling):
+        sx, sy = hmax // h, vmax // v
+        cw, ch = -(-width * h // hmax), -(-height * v // vmax)
+        plane = planes[c]
+        samples = [[0] * cw for _ in range(ch)]
+        for y in range(ch):
+            for x in range(cw):
+                box = [plane[min(height - 1, y * sy + j)][min(width - 1, x * sx + i)] for j in range(sy) for i in range(sx)]
+                samples[y][x] = (sum(box) + len(box) // 2) // len(box)
+        components.append((h, v, cw, ch, samples))
+
+    quant = [JPEG_LUMA_QUANT, JPEG_CHROMA_QUANT]
+    dc = [jpeg_huffman_codes(JPEG_DC_LUMA), jpeg_huffman_codes(JPEG_DC_CHROMA)]
+    ac = [jpeg_huffman_codes(JPEG_AC_LUMA), jpeg_huffman_codes(JPEG_AC_CHROMA)]
+    w = JpegBitWriter()
+    predictors = [0] * count
+    mcu = 0
+    restarts = 0
+    for my in range(mcus_y):
+        for mx in range(mcus_x):
+            if restart_interval and mcu and mcu % restart_interval == 0:
+                w.flush()
+                w.out += bytes([0xFF, 0xD0 + restarts % 8])
+                restarts += 1
+                predictors = [0] * count
+            for c, (h, v, cw, ch, samples) in enumerate(components):
+                t = min(c, 1)
+                for by in range(v):
+                    for bx in range(h):
+                        x0, y0 = (mx * h + bx) * 8, (my * v + by) * 8
+                        block = [samples[min(ch - 1, y0 + j)][min(cw - 1, x0 + i)] - 128 for j in range(8) for i in range(8)]
+                        predictors[c] = jpeg_encode_block(w, jpeg_fdct_quantize(block, quant[t]), predictors[c], dc[t], ac[t])
+            mcu += 1
+    w.flush()
+
+    out = bytearray(b"\xff\xd8")
+    if jfif:
+        out += jpeg_segment(0xE0, b"JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00")
+    if adobe_transform is not None:
+        out += jpeg_segment(0xEE, b"Adobe" + struct.pack(">HHHB", 100, 0, 0, adobe_transform))
+    tables = 1 if count == 1 else 2
+    out += jpeg_segment(0xDB, b"".join(bytes([t]) + bytes(quant[t][JPEG_ZIGZAG[k]] for k in range(64)) for t in range(tables)))
+    out += jpeg_segment(0xC0, struct.pack(">BHHB", 8, height, width, count) + b"".join(
+        bytes([ids[c], (h << 4) | v, min(c, 1)]) for c, (h, v, _, _, _) in enumerate(components)))
+    huffman = [(0x00, JPEG_DC_LUMA), (0x10, JPEG_AC_LUMA), (0x01, JPEG_DC_CHROMA), (0x11, JPEG_AC_CHROMA)][:2 * tables]
+    out += jpeg_segment(0xC4, b"".join(bytes([tc]) + bytes(bits) + bytes(values) for tc, (bits, values) in huffman))
+    if restart_interval:
+        out += jpeg_segment(0xDD, struct.pack(">H", restart_interval))
+    out += jpeg_segment(0xDA, bytes([count]) + b"".join(bytes([ids[c], 0x11 * min(c, 1)]) for c in range(count)) + b"\x00\x3f\x00")
+    out += w.out + b"\xff\xd9"
+    return bytes(out)
+
+
+def rgb_to_ycbcr(r: int, g: int, b: int) -> tuple[int, int, int]:
+    """The JFIF / CCIR 601-1 RGB to YCbCr transform (Adobe TN 5116 13.1) in 16-bit fixed point, clamped."""
+    y = (19595 * r + 38470 * g + 7471 * b + 32768) >> 16
+    cb = (-11059 * r - 21709 * g + 32768 * b + (128 << 16) + 32767) >> 16
+    cr = (32768 * r - 27439 * g - 5329 * b + (128 << 16) + 32767) >> 16
+    return y, max(0, min(255, cb)), max(0, min(255, cr))
+
+
+def dct_test_picture(width: int, height: int) -> list[list[tuple[int, int, int]]]:
+    """A smooth RGB picture with sharp features: a diagonal ramp, a dark disc and a white bar, so every coefficient band is used."""
+    picture = []
+    for y in range(height):
+        row = []
+        for x in range(width):
+            r, g, b = (255 * x) // (width - 1), (255 * y) // (height - 1), 255 - (127 * (x + y)) // (width + height - 2)
+            if (2 * x - width) ** 2 + (2 * y - height) ** 2 <= (height * 3 // 5) ** 2:
+                r, g, b = r // 4, g // 4, 64
+            if height // 3 <= y < height // 3 + 3:
+                r = g = b = 255
+            row.append((r, g, b))
+        picture.append(row)
+    return picture
+
+
+def dct_color_jpeg() -> bytes:
+    """45 x 29 YCbCr 4:2:0 (partial MCUs on both axes), JFIF, restart interval of 2 MCUs."""
+    picture = dct_test_picture(45, 29)
+    ycc = [[rgb_to_ycbcr(*pixel) for pixel in row] for row in picture]
+    planes = [[[pixel[c] for pixel in row] for row in ycc] for c in range(3)]
+    return jpeg_encode(45, 29, planes, [(2, 2), (1, 1), (1, 1)], restart_interval=2)
+
+
+def dct_gray_jpeg() -> bytes:
+    """37 x 21 grayscale, one component, no JFIF segment."""
+    picture = dct_test_picture(37, 21)
+    plane = [[(r * 77 + g * 150 + b * 29 + 128) >> 8 for r, g, b in row] for row in picture]
+    return jpeg_encode(37, 21, [plane], [(1, 1)], jfif=False)
+
+
+def jpeg_component_blocks(width: int, height: int, planes: list[list[list[int]]], sampling: list[tuple[int, int]]):
+    """Per component (h, v, blocks wide, blocks high, quantized blocks over the extent padded to whole MCUs), as ``jpeg_encode``
+    computes them (box-averaged subsampling, edge replication, K.1/K.2 tables: component 0 luminance, the others chrominance)."""
+    hmax = max(h for h, _ in sampling)
+    vmax = max(v for _, v in sampling)
+    mcus_x = -(-width // (8 * hmax))
+    mcus_y = -(-height // (8 * vmax))
+    out = []
+    for c, (h, v) in enumerate(sampling):
+        sx, sy = hmax // h, vmax // v
+        cw, ch = -(-width * h // hmax), -(-height * v // vmax)
+        plane = planes[c]
+        samples = [[0] * cw for _ in range(ch)]
+        for y in range(ch):
+            for x in range(cw):
+                box = [plane[min(height - 1, y * sy + j)][min(width - 1, x * sx + i)] for j in range(sy) for i in range(sx)]
+                samples[y][x] = (sum(box) + len(box) // 2) // len(box)
+        quant = JPEG_LUMA_QUANT if c == 0 else JPEG_CHROMA_QUANT
+        blocks = [[jpeg_fdct_quantize([samples[min(ch - 1, by * 8 + j)][min(cw - 1, bx * 8 + i)] - 128
+                                       for j in range(8) for i in range(8)], quant)
+                   for bx in range(mcus_x * h)] for by in range(mcus_y * v)]
+        out.append((h, v, -(-cw // 8), -(-ch // 8), blocks))
+    return mcus_x, mcus_y, out
+
+
+def jpeg_encode_progressive(width: int, height: int, planes: list[list[list[int]]], sampling: list[tuple[int, int]]) -> bytes:
+    """A progressive (SOF2) JPEG of three components, Huffman-coded with the Annex K tables (T.81 Annex G): an interleaved DC
+    first scan with successive approximation (Al = 1, G.1.2.1), one AC first scan per component and band (1-5, then 6-63, Al = 0,
+    each band ending with EOB0, so EOBRUN is always 1; G.1.2.2), and the interleaved DC refinement scan (Ah = 1, Al = 0: one raw
+    bit per block)."""
+    mcus_x, mcus_y, components = jpeg_component_blocks(width, height, planes, sampling)
+    dc = [jpeg_huffman_codes(JPEG_DC_LUMA), jpeg_huffman_codes(JPEG_DC_CHROMA)]
+    ac = [jpeg_huffman_codes(JPEG_AC_LUMA), jpeg_huffman_codes(JPEG_AC_CHROMA)]
+    ids = b"\x01\x02\x03"
+    scans = bytearray()
+
+    def interleaved(visit) -> None:
+        for my in range(mcus_y):
+            for mx in range(mcus_x):
+                for c, (h, v, _, _, blocks) in enumerate(components):
+                    for by in range(v):
+                        for bx in range(h):
+                            visit(c, blocks[my * v + by][mx * h + bx])
+
+    def scan(selector: bytes, ss: int, se: int, ah: int, al: int, data: bytes) -> None:
+        scans.extend(jpeg_segment(0xDA, bytes([len(selector) // 2]) + selector + bytes([ss, se, (ah << 4) | al])) + data)
+
+    # DC first: the differences of the DC coefficients shifted right by Al (an arithmetic shift, A.4).
+    w = JpegBitWriter()
+    predictors = [0, 0, 0]
+
+    def dc_first(c: int, block: list[int]) -> None:
+        value = block[0] >> 1
+        diff = value - predictors[c]
+        predictors[c] = value
+        size = jpeg_category(diff)
+        w.write(*dc[min(c, 1)][size])
+        if size:
+            w.write(diff if diff > 0 else diff - 1, size)
+
+    interleaved(dc_first)
+    w.flush()
+    scan(b"\x01\x00\x02\x11\x03\x11", 0, 0, 0, 1, bytes(w.out))
+
+    for c, (_, _, wide, high, blocks) in enumerate(components):
+        for ss, se in ((1, 5), (6, 63)):
+            w = JpegBitWriter()
+            table = ac[min(c, 1)]
+            for by in range(high):
+                for bx in range(wide):
+                    block = blocks[by][bx]
+                    run = 0
+                    for k in range(ss, se + 1):
+                        value = block[JPEG_ZIGZAG[k]]
+                        if value == 0:
+                            run += 1
+                            continue
+                        while run > 15:
+                            w.write(*table[0xF0])
+                            run -= 16
+                        size = jpeg_category(value)
+                        w.write(*table[(run << 4) | size])
+                        w.write(value if value > 0 else value - 1, size)
+                        run = 0
+                    if run:
+                        w.write(*table[0x00])
+            w.flush()
+            scan(bytes([ids[c], min(c, 1)]), ss, se, 0, 0, bytes(w.out))
+
+    # DC refinement: bit 0 of each DC coefficient, no Huffman coding (G.1.2.1).
+    w = JpegBitWriter()
+    interleaved(lambda c, block: w.write(block[0] & 1, 1))
+    w.flush()
+    scan(b"\x01\x00\x02\x00\x03\x00", 0, 0, 1, 0, bytes(w.out))
+
+    out = bytearray(b"\xff\xd8")
+    out += jpeg_segment(0xE0, b"JFIF\x00\x01\x01\x00\x00\x01\x00\x01\x00\x00")
+    out += jpeg_segment(0xDB, b"".join(bytes([t]) + bytes(q[JPEG_ZIGZAG[k]] for k in range(64))
+                                       for t, q in enumerate((JPEG_LUMA_QUANT, JPEG_CHROMA_QUANT))))
+    out += jpeg_segment(0xC2, struct.pack(">BHHB", 8, height, width, 3) + b"".join(
+        bytes([ids[c], (h << 4) | v, min(c, 1)]) for c, (h, v) in enumerate(sampling)))
+    huffman = [(0x00, JPEG_DC_LUMA), (0x10, JPEG_AC_LUMA), (0x01, JPEG_DC_CHROMA), (0x11, JPEG_AC_CHROMA)]
+    out += jpeg_segment(0xC4, b"".join(bytes([tc]) + bytes(bits) + bytes(values) for tc, (bits, values) in huffman))
+    out += scans + b"\xff\xd9"
+    return bytes(out)
+
+
+def dct_progressive_jpeg() -> bytes:
+    """51 x 35 YCbCr 4:2:0 progressive (partial MCUs on both axes)."""
+    picture = dct_test_picture(51, 35)
+    ycc = [[rgb_to_ycbcr(*pixel) for pixel in row] for row in picture]
+    planes = [[[pixel[c] for pixel in row] for row in ycc] for c in range(3)]
+    return jpeg_encode_progressive(51, 35, planes, [(2, 2), (1, 1), (1, 1)])
+
+
+def dct_cmyk_picture(width: int, height: int) -> list[list[tuple[int, int, int, int]]]:
+    """CMYK from the test picture: C, M, Y = 255 - R, G, B less a black ramp K growing to the right."""
+    picture = []
+    for y, row in enumerate(dct_test_picture(width, height)):
+        cmyk = []
+        for x, (r, g, b) in enumerate(row):
+            k = (x * 160) // (width - 1)
+            cmyk.append((max(0, 255 - r - k), max(0, 255 - g - k), max(0, 255 - b - k), k))
+        picture.append(cmyk)
+    return picture
+
+
+def dct_cmyk_jpeg() -> bytes:
+    """41 x 27 CMYK, Adobe APP14 transform 0 (no colour transform), 4:4:4, no JFIF."""
+    picture = dct_cmyk_picture(41, 27)
+    planes = [[[pixel[c] for pixel in row] for row in picture] for c in range(4)]
+    return jpeg_encode(41, 27, planes, [(1, 1)] * 4, ids=b"CMYK", jfif=False, adobe_transform=0)
+
+
+def dct_ycck_jpeg() -> bytes:
+    """41 x 27 YCCK, Adobe APP14 transform 2, the inverted CMYK convention of Adobe's writers (stored value = 255 - ink), C and K
+    sampled 2x2 and M, Y 1x1 as in pdf.js's cmykjpeg.pdf; YCCK = YCbCr of (255 - C, 255 - M, 255 - Y) and K (Adobe TN 5116
+    §13.1)."""
+    picture = dct_cmyk_picture(41, 27)
+    ycck = []
+    for row in picture:
+        out = []
+        for c, m, y, k in row:
+            stored = (255 - c, 255 - m, 255 - y, 255 - k)
+            out.append(rgb_to_ycbcr(255 - stored[0], 255 - stored[1], 255 - stored[2]) + (stored[3],))
+        ycck.append(out)
+    planes = [[[pixel[c] for pixel in row] for row in ycck] for c in range(4)]
+    return jpeg_encode(41, 27, planes, [(2, 2), (1, 1), (1, 1), (2, 2)], ids=b"\x01\x02\x03\x04", jfif=False, adobe_transform=2)
+
+
+def gen_dct_progressive() -> bytes:
+    """7.4.8 DCTDecode: a progressive (ITU-T T.81 Annex G) JPEG image XObject, 51 x 35 DeviceRGB, YCbCr 4:2:0, with DC
+    successive approximation and AC spectral selection, written by ``jpeg_encode_progressive``. PDF 1.3 is the first version
+    with progressive JPEG (7.4.8)."""
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /XObject << /Im0 5 0 R >> >>")),
+        (4, stream(b"", b"q 204 0 0 140 72 600 cm /Im0 Do Q")),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 51 /Height 35 /ColorSpace /DeviceRGB /BitsPerComponent 8 "
+                   b"/Filter /DCTDecode", dct_progressive_jpeg())),
+    ], binary=True)
+
+
+def gen_dct_cmyk() -> bytes:
+    """7.4.8 DCTDecode with four components, 8.9.5.2 Decode: `/Im0` a 41 x 27 CMYK JPEG (APP14 transform 0) in DeviceCMYK;
+    `/Im1` the same picture as an Adobe-inverted YCCK JPEG (APP14 transform 2), whose `/Decode [1 0 1 0 1 0 1 0]` undoes the
+    inversion (Table 13: the APP14 code selects YCCK; the inversion is the Decode array's, never the codec's)."""
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /XObject << /Im0 5 0 R /Im1 6 0 R >> >>")),
+        (4, stream(b"", b"q 164 0 0 108 72 600 cm /Im0 Do Q q 164 0 0 108 300 600 cm /Im1 Do Q")),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 41 /Height 27 /ColorSpace /DeviceCMYK /BitsPerComponent 8 "
+                   b"/Filter /DCTDecode", dct_cmyk_jpeg())),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 41 /Height 27 /ColorSpace /DeviceCMYK /BitsPerComponent 8 "
+                   b"/Decode [1 0 1 0 1 0 1 0] /Filter /DCTDecode", dct_ycck_jpeg())),
+    ], binary=True)
+
+
+def gen_dct_baseline() -> bytes:
+    """7.4.8 DCTDecode: two baseline JPEG image XObjects painted side by side, a 45 x 29 YCbCr 4:2:0 DeviceRGB image with a
+    restart interval (Im0) and a 37 x 21 DeviceGray image (Im1), both encoded by ``jpeg_encode``."""
+    color = dct_color_jpeg()
+    gray = dct_gray_jpeg()
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /XObject << /Im0 5 0 R /Im1 6 0 R >> >>")),
+        (4, stream(b"", b"q 180 0 0 116 72 600 cm /Im0 Do Q q 148 0 0 84 300 600 cm /Im1 Do Q")),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 45 /Height 29 /ColorSpace /DeviceRGB /BitsPerComponent 8 "
+                   b"/Filter /DCTDecode", color)),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 37 /Height 21 /ColorSpace /DeviceGray /BitsPerComponent 8 "
+                   b"/Filter /DCTDecode", gray)),
+    ], binary=True)
+
+
+# T.88 Figures 3 to 6 in reading order: (dx, dy) of a fixed pixel, or ("A", n) for AT pixel n at its nominal slot.
+JBIG2_TEMPLATES = [
+    [("A", 4), (-1, -2), (0, -2), (1, -2), ("A", 3), ("A", 2), (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1), ("A", 1),
+     (-4, 0), (-3, 0), (-2, 0), (-1, 0)],
+    [(-1, -2), (0, -2), (1, -2), (2, -2), (-2, -1), (-1, -1), (0, -1), (1, -1), (2, -1), ("A", 1), (-3, 0), (-2, 0), (-1, 0)],
+    [(-1, -2), (0, -2), (1, -2), (-2, -1), (-1, -1), (0, -1), (1, -1), ("A", 1), (-2, 0), (-1, 0)],
+    [(-3, -1), (-2, -1), (-1, -1), (0, -1), (1, -1), ("A", 1), (-4, 0), (-3, 0), (-2, 0), (-1, 0)],
+]
+JBIG2_NOMINAL_AT = [[(3, -1), (-3, -1), (2, -2), (-2, -2)], [(3, -1)], [(2, -1)], [(2, -1)]]
+JBIG2_SLTP = [0x9B25, 0x0795, 0x00E5, 0x0195]  # Figures 8 to 11 gathered in the same order
+
+
+def jbig2_encode_generic(rows: list[list[bool]], template: int, tpgdon: bool, at: list[tuple[int, int]] | None = None) -> bytes:
+    """T.88 6.2.5: template-based arithmetic coding of a bitmap (True = 1 = black) with typical prediction, through the MQ
+    coder of E.2 (shared with JPEG 2000), terminated by FLUSH and the 0xFF 0xAC marker. AT pixels keep their nominal bit."""
+    at = at or JBIG2_NOMINAL_AT[template]
+    height, width = len(rows), len(rows[0]) if rows else 0
+    mq, cx, ltp = MqEncoder(), [0] * 65536, False
+
+    def px(x: int, y: int) -> int:
+        return 1 if 0 <= y < height and 0 <= x < width and rows[y][x] else 0
+
+    for y in range(height):
+        if tpgdon:
+            typical = rows[y] == (rows[y - 1] if y else [False] * width)
+            mq.encode(cx, JBIG2_SLTP[template], int(typical != ltp))
+            ltp = typical
+            if ltp:
+                continue
+        for x in range(width):
+            context = 0
+            for a, b in JBIG2_TEMPLATES[template]:
+                dx, dy = at[b - 1] if a == "A" else (a, b)
+                context = (context << 1) | px(x + dx, y + dy)
+            mq.encode(cx, context, int(rows[y][x]))
+    return mq.flush() + b"\xff\xac"
+
+
+def jbig2_segment(number: int, seg_type: int, page: int, data: bytes) -> bytes:
+    """T.88 7.2: a segment header (short page association, no referred-to segments) followed by its data part (D.1)."""
+    return struct.pack(">IBBBI", number, seg_type, 0, page, len(data)) + data
+
+
+def jbig2_page_info(width: int, height: int, flags: int = 0) -> bytes:
+    """T.88 7.4.8: width, height, unknown resolution, page flags, no striping."""
+    return struct.pack(">IIIIBH", width, height, 0, 0, flags, 0)
+
+
+def jbig2_generic_region(rows: list[list[bool]], mmr: bool, template: int = 0, tpgdon: bool = False) -> bytes:
+    """T.88 7.4.6: region information at (0, 0) with OR, generic region flags, nominal AT bytes, the coded bitmap."""
+    header = struct.pack(">IIIIB", len(rows[0]), len(rows), 0, 0, 0) + bytes([int(mmr) | (template << 1) | (int(tpgdon) << 3)])
+    if mmr:
+        return header + ccitt_encode(rows, -1)
+    at = b"".join(struct.pack(">bb", x, y) for x, y in JBIG2_NOMINAL_AT[template])
+    return header + at + jbig2_encode_generic(rows, template, tpgdon)
+
+
+def jbig2_comment(name: bytes, value: bytes) -> bytes:
+    """T.88 7.4.15.1: a single-byte coded comment extension."""
+    return struct.pack(">I", 0x20000000) + name + b"\0" + value + b"\0\0"
+
+
+def gen_jbig2_generic() -> bytes:
+    """7.4.7 JBIG2Decode with Table 12's JBIG2Globals: a 150 x 48 page (the CCITT sample bitmap, 1 = black) coded as one immediate
+    lossless generic region, template 0 with typical prediction (T.88 6.2.5, 7.4.6); the globals stream holds one comment
+    extension segment (page 0, 7.4.15.1). Embedded sequential organisation, page association 1, no file header, no EOP."""
+    rows = ccitt_sample_bitmap(150, 48)
+    page = (jbig2_segment(1, 48, 1, jbig2_page_info(150, 48))
+            + jbig2_segment(2, 39, 1, jbig2_generic_region(rows, mmr=False, template=0, tpgdon=True)))
+    globals_ = jbig2_segment(0, 62, 0, jbig2_comment(b"Title", b"Broadside JBIG2 globals"))
+    return image_page([
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 150 /Height 48 /ColorSpace /DeviceGray /BitsPerComponent 1"
+                   b" /Filter /JBIG2Decode /DecodeParms << /JBIG2Globals 6 0 R >>", page)),
+        (6, stream(b"", globals_)),
+    ], version="1.4")
+
+
+def gen_jbig2_generic_mmr() -> bytes:
+    """7.4.7 JBIG2Decode as an image mask (8.9.6.2): the same 150 x 48 bitmap as one MMR generic region (T.88 6.2.6, T.6 with
+    EOFB); the filter's 0 = black samples paint with the default Decode [0 1]. No JBIG2Globals."""
+    rows = ccitt_sample_bitmap(150, 48)
+    page = jbig2_segment(0, 48, 1, jbig2_page_info(150, 48)) + jbig2_segment(1, 39, 1, jbig2_generic_region(rows, mmr=True))
+    return one_image(b"/Width 150 /Height 48 /ImageMask true /Filter /JBIG2Decode", page, version="1.4")
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -4653,6 +5260,7 @@ FILES = {
     "text-cid-identity-h.pdf": gen_text_cid_identity_h,
     "text-cid-identity-v.pdf": gen_text_cid_identity_v,
     "text-cid-embedded-cmap.pdf": gen_text_cid_embedded_cmap,
+    "text-cidcff-predefined-cmap.pdf": gen_text_cidcff_predefined_cmap,
     "xref-stream.pdf": gen_xref_stream,
     "object-stream.pdf": gen_object_stream,
     "incremental-update.pdf": gen_incremental_update,
@@ -4741,6 +5349,9 @@ FILES = {
     "jpx-subsampled.pdf": gen_jpx_subsampled,
     "inline-image-filters.pdf": gen_inline_image_filters,
     "inline-image-ei-in-data.pdf": gen_inline_image_ei_in_data,
+    "dct-baseline.pdf": gen_dct_baseline,
+    "dct-progressive.pdf": gen_dct_progressive,
+    "dct-cmyk.pdf": gen_dct_cmyk,
     "shading-type1-function.pdf": gen_shading_type1,
     "shading-type2-axial.pdf": gen_shading_type2,
     "shading-type3-radial.pdf": gen_shading_type3,
@@ -4766,6 +5377,8 @@ FILES = {
     "ccitt-inline.pdf": gen_ccitt_inline,
     "ccitt-g3-damaged.pdf": gen_ccitt_g3_damaged,
     "ccitt-g4-truncated.pdf": gen_ccitt_g4_truncated,
+    "jbig2-generic.pdf": gen_jbig2_generic,
+    "jbig2-generic-mmr.pdf": gen_jbig2_generic_mmr,
 }
 
 
@@ -4808,6 +5421,13 @@ def self_test() -> None:
     assert pack_samples([[1, 0, 1]], 1) == bytes([0b10111111])
     assert pack_samples([[3, 0, 1, 2, 3]], 2) == bytes([0xC6, 0xFF])
     assert pack_samples([[0x12FF]], 16) == bytes([0x12, 0xFF])
+    # T.81 Annex K: the typical tables hold 12 DC and 162 AC symbols; the first luminance DC code is 00 (Table K.3)
+    for bits, values in (JPEG_DC_LUMA, JPEG_DC_CHROMA, JPEG_AC_LUMA, JPEG_AC_CHROMA):
+        assert sum(bits) == len(values) and len(set(values)) == len(values)
+    assert len(JPEG_AC_LUMA[1]) == len(JPEG_AC_CHROMA[1]) == 162
+    assert jpeg_huffman_codes(JPEG_DC_LUMA)[0] == (0, 2) and jpeg_huffman_codes(JPEG_AC_LUMA)[0x00] == (0b1010, 4)
+    # T.81 A.3.3: a flat block of 100 has F(0,0) = 1/4 x 1/2 x 64 x 100 = 800 and no AC energy
+    assert jpeg_fdct_quantize([100] * 64, [1] * 64) == [800] + [0] * 63
     # CCITT (T.4 Tables 2-3): prefix-free code tables (EOL included); an all-white 1728 line in 1-D is make-up 1728 + white 0,
     # in 2-D against a white reference V(0); a line starting black begins with white 0.
     for table in (CCITT_WHITE_TERM + CCITT_WHITE_MAKEUP + CCITT_EXT_MAKEUP, CCITT_BLACK_TERM + CCITT_BLACK_MAKEUP + CCITT_EXT_MAKEUP):
@@ -4825,6 +5445,13 @@ def self_test() -> None:
     ours = j2k_codestream([[[v] for v in [101, 103, 104, 105, 96, 97, 96, 102, 109]]], 8, 1, mct=False)
     assert len(ours) == len(j11) and (ours[90], ours[97]) == (0x7F, 0x7F)
     assert ours[:90] == j11[:90] and ours[91:97] == j11[91:97] and ours[98:] == j11[98:]
+    # T.88 H.2: the arithmetic coder test sequence (one context, I = 0, MPS = 0) encodes to the listed 30 bytes once the 0xFF 0xAC
+    # marker JBIG2 generic regions end with is appended.
+    h2 = bytes.fromhex("00020051000000C00352872AAAAAAAAA82C02000FCD79EF6BF7FED904F46A3BF")
+    mq, cx = MqEncoder(), [0]
+    for bit in (b >> (7 - i) & 1 for b in h2 for i in range(8)):
+        mq.encode(cx, 0, bit)
+    assert mq.flush() + b"\xff\xac" == bytes.fromhex("84C73BFCE1A1430402200000410DBB86F4317FFF88FF37471ADB6ADFFFAC")
 
 
 def main(argv: list[str]) -> int:

@@ -105,13 +105,15 @@ public class CMapParserTests
     }
 
     [Fact]
-    public void A_usecmap_naming_a_predefined_CMap_that_is_not_built_in_is_reported_as_unavailable()
+    public void A_usecmap_naming_a_predefined_CMap_that_is_not_built_in_is_reported_as_unavailable_and_gives_only_its_codespace()
     {
         var context = new CMapContext();
 
-        CMap cmap = CMap.Parse(Bytes("/90ms-RKSJ-H usecmap 1 begincodespacerange <00> <FF> endcodespacerange"), context);
+        CMap cmap = CMap.Parse(Bytes("/90ms-RKSJ-H usecmap 1 begincidchar <41> 7 endcidchar"), context);
 
-        Assert.Null(cmap.Parent);
+        Assert.Equal("90ms-RKSJ-H", cmap.Parent?.Name);
+        Assert.Equal((2, 0), (cmap.ReadCode([0x93, 0xFA]).Length, cmap.GetCid(cmap.ReadCode([0x93, 0xFA]))));
+        Assert.Equal(7, cmap.GetCid(cmap.ReadCode("A"u8)));
         Diagnostic diagnostic = Assert.Single(context.Diagnostics);
         Assert.Equal(("CMapUnavailable", DiagnosticSeverity.Information), (diagnostic.Code, diagnostic.Severity));
     }

@@ -76,7 +76,13 @@ public sealed class PdfLabColorSpace : PdfColorSpace
             return new ComponentRange(0, 100);
         }
 
-        IReadOnlyList<double> range = Range;
+        // Read in place: a colour operator in this space asks for ranges, and the content interpreter allocates nothing per operator.
+        Span<double> range = stackalloc double[4];
+        if (!ColorEntries.TryReadNumbers(Cache!, Element(1) as CosDictionary, ColorSpaceNames.Range, range) || range[0] > range[1] || range[2] > range[3])
+        {
+            DefaultRange.CopyTo(range);
+        }
+
         return new ComponentRange(range[2 * (index - 1)], range[(2 * (index - 1)) + 1]);
     }
 

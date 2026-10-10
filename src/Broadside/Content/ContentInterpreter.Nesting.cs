@@ -153,6 +153,46 @@ internal sealed partial class ContentInterpreter
         }
     }
 
+    /// <summary>
+    /// Runs an annotation's appearance stream as a top-level run (§12.5.5): from the initial graphics state with the CTM set to
+    /// <paramref name="matrix"/> (the algorithm's AA, which already holds the form matrix), the clip intersected with the form's
+    /// bounding box in form space, names resolving in the form's resources (the page's when it has none).
+    /// </summary>
+    internal static void RunAppearance(PdfFormXObject form, Matrix matrix, PdfPage? page, CosReference? owner, PdfDocument document, ContentProcessor processor, ContentOptions options)
+    {
+        ContentInterpreter interpreter = Rent();
+        try
+        {
+            interpreter.RunAppearanceCore(form, matrix, page, owner, document, processor, options);
+        }
+        finally
+        {
+            interpreter.Release();
+        }
+    }
+
+    private void RunAppearanceCore(PdfFormXObject form, Matrix matrix, PdfPage? page, CosReference? owner, PdfDocument document, ContentProcessor processor, ContentOptions options)
+    {
+        Prepare(document, page, processor, options, form.Reference ?? owner);
+        _context.RunKind = ContentRunKind.Appearance;
+        _context.Resources = form.Resources ?? page?.Resources;
+        _context.StreamBaseMatrix = matrix;
+        _context.ContentStream = form.Stream;
+        _context.StructParents = form.StructParents;
+        _states[0].Ctm = matrix;
+        _parts.Add((0, form.Reference));
+        Start();
+        if (form.BoundingBox is { } box)
+        {
+            IntersectBox(box);
+        }
+
+        // The appearance is the run's first frame: patterns selected in it start from its state, and it cannot draw itself.
+        _frames[0] = new RunFrame(form.Stream, matrix, State);
+        Execute(document.ContentResources.GetContent(form.Stream).Span);
+        End();
+    }
+
     /// <summary><see cref="ContentContext.RunForm"/>: the form's events go to another processor.</summary>
     internal void RunFormWith(PdfFormXObject form, ContentProcessor processor)
     {

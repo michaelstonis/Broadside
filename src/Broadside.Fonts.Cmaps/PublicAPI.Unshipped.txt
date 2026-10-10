@@ -1,1 +1,6 @@
 #nullable enable
+Broadside.CmapsPdfOptionsExtensions
+Broadside.Fonts.Cmaps.PredefinedCMapResolver
+Broadside.Fonts.Cmaps.PredefinedCMapResolver.PredefinedCMapResolver() -> void
+Broadside.Fonts.Cmaps.PredefinedCMapResolver.TryResolveResource(Broadside.Fonts.FontResourceKind kind, string! name, out System.ReadOnlyMemory<byte> data) -> bool
+static Broadside.CmapsPdfOptionsExtensions.UsePredefinedCMaps(this Broadside.PdfOptions! options) -> Broadside.PdfOptions!

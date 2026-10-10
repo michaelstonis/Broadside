@@ -1,6 +1,6 @@
 ﻿pdfjs: 989 files
-  Clean: 725
-  Diagnostics: 250
+  Clean: 721
+  Diagnostics: 254
   PasswordRequired: 12
   CertificateRequired: 0
   EncryptionUnsupported: 0
@@ -31,8 +31,10 @@
     DictionaryDuplicateKey: 4
     PageMediaBoxMissing: 4
     DateInvalid: 3
+    DctExtraneousData: 3
     DictionaryUnterminated: 3
     FileIdentifierInvalid: 3
+    Jbig2EndOfPagePresent: 3
     NameTreeNodeInvalid: 3
     PageTreeNodeTypeInvalid: 3
     PagesMissing: 3
@@ -50,6 +52,7 @@
     FieldReferenceInvalid: 2
     FilterAbbreviationNotAllowed: 2
     InfoTrappedInvalid: 2
+    Jbig2CombinationOperatorMismatch: 2
     LinearizationHintsInvalid: 2
     PageTreeKidsInvalid: 2
     PageTreeParentMismatch: 2
@@ -66,6 +69,9 @@
     ButtonOnStateMissing: 1
     ButtonOptLengthMismatch: 1
     ButtonValueStateMismatch: 1
+    DctEndMissing: 1
+    DctFrameInvalid: 1
+    DctScanInvalid: 1
     DictionaryValueMissing: 1
     EncryptDictionaryInvalid: 1
     EncryptedDataInvalid: 1
@@ -78,8 +84,10 @@
     HeaderMissing: 1
     HeaderVersionInvalid: 1
     HexStringInvalidDigit: 1
+    ImageTooLarge: 1
     InfoDictionaryInvalid: 1
     InfoValueNotTextString: 1
+    Jbig2FileHeaderPresent: 1
     JpxLimitExceeded: 1
     MetadataStreamInvalid: 1
     NumberMalformed: 1
@@ -130,8 +138,8 @@ pdfbox: 137 files
     StartxrefInvalid: 1
     StreamLengthInvalid: 1
 qpdf: 639 files
-  Clean: 403
-  Diagnostics: 199
+  Clean: 400
+  Diagnostics: 202
   PasswordRequired: 23
   CertificateRequired: 0
   EncryptionUnsupported: 1
@@ -150,9 +158,9 @@ qpdf: 639 files
     RootMissing: 10
     StreamLengthInvalid: 10
     DestinationInvalid: 8
+    FilterUnsupported: 8
     PopupLinkMismatch: 8
     CatalogTypeInvalid: 7
-    FilterUnsupported: 7
     ObjectStreamIndexMismatch: 7
     WidgetNotInFieldTree: 7
     XrefEntryInvalid: 7
@@ -182,6 +190,7 @@ qpdf: 639 files
     TrailerPrevInvalid: 3
     ArrayUnterminated: 2
     ButtonValueUnknownState: 2
+    DctFrameInvalid: 2
     DictionaryDuplicateKey: 2
     EndOfFileMarkerMissing: 2
     ExtensionsNotDirect: 2
@@ -233,8 +242,8 @@ qpdf: 639 files
     XrefStreamWidthsInvalid: 1
     XrefSubsectionHeaderInvalid: 1
 pdfium-tests: 840 files
-  Clean: 305
-  Diagnostics: 528
+  Clean: 304
+  Diagnostics: 529
   PasswordRequired: 2
   CertificateRequired: 4
   EncryptionUnsupported: 0
@@ -254,6 +263,7 @@ pdfium-tests: 840 files
     XmpPropertyDuplicate: 37
     HeaderInvalid: 29
     FilterDataInvalid: 28
+    DctFrameInvalid: 26
     DecodeParmsInvalid: 24
     OutlineLinkInconsistent: 22
     XrefEntryOffsetInvalid: 21
@@ -300,6 +310,8 @@ pdfium-tests: 840 files
     AnnotationRectInvalid: 1
     AppearanceEntryInvalid: 1
     ButtonValueStateMismatch: 1
+    DctDataInvalid: 1
+    DctTruncated: 1
     DictionaryValueMissing: 1
     EncryptDictionaryInvalid: 1
     EndOfFileMarkerMissing: 1
@@ -307,6 +319,8 @@ pdfium-tests: 840 files
     FieldNameDuplicateInconsistent: 1
     HeaderMissing: 1
     HexStringInvalidDigit: 1
+    Jbig2PageNumberNotOne: 1
+    Jbig2SegmentTruncated: 1
     LinearizationHintsInvalid: 1
     LinkActionAndDest: 1
     NameTreeKeysUnsorted: 1

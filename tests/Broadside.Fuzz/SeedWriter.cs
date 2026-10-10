@@ -52,6 +52,7 @@ internal static class SeedWriter
         ["filter-ascii85"] = "ASCII85Decode",
         ["filter-flate"] = "FlateDecode",
         ["filter-runlength"] = "RunLengthDecode",
+        ["filter-dct"] = "DCTDecode",
     };
 
     /// <summary>Writes the seeds of <paramref name="target"/> into <paramref name="output"/>.</summary>

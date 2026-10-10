@@ -32,6 +32,7 @@ public static class Corpus
         "text-cid-identity-h.pdf",
         "text-cid-identity-v.pdf",
         "text-cid-embedded-cmap.pdf",
+        "text-cidcff-predefined-cmap.pdf",
         "xref-stream.pdf",
         "object-stream.pdf",
         "incremental-update.pdf",
@@ -104,6 +105,9 @@ public static class Corpus
         "jpx-subsampled.pdf",
         "inline-image-filters.pdf",
         "inline-image-ei-in-data.pdf",
+        "dct-baseline.pdf",
+        "dct-progressive.pdf",
+        "dct-cmyk.pdf",
         "shading-type1-function.pdf",
         "shading-type2-axial.pdf",
         "shading-type3-radial.pdf",
@@ -124,6 +128,8 @@ public static class Corpus
         "ccitt-g4-align.pdf",
         "ccitt-blackis1-mask.pdf",
         "ccitt-inline.pdf",
+        "jbig2-generic.pdf",
+        "jbig2-generic-mmr.pdf",
     ];
 
     private static readonly string[] Malformed =

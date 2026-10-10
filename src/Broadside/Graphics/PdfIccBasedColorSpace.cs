@@ -170,8 +170,34 @@ public sealed class PdfIccBasedColorSpace : PdfColorSpace
     /// <inheritdoc/>
     private protected override ComponentRange GetRangeCore(int index)
     {
-        IReadOnlyList<double> range = Range;
-        return new ComponentRange(range[2 * index], range[(2 * index) + 1]);
+        // Read in place: a colour operator in this space asks for ranges, and the content interpreter allocates nothing per operator.
+        int count = ComponentCount;
+        Span<double> range = stackalloc double[8];
+        range = range[..(2 * count)];
+        if (ColorEntries.TryReadNumbers(Cache!, Stream.Dictionary, ColorSpaceNames.Range, range) && Ordered(range))
+        {
+            return new ComponentRange(range[2 * index], range[(2 * index) + 1]);
+        }
+
+        if (IsLabProfile)
+        {
+            return index == 0 ? new ComponentRange(0, 100) : new ComponentRange(-128, 127);
+        }
+
+        return new ComponentRange(0, 1);
+
+        static bool Ordered(ReadOnlySpan<double> pairs)
+        {
+            for (int i = 0; i < pairs.Length; i += 2)
+            {
+                if (pairs[i] > pairs[i + 1])
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
     }
 
     /// <summary>Returns DeviceGray, DeviceRGB or DeviceCMYK for 1, 3 or 4 components.</summary>
