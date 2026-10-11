@@ -258,6 +258,21 @@ public sealed class ColorSpaceFamilyTests
         Assert.DoesNotContain(document.Diagnostics, d => d.Code.StartsWith("Color", StringComparison.Ordinal) || d.Code.StartsWith("DeviceN", StringComparison.Ordinal));
     }
 
+    [Theory]
+    [InlineData("[/Lab << /WhitePoint [0.96 1 0.82] >>]")]
+    [InlineData("/Pattern")]
+    [InlineData("[/Separation /S /DeviceGray << /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >>]")]
+    public void A_DeviceN_process_space_outside_the_device_and_non_Lab_CIE_families_reads_as_absent(string processSpace)
+    {
+        using PdfDocument document = PdfDocument.Create();
+        var space = (PdfDeviceNColorSpace)document.GetColorSpace(Cos(
+            "[/DeviceN [/A] /DeviceGray << /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >> "
+            + "<< /Process << /ColorSpace " + processSpace + " /Components [/A] >> >>]"));
+
+        Assert.Null(space.Attributes!.Process!.ColorSpace);
+        Assert.Contains(document.Diagnostics, d => d.Code == "ColorSpaceEntryInvalid");
+    }
+
     [Fact]
     public void DeviceN_names_that_repeat_or_name_All_are_recorded()
     {

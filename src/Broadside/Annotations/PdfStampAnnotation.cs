@@ -1,4 +1,5 @@
 using Broadside.Objects;
+using Broadside.Parsing;
 
 namespace Broadside.Annotations;
 
@@ -11,19 +12,28 @@ public sealed class PdfStampAnnotation : PdfMarkupAnnotation
     {
     }
 
-    /// <summary>Gets the name of the stamp's icon (<c>Name</c>), such as <c>Approved</c> or <c>Draft</c> (the default); <see langword="null"/> when the intent is <c>StampImage</c> or <c>StampSnapshot</c> and no name is given.</summary>
+    /// <summary>
+    /// Gets the name of the stamp's icon (<c>Name</c>), such as <c>Approved</c> or <c>Draft</c> (the default); <see langword="null"/> when
+    /// the intent is present and not <c>Stamp</c>, such as <c>StampImage</c> or <c>StampSnapshot</c>, where a <c>Name</c> entry is ignored with a diagnostic.
+    /// </summary>
     /// <remarks>ISO 32000-2 §12.5.6.12, Table 184: <c>Name</c> shall not be present when <c>IT</c> is present and not <c>Stamp</c> (PDF 2.0).</remarks>
     public string? IconName
     {
         get
         {
+            bool ordinary = Intent is not { } intent || intent.Value == "Stamp";
             CosName? name = ReadName(AnnotationNames.Name);
-            if (name is not null)
+            if (!ordinary)
             {
-                return name.Value;
+                if (name is not null)
+                {
+                    Report(DiagnosticCodes.AnnotationValueInvalid, "The stamp annotation has a Name entry, which Table 184 forbids when IT is present and not Stamp; it is ignored.");
+                }
+
+                return null;
             }
 
-            return Intent is { } intent && intent.Value != "Stamp" ? null : "Draft";
+            return name?.Value ?? "Draft";
         }
     }
 }

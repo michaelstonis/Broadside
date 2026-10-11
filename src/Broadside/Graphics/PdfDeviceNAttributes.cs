@@ -73,7 +73,7 @@ public sealed class PdfDeviceNAttributes
 
         if (Process is { } process && (process.ColorSpace is null || process.Components.Count == 0))
         {
-            _owner.Report(DiagnosticCodes.ColorSpaceEntryInvalid, "A DeviceN Process dictionary lacks its ColorSpace or Components; it is ignored.");
+            _owner.Report(DiagnosticCodes.ColorSpaceEntryInvalid, "A DeviceN Process dictionary lacks its Components or a ColorSpace that is a device or CIE-based space other than Lab; it is ignored.");
         }
     }
 }

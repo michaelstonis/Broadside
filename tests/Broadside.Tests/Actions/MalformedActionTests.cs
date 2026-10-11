@@ -33,6 +33,7 @@ public sealed class MalformedActionTests
         { "/S /JavaScript", "ActionInvalid" },
         { "/S /RichMediaExecute /TA << >>", "ActionInvalid" },
         { "/S /Thread /D true", "ActionEntryInvalid" },
+        { "/S /GoToDp /Dp << /Type /DPart >>", "ActionEntryInvalid" },
     };
 
     [Theory]
@@ -44,6 +45,16 @@ public sealed class MalformedActionTests
         Assert.NotNull(document.GetAction(Parse(entries), Owner));
 
         Assert.Equal([code], Warnings(document).Select(diagnostic => diagnostic.Code));
+    }
+
+    [Fact]
+    public void A_direct_document_part_reads_as_absent()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("empty-page.pdf"));
+
+        var action = (PdfGoToDocumentPartAction)document.GetAction(Parse("/S /GoToDp /Dp << /Type /DPart >>"), Owner)!;
+
+        Assert.Null(action.DocumentPart);
     }
 
     [Fact]

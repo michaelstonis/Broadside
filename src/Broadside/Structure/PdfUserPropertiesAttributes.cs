@@ -30,15 +30,10 @@ public sealed class PdfUserPropertiesAttributes : PdfAttributeObject
             foreach (CosObject item in array)
             {
                 if (Document.Resolve(item) is CosDictionary property
-                    && ViewReading.Text(Document, property, StructureNames.N) is { } name
-                    && ViewReading.Get(Document, property, StructureNames.V) is { } value)
+                    && ViewReading.Text(Document, property, StructureNames.N) is not null
+                    && ViewReading.Get(Document, property, StructureNames.V) is not null)
                 {
-                    properties.Add(new PdfUserProperty(
-                        property,
-                        name,
-                        value,
-                        ViewReading.Text(Document, property, StructureNames.F),
-                        ViewReading.Boolean(Document, property, StructureNames.H) ?? false));
+                    properties.Add(new PdfUserProperty(Document, property));
                 }
             }
 

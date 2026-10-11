@@ -103,6 +103,33 @@ public sealed class MalformedAnnotationTests
         Assert.Equal("AnnotationRectInvalid", Assert.Throws<DiagnosticException>(() => square.Rect).Diagnostic.Code);
     }
 
+    [Theory]
+    [InlineData("/IT /StampImage /Name /Approved", null, true)]
+    [InlineData("/IT /StampSnapshot /Name /Approved", null, true)]
+    [InlineData("/IT /StampImage", null, false)]
+    [InlineData("/IT /Stamp /Name /Approved", "Approved", false)]
+    [InlineData("", "Draft", false)]
+    public void A_stamp_name_is_ignored_with_a_diagnostic_when_the_intent_forbids_it(string entries, string? iconName, bool reported)
+    {
+        byte[] file = new TestPdf().Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Annots [4 0 R] >>",
+            $"<< /Type /Annot /Subtype /Stamp /Rect [0 0 10 10] {entries} >>");
+        using PdfDocument document = PdfDocument.Open(file);
+        var stamp = (PdfStampAnnotation)Assert.Single(document.Pages[0].Annotations);
+
+        Assert.Equal(iconName, stamp.IconName);
+        Assert.Equal(reported ? ["AnnotationValueInvalid 4"] : [], document.Diagnostics.Where(d => d.Code != "AppearanceMissing").Select(Describe));
+
+        if (reported)
+        {
+            using PdfDocument strict = PdfDocument.Open(file, new PdfOptions().UseStrict());
+            var strictStamp = (PdfStampAnnotation)Assert.Single(strict.Pages[0].Annotations);
+            Assert.Equal("AnnotationValueInvalid", Assert.Throws<DiagnosticException>(() => strictStamp.IconName).Diagnostic.Code);
+        }
+    }
+
     public static TheoryData<string, string, string> ArrayAndTypeDeviations => new()
     {
         { "/Annots 5 0 R", "AnnotsInvalid", "/Type /Annot /Subtype /Square" },

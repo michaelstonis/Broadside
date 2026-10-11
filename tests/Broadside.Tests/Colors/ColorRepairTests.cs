@@ -33,6 +33,7 @@ public sealed class ColorRepairTests
         { "tint transform with too few outputs", "<< /ColorSpace << /X [/Separation /S /DeviceCMYK " + Gray + "] >> >>", "/X cs" + Paint, "TintTransformInvalid" },
         { "alternate that cannot be an alternate", "<< /ColorSpace << /X [/Separation /S /Pattern " + Gray + "] >> >>", "/X cs" + Paint, "ColorSpaceEntryInvalid" },
         { "DeviceN repeated names", "<< /ColorSpace << /X [/DeviceN [/A /A] /DeviceGray 6 0 R] >> >>", "/X cs" + Paint, "DeviceNColorantsInvalid" },
+        { "DeviceN process space of a forbidden family", "<< /ColorSpace << /X [/DeviceN [/A /B] /DeviceGray 6 0 R << /Process << /ColorSpace [/Indexed /DeviceGray 0 <00>] /Components [/A] >> >>] >> >>", "/X cs" + Paint, "ColorSpaceEntryInvalid" },
         { "default of the wrong size", "<< /ColorSpace << /DefaultRGB /DeviceCMYK >> >>", "1 0 0 rg" + Paint, "DefaultColorSpaceInvalid" },
         { "SC in a Separation space", "<< /ColorSpace << /X [/Separation /S /DeviceGray " + Gray + "] >> >>", "/X cs 0.5 sc" + Paint, "ContentColorOperatorMismatch" },
         { "sc in a Pattern space", "<< >>", "/Pattern cs 0.5 sc" + Paint, "ContentColorOperatorInvalid" },

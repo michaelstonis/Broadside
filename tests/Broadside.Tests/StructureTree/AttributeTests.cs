@@ -103,6 +103,13 @@ public sealed class AttributeTests
                 Assert.Equal("Color", property.Name);
                 Assert.False(property.IsHidden);
             });
+
+        PdfUserProperty part = user.Properties[0];
+        part.Dictionary[new CosName("N")] = new CosString("Assembly"u8.ToArray());
+        part.Dictionary[new CosName("V")] = new CosInteger(7);
+        part.Dictionary.Remove(new CosName("F"));
+        part.Dictionary[new CosName("H")] = CosBoolean.False;
+        Assert.Equal(("Assembly", new CosInteger(7), (string?)null, false), (part.Name, part.Value, part.FormattedValue, part.IsHidden));
     }
 
     [Fact]

@@ -14,9 +14,9 @@ public sealed class PdfGoToDocumentPartAction : PdfAction
     /// <inheritdoc/>
     public override PdfActionKind Kind => PdfActionKind.GoToDp;
 
-    /// <summary>Gets the DPart dictionary to go to (<c>Dp</c>, required, an indirect reference), or <see langword="null"/>.</summary>
+    /// <summary>Gets the DPart dictionary to go to (<c>Dp</c>, required, an indirect reference), or <see langword="null"/>; a direct dictionary reads as absent.</summary>
     /// <remarks>ISO 32000-2 §12.6.4.5, Table 206, and §14.12, Table 409.</remarks>
-    public CosDictionary? DocumentPart => ReadDictionary(ActionNames.Dp);
+    public CosDictionary? DocumentPart => GetReference(ActionNames.Dp) is null ? null : ReadDictionary(ActionNames.Dp);
 
     /// <inheritdoc/>
     private protected override void Check()
@@ -24,6 +24,10 @@ public sealed class PdfGoToDocumentPartAction : PdfAction
         if (!Dictionary.ContainsKey(ActionNames.Dp))
         {
             Report("A GoToDp action shall have a Dp entry naming a DPart; it has none, so it goes nowhere.");
+        }
+        else if (GetReference(ActionNames.Dp) is null)
+        {
+            ReportEntry(ActionNames.Dp, "an indirect reference to a DPart dictionary");
         }
     }
 }

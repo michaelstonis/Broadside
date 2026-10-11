@@ -18,12 +18,18 @@ public sealed class PdfDeviceNProcess
     /// <summary>Gets the process dictionary.</summary>
     public CosDictionary Dictionary { get; }
 
-    /// <summary>Gets the process colour space (a device or CIE-based space other than Lab), or <see langword="null"/> when missing.</summary>
+    /// <summary>Gets the process colour space (a device or CIE-based space other than Lab), or <see langword="null"/> when missing or of another family.</summary>
     /// <remarks>ISO 32000-2 Table 71 (required).</remarks>
     public PdfColorSpace? ColorSpace =>
-        Dictionary.TryGetValue(ColorSpaceNames.ColorSpace, out CosObject? value) ? _owner.FindRelatedSpace(value) : null;
+        Dictionary.TryGetValue(ColorSpaceNames.ColorSpace, out CosObject? value) && _owner.FindRelatedSpace(value) is { } space && IsProcessFamily(space.Family)
+            ? space
+            : null;
 
     /// <summary>Gets the names of the DeviceN components that correspond to the process space's components, in its order.</summary>
     /// <remarks>ISO 32000-2 Table 71 (required).</remarks>
     public IReadOnlyList<CosName> Components => ColorEntries.Names(_owner.Cache!, Dictionary.GetValueOrDefault(ColorSpaceNames.Components));
+
+    private static bool IsProcessFamily(PdfColorSpaceFamily family) => family
+        is PdfColorSpaceFamily.DeviceGray or PdfColorSpaceFamily.DeviceRgb or PdfColorSpaceFamily.DeviceCmyk
+        or PdfColorSpaceFamily.CalGray or PdfColorSpaceFamily.CalRgb or PdfColorSpaceFamily.IccBased;
 }
