@@ -102,7 +102,9 @@ public abstract class PdfCidFont
     /// Unicode value from the collection's CID-to-Unicode table (§9.10.2, <c>Adobe-Japan1-UCS2</c> and the like, through
     /// <see cref="FontResourceKind.CidToUnicode"/>) looked up in the substitute's Unicode "cmap"; and for an
     /// <see cref="FontMatchKind.Exact"/> substitute of a CIDFontType2 without such a table (Adobe-Identity), the CID as the glyph id,
-    /// since an Identity CIDFont's CIDs are the glyph ids of the font it was made from. Text keeps the CIDFont's own widths.
+    /// since an Identity CIDFont's CIDs are the glyph ids of the font it was made from. When none of these reaches a glyph and the
+    /// CIDs have no Unicode table (Adobe-Identity), <see cref="PdfType0Font.ReadGlyph"/> takes the code's single character from the
+    /// Type 0 font's ToUnicode CMap and looks it up in the substitute's Unicode "cmap". Text keeps the CIDFont's own widths.
     /// </para>
     /// </remarks>
     public FontSubstitute? Substitute => GetSubstituteState()?.Substitute;
@@ -196,6 +198,21 @@ public abstract class PdfCidFont
         }
 
         return false;
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether the CIDFont is drawn with a substitute its CIDs reach through no Unicode table: no CID-keyed
+    /// charset and no CID-to-Unicode table for its collection (an Adobe-Identity CIDFont, or a collection whose table no resolver
+    /// has), so a code's ToUnicode value is the only way to the substitute's glyphs.
+    /// </summary>
+    internal bool NeedsUnicodeForSubstitute =>
+        GetSubstituteState() is { Substitute: { } substitute, Ucs2: null } && substitute.Program is not CffFontProgram { Font.IsCidKeyed: true };
+
+    /// <summary>Returns whether the CIDFont's substitute has a glyph for a Unicode value in its Unicode "cmap", and its glyph id.</summary>
+    internal bool TryGetSubstituteGlyphIdForUnicode(int codePoint, out int glyphId)
+    {
+        glyphId = GetSubstituteState()?.Substitute is { } substitute ? substitute.Program.CharacterMapSelection.GetGlyphIdForUnicode(codePoint, out _) : 0;
+        return glyphId != 0;
     }
 
     /// <summary>The program of the descriptor's font file (§9.9), parsed once per stream, as for a CIDFont.</summary>

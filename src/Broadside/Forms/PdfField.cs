@@ -114,7 +114,7 @@ public abstract class PdfField
 
     /// <summary>
     /// Gets the default appearance string (<c>DA</c>): the field's or its nearest ancestor's, else the interactive form's; <see langword="null"/>
-    /// when none has one. Read as bytes, one character per byte; not parsed.
+    /// when none has one. Read as bytes, one character per byte; <see cref="ParsedDefaultAppearance"/> parses it.
     /// </summary>
     /// <remarks>
     /// ISO 32000-2 §12.7.4.3, Table 228 (required and inheritable for fields containing variable text) and §12.7.3, Table 224. A
@@ -138,6 +138,58 @@ public abstract class PdfField
             }
 
             return text;
+        }
+    }
+
+    /// <summary>
+    /// Gets the default appearance string (<see cref="DefaultAppearance"/>) parsed, with its font resolved in the default resources;
+    /// <see langword="null"/> when the field has no default appearance string.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §12.7.4.3. The font is looked up in the <c>Font</c> subdictionary of the nearest <c>DR</c> entry of the field or
+    /// an ancestor, then of the interactive form's <c>DR</c> (Table 224), which is where the clause requires it to be: Table 226
+    /// gives fields no <c>DR</c>, but some writers put one there and other readers honour it.
+    /// </para>
+    /// <para>
+    /// A string that departs from the clause (<see cref="PdfDefaultAppearance.Problems"/>) records <c>DefaultAppearanceInvalid</c>;
+    /// a font that no default resources hold records <c>DefaultAppearanceFontMissing</c> and leaves
+    /// <see cref="PdfDefaultAppearance.Font"/> <see langword="null"/>. Each read parses the string again and returns a new instance.
+    /// </para>
+    /// </remarks>
+    public PdfDefaultAppearance? ParsedDefaultAppearance
+    {
+        get
+        {
+            if (DefaultAppearance is not { } text)
+            {
+                return null;
+            }
+
+            PdfDefaultAppearance parsed = PdfDefaultAppearance.Parse(System.Text.Encoding.Latin1.GetBytes(text));
+            if (!parsed.IsValid)
+            {
+                Report(DiagnosticCodes.DefaultAppearanceInvalid, $"The field's default appearance string departs from §12.7.4.3 ({parsed.Problems}); what was readable is used.");
+            }
+
+            if (parsed.FontName is not { } name)
+            {
+                return parsed;
+            }
+
+            foreach (CosDictionary? resources in (ReadOnlySpan<CosDictionary?>)[Inherited(FormNames.DR) as CosDictionary, Form.DefaultResources])
+            {
+                if (resources is not null
+                    && FieldTree.Get(Document, resources, Fonts.FontNames.Font) is CosDictionary fonts
+                    && fonts.TryGetValue(name, out CosObject? entry)
+                    && Document.GetFont(entry) is { } font)
+                {
+                    return parsed.WithFont(font, resources);
+                }
+            }
+
+            Report(DiagnosticCodes.DefaultAppearanceFontMissing, $"The font /{name.Value} of the field's default appearance string is in no default resources (DR), where §12.7.4.3 requires it.");
+            return parsed;
         }
     }
 
