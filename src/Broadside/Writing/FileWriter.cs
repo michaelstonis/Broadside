@@ -7,6 +7,7 @@ using Broadside.Filters;
 using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
+using Broadside.Security;
 
 namespace Broadside.Writing;
 
@@ -70,7 +71,12 @@ internal sealed record UpdateResult(ReadOnlyMemory<byte> Bytes, XrefSection Sect
 /// source's header. The second file identifier is then derived from the previous one and the update's own bytes.
 /// </para>
 /// <para>
-/// Output is deterministic: the second file identifier is the first 16 bytes of the SHA-256 hash of everything written before the
+/// With an <see cref="ObjectEncryptor"/> (§7.6), every object is serialized through it under the number it is written with,
+/// compressed first and then encrypted; the encryption dictionary is written as it is and kept out of object streams (§7.5.7), and
+/// the cross-reference stream and the trailer are never encrypted.
+/// </para>
+/// <para>
+/// Output is deterministic (encrypted output aside: its IVs are random): the second file identifier is the first 16 bytes of the SHA-256 hash of everything written before the
 /// cross-reference information, and the first is the source's or, for a file without one, the same value (§14.4: both are equal
 /// when a file is first written). Nothing depends on the clock or a random source.
 /// </para>
@@ -105,6 +111,7 @@ internal sealed class FileWriter
     private readonly CompressionLevel _compressionLevel;
     private readonly IReadOnlyDictionary<CosReference, CosReference>? _references;
     private readonly UpdateTarget? _update;
+    private readonly ObjectEncryptor? _encryption;
 
     /// <summary>Initializes a new instance of the <see cref="FileWriter"/> class.</summary>
     /// <param name="source">The file source bytes are copied from; <see langword="null"/> when no object has source bytes.</param>
@@ -124,6 +131,11 @@ internal sealed class FileWriter
     /// For an incremental update, the file it is appended to (<paramref name="source"/>, copied whole) and the section it continues;
     /// <paramref name="freeGenerations"/> then holds only the numbers the update frees, unless the section lists every object.
     /// </param>
+    /// <param name="encryption">
+    /// For a file whose objects are encrypted or decrypted on the way out (§7.6), what each written object becomes under its written
+    /// number; every object is then serialized, never copied, and the encryption dictionary stays out of object streams.
+    /// <see langword="null"/> writes objects as they are.
+    /// </param>
     public FileWriter(
         PdfSource? source,
         PdfVersion version,
@@ -135,8 +147,10 @@ internal sealed class FileWriter
         IStreamEncoder flate,
         CompressionLevel compressionLevel,
         IReadOnlyDictionary<CosReference, CosReference>? references = null,
-        UpdateTarget? update = null)
+        UpdateTarget? update = null,
+        ObjectEncryptor? encryption = null)
     {
+        _encryption = encryption;
         _source = source;
         _version = layout != PdfCrossReferenceLayout.Table && version < StreamVersion ? StreamVersion : version;
         _objects = objects;
@@ -313,9 +327,9 @@ internal sealed class FileWriter
         yield return buffer.WrittenMemory;
     }
 
-    /// <summary>Whether an object may be stored in an object stream (§7.5.7).</summary>
-    private static bool CanBeCompressed(WriterObject item) =>
-        item.Reference.Generation == 0 && item.Value is not (CosStream or CosReference);
+    /// <summary>Whether an object may be stored in an object stream (§7.5.7): not a stream, and not the encryption dictionary.</summary>
+    private bool CanBeCompressed(WriterObject item) =>
+        item.Reference.Generation == 0 && item.Value is not (CosStream or CosReference) && !ReferenceEquals(item.Value, _encryption?.EncryptionDictionary);
 
     /// <summary>Writes <c>%PDF-n.m</c> and a comment line of four bytes above 127, marking the file as binary (§7.5.2).</summary>
     private void WriteHeader(IBufferWriter<byte> buffer)
@@ -335,7 +349,13 @@ internal sealed class FileWriter
         WriteInteger(buffer, reference.Generation);
         buffer.Write(" obj\n"u8);
         int start = buffer.WrittenSpan.Length;
-        if (!item.Compress || item.Value is not CosStream stream || !TryWriteCompressed(buffer, stream, references))
+        if (_encryption is not null)
+        {
+            // Compressed first, then encrypted (§7.6.2: encryption applies to the stream's encoded data); never copied.
+            CosObject value = item.Compress && item.Value is CosStream unfiltered && Compressed(unfiltered) is { } compressed ? compressed : item.Value;
+            CosWriter.Write(_encryption.Encrypt(value, reference), buffer, references);
+        }
+        else if (!item.Compress || item.Value is not CosStream stream || !TryWriteCompressed(buffer, stream, references))
         {
             WriteBody(buffer, item, _source, references);
         }
@@ -362,15 +382,33 @@ internal sealed class FileWriter
             return false;
         }
 
+        CosWriter.Write(new CosStream(WithFlateFilter(stream.Dictionary), encoded.WrittenMemory), buffer, references);
+        return true;
+    }
+
+    /// <summary>
+    /// The <c>FlateDecode</c> copy of an unfiltered stream (§7.4.4), for a file whose streams are encrypted after compression;
+    /// <see langword="null"/> when compressing would not make the object smaller.
+    /// </summary>
+    private CosStream? Compressed(CosStream stream)
+    {
+        ReadOnlyMemory<byte> data = stream.EncodedData;
+        var encoded = new ArrayBufferWriter<byte>(Math.Max(256, data.Length / 2));
+        _flate.Encode(data.Span, encoded, new StreamEncoderContext { StreamDictionary = stream.Dictionary, CompressionLevel = _compressionLevel });
+        return encoded.WrittenCount + FilterEntryLength >= data.Length ? null : new CosStream(WithFlateFilter(stream.Dictionary), encoded.WrittenMemory);
+    }
+
+    /// <summary>A copy of a stream dictionary with <c>Filter</c> <c>FlateDecode</c>.</summary>
+    private static CosDictionary WithFlateFilter(CosDictionary source)
+    {
         var dictionary = new CosDictionary();
-        foreach (KeyValuePair<CosName, CosObject> entry in stream.Dictionary)
+        foreach (KeyValuePair<CosName, CosObject> entry in source)
         {
             dictionary[entry.Key] = entry.Value;
         }
 
         dictionary[FilterNames.Filter] = FilterNames.FlateDecode;
-        CosWriter.Write(new CosStream(dictionary, encoded.WrittenMemory), buffer, references);
-        return true;
+        return dictionary;
     }
 
     /// <summary>Writes an object's bytes: copied from the source when it has them, serialized (with its references renumbered) otherwise.</summary>
