@@ -30,7 +30,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     private int _savedCount;
 
     /// <inheritdoc/>
-    public override ContentEvents Events => ContentEvents.Paths | ContentEvents.StateStack;
+    public override ContentEvents Events => ContentEvents.Paths | ContentEvents.StateStack | ContentEvents.Images;
 
     /// <summary>Builds the display list of <paramref name="page"/>.</summary>
     /// <param name="page">The page.</param>
@@ -64,7 +64,11 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         _paths.AsSpan(0, _pathCount).ToArray(),
         _colors.AsSpan(0, _colorCount).ToArray(),
         _components.AsSpan(0, _componentCount).ToArray(),
-        _transforms.AsSpan(0, _transformCount).ToArray());
+        _transforms.AsSpan(0, _transformCount).ToArray())
+    {
+        Images = _images.AsSpan(0, _imageCount).ToArray(),
+        ImagePaints = _imagePaints.AsSpan(0, _imagePaintCount).ToArray(),
+    };
 
     /// <summary>Forgets everything built, keeping the tables' capacity and no reference into a document.</summary>
     public void Reset()
@@ -74,6 +78,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         _current = Matrix.Identity;
         _savedCount = 0;
         ResetPaths();
+        ResetImages();
     }
 
     /// <inheritdoc/>

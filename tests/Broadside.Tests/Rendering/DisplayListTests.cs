@@ -54,12 +54,13 @@ public sealed class DisplayListTests
 
         document.Pages[0].CreateDisplayList().Replay(recorder);
 
-        // B fills, then strokes; strokes, the pattern fill and the inline image are later tickets'. The q/Q around the image is
-        // dropped because nothing is painted inside it.
+        // B fills, then strokes; strokes and the pattern fill are later tickets'. The inline image (#102) is drawn in its own q/Q.
+        string[] fills = [.. recorder.Operations.Where(static line => line.StartsWith("fill ", StringComparison.Ordinal))];
         Assert.Equal(
             ["DeviceGray 0.75", "DeviceRgb 0 0 1", "DeviceCmyk 0 1 0 0", "CalGray 0.8", "Separation 1", "Separation 0.25", "DeviceRgb 0 0 0"],
-            recorder.Operations.Select(static line => line[(line.IndexOf('|', StringComparison.Ordinal) + 2)..]));
-        Assert.All(recorder.Operations, static line => Assert.StartsWith("fill nonzero M ", line, StringComparison.Ordinal));
+            fills.Select(static line => line[(line.IndexOf('|', StringComparison.Ordinal) + 2)..]));
+        Assert.All(fills, static line => Assert.StartsWith("fill nonzero M ", line, StringComparison.Ordinal));
+        Assert.Equal(["save", "transform [200 0 0 100 40 300]", "image 2x1 Indexed bpc 8", "restore"], recorder.Operations.Skip(fills.Length));
         Assert.Empty(document.Diagnostics);
     }
 
@@ -255,6 +256,10 @@ public sealed class DisplayListTests
             float[] rgb = new float[3];
             converter.Convert(color.Components, rgb);
             Colors.Add(rgb);
+        }
+
+        public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
+        {
         }
     }
 

@@ -3583,3 +3583,16 @@ Broadside.PdfStreamCompression
 Broadside.PdfStreamCompression.AllStreams = 2 -> Broadside.PdfStreamCompression
 Broadside.PdfStreamCompression.ChangedStreams = 1 -> Broadside.PdfStreamCompression
 Broadside.PdfStreamCompression.None = 0 -> Broadside.PdfStreamCompression
+Broadside.Rendering.DisplayImage
+Broadside.Rendering.DisplayImage.BitsPerComponent.get -> int
+Broadside.Rendering.DisplayImage.ColorSpace.get -> Broadside.Graphics.PdfColorSpace!
+Broadside.Rendering.DisplayImage.Components.get -> int
+Broadside.Rendering.DisplayImage.DecodeMap.get -> Broadside.Images.ImageDecodeMap!
+Broadside.Rendering.DisplayImage.GetRow(int y) -> System.ReadOnlySpan<byte>
+Broadside.Rendering.DisplayImage.Height.get -> int
+Broadside.Rendering.DisplayImage.Interpolate.get -> bool
+Broadside.Rendering.DisplayImage.Samples.get -> System.ReadOnlySpan<byte>
+Broadside.Rendering.DisplayImage.StorageBits.get -> int
+Broadside.Rendering.DisplayImage.Stride.get -> int
+Broadside.Rendering.DisplayImage.Width.get -> int
+Broadside.Rendering.IRenderingBackend.DrawImage(Broadside.Rendering.DisplayImage! image, Broadside.Graphics.PdfDefaultColorSpaces! defaultColorSpaces, Broadside.Graphics.ColorConversion conversion) -> void

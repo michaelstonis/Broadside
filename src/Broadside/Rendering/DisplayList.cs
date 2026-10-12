@@ -15,9 +15,9 @@ namespace Broadside.Rendering;
 /// zoom. Converting its colours goes through <see cref="Document"/>, which must still be open for that.
 /// </para>
 /// <para>
-/// Today the list carries the graphics state stack (ISO 32000-2 §8.4.2), transforms (§8.3.2) and path fills with their colour
-/// (§8.5.3, §8.6). Strokes, clips, text, images, shadings, patterns and transparency join it in later Phase 3 tickets, each as new
-/// <see cref="IRenderingBackend"/> calls.
+/// Today the list carries the graphics state stack (ISO 32000-2 §8.4.2), transforms (§8.3.2), path fills with their colour
+/// (§8.5.3, §8.6) and images (§8.9, <see cref="DisplayImage"/>, decoded once per image XObject). Strokes, clips, text, image
+/// masks, shadings, patterns and transparency join it in later Phase 3 tickets, each as new <see cref="IRenderingBackend"/> calls.
 /// </para>
 /// <para>
 /// Immutable once built: any number of threads may replay the same list at once, each into its own backend.
@@ -53,6 +53,12 @@ public sealed class DisplayList
         _transforms = transforms;
     }
 
+    /// <summary>Gets the images the list paints, each decoded once (indexed by <see cref="DisplayOperationKind.DrawImage"/> records).</summary>
+    internal DisplayImage[] Images { get; init; } = [];
+
+    /// <summary>Gets what each image paint depends on beyond its image.</summary>
+    internal DisplayImagePaint[] ImagePaints { get; init; } = [];
+
     /// <summary>Gets the document the list was built from, whose colour converters a backend uses (see <see cref="DisplayColor"/>).</summary>
     public PdfDocument Document { get; }
 
@@ -86,6 +92,10 @@ public sealed class DisplayList
                         new PathView(_verbs.AsSpan(path.VerbStart, path.VerbCount), _points.AsSpan(path.PointStart, path.PointCount)),
                         operation.FillRule,
                         in color);
+                    break;
+                case DisplayOperationKind.DrawImage:
+                    ref readonly DisplayImagePaint paint = ref ImagePaints[operation.Second];
+                    backend.DrawImage(Images[operation.First], paint.DefaultColorSpaces, paint.Conversion);
                     break;
             }
         }

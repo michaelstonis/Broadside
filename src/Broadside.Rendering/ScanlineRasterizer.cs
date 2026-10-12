@@ -148,6 +148,21 @@ internal sealed class ScanlineRasterizer : IDisposable
     /// <param name="color">The opaque colour as premultiplied BGRA in memory order.</param>
     public void Fill(Bitmap bitmap, FillRule rule, uint color)
     {
+        var painter = new SolidPainter(color);
+        Fill(bitmap, rule, ref painter);
+    }
+
+    /// <summary>
+    /// Composites what <paramref name="painter"/> paints over <paramref name="bitmap"/> by the coverage of the shape, then starts a
+    /// new shape. Every paint (solid fills, images) goes through here, so whatever modulates coverage applies to all of them.
+    /// </summary>
+    /// <typeparam name="TPainter">The painter, a struct so that the per-span call is direct and allocates nothing.</typeparam>
+    /// <param name="bitmap">The target; at least as large as the clip.</param>
+    /// <param name="rule">How the winding value decides coverage.</param>
+    /// <param name="painter">What to paint in each run of pixels with equal coverage.</param>
+    public void Fill<TPainter>(Bitmap bitmap, FillRule rule, ref TPainter painter)
+        where TPainter : struct, ISpanPainter
+    {
         if (_count == 0)
         {
             return;
@@ -177,12 +192,12 @@ internal sealed class ScanlineRasterizer : IDisposable
                 }
                 while (index < cells.Length && keys[index] == keys[index - 1]);
 
-                Blend(line, x, 1, Coverage(accumulated + cover - area, rule), color);
+                Paint(ref painter, line, row, x, 1, Coverage(accumulated + cover - area, rule));
                 accumulated += cover;
                 int next = index < cells.Length && (int)(keys[index] >> 32) == row ? (int)(uint)keys[index] : _width;
                 if (next > x + 1)
                 {
-                    Blend(line, x + 1, next - x - 1, Coverage(accumulated, rule), color);
+                    Paint(ref painter, line, row, x + 1, next - x - 1, Coverage(accumulated, rule));
                 }
             }
         }
@@ -218,6 +233,16 @@ internal sealed class ScanlineRasterizer : IDisposable
         }
 
         return (int)((value * 255) + 0.5);
+    }
+
+    /// <summary>Hands a run of pixels with some coverage to the painter.</summary>
+    private static void Paint<TPainter>(ref TPainter painter, Span<uint> line, int row, int x, int count, int coverage)
+        where TPainter : struct, ISpanPainter
+    {
+        if (coverage > 0)
+        {
+            painter.Paint(line, row, x, count, coverage);
+        }
     }
 
     /// <summary>Composites an opaque colour over <paramref name="count"/> pixels at <paramref name="coverage"/> (0 to 255).</summary>
@@ -356,6 +381,12 @@ internal sealed class ScanlineRasterizer : IDisposable
         ArrayPool<Cell>.Shared.Return(_cells);
         _keys = keys;
         _cells = cells;
+    }
+
+    /// <summary>Paints one opaque colour.</summary>
+    private readonly struct SolidPainter(uint color) : ISpanPainter
+    {
+        public void Paint(Span<uint> line, int row, int x, int count, int coverage) => Blend(line, x, count, coverage, color);
     }
 
     /// <summary>What the edges crossing one pixel contribute: their signed heights and the parts of the pixel left of them, times height.</summary>

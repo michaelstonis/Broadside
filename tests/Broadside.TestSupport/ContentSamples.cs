@@ -90,6 +90,60 @@ public static class ContentSamples
         return Encoding.Latin1.GetBytes(text.ToString());
     }
 
+    /// <summary>
+    /// A one-page file that paints images every way the rasterizer resamples them (ISO 32000-2 §8.9): a 256 x 256 8-bit RGB
+    /// gradient (the byte conversion path) enlarged with and without Interpolate, reduced, and under a rotation; a 64 x 64 16-bit
+    /// RGB image and a 64 x 64 8-bit gray image with an inverted Decode array (the component-value path); a 4-bit Indexed image; an
+    /// inline image. Each image XObject is painted at least twice.
+    /// </summary>
+    public static byte[] ImageHeavy()
+    {
+        var rgb = new StringBuilder(256 * 256 * 3);
+        for (int y = 0; y < 256; y++)
+        {
+            for (int x = 0; x < 256; x++)
+            {
+                rgb.Append((char)x).Append((char)y).Append((char)((x * y) & 0xFF));
+            }
+        }
+
+        var deep = new StringBuilder(64 * 64 * 6);
+        var gray = new StringBuilder(64 * 64);
+        for (int i = 0; i < 64 * 64; i++)
+        {
+            int value = i * 16;
+            deep.Append((char)(value >> 8)).Append((char)(value & 0xFF)).Append((char)(i & 0xFF)).Append((char)(i >> 4)).Append((char)0x80).Append((char)0x01);
+            gray.Append((char)((i * 7) & 0xFF));
+        }
+
+        var indices = new StringBuilder(32 * 16);
+        for (int i = 0; i < 32 * 16; i++)
+        {
+            indices.Append((char)(((i & 15) << 4) | ((i >> 4) & 15)));
+        }
+
+        var palette = new StringBuilder();
+        for (int i = 0; i < 16; i++)
+        {
+            palette.Append(CultureInfo.InvariantCulture, $"{i * 17:X2}{255 - (i * 17):X2}{(i * 51) % 256:X2}");
+        }
+
+        const string content =
+            "q 300 0 0 300 20 470 cm /Rgb Do Q q 200 0 0 200 340 570 cm /Smooth Do Q q 100 0 0 100 340 450 cm /Rgb Do Q "
+            + "q 106 106 -106 106 480 300 cm /Smooth Do Q q 250 0 0 250 20 200 cm /Deep Do Q q 120 0 0 120 300 300 cm /Deep Do Q "
+            + "q 150 0 0 150 300 100 cm /Gray Do Q q 40 0 0 40 500 100 cm /Gray Do Q q 180 0 0 120 20 20 cm /Indexed Do Q "
+            + "q 100 0 0 100 450 20 cm BI /W 2 /H 2 /CS /G /BPC 8 /I true ID \u0000ÿÿ\u0000 EI Q";
+        const string image = "/Type /XObject /Subtype /Image ";
+        return OnePage(
+            Encoding.Latin1.GetBytes(content),
+            "/XObject << /Rgb 5 0 R /Smooth 6 0 R /Deep 7 0 R /Gray 8 0 R /Indexed 9 0 R >>",
+            Stream(rgb.ToString(), image + "/Width 256 /Height 256 /ColorSpace /DeviceRGB /BitsPerComponent 8"),
+            Stream(rgb.ToString(), image + "/Width 256 /Height 256 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Interpolate true"),
+            Stream(deep.ToString(), image + "/Width 64 /Height 64 /ColorSpace /DeviceRGB /BitsPerComponent 16"),
+            Stream(gray.ToString(), image + "/Width 64 /Height 64 /ColorSpace /DeviceGray /BitsPerComponent 8 /Decode [1 0]"),
+            Stream(indices.ToString(), image + $"/Width 32 /Height 32 /BitsPerComponent 4 /ColorSpace [/Indexed /DeviceRGB 15 <{palette}>]"));
+    }
+
     /// <summary>A stream object whose data is <paramref name="data"/> (Latin-1), with <paramref name="entries"/> in its dictionary.</summary>
     public static string Stream(string data, string entries = "") =>
         $"<< {entries} /Length {Encoding.Latin1.GetByteCount(data)} >>\nstream\n{data}\nendstream";

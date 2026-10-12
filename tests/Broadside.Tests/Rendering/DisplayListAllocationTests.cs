@@ -67,5 +67,8 @@ public sealed class DisplayListAllocationTests
             Fills++;
             Checksum += path.Points.Length + color.Components.Length + (int)color.ColorSpace.Family;
         }
+
+        public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion) =>
+            Checksum += image.Width + image.Height;
     }
 }

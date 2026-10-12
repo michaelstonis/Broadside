@@ -40,6 +40,19 @@ public interface IRenderingBackend
     void RestoreState();                                // §8.4.2 Q; saves and restores always balance
     void SetTransform(in Matrix transform);             // replaces (does not concatenate) the user space -> default user space transform
     void FillPath(PathView path, FillRule rule, in DisplayColor color);   // §8.5.3.3
+    void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion);   // §8.9.4, #102
+}
+
+public sealed class DisplayImage                      // §8.9.5, §8.9.7: decoded once per list, one instance per image XObject
+{
+    public int Width { get; }  public int Height { get; }  public int Components { get; }
+    public int BitsPerComponent { get; }                // logical n: raw values 0 .. 2^n - 1
+    public int StorageBits { get; }  public int Stride { get; }
+    public ReadOnlySpan<byte> Samples { get; }          // §8.9.3 layout (rows top first, MSB first, 16-bit big-endian)
+    public ReadOnlySpan<byte> GetRow(int y);
+    public PdfColorSpace ColorSpace { get; }            // resolved, before defaults; never Pattern; Indexed has 1 component
+    public ImageDecodeMap DecodeMap { get; }            // §8.9.5.2; MapToIndices for Indexed
+    public bool Interpolate { get; }                    // §8.9.5.3
 }
 
 public readonly ref struct DisplayColor               // §8.6.1: colour specification, never pre-converted
@@ -57,7 +70,8 @@ Rules every backend follows:
 - `SetTransform` comes before the paints it applies to and only when the CTM changes; `RestoreState` restores the transform (and, as later tickets add them, the clip and everything else the backend keeps per state). Save/restore pairs with nothing painted between them are dropped at build time.
 - `PathView` is the path exactly as constructed, in user space: close open subpaths for filling, ignore a trailing single-point subpath, treat degenerate subpaths per §8.5.3.2/§8.5.3.3.1. Spans and views are valid only during the call: copy what you keep.
 - Colour: convert with `list.Document.GetColorConverter(color.ColorSpace, color.Conversion with { Target = <your model> }, color.DefaultColorSpaces)`. That expands Indexed, Separation, DeviceN, applies the defaults and goes through the engine's `IColorManagement` (the colour-management extension point). Check `PdfColorConverter.PaintsNothing` (Separation `None`). Cache converters per colour space if you convert per paint; the document caches them too.
-- Not in the list yet (later Phase 3 tickets): strokes, clips, glyph runs, images, shadings, pattern fills, transparency groups and soft masks.
+- Images (`DrawImage`, #102): image space maps to the unit square through `[1/Width 0 0 -1/Height 0 1]` (first row at the top), then the current transform. Map samples through `DecodeMap` (Indexed: `MapToIndices`), convert with `GetColorConverter(image.ColorSpace, conversion with { Target = ... }, defaultColorSpaces)` (the conversion's intent is already the image's Intent entry when it has one), resample as your platform does; honour `Interpolate` when enlarging. Key per-surface caches on the `DisplayImage` instance. Image masks, SMask/Mask/colour-key masks, Matte and JPX alpha are not in the list yet (#103): today the base image is drawn opaque and stencil masks are skipped.
+- Not in the list yet (later Phase 3 tickets): strokes, clips, glyph runs, image masks, shadings, pattern fills, transparency groups and soft masks.
 
 A backend must also, as those operations arrive:
 
@@ -68,7 +82,7 @@ A backend must also, as those operations arrive:
 - allocate nothing per operation, glyph or scanline during replay; buffers are pooled per surface (`CLAUDE.md`, "Code conventions");
 - produce, for the golden-image suite, pixels in the reference format (premultiplied BGRA8 at a fixed DPI) so the perceptual comparison against the rasterizer's snapshots applies (Track 3H).
 
-Testing against the contract: `Broadside.TestSupport.RecordingBackend` records every call as a line (`save`, `restore`, `transform [a b c d e f]`, `fill nonzero|evenodd M x y L ... Z | Family c0 c1 ...`) and keeps each fill's colour space, components, defaults and conversion; `Broadside.Tests.Rendering.DisplayListTests` shows the pattern. `DisplayListBenchmarks` (Build, Replay) is the replay allocation baseline.
+Testing against the contract: `Broadside.TestSupport.RecordingBackend` records every call as a line (`save`, `restore`, `transform [a b c d e f]`, `fill nonzero|evenodd M x y L ... Z | Family c0 c1 ...`, `image WxH Family bpc N[ interpolate]`) and keeps each fill's colour space, components, defaults and conversion and each image paint (`Images`); `Broadside.Tests.Rendering.DisplayListTests` shows the pattern. `DisplayListBenchmarks` (Build, Replay) is the replay allocation baseline.
 
 Registration goes through the options object (`PdfOptions.Use*`, plan row 1.12) or the package's one fluent configuration call, the same shape as `Broadside.Fonts.Standard14` (ADR 0007). No static registry: two engines in one process may use different backends, and the viewer selects one per surface.
 

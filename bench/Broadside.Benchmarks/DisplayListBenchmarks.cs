@@ -58,5 +58,7 @@ public class DisplayListBenchmarks
         public void SetTransform(in Matrix transform) => Calls++;
 
         public void FillPath(PathView path, FillRule rule, in DisplayColor color) => Calls += path.Verbs.Length + color.Components.Length;
+
+        public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion) => Calls += image.Width;
     }
 }
