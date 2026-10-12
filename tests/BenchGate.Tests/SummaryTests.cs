@@ -78,7 +78,6 @@ public sealed class SummaryTests
 
         BenchmarkCase first = cases[0];
         Assert.Equal("Broadside.Benchmarks.LexerBenchmarks.Tokenize(File: \"empty-page.pdf\")", first.FullName);
-        Assert.Equal("Broadside.Benchmarks.LexerBenchmarks.Tokenize", first.MethodFilter);
         Assert.Equal(0, first.AllocatedBytesPerOperation);
         Assert.Equal(31, first.NanosecondsPerOperation.Count); // Statistics.N in the report
         Assert.InRange(first.NanosecondsPerOperation.Average(), 1603.2, 1603.3); // Statistics.Mean

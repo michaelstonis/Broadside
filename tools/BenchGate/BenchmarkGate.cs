@@ -30,8 +30,8 @@ public static class BenchmarkGate
     }
 
     /// <summary>
-    /// The <c>--filter</c> values (<c>Namespace.Type.Method</c>) of the cases the rounds alone find slower, for the confirmation
-    /// pass. Empty when nothing is slower.
+    /// The full names of the cases the rounds alone find slower, for the confirmation pass (BenchmarkDotNet's <c>--filter</c>
+    /// matches a full name with its parameters). Empty when nothing is slower.
     /// </summary>
     public static IReadOnlyList<string> Suspects(string resultsRoot, GateOptions? options = null)
     {
@@ -42,7 +42,7 @@ public static class BenchmarkGate
         {
             if (sample.IsSlower(options))
             {
-                filters.Add(sample.Filter);
+                filters.Add(name);
             }
         }
 
@@ -168,7 +168,7 @@ public static class BenchmarkGate
                 && confirmBase.NanosecondsPerOperation.Count > 0
                 && confirmHead.NanosecondsPerOperation.Count > 0)
             {
-                var rerun = new Sample(sample.Filter, [(confirmBase.NanosecondsPerOperation, confirmHead.NanosecondsPerOperation)]);
+                var rerun = new Sample([(confirmBase.NanosecondsPerOperation, confirmHead.NanosecondsPerOperation)]);
                 confirmation = rerun.Ratio;
                 confirmed = rerun.Ratio >= options.FailRatio && rerun.Difference >= options.MinimumDifferenceNanoseconds;
             }
@@ -198,7 +198,6 @@ public static class BenchmarkGate
     private static SortedDictionary<string, Sample> Samples(GateResults results)
     {
         var rounds = new SortedDictionary<string, List<(IReadOnlyList<double>, IReadOnlyList<double>)>>(StringComparer.Ordinal);
-        var filters = new Dictionary<string, string>(StringComparer.Ordinal);
         foreach (GatePass pass in results.Rounds.Values)
         {
             foreach ((string name, BenchmarkCase head) in pass.Head)
@@ -216,14 +215,13 @@ public static class BenchmarkGate
                 }
 
                 list.Add((@base.NanosecondsPerOperation, head.NanosecondsPerOperation));
-                filters[name] = head.MethodFilter;
             }
         }
 
         var samples = new SortedDictionary<string, Sample>(StringComparer.Ordinal);
         foreach ((string name, List<(IReadOnlyList<double>, IReadOnlyList<double>)> list) in rounds)
         {
-            samples[name] = new Sample(filters[name], list);
+            samples[name] = new Sample(list);
         }
 
         return samples;
@@ -241,17 +239,14 @@ public static class BenchmarkGate
         private readonly double[] _base;
         private readonly double[] _head;
 
-        public Sample(string filter, IReadOnlyList<(IReadOnlyList<double> Base, IReadOnlyList<double> Head)> rounds)
+        public Sample(IReadOnlyList<(IReadOnlyList<double> Base, IReadOnlyList<double> Head)> rounds)
         {
-            Filter = filter;
             _base = [.. rounds.SelectMany(static round => round.Base).Order()];
             _head = [.. rounds.SelectMany(static round => round.Head).Order()];
             BaseMedian = Quantile(_base, 0.5);
             HeadMedian = Quantile(_head, 0.5);
             RoundRatios = [.. rounds.Select(static round => Quantile([.. round.Head.Order()], 0.5) / Quantile([.. round.Base.Order()], 0.5))];
         }
-
-        public string Filter { get; }
 
         public double BaseMedian { get; }
 

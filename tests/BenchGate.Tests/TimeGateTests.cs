@@ -76,7 +76,7 @@ public sealed class TimeGateTests
     }
 
     [Fact]
-    public void Slower_cases_are_the_suspects_to_rerun_by_method()
+    public void Slower_cases_are_the_suspects_to_rerun_by_full_name()
     {
         using var tree = new ResultsTree();
         tree.AddRounds("base", 2, ResultsTree.Lexer, 0, ResultsTree.Around(1000))
@@ -86,7 +86,7 @@ public sealed class TimeGateTests
 
         IReadOnlyList<string> suspects = BenchmarkGate.Suspects(tree.Root);
 
-        Assert.Equal(["Broadside.Benchmarks.LexerBenchmarks.Tokenize"], suspects);
+        Assert.Equal([ResultsTree.Lexer], suspects);
     }
 
     [Fact]

@@ -5,7 +5,7 @@ description: "Use when a PR touches a hot path (lexer, content interpreter, rast
 
 # Adding a benchmark
 
-`CLAUDE.md` ("Code conventions") requires that hot paths allocate nothing per token, operator, glyph or scanline and that a BenchmarkDotNet benchmark with a `MemoryDiagnoser` assertion proves it. Benchmarks also become the baseline for the Phase 3I regression gate.
+`CLAUDE.md` ("Code conventions") requires that hot paths allocate nothing per token, operator, glyph or scanline and that a BenchmarkDotNet benchmark with a `MemoryDiagnoser` assertion proves it. Every benchmark is also gated in CI against a stored allocation baseline and against the base commit's times ("The regression gate" below).
 
 ## Where benchmarks live
 
@@ -25,7 +25,7 @@ description: "Use when a PR touches a hot path (lexer, content interpreter, rast
 - `[GlobalSetup]` loads the inputs once (corpus bytes via `CorpusLocator`), outside the measured body.
 - The benchmark body is the hot path and nothing else, and returns a value derived from the work so the JIT cannot discard it.
 - `[Params]` over corpus file names when the input matters; keep the values stable, they are part of the result key.
-- Method names are stable identifiers; renaming one breaks its history in the regression gate.
+- Method names are stable identifiers; renaming one fails the regression gate until the baseline is updated.
 - Per-item costs: set `[Benchmark(OperationsPerInvoke = n)]` when one call processes `n` tokens or scanlines, so the mean is per item.
 
 ## Asserting zero allocations
@@ -65,13 +65,20 @@ dotnet run -c Release --project bench/Broadside.Benchmarks -- --filter '*' --job
 
 Results land in `BenchmarkDotNet.Artifacts/results/` (gitignored). `--job dry` numbers are meaningless; use them only to prove the benchmark executes. Quote `--job short` or full-run numbers in the PR's Verification section, with `Mean` and `Allocated`.
 
-## The Phase 3I regression gate
+## The regression gate
 
-Track 3I (`docs/plan/README.md`) adds a CI job that runs the suite and compares each benchmark's mean and allocated bytes against a baseline recorded from `main`, using the JSON exporter output above. What that gate needs from you now:
+`.github/workflows/bench-gate.yml` (issue #139; everything about it is in `bench/baselines/gate/README.md`) runs every benchmark of a pull request that touches `src/`, `bench/`, the corpus or the test support code, next to the same benchmarks built from its base commit on the same runner, and fails when:
 
-- stable class, method and `[Params]` names, since the comparison is keyed by them;
-- `Allocated` already at `-` on hot paths, so the gate can treat any allocation as a failure rather than a percentage;
-- one benchmark per operation, not one per test case, so the baseline stays small enough to run on every PR.
+- a case's `Allocated` differs in any way from `bench/baselines/gate/allocations.json` (more or fewer bytes), or a case is new, renamed or gone without the baseline saying so;
+- a case is at least 20 % slower than the base in both interleaved rounds and in a rerun (the full rule is in the README).
+
+What that means for you:
+
+- **A new benchmark or a new `[Params]` value, a rename, a removal, or an intended allocation change** fails the gate until the baseline is updated in the same PR. The failing run's summary prints the exact lines to change, and its `bench-gate-baseline` artifact is the whole file re-recorded on the CI runner; commit either. Do not record the file on your own machine unless the README says your platform matches.
+- **A benchmark with one case per corpus file** passes its `[ParamsSource]` values through `BenchmarkPartition.Select` and is added to the workflow's `SPLIT` list, so its cases spread over the gate's runners (`OpenAndWalkBenchmarks` does).
+- **Keep class, method and `[Params]` names stable**: the gate keys every comparison by BenchmarkDotNet's full name.
+- **Keep `Allocated` at `-` on hot paths**: the gate locks in whatever the baseline holds, so a zero recorded today is enforced from then on.
+- **Run it locally** before pushing a hot-path change: `bench/run-gate.sh --base <worktree of the base> --head . --out artifacts/bench-gate --methods <file>` then `dotnet run --project tools/BenchGate -- compare --baseline bench/baselines/gate/allocations.json --results artifacts/bench-gate`.
 
 ## Worked example: `CorpusBenchmarks`
 

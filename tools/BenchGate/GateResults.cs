@@ -6,10 +6,9 @@ namespace Broadside.Tools.BenchGate;
 
 /// <summary>One benchmark case of one BenchmarkDotNet run: its key, allocation figure and measured iterations.</summary>
 /// <param name="FullName">BenchmarkDotNet's full name, parameters included: the key the gate and the baseline use.</param>
-/// <param name="MethodFilter"><c>Namespace.Type.Method</c>, the <c>--filter</c> value that reruns the case (with its siblings).</param>
 /// <param name="AllocatedBytesPerOperation"><c>[MemoryDiagnoser]</c>'s bytes per operation, or null when the run had no memory diagnoser.</param>
 /// <param name="NanosecondsPerOperation">The measured (Workload, Result) iterations, in nanoseconds per operation.</param>
-public sealed record BenchmarkCase(string FullName, string MethodFilter, long? AllocatedBytesPerOperation, IReadOnlyList<double> NanosecondsPerOperation);
+public sealed record BenchmarkCase(string FullName, long? AllocatedBytesPerOperation, IReadOnlyList<double> NanosecondsPerOperation);
 
 /// <summary>
 /// The benchmark reports of one gate run, read from a results directory with this layout (any number of shard folders may sit
@@ -125,9 +124,6 @@ public sealed class GateResults
                 continue;
             }
 
-            string filter = string.Join('.', new[] { String(benchmark, "Namespace"), String(benchmark, "Type"), String(benchmark, "Method") }
-                .Where(static part => !string.IsNullOrEmpty(part)));
-
             long? allocated = null;
             if (benchmark.TryGetProperty("Memory", out JsonElement memory)
                 && memory.ValueKind == JsonValueKind.Object
@@ -153,7 +149,7 @@ public sealed class GateResults
                 }
             }
 
-            cases.Add(new BenchmarkCase(fullName, filter, allocated, nanoseconds));
+            cases.Add(new BenchmarkCase(fullName, allocated, nanoseconds));
         }
 
         return cases;

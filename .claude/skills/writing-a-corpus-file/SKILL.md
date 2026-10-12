@@ -88,3 +88,4 @@ Goal: one line of text in an embedded Type 1 font, the `/FontFile` counterpart o
 - [ ] Name added to `Corpus.cs` (`WellFormed` or `Malformed`)
 - [ ] Verify snapshot refreshed; `dotnet test tests/Broadside.Tests` green
 - [ ] Conformance rows updated for the clauses the file exercises
+- [ ] `OpenAndWalkBenchmarks` gains a case for the file: add its line to `bench/baselines/gate/allocations.json` from the benchmark gate's run summary or `bench-gate-baseline` artifact (`bench/baselines/gate/README.md`)

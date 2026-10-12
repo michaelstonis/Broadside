@@ -45,7 +45,13 @@ fi
 
 # The job: one process per case, 3 warm-up and 10 measured iterations of about 100 ms, allocations measured. Passed as plain
 # BenchmarkDotNet options (not a --job name) so a base commit older than the gate runs the same job.
-bench_args=(--launchCount 1 --warmupCount 3 --iterationCount 10 --iterationTime 100 --memory --exporters json)
+# The benchmark processes run without tiered compilation: with it, a process on a busy 4-core runner sometimes measures tier-0
+# code for its whole run (4x slower, and more bytes allocated, because tier 0 does not stack-allocate), which made the same
+# commit differ from itself by up to 4.7x in time and by up to 10 % in allocations. Fully optimized code from the first call
+# removes that mode. DOTNET_PROCESSOR_COUNT pins Environment.ProcessorCount, which sizes per-core structures
+# (ConcurrentDictionary locks, ArrayPool partitions), so the allocation baseline does not depend on the machine's core count.
+bench_args=(--launchCount 1 --warmupCount 3 --iterationCount 10 --iterationTime 100 --memory --exporters json
+  --envVars DOTNET_TieredCompilation:0 DOTNET_PROCESSOR_COUNT:4)
 
 filters=('*')
 if [ -n "${methods}" ]; then

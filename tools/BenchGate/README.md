@@ -14,7 +14,7 @@ dotnet run --project tools/BenchGate -- shard --list methods.txt --baseline benc
 |---|---|
 | `compare` | The verdict. Exit 0 when nothing fails, 1 on a regression; one `::error` annotation per regression, the Markdown summary on stdout and appended to `--summary <file>` (CI passes `$GITHUB_STEP_SUMMARY`). `--record <file>` also writes the re-recorded baseline. `--base-name` labels the base commit in the summary; `--fail-ratio` overrides the time threshold for experiments. |
 | `record` | Writes the pull request side's allocations as a baseline file (sorted, one line per case). |
-| `suspects` | Writes the `Namespace.Type.Method` filters of the cases the rounds find slower, for `bench/run-gate.sh`'s confirmation rerun. |
+| `suspects` | Writes the full names of the cases the rounds find slower (BenchmarkDotNet `--filter` matches a full name with its parameters), for `bench/run-gate.sh`'s confirmation rerun. |
 | `shard` | Splits the methods of `--list flat` over `--count` runners, balanced by the baseline's case count per method. |
 
 Exit code 2 is a bad command line or an unreadable input.

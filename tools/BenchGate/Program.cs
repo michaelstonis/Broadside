@@ -85,7 +85,7 @@ internal static class Program
 
         IReadOnlyList<string> filters = BenchmarkGate.Suspects(results, ReadOptions(options));
         File.WriteAllLines(output, filters);
-        Console.Out.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{filters.Count} benchmark method(s) to confirm."));
+        Console.Out.WriteLine(string.Create(CultureInfo.InvariantCulture, $"{filters.Count} benchmark case(s) to confirm."));
         foreach (string filter in filters)
         {
             Console.Out.WriteLine(filter);
