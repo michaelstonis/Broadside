@@ -1,6 +1,6 @@
 ﻿corpus: verapdf-corpus @ bb75f4f0073d9350dfd058c0162a367e6fadf25e
 files: 2906
-well-formed files: 2792
+well-formed files: 2783
 outcomes:
   Interpreted: 2906
   PasswordRequired: 0

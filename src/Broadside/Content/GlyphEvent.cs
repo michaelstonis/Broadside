@@ -106,6 +106,21 @@ public readonly ref struct GlyphEvent
     public bool IsHidden { get; internal init; }
 
     /// <summary>
+    /// Gets what the glyph's description declares when <see cref="Font"/> is a Type 3 font: whether it began with <c>d0</c> (shape
+    /// and colour) or <c>d1</c> (shape only, painted in the text's colour), the width it gives and the <c>d1</c> bounding box, in glyph
+    /// space (<see cref="PdfType3Font.FontMatrix"/> maps it to text space). Kind <see cref="Type3GlyphKind.None"/> for other fonts and
+    /// for a code with no description.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §9.6.4, Table 111. Read from the description's first operator without running it, so it is the same when the glyph
+    /// is shown, when its description is entered (<see cref="ContentProcessor.BeginType3Glyph"/>) and after it ran, and for a glyph
+    /// whose description is not run (text rendering modes 3 and 7); a processor can decide how to cache the glyph before entering it.
+    /// A description that begins with neither operator is <see cref="Type3GlyphKind.Undeclared"/> and runs as <c>d0</c>. Allocates
+    /// nothing once the description was read.
+    /// </remarks>
+    public Type3GlyphMetrics Type3Metrics => Font is PdfType3Font font ? font.GetGlyphMetrics((byte)CharacterCode) : default;
+
+    /// <summary>
     /// Gets the Unicode text the character code stands for, worked out by <see cref="Font"/> when read: one or more UTF-16 units
     /// (a ligature, a surrogate pair), empty for a code mapped to no text, U+FFFD when nothing maps it.
     /// </summary>
@@ -145,7 +160,7 @@ public readonly ref struct GlyphEvent
 
     private static Span<char> UnicodeBuffer => _unicodeBuffer ??= new char[Fonts.FontUnicode.MaxLength];
 
-    private int MapUnicode(Span<char> buffer, out UnicodeSource source)
+    internal int MapUnicode(Span<char> buffer, out UnicodeSource source)
     {
         if (Font is null || SourceIndex < 0 || SourceIndex >= SourceBytes.Length)
         {
