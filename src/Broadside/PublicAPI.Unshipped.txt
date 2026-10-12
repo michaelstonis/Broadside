@@ -2716,14 +2716,16 @@ Broadside.Security.StandardSecurityHandler.StandardSecurityHandler() -> void
 Broadside.Security.StandardSecurityHandler.SubFilters.get -> System.Collections.Generic.IReadOnlyCollection<Broadside.Objects.CosName!>!
 override Broadside.Security.PdfPassword.ToString() -> string!
 static Broadside.Security.StandardSecurityHandler.UserPermissions(int rawPermissions, int revision) -> Broadside.PdfPermissions
-Broadside.PdfEngine.OpenAsync(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+Broadside.PdfEngine.OpenAsync(System.IO.Stream! stream) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+Broadside.PdfEngine.OpenAsync(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
 Broadside.PdfOptions.StreamBufferLimit.get -> long
 Broadside.PdfOptions.StreamBufferLimit.set -> void
 Broadside.PdfOptions.WithStreamBufferLimit(long limit) -> Broadside.PdfOptions!
 const Broadside.PdfOptions.DefaultStreamBufferLimit = 67108864 -> long
 static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
 static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
-static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream, Broadside.PdfOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream, Broadside.PdfOptions! options) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream, Broadside.PdfOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
 Broadside.PdfCrossReferenceLayout
 Broadside.PdfCrossReferenceLayout.Stream = 1 -> Broadside.PdfCrossReferenceLayout
 Broadside.PdfCrossReferenceLayout.StreamWithObjectStreams = 2 -> Broadside.PdfCrossReferenceLayout
@@ -3624,6 +3626,31 @@ Broadside.Filters.DctEncoder.Encode(System.ReadOnlySpan<byte> data, System.Buffe
 Broadside.Filters.DctEncoder.Name.get -> Broadside.Objects.CosName!
 Broadside.Filters.DctEncoder.Quality.get -> int
 const Broadside.Filters.DctEncoder.DefaultQuality = 75 -> int
+Broadside.PdfEngine.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+Broadside.PdfEngine.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, Broadside.PdfOptions! options) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, Broadside.PdfOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+Broadside.PdfPage.PrefetchAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.PdfOptions.RangeBlockSize.get -> int
+Broadside.PdfOptions.RangeBlockSize.set -> void
+Broadside.PdfOptions.WithRangeBlockSize(int blockSize) -> Broadside.PdfOptions!
+Broadside.PdfOptions.RangeCacheLimit.get -> long
+Broadside.PdfOptions.RangeCacheLimit.set -> void
+Broadside.PdfOptions.WithRangeCacheLimit(long limit) -> Broadside.PdfOptions!
+Broadside.PdfOptions.SynchronousRangeFetch.get -> bool
+Broadside.PdfOptions.SynchronousRangeFetch.set -> void
+Broadside.PdfOptions.WithSynchronousRangeFetch(bool enabled) -> Broadside.PdfOptions!
+const Broadside.PdfOptions.DefaultRangeBlockSize = 4096 -> int
+const Broadside.PdfOptions.DefaultRangeCacheLimit = 67108864 -> long
+Broadside.PdfRangeNotLoadedException
+Broadside.PdfRangeNotLoadedException.PdfRangeNotLoadedException() -> void
+Broadside.PdfRangeNotLoadedException.PdfRangeNotLoadedException(long offset, long length) -> void
+Broadside.PdfRangeNotLoadedException.PdfRangeNotLoadedException(string? message) -> void
+Broadside.PdfRangeNotLoadedException.PdfRangeNotLoadedException(string? message, System.Exception? innerException) -> void
+Broadside.PdfRangeNotLoadedException.Offset.get -> long
+Broadside.PdfRangeNotLoadedException.Length.get -> long
 Broadside.PdfDocument.AddObject(Broadside.Objects.CosObject! value) -> Broadside.Objects.CosReference!
 Broadside.PdfDocument.RemoveObject(Broadside.Objects.CosReference! reference) -> bool
 Broadside.PdfSaveOptions.IncrementalUpdate.get -> bool

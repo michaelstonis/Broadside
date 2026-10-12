@@ -3,6 +3,7 @@ using Broadside.Filters;
 using Broadside.Fonts;
 using Broadside.Fonts.Resolution;
 using Broadside.Graphics;
+using Broadside.IO;
 using Broadside.Security;
 using Microsoft.Extensions.Logging;
 
@@ -26,7 +27,7 @@ internal sealed class EngineConfiguration
     /// Gets what sees each diagnostic as it is recorded, before strict mode throws it: the logger, or <see langword="null"/> when
     /// nothing logs, so a document without logging pays nothing.
     /// </summary>
-    public Action<Diagnostic>? DiagnosticObserver { get; private init; }
+    public Action<Diagnostic>? DiagnosticObserver { get; private set; }
 
     /// <summary>
     /// Gets the logger lazy loading is traced through (issue #45: <c>ObjectParsed</c>, <c>ObjectStreamDecoded</c>), or
@@ -61,8 +62,21 @@ internal sealed class EngineConfiguration
     /// <summary>Gets how many bytes of a non-seekable stream are copied into memory before a temporary file is used (issue #45).</summary>
     public long StreamBufferLimit { get; private init; } = PdfOptions.DefaultStreamBufferLimit;
 
+    /// <summary>Gets how a remote file is fetched and cached (issue #207).</summary>
+    public RangeSourceSettings RangeSource { get; private init; } = new(PdfOptions.DefaultRangeBlockSize, PdfOptions.DefaultRangeCacheLimit, SynchronousFetch: true);
+
     /// <summary>Gets the most pixels one image may have (issue #60).</summary>
     public long MaxImagePixels { get; private init; } = PdfOptions.DefaultMaxImagePixels;
+
+    /// <summary>Returns a copy whose diagnostics are seen by <paramref name="observer"/> instead.</summary>
+    /// <param name="observer">The observer, or <see langword="null"/> for none.</param>
+    /// <returns>The copy.</returns>
+    public EngineConfiguration WithDiagnosticObserver(Action<Diagnostic>? observer)
+    {
+        var copy = (EngineConfiguration)MemberwiseClone();
+        copy.DiagnosticObserver = observer;
+        return copy;
+    }
 
     /// <summary>Copies the current values of <paramref name="options"/>.</summary>
     /// <param name="options">The options.</param>
@@ -79,6 +93,10 @@ internal sealed class EngineConfiguration
         Credentials = options.Credentials,
         StreamBufferLimit = options.StreamBufferLimit,
         MaxImagePixels = options.MaxImagePixels,
+        RangeSource = new(
+            options.RangeBlockSize,
+            Math.Max(options.RangeCacheLimit, options.RangeBlockSize),
+            options.SynchronousRangeFetch && !OperatingSystem.IsBrowser() && !OperatingSystem.IsWasi()),
         FontProgramParsers = FontProgramParserRegistry.Create(options.FontProgramParsers),
         ColorManagement = options.ColorManagement,
         FontResolvers = CreateFontResolvers(options),
