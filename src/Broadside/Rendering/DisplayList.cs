@@ -15,8 +15,9 @@ namespace Broadside.Rendering;
 /// zoom. Converting its colours goes through <see cref="Document"/>, which must still be open for that.
 /// </para>
 /// <para>
-/// Today the list carries the graphics state stack (ISO 32000-2 §8.4.2), transforms (§8.3.2) and path fills with their colour
-/// (§8.5.3, §8.6). Strokes, clips, text, images, shadings, patterns and transparency join it in later Phase 3 tickets, each as new
+/// Today the list carries the graphics state stack (ISO 32000-2 §8.4.2), transforms (§8.3.2), path fills with their colour
+/// (§8.5.3, §8.6), strokes with their colour and line parameters (§8.4.3, §8.5.3.2) and path clips (§8.5.4, including form
+/// bounding boxes, §8.10.1). Text, images, shadings, patterns and transparency join it in later Phase 3 tickets, each as new
 /// <see cref="IRenderingBackend"/> calls.
 /// </para>
 /// <para>
@@ -53,6 +54,12 @@ public sealed class DisplayList
         _transforms = transforms;
     }
 
+    /// <summary>Gets the strokes' colours and line parameters; set by the builder.</summary>
+    internal DisplayStroke[] Strokes { get; init; } = [];
+
+    /// <summary>Gets the dash arrays the strokes slice; set by the builder.</summary>
+    internal double[] Dashes { get; init; } = [];
+
     /// <summary>Gets the document the list was built from, whose colour converters a backend uses (see <see cref="DisplayColor"/>).</summary>
     public PdfDocument Document { get; }
 
@@ -87,7 +94,37 @@ public sealed class DisplayList
                         operation.FillRule,
                         in color);
                     break;
+                case DisplayOperationKind.StrokePath:
+                    Stroke(backend, operation);
+                    break;
+                case DisplayOperationKind.IntersectClip:
+                    ref readonly DisplayPath clip = ref _paths[operation.First];
+                    backend.IntersectClip(
+                        new PathView(_verbs.AsSpan(clip.VerbStart, clip.VerbCount), _points.AsSpan(clip.PointStart, clip.PointCount)),
+                        operation.FillRule);
+                    break;
             }
         }
+    }
+
+    /// <summary>Hands a stroke record to the backend.</summary>
+    private void Stroke(IRenderingBackend backend, in DisplayOperation operation)
+    {
+        ref readonly DisplayPath path = ref _paths[operation.First];
+        ref readonly DisplayStroke stroke = ref Strokes[operation.Second];
+        ref readonly DisplayColorEntry entry = ref _colors[stroke.ColorIndex];
+        var color = new DisplayColor(entry.ColorSpace, _components.AsSpan(entry.ComponentStart, entry.ComponentCount), entry.DefaultColorSpaces, entry.Conversion);
+        var style = new StrokeStyle(
+            stroke.LineWidth,
+            stroke.LineCap,
+            stroke.LineJoin,
+            stroke.MiterLimit,
+            Dashes.AsSpan(stroke.DashStart, stroke.DashCount),
+            stroke.DashPhase,
+            stroke.StrokeAdjustment);
+        backend.StrokePath(
+            new PathView(_verbs.AsSpan(path.VerbStart, path.VerbCount), _points.AsSpan(path.PointStart, path.PointCount)),
+            in style,
+            in color);
     }
 }

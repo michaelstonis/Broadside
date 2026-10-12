@@ -77,7 +77,7 @@ internal sealed class ObjectLoader
         CrossReference = crossReference;
         _diagnostics = diagnostics;
         Hooks = hooks;
-        Scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.ExecutionAndPublication);
+        Scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.PublicationOnly);
     }
 
     /// <summary>Gets the file header.</summary>
@@ -202,7 +202,7 @@ internal sealed class ObjectLoader
     public void Rebase(PdfSource source, XrefSection section, bool replacesAll, IReadOnlyList<WrittenObject> written)
     {
         _source = source;
-        Scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.ExecutionAndPublication);
+        Scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.PublicationOnly);
         CrossReference = new CrossReference(replacesAll ? [section] : [section, .. CrossReference.Sections]);
         foreach (WrittenObject item in written)
         {
@@ -497,7 +497,7 @@ internal sealed class ObjectLoader
     private CosObject ParseIndirectObject(in ObjectLoadContext context)
     {
         long available = _source.Length - context.Offset;
-        int minimum = Math.Min(InitialObjectWindow, _source.InitialWindow);
+        int minimum = Math.Max(Math.Min(InitialObjectWindow, _source.InitialWindow), _source.ExpectedObjectWindow(context.Offset));
         while (true)
         {
             ReadOnlyMemory<byte> window = _source.GetWindow(context.Offset, minimum);

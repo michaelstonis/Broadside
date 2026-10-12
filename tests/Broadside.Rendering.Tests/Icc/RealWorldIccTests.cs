@@ -45,6 +45,90 @@ public sealed class RealWorldIccTests(ITestOutputHelper output)
         Assert.NotEmpty(models);
     }
 
+    /// <summary>The corpora whose output intents carry CMYK printing profiles: the GWG suite (PDF/X-4) and the PDF/A test files.</summary>
+    public static TheoryData<string> OutputIntentCorpora => new() { "gwg-output-suite", "verapdf-corpus" };
+
+    /// <summary>
+    /// Every CMYK output intent profile (ISO 32000-2 §14.11.5, <c>DestOutputProfile</c>) of a corpus is a lookup-table profile the
+    /// engine converts without recording a diagnostic: in practice lut16Type or lutAToBType press characterisations such as FOGRA39
+    /// or GRACoL (ICC.1:2022 §10.10, §10.12).
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(OutputIntentCorpora))]
+    public void Every_CMYK_output_intent_profile_converts_without_diagnostics(string corpus)
+    {
+        IReadOnlyList<string> files = RealWorldCorpus.Files(corpus);
+        if (files.Count == 0)
+        {
+            Assert.Skip($"{corpus} not fetched; run tools/CorpusFetcher (or set {RealWorldCorpus.EnvironmentVariable}).");
+        }
+
+        var converted = new SortedSet<string>(StringComparer.Ordinal);
+        foreach (string file in files)
+        {
+            SweepOutputIntents(file, converted);
+        }
+
+        converted.ToList().ForEach(output.WriteLine);
+        Assert.NotEmpty(converted);
+    }
+
+    /// <summary>Converts a colour through every CMYK output intent profile of one file.</summary>
+    private static void SweepOutputIntents(string file, SortedSet<string> converted)
+    {
+        using PdfDocument? document = TryOpen(file);
+        if (document is null)
+        {
+            return;
+        }
+
+        foreach (int number in OutputIntentProfiles(document))
+        {
+            if (document.GetColorSpace(new CosArray { IccBased, new CosReference(number, 0) }) is not PdfIccBasedColorSpace { ComponentCount: 4 } space
+                || !IccProfile.TryParse(space.GetProfileData().Span, out IccProfile? profile, out _)
+                || profile.Header.DataColorSpace != "CMYK")
+            {
+                continue;
+            }
+
+            int before = document.Diagnostics.Count;
+            float[] rgb = new float[3];
+            document.GetColorConverter(space).Convert([0.2f, 0.4f, 0.6f, 0.1f], rgb);
+
+            Assert.Equal(IccProfileModel.LookupTable, profile.Model);
+            Assert.All(rgb, value => Assert.InRange(value, 0f, 1f));
+            Assert.True(document.Diagnostics.Count == before, $"{file} object {number}: {string.Join("; ", document.Diagnostics.Skip(before).Select(static d => d.Message))}");
+            converted.Add(Description(profile, space));
+        }
+    }
+
+    /// <summary>A profile's description for the test output: the AToB0 type and the profile size, which tell the presses apart.</summary>
+    private static string Description(IccProfile profile, PdfIccBasedColorSpace space) =>
+        $"v{profile.Header.Version} {profile.Header.DeviceClass} {profile.Header.ConnectionSpace.Trim()} {space.GetProfileData().Length} bytes";
+
+    /// <summary>The object numbers of the catalog's output intents' <c>DestOutputProfile</c> streams (ISO 32000-2 §14.11.5, Table 401).</summary>
+    private static SortedSet<int> OutputIntentProfiles(PdfDocument document)
+    {
+        var found = new SortedSet<int>();
+        if (document.Trailer.TryGetValue(new CosName("Root"), out CosObject? root)
+            && document.Resolve(root) is CosDictionary catalog
+            && catalog.TryGetValue(new CosName("OutputIntents"), out CosObject? intents)
+            && document.Resolve(intents) is CosArray array)
+        {
+            foreach (CosObject intent in array)
+            {
+                if (document.Resolve(intent) is CosDictionary dictionary
+                    && dictionary.TryGetValue(DestOutputProfile, out CosObject? profile)
+                    && profile is CosReference reference)
+                {
+                    found.Add(reference.ObjectNumber);
+                }
+            }
+        }
+
+        return found;
+    }
+
     /// <summary>Reads and converts every profile stream of one file.</summary>
     private static void Sweep(string file, Dictionary<string, int> models, List<string> refused)
     {

@@ -49,4 +49,45 @@ public sealed class RasterizerAllocationTests
 
         Assert.Equal(0, allocated);
     }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(4)]
+    public void Stroking_allocates_nothing_per_segment_once_warm(double scale)
+    {
+        // 64 KB of strokes: every cap, join and miter limit, dashes with phases and zero-length dashes, curves, closed subpaths,
+        // zero-width and stroke-adjusted lines and a non-uniform transform (ISO 32000-2 §8.5.3.2).
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(ContentSamples.StrokeHeavy(64 * 1024), ContentSamples.StrokeHeavyResources));
+        PdfPage page = document.Pages[0];
+        DisplayList list = page.CreateDisplayList();
+        RenderOptions options = new RenderOptions().WithScale(scale);
+        PixelSize size = options.GetPixelSize(page);
+        Matrix device = options.GetDeviceTransform(page);
+        using var bitmap = new Bitmap(size.Width, size.Height);
+        using var rasterizer = new SoftwareRasterizer();
+        Action render = () => rasterizer.Render(list, bitmap, device);
+
+        long allocated = Allocations.Measure(render, warmUpCalls: 5);
+
+        Assert.Equal(0, allocated);
+        Assert.Contains(bitmap.Pixels.ToArray(), value => value != 0);
+    }
+
+    [Fact]
+    public void Replaying_the_corpus_strokes_page_allocates_nothing()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("paths-strokes.pdf"));
+        PdfPage page = document.Pages[0];
+        DisplayList list = page.CreateDisplayList();
+        var options = new RenderOptions().WithDpi(300);
+        PixelSize size = options.GetPixelSize(page);
+        Matrix device = options.GetDeviceTransform(page);
+        using var bitmap = new Bitmap(size.Width, size.Height);
+        using var rasterizer = new SoftwareRasterizer();
+        Action render = () => rasterizer.Render(list, bitmap, device);
+
+        long allocated = Allocations.Measure(render);
+
+        Assert.Equal(0, allocated);
+    }
 }

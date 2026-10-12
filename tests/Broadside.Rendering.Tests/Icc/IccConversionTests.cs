@@ -1,6 +1,7 @@
 using Broadside.Diagnostics;
 using Broadside.Graphics;
 using Broadside.Objects;
+using Broadside.Rendering.Icc;
 using static Broadside.Rendering.Tests.Icc.IccProfiles;
 
 namespace Broadside.Rendering.Tests.Icc;
@@ -20,7 +21,30 @@ public sealed class IccConversionTests
         { "bTRC", Rgb(blue: Parametric(3, 2.4, 1)) },
         { "rXYZ", Profile("mntr", "RGB ", [("rXYZ", Gamma(1)), ("gXYZ", Xyz(0.4, 0.7, 0.1)), ("bXYZ", Xyz(0.1, 0.1, 0.7)), ("rTRC", Gamma(1)), ("gTRC", Gamma(1)), ("bTRC", Gamma(1))]) },
         { "gTRC", Profile("mntr", "RGB ", [("rXYZ", Xyz(0.4, 0.2, 0)), ("gXYZ", Xyz(0.4, 0.7, 0.1)), ("bXYZ", Xyz(0.1, 0.1, 0.7)), ("rTRC", Gamma(1)), ("bTRC", Gamma(1))]) },
+        { "A2B0", Profile("mntr", "RGB ", [("wtpt", Xyz(0.9642, 1, 0.8249)), ("A2B0", [.. "mAB "u8, 0, 0, 0, 0])]) },
+        { "A2B0", Profile("scnr", "RGB ", [("A2B0", [.. "mft2"u8, 0, 0, 0, 0, 3, 3, 1, 0])], pcs: "Lab ") },
     };
+
+    public static TheoryData<string, byte[]> BrokenCmykProfiles => new()
+    {
+        { "A2B0 tag is missing", Profile("prtr", "CMYK", [("wtpt", Xyz(0.9642, 1, 0.8249))], pcs: "Lab ") },
+        { "3 channels to 3", Profile("prtr", "CMYK", [("A2B0", [.. "mAB "u8, 0, 0, 0, 0, 3, 3, 0, 0, 0, 0, 0, 32, .. new byte[16], .. Gamma(1), 0, 0, .. Gamma(1), 0, 0, .. Gamma(1), 0, 0])], pcs: "Lab ") },
+    };
+
+    [Theory]
+    [MemberData(nameof(BrokenCmykProfiles))]
+    public void A_CMYK_profile_without_a_usable_AToB_tag_converts_through_the_alternate_with_IccProfileInvalid(string reason, byte[] profile)
+    {
+        using PdfDocument document = PdfDocument.Create(Icc);
+        PdfColorSpace space = document.GetColorSpace(Space(profile, 4, "DeviceCMYK"));
+
+        float[] rgb = document.Rgb(space, 0f, 0f, 0f, 0f);
+
+        Assert.All(rgb, value => Assert.Equal(1f, value, 0.001f));
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal("IccProfileInvalid", diagnostic.Code);
+        Assert.Contains(reason, diagnostic.Message, StringComparison.Ordinal);
+    }
 
     [Fact]
     public void A_matrix_TRC_profile_converts_through_its_curves_and_colorants()
@@ -62,14 +86,54 @@ public sealed class IccConversionTests
     }
 
     [Fact]
-    public void A_lookup_table_profile_and_device_spaces_go_to_the_wrapped_management_without_a_diagnostic()
+    public void Device_spaces_go_to_the_wrapped_management_without_a_diagnostic()
     {
-        byte[] lut = Profile("mntr", "RGB ", [("wtpt", Xyz(0.9642, 1, 0.8249)), ("A2B0", [.. "mAB "u8, 0, 0, 0, 0])]);
         using PdfDocument document = PdfDocument.Create(Icc);
 
-        Assert.Equal([0.5f, 0.25f, 1f], document.Rgb(document.GetColorSpace(Space(lut, 3, "DeviceRGB")), 0.5f, 0.25f, 1f));
         Assert.Equal([0.5f, 0.25f, 1f], document.Rgb(PdfDeviceRgbColorSpace.Instance, 0.5f, 0.25f, 1f));
         Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void An_AToB0_tag_takes_precedence_over_matrix_TRC_tags()
+    {
+        // B curves only (identity): the PCSXYZ is the input in u1Fixed15Number units, 0.25 × 65535 / 32768 (ICC.1:2022 §10.12,
+        // Table 11), where the matrix/TRC tags would give gamma 1.8.
+        byte[] identity = [.. "curv"u8, 0, 0, 0, 0, 0, 0, 0, 0];
+        byte[] lut = [.. "mAB "u8, 0, 0, 0, 0, 3, 3, 0, 0, 0, 0, 0, 32, .. new byte[16], .. identity, .. identity, .. identity];
+        byte[] profile = Profile("mntr", "RGB ",
+        [
+            ("wtpt", Xyz(0.9642, 1, 0.8249)), ("rXYZ", Xyz(0.4361, 0.2225, 0.0139)), ("gXYZ", Xyz(0.3851, 0.7169, 0.0971)),
+            ("bXYZ", Xyz(0.1431, 0.0606, 0.7141)), ("rTRC", Gamma(1.8)), ("gTRC", Gamma(1.8)), ("bTRC", Gamma(1.8)), ("A2B0", lut),
+        ]);
+        Assert.True(IccProfile.TryParse(profile, out IccProfile? read, out _));
+        float[] xyz = new float[3];
+
+        Assert.Equal(IccProfileModel.LookupTable, read.Model);
+        Assert.True(read.TryConvertToConnectionSpace([0.25f, 0.25f, 0.25f], xyz, RenderingIntent.Perceptual));
+        Assert.All(xyz, value => Assert.Equal(0.25f * 65535 / 32768, value, 0.0001f));
+        Assert.True(read.TryConvertToConnectionSpace([0.25f, 0.25f, 0.25f], xyz, RenderingIntent.RelativeColorimetric));
+        Assert.All(xyz, value => Assert.Equal(0.25f * 65535 / 32768, value, 0.0001f));
+    }
+
+    [Fact]
+    public void An_unusable_lookup_table_gives_way_to_the_matrix_TRC_tags_with_IccProfileInvalid()
+    {
+        byte[] profile = Profile("mntr", "RGB ",
+        [
+            ("wtpt", Xyz(0.9642, 1, 0.8249)), ("rXYZ", Xyz(0.4361, 0.2225, 0.0139)), ("gXYZ", Xyz(0.3851, 0.7169, 0.0971)),
+            ("bXYZ", Xyz(0.1431, 0.0606, 0.7141)), ("rTRC", Gamma(1.8)), ("gTRC", Gamma(1.8)), ("bTRC", Gamma(1.8)),
+            ("A2B0", [.. "mAB "u8, 0, 0, 0, 0]),
+        ]);
+        using PdfDocument document = PdfDocument.Create(Icc);
+        PdfColorSpace space = document.GetColorSpace(Space(profile, 3, "DeviceRGB"));
+
+        float[] rgb = document.Rgb(space, 0.5f, 0.5f, 0.5f);
+
+        Assert.All(rgb, value => Assert.InRange(value, 0.566f, 0.578f));
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal("IccProfileInvalid", diagnostic.Code);
+        Assert.Contains("A2B0", diagnostic.Message, StringComparison.Ordinal);
     }
 
     [Fact]

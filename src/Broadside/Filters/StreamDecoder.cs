@@ -238,7 +238,7 @@ internal sealed class StreamDecoder
             throw;
         }
 #pragma warning disable CA1031 // A filter is an extension point; whatever it throws becomes a diagnostic, never a crash (ADR 0005).
-        catch (Exception exception) when (exception is not OutOfMemoryException)
+        catch (Exception exception) when (exception is not (OutOfMemoryException or PdfRangeNotLoadedException))
 #pragma warning restore CA1031
         {
             Report(
@@ -298,7 +298,7 @@ internal sealed class StreamDecoder
             return false;
         }
 #pragma warning disable CA1031 // A filter is an extension point; whatever it throws becomes a diagnostic, never a crash (ADR 0005).
-        catch (Exception exception) when (exception is not OutOfMemoryException)
+        catch (Exception exception) when (exception is not (OutOfMemoryException or PdfRangeNotLoadedException))
 #pragma warning restore CA1031
         {
             if (output.Exceeded)

@@ -53,3 +53,7 @@ const Broadside.Rendering.Icc.IccColorManagement.CacheCapacity = 64 -> int
 const Broadside.Rendering.RenderOptions.DefaultDpi = 72 -> double
 static Broadside.IccPdfOptionsExtensions.UseIccColorManagement(this Broadside.PdfOptions! options) -> Broadside.PdfOptions!
 static Broadside.Rendering.Icc.IccProfile.TryParse(System.ReadOnlySpan<byte> data, out Broadside.Rendering.Icc.IccProfile? profile, out string? problem) -> bool
+Broadside.Rendering.Icc.IccProfile.ChromaticAdaptation.get -> System.Collections.Generic.IReadOnlyList<double>?
+Broadside.Rendering.Icc.IccProfile.TryConvertFromConnectionSpace(System.ReadOnlySpan<float> connection, System.Span<float> device, Broadside.Graphics.RenderingIntent intent = Broadside.Graphics.RenderingIntent.RelativeColorimetric) -> bool
+Broadside.Rendering.Icc.IccProfile.TryConvertToConnectionSpace(System.ReadOnlySpan<float> device, System.Span<float> connection, Broadside.Graphics.RenderingIntent intent = Broadside.Graphics.RenderingIntent.RelativeColorimetric) -> bool
+Broadside.Rendering.Icc.IccProfileModel.LookupTable = 3 -> Broadside.Rendering.Icc.IccProfileModel

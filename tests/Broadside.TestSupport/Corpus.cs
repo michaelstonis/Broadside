@@ -96,6 +96,7 @@ public static class Corpus
         "default-colorspaces.pdf",
         "separation-special.pdf",
         "icc-rgb-matrix.pdf",
+        "icc-lut.pdf",
         "form-xobject-nested.pdf",
         "extgstate-params.pdf",
         "marked-content.pdf",
@@ -142,6 +143,8 @@ public static class Corpus
         "jbig2-annex-h.pdf",
         "paths-fill-rules.pdf",
         "page-rotation.pdf",
+        "paths-strokes.pdf",
+        "clipping-paths.pdf",
     ];
 
     private static readonly string[] Malformed =

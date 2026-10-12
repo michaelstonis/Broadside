@@ -3356,9 +3356,10 @@ def s15f16(value: float) -> bytes:
     return struct.pack(">i", round(value * 65536))
 
 
-def icc_profile(device_class: bytes, space: bytes, tags: list[tuple[bytes, bytes]], version: bytes = bytes([2, 0x10])) -> bytes:
-    """An ICC profile, version 2.1 unless given (ICC.1:2022 7.2 header, 7.3 tag table): XYZ PCS, D50 illuminant, the tags 4-byte
-    aligned."""
+def icc_profile(device_class: bytes, space: bytes, tags: list[tuple[bytes, bytes]], version: bytes = bytes([2, 0x10]),
+                pcs: bytes = b"XYZ ") -> bytes:
+    """An ICC profile, version 2.1 unless given (ICC.1:2022 7.2 header, 7.3 tag table): XYZ PCS unless given, D50 illuminant,
+    the tags 4-byte aligned."""
     count = len(tags)
     offset = 128 + 4 + 12 * count
     table = struct.pack(">I", count)
@@ -3367,7 +3368,7 @@ def icc_profile(device_class: bytes, space: bytes, tags: list[tuple[bytes, bytes
         table += sig + struct.pack(">II", offset + len(data), len(body))
         data += body + b"\x00" * (-len(body) % 4)
     size = 128 + len(table) + len(data)
-    header = (struct.pack(">I", size) + b"\x00" * 4 + version + b"\x00\x00" + device_class + space + b"XYZ "
+    header = (struct.pack(">I", size) + b"\x00" * 4 + version + b"\x00\x00" + device_class + space + pcs
               + struct.pack(">6H", 2026, 1, 1, 0, 0, 0) + b"acsp" + b"\x00" * 24 + struct.pack(">I", 0)
               + s15f16(0.9642) + s15f16(1.0) + s15f16(0.8249) + b"\x00" * 48)
     assert len(header) == 128
@@ -3626,6 +3627,260 @@ def gen_icc_rgb_matrix() -> bytes:
         (6, stream(b"/N 3", profiles["CS1"])),
         (7, stream(b"/N 1", profiles["CS2"])),
         (8, stream(b"/N 1", profiles["CS3"])),
+    ], binary=True)
+
+
+def icc_curves(curves: list[bytes]) -> bytes:
+    """A set of embedded curveType or parametricCurveType tags stored one after another, each padded to 4 bytes (10.12.2)."""
+    return b"".join(c + b"\x00" * (-len(c) % 4) for c in curves)
+
+
+def icc_grid_values(grids: list[int], function) -> list[float]:
+    """CLUT samples of function(normalized inputs) -> normalized outputs, the first input varying least rapidly (10.10)."""
+    values: list[float] = []
+
+    def walk(prefix: list[float], depth: int) -> None:
+        if depth == len(grids):
+            values.extend(min(max(v, 0.0), 1.0) for v in function(*prefix))
+            return
+        for i in range(grids[depth]):
+            walk(prefix + [i / (grids[depth] - 1)], depth + 1)
+    walk([], 0)
+    return values
+
+
+def icc_u16(values: list[float]) -> bytes:
+    return b"".join(struct.pack(">H", round(min(max(v, 0.0), 1.0) * 65535)) for v in values)
+
+
+def icc_u8(values: list[float]) -> bytes:
+    return bytes(round(min(max(v, 0.0), 1.0) * 255) for v in values)
+
+
+ICC_IDENTITY_MATRIX = b"".join(s15f16(v) for v in (1, 0, 0, 0, 1, 0, 0, 0, 1))
+
+
+def icc_lut16(grid: int, function, in_tables: list[list[float]], out_tables: list[list[float]]) -> bytes:
+    """ICC.1:2022 10.10 lut16Type ('mft2', Table 40): identity matrix, input tables, a CLUT of `grid` points per side holding
+    function(normalized inputs), output tables; all uInt16Number."""
+    values = icc_grid_values([grid] * len(in_tables), function)
+    return (b"mft2" + b"\x00" * 4 + bytes([len(in_tables), len(out_tables), grid, 0]) + ICC_IDENTITY_MATRIX
+            + struct.pack(">HH", len(in_tables[0]), len(out_tables[0]))
+            + b"".join(icc_u16(t) for t in in_tables) + icc_u16(values) + b"".join(icc_u16(t) for t in out_tables))
+
+
+def icc_lut8(grid: int, function, in_tables: list[list[float]], out_tables: list[list[float]]) -> bytes:
+    """ICC.1:2022 10.11 lut8Type ('mft1', Table 44): identity matrix, 256-entry input tables, the CLUT, 256-entry output tables."""
+    values = icc_grid_values([grid] * len(in_tables), function)
+    return (b"mft1" + b"\x00" * 4 + bytes([len(in_tables), len(out_tables), grid, 0]) + ICC_IDENTITY_MATRIX
+            + b"".join(icc_u8(t) for t in in_tables) + icc_u8(values) + b"".join(icc_u8(t) for t in out_tables))
+
+
+def icc_clut(grids: list[int], precision: int, function) -> bytes:
+    """ICC.1:2022 10.12.3 / 10.13.5 CLUT (Tables 46 and 48): 16 grid-point counts, the precision (1 or 2 bytes), the samples."""
+    values = icc_grid_values(grids, function)
+    data = icc_u8(values) if precision == 1 else icc_u16(values)
+    return bytes(grids + [0] * (16 - len(grids))) + bytes([precision, 0, 0, 0]) + data
+
+
+def icc_mab(signature: bytes, inputs: int, outputs: int, b: list[bytes], matrix: list[float] | None = None,
+            m: list[bytes] | None = None, clut: bytes | None = None, a: list[bytes] | None = None) -> bytes:
+    """ICC.1:2022 10.12 lutAToBType ('mAB ', Table 45) or 10.13 lutBToAType ('mBA ', Table 47): the 32-byte header with the five
+    offsets, then the elements in the order the tag stores them (B curves, matrix, M curves, CLUT, A curves), 4-byte aligned;
+    a missing element has offset 0. The matrix is 12 s15Fixed16Numbers e1 to e12 (Equations 16 to 19)."""
+    elements = [icc_curves(b), b"".join(s15f16(v) for v in matrix) if matrix else None,
+                icc_curves(m) if m else None, clut, icc_curves(a) if a else None]
+    body = b""
+    offsets = []
+    for element in elements:
+        if element is None:
+            offsets.append(0)
+            continue
+        offsets.append(32 + len(body))
+        body += element + b"\x00" * (-len(element) % 4)
+    return signature + b"\x00" * 4 + bytes([inputs, outputs, 0, 0]) + struct.pack(">5I", *offsets) + body
+
+
+ICC_D50 = (0.9642, 1.0, 0.8249)
+ICC_SRGB_D50 = ((0.4361, 0.3851, 0.1431), (0.2225, 0.7169, 0.0606), (0.0139, 0.0971, 0.7141))
+"""Rows X, Y, Z of the sRGB primaries adapted to D50 (columns red, green, blue)."""
+
+
+def icc_lab(xyz: tuple[float, float, float]) -> tuple[float, float, float]:
+    """CIE 1976 L*a*b* of an XYZ colour relative to the D50 PCS white (ICC.1:2022 Annex A)."""
+    def f(t: float) -> float:
+        return t ** (1 / 3) if t > (6 / 29) ** 3 else t / (3 * (6 / 29) ** 2) + 4 / 29
+    fx, fy, fz = (f(v / w) for v, w in zip(xyz, ICC_D50))
+    return 116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)
+
+
+def icc_rgb_xyz(r: float, g: float, b: float) -> tuple[float, float, float]:
+    return tuple(row[0] * r + row[1] * g + row[2] * b for row in ICC_SRGB_D50)
+
+
+def icc_ink(c: float, m: float, y: float, k: float, paper: float, density: float) -> tuple[float, float, float]:
+    """A made-up subtractive press: the reflectance of each primary through the inks' unwanted absorptions, as Lab."""
+    keep = 1 - density * k
+    red = paper * (1 - 0.92 * c) * (1 - 0.12 * m) * (1 - 0.03 * y) * keep
+    green = paper * (1 - 0.25 * c) * (1 - 0.9 * m) * (1 - 0.08 * y) * keep
+    blue = paper * (1 - 0.1 * c) * (1 - 0.3 * m) * (1 - 0.9 * y) * keep
+    return icc_lab(icc_rgb_xyz(red, green, blue))
+
+
+def icc_lab_v4(lab: tuple[float, float, float]) -> tuple[float, float, float]:
+    """6.3.4.2 Tables 12 and 13: PCSLAB normalized for 8-bit and 16-bit encodings (and lut8Type, lutAToBType, lutBToAType)."""
+    return lab[0] / 100, (lab[1] + 128) / 255, (lab[2] + 128) / 255
+
+
+def icc_lab_legacy(lab: tuple[float, float, float]) -> tuple[float, float, float]:
+    """10.10 Tables 42 and 43: the legacy 16-bit PCSLAB encoding of lut16Type, normalized (FF00h is L* 100, a* 127)."""
+    return lab[0] / 100 * 65280 / 65535, (lab[1] + 128) * 256 / 65535, (lab[2] + 128) * 256 / 65535
+
+
+def icc_cmyk_from_lab(lab: tuple[float, float, float]) -> tuple[float, float, float, float]:
+    """A smooth made-up separation for the BToA tags: gray component to black, a* and b* to the chromatic inks."""
+    darkness = min(max(1 - lab[0] / 100, 0.0), 1.0)
+    k = 0.7 * darkness ** 2
+    c = 0.85 * darkness + max(-lab[1], 0) / 200 + max(-lab[2], 0) / 400
+    m = 0.8 * darkness + max(lab[1], 0) / 180
+    y = 0.8 * darkness + max(lab[2], 0) / 160
+    return tuple(min(max(v, 0.0), 1.0) for v in (c * (1 - k), m * (1 - k), y * (1 - k), k))
+
+
+def icc_identity_table(entries: int) -> list[float]:
+    return [i / (entries - 1) for i in range(entries)]
+
+
+ICC_LUT_PROFILES: dict[str, bytes] = {}
+"""Filled lazily by icc_lut_profiles(): the five profiles of icc-lut.pdf by resource name (tools/IccReference reads them)."""
+
+ICC_LUT_SAMPLES = {
+    "cmyk": [(0, 0, 0, 0), (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1), (0.2, 0.4, 0.6, 0.1), (0.5, 0.5, 0.5, 0.5),
+             (0.85, 0.15, 0.6, 0.3)],
+    "rgb": [(0, 0, 0), (1, 1, 1), (1, 0, 0), (0, 1, 0), (0, 0, 1), (0.5, 0.5, 0.5), (0.25, 0.6, 0.9), (0.9, 0.35, 0.05)],
+    "gray": [(0,), (0.1,), (0.25,), (0.5,), (0.75,), (1,)],
+}
+"""The colours icc-lut.pdf paints in each space: one row of 50 x 50 squares per space."""
+
+ICC_LUT_KINDS = {"CS0": "cmyk", "CS1": "cmyk", "CS2": "rgb", "CS3": "rgb", "CS4": "gray"}
+
+
+def icc_lut_profiles() -> dict[str, bytes]:
+    """The profiles of icc-lut.pdf (ICC.1:2022 8.5.2 output, 8.4.2 input, 8.4.3 display profiles built on lookup tables; 10.10 to
+    10.13, 10.22; 8.10.2 precedence):
+    CS0 v2.1 'prtr' CMYK, PCS Lab: A2B0 lut16Type (256-entry input tables x^1.05, 9-point CLUT, 2-entry output tables, legacy
+    PCSLAB) and B2A0 lut16Type (Lab to CMYK, 9-point CLUT, 256-entry output tables).
+    CS1 v4.4 'prtr' CMYK, PCS Lab, wtpt (0.93, 0.96, 0.78): A2B0 lutAToBType (perceptual: A curves para type 0 g 1.1, 8-bit 7-point
+    CLUT of a lighter press, identity B curves) and A2B1 lutAToBType (colorimetric: identity A curves, 16-bit 9-point CLUT,
+    B curves para type 0 g 1), and B2A1 lutBToAType (identity B curves, 16-bit 11-point CLUT, A curves para type 0 g 0.95).
+    CS2 v2.1 'scnr' RGB, PCS Lab: A2B0 lut8Type (input tables x^0.95, 9-point CLUT of the D50 sRGB primaries with gamma 2.2,
+    identity output tables).
+    CS3 v4.4 'mntr' RGB, PCS XYZ: A2B0 lutAToBType with every element (A para g 2.2, 5-point 16-bit CLUT with cross-talk, M para
+    g 1.2, the D50 sRGB matrix in u1Fixed15 units with offsets, identity B), B2A0 lutBToAType (B identity, the inverse matrix, M
+    para g 1/1.2, 2-point identity CLUT, A para g 1/2.2), and also matrix/TRC tags (other primaries, gamma 1) that 8.10.2 says
+    the A2B0 tag overrides, and a chad (s15Fixed16ArrayType, the Bradford D65-to-D50 matrix).
+    CS4 v4.4 'mntr' GRAY, PCS Lab: A2B0 lutAToBType (a 5-entry sampled A curve, a 6-point one-input CLUT, identity B curves)."""
+    if ICC_LUT_PROFILES:
+        return ICC_LUT_PROFILES
+
+    def press(paper: float, density: float, encode):
+        return lambda c, m, y, k: encode(icc_ink(c, m, y, k, paper, density))
+
+    def separation(decode):
+        def function(*pcs: float) -> tuple[float, ...]:
+            return icc_cmyk_from_lab(decode(pcs))
+        return function
+
+    def from_legacy(v):
+        return v[0] * 65535 / 65280 * 100, v[1] * 65535 / 256 - 128, v[2] * 65535 / 256 - 128
+
+    def from_v4(v):
+        return v[0] * 100, v[1] * 255 - 128, v[2] * 255 - 128
+
+    curve_105 = [(i / 255) ** 1.05 for i in range(256)]
+    ICC_LUT_PROFILES["CS0"] = icc_profile(b"prtr", b"CMYK", [
+        (b"desc", icc_desc(b"Broadside CMYK lut16")), (b"cprt", ICC_COPYRIGHT), (b"wtpt", icc_xyz(*ICC_D50)),
+        (b"A2B0", icc_lut16(9, press(1.0, 0.85, icc_lab_legacy), [curve_105] * 4, [icc_identity_table(2)] * 3)),
+        (b"B2A0", icc_lut16(9, separation(from_legacy), [icc_identity_table(2)] * 3, [icc_identity_table(256)] * 4)),
+    ], pcs=b"Lab ")
+    ICC_LUT_PROFILES["CS1"] = icc_profile(b"prtr", b"CMYK", [
+        (b"desc", icc_mluc("Broadside CMYK lutAToB")), (b"cprt", icc_mluc("No copyright, use freely")),
+        (b"wtpt", icc_xyz(0.93, 0.96, 0.78)),
+        (b"A2B0", icc_mab(b"mAB ", 4, 3, [ICC_IDENTITY] * 3, clut=icc_clut([7] * 4, 1, press(1.0, 0.7, icc_lab_v4)),
+                          a=[icc_para(0, 1.1)] * 4)),
+        (b"A2B1", icc_mab(b"mAB ", 4, 3, [icc_para(0, 1.0)] * 3, clut=icc_clut([9] * 4, 2, press(0.97, 0.9, icc_lab_v4)),
+                          a=[ICC_IDENTITY] * 4)),
+        (b"B2A1", icc_mab(b"mBA ", 3, 4, [ICC_IDENTITY] * 3, clut=icc_clut([11] * 3, 2, separation(from_v4)),
+                          a=[icc_para(0, 0.95)] * 4)),
+    ], ICC_V4, pcs=b"Lab ")
+
+    def scanner(r, g, b):
+        return icc_lab_v4(icc_lab(icc_rgb_xyz(r ** 2.2, g ** 2.2, b ** 2.2)))
+    curve_095 = [(i / 255) ** 0.95 for i in range(256)]
+    ICC_LUT_PROFILES["CS2"] = icc_profile(b"scnr", b"RGB ", [
+        (b"desc", icc_desc(b"Broadside RGB lut8")), (b"cprt", ICC_COPYRIGHT), (b"wtpt", icc_xyz(*ICC_D50)),
+        (b"A2B0", icc_lut8(9, scanner, [curve_095] * 3, [icc_identity_table(256)] * 3)),
+    ], pcs=b"Lab ")
+
+    xyz_unit = 32768 / 65535  # u1Fixed15Number (6.3.4.2 Table 11): 1.0 is 8000h
+    forward = [[v * xyz_unit for v in row] for row in ICC_SRGB_D50]
+    offsets = [0.002, 0.001, 0.003]
+    det = (forward[0][0] * (forward[1][1] * forward[2][2] - forward[1][2] * forward[2][1])
+           - forward[0][1] * (forward[1][0] * forward[2][2] - forward[1][2] * forward[2][0])
+           + forward[0][2] * (forward[1][0] * forward[2][1] - forward[1][1] * forward[2][0]))
+    inverse = [[(forward[(c + 1) % 3][(r + 1) % 3] * forward[(c + 2) % 3][(r + 2) % 3]
+                 - forward[(c + 1) % 3][(r + 2) % 3] * forward[(c + 2) % 3][(r + 1) % 3]) / det for c in range(3)] for r in range(3)]
+
+    def crosstalk(r, g, b):
+        return 0.9 * r + 0.1 * g * r, 0.05 * r + 0.9 * g + 0.05 * b, 0.1 * g + 0.9 * b * (0.9 + 0.1 * b)
+    ICC_LUT_PROFILES["CS3"] = icc_profile(b"mntr", b"RGB ", [
+        (b"desc", icc_mluc("Broadside RGB lutAToB")), (b"cprt", icc_mluc("No copyright, use freely")),
+        (b"wtpt", icc_xyz(*ICC_D50)),
+        (b"chad", b"sf32" + b"\x00" * 4 + b"".join(s15f16(v) for v in (1.0478, 0.0229, -0.0501, 0.0295, 0.9905, -0.0171,
+                                                                         -0.0092, 0.0151, 0.7519))),
+        (b"rXYZ", icc_xyz(0.6097, 0.3111, 0.0195)), (b"gXYZ", icc_xyz(0.2053, 0.6257, 0.0609)),
+        (b"bXYZ", icc_xyz(0.1492, 0.0632, 0.7446)),
+        (b"rTRC", ICC_IDENTITY), (b"gTRC", ICC_IDENTITY), (b"bTRC", ICC_IDENTITY),
+        (b"A2B0", icc_mab(b"mAB ", 3, 3, [ICC_IDENTITY] * 3,
+                          matrix=[v for row in forward for v in row] + offsets, m=[icc_para(0, 1.2)] * 3,
+                          clut=icc_clut([5] * 3, 2, crosstalk), a=[icc_para(0, 2.2)] * 3)),
+        (b"B2A0", icc_mab(b"mBA ", 3, 3, [ICC_IDENTITY] * 3,
+                          matrix=[v for row in inverse for v in row] + [0, 0, 0], m=[icc_para(0, 1 / 1.2)] * 3,
+                          clut=icc_clut([2] * 3, 2, lambda r, g, b: (r, g, b)), a=[icc_para(0, 1 / 2.2)] * 3)),
+    ], ICC_V4)
+
+    ICC_LUT_PROFILES["CS4"] = icc_profile(b"mntr", b"GRAY", [
+        (b"desc", icc_mluc("Broadside gray lutAToB")), (b"cprt", icc_mluc("No copyright, use freely")),
+        (b"wtpt", icc_xyz(*ICC_D50)),
+        (b"A2B0", icc_mab(b"mAB ", 1, 3, [ICC_IDENTITY] * 3, clut=icc_clut([6], 2,
+                          lambda x: icc_lab_v4((100 * x ** 0.8, 0.0, 6 * (1 - x)))),
+                          a=[icc_sampled([0, 0.2, 0.45, 0.72, 1])])),
+    ], ICC_V4, pcs=b"Lab ")
+    return ICC_LUT_PROFILES
+
+
+def gen_icc_lut() -> bytes:
+    """8.6.5.5 ICCBased spaces with lookup-table profiles (ICC.1:2022 10.10 lut16Type, 10.11 lut8Type, 10.12 lutAToBType,
+    10.13 lutBToAType, 10.22 s15Fixed16ArrayType; 8.10.2 tag precedence), the five of icc_lut_profiles(), N 4, 4, 3, 3, 1 with
+    no Alternate. One row of 50 x 50 squares per space, top to bottom CS0 to CS4, painting ICC_LUT_SAMPLES left to right."""
+    profiles = icc_lut_profiles()
+    content = b""
+    for row, name in enumerate(profiles):
+        for column, sample in enumerate(ICC_LUT_SAMPLES[ICC_LUT_KINDS[name]]):
+            values = b" ".join(b"%g" % v for v in sample)
+            content += b"/%s cs %s scn %d %d 50 50 re f\n" % (name.encode(), values, 40 + 65 * column, 680 - 80 * row)
+    resources = (b"<< /ColorSpace << /CS0 [/ICCBased 5 0 R] /CS1 [/ICCBased 6 0 R] /CS2 [/ICCBased 7 0 R] "
+                 b"/CS3 [/ICCBased 8 0 R] /CS4 [/ICCBased 9 0 R] >> >>")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/N 4", profiles["CS0"])),
+        (6, stream(b"/N 4", profiles["CS1"])),
+        (7, stream(b"/N 3", profiles["CS2"])),
+        (8, stream(b"/N 3", profiles["CS3"])),
+        (9, stream(b"/N 1", profiles["CS4"])),
     ], binary=True)
 
 # ---------------------------------------------------------------------------
@@ -5551,6 +5806,87 @@ def gen_page_rotation() -> bytes:
     return simple_file(objects)
 
 
+def gen_paths_strokes() -> bytes:
+    """8.5.3.2 stroking with the line parameters of 8.4.3 (width, cap, join, miter limit, dash pattern) and 10.7.5 automatic
+    stroke adjustment. One 400 x 400 page, white background, four bands from the top. (A) y 300..400: three chevrons 14 wide, each
+    with cap and join of the same number: 0 J 0 j (butt, miter) in DeviceRGB red, 1 J 1 j (round, round) green, 2 J 2 j (projecting
+    square, bevel) blue. (B) y 200..300: two chevrons 8 wide, arms 60 long, that meet at 30 degrees (miter ratio 1 / sin 15 = 3.86): 4 M keeps
+    the miter, 3.5 M bevels it (DeviceGray 0); a closed triangle (h) 6 wide whose three corners are mitered, in DeviceRGB 0.5 0 0.5.
+    (C) y 100..200: lines 6 wide from x 20 to 200 dashed [12 6] 0, [12 6] 9 and [6 3 9] -3 (a negative phase, normalized by twice
+    the array sum); [0 12] 0 with round caps (dots) and [0 12] 6 with projecting square caps along a slanted line (squares turned with
+    it); right half, a rectangle (re) 6 wide dashed [30 10] 5, whose last dash runs on into the first across its start (a mitered
+    corner), and a dashed curve, in DeviceRGB 0 0 0.8. (D) y 0..100: 0 w lines (the thinnest line: one device pixel) horizontal at
+    y 90.3, vertical at x 30.6, diagonal, and a circle; 1 w rules at y 70 and x 100.5 without and, through /GS0 gs (SA true), with
+    stroke adjustment at y 50 and x 120.5; under q 4 0 0 1 200 0 cm, a circle of radius 10 and a diagonal 3 wide with round caps
+    (an elliptical pen, four times wider across than along y); 12 wide degenerate subpaths with round caps (dots: 350 80 m 350 80 l,
+    370 80 m h), with butt caps (nothing: 350 40 m 350 40 l) and a lone trailing moveto (nothing)."""
+    def chevron(x0: float, y0: float, w: float, h: float) -> bytes:
+        return b"%s %s m %s %s l %s %s l" % (_num(x0), _num(y0), _num(x0 + w / 2), _num(y0 + h), _num(x0 + w), _num(y0))
+
+    half = 60 * math.tan(math.radians(15))
+    content = b"\n".join([
+        b"14 w 0 J 0 j 1 0 0 RG " + chevron(25, 320, 90, 60) + b" S",
+        b"1 J 1 j 0 1 0 RG " + chevron(155, 320, 90, 60) + b" S",
+        b"2 J 2 j 0 0 1 RG " + chevron(285, 320, 90, 60) + b" S",
+        b"0 J 0 j 0 G 8 w 4 M 40 %s m 100 275 l 40 %s l S" % (_num(275 - half), _num(275 + half)),
+        b"3.5 M 40 %s m 100 230 l 40 %s l S" % (_num(230 - half), _num(230 + half)),
+        b"10 M 6 w 0.5 0 0.5 RG 250 215 m 370 230 l 290 285 l h S",
+        b"0 0 0.8 RG [12 6] 0 d 20 190 m 200 190 l S",
+        b"[12 6] 9 d 20 175 m 200 175 l S",
+        b"[6 3 9] -3 d 20 160 m 200 160 l S",
+        b"1 J [0 12] 0 d 20 145 m 200 145 l S",
+        b"2 J [0 12] 6 d 20 110 m 200 130 l S",
+        b"0 J [30 10] 5 d 230 120 140 70 re S",
+        b"[8 4] 0 d 1 J 240 105 m 280 85 340 125 380 105 c S",
+        b"[] 0 d 0 J 0 G 0 w 10 90.3 m 90 90.3 l S 30.6 10 m 30.6 80 l S 40 10 m 90 60 l S " + _circle(65, 35, 15, clockwise=False) + b" S",
+        b"1 w 100 70 m 180 70 l S 100.5 10 m 100.5 60 l S",
+        b"q /GS0 gs 110 50 m 180 50 l S 120.5 10 m 120.5 40 l S Q",
+        b"q 4 0 0 1 200 0 cm 3 w 0 0 0.6 RG " + _circle(10, 50, 10, clockwise=False) + b" S 1 J 2 10 m 28 85 l S Q",
+        b"1 J 12 w 1 0 0 RG 350 80 m 350 80 l S 375 80 m h S 0 J 350 40 m 350 40 l S 1 J 375 40 m S",
+    ]) + b"\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(mediabox=b"[0 0 400 400]", contents=4, resources=False,
+                 extra=b" /Resources << /ExtGState << /GS0 << /Type /ExtGState /SA true >> >> >>")),
+        (4, stream(b"", content)),
+    ])
+
+
+def gen_clipping_paths() -> bytes:
+    """8.5.4 clipping path operators (W, W*) with 8.5.3.3 insideness, 8.4.2 q/Q restoring the clip, 8.10.1 form bounding-box clips.
+    One 400 x 300 page, white background, each figure in its own q/Q. Top row: (A) nested clips: a counterclockwise circle of four c
+    curves, centre (70, 225), radius 55, W n, then the rectangle 70 200 130 100 re W n, then a DeviceRGB red fill of the whole cell:
+    only the part of the circle right of x = 70 and above y = 200 is red; (B) an even-odd clip: a pentagram at (200, 225), radius 55,
+    W* n, then a DeviceRGB blue fill of 140 165 120 120: the five points are blue, the centre pentagon white; (C) a clip restored by
+    Q: q 285 170 50 110 re W n, a DeviceRGB 0 0.6 0 fill of 270 200 120 50 (green only from x 285 to 335), Q, then a DeviceRGB
+    0.5 0 0.5 bar 270 175 120 10 re f that is not clipped. Bottom row: (D) a clip applies after the paint of its path: two
+    counterclockwise squares 20..120 and 45..95 filled with W* f in red (non-zero: solid), then a blue fill of the cell, which
+    reaches only the even-odd ring; (E) form XObjects clipped to their bounding boxes: under 1 0 0 1 150 20 cm, form Fm (/BBox
+    [0 0 100 100]) fills a DeviceRGB 0 0.5 0.5 circle of radius 60 at (50, 50) (cut by the box on four sides) and paints form In
+    (/BBox [25 25 75 75]), which fills a DeviceRGB 1 0.5 0 triangle (0 0) (100 0) (50 100) cut to its box; (F) an oblique
+    rectangle clip: under a 30 degree rotation about (330, 75), -40 -40 80 80 re W n, then eight vertical stripes 15 wide from
+    x = -60, alternately DeviceRGB red and blue, cut to the turned square."""
+    content = b"\n".join([
+        b"q " + _circle(70, 225, 55, clockwise=False) + b" W n 70 200 130 100 re W n 1 0 0 rg 0 150 140 150 re f Q",
+        b"q " + _star(200, 225, 55) + b" W* n 0 0 1 rg 140 165 120 120 re f Q",
+        b"q 285 170 50 110 re W n 0 0.6 0 rg 270 200 120 50 re f Q 0.5 0 0.5 rg 270 175 120 10 re f",
+        b"q 1 0 0 rg " + _square(20, 20, 120, 120, False) + b" " + _square(45, 45, 95, 95, False) + b" W* f 0 0 1 rg 0 0 140 140 re f Q",
+        b"q 1 0 0 1 150 20 cm /Fm Do Q",
+        b"q 0.866 0.5 -0.5 0.866 330 75 cm -40 -40 80 80 re W n "
+        + b" ".join(b"%s rg %d -60 15 120 re f" % (b"1 0 0" if i % 2 == 0 else b"0 0 1", -60 + 15 * i) for i in range(8)) + b" Q",
+    ]) + b"\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(mediabox=b"[0 0 400 300]", contents=4, resources=False, extra=b" /Resources << /XObject << /Fm 5 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Resources << /XObject << /In 6 0 R >> >>",
+                   b"0 0.5 0.5 rg " + _circle(50, 50, 60, clockwise=False) + b" f /In Do")),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [25 25 75 75]", b"1 0.5 0 rg 0 0 m 100 0 l 50 100 l h f")),
+    ])
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -5656,6 +5992,7 @@ FILES = {
     "default-colorspaces.pdf": gen_default_colorspaces,
     "separation-special.pdf": gen_separation_special,
     "icc-rgb-matrix.pdf": gen_icc_rgb_matrix,
+    "icc-lut.pdf": gen_icc_lut,
     "form-xobject-nested.pdf": gen_form_xobject_nested,
     "extgstate-params.pdf": gen_extgstate_params,
     "marked-content.pdf": gen_marked_content,
@@ -5707,6 +6044,8 @@ FILES = {
     "jbig2-annex-h.pdf": gen_jbig2_annex_h,
     "paths-fill-rules.pdf": gen_paths_fill_rules,
     "page-rotation.pdf": gen_page_rotation,
+    "paths-strokes.pdf": gen_paths_strokes,
+    "clipping-paths.pdf": gen_clipping_paths,
 }
 
 
