@@ -72,6 +72,7 @@ internal static class FuzzTargets
         ["text-extraction"] = ContentObjectsTargets.TextExtraction,
         ["image-decode"] = ImageDecodeTarget.Target,
         ["shading-mesh"] = ShadingMeshTarget.Target,
+        ["default-appearance"] = DefaultAppearanceTarget.Target,
         ["display-list"] = DisplayListTarget.Target,
     };
 

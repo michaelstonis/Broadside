@@ -3481,6 +3481,26 @@ Broadside.Filters.Jbig2DecodeFilter.Name.get -> Broadside.Objects.CosName!
 Broadside.Filters.Jbig2DecodeFilter.TryReadHeader(System.ReadOnlySpan<byte> encoded, Broadside.Filters.ImageFilterContext! context, out Broadside.Filters.ImageHeader header) -> bool
 Broadside.Annotations.PdfAnnotation.ProcessAppearance(Broadside.Graphics.PdfFormXObject! appearance, Broadside.Content.ContentProcessor! processor) -> bool
 Broadside.Annotations.PdfAnnotation.ProcessAppearance(Broadside.Graphics.PdfFormXObject! appearance, Broadside.Content.ContentProcessor! processor, Broadside.Content.ContentOptions! options) -> bool
+Broadside.Forms.PdfDefaultAppearance
+Broadside.Forms.PdfDefaultAppearance.Color.get -> Broadside.Graphics.PdfColor?
+Broadside.Forms.PdfDefaultAppearance.Font.get -> Broadside.Fonts.PdfFont?
+Broadside.Forms.PdfDefaultAppearance.FontName.get -> Broadside.Objects.CosName?
+Broadside.Forms.PdfDefaultAppearance.FontResources.get -> Broadside.Objects.CosDictionary?
+Broadside.Forms.PdfDefaultAppearance.FontSize.get -> double
+Broadside.Forms.PdfDefaultAppearance.IsAutoSize.get -> bool
+Broadside.Forms.PdfDefaultAppearance.IsValid.get -> bool
+Broadside.Forms.PdfDefaultAppearance.OtherOperators.get -> System.ReadOnlyMemory<byte>
+Broadside.Forms.PdfDefaultAppearance.Problems.get -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearance.TextMatrix.get -> Broadside.Graphics.Matrix?
+Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.FontOperatorMissing = 2 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.MultipleTextMatrices = 16 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.None = 0 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.OperandsInvalid = 4 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.OperatorNotAllowed = 8 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.SyntaxInvalid = 1 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfField.ParsedDefaultAppearance.get -> Broadside.Forms.PdfDefaultAppearance?
+static Broadside.Forms.PdfDefaultAppearance.Parse(System.ReadOnlySpan<byte> value) -> Broadside.Forms.PdfDefaultAppearance!
 Broadside.PdfPage.CreateDisplayList() -> Broadside.Rendering.DisplayList!
 Broadside.PdfPage.CreateDisplayList(Broadside.Content.ContentOptions! options) -> Broadside.Rendering.DisplayList!
 Broadside.Rendering.DisplayColor
