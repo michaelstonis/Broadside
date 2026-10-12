@@ -75,6 +75,38 @@ public sealed class PdfSaveOptions
     /// </remarks>
     public bool RemoveUnreachableObjects { get; set; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the save appends an incremental update to the document's file instead of writing a
+    /// complete new one. The default is <see langword="false"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §7.5.6. The written file is every byte of the file the document was read from, unchanged, followed by the objects
+    /// that were changed or added since it was read (or since the last incremental save), a cross-reference section listing only them
+    /// and the objects removed, and a trailer whose <c>Prev</c> entry points at the previous section. The section has the form of the
+    /// file's newest one: a cross-reference stream after a stream (§7.5.8), a classic table otherwise, including after a hybrid file's
+    /// table (§7.5.8.4). Objects keep their numbers; a removed object's entry is free with its generation raised by one.
+    /// </para>
+    /// <para>
+    /// <see cref="CrossReferenceLayout"/>, <see cref="ObjectNumbering"/> and <see cref="RemoveUnreachableObjects"/> do not apply to
+    /// an update. <see cref="StreamCompression"/> applies to the streams the update writes, which are all new or changed, so
+    /// <see cref="PdfStreamCompression.ChangedStreams"/> and <see cref="PdfStreamCompression.AllStreams"/> compress the same ones.
+    /// Once the last byte is written, the document reads from the written file and its objects are no longer dirty, so the next
+    /// incremental save appends only what changes after this one.
+    /// </para>
+    /// </remarks>
+    public bool IncrementalUpdate { get; set; }
+
+    /// <summary>Sets <see cref="IncrementalUpdate"/>.</summary>
+    /// <param name="incremental">Whether the save appends an incremental update.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §7.5.6.</remarks>
+    public PdfSaveOptions WithIncrementalUpdate(bool incremental)
+    {
+        IncrementalUpdate = incremental;
+        return this;
+    }
+
     /// <summary>Sets <see cref="ObjectNumbering"/>.</summary>
     /// <param name="numbering">The numbering.</param>
     /// <returns>These options.</returns>

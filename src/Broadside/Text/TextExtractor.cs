@@ -18,6 +18,10 @@ namespace Broadside.Text;
 /// to Unicode like any other; its glyph description is not run, so text inside it is part of its appearance, not of the page's text.
 /// </para>
 /// <para>
+/// <see cref="Words"/>, <see cref="Lines"/> and <see cref="PlainText"/> group the glyphs in content order (§14.8.2.6.2; see
+/// <see cref="TextWord"/> and <see cref="TextLine"/>), assembled when first read after a run.
+/// </para>
+/// <para>
 /// Glyphs accumulate over runs until <see cref="Clear"/>; the buffers are kept, so an extractor reused for page after page
 /// allocates nothing per glyph once its buffers have grown. Not thread-safe: use one extractor per thread.
 /// </para>
@@ -29,10 +33,16 @@ public sealed class TextExtractor : ContentProcessor
 
     private readonly bool _includeHidden;
     private readonly Dictionary<PdfFont, (double Descent, double Ascent)> _extents = new(ReferenceEqualityComparer.Instance);
+
+    /// <summary>The words, lines and plain text of the glyphs, assembled on demand.</summary>
+    private readonly TextLayout _layout = new();
     private TextGlyph[] _glyphs = new TextGlyph[64];
     private char[] _text = new char[256];
     private int _glyphCount;
     private int _textLength;
+
+    /// <summary>Whether <see cref="_layout"/> describes the glyphs as they are now.</summary>
+    private bool _layoutCurrent;
 
     /// <summary>The marked-content sequences open in the run, counted here so a form's sequences nest in the page's.</summary>
     private int _markedDepth;
@@ -81,11 +91,41 @@ public sealed class TextExtractor : ContentProcessor
     /// <remarks>ISO 32000-2 §9.10.2 and §14.9.4.</remarks>
     public ReadOnlySpan<char> GetGlyphText(in TextGlyph glyph) => Text.Slice(glyph.TextStart, glyph.TextLength);
 
+    /// <summary>Gets the words of the extracted glyphs, assembled when first read after a run. Valid until the extractor next runs or is cleared.</summary>
+    /// <remarks>ISO 32000-2 §14.8.2.6.2 and §14.9.4; <see cref="TextWord"/> gives the rules.</remarks>
+    public ReadOnlySpan<TextWord> Words => Assemble().Words;
+
+    /// <summary>Gets the lines of the extracted glyphs, assembled when first read after a run. Valid until the extractor next runs or is cleared.</summary>
+    /// <remarks>ISO 32000-2 §9.4.4 and §9.7.4.3; <see cref="TextLine"/> gives the rules.</remarks>
+    public ReadOnlySpan<TextLine> Lines => Assemble().Lines;
+
+    /// <summary>
+    /// Gets the plain text of the extracted glyphs in content order, as <see cref="TextPage.PlainText"/>. Valid until the extractor
+    /// next runs or is cleared.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.10 and §14.8.2.6.2.</remarks>
+    public ReadOnlySpan<char> PlainText => Assemble().PlainText;
+
+    /// <summary>Gets the text of one word: the texts of its glyphs. Valid until the extractor next runs or is cleared.</summary>
+    /// <param name="word">A word of <see cref="Words"/>.</param>
+    /// <returns>Its UTF-16 units in <see cref="Text"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The word's range is not within <see cref="Text"/>.</exception>
+    /// <remarks>ISO 32000-2 §9.10 and §14.8.2.6.2.</remarks>
+    public ReadOnlySpan<char> GetWordText(in TextWord word) => Text.Slice(word.TextStart, word.TextLength);
+
+    /// <summary>Gets the text of one line: its words separated by single spaces. Valid until the extractor next runs or is cleared.</summary>
+    /// <param name="line">A line of <see cref="Lines"/>.</param>
+    /// <returns>Its UTF-16 units in <see cref="PlainText"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The line's range is not within <see cref="PlainText"/>.</exception>
+    /// <remarks>ISO 32000-2 §9.10.</remarks>
+    public ReadOnlySpan<char> GetLineText(in TextLine line) => PlainText.Slice(line.PlainTextStart, line.PlainTextLength);
+
     /// <summary>Forgets the extracted glyphs and text, keeping the buffers.</summary>
     public void Clear()
     {
         _glyphCount = 0;
         _textLength = 0;
+        _layoutCurrent = false;
     }
 
     /// <summary>Copies what was extracted into a <see cref="TextPage"/>.</summary>
@@ -199,8 +239,10 @@ public sealed class TextExtractor : ContentProcessor
             Adjustment = glyph.Adjustment,
             IsVertical = glyph.IsVertical,
             Flags = flags,
+            TextRenderingMatrix = toPage,
         };
         _textLength += written;
+        _layoutCurrent = false;
     }
 
     /// <summary>
@@ -262,6 +304,7 @@ public sealed class TextExtractor : ContentProcessor
         replacement.CopyTo(_text.AsSpan(start));
         _textLength = start + replacement.Length;
         _glyphs[first] = _glyphs[first] with { TextLength = replacement.Length };
+        _layoutCurrent = false;
         for (int index = first + 1; index < _glyphCount; index++)
         {
             _glyphs[index] = _glyphs[index] with { TextStart = _textLength, TextLength = 0 };
@@ -326,6 +369,17 @@ public sealed class TextExtractor : ContentProcessor
         }
 
         return (DefaultDescent, DefaultAscent);
+    }
+
+    private TextLayout Assemble()
+    {
+        if (!_layoutCurrent)
+        {
+            _layout.Build(Glyphs, Text);
+            _layoutCurrent = true;
+        }
+
+        return _layout;
     }
 
     private void EnsureText(int free)

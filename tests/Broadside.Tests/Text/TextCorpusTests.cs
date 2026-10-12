@@ -8,7 +8,7 @@ namespace Broadside.Tests.Text;
 
 /// <summary>
 /// Every <c>text-*.pdf</c> corpus file's extracted glyphs, snapshotted: text, code, font, size, rendering mode, flags, origin,
-/// advance and quad. ISO 32000-2 §9.4.4 and §9.10. The text of each file is also asserted independently by
+/// advance and quad; then its lines with their words. ISO 32000-2 §9.4.4, §9.10 and §14.8.2.6.2. The text of each file is also asserted independently by
 /// <c>UnicodeCorpusTests</c>; the snapshots pin positions.
 /// </summary>
 public sealed class TextCorpusTests
@@ -34,6 +34,15 @@ public sealed class TextCorpusTests
                     .Append(glyph.Flags == TextGlyphFlags.None ? string.Empty : " " + glyph.Flags)
                     .Append(CultureInfo.InvariantCulture, $" origin {Point(glyph.Origin)} advance {Point(glyph.Advance)}")
                     .Append(CultureInfo.InvariantCulture, $" quad {Point(glyph.Quad.BottomLeft)} {Point(glyph.Quad.BottomRight)} {Point(glyph.Quad.TopRight)} {Point(glyph.Quad.TopLeft)}\n");
+            }
+
+            foreach (TextLine line in page.Lines)
+            {
+                IEnumerable<string> words = page.Words.Skip(line.WordStart).Take(line.WordCount)
+                    .Select(word => string.Create(CultureInfo.InvariantCulture, $"{Escape(page.GetWordText(word).ToString())} glyphs {word.GlyphStart}+{word.GlyphCount}"));
+                output.Append(CultureInfo.InvariantCulture, $"  line {Escape(page.GetLineText(line).ToString())}{(line.IsVertical ? " vertical" : string.Empty)} glyphs {line.GlyphStart}+{line.GlyphCount}")
+                    .Append(CultureInfo.InvariantCulture, $" quad {Point(line.Quad.BottomLeft)} {Point(line.Quad.BottomRight)} {Point(line.Quad.TopRight)} {Point(line.Quad.TopLeft)}\n")
+                    .Append(CultureInfo.InvariantCulture, $"    words {string.Join(" | ", words)}\n");
             }
         }
 
