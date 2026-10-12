@@ -19,8 +19,10 @@ public sealed class XmpProperty
         string? language,
         IReadOnlyList<XmpProperty> items,
         IReadOnlyList<XmpProperty> fields,
-        IReadOnlyList<XmpProperty> qualifiers)
+        IReadOnlyList<XmpProperty> qualifiers,
+        bool isUri = false)
     {
+        IsUri = isUri;
         NamespaceName = namespaceName;
         Name = name;
         Kind = kind;
@@ -56,11 +58,22 @@ public sealed class XmpProperty
     /// <summary>Gets the qualifiers other than <c>xml:lang</c>.</summary>
     public IReadOnlyList<XmpProperty> Qualifiers { get; }
 
+    /// <summary>Gets whether a simple value is a URI, written with <c>rdf:resource</c> (ISO 16684-1 §6.3.2, §7.5).</summary>
+    internal bool IsUri { get; }
+
     /// <summary>Returns the structure field with the given name.</summary>
     /// <param name="namespaceName">The field's namespace name.</param>
     /// <param name="name">The field's local name.</param>
     /// <returns>The first field with that name, or <see langword="null"/>.</returns>
     public XmpProperty? GetField(string namespaceName, string name) => Find(Fields, namespaceName, name);
+
+    /// <summary>Creates a simple property holding text.</summary>
+    internal static XmpProperty Simple(string namespaceName, string name, string value, string? language = null) =>
+        new(namespaceName, name, XmpPropertyKind.Simple, value, language, [], [], []);
+
+    /// <summary>Creates an array property of simple text items.</summary>
+    internal static XmpProperty Array(string namespaceName, string name, XmpPropertyKind kind, IEnumerable<XmpProperty> items) =>
+        new(namespaceName, name, kind, null, null, [.. items], [], []);
 
     /// <summary>Returns the first property of <paramref name="properties"/> with the given name.</summary>
     internal static XmpProperty? Find(IReadOnlyList<XmpProperty> properties, string namespaceName, string name)

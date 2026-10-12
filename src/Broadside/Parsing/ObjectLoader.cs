@@ -118,6 +118,33 @@ internal sealed class ObjectLoader
     private static IReadOnlyDictionary<int, int> EmptyRemoved { get; } = new Dictionary<int, int>();
 
     /// <summary>
+    /// Gets whether anything changed since the document was read or last re-pointed (an incremental save): an object was added or
+    /// removed, the trailer changed, or a loaded object is dirty. Objects nobody loaded have not changed and are not loaded.
+    /// </summary>
+    public bool HasChanges
+    {
+        get
+        {
+            if (AddedObjects.Count > 0 || RemovedObjects.Count > 0 || CrossReference.Trailer.IsDirty)
+            {
+                return true;
+            }
+
+            foreach ((int number, XrefEntry entry) in CrossReference.Entries)
+            {
+                if (entry.Kind != XrefEntryKind.Free
+                    && TryGetLoaded(new CosReference(number, entry.Kind == XrefEntryKind.InUse ? entry.Generation : 0), out CosObject? value)
+                    && value.IsDirty)
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+    }
+
+    /// <summary>
     /// Makes <paramref name="value"/> a new indirect object under the next unused object number, generation 0 (§7.3.10), resolvable
     /// at once. A mutation: single-threaded, like every change to a document.
     /// </summary>

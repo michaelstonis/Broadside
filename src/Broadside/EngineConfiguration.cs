@@ -64,6 +64,9 @@ internal sealed class EngineConfiguration
     /// <summary>Gets the most pixels one image may have (issue #60).</summary>
     public long MaxImagePixels { get; private init; } = PdfOptions.DefaultMaxImagePixels;
 
+    /// <summary>Gets the clock that dates what the engine writes (issue #162).</summary>
+    public TimeProvider TimeProvider { get; private init; } = TimeProvider.System;
+
     /// <summary>Copies the current values of <paramref name="options"/>.</summary>
     /// <param name="options">The options.</param>
     /// <param name="hostLoggerFactory">The container's logger factory, used when the options set none.</param>
@@ -81,6 +84,7 @@ internal sealed class EngineConfiguration
         MaxImagePixels = options.MaxImagePixels,
         FontProgramParsers = FontProgramParserRegistry.Create(options.FontProgramParsers),
         ColorManagement = options.ColorManagement,
+        TimeProvider = options.TimeProvider,
         FontResolvers = CreateFontResolvers(options),
     };
 

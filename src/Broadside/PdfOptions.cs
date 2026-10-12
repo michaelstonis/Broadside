@@ -225,6 +225,24 @@ public sealed class PdfOptions
         return this;
     }
 
+    /// <summary>Gets the clock set with <see cref="UseTimeProvider"/>; <see cref="TimeProvider.System"/> otherwise.</summary>
+    /// <remarks>Not public, so configuration binding never sees it.</remarks>
+    internal TimeProvider TimeProvider { get; private set; } = TimeProvider.System;
+
+    /// <summary>
+    /// Uses <paramref name="timeProvider"/> as the clock that dates what the engine writes, such as the modification date a save
+    /// records (ISO 32000-2 §14.3.4), in place of <see cref="TimeProvider.System"/>.
+    /// </summary>
+    /// <param name="timeProvider">The clock; dates are written in its local time zone.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §14.3.3 and §14.3.4. A fixed clock makes saved files reproducible.</remarks>
+    public PdfOptions UseTimeProvider(TimeProvider timeProvider)
+    {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        TimeProvider = timeProvider;
+        return this;
+    }
+
     /// <summary>Gets the colour management set with <see cref="UseColorManagement"/>; <see cref="ManagedColorManagement.Default"/> otherwise.</summary>
     /// <remarks>Not public, so configuration binding never sees it.</remarks>
     internal IColorManagement ColorManagement { get; private set; } = ManagedColorManagement.Default;
