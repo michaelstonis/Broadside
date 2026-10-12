@@ -3618,3 +3618,26 @@ Broadside.Graphics.PdfFormXObject.RewriteContent(Broadside.Content.ContentEditor
 Broadside.Graphics.PdfFormXObject.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
 Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor) -> bool
 Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
+Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionAlgorithm.Aes128 = 1 -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionAlgorithm.Aes256 = 0 -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionAlgorithm.Rc4 = 2 -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionOptions
+Broadside.PdfEncryptionOptions.Algorithm.get -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionOptions.Algorithm.set -> void
+Broadside.PdfEncryptionOptions.EncryptMetadata.get -> bool
+Broadside.PdfEncryptionOptions.EncryptMetadata.set -> void
+Broadside.PdfEncryptionOptions.OwnerPassword.get -> string!
+Broadside.PdfEncryptionOptions.PdfEncryptionOptions(string? userPassword, string? ownerPassword) -> void
+Broadside.PdfEncryptionOptions.Permissions.get -> Broadside.PdfPermissions
+Broadside.PdfEncryptionOptions.Permissions.set -> void
+Broadside.PdfEncryptionOptions.UserPassword.get -> string!
+Broadside.PdfEncryptionOptions.WithAlgorithm(Broadside.PdfEncryptionAlgorithm algorithm) -> Broadside.PdfEncryptionOptions!
+Broadside.PdfEncryptionOptions.WithEncryptMetadata(bool encryptMetadata) -> Broadside.PdfEncryptionOptions!
+Broadside.PdfEncryptionOptions.WithPermissions(Broadside.PdfPermissions permissions) -> Broadside.PdfEncryptionOptions!
+Broadside.PdfSaveOptions.Encryption.get -> Broadside.PdfEncryptionOptions?
+Broadside.PdfSaveOptions.Encryption.set -> void
+Broadside.PdfSaveOptions.RemoveEncryption.get -> bool
+Broadside.PdfSaveOptions.RemoveEncryption.set -> void
+Broadside.PdfSaveOptions.WithEncryption(Broadside.PdfEncryptionOptions? encryption) -> Broadside.PdfSaveOptions!
+Broadside.PdfSaveOptions.WithRemoveEncryption(bool remove) -> Broadside.PdfSaveOptions!
