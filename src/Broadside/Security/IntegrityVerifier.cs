@@ -24,9 +24,10 @@ namespace Broadside.Security;
 /// <para>
 /// Outcomes are diagnostics: a token that is malformed is <c>IntegrityCodeInvalid</c>, one that does not match the file is
 /// <c>IntegrityCodeMismatch</c>, one whose byte range stops short of the end of the file is <c>IntegrityCodeIncomplete</c>, a
-/// missing token the permissions require is <c>IntegrityCodeMissing</c>, and one that cannot be checked here (a SHA-3 digest the
-/// platform lacks) is <c>IntegrityCodeNotVerified</c>. Strict mode throws on any of them. The file is digested in windows, so a large
-/// file is never held in memory for this.
+/// missing token the permissions require is <c>IntegrityCodeMissing</c>, and one that cannot be checked here (a digest algorithm
+/// outside Table 8) is <c>IntegrityCodeNotVerified</c>. Strict mode throws on any of them. The file is digested in windows, so a large
+/// file is never held in memory for this. Every digest of Table 8 is checked on every platform: SHA-3 goes through
+/// <see cref="IncrementalDigest"/>, which uses the managed implementation where the base class library has none (ISO/TS 32001 §5.1).
 /// </para>
 /// </remarks>
 internal static class IntegrityVerifier
@@ -40,15 +41,15 @@ internal static class IntegrityVerifier
     private const string ContentTypeAttributeOid = "1.2.840.113549.1.9.3";
     private const string MessageDigestAttributeOid = "1.2.840.113549.1.9.4";
 
-    /// <summary>The digest algorithms of ISO/TS 32004 Table 8: object identifier, name, and whether this platform implements it.</summary>
-    private static readonly (string Oid, HashAlgorithmName Name, Func<bool> IsSupported)[] Digests =
+    /// <summary>The digest algorithms of ISO/TS 32004 Table 8: object identifier and name.</summary>
+    private static readonly (string Oid, HashAlgorithmName Name)[] Digests =
     [
-        ("2.16.840.1.101.3.4.2.1", HashAlgorithmName.SHA256, static () => true),
-        ("2.16.840.1.101.3.4.2.2", HashAlgorithmName.SHA384, static () => true),
-        ("2.16.840.1.101.3.4.2.3", HashAlgorithmName.SHA512, static () => true),
-        ("2.16.840.1.101.3.4.2.8", HashAlgorithmName.SHA3_256, static () => SHA3_256.IsSupported),
-        ("2.16.840.1.101.3.4.2.9", HashAlgorithmName.SHA3_384, static () => SHA3_384.IsSupported),
-        ("2.16.840.1.101.3.4.2.10", HashAlgorithmName.SHA3_512, static () => SHA3_512.IsSupported),
+        ("2.16.840.1.101.3.4.2.1", HashAlgorithmName.SHA256),
+        ("2.16.840.1.101.3.4.2.2", HashAlgorithmName.SHA384),
+        ("2.16.840.1.101.3.4.2.3", HashAlgorithmName.SHA512),
+        ("2.16.840.1.101.3.4.2.8", HashAlgorithmName.SHA3_256),
+        ("2.16.840.1.101.3.4.2.9", HashAlgorithmName.SHA3_384),
+        ("2.16.840.1.101.3.4.2.10", HashAlgorithmName.SHA3_512),
     ];
 
     private static readonly CosName AuthCode = new("AuthCode");
@@ -278,7 +279,7 @@ internal static class IntegrityVerifier
                 diagnostics.Report(
                     DiagnosticCodes.IntegrityCodeNotVerified,
                     DiagnosticSeverity.Information,
-                    $"The PDF MAC token's digest algorithm {parsed.DigestAlgorithm} is not available on this platform; the document's integrity is not checked.");
+                    $"The PDF MAC token's digest algorithm {parsed.DigestAlgorithm} is not one of ISO/TS 32004 Table 8; the document's integrity is not checked.");
                 return PdfIntegrityStatus.NotVerified;
             }
 
@@ -372,7 +373,7 @@ internal static class IntegrityVerifier
 
         private byte[] DigestRange(HashAlgorithmName name, long[] range)
         {
-            using var hash = IncrementalHash.CreateHash(name);
+            using IncrementalDigest hash = IncrementalDigest.Create(name);
             long baseOffset = loader.Header.Offset;
             byte[] buffer = new byte[64 * 1024];
             for (int part = 0; part < 4; part += 2)
@@ -387,7 +388,7 @@ internal static class IntegrityVerifier
                         break;
                     }
 
-                    hash.AppendData(buffer, 0, read);
+                    hash.AppendData(buffer.AsSpan(0, read));
                     position += read;
                     remaining -= read;
                 }
@@ -424,22 +425,17 @@ internal static class IntegrityVerifier
             }
         }
 
-        private static byte[] Hash(HashAlgorithmName name, ReadOnlySpan<byte> data)
-        {
-            using var hash = IncrementalHash.CreateHash(name);
-            hash.AppendData(data);
-            return hash.GetHashAndReset();
-        }
+        private static byte[] Hash(HashAlgorithmName name, ReadOnlySpan<byte> data) => IncrementalDigest.HashData(name, data);
 
-        /// <summary>Finds the digest algorithm <paramref name="oid"/> names in <see cref="Digests"/>, when this platform has it.</summary>
+        /// <summary>Finds the digest algorithm <paramref name="oid"/> names in <see cref="Digests"/>.</summary>
         private static bool TryCreateDigest(string oid, out HashAlgorithmName name)
         {
-            foreach ((string known, HashAlgorithmName algorithm, Func<bool> isSupported) in Digests)
+            foreach ((string known, HashAlgorithmName algorithm) in Digests)
             {
                 if (known == oid)
                 {
                     name = algorithm;
-                    return isSupported();
+                    return true;
                 }
             }
 
