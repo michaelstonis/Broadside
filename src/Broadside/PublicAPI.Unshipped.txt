@@ -1852,11 +1852,16 @@ Broadside.Text.TextExtractionOptions.WithHiddenContent(bool include = true) -> B
 Broadside.Text.TextExtractor
 Broadside.Text.TextExtractor.Clear() -> void
 Broadside.Text.TextExtractor.GetGlyphText(in Broadside.Text.TextGlyph glyph) -> System.ReadOnlySpan<char>
+Broadside.Text.TextExtractor.GetLineText(in Broadside.Text.TextLine line) -> System.ReadOnlySpan<char>
+Broadside.Text.TextExtractor.GetWordText(in Broadside.Text.TextWord word) -> System.ReadOnlySpan<char>
 Broadside.Text.TextExtractor.Glyphs.get -> System.ReadOnlySpan<Broadside.Text.TextGlyph>
+Broadside.Text.TextExtractor.Lines.get -> System.ReadOnlySpan<Broadside.Text.TextLine>
+Broadside.Text.TextExtractor.PlainText.get -> System.ReadOnlySpan<char>
 Broadside.Text.TextExtractor.Text.get -> System.ReadOnlySpan<char>
 Broadside.Text.TextExtractor.TextExtractor() -> void
 Broadside.Text.TextExtractor.TextExtractor(Broadside.Text.TextExtractionOptions! options) -> void
 Broadside.Text.TextExtractor.ToTextPage() -> Broadside.Text.TextPage!
+Broadside.Text.TextExtractor.Words.get -> System.ReadOnlySpan<Broadside.Text.TextWord>
 Broadside.Text.TextGlyph
 Broadside.Text.TextGlyph.Adjustment.get -> double
 Broadside.Text.TextGlyph.Advance.get -> Broadside.Graphics.PathPoint
@@ -1871,6 +1876,7 @@ Broadside.Text.TextGlyph.Quad.get -> Broadside.Graphics.Quad
 Broadside.Text.TextGlyph.RenderingMode.get -> Broadside.Graphics.TextRenderingMode
 Broadside.Text.TextGlyph.TextGlyph() -> void
 Broadside.Text.TextGlyph.TextLength.get -> int
+Broadside.Text.TextGlyph.TextRenderingMatrix.get -> Broadside.Graphics.Matrix
 Broadside.Text.TextGlyph.TextStart.get -> int
 Broadside.Text.TextGlyph.UnicodeSource.get -> Broadside.Fonts.UnicodeSource
 Broadside.Text.TextGlyphFlags
@@ -1879,10 +1885,32 @@ Broadside.Text.TextGlyphFlags.Artifact = 4 -> Broadside.Text.TextGlyphFlags
 Broadside.Text.TextGlyphFlags.Hidden = 2 -> Broadside.Text.TextGlyphFlags
 Broadside.Text.TextGlyphFlags.Invisible = 1 -> Broadside.Text.TextGlyphFlags
 Broadside.Text.TextGlyphFlags.None = 0 -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextLine
+Broadside.Text.TextLine.GlyphCount.get -> int
+Broadside.Text.TextLine.GlyphStart.get -> int
+Broadside.Text.TextLine.IsVertical.get -> bool
+Broadside.Text.TextLine.PlainTextLength.get -> int
+Broadside.Text.TextLine.PlainTextStart.get -> int
+Broadside.Text.TextLine.Quad.get -> Broadside.Graphics.Quad
+Broadside.Text.TextLine.TextLine() -> void
+Broadside.Text.TextLine.WordCount.get -> int
+Broadside.Text.TextLine.WordStart.get -> int
 Broadside.Text.TextPage
 Broadside.Text.TextPage.GetGlyphText(in Broadside.Text.TextGlyph glyph) -> System.ReadOnlySpan<char>
+Broadside.Text.TextPage.GetLineText(in Broadside.Text.TextLine line) -> System.ReadOnlySpan<char>
+Broadside.Text.TextPage.GetWordText(in Broadside.Text.TextWord word) -> System.ReadOnlySpan<char>
 Broadside.Text.TextPage.Glyphs.get -> System.Collections.Generic.IReadOnlyList<Broadside.Text.TextGlyph>!
+Broadside.Text.TextPage.Lines.get -> System.Collections.Generic.IReadOnlyList<Broadside.Text.TextLine>!
+Broadside.Text.TextPage.PlainText.get -> string!
 Broadside.Text.TextPage.Text.get -> string!
+Broadside.Text.TextPage.Words.get -> System.Collections.Generic.IReadOnlyList<Broadside.Text.TextWord>!
+Broadside.Text.TextWord
+Broadside.Text.TextWord.GlyphCount.get -> int
+Broadside.Text.TextWord.GlyphStart.get -> int
+Broadside.Text.TextWord.Quad.get -> Broadside.Graphics.Quad
+Broadside.Text.TextWord.TextLength.get -> int
+Broadside.Text.TextWord.TextStart.get -> int
+Broadside.Text.TextWord.TextWord() -> void
 const Broadside.Content.ContentOptions.DefaultMaxNestingDepth = 50 -> int
 const Broadside.Content.ContentOptions.DefaultMaxOperands = 65536 -> int
 const Broadside.Content.ContentOptions.DefaultMaxSaveDepth = 4096 -> int

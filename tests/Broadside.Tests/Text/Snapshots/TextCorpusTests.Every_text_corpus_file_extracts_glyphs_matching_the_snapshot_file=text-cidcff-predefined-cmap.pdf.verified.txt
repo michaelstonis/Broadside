@@ -2,3 +2,5 @@
   � code 41/1 Unmapped font BroadsideCID-Minimal-90ms-RKSJ-H 24 Fill origin (72, 700) advance (24, 0) quad (72, 697.12) (96, 697.12) (96, 721.12) (72, 721.12)
   � code 93FA/2 Unmapped font BroadsideCID-Minimal-90ms-RKSJ-H 24 Fill origin (96, 700) advance (24, 0) quad (96, 697.12) (120, 697.12) (120, 721.12) (96, 721.12)
   � code 967B/2 Unmapped font BroadsideCID-Minimal-90ms-RKSJ-H 24 Fill origin (120, 700) advance (24, 0) quad (120, 697.12) (144, 697.12) (144, 721.12) (120, 721.12)
+  line ��� glyphs 0+3 quad (72, 697.12) (144, 697.12) (144, 721.12) (72, 721.12)
+    words ��� glyphs 0+3

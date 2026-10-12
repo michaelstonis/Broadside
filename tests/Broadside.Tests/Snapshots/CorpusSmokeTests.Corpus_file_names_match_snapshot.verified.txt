@@ -122,6 +122,7 @@
   text-cid-identity-v.pdf,
   text-cidcff-predefined-cmap.pdf,
   text-glyph-names.pdf,
+  text-lines-rotated.pdf,
   text-nonembedded-substitute.pdf,
   text-opentype-cff-embedded.pdf,
   text-standard14-alias.pdf,

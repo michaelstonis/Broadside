@@ -1686,6 +1686,17 @@ def gen_text_cid_identity_h() -> bytes:
                     [b"\x00\x01\x00\x03\x00\x02"], tu)
 
 
+def gen_text_lines_rotated() -> bytes:
+    """9.4.2 Table 106 (Tm, TL, T*) and 9.4.4: Helvetica 12 pt, leading 14, two lines at each of three text matrices: upright
+    [1 0 0 1 72 700], rotated 90 degrees [0 1 -1 0 400 500] and rotated 30 degrees [0.866025 0.5 -0.5 0.866025 72 300].
+    Each pair is "<angle> degrees" then T* "second line", so every line holds two words and runs along its own baseline."""
+    lines = b""
+    for matrix, angle in ((b"1 0 0 1 72 700", b"Zero"), (b"0 1 -1 0 400 500", b"Ninety"),
+                          (b"0.866025 0.5 -0.5 0.866025 72 300", b"Thirty")):
+        lines += b" %s Tm (%s degrees) Tj T* (second line) Tj" % (matrix, angle)
+    return text_file(stream(b"", b"BT /F1 12 Tf 14 TL" + lines + b" ET"))
+
+
 def gen_text_cid_identity_v() -> bytes:
     """9.7.4.1 Table 115 (CIDToGIDMap stream, DW2, W2), 9.7.4.3 (W2 in both forms, DW2 fallback, v.x = w0/2), 9.7.5.2
     Identity-V. The map covers CIDs 0 to 0x22 (0x21 -> 1, 0x22 -> 2); CID 0x23 is past its end and shows CID 0's glyph."""
@@ -5372,6 +5383,7 @@ FILES = {
     "text-type1-embedded.pdf": gen_text_type1_embedded,
     "text-cid-identity-h.pdf": gen_text_cid_identity_h,
     "text-cid-identity-v.pdf": gen_text_cid_identity_v,
+    "text-lines-rotated.pdf": gen_text_lines_rotated,
     "text-cid-embedded-cmap.pdf": gen_text_cid_embedded_cmap,
     "text-cidcff-predefined-cmap.pdf": gen_text_cidcff_predefined_cmap,
     "text-tounicode-bf.pdf": gen_text_tounicode_bf,

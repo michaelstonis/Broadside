@@ -15,3 +15,5 @@
   i code 69/1 GlyphName font Helvetica 24 Fill origin (216.048, 700) advance (5.328, 0) quad (216.048, 695.032) (221.376, 695.032) (221.376, 717.232) (216.048, 717.232)
   d code 64/1 GlyphName font Helvetica 24 Fill origin (221.376, 700) advance (13.344, 0) quad (221.376, 695.032) (234.72, 695.032) (234.72, 717.232) (221.376, 717.232)
   e code 65/1 GlyphName font Helvetica 24 Fill origin (234.72, 700) advance (13.344, 0) quad (234.72, 695.032) (248.064, 695.032) (248.064, 717.232) (234.72, 717.232)
+  line Hello, Broadside glyphs 0+16 quad (72, 695.032) (248.064, 695.032) (248.064, 717.232) (72, 717.232)
+    words Hello, glyphs 0+6 | Broadside glyphs 7+9

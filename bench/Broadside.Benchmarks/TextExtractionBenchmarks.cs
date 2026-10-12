@@ -40,4 +40,17 @@ public class TextExtractionBenchmarks
 
     [Benchmark]
     public int ExtractText() => _page!.ExtractText().Glyphs.Count;
+
+    /// <summary>
+    /// <see cref="ExtractReused"/> followed by assembling words, lines and the plain text (issue #184, ISO 32000-2 §14.8.2.6.2) in
+    /// the same reused extractor: a hot path whose <c>Allocated</c> must read <c>-</c>.
+    /// </summary>
+    /// <returns>The number of plain text units.</returns>
+    [Benchmark]
+    public int ExtractWordsAndLinesReused()
+    {
+        _extractor.Clear();
+        _page!.ProcessContent(_extractor);
+        return _extractor.Words.Length + _extractor.Lines.Length + _extractor.PlainText.Length;
+    }
 }

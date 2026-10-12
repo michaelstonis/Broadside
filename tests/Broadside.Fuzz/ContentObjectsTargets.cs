@@ -34,9 +34,10 @@ internal static class ContentObjectsTargets
     /// Runs the input as content with the resources of <see cref="ContentWithResources"/> through a text extractor that keeps hidden
     /// text, then checks its output: each glyph's text range starts where the previous one ended and the last ends at the end of the
     /// text (also after <c>ActualText</c> replacements, nested, unbalanced or empty), and every origin, advance, quad corner and font
-    /// size is finite.
+    /// size is finite; then the words follow each other through the glyphs, the lines take every word in order, and the plain text
+    /// is the lines' words joined by spaces and line feeds.
     /// </summary>
-    /// <remarks>ISO 32000-2 §9.4.4, §9.10, §14.9.4 (issue #183).</remarks>
+    /// <remarks>ISO 32000-2 §9.4.4, §9.10, §14.9.4 (issue #183), §14.8.2.6.2 (issue #184).</remarks>
     public static void TextExtraction(ReadOnlySpan<byte> data)
     {
         using PdfDocument document = PdfDocument.Open(ResourceFile.Value);
@@ -62,6 +63,43 @@ internal static class ContentObjectsTargets
         if (expectedStart != extractor.Text.Length)
         {
             throw new InvalidOperationException($"The glyphs' text ends at {expectedStart}, the extracted text at {extractor.Text.Length}.");
+        }
+
+        // Words follow each other through the glyphs with text of their own; lines take every word in order and the plain text is
+        // their words joined by one space and the lines by one line feed.
+        int nextGlyph = 0;
+        foreach (Broadside.Text.TextWord word in extractor.Words)
+        {
+            if (word.GlyphStart < nextGlyph || word.GlyphCount < 1 || word.TextLength < 1 || !Finite(word.Quad.BottomLeft) || !Finite(word.Quad.TopRight))
+            {
+                throw new InvalidOperationException($"A word at glyph {word.GlyphStart}+{word.GlyphCount} with text {word.TextStart}+{word.TextLength} follows glyph {nextGlyph}.");
+            }
+
+            nextGlyph = word.GlyphStart + word.GlyphCount;
+        }
+
+        int nextWord = 0;
+        int plainLength = -1;
+        foreach (Broadside.Text.TextLine line in extractor.Lines)
+        {
+            int length = -1;
+            for (int index = line.WordStart; index < line.WordStart + line.WordCount; index++)
+            {
+                length += extractor.Words[index].TextLength + 1;
+            }
+
+            if (line.WordStart != nextWord || line.WordCount < 1 || line.PlainTextStart != plainLength + 1 || line.PlainTextLength != length)
+            {
+                throw new InvalidOperationException($"A line of words {line.WordStart}+{line.WordCount} at plain text {line.PlainTextStart}+{line.PlainTextLength} follows word {nextWord}.");
+            }
+
+            nextWord += line.WordCount;
+            plainLength += length + 1;
+        }
+
+        if (nextWord != extractor.Words.Length || Math.Max(0, plainLength) != extractor.PlainText.Length)
+        {
+            throw new InvalidOperationException($"The lines take {nextWord} of {extractor.Words.Length} words and {plainLength} of {extractor.PlainText.Length} plain text units.");
         }
 
         static bool Finite(PathPoint point) => double.IsFinite(point.X) && double.IsFinite(point.Y);
