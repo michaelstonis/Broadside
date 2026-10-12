@@ -185,6 +185,38 @@ public sealed class PdfSaveOptions
         return this;
     }
 
+    /// <summary>
+    /// Gets or sets whether a save of a changed document records the save as the document's most recent modification. The default is
+    /// <see langword="true"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §14.3.3 and §14.3.4: "When writing the time and date of the most recent modification ... a PDF processor shall
+    /// ensure that the data in the document information dictionary and the document level metadata stream – if both are written –
+    /// are fully equivalent." When the document has changed since it was read (or since its last incremental save), the save first
+    /// sets its modification date to the engine's clock (<see cref="PdfOptions.UseTimeProvider"/>), to the second, the way
+    /// <see cref="PdfDocumentProperties.ModificationDate"/> does: the Info dictionary's <c>ModDate</c> and the XMP packet's
+    /// <c>xmp:ModifyDate</c> and <c>xmp:MetadataDate</c>. A new document (<see cref="PdfDocument.Create()"/>) also gets its creation
+    /// date the first time it is saved. A date set through <see cref="PdfDocumentProperties.ModificationDate"/> since the last save
+    /// is kept.
+    /// </para>
+    /// <para>
+    /// The document is changed by this, as by any other edit. A document with no change is written exactly as before, byte for byte
+    /// where its objects allow.
+    /// </para>
+    /// </remarks>
+    public bool UpdateModificationDate { get; set; } = true;
+
+    /// <summary>Sets <see cref="UpdateModificationDate"/>.</summary>
+    /// <param name="update">Whether a save of a changed document dates the modification.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §14.3.4.</remarks>
+    public PdfSaveOptions WithUpdateModificationDate(bool update)
+    {
+        UpdateModificationDate = update;
+        return this;
+    }
+
     /// <summary>Sets <see cref="IncrementalUpdate"/>.</summary>
     /// <param name="incremental">Whether the save appends an incremental update.</param>
     /// <returns>These options.</returns>

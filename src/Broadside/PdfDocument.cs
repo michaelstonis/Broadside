@@ -104,6 +104,9 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Gets the engine's encoders, which <see cref="EncodeStream"/> and saving use (issue #142).</summary>
     internal StreamEncoderRegistry StreamEncoders { get; private init; } = StreamEncoderRegistry.Default;
 
+    /// <summary>Gets the engine's clock, which dates the metadata a save writes (issue #162).</summary>
+    internal TimeProvider TimeProvider { get; private init; } = TimeProvider.System;
+
     /// <summary>
     /// Gets the version of the specification the document conforms to: the header's version, or the catalog's <c>Version</c> entry
     /// when that is later.
@@ -1165,7 +1168,12 @@ public sealed partial class PdfDocument : IDisposable
     /// ISO 32000-2 §7.7.2, §7.7.3, Table 31: a catalog, a page tree root and one US Letter page whose <c>Resources</c> is the empty
     /// dictionary (no resources) and which has no <c>Contents</c> (an empty page). Written as PDF 2.0 with file identifiers.
     /// </remarks>
-    internal static PdfDocument CreateNew(EngineConfiguration configuration) => Read(PdfSource.FromMemory(NewDocumentFile()), configuration);
+    internal static PdfDocument CreateNew(EngineConfiguration configuration)
+    {
+        PdfDocument document = Read(PdfSource.FromMemory(NewDocumentFile()), configuration);
+        document._isNew = true;
+        return document;
+    }
 
     /// <summary>Writes the file <see cref="CreateNew"/> opens.</summary>
     private static byte[] NewDocumentFile()
@@ -1213,6 +1221,7 @@ public sealed partial class PdfDocument : IDisposable
     {
         ArgumentNullException.ThrowIfNull(options);
         CheckLinearization(options);
+        DateModification(options);
         FileWriter writer = options.IncrementalUpdate
             ? SavePlan.CreateIncremental(_source, _loader, options, StreamEncoders, Security)
             : SavePlan.Create(_source, _loader, Linearization, options, StreamEncoders, Security);
@@ -1276,6 +1285,7 @@ public sealed partial class PdfDocument : IDisposable
             return;
         }
 
+        _isNew = false;
         AppendedSource source = AppendedSource.Append(_source, update.Bytes);
         _loader.Rebase(source, update.Section, update.ListsEverything, update.Objects);
         _source = source;
@@ -1348,6 +1358,7 @@ public sealed partial class PdfDocument : IDisposable
             var document = new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security, configuration.FontProgramParsers, configuration.ColorManagement, configuration.FontResolvers)
             {
                 StreamEncoders = configuration.StreamEncoders,
+                TimeProvider = configuration.TimeProvider,
             };
             document.DetectXfa();
 

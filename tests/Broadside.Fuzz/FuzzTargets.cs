@@ -1973,8 +1973,37 @@ internal static class FuzzTargets
         if (packet is not null)
         {
             WalkPacket(packet);
+            RewritePacket(packet);
         }
     }
+
+    /// <summary>
+    /// Writes a readable packet back (issue #162, ISO 16684-1 §7): the writer must not throw, and the written packet must read
+    /// with no diagnostic at all into the same data model, less the properties named in the RDF or XML namespace, which are syntax.
+    /// </summary>
+    private static void RewritePacket(XmpPacket packet)
+    {
+        byte[] written = XmpPacketWriter.Write(packet.Properties, packet.About ?? string.Empty);
+        var reported = new List<string>();
+        XmpPacket? reread = XmpPacketReader.Read(written, (code, _, _) => reported.Add(code));
+        if (reread is null || reported.Count > 0)
+        {
+            throw new InvalidOperationException($"A written XMP packet must read cleanly; reported: {string.Join(", ", reported)}.");
+        }
+
+        string expected = string.Join("\n", packet.Properties.Where(XmpPacketWriter.IsProperty).Select(DescribeXmp));
+        string actual = string.Join("\n", reread.Properties.Select(DescribeXmp));
+        if (expected != actual || (packet.About ?? string.Empty) != reread.About)
+        {
+            throw new InvalidOperationException($"A written XMP packet must read back the same properties.\nExpected:\n{expected}\nActual:\n{actual}");
+        }
+    }
+
+    private static string DescribeXmp(XmpProperty property) =>
+        $"{property.NamespaceName}|{property.Name}|{property.Kind}|{property.Value}|{property.Language}"
+        + $"[{string.Join(",", property.Items.Select(DescribeXmp))}]"
+        + $"{{{string.Join(",", property.Fields.Where(XmpPacketWriter.IsProperty).Select(DescribeXmp))}}}"
+        + $"({string.Join(",", property.Qualifiers.Where(XmpPacketWriter.IsProperty).Select(DescribeXmp))})";
 
     private static void WalkPacket(XmpPacket packet)
     {
