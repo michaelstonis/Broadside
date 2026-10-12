@@ -483,7 +483,13 @@ public sealed partial class PdfDocument : IDisposable
     /// which and how hard. The document's own streams are not changed.
     /// </para>
     /// <para>
-    /// The header keeps the document's version, raised to 1.5 when the layout needs cross-reference streams. The trailer's first
+    /// The header keeps the document's version, raised to the highest minimum version of the features the file uses (ADR 0003): 1.5
+    /// for cross-reference and object streams, 1.2 for <c>FlateDecode</c> compression, the encryption's version, the <c>BaseVersion</c>
+    /// of each developer extension (§7.12.4). An incremental update writes no header: it raises the catalog's <c>Version</c> entry
+    /// instead (§7.5.6, §7.7.2 Table 29). A raise above <see cref="Version"/> is recorded as a <c>VersionRaised</c> diagnostic
+    /// (Information); in strict mode it is refused, and the save throws naming the features, before anything is written. A feature of an
+    /// ISO/TS extension (AES-GCM encryption, ISO/TS 32003) adds its developer extension to the catalog's <c>Extensions</c> (§7.12),
+    /// keeping every other declaration. The trailer's first
     /// file identifier is kept; the second is derived from the written bytes, so saving the same document the same way always writes
     /// the same bytes (§14.4).
     /// </para>
@@ -1009,6 +1015,10 @@ public sealed partial class PdfDocument : IDisposable
     /// (§7.4.4.4: TIFF 2, PNG 10 to 15) is applied before it. A stream without a <c>Filter</c> entry takes the data as it is.
     /// </para>
     /// <para>The stream's <see cref="CosStream.EncodedData"/> is replaced, which marks it changed; its dictionary is not changed.</para>
+    /// <para>
+    /// <c>FlateDecode</c> is PDF 1.2 (§7.4.4): once a stream is encoded with it, a save of a document of an earlier version raises the
+    /// version, or refuses in strict mode (ADR 0003).
+    /// </para>
     /// </remarks>
     public void EncodeStream(CosStream stream, ReadOnlySpan<byte> data, System.IO.Compression.CompressionLevel compressionLevel = System.IO.Compression.CompressionLevel.Optimal)
     {
@@ -1016,6 +1026,13 @@ public sealed partial class PdfDocument : IDisposable
         var output = new ArrayBufferWriter<byte>(Math.Max(256, data.Length / 2));
         new StreamEncoder(StreamEncoders, Resolve).Encode(data, stream.Dictionary, output, compressionLevel);
         stream.EncodedData = output.WrittenSpan.ToArray();
+
+        // §7.4.4: FlateDecode is PDF 1.2; a later save raises an earlier document to it (issue #141).
+        CosObject filter = Resolve(stream.Dictionary.GetValueOrDefault(FilterNames.Filter));
+        if (FilterNames.FlateDecode.Equals(filter) || (filter is CosArray filters && filters.Any(name => FilterNames.FlateDecode.Equals(Resolve(name)))))
+        {
+            RequireFeature(VersionedFeatures.FlateCompression);
+        }
     }
 
     /// <summary>Returns the font view over a font dictionary of this document.</summary>
@@ -1220,9 +1237,7 @@ public sealed partial class PdfDocument : IDisposable
     {
         ArgumentNullException.ThrowIfNull(options);
         DateModification(options);
-        FileWriter writer = options.IncrementalUpdate
-            ? SavePlan.CreateIncremental(_source, _loader, options, StreamEncoders, Security)
-            : SavePlan.Create(_source, _loader, Linearization, options, StreamEncoders, Security);
+        FileWriter writer = PlanVersionedSave(options);
 
         // Table 20: V 1 to 4 (RC4 and AES-128) are deprecated in PDF 2.0. Reported before anything is written, so strict mode refuses.
         string? deprecated = options.Encryption switch

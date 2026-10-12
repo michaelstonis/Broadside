@@ -21,7 +21,7 @@ internal sealed class EncryptionPlan
         bool replacesDictionary,
         CosDictionary? newDictionary,
         CosString? firstIdentifier,
-        PdfVersion? minimumVersion,
+        VersionedFeature? feature,
         DocumentDecryptor? sourceDecryptor,
         bool keepsSourceEncryption)
     {
@@ -29,7 +29,7 @@ internal sealed class EncryptionPlan
         ReplacesDictionary = replacesDictionary;
         NewDictionary = newDictionary;
         FirstIdentifier = firstIdentifier;
-        MinimumVersion = minimumVersion;
+        Feature = feature;
         _sourceDecryptor = sourceDecryptor;
         _keepsSourceEncryption = keepsSourceEncryption;
     }
@@ -46,8 +46,15 @@ internal sealed class EncryptionPlan
     /// <summary>Gets the first file identifier the keys were derived from (Algorithm 2), or <see langword="null"/> to keep the usual one.</summary>
     public CosString? FirstIdentifier { get; }
 
-    /// <summary>Gets the version the new encryption needs, or <see langword="null"/>.</summary>
-    public PdfVersion? MinimumVersion { get; }
+    /// <summary>
+    /// Gets the encryption the save writes as a feature of the version table (<see cref="VersionedFeatures"/>): new encryption's
+    /// algorithm, or kept AES-GCM encryption (ISO/TS 32003), whose extension the catalog shall declare; <see langword="null"/> for none.
+    /// </summary>
+    /// <remarks>
+    /// Other kept encryption declares nothing: the document's version already covers it, or it is declared by a developer extension
+    /// of an earlier version (Adobe's AES-256 for PDF 1.7, for example), which the save keeps.
+    /// </remarks>
+    public VersionedFeature? Feature { get; }
 
     /// <summary>Whether a trailer entry belongs to the source's encryption: <c>Encrypt</c>, or the ISO/TS 32004 <c>AuthCode</c>.</summary>
     /// <param name="key">The trailer key.</param>
@@ -89,7 +96,12 @@ internal sealed class EncryptionPlan
                 replacesDictionary: true,
                 created.Dictionary,
                 new CosString(documentId, hexadecimal: true),
-                created.MinimumVersion,
+                encryption.Algorithm switch
+                {
+                    PdfEncryptionAlgorithm.Rc4 => VersionedFeatures.Rc4Encryption,
+                    PdfEncryptionAlgorithm.Aes128 => VersionedFeatures.Aes128Encryption,
+                    _ => VersionedFeatures.Aes256Encryption,
+                },
                 decryptor,
                 keepsSourceEncryption: false);
         }
@@ -121,7 +133,7 @@ internal sealed class EncryptionPlan
             replacesDictionary: false,
             null,
             firstIdentifier,
-            null,
+            security.Version >= 6 ? VersionedFeatures.AesGcmEncryption : null,
             decryptor,
             keepsSourceEncryption: true);
     }

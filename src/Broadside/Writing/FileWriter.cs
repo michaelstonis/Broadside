@@ -95,13 +95,10 @@ internal sealed class FileWriter
     /// <summary>The most bytes of the source one chunk of an incremental update's copy holds.</summary>
     private const int PrefixChunkSize = 1 << 20;
 
-    private static readonly PdfVersion StreamVersion = new(1, 5);
-
     /// <summary>What a compressed stream's dictionary grows by: <c> /Filter /FlateDecode</c>.</summary>
     private static readonly int FilterEntryLength = " /Filter /FlateDecode".Length;
 
     private readonly PdfSource? _source;
-    private readonly PdfVersion _version;
     private readonly IReadOnlyList<WriterObject> _objects;
     private readonly IReadOnlyDictionary<int, int> _freeGenerations;
     private readonly CosDictionary _trailer;
@@ -115,7 +112,7 @@ internal sealed class FileWriter
 
     /// <summary>Initializes a new instance of the <see cref="FileWriter"/> class.</summary>
     /// <param name="source">The file source bytes are copied from; <see langword="null"/> when no object has source bytes.</param>
-    /// <param name="version">The version for the header; raised to 1.5 for a cross-reference stream.</param>
+    /// <param name="version">The version for the header (<see cref="Version"/>); the caller raises it for the features the file uses (<see cref="VersionPlan"/>).</param>
     /// <param name="objects">The objects to write, in ascending object number.</param>
     /// <param name="freeGenerations">For object numbers that are free, the generation their free entry carries; others default to 0.</param>
     /// <param name="trailer">The trailer entries to write besides <c>Size</c> and <c>ID</c>.</param>
@@ -152,7 +149,7 @@ internal sealed class FileWriter
     {
         _encryption = encryption;
         _source = source;
-        _version = layout != PdfCrossReferenceLayout.Table && version < StreamVersion ? StreamVersion : version;
+        Version = version;
         _objects = objects;
         _freeGenerations = freeGenerations;
         _trailer = trailer;
@@ -163,6 +160,9 @@ internal sealed class FileWriter
         _references = references;
         _update = update;
     }
+
+    /// <summary>Gets or sets the version the header states (§7.5.2); an incremental update writes no header.</summary>
+    public PdfVersion Version { get; set; }
 
     /// <summary>Gets what an incremental update appended, once <see cref="Write"/> has been enumerated to the end; otherwise <see langword="null"/>.</summary>
     public UpdateResult? Update { get; private set; }
@@ -335,7 +335,7 @@ internal sealed class FileWriter
     private void WriteHeader(IBufferWriter<byte> buffer)
     {
         buffer.Write("%PDF-"u8);
-        WriteAscii(buffer, _version.ToString());
+        WriteAscii(buffer, Version.ToString());
         buffer.Write("\n%"u8);
         buffer.Write<byte>([0xE2, 0xE3, 0xCF, 0xD3, (byte)'\n']);
     }

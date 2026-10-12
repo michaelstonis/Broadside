@@ -1,3 +1,4 @@
+using System.Globalization;
 using Broadside.Caching;
 using Broadside.Diagnostics;
 using Broadside.Objects;
@@ -98,7 +99,9 @@ public sealed partial class PdfDocument
     /// ISO 32000-2 §7.12, Tables 48 and 49. A prefix whose value is an array (PDF 2.0) contributes one extension per dictionary in it.
     /// Deviations are reported when this property is read: an entry that is not a dictionary (<c>ExtensionsInvalid</c>), a prefix value
     /// that is neither a developer extensions dictionary nor an array of them or that lacks a required entry
-    /// (<c>DeveloperExtensionInvalid</c>), and indirect references where everything "shall be direct objects" (<c>ExtensionsNotDirect</c>).
+    /// (<c>DeveloperExtensionInvalid</c>), an extension whose <c>BaseVersion</c> is later than <see cref="Version"/>
+    /// (<c>DeveloperExtensionBaseVersionLater</c>, §7.12.4; a save raises the version to it), and indirect references where everything
+    /// "shall be direct objects" (<c>ExtensionsNotDirect</c>).
     /// </remarks>
     public IReadOnlyList<PdfDeveloperExtension> Extensions
     {
@@ -112,6 +115,7 @@ public sealed partial class PdfDocument
             }
 
             DictionaryView catalog = CatalogView;
+            PdfVersion version = Version;
             if (value is not CosDictionary extensions)
             {
                 catalog.Report(DiagnosticCodes.ExtensionsInvalid, "The catalog's Extensions entry shall be a dictionary; it is ignored.");
@@ -163,9 +167,18 @@ public sealed partial class PdfDocument
 
             void AddExtension(CosName prefix, CosDictionary dictionary)
             {
-                if (PdfDeveloperExtension.ReadBaseVersion(this, dictionary) is null || PdfDeveloperExtension.ReadExtensionLevel(this, dictionary) is null)
+                PdfVersion? baseVersion = PdfDeveloperExtension.ReadBaseVersion(this, dictionary);
+                if (baseVersion is null || PdfDeveloperExtension.ReadExtensionLevel(this, dictionary) is null)
                 {
                     ReportExtension(prefix);
+                }
+                else if (baseVersion > version)
+                {
+                    // §7.12.4: BaseVersion "shall be less than or equal to the PDF version". Compared with the version the document
+                    // conforms to (the header's, or the catalog's when later), which an incremental update raises through the catalog.
+                    catalog.Report(
+                        DiagnosticCodes.DeveloperExtensionBaseVersionLater,
+                        string.Create(CultureInfo.InvariantCulture, $"The developer extension {prefix.Value} extends PDF {baseVersion}, later than the document's version {version}; the BaseVersion shall not be later than the document's version (ISO 32000-2 §7.12.4). Saving raises the version."));
                 }
 
                 result.Add(new PdfDeveloperExtension(this, prefix, dictionary));

@@ -71,9 +71,20 @@ internal static class SavePlan
     /// </param>
     /// <param name="encoders">The engine's encoders; streams are compressed with its <c>FlateDecode</c> encoder.</param>
     /// <param name="security">The document's security, or <see langword="null"/> for a document read as not encrypted.</param>
+    /// <param name="features">
+    /// Receives the features of the version table the file uses (<see cref="VersionedFeatures"/>): its cross-reference layout,
+    /// compression and encryption. The writer's header states the document's header version; the caller raises it (<see cref="VersionPlan"/>).
+    /// </param>
     /// <returns>The writer.</returns>
     /// <exception cref="NotSupportedException">What <see cref="EncryptionPlan"/> refuses.</exception>
-    public static FileWriter Create(PdfSource source, ObjectLoader loader, PdfLinearization? linearization, PdfSaveOptions options, StreamEncoderRegistry encoders, PdfSecurity? security)
+    public static FileWriter Create(
+        PdfSource source,
+        ObjectLoader loader,
+        PdfLinearization? linearization,
+        PdfSaveOptions options,
+        StreamEncoderRegistry encoders,
+        PdfSecurity? security,
+        ICollection<VersionedFeature> features)
     {
         CrossReference crossReference = loader.CrossReference;
         CosDictionary sourceTrailer = crossReference.Trailer;
@@ -204,15 +215,10 @@ internal static class SavePlan
                 ? first
                 : null;
 
-        PdfVersion version = loader.Header.Version ?? FileHeader.DefaultVersion;
-        if (encryption.MinimumVersion is { } minimum && version < minimum)
-        {
-            version = minimum;
-        }
-
+        AddFeatures(features, options.CrossReferenceLayout, objects, encryption);
         return new FileWriter(
             source,
-            version,
+            loader.Header.Version ?? FileHeader.DefaultVersion,
             objects,
             freeGenerations,
             trailer,
@@ -231,6 +237,10 @@ internal static class SavePlan
     /// <param name="options">Which of the written streams are compressed, and how hard.</param>
     /// <param name="encoders">The engine's encoders; streams are compressed with its <c>FlateDecode</c> encoder.</param>
     /// <param name="security">The document's security, or <see langword="null"/> for a document read as not encrypted.</param>
+    /// <param name="features">
+    /// Receives the features of the version table the update uses (<see cref="VersionedFeatures"/>). An update writes no header: the
+    /// caller raises the version through the catalog's <c>Version</c> entry (§7.7.2, Table 29) and plans again.
+    /// </param>
     /// <returns>The writer.</returns>
     /// <exception cref="NotSupportedException">What <see cref="EncryptionPlan"/> refuses.</exception>
     /// <remarks>
@@ -248,7 +258,13 @@ internal static class SavePlan
     /// read with a repair, so appending bytes cannot change how it reads (an object cut off by the end of the file would run on).
     /// </para>
     /// </remarks>
-    public static FileWriter CreateIncremental(PdfSource source, ObjectLoader loader, PdfSaveOptions options, StreamEncoderRegistry encoders, PdfSecurity? security)
+    public static FileWriter CreateIncremental(
+        PdfSource source,
+        ObjectLoader loader,
+        PdfSaveOptions options,
+        StreamEncoderRegistry encoders,
+        PdfSecurity? security,
+        ICollection<VersionedFeature> features)
     {
         CrossReference crossReference = loader.CrossReference;
         CosDictionary sourceTrailer = crossReference.Trailer;
@@ -334,6 +350,8 @@ internal static class SavePlan
             kept,
             previousIdentifier);
 
+        PdfCrossReferenceLayout layout = form == XrefSectionKind.Stream ? PdfCrossReferenceLayout.Stream : PdfCrossReferenceLayout.Table;
+        AddFeatures(features, layout, objects, encryption);
         return new FileWriter(
             source,
             loader.Header.Version ?? FileHeader.DefaultVersion,
@@ -341,12 +359,40 @@ internal static class SavePlan
             freeGenerations,
             trailer,
             encryption.FirstIdentifier ?? firstIdentifier,
-            form == XrefSectionKind.Stream ? PdfCrossReferenceLayout.Stream : PdfCrossReferenceLayout.Table,
+            layout,
             encoders.Flate,
             options.CompressionLevel,
             references: null,
             target,
             encryption.Encryptor);
+    }
+
+    /// <summary>
+    /// Adds the features of the version table a file uses: a cross-reference stream and object streams (PDF 1.5, §7.5.7, §7.5.8),
+    /// <c>FlateDecode</c> compression of a stream (PDF 1.2, §7.4.4; declared when a stream may be compressed, whether or not the
+    /// compressed copy turns out smaller), and the encryption <see cref="EncryptionPlan.Feature"/> names.
+    /// </summary>
+    private static void AddFeatures(ICollection<VersionedFeature> features, PdfCrossReferenceLayout layout, List<WriterObject> objects, EncryptionPlan encryption)
+    {
+        if (layout != PdfCrossReferenceLayout.Table)
+        {
+            features.Add(VersionedFeatures.CrossReferenceStream);
+        }
+
+        if (layout == PdfCrossReferenceLayout.StreamWithObjectStreams)
+        {
+            features.Add(VersionedFeatures.ObjectStreams);
+        }
+
+        if (objects.Exists(item => item.Compress))
+        {
+            features.Add(VersionedFeatures.FlateCompression);
+        }
+
+        if (encryption.Feature is { } feature)
+        {
+            features.Add(feature);
+        }
     }
 
     /// <summary>
