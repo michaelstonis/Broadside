@@ -45,6 +45,8 @@ internal static class SeedWriter
     private static readonly CosName Mac = new("MAC");
     private static readonly CosName Metadata = new("Metadata");
     private static readonly CosName Contents = new("Contents");
+    private static readonly CosName AcroForm = new("AcroForm");
+    private static readonly CosName DA = new("DA");
 
     private static readonly Dictionary<string, string> FilterTargets = new(StringComparer.Ordinal)
     {
@@ -101,6 +103,7 @@ internal static class SeedWriter
         "object-stream" => Streams(file).Select(stream => ObjectStreamSeed(stream.Document, stream.Value)).OfType<byte[]>(),
         "hint-tables" => Streams(file).Select(stream => HintSeed(stream.Document, stream.Value)).OfType<byte[]>(),
         "mac-token" => MacTokens(file),
+        "default-appearance" => DefaultAppearances(file),
         "content-lexer" or "content-interpreter" or "content-objects" => ContentStreams(file),
         "xmp" => Streams(file).Where(stream => Metadata.Equals(stream.Value.Dictionary.TryGetValue(Type, out CosObject? type) ? type : null))
             .Select(stream => stream.Document.DecodeStream(stream.Value).ToArray()),
@@ -289,6 +292,36 @@ internal static class SeedWriter
                 if (document.Resolve(item) is CosStream stream)
                 {
                     yield return document.DecodeStream(stream).ToArray();
+                }
+            }
+        }
+    }
+
+    /// <summary><c>default-appearance</c>: the <c>DA</c> string of every dictionary held as an object, and of an interactive form held directly in one.</summary>
+    private static IEnumerable<byte[]> DefaultAppearances(byte[] file)
+    {
+        using PdfDocument? document = Open(file);
+        if (document is null)
+        {
+            yield break;
+        }
+
+        long size = document.Trailer.TryGetValue(Size, out CosObject? entry) && entry is CosInteger integer ? integer.Value : 0;
+        for (int number = 1; number < Math.Min(size, MaxObjectNumber); number++)
+        {
+            CosDictionary? dictionary = document.Resolve(new CosReference(number, 0)) switch
+            {
+                CosStream stream => stream.Dictionary,
+                CosDictionary value => value,
+                _ => null,
+            };
+
+            CosDictionary? form = dictionary is not null && dictionary.TryGetValue(AcroForm, out CosObject? inner) ? inner as CosDictionary : null;
+            foreach (CosDictionary? candidate in (CosDictionary?[])[dictionary, form])
+            {
+                if (candidate is not null && candidate.TryGetValue(DA, out CosObject? value) && value is CosString text)
+                {
+                    yield return text.Bytes.ToArray();
                 }
             }
         }

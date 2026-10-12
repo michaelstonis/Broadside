@@ -69,6 +69,7 @@ internal static class FuzzTargets
         ["inline-image-end"] = ContentObjectsTargets.InlineImageEnd,
         ["image-decode"] = ImageDecodeTarget.Target,
         ["shading-mesh"] = ShadingMeshTarget.Target,
+        ["default-appearance"] = DefaultAppearanceTarget.Target,
     };
 
     /// <summary>
