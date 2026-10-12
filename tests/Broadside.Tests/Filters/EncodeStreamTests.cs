@@ -122,7 +122,6 @@ public sealed class EncodeStreamTests
     [Theory]
     [InlineData("Crypt")]
     [InlineData("LZWDecode")]
-    [InlineData("DCTDecode")]
     [InlineData("Unknown")]
     public void A_filter_without_an_encoder_is_not_supported(string name)
     {
@@ -130,6 +129,49 @@ public sealed class EncodeStreamTests
         var stream = new CosStream(new CosDictionary { [new CosName("Filter")] = new CosName(name) }, ReadOnlyMemory<byte>.Empty);
 
         Assert.Throws<NotSupportedException>(() => document.EncodeStream(stream, new byte[8]));
+    }
+
+    [Fact]
+    public void A_DCT_image_stream_is_encoded_by_the_default_DCT_encoder_from_its_image_dictionary()
+    {
+        // §7.4.8: the default encoder writes a baseline JPEG at quality 75 with 4:2:0 chroma, which the DCT filter decodes to
+        // samples of the image's size and close to the input.
+        using PdfDocument document = PdfDocument.Create();
+        Dct.DctGolden image = Dct.DctVectors.Golden("rgb");
+        CosDictionary dictionary = Dct.DctEncoderTests.ImageDictionary(image);
+        dictionary[new CosName("Filter")] = new CosName("DCTDecode");
+        var stream = new CosStream(dictionary, ReadOnlyMemory<byte>.Empty);
+
+        document.EncodeStream(stream, image.Samples);
+
+        Assert.Equal(Dct.DctVectors.Jpeg("encoded-rgb-q75-420"), stream.EncodedData.ToArray());
+        byte[] decoded = document.DecodeStream(stream).ToArray();
+        Assert.True(Dct.DctEncoderTests.Psnr(image.Samples, decoded) > 30);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void A_registered_DCT_encoder_sets_the_quality_and_subsampling_of_the_documents_DCT_streams()
+    {
+        using PdfDocument document = PdfDocument.Create(new PdfOptions().UseStreamEncoder(new DctEncoder(90, DctChromaSubsampling.None)));
+        Dct.DctGolden image = Dct.DctVectors.Golden("rgb");
+        CosDictionary dictionary = Dct.DctEncoderTests.ImageDictionary(image);
+        dictionary[new CosName("Filter")] = new CosName("DCTDecode");
+        var stream = new CosStream(dictionary, ReadOnlyMemory<byte>.Empty);
+
+        document.EncodeStream(stream, image.Samples);
+
+        Assert.Equal(Dct.DctVectors.Jpeg("encoded-rgb-q90-444"), stream.EncodedData.ToArray());
+    }
+
+    [Fact]
+    public void A_DCT_stream_without_an_image_dictionary_is_rejected()
+    {
+        using PdfDocument document = PdfDocument.Create();
+        var stream = new CosStream(new CosDictionary { [new CosName("Filter")] = new CosName("DCTDecode") }, new byte[] { 1, 2, 3 });
+
+        Assert.Throws<ArgumentException>(() => document.EncodeStream(stream, new byte[8]));
+        Assert.Equal([1, 2, 3], stream.EncodedData.ToArray());
     }
 
     [Fact]

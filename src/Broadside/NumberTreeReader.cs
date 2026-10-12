@@ -48,6 +48,9 @@ internal sealed class NumberTreeReader : TreeReader<int>
     private protected override IEqualityComparer<int> KeyEquality => EqualityComparer<int>.Default;
 
     /// <inheritdoc/>
+    private protected override CosObject WriteKey(int key) => new CosInteger(key);
+
+    /// <inheritdoc/>
     private protected override KeyState ReadKey(CosObject key, [MaybeNullWhen(false)] out int value, out string? message)
     {
         switch (key)

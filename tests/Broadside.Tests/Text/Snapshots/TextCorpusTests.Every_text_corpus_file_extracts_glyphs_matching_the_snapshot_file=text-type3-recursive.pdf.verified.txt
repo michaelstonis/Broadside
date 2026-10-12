@@ -2,3 +2,5 @@
   a code 61/1 GlyphName font Type3 24 Fill origin (72, 700) advance (24, 0) quad (72, 700) (96, 700) (96, 724) (72, 724)
   r code 72/1 GlyphName font Type3 24 Fill origin (96, 700) advance (24, 0) quad (96, 700) (120, 700) (120, 724) (96, 724)
   n code 6E/1 GlyphName font Type3 24 Fill origin (120, 700) advance (24, 0) quad (120, 700) (144, 700) (144, 724) (120, 724)
+  line arn glyphs 0+3 quad (72, 700) (144, 700) (144, 724) (72, 724)
+    words arn glyphs 0+3

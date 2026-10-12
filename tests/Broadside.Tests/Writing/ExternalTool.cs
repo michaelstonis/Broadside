@@ -45,6 +45,45 @@ internal static class ExternalTool
         }
     }
 
+    /// <summary>Like <see cref="Run"/>, for a tool whose standard output is binary, such as <c>pdftoppm</c> writing a PPM.</summary>
+    /// <returns>The exit code, the standard output's bytes and the standard error.</returns>
+    public static (int ExitCode, byte[] Output, string Error) RunBinary(string tool, byte[] file, params string[] arguments)
+    {
+        string? executable = Find(tool);
+        if (executable is null)
+        {
+            Assert.Skip($"{tool} is not on the PATH.");
+        }
+
+        string path = Path.Combine(Path.GetTempPath(), $"broadside-{Guid.NewGuid():N}.pdf");
+        File.WriteAllBytes(path, file);
+        try
+        {
+            var start = new ProcessStartInfo(executable)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
+            foreach (string argument in arguments)
+            {
+                start.ArgumentList.Add(argument);
+            }
+
+            start.ArgumentList.Add(path);
+            using Process process = Process.Start(start)!;
+            Task<string> error = process.StandardError.ReadToEndAsync();
+            using var output = new MemoryStream();
+            process.StandardOutput.BaseStream.CopyTo(output);
+            process.WaitForExit();
+            return (process.ExitCode, output.ToArray(), error.Result);
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     private static string? Find(string tool)
     {
         string[] directories = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
