@@ -20,7 +20,7 @@ public sealed class SummaryTests
         Assert.Contains("**Failed**: 2 regression(s) over 2 benchmark case(s).", summary, StringComparison.Ordinal);
         Assert.Contains("times with the base commit `abc1234`", summary, StringComparison.Ordinal);
         Assert.Contains(
-            "| `LexerBenchmarks.Tokenize(File: \"empty-page.pdf\")` | allocation changed | allocates 40 B per operation; the baseline is 0 B |",
+            "| `LexerBenchmarks.Tokenize(File: \"empty-page.pdf\")` | allocation changed | allocates 40 B per call; the baseline is 0 B |",
             summary,
             StringComparison.Ordinal);
         Assert.Contains(
@@ -78,7 +78,6 @@ public sealed class SummaryTests
 
         BenchmarkCase first = cases[0];
         Assert.Equal("Broadside.Benchmarks.LexerBenchmarks.Tokenize(File: \"empty-page.pdf\")", first.FullName);
-        Assert.Equal(0, first.AllocatedBytesPerOperation);
         Assert.Equal(31, first.NanosecondsPerOperation.Count); // Statistics.N in the report
         Assert.InRange(first.NanosecondsPerOperation.Average(), 1603.2, 1603.3); // Statistics.Mean
     }

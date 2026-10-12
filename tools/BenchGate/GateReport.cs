@@ -98,7 +98,7 @@ public sealed class GateReport
         string against = baseName is null ? "the base commit" : $"the base commit `{baseName}`";
         text.AppendLine("## Benchmark gate").AppendLine();
         text.AppendLine(Invariant(
-            $"{(Passed ? "**Passed**" : $"**Failed**: {failures.Count} regression(s)")} over {CaseCount} benchmark case(s). Allocations are compared with `{BaselinePath}` (exact); times with {against}, run on this runner in {RoundCount} interleaved round(s), slower cases rerun once to confirm."));
+            $"{(Passed ? "**Passed**" : $"**Failed**: {failures.Count} regression(s)")} over {CaseCount} benchmark case(s). Allocations (bytes per call) are compared with `{BaselinePath}`, exactly; times with {against}, run on this runner in {RoundCount} interleaved round(s), slower cases rerun once to confirm."));
         text.AppendLine();
 
         if (failures.Count > 0)

@@ -30,4 +30,10 @@ public sealed record GateOptions
     /// below that a ratio measures code alignment and timer resolution, not the code.
     /// </summary>
     public double MinimumDifferenceNanoseconds { get; init; } = 1.0;
+
+    /// <summary>
+    /// True when the results cover only some benchmarks on purpose (a local run with <c>--methods</c>): baseline cases that did
+    /// not run are then not findings. CI never sets it.
+    /// </summary>
+    public bool Subset { get; init; }
 }

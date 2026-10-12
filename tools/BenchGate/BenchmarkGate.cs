@@ -16,10 +16,10 @@ public static class BenchmarkGate
         options ??= GateOptions.Default;
         AllocationBaseline baseline = AllocationBaseline.Load(baselinePath);
         GateResults results = GateResults.Load(resultsRoot);
-        IReadOnlyDictionary<string, IReadOnlyList<BenchmarkCase>> head = results.HeadCases();
+        IReadOnlyCollection<string> head = results.HeadCaseNames();
 
         var findings = new List<GateFinding>();
-        CompareAllocations(baseline, results, head, findings);
+        CompareAllocations(baseline, results, head, options, findings);
         List<TimeComparison> times = CompareTimes(results, options, findings);
 
         GateFinding[] ordered = [.. findings
@@ -100,11 +100,14 @@ public static class BenchmarkGate
         return [.. assigned.Order(StringComparer.Ordinal)];
     }
 
-    /// <summary>Writes the pull request side's allocations under <paramref name="resultsRoot"/> as a baseline file.</summary>
-    public static AllocationBaseline Record(string resultsRoot, string outputPath)
+    /// <summary>
+    /// Writes the pull request side's allocations under <paramref name="resultsRoot"/> as a baseline file, keeping the ranges of
+    /// <paramref name="previous"/> for the cases that vary (<see cref="AllocationBaseline.From"/>).
+    /// </summary>
+    public static AllocationBaseline Record(string resultsRoot, string outputPath, AllocationBaseline? previous = null)
     {
         GateResults results = GateResults.Load(resultsRoot);
-        AllocationBaseline baseline = AllocationBaseline.From(results.HeadCases().Values.SelectMany(static cases => cases));
+        AllocationBaseline baseline = AllocationBaseline.From(results.Allocations.Head, previous);
         baseline.Save(outputPath);
         return baseline;
     }
@@ -112,46 +115,44 @@ public static class BenchmarkGate
     private static void CompareAllocations(
         AllocationBaseline baseline,
         GateResults results,
-        IReadOnlyDictionary<string, IReadOnlyList<BenchmarkCase>> head,
+        IReadOnlyCollection<string> head,
+        GateOptions options,
         List<GateFinding> findings)
     {
-        foreach ((string name, IReadOnlyList<BenchmarkCase> cases) in head)
+        foreach (string name in head)
         {
-            long[] measured = [.. cases.Select(static benchmark => benchmark.AllocatedBytesPerOperation ?? -1).Distinct().Order()];
-            if (measured.Contains(-1))
+            if (!results.Allocations.Head.TryGetValue(name, out List<long>? values) || values.Count == 0)
             {
-                findings.Add(new GateFinding(name, FindingKind.NoAllocationFigure, "the report has no allocation figure; the class needs [MemoryDiagnoser]"));
+                findings.Add(new GateFinding(name, FindingKind.NoAllocationFigure, "ran, but the allocation measurement (--gate-allocations) has no figure for it; see the measure job's log"));
                 continue;
             }
 
-            if (!baseline.Allocations.TryGetValue(name, out long expected))
+            long[] measured = [.. values.Distinct().Order()];
+            if (!baseline.Allocations.TryGetValue(name, out AllocationRange expected))
             {
-                findings.Add(new GateFinding(name, FindingKind.NotInBaseline, Invariant($"allocates {Bytes(measured)} per operation and has no baseline entry"), Measured: measured[^1]));
+                findings.Add(new GateFinding(name, FindingKind.NotInBaseline, Invariant($"allocates {Bytes(measured)} per call and has no baseline entry"), Measured: measured[^1]));
                 continue;
             }
 
-            if (measured.Length != 1 || measured[0] != expected)
+            if (!measured.All(expected.Contains))
             {
-                findings.Add(new GateFinding(name, FindingKind.AllocationChanged, Invariant($"allocates {Bytes(measured)} per operation; the baseline is {expected} B"), expected, measured[^1]));
+                string accepted = expected.IsExact ? Invariant($"the baseline is {expected}") : Invariant($"the baseline accepts {expected} (this case varies between processes)");
+                findings.Add(new GateFinding(name, FindingKind.AllocationChanged, Invariant($"allocates {Bytes(measured)} per call; {accepted}"), expected.Min, measured[^1]));
                 continue;
             }
 
-            long[] onBase = [.. results.Rounds.Values
-                .Select(pass => pass.Base.GetValueOrDefault(name)?.AllocatedBytesPerOperation)
-                .OfType<long>()
-                .Distinct()
-                .Order()];
-            if (onBase.Length > 0 && (onBase.Length != 1 || onBase[0] != expected))
+            if (results.Allocations.Base.TryGetValue(name, out List<long>? onBase) && !onBase.All(expected.Contains))
             {
-                findings.Add(new GateFinding(name, FindingKind.BaselineStale, Invariant($"the base commit allocates {Bytes(onBase)} per operation, not the baseline's {expected} B")));
+                long[] stale = [.. onBase.Distinct().Order()];
+                findings.Add(new GateFinding(name, FindingKind.BaselineStale, Invariant($"the base commit allocates {Bytes(stale)} per call, not the baseline's {expected}")));
             }
         }
 
-        foreach (string name in baseline.Allocations.Keys)
+        foreach ((string name, AllocationRange expected) in baseline.Allocations)
         {
-            if (!head.ContainsKey(name))
+            if (!options.Subset && !head.Contains(name))
             {
-                findings.Add(new GateFinding(name, FindingKind.NotRun, "is in the baseline but did not run", baseline.Allocations[name]));
+                findings.Add(new GateFinding(name, FindingKind.NotRun, "is in the baseline but did not run", expected.Min));
             }
         }
     }

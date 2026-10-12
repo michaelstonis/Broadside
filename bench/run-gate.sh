@@ -1,13 +1,14 @@
 #!/usr/bin/env bash
-# Runs the benchmark regression gate's measurements (issue #139; bench/baselines/gate/README.md): the benchmarks of a base
-# checkout and of a pull-request checkout, interleaved on this machine, then a rerun of whatever the rounds found slower.
-# The verdict is `dotnet run --project tools/BenchGate -- compare --results <out> ...` afterwards.
+# Runs the benchmark regression gate's measurements (issue #139; bench/baselines/gate/README.md): the allocation figures of the
+# pull request (and of the base commit, to spot a stale baseline), then the benchmarks of both commits interleaved on this
+# machine, then a rerun of whatever the rounds found slower. The verdict is
+# `dotnet run --project tools/BenchGate -- compare --baseline bench/baselines/gate/allocations.json --results <out>` afterwards.
 #
-#   bench/run-gate.sh --base <checkout> --head <checkout> --out <dir> [--methods <file>] [--rounds <n>]
+#   bench/run-gate.sh --head <checkout> --out <dir> [--base <checkout>] [--methods <file>] [--rounds <n>]
 #
-#   --base     checkout of the commit to compare against (a git worktree); built here. Optional: without it only allocations are gated.
 #   --head     checkout of the pull request; built here; its tools/BenchGate is the one used.
-#   --out      results directory: <out>/round-<n>/{base,head}/ and <out>/confirm/{base,head}/ (BenchmarkDotNet --artifacts folders).
+#   --base     checkout of the commit to compare against (a git worktree); built here. Without it only allocations are measured.
+#   --out      results directory: <out>/allocations/{base,head}/, <out>/round-<n>/{base,head}/ and <out>/confirm/{base,head}/.
 #   --methods  file of Namespace.Type.Method lines to run (BenchGate shard output); default every benchmark.
 #   --rounds   interleaved rounds, default 2. Odd rounds run base first, even rounds head first, so drift of the machine
 #              during the run weighs on both sides alike.
@@ -32,7 +33,7 @@ while [ $# -gt 0 ]; do
   esac
 done
 if [ -z "${head}" ] || [ -z "${out}" ]; then
-  echo "usage: $0 --base <checkout> --head <checkout> --out <dir> [--methods <file>] [--rounds <n>]" >&2
+  echo "usage: $0 --head <checkout> --out <dir> [--base <checkout>] [--methods <file>] [--rounds <n>]" >&2
   exit 2
 fi
 
@@ -43,16 +44,16 @@ if [ -n "${base}" ]; then
   base="$(cd "${base}" && pwd)"
 fi
 
-# The job: one process per case, 3 warm-up and 10 measured iterations of about 100 ms, allocations measured. Passed as plain
-# BenchmarkDotNet options (not a --job name) so a base commit older than the gate runs the same job.
-# The benchmark processes run without tiered compilation: with it, a process on a busy 4-core runner sometimes measures tier-0
-# code for its whole run (4x slower, and more bytes allocated, because tier 0 does not stack-allocate), which made the same
-# commit differ from itself by up to 4.7x in time and by up to 10 % in allocations. Fully optimized code from the first call
-# removes that mode. DOTNET_PROCESSOR_COUNT=1 gives every ConcurrentDictionary a single lock: with several, a dictionary grows
-# when one lock's share passes its budget, and which lock a key takes depends on HashCode's per-process random seed, so the
-# same walk allocated a few KB more or less from one process to the next. One lock makes growth depend on the count alone, and
-# the figures no longer depend on the machine's core count either.
-bench_args=(--launchCount 1 --warmupCount 3 --iterationCount 10 --iterationTime 100 --memory --exporters json
+# Both measurements run without tiered compilation: with it, a process on a busy 4-core runner sometimes ran tier-0 code through
+# its whole measurement (the same commit was up to 4.7x slower than itself, and allocated more, because tier 0 does not
+# stack-allocate). DOTNET_PROCESSOR_COUNT=1 gives every ConcurrentDictionary a single lock: with several, a dictionary grows when
+# one lock's share passes its budget, and which lock a key takes depends on HashCode's per-process random seed, so the same walk
+# allocated a few KB more or less from one process to the next. bench/baselines/gate/README.md has the measurements.
+runtime_env=(DOTNET_TieredCompilation=0 DOTNET_PROCESSOR_COUNT=1)
+
+# The timing job: one process per case, 3 warm-up and 10 measured iterations of about 100 ms. Plain BenchmarkDotNet options
+# (not a --job name) so a base commit older than the gate runs the same job.
+bench_args=(--launchCount 1 --warmupCount 3 --iterationCount 10 --iterationTime 100 --exporters json
   --envVars DOTNET_TieredCompilation:0 DOTNET_PROCESSOR_COUNT:1)
 
 filters=('*')
@@ -78,12 +79,32 @@ if [ -n "${base}" ]; then
   if dotnet build "${base}/bench/Broadside.Benchmarks" -c Release; then
     base_built=true
   else
-    echo "::warning title=Benchmark gate::The base commit's benchmarks do not build; times are not compared, allocations still are."
+    echo "::warning title=Benchmark gate::The base commit's benchmarks do not build; times are not compared."
   fi
   echo "::endgroup::"
 fi
 
 status=0
+
+# allocations <checkout> <side>: Broadside.Benchmarks --gate-allocations (bench/Broadside.Benchmarks/GateAllocations.cs), with a
+# 256 MB generation-0 budget so that most measured calls see no collection.
+allocations() {
+  local checkout="$1" side="$2"
+  echo "::group::allocations/${side}"
+  (cd "${checkout}" && env "${runtime_env[@]}" DOTNET_GCgen0size=0x10000000 \
+    dotnet artifacts/bin/Broadside.Benchmarks/release/Broadside.Benchmarks.dll \
+    --gate-allocations "${out}/allocations/${side}/allocations.json" --filter "${filters[@]}")
+  local code=$?
+  echo "::endgroup::"
+  if [ "${code}" -ne 0 ]; then
+    if [ "${side}" = "head" ]; then
+      echo "::error title=Benchmark gate::The pull request's allocation measurement failed (exit ${code}); see the log."
+      status=1
+    else
+      echo "::notice title=Benchmark gate::The base commit's allocation measurement failed (exit ${code}); it may predate it. The stale-baseline check is skipped."
+    fi
+  fi
+}
 
 # run <checkout> <side> <folder> <filter...>
 run() {
@@ -103,6 +124,11 @@ run() {
     fi
   fi
 }
+
+allocations "${head}" head
+if [ "${base_built}" = true ]; then
+  allocations "${base}" base
+fi
 
 for round in $(seq 1 "${rounds}"); do
   if [ "${base_built}" = true ] && [ $((round % 2)) -eq 1 ]; then

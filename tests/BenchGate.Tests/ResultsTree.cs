@@ -63,6 +63,30 @@ internal sealed class ResultsTree : IDisposable
         });
 
         File.WriteAllText(path, report.ToJsonString());
+
+        // The allocation figure goes where `--gate-allocations` writes it: <runner>/allocations/<side>/<file>.json, one file per
+        // measuring process (here, per round). The confirmation pass measures time only.
+        string[] parts = folder.Split('/');
+        if (parts[^2] != "confirm")
+        {
+            string runner = string.Join('/', parts[..^2]);
+            AddAllocation(Path.Combine(runner, "allocations", parts[^1]), parts[^2], fullName, allocated);
+        }
+
+        return this;
+    }
+
+    /// <summary>Writes one allocation figure into <c>&lt;directory&gt;/&lt;file&gt;.json</c>.</summary>
+    public ResultsTree AddAllocation(string directory, string file, string fullName, long bytes)
+    {
+        string folder = Path.Combine(Root, directory);
+        Directory.CreateDirectory(folder);
+        string path = Path.Combine(folder, file + ".json");
+        JsonObject document = File.Exists(path)
+            ? JsonNode.Parse(File.ReadAllText(path))!.AsObject()
+            : new JsonObject { ["Unit"] = "bytes per call", ["Benchmarks"] = new JsonObject() };
+        document["Benchmarks"]![fullName] = bytes;
+        File.WriteAllText(path, document.ToJsonString());
         return this;
     }
 
@@ -87,6 +111,14 @@ internal sealed class ResultsTree : IDisposable
 
         string path = Path.Combine(Root, "baseline.json");
         File.WriteAllText(path, new JsonObject { ["Benchmarks"] = benchmarks }.ToJsonString());
+        return path;
+    }
+
+    /// <summary>Writes a baseline file with the given text.</summary>
+    public string WriteBaselineText(string json)
+    {
+        string path = Path.Combine(Root, "baseline.json");
+        File.WriteAllText(path, json);
         return path;
     }
 

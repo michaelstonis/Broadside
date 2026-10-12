@@ -4,28 +4,30 @@ using System.Text.Json;
 
 namespace Broadside.Tools.BenchGate;
 
-/// <summary>One benchmark case of one BenchmarkDotNet run: its key, allocation figure and measured iterations.</summary>
+/// <summary>One benchmark case of one BenchmarkDotNet run: its key and its measured iterations.</summary>
 /// <param name="FullName">BenchmarkDotNet's full name, parameters included: the key the gate and the baseline use.</param>
-/// <param name="AllocatedBytesPerOperation"><c>[MemoryDiagnoser]</c>'s bytes per operation, or null when the run had no memory diagnoser.</param>
 /// <param name="NanosecondsPerOperation">The measured (Workload, Result) iterations, in nanoseconds per operation.</param>
-public sealed record BenchmarkCase(string FullName, long? AllocatedBytesPerOperation, IReadOnlyList<double> NanosecondsPerOperation);
+public sealed record BenchmarkCase(string FullName, IReadOnlyList<double> NanosecondsPerOperation);
 
 /// <summary>
-/// The benchmark reports of one gate run, read from a results directory with this layout (any number of shard folders may sit
-/// above each <c>round-&lt;n&gt;</c> or <c>confirm</c> folder; their reports are merged):
+/// The measurements of one gate run, read from a results directory with this layout (any number of shard folders may sit above
+/// each <c>round-&lt;n&gt;</c>, <c>confirm</c> or <c>allocations</c> folder; their files are merged):
 /// <code>
-/// round-1/base/**/*.json    round-1/head/**/*.json    first interleaved pass, base commit and pull request
+/// round-1/base/**/*.json    round-1/head/**/*.json    first interleaved pass, base commit and pull request (BenchmarkDotNet)
 /// round-2/base/**/*.json    round-2/head/**/*.json    second pass (and so on)
 /// confirm/base/**/*.json    confirm/head/**/*.json    rerun of the cases the rounds flagged as slower
+/// allocations/base/*.json   allocations/head/*.json   bytes per call (Broadside.Benchmarks --gate-allocations)
 /// </code>
-/// Every <c>*.json</c> file is read as a BenchmarkDotNet full JSON report (<c>--exporters json</c>); other JSON files are ignored.
+/// Under the round and confirm folders every <c>*.json</c> file is read as a BenchmarkDotNet full JSON report
+/// (<c>--exporters json</c>); a JSON file of another shape is ignored.
 /// </summary>
 public sealed class GateResults
 {
-    private GateResults(SortedDictionary<int, GatePass> rounds, GatePass confirmation)
+    private GateResults(SortedDictionary<int, GatePass> rounds, GatePass confirmation, AllocationPass allocations)
     {
         Rounds = rounds;
         Confirmation = confirmation;
+        Allocations = allocations;
     }
 
     /// <summary>The interleaved passes by round number.</summary>
@@ -34,27 +36,22 @@ public sealed class GateResults
     /// <summary>The confirmation pass; empty when nothing was rerun.</summary>
     public GatePass Confirmation { get; }
 
-    /// <summary>Every case of the pull request side, over all rounds, keyed by full name.</summary>
-    public IReadOnlyDictionary<string, IReadOnlyList<BenchmarkCase>> HeadCases()
+    /// <summary>The allocation measurements of both sides.</summary>
+    public AllocationPass Allocations { get; }
+
+    /// <summary>The full names of every case the pull request side ran, in the rounds or in the allocation measurement.</summary>
+    public IReadOnlyCollection<string> HeadCaseNames()
     {
-        var cases = new SortedDictionary<string, List<BenchmarkCase>>(StringComparer.Ordinal);
+        var names = new SortedSet<string>(Allocations.Head.Keys, StringComparer.Ordinal);
         foreach (GatePass pass in Rounds.Values)
         {
-            foreach (BenchmarkCase benchmark in pass.Head.Values)
-            {
-                if (!cases.TryGetValue(benchmark.FullName, out List<BenchmarkCase>? list))
-                {
-                    cases[benchmark.FullName] = list = [];
-                }
-
-                list.Add(benchmark);
-            }
+            names.UnionWith(pass.Head.Keys);
         }
 
-        return cases.ToDictionary(static pair => pair.Key, static pair => (IReadOnlyList<BenchmarkCase>)pair.Value, StringComparer.Ordinal);
+        return names;
     }
 
-    /// <summary>Reads every report under <paramref name="root"/>.</summary>
+    /// <summary>Reads every measurement under <paramref name="root"/>.</summary>
     public static GateResults Load(string root)
     {
         if (!Directory.Exists(root))
@@ -64,14 +61,30 @@ public sealed class GateResults
 
         var rounds = new SortedDictionary<int, GatePass>();
         var confirmation = new GatePass();
+        var allocations = new AllocationPass();
 
         // Read per runner (the folders above round-<n> or confirm) first: a base case counts only where the same runner also
         // measured the pull request's case, so a time ratio never mixes two machines.
         var perRunner = new Dictionary<(string Runner, GatePass Pass), GatePass>();
         foreach (string file in Directory.EnumerateFiles(root, "*.json", SearchOption.AllDirectories).Order(StringComparer.Ordinal))
         {
-            string relative = Path.GetRelativePath(root, file).Replace('\\', '/');
-            string[] parts = relative.Split('/');
+            string[] parts = Path.GetRelativePath(root, file).Replace('\\', '/').Split('/');
+            if (TryLocateAllocations(parts, out bool isHeadAllocation))
+            {
+                foreach ((string name, long bytes) in ReadAllocations(file))
+                {
+                    Dictionary<string, List<long>> side = isHeadAllocation ? allocations.Head : allocations.Base;
+                    if (!side.TryGetValue(name, out List<long>? values))
+                    {
+                        side[name] = values = [];
+                    }
+
+                    values.Add(bytes);
+                }
+
+                continue;
+            }
+
             if (!TryLocate(parts, out GatePass? pass, out bool isHead, out string? runner, rounds, confirmation))
             {
                 continue;
@@ -100,7 +113,7 @@ public sealed class GateResults
             }
         }
 
-        return new GateResults(rounds, confirmation);
+        return new GateResults(rounds, confirmation, allocations);
     }
 
     /// <summary>Reads one BenchmarkDotNet full JSON report; a JSON file of another shape yields nothing.</summary>
@@ -124,15 +137,6 @@ public sealed class GateResults
                 continue;
             }
 
-            long? allocated = null;
-            if (benchmark.TryGetProperty("Memory", out JsonElement memory)
-                && memory.ValueKind == JsonValueKind.Object
-                && memory.TryGetProperty("BytesAllocatedPerOperation", out JsonElement bytes)
-                && bytes.ValueKind == JsonValueKind.Number)
-            {
-                allocated = bytes.GetInt64();
-            }
-
             var nanoseconds = new List<double>();
             if (benchmark.TryGetProperty("Measurements", out JsonElement measurements) && measurements.ValueKind == JsonValueKind.Array)
             {
@@ -149,10 +153,33 @@ public sealed class GateResults
                 }
             }
 
-            cases.Add(new BenchmarkCase(fullName, allocated, nanoseconds));
+            cases.Add(new BenchmarkCase(fullName, nanoseconds));
         }
 
         return cases;
+    }
+
+    /// <summary>Reads one <c>--gate-allocations</c> file: <c>{ "Benchmarks": { "&lt;full name&gt;": &lt;bytes per call&gt;, ... } }</c>.</summary>
+    public static IReadOnlyList<(string FullName, long Bytes)> ReadAllocations(string path)
+    {
+        using FileStream stream = File.OpenRead(path);
+        using JsonDocument document = JsonDocument.Parse(stream);
+        if (document.RootElement.ValueKind != JsonValueKind.Object
+            || !document.RootElement.TryGetProperty("Benchmarks", out JsonElement benchmarks)
+            || benchmarks.ValueKind != JsonValueKind.Object)
+        {
+            return [];
+        }
+
+        return [.. benchmarks.EnumerateObject()
+            .Where(static property => property.Value.ValueKind == JsonValueKind.Number)
+            .Select(static property => (property.Name, property.Value.GetInt64()))];
+    }
+
+    private static bool TryLocateAllocations(string[] parts, out bool isHead)
+    {
+        isHead = parts.Length >= 3 && parts[^2] == "head";
+        return parts.Length >= 3 && parts[^3] == "allocations" && (isHead || parts[^2] == "base");
     }
 
     private static bool TryLocate(
@@ -204,7 +231,7 @@ public sealed class GateResults
         element.TryGetProperty(name, out JsonElement value) && value.ValueKind == JsonValueKind.String ? value.GetString() : null;
 }
 
-/// <summary>One pass: the base commit's and the pull request's cases, keyed by full name.</summary>
+/// <summary>One timing pass: the base commit's and the pull request's cases, keyed by full name.</summary>
 public sealed class GatePass
 {
     /// <summary>The base commit's cases.</summary>
@@ -212,4 +239,14 @@ public sealed class GatePass
 
     /// <summary>The pull request's cases.</summary>
     public Dictionary<string, BenchmarkCase> Head { get; } = new(StringComparer.Ordinal);
+}
+
+/// <summary>The allocation measurements: bytes per call by full name, one value per measuring process.</summary>
+public sealed class AllocationPass
+{
+    /// <summary>The base commit's figures.</summary>
+    public Dictionary<string, List<long>> Base { get; } = new(StringComparer.Ordinal);
+
+    /// <summary>The pull request's figures.</summary>
+    public Dictionary<string, List<long>> Head { get; } = new(StringComparer.Ordinal);
 }

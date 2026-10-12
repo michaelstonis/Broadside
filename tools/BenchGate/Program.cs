@@ -5,9 +5,9 @@ namespace Broadside.Tools.BenchGate;
 /// <summary>
 /// Entry point. See README.md.
 /// <code>
-/// BenchGate compare  --baseline &lt;file&gt; --results &lt;dir&gt; [--summary &lt;file&gt;] [--record &lt;file&gt;] [--base-name &lt;text&gt;] [--fail-ratio &lt;x&gt;]
+/// BenchGate compare  --baseline &lt;file&gt; --results &lt;dir&gt; [--summary &lt;file&gt;] [--record &lt;file&gt;] [--base-name &lt;text&gt;] [--fail-ratio &lt;x&gt;] [--subset true]
 /// BenchGate suspects --results &lt;dir&gt; --out &lt;file&gt; [--fail-ratio &lt;x&gt;]
-/// BenchGate record   --results &lt;dir&gt; --out &lt;file&gt;
+/// BenchGate record   --results &lt;dir&gt; --out &lt;file&gt; [--baseline &lt;previous file&gt;]
 /// BenchGate shard    --list &lt;file&gt; --count &lt;n&gt; --index &lt;i&gt; --out &lt;file&gt; [--baseline &lt;file&gt;] [--split &lt;method,...&gt;]
 /// </code>
 /// Exit codes: 0 passed, 1 a regression (compare only), 2 a bad command line or unreadable input.
@@ -63,7 +63,7 @@ internal static class Program
 
         if (options.TryGetValue("--record", out string? record))
         {
-            BenchmarkGate.Record(results, record);
+            BenchmarkGate.Record(results, record, AllocationBaseline.Load(baseline));
         }
 
         foreach (GateFinding finding in report.Failures)
@@ -101,7 +101,8 @@ internal static class Program
             return Usage("record needs --results and --out.");
         }
 
-        AllocationBaseline baseline = BenchmarkGate.Record(results, output);
+        AllocationBaseline? previous = options.TryGetValue("--baseline", out string? path) && File.Exists(path) ? AllocationBaseline.Load(path) : null;
+        AllocationBaseline baseline = BenchmarkGate.Record(results, output, previous);
         Console.Out.WriteLine(string.Create(CultureInfo.InvariantCulture, $"Recorded {baseline.Allocations.Count} benchmark case(s) to {output}."));
         return 0;
     }
@@ -118,7 +119,7 @@ internal static class Program
 
         AllocationBaseline baseline = options.TryGetValue("--baseline", out string? path) && File.Exists(path)
             ? AllocationBaseline.Load(path)
-            : AllocationBaseline.From([]);
+            : AllocationBaseline.From(new Dictionary<string, List<long>>());
         IReadOnlyList<string> methods = BenchmarkGate.Shard(
             File.ReadAllLines(list),
             baseline,
@@ -130,10 +131,13 @@ internal static class Program
         return 0;
     }
 
-    private static GateOptions ReadOptions(Dictionary<string, string> options) =>
-        options.TryGetValue("--fail-ratio", out string? ratio)
-            ? GateOptions.Default with { FailRatio = double.Parse(ratio, NumberStyles.Float, CultureInfo.InvariantCulture) }
-            : GateOptions.Default;
+    private static GateOptions ReadOptions(Dictionary<string, string> options) => GateOptions.Default with
+    {
+        FailRatio = options.TryGetValue("--fail-ratio", out string? ratio)
+            ? double.Parse(ratio, NumberStyles.Float, CultureInfo.InvariantCulture)
+            : GateOptions.Default.FailRatio,
+        Subset = options.TryGetValue("--subset", out string? subset) && bool.Parse(subset),
+    };
 
     private static Dictionary<string, string>? ParseOptions(ReadOnlySpan<string> args)
     {
@@ -162,10 +166,10 @@ internal static class Program
     private static void PrintUsage(TextWriter writer)
     {
         writer.WriteLine("Usage:");
-        writer.WriteLine("  BenchGate compare  --baseline <file> --results <dir> [--summary <file>] [--record <file>] [--base-name <text>] [--fail-ratio <x>]");
+        writer.WriteLine("  BenchGate compare  --baseline <file> --results <dir> [--summary <file>] [--record <file>] [--base-name <text>] [--fail-ratio <x>] [--subset true]");
         writer.WriteLine("  BenchGate suspects --results <dir> --out <file> [--fail-ratio <x>]");
-        writer.WriteLine("  BenchGate record   --results <dir> --out <file>");
+        writer.WriteLine("  BenchGate record   --results <dir> --out <file> [--baseline <previous file>]");
         writer.WriteLine("  BenchGate shard    --list <file> --count <n> --index <i> --out <file> [--baseline <file>] [--split <method,...>]");
-        writer.WriteLine("Results layout: <dir>/[<shard>/]round-<n>/{base,head}/**/*.json and <dir>/[<shard>/]confirm/{base,head}/**/*.json.");
+        writer.WriteLine("Results layout: <dir>/[<shard>/]{round-<n>,confirm,allocations}/{base,head}/**/*.json.");
     }
 }
