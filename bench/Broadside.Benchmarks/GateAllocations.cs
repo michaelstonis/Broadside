@@ -26,6 +26,7 @@ internal static class GateAllocations
     /// <summary>The command-line switch that selects this mode.</summary>
     public const string Option = "--gate-allocations";
 
+    private const BindingFlags MemberFlags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
     private const int WarmUpCalls = 30;
     private const int MeasuredCalls = 10;
     private static readonly TimeSpan WarmUpBudget = TimeSpan.FromMilliseconds(500);
@@ -167,12 +168,11 @@ internal static class GateAllocations
 
     private static void Set(Type type, object? target, string name, object? value)
     {
-        const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static;
-        if (type.GetProperty(name, Flags) is { } property)
+        if (type.GetProperty(name, MemberFlags) is { } property)
         {
             property.SetValue(target, value);
         }
-        else if (type.GetField(name, Flags) is { } field)
+        else if (type.GetField(name, MemberFlags) is { } field)
         {
             field.SetValue(target, value);
         }

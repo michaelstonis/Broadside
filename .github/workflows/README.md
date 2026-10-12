@@ -13,6 +13,17 @@
 
 A newer push to the same PR or branch cancels the older run. NuGet packages are cached per OS, keyed on `Directory.Packages.props` and every `.csproj`. `DiffEngine_Disabled=true` keeps Verify from launching a diff tool.
 
+## `bench-gate.yml`: pull requests that touch library, benchmark or corpus code, and the "Run workflow" button
+
+The benchmark regression gate (issue #139; [`bench/baselines/gate/README.md`](../../bench/baselines/gate/README.md) has the rules, the thresholds and how to update the baseline). Runs when the diff touches `src/**`, `bench/**`, `tests/Broadside.TestSupport/**`, `tests/Corpus/**`, `tools/BenchGate/**`, `Directory.Build.props`, `Directory.Packages.props`, `global.json` or the workflow; the dispatch takes a `base` (branch, tag or commit, default `main`).
+
+| Job | Runs on | What it does |
+|---|---|---|
+| `measure (<shard>)` | ubuntu-24.04, four shards | Checks out the base commit (the pull request merge commit's first parent) in a second worktree, picks this shard's methods with `tools/BenchGate shard` (`OpenAndWalk` split over all shards through `BROADSIDE_BENCH_PARTITION`), and runs `bench/run-gate.sh`: allocation figures of both commits (`Broadside.Benchmarks --gate-allocations`), two interleaved BenchmarkDotNet rounds of both, and a rerun of any case the rounds find slower. Uploads the reports as `bench-gate-shard-<shard>`. |
+| `gate` | ubuntu-24.04 | Downloads every shard's reports and runs `tools/BenchGate compare` against `bench/baselines/gate/allocations.json`: one row per regression in the job summary and an `::error` annotation each, then fails if there is any. Uploads the baseline re-recorded from the run as `bench-gate-baseline`. |
+
+A newer push to the same pull request cancels the older run. A run takes about 25 minutes. The gate is not a required check: an intended slowdown is merged by the owner with the reason in the pull request.
+
 ## `corpus.yml`: weekly (Monday 04:17 UTC) and the "Run workflow" button
 
 | Job | Runs on | What it does |

@@ -84,7 +84,7 @@ Then in parallel:
 - **3D Skia backend**: path/text/image/shader mapping, GPU surface support, native glyph rendering with `ForceOutlines` fallback, group fallback to 3B where Skia cannot express a blend/knockout.
 - **3E CoreGraphics backend**, **3F Direct2D backend** (CsWin32), **3G Android backend**: same contract, same fallback rules.
 - **3H Golden-image suite**: every corpus page rendered by 3B at fixed DPI becomes a snapshot; backends must match within a perceptual threshold; `tools/RenderDiff` compares against PDFium and pdf.js renders for correctness triage.
-- **3I Benchmarks**: parse, render, extract baselines vs PDFium and pdf.js; CI regression gate.
+- **3I Benchmarks**: parse, render, extract baselines vs PDFium and pdf.js; CI regression gate ([`bench/baselines/gate/`](../../bench/baselines/gate/README.md), issue #139: allocations exact against a stored baseline, times against the base commit on the same runner).
 
 Viewer-driven requirements folded in here (from `docs/research/pdf-viewer-landscape.md`): tiled region rendering from one cached display list; cancellation and progress on every render call; thread-safe replay for render-ahead; annotation and form layers as separate replayable lists; hit-test index for selection; deterministic memory budgets for the image and glyph caches; linearization-aware loading from range-capable sources for Phase 5.
 
