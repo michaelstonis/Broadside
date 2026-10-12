@@ -59,8 +59,8 @@ public sealed partial class PdfDocument : IDisposable
 {
     private static readonly PdfVersion Pdf20 = new(2, 0);
 
-    private readonly PdfSource _source;
     private readonly DiagnosticSink _diagnostics;
+    private PdfSource _source;
     private readonly ObjectLoader _loader;
     private readonly StreamDecoder _streams;
     private readonly ConditionalWeakTable<CosDictionary, PdfFont> _fonts = [];
@@ -201,9 +201,10 @@ public sealed partial class PdfDocument : IDisposable
     /// <remarks>
     /// ISO 32000-2 §7.5.6. The document itself always shows the newest revision: for every object number the most recent
     /// cross-reference section that lists it decides, and a number it marks free is deleted even when an older section has the
-    /// object. A linearized file without updates has one revision.
+    /// object. A linearized file without updates has one revision. An incremental save adds the revision it wrote
+    /// (<see cref="PdfSaveOptions.IncrementalUpdate"/>).
     /// </remarks>
-    public IReadOnlyList<PdfRevision> Revisions { get; }
+    public IReadOnlyList<PdfRevision> Revisions { get; private set; }
 
     /// <summary>
     /// Gets a value indicating whether the file is linearized: it starts with a linearization parameter dictionary whose file
@@ -422,11 +423,18 @@ public sealed partial class PdfDocument : IDisposable
     /// file identifier is kept; the second is derived from the written bytes, so saving the same document the same way always writes
     /// the same bytes (§14.4).
     /// </para>
+    /// <para>
+    /// With <see cref="PdfSaveOptions.IncrementalUpdate"/>, the file is instead the document's file followed by an incremental update
+    /// holding only what changed (§7.5.6), and once its last byte is written the document reads from it: a mutation, which no read
+    /// may run concurrently with.
+    /// </para>
     /// </remarks>
     public void Save(Stream stream, PdfSaveOptions options)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        WriteTo(PlanSave(options), stream);
+        FileWriter writer = PlanSave(options);
+        WriteTo(writer, stream);
+        Rebase(writer);
     }
 
     /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it, with a classic cross-reference table.</summary>
@@ -448,8 +456,12 @@ public sealed partial class PdfDocument : IDisposable
 
         // Planned before the file is created, so a document that cannot be saved leaves an existing file alone.
         FileWriter writer = PlanSave(options);
-        using FileStream stream = File.Create(path);
-        WriteTo(writer, stream);
+        using (FileStream stream = File.Create(path))
+        {
+            WriteTo(writer, stream);
+        }
+
+        Rebase(writer);
     }
 
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file, writing asynchronously.</summary>
@@ -466,10 +478,47 @@ public sealed partial class PdfDocument : IDisposable
     public async Task SaveAsync(Stream stream, PdfSaveOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        foreach (ReadOnlyMemory<byte> chunk in PlanSave(options ?? new PdfSaveOptions()).Write())
+        FileWriter writer = PlanSave(options ?? new PdfSaveOptions());
+        foreach (ReadOnlyMemory<byte> chunk in writer.Write())
         {
             await stream.WriteAsync(chunk, cancellationToken).ConfigureAwait(false);
         }
+
+        Rebase(writer);
+    }
+
+    /// <summary>
+    /// Makes <paramref name="value"/> a new indirect object of the document and returns the reference to it: the next object number
+    /// the file does not use, generation 0.
+    /// </summary>
+    /// <param name="value">The object; a stream must be indirect, so this is how a new stream joins the document.</param>
+    /// <returns>The reference, which <see cref="Resolve"/> resolves to <paramref name="value"/> at once.</returns>
+    /// <exception cref="ArgumentException"><paramref name="value"/> is a <see cref="CosReference"/>, which an indirect object cannot be.</exception>
+    /// <exception cref="InvalidOperationException">The document has used every object number.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.3.10. Place the reference in the document (a dictionary entry, an array element) for the object to be reached.
+    /// The next save writes the object whether or not anything refers to it, unless it drops unreachable objects
+    /// (<see cref="PdfSaveOptions.RemoveUnreachableObjects"/>). A mutation: no read may run concurrently with it.
+    /// </remarks>
+    public CosReference AddObject(CosObject value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        return _loader.Add(value);
+    }
+
+    /// <summary>Removes the indirect object <paramref name="reference"/> names from the document.</summary>
+    /// <param name="reference">The object's number and generation.</param>
+    /// <returns><see langword="true"/> when the object was removed; <see langword="false"/> when the document holds no such object.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.3.10 and §7.5.4. References to the object resolve to null from now on; remove them too, or they are written as
+    /// references to a free object. A save writes the object's number as a free entry whose generation is one more than the
+    /// object's, the generation a new object reusing the number would take (§7.5.6, H.7.4: an incremental update leaves the object's
+    /// old bytes in the file). A mutation: no read may run concurrently with it.
+    /// </remarks>
+    public bool RemoveObject(CosReference reference)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        return _loader.Remove(reference);
     }
 
     /// <summary>Returns <paramref name="value"/>, or the indirect object it refers to when it is a <see cref="CosReference"/>.</summary>
@@ -1081,7 +1130,28 @@ public sealed partial class PdfDocument : IDisposable
     private FileWriter PlanSave(PdfSaveOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return SavePlan.Create(_source, _loader, Linearization, options, StreamEncoders);
+        return options.IncrementalUpdate
+            ? SavePlan.CreateIncremental(_source, _loader, options, StreamEncoders)
+            : SavePlan.Create(_source, _loader, Linearization, options, StreamEncoders);
+    }
+
+    /// <summary>
+    /// After an incremental update's last byte is written, reads the document from the updated file (§7.5.6): the update's section
+    /// leads the cross-reference information, its revision is added, and the objects it wrote are no longer dirty. A full save
+    /// changes nothing: the document keeps reading the file it was opened from.
+    /// </summary>
+    private void Rebase(FileWriter writer)
+    {
+        if (writer.Update is not { } update)
+        {
+            return;
+        }
+
+        AppendedSource source = AppendedSource.Append(_source, update.Bytes);
+        _loader.Rebase(source, update.Section, update.ListsEverything, update.Objects);
+        _source = source;
+        var revision = new PdfRevision(update.ListsEverything ? 0 : Revisions.Count, source.Length, update.Section.Trailer);
+        Revisions = update.ListsEverything ? [revision] : [.. Revisions, revision];
     }
 
     /// <summary>The open path shared by every entry point: header, cross-reference information, trailer, catalog.</summary>

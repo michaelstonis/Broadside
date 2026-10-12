@@ -3481,3 +3481,8 @@ Broadside.PdfStreamCompression
 Broadside.PdfStreamCompression.AllStreams = 2 -> Broadside.PdfStreamCompression
 Broadside.PdfStreamCompression.ChangedStreams = 1 -> Broadside.PdfStreamCompression
 Broadside.PdfStreamCompression.None = 0 -> Broadside.PdfStreamCompression
+Broadside.PdfDocument.AddObject(Broadside.Objects.CosObject! value) -> Broadside.Objects.CosReference!
+Broadside.PdfDocument.RemoveObject(Broadside.Objects.CosReference! reference) -> bool
+Broadside.PdfSaveOptions.IncrementalUpdate.get -> bool
+Broadside.PdfSaveOptions.IncrementalUpdate.set -> void
+Broadside.PdfSaveOptions.WithIncrementalUpdate(bool incremental) -> Broadside.PdfSaveOptions!
