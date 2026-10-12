@@ -1,0 +1,93 @@
+using Broadside.Graphics;
+
+namespace Broadside.Rendering;
+
+/// <summary>
+/// The device-independent, fully resolved sequence of drawing operations a page's content produces, which every backend consumes
+/// through <see cref="Replay"/>. Build one with <see cref="PdfPage.CreateDisplayList()"/>.
+/// </summary>
+/// <remarks>
+/// <para>
+/// ADR 0006. A struct-based operation buffer: operations are records in one array, paths are stored once per distinct path (verbs
+/// and points in shared arrays) and colours once per run of equal colours, so building costs a fixed number of arrays per page and
+/// replaying allocates nothing. Fonts, images and colour spaces are resolved before an operation enters the list; the list never
+/// reads the file again (a replay touches only the list), so it can be cached and replayed many times, for example per tile and
+/// zoom. Converting its colours goes through <see cref="Document"/>, which must still be open for that.
+/// </para>
+/// <para>
+/// Today the list carries the graphics state stack (ISO 32000-2 §8.4.2), transforms (§8.3.2) and path fills with their colour
+/// (§8.5.3, §8.6). Strokes, clips, text, images, shadings, patterns and transparency join it in later Phase 3 tickets, each as new
+/// <see cref="IRenderingBackend"/> calls.
+/// </para>
+/// <para>
+/// Immutable once built: any number of threads may replay the same list at once, each into its own backend.
+/// </para>
+/// </remarks>
+public sealed class DisplayList
+{
+    private readonly DisplayOperation[] _operations;
+    private readonly PathVerb[] _verbs;
+    private readonly PathPoint[] _points;
+    private readonly DisplayPath[] _paths;
+    private readonly DisplayColorEntry[] _colors;
+    private readonly float[] _components;
+    private readonly Matrix[] _transforms;
+
+    internal DisplayList(
+        PdfDocument document,
+        DisplayOperation[] operations,
+        PathVerb[] verbs,
+        PathPoint[] points,
+        DisplayPath[] paths,
+        DisplayColorEntry[] colors,
+        float[] components,
+        Matrix[] transforms)
+    {
+        Document = document;
+        _operations = operations;
+        _verbs = verbs;
+        _points = points;
+        _paths = paths;
+        _colors = colors;
+        _components = components;
+        _transforms = transforms;
+    }
+
+    /// <summary>Gets the document the list was built from, whose colour converters a backend uses (see <see cref="DisplayColor"/>).</summary>
+    public PdfDocument Document { get; }
+
+    /// <summary>Calls <paramref name="backend"/> once for every operation of the list, in order.</summary>
+    /// <param name="backend">The backend that draws.</param>
+    /// <remarks>
+    /// ADR 0006. Reads only the list (never the document or its file) and allocates nothing; safe to call on several threads at once
+    /// with a backend per thread. See <see cref="IRenderingBackend"/> for the state a replay starts from.
+    /// </remarks>
+    public void Replay(IRenderingBackend backend)
+    {
+        ArgumentNullException.ThrowIfNull(backend);
+        foreach (ref readonly DisplayOperation operation in _operations.AsSpan())
+        {
+            switch (operation.Kind)
+            {
+                case DisplayOperationKind.SaveState:
+                    backend.SaveState();
+                    break;
+                case DisplayOperationKind.RestoreState:
+                    backend.RestoreState();
+                    break;
+                case DisplayOperationKind.SetTransform:
+                    backend.SetTransform(in _transforms[operation.First]);
+                    break;
+                case DisplayOperationKind.FillPath:
+                    ref readonly DisplayPath path = ref _paths[operation.First];
+                    ref readonly DisplayColorEntry entry = ref _colors[operation.Second];
+                    var color = new DisplayColor(entry.ColorSpace, _components.AsSpan(entry.ComponentStart, entry.ComponentCount), entry.DefaultColorSpaces, entry.Conversion);
+                    backend.FillPath(
+                        new PathView(_verbs.AsSpan(path.VerbStart, path.VerbCount), _points.AsSpan(path.PointStart, path.PointCount)),
+                        operation.FillRule,
+                        in color);
+                    break;
+            }
+        }
+    }
+}

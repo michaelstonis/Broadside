@@ -4,6 +4,7 @@ using Broadside.Diagnostics;
 using Broadside.Fonts;
 using Broadside.Images;
 using Broadside.Objects;
+using Broadside.Rendering;
 
 namespace Broadside;
 
@@ -195,6 +196,29 @@ public sealed class PdfPage
         var extractor = new Text.TextExtractor(options);
         ProcessContent(extractor, options.ContentOptions ?? ContentInterpreter.DefaultOptions);
         return extractor.ToTextPage();
+    }
+
+    /// <summary>Builds the page's display list: its content interpreted once into resolved drawing operations any backend replays.</summary>
+    /// <returns>The list; a new one on every call, reading the page live.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
+    /// <remarks>
+    /// ADR 0006; ISO 32000-2 §8.5.3 (path painting) and §8.6 (colour). The content runs through the same interpreter as
+    /// <see cref="ProcessContent(ContentProcessor)"/>, so lenient repairs are recorded in <see cref="PdfDocument.Diagnostics"/> the
+    /// same way. Geometry is in user space with the transform to default user space; the media box, crop box, rotation and user unit
+    /// are the renderer's to apply. Colours keep their colour space; a backend converts them (see <see cref="DisplayColor"/>).
+    /// </remarks>
+    public DisplayList CreateDisplayList() => CreateDisplayList(ContentInterpreter.DefaultOptions);
+
+    /// <summary>Builds the page's display list, with limits and cancellation.</summary>
+    /// <param name="options">Limits, optional-content state and cancellation for the content run.</param>
+    /// <returns>The list.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
+    /// <exception cref="OperationCanceledException">The options' cancellation token was canceled.</exception>
+    /// <remarks>ADR 0006; ISO 32000-2 §8.5.3, §8.6. As <see cref="CreateDisplayList()"/>.</remarks>
+    public DisplayList CreateDisplayList(ContentOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return DisplayListBuilder.Build(this, _document, options);
     }
 
     /// <summary>Reads a page boundary; for an inheritable one, from the nearest node that has it.</summary>
