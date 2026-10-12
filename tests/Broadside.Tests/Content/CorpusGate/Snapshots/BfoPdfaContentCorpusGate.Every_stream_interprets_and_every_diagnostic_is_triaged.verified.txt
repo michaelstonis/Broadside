@@ -1,0 +1,96 @@
+﻿corpus: bfo-pdfa-testsuite @ c22d80260c7ec975a511f9bfcc6590b7ceb1cf18
+files: 33
+well-formed files: 29
+outcomes:
+  Interpreted: 33
+  PasswordRequired: 0
+  CertificateRequired: 0
+  EncryptionUnsupported: 0
+  Rejected: 0
+  Crash: 0
+  Timeout: 0
+pages: 33
+appearance streams: 7
+concurrent passes: 0
+page events:
+  Runs: 33
+  Operators: 505
+  UnknownOperators: 0
+  StateSaves: 45
+  PathVerbs: 45
+  PathsStroked: 0
+  PathsFilled: 9
+  PathsFilledAndStroked: 0
+  PathsEnded: 0
+  ClipsPath: 0
+  ClipsRectangle: 4
+  ClipsText: 0
+  TextObjects: 26
+  GlyphsType1: 0
+  GlyphsMMType1: 0
+  GlyphsTrueType: 108
+  GlyphsType3: 0
+  GlyphsType0: 1274
+  Type3GlyphsRun: 0
+  ImagesXObject: 0
+  ImagesInline: 0
+  ImagesStencil: 0
+  ImagesUnresolved: 0
+  ShadingsFunction: 0
+  ShadingsAxialRadial: 0
+  ShadingsMesh: 0
+  ShadingsUnresolved: 0
+  MeshesDecoded: 0
+  PatternFillsTiling: 0
+  PatternFillsShading: 0
+  PatternCellsRun: 0
+  FormsEntered: 4
+  TransparencyGroups: 0
+  SoftMaskGroupsRun: 0
+  MarkedContentSequences: 0
+  OptionalContentSequences: 0
+  MarkedContentPoints: 0
+  MaxDepth: 1
+appearance events:
+  Runs: 7
+  Operators: 259
+  UnknownOperators: 0
+  StateSaves: 2
+  PathVerbs: 208
+  PathsStroked: 2
+  PathsFilled: 8
+  PathsFilledAndStroked: 7
+  PathsEnded: 2
+  ClipsPath: 2
+  ClipsRectangle: 7
+  ClipsText: 0
+  TextObjects: 2
+  GlyphsType1: 0
+  GlyphsMMType1: 0
+  GlyphsTrueType: 0
+  GlyphsType3: 0
+  GlyphsType0: 20
+  Type3GlyphsRun: 0
+  ImagesXObject: 0
+  ImagesInline: 0
+  ImagesStencil: 0
+  ImagesUnresolved: 0
+  ShadingsFunction: 0
+  ShadingsAxialRadial: 0
+  ShadingsMesh: 0
+  ShadingsUnresolved: 0
+  MeshesDecoded: 0
+  PatternFillsTiling: 0
+  PatternFillsShading: 0
+  PatternCellsRun: 0
+  FormsEntered: 0
+  TransparencyGroups: 0
+  SoftMaskGroupsRun: 0
+  MarkedContentSequences: 0
+  OptionalContentSequences: 0
+  MarkedContentPoints: 0
+  MaxDepth: 0
+diagnostics on well-formed files (files, total):
+  ContentColorOperatorMismatch: 19, 23
+diagnostics on other files (files, total):
+  ContentColorOperatorMismatch: 4, 4
