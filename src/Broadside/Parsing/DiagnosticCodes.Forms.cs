@@ -33,6 +33,8 @@ internal static partial class DiagnosticCodes
     public const string FieldFlagsInvalid = nameof(FieldFlagsInvalid);
     public const string FieldValueTypeInvalid = nameof(FieldValueTypeInvalid);
     public const string DefaultAppearanceMissing = nameof(DefaultAppearanceMissing);
+    public const string DefaultAppearanceInvalid = nameof(DefaultAppearanceInvalid);
+    public const string DefaultAppearanceFontMissing = nameof(DefaultAppearanceFontMissing);
     public const string TextCombInvalid = nameof(TextCombInvalid);
     public const string ButtonValueStateMismatch = nameof(ButtonValueStateMismatch);
     public const string ButtonValueUnknownState = nameof(ButtonValueUnknownState);

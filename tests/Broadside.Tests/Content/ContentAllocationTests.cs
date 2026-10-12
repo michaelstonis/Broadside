@@ -241,7 +241,7 @@ internal sealed class GlyphCounter : ContentProcessor
     }
 }
 
-/// <summary>Enters every Type 3 glyph and counts the paths its description paints, reading the fill colour.</summary>
+/// <summary>Enters every Type 3 glyph, reading what its description declares, and counts the paths it paints, reading the fill colour.</summary>
 internal sealed class Type3Counter : ContentProcessor
 {
     public int Paints { get; set; }
@@ -250,7 +250,12 @@ internal sealed class Type3Counter : ContentProcessor
 
     public override ContentEvents Events => ContentEvents.Glyphs | ContentEvents.Paths | ContentEvents.Forms | ContentEvents.Type3GlyphContent;
 
-    public override ContentVisit BeginType3Glyph(in GlyphEvent glyph, ContentContext context) => ContentVisit.Enter;
+    public override ContentVisit BeginType3Glyph(in GlyphEvent glyph, ContentContext context)
+    {
+        Broadside.Fonts.Type3GlyphMetrics metrics = glyph.Type3Metrics;
+        Checksum += (int)metrics.Kind + metrics.WidthX + metrics.BoundingBox.Right;
+        return ContentVisit.Enter;
+    }
 
     public override void PaintPath(in PathEvent path, ContentContext context)
     {

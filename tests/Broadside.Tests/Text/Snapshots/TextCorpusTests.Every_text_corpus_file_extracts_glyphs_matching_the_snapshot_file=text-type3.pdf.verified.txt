@@ -1,0 +1,7 @@
+﻿page 1: ■▲●■▲●
+  ■ code 61/1 ToUnicode font Type3 24 Fill origin (72, 700) advance (24, 0) quad (72, 700) (96, 700) (96, 718) (72, 718)
+  ▲ code 62/1 ToUnicode font Type3 24 Fill origin (96, 700) advance (24, 0) quad (96, 700) (120, 700) (120, 718) (96, 718)
+  ● code 63/1 ToUnicode font Type3 24 Fill origin (120, 700) advance (24, 0) quad (120, 700) (144, 700) (144, 718) (120, 718)
+  ■ code 61/1 ToUnicode font Type3 24 Fill origin (72, 650) advance (24, 0) quad (72, 650) (96, 650) (96, 668) (72, 668)
+  ▲ code 62/1 ToUnicode font Type3 24 Fill origin (96, 650) advance (24, 0) quad (96, 650) (120, 650) (120, 668) (96, 668)
+  ● code 63/1 ToUnicode font Type3 24 Fill origin (120, 650) advance (24, 0) quad (120, 650) (144, 650) (144, 668) (120, 668)

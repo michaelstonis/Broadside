@@ -1,0 +1,8 @@
+﻿page 1: HIOÁAS´
+  H code 48/1 GlyphName font BroadsideCff 24 Fill origin (72, 700) advance (19.2, 0) quad (72, 695.2) (91.2, 695.2) (91.2, 719.2) (72, 719.2)
+  I code 49/1 GlyphName font BroadsideCff 24 Fill origin (91.2, 700) advance (14.4, 0) quad (91.2, 695.2) (105.6, 695.2) (105.6, 719.2) (91.2, 719.2)
+  O code 4F/1 GlyphName font BroadsideCff 24 Fill origin (105.6, 700) advance (16.8, 0) quad (105.6, 695.2) (122.4, 695.2) (122.4, 719.2) (105.6, 719.2)
+  Á code C1/1 GlyphName font BroadsideCff 24 Fill origin (122.4, 700) advance (14.4, 0) quad (122.4, 695.2) (136.8, 695.2) (136.8, 719.2) (122.4, 719.2)
+  A code 41/1 GlyphName font BroadsideCff 24 Fill origin (136.8, 700) advance (14.4, 0) quad (136.8, 695.2) (151.2, 695.2) (151.2, 719.2) (136.8, 719.2)
+  S code 53/1 GlyphName font BroadsideCff 24 Fill origin (151.2, 700) advance (14.4, 0) quad (151.2, 695.2) (165.6, 695.2) (165.6, 719.2) (151.2, 719.2)
+  ´ code B4/1 GlyphName font BroadsideCff 24 Fill origin (165.6, 700) advance (4.8, 0) quad (165.6, 695.2) (170.4, 695.2) (170.4, 719.2) (165.6, 719.2)

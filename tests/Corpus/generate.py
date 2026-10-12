@@ -3325,8 +3325,9 @@ def s15f16(value: float) -> bytes:
     return struct.pack(">i", round(value * 65536))
 
 
-def icc_profile(device_class: bytes, space: bytes, tags: list[tuple[bytes, bytes]]) -> bytes:
-    """A version 2.1 ICC profile (ICC.1:2022 7.2 header, 7.3 tag table): XYZ PCS, D50 illuminant, the tags 4-byte aligned."""
+def icc_profile(device_class: bytes, space: bytes, tags: list[tuple[bytes, bytes]], version: bytes = bytes([2, 0x10])) -> bytes:
+    """An ICC profile, version 2.1 unless given (ICC.1:2022 7.2 header, 7.3 tag table): XYZ PCS, D50 illuminant, the tags 4-byte
+    aligned."""
     count = len(tags)
     offset = 128 + 4 + 12 * count
     table = struct.pack(">I", count)
@@ -3335,7 +3336,7 @@ def icc_profile(device_class: bytes, space: bytes, tags: list[tuple[bytes, bytes
         table += sig + struct.pack(">II", offset + len(data), len(body))
         data += body + b"\x00" * (-len(body) % 4)
     size = 128 + len(table) + len(data)
-    header = (struct.pack(">I", size) + b"\x00" * 4 + bytes([2, 0x10, 0, 0]) + device_class + space + b"XYZ "
+    header = (struct.pack(">I", size) + b"\x00" * 4 + version + b"\x00\x00" + device_class + space + b"XYZ "
               + struct.pack(">6H", 2026, 1, 1, 0, 0, 0) + b"acsp" + b"\x00" * 24 + struct.pack(">I", 0)
               + s15f16(0.9642) + s15f16(1.0) + s15f16(0.8249) + b"\x00" * 48)
     assert len(header) == 128
@@ -3509,6 +3510,92 @@ def gen_separation_special() -> bytes:
         (4, stream(b"", content)),
         (5, stream(b"/FunctionType 4 /Domain [0 1 0 1] /Range [0 1]", b"{pop pop 1}")),
     ])
+
+def icc_mluc(text: str) -> bytes:
+    """ICC.1:2022 10.15 multiLocalizedUnicodeType (version 4 profiles): one en-US record, UTF-16BE."""
+    data = text.encode("utf-16-be")
+    return b"mluc" + b"\x00" * 4 + struct.pack(">II", 1, 12) + b"enUS" + struct.pack(">II", len(data), 28) + data
+
+
+def icc_para(function_type: int, *params: float) -> bytes:
+    """ICC.1:2022 10.18 parametricCurveType: function type 0 to 4 (Table 68) and its parameters g a b c d e f."""
+    assert len(params) == (1, 3, 4, 5, 7)[function_type]
+    return b"para" + b"\x00" * 4 + struct.pack(">HH", function_type, 0) + b"".join(s15f16(p) for p in params)
+
+
+def icc_sampled(values: list[float]) -> bytes:
+    """ICC.1:2022 10.6 curveType with n > 1 entries: a sampled curve, uInt16Number values 0..65535, linear in between."""
+    return b"curv" + b"\x00" * 4 + struct.pack(">I", len(values)) + b"".join(struct.pack(">H", round(v * 65535)) for v in values)
+
+
+ICC_IDENTITY = b"curv" + b"\x00" * 8
+"""ICC.1:2022 10.6 curveType with no entries: the identity."""
+
+ICC_V4 = bytes([4, 0x40])
+
+ICC_MATRIX_PROFILES: dict[str, bytes] = {}
+"""Filled lazily by icc_matrix_profiles(): the four profiles of icc-rgb-matrix.pdf by resource name (tools/IccReference reads them)."""
+
+ICC_MATRIX_SAMPLES = {
+    "rgb": [(0, 0, 0), (1, 1, 1), (1, 0, 0), (0, 1, 0), (0, 0, 1), (0.5, 0.5, 0.5), (0.25, 0.6, 0.9), (0.03, 0.04, 0.02)],
+    "gray": [(0,), (0.02,), (0.03,), (0.25,), (0.5,), (0.75,), (1,)],
+}
+"""The colours icc-rgb-matrix.pdf paints in each space: one row of 50 x 50 squares per space."""
+
+
+def icc_matrix_profiles() -> dict[str, bytes]:
+    """The profiles of icc-rgb-matrix.pdf (ICC.1:2022 8.4.3 display matrix/TRC, 8.4.4 monochrome display, Annex F.2-F.3):
+    CS0 v4.4 RGB, Adobe RGB (1998) primaries adapted to D50, parametric curves of types 0 (g 1.8), 1 (g 2.2, a 1.05, b -0.05) and
+    2 (g 2, a 0.9, b 0.05, c 0.03); CS1 v2.1 RGB, the sRGB primaries adapted to D50, a sampled 33-entry curve (x^2.2), a
+    one-entry gamma curve (u8Fixed8 1.8) and the identity (no entries); CS2 v4.4 GRAY, parametric type 3 (the sRGB curve,
+    IEC 61966-2-1); CS3 v4.4 GRAY, parametric type 4 (g 2.6, a 0.94, b 0.05, c 0.08, d 0.06, e 0.005, f 0.001)."""
+    if not ICC_MATRIX_PROFILES:
+        d50 = icc_xyz(0.9642, 1.0, 0.8249)
+        ICC_MATRIX_PROFILES["CS0"] = icc_profile(b"mntr", b"RGB ", [
+            (b"desc", icc_mluc("Broadside RGB parametric")), (b"cprt", icc_mluc("No copyright, use freely")), (b"wtpt", d50),
+            (b"rXYZ", icc_xyz(0.6097, 0.3111, 0.0195)), (b"gXYZ", icc_xyz(0.2053, 0.6257, 0.0609)),
+            (b"bXYZ", icc_xyz(0.1492, 0.0632, 0.7446)),
+            (b"rTRC", icc_para(0, 1.8)), (b"gTRC", icc_para(1, 2.2, 1.05, -0.05)), (b"bTRC", icc_para(2, 2.0, 0.9, 0.05, 0.03)),
+        ], ICC_V4)
+        ICC_MATRIX_PROFILES["CS1"] = icc_profile(b"mntr", b"RGB ", [
+            (b"desc", icc_desc(b"Broadside RGB sampled")), (b"cprt", ICC_COPYRIGHT), (b"wtpt", d50),
+            (b"rXYZ", icc_xyz(0.4361, 0.2225, 0.0139)), (b"gXYZ", icc_xyz(0.3851, 0.7169, 0.0971)),
+            (b"bXYZ", icc_xyz(0.1431, 0.0606, 0.7141)),
+            (b"rTRC", icc_sampled([(i / 32) ** 2.2 for i in range(33)])), (b"gTRC", icc_gamma(1.8)), (b"bTRC", ICC_IDENTITY),
+        ])
+        ICC_MATRIX_PROFILES["CS2"] = icc_profile(b"mntr", b"GRAY", [
+            (b"desc", icc_mluc("Broadside gray sRGB curve")), (b"cprt", icc_mluc("No copyright, use freely")), (b"wtpt", d50),
+            (b"kTRC", icc_para(3, 2.4, 1 / 1.055, 0.055 / 1.055, 1 / 12.92, 0.04045)),
+        ], ICC_V4)
+        ICC_MATRIX_PROFILES["CS3"] = icc_profile(b"mntr", b"GRAY", [
+            (b"desc", icc_mluc("Broadside gray type 4")), (b"cprt", icc_mluc("No copyright, use freely")), (b"wtpt", d50),
+            (b"kTRC", icc_para(4, 2.6, 0.94, 0.05, 0.08, 0.06, 0.005, 0.001)),
+        ], ICC_V4)
+    return ICC_MATRIX_PROFILES
+
+
+def gen_icc_rgb_matrix() -> bytes:
+    """8.6.5.5 ICCBased spaces with matrix/TRC profiles (ICC.1:2022 10.6 curveType, 10.18 parametricCurveType, 10.31 XYZType,
+    Annex F.2 and F.3), the four of icc_matrix_profiles(), N 3, 3, 1, 1 and no Alternate. One row of 50 x 50 squares per space,
+    top to bottom CS0 to CS3, painting ICC_MATRIX_SAMPLES left to right (rgb for CS0 and CS1, gray for CS2 and CS3)."""
+    profiles = icc_matrix_profiles()
+    content = b""
+    for row, name in enumerate(profiles):
+        samples = ICC_MATRIX_SAMPLES["rgb" if row < 2 else "gray"]
+        for column, sample in enumerate(samples):
+            values = b" ".join(b"%g" % v for v in sample)
+            content += b"/%s cs %s scn %d %d 50 50 re f\n" % (name.encode(), values, 40 + 65 * column, 680 - 80 * row)
+    resources = b"<< /ColorSpace << /CS0 [/ICCBased 5 0 R] /CS1 [/ICCBased 6 0 R] /CS2 [/ICCBased 7 0 R] /CS3 [/ICCBased 8 0 R] >> >>"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/N 3", profiles["CS0"])),
+        (6, stream(b"/N 3", profiles["CS1"])),
+        (7, stream(b"/N 1", profiles["CS2"])),
+        (8, stream(b"/N 1", profiles["CS3"])),
+    ], binary=True)
 
 # ---------------------------------------------------------------------------
 # Shadings and patterns (clause 8.7)
@@ -5450,6 +5537,7 @@ FILES = {
     "color-operators.pdf": gen_color_operators,
     "default-colorspaces.pdf": gen_default_colorspaces,
     "separation-special.pdf": gen_separation_special,
+    "icc-rgb-matrix.pdf": gen_icc_rgb_matrix,
     "form-xobject-nested.pdf": gen_form_xobject_nested,
     "extgstate-params.pdf": gen_extgstate_params,
     "marked-content.pdf": gen_marked_content,
