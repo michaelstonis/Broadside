@@ -95,7 +95,7 @@ public sealed partial class PdfDocument : IDisposable
         Catalog = catalog;
         Revisions = revisions;
         Linearization = linearization;
-        Pages = new PdfPageCollection(() => PageTreeReader.Read(this, diagnostics));
+        Pages = new PdfPageCollection(this, () => PageTreeReader.Read(this, diagnostics));
         Functions = new FunctionCache(this, diagnostics);
         ColorSpaces = new ColorSpaceCache(this, diagnostics, colorManagement);
     }
@@ -447,7 +447,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file with a classic cross-reference table.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
     /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>); nothing is written then.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
     public void Save(Stream stream) => Save(stream, new PdfSaveOptions());
 
@@ -455,7 +455,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
     /// <param name="options">How to lay the file out.</param>
     /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>); nothing is written then.</exception>
     /// <remarks>
     /// <para>
     /// ISO 32000-2 §7.5: a header, every object, the cross-reference information and the trailer. Objects keep their numbers and
@@ -492,7 +492,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it, with a classic cross-reference table.</summary>
     /// <param name="path">The file path. Do not name the file the document was opened from.</param>
     /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>); nothing is written then.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
     public void Save(string path) => Save(path, new PdfSaveOptions());
 
@@ -500,7 +500,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <param name="path">The file path. Do not name the file the document was opened from.</param>
     /// <param name="options">How to lay the file out.</param>
     /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>); nothing is written then.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/>.</remarks>
     public void Save(string path, PdfSaveOptions options)
     {
@@ -522,7 +522,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <param name="cancellationToken">Cancels the writes.</param>
     /// <returns>A task that completes when the file is written.</returns>
     /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>); nothing is written then.</exception>
     /// <remarks>
     /// ISO 32000-2 §7.5. Writes exactly the bytes <see cref="Save(Stream, PdfSaveOptions)"/> writes, from the same writer; only the
     /// writes to <paramref name="stream"/> are asynchronous.
@@ -1179,13 +1179,23 @@ public sealed partial class PdfDocument : IDisposable
         }
     }
 
+    /// <summary>Plans a save: reports what the document's edits leave broken, then plans the file.</summary>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation the save-time checks report.</exception>
     private FileWriter PlanSave(PdfSaveOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
+        ReportBeforeSave();
         return options.IncrementalUpdate
             ? SavePlan.CreateIncremental(_source, _loader, options, StreamEncoders)
             : SavePlan.Create(_source, _loader, Linearization, options, StreamEncoders);
     }
+
+    /// <summary>
+    /// The save-time diagnostics channel (issue #158): checks of what the document's edits leave broken, reported in
+    /// <see cref="Diagnostics"/> before anything is planned or written, so strict mode throws with nothing written. Each check is
+    /// recorded once however often the document is saved. Add later save-time checks here.
+    /// </summary>
+    private void ReportBeforeSave() => RemovedPageReport.Report(this, _diagnostics);
 
     /// <summary>
     /// After an incremental update's last byte is written, reads the document from the updated file (§7.5.6): the update's section

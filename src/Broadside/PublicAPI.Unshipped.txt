@@ -3688,3 +3688,12 @@ Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor) -> boo
 Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
 Broadside.Forms.PdfTextField.GenerateAppearances() -> void
 Broadside.Forms.PdfTextField.SetValue(string? value) -> void
+Broadside.PdfPageCollection.Add(Broadside.Objects.CosReference! pageObject) -> Broadside.PdfPage!
+Broadside.PdfPageCollection.Add(Broadside.PdfRectangle mediaBox) -> Broadside.PdfPage!
+Broadside.PdfPageCollection.IndexOf(Broadside.PdfPage! page) -> int
+Broadside.PdfPageCollection.Insert(int index, Broadside.Objects.CosReference! pageObject) -> Broadside.PdfPage!
+Broadside.PdfPageCollection.Insert(int index, Broadside.PdfRectangle mediaBox) -> Broadside.PdfPage!
+Broadside.PdfPageCollection.Move(int fromIndex, int toIndex) -> void
+Broadside.PdfPageCollection.Remove(Broadside.PdfPage! page) -> bool
+Broadside.PdfPageCollection.RemoveAt(int index) -> void
+Broadside.PdfPage.Rotation.set -> void
