@@ -101,6 +101,9 @@ public sealed class PdfStructureTreeRoot
     /// <remarks>ISO 32000-2 §14.7.2, §14.8.2.5 (logical order). A snapshot, built once.</remarks>
     public IReadOnlyList<PdfStructureElement> Elements => _context.Walk.Elements;
 
+    /// <summary>Gets the document-order walk of the hierarchy and its reverse indexes, built once.</summary>
+    internal StructureWalk Walk => _context.Walk;
+
     /// <summary>Returns a view over the structure element <paramref name="dictionary"/>, wherever it is in the tree.</summary>
     /// <param name="dictionary">The structure element dictionary.</param>
     /// <param name="reference">The reference it was reached through, or <see langword="null"/>.</param>

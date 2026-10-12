@@ -116,21 +116,71 @@ internal static class StructureTree
         foreach (PdfPage page in document.Pages)
         {
             _ = root.GetMarkedContentElements(page);
+            CheckReadingOrder(page);
         }
+    }
+
+    /// <summary>
+    /// Extracts the page's text in structure order (issue #185) and checks it: the glyphs' text ranges follow each other to the end of
+    /// the text, and with artifacts included every glyph content order shows is there exactly once, whatever the tree says.
+    /// </summary>
+    private static void CheckReadingOrder(PdfPage page)
+    {
+        var everything = new Broadside.Text.TextExtractionOptions().WithArtifacts().WithAlternateDescriptions().WithExpansions();
+        Broadside.Text.TextPage ordered = page.ExtractText(everything);
+        Broadside.Text.TextPage content = page.ExtractText(new Broadside.Text.TextExtractionOptions().WithArtifacts().WithReadingOrder(Broadside.Text.TextReadingOrder.Content));
+        Broadside.Text.TextPage real = page.ExtractText();
+        foreach (Broadside.Text.TextPage text in (Broadside.Text.TextPage[])[ordered, real])
+        {
+            int expectedStart = 0;
+            foreach (Broadside.Text.TextGlyph glyph in text.Glyphs)
+            {
+                if (glyph.TextStart != expectedStart || glyph.TextLength < 0)
+                {
+                    throw new InvalidOperationException($"A glyph's text starts at {glyph.TextStart} with {glyph.TextLength} units; expected {expectedStart}.");
+                }
+
+                expectedStart += glyph.TextLength;
+            }
+
+            if (expectedStart != text.Text.Length)
+            {
+                throw new InvalidOperationException($"The glyphs' text ends at {expectedStart}, the text at {text.Text.Length}.");
+            }
+
+            _ = text.PlainText;
+        }
+
+        if (ordered.Glyphs.Count != content.Glyphs.Count
+            || !Keys(ordered).SequenceEqual(Keys(content))
+            || real.Glyphs.Count > ordered.Glyphs.Count)
+        {
+            throw new InvalidOperationException($"Structure order has {ordered.Glyphs.Count} glyphs ({real.Glyphs.Count} without artifacts), content order {content.Glyphs.Count}.");
+        }
+
+        static IEnumerable<(double X, double Y, uint Code)> Keys(Broadside.Text.TextPage text) =>
+            text.Glyphs.Select(static glyph => (glyph.Origin.X, glyph.Origin.Y, glyph.CharacterCode)).Order();
     }
 
     /// <summary>Builds a one-page tagged file whose structure tree root and objects 5 onward are the input's lines.</summary>
     private static byte[] Synthesize(ReadOnlySpan<byte> data)
     {
         string[] lines = Encoding.Latin1.GetString(data).Split('\n', MaxObjects);
+
+        // The page's content and font follow the input's objects, so the input numbers its objects from 5 whatever its length; the
+        // content shows MCIDs 0 to 2, an artifact and unmarked text, for structure-order text extraction.
+        int content = lines.Length + 4;
         var objects = new List<string>
         {
             "<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /StructTreeRoot 4 0 R /Lang (en) >>",
             "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-            "<< /Type /Page /Parent 2 0 R /Resources << >> /MediaBox [0 0 612 792] /StructParents 0 >>",
+            $"<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 {content + 1} 0 R >> >> /MediaBox [0 0 612 792] /Contents {content} 0 R /StructParents 0 >>",
             $"<< /Type /StructTreeRoot {lines[0]} >>",
         };
         objects.AddRange(lines.Skip(1));
+        const string shown = "BT /F1 12 Tf 72 700 Td /P <</MCID 0>> BDC (a) Tj EMC /P <</MCID 1>> BDC (b) Tj EMC /Artifact BMC (c) Tj EMC /P <</MCID 2>> BDC (d) Tj EMC (e) Tj ET";
+        objects.Add($"<< /Length {shown.Length} >>\nstream\n{shown}\nendstream");
+        objects.Add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
 
         var text = new StringBuilder("%PDF-2.0\n");
         var offsets = new List<int>();

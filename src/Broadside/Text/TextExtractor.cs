@@ -16,10 +16,14 @@ namespace Broadside.Text;
 /// ISO 32000-2 §9.4.4 (glyph positions), §9.10 (Unicode), §9.3.6 (rendering modes), §8.11.3.1 (optional content) and §14.9.4
 /// (replacement text). Glyphs shown by form XObjects are extracted where the form paints them. A Type 3 glyph is one glyph, mapped
 /// to Unicode like any other; its glyph description is not run, so text inside it is part of its appearance, not of the page's text.
+/// Glyphs in <c>Artifact</c> marked-content sequences (§14.8.2.2) are left out unless <see cref="TextExtractionOptions.IncludeArtifacts"/>
+/// asks for them.
 /// </para>
 /// <para>
-/// <see cref="Words"/>, <see cref="Lines"/> and <see cref="PlainText"/> group the glyphs in content order (§14.8.2.6.2; see
-/// <see cref="TextWord"/> and <see cref="TextLine"/>), assembled when first read after a run.
+/// The extractor gives page content order. <see cref="PdfPage.ExtractText(TextExtractionOptions)"/> puts a tagged page in logical
+/// content order from the structure tree (§14.8.2.5.1, <see cref="TextReadingOrder"/>); the extractor records, for that, the
+/// content item each glyph is shown in. <see cref="Words"/>, <see cref="Lines"/> and <see cref="PlainText"/> group the glyphs in
+/// content order (§14.8.2.6.2; see <see cref="TextWord"/> and <see cref="TextLine"/>), assembled when first read after a run.
 /// </para>
 /// <para>
 /// Glyphs accumulate over runs until <see cref="Clear"/>; the buffers are kept, so an extractor reused for page after page
@@ -32,6 +36,7 @@ public sealed class TextExtractor : ContentProcessor
     private const double DefaultDescent = -0.2;
 
     private readonly bool _includeHidden;
+    private readonly bool _includeArtifacts;
     private readonly Dictionary<PdfFont, (double Descent, double Ascent)> _extents = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>The words, lines and plain text of the glyphs, assembled on demand.</summary>
@@ -40,6 +45,20 @@ public sealed class TextExtractor : ContentProcessor
     private char[] _text = new char[256];
     private int _glyphCount;
     private int _textLength;
+
+    /// <summary>For each glyph, the index in <see cref="_items"/> of the content item it is shown in, -1 for none.</summary>
+    private int[] _glyphItems = new int[64];
+
+    /// <summary>The content items glyphs were shown in: marked-content sequences with an MCID, and forms with a <c>StructParent</c>.</summary>
+    private ContentItemKey[] _items = new ContentItemKey[16];
+    private int _itemCount;
+
+    /// <summary>The content items open in the run, innermost last.</summary>
+    private OpenItem[] _openItems = new OpenItem[8];
+    private int _openItemCount;
+
+    /// <summary>The form XObjects open in the run.</summary>
+    private int _formDepth;
 
     /// <summary>Whether <see cref="_layout"/> describes the glyphs as they are now.</summary>
     private bool _layoutCurrent;
@@ -71,10 +90,12 @@ public sealed class TextExtractor : ContentProcessor
     {
         ArgumentNullException.ThrowIfNull(options);
         _includeHidden = options.IncludeHiddenContent;
+        _includeArtifacts = options.IncludeArtifacts;
     }
 
     /// <inheritdoc/>
-    public override ContentEvents Events => ContentEvents.Glyphs | ContentEvents.MarkedContent | (_includeHidden ? ContentEvents.HiddenContent : ContentEvents.None);
+    public override ContentEvents Events =>
+        ContentEvents.Glyphs | ContentEvents.MarkedContent | ContentEvents.Forms | (_includeHidden ? ContentEvents.HiddenContent : ContentEvents.None);
 
     /// <summary>Gets the glyphs extracted since the last <see cref="Clear"/>, in content order. Valid until the extractor next runs or is cleared.</summary>
     /// <remarks>ISO 32000-2 §9.4.3.</remarks>
@@ -125,12 +146,19 @@ public sealed class TextExtractor : ContentProcessor
     {
         _glyphCount = 0;
         _textLength = 0;
+        _itemCount = 0;
         _layoutCurrent = false;
     }
 
     /// <summary>Copies what was extracted into a <see cref="TextPage"/>.</summary>
     /// <returns>The glyphs and their text.</returns>
     public TextPage ToTextPage() => new(Glyphs.ToArray(), new string(Text));
+
+    /// <summary>The content item each glyph of <see cref="Glyphs"/> was shown in: an index into <see cref="ContentItems"/>, -1 for none.</summary>
+    internal ReadOnlySpan<int> GlyphItems => _glyphItems.AsSpan(0, _glyphCount);
+
+    /// <summary>The content items glyphs were shown in since the last <see cref="Clear"/>.</summary>
+    internal ReadOnlySpan<ContentItemKey> ContentItems => _items.AsSpan(0, _itemCount);
 
     /// <inheritdoc/>
     public override void BeginRun(ContentContext context)
@@ -140,6 +168,32 @@ public sealed class TextExtractor : ContentProcessor
         _artifactDepth = 0;
         _actualTextDepth = 0;
         _actualText = null;
+        _openItemCount = 0;
+        _formDepth = 0;
+    }
+
+    /// <inheritdoc/>
+    public override ContentVisit BeginForm(in FormEvent form, ContentContext context)
+    {
+        _formDepth++;
+        if (form.StructParent is not null && form.Stream is { } stream)
+        {
+            // §14.7.5.3: a form XObject with StructParent is itself a content item; what it shows belongs to the element that holds it.
+            Open(new ContentItemKey(stream, -1), -_formDepth);
+        }
+
+        return ContentVisit.Enter;
+    }
+
+    /// <inheritdoc/>
+    public override void EndForm(in FormEvent form, ContentContext context)
+    {
+        if (_openItemCount > 0 && _openItems[_openItemCount - 1].Depth == -_formDepth)
+        {
+            _openItemCount--;
+        }
+
+        _formDepth--;
     }
 
     /// <inheritdoc/>
@@ -147,6 +201,12 @@ public sealed class TextExtractor : ContentProcessor
     {
         ArgumentNullException.ThrowIfNull(context);
         _markedDepth++;
+        if (mc.Mcid is { } mcid && ((CosObject?)mc.ContentStream ?? context.Page?.Dictionary) is { } streamKey)
+        {
+            // §14.7.5.2: an MCID names the sequence within its content stream, the page's own content or a form's.
+            Open(new ContentItemKey(streamKey, mcid), _markedDepth);
+        }
+
         if (_artifactDepth == 0 && mc.Tag.SequenceEqual("Artifact"u8))
         {
             // §14.8.2.2: everything inside the sequence is an artifact, the content of forms it paints included.
@@ -180,6 +240,11 @@ public sealed class TextExtractor : ContentProcessor
             _artifactDepth = 0;
         }
 
+        if (_openItemCount > 0 && _openItems[_openItemCount - 1].Depth == _markedDepth)
+        {
+            _openItemCount--;
+        }
+
         _markedDepth--;
     }
 
@@ -210,6 +275,11 @@ public sealed class TextExtractor : ContentProcessor
 
         if (_artifactDepth != 0)
         {
+            if (!_includeArtifacts)
+            {
+                return;
+            }
+
             flags |= TextGlyphFlags.Artifact;
         }
 
@@ -221,8 +291,10 @@ public sealed class TextExtractor : ContentProcessor
         if (_glyphCount == _glyphs.Length)
         {
             Array.Resize(ref _glyphs, _glyphs.Length * 2);
+            Array.Resize(ref _glyphItems, _glyphs.Length);
         }
 
+        _glyphItems[_glyphCount] = _openItemCount == 0 ? -1 : _openItems[_openItemCount - 1].Item;
         _glyphs[_glyphCount++] = new TextGlyph
         {
             Quad = Quad.FromRectangle(toPage, 0, descent, glyph.HorizontalDisplacement, ascent),
@@ -389,4 +461,24 @@ public sealed class TextExtractor : ContentProcessor
             Array.Resize(ref _text, Math.Max(_text.Length * 2, _textLength + free));
         }
     }
+
+    /// <summary>Records a content item that has opened, at marked-content depth <paramref name="depth"/> (negative for a form's nesting).</summary>
+    private void Open(ContentItemKey key, int depth)
+    {
+        if (_itemCount == _items.Length)
+        {
+            Array.Resize(ref _items, _items.Length * 2);
+        }
+
+        if (_openItemCount == _openItems.Length)
+        {
+            Array.Resize(ref _openItems, _openItems.Length * 2);
+        }
+
+        _items[_itemCount] = key;
+        _openItems[_openItemCount++] = new OpenItem(_itemCount++, depth);
+    }
+
+    /// <summary>A content item that is open: its index in <see cref="_items"/> and the depth that closes it.</summary>
+    private readonly record struct OpenItem(int Item, int Depth);
 }

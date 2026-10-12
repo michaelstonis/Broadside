@@ -1697,6 +1697,63 @@ def gen_text_lines_rotated() -> bytes:
     return text_file(stream(b"", b"BT /F1 12 Tf 14 TL" + lines + b" ET"))
 
 
+def gen_text_tagged_replacements() -> bytes:
+    """14.8.2.5 logical content order, 14.7.5 content items, 14.8.2.2 artifacts and 14.9 element-level Lang, Alt, ActualText
+    and E. A PDF 2.0 tagged page whose content paints its sequences out of logical order: Document > [H1 (MCID 0),
+    P /Lang (de-DE) > Span /ActualText (Drucker) over MCIDs 1 and 2 ("Druk-" and "ker" on two lines, 14.9.4 EXAMPLE),
+    P > [Span /E (Doctor) (MCID 3, "Dr."), MCID 4 "Healwell"] (14.9.5 EXAMPLE), Figure /Alt (A star) (MCID 5, "*"),
+    Artifact (2.0 namespace) holding a line number (MCID 6, "12"), P whose content item is form Fm1 (OBJR, StructParent 1,
+    "In a form"), P whose content item is MCID 0 of form Fm2 (MCR with Stm; Fm2 has StructParents 2, "Form text"),
+    P (MCID 7, "Last")]. One line ("Stray") is in no marked-content sequence, so not in the tree: an artifact (14.8.2.2.2)."""
+    content = b"\n".join([
+        b"/P <</MCID 7>> BDC BT /F1 12 Tf 72 500 Td (Last) Tj ET EMC",
+        b"/Fm2 Do",
+        b"BT /F1 12 Tf 72 100 Td (Stray) Tj ET",
+        b"/Figure <</MCID 5>> BDC BT /F1 12 Tf 72 580 Td (*) Tj ET EMC",
+        b"/Span <</MCID 3>> BDC BT /F1 12 Tf 72 600 Td (Dr.) Tj ET EMC",
+        b"/P <</MCID 4>> BDC BT /F1 12 Tf 92 600 Td (Healwell) Tj ET EMC",
+        b"/H1 <</MCID 0>> BDC BT /F1 24 Tf 72 700 Td (Title) Tj ET EMC",
+        b"/Span <</MCID 1>> BDC BT /F1 12 Tf 72 660 Td (Druk-) Tj ET EMC",
+        b"/Span <</MCID 2>> BDC BT /F1 12 Tf 72 645 Td (ker) Tj ET EMC",
+        b"/LineNum <</MCID 6>> BDC BT /F1 8 Tf 40 660 Td (12) Tj ET EMC",
+        b"/Fm1 Do",
+    ])
+    fonts = b"/Resources << /Font << /F1 6 0 R >> >>"
+    ns = b"/NS 9 0 R"
+    id0 = file_id("text-tagged-replacements").hex().encode()
+
+    def elem(s: bytes, parent: int, extra: bytes) -> bytes:
+        return b"<< /Type /StructElem /S /%s /P %d 0 R %s %s >>" % (s, parent, ns, extra)
+
+    return simple_file([
+        (1, catalog(b" /MarkInfo << /Marked true >> /StructTreeRoot 10 0 R /Lang (en-US)")),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << /Font << /F1 6 0 R >> /XObject << /Fm1 7 0 R /Fm2 8 0 R >> >> /StructParents 0")),
+        (4, stream(b"", content)),
+        (6, HELVETICA),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 612 792] /StructParent 1 " + fonts,
+                   b"BT /F1 12 Tf 72 540 Td (In a form) Tj ET")),
+        (8, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 612 792] /StructParents 2 " + fonts,
+                   b"/P <</MCID 0>> BDC BT /F1 12 Tf 72 520 Td (Form text) Tj ET EMC")),
+        (9, b"<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>"),
+        (10, b"<< /Type /StructTreeRoot /K [11 0 R] /Namespaces [9 0 R] "
+             b"/ParentTree << /Nums [0 [12 0 R 14 0 R 14 0 R 16 0 R 15 0 R 17 0 R 18 0 R 20 0 R] 1 19 0 R 2 [21 0 R]] >> "
+             b"/ParentTreeNextKey 3 >>"),
+        (11, elem(b"Document", 10, b"/K [12 0 R 13 0 R 15 0 R 17 0 R 18 0 R 19 0 R 21 0 R 20 0 R]")),
+        (12, elem(b"H1", 11, b"/Pg 3 0 R /K 0")),
+        (13, elem(b"P", 11, b"/Lang (de-DE) /K [14 0 R]")),
+        (14, elem(b"Span", 13, b"/Pg 3 0 R /ActualText (Drucker) /K [1 2]")),
+        (15, elem(b"P", 11, b"/Pg 3 0 R /K [16 0 R 4]")),
+        (16, elem(b"Span", 15, b"/Pg 3 0 R /E (Doctor) /K 3")),
+        (17, elem(b"Figure", 11, b"/Pg 3 0 R /Alt (A star) /K 5")),
+        (18, elem(b"Artifact", 11, b"/Pg 3 0 R /K 6")),
+        (19, elem(b"P", 11, b"/Pg 3 0 R /K << /Type /OBJR /Obj 7 0 R >>")),
+        (20, elem(b"P", 11, b"/Pg 3 0 R /K 7")),
+        (21, elem(b"P", 11, b"/K << /Type /MCR /Pg 3 0 R /Stm 8 0 R /MCID 0 >>")),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
 def gen_text_cid_identity_v() -> bytes:
     """9.7.4.1 Table 115 (CIDToGIDMap stream, DW2, W2), 9.7.4.3 (W2 in both forms, DW2 fallback, v.x = w0/2), 9.7.5.2
     Identity-V. The map covers CIDs 0 to 0x22 (0x21 -> 1, 0x22 -> 2); CID 0x23 is past its end and shows CID 0's glyph."""
@@ -3255,19 +3312,20 @@ def gen_tagged_structure() -> bytes:
     one page (StructParents 0), plus a pagination artifact outside the tree. ParentTree (14.7.5.4),
     IDTree, RoleMap (Para -> P in the default 1.7 namespace), ClassMap with C and A on the heading
     (14.7.6.2: A wins), namespaces (14.7.4) PDF 2.0 and a custom one whose RoleMapNS maps Chapter to
-    [/Sect <2.0>] (14.8.6.2), and one marked-content reference dictionary (Table 357) for MCID 9."""
+    [/Sect <2.0>] (14.8.6.2), and one marked-content reference dictionary (Table 357) for MCID 9. The content
+    paints the table before the heading, so page content order differs from logical content order (14.8.2.5)."""
     content = b"\n".join([
         b"/Artifact <</Type /Pagination /Subtype /PageNum>> BDC BT /F1 10 Tf 300 40 Td (1) Tj ET EMC",
+        b"/TH <</MCID 6>> BDC BT /F1 12 Tf 72 610 Td (Name) Tj ET EMC",
+        b"/TH <</MCID 7>> BDC BT /F1 12 Tf 200 610 Td (Value) Tj ET EMC",
+        b"/TD <</MCID 8>> BDC BT /F1 12 Tf 72 595 Td (Alpha) Tj ET EMC",
+        b"/TD <</MCID 9>> BDC BT /F1 12 Tf 200 595 Td (1) Tj ET EMC",
         b"/H1 <</MCID 0>> BDC BT /F1 24 Tf 72 720 Td (Broadside) Tj ET EMC",
         b"/P <</MCID 1>> BDC BT /F1 12 Tf 72 690 Td (A paragraph with a link.) Tj ET EMC",
         b"/Lbl <</MCID 2>> BDC BT /F1 12 Tf 72 660 Td (1.) Tj ET EMC",
         b"/LBody <</MCID 3>> BDC BT /F1 12 Tf 96 660 Td (First item) Tj ET EMC",
         b"/Lbl <</MCID 4>> BDC BT /F1 12 Tf 72 645 Td (2.) Tj ET EMC",
         b"/LBody <</MCID 5>> BDC BT /F1 12 Tf 96 645 Td (Second item) Tj ET EMC",
-        b"/TH <</MCID 6>> BDC BT /F1 12 Tf 72 610 Td (Name) Tj ET EMC",
-        b"/TH <</MCID 7>> BDC BT /F1 12 Tf 200 610 Td (Value) Tj ET EMC",
-        b"/TD <</MCID 8>> BDC BT /F1 12 Tf 72 595 Td (Alpha) Tj ET EMC",
-        b"/TD <</MCID 9>> BDC BT /F1 12 Tf 200 595 Td (1) Tj ET EMC",
     ])
     ns20 = b"/NS 7 0 R"
     id0 = file_id("tagged-structure").hex().encode()
@@ -5576,6 +5634,7 @@ FILES = {
     "text-cid-identity-h.pdf": gen_text_cid_identity_h,
     "text-cid-identity-v.pdf": gen_text_cid_identity_v,
     "text-lines-rotated.pdf": gen_text_lines_rotated,
+    "text-tagged-replacements.pdf": gen_text_tagged_replacements,
     "text-cid-embedded-cmap.pdf": gen_text_cid_embedded_cmap,
     "text-cidcff-predefined-cmap.pdf": gen_text_cidcff_predefined_cmap,
     "text-cid-nonembedded.pdf": gen_text_cid_nonembedded,

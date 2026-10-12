@@ -22,14 +22,35 @@ public enum TextGlyphFlags
     /// <remarks>ISO 32000-2 §8.11.3.1.</remarks>
     Hidden = 1 << 1,
 
-    /// <summary>The glyph is inside a marked-content sequence tagged <c>Artifact</c>: pagination, layout or background content, not the document's real content.</summary>
+    /// <summary>
+    /// The glyph is an artifact: pagination, layout or background content, not the document's real content. It is inside a
+    /// marked-content sequence tagged <c>Artifact</c>, or, on a tagged page read in structure order, under an <c>Artifact</c>
+    /// structure element or not in the structure tree. Artifacts are extracted only when
+    /// <see cref="TextExtractionOptions.IncludeArtifacts"/> asks for them.
+    /// </summary>
     /// <remarks>ISO 32000-2 §14.8.2.2.</remarks>
     Artifact = 1 << 2,
 
     /// <summary>
-    /// The glyph is inside a marked-content sequence whose property list has <c>ActualText</c>: the sequence's first glyph carries the
-    /// replacement text and the others carry none, while every glyph keeps its own position.
+    /// The glyph is inside a marked-content sequence, or under a structure element, whose <c>ActualText</c> replaces its text: the
+    /// first glyph of the sequence or element carries the replacement text and the others carry none, while every glyph keeps its
+    /// own position.
     /// </summary>
     /// <remarks>ISO 32000-2 §14.9.4.</remarks>
     ActualText = 1 << 3,
+
+    /// <summary>
+    /// The glyph is under a structure element whose alternate description (<c>Alt</c>) replaces its text, as a whole word or phrase
+    /// (<see cref="TextExtractionOptions.ApplyAlternateDescriptions"/>): the element's first glyph carries the description and the
+    /// others carry none.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §14.9.3.</remarks>
+    AlternateDescription = 1 << 4,
+
+    /// <summary>
+    /// The glyph is under a structure element whose expansion (<c>E</c>) replaces its text, as a whole word
+    /// (<see cref="TextExtractionOptions.ApplyExpansions"/>): the element's first glyph carries the expansion and the others carry none.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §14.9.5.</remarks>
+    Expansion = 1 << 5,
 }

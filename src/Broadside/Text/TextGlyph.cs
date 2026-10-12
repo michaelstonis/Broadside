@@ -1,5 +1,6 @@
 using Broadside.Fonts;
 using Broadside.Graphics;
+using Broadside.Structure;
 
 namespace Broadside.Text;
 
@@ -94,4 +95,19 @@ public readonly record struct TextGlyph
     /// </summary>
     /// <remarks>ISO 32000-2 §9.4.4: <c>T_rm = [T_fs·T_h 0 0 T_fs 0 T_rise] × T_m × CTM</c>; §9.7.4.3 for vertical writing.</remarks>
     public Matrix TextRenderingMatrix { get; internal init; }
+
+    /// <summary>
+    /// Gets the structure element whose content the glyph is, when the page was read in structure order (the element holding the
+    /// marked-content sequence or object the glyph is shown in); <see langword="null"/> in content order and for artifacts that are
+    /// not in the structure tree.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §14.7.5 (content items) and §14.7.5.4.</remarks>
+    public PdfStructureElement? StructureElement { get; internal init; }
+
+    /// <summary>
+    /// Gets the natural language of the glyph's text: the <c>Lang</c> of <see cref="StructureElement"/>, else of its nearest
+    /// ancestor that has one, else the document's; <see langword="null"/> when there is no structure element or no language is given.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §14.9.2 (Table 355 <c>Lang</c>, Table 29 <c>Lang</c>).</remarks>
+    public string? Language { get; internal init; }
 }

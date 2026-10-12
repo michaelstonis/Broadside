@@ -1886,6 +1886,25 @@ Broadside.Text.TextGlyphFlags.Artifact = 4 -> Broadside.Text.TextGlyphFlags
 Broadside.Text.TextGlyphFlags.Hidden = 2 -> Broadside.Text.TextGlyphFlags
 Broadside.Text.TextGlyphFlags.Invisible = 1 -> Broadside.Text.TextGlyphFlags
 Broadside.Text.TextGlyphFlags.None = 0 -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextExtractionOptions.ApplyAlternateDescriptions.get -> bool
+Broadside.Text.TextExtractionOptions.ApplyAlternateDescriptions.set -> void
+Broadside.Text.TextExtractionOptions.ApplyExpansions.get -> bool
+Broadside.Text.TextExtractionOptions.ApplyExpansions.set -> void
+Broadside.Text.TextExtractionOptions.IncludeArtifacts.get -> bool
+Broadside.Text.TextExtractionOptions.IncludeArtifacts.set -> void
+Broadside.Text.TextExtractionOptions.ReadingOrder.get -> Broadside.Text.TextReadingOrder
+Broadside.Text.TextExtractionOptions.ReadingOrder.set -> void
+Broadside.Text.TextExtractionOptions.WithAlternateDescriptions(bool apply = true) -> Broadside.Text.TextExtractionOptions!
+Broadside.Text.TextExtractionOptions.WithArtifacts(bool include = true) -> Broadside.Text.TextExtractionOptions!
+Broadside.Text.TextExtractionOptions.WithExpansions(bool apply = true) -> Broadside.Text.TextExtractionOptions!
+Broadside.Text.TextExtractionOptions.WithReadingOrder(Broadside.Text.TextReadingOrder order) -> Broadside.Text.TextExtractionOptions!
+Broadside.Text.TextGlyph.Language.get -> string?
+Broadside.Text.TextGlyph.StructureElement.get -> Broadside.Structure.PdfStructureElement?
+Broadside.Text.TextGlyphFlags.AlternateDescription = 16 -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextGlyphFlags.Expansion = 32 -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextReadingOrder
+Broadside.Text.TextReadingOrder.Content = 1 -> Broadside.Text.TextReadingOrder
+Broadside.Text.TextReadingOrder.Structure = 0 -> Broadside.Text.TextReadingOrder
 Broadside.Text.TextLine
 Broadside.Text.TextLine.GlyphCount.get -> int
 Broadside.Text.TextLine.GlyphStart.get -> int
@@ -2331,6 +2350,8 @@ override Broadside.Text.TextExtractor.BeginRun(Broadside.Content.ContentContext!
 override Broadside.Text.TextExtractor.EndMarkedContent(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
 override Broadside.Text.TextExtractor.Events.get -> Broadside.Content.ContentEvents
 override Broadside.Text.TextExtractor.ShowGlyph(in Broadside.Content.GlyphEvent glyph, Broadside.Content.ContentContext! context) -> void
+override Broadside.Text.TextExtractor.BeginForm(in Broadside.Content.FormEvent form, Broadside.Content.ContentContext! context) -> Broadside.Content.ContentVisit
+override Broadside.Text.TextExtractor.EndForm(in Broadside.Content.FormEvent form, Broadside.Content.ContentContext! context) -> void
 override Broadside.Text.TextPage.ToString() -> string!
 static Broadside.Annotations.PdfAnnotation.ComputeAppearanceMatrix(Broadside.PdfRectangle rect, Broadside.PdfRectangle boundingBox, Broadside.Graphics.Matrix matrix) -> Broadside.Graphics.Matrix?
 static Broadside.Annotations.PdfQuadrilateral.operator !=(Broadside.Annotations.PdfQuadrilateral left, Broadside.Annotations.PdfQuadrilateral right) -> bool

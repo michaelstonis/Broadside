@@ -32,6 +32,7 @@ public sealed class TextCorpusTests
                     .Append(CultureInfo.InvariantCulture, $" font {glyph.Font.BaseFont ?? glyph.Font.FontType.ToString()} {Number(glyph.FontSize)} {glyph.RenderingMode}")
                     .Append(glyph.IsVertical ? " vertical" : string.Empty)
                     .Append(glyph.Flags == TextGlyphFlags.None ? string.Empty : " " + glyph.Flags)
+                    .Append(glyph.StructureElement is { } element ? $" element {element.StructureType?.Value} lang {glyph.Language}" : string.Empty)
                     .Append(CultureInfo.InvariantCulture, $" origin {Point(glyph.Origin)} advance {Point(glyph.Advance)}")
                     .Append(CultureInfo.InvariantCulture, $" quad {Point(glyph.Quad.BottomLeft)} {Point(glyph.Quad.BottomRight)} {Point(glyph.Quad.TopRight)} {Point(glyph.Quad.TopLeft)}\n");
             }

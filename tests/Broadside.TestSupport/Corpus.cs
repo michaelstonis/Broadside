@@ -32,6 +32,7 @@ public static class Corpus
         "text-cid-identity-h.pdf",
         "text-cid-identity-v.pdf",
         "text-lines-rotated.pdf",
+        "text-tagged-replacements.pdf",
         "text-cid-embedded-cmap.pdf",
         "text-cidcff-predefined-cmap.pdf",
         "text-cid-nonembedded.pdf",
