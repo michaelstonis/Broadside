@@ -1,0 +1,9 @@
+﻿page 1: αβγ€αβγ€
+  α code 61/1 GlyphName font Symbol 24 Fill origin (72, 700) advance (15.144, 0) quad (72, 692.968) (87.144, 692.968) (87.144, 724.24) (72, 724.24)
+  β code 62/1 GlyphName font Symbol 24 Fill origin (87.144, 700) advance (13.176, 0) quad (87.144, 692.968) (100.32, 692.968) (100.32, 724.24) (87.144, 724.24)
+  γ code 67/1 GlyphName font Symbol 24 Fill origin (100.32, 700) advance (9.864, 0) quad (100.32, 692.968) (110.184, 692.968) (110.184, 724.24) (100.32, 724.24)
+  € code A0/1 GlyphName font Symbol 24 Fill origin (110.184, 700) advance (18, 0) quad (110.184, 692.968) (128.184, 692.968) (128.184, 724.24) (110.184, 724.24)
+  α code 61/1 GlyphName font Symbol 24 Fill origin (72, 664) advance (15.144, 0) quad (72, 656.968) (87.144, 656.968) (87.144, 688.24) (72, 688.24)
+  β code 62/1 GlyphName font Symbol 24 Fill origin (87.144, 664) advance (13.176, 0) quad (87.144, 656.968) (100.32, 656.968) (100.32, 688.24) (87.144, 688.24)
+  γ code 67/1 GlyphName font Symbol 24 Fill origin (100.32, 664) advance (9.864, 0) quad (100.32, 656.968) (110.184, 656.968) (110.184, 688.24) (100.32, 688.24)
+  € code A0/1 GlyphName font Symbol 24 Fill origin (110.184, 664) advance (18, 0) quad (110.184, 656.968) (128.184, 656.968) (128.184, 688.24) (110.184, 688.24)

@@ -1,6 +1,6 @@
 ﻿pdfjs: 989 files
-  Clean: 722
-  Diagnostics: 254
+  Clean: 717
+  Diagnostics: 259
   PasswordRequired: 11
   CertificateRequired: 0
   EncryptionUnsupported: 0
@@ -15,6 +15,7 @@
     StartxrefInvalid: 21
     MissingEndobj: 12
     PageResourcesMissing: 11
+    DefaultAppearanceFontMissing: 8
     NameTreeLimitsInvalid: 8
     TrailerPrevInvalid: 8
     UnexpectedToken: 8
@@ -72,6 +73,7 @@
     DctEndMissing: 1
     DctFrameInvalid: 1
     DctScanInvalid: 1
+    DefaultAppearanceInvalid: 1
     DictionaryValueMissing: 1
     EncryptDictionaryInvalid: 1
     EncryptedDataInvalid: 1
@@ -138,8 +140,8 @@ pdfbox: 137 files
     StartxrefInvalid: 1
     StreamLengthInvalid: 1
 qpdf: 639 files
-  Clean: 400
-  Diagnostics: 205
+  Clean: 394
+  Diagnostics: 211
   PasswordRequired: 20
   CertificateRequired: 0
   EncryptionUnsupported: 1
@@ -157,6 +159,7 @@ qpdf: 639 files
     DictionaryKeyNotName: 10
     StreamLengthInvalid: 10
     RootMissing: 9
+    DefaultAppearanceFontMissing: 8
     DestinationInvalid: 8
     FilterUnsupported: 8
     PopupLinkMismatch: 8
@@ -181,6 +184,7 @@ qpdf: 639 files
     PageMediaBoxMissing: 4
     PredictorInvalid: 4
     AnnotationSharedAcrossPages: 3
+    DefaultAppearanceInvalid: 3
     EndOfFileMarkerNotLast: 3
     EndstreamMissing: 3
     FileIdentifierInvalid: 3
@@ -243,8 +247,8 @@ qpdf: 639 files
     XrefStreamWidthsInvalid: 1
     XrefSubsectionHeaderInvalid: 1
 pdfium-tests: 840 files
-  Clean: 304
-  Diagnostics: 531
+  Clean: 302
+  Diagnostics: 533
   PasswordRequired: 0
   CertificateRequired: 4
   EncryptionUnsupported: 0
@@ -296,6 +300,7 @@ pdfium-tests: 840 files
     AppearanceStateMissing: 2
     ArrayUnterminated: 2
     ChoiceValueNotInOptions: 2
+    DefaultAppearanceFontMissing: 2
     EncryptionRevisionInvalid: 2
     EndOfFileMarkerNotLast: 2
     FieldNameMissing: 2
@@ -313,6 +318,7 @@ pdfium-tests: 840 files
     ButtonValueStateMismatch: 1
     DctDataInvalid: 1
     DctTruncated: 1
+    DefaultAppearanceInvalid: 1
     DictionaryValueMissing: 1
     EncryptDictionaryInvalid: 1
     EncryptionEntryLengthInvalid: 1
