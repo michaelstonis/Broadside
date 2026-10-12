@@ -64,5 +64,11 @@ public class DisplayListBenchmarks
         public void IntersectClip(PathView path, FillRule rule) => Calls += path.Verbs.Length;
 
         public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion) => Calls += image.Width;
+
+        public void DrawShading(in DisplayShading shading) => Calls += (int)shading.Shading.ShadingType;
+
+        public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading) => Calls += path.Verbs.Length + (int)shading.Shading.ShadingType;
+
+        public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading) => Calls += path.Verbs.Length + (int)shading.Shading.ShadingType;
     }
 }

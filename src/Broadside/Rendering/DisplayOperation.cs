@@ -25,6 +25,18 @@ internal enum DisplayOperationKind : byte
 
     /// <summary><see cref="IRenderingBackend.DrawImage"/>; <see cref="DisplayOperation.First"/> indexes the images, <see cref="DisplayOperation.Second"/> the image paints.</summary>
     DrawImage,
+
+    /// <summary><see cref="IRenderingBackend.DrawShading"/>; <see cref="DisplayOperation.First"/> indexes the shading paints.</summary>
+    DrawShading,
+
+    /// <summary><see cref="IRenderingBackend.FillPathWithShading"/>; <see cref="DisplayOperation.First"/> indexes the paths, <see cref="DisplayOperation.Second"/> the shading paints.</summary>
+    FillPathWithShading,
+
+    /// <summary>
+    /// <see cref="IRenderingBackend.StrokePathWithShading"/>; <see cref="DisplayOperation.First"/> indexes the paths,
+    /// <see cref="DisplayOperation.Second"/> the strokes, whose <see cref="DisplayStroke.ColorIndex"/> then indexes the shading paints.
+    /// </summary>
+    StrokePathWithShading,
 }
 
 /// <summary>One record of a display list: a kind and up to two indexes into the list's tables, 16 bytes.</summary>
@@ -55,3 +67,11 @@ internal readonly record struct DisplayStroke(
 
 /// <summary>What one paint of an interned image depends on beyond the image: the default colour spaces and the conversion at the paint.</summary>
 internal readonly record struct DisplayImagePaint(PdfDefaultColorSpaces DefaultColorSpaces, ColorConversion Conversion);
+
+/// <summary>A shading paint in a display list: the shading, its target space, whether its Background is painted, and its conversion.</summary>
+internal readonly record struct DisplayShadingPaint(
+    PdfShading Shading,
+    Matrix Matrix,
+    bool PaintsBackground,
+    PdfDefaultColorSpaces DefaultColorSpaces,
+    ColorConversion Conversion);

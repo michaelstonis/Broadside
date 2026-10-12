@@ -13,8 +13,9 @@ namespace Broadside.TestSupport;
 /// Lines: <c>save</c>, <c>restore</c>, <c>transform [a b c d e f]</c>,
 /// <c>fill nonzero|evenodd M x y L x y Q … C … Z | Family c0 c1 …</c>,
 /// <c>stroke width Cap Join miterLimit [dash …] phase [adjust] M … | Family c0 c1 …</c>,
-/// <c>clip nonzero|evenodd M x y L … Z</c>, and <c>image WxH Family bpc N[ interpolate]</c>. Numbers are written round-trippable
-/// and culture-invariant.
+/// <c>clip nonzero|evenodd M x y L … Z</c>, <c>image WxH Family bpc N[ interpolate]</c>, <c>shading Type [matrix][ background]</c>,
+/// and fills and strokes in a shading pattern ending <c>| shading Type [matrix] background</c> instead of a colour. Numbers are
+/// written round-trippable and culture-invariant.
 /// </remarks>
 public sealed class RecordingBackend : IRenderingBackend
 {
@@ -29,6 +30,9 @@ public sealed class RecordingBackend : IRenderingBackend
 
     /// <summary>Gets the image paints, in replay order: the interned image and what the paint converts it with.</summary>
     public List<(DisplayImage Image, PdfDefaultColorSpaces Defaults, ColorConversion Conversion)> Images { get; } = [];
+
+    /// <summary>Gets the shading paints (<c>sh</c> and shading-pattern fills and strokes), in replay order.</summary>
+    public List<(PdfShading Shading, Matrix Matrix, bool PaintsBackground, PdfDefaultColorSpaces Defaults, ColorConversion Conversion)> Shadings { get; } = [];
 
     /// <inheritdoc/>
     public void SaveState() => Operations.Add("save");
@@ -100,6 +104,38 @@ public sealed class RecordingBackend : IRenderingBackend
         Images.Add((image, defaultColorSpaces, conversion));
     }
 
+    /// <inheritdoc/>
+    public void DrawShading(in DisplayShading shading) => Operations.Add(Shading(shading));
+
+    /// <inheritdoc/>
+    public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading)
+    {
+        var text = new StringBuilder("fill ").Append(rule == FillRule.EvenOdd ? "evenodd" : "nonzero");
+        Describe(path, text);
+        Operations.Add(text.Append(" | ").Append(Shading(shading)).ToString());
+    }
+
+    /// <inheritdoc/>
+    public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading)
+    {
+        var text = new StringBuilder("stroke ")
+            .Append(Number(style.LineWidth)).Append(' ').Append(style.LineCap).Append(' ').Append(style.LineJoin).Append(' ')
+            .Append(Number(style.MiterLimit)).Append(" [");
+        for (int i = 0; i < style.DashArray.Length; i++)
+        {
+            text.Append(i == 0 ? string.Empty : " ").Append(Number(style.DashArray[i]));
+        }
+
+        text.Append("] ").Append(Number(style.DashPhase));
+        if (style.StrokeAdjustment)
+        {
+            text.Append(" adjust");
+        }
+
+        Describe(path, text);
+        Operations.Add(text.Append(" | ").Append(Shading(shading)).ToString());
+    }
+
     /// <summary>Writes a path as its verbs and points.</summary>
     /// <param name="path">The path.</param>
     /// <param name="text">The text to append to.</param>
@@ -124,6 +160,12 @@ public sealed class RecordingBackend : IRenderingBackend
                     .Append(' ').Append(path.Points[point].Y.ToString("R", CultureInfo.InvariantCulture));
             }
         }
+    }
+
+    private string Shading(in DisplayShading shading)
+    {
+        Shadings.Add((shading.Shading, shading.Matrix, shading.PaintsBackground, shading.DefaultColorSpaces, shading.Conversion));
+        return $"shading {shading.Shading.ShadingType} {shading.Matrix}{(shading.PaintsBackground ? " background" : string.Empty)}";
     }
 
     private static string Number(double value) => value.ToString("R", CultureInfo.InvariantCulture);

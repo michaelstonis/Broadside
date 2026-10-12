@@ -80,6 +80,7 @@ internal static class FuzzTargets
         ["content-rewrite"] = ContentRewriteTarget.Target,
         ["icc-profile"] = IccProfileTarget.Target,
         ["rasterize"] = RasterizeTarget.Target,
+        ["rasterize-page"] = RasterizePageTarget.Target,
     };
 
     /// <summary>

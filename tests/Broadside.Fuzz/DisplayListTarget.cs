@@ -10,7 +10,8 @@ namespace Broadside.Fuzz;
 /// go below zero; every path's verbs take exactly its points and every subpath starts with a moveto; every fill's and stroke's colour
 /// space is not a Pattern space and has its components; every stroke's width, miter limit and dash pattern are in their ranges (issue
 /// #99); every clip's path is well formed with a known rule (issue #105); every image (issue #102) has samples, a colour space and a
-/// Decode map that agree on its component count; two replays of one list make the same calls. Each call runs in a new empty document.
+/// Decode map that agree on its component count; every shading (issue #109) is valid, evaluates to finite colours and paints its
+/// Background only as a pattern; two replays of one list make the same calls. Each call runs in a new empty document.
 /// </summary>
 /// <remarks>ADR 0006; ISO 32000-2 §8.4.2, §8.4.3, §8.5.3, §8.5.4, §8.6.</remarks>
 internal static class DisplayListTarget
@@ -147,6 +148,52 @@ internal static class DisplayListTarget
             Check(image.ColorSpace.Family != PdfColorSpaceFamily.Pattern, "an image in a Pattern colour space");
             Check(image.ColorSpace.ComponentCount == image.Components && image.DecodeMap.Components == image.Components, "an image's colour space, samples and Decode disagree");
             Checksum += image.Width + image.Height + image.Components + (int)conversion.Intent;
+        }
+
+        public void DrawShading(in DisplayShading shading)
+        {
+            Calls++;
+            Check(!shading.PaintsBackground, "sh paints a Background");
+            CheckShading(shading);
+        }
+
+        public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading)
+        {
+            Calls++;
+            Check(!path.IsEmpty && path.Verbs[0] == PathVerb.MoveTo, "a shaded path does not start with a moveto");
+            Check(shading.PaintsBackground, "a shading pattern does not paint its Background");
+            CheckShading(shading);
+            Checksum += (int)rule + path.Points.Length;
+        }
+
+        public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading)
+        {
+            Calls++;
+            Check(!path.IsEmpty && path.Verbs[0] == PathVerb.MoveTo, "a shaded stroke does not start with a moveto");
+            Check(style.LineWidth >= 0, "a negative stroke width");
+            Check(shading.PaintsBackground, "a shading pattern does not paint its Background");
+            CheckShading(shading);
+            Checksum += style.LineWidth + path.Points.Length;
+        }
+
+        /// <summary>Checks that a shading reaching the backend is usable and evaluates it like a backend would.</summary>
+        private void CheckShading(in DisplayShading shading)
+        {
+            PdfShading model = shading.Shading;
+            Check(model.IsValid, "an invalid shading reached the backend");
+            Check(model.ColorSpace.Family != PdfColorSpaceFamily.Pattern, "a shading in a Pattern colour space");
+            Check(model.ColorComponentCount <= PdfColor.MaxComponents, "too many shading components");
+            if (model.HasFunction && model is PdfAxialShading or PdfRadialShading)
+            {
+                Span<float> color = stackalloc float[PdfColor.MaxComponents];
+                model.EvaluateFunction([0.5f], color);
+                foreach (float component in color[..model.ColorComponentCount])
+                {
+                    Check(float.IsFinite(component), "a shading function gave a non-finite component");
+                }
+            }
+
+            Checksum += (int)model.ShadingType + shading.Matrix.A;
         }
     }
 }

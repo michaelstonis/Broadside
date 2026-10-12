@@ -101,4 +101,33 @@ public interface IRenderingBackend
     /// device as the backend sees fit; honour <see cref="DisplayImage.Interpolate"/> when enlarging (§8.9.5.3).
     /// </remarks>
     void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion);
+
+    /// <summary>Paints a shading over the whole current clip (the <c>sh</c> operator).</summary>
+    /// <param name="shading">
+    /// The shading, its geometry mapped to default user space by <see cref="DisplayShading.Matrix"/> (the CTM at <c>sh</c>), with
+    /// <see cref="DisplayShading.PaintsBackground"/> false.
+    /// </param>
+    /// <remarks>
+    /// ISO 32000-2 §8.7.4.2, Table 76: the shading fills the current clipping path, further clipped by its BBox when it has one
+    /// (§8.7.4.3); points the shading does not define (beyond an end that is not extended, §8.7.4.5.3 and §8.7.4.5.4) are left
+    /// unpainted; the Background is ignored. The current colour plays no part.
+    /// </remarks>
+    void DrawShading(in DisplayShading shading);
+
+    /// <summary>Fills a path with a shading pattern.</summary>
+    /// <param name="path">The path in user space under the current transform, exactly as for <see cref="FillPath"/>.</param>
+    /// <param name="rule">The rule that decides the inside (§8.5.3.3.2, §8.5.3.3.3).</param>
+    /// <param name="shading">The pattern's shading, in pattern space (<see cref="DisplayShading.Matrix"/>), with its Background.</param>
+    /// <remarks>
+    /// ISO 32000-2 §8.7.4.1, Table 75, and §8.7.4.3, Table 77: inside the path (and the clip), the Background, when present, fills
+    /// the points outside the shading's bounds, then the shading paints the points it defines within its BBox.
+    /// </remarks>
+    void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading);
+
+    /// <summary>Strokes a path with a shading pattern.</summary>
+    /// <param name="path">The path in user space under the current transform, exactly as for <see cref="StrokePath"/>.</param>
+    /// <param name="style">The line parameters, as for <see cref="StrokePath"/>.</param>
+    /// <param name="shading">The pattern's shading, in pattern space (<see cref="DisplayShading.Matrix"/>), with its Background.</param>
+    /// <remarks>ISO 32000-2 §8.7.4.1 and §8.5.3.2: the area the stroke covers is painted as <see cref="FillPathWithShading"/> paints a fill's.</remarks>
+    void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading);
 }

@@ -102,5 +102,19 @@ public sealed class DisplayListAllocationTests
 
         public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion) =>
             Checksum += image.Width + image.Height;
+
+        public void DrawShading(in DisplayShading shading) => Checksum += shading.Matrix.A;
+
+        public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading)
+        {
+            Fills++;
+            Checksum += path.Points.Length + shading.Matrix.A;
+        }
+
+        public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading)
+        {
+            Strokes++;
+            Checksum += path.Points.Length + style.LineWidth + shading.Matrix.A;
+        }
     }
 }
