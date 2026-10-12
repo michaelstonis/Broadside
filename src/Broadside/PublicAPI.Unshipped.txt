@@ -3710,6 +3710,41 @@ Broadside.Graphics.PdfFormXObject.RewriteContent(Broadside.Content.ContentEditor
 Broadside.Graphics.PdfFormXObject.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
 Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor) -> bool
 Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
+Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionAlgorithm.Aes128 = 1 -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionAlgorithm.Aes256 = 0 -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionAlgorithm.Rc4 = 2 -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionOptions
+Broadside.PdfEncryptionOptions.Algorithm.get -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionOptions.Algorithm.set -> void
+Broadside.PdfEncryptionOptions.EncryptMetadata.get -> bool
+Broadside.PdfEncryptionOptions.EncryptMetadata.set -> void
+Broadside.PdfEncryptionOptions.OwnerPassword.get -> string!
+Broadside.PdfEncryptionOptions.PdfEncryptionOptions(string? userPassword, string? ownerPassword) -> void
+Broadside.PdfEncryptionOptions.Permissions.get -> Broadside.PdfPermissions
+Broadside.PdfEncryptionOptions.Permissions.set -> void
+Broadside.PdfEncryptionOptions.UserPassword.get -> string!
+Broadside.PdfEncryptionOptions.WithAlgorithm(Broadside.PdfEncryptionAlgorithm algorithm) -> Broadside.PdfEncryptionOptions!
+Broadside.PdfEncryptionOptions.WithEncryptMetadata(bool encryptMetadata) -> Broadside.PdfEncryptionOptions!
+Broadside.PdfEncryptionOptions.WithPermissions(Broadside.PdfPermissions permissions) -> Broadside.PdfEncryptionOptions!
+Broadside.PdfSaveOptions.Encryption.get -> Broadside.PdfEncryptionOptions?
+Broadside.PdfSaveOptions.Encryption.set -> void
+Broadside.PdfSaveOptions.RemoveEncryption.get -> bool
+Broadside.PdfSaveOptions.RemoveEncryption.set -> void
+Broadside.PdfSaveOptions.WithEncryption(Broadside.PdfEncryptionOptions? encryption) -> Broadside.PdfSaveOptions!
+Broadside.PdfSaveOptions.WithRemoveEncryption(bool remove) -> Broadside.PdfSaveOptions!
+Broadside.PdfDocumentProperties.Author.set -> void
+Broadside.PdfDocumentProperties.CreationDate.set -> void
+Broadside.PdfDocumentProperties.Creator.set -> void
+Broadside.PdfDocumentProperties.Keywords.set -> void
+Broadside.PdfDocumentProperties.ModificationDate.set -> void
+Broadside.PdfDocumentProperties.Producer.set -> void
+Broadside.PdfDocumentProperties.Subject.set -> void
+Broadside.PdfDocumentProperties.Title.set -> void
+Broadside.PdfOptions.UseTimeProvider(System.TimeProvider! timeProvider) -> Broadside.PdfOptions!
+Broadside.PdfSaveOptions.UpdateModificationDate.get -> bool
+Broadside.PdfSaveOptions.UpdateModificationDate.set -> void
+Broadside.PdfSaveOptions.WithUpdateModificationDate(bool update) -> Broadside.PdfSaveOptions!
 Broadside.Forms.PdfTextField.GenerateAppearances() -> void
 Broadside.Forms.PdfTextField.SetValue(string? value) -> void
 Broadside.PdfOutputIntent
@@ -3727,3 +3762,9 @@ Broadside.PdfPage.OutputIntents.get -> System.Collections.Generic.IReadOnlyList<
 Broadside.Graphics.GraphicsState.OutputIntent.get -> Broadside.PdfOutputIntent?
 Broadside.Graphics.ColorConversion.OutputIntent.get -> Broadside.PdfOutputIntent?
 Broadside.Graphics.ColorConversion.OutputIntent.init -> void
+Broadside.PdfObjectCopier
+Broadside.PdfObjectCopier.Copy(Broadside.Objects.CosObject! value) -> Broadside.Objects.CosObject!
+Broadside.PdfObjectCopier.CopyPage(Broadside.PdfPage! page) -> Broadside.Objects.CosReference!
+Broadside.PdfObjectCopier.PdfObjectCopier(Broadside.PdfDocument! source, Broadside.PdfDocument! target) -> void
+Broadside.PdfObjectCopier.Source.get -> Broadside.PdfDocument!
+Broadside.PdfObjectCopier.Target.get -> Broadside.PdfDocument!

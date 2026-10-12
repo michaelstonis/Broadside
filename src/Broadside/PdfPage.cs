@@ -385,6 +385,31 @@ public sealed class PdfPage
         return (null, false);
     }
 
+    /// <summary>Gets the document the page belongs to.</summary>
+    internal PdfDocument Document => _document;
+
+    /// <summary>
+    /// The value an inheritable entry has when the page does not have it itself: the nearest ancestor's entry as stored, not resolved
+    /// (a reference stays a reference); <see langword="null"/> when the page has its own or no ancestor has one (§7.7.3.4).
+    /// </summary>
+    internal CosObject? FindInheritedEntry(CosName key)
+    {
+        if (Find(key) is not null)
+        {
+            return null;
+        }
+
+        for (PageTreeAncestor? node = _ancestors; node is not null; node = node.Parent)
+        {
+            if (EntryReader.Get(_document, node.Dictionary, key) is not null)
+            {
+                return node.Dictionary[key];
+            }
+        }
+
+        return null;
+    }
+
     /// <summary>The page's own entry, resolved; <see langword="null"/> when absent or a reference to nothing.</summary>
     private CosObject? Find(CosName key) => EntryReader.Get(_document, Dictionary, key);
 

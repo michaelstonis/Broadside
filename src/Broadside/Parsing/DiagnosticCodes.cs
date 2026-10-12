@@ -110,6 +110,7 @@ internal static partial class DiagnosticCodes
     public const string PublicKeyRecipientInvalid = nameof(PublicKeyRecipientInvalid);
     public const string PublicKeyEnvelopeInvalid = nameof(PublicKeyEnvelopeInvalid);
     public const string CryptFilterNotAuthorized = nameof(CryptFilterNotAuthorized);
+    public const string EncryptionDeprecated = nameof(EncryptionDeprecated);
 
     // Document catalog (§7.7.2).
     public const string CatalogTypeInvalid = nameof(CatalogTypeInvalid);
