@@ -90,6 +90,12 @@ internal static class SavePlan
             }
         }
 
+        // Objects the document has made indirect since it was read, above every number the file lists.
+        foreach ((int number, _) in loader.AddedObjects)
+        {
+            existing[number] = new CosReference(number, 0);
+        }
+
         var trailer = new CosDictionary();
         foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
         {
