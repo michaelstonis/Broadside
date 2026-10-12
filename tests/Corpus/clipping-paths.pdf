@@ -1,0 +1,48 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 400 300] /Contents 4 0 R /Resources << /XObject << /Fm 5 0 R >> >> >>
+endobj
+4 0 obj
+<<  /Length 838 >>
+stream
+q 125 225 m 125 255.376 100.376 280 70 280 c 39.623 280 15 255.376 15 225 c 15 194.624 39.623 170 70 170 c 100.376 170 125 194.624 125 225 c h W n 70 200 130 100 re W n 1 0 0 rg 0 150 140 150 re f Q
+q 200 280 m 167.672 180.504 l 252.308 241.996 l 147.692 241.996 l 232.328 180.504 l W* n 0 0 1 rg 140 165 120 120 re f Q
+q 285 170 50 110 re W n 0 0.6 0 rg 270 200 120 50 re f Q 0.5 0 0.5 rg 270 175 120 10 re f
+q 1 0 0 rg 20 20 m 120 20 l 120 120 l 20 120 l h 45 45 m 95 45 l 95 95 l 45 95 l h W* f 0 0 1 rg 0 0 140 140 re f Q
+q 1 0 0 1 150 20 cm /Fm Do Q
+q 0.866 0.5 -0.5 0.866 330 75 cm -40 -40 80 80 re W n 1 0 0 rg -60 -60 15 120 re f 0 0 1 rg -45 -60 15 120 re f 1 0 0 rg -30 -60 15 120 re f 0 0 1 rg -15 -60 15 120 re f 1 0 0 rg 0 -60 15 120 re f 0 0 1 rg 15 -60 15 120 re f 1 0 0 rg 30 -60 15 120 re f 0 0 1 rg 45 -60 15 120 re f Q
+
+endstream
+endobj
+5 0 obj
+<< /Type /XObject /Subtype /Form /BBox [0 0 100 100] /Resources << /XObject << /In 6 0 R >> >> /Length 156 >>
+stream
+0 0.5 0.5 rg 110 50 m 110 83.138 83.138 110 50 110 c 16.862 110 -10 83.138 -10 50 c -10 16.862 16.862 -10 50 -10 c 83.138 -10 110 16.862 110 50 c h f /In Do
+endstream
+endobj
+6 0 obj
+<< /Type /XObject /Subtype /Form /BBox [25 25 75 75] /Length 37 >>
+stream
+1 0.5 0 rg 0 0 m 100 0 l 50 100 l h f
+endstream
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000244 00000 n 
+0000001134 00000 n 
+0000001433 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+1570
+%%EOF
