@@ -74,6 +74,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         Dashes = _dashes.AsSpan(0, _dashCount).ToArray(),
         Images = _images.AsSpan(0, _imageCount).ToArray(),
         ImagePaints = _imagePaints.AsSpan(0, _imagePaintCount).ToArray(),
+        ImageMasks = _imageMasks.AsSpan(0, _imageMaskCount).ToArray(),
     };
 
     /// <summary>Forgets everything built, keeping the tables' capacity and no reference into a document.</summary>

@@ -42,7 +42,8 @@ public interface IRenderingBackend
     void FillPath(PathView path, FillRule rule, in DisplayColor color);   // §8.5.3.3
     void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color);   // §8.5.3.2, after the fill of B/b (#99)
     void IntersectClip(PathView path, FillRule rule);   // §8.5.4 W/W* (after the paint of its path), §8.10.1 form BBox; restored by RestoreState
-    void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion);   // §8.9.4, #102
+    void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion);   // §8.9.4, #102; masks #106
+    void FillImageMask(DisplayImageMask mask, in DisplayColor color);   // §8.9.6.2 stencil mask in the fill colour, #106
 }
 
 public sealed class DisplayImage                      // §8.9.5, §8.9.7: decoded once per list, one instance per image XObject
@@ -55,6 +56,19 @@ public sealed class DisplayImage                      // §8.9.5, §8.9.7: decod
     public PdfColorSpace ColorSpace { get; }            // resolved, before defaults; never Pattern; Indexed has 1 component
     public ImageDecodeMap DecodeMap { get; }            // §8.9.5.2; MapToIndices for Indexed
     public bool Interpolate { get; }                    // §8.9.5.3
+    public DisplayImageMask? Mask { get; }              // §8.9.6.3 explicit mask, at its own size (#106)
+    public DisplayImage? SoftMask { get; }              // §11.6.5.2 SMask or the JPX opacity plane (SMaskInData), own size, 1 component
+    public ReadOnlySpan<double> ColorKey { get; }       // §8.9.6.4 min/max per component on raw samples; empty when none
+    public ReadOnlySpan<float> Matte { get; }           // §11.6.5.2 Table 144, base-space components; zeros for SMaskInData 2
+    public ReadOnlySpan<byte> ColorTable { get; }       // §8.6.6.3 Indexed table as stored; empty otherwise
+}
+
+public sealed class DisplayImageMask                  // §8.9.6.2/§8.9.6.3: 1 bit per sample, own size, interned per mask stream
+{
+    public int Width { get; }  public int Height { get; }  public int Stride { get; }
+    public ReadOnlySpan<byte> Samples { get; }  public ReadOnlySpan<byte> GetRow(int y);
+    public bool IsInverted { get; }                     // a sample 1 paints (Decode [1 0], codec polarity folded in); else 0 paints
+    public bool Interpolate { get; }
 }
 
 public readonly ref struct DisplayColor               // §8.6.1: colour specification, never pre-converted
@@ -85,8 +99,9 @@ Rules every backend follows:
 - Colour: convert with `list.Document.GetColorConverter(color.ColorSpace, color.Conversion with { Target = <your model> }, color.DefaultColorSpaces)`. That expands Indexed, Separation, DeviceN, applies the defaults and goes through the engine's `IColorManagement` (the colour-management extension point). Check `PdfColorConverter.PaintsNothing` (Separation `None`). Cache converters per colour space if you convert per paint; the document caches them too.
 - Strokes (#99): stroke in the stroke's user space (the transform set before it) so a non-uniform CTM gives an elliptical pen; each subpath on its own, dash pattern restarted per subpath, closed subpaths joined where they close, the last and first dash of a closed subpath joined when both are on, a degenerate subpath a dot only with round caps, a lone moveto nothing, zero-length dashes painted with their caps along the path, width 0 one device pixel. The software rasterizer's `Stroker` (outline polygons, non-zero fill, round joins between the flattened pieces of a curve, at most 2^20 dashes per stroke) and `paths-strokes.pdf` are the reference; a stroke in a Pattern colour is not in the list yet.
 - Clips (#105): `IntersectClip` intersects the current clip with the inside of the path (the area `FillPath` would fill with that rule) under the current transform; it arrives after the paint of its path object, and a form's bounding box arrives the same way inside the state saved around the form. `RestoreState` brings back the clip of the matching `SaveState`. The replay starts with the initial clip, the page area your renderer maps (the crop box). Anti-alias clip edges like fill edges. The software rasterizer's reference: `RasterClip` (a device rectangle for axis-aligned rectangles, the no-mask fast path, times a pooled 8-bit coverage mask for other paths), with every paint's coverage going through `ScanlineRasterizer.Paint`/`Fill` so strokes, images and shadings are clipped too. Text clips (§9.3.6) are not in the list yet (#107).
-- Images (`DrawImage`, #102): image space maps to the unit square through `[1/Width 0 0 -1/Height 0 1]` (first row at the top), then the current transform. Map samples through `DecodeMap` (Indexed: `MapToIndices`), convert with `GetColorConverter(image.ColorSpace, conversion with { Target = ... }, defaultColorSpaces)` (the conversion's intent is already the image's Intent entry when it has one), resample as your platform does; honour `Interpolate` when enlarging. Key per-surface caches on the `DisplayImage` instance. Image masks, SMask/Mask/colour-key masks, Matte and JPX alpha are not in the list yet (#103): today the base image is drawn opaque and stencil masks are skipped.
-- Not in the list yet (later Phase 3 tickets): text clips, glyph runs, image masks, shadings, pattern fills and pattern strokes, transparency groups and soft masks.
+- Images (`DrawImage`, #102): image space maps to the unit square through `[1/Width 0 0 -1/Height 0 1]` (first row at the top), then the current transform. Map samples through `DecodeMap` (Indexed: `MapToIndices`), convert with `GetColorConverter(image.ColorSpace, conversion with { Target = ... }, defaultColorSpaces)` (the conversion's intent is already the image's Intent entry when it has one), resample as your platform does; honour `Interpolate` when enlarging. Key per-surface caches on the `DisplayImage` instance.
+- Masks (#106): a mask and its image both map onto the unit square whatever their sizes, so resample each from its own grid (never decode a mask at the image's size). `Mask` (1 bit, `ImageRows.Stencil` gives 255 where it paints) and `ColorKey` (on raw samples, `ImageRows.ColorKey`) punch holes; `SoftMask` values through its own `DecodeMap` are opacities; remove `Matte` from the component values before conversion (`ImageRows.Unpremultiply`; Indexed: the table's base-space colours from `ColorTable`), then composite premultiplied. `FillImageMask` paints the colour where the stencil paints, resampled like an image. The software rasterizer folds a mask of the image's size into the converted pixels' alpha (`ImageSource`) and samples one of another size on its own grid (`MaskSource`, `ImagePainter`). Stencil masks in a Pattern colour are not in the list yet.
+- Not in the list yet (later Phase 3 tickets): text clips, glyph runs, shadings, pattern fills and pattern strokes, transparency groups and soft masks.
 
 A backend must also, as those operations arrive:
 
@@ -97,7 +112,7 @@ A backend must also, as those operations arrive:
 - allocate nothing per operation, glyph or scanline during replay; buffers are pooled per surface (`CLAUDE.md`, "Code conventions");
 - render each corpus page at `GoldenCorpus.Dpi` (72) through `GoldenCorpus.CreateRenderOptions()` so the golden-image harness (#120) can compare it with the rasterizer's golden image; any 8-bit four-channel layout works (`GoldenPixelFormat`: BGRA or RGBA, premultiplied or straight, transparent or white page).
 
-Testing against the contract: `Broadside.TestSupport.RecordingBackend` records every call as a line (`save`, `restore`, `transform [a b c d e f]`, `fill nonzero|evenodd M x y L ... Z | Family c0 c1 ...`, `stroke width Cap Join miterLimit [dash ...] phase [adjust] M ... | Family c0 c1 ...`, `clip nonzero|evenodd M x y L ... Z`, `image WxH Family bpc N[ interpolate]`) and keeps each fill's and stroke's colour space, components, defaults and conversion (`Fills`, `Strokes`) and each image paint (`Images`); `Broadside.Tests.Rendering.DisplayListTests` shows the pattern. `DisplayListBenchmarks` (Build, Replay) is the replay allocation baseline.
+Testing against the contract: `Broadside.TestSupport.RecordingBackend` records every call as a line (`save`, `restore`, `transform [a b c d e f]`, `fill nonzero|evenodd M x y L ... Z | Family c0 c1 ...`, `stroke width Cap Join miterLimit [dash ...] phase [adjust] M ... | Family c0 c1 ...`, `clip nonzero|evenodd M x y L ... Z`, `image WxH Family bpc N[ interpolate][ mask WxH[ inverted]][ smask WxH Family bpc N][ matte m ...][ colorkey min max ...]`, `imagemask WxH[ inverted][ interpolate] | Family c0 c1 ...`) and keeps each fill's and stroke's colour space, components, defaults and conversion (`Fills`, `Strokes`), each image paint (`Images`) and each stencil mask paint (`ImageMasks`); `Broadside.Tests.Rendering.DisplayListTests` shows the pattern. `DisplayListBenchmarks` (Build, Replay) is the replay allocation baseline.
 
 Registration goes through the options object (`PdfOptions.Use*`, plan row 1.12) or the package's one fluent configuration call, the same shape as `Broadside.Fonts.Standard14` (ADR 0007). No static registry: two engines in one process may use different backends, and the viewer selects one per surface.
 

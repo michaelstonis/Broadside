@@ -147,6 +147,39 @@ internal static class DisplayListTarget
             Check(image.ColorSpace.Family != PdfColorSpaceFamily.Pattern, "an image in a Pattern colour space");
             Check(image.ColorSpace.ComponentCount == image.Components && image.DecodeMap.Components == image.Components, "an image's colour space, samples and Decode disagree");
             Checksum += image.Width + image.Height + image.Components + (int)conversion.Intent;
+            if (image.Mask is { } mask)
+            {
+                CheckMask(mask);
+            }
+
+            if (image.SoftMask is { } soft)
+            {
+                Check(soft.Components == 1 && soft.ColorSpace.ComponentCount == 1 && soft.DecodeMap.Components == 1, "a soft mask of more than one component");
+                Check(soft.Samples.Length == (long)soft.Stride * soft.Height && soft.Width > 0 && soft.Height > 0, "the soft mask's samples are not Stride x Height bytes");
+                Check(soft.SoftMask is null && soft.Mask is null && soft.ColorKey.IsEmpty, "a soft mask with a mask of its own");
+                Checksum += soft.Width + soft.Height;
+            }
+
+            int baseComponents = image.ColorSpace is PdfIndexedColorSpace indexed ? indexed.Base.ComponentCount : image.Components;
+            Check(image.Matte.IsEmpty || (image.SoftMask is not null && image.Matte.Length == baseComponents), "a Matte without a soft mask or of the wrong length");
+            Check(image.ColorKey.Length is 0 || image.ColorKey.Length == 2 * image.Components, "colour key ranges of the wrong length");
+            Check((image.Mask is null ? 0 : 1) + (image.SoftMask is null ? 0 : 1) + (image.ColorKey.IsEmpty ? 0 : 1) <= 1, "more than one mask on an image");
+        }
+
+        public void FillImageMask(DisplayImageMask mask, in DisplayColor color)
+        {
+            Calls++;
+            CheckMask(mask);
+            Check(color.ColorSpace.Family != PdfColorSpaceFamily.Pattern, "a stencil mask in a Pattern colour space");
+            Check(color.Components.Length <= PdfColor.MaxComponents, "too many components");
+            Checksum += color.Components.Length;
+        }
+
+        private void CheckMask(DisplayImageMask mask)
+        {
+            Check(mask.Width > 0 && mask.Height > 0, "a mask without samples");
+            Check(mask.Stride == (mask.Width + 7) / 8 && mask.Samples.Length == (long)mask.Stride * mask.Height, "the mask's samples are not one bit each");
+            Checksum += mask.Width + mask.Height + (mask.IsInverted ? 1 : 0);
         }
     }
 }

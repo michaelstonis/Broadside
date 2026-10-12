@@ -25,6 +25,9 @@ internal enum DisplayOperationKind : byte
 
     /// <summary><see cref="IRenderingBackend.DrawImage"/>; <see cref="DisplayOperation.First"/> indexes the images, <see cref="DisplayOperation.Second"/> the image paints.</summary>
     DrawImage,
+
+    /// <summary><see cref="IRenderingBackend.FillImageMask"/>; <see cref="DisplayOperation.First"/> indexes the image masks, <see cref="DisplayOperation.Second"/> the colours.</summary>
+    FillImageMask,
 }
 
 /// <summary>One record of a display list: a kind and up to two indexes into the list's tables, 16 bytes.</summary>

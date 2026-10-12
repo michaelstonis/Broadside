@@ -102,5 +102,8 @@ public sealed class DisplayListAllocationTests
 
         public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion) =>
             Checksum += image.Width + image.Height;
+
+        public void FillImageMask(DisplayImageMask mask, in DisplayColor color) =>
+            Checksum += mask.Width + mask.Height + color.Components.Length;
     }
 }

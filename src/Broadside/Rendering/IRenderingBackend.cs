@@ -98,7 +98,23 @@ public interface IRenderingBackend
     /// ISO 32000-2 §8.9.4 (the unit square), §8.9.5 (image XObjects, Decode, Interpolate) and §8.9.7 (inline images). Map the samples
     /// through <see cref="DisplayImage.DecodeMap"/>, convert them through
     /// <see cref="PdfDocument.GetColorConverter(PdfColorSpace, ColorConversion, PdfDefaultColorSpaces?)"/>, and resample them to the
-    /// device as the backend sees fit; honour <see cref="DisplayImage.Interpolate"/> when enlarging (§8.9.5.3).
+    /// device as the backend sees fit; honour <see cref="DisplayImage.Interpolate"/> when enlarging (§8.9.5.3). Masks travel with the
+    /// image (§8.9.6, §11.6.5.2, §7.4.9): <see cref="DisplayImage.Mask"/>, <see cref="DisplayImage.ColorKey"/> and
+    /// <see cref="DisplayImage.SoftMask"/> say where and how opaquely it is painted, each mask resampled from its own resolution;
+    /// <see cref="DisplayImage.Matte"/> is removed from the colours before conversion.
     /// </remarks>
     void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion);
+
+    /// <summary>Paints a colour through a stencil mask in the unit square of user space: where the mask paints, the colour is painted.</summary>
+    /// <param name="mask">
+    /// The image mask, the same instance for every paint of one mask XObject in a list; it maps to the unit square like an image
+    /// (§8.9.4).
+    /// </param>
+    /// <param name="color">The nonstroking colour, unconverted.</param>
+    /// <remarks>
+    /// ISO 32000-2 §8.9.6.2 (stencil masking, <c>ImageMask true</c>): the mask's samples say where the current fill colour is painted
+    /// and where the backdrop shows through; §8.9.5.3 (Interpolate) applies when it is enlarged. A stencil mask in a Pattern colour
+    /// is not in the list yet.
+    /// </remarks>
+    void FillImageMask(DisplayImageMask mask, in DisplayColor color);
 }

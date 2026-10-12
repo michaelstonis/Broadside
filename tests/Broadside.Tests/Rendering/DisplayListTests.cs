@@ -312,6 +312,10 @@ public sealed class DisplayListTests
         public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
         {
         }
+
+        public void FillImageMask(DisplayImageMask mask, in DisplayColor color)
+        {
+        }
     }
 
     /// <summary>Counts the converters requested per source family, then defers to the inner management.</summary>
