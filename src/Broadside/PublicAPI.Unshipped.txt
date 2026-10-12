@@ -3445,3 +3445,12 @@ Broadside.Fonts.Type3GlyphMetrics.Kind.get -> Broadside.Fonts.Type3GlyphKind
 Broadside.Fonts.Type3GlyphMetrics.Type3GlyphMetrics() -> void
 Broadside.Fonts.Type3GlyphMetrics.WidthX.get -> double
 Broadside.Fonts.Type3GlyphMetrics.WidthY.get -> double
+Broadside.PdfObjectNumbering
+Broadside.PdfObjectNumbering.Automatic = 0 -> Broadside.PdfObjectNumbering
+Broadside.PdfObjectNumbering.Compact = 1 -> Broadside.PdfObjectNumbering
+Broadside.PdfSaveOptions.ObjectNumbering.get -> Broadside.PdfObjectNumbering
+Broadside.PdfSaveOptions.ObjectNumbering.set -> void
+Broadside.PdfSaveOptions.RemoveUnreachableObjects.get -> bool
+Broadside.PdfSaveOptions.RemoveUnreachableObjects.set -> void
+Broadside.PdfSaveOptions.WithObjectNumbering(Broadside.PdfObjectNumbering numbering) -> Broadside.PdfSaveOptions!
+Broadside.PdfSaveOptions.WithRemoveUnreachableObjects(bool remove) -> Broadside.PdfSaveOptions!
