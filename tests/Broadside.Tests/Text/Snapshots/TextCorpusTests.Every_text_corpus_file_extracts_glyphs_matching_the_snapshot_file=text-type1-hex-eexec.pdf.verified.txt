@@ -1,0 +1,10 @@
+﻿page 1: HHIOFETAÁ
+  H code 31/1 GlyphName font BroadsideT1 24 Fill origin (72, 700) advance (19.2, 0) quad (72, 699.76) (91.2, 699.76) (91.2, 720.4) (72, 720.4)
+  H code 48/1 GlyphName font BroadsideT1 24 Fill origin (91.2, 700) advance (19.2, 0) quad (91.2, 699.76) (110.4, 699.76) (110.4, 720.4) (91.2, 720.4)
+  I code 49/1 GlyphName font BroadsideT1 24 Fill origin (110.4, 700) advance (9.6, 0) quad (110.4, 699.76) (120, 699.76) (120, 720.4) (110.4, 720.4)
+  O code 4F/1 GlyphName font BroadsideT1 24 Fill origin (120, 700) advance (19.2, 0) quad (120, 699.76) (139.2, 699.76) (139.2, 720.4) (120, 720.4)
+  F code 46/1 GlyphName font BroadsideT1 24 Fill origin (139.2, 700) advance (7.2, 0) quad (139.2, 699.76) (146.4, 699.76) (146.4, 720.4) (139.2, 720.4)
+  E code 45/1 GlyphName font BroadsideT1 24 Fill origin (146.4, 700) advance (14.4, 0) quad (146.4, 699.76) (160.8, 699.76) (160.8, 720.4) (146.4, 720.4)
+  T code 54/1 GlyphName font BroadsideT1 24 Fill origin (160.8, 700) advance (12, 0) quad (160.8, 699.76) (172.8, 699.76) (172.8, 720.4) (160.8, 720.4)
+  A code 41/1 GlyphName font BroadsideT1 24 Fill origin (172.8, 700) advance (17.76, 0) quad (172.8, 699.76) (190.56, 699.76) (190.56, 720.4) (172.8, 720.4)
+  Á code C1/1 GlyphName font BroadsideT1 24 Fill origin (190.56, 700) advance (17.76, 0) quad (190.56, 699.76) (208.32, 699.76) (208.32, 720.4) (190.56, 720.4)

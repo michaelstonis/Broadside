@@ -1,0 +1,6 @@
+﻿page 1: HIIH�
+  H code 48/1 ToUnicode font BroadsideMinimal 24 Fill origin (72, 700) advance (19.2, 0) quad (72, 695.2) (91.2, 695.2) (91.2, 719.2) (72, 719.2)
+  I code 49/1 ToUnicode font BroadsideMinimal 24 Fill origin (91.2, 700) advance (9.6, 0) quad (91.2, 695.2) (100.8, 695.2) (100.8, 719.2) (91.2, 719.2)
+  I code 8141/2 ToUnicode font BroadsideMinimal 24 Fill origin (100.8, 700) advance (9.6, 0) quad (100.8, 695.2) (110.4, 695.2) (110.4, 719.2) (100.8, 719.2)
+  H code 8140/2 ToUnicode font BroadsideMinimal 24 Fill origin (110.4, 700) advance (19.2, 0) quad (110.4, 695.2) (129.6, 695.2) (129.6, 719.2) (110.4, 719.2)
+  � code 8210/2 Unmapped font BroadsideMinimal 24 Fill origin (129.6, 700) advance (24, 0) quad (129.6, 695.2) (153.6, 695.2) (153.6, 719.2) (129.6, 719.2)

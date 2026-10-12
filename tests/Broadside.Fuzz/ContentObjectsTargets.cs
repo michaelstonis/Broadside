@@ -31,6 +31,43 @@ internal static class ContentObjectsTargets
     }
 
     /// <summary>
+    /// Runs the input as content with the resources of <see cref="ContentWithResources"/> through a text extractor that keeps hidden
+    /// text, then checks its output: each glyph's text range starts where the previous one ended and the last ends at the end of the
+    /// text (also after <c>ActualText</c> replacements, nested, unbalanced or empty), and every origin, advance, quad corner and font
+    /// size is finite.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.4.4, §9.10, §14.9.4 (issue #183).</remarks>
+    public static void TextExtraction(ReadOnlySpan<byte> data)
+    {
+        using PdfDocument document = PdfDocument.Open(ResourceFile.Value);
+        var extractor = new Broadside.Text.TextExtractor(new Broadside.Text.TextExtractionOptions().WithHiddenContent());
+        ContentInterpreter.RunBytes(data, document, extractor, ContentInterpreter.DefaultOptions, document.Pages[0].Resources);
+        int expectedStart = 0;
+        foreach (Broadside.Text.TextGlyph glyph in extractor.Glyphs)
+        {
+            if (glyph.TextStart != expectedStart || glyph.TextLength < 0)
+            {
+                throw new InvalidOperationException($"A glyph's text starts at {glyph.TextStart} with {glyph.TextLength} units; expected to start at {expectedStart}.");
+            }
+
+            expectedStart += glyph.TextLength;
+            Quad quad = glyph.Quad;
+            if (!Finite(glyph.Origin) || !Finite(glyph.Advance) || !Finite(quad.BottomLeft) || !Finite(quad.BottomRight)
+                || !Finite(quad.TopRight) || !Finite(quad.TopLeft) || !double.IsFinite(glyph.FontSize))
+            {
+                throw new InvalidOperationException($"A glyph's geometry is not finite: origin {glyph.Origin}, advance {glyph.Advance}, quad {quad}, size {glyph.FontSize}.");
+            }
+        }
+
+        if (expectedStart != extractor.Text.Length)
+        {
+            throw new InvalidOperationException($"The glyphs' text ends at {expectedStart}, the extracted text at {extractor.Text.Length}.");
+        }
+
+        static bool Finite(PathPoint point) => double.IsFinite(point.X) && double.IsFinite(point.Y);
+    }
+
+    /// <summary>
     /// Wraps the input in an inline image and reads it with the content reader: byte 0 selects the dictionary (no filter with a
     /// computed length, an <c>L</c> taken from byte 1, ASCIIHex, ASCII85 or DCT), the rest is the data and whatever follows. Every
     /// operator must lie inside the content in order, and the inline image's data must lie between <c>ID</c> and the offset where

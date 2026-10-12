@@ -1412,6 +1412,18 @@ Broadside.Graphics.PdfTriangleMeshShading.VertexColors.get -> System.ReadOnlySpa
 Broadside.Graphics.PdfTriangleMeshShading.VertexCount.get -> int
 Broadside.Graphics.PdfTriangleMeshShading.Vertices.get -> System.ReadOnlySpan<Broadside.Graphics.PathPoint>
 Broadside.Graphics.PdfTriangleMeshShading.VerticesPerRow.get -> int
+Broadside.Graphics.Quad
+Broadside.Graphics.Quad.BottomLeft.get -> Broadside.Graphics.PathPoint
+Broadside.Graphics.Quad.BottomLeft.init -> void
+Broadside.Graphics.Quad.BottomRight.get -> Broadside.Graphics.PathPoint
+Broadside.Graphics.Quad.BottomRight.init -> void
+Broadside.Graphics.Quad.Bounds.get -> Broadside.PdfRectangle
+Broadside.Graphics.Quad.Quad() -> void
+Broadside.Graphics.Quad.Quad(Broadside.Graphics.PathPoint BottomLeft, Broadside.Graphics.PathPoint BottomRight, Broadside.Graphics.PathPoint TopRight, Broadside.Graphics.PathPoint TopLeft) -> void
+Broadside.Graphics.Quad.TopLeft.get -> Broadside.Graphics.PathPoint
+Broadside.Graphics.Quad.TopLeft.init -> void
+Broadside.Graphics.Quad.TopRight.get -> Broadside.Graphics.PathPoint
+Broadside.Graphics.Quad.TopRight.init -> void
 Broadside.Graphics.RenderingIntent
 Broadside.Graphics.RenderingIntent.AbsoluteColorimetric = 1 -> Broadside.Graphics.RenderingIntent
 Broadside.Graphics.RenderingIntent.Perceptual = 3 -> Broadside.Graphics.RenderingIntent
@@ -1739,6 +1751,8 @@ Broadside.PdfDocument.GetColorConverter(Broadside.Graphics.PdfColorSpace! source
 Broadside.PdfDocument.GetColorSpace(Broadside.Objects.CosObject! colorSpace) -> Broadside.Graphics.PdfColorSpace!
 Broadside.PdfDocument.GetDefaultColorSpaces(Broadside.Objects.CosDictionary? resources) -> Broadside.Graphics.PdfDefaultColorSpaces!
 Broadside.PdfOptions.UseColorManagement(Broadside.Graphics.IColorManagement! colorManagement) -> Broadside.PdfOptions!
+Broadside.PdfPage.ExtractText() -> Broadside.Text.TextPage!
+Broadside.PdfPage.ExtractText(Broadside.Text.TextExtractionOptions! options) -> Broadside.Text.TextPage!
 Broadside.PdfPage.GetImage(string! resourceName) -> Broadside.Images.PdfImage?
 Broadside.PdfPage.ProcessContent(Broadside.Content.ContentProcessor! processor) -> void
 Broadside.PdfPage.ProcessContent(Broadside.Content.ContentProcessor! processor, Broadside.Content.ContentOptions! options) -> void
@@ -1827,6 +1841,48 @@ Broadside.PdfWindowsLaunchParameters.Dictionary.get -> Broadside.Objects.CosDict
 Broadside.PdfWindowsLaunchParameters.FileName.get -> Broadside.Objects.CosString?
 Broadside.PdfWindowsLaunchParameters.Operation.get -> string!
 Broadside.PdfWindowsLaunchParameters.Parameters.get -> Broadside.Objects.CosString?
+Broadside.Text.TextExtractionOptions
+Broadside.Text.TextExtractionOptions.ContentOptions.get -> Broadside.Content.ContentOptions?
+Broadside.Text.TextExtractionOptions.ContentOptions.set -> void
+Broadside.Text.TextExtractionOptions.IncludeHiddenContent.get -> bool
+Broadside.Text.TextExtractionOptions.IncludeHiddenContent.set -> void
+Broadside.Text.TextExtractionOptions.TextExtractionOptions() -> void
+Broadside.Text.TextExtractionOptions.WithContentOptions(Broadside.Content.ContentOptions? options) -> Broadside.Text.TextExtractionOptions!
+Broadside.Text.TextExtractionOptions.WithHiddenContent(bool include = true) -> Broadside.Text.TextExtractionOptions!
+Broadside.Text.TextExtractor
+Broadside.Text.TextExtractor.Clear() -> void
+Broadside.Text.TextExtractor.GetGlyphText(in Broadside.Text.TextGlyph glyph) -> System.ReadOnlySpan<char>
+Broadside.Text.TextExtractor.Glyphs.get -> System.ReadOnlySpan<Broadside.Text.TextGlyph>
+Broadside.Text.TextExtractor.Text.get -> System.ReadOnlySpan<char>
+Broadside.Text.TextExtractor.TextExtractor() -> void
+Broadside.Text.TextExtractor.TextExtractor(Broadside.Text.TextExtractionOptions! options) -> void
+Broadside.Text.TextExtractor.ToTextPage() -> Broadside.Text.TextPage!
+Broadside.Text.TextGlyph
+Broadside.Text.TextGlyph.Adjustment.get -> double
+Broadside.Text.TextGlyph.Advance.get -> Broadside.Graphics.PathPoint
+Broadside.Text.TextGlyph.CharacterCode.get -> uint
+Broadside.Text.TextGlyph.CodeLength.get -> int
+Broadside.Text.TextGlyph.Flags.get -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextGlyph.Font.get -> Broadside.Fonts.PdfFont!
+Broadside.Text.TextGlyph.FontSize.get -> double
+Broadside.Text.TextGlyph.IsVertical.get -> bool
+Broadside.Text.TextGlyph.Origin.get -> Broadside.Graphics.PathPoint
+Broadside.Text.TextGlyph.Quad.get -> Broadside.Graphics.Quad
+Broadside.Text.TextGlyph.RenderingMode.get -> Broadside.Graphics.TextRenderingMode
+Broadside.Text.TextGlyph.TextGlyph() -> void
+Broadside.Text.TextGlyph.TextLength.get -> int
+Broadside.Text.TextGlyph.TextStart.get -> int
+Broadside.Text.TextGlyph.UnicodeSource.get -> Broadside.Fonts.UnicodeSource
+Broadside.Text.TextGlyphFlags
+Broadside.Text.TextGlyphFlags.ActualText = 8 -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextGlyphFlags.Artifact = 4 -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextGlyphFlags.Hidden = 2 -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextGlyphFlags.Invisible = 1 -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextGlyphFlags.None = 0 -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextPage
+Broadside.Text.TextPage.GetGlyphText(in Broadside.Text.TextGlyph glyph) -> System.ReadOnlySpan<char>
+Broadside.Text.TextPage.Glyphs.get -> System.Collections.Generic.IReadOnlyList<Broadside.Text.TextGlyph>!
+Broadside.Text.TextPage.Text.get -> string!
 const Broadside.Content.ContentOptions.DefaultMaxNestingDepth = 50 -> int
 const Broadside.Content.ContentOptions.DefaultMaxOperands = 65536 -> int
 const Broadside.Content.ContentOptions.DefaultMaxSaveDepth = 4096 -> int
@@ -2222,6 +2278,7 @@ override Broadside.Graphics.PdfPatternColorSpace.ComponentCount.get -> int
 override Broadside.Graphics.PdfPatternColorSpace.Family.get -> Broadside.Graphics.PdfColorSpaceFamily
 override Broadside.Graphics.PdfSeparationColorSpace.ComponentCount.get -> int
 override Broadside.Graphics.PdfSeparationColorSpace.Family.get -> Broadside.Graphics.PdfColorSpaceFamily
+override Broadside.Graphics.Quad.ToString() -> string!
 override Broadside.Objects.CosArray.IsDirty.get -> bool
 override Broadside.Objects.CosBoolean.Equals(object? obj) -> bool
 override Broadside.Objects.CosBoolean.GetHashCode() -> int
@@ -2240,6 +2297,12 @@ override Broadside.Objects.CosReference.GetHashCode() -> int
 override Broadside.Objects.CosStream.IsDirty.get -> bool
 override Broadside.Objects.CosString.Equals(object? obj) -> bool
 override Broadside.Objects.CosString.GetHashCode() -> int
+override Broadside.Text.TextExtractor.BeginMarkedContent(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
+override Broadside.Text.TextExtractor.BeginRun(Broadside.Content.ContentContext! context) -> void
+override Broadside.Text.TextExtractor.EndMarkedContent(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
+override Broadside.Text.TextExtractor.Events.get -> Broadside.Content.ContentEvents
+override Broadside.Text.TextExtractor.ShowGlyph(in Broadside.Content.GlyphEvent glyph, Broadside.Content.ContentContext! context) -> void
+override Broadside.Text.TextPage.ToString() -> string!
 static Broadside.Annotations.PdfAnnotation.ComputeAppearanceMatrix(Broadside.PdfRectangle rect, Broadside.PdfRectangle boundingBox, Broadside.Graphics.Matrix matrix) -> Broadside.Graphics.Matrix?
 static Broadside.Annotations.PdfQuadrilateral.operator !=(Broadside.Annotations.PdfQuadrilateral left, Broadside.Annotations.PdfQuadrilateral right) -> bool
 static Broadside.Annotations.PdfQuadrilateral.operator ==(Broadside.Annotations.PdfQuadrilateral left, Broadside.Annotations.PdfQuadrilateral right) -> bool
@@ -2299,6 +2362,7 @@ static Broadside.Graphics.PdfDefaultColorSpaces.None.get -> Broadside.Graphics.P
 static Broadside.Graphics.PdfDeviceCmykColorSpace.Instance.get -> Broadside.Graphics.PdfDeviceCmykColorSpace!
 static Broadside.Graphics.PdfDeviceGrayColorSpace.Instance.get -> Broadside.Graphics.PdfDeviceGrayColorSpace!
 static Broadside.Graphics.PdfDeviceRgbColorSpace.Instance.get -> Broadside.Graphics.PdfDeviceRgbColorSpace!
+static Broadside.Graphics.Quad.FromRectangle(Broadside.Graphics.Matrix matrix, double left, double bottom, double right, double top) -> Broadside.Graphics.Quad
 static Broadside.Images.ImageDecodeMap.Create(System.ReadOnlySpan<double> decode, int components, int bitsPerComponent) -> Broadside.Images.ImageDecodeMap!
 static Broadside.Images.ImageRows.ColorKey(System.ReadOnlySpan<ushort> raw, int components, System.ReadOnlySpan<double> ranges, System.Span<byte> coverage) -> void
 static Broadside.Images.ImageRows.MaskIndex(int index, int size, int maskSize) -> int
@@ -3422,6 +3486,26 @@ Broadside.Filters.Jbig2DecodeFilter.Name.get -> Broadside.Objects.CosName!
 Broadside.Filters.Jbig2DecodeFilter.TryReadHeader(System.ReadOnlySpan<byte> encoded, Broadside.Filters.ImageFilterContext! context, out Broadside.Filters.ImageHeader header) -> bool
 Broadside.Annotations.PdfAnnotation.ProcessAppearance(Broadside.Graphics.PdfFormXObject! appearance, Broadside.Content.ContentProcessor! processor) -> bool
 Broadside.Annotations.PdfAnnotation.ProcessAppearance(Broadside.Graphics.PdfFormXObject! appearance, Broadside.Content.ContentProcessor! processor, Broadside.Content.ContentOptions! options) -> bool
+Broadside.Forms.PdfDefaultAppearance
+Broadside.Forms.PdfDefaultAppearance.Color.get -> Broadside.Graphics.PdfColor?
+Broadside.Forms.PdfDefaultAppearance.Font.get -> Broadside.Fonts.PdfFont?
+Broadside.Forms.PdfDefaultAppearance.FontName.get -> Broadside.Objects.CosName?
+Broadside.Forms.PdfDefaultAppearance.FontResources.get -> Broadside.Objects.CosDictionary?
+Broadside.Forms.PdfDefaultAppearance.FontSize.get -> double
+Broadside.Forms.PdfDefaultAppearance.IsAutoSize.get -> bool
+Broadside.Forms.PdfDefaultAppearance.IsValid.get -> bool
+Broadside.Forms.PdfDefaultAppearance.OtherOperators.get -> System.ReadOnlyMemory<byte>
+Broadside.Forms.PdfDefaultAppearance.Problems.get -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearance.TextMatrix.get -> Broadside.Graphics.Matrix?
+Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.FontOperatorMissing = 2 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.MultipleTextMatrices = 16 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.None = 0 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.OperandsInvalid = 4 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.OperatorNotAllowed = 8 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.SyntaxInvalid = 1 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfField.ParsedDefaultAppearance.get -> Broadside.Forms.PdfDefaultAppearance?
+static Broadside.Forms.PdfDefaultAppearance.Parse(System.ReadOnlySpan<byte> value) -> Broadside.Forms.PdfDefaultAppearance!
 Broadside.PdfPage.CreateDisplayList() -> Broadside.Rendering.DisplayList!
 Broadside.PdfPage.CreateDisplayList(Broadside.Content.ContentOptions! options) -> Broadside.Rendering.DisplayList!
 Broadside.Rendering.DisplayColor
@@ -3438,3 +3522,51 @@ Broadside.Rendering.IRenderingBackend.FillPath(Broadside.Graphics.PathView path,
 Broadside.Rendering.IRenderingBackend.RestoreState() -> void
 Broadside.Rendering.IRenderingBackend.SaveState() -> void
 Broadside.Rendering.IRenderingBackend.SetTransform(in Broadside.Graphics.Matrix transform) -> void
+Broadside.PdfObjectNumbering
+Broadside.PdfObjectNumbering.Automatic = 0 -> Broadside.PdfObjectNumbering
+Broadside.PdfObjectNumbering.Compact = 1 -> Broadside.PdfObjectNumbering
+Broadside.PdfSaveOptions.ObjectNumbering.get -> Broadside.PdfObjectNumbering
+Broadside.PdfSaveOptions.ObjectNumbering.set -> void
+Broadside.PdfSaveOptions.RemoveUnreachableObjects.get -> bool
+Broadside.PdfSaveOptions.RemoveUnreachableObjects.set -> void
+Broadside.PdfSaveOptions.WithObjectNumbering(Broadside.PdfObjectNumbering numbering) -> Broadside.PdfSaveOptions!
+Broadside.PdfSaveOptions.WithRemoveUnreachableObjects(bool remove) -> Broadside.PdfSaveOptions!
+Broadside.Filters.Ascii85Encoder
+Broadside.Filters.Ascii85Encoder.Ascii85Encoder() -> void
+Broadside.Filters.Ascii85Encoder.Encode(System.ReadOnlySpan<byte> data, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.StreamEncoderContext! context) -> void
+Broadside.Filters.Ascii85Encoder.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.AsciiHexEncoder
+Broadside.Filters.AsciiHexEncoder.AsciiHexEncoder() -> void
+Broadside.Filters.AsciiHexEncoder.Encode(System.ReadOnlySpan<byte> data, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.StreamEncoderContext! context) -> void
+Broadside.Filters.AsciiHexEncoder.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.FlateEncoder
+Broadside.Filters.FlateEncoder.Encode(System.ReadOnlySpan<byte> data, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.StreamEncoderContext! context) -> void
+Broadside.Filters.FlateEncoder.FlateEncoder() -> void
+Broadside.Filters.FlateEncoder.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.IStreamEncoder
+Broadside.Filters.IStreamEncoder.Encode(System.ReadOnlySpan<byte> data, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.StreamEncoderContext! context) -> void
+Broadside.Filters.IStreamEncoder.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.RunLengthEncoder
+Broadside.Filters.RunLengthEncoder.Encode(System.ReadOnlySpan<byte> data, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.StreamEncoderContext! context) -> void
+Broadside.Filters.RunLengthEncoder.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.RunLengthEncoder.RunLengthEncoder() -> void
+Broadside.Filters.StreamEncoderContext
+Broadside.Filters.StreamEncoderContext.CompressionLevel.get -> System.IO.Compression.CompressionLevel
+Broadside.Filters.StreamEncoderContext.CompressionLevel.init -> void
+Broadside.Filters.StreamEncoderContext.Parameters.get -> Broadside.Objects.CosDictionary?
+Broadside.Filters.StreamEncoderContext.Parameters.init -> void
+Broadside.Filters.StreamEncoderContext.StreamDictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Filters.StreamEncoderContext.StreamDictionary.init -> void
+Broadside.Filters.StreamEncoderContext.StreamEncoderContext() -> void
+Broadside.PdfDocument.EncodeStream(Broadside.Objects.CosStream! stream, System.ReadOnlySpan<byte> data, System.IO.Compression.CompressionLevel compressionLevel = System.IO.Compression.CompressionLevel.Optimal) -> void
+Broadside.PdfOptions.UseStreamEncoder(Broadside.Filters.IStreamEncoder! encoder) -> Broadside.PdfOptions!
+Broadside.PdfSaveOptions.CompressionLevel.get -> System.IO.Compression.CompressionLevel
+Broadside.PdfSaveOptions.CompressionLevel.set -> void
+Broadside.PdfSaveOptions.StreamCompression.get -> Broadside.PdfStreamCompression
+Broadside.PdfSaveOptions.StreamCompression.set -> void
+Broadside.PdfSaveOptions.WithCompressionLevel(System.IO.Compression.CompressionLevel level) -> Broadside.PdfSaveOptions!
+Broadside.PdfSaveOptions.WithStreamCompression(Broadside.PdfStreamCompression compression) -> Broadside.PdfSaveOptions!
+Broadside.PdfStreamCompression
+Broadside.PdfStreamCompression.AllStreams = 2 -> Broadside.PdfStreamCompression
+Broadside.PdfStreamCompression.ChangedStreams = 1 -> Broadside.PdfStreamCompression
+Broadside.PdfStreamCompression.None = 0 -> Broadside.PdfStreamCompression
