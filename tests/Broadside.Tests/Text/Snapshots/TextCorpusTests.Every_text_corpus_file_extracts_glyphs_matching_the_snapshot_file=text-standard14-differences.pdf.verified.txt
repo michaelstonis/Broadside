@@ -4,3 +4,5 @@
   € code 80/1 GlyphName font Helvetica 24 Fill origin (81.912, 700) advance (13.344, 0) quad (81.912, 695.032) (95.256, 695.032) (95.256, 717.232) (81.912, 717.232)
   • code 81/1 GlyphName font Helvetica 24 Fill origin (95.256, 700) advance (8.4, 0) quad (95.256, 695.032) (103.656, 695.032) (103.656, 717.232) (95.256, 717.232)
   Ä code C8/1 GlyphName font Helvetica 24 Fill origin (103.656, 700) advance (16.008, 0) quad (103.656, 695.032) (119.664, 695.032) (119.664, 717.232) (103.656, 717.232)
+  line '‘€•Ä glyphs 0+5 quad (72, 695.032) (119.664, 695.032) (119.664, 717.232) (72, 717.232)
+    words '‘€•Ä glyphs 0+5

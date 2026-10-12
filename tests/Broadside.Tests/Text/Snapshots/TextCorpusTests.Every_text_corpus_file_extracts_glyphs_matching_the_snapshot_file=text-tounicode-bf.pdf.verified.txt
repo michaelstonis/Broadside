@@ -5,3 +5,5 @@
   A code 4/2 ToUnicode font BroadsideMinimal 24 Fill origin (115.2, 700) advance (14.4, 0) quad (115.2, 695.2) (129.6, 695.2) (129.6, 719.2) (115.2, 719.2)
   B code 5/2 ToUnicode font BroadsideMinimal 24 Fill origin (129.6, 700) advance (14.4, 0) quad (129.6, 695.2) (144, 695.2) (144, 719.2) (129.6, 719.2)
   C code 6/2 ToUnicode font BroadsideMinimal 24 Fill origin (144, 700) advance (14.4, 0) quad (144, 695.2) (158.4, 695.2) (158.4, 719.2) (144, 719.2)
+  line Hfi\uD83D\uDE00ABC glyphs 0+6 quad (72, 695.2) (158.4, 695.2) (158.4, 719.2) (72, 719.2)
+    words Hfi\uD83D\uDE00ABC glyphs 0+6

@@ -1,0 +1,22 @@
+﻿pdf20examples/Simple PDF 2.0 file.pdf: pages 1, glyphs 11, words 2, lines 1, plain text f8bbafb2e5d144294eede2956d6c6285d3dfc2aa11bf3109749e9bfe7bed1813
+pdf20examples/PDF 2.0 via incremental save.pdf: pages 1, glyphs 26, words 5, lines 1, plain text 1b3fb1c7d064f08ea8b997adce164a51f98f514d57729f71333c80013cafac04
+pdf20examples/pdf20-utf8-test.pdf: pages 1, glyphs 107, words 19, lines 5, plain text 7b5b397e49d4a8331f2c1b4224f251b9339fd291a7150047e51fec139fa8238e
+qpdf/minimal-linearized.pdf: pages 1, glyphs 6, words 1, lines 1, plain text 35a1ea40420740a6ba205b3f2aa3fdfaf57be0e28e2f1bea19c5eee90083f28f
+qpdf/lin9.pdf: pages 5, glyphs 40, words 10, lines 5, plain text dcb31d33ad426a19ea2d0fa8ea45ba5c9d3a4feebaa58985b9161373aff9463b
+qpdf/merge-implicit-ranges.pdf: pages 51, glyphs 576, words 121, lines 51, plain text f8eee064d4e6c53a629093555e7163f0f14bae0c7170ab2d239f5b4498eae7ad
+qpdf/deterministic-id-in.pdf: pages 43, glyphs 115642, words 18381, lines 1402, plain text 237c0c3d1d89fb43b8e0fd10f18c068aa4e7e077e439c6bf2f6b9b6b24f03566
+qpdf/large-inline-image.pdf: pages 1, glyphs 0, words 0, lines 0, plain text ef6cbd2161eaea7943ce8693b9824d23d1793ffb1c0fca05b600d3899b44c977
+pdfjs/issue7665.pdf: pages 1, glyphs 10, words 2, lines 1, plain text 7c200fda9935a274b2476e31b687bb43bb49a9b8fa30f2bb4a41509b77ea5154
+pdfjs/bug900822.pdf: pages 1, glyphs 305, words 45, lines 10, plain text f90eebf8d4646ae4bf7872ab48b03a70846df55b22f7ff4e24d7c79bb840b878
+pdfjs/160F-2019.pdf: pages 1, glyphs 2628, words 430, lines 78, plain text e48102e0f56c62e6249f1951834ff9156951d8ad6e2ea702bfbc7df0ae67fc5f
+pdfjs/issue17808.pdf: pages 1, glyphs 60, words 9, lines 5, plain text 19f125039572d5652f7c4dcdc22642e54ab4edfb28a9d004f416cb1237e12056
+pdfjs/issue18911.pdf: pages 14, glyphs 69284, words 13420, lines 1502, plain text edbace89ae947aea06de1c4c83d053dc5d9181c8a6b1225ea15a624413833af0
+pdfbox/input/rendering/survey.pdf: pages 9, glyphs 5236, words 712, lines 117, plain text 11046a08e4493efbbd75828a57f15f5e17061ba2d59eac797abb67646988d064
+pdfjs/tracemonkey.pdf: pages 14, glyphs 69284, words 13420, lines 1502, plain text edbace89ae947aea06de1c4c83d053dc5d9181c8a6b1225ea15a624413833af0
+pdfjs/issue12810.pdf: pages 1, glyphs 15, words 3, lines 1, plain text 601e5c8975077e34530d9ba61f2452e4f3c5fd35cd4af41e8b74f1207ba108e8
+pdfjs/bug1799927.pdf: pages 1, glyphs 0, words 0, lines 0, plain text ef6cbd2161eaea7943ce8693b9824d23d1793ffb1c0fca05b600d3899b44c977
+qpdf/inline-images.pdf: pages 2, glyphs 0, words 0, lines 0, plain text 7060584c3e59f0b2f12f34aa0b40faadf4aa5790a0459f3319852bcd63262cbb
+pdfjs/issue11913.pdf: pages 1, glyphs 4779, words 801, lines 64, plain text 4a242df0d82566e95313104c09df421bed21814aebe2e0034efdbc5596e94840
+pdfjs/freeculture.pdf: pages 352, glyphs 671012, words 124266, lines 23539, plain text acc0d8a2ca7a9a13cfc50417677dccee0f3f589fd2487d5b24c310a299dc828e
+pdfjs/bug1721218_reduced.pdf: pages 1, glyphs 0, words 0, lines 0, plain text ef6cbd2161eaea7943ce8693b9824d23d1793ffb1c0fca05b600d3899b44c977
+pdfjs/tiling_patterns_variations.pdf: pages 1, glyphs 0, words 0, lines 0, plain text ef6cbd2161eaea7943ce8693b9824d23d1793ffb1c0fca05b600d3899b44c977
