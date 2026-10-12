@@ -390,7 +390,7 @@ public sealed partial class PdfDocument : IDisposable
 
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file with a classic cross-reference table.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
-    /// <exception cref="NotSupportedException">The document is encrypted, uses object numbers above 8,388,607, or numbers its objects above 1,048,576 more than 16 times as sparsely as it has objects; saving these arrives in a later version (renumbering).</exception>
+    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
     public void Save(Stream stream) => Save(stream, new PdfSaveOptions());
@@ -398,14 +398,16 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
     /// <param name="options">How to lay the file out.</param>
-    /// <exception cref="NotSupportedException">The document is encrypted, uses object numbers above 8,388,607, or numbers its objects above 1,048,576 more than 16 times as sparsely as it has objects; saving these arrives in a later version (renumbering).</exception>
+    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
     /// <remarks>
     /// <para>
     /// ISO 32000-2 §7.5: a header, every object, the cross-reference information and the trailer. Objects keep their numbers and
-    /// generations. An object that has not changed since it was read, and was read without any repair, is written with exactly the
-    /// bytes it was read from; changed, repaired and new objects are serialized. The revisions of an incrementally updated file
-    /// collapse into one, and a linearized file is written unlinearized (Annex F).
+    /// generations unless <see cref="PdfSaveOptions.ObjectNumbering"/> renumbers them, or the numbering is too large or too sparse to
+    /// write compactly; <see cref="PdfSaveOptions.RemoveUnreachableObjects"/> leaves out objects the trailer does not reach. An object
+    /// that has not changed since it was read, was read without any repair and holds no reference that was renumbered is written with
+    /// exactly the bytes it was read from; other objects are serialized, stream data as stored. The revisions of an incrementally
+    /// updated file collapse into one, and a linearized file is written unlinearized (Annex F).
     /// </para>
     /// <para>
     /// The header keeps the document's version, raised to 1.5 when the layout needs cross-reference streams. The trailer's first
@@ -421,7 +423,7 @@ public sealed partial class PdfDocument : IDisposable
 
     /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it, with a classic cross-reference table.</summary>
     /// <param name="path">The file path. Do not name the file the document was opened from.</param>
-    /// <exception cref="NotSupportedException">The document is encrypted, uses object numbers above 8,388,607, or numbers its objects above 1,048,576 more than 16 times as sparsely as it has objects; saving these arrives in a later version (renumbering).</exception>
+    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
     public void Save(string path) => Save(path, new PdfSaveOptions());
@@ -429,7 +431,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it.</summary>
     /// <param name="path">The file path. Do not name the file the document was opened from.</param>
     /// <param name="options">How to lay the file out.</param>
-    /// <exception cref="NotSupportedException">The document is encrypted, uses object numbers above 8,388,607, or numbers its objects above 1,048,576 more than 16 times as sparsely as it has objects; saving these arrives in a later version (renumbering).</exception>
+    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/>.</remarks>
     public void Save(string path, PdfSaveOptions options)
@@ -447,7 +449,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <param name="options">How to lay the file out; <see langword="null"/> for the defaults (a classic cross-reference table).</param>
     /// <param name="cancellationToken">Cancels the writes.</param>
     /// <returns>A task that completes when the file is written.</returns>
-    /// <exception cref="NotSupportedException">The document is encrypted, uses object numbers above 8,388,607, or numbers its objects above 1,048,576 more than 16 times as sparsely as it has objects; saving these arrives in a later version (renumbering).</exception>
+    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
     /// <remarks>
     /// ISO 32000-2 §7.5. Writes exactly the bytes <see cref="Save(Stream, PdfSaveOptions)"/> writes, from the same writer; only the
@@ -1040,7 +1042,7 @@ public sealed partial class PdfDocument : IDisposable
     private FileWriter PlanSave(PdfSaveOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return SavePlan.Create(_source, _loader, Linearization, options.CrossReferenceLayout);
+        return SavePlan.Create(_source, _loader, Linearization, options);
     }
 
     /// <summary>The open path shared by every entry point: header, cross-reference information, trailer, catalog.</summary>

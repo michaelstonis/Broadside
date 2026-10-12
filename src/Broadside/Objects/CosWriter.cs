@@ -14,7 +14,14 @@ internal static class CosWriter
 {
     private static readonly SearchValues<byte> NameNeedsEscape = SearchValues.Create("\0\t\n\f\r ()<>[]{}/%#"u8);
 
-    public static void Write(CosObject value, IBufferWriter<byte> writer)
+    public static void Write(CosObject value, IBufferWriter<byte> writer) => Write(value, writer, references: null);
+
+    /// <summary>
+    /// Writes <paramref name="value"/> with every indirect reference replaced through <paramref name="references"/>: a reference the
+    /// map holds is written as the reference it maps to, and one it does not hold as <c>null</c>, which is what a reference to an
+    /// object that does not exist means (ISO 32000-2 §7.3.10). A <see langword="null"/> map writes references as they are.
+    /// </summary>
+    public static void Write(CosObject value, IBufferWriter<byte> writer, IReadOnlyDictionary<CosReference, CosReference>? references)
     {
         switch (value)
         {
@@ -42,19 +49,26 @@ internal static class CosWriter
                 WriteName(name.Bytes, writer);
                 break;
             case CosArray array:
-                WriteArray(array, writer);
+                WriteArray(array, writer, references);
                 break;
             case CosDictionary dictionary:
-                WriteDictionary(dictionary, writer, streamLength: -1);
+                WriteDictionary(dictionary, writer, streamLength: -1, references);
                 break;
             case CosStream stream:
                 ReadOnlyMemory<byte> data = stream.EncodedData;
-                WriteDictionary(stream.Dictionary, writer, data.Length);
+                WriteDictionary(stream.Dictionary, writer, data.Length, references);
                 writer.Write("\nstream\n"u8);
                 writer.Write(data.Span);
                 writer.Write("\nendstream"u8);
                 break;
-            case CosReference reference:
+            case CosReference original:
+                CosReference? reference = original;
+                if (references is not null && !references.TryGetValue(original, out reference))
+                {
+                    writer.Write("null"u8);
+                    break;
+                }
+
                 WriteInteger(reference.ObjectNumber, writer);
                 writer.Write(" "u8);
                 WriteInteger(reference.Generation, writer);
@@ -195,7 +209,7 @@ internal static class CosWriter
         writer.Advance(written);
     }
 
-    private static void WriteArray(CosArray array, IBufferWriter<byte> writer)
+    private static void WriteArray(CosArray array, IBufferWriter<byte> writer, IReadOnlyDictionary<CosReference, CosReference>? references)
     {
         writer.Write("["u8);
         for (int i = 0; i < array.Count; i++)
@@ -205,14 +219,14 @@ internal static class CosWriter
                 writer.Write(" "u8);
             }
 
-            Write(array[i], writer);
+            Write(array[i], writer, references);
         }
 
         writer.Write("]"u8);
     }
 
     /// <summary>Writes a dictionary; for a stream dictionary, <paramref name="streamLength"/> replaces or supplies <c>Length</c>.</summary>
-    private static void WriteDictionary(CosDictionary dictionary, IBufferWriter<byte> writer, long streamLength)
+    private static void WriteDictionary(CosDictionary dictionary, IBufferWriter<byte> writer, long streamLength, IReadOnlyDictionary<CosReference, CosReference>? references)
     {
         writer.Write("<<"u8);
         bool wroteLength = false;
@@ -228,7 +242,7 @@ internal static class CosWriter
             }
             else
             {
-                Write(entry.Value, writer);
+                Write(entry.Value, writer, references);
             }
         }
 

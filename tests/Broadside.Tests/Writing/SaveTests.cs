@@ -1,3 +1,4 @@
+using System.Globalization;
 using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.TestSupport;
@@ -257,37 +258,30 @@ public sealed class SaveTests
         Assert.True(CosObject.DeepEquals(source.Resolve(new CosReference(5, 0)), reopened.Resolve(new CosReference(5, 0))));
     }
 
-    [Fact]
-    public void A_document_with_object_numbers_beyond_the_limit_is_not_saved()
-    {
-        // A classic table lists every number up to the largest; renumbering is not supported yet.
-        byte[] file = Document.TestPdf.AppendUpdate(
-            Document.TestPdf.OnePage(string.Empty),
-            "/Size 9000001 /Root 1 0 R",
-            (9_000_000, 0, "<< /Unused true >>"));
-        using PdfDocument source = PdfDocument.Open(file);
-        using var output = new MemoryStream();
-
-        Assert.Throws<NotSupportedException>(() => source.Save(output));
-        Assert.Equal(0, output.Length);
-    }
-
-    // Found by libFuzzer (issue #48): an 11 KB file whose one object is numbered 6,600,016 saved to a 132 MB file (a classic table
-    // lists every number up to the largest), which then took 2.3 GB to open again. Saving a numbering that sparse needs
-    // renumbering, so it is refused like numbers above the limit; a large but dense numbering still saves.
-    [Fact]
-    public void A_document_whose_numbering_is_far_sparser_than_its_objects_is_not_saved()
+    // A classic table lists every number up to the largest. Found by libFuzzer (issue #48): an 11 KB file whose one object is
+    // numbered 6,600,016 saved to a 132 MB file, which then took 2.3 GB to open again; it was refused until renumbering (#144).
+    // A number above the ISO 32000-1 Annex C limit, or a numbering far sparser than the objects, is now renumbered densely.
+    [Theory]
+    [InlineData(9_000_000, PdfCrossReferenceLayout.Table)]
+    [InlineData(9_000_000, PdfCrossReferenceLayout.StreamWithObjectStreams)]
+    [InlineData(2_000_000, PdfCrossReferenceLayout.Table)]
+    [InlineData(2_000_000, PdfCrossReferenceLayout.Stream)]
+    public void A_document_numbered_in_the_millions_saves_to_a_compact_file(int number, PdfCrossReferenceLayout layout)
     {
         byte[] file = Document.TestPdf.AppendUpdate(
-            Document.TestPdf.OnePage(string.Empty),
-            "/Size 2000001 /Root 1 0 R",
-            (2_000_000, 0, "<< /Unused true >>"));
+            Document.TestPdf.OnePage(string.Empty, catalogEntries: string.Create(CultureInfo.InvariantCulture, $"/Extra {number} 0 R")),
+            string.Create(CultureInfo.InvariantCulture, $"/Size {number + 1} /Root 1 0 R"),
+            (number, 0, "<< /Unused true >>"));
         using PdfDocument source = PdfDocument.Open(file);
-        using var output = new MemoryStream();
 
-        NotSupportedException error = Assert.Throws<NotSupportedException>(() => source.Save(output));
-        Assert.Contains("renumbering", error.Message, StringComparison.Ordinal);
-        Assert.Equal(0, output.Length);
+        byte[] output = Save(source, layout);
+
+        Assert.True(output.Length < 2 * file.Length, $"{output.Length} bytes.");
+        using PdfDocument saved = PdfDocument.Open(output);
+        Assert.True(((CosInteger)saved.Trailer[new CosName("Size")]).Value < 10);
+        Assert.Single(saved.Pages);
+        CosGraph.AssertIsomorphic(source, saved);
+        Assert.True(CosObject.DeepEquals(new CosDictionary { [new CosName("Unused")] = CosBoolean.True }, saved.Resolve(saved.Catalog[new CosName("Extra")])));
     }
 
     [Fact]

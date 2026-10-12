@@ -3433,3 +3433,12 @@ Broadside.Rendering.IRenderingBackend.FillPath(Broadside.Graphics.PathView path,
 Broadside.Rendering.IRenderingBackend.RestoreState() -> void
 Broadside.Rendering.IRenderingBackend.SaveState() -> void
 Broadside.Rendering.IRenderingBackend.SetTransform(in Broadside.Graphics.Matrix transform) -> void
+Broadside.PdfObjectNumbering
+Broadside.PdfObjectNumbering.Automatic = 0 -> Broadside.PdfObjectNumbering
+Broadside.PdfObjectNumbering.Compact = 1 -> Broadside.PdfObjectNumbering
+Broadside.PdfSaveOptions.ObjectNumbering.get -> Broadside.PdfObjectNumbering
+Broadside.PdfSaveOptions.ObjectNumbering.set -> void
+Broadside.PdfSaveOptions.RemoveUnreachableObjects.get -> bool
+Broadside.PdfSaveOptions.RemoveUnreachableObjects.set -> void
+Broadside.PdfSaveOptions.WithObjectNumbering(Broadside.PdfObjectNumbering numbering) -> Broadside.PdfSaveOptions!
+Broadside.PdfSaveOptions.WithRemoveUnreachableObjects(bool remove) -> Broadside.PdfSaveOptions!
