@@ -18,6 +18,8 @@ site/.lunet/build/
 TestResults/
 BenchmarkDotNet.Artifacts/
 *.received.*
+# Golden-image comparison output (tests/Golden/, issue #120)
+*.diff.png
 
 # OS
 .DS_Store

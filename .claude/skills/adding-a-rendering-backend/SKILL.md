@@ -66,7 +66,7 @@ A backend must also, as those operations arrive:
 - keep per-surface resource caches (glyphs, images, shaders) within the deterministic memory budgets the viewer relies on;
 - fall back to the software rasterizer for any group or blend it cannot express (plan, Track 3D) rather than approximate silently, and record a `Diagnostic` when it does;
 - allocate nothing per operation, glyph or scanline during replay; buffers are pooled per surface (`CLAUDE.md`, "Code conventions");
-- produce, for the golden-image suite, pixels in the reference format (premultiplied BGRA8 at a fixed DPI) so the perceptual comparison against the rasterizer's snapshots applies (Track 3H).
+- render each corpus page at `GoldenCorpus.Dpi` (72) through `GoldenCorpus.CreateRenderOptions()` so the golden-image harness (#120) can compare it with the rasterizer's golden image; any 8-bit four-channel layout works (`GoldenPixelFormat`: BGRA or RGBA, premultiplied or straight, transparent or white page).
 
 Testing against the contract: `Broadside.TestSupport.RecordingBackend` records every call as a line (`save`, `restore`, `transform [a b c d e f]`, `fill nonzero|evenodd M x y L ... Z | Family c0 c1 ...`) and keeps each fill's colour space, components, defaults and conversion; `Broadside.Tests.Rendering.DisplayListTests` shows the pattern. `DisplayListBenchmarks` (Build, Replay) is the replay allocation baseline.
 
@@ -74,14 +74,29 @@ Registration goes through the options object (`PdfOptions.Use*`, plan row 1.12) 
 
 ## Managed default
 
-The software rasterizer in `src/Broadside.Rendering/` is the default and the oracle: fully managed, `System.*` only, on every platform. Since #95: `SoftwareRasterizer.Render(page[, options])` returns a pooled `Bitmap` (premultiplied BGRA8, white page), `Render(page, bitmap, options)` draws into caller memory, `Render(list, bitmap, deviceTransform)` replays a cached list without a background; `Bitmap.SavePng` writes PNG. Its private backend (`SoftwareRasterizer.Backend`) is where a new `IRenderingBackend` member gets its reference implementation; scan conversion is `ScanlineRasterizer` (exact-area cells, both fill rules, zero allocation once warm: keep it that way, `RasterizerAllocationTests` and `RasterizerBenchmarks` guard it). Its snapshots (`tests/Broadside.Rendering.Tests/Snapshots/*.verified.png`) compare by decoded pixels (`PngSnapshots`), and `tests/Broadside.Rendering.AotSmoke` re-checks them under Native AOT. Native backends are exempt from the managed rule (ADR 0001) but are never the default and never a dependency of the core.
+The software rasterizer in `src/Broadside.Rendering/` is the default and the oracle: fully managed, `System.*` only, on every platform. Since #95: `SoftwareRasterizer.Render(page[, options])` returns a pooled `Bitmap` (premultiplied BGRA8, white page), `Render(page, bitmap, options)` draws into caller memory, `Render(list, bitmap, deviceTransform)` replays a cached list without a background; `Bitmap.SavePng` writes PNG. Its private backend (`SoftwareRasterizer.Backend`) is where a new `IRenderingBackend` member gets its reference implementation; scan conversion is `ScanlineRasterizer` (exact-area cells, both fill rules, zero allocation once warm: keep it that way, `RasterizerAllocationTests` and `RasterizerBenchmarks` guard it). Its renders of every corpus page are the golden images in `tests/Golden/` (#120: `GoldenImageTests`, compared perceptually through `tests/Broadside.GoldenImages`); its older per-file snapshots (`tests/Broadside.Rendering.Tests/Snapshots/*.verified.png`) compare by decoded pixels (`PngSnapshots`), and `tests/Broadside.Rendering.AotSmoke` re-checks them under Native AOT. Native backends are exempt from the managed rule (ADR 0001) but are never the default and never a dependency of the core.
 
 ## Deliverables of a backend PR
 
 1. Package `src/Broadside.Rendering.<Name>/` with `PublicAPI.Shipped.txt`/`Unshipped.txt`, a `Description` in the csproj, and the platform conditioning the existing backend projects use; added to `Broadside.slnx` under `/src/` (and to `Broadside.Core.slnf` only if it builds everywhere).
 2. XML docs citing the clauses each operation implements (`<remarks>ISO 32000-2 §8.5.3</remarks>` for path painting, `§11.3` for compositing, `§9.3` for text state); the backend contract itself cites ADR 0006.
 3. Conformance rows: the backend-affected clauses in §8, §9.3–§9.4, §10 and §11 of `docs/conformance/iso-32000-2.md` with the snapshot tests named; the rows stay `partial` until the golden-image suite passes within threshold.
-4. Test project `tests/Broadside.Rendering.<Name>.Tests/` (xUnit v3, `InternalsVisibleTo` granted by `src/Directory.Build.props`) that renders every corpus page (`tests/Corpus/`) and compares with the rasterizer's Verify snapshots within the perceptual threshold; snapshots live in `Snapshots/` next to the test (`tests/README.md`).
+4. Test project `tests/Broadside.Rendering.<Name>.Tests/` (xUnit v3, `InternalsVisibleTo` granted on its own package only by `src/Directory.Build.props`) referencing `tests/Broadside.GoldenImages`. It renders corpus pages and compares them with the rasterizer's golden images through the harness, never with its own snapshots:
+
+   ```csharp
+   [Theory]
+   [MemberData(nameof(GoldenCorpus.Pages), MemberType = typeof(GoldenCorpus))]   // or GoldenCorpus.PagesOf("paths-fill-rules.pdf", ...)
+   public void Page_matches_the_golden_image(string fileName, int page)
+   {
+       using PdfDocument document = GoldenCorpus.Open(fileName);                   // password files open with their user password
+       RenderOptions options = GoldenCorpus.CreateRenderOptions();                  // 72 DPI; GetPixelSize / GetDeviceTransform
+       // ... render document.Pages[page] onto a surface of options.GetPixelSize(page) ...
+       GoldenCorpus.AssertMatchesReference("<name>", fileName, page,
+           GoldenImage.FromPixels(pixels, width, height, rowBytes, GoldenPixelFormat.Bgra8Premultiplied));
+   }
+   ```
+
+   A failure writes `tests/Golden/<file>.page<N>.<name>.received.png` and `.diff.png` (red: beyond tolerance, amber: tolerated). A page that legitimately differs more than `GoldenThreshold.Default` gets a row, with its reason, in `GoldenThresholds.Rules` (`tests/Broadside.GoldenImages/GoldenThresholds.cs`), the one reviewed table.
 5. A CI leg on the backend's platform (ubuntu, windows or macos matrix entry) that builds and runs that test project.
 6. Fuzz: none for a backend (it consumes a trusted display list), but any new decoder the backend introduces gets a target.
 7. Benchmark `<Name>BackendBenchmarks` with `[MemoryDiagnoser]`: replay of the corpus display lists at a fixed DPI, `Allocated` at `-` (skill `adding-a-benchmark`); these feed the Track 3I regression gate alongside the rasterizer's numbers.
