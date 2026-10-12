@@ -50,6 +50,8 @@ internal sealed class ObjectLoader
     private readonly StreamDecoder _streams;
     private OnceCache<int, ObjectStream?>? _objectStreams;
     private ConcurrentDictionary<CosReference, ObjectSourceBytes>? _sourceBytes;
+    private Dictionary<int, CosObject>? _added;
+    private int _nextObjectNumber;
 
     /// <summary>Initializes a new instance of the <see cref="ObjectLoader"/> class.</summary>
     /// <param name="source">The file.</param>
@@ -111,6 +113,40 @@ internal sealed class ObjectLoader
         return false;
     }
 
+    /// <summary>Gets the objects <see cref="Add"/> has made indirect, by object number (all generation 0), in the order they were added.</summary>
+    public IEnumerable<KeyValuePair<int, CosObject>> AddedObjects => _added ?? [];
+
+    /// <summary>
+    /// Makes <paramref name="value"/> a new indirect object of the document under the next unused object number, generation 0, so a
+    /// reference to it resolves to it and a save writes it (ISO 32000-2 §7.3.10). A mutation: single-threaded, like every edit.
+    /// </summary>
+    /// <param name="value">The object; not a reference.</param>
+    /// <returns>The new object's reference.</returns>
+    public CosReference Add(CosObject value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        if (value is CosReference)
+        {
+            throw new ArgumentException("An indirect object cannot be a reference.", nameof(value));
+        }
+
+        if (_nextObjectNumber == 0)
+        {
+            // Above every number the file lists, in use or free, and at least its trailer's Size (§7.5.5, Table 15).
+            int next = CrossReference.Entries.Count == 0 ? 1 : CrossReference.Entries.Keys.Max() + 1;
+            if (CrossReference.Trailer.TryGetValue(KnownNames.Size, out CosObject? size) && size is CosInteger { Value: > 0 and < int.MaxValue } declared)
+            {
+                next = Math.Max(next, (int)declared.Value);
+            }
+
+            _nextObjectNumber = Math.Max(next, 1);
+        }
+
+        int number = _nextObjectNumber++;
+        (_added ??= [])[number] = value;
+        return new CosReference(number, 0);
+    }
+
     /// <summary>Returns <paramref name="value"/>, or the object it refers to when it is an indirect reference.</summary>
     /// <param name="value">A direct object, a reference, or <see langword="null"/> for an absent entry.</param>
     /// <returns>The direct object; <see cref="CosNull"/> for an absent entry or a reference to nothing.</returns>
@@ -135,6 +171,11 @@ internal sealed class ObjectLoader
         if (Hooks.Cache.TryGet(reference, out CosObject? cached))
         {
             return cached;
+        }
+
+        if (_added is { } added && added.TryGetValue(reference.ObjectNumber, out CosObject? created))
+        {
+            return reference.Generation == 0 ? created : CosNull.Instance;
         }
 
         if (!CrossReference.TryGetEntry(reference.ObjectNumber, out XrefEntry entry)

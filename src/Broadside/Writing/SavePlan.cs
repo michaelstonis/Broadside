@@ -90,6 +90,12 @@ internal static class SavePlan
             }
         }
 
+        // Objects the document has made indirect since it was read, above every number the file lists.
+        foreach ((int number, _) in loader.AddedObjects)
+        {
+            existing[number] = new CosReference(number, 0);
+        }
+
         var trailer = new CosDictionary();
         foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
         {
@@ -133,6 +139,8 @@ internal static class SavePlan
             }
         }
 
+        // An object added since the document was read is new, so it counts as changed (its own IsDirty is false until edited).
+        var added = new HashSet<int>(loader.AddedObjects.Select(entry => entry.Key));
         var objects = new List<WriterObject>(kept.Count);
         foreach ((CosReference reference, CosObject value) in kept)
         {
@@ -144,7 +152,7 @@ internal static class SavePlan
             bool compress = options.StreamCompression switch
             {
                 PdfStreamCompression.AllStreams => IsCompressible(value),
-                PdfStreamCompression.ChangedStreams => value.IsDirty && IsCompressible(value),
+                PdfStreamCompression.ChangedStreams => (value.IsDirty || added.Contains(reference.ObjectNumber)) && IsCompressible(value),
                 _ => false,
             };
             objects.Add(new WriterObject(references is null ? reference : references[reference], value, bytes, compress));

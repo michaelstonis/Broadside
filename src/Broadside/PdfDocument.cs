@@ -481,6 +481,12 @@ public sealed partial class PdfDocument : IDisposable
     /// <remarks>ISO 32000-2 §7.3.10.</remarks>
     public CosObject Resolve(CosObject? value) => _loader.Resolve(value);
 
+    /// <summary>Makes <paramref name="value"/> a new indirect object of the document, which the next save writes.</summary>
+    /// <param name="value">A direct object.</param>
+    /// <returns>The reference to it; <see cref="Resolve"/> returns <paramref name="value"/> itself for it.</returns>
+    /// <remarks>ISO 32000-2 §7.3.10. Mutation is single-threaded (the document's thread-safety contract).</remarks>
+    internal CosReference AddObject(CosObject value) => _loader.Add(value);
+
     /// <summary>Returns a view of the name tree whose root node is <paramref name="root"/>.</summary>
     /// <param name="root">The root node dictionary, or a reference to it, from this document.</param>
     /// <returns>
