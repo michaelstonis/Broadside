@@ -3417,3 +3417,19 @@ Broadside.Filters.Jbig2DecodeFilter.Name.get -> Broadside.Objects.CosName!
 Broadside.Filters.Jbig2DecodeFilter.TryReadHeader(System.ReadOnlySpan<byte> encoded, Broadside.Filters.ImageFilterContext! context, out Broadside.Filters.ImageHeader header) -> bool
 Broadside.Annotations.PdfAnnotation.ProcessAppearance(Broadside.Graphics.PdfFormXObject! appearance, Broadside.Content.ContentProcessor! processor) -> bool
 Broadside.Annotations.PdfAnnotation.ProcessAppearance(Broadside.Graphics.PdfFormXObject! appearance, Broadside.Content.ContentProcessor! processor, Broadside.Content.ContentOptions! options) -> bool
+Broadside.PdfPage.CreateDisplayList() -> Broadside.Rendering.DisplayList!
+Broadside.PdfPage.CreateDisplayList(Broadside.Content.ContentOptions! options) -> Broadside.Rendering.DisplayList!
+Broadside.Rendering.DisplayColor
+Broadside.Rendering.DisplayColor.ColorSpace.get -> Broadside.Graphics.PdfColorSpace!
+Broadside.Rendering.DisplayColor.Components.get -> System.ReadOnlySpan<float>
+Broadside.Rendering.DisplayColor.Conversion.get -> Broadside.Graphics.ColorConversion
+Broadside.Rendering.DisplayColor.DefaultColorSpaces.get -> Broadside.Graphics.PdfDefaultColorSpaces!
+Broadside.Rendering.DisplayColor.DisplayColor() -> void
+Broadside.Rendering.DisplayList
+Broadside.Rendering.DisplayList.Document.get -> Broadside.PdfDocument!
+Broadside.Rendering.DisplayList.Replay(Broadside.Rendering.IRenderingBackend! backend) -> void
+Broadside.Rendering.IRenderingBackend
+Broadside.Rendering.IRenderingBackend.FillPath(Broadside.Graphics.PathView path, Broadside.Graphics.FillRule rule, in Broadside.Rendering.DisplayColor color) -> void
+Broadside.Rendering.IRenderingBackend.RestoreState() -> void
+Broadside.Rendering.IRenderingBackend.SaveState() -> void
+Broadside.Rendering.IRenderingBackend.SetTransform(in Broadside.Graphics.Matrix transform) -> void

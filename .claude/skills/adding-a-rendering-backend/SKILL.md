@@ -5,27 +5,70 @@ description: "Use when implementing a rendering backend (software rasterizer, Sk
 
 # Adding a rendering backend
 
-> **The backend contract is defined by Track 3A Display list (`docs/plan/README.md`, Phase 3; ADR 0006); its issues are not filed yet. When the contract issue lands, replace the "Contract" section of this skill with the real signatures from `src/Broadside/Rendering/` and `src/Broadside/PublicAPI.Unshipped.txt`.** Until then this is a design brief: responsibilities and deliverables, not method names.
+> The contract below is the real one, landed by issue #94 (`src/Broadside/Rendering/`, `src/Broadside/PublicAPI.Unshipped.txt`). Later Phase 3 tickets add members to `IRenderingBackend` as their operations enter the display list (strokes, clips, glyph runs, images, shadings, patterns, groups); update the signature list here in the same PR.
 
 A backend is "a concrete implementation of the rendering surface contract that knows how to draw on one technology" (`CONTEXT.md`). Backends consume display lists; nothing renders from content-stream operators directly (ADR 0006, `CLAUDE.md` "Hard rules"). The software rasterizer is the reference every other backend is measured against.
 
 ## Where it lives
 
-- Contract: namespace `Broadside.Rendering` in the core package `src/Broadside/` (the plan lists "display list + backend contract" under `Broadside`). Types in `Rendering` carry no `Pdf`/`Cos` prefix (`CLAUDE.md`, "Code conventions").
+- Contract: namespace `Broadside.Rendering` in the core package, `src/Broadside/Rendering/` (`DisplayList`, `IRenderingBackend`, `DisplayColor`; the internal `DisplayListBuilder` split into one file per operation category). Types in `Rendering` carry no `Pdf`/`Cos` prefix (`CLAUDE.md`, "Code conventions").
 - Software rasterizer, ICC engine and PNG encoder: `src/Broadside.Rendering/` (no native dependencies; Track 3B, 3C).
 - Each other backend is its own package: `src/Broadside.Rendering.Skia/` (references `Broadside.Rendering` and `SkiaSharp`), `src/Broadside.Rendering.CoreGraphics/`, `src/Broadside.Rendering.Direct2D/` (CsWin32), `src/Broadside.Rendering.Android/`. A backend may depend on its platform library and nothing else (ADR 0001). The CoreGraphics and Android projects only build when their workloads exist (`-p:BroadsideBuildPlatformBackends=true|false`).
 - Tests: `tests/Broadside.Rendering.Tests/` (rasterizer, snapshots) and `tests/Broadside.Rendering.Skia.Tests/`; the platform backends get a test project and a CI leg when they exist (`tests/README.md`).
 
-## Contract (responsibilities, not signatures)
+## Contract
 
-A backend must:
+Namespace `Broadside.Rendering`, core package (ADR 0006: backends consume display lists, never content-stream operators):
 
-- replay a display list (ADR 0006: a struct-based operation buffer with interned resources) onto its surface: paths with fill rules, strokes (joins, caps, dashes, minimum width), clipping (path and text, intersect), decoded images with transforms and resampling, shadings 1–7, tiling patterns, glyph runs (font reference + glyph ids + positions, native glyph rendering where the platform has it with an outline fallback when `ForceOutlines` is set), and the transparency model (§11: isolated and non-isolated groups, knockout, soft masks, the 16 blend modes, constant alpha);
+```csharp
+// Built once per page; immutable; replayable on any number of threads at once, each with its own backend.
+public sealed class DisplayList
+{
+    public PdfDocument Document { get; }               // whose GetColorConverter a backend converts colours through
+    public void Replay(IRenderingBackend backend);     // reads only the list, allocates nothing
+}
+
+public sealed class PdfPage
+{
+    public DisplayList CreateDisplayList();
+    public DisplayList CreateDisplayList(ContentOptions options);   // limits, optional-content state, cancellation
+}
+
+public interface IRenderingBackend
+{
+    void SaveState();                                   // §8.4.2 q (and the state saved around a form XObject)
+    void RestoreState();                                // §8.4.2 Q; saves and restores always balance
+    void SetTransform(in Matrix transform);             // replaces (does not concatenate) the user space -> default user space transform
+    void FillPath(PathView path, FillRule rule, in DisplayColor color);   // §8.5.3.3
+}
+
+public readonly ref struct DisplayColor               // §8.6.1: colour specification, never pre-converted
+{
+    public PdfColorSpace ColorSpace { get; }            // as selected (DeviceCMYK, Separation, Lab, ICCBased, ...), before defaults
+    public ReadOnlySpan<float> Components { get; }      // as the operator gave them, unclipped
+    public PdfDefaultColorSpaces DefaultColorSpaces { get; }   // §8.6.5.6, current at the paint
+    public ColorConversion Conversion { get; }          // intent, BPC, BG, UCR from the state; Target = Rgb
+}
+```
+
+Rules every backend follows:
+
+- A replay starts with the identity transform: user space is the page's default user space. Mapping it to the device (scale or DPI, rotation, CropBox, UserUnit, the clip rectangle of a tile) is the backend's or its renderer's, applied under the list's transforms.
+- `SetTransform` comes before the paints it applies to and only when the CTM changes; `RestoreState` restores the transform (and, as later tickets add them, the clip and everything else the backend keeps per state). Save/restore pairs with nothing painted between them are dropped at build time.
+- `PathView` is the path exactly as constructed, in user space: close open subpaths for filling, ignore a trailing single-point subpath, treat degenerate subpaths per §8.5.3.2/§8.5.3.3.1. Spans and views are valid only during the call: copy what you keep.
+- Colour: convert with `list.Document.GetColorConverter(color.ColorSpace, color.Conversion with { Target = <your model> }, color.DefaultColorSpaces)`. That expands Indexed, Separation, DeviceN, applies the defaults and goes through the engine's `IColorManagement` (the colour-management extension point). Check `PdfColorConverter.PaintsNothing` (Separation `None`). Cache converters per colour space if you convert per paint; the document caches them too.
+- Not in the list yet (later Phase 3 tickets): strokes, clips, glyph runs, images, shadings, pattern fills, transparency groups and soft masks.
+
+A backend must also, as those operations arrive:
+
+- draw strokes (joins, caps, dashes, minimum width), clipping (path and text, intersect), decoded images with transforms and resampling, shadings 1–7, tiling patterns, glyph runs (font reference + glyph ids + positions, native glyph rendering where the platform has it with an outline fallback when `ForceOutlines` is set), and the transparency model (§11: isolated and non-isolated groups, knockout, soft masks, the 16 blend modes, constant alpha);
 - honour the render options of Track 3A: scale or DPI, rotation, clip rectangle (tiled region rendering), layer selection (annotations and forms are separate replayable lists), rendering intent, anti-aliasing, cancellation and progress;
-- be replayable on any thread while nobody mutates the document (the thread-safety contract in `CLAUDE.md`), and keep per-surface resource caches (glyphs, images, shaders) within the deterministic memory budgets the viewer relies on;
-- fall back to the software rasterizer for any group or blend it cannot express (plan, Track 3D: "group fallback to 3B where Skia cannot express a blend/knockout") rather than approximate silently, and record a `Diagnostic` when it does;
+- keep per-surface resource caches (glyphs, images, shaders) within the deterministic memory budgets the viewer relies on;
+- fall back to the software rasterizer for any group or blend it cannot express (plan, Track 3D) rather than approximate silently, and record a `Diagnostic` when it does;
 - allocate nothing per operation, glyph or scanline during replay; buffers are pooled per surface (`CLAUDE.md`, "Code conventions");
 - produce, for the golden-image suite, pixels in the reference format (premultiplied BGRA8 at a fixed DPI) so the perceptual comparison against the rasterizer's snapshots applies (Track 3H).
+
+Testing against the contract: `Broadside.TestSupport.RecordingBackend` records every call as a line (`save`, `restore`, `transform [a b c d e f]`, `fill nonzero|evenodd M x y L ... Z | Family c0 c1 ...`) and keeps each fill's colour space, components, defaults and conversion; `Broadside.Tests.Rendering.DisplayListTests` shows the pattern. `DisplayListBenchmarks` (Build, Replay) is the replay allocation baseline.
 
 Registration goes through the options object (`PdfOptions.Use*`, plan row 1.12) or the package's one fluent configuration call, the same shape as `Broadside.Fonts.Standard14` (ADR 0007). No static registry: two engines in one process may use different backends, and the viewer selects one per surface.
 
@@ -49,7 +92,7 @@ The software rasterizer in `src/Broadside.Rendering/` is the default and the ora
 
 ## Checklist
 
-- [ ] Contract section of this skill replaced with the real signatures once the 3A contract issue has landed
+- [ ] Contract section of this skill updated with any `IRenderingBackend` members your ticket adds
 - [ ] Backend consumes display lists only; no operator interpretation in the backend
 - [ ] Own package with platform conditioning; depends on its platform library and `Broadside.Rendering` only
 - [ ] Registered through `PdfOptions` or the package's fluent call, not a static registry
