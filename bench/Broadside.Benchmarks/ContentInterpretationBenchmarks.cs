@@ -16,7 +16,7 @@ namespace Broadside.Benchmarks;
 /// </summary>
 /// <remarks>
 /// <see cref="InterpretWarm"/>: every listed page of a document opened from memory in <see cref="Setup"/> and interpreted once there,
-/// so fonts, colour spaces, shadings, decoded forms and image views are cached; the processor requests every event and does
+/// so fonts, colour spaces, shadings, decoded page and form content (issue #90) and image views are cached; the processor requests every event and does
 /// nothing but count paint and glyph events (the interpreter's own cost). <see cref="OpenAndInterpretFirstPage"/>: page 1 of a freshly opened document, the cost of
 /// resolving resources on first use.
 /// </remarks>

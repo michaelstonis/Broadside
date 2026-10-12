@@ -86,7 +86,7 @@ internal sealed partial class ContentInterpreter
             Kind = ContentRunKind.Pattern,
             Identity = pattern.Stream,
             Reference = pattern.Reference,
-            Content = pattern.GetContent(),
+            Content = _context.GetContent(pattern.Stream),
             Resources = pattern.Resources ?? _context.Resources,
             InitialState = initial,
             ClipBox = pattern.BoundingBox,

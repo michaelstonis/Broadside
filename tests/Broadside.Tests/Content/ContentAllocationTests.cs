@@ -141,6 +141,32 @@ public sealed class ContentAllocationTests
     }
 
     /// <summary>
+    /// A page's decoded content is cached per document (issue #90), so a second interpretation of a page opened from a path neither
+    /// rereads its content stream from the file nor decodes it again: with filtered content, either would allocate.
+    /// </summary>
+    [Theory]
+    [InlineData("filter-chain.pdf")]
+    [InlineData("flate-stream.pdf")]
+    public void Interpreting_a_filtered_page_opened_from_a_path_again_allocates_nothing(string file)
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path(file));
+        PdfPage page = document.Pages[0];
+        var processor = new EverythingSink();
+
+        long allocated = Allocations.Measure(
+            () =>
+            {
+                processor.Operators = 0;
+                page.ProcessContent(processor);
+            },
+            WarmUp);
+
+        Assert.True(processor.Operators > 0, "No operator was interpreted.");
+        Assert.Equal(0, allocated);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    /// <summary>
     /// The minimal-corpus pages the content benchmark falls back to (issue #80), each a different part of the interpreter: text in
     /// four font kinds, forms, transparency and graphics states, marked and optional content, colour spaces, shadings including
     /// meshes, patterns and image XObjects (not inline images: their image view copies the data, by design of #56).
@@ -167,7 +193,7 @@ public sealed class ContentAllocationTests
     [MemberData(nameof(WarmPassFiles))]
     public void Interpreting_a_page_with_every_event_requested_allocates_nothing_once_warm(string file)
     {
-        using PdfDocument document = PdfDocument.Open(Corpus.Bytes(file)); // from memory: a file source rereads stream data per run (#45), a per-run cost
+        using PdfDocument document = PdfDocument.Open(Corpus.Path(file)); // from a path: page and form content are decoded once per document (#90)
         PdfPage page = document.Pages[0];
         var processor = new EverythingSink();
 
