@@ -9,6 +9,7 @@
       "src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj",
       "src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj",
       "tests/Broadside.TestSupport/Broadside.TestSupport.csproj",
+      "tests/Broadside.GoldenImages/Broadside.GoldenImages.csproj",
       "tests/Broadside.Tests/Broadside.Tests.csproj",
       "tests/Broadside.Rendering.Tests/Broadside.Rendering.Tests.csproj",
       "tests/Broadside.Rendering.AotSmoke/Broadside.Rendering.AotSmoke.csproj",
