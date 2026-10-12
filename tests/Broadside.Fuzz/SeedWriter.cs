@@ -109,6 +109,8 @@ internal static class SeedWriter
             .Select(stream => stream.Document.DecodeStream(stream.Value).ToArray()),
         "decrypt" => EncryptedBodies(file),
         "filter-jbig2" => Streams(file).Select(stream => Jbig2Seed(stream.Document, stream.Value)).OfType<byte[]>(),
+        "icc-profile" => Streams(file).Select(stream => stream.Document.DecodeStream(stream.Value).ToArray())
+            .Where(static data => data.Length >= 40 && data.AsSpan(36, 4).SequenceEqual("acsp"u8)),
         _ when FilterTargets.TryGetValue(target, out string? filter) =>
             Streams(file).Where(stream => FirstFilter(stream.Value) == filter).Select(stream => stream.Value.EncodedData.ToArray()),
         _ => [file],

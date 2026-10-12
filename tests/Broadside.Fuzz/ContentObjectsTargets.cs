@@ -229,6 +229,14 @@ internal static class ContentObjectsTargets
         public override ContentVisit BeginType3Glyph(in GlyphEvent glyph, ContentContext context)
         {
             Pair(ref _glyphs, +1, "BeginType3Glyph");
+            Broadside.Fonts.Type3GlyphMetrics metrics = glyph.Type3Metrics;
+            bool described = glyph.Font is Broadside.Fonts.PdfType3Font font && font.GetCharProc((byte)glyph.CharacterCode) is not null;
+            if ((metrics.Kind == Broadside.Fonts.Type3GlyphKind.None) == described
+                || (metrics.Kind != Broadside.Fonts.Type3GlyphKind.ShapeOnly && metrics.BoundingBox != default))
+            {
+                throw new InvalidOperationException($"A Type 3 glyph's metrics ({metrics}) do not match its description.");
+            }
+
             return ContentVisit.Enter;
         }
 
