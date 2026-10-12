@@ -48,10 +48,12 @@ fi
 # The benchmark processes run without tiered compilation: with it, a process on a busy 4-core runner sometimes measures tier-0
 # code for its whole run (4x slower, and more bytes allocated, because tier 0 does not stack-allocate), which made the same
 # commit differ from itself by up to 4.7x in time and by up to 10 % in allocations. Fully optimized code from the first call
-# removes that mode. DOTNET_PROCESSOR_COUNT pins Environment.ProcessorCount, which sizes per-core structures
-# (ConcurrentDictionary locks, ArrayPool partitions), so the allocation baseline does not depend on the machine's core count.
+# removes that mode. DOTNET_PROCESSOR_COUNT=1 gives every ConcurrentDictionary a single lock: with several, a dictionary grows
+# when one lock's share passes its budget, and which lock a key takes depends on HashCode's per-process random seed, so the
+# same walk allocated a few KB more or less from one process to the next. One lock makes growth depend on the count alone, and
+# the figures no longer depend on the machine's core count either.
 bench_args=(--launchCount 1 --warmupCount 3 --iterationCount 10 --iterationTime 100 --memory --exporters json
-  --envVars DOTNET_TieredCompilation:0 DOTNET_PROCESSOR_COUNT:4)
+  --envVars DOTNET_TieredCompilation:0 DOTNET_PROCESSOR_COUNT:1)
 
 filters=('*')
 if [ -n "${methods}" ]; then
