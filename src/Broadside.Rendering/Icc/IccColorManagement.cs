@@ -4,21 +4,22 @@ using Broadside.Graphics;
 namespace Broadside.Rendering.Icc;
 
 /// <summary>
-/// The managed ICC engine behind the colour-management extension point: ICCBased gray and RGB colours convert through their
-/// profiles' matrix/TRC and monochrome models; every other source goes to the wrapped colour management.
+/// The managed ICC engine behind the colour-management extension point: ICCBased gray, RGB and CMYK colours convert through their
+/// profiles' lookup tables, matrix/TRC or monochrome models; every other source goes to the wrapped colour management.
 /// </summary>
 /// <remarks>
 /// <para>
-/// ISO 32000-2 §8.6.5.5 and §10.3, ICC.1:2022 Annex F.2 and F.3 (see <see cref="IccProfile"/>). Register it with
-/// <see cref="IccPdfOptionsExtensions.UseIccColorManagement"/> or <see cref="PdfOptions.UseColorManagement"/>. Colours convert
-/// media-relative (ICC-absolute for <see cref="RenderingIntent.AbsoluteColorimetric"/>) to sRGB; gray and CMYK targets then go
-/// through the wrapped management's DeviceRGB conversion.
+/// ISO 32000-2 §8.6.5.5 and §10.3, ICC.1:2022 §8.10.2, §10.10 to §10.12, Annex F.2 and F.3 (see <see cref="IccProfile"/>). Register
+/// it with <see cref="IccPdfOptionsExtensions.UseIccColorManagement"/> or <see cref="PdfOptions.UseColorManagement"/>. Colours
+/// convert media-relative (ICC-absolute for <see cref="RenderingIntent.AbsoluteColorimetric"/>) to sRGB, through the tag §8.10.2
+/// selects for the intent; gray and CMYK targets then go through the wrapped management's DeviceRGB conversion.
 /// </para>
 /// <para>
-/// Device spaces, CalGray, CalRGB, Lab, and ICCBased spaces whose profile is CMYK, Lab, lookup-table based, of a version after 4, or
+/// Device spaces, CalGray, CalRGB, Lab, and ICCBased spaces whose profile is a Lab colour space profile, of a version after 4, or
 /// unreadable go to the wrapped management, which converts them through their alternate (or, for a Lab profile, as Lab). A profile
 /// whose header is fine but whose tags cannot be read is recorded on the document as <c>IccProfileInvalid</c> through
-/// <see cref="PdfIccBasedColorSpace.ReportProfileInvalid"/>; a bad header is already recorded when the space is read.
+/// <see cref="PdfIccBasedColorSpace.ReportProfileInvalid"/>, as is a lookup table passed over for other tags of the profile; a bad
+/// header is already recorded when the space is read.
 /// </para>
 /// <para>
 /// Profiles are read once and their transforms built once per rendering intent, keyed by the profile's bytes, so the same profile
@@ -45,14 +46,14 @@ public sealed class IccColorManagement : IColorManagement
     {
         ArgumentNullException.ThrowIfNull(source);
         if (source is not PdfIccBasedColorSpace icc
-            || icc.ProfileHeader is not { IsSupportedForPdf: true, DataColorSpace: "GRAY" or "RGB " } header
+            || icc.ProfileHeader is not { IsSupportedForPdf: true, DataColorSpace: "GRAY" or "RGB " or "CMYK" } header
             || header.ComponentCount != icc.ComponentCount)
         {
             return Fallback.CreateConverter(source, conversion);
         }
 
         ProfileEntry entry = Find(icc.GetProfileData().Span);
-        if (entry.Profile is not { Model: IccProfileModel.MatrixTrc or IccProfileModel.Monochrome })
+        if (entry.Profile is not { Model: not IccProfileModel.Other } profile)
         {
             if (entry.Problem is { } problem)
             {
@@ -60,6 +61,11 @@ public sealed class IccColorManagement : IColorManagement
             }
 
             return Fallback.CreateConverter(source, conversion);
+        }
+
+        if (profile.Warning is { } warning)
+        {
+            icc.ReportProfileInvalid($"An ICC profile tag cannot be used: {warning}; the profile's other tags are used.");
         }
 
         IColorConverter? fromRgb = conversion.Target == DeviceColorModel.Rgb ? null : Fallback.CreateConverter(PdfDeviceRgbColorSpace.Instance, conversion);

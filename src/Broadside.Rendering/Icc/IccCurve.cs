@@ -30,9 +30,19 @@ internal sealed class IccCurve
     /// <param name="curve">The curve.</param>
     /// <param name="problem">Why the tag is not a curve.</param>
     /// <returns>Whether the tag is a curve.</returns>
-    public static bool TryRead(ReadOnlySpan<byte> tag, [NotNullWhen(true)] out IccCurve? curve, [NotNullWhen(false)] out string? problem)
+    public static bool TryRead(ReadOnlySpan<byte> tag, [NotNullWhen(true)] out IccCurve? curve, [NotNullWhen(false)] out string? problem) =>
+        TryRead(tag, out curve, out _, out problem);
+
+    /// <summary>Reads a curve embedded in a lookup-table tag, where curves follow one another (ICC.1:2022 §10.12.2).</summary>
+    /// <param name="tag">The data from the curve's type signature on; it may run past the curve.</param>
+    /// <param name="curve">The curve.</param>
+    /// <param name="length">The number of bytes the curve takes, before any padding.</param>
+    /// <param name="problem">Why the data is not a curve.</param>
+    /// <returns>Whether the data starts with a curve.</returns>
+    public static bool TryRead(ReadOnlySpan<byte> tag, [NotNullWhen(true)] out IccCurve? curve, out int length, [NotNullWhen(false)] out string? problem)
     {
         curve = null;
+        length = 0;
         problem = null;
         if (tag.Length >= 12 && tag.StartsWith("curv"u8))
         {
@@ -50,6 +60,7 @@ internal sealed class IccCurve
             }
 
             curve = new IccCurve(-1, [], samples);
+            length = 12 + (2 * samples.Length);
             return true;
         }
 
@@ -76,6 +87,7 @@ internal sealed class IccCurve
             }
 
             curve = new IccCurve(function, values, []);
+            length = 12 + (4 * parameters);
             return true;
         }
 
@@ -101,6 +113,33 @@ internal sealed class IccCurve
         for (int i = 0; i < size; i++)
         {
             table[i] = (float)Evaluate(i / (double)(size - 1));
+        }
+
+        return table;
+    }
+
+    /// <summary>Gets whether the curve is the identity: a curveType with no entries or a gamma of 1 (§10.6), or a type 0 parametric gamma of 1 (§10.18).</summary>
+    public bool IsIdentity => _function < 0
+        ? _samples.Length == 0 || (_samples.Length == 1 && _samples[0] == 256)
+        : _function == 0 && _parameters[0] == 1;
+
+    /// <summary>
+    /// The curve as a table for linear interpolation: a sampled curve's own entries, which is exact (§10.6), or
+    /// <paramref name="size"/> samples of any other curve.
+    /// </summary>
+    /// <param name="size">The number of samples of a gamma or parametric curve.</param>
+    /// <returns>The table, at least two entries, values in [0, 1].</returns>
+    public float[] ToLookupTable(int size)
+    {
+        if (_function >= 0 || _samples.Length < 2)
+        {
+            return ToTable(size);
+        }
+
+        float[] table = new float[_samples.Length];
+        for (int i = 0; i < table.Length; i++)
+        {
+            table[i] = _samples[i] / 65535f;
         }
 
         return table;

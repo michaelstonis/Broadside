@@ -14,8 +14,14 @@ public enum IccProfileModel
     Monochrome,
 
     /// <summary>
-    /// Any other profile: lookup-table based (<c>AToB0</c> and its kind), or of a data colour space other than gray and RGB. Its
-    /// tags are not read beyond the tag table yet; such colours convert through the managed default.
+    /// A profile whose data colour space the engine does not convert by its tags (such as a Lab colour space profile, which
+    /// converts as Lab), or that has neither usable lookup tables nor matrix/TRC tags.
     /// </summary>
     Other,
+
+    /// <summary>
+    /// A profile with lookup tables (<c>AToB0</c>, <c>AToB1</c>, <c>AToB2</c>: lut8Type, lut16Type or lutAToBType), which take
+    /// precedence over matrix/TRC tags (ICC.1:2022 §8.10.2, §10.10 to §10.12).
+    /// </summary>
+    LookupTable,
 }

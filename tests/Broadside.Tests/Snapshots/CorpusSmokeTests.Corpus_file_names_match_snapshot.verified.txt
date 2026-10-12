@@ -55,6 +55,7 @@
   form-xobject-nested.pdf,
   functions.pdf,
   hybrid-xref.pdf,
+  icc-lut.pdf,
   icc-rgb-matrix.pdf,
   image-16bpc.pdf,
   image-1bpc.pdf,
