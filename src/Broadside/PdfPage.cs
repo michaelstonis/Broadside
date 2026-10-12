@@ -180,13 +180,14 @@ public sealed class PdfPage
     /// </summary>
     /// <param name="editor">The editor; it numbers the operators and makes its edits during the run.</param>
     /// <returns><see langword="true"/> when the editor made edits and the content was replaced; otherwise the page is unchanged.</returns>
-    /// <exception cref="InvalidOperationException">The editor is already rewriting, or every stream of the page's content is also another page's.</exception>
+    /// <exception cref="InvalidOperationException">The editor is already rewriting.</exception>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
     /// <remarks>
     /// ISO 32000-2 §7.8.2; Table 31. The run is the one <see cref="ProcessContent(ContentProcessor)"/> makes. The result is written
-    /// unfiltered (§7.3.8.2: <c>Filter</c>, <c>DecodeParms</c> and <c>DL</c> are removed; a save compresses it) into the page's
-    /// content stream; a <c>Contents</c> array is replaced by its first stream that no other page uses, holding the parts joined by
-    /// line feeds. A stream another page also shows is never written into.
+    /// unfiltered (§7.3.8.2; a save compresses it) into a new stream (§7.3.10, <see cref="PdfDocument.AddObject"/>) that the page's
+    /// <c>Contents</c> then names alone; a <c>Contents</c> array's parts are joined by line feeds. The old streams are not written
+    /// into, so another page that shows them keeps its content; they stay objects of the document, which a save with
+    /// <see cref="PdfSaveOptions.RemoveUnreachableObjects"/> drops when nothing else refers to them.
     /// </remarks>
     public bool RewriteContent(ContentEditor editor) => RewriteContent(editor, ContentInterpreter.DefaultOptions);
 
@@ -194,7 +195,7 @@ public sealed class PdfPage
     /// <param name="editor">The editor.</param>
     /// <param name="options">Limits and cancellation for the run.</param>
     /// <returns><see langword="true"/> when the content was replaced.</returns>
-    /// <exception cref="InvalidOperationException">The editor is already rewriting, or every stream of the page's content is also another page's.</exception>
+    /// <exception cref="InvalidOperationException">The editor is already rewriting.</exception>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
     /// <exception cref="OperationCanceledException">The options' cancellation token was canceled; the page is unchanged.</exception>
     /// <remarks>ISO 32000-2 §7.8.2; Table 31. As <see cref="RewriteContent(ContentEditor)"/>.</remarks>

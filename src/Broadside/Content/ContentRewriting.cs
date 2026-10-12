@@ -9,9 +9,11 @@ namespace Broadside.Content;
 /// (a save compresses it, issue #142).
 /// </summary>
 /// <remarks>
-/// ISO 32000-2 §7.8.2, §7.3.8.2 (the stream's data and its filter entries), Table 31 (<c>Contents</c>). The result is written into
-/// an existing stream, because a document has no way yet to add an indirect object: a form's own stream, or the page's content
-/// stream (for an array, its first stream no other page uses), which the page's <c>Contents</c> then names alone.
+/// ISO 32000-2 §7.8.2, §7.3.8.2 (the stream's data and its filter entries), §7.3.10 and Table 31 (<c>Contents</c>). A page's
+/// result goes into a new indirect stream (<see cref="PdfDocument.AddObject"/>) that the page's <c>Contents</c> then names alone, so
+/// a stream the page shares with another page, or that anything else refers to, is never written into; the old streams stay as
+/// objects until a save that removes unreachable objects drops them. A form's result goes into the form's own stream, which is the form:
+/// every use of it shows the change.
 /// </remarks>
 internal static class ContentRewriting
 {
@@ -52,13 +54,7 @@ internal static class ContentRewriting
                 return false;
             }
 
-            (CosStream target, CosObject reference) = PageTarget(page, document, entry!);
-            Store(target, editor.Output);
-            if (!ReferenceEquals(reference, entry))
-            {
-                page.Dictionary[KnownNames.Contents] = reference;
-            }
-
+            page.Dictionary[KnownNames.Contents] = document.AddObject(new CosStream(new CosDictionary(), editor.Output.ToArray()));
             return true;
         }
         finally
@@ -114,63 +110,5 @@ internal static class ContentRewriting
         }
 
         stream.EncodedData = data.ToArray();
-    }
-
-    /// <summary>
-    /// Chooses the stream a page's rewritten content goes into and what <c>Contents</c> names afterwards: the page's stream, or the
-    /// first stream of its array, that no other page's <c>Contents</c> uses.
-    /// </summary>
-    /// <exception cref="InvalidOperationException">Every candidate stream is shared with another page.</exception>
-    private static (CosStream Stream, CosObject Reference) PageTarget(PdfPage page, PdfDocument document, CosObject entry)
-    {
-        HashSet<CosReference> shared = SharedStreams(page, document);
-        if (document.Resolve(entry) is CosArray array)
-        {
-            foreach (CosObject element in array)
-            {
-                if (document.Resolve(element) is CosStream stream && (element is not CosReference reference || !shared.Contains(reference)))
-                {
-                    return (stream, element);
-                }
-            }
-        }
-        else if (entry is not CosReference reference || !shared.Contains(reference))
-        {
-            return ((CosStream)document.Resolve(entry), entry);
-        }
-
-        throw new InvalidOperationException(
-            "The page's content streams are all used by other pages too; writing the rewritten content into one would change those pages.");
-    }
-
-    /// <summary>The content streams other pages' <c>Contents</c> name.</summary>
-    private static HashSet<CosReference> SharedStreams(PdfPage page, PdfDocument document)
-    {
-        var shared = new HashSet<CosReference>();
-        foreach (PdfPage other in document.Pages)
-        {
-            if (ReferenceEquals(other.Dictionary, page.Dictionary) || !other.Dictionary.TryGetValue(KnownNames.Contents, out CosObject? contents))
-            {
-                continue;
-            }
-
-            if (contents is CosReference reference)
-            {
-                shared.Add(reference);
-            }
-
-            if (document.Resolve(contents) is CosArray array)
-            {
-                foreach (CosObject element in array)
-                {
-                    if (element is CosReference part)
-                    {
-                        shared.Add(part);
-                    }
-                }
-            }
-        }
-
-        return shared;
     }
 }

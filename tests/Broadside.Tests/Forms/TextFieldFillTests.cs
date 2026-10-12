@@ -32,27 +32,40 @@ public sealed class TextFieldFillTests
     }
 
     [Fact]
-    public void Every_text_field_of_acroform_fields_pdf_filled_and_saved_re_reads_its_value_and_renders_in_poppler()
+    public void Every_text_field_of_acroform_fields_pdf_filled_and_saved_re_reads_its_value_and_renders_in_poppler() =>
+        FillEveryFieldSaveAndCheck(new PdfSaveOptions());
+
+    [Fact]
+    public void Every_text_field_of_acroform_fields_pdf_filled_and_saved_incrementally_re_reads_its_value_and_renders_in_poppler()
     {
-        Dictionary<string, string?> values = new() { ["name"] = "Ada Lovelace", ["person.first"] = "Grace", ["person.last"] = "Hopper" };
-        byte[] filled = FillAll(values);
-        byte[] blank = FillAll(values.ToDictionary(pair => pair.Key, _ => (string?)null));
+        byte[] original = File.ReadAllBytes(Corpus.Path("acroform-fields.pdf"));
 
+        byte[] filled = FillEveryFieldSaveAndCheck(new PdfSaveOptions().WithIncrementalUpdate(true));
+
+        // An incremental update (§7.5.6) appends: the original file is the start of the saved one, byte for byte.
+        Assert.True(filled.Length > original.Length);
+        Assert.Equal(original, filled[..original.Length]);
         using PdfDocument reopened = PdfDocument.Open(filled);
-        List<PdfTextField> fields = [.. reopened.AcroForm!.TerminalFields.OfType<PdfTextField>()];
-        Assert.Equal(values.Keys.Order(), fields.Select(field => field.FullyQualifiedName).Order());
-        foreach (PdfTextField field in fields)
-        {
-            Assert.Equal(values[field.FullyQualifiedName], field.Value);
-            PdfWidgetAnnotation widget = Assert.Single(field.Widgets);
-            Assert.Equal(values[field.FullyQualifiedName], AppearanceText(widget).Text);
+        Assert.Equal(2, reopened.Revisions.Count);
+    }
 
-            // Ink inside the widget with the value, none without: poppler draws the generated appearance.
-            Assert.True(DarkPixels(filled, widget.Rect) > 10, field.FullyQualifiedName);
-            Assert.Equal(0, DarkPixels(blank, widget.Rect));
-        }
+    [Fact]
+    public void A_filled_text_field_saved_incrementally_twice_re_reads_the_second_value()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("acroform-fields.pdf"));
+        PdfSaveOptions incremental = new PdfSaveOptions().WithIncrementalUpdate(true);
+        ((PdfTextField)document.AcroForm!.FindField("name")!).SetValue("Ada Lovelace");
+        byte[] first = Save(document, incremental);
 
-        (int exitCode, string output) = ExternalTool.Run("qpdf", filled, "--check");
+        ((PdfTextField)document.AcroForm.FindField("name")!).SetValue("Grace Hopper");
+        byte[] second = Save(document, incremental);
+
+        Assert.Equal(first, second[..first.Length]);
+        using PdfDocument reopened = PdfDocument.Open(second);
+        var field = (PdfTextField)reopened.AcroForm!.FindField("name")!;
+        Assert.Equal("Grace Hopper", field.Value);
+        Assert.Equal("Grace Hopper", AppearanceText(Assert.Single(field.Widgets)).Text);
+        (int exitCode, string output) = ExternalTool.Run("qpdf", second, "--check");
         Assert.True(exitCode == 0, output);
         Assert.DoesNotContain(reopened.Diagnostics, diagnostic => diagnostic.Severity != DiagnosticSeverity.Information);
     }
@@ -292,10 +305,12 @@ public sealed class TextFieldFillTests
         Assert.Equal("Löv", AppearanceText(field.Widgets[0]).Text);
     }
 
-    internal static byte[] Save(PdfDocument document)
+    internal static byte[] Save(PdfDocument document) => Save(document, new PdfSaveOptions());
+
+    internal static byte[] Save(PdfDocument document, PdfSaveOptions options)
     {
         using var stream = new MemoryStream();
-        document.Save(stream);
+        document.Save(stream, options);
         return stream.ToArray();
     }
 
@@ -313,7 +328,37 @@ public sealed class TextFieldFillTests
         return Save(document);
     }
 
-    private static byte[] FillAll(Dictionary<string, string?> values)
+    /// <summary>
+    /// Fills every text field of acroform-fields.pdf, saves with <paramref name="options"/>, and checks the saved file re-reads each
+    /// value with an appearance that shows it, poppler draws ink only where a value is, and qpdf finds nothing wrong. Returns the file.
+    /// </summary>
+    private static byte[] FillEveryFieldSaveAndCheck(PdfSaveOptions options)
+    {
+        Dictionary<string, string?> values = new() { ["name"] = "Ada Lovelace", ["person.first"] = "Grace", ["person.last"] = "Hopper" };
+        byte[] filled = FillAll(values, options);
+        byte[] blank = FillAll(values.ToDictionary(pair => pair.Key, _ => (string?)null), options);
+
+        using PdfDocument reopened = PdfDocument.Open(filled);
+        List<PdfTextField> fields = [.. reopened.AcroForm!.TerminalFields.OfType<PdfTextField>()];
+        Assert.Equal(values.Keys.Order(), fields.Select(field => field.FullyQualifiedName).Order());
+        foreach (PdfTextField field in fields)
+        {
+            Assert.Equal(values[field.FullyQualifiedName], field.Value);
+            PdfWidgetAnnotation widget = Assert.Single(field.Widgets);
+            Assert.Equal(values[field.FullyQualifiedName], AppearanceText(widget).Text);
+
+            // Ink inside the widget with the value, none without: poppler draws the generated appearance.
+            Assert.True(DarkPixels(filled, widget.Rect) > 10, field.FullyQualifiedName);
+            Assert.Equal(0, DarkPixels(blank, widget.Rect));
+        }
+
+        (int exitCode, string output) = ExternalTool.Run("qpdf", filled, "--check");
+        Assert.True(exitCode == 0, output);
+        Assert.DoesNotContain(reopened.Diagnostics, diagnostic => diagnostic.Severity != DiagnosticSeverity.Information);
+        return filled;
+    }
+
+    private static byte[] FillAll(Dictionary<string, string?> values, PdfSaveOptions options)
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Path("acroform-fields.pdf"));
         foreach ((string name, string? value) in values)
@@ -321,7 +366,7 @@ public sealed class TextFieldFillTests
             ((PdfTextField)document.AcroForm!.FindField(name)!).SetValue(value);
         }
 
-        return Save(document);
+        return Save(document, options);
     }
 
     /// <summary>Counts the pixels darker than mid-grey that poppler draws inside <paramref name="rect"/> on page 1 at 72 dpi.</summary>
