@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Broadside.Fonts;
 using Broadside.Graphics;
 using Broadside.Objects;
 
@@ -6,10 +7,11 @@ namespace Broadside.Content;
 
 /// <summary>
 /// What the content interpreter derives from a document's resources once and reuses on every run: the decoded content of pages,
-/// form XObjects and other nested streams, form and image views, and the parameters of graphics state parameter dictionaries.
+/// form XObjects and other nested streams, form and image views, the parameters of graphics state parameter dictionaries, and the
+/// metrics Type 3 glyph descriptions declare.
 /// </summary>
 /// <remarks>
-/// ISO 32000-2 §7.8.2, §7.8.3, §8.4.5, §8.10. Entries are keyed by the object's identity and rebuilt when the object's
+/// ISO 32000-2 §7.8.2, §7.8.3, §8.4.5, §8.10, §9.6.4. Entries are keyed by the object's identity and rebuilt when the object's
 /// <c>Version</c> moved (a public mutation), so an edit is seen by the next run. Thread-safe for concurrent runs: two threads may
 /// compute the same entry and the last published wins; the values are immutable, so either is right. Entries live as long as the
 /// object they are keyed on, which the document's object cache keeps for the document's lifetime.
@@ -21,6 +23,11 @@ internal sealed class ContentResourceCache(PdfDocument document)
     private readonly ConditionalWeakTable<CosDictionary, ExtGStateParameters> _graphicsStates = [];
     private readonly ConditionalWeakTable<CosStream, PdfFormXObject> _forms = [];
     private readonly ConditionalWeakTable<CosStream, Images.PdfImage> _images = [];
+    private readonly ConditionalWeakTable<CosStream, GlyphHead> _glyphHeads = [];
+
+    /// <summary>The scratch operands of <see cref="GetType3GlyphMetrics"/> on this thread.</summary>
+    [ThreadStatic]
+    private static OperandArena? _headArena;
 
     /// <summary>
     /// Returns the image view of an image XObject's stream, one per stream, so that painting an image allocates nothing (the view is
@@ -68,6 +75,24 @@ internal sealed class ContentResourceCache(PdfDocument document)
         return decoded.Data;
     }
 
+    /// <summary>
+    /// Returns what a Type 3 glyph description declares with its first operator (§9.6.4, Table 111), read once while the stream and
+    /// its dictionary are unchanged, from the same decoded data the interpreter runs.
+    /// </summary>
+    public Type3GlyphMetrics GetType3GlyphMetrics(CosStream stream)
+    {
+        if (_glyphHeads.TryGetValue(stream, out GlyphHead? cached) && cached.DataVersion == stream.Version && cached.DictionaryVersion == stream.Dictionary.Version)
+        {
+            return cached.Metrics;
+        }
+
+        int dataVersion = stream.Version;
+        int dictionaryVersion = stream.Dictionary.Version;
+        Type3GlyphMetrics metrics = Type3GlyphMetrics.Read(GetContent(stream).Span, _headArena ??= new OperandArena());
+        _glyphHeads.AddOrUpdate(stream, new GlyphHead(dataVersion, dictionaryVersion, metrics));
+        return metrics;
+    }
+
     /// <summary>Returns the parameters of a graphics state parameter dictionary, read once while the dictionary is unchanged.</summary>
     public ExtGStateParameters GetGraphicsState(CosDictionary dictionary, CosReference? reference)
     {
@@ -98,6 +123,8 @@ internal sealed class ContentResourceCache(PdfDocument document)
     }
 
     private sealed record DecodedContent(int DataVersion, int DictionaryVersion, ReadOnlyMemory<byte> Data);
+
+    private sealed record GlyphHead(int DataVersion, int DictionaryVersion, Type3GlyphMetrics Metrics);
 
     /// <summary>A page's <c>Contents</c> array read as one stream, and what it was built from.</summary>
     internal sealed class JoinedContent
