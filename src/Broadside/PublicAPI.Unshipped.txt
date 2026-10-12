@@ -3753,3 +3753,26 @@ Broadside.PdfObjectCopier.CopyPage(Broadside.PdfPage! page) -> Broadside.Objects
 Broadside.PdfObjectCopier.PdfObjectCopier(Broadside.PdfDocument! source, Broadside.PdfDocument! target) -> void
 Broadside.PdfObjectCopier.Source.get -> Broadside.PdfDocument!
 Broadside.PdfObjectCopier.Target.get -> Broadside.PdfDocument!
+Broadside.PdfDocument.AddAssociatedFile(Broadside.Objects.CosDictionary! owner, Broadside.PdfFileSpecification! file) -> void
+Broadside.PdfDocument.AddEmbeddedFile(string! fileName, System.ReadOnlySpan<byte> contents, Broadside.PdfEmbeddedFileOptions? options = null) -> Broadside.PdfEmbeddedFileEntry!
+Broadside.PdfDocument.AddEmbeddedFile(string! name, Broadside.PdfFileSpecification! file) -> Broadside.PdfEmbeddedFileEntry!
+Broadside.PdfDocument.CreateEmbeddedFile(string! fileName, System.ReadOnlySpan<byte> contents, Broadside.PdfEmbeddedFileOptions? options = null) -> Broadside.PdfFileSpecification!
+Broadside.PdfDocument.RemoveAssociatedFile(Broadside.Objects.CosDictionary! owner, Broadside.PdfFileSpecification! file) -> bool
+Broadside.PdfDocument.RemoveEmbeddedFile(string! name) -> bool
+Broadside.PdfEmbeddedFileOptions
+Broadside.PdfEmbeddedFileOptions.CreationDate.get -> System.DateTimeOffset?
+Broadside.PdfEmbeddedFileOptions.CreationDate.set -> void
+Broadside.PdfEmbeddedFileOptions.Description.get -> string?
+Broadside.PdfEmbeddedFileOptions.Description.set -> void
+Broadside.PdfEmbeddedFileOptions.MediaType.get -> string?
+Broadside.PdfEmbeddedFileOptions.MediaType.set -> void
+Broadside.PdfEmbeddedFileOptions.ModificationDate.get -> System.DateTimeOffset?
+Broadside.PdfEmbeddedFileOptions.ModificationDate.set -> void
+Broadside.PdfEmbeddedFileOptions.PdfEmbeddedFileOptions() -> void
+Broadside.PdfEmbeddedFileOptions.Relationship.get -> Broadside.PdfFileRelationship?
+Broadside.PdfEmbeddedFileOptions.Relationship.set -> void
+Broadside.PdfEmbeddedFileOptions.WithCreationDate(System.DateTimeOffset? date) -> Broadside.PdfEmbeddedFileOptions!
+Broadside.PdfEmbeddedFileOptions.WithDescription(string? description) -> Broadside.PdfEmbeddedFileOptions!
+Broadside.PdfEmbeddedFileOptions.WithMediaType(string? mediaType) -> Broadside.PdfEmbeddedFileOptions!
+Broadside.PdfEmbeddedFileOptions.WithModificationDate(System.DateTimeOffset? date) -> Broadside.PdfEmbeddedFileOptions!
+Broadside.PdfEmbeddedFileOptions.WithRelationship(Broadside.PdfFileRelationship? relationship) -> Broadside.PdfEmbeddedFileOptions!
