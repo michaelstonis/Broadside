@@ -28,6 +28,7 @@ public sealed class PdfOptions
     public const long DefaultMaxImagePixels = 1L << 28;
 
     private readonly List<IStreamFilter> _filters = [];
+    private readonly List<IStreamEncoder> _streamEncoders = [];
     private readonly List<ISecurityHandler> _securityHandlers = [];
     private readonly List<IFontProgramParser> _fontProgramParsers = [];
     private readonly List<IFontResolver> _fontResolvers = [];
@@ -95,6 +96,38 @@ public sealed class PdfOptions
         }
 
         _filters.Add(filter);
+        return this;
+    }
+
+    /// <summary>Gets the encoders registered with <see cref="UseStreamEncoder"/>, in registration order.</summary>
+    /// <remarks>ISO 32000-2 §7.4.1. Not public, so configuration binding never sees it; encoders are code, set with <see cref="UseStreamEncoder"/>.</remarks>
+    internal IReadOnlyList<IStreamEncoder> StreamEncoders => _streamEncoders;
+
+    /// <summary>
+    /// Uses <paramref name="encoder"/> to write data for the filter its <see cref="IStreamEncoder.Name"/> names, replacing the managed
+    /// default of that name (<see cref="FlateEncoder"/>, <see cref="AsciiHexEncoder"/>, <see cref="Ascii85Encoder"/>,
+    /// <see cref="RunLengthEncoder"/>) or adding an encoder the defaults lack. A later registration of the same name wins. Saving
+    /// compresses streams with the encoder registered for <c>FlateDecode</c>.
+    /// </summary>
+    /// <param name="encoder">The encoder. Shared by every document and thread of the engine: it must keep no state between calls.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentException">
+    /// The encoder's name is <c>Crypt</c>, which the security handler applies (§7.4.10), or an inline-image abbreviation such as
+    /// <c>Fl</c> (§8.9.7, Table 92).
+    /// </exception>
+    /// <remarks>ISO 32000-2 §7.4.1. The encoding half of the filter extension point (ADR 0001), separate from <see cref="UseFilter"/>.</remarks>
+    public PdfOptions UseStreamEncoder(IStreamEncoder encoder)
+    {
+        ArgumentNullException.ThrowIfNull(encoder);
+        CosName name = encoder.Name ?? throw new ArgumentException("The encoder has no name.", nameof(encoder));
+        if (name.Equals(FilterNames.Crypt) || InlineImageAbbreviations.TryExpandFilter(name, out _))
+        {
+            throw new ArgumentException(
+                $"An encoder cannot be registered under /{name.Value}: Crypt belongs to the security handler and abbreviations are not stream filter names.",
+                nameof(encoder));
+        }
+
+        _streamEncoders.Add(encoder);
         return this;
     }
 

@@ -69,6 +69,16 @@ public sealed class PdfType3Font : PdfSimpleFont
         return table.Streams[code];
     }
 
+    /// <summary>
+    /// Returns what the glyph description of a character code declares with its first operator (<c>d0</c> or <c>d1</c>), read without
+    /// running it; kind <see cref="Type3GlyphKind.None"/> when the code selects no description.
+    /// </summary>
+    /// <param name="code">The character code.</param>
+    /// <returns>The declared metrics.</returns>
+    /// <remarks>ISO 32000-2 §9.6.4, Table 111. Allocation-free once read: cached per description while its stream is unchanged.</remarks>
+    internal Type3GlyphMetrics GetGlyphMetrics(byte code) =>
+        FindCharProc(code, out _) is { } procedure ? Document.ContentResources.GetType3GlyphMetrics(procedure) : default;
+
     /// <summary>Gets the glyph description of each code, rebuilt when the names or the <c>CharProcs</c> dictionary changed.</summary>
     private CharProcTable Procedures
     {

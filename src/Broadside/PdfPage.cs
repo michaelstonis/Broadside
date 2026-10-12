@@ -174,6 +174,30 @@ public sealed class PdfPage
         ContentInterpreter.RunPage(this, _document, processor, options);
     }
 
+    /// <summary>Extracts the page's text: every glyph its content shows, with its Unicode text, position, font, size and rendering mode.</summary>
+    /// <returns>The glyphs in content order and their text.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content or its fonts.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §9.4.4, §9.10 and §14.9.4; see <see cref="Text.TextExtractor"/>. Text hidden by optional content is left out;
+    /// invisible text, artifacts and text replaced by <c>ActualText</c> are extracted and flagged (<see cref="Text.TextGlyphFlags"/>).
+    /// Positions are in default user space. Annotation appearances are not part of the page's content and are not extracted.
+    /// </remarks>
+    public Text.TextPage ExtractText() => ExtractText(new Text.TextExtractionOptions());
+
+    /// <summary>Extracts the page's text with options.</summary>
+    /// <param name="options">What to extract and the content run's options.</param>
+    /// <returns>The glyphs in content order and their text.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content or its fonts.</exception>
+    /// <exception cref="OperationCanceledException">The content options' cancellation token was canceled.</exception>
+    /// <remarks>ISO 32000-2 §9.4.4, §9.10, §8.11.3.1 and §14.9.4. As <see cref="ExtractText()"/>.</remarks>
+    public Text.TextPage ExtractText(Text.TextExtractionOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        var extractor = new Text.TextExtractor(options);
+        ProcessContent(extractor, options.ContentOptions ?? ContentInterpreter.DefaultOptions);
+        return extractor.ToTextPage();
+    }
+
     /// <summary>Builds the page's display list: its content interpreted once into resolved drawing operations any backend replays.</summary>
     /// <returns>The list; a new one on every call, reading the page live.</returns>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>

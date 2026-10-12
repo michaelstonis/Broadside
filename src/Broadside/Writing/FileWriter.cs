@@ -14,7 +14,11 @@ namespace Broadside.Writing;
 /// <param name="Reference">The object's number and generation, kept from the source.</param>
 /// <param name="Value">The object.</param>
 /// <param name="Source">The bytes the object was read from, copied instead of serializing <paramref name="Value"/>; <see langword="null"/> to serialize.</param>
-internal readonly record struct WriterObject(CosReference Reference, CosObject Value, ObjectSourceBytes? Source);
+/// <param name="Compress">
+/// Whether <paramref name="Value"/>, an unfiltered stream, is written compressed with the <c>FlateDecode</c> encoder when that makes it
+/// smaller (issue #142); otherwise it is written as <paramref name="Source"/> says.
+/// </param>
+internal readonly record struct WriterObject(CosReference Reference, CosObject Value, ObjectSourceBytes? Source, bool Compress = false);
 
 /// <summary>
 /// Writes a complete PDF file: header, objects, cross-reference information and trailer, as a sequence of chunks that a synchronous
@@ -46,6 +50,9 @@ internal sealed class FileWriter
 
     private static readonly PdfVersion StreamVersion = new(1, 5);
 
+    /// <summary>What a compressed stream's dictionary grows by: <c> /Filter /FlateDecode</c>.</summary>
+    private static readonly int FilterEntryLength = " /Filter /FlateDecode".Length;
+
     private readonly PdfSource? _source;
     private readonly PdfVersion _version;
     private readonly IReadOnlyList<WriterObject> _objects;
@@ -53,6 +60,9 @@ internal sealed class FileWriter
     private readonly CosDictionary _trailer;
     private readonly CosString? _firstIdentifier;
     private readonly PdfCrossReferenceLayout _layout;
+    private readonly IStreamEncoder _flate;
+    private readonly CompressionLevel _compressionLevel;
+    private readonly IReadOnlyDictionary<CosReference, CosReference>? _references;
 
     /// <summary>Initializes a new instance of the <see cref="FileWriter"/> class.</summary>
     /// <param name="source">The file source bytes are copied from; <see langword="null"/> when no object has source bytes.</param>
@@ -62,6 +72,12 @@ internal sealed class FileWriter
     /// <param name="trailer">The trailer entries to write besides <c>Size</c> and <c>ID</c>.</param>
     /// <param name="firstIdentifier">The first file identifier to keep, or <see langword="null"/> for a file written for the first time.</param>
     /// <param name="layout">The cross-reference layout.</param>
+    /// <param name="flate">The <c>FlateDecode</c> encoder for object streams, the cross-reference stream and compressed streams.</param>
+    /// <param name="compressionLevel">How hard <paramref name="flate"/> compresses.</param>
+    /// <param name="references">
+    /// For a renumbered file, the number each reference in a serialized object, the trailer included, is written with; a reference
+    /// it does not hold is written as <c>null</c>. <see langword="null"/> writes references as they are.
+    /// </param>
     public FileWriter(
         PdfSource? source,
         PdfVersion version,
@@ -69,7 +85,10 @@ internal sealed class FileWriter
         IReadOnlyDictionary<int, int> freeGenerations,
         CosDictionary trailer,
         CosString? firstIdentifier,
-        PdfCrossReferenceLayout layout)
+        PdfCrossReferenceLayout layout,
+        IStreamEncoder flate,
+        CompressionLevel compressionLevel,
+        IReadOnlyDictionary<CosReference, CosReference>? references = null)
     {
         _source = source;
         _version = layout != PdfCrossReferenceLayout.Table && version < StreamVersion ? StreamVersion : version;
@@ -78,6 +97,9 @@ internal sealed class FileWriter
         _trailer = trailer;
         _firstIdentifier = firstIdentifier;
         _layout = layout;
+        _flate = flate;
+        _compressionLevel = compressionLevel;
+        _references = references;
     }
 
     /// <summary>Writes the file. Each chunk is valid until the next one is requested.</summary>
@@ -104,7 +126,7 @@ internal sealed class FileWriter
             }
 
             entries[item.Reference.ObjectNumber] = new XrefEntry(XrefEntryKind.InUse, flushed + buffer.WrittenSpan.Length, item.Reference.Generation);
-            WriteIndirectObject(buffer, item.Reference, item, _source);
+            WriteIndirectObject(buffer, item.Reference, item, _references);
             if (buffer.WrittenSpan.Length >= ChunkSize)
             {
                 hash.AppendData(buffer.WrittenSpan);
@@ -127,7 +149,7 @@ internal sealed class FileWriter
             CosStream objectStream = BuildObjectStream(compressible, start, count);
             var reference = new CosReference(container, 0);
             entries[container] = new XrefEntry(XrefEntryKind.InUse, flushed + buffer.WrittenSpan.Length, 0);
-            WriteIndirectObject(buffer, reference, new WriterObject(reference, objectStream, null), source: null);
+            WriteIndirectObject(buffer, reference, new WriterObject(reference, objectStream, null), references: null);
             if (buffer.WrittenSpan.Length >= ChunkSize)
             {
                 hash.AppendData(buffer.WrittenSpan);
@@ -175,22 +197,54 @@ internal sealed class FileWriter
     }
 
     /// <summary>Writes <c>N G obj</c>, the object's bytes, and <c>endobj</c> (§7.3.10).</summary>
-    private static void WriteIndirectObject(PooledBufferWriter buffer, CosReference reference, WriterObject item, PdfSource? source)
+    private void WriteIndirectObject(PooledBufferWriter buffer, CosReference reference, WriterObject item, IReadOnlyDictionary<CosReference, CosReference>? references)
     {
         WriteInteger(buffer, reference.ObjectNumber);
         buffer.Write(" "u8);
         WriteInteger(buffer, reference.Generation);
         buffer.Write(" obj\n"u8);
-        WriteBody(buffer, item, source);
+        if (!item.Compress || item.Value is not CosStream stream || !TryWriteCompressed(buffer, stream, references))
+        {
+            WriteBody(buffer, item, _source, references);
+        }
+
         buffer.Write("\nendobj\n"u8);
     }
 
-    /// <summary>Writes an object's bytes: copied from the source when it has them, serialized otherwise.</summary>
-    private static void WriteBody(PooledBufferWriter buffer, WriterObject item, PdfSource? source)
+    /// <summary>
+    /// Writes an unfiltered stream compressed with the <c>FlateDecode</c> encoder (§7.4.4): a copy of its dictionary with a
+    /// <c>Filter</c> entry, and the encoded data. The document's own stream is not changed. Writes nothing and returns
+    /// <see langword="false"/> when compressing would not make the object smaller. The copy is written through
+    /// <paramref name="references"/>, so a renumbered file renumbers its references, and with a direct <c>Length</c> for the encoded
+    /// data (§7.3.8.2).
+    /// </summary>
+    private bool TryWriteCompressed(PooledBufferWriter buffer, CosStream stream, IReadOnlyDictionary<CosReference, CosReference>? references)
+    {
+        ReadOnlyMemory<byte> data = stream.EncodedData;
+        using var encoded = new PooledBufferWriter(Math.Max(256, data.Length / 2), Array.MaxLength);
+        _flate.Encode(data.Span, encoded, new StreamEncoderContext { StreamDictionary = stream.Dictionary, CompressionLevel = _compressionLevel });
+        if (encoded.WrittenSpan.Length + FilterEntryLength >= data.Length)
+        {
+            return false;
+        }
+
+        var dictionary = new CosDictionary();
+        foreach (KeyValuePair<CosName, CosObject> entry in stream.Dictionary)
+        {
+            dictionary[entry.Key] = entry.Value;
+        }
+
+        dictionary[FilterNames.Filter] = FilterNames.FlateDecode;
+        CosWriter.Write(new CosStream(dictionary, encoded.WrittenMemory), buffer, references);
+        return true;
+    }
+
+    /// <summary>Writes an object's bytes: copied from the source when it has them, serialized (with its references renumbered) otherwise.</summary>
+    private static void WriteBody(PooledBufferWriter buffer, WriterObject item, PdfSource? source, IReadOnlyDictionary<CosReference, CosReference>? references)
     {
         if (item.Source is not { } bytes)
         {
-            item.Value.WriteTo(buffer);
+            CosWriter.Write(item.Value, buffer, references);
             return;
         }
 
@@ -232,17 +286,19 @@ internal sealed class FileWriter
             WriteInteger(header, item.Reference.ObjectNumber);
             header.Write(" "u8);
             WriteInteger(header, bodies.WrittenSpan.Length);
-            WriteBody(bodies, item, _source);
+            WriteBody(bodies, item, _source, _references);
         }
 
         header.Write("\n"u8);
-        byte[] data = Deflate(header.WrittenSpan, bodies.WrittenSpan);
+        int first = header.WrittenCount;
+        header.Write(bodies.WrittenSpan);
+        byte[] data = Deflate(header.WrittenSpan);
 
         var dictionary = new CosDictionary
         {
             [KnownNames.Type] = KnownNames.ObjStm,
             [KnownNames.N] = new CosInteger(count),
-            [KnownNames.First] = new CosInteger(header.WrittenCount),
+            [KnownNames.First] = new CosInteger(first),
             [FilterNames.Filter] = FilterNames.FlateDecode,
         };
         return new CosStream(dictionary, data);
@@ -276,7 +332,7 @@ internal sealed class FileWriter
 
         CosDictionary trailer = TrailerDictionary(size, identifier);
         buffer.Write("trailer\n"u8);
-        trailer.WriteTo(buffer);
+        CosWriter.Write(trailer, buffer, _references);
         WriteEnd(buffer, xrefOffset);
     }
 
@@ -328,7 +384,7 @@ internal sealed class FileWriter
             (previous, row) = (row, previous);
         }
 
-        byte[] data = Deflate(rows, []);
+        byte[] data = Deflate(rows);
 
         var dictionary = new CosDictionary
         {
@@ -344,7 +400,7 @@ internal sealed class FileWriter
         dictionary[FilterNames.DecodeParms] = new CosDictionary { [FilterNames.Predictor] = new CosInteger(12), [FilterNames.Columns] = new CosInteger(columns) };
 
         var reference = new CosReference(number, 0);
-        WriteIndirectObject(buffer, reference, new WriterObject(reference, new CosStream(dictionary, data), null), source: null);
+        WriteIndirectObject(buffer, reference, new WriterObject(reference, new CosStream(dictionary, data), null), _references);
         WriteEnd(buffer, offset);
     }
 
@@ -385,24 +441,18 @@ internal sealed class FileWriter
         return table;
     }
 
-    /// <summary>Writes <c>startxref</c>, the offset of the cross-reference information, and <c>%%EOF</c> (§7.5.5).</summary>
     /// <summary>
-    /// The zlib/deflate encoding (RFC 1950, RFC 1951) of <paramref name="first"/> followed by <paramref name="second"/>: the data of a
-    /// <c>FlateDecode</c> stream (§7.4.4). Encoders are not behind the filter extension point yet (Phase 4A), so this is the writer's
-    /// one direct use of the BCL's <see cref="ZLibStream"/>.
+    /// The data of a <c>FlateDecode</c> stream (§7.4.4) holding <paramref name="data"/>, written by the engine's <c>FlateDecode</c>
+    /// encoder at the save's compression level.
     /// </summary>
-    private static byte[] Deflate(ReadOnlySpan<byte> first, ReadOnlySpan<byte> second)
+    private byte[] Deflate(ReadOnlySpan<byte> data)
     {
-        var data = new MemoryStream();
-        using (var zlib = new ZLibStream(data, CompressionLevel.Optimal, leaveOpen: true))
-        {
-            zlib.Write(first);
-            zlib.Write(second);
-        }
-
-        return data.ToArray();
+        var output = new ArrayBufferWriter<byte>(Math.Max(256, data.Length / 2));
+        _flate.Encode(data, output, new StreamEncoderContext { CompressionLevel = _compressionLevel });
+        return output.WrittenSpan.ToArray();
     }
 
+    /// <summary>Writes <c>startxref</c>, the offset of the cross-reference information, and <c>%%EOF</c> (§7.5.5).</summary>
     private static void WriteEnd(IBufferWriter<byte> buffer, long xrefOffset)
     {
         buffer.Write("\nstartxref\n"u8);

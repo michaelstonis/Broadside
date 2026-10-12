@@ -93,6 +93,7 @@ public static class Corpus
         "color-operators.pdf",
         "default-colorspaces.pdf",
         "separation-special.pdf",
+        "icc-rgb-matrix.pdf",
         "form-xobject-nested.pdf",
         "extgstate-params.pdf",
         "marked-content.pdf",
