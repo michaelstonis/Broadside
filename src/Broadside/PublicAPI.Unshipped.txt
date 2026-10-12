@@ -3401,6 +3401,11 @@ Broadside.Fonts.SystemFontResolver.Directories.get -> System.Collections.Generic
 Broadside.Fonts.SystemFontResolver.ResolveFont(Broadside.Fonts.FontQuery! query) -> Broadside.Fonts.FontResolution?
 Broadside.Fonts.SystemFontResolver.SystemFontResolver() -> void
 Broadside.Fonts.SystemFontResolver.SystemFontResolver(System.Collections.Generic.IEnumerable<string!>! directories) -> void
+Broadside.Fonts.SystemFontResolver.SystemFontResolver(System.Collections.Generic.IEnumerable<string!>! directories, string? indexPath) -> void
+Broadside.Fonts.SystemFontResolver.IndexPath.get -> string?
+Broadside.PdfOptions.SystemFontIndexPath.get -> string?
+Broadside.PdfOptions.SystemFontIndexPath.set -> void
+Broadside.PdfOptions.WithSystemFontIndexPath(string? path) -> Broadside.PdfOptions!
 Broadside.PdfOptions.UseFontResolver(Broadside.Fonts.IFontResolver! resolver) -> Broadside.PdfOptions!
 Broadside.PdfOptions.UseSystemFontResolver(Broadside.Fonts.IFontResolver? resolver) -> Broadside.PdfOptions!
 Broadside.Filters.CcittFaxDecodeFilter
