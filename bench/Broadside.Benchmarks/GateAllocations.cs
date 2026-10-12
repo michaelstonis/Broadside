@@ -93,6 +93,11 @@ internal static class GateAllocations
             throw new NotSupportedException("benchmarks with [Arguments] are not supported by the allocation gate yet");
         }
 
+        if (descriptor.IterationSetupMethod is not null || descriptor.IterationCleanupMethod is not null)
+        {
+            throw new NotSupportedException("benchmarks with [IterationSetup] or [IterationCleanup] are not supported by the allocation gate yet");
+        }
+
         object instance = Activator.CreateInstance(descriptor.Type)
             ?? throw new InvalidOperationException($"cannot create {descriptor.Type}");
         foreach (ParameterInstance parameter in benchmark.Parameters.Items)

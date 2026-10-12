@@ -325,12 +325,12 @@
     "Broadside.Benchmarks.SecurityBenchmarks.Revision6Hash": 8952,
     "Broadside.Benchmarks.StructureTreeBenchmarks.BuildPageMcidIndex(Mcids: 10)": 65904,
     "Broadside.Benchmarks.StructureTreeBenchmarks.BuildPageMcidIndex(Mcids: 1000)": {
-      "Min": 690000,
-      "Max": 702000
+      "Min": 692436,
+      "Max": 697956
     },
     "Broadside.Benchmarks.StructureTreeBenchmarks.BuildPageMcidIndex(Mcids: 10000)": {
-      "Min": 6770000,
-      "Max": 6840000
+      "Min": 6778580,
+      "Max": 6826820
     },
     "Broadside.Benchmarks.SystemFontBenchmarks.BuildIndex": 1034816,
     "Broadside.Benchmarks.SystemFontBenchmarks.ResolveHelvetica": 360,

@@ -69,16 +69,17 @@ Results land in `BenchmarkDotNet.Artifacts/results/` (gitignored). `--job dry` n
 
 `.github/workflows/bench-gate.yml` (issue #139; everything about it is in `bench/baselines/gate/README.md`) runs every benchmark of a pull request that touches `src/`, `bench/`, the corpus or the test support code, next to the same benchmarks built from its base commit on the same runner, and fails when:
 
-- a case's `Allocated` differs in any way from `bench/baselines/gate/allocations.json` (more or fewer bytes), or a case is new, renamed or gone without the baseline saying so;
-- a case is at least 20 % slower than the base in both interleaved rounds and in a rerun (the full rule is in the README).
+- the bytes one call of a case allocates (measured by `Broadside.Benchmarks --gate-allocations`, steady state, current thread) differ in any way from `bench/baselines/gate/allocations.json` (more or fewer), or a case is new, renamed or gone without the baseline saying so;
+- a case is at least 20 % slower than the base overall and at least 15 % slower in each of two interleaved rounds and in a rerun (the full rule and why are in the README).
 
 What that means for you:
 
-- **A new benchmark or a new `[Params]` value, a rename, a removal, or an intended allocation change** fails the gate until the baseline is updated in the same PR. The failing run's summary prints the exact lines to change, and its `bench-gate-baseline` artifact is the whole file re-recorded on the CI runner; commit either. Do not record the file on your own machine unless the README says your platform matches.
+- **A new benchmark or a new `[Params]` value, a rename, a removal, or an intended allocation change** fails the gate until the baseline is updated in the same PR. The failing run's summary prints the exact lines to change, and its `bench-gate-baseline` artifact is the whole file re-recorded on the CI runner; commit either. Do not record the file on your own machine: the figures differ by platform.
 - **A benchmark with one case per corpus file** passes its `[ParamsSource]` values through `BenchmarkPartition.Select` and is added to the workflow's `SPLIT` list, so its cases spread over the gate's runners (`OpenAndWalkBenchmarks` does).
 - **Keep class, method and `[Params]` names stable**: the gate keys every comparison by BenchmarkDotNet's full name.
 - **Keep `Allocated` at `-` on hot paths**: the gate locks in whatever the baseline holds, so a zero recorded today is enforced from then on.
-- **Run it locally** before pushing a hot-path change: `bench/run-gate.sh --base <worktree of the base> --head . --out artifacts/bench-gate --methods <file>` then `dotnet run --project tools/BenchGate -- compare --baseline bench/baselines/gate/allocations.json --results artifacts/bench-gate`.
+- **Only `[GlobalSetup]`/`[GlobalCleanup]` and parameters**: the gate's allocation mode runs each case itself and does not support `[Arguments]` or `[IterationSetup]`; a benchmark that needs them must extend `GateAllocations.cs`.
+- **Run it locally** before pushing a hot-path change: `bench/run-gate.sh --base <worktree of the base> --head . --out artifacts/bench-gate --methods <file>` then `dotnet run --project tools/BenchGate -- compare --baseline bench/baselines/gate/allocations.json --results artifacts/bench-gate --subset true`.
 
 ## Worked example: `CorpusBenchmarks`
 
