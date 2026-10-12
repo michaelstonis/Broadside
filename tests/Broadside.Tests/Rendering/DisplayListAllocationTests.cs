@@ -97,5 +97,7 @@ public sealed class DisplayListAllocationTests
             Strokes++;
             Checksum += path.Points.Length + style.LineWidth + style.DashArray.Length + color.Components.Length;
         }
+
+        public void IntersectClip(PathView path, FillRule rule) => Checksum += path.Points.Length + (int)rule;
     }
 }

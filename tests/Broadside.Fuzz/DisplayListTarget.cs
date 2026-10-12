@@ -9,9 +9,10 @@ namespace Broadside.Fuzz;
 /// replays the list twice into a checking backend. Invariants: nothing throws in lenient mode; saves and restores balance and never
 /// go below zero; every path's verbs take exactly its points and every subpath starts with a moveto; every fill's and stroke's colour
 /// space is not a Pattern space and has its components; every stroke's width, miter limit and dash pattern are in their ranges (issue
-/// #99); two replays of one list make the same calls. Each call runs in a new empty document.
+/// #99); every clip's path is well formed with a known rule (issue #105); two replays of one list make the same calls. Each call runs
+/// in a new empty document.
 /// </summary>
-/// <remarks>ADR 0006; ISO 32000-2 §8.4.2, §8.4.3, §8.5.3, §8.6.</remarks>
+/// <remarks>ADR 0006; ISO 32000-2 §8.4.2, §8.4.3, §8.5.3, §8.5.4, §8.6.</remarks>
 internal static class DisplayListTarget
 {
     public static void Target(ReadOnlySpan<byte> data)
@@ -112,6 +113,27 @@ internal static class DisplayListTarget
             Check(color.ColorSpace.Family != PdfColorSpaceFamily.Pattern, "a fill in a Pattern colour space");
             Check(color.Components.Length <= PdfColor.MaxComponents, "too many components");
             Checksum += points + color.Components.Length;
+        }
+
+        public void IntersectClip(PathView path, FillRule rule)
+        {
+            Calls++;
+            Check(!path.IsEmpty && path.Verbs[0] == PathVerb.MoveTo, "a clipping path does not start with a moveto");
+            Check(rule is FillRule.NonZero or FillRule.EvenOdd, "a clip with an unknown rule");
+            int points = 0;
+            foreach (PathVerb verb in path.Verbs)
+            {
+                points += verb switch
+                {
+                    PathVerb.MoveTo or PathVerb.LineTo => 1,
+                    PathVerb.QuadTo => 2,
+                    PathVerb.CubicTo => 3,
+                    _ => 0,
+                };
+            }
+
+            Check(points == path.Points.Length, "clipping path verbs and points disagree");
+            Checksum += points + (2 * (int)rule) + 1;
         }
     }
 }

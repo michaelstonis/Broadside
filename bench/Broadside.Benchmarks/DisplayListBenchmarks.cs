@@ -60,5 +60,7 @@ public class DisplayListBenchmarks
         public void FillPath(PathView path, FillRule rule, in DisplayColor color) => Calls += path.Verbs.Length + color.Components.Length;
 
         public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color) => Calls += path.Verbs.Length + style.DashArray.Length + color.Components.Length;
+
+        public void IntersectClip(PathView path, FillRule rule) => Calls += path.Verbs.Length;
     }
 }

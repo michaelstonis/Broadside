@@ -167,6 +167,7 @@ public sealed class DisplayListTests
                 "save",
                 "save",
                 "transform [2 0 0 2 100 100]",
+                "clip nonzero M 0 0 L 10 0 L 10 10 L 0 10 Z",
                 "fill nonzero M 0 0 L 10 0 L 10 10 L 0 10 Z | DeviceGray 0.5",
                 "restore",
                 "restore",
@@ -176,14 +177,14 @@ public sealed class DisplayListTests
     }
 
     [Fact]
-    public void Paths_ended_with_n_paint_nothing()
+    public void Paths_ended_with_n_paint_nothing_and_w_n_only_clips()
     {
         using PdfDocument document = PdfDocument.Open(Page("<< >>", "0 0 1 1 re n 0 0 1 1 re W n"));
         var recorder = new RecordingBackend();
 
         document.Pages[0].CreateDisplayList().Replay(recorder);
 
-        Assert.Empty(recorder.Operations);
+        Assert.Equal(["clip nonzero M 0 0 L 1 0 L 1 1 L 0 1 Z"], recorder.Operations);
     }
 
     [Fact]
@@ -298,6 +299,10 @@ public sealed class DisplayListTests
         }
 
         public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
+        {
+        }
+
+        public void IntersectClip(PathView path, FillRule rule)
         {
         }
     }

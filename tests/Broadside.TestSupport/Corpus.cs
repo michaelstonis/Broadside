@@ -144,6 +144,7 @@ public static class Corpus
         "paths-fill-rules.pdf",
         "page-rotation.pdf",
         "paths-strokes.pdf",
+        "clipping-paths.pdf",
     ];
 
     private static readonly string[] Malformed =
