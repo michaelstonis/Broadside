@@ -207,4 +207,8 @@ public static class Corpus
 
     /// <summary>Opens a corpus file for reading. The caller disposes the stream.</summary>
     public static FileStream Open(string fileName) => File.OpenRead(Path(fileName));
+
+    /// <summary>The user password of a file in the "Password-protected files" table, or <see langword="null"/> for any other file.</summary>
+    public static string? UserPassword(string fileName) =>
+        Array.Find(PasswordProtected, file => string.Equals(file.FileName, fileName, StringComparison.Ordinal)).UserPassword;
 }

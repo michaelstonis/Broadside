@@ -11,6 +11,8 @@
 | `Broadside.Fonts.Standard14.Tests` | Tests for the standard 14 font metrics and programs. |
 | `Broadside.Fonts.Cmaps.Tests` | Tests for the predefined CMaps. |
 | `Broadside.TestSupport` | A plain library shared by the test projects: the `Corpus` helper and the Verify configuration. Not a test project. |
+| `Broadside.GoldenImages` | A plain library for rendering test projects: the golden-image harness (perceptual comparison, the reviewed threshold table, access to `Golden/`). Sees public API only. See "Golden images" below. |
+| `Golden/` | The golden images: every page of every corpus file rendered by the software rasterizer at 72 DPI. |
 | `Broadside.Fuzz` | The SharpFuzz harness. A console application, not a test project; see its [README](Broadside.Fuzz/README.md). |
 | `Corpus/` | Hand-written minimal PDFs, one feature each; see its [README](Corpus/README.md). |
 
@@ -78,6 +80,16 @@ or install the [Verify CLI](https://github.com/VerifyTests/Verify.Terminal) (`do
 Verify 33 and later require the consumer to state its license terms at build time; `tests/Directory.Build.props` claims the open-source exemption with a twelve-month expiry that has to be bumped before it lapses. The comment there says what to do.
 
 Rendering snapshots in `Broadside.Rendering.Tests` are PNG files (`Bitmap.SavePng`) compared by their decoded pixels, not their bytes (`PngSnapshots` registers the comparer), so a different zlib build never fails a test whose image is the same. Decoding uses StbImageSharp, a managed decoder independent of the encoder. Open the `.received.png` and look at it before accepting it.
+
+## Golden images
+
+Every page of every hand-written corpus file is rendered by the software rasterizer at 72 DPI and kept as a reviewed PNG in `tests/Golden/<file>.page<N>.verified.png` (issue #120). `Broadside.Rendering.Tests.Golden.GoldenImageTests` produces them through the normal Verify flow, so adding a corpus file (or changing what the rasterizer draws) fails once per affected page and leaves a `.received.png` to look at and accept. To re-baseline after a deliberate rendering change, run the rendering tests once with `BROADSIDE_ACCEPT_GOLDEN=1`, then review every changed image before committing.
+
+The comparison (`tests/Broadside.GoldenImages`, `GoldenComparison`) is perceptual, not byte-exact: each pixel's difference is a YIQ distance scaled so white against black is 1. Pixels on an edge of the golden image may differ up to an edge tolerance (anti-aliasing), pixels in flat areas only up to a much tighter one (a wrong colour is a bug), and a page matches when at most a given number of pixels exceed their tolerance. The default, `GoldenThreshold.Default` (edges 0.3, flat 0.05, no pixel over), tolerates another renderer's anti-aliasing at every edge yet fails a glyph moved by one pixel; `GoldenComparisonTests` proves both on synthetic glyphs. The software rasterizer is held to its own images more tightly (0.01). Any looser threshold for a page is a row with a reason in `GoldenThresholds.Rules`, the one reviewed table.
+
+A failing comparison writes a `.diff.png` beside the received image: red pixels are beyond tolerance, amber ones within it, the rest is the golden image faded. Both are gitignored, and CI uploads them as the `golden-images-<os>` artifact when a run fails.
+
+Backend test projects reference `Broadside.GoldenImages` and call `GoldenCorpus.AssertMatchesReference("<backend>", fileName, page, GoldenImage.FromPixels(...))` with their own render; see `Broadside.Rendering.Skia.Tests.GoldenHarnessTests` and the `adding-a-rendering-backend` skill. They need no rasterizer internals.
 
 ## The AOT smoke host
 
