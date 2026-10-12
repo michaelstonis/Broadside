@@ -33,6 +33,7 @@ public static class Corpus
         "text-cid-identity-v.pdf",
         "text-cid-embedded-cmap.pdf",
         "text-cidcff-predefined-cmap.pdf",
+        "text-cid-nonembedded.pdf",
         "text-tounicode-bf.pdf",
         "text-glyph-names.pdf",
         "xref-stream.pdf",
@@ -138,6 +139,8 @@ public static class Corpus
         "jbig2-generic.pdf",
         "jbig2-generic-mmr.pdf",
         "jbig2-annex-h.pdf",
+        "paths-fill-rules.pdf",
+        "page-rotation.pdf",
     ];
 
     private static readonly string[] Malformed =

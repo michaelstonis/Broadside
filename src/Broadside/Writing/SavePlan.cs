@@ -13,7 +13,11 @@ namespace Broadside.Writing;
 /// Objects that describe the old file's structure are dropped and their numbers freed: cross-reference streams (§7.5.8) and object
 /// streams (§7.5.7), which the new file replaces with its own, and the linearization parameter dictionary and hint streams (Annex F,
 /// F.3.6: a regenerated file is no longer linearized). Such an object is kept, as an ordinary object, when a kept object or the
-/// trailer refers to it, which only a damaged file does.
+/// trailer refers to it, which only a damaged file does. Objects added to the document since it was read are written like the
+/// others; objects removed from it are not, and their numbers are freed with the generation raised by one (issue #145).
+/// </para>
+/// <para>
+/// <see cref="CreateIncremental"/> plans an incremental update instead (§7.5.6), through the same <see cref="FileWriter"/>.
 /// </para>
 /// <para>
 /// With <see cref="PdfSaveOptions.RemoveUnreachableObjects"/>, only the objects the trailer reaches through indirect references are
@@ -76,6 +80,12 @@ internal static class SavePlan
         var freeGenerations = new Dictionary<int, int>();
         foreach ((int number, XrefEntry entry) in crossReference.Entries)
         {
+            if (loader.RemovedObjects.TryGetValue(number, out int removed))
+            {
+                freeGenerations[number] = NextGeneration(removed);
+                continue;
+            }
+
             switch (entry.Kind)
             {
                 case XrefEntryKind.InUse:
@@ -88,6 +98,11 @@ internal static class SavePlan
                     freeGenerations[number] = entry.Generation;
                     break;
             }
+        }
+
+        foreach (int number in loader.AddedObjects.Keys)
+        {
+            existing[number] = new CosReference(number, 0);
         }
 
         var trailer = new CosDictionary();
@@ -121,7 +136,7 @@ internal static class SavePlan
             {
                 if (!keptReferences.Contains(reference))
                 {
-                    freeGenerations[reference.ObjectNumber] = Math.Min(reference.Generation + 1, CosReference.MaxGeneration);
+                    freeGenerations[reference.ObjectNumber] = NextGeneration(reference.Generation);
                 }
             }
 
@@ -144,7 +159,7 @@ internal static class SavePlan
             bool compress = options.StreamCompression switch
             {
                 PdfStreamCompression.AllStreams => IsCompressible(value),
-                PdfStreamCompression.ChangedStreams => value.IsDirty && IsCompressible(value),
+                PdfStreamCompression.ChangedStreams => (value.IsDirty || loader.AddedObjects.ContainsKey(reference.ObjectNumber)) && IsCompressible(value),
                 _ => false,
             };
             objects.Add(new WriterObject(references is null ? reference : references[reference], value, bytes, compress));
@@ -169,6 +184,146 @@ internal static class SavePlan
             options.CompressionLevel,
             references);
     }
+
+    /// <summary>Plans an incremental update of an opened document (§7.5.6).</summary>
+    /// <param name="source">The document's file, which the update is appended to.</param>
+    /// <param name="loader">The document's loader.</param>
+    /// <param name="options">Which of the written streams are compressed, and how hard.</param>
+    /// <param name="encoders">The engine's encoders; streams are compressed with its <c>FlateDecode</c> encoder.</param>
+    /// <returns>The writer.</returns>
+    /// <exception cref="NotSupportedException">The document is encrypted.</exception>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §7.5.6: "A cross-reference section for an incremental update shall contain entries only for objects that have been
+    /// changed, replaced, or deleted." The update writes every loaded object that is dirty, every added object, and a free entry for
+    /// every removed one, with its generation raised by one (H.7.4). Nothing is loaded: an object nobody loaded has not changed. The
+    /// written objects are serialized; a written stream is compressed per <see cref="PdfSaveOptions.StreamCompression"/>.
+    /// </para>
+    /// <para>
+    /// The section takes the form of the file's newest one, a stream after a stream and a table after a table or a hybrid file's
+    /// table (§7.5.8.4), and its trailer repeats the newest trailer's entries except <c>Prev</c>, <c>XRefStm</c> and <c>Size</c>, with
+    /// <c>Prev</c> pointing at that section. A file whose cross-reference information had to be rebuilt (issue #41) has no section to
+    /// point at: its update lists every object instead, so readers no longer need to rebuild it, and it writes again every object
+    /// read with a repair, so appending bytes cannot change how it reads (an object cut off by the end of the file would run on).
+    /// </para>
+    /// </remarks>
+    public static FileWriter CreateIncremental(PdfSource source, ObjectLoader loader, PdfSaveOptions options, StreamEncoderRegistry encoders)
+    {
+        CrossReference crossReference = loader.CrossReference;
+        CosDictionary sourceTrailer = crossReference.Trailer;
+        if (sourceTrailer.ContainsKey(KnownNames.Encrypt))
+        {
+            throw new NotSupportedException(
+                "Saving an encrypted document as an incremental update is not supported yet: the update's objects would have to be encrypted with the document's key and its integrity data recomputed.");
+        }
+
+        var objects = new List<WriterObject>();
+        var kept = new Dictionary<int, XrefEntry>();
+        var freeGenerations = new Dictionary<int, int>();
+        bool listsEverything = crossReference.Sections[0].IsReconstructed;
+        foreach ((int number, XrefEntry entry) in crossReference.Entries)
+        {
+            if (loader.RemovedObjects.TryGetValue(number, out int removed))
+            {
+                freeGenerations[number] = NextGeneration(removed);
+                continue;
+            }
+
+            if (entry.Kind == XrefEntryKind.Free)
+            {
+                if (listsEverything)
+                {
+                    freeGenerations[number] = entry.Generation;
+                }
+
+                continue;
+            }
+
+            var reference = new CosReference(number, entry.Kind == XrefEntryKind.InUse ? entry.Generation : 0);
+            if ((loader.TryGetLoaded(reference, out CosObject? value) && value.IsDirty)
+                || (listsEverything && RereadsDifferently(loader, reference, out value)))
+            {
+                objects.Add(new WriterObject(reference, value, null, options.StreamCompression != PdfStreamCompression.None && IsCompressible(value)));
+            }
+            else if (listsEverything)
+            {
+                kept[number] = entry;
+            }
+        }
+
+        foreach ((int number, CosObject value) in loader.AddedObjects)
+        {
+            objects.Add(new WriterObject(new CosReference(number, 0), value, null, options.StreamCompression != PdfStreamCompression.None && IsCompressible(value)));
+        }
+
+        objects.Sort((left, right) => left.Reference.ObjectNumber.CompareTo(right.Reference.ObjectNumber));
+
+        var trailer = new CosDictionary();
+        foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
+        {
+            if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID))
+            {
+                trailer[entry.Key] = entry.Value;
+            }
+        }
+
+        CosString? firstIdentifier = null;
+        CosString? previousIdentifier = null;
+        if (sourceTrailer.TryGetValue(KnownNames.ID, out CosObject? id)
+            && loader.Resolve(id) is CosArray { Count: 2 } identifiers
+            && loader.Resolve(identifiers[0]) is CosString first
+            && loader.Resolve(identifiers[1]) is CosString second)
+        {
+            firstIdentifier = first;
+            previousIdentifier = second;
+        }
+
+        XrefSectionKind form = listsEverything
+            ? kept.Values.Any(entry => entry.Kind == XrefEntryKind.Compressed) ? XrefSectionKind.Stream : XrefSectionKind.Table
+            : crossReference.Sections[0].Kind;
+        // Above every number the file lists, whatever its Size says (a new cross-reference stream must not take a used number).
+        int size = sourceTrailer.TryGetValue(KnownNames.Size, out CosObject? sizeEntry) && sizeEntry is CosInteger { Value: > 0 and <= MaxObjectNumber } count
+            ? (int)count.Value
+            : 0;
+        foreach (int number in crossReference.Entries.Keys)
+        {
+            size = Math.Max(size, number + 1);
+        }
+        var target = new UpdateTarget(
+            loader.Header.Offset,
+            listsEverything ? null : crossReference.Sections[0].Offset - loader.Header.Offset,
+            form,
+            size,
+            kept,
+            previousIdentifier);
+
+        return new FileWriter(
+            source,
+            loader.Header.Version ?? FileHeader.DefaultVersion,
+            objects,
+            freeGenerations,
+            trailer,
+            firstIdentifier,
+            form == XrefSectionKind.Stream ? PdfCrossReferenceLayout.Stream : PdfCrossReferenceLayout.Table,
+            encoders.Flate,
+            options.CompressionLevel,
+            references: null,
+            target);
+    }
+
+    /// <summary>
+    /// Whether an object of a file whose cross-reference information was rebuilt must be written again for the update to read the
+    /// same: an object read with a repair, such as an unterminated object at the end of the file, which would run on into the
+    /// appended bytes. Loads the object; in strict mode a deviation throws before anything is written.
+    /// </summary>
+    private static bool RereadsDifferently(ObjectLoader loader, CosReference reference, out CosObject value)
+    {
+        value = loader.Load(reference);
+        return !loader.TryGetSourceBytes(reference, out _);
+    }
+
+    /// <summary>The generation a freed number's entry carries: one more than the freed object's, at most 65535 (§7.5.4).</summary>
+    private static int NextGeneration(int generation) => Math.Min(generation + 1, CosReference.MaxGeneration);
 
     /// <summary>
     /// Whether a save may compress an object: a stream without filters (no <c>Filter</c>, no <c>DecodeParms</c>, its data in the

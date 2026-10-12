@@ -64,6 +64,7 @@ internal static class FuzzTargets
         ["font-truetype"] = FontTrueType,
         ["font-cff"] = FontCff,
         ["font-scanner"] = FontScanner,
+        ["font-index"] = FontIndex,
         ["font-type1"] = FontType1,
         ["cmap"] = CMapFile,
         ["tounicode"] = ToUnicodeFile,
@@ -76,6 +77,7 @@ internal static class FuzzTargets
         ["default-appearance"] = DefaultAppearanceTarget.Target,
         ["display-list"] = DisplayListTarget.Target,
         ["icc-profile"] = IccProfileTarget.Target,
+        ["rasterize"] = RasterizeTarget.Target,
     };
 
     /// <summary>
@@ -89,6 +91,8 @@ internal static class FuzzTargets
         public static readonly CosName Info = new("Info");
         public static readonly CosName Filter = new("Filter");
         public static readonly CosName DecodeParms = new("DecodeParms");
+        public static readonly CosName Lang = new("Lang");
+        public static readonly CosName Marker = new("Marker");
     }
 
     /// <summary>
@@ -573,6 +577,70 @@ internal static class FuzzTargets
     }
 
     /// <summary>
+    /// The stored system font index (#93) over the input as the files part of a store for the directory <c>/fonts</c> (an input
+    /// starting with <c>BSFI</c> is read as a whole store, for the directories it names). A store that reads must list each file once with a path, faces of
+    /// non-empty names, face indexes under 256 and weights from 1 to 1,000, and must write back to bytes that read to the same
+    /// faces.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.6.2.1 and §9.8 (finding a non-embedded font's program); ADR 0009.</remarks>
+    /// <summary>The directories a whole store names (after the magic and the version), so a real store seeds <see cref="FontIndex"/>.</summary>
+    private static string[]? StoredDirectories(byte[] store)
+    {
+        try
+        {
+            using var reader = new BinaryReader(new MemoryStream(store, 8, store.Length - 8, writable: false));
+            int count = reader.ReadInt32();
+            return count is >= 0 and <= 64 ? [.. Enumerable.Range(0, count).Select(_ => reader.ReadString())] : null;
+        }
+        catch (Exception exception) when (exception is EndOfStreamException or FormatException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static void FontIndex(ReadOnlySpan<byte> data)
+    {
+        string[] directories = ["/fonts"];
+        byte[] store;
+        if (data.StartsWith("BSFI"u8))
+        {
+            store = data.ToArray();
+            directories = StoredDirectories(store) ?? directories;
+        }
+        else
+        {
+            using var header = new MemoryStream();
+            SystemFontIndexFile.Write(header, directories, []);
+            store = [.. header.ToArray().AsSpan(0, (int)header.Length - 4), .. data];
+        }
+
+        if (SystemFontIndexFile.Read(store, directories) is not { } files)
+        {
+            return;
+        }
+
+        var listed = new List<(FontFileEntry File, SystemFontFace[] Faces)>();
+        foreach ((string path, StoredFontFile file) in files)
+        {
+            if (path.Length == 0 || file.Faces.Any(face => face.FaceIndex is < 0 or >= 256 || face.PostScriptName.Length == 0 || face.Family.Length == 0 || face.Weight is < 1 or > 1000 || face.Path != path))
+            {
+                throw new InvalidOperationException($"The store read an impossible file or face for {path}.");
+            }
+
+            listed.Add((new FontFileEntry(path, string.Empty, file.Length, file.WriteTime), file.Faces));
+        }
+
+        using var output = new MemoryStream();
+        SystemFontIndexFile.Write(output, directories, listed);
+        Dictionary<string, StoredFontFile> again = SystemFontIndexFile.Read(output.ToArray(), directories)
+            ?? throw new InvalidOperationException("A store written from a store that read does not read.");
+        if (again.Count != files.Count || files.Any(pair => !again.TryGetValue(pair.Key, out StoredFontFile? other) || !other.Faces.SequenceEqual(pair.Value.Faces) || other.Length != pair.Value.Length || other.WriteTime != pair.Value.WriteTime))
+        {
+            throw new InvalidOperationException("A store written from a store that read reads to other files or faces.");
+        }
+    }
+
+    /// <summary>
     /// Parses the input as a TrueType program (issue #50) and reads all of it: every glyph's outline (up to 4,096 glyphs) and metrics,
     /// every "cmap" subtable for the codes 0 to 0x1FF and 0xF000 to 0xF0FF, every "post" name and its reverse lookup. An input that
     /// starts with <c>%PDF-</c> is read from its first <c>00 01 00 00</c>, so the TrueType corpus files seed the target with their
@@ -857,6 +925,12 @@ internal static class FuzzTargets
         }
 
         int pages = document.Pages.Count;
+        if (data.Length / 12 % 2 == 1)
+        {
+            SaveIncrementally(document, data, pages);
+            return;
+        }
+
         var layout = (PdfCrossReferenceLayout)(data.Length % 3);
         var numbering = (PdfObjectNumbering)(data.Length / 3 % 2);
         bool removeUnreachable = data.Length / 6 % 2 == 1;
@@ -874,6 +948,55 @@ internal static class FuzzTargets
         if (saved.Pages.Count != pages)
         {
             throw new InvalidOperationException($"The saved file has {saved.Pages.Count} pages; the input had {pages}.");
+        }
+    }
+
+    /// <summary>
+    /// Saves <paramref name="document"/> (the input, opened) twice as incremental updates, the catalog changed before each and an
+    /// object added before the second. Each output must start with the bytes before it (§7.5.6: the original is left intact) and
+    /// reopen, with the same number of pages when the input opened without a warning; the document must keep its pages once it reads
+    /// from the updated file.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.5.6 (issue #145).</remarks>
+    private static void SaveIncrementally(PdfDocument document, ReadOnlySpan<byte> data, int pages)
+    {
+        byte[] previous = data.ToArray();
+        bool clean = !document.Diagnostics.Any(diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning);
+        for (int round = 0; round < 2; round++)
+        {
+            document.Catalog[Names.Lang] = new CosString(round == 0 ? "x"u8 : "y"u8);
+            if (round == 1)
+            {
+                // An integer: a damaged input may hold dangling references to numbers above its Size, and a new object under
+                // such a number is what they now reach; an integer is never read as a page.
+                document.Catalog[Names.Marker] = document.AddObject(new CosInteger(1));
+            }
+
+            using var output = new MemoryStream();
+            try
+            {
+                document.Save(output, new PdfSaveOptions().WithIncrementalUpdate(true));
+            }
+            catch (NotSupportedException)
+            {
+                return;
+            }
+
+            byte[] written = output.ToArray();
+            if (written.Length < previous.Length || !written.AsSpan(0, previous.Length).SequenceEqual(previous))
+            {
+                throw new InvalidOperationException("An incremental update changed the bytes it was appended to.");
+            }
+
+            // A damaged input's old sections stay in the file, and a reader repairs them from where the new chain reaches them,
+            // which may read differently from the original's own repair; only a clean input must reopen with the same pages.
+            using PdfDocument saved = PdfDocument.Open(written);
+            if ((clean && saved.Pages.Count != pages) || document.Pages.Count != pages)
+            {
+                throw new InvalidOperationException($"The updated file has {saved.Pages.Count} pages; the input had {pages}.");
+            }
+
+            previous = written;
         }
     }
 
