@@ -1,1 +1,17 @@
 #nullable enable
+Broadside.IccPdfOptionsExtensions
+Broadside.Rendering.Icc.IccColorManagement
+Broadside.Rendering.Icc.IccColorManagement.CreateConverter(Broadside.Graphics.PdfColorSpace! source, Broadside.Graphics.ColorConversion conversion) -> Broadside.Graphics.IColorConverter!
+Broadside.Rendering.Icc.IccColorManagement.Fallback.get -> Broadside.Graphics.IColorManagement!
+Broadside.Rendering.Icc.IccColorManagement.IccColorManagement(Broadside.Graphics.IColorManagement? fallback = null) -> void
+Broadside.Rendering.Icc.IccProfile
+Broadside.Rendering.Icc.IccProfile.Header.get -> Broadside.Graphics.IccProfileHeader!
+Broadside.Rendering.Icc.IccProfile.MediaWhitePoint.get -> Broadside.Graphics.CieXyz
+Broadside.Rendering.Icc.IccProfile.Model.get -> Broadside.Rendering.Icc.IccProfileModel
+Broadside.Rendering.Icc.IccProfileModel
+Broadside.Rendering.Icc.IccProfileModel.MatrixTrc = 0 -> Broadside.Rendering.Icc.IccProfileModel
+Broadside.Rendering.Icc.IccProfileModel.Monochrome = 1 -> Broadside.Rendering.Icc.IccProfileModel
+Broadside.Rendering.Icc.IccProfileModel.Other = 2 -> Broadside.Rendering.Icc.IccProfileModel
+const Broadside.Rendering.Icc.IccColorManagement.CacheCapacity = 64 -> int
+static Broadside.IccPdfOptionsExtensions.UseIccColorManagement(this Broadside.PdfOptions! options) -> Broadside.PdfOptions!
+static Broadside.Rendering.Icc.IccProfile.TryParse(System.ReadOnlySpan<byte> data, out Broadside.Rendering.Icc.IccProfile? profile, out string? problem) -> bool
