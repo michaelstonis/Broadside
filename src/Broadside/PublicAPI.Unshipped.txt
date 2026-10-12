@@ -3712,3 +3712,22 @@ Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor) -> boo
 Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
 Broadside.Forms.PdfTextField.GenerateAppearances() -> void
 Broadside.Forms.PdfTextField.SetValue(string? value) -> void
+Broadside.Rendering.DisplayGlyph
+Broadside.Rendering.DisplayGlyph.DisplayGlyph() -> void
+Broadside.Rendering.DisplayGlyph.GlyphId.get -> int
+Broadside.Rendering.DisplayGlyph.HorizontalScale.get -> double
+Broadside.Rendering.DisplayGlyph.TextMatrix.get -> Broadside.Graphics.Matrix
+Broadside.Rendering.GlyphRun
+Broadside.Rendering.GlyphRun.FillColor.get -> Broadside.Rendering.DisplayColor
+Broadside.Rendering.GlyphRun.Fills.get -> bool
+Broadside.Rendering.GlyphRun.FontMatrix.get -> Broadside.Graphics.Matrix
+Broadside.Rendering.GlyphRun.GetGlyphTransform(int index) -> Broadside.Graphics.Matrix
+Broadside.Rendering.GlyphRun.GetOutline(int index) -> Broadside.Graphics.PathView
+Broadside.Rendering.GlyphRun.GlyphRun() -> void
+Broadside.Rendering.GlyphRun.Glyphs.get -> System.ReadOnlySpan<Broadside.Rendering.DisplayGlyph>
+Broadside.Rendering.GlyphRun.Program.get -> Broadside.Fonts.FontProgram?
+Broadside.Rendering.GlyphRun.RenderingMode.get -> Broadside.Graphics.TextRenderingMode
+Broadside.Rendering.GlyphRun.StrokeColor.get -> Broadside.Rendering.DisplayColor
+Broadside.Rendering.GlyphRun.Strokes.get -> bool
+Broadside.Rendering.GlyphRun.StrokeStyle.get -> Broadside.Rendering.StrokeStyle
+Broadside.Rendering.IRenderingBackend.DrawGlyphs(in Broadside.Rendering.GlyphRun run) -> void

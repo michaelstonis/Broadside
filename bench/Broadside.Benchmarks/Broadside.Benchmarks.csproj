@@ -22,6 +22,8 @@
     <Compile Include="../../tests/Broadside.TestSupport/FormWalker.cs" Link="FormWalker.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/ContentSamples.cs" Link="ContentSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/ClipSamples.cs" Link="ClipSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/TextSamples.cs" Link="TextSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/TrueTypeBuilder.cs" Link="TrueTypeBuilder.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/MeshSamples.cs" Link="MeshSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/JpxSamples.cs" Link="JpxSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/Jbig2Encoder.cs" Link="Jbig2Encoder.cs" />
