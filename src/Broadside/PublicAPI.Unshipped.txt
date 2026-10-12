@@ -1297,6 +1297,7 @@ Broadside.Graphics.PdfIccBasedColorSpace.GetProfileData() -> System.ReadOnlyMemo
 Broadside.Graphics.PdfIccBasedColorSpace.Metadata.get -> Broadside.Objects.CosStream?
 Broadside.Graphics.PdfIccBasedColorSpace.ProfileHeader.get -> Broadside.Graphics.IccProfileHeader?
 Broadside.Graphics.PdfIccBasedColorSpace.Range.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfIccBasedColorSpace.ReportProfileInvalid(string! message) -> void
 Broadside.Graphics.PdfIccBasedColorSpace.Stream.get -> Broadside.Objects.CosStream!
 Broadside.Graphics.PdfIndexedColorSpace
 Broadside.Graphics.PdfIndexedColorSpace.Base.get -> Broadside.Graphics.PdfColorSpace!
