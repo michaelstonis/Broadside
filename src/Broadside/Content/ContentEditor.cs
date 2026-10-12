@@ -47,9 +47,7 @@ public abstract class ContentEditor : ContentProcessor
     private int _editCount;
     private byte[] _text = [];
     private int _textLength;
-    private byte[] _output = [];
-    private int _outputLength;
-    private int _last;
+    private readonly ContentWriter _output = new();
     private bool _afterInsert;
     private int _sourceEnd;
     private bool _active;
@@ -155,7 +153,7 @@ public abstract class ContentEditor : ContentProcessor
     }
 
     /// <summary>Gets the content written by the last <see cref="Finish"/> that had edits.</summary>
-    internal ReadOnlySpan<byte> Output => _output.AsSpan(0, _outputLength);
+    internal ReadOnlySpan<byte> Output => _output.Written;
 
     /// <summary>
     /// Starts a rewrite of <paramref name="content"/>, whose parts begin where <paramref name="parts"/> say (null: one part at 0),
@@ -174,7 +172,7 @@ public abstract class ContentEditor : ContentProcessor
         _operatorCount = 0;
         _editCount = 0;
         _textLength = 0;
-        _outputLength = 0;
+        _output.Clear();
         return _run ??= new CompositeContentProcessor(_recorder, this);
     }
 
@@ -261,9 +259,8 @@ public abstract class ContentEditor : ContentProcessor
     {
         ReadOnlySpan<byte> source = _content.Span;
         ReadOnlySpan<Edit> edits = _edits.AsSpan(0, _editCount);
-        Reserve(source.Length + _textLength + 16);
-        _outputLength = 0;
-        _last = -1;
+        _output.Clear();
+        _output.Reserve(source.Length + _textLength + 16);
         _afterInsert = false;
         _sourceEnd = -1;
         int position = 0;
@@ -323,17 +320,17 @@ public abstract class ContentEditor : ContentProcessor
         ReadOnlySpan<byte> chunk = source[start..end];
         if (_afterInsert)
         {
-            if (!IsEndOfLine(_last) && !IsEndOfLine(chunk[0]))
+            if (!IsEndOfLine(_output.Last) && !IsEndOfLine(chunk[0]))
             {
-                Put((byte)'\n');
+                _output.Write((byte)'\n');
             }
         }
-        else if (_sourceEnd != start && IsRegular(_last) && IsRegular(chunk[0]))
+        else if (_sourceEnd != start && IsRegular(_output.Last) && IsRegular(chunk[0]))
         {
-            Put((byte)' ');
+            _output.Write((byte)' ');
         }
 
-        Put(chunk);
+        _output.Write(chunk);
         _afterInsert = false;
         _sourceEnd = end;
     }
@@ -346,37 +343,14 @@ public abstract class ContentEditor : ContentProcessor
             return;
         }
 
-        if (_outputLength > 0 && (_afterInsert ? !IsEndOfLine(_last) && !IsEndOfLine(text[0]) : !Objects.CosLexer.IsWhitespace((byte)_last)))
+        if (_output.Length > 0 && (_afterInsert ? !IsEndOfLine(_output.Last) && !IsEndOfLine(text[0]) : !Objects.CosLexer.IsWhitespace((byte)_output.Last)))
         {
-            Put((byte)'\n');
+            _output.Write((byte)'\n');
         }
 
-        Put(text);
+        _output.Write(text);
         _afterInsert = true;
         _sourceEnd = -1;
-    }
-
-    private void Put(byte value)
-    {
-        Reserve(_outputLength + 1);
-        _output[_outputLength++] = value;
-        _last = value;
-    }
-
-    private void Put(ReadOnlySpan<byte> bytes)
-    {
-        Reserve(_outputLength + bytes.Length);
-        bytes.CopyTo(_output.AsSpan(_outputLength));
-        _outputLength += bytes.Length;
-        _last = bytes[^1];
-    }
-
-    private void Reserve(int length)
-    {
-        if (length > _output.Length)
-        {
-            Array.Resize(ref _output, (int)Math.Min(Array.MaxLength, Math.Max(length, Math.Max(256L, _output.Length * 2L))));
-        }
     }
 
     /// <summary>Where an edit goes relative to its operator; the values sort in writing order.</summary>

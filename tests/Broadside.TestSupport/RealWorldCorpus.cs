@@ -73,7 +73,9 @@ public static class RealWorldCorpus
 
     /// <summary>
     /// Every PDF of corpus <paramref name="id"/> (any case of the <c>.pdf</c> extension) as a path relative to the corpus root,
-    /// with forward slashes, ordinal order; empty when the corpus is not fetched.
+    /// with forward slashes, ordinal order; empty when the corpus is not fetched. Files under a <c>__MACOSX</c> directory are
+    /// skipped: they are the AppleDouble metadata a macOS zip carries for each file (<c>._name.pdf</c>), not PDFs (the
+    /// gwg-output-suite zips carry one per PDF).
     /// </summary>
     /// <param name="id">A corpus id.</param>
     /// <returns>The relative paths, starting with <paramref name="id"/>.</returns>
@@ -90,6 +92,7 @@ public static class RealWorldCorpus
             .. System.IO.Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories)
                 .Where(static path => path.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
                 .Select(path => Path.GetRelativePath(root, path).Replace('\\', '/'))
+                .Where(static path => !path.Contains("/__MACOSX/", StringComparison.Ordinal))
                 .Order(StringComparer.Ordinal),
         ];
     }

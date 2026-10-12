@@ -24,6 +24,12 @@ public sealed class PdfOptions
     /// <summary>The default of <see cref="StreamBufferLimit"/>: 64 MiB.</summary>
     public const long DefaultStreamBufferLimit = 64L << 20;
 
+    /// <summary>The default of <see cref="RangeBlockSize"/>: 4 KiB.</summary>
+    public const int DefaultRangeBlockSize = 4 * 1024;
+
+    /// <summary>The default of <see cref="RangeCacheLimit"/>: 64 MiB.</summary>
+    public const long DefaultRangeCacheLimit = 64L << 20;
+
     /// <summary>The default of <see cref="MaxImagePixels"/>: 2^28 (268,435,456) pixels, a 16384 x 16384 image.</summary>
     public const long DefaultMaxImagePixels = 1L << 28;
 
@@ -34,6 +40,8 @@ public sealed class PdfOptions
     private readonly List<IFontResolver> _fontResolvers = [];
     private long _maxDecodedStreamLength = DefaultMaxDecodedStreamLength;
     private long _streamBufferLimit = DefaultStreamBufferLimit;
+    private int _rangeBlockSize = DefaultRangeBlockSize;
+    private long _rangeCacheLimit = DefaultRangeCacheLimit;
     private long _maxImagePixels = DefaultMaxImagePixels;
 
     /// <summary>Gets or sets how deviations from the specification are treated. The default is <see cref="PdfReadingMode.Lenient"/>.</summary>
@@ -200,6 +208,86 @@ public sealed class PdfOptions
     public PdfOptions WithStreamBufferLimit(long limit)
     {
         StreamBufferLimit = limit;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the unit a remote file is fetched and cached in, in bytes: every request covers whole blocks. Default 4 KiB.
+    /// </summary>
+    /// <remarks>
+    /// Spec #33, viewer capability 5; ISO 32000-2 §7.5.4 (random access through the cross-reference table). Applies to documents opened
+    /// with <see cref="PdfEngine.OpenAsync(System.Net.Http.HttpClient, Uri, CancellationToken)"/>. A small block wastes little around
+    /// each small object (a page object is a few hundred bytes); a large object is fetched in one request whatever the block size.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is less than 512 or more than 16 MiB.</exception>
+    public int RangeBlockSize
+    {
+        get => _rangeBlockSize;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(value, 512);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(value, 16 << 20);
+            _rangeBlockSize = value;
+        }
+    }
+
+    /// <summary>Sets <see cref="RangeBlockSize"/>.</summary>
+    /// <param name="blockSize">The size of a fetched and cached block, in bytes.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="blockSize"/> is less than 512 or more than 16 MiB.</exception>
+    /// <remarks>Spec #33, viewer capability 5.</remarks>
+    public PdfOptions WithRangeBlockSize(int blockSize)
+    {
+        RangeBlockSize = blockSize;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the most bytes of a remote file a document keeps cached; the least recently used blocks are dropped beyond it and
+    /// fetched again when needed. Default 64 MiB.
+    /// </summary>
+    /// <remarks>
+    /// Spec #33, viewer capability 5. Parsed objects are kept by the document whatever this limit; the cache holds the bytes stream data
+    /// is read from. Where <see cref="SynchronousRangeFetch"/> is off, a page's objects must fit in the cache between its
+    /// <see cref="PdfPage.PrefetchAsync"/> and its reading.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not positive.</exception>
+    public long RangeCacheLimit
+    {
+        get => _rangeCacheLimit;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
+            _rangeCacheLimit = value;
+        }
+    }
+
+    /// <summary>Sets <see cref="RangeCacheLimit"/>.</summary>
+    /// <param name="limit">The most bytes of a remote file kept cached.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="limit"/> is not positive.</exception>
+    /// <remarks>Spec #33, viewer capability 5.</remarks>
+    public PdfOptions WithRangeCacheLimit(long limit)
+    {
+        RangeCacheLimit = limit;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets whether a synchronous read of a remote document that needs bytes not yet fetched blocks on the request. When off,
+    /// the read throws <see cref="PdfRangeNotLoadedException"/>, and a page is read after awaiting its <see cref="PdfPage.PrefetchAsync"/>.
+    /// On by default, except on the browser platform (and WASI), which cannot block on HTTP; turning it on there has no effect.
+    /// </summary>
+    /// <remarks>Spec #33, viewer capability 5; ADR 0010 (the asynchronous prefetch boundary).</remarks>
+    public bool SynchronousRangeFetch { get; set; } = !OperatingSystem.IsBrowser() && !OperatingSystem.IsWasi();
+
+    /// <summary>Sets <see cref="SynchronousRangeFetch"/>.</summary>
+    /// <param name="enabled">Whether a synchronous read may block on fetching what it misses.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>Spec #33, viewer capability 5; ADR 0010.</remarks>
+    public PdfOptions WithSynchronousRangeFetch(bool enabled)
+    {
+        SynchronousRangeFetch = enabled;
         return this;
     }
 

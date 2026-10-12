@@ -186,7 +186,7 @@ public sealed class ContentRewritingTests
     }
 
     [Fact]
-    public void A_stream_another_page_shows_is_never_written_into()
+    public void Rewriting_a_page_whose_streams_another_page_shows_leaves_that_page_with_its_original_content()
     {
         using PdfDocument document = PdfDocument.Open(new TestPdf().Build(
             "<< /Type /Catalog /Pages 2 0 R >>",
@@ -198,12 +198,44 @@ public sealed class ContentRewritingTests
         PdfPage first = document.Pages[0];
         PdfPage second = document.Pages[1];
 
-        Assert.Throws<InvalidOperationException>(() => first.RewriteContent(new ScriptedEditor(editor => editor.Remove(0))));
-        second.RewriteContent(new ScriptedEditor(editor => editor.Remove(0)));
+        bool firstRewritten = first.RewriteContent(new ScriptedEditor(editor => editor.Remove(0)));
 
-        Assert.Equal("q Q", Decoded(document, first));
-        Assert.Equal(new CosReference(6, 0), second.Dictionary[Contents]);
-        Assert.Equal(" Q\n0 g\n", Decoded(document, second));
+        Assert.True(firstRewritten);
+        Assert.Equal(" Q", Decoded(document, first));
+        Assert.Equal("q Q", DecodedObject(document, 5));
+        Assert.Equal("0 g", DecodedObject(document, 6));
+        Assert.Equal(["q in 5", "Q in 5", "g in 6"], OperatorSources(second));
+
+        second.RewriteContent(new ScriptedEditor(editor => editor.Remove(2)));
+
+        Assert.Equal(" Q", Decoded(document, first));
+        Assert.Equal("q Q\n\n", Decoded(document, second));
+        Assert.Equal("q Q", DecodedObject(document, 5));
+        Assert.NotEqual(first.Dictionary[Contents], second.Dictionary[Contents]);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void A_rewritten_page_saves_incrementally_and_reopens_with_the_rewritten_content_beside_the_untouched_original()
+    {
+        byte[] original = new TestPdf().Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R 4 0 R] /Count 2 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Contents 5 0 R >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Contents 5 0 R >>",
+            ContentPdf.Stream("0 0 10 10 re f"));
+        using PdfDocument document = PdfDocument.Open(original);
+        document.Pages[0].RewriteContent(new ScriptedEditor(editor => editor.Wrap(0, 1, "q"u8, "Q"u8)));
+        using var saved = new MemoryStream();
+
+        document.Save(saved, new PdfSaveOptions().WithIncrementalUpdate(true));
+
+        byte[] bytes = saved.ToArray();
+        Assert.Equal(original, bytes[..original.Length]);
+        using PdfDocument reopened = PdfDocument.Open(bytes);
+        Assert.Equal("q\n0 0 10 10 re f\nQ", Decoded(reopened, reopened.Pages[0]));
+        Assert.Equal("0 0 10 10 re f", Decoded(reopened, reopened.Pages[1]));
+        Assert.Empty(reopened.Diagnostics);
     }
 
     [Fact]
@@ -243,6 +275,17 @@ public sealed class ContentRewritingTests
 
     private static CosStream ContentStream(PdfDocument document, PdfPage page) => (CosStream)document.Resolve(page.Dictionary[Contents]);
 
+    private static string DecodedObject(PdfDocument document, int number) =>
+        Encoding.Latin1.GetString(document.DecodeStream((CosStream)document.Resolve(new CosReference(number, 0))).Span);
+
+    /// <summary>Every operator a page's content holds, its <c>Contents</c> array parts included, as "keyword in object number".</summary>
+    private static List<string> OperatorSources(PdfPage page)
+    {
+        var sources = new SourceRecorder();
+        page.ProcessContent(sources);
+        return sources.Sources;
+    }
+
     private static string Decoded(PdfDocument document, PdfPage page) =>
         Encoding.Latin1.GetString(document.DecodeStream(ContentStream(document, page)).Span);
 
@@ -253,6 +296,16 @@ public sealed class ContentRewritingTests
         var ranges = new RangeRecorder();
         page.ProcessContent(ranges);
         return [.. ranges.Ranges.Select(range => content.Substring(range.Offset, range.Length))];
+    }
+
+    private sealed class SourceRecorder : ContentProcessor
+    {
+        public List<string> Sources { get; } = [];
+
+        public override ContentEvents Events => ContentEvents.Operators;
+
+        public override void VisitOperator(in ContentOperator op, ContentContext context) =>
+            Sources.Add($"{Encoding.Latin1.GetString(op.Keyword)} in {op.Stream?.ObjectNumber}");
     }
 
     private sealed class RangeRecorder : ContentProcessor
