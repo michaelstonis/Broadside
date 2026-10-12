@@ -4,7 +4,7 @@ using Broadside.Objects;
 
 namespace Broadside;
 
-/// <summary>A name tree: a sorted map from string keys to objects, spread over a tree of node dictionaries. A read-only live view.</summary>
+/// <summary>A name tree: a sorted map from string keys to objects, spread over a tree of node dictionaries. A live view.</summary>
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §7.9.6, Table 36 (PDF 1.2). Keys are strings compared byte by byte (Annex J.3.3): <c>(a)</c> and the UTF-16BE key
@@ -20,14 +20,24 @@ namespace Broadside;
 /// is the one both lookups and enumeration return once a walk has met the damage (until then a lookup follows the Limits it finds). Diagnostics are reported when the damage is first read, so in strict mode the
 /// lookup or enumeration that meets it throws a <see cref="Diagnostics.DiagnosticException"/>, not <see cref="PdfDocument.Open(string)"/>.
 /// </para>
-/// <para>Safe for concurrent reads while nobody changes the document.</para>
+/// <para>
+/// Editable in place (issue #146): <see cref="Set"/> inserts or replaces a key and <see cref="Remove"/> removes one, changing only the
+/// nodes on the way from the root to the key's leaf and keeping every <c>Limits</c> entry correct; see
+/// <see cref="PdfDocument.CreateNameTree"/> for building a new tree. A damaged tree is rebuilt balanced on its first edit.
+/// </para>
+/// <para>Safe for concurrent reads while nobody changes the document; edits are single-threaded, like every change to a document.</para>
 /// </remarks>
 [SuppressMessage("Naming", "CA1710:Identifiers should have correct suffix", Justification = "The name is the ISO 32000-2 term (§7.9.6).")]
 public sealed class PdfNameTree : IEnumerable<KeyValuePair<CosString, CosObject>>
 {
     private readonly NameTreeReader _reader;
+    private readonly PdfDocument _document;
 
-    internal PdfNameTree(NameTreeReader reader) => _reader = reader;
+    internal PdfNameTree(NameTreeReader reader, PdfDocument document)
+    {
+        _reader = reader;
+        _document = document;
+    }
 
     /// <summary>Gets the root node dictionary.</summary>
     /// <remarks>ISO 32000-2 §7.9.6, Table 36.</remarks>
@@ -87,6 +97,34 @@ public sealed class PdfNameTree : IEnumerable<KeyValuePair<CosString, CosObject>
         {
             yield return new KeyValuePair<CosString, CosObject>(key, value);
         }
+    }
+
+    /// <summary>Inserts <paramref name="key"/> with <paramref name="value"/>, or replaces the value of the key the tree already holds.</summary>
+    /// <param name="key">The key; compared byte by byte (Annex J.3.3).</param>
+    /// <param name="value">The value, stored as given: pass an indirect reference to store one.</param>
+    /// <remarks>
+    /// ISO 32000-2 §7.9.6. The key goes into the leaf whose range holds it (or the nearest one, whose <c>Limits</c> then widen); a
+    /// node grown past 64 entries splits in two, the root into two new kids, so every leaf stays at the same depth. Only the nodes on
+    /// the path from the root change. A tree the reader finds damaged is first rebuilt balanced in place from what it reads.
+    /// </remarks>
+    public void Set(CosString key, CosObject value)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        ArgumentNullException.ThrowIfNull(value);
+        _reader.Set(key, value, _document.AddObject);
+    }
+
+    /// <summary>Removes <paramref name="key"/> and its value.</summary>
+    /// <param name="key">The key; compared byte by byte (Annex J.3.3).</param>
+    /// <returns><see langword="true"/> when the tree held the key.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.9.6. A node left empty is removed from its parent (an empty root keeps an empty <c>Names</c> array), and the
+    /// <c>Limits</c> of every node on the path are updated. A damaged tree that holds the key is first rebuilt balanced in place.
+    /// </remarks>
+    public bool Remove(CosString key)
+    {
+        ArgumentNullException.ThrowIfNull(key);
+        return _reader.Remove(key, _document.AddObject);
     }
 
     /// <inheritdoc/>

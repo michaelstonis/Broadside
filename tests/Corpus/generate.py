@@ -1686,6 +1686,17 @@ def gen_text_cid_identity_h() -> bytes:
                     [b"\x00\x01\x00\x03\x00\x02"], tu)
 
 
+def gen_text_lines_rotated() -> bytes:
+    """9.4.2 Table 106 (Tm, TL, T*) and 9.4.4: Helvetica 12 pt, leading 14, two lines at each of three text matrices: upright
+    [1 0 0 1 72 700], rotated 90 degrees [0 1 -1 0 400 500] and rotated 30 degrees [0.866025 0.5 -0.5 0.866025 72 300].
+    Each pair is "<angle> degrees" then T* "second line", so every line holds two words and runs along its own baseline."""
+    lines = b""
+    for matrix, angle in ((b"1 0 0 1 72 700", b"Zero"), (b"0 1 -1 0 400 500", b"Ninety"),
+                          (b"0.866025 0.5 -0.5 0.866025 72 300", b"Thirty")):
+        lines += b" %s Tm (%s degrees) Tj T* (second line) Tj" % (matrix, angle)
+    return text_file(stream(b"", b"BT /F1 12 Tf 14 TL" + lines + b" ET"))
+
+
 def gen_text_cid_identity_v() -> bytes:
     """9.7.4.1 Table 115 (CIDToGIDMap stream, DW2, W2), 9.7.4.3 (W2 in both forms, DW2 fallback, v.x = w0/2), 9.7.5.2
     Identity-V. The map covers CIDs 0 to 0x22 (0x21 -> 1, 0x22 -> 2); CID 0x23 is past its end and shows CID 0's glyph."""
@@ -1800,6 +1811,26 @@ def gen_text_cidcff_predefined_cmap() -> bytes:
             b"/Ascent 880 /Descent -120 /CapHeight 700 /StemV 80 /FontFile3 8 0 R >>"),
         (8, stream(b"/Subtype /CIDFontType0C", font)),
     ], binary=True)
+
+
+def gen_text_cid_nonembedded() -> bytes:
+    """9.7.4 (a CIDFontType0 that is not embedded: no FontFile entry), 9.7.5.2 Table 116 (the predefined CMap
+    UniJIS-UTF16-H: codes are UTF-16BE), 9.7.6.2, 9.8 (the descriptor of a non-embedded CIDFont) and 9.10.2 (Unicode
+    through the Adobe-Japan1 collection). Shows <304230443046 65E5672C8A9E>: the kana A I U and the kanji NICHI HON GO;
+    a reader draws them with a substitute font found by name or by collection. No ToUnicode, no W (DW 1000)."""
+    content = b"BT /F1 24 Tf 72 700 Td <30423044304665E5672C8A9E> Tj ET"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>" % LETTER),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Font /Subtype /Type0 /BaseFont /KozMinPr6N-Regular-UniJIS-UTF16-H /Encoding /UniJIS-UTF16-H "
+            b"/DescendantFonts [6 0 R] >>"),
+        (6, b"<< /Type /Font /Subtype /CIDFontType0 /BaseFont /KozMinPr6N-Regular "
+            b"/CIDSystemInfo << /Registry (Adobe) /Ordering (Japan1) /Supplement 6 >> /FontDescriptor 7 0 R /DW 1000 >>"),
+        (7, b"<< /Type /FontDescriptor /FontName /KozMinPr6N-Regular /Flags 4 /FontBBox [-437 -340 1147 1317] "
+            b"/ItalicAngle 0 /Ascent 880 /Descent -120 /CapHeight 742 /StemV 80 >>"),
+    ])
 
 
 def gen_text_tounicode_bf() -> bytes:
@@ -5690,6 +5721,91 @@ def gen_jbig2_annex_h() -> bytes:
     return simple_file(objects, version="1.4", binary=True)
 
 
+
+def _num(v: float) -> bytes:
+    """A coordinate written with at most three decimals and no trailing zeros (7.3.3 real numbers)."""
+    text = ("%.3f" % v).rstrip("0").rstrip(".")
+    return (text if text not in ("-0", "") else "0").encode()
+
+
+def _star(cx: float, cy: float, r: float) -> bytes:
+    """A five-pointed star drawn as one self-intersecting pentagram (every second vertex), open (implicitly closed by the fill)."""
+    pts = [(cx + r * math.cos(math.radians(90 + k * 144)), cy + r * math.sin(math.radians(90 + k * 144))) for k in range(5)]
+    out = b"%s %s m" % (_num(pts[0][0]), _num(pts[0][1]))
+    for x, y in pts[1:]:
+        out += b" %s %s l" % (_num(x), _num(y))
+    return out
+
+
+def _circle(cx: float, cy: float, r: float, clockwise: bool) -> bytes:
+    """A circle as four cubic Bezier curves (8.5.2.2 c) with the usual kappa 0.5523, closed with h."""
+    k = 0.5523 * r
+    if not clockwise:
+        segs = [((cx + r, cy + k), (cx + k, cy + r), (cx, cy + r)), ((cx - k, cy + r), (cx - r, cy + k), (cx - r, cy)),
+                ((cx - r, cy - k), (cx - k, cy - r), (cx, cy - r)), ((cx + k, cy - r), (cx + r, cy - k), (cx + r, cy))]
+    else:
+        segs = [((cx + r, cy - k), (cx + k, cy - r), (cx, cy - r)), ((cx - k, cy - r), (cx - r, cy - k), (cx - r, cy)),
+                ((cx - r, cy + k), (cx - k, cy + r), (cx, cy + r)), ((cx + k, cy + r), (cx + r, cy + k), (cx + r, cy))]
+    out = b"%s %s m" % (_num(cx + r), _num(cy))
+    for a, b_, c in segs:
+        out += b" %s %s %s %s %s %s c" % (_num(a[0]), _num(a[1]), _num(b_[0]), _num(b_[1]), _num(c[0]), _num(c[1]))
+    return out + b" h"
+
+
+def _square(x0: float, y0: float, x1: float, y1: float, clockwise: bool) -> bytes:
+    """A closed axis-aligned square as m, l, l, l, h, counterclockwise (in PDF's y-up space) unless ``clockwise``."""
+    corners = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+    if clockwise:
+        corners = [corners[0]] + corners[:0:-1]
+    out = b"%s %s m" % (_num(corners[0][0]), _num(corners[0][1]))
+    for x, y in corners[1:]:
+        out += b" %s %s l" % (_num(x), _num(y))
+    return out + b" h"
+
+
+def gen_paths_fill_rules() -> bytes:
+    """8.5.2 path construction (m, l, c, v, y, h), 8.5.3.3 filling: the non-zero winding number rule (f) and the even-odd rule (f*),
+    implicit closing of open subpaths and a disregarded trailing moveto (8.5.3.3.1); 8.3.4 cm. One 400 x 300 page, white
+    background. Top row: (A) a pentagram filled with f in DeviceRGB red, centre (65, 225), radius 55: the centre pentagon is inside
+    (winding 2); (B) the same pentagram with f* in DeviceRGB blue at (195, 225): the centre pentagon is outside (even crossing count);
+    (C) a circle of four c curves, radius 55, counterclockwise, with a clockwise circle of radius 25 inside, filled with f in DeviceCMYK
+    0 0.5 1 0 at (325, 225): the inner circle has winding 0, so it is a hole. Bottom row: (D) two counterclockwise squares, 15..115
+    and 40..90 by 20..120 and 45..95, filled with f in DeviceRGB 0 0.6 0: solid (winding 2 inside both); (E) the same two squares
+    shifted to x 145..245 filled with f* in DeviceGray 0.3: a ring; (F) under q 0.866 0.5 -0.5 0.866 330 75 cm (a 30 degree
+    rotation about (330, 75)), an open triangle (-50 -45, 10 -45, -20 45, no h) and a lens of a v curve and a y curve (25 -40 m
+    55 0 25 40 v -5 0 25 -40 y h), then a trailing 0 0 m, filled with f in DeviceRGB 0.5 0 0.5, then Q."""
+    content = b"\n".join([
+        b"1 0 0 rg " + _star(65, 225, 55) + b" f",
+        b"0 0 1 rg " + _star(195, 225, 55) + b" f*",
+        b"0 0.5 1 0 k " + _circle(325, 225, 55, clockwise=False) + b" " + _circle(325, 225, 25, clockwise=True) + b" f",
+        b"0 0.6 0 rg " + _square(15, 20, 115, 120, False) + b" " + _square(40, 45, 90, 95, False) + b" f",
+        b"0.3 g " + _square(145, 20, 245, 120, False) + b" " + _square(170, 45, 220, 95, False) + b" f*",
+        b"q 0.866 0.5 -0.5 0.866 330 75 cm 0.5 0 0.5 rg -50 -45 m 10 -45 l -20 45 l"
+        b" 25 -40 m 55 0 25 40 v -5 0 25 -40 y h 0 0 m f Q",
+    ]) + b"\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(mediabox=b"[0 0 400 300]", contents=4)),
+        (4, stream(b"", content)),
+    ])
+
+
+def gen_page_rotation() -> bytes:
+    """7.7.3.3 Table 31 Rotate and UserUnit, 14.11.2 CropBox. Four pages with MediaBox [0 0 200 100], each painting a red square at
+    the user-space origin (0 0 40 40 re) and a green square in the opposite corner (160 60 40 40 re) on a white page: page 1
+    /Rotate 90, page 2 /Rotate 180, page 3 /Rotate 270 (shown turned clockwise by that many degrees), page 4 /UserUnit 2 (PDF 1.6)
+    with /CropBox [20 10 180 90], so it shows 160 x 80 units of 2/72 inch: 320 x 160 pixels at 72 DPI with both squares cut by
+    the crop box. All four pages share one content stream (object 7)."""
+    content = b"1 0 0 rg 0 0 40 40 re f 0 1 0 rg 160 60 40 40 re f\n"
+    extras = [b" /Rotate 90", b" /Rotate 180", b" /Rotate 270", b" /UserUnit 2 /CropBox [20 10 180 90]"]
+    objects = [(1, catalog()), (2, pages([3, 4, 5, 6]))]
+    for i, extra in enumerate(extras):
+        objects.append((3 + i, page(mediabox=b"[0 0 200 100]", contents=7, extra=extra)))
+    objects.append((7, stream(b"", content)))
+    return simple_file(objects)
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -5714,8 +5830,10 @@ FILES = {
     "text-type1-embedded.pdf": gen_text_type1_embedded,
     "text-cid-identity-h.pdf": gen_text_cid_identity_h,
     "text-cid-identity-v.pdf": gen_text_cid_identity_v,
+    "text-lines-rotated.pdf": gen_text_lines_rotated,
     "text-cid-embedded-cmap.pdf": gen_text_cid_embedded_cmap,
     "text-cidcff-predefined-cmap.pdf": gen_text_cidcff_predefined_cmap,
+    "text-cid-nonembedded.pdf": gen_text_cid_nonembedded,
     "text-tounicode-bf.pdf": gen_text_tounicode_bf,
     "text-glyph-names.pdf": gen_text_glyph_names,
     "xref-stream.pdf": gen_xref_stream,
@@ -5843,6 +5961,8 @@ FILES = {
     "jbig2-generic.pdf": gen_jbig2_generic,
     "jbig2-generic-mmr.pdf": gen_jbig2_generic_mmr,
     "jbig2-annex-h.pdf": gen_jbig2_annex_h,
+    "paths-fill-rules.pdf": gen_paths_fill_rules,
+    "page-rotation.pdf": gen_page_rotation,
 }
 
 

@@ -53,7 +53,7 @@ public readonly ref struct DisplayColor               // §8.6.1: colour specifi
 
 Rules every backend follows:
 
-- A replay starts with the identity transform: user space is the page's default user space. Mapping it to the device (scale or DPI, rotation, CropBox, UserUnit, the clip rectangle of a tile) is the backend's or its renderer's, applied under the list's transforms.
+- A replay starts with the identity transform: user space is the page's default user space. Mapping it to the device (scale or DPI, rotation, CropBox, UserUnit, the clip rectangle of a tile) is the backend's or its renderer's, applied under the list's transforms. Use the mapping the software rasterizer uses (#95, package `Broadside.Rendering`): `RenderOptions.GetDeviceTransform(page)` (default user space to pixels, origin top left, y down, crop box, `Rotate` plus the options' rotation, `UserUnit` times the scale) and `RenderOptions.GetPixelSize(page)` (rounded up to whole pixels), so every backend's image lines up with the rasterizer's snapshots.
 - `SetTransform` comes before the paints it applies to and only when the CTM changes; `RestoreState` restores the transform (and, as later tickets add them, the clip and everything else the backend keeps per state). Save/restore pairs with nothing painted between them are dropped at build time.
 - `PathView` is the path exactly as constructed, in user space: close open subpaths for filling, ignore a trailing single-point subpath, treat degenerate subpaths per §8.5.3.2/§8.5.3.3.1. Spans and views are valid only during the call: copy what you keep.
 - Colour: convert with `list.Document.GetColorConverter(color.ColorSpace, color.Conversion with { Target = <your model> }, color.DefaultColorSpaces)`. That expands Indexed, Separation, DeviceN, applies the defaults and goes through the engine's `IColorManagement` (the colour-management extension point). Check `PdfColorConverter.PaintsNothing` (Separation `None`). Cache converters per colour space if you convert per paint; the document caches them too.
@@ -74,7 +74,7 @@ Registration goes through the options object (`PdfOptions.Use*`, plan row 1.12) 
 
 ## Managed default
 
-The software rasterizer in `src/Broadside.Rendering/` is the default and the oracle: fully managed, `System.*` only, on every platform. Native backends are exempt from the managed rule (ADR 0001) but are never the default and never a dependency of the core.
+The software rasterizer in `src/Broadside.Rendering/` is the default and the oracle: fully managed, `System.*` only, on every platform. Since #95: `SoftwareRasterizer.Render(page[, options])` returns a pooled `Bitmap` (premultiplied BGRA8, white page), `Render(page, bitmap, options)` draws into caller memory, `Render(list, bitmap, deviceTransform)` replays a cached list without a background; `Bitmap.SavePng` writes PNG. Its private backend (`SoftwareRasterizer.Backend`) is where a new `IRenderingBackend` member gets its reference implementation; scan conversion is `ScanlineRasterizer` (exact-area cells, both fill rules, zero allocation once warm: keep it that way, `RasterizerAllocationTests` and `RasterizerBenchmarks` guard it). Its snapshots (`tests/Broadside.Rendering.Tests/Snapshots/*.verified.png`) compare by decoded pixels (`PngSnapshots`), and `tests/Broadside.Rendering.AotSmoke` re-checks them under Native AOT. Native backends are exempt from the managed rule (ADR 0001) but are never the default and never a dependency of the core.
 
 ## Deliverables of a backend PR
 

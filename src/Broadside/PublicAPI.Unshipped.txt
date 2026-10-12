@@ -1853,11 +1853,16 @@ Broadside.Text.TextExtractionOptions.WithHiddenContent(bool include = true) -> B
 Broadside.Text.TextExtractor
 Broadside.Text.TextExtractor.Clear() -> void
 Broadside.Text.TextExtractor.GetGlyphText(in Broadside.Text.TextGlyph glyph) -> System.ReadOnlySpan<char>
+Broadside.Text.TextExtractor.GetLineText(in Broadside.Text.TextLine line) -> System.ReadOnlySpan<char>
+Broadside.Text.TextExtractor.GetWordText(in Broadside.Text.TextWord word) -> System.ReadOnlySpan<char>
 Broadside.Text.TextExtractor.Glyphs.get -> System.ReadOnlySpan<Broadside.Text.TextGlyph>
+Broadside.Text.TextExtractor.Lines.get -> System.ReadOnlySpan<Broadside.Text.TextLine>
+Broadside.Text.TextExtractor.PlainText.get -> System.ReadOnlySpan<char>
 Broadside.Text.TextExtractor.Text.get -> System.ReadOnlySpan<char>
 Broadside.Text.TextExtractor.TextExtractor() -> void
 Broadside.Text.TextExtractor.TextExtractor(Broadside.Text.TextExtractionOptions! options) -> void
 Broadside.Text.TextExtractor.ToTextPage() -> Broadside.Text.TextPage!
+Broadside.Text.TextExtractor.Words.get -> System.ReadOnlySpan<Broadside.Text.TextWord>
 Broadside.Text.TextGlyph
 Broadside.Text.TextGlyph.Adjustment.get -> double
 Broadside.Text.TextGlyph.Advance.get -> Broadside.Graphics.PathPoint
@@ -1872,6 +1877,7 @@ Broadside.Text.TextGlyph.Quad.get -> Broadside.Graphics.Quad
 Broadside.Text.TextGlyph.RenderingMode.get -> Broadside.Graphics.TextRenderingMode
 Broadside.Text.TextGlyph.TextGlyph() -> void
 Broadside.Text.TextGlyph.TextLength.get -> int
+Broadside.Text.TextGlyph.TextRenderingMatrix.get -> Broadside.Graphics.Matrix
 Broadside.Text.TextGlyph.TextStart.get -> int
 Broadside.Text.TextGlyph.UnicodeSource.get -> Broadside.Fonts.UnicodeSource
 Broadside.Text.TextGlyphFlags
@@ -1880,10 +1886,32 @@ Broadside.Text.TextGlyphFlags.Artifact = 4 -> Broadside.Text.TextGlyphFlags
 Broadside.Text.TextGlyphFlags.Hidden = 2 -> Broadside.Text.TextGlyphFlags
 Broadside.Text.TextGlyphFlags.Invisible = 1 -> Broadside.Text.TextGlyphFlags
 Broadside.Text.TextGlyphFlags.None = 0 -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextLine
+Broadside.Text.TextLine.GlyphCount.get -> int
+Broadside.Text.TextLine.GlyphStart.get -> int
+Broadside.Text.TextLine.IsVertical.get -> bool
+Broadside.Text.TextLine.PlainTextLength.get -> int
+Broadside.Text.TextLine.PlainTextStart.get -> int
+Broadside.Text.TextLine.Quad.get -> Broadside.Graphics.Quad
+Broadside.Text.TextLine.TextLine() -> void
+Broadside.Text.TextLine.WordCount.get -> int
+Broadside.Text.TextLine.WordStart.get -> int
 Broadside.Text.TextPage
 Broadside.Text.TextPage.GetGlyphText(in Broadside.Text.TextGlyph glyph) -> System.ReadOnlySpan<char>
+Broadside.Text.TextPage.GetLineText(in Broadside.Text.TextLine line) -> System.ReadOnlySpan<char>
+Broadside.Text.TextPage.GetWordText(in Broadside.Text.TextWord word) -> System.ReadOnlySpan<char>
 Broadside.Text.TextPage.Glyphs.get -> System.Collections.Generic.IReadOnlyList<Broadside.Text.TextGlyph>!
+Broadside.Text.TextPage.Lines.get -> System.Collections.Generic.IReadOnlyList<Broadside.Text.TextLine>!
+Broadside.Text.TextPage.PlainText.get -> string!
 Broadside.Text.TextPage.Text.get -> string!
+Broadside.Text.TextPage.Words.get -> System.Collections.Generic.IReadOnlyList<Broadside.Text.TextWord>!
+Broadside.Text.TextWord
+Broadside.Text.TextWord.GlyphCount.get -> int
+Broadside.Text.TextWord.GlyphStart.get -> int
+Broadside.Text.TextWord.Quad.get -> Broadside.Graphics.Quad
+Broadside.Text.TextWord.TextLength.get -> int
+Broadside.Text.TextWord.TextStart.get -> int
+Broadside.Text.TextWord.TextWord() -> void
 const Broadside.Content.ContentOptions.DefaultMaxNestingDepth = 50 -> int
 const Broadside.Content.ContentOptions.DefaultMaxOperands = 65536 -> int
 const Broadside.Content.ContentOptions.DefaultMaxSaveDepth = 4096 -> int
@@ -3466,6 +3494,11 @@ Broadside.Fonts.SystemFontResolver.Directories.get -> System.Collections.Generic
 Broadside.Fonts.SystemFontResolver.ResolveFont(Broadside.Fonts.FontQuery! query) -> Broadside.Fonts.FontResolution?
 Broadside.Fonts.SystemFontResolver.SystemFontResolver() -> void
 Broadside.Fonts.SystemFontResolver.SystemFontResolver(System.Collections.Generic.IEnumerable<string!>! directories) -> void
+Broadside.Fonts.SystemFontResolver.SystemFontResolver(System.Collections.Generic.IEnumerable<string!>! directories, string? indexPath) -> void
+Broadside.Fonts.SystemFontResolver.IndexPath.get -> string?
+Broadside.PdfOptions.SystemFontIndexPath.get -> string?
+Broadside.PdfOptions.SystemFontIndexPath.set -> void
+Broadside.PdfOptions.WithSystemFontIndexPath(string? path) -> Broadside.PdfOptions!
 Broadside.PdfOptions.UseFontResolver(Broadside.Fonts.IFontResolver! resolver) -> Broadside.PdfOptions!
 Broadside.PdfOptions.UseSystemFontResolver(Broadside.Fonts.IFontResolver? resolver) -> Broadside.PdfOptions!
 Broadside.Filters.CcittFaxDecodeFilter
@@ -3578,3 +3611,38 @@ Broadside.PdfStreamCompression
 Broadside.PdfStreamCompression.AllStreams = 2 -> Broadside.PdfStreamCompression
 Broadside.PdfStreamCompression.ChangedStreams = 1 -> Broadside.PdfStreamCompression
 Broadside.PdfStreamCompression.None = 0 -> Broadside.PdfStreamCompression
+Broadside.PdfDocument.AddObject(Broadside.Objects.CosObject! value) -> Broadside.Objects.CosReference!
+Broadside.PdfDocument.RemoveObject(Broadside.Objects.CosReference! reference) -> bool
+Broadside.PdfSaveOptions.IncrementalUpdate.get -> bool
+Broadside.PdfSaveOptions.IncrementalUpdate.set -> void
+Broadside.PdfSaveOptions.WithIncrementalUpdate(bool incremental) -> Broadside.PdfSaveOptions!
+Broadside.PdfDocument.CreateNameTree(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Broadside.Objects.CosString!, Broadside.Objects.CosObject!>>! entries) -> Broadside.PdfNameTree!
+Broadside.PdfDocument.CreateNumberTree(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<int, Broadside.Objects.CosObject!>>! entries) -> Broadside.PdfNumberTree!
+Broadside.PdfNameTree.Remove(Broadside.Objects.CosString! key) -> bool
+Broadside.PdfNameTree.Set(Broadside.Objects.CosString! key, Broadside.Objects.CosObject! value) -> void
+Broadside.PdfNumberTree.Remove(int key) -> bool
+Broadside.PdfNumberTree.Set(int key, Broadside.Objects.CosObject! value) -> void
+Broadside.Content.ContentEditor
+Broadside.Content.ContentEditor.ContentEditor() -> void
+Broadside.Content.ContentEditor.Content.get -> System.ReadOnlyMemory<byte>
+Broadside.Content.ContentEditor.CurrentOperator.get -> int
+Broadside.Content.ContentEditor.GetOperator(int index) -> Broadside.Content.ContentOperatorRange
+Broadside.Content.ContentEditor.InsertAfter(int index, System.ReadOnlySpan<byte> content) -> void
+Broadside.Content.ContentEditor.InsertBefore(int index, System.ReadOnlySpan<byte> content) -> void
+Broadside.Content.ContentEditor.OperatorCount.get -> int
+Broadside.Content.ContentEditor.Remove(int index) -> void
+Broadside.Content.ContentEditor.Replace(int index, System.ReadOnlySpan<byte> content) -> void
+Broadside.Content.ContentEditor.Wrap(int first, int last, System.ReadOnlySpan<byte> before, System.ReadOnlySpan<byte> after) -> void
+Broadside.Content.ContentOperatorRange
+Broadside.Content.ContentOperatorRange.Code.get -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorRange.Code.init -> void
+Broadside.Content.ContentOperatorRange.ContentOperatorRange() -> void
+Broadside.Content.ContentOperatorRange.ContentOperatorRange(Broadside.Content.ContentOperatorCode Code, int Offset, int Length) -> void
+Broadside.Content.ContentOperatorRange.Length.get -> int
+Broadside.Content.ContentOperatorRange.Length.init -> void
+Broadside.Content.ContentOperatorRange.Offset.get -> int
+Broadside.Content.ContentOperatorRange.Offset.init -> void
+Broadside.Graphics.PdfFormXObject.RewriteContent(Broadside.Content.ContentEditor! editor) -> bool
+Broadside.Graphics.PdfFormXObject.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
+Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor) -> bool
+Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool

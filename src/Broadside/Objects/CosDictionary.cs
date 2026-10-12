@@ -45,6 +45,16 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
         }
     }
 
+    /// <inheritdoc/>
+    internal override void MarkClean()
+    {
+        _changed = false;
+        foreach (KeyValuePair<CosName, CosObject> entry in _entries)
+        {
+            entry.Value.MarkClean();
+        }
+    }
+
     /// <summary>
     /// Gets a number that changes every time an entry is added, replaced or removed through the public API, and never by reading
     /// or loading: caches of state derived from the dictionary record it and rebuild when it differs. Changes to the values

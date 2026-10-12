@@ -1,0 +1,9 @@
+﻿page 1: ������
+  � code 3042/2 Unmapped font KozMinPr6N-Regular-UniJIS-UTF16-H 24 Fill origin (72, 700) advance (24, 0) quad (72, 697.12) (96, 697.12) (96, 721.12) (72, 721.12)
+  � code 3044/2 Unmapped font KozMinPr6N-Regular-UniJIS-UTF16-H 24 Fill origin (96, 700) advance (24, 0) quad (96, 697.12) (120, 697.12) (120, 721.12) (96, 721.12)
+  � code 3046/2 Unmapped font KozMinPr6N-Regular-UniJIS-UTF16-H 24 Fill origin (120, 700) advance (24, 0) quad (120, 697.12) (144, 697.12) (144, 721.12) (120, 721.12)
+  � code 65E5/2 Unmapped font KozMinPr6N-Regular-UniJIS-UTF16-H 24 Fill origin (144, 700) advance (24, 0) quad (144, 697.12) (168, 697.12) (168, 721.12) (144, 721.12)
+  � code 672C/2 Unmapped font KozMinPr6N-Regular-UniJIS-UTF16-H 24 Fill origin (168, 700) advance (24, 0) quad (168, 697.12) (192, 697.12) (192, 721.12) (168, 721.12)
+  � code 8A9E/2 Unmapped font KozMinPr6N-Regular-UniJIS-UTF16-H 24 Fill origin (192, 700) advance (24, 0) quad (192, 697.12) (216, 697.12) (216, 721.12) (192, 721.12)
+  line ������ glyphs 0+6 quad (72, 697.12) (216, 697.12) (216, 721.12) (72, 721.12)
+    words ������ glyphs 0+6
