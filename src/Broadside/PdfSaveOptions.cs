@@ -97,6 +97,92 @@ public sealed class PdfSaveOptions
     /// </remarks>
     public bool IncrementalUpdate { get; set; }
 
+    /// <summary>
+    /// Gets or sets how the saved file is encrypted with the standard security handler; <see langword="null"/> (the default) keeps
+    /// the document's own encryption: an encrypted document is saved encrypted with its own key, an unencrypted one unencrypted.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §7.6. A document saved with encryption has a new encryption dictionary and file encryption key, and every string
+    /// and stream is encrypted with it (§7.6.2), whatever encryption the document was read with; the old encryption dictionary is not
+    /// written. Encrypted output is not deterministic: keys, salts and initialization vectors are random (§7.6.3, §7.6.4.4.7).
+    /// </para>
+    /// <para>
+    /// Keeping the document's own encryption re-encrypts every string and stream with the key it was opened with, under the
+    /// encryption dictionary it was read with; ciphertext is never copied from the source file. Its integrity MAC (ISO/TS 32004) cannot
+    /// be written yet, so a document that has one, or whose permissions require one, must be saved with new encryption or none.
+    /// </para>
+    /// <para>
+    /// An incremental update (<see cref="IncrementalUpdate"/>) always keeps the document's encryption (§7.5.6: earlier revisions stay
+    /// as written), so it refuses this option and <see cref="RemoveEncryption"/>.
+    /// </para>
+    /// </remarks>
+    public PdfEncryptionOptions? Encryption { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the document is saved unencrypted even though it was read encrypted. The default is
+    /// <see langword="false"/>.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.6.2: the trailer has no <c>Encrypt</c> entry, and every string and stream is written as plaintext. A stream that
+    /// selected a crypt filter (§7.4.10) is written without its <c>Crypt</c> filter. Data the document's credentials could not
+    /// decrypt (a crypt filter they do not unlock) cannot be written unencrypted, and such a save is refused. Cannot be combined with
+    /// <see cref="Encryption"/>.
+    /// </remarks>
+    public bool RemoveEncryption { get; set; }
+
+    /// <summary>Sets <see cref="Encryption"/>.</summary>
+    /// <param name="encryption">How to encrypt the saved file; <see langword="null"/> to keep the document's own encryption.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §7.6.</remarks>
+    public PdfSaveOptions WithEncryption(PdfEncryptionOptions? encryption)
+    {
+        Encryption = encryption;
+        return this;
+    }
+
+    /// <summary>Sets <see cref="RemoveEncryption"/>.</summary>
+    /// <param name="remove">Whether the document is saved unencrypted.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §7.6.2.</remarks>
+    public PdfSaveOptions WithRemoveEncryption(bool remove)
+    {
+        RemoveEncryption = remove;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets whether a save of a changed document records the save as the document's most recent modification. The default is
+    /// <see langword="true"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §14.3.3 and §14.3.4: "When writing the time and date of the most recent modification ... a PDF processor shall
+    /// ensure that the data in the document information dictionary and the document level metadata stream – if both are written –
+    /// are fully equivalent." When the document has changed since it was read (or since its last incremental save), the save first
+    /// sets its modification date to the engine's clock (<see cref="PdfOptions.UseTimeProvider"/>), to the second, the way
+    /// <see cref="PdfDocumentProperties.ModificationDate"/> does: the Info dictionary's <c>ModDate</c> and the XMP packet's
+    /// <c>xmp:ModifyDate</c> and <c>xmp:MetadataDate</c>. A new document (<see cref="PdfDocument.Create()"/>) also gets its creation
+    /// date the first time it is saved. A date set through <see cref="PdfDocumentProperties.ModificationDate"/> since the last save
+    /// is kept.
+    /// </para>
+    /// <para>
+    /// The document is changed by this, as by any other edit. A document with no change is written exactly as before, byte for byte
+    /// where its objects allow.
+    /// </para>
+    /// </remarks>
+    public bool UpdateModificationDate { get; set; } = true;
+
+    /// <summary>Sets <see cref="UpdateModificationDate"/>.</summary>
+    /// <param name="update">Whether a save of a changed document dates the modification.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §14.3.4.</remarks>
+    public PdfSaveOptions WithUpdateModificationDate(bool update)
+    {
+        UpdateModificationDate = update;
+        return this;
+    }
+
     /// <summary>Sets <see cref="IncrementalUpdate"/>.</summary>
     /// <param name="incremental">Whether the save appends an incremental update.</param>
     /// <returns>These options.</returns>

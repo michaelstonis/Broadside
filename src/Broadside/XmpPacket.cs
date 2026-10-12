@@ -20,7 +20,10 @@ namespace Broadside;
 /// with document type declarations refused (no entity is ever expanded and nothing outside the packet is fetched) and at most
 /// 16 million characters. Malformed XML before the end of <c>rdf:RDF</c> makes the whole packet unreadable.
 /// </para>
-/// <para>Immutable: a snapshot of the bytes it was read from. Writing XMP is not supported yet.</para>
+/// <para>
+/// Immutable: a snapshot of the bytes it was read from. The document's own packet is written through <see cref="PdfDocument.Properties"/>,
+/// which keeps every property and rewrites the packet in canonical form.
+/// </para>
 /// </remarks>
 public sealed class XmpPacket
 {
