@@ -3661,3 +3661,9 @@ Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor) -> boo
 Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
 Broadside.Forms.PdfTextField.GenerateAppearances() -> void
 Broadside.Forms.PdfTextField.SetValue(string? value) -> void
+Broadside.PdfObjectCopier
+Broadside.PdfObjectCopier.Copy(Broadside.Objects.CosObject! value) -> Broadside.Objects.CosObject!
+Broadside.PdfObjectCopier.CopyPage(Broadside.PdfPage! page) -> Broadside.Objects.CosReference!
+Broadside.PdfObjectCopier.PdfObjectCopier(Broadside.PdfDocument! source, Broadside.PdfDocument! target) -> void
+Broadside.PdfObjectCopier.Source.get -> Broadside.PdfDocument!
+Broadside.PdfObjectCopier.Target.get -> Broadside.PdfDocument!
