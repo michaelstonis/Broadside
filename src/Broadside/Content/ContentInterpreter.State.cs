@@ -86,7 +86,7 @@ internal sealed partial class ContentInterpreter
             return;
         }
 
-        ExtGStateParameters parameters = document.ContentResources.GetGraphicsState(dictionary, value as CosReference);
+        ExtGStateParameters parameters = _context.GetGraphicsState(dictionary, value as CosReference);
         if (parameters.Problem is { } problem)
         {
             Report(ContentIssue.ExtGStateInvalid, offset, "A graphics state parameter dictionary deviates from Table 57: " + problem);
