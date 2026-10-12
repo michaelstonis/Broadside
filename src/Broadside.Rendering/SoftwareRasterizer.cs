@@ -28,7 +28,7 @@ namespace Broadside.Rendering;
 /// renders while nobody changes it).
 /// </para>
 /// </remarks>
-public sealed class SoftwareRasterizer : IDisposable
+public sealed partial class SoftwareRasterizer : IDisposable
 {
     private static readonly RenderOptions DefaultOptions = new();
 
@@ -138,7 +138,7 @@ public sealed class SoftwareRasterizer : IDisposable
     }
 
     /// <summary>The backend the rasterizer replays display lists through: graphics state, path mapping and colour.</summary>
-    private sealed class Backend : IRenderingBackend, IDisposable
+    private sealed partial class Backend : IRenderingBackend, IDisposable
     {
         /// <summary>The largest flattening error, in device pixels.</summary>
         private const double Tolerance = 0.1;
@@ -191,6 +191,7 @@ public sealed class SoftwareRasterizer : IDisposable
             _space = null;
             _defaults = null;
             _converter = null;
+            EndImages();
         }
 
         public void SaveState()
@@ -280,6 +281,7 @@ public sealed class SoftwareRasterizer : IDisposable
         {
             _scan.Dispose();
             _clip.Dispose();
+            DisposeImages();
         }
 
         /// <summary>

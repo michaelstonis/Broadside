@@ -22,6 +22,9 @@ internal enum DisplayOperationKind : byte
 
     /// <summary><see cref="IRenderingBackend.IntersectClip"/>; <see cref="DisplayOperation.First"/> indexes the paths.</summary>
     IntersectClip,
+
+    /// <summary><see cref="IRenderingBackend.DrawImage"/>; <see cref="DisplayOperation.First"/> indexes the images, <see cref="DisplayOperation.Second"/> the image paints.</summary>
+    DrawImage,
 }
 
 /// <summary>One record of a display list: a kind and up to two indexes into the list's tables, 16 bytes.</summary>
@@ -49,3 +52,6 @@ internal readonly record struct DisplayStroke(
     int DashCount,
     double DashPhase,
     bool StrokeAdjustment);
+
+/// <summary>What one paint of an interned image depends on beyond the image: the default colour spaces and the conversion at the paint.</summary>
+internal readonly record struct DisplayImagePaint(PdfDefaultColorSpaces DefaultColorSpaces, ColorConversion Conversion);

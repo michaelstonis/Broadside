@@ -21,6 +21,29 @@ public sealed class RenderingSnapshotTests
     [InlineData(3)]
     public Task Page_rotation_pdf_matches_its_reviewed_snapshots(int page) => VerifyPage("page-rotation.pdf", page);
 
+    [Theory]
+    [InlineData("image-1bpc.pdf")]
+    [InlineData("image-2bpc.pdf")]
+    [InlineData("image-4bpc-indexed.pdf")]
+    [InlineData("image-16bpc.pdf")]
+    [InlineData("image-decode-inverted.pdf")]
+    [InlineData("inline-image.pdf")]
+    [InlineData("inline-image-filters.pdf")]
+    [InlineData("dct-baseline.pdf")]
+    [InlineData("dct-cmyk.pdf")]
+    [InlineData("dct-progressive.pdf")]
+    [InlineData("jpx-lossless.pdf")]
+    [InlineData("jbig2-generic.pdf")]
+    [InlineData("ccitt-g4.pdf")]
+    public async Task Image_files_match_their_reviewed_snapshots(string fileName)
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes(fileName));
+        using var rasterizer = new SoftwareRasterizer();
+        using Bitmap bitmap = rasterizer.Render(document.Pages[0]);
+        using MemoryStream png = PngSnapshots.Encode(bitmap);
+        await Verify(png, "png").UseParameters(Path.GetFileNameWithoutExtension(fileName));
+    }
+
     private static async Task VerifyPage(string fileName, int page)
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Bytes(fileName));

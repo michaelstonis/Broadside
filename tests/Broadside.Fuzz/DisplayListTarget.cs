@@ -9,15 +9,18 @@ namespace Broadside.Fuzz;
 /// replays the list twice into a checking backend. Invariants: nothing throws in lenient mode; saves and restores balance and never
 /// go below zero; every path's verbs take exactly its points and every subpath starts with a moveto; every fill's and stroke's colour
 /// space is not a Pattern space and has its components; every stroke's width, miter limit and dash pattern are in their ranges (issue
-/// #99); every clip's path is well formed with a known rule (issue #105); two replays of one list make the same calls. Each call runs
-/// in a new empty document.
+/// #99); every clip's path is well formed with a known rule (issue #105); every image (issue #102) has samples, a colour space and a
+/// Decode map that agree on its component count; two replays of one list make the same calls. Each call runs in a new empty document.
 /// </summary>
 /// <remarks>ADR 0006; ISO 32000-2 §8.4.2, §8.4.3, §8.5.3, §8.5.4, §8.6.</remarks>
 internal static class DisplayListTarget
 {
+    // Inline images in the input are decoded into the list (issue #102); small limits keep a mutated /W /H from costing gigabytes.
+    private static readonly PdfEngine Engine = new(new PdfOptions().WithMaxImagePixels(1 << 16).WithMaxDecodedStreamLength(1 << 20));
+
     public static void Target(ReadOnlySpan<byte> data)
     {
-        using PdfDocument document = PdfDocument.Create();
+        using PdfDocument document = Engine.Create();
         var builder = new DisplayListBuilder();
         ContentInterpreter.RunBytes(data, document, builder, ContentInterpreter.DefaultOptions);
         DisplayList list = builder.ToDisplayList(document);
@@ -134,6 +137,16 @@ internal static class DisplayListTarget
 
             Check(points == path.Points.Length, "clipping path verbs and points disagree");
             Checksum += points + (2 * (int)rule) + 1;
+        }
+
+        public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
+        {
+            Calls++;
+            Check(image.Width > 0 && image.Height > 0, "an image without samples");
+            Check(image.Samples.Length == (long)image.Stride * image.Height, "the samples are not Stride x Height bytes");
+            Check(image.ColorSpace.Family != PdfColorSpaceFamily.Pattern, "an image in a Pattern colour space");
+            Check(image.ColorSpace.ComponentCount == image.Components && image.DecodeMap.Components == image.Components, "an image's colour space, samples and Decode disagree");
+            Checksum += image.Width + image.Height + image.Components + (int)conversion.Intent;
         }
     }
 }

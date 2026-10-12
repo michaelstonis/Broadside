@@ -83,4 +83,22 @@ public interface IRenderingBackend
     /// </para>
     /// </remarks>
     void IntersectClip(PathView path, FillRule rule);
+
+    /// <summary>Draws an image into the unit square of user space.</summary>
+    /// <param name="image">
+    /// The decoded image, the same instance for every paint of one image XObject in a list. Image space maps to the unit square
+    /// through <c>[1/Width 0 0 −1/Height 0 1]</c> (its first row at the top), then through the current transform.
+    /// </param>
+    /// <param name="defaultColorSpaces">The default colour spaces current where the image was painted (§8.6.5.6).</param>
+    /// <param name="conversion">
+    /// The conversion at the paint, with <see cref="ColorConversion.Target"/> RGB: the graphics state's, its intent replaced by the
+    /// image's Intent entry when it has one (§8.6.5.8).
+    /// </param>
+    /// <remarks>
+    /// ISO 32000-2 §8.9.4 (the unit square), §8.9.5 (image XObjects, Decode, Interpolate) and §8.9.7 (inline images). Map the samples
+    /// through <see cref="DisplayImage.DecodeMap"/>, convert them through
+    /// <see cref="PdfDocument.GetColorConverter(PdfColorSpace, ColorConversion, PdfDefaultColorSpaces?)"/>, and resample them to the
+    /// device as the backend sees fit; honour <see cref="DisplayImage.Interpolate"/> when enlarging (§8.9.5.3).
+    /// </remarks>
+    void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion);
 }

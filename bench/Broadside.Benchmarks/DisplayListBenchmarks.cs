@@ -62,5 +62,7 @@ public class DisplayListBenchmarks
         public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color) => Calls += path.Verbs.Length + style.DashArray.Length + color.Components.Length;
 
         public void IntersectClip(PathView path, FillRule rule) => Calls += path.Verbs.Length;
+
+        public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion) => Calls += image.Width;
     }
 }
