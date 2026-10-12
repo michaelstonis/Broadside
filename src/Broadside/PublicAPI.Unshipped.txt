@@ -3646,3 +3646,5 @@ Broadside.Graphics.PdfFormXObject.RewriteContent(Broadside.Content.ContentEditor
 Broadside.Graphics.PdfFormXObject.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
 Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor) -> bool
 Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
+Broadside.Forms.PdfTextField.GenerateAppearances() -> void
+Broadside.Forms.PdfTextField.SetValue(string? value) -> void
