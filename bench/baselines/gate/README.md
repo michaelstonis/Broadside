@@ -174,5 +174,10 @@ and baseline, recomputed from each run's reports.
 | [`lexer-alloc`](https://github.com/michaelstonis/Broadside/actions/runs/38239222457) | `CosLexer.Next` allocates a 1-byte array per token | failed: 218 allocation changes (`LexerBenchmarks.Tokenize(empty-page.pdf)`: 2,464 B per call, baseline 0 B; every case that lexes), and 4 cases slower |
 | [`slow-30b`](https://github.com/michaelstonis/Broadside/actions/runs/38242385985) | `LexerBenchmarks.Tokenize` spins for 30 % of its own time | failed: exactly the two `Tokenize` cases, 1.35x (rounds 1.34, 1.41; rerun 1.34) and 1.32x (rounds 1.32, 1.32; rerun 1.30); nothing else |
 
+After merging the integration branch (which had added 56 cases: display list, rasterizer, text extraction, encoders and more,
+and changed others, e.g. +32 B per document open), the baseline was re-recorded from
+[`record-1`](https://github.com/michaelstonis/Broadside/actions/runs/38245757517): 401 cases, base and pull-request figures equal
+for all but the two ranged ones, no slower case.
+
 The first runs (`aa-1` to `aa-3`, before the runtime settings and the allocation mode above) are where the 4.7x tier-0 mode,
 the per-process allocation spread and the BenchmarkDotNet allocation drift were found.

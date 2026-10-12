@@ -194,8 +194,8 @@ public sealed class GateReport
 
     private static string Code(string name)
     {
-        const string Prefix = "Broadside.Benchmarks.";
-        string shortName = name.StartsWith(Prefix, StringComparison.Ordinal) ? name[Prefix.Length..] : name;
+        const string prefix = "Broadside.Benchmarks.";
+        string shortName = name.StartsWith(prefix, StringComparison.Ordinal) ? name[prefix.Length..] : name;
         return "`" + shortName.Replace("|", "\\|", StringComparison.Ordinal) + "`";
     }
 
