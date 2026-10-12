@@ -3588,3 +3588,9 @@ Broadside.PdfDocument.RemoveObject(Broadside.Objects.CosReference! reference) ->
 Broadside.PdfSaveOptions.IncrementalUpdate.get -> bool
 Broadside.PdfSaveOptions.IncrementalUpdate.set -> void
 Broadside.PdfSaveOptions.WithIncrementalUpdate(bool incremental) -> Broadside.PdfSaveOptions!
+Broadside.PdfDocument.CreateNameTree(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Broadside.Objects.CosString!, Broadside.Objects.CosObject!>>! entries) -> Broadside.PdfNameTree!
+Broadside.PdfDocument.CreateNumberTree(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<int, Broadside.Objects.CosObject!>>! entries) -> Broadside.PdfNumberTree!
+Broadside.PdfNameTree.Remove(Broadside.Objects.CosString! key) -> bool
+Broadside.PdfNameTree.Set(Broadside.Objects.CosString! key, Broadside.Objects.CosObject! value) -> void
+Broadside.PdfNumberTree.Remove(int key) -> bool
+Broadside.PdfNumberTree.Set(int key, Broadside.Objects.CosObject! value) -> void

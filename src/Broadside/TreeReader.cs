@@ -31,7 +31,7 @@ namespace Broadside;
 /// Thread-safe for concurrent reads (the index is built under a lock and published whole).
 /// </para>
 /// </remarks>
-internal abstract class TreeReader<TKey>
+internal abstract partial class TreeReader<TKey>
     where TKey : notnull
 {
     /// <summary>The deepest tree the reader descends into: deeper nodes are skipped with a diagnostic.</summary>

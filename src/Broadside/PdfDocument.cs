@@ -541,7 +541,7 @@ public sealed partial class PdfDocument : IDisposable
     /// the index a damaged tree needs is built once per document.
     /// </remarks>
     public PdfNameTree? GetNameTree(CosObject? root) =>
-        GetNameTreeReader(root) is { } reader ? new PdfNameTree(reader) : null;
+        GetNameTreeReader(root) is { } reader ? new PdfNameTree(reader, this) : null;
 
     /// <summary>Returns a view of the number tree whose root node is <paramref name="root"/>.</summary>
     /// <param name="root">The root node dictionary, or a reference to it, from this document.</param>
@@ -554,7 +554,7 @@ public sealed partial class PdfDocument : IDisposable
     /// the same root share one reader.
     /// </remarks>
     public PdfNumberTree? GetNumberTree(CosObject? root) =>
-        GetNumberTreeReader(root) is { } reader ? new PdfNumberTree(reader) : null;
+        GetNumberTreeReader(root) is { } reader ? new PdfNumberTree(reader, this) : null;
 
     /// <summary>Looks up the destination a name (PDF 1.1) or string (PDF 1.2) names, as text.</summary>
     /// <param name="name">The destination's name.</param>

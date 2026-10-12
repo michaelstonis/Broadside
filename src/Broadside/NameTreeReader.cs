@@ -101,6 +101,9 @@ internal sealed class NameTreeReader : TreeReader<CosString>
     }
 
     /// <inheritdoc/>
+    private protected override CosObject WriteKey(CosString key) => key;
+
+    /// <inheritdoc/>
     private protected override KeyState ReadKey(CosObject key, [MaybeNullWhen(false)] out CosString value, out string? message)
     {
         switch (key)
