@@ -3517,6 +3517,18 @@ Broadside.Rendering.IRenderingBackend.FillPath(Broadside.Graphics.PathView path,
 Broadside.Rendering.IRenderingBackend.RestoreState() -> void
 Broadside.Rendering.IRenderingBackend.SaveState() -> void
 Broadside.Rendering.IRenderingBackend.SetTransform(in Broadside.Graphics.Matrix transform) -> void
+Broadside.Content.GlyphEvent.Type3Metrics.get -> Broadside.Fonts.Type3GlyphMetrics
+Broadside.Fonts.Type3GlyphKind
+Broadside.Fonts.Type3GlyphKind.None = 0 -> Broadside.Fonts.Type3GlyphKind
+Broadside.Fonts.Type3GlyphKind.ShapeAndColor = 1 -> Broadside.Fonts.Type3GlyphKind
+Broadside.Fonts.Type3GlyphKind.ShapeOnly = 2 -> Broadside.Fonts.Type3GlyphKind
+Broadside.Fonts.Type3GlyphKind.Undeclared = 3 -> Broadside.Fonts.Type3GlyphKind
+Broadside.Fonts.Type3GlyphMetrics
+Broadside.Fonts.Type3GlyphMetrics.BoundingBox.get -> Broadside.PdfRectangle
+Broadside.Fonts.Type3GlyphMetrics.Kind.get -> Broadside.Fonts.Type3GlyphKind
+Broadside.Fonts.Type3GlyphMetrics.Type3GlyphMetrics() -> void
+Broadside.Fonts.Type3GlyphMetrics.WidthX.get -> double
+Broadside.Fonts.Type3GlyphMetrics.WidthY.get -> double
 Broadside.PdfObjectNumbering
 Broadside.PdfObjectNumbering.Automatic = 0 -> Broadside.PdfObjectNumbering
 Broadside.PdfObjectNumbering.Compact = 1 -> Broadside.PdfObjectNumbering
