@@ -3712,3 +3712,18 @@ Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor) -> boo
 Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
 Broadside.Forms.PdfTextField.GenerateAppearances() -> void
 Broadside.Forms.PdfTextField.SetValue(string? value) -> void
+Broadside.PdfOutputIntent
+Broadside.PdfOutputIntent.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfOutputIntent.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfOutputIntent.Subtype.get -> string?
+Broadside.PdfOutputIntent.OutputCondition.get -> string?
+Broadside.PdfOutputIntent.OutputConditionIdentifier.get -> string?
+Broadside.PdfOutputIntent.RegistryName.get -> string?
+Broadside.PdfOutputIntent.Info.get -> string?
+Broadside.PdfOutputIntent.DestinationProfile.get -> Broadside.Graphics.PdfIccBasedColorSpace?
+override Broadside.PdfOutputIntent.ToString() -> string!
+Broadside.PdfDocument.OutputIntents.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOutputIntent!>!
+Broadside.PdfPage.OutputIntents.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOutputIntent!>!
+Broadside.Graphics.GraphicsState.OutputIntent.get -> Broadside.PdfOutputIntent?
+Broadside.Graphics.ColorConversion.OutputIntent.get -> Broadside.PdfOutputIntent?
+Broadside.Graphics.ColorConversion.OutputIntent.init -> void

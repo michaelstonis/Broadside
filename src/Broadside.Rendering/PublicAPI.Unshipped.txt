@@ -57,3 +57,11 @@ Broadside.Rendering.Icc.IccProfile.ChromaticAdaptation.get -> System.Collections
 Broadside.Rendering.Icc.IccProfile.TryConvertFromConnectionSpace(System.ReadOnlySpan<float> connection, System.Span<float> device, Broadside.Graphics.RenderingIntent intent = Broadside.Graphics.RenderingIntent.RelativeColorimetric) -> bool
 Broadside.Rendering.Icc.IccProfile.TryConvertToConnectionSpace(System.ReadOnlySpan<float> device, System.Span<float> connection, Broadside.Graphics.RenderingIntent intent = Broadside.Graphics.RenderingIntent.RelativeColorimetric) -> bool
 Broadside.Rendering.Icc.IccProfileModel.LookupTable = 3 -> Broadside.Rendering.Icc.IccProfileModel
+static Broadside.Rendering.Icc.IccProfile.Srgb.get -> Broadside.Rendering.Icc.IccProfile!
+static Broadside.Rendering.Icc.IccProfile.CreateSrgbProfileData() -> byte[]!
+Broadside.Rendering.Icc.IccColorManagement.RgbProfile.get -> Broadside.Rendering.Icc.IccProfile!
+Broadside.Rendering.Icc.IccColorManagement.CompensatesBlackPointByDefault.get -> bool
+Broadside.Rendering.Icc.IccColorManagement.UsesOutputIntents.get -> bool
+Broadside.Rendering.Icc.IccColorManagement.WithRgbProfile(Broadside.Rendering.Icc.IccProfile! profile) -> Broadside.Rendering.Icc.IccColorManagement!
+Broadside.Rendering.Icc.IccColorManagement.WithDefaultBlackPointCompensation(bool compensate) -> Broadside.Rendering.Icc.IccColorManagement!
+Broadside.Rendering.Icc.IccColorManagement.WithOutputIntents(bool use) -> Broadside.Rendering.Icc.IccColorManagement!

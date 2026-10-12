@@ -118,6 +118,55 @@ internal sealed class IccCurve
         return table;
     }
 
+    /// <summary>Samples the inverse of the curve at <paramref name="size"/> evenly spaced outputs from 0 to 1, for interpolation.</summary>
+    /// <param name="size">The number of samples, at least 2.</param>
+    /// <returns>For each value y, the input x the curve takes to y.</returns>
+    /// <remarks>
+    /// ICC.1:2022 Annex F.1. The curve is taken as increasing when it ends higher than it starts and as decreasing otherwise; each x
+    /// is found by bisection to double precision. Where the curve is flat the inverse is the highest x of the flat run, or the lowest
+    /// when the run reaches the end of the domain (F.1 a)); a y outside the curve's range takes the x of the nearest value it reaches
+    /// (F.1 b)). A constant curve, which cannot be inverted, gives the identity.
+    /// </remarks>
+    public float[] ToInverseTable(int size)
+    {
+        float[] table = new float[size];
+        double start = Evaluate(0);
+        double end = Evaluate(1);
+        bool decreasing = end < start;
+        if (start == end)
+        {
+            for (int i = 0; i < size; i++)
+            {
+                table[i] = i / (float)(size - 1);
+            }
+
+            return table;
+        }
+
+        // An increasing view g of the curve: g(t) = f(t), or f(1 − t) for a decreasing curve.
+        double low = Math.Min(start, end);
+        double high = Math.Max(start, end);
+        for (int i = 0; i < size; i++)
+        {
+            double y = i / (double)(size - 1);
+            double t;
+            if (y >= high)
+            {
+                // F.1 a), a flat run up to the end: the lowest t with g(t) at the maximum.
+                t = Bisect(high, decreasing, lowest: true);
+            }
+            else
+            {
+                // The highest t with g(t) <= y (F.1 a)); below the range, the highest t at the minimum (F.1 b)).
+                t = Bisect(Math.Max(y, low), decreasing, lowest: false);
+            }
+
+            table[i] = (float)(decreasing ? 1 - t : t);
+        }
+
+        return table;
+    }
+
     /// <summary>Gets whether the curve is the identity: a curveType with no entries or a gamma of 1 (§10.6), or a type 0 parametric gamma of 1 (§10.18).</summary>
     public bool IsIdentity => _function < 0
         ? _samples.Length == 0 || (_samples.Length == 1 && _samples[0] == 256)
@@ -143,6 +192,31 @@ internal sealed class IccCurve
         }
 
         return table;
+    }
+
+    /// <summary>
+    /// Bisects the increasing view g of the curve for <paramref name="y"/>: the lowest t with g(t) ≥ y, or the highest t with
+    /// g(t) ≤ y.
+    /// </summary>
+    private double Bisect(double y, bool decreasing, bool lowest)
+    {
+        double lo = 0;
+        double hi = 1;
+        for (int step = 0; step < 52; step++)
+        {
+            double mid = 0.5 * (lo + hi);
+            double g = Evaluate(decreasing ? 1 - mid : mid);
+            if (lowest ? g >= y : g > y)
+            {
+                hi = mid;
+            }
+            else
+            {
+                lo = mid;
+            }
+        }
+
+        return lowest ? hi : lo;
     }
 
     /// <summary>Clips to [0, 1]; NaN becomes 0.</summary>

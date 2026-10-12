@@ -14,6 +14,9 @@ internal static partial class DiagnosticCodes
     public const string DeveloperExtensionInvalid = nameof(DeveloperExtensionInvalid);
     public const string RequirementInvalid = nameof(RequirementInvalid);
 
+    // Output intents (§14.11.5, issue #119).
+    public const string OutputIntentInvalid = nameof(OutputIntentInvalid);
+
     // Page labels (§12.4.2).
     public const string PageLabelsMissingZeroKey = nameof(PageLabelsMissingZeroKey);
     public const string PageLabelInvalid = nameof(PageLabelInvalid);

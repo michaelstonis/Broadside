@@ -27,11 +27,22 @@ public readonly record struct ColorConversion
     /// <remarks>ISO 32000-2 §10.4.2.3 and Table 57 (<c>UCR</c>, <c>UCR2</c>). Used only when converting RGB to CMYK.</remarks>
     public PdfFunction? UndercolorRemoval { get; init; }
 
+    /// <summary>
+    /// Gets the output intent of the content being converted, or <see langword="null"/> for none: the device or production
+    /// condition its device colours are meant for.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §14.11.5. A colour management may treat DeviceCMYK colours (and DeviceRGB or DeviceGray ones when the profile has
+    /// that many components) as described by <see cref="PdfOutputIntent.DestinationProfile"/>, and convert to that profile when the
+    /// target is its device; it may also disregard it. Default colour spaces (§8.6.5.6) are applied before, so they take precedence.
+    /// </remarks>
+    public PdfOutputIntent? OutputIntent { get; init; }
+
     /// <summary>Gets a value indicating whether black point compensation applies: on unless it is off or the intent is absolute colorimetric.</summary>
     /// <remarks>ISO 32000-2 §8.6.5.9: with AbsoluteColorimetric "black point compensation shall not be used".</remarks>
     public bool CompensatesBlackPoint => BlackPointCompensation != BlackPointCompensation.Off && Intent != RenderingIntent.AbsoluteColorimetric;
 
-    /// <summary>Returns the conversion the graphics state asks for: its rendering intent, black point compensation, black generation and undercolour removal.</summary>
+    /// <summary>Returns the conversion the graphics state asks for: its rendering intent, black point compensation, black generation, undercolour removal and output intent.</summary>
     /// <param name="state">The graphics state.</param>
     /// <param name="target">The device colour model converted to.</param>
     /// <returns>The conversion.</returns>
@@ -42,5 +53,6 @@ public readonly record struct ColorConversion
         BlackPointCompensation = state.BlackPointCompensation,
         BlackGeneration = state.BlackGeneration,
         UndercolorRemoval = state.UndercolorRemoval,
+        OutputIntent = state.OutputIntent,
     };
 }
