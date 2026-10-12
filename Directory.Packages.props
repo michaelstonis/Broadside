@@ -33,6 +33,8 @@
     <PackageVersion Include="Verify.XunitV3" Version="33.3.2" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="SharpFuzz" Version="2.3.0" />
+    <!-- An independent, fully managed PNG decoder (public domain port of stb_image) that checks the rasterizer's PNG output (#95); never in a package. -->
+    <PackageVersion Include="StbImageSharp" Version="2.30.15" />
     <!-- A concrete container, logging pipeline and configuration for the dependency-injection tests (#46); never in the core. -->
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />

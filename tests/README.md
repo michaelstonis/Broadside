@@ -7,6 +7,7 @@
 | `Broadside.Tests` | Tests for the core package (COS layer, document model, filters, security, content, text, layout, forms, signatures). |
 | `Broadside.Rendering.Tests` | Tests for the managed rasterizer, color engine and PNG encoder. Rendering snapshots live here. |
 | `Broadside.Rendering.Skia.Tests` | Tests for the SkiaSharp backend against the same display lists. |
+| `Broadside.Rendering.AotSmoke` | A console host published with Native AOT that renders the rendering corpus files and compares them with the rasterizer's snapshots. Not a test project; see "The AOT smoke host" below. |
 | `Broadside.Fonts.Standard14.Tests` | Tests for the standard 14 font metrics and programs. |
 | `Broadside.Fonts.Cmaps.Tests` | Tests for the predefined CMaps. |
 | `Broadside.TestSupport` | A plain library shared by the test projects: the `Corpus` helper and the Verify configuration. Not a test project. |
@@ -75,6 +76,19 @@ mv tests/Broadside.Tests/Snapshots/Foo.Bar.received.txt tests/Broadside.Tests/Sn
 or install the [Verify CLI](https://github.com/VerifyTests/Verify.Terminal) (`dotnet tool install --global verify.tool`) and run `dotnet verify review` to step through pending snapshots, or let a diff tool handle it: Verify launches one automatically when it finds it installed and `DiffEngine_Disabled` is not set. CI sets `DiffEngine_Disabled=true` (Verify also detects the `CI` variable). Review every snapshot change in the PR as carefully as the code: an accepted wrong snapshot is a wrong test.
 
 Verify 33 and later require the consumer to state its license terms at build time; `tests/Directory.Build.props` claims the open-source exemption with a twelve-month expiry that has to be bumped before it lapses. The comment there says what to do.
+
+Rendering snapshots in `Broadside.Rendering.Tests` are PNG files (`Bitmap.SavePng`) compared by their decoded pixels, not their bytes (`PngSnapshots` registers the comparer), so a different zlib build never fails a test whose image is the same. Decoding uses StbImageSharp, a managed decoder independent of the encoder. Open the `.received.png` and look at it before accepting it.
+
+## The AOT smoke host
+
+`tests/Broadside.Rendering.AotSmoke` proves that rendering runs trimmed and natively compiled with no native dependency besides the runtime (issue #95). It is a console program, not a test project, so `dotnet test` skips it; the `aot-smoke` CI job publishes and runs it on all three operating systems:
+
+```sh
+dotnet publish tests/Broadside.Rendering.AotSmoke -c Release --use-current-runtime -o artifacts/aot-smoke
+artifacts/aot-smoke/Broadside.Rendering.AotSmoke --require-aot     # exit 0 when every check passes
+```
+
+Trim and AOT analysis warnings fail the publish. Native AOT needs the platform linker (clang, Xcode or the MSVC tools); on a Mac whose Command Line Tools SDK is newer than its linker, point the build at an Xcode with `DEVELOPER_DIR` and `SDKROOT`. `dotnet run --project tests/Broadside.Rendering.AotSmoke` runs the same checks under the JIT.
 
 ## Benchmarks
 

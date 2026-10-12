@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    A trimmed, natively compiled (Native AOT) host for the software rasterizer (issue #95): proves that rendering a page and writing
+    PNG needs no JIT, no reflection the trimmer cannot see and no native library besides the runtime itself. A console program, not a
+    test project: CI publishes it with `dotnet publish -c Release -r <rid>` and runs the executable, which exits non-zero on any
+    failed check (tests/README.md, "The AOT smoke host").
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsTestProject>false</IsTestProject>
+    <UseMicrosoftTestingPlatformRunner>false</UseMicrosoftTestingPlatformRunner>
+    <TestingPlatformDotnetTestSupport>false</TestingPlatformDotnetTestSupport>
+    <RootNamespace>Broadside.Rendering.AotSmoke</RootNamespace>
+    <PublishAot>true</PublishAot>
+    <TrimmerSingleWarn>false</TrimmerSingleWarn>
+    <IlcTreatWarningsAsErrors>true</IlcTreatWarningsAsErrors>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Rendering/Broadside.Rendering.csproj" />
+    <!-- The same independent PNG decoder the rendering tests use, to compare with their reviewed snapshots. -->
+    <PackageReference Include="StbImageSharp" />
+    <Compile Include="../Broadside.TestSupport/CorpusLocator.cs" Link="CorpusLocator.cs" />
+    <!-- The folder props add a global using for xunit; this host does not reference it. -->
+    <Using Remove="Xunit" />
+  </ItemGroup>
+
+</Project>

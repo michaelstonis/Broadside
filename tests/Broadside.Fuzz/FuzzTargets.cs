@@ -70,6 +70,7 @@ internal static class FuzzTargets
         ["image-decode"] = ImageDecodeTarget.Target,
         ["shading-mesh"] = ShadingMeshTarget.Target,
         ["display-list"] = DisplayListTarget.Target,
+        ["rasterize"] = RasterizeTarget.Target,
     };
 
     /// <summary>
