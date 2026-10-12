@@ -42,6 +42,21 @@ internal static class CosGraph
         comparer.Drain();
     }
 
+    /// <summary>
+    /// Asserts that the page object <paramref name="actualPage"/> of <paramref name="actual"/> is a copy of the page object
+    /// <paramref name="expectedPage"/> of <paramref name="expected"/>, cut out of its page tree: every page the graphs reach compares
+    /// without its <c>Parent</c> entry, an expected page's inherited attributes (ISO 32000-2 §7.7.3.4) count as its own, and
+    /// everything else compares as <see cref="AssertIsomorphic(PdfDocument, PdfDocument)"/> compares it. Pass the comparer of earlier
+    /// pages of the same copy session to check that they share one bijection.
+    /// </summary>
+    public static PageCopyComparer AssertPageCopy(PdfDocument expected, CosReference expectedPage, PdfDocument actual, CosReference actualPage, PageCopyComparer? session = null)
+    {
+        session ??= new PageCopyComparer(new Comparer(expected, actual) { PageCopies = true });
+        session.Inner.Compare(expectedPage, actualPage, "page");
+        session.Inner.Drain();
+        return session;
+    }
+
     /// <summary>Every indirect object the document reaches from its trailer, stream lengths excepted.</summary>
     public static IReadOnlyList<CosReference> Reachable(PdfDocument document)
     {
@@ -110,12 +125,31 @@ internal static class CosGraph
         return entries;
     }
 
-    private sealed class Comparer(PdfDocument expected, PdfDocument actual)
+    /// <summary>One bijection shared by the page comparisons of one copy session.</summary>
+    internal sealed class PageCopyComparer
     {
+        internal PageCopyComparer(Comparer inner) => Inner = inner;
+
+        internal Comparer Inner { get; }
+
+        /// <summary>Gets the bijection between the references compared so far.</summary>
+        public IReadOnlyDictionary<CosReference, CosReference> Bijection => Inner.Forward;
+    }
+
+    internal sealed class Comparer(PdfDocument expected, PdfDocument actual)
+    {
+        private static readonly CosName TypeKey = new("Type");
+        private static readonly CosName PageType = new("Page");
+        private static readonly CosName ParentKey = new("Parent");
+        private static readonly CosName[] Inheritable = [new("Resources"), new("MediaBox"), new("CropBox"), new("Rotate")];
+
         private readonly Dictionary<CosReference, CosReference> _reverse = [];
         private readonly Queue<(CosObject Expected, CosObject Actual, string Path)> _pending = new();
 
         public Dictionary<CosReference, CosReference> Forward { get; } = [];
+
+        /// <summary>Gets a value indicating whether pages compare as copies cut out of their page tree.</summary>
+        public bool PageCopies { get; init; }
 
         public void Drain()
         {
@@ -174,6 +208,11 @@ internal static class CosGraph
                     CompareDictionaries(leftStream.Dictionary, rightStream.Dictionary, path, ignoreLength: true);
                     Assert.True(leftStream.EncodedData.Span.SequenceEqual(rightStream.EncodedData.Span), $"{path}: the stream data changed.");
                     break;
+                case CosDictionary leftDictionary when PageCopies && PageType.Equals(expected.Resolve(leftDictionary.TryGetValue(TypeKey, out CosObject? type) ? type : null)):
+                    CosDictionary rightPage = Assert.IsType<CosDictionary>(right);
+                    Assert.False(rightPage.ContainsKey(ParentKey), $"{path}: the copied page has a Parent.");
+                    CompareDictionaries(CutOut(leftDictionary), rightPage, path, ignoreLength: false);
+                    break;
                 case CosDictionary leftDictionary:
                     CompareDictionaries(leftDictionary, Assert.IsType<CosDictionary>(right), path, ignoreLength: false);
                     break;
@@ -181,6 +220,32 @@ internal static class CosGraph
                     Assert.True(left.Equals(right), $"{path}: {left} became {right}.");
                     break;
             }
+        }
+
+        /// <summary>The page's entries without <c>Parent</c>, with the attributes it inherits through its <c>Parent</c> chain added.</summary>
+        private CosDictionary CutOut(CosDictionary page)
+        {
+            var own = new CosDictionary();
+            foreach (KeyValuePair<CosName, CosObject> entry in page.Where(entry => !entry.Key.Equals(ParentKey)))
+            {
+                own[entry.Key] = entry.Value;
+            }
+
+            foreach (CosName key in Inheritable.Where(key => expected.Resolve(own.TryGetValue(key, out CosObject? value) ? value : null) is CosNull))
+            {
+                for (CosObject node = expected.Resolve(page.TryGetValue(ParentKey, out CosObject? up) ? up : null);
+                    node is CosDictionary ancestor;
+                    node = expected.Resolve(ancestor.TryGetValue(ParentKey, out CosObject? next) ? next : null))
+                {
+                    if (ancestor.TryGetValue(key, out CosObject? inherited) && expected.Resolve(inherited) is not CosNull)
+                    {
+                        own[key] = inherited;
+                        break;
+                    }
+                }
+            }
+
+            return own;
         }
 
         private void CompareDictionaries(CosDictionary left, CosDictionary right, string path, bool ignoreLength)
