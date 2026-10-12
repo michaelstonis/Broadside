@@ -67,5 +67,7 @@ public sealed class DisplayListAllocationTests
             Fills++;
             Checksum += path.Points.Length + color.Components.Length + (int)color.ColorSpace.Family;
         }
+
+        public void IntersectClip(PathView path, FillRule rule) => Checksum += path.Points.Length + (int)rule;
     }
 }

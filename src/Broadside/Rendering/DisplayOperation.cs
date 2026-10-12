@@ -16,6 +16,9 @@ internal enum DisplayOperationKind : byte
 
     /// <summary><see cref="IRenderingBackend.FillPath"/>; <see cref="DisplayOperation.First"/> indexes the paths, <see cref="DisplayOperation.Second"/> the colours.</summary>
     FillPath,
+
+    /// <summary><see cref="IRenderingBackend.IntersectClip"/>; <see cref="DisplayOperation.First"/> indexes the paths.</summary>
+    IntersectClip,
 }
 
 /// <summary>One record of a display list: a kind and up to two indexes into the list's tables, 16 bytes.</summary>

@@ -3520,6 +3520,7 @@ Broadside.Rendering.DisplayList.Document.get -> Broadside.PdfDocument!
 Broadside.Rendering.DisplayList.Replay(Broadside.Rendering.IRenderingBackend! backend) -> void
 Broadside.Rendering.IRenderingBackend
 Broadside.Rendering.IRenderingBackend.FillPath(Broadside.Graphics.PathView path, Broadside.Graphics.FillRule rule, in Broadside.Rendering.DisplayColor color) -> void
+Broadside.Rendering.IRenderingBackend.IntersectClip(Broadside.Graphics.PathView path, Broadside.Graphics.FillRule rule) -> void
 Broadside.Rendering.IRenderingBackend.RestoreState() -> void
 Broadside.Rendering.IRenderingBackend.SaveState() -> void
 Broadside.Rendering.IRenderingBackend.SetTransform(in Broadside.Graphics.Matrix transform) -> void

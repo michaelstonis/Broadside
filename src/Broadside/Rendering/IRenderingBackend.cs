@@ -50,4 +50,26 @@ public interface IRenderingBackend
     /// <param name="color">The nonstroking colour, unconverted.</param>
     /// <remarks>ISO 32000-2 §8.5.3.1 and §8.5.3.3 (<c>f</c>, <c>F</c>, <c>f*</c>, and the fill of <c>B</c>, <c>B*</c>, <c>b</c>, <c>b*</c>).</remarks>
     void FillPath(PathView path, FillRule rule, in DisplayColor color);
+
+    /// <summary>Intersects the current clip with the inside of a path, for the paints that follow until the state is restored.</summary>
+    /// <param name="path">
+    /// The path in user space under the current transform, exactly as constructed: its inside is the area <see cref="FillPath"/>
+    /// would fill with <paramref name="rule"/> (open subpaths closed, a trailing single-point subpath disregarded, ISO 32000-2
+    /// §8.5.3.3.1).
+    /// </param>
+    /// <param name="rule">The rule that decides the inside: non-zero winding (<c>W</c>) or even-odd (<c>W*</c>).</param>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §8.5.4 (<c>W</c>, <c>W*</c>): the clip only shrinks, by intersection, and <see cref="RestoreState"/> brings back
+    /// the clip of the matching <see cref="SaveState"/>. The call comes after the paint of the path object that set it, so that
+    /// paint is not clipped by its own path. A form XObject's bounding box (§8.10.1) arrives the same way, as a rectangle under the
+    /// form's transform, inside the state saved around the form.
+    /// </para>
+    /// <para>
+    /// A replay starts with the initial clipping path (§8.5.4: the whole page): the area the renderer maps the page to, which is the
+    /// crop box (§14.11.2, never larger than the media box). Clipping is anti-aliased like filling where the backend anti-aliases.
+    /// Text clips (§9.3.6, rendering modes 4 to 7) are not in the list yet.
+    /// </para>
+    /// </remarks>
+    void IntersectClip(PathView path, FillRule rule);
 }

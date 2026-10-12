@@ -10,8 +10,8 @@ namespace Broadside.TestSupport;
 /// what reached the backend contract (ADR 0006) with an expected sequence. It reads only what the call hands it.
 /// </summary>
 /// <remarks>
-/// Lines: <c>save</c>, <c>restore</c>, <c>transform [a b c d e f]</c>, and
-/// <c>fill nonzero|evenodd M x y L x y Q … C … Z | Family c0 c1 …</c>. Numbers are written round-trippable and culture-invariant.
+/// Lines: <c>save</c>, <c>restore</c>, <c>transform [a b c d e f]</c>,
+/// <c>fill nonzero|evenodd M x y L x y Q … C … Z | Family c0 c1 …</c>, and <c>clip nonzero|evenodd M x y L … Z</c>. Numbers are written round-trippable and culture-invariant.
 /// </remarks>
 public sealed class RecordingBackend : IRenderingBackend
 {
@@ -43,6 +43,14 @@ public sealed class RecordingBackend : IRenderingBackend
 
         Operations.Add(text.ToString());
         Fills.Add((color.ColorSpace, color.Components.ToArray(), color.DefaultColorSpaces, color.Conversion));
+    }
+
+    /// <inheritdoc/>
+    public void IntersectClip(PathView path, FillRule rule)
+    {
+        var text = new StringBuilder("clip ").Append(rule == FillRule.EvenOdd ? "evenodd" : "nonzero");
+        Describe(path, text);
+        Operations.Add(text.ToString());
     }
 
     /// <summary>Writes a path as its verbs and points.</summary>

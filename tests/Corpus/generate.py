@@ -5540,6 +5540,40 @@ def gen_page_rotation() -> bytes:
     return simple_file(objects)
 
 
+def gen_clipping_paths() -> bytes:
+    """8.5.4 clipping path operators (W, W*) with 8.5.3.3 insideness, 8.4.2 q/Q restoring the clip, 8.10.1 form bounding-box clips.
+    One 400 x 300 page, white background, each figure in its own q/Q. Top row: (A) nested clips: a counterclockwise circle of four c
+    curves, centre (70, 225), radius 55, W n, then the rectangle 70 200 130 100 re W n, then a DeviceRGB red fill of the whole cell:
+    only the part of the circle right of x = 70 and above y = 200 is red; (B) an even-odd clip: a pentagram at (200, 225), radius 55,
+    W* n, then a DeviceRGB blue fill of 140 165 120 120: the five points are blue, the centre pentagon white; (C) a clip restored by
+    Q: q 285 170 50 110 re W n, a DeviceRGB 0 0.6 0 fill of 270 200 120 50 (green only from x 285 to 335), Q, then a DeviceRGB
+    0.5 0 0.5 bar 270 175 120 10 re f that is not clipped. Bottom row: (D) a clip applies after the paint of its path: two
+    counterclockwise squares 20..120 and 45..95 filled with W* f in red (non-zero: solid), then a blue fill of the cell, which
+    reaches only the even-odd ring; (E) form XObjects clipped to their bounding boxes: under 1 0 0 1 150 20 cm, form Fm (/BBox
+    [0 0 100 100]) fills a DeviceRGB 0 0.5 0.5 circle of radius 60 at (50, 50) (cut by the box on four sides) and paints form In
+    (/BBox [25 25 75 75]), which fills a DeviceRGB 1 0.5 0 triangle (0 0) (100 0) (50 100) cut to its box; (F) an oblique
+    rectangle clip: under a 30 degree rotation about (330, 75), -40 -40 80 80 re W n, then eight vertical stripes 15 wide from
+    x = -60, alternately DeviceRGB red and blue, cut to the turned square."""
+    content = b"\n".join([
+        b"q " + _circle(70, 225, 55, clockwise=False) + b" W n 70 200 130 100 re W n 1 0 0 rg 0 150 140 150 re f Q",
+        b"q " + _star(200, 225, 55) + b" W* n 0 0 1 rg 140 165 120 120 re f Q",
+        b"q 285 170 50 110 re W n 0 0.6 0 rg 270 200 120 50 re f Q 0.5 0 0.5 rg 270 175 120 10 re f",
+        b"q 1 0 0 rg " + _square(20, 20, 120, 120, False) + b" " + _square(45, 45, 95, 95, False) + b" W* f 0 0 1 rg 0 0 140 140 re f Q",
+        b"q 1 0 0 1 150 20 cm /Fm Do Q",
+        b"q 0.866 0.5 -0.5 0.866 330 75 cm -40 -40 80 80 re W n "
+        + b" ".join(b"%s rg %d -60 15 120 re f" % (b"1 0 0" if i % 2 == 0 else b"0 0 1", -60 + 15 * i) for i in range(8)) + b" Q",
+    ]) + b"\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(mediabox=b"[0 0 400 300]", contents=4, resources=False, extra=b" /Resources << /XObject << /Fm 5 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Resources << /XObject << /In 6 0 R >> >>",
+                   b"0 0.5 0.5 rg " + _circle(50, 50, 60, clockwise=False) + b" f /In Do")),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [25 25 75 75]", b"1 0.5 0 rg 0 0 m 100 0 l 50 100 l h f")),
+    ])
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -5695,6 +5729,7 @@ FILES = {
     "jbig2-annex-h.pdf": gen_jbig2_annex_h,
     "paths-fill-rules.pdf": gen_paths_fill_rules,
     "page-rotation.pdf": gen_page_rotation,
+    "clipping-paths.pdf": gen_clipping_paths,
 }
 
 
