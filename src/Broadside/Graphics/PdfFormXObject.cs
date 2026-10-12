@@ -1,4 +1,5 @@
 using Broadside.Annotations;
+using Broadside.Content;
 using Broadside.Objects;
 
 namespace Broadside.Graphics;
@@ -11,7 +12,10 @@ namespace Broadside.Graphics;
 /// without a diagnostic: the object that uses the form (an annotation's appearance, the content interpreter's <c>Do</c>) reports
 /// what it cannot use.
 /// </para>
-/// <para>The content is never interpreted here; <see cref="Decode"/> returns its bytes through the document's filters.</para>
+/// <para>
+/// <see cref="Decode"/> returns the content's bytes through the document's filters; <see cref="RewriteContent(ContentEditor)"/> runs it
+/// through an editor and stores the edited content.
+/// </para>
 /// </remarks>
 public sealed class PdfFormXObject
 {
@@ -71,6 +75,36 @@ public sealed class PdfFormXObject
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found while decoding.</exception>
     /// <remarks>ISO 32000-2 §7.3.8.2 and §7.4; as <see cref="PdfDocument.DecodeStream(CosStream)"/>.</remarks>
     public ReadOnlyMemory<byte> Decode() => _document.DecodeStream(Stream);
+
+    /// <summary>
+    /// Runs the form's content through <paramref name="editor"/> and, when it made edits, replaces the form's data with the result, in
+    /// which every byte the edits did not touch is as it was. Every use of the form shows the change.
+    /// </summary>
+    /// <param name="editor">The editor; it numbers the operators and makes its edits during the run.</param>
+    /// <returns><see langword="true"/> when the editor made edits and the content was replaced; otherwise the form is unchanged.</returns>
+    /// <exception cref="InvalidOperationException">The editor is already rewriting.</exception>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §8.10.1, §7.8.2. The content runs from the initial graphics state with the form matrix as the CTM, clipped to the
+    /// bounding box, names resolving in the form's resources (<see cref="Content.ContentRunKind.Form"/>, no page). The result is
+    /// written unfiltered (§7.3.8.2: <c>Filter</c>, <c>DecodeParms</c> and <c>DL</c> are removed; a save compresses it).
+    /// </remarks>
+    public bool RewriteContent(ContentEditor editor) => RewriteContent(editor, ContentInterpreter.DefaultOptions);
+
+    /// <summary>Runs the form's content through <paramref name="editor"/> with limits and cancellation, and stores the edited content.</summary>
+    /// <param name="editor">The editor.</param>
+    /// <param name="options">Limits and cancellation for the run.</param>
+    /// <returns><see langword="true"/> when the content was replaced.</returns>
+    /// <exception cref="InvalidOperationException">The editor is already rewriting.</exception>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
+    /// <exception cref="OperationCanceledException">The options' cancellation token was canceled; the form is unchanged.</exception>
+    /// <remarks>ISO 32000-2 §8.10.1, §7.8.2. As <see cref="RewriteContent(ContentEditor)"/>.</remarks>
+    public bool RewriteContent(ContentEditor editor, ContentOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(editor);
+        ArgumentNullException.ThrowIfNull(options);
+        return ContentRewriting.RewriteForm(this, _document, editor, options);
+    }
 
     /// <summary>Returns the form view over <paramref name="value"/> when it is a stream, else <see langword="null"/>.</summary>
     internal static PdfFormXObject? Create(PdfDocument document, CosObject? value) =>
