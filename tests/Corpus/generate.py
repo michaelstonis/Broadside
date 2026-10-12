@@ -5806,6 +5806,87 @@ def gen_page_rotation() -> bytes:
     return simple_file(objects)
 
 
+def gen_paths_strokes() -> bytes:
+    """8.5.3.2 stroking with the line parameters of 8.4.3 (width, cap, join, miter limit, dash pattern) and 10.7.5 automatic
+    stroke adjustment. One 400 x 400 page, white background, four bands from the top. (A) y 300..400: three chevrons 14 wide, each
+    with cap and join of the same number: 0 J 0 j (butt, miter) in DeviceRGB red, 1 J 1 j (round, round) green, 2 J 2 j (projecting
+    square, bevel) blue. (B) y 200..300: two chevrons 8 wide, arms 60 long, that meet at 30 degrees (miter ratio 1 / sin 15 = 3.86): 4 M keeps
+    the miter, 3.5 M bevels it (DeviceGray 0); a closed triangle (h) 6 wide whose three corners are mitered, in DeviceRGB 0.5 0 0.5.
+    (C) y 100..200: lines 6 wide from x 20 to 200 dashed [12 6] 0, [12 6] 9 and [6 3 9] -3 (a negative phase, normalized by twice
+    the array sum); [0 12] 0 with round caps (dots) and [0 12] 6 with projecting square caps along a slanted line (squares turned with
+    it); right half, a rectangle (re) 6 wide dashed [30 10] 5, whose last dash runs on into the first across its start (a mitered
+    corner), and a dashed curve, in DeviceRGB 0 0 0.8. (D) y 0..100: 0 w lines (the thinnest line: one device pixel) horizontal at
+    y 90.3, vertical at x 30.6, diagonal, and a circle; 1 w rules at y 70 and x 100.5 without and, through /GS0 gs (SA true), with
+    stroke adjustment at y 50 and x 120.5; under q 4 0 0 1 200 0 cm, a circle of radius 10 and a diagonal 3 wide with round caps
+    (an elliptical pen, four times wider across than along y); 12 wide degenerate subpaths with round caps (dots: 350 80 m 350 80 l,
+    370 80 m h), with butt caps (nothing: 350 40 m 350 40 l) and a lone trailing moveto (nothing)."""
+    def chevron(x0: float, y0: float, w: float, h: float) -> bytes:
+        return b"%s %s m %s %s l %s %s l" % (_num(x0), _num(y0), _num(x0 + w / 2), _num(y0 + h), _num(x0 + w), _num(y0))
+
+    half = 60 * math.tan(math.radians(15))
+    content = b"\n".join([
+        b"14 w 0 J 0 j 1 0 0 RG " + chevron(25, 320, 90, 60) + b" S",
+        b"1 J 1 j 0 1 0 RG " + chevron(155, 320, 90, 60) + b" S",
+        b"2 J 2 j 0 0 1 RG " + chevron(285, 320, 90, 60) + b" S",
+        b"0 J 0 j 0 G 8 w 4 M 40 %s m 100 275 l 40 %s l S" % (_num(275 - half), _num(275 + half)),
+        b"3.5 M 40 %s m 100 230 l 40 %s l S" % (_num(230 - half), _num(230 + half)),
+        b"10 M 6 w 0.5 0 0.5 RG 250 215 m 370 230 l 290 285 l h S",
+        b"0 0 0.8 RG [12 6] 0 d 20 190 m 200 190 l S",
+        b"[12 6] 9 d 20 175 m 200 175 l S",
+        b"[6 3 9] -3 d 20 160 m 200 160 l S",
+        b"1 J [0 12] 0 d 20 145 m 200 145 l S",
+        b"2 J [0 12] 6 d 20 110 m 200 130 l S",
+        b"0 J [30 10] 5 d 230 120 140 70 re S",
+        b"[8 4] 0 d 1 J 240 105 m 280 85 340 125 380 105 c S",
+        b"[] 0 d 0 J 0 G 0 w 10 90.3 m 90 90.3 l S 30.6 10 m 30.6 80 l S 40 10 m 90 60 l S " + _circle(65, 35, 15, clockwise=False) + b" S",
+        b"1 w 100 70 m 180 70 l S 100.5 10 m 100.5 60 l S",
+        b"q /GS0 gs 110 50 m 180 50 l S 120.5 10 m 120.5 40 l S Q",
+        b"q 4 0 0 1 200 0 cm 3 w 0 0 0.6 RG " + _circle(10, 50, 10, clockwise=False) + b" S 1 J 2 10 m 28 85 l S Q",
+        b"1 J 12 w 1 0 0 RG 350 80 m 350 80 l S 375 80 m h S 0 J 350 40 m 350 40 l S 1 J 375 40 m S",
+    ]) + b"\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(mediabox=b"[0 0 400 400]", contents=4, resources=False,
+                 extra=b" /Resources << /ExtGState << /GS0 << /Type /ExtGState /SA true >> >> >>")),
+        (4, stream(b"", content)),
+    ])
+
+
+def gen_clipping_paths() -> bytes:
+    """8.5.4 clipping path operators (W, W*) with 8.5.3.3 insideness, 8.4.2 q/Q restoring the clip, 8.10.1 form bounding-box clips.
+    One 400 x 300 page, white background, each figure in its own q/Q. Top row: (A) nested clips: a counterclockwise circle of four c
+    curves, centre (70, 225), radius 55, W n, then the rectangle 70 200 130 100 re W n, then a DeviceRGB red fill of the whole cell:
+    only the part of the circle right of x = 70 and above y = 200 is red; (B) an even-odd clip: a pentagram at (200, 225), radius 55,
+    W* n, then a DeviceRGB blue fill of 140 165 120 120: the five points are blue, the centre pentagon white; (C) a clip restored by
+    Q: q 285 170 50 110 re W n, a DeviceRGB 0 0.6 0 fill of 270 200 120 50 (green only from x 285 to 335), Q, then a DeviceRGB
+    0.5 0 0.5 bar 270 175 120 10 re f that is not clipped. Bottom row: (D) a clip applies after the paint of its path: two
+    counterclockwise squares 20..120 and 45..95 filled with W* f in red (non-zero: solid), then a blue fill of the cell, which
+    reaches only the even-odd ring; (E) form XObjects clipped to their bounding boxes: under 1 0 0 1 150 20 cm, form Fm (/BBox
+    [0 0 100 100]) fills a DeviceRGB 0 0.5 0.5 circle of radius 60 at (50, 50) (cut by the box on four sides) and paints form In
+    (/BBox [25 25 75 75]), which fills a DeviceRGB 1 0.5 0 triangle (0 0) (100 0) (50 100) cut to its box; (F) an oblique
+    rectangle clip: under a 30 degree rotation about (330, 75), -40 -40 80 80 re W n, then eight vertical stripes 15 wide from
+    x = -60, alternately DeviceRGB red and blue, cut to the turned square."""
+    content = b"\n".join([
+        b"q " + _circle(70, 225, 55, clockwise=False) + b" W n 70 200 130 100 re W n 1 0 0 rg 0 150 140 150 re f Q",
+        b"q " + _star(200, 225, 55) + b" W* n 0 0 1 rg 140 165 120 120 re f Q",
+        b"q 285 170 50 110 re W n 0 0.6 0 rg 270 200 120 50 re f Q 0.5 0 0.5 rg 270 175 120 10 re f",
+        b"q 1 0 0 rg " + _square(20, 20, 120, 120, False) + b" " + _square(45, 45, 95, 95, False) + b" W* f 0 0 1 rg 0 0 140 140 re f Q",
+        b"q 1 0 0 1 150 20 cm /Fm Do Q",
+        b"q 0.866 0.5 -0.5 0.866 330 75 cm -40 -40 80 80 re W n "
+        + b" ".join(b"%s rg %d -60 15 120 re f" % (b"1 0 0" if i % 2 == 0 else b"0 0 1", -60 + 15 * i) for i in range(8)) + b" Q",
+    ]) + b"\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(mediabox=b"[0 0 400 300]", contents=4, resources=False, extra=b" /Resources << /XObject << /Fm 5 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Resources << /XObject << /In 6 0 R >> >>",
+                   b"0 0.5 0.5 rg " + _circle(50, 50, 60, clockwise=False) + b" f /In Do")),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [25 25 75 75]", b"1 0.5 0 rg 0 0 m 100 0 l 50 100 l h f")),
+    ])
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -5963,6 +6044,8 @@ FILES = {
     "jbig2-annex-h.pdf": gen_jbig2_annex_h,
     "paths-fill-rules.pdf": gen_paths_fill_rules,
     "page-rotation.pdf": gen_page_rotation,
+    "paths-strokes.pdf": gen_paths_strokes,
+    "clipping-paths.pdf": gen_clipping_paths,
 }
 
 

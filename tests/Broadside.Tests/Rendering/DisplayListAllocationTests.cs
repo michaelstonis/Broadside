@@ -25,6 +25,7 @@ public sealed class DisplayListAllocationTests
 
         Assert.Equal(0, allocated);
         Assert.True(backend.Fills > 1000);
+        Assert.True(backend.Strokes > 1000);
     }
 
     [Theory]
@@ -49,10 +50,33 @@ public sealed class DisplayListAllocationTests
         Assert.InRange(allocated, 1, 2048 + (16 * fills));
     }
 
-    /// <summary>Counts fills and touches what each call hands over, without allocating.</summary>
+    [Theory]
+    [InlineData(10)]
+    [InlineData(2000)]
+    public void Building_a_display_list_of_dashed_strokes_allocates_per_page_not_per_operation(int strokes)
+    {
+        // The same dashed rectangle in the same colour and line parameters: one path, one colour, one stroke record.
+        var content = new StringBuilder("0 0 1 RG 3 w 1 J 1 j [6 2 1 2] 1 d ");
+        for (int i = 0; i < strokes; i++)
+        {
+            content.Append("10 10 100 50 re S\n");
+        }
+
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(Encoding.ASCII.GetBytes(content.ToString())));
+        PdfPage page = document.Pages[0];
+        Action build = () => page.CreateDisplayList();
+
+        long allocated = Allocations.Measure(build);
+
+        Assert.InRange(allocated, 1, 2048 + (16 * strokes));
+    }
+
+    /// <summary>Counts fills and strokes and touches what each call hands over, without allocating.</summary>
     private sealed class CountingBackend : IRenderingBackend
     {
         public int Fills { get; private set; }
+
+        public int Strokes { get; private set; }
 
         public double Checksum { get; private set; }
 
@@ -67,5 +91,13 @@ public sealed class DisplayListAllocationTests
             Fills++;
             Checksum += path.Points.Length + color.Components.Length + (int)color.ColorSpace.Family;
         }
+
+        public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
+        {
+            Strokes++;
+            Checksum += path.Points.Length + style.LineWidth + style.DashArray.Length + color.Components.Length;
+        }
+
+        public void IntersectClip(PathView path, FillRule rule) => Checksum += path.Points.Length + (int)rule;
     }
 }

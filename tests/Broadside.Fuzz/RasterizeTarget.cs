@@ -5,13 +5,13 @@ using Broadside.Rendering;
 namespace Broadside.Fuzz;
 
 /// <summary>
-/// The <c>rasterize</c> target (issue #95): runs the input as a page's decoded content through the display-list builder, then
-/// renders the list with the software rasterizer into a small transparent bitmap, at a scale and rotation chosen from the input
+/// The <c>rasterize</c> target (issue #95; strokes since #99): runs the input as a page's decoded content through the display-list
+/// builder, then renders the list with the software rasterizer into a small transparent bitmap, at a scale and rotation chosen from the input
 /// length, twice, and writes the result as PNG. Invariants: nothing throws (whatever coordinates, transforms or colours the content
 /// holds); every pixel is valid premultiplied colour (no channel above its alpha); two renders of one list are identical. Each call
 /// runs in a new empty document.
 /// </summary>
-/// <remarks>ADR 0006; ISO 32000-2 §8.5.3, §10.7.4.</remarks>
+/// <remarks>ADR 0006; ISO 32000-2 §8.4.3, §8.5.3, §10.7.4, §10.7.5.</remarks>
 internal static class RasterizeTarget
 {
     private const int Size = 48;
