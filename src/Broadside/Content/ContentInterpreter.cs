@@ -129,24 +129,15 @@ internal sealed partial class ContentInterpreter
     private void RunPageCore(PdfPage page, PdfDocument document, ContentProcessor processor, ContentOptions options)
     {
         Begin(document, page, processor, options, page.Reference);
-        byte[]? rented = null;
-        try
-        {
-            ReadOnlyMemory<byte> content = ReadContents(page, document, ref rented);
-            Execute(content.Span);
-            End();
-        }
-        finally
-        {
-            if (rented is not null)
-            {
-                ArrayPool<byte>.Shared.Return(rented);
-            }
-        }
+        Execute(ReadContents(page, document).Span);
+        End();
     }
 
-    /// <summary>Decodes the page's content; parts of an array are joined with a line feed between them (Table 31).</summary>
-    private ReadOnlyMemory<byte> ReadContents(PdfPage page, PdfDocument document, ref byte[]? rented)
+    /// <summary>
+    /// Returns the page's decoded content, from the document's cache once a run has decoded it (issue #90); parts of an array are
+    /// joined with a line feed between them (Table 31).
+    /// </summary>
+    private ReadOnlyMemory<byte> ReadContents(PdfPage page, PdfDocument document)
     {
         if (!page.Dictionary.TryGetValue(KnownNames.Contents, out CosObject? entry))
         {
@@ -159,9 +150,9 @@ internal sealed partial class ContentInterpreter
                 return ReadOnlyMemory<byte>.Empty;
             case CosStream stream:
                 _parts.Add(new ContentPart(0, entry as CosReference));
-                return document.DecodeStream(stream);
+                return _context.GetContent(stream);
             case CosArray { Count: > 0 } array:
-                return ReadParts(array, document, ref rented);
+                return ReadParts(array);
             case CosArray:
                 Report(ContentIssue.StreamInvalid, -1, "The page's Contents array is empty; the page has no content.");
                 return ReadOnlyMemory<byte>.Empty;
@@ -171,34 +162,17 @@ internal sealed partial class ContentInterpreter
         }
     }
 
-    private ReadOnlyMemory<byte> ReadParts(CosArray array, PdfDocument document, ref byte[]? rented)
+    private ReadOnlyMemory<byte> ReadParts(CosArray array)
     {
-        var decoded = new ReadOnlyMemory<byte>[array.Count];
-        int total = 0;
-        for (int index = 0; index < array.Count; index++)
+        ContentResourceCache.JoinedContent joined = _context.GetContent(array);
+        foreach (string problem in joined.Problems)
         {
-            if (document.Resolve(array[index]) is CosStream stream)
-            {
-                decoded[index] = document.DecodeStream(stream);
-                total += decoded[index].Length + 1;
-            }
-            else
-            {
-                Report(ContentIssue.StreamInvalid, -1, $"Element {index} of the page's Contents array is not a stream; skipped.");
-            }
+            Report(ContentIssue.StreamInvalid, -1, problem);
         }
 
-        rented = ArrayPool<byte>.Shared.Rent(Math.Max(1, total));
-        int position = 0;
-        for (int index = 0; index < array.Count; index++)
+        foreach (ContentPart part in joined.Parts)
         {
-            if (document.Resolve(array[index]) is CosStream)
-            {
-                _parts.Add(new ContentPart(position, array[index] as CosReference));
-                decoded[index].Span.CopyTo(rented.AsSpan(position));
-                position += decoded[index].Length;
-                rented[position++] = (byte)'\n';
-            }
+            _parts.Add(part);
         }
 
         if (_parts.Count == 0)
@@ -206,7 +180,7 @@ internal sealed partial class ContentInterpreter
             _parts.Add(new ContentPart(0, null));
         }
 
-        return rented.AsMemory(0, position);
+        return joined.Data;
     }
 
     /// <summary>Resets the interpreter for a top-level run of a page's content: initial state, empty stacks, the page's resources.</summary>
