@@ -101,7 +101,7 @@ internal static class SeedWriter
         "object-stream" => Streams(file).Select(stream => ObjectStreamSeed(stream.Document, stream.Value)).OfType<byte[]>(),
         "hint-tables" => Streams(file).Select(stream => HintSeed(stream.Document, stream.Value)).OfType<byte[]>(),
         "mac-token" => MacTokens(file),
-        "content-lexer" or "content-interpreter" or "content-objects" => ContentStreams(file),
+        "content-lexer" or "content-interpreter" or "content-objects" or "filter-encode" => ContentStreams(file),
         "xmp" => Streams(file).Where(stream => Metadata.Equals(stream.Value.Dictionary.TryGetValue(Type, out CosObject? type) ? type : null))
             .Select(stream => stream.Document.DecodeStream(stream.Value).ToArray()),
         "decrypt" => EncryptedBodies(file),

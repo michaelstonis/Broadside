@@ -37,6 +37,9 @@ internal sealed class EngineConfiguration
     /// <summary>Gets the filters by name: the managed defaults with the options' registrations applied (issue #38).</summary>
     public FilterRegistry Filters { get; private init; } = FilterRegistry.Create([]);
 
+    /// <summary>Gets the encoders by filter name: the managed defaults with the options' registrations applied (issue #142).</summary>
+    public StreamEncoderRegistry StreamEncoders { get; private init; } = StreamEncoderRegistry.Default;
+
     /// <summary>Gets the most bytes one stream may decode to (issue #38).</summary>
     public long MaxDecodedStreamLength { get; private init; } = PdfOptions.DefaultMaxDecodedStreamLength;
 
@@ -70,6 +73,7 @@ internal sealed class EngineConfiguration
         DiagnosticObserver = DiagnosticLog.CreateObserver(options.LoggerFactory ?? hostLoggerFactory),
         Logger = ObjectLog.CreateLogger(options.LoggerFactory ?? hostLoggerFactory),
         Filters = FilterRegistry.Create(options.Filters),
+        StreamEncoders = options.StreamEncoders.Count == 0 ? StreamEncoderRegistry.Default : StreamEncoderRegistry.Create(options.StreamEncoders),
         MaxDecodedStreamLength = options.MaxDecodedStreamLength,
         SecurityHandlers = options.SecurityHandlers.Count == 0 ? SecurityHandlerRegistry.Default : SecurityHandlerRegistry.Create(options.SecurityHandlers),
         Credentials = options.Credentials,

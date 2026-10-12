@@ -1,3 +1,4 @@
+using Broadside.Filters;
 using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -44,13 +45,14 @@ internal static class SavePlan
     /// <param name="source">The document's file.</param>
     /// <param name="loader">The document's loader.</param>
     /// <param name="linearization">The document's linearization information, whose objects are dropped.</param>
-    /// <param name="layout">The cross-reference layout.</param>
+    /// <param name="options">The save's layout and stream compression.</param>
+    /// <param name="encoders">The engine's encoders; streams are compressed with its <c>FlateDecode</c> encoder.</param>
     /// <returns>The writer.</returns>
     /// <exception cref="NotSupportedException">
     /// The document is encrypted, uses object numbers above <see cref="MaxObjectNumber"/>, or numbers its objects far more sparsely
     /// than <see cref="MaxNumbersPerObject"/> numbers per object above <see cref="MaxSparseObjectNumber"/>.
     /// </exception>
-    public static FileWriter Create(PdfSource source, ObjectLoader loader, PdfLinearization? linearization, PdfCrossReferenceLayout layout)
+    public static FileWriter Create(PdfSource source, ObjectLoader loader, PdfLinearization? linearization, PdfSaveOptions options, StreamEncoderRegistry encoders)
     {
         CrossReference crossReference = loader.CrossReference;
         CosDictionary sourceTrailer = crossReference.Trailer;
@@ -129,7 +131,13 @@ internal static class SavePlan
             }
 
             ObjectSourceBytes? bytes = !value.IsDirty && loader.TryGetSourceBytes(reference, out ObjectSourceBytes found) ? found : null;
-            objects.Add(new WriterObject(reference, value, bytes));
+            bool compress = options.StreamCompression switch
+            {
+                PdfStreamCompression.AllStreams => IsCompressible(value),
+                PdfStreamCompression.ChangedStreams => value.IsDirty && IsCompressible(value),
+                _ => false,
+            };
+            objects.Add(new WriterObject(reference, value, bytes, compress));
         }
 
         var trailer = new CosDictionary();
@@ -155,8 +163,22 @@ internal static class SavePlan
             freeGenerations,
             trailer,
             firstIdentifier,
-            layout);
+            options.CrossReferenceLayout,
+            encoders.Flate,
+            options.CompressionLevel);
     }
+
+    /// <summary>
+    /// Whether a save may compress an object: a stream without filters (no <c>Filter</c>, no <c>DecodeParms</c>, its data in the
+    /// file rather than an external one, §7.3.8.2 Table 5) that is not a metadata stream (§14.3.2), which is left readable to tools
+    /// that scan files for XMP packets.
+    /// </summary>
+    private static bool IsCompressible(CosObject value) =>
+        value is CosStream stream
+        && !stream.Dictionary.ContainsKey(FilterNames.Filter)
+        && !stream.Dictionary.ContainsKey(FilterNames.DecodeParms)
+        && !stream.Dictionary.ContainsKey(FilterNames.F)
+        && !(stream.Dictionary.TryGetValue(KnownNames.Type, out CosObject? type) && FileAndLayerNames.Metadata.Equals(type));
 
     /// <summary>
     /// Finds the references the trailer and the objects that are kept contain. A file-structure object is dropped only when nothing
