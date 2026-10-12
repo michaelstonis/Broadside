@@ -1,0 +1,161 @@
+# Benchmark regression gate (issue #139): on pull requests that touch library, benchmark or corpus code, run every benchmark
+# of the pull request and of its base commit side by side on the same runner, then fail on any allocation that differs from
+# bench/baselines/gate/allocations.json or any case measurably slower than the base. The thresholds, the procedure that
+# updates the baseline and the noise measurements behind both are in bench/baselines/gate/README.md.
+name: Benchmark gate
+
+on:
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'bench/**'
+      - 'tests/Broadside.TestSupport/**'
+      - 'tests/Corpus/**'
+      - 'tools/BenchGate/**'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - 'global.json'
+      - '.github/workflows/bench-gate.yml'
+  workflow_dispatch:
+    inputs:
+      base:
+        description: Branch, tag or commit to compare against
+        required: false
+        default: main
+
+concurrency:
+  group: bench-gate-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_GENERATE_ASPNET_CERTIFICATE: false
+  BASELINE: bench/baselines/gate/allocations.json
+  SHARDS: 4 # the length of measure's matrix.shard
+  # Methods with one case per corpus file split their cases over the shards (bench/Broadside.Benchmarks/BenchmarkPartition.cs).
+  SPLIT: Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk
+
+jobs:
+  # Each shard runs a quarter of the benchmark cases (balanced by the baseline's case counts) for both commits, interleaved
+  # in two rounds, and reruns what looks slower. The runner image is pinned because the baseline's allocations were recorded on it.
+  measure:
+    name: measure (${{ matrix.shard }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 75
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Check out the base commit
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          INPUT_BASE: ${{ inputs.base }}
+        run: |
+          if [ "${EVENT}" = "pull_request" ]; then
+            # The pull_request checkout is the merge commit; its first parent is the base branch as merged into.
+            base=$(git rev-parse HEAD^1)
+          else
+            base=$(git rev-parse "origin/${INPUT_BASE}" 2>/dev/null || git rev-parse "${INPUT_BASE}")
+          fi
+          git worktree add --detach "${RUNNER_TEMP}/base" "${base}"
+          echo "Base commit: ${base}"
+
+      - name: Select this shard's benchmarks
+        shell: bash
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          dotnet build bench/Broadside.Benchmarks -c Release -warnaserror
+          dotnet run -c Release --project bench/Broadside.Benchmarks --no-build -- --list flat > "${RUNNER_TEMP}/methods.txt"
+          dotnet run -c Release --project tools/BenchGate -- shard --list "${RUNNER_TEMP}/methods.txt" --baseline "${BASELINE}" \
+            --count "${SHARDS}" --index "${SHARD}" --split "${SPLIT}" --out "${RUNNER_TEMP}/shard.txt"
+          cat "${RUNNER_TEMP}/shard.txt"
+
+      - name: Run the benchmarks of both commits
+        shell: bash
+        env:
+          SHARD: ${{ matrix.shard }}
+          BROADSIDE_BENCH_PARTITION: ${{ matrix.shard }}/${{ env.SHARDS }}
+        run: bench/run-gate.sh --base "${RUNNER_TEMP}/base" --head . --out "artifacts/bench-gate/shard-${SHARD}" --methods "${RUNNER_TEMP}/shard.txt"
+
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bench-gate-shard-${{ matrix.shard }}
+          path: |
+            artifacts/bench-gate/**/results/*.json
+            artifacts/bench-gate/**/suspects.txt
+          if-no-files-found: warn
+
+  # Compares all shards' reports at once, so a benchmark that no shard ran is caught, and writes the job summary.
+  gate:
+    name: gate
+    needs: measure
+    if: always()
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 2
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Download the reports
+        uses: actions/download-artifact@v8
+        with:
+          pattern: bench-gate-shard-*
+          path: artifacts/bench-gate
+
+      - name: Compare with the baseline and the base commit
+        shell: bash
+        env:
+          EVENT: ${{ github.event_name }}
+          MEASURED: ${{ needs.measure.result }}
+        run: |
+          if [ "${EVENT}" = "pull_request" ]; then base_name=$(git rev-parse --short HEAD^1); else base_name="${{ inputs.base }}"; fi
+          status=0
+          dotnet run -c Release --project tools/BenchGate -- compare --baseline "${BASELINE}" --results artifacts/bench-gate \
+            --summary "${GITHUB_STEP_SUMMARY}" --record artifacts/bench-gate-baseline/allocations.json --base-name "${base_name}" || status=$?
+          if [ "${MEASURED}" != "success" ]; then
+            echo "::error title=Benchmark gate::A measuring shard did not succeed (${MEASURED}); see its log."
+            status=1
+          fi
+          exit "${status}"
+
+      - name: Upload the re-recorded baseline
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bench-gate-baseline
+          path: artifacts/bench-gate-baseline/allocations.json
+          if-no-files-found: ignore
