@@ -293,6 +293,22 @@ public sealed class PdfAcroForm
         return outside;
     }
 
+    /// <summary>
+    /// Records, when the form has an XFA resource, that a field's value was changed in the AcroForm only: the XFA datasets keep the
+    /// old value, so an XFA processor shows that one (Annex K).
+    /// </summary>
+    /// <param name="fieldName">The fully qualified name of the field that was filled.</param>
+    internal void ReportXfaNotUpdated(string fieldName)
+    {
+        if (Xfa is not null)
+        {
+            Report(
+                DiagnosticCodes.XfaDataNotUpdated,
+                $"The field {fieldName} was filled in the AcroForm only: the form's XFA resource (Annex K, deprecated in PDF 2.0) is kept unchanged, so its datasets still hold the old value and an XFA processor shows that one.",
+                DiagnosticSeverity.Information);
+        }
+    }
+
     /// <summary>Reports a deviation in the interactive form dictionary.</summary>
     internal void Report(string code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
         Document.DiagnosticSink.Report(code, severity, message, objectReference: Reference ?? Document.CatalogReference);

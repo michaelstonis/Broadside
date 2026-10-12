@@ -30,6 +30,28 @@ public sealed class TextExtractionAllocationTests
     }
 
     [Fact]
+    public void Assembling_words_lines_and_plain_text_again_in_a_reused_extractor_allocates_nothing()
+    {
+        string lines = System.Text.Encoding.ASCII.GetString(ContentSamples.TextHeavy(10_000));
+        using PdfDocument document = PdfDocument.Open(ContentPdf.BuildWith(ContentPdf.HelveticaResources, lines, ContentPdf.Helvetica));
+        var extractor = new TextExtractor();
+        int assembled = 0;
+
+        long allocated = Allocations.Measure(
+            () =>
+            {
+                extractor.Clear();
+                document.Pages[0].ProcessContent(extractor);
+                assembled = extractor.Words.Length + extractor.Lines.Length + extractor.PlainText.Length;
+            },
+            WarmUp);
+
+        Assert.True(extractor.Words.Length >= 1_000 && extractor.Lines.Length > 1, $"Only {extractor.Words.Length} words, {extractor.Lines.Length} lines.");
+        Assert.True(assembled > extractor.PlainText.Length);
+        Assert.Equal(0, allocated);
+    }
+
+    [Fact]
     public void An_ActualText_replacement_allocates_its_string_once_per_sequence_whatever_the_number_of_glyphs_it_covers()
     {
         string many = System.Text.Encoding.ASCII.GetString(ContentSamples.TextHeavy(10_000));

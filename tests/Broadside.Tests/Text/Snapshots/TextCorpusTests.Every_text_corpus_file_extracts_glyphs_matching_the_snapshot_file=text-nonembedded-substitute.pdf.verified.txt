@@ -4,3 +4,5 @@
   r code 72/1 GlyphName font BroadsideSerif-Italic 24 Fill origin (98.664, 700) advance (12, 0) quad (98.664, 694.792) (110.664, 694.792) (110.664, 716.392) (98.664, 716.392)
   i code 69/1 GlyphName font BroadsideSerif-Italic 24 Fill origin (110.664, 700) advance (12, 0) quad (110.664, 694.792) (122.664, 694.792) (122.664, 716.392) (110.664, 716.392)
   f code 66/1 GlyphName font BroadsideSerif-Italic 24 Fill origin (122.664, 700) advance (12, 0) quad (122.664, 694.792) (134.664, 694.792) (134.664, 716.392) (122.664, 716.392)
+  line Serif glyphs 0+5 quad (72, 694.792) (134.664, 694.792) (134.664, 716.392) (72, 716.392)
+    words Serif glyphs 0+5
