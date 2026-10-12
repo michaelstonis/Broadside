@@ -152,7 +152,8 @@ public sealed class FullRewriteTests
         int objects = CosGraph.AllObjects(source).Count;
         RemoveLastPage(source);
 
-        using PdfDocument saved = PdfDocument.Open(Save(source, new PdfSaveOptions().WithObjectNumbering(PdfObjectNumbering.Compact)));
+        // Undated (#162): dating the modification would add an Info dictionary to the count.
+        using PdfDocument saved = PdfDocument.Open(Save(source, new PdfSaveOptions().WithObjectNumbering(PdfObjectNumbering.Compact).WithUpdateModificationDate(false)));
 
         Assert.Equal(objects + 1, ((CosInteger)saved.Trailer[new CosName("Size")]).Value);
         Assert.Equal(objects, CosGraph.AllObjects(saved).Count);

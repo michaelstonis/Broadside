@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using Broadside.Annotations;
 using Broadside.Caching;
@@ -102,6 +103,9 @@ public sealed partial class PdfDocument : IDisposable
 
     /// <summary>Gets the engine's encoders, which <see cref="EncodeStream"/> and saving use (issue #142).</summary>
     internal StreamEncoderRegistry StreamEncoders { get; private init; } = StreamEncoderRegistry.Default;
+
+    /// <summary>Gets the engine's clock, which dates the metadata a save writes (issue #162).</summary>
+    internal TimeProvider TimeProvider { get; private init; } = TimeProvider.System;
 
     /// <summary>
     /// Gets the version of the specification the document conforms to: the header's version, or the catalog's <c>Version</c> entry
@@ -446,7 +450,11 @@ public sealed partial class PdfDocument : IDisposable
 
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file with a classic cross-reference table.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
-    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
+    /// <exception cref="NotSupportedException">
+    /// The save cannot be written as asked: the document's encryption carries an integrity MAC (ISO/TS 32004) and is kept, it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
+    /// </exception>
+    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
     public void Save(Stream stream) => Save(stream, new PdfSaveOptions());
@@ -454,7 +462,11 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
     /// <param name="options">How to lay the file out.</param>
-    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
+    /// <exception cref="NotSupportedException">
+    /// The save cannot be written as asked: the document's encryption carries an integrity MAC (ISO/TS 32004) and is kept, it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
+    /// </exception>
+    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
     /// <remarks>
     /// <para>
@@ -476,6 +488,14 @@ public sealed partial class PdfDocument : IDisposable
     /// the same bytes (§14.4).
     /// </para>
     /// <para>
+    /// An encrypted document is saved encrypted with the key it was opened with, unless <see cref="PdfSaveOptions.Encryption"/> gives
+    /// new encryption or <see cref="PdfSaveOptions.RemoveEncryption"/> drops it (§7.6). Either way every object of an encrypted
+    /// document, or of an encrypted file, is serialized and its strings and streams encrypted again under its written number; nothing
+    /// is copied from the source, whose bytes are ciphertext. New encryption raises the header to the version its algorithm needs, and
+    /// encrypted output is not deterministic (random keys, salts and IVs). Saving with RC4 or AES-128, new or kept, records an
+    /// <c>EncryptionDeprecated</c> warning first, so strict mode refuses it.
+    /// </para>
+    /// <para>
     /// With <see cref="PdfSaveOptions.IncrementalUpdate"/>, the file is instead the document's file followed by an incremental update
     /// holding only what changed (§7.5.6), and once its last byte is written the document reads from it: a mutation, which no read
     /// may run concurrently with.
@@ -491,7 +511,11 @@ public sealed partial class PdfDocument : IDisposable
 
     /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it, with a classic cross-reference table.</summary>
     /// <param name="path">The file path. Do not name the file the document was opened from.</param>
-    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
+    /// <exception cref="NotSupportedException">
+    /// The save cannot be written as asked: the document's encryption carries an integrity MAC (ISO/TS 32004) and is kept, it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
+    /// </exception>
+    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
     public void Save(string path) => Save(path, new PdfSaveOptions());
@@ -499,7 +523,11 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it.</summary>
     /// <param name="path">The file path. Do not name the file the document was opened from.</param>
     /// <param name="options">How to lay the file out.</param>
-    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
+    /// <exception cref="NotSupportedException">
+    /// The save cannot be written as asked: the document's encryption carries an integrity MAC (ISO/TS 32004) and is kept, it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
+    /// </exception>
+    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/>.</remarks>
     public void Save(string path, PdfSaveOptions options)
@@ -521,7 +549,11 @@ public sealed partial class PdfDocument : IDisposable
     /// <param name="options">How to lay the file out; <see langword="null"/> for the defaults (a classic cross-reference table).</param>
     /// <param name="cancellationToken">Cancels the writes.</param>
     /// <returns>A task that completes when the file is written.</returns>
-    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
+    /// <exception cref="NotSupportedException">
+    /// The save cannot be written as asked: the document's encryption carries an integrity MAC (ISO/TS 32004) and is kept, it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
+    /// </exception>
+    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
     /// <remarks>
     /// ISO 32000-2 §7.5. Writes exactly the bytes <see cref="Save(Stream, PdfSaveOptions)"/> writes, from the same writer; only the
@@ -1135,7 +1167,12 @@ public sealed partial class PdfDocument : IDisposable
     /// ISO 32000-2 §7.7.2, §7.7.3, Table 31: a catalog, a page tree root and one US Letter page whose <c>Resources</c> is the empty
     /// dictionary (no resources) and which has no <c>Contents</c> (an empty page). Written as PDF 2.0 with file identifiers.
     /// </remarks>
-    internal static PdfDocument CreateNew(EngineConfiguration configuration) => Read(PdfSource.FromMemory(NewDocumentFile()), configuration);
+    internal static PdfDocument CreateNew(EngineConfiguration configuration)
+    {
+        PdfDocument document = Read(PdfSource.FromMemory(NewDocumentFile()), configuration);
+        document._isNew = true;
+        return document;
+    }
 
     /// <summary>Writes the file <see cref="CreateNew"/> opens.</summary>
     private static byte[] NewDocumentFile()
@@ -1182,9 +1219,28 @@ public sealed partial class PdfDocument : IDisposable
     private FileWriter PlanSave(PdfSaveOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return options.IncrementalUpdate
-            ? SavePlan.CreateIncremental(_source, _loader, options, StreamEncoders)
-            : SavePlan.Create(_source, _loader, Linearization, options, StreamEncoders);
+        DateModification(options);
+        FileWriter writer = options.IncrementalUpdate
+            ? SavePlan.CreateIncremental(_source, _loader, options, StreamEncoders, Security)
+            : SavePlan.Create(_source, _loader, Linearization, options, StreamEncoders, Security);
+
+        // Table 20: V 1 to 4 (RC4 and AES-128) are deprecated in PDF 2.0. Reported before anything is written, so strict mode refuses.
+        string? deprecated = options.Encryption switch
+        {
+            { Algorithm: PdfEncryptionAlgorithm.Rc4 } => "RC4 (V 2)",
+            { Algorithm: PdfEncryptionAlgorithm.Aes128 } => "AES-128 (V 4)",
+            null when Security is { Version: < 5 } kept && !options.RemoveEncryption => string.Create(CultureInfo.InvariantCulture, $"the document's own encryption (V {kept.Version})"),
+            _ => null,
+        };
+        if (deprecated is not null)
+        {
+            _diagnostics.Report(
+                DiagnosticCodes.EncryptionDeprecated,
+                DiagnosticSeverity.Warning,
+                $"The saved file is encrypted with {deprecated}, which is deprecated in PDF 2.0 (ISO 32000-2 §7.6.2, Table 20; RC4 offers little protection); AES-256 is the PDF 2.0 algorithm.");
+        }
+
+        return writer;
     }
 
     /// <summary>
@@ -1199,6 +1255,7 @@ public sealed partial class PdfDocument : IDisposable
             return;
         }
 
+        _isNew = false;
         AppendedSource source = AppendedSource.Append(_source, update.Bytes);
         _loader.Rebase(source, update.Section, update.ListsEverything, update.Objects);
         _source = source;
@@ -1271,6 +1328,7 @@ public sealed partial class PdfDocument : IDisposable
             var document = new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security, configuration.FontProgramParsers, configuration.ColorManagement, configuration.FontResolvers)
             {
                 StreamEncoders = configuration.StreamEncoders,
+                TimeProvider = configuration.TimeProvider,
             };
             document.DetectXfa();
 
