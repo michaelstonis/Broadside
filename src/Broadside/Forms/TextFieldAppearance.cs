@@ -271,7 +271,7 @@ internal sealed class TextFieldAppearance
         double borderWidth = borderColor is null ? 0 : Math.Max(0, border.Width);
         bool bevelled = border.Style is PdfBorderStyle.Beveled or PdfBorderStyle.Inset;
 
-        var content = new AppearanceContentWriter();
+        var content = new ContentWriter();
         if (background is not null)
         {
             content.Operator("q");
@@ -322,7 +322,7 @@ internal sealed class TextFieldAppearance
             dictionary[AnnotationNames.Matrix] = new CosArray(matrix.Select(Number));
         }
 
-        return new CosStream(dictionary, content.Content.ToArray());
+        return new CosStream(dictionary, content.ToArray());
     }
 
     /// <summary>The colour, or <see langword="null"/> when there is none or it is transparent (an empty array, Table 192).</summary>
@@ -343,7 +343,7 @@ internal sealed class TextFieldAppearance
         value == Math.Floor(value) && Math.Abs(value) < int.MaxValue ? new CosInteger((long)value) : new CosReal(Math.Round(value, 4));
 
     /// <summary>Strokes the border in its style (§12.5.4, Table 168): solid, dashed, underlined, or bevelled and inset with shaded edges.</summary>
-    private static void WriteBorder(AppearanceContentWriter content, PdfAnnotationBorder border, PdfDeviceColor color, double borderWidth, double width, double height)
+    private static void WriteBorder(ContentWriter content, PdfAnnotationBorder border, PdfDeviceColor color, double borderWidth, double width, double height)
     {
         double half = borderWidth / 2;
         content.Operator("q");
@@ -381,7 +381,7 @@ internal sealed class TextFieldAppearance
     }
 
     /// <summary>Writes a device colour operator for 1, 3 or 4 components (§8.6.8, Table 73).</summary>
-    private static void WriteColor(AppearanceContentWriter content, IReadOnlyList<double> components, bool stroking)
+    private static void WriteColor(ContentWriter content, IReadOnlyList<double> components, bool stroking)
     {
         foreach (double component in components)
         {
@@ -418,7 +418,7 @@ internal sealed class TextFieldAppearance
         private double LineFactor => Math.Max(1000, Font.Ascent - Font.Descent) / 1000;
 
         /// <summary>Writes the text object for one widget.</summary>
-        public void Write(AppearanceContentWriter content, string text, Box box, double width)
+        public void Write(ContentWriter content, string text, Box box, double width)
         {
             var placed = new List<(string Text, double X, double Y)>();
             double size = Comb is { } cells ? LayOutComb(text, cells, box, width, placed) : Multiline ? LayOutLines(text, box, placed) : LayOutLine(text, box, placed);

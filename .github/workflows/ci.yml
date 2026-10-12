@@ -82,6 +82,17 @@ jobs:
           path: artifacts/test-results/**/*.trx
           if-no-files-found: warn
 
+      - name: Upload golden-image differences
+        # A failing golden-image comparison leaves the render and a diff image beside the golden image (issue #120).
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: golden-images-${{ matrix.os }}
+          path: |
+            tests/Golden/*.received.png
+            tests/Golden/*.diff.png
+          if-no-files-found: ignore
+
       - name: Pack (Linux)
         if: runner.os == 'Linux'
         run: dotnet pack Broadside.Core.slnf -c Release --no-build

@@ -149,6 +149,25 @@ public sealed class PdfPage
         }
     }
 
+    /// <summary>
+    /// Fetches, asynchronously, the objects reading this page needs, so that interpreting it afterwards never waits on the network:
+    /// the page object, its resources (inherited ones included), its content streams, annotations and their appearances, and
+    /// everything they refer to, but not other pages.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the requests.</param>
+    /// <returns>A task that completes when the objects are cached; already completed for a document whose bytes are all at hand.</returns>
+    /// <exception cref="HttpRequestException">The server answered with an error status, or could not be reached.</exception>
+    /// <exception cref="IOException">The server's answers are inconsistent: the file changed while it was read, for instance.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>
+    /// Spec #33, viewer capability 5; ADR 0010. Only a document opened through
+    /// <see cref="PdfEngine.OpenAsync(HttpClient, Uri, CancellationToken)"/> fetches anything. Where
+    /// <see cref="PdfOptions.SynchronousRangeFetch"/> is off (always on the browser, which cannot block on HTTP), a synchronous read
+    /// of a page before its prefetch throws <see cref="PdfRangeNotLoadedException"/>; elsewhere it blocks on the requests instead, and
+    /// a prefetch only makes them parallel and asynchronous. The bytes stay cached up to <see cref="PdfOptions.RangeCacheLimit"/>.
+    /// </remarks>
+    public Task PrefetchAsync(CancellationToken cancellationToken = default) => _document.PrefetchAsync(this, cancellationToken);
+
     /// <summary>Runs the page's content through the content interpreter and reports what it paints to <paramref name="processor"/>.</summary>
     /// <param name="processor">The processor; for several at once, a <see cref="CompositeContentProcessor"/>.</param>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
@@ -180,13 +199,14 @@ public sealed class PdfPage
     /// </summary>
     /// <param name="editor">The editor; it numbers the operators and makes its edits during the run.</param>
     /// <returns><see langword="true"/> when the editor made edits and the content was replaced; otherwise the page is unchanged.</returns>
-    /// <exception cref="InvalidOperationException">The editor is already rewriting, or every stream of the page's content is also another page's.</exception>
+    /// <exception cref="InvalidOperationException">The editor is already rewriting.</exception>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
     /// <remarks>
     /// ISO 32000-2 §7.8.2; Table 31. The run is the one <see cref="ProcessContent(ContentProcessor)"/> makes. The result is written
-    /// unfiltered (§7.3.8.2: <c>Filter</c>, <c>DecodeParms</c> and <c>DL</c> are removed; a save compresses it) into the page's
-    /// content stream; a <c>Contents</c> array is replaced by its first stream that no other page uses, holding the parts joined by
-    /// line feeds. A stream another page also shows is never written into.
+    /// unfiltered (§7.3.8.2; a save compresses it) into a new stream (§7.3.10, <see cref="PdfDocument.AddObject"/>) that the page's
+    /// <c>Contents</c> then names alone; a <c>Contents</c> array's parts are joined by line feeds. The old streams are not written
+    /// into, so another page that shows them keeps its content; they stay objects of the document, which a save with
+    /// <see cref="PdfSaveOptions.RemoveUnreachableObjects"/> drops when nothing else refers to them.
     /// </remarks>
     public bool RewriteContent(ContentEditor editor) => RewriteContent(editor, ContentInterpreter.DefaultOptions);
 
@@ -194,7 +214,7 @@ public sealed class PdfPage
     /// <param name="editor">The editor.</param>
     /// <param name="options">Limits and cancellation for the run.</param>
     /// <returns><see langword="true"/> when the content was replaced.</returns>
-    /// <exception cref="InvalidOperationException">The editor is already rewriting, or every stream of the page's content is also another page's.</exception>
+    /// <exception cref="InvalidOperationException">The editor is already rewriting.</exception>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
     /// <exception cref="OperationCanceledException">The options' cancellation token was canceled; the page is unchanged.</exception>
     /// <remarks>ISO 32000-2 §7.8.2; Table 31. As <see cref="RewriteContent(ContentEditor)"/>.</remarks>

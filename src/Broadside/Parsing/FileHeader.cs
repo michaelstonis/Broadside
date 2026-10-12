@@ -97,7 +97,8 @@ internal readonly record struct FileHeader(long Offset, PdfVersion? Version)
             }
         }
 
-        if (HoldsBinaryData(source, marker))
+        // A remote file is not downloaded whole to look for one byte of 128 or more (issue #207): the check is skipped there.
+        if (source.IsLocal && HoldsBinaryData(source, marker))
         {
             diagnostics.Report(
                 DiagnosticCodes.HeaderBinaryCommentMissing,
