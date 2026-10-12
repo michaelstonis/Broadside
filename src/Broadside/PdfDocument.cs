@@ -463,7 +463,8 @@ public sealed partial class PdfDocument : IDisposable
     /// write compactly; <see cref="PdfSaveOptions.RemoveUnreachableObjects"/> leaves out objects the trailer does not reach. An object
     /// that has not changed since it was read, was read without any repair and holds no reference that was renumbered is written with
     /// exactly the bytes it was read from; other objects are serialized, stream data as stored. The revisions of an incrementally
-    /// updated file collapse into one, and a linearized file is written unlinearized (Annex F).
+    /// updated file collapse into one, and a linearized file is written unlinearized (Annex F) unless
+    /// <see cref="PdfSaveOptions.Linearize"/> lays the file out linearized again.
     /// </para>
     /// <para>
     /// Unfiltered streams that are new or changed are written compressed with the engine's <c>FlateDecode</c> encoder when that makes
@@ -1182,9 +1183,38 @@ public sealed partial class PdfDocument : IDisposable
     private FileWriter PlanSave(PdfSaveOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
+        CheckLinearization(options);
         return options.IncrementalUpdate
             ? SavePlan.CreateIncremental(_source, _loader, options, StreamEncoders)
             : SavePlan.Create(_source, _loader, Linearization, options, StreamEncoders);
+    }
+
+    /// <summary>
+    /// Refuses a linearized incremental update, and records that an incremental update of a linearized file leaves it unlinearized:
+    /// its parameter dictionary's <c>L</c> no longer matches the file length (Annex F, F.1, Table F.1, G.7).
+    /// </summary>
+    private void CheckLinearization(PdfSaveOptions options)
+    {
+        if (!options.IncrementalUpdate)
+        {
+            return;
+        }
+
+        if (options.Linearize)
+        {
+            throw new ArgumentException(
+                "An incremental update cannot be linearized: appending to a file leaves it unlinearized (ISO 32000-2 F.1, G.7). Save without IncrementalUpdate to linearize.",
+                nameof(options));
+        }
+
+        if (IsLinearized)
+        {
+            _diagnostics.Report(
+                DiagnosticCodes.LinearizationDropped,
+                DiagnosticSeverity.Information,
+                "The incremental update leaves the linearized file unlinearized: its linearization dictionary's L entry no longer matches the file length (ISO 32000-2 F.1, G.7). Save with Linearize to linearize it again.",
+                objectReference: Linearization!.Reference);
+        }
     }
 
     /// <summary>

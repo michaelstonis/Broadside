@@ -914,10 +914,11 @@ internal static class FuzzTargets
     /// Opens the input as a whole file in lenient mode, saves it in the layout, object numbering and garbage collection the input's
     /// length selects, and reopens the output. Whatever opened must save, and what was saved must open again with the same number of
     /// pages: a full save writes every object the trailer reaches (repaired ones re-serialized, references renumbered), so nothing the
-    /// first open could read through the page tree may become unreadable. <see cref="NotSupportedException"/> is the documented outcome
-    /// for an encrypted file.
+    /// first open could read through the page tree may become unreadable. A linearized save (selected by the length too) must read as
+    /// linearized, with hint tables that read. <see cref="NotSupportedException"/> is the documented outcome for an encrypted file, and
+    /// for linearizing a document without pages or whose page tree lists a page twice.
     /// </summary>
-    /// <remarks>ISO 32000-2 §7.5, §7.3.10 (issues #44, #144).</remarks>
+    /// <remarks>ISO 32000-2 §7.5, §7.3.10, Annex F (issues #44, #144, #228).</remarks>
     private static void Save(ReadOnlySpan<byte> data)
     {
         using PdfDocument? document = OpenOrNull(data);
@@ -936,10 +937,11 @@ internal static class FuzzTargets
         var layout = (PdfCrossReferenceLayout)(data.Length % 3);
         var numbering = (PdfObjectNumbering)(data.Length / 3 % 2);
         bool removeUnreachable = data.Length / 6 % 2 == 1;
+        bool linearize = data.Length / 72 % 2 == 1;
         using var output = new MemoryStream();
         try
         {
-            document.Save(output, new PdfSaveOptions().WithCrossReferenceLayout(layout).WithObjectNumbering(numbering).WithRemoveUnreachableObjects(removeUnreachable));
+            document.Save(output, new PdfSaveOptions().WithCrossReferenceLayout(layout).WithObjectNumbering(numbering).WithRemoveUnreachableObjects(removeUnreachable).WithLinearize(linearize));
         }
         catch (NotSupportedException)
         {
@@ -950,6 +952,11 @@ internal static class FuzzTargets
         if (saved.Pages.Count != pages)
         {
             throw new InvalidOperationException($"The saved file has {saved.Pages.Count} pages; the input had {pages}.");
+        }
+
+        if (linearize && (!saved.IsLinearized || saved.Linearization!.Hints is null))
+        {
+            throw new InvalidOperationException("A file saved linearized does not read as linearized, or its hint tables do not read.");
         }
     }
 

@@ -63,6 +63,7 @@ internal static partial class DiagnosticCodes
     // Linearized files (Annex F).
     public const string LinearizationDictionaryInvalid = nameof(LinearizationDictionaryInvalid);
     public const string LinearizationHintsInvalid = nameof(LinearizationHintsInvalid);
+    public const string LinearizationDropped = nameof(LinearizationDropped);
 
     // Indirect objects (§7.3.10).
     public const string XrefEntryOffsetInvalid = nameof(XrefEntryOffsetInvalid);
