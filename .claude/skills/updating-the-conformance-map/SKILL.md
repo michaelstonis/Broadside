@@ -26,8 +26,8 @@ Today every row is at the second level (`7.2`, `7.3`, ...), all `not started`.
 - **Clause**: the number as the spec prints it (`7.2`, `7.2.3`), no `§`, no trailing dot.
 - **Title**: the heading from `Specs/`, read with `pdftotext Specs/ISO_32000-2_sponsored_EC3.pdf - | grep -nE '^7\.2\.[0-9] '`, never from memory.
 - **Status**: one of `not started`, `partial`, `done`, `n/a`. `n/a` is for clauses with no implementable content or that `CLAUDE.md` lists as out of scope; say which in Notes.
-- **Implementing types**: fully qualified type names, each in backticks, comma-separated: `` `Broadside.Cos.CosLexer`, `Broadside.Cos.CosToken` ``. Leave empty for `not started` and `n/a`.
-- **Tests**: fully qualified test identifiers `Namespace.Class.Method`, each in backticks, comma-separated: `` `Broadside.Tests.Objects.LexerTests.Tokenizes_names` ``. For a theory, name the method once. A `done` row needs at least one; give `partial` rows their tests too so the checker's counts mean something. Issue #7 formalizes these two cell formats; use them now.
+- **Implementing types**: simple type names (no namespace, no type arguments), each in backticks, comma-separated: `` `CosDictionary`, `CosParser` ``. Each must be declared as a class, struct, interface, enum or record under `src/`. Leave empty for `not started` and `n/a`.
+- **Tests**: fully qualified test identifiers `Namespace.Class.Method`, each in backticks, comma-separated: `` `Broadside.Tests.Objects.LexerTests.Tokenizes_names` ``. For a theory, name the method once. A `done` row needs at least one; give `partial` rows their tests too so the checker's counts mean something. The authoritative formats are in `docs/conformance/README.md`; the checker enforces them.
 - **Notes**: for `partial`, what is still missing; for `n/a`, why; otherwise anything a reader needs to find the code (an ADR number, a corpus file name).
 
 Keep cells on one line; the table has no multi-line cells.
@@ -91,7 +91,7 @@ and `CosLexer` carries `<remarks>ISO 32000-2 §7.2.</remarks>`. When the follow-
 
 - [ ] Every clause the PR touches has a row in the right `docs/conformance/<spec>.md`
 - [ ] Status is one of the four values; `done` rows name at least one test
-- [ ] Types and tests are fully qualified, backticked, comma-separated
+- [ ] Types are simple names and tests are fully qualified, all backticked and comma-separated
 - [ ] Split to third-level rows where statuses differ; titles copied from `Specs/`
 - [ ] Each implementing public type and member carries `<remarks>ISO 32000-2 §x.y.z</remarks>`
 - [ ] `dotnet run --project tools/ConformanceCheck -- --root . --summary` passes (once #7 has landed)

@@ -1,0 +1,22 @@
+{
+  "comment": "Pinned real-world subset for ContentInterpretationBenchmarks (issue #80), picked by measurement from artifacts/corpus-gate/*.json: the file with the most of each category per page among well-formed files. Paths are relative to corpus/ (tools/CorpusFetcher). A file that is absent or whose SHA-256 differs is skipped; with none present the benchmark falls back to the minimal corpus (fallback).",
+  "files": [
+    { "category": "text-heavy", "corpus": "pdfjs", "path": "pdfjs/tracemonkey.pdf", "sha256": "3662ff519e485810520552bf301d8c3b2b917fd2f83303f4965d7abed367e113", "pages": 14 },
+    { "category": "vector-heavy", "corpus": "pdfjs", "path": "pdfjs/issue12810.pdf", "sha256": "412c956edda0affc24e18bfcb86ab844876f0601748a88bb22d207be85afe145", "pages": 1 },
+    { "category": "image-heavy", "corpus": "pdfjs", "path": "pdfjs/bug1799927.pdf", "sha256": "d64d9d210675175a27fd3bf0b5e956699db5beb3a95658c359e65ff100d855d7", "pages": 1 },
+    { "category": "inline-image-heavy", "corpus": "qpdf", "path": "qpdf/inline-images.pdf", "sha256": "8ae2fc89f4edd5579c2b05a2b9678388b29515143252ac40f6ec97eb7d97e1df", "pages": 2 },
+    { "category": "cjk", "corpus": "pdfjs", "path": "pdfjs/issue11913.pdf", "sha256": "996da6eebc2c04487ab8cda464ccd6ef02148f4813c54a400a9e151ceeec844f", "pages": 1 },
+    { "category": "page-count", "corpus": "pdfjs", "path": "pdfjs/freeculture.pdf", "sha256": "753441c619c529c8d0fc3e7e470f07c9547838fc7229bea8c1dcf854acee03b4", "pages": 352 },
+    { "category": "shading-pattern", "corpus": "pdfjs", "path": "pdfjs/bug1721218_reduced.pdf", "sha256": "dc8dbb890cd0f802deb8d486e2aa66b325b95e8579b11a3c60efc9ad8f4dc81e", "pages": 1 },
+    { "category": "tiling-pattern", "corpus": "pdfjs", "path": "pdfjs/tiling_patterns_variations.pdf", "sha256": "2b7b9cccccef7407c18690cf4f007a04fc8a013b868738d025a71113a4700350", "pages": 1 }
+  ],
+  "fallback": [
+    { "category": "text-heavy", "path": "text-truetype-embedded.pdf" },
+    { "category": "vector-heavy", "path": "form-xobject-nested.pdf" },
+    { "category": "image-heavy", "path": "image-smask.pdf" },
+    { "category": "inline-image-heavy", "path": "inline-image-filters.pdf" },
+    { "category": "cjk", "path": "text-cid-identity-h.pdf" },
+    { "category": "shading-pattern", "path": "shading-type6-coons.pdf" },
+    { "category": "tiling-pattern", "path": "pattern-tiling-colored.pdf" }
+  ]
+}

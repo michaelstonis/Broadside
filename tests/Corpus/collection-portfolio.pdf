@@ -1,0 +1,64 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(<1>report.txt) 5 0 R (notes.txt) 7 0 R] >> >> /Collection 9 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>
+endobj
+5 0 obj
+<< /Type /Filespec /F (report.txt) /UF (report.txt) /EF << /F 12 0 R >> /CI 6 0 R >>
+endobj
+6 0 obj
+<< /Type /CollectionItem /name << /Type /CollectionSubitem /D (Quarterly report) /P (Q1: ) >> /date (D:20240301000000Z) /pages 3 >>
+endobj
+7 0 obj
+<< /Type /Filespec /F (notes.txt) /UF (notes.txt) /EF << /F 13 0 R >> /CI 8 0 R >>
+endobj
+8 0 obj
+<< /Type /CollectionItem /name (Notes) /pages 1 >>
+endobj
+9 0 obj
+<< /Type /Collection /View /D /D (notes.txt) /Schema << /Type /CollectionSchema /name << /Type /CollectionField /Subtype /S /N (Name) /O 0 >> /date << /Type /CollectionField /Subtype /D /N (Date) /O 1 >> /pages << /Type /CollectionField /Subtype /N /N (Pages) /O 2 /V false >> /fname << /Type /CollectionField /Subtype /F /N (File) /O 3 /E true >> /size << /Type /CollectionField /Subtype /Size /N (Size) /O 4 >> >> /Sort << /Type /CollectionSort /S [/date /name] /A [false] >> /Colors << /Background [1 1 1] /CardBackground [0.9 0.9 0.9] /CardBorder [0 0 0] /PrimaryText [0 0 0] /SecondaryText [0.5 0.5 0.5] >> /Split << /Direction /V /Position 30 >> /Folders 10 0 R >>
+endobj
+10 0 obj
+<< /Type /Folder /ID 0 /Name (Portfolio) /Child 11 0 R /Free [2 10] >>
+endobj
+11 0 obj
+<< /Type /Folder /ID 1 /Name (Reports) /Parent 10 0 R /Desc (Quarterly reports) >>
+endobj
+12 0 obj
+<< /Type /EmbeddedFile /Subtype /text#2Fplain /Length 11 >>
+stream
+Revenue up.
+endstream
+endobj
+13 0 obj
+<< /Type /EmbeddedFile /Subtype /text#2Fplain /Length 18 >>
+stream
+Remember the milk.
+endstream
+endobj
+xref
+0 14
+0000000000 65535 f 
+0000000009 00000 n 
+0000000159 00000 n 
+0000000216 00000 n 
+0000000000 00000 f 
+0000000304 00000 n 
+0000000404 00000 n 
+0000000551 00000 n 
+0000000649 00000 n 
+0000000715 00000 n 
+0000001401 00000 n 
+0000001488 00000 n 
+0000001587 00000 n 
+0000001692 00000 n 
+trailer
+<< /Size 14 /Root 1 0 R >>
+startxref
+1804
+%%EOF

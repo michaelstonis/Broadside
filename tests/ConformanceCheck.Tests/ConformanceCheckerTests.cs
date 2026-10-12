@@ -4,7 +4,7 @@ namespace Broadside.Tools.ConformanceCheck.Tests;
 /// One fixture repository per rule under <c>Fixtures/</c> (copied next to the test assembly), each with a <c>docs/conformance/x.md</c>,
 /// a <c>tests/Foo.Tests/FooTests.cs</c> and a <c>src/Foo/Foo.cs</c>, plus a run against the real checkout so <c>dotnet test</c> fails when the map is wrong.
 /// </summary>
-public class ConformanceCheckerTests
+public sealed class ConformanceCheckerTests
 {
     private const string FixtureFile = "docs/conformance/x.md";
 

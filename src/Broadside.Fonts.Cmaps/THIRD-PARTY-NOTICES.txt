@@ -1,0 +1,112 @@
+Broadside.Fonts.Cmaps third-party notices
+==========================================
+
+Broadside is licensed under the MIT License (LICENSE). This package also carries the Adobe CMap files below, each under its own
+terms, unmodified. They are embedded in the assembly Deflate-compressed, as resources Broadside.Fonts.Cmaps.CMap.<name> and
+Broadside.Fonts.Cmaps.CidToUnicode.<name>, and are in the repository under src/Broadside.Fonts.Cmaps/CMaps/ and CidToUnicode/
+(produced by src/Broadside.Fonts.Cmaps/Data/generate.py, whose manifest Data/manifest.tsv records each file). Inflated, every
+resource is byte for byte the upstream file; its own copyright header is kept. The licence texts are in this package under
+licenses/.
+
+
+1. Adobe CMap resources (the predefined CMaps of ISO 32000-2 Table 116)
+------------------------------------------------------------------------
+
+Used for:  the 59 predefined CMaps of ISO 32000-2:2020 Table 116 other than Identity-H and Identity-V (those are built into the
+           core), served by PredefinedCMapResolver as FontResourceKind.CMap.
+Source:    https://github.com/adobe-type-tools/cmap-resources, commit f5cf3bca7fdfeaceb77aa82847e974f2306c20b4
+           (each file fetched at that commit and checked against the commit's git blob hash).
+Licence:   BSD 3-Clause (SPDX: BSD-3-Clause), shipped as licenses/cmap-resources/LICENSE.md (the repository's LICENSE.md).
+Copyright: Copyright 1990-2023 Adobe. All rights reserved. (Each CMap file carries its own notice, "Copyright 1990-2019 Adobe"
+           or similar, under the same licence.)
+Modified:  no.
+
+The core package (Broadside) also carries data derived from these files: the name, character collection, writing mode and
+codespace ranges of each CMap (src/Broadside/Fonts/PredefinedCMapTable.g.cs), so that codes split correctly without this
+package; see the core's THIRD-PARTY-NOTICES.txt.
+
+SHA-256 of the files (upstream path):
+
+  9c2b268c5fbcc9a23aa76d2f199c97fa9fbfcc0ef43f9f320bb367a6b0a47b20  Adobe-GB1-6/CMap/GB-EUC-H  (4,427 bytes)
+  5acf07ba8e65be8aad1c7a4535574e41cb326abd295e9e5c1eb3e96037260397  Adobe-GB1-6/CMap/GB-EUC-V  (3,100 bytes)
+  ec6132762b28650eb0c8483ea9387af39acb9d8aca432cb1e4f79a1058e1cd40  Adobe-GB1-6/CMap/GBpc-EUC-H  (4,455 bytes)
+  5fec79fd4f5f95d7638a150eec9b551268b8c29103446f0eee26866769ff384f  Adobe-GB1-6/CMap/GBpc-EUC-V  (3,112 bytes)
+  6c88b308f122966de14696d819800bc89be2538fa14fa41f474e36b20cea11c6  Adobe-GB1-6/CMap/GBK-EUC-H  (83,102 bytes)
+  73381a5bc2d0aacbf6b2ec211f34e042e7c74895342fcee073b0f9be2dbc8703  Adobe-GB1-6/CMap/GBK-EUC-V  (3,089 bytes)
+  d6ef0e6c393bd065f5b646b7dc87fe8df88f3608a9264fb5727b552418352d5a  Adobe-GB1-6/CMap/GBKp-EUC-H  (83,083 bytes)
+  43c8fa12dcef0b1b584fdd077996fff388fc0e9a9d332e08556640ceefa9fa0e  Adobe-GB1-6/CMap/GBKp-EUC-V  (3,095 bytes)
+  7d945768331212eadca4a9c35390405efa72cf1be7f064cef170aa68cdab0be9  Adobe-GB1-6/CMap/GBK2K-H  (94,485 bytes)
+  49e81ae0d4b7b35901fbaeff63558bb133d9d0398ac2d0e33fab75404ea71cd2  Adobe-GB1-6/CMap/GBK2K-V  (3,482 bytes)
+  d2b100a68c016190347c6e0ecee3e7d6d1accd7395d7e803bf88b7ffef156725  Adobe-GB1-6/CMap/UniGB-UCS2-H  (274,383 bytes)
+  d94d2e56a9a5cb89e0a68c31eba1ff40aa604b3a504be844c67de64af64eec96  Adobe-GB1-6/CMap/UniGB-UCS2-V  (3,167 bytes)
+  3750279409a96fb3a8ce1fbc25eb95bab4ff7ade023e4e0df6bd33258a3a8726  Adobe-GB1-6/CMap/UniGB-UTF16-H  (203,288 bytes)
+  cc9608b7c8c11133c1148eda883c10433e1d0dc2c964f41744eae89fe75f77d3  Adobe-GB1-6/CMap/UniGB-UTF16-V  (3,062 bytes)
+  7a2af623d66158fd9b2eae590d3b0373b2e73125f008befda26c40a6c5d396fb  Adobe-CNS1-7/CMap/B5pc-H  (7,547 bytes)
+  f1b09f3752437a802f0992297a18361fd3bceed8e208cfbb97f2e6c035a29d2e  Adobe-CNS1-7/CMap/B5pc-V  (2,936 bytes)
+  46b4d44a0d38cf188a88f42688f10a03aed8d67be80c141a1404abacc01ee191  Adobe-CNS1-7/CMap/HKscs-B5-H  (23,253 bytes)
+  1f6f7f06216987d973c18e23d1a8c79044d9f1b301e01c738867ca1fdf50e237  Adobe-CNS1-7/CMap/HKscs-B5-V  (2,961 bytes)
+  b6e5e42d94f6642842f6a42445c1df29d3874c6d1a91a38a05c9d7e4b57f0ce6  Adobe-CNS1-7/CMap/ETen-B5-H  (7,703 bytes)
+  0e6f041edd60516e92c9470254c4d45522b4cf079f1809b82862d43a3f1e1663  Adobe-CNS1-7/CMap/ETen-B5-V  (2,974 bytes)
+  051a38392481d6069608f41962ef9393e142797a8977d7f7fbd534b051a6e231  Adobe-CNS1-7/CMap/ETenms-B5-H  (2,729 bytes)
+  477e42501dd0c27301b992ab004d6044bf5406277ee7a353d3b04cc08092a9e0  Adobe-CNS1-7/CMap/ETenms-B5-V  (3,041 bytes)
+  61a5163ddf2dcbeed5efc4c8e9a612c7b3c5a0c062df75b2b3d73e3e46e7a299  Adobe-CNS1-7/CMap/CNS-EUC-H  (12,246 bytes)
+  91faeda86c64df62c57b434a5b1322e1a6236c8520db3d4ee58b6ae5fee4c01e  Adobe-CNS1-7/CMap/CNS-EUC-V  (13,278 bytes)
+  fe9c7f1557d58875bc4a16edf377ee0d8c579eaee778135adefbbed1f868c017  Adobe-CNS1-7/CMap/UniCNS-UCS2-H  (326,349 bytes)
+  745fd7a922bedd2d124006a4b5e6a909aaaa9f11eebefbb0477c22a01439a3a8  Adobe-CNS1-7/CMap/UniCNS-UCS2-V  (2,971 bytes)
+  074d175c8c6827184d064f2c48cbe0ba4957bd525fd864184717518acf4db970  Adobe-CNS1-7/CMap/UniCNS-UTF16-H  (253,253 bytes)
+  d21175d1f8a083b606a9a1e17fa98d1cb901a0e833e19d47a6c08fb452c91c11  Adobe-CNS1-7/CMap/UniCNS-UTF16-V  (2,960 bytes)
+  77f7a0f11fe2ee160baa6446b47b8a66cda41aac4ab777fb92c192198a521377  Adobe-Japan1-7/CMap/83pv-RKSJ-H  (7,080 bytes)
+  e0b104bcc8dfb3c2d3e025e12c59182d7e0ee1b5df6f55bc8550d4b3fc83ecd3  Adobe-Japan1-7/CMap/90ms-RKSJ-H  (6,070 bytes)
+  a588f7d20d0c8dbf09693480e62bf3ab80b7453858e4425d4b47650d48e7757b  Adobe-Japan1-7/CMap/90ms-RKSJ-V  (4,229 bytes)
+  10b15c3b208d35f9b2764b0dd00e52de59170aa3f102387e7c388dfaa2290fc0  Adobe-Japan1-7/CMap/90msp-RKSJ-H  (6,001 bytes)
+  05b5adf56096c0f1baeb267ec63f4018c85e3c3cff01f3457ffa10672a225c09  Adobe-Japan1-7/CMap/90msp-RKSJ-V  (4,212 bytes)
+  bda3f87262c61ef5a34097737f7306fb160d769f357b72ad251d11384a3848d2  Adobe-Japan1-7/CMap/90pv-RKSJ-H  (7,815 bytes)
+  630d4689f3d17000208452c855d9360dc1f769f102b7d29c17ea11973b28aaa7  Adobe-Japan1-7/CMap/Add-RKSJ-H  (15,038 bytes)
+  5664073e91e61009d72d5f007207f29bb8561c05939f3b185909ab92424bf039  Adobe-Japan1-7/CMap/Add-RKSJ-V  (3,823 bytes)
+  5cceeaf017e9f813079bbc17d8e750072e50042a01e521c9f9c18efabd596cba  Adobe-Japan1-7/CMap/EUC-H  (5,075 bytes)
+  d35c5ce976385980244040037152d92d321b738bca885ad0976c10658cd0acab  Adobe-Japan1-7/CMap/EUC-V  (3,223 bytes)
+  00cd02206daf64e633d1c13b979fb20652a554d87fd9f2f0ca94065156ea8b71  Adobe-Japan1-7/CMap/Ext-RKSJ-H  (15,607 bytes)
+  8a84926990144b043f2e5ebda194bf3560cc5f29096cafab8a6079a9d86e2d6b  Adobe-Japan1-7/CMap/Ext-RKSJ-V  (3,481 bytes)
+  f90323c3fd16e107b02c888167739f210af7144beba1bda83949069535db3346  Adobe-Japan1-7/CMap/H  (4,941 bytes)
+  1ccdbf3451794ddb929a9e2e43f562b20a8d9de5ec44174317c8a149ab498aa1  Adobe-Japan1-7/CMap/V  (3,199 bytes)
+  05d064e6b373edf83890e26d7d2a2339482fad265eaf0a2b92ab528af33b5a54  Adobe-Japan1-7/CMap/UniJIS-UCS2-H  (168,597 bytes)
+  b487b2602348ef9c69222fd1a82cd45eea4f756d98e974b94183390c9bd8b6c3  Adobe-Japan1-7/CMap/UniJIS-UCS2-V  (6,509 bytes)
+  782f9d14dffa2a538302c8aa02b7d4650ff41d3bbe49215546c66a786be92bed  Adobe-Japan1-7/CMap/UniJIS-UCS2-HW-H  (2,820 bytes)
+  eb1fe9bd104770efb0fda13b211fee88cc5487a653e5cdf6d89bb782336e7673  Adobe-Japan1-7/CMap/UniJIS-UCS2-HW-V  (6,591 bytes)
+  5cf77ed38c25262dba845676738a887afe45e44425c3dd2489334c4d8c510fcb  Adobe-Japan1-7/CMap/UniJIS-UTF16-H  (188,225 bytes)
+  03bfb4e91452da537f347b8676e52adfa5dd10f8b920fa2cc34d343580354056  Adobe-Japan1-7/CMap/UniJIS-UTF16-V  (5,806 bytes)
+  90e9250027a7a84fc7a2542f91fe61e3a71299214aaa75c617e12a55dfaa0943  Adobe-Korea1-2/CMap/KSC-EUC-H  (11,728 bytes)
+  a51f69ff435ff83b3c200b2043572492be05ac08e98f4662f3938b3f6a1b9a6c  Adobe-Korea1-2/CMap/KSC-EUC-V  (3,036 bytes)
+  f3e3719b2db01f1c27e5f8b85cfec0d6f018239fb999cd03bbe10084a9f4645a  Adobe-Korea1-2/CMap/KSCms-UHC-H  (15,940 bytes)
+  1ca4c9a90aa3079ffdc8ceb7e288f034d0afbc7142a7fae705416368fc581186  Adobe-Korea1-2/CMap/KSCms-UHC-V  (3,050 bytes)
+  129c4892d7d21a5f188af469d06673994c9395bd61c33987a0652261d27a7f7b  Adobe-Korea1-2/CMap/KSCms-UHC-HW-H  (15,936 bytes)
+  b6052023250b12413fe7ac8552d64362720374df3c0d1beb2406922856a504fa  Adobe-Korea1-2/CMap/KSCms-UHC-HW-V  (3,049 bytes)
+  6d2ec35d3aad68c4cba6d93849d8b7b9b8c34572c50b7361ccb6bf338c36f330  Adobe-Korea1-2/CMap/KSCpc-EUC-H  (12,555 bytes)
+  bb28e3e84154f49c311128a5700cc0187ce4957b10f18dee88089002db7e5501  Adobe-Korea1-2/CMap/UniKS-UCS2-H  (166,009 bytes)
+  76c08c4aace48d92a252e686f9d748ebde009337b59361ec286c4bdc037e5933  Adobe-Korea1-2/CMap/UniKS-UCS2-V  (3,076 bytes)
+  0a1dc38d8dd4e1f55b5a3ab978a2b091109f88f4d08587bbb7864370cda8cfd5  Adobe-Korea1-2/CMap/UniKS-UTF16-H  (122,938 bytes)
+  681aecd86956265504f7875af43eae3985ab263175aa782baa884b0f514f2aa6  Adobe-Korea1-2/CMap/UniKS-UTF16-V  (3,030 bytes)
+
+  742665db9c8e1bc72603c6d319ca3e90b83bd6d95202f0cd4ef11068a07a9c29  licenses/cmap-resources/LICENSE.md  (1,453 bytes)
+
+
+2. Adobe mapping resources for PDF (CID-to-Unicode tables)
+-----------------------------------------------------------
+
+Used for:  CID to Unicode mapping of the Adobe-CNS1, Adobe-GB1, Adobe-Japan1, Adobe-Korea1 and Adobe-KR character collections
+           (ISO 32000-2 §9.10.2), served by PredefinedCMapResolver as FontResourceKind.CidToUnicode.
+Source:    https://github.com/adobe-type-tools/mapping-resources-pdf, commit 2dd5e53fb74a01718b9dfd448a0d1cce6fff2aa5, pdf2unicode/
+           (each file fetched at that commit and checked against the commit's git blob hash).
+Licence:   BSD 3-Clause (SPDX: BSD-3-Clause), shipped as licenses/mapping-resources-pdf/LICENSE.txt (the repository's LICENSE.txt).
+Copyright: Copyright 1990-2019 Adobe. All rights reserved.
+Modified:  no.
+
+SHA-256 of the files (upstream path):
+
+  8375afd535e153a7e3bcf448be93e5012b26229547a20d52520e46e3c386351f  pdf2unicode/Adobe-CNS1-UCS2  (266,531 bytes)
+  368b40ec05568faf323cfbbddf23c60d566bbc88e366981eb6541b026381a3b8  pdf2unicode/Adobe-GB1-UCS2  (221,211 bytes)
+  6a9693361647a37996312cc57071bb79f8c06411207be7c730a83fda1254cd82  pdf2unicode/Adobe-Japan1-UCS2  (294,111 bytes)
+  45bcf869acdcec2507f75836919e589e7137b9f9dbaa8e4975747035024248ef  pdf2unicode/Adobe-Korea1-UCS2  (146,807 bytes)
+  6861a3208f331ecd73369c5d51eacf3b72c820fe3c87524f79c9ac1bb16830ec  pdf2unicode/Adobe-KR-UCS2  (203,264 bytes)
+
+  feb8b068a417681821823ef2e8995072aa111121fa11f8664038f78717f4497c  licenses/mapping-resources-pdf/LICENSE.txt  (1,453 bytes)

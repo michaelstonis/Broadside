@@ -1,0 +1,52 @@
+# Real-world corpus gates: weekly and on demand. The corpora are too large for every pull request, and the
+# corpus tests skip when corpus/ is absent, so without this workflow the gates of issues #47 and #80 would rot.
+# See .github/workflows/README.md.
+name: Corpus
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * 1'
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DiffEngine_Disabled: true
+  BROADSIDE_CORPUS_DIR: ${{ github.workspace }}/corpus
+
+jobs:
+  # Fetches every corpus that is not manual (tools/CorpusFetcher/corpora.json), then runs every test in the
+  # Category=Corpus trait: the open-and-walk gate (#47), the veraPDF agreement, the per-area real-world sweeps and
+  # the content interpreter gate (#80). The gate's per-file detail is uploaded for diffing and benchmark picking.
+  corpus-gates:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Fetch the corpora
+        run: dotnet run -c Release --project tools/CorpusFetcher
+
+      - name: Build
+        run: dotnet build Broadside.slnx -c Release -warnaserror -p:BroadsideBuildPlatformBackends=false
+
+      - name: Corpus tests
+        run: dotnet test --project tests/Broadside.Tests -c Release --no-build -- --filter-trait "Category=Corpus"
+
+      - name: Upload the content gate's per-file detail
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: corpus-gate
+          path: artifacts/corpus-gate/*.json
+          if-no-files-found: warn

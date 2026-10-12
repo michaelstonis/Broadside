@@ -11,6 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <ProjectReference Include="../../src/Broadside/Broadside.csproj" />
     <PackageReference Include="xunit.v3.extensibility.core" />
     <PackageReference Include="Verify.XunitV3" />
   </ItemGroup>

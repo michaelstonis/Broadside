@@ -1,0 +1,107 @@
+﻿corpus: pdfbox @ 8712d47b075511a4c5a2829c3713ba2d538999bb
+files: 137
+well-formed files: 106
+outcomes:
+  Interpreted: 129
+  PasswordRequired: 3
+  CertificateRequired: 4
+  EncryptionUnsupported: 0
+  Rejected: 1
+  Crash: 0
+  Timeout: 0
+pages: 270
+appearance streams: 1323
+concurrent passes: 36
+page events:
+  Runs: 270
+  Operators: 191197
+  UnknownOperators: 0
+  StateSaves: 1555
+  PathVerbs: 325770
+  PathsStroked: 179
+  PathsFilled: 63392
+  PathsFilledAndStroked: 13
+  PathsEnded: 690
+  ClipsPath: 690
+  ClipsRectangle: 64
+  ClipsText: 0
+  TextObjects: 2381
+  GlyphsType1: 160595
+  GlyphsMMType1: 0
+  GlyphsTrueType: 107951
+  GlyphsType3: 43
+  GlyphsType0: 7400
+  Type3GlyphsRun: 20
+  ImagesXObject: 39
+  ImagesInline: 45
+  ImagesStencil: 65
+  ImagesUnresolved: 0
+  ShadingsFunction: 0
+  ShadingsAxialRadial: 0
+  ShadingsMesh: 0
+  ShadingsUnresolved: 0
+  MeshesDecoded: 0
+  PatternFillsTiling: 21
+  PatternFillsShading: 0
+  PatternCellsRun: 21
+  FormsEntered: 43
+  TransparencyGroups: 0
+  SoftMaskGroupsRun: 0
+  MarkedContentSequences: 1923
+  OptionalContentSequences: 11
+  MarkedContentPoints: 0
+  MaxDepth: 1
+appearance events:
+  Runs: 1323
+  Operators: 75696
+  UnknownOperators: 0
+  StateSaves: 2280
+  PathVerbs: 17318
+  PathsStroked: 1792
+  PathsFilled: 1113
+  PathsFilledAndStroked: 11
+  PathsEnded: 646
+  ClipsPath: 574
+  ClipsRectangle: 1328
+  ClipsText: 0
+  TextObjects: 594
+  GlyphsType1: 3234
+  GlyphsMMType1: 0
+  GlyphsTrueType: 149686
+  GlyphsType3: 0
+  GlyphsType0: 618
+  Type3GlyphsRun: 0
+  ImagesXObject: 3
+  ImagesInline: 0
+  ImagesStencil: 0
+  ImagesUnresolved: 0
+  ShadingsFunction: 0
+  ShadingsAxialRadial: 0
+  ShadingsMesh: 0
+  ShadingsUnresolved: 0
+  MeshesDecoded: 0
+  PatternFillsTiling: 0
+  PatternFillsShading: 0
+  PatternCellsRun: 0
+  FormsEntered: 5
+  TransparencyGroups: 1
+  SoftMaskGroupsRun: 0
+  MarkedContentSequences: 234
+  OptionalContentSequences: 0
+  MarkedContentPoints: 0
+  MaxDepth: 2
+diagnostics on well-formed files (files, total):
+  CidToGidMapMissing: 5, 6
+  ContentColorOperatorMismatch: 2, 4
+  ContentFormCycle: 1, 1
+  ContentOperandCount: 1, 1
+  ContentUnbalancedSave: 2, 2
+  FontStandard14EntriesIncomplete: 1, 1
+  FontTypeInvalid: 3, 3
+  OptionalContentConfigMissing: 2, 2
+diagnostics on other files (files, total):
+  AppearanceResourcesMissing: 1, 1
+  CidToGidMapMissing: 2, 2
+  ContentColorOperatorMismatch: 2, 2
+  FilterAbbreviationNotAllowed: 1, 1
+  FontDescriptorInvalid: 1, 18

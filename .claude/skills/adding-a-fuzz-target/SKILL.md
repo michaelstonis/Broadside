@@ -18,7 +18,7 @@ public static IReadOnlyDictionary<string, ReadOnlySpanAction> All { get; } = new
 };
 ```
 
-`Program.cs` resolves the name with `TryGetTarget` for every mode and prints `All.Keys` for `--list`, so registration is the whole wiring: add a method, add an entry. The project references `src/Broadside` and can call `internal` members (`InternalsVisibleTo` in `src/Directory.Build.props`), links `CorpusLocator.cs` for the seed directory, and must not reference `Broadside.TestSupport`.
+`Program.cs` resolves the name with `TryGetTarget` for every mode and prints `All.Keys` for `--list`, so registration is the whole wiring: add a method, add an entry. A target with helpers of its own (an input format, invariant checkers, its own engine limits) lives in its own file as `internal static class <Name>Target` with a `Target(ReadOnlySpan<byte>)` method, registered the same way (`["filter-dct"] = DctTarget.Target`; `DctTarget`, `CcittTarget`, `Jbig2Target`, `ImageDecodeTarget`, `ShadingMeshTarget` are examples). A target that opens whole files uses `FuzzTargets.OpenOrNull(data, engine)` rather than its own copy, so every target treats the same opening outcomes as documented. The project references `src/Broadside` and can call `internal` members (`InternalsVisibleTo` in `src/Directory.Build.props`), links `CorpusLocator.cs` for the seed directory, and must not reference `Broadside.TestSupport`.
 
 ## The contract
 
@@ -69,7 +69,7 @@ It shows the shape: a span in, a call, an invariant that throws. `--smoke pdf-he
 
 ## Checklist
 
-- [ ] Method `private static void <Name>(ReadOnlySpan<byte> data)` in `FuzzTargets.cs` with `<remarks>` citing the clause
+- [ ] Method `private static void <Name>(ReadOnlySpan<byte> data)` in `FuzzTargets.cs`, or an `internal static class <Name>Target` in its own file, with `<remarks>` citing the clause
 - [ ] Registered in `FuzzTargets.All` under a stable kebab-case name
 - [ ] Lenient mode, no `try`/`catch`, only always-true invariants asserted
 - [ ] Extra seeds documented in `tests/Broadside.Fuzz/README.md` when whole corpus files are not the right input

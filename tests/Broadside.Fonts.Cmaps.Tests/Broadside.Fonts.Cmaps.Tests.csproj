@@ -7,4 +7,14 @@
     <PackageReference Include="Verify.XunitV3" />
   </ItemGroup>
 
+  <ItemGroup Label="In-memory test files shared with the core tests">
+    <Compile Include="../Broadside.Tests/Document/TestPdf.cs" Link="Shared/TestPdf.cs" />
+    <Compile Include="../Broadside.Tests/Fonts/FontPdf.cs" Link="Shared/FontPdf.cs" />
+  </ItemGroup>
+
+  <ItemGroup Label="The generator's manifest (upstream SHA-256, collections, cid2code samples) and the package notices">
+    <None Include="../../src/Broadside.Fonts.Cmaps/Data/manifest.tsv" Link="Data/manifest.tsv" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="../../src/Broadside.Fonts.Cmaps/THIRD-PARTY-NOTICES.txt" Link="Data/THIRD-PARTY-NOTICES.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

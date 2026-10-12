@@ -1,0 +1,61 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /Outlines 4 0 R /PageMode /UseOutlines /StructTreeRoot 12 0 R /Names << /Dests << /Names [(alpha) [3 0 R /XYZ 0 792 null]] >> >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>
+endobj
+4 0 obj
+<< /Type /Outlines /First 5 0 R /Last 9 0 R /Count 4 >>
+endobj
+5 0 obj
+<< /Title (Part I) /Parent 4 0 R /Next 9 0 R /First 6 0 R /Last 8 0 R /Count 2 /Dest [3 0 R /Fit] >>
+endobj
+6 0 obj
+<< /Title (Chapter 1) /Parent 5 0 R /Next 8 0 R /First 7 0 R /Last 7 0 R /Count -1 /Dest [3 0 R /FitH 700] >>
+endobj
+7 0 obj
+<< /Title (Section 1.1) /Parent 6 0 R /Dest [3 0 R /XYZ 72 700 null] >>
+endobj
+8 0 obj
+<< /Title (Chapter 2) /Parent 5 0 R /Prev 6 0 R /A << /S /URI /URI (https://example.org/chapter-2) >> >>
+endobj
+9 0 obj
+<< /Title (Part II) /Parent 4 0 R /Prev 5 0 R /First 10 0 R /Last 11 0 R /Count -2 >>
+endobj
+10 0 obj
+<< /Title <FEFF00430068006100700074006500720020003300202013002000DC00620065007200730069006300680074> /Parent 9 0 R /Next 11 0 R /C [1 0 0] /F 3 /A << /S /GoTo /D (alpha) >> >>
+endobj
+11 0 obj
+<< /Title (Chapter 4) /Parent 9 0 R /Prev 10 0 R /SE 13 0 R /Dest [3 0 R /FitB] >>
+endobj
+12 0 obj
+<< /Type /StructTreeRoot /K 13 0 R >>
+endobj
+13 0 obj
+<< /Type /StructElem /S /H1 /P 12 0 R >>
+endobj
+xref
+0 14
+0000000000 65535 f 
+0000000009 00000 n 
+0000000187 00000 n 
+0000000244 00000 n 
+0000000332 00000 n 
+0000000403 00000 n 
+0000000519 00000 n 
+0000000644 00000 n 
+0000000731 00000 n 
+0000000851 00000 n 
+0000000952 00000 n 
+0000001144 00000 n 
+0000001243 00000 n 
+0000001297 00000 n 
+trailer
+<< /Size 14 /Root 1 0 R >>
+startxref
+1354
+%%EOF

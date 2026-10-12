@@ -57,6 +57,8 @@ Single track with internal parallelism once the lexer exists.
 
 Exit criteria: every file in the pdf.js and PDFBox corpora opens without an exception in lenient mode; strict mode agrees with veraPDF on the well-formed subset; fuzzing finds no crash in 24 h; round-trip serialization is byte-identical for untouched objects.
 
+Evidence (issue #48): real fuzzing of every Phase 1 target runs weekly in [`.github/workflows/fuzz.yml`](../../.github/workflows/fuzz.yml) (more than 24 h of fuzzing per run, findings fail the run); the performance baseline the Phase 3I regression gate compares against, with allocation figures, is [`bench/baselines/phase1/`](../../bench/baselines/phase1/README.md).
+
 ### Phase 2: Model and codecs (four tracks)
 
 **Track 2A Fonts** (§9): font dictionaries and encodings (§9.6), Type 1 (eexec, charstrings Type 1), CFF/Type 2 charstrings and CID-keyed CFF, TrueType (glyf, loca, cmap, post, hmtx; composite glyphs), OpenType wrapper, Type 3, Type 0 composite fonts with CIDFontType0/2, CMaps embedded and predefined (package), AFM metrics for the Standard 14, font-matching for substitution, ToUnicode. Glyph outline output as paths in glyph space. Font program parsers are extension points.
@@ -68,6 +70,8 @@ Exit criteria: every file in the pdf.js and PDFBox corpora opens without an exce
 **Track 2D Content interpreter** (§8, §9.4): content stream lexer and operator stream, graphics state machine (§8.4) including ExtGState, color spaces (§8.6: Device*, CalGray/RGB, Lab, ICCBased via alternate until Phase 3 ICC, Indexed, Separation, DeviceN, Pattern) with the color-space extension point, shadings 1–7 (§8.7.4) as a resolved model, tiling patterns, text state and text object positioning (§9.4), Type 3 glyph procedures, form XObjects, inline images, marked content events, PostScript calculator functions (§7.10.5) and sampled/exponential/stitching functions. One interpreter, processors consume (ADR: Q40).
 
 Exit criteria per track: conformance rows for the listed clauses `done`; corpus-driven tests that every font and image in the corpora decodes; interpreter replays every content stream in the corpora without diagnostics on well-formed files.
+
+Track 2D exit gate (#80): `tests/Broadside.Tests/Content/CorpusGate/` interprets every page and annotation appearance of every fetched corpus file, with no exception and every diagnostic on a well-formed file triaged in `content-diagnostics.allowlist.txt`; `.github/workflows/corpus.yml` runs it weekly. The interpretation baseline over a pinned real-world subset is [`docs/benchmarks/phase-2-content-baseline.md`](../benchmarks/phase-2-content-baseline.md).
 
 ### Phase 3: Rendering (parallel tracks after 3A)
 
@@ -104,6 +108,12 @@ Viewer-driven requirements folded in here (from `docs/research/pdf-viewer-landsc
 
 Shared viewer core: document session, page layout modes (single, continuous, facing, with and without snapping), tile scheduler with render-ahead and viewport priority, zoom with low-res-first progressive paint, selection over the hit-test index, search with background indexing, outline and thumbnails, annotation and form layers, smart dark mode, memory budget. Then one shell per framework. Capability targets are the ranked list in `docs/research/pdf-viewer-landscape.md` §5.
 
+### Phase 7: Hardening and v1 release (after Phases 3–5; Phase 6 not required)
+
+- **7A Coverage gaps**: what the spec coverage audit found partial: bit-identical software rendering on every platform, unencrypted wrapper documents (read and write), order 3 sampled functions, bounded memory on multi-gigabyte files, the remaining silent repairs, hosted-engine option coverage, checked clause citations and conformance map closure.
+- **7B Deferred hardening**: what the Phase 1–2 review deferred: a public typed diagnostic-code catalogue (expand, migrate by area, contract), API tidy before the freeze (async overloads, images, annotation subtypes, associated files), DCT decoder split, performance (JPEG 2000 tier-1, CMap caching, graphics-state copies) and the remaining partial features (linearized file with a missing page tree, JPEG 2000 fragment tables). JBIG2 extended templates are earmarked post-v1.
+- **7C Release engineering**: API review guards and the v1 API freeze, the published diagnostic catalogue, versioning and the 1.x support policy, package validation and trusted publishing (first preview after Phase 3 renders real-world pages), the v1 documentation site and guides including migration from PdfSharp, iText and PdfPig, trimming/AOT/WASM verification, threat model and resource limits, a fuzzing and security review, a performance comparison with PDFium and pdf.js, and the v1.0 release-candidate gate. v1.0 is the library and backends; the viewer ships as previews on its own track.
+
 ## Dependency graph
 
 ```
@@ -115,13 +125,15 @@ Phase 0 → Phase 1 → {2A, 2B, 2C, 2D} → 3A → {3B, 3C, 3D, 3E, 3F, 3G, 3H,
                                         5C (needs Phase 1, 4B, 4A for appearances)
                                         5E (needs Phase 1)
                      Phase 6 (needs 3A–3D, 5A; 5B improves it)
+                     Phase 7 (needs 3–5; ships v1.0 without waiting on 6)
 ```
 
 ## Ticket lists
 
 - [Phase 0](phase-0-issues.md) (scaffold, horizontal by nature)
 - [Phase 1](phase-1-issues.md) and [Phase 2](phase-2-issues.md): vertical slices of the [spec](spec-broadside-v1.md), published as sub-issues of #33
-- Phases 3 to 6: cut when Phase 2 is underway
+- [Phase 3](phase-3-issues.md), [Phase 4](phase-4-issues.md), [Phase 5](phase-5-issues.md) and [Phase 6](phase-6-issues.md, provisional): vertical slices published 2026-10-10 under phase parents #86–#89
+- [Phase 7](phase-7-issues.md): hardening and v1 release under #231; earmarked post-v1 work under #232
 
 ## Working agreement
 

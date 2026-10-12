@@ -58,6 +58,8 @@ Every PR carries: code with `<remarks>ISO 32000-2 §x.y.z</remarks>` on spec-imp
 dotnet build Broadside.Core.slnf -warnaserror
 dotnet test Broadside.Core.slnf
 dotnet format Broadside.Core.slnf --verify-no-changes
+dotnet format tests/Broadside.Fuzz/Broadside.Fuzz.csproj --verify-no-changes                # outside the filter; CI checks it
+dotnet format bench/Broadside.Benchmarks/Broadside.Benchmarks.csproj --verify-no-changes     # likewise
 dotnet run -c Release --project tests/Broadside.Fuzz -- --smoke <target> 60                 # if you added a target
 dotnet run -c Release --project bench/Broadside.Benchmarks -- --filter '*' --job dry         # if you added a benchmark
 ```

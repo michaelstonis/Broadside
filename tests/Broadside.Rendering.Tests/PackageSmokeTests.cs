@@ -1,7 +1,7 @@
 namespace Broadside.Rendering.Tests;
 
 /// <summary>Proves the test wiring: the package builds, its internals are visible to this project, and the assembly loads.</summary>
-public class PackageSmokeTests
+public sealed class PackageSmokeTests
 {
     [Fact]
     public void Package_assembly_loads()

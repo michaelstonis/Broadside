@@ -1,0 +1,232 @@
+# Every JBIG2Decode image XObject in the fetched corpora (issue #65), decoded by Broadside through PdfImage.Decode.
+# file TAB object TAB width x height TAB SHA-256 of the PDF samples (0 = black, rows byte-padded with 0) TAB verdict TAB JBIG2 diagnostic codes TAB reference or reason
+# match: the samples equal every reference named (golden = the 399 x 400 picture all bitmap-* files encode, SerenityOS
+# Tests/LibGfx/test-inputs/bmp/bitmap.bmp; jbig2dec 0.20 -e on the streams qpdf extracts; poppler 26.10 pdfimages PBM).
+# declined: no image is decoded, for the reason given. make_jbig2_corpus_references.py re-derives the references; RealWorldJbig2Tests
+# checks Broadside against this list and that the list names every JBIG2 image of each fetched corpus.
+pdfium-tests/pdfium/bug_511_jbig_null_crash.pdf	5	?	-	declined	-	fuzzer-damaged file: the image dictionary has no usable BitsPerComponent or ColorSpace and the stream no page; jbig2dec 0.20 decodes no page either
+pdfium-tests/pdfium/bug_880920.pdf	9	3300x2550	93d5835da36c1b84ee56d05c9d8b6e4018cd892da00dfd4b8f952823ce8c38ab	match	-	jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-composite-and-xnor-halftone.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfium-tests/third_party/jbig2/bitmap-composite-and-xnor-refine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-composite-and-xnor-text.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-composite-and-xnor.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-composite-or-xor-replace-halftone.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-composite-or-xor-replace-refine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-composite-or-xor-replace-text.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-composite-or-xor-replace.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-customat-tpgdon.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-customat.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-halftone-10bpp-mmr.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-halftone-10bpp.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-halftone-composite.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp)
+pdfium-tests/third_party/jbig2/bitmap-halftone-global.pdf	6	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-halftone-grid.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-halftone-refine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-halftone-skip-dummy.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfium-tests/third_party/jbig2/bitmap-halftone-skip-grid-template1.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfium-tests/third_party/jbig2/bitmap-halftone-skip-grid-template2.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfium-tests/third_party/jbig2/bitmap-halftone-skip-grid-template3.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfium-tests/third_party/jbig2/bitmap-halftone-skip-grid.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfium-tests/third_party/jbig2/bitmap-halftone-template1.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-halftone-template2.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-halftone-template3.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-halftone.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-initially-unknown-size.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-mmr.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-p32-eof.pdf	6	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-randomaccess.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-refine-customat-tpgron.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp)
+pdfium-tests/third_party/jbig2/bitmap-refine-customat.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-refine-lossless.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-refine-page-subrect.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-refine-page.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-refine-refine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-refine-template1-tpgron.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp)
+pdfium-tests/third_party/jbig2/bitmap-refine-template1.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-refine-tpgron.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp)
+pdfium-tests/third_party/jbig2/bitmap-refine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-stripe-initially-unknown-height.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-stripe-last-implicit.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-stripe-single-no-end-of-stripe.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-stripe-single.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-stripe.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-32bit-arithint.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-big-segmentid.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-context-reuse-huffman-refagg.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp)
+pdfium-tests/third_party/jbig2/bitmap-symbol-context-reuse-refagg.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp)
+pdfium-tests/third_party/jbig2/bitmap-symbol-context-reuse.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp)
+pdfium-tests/third_party/jbig2/bitmap-symbol-empty.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-global.pdf	6	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-manyrefs.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-manysyms.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-negative-sbdsoffset.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-refine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-symbolrefine-textrefine-export.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-symbolrefine-textrefine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-symbolrefineone-customat.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-symbolrefineone-template1.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-symbolrefineone.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-symbolrefineseveral.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-symhuff-texthuff-manysyms.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-symhuff-texthuff-runcodes32-34.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-symhuff-texthuff.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfium-tests/third_party/jbig2/bitmap-symbol-symhuff-texthuffB10B13.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfium-tests/third_party/jbig2/bitmap-symbol-symhuffB5B3-texthuffB7B9B12.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfium-tests/third_party/jbig2/bitmap-symbol-symhuffcustom-texthuffcustom.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfium-tests/third_party/jbig2/bitmap-symbol-symhuffrefine-textrefine-export.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp)
+pdfium-tests/third_party/jbig2/bitmap-symbol-symhuffrefine-textrefine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp)
+pdfium-tests/third_party/jbig2/bitmap-symbol-symhuffrefineone.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-symhuffrefineseveral.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp)
+pdfium-tests/third_party/jbig2/bitmap-symbol-symhuffuncompressed-texthuff.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-textbottomleft.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-textbottomlefttranspose.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-textbottomright.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-textbottomrighttranspose.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-textcomposite.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-texthuff-runcodes32-34.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-texthuff-trailingsymbols.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-texthuffrefine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-texthuffrefineB15.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-texthuffrefinecustom.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-texthuffrefinecustomdims.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-texthuffrefinecustompos-global.pdf	6	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-texthuffrefinecustompos.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-texthuffrefinecustomposdims.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-texthuffrefinecustomsize.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-textrefine-customat.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-textrefine-negative-delta-width.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-textrefine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-texttopright.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-texttoprighttranspose.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol-texttranspose.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-symbol.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-template1-customat-tpgdon.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-template1-customat.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-template1-tpgdon.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-template1.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-template2-customat-tpgdon.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-template2-customat.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-template2-tpgdon.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-template2.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-template3-customat-tpgdon.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-template3-customat.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-template3-tpgdon.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-template3.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-tpgdon.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-trailing-7fff-stripped-harder-refine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-trailing-7fff-stripped-harder.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap-trailing-7fff-stripped.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfium-tests/third_party/jbig2/bitmap.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-composite-and-xnor-halftone.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfjs/bitmap-composite-and-xnor-refine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-composite-and-xnor-text.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-composite-and-xnor.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-composite-or-xor-replace-halftone.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-composite-or-xor-replace-refine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-composite-or-xor-replace-text.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-composite-or-xor-replace.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-customat-tpgdon.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-customat.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-halftone-10bpp-mmr.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-halftone-10bpp.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-halftone-composite.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp)
+pdfjs/bitmap-halftone-grid.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-halftone-refine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-halftone-skip-dummy.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfjs/bitmap-halftone-skip-grid-template1.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfjs/bitmap-halftone-skip-grid-template2.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfjs/bitmap-halftone-skip-grid-template3.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfjs/bitmap-halftone-skip-grid.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfjs/bitmap-halftone-template1.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-halftone-template2.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-halftone-template3.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-halftone.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-initially-unknown-size.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-mmr.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-p32-eof.pdf	6	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-randomaccess.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-refine-customat-tpgron.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp)
+pdfjs/bitmap-refine-customat.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-refine-lossless.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-refine-page-subrect.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-refine-page.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-refine-refine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-refine-template1-tpgron.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp)
+pdfjs/bitmap-refine-template1.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-refine-tpgron.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp)
+pdfjs/bitmap-refine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-stripe-initially-unknown-height.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-stripe-last-implicit.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-stripe-single-no-end-of-stripe.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-stripe-single.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-stripe.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-big-segmentid.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-context-reuse.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp)
+pdfjs/bitmap-symbol-empty.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-negative-sbdsoffset.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-refine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-symbolrefine-textrefine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-symbolrefineone-customat.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-symbolrefineone-template1.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-symbolrefineone.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-symbolrefineseveral.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-symhuff-texthuff.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfjs/bitmap-symbol-symhuff-texthuffB10B13.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfjs/bitmap-symbol-symhuffB5B3-texthuffB7B9B12.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfjs/bitmap-symbol-symhuffcustom-texthuffcustom.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfjs/bitmap-symbol-symhuffrefine-textrefine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp)
+pdfjs/bitmap-symbol-symhuffrefineone.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-symbol-symhuffrefineseveral.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp)
+pdfjs/bitmap-symbol-symhuffuncompressed-texthuff.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-textbottomleft.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-textbottomlefttranspose.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-textbottomright.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-textbottomrighttranspose.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-textcomposite.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-texthuffrefine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-symbol-texthuffrefineB15.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-symbol-texthuffrefinecustom.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-symbol-texthuffrefinecustomdims.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-symbol-texthuffrefinecustompos.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-symbol-texthuffrefinecustomposdims.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-symbol-texthuffrefinecustomsize.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-symbol-textrefine-customat.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-textrefine-negative-delta-width.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-textrefine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-texttopright.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-texttoprighttranspose.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol-texttranspose.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-symbol.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-template1-customat-tpgdon.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-template1-customat.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-template1-tpgdon.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-template1.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-template2-customat-tpgdon.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-template2-customat.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-template2-tpgdon.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-template2.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-template3-customat-tpgdon.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-template3-customat.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-template3-tpgdon.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-template3.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-tpgdon.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-trailing-7fff-stripped-harder-refine.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/bitmap-trailing-7fff-stripped-harder.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bitmap-trailing-7fff-stripped.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), jbig2dec 0.20, poppler 26.10
+pdfjs/bomb_giant.pdf	6	?	-	declined	-	decompression bomb: the page information declares a page beyond the image limits (pdf.js bomb test)
+pdfjs/bomb_giant.pdf	7	?	-	declined	-	decompression bomb: the page information declares a page beyond the image limits (pdf.js bomb test)
+pdfjs/bomb_giant.pdf	8	?	-	declined	-	decompression bomb: the page information declares a page beyond the image limits (pdf.js bomb test)
+pdfjs/issue12963.pdf	103	2480x3506	b644618b1f8dd6c13a593589a72a725081a30d2a542bd9204ad24dbd566c95b8	match	-	jbig2dec 0.20
+pdfjs/issue12963.pdf	172	2480x3506	136ce1038f7583b8ecd5c05e494f76cbe42f6ad680d94d6b8e4283aa389137d4	match	-	jbig2dec 0.20, poppler 26.10
+pdfjs/issue12963.pdf	209	2480x3506	443f6e911b59b3d7c64bc45212a61fd2a3ae8eebf1bd9f606331163129dbc723	match	-	jbig2dec 0.20, poppler 26.10
+pdfjs/issue12963.pdf	263	2480x3506	342c16855f60dfb36285e7efe940a29baae81c76d82b30b06e52fe9edc285715	match	-	jbig2dec 0.20, poppler 26.10
+pdfjs/issue12963.pdf	298	2480x3506	c29ab3dcac8244aa0be5ad7adad8855a8cc3c2dd2f01aeeb23371c349017750e	match	-	jbig2dec 0.20, poppler 26.10
+pdfjs/issue12963.pdf	323	2480x3506	280fab8895042f6a79310291d4d6bd2042b550045915fb8aa34255b08c19c619	match	-	jbig2dec 0.20, poppler 26.10
+pdfjs/issue12963.pdf	394	2480x3506	2f4065f8ba4ccda12541c44ed726c1a7b4d2e4360111222ab7b082bfccc366a3	match	-	jbig2dec 0.20, poppler 26.10
+pdfjs/issue12963.pdf	611	2480x3506	cf2abd8340f35ff1da4cf3021a4c8e436e8f4281f37615a8f982eb2dcf79e4ac	match	-	jbig2dec 0.20, poppler 26.10
+pdfjs/issue17871_bottom_right.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	Jbig2CombinationOperatorMismatch,Jbig2EndOfPagePresent	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfjs/issue17871_top_right.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	Jbig2CombinationOperatorMismatch,Jbig2EndOfPagePresent	golden (SerenityOS bitmap.bmp), jbig2dec 0.20
+pdfjs/issue20439.pdf	5	399x400	68729cd515c668992c596df83a7437956a7f5a9df0d603e26b43aa3fc4a88f28	match	-	golden (SerenityOS bitmap.bmp), poppler 26.10
+pdfjs/issue3371.pdf	13	2480x3507	53644db02df790edf96f5f919c7eea9628537c834eb0d16356ae3db430ecb185	match	-	jbig2dec 0.20, poppler 26.10 (stencil PBM inverted)
+pdfjs/jbig2_file_header.pdf	4	128x96	e774b45e142bc9dd40db2cee035428ce009133e6b2bcb50e9d49185a2f0872dc	match	Jbig2FileHeaderPresent,Jbig2EndOfPagePresent	jbig2dec 0.20 in file-header mode (issue #64); poppler 26.10 differs
+pdfjs/jbig2_symbol_offset.pdf	6	132x14	a6f4be0aed30f2c07db0f96cdd0030b1fe831fe1b75b51c09c8532f296d282ef	match	-	jbig2dec 0.20, poppler 26.10

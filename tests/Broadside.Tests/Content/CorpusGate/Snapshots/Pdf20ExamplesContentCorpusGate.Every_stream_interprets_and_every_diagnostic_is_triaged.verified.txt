@@ -1,0 +1,94 @@
+﻿corpus: pdf20examples @ c20f2c17bfcc4baab7cfe62e70fae64caf14d5fa
+files: 7
+well-formed files: 7
+outcomes:
+  Interpreted: 7
+  PasswordRequired: 0
+  CertificateRequired: 0
+  EncryptionUnsupported: 0
+  Rejected: 0
+  Crash: 0
+  Timeout: 0
+pages: 8
+appearance streams: 1
+concurrent passes: 1
+page events:
+  Runs: 8
+  Operators: 152
+  UnknownOperators: 0
+  StateSaves: 16
+  PathVerbs: 12
+  PathsStroked: 2
+  PathsFilled: 0
+  PathsFilledAndStroked: 2
+  PathsEnded: 0
+  ClipsPath: 0
+  ClipsRectangle: 0
+  ClipsText: 0
+  TextObjects: 11
+  GlyphsType1: 597
+  GlyphsMMType1: 0
+  GlyphsTrueType: 0
+  GlyphsType3: 0
+  GlyphsType0: 0
+  Type3GlyphsRun: 0
+  ImagesXObject: 5
+  ImagesInline: 0
+  ImagesStencil: 0
+  ImagesUnresolved: 0
+  ShadingsFunction: 0
+  ShadingsAxialRadial: 0
+  ShadingsMesh: 0
+  ShadingsUnresolved: 0
+  MeshesDecoded: 0
+  PatternFillsTiling: 0
+  PatternFillsShading: 0
+  PatternCellsRun: 0
+  FormsEntered: 0
+  TransparencyGroups: 0
+  SoftMaskGroupsRun: 0
+  MarkedContentSequences: 6
+  OptionalContentSequences: 0
+  MarkedContentPoints: 0
+  MaxDepth: 0
+appearance events:
+  Runs: 1
+  Operators: 4
+  UnknownOperators: 0
+  StateSaves: 0
+  PathVerbs: 5
+  PathsStroked: 0
+  PathsFilled: 1
+  PathsFilledAndStroked: 0
+  PathsEnded: 0
+  ClipsPath: 0
+  ClipsRectangle: 1
+  ClipsText: 0
+  TextObjects: 0
+  GlyphsType1: 0
+  GlyphsMMType1: 0
+  GlyphsTrueType: 0
+  GlyphsType3: 0
+  GlyphsType0: 0
+  Type3GlyphsRun: 0
+  ImagesXObject: 0
+  ImagesInline: 0
+  ImagesStencil: 0
+  ImagesUnresolved: 0
+  ShadingsFunction: 0
+  ShadingsAxialRadial: 0
+  ShadingsMesh: 0
+  ShadingsUnresolved: 0
+  MeshesDecoded: 0
+  PatternFillsTiling: 0
+  PatternFillsShading: 0
+  PatternCellsRun: 0
+  FormsEntered: 0
+  TransparencyGroups: 0
+  SoftMaskGroupsRun: 0
+  MarkedContentSequences: 0
+  OptionalContentSequences: 0
+  MarkedContentPoints: 0
+  MaxDepth: 0
+diagnostics on well-formed files (files, total):
+diagnostics on other files (files, total):

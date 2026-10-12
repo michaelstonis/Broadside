@@ -1,0 +1,48 @@
+%PDF-2.0
+%âãÏÓ
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /Names << /EmbeddedFiles << /Names [(secret.txt) 6 0 R] >> >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<<  /Length 58 >>
+stream
+BT /F1 24 Tf 72 700 Td (Attachment needs a password) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Filespec /F (secret.txt) /UF (secret.txt) /EF << /F 7 0 R /UF 7 0 R >> >>
+endobj
+7 0 obj
+<< /Type /EmbeddedFile /Subtype /text#2Fplain /Length 32 >>
+stream
+[e§@¿ìž§˜×òD—`›!8¿-bFÞ‰èçgØ$­c
+endstream
+endobj
+8 0 obj
+<< /Filter /Standard /V 5 /R 6 /Length 256 /P -4 /O <c5f5ee27987b032efd88213921102251fb70223b9b51fcdb11a91b1ee2aeb0e0bdb82e85636f3a34098338a289301df7> /U <4d7f9c273325957ddaa03ee5e6c9959ae48a9bd251b2ed930a23199660e0cca84f876f84c73edc2fc42fd8bccba60d9b> /OE <25c4d2c84fefdc845f1d8a8295f5010f877eb9b28407bc96e75119a0472c875b> /UE <6f1d5eec7c46869ab96b6485ccfcd806e529a8c1d30b99ec819399c8487bcd8f> /Perms <57dcbd93520b77df243ad3fe1540fd5f> /CF << /StdCF << /CFM /AESV3 /AuthEvent /EFOpen /Length 32 >> >> /StmF /Identity /StrF /Identity /EFF /StdCF >>
+endobj
+xref
+0 9
+0000000000 65535 f 
+0000000015 00000 n 
+0000000126 00000 n 
+0000000183 00000 n 
+0000000309 00000 n 
+0000000418 00000 n 
+0000000515 00000 n 
+0000000614 00000 n 
+0000000739 00000 n 
+trailer
+<< /Size 9 /Root 1 0 R /Encrypt 8 0 R /ID [<c28c85bbc7a599305a04ffe475f9ecb4> <c28c85bbc7a599305a04ffe475f9ecb4>] >>
+startxref
+1303
+%%EOF

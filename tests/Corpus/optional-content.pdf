@@ -1,0 +1,68 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /OCProperties << /OCGs [5 0 R 6 0 R 7 0 R 8 0 R] /D << /Name (Default) /Creator (Broadside corpus) /OFF [6 0 R] /Order [5 0 R [(Labelled) 6 0 R 7 0 R] [8 0 R]] /RBGroups [[5 0 R 6 0 R]] /Locked [7 0 R] >> /Configs [<< /Name (Only C) /BaseState /OFF /ON [7 0 R] /Intent /All /ListMode /VisiblePages >>] >> >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Properties << /a 5 0 R /b 6 0 R /m1 9 0 R /m2 10 0 R >> /XObject << /Fm 11 0 R >> >> /Annots [12 0 R] >>
+endobj
+4 0 obj
+<<  /Length 147 >>
+stream
+/OC /a BDC 0 0 10 10 re f EMC
+/OC /m1 BDC 20 0 10 10 re f EMC
+/OC /m2 BDC 40 0 10 10 re f EMC
+/OC /b BDC /OC /a BDC 60 0 10 10 re f EMC EMC
+/Fm Do
+
+endstream
+endobj
+5 0 obj
+<< /Type /OCG /Name (A) >>
+endobj
+6 0 obj
+<< /Type /OCG /Name (B) >>
+endobj
+7 0 obj
+<< /Type /OCG /Name (C) /Intent /Design /Usage << /CreatorInfo << /Creator (Broadside) /Subtype /Technical >> >> >>
+endobj
+8 0 obj
+<< /Type /OCG /Name (D2) /Usage << /View << /ViewState /OFF >> /Zoom << /min 1.5 >> >> >>
+endobj
+9 0 obj
+<< /Type /OCMD /OCGs [5 0 R 6 0 R] /P /AllOff >>
+endobj
+10 0 obj
+<< /Type /OCMD /VE [/Or 5 0 R [/Not 6 0 R]] >>
+endobj
+11 0 obj
+<< /Type /XObject /Subtype /Form /BBox [0 0 10 10] /OC 6 0 R /Length 15 >>
+stream
+80 0 10 10 re f
+endstream
+endobj
+12 0 obj
+<< /Type /Annot /Subtype /Square /Rect [100 100 200 200] /OC 7 0 R >>
+endobj
+xref
+0 13
+0000000000 65535 f 
+0000000009 00000 n 
+0000000363 00000 n 
+0000000420 00000 n 
+0000000624 00000 n 
+0000000823 00000 n 
+0000000865 00000 n 
+0000000907 00000 n 
+0000001038 00000 n 
+0000001143 00000 n 
+0000001207 00000 n 
+0000001270 00000 n 
+0000001394 00000 n 
+trailer
+<< /Size 13 /Root 1 0 R >>
+startxref
+1480
+%%EOF

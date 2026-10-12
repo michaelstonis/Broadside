@@ -7,10 +7,31 @@
 | `build-test` | ubuntu, windows, macos | `dotnet build Broadside.slnx -c Release -warnaserror`, then `dotnet test Broadside.Core.slnf` with TRX reports uploaded as `test-results-<os>`. On Linux and Windows the CoreGraphics and Android backends drop out through the `BroadsideBuildPlatformBackends` gate; macOS installs the `macos ios maccatalyst android` workloads first and builds them. Linux also packs the core packages and uploads them as `packages`. |
 | `api-surface` | ubuntu (PRs only) | Writes the diff of every `src/**/PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt` against the base branch to the job summary. Never fails; the PublicApiAnalyzers already fail the build on an undeclared API change. |
 | `conformance-map` | ubuntu | `dotnet run --project tools/ConformanceCheck -- --root . --summary` into the job summary; fails on a `done` row without a test. Its steps are skipped, with a note in the summary, until `tools/ConformanceCheck` lands (issue #7). |
-| `fuzz-smoke` | ubuntu | `--list`s the fuzz targets and runs `--smoke <target> 60` for each; uploads `artifacts/fuzz/**` as `fuzz-findings` on failure. |
+| `format` | ubuntu | `dotnet format --verify-no-changes` on `Broadside.Core.slnf`, `tests/Broadside.Fuzz` and `bench/Broadside.Benchmarks` (the last two are outside the solution filter). |
+| `fuzz-smoke (<shard>/6)` | ubuntu | Six parallel shards: each `--list`s the fuzz targets and runs `--smoke <target> 60` for every target whose index modulo 6 is its shard; uploads `artifacts/fuzz/**` as `fuzz-findings-<shard>` on failure. |
 | `bench-dry` | ubuntu | `dotnet run --project bench/Broadside.Benchmarks -- --filter '*' --job dry`: one iteration of every benchmark, no measurement. |
 
 A newer push to the same PR or branch cancels the older run. NuGet packages are cached per OS, keyed on `Directory.Packages.props` and every `.csproj`. `DiffEngine_Disabled=true` keeps Verify from launching a diff tool.
+
+## `corpus.yml`: weekly (Monday 04:17 UTC) and the "Run workflow" button
+
+| Job | Runs on | What it does |
+|---|---|---|
+| `corpus-gates` | ubuntu | Fetches every non-manual corpus with `tools/CorpusFetcher`, builds in Release, and runs `tests/Broadside.Tests` with `--filter-trait "Category=Corpus"` and `BROADSIDE_CORPUS_DIR` set: the open-and-walk gate (#47), the veraPDF agreement, the real-world font, image and colour sweeps, and the content interpreter gate (#80, one class per corpus, with its allowlist and snapshots). Uploads `artifacts/corpus-gate/*.json` (per-file counts, diagnostics, time and allocation) as `corpus-gate`. |
+
+The corpus tests skip when `corpus/` is absent, which is why `ci.yml` cannot catch a regression in them; this workflow is where they run.
+
+## `fuzz.yml`: real fuzzing, weekly and on the "Run workflow" button
+
+Every fuzz target under libFuzzer through SharpFuzz, one parallel job per target (issue #48; `tests/Broadside.Fuzz/README.md`, "Scheduled runs in CI").
+
+| Job | Runs on | What it does |
+|---|---|---|
+| `targets` | ubuntu | Builds the harness and turns `--list` (or the `targets` input) into the matrix; checks the `minutes` input (default 80, at most 300 so every job stays under GitHub's 6-hour limit). |
+| `fuzz (<target>)` | ubuntu | Builds the libfuzzer-dotnet driver from pinned, hash-checked source with clang; installs SharpFuzz.CommandLine 2.3.0; builds the harness in Release; fetches `pdf20examples` and `qpdf` with `tools/CorpusFetcher` (cached) as extra seeds; restores the target's libFuzzer corpus from the previous run (`actions/cache`, key `fuzz-corpus-<target>-<run id>`); runs `tests/Broadside.Fuzz/run-libfuzzer.sh` (which instruments a copy of `Broadside.dll`) for the given minutes on every core; saves the minimized corpus; uploads `stats.json` as `fuzz-stats-<target>`, and on a finding fails and uploads `fuzz-findings-<target>` (inputs, replays, worker logs). |
+| `summary` | ubuntu | One table in the job summary: minutes, workers, CPU-hours, executions, corpus size and findings per target, and the cumulative fuzzing time of the run. |
+
+Schedule: Sundays 03:17 UTC. A scheduled run fuzzes every registered target for 80 minutes: the 19 Phase 1 targets alone make 25.3 hours of wall-clock time (about 100 CPU-hours on the 4-core runners), and every target added later adds 80 minutes. Runs on one branch never overlap (they would race to save the same cache). From a terminal: `gh workflow run fuzz.yml --ref main -f minutes=30 -f targets="document save"`. A finding is fixed in a PR with a regression test next to the feature that rebuilds the input's mechanism (issue #48's are in `PredictorTests`/`FilterAllocationTests`, `CrossReferenceStreamTests`, `SaveTests` and `PageLabelTests`); replay the uploaded input with `--run` first.
 
 ## `docs.yml`: the documentation site
 

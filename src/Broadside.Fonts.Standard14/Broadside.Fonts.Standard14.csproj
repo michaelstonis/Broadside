@@ -1,11 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>Glyph data for the Standard 14 fonts of Broadside: the Liberation families (SIL Open Font License) standing in for Helvetica, Times and Courier, and the Foxit Symbol and Dingbats fonts (BSD). Wire it in with one configuration call so pages that use non-embedded Standard 14 fonts render without system fonts. The metrics ship in the core; this package carries only the glyphs. No native dependencies.</Description>
+    <Description>Glyph data for the Standard 14 fonts of Broadside: the Liberation 2.1.5 families (SIL Open Font License 1.1) standing in for Helvetica, Times and Courier, and the Foxit Symbol and Dingbats fonts from PDFium (BSD-3-Clause). Wire it in with options.UseStandard14Fonts() so pages that use non-embedded Standard 14 fonts render without system fonts. The metrics ship in the core; this package carries only the glyphs, unmodified. No native dependencies.</Description>
+    <!-- Issue #59: the package carries third-party fonts under their own licences. PDFium's LICENSE is BSD-3-Clause followed by the
+         Apache License 2.0 for later contributions; the whole file ships, so Apache-2.0 is listed too. -->
+    <PackageLicenseExpression>MIT AND OFL-1.1 AND BSD-3-Clause AND Apache-2.0</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="../Broadside/Broadside.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Label="The upstream font programs, byte for byte (Liberation is a Reserved Font Name: never modify, subset or convert them)">
+    <EmbeddedResource Include="Fonts/*.ttf;Fonts/*.pfb" LogicalName="Broadside.Fonts.Standard14.%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <ItemGroup Label="Licences that travel with the fonts">
+    <None Include="THIRD-PARTY-NOTICES.txt" Pack="true" PackagePath="/" />
+    <None Include="licenses/liberation/LICENSE" Pack="true" PackagePath="licenses/liberation/" />
+    <None Include="licenses/liberation/AUTHORS" Pack="true" PackagePath="licenses/liberation/" />
+    <None Include="licenses/pdfium/LICENSE" Pack="true" PackagePath="licenses/pdfium/" />
   </ItemGroup>
 
 </Project>

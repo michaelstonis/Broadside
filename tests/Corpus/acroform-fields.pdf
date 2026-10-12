@@ -1,0 +1,132 @@
+%PDF-2.0
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /AcroForm 4 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 30 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Annots [10 0 R 12 0 R 13 0 R 15 0 R 17 0 R 18 0 R 19 0 R 20 0 R 21 0 R 22 0 R 23 0 R] >>
+endobj
+4 0 obj
+<< /Fields [10 0 R 11 0 R 14 0 R 16 0 R 20 0 R 21 0 R 22 0 R 23 0 R] /CO [10 0 R] /DA (/Helv 0 Tf 0 g) /DR << /Font << /Helv 5 0 R /ZaDb 6 0 R >> >> /Q 0 /SigFlags 1 >>
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /ZapfDingbats >>
+endobj
+7 0 obj
+<< /Type /XObject /Subtype /Form /BBox [0 0 200 20] /Resources << /Font << /Helv 5 0 R >> >> /Length 45 >>
+stream
+/Tx BMC BT /Helv 12 Tf 2 5 Td (Ada) Tj ET EMC
+endstream
+endobj
+8 0 obj
+<< /Type /XObject /Subtype /Form /BBox [0 0 20 20] /Resources << /Font << /ZaDb 6 0 R >> >> /Length 35 >>
+stream
+q BT /ZaDb 12 Tf 4 5 Td (4) Tj ET Q
+endstream
+endobj
+9 0 obj
+<< /Type /XObject /Subtype /Form /BBox [0 0 20 20] /Length 18 >>
+stream
+0 g 0 0 20 20 re S
+endstream
+endobj
+10 0 obj
+<< /Type /Annot /Subtype /Widget /Rect [50 700 250 720] /P 3 0 R /F 4 /AP << /N 7 0 R >> /FT /Tx /T (name) /TU (Your name) /TM (full_name) /V (Ada) /DV (Anonymous) /MaxLen 40 /DA (/Helv 12 Tf 0 g) /AA << /C 26 0 R >> >>
+endobj
+11 0 obj
+<< /T (person) /FT /Tx /DA (/Helv 10 Tf 0 0 1 rg) /Q 1 /Ff 2 /Kids [12 0 R 13 0 R] >>
+endobj
+12 0 obj
+<< /Type /Annot /Subtype /Widget /Rect [50 670 150 690] /P 3 0 R /F 4 /AP << /N 7 0 R >> /Parent 11 0 R /T (first) /V (Grace) >>
+endobj
+13 0 obj
+<< /Type /Annot /Subtype /Widget /Rect [160 670 260 690] /P 3 0 R /F 4 /AP << /N 7 0 R >> /Parent 11 0 R /T (last) /Ff 1 /V <FEFF004C00F60076> >>
+endobj
+14 0 obj
+<< /FT /Btn /T (agree) /V /Yes /DV /Off /Kids [15 0 R 25 0 R] >>
+endobj
+15 0 obj
+<< /Type /Annot /Subtype /Widget /Rect [50 640 70 660] /P 3 0 R /F 4 /AP << /N << /Yes 8 0 R /Off 9 0 R >> /D << /Yes 8 0 R /Off 9 0 R >> >> /Parent 14 0 R /AS /Yes /MK << /CA (4) >> >>
+endobj
+16 0 obj
+<< /FT /Btn /Ff 49152 /T (color) /V /1 /Opt [(Red) (Green) (Green)] /Kids [17 0 R 18 0 R 19 0 R] >>
+endobj
+17 0 obj
+<< /Type /Annot /Subtype /Widget /Rect [50 610 70 630] /P 3 0 R /F 4 /AP << /N << /0 8 0 R /Off 9 0 R >> /D << /0 8 0 R /Off 9 0 R >> >> /Parent 16 0 R /AS /Off >>
+endobj
+18 0 obj
+<< /Type /Annot /Subtype /Widget /Rect [80 610 100 630] /P 3 0 R /F 4 /AP << /N << /1 8 0 R /Off 9 0 R >> /D << /1 8 0 R /Off 9 0 R >> >> /Parent 16 0 R /AS /1 >>
+endobj
+19 0 obj
+<< /Type /Annot /Subtype /Widget /Rect [110 610 130 630] /P 3 0 R /F 4 /AP << /N << /2 8 0 R /Off 9 0 R >> /D << /2 8 0 R /Off 9 0 R >> >> /Parent 16 0 R /AS /Off >>
+endobj
+20 0 obj
+<< /Type /Annot /Subtype /Widget /Rect [50 570 150 590] /P 3 0 R /F 4 /AP << /N 7 0 R >> /FT /Btn /Ff 65536 /T (submit) /MK << /CA (Reset) >> /A << /S /ResetForm /Fields [(person) 14 0 R] >> >>
+endobj
+21 0 obj
+<< /Type /Annot /Subtype /Widget /Rect [50 540 250 560] /P 3 0 R /F 4 /AP << /N 7 0 R >> /FT /Ch /Ff 393216 /T (country) /Opt [[(us) (United States)] [(ca) (Canada)]] /V (ca) >>
+endobj
+22 0 obj
+<< /Type /Annot /Subtype /Widget /Rect [50 460 250 530] /P 3 0 R /F 4 /AP << /N 7 0 R >> /FT /Ch /Ff 2097152 /T (toppings) /Opt [(Cheese) (Ham) (Olives)] /V [(Cheese) (Olives)] /I [0 2] /TI 1 /DA (/Helv 10 Tf 0 g) >>
+endobj
+23 0 obj
+<< /Type /Annot /Subtype /Widget /Rect [0 0 0 0] /P 3 0 R /F 4 /FT /Sig /T (sig) /Lock 27 0 R /SV 28 0 R >>
+endobj
+25 0 obj
+<< /Type /Annot /Subtype /Widget /Rect [50 700 70 720] /P 30 0 R /F 4 /AP << /N << /Yes 8 0 R /Off 9 0 R >> /D << /Yes 8 0 R /Off 9 0 R >> >> /Parent 14 0 R /AS /Yes >>
+endobj
+26 0 obj
+<< /S /JavaScript /JS (event.value = 1;) >>
+endobj
+27 0 obj
+<< /Type /SigFieldLock /Action /Include /Fields [(name) (person.first)] /P 2 >>
+endobj
+28 0 obj
+<< /Type /SV /Filter /Adobe.PPKLite /Ff 1 >>
+endobj
+30 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Annots [25 0 R] >>
+endobj
+xref
+0 31
+0000000000 65535 f 
+0000000009 00000 n 
+0000000074 00000 n 
+0000000138 00000 n 
+0000000313 00000 n 
+0000000497 00000 n 
+0000000594 00000 n 
+0000000667 00000 n 
+0000000852 00000 n 
+0000001026 00000 n 
+0000001142 00000 n 
+0000001378 00000 n 
+0000001480 00000 n 
+0000001625 00000 n 
+0000001787 00000 n 
+0000001868 00000 n 
+0000002070 00000 n 
+0000002186 00000 n 
+0000002366 00000 n 
+0000002545 00000 n 
+0000002727 00000 n 
+0000002937 00000 n 
+0000003131 00000 n 
+0000003364 00000 n 
+0000000000 00000 f 
+0000003488 00000 n 
+0000003673 00000 n 
+0000003733 00000 n 
+0000003829 00000 n 
+0000000000 00000 f 
+0000003890 00000 n 
+trailer
+<< /Size 31 /Root 1 0 R /ID [<db0fb73506d7af2968d06d14d0024d35> <db0fb73506d7af2968d06d14d0024d35>] >>
+startxref
+3996
+%%EOF

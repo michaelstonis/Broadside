@@ -9,9 +9,22 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Broadside/Broadside.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
     <PackageReference Include="BenchmarkDotNet" />
-    <!-- Shared corpus locator, linked as source so this project does not drag xunit and Verify in through Broadside.TestSupport. -->
+    <!-- Shared corpus locator, filter encoders and document walker, linked as source so this project does not drag xunit and Verify in through Broadside.TestSupport. -->
     <Compile Include="../../tests/Broadside.TestSupport/CorpusLocator.cs" Link="CorpusLocator.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/FilterEncoders.cs" Link="FilterEncoders.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/CcittEncoder.cs" Link="CcittEncoder.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/DocumentWalker.cs" Link="DocumentWalker.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/AnnotationWalker.cs" Link="AnnotationWalker.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/ActionWalker.cs" Link="ActionWalker.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/FormWalker.cs" Link="FormWalker.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/ContentSamples.cs" Link="ContentSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/MeshSamples.cs" Link="MeshSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/JpxSamples.cs" Link="JpxSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/Jbig2Encoder.cs" Link="Jbig2Encoder.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/Jbig2Encoder.Symbols.cs" Link="Jbig2Encoder.Symbols.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/Jbig2Samples.cs" Link="Jbig2Samples.cs" />
   </ItemGroup>
 
 </Project>

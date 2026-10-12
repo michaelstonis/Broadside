@@ -1,11 +1,24 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <Description>The Adobe predefined CMaps and CID-to-Unicode tables for Broadside, used to map character codes to CIDs and Unicode for composite fonts that name a predefined CMap instead of embedding one. No native dependencies.</Description>
+    <Description>The Adobe predefined CMaps (the 59 of ISO 32000-2 Table 116 besides Identity-H/V) and the CID-to-Unicode tables of the Adobe CJK character collections for Broadside, used to map character codes to CIDs and Unicode for composite fonts that name a predefined CMap instead of embedding one. Wire it in with options.UsePredefinedCMaps(). The data is Adobe's cmap-resources and mapping-resources-pdf (BSD-3-Clause), unmodified. No native dependencies.</Description>
+    <!-- Issue #54: the package carries Adobe's CMap files under BSD-3-Clause. -->
+    <PackageLicenseExpression>MIT AND BSD-3-Clause</PackageLicenseExpression>
   </PropertyGroup>
 
   <ItemGroup>
     <ProjectReference Include="../Broadside/Broadside.csproj" />
+  </ItemGroup>
+
+  <ItemGroup Label="The upstream CMap files, byte for byte, Deflate-compressed by Data/generate.py">
+    <EmbeddedResource Include="CMaps/*.deflate" LogicalName="Broadside.Fonts.Cmaps.CMap.%(Filename)" />
+    <EmbeddedResource Include="CidToUnicode/*.deflate" LogicalName="Broadside.Fonts.Cmaps.CidToUnicode.%(Filename)" />
+  </ItemGroup>
+
+  <ItemGroup Label="Licences that travel with the data">
+    <None Include="THIRD-PARTY-NOTICES.txt" Pack="true" PackagePath="/" />
+    <None Include="licenses/cmap-resources/LICENSE.md" Pack="true" PackagePath="licenses/cmap-resources/" />
+    <None Include="licenses/mapping-resources-pdf/LICENSE.txt" Pack="true" PackagePath="licenses/mapping-resources-pdf/" />
   </ItemGroup>
 
 </Project>
