@@ -112,6 +112,12 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
     /// <summary>Gets the crypt filter streams are decrypted with by default.</summary>
     public CryptFilter Streams => _streams;
 
+    /// <summary>Gets the crypt filter embedded files are decrypted with (<c>EFF</c>, default <c>StmF</c>).</summary>
+    public CryptFilter EmbeddedFiles => _embeddedFiles;
+
+    /// <summary>Gets the crypt filters of <c>CF</c> by name, the ones a <c>Crypt</c> filter can name (§7.4.10).</summary>
+    public IReadOnlyDictionary<CosName, CryptFilter> Named => _named;
+
     /// <summary>Reads the crypt filters of an encryption dictionary (Table 20, §7.6.6) for the key a handler returned.</summary>
     /// <param name="encryption">The encryption dictionary.</param>
     /// <param name="version">Its <c>V</c>.</param>
@@ -369,11 +375,12 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
         return fitted;
     }
 
-    private static bool IsType(CosDictionary dictionary, CosName type) =>
+    /// <summary>Whether a dictionary's direct <c>Type</c> entry is <paramref name="type"/>.</summary>
+    internal static bool IsType(CosDictionary dictionary, CosName type) =>
         dictionary.TryGetValue(KnownNames.Type, out CosObject? value) && type.Equals(value);
 
     /// <summary>A signature dictionary's <c>Contents</c> is never encrypted (§7.6.2): Type Sig or DocTimeStamp, or Contents with ByteRange.</summary>
-    private static bool IsSignature(CosDictionary dictionary) =>
+    internal static bool IsSignature(CosDictionary dictionary) =>
         IsType(dictionary, Sig) || IsType(dictionary, DocTimeStamp)
         || (dictionary.TryGetValue(KnownNames.Contents, out CosObject? contents) && contents is CosString && dictionary.TryGetValue(KnownNames.ByteRange, out CosObject? range) && range is CosArray);
 
@@ -516,14 +523,25 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
             objectReference: id);
 
     /// <summary>Reads the crypt filter a stream names when its first filter is <c>Crypt</c> (§7.4.10, Table 14; default Identity).</summary>
-    private bool TryReadCryptFilterName(CosDictionary dictionary, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out CosName? name)
+    private bool TryReadCryptFilterName(CosDictionary dictionary, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out CosName? name) =>
+        TryReadCryptFilterName(dictionary, _resolve, out name);
+
+    /// <summary>Reads the crypt filter a stream names when its first filter is <c>Crypt</c> (§7.4.10, Table 14; default Identity).</summary>
+    /// <param name="dictionary">The stream dictionary.</param>
+    /// <param name="resolve">Resolves references.</param>
+    /// <param name="name">The crypt filter's name.</param>
+    /// <returns>Whether the stream's first filter is <c>Crypt</c>.</returns>
+    internal static bool TryReadCryptFilterName(
+        CosDictionary dictionary,
+        Func<CosObject?, CosObject> resolve,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out CosName? name)
     {
         name = null;
-        CosObject filters = _resolve(dictionary.TryGetValue(FilterNames.Filter, out CosObject? filter) ? filter : null);
+        CosObject filters = resolve(dictionary.TryGetValue(FilterNames.Filter, out CosObject? filter) ? filter : null);
         bool first = filters switch
         {
             CosName single => single.Equals(FilterNames.Crypt),
-            CosArray { Count: > 0 } array => FilterNames.Crypt.Equals(_resolve(array[0])),
+            CosArray { Count: > 0 } array => FilterNames.Crypt.Equals(resolve(array[0])),
             _ => false,
         };
         if (!first)
@@ -531,13 +549,13 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
             return false;
         }
 
-        CosObject parameters = _resolve(dictionary.TryGetValue(FilterNames.DecodeParms, out CosObject? entry) ? entry : null);
+        CosObject parameters = resolve(dictionary.TryGetValue(FilterNames.DecodeParms, out CosObject? entry) ? entry : null);
         if (parameters is CosArray { Count: > 0 } list)
         {
-            parameters = _resolve(list[0]);
+            parameters = resolve(list[0]);
         }
 
-        name = parameters is CosDictionary decodeParms && _resolve(decodeParms.TryGetValue(FilterNames.Name, out CosObject? value) ? value : null) is CosName named
+        name = parameters is CosDictionary decodeParms && resolve(decodeParms.TryGetValue(FilterNames.Name, out CosObject? value) ? value : null) is CosName named
             ? named
             : FilterNames.Identity;
         return true;
@@ -586,7 +604,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
     }
 
     /// <summary>Algorithm 1 steps b-d: MD5 of the key, the low 3 bytes of the object number, the low 2 of the generation, "sAlT" for AES.</summary>
-    private static byte[] ObjectKey(byte[] fileKey, CosReference id, bool aes)
+    internal static byte[] ObjectKey(byte[] fileKey, CosReference id, bool aes)
     {
         Span<byte> input = stackalloc byte[fileKey.Length + 9];
         fileKey.CopyTo(input);
