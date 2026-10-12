@@ -1,0 +1,6 @@
+﻿page 1: Serif
+  S code 53/1 GlyphName font BroadsideSerif-Italic 24 Fill origin (72, 700) advance (14.664, 0) quad (72, 694.792) (86.664, 694.792) (86.664, 716.392) (72, 716.392)
+  e code 65/1 GlyphName font BroadsideSerif-Italic 24 Fill origin (86.664, 700) advance (12, 0) quad (86.664, 694.792) (98.664, 694.792) (98.664, 716.392) (86.664, 716.392)
+  r code 72/1 GlyphName font BroadsideSerif-Italic 24 Fill origin (98.664, 700) advance (12, 0) quad (98.664, 694.792) (110.664, 694.792) (110.664, 716.392) (98.664, 716.392)
+  i code 69/1 GlyphName font BroadsideSerif-Italic 24 Fill origin (110.664, 700) advance (12, 0) quad (110.664, 694.792) (122.664, 694.792) (122.664, 716.392) (110.664, 716.392)
+  f code 66/1 GlyphName font BroadsideSerif-Italic 24 Fill origin (122.664, 700) advance (12, 0) quad (122.664, 694.792) (134.664, 694.792) (134.664, 716.392) (122.664, 716.392)

@@ -145,7 +145,7 @@ public readonly ref struct GlyphEvent
 
     private static Span<char> UnicodeBuffer => _unicodeBuffer ??= new char[Fonts.FontUnicode.MaxLength];
 
-    private int MapUnicode(Span<char> buffer, out UnicodeSource source)
+    internal int MapUnicode(Span<char> buffer, out UnicodeSource source)
     {
         if (Font is null || SourceIndex < 0 || SourceIndex >= SourceBytes.Length)
         {
