@@ -33,6 +33,36 @@ public static class ContentSamples
     }
 
     /// <summary>
+    /// A stroke-heavy content stream of at least <paramref name="minimumLength"/> bytes for a Letter page: blocks of wide polylines and
+    /// curves cycling through every cap, join and miter limit, solid and dashed (with phases and zero-length dashes), closed and open,
+    /// zero-width and stroke-adjusted lines and a non-uniform transform (ISO 32000-2 §8.4.3, §8.5.3.2, §10.7.5). Stroke adjustment
+    /// comes from the ExtGState resource <c>/SA</c>; pass <see cref="StrokeHeavyResources"/> to <see cref="OnePage"/>.
+    /// </summary>
+    public static byte[] StrokeHeavy(int minimumLength)
+    {
+        var text = new StringBuilder(minimumLength + 512);
+        int block = 0;
+        while (text.Length < minimumLength)
+        {
+            double x = block % 11 * 50;
+            double y = block % 15 * 50;
+            int style = block % 3;
+            text.Append(CultureInfo.InvariantCulture, $"q {style} J {(block + 1) % 3} j {1 + (block % 5)} M {(block % 4) * 3 + 0.5} w 0 0 {block % 2} RG\n");
+            text.Append(CultureInfo.InvariantCulture, $"{x} {y} m {x + 40} {y + 5} l {x + 10} {y + 30} l {x + 45} {y + 45} l S\n");
+            text.Append(CultureInfo.InvariantCulture, $"{x} {y} m {x + 10} {y + 50} {x + 40} {y - 10} {x + 50} {y + 40} c h S\n");
+            text.Append(CultureInfo.InvariantCulture, $"[{1 + (block % 6)} 2 0 3] {block % 7} d {x + 5} {y + 5} 40 30 re S {x} {y + 25} m {x + 25} {y + 50} {x + 50} {y + 25} v S\n");
+            text.Append(CultureInfo.InvariantCulture, $"[] 0 d 0 w {x} {y + 0.5} m {x + 50} {y + 0.5} l S /SA gs 1 w {x + 0.5} {y} m {x + 0.5} {y + 50} l S\n");
+            text.Append(CultureInfo.InvariantCulture, $"3 0 0 1 {x} {y} cm 2 w 1 J 0 0 m 10 10 l 15 0 l S 5 5 m 5 5 l S Q\n");
+            block++;
+        }
+
+        return Encoding.ASCII.GetBytes(text.ToString());
+    }
+
+    /// <summary>Gets the resource entries <see cref="StrokeHeavy"/> needs: an ExtGState <c>/SA</c> that turns stroke adjustment on.</summary>
+    public static string StrokeHeavyResources => "/ExtGState << /SA << /SA true >> >>";
+
+    /// <summary>
     /// A text-heavy content stream showing at least <paramref name="glyphs"/> glyphs in the font resource <c>/F1</c>: text objects with
     /// every text state operator, <c>TJ</c> arrays with adjustments, and the positioning and next-line operators (ISO 32000-2 §9.3,
     /// §9.4).

@@ -16,6 +16,9 @@ internal enum DisplayOperationKind : byte
 
     /// <summary><see cref="IRenderingBackend.FillPath"/>; <see cref="DisplayOperation.First"/> indexes the paths, <see cref="DisplayOperation.Second"/> the colours.</summary>
     FillPath,
+
+    /// <summary><see cref="IRenderingBackend.StrokePath"/>; <see cref="DisplayOperation.First"/> indexes the paths, <see cref="DisplayOperation.Second"/> the strokes.</summary>
+    StrokePath,
 }
 
 /// <summary>One record of a display list: a kind and up to two indexes into the list's tables, 16 bytes.</summary>
@@ -31,3 +34,15 @@ internal readonly record struct DisplayColorEntry(
     int ComponentCount,
     PdfDefaultColorSpaces DefaultColorSpaces,
     ColorConversion Conversion);
+
+/// <summary>The colour and line parameters of a stroke in a display list, its dash array a slice of the list's dash array.</summary>
+internal readonly record struct DisplayStroke(
+    int ColorIndex,
+    double LineWidth,
+    LineCap LineCap,
+    LineJoin LineJoin,
+    double MiterLimit,
+    int DashStart,
+    int DashCount,
+    double DashPhase,
+    bool StrokeAdjustment);

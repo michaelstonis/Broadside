@@ -40,6 +40,7 @@ public interface IRenderingBackend
     void RestoreState();                                // §8.4.2 Q; saves and restores always balance
     void SetTransform(in Matrix transform);             // replaces (does not concatenate) the user space -> default user space transform
     void FillPath(PathView path, FillRule rule, in DisplayColor color);   // §8.5.3.3
+    void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color);   // §8.5.3.2, after the fill of B/b (#99)
 }
 
 public readonly ref struct DisplayColor               // §8.6.1: colour specification, never pre-converted
@@ -49,6 +50,17 @@ public readonly ref struct DisplayColor               // §8.6.1: colour specifi
     public PdfDefaultColorSpaces DefaultColorSpaces { get; }   // §8.6.5.6, current at the paint
     public ColorConversion Conversion { get; }          // intent, BPC, BG, UCR from the state; Target = Rgb
 }
+
+public readonly ref struct StrokeStyle                // §8.4.3, §10.7.5: line parameters at the stroking operator, user space
+{
+    public double LineWidth { get; }                    // >= 0; 0 = thinnest line the device can render (one device pixel)
+    public LineCap LineCap { get; }                     // Table 53
+    public LineJoin LineJoin { get; }                   // Table 54
+    public double MiterLimit { get; }                   // >= 1; ratio 1 / sin(phi/2), phi measured in user space
+    public ReadOnlySpan<double> DashArray { get; }      // empty = solid; non-negative, not all zero
+    public double DashPhase { get; }                    // >= 0 (already normalized), 0 for a solid line
+    public bool StrokeAdjustment { get; }               // SA
+}
 ```
 
 Rules every backend follows:
@@ -57,18 +69,19 @@ Rules every backend follows:
 - `SetTransform` comes before the paints it applies to and only when the CTM changes; `RestoreState` restores the transform (and, as later tickets add them, the clip and everything else the backend keeps per state). Save/restore pairs with nothing painted between them are dropped at build time.
 - `PathView` is the path exactly as constructed, in user space: close open subpaths for filling, ignore a trailing single-point subpath, treat degenerate subpaths per §8.5.3.2/§8.5.3.3.1. Spans and views are valid only during the call: copy what you keep.
 - Colour: convert with `list.Document.GetColorConverter(color.ColorSpace, color.Conversion with { Target = <your model> }, color.DefaultColorSpaces)`. That expands Indexed, Separation, DeviceN, applies the defaults and goes through the engine's `IColorManagement` (the colour-management extension point). Check `PdfColorConverter.PaintsNothing` (Separation `None`). Cache converters per colour space if you convert per paint; the document caches them too.
-- Not in the list yet (later Phase 3 tickets): strokes, clips, glyph runs, images, shadings, pattern fills, transparency groups and soft masks.
+- Strokes (#99): stroke in the stroke's user space (the transform set before it) so a non-uniform CTM gives an elliptical pen; each subpath on its own, dash pattern restarted per subpath, closed subpaths joined where they close, the last and first dash of a closed subpath joined when both are on, a degenerate subpath a dot only with round caps, a lone moveto nothing, zero-length dashes painted with their caps along the path, width 0 one device pixel. The software rasterizer's `Stroker` (outline polygons, non-zero fill, round joins between the flattened pieces of a curve, at most 2^20 dashes per stroke) and `paths-strokes.pdf` are the reference; a stroke in a Pattern colour is not in the list yet.
+- Not in the list yet (later Phase 3 tickets): clips, glyph runs, images, shadings, pattern fills and pattern strokes, transparency groups and soft masks.
 
 A backend must also, as those operations arrive:
 
-- draw strokes (joins, caps, dashes, minimum width), clipping (path and text, intersect), decoded images with transforms and resampling, shadings 1–7, tiling patterns, glyph runs (font reference + glyph ids + positions, native glyph rendering where the platform has it with an outline fallback when `ForceOutlines` is set), and the transparency model (§11: isolated and non-isolated groups, knockout, soft masks, the 16 blend modes, constant alpha);
+- draw clipping (path and text, intersect), decoded images with transforms and resampling, shadings 1–7, tiling patterns, glyph runs (font reference + glyph ids + positions, native glyph rendering where the platform has it with an outline fallback when `ForceOutlines` is set), and the transparency model (§11: isolated and non-isolated groups, knockout, soft masks, the 16 blend modes, constant alpha);
 - honour the render options of Track 3A: scale or DPI, rotation, clip rectangle (tiled region rendering), layer selection (annotations and forms are separate replayable lists), rendering intent, anti-aliasing, cancellation and progress;
 - keep per-surface resource caches (glyphs, images, shaders) within the deterministic memory budgets the viewer relies on;
 - fall back to the software rasterizer for any group or blend it cannot express (plan, Track 3D) rather than approximate silently, and record a `Diagnostic` when it does;
 - allocate nothing per operation, glyph or scanline during replay; buffers are pooled per surface (`CLAUDE.md`, "Code conventions");
 - produce, for the golden-image suite, pixels in the reference format (premultiplied BGRA8 at a fixed DPI) so the perceptual comparison against the rasterizer's snapshots applies (Track 3H).
 
-Testing against the contract: `Broadside.TestSupport.RecordingBackend` records every call as a line (`save`, `restore`, `transform [a b c d e f]`, `fill nonzero|evenodd M x y L ... Z | Family c0 c1 ...`) and keeps each fill's colour space, components, defaults and conversion; `Broadside.Tests.Rendering.DisplayListTests` shows the pattern. `DisplayListBenchmarks` (Build, Replay) is the replay allocation baseline.
+Testing against the contract: `Broadside.TestSupport.RecordingBackend` records every call as a line (`save`, `restore`, `transform [a b c d e f]`, `fill nonzero|evenodd M x y L ... Z | Family c0 c1 ...`, `stroke width Cap Join miterLimit [dash ...] phase [adjust] M ... | Family c0 c1 ...`) and keeps each fill's and stroke's colour space, components, defaults and conversion (`Fills`, `Strokes`); `Broadside.Tests.Rendering.DisplayListTests` shows the pattern. `DisplayListBenchmarks` (Build, Replay) is the replay allocation baseline.
 
 Registration goes through the options object (`PdfOptions.Use*`, plan row 1.12) or the package's one fluent configuration call, the same shape as `Broadside.Fonts.Standard14` (ADR 0007). No static registry: two engines in one process may use different backends, and the viewer selects one per surface.
 

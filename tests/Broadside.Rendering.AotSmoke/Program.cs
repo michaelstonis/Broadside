@@ -28,6 +28,7 @@ foreach ((double dpi, int width, int height) in new[] { (72.0, 612, 792), (150.0
 }
 
 Compare("paths-fill-rules.pdf", 0, "RenderingSnapshotTests.Paths_fill_rules_pdf_matches_its_reviewed_snapshot.verified.png");
+Compare("paths-strokes.pdf", 0, "RenderingSnapshotTests.Paths_strokes_pdf_matches_its_reviewed_snapshot.verified.png");
 for (int page = 0; page < 4; page++)
 {
     Compare("page-rotation.pdf", page, $"RenderingSnapshotTests.Page_rotation_pdf_matches_its_reviewed_snapshots_page={page}.verified.png");

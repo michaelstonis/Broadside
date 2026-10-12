@@ -100,6 +100,7 @@
   page-rotation.pdf,
   page-tree-inherited.pdf,
   paths-fill-rules.pdf,
+  paths-strokes.pdf,
   pattern-in-form.pdf,
   pattern-recursive.pdf,
   pattern-shading-axial.pdf,
