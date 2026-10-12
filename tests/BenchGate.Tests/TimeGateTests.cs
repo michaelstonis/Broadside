@@ -58,6 +58,25 @@ public sealed class TimeGateTests
     }
 
     [Fact]
+    public void A_noisy_round_does_not_fail_a_case_the_other_round_measured_within_tolerance()
+    {
+        // Seen on the CI runner for an unchanged case: rounds 1.12 and 2.17, rerun 1.32.
+        using var tree = new ResultsTree();
+        tree.Add("round-1/base", ResultsTree.Lexer, 0, ResultsTree.Around(1000))
+            .Add("round-1/head", ResultsTree.Lexer, 0, ResultsTree.Around(1120))
+            .Add("round-2/base", ResultsTree.Lexer, 0, ResultsTree.Around(1000))
+            .Add("round-2/head", ResultsTree.Lexer, 0, ResultsTree.Around(2170))
+            .Add("confirm/base", ResultsTree.Lexer, 0, ResultsTree.Around(1000))
+            .Add("confirm/head", ResultsTree.Lexer, 0, ResultsTree.Around(1320));
+        string baseline = tree.WriteBaseline((ResultsTree.Lexer, 0));
+
+        GateReport report = BenchmarkGate.Run(baseline, tree.Root);
+
+        Assert.True(report.Passed);
+        Assert.Equal(FindingKind.SlowerWithinTolerance, Assert.Single(report.Findings).Kind);
+    }
+
+    [Fact]
     public void A_slowdown_the_rerun_does_not_reproduce_is_a_notice()
     {
         using var tree = new ResultsTree();

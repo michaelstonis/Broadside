@@ -171,7 +171,7 @@ public static class BenchmarkGate
             {
                 var rerun = new Sample([(confirmBase.NanosecondsPerOperation, confirmHead.NanosecondsPerOperation)]);
                 confirmation = rerun.Ratio;
-                confirmed = rerun.Ratio >= options.FailRatio && rerun.Difference >= options.MinimumDifferenceNanoseconds;
+                confirmed = rerun.Ratio >= options.RoundRatio && rerun.Difference >= options.MinimumDifferenceNanoseconds;
             }
 
             times.Add(new TimeComparison(name, sample.BaseMedian, sample.HeadMedian, sample.Ratio, sample.RoundRatios, confirmation));

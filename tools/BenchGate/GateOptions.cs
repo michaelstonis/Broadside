@@ -5,11 +5,14 @@ namespace Broadside.Tools.BenchGate;
 /// pass cannot fail a pull request on its own:
 /// <list type="number">
 /// <item>the median of all its pull-request iterations is at least <see cref="FailRatio"/> times the median of all its base iterations;</item>
-/// <item>every round on its own is at least <see cref="RoundRatio"/> times slower (no drift of the runner between rounds explains it);</item>
+/// <item>every round on its own is at least <see cref="RoundRatio"/> times slower (a noisy stretch of the runner during one round
+/// does not explain it);</item>
 /// <item>the two samples do not overlap in their middle halves (the pull request's first quartile is above the base's third quartile);</item>
-/// <item>a fresh base/pull-request pass of that case, run after the rounds, is again at least <see cref="FailRatio"/> times slower.</item>
+/// <item>the medians differ by at least <see cref="MinimumDifferenceNanoseconds"/>;</item>
+/// <item>a fresh base/pull-request pass of that case, run after the rounds, is again at least <see cref="RoundRatio"/> times slower.</item>
 /// </list>
-/// The values are justified in <c>bench/baselines/gate/README.md</c> from ten runs of the gate on the CI runner.
+/// The values are justified in <c>bench/baselines/gate/README.md</c> from runs of the gate against an unchanged commit on the CI
+/// runner: no case there reached 1.15 in both rounds and 1.20 pooled, while a 30 % slowdown reaches both in nearly every run.
 /// </summary>
 public sealed record GateOptions
 {
@@ -19,8 +22,8 @@ public sealed record GateOptions
     /// <summary>Pooled median ratio (pull request over base) at or above which a case is slower. Default 1.20.</summary>
     public double FailRatio { get; init; } = 1.20;
 
-    /// <summary>Ratio every round must reach for a slower case. Default 1.10.</summary>
-    public double RoundRatio { get; init; } = 1.10;
+    /// <summary>Ratio every round, and the rerun, must reach for a slower case. Default 1.15.</summary>
+    public double RoundRatio { get; init; } = 1.15;
 
     /// <summary>Pooled median ratio at or above which a case that does not fail is listed as a notice. Default 1.10.</summary>
     public double NoticeRatio { get; init; } = 1.10;
