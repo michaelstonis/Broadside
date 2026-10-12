@@ -70,6 +70,11 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <item><term><see cref="Aes128Encryption"/></term><description>1.6 (§7.6.2, Table 20, V 4; §7.6.5, Table 25, AESV2)</description></item>
 /// <item><term><see cref="Aes256Encryption"/></term><description>2.0 (§7.6.2, Table 20, V 5)</description></item>
 /// <item><term><see cref="AesGcmEncryption"/></term><description>2.0 and the ISO_ extension level 32003 (ISO/TS 32003, clause 4)</description></item>
+/// <item><term><see cref="EmbeddedFileStream"/></term><description>1.3 (§7.11.4)</description></item>
+/// <item><term><see cref="EmbeddedFilesTree"/></term><description>1.4 (§7.7.4, Table 32)</description></item>
+/// <item><term><see cref="FileDescription"/></term><description>1.6 (§7.11.3, Table 43, <c>Desc</c>)</description></item>
+/// <item><term><see cref="UnicodeFileName"/></term><description>1.7 (§7.11.3, Table 43, <c>UF</c>)</description></item>
+/// <item><term><see cref="AssociatedFiles"/></term><description>2.0 (§14.13, <c>AF</c> and <c>AFRelationship</c>)</description></item>
 /// <item><term><see cref="DeveloperExtension"/></term><description>The extension's <c>BaseVersion</c> (§7.12.4)</description></item>
 /// </list>
 /// <para>
@@ -108,6 +113,21 @@ internal static class VersionedFeatures
         "ISO/TS 32003, clause 4",
         Pdf20,
         new DeveloperExtensionDeclaration(KnownNames.IsoPrefix, Pdf20, 32003, ":2023", "https://www.iso.org/standard/45876.html"));
+
+    /// <summary>Gets embedded file streams: PDF 1.3.</summary>
+    public static VersionedFeature EmbeddedFileStream { get; } = new("an embedded file stream", "ISO 32000-2 §7.11.4", new PdfVersion(1, 3));
+
+    /// <summary>Gets the name dictionary's <c>EmbeddedFiles</c> tree: PDF 1.4.</summary>
+    public static VersionedFeature EmbeddedFilesTree { get; } = new("the EmbeddedFiles name tree", "ISO 32000-2 §7.7.4, Table 32", Pdf14);
+
+    /// <summary>Gets a file specification's <c>Desc</c>: PDF 1.6.</summary>
+    public static VersionedFeature FileDescription { get; } = new("a file specification's description (Desc)", "ISO 32000-2 §7.11.3, Table 43", Pdf16);
+
+    /// <summary>Gets a file specification's <c>UF</c>: PDF 1.7.</summary>
+    public static VersionedFeature UnicodeFileName { get; } = new("a file specification's Unicode file name (UF)", "ISO 32000-2 §7.11.3, Table 43", new PdfVersion(1, 7));
+
+    /// <summary>Gets associated files (<c>AF</c>, <c>AFRelationship</c>): PDF 2.0.</summary>
+    public static VersionedFeature AssociatedFiles { get; } = new("associated files (AF, AFRelationship)", "ISO 32000-2 §14.13", Pdf20);
 
     /// <summary>Returns the feature a developer extension the document declares stands for: the version it extends (§7.12.4).</summary>
     /// <param name="prefix">The extension's prefix.</param>

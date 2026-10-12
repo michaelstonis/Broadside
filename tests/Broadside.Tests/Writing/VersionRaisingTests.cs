@@ -279,6 +279,51 @@ public sealed class VersionRaisingTests
         Assert.Equal("Below 1.4", reopened.Properties.Title);
     }
 
+    public static TheoryData<string, int, int, string> AttachmentFeatures => new()
+    {
+        { "embedded file stream", 1, 7, "an embedded file stream (ISO 32000-2 §7.11.4) needs PDF 1.3" },
+        { "unicode file name", 1, 7, "Unicode file name (UF) (ISO 32000-2 §7.11.3, Table 43) needs PDF 1.7" },
+        { "embedded files tree", 1, 7, "the EmbeddedFiles name tree (ISO 32000-2 §7.7.4, Table 32) needs PDF 1.4" },
+        { "description", 1, 7, "description (Desc) (ISO 32000-2 §7.11.3, Table 43) needs PDF 1.6" },
+        { "relationship", 2, 0, "associated files (AF, AFRelationship) (ISO 32000-2 §14.13) needs PDF 2.0" },
+        { "associated file", 2, 0, "associated files (AF, AFRelationship) (ISO 32000-2 §14.13) needs PDF 2.0" },
+    };
+
+    [Theory]
+    [MemberData(nameof(AttachmentFeatures))]
+    public void Each_attachment_feature_raises_a_pdf_1_2_document_to_its_minimum(string scenario, int major, int minor, string named)
+    {
+        using PdfDocument document = PdfDocument.Open(Document.TestPdf.OnePage("/MediaBox [0 0 612 792]", header: "%PDF-1.2"));
+        byte[] contents = "attached"u8.ToArray();
+        switch (scenario)
+        {
+            case "embedded file stream" or "unicode file name":
+                document.CreateEmbeddedFile("a.txt", contents);
+                break;
+            case "embedded files tree":
+                document.AddEmbeddedFile("a.txt", contents);
+                break;
+            case "description":
+                document.CreateEmbeddedFile("a.txt", contents, new PdfEmbeddedFileOptions().WithDescription("A file"));
+                break;
+            case "relationship":
+                document.CreateEmbeddedFile("a.txt", contents, new PdfEmbeddedFileOptions().WithRelationship(PdfFileRelationship.Data));
+                break;
+            default:
+                document.AddAssociatedFile(document.Catalog, document.CreateEmbeddedFile("a.txt", contents));
+                break;
+        }
+
+        byte[] saved = Save(document, Options);
+
+        var expected = new PdfVersion(major, minor);
+        Assert.Equal(expected.ToString(), HeaderVersion(saved));
+        Assert.Contains(named, Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == "VersionRaised").Message, StringComparison.Ordinal);
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Equal(expected, reopened.Version);
+        Assert.DoesNotContain(reopened.Diagnostics, diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning);
+    }
+
     /// <summary>A catalog entry declaring a developer extension of PDF 1.6.</summary>
     private const string LaterExtension = "/Extensions << /XYZ_ << /BaseVersion /1.6 /ExtensionLevel 1 >> >>";
 

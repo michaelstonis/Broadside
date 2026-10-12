@@ -1,6 +1,7 @@
 using System.Text;
 using Broadside.Objects;
 using Broadside.Security.Cryptography;
+using Broadside.Writing;
 
 namespace Broadside;
 
@@ -28,7 +29,8 @@ public sealed partial class PdfDocument
     /// <para>
     /// A solidus in <paramref name="fileName"/> is written escaped (<c>\/</c>, §7.11.2.1) so the name stays one component.
     /// <c>F</c> holds the name in PDFDocEncoding, with <c>_</c> for each character it cannot encode; <c>UF</c> holds it exactly.
-    /// Minimum versions: embedded file streams PDF 1.3, <c>Desc</c> 1.6, <c>UF</c> 1.7, <c>AFRelationship</c> 2.0. A mutation: no
+    /// Minimum versions: embedded file streams PDF 1.3, <c>Desc</c> 1.6, <c>UF</c> 1.7, <c>AFRelationship</c> 2.0; a later save raises
+    /// the document's version to the highest one used, or refuses in strict mode (ADR 0003). A mutation: no
     /// read may run concurrently with it.
     /// </para>
     /// </remarks>
@@ -79,6 +81,20 @@ public sealed partial class PdfDocument
         }
 
         CosReference reference = AddObject(specification);
+
+        // The minimum versions a save raises the document to (issue #141).
+        RequireFeature(VersionedFeatures.EmbeddedFileStream);
+        RequireFeature(VersionedFeatures.UnicodeFileName);
+        if (options.Description is not null)
+        {
+            RequireFeature(VersionedFeatures.FileDescription);
+        }
+
+        if (options.Relationship is not null)
+        {
+            RequireFeature(VersionedFeatures.AssociatedFiles);
+        }
+
         return new PdfFileSpecification(this, specification, reference);
     }
 
@@ -124,6 +140,7 @@ public sealed partial class PdfDocument
         }
 
         PdfNameTree tree = EmbeddedFilesTreeForWriting();
+        RequireFeature(VersionedFeatures.EmbeddedFilesTree);
         CosString key = FindEmbeddedFileKeys(tree, name).FirstOrDefault() ?? new CosString(TextStringEncoder.Encode(name));
         tree.Set(key, reference);
         return new PdfEmbeddedFileEntry(key, file);
@@ -167,7 +184,7 @@ public sealed partial class PdfDocument
     /// dictionary (read leniently as an array of one) becomes an array holding it and the new file; an <c>AF</c> that is neither is
     /// replaced. An embedded associated file should have a <c>Subtype</c> and <c>Params</c> with <c>ModDate</c> (§14.13.2), which
     /// <see cref="CreateEmbeddedFile"/> writes when <see cref="PdfEmbeddedFileOptions.ModificationDate"/> is set. Minimum version PDF
-    /// 2.0. A mutation: no read may run concurrently with it.
+    /// 2.0, which a later save raises the document to (or refuses in strict mode; ADR 0003). A mutation: no read may run concurrently with it.
     /// </remarks>
     public void AddAssociatedFile(CosDictionary owner, PdfFileSpecification file)
     {
@@ -180,6 +197,7 @@ public sealed partial class PdfDocument
         }
 
         CosObject element = file.Reference ?? file.Value;
+        RequireFeature(VersionedFeatures.AssociatedFiles);
         owner.TryGetValue(FileAndLayerNames.AF, out CosObject? entry);
         switch (Resolve(entry))
         {
