@@ -44,6 +44,7 @@ CMS_FLAGS_NOOPTIMIZE = 0x0100
 
 
 def load_generator():
+    sys.dont_write_bytecode = True  # leave no __pycache__ in tests/Corpus
     spec = importlib.util.spec_from_file_location("generate", os.path.join(ROOT, "tests", "Corpus", "generate.py"))
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
