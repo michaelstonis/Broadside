@@ -45,12 +45,9 @@ internal static class ExternalTool
         }
     }
 
-    /// <summary>
-    /// Writes <paramref name="file"/> to a temporary path, runs <paramref name="tool"/> with the arguments and that path last, and
-    /// returns its standard output as bytes (for tools that write images, such as <c>pdftoppm</c>).
-    /// </summary>
-    /// <returns>The exit code and the standard output.</returns>
-    public static (int ExitCode, byte[] Output) RunBinary(string tool, byte[] file, params string[] arguments)
+    /// <summary>Like <see cref="Run"/>, for a tool whose standard output is binary, such as <c>pdftoppm</c> writing a PPM.</summary>
+    /// <returns>The exit code, the standard output's bytes and the standard error.</returns>
+    public static (int ExitCode, byte[] Output, string Error) RunBinary(string tool, byte[] file, params string[] arguments)
     {
         string? executable = Find(tool);
         if (executable is null)
@@ -75,12 +72,11 @@ internal static class ExternalTool
 
             start.ArgumentList.Add(path);
             using Process process = Process.Start(start)!;
-            Task<string> errors = process.StandardError.ReadToEndAsync();
+            Task<string> error = process.StandardError.ReadToEndAsync();
             using var output = new MemoryStream();
             process.StandardOutput.BaseStream.CopyTo(output);
             process.WaitForExit();
-            _ = errors.Result;
-            return (process.ExitCode, output.ToArray());
+            return (process.ExitCode, output.ToArray(), error.Result);
         }
         finally
         {

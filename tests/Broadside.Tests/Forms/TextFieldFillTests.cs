@@ -217,7 +217,7 @@ public sealed class TextFieldFillTests
             field.SetValue("x");
         });
 
-        (int exitCode, byte[] image) = ExternalTool.RunBinary("pdftoppm", saved, "-r", "72", "-f", "1", "-l", "1");
+        (int exitCode, byte[] image, _) = ExternalTool.RunBinary("pdftoppm", saved, "-r", "72", "-f", "1", "-l", "1");
         Assert.Equal(0, exitCode);
         Pixmap page = Pixmap.Parse(image);
 
@@ -327,7 +327,7 @@ public sealed class TextFieldFillTests
     /// <summary>Counts the pixels darker than mid-grey that poppler draws inside <paramref name="rect"/> on page 1 at 72 dpi.</summary>
     private static int DarkPixels(byte[] file, PdfRectangle rect)
     {
-        (int exitCode, byte[] image) = ExternalTool.RunBinary("pdftoppm", file, "-r", "72", "-gray", "-f", "1", "-l", "1");
+        (int exitCode, byte[] image, _) = ExternalTool.RunBinary("pdftoppm", file, "-r", "72", "-gray", "-f", "1", "-l", "1");
         Assert.Equal(0, exitCode);
         Pixmap page = Pixmap.Parse(image);
         int count = 0;

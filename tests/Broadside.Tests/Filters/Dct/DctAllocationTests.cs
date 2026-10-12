@@ -48,6 +48,36 @@ public sealed class DctAllocationTests
         Assert.InRange(forLarge, 0, forSmall);
     }
 
+    public static TheoryData<string, DctChromaSubsampling, string?> EncoderLayouts => new()
+    {
+        { "testorig", DctChromaSubsampling.HorizontalAndVertical, null },
+        { "testorig", DctChromaSubsampling.Horizontal, null },
+        { "testorig", DctChromaSubsampling.None, "<< /ColorTransform 0 >>" },
+        { "dct-baseline-gray", DctChromaSubsampling.None, null },
+        { "cmyk", DctChromaSubsampling.None, null },
+        { "cmyk", DctChromaSubsampling.HorizontalAndVertical, "<< /ColorTransform 1 >>" },
+    };
+
+    [Theory]
+    [MemberData(nameof(EncoderLayouts))]
+    public void Encoding_through_the_encoder_contract_allocates_nothing_once_warm(string source, DctChromaSubsampling subsampling, string? parameters)
+    {
+        // Issue #143: the per-image buffers are pooled, so no allocation per block, MCU or row, nor per image.
+        DctGolden image = Golden(source);
+        var encoder = new DctEncoder(90, subsampling);
+        StreamEncoderContext context = DctEncoderTests.Context(image, parameters);
+        var output = new ArrayBufferWriter<byte>(256 * 1024);
+
+        long allocated = Allocations.Measure(() =>
+        {
+            output.ResetWrittenCount();
+            encoder.Encode(image.Samples, output, context);
+        });
+
+        Assert.True(output.WrittenCount > 0);
+        Assert.Equal(0, allocated);
+    }
+
     private static void Decode(DctDecodeFilter filter, byte[] jpeg, ArrayBufferWriter<byte> output, FilterContext context)
     {
         output.ResetWrittenCount();
