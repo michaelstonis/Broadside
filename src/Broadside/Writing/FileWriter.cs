@@ -53,6 +53,7 @@ internal sealed class FileWriter
     private readonly CosDictionary _trailer;
     private readonly CosString? _firstIdentifier;
     private readonly PdfCrossReferenceLayout _layout;
+    private readonly IReadOnlyDictionary<CosReference, CosReference>? _references;
 
     /// <summary>Initializes a new instance of the <see cref="FileWriter"/> class.</summary>
     /// <param name="source">The file source bytes are copied from; <see langword="null"/> when no object has source bytes.</param>
@@ -62,6 +63,10 @@ internal sealed class FileWriter
     /// <param name="trailer">The trailer entries to write besides <c>Size</c> and <c>ID</c>.</param>
     /// <param name="firstIdentifier">The first file identifier to keep, or <see langword="null"/> for a file written for the first time.</param>
     /// <param name="layout">The cross-reference layout.</param>
+    /// <param name="references">
+    /// For a renumbered file, the number each reference in a serialized object, the trailer included, is written with; a reference
+    /// it does not hold is written as <c>null</c>. <see langword="null"/> writes references as they are.
+    /// </param>
     public FileWriter(
         PdfSource? source,
         PdfVersion version,
@@ -69,7 +74,8 @@ internal sealed class FileWriter
         IReadOnlyDictionary<int, int> freeGenerations,
         CosDictionary trailer,
         CosString? firstIdentifier,
-        PdfCrossReferenceLayout layout)
+        PdfCrossReferenceLayout layout,
+        IReadOnlyDictionary<CosReference, CosReference>? references = null)
     {
         _source = source;
         _version = layout != PdfCrossReferenceLayout.Table && version < StreamVersion ? StreamVersion : version;
@@ -78,6 +84,7 @@ internal sealed class FileWriter
         _trailer = trailer;
         _firstIdentifier = firstIdentifier;
         _layout = layout;
+        _references = references;
     }
 
     /// <summary>Writes the file. Each chunk is valid until the next one is requested.</summary>
@@ -104,7 +111,7 @@ internal sealed class FileWriter
             }
 
             entries[item.Reference.ObjectNumber] = new XrefEntry(XrefEntryKind.InUse, flushed + buffer.WrittenSpan.Length, item.Reference.Generation);
-            WriteIndirectObject(buffer, item.Reference, item, _source);
+            WriteIndirectObject(buffer, item.Reference, item, _source, _references);
             if (buffer.WrittenSpan.Length >= ChunkSize)
             {
                 hash.AppendData(buffer.WrittenSpan);
@@ -127,7 +134,7 @@ internal sealed class FileWriter
             CosStream objectStream = BuildObjectStream(compressible, start, count);
             var reference = new CosReference(container, 0);
             entries[container] = new XrefEntry(XrefEntryKind.InUse, flushed + buffer.WrittenSpan.Length, 0);
-            WriteIndirectObject(buffer, reference, new WriterObject(reference, objectStream, null), source: null);
+            WriteIndirectObject(buffer, reference, new WriterObject(reference, objectStream, null), source: null, references: null);
             if (buffer.WrittenSpan.Length >= ChunkSize)
             {
                 hash.AppendData(buffer.WrittenSpan);
@@ -175,22 +182,22 @@ internal sealed class FileWriter
     }
 
     /// <summary>Writes <c>N G obj</c>, the object's bytes, and <c>endobj</c> (§7.3.10).</summary>
-    private static void WriteIndirectObject(PooledBufferWriter buffer, CosReference reference, WriterObject item, PdfSource? source)
+    private static void WriteIndirectObject(PooledBufferWriter buffer, CosReference reference, WriterObject item, PdfSource? source, IReadOnlyDictionary<CosReference, CosReference>? references)
     {
         WriteInteger(buffer, reference.ObjectNumber);
         buffer.Write(" "u8);
         WriteInteger(buffer, reference.Generation);
         buffer.Write(" obj\n"u8);
-        WriteBody(buffer, item, source);
+        WriteBody(buffer, item, source, references);
         buffer.Write("\nendobj\n"u8);
     }
 
-    /// <summary>Writes an object's bytes: copied from the source when it has them, serialized otherwise.</summary>
-    private static void WriteBody(PooledBufferWriter buffer, WriterObject item, PdfSource? source)
+    /// <summary>Writes an object's bytes: copied from the source when it has them, serialized (with its references renumbered) otherwise.</summary>
+    private static void WriteBody(PooledBufferWriter buffer, WriterObject item, PdfSource? source, IReadOnlyDictionary<CosReference, CosReference>? references)
     {
         if (item.Source is not { } bytes)
         {
-            item.Value.WriteTo(buffer);
+            CosWriter.Write(item.Value, buffer, references);
             return;
         }
 
@@ -232,7 +239,7 @@ internal sealed class FileWriter
             WriteInteger(header, item.Reference.ObjectNumber);
             header.Write(" "u8);
             WriteInteger(header, bodies.WrittenSpan.Length);
-            WriteBody(bodies, item, _source);
+            WriteBody(bodies, item, _source, _references);
         }
 
         header.Write("\n"u8);
@@ -276,7 +283,7 @@ internal sealed class FileWriter
 
         CosDictionary trailer = TrailerDictionary(size, identifier);
         buffer.Write("trailer\n"u8);
-        trailer.WriteTo(buffer);
+        CosWriter.Write(trailer, buffer, _references);
         WriteEnd(buffer, xrefOffset);
     }
 
@@ -344,7 +351,7 @@ internal sealed class FileWriter
         dictionary[FilterNames.DecodeParms] = new CosDictionary { [FilterNames.Predictor] = new CosInteger(12), [FilterNames.Columns] = new CosInteger(columns) };
 
         var reference = new CosReference(number, 0);
-        WriteIndirectObject(buffer, reference, new WriterObject(reference, new CosStream(dictionary, data), null), source: null);
+        WriteIndirectObject(buffer, reference, new WriterObject(reference, new CosStream(dictionary, data), null), source: null, _references);
         WriteEnd(buffer, offset);
     }
 
