@@ -3661,3 +3661,23 @@ Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor) -> boo
 Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
 Broadside.Forms.PdfTextField.GenerateAppearances() -> void
 Broadside.Forms.PdfTextField.SetValue(string? value) -> void
+Broadside.PdfDocument.CreateDestination(Broadside.PdfPage! page, Broadside.PdfDestinationView view, double? left = null, double? top = null, double? right = null, double? bottom = null, double? zoom = null) -> Broadside.PdfExplicitDestination!
+Broadside.PdfDocument.CreateOutline() -> Broadside.PdfOutline!
+Broadside.PdfDocument.CreatePageLabels() -> Broadside.PdfPageLabels!
+Broadside.PdfDocument.RemoveNamedDestination(Broadside.Objects.CosString! name) -> bool
+Broadside.PdfDocument.RemoveNamedDestination(string! name) -> bool
+Broadside.PdfDocument.SetNamedDestination(Broadside.Objects.CosString! name, Broadside.PdfExplicitDestination! destination) -> Broadside.PdfNamedDestination!
+Broadside.PdfDocument.SetNamedDestination(string! name, Broadside.PdfExplicitDestination! destination) -> Broadside.PdfNamedDestination!
+Broadside.PdfOutline.Add(string! title) -> Broadside.PdfOutlineItem!
+Broadside.PdfOutline.Insert(int index, string! title) -> Broadside.PdfOutlineItem!
+Broadside.PdfOutlineItem.Add(string! title) -> Broadside.PdfOutlineItem!
+Broadside.PdfOutlineItem.Color.set -> void
+Broadside.PdfOutlineItem.Destination.set -> void
+Broadside.PdfOutlineItem.Flags.set -> void
+Broadside.PdfOutlineItem.Insert(int index, string! title) -> Broadside.PdfOutlineItem!
+Broadside.PdfOutlineItem.IsOpen.set -> void
+Broadside.PdfOutlineItem.MoveTo(Broadside.PdfOutlineItem? parent, int index) -> void
+Broadside.PdfOutlineItem.Remove() -> void
+Broadside.PdfOutlineItem.Title.set -> void
+Broadside.PdfPageLabels.RemoveRange(int startPageIndex) -> bool
+Broadside.PdfPageLabels.SetRange(int startPageIndex, Broadside.PdfPageLabelStyle style, string? prefix = null, int firstNumber = 1) -> Broadside.PdfPageLabelRange!
