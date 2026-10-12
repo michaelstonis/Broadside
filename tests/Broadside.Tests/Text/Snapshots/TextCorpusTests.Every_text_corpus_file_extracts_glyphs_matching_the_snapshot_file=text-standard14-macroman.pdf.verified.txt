@@ -4,3 +4,5 @@
   ¤ code DB/1 GlyphName font Times-Roman 24 Fill origin (95.328, 700) advance (12, 0) quad (95.328, 694.792) (107.328, 694.792) (107.328, 716.392) (95.328, 716.392)
   • code A5/1 GlyphName font Times-Roman 24 Fill origin (107.328, 700) advance (8.4, 0) quad (107.328, 694.792) (115.728, 694.792) (115.728, 716.392) (107.328, 716.392)
   � code AD/1 Unmapped font Times-Roman 24 Fill origin (115.728, 700) advance (6, 0) quad (115.728, 694.792) (121.728, 694.792) (121.728, 716.392) (115.728, 716.392)
+  line Ä ¤•� glyphs 0+5 quad (72, 694.792) (121.728, 694.792) (121.728, 716.392) (72, 716.392)
+    words Ä glyphs 0+1 | ¤•� glyphs 2+3

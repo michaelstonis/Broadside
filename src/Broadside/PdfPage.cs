@@ -206,10 +206,10 @@ public sealed class PdfPage
     }
 
     /// <summary>Extracts the page's text: every glyph its content shows, with its Unicode text, position, font, size and rendering mode.</summary>
-    /// <returns>The glyphs in content order and their text.</returns>
+    /// <returns>The glyphs in content order and their text, with their words, lines and plain text assembled on first use.</returns>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content or its fonts.</exception>
     /// <remarks>
-    /// ISO 32000-2 §9.4.4, §9.10 and §14.9.4; see <see cref="Text.TextExtractor"/>. Text hidden by optional content is left out;
+    /// ISO 32000-2 §9.4.4, §9.10, §14.8.2.6.2 and §14.9.4; see <see cref="Text.TextExtractor"/>. Text hidden by optional content is left out;
     /// invisible text, artifacts and text replaced by <c>ActualText</c> are extracted and flagged (<see cref="Text.TextGlyphFlags"/>).
     /// Positions are in default user space. Annotation appearances are not part of the page's content and are not extracted.
     /// </remarks>

@@ -86,4 +86,12 @@ public readonly record struct TextGlyph
     /// <summary>Gets what sets the glyph apart: invisible, hidden, an artifact, replaced by <c>ActualText</c>.</summary>
     /// <remarks>ISO 32000-2 §9.3.6, §8.11.3.1, §14.8.2.2 and §14.9.4.</remarks>
     public TextGlyphFlags Flags { get; internal init; }
+
+    /// <summary>
+    /// Gets the text rendering matrix: from the glyph's text space, one unit per em with the font size, horizontal scaling and rise
+    /// applied, to page space. Its x axis is the baseline's direction, its y axis points up the glyph; for vertical writing it places
+    /// the glyph at its horizontal origin, as <see cref="Origin"/> does.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.4.4: <c>T_rm = [T_fs·T_h 0 0 T_fs 0 T_rise] × T_m × CTM</c>; §9.7.4.3 for vertical writing.</remarks>
+    public Matrix TextRenderingMatrix { get; internal init; }
 }
