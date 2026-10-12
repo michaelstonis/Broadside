@@ -74,6 +74,29 @@ public sealed class CidFontSubstitutionTests
         Assert.Equal([2, 0], new[] { 2, 3 }.Select(cidFont.GetGlyphId));
     }
 
+    [Theory]
+    [InlineData("/CIDFontType0", FontMatchKind.Exact)]
+    [InlineData("/CIDFontType2", FontMatchKind.Family)]
+    public void An_Identity_ordered_CIDFont_reaches_the_substitutes_glyphs_through_its_ToUnicode_map(string subtype, FontMatchKind kind)
+    {
+        // Adobe-Identity has no CID-to-Unicode table, so the font's ToUnicode CMap gives each code's Unicode value: 0x0007 is 日,
+        // 0x0009 is A, 0x000B maps to two characters (a ligature) and 0x000D is not mapped.
+        const string toUnicode = "/CIDInit /ProcSet findresource begin 12 dict begin begincmap /CMapName /Test-UCS def /CMapType 2 def\n"
+            + "1 begincodespacerange <0000> <FFFF> endcodespacerange\n3 beginbfchar <0007> <65E5> <0009> <0041> <000B> <00410041> endbfchar\n"
+            + "endcmap CMapName currentdict /CMap defineresource pop end end";
+        var resolver = new Resolver(SubstituteProgram(), ucs2: null, kind);
+        using PdfDocument document = FontPdf.Open(
+            Type0.Replace(">>", "/ToUnicode 7 0 R >>", StringComparison.Ordinal),
+            new PdfOptions().UseSystemFontResolver(null).UseFontResolver(resolver),
+            $"<< /Type /Font /Subtype {subtype} /BaseFont /BroadsideMincho /CIDSystemInfo << /Registry (Adobe) /Ordering (Identity) /Supplement 0 >> /FontDescriptor 6 0 R >>",
+            Descriptor,
+            $"<< /Length {toUnicode.Length} >>\nstream\n{toUnicode}\nendstream");
+        PdfType0Font font = Assert.IsType<PdfType0Font>(FontPdf.Font(document));
+
+        Assert.Equal([1, 2, 0, 0], new byte[][] { [0, 7], [0, 9], [0, 11], [0, 13] }.Select(code => font.ReadGlyph(code).GlyphId));
+        Assert.Equal(kind, font.DescendantFont!.Substitute?.MatchKind);
+    }
+
     /// <summary>A TrueType program: glyph 1 mapped from U+65E5, glyph 2 from U+0041.</summary>
     private static byte[] SubstituteProgram()
     {
@@ -88,14 +111,14 @@ public sealed class CidFontSubstitutionTests
         return builder.Build();
     }
 
-    private sealed class Resolver(byte[] program, string? ucs2) : IFontResolver
+    private sealed class Resolver(byte[] program, string? ucs2, FontMatchKind kind = FontMatchKind.Exact) : IFontResolver
     {
         public List<FontQuery> Queries { get; } = [];
 
         public FontResolution? ResolveFont(FontQuery query)
         {
             Queries.Add(query);
-            return query.Name == "BroadsideMincho" ? new FontResolution(program, "BroadsideMincho", FontMatchKind.Exact) : null;
+            return query.Name == "BroadsideMincho" ? new FontResolution(program, "BroadsideMincho", kind) : null;
         }
 
         public bool TryResolveResource(FontResourceKind kind, string name, out ReadOnlyMemory<byte> data)

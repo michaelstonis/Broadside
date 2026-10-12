@@ -1802,6 +1802,26 @@ def gen_text_cidcff_predefined_cmap() -> bytes:
     ], binary=True)
 
 
+def gen_text_cid_nonembedded() -> bytes:
+    """9.7.4 (a CIDFontType0 that is not embedded: no FontFile entry), 9.7.5.2 Table 116 (the predefined CMap
+    UniJIS-UTF16-H: codes are UTF-16BE), 9.7.6.2, 9.8 (the descriptor of a non-embedded CIDFont) and 9.10.2 (Unicode
+    through the Adobe-Japan1 collection). Shows <304230443046 65E5672C8A9E>: the kana A I U and the kanji NICHI HON GO;
+    a reader draws them with a substitute font found by name or by collection. No ToUnicode, no W (DW 1000)."""
+    content = b"BT /F1 24 Tf 72 700 Td <30423044304665E5672C8A9E> Tj ET"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>" % LETTER),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Font /Subtype /Type0 /BaseFont /KozMinPr6N-Regular-UniJIS-UTF16-H /Encoding /UniJIS-UTF16-H "
+            b"/DescendantFonts [6 0 R] >>"),
+        (6, b"<< /Type /Font /Subtype /CIDFontType0 /BaseFont /KozMinPr6N-Regular "
+            b"/CIDSystemInfo << /Registry (Adobe) /Ordering (Japan1) /Supplement 6 >> /FontDescriptor 7 0 R /DW 1000 >>"),
+        (7, b"<< /Type /FontDescriptor /FontName /KozMinPr6N-Regular /Flags 4 /FontBBox [-437 -340 1147 1317] "
+            b"/ItalicAngle 0 /Ascent 880 /Descent -120 /CapHeight 742 /StemV 80 >>"),
+    ])
+
+
 def gen_text_tounicode_bf() -> bytes:
     """9.10.3 ToUnicode CMap destinations: a bfchar to one character and one to a surrogate pair (U+1F600 as <D83DDE00>), a
     bfrange with an array (a two-letter ligature) and a bfrange with a string incremented per code. Identity-H over the
@@ -5461,6 +5481,7 @@ FILES = {
     "text-cid-identity-v.pdf": gen_text_cid_identity_v,
     "text-cid-embedded-cmap.pdf": gen_text_cid_embedded_cmap,
     "text-cidcff-predefined-cmap.pdf": gen_text_cidcff_predefined_cmap,
+    "text-cid-nonembedded.pdf": gen_text_cid_nonembedded,
     "text-tounicode-bf.pdf": gen_text_tounicode_bf,
     "text-glyph-names.pdf": gen_text_glyph_names,
     "xref-stream.pdf": gen_xref_stream,

@@ -3,22 +3,16 @@ using System.Collections.Frozen;
 namespace Broadside.Fonts.Resolution;
 
 /// <summary>
-/// The installed font faces of a set of directories, looked up by PostScript name and by family: built once by scanning the
-/// directories' font files (headers only), immutable afterwards.
+/// Installed font faces, looked up by PostScript name and by family: built over the faces of some or all of a set of directories'
+/// font files (headers only, <see cref="SystemFontCatalog"/>), immutable afterwards.
 /// </summary>
 /// <remarks>
-/// Files are visited in directory order, then by ordinal path order inside each directory, and faces in file order, so the index,
-/// and every lookup's tie-break, is the same on every run. Names containing a vertical bar and faces without outlines are skipped by
-/// the scanner. PDFBox's <c>FileSystemFontProvider</c> scans the same way; this index is not persisted.
+/// Faces are kept in scan order (<see cref="FontFileListing"/>: directory order, then ordinal path order inside each directory, and
+/// faces in file order), so the index, and every lookup's tie-break, is the same on every run. Names containing a vertical bar and
+/// faces without outlines are skipped by the scanner. PDFBox's <c>FileSystemFontProvider</c> scans the same way.
 /// </remarks>
 internal sealed class SystemFontIndex
 {
-    /// <summary>The font file extensions read: TrueType, OpenType and their collections.</summary>
-    private static readonly string[] Extensions = [".ttf", ".otf", ".ttc", ".otc"];
-
-    /// <summary>The most font files scanned, a guard against directories that are not font directories.</summary>
-    private const int MaxFiles = 100_000;
-
     private SystemFontIndex(List<SystemFontFace> faces)
     {
         Faces = faces;
@@ -53,65 +47,19 @@ internal sealed class SystemFontIndex
     /// <summary>Gets the faces by family key (<see cref="FontNameParser.FamilyKey"/>) of their typographic family, legacy family and PostScript name's family.</summary>
     public FrozenDictionary<string, IReadOnlyList<SystemFontFace>> ByFamily { get; }
 
-    /// <summary>Scans directories, recursively, skipping what cannot be read.</summary>
+    /// <summary>Scans directories, recursively, skipping what cannot be read: every file of their <see cref="FontFileListing"/>.</summary>
     /// <param name="directories">The directories, in priority order.</param>
     /// <returns>The index.</returns>
-    public static SystemFontIndex Build(IEnumerable<string> directories)
-    {
-        var faces = new List<SystemFontFace>();
-        var seen = new HashSet<string>(StringComparer.Ordinal);
-        int files = 0;
-        foreach (string directory in directories)
-        {
-            foreach (string path in EnumerateFonts(directory))
-            {
-                if (files++ >= MaxFiles)
-                {
-                    return new SystemFontIndex(faces);
-                }
+    public static SystemFontIndex Build(IEnumerable<string> directories) =>
+        new([.. FontFileListing.Create(directories, withStamps: false).Files.SelectMany(file => ScanFile(file.Path))]);
 
-                if (seen.Add(path))
-                {
-                    faces.AddRange(ScanFile(path));
-                }
-            }
-        }
-
-        return new SystemFontIndex(faces);
-    }
-
-    /// <summary>Builds an index over faces already scanned (fuzzing and tests).</summary>
+    /// <summary>Builds an index over faces already scanned, in scan order.</summary>
     internal static SystemFontIndex FromFaces(List<SystemFontFace> faces) => new(faces);
 
-    private static List<string> EnumerateFonts(string directory)
-    {
-        try
-        {
-            if (!Directory.Exists(directory))
-            {
-                return [];
-            }
-
-            var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, MaxRecursionDepth = 16, AttributesToSkip = 0 };
-            List<string> paths = [.. Directory.EnumerateFiles(directory, "*", options).Where(path => Extensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))];
-            paths.Sort(StringComparer.Ordinal);
-            return paths;
-        }
-        catch (IOException)
-        {
-            return [];
-        }
-        catch (UnauthorizedAccessException)
-        {
-            return [];
-        }
-        catch (System.Security.SecurityException)
-        {
-            return [];
-        }
-    }
-
-    private static List<SystemFontFace> ScanFile(string path)
+    /// <summary>Reads the faces of one font file (headers only); none when it cannot be read.</summary>
+    /// <param name="path">The file.</param>
+    /// <returns>The faces, in file order.</returns>
+    internal static List<SystemFontFace> ScanFile(string path)
     {
         try
         {
