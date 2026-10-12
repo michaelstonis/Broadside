@@ -6,6 +6,6 @@ public sealed class PackageSmokeTests
     [Fact]
     public void Package_assembly_loads()
     {
-        Assert.Equal("Broadside.Rendering", typeof(AssemblyMarker).Assembly.GetName().Name);
+        Assert.Equal("Broadside.Rendering", typeof(ScanlineRasterizer).Assembly.GetName().Name);
     }
 }

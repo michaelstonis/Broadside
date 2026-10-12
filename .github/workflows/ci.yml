@@ -96,6 +96,43 @@ jobs:
             artifacts/package/release/*.snupkg
           if-no-files-found: error
 
+  # Publishes the software rasterizer's smoke host with Native AOT (trimmed, no JIT) and runs it: it renders the rendering corpus
+  # files, compares them with the reviewed snapshots and round-trips the PNG output (issue #95). Proves rendering needs no native
+  # dependency beyond the runtime and no reflection the trimmer cannot see. Native AOT needs the platform linker: clang on Linux
+  # (preinstalled with zlib on the hosted image), Xcode on macOS, the MSVC tools on Windows.
+  aot-smoke:
+    name: aot-smoke (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Publish the AOT smoke host
+        run: dotnet publish tests/Broadside.Rendering.AotSmoke -c Release --use-current-runtime -o artifacts/aot-smoke
+
+      - name: Run it natively compiled
+        shell: bash
+        run: artifacts/aot-smoke/Broadside.Rendering.AotSmoke --require-aot
+
   # Shows the public API diff of the PR in the job summary for human review. It never fails: the
   # PublicApiAnalyzers (RS0016/RS0017) already fail the build when the API files and the code disagree.
   api-surface:

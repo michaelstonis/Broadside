@@ -16,7 +16,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Broadside/Broadside.csproj" />
-    <!-- The ICC engine (issue #117) lives in the rendering package. -->
+    <!-- The ICC engine (issue #117) and the software rasterizer (issue #95, the rasterize target) live in the rendering package. -->
     <ProjectReference Include="../../src/Broadside.Rendering/Broadside.Rendering.csproj" />
     <PackageReference Include="SharpFuzz" />
     <!-- Shared corpus locator, linked as source so this project does not drag xunit and Verify in through Broadside.TestSupport. -->

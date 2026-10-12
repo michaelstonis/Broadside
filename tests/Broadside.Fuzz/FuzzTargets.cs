@@ -76,6 +76,7 @@ internal static class FuzzTargets
         ["default-appearance"] = DefaultAppearanceTarget.Target,
         ["display-list"] = DisplayListTarget.Target,
         ["icc-profile"] = IccProfileTarget.Target,
+        ["rasterize"] = RasterizeTarget.Target,
     };
 
     /// <summary>
