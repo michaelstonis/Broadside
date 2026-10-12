@@ -24,7 +24,8 @@ namespace Broadside.Filters;
 /// <para>
 /// Encoding is writing, not reading, so leniency (ADR 0005) does not apply: parameters an encoder cannot honour make it throw
 /// <see cref="ArgumentException"/>. Whatever an encoder writes decodes, through the filter of the same name and the same
-/// parameters, to exactly the data it was given.
+/// parameters, to exactly the data it was given, except for a lossy image encoder (<see cref="DctEncoder"/>, §7.4.8), whose output
+/// decodes to samples of the same size close to it.
 /// </para>
 /// </remarks>
 public interface IStreamEncoder
