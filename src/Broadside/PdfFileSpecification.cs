@@ -56,6 +56,9 @@ public sealed class PdfFileSpecification
     /// <summary>Gets the indirect reference the specification was reached through, or <see langword="null"/> when it is direct.</summary>
     public CosReference? Reference { get; }
 
+    /// <summary>Gets the document the specification belongs to.</summary>
+    internal PdfDocument Document => _document;
+
     /// <summary>Gets the file system the specification is interpreted by (<c>FS</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §7.11.3, Table 43. <c>URL</c> is the only standard file system (§7.11.5).</remarks>
     public CosName? FileSystem => Dictionary is { } dictionary ? ViewReading.Name(_document, dictionary, FileAndLayerNames.FS) : null;
