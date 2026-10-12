@@ -202,7 +202,7 @@ internal sealed class ObjectLoader
     public void Rebase(PdfSource source, XrefSection section, bool replacesAll, IReadOnlyList<WrittenObject> written)
     {
         _source = source;
-        Scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.ExecutionAndPublication);
+        Scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.PublicationOnly);
         CrossReference = new CrossReference(replacesAll ? [section] : [section, .. CrossReference.Sections]);
         foreach (WrittenObject item in written)
         {
