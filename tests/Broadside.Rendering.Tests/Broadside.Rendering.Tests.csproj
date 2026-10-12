@@ -5,6 +5,7 @@
     <ProjectReference Include="../Broadside.TestSupport/Broadside.TestSupport.csproj" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Verify.XunitV3" />
+    <PackageReference Include="StbImageSharp" />
   </ItemGroup>
 
 </Project>

@@ -1,10 +1,12 @@
 using System.Collections.Concurrent;
+using System.Diagnostics.CodeAnalysis;
 using System.Globalization;
 using Broadside.Caching;
 using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.IO;
 using Broadside.Objects;
+using Broadside.Writing;
 using Microsoft.Extensions.Logging;
 
 namespace Broadside.Parsing;
@@ -45,11 +47,14 @@ internal sealed class ObjectLoader
     /// <summary>How far before and after a wrong offset the object's header is looked for before the whole file is scanned.</summary>
     private const int NearSearchDistance = 1024;
 
-    private readonly PdfSource _source;
     private readonly DiagnosticSink _diagnostics;
+    private PdfSource _source;
     private readonly StreamDecoder _streams;
     private OnceCache<int, ObjectStream?>? _objectStreams;
     private ConcurrentDictionary<CosReference, ObjectSourceBytes>? _sourceBytes;
+    private Dictionary<int, CosObject>? _added;
+    private Dictionary<int, int>? _removed;
+    private int _nextNumber;
 
     /// <summary>Initializes a new instance of the <see cref="ObjectLoader"/> class.</summary>
     /// <param name="source">The file.</param>
@@ -78,8 +83,11 @@ internal sealed class ObjectLoader
     /// <summary>Gets the file header.</summary>
     public FileHeader Header { get; }
 
-    /// <summary>Gets the cross-reference information the loader locates objects with.</summary>
-    public CrossReference CrossReference { get; }
+    /// <summary>
+    /// Gets the cross-reference information the loader locates objects with; an incremental save adds the section it wrote
+    /// (<see cref="Rebase"/>).
+    /// </summary>
+    public CrossReference CrossReference { get; private set; }
 
     /// <summary>Gets the hooks.</summary>
     public ObjectLoaderHooks Hooks { get; }
@@ -91,7 +99,149 @@ internal sealed class ObjectLoader
     /// Gets the scan of the whole file that objects whose entries are wrong are searched in, run on first use (issue #41). The open
     /// path shares one scan between cross-reference repair and the loader.
     /// </summary>
-    public Lazy<FileScan> Scan { get; init; }
+    public Lazy<FileScan> Scan { get; set; }
+
+    /// <summary>
+    /// Gets the objects added with <see cref="Add"/> since the document's file was read or last rebased, by object number; each has
+    /// generation 0 and is in the cache.
+    /// </summary>
+    public IReadOnlyDictionary<int, CosObject> AddedObjects => (IReadOnlyDictionary<int, CosObject>?)_added ?? EmptyAdded;
+
+    /// <summary>
+    /// Gets the objects of the file removed with <see cref="Remove"/> since it was read or last rebased: object number to the
+    /// generation the removed object had.
+    /// </summary>
+    public IReadOnlyDictionary<int, int> RemovedObjects => (IReadOnlyDictionary<int, int>?)_removed ?? EmptyRemoved;
+
+    private static IReadOnlyDictionary<int, CosObject> EmptyAdded { get; } = new Dictionary<int, CosObject>();
+
+    private static IReadOnlyDictionary<int, int> EmptyRemoved { get; } = new Dictionary<int, int>();
+
+    /// <summary>
+    /// Makes <paramref name="value"/> a new indirect object under the next unused object number, generation 0 (§7.3.10), resolvable
+    /// at once. A mutation: single-threaded, like every change to a document.
+    /// </summary>
+    /// <param name="value">The object.</param>
+    /// <returns>The reference to the new object.</returns>
+    /// <exception cref="ArgumentException"><paramref name="value"/> is a reference, which an indirect object cannot be.</exception>
+    public CosReference Add(CosObject value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        if (value is CosReference)
+        {
+            throw new ArgumentException("An indirect object cannot be a reference.", nameof(value));
+        }
+
+        if (_nextNumber == 0)
+        {
+            _nextNumber = FirstUnusedNumber();
+        }
+
+        if (_nextNumber == int.MaxValue)
+        {
+            throw new InvalidOperationException("The document has no object number left for a new object.");
+        }
+
+        var reference = new CosReference(_nextNumber++, 0);
+        (_added ??= [])[reference.ObjectNumber] = value;
+        Hooks.Cache.Publish(reference, value);
+        return reference;
+    }
+
+    /// <summary>
+    /// Removes the object <paramref name="reference"/> names: references to it resolve to null from now on (§7.3.10), and a save
+    /// writes its number as a free entry (§7.5.4). A mutation: single-threaded, like every change to a document.
+    /// </summary>
+    /// <param name="reference">The object's number and generation.</param>
+    /// <returns><see langword="false"/> when the document holds no object under that number and generation.</returns>
+    public bool Remove(CosReference reference)
+    {
+        int number = reference.ObjectNumber;
+        if (_added is { } added && reference.Generation == 0 && added.Remove(number))
+        {
+            Hooks.Cache.Remove(reference);
+            return true;
+        }
+
+        if ((_removed is { } removed && removed.ContainsKey(number))
+            || !CrossReference.TryGetEntry(number, out XrefEntry entry)
+            || entry.Kind switch
+            {
+                XrefEntryKind.InUse => entry.Generation != reference.Generation,
+                XrefEntryKind.Compressed => reference.Generation != 0,
+                _ => true,
+            })
+        {
+            return false;
+        }
+
+        (_removed ??= [])[number] = reference.Generation;
+        Hooks.Cache.Remove(reference);
+        return true;
+    }
+
+    /// <summary>Finds an object that has been loaded (or added) without loading it.</summary>
+    /// <param name="reference">The object's number and generation.</param>
+    /// <param name="value">The object, when loaded.</param>
+    /// <returns><see langword="true"/> when the object is loaded.</returns>
+    public bool TryGetLoaded(CosReference reference, [NotNullWhen(true)] out CosObject? value) => Hooks.Cache.TryGet(reference, out value);
+
+    /// <summary>
+    /// Re-points the loader at a file an incremental update was appended to (§7.5.6): objects are located through the update's
+    /// cross-reference section first, the written objects' bytes are where the update put them, and they are no longer dirty. Added
+    /// and removed objects are now ordinary entries of the cross-reference information. Loaded objects stay loaded, as the same
+    /// instances.
+    /// </summary>
+    /// <param name="source">The updated file.</param>
+    /// <param name="section">The update's cross-reference section.</param>
+    /// <param name="replacesAll">
+    /// Whether the section lists every object, so the older sections are no longer read (an update to a file whose cross-reference
+    /// information was rebuilt has no previous section to point at).
+    /// </param>
+    /// <param name="written">The objects the update wrote and where their bytes are in <paramref name="source"/>.</param>
+    public void Rebase(PdfSource source, XrefSection section, bool replacesAll, IReadOnlyList<WrittenObject> written)
+    {
+        _source = source;
+        Scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.ExecutionAndPublication);
+        CrossReference = new CrossReference(replacesAll ? [section] : [section, .. CrossReference.Sections]);
+        foreach (WrittenObject item in written)
+        {
+            SourceBytes[item.Reference] = ObjectSourceBytes.InFile(item.Offset, item.Length);
+            item.Value.MarkClean();
+        }
+
+        if (_removed is { } removed)
+        {
+            foreach ((int number, int generation) in removed)
+            {
+                SourceBytes.TryRemove(new CosReference(number, generation), out _);
+            }
+        }
+
+        _added = null;
+        _removed = null;
+        _nextNumber = 0;
+    }
+
+    /// <summary>
+    /// The lowest object number above every number the file uses: its entries and the trailer's <c>Size</c> (§7.5.5, Table 15),
+    /// unless <c>Size</c> is out of range.
+    /// </summary>
+    private int FirstUnusedNumber()
+    {
+        long next = 1;
+        foreach (int number in CrossReference.Entries.Keys)
+        {
+            next = Math.Max(next, (long)number + 1);
+        }
+
+        if (CrossReference.Trailer.TryGetValue(KnownNames.Size, out CosObject? size) && size is CosInteger { Value: > 0 and < int.MaxValue } count)
+        {
+            next = Math.Max(next, count.Value);
+        }
+
+        return (int)Math.Min(next, int.MaxValue);
+    }
 
     /// <summary>
     /// Finds the source bytes of an object this loader has loaded and read without repairs, so a writer can copy them instead of
@@ -137,7 +287,8 @@ internal sealed class ObjectLoader
             return cached;
         }
 
-        if (!CrossReference.TryGetEntry(reference.ObjectNumber, out XrefEntry entry)
+        if ((_removed is { } removed && removed.ContainsKey(reference.ObjectNumber))
+            || !CrossReference.TryGetEntry(reference.ObjectNumber, out XrefEntry entry)
             || entry.Kind switch
             {
                 XrefEntryKind.InUse => entry.Generation != reference.Generation,

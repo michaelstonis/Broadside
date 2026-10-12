@@ -99,8 +99,19 @@ internal sealed class EngineConfiguration
             options.SynchronousRangeFetch && !OperatingSystem.IsBrowser() && !OperatingSystem.IsWasi()),
         FontProgramParsers = FontProgramParserRegistry.Create(options.FontProgramParsers),
         ColorManagement = options.ColorManagement,
-        FontResolvers = options.FontResolvers.Count == 0 && ReferenceEquals(options.SystemFontResolver, SystemFontResolver.Shared)
-            ? FontResolverChain.Default
-            : new FontResolverChain(options.FontResolvers, options.SystemFontResolver),
+        FontResolvers = CreateFontResolvers(options),
     };
+
+    private static FontResolverChain CreateFontResolvers(PdfOptions options)
+    {
+        IFontResolver? system = options.SystemFontResolver;
+        if (ReferenceEquals(system, SystemFontResolver.Shared) && !string.IsNullOrEmpty(options.SystemFontIndexPath))
+        {
+            system = SystemFontResolver.ForIndexPath(options.SystemFontIndexPath);
+        }
+
+        return options.FontResolvers.Count == 0 && ReferenceEquals(system, SystemFontResolver.Shared)
+            ? FontResolverChain.Default
+            : new FontResolverChain(options.FontResolvers, system);
+    }
 }

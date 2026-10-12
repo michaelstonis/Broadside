@@ -77,6 +77,13 @@ internal sealed class OnceCache<TKey, TValue>
         return entry.IsCompleted ? entry.Result : value;
     }
 
+    /// <summary>
+    /// Forgets the value for <paramref name="key"/>, so the next request computes it again. Only for a mutation of what the cache was
+    /// built from, which the concurrency contract makes single-threaded: no request may run at the same time.
+    /// </summary>
+    /// <param name="key">The key.</param>
+    public void Remove(TKey key) => _entries.TryRemove(key, out _);
+
     /// <summary>Returns the value for <paramref name="key"/>, computing it with <paramref name="create"/> when nobody has.</summary>
     /// <typeparam name="TState">What the factories need, passed through so they can be static.</typeparam>
     /// <param name="key">The key.</param>

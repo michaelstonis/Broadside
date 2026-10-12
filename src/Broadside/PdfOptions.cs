@@ -427,6 +427,29 @@ public sealed class PdfOptions
         return this;
     }
 
+    /// <summary>
+    /// Gets or sets the file where the default operating-system font resolver keeps the index of the font files it has read, so a
+    /// later process finds installed fonts without reading their files again; <see langword="null"/> (the default) keeps no index and
+    /// writes nothing.
+    /// </summary>
+    /// <remarks>
+    /// ADR 0009. The file is created, with its directory, after the first font the operating system's fonts are asked for, and
+    /// rewritten when more font files have been read. Font files added, removed or changed since are read again, so the index never
+    /// changes which font is found. Engines with the same path share one resolver in the process. Applies only to the default
+    /// resolver: one set with <see cref="UseSystemFontResolver"/> keeps its own index (<see cref="Fonts.SystemFontResolver.IndexPath"/>).
+    /// </remarks>
+    public string? SystemFontIndexPath { get; set; }
+
+    /// <summary>Sets <see cref="SystemFontIndexPath"/>.</summary>
+    /// <param name="path">The index file, or <see langword="null"/> to keep none.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ADR 0009.</remarks>
+    public PdfOptions WithSystemFontIndexPath(string? path)
+    {
+        SystemFontIndexPath = path;
+        return this;
+    }
+
     /// <summary>Offers <paramref name="credentials"/> to every encrypted document opened without credentials of its own.</summary>
     /// <param name="credentials">The credentials, or <see langword="null"/> for none.</param>
     /// <returns>These options.</returns>

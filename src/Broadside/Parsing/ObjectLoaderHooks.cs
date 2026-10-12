@@ -79,6 +79,13 @@ internal interface IObjectCache
     /// <param name="value">The loaded object.</param>
     /// <returns>The cached instance, which every caller must use.</returns>
     CosObject Publish(CosReference reference, CosObject value);
+
+    /// <summary>
+    /// Forgets the object <paramref name="reference"/> names, which the document no longer holds (a removed object, ISO 32000-2
+    /// §7.5.4). A mutation: called only while nothing reads the document.
+    /// </summary>
+    /// <param name="reference">The object's number and generation.</param>
+    void Remove(CosReference reference);
 }
 
 /// <summary>
@@ -153,6 +160,9 @@ internal sealed class ObjectCache : IObjectCache
 
     /// <inheritdoc/>
     public CosObject Publish(CosReference reference, CosObject value) => _objects.Add(reference, value);
+
+    /// <inheritdoc/>
+    public void Remove(CosReference reference) => _objects.Remove(reference);
 }
 
 /// <summary>

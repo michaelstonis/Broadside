@@ -11,6 +11,7 @@
       "tests/Broadside.TestSupport/Broadside.TestSupport.csproj",
       "tests/Broadside.Tests/Broadside.Tests.csproj",
       "tests/Broadside.Rendering.Tests/Broadside.Rendering.Tests.csproj",
+      "tests/Broadside.Rendering.AotSmoke/Broadside.Rendering.AotSmoke.csproj",
       "tests/Broadside.Rendering.Skia.Tests/Broadside.Rendering.Skia.Tests.csproj",
       "tests/Broadside.Fonts.Standard14.Tests/Broadside.Fonts.Standard14.Tests.csproj",
       "tests/Broadside.Fonts.Cmaps.Tests/Broadside.Fonts.Cmaps.Tests.csproj",
