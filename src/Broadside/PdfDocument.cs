@@ -347,8 +347,16 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="DiagnosticException">The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
     /// <remarks>ISO 32000-2 §7.5. The same as <see cref="PdfEngine.OpenAsync(Stream, CancellationToken)"/> on an engine built from <paramref name="options"/>.</remarks>
-    public static Task<PdfDocument> OpenAsync(Stream stream, PdfOptions options, CancellationToken cancellationToken = default) =>
+    public static Task<PdfDocument> OpenAsync(Stream stream, PdfOptions options, CancellationToken cancellationToken) =>
         new PdfEngine(options).OpenAsync(stream, cancellationToken);
+
+    /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position; a non-seekable stream is read asynchronously.</summary>
+    /// <param name="stream">The stream. It is not disposed; a seekable stream must stay open and unchanged until the document is disposed.</param>
+    /// <param name="options">The options.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="DiagnosticException">The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.</exception>
+    /// <remarks>ISO 32000-2 §7.5. As <see cref="OpenAsync(Stream, PdfOptions, CancellationToken)"/>, without cancellation.</remarks>
+    public static Task<PdfDocument> OpenAsync(Stream stream, PdfOptions options) => new PdfEngine(options).OpenAsync(stream, CancellationToken.None);
 
     /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position.</summary>
     /// <param name="stream">The stream. It is not disposed; keep it open and unchanged until the document is disposed.</param>
@@ -357,6 +365,50 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="DiagnosticException">The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.</exception>
     /// <remarks>ISO 32000-2 §7.5.</remarks>
     public static PdfDocument Open(Stream stream, PdfOptions options) => new PdfEngine(options).Open(stream);
+
+    /// <summary>Opens the remote PDF file at <paramref name="uri"/> through HTTP range requests.</summary>
+    /// <param name="httpClient">The client the requests go through; not disposed. It stays in use until the document is disposed.</param>
+    /// <param name="uri">The file's address.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <remarks>
+    /// Spec #33, viewer capability 5. The same as <see cref="PdfEngine.OpenAsync(HttpClient, Uri, CancellationToken)"/> on an engine
+    /// with default options.
+    /// </remarks>
+    public static Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri) => PdfEngine.Default.OpenAsync(httpClient, uri, CancellationToken.None);
+
+    /// <summary>Opens the remote PDF file at <paramref name="uri"/> through HTTP range requests.</summary>
+    /// <param name="httpClient">The client the requests go through; not disposed. It stays in use until the document is disposed.</param>
+    /// <param name="uri">The file's address.</param>
+    /// <param name="cancellationToken">Cancels the requests made while opening.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <remarks>
+    /// Spec #33, viewer capability 5. The same as <see cref="PdfEngine.OpenAsync(HttpClient, Uri, CancellationToken)"/> on an engine
+    /// with default options.
+    /// </remarks>
+    public static Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri, CancellationToken cancellationToken) =>
+        PdfEngine.Default.OpenAsync(httpClient, uri, cancellationToken);
+
+    /// <summary>Opens the remote PDF file at <paramref name="uri"/> through HTTP range requests.</summary>
+    /// <param name="httpClient">The client the requests go through; not disposed. It stays in use until the document is disposed.</param>
+    /// <param name="uri">The file's address.</param>
+    /// <param name="options">The options, such as the range block size, cache limit and whether synchronous reads may fetch.</param>
+    /// <param name="cancellationToken">Cancels the requests made while opening.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <remarks>
+    /// Spec #33, viewer capability 5. The same as <see cref="PdfEngine.OpenAsync(HttpClient, Uri, CancellationToken)"/> on an engine
+    /// built from <paramref name="options"/>.
+    /// </remarks>
+    public static Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri, PdfOptions options, CancellationToken cancellationToken) =>
+        new PdfEngine(options).OpenAsync(httpClient, uri, cancellationToken);
+
+    /// <summary>Opens the remote PDF file at <paramref name="uri"/> through HTTP range requests.</summary>
+    /// <param name="httpClient">The client the requests go through; not disposed. It stays in use until the document is disposed.</param>
+    /// <param name="uri">The file's address.</param>
+    /// <param name="options">The options, such as the range block size, cache limit and whether synchronous reads may fetch.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <remarks>Spec #33, viewer capability 5. As <see cref="OpenAsync(HttpClient, Uri, PdfOptions, CancellationToken)"/>, without cancellation.</remarks>
+    public static Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri, PdfOptions options) =>
+        new PdfEngine(options).OpenAsync(httpClient, uri, CancellationToken.None);
 
     /// <summary>Opens the PDF file held in <paramref name="bytes"/> with default options.</summary>
     /// <param name="bytes">
@@ -1180,7 +1232,8 @@ public sealed partial class PdfDocument : IDisposable
             {
                 MaxImagePixels = configuration.MaxImagePixels,
             };
-            var scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.ExecutionAndPublication);
+            // Publication only: the scan is pure, and a scan of a remote file that misses (issue #207) must not be cached as failed.
+            var scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.PublicationOnly);
             CrossReference? crossReference = CrossReferenceReader.Read(source, header, streams, diagnostics, scan);
             bool reconstructed = crossReference is null;
             crossReference ??= Reconstruct(source, header, scan.Value, streams, diagnostics, reportMissingTrailer: true);
@@ -1236,8 +1289,9 @@ public sealed partial class PdfDocument : IDisposable
 
             return document;
         }
-        catch
+        catch (Exception exception) when (exception is not PdfRangeNotLoadedException)
         {
+            // A miss is not a failure: a remote open runs again once the bytes are fetched (issue #207), over the same source.
             source.Dispose();
             throw;
         }

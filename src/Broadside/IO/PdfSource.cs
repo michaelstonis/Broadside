@@ -47,6 +47,27 @@ internal abstract class PdfSource : IDisposable
     /// </summary>
     public virtual int InitialWindow => 64 * 1024;
 
+    /// <summary>
+    /// Gets the window <see cref="GetWindow(long)"/> asks a windowed source for: <see cref="StructureWindow"/>, except for a source
+    /// where every byte read is a byte fetched (issue #207), which asks for less.
+    /// </summary>
+    public virtual int ProbeWindow => StructureWindow;
+
+    /// <summary>
+    /// Gets a value indicating whether reading any byte is cheap: <see langword="false"/> for a remote file, where every byte read is a
+    /// byte fetched, so checks that would read the whole file (a header's binary comment, §7.5.2) are skipped.
+    /// </summary>
+    public virtual bool IsLocal => true;
+
+    /// <summary>
+    /// Returns how large a first window the object at <paramref name="offset"/> probably needs, when the source knows where the next
+    /// object starts; 0 when it does not. A source that fetches what it reads (issue #207) uses it so that a window grown by doubling
+    /// does not reach far into the next object.
+    /// </summary>
+    /// <param name="offset">The absolute offset of the object's header.</param>
+    /// <returns>The window length, or 0.</returns>
+    public virtual int ExpectedObjectWindow(long offset) => 0;
+
     /// <summary>Creates a source over bytes the caller promises not to change while the source is in use. The bytes are not copied.</summary>
     /// <param name="bytes">The file.</param>
     /// <returns>The source.</returns>
@@ -129,6 +150,19 @@ internal abstract class PdfSource : IDisposable
             return FromSeekableStream(stream);
         }
 
+        return await CopyFromStreamAsync(stream, bufferLimit, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Copies the bytes of <paramref name="stream"/> from its current position to its end, asynchronously, into memory or, past
+    /// <paramref name="bufferLimit"/>, into a temporary file; the source does not need the stream afterwards.
+    /// </summary>
+    /// <param name="stream">The stream; not disposed.</param>
+    /// <param name="bufferLimit">How many bytes to copy into memory before using a temporary file.</param>
+    /// <param name="cancellationToken">Cancels the copy.</param>
+    /// <returns>The source.</returns>
+    public static async Task<PdfSource> CopyFromStreamAsync(Stream stream, long bufferLimit, CancellationToken cancellationToken)
+    {
         bufferLimit = Math.Min(bufferLimit, Array.MaxLength);
         byte[] buffer = new byte[CopyBufferLength];
         var memory = new MemoryStream();
@@ -174,12 +208,13 @@ internal abstract class PdfSource : IDisposable
 
     /// <summary>
     /// Returns a contiguous view of the bytes from <paramref name="offset"/> on, for the span-based parsers. The view ends at the end
-    /// of the file or, for a source that reads in windows, after at least <see cref="StructureWindow"/> bytes; parsers treat its end as
-    /// the end of input.
+    /// of the file or, for a source that reads in windows, after at least <see cref="ProbeWindow"/> bytes; parsers treat its end as
+    /// the end of input. Only the first tokens of a structure are read through it (whether a cross-reference section starts here,
+    /// the <c>startxref</c> after a trailer); whole structures are read through <see cref="ReadGrowing"/>.
     /// </summary>
     /// <param name="offset">The offset of the first byte of the view.</param>
     /// <returns>The view, empty when <paramref name="offset"/> is at or past the end of the file.</returns>
-    public ReadOnlyMemory<byte> GetWindow(long offset) => GetWindow(offset, StructureWindow);
+    public ReadOnlyMemory<byte> GetWindow(long offset) => GetWindow(offset, ProbeWindow);
 
     /// <summary>
     /// Returns a contiguous view of the bytes from <paramref name="offset"/> on, at least <paramref name="minimumLength"/> long unless
