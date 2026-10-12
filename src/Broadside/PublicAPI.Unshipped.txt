@@ -3688,3 +3688,12 @@ Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor) -> boo
 Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
 Broadside.Forms.PdfTextField.GenerateAppearances() -> void
 Broadside.Forms.PdfTextField.SetValue(string? value) -> void
+Broadside.Forms.PdfToggleButtonField.SetValue(Broadside.Objects.CosName! value) -> void
+Broadside.Forms.PdfToggleButtonField.Select(Broadside.Annotations.PdfWidgetAnnotation! widget) -> void
+Broadside.Forms.PdfToggleButtonField.SetExportValue(string? exportValue) -> void
+Broadside.Forms.PdfToggleButtonField.GenerateAppearances() -> void
+Broadside.Forms.PdfCheckBoxField.SetChecked(bool isChecked) -> void
+Broadside.Forms.PdfChoiceField.SetValue(string? value) -> void
+Broadside.Forms.PdfChoiceField.SetSelectedIndices(System.Collections.Generic.IEnumerable<int>! indices) -> void
+Broadside.Forms.PdfChoiceField.GenerateAppearances() -> void
+Broadside.Forms.PdfListBoxField.SetTopIndex(int topIndex) -> void
