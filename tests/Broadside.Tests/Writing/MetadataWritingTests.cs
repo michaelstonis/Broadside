@@ -1,6 +1,7 @@
 using System.Text;
 using System.Xml;
 using Broadside.Objects;
+using Broadside.Security;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.Writing;
@@ -283,6 +284,49 @@ public sealed class MetadataWritingTests
     }
 
     /// <summary>A structural description of a property, independent of how it was serialized, for comparing packets.</summary>
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void The_dated_metadata_stream_of_an_encrypted_save_is_plaintext_only_without_metadata_encryption(bool encryptMetadata)
+    {
+        // §7.6.3.2: EncryptMetadata false leaves the document-level metadata stream unencrypted; the packet dated by the save
+        // (§14.3.4) follows the same rule, both under new encryption and when the encrypted file is changed and saved again.
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("metadata-xmp.pdf"), Options);
+        document.Properties.Title = "Dated";
+        var encryption = new PdfEncryptionOptions("user", "owner").WithEncryptMetadata(encryptMetadata);
+
+        byte[] saved = Save(document, new PdfSaveOptions().WithEncryption(encryption));
+
+        AssertDatedPacket(saved, Now, "Dated", encryptMetadata);
+
+        DateTimeOffset later = Now.AddDays(1);
+        using PdfDocument encrypted = new PdfEngine(new PdfOptions().UseTimeProvider(new FixedTimeProvider(later)))
+            .Open(saved, new PdfPassword("user"));
+        encrypted.Properties.Title = "Dated again";
+
+        byte[] resaved = Save(encrypted);
+
+        AssertDatedPacket(resaved, later, "Dated again", encryptMetadata);
+    }
+
+    private static void AssertDatedPacket(byte[] file, DateTimeOffset dated, string title, bool encryptMetadata)
+    {
+        ReadOnlySpan<byte> bytes = file;
+        byte[] date = Encoding.ASCII.GetBytes(dated.ToString("yyyy-MM-dd'T'HH:mm:sszzz", System.Globalization.CultureInfo.InvariantCulture));
+        Assert.Equal(!encryptMetadata, bytes.IndexOf("<?xpacket"u8) >= 0);
+        Assert.Equal(!encryptMetadata, bytes.IndexOf(date) >= 0);
+        Assert.Equal(!encryptMetadata, bytes.IndexOf(Encoding.UTF8.GetBytes(title)) >= 0);
+
+        using PdfDocument reopened = new PdfEngine().Open(file, new PdfPassword("user"));
+        Assert.Equal(encryptMetadata, reopened.Security!.EncryptsMetadata);
+        XmpPacket packet = reopened.Metadata!.Packet!;
+        Assert.Equal(title, packet.Title);
+        Assert.Equal(dated, packet.ModifyDate!.Value.Value);
+        Assert.Equal(dated, packet.MetadataDate!.Value.Value);
+        Assert.Equal(dated, reopened.Information!.ModificationDate!.Value.Value);
+        Assert.Empty(reopened.Diagnostics);
+    }
+
     private static string Describe(XmpProperty property) =>
         $"{property.NamespaceName}|{property.Name}|{property.Kind}|{property.Value}|{property.Language}"
         + $"[{string.Join(",", property.Items.Select(Describe))}]{{{string.Join(",", property.Fields.Select(Describe))}}}({string.Join(",", property.Qualifiers.Select(Describe))})";
