@@ -28,16 +28,26 @@ internal sealed partial class DisplayListBuilder
     /// <inheritdoc/>
     /// <remarks>
     /// ISO 32000-2 §8.5.3, Table 59: <c>f</c>, <c>F</c>, <c>f*</c> and the fill of <c>B</c>, <c>B*</c>, <c>b</c>, <c>b*</c> become a
-    /// fill with the nonstroking colour (§8.5.3.3.1). Strokes (§8.5.3.2), clips (§8.5.4) and fills in a Pattern colour (§8.7) are
-    /// not in the list yet; later Phase 3 tickets add them.
+    /// fill with the nonstroking colour (§8.5.3.3.1); <c>S</c>, <c>s</c> and the stroke of the <c>B</c> family, after its fill, become
+    /// a stroke (§8.5.3.2, <c>DisplayListBuilder.Strokes.cs</c>). Clips (§8.5.4) and paints in a Pattern colour (§8.7) are not in
+    /// the list yet; later Phase 3 tickets add them.
     /// </remarks>
     public override void PaintPath(in PathEvent path, ContentContext context)
     {
-        if (path.Paint is not (PathPaint.Fill or PathPaint.FillAndStroke))
+        if (path.Paint is PathPaint.Fill or PathPaint.FillAndStroke)
         {
-            return;
+            FillPath(path, context);
         }
 
+        if (path.Paint is PathPaint.Stroke or PathPaint.FillAndStroke)
+        {
+            StrokePath(path, context);
+        }
+    }
+
+    /// <summary>Records the fill of a path with the nonstroking colour.</summary>
+    private void FillPath(in PathEvent path, ContentContext context)
+    {
         ref readonly GraphicsState state = ref context.State;
         ref readonly PdfColor fill = ref state.FillColor;
         if (fill.ColorSpace.Family == PdfColorSpaceFamily.Pattern)

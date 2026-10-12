@@ -11,6 +11,9 @@ public sealed class RenderingSnapshotTests
     [Fact]
     public Task Paths_fill_rules_pdf_matches_its_reviewed_snapshot() => VerifyPage("paths-fill-rules.pdf", 0);
 
+    [Fact]
+    public Task Paths_strokes_pdf_matches_its_reviewed_snapshot() => VerifyPage("paths-strokes.pdf", 0);
+
     [Theory]
     [InlineData(0)]
     [InlineData(1)]

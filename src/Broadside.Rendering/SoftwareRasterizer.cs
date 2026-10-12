@@ -17,6 +17,12 @@ namespace Broadside.Rendering;
 /// the engine's colour management (<see cref="IColorManagement"/>) decides them (§8.6, §10).
 /// </para>
 /// <para>
+/// Clipping (§8.5.4): the clip starts as the rendered page area and is intersected with each clipping path the list hands over,
+/// saved and restored with the graphics state; a form is clipped to its bounding box (§8.10.1). Clips are anti-aliased: a rectangle
+/// that stays aligned with the pixel axes only narrows a clip rectangle (no mask), any other path becomes a pooled coverage mask.
+/// Every paint's coverage is multiplied by the clip's.
+/// </para>
+/// <para>
 /// Reuse one instance for many renders: its working buffers are pooled and kept, so a warm render allocates nothing per path, cell or
 /// scanline. An instance renders one page at a time; use one per thread to render in parallel (a document is safe for concurrent
 /// renders while nobody changes it).
@@ -144,6 +150,8 @@ public sealed class SoftwareRasterizer : IDisposable
         private const double CoordinateLimit = 1099511627776.0;
 
         private readonly ScanlineRasterizer _scan = new();
+        private readonly Stroker _stroker;
+        private readonly RasterClip _clip = new();
         private Matrix[] _stack = new Matrix[16];
         private int _depth;
         private Matrix _device;
@@ -159,6 +167,8 @@ public sealed class SoftwareRasterizer : IDisposable
         private PdfDefaultColorSpaces? _defaults;
         private PdfColorConverter? _converter;
 
+        public Backend() => _stroker = new Stroker(_scan);
+
         public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height)
         {
             _document = document;
@@ -169,10 +179,13 @@ public sealed class SoftwareRasterizer : IDisposable
             _depth = 0;
             _width = width;
             _height = height;
+            _clip.Reset(width, height);
+            _scan.Clip = _clip;
         }
 
         public void End()
         {
+            _clip.Release();
             _document = null;
             _target = null;
             _space = null;
@@ -188,6 +201,7 @@ public sealed class SoftwareRasterizer : IDisposable
             }
 
             _stack[_depth++] = _ctm;
+            _clip.Save();
         }
 
         public void RestoreState()
@@ -196,6 +210,8 @@ public sealed class SoftwareRasterizer : IDisposable
             {
                 SetTransform(in _stack[--_depth]);
             }
+
+            _clip.Restore();
         }
 
         public void SetTransform(in Matrix transform)
@@ -207,7 +223,7 @@ public sealed class SoftwareRasterizer : IDisposable
         public void FillPath(PathView path, FillRule rule, in DisplayColor color)
         {
             PdfColorConverter converter = Converter(color);
-            if (converter.PaintsNothing || path.IsEmpty)
+            if (converter.PaintsNothing || path.IsEmpty || _clip.IsEmpty)
             {
                 return;
             }
@@ -221,7 +237,97 @@ public sealed class SoftwareRasterizer : IDisposable
             _scan.Fill(_target!, rule, pixel);
         }
 
-        public void Dispose() => _scan.Dispose();
+        public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
+        {
+            PdfColorConverter converter = Converter(color);
+            if (converter.PaintsNothing || path.IsEmpty || _clip.IsEmpty)
+            {
+                return;
+            }
+
+            Span<float> rgb = stackalloc float[4];
+            converter.Convert(color.Components, rgb);
+            uint pixel = Pack(rgb);
+
+            _scan.Reset(_width, _height);
+            _stroker.Stroke(path, style, _toDevice);
+            _scan.Fill(_target!, FillRule.NonZero, pixel);
+        }
+
+        /// <summary>
+        /// Intersects the clip with the path (ISO 32000-2 §8.5.4): a rectangle that stays aligned with the pixel axes only narrows the
+        /// clip rectangle; any other path is scan converted like a fill (§8.5.3.3) into the clip's coverage mask.
+        /// </summary>
+        public void IntersectClip(PathView path, FillRule rule)
+        {
+            if (_clip.IsEmpty)
+            {
+                return;
+            }
+
+            if (TryMapRectangle(path, out double left, out double top, out double right, out double bottom))
+            {
+                _clip.IntersectRectangle(left, top, right, bottom);
+                return;
+            }
+
+            _scan.Reset(_width, _height);
+            AddPath(path);
+            _clip.IntersectPath(_scan, rule);
+        }
+
+        public void Dispose()
+        {
+            _scan.Dispose();
+            _clip.Dispose();
+        }
+
+        /// <summary>
+        /// Whether <paramref name="path"/> is one rectangle (four points, as <c>re</c> makes it, optionally back to its start and
+        /// closed) whose sides map to device lines along the pixel axes, and its device bounds if so. Its inside is the same under
+        /// either fill rule. A rectangle of a single point is a degenerate subpath, which is left to the general case.
+        /// </summary>
+        private bool TryMapRectangle(PathView path, out double left, out double top, out double right, out double bottom)
+        {
+            left = top = right = bottom = 0;
+            ReadOnlySpan<PathVerb> verbs = path.Verbs;
+            ReadOnlySpan<PathPoint> points = path.Points;
+            int segments = verbs.Length > 0 && verbs[^1] == PathVerb.Close ? verbs.Length - 1 : verbs.Length;
+            if (segments is not (4 or 5) || verbs[0] != PathVerb.MoveTo || points.Length != segments)
+            {
+                return false;
+            }
+
+            for (int index = 1; index < segments; index++)
+            {
+                if (verbs[index] != PathVerb.LineTo)
+                {
+                    return false;
+                }
+            }
+
+            if (segments == 5 && points[4] != points[0])
+            {
+                return false;
+            }
+
+            Device a = Map(points[0]);
+            Device b = Map(points[1]);
+            Device c = Map(points[2]);
+            Device d = Map(points[3]);
+            bool horizontalFirst = a.Y == b.Y && b.X == c.X && c.Y == d.Y && d.X == a.X;
+            bool verticalFirst = a.X == b.X && b.Y == c.Y && c.X == d.X && d.Y == a.Y;
+            if (!(horizontalFirst || verticalFirst) || !double.IsFinite(a.X + a.Y + c.X + c.Y) || (a == b && b == c))
+            {
+                return false;
+            }
+
+            left = Math.Min(a.X, c.X);
+            right = Math.Max(a.X, c.X);
+            top = Math.Min(a.Y, c.Y);
+            bottom = Math.Max(a.Y, c.Y);
+            return true;
+        }
 
         private static uint Pack(ReadOnlySpan<float> rgb)
         {
