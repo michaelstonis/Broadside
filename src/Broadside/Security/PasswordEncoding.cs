@@ -92,6 +92,26 @@ internal static class PasswordEncoding
     public static List<byte[]> Utf8(PdfPassword? password) =>
         password is null || password.IsEmpty ? [[]] : [Truncate(password.Utf8(), MaxUnicodeLength)];
 
+    /// <summary>The bytes a writer derives revision 2-4 keys from: PDFDocEncoding, at most 32 bytes (§7.6.4.3.2 step a).</summary>
+    /// <param name="password">The password.</param>
+    /// <param name="parameterName">The argument the password came from, for the exception.</param>
+    /// <returns>The encoded password.</returns>
+    /// <exception cref="ArgumentException">PDFDocEncoding cannot represent the password.</exception>
+    public static byte[] EncodeLegacy(string password, string parameterName) =>
+        TryEncodePdfDoc(password, out byte[] bytes)
+            ? Truncate(bytes, MaxLegacyLength)
+            : throw new ArgumentException("A password for a deprecated encryption algorithm shall be text PDFDocEncoding can represent (ISO 32000-2 §7.6.4.3.2); use AES-256 for other text.", parameterName);
+
+    /// <summary>The bytes a writer derives revision 6 keys from: SASLprep, UTF-8, at most 127 bytes (§7.6.4.3.3 steps a-b).</summary>
+    /// <param name="password">The password.</param>
+    /// <param name="parameterName">The argument the password came from, for the exception.</param>
+    /// <returns>The encoded password.</returns>
+    /// <exception cref="ArgumentException">The password holds a character SASLprep prohibits.</exception>
+    public static byte[] EncodeUnicode(string password, string parameterName) =>
+        SaslPrep(password) is { } prepared
+            ? Truncate(Encoding.UTF8.GetBytes(prepared), MaxUnicodeLength)
+            : throw new ArgumentException("The password holds a character SASLprep (RFC 4013) prohibits, such as a control character (ISO 32000-2 §7.6.4.3.3).", parameterName);
+
     /// <summary>
     /// The SASLprep profile (RFC 4013) of stringprep (RFC 3454): map non-ASCII spaces to SPACE and the characters of table B.1 to
     /// nothing, normalize with NFKC, reject the prohibited characters. Returns <see langword="null"/> for a prohibited character.

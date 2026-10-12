@@ -13,7 +13,7 @@ public sealed class StreamCompressionTests
     private static readonly CosName Filter = new("Filter");
     private static readonly CosName Contents = new("Contents");
 
-    /// <summary>Every unencrypted well-formed corpus file (encrypted files cannot be saved yet).</summary>
+    /// <summary>Every unencrypted well-formed corpus file (encrypted files are re-encrypted, never copied: see EncryptedSaveTests).</summary>
     public static TheoryData<string> WellFormedFiles => new(Corpus.WellFormedFileNames.Where(name => !name.StartsWith("encrypted-", StringComparison.Ordinal)));
 
     [Fact]
