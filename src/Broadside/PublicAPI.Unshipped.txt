@@ -3443,3 +3443,42 @@ Broadside.PdfSaveOptions.RemoveUnreachableObjects.get -> bool
 Broadside.PdfSaveOptions.RemoveUnreachableObjects.set -> void
 Broadside.PdfSaveOptions.WithObjectNumbering(Broadside.PdfObjectNumbering numbering) -> Broadside.PdfSaveOptions!
 Broadside.PdfSaveOptions.WithRemoveUnreachableObjects(bool remove) -> Broadside.PdfSaveOptions!
+Broadside.Filters.Ascii85Encoder
+Broadside.Filters.Ascii85Encoder.Ascii85Encoder() -> void
+Broadside.Filters.Ascii85Encoder.Encode(System.ReadOnlySpan<byte> data, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.StreamEncoderContext! context) -> void
+Broadside.Filters.Ascii85Encoder.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.AsciiHexEncoder
+Broadside.Filters.AsciiHexEncoder.AsciiHexEncoder() -> void
+Broadside.Filters.AsciiHexEncoder.Encode(System.ReadOnlySpan<byte> data, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.StreamEncoderContext! context) -> void
+Broadside.Filters.AsciiHexEncoder.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.FlateEncoder
+Broadside.Filters.FlateEncoder.Encode(System.ReadOnlySpan<byte> data, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.StreamEncoderContext! context) -> void
+Broadside.Filters.FlateEncoder.FlateEncoder() -> void
+Broadside.Filters.FlateEncoder.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.IStreamEncoder
+Broadside.Filters.IStreamEncoder.Encode(System.ReadOnlySpan<byte> data, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.StreamEncoderContext! context) -> void
+Broadside.Filters.IStreamEncoder.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.RunLengthEncoder
+Broadside.Filters.RunLengthEncoder.Encode(System.ReadOnlySpan<byte> data, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.StreamEncoderContext! context) -> void
+Broadside.Filters.RunLengthEncoder.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.RunLengthEncoder.RunLengthEncoder() -> void
+Broadside.Filters.StreamEncoderContext
+Broadside.Filters.StreamEncoderContext.CompressionLevel.get -> System.IO.Compression.CompressionLevel
+Broadside.Filters.StreamEncoderContext.CompressionLevel.init -> void
+Broadside.Filters.StreamEncoderContext.Parameters.get -> Broadside.Objects.CosDictionary?
+Broadside.Filters.StreamEncoderContext.Parameters.init -> void
+Broadside.Filters.StreamEncoderContext.StreamDictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Filters.StreamEncoderContext.StreamDictionary.init -> void
+Broadside.Filters.StreamEncoderContext.StreamEncoderContext() -> void
+Broadside.PdfDocument.EncodeStream(Broadside.Objects.CosStream! stream, System.ReadOnlySpan<byte> data, System.IO.Compression.CompressionLevel compressionLevel = System.IO.Compression.CompressionLevel.Optimal) -> void
+Broadside.PdfOptions.UseStreamEncoder(Broadside.Filters.IStreamEncoder! encoder) -> Broadside.PdfOptions!
+Broadside.PdfSaveOptions.CompressionLevel.get -> System.IO.Compression.CompressionLevel
+Broadside.PdfSaveOptions.CompressionLevel.set -> void
+Broadside.PdfSaveOptions.StreamCompression.get -> Broadside.PdfStreamCompression
+Broadside.PdfSaveOptions.StreamCompression.set -> void
+Broadside.PdfSaveOptions.WithCompressionLevel(System.IO.Compression.CompressionLevel level) -> Broadside.PdfSaveOptions!
+Broadside.PdfSaveOptions.WithStreamCompression(Broadside.PdfStreamCompression compression) -> Broadside.PdfSaveOptions!
+Broadside.PdfStreamCompression
+Broadside.PdfStreamCompression.AllStreams = 2 -> Broadside.PdfStreamCompression
+Broadside.PdfStreamCompression.ChangedStreams = 1 -> Broadside.PdfStreamCompression
+Broadside.PdfStreamCompression.None = 0 -> Broadside.PdfStreamCompression

@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.IO.Compression;
 using Broadside.Content;
 using Broadside.Diagnostics;
 using Broadside.Filters;
@@ -44,6 +45,7 @@ internal static class FuzzTargets
         ["filter-flate"] = data => Filter(new FlateDecodeFilter(), data, parameters: null, maxRatio: 1100),
         ["filter-runlength"] = data => Filter(new RunLengthDecodeFilter(), data, parameters: null, maxRatio: 128),
         ["filter-predictor"] = PredictorTarget,
+        ["filter-encode"] = EncodeTarget,
         ["filter-dct"] = DctTarget.Target,
         ["filter-ccitt"] = CcittTarget.Target,
         ["filter-jpx"] = Jpx,
@@ -82,6 +84,8 @@ internal static class FuzzTargets
         public static readonly CosName Contents = new("Contents");
         public static readonly CosName Font = new("Font");
         public static readonly CosName Info = new("Info");
+        public static readonly CosName Filter = new("Filter");
+        public static readonly CosName DecodeParms = new("DecodeParms");
     }
 
     /// <summary>
@@ -1014,6 +1018,79 @@ internal static class FuzzTargets
         {
             throw new InvalidOperationException($"Predictor {predictor} turned {body.Length} bytes into {output.WrittenCount}, not whole rows of {row}.");
         }
+    }
+
+    /// <summary>
+    /// The encoders (issue #142): byte 0 selects ASCIIHex, ASCII85, RunLength, Flate at one of four compression levels, Flate after a
+    /// predictor whose Predictor (2, 10 to 15), Colors, BitsPerComponent and Columns come from bytes 1 to 3 (the data is cut to whole
+    /// rows), or the chain <c>[/ASCII85Decode /RunLengthDecode /FlateDecode]</c>; the rest is the data. The data is encoded through
+    /// the document's encoding pipeline and decoded through the decoding pipeline with the managed defaults in strict mode, which
+    /// must give it back exactly and report nothing. Any input is a valid seed.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.4.1 to §7.4.5, §7.4.4.3 Table 8 and §7.4.4.4.</remarks>
+    private static void EncodeTarget(ReadOnlySpan<byte> data)
+    {
+        if (data.IsEmpty)
+        {
+            return;
+        }
+
+        ReadOnlySpan<int> predictors = [2, 10, 11, 12, 13, 14, 15];
+        ReadOnlySpan<int> depths = [1, 2, 4, 8, 16];
+        ReadOnlySpan<CompressionLevel> levels = [CompressionLevel.Optimal, CompressionLevel.Fastest, CompressionLevel.NoCompression, CompressionLevel.SmallestSize];
+        int mode = data[0] % 10;
+        ReadOnlySpan<byte> body = data[1..];
+        var dictionary = new CosDictionary();
+        switch (mode)
+        {
+            case 0:
+                dictionary[Names.Filter] = new CosName("ASCIIHexDecode");
+                break;
+            case 1:
+                dictionary[Names.Filter] = new CosName("ASCII85Decode");
+                break;
+            case 2:
+                dictionary[Names.Filter] = new CosName("RunLengthDecode");
+                break;
+            case 3 or 4 or 5 or 6:
+                dictionary[Names.Filter] = new CosName("FlateDecode");
+                break;
+            case 7 or 8:
+                if (body.Length < 3)
+                {
+                    return;
+                }
+
+                int colors = 1 + (body[0] % 4);
+                int bitsPerComponent = depths[body[1] % depths.Length];
+                int columns = 1 + (body[2] % 64);
+                int row = ((colors * bitsPerComponent * columns) + 7) / 8;
+                dictionary[Names.Filter] = new CosName("FlateDecode");
+                dictionary[Names.DecodeParms] = new CosDictionary
+                {
+                    [new CosName("Predictor")] = new CosInteger(predictors[(body[0] / 4) % predictors.Length]),
+                    [new CosName("Colors")] = new CosInteger(colors),
+                    [new CosName("BitsPerComponent")] = new CosInteger(bitsPerComponent),
+                    [new CosName("Columns")] = new CosInteger(columns),
+                };
+                body = body[3..];
+                body = body[..(body.Length / row * row)];
+                break;
+            default:
+                dictionary[Names.Filter] = new CosArray([new CosName("ASCII85Decode"), new CosName("RunLengthDecode"), new CosName("FlateDecode")]);
+                break;
+        }
+
+        var encoded = new ArrayBufferWriter<byte>();
+        new StreamEncoder(StreamEncoderRegistry.Default, Unresolved).Encode(body, dictionary, encoded, levels[mode % levels.Length]);
+        var decoder = new StreamDecoder(FilterRegistry.Create([]), PdfOptions.DefaultMaxDecodedStreamLength, new DiagnosticSink(strict: true), Unresolved);
+        ReadOnlyMemory<byte> decoded = decoder.Decode(new CosStream(dictionary, encoded.WrittenSpan.ToArray()));
+        if (!decoded.Span.SequenceEqual(body))
+        {
+            throw new InvalidOperationException($"Encoding {body.Length} bytes in mode {mode} decoded to {decoded.Length} other bytes.");
+        }
+
+        static CosObject Unresolved(CosObject? value) => value ?? CosNull.Instance;
     }
 
     /// <summary>

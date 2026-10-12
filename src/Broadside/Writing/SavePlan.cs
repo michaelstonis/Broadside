@@ -1,3 +1,4 @@
+using Broadside.Filters;
 using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
@@ -26,6 +27,10 @@ namespace Broadside.Writing;
 /// changes is copied byte for byte from the source; any other object is serialized, its stream data written as stored. Every object
 /// is loaded first, so in strict mode a deviation throws before anything is written.
 /// </para>
+/// <para>
+/// An unfiltered stream that <see cref="PdfSaveOptions.StreamCompression"/> selects is written instead as a <c>FlateDecode</c> copy
+/// when that is smaller (§7.4.4), under its written number, with its references renumbered and a direct <c>Length</c> (§7.3.8.2).
+/// </para>
 /// </remarks>
 internal static class SavePlan
 {
@@ -51,10 +56,13 @@ internal static class SavePlan
     /// <param name="source">The document's file.</param>
     /// <param name="loader">The document's loader.</param>
     /// <param name="linearization">The document's linearization information, whose objects are dropped.</param>
-    /// <param name="options">The cross-reference layout, the numbering and whether unreachable objects are dropped.</param>
+    /// <param name="options">
+    /// The cross-reference layout, the numbering, whether unreachable objects are dropped, and which streams are compressed and how hard.
+    /// </param>
+    /// <param name="encoders">The engine's encoders; streams are compressed with its <c>FlateDecode</c> encoder.</param>
     /// <returns>The writer.</returns>
     /// <exception cref="NotSupportedException">The document is encrypted.</exception>
-    public static FileWriter Create(PdfSource source, ObjectLoader loader, PdfLinearization? linearization, PdfSaveOptions options)
+    public static FileWriter Create(PdfSource source, ObjectLoader loader, PdfLinearization? linearization, PdfSaveOptions options, StreamEncoderRegistry encoders)
     {
         CrossReference crossReference = loader.CrossReference;
         CosDictionary sourceTrailer = crossReference.Trailer;
@@ -133,7 +141,13 @@ internal static class SavePlan
                 && (references is null || KeepsReferences(value, references))
                     ? found
                     : null;
-            objects.Add(new WriterObject(references is null ? reference : references[reference], value, bytes));
+            bool compress = options.StreamCompression switch
+            {
+                PdfStreamCompression.AllStreams => IsCompressible(value),
+                PdfStreamCompression.ChangedStreams => value.IsDirty && IsCompressible(value),
+                _ => false,
+            };
+            objects.Add(new WriterObject(references is null ? reference : references[reference], value, bytes, compress));
         }
 
         CosString? firstIdentifier = sourceTrailer.TryGetValue(KnownNames.ID, out CosObject? id)
@@ -151,8 +165,22 @@ internal static class SavePlan
             trailer,
             firstIdentifier,
             options.CrossReferenceLayout,
+            encoders.Flate,
+            options.CompressionLevel,
             references);
     }
+
+    /// <summary>
+    /// Whether a save may compress an object: a stream without filters (no <c>Filter</c>, no <c>DecodeParms</c>, its data in the
+    /// file rather than an external one, §7.3.8.2 Table 5) that is not a metadata stream (§14.3.2), which is left readable to tools
+    /// that scan files for XMP packets.
+    /// </summary>
+    private static bool IsCompressible(CosObject value) =>
+        value is CosStream stream
+        && !stream.Dictionary.ContainsKey(FilterNames.Filter)
+        && !stream.Dictionary.ContainsKey(FilterNames.DecodeParms)
+        && !stream.Dictionary.ContainsKey(FilterNames.F)
+        && !(stream.Dictionary.TryGetValue(KnownNames.Type, out CosObject? type) && FileAndLayerNames.Metadata.Equals(type));
 
     /// <summary>
     /// Whether a file whose highest object number is <paramref name="highest"/> and which holds <paramref name="count"/> objects can
