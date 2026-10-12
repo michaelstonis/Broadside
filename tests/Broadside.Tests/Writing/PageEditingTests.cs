@@ -1,7 +1,7 @@
 using Broadside.Diagnostics;
 using Broadside.Objects;
-using Broadside.TestSupport;
 using Broadside.Tests.Document;
+using Broadside.TestSupport;
 
 namespace Broadside.Tests.Writing;
 
