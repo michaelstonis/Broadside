@@ -69,6 +69,7 @@ internal static class FuzzTargets
         ["colorspace"] = ColorSpaceTarget,
         ["content-objects"] = ContentObjectsTargets.ContentWithResources,
         ["inline-image-end"] = ContentObjectsTargets.InlineImageEnd,
+        ["text-extraction"] = ContentObjectsTargets.TextExtraction,
         ["image-decode"] = ImageDecodeTarget.Target,
         ["shading-mesh"] = ShadingMeshTarget.Target,
         ["display-list"] = DisplayListTarget.Target,
