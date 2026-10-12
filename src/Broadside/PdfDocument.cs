@@ -59,8 +59,8 @@ public sealed partial class PdfDocument : IDisposable
 {
     private static readonly PdfVersion Pdf20 = new(2, 0);
 
-    private readonly PdfSource _source;
     private readonly DiagnosticSink _diagnostics;
+    private PdfSource _source;
     private readonly ObjectLoader _loader;
     private readonly StreamDecoder _streams;
     private readonly ConditionalWeakTable<CosDictionary, PdfFont> _fonts = [];
@@ -99,6 +99,9 @@ public sealed partial class PdfDocument : IDisposable
         Functions = new FunctionCache(this, diagnostics);
         ColorSpaces = new ColorSpaceCache(this, diagnostics, colorManagement);
     }
+
+    /// <summary>Gets the engine's encoders, which <see cref="EncodeStream"/> and saving use (issue #142).</summary>
+    internal StreamEncoderRegistry StreamEncoders { get; private init; } = StreamEncoderRegistry.Default;
 
     /// <summary>
     /// Gets the version of the specification the document conforms to: the header's version, or the catalog's <c>Version</c> entry
@@ -198,9 +201,10 @@ public sealed partial class PdfDocument : IDisposable
     /// <remarks>
     /// ISO 32000-2 §7.5.6. The document itself always shows the newest revision: for every object number the most recent
     /// cross-reference section that lists it decides, and a number it marks free is deleted even when an older section has the
-    /// object. A linearized file without updates has one revision.
+    /// object. A linearized file without updates has one revision. An incremental save adds the revision it wrote
+    /// (<see cref="PdfSaveOptions.IncrementalUpdate"/>).
     /// </remarks>
-    public IReadOnlyList<PdfRevision> Revisions { get; }
+    public IReadOnlyList<PdfRevision> Revisions { get; private set; }
 
     /// <summary>
     /// Gets a value indicating whether the file is linearized: it starts with a linearization parameter dictionary whose file
@@ -390,7 +394,7 @@ public sealed partial class PdfDocument : IDisposable
 
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file with a classic cross-reference table.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
-    /// <exception cref="NotSupportedException">The document is encrypted, uses object numbers above 8,388,607, or numbers its objects above 1,048,576 more than 16 times as sparsely as it has objects; saving these arrives in a later version (renumbering).</exception>
+    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
     public void Save(Stream stream) => Save(stream, new PdfSaveOptions());
@@ -398,30 +402,44 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
     /// <param name="options">How to lay the file out.</param>
-    /// <exception cref="NotSupportedException">The document is encrypted, uses object numbers above 8,388,607, or numbers its objects above 1,048,576 more than 16 times as sparsely as it has objects; saving these arrives in a later version (renumbering).</exception>
+    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
     /// <remarks>
     /// <para>
     /// ISO 32000-2 §7.5: a header, every object, the cross-reference information and the trailer. Objects keep their numbers and
-    /// generations. An object that has not changed since it was read, and was read without any repair, is written with exactly the
-    /// bytes it was read from; changed, repaired and new objects are serialized. The revisions of an incrementally updated file
-    /// collapse into one, and a linearized file is written unlinearized (Annex F).
+    /// generations unless <see cref="PdfSaveOptions.ObjectNumbering"/> renumbers them, or the numbering is too large or too sparse to
+    /// write compactly; <see cref="PdfSaveOptions.RemoveUnreachableObjects"/> leaves out objects the trailer does not reach. An object
+    /// that has not changed since it was read, was read without any repair and holds no reference that was renumbered is written with
+    /// exactly the bytes it was read from; other objects are serialized, stream data as stored. The revisions of an incrementally
+    /// updated file collapse into one, and a linearized file is written unlinearized (Annex F).
+    /// </para>
+    /// <para>
+    /// Unfiltered streams that are new or changed are written compressed with the engine's <c>FlateDecode</c> encoder when that makes
+    /// them smaller (§7.4.4); <see cref="PdfSaveOptions.StreamCompression"/> and <see cref="PdfSaveOptions.CompressionLevel"/> change
+    /// which and how hard. The document's own streams are not changed.
     /// </para>
     /// <para>
     /// The header keeps the document's version, raised to 1.5 when the layout needs cross-reference streams. The trailer's first
     /// file identifier is kept; the second is derived from the written bytes, so saving the same document the same way always writes
     /// the same bytes (§14.4).
     /// </para>
+    /// <para>
+    /// With <see cref="PdfSaveOptions.IncrementalUpdate"/>, the file is instead the document's file followed by an incremental update
+    /// holding only what changed (§7.5.6), and once its last byte is written the document reads from it: a mutation, which no read
+    /// may run concurrently with.
+    /// </para>
     /// </remarks>
     public void Save(Stream stream, PdfSaveOptions options)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        WriteTo(PlanSave(options), stream);
+        FileWriter writer = PlanSave(options);
+        WriteTo(writer, stream);
+        Rebase(writer);
     }
 
     /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it, with a classic cross-reference table.</summary>
     /// <param name="path">The file path. Do not name the file the document was opened from.</param>
-    /// <exception cref="NotSupportedException">The document is encrypted, uses object numbers above 8,388,607, or numbers its objects above 1,048,576 more than 16 times as sparsely as it has objects; saving these arrives in a later version (renumbering).</exception>
+    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
     public void Save(string path) => Save(path, new PdfSaveOptions());
@@ -429,7 +447,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it.</summary>
     /// <param name="path">The file path. Do not name the file the document was opened from.</param>
     /// <param name="options">How to lay the file out.</param>
-    /// <exception cref="NotSupportedException">The document is encrypted, uses object numbers above 8,388,607, or numbers its objects above 1,048,576 more than 16 times as sparsely as it has objects; saving these arrives in a later version (renumbering).</exception>
+    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/>.</remarks>
     public void Save(string path, PdfSaveOptions options)
@@ -438,8 +456,12 @@ public sealed partial class PdfDocument : IDisposable
 
         // Planned before the file is created, so a document that cannot be saved leaves an existing file alone.
         FileWriter writer = PlanSave(options);
-        using FileStream stream = File.Create(path);
-        WriteTo(writer, stream);
+        using (FileStream stream = File.Create(path))
+        {
+            WriteTo(writer, stream);
+        }
+
+        Rebase(writer);
     }
 
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file, writing asynchronously.</summary>
@@ -447,7 +469,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <param name="options">How to lay the file out; <see langword="null"/> for the defaults (a classic cross-reference table).</param>
     /// <param name="cancellationToken">Cancels the writes.</param>
     /// <returns>A task that completes when the file is written.</returns>
-    /// <exception cref="NotSupportedException">The document is encrypted, uses object numbers above 8,388,607, or numbers its objects above 1,048,576 more than 16 times as sparsely as it has objects; saving these arrives in a later version (renumbering).</exception>
+    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
     /// <remarks>
     /// ISO 32000-2 §7.5. Writes exactly the bytes <see cref="Save(Stream, PdfSaveOptions)"/> writes, from the same writer; only the
@@ -456,10 +478,47 @@ public sealed partial class PdfDocument : IDisposable
     public async Task SaveAsync(Stream stream, PdfSaveOptions? options = null, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(stream);
-        foreach (ReadOnlyMemory<byte> chunk in PlanSave(options ?? new PdfSaveOptions()).Write())
+        FileWriter writer = PlanSave(options ?? new PdfSaveOptions());
+        foreach (ReadOnlyMemory<byte> chunk in writer.Write())
         {
             await stream.WriteAsync(chunk, cancellationToken).ConfigureAwait(false);
         }
+
+        Rebase(writer);
+    }
+
+    /// <summary>
+    /// Makes <paramref name="value"/> a new indirect object of the document and returns the reference to it: the next object number
+    /// the file does not use, generation 0.
+    /// </summary>
+    /// <param name="value">The object; a stream must be indirect, so this is how a new stream joins the document.</param>
+    /// <returns>The reference, which <see cref="Resolve"/> resolves to <paramref name="value"/> at once.</returns>
+    /// <exception cref="ArgumentException"><paramref name="value"/> is a <see cref="CosReference"/>, which an indirect object cannot be.</exception>
+    /// <exception cref="InvalidOperationException">The document has used every object number.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.3.10. Place the reference in the document (a dictionary entry, an array element) for the object to be reached.
+    /// The next save writes the object whether or not anything refers to it, unless it drops unreachable objects
+    /// (<see cref="PdfSaveOptions.RemoveUnreachableObjects"/>). A mutation: no read may run concurrently with it.
+    /// </remarks>
+    public CosReference AddObject(CosObject value)
+    {
+        ArgumentNullException.ThrowIfNull(value);
+        return _loader.Add(value);
+    }
+
+    /// <summary>Removes the indirect object <paramref name="reference"/> names from the document.</summary>
+    /// <param name="reference">The object's number and generation.</param>
+    /// <returns><see langword="true"/> when the object was removed; <see langword="false"/> when the document holds no such object.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.3.10 and §7.5.4. References to the object resolve to null from now on; remove them too, or they are written as
+    /// references to a free object. A save writes the object's number as a free entry whose generation is one more than the
+    /// object's, the generation a new object reusing the number would take (§7.5.6, H.7.4: an incremental update leaves the object's
+    /// old bytes in the file). A mutation: no read may run concurrently with it.
+    /// </remarks>
+    public bool RemoveObject(CosReference reference)
+    {
+        ArgumentNullException.ThrowIfNull(reference);
+        return _loader.Remove(reference);
     }
 
     /// <summary>Returns <paramref name="value"/>, or the indirect object it refers to when it is a <see cref="CosReference"/>.</summary>
@@ -482,7 +541,7 @@ public sealed partial class PdfDocument : IDisposable
     /// the index a damaged tree needs is built once per document.
     /// </remarks>
     public PdfNameTree? GetNameTree(CosObject? root) =>
-        GetNameTreeReader(root) is { } reader ? new PdfNameTree(reader) : null;
+        GetNameTreeReader(root) is { } reader ? new PdfNameTree(reader, this) : null;
 
     /// <summary>Returns a view of the number tree whose root node is <paramref name="root"/>.</summary>
     /// <param name="root">The root node dictionary, or a reference to it, from this document.</param>
@@ -495,7 +554,7 @@ public sealed partial class PdfDocument : IDisposable
     /// the same root share one reader.
     /// </remarks>
     public PdfNumberTree? GetNumberTree(CosObject? root) =>
-        GetNumberTreeReader(root) is { } reader ? new PdfNumberTree(reader) : null;
+        GetNumberTreeReader(root) is { } reader ? new PdfNumberTree(reader, this) : null;
 
     /// <summary>Looks up the destination a name (PDF 1.1) or string (PDF 1.2) names, as text.</summary>
     /// <param name="name">The destination's name.</param>
@@ -846,6 +905,35 @@ public sealed partial class PdfDocument : IDisposable
         _streams.Decode(stream, output);
     }
 
+    /// <summary>
+    /// Replaces the data of <paramref name="stream"/> with <paramref name="data"/> encoded through the filters its <c>Filter</c>
+    /// entry names, so that <see cref="DecodeStream(CosStream)"/> gives <paramref name="data"/> back.
+    /// </summary>
+    /// <param name="stream">A stream of this document, or a new one; set its <c>Filter</c> and <c>DecodeParms</c> entries first.</param>
+    /// <param name="data">The decoded data.</param>
+    /// <param name="compressionLevel">How much encoders that compress, such as <c>FlateDecode</c>'s, compress.</param>
+    /// <exception cref="ArgumentException">
+    /// <c>Filter</c> or <c>DecodeParms</c> is malformed, a filter's parameters cannot be honoured, or the data is not whole rows of
+    /// the predictor the parameters name.
+    /// </exception>
+    /// <exception cref="NotSupportedException">A filter is <c>Crypt</c> or has no encoder (only image codecs and <c>LZWDecode</c> by default).</exception>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §7.3.8.2 and §7.4. Encoders come from the engine's options (<see cref="PdfOptions.UseStreamEncoder"/>): by
+    /// default <c>FlateDecode</c>, <c>ASCIIHexDecode</c>, <c>ASCII85Decode</c> and <c>RunLengthDecode</c>. They run in the reverse of
+    /// the entry's order (§7.4.1), and the predictor a <c>FlateDecode</c> or <c>LZWDecode</c> filter's parameters name
+    /// (§7.4.4.4: TIFF 2, PNG 10 to 15) is applied before it. A stream without a <c>Filter</c> entry takes the data as it is.
+    /// </para>
+    /// <para>The stream's <see cref="CosStream.EncodedData"/> is replaced, which marks it changed; its dictionary is not changed.</para>
+    /// </remarks>
+    public void EncodeStream(CosStream stream, ReadOnlySpan<byte> data, System.IO.Compression.CompressionLevel compressionLevel = System.IO.Compression.CompressionLevel.Optimal)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        var output = new ArrayBufferWriter<byte>(Math.Max(256, data.Length / 2));
+        new StreamEncoder(StreamEncoders, Resolve).Encode(data, stream.Dictionary, output, compressionLevel);
+        stream.EncodedData = output.WrittenSpan.ToArray();
+    }
+
     /// <summary>Returns the font view over a font dictionary of this document.</summary>
     /// <param name="font">A font dictionary, or an indirect reference to one, such as an entry of a resource dictionary's <c>Font</c> subdictionary.</param>
     /// <returns>
@@ -1017,7 +1105,9 @@ public sealed partial class PdfDocument : IDisposable
             new Dictionary<int, int>(),
             new CosDictionary { [KnownNames.Root] = catalog },
             firstIdentifier: null,
-            PdfCrossReferenceLayout.Table);
+            PdfCrossReferenceLayout.Table,
+            StreamEncoderRegistry.Default.Flate,
+            System.IO.Compression.CompressionLevel.Optimal);
         using var bytes = new MemoryStream();
         foreach (ReadOnlyMemory<byte> chunk in writer.Write())
         {
@@ -1040,7 +1130,28 @@ public sealed partial class PdfDocument : IDisposable
     private FileWriter PlanSave(PdfSaveOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return SavePlan.Create(_source, _loader, Linearization, options.CrossReferenceLayout);
+        return options.IncrementalUpdate
+            ? SavePlan.CreateIncremental(_source, _loader, options, StreamEncoders)
+            : SavePlan.Create(_source, _loader, Linearization, options, StreamEncoders);
+    }
+
+    /// <summary>
+    /// After an incremental update's last byte is written, reads the document from the updated file (§7.5.6): the update's section
+    /// leads the cross-reference information, its revision is added, and the objects it wrote are no longer dirty. A full save
+    /// changes nothing: the document keeps reading the file it was opened from.
+    /// </summary>
+    private void Rebase(FileWriter writer)
+    {
+        if (writer.Update is not { } update)
+        {
+            return;
+        }
+
+        AppendedSource source = AppendedSource.Append(_source, update.Bytes);
+        _loader.Rebase(source, update.Section, update.ListsEverything, update.Objects);
+        _source = source;
+        var revision = new PdfRevision(update.ListsEverything ? 0 : Revisions.Count, source.Length, update.Section.Trailer);
+        Revisions = update.ListsEverything ? [revision] : [.. Revisions, revision];
     }
 
     /// <summary>The open path shared by every entry point: header, cross-reference information, trailer, catalog.</summary>
@@ -1104,7 +1215,10 @@ public sealed partial class PdfDocument : IDisposable
             }
 
             PdfLinearization? linearization = LinearizationReader.Read(source, loader, streams, diagnostics);
-            var document = new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security, configuration.FontProgramParsers, configuration.ColorManagement, configuration.FontResolvers);
+            var document = new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security, configuration.FontProgramParsers, configuration.ColorManagement, configuration.FontResolvers)
+            {
+                StreamEncoders = configuration.StreamEncoders,
+            };
             document.DetectXfa();
 
             // Table 15: ID is "required in PDF 2.0 or if an Encrypt entry is present" (the latter is the security handler's

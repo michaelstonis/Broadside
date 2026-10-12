@@ -1,1 +1,55 @@
 #nullable enable
+Broadside.IccPdfOptionsExtensions
+Broadside.Rendering.Bitmap
+Broadside.Rendering.Bitmap.Bitmap(System.Memory<byte> pixels, int width, int height, int stride) -> void
+Broadside.Rendering.Bitmap.Bitmap(int width, int height) -> void
+Broadside.Rendering.Bitmap.Dispose() -> void
+Broadside.Rendering.Bitmap.GetRow(int y) -> System.Span<byte>
+Broadside.Rendering.Bitmap.Height.get -> int
+Broadside.Rendering.Bitmap.Pixels.get -> System.Span<byte>
+Broadside.Rendering.Bitmap.SavePng(System.IO.Stream! stream) -> void
+Broadside.Rendering.Bitmap.Stride.get -> int
+Broadside.Rendering.Bitmap.Width.get -> int
+Broadside.Rendering.Icc.IccColorManagement
+Broadside.Rendering.Icc.IccColorManagement.CreateConverter(Broadside.Graphics.PdfColorSpace! source, Broadside.Graphics.ColorConversion conversion) -> Broadside.Graphics.IColorConverter!
+Broadside.Rendering.Icc.IccColorManagement.Fallback.get -> Broadside.Graphics.IColorManagement!
+Broadside.Rendering.Icc.IccColorManagement.IccColorManagement(Broadside.Graphics.IColorManagement? fallback = null) -> void
+Broadside.Rendering.Icc.IccProfile
+Broadside.Rendering.Icc.IccProfile.Header.get -> Broadside.Graphics.IccProfileHeader!
+Broadside.Rendering.Icc.IccProfile.MediaWhitePoint.get -> Broadside.Graphics.CieXyz
+Broadside.Rendering.Icc.IccProfile.Model.get -> Broadside.Rendering.Icc.IccProfileModel
+Broadside.Rendering.Icc.IccProfileModel
+Broadside.Rendering.Icc.IccProfileModel.MatrixTrc = 0 -> Broadside.Rendering.Icc.IccProfileModel
+Broadside.Rendering.Icc.IccProfileModel.Monochrome = 1 -> Broadside.Rendering.Icc.IccProfileModel
+Broadside.Rendering.Icc.IccProfileModel.Other = 2 -> Broadside.Rendering.Icc.IccProfileModel
+Broadside.Rendering.PixelSize
+Broadside.Rendering.PixelSize.Height.get -> int
+Broadside.Rendering.PixelSize.Height.init -> void
+Broadside.Rendering.PixelSize.PixelSize() -> void
+Broadside.Rendering.PixelSize.PixelSize(int Width, int Height) -> void
+Broadside.Rendering.PixelSize.Width.get -> int
+Broadside.Rendering.PixelSize.Width.init -> void
+Broadside.Rendering.RenderOptions
+Broadside.Rendering.RenderOptions.Dpi.get -> double
+Broadside.Rendering.RenderOptions.Dpi.set -> void
+Broadside.Rendering.RenderOptions.GetDeviceTransform(Broadside.PdfPage! page) -> Broadside.Graphics.Matrix
+Broadside.Rendering.RenderOptions.GetPixelSize(Broadside.PdfPage! page) -> Broadside.Rendering.PixelSize
+Broadside.Rendering.RenderOptions.RenderOptions() -> void
+Broadside.Rendering.RenderOptions.Rotation.get -> int
+Broadside.Rendering.RenderOptions.Rotation.set -> void
+Broadside.Rendering.RenderOptions.Scale.get -> double
+Broadside.Rendering.RenderOptions.Scale.set -> void
+Broadside.Rendering.RenderOptions.WithDpi(double dpi) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.RenderOptions.WithRotation(int degrees) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.RenderOptions.WithScale(double scale) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.SoftwareRasterizer
+Broadside.Rendering.SoftwareRasterizer.Dispose() -> void
+Broadside.Rendering.SoftwareRasterizer.Render(Broadside.PdfPage! page) -> Broadside.Rendering.Bitmap!
+Broadside.Rendering.SoftwareRasterizer.Render(Broadside.PdfPage! page, Broadside.Rendering.Bitmap! target, Broadside.Rendering.RenderOptions! options) -> void
+Broadside.Rendering.SoftwareRasterizer.Render(Broadside.PdfPage! page, Broadside.Rendering.RenderOptions! options) -> Broadside.Rendering.Bitmap!
+Broadside.Rendering.SoftwareRasterizer.Render(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform) -> void
+Broadside.Rendering.SoftwareRasterizer.SoftwareRasterizer() -> void
+const Broadside.Rendering.Icc.IccColorManagement.CacheCapacity = 64 -> int
+const Broadside.Rendering.RenderOptions.DefaultDpi = 72 -> double
+static Broadside.IccPdfOptionsExtensions.UseIccColorManagement(this Broadside.PdfOptions! options) -> Broadside.PdfOptions!
+static Broadside.Rendering.Icc.IccProfile.TryParse(System.ReadOnlySpan<byte> data, out Broadside.Rendering.Icc.IccProfile? profile, out string? problem) -> bool

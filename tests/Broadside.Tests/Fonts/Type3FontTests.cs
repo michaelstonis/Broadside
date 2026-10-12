@@ -216,6 +216,127 @@ public sealed class Type3FontTests
         Assert.Equal(["ContentType3GlyphMetricsMisplaced", "ContentType3GlyphMetricsMisplaced"], ContentPdf.Codes(document.Diagnostics));
     }
 
+    [Fact]
+    public void Each_glyph_reports_whether_its_description_began_with_d0_or_d1_with_the_declared_width_and_box()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("text-type3.pdf"));
+        var recorder = new MetricsRecorder();
+
+        document.Pages[0].ProcessContent(recorder);
+
+        // Per the README row of text-type3.pdf: the square (a) and the bitmap (c) begin with d1 and a 750-unit box, the triangle (b)
+        // with d0; T3b's numbers are T3a's divided by 10. The metrics are the same when the glyph is shown, entered and left.
+        Assert.Equal(
+        [
+            "97 ShapeOnly w=1000,0 box=[0 0 750 750]",
+            "98 ShapeAndColor w=1000,0 box=[0 0 0 0]",
+            "99 ShapeOnly w=1000,0 box=[0 0 750 750]",
+            "97 ShapeOnly w=100,0 box=[0 0 75 75]",
+            "98 ShapeAndColor w=100,0 box=[0 0 0 0]",
+            "99 ShapeOnly w=100,0 box=[0 0 75 75]",
+        ],
+            recorder.Lines);
+        Assert.Equal(recorder.Lines, recorder.Shown);
+        Assert.Equal(recorder.Lines, recorder.Ended);
+    }
+
+    [Fact]
+    public void A_glyph_without_d0_or_d1_reports_the_undeclared_kind_with_the_missing_metrics_diagnostic()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("text-type3-recursive.pdf"));
+        var recorder = new MetricsRecorder();
+
+        document.Pages[0].ProcessContent(recorder);
+
+        // Glyph a begins with d1, r with d0, n with neither; r's nested r is refused (not run) but still reported.
+        Assert.Equal(
+        [
+            "97 ShapeOnly w=1000,0 box=[0 0 1000 1000]",
+            "114 ShapeAndColor w=1000,0 box=[0 0 0 0]",
+            "97 ShapeOnly w=1000,0 box=[0 0 1000 1000]",
+            "114 ShapeAndColor w=1000,0 box=[0 0 0 0]",
+            "110 Undeclared w=0,0 box=[0 0 0 0]",
+        ],
+            recorder.Lines);
+        Assert.Equal(["ContentType3GlyphRecursion", "ContentType3GlyphMetricsMissing"], ContentPdf.Codes(document.Diagnostics));
+    }
+
+    [Fact]
+    public void Glyphs_whose_description_does_not_run_still_report_its_metrics_and_other_glyphs_report_none()
+    {
+        string font = "<< /Type /Font /Subtype /Type3 /FontBBox [0 0 1000 1000] /FontMatrix [0.001 0 0 0.001 0 0] /CharProcs << /a 6 0 R /b 7 0 R >> "
+            + "/Encoding << /Type /Encoding /Differences [97 /a /b /c] >> /FirstChar 97 /LastChar 99 /Widths [1000 1000 1000] >>";
+        string helvetica = "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>";
+
+        // a: d1 with an extra leading operand (the last six are used) and the box written from its upper-right corner; b: d1 with
+        // five operands, which is unusable (the operator is skipped and the glyph runs as d0); c: no CharProcs entry.
+        using PdfDocument document = PdfDocument.Open(ContentPdf.BuildWith(
+            "/Font << /T3 5 0 R /H 8 0 R >>",
+            "BT /T3 10 Tf 3 Tr (abc) Tj 0 Tr /H 10 Tf (a) Tj ET",
+            font,
+            ContentPdf.Stream("9 600 0 500 400 -10 -20 d1 0 0 10 10 re f"),
+            ContentPdf.Stream("600 0 0 0 1000 d1 0 0 10 10 re f"),
+            helvetica));
+        var recorder = new MetricsRecorder();
+
+        document.Pages[0].ProcessContent(recorder);
+
+        Assert.Empty(recorder.Lines);
+        Assert.Equal(
+        [
+            "97 ShapeOnly w=600,0 box=[-10 -20 500 400]",
+            "98 Undeclared w=0,0 box=[0 0 0 0]",
+            "99 None w=0,0 box=[0 0 0 0]",
+            "97 None w=0,0 box=[0 0 0 0]",
+        ],
+            recorder.Shown);
+    }
+
+    [Fact]
+    public void Editing_a_glyph_description_changes_the_metrics_the_next_run_reports()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("text-type3.pdf"));
+        var before = new MetricsRecorder();
+        document.Pages[0].ProcessContent(before);
+
+        PdfType3Font font = Assert.IsType<PdfType3Font>(document.Pages[0].GetFont("T3a"));
+        font.GetCharProc(97)!.EncodedData = System.Text.Encoding.ASCII.GetBytes("500 0 d0 0 0 500 500 re f");
+        var after = new MetricsRecorder();
+        document.Pages[0].ProcessContent(after);
+
+        Assert.Equal("97 ShapeOnly w=1000,0 box=[0 0 750 750]", before.Lines[0]);
+        Assert.Equal("97 ShapeAndColor w=500,0 box=[0 0 0 0]", after.Lines[0]);
+        Assert.Equal(before.Lines[1..], after.Lines[1..]);
+    }
+
+    /// <summary>Records the Type 3 metrics of each glyph when it is shown, entered and left.</summary>
+    private sealed class MetricsRecorder : ContentProcessor
+    {
+        public List<string> Lines { get; } = [];
+
+        public List<string> Shown { get; } = [];
+
+        public List<string> Ended { get; } = [];
+
+        public override ContentEvents Events => ContentEvents.Glyphs | ContentEvents.Type3GlyphContent;
+
+        public override void ShowGlyph(in GlyphEvent glyph, ContentContext context) => Shown.Add(Describe(glyph));
+
+        public override ContentVisit BeginType3Glyph(in GlyphEvent glyph, ContentContext context)
+        {
+            Lines.Add(Describe(glyph));
+            return ContentVisit.Enter;
+        }
+
+        public override void EndType3Glyph(in GlyphEvent glyph, ContentContext context) => Ended.Add(Describe(glyph));
+
+        private static string Describe(in GlyphEvent glyph)
+        {
+            Type3GlyphMetrics metrics = glyph.Type3Metrics;
+            return $"{glyph.CharacterCode} {metrics.Kind} w={RecordingProcessor.Number(metrics.WidthX)},{RecordingProcessor.Number(metrics.WidthY)} box={metrics.BoundingBox}";
+        }
+    }
+
     /// <summary>Records each Type 3 glyph with its glyph-space CTM, and each paint inside it in device space with the fill colour.</summary>
     private sealed class Type3Recorder : ContentProcessor
     {

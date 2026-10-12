@@ -31,8 +31,10 @@ public static class Corpus
         "text-type1-embedded.pdf",
         "text-cid-identity-h.pdf",
         "text-cid-identity-v.pdf",
+        "text-lines-rotated.pdf",
         "text-cid-embedded-cmap.pdf",
         "text-cidcff-predefined-cmap.pdf",
+        "text-cid-nonembedded.pdf",
         "text-tounicode-bf.pdf",
         "text-glyph-names.pdf",
         "xref-stream.pdf",
@@ -57,6 +59,7 @@ public static class Corpus
         "encrypted-crypt-filters.pdf",
         "encrypted-aes-gcm.pdf",
         "encrypted-mac.pdf",
+        "encrypted-mac-sha3.pdf",
         "encrypted-empty-owner-password.pdf",
         "encrypted-embedded-file-open.pdf",
         "inline-image.pdf",
@@ -92,6 +95,7 @@ public static class Corpus
         "color-operators.pdf",
         "default-colorspaces.pdf",
         "separation-special.pdf",
+        "icc-rgb-matrix.pdf",
         "form-xobject-nested.pdf",
         "extgstate-params.pdf",
         "marked-content.pdf",
@@ -136,6 +140,8 @@ public static class Corpus
         "jbig2-generic.pdf",
         "jbig2-generic-mmr.pdf",
         "jbig2-annex-h.pdf",
+        "paths-fill-rules.pdf",
+        "page-rotation.pdf",
     ];
 
     private static readonly string[] Malformed =
@@ -202,4 +208,8 @@ public static class Corpus
 
     /// <summary>Opens a corpus file for reading. The caller disposes the stream.</summary>
     public static FileStream Open(string fileName) => File.OpenRead(Path(fileName));
+
+    /// <summary>The user password of a file in the "Password-protected files" table, or <see langword="null"/> for any other file.</summary>
+    public static string? UserPassword(string fileName) =>
+        Array.Find(PasswordProtected, file => string.Equals(file.FileName, fileName, StringComparison.Ordinal)).UserPassword;
 }

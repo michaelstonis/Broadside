@@ -76,7 +76,9 @@ public sealed class PdfType0Font : PdfFont
     /// <para>
     /// ISO 32000-2 §9.7.6.2: the CMap splits the code off (per-byte codespace matching) and maps it to a CID. §9.7.6.3: an invalid code,
     /// or one without a mapping, selects CID 0; when the CIDFont has no glyph for the CID, the code's notdef mapping is tried, then
-    /// the glyph of CID 0. §9.7.4.2: the CID the code maps to gives the metrics even when another glyph is shown.
+    /// the glyph of CID 0. §9.7.4.2: the CID the code maps to gives the metrics even when another glyph is shown. A CIDFont drawn with
+    /// a substitute whose CIDs reach no Unicode table (Adobe-Identity, <see cref="PdfCidFont.Substitute"/>) tries, before the notdef
+    /// mapping, the substitute's glyph for the one character the font's ToUnicode CMap gives the code.
     /// </para>
     /// <para>Allocates nothing once the font's tables are built. An invalid code is recorded once per font.</para>
     /// </remarks>
@@ -97,6 +99,7 @@ public sealed class PdfType0Font : PdfFont
         }
 
         if (!descendant.TryGetGlyphId(cid, out int glyphId)
+            && !TryGetSubstituteGlyphThroughToUnicode(descendant, state, code, out glyphId)
             && !(cmap.TryGetNotdefCid(code, out int substitute) && descendant.TryGetGlyphId(substitute, out glyphId)))
         {
             glyphId = descendant.GetGlyphId(0);
@@ -150,9 +153,12 @@ public sealed class PdfType0Font : PdfFont
     }
 
     /// <inheritdoc/>
-    internal override int MapUnicode(CharacterCode code, Span<char> destination, out UnicodeSource source)
+    internal override int MapUnicode(CharacterCode code, Span<char> destination, out UnicodeSource source) =>
+        GetUnicodeState(State).Map(this, code, destination, out source);
+
+    /// <summary>The font's Unicode state for its current CMap and descendant, rebuilt when they or the ToUnicode stream change.</summary>
+    private Type0FontUnicode GetUnicodeState(Type0FontState state)
     {
-        Type0FontState state = State;
         Type0FontUnicode? unicode = _unicode;
         if (unicode is null || !unicode.IsCurrent(state))
         {
@@ -160,7 +166,31 @@ public sealed class PdfType0Font : PdfFont
             _unicode = unicode;
         }
 
-        return unicode.Map(this, code, destination, out source);
+        return unicode;
+    }
+
+    /// <summary>
+    /// Selects a substituted CIDFont's glyph for a code through the font's ToUnicode CMap, when its CIDs reach no Unicode value
+    /// otherwise (an Adobe-Identity CIDFont has no CID-to-Unicode table): the one character the code maps to, looked up in the
+    /// substitute's Unicode "cmap" (beyond ISO 32000-2 §9.7.4.2 and §9.10.2, as pdf.js and PDFBox do).
+    /// </summary>
+    private bool TryGetSubstituteGlyphThroughToUnicode(PdfCidFont descendant, Type0FontState state, CharacterCode code, out int glyphId)
+    {
+        glyphId = 0;
+        if (!descendant.NeedsUnicodeForSubstitute || GetUnicodeState(state).ToUnicode is not { } map)
+        {
+            return false;
+        }
+
+        Span<char> text = stackalloc char[FontUnicode.MaxLength];
+        if (!map.TryMap(code.Value, code.Length, text, out int written, out _)
+            || System.Text.Rune.DecodeFromUtf16(text[..written], out System.Text.Rune rune, out int consumed) != System.Buffers.OperationStatus.Done
+            || consumed != written || rune.Value == FontUnicode.Replacement)
+        {
+            return false;
+        }
+
+        return descendant.TryGetSubstituteGlyphIdForUnicode(rune.Value, out glyphId);
     }
 
     /// <inheritdoc/>

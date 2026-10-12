@@ -1,0 +1,11 @@
+﻿page 1: '`••€ -Ž
+  ' code 27/1 GlyphName font Helvetica 24 Fill origin (72, 700) advance (4.584, 0) quad (72, 695.032) (76.584, 695.032) (76.584, 717.232) (72, 717.232)
+  ` code 60/1 GlyphName font Helvetica 24 Fill origin (76.584, 700) advance (7.992, 0) quad (76.584, 695.032) (84.576, 695.032) (84.576, 717.232) (76.584, 717.232)
+  • code 7F/1 GlyphName font Helvetica 24 Fill origin (84.576, 700) advance (8.4, 0) quad (84.576, 695.032) (92.976, 695.032) (92.976, 717.232) (84.576, 717.232)
+  • code 81/1 GlyphName font Helvetica 24 Fill origin (92.976, 700) advance (8.4, 0) quad (92.976, 695.032) (101.376, 695.032) (101.376, 717.232) (92.976, 717.232)
+  € code 80/1 GlyphName font Helvetica 24 Fill origin (101.376, 700) advance (13.344, 0) quad (101.376, 695.032) (114.72, 695.032) (114.72, 717.232) (101.376, 717.232)
+    code A0/1 GlyphName font Helvetica 24 Fill origin (114.72, 700) advance (6.672, 0) quad (114.72, 695.032) (121.392, 695.032) (121.392, 717.232) (114.72, 717.232)
+  - code AD/1 GlyphName font Helvetica 24 Fill origin (121.392, 700) advance (7.992, 0) quad (121.392, 695.032) (129.384, 695.032) (129.384, 717.232) (121.392, 717.232)
+  Ž code 8E/1 GlyphName font Helvetica 24 Fill origin (129.384, 700) advance (14.664, 0) quad (129.384, 695.032) (144.048, 695.032) (144.048, 717.232) (129.384, 717.232)
+  line '`••€ -Ž glyphs 0+8 quad (72, 695.032) (144.048, 695.032) (144.048, 717.232) (72, 717.232)
+    words '`••€ glyphs 0+5 | -Ž glyphs 6+2

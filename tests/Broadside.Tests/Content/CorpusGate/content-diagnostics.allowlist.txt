@@ -2,6 +2,36 @@
 # corpus/path<TAB>code<TAB>count<TAB>justification (clause and offending construct). Sorted by path, then code.
 # Exact equality: an unlisted diagnostic fails ("triage me"); a listed one that no longer occurs fails ("stale entry").
 # Never list a bug of ours here: fix it.
+bfo-pdfa-testsuite/pdfa2-6-1-13-bfo-t01-fail.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-1-13-bfo-t02-fail.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-1-13-bfo-t03-fail.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-1-13-bfo-t05-fail.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-1-13-bfo-t07-pass.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-1-5-bfo-t01-pass.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-10-bfo-t01-fail.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-10-bfo-t02-fail.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-11-bfo-t01-fail.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-4-2-bfo-t01-fail.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-8-bfo-t01-pass.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-8-bfo-t02-pass.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-8-bfo-t03-fail.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-8-bfo-t04-fail.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-8-bfo-t05-fail.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-9-bfo-t01-fail.pdf	ContentColorOperatorMismatch	2	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-9-bfo-t02-fail.pdf	ContentColorOperatorMismatch	2	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-9-bfo-t03-fail.pdf	ContentColorOperatorMismatch	2	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+bfo-pdfa-testsuite/pdfa2-6-9-bfo-t04-fail.pdf	ContentColorOperatorMismatch	2	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG011_Overprint-Mode_x3.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG050_Font_Substitution_x3.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG082_DeviceN-Support_4c_x3.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG090_Font-Support_x3.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG166_Softmasks_Images_DeviceCMYK_X4.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf	CidToGidMapMissing	2	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/2-SPOT/Patches/GWG080_DeviceN-Support_6c_x3.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/3-ICC-CMS/Patches/GWG132_ICCbasedCMYK_OverPrint_x4.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/3-ICC-CMS/Patches/GWG133_ICCbasedRGB_OverPrint_x4.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
+gwg-output-suite/Ghent_PDF_Output_Suite_V50_Testpages/GhentPDFOutputSuite50_ReadMes.pdf	CidToGidMapMissing	3	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
+gwg-output-suite/Ghent_PDF_Output_Suite_V50_Testpages/Ghent_PDF-Output-Test-V50_ALL_X4.pdf	CidToGidMapMissing	2	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
 pdfbox/input/PDFBOX-3044-010197-p5-ligatures.pdf	ContentOperandCount	1	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
 pdfbox/input/PDFBOX-3062-N2MOQ7YZICIYGTPLQJAWJ4HLN6CCEMHZ-reduced.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
 pdfbox/input/PDFBOX-3110-poems-beads-cropbox.pdf	ContentColorOperatorMismatch	2	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
@@ -87,8 +117,6 @@ pdfium-tests/fx/new/form/form_checkbox1.pdf	AppearanceResourcesMissing	4	7.8.3 a
 pdfium-tests/fx/new/form/form_checkbox2.pdf	AppearanceResourcesMissing	4	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
 pdfium-tests/fx/new/form/form_checkbox3.pdf	AppearanceResourcesMissing	4	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
 pdfium-tests/fx/new/form/form_radio.pdf	AppearanceResourcesMissing	4	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
-pdfium-tests/fx/new/form/form_sign_url.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
-pdfium-tests/fx/new/form/form_signature.pdf	AppearanceResourcesMissing	1	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
 pdfium-tests/fx/new/shading_2/shading_2_15.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
 pdfium-tests/fx/new/shading_2/shading_2_17.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
 pdfium-tests/fx/new/shading_2/shading_2_4.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
@@ -116,7 +144,6 @@ pdfjs/bug1308536.pdf	FontCffDictInvalid	1	Adobe TN 5176 malformed real number in
 pdfjs/bug1365930.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V used with a non-embedded CIDFontType2
 pdfjs/bug1627427_reduced.pdf	CidToGidMapMissing	1	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
 pdfjs/bug1650302_reduced.pdf	FontProgramTruncated	1	9.9 Table 125 Length1 larger than the font program data
-pdfjs/bug1669099.pdf	ContentFontMissing	15	9.3.1 / 7.8.3 Tf names a font absent from the Font resources (or text shown before Tf)
 pdfjs/bug1868759.pdf	CidToGidMapMissing	2	9.7.4.1 Table 115 embedded CIDFontType2 without the required CIDToGIDMap
 pdfjs/bug1885505.pdf	FontDescriptorInvalid	12	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
 pdfjs/bug1898053_minimal.pdf	ContentMarkedContentUnbalanced	1	14.6 BMC/BDC and EMC not balanced within the content stream
@@ -175,7 +202,6 @@ pdfjs/issue15977_reduced.pdf	Type0IdentityNotEmbedded	1	9.7.5.2 Identity-H/V use
 pdfjs/issue16316.pdf	FontDescriptorInvalid	12	9.8.1 Table 120 font descriptor lacks Type /FontDescriptor or required metrics
 pdfjs/issue16633.pdf	ContentColorOperatorMismatch	1	8.6.8 Table 73 sc/SC used in an ICCBased, Separation or DeviceN space (SC is defined only for device, CIE other than ICCBased and Indexed; viewers accept)
 pdfjs/issue16633.pdf	FontTypeInvalid	1	9.6.2.1 Table 109 font dictionary Type is missing or not /Font
-pdfjs/issue17064_readonly.pdf	AppearanceResourcesMissing	4	7.8.3 annotation appearance stream without the required Resources (names resolve in the page resources)
 pdfjs/issue17679.pdf	ContentPropertiesMissing	1	14.6.2 BDC names a property list absent from the Properties resources
 pdfjs/issue17679_2.pdf	ContentMarkedContentUnbalanced	1	14.6 BMC/BDC and EMC not balanced within the content stream
 pdfjs/issue17679_2.pdf	ContentOperandType	1	7.8.2 operand of the wrong type for its operator
@@ -286,8 +312,6 @@ qpdf/content-stream-errors.pdf	ContentInlineImageInvalid	1	8.9.7 malformed inlin
 qpdf/content-stream-errors.pdf	ContentOperandCount	2	7.8.2 operator with the wrong number of operands, or operands left without an operator at the end of the stream
 qpdf/damaged-inline-image.pdf	ContentUnbalancedSave	1	8.4.2 q without a matching Q by the end of the stream (q/Q shall be balanced)
 qpdf/eof-in-inline-image.pdf	ContentInlineImageInvalid	1	8.9.7 malformed inline image (missing ID/EI, wrong L, or stray ID/EI)
-qpdf/field-parse-errors-out.pdf	ContentSyntaxInvalid	1	7.2 / 7.3 malformed token in the content stream (stray delimiter, malformed number or string)
-qpdf/field-parse-errors.pdf	ContentSyntaxInvalid	1	7.2 / 7.3 malformed token in the content stream (stray delimiter, malformed number or string)
 qpdf/form-xobjects-some-resources1-out.pdf	ContentFontMissing	1	9.3.1 / 7.8.3 Tf names a font absent from the Font resources (or text shown before Tf)
 qpdf/form-xobjects-some-resources1-out.pdf	ContentXObjectMissing	1	7.8.3 / 8.8 Do names an XObject absent from the XObject resources
 qpdf/form-xobjects-some-resources1.pdf	ContentFontMissing	1	9.3.1 / 7.8.3 Tf names a font absent from the Font resources (or text shown before Tf)

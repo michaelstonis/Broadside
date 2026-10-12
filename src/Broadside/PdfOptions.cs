@@ -28,6 +28,7 @@ public sealed class PdfOptions
     public const long DefaultMaxImagePixels = 1L << 28;
 
     private readonly List<IStreamFilter> _filters = [];
+    private readonly List<IStreamEncoder> _streamEncoders = [];
     private readonly List<ISecurityHandler> _securityHandlers = [];
     private readonly List<IFontProgramParser> _fontProgramParsers = [];
     private readonly List<IFontResolver> _fontResolvers = [];
@@ -95,6 +96,38 @@ public sealed class PdfOptions
         }
 
         _filters.Add(filter);
+        return this;
+    }
+
+    /// <summary>Gets the encoders registered with <see cref="UseStreamEncoder"/>, in registration order.</summary>
+    /// <remarks>ISO 32000-2 §7.4.1. Not public, so configuration binding never sees it; encoders are code, set with <see cref="UseStreamEncoder"/>.</remarks>
+    internal IReadOnlyList<IStreamEncoder> StreamEncoders => _streamEncoders;
+
+    /// <summary>
+    /// Uses <paramref name="encoder"/> to write data for the filter its <see cref="IStreamEncoder.Name"/> names, replacing the managed
+    /// default of that name (<see cref="FlateEncoder"/>, <see cref="AsciiHexEncoder"/>, <see cref="Ascii85Encoder"/>,
+    /// <see cref="RunLengthEncoder"/>) or adding an encoder the defaults lack. A later registration of the same name wins. Saving
+    /// compresses streams with the encoder registered for <c>FlateDecode</c>.
+    /// </summary>
+    /// <param name="encoder">The encoder. Shared by every document and thread of the engine: it must keep no state between calls.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentException">
+    /// The encoder's name is <c>Crypt</c>, which the security handler applies (§7.4.10), or an inline-image abbreviation such as
+    /// <c>Fl</c> (§8.9.7, Table 92).
+    /// </exception>
+    /// <remarks>ISO 32000-2 §7.4.1. The encoding half of the filter extension point (ADR 0001), separate from <see cref="UseFilter"/>.</remarks>
+    public PdfOptions UseStreamEncoder(IStreamEncoder encoder)
+    {
+        ArgumentNullException.ThrowIfNull(encoder);
+        CosName name = encoder.Name ?? throw new ArgumentException("The encoder has no name.", nameof(encoder));
+        if (name.Equals(FilterNames.Crypt) || InlineImageAbbreviations.TryExpandFilter(name, out _))
+        {
+            throw new ArgumentException(
+                $"An encoder cannot be registered under /{name.Value}: Crypt belongs to the security handler and abbreviations are not stream filter names.",
+                nameof(encoder));
+        }
+
+        _streamEncoders.Add(encoder);
         return this;
     }
 
@@ -303,6 +336,29 @@ public sealed class PdfOptions
     public PdfOptions UseSystemFontResolver(IFontResolver? resolver)
     {
         SystemFontResolver = resolver;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the file where the default operating-system font resolver keeps the index of the font files it has read, so a
+    /// later process finds installed fonts without reading their files again; <see langword="null"/> (the default) keeps no index and
+    /// writes nothing.
+    /// </summary>
+    /// <remarks>
+    /// ADR 0009. The file is created, with its directory, after the first font the operating system's fonts are asked for, and
+    /// rewritten when more font files have been read. Font files added, removed or changed since are read again, so the index never
+    /// changes which font is found. Engines with the same path share one resolver in the process. Applies only to the default
+    /// resolver: one set with <see cref="UseSystemFontResolver"/> keeps its own index (<see cref="Fonts.SystemFontResolver.IndexPath"/>).
+    /// </remarks>
+    public string? SystemFontIndexPath { get; set; }
+
+    /// <summary>Sets <see cref="SystemFontIndexPath"/>.</summary>
+    /// <param name="path">The index file, or <see langword="null"/> to keep none.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ADR 0009.</remarks>
+    public PdfOptions WithSystemFontIndexPath(string? path)
+    {
+        SystemFontIndexPath = path;
         return this;
     }
 

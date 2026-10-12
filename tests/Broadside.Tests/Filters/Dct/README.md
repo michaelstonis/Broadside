@@ -76,3 +76,13 @@ them when those files change.
 progressive or arithmetic-coded JPEG of the fetched corpora that libjpeg-turbo decodes without a warning: djpeg for one or three
 components, a TurboJPEG raw CMYK PAM for four (208 files, about 10 minutes; the fetched corpora hold no arithmetic-coded or
 12-bit JPEG); `CorpusDctReferenceTests` compares against them (330 streams) and skips when they are absent.
+
+## Encoder vectors
+
+`encoded-*.jpg` (issue #143) are what libjpeg-turbo 3.2.0's TurboJPEG API writes for the goldens `rgb.ppm.gz` (75 x 43),
+`dct-baseline-gray.pgm.gz` (37 x 21) and `cmyk.pam.gz` (75 x 43) with the integer DCT and the Annex K Huffman tables, written by
+`make_encoder_vectors.py [output dir]` (TurboJPEG through ctypes; the SIMD and `JSIMD_FORCENONE=1` builds give the same bytes).
+`DctEncoderTests` requires `DctEncoder` to write exactly these bytes: `rgb` at quality 90 with 4:4:4, 4:2:2 and 4:2:0, at quality
+75 (the default), 10 and 100, and untransformed (`ColorTransform` 0, APP14 0); `gray` at quality 90; `cmyk` at quality 90
+untransformed (APP14 0) and as YCCK 4:2:0 (`ColorTransform` 1, APP14 2). Derived from IJG-licensed images, so under the same
+licence.

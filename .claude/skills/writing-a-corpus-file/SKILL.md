@@ -66,7 +66,8 @@ Kebab-case, feature first, variant second: `flate-stream.pdf`, `encrypted-aes-25
    dotnet test tests/Broadside.Tests          # green: File_lists_match_the_corpus_directory and the snapshot agree
    ```
 
-7. Commit the PDF, `generate.py`, the README, `Corpus.cs` and the snapshot together, and update the conformance rows for the clauses the file exercises.
+   The golden-image test (`Broadside.Rendering.Tests`, `GoldenImageTests`, #120) also fails once per page of the new file, leaving `tests/Golden/<file>.page<N>.received.png`. Open each one and look at it, then accept it (rename to `.verified.png`, or run the rendering tests once with `BROADSIDE_ACCEPT_GOLDEN=1`).
+7. Commit the PDF, `generate.py`, the README, `Corpus.cs`, the snapshot and the golden images together, and update the conformance rows for the clauses the file exercises.
 
 ## Worked example: `text-type1-embedded.pdf`
 

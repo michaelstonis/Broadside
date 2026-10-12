@@ -3,8 +3,10 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Broadside.Rendering/Broadside.Rendering.csproj" />
     <ProjectReference Include="../Broadside.TestSupport/Broadside.TestSupport.csproj" />
+    <ProjectReference Include="../Broadside.GoldenImages/Broadside.GoldenImages.csproj" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Verify.XunitV3" />
+    <PackageReference Include="StbImageSharp" />
   </ItemGroup>
 
 </Project>

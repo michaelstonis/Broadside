@@ -1,0 +1,6 @@
+﻿page 1: ABC
+  A code 41/1 GlyphName font Courier 24 Fill origin (72, 700) advance (12, 0) quad (72, 696.232) (84, 696.232) (84, 715.096) (72, 715.096)
+  B code 42/1 GlyphName font Courier 24 Fill origin (84, 700) advance (16.8, 0) quad (84, 696.232) (100.8, 696.232) (100.8, 715.096) (84, 715.096)
+  C code 43/1 GlyphName font Courier 24 Fill origin (100.8, 700) advance (18.648, 0) quad (100.8, 696.232) (119.448, 696.232) (119.448, 715.096) (100.8, 715.096)
+  line ABC glyphs 0+3 quad (72, 696.232) (119.448, 696.232) (119.448, 715.096) (72, 715.096)
+    words ABC glyphs 0+3

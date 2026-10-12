@@ -1,0 +1,7 @@
+﻿page 1: ✁●❨❵
+  ✁ code 21/1 GlyphName font ZapfDingbats 24 Fill origin (72, 700) advance (23.376, 0) quad (72, 696.568) (95.376, 696.568) (95.376, 719.68) (72, 719.68)
+  ● code 6C/1 GlyphName font ZapfDingbats 24 Fill origin (95.376, 700) advance (18.984, 0) quad (95.376, 696.568) (114.36, 696.568) (114.36, 719.68) (95.376, 719.68)
+  ❨ code 80/1 GlyphName font ZapfDingbats 24 Fill origin (114.36, 700) advance (9.36, 0) quad (114.36, 696.568) (123.72, 696.568) (123.72, 719.68) (114.36, 719.68)
+  ❵ code 8D/1 GlyphName font ZapfDingbats 24 Fill origin (123.72, 700) advance (8.016, 0) quad (123.72, 696.568) (131.736, 696.568) (131.736, 719.68) (123.72, 719.68)
+  line ✁●❨❵ glyphs 0+4 quad (72, 696.568) (131.736, 696.568) (131.736, 719.68) (72, 719.68)
+    words ✁●❨❵ glyphs 0+4

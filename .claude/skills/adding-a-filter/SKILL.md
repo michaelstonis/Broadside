@@ -63,7 +63,32 @@ What the pipeline (internal `StreamDecoder`, one per document) does so a filter 
 
 Rules for an implementation: keep no state between calls (one instance serves every thread of every document of the engine); write through `IBufferWriter<byte>` in chunks (internal `FilterOutput` ref struct does this for the defaults); report each kind of deviation once per call with the codes in `Parsing/DiagnosticCodes.cs` ("Stream filters" group: `FilterDataInvalid`, `FilterDataTruncated`, ...); in lenient mode write what can be decoded and return.
 
-Image codecs (Phase 2B): read the image entries from `StreamDictionary`, resolve auxiliary streams with `Resolve` and decode them with `DecodeStream`, size-check against `MaxDecodedLength` before allocating, and write the §8.9.3 sample layout so a codec behaves like any filter in a chain. Codec metadata (DCT transform, JPX components and colour, alpha) is #60's optional image facet: a second interface the four codecs implement in addition to `IStreamFilter`, used when the codec is last in the chain. Encoding (Flate, DCT baseline, PNG predictors; Phase 4A) will be a separate interface, so decode-only filters need not change.
+Image codecs (Phase 2B): read the image entries from `StreamDictionary`, resolve auxiliary streams with `Resolve` and decode them with `DecodeStream`, size-check against `MaxDecodedLength` before allocating, and write the §8.9.3 sample layout so a codec behaves like any filter in a chain. Codec metadata (DCT transform, JPX components and colour, alpha) is #60's optional image facet: a second interface the four codecs implement in addition to `IStreamFilter`, used when the codec is last in the chain.
+
+Encoding (#142) is a separate contract, so decode-only filters need not change:
+
+```csharp
+public interface IStreamEncoder
+{
+    CosName Name { get; }                                  // the filter that decodes the output, the registry key
+    void Encode(ReadOnlySpan<byte> data,                   // may be empty
+                IBufferWriter<byte> output,
+                StreamEncoderContext context);             // throws ArgumentException for parameters it cannot honour
+}
+
+public sealed class StreamEncoderContext                   // public ctor = stand-alone
+{
+    public CosDictionary? Parameters { get; init; }        // the DecodeParms the decoder will read
+    public CosDictionary StreamDictionary { get; init; }   // Width, Height, ColorSpace... for an image encoder
+    public CompressionLevel CompressionLevel { get; init; }// Optimal by default; encoders that do not compress ignore it
+}
+
+new PdfOptions().UseStreamEncoder(IStreamEncoder encoder); // replaces the default of encoder.Name or adds a name
+void PdfDocument.EncodeStream(CosStream stream, ReadOnlySpan<byte> data, CompressionLevel level = Optimal);
+new PdfSaveOptions().WithStreamCompression(PdfStreamCompression).WithCompressionLevel(CompressionLevel);
+```
+
+Managed defaults (internal `StreamEncoderRegistry.Defaults`): `AsciiHexEncoder`, `Ascii85Encoder`, `FlateEncoder`, `RunLengthEncoder`, `DctEncoder` (#143: lossy, quality and chroma subsampling on its constructor, the image layout from `StreamDictionary` and `ColorTransform` from `Parameters`); an encoder for another filter adds its instance there. The pipeline (internal `StreamEncoder`) runs a `Filter` array last name first and applies the predictor of a `FlateDecode` or `LZWDecode` stage's parameters before that encoder (internal `PredictorEncoder`: TIFF 2, PNG 10 to 15), so an encoder never applies predictors itself. Whatever a lossless encoder writes must decode through the filter of the same name to exactly its input: test it that way (`StreamEncoderTests`; a lossy one like `DctEncoder` is tested against a reference encoder's bytes and a PSNR bound, `DctEncoderTests`), allocate per call never per row (`EncoderAllocationTests`, `StreamEncoderBenchmarks`), and add a mode to the `filter-encode` fuzz target.
 
 ## Managed default
 

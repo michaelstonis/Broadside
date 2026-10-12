@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.IO.Compression;
 using Broadside.Content;
 using Broadside.Diagnostics;
 using Broadside.Filters;
@@ -44,7 +45,9 @@ internal static class FuzzTargets
         ["filter-flate"] = data => Filter(new FlateDecodeFilter(), data, parameters: null, maxRatio: 1100),
         ["filter-runlength"] = data => Filter(new RunLengthDecodeFilter(), data, parameters: null, maxRatio: 128),
         ["filter-predictor"] = PredictorTarget,
+        ["filter-encode"] = EncodeTarget,
         ["filter-dct"] = DctTarget.Target,
+        ["filter-dct-encode"] = DctEncodeTarget.Target,
         ["filter-ccitt"] = CcittTarget.Target,
         ["filter-jpx"] = Jpx,
         ["filter-jbig2"] = Jbig2Target.Target,
@@ -61,14 +64,22 @@ internal static class FuzzTargets
         ["font-truetype"] = FontTrueType,
         ["font-cff"] = FontCff,
         ["font-scanner"] = FontScanner,
+        ["font-index"] = FontIndex,
         ["font-type1"] = FontType1,
         ["cmap"] = CMapFile,
         ["tounicode"] = ToUnicodeFile,
         ["colorspace"] = ColorSpaceTarget,
         ["content-objects"] = ContentObjectsTargets.ContentWithResources,
         ["inline-image-end"] = ContentObjectsTargets.InlineImageEnd,
+        ["text-extraction"] = ContentObjectsTargets.TextExtraction,
         ["image-decode"] = ImageDecodeTarget.Target,
         ["shading-mesh"] = ShadingMeshTarget.Target,
+        ["default-appearance"] = DefaultAppearanceTarget.Target,
+        ["form-fill"] = FormFillTarget.Target,
+        ["display-list"] = DisplayListTarget.Target,
+        ["content-rewrite"] = ContentRewriteTarget.Target,
+        ["icc-profile"] = IccProfileTarget.Target,
+        ["rasterize"] = RasterizeTarget.Target,
     };
 
     /// <summary>
@@ -80,6 +91,10 @@ internal static class FuzzTargets
         public static readonly CosName Contents = new("Contents");
         public static readonly CosName Font = new("Font");
         public static readonly CosName Info = new("Info");
+        public static readonly CosName Filter = new("Filter");
+        public static readonly CosName DecodeParms = new("DecodeParms");
+        public static readonly CosName Lang = new("Lang");
+        public static readonly CosName Marker = new("Marker");
     }
 
     /// <summary>
@@ -564,6 +579,70 @@ internal static class FuzzTargets
     }
 
     /// <summary>
+    /// The stored system font index (#93) over the input as the files part of a store for the directory <c>/fonts</c> (an input
+    /// starting with <c>BSFI</c> is read as a whole store, for the directories it names). A store that reads must list each file once with a path, faces of
+    /// non-empty names, face indexes under 256 and weights from 1 to 1,000, and must write back to bytes that read to the same
+    /// faces.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.6.2.1 and §9.8 (finding a non-embedded font's program); ADR 0009.</remarks>
+    /// <summary>The directories a whole store names (after the magic and the version), so a real store seeds <see cref="FontIndex"/>.</summary>
+    private static string[]? StoredDirectories(byte[] store)
+    {
+        try
+        {
+            using var reader = new BinaryReader(new MemoryStream(store, 8, store.Length - 8, writable: false));
+            int count = reader.ReadInt32();
+            return count is >= 0 and <= 64 ? [.. Enumerable.Range(0, count).Select(_ => reader.ReadString())] : null;
+        }
+        catch (Exception exception) when (exception is EndOfStreamException or FormatException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static void FontIndex(ReadOnlySpan<byte> data)
+    {
+        string[] directories = ["/fonts"];
+        byte[] store;
+        if (data.StartsWith("BSFI"u8))
+        {
+            store = data.ToArray();
+            directories = StoredDirectories(store) ?? directories;
+        }
+        else
+        {
+            using var header = new MemoryStream();
+            SystemFontIndexFile.Write(header, directories, []);
+            store = [.. header.ToArray().AsSpan(0, (int)header.Length - 4), .. data];
+        }
+
+        if (SystemFontIndexFile.Read(store, directories) is not { } files)
+        {
+            return;
+        }
+
+        var listed = new List<(FontFileEntry File, SystemFontFace[] Faces)>();
+        foreach ((string path, StoredFontFile file) in files)
+        {
+            if (path.Length == 0 || file.Faces.Any(face => face.FaceIndex is < 0 or >= 256 || face.PostScriptName.Length == 0 || face.Family.Length == 0 || face.Weight is < 1 or > 1000 || face.Path != path))
+            {
+                throw new InvalidOperationException($"The store read an impossible file or face for {path}.");
+            }
+
+            listed.Add((new FontFileEntry(path, string.Empty, file.Length, file.WriteTime), file.Faces));
+        }
+
+        using var output = new MemoryStream();
+        SystemFontIndexFile.Write(output, directories, listed);
+        Dictionary<string, StoredFontFile> again = SystemFontIndexFile.Read(output.ToArray(), directories)
+            ?? throw new InvalidOperationException("A store written from a store that read does not read.");
+        if (again.Count != files.Count || files.Any(pair => !again.TryGetValue(pair.Key, out StoredFontFile? other) || !other.Faces.SequenceEqual(pair.Value.Faces) || other.Length != pair.Value.Length || other.WriteTime != pair.Value.WriteTime))
+        {
+            throw new InvalidOperationException("A store written from a store that read reads to other files or faces.");
+        }
+    }
+
+    /// <summary>
     /// Parses the input as a TrueType program (issue #50) and reads all of it: every glyph's outline (up to 4,096 glyphs) and metrics,
     /// every "cmap" subtable for the codes 0 to 0x1FF and 0xF000 to 0xF0FF, every "post" name and its reverse lookup. An input that
     /// starts with <c>%PDF-</c> is read from its first <c>00 01 00 00</c>, so the TrueType corpus files seed the target with their
@@ -832,12 +911,13 @@ internal static class FuzzTargets
     }
 
     /// <summary>
-    /// Opens the input as a whole file in lenient mode, saves it in the layout the input's length selects, and reopens the output.
-    /// Whatever opened must save, and what was saved must open again with the same number of pages: a full save writes every object
-    /// (repaired ones re-serialized), so nothing the first open could read may become unreadable. <see cref="NotSupportedException"/>
-    /// is the documented outcome for an encrypted file or one with object numbers above the save limit.
+    /// Opens the input as a whole file in lenient mode, saves it in the layout, object numbering and garbage collection the input's
+    /// length selects, and reopens the output. Whatever opened must save, and what was saved must open again with the same number of
+    /// pages: a full save writes every object the trailer reaches (repaired ones re-serialized, references renumbered), so nothing the
+    /// first open could read through the page tree may become unreadable. <see cref="NotSupportedException"/> is the documented outcome
+    /// for an encrypted file.
     /// </summary>
-    /// <remarks>ISO 32000-2 §7.5 (issue #44).</remarks>
+    /// <remarks>ISO 32000-2 §7.5, §7.3.10 (issues #44, #144).</remarks>
     private static void Save(ReadOnlySpan<byte> data)
     {
         using PdfDocument? document = OpenOrNull(data);
@@ -847,11 +927,19 @@ internal static class FuzzTargets
         }
 
         int pages = document.Pages.Count;
+        if (data.Length / 12 % 2 == 1)
+        {
+            SaveIncrementally(document, data, pages);
+            return;
+        }
+
         var layout = (PdfCrossReferenceLayout)(data.Length % 3);
+        var numbering = (PdfObjectNumbering)(data.Length / 3 % 2);
+        bool removeUnreachable = data.Length / 6 % 2 == 1;
         using var output = new MemoryStream();
         try
         {
-            document.Save(output, new PdfSaveOptions().WithCrossReferenceLayout(layout));
+            document.Save(output, new PdfSaveOptions().WithCrossReferenceLayout(layout).WithObjectNumbering(numbering).WithRemoveUnreachableObjects(removeUnreachable));
         }
         catch (NotSupportedException)
         {
@@ -862,6 +950,55 @@ internal static class FuzzTargets
         if (saved.Pages.Count != pages)
         {
             throw new InvalidOperationException($"The saved file has {saved.Pages.Count} pages; the input had {pages}.");
+        }
+    }
+
+    /// <summary>
+    /// Saves <paramref name="document"/> (the input, opened) twice as incremental updates, the catalog changed before each and an
+    /// object added before the second. Each output must start with the bytes before it (§7.5.6: the original is left intact) and
+    /// reopen, with the same number of pages when the input opened without a warning; the document must keep its pages once it reads
+    /// from the updated file.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.5.6 (issue #145).</remarks>
+    private static void SaveIncrementally(PdfDocument document, ReadOnlySpan<byte> data, int pages)
+    {
+        byte[] previous = data.ToArray();
+        bool clean = !document.Diagnostics.Any(diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning);
+        for (int round = 0; round < 2; round++)
+        {
+            document.Catalog[Names.Lang] = new CosString(round == 0 ? "x"u8 : "y"u8);
+            if (round == 1)
+            {
+                // An integer: a damaged input may hold dangling references to numbers above its Size, and a new object under
+                // such a number is what they now reach; an integer is never read as a page.
+                document.Catalog[Names.Marker] = document.AddObject(new CosInteger(1));
+            }
+
+            using var output = new MemoryStream();
+            try
+            {
+                document.Save(output, new PdfSaveOptions().WithIncrementalUpdate(true));
+            }
+            catch (NotSupportedException)
+            {
+                return;
+            }
+
+            byte[] written = output.ToArray();
+            if (written.Length < previous.Length || !written.AsSpan(0, previous.Length).SequenceEqual(previous))
+            {
+                throw new InvalidOperationException("An incremental update changed the bytes it was appended to.");
+            }
+
+            // A damaged input's old sections stay in the file, and a reader repairs them from where the new chain reaches them,
+            // which may read differently from the original's own repair; only a clean input must reopen with the same pages.
+            using PdfDocument saved = PdfDocument.Open(written);
+            if ((clean && saved.Pages.Count != pages) || document.Pages.Count != pages)
+            {
+                throw new InvalidOperationException($"The updated file has {saved.Pages.Count} pages; the input had {pages}.");
+            }
+
+            previous = written;
         }
     }
 
@@ -1009,6 +1146,79 @@ internal static class FuzzTargets
         {
             throw new InvalidOperationException($"Predictor {predictor} turned {body.Length} bytes into {output.WrittenCount}, not whole rows of {row}.");
         }
+    }
+
+    /// <summary>
+    /// The encoders (issue #142): byte 0 selects ASCIIHex, ASCII85, RunLength, Flate at one of four compression levels, Flate after a
+    /// predictor whose Predictor (2, 10 to 15), Colors, BitsPerComponent and Columns come from bytes 1 to 3 (the data is cut to whole
+    /// rows), or the chain <c>[/ASCII85Decode /RunLengthDecode /FlateDecode]</c>; the rest is the data. The data is encoded through
+    /// the document's encoding pipeline and decoded through the decoding pipeline with the managed defaults in strict mode, which
+    /// must give it back exactly and report nothing. Any input is a valid seed.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.4.1 to §7.4.5, §7.4.4.3 Table 8 and §7.4.4.4.</remarks>
+    private static void EncodeTarget(ReadOnlySpan<byte> data)
+    {
+        if (data.IsEmpty)
+        {
+            return;
+        }
+
+        ReadOnlySpan<int> predictors = [2, 10, 11, 12, 13, 14, 15];
+        ReadOnlySpan<int> depths = [1, 2, 4, 8, 16];
+        ReadOnlySpan<CompressionLevel> levels = [CompressionLevel.Optimal, CompressionLevel.Fastest, CompressionLevel.NoCompression, CompressionLevel.SmallestSize];
+        int mode = data[0] % 10;
+        ReadOnlySpan<byte> body = data[1..];
+        var dictionary = new CosDictionary();
+        switch (mode)
+        {
+            case 0:
+                dictionary[Names.Filter] = new CosName("ASCIIHexDecode");
+                break;
+            case 1:
+                dictionary[Names.Filter] = new CosName("ASCII85Decode");
+                break;
+            case 2:
+                dictionary[Names.Filter] = new CosName("RunLengthDecode");
+                break;
+            case 3 or 4 or 5 or 6:
+                dictionary[Names.Filter] = new CosName("FlateDecode");
+                break;
+            case 7 or 8:
+                if (body.Length < 3)
+                {
+                    return;
+                }
+
+                int colors = 1 + (body[0] % 4);
+                int bitsPerComponent = depths[body[1] % depths.Length];
+                int columns = 1 + (body[2] % 64);
+                int row = ((colors * bitsPerComponent * columns) + 7) / 8;
+                dictionary[Names.Filter] = new CosName("FlateDecode");
+                dictionary[Names.DecodeParms] = new CosDictionary
+                {
+                    [new CosName("Predictor")] = new CosInteger(predictors[(body[0] / 4) % predictors.Length]),
+                    [new CosName("Colors")] = new CosInteger(colors),
+                    [new CosName("BitsPerComponent")] = new CosInteger(bitsPerComponent),
+                    [new CosName("Columns")] = new CosInteger(columns),
+                };
+                body = body[3..];
+                body = body[..(body.Length / row * row)];
+                break;
+            default:
+                dictionary[Names.Filter] = new CosArray([new CosName("ASCII85Decode"), new CosName("RunLengthDecode"), new CosName("FlateDecode")]);
+                break;
+        }
+
+        var encoded = new ArrayBufferWriter<byte>();
+        new StreamEncoder(StreamEncoderRegistry.Default, Unresolved).Encode(body, dictionary, encoded, levels[mode % levels.Length]);
+        var decoder = new StreamDecoder(FilterRegistry.Create([]), PdfOptions.DefaultMaxDecodedStreamLength, new DiagnosticSink(strict: true), Unresolved);
+        ReadOnlyMemory<byte> decoded = decoder.Decode(new CosStream(dictionary, encoded.WrittenSpan.ToArray()));
+        if (!decoded.Span.SequenceEqual(body))
+        {
+            throw new InvalidOperationException($"Encoding {body.Length} bytes in mode {mode} decoded to {decoded.Length} other bytes.");
+        }
+
+        static CosObject Unresolved(CosObject? value) => value ?? CosNull.Instance;
     }
 
     /// <summary>

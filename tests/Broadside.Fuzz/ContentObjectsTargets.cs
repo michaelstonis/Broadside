@@ -31,6 +31,81 @@ internal static class ContentObjectsTargets
     }
 
     /// <summary>
+    /// Runs the input as content with the resources of <see cref="ContentWithResources"/> through a text extractor that keeps hidden
+    /// text, then checks its output: each glyph's text range starts where the previous one ended and the last ends at the end of the
+    /// text (also after <c>ActualText</c> replacements, nested, unbalanced or empty), and every origin, advance, quad corner and font
+    /// size is finite; then the words follow each other through the glyphs, the lines take every word in order, and the plain text
+    /// is the lines' words joined by spaces and line feeds.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.4.4, §9.10, §14.9.4 (issue #183), §14.8.2.6.2 (issue #184).</remarks>
+    public static void TextExtraction(ReadOnlySpan<byte> data)
+    {
+        using PdfDocument document = PdfDocument.Open(ResourceFile.Value);
+        var extractor = new Broadside.Text.TextExtractor(new Broadside.Text.TextExtractionOptions().WithHiddenContent());
+        ContentInterpreter.RunBytes(data, document, extractor, ContentInterpreter.DefaultOptions, document.Pages[0].Resources);
+        int expectedStart = 0;
+        foreach (Broadside.Text.TextGlyph glyph in extractor.Glyphs)
+        {
+            if (glyph.TextStart != expectedStart || glyph.TextLength < 0)
+            {
+                throw new InvalidOperationException($"A glyph's text starts at {glyph.TextStart} with {glyph.TextLength} units; expected to start at {expectedStart}.");
+            }
+
+            expectedStart += glyph.TextLength;
+            Quad quad = glyph.Quad;
+            if (!Finite(glyph.Origin) || !Finite(glyph.Advance) || !Finite(quad.BottomLeft) || !Finite(quad.BottomRight)
+                || !Finite(quad.TopRight) || !Finite(quad.TopLeft) || !double.IsFinite(glyph.FontSize))
+            {
+                throw new InvalidOperationException($"A glyph's geometry is not finite: origin {glyph.Origin}, advance {glyph.Advance}, quad {quad}, size {glyph.FontSize}.");
+            }
+        }
+
+        if (expectedStart != extractor.Text.Length)
+        {
+            throw new InvalidOperationException($"The glyphs' text ends at {expectedStart}, the extracted text at {extractor.Text.Length}.");
+        }
+
+        // Words follow each other through the glyphs with text of their own; lines take every word in order and the plain text is
+        // their words joined by one space and the lines by one line feed.
+        int nextGlyph = 0;
+        foreach (Broadside.Text.TextWord word in extractor.Words)
+        {
+            if (word.GlyphStart < nextGlyph || word.GlyphCount < 1 || word.TextLength < 1 || !Finite(word.Quad.BottomLeft) || !Finite(word.Quad.TopRight))
+            {
+                throw new InvalidOperationException($"A word at glyph {word.GlyphStart}+{word.GlyphCount} with text {word.TextStart}+{word.TextLength} follows glyph {nextGlyph}.");
+            }
+
+            nextGlyph = word.GlyphStart + word.GlyphCount;
+        }
+
+        int nextWord = 0;
+        int plainLength = -1;
+        foreach (Broadside.Text.TextLine line in extractor.Lines)
+        {
+            int length = -1;
+            for (int index = line.WordStart; index < line.WordStart + line.WordCount; index++)
+            {
+                length += extractor.Words[index].TextLength + 1;
+            }
+
+            if (line.WordStart != nextWord || line.WordCount < 1 || line.PlainTextStart != plainLength + 1 || line.PlainTextLength != length)
+            {
+                throw new InvalidOperationException($"A line of words {line.WordStart}+{line.WordCount} at plain text {line.PlainTextStart}+{line.PlainTextLength} follows word {nextWord}.");
+            }
+
+            nextWord += line.WordCount;
+            plainLength += length + 1;
+        }
+
+        if (nextWord != extractor.Words.Length || Math.Max(0, plainLength) != extractor.PlainText.Length)
+        {
+            throw new InvalidOperationException($"The lines take {nextWord} of {extractor.Words.Length} words and {plainLength} of {extractor.PlainText.Length} plain text units.");
+        }
+
+        static bool Finite(PathPoint point) => double.IsFinite(point.X) && double.IsFinite(point.Y);
+    }
+
+    /// <summary>
     /// Wraps the input in an inline image and reads it with the content reader: byte 0 selects the dictionary (no filter with a
     /// computed length, an <c>L</c> taken from byte 1, ASCIIHex, ASCII85 or DCT), the rest is the data and whatever follows. Every
     /// operator must lie inside the content in order, and the inline image's data must lie between <c>ID</c> and the offset where
@@ -192,6 +267,14 @@ internal static class ContentObjectsTargets
         public override ContentVisit BeginType3Glyph(in GlyphEvent glyph, ContentContext context)
         {
             Pair(ref _glyphs, +1, "BeginType3Glyph");
+            Broadside.Fonts.Type3GlyphMetrics metrics = glyph.Type3Metrics;
+            bool described = glyph.Font is Broadside.Fonts.PdfType3Font font && font.GetCharProc((byte)glyph.CharacterCode) is not null;
+            if ((metrics.Kind == Broadside.Fonts.Type3GlyphKind.None) == described
+                || (metrics.Kind != Broadside.Fonts.Type3GlyphKind.ShapeOnly && metrics.BoundingBox != default))
+            {
+                throw new InvalidOperationException($"A Type 3 glyph's metrics ({metrics}) do not match its description.");
+            }
+
             return ContentVisit.Enter;
         }
 

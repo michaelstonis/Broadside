@@ -63,7 +63,7 @@ internal sealed partial class ContentInterpreter
         switch (subtype)
         {
             case CosName { Value: "Form" }:
-                PaintForm(document.ContentResources.GetForm(stream, value as CosReference), name, offset, _processor);
+                PaintForm(_context.GetForm(stream, value as CosReference), name, offset, _processor);
                 break;
             case CosName { Value: "Image" }:
                 PaintImageXObject(stream, value as CosReference, name);
@@ -101,7 +101,7 @@ internal sealed partial class ContentInterpreter
         }
 
         PdfDocument document = _context.Document;
-        Images.PdfImage? model = document.ContentResources.GetImage(stream, reference);
+        Images.PdfImage? model = _context.GetImage(stream, reference);
         var image = new ImageEvent
         {
             Stream = stream,

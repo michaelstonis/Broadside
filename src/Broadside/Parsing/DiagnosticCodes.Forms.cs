@@ -10,6 +10,7 @@ internal static partial class DiagnosticCodes
     public const string XfaFormPresent = nameof(XfaFormPresent);
     public const string XfaFormDynamic = nameof(XfaFormDynamic);
     public const string XfaPacketsInvalid = nameof(XfaPacketsInvalid);
+    public const string XfaDataNotUpdated = nameof(XfaDataNotUpdated);
 
     // The field tree (§12.7.2, §12.7.4.1, §12.7.4.2): reported when the tree is built.
     public const string FieldReferenceInvalid = nameof(FieldReferenceInvalid);
@@ -33,6 +34,8 @@ internal static partial class DiagnosticCodes
     public const string FieldFlagsInvalid = nameof(FieldFlagsInvalid);
     public const string FieldValueTypeInvalid = nameof(FieldValueTypeInvalid);
     public const string DefaultAppearanceMissing = nameof(DefaultAppearanceMissing);
+    public const string DefaultAppearanceInvalid = nameof(DefaultAppearanceInvalid);
+    public const string DefaultAppearanceFontMissing = nameof(DefaultAppearanceFontMissing);
     public const string TextCombInvalid = nameof(TextCombInvalid);
     public const string ButtonValueStateMismatch = nameof(ButtonValueStateMismatch);
     public const string ButtonValueUnknownState = nameof(ButtonValueUnknownState);

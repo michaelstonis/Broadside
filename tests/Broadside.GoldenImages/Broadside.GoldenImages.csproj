@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The golden-image harness (issue #120): perceptual comparison, the reviewed threshold table and the reference renders of every
+    corpus page. A plain library for test projects, like Broadside.TestSupport. It sees only public API: no package grants it
+    InternalsVisibleTo, so a backend test project that uses it never reaches into the software rasterizer.
+  -->
+  <PropertyGroup>
+    <IsTestProject>false</IsTestProject>
+    <IsPackable>false</IsPackable>
+    <OutputType>Library</OutputType>
+    <UseMicrosoftTestingPlatformRunner>false</UseMicrosoftTestingPlatformRunner>
+    <TestingPlatformDotnetTestSupport>false</TestingPlatformDotnetTestSupport>
+    <RootNamespace>Broadside.GoldenImages</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Rendering/Broadside.Rendering.csproj" />
+    <ProjectReference Include="../Broadside.TestSupport/Broadside.TestSupport.csproj" />
+    <PackageReference Include="xunit.v3.extensibility.core" />
+    <PackageReference Include="Verify.XunitV3" />
+    <PackageReference Include="StbImageSharp" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,6 @@
+﻿page 1: HI 
+  H code 21/2 ToUnicode font BroadsideMinimal 24 Fill vertical origin (290.4, 678.88) advance (0, -28.8) quad (290.4, 674.08) (314.4, 674.08) (314.4, 698.08) (290.4, 698.08)
+  I code 22/2 ToUnicode font BroadsideMinimal 24 Fill vertical origin (295.2, 650.08) advance (0, -21.6) quad (295.2, 645.28) (319.2, 645.28) (319.2, 669.28) (295.2, 669.28)
+    code 23/2 ToUnicode font BroadsideMinimal 24 Fill vertical origin (288, 628) advance (0, -26.4) quad (288, 623.2) (312, 623.2) (312, 647.2) (288, 647.2)
+  line HI vertical glyphs 0+2 quad (290.4, 645.28) (319.2, 645.28) (319.2, 698.08) (290.4, 698.08)
+    words HI glyphs 0+2

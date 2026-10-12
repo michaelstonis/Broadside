@@ -4,6 +4,7 @@ using Broadside.Diagnostics;
 using Broadside.Fonts;
 using Broadside.Images;
 using Broadside.Objects;
+using Broadside.Rendering;
 
 namespace Broadside;
 
@@ -171,6 +172,85 @@ public sealed class PdfPage
         ArgumentNullException.ThrowIfNull(processor);
         ArgumentNullException.ThrowIfNull(options);
         ContentInterpreter.RunPage(this, _document, processor, options);
+    }
+
+    /// <summary>
+    /// Runs the page's content through <paramref name="editor"/> and, when it made edits, replaces the content with the result: one
+    /// stream in which every byte the edits did not touch is as it was.
+    /// </summary>
+    /// <param name="editor">The editor; it numbers the operators and makes its edits during the run.</param>
+    /// <returns><see langword="true"/> when the editor made edits and the content was replaced; otherwise the page is unchanged.</returns>
+    /// <exception cref="InvalidOperationException">The editor is already rewriting.</exception>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.8.2; Table 31. The run is the one <see cref="ProcessContent(ContentProcessor)"/> makes. The result is written
+    /// unfiltered (§7.3.8.2; a save compresses it) into a new stream (§7.3.10, <see cref="PdfDocument.AddObject"/>) that the page's
+    /// <c>Contents</c> then names alone; a <c>Contents</c> array's parts are joined by line feeds. The old streams are not written
+    /// into, so another page that shows them keeps its content; they stay objects of the document, which a save with
+    /// <see cref="PdfSaveOptions.RemoveUnreachableObjects"/> drops when nothing else refers to them.
+    /// </remarks>
+    public bool RewriteContent(ContentEditor editor) => RewriteContent(editor, ContentInterpreter.DefaultOptions);
+
+    /// <summary>Runs the page's content through <paramref name="editor"/> with limits and cancellation, and stores the edited content.</summary>
+    /// <param name="editor">The editor.</param>
+    /// <param name="options">Limits and cancellation for the run.</param>
+    /// <returns><see langword="true"/> when the content was replaced.</returns>
+    /// <exception cref="InvalidOperationException">The editor is already rewriting.</exception>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
+    /// <exception cref="OperationCanceledException">The options' cancellation token was canceled; the page is unchanged.</exception>
+    /// <remarks>ISO 32000-2 §7.8.2; Table 31. As <see cref="RewriteContent(ContentEditor)"/>.</remarks>
+    public bool RewriteContent(ContentEditor editor, ContentOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(editor);
+        ArgumentNullException.ThrowIfNull(options);
+        return ContentRewriting.RewritePage(this, _document, editor, options);
+    }
+
+    /// <summary>Extracts the page's text: every glyph its content shows, with its Unicode text, position, font, size and rendering mode.</summary>
+    /// <returns>The glyphs in content order and their text, with their words, lines and plain text assembled on first use.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content or its fonts.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §9.4.4, §9.10, §14.8.2.6.2 and §14.9.4; see <see cref="Text.TextExtractor"/>. Text hidden by optional content is left out;
+    /// invisible text, artifacts and text replaced by <c>ActualText</c> are extracted and flagged (<see cref="Text.TextGlyphFlags"/>).
+    /// Positions are in default user space. Annotation appearances are not part of the page's content and are not extracted.
+    /// </remarks>
+    public Text.TextPage ExtractText() => ExtractText(new Text.TextExtractionOptions());
+
+    /// <summary>Extracts the page's text with options.</summary>
+    /// <param name="options">What to extract and the content run's options.</param>
+    /// <returns>The glyphs in content order and their text.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content or its fonts.</exception>
+    /// <exception cref="OperationCanceledException">The content options' cancellation token was canceled.</exception>
+    /// <remarks>ISO 32000-2 §9.4.4, §9.10, §8.11.3.1 and §14.9.4. As <see cref="ExtractText()"/>.</remarks>
+    public Text.TextPage ExtractText(Text.TextExtractionOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        var extractor = new Text.TextExtractor(options);
+        ProcessContent(extractor, options.ContentOptions ?? ContentInterpreter.DefaultOptions);
+        return extractor.ToTextPage();
+    }
+
+    /// <summary>Builds the page's display list: its content interpreted once into resolved drawing operations any backend replays.</summary>
+    /// <returns>The list; a new one on every call, reading the page live.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
+    /// <remarks>
+    /// ADR 0006; ISO 32000-2 §8.5.3 (path painting) and §8.6 (colour). The content runs through the same interpreter as
+    /// <see cref="ProcessContent(ContentProcessor)"/>, so lenient repairs are recorded in <see cref="PdfDocument.Diagnostics"/> the
+    /// same way. Geometry is in user space with the transform to default user space; the media box, crop box, rotation and user unit
+    /// are the renderer's to apply. Colours keep their colour space; a backend converts them (see <see cref="DisplayColor"/>).
+    /// </remarks>
+    public DisplayList CreateDisplayList() => CreateDisplayList(ContentInterpreter.DefaultOptions);
+
+    /// <summary>Builds the page's display list, with limits and cancellation.</summary>
+    /// <param name="options">Limits, optional-content state and cancellation for the content run.</param>
+    /// <returns>The list.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
+    /// <exception cref="OperationCanceledException">The options' cancellation token was canceled.</exception>
+    /// <remarks>ADR 0006; ISO 32000-2 §8.5.3, §8.6. As <see cref="CreateDisplayList()"/>.</remarks>
+    public DisplayList CreateDisplayList(ContentOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return DisplayListBuilder.Build(this, _document, options);
     }
 
     /// <summary>Reads a page boundary; for an inheritable one, from the nearest node that has it.</summary>
