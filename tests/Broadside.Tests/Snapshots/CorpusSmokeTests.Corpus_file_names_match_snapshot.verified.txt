@@ -39,6 +39,7 @@
   encrypted-crypt-filters.pdf,
   encrypted-embedded-file-open.pdf,
   encrypted-empty-owner-password.pdf,
+  encrypted-mac-sha3.pdf,
   encrypted-mac-tampered.pdf,
   encrypted-mac.pdf,
   encrypted-owner-key-variant.pdf,

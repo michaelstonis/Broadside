@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Broadside.Diagnostics;
+using Broadside.Security.Cryptography;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.Security;
@@ -17,6 +18,35 @@ public sealed class IntegrityTests
         Assert.True(document.Security.RequiresIntegrityCode);
         Assert.Equal(-4100, document.Security.RawPermissions);
         Assert.Empty(document.Diagnostics);
+    }
+
+    // ISO/TS 32004 Table 8 and ISO/TS 32001 §5.1: SHA3-256 digests are checked on every platform, with the managed SHA-3 where the
+    // base class library has none (macOS, iOS, the browser) and with it forced where the library has one.
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_mac_with_sha3_digests_is_verified_on_every_platform(bool forceManaged)
+    {
+        using IDisposable? managed = forceManaged ? CryptographyBackend.ForceManaged() : null;
+
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("encrypted-mac-sha3.pdf"));
+
+        Assert.Equal(PdfIntegrityStatus.Verified, document.Security!.Integrity);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void A_changed_byte_under_a_sha3_mac_is_a_mismatch()
+    {
+        string text = Encoding.Latin1.GetString(Corpus.Bytes("encrypted-mac-sha3.pdf"))
+            .Replace("Integrity check target: original", "Integrity check target: Original", StringComparison.Ordinal);
+
+        using PdfDocument document = PdfDocument.Open(Encoding.Latin1.GetBytes(text));
+
+        Assert.Equal(PdfIntegrityStatus.Failed, document.Security!.Integrity);
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal("IntegrityCodeMismatch", diagnostic.Code);
+        Assert.Contains("dataDigest", diagnostic.Message, StringComparison.Ordinal);
     }
 
     [Fact]
