@@ -1140,9 +1140,12 @@ public sealed partial class PdfDocument : IDisposable
     /// leads the cross-reference information, its revision is added, and the objects it wrote are no longer dirty. A full save
     /// changes nothing: the document keeps reading the file it was opened from.
     /// </summary>
-    private void Rebase(FileWriter writer)
+    private void Rebase(FileWriter writer) => Rebase(writer.Update);
+
+    /// <summary>As <see cref="Rebase(FileWriter)"/>, for an update whose bytes were completed after writing (a signature, issue #193).</summary>
+    private void Rebase(UpdateResult? update)
     {
-        if (writer.Update is not { } update)
+        if (update is null)
         {
             return;
         }
