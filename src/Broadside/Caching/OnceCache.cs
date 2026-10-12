@@ -32,7 +32,9 @@ internal readonly record struct Created<TValue>(TValue Value, bool Keep = true);
 /// </para>
 /// <para>
 /// A cached value is read without a lock. A factory exception is cached and rethrown to every later caller: the same input gives the
-/// same outcome (strict mode throws the same diagnostic again rather than recording it twice).
+/// same outcome (strict mode throws the same diagnostic again rather than recording it twice). The one exception is
+/// <see cref="PdfRangeNotLoadedException"/>, which says nothing about the value, only that a remote file's bytes have not been
+/// fetched yet: it is not cached, and the next request computes the value again.
 /// </para>
 /// </remarks>
 /// <typeparam name="TKey">The key type.</typeparam>
@@ -120,6 +122,13 @@ internal sealed class OnceCache<TKey, TValue>
             try
             {
                 created = create(key, state);
+            }
+            catch (PdfRangeNotLoadedException)
+            {
+                // The bytes were not fetched yet (issue #207): nothing is known about the value, so nothing is cached.
+                _entries.TryRemove(new KeyValuePair<TKey, Entry>(key, mine));
+                mine.Abandon();
+                throw;
             }
             catch (Exception exception)
             {

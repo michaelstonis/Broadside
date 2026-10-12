@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Diagnostics.CodeAnalysis;
+using Broadside.Caching;
 using Broadside.Objects;
 
 namespace Broadside;
@@ -12,32 +13,42 @@ namespace Broadside;
 /// </remarks>
 public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
 {
-    private readonly Lazy<IReadOnlyList<PdfPage>> _pages;
-    private readonly Lazy<Dictionary<CosDictionary, int>> _indexes;
+    // OnceCache rather than Lazy: a walk of a remote file's tree that misses bytes (issue #207) is not cached as failed.
+    private readonly OnceCache<bool, IReadOnlyList<PdfPage>> _pages = new();
+    private readonly OnceCache<bool, Dictionary<CosDictionary, int>> _indexes = new();
+    private readonly Func<IReadOnlyList<PdfPage>> _walk;
 
-    internal PdfPageCollection(Func<IReadOnlyList<PdfPage>> walk)
-    {
-        _pages = new Lazy<IReadOnlyList<PdfPage>>(walk, LazyThreadSafetyMode.ExecutionAndPublication);
-        _indexes = new Lazy<Dictionary<CosDictionary, int>>(IndexPages, LazyThreadSafetyMode.ExecutionAndPublication);
-    }
+    internal PdfPageCollection(Func<IReadOnlyList<PdfPage>> walk) => _walk = walk;
 
     /// <summary>Gets the number of pages.</summary>
-    public int Count => _pages.Value.Count;
+    public int Count => Pages.Count;
+
+    private IReadOnlyList<PdfPage> Pages => _pages.GetOrCreate(
+        true,
+        _walk,
+        static (_, walk) => new Created<IReadOnlyList<PdfPage>>(walk()),
+        static (_, _) => throw new InvalidOperationException("The page tree was read while it was being read."));
+
+    private Dictionary<CosDictionary, int> Indexes => _indexes.GetOrCreate(
+        true,
+        this,
+        static (_, pages) => new Created<Dictionary<CosDictionary, int>>(pages.IndexPages()),
+        static (_, _) => throw new InvalidOperationException("The page index was read while it was being built."));
 
     /// <summary>Gets the page at a zero-based index.</summary>
     /// <param name="index">The index: 0 for the first page.</param>
     /// <returns>The page.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="index"/> is negative or not less than <see cref="Count"/>.</exception>
-    public PdfPage this[int index] => _pages.Value[index];
+    public PdfPage this[int index] => Pages[index];
 
     /// <inheritdoc/>
-    public IEnumerator<PdfPage> GetEnumerator() => _pages.Value.GetEnumerator();
+    public IEnumerator<PdfPage> GetEnumerator() => Pages.GetEnumerator();
 
     /// <summary>Returns the index of the page whose page object is <paramref name="page"/>, or -1 when no page has it.</summary>
     /// <param name="page">A page object, as resolved through the document (resolving returns the same instance every time).</param>
     /// <returns>The 0-based index, or -1.</returns>
     /// <remarks>For destinations (§12.3.2.2) and any other object that refers to a page. Built once, like the page list.</remarks>
-    internal int IndexOf(CosDictionary page) => _indexes.Value.TryGetValue(page, out int index) ? index : -1;
+    internal int IndexOf(CosDictionary page) => Indexes.TryGetValue(page, out int index) ? index : -1;
 
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
@@ -45,9 +56,9 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
     /// <summary>Finds the page whose page object is <paramref name="pageObject"/> (by identity), for references such as a structure element's <c>Pg</c>.</summary>
     internal bool TryGetPage(CosDictionary pageObject, [MaybeNullWhen(false)] out PdfPage page)
     {
-        if (_indexes.Value.TryGetValue(pageObject, out int index))
+        if (Indexes.TryGetValue(pageObject, out int index))
         {
-            page = _pages.Value[index];
+            page = Pages[index];
             return true;
         }
 
@@ -57,7 +68,7 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
 
     private Dictionary<CosDictionary, int> IndexPages()
     {
-        IReadOnlyList<PdfPage> pages = _pages.Value;
+        IReadOnlyList<PdfPage> pages = Pages;
         var indexes = new Dictionary<CosDictionary, int>(pages.Count, ReferenceEqualityComparer.Instance);
         for (int index = 0; index < pages.Count; index++)
         {

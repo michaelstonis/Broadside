@@ -149,6 +149,25 @@ public sealed class PdfPage
         }
     }
 
+    /// <summary>
+    /// Fetches, asynchronously, the objects reading this page needs, so that interpreting it afterwards never waits on the network:
+    /// the page object, its resources (inherited ones included), its content streams, annotations and their appearances, and
+    /// everything they refer to, but not other pages.
+    /// </summary>
+    /// <param name="cancellationToken">Cancels the requests.</param>
+    /// <returns>A task that completes when the objects are cached; already completed for a document whose bytes are all at hand.</returns>
+    /// <exception cref="HttpRequestException">The server answered with an error status, or could not be reached.</exception>
+    /// <exception cref="IOException">The server's answers are inconsistent: the file changed while it was read, for instance.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>
+    /// Spec #33, viewer capability 5; ADR 0010. Only a document opened through
+    /// <see cref="PdfEngine.OpenAsync(HttpClient, Uri, CancellationToken)"/> fetches anything. Where
+    /// <see cref="PdfOptions.SynchronousRangeFetch"/> is off (always on the browser, which cannot block on HTTP), a synchronous read
+    /// of a page before its prefetch throws <see cref="PdfRangeNotLoadedException"/>; elsewhere it blocks on the requests instead, and
+    /// a prefetch only makes them parallel and asynchronous. The bytes stay cached up to <see cref="PdfOptions.RangeCacheLimit"/>.
+    /// </remarks>
+    public Task PrefetchAsync(CancellationToken cancellationToken = default) => _document.PrefetchAsync(this, cancellationToken);
+
     /// <summary>Runs the page's content through the content interpreter and reports what it paints to <paramref name="processor"/>.</summary>
     /// <param name="processor">The processor; for several at once, a <see cref="CompositeContentProcessor"/>.</param>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
