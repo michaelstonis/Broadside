@@ -68,6 +68,9 @@ internal sealed class EngineConfiguration
     /// <summary>Gets the most pixels one image may have (issue #60).</summary>
     public long MaxImagePixels { get; private init; } = PdfOptions.DefaultMaxImagePixels;
 
+    /// <summary>Gets the clock that dates what the engine writes (issue #162).</summary>
+    public TimeProvider TimeProvider { get; private init; } = TimeProvider.System;
+
     /// <summary>Returns a copy whose diagnostics are seen by <paramref name="observer"/> instead.</summary>
     /// <param name="observer">The observer, or <see langword="null"/> for none.</param>
     /// <returns>The copy.</returns>
@@ -99,6 +102,7 @@ internal sealed class EngineConfiguration
             options.SynchronousRangeFetch && !OperatingSystem.IsBrowser() && !OperatingSystem.IsWasi()),
         FontProgramParsers = FontProgramParserRegistry.Create(options.FontProgramParsers),
         ColorManagement = options.ColorManagement,
+        TimeProvider = options.TimeProvider,
         FontResolvers = CreateFontResolvers(options),
     };
 

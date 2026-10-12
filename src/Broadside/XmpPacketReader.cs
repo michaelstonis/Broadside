@@ -215,7 +215,7 @@ internal static class XmpPacketReader
 
         if (element.Attribute(Resource) is { } resource)
         {
-            return Simple(name, resource.Value, language);
+            return new XmpProperty(Uri(name), name.LocalName, XmpPropertyKind.Simple, resource.Value, language, [], [], [], isUri: true);
         }
 
         string? parseType = element.Attribute(ParseType)?.Value;
@@ -278,7 +278,7 @@ internal static class XmpPacketReader
                 }
             }
 
-            return new XmpProperty(Uri(name), name.LocalName, value.Kind, value.Value, value.Language ?? language, value.Items, value.Fields, qualifiers);
+            return new XmpProperty(Uri(name), name.LocalName, value.Kind, value.Value, value.Language ?? language, value.Items, value.Fields, qualifiers, value.IsUri);
         }
 
         return new XmpProperty(Uri(name), name.LocalName, XmpPropertyKind.Structure, null, language, [], ReadNode(node, depth), []);

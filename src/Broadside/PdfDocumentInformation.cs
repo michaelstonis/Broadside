@@ -12,7 +12,7 @@ namespace Broadside;
 /// resolves the two sources.
 /// </para>
 /// <para>
-/// Every property reads the dictionary when called; nothing is ever written to it. A value of the wrong type is read as its text
+/// Every property reads the dictionary when called; this view never writes to it (<see cref="PdfDocument.Properties"/> does). A value of the wrong type is read as its text
 /// where it has one (a name, a number) and otherwise as absent, and a date that does not follow §7.9.4 is repaired when it can be;
 /// each records a diagnostic the first time it is read (in strict mode, the property throws). The raw text of a date that cannot
 /// be read stays available through <see cref="GetText"/>.

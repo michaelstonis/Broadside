@@ -3733,5 +3733,17 @@ Broadside.PdfSaveOptions.RemoveEncryption.get -> bool
 Broadside.PdfSaveOptions.RemoveEncryption.set -> void
 Broadside.PdfSaveOptions.WithEncryption(Broadside.PdfEncryptionOptions? encryption) -> Broadside.PdfSaveOptions!
 Broadside.PdfSaveOptions.WithRemoveEncryption(bool remove) -> Broadside.PdfSaveOptions!
+Broadside.PdfDocumentProperties.Author.set -> void
+Broadside.PdfDocumentProperties.CreationDate.set -> void
+Broadside.PdfDocumentProperties.Creator.set -> void
+Broadside.PdfDocumentProperties.Keywords.set -> void
+Broadside.PdfDocumentProperties.ModificationDate.set -> void
+Broadside.PdfDocumentProperties.Producer.set -> void
+Broadside.PdfDocumentProperties.Subject.set -> void
+Broadside.PdfDocumentProperties.Title.set -> void
+Broadside.PdfOptions.UseTimeProvider(System.TimeProvider! timeProvider) -> Broadside.PdfOptions!
+Broadside.PdfSaveOptions.UpdateModificationDate.get -> bool
+Broadside.PdfSaveOptions.UpdateModificationDate.set -> void
+Broadside.PdfSaveOptions.WithUpdateModificationDate(bool update) -> Broadside.PdfSaveOptions!
 Broadside.Forms.PdfTextField.GenerateAppearances() -> void
 Broadside.Forms.PdfTextField.SetValue(string? value) -> void
