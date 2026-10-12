@@ -3594,3 +3594,27 @@ Broadside.PdfNameTree.Remove(Broadside.Objects.CosString! key) -> bool
 Broadside.PdfNameTree.Set(Broadside.Objects.CosString! key, Broadside.Objects.CosObject! value) -> void
 Broadside.PdfNumberTree.Remove(int key) -> bool
 Broadside.PdfNumberTree.Set(int key, Broadside.Objects.CosObject! value) -> void
+Broadside.Content.ContentEditor
+Broadside.Content.ContentEditor.ContentEditor() -> void
+Broadside.Content.ContentEditor.Content.get -> System.ReadOnlyMemory<byte>
+Broadside.Content.ContentEditor.CurrentOperator.get -> int
+Broadside.Content.ContentEditor.GetOperator(int index) -> Broadside.Content.ContentOperatorRange
+Broadside.Content.ContentEditor.InsertAfter(int index, System.ReadOnlySpan<byte> content) -> void
+Broadside.Content.ContentEditor.InsertBefore(int index, System.ReadOnlySpan<byte> content) -> void
+Broadside.Content.ContentEditor.OperatorCount.get -> int
+Broadside.Content.ContentEditor.Remove(int index) -> void
+Broadside.Content.ContentEditor.Replace(int index, System.ReadOnlySpan<byte> content) -> void
+Broadside.Content.ContentEditor.Wrap(int first, int last, System.ReadOnlySpan<byte> before, System.ReadOnlySpan<byte> after) -> void
+Broadside.Content.ContentOperatorRange
+Broadside.Content.ContentOperatorRange.Code.get -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorRange.Code.init -> void
+Broadside.Content.ContentOperatorRange.ContentOperatorRange() -> void
+Broadside.Content.ContentOperatorRange.ContentOperatorRange(Broadside.Content.ContentOperatorCode Code, int Offset, int Length) -> void
+Broadside.Content.ContentOperatorRange.Length.get -> int
+Broadside.Content.ContentOperatorRange.Length.init -> void
+Broadside.Content.ContentOperatorRange.Offset.get -> int
+Broadside.Content.ContentOperatorRange.Offset.init -> void
+Broadside.Graphics.PdfFormXObject.RewriteContent(Broadside.Content.ContentEditor! editor) -> bool
+Broadside.Graphics.PdfFormXObject.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
+Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor) -> bool
+Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool

@@ -75,6 +75,7 @@ internal static class FuzzTargets
         ["shading-mesh"] = ShadingMeshTarget.Target,
         ["default-appearance"] = DefaultAppearanceTarget.Target,
         ["display-list"] = DisplayListTarget.Target,
+        ["content-rewrite"] = ContentRewriteTarget.Target,
         ["icc-profile"] = IccProfileTarget.Target,
         ["rasterize"] = RasterizeTarget.Target,
     };
