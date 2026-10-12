@@ -7,3 +7,5 @@
     code A0/1 GlyphName font Helvetica 24 Fill origin (114.72, 700) advance (6.672, 0) quad (114.72, 695.032) (121.392, 695.032) (121.392, 717.232) (114.72, 717.232)
   - code AD/1 GlyphName font Helvetica 24 Fill origin (121.392, 700) advance (7.992, 0) quad (121.392, 695.032) (129.384, 695.032) (129.384, 717.232) (121.392, 717.232)
   Ž code 8E/1 GlyphName font Helvetica 24 Fill origin (129.384, 700) advance (14.664, 0) quad (129.384, 695.032) (144.048, 695.032) (144.048, 717.232) (129.384, 717.232)
+  line '`••€ -Ž glyphs 0+8 quad (72, 695.032) (144.048, 695.032) (144.048, 717.232) (72, 717.232)
+    words '`••€ glyphs 0+5 | -Ž glyphs 6+2

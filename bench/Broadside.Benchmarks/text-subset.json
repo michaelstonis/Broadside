@@ -1,0 +1,27 @@
+{
+  "comment": "Pinned real-world subset for text extraction (issue #184): every file of the open-and-walk subset (RealWorldSubset.cs, issue #48) and of content-subset.json (issue #80), with the same SHA-256 pins. RealWorldTextSubsetTests snapshots each file's page, glyph, word and line counts and the SHA-256 of its plain text; TextExtractionBenchmarks extracts the files marked bench (the text-bearing ones with the most words per category). Paths are relative to corpus/ (tools/CorpusFetcher); a file that is absent or whose SHA-256 differs is skipped by the benchmark and reported by the test.",
+  "files": [
+    { "path": "pdf20examples/Simple PDF 2.0 file.pdf", "sha256": "296d2a0b2ce19b606f29265694f194a754fbc61783982b5b8d730e8637482236", "from": "open-and-walk", "bench": false },
+    { "path": "pdf20examples/PDF 2.0 via incremental save.pdf", "sha256": "9b25d59d07034634a990e79db6ef82b9f86769d9b94d8d8635f20d06aaec9d18", "from": "open-and-walk", "bench": false },
+    { "path": "pdf20examples/pdf20-utf8-test.pdf", "sha256": "a7ca717ef062df0a65e58487d26358c81424b76084a2000ca1c74b9e5776b7a1", "from": "open-and-walk", "bench": false },
+    { "path": "qpdf/minimal-linearized.pdf", "sha256": "75b49e60adac5dd53c07e01c20f488e86c81a12f402c3b1d5b2a5d3e1a7ca883", "from": "open-and-walk", "bench": false },
+    { "path": "qpdf/lin9.pdf", "sha256": "fe7ccf236f9710b581d227508dcdb41c023b795532d5715be4fbae14f033341f", "from": "open-and-walk", "bench": false },
+    { "path": "qpdf/merge-implicit-ranges.pdf", "sha256": "a0a47d34fe90cdae65c522574c1890d65b199304a50968dc36cf443679a556d5", "from": "open-and-walk", "bench": false },
+    { "path": "qpdf/deterministic-id-in.pdf", "sha256": "336eaa8e96c36348358c17faf294469035767f3c8294f3020ac090ed9a1eec97", "from": "open-and-walk", "bench": true },
+    { "path": "qpdf/large-inline-image.pdf", "sha256": "7da28b9cb83805404c4c5e8a99184b062175f017a2fb40a2bae08aa3f9763d95", "from": "open-and-walk", "bench": false },
+    { "path": "pdfjs/issue7665.pdf", "sha256": "cd1d57895ba287085780a752be15293983b5d3733e2d62428e6083331ca336ec", "from": "open-and-walk", "bench": false },
+    { "path": "pdfjs/bug900822.pdf", "sha256": "76ff1ee293cd3a447b737f882840af70e50627f3010170fe3c1581090be8fd61", "from": "open-and-walk", "bench": false },
+    { "path": "pdfjs/160F-2019.pdf", "sha256": "f41f0818365ffd14ca4e55c0556355193bd76632b970d60cc2dec554cac6f379", "from": "open-and-walk", "bench": true },
+    { "path": "pdfjs/issue17808.pdf", "sha256": "2b082b535fbabae9e066df04d2d68b984783e17559a1fe70258250078f3cf0fa", "from": "open-and-walk", "bench": false },
+    { "path": "pdfjs/issue18911.pdf", "sha256": "c62ce23251433be44fe4097cf328554cb436df1b6e78f24d926c4c42f70679b2", "from": "open-and-walk", "bench": false },
+    { "path": "pdfbox/input/rendering/survey.pdf", "sha256": "2e8b87ea72de7dd54176354706a5d7ff9e64a12624e603ffac64aa55743bf581", "from": "open-and-walk", "bench": true },
+    { "path": "pdfjs/tracemonkey.pdf", "sha256": "3662ff519e485810520552bf301d8c3b2b917fd2f83303f4965d7abed367e113", "from": "content: text-heavy", "bench": true },
+    { "path": "pdfjs/issue12810.pdf", "sha256": "412c956edda0affc24e18bfcb86ab844876f0601748a88bb22d207be85afe145", "from": "content: vector-heavy", "bench": false },
+    { "path": "pdfjs/bug1799927.pdf", "sha256": "d64d9d210675175a27fd3bf0b5e956699db5beb3a95658c359e65ff100d855d7", "from": "content: image-heavy", "bench": false },
+    { "path": "qpdf/inline-images.pdf", "sha256": "8ae2fc89f4edd5579c2b05a2b9678388b29515143252ac40f6ec97eb7d97e1df", "from": "content: inline-image-heavy", "bench": false },
+    { "path": "pdfjs/issue11913.pdf", "sha256": "996da6eebc2c04487ab8cda464ccd6ef02148f4813c54a400a9e151ceeec844f", "from": "content: cjk", "bench": true },
+    { "path": "pdfjs/freeculture.pdf", "sha256": "753441c619c529c8d0fc3e7e470f07c9547838fc7229bea8c1dcf854acee03b4", "from": "content: page-count", "bench": true },
+    { "path": "pdfjs/bug1721218_reduced.pdf", "sha256": "dc8dbb890cd0f802deb8d486e2aa66b325b95e8579b11a3c60efc9ad8f4dc81e", "from": "content: shading-pattern", "bench": false },
+    { "path": "pdfjs/tiling_patterns_variations.pdf", "sha256": "2b7b9cccccef7407c18690cf4f007a04fc8a013b868738d025a71113a4700350", "from": "content: tiling-pattern", "bench": false }
+  ]
+}

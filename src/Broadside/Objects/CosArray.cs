@@ -54,6 +54,16 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
         }
     }
 
+    /// <inheritdoc/>
+    internal override void MarkClean()
+    {
+        _changed = false;
+        foreach (CosObject item in _items)
+        {
+            item.MarkClean();
+        }
+    }
+
     /// <summary>
     /// Gets a number that changes every time an element is added, replaced or removed through the public API, and never by reading
     /// or loading: caches of state derived from the array record it and rebuild when it differs.

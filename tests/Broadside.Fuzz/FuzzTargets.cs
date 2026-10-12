@@ -74,7 +74,9 @@ internal static class FuzzTargets
         ["image-decode"] = ImageDecodeTarget.Target,
         ["shading-mesh"] = ShadingMeshTarget.Target,
         ["default-appearance"] = DefaultAppearanceTarget.Target,
+        ["form-fill"] = FormFillTarget.Target,
         ["display-list"] = DisplayListTarget.Target,
+        ["content-rewrite"] = ContentRewriteTarget.Target,
         ["icc-profile"] = IccProfileTarget.Target,
         ["rasterize"] = RasterizeTarget.Target,
     };
@@ -90,6 +92,8 @@ internal static class FuzzTargets
         public static readonly CosName Info = new("Info");
         public static readonly CosName Filter = new("Filter");
         public static readonly CosName DecodeParms = new("DecodeParms");
+        public static readonly CosName Lang = new("Lang");
+        public static readonly CosName Marker = new("Marker");
     }
 
     /// <summary>
@@ -922,6 +926,12 @@ internal static class FuzzTargets
         }
 
         int pages = document.Pages.Count;
+        if (data.Length / 12 % 2 == 1)
+        {
+            SaveIncrementally(document, data, pages);
+            return;
+        }
+
         var layout = (PdfCrossReferenceLayout)(data.Length % 3);
         var numbering = (PdfObjectNumbering)(data.Length / 3 % 2);
         bool removeUnreachable = data.Length / 6 % 2 == 1;
@@ -939,6 +949,55 @@ internal static class FuzzTargets
         if (saved.Pages.Count != pages)
         {
             throw new InvalidOperationException($"The saved file has {saved.Pages.Count} pages; the input had {pages}.");
+        }
+    }
+
+    /// <summary>
+    /// Saves <paramref name="document"/> (the input, opened) twice as incremental updates, the catalog changed before each and an
+    /// object added before the second. Each output must start with the bytes before it (§7.5.6: the original is left intact) and
+    /// reopen, with the same number of pages when the input opened without a warning; the document must keep its pages once it reads
+    /// from the updated file.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.5.6 (issue #145).</remarks>
+    private static void SaveIncrementally(PdfDocument document, ReadOnlySpan<byte> data, int pages)
+    {
+        byte[] previous = data.ToArray();
+        bool clean = !document.Diagnostics.Any(diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning);
+        for (int round = 0; round < 2; round++)
+        {
+            document.Catalog[Names.Lang] = new CosString(round == 0 ? "x"u8 : "y"u8);
+            if (round == 1)
+            {
+                // An integer: a damaged input may hold dangling references to numbers above its Size, and a new object under
+                // such a number is what they now reach; an integer is never read as a page.
+                document.Catalog[Names.Marker] = document.AddObject(new CosInteger(1));
+            }
+
+            using var output = new MemoryStream();
+            try
+            {
+                document.Save(output, new PdfSaveOptions().WithIncrementalUpdate(true));
+            }
+            catch (NotSupportedException)
+            {
+                return;
+            }
+
+            byte[] written = output.ToArray();
+            if (written.Length < previous.Length || !written.AsSpan(0, previous.Length).SequenceEqual(previous))
+            {
+                throw new InvalidOperationException("An incremental update changed the bytes it was appended to.");
+            }
+
+            // A damaged input's old sections stay in the file, and a reader repairs them from where the new chain reaches them,
+            // which may read differently from the original's own repair; only a clean input must reopen with the same pages.
+            using PdfDocument saved = PdfDocument.Open(written);
+            if ((clean && saved.Pages.Count != pages) || document.Pages.Count != pages)
+            {
+                throw new InvalidOperationException($"The updated file has {saved.Pages.Count} pages; the input had {pages}.");
+            }
+
+            previous = written;
         }
     }
 

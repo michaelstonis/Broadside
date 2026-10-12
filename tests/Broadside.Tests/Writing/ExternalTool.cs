@@ -45,6 +45,49 @@ internal static class ExternalTool
         }
     }
 
+    /// <summary>
+    /// Writes <paramref name="file"/> to a temporary path, runs <paramref name="tool"/> with the arguments and that path last, and
+    /// returns its standard output as bytes (for tools that write images, such as <c>pdftoppm</c>).
+    /// </summary>
+    /// <returns>The exit code and the standard output.</returns>
+    public static (int ExitCode, byte[] Output) RunBinary(string tool, byte[] file, params string[] arguments)
+    {
+        string? executable = Find(tool);
+        if (executable is null)
+        {
+            Assert.Skip($"{tool} is not on the PATH.");
+        }
+
+        string path = Path.Combine(Path.GetTempPath(), $"broadside-{Guid.NewGuid():N}.pdf");
+        File.WriteAllBytes(path, file);
+        try
+        {
+            var start = new ProcessStartInfo(executable)
+            {
+                RedirectStandardOutput = true,
+                RedirectStandardError = true,
+                UseShellExecute = false,
+            };
+            foreach (string argument in arguments)
+            {
+                start.ArgumentList.Add(argument);
+            }
+
+            start.ArgumentList.Add(path);
+            using Process process = Process.Start(start)!;
+            Task<string> errors = process.StandardError.ReadToEndAsync();
+            using var output = new MemoryStream();
+            process.StandardOutput.BaseStream.CopyTo(output);
+            process.WaitForExit();
+            _ = errors.Result;
+            return (process.ExitCode, output.ToArray());
+        }
+        finally
+        {
+            File.Delete(path);
+        }
+    }
+
     private static string? Find(string tool)
     {
         string[] directories = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);

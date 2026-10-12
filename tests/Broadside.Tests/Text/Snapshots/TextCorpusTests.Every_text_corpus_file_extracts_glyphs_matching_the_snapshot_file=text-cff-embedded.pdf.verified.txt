@@ -5,3 +5,5 @@
   Á code C1/1 GlyphName font BroadsideCff 24 Fill origin (122.4, 700) advance (14.4, 0) quad (122.4, 695.2) (136.8, 695.2) (136.8, 719.2) (122.4, 719.2)
   A code 61/1 GlyphName font BroadsideCff 24 Fill origin (136.8, 700) advance (14.4, 0) quad (136.8, 695.2) (151.2, 695.2) (151.2, 719.2) (136.8, 719.2)
   S code 53/1 GlyphName font BroadsideCff 24 Fill origin (151.2, 700) advance (14.4, 0) quad (151.2, 695.2) (165.6, 695.2) (165.6, 719.2) (151.2, 719.2)
+  line HIOÁAS glyphs 0+6 quad (72, 695.2) (165.6, 695.2) (165.6, 719.2) (72, 719.2)
+    words HIOÁAS glyphs 0+6

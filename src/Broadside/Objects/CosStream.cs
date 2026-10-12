@@ -82,6 +82,13 @@ public sealed class CosStream : CosObject
     /// <inheritdoc/>
     public override bool IsDirty => _changed || Dictionary.IsDirty;
 
+    /// <inheritdoc/>
+    internal override void MarkClean()
+    {
+        _changed = false;
+        Dictionary.MarkClean();
+    }
+
     /// <summary>Data computed from the loaded data on first read, once however many threads read it (<see cref="OnceCache{TKey, TValue}"/>).</summary>
     private sealed class TransformedData(DeferredStreamData? source, ReadOnlyMemory<byte> loaded, Func<ReadOnlyMemory<byte>, ReadOnlyMemory<byte>> transform)
         : DeferredStreamData
