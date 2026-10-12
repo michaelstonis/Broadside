@@ -144,6 +144,7 @@ public sealed class SoftwareRasterizer : IDisposable
         private const double CoordinateLimit = 1099511627776.0;
 
         private readonly ScanlineRasterizer _scan = new();
+        private readonly Stroker _stroker;
         private Matrix[] _stack = new Matrix[16];
         private int _depth;
         private Matrix _device;
@@ -158,6 +159,8 @@ public sealed class SoftwareRasterizer : IDisposable
         private ColorConversion _conversion;
         private PdfDefaultColorSpaces? _defaults;
         private PdfColorConverter? _converter;
+
+        public Backend() => _stroker = new Stroker(_scan);
 
         public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height)
         {
@@ -219,6 +222,23 @@ public sealed class SoftwareRasterizer : IDisposable
             _scan.Reset(_width, _height);
             AddPath(path);
             _scan.Fill(_target!, rule, pixel);
+        }
+
+        public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
+        {
+            PdfColorConverter converter = Converter(color);
+            if (converter.PaintsNothing || path.IsEmpty)
+            {
+                return;
+            }
+
+            Span<float> rgb = stackalloc float[4];
+            converter.Convert(color.Components, rgb);
+            uint pixel = Pack(rgb);
+
+            _scan.Reset(_width, _height);
+            _stroker.Stroke(path, style, _toDevice);
+            _scan.Fill(_target!, FillRule.NonZero, pixel);
         }
 
         public void Dispose() => _scan.Dispose();

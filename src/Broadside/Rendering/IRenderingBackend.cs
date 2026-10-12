@@ -50,4 +50,15 @@ public interface IRenderingBackend
     /// <param name="color">The nonstroking colour, unconverted.</param>
     /// <remarks>ISO 32000-2 §8.5.3.1 and §8.5.3.3 (<c>f</c>, <c>F</c>, <c>f*</c>, and the fill of <c>B</c>, <c>B*</c>, <c>b</c>, <c>b*</c>).</remarks>
     void FillPath(PathView path, FillRule rule, in DisplayColor color);
+
+    /// <summary>Strokes a path with a colour and line parameters.</summary>
+    /// <param name="path">
+    /// The path in user space, exactly as constructed (see <see cref="PathView"/>): the backend strokes each subpath on its own, joins
+    /// the ends of a closed subpath, paints a degenerate subpath only as a round-cap dot and ignores a trailing lone moveto
+    /// (ISO 32000-2 §8.5.3.2).
+    /// </param>
+    /// <param name="style">The line width, caps, joins, miter limit, dash pattern and stroke adjustment, in user space (§8.4.3, §10.7.5).</param>
+    /// <param name="color">The stroking colour, unconverted.</param>
+    /// <remarks>ISO 32000-2 §8.5.3.2 (<c>S</c>, <c>s</c>, and the stroke of <c>B</c>, <c>B*</c>, <c>b</c>, <c>b*</c>, after its fill).</remarks>
+    void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color);
 }

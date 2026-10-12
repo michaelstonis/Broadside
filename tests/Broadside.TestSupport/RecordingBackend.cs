@@ -11,7 +11,8 @@ namespace Broadside.TestSupport;
 /// </summary>
 /// <remarks>
 /// Lines: <c>save</c>, <c>restore</c>, <c>transform [a b c d e f]</c>, and
-/// <c>fill nonzero|evenodd M x y L x y Q … C … Z | Family c0 c1 …</c>. Numbers are written round-trippable and culture-invariant.
+/// <c>fill nonzero|evenodd M x y L x y Q … C … Z | Family c0 c1 …</c>, and
+/// <c>stroke width Cap Join miterLimit [dash …] phase [adjust] M … | Family c0 c1 …</c>. Numbers are written round-trippable and culture-invariant.
 /// </remarks>
 public sealed class RecordingBackend : IRenderingBackend
 {
@@ -20,6 +21,9 @@ public sealed class RecordingBackend : IRenderingBackend
 
     /// <summary>Gets the colours of the fills, in replay order: the space as the list hands it over and a copy of the components.</summary>
     public List<(PdfColorSpace ColorSpace, float[] Components, PdfDefaultColorSpaces Defaults, ColorConversion Conversion)> Fills { get; } = [];
+
+    /// <summary>Gets the colours of the strokes, in replay order, like <see cref="Fills"/>.</summary>
+    public List<(PdfColorSpace ColorSpace, float[] Components, PdfDefaultColorSpaces Defaults, ColorConversion Conversion)> Strokes { get; } = [];
 
     /// <inheritdoc/>
     public void SaveState() => Operations.Add("save");
@@ -43,6 +47,34 @@ public sealed class RecordingBackend : IRenderingBackend
 
         Operations.Add(text.ToString());
         Fills.Add((color.ColorSpace, color.Components.ToArray(), color.DefaultColorSpaces, color.Conversion));
+    }
+
+    /// <inheritdoc/>
+    public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
+    {
+        var text = new StringBuilder("stroke ")
+            .Append(Number(style.LineWidth)).Append(' ').Append(style.LineCap).Append(' ').Append(style.LineJoin).Append(' ')
+            .Append(Number(style.MiterLimit)).Append(" [");
+        for (int i = 0; i < style.DashArray.Length; i++)
+        {
+            text.Append(i == 0 ? string.Empty : " ").Append(Number(style.DashArray[i]));
+        }
+
+        text.Append("] ").Append(Number(style.DashPhase));
+        if (style.StrokeAdjustment)
+        {
+            text.Append(" adjust");
+        }
+
+        Describe(path, text);
+        text.Append(" | ").Append(color.ColorSpace.Family.ToString());
+        foreach (float component in color.Components)
+        {
+            text.Append(' ').Append(component.ToString("R", CultureInfo.InvariantCulture));
+        }
+
+        Operations.Add(text.ToString());
+        Strokes.Add((color.ColorSpace, color.Components.ToArray(), color.DefaultColorSpaces, color.Conversion));
     }
 
     /// <summary>Writes a path as its verbs and points.</summary>
@@ -70,4 +102,6 @@ public sealed class RecordingBackend : IRenderingBackend
             }
         }
     }
+
+    private static string Number(double value) => value.ToString("R", CultureInfo.InvariantCulture);
 }

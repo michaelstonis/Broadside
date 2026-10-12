@@ -64,7 +64,11 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         _paths.AsSpan(0, _pathCount).ToArray(),
         _colors.AsSpan(0, _colorCount).ToArray(),
         _components.AsSpan(0, _componentCount).ToArray(),
-        _transforms.AsSpan(0, _transformCount).ToArray());
+        _transforms.AsSpan(0, _transformCount).ToArray())
+    {
+        Strokes = _strokes.AsSpan(0, _strokeCount).ToArray(),
+        Dashes = _dashes.AsSpan(0, _dashCount).ToArray(),
+    };
 
     /// <summary>Forgets everything built, keeping the tables' capacity and no reference into a document.</summary>
     public void Reset()
@@ -74,6 +78,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         _current = Matrix.Identity;
         _savedCount = 0;
         ResetPaths();
+        ResetStrokes();
     }
 
     /// <inheritdoc/>

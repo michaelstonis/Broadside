@@ -5806,6 +5806,53 @@ def gen_page_rotation() -> bytes:
     return simple_file(objects)
 
 
+def gen_paths_strokes() -> bytes:
+    """8.5.3.2 stroking with the line parameters of 8.4.3 (width, cap, join, miter limit, dash pattern) and 10.7.5 automatic
+    stroke adjustment. One 400 x 400 page, white background, four bands from the top. (A) y 300..400: three chevrons 14 wide, each
+    with cap and join of the same number: 0 J 0 j (butt, miter) in DeviceRGB red, 1 J 1 j (round, round) green, 2 J 2 j (projecting
+    square, bevel) blue. (B) y 200..300: two chevrons 8 wide, arms 60 long, that meet at 30 degrees (miter ratio 1 / sin 15 = 3.86): 4 M keeps
+    the miter, 3.5 M bevels it (DeviceGray 0); a closed triangle (h) 6 wide whose three corners are mitered, in DeviceRGB 0.5 0 0.5.
+    (C) y 100..200: lines 6 wide from x 20 to 200 dashed [12 6] 0, [12 6] 9 and [6 3 9] -3 (a negative phase, normalized by twice
+    the array sum); [0 12] 0 with round caps (dots) and [0 12] 6 with projecting square caps along a slanted line (squares turned with
+    it); right half, a rectangle (re) 6 wide dashed [30 10] 5, whose last dash runs on into the first across its start (a mitered
+    corner), and a dashed curve, in DeviceRGB 0 0 0.8. (D) y 0..100: 0 w lines (the thinnest line: one device pixel) horizontal at
+    y 90.3, vertical at x 30.6, diagonal, and a circle; 1 w rules at y 70 and x 100.5 without and, through /GS0 gs (SA true), with
+    stroke adjustment at y 50 and x 120.5; under q 4 0 0 1 200 0 cm, a circle of radius 10 and a diagonal 3 wide with round caps
+    (an elliptical pen, four times wider across than along y); 12 wide degenerate subpaths with round caps (dots: 350 80 m 350 80 l,
+    370 80 m h), with butt caps (nothing: 350 40 m 350 40 l) and a lone trailing moveto (nothing)."""
+    def chevron(x0: float, y0: float, w: float, h: float) -> bytes:
+        return b"%s %s m %s %s l %s %s l" % (_num(x0), _num(y0), _num(x0 + w / 2), _num(y0 + h), _num(x0 + w), _num(y0))
+
+    half = 60 * math.tan(math.radians(15))
+    content = b"\n".join([
+        b"14 w 0 J 0 j 1 0 0 RG " + chevron(25, 320, 90, 60) + b" S",
+        b"1 J 1 j 0 1 0 RG " + chevron(155, 320, 90, 60) + b" S",
+        b"2 J 2 j 0 0 1 RG " + chevron(285, 320, 90, 60) + b" S",
+        b"0 J 0 j 0 G 8 w 4 M 40 %s m 100 275 l 40 %s l S" % (_num(275 - half), _num(275 + half)),
+        b"3.5 M 40 %s m 100 230 l 40 %s l S" % (_num(230 - half), _num(230 + half)),
+        b"10 M 6 w 0.5 0 0.5 RG 250 215 m 370 230 l 290 285 l h S",
+        b"0 0 0.8 RG [12 6] 0 d 20 190 m 200 190 l S",
+        b"[12 6] 9 d 20 175 m 200 175 l S",
+        b"[6 3 9] -3 d 20 160 m 200 160 l S",
+        b"1 J [0 12] 0 d 20 145 m 200 145 l S",
+        b"2 J [0 12] 6 d 20 110 m 200 130 l S",
+        b"0 J [30 10] 5 d 230 120 140 70 re S",
+        b"[8 4] 0 d 1 J 240 105 m 280 85 340 125 380 105 c S",
+        b"[] 0 d 0 J 0 G 0 w 10 90.3 m 90 90.3 l S 30.6 10 m 30.6 80 l S 40 10 m 90 60 l S " + _circle(65, 35, 15, clockwise=False) + b" S",
+        b"1 w 100 70 m 180 70 l S 100.5 10 m 100.5 60 l S",
+        b"q /GS0 gs 110 50 m 180 50 l S 120.5 10 m 120.5 40 l S Q",
+        b"q 4 0 0 1 200 0 cm 3 w 0 0 0.6 RG " + _circle(10, 50, 10, clockwise=False) + b" S 1 J 2 10 m 28 85 l S Q",
+        b"1 J 12 w 1 0 0 RG 350 80 m 350 80 l S 375 80 m h S 0 J 350 40 m 350 40 l S 1 J 375 40 m S",
+    ]) + b"\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(mediabox=b"[0 0 400 400]", contents=4, resources=False,
+                 extra=b" /Resources << /ExtGState << /GS0 << /Type /ExtGState /SA true >> >> >>")),
+        (4, stream(b"", content)),
+    ])
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -5963,6 +6010,7 @@ FILES = {
     "jbig2-annex-h.pdf": gen_jbig2_annex_h,
     "paths-fill-rules.pdf": gen_paths_fill_rules,
     "page-rotation.pdf": gen_page_rotation,
+    "paths-strokes.pdf": gen_paths_strokes,
 }
 
 

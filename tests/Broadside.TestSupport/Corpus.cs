@@ -143,6 +143,7 @@ public static class Corpus
         "jbig2-annex-h.pdf",
         "paths-fill-rules.pdf",
         "page-rotation.pdf",
+        "paths-strokes.pdf",
     ];
 
     private static readonly string[] Malformed =
