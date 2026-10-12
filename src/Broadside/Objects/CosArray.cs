@@ -13,6 +13,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
 {
     private readonly List<CosObject> _items;
     private bool _changed;
+    private int _version;
 
     /// <summary>Initializes a new, empty instance of the <see cref="CosArray"/> class.</summary>
     public CosArray() => _items = [];
@@ -66,9 +67,21 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
 
     /// <summary>
     /// Gets a number that changes every time an element is added, replaced or removed through the public API, and never by reading
-    /// or loading: caches of state derived from the array record it and rebuild when it differs.
+    /// or loading: caches of state derived from the array record it and rebuild when it differs. Every change also advances
+    /// <see cref="CosMutation.Epoch"/>.
     /// </summary>
-    internal int Version { get; private set; }
+    internal int Version
+    {
+        get => _version;
+        private set
+        {
+            if (value != _version)
+            {
+                _version = value;
+                CosMutation.Advance();
+            }
+        }
+    }
 
     /// <summary>Gets the number of elements.</summary>
     public int Count => _items.Count;

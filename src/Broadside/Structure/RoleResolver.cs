@@ -25,8 +25,9 @@ internal sealed record RoleResolution(IReadOnlyList<PdfStructureType> Chain, Pdf
 /// </remarks>
 internal static class RoleResolver
 {
-    public static RoleResolution Resolve(StructureContext context, CosName type, PdfStructureNamespace ns)
+    public static RoleResolution Resolve(StructureContext context, CosName type, PdfStructureNamespace ns, StructureStamps stamps)
     {
+        stamps.Add(context.Root);
         var chain = new List<PdfStructureType> { new(type.Value, ns) };
         CosName currentName = type;
         PdfStructureNamespace current = ns;
@@ -39,9 +40,11 @@ internal static class RoleResolver
                 break;
             }
 
+            stamps.Add(current.Dictionary);
             CosDictionary? map = current.Dictionary is null
                 ? current.IsDefault ? ViewReading.Get(context.Document, context.Root, StructureNames.RoleMap) as CosDictionary : null
                 : current.RoleMap;
+            stamps.Add(map);
             if (map is null || !map.TryGetValue(currentName, out CosObject? mapped))
             {
                 break;
@@ -49,13 +52,16 @@ internal static class RoleResolver
 
             CosName nextName;
             PdfStructureNamespace next;
-            switch (context.Resolve(mapped))
+            CosObject target = context.Resolve(mapped);
+            stamps.Add(target);
+            switch (target)
             {
                 case CosName name:
                     (nextName, next) = (name, PdfStructureNamespace.Pdf17);
                     break;
-                case CosArray { Count: >= 2 } array when context.Resolve(array[0]) is CosName name && context.Resolve(array[1]) is CosDictionary target:
-                    (nextName, next) = (name, context.Namespace(target, array[1] as CosReference));
+                case CosArray { Count: >= 2 } array when context.Resolve(array[0]) is CosName name && context.Resolve(array[1]) is CosDictionary targetNamespace:
+                    stamps.Add(targetNamespace);
+                    (nextName, next) = (name, context.Namespace(targetNamespace, array[1] as CosReference));
                     break;
                 default:
                     nextName = null!;

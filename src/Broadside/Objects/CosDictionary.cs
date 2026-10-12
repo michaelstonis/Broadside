@@ -17,6 +17,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
 {
     private readonly OrderedDictionary<CosName, CosObject> _entries;
     private bool _changed;
+    private int _version;
 
     /// <summary>Initializes a new, empty instance of the <see cref="CosDictionary"/> class.</summary>
     public CosDictionary() => _entries = [];
@@ -57,10 +58,22 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
 
     /// <summary>
     /// Gets a number that changes every time an entry is added, replaced or removed through the public API, and never by reading
-    /// or loading: caches of state derived from the dictionary record it and rebuild when it differs. Changes to the values
+    /// or loading: caches of state derived from the dictionary record it and rebuild when it differs. Every change also advances
+    /// <see cref="CosMutation.Epoch"/>. Changes to the values
     /// themselves are not counted; a cache records each container it depends on.
     /// </summary>
-    internal int Version { get; private set; }
+    internal int Version
+    {
+        get => _version;
+        private set
+        {
+            if (value != _version)
+            {
+                _version = value;
+                CosMutation.Advance();
+            }
+        }
+    }
 
     /// <summary>Gets the number of entries.</summary>
     public int Count => _entries.Count;

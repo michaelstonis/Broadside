@@ -38,6 +38,9 @@ public sealed class PdfFormXObject
     /// <summary>Gets the indirect reference to the stream, or <see langword="null"/> when it was reached directly.</summary>
     public CosReference? Reference { get; }
 
+    /// <summary>The document the form belongs to.</summary>
+    internal PdfDocument Document => _document;
+
     /// <summary>Gets a value indicating whether the stream's <c>Subtype</c> is <c>Form</c>, as Table 93 requires.</summary>
     /// <remarks>ISO 32000-2 §8.10.1, Table 93 (<c>Subtype</c>, required).</remarks>
     public bool IsForm => _document.Resolve(Get(AnnotationNames.Subtype)) is CosName { Value: "Form" };

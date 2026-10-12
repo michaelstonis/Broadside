@@ -74,4 +74,7 @@ internal static class StructureNames
     public static readonly CosName Subtype = new("Subtype");
     public static readonly CosName BBox = new("BBox");
     public static readonly CosName Attached = new("Attached");
+
+    // Number-tree nodes, for recording the parent tree's containers (§7.9.7, Table 37).
+    public static readonly CosName Nums = new("Nums");
 }
