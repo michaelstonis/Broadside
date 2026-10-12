@@ -80,7 +80,7 @@ public sealed partial class TextFieldFontEmbeddingTests
     /// <summary>Counts the pixels darker than mid-grey poppler draws inside <paramref name="rect"/> on page 1 at 72 dpi (binary PGM).</summary>
     private static int DarkPixels(byte[] file, PdfRectangle rect)
     {
-        (int exitCode, byte[] image) = ExternalTool.RunBinary("pdftoppm", file, "-r", "72", "-gray", "-f", "1", "-l", "1");
+        (int exitCode, byte[] image, _) = ExternalTool.RunBinary("pdftoppm", file, "-r", "72", "-gray", "-f", "1", "-l", "1");
         Assert.Equal(0, exitCode);
         int offset = 0;
         int width = 0;

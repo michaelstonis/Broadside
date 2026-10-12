@@ -47,6 +47,7 @@ internal static class FuzzTargets
         ["filter-predictor"] = PredictorTarget,
         ["filter-encode"] = EncodeTarget,
         ["filter-dct"] = DctTarget.Target,
+        ["filter-dct-encode"] = DctEncodeTarget.Target,
         ["filter-ccitt"] = CcittTarget.Target,
         ["filter-jpx"] = Jpx,
         ["filter-jbig2"] = Jbig2Target.Target,

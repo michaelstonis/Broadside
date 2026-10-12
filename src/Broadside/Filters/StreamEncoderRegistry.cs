@@ -8,7 +8,7 @@ namespace Broadside.Filters;
 /// One engine's encoders by filter name: the managed defaults, with the replacements and additions its options registered. Immutable;
 /// built once when the engine is constructed and shared by every document it opens or creates. There is no static or global registry.
 /// </summary>
-/// <remarks>ISO 32000-2 §7.4.1, Table 6. The defaults encode <c>ASCIIHexDecode</c>, <c>ASCII85Decode</c>, <c>FlateDecode</c> and <c>RunLengthDecode</c>.</remarks>
+/// <remarks>ISO 32000-2 §7.4.1, Table 6. The defaults encode <c>ASCIIHexDecode</c>, <c>ASCII85Decode</c>, <c>FlateDecode</c>, <c>RunLengthDecode</c> and <c>DCTDecode</c> (§7.4.8, at <see cref="DctEncoder.DefaultQuality"/>).</remarks>
 internal sealed class StreamEncoderRegistry
 {
     private readonly FrozenDictionary<CosName, IStreamEncoder> _encoders;
@@ -22,6 +22,7 @@ internal sealed class StreamEncoderRegistry
         new Ascii85Encoder(),
         new FlateEncoder(),
         new RunLengthEncoder(),
+        new DctEncoder(),
     ];
 
     /// <summary>Gets the registry of the defaults alone.</summary>
