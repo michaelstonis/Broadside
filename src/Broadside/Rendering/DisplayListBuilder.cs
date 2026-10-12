@@ -29,8 +29,12 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     private Matrix[] _saved = new Matrix[16];
     private int _savedCount;
 
+    // Where the open SaveState records are in the operations, parallel to _saved.
+    private int[] _savedAt = new int[16];
+    private int _savedAtCount;
+
     /// <inheritdoc/>
-    public override ContentEvents Events => ContentEvents.Paths | ContentEvents.StateStack;
+    public override ContentEvents Events => ContentEvents.Paths | ContentEvents.StateStack | ContentEvents.Clips | ContentEvents.Images;
 
     /// <summary>Builds the display list of <paramref name="page"/>.</summary>
     /// <param name="page">The page.</param>
@@ -64,7 +68,13 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         _paths.AsSpan(0, _pathCount).ToArray(),
         _colors.AsSpan(0, _colorCount).ToArray(),
         _components.AsSpan(0, _componentCount).ToArray(),
-        _transforms.AsSpan(0, _transformCount).ToArray());
+        _transforms.AsSpan(0, _transformCount).ToArray())
+    {
+        Strokes = _strokes.AsSpan(0, _strokeCount).ToArray(),
+        Dashes = _dashes.AsSpan(0, _dashCount).ToArray(),
+        Images = _images.AsSpan(0, _imageCount).ToArray(),
+        ImagePaints = _imagePaints.AsSpan(0, _imagePaintCount).ToArray(),
+    };
 
     /// <summary>Forgets everything built, keeping the tables' capacity and no reference into a document.</summary>
     public void Reset()
@@ -73,13 +83,17 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         _transformCount = 0;
         _current = Matrix.Identity;
         _savedCount = 0;
+        _savedAtCount = 0;
         ResetPaths();
+        ResetStrokes();
+        ResetImages();
     }
 
     /// <inheritdoc/>
     public override void SaveState(ContentContext context)
     {
         Append(ref _saved, ref _savedCount, _current);
+        Append(ref _savedAt, ref _savedAtCount, _operationCount);
         AddOperation(new DisplayOperation(DisplayOperationKind.SaveState, default, 0, 0));
     }
 
@@ -92,11 +106,12 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         }
 
         _current = _saved[--_savedCount];
+        int saveAt = _savedAt[--_savedAtCount];
 
-        // A save with nothing recorded after it restores to what it saved: drop the pair.
-        if (_operationCount > 0 && _operations[_operationCount - 1].Kind == DisplayOperationKind.SaveState)
+        // A save with nothing painted after it restores to what it saved: drop the pair and the state changes between them.
+        if (!PaintsSince(saveAt + 1))
         {
-            _operationCount--;
+            _operationCount = saveAt;
             return;
         }
 
@@ -115,6 +130,20 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         _current = ctm;
         AddOperation(new DisplayOperation(DisplayOperationKind.SetTransform, default, _transformCount, 0));
         Append(ref _transforms, ref _transformCount, ctm);
+    }
+
+    /// <summary>Returns whether any operation from <paramref name="start"/> on is something other than a state change.</summary>
+    private bool PaintsSince(int start)
+    {
+        for (int index = _operationCount - 1; index >= start; index--)
+        {
+            if (_operations[index].Kind is not (DisplayOperationKind.SetTransform or DisplayOperationKind.IntersectClip))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private void AddOperation(in DisplayOperation operation) => Append(ref _operations, ref _operationCount, operation);

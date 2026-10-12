@@ -3550,6 +3550,7 @@ Broadside.Rendering.DisplayList.Document.get -> Broadside.PdfDocument!
 Broadside.Rendering.DisplayList.Replay(Broadside.Rendering.IRenderingBackend! backend) -> void
 Broadside.Rendering.IRenderingBackend
 Broadside.Rendering.IRenderingBackend.FillPath(Broadside.Graphics.PathView path, Broadside.Graphics.FillRule rule, in Broadside.Rendering.DisplayColor color) -> void
+Broadside.Rendering.IRenderingBackend.IntersectClip(Broadside.Graphics.PathView path, Broadside.Graphics.FillRule rule) -> void
 Broadside.Rendering.IRenderingBackend.RestoreState() -> void
 Broadside.Rendering.IRenderingBackend.SaveState() -> void
 Broadside.Rendering.IRenderingBackend.SetTransform(in Broadside.Graphics.Matrix transform) -> void
@@ -3613,6 +3614,16 @@ Broadside.PdfStreamCompression
 Broadside.PdfStreamCompression.AllStreams = 2 -> Broadside.PdfStreamCompression
 Broadside.PdfStreamCompression.ChangedStreams = 1 -> Broadside.PdfStreamCompression
 Broadside.PdfStreamCompression.None = 0 -> Broadside.PdfStreamCompression
+Broadside.Rendering.IRenderingBackend.StrokePath(Broadside.Graphics.PathView path, in Broadside.Rendering.StrokeStyle style, in Broadside.Rendering.DisplayColor color) -> void
+Broadside.Rendering.StrokeStyle
+Broadside.Rendering.StrokeStyle.DashArray.get -> System.ReadOnlySpan<double>
+Broadside.Rendering.StrokeStyle.DashPhase.get -> double
+Broadside.Rendering.StrokeStyle.LineCap.get -> Broadside.Graphics.LineCap
+Broadside.Rendering.StrokeStyle.LineJoin.get -> Broadside.Graphics.LineJoin
+Broadside.Rendering.StrokeStyle.LineWidth.get -> double
+Broadside.Rendering.StrokeStyle.MiterLimit.get -> double
+Broadside.Rendering.StrokeStyle.StrokeAdjustment.get -> bool
+Broadside.Rendering.StrokeStyle.StrokeStyle() -> void
 Broadside.Filters.DctChromaSubsampling
 Broadside.Filters.DctChromaSubsampling.Horizontal = 1 -> Broadside.Filters.DctChromaSubsampling
 Broadside.Filters.DctChromaSubsampling.HorizontalAndVertical = 2 -> Broadside.Filters.DctChromaSubsampling
@@ -3651,6 +3662,19 @@ Broadside.PdfRangeNotLoadedException.PdfRangeNotLoadedException(string? message)
 Broadside.PdfRangeNotLoadedException.PdfRangeNotLoadedException(string? message, System.Exception? innerException) -> void
 Broadside.PdfRangeNotLoadedException.Offset.get -> long
 Broadside.PdfRangeNotLoadedException.Length.get -> long
+Broadside.Rendering.DisplayImage
+Broadside.Rendering.DisplayImage.BitsPerComponent.get -> int
+Broadside.Rendering.DisplayImage.ColorSpace.get -> Broadside.Graphics.PdfColorSpace!
+Broadside.Rendering.DisplayImage.Components.get -> int
+Broadside.Rendering.DisplayImage.DecodeMap.get -> Broadside.Images.ImageDecodeMap!
+Broadside.Rendering.DisplayImage.GetRow(int y) -> System.ReadOnlySpan<byte>
+Broadside.Rendering.DisplayImage.Height.get -> int
+Broadside.Rendering.DisplayImage.Interpolate.get -> bool
+Broadside.Rendering.DisplayImage.Samples.get -> System.ReadOnlySpan<byte>
+Broadside.Rendering.DisplayImage.StorageBits.get -> int
+Broadside.Rendering.DisplayImage.Stride.get -> int
+Broadside.Rendering.DisplayImage.Width.get -> int
+Broadside.Rendering.IRenderingBackend.DrawImage(Broadside.Rendering.DisplayImage! image, Broadside.Graphics.PdfDefaultColorSpaces! defaultColorSpaces, Broadside.Graphics.ColorConversion conversion) -> void
 Broadside.PdfDocument.AddObject(Broadside.Objects.CosObject! value) -> Broadside.Objects.CosReference!
 Broadside.PdfDocument.RemoveObject(Broadside.Objects.CosReference! reference) -> bool
 Broadside.PdfSaveOptions.IncrementalUpdate.get -> bool
@@ -3689,5 +3713,28 @@ Broadside.Graphics.PdfFormXObject.RewriteContent(Broadside.Content.ContentEditor
 Broadside.Graphics.PdfFormXObject.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
 Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor) -> bool
 Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
+Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionAlgorithm.Aes128 = 1 -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionAlgorithm.Aes256 = 0 -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionAlgorithm.Rc4 = 2 -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionOptions
+Broadside.PdfEncryptionOptions.Algorithm.get -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionOptions.Algorithm.set -> void
+Broadside.PdfEncryptionOptions.EncryptMetadata.get -> bool
+Broadside.PdfEncryptionOptions.EncryptMetadata.set -> void
+Broadside.PdfEncryptionOptions.OwnerPassword.get -> string!
+Broadside.PdfEncryptionOptions.PdfEncryptionOptions(string? userPassword, string? ownerPassword) -> void
+Broadside.PdfEncryptionOptions.Permissions.get -> Broadside.PdfPermissions
+Broadside.PdfEncryptionOptions.Permissions.set -> void
+Broadside.PdfEncryptionOptions.UserPassword.get -> string!
+Broadside.PdfEncryptionOptions.WithAlgorithm(Broadside.PdfEncryptionAlgorithm algorithm) -> Broadside.PdfEncryptionOptions!
+Broadside.PdfEncryptionOptions.WithEncryptMetadata(bool encryptMetadata) -> Broadside.PdfEncryptionOptions!
+Broadside.PdfEncryptionOptions.WithPermissions(Broadside.PdfPermissions permissions) -> Broadside.PdfEncryptionOptions!
+Broadside.PdfSaveOptions.Encryption.get -> Broadside.PdfEncryptionOptions?
+Broadside.PdfSaveOptions.Encryption.set -> void
+Broadside.PdfSaveOptions.RemoveEncryption.get -> bool
+Broadside.PdfSaveOptions.RemoveEncryption.set -> void
+Broadside.PdfSaveOptions.WithEncryption(Broadside.PdfEncryptionOptions? encryption) -> Broadside.PdfSaveOptions!
+Broadside.PdfSaveOptions.WithRemoveEncryption(bool remove) -> Broadside.PdfSaveOptions!
 Broadside.Forms.PdfTextField.GenerateAppearances() -> void
 Broadside.Forms.PdfTextField.SetValue(string? value) -> void

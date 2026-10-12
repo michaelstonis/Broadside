@@ -50,4 +50,55 @@ public interface IRenderingBackend
     /// <param name="color">The nonstroking colour, unconverted.</param>
     /// <remarks>ISO 32000-2 §8.5.3.1 and §8.5.3.3 (<c>f</c>, <c>F</c>, <c>f*</c>, and the fill of <c>B</c>, <c>B*</c>, <c>b</c>, <c>b*</c>).</remarks>
     void FillPath(PathView path, FillRule rule, in DisplayColor color);
+
+    /// <summary>Strokes a path with a colour and line parameters.</summary>
+    /// <param name="path">
+    /// The path in user space, exactly as constructed (see <see cref="PathView"/>): the backend strokes each subpath on its own, joins
+    /// the ends of a closed subpath, paints a degenerate subpath only as a round-cap dot and ignores a trailing lone moveto
+    /// (ISO 32000-2 §8.5.3.2).
+    /// </param>
+    /// <param name="style">The line width, caps, joins, miter limit, dash pattern and stroke adjustment, in user space (§8.4.3, §10.7.5).</param>
+    /// <param name="color">The stroking colour, unconverted.</param>
+    /// <remarks>ISO 32000-2 §8.5.3.2 (<c>S</c>, <c>s</c>, and the stroke of <c>B</c>, <c>B*</c>, <c>b</c>, <c>b*</c>, after its fill).</remarks>
+    void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color);
+
+    /// <summary>Intersects the current clip with the inside of a path, for the paints that follow until the state is restored.</summary>
+    /// <param name="path">
+    /// The path in user space under the current transform, exactly as constructed: its inside is the area <see cref="FillPath"/>
+    /// would fill with <paramref name="rule"/> (open subpaths closed, a trailing single-point subpath disregarded, ISO 32000-2
+    /// §8.5.3.3.1).
+    /// </param>
+    /// <param name="rule">The rule that decides the inside: non-zero winding (<c>W</c>) or even-odd (<c>W*</c>).</param>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §8.5.4 (<c>W</c>, <c>W*</c>): the clip only shrinks, by intersection, and <see cref="RestoreState"/> brings back
+    /// the clip of the matching <see cref="SaveState"/>. The call comes after the paint of the path object that set it, so that
+    /// paint is not clipped by its own path. A form XObject's bounding box (§8.10.1) arrives the same way, as a rectangle under the
+    /// form's transform, inside the state saved around the form.
+    /// </para>
+    /// <para>
+    /// A replay starts with the initial clipping path (§8.5.4: the whole page): the area the renderer maps the page to, which is the
+    /// crop box (§14.11.2, never larger than the media box). Clipping is anti-aliased like filling where the backend anti-aliases.
+    /// Text clips (§9.3.6, rendering modes 4 to 7) are not in the list yet.
+    /// </para>
+    /// </remarks>
+    void IntersectClip(PathView path, FillRule rule);
+
+    /// <summary>Draws an image into the unit square of user space.</summary>
+    /// <param name="image">
+    /// The decoded image, the same instance for every paint of one image XObject in a list. Image space maps to the unit square
+    /// through <c>[1/Width 0 0 −1/Height 0 1]</c> (its first row at the top), then through the current transform.
+    /// </param>
+    /// <param name="defaultColorSpaces">The default colour spaces current where the image was painted (§8.6.5.6).</param>
+    /// <param name="conversion">
+    /// The conversion at the paint, with <see cref="ColorConversion.Target"/> RGB: the graphics state's, its intent replaced by the
+    /// image's Intent entry when it has one (§8.6.5.8).
+    /// </param>
+    /// <remarks>
+    /// ISO 32000-2 §8.9.4 (the unit square), §8.9.5 (image XObjects, Decode, Interpolate) and §8.9.7 (inline images). Map the samples
+    /// through <see cref="DisplayImage.DecodeMap"/>, convert them through
+    /// <see cref="PdfDocument.GetColorConverter(PdfColorSpace, ColorConversion, PdfDefaultColorSpaces?)"/>, and resample them to the
+    /// device as the backend sees fit; honour <see cref="DisplayImage.Interpolate"/> when enlarging (§8.9.5.3).
+    /// </remarks>
+    void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion);
 }

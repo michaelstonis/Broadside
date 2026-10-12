@@ -40,6 +40,21 @@ public interface IRenderingBackend
     void RestoreState();                                // §8.4.2 Q; saves and restores always balance
     void SetTransform(in Matrix transform);             // replaces (does not concatenate) the user space -> default user space transform
     void FillPath(PathView path, FillRule rule, in DisplayColor color);   // §8.5.3.3
+    void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color);   // §8.5.3.2, after the fill of B/b (#99)
+    void IntersectClip(PathView path, FillRule rule);   // §8.5.4 W/W* (after the paint of its path), §8.10.1 form BBox; restored by RestoreState
+    void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion);   // §8.9.4, #102
+}
+
+public sealed class DisplayImage                      // §8.9.5, §8.9.7: decoded once per list, one instance per image XObject
+{
+    public int Width { get; }  public int Height { get; }  public int Components { get; }
+    public int BitsPerComponent { get; }                // logical n: raw values 0 .. 2^n - 1
+    public int StorageBits { get; }  public int Stride { get; }
+    public ReadOnlySpan<byte> Samples { get; }          // §8.9.3 layout (rows top first, MSB first, 16-bit big-endian)
+    public ReadOnlySpan<byte> GetRow(int y);
+    public PdfColorSpace ColorSpace { get; }            // resolved, before defaults; never Pattern; Indexed has 1 component
+    public ImageDecodeMap DecodeMap { get; }            // §8.9.5.2; MapToIndices for Indexed
+    public bool Interpolate { get; }                    // §8.9.5.3
 }
 
 public readonly ref struct DisplayColor               // §8.6.1: colour specification, never pre-converted
@@ -49,26 +64,40 @@ public readonly ref struct DisplayColor               // §8.6.1: colour specifi
     public PdfDefaultColorSpaces DefaultColorSpaces { get; }   // §8.6.5.6, current at the paint
     public ColorConversion Conversion { get; }          // intent, BPC, BG, UCR from the state; Target = Rgb
 }
+
+public readonly ref struct StrokeStyle                // §8.4.3, §10.7.5: line parameters at the stroking operator, user space
+{
+    public double LineWidth { get; }                    // >= 0; 0 = thinnest line the device can render (one device pixel)
+    public LineCap LineCap { get; }                     // Table 53
+    public LineJoin LineJoin { get; }                   // Table 54
+    public double MiterLimit { get; }                   // >= 1; ratio 1 / sin(phi/2), phi measured in user space
+    public ReadOnlySpan<double> DashArray { get; }      // empty = solid; non-negative, not all zero
+    public double DashPhase { get; }                    // >= 0 (already normalized), 0 for a solid line
+    public bool StrokeAdjustment { get; }               // SA
+}
 ```
 
 Rules every backend follows:
 
 - A replay starts with the identity transform: user space is the page's default user space. Mapping it to the device (scale or DPI, rotation, CropBox, UserUnit, the clip rectangle of a tile) is the backend's or its renderer's, applied under the list's transforms. Use the mapping the software rasterizer uses (#95, package `Broadside.Rendering`): `RenderOptions.GetDeviceTransform(page)` (default user space to pixels, origin top left, y down, crop box, `Rotate` plus the options' rotation, `UserUnit` times the scale) and `RenderOptions.GetPixelSize(page)` (rounded up to whole pixels), so every backend's image lines up with the rasterizer's snapshots.
-- `SetTransform` comes before the paints it applies to and only when the CTM changes; `RestoreState` restores the transform (and, as later tickets add them, the clip and everything else the backend keeps per state). Save/restore pairs with nothing painted between them are dropped at build time.
+- `SetTransform` comes before the paints it applies to and only when the CTM changes; `RestoreState` restores the transform, the clip (#105) and, as later tickets add them, everything else the backend keeps per state. Save/restore pairs with nothing painted between them (only transforms and clips) are dropped at build time, with what is between them.
 - `PathView` is the path exactly as constructed, in user space: close open subpaths for filling, ignore a trailing single-point subpath, treat degenerate subpaths per §8.5.3.2/§8.5.3.3.1. Spans and views are valid only during the call: copy what you keep.
 - Colour: convert with `list.Document.GetColorConverter(color.ColorSpace, color.Conversion with { Target = <your model> }, color.DefaultColorSpaces)`. That expands Indexed, Separation, DeviceN, applies the defaults and goes through the engine's `IColorManagement` (the colour-management extension point). Check `PdfColorConverter.PaintsNothing` (Separation `None`). Cache converters per colour space if you convert per paint; the document caches them too.
-- Not in the list yet (later Phase 3 tickets): strokes, clips, glyph runs, images, shadings, pattern fills, transparency groups and soft masks.
+- Strokes (#99): stroke in the stroke's user space (the transform set before it) so a non-uniform CTM gives an elliptical pen; each subpath on its own, dash pattern restarted per subpath, closed subpaths joined where they close, the last and first dash of a closed subpath joined when both are on, a degenerate subpath a dot only with round caps, a lone moveto nothing, zero-length dashes painted with their caps along the path, width 0 one device pixel. The software rasterizer's `Stroker` (outline polygons, non-zero fill, round joins between the flattened pieces of a curve, at most 2^20 dashes per stroke) and `paths-strokes.pdf` are the reference; a stroke in a Pattern colour is not in the list yet.
+- Clips (#105): `IntersectClip` intersects the current clip with the inside of the path (the area `FillPath` would fill with that rule) under the current transform; it arrives after the paint of its path object, and a form's bounding box arrives the same way inside the state saved around the form. `RestoreState` brings back the clip of the matching `SaveState`. The replay starts with the initial clip, the page area your renderer maps (the crop box). Anti-alias clip edges like fill edges. The software rasterizer's reference: `RasterClip` (a device rectangle for axis-aligned rectangles, the no-mask fast path, times a pooled 8-bit coverage mask for other paths), with every paint's coverage going through `ScanlineRasterizer.Paint`/`Fill` so strokes, images and shadings are clipped too. Text clips (§9.3.6) are not in the list yet (#107).
+- Images (`DrawImage`, #102): image space maps to the unit square through `[1/Width 0 0 -1/Height 0 1]` (first row at the top), then the current transform. Map samples through `DecodeMap` (Indexed: `MapToIndices`), convert with `GetColorConverter(image.ColorSpace, conversion with { Target = ... }, defaultColorSpaces)` (the conversion's intent is already the image's Intent entry when it has one), resample as your platform does; honour `Interpolate` when enlarging. Key per-surface caches on the `DisplayImage` instance. Image masks, SMask/Mask/colour-key masks, Matte and JPX alpha are not in the list yet (#103): today the base image is drawn opaque and stencil masks are skipped.
+- Not in the list yet (later Phase 3 tickets): text clips, glyph runs, image masks, shadings, pattern fills and pattern strokes, transparency groups and soft masks.
 
 A backend must also, as those operations arrive:
 
-- draw strokes (joins, caps, dashes, minimum width), clipping (path and text, intersect), decoded images with transforms and resampling, shadings 1–7, tiling patterns, glyph runs (font reference + glyph ids + positions, native glyph rendering where the platform has it with an outline fallback when `ForceOutlines` is set), and the transparency model (§11: isolated and non-isolated groups, knockout, soft masks, the 16 blend modes, constant alpha);
+- draw clipping (path and text, intersect), decoded images with transforms and resampling, shadings 1–7, tiling patterns, glyph runs (font reference + glyph ids + positions, native glyph rendering where the platform has it with an outline fallback when `ForceOutlines` is set), and the transparency model (§11: isolated and non-isolated groups, knockout, soft masks, the 16 blend modes, constant alpha);
 - honour the render options of Track 3A: scale or DPI, rotation, clip rectangle (tiled region rendering), layer selection (annotations and forms are separate replayable lists), rendering intent, anti-aliasing, cancellation and progress;
 - keep per-surface resource caches (glyphs, images, shaders) within the deterministic memory budgets the viewer relies on;
 - fall back to the software rasterizer for any group or blend it cannot express (plan, Track 3D) rather than approximate silently, and record a `Diagnostic` when it does;
 - allocate nothing per operation, glyph or scanline during replay; buffers are pooled per surface (`CLAUDE.md`, "Code conventions");
 - render each corpus page at `GoldenCorpus.Dpi` (72) through `GoldenCorpus.CreateRenderOptions()` so the golden-image harness (#120) can compare it with the rasterizer's golden image; any 8-bit four-channel layout works (`GoldenPixelFormat`: BGRA or RGBA, premultiplied or straight, transparent or white page).
 
-Testing against the contract: `Broadside.TestSupport.RecordingBackend` records every call as a line (`save`, `restore`, `transform [a b c d e f]`, `fill nonzero|evenodd M x y L ... Z | Family c0 c1 ...`) and keeps each fill's colour space, components, defaults and conversion; `Broadside.Tests.Rendering.DisplayListTests` shows the pattern. `DisplayListBenchmarks` (Build, Replay) is the replay allocation baseline.
+Testing against the contract: `Broadside.TestSupport.RecordingBackend` records every call as a line (`save`, `restore`, `transform [a b c d e f]`, `fill nonzero|evenodd M x y L ... Z | Family c0 c1 ...`, `stroke width Cap Join miterLimit [dash ...] phase [adjust] M ... | Family c0 c1 ...`, `clip nonzero|evenodd M x y L ... Z`, `image WxH Family bpc N[ interpolate]`) and keeps each fill's and stroke's colour space, components, defaults and conversion (`Fills`, `Strokes`) and each image paint (`Images`); `Broadside.Tests.Rendering.DisplayListTests` shows the pattern. `DisplayListBenchmarks` (Build, Replay) is the replay allocation baseline.
 
 Registration goes through the options object (`PdfOptions.Use*`, plan row 1.12) or the package's one fluent configuration call, the same shape as `Broadside.Fonts.Standard14` (ADR 0007). No static registry: two engines in one process may use different backends, and the viewer selects one per surface.
 

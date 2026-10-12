@@ -35,7 +35,7 @@ public sealed class IncrementalSaveTests
         Assert.True(exitCode == 0, output);
     }
 
-    /// <summary>Every unencrypted well-formed corpus file (an encrypted document cannot be updated yet).</summary>
+    /// <summary>Every unencrypted well-formed corpus file (encrypted documents: see EncryptedSaveTests).</summary>
     public static TheoryData<string> WellFormedFiles => [.. Corpus.WellFormedFileNames.Where(name => !name.StartsWith("encrypted-", StringComparison.Ordinal))];
 
     [Theory]
@@ -233,18 +233,6 @@ public sealed class IncrementalSaveTests
         Assert.Single(document.Revisions);
         (int exitCode, string output) = ExternalTool.Run("qpdf", saved, "--check");
         Assert.True(exitCode == 0, output);
-    }
-
-    [Fact]
-    public void An_incremental_save_of_an_encrypted_document_is_refused_before_anything_is_written()
-    {
-        using PdfDocument document = PdfDocument.Open(Corpus.Path("encrypted-aes-256.pdf"));
-        using var output = new MemoryStream();
-
-        NotSupportedException error = Assert.Throws<NotSupportedException>(() => document.Save(output, new PdfSaveOptions().WithIncrementalUpdate(true)));
-
-        Assert.Contains("encrypted", error.Message, StringComparison.Ordinal);
-        Assert.Equal(0, output.Length);
     }
 
     [Fact]

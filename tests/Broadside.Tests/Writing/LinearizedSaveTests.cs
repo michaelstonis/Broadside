@@ -93,6 +93,23 @@ public sealed class LinearizedSaveTests
         AssertHintsMatchLayout(reopened, saved);
     }
 
+    [Theory]
+    [InlineData(PdfCrossReferenceLayout.Table)]
+    [InlineData(PdfCrossReferenceLayout.Stream)]
+    public void A_document_saved_linearized_with_new_encryption_passes_qpdf_with_its_password_and_reads_its_hints(PdfCrossReferenceLayout layout)
+    {
+        using PdfDocument source = PdfDocument.Open(Corpus.Path("page-tree-inherited.pdf"));
+
+        byte[] saved = Save(source, Linearized(layout).WithEncryption(new PdfEncryptionOptions("user", "owner")));
+
+        AssertQpdfAcceptsLinearization(saved, "--password=user");
+        using PdfDocument reopened = PdfDocument.Open(saved, new PdfOptions().WithPassword("user"));
+        Assert.True(reopened.IsEncrypted);
+        Assert.True(reopened.IsLinearized);
+        AssertSamePages(source, reopened);
+        AssertHintsMatchLayout(reopened, saved);
+    }
+
     [Fact]
     public void Inherited_page_attributes_are_written_on_each_page_and_the_document_is_not_changed()
     {
@@ -359,11 +376,11 @@ public sealed class LinearizedSaveTests
     /// and nothing wrong with the linearization. A warning qpdf gives the source file too (name-tree-deep.pdf's keys are in byte
     /// order, which qpdf's comparison disagrees with) is allowed.
     /// </summary>
-    private static void AssertQpdfAcceptsLinearization(byte[] file)
+    private static void AssertQpdfAcceptsLinearization(byte[] file, params string[] options)
     {
-        (int exitCode, string output) = ExternalTool.Run("qpdf", file, "--check");
+        (int exitCode, string output) = ExternalTool.Run("qpdf", file, [.. options, "--check"]);
         Assert.True(exitCode is 0 or 3 && output.Contains("File is linearized", StringComparison.Ordinal) && !output.Contains("ERROR", StringComparison.Ordinal), output);
-        (exitCode, output) = ExternalTool.Run("qpdf", file, "--check-linearization");
+        (exitCode, output) = ExternalTool.Run("qpdf", file, [.. options, "--check-linearization"]);
         Assert.True(exitCode is 0 or 3 && output.Contains("no linearization errors", StringComparison.Ordinal), output);
         Assert.DoesNotContain(
             output.Split('\n'),

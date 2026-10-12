@@ -54,12 +54,16 @@ public sealed class DisplayListTests
 
         document.Pages[0].CreateDisplayList().Replay(recorder);
 
-        // B fills, then strokes; strokes, the pattern fill and the inline image are later tickets'. The q/Q around the image is
-        // dropped because nothing is painted inside it.
+        // B fills, then strokes (the strokes have a test of their own); the pattern fill is a later ticket's. The inline image (#102)
+        // is drawn in its own q/Q after them.
+        string[] fills = [.. recorder.Operations.Where(static line => line.StartsWith("fill ", StringComparison.Ordinal))];
         Assert.Equal(
             ["DeviceGray 0.75", "DeviceRgb 0 0 1", "DeviceCmyk 0 1 0 0", "CalGray 0.8", "Separation 1", "Separation 0.25", "DeviceRgb 0 0 0"],
-            recorder.Operations.Select(static line => line[(line.IndexOf('|', StringComparison.Ordinal) + 2)..]));
-        Assert.All(recorder.Operations, static line => Assert.StartsWith("fill nonzero M ", line, StringComparison.Ordinal));
+            fills.Select(static line => line[(line.IndexOf('|', StringComparison.Ordinal) + 2)..]));
+        Assert.All(fills, static line => Assert.StartsWith("fill nonzero M ", line, StringComparison.Ordinal));
+        Assert.Equal(
+            ["save", "transform [200 0 0 100 40 300]", "image 2x1 Indexed bpc 8", "restore"],
+            recorder.Operations.Where(static line => !line.StartsWith("fill ", StringComparison.Ordinal) && !line.StartsWith("stroke ", StringComparison.Ordinal)));
         Assert.Empty(document.Diagnostics);
     }
 
@@ -166,6 +170,7 @@ public sealed class DisplayListTests
                 "save",
                 "save",
                 "transform [2 0 0 2 100 100]",
+                "clip nonzero M 0 0 L 10 0 L 10 10 L 0 10 Z",
                 "fill nonzero M 0 0 L 10 0 L 10 10 L 0 10 Z | DeviceGray 0.5",
                 "restore",
                 "restore",
@@ -175,14 +180,53 @@ public sealed class DisplayListTests
     }
 
     [Fact]
-    public void Strokes_and_paths_ended_with_n_paint_nothing_in_the_list_yet()
+    public void Paths_ended_with_n_paint_nothing_and_w_n_only_clips()
     {
-        using PdfDocument document = PdfDocument.Open(Page("<< >>", "0 0 1 1 re S 0 0 1 1 re n 0 0 1 1 re W n"));
+        using PdfDocument document = PdfDocument.Open(Page("<< >>", "0 0 1 1 re n 0 0 1 1 re W n"));
         var recorder = new RecordingBackend();
 
         document.Pages[0].CreateDisplayList().Replay(recorder);
 
-        Assert.Empty(recorder.Operations);
+        Assert.Equal(["clip nonzero M 0 0 L 1 0 L 1 1 L 0 1 Z"], recorder.Operations);
+    }
+
+    [Fact]
+    public void A_stroke_carries_the_path_the_stroking_colour_and_the_line_parameters_of_the_graphics_state()
+    {
+        using PdfDocument document = PdfDocument.Open(Page(
+            "<< /ExtGState << /SA << /SA true >> >> >>",
+            "0.5 G 1 0 0 rg 0 0 m 10 0 l S "
+            + "2 0 0 2 0 0 cm 3 w 1 J 2 j 4 M [3 1] 0.5 d /SA gs 0 0 1 RG 0 0 m 5 5 l 5 0 l s "
+            + "0 0 10 10 re B"));
+        var recorder = new RecordingBackend();
+
+        document.Pages[0].CreateDisplayList().Replay(recorder);
+
+        // §8.5.3.2 and Table 59: S strokes with the stroking colour; s closes first; B fills with the nonstroking colour, then strokes.
+        Assert.Equal(
+            [
+                "stroke 1 Butt Miter 10 [] 0 M 0 0 L 10 0 | DeviceGray 0.5",
+                "transform [2 0 0 2 0 0]",
+                "stroke 3 Round Bevel 4 [3 1] 0.5 adjust M 0 0 L 5 5 L 5 0 Z | DeviceRgb 0 0 1",
+                "fill nonzero M 0 0 L 10 0 L 10 10 L 0 10 Z | DeviceRgb 1 0 0",
+                "stroke 3 Round Bevel 4 [3 1] 0.5 adjust M 0 0 L 10 0 L 10 10 L 0 10 Z | DeviceRgb 0 0 1",
+            ],
+            recorder.Operations);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void Strokes_of_color_operators_pdf_carry_the_stroking_colour_each_operator_set()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("color-operators.pdf"));
+        var recorder = new RecordingBackend();
+
+        document.Pages[0].CreateDisplayList().Replay(recorder);
+
+        // Each B is a fill, then a stroke 8 wide; the pattern-coloured pair is a later ticket's.
+        Assert.Equal(
+            ["DeviceGray 0.25", "DeviceRgb 1 0 0", "DeviceCmyk 0 0 0 1", "CalGray 0.2", "Separation 1", "Separation 0.5", "DeviceCmyk 0 0 0 1"],
+            recorder.Operations.Where(static line => line.StartsWith("stroke 8 ", StringComparison.Ordinal)).Select(static line => line[(line.IndexOf('|', StringComparison.Ordinal) + 2)..]));
     }
 
     [Fact]
@@ -255,6 +299,18 @@ public sealed class DisplayListTests
             float[] rgb = new float[3];
             converter.Convert(color.Components, rgb);
             Colors.Add(rgb);
+        }
+
+        public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
+        {
+        }
+
+        public void IntersectClip(PathView path, FillRule rule)
+        {
+        }
+
+        public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
+        {
         }
     }
 

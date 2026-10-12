@@ -33,6 +33,8 @@ internal sealed class ScanlineRasterizer : IDisposable
     private int _height;
     private int _lastX = int.MinValue;
     private int _lastY = int.MinValue;
+    private bool _sorted;
+    private bool _reachesRight;
 
     /// <summary>Starts a new shape clipped to <c>[0, width) × [0, height)</c>.</summary>
     public void Reset(int width, int height)
@@ -42,7 +44,15 @@ internal sealed class ScanlineRasterizer : IDisposable
         _count = 0;
         _lastX = int.MinValue;
         _lastY = int.MinValue;
+        _sorted = false;
+        _reachesRight = false;
     }
+
+    /// <summary>
+    /// Gets or sets the clipping path every paint goes through (ISO 32000-2 §8.5.4): <see cref="Fill"/> and <see cref="Paint"/> cut
+    /// the shape's coverage by it. <see langword="null"/> clips to the bitmap only.
+    /// </summary>
+    public RasterClip? Clip { get; set; }
 
     /// <summary>Gets a value indicating whether the shape has no edges inside the clip.</summary>
     public bool IsEmpty => _count == 0;
@@ -77,6 +87,7 @@ internal sealed class ScanlineRasterizer : IDisposable
         // covers every pixel to its right, so it becomes a vertical edge on the left border with the same rows.
         if (x0 >= _width && x1 >= _width)
         {
+            _reachesRight = true;
             return;
         }
 
@@ -123,6 +134,10 @@ internal sealed class ScanlineRasterizer : IDisposable
             {
                 AddClippedLine(Math.Clamp(xa, 0, _width), ya, Math.Clamp(xb, 0, _width), yb);
             }
+            else
+            {
+                _reachesRight = true;
+            }
         }
     }
 
@@ -142,27 +157,99 @@ internal sealed class ScanlineRasterizer : IDisposable
         AddLine(left + 1, top + 1, left + 1, top);
     }
 
-    /// <summary>Composites <paramref name="color"/> over <paramref name="bitmap"/> by the coverage of the shape, then starts a new shape.</summary>
+    /// <summary>Composites <paramref name="color"/> over <paramref name="bitmap"/> by the coverage of the shape within <see cref="Clip"/>, then starts a new shape.</summary>
     /// <param name="bitmap">The target; at least as large as the clip.</param>
     /// <param name="rule">How the winding value decides coverage.</param>
     /// <param name="color">The opaque colour as premultiplied BGRA in memory order.</param>
     public void Fill(Bitmap bitmap, FillRule rule, uint color)
     {
-        if (_count == 0)
+        var sink = new ColorSink(bitmap.Pixels, bitmap.Stride, color);
+        Paint(rule, ref sink);
+    }
+
+    /// <summary>
+    /// Hands the coverage of the shape, cut by <see cref="Clip"/>, to <paramref name="sink"/> as runs of equal coverage above zero,
+    /// then starts a new shape. Every paint (fills, strokes, images, shadings) goes through here or <see cref="Fill"/>, so the
+    /// clipping path applies to all of them (ISO 32000-2 §8.5.4).
+    /// </summary>
+    /// <param name="rule">How the winding value decides coverage.</param>
+    /// <param name="sink">What the paint does with each run.</param>
+    public void Paint<TSink>(FillRule rule, ref TSink sink)
+        where TSink : ICoverageSink, allows ref struct
+    {
+        RasterClip? clip = Clip;
+        if (_count > 0 && clip?.IsEmpty != true)
         {
-            return;
+            Sweep(rule, ref sink, clip is { IsWholeBitmap: false } ? clip : null, zeros: false);
         }
 
+        Reset(_width, _height);
+    }
+
+    /// <summary>
+    /// Hands the raw coverage of the shape to <paramref name="sink"/>, not clipped: for every row with an edge, every pixel from the
+    /// first edge to the right border, zeros included. The shape stays; <see cref="Reset"/> starts a new one.
+    /// </summary>
+    public void Sweep<TSink>(FillRule rule, ref TSink sink)
+        where TSink : ICoverageSink, allows ref struct
+    {
+        if (_count > 0)
+        {
+            Sweep(rule, ref sink, null, zeros: true);
+        }
+    }
+
+    /// <summary>
+    /// Returns the pixel rectangle outside which the shape covers nothing: from the first to the last row with an edge, and from the
+    /// leftmost edge to the rightmost one, or to the right border when an edge lies beyond it. False when the shape has no edge.
+    /// </summary>
+    public bool TryGetBounds(out int left, out int top, out int right, out int bottom)
+    {
+        if (_count == 0)
+        {
+            left = top = right = bottom = 0;
+            return false;
+        }
+
+        Sort();
+        Span<long> keys = _keys.AsSpan(0, _count);
+        top = (int)(keys[0] >> 32);
+        bottom = (int)(keys[^1] >> 32) + 1;
+        int min = int.MaxValue;
+        int max = int.MinValue;
+        foreach (long key in keys)
+        {
+            int x = (int)(uint)key;
+            min = Math.Min(min, x);
+            max = Math.Max(max, x);
+        }
+
+        left = min;
+        right = _reachesRight ? _width : max + 1;
+        return true;
+    }
+
+    /// <summary>Sorts the cells by row, then column.</summary>
+    private void Sort()
+    {
+        if (!_sorted)
+        {
+            _keys.AsSpan(0, _count).Sort(_cells.AsSpan(0, _count));
+            _sorted = true;
+        }
+    }
+
+    /// <summary>The sweep: turns the sorted cells into runs of constant coverage, clipped or not, with or without the zero runs.</summary>
+    private void Sweep<TSink>(FillRule rule, ref TSink sink, RasterClip? clip, bool zeros)
+        where TSink : ICoverageSink, allows ref struct
+    {
+        Sort();
         Span<long> keys = _keys.AsSpan(0, _count);
         Span<Cell> cells = _cells.AsSpan(0, _count);
-        keys.Sort(cells);
-        Span<byte> pixels = bitmap.Pixels;
-        int stride = bitmap.Stride;
         int index = 0;
         while (index < cells.Length)
         {
             int row = (int)(keys[index] >> 32);
-            Span<uint> line = MemoryMarshal.Cast<byte, uint>(pixels.Slice(row * stride, _width * 4));
             double accumulated = 0;
             while (index < cells.Length && (int)(keys[index] >> 32) == row)
             {
@@ -177,17 +264,33 @@ internal sealed class ScanlineRasterizer : IDisposable
                 }
                 while (index < cells.Length && keys[index] == keys[index - 1]);
 
-                Blend(line, x, 1, Coverage(accumulated + cover - area, rule), color);
+                Emit(ref sink, clip, zeros, row, x, 1, Coverage(accumulated + cover - area, rule));
                 accumulated += cover;
                 int next = index < cells.Length && (int)(keys[index] >> 32) == row ? (int)(uint)keys[index] : _width;
                 if (next > x + 1)
                 {
-                    Blend(line, x + 1, next - x - 1, Coverage(accumulated, rule), color);
+                    Emit(ref sink, clip, zeros, row, x + 1, next - x - 1, Coverage(accumulated, rule));
                 }
             }
         }
+    }
 
-        Reset(_width, _height);
+    private static void Emit<TSink>(ref TSink sink, RasterClip? clip, bool zeros, int row, int x, int count, int coverage)
+        where TSink : ICoverageSink, allows ref struct
+    {
+        if (coverage <= 0 && !zeros)
+        {
+            return;
+        }
+
+        if (clip is null)
+        {
+            sink.Span(row, x, count, coverage);
+        }
+        else
+        {
+            clip.Apply(row, x, count, coverage, ref sink);
+        }
     }
 
     /// <summary>Returns the pooled cell arrays.</summary>
@@ -322,6 +425,7 @@ internal sealed class ScanlineRasterizer : IDisposable
     {
         if (x >= _width)
         {
+            _reachesRight = true;
             return;
         }
 
@@ -356,6 +460,15 @@ internal sealed class ScanlineRasterizer : IDisposable
         ArrayPool<Cell>.Shared.Return(_cells);
         _keys = keys;
         _cells = cells;
+    }
+
+    /// <summary>Composites an opaque colour by the coverage of each run.</summary>
+    private readonly ref struct ColorSink(Span<byte> pixels, int stride, uint color) : ICoverageSink
+    {
+        private readonly Span<byte> _pixels = pixels;
+
+        public void Span(int row, int x, int count, int coverage) =>
+            Blend(MemoryMarshal.Cast<byte, uint>(_pixels.Slice(row * stride, (x + count) * 4)), x, count, coverage, color);
     }
 
     /// <summary>What the edges crossing one pixel contribute: their signed heights and the parts of the pixel left of them, times height.</summary>

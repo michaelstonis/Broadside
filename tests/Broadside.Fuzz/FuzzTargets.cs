@@ -914,11 +914,14 @@ internal static class FuzzTargets
     /// Opens the input as a whole file in lenient mode, saves it in the layout, object numbering and garbage collection the input's
     /// length selects, and reopens the output. Whatever opened must save, and what was saved must open again with the same number of
     /// pages: a full save writes every object the trailer reaches (repaired ones re-serialized, references renumbered), so nothing the
-    /// first open could read through the page tree may become unreadable. A linearized save (selected by the length too) must read as
-    /// linearized, with hint tables that read. <see cref="NotSupportedException"/> is the documented outcome for an encrypted file, and
-    /// for linearizing a document without pages or whose page tree lists a page twice.
+    /// first open could read through the page tree may become unreadable. The input's length also selects the encryption: the
+    /// document's own, new AES-256 encryption with an empty user password, or none (issue #180); either way the output opens without
+    /// a password. It also selects a linearized save (issue #228), which must read as linearized, with hint tables that read.
+    /// <see cref="NotSupportedException"/> is the documented outcome for what a save cannot write (an encrypted file with an integrity
+    /// MAC kept as it is, data its credentials do not decrypt, a linearized save of a document without pages or whose page tree lists
+    /// a page twice).
     /// </summary>
-    /// <remarks>ISO 32000-2 §7.5, §7.3.10, Annex F (issues #44, #144, #228).</remarks>
+    /// <remarks>ISO 32000-2 §7.5, §7.3.10, §7.6, Annex F (issues #44, #144, #180, #228).</remarks>
     private static void Save(ReadOnlySpan<byte> data)
     {
         using PdfDocument? document = OpenOrNull(data);
@@ -938,10 +941,23 @@ internal static class FuzzTargets
         var numbering = (PdfObjectNumbering)(data.Length / 3 % 2);
         bool removeUnreachable = data.Length / 6 % 2 == 1;
         bool linearize = data.Length / 72 % 2 == 1;
+        PdfSaveOptions options = new PdfSaveOptions().WithCrossReferenceLayout(layout).WithObjectNumbering(numbering).WithRemoveUnreachableObjects(removeUnreachable).WithLinearize(linearize);
+        switch (data.Length / 24 % 3)
+        {
+            case 1:
+                options.WithEncryption(new PdfEncryptionOptions(null, "owner"));
+                break;
+            case 2:
+                options.WithRemoveEncryption(true);
+                break;
+            default:
+                break;
+        }
+
         using var output = new MemoryStream();
         try
         {
-            document.Save(output, new PdfSaveOptions().WithCrossReferenceLayout(layout).WithObjectNumbering(numbering).WithRemoveUnreachableObjects(removeUnreachable).WithLinearize(linearize));
+            document.Save(output, options);
         }
         catch (NotSupportedException)
         {

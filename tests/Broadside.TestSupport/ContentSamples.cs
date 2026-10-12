@@ -33,6 +33,36 @@ public static class ContentSamples
     }
 
     /// <summary>
+    /// A stroke-heavy content stream of at least <paramref name="minimumLength"/> bytes for a Letter page: blocks of wide polylines and
+    /// curves cycling through every cap, join and miter limit, solid and dashed (with phases and zero-length dashes), closed and open,
+    /// zero-width and stroke-adjusted lines and a non-uniform transform (ISO 32000-2 §8.4.3, §8.5.3.2, §10.7.5). Stroke adjustment
+    /// comes from the ExtGState resource <c>/SA</c>; pass <see cref="StrokeHeavyResources"/> to <see cref="OnePage"/>.
+    /// </summary>
+    public static byte[] StrokeHeavy(int minimumLength)
+    {
+        var text = new StringBuilder(minimumLength + 512);
+        int block = 0;
+        while (text.Length < minimumLength)
+        {
+            double x = block % 11 * 50;
+            double y = block % 15 * 50;
+            int style = block % 3;
+            text.Append(CultureInfo.InvariantCulture, $"q {style} J {(block + 1) % 3} j {1 + (block % 5)} M {(block % 4) * 3 + 0.5} w 0 0 {block % 2} RG\n");
+            text.Append(CultureInfo.InvariantCulture, $"{x} {y} m {x + 40} {y + 5} l {x + 10} {y + 30} l {x + 45} {y + 45} l S\n");
+            text.Append(CultureInfo.InvariantCulture, $"{x} {y} m {x + 10} {y + 50} {x + 40} {y - 10} {x + 50} {y + 40} c h S\n");
+            text.Append(CultureInfo.InvariantCulture, $"[{1 + (block % 6)} 2 0 3] {block % 7} d {x + 5} {y + 5} 40 30 re S {x} {y + 25} m {x + 25} {y + 50} {x + 50} {y + 25} v S\n");
+            text.Append(CultureInfo.InvariantCulture, $"[] 0 d 0 w {x} {y + 0.5} m {x + 50} {y + 0.5} l S /SA gs 1 w {x + 0.5} {y} m {x + 0.5} {y + 50} l S\n");
+            text.Append(CultureInfo.InvariantCulture, $"3 0 0 1 {x} {y} cm 2 w 1 J 0 0 m 10 10 l 15 0 l S 5 5 m 5 5 l S Q\n");
+            block++;
+        }
+
+        return Encoding.ASCII.GetBytes(text.ToString());
+    }
+
+    /// <summary>Gets the resource entries <see cref="StrokeHeavy"/> needs: an ExtGState <c>/SA</c> that turns stroke adjustment on.</summary>
+    public static string StrokeHeavyResources => "/ExtGState << /SA << /SA true >> >>";
+
+    /// <summary>
     /// A text-heavy content stream showing at least <paramref name="glyphs"/> glyphs in the font resource <c>/F1</c>: text objects with
     /// every text state operator, <c>TJ</c> arrays with adjustments, and the positioning and next-line operators (ISO 32000-2 §9.3,
     /// §9.4).
@@ -88,6 +118,60 @@ public static class ContentSamples
 
         text.Append(CultureInfo.InvariantCulture, $"trailer\n<< /Size {objects.Length + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n");
         return Encoding.Latin1.GetBytes(text.ToString());
+    }
+
+    /// <summary>
+    /// A one-page file that paints images every way the rasterizer resamples them (ISO 32000-2 §8.9): a 256 x 256 8-bit RGB
+    /// gradient (the byte conversion path) enlarged with and without Interpolate, reduced, and under a rotation; a 64 x 64 16-bit
+    /// RGB image and a 64 x 64 8-bit gray image with an inverted Decode array (the component-value path); a 4-bit Indexed image; an
+    /// inline image. Each image XObject is painted at least twice.
+    /// </summary>
+    public static byte[] ImageHeavy()
+    {
+        var rgb = new StringBuilder(256 * 256 * 3);
+        for (int y = 0; y < 256; y++)
+        {
+            for (int x = 0; x < 256; x++)
+            {
+                rgb.Append((char)x).Append((char)y).Append((char)((x * y) & 0xFF));
+            }
+        }
+
+        var deep = new StringBuilder(64 * 64 * 6);
+        var gray = new StringBuilder(64 * 64);
+        for (int i = 0; i < 64 * 64; i++)
+        {
+            int value = i * 16;
+            deep.Append((char)(value >> 8)).Append((char)(value & 0xFF)).Append((char)(i & 0xFF)).Append((char)(i >> 4)).Append((char)0x80).Append((char)0x01);
+            gray.Append((char)((i * 7) & 0xFF));
+        }
+
+        var indices = new StringBuilder(32 * 16);
+        for (int i = 0; i < 32 * 16; i++)
+        {
+            indices.Append((char)(((i & 15) << 4) | ((i >> 4) & 15)));
+        }
+
+        var palette = new StringBuilder();
+        for (int i = 0; i < 16; i++)
+        {
+            palette.Append(CultureInfo.InvariantCulture, $"{i * 17:X2}{255 - (i * 17):X2}{(i * 51) % 256:X2}");
+        }
+
+        const string content =
+            "q 300 0 0 300 20 470 cm /Rgb Do Q q 200 0 0 200 340 570 cm /Smooth Do Q q 100 0 0 100 340 450 cm /Rgb Do Q "
+            + "q 106 106 -106 106 480 300 cm /Smooth Do Q q 250 0 0 250 20 200 cm /Deep Do Q q 120 0 0 120 300 300 cm /Deep Do Q "
+            + "q 150 0 0 150 300 100 cm /Gray Do Q q 40 0 0 40 500 100 cm /Gray Do Q q 180 0 0 120 20 20 cm /Indexed Do Q "
+            + "q 100 0 0 100 450 20 cm BI /W 2 /H 2 /CS /G /BPC 8 /I true ID \u0000ÿÿ\u0000 EI Q";
+        const string image = "/Type /XObject /Subtype /Image ";
+        return OnePage(
+            Encoding.Latin1.GetBytes(content),
+            "/XObject << /Rgb 5 0 R /Smooth 6 0 R /Deep 7 0 R /Gray 8 0 R /Indexed 9 0 R >>",
+            Stream(rgb.ToString(), image + "/Width 256 /Height 256 /ColorSpace /DeviceRGB /BitsPerComponent 8"),
+            Stream(rgb.ToString(), image + "/Width 256 /Height 256 /ColorSpace /DeviceRGB /BitsPerComponent 8 /Interpolate true"),
+            Stream(deep.ToString(), image + "/Width 64 /Height 64 /ColorSpace /DeviceRGB /BitsPerComponent 16"),
+            Stream(gray.ToString(), image + "/Width 64 /Height 64 /ColorSpace /DeviceGray /BitsPerComponent 8 /Decode [1 0]"),
+            Stream(indices.ToString(), image + $"/Width 32 /Height 32 /BitsPerComponent 4 /ColorSpace [/Indexed /DeviceRGB 15 <{palette}>]"));
     }
 
     /// <summary>A stream object whose data is <paramref name="data"/> (Latin-1), with <paramref name="entries"/> in its dictionary.</summary>
