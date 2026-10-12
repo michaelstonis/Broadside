@@ -140,7 +140,7 @@ internal sealed partial class ContentInterpreter
             Kind = transparency ? ContentRunKind.Group : ContentRunKind.Form,
             Identity = stream,
             Reference = form.Reference,
-            Content = document.ContentResources.GetContent(stream),
+            Content = _context.GetContent(stream),
             Resources = resources,
             InitialState = initial,
             ClipBox = box,
@@ -201,7 +201,7 @@ internal sealed partial class ContentInterpreter
 
         // The appearance is the run's first frame: patterns selected in it start from its state, and it cannot draw itself.
         _frames[0] = new RunFrame(form.Stream, matrix, State);
-        Execute(document.ContentResources.GetContent(form.Stream).Span);
+        Execute(_context.GetContent(form.Stream).Span);
         End();
     }
 
@@ -232,7 +232,7 @@ internal sealed partial class ContentInterpreter
             Kind = ContentRunKind.SoftMask,
             Identity = group.Stream,
             Reference = group.Reference,
-            Content = _context.Document.ContentResources.GetContent(group.Stream),
+            Content = _context.GetContent(group.Stream),
             Resources = group.Resources ?? _context.Resources,
             InitialState = initial,
             ClipBox = group.BoundingBox,

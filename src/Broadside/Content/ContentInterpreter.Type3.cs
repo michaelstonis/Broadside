@@ -43,7 +43,7 @@ internal sealed partial class ContentInterpreter
                 Kind = ContentRunKind.Type3Glyph,
                 Identity = procedure,
                 Reference = reference,
-                Content = _context.Document.ContentResources.GetContent(procedure),
+                Content = _context.GetContent(procedure),
                 Resources = font.Resources ?? _context.Resources,
                 InitialState = initial,
                 Processor = processor,

@@ -69,6 +69,7 @@ internal static class FuzzTargets
         ["inline-image-end"] = ContentObjectsTargets.InlineImageEnd,
         ["image-decode"] = ImageDecodeTarget.Target,
         ["shading-mesh"] = ShadingMeshTarget.Target,
+        ["display-list"] = DisplayListTarget.Target,
         ["icc-profile"] = IccProfileTarget.Target,
     };
 
@@ -833,12 +834,13 @@ internal static class FuzzTargets
     }
 
     /// <summary>
-    /// Opens the input as a whole file in lenient mode, saves it in the layout the input's length selects, and reopens the output.
-    /// Whatever opened must save, and what was saved must open again with the same number of pages: a full save writes every object
-    /// (repaired ones re-serialized), so nothing the first open could read may become unreadable. <see cref="NotSupportedException"/>
-    /// is the documented outcome for an encrypted file or one with object numbers above the save limit.
+    /// Opens the input as a whole file in lenient mode, saves it in the layout, object numbering and garbage collection the input's
+    /// length selects, and reopens the output. Whatever opened must save, and what was saved must open again with the same number of
+    /// pages: a full save writes every object the trailer reaches (repaired ones re-serialized, references renumbered), so nothing the
+    /// first open could read through the page tree may become unreadable. <see cref="NotSupportedException"/> is the documented outcome
+    /// for an encrypted file.
     /// </summary>
-    /// <remarks>ISO 32000-2 §7.5 (issue #44).</remarks>
+    /// <remarks>ISO 32000-2 §7.5, §7.3.10 (issues #44, #144).</remarks>
     private static void Save(ReadOnlySpan<byte> data)
     {
         using PdfDocument? document = OpenOrNull(data);
@@ -849,10 +851,12 @@ internal static class FuzzTargets
 
         int pages = document.Pages.Count;
         var layout = (PdfCrossReferenceLayout)(data.Length % 3);
+        var numbering = (PdfObjectNumbering)(data.Length / 3 % 2);
+        bool removeUnreachable = data.Length / 6 % 2 == 1;
         using var output = new MemoryStream();
         try
         {
-            document.Save(output, new PdfSaveOptions().WithCrossReferenceLayout(layout));
+            document.Save(output, new PdfSaveOptions().WithCrossReferenceLayout(layout).WithObjectNumbering(numbering).WithRemoveUnreachableObjects(removeUnreachable));
         }
         catch (NotSupportedException)
         {

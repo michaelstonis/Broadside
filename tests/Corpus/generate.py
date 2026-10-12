@@ -508,23 +508,26 @@ OID_PDF_MAC_WRAP_KDF = "1.0.32004.1.1"
 OID_AES256_WRAP = "2.16.840.1.101.3.4.1.45"
 OID_HMAC_SHA256 = "1.2.840.113549.2.9"
 OID_SHA256 = "2.16.840.1.101.3.4.2.1"
+OID_SHA3_256 = "2.16.840.1.101.3.4.2.8"
 OID_CONTENT_TYPE = "1.2.840.113549.1.9.3"
 OID_MESSAGE_DIGEST = "1.2.840.113549.1.9.4"
 OID_CMS_ALGORITHM_PROTECTION = "1.2.840.113549.1.9.52"
 
 
-def pdf_mac_token(file_key: bytes, kdf_salt: bytes, mac_key: bytes, data_digest: bytes) -> bytes:
+def pdf_mac_token(file_key: bytes, kdf_salt: bytes, mac_key: bytes, data_digest: bytes,
+                  digest_oid: str = OID_SHA256, digest=hashlib.sha256) -> bytes:
     """ISO/TS 32004 6.2-6.4: a CMS AuthenticatedData (RFC 5652 9) over PdfMacIntegrityInfo, one
-    PasswordRecipientInfo with pdfMacWrapKdf and AES-256 key wrap, HMAC-SHA-256, SHA-256 digests."""
-    sha256_alg = der_seq(der_oid(OID_SHA256))
+    PasswordRecipientInfo with pdfMacWrapKdf and AES-256 key wrap, HMAC-SHA-256, and the digests of
+    Table 8 (SHA-256 unless digest_oid and digest name another)."""
+    digest_alg = der_seq(der_oid(digest_oid))
     hmac_alg = der_seq(der_oid(OID_HMAC_SHA256))
     info = der_seq(der(0x02, b"\0"), der(0x04, data_digest))  # version 0, dataDigest
     encap = der_seq(der_oid(OID_PDF_MAC_INTEGRITY_INFO), der(0xA0, der(0x04, info)))
     attrs = sorted([
         der_seq(der_oid(OID_CONTENT_TYPE), der_set(der_oid(OID_PDF_MAC_INTEGRITY_INFO))),
-        der_seq(der_oid(OID_MESSAGE_DIGEST), der_set(der(0x04, hashlib.sha256(info).digest()))),
+        der_seq(der_oid(OID_MESSAGE_DIGEST), der_set(der(0x04, digest(info).digest()))),
         der_seq(der_oid(OID_CMS_ALGORITHM_PROTECTION),
-                der_set(der_seq(sha256_alg, der(0xA2, der_oid(OID_HMAC_SHA256))))),  # RFC 6211, macAlgorithm [2]
+                der_set(der_seq(digest_alg, der(0xA2, der_oid(OID_HMAC_SHA256))))),  # RFC 6211, macAlgorithm [2]
     ])
     mac = hmac.new(mac_key, der(0x31, b"".join(attrs)), hashlib.sha256).digest()  # RFC 5652 9.2
     kek = hkdf_sha256(file_key, kdf_salt, b"PDFMAC", 32)
@@ -534,7 +537,7 @@ def pdf_mac_token(file_key: bytes, kdf_salt: bytes, mac_key: bytes, data_digest:
         der(0x02, b"\0"),                      # version 0
         der_set(pwri),                          # recipientInfos
         hmac_alg,                               # macAlgorithm
-        der(0xA1, der_oid(OID_SHA256)),         # digestAlgorithm [1]
+        der(0xA1, der_oid(digest_oid)),         # digestAlgorithm [1]
         encap,                                  # encapContentInfo
         der(0xA2, b"".join(attrs)),             # authAttrs [2]
         der(0x04, mac))                         # mac
@@ -2183,10 +2186,12 @@ def gen_encrypted_crypt_filters(name: str = "encrypted-crypt-filters") -> bytes:
 MAC_TAMPER_TARGET = b"% Integrity check target: original\n"
 
 
-def gen_encrypted_mac(name: str = "encrypted-mac") -> bytes:
+def gen_encrypted_mac(name: str = "encrypted-mac", label: bytes = b"Integrity MAC (R6)",
+                      digest_oid: str = OID_SHA256, digest=hashlib.sha256) -> bytes:
     """ISO/TS 32004: R6 (V 5) with /KDFSalt, P -4100 (bit 13 clear: a MAC token is required) and a
     standalone PDF MAC token in the trailer's /AuthCode, its /ByteRange covering the whole file except
-    the token, the 32004 extension declared in the catalog."""
+    the token, the 32004 extension declared in the catalog. The token's digests are SHA-256 unless
+    digest_oid and digest name another algorithm of Table 8."""
     key = fixed_bytes(name + ":file-key", 32)
     kdf_salt = fixed_bytes(name + ":kdf-salt", 32)
     mac_key = fixed_bytes(name + ":mac-key", 32)
@@ -2200,11 +2205,11 @@ def gen_encrypted_mac(name: str = "encrypted-mac") -> bytes:
     f.add(1, catalog(extensions(32004, b":2024", b"https://www.iso.org/standard/45877.html", encrypt)))
     f.add(2, pages())
     f.add(3, page(contents=4, font=5))
-    f.add(4, stream(b"", encrypt(4, "stream", text_content(b"Integrity MAC (R6)"))))
+    f.add(4, stream(b"", encrypt(4, "stream", text_content(label))))
     f.add(5, HELVETICA)
     f.add(6, enc)
     f.raw(MAC_TAMPER_TARGET)
-    token_length = len(pdf_mac_token(key, kdf_salt, mac_key, bytes(32)))
+    token_length = len(pdf_mac_token(key, kdf_salt, mac_key, bytes(digest().digest_size), digest_oid, digest))
     placeholder = b"<" + b"0" * (2 * token_length) + b">"
     range_placeholder = b"[0 0000000000 0000000000 0000000000]"
     data = bytearray(f.finish_classic(
@@ -2215,8 +2220,8 @@ def gen_encrypted_mac(name: str = "encrypted-mac") -> bytes:
     byte_range = b"[0 %010d %010d %010d]" % (l1, start, len(data) - start)
     r = data.index(range_placeholder)
     data[r:r + len(range_placeholder)] = byte_range
-    digest = hashlib.sha256(bytes(data[:l1]) + bytes(data[start:])).digest()
-    token = pdf_mac_token(key, kdf_salt, mac_key, digest)
+    data_digest = digest(bytes(data[:l1]) + bytes(data[start:])).digest()
+    token = pdf_mac_token(key, kdf_salt, mac_key, data_digest, digest_oid, digest)
     data[l1:start] = b"<" + token.hex().upper().encode() + b">"
     return bytes(data)
 
@@ -5477,6 +5482,8 @@ FILES = {
     "encrypted-crypt-filters.pdf": gen_encrypted_crypt_filters,
     "encrypted-aes-gcm.pdf": gen_encrypted_aes_gcm,
     "encrypted-mac.pdf": gen_encrypted_mac,
+    "encrypted-mac-sha3.pdf": lambda: gen_encrypted_mac(
+        "encrypted-mac-sha3", b"Integrity MAC SHA3-256 (R6)", OID_SHA3_256, hashlib.sha3_256),
     "encrypted-empty-owner-password.pdf": gen_encrypted_empty_owner_password,
     "encrypted-embedded-file-open.pdf": gen_encrypted_embedded_file_open,
     "encrypted-user-password.pdf": gen_encrypted_user_password,

@@ -53,10 +53,28 @@ Derived, warm: about 150 ns per operator on path-dominated pages (issue12810: 33
 
 The warm pass allocates nothing per operator, glyph or path: `ContentAllocationTests.Interpreting_a_page_with_every_event_requested_allocates_nothing_once_warm` proves it on 16 minimal-corpus pages (text in four font kinds, forms, transparency and graphics states, marked and optional content, every colour space family, shadings including meshes, patterns, image XObjects), and `bug1721218_reduced.pdf` shows 968 B for 163k operators. What the column does show, per run:
 
-- **Decoding the page's content stream.** Page content is decoded on every run (forms are cached per document; pages are not, to keep memory flat on large documents). `issue12810.pdf` decodes 2.8 MB of content, `freeculture.pdf` 352 Flate streams, `tracemonkey.pdf` 14; `issue11913.pdf`'s 58 KB, whatever the events requested, is the decoding of its 7 KB of content (decoder buffers and output).
+- **Decoding the page's content stream** (at this baseline; gone since issue #90, see below). Page content was decoded on every run (forms were cached per document; pages were not, to keep memory flat on large documents). `issue12810.pdf` decodes 2.8 MB of content, `freeculture.pdf` 352 Flate streams, `tracemonkey.pdf` 14; `issue11913.pdf`'s 58 KB, whatever the events requested, is the decoding of its 7 KB of content (decoder buffers and output).
 - **Inline images.** The image view of an inline image (`ImageEvent.Image`) owns a copy of its dictionary and data (#56), built only for a processor that requests `ContentEvents.Images`: the image-heavy and inline-image-heavy rows.
 
 `OpenAndInterpretFirstPage` adds what opening allocates (cross-reference, page tree) and the first resolution of every resource the page uses.
+
+## After issue #90: decoded page content cached per document
+
+Issue #90 caches a page's decoded content per document (`ContentResourceCache`, keyed on the content stream or `Contents` array and rebuilt when its `Version` moves), as form content already was, so a warm run no longer reads or decodes the page's content. The trade-off the baseline avoided is taken: a document keeps the decoded content of every page it has interpreted for its lifetime (the decoded size of those pages' content). `InterpretWarm` rerun with `--job default` on the same machine and corpora, code at branch `90-content-cache`; the machine was busier than for the baseline (load average about 41), so compare times with a wide tolerance; the allocation column is exact.
+
+| File | Mean before | Mean after (median) | Allocated before | Allocated after |
+|---|---:|---:|---:|---:|
+| cjk: pdfjs/issue11913.pdf | 665.6 μs | 550.3 μs (550.4 μs) | 58,008 B | - |
+| image-heavy: pdfjs/bug1799927.pdf | 3,249.3 μs | 2,922.9 μs (2,918.0 μs) | 4,315,288 B | 4,105,024 B |
+| inline-image-heavy: qpdf/inline-images.pdf | 7,167.8 μs | 6,124.1 μs (6,129.0 μs) | 8,196,514 B | 7,287,400 B |
+| page-count: pdfjs/freeculture.pdf | 38,358.8 μs | 37,487.1 μs (37,413.6 μs) | 2,834,784 B | - |
+| shading-pattern: pdfjs/bug1721218_reduced.pdf | 30,661.3 μs | 30,721.1 μs (30,671.4 μs) | 968 B | - |
+| text-heavy: pdfjs/tracemonkey.pdf | 11,804.5 μs | 16,384.9 μs (14,142.0 μs; StdDev 5.1 ms) | 222,696 B | 4,032 B |
+| tiling-pattern: pdfjs/tiling_patterns_variations.pdf | 7.5 μs | 7.5 μs (7.5 μs) | - | - |
+| vector-heavy: pdfjs/issue12810.pdf | 33,540.8 μs | 35,700.9 μs (32,604.1 μs; StdDev 6.1 ms) | 2,795,920 B | - |
+| synthetic: path-heavy-1mb (not in the baseline) | | 13,607.1 μs (13,616.2 μs) | | - |
+
+The decode cost is gone from every row: the pages without inline images now allocate nothing on a warm run, and the two image rows keep only the inline image views (#56's copies). `tracemonkey.pdf`'s remaining 4,032 B over 14 pages is not content decoding (the cache is warm) and is left for the Phase 3I regression gate to track. The text-heavy and vector-heavy means are within their (large) deviations of the baseline; the noise came from the load.
 
 ## Machine
 

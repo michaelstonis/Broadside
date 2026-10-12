@@ -30,4 +30,17 @@ public class DocumentSaveBenchmarks
         using PdfDocument document = PdfDocument.Open(_bytes);
         document.Save(Stream.Null, new PdfSaveOptions().WithCrossReferenceLayout(Layout));
     }
+
+    /// <summary>
+    /// A full rewrite (issue #144): only the objects the trailer reaches, numbered densely, every object serialized with its
+    /// references renumbered (§7.3.10).
+    /// </summary>
+    [Benchmark]
+    public void OpenAndRewrite()
+    {
+        using PdfDocument document = PdfDocument.Open(_bytes);
+        document.Save(
+            Stream.Null,
+            new PdfSaveOptions().WithCrossReferenceLayout(Layout).WithObjectNumbering(PdfObjectNumbering.Compact).WithRemoveUnreachableObjects(true));
+    }
 }

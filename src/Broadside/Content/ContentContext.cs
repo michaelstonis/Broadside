@@ -325,6 +325,30 @@ public sealed class ContentContext
     /// <remarks>ISO 32000-2 §8.5.4.</remarks>
     public ClipView GetClip(int handle) => _interpreter.Clips.Get(handle);
 
+    /// <summary>
+    /// Returns the decoded data of a content stream the run executes (a page's content, a form, a pattern cell, a glyph description,
+    /// a soft-mask group), decoded once per document while the stream is unchanged.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.8.2.</remarks>
+    internal ReadOnlyMemory<byte> GetContent(CosStream stream) => Document.ContentResources.GetContent(stream);
+
+    /// <summary>Returns a page's <c>Contents</c> array read as one stream (Table 31), built once per document while it is unchanged.</summary>
+    /// <remarks>ISO 32000-2 §7.8.2 and §7.7.3.3, Table 31.</remarks>
+    internal ContentResourceCache.JoinedContent GetContent(CosArray contents) => Document.ContentResources.GetContent(contents);
+
+    /// <summary>Returns the one form view of a form XObject's stream.</summary>
+    /// <remarks>ISO 32000-2 §8.10.</remarks>
+    internal PdfFormXObject GetForm(CosStream stream, CosReference? reference) => Document.ContentResources.GetForm(stream, reference);
+
+    /// <summary>Returns the one image view of an image XObject's stream.</summary>
+    /// <remarks>ISO 32000-2 §8.9.5.</remarks>
+    internal PdfImage? GetImage(CosStream stream, CosReference? reference) => Document.ContentResources.GetImage(stream, reference);
+
+    /// <summary>Returns the parameters of a graphics state parameter dictionary, read once while it is unchanged.</summary>
+    /// <remarks>ISO 32000-2 §8.4.5.</remarks>
+    internal ExtGStateParameters GetGraphicsState(CosDictionary dictionary, CosReference? reference) =>
+        Document.ContentResources.GetGraphicsState(dictionary, reference);
+
     private void ReportLookup(NamedLookup lookup, CosName name)
     {
         CosReference? owner = CurrentStream ?? Page?.Reference;
