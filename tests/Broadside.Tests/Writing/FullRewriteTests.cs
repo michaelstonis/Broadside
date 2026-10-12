@@ -160,6 +160,34 @@ public sealed class FullRewriteTests
         CosGraph.AssertIsomorphic(source, saved);
     }
 
+    [Fact]
+    public void A_changed_stream_compressed_in_a_renumbered_rewrite_is_written_with_a_direct_length()
+    {
+        using PdfDocument source = PdfDocument.Open(Corpus.Path("page-tree-inherited.pdf"));
+        var contents = new CosName("Contents");
+        var length = new CosName("Length");
+        var dropped = (CosReference)source.Pages[1].Dictionary[contents];
+        var stream = (CosStream)source.Resolve(source.Pages[0].Dictionary[contents]);
+        byte[] data = System.Text.Encoding.ASCII.GetBytes(string.Concat(Enumerable.Repeat("0 0 m 612 792 l S\n", 200)));
+        stream.EncodedData = data;
+
+        // An indirect Length naming an object the rewrite drops: the compressed copy must not keep it, renumbered or as null.
+        stream.Dictionary[length] = dropped;
+        RemoveLastPage(source);
+        byte[] file = Save(source, Rewrite());
+
+        using PdfDocument saved = PdfDocument.Open(file);
+        var written = (CosStream)saved.Resolve(saved.Pages[0].Dictionary[contents]);
+        Assert.Equal(new CosName("FlateDecode"), written.Dictionary[new CosName("Filter")]);
+        Assert.Equal(written.EncodedData.Length, Assert.IsType<CosInteger>(written.Dictionary[length]).Value);
+        Assert.True(written.EncodedData.Length < data.Length / 4);
+        Assert.Equal(data, saved.DecodeStream(written).ToArray());
+        Assert.DoesNotContain(saved.Diagnostics, diagnostic => diagnostic.Severity > Broadside.Diagnostics.DiagnosticSeverity.Information);
+        Assert.Equal(CosGraph.Reachable(saved).Count, CosGraph.AllObjects(saved).Count);
+        (int exitCode, string output) = ExternalTool.Run("qpdf", file, "--check");
+        Assert.True(exitCode == 0, output);
+    }
+
     /// <summary>Every object the document reaches whose <paramref name="key"/> is the name <paramref name="value"/>, or which has the key when the value is null.</summary>
     private static IEnumerable<CosObject> Find(PdfDocument document, string key, string? value)
     {

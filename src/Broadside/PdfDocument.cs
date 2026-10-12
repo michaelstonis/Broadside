@@ -100,6 +100,9 @@ public sealed partial class PdfDocument : IDisposable
         ColorSpaces = new ColorSpaceCache(this, diagnostics, colorManagement);
     }
 
+    /// <summary>Gets the engine's encoders, which <see cref="EncodeStream"/> and saving use (issue #142).</summary>
+    internal StreamEncoderRegistry StreamEncoders { get; private init; } = StreamEncoderRegistry.Default;
+
     /// <summary>
     /// Gets the version of the specification the document conforms to: the header's version, or the catalog's <c>Version</c> entry
     /// when that is later.
@@ -408,6 +411,11 @@ public sealed partial class PdfDocument : IDisposable
     /// that has not changed since it was read, was read without any repair and holds no reference that was renumbered is written with
     /// exactly the bytes it was read from; other objects are serialized, stream data as stored. The revisions of an incrementally
     /// updated file collapse into one, and a linearized file is written unlinearized (Annex F).
+    /// </para>
+    /// <para>
+    /// Unfiltered streams that are new or changed are written compressed with the engine's <c>FlateDecode</c> encoder when that makes
+    /// them smaller (§7.4.4); <see cref="PdfSaveOptions.StreamCompression"/> and <see cref="PdfSaveOptions.CompressionLevel"/> change
+    /// which and how hard. The document's own streams are not changed.
     /// </para>
     /// <para>
     /// The header keeps the document's version, raised to 1.5 when the layout needs cross-reference streams. The trailer's first
@@ -848,6 +856,35 @@ public sealed partial class PdfDocument : IDisposable
         _streams.Decode(stream, output);
     }
 
+    /// <summary>
+    /// Replaces the data of <paramref name="stream"/> with <paramref name="data"/> encoded through the filters its <c>Filter</c>
+    /// entry names, so that <see cref="DecodeStream(CosStream)"/> gives <paramref name="data"/> back.
+    /// </summary>
+    /// <param name="stream">A stream of this document, or a new one; set its <c>Filter</c> and <c>DecodeParms</c> entries first.</param>
+    /// <param name="data">The decoded data.</param>
+    /// <param name="compressionLevel">How much encoders that compress, such as <c>FlateDecode</c>'s, compress.</param>
+    /// <exception cref="ArgumentException">
+    /// <c>Filter</c> or <c>DecodeParms</c> is malformed, a filter's parameters cannot be honoured, or the data is not whole rows of
+    /// the predictor the parameters name.
+    /// </exception>
+    /// <exception cref="NotSupportedException">A filter is <c>Crypt</c> or has no encoder (only image codecs and <c>LZWDecode</c> by default).</exception>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §7.3.8.2 and §7.4. Encoders come from the engine's options (<see cref="PdfOptions.UseStreamEncoder"/>): by
+    /// default <c>FlateDecode</c>, <c>ASCIIHexDecode</c>, <c>ASCII85Decode</c> and <c>RunLengthDecode</c>. They run in the reverse of
+    /// the entry's order (§7.4.1), and the predictor a <c>FlateDecode</c> or <c>LZWDecode</c> filter's parameters name
+    /// (§7.4.4.4: TIFF 2, PNG 10 to 15) is applied before it. A stream without a <c>Filter</c> entry takes the data as it is.
+    /// </para>
+    /// <para>The stream's <see cref="CosStream.EncodedData"/> is replaced, which marks it changed; its dictionary is not changed.</para>
+    /// </remarks>
+    public void EncodeStream(CosStream stream, ReadOnlySpan<byte> data, System.IO.Compression.CompressionLevel compressionLevel = System.IO.Compression.CompressionLevel.Optimal)
+    {
+        ArgumentNullException.ThrowIfNull(stream);
+        var output = new ArrayBufferWriter<byte>(Math.Max(256, data.Length / 2));
+        new StreamEncoder(StreamEncoders, Resolve).Encode(data, stream.Dictionary, output, compressionLevel);
+        stream.EncodedData = output.WrittenSpan.ToArray();
+    }
+
     /// <summary>Returns the font view over a font dictionary of this document.</summary>
     /// <param name="font">A font dictionary, or an indirect reference to one, such as an entry of a resource dictionary's <c>Font</c> subdictionary.</param>
     /// <returns>
@@ -1019,7 +1056,9 @@ public sealed partial class PdfDocument : IDisposable
             new Dictionary<int, int>(),
             new CosDictionary { [KnownNames.Root] = catalog },
             firstIdentifier: null,
-            PdfCrossReferenceLayout.Table);
+            PdfCrossReferenceLayout.Table,
+            StreamEncoderRegistry.Default.Flate,
+            System.IO.Compression.CompressionLevel.Optimal);
         using var bytes = new MemoryStream();
         foreach (ReadOnlyMemory<byte> chunk in writer.Write())
         {
@@ -1042,7 +1081,7 @@ public sealed partial class PdfDocument : IDisposable
     private FileWriter PlanSave(PdfSaveOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return SavePlan.Create(_source, _loader, Linearization, options);
+        return SavePlan.Create(_source, _loader, Linearization, options, StreamEncoders);
     }
 
     /// <summary>The open path shared by every entry point: header, cross-reference information, trailer, catalog.</summary>
@@ -1106,7 +1145,10 @@ public sealed partial class PdfDocument : IDisposable
             }
 
             PdfLinearization? linearization = LinearizationReader.Read(source, loader, streams, diagnostics);
-            var document = new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security, configuration.FontProgramParsers, configuration.ColorManagement, configuration.FontResolvers);
+            var document = new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security, configuration.FontProgramParsers, configuration.ColorManagement, configuration.FontResolvers)
+            {
+                StreamEncoders = configuration.StreamEncoders,
+            };
             document.DetectXfa();
 
             // Table 15: ID is "required in PDF 2.0 or if an Encrypt entry is present" (the latter is the security handler's
