@@ -20,7 +20,7 @@ public sealed class TextExtractionAllocationTests
     {
         string lines = System.Text.Encoding.ASCII.GetString(ContentSamples.TextHeavy(10_000));
         using PdfDocument document = PdfDocument.Open(ContentPdf.BuildWith(ContentPdf.HelveticaResources, $"{lines} /Artifact BMC {lines} EMC", ContentPdf.Helvetica));
-        var extractor = new TextExtractor();
+        var extractor = new TextExtractor(new TextExtractionOptions().WithArtifacts());
 
         long allocated = Measure(document.Pages[0], extractor);
 

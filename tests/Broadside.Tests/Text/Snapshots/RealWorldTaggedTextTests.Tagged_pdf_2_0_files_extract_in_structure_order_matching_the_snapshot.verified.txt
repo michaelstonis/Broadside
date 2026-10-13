@@ -1,0 +1,154 @@
+﻿76 tagged PDF 2.0 files, 2 pages in an order other than content order
+pdf20examples/pdf20-utf8-test.pdf
+  page 1: structure order, glyphs 107, artifacts 0: PDF 2.0 with UTF-8 test file / Heading Level 2 / Heading Level 3 / Some paragraph text. / (c) 2021 PDF Association.
+verapdf-corpus/PDF_A-4/6.10 Optional content/veraPDF test suite 6-10-t01-pass-a.pdf
+  page 1: structure order, glyphs 16, artifacts 0: Optional Content
+verapdf-corpus/PDF_A-4/6.10 Optional content/veraPDF test suite 6-10-t01-pass-b.pdf
+  page 1: structure order, glyphs 16, artifacts 0: Optional Content
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.3 Composite fonts/6.2.10.3.1 General/veraPDF test suite 6-2-10-3-1-t01-pass-a.pdf
+  page 1: structure order, glyphs 12, artifacts 0: Hello world
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.3 Composite fonts/6.2.10.3.1 General/veraPDF test suite 6-2-10-3-1-t01-pass-b.pdf
+  page 1: structure order, glyphs 12, artifacts 0: Hello world
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.3 Composite fonts/6.2.10.3.1 General/veraPDF test suite 6-2-10-3-1-t01-pass-c.pdf
+  page 1: structure order, glyphs 12, artifacts 0: Hello / world
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.3 Composite fonts/6.2.10.3.2 CIDFonts/veraPDF test suite 6-2-10-3-2-t01-pass-a.pdf
+  page 1: structure order, glyphs 11, artifacts 0: Font / 便携式文件格式
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.3 Composite fonts/6.2.10.3.2 CIDFonts/veraPDF test suite 6-2-10-3-2-t01-pass-b.pdf
+  page 1: structure order, glyphs 11, artifacts 0: Font / 便携式文件格式
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.3 Composite fonts/6.2.10.3.3 CMaps/veraPDF test suite 6-2-10-3-3-t03-pass-a.pdf
+  page 1: structure order, glyphs 12, artifacts 0: Hello world
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.6 Character encodings/veraPDF test suite 6-2-10-6-t02-pass-a.pdf
+  page 1: structure order, glyphs 10, artifacts 0: Font test
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.6 Character encodings/veraPDF test suite 6-2-10-6-t02-pass-c.pdf
+  page 1: structure order, glyphs 10, artifacts 0: Font test
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.6 Character encodings/veraPDF test suite 6-2-10-6-t03-pass-a.pdf
+  page 1: structure order, glyphs 11, artifacts 0: Symbol font
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.7 Unicode character maps/veraPDF test suite 6-2-10-7-t01-pass-a.pdf
+  page 1: structure order, glyphs 1, artifacts 0: u
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.8 Use of ActualText/veraPDF test suite 6-2-10-8-t01-pass-a.pdf
+  page 1: content order, glyphs 0, artifacts 0: 
+verapdf-corpus/PDF_A-4/6.2 Graphics/6.2.10 Fonts/6.2.10.8 Use of ActualText/veraPDF test suite 6-2-10-8-t01-pass-b.pdf
+  page 1: structure order, glyphs 1, artifacts 0: ABC
+verapdf-corpus/PDF_A-4/6.3 Annotations/6.3.3 Annotation appearances/veraPDF test suite 6-3-3-t01-pass-d.pdf
+  page 1: content order, glyphs 0, artifacts 0: 
+verapdf-corpus/PDF_A-4/6.4 Interactive forms/6.4.1 General/veraPDF test suite 6-4-1-t01-pass-b.pdf
+  page 1: structure order, glyphs 4, artifacts 0: Test
+verapdf-corpus/PDF_UA-2/5 Version identification/5-t02-pass-a.pdf
+  page 1: structure order, glyphs 846, artifacts 0: Metadata / PDF document may include general information, such as the document’s title, author, and creation and / modification dates. Such global information about the document (as opposed to its content or structure) / is called metadata and is  ...
+verapdf-corpus/PDF_UA-2/8.11 Metadata/8.11.1 General/8.11.1-t01-pass-a.pdf
+  page 1: structure order, glyphs 52, artifacts 0: Metadata stream / Metadata stream is not contains title
+verapdf-corpus/PDF_UA-2/8.11 Metadata/8.11.2 Interactive aspects/8.11.2-t01-pass-a.pdf
+  page 1: structure order, glyphs 335, artifacts 0: Viewer Preferences / The ViewerPreferences entry in a document’s catalogue designates a viewer preferences dictionary (PDF / 1.2) controlling the way the document shall be presented on the screen or in print. If no such dictionary is / specified, ...
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.2 Real content/8.2.2-t01-pass-a.pdf
+  page 1: structure order, glyphs 24, artifacts 17: Test page with artifact
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.2 Real content/8.2.2-t01-pass-b.pdf
+  page 1: structure order, glyphs 8, artifacts 12: Artifact
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.4 Structure types/8.2.4-t01-pass-a.pdf
+  page 1: structure order, glyphs 1979, artifacts 0: General / Tagged PDF’s standard structure types characterize the role of a content element within the document and, in / conjunction with the standard structure attributes, how that content is laid out on the page. The structure type of / a logic ...
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.4 Structure types/8.2.4-t01-pass-b.pdf
+  page 1: structure order, glyphs 24, artifacts 0: Rolemap / Standard / Text body
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.4 Structure types/8.2.4-t02-pass-a.pdf
+  page 1: structure order, glyphs 1979, artifacts 0: General / Tagged PDF’s standard structure types characterize the role of a content element within the document and, in / conjunction with the standard structure attributes, how that content is laid out on the page. The structure type of / a logic ...
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.4 Structure types/8.2.4-t03-pass-a.pdf
+  page 1: structure order, glyphs 133, artifacts 0: Within a given explicitly provided / namespace, structure types shall not be role / mapped to other structure types in the same / namespace
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.4 Structure types/8.2.4-t04-pass-a.pdf
+  page 1: structure order, glyphs 1979, artifacts 0: General / Tagged PDF’s standard structure types characterize the role of a content element within the document and, in / conjunction with the standard structure attributes, how that content is laid out on the page. The structure type of / a logic ...
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.5 Additional requirements for specific structure types/8.2.5.12 Heading (Hn) and (H)/8.2.5.12-t01-pass-a.pdf
+  page 1: structure order, glyphs 7, artifacts 0: Rolemap
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.5 Additional requirements for specific structure types/8.2.5.20 Link and Reference/8.2.5.20-t02-pass-a.pdf
+  page 1: structure order, glyphs 180, artifacts 0: The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The / quick brown fox jumps over the lazy dog / Some text / Just a bit more text / And some more text
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.5 Additional requirements for specific structure types/8.2.5.20 Link and Reference/8.2.5.20-t02-pass-b.pdf
+  page 1: structure order, glyphs 180, artifacts 0: The quick brown fox jumps over the lazy dog. The quick brown fox jumps over the lazy dog. The / quick brown fox jumps over the lazy dog / Some text / Just a bit more text / And some more text
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.5 Additional requirements for specific structure types/8.2.5.26 Table (Table, TR, TH, TD, THead, TBody, TFoot)/8.2.5.26-t01-pass-a.pdf
+  page 1: structure order, glyphs 45, artifacts 0: TH1 / TH2 TH3 TH4 / TH5 TD1 TD2 TD3 / TD4 TD5 TD6 / TH6 TD7 TD8 TD9
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.5 Additional requirements for specific structure types/8.2.5.26 Table (Table, TR, TH, TD, THead, TBody, TFoot)/8.2.5.26-t01-pass-b.pdf
+  page 1: structure order, glyphs 120, artifacts 0: Test Document / Table 1: Test table / THead-TR-TH THead-TR-TH / TBody-TR-TH TBody-TR-TD / TBody-TR-TH TBody-TR-TD / TBody-TR-TH TBody-TR-TD
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.5 Additional requirements for specific structure types/8.2.5.26 Table (Table, TR, TH, TD, THead, TBody, TFoot)/8.2.5.26-t05-pass-a.pdf
+  page 1: structure order, glyphs 198, artifacts 0: Table has not Headers attribute / Index Failure Condition Section Type How / 15-003 In a table not organized with Headers attributes and IDs, a / TH cell does not contain a Scope attribute. / UA1:7.5-2 Object Machine
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.5 Additional requirements for specific structure types/8.2.5.26 Table (Table, TR, TH, TD, THead, TBody, TFoot)/8.2.5.26-t05-pass-b.pdf
+  page 1: structure order, glyphs 198, artifacts 0: Table has not Headers attribute / Index Failure Condition Section Type How / 15-003 In a table not organized with Headers attributes and IDs, a / TH cell does not contain a Scope attribute. / UA1:7.5-2 Object Machine
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.5 Additional requirements for specific structure types/8.2.5.26 Table (Table, TR, TH, TD, THead, TBody, TFoot)/8.2.5.26-t05-pass-c.pdf
+  page 1: structure order, glyphs 198, artifacts 0: Table has not Headers attribute / Index Failure Condition Section Type How / 15-003 In a table not organized with Headers attributes and IDs, a / TH cell does not contain a Scope attribute. / UA1:7.5-2 Object Machine
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.5 Additional requirements for specific structure types/8.2.5.26 Table (Table, TR, TH, TD, THead, TBody, TFoot)/8.2.5.26-t05-pass-d.pdf
+  page 1: structure order, glyphs 198, artifacts 0: Table has not Headers attribute / Index Failure Condition Section Type How / 15-003 In a table not organized with Headers attributes and IDs, a / TH cell does not contain a Scope attribute. / UA1:7.5-2 Object Machine
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.5 Additional requirements for specific structure types/8.2.5.26 Table (Table, TR, TH, TD, THead, TBody, TFoot)/8.2.5.26-t05-pass-e.pdf
+  page 1: structure order, glyphs 198, artifacts 0: Table has not Headers attribute / Index Failure Condition Section Type How / 15-003 In a table not organized with Headers attributes and IDs, a / TH cell does not contain a Scope attribute. / UA1:7.5-2 Object Machine
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.5 Additional requirements for specific structure types/8.2.5.28 Figure/8.2.5.28.2 Figure properties/8.2.5.28.2-t01-pass-a.pdf
+  page 1: structure order, glyphs 29, artifacts 0: ActualText for Figure / company
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.5 Additional requirements for specific structure types/8.2.5.28 Figure/8.2.5.28.2 Figure properties/8.2.5.28.2-t01-pass-b.pdf
+  page 1: structure order, glyphs 29, artifacts 0: ActualText for Figure / company
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.5 Additional requirements for specific structure types/8.2.5.28 Figure/8.2.5.28.2 Figure properties/8.2.5.28.2-t01-pass-c.pdf
+  page 1: structure order, glyphs 29, artifacts 0: ActualText for Figure / company
+verapdf-corpus/PDF_UA-2/8.2 Logical structure/8.2.5 Additional requirements for specific structure types/8.2.5.29 Formula/8.2.5.29-t01-pass-a.pdf
+  page 1: structure order, glyphs 82, artifacts 0: The math structure type shall occur only as a / child of a Formula structure element
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.4 Declaring natural language/8.4.4-t02-pass-a.pdf
+  page 1: structure order, glyphs 30, artifacts 0: Lang no Catálogo de Documentos
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.4 Declaring natural language/8.4.4-t02-pass-b.pdf
+  page 1: structure order, glyphs 30, artifacts 0: Lang no Catálogo de Documentos
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.4 Declaring natural language/8.4.4-t02-pass-c.pdf
+  page 1: structure order, glyphs 30, artifacts 0: Lang no Catálogo de Documentos
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.4 Declaring natural language/8.4.4-t02-pass-d.pdf
+  page 1: structure order, glyphs 30, artifacts 0: Lang no Catálogo de Documentos
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.4 Declaring natural language/8.4.4-t02-pass-e.pdf
+  page 1: structure order, glyphs 30, artifacts 0: Lang no Catálogo de Documentos
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.4 Declaring natural language/8.4.4-t02-pass-f.pdf
+  page 1: structure order, glyphs 30, artifacts 0: Lang no Catálogo de Documentos
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.4 Declaring natural language/8.4.4-t02-pass-g.pdf
+  page 1: structure order, glyphs 30, artifacts 0: Lang no Catálogo de Documentos
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.4 Declaring natural language/8.4.4-t02-pass-h.pdf
+  page 1: structure order, glyphs 17, artifacts 0: néerlandais moyen
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.4 Declaring natural language/8.4.4-t02-pass-i.pdf
+  page 1: structure order, glyphs 17, artifacts 0: néerlandais moyen
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.4 Declaring natural language/8.4.4-t02-pass-j.pdf
+  page 1: structure order, glyphs 30, artifacts 0: Lang no Catálogo de Documentos
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.3 Composite fonts/8.4.5.3.1 General/8.4.5.3.1-t01-pass-a.pdf
+  page 1: structure order, glyphs 12, artifacts 0: Hello world
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.3 Composite fonts/8.4.5.3.1 General/8.4.5.3.1-t01-pass-b.pdf
+  page 1: structure order, glyphs 12, artifacts 0: Hello world
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.3 Composite fonts/8.4.5.3.1 General/8.4.5.3.1-t01-pass-c.pdf
+  page 1: structure order, glyphs 12, artifacts 0: Hello world
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.3 Composite fonts/8.4.5.3.1 General/8.4.5.3.1-t01-pass-d.pdf
+  page 1: structure order, glyphs 12, artifacts 0: Hello world
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.3 Composite fonts/8.4.5.3.2 CIDFonts/8.4.5.3.2-t01-pass-a.pdf
+  page 1: structure order, glyphs 11, artifacts 0: Font / 便携式文件格式
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.4 CMaps/8.4.5.4-t01-pass-a.pdf
+  page 1: structure order, glyphs 12, artifacts 0: Hello world
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.4 CMaps/8.4.5.4-t02-pass-a.pdf
+  page 1: structure order, glyphs 12, artifacts 0: Hello world
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.4 CMaps/8.4.5.4-t03-pass-a.pdf
+  page 1: structure order, glyphs 12, artifacts 0: Hello world
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.5 Embedding/8.4.5.5.1 General/8.4.5.5.1-t01-pass-a.pdf
+  page 1: structure order, glyphs 15, artifacts 0: Go to last page
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.6 Font metrics/8.4.5.6-t01-pass-a.pdf
+  page 1: structure order, glyphs 12, artifacts 0: Hello World!
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.7 Character encodings/8.4.5.7-t02-pass-a.pdf
+  page 1: structure order, glyphs 10, artifacts 0: Font test
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.7 Character encodings/8.4.5.7-t02-pass-b.pdf
+  page 1: structure order, glyphs 10, artifacts 0: Font test
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.7 Character encodings/8.4.5.7-t02-pass-c.pdf
+  page 1: structure order, glyphs 10, artifacts 0: Font test
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.7 Character encodings/8.4.5.7-t02-pass-d.pdf
+  page 1: structure order, glyphs 10, artifacts 0: Font test
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.7 Character encodings/8.4.5.7-t03-pass-a.pdf
+  page 1: structure order, glyphs 11, artifacts 0: Symbol font
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.8 Unicode character maps/8.4.5.8-t01-pass-a.pdf
+  page 1: structure order, glyphs 12, artifacts 0: ������������
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.8 Unicode character maps/8.4.5.8-t01-pass-b.pdf
+  page 1: structure order, glyphs 12, artifacts 0: Hello World
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.8 Unicode character maps/8.4.5.8-t01-pass-c.pdf
+  page 1: structure order, glyphs 10, artifacts 0: Font test
+verapdf-corpus/PDF_UA-2/8.4 Text representation for content/8.4.5 Fonts/8.4.5.8 Unicode character maps/8.4.5.8-t02-pass-a.pdf
+  page 1: structure order, glyphs 1, artifacts 0: u
+verapdf-corpus/PDF_UA-2/8.7 Optional content/8.7-t02-pass-a.pdf
+  page 1: structure order, glyphs 16, artifacts 0: Optional Content
+pdfjs/bug1937438_af_from_latex.pdf
+  page 1: structure order, glyphs 124, artifacts 1: Math Test One / David / February 23, 2024 / 1 Math Tests / Some inline math, let \uD835\uDC65 and \uD835\uDC66 satisfy \uD835\uDC65 > \uD835\uDC66. / Some text, and an equation. / √\uD835\uDC652 = |\uD835\uDC65|
+pdfjs/bug1937438_mml_from_latex.pdf
+  page 1: structure order, glyphs 134, artifacts 2: 1 A small example / Some inline mathematics involving \uD835\uDC65 ∈ ℝ. / A list of items / 1. a first item; / 2. a second item; / 3. a third item. / Display math / \uD835\uDC50 = \uD835\uDC4E2 + \uD835\uDC4F2
+pdfjs/bug1997343.pdf
+  page 1: structure order, differs from content order, glyphs 1386, artifacts 72: A Two Column Example / The LaTeX Team / 2025-06-18 / Abstract / An example document showing automatic tagging / of typical structures found in a LaTeX document, in­ / cluding titles, sections, theorems, lists, citation lists / and mathematics. A two colu ...
+  page 2: structure order, differs from content order, glyphs 893, artifacts 22: 2.3 Figures and Tables / Small images may be shown inline and small / tables may be shown within the paragraph: / Example / Name Value / This 11 / That 2 / Larger figures such as Figure 1 are usually placed / in a float to be positioned at a suitable place ...
+pdfjs/bug2009627.pdf
+  page 1: structure order, glyphs 122, artifacts 14: Contents / 1 Document structures 1 / 1.1 Mathematics 1 / 1 Document structures / 1.1 Mathematics / Let \uD835\uDC5D be a prime, then / \uD835\uDC5B\uD835\uDC5D = \uD835\uDC5B mod \uD835\uDC5D / Matrix / ( / 1 2 / 3 4 / )
+pdfjs/bug2025674.pdf
+  page 1: structure order, glyphs 18, artifacts 1: 1 Equation / \uD835\uDC4E2 + \uD835\uDC4F2 = \uD835\uDC502

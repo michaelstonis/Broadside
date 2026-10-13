@@ -233,6 +233,9 @@ public sealed class PdfStructureTreeRoot
         return PdfAttributeObject.Create(_context, attributes, null, 0);
     }
 
+    /// <summary>Gets the document-order walk of the hierarchy and its reverse indexes, built on first use and again after the tree changes.</summary>
+    internal StructureWalk Walk => _context.Walk;
+
     /// <summary>Returns a view over the structure element <paramref name="dictionary"/>, wherever it is in the tree.</summary>
     /// <param name="dictionary">The structure element dictionary.</param>
     /// <param name="reference">The reference it was reached through, or <see langword="null"/>.</param>

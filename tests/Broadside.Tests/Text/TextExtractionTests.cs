@@ -108,20 +108,6 @@ public sealed class TextExtractionTests
     }
 
     [Fact]
-    public void The_pagination_artifact_of_the_tagged_file_is_extracted_and_flagged()
-    {
-        using PdfDocument document = PdfDocument.Open(Corpus.Path("tagged-structure.pdf"));
-
-        TextPage text = document.Pages[0].ExtractText();
-
-        // "/Artifact <</Type /Pagination /Subtype /PageNum>> BDC BT /F1 10 Tf 300 40 Td (1) Tj ET EMC" is the only artifact.
-        TextGlyph artifact = Assert.Single(text.Glyphs, glyph => glyph.Flags.HasFlag(TextGlyphFlags.Artifact));
-        Assert.Equal("1", text.GetGlyphText(artifact).ToString());
-        AssertPoint(300, 40, artifact.Origin);
-        Assert.True(text.Glyphs.Count > 1);
-    }
-
-    [Fact]
     public void Glyphs_of_a_form_xobject_shown_inside_an_artifact_are_artifacts_and_lie_where_the_form_matrix_puts_them()
     {
         string form = ContentPdf.Stream("BT /F1 10 Tf (f) Tj ET", "/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Matrix [2 0 0 2 10 20] /Resources << /Font << /F1 5 0 R >> >>");
@@ -131,9 +117,10 @@ public sealed class TextExtractionTests
             ContentPdf.Helvetica,
             form));
 
-        TextPage text = document.Pages[0].ExtractText();
+        TextPage text = document.Pages[0].ExtractText(new TextExtractionOptions().WithArtifacts());
 
         Assert.Equal("ff", text.Text);
+        Assert.Equal("f", document.Pages[0].ExtractText().Text);
         Assert.Equal([TextGlyphFlags.None, TextGlyphFlags.Artifact], text.Glyphs.Select(glyph => glyph.Flags));
 
         // Form space (0, 0) -> Matrix [2 0 0 2 10 20] -> cm [1 0 0 1 100 200]: (110, 220); f is 278 wide at 10 pt, doubled.

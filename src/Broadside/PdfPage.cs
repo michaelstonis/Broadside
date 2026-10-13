@@ -252,31 +252,36 @@ public sealed class PdfPage
     }
 
     /// <summary>Extracts the page's text: every glyph its content shows, with its Unicode text, position, font, size and rendering mode.</summary>
-    /// <returns>The glyphs in content order and their text, with their words, lines and plain text assembled on first use.</returns>
-    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content or its fonts.</exception>
+    /// <returns>The glyphs in reading order and their text, with their words, lines and plain text assembled on first use.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content, its fonts or the structure tree.</exception>
     /// <remarks>
-    /// ISO 32000-2 §9.4.4, §9.10, §14.8.2.6.2 and §14.9.4; see <see cref="Text.TextExtractor"/>. Text hidden by optional content is left out;
-    /// invisible text, artifacts and text replaced by <c>ActualText</c> are extracted and flagged (<see cref="Text.TextGlyphFlags"/>).
+    /// ISO 32000-2 §9.4.4, §9.10, §14.8.2.6.2, §14.8.2.5 and §14.9; see <see cref="Text.TextExtractor"/>. A tagged page reads in
+    /// logical content order, the order of its structure tree, with structure elements' <c>ActualText</c> and <c>Lang</c> applied
+    /// (<see cref="Text.TextReadingOrder.Structure"/>); other pages in content order. Text hidden by optional content and artifacts
+    /// are left out; invisible text and text replaced by <c>ActualText</c> are extracted and flagged (<see cref="Text.TextGlyphFlags"/>).
     /// Positions are in default user space. Annotation appearances are not part of the page's content and are not extracted.
     /// </remarks>
     public Text.TextPage ExtractText() => ExtractText(new Text.TextExtractionOptions());
 
     /// <summary>Extracts the page's text with options.</summary>
-    /// <param name="options">What to extract and the content run's options.</param>
-    /// <returns>The glyphs in content order and their text.</returns>
-    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content or its fonts.</exception>
+    /// <param name="options">What to extract, in which order, and the content run's options.</param>
+    /// <returns>The glyphs in the order the options ask for and their text.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content, its fonts or the structure tree.</exception>
     /// <exception cref="OperationCanceledException">The content options' cancellation token was canceled.</exception>
-    /// <remarks>ISO 32000-2 §9.4.4, §9.10, §8.11.3.1 and §14.9.4. As <see cref="ExtractText()"/>.</remarks>
+    /// <remarks>ISO 32000-2 §9.4.4, §9.10, §8.11.3.1, §14.8.2 and §14.9. As <see cref="ExtractText()"/>.</remarks>
     public Text.TextPage ExtractText(Text.TextExtractionOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
 
         // Issue #284: the thread's extractor is reused, so only the returned page (its glyphs and text, copied at their exact size) is allocated per page.
+        // Issue #185: structure order reads the extractor's glyphs and content items, so it runs before the extractor is returned.
         Text.TextExtractor extractor = Text.TextExtractor.Rent(options);
         try
         {
             ProcessContent(extractor, options.ContentOptions ?? ContentInterpreter.DefaultOptions);
-            return extractor.ToTextPage();
+            return options.ReadingOrder == Text.TextReadingOrder.Structure && Text.StructureOrder.Build(_document, this, extractor, options) is { } ordered
+                ? ordered
+                : extractor.ToTextPage();
         }
         finally
         {

@@ -98,6 +98,34 @@ public static class ContentSamples
         .. objects,
     ]);
 
+    /// <summary>
+    /// A tagged page (ISO 32000-2 §14.7, §14.8) of <paramref name="paragraphs"/> lines in Helvetica, each a <c>P</c> element owning one
+    /// MCID, painted bottom line first so page content order is the reverse of logical content order (§14.8.2.5.1).
+    /// </summary>
+    /// <param name="paragraphs">The number of lines and elements.</param>
+    /// <returns>The file.</returns>
+    public static byte[] TaggedText(int paragraphs)
+    {
+        var content = new StringBuilder();
+        for (int index = paragraphs - 1; index >= 0; index--)
+        {
+            content.Append(CultureInfo.InvariantCulture, $"/P <</MCID {index}>> BDC BT /F1 10 Tf 72 {780 - (index * 12 % 760)} Td (Paragraph {index} of the tagged sample page) Tj ET EMC\n");
+        }
+
+        string elements = string.Join(' ', Enumerable.Range(0, paragraphs).Select(static index => string.Create(CultureInfo.InvariantCulture, $"{index + 8} 0 R")));
+        return File(
+        [
+            "<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /StructTreeRoot 6 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R /StructParents 0 >>",
+            Stream(content.ToString()),
+            "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>",
+            $"<< /Type /StructTreeRoot /K [7 0 R] /ParentTree << /Nums [0 [{elements}]] >> >>",
+            $"<< /Type /StructElem /S /Document /P 6 0 R /K [{elements}] >>",
+            .. Enumerable.Range(0, paragraphs).Select(static index => string.Create(CultureInfo.InvariantCulture, $"<< /Type /StructElem /S /P /P 7 0 R /Pg 3 0 R /K {index} >>")),
+        ]);
+    }
+
     /// <summary>A file of the objects, numbered from 1 (object 1 the catalog), with a cross-reference table (ISO 32000-2 §7.5).</summary>
     public static byte[] File(string[] objects)
     {

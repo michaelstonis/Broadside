@@ -14,8 +14,11 @@ namespace Broadside.Benchmarks;
 public class TextExtractionBenchmarks
 {
     private readonly TextExtractor _extractor = new();
+    private readonly TextExtractionOptions _contentOrder = new TextExtractionOptions().WithReadingOrder(TextReadingOrder.Content);
     private PdfDocument? _document;
     private PdfPage? _page;
+    private PdfDocument? _tagged;
+    private PdfPage? _taggedPage;
 
     [GlobalSetup]
     public void Setup()
@@ -25,10 +28,17 @@ public class TextExtractionBenchmarks
             "/Font << /F1 5 0 R >>",
             "<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>"));
         _page = _document.Pages[0];
+        _tagged = PdfDocument.Open(ContentSamples.TaggedText(500));
+        _taggedPage = _tagged.Pages[0];
+        _ = _taggedPage.ExtractText();
     }
 
     [GlobalCleanup]
-    public void Cleanup() => _document?.Dispose();
+    public void Cleanup()
+    {
+        _document?.Dispose();
+        _tagged?.Dispose();
+    }
 
     [Benchmark(Baseline = true)]
     public int ExtractReused()
@@ -53,4 +63,18 @@ public class TextExtractionBenchmarks
         _page!.ProcessContent(_extractor);
         return _extractor.Words.Length + _extractor.Lines.Length + _extractor.PlainText.Length;
     }
+
+    /// <summary>
+    /// A tagged page of 500 paragraphs (about 16,000 glyphs) painted in reverse, extracted in logical content order from its
+    /// structure tree (issue #185, ISO 32000-2 §14.8.2.5.1); the tree's walk is built once, in setup. Compare with
+    /// <see cref="ExtractTaggedInContentOrder"/> for the cost of ordering.
+    /// </summary>
+    /// <returns>The number of plain text units.</returns>
+    [Benchmark]
+    public int ExtractTaggedInStructureOrder() => _taggedPage!.ExtractText().PlainText.Length;
+
+    /// <summary>The page of <see cref="ExtractTaggedInStructureOrder"/> in page content order, the structure tree not consulted.</summary>
+    /// <returns>The number of plain text units.</returns>
+    [Benchmark]
+    public int ExtractTaggedInContentOrder() => _taggedPage!.ExtractText(_contentOrder).PlainText.Length;
 }

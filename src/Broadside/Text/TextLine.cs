@@ -5,7 +5,7 @@ namespace Broadside.Text;
 /// <summary>One line of extracted text: consecutive words along one baseline, in one writing direction.</summary>
 /// <remarks>
 /// <para>
-/// ISO 32000-2 §9.4.4 (glyph positions) and §9.7.4.3 (vertical writing). Lines follow content order: a line ends where the next glyph
+/// ISO 32000-2 §9.4.4 (glyph positions) and §9.7.4.3 (vertical writing). Lines follow the order of the glyphs: a line ends where the next glyph
 /// is written in another direction (the text space x axis turned by more than a few degrees, or horizontal and vertical writing
 /// changing over), lies off the baseline by more than half the font size (a superscript or subscript stays on its line), or moves
 /// back along the baseline by more than the font size. Reading order across lines and columns is not worked out here.
