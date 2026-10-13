@@ -40,7 +40,12 @@ internal static class TextStringEncoder
     /// <param name="text">The text.</param>
     /// <returns>The bytes.</returns>
     public static byte[] Encode(string text) =>
-        TryEncodePdfDoc(text, out byte[]? bytes) ? bytes : [0xFE, 0xFF, .. Encoding.BigEndianUnicode.GetBytes(text)];
+        TryEncodePdfDoc(text, out byte[]? bytes) ? bytes : EncodeUtf16(text);
+
+    /// <summary>Encodes <paramref name="text"/> as a UTF-16BE text string, with the marker.</summary>
+    /// <param name="text">The text.</param>
+    /// <returns>The bytes.</returns>
+    public static byte[] EncodeUtf16(string text) => [0xFE, 0xFF, .. Encoding.BigEndianUnicode.GetBytes(text)];
 
     private static Dictionary<char, byte> BuildPdfDocCodes()
     {

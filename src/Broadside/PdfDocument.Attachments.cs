@@ -273,17 +273,7 @@ public sealed partial class PdfDocument
     /// <summary>The <c>EmbeddedFiles</c> tree, with the catalog's <c>Names</c> dictionary and the tree created when absent.</summary>
     private PdfNameTree EmbeddedFilesTreeForWriting()
     {
-        CosDictionary names;
-        if (Catalog.TryGetValue(NavigationNames.Names, out CosObject? entry) && Resolve(entry) is CosDictionary existing)
-        {
-            names = existing;
-        }
-        else
-        {
-            names = new CosDictionary();
-            Catalog[NavigationNames.Names] = names;
-        }
-
+        CosDictionary names = NameDictionaryForWriting();
         if (names.TryGetValue(FileAndLayerNames.EmbeddedFiles, out CosObject? root) && GetNameTree(root) is { } tree)
         {
             return tree;
