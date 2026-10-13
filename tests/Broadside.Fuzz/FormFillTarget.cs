@@ -10,10 +10,11 @@ namespace Broadside.Fuzz;
 /// <c>Rect</c>, <c>Q</c> and flags the file holds; then runs every generated appearance through a text extractor, saves, and
 /// reopens. Invariants: filling never throws (the value is one Helvetica can always show, so no font program is needed; the system
 /// font resolver is off so runs are deterministic); each widget's normal appearance is afterwards a form XObject whose text is
-/// at most the value's length; the saved file opens with the same page count. An encrypted input (which cannot be saved yet) stops
-/// after filling.
+/// at most the value's length; the saved file opens with the same page count. An encrypted input stops after filling (the
+/// <c>save</c> target covers encrypted saves); one read as not encrypted, a damaged <c>Encrypt</c> entry included, must save
+/// (issue #283: <see cref="PdfDocument.IsEncrypted"/> and the save agree), so no exception is tolerated there.
 /// </summary>
-/// <remarks>ISO 32000-2 §12.7.4.3, §12.7.5.3, §12.5.5.</remarks>
+/// <remarks>ISO 32000-2 §12.7.4.3, §12.7.5.3, §12.5.5, §7.6.2.</remarks>
 internal static class FormFillTarget
 {
     private const string Value = "Fill 42 été\nzwei";

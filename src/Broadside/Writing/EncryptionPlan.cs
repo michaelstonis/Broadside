@@ -61,7 +61,10 @@ internal sealed class EncryptionPlan
     /// <param name="incremental">Whether the save is an incremental update, which keeps the document's encryption.</param>
     /// <returns>The plan.</returns>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption the algorithm cannot write.</exception>
-    /// <exception cref="NotSupportedException">The save would need an integrity MAC, or would change an incremental update's encryption.</exception>
+    /// <exception cref="NotSupportedException">
+    /// The save would need an integrity MAC, or would change an incremental update's encryption. Never for a document read as not
+    /// encrypted (<paramref name="security"/> <see langword="null"/>) unless new encryption is asked of an incremental update.
+    /// </exception>
     public static EncryptionPlan Create(ObjectLoader loader, PdfSecurity? security, PdfSaveOptions options, bool incremental)
     {
         if (options.Encryption is not null && options.RemoveEncryption)
@@ -72,7 +75,7 @@ internal sealed class EncryptionPlan
         CosDictionary trailer = loader.CrossReference.Trailer;
         bool hasEncrypt = trailer.ContainsKey(KnownNames.Encrypt);
         DocumentDecryptor? decryptor = security is null ? null : loader.Hooks.Decryptor as DocumentDecryptor;
-        if (incremental && (options.Encryption is not null || (options.RemoveEncryption && hasEncrypt)))
+        if (incremental && (options.Encryption is not null || (options.RemoveEncryption && security is not null)))
         {
             throw new NotSupportedException(
                 "An incremental update keeps the document's encryption (ISO 32000-2 §7.5.6: the earlier revisions stay as written); save a complete file to encrypt, re-encrypt or decrypt it.");
@@ -96,9 +99,11 @@ internal sealed class EncryptionPlan
 
         if (security is null || decryptor is null)
         {
-            // Not encrypted, or an Encrypt entry the reader could not use and read the document without: nothing to decrypt, and
-            // the entry is dropped from a complete file.
-            return new EncryptionPlan(null, replacesDictionary: hasEncrypt && !incremental, null, null, null, null, keepsSourceEncryption: false);
+            // Not encrypted, or an Encrypt entry that is not an encryption dictionary (EncryptDictionaryInvalid: the document was
+            // read, and IsEncrypted reports it, as not encrypted): nothing to decrypt or encrypt, so the save is the one an
+            // unencrypted document gets. The damaged entry is dropped from a complete file, and from an incremental update asked to
+            // remove encryption; any other update repeats it, so the file reads back the way it was read.
+            return new EncryptionPlan(null, replacesDictionary: hasEncrypt && (!incremental || options.RemoveEncryption), null, null, null, null, keepsSourceEncryption: false);
         }
 
         if (options.RemoveEncryption)
