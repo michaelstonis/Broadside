@@ -17,8 +17,10 @@ namespace Broadside.Rendering;
 /// <para>
 /// Today the list carries the graphics state stack (ISO 32000-2 §8.4.2), transforms (§8.3.2), path fills with their colour
 /// (§8.5.3, §8.6), strokes with their colour and line parameters (§8.4.3, §8.5.3.2), path clips (§8.5.4, including form
-/// bounding boxes, §8.10.1) and images (§8.9, <see cref="DisplayImage"/>, decoded once per image XObject). Text, image masks,
-/// shadings, patterns and transparency join it in later Phase 3 tickets, each as new <see cref="IRenderingBackend"/> calls.
+/// bounding boxes, §8.10.1), images (§8.9, <see cref="DisplayImage"/>, decoded once per image XObject) and text as glyph runs
+/// (§9.4.3, §9.3.6, <see cref="GlyphRun"/>: font program, glyph ids, text matrices, outlines interned once per program and glyph).
+/// Type 3 glyphs, text clips, image masks, shadings, patterns and transparency join it in later Phase 3 tickets, each as new
+/// <see cref="IRenderingBackend"/> calls.
 /// </para>
 /// <para>
 /// Immutable once built: any number of threads may replay the same list at once, each into its own backend.
@@ -65,6 +67,12 @@ public sealed class DisplayList
 
     /// <summary>Gets what each image paint depends on beyond its image.</summary>
     internal DisplayImagePaint[] ImagePaints { get; init; } = [];
+
+    /// <summary>Gets the glyph runs the list paints (indexed by <see cref="DisplayOperationKind.DrawGlyphs"/> records).</summary>
+    internal DisplayGlyphRun[] GlyphRuns { get; init; } = [];
+
+    /// <summary>Gets the glyphs the runs slice.</summary>
+    internal DisplayGlyph[] Glyphs { get; init; } = [];
 
     /// <summary>Gets the document the list was built from, whose colour converters a backend uses (see <see cref="DisplayColor"/>).</summary>
     public PdfDocument Document { get; }
@@ -113,8 +121,60 @@ public sealed class DisplayList
                     ref readonly DisplayImagePaint paint = ref ImagePaints[operation.Second];
                     backend.DrawImage(Images[operation.First], paint.DefaultColorSpaces, paint.Conversion);
                     break;
+                case DisplayOperationKind.DrawGlyphs:
+                    DrawGlyphs(backend, operation);
+                    break;
             }
         }
+    }
+
+    /// <summary>Hands a glyph run to the backend.</summary>
+    private void DrawGlyphs(IRenderingBackend backend, in DisplayOperation operation)
+    {
+        ref readonly DisplayGlyphRun record = ref GlyphRuns[operation.First];
+        DisplayColor fill = default;
+        if (record.FillColor >= 0)
+        {
+            fill = Color(record.FillColor);
+        }
+
+        DisplayColor strokeColor = default;
+        StrokeStyle style = default;
+        if (record.Stroke >= 0)
+        {
+            ref readonly DisplayStroke stroke = ref Strokes[record.Stroke];
+            strokeColor = Color(stroke.ColorIndex);
+            style = new StrokeStyle(
+                stroke.LineWidth,
+                stroke.LineCap,
+                stroke.LineJoin,
+                stroke.MiterLimit,
+                Dashes.AsSpan(stroke.DashStart, stroke.DashCount),
+                stroke.DashPhase,
+                stroke.StrokeAdjustment);
+        }
+
+        var run = new GlyphRun(
+            record.Program,
+            record.FontMatrix,
+            record.Mode,
+            Glyphs.AsSpan(record.GlyphStart, record.GlyphCount),
+            _verbs,
+            _points,
+            _paths,
+            record.FillColor >= 0,
+            fill,
+            record.Stroke >= 0,
+            style,
+            strokeColor);
+        backend.DrawGlyphs(in run);
+    }
+
+    /// <summary>Gets an entry of the colour table as the colour a backend receives.</summary>
+    private DisplayColor Color(int index)
+    {
+        ref readonly DisplayColorEntry entry = ref _colors[index];
+        return new DisplayColor(entry.ColorSpace, _components.AsSpan(entry.ComponentStart, entry.ComponentCount), entry.DefaultColorSpaces, entry.Conversion);
     }
 
     /// <summary>Hands a stroke record to the backend.</summary>

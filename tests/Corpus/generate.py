@@ -1161,6 +1161,34 @@ def gen_text_truetype_embedded() -> bytes:
     ], binary=True)
 
 
+def gen_text_render_modes() -> bytes:
+    """9.3.6 text rendering modes 0-3 (Table 104) with the embedded font of text-truetype-embedded.pdf at 48 pt.
+
+    Four lines of HI, from the top: mode 0 filled with the blue nonstroking colour, mode 1 stroked with the red stroking colour
+    (8.4.3: 4-unit lines, round joins), mode 2 filled then stroked, mode 3 invisible followed by an I in mode 0 that starts where
+    the invisible text's advance (9.4.4) left the pen.
+    """
+    font, widths = minimal_truetype()
+    first, last = min(widths), max(widths)
+    w = b" ".join(b"%d" % widths[c] for c in range(first, last + 1))
+    content = (b"0.2 0.4 0.8 rg 0.8 0.1 0.1 RG 4 w 1 j\n"
+               b"BT /F1 48 Tf 40 230 Td 0 Tr (HI) Tj\n"
+               b"0 -60 Td 1 Tr (HI) Tj\n"
+               b"0 -60 Td 2 Tr (HI) Tj\n"
+               b"0 -60 Td 3 Tr (HI) Tj 0 Tr (I) Tj ET")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(mediabox=b"[0 0 300 300]", contents=4, font=5)),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Font /Subtype /TrueType /BaseFont /BroadsideMinimal /FirstChar %d /LastChar %d "
+            b"/Widths [%s] /Encoding /WinAnsiEncoding /FontDescriptor 6 0 R >>" % (first, last, w)),
+        (6, b"<< /Type /FontDescriptor /FontName /BroadsideMinimal /Flags 32 /FontBBox [0 0 700 700] "
+            b"/ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 200 /FontFile2 7 0 R >>"),
+        (7, stream(b"/Length1 %d" % len(font), font)),
+    ], binary=True)
+
+
 def codes_content(lines: list[tuple[str, bytes]]) -> bytes:
     """One text line per (font resource, codes); codes as a hexadecimal string so any byte can be shown."""
     out = b"BT /%s 24 Tf 72 700 Td <%s> Tj" % (lines[0][0].encode(), lines[0][1].hex().upper().encode())
@@ -5892,6 +5920,7 @@ FILES = {
     "pdf20-header.pdf": gen_pdf20_header,
     "text-standard14.pdf": gen_text_standard14,
     "text-truetype-embedded.pdf": gen_text_truetype_embedded,
+    "text-render-modes.pdf": gen_text_render_modes,
     "text-standard14-differences.pdf": gen_text_standard14_differences,
     "text-standard14-winansi-quirks.pdf": gen_text_standard14_winansi_quirks,
     "text-standard14-macroman.pdf": gen_text_standard14_macroman,

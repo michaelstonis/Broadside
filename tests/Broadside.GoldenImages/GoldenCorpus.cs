@@ -25,6 +25,8 @@ namespace Broadside.GoldenImages;
 /// </remarks>
 public static class GoldenCorpus
 {
+    private static readonly PdfEngine Engine = new(new PdfOptions().UseStandard14Fonts().UsePredefinedCMaps().UseSystemFontResolver(null));
+
     /// <summary>The resolution of every golden image: 72 DPI, one pixel per point.</summary>
     public const double Dpi = RenderOptions.DefaultDpi;
 
@@ -63,15 +65,18 @@ public static class GoldenCorpus
     /// <returns>The options; a backend maps pages to pixels with their <c>GetPixelSize</c> and <c>GetDeviceTransform</c>.</returns>
     public static RenderOptions CreateRenderOptions() => new() { Dpi = Dpi };
 
-    /// <summary>Opens a corpus file the way the golden images were drawn: leniently, with its user password when it has one.</summary>
+    /// <summary>
+    /// Opens a corpus file the way the golden images were drawn: leniently, with its user password when it has one, and with fonts
+    /// that do not depend on the machine: the Standard 14 fonts and predefined CMaps packages, and no operating-system fonts.
+    /// </summary>
     /// <param name="fileName">The corpus file.</param>
     /// <returns>The document; the caller disposes it.</returns>
     public static PdfDocument Open(string fileName)
     {
         string? password = Corpus.UserPassword(fileName);
         return password is null
-            ? PdfDocument.Open(Corpus.Bytes(fileName))
-            : new PdfEngine().Open(Corpus.Bytes(fileName), new PdfPassword(password));
+            ? Engine.Open(Corpus.Bytes(fileName))
+            : Engine.Open(Corpus.Bytes(fileName), new PdfPassword(password));
     }
 
     /// <summary>Returns the snapshot name of a page: the file name without <c>.pdf</c>, then <c>.page</c> and the zero-based page.</summary>
