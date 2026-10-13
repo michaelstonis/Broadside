@@ -182,8 +182,15 @@ public abstract class PdfSimpleFont : PdfFont
     internal virtual string?[]? GetProgramEncoding() => null;
 
     /// <summary>The glyph id of a code in <see cref="Substitute"/>'s program; 0 without a substitute.</summary>
-    internal int GetSubstituteGlyphId(byte code)
+    internal int GetSubstituteGlyphId(byte code) => GetSubstituteGlyphId(code, out _);
+
+    /// <summary>
+    /// The glyph id of a code in <see cref="Substitute"/>'s program, or 0 with the glyphs it draws one after the other when its name
+    /// decomposes into several (Adobe Glyph List specification §2); 0 and none without a substitute.
+    /// </summary>
+    internal int GetSubstituteGlyphId(byte code, out int[]? components)
     {
+        components = null;
         if (Substitute is not { } substitute)
         {
             return 0;
@@ -197,7 +204,7 @@ public abstract class PdfSimpleFont : PdfFont
             _substituteGlyphs = selector;
         }
 
-        return selector.GetGlyphId(code);
+        return selector.GetGlyphId(code, out components);
     }
 
     /// <summary>A resolved substitute (or none) and the metrics it was resolved for.</summary>

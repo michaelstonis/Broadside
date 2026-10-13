@@ -32,7 +32,9 @@ internal sealed partial class DisplayListBuilder
     /// <para>
     /// ISO 32000-2 §9.4.3: each glyph enters the list with the glyph id its font selects (§9.6.5 for simple fonts, §9.7.4.2 and
     /// §9.7.6.3 for composite fonts) in the font's embedded program (§9.9) or, without one, in the substitute the engine's font
-    /// resolvers found (§9.6.2.2, ADR 0009), scaled horizontally to the width the PDF gives the glyph. Its text matrix places it
+    /// resolvers found (§9.6.2.2, ADR 0009), scaled horizontally to the width the PDF gives the glyph; a glyph name the substitute
+    /// draws as several glyphs (Adobe Glyph List specification §2, as <c>f_i</c>) enters as its components side by side, together
+    /// scaled to that width. Its text matrix places it
     /// (§9.4.4); its rendering mode (§9.3.6) decides whether the run fills with the nonstroking colour, strokes with the stroking
     /// colour and line parameters, both, or neither (mode 3, kept for hit-testing).
     /// </para>
@@ -45,7 +47,7 @@ internal sealed partial class DisplayListBuilder
             return;
         }
 
-        FontProgram? program = SelectGlyph(font, glyph, out int glyphId, out double scale);
+        FontProgram? program = SelectGlyph(font, glyph, out int glyphId, out double scale, out int[]? components);
         ref readonly GraphicsState state = ref context.State;
         TextRenderingMode mode = glyph.RenderingMode;
         bool fills = mode is TextRenderingMode.Fill or TextRenderingMode.FillStroke or TextRenderingMode.FillClip or TextRenderingMode.FillStrokeClip
@@ -53,10 +55,6 @@ internal sealed partial class DisplayListBuilder
         bool strokes = mode is TextRenderingMode.Stroke or TextRenderingMode.FillStroke or TextRenderingMode.StrokeClip or TextRenderingMode.FillStrokeClip
             && state.StrokeColor.ColorSpace.Family != PdfColorSpaceFamily.Pattern;
         ColorConversion conversion = ColorConversion.FromState(state, DeviceColorModel.Rgb);
-        // A substitute's missing glyph is not the font's: a code it has no glyph for draws nothing rather than its .notdef box.
-        int outline = _substitute is not null && glyphId == 0 ? InternPath(default) : InternOutline(program, glyphId);
-        var entry = new DisplayGlyph(glyphId, glyph.TextMatrix, scale, outline);
-
         if (!ContinuesRun(program, mode, fills, strokes, state, context.DefaultColorSpaces, conversion))
         {
             int fill = fills ? AddColor(state.FillColor, context.DefaultColorSpaces, conversion) : -1;
@@ -67,6 +65,28 @@ internal sealed partial class DisplayListBuilder
             Append(ref _glyphRuns, ref _glyphRunCount, new DisplayGlyphRun(program, program?.FontMatrix ?? Matrix.Identity, mode, _glyphCount, 0, fill, stroke));
         }
 
+        if (components is null)
+        {
+            // A substitute's missing glyph is not the font's: a code it has no glyph for draws nothing rather than its .notdef box.
+            int outline = _substitute is not null && glyphId == 0 ? InternPath(default) : InternOutline(program, glyphId);
+            AppendGlyph(new DisplayGlyph(glyphId, glyph.TextMatrix, scale, outline));
+            return;
+        }
+
+        // A name the substitute draws as several glyphs (Adobe Glyph List specification §2): each component starts where the one before
+        // it ends, at the substitute's advances stretched by the same scale, so together they fill the width the PDF gives the code.
+        double offset = 0;
+        foreach (int component in components)
+        {
+            Matrix textMatrix = offset == 0 ? glyph.TextMatrix : Matrix.CreateTranslation(offset, 0) * glyph.TextMatrix;
+            AppendGlyph(new DisplayGlyph(component, textMatrix, scale, InternOutline(program, component)));
+            offset += _substitute!.GetWidth(component) * scale / 1000;
+        }
+    }
+
+    /// <summary>Appends a glyph to the open run.</summary>
+    private void AppendGlyph(in DisplayGlyph entry)
+    {
         ref DisplayGlyphRun run = ref _glyphRuns[_glyphRunCount - 1];
         run = run with { GlyphCount = run.GlyphCount + 1 };
         Append(ref _glyphs, ref _glyphCount, entry);
@@ -74,11 +94,13 @@ internal sealed partial class DisplayListBuilder
 
     /// <summary>
     /// Selects the glyph a shown code draws: the program (embedded, else the substitute), the glyph id in it, and the horizontal scale
-    /// that fits a substitute's glyph to the PDF width.
+    /// that fits a substitute's glyph to the PDF width; or, for a code the substitute draws as several glyphs, those glyphs and the
+    /// scale that fits them together to the PDF width.
     /// </summary>
-    private FontProgram? SelectGlyph(PdfFont font, in GlyphEvent glyph, out int glyphId, out double scale)
+    private FontProgram? SelectGlyph(PdfFont font, in GlyphEvent glyph, out int glyphId, out double scale, out int[]? components)
     {
         scale = 1;
+        components = null;
         if (!ReferenceEquals(font, _programFont))
         {
             _programFont = font;
@@ -99,6 +121,10 @@ internal sealed partial class DisplayListBuilder
                 glyphId = cid.GlyphId;
                 width = composite.IsVertical ? 0 : cid.Width;
                 break;
+            case PdfSimpleFont simple when _substitute is not null:
+                glyphId = simple.GetSubstituteGlyphId((byte)glyph.CharacterCode, out components);
+                width = simple.GetWidth((byte)glyph.CharacterCode);
+                break;
             case PdfTrueTypeFont trueType:
                 glyphId = trueType.GetGlyphId((byte)glyph.CharacterCode);
                 width = trueType.GetWidth((byte)glyph.CharacterCode);
@@ -114,7 +140,19 @@ internal sealed partial class DisplayListBuilder
 
         if (_substitute is { } substitute && width > 0)
         {
-            double substituteWidth = substitute.GetWidth(glyphId);
+            double substituteWidth = 0;
+            if (components is null)
+            {
+                substituteWidth = substitute.GetWidth(glyphId);
+            }
+            else
+            {
+                foreach (int component in components)
+                {
+                    substituteWidth += substitute.GetWidth(component);
+                }
+            }
+
             if (substituteWidth > 0 && double.IsFinite(width / substituteWidth))
             {
                 scale = width / substituteWidth;
