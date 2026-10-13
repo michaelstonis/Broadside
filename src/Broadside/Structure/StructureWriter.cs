@@ -173,8 +173,11 @@ internal static class StructureWriter
         return context.Namespace(created, added);
     }
 
-    /// <summary>Makes <paramref name="page"/>'s content (or <paramref name="form"/>'s) sequence <paramref name="mcid"/> a content item of <paramref name="element"/>.</summary>
-    public static PdfMarkedContentReference AddMarkedContent(StructureContext context, PdfStructureElement element, PdfPage page, PdfFormXObject? form, int? mcid)
+    /// <summary>
+    /// Makes <paramref name="page"/>'s content (or <paramref name="form"/>'s) sequence <paramref name="mcid"/> a content item of
+    /// <paramref name="element"/>: in place of the <c>K</c> entry that is <paramref name="replacing"/> when one is, else last.
+    /// </summary>
+    public static PdfMarkedContentReference AddMarkedContent(StructureContext context, PdfStructureElement element, PdfPage page, PdfFormXObject? form, int? mcid, CosDictionary? replacing = null)
     {
         ArgumentNullException.ThrowIfNull(page);
         if (mcid < 0)
@@ -233,8 +236,90 @@ internal static class StructureWriter
             }
         }
 
-        AppendTo(context, element.Dictionary, StructureNames.K, (CosObject?)mcr ?? new CosInteger(id));
+        CosObject item = (CosObject?)mcr ?? new CosInteger(id);
+        if (replacing is null || !ReplaceEntry(context, element.Dictionary, replacing, item))
+        {
+            AppendTo(context, element.Dictionary, StructureNames.K, item);
+        }
+
         return new PdfMarkedContentReference(element, mcr, id, page, page.Dictionary, form?.Stream, null);
+    }
+
+    /// <summary>
+    /// The lowest MCID of <paramref name="page"/>'s content that the tree does not use, changing nothing: past its parent-tree array
+    /// and every <c>K</c> entry that names the page's content. MCIDs only in the content are not seen.
+    /// </summary>
+    public static int PeekNextMcid(StructureContext context, PdfPage page)
+    {
+        int next = 0;
+        if (ViewReading.Int32(context.Document, page.Dictionary, StructureNames.StructParents) is { } key and >= 0
+            && context.ParentTree is { } tree
+            && tree.TryGetValue(key, out CosObject? value)
+            && context.Resolve(value) is CosArray parents)
+        {
+            next = parents.Count;
+        }
+
+        if (context.Walk.MarkedContent(page.Dictionary) is { } owned)
+        {
+            foreach (int used in owned.Keys)
+            {
+                next = Math.Max(next, (int)Math.Min((long)used + 1, int.MaxValue));
+            }
+        }
+
+        return next;
+    }
+
+    /// <summary>The object references (OBJR, §14.7.5.3) in the tree whose object is one of <paramref name="targets"/>, by object, in document order.</summary>
+    public static Dictionary<CosDictionary, List<PdfObjectReference>> FindObjectReferences(StructureContext context, IReadOnlySet<CosDictionary> targets)
+    {
+        var found = new Dictionary<CosDictionary, List<PdfObjectReference>>(ReferenceEqualityComparer.Instance);
+        if (targets.Count == 0)
+        {
+            return found;
+        }
+
+        foreach (PdfStructureElement element in context.Walk.Elements)
+        {
+            foreach (PdfStructureItem item in element.Children)
+            {
+                if (item is PdfObjectReference reference && reference.ReferencedObject is CosDictionary target && targets.Contains(target))
+                {
+                    if (!found.TryGetValue(target, out List<PdfObjectReference>? list))
+                    {
+                        list = [];
+                        found.Add(target, list);
+                    }
+
+                    list.Add(reference);
+                }
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>Removes the object reference <paramref name="reference"/> from its element's <c>K</c>.</summary>
+    public static void RemoveObjectReference(StructureContext context, PdfObjectReference reference) =>
+        RemoveKid(context, reference.Parent.Dictionary, reference.Dictionary);
+
+    /// <summary>
+    /// Removes the parent-tree entry of an object that leaves the document: the value under its <c>StructParent</c> key (§14.7.5.4),
+    /// unless that is an array, which belongs to a content stream (a damaged file reusing the key).
+    /// </summary>
+    public static void UnlinkRemovedObject(StructureContext context, CosDictionary target)
+    {
+        if (ViewReading.Int32(context.Document, target, StructureNames.StructParent) is not { } key
+            || !context.Root.TryGetValue(StructureNames.ParentTree, out CosObject? root)
+            || context.Document.GetNumberTree(root) is not { } tree
+            || !tree.TryGetValue(key, out CosObject? value)
+            || context.Resolve(value) is CosArray)
+        {
+            return;
+        }
+
+        tree.Remove(key);
     }
 
     /// <summary>Makes the annotation or XObject <paramref name="target"/> an object content item of <paramref name="element"/>.</summary>
@@ -495,6 +580,36 @@ internal static class StructureWriter
             for (int index = 0; index < array.Count; index++)
             {
                 if (ReferenceEquals(array[index], kid))
+                {
+                    array[index] = replacement;
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Replaces the first entry of <paramref name="owner"/>'s <c>K</c> that is (or refers to) <paramref name="entry"/> with <paramref name="replacement"/>.</summary>
+    private static bool ReplaceEntry(StructureContext context, CosDictionary owner, CosDictionary entry, CosObject replacement)
+    {
+        if (!owner.TryGetValue(StructureNames.K, out CosObject? value))
+        {
+            return false;
+        }
+
+        CosObject resolved = context.Resolve(value);
+        if (ReferenceEquals(resolved, entry))
+        {
+            owner[StructureNames.K] = replacement;
+            return true;
+        }
+
+        if (resolved is CosArray array)
+        {
+            for (int index = 0; index < array.Count; index++)
+            {
+                if (ReferenceEquals(context.Resolve(array[index]), entry))
                 {
                     array[index] = replacement;
                     return true;
