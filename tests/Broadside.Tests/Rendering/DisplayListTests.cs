@@ -312,6 +312,10 @@ public sealed class DisplayListTests
         public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
         {
         }
+
+        public void DrawGlyphs(in GlyphRun run)
+        {
+        }
     }
 
     /// <summary>Counts the converters requested per source family, then defers to the inner management.</summary>
