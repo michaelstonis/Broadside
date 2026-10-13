@@ -57,9 +57,10 @@ internal sealed record CryptFilter(CosName Name, CryptMethod Method, byte[] Key)
 /// A stream whose <c>Filter</c> starts with <c>Crypt</c> is decrypted here too, with the crypt filter its <c>DecodeParms</c> name
 /// (default <c>Identity</c>) and that filter's key used as is (§7.4.10), not with <c>StmF</c>; the pipeline's <c>Crypt</c> stage then
 /// passes the already decrypted data through. So <see cref="CosStream.EncodedData"/> of every loaded stream holds plaintext,
-/// decrypted when it is first read and kept (issue #45: loading a stream object neither reads nor decrypts its data). For an AES-128
-/// crypt filter whose data does not decrypt with the key as is, Algorithm 1's per-object key (what Table 25 describes for
-/// <c>AESV2</c>, and what qpdf uses) is tried before the data is reported damaged.
+/// decrypted when it is first read and kept (issue #45: loading a stream object neither reads nor decrypts its data). An AES-128
+/// crypt filter's data is decrypted with Algorithm 1's per-object key first (what Table 25 describes for <c>AESV2</c>, what qpdf and
+/// poppler write, and what a re-save with the document's own key writes), and with the key as is only when that leaves no valid
+/// PKCS#5 pad; the pad is all that tells the two apart, and it ends valid under the wrong key for about one IV in 256 (issue #297).
 /// </para>
 /// <para>
 /// Damaged ciphertext is repaired the way pdf.js does, with a diagnostic: AES data too short for an IV and a block decrypts to nothing,
@@ -576,14 +577,17 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
 
             case CryptMethod.AesV2:
                 {
-                    byte[] key = perObjectKey ? ObjectKey(filter.Key, id, aes: true) : filter.Key;
-                    ReadOnlyMemory<byte> plain = DecryptCbc(key, data, out string? problem);
+                    // A Crypt filter's AESV2 data is tried with Algorithm 1's object key first (what qpdf and poppler write, and what
+                    // ObjectEncryptor re-saves with), then with the filter's key as is (§7.4.10). Only the PKCS#5 pad tells them apart,
+                    // and a wrong key ends in a valid pad about once in 256 random IVs, so the key every writer uses is tried first:
+                    // trying the as-is key first misread about one re-save in 200 (issue #297).
+                    ReadOnlyMemory<byte> plain = DecryptCbc(ObjectKey(filter.Key, id, aes: true), data, out string? problem);
                     if (problem is not null && !perObjectKey)
                     {
-                        ReadOnlyMemory<byte> salted = DecryptCbc(ObjectKey(filter.Key, id, aes: true), data, out string? saltedProblem);
-                        if (saltedProblem is null)
+                        ReadOnlyMemory<byte> asIs = DecryptCbc(filter.Key, data, out string? asIsProblem);
+                        if (asIsProblem is null)
                         {
-                            return salted;
+                            return asIs;
                         }
                     }
 
