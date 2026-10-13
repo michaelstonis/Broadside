@@ -1225,6 +1225,7 @@ public sealed partial class PdfDocument : IDisposable
     {
         ArgumentNullException.ThrowIfNull(options);
         ReportBeforeSave();
+        CompleteFontSubsets();
         DateModification(options);
         FileWriter writer = options.IncrementalUpdate
             ? SavePlan.CreateIncremental(_source, _loader, options, StreamEncoders, Security)
