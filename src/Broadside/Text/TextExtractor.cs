@@ -31,7 +31,20 @@ public sealed class TextExtractor : ContentProcessor
     private const double DefaultAscent = 0.8;
     private const double DefaultDescent = -0.2;
 
-    private readonly bool _includeHidden;
+    /// <summary>
+    /// The most glyphs an extractor <see cref="Return"/>ed to its thread may hold room for: a larger one is dropped, so a thread keeps
+    /// at most about 7 MB for <see cref="PdfPage.ExtractText()"/>, not whatever an unusually dense page needed.
+    /// </summary>
+    internal const int SharedGlyphLimit = 1 << 15;
+
+    /// <summary>
+    /// The extractor <see cref="PdfPage.ExtractText()"/> reuses on this thread (issue #284), so extracting page after page grows its
+    /// buffers once instead of on every page; <see langword="null"/> while it is rented.
+    /// </summary>
+    [ThreadStatic]
+    private static TextExtractor? _shared;
+
+    private bool _includeHidden;
     private readonly Dictionary<PdfFont, (double Descent, double Ascent)> _extents = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>The words, lines and plain text of the glyphs, assembled on demand.</summary>
@@ -70,7 +83,7 @@ public sealed class TextExtractor : ContentProcessor
     public TextExtractor(TextExtractionOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        _includeHidden = options.IncludeHiddenContent;
+        Configure(options);
     }
 
     /// <inheritdoc/>
@@ -131,6 +144,39 @@ public sealed class TextExtractor : ContentProcessor
     /// <summary>Copies what was extracted into a <see cref="TextPage"/>.</summary>
     /// <returns>The glyphs and their text.</returns>
     public TextPage ToTextPage() => new(Glyphs.ToArray(), new string(Text));
+
+    /// <summary>
+    /// Takes this thread's shared extractor, empty and configured with <paramref name="options"/>, or a new one when it is in use
+    /// (a nested extraction) or was dropped. Give it back with <see cref="Return"/> once its output has been copied.
+    /// </summary>
+    internal static TextExtractor Rent(TextExtractionOptions options)
+    {
+        TextExtractor? extractor = _shared;
+        if (extractor is null)
+        {
+            return new TextExtractor(options);
+        }
+
+        _shared = null;
+        extractor.Configure(options);
+        return extractor;
+    }
+
+    /// <summary>
+    /// Empties <paramref name="extractor"/>, dropping its references to fonts and strings so it keeps no document alive, and keeps
+    /// it as this thread's shared extractor unless its buffers grew past <see cref="SharedGlyphLimit"/>.
+    /// </summary>
+    internal static void Return(TextExtractor extractor)
+    {
+        Array.Clear(extractor._glyphs, 0, extractor._glyphCount);
+        extractor.Clear();
+        extractor._extents.Clear();
+        extractor._actualText = null;
+        if (extractor._glyphs.Length <= SharedGlyphLimit && extractor._text.Length <= SharedGlyphLimit * 2)
+        {
+            _shared = extractor;
+        }
+    }
 
     /// <inheritdoc/>
     public override void BeginRun(ContentContext context)
@@ -369,6 +415,12 @@ public sealed class TextExtractor : ContentProcessor
         }
 
         return (DefaultDescent, DefaultAscent);
+    }
+
+    /// <summary>Reads what to extract from <paramref name="options"/>; every option the extractor keeps is set here.</summary>
+    private void Configure(TextExtractionOptions options)
+    {
+        _includeHidden = options.IncludeHiddenContent;
     }
 
     private TextLayout Assemble()

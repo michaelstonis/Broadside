@@ -164,6 +164,30 @@ public sealed class TextExtractionTests
     }
 
     [Fact]
+    public void Extractions_one_after_another_each_follow_their_own_options_and_keep_their_own_glyphs()
+    {
+        using PdfDocument document = PdfDocument.Open(ContentPdf.BuildWithCatalog(
+            "/OCProperties << /OCGs [6 0 R] /D << /OFF [6 0 R] >> >>",
+            "/Font << /F1 5 0 R >> /Properties << /oc1 6 0 R >>",
+            "BT /F1 10 Tf (a) Tj /OC /oc1 BDC (b) Tj EMC (c) Tj ET",
+            ContentPdf.Helvetica,
+            "<< /Type /OCG /Name (Hidden layer) >>"));
+        PdfPage page = document.Pages[0];
+
+        TextPage all = page.ExtractText(new TextExtractionOptions().WithHiddenContent());
+        TextPage visible = page.ExtractText();
+        TextPage allAgain = page.ExtractText(new TextExtractionOptions().WithHiddenContent());
+
+        Assert.Equal("abc", all.Text);
+        Assert.Equal("ac", visible.Text);
+        Assert.Equal("abc", allAgain.Text);
+        Assert.Equal([TextGlyphFlags.None, TextGlyphFlags.Hidden, TextGlyphFlags.None], all.Glyphs.Select(glyph => glyph.Flags));
+        Assert.Equal([TextGlyphFlags.None, TextGlyphFlags.None], visible.Glyphs.Select(glyph => glyph.Flags));
+        Assert.Equal(["a", "b", "c"], all.Glyphs.Select(glyph => all.GetGlyphText(glyph).ToString()));
+        Assert.Equal("abc", all.PlainText);
+    }
+
+    [Fact]
     public void Type3_glyphs_are_extracted_with_their_box_from_the_font_bbox_through_the_font_matrix()
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Path("text-type3.pdf"));

@@ -16,7 +16,8 @@ namespace Broadside.Benchmarks;
 /// <see cref="ExtractWarm"/>: every page of a document opened in <see cref="Setup"/> and extracted once there (fonts and decoded
 /// content cached), into a reused <see cref="TextExtractor"/>: the cost of interpretation, extraction and assembly. <see cref="OpenAndExtract"/>:
 /// a fresh document from memory, every page through <see cref="PdfPage.ExtractText()"/> and its <see cref="TextPage.PlainText"/>,
-/// the one-call path a caller indexing a file takes. These are the Broadside side of the text baseline that #140 compares with
+/// the one-call path a caller indexing a file takes; <see cref="ExtractTextWarm"/> is the same on the warm document, the cost of
+/// the convenience path itself (issue #284). These are the Broadside side of the text baseline that #140 compares with
 /// PDFium and pdf.js through RenderDiff's reference plumbing.
 /// </remarks>
 [MemoryDiagnoser]
@@ -62,6 +63,26 @@ public class RealWorldTextBenchmarks
             _extractor.Clear();
             document.Pages[index].ProcessContent(_extractor);
             units += _extractor.Words.Length + _extractor.Lines.Length + _extractor.PlainText.Length;
+        }
+
+        return units;
+    }
+
+    /// <summary>
+    /// Every page of the document opened in <see cref="Setup"/> through <see cref="PdfPage.ExtractText()"/> and its
+    /// <see cref="TextPage.PlainText"/> (issue #284): the convenience path on warm fonts and content, whose <c>Allocated</c> is its
+    /// output (the glyph, word and line arrays and the two strings, about 222 bytes per glyph on freeculture.pdf with a 200-byte
+    /// <see cref="TextGlyph"/>) plus at most 1 KB per page; <c>RealWorldTextAllocationTests</c> asserts that budget.
+    /// </summary>
+    /// <returns>The number of plain text units.</returns>
+    [Benchmark]
+    public long ExtractTextWarm()
+    {
+        long units = 0;
+        PdfDocument document = _document!;
+        for (int index = 0; index < document.Pages.Count; index++)
+        {
+            units += document.Pages[index].ExtractText().PlainText.Length;
         }
 
         return units;

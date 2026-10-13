@@ -270,9 +270,18 @@ public sealed class PdfPage
     public Text.TextPage ExtractText(Text.TextExtractionOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        var extractor = new Text.TextExtractor(options);
-        ProcessContent(extractor, options.ContentOptions ?? ContentInterpreter.DefaultOptions);
-        return extractor.ToTextPage();
+
+        // Issue #284: the thread's extractor is reused, so only the returned page (its glyphs and text, copied at their exact size) is allocated per page.
+        Text.TextExtractor extractor = Text.TextExtractor.Rent(options);
+        try
+        {
+            ProcessContent(extractor, options.ContentOptions ?? ContentInterpreter.DefaultOptions);
+            return extractor.ToTextPage();
+        }
+        finally
+        {
+            Text.TextExtractor.Return(extractor);
+        }
     }
 
     /// <summary>Builds the page's display list: its content interpreted once into resolved drawing operations any backend replays.</summary>
