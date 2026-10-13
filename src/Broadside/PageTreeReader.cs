@@ -69,7 +69,7 @@ internal static class PageTreeReader
                 continue;
             }
 
-            var ancestors = new PageTreeAncestor(frame.Node, frame.Ancestors);
+            var ancestors = new PageTreeAncestor(frame.Node, frame.Ancestors, frame.Reference);
             List<Frame> kids = ReadKids(document, frame, ancestors, visitedReferences, visitedDictionaries, diagnostics);
             for (int index = kids.Count - 1; index >= 0; index--)
             {

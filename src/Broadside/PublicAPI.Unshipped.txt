@@ -3815,3 +3815,12 @@ Broadside.PdfOutlineItem.Remove() -> void
 Broadside.PdfOutlineItem.Title.set -> void
 Broadside.PdfPageLabels.RemoveRange(int startPageIndex) -> bool
 Broadside.PdfPageLabels.SetRange(int startPageIndex, Broadside.PdfPageLabelStyle style, string? prefix = null, int firstNumber = 1) -> Broadside.PdfPageLabelRange!
+Broadside.PdfPageCollection.Add(Broadside.Objects.CosReference! pageObject) -> Broadside.PdfPage!
+Broadside.PdfPageCollection.Add(Broadside.PdfRectangle mediaBox) -> Broadside.PdfPage!
+Broadside.PdfPageCollection.IndexOf(Broadside.PdfPage! page) -> int
+Broadside.PdfPageCollection.Insert(int index, Broadside.Objects.CosReference! pageObject) -> Broadside.PdfPage!
+Broadside.PdfPageCollection.Insert(int index, Broadside.PdfRectangle mediaBox) -> Broadside.PdfPage!
+Broadside.PdfPageCollection.Move(int fromIndex, int toIndex) -> void
+Broadside.PdfPageCollection.Remove(Broadside.PdfPage! page) -> bool
+Broadside.PdfPageCollection.RemoveAt(int index) -> void
+Broadside.PdfPage.Rotation.set -> void
