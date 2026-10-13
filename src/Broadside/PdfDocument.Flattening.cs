@@ -42,6 +42,11 @@ public sealed partial class PdfDocument
     /// since removing the signature fields changes what the signatures cover.
     /// </para>
     /// <para>
+    /// A page's <c>Annots</c> then lists only the annotations it keeps, and goes when it keeps none, unless a page tree node above
+    /// the page has an <c>Annots</c> of its own (§7.7.3.3, Table 31: not inheritable, but read as viewers read it when the page has
+    /// none): the page then keeps an empty one, so the node's annotations do not show on it instead.
+    /// </para>
+    /// <para>
     /// Removed annotations and the form's fields stay objects of the document until a save with
     /// <see cref="PdfSaveOptions.RemoveUnreachableObjects"/> drops them. NoZoom and NoRotate cannot be kept in page content: the
     /// appearance is placed as at 100% zoom on an unrotated page. A mutation: no read may run concurrently with it.

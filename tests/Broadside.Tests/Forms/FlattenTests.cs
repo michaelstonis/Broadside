@@ -4,6 +4,7 @@ using Broadside.Annotations;
 using Broadside.Diagnostics;
 using Broadside.Forms;
 using Broadside.Objects;
+using Broadside.Tests.Document;
 using Broadside.Tests.Writing;
 using Broadside.TestSupport;
 using Broadside.Text;
@@ -218,6 +219,51 @@ public sealed class FlattenTests
         Assert.True(Render(flattened, 1).DarkPixels(new PdfRectangle(0, 0, 612, 792)) > 100);
     }
 
+    /// <summary>
+    /// The page tree node's dictionary as the four <c>flatten</c> fuzz findings of issue #296 damaged it (seeds 1, 3, 5 and 6 of
+    /// the 60 s smoke: <c>annotations-link.pdf</c>, <c>annotations-subtypes.pdf</c>, <c>actions-all.pdf</c>,
+    /// <c>annotations-appearance.pdf</c>): each leaves it unterminated, so the repaired node also takes the entries of the page
+    /// written after it, its <c>Annots</c> among them.
+    /// </summary>
+    public static TheoryData<string> DamagedPageTreeNodes => new()
+    {
+        "<< /Type /Pages /Kids [3 0 R] /Resources <",
+        "<< /Type /Pages /Kids [3 0 R] /Coun0 R /AP <dobj",
+        "<< /Type /Pages /Kids [3 0 R] /Count 1 ><",
+        "<< /Type /Pages /Kids [3 0 R] /C< /Type /Pages /",
+    };
+
+    [Theory]
+    [MemberData(nameof(DamagedPageTreeNodes))]
+    public void A_page_whose_tree_node_also_lists_annotations_keeps_none_after_flattening(string node)
+    {
+        using PdfDocument document = PdfDocument.Open(WithAnnotatedNode(node));
+        Assert.Equal(3, document.Pages[0].Annotations.Count);
+
+        Assert.True(document.Flatten(new PdfFlattenOptions().WithAnnotations(true)));
+
+        Assert.Null(document.AcroForm);
+        Assert.Empty(document.Pages[0].Annotations);
+        using PdfDocument reopened = PdfDocument.Open(Save(document));
+        Assert.Single(reopened.Pages);
+        Assert.Empty(reopened.Pages[0].Annotations);
+        Assert.Null(reopened.AcroForm);
+    }
+
+    [Fact]
+    public void Flattening_only_the_fields_does_not_bring_back_the_annotations_of_a_page_tree_node()
+    {
+        // A node's Annots is not inheritable (Table 31) but is read as viewers read it, only when the page has none of its own.
+        using PdfDocument document = PdfDocument.Open(WithAnnotatedNode("<< /Type /Pages /Kids [3 0 R] /Count 1 /Annots [4 0 R] >>", "7 0 R"));
+        Assert.Equal(PdfAnnotationKind.Widget, Assert.Single(document.Pages[0].Annotations).Kind);
+
+        Assert.True(document.Flatten());
+
+        Assert.Empty(document.Pages[0].Annotations);
+        using PdfDocument reopened = PdfDocument.Open(Save(document));
+        Assert.Empty(reopened.Pages[0].Annotations);
+    }
+
     [Fact]
     public void A_flattened_form_saves_incrementally_and_a_full_save_can_drop_the_widgets()
     {
@@ -285,6 +331,20 @@ public sealed class FlattenTests
         });
         Assert.True(field.IsSigned);
     }
+
+    /// <summary>
+    /// A form with one page under <paramref name="node"/> (object 2): a link without an appearance, a square and a text field widget
+    /// that share one appearance (unless <paramref name="annots"/> names others).
+    /// </summary>
+    private static byte[] WithAnnotatedNode(string node, string annots = "4 0 R 5 0 R 7 0 R") =>
+        new TestPdf().Build(
+            "<< /Type /Catalog /Pages 2 0 R /AcroForm << /Fields [7 0 R] >> >>",
+            node,
+            $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Annots [{annots}] >>",
+            "<< /Type /Annot /Subtype /Link /Rect [72 700 300 724] /Border [0 0 0] /A << /S /URI /URI (https://example.com/) >> >>",
+            "<< /Type /Annot /Subtype /Square /Rect [72 600 172 650] /AP << /N 6 0 R >> >>",
+            "<< /Type /XObject /Subtype /Form /BBox [0 0 100 50] /Resources << >> /Length 24 >>\nstream\n0 0 1 rg 0 0 100 50 re f\nendstream",
+            "<< /Type /Annot /Subtype /Widget /FT /Tx /T (name) /P 3 0 R /Rect [72 500 172 550] /AP << /N 6 0 R >> >>");
 
     private static PdfAnnotation NameWidget(PdfDocument document) =>
         document.Pages[0].Annotations.Single(annotation => annotation.Kind == PdfAnnotationKind.Widget && annotation.Rect == NameRect);

@@ -193,16 +193,18 @@ internal static class AnnotationFlattening
             undo.Set(page, KnownNames.Resources, resources);
         }
 
-        // A page that inherits its Annots from a page tree node (read as viewers read it) gets its own, empty or not, so the
-        // annotations it no longer has do not come back through the node.
-        if (plan.Kept.Count == 0 && page.ContainsKey(AnnotationNames.Annots))
+        // A page that keeps nothing loses its own Annots, unless a page tree node above it lists annotations (read as viewers read
+        // it, when the page has none): it then keeps an empty one, so the node's annotations do not show on it instead.
+        if (plan.Kept.Count == 0)
         {
             undo.Remove(page, AnnotationNames.Annots);
+            if (plan.Page.FindInheritedAnnots() is null)
+            {
+                return;
+            }
         }
-        else
-        {
-            undo.Set(page, AnnotationNames.Annots, new CosArray(plan.Kept));
-        }
+
+        undo.Set(page, AnnotationNames.Annots, new CosArray(plan.Kept));
     }
 
     /// <summary>Writes one appearance's placement: <c>[/OC /name BDC] q [/gs gs] A cm /name Do Q [EMC]</c>, naming what it uses in the page's resources.</summary>
