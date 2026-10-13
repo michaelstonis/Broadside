@@ -39,7 +39,7 @@ public sealed class PdfOutline
     public CosDictionary Dictionary { get; }
 
     /// <summary>Gets the indirect reference to the outline dictionary, or <see langword="null"/> when it is direct.</summary>
-    public CosReference? Reference { get; }
+    public CosReference? Reference { get; private set; }
 
     /// <summary>Gets the outline's <c>Count</c> as stored: the number of visible items at all levels; <see langword="null"/> when absent.</summary>
     /// <remarks>ISO 32000-2 §12.3.3, Table 150.</remarks>
@@ -49,6 +49,47 @@ public sealed class PdfOutline
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation the walk finds.</exception>
     /// <remarks>ISO 32000-2 §12.3.3. A new walk on every call; the items are live views over their dictionaries.</remarks>
     public IReadOnlyList<PdfOutlineItem> Items => Walk();
+
+    /// <summary>Adds a top-level item titled <paramref name="title"/> after the last one.</summary>
+    /// <param name="title">The text displayed for the item.</param>
+    /// <returns>The new item, an indirect object with no destination yet.</returns>
+    /// <remarks>See <see cref="Insert"/>.</remarks>
+    public PdfOutlineItem Add(string title) => InsertAt(null, title);
+
+    /// <summary>Inserts a top-level item titled <paramref name="title"/> at <paramref name="index"/>.</summary>
+    /// <param name="index">The position among the top-level items, from 0 to their number.</param>
+    /// <param name="title">The text displayed for the item.</param>
+    /// <returns>The new item, an indirect object with no destination yet.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="index"/> is negative or past the end of the level.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §12.3.3, Tables 150 and 151. The item is linked to its neighbours through <c>Prev</c> and <c>Next</c> and to the
+    /// outline through <c>Parent</c>, <c>First</c> and <c>Last</c>, and the outline's <c>Count</c> grows by one. The positions are
+    /// those of the outline's links now, not of an earlier <see cref="Items"/> walk. A mutation: no read may run concurrently with it.
+    /// </remarks>
+    public PdfOutlineItem Insert(int index, string title)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        return InsertAt(index, title);
+    }
+
+    private PdfOutlineItem InsertAt(int? index, string title)
+    {
+        ArgumentNullException.ThrowIfNull(title);
+        OutlineEditor.Link link = OutlineEditor.Insert(_document, Dictionary, EnsureIndirect(), index, title);
+        return new PdfOutlineItem(_document, link.Item, link.Reference, null, 0);
+    }
+
+    /// <summary>Returns the outline's reference, making the outline dictionary an indirect object when the catalog holds it directly.</summary>
+    internal CosReference EnsureIndirect()
+    {
+        if (Reference is null)
+        {
+            Reference = _document.AddObject(Dictionary);
+            _document.Catalog[NavigationNames.Outlines] = Reference;
+        }
+
+        return Reference;
+    }
 
     private List<PdfOutlineItem> Walk()
     {
