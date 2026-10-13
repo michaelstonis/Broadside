@@ -22,7 +22,7 @@ page events:
   PathsFilled: 18806
   PathsFilledAndStroked: 74
   PathsEnded: 30568
-  ClipsPath: 30578
+  ClipsPath: 30579
   ClipsRectangle: 1911
   ClipsText: 5
   TextObjects: 46147

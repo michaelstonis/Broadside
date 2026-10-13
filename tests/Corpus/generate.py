@@ -5887,6 +5887,24 @@ def gen_clipping_paths() -> bytes:
     ])
 
 
+def gen_clip_before_path() -> bytes:
+    """Broken (8.5.4 Table 60, 8.2 Figure 9): W and W* written BEFORE the path they clip, as pdf.js's clippath.pdf does, instead of
+    between its last construction operator and n. One 200 x 100 page on white, each figure in q/Q. Left: W, then the square
+    20 20 .. 80 80 (m l l l h), n, then a DeviceRGB red fill of the whole left half 0 0 100 100 re f: PDFium, pdf.js and poppler
+    apply the pending W at the n, so only the square is red. Right: W*, then the counterclockwise squares 110 10 .. 190 90 and
+    130 30 .. 170 70, n, then a DeviceRGB blue fill of the right half: even-odd, so only the ring between the squares is blue."""
+    content = b"\n".join([
+        b"q W " + _square(20, 20, 80, 80, False) + b" n 1 0 0 rg 0 0 100 100 re f Q",
+        b"q W* " + _square(110, 10, 190, 90, False) + b" " + _square(130, 30, 170, 70, False) + b" n 0 0 1 rg 100 0 100 100 re f Q",
+    ]) + b"\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(mediabox=b"[0 0 200 100]", contents=4)),
+        (4, stream(b"", content)),
+    ])
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
@@ -6046,6 +6064,7 @@ FILES = {
     "page-rotation.pdf": gen_page_rotation,
     "paths-strokes.pdf": gen_paths_strokes,
     "clipping-paths.pdf": gen_clipping_paths,
+    "clip-before-path.pdf": gen_clip_before_path,
 }
 
 
