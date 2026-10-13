@@ -1,0 +1,18 @@
+﻿page 1: HIHIHIHII
+  H code 48/1 GlyphName font BroadsideMinimal 48 Fill origin (40, 230) advance (38.4, 0) quad (40, 220.4) (78.4, 220.4) (78.4, 268.4) (40, 268.4)
+  I code 49/1 GlyphName font BroadsideMinimal 48 Fill origin (78.4, 230) advance (19.2, 0) quad (78.4, 220.4) (97.6, 220.4) (97.6, 268.4) (78.4, 268.4)
+  H code 48/1 GlyphName font BroadsideMinimal 48 Stroke origin (40, 170) advance (38.4, 0) quad (40, 160.4) (78.4, 160.4) (78.4, 208.4) (40, 208.4)
+  I code 49/1 GlyphName font BroadsideMinimal 48 Stroke origin (78.4, 170) advance (19.2, 0) quad (78.4, 160.4) (97.6, 160.4) (97.6, 208.4) (78.4, 208.4)
+  H code 48/1 GlyphName font BroadsideMinimal 48 FillStroke origin (40, 110) advance (38.4, 0) quad (40, 100.4) (78.4, 100.4) (78.4, 148.4) (40, 148.4)
+  I code 49/1 GlyphName font BroadsideMinimal 48 FillStroke origin (78.4, 110) advance (19.2, 0) quad (78.4, 100.4) (97.6, 100.4) (97.6, 148.4) (78.4, 148.4)
+  H code 48/1 GlyphName font BroadsideMinimal 48 Invisible Invisible origin (40, 50) advance (38.4, 0) quad (40, 40.4) (78.4, 40.4) (78.4, 88.4) (40, 88.4)
+  I code 49/1 GlyphName font BroadsideMinimal 48 Invisible Invisible origin (78.4, 50) advance (19.2, 0) quad (78.4, 40.4) (97.6, 40.4) (97.6, 88.4) (78.4, 88.4)
+  I code 49/1 GlyphName font BroadsideMinimal 48 Fill origin (97.6, 50) advance (19.2, 0) quad (97.6, 40.4) (116.8, 40.4) (116.8, 88.4) (97.6, 88.4)
+  line HI glyphs 0+2 quad (40, 220.4) (97.6, 220.4) (97.6, 268.4) (40, 268.4)
+    words HI glyphs 0+2
+  line HI glyphs 2+2 quad (40, 160.4) (97.6, 160.4) (97.6, 208.4) (40, 208.4)
+    words HI glyphs 2+2
+  line HI glyphs 4+2 quad (40, 100.4) (97.6, 100.4) (97.6, 148.4) (40, 148.4)
+    words HI glyphs 4+2
+  line HII glyphs 6+3 quad (40, 40.4) (116.8, 40.4) (116.8, 88.4) (40, 88.4)
+    words HII glyphs 6+3
