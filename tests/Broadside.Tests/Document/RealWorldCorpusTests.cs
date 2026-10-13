@@ -7,7 +7,7 @@ namespace Broadside.Tests.Document;
 /// <summary>
 /// The real-world corpus gate (issue #47): every PDF of the pdf.js, PDFBox, qpdf and PDFium corpora (and the PDF Association's PDF
 /// 2.0 examples) opens in lenient mode and walks completely (<see cref="DocumentWalker"/>: pages, every object, every stream
-/// decoded) without an exception and within <see cref="RealWorldCorpus.TimeLimit"/>. The documented outcomes that are not crashes
+/// decoded) without an exception and within <see cref="RealWorldCorpus.ProcessorTimeLimit"/> of processor time. The documented outcomes that are not crashes
 /// are counted per corpus: a password or a certificate is required, the encryption is not supported, or the file is listed in
 /// <see cref="Unreadable"/>. The corpora are fetched by <c>tools/CorpusFetcher</c> and are not in CI; every test skips when they
 /// are absent. ISO 32000-2 §7.

@@ -8,6 +8,8 @@
     <UseMicrosoftTestingPlatformRunner>false</UseMicrosoftTestingPlatformRunner>
     <TestingPlatformDotnetTestSupport>false</TestingPlatformDotnetTestSupport>
     <RootNamespace>Broadside.TestSupport</RootNamespace>
+    <!-- ThreadProcessorTime calls the operating system through function pointers (issue #280). -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
