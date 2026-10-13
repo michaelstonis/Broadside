@@ -64,5 +64,13 @@ public class DisplayListBenchmarks
         public void IntersectClip(PathView path, FillRule rule) => Calls += path.Verbs.Length;
 
         public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion) => Calls += image.Width;
+
+        public void DrawGlyphs(in GlyphRun run)
+        {
+            for (int index = 0; index < run.Glyphs.Length; index++)
+            {
+                Calls += run.Glyphs[index].GlyphId + run.GetOutline(index).Verbs.Length;
+            }
+        }
     }
 }

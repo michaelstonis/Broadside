@@ -33,6 +33,9 @@ public abstract class PdfDestination
     /// <remarks>ISO 32000-2 §12.3.2.2 and §12.6.4.3.</remarks>
     public bool IsRemote { get; }
 
+    /// <summary>Gets the document the destination was read from or made for.</summary>
+    internal PdfDocument OwningDocument => Document;
+
     private protected PdfDocument Document { get; }
 
     /// <summary>Gets the indirect object the destination was read from, for diagnostics.</summary>

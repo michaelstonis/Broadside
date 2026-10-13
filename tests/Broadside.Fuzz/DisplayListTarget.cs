@@ -10,7 +10,8 @@ namespace Broadside.Fuzz;
 /// go below zero; every path's verbs take exactly its points and every subpath starts with a moveto; every fill's and stroke's colour
 /// space is not a Pattern space and has its components; every stroke's width, miter limit and dash pattern are in their ranges (issue
 /// #99); every clip's path is well formed with a known rule (issue #105); every image (issue #102) has samples, a colour space and a
-/// Decode map that agree on its component count; two replays of one list make the same calls. Each call runs in a new empty document.
+/// Decode map that agree on its component count; every glyph run (issue #100) has glyphs whose outlines are well formed, paints
+/// in no Pattern colour, paints nothing in mode 3 and fills or strokes only in the modes that do; two replays of one list make the same calls. Each call runs in a new empty document.
 /// </summary>
 /// <remarks>ADR 0006; ISO 32000-2 §8.4.2, §8.4.3, §8.5.3, §8.5.4, §8.6.</remarks>
 internal static class DisplayListTarget
@@ -147,6 +148,51 @@ internal static class DisplayListTarget
             Check(image.ColorSpace.Family != PdfColorSpaceFamily.Pattern, "an image in a Pattern colour space");
             Check(image.ColorSpace.ComponentCount == image.Components && image.DecodeMap.Components == image.Components, "an image's colour space, samples and Decode disagree");
             Checksum += image.Width + image.Height + image.Components + (int)conversion.Intent;
+        }
+
+        public void DrawGlyphs(in GlyphRun run)
+        {
+            Calls++;
+            Check(!run.Glyphs.IsEmpty, "a glyph run without glyphs");
+            TextRenderingMode mode = run.RenderingMode;
+            Check(!run.Fills || mode is TextRenderingMode.Fill or TextRenderingMode.FillStroke or TextRenderingMode.FillClip or TextRenderingMode.FillStrokeClip, "a glyph run filled in a mode that does not fill");
+            Check(!run.Strokes || mode is TextRenderingMode.Stroke or TextRenderingMode.FillStroke or TextRenderingMode.StrokeClip or TextRenderingMode.FillStrokeClip, "a glyph run stroked in a mode that does not stroke");
+            Check(run.Program is not null || run.FontMatrix == Matrix.Identity, "a glyph run without a program has a font matrix");
+            if (run.Fills)
+            {
+                Check(run.FillColor.ColorSpace.Family != PdfColorSpaceFamily.Pattern, "glyphs filled in a Pattern colour space");
+                Checksum += run.FillColor.Components.Length;
+            }
+
+            if (run.Strokes)
+            {
+                Check(run.StrokeColor.ColorSpace.Family != PdfColorSpaceFamily.Pattern, "glyphs stroked in a Pattern colour space");
+                Check(run.StrokeStyle.LineWidth >= 0 && run.StrokeStyle.MiterLimit >= 1, "glyphs stroked with a negative width or a miter limit below 1");
+                Checksum += run.StrokeStyle.LineWidth;
+            }
+
+            for (int index = 0; index < run.Glyphs.Length; index++)
+            {
+                DisplayGlyph glyph = run.Glyphs[index];
+                Check(glyph.GlyphId >= 0, "a negative glyph id");
+                Check(glyph.HorizontalScale > 0 && double.IsFinite(glyph.HorizontalScale), "a glyph scale that is not a positive number");
+                PathView outline = run.GetOutline(index);
+                int points = 0;
+                foreach (PathVerb verb in outline.Verbs)
+                {
+                    points += verb switch
+                    {
+                        PathVerb.MoveTo or PathVerb.LineTo => 1,
+                        PathVerb.QuadTo => 2,
+                        PathVerb.CubicTo => 3,
+                        _ => 0,
+                    };
+                }
+
+                Check(points == outline.Points.Length, "glyph outline verbs and points disagree");
+                Check(outline.IsEmpty || outline.Verbs[0] == PathVerb.MoveTo, "a glyph outline does not start with a moveto");
+                Checksum += glyph.GlyphId + points + (int)mode;
+            }
         }
     }
 }

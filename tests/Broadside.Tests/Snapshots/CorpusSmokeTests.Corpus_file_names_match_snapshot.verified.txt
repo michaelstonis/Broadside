@@ -132,6 +132,7 @@
   text-lines-rotated.pdf,
   text-nonembedded-substitute.pdf,
   text-opentype-cff-embedded.pdf,
+  text-render-modes.pdf,
   text-standard14-alias.pdf,
   text-standard14-differences.pdf,
   text-standard14-macroman.pdf,
