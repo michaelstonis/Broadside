@@ -73,7 +73,9 @@ public sealed partial class TextFieldFontEmbeddingTests
         using PdfDocument document = PdfDocument.Open(Corpus.Path("acroform-fields.pdf"), new PdfOptions().UseStandard14Fonts());
         ((PdfTextField)document.AcroForm!.FindField("person.first")!).SetValue(value);
         using var stream = new MemoryStream();
-        document.Save(stream);
+
+        // Undated: the comparison is about the embedded subset, and a save dates a changed document by default (#162).
+        document.Save(stream, new PdfSaveOptions().WithUpdateModificationDate(false));
         return stream.ToArray();
     }
 

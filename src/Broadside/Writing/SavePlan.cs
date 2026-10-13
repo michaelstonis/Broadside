@@ -32,6 +32,12 @@ namespace Broadside.Writing;
 /// is loaded first, so in strict mode a deviation throws before anything is written.
 /// </para>
 /// <para>
+/// Encryption (§7.6) follows <see cref="EncryptionPlan"/>: when the source or the output is encrypted, nothing is copied (the source
+/// bytes are ciphertext tied to the old key and object number) and every object goes through an <see cref="Security.ObjectEncryptor"/>
+/// under its written number. New encryption drops the old encryption dictionary and writes its own as a new object, numbered above
+/// every number the file lists or refers to.
+/// </para>
+/// <para>
 /// An unfiltered stream that <see cref="PdfSaveOptions.StreamCompression"/> selects is written instead as a <c>FlateDecode</c> copy
 /// when that is smaller (§7.4.4), under its written number, with its references renumbered and a direct <c>Length</c> (§7.3.8.2).
 /// </para>
@@ -64,17 +70,14 @@ internal static class SavePlan
     /// The cross-reference layout, the numbering, whether unreachable objects are dropped, and which streams are compressed and how hard.
     /// </param>
     /// <param name="encoders">The engine's encoders; streams are compressed with its <c>FlateDecode</c> encoder.</param>
+    /// <param name="security">The document's security, or <see langword="null"/> for a document read as not encrypted.</param>
     /// <returns>The writer.</returns>
-    /// <exception cref="NotSupportedException">The document is encrypted.</exception>
-    public static FileWriter Create(PdfSource source, ObjectLoader loader, PdfLinearization? linearization, PdfSaveOptions options, StreamEncoderRegistry encoders)
+    /// <exception cref="NotSupportedException">What <see cref="EncryptionPlan"/> refuses.</exception>
+    public static FileWriter Create(PdfSource source, ObjectLoader loader, PdfLinearization? linearization, PdfSaveOptions options, StreamEncoderRegistry encoders, PdfSecurity? security)
     {
         CrossReference crossReference = loader.CrossReference;
         CosDictionary sourceTrailer = crossReference.Trailer;
-        if (sourceTrailer.ContainsKey(KnownNames.Encrypt))
-        {
-            throw new NotSupportedException(
-                "Saving an encrypted document is not supported yet: its objects would be written with keys that no longer match, or as plain text.");
-        }
+        EncryptionPlan encryption = EncryptionPlan.Create(loader, security, options, incremental: false);
 
         var existing = new Dictionary<int, CosReference>();
         var freeGenerations = new Dictionary<int, int>();
@@ -105,10 +108,19 @@ internal static class SavePlan
             existing[number] = new CosReference(number, 0);
         }
 
+        // An encryption dictionary that is replaced or dropped is not written; its number is freed.
+        if (encryption.ReplacesDictionary && sourceTrailer.TryGetValue(KnownNames.Encrypt, out CosObject? oldEncryption)
+            && oldEncryption is CosReference oldReference && existing.TryGetValue(oldReference.ObjectNumber, out CosReference? listed) && listed.Equals(oldReference))
+        {
+            existing.Remove(oldReference.ObjectNumber);
+            freeGenerations[oldReference.ObjectNumber] = NextGeneration(oldReference.Generation);
+        }
+
         var trailer = new CosDictionary();
         foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
         {
-            if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID))
+            if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID)
+                && !(encryption.ReplacesDictionary && EncryptionPlan.IsEncryptionEntry(entry.Key)))
             {
                 trailer[entry.Key] = entry.Value;
             }
@@ -117,6 +129,22 @@ internal static class SavePlan
         List<(CosReference Reference, CosObject Value)> kept = options.RemoveUnreachableObjects
             ? LoadReachable(loader, trailer, existing)
             : LoadAll(loader, linearization, crossReference, sourceTrailer, existing);
+
+        if (encryption.NewDictionary is { } dictionary)
+        {
+            // The new encryption dictionary: an indirect object numbered above every number the file lists or refers to (Table 15);
+            // a dangling reference in a damaged file must not come to reach it (fuzz finding).
+            HashSet<int> referenced = ReferencedNumbers(trailer, kept);
+            int number = 1 + Math.Max(Highest(kept, freeGenerations), crossReference.Entries.Keys.DefaultIfEmpty(0).Max());
+            while (referenced.Contains(number))
+            {
+                number++;
+            }
+
+            var reference = new CosReference(number, 0);
+            kept.Add((reference, dictionary));
+            trailer[KnownNames.Encrypt] = reference;
+        }
 
         Dictionary<CosReference, CosReference>? references = null;
         if (options.ObjectNumbering == PdfObjectNumbering.Compact || !IsCompact(Highest(kept, freeGenerations), kept.Count))
@@ -148,10 +176,14 @@ internal static class SavePlan
             }
         }
 
+        encryption.CheckWritable(kept, references);
         var objects = new List<WriterObject>(kept.Count);
         foreach ((CosReference reference, CosObject value) in kept)
         {
-            ObjectSourceBytes? bytes = !value.IsDirty
+            // Source bytes of an encrypted file are ciphertext under the old key and number; an encrypted or decrypted file
+            // serializes every object.
+            ObjectSourceBytes? bytes = encryption.Encryptor is null
+                && !value.IsDirty
                 && loader.TryGetSourceBytes(reference, out ObjectSourceBytes found)
                 && (references is null || KeepsReferences(value, references))
                     ? found
@@ -172,17 +204,25 @@ internal static class SavePlan
                 ? first
                 : null;
 
+        PdfVersion version = loader.Header.Version ?? FileHeader.DefaultVersion;
+        if (encryption.MinimumVersion is { } minimum && version < minimum)
+        {
+            version = minimum;
+        }
+
         return new FileWriter(
             source,
-            loader.Header.Version ?? FileHeader.DefaultVersion,
+            version,
             objects,
             freeGenerations,
             trailer,
-            firstIdentifier,
+            encryption.FirstIdentifier ?? firstIdentifier,
             options.CrossReferenceLayout,
             encoders.Flate,
             options.CompressionLevel,
-            references);
+            references,
+            update: null,
+            encryption.Encryptor);
     }
 
     /// <summary>Plans an incremental update of an opened document (§7.5.6).</summary>
@@ -190,8 +230,9 @@ internal static class SavePlan
     /// <param name="loader">The document's loader.</param>
     /// <param name="options">Which of the written streams are compressed, and how hard.</param>
     /// <param name="encoders">The engine's encoders; streams are compressed with its <c>FlateDecode</c> encoder.</param>
+    /// <param name="security">The document's security, or <see langword="null"/> for a document read as not encrypted.</param>
     /// <returns>The writer.</returns>
-    /// <exception cref="NotSupportedException">The document is encrypted.</exception>
+    /// <exception cref="NotSupportedException">What <see cref="EncryptionPlan"/> refuses.</exception>
     /// <remarks>
     /// <para>
     /// ISO 32000-2 §7.5.6: "A cross-reference section for an incremental update shall contain entries only for objects that have been
@@ -201,21 +242,18 @@ internal static class SavePlan
     /// </para>
     /// <para>
     /// The section takes the form of the file's newest one, a stream after a stream and a table after a table or a hybrid file's
-    /// table (§7.5.8.4), and its trailer repeats the newest trailer's entries except <c>Prev</c>, <c>XRefStm</c> and <c>Size</c>, with
+    /// table (§7.5.8.4), and its trailer repeats the newest trailer's entries except <c>Prev</c>, <c>XRefStm</c> and <c>Size</c> (and a
+    /// damaged <c>Encrypt</c> entry the document was read without, when the save removes encryption: issue #283), with
     /// <c>Prev</c> pointing at that section. A file whose cross-reference information had to be rebuilt (issue #41) has no section to
     /// point at: its update lists every object instead, so readers no longer need to rebuild it, and it writes again every object
     /// read with a repair, so appending bytes cannot change how it reads (an object cut off by the end of the file would run on).
     /// </para>
     /// </remarks>
-    public static FileWriter CreateIncremental(PdfSource source, ObjectLoader loader, PdfSaveOptions options, StreamEncoderRegistry encoders)
+    public static FileWriter CreateIncremental(PdfSource source, ObjectLoader loader, PdfSaveOptions options, StreamEncoderRegistry encoders, PdfSecurity? security)
     {
         CrossReference crossReference = loader.CrossReference;
         CosDictionary sourceTrailer = crossReference.Trailer;
-        if (sourceTrailer.ContainsKey(KnownNames.Encrypt))
-        {
-            throw new NotSupportedException(
-                "Saving an encrypted document as an incremental update is not supported yet: the update's objects would have to be encrypted with the document's key and its integrity data recomputed.");
-        }
+        EncryptionPlan encryption = EncryptionPlan.Create(loader, security, options, incremental: true);
 
         var objects = new List<WriterObject>();
         var kept = new Dictionary<int, XrefEntry>();
@@ -261,7 +299,8 @@ internal static class SavePlan
         var trailer = new CosDictionary();
         foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
         {
-            if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID))
+            if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID)
+                && !(encryption.ReplacesDictionary && EncryptionPlan.IsEncryptionEntry(entry.Key)))
             {
                 trailer[entry.Key] = entry.Value;
             }
@@ -303,12 +342,13 @@ internal static class SavePlan
             objects,
             freeGenerations,
             trailer,
-            firstIdentifier,
+            encryption.FirstIdentifier ?? firstIdentifier,
             form == XrefSectionKind.Stream ? PdfCrossReferenceLayout.Stream : PdfCrossReferenceLayout.Table,
             encoders.Flate,
             options.CompressionLevel,
             references: null,
-            target);
+            target,
+            encryption.Encryptor);
     }
 
     /// <summary>
@@ -451,6 +491,49 @@ internal static class SavePlan
         }
 
         return [.. loaded.OrderBy(pair => pair.Key.ObjectNumber).Select(pair => (pair.Key, pair.Value))];
+    }
+
+    /// <summary>The object numbers the trailer and the kept objects refer to.</summary>
+    private static HashSet<int> ReferencedNumbers(CosDictionary trailer, List<(CosReference Reference, CosObject Value)> kept)
+    {
+        var numbers = new HashSet<int>();
+        var pending = new Stack<CosObject>();
+        pending.Push(trailer);
+        foreach ((_, CosObject value) in kept)
+        {
+            pending.Push(value);
+        }
+
+        while (pending.TryPop(out CosObject? item))
+        {
+            switch (item)
+            {
+                case CosReference reference:
+                    numbers.Add(reference.ObjectNumber);
+                    break;
+                case CosArray array:
+                    foreach (CosObject element in array)
+                    {
+                        pending.Push(element);
+                    }
+
+                    break;
+                case CosDictionary dictionary:
+                    foreach (CosObject element in dictionary.Values)
+                    {
+                        pending.Push(element);
+                    }
+
+                    break;
+                case CosStream stream:
+                    pending.Push(stream.Dictionary);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return numbers;
     }
 
     /// <summary>Whether every reference <paramref name="value"/> holds is written unchanged, so its source bytes stay right.</summary>

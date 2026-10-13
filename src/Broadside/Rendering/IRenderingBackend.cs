@@ -83,4 +83,42 @@ public interface IRenderingBackend
     /// </para>
     /// </remarks>
     void IntersectClip(PathView path, FillRule rule);
+
+    /// <summary>Draws an image into the unit square of user space.</summary>
+    /// <param name="image">
+    /// The decoded image, the same instance for every paint of one image XObject in a list. Image space maps to the unit square
+    /// through <c>[1/Width 0 0 −1/Height 0 1]</c> (its first row at the top), then through the current transform.
+    /// </param>
+    /// <param name="defaultColorSpaces">The default colour spaces current where the image was painted (§8.6.5.6).</param>
+    /// <param name="conversion">
+    /// The conversion at the paint, with <see cref="ColorConversion.Target"/> RGB: the graphics state's, its intent replaced by the
+    /// image's Intent entry when it has one (§8.6.5.8).
+    /// </param>
+    /// <remarks>
+    /// ISO 32000-2 §8.9.4 (the unit square), §8.9.5 (image XObjects, Decode, Interpolate) and §8.9.7 (inline images). Map the samples
+    /// through <see cref="DisplayImage.DecodeMap"/>, convert them through
+    /// <see cref="PdfDocument.GetColorConverter(PdfColorSpace, ColorConversion, PdfDefaultColorSpaces?)"/>, and resample them to the
+    /// device as the backend sees fit; honour <see cref="DisplayImage.Interpolate"/> when enlarging (§8.9.5.3).
+    /// </remarks>
+    void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion);
+
+    /// <summary>Draws a run of glyphs: fills and strokes their outlines as the run's rendering mode says.</summary>
+    /// <param name="run">
+    /// The glyphs, their font program and outlines, and the colours and line parameters they are painted with. Each glyph maps from
+    /// glyph space to user space through <see cref="GlyphRun.GetGlyphTransform"/>, then through the current transform.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §9.4.3 (<c>Tj</c>, <c>TJ</c>, <c>'</c>, <c>"</c>), §9.3.6 (text rendering mode, Table 104) and §9.2.4 (glyph
+    /// outlines, filled by the non-zero winding rule). Glyphs whose run neither fills nor strokes (mode 3, invisible text) paint
+    /// nothing; they reach the backend so that a backend collecting positions (hit-testing) sees them. Text in clipping modes 4 to 7
+    /// paints like modes 0 to 3; its contribution to the clip is not in the list yet. Type 3 glyphs (§9.6.4) are not in the list yet.
+    /// </para>
+    /// <para>
+    /// A backend may draw the glyphs natively from <see cref="GlyphRun.Program"/> and the glyph ids, or from the interned outlines
+    /// (<see cref="GlyphRun.GetOutline"/>); a render option to force outlines makes every backend's output comparable. A glyph that is
+    /// both filled and stroked is filled, then stroked, before the next glyph is painted.
+    /// </para>
+    /// </remarks>
+    void DrawGlyphs(in GlyphRun run);
 }

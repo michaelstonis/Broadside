@@ -14,8 +14,8 @@ namespace Broadside.Graphics;
 /// graphics state's black generation and undercolour removal, or BG(k) = k and UCR(k) = k when it has none.
 /// </para>
 /// <para>
-/// CalGray, CalRGB and Lab go through XYZ, Bradford adaptation to D65 and the sRGB primaries, with black point compensation unless
-/// it is off. An ICCBased space whose profile is a Lab profile is converted as Lab (its values would be meaningless to an RGB
+/// CalGray, CalRGB and Lab go through XYZ, Bradford adaptation to D65 and the sRGB primaries. Their darkest colour is XYZ zero, sRGB's
+/// black, so black point compensation leaves them as they are and their <c>BlackPoint</c> entry does not change the result. An ICCBased space whose profile is a Lab profile is converted as Lab (its values would be meaningless to an RGB
 /// alternate); any other converts through <see cref="PdfIccBasedColorSpace.Alternate"/>.
 /// </para>
 /// </remarks>

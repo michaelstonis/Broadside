@@ -5,7 +5,7 @@ namespace Broadside.Fuzz;
 /// the page content (each page's content is interpreted and rewritten around the appearances), then saves and reopens. Invariants:
 /// flattening throws only <see cref="InvalidOperationException"/> for a form with an XFA resource, leaving it in place; afterwards
 /// the document has no form and no page has an annotation; the saved file opens with the same page count and no form. An encrypted
-/// input stops after flattening, as does one whose damaged encryption the save refuses.
+/// input stops after flattening.
 /// </summary>
 /// <remarks>ISO 32000-2 §12.5.5, §12.5.3, §7.8.2.</remarks>
 internal static class FlattenTarget
@@ -60,15 +60,7 @@ internal static class FlattenTarget
         }
 
         using var output = new MemoryStream();
-        try
-        {
-            document.Save(output);
-        }
-        catch (NotSupportedException)
-        {
-            // A damaged encrypted input whose encryption is not recognized can still not be saved (the `save` target's outcome).
-            return;
-        }
+        document.Save(output);
 
         using PdfDocument saved = PdfDocument.Open(output.ToArray());
         if (saved.Pages.Count != pages || saved.AcroForm is not null)

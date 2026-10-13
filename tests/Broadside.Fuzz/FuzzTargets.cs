@@ -915,10 +915,12 @@ internal static class FuzzTargets
     /// Opens the input as a whole file in lenient mode, saves it in the layout, object numbering and garbage collection the input's
     /// length selects, and reopens the output. Whatever opened must save, and what was saved must open again with the same number of
     /// pages: a full save writes every object the trailer reaches (repaired ones re-serialized, references renumbered), so nothing the
-    /// first open could read through the page tree may become unreadable. <see cref="NotSupportedException"/> is the documented outcome
-    /// for an encrypted file.
+    /// first open could read through the page tree may become unreadable. The input's length also selects the encryption: the
+    /// document's own, new AES-256 encryption with an empty user password, or none (issue #180); either way the output opens without
+    /// a password. <see cref="NotSupportedException"/> is the documented outcome for what a save cannot write (an encrypted file with
+    /// an integrity MAC kept as it is, data its credentials do not decrypt).
     /// </summary>
-    /// <remarks>ISO 32000-2 §7.5, §7.3.10 (issues #44, #144).</remarks>
+    /// <remarks>ISO 32000-2 §7.5, §7.3.10, §7.6 (issues #44, #144, #180).</remarks>
     private static void Save(ReadOnlySpan<byte> data)
     {
         using PdfDocument? document = OpenOrNull(data);
@@ -937,10 +939,23 @@ internal static class FuzzTargets
         var layout = (PdfCrossReferenceLayout)(data.Length % 3);
         var numbering = (PdfObjectNumbering)(data.Length / 3 % 2);
         bool removeUnreachable = data.Length / 6 % 2 == 1;
+        PdfSaveOptions options = new PdfSaveOptions().WithCrossReferenceLayout(layout).WithObjectNumbering(numbering).WithRemoveUnreachableObjects(removeUnreachable);
+        switch (data.Length / 24 % 3)
+        {
+            case 1:
+                options.WithEncryption(new PdfEncryptionOptions(null, "owner"));
+                break;
+            case 2:
+                options.WithRemoveEncryption(true);
+                break;
+            default:
+                break;
+        }
+
         using var output = new MemoryStream();
         try
         {
-            document.Save(output, new PdfSaveOptions().WithCrossReferenceLayout(layout).WithObjectNumbering(numbering).WithRemoveUnreachableObjects(removeUnreachable));
+            document.Save(output, options);
         }
         catch (NotSupportedException)
         {
@@ -1951,8 +1966,37 @@ internal static class FuzzTargets
         if (packet is not null)
         {
             WalkPacket(packet);
+            RewritePacket(packet);
         }
     }
+
+    /// <summary>
+    /// Writes a readable packet back (issue #162, ISO 16684-1 §7): the writer must not throw, and the written packet must read
+    /// with no diagnostic at all into the same data model, less the properties named in the RDF or XML namespace, which are syntax.
+    /// </summary>
+    private static void RewritePacket(XmpPacket packet)
+    {
+        byte[] written = XmpPacketWriter.Write(packet.Properties, packet.About ?? string.Empty);
+        var reported = new List<string>();
+        XmpPacket? reread = XmpPacketReader.Read(written, (code, _, _) => reported.Add(code));
+        if (reread is null || reported.Count > 0)
+        {
+            throw new InvalidOperationException($"A written XMP packet must read cleanly; reported: {string.Join(", ", reported)}.");
+        }
+
+        string expected = string.Join("\n", packet.Properties.Where(XmpPacketWriter.IsProperty).Select(DescribeXmp));
+        string actual = string.Join("\n", reread.Properties.Select(DescribeXmp));
+        if (expected != actual || (packet.About ?? string.Empty) != reread.About)
+        {
+            throw new InvalidOperationException($"A written XMP packet must read back the same properties.\nExpected:\n{expected}\nActual:\n{actual}");
+        }
+    }
+
+    private static string DescribeXmp(XmpProperty property) =>
+        $"{property.NamespaceName}|{property.Name}|{property.Kind}|{property.Value}|{property.Language}"
+        + $"[{string.Join(",", property.Items.Select(DescribeXmp))}]"
+        + $"{{{string.Join(",", property.Fields.Where(XmpPacketWriter.IsProperty).Select(DescribeXmp))}}}"
+        + $"({string.Join(",", property.Qualifiers.Where(XmpPacketWriter.IsProperty).Select(DescribeXmp))})";
 
     private static void WalkPacket(XmpPacket packet)
     {

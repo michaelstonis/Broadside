@@ -22,7 +22,7 @@ public sealed class SaveTests
     /// </summary>
     private static readonly HashSet<string> QpdfComparesNameTreeKeysAsText = new(StringComparer.Ordinal) { "name-tree-deep.pdf" };
 
-    /// <summary>Every unencrypted well-formed corpus file with every layout (encrypted files cannot be saved yet).</summary>
+    /// <summary>Every unencrypted well-formed corpus file with every layout (encrypted files are re-encrypted, never copied: see EncryptedSaveTests).</summary>
     public static TheoryData<string, PdfCrossReferenceLayout> FilesAndLayouts
     {
         get
@@ -40,7 +40,7 @@ public sealed class SaveTests
         }
     }
 
-    /// <summary>Every unencrypted deliberately broken corpus file with every layout (encrypted files cannot be saved yet).</summary>
+    /// <summary>Every unencrypted deliberately broken corpus file with every layout (encrypted files are re-encrypted, never copied: see EncryptedSaveTests).</summary>
     public static TheoryData<string, PdfCrossReferenceLayout> BrokenFilesAndLayouts
     {
         get
@@ -298,16 +298,6 @@ public sealed class SaveTests
 
         using PdfDocument saved = PdfDocument.Open(output.ToArray());
         Assert.Single(saved.Pages);
-    }
-
-    [Fact]
-    public void An_encrypted_document_is_not_saved()
-    {
-        using PdfDocument source = PdfDocument.Open(Corpus.Path("encrypted-rc4-128.pdf"));
-        using var output = new MemoryStream();
-
-        Assert.Throws<NotSupportedException>(() => source.Save(output));
-        Assert.Equal(0, output.Length);
     }
 
     [Theory]
