@@ -169,6 +169,7 @@ public static class Corpus
         "text-type3-recursive.pdf",
         "ccitt-g3-damaged.pdf",
         "ccitt-g4-truncated.pdf",
+        "clip-before-path.pdf",
     ];
 
     private static readonly (string FileName, string UserPassword)[] PasswordProtected =
