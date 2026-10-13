@@ -6,8 +6,11 @@ namespace Broadside;
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §12.3.3, Tables 151 and 152. The properties read the item dictionary on every call and return the defaults the clause
-/// gives (black, no flags) without writing them. <see cref="Children"/> is the shape of the outline when
-/// <see cref="PdfOutline.Items"/> walked it; walk again to see changes to the links.
+/// gives (black, no flags) without writing them. <see cref="Children"/>, <see cref="Parent"/> and <see cref="Level"/> read the shape of
+/// the outline the catalog names as its links are now (ADR 0004): an edit through any view, or straight to the COS objects, shows at
+/// the next read. The outline is walked again only when a dictionary the last walk read has changed (see <see cref="PdfOutline"/>);
+/// an item stays the same view while it stays in the outline. An item the outline does not reach (removed, or of an outline the
+/// catalog no longer names) has no parent, no children and level 0.
 /// </para>
 /// <para>
 /// The setters and <see cref="Add"/>, <see cref="Insert"/>, <see cref="MoveTo"/> and <see cref="Remove"/> edit the outline in place
@@ -23,15 +26,12 @@ namespace Broadside;
 public sealed class PdfOutlineItem
 {
     private readonly PdfDocument _document;
-    private readonly List<PdfOutlineItem> _children = [];
 
-    internal PdfOutlineItem(PdfDocument document, CosDictionary dictionary, CosReference? reference, PdfOutlineItem? parent, int level)
+    internal PdfOutlineItem(PdfDocument document, CosDictionary dictionary, CosReference? reference)
     {
         _document = document;
         Dictionary = dictionary;
         Reference = reference;
-        Parent = parent;
-        Level = level;
     }
 
     /// <summary>Gets the outline item dictionary.</summary>
@@ -41,17 +41,23 @@ public sealed class PdfOutlineItem
     /// <summary>Gets the indirect reference to the item, or <see langword="null"/> when it is a direct dictionary (which the clause forbids).</summary>
     public CosReference? Reference { get; }
 
-    /// <summary>Gets the item this one is a child of, or <see langword="null"/> for a top-level item.</summary>
-    /// <remarks>As the walk that produced this view found it; <see cref="MoveTo"/> updates it for this view.</remarks>
-    public PdfOutlineItem? Parent { get; private set; }
+    /// <summary>Gets the item this one is a child of, or <see langword="null"/> for a top-level item or one the outline no longer reaches.</summary>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, when the outline is walked again and the walk finds a deviation.</exception>
+    /// <remarks>ISO 32000-2 §12.3.3, Table 151. The level whose <c>First</c>/<c>Next</c> chain holds the item now (the chain wins over <c>Parent</c>).</remarks>
+    public PdfOutlineItem? Parent => _document.OutlineViews.Find(Dictionary).Parent;
 
-    /// <summary>Gets the depth of the item: 0 for a top-level item.</summary>
-    /// <remarks>As the walk that produced this view found it; <see cref="MoveTo"/> updates it for this view.</remarks>
-    public int Level { get; private set; }
+    /// <summary>Gets the depth of the item: 0 for a top-level item, and for an item the outline no longer reaches.</summary>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, when the outline is walked again and the walk finds a deviation.</exception>
+    /// <remarks>ISO 32000-2 §12.3.3. Where the item is now: moving an ancestor changes it.</remarks>
+    public int Level => _document.OutlineViews.Find(Dictionary).Level;
 
-    /// <summary>Gets the item's children, in the order of their <c>First</c>/<c>Next</c> chain.</summary>
-    /// <remarks>ISO 32000-2 §12.3.3: "the items at a given level shall appear in the order in which they occur in the linked list".</remarks>
-    public IReadOnlyList<PdfOutlineItem> Children => _children;
+    /// <summary>Gets the item's children, in the order of their <c>First</c>/<c>Next</c> chain; empty for an item the outline no longer reaches.</summary>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, when the outline is walked again and the walk finds a deviation.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §12.3.3: "the items at a given level shall appear in the order in which they occur in the linked list". The
+    /// children as the links are now; a list read earlier is not updated, read the property again.
+    /// </remarks>
+    public IReadOnlyList<PdfOutlineItem> Children => _document.OutlineViews.Find(Dictionary).Children;
 
     /// <summary>Gets or sets the text displayed for the item; the empty string when <c>Title</c> is missing or not a string.</summary>
     /// <exception cref="ArgumentNullException">The value set is <see langword="null"/>.</exception>
@@ -211,8 +217,6 @@ public sealed class PdfOutlineItem
         }
     }
 
-    internal List<PdfOutlineItem> ChildList => _children;
-
     /// <summary>Adds a child item titled <paramref name="title"/> after the item's last child.</summary>
     /// <param name="title">The text displayed for the child.</param>
     /// <returns>The new item, an indirect object with no destination yet.</returns>
@@ -245,8 +249,8 @@ public sealed class PdfOutlineItem
     /// <exception cref="InvalidOperationException">The item or the new parent is direct, or is not in the document's outline.</exception>
     /// <remarks>
     /// ISO 32000-2 §12.3.3, Tables 150 and 151. The item's old neighbours are linked to each other and its new ones to it, its
-    /// <c>Parent</c> names the new parent, and the <c>Count</c> entries of both ancestries are corrected. This view's
-    /// <see cref="Parent"/> and <see cref="Level"/> follow the move; other views keep what their walk saw.
+    /// <c>Parent</c> names the new parent, and the <c>Count</c> entries of both ancestries are corrected. Every view sees the move:
+    /// this item's and its descendants' <see cref="Parent"/> and <see cref="Level"/>, and both parents' <see cref="Children"/>.
     /// </remarks>
     public void MoveTo(PdfOutlineItem? parent, int index)
     {
@@ -278,8 +282,6 @@ public sealed class PdfOutlineItem
         OutlineEditor.UnlinkAt(_document, oldParent, oldSiblings, oldIndex);
         List<OutlineEditor.Link> siblings = OutlineEditor.Children(_document, target);
         OutlineEditor.LinkAt(_document, target, targetReference, siblings, index, self);
-        Parent = parent;
-        Level = parent is null ? 0 : parent.Level + 1;
     }
 
     /// <summary>Removes the item and its descendants from the outline and from the document.</summary>
@@ -313,7 +315,7 @@ public sealed class PdfOutlineItem
         ArgumentNullException.ThrowIfNull(title);
         OutlineEditor.Link self = Self();
         OutlineEditor.Link link = OutlineEditor.Insert(_document, Dictionary, self.Reference, index, title);
-        return new PdfOutlineItem(_document, link.Item, link.Reference, this, Level + 1);
+        return _document.OutlineViews.Remember(new PdfOutlineItem(_document, link.Item, link.Reference));
     }
 
     /// <summary>The item's own link: its dictionary and reference, checked to be still the document's object.</summary>
@@ -339,17 +341,16 @@ public sealed class PdfOutlineItem
         return (outline.Dictionary, outline.EnsureIndirect());
     }
 
-    /// <summary>Finds the level <paramref name="self"/> is linked in: its <c>Parent</c>, else the parent this view was walked under.</summary>
+    /// <summary>Finds the level <paramref name="self"/> is linked in: its <c>Parent</c>, else the parent the outline walk finds.</summary>
+    /// <remarks>The walk is consulted only when <c>Parent</c> is wrong, so an edit of a well-linked outline does not walk it.</remarks>
     private (CosDictionary Parent, List<OutlineEditor.Link> Siblings, int Index) Locate(CosDictionary root, OutlineEditor.Link self)
     {
-        CosDictionary?[] candidates =
-        [
-            Dictionary.TryGetValue(KnownNames.Parent, out CosObject? parent) ? _document.Resolve(parent) as CosDictionary : null,
-            Parent?.Dictionary ?? root,
-        ];
         HashSet<CosDictionary>? reachable = null;
-        foreach (CosDictionary? candidate in candidates)
+        for (int attempt = 0; attempt < 2; attempt++)
         {
+            CosDictionary? candidate = attempt == 0
+                ? Dictionary.TryGetValue(KnownNames.Parent, out CosObject? parent) ? _document.Resolve(parent) as CosDictionary : null
+                : Parent?.Dictionary ?? root;
             if (candidate is null)
             {
                 continue;
