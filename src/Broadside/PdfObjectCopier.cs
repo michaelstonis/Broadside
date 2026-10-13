@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Broadside.Annotations;
 using Broadside.Filters;
 using Broadside.Objects;
 
@@ -20,7 +21,9 @@ namespace Broadside;
 /// <b>Pages.</b> The page tree is never copied: the <c>Parent</c> entry of a page or page tree node is left out, and a reference
 /// to a page tree node (§7.7.3.2) copies as null. A page is copied by <see cref="CopyPage"/> (or as the object <see cref="Copy"/> is
 /// given), with the attributes it inherits (<c>Resources</c>, <c>MediaBox</c>, <c>CropBox</c>, <c>Rotate</c>, §7.7.3.4) made its
-/// own, ready for the target's page tree. A reference to any other page that a copied graph reaches, such as an annotation's
+/// own, ready for the target's page tree. An <c>Annots</c> the page reads from a page tree node above it is made its own too: it
+/// is not inheritable (Table 31), but it is read as viewers read it (§7.7.3.3), so the copy shows the same annotations; the source
+/// records <c>AnnotsInherited</c> for it before the target changes. A reference to any other page that a copied graph reaches, such as an annotation's
 /// destination or a structure element's page, is not followed: it names the page's copy once the session copies that page, before
 /// or after, and is null until then (an array keeps a null element in its place; a dictionary has no entry).
 /// </para>
@@ -89,7 +92,10 @@ public sealed class PdfObjectCopier
         CosObject resolved = Source.Resolve(value);
         if (resolved is CosDictionary dictionary && IsType(dictionary, KnownNames.Page))
         {
-            return CopyPageObject(value as CosReference, dictionary, key => InheritedThroughParents(dictionary, key));
+            CosReference? reference = value as CosReference;
+            CosObject? annots = InheritedAnnotsThroughParents(dictionary);
+            ReportInheritedAnnots(reference, annots);
+            return CopyPageObject(reference, dictionary, key => InheritedThroughParents(dictionary, key), annots);
         }
 
         CosObject copy = Map(value);
@@ -105,9 +111,14 @@ public sealed class PdfObjectCopier
     /// <returns>The reference to the copied page object; the same reference when the session has copied the page before.</returns>
     /// <exception cref="ArgumentException"><paramref name="page"/> is not a page of <see cref="Source"/>.</exception>
     /// <exception cref="NotSupportedException">A stream's data cannot be copied decrypted (see <see cref="Copy"/>).</exception>
+    /// <exception cref="Diagnostics.DiagnosticException">
+    /// The source is in strict mode and the page reads its <c>Annots</c> from a page tree node (Table 31).
+    /// </exception>
     /// <remarks>
-    /// ISO 32000-2 §7.7.3.3 and §7.7.3.4. Everything the page object holds is copied (contents, resources, annotations and what they
-    /// reach) except <c>Parent</c>; inherited attributes become the copy's own entries. References to the page from inside the copied
+    /// ISO 32000-2 §7.7.3.3, §7.7.3.4 and Table 31. Everything the page object holds is copied (contents, resources, annotations and what they
+    /// reach) except <c>Parent</c>; inherited attributes become the copy's own entries, and so does an <c>Annots</c> the page reads
+    /// from a page tree node (not inheritable, Table 31, but read as viewers read it; recorded as <c>AnnotsInherited</c> in the
+    /// source's diagnostics, so in strict mode this throws before the target changes). References to the page from inside the copied
     /// graph (an annotation's <c>P</c>, say) name the copy. Place the reference in the target's page tree and set its <c>Parent</c>
     /// for it to be a page of the target. A mutation of the target.
     /// </remarks>
@@ -119,11 +130,13 @@ public sealed class PdfObjectCopier
             throw new ArgumentException("The page is not a page of the source document.", nameof(page));
         }
 
-        CosObject copy = CopyPageObject(page.Reference, page.Dictionary, page.FindInheritedEntry);
+        CosObject? annots = page.FindInheritedAnnots();
+        ReportInheritedAnnots(page.Reference, annots);
+        CosObject copy = CopyPageObject(page.Reference, page.Dictionary, page.FindInheritedEntry, annots);
         return copy as CosReference ?? Target.AddObject(copy);
     }
 
-    private CosObject CopyPageObject(CosReference? reference, CosDictionary page, Func<CosName, CosObject?> inherited)
+    private CosObject CopyPageObject(CosReference? reference, CosDictionary page, Func<CosName, CosObject?> inherited, CosObject? inheritedAnnots)
     {
         if (reference is not null && _copies.TryGetValue(reference, out CosReference? existing))
         {
@@ -149,8 +162,47 @@ public sealed class PdfObjectCopier
             }
         }
 
+        if (!copy.ContainsKey(AnnotationNames.Annots) && inheritedAnnots is not null && Map(inheritedAnnots) is { } annots and not CosNull)
+        {
+            copy[AnnotationNames.Annots] = annots;
+        }
+
         Drain();
         return result;
+    }
+
+    /// <summary>Records in the source that a page reads its <c>Annots</c> from a page tree node (Table 31), when it does.</summary>
+    private void ReportInheritedAnnots(CosReference? page, CosObject? annots)
+    {
+        if (annots is not null)
+        {
+            Source.AnnotationIndex.ReportInherited(page);
+        }
+    }
+
+    /// <summary>
+    /// The <c>Annots</c> entry a page reads from the nearest node of its <c>Parent</c> chain, as stored, when the page has none of its
+    /// own; as <see cref="PdfPage.FindInheritedAnnots"/> reads it for a page of the tree.
+    /// </summary>
+    private CosObject? InheritedAnnotsThroughParents(CosDictionary page)
+    {
+        if (page.ContainsKey(AnnotationNames.Annots))
+        {
+            return null;
+        }
+
+        var seen = new HashSet<CosDictionary>(ReferenceEqualityComparer.Instance) { page };
+        for (CosObject node = EntryReader.Get(Source, page, KnownNames.Parent) ?? CosNull.Instance;
+            node is CosDictionary ancestor && seen.Add(ancestor);
+            node = EntryReader.Get(Source, ancestor, KnownNames.Parent) ?? CosNull.Instance)
+        {
+            if (ancestor.TryGetValue(AnnotationNames.Annots, out CosObject? annots))
+            {
+                return annots;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>The nearest ancestor's entry as stored, through the <c>Parent</c> chain, when the page lacks a resolved one.</summary>

@@ -180,12 +180,14 @@ public sealed class OutlineWritingTests
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Path("outline-full.pdf"));
         PdfOutlineItem chapter1 = document.Outline!.Items[0].Children[0];
+        PdfOutlineItem section11 = chapter1.Children[0];
 
-        chapter1.Children[0].Remove();
+        section11.Remove();
 
         Assert.Equal(["0 Part I 2", "1 Chapter 1 -", "1 Chapter 2 -", "0 Part II -2", "1 Chapter 3 – Übersicht -", "1 Chapter 4 -"], OutlineShape.AssertConsistent(document));
         Assert.Equal(4, document.Outline.Count);
-        Assert.Throws<InvalidOperationException>(() => chapter1.Children[0].Remove());
+        Assert.Empty(chapter1.Children);
+        Assert.Throws<InvalidOperationException>(section11.Remove);
     }
 
     [Fact]
