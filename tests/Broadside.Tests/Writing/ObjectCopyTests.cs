@@ -100,6 +100,71 @@ public sealed class ObjectCopyTests
         Assert.Equal(["Page 1", "Page 2"], saved.Pages.Skip(1).Select(page => page.ExtractText().Text.Trim()));
     }
 
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void Annotations_a_page_reads_from_a_page_tree_node_are_on_its_copy_before_and_after_saving(bool asPage)
+    {
+        // Annots is not inheritable (Table 31), but viewers read it from a node: pages 4 and 11 show A and B (a direct array on the
+        // intermediate node 3), page 5 its own C, page 6 D (an indirect array on the root).
+        byte[] original = new Broadside.Tests.Document.TestPdf().Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R 6 0 R] /Count 4 /Annots 12 0 R /MediaBox [0 0 612 792] /Resources << >> >>",
+            "<< /Type /Pages /Parent 2 0 R /Kids [4 0 R 11 0 R 5 0 R] /Count 3 /Annots [7 0 R 8 0 R] >>",
+            "<< /Type /Page /Parent 3 0 R >>",
+            "<< /Type /Page /Parent 3 0 R /Annots [9 0 R] >>",
+            "<< /Type /Page /Parent 2 0 R >>",
+            "<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] /Contents (A) >>",
+            "<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] /Contents (B) >>",
+            "<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] /Contents (C) >>",
+            "<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] /Contents (D) >>",
+            "<< /Type /Page /Parent 3 0 R >>",
+            "[10 0 R]");
+        using PdfDocument source = PdfDocument.Open(original);
+        using PdfDocument target = PdfDocument.Create();
+        var copier = new PdfObjectCopier(source, target);
+
+        foreach (PdfPage page in source.Pages)
+        {
+            CosReference copy = asPage ? copier.CopyPage(page) : (CosReference)copier.Copy(page.Reference!);
+            Assert.True(((CosDictionary)target.Resolve(copy)).ContainsKey(new CosName("Annots")));
+            target.Pages.Add(copy);
+        }
+
+        Assert.Equal("|A B|A B|C|D", AnnotationContents(target));
+        Assert.Equal(
+            [4, 6, 11],
+            source.Diagnostics.Where(diagnostic => diagnostic.Code == "AnnotsInherited").Select(diagnostic => diagnostic.ObjectReference!.ObjectNumber).Order());
+        byte[] file = Save(target);
+        using PdfDocument saved = PdfDocument.Open(file);
+        Assert.Equal("|A B|A B|C|D", AnnotationContents(saved));
+        Assert.DoesNotContain(saved.Diagnostics, diagnostic => diagnostic.Code == "AnnotsInherited");
+        (int exitCode, string output) = ExternalTool.Run("qpdf", file, "--check");
+        Assert.True(exitCode == 0, output);
+
+        static string AnnotationContents(PdfDocument document) =>
+            string.Join('|', document.Pages.Select(page => string.Join(' ', page.Annotations.Select(annotation => annotation.Contents))));
+    }
+
+    [Fact]
+    public void Copying_a_page_that_reads_its_annotations_from_a_node_throws_in_strict_mode_before_the_target_changes()
+    {
+        byte[] original = new Broadside.Tests.Document.TestPdf().Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 /Annots [4 0 R] /MediaBox [0 0 612 792] /Resources << >> >>",
+            "<< /Type /Page /Parent 2 0 R >>",
+            "<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] /Contents (A) >>");
+        using PdfDocument source = PdfDocument.Open(original, new PdfOptions().UseStrict());
+        using PdfDocument target = PdfDocument.Create();
+        using PdfDocument untouched = PdfDocument.Create();
+        var copier = new PdfObjectCopier(source, target);
+
+        Assert.Throws<Broadside.Diagnostics.DiagnosticException>(() => copier.CopyPage(source.Pages[0]));
+
+        // Nothing was added: the target numbers its next object as a document nothing was copied into does.
+        Assert.Equal(untouched.AddObject(CosNull.Instance), target.AddObject(CosNull.Instance));
+    }
+
     [Fact]
     public void A_reference_to_another_page_names_its_copy_once_the_session_copies_that_page()
     {
