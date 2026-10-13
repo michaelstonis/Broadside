@@ -3747,6 +3747,19 @@ Broadside.PdfSaveOptions.UpdateModificationDate.set -> void
 Broadside.PdfSaveOptions.WithUpdateModificationDate(bool update) -> Broadside.PdfSaveOptions!
 Broadside.Forms.PdfTextField.GenerateAppearances() -> void
 Broadside.Forms.PdfTextField.SetValue(string? value) -> void
+Broadside.PdfDocument.Flatten() -> bool
+Broadside.PdfDocument.Flatten(Broadside.PdfFlattenOptions! options) -> bool
+Broadside.PdfFlattenIntent
+Broadside.PdfFlattenIntent.Print = 1 -> Broadside.PdfFlattenIntent
+Broadside.PdfFlattenIntent.View = 0 -> Broadside.PdfFlattenIntent
+Broadside.PdfFlattenOptions
+Broadside.PdfFlattenOptions.IncludeAnnotations.get -> bool
+Broadside.PdfFlattenOptions.IncludeAnnotations.set -> void
+Broadside.PdfFlattenOptions.Intent.get -> Broadside.PdfFlattenIntent
+Broadside.PdfFlattenOptions.Intent.set -> void
+Broadside.PdfFlattenOptions.PdfFlattenOptions() -> void
+Broadside.PdfFlattenOptions.WithAnnotations(bool include) -> Broadside.PdfFlattenOptions!
+Broadside.PdfFlattenOptions.WithIntent(Broadside.PdfFlattenIntent intent) -> Broadside.PdfFlattenOptions!
 Broadside.Rendering.DisplayGlyph
 Broadside.Rendering.DisplayGlyph.DisplayGlyph() -> void
 Broadside.Rendering.DisplayGlyph.GlyphId.get -> int
