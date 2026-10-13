@@ -9,6 +9,18 @@ public sealed partial class PdfDocument
     private static readonly CosName PageLabelPrefixKey = new("P");
     private static readonly CosName PageLabelStartKey = new("St");
 
+    private OutlineViews? _outlineViews;
+
+    /// <summary>Gets the current outline walk every outline view reads its shape from (ISO 32000-2 §12.3.3; ADR 0004).</summary>
+    internal OutlineViews OutlineViews
+    {
+        get
+        {
+            OutlineViews? views = Volatile.Read(ref _outlineViews);
+            return views ?? Interlocked.CompareExchange(ref _outlineViews, new OutlineViews(this), null) ?? _outlineViews!;
+        }
+    }
+
     /// <summary>Creates a new, empty outline and makes it the document's, replacing any outline the catalog has.</summary>
     /// <returns>The outline; add items with <see cref="PdfOutline.Add"/>.</returns>
     /// <remarks>
