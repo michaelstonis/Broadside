@@ -410,6 +410,12 @@ public sealed class PdfPage
         return (null, false);
     }
 
+    /// <summary>
+    /// The <c>Annots</c> entry the page reads from a page tree node above it, as stored (not resolved); <see langword="null"/> when the
+    /// page has its own or no node has one. Not inheritable (Table 31), but read as viewers read it (§7.7.3.3).
+    /// </summary>
+    internal CosObject? FindInheritedAnnots() => FindAnnots() is (CosObject entry, true) ? entry : null;
+
     /// <summary>Gets the document the page belongs to.</summary>
     internal PdfDocument Document => _document;
 
