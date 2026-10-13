@@ -78,8 +78,8 @@ public sealed class StructureCorpusTests(ITestOutputHelper output)
 
     private static (int Elements, string[] Codes, string? Failure) WalkWithTimeLimit(string file)
     {
-        Task<(int, string[], string?)> walk = Task.Factory.StartNew(() => WalkOne(file), CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-        return walk.Wait(RealWorldCorpus.TimeLimit) ? walk.Result : (0, [], "timed out");
+        TimeLimitedResult<(int, string[], string?)> walk = TimeLimitedWalk.RunAsync(() => WalkOne(file), RealWorldCorpus.ProcessorTimeLimit, RealWorldCorpus.HangLimit).GetAwaiter().GetResult();
+        return walk.Verdict == TimeLimitedVerdict.Finished ? walk.Value : (0, [], walk.Verdict == TimeLimitedVerdict.Hung ? "timed out" : "over its processor-time limit");
     }
 
     private static (int Elements, string[] Codes, string? Failure) WalkOne(string file)
