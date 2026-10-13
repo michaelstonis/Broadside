@@ -5,7 +5,8 @@ namespace Broadside.Content;
 /// <summary>Path construction (Table 58), painting (Table 59) and clipping (Table 60).</summary>
 /// <remarks>
 /// ISO 32000-2 §8.5. A clip set by <c>W</c> or <c>W*</c> takes effect after the painting operator that ends the path object, so
-/// the paint event comes first and is not clipped by its own path (§8.5.4); <c>W n</c> only clips.
+/// the paint event comes first and is not clipped by its own path (§8.5.4); <c>W n</c> only clips. A <c>W</c> written before its
+/// path is kept pending until the next painting operator, with a diagnostic.
 /// </remarks>
 internal sealed partial class ContentInterpreter
 {
@@ -85,12 +86,16 @@ internal sealed partial class ContentInterpreter
         return true;
     }
 
+    /// <summary>
+    /// <c>W</c> or <c>W*</c> marks the current path object to clip once it is painted. One written before its path (§8.2 Figure 9:
+    /// a violation) stays pending until the next path-painting operator and clips with the path that operator ends, as PDFium,
+    /// pdf.js and poppler do (pdf.js clippath.pdf); a painting operator with no path drops it.
+    /// </summary>
     private void ExecuteClip(ContentOperatorCode code, int offset)
     {
         if (!_path.IsOpen)
         {
-            Report(ContentIssue.NoCurrentPath, offset, "W or W* without a current path; ignored.");
-            return;
+            Report(ContentIssue.NoCurrentPath, offset, "W or W* before any path; it clips with the path ended by the next path-painting operator.");
         }
 
         _pendingClip = code == ContentOperatorCode.Clip ? FillRule.NonZero : FillRule.EvenOdd;

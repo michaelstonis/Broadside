@@ -1,4 +1,5 @@
 using Broadside.Content;
+using Broadside.TestSupport;
 
 namespace Broadside.Tests.Content;
 
@@ -70,6 +71,35 @@ public sealed class ClipTests
 
         Assert.Empty(events.Body);
         Assert.Equal(["ContentNoCurrentPath"], ContentPdf.Codes(diagnostics));
+    }
+
+    [Fact]
+    public void W_before_its_path_stays_pending_and_clips_at_the_n_that_ends_the_path_with_a_diagnostic()
+    {
+        // pdf.js clippath.pdf (issue #278): PDFium, pdf.js and poppler apply an early W at the next path-painting operator.
+        (RecordingProcessor events, var diagnostics) = ContentPdf.Run("W 0 0 m 10 0 l 10 10 l h n", PathsAndClips);
+
+        Assert.Equal(
+            [
+                "Paint None NonZero clip=NonZero M 0,0 L 10,0 L 10,10 Z ctm=[1 0 0 1 0 0]",
+                "Clip Path NonZero #1<#0 M 0,0 L 10,0 L 10,10 Z ctm=[1 0 0 1 0 0]",
+            ],
+            events.Body);
+        Assert.Equal(["ContentNoCurrentPath"], ContentPdf.Codes(diagnostics));
+    }
+
+    [Fact]
+    public void The_early_clips_of_the_clip_before_path_corpus_file_apply_at_their_n_and_are_recorded_once()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("clip-before-path.pdf"));
+        var probe = new ClipProbe();
+
+        document.Pages[0].ProcessContent(probe);
+
+        Assert.Equal([1, 2], probe.ClipInEvent);
+        Assert.Equal([0, 1, 0, 2], probe.ClipAtPaint);
+        Diagnostics.Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal(("ContentNoCurrentPath", Diagnostics.DiagnosticSeverity.Information), (diagnostic.Code, diagnostic.Severity));
     }
 
     [Fact]

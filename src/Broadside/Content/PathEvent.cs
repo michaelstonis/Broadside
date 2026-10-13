@@ -25,6 +25,7 @@ public readonly ref struct PathEvent
     public bool ClosedBeforePaint { get; internal init; }
 
     /// <summary>Gets the rule of the <c>W</c> or <c>W*</c> in this path object, or <see langword="null"/> when there is none.</summary>
+    /// <remarks>A <c>W</c> or <c>W*</c> written before the path (a §8.2 Figure 9 violation, recorded as a diagnostic) is pending until this paint and reported here too.</remarks>
     public FillRule? PendingClip { get; internal init; }
 
     /// <summary>Gets a value indicating whether optional content hides the path (§8.11.3.1); reported only to processors that ask for <see cref="ContentEvents.HiddenContent"/>.</summary>

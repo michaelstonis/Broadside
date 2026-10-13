@@ -22,6 +22,7 @@
   ccitt-g4-truncated.pdf,
   ccitt-g4.pdf,
   ccitt-inline.pdf,
+  clip-before-path.pdf,
   clipping-paths.pdf,
   collection-portfolio.pdf,
   color-operators.pdf,
