@@ -75,6 +75,29 @@ public class PdfAttributeObject
         return ViewReading.Get(Document, Dictionary, name);
     }
 
+    /// <summary>Sets the attribute <paramref name="name"/> to <paramref name="value"/>, or removes it.</summary>
+    /// <param name="name">The attribute name, such as <c>TextAlign</c>.</param>
+    /// <param name="value">The value, stored as given; <see langword="null"/> or <see cref="CosNull"/> removes the attribute.</param>
+    /// <exception cref="ArgumentException"><paramref name="name"/> is <c>O</c>, the owner, which an attribute object keeps.</exception>
+    /// <remarks>ISO 32000-2 §14.7.6.1, Table 360; the standard attributes and their values are in §14.8.5 (Tables 376-385).</remarks>
+    public void SetValue(CosName name, CosObject? value)
+    {
+        ArgumentNullException.ThrowIfNull(name);
+        if (StructureNames.O.Equals(name))
+        {
+            throw new ArgumentException("The owner (O) of an attribute object is fixed when it is added.", nameof(name));
+        }
+
+        if (value is null or CosNull)
+        {
+            Dictionary.Remove(name);
+        }
+        else
+        {
+            Dictionary[name] = value;
+        }
+    }
+
     /// <summary>Creates the view for an attribute object, typed by its owner.</summary>
     internal static PdfAttributeObject Create(StructureContext context, CosObject source, CosReference? reference, int revision)
     {

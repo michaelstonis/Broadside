@@ -43,14 +43,31 @@ internal readonly record struct Kid(KidKind Kind, CosDictionary? Dictionary, Cos
 internal static class KidReader
 {
     /// <summary>The raw entries of <paramref name="owner"/>'s <c>K</c>, references kept.</summary>
-    public static IReadOnlyList<CosObject> Entries(StructureContext context, CosDictionary owner)
+    /// <param name="context">The structure state.</param>
+    /// <param name="owner">The element or root.</param>
+    /// <param name="stamps">When given, records <paramref name="owner"/>, its <c>K</c> array and every dictionary in it.</param>
+    public static IReadOnlyList<CosObject> Entries(StructureContext context, CosDictionary owner, StructureStamps? stamps = null)
     {
+        stamps?.Add(owner);
         if (!owner.TryGetValue(StructureNames.K, out CosObject? value))
         {
             return [];
         }
 
-        return context.Resolve(value) switch
+        CosObject resolved = context.Resolve(value);
+        if (stamps is not null)
+        {
+            stamps.Add(resolved);
+            if (resolved is CosArray items)
+            {
+                foreach (CosObject item in items)
+                {
+                    stamps.Add(item is CosReference ? context.Resolve(item) : item);
+                }
+            }
+        }
+
+        return resolved switch
         {
             CosArray array => array,
             CosNull => [],
