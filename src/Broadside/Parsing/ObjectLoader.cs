@@ -148,7 +148,8 @@ internal sealed class ObjectLoader
     /// <summary>
     /// Gets the object number <see cref="Add"/> gives the next new object, without taking it: the lowest number above every number
     /// the file lists, its trailer's <c>Size</c> and every added object, that no reference in the document names. Every new indirect
-    /// object of a document is numbered here: added objects and a save's new encryption dictionary.
+    /// object of a document is numbered here: added objects and a save's new encryption dictionary (and, through
+    /// <see cref="NextNumberFrom"/>, the streams a save adds).
     /// </summary>
     /// <remarks>
     /// ISO 32000-2 §7.3.10: a reference to an undefined object is a reference to the null object, so a new object must not take the
@@ -156,19 +157,27 @@ internal sealed class ObjectLoader
     /// numbers references name are found once, on first use, by reading every object the file lists; only those at or above the
     /// first unused number are kept, so a well-formed file keeps an empty set.
     /// </remarks>
-    public int NextNumber
-    {
-        get
-        {
-            int next = _nextNumber != 0 ? _nextNumber : FirstUnusedNumber();
-            HashSet<int> referenced = Volatile.Read(ref _referencedAbove) ?? FindReferencedNumbers();
-            while (next < int.MaxValue && referenced.Contains(next))
-            {
-                next++;
-            }
+    public int NextNumber => NextNumberFrom(0);
 
-            return next;
+    /// <summary>
+    /// Gets the lowest object number at or above both <paramref name="lowest"/> and every number <see cref="NextNumber"/> stays
+    /// above, that no reference in the document names, without taking it. A save numbers the object streams and the
+    /// cross-reference stream it adds here (§7.5.7, §7.5.8), above the objects it writes, so they never take a dangling
+    /// reference's number either (issue #295); the next added object's number is unchanged.
+    /// </summary>
+    /// <param name="lowest">The lowest number the caller may take.</param>
+    /// <returns>The number, or <see cref="int.MaxValue"/> when no number is left.</returns>
+    /// <remarks>ISO 32000-2 §7.3.10.</remarks>
+    public int NextNumberFrom(int lowest)
+    {
+        int next = Math.Max(lowest, _nextNumber != 0 ? _nextNumber : FirstUnusedNumber());
+        HashSet<int> referenced = Volatile.Read(ref _referencedAbove) ?? FindReferencedNumbers();
+        while (next < int.MaxValue && referenced.Contains(next))
+        {
+            next++;
         }
+
+        return next;
     }
 
     /// <summary>

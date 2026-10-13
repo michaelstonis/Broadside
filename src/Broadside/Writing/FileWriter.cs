@@ -164,6 +164,15 @@ internal sealed class FileWriter
         _update = update;
     }
 
+    /// <summary>
+    /// Gets the numbers of the object streams and the cross-reference stream the writer adds (§7.5.7, §7.5.8): given the lowest
+    /// number one may take (one above every number written or freed), the number it takes. A file whose references are written as
+    /// they are numbers them through the document's allocator (<see cref="ObjectLoader.NextNumberFrom"/>), so none takes the number
+    /// of a dangling reference, which must stay null (§7.3.10, issue #295). <see langword="null"/> takes the lowest number: a
+    /// renumbered file writes every reference to an object it does not hold as <c>null</c>, so no reference can reach them.
+    /// </summary>
+    public Func<int, int>? StreamNumbers { get; init; }
+
     /// <summary>Gets what an incremental update appended, once <see cref="Write"/> has been enumerated to the end; otherwise <see langword="null"/>.</summary>
     public UpdateResult? Update { get; private set; }
 
@@ -284,7 +293,8 @@ internal sealed class FileWriter
         int nextNumber = maxNumber + 1;
         for (int start = 0; start < compressible.Count; start += ObjectStreamCapacity)
         {
-            int container = nextNumber++;
+            int container = StreamNumber(nextNumber);
+            nextNumber = container + 1;
             int count = Math.Min(ObjectStreamCapacity, compressible.Count - start);
             for (int index = 0; index < count; index++)
             {
@@ -318,13 +328,25 @@ internal sealed class FileWriter
 
         XrefSection section = _layout == PdfCrossReferenceLayout.Table
             ? WriteTable(buffer, entries, nextNumber, flushed, origin, identifier)
-            : WriteStream(buffer, entries, nextNumber, flushed, origin, identifier);
+            : WriteStream(buffer, entries, StreamNumber(nextNumber), flushed, origin, identifier);
         if (_update is not null)
         {
             Update = new UpdateResult(ReadOnlyMemory<byte>.Empty, section, _update.PreviousSection is null, written);
         }
 
         yield return buffer.WrittenMemory;
+    }
+
+    /// <summary>The number of a stream the writer adds, at or above <paramref name="lowest"/>, through <see cref="StreamNumbers"/>.</summary>
+    private int StreamNumber(int lowest)
+    {
+        int number = StreamNumbers?.Invoke(lowest) ?? lowest;
+        if (number < lowest || number == int.MaxValue)
+        {
+            throw new InvalidOperationException("The document has no object number left for the streams the save adds.");
+        }
+
+        return number;
     }
 
     /// <summary>Whether an object may be stored in an object stream (§7.5.7): not a stream, and not the encryption dictionary.</summary>
