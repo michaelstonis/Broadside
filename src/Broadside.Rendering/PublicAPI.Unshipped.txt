@@ -57,3 +57,6 @@ Broadside.Rendering.Icc.IccProfile.ChromaticAdaptation.get -> System.Collections
 Broadside.Rendering.Icc.IccProfile.TryConvertFromConnectionSpace(System.ReadOnlySpan<float> connection, System.Span<float> device, Broadside.Graphics.RenderingIntent intent = Broadside.Graphics.RenderingIntent.RelativeColorimetric) -> bool
 Broadside.Rendering.Icc.IccProfile.TryConvertToConnectionSpace(System.ReadOnlySpan<float> device, System.Span<float> connection, Broadside.Graphics.RenderingIntent intent = Broadside.Graphics.RenderingIntent.RelativeColorimetric) -> bool
 Broadside.Rendering.Icc.IccProfileModel.LookupTable = 3 -> Broadside.Rendering.Icc.IccProfileModel
+Broadside.Rendering.RenderOptions.ForceOutlines.get -> bool
+Broadside.Rendering.RenderOptions.ForceOutlines.set -> void
+Broadside.Rendering.RenderOptions.WithForceOutlines(bool forceOutlines) -> Broadside.Rendering.RenderOptions!

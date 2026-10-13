@@ -25,6 +25,9 @@ internal enum DisplayOperationKind : byte
 
     /// <summary><see cref="IRenderingBackend.DrawImage"/>; <see cref="DisplayOperation.First"/> indexes the images, <see cref="DisplayOperation.Second"/> the image paints.</summary>
     DrawImage,
+
+    /// <summary><see cref="IRenderingBackend.DrawGlyphs"/>; <see cref="DisplayOperation.First"/> indexes the glyph runs.</summary>
+    DrawGlyphs,
 }
 
 /// <summary>One record of a display list: a kind and up to two indexes into the list's tables, 16 bytes.</summary>
@@ -55,3 +58,16 @@ internal readonly record struct DisplayStroke(
 
 /// <summary>What one paint of an interned image depends on beyond the image: the default colour spaces and the conversion at the paint.</summary>
 internal readonly record struct DisplayImagePaint(PdfDefaultColorSpaces DefaultColorSpaces, ColorConversion Conversion);
+
+/// <summary>
+/// A run of glyphs in a display list: the program and font matrix, the rendering mode, a slice of the list's glyphs, and the fill
+/// colour (−1 when the run is not filled) and stroke record (−1 when it is not stroked) it is painted with.
+/// </summary>
+internal readonly record struct DisplayGlyphRun(
+    Fonts.FontProgram? Program,
+    Matrix FontMatrix,
+    TextRenderingMode Mode,
+    int GlyphStart,
+    int GlyphCount,
+    int FillColor,
+    int Stroke);

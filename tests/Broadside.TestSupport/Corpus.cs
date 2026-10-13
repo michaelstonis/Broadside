@@ -12,6 +12,7 @@ public static class Corpus
         "pdf20-header.pdf",
         "text-standard14.pdf",
         "text-truetype-embedded.pdf",
+        "text-render-modes.pdf",
         "text-standard14-differences.pdf",
         "text-standard14-winansi-quirks.pdf",
         "text-standard14-macroman.pdf",
