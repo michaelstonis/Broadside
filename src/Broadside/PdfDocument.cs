@@ -576,14 +576,16 @@ public sealed partial class PdfDocument : IDisposable
 
     /// <summary>
     /// Makes <paramref name="value"/> a new indirect object of the document and returns the reference to it: the next object number
-    /// the file does not use, generation 0.
+    /// the file does not use and no reference in it names, generation 0.
     /// </summary>
     /// <param name="value">The object; a stream must be indirect, so this is how a new stream joins the document.</param>
     /// <returns>The reference, which <see cref="Resolve"/> resolves to <paramref name="value"/> at once.</returns>
     /// <exception cref="ArgumentException"><paramref name="value"/> is a <see cref="CosReference"/>, which an indirect object cannot be.</exception>
     /// <exception cref="InvalidOperationException">The document has used every object number.</exception>
     /// <remarks>
-    /// ISO 32000-2 §7.3.10. Place the reference in the document (a dictionary entry, an array element) for the object to be reached.
+    /// ISO 32000-2 §7.3.10 and §7.5.4. Place the reference in the document (a dictionary entry, an array element) for the object to be reached.
+    /// A reference to an object the file does not hold is a reference to null, and stays one: the new object never takes its number.
+    /// The first call reads every object of the file once to find such references.
     /// The next save writes the object whether or not anything refers to it, unless it drops unreachable objects
     /// (<see cref="PdfSaveOptions.RemoveUnreachableObjects"/>). A mutation: no read may run concurrently with it.
     /// </remarks>

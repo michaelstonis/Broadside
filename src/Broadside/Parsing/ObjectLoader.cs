@@ -54,6 +54,7 @@ internal sealed class ObjectLoader
     private ConcurrentDictionary<CosReference, ObjectSourceBytes>? _sourceBytes;
     private Dictionary<int, CosObject>? _added;
     private Dictionary<int, int>? _removed;
+    private HashSet<int>? _referencedAbove;
     private int _nextNumber;
 
     /// <summary>Initializes a new instance of the <see cref="ObjectLoader"/> class.</summary>
@@ -145,12 +146,39 @@ internal sealed class ObjectLoader
     }
 
     /// <summary>
-    /// Makes <paramref name="value"/> a new indirect object under the next unused object number, generation 0 (§7.3.10), resolvable
-    /// at once. A mutation: single-threaded, like every change to a document.
+    /// Gets the object number <see cref="Add"/> gives the next new object, without taking it: the lowest number above every number
+    /// the file lists, its trailer's <c>Size</c> and every added object, that no reference in the document names. Every new indirect
+    /// object of a document is numbered here: added objects and a save's new encryption dictionary.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.3.10: a reference to an undefined object is a reference to the null object, so a new object must not take the
+    /// number of a dangling reference (a damaged file's <c>Kids [3 0 R 4 0 R]</c> with no object 4 would gain a page on save). The
+    /// numbers references name are found once, on first use, by reading every object the file lists; only those at or above the
+    /// first unused number are kept, so a well-formed file keeps an empty set.
+    /// </remarks>
+    public int NextNumber
+    {
+        get
+        {
+            int next = _nextNumber != 0 ? _nextNumber : FirstUnusedNumber();
+            HashSet<int> referenced = Volatile.Read(ref _referencedAbove) ?? FindReferencedNumbers();
+            while (next < int.MaxValue && referenced.Contains(next))
+            {
+                next++;
+            }
+
+            return next;
+        }
+    }
+
+    /// <summary>
+    /// Makes <paramref name="value"/> a new indirect object under <see cref="NextNumber"/>, generation 0 (§7.3.10), resolvable at
+    /// once. A mutation: single-threaded, like every change to a document.
     /// </summary>
     /// <param name="value">The object.</param>
     /// <returns>The reference to the new object.</returns>
     /// <exception cref="ArgumentException"><paramref name="value"/> is a reference, which an indirect object cannot be.</exception>
+    /// <exception cref="InvalidOperationException">Every object number is used.</exception>
     public CosReference Add(CosObject value)
     {
         ArgumentNullException.ThrowIfNull(value);
@@ -159,18 +187,15 @@ internal sealed class ObjectLoader
             throw new ArgumentException("An indirect object cannot be a reference.", nameof(value));
         }
 
-        if (_nextNumber == 0)
-        {
-            _nextNumber = FirstUnusedNumber();
-        }
-
-        if (_nextNumber == int.MaxValue)
+        int number = NextNumber;
+        if (number == int.MaxValue)
         {
             throw new InvalidOperationException("The document has no object number left for a new object.");
         }
 
-        var reference = new CosReference(_nextNumber++, 0);
-        (_added ??= [])[reference.ObjectNumber] = value;
+        _nextNumber = number + 1;
+        var reference = new CosReference(number, 0);
+        (_added ??= [])[number] = value;
         Hooks.Cache.Publish(reference, value);
         return reference;
     }
@@ -268,6 +293,62 @@ internal sealed class ObjectLoader
         }
 
         return (int)Math.Min(next, int.MaxValue);
+    }
+
+    /// <summary>
+    /// Reads the trailer and every object the file lists (and every added one) once, and keeps the object numbers their references
+    /// name at or above <see cref="FirstUnusedNumber"/>: the dangling references a new object must not come to reach. Lower numbers
+    /// are listed, so never handed out. The set outlives <see cref="Rebase"/>, which only raises the first unused number.
+    /// </summary>
+    private HashSet<int> FindReferencedNumbers()
+    {
+        int floor = FirstUnusedNumber();
+        var numbers = new HashSet<int>();
+        var pending = new Stack<CosObject>();
+        pending.Push(CrossReference.Trailer);
+        foreach ((int number, XrefEntry entry) in CrossReference.Entries)
+        {
+            if (entry.Kind != XrefEntryKind.Free && (_removed is null || !_removed.ContainsKey(number)))
+            {
+                pending.Push(Load(new CosReference(number, entry.Kind == XrefEntryKind.InUse ? entry.Generation : 0)));
+            }
+        }
+
+        foreach (CosObject value in AddedObjects.Values)
+        {
+            pending.Push(value);
+        }
+
+        while (pending.TryPop(out CosObject? item))
+        {
+            switch (item)
+            {
+                case CosReference reference when reference.ObjectNumber >= floor:
+                    numbers.Add(reference.ObjectNumber);
+                    break;
+                case CosArray array:
+                    foreach (CosObject element in array)
+                    {
+                        pending.Push(element);
+                    }
+
+                    break;
+                case CosDictionary dictionary:
+                    foreach (CosObject element in dictionary.Values)
+                    {
+                        pending.Push(element);
+                    }
+
+                    break;
+                case CosStream stream:
+                    pending.Push(stream.Dictionary);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return Interlocked.CompareExchange(ref _referencedAbove, numbers, null) ?? numbers;
     }
 
     /// <summary>

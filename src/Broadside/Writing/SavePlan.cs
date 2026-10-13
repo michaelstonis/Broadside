@@ -132,13 +132,13 @@ internal static class SavePlan
 
         if (encryption.NewDictionary is { } dictionary)
         {
-            // The new encryption dictionary: an indirect object numbered above every number the file lists or refers to (Table 15);
-            // a dangling reference in a damaged file must not come to reach it (fuzz finding).
-            HashSet<int> referenced = ReferencedNumbers(trailer, kept);
-            int number = 1 + Math.Max(Highest(kept, freeGenerations), crossReference.Entries.Keys.DefaultIfEmpty(0).Max());
-            while (referenced.Contains(number))
+            // The new encryption dictionary: an indirect object numbered as the next added object would be, above every number the
+            // file lists or refers to (§7.3.10, Table 15); a dangling reference in a damaged file must not come to reach it (fuzz
+            // finding). The number is not taken: the document does not change.
+            int number = loader.NextNumber;
+            if (number == int.MaxValue)
             {
-                number++;
+                throw new InvalidOperationException("The document has no object number left for the encryption dictionary.");
             }
 
             var reference = new CosReference(number, 0);
@@ -491,49 +491,6 @@ internal static class SavePlan
         }
 
         return [.. loaded.OrderBy(pair => pair.Key.ObjectNumber).Select(pair => (pair.Key, pair.Value))];
-    }
-
-    /// <summary>The object numbers the trailer and the kept objects refer to.</summary>
-    private static HashSet<int> ReferencedNumbers(CosDictionary trailer, List<(CosReference Reference, CosObject Value)> kept)
-    {
-        var numbers = new HashSet<int>();
-        var pending = new Stack<CosObject>();
-        pending.Push(trailer);
-        foreach ((_, CosObject value) in kept)
-        {
-            pending.Push(value);
-        }
-
-        while (pending.TryPop(out CosObject? item))
-        {
-            switch (item)
-            {
-                case CosReference reference:
-                    numbers.Add(reference.ObjectNumber);
-                    break;
-                case CosArray array:
-                    foreach (CosObject element in array)
-                    {
-                        pending.Push(element);
-                    }
-
-                    break;
-                case CosDictionary dictionary:
-                    foreach (CosObject element in dictionary.Values)
-                    {
-                        pending.Push(element);
-                    }
-
-                    break;
-                case CosStream stream:
-                    pending.Push(stream.Dictionary);
-                    break;
-                default:
-                    break;
-            }
-        }
-
-        return numbers;
     }
 
     /// <summary>Whether every reference <paramref name="value"/> holds is written unchanged, so its source bytes stay right.</summary>
