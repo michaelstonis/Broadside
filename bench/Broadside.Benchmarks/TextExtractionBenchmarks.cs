@@ -7,8 +7,8 @@ namespace Broadside.Benchmarks;
 /// <summary>
 /// Extracts about 10,000 glyphs in Helvetica (the content of <see cref="TextShowBenchmarks"/>) with their Unicode text, quads and
 /// flags (ISO 32000-2 §9.4.4, §9.10). <see cref="ExtractReused"/> reuses one <see cref="TextExtractor"/>: a hot path whose
-/// <c>Allocated</c> must read <c>-</c>. <see cref="ExtractText"/> is the one-call API, which allocates the extractor and the
-/// <see cref="TextPage"/> it returns.
+/// <c>Allocated</c> must read <c>-</c>. <see cref="ExtractText"/> is the one-call API, which reuses its thread's extractor and
+/// allocates the <see cref="TextPage"/> it returns: its glyph array and text, and little more (issue #284).
 /// </summary>
 [MemoryDiagnoser]
 public class TextExtractionBenchmarks

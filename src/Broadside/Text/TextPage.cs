@@ -76,9 +76,17 @@ public sealed class TextPage
             return assembled;
         }
 
-        var layout = new TextLayout();
-        layout.Build(_glyphs, Text);
-        assembled = new Assembled(layout.Words.ToArray(), layout.Lines.ToArray(), new string(layout.PlainText));
+        // Issue #284: the thread's layout is reused, so only the words, lines and plain text kept here are allocated.
+        TextLayout layout = TextLayout.Rent();
+        try
+        {
+            layout.Build(_glyphs, Text);
+            assembled = new Assembled(layout.Words.ToArray(), layout.Lines.ToArray(), new string(layout.PlainText));
+        }
+        finally
+        {
+            TextLayout.Return(layout);
+        }
 
         // Immutable once built: a thread losing the race returns the first one published, an equal copy.
         return Interlocked.CompareExchange(ref _assembled, assembled, null) ?? assembled;
