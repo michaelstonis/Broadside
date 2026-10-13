@@ -8,12 +8,20 @@ namespace Broadside.Structure;
 /// <para>
 /// ISO 32000-2 §14.7.2, Table 354. A live view over the structure tree root dictionary (ADR 0004): <see cref="Children"/> and the map
 /// properties read it on every call. The lookups (<see cref="FindElement(PdfPage, int)"/>, <see cref="FindElementById(ReadOnlySpan{byte})"/>,
-/// <see cref="Elements"/>) use indexes built on first use and kept: they are a snapshot of the tree as it was then, safe to use from
-/// several threads while nobody changes the document. Replacing the catalog's <c>StructTreeRoot</c> starts a new snapshot.
+/// <see cref="Elements"/>) use indexes built on first use and kept while every object they were built from keeps its version: an edit,
+/// through this API or directly on the COS objects, is seen by the next lookup. They are safe to use from several threads while
+/// nobody changes the document.
 /// </para>
 /// <para>
 /// Reading never changes the file's objects; every repair (a wrong <c>P</c>, a missing <c>Pg</c>, a cycle) is made in the view and
 /// recorded as a diagnostic when the part concerned is first read.
+/// </para>
+/// <para>
+/// Writing (issue #156): <see cref="PdfDocument.CreateStructureTree"/> starts a tree; <see cref="AddElement(PdfStructureType)"/>,
+/// <see cref="PdfStructureElement.AddElement(PdfStructureType)"/>, <see cref="PdfStructureElement.AddMarkedContent(PdfPage)"/> and
+/// <see cref="PdfStructureElement.AddObjectReference"/> grow it, keeping the parent tree and <c>ParentTreeNextKey</c> in step; role
+/// maps, namespaces, class maps, attributes, IDs and the text entries are edited in place. New objects are made with
+/// <see cref="PdfDocument.AddObject"/>, so both full and incremental saves write them.
 /// </para>
 /// </remarks>
 public sealed class PdfStructureTreeRoot
@@ -98,8 +106,132 @@ public sealed class PdfStructureTreeRoot
     public IReadOnlyList<PdfFileSpecification> AssociatedFiles => _context.Document.ReadAssociatedFiles(Dictionary, Reference);
 
     /// <summary>Gets every element reachable from the root, in document order: depth first, each element before its children, children in <c>K</c> order; an element reachable twice is listed once.</summary>
-    /// <remarks>ISO 32000-2 §14.7.2, §14.8.2.5 (logical order). A snapshot, built once.</remarks>
+    /// <remarks>ISO 32000-2 §14.7.2, §14.8.2.5 (logical order). A snapshot, built on first use and again after the tree changes.</remarks>
     public IReadOnlyList<PdfStructureElement> Elements => _context.Walk.Elements;
+
+    /// <summary>Gets the parent tree (<c>ParentTree</c>): content streams' <c>StructParents</c> and objects' <c>StructParent</c> keys to their elements; <see langword="null"/> when there is none.</summary>
+    /// <remarks>ISO 32000-2 Table 354, §14.7.5.4. Kept up to date by the methods that add and remove content items.</remarks>
+    public PdfNumberTree? ParentTree => Dictionary.TryGetValue(StructureNames.ParentTree, out CosObject? value) ? _context.Document.GetNumberTree(value) : null;
+
+    /// <summary>Gets the ID tree (<c>IDTree</c>): element identifiers to elements; <see langword="null"/> when there is none.</summary>
+    /// <remarks>ISO 32000-2 Table 354. Kept up to date by <see cref="PdfStructureElement.Id"/>.</remarks>
+    public PdfNameTree? IdTree => Dictionary.TryGetValue(StructureNames.IDTree, out CosObject? value) ? _context.Document.GetNameTree(value) : null;
+
+    /// <summary>Gets the lowest PDF version that has everything the tree uses.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §14.7.2 (structure trees, PDF 1.3), Table 353 (tagged PDF, <c>MarkInfo</c>, PDF 1.4), Table 355 (<c>Lang</c> and
+    /// <c>ActualText</c> PDF 1.4, <c>E</c> PDF 1.5, <c>NS</c>, <c>Ref</c>, <c>AF</c>, <c>Phoneme</c> and <c>PhoneticAlphabet</c> PDF 2.0),
+    /// Table 354 (<c>Namespaces</c>, <c>PronunciationLexicon</c>, <c>AF</c>, PDF 2.0). Reads every element reachable from the root.
+    /// </remarks>
+    public PdfVersion MinimumVersion
+    {
+        get
+        {
+            var pdf20 = new PdfVersion(2, 0);
+            if (Dictionary.ContainsKey(StructureNames.Namespaces) || Dictionary.ContainsKey(StructureNames.PronunciationLexicon) || Dictionary.ContainsKey(StructureNames.AF))
+            {
+                return pdf20;
+            }
+
+            PdfVersion version = _context.Document.MarkInfo.Marked ? new PdfVersion(1, 4) : new PdfVersion(1, 3);
+            foreach (PdfStructureElement element in Elements)
+            {
+                CosDictionary entries = element.Dictionary;
+                if (entries.ContainsKey(StructureNames.NS) || entries.ContainsKey(StructureNames.Ref) || entries.ContainsKey(StructureNames.AF)
+                    || entries.ContainsKey(StructureNames.Phoneme) || entries.ContainsKey(StructureNames.PhoneticAlphabet))
+                {
+                    return pdf20;
+                }
+
+                if (entries.ContainsKey(StructureNames.E))
+                {
+                    version = version > new PdfVersion(1, 5) ? version : new PdfVersion(1, 5);
+                }
+                else if (entries.ContainsKey(StructureNames.Lang) || entries.ContainsKey(StructureNames.ActualText))
+                {
+                    version = version > new PdfVersion(1, 4) ? version : new PdfVersion(1, 4);
+                }
+            }
+
+            return version;
+        }
+    }
+
+    /// <summary>Adds a structure element of <paramref name="type"/> as the last top-level element.</summary>
+    /// <param name="type">The element's structure type and namespace.</param>
+    /// <returns>The new element: a new indirect object whose <c>P</c> is the root.</returns>
+    /// <exception cref="ArgumentException">The type's name is empty, or its namespace is a namespace dictionary of another document.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §14.7.2, Table 355; §14.7.4, §14.8.6.2. An element in the default namespace (<see cref="PdfStructureNamespace.Pdf17"/>)
+    /// gets no <c>NS</c> entry; any other gets an <c>NS</c> reference to a namespace dictionary listed in <see cref="Namespaces"/>, which is
+    /// added (PDF 2.0) when the document has none of that name. A mutation: no read may run concurrently with it.
+    /// </remarks>
+    public PdfStructureElement AddElement(PdfStructureType type) =>
+        StructureWriter.AddElement(_context, Dictionary, StructureWriter.RootReference(_context), null, type);
+
+    /// <summary>Adds a structure element of <paramref name="type"/>, in the default namespace, as the last top-level element.</summary>
+    /// <param name="type">The structure type, such as <c>Document</c>.</param>
+    /// <returns>The new element.</returns>
+    /// <remarks>ISO 32000-2 §14.7.2, Table 355. See <see cref="AddElement(PdfStructureType)"/>.</remarks>
+    public PdfStructureElement AddElement(string type) => AddElement(new PdfStructureType(type, PdfStructureNamespace.Pdf17));
+
+    /// <summary>Returns the namespace named <paramref name="name"/> that <see cref="Namespaces"/> lists, adding a namespace dictionary for it when there is none.</summary>
+    /// <param name="name">The namespace name, such as <see cref="PdfStructureNamespace.Pdf20Name"/>.</param>
+    /// <returns>The namespace, backed by its namespace dictionary in this document.</returns>
+    /// <remarks>ISO 32000-2 §14.7.4.2, Table 356 (PDF 2.0), Table 354 (<c>Namespaces</c>). A mutation when it adds one.</remarks>
+    public PdfStructureNamespace GetOrAddNamespace(string name) => StructureWriter.GetOrAddNamespace(_context, name);
+
+    /// <summary>Maps <paramref name="type"/>, a structure type of the default namespace, to <paramref name="target"/> in the root's <c>RoleMap</c>.</summary>
+    /// <param name="type">The type used in the document, such as a custom <c>Para</c>.</param>
+    /// <param name="target">The type it maps to, such as <c>P</c>.</param>
+    /// <remarks>
+    /// ISO 32000-2 Table 354 (<c>RoleMap</c>), §14.7.3: every type of the default namespace is mapped through the role map, even a
+    /// standard one. Types of other namespaces map through their namespace (<see cref="PdfStructureNamespace.MapRole"/>). Replaces an
+    /// earlier mapping of the type.
+    /// </remarks>
+    public void MapRole(CosName type, CosName target)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(target);
+        if (RoleMap is { } map)
+        {
+            map[type] = target;
+        }
+        else
+        {
+            Dictionary[StructureNames.RoleMap] = new CosDictionary { [type] = target };
+        }
+    }
+
+    /// <summary>Removes the role mapping of <paramref name="type"/> from the root's <c>RoleMap</c>.</summary>
+    /// <param name="type">The type.</param>
+    /// <returns><see langword="true"/> when a mapping was removed.</returns>
+    /// <remarks>ISO 32000-2 Table 354, §14.7.3.</remarks>
+    public bool RemoveRoleMapping(CosName type)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        return RoleMap is { } map && map.Remove(type);
+    }
+
+    /// <summary>Adds an attribute object of <paramref name="owner"/> to the attribute class <paramref name="className"/> in the root's <c>ClassMap</c>.</summary>
+    /// <param name="className">The class name, which elements name in their <c>C</c> entry (<see cref="PdfStructureElement.AddClassName"/>).</param>
+    /// <param name="owner">The attribute owner, such as <c>Layout</c>.</param>
+    /// <returns>The new, empty attribute object; set its values with <see cref="PdfAttributeObject.SetValue"/>.</returns>
+    /// <remarks>ISO 32000-2 Table 354 (<c>ClassMap</c>), §14.7.6.2. A class with several attribute objects holds an array of them.</remarks>
+    public PdfAttributeObject AddClassAttributes(CosName className, CosName owner)
+    {
+        ArgumentNullException.ThrowIfNull(className);
+        ArgumentNullException.ThrowIfNull(owner);
+        if (ClassMap is not { } map)
+        {
+            map = new CosDictionary();
+            Dictionary[StructureNames.ClassMap] = map;
+        }
+
+        var attributes = new CosDictionary { [StructureNames.O] = owner };
+        StructureWriter.AppendTo(_context, map, className, attributes);
+        return PdfAttributeObject.Create(_context, attributes, null, 0);
+    }
 
     /// <summary>Returns a view over the structure element <paramref name="dictionary"/>, wherever it is in the tree.</summary>
     /// <param name="dictionary">The structure element dictionary.</param>
@@ -155,7 +287,7 @@ public sealed class PdfStructureTreeRoot
     /// <summary>Returns the MCID-to-element map of the content of <paramref name="page"/>.</summary>
     /// <param name="page">The page.</param>
     /// <returns>The elements owning the page's marked-content content items, by MCID.</returns>
-    /// <remarks>ISO 32000-2 §14.7.5.4. Built once per page on first use.</remarks>
+    /// <remarks>ISO 32000-2 §14.7.5.4. Built once per page on first use, and again after the tree or the parent tree changes.</remarks>
     public IReadOnlyDictionary<int, PdfStructureElement> GetMarkedContentElements(PdfPage page)
     {
         ArgumentNullException.ThrowIfNull(page);
@@ -165,7 +297,7 @@ public sealed class PdfStructureTreeRoot
     /// <summary>Returns the MCID-to-element map of <paramref name="contentStream"/>.</summary>
     /// <param name="contentStream">A form XObject or other content stream with its own <c>StructParents</c>.</param>
     /// <returns>The elements owning its marked-content content items, by MCID.</returns>
-    /// <remarks>ISO 32000-2 §14.7.5.4. Built once per stream on first use.</remarks>
+    /// <remarks>ISO 32000-2 §14.7.5.4. Built once per stream on first use, and again after the tree or the parent tree changes.</remarks>
     public IReadOnlyDictionary<int, PdfStructureElement> GetMarkedContentElements(CosStream contentStream)
     {
         ArgumentNullException.ThrowIfNull(contentStream);

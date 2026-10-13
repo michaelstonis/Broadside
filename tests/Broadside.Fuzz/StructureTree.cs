@@ -33,7 +33,42 @@ internal static class StructureTree
         if (document is not null)
         {
             Walk(document);
+            Edit(document);
         }
+    }
+
+    /// <summary>
+    /// Edits the tree read (issue #156) and reads it again: a new element with an allocated MCID on the first page and an ID, and the
+    /// last top-level element removed. Invariants: edits on any tree a lenient open accepts succeed; the reader sees them at once (the
+    /// new element owns its MCID, is found by its ID, and the removed element is gone from <see cref="PdfStructureTreeRoot.Elements"/>).
+    /// </summary>
+    private static void Edit(PdfDocument document)
+    {
+        if (document.StructureTree is not { } root || document.Pages.Count == 0 || document.Pages[0].Reference is null)
+        {
+            return;
+        }
+
+        PdfPage page = document.Pages[0];
+        IReadOnlyList<PdfStructureElement> children = root.Children;
+        PdfStructureElement? removed = children.Count > 0 && root.Elements.Contains(children[^1]) ? children[^1] : null;
+        removed?.Remove();
+
+        PdfStructureElement added = root.AddElement(new PdfStructureType("P", PdfStructureNamespace.Pdf20));
+        int mcid = added.AddMarkedContent(page).Mcid;
+        byte[] id = Guid.NewGuid().ToByteArray();
+        added.Id = new CosString(id);
+        if (!added.Equals(root.FindElement(page, mcid)) || !added.Equals(root.FindElementById(id)))
+        {
+            throw new InvalidOperationException("A written element is not found through the parent tree or the ID tree.");
+        }
+
+        if (removed is not null && root.Elements.Contains(removed))
+        {
+            throw new InvalidOperationException("A removed element is still reachable.");
+        }
+
+        Walk(document);
     }
 
     private static PdfDocument? OpenOrNull(byte[] file)

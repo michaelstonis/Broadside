@@ -69,6 +69,9 @@ public sealed class PdfStructureNamespace : IEquatable<PdfStructureNamespace>
     /// <summary>Gets the indirect reference to the namespace dictionary, when it was reached through one.</summary>
     public CosReference? Reference { get; }
 
+    /// <summary>The document of a namespace dictionary; <see langword="null"/> for the standard namespaces.</summary>
+    internal PdfDocument? Document => _context?.Document;
+
     /// <summary>Gets the namespace name (<c>NS</c>), conventionally a URI; empty when the dictionary has none.</summary>
     /// <remarks>ISO 32000-2 §14.7.4.2, Table 356 (required, PDF 2.0).</remarks>
     public string Name => Dictionary is null
@@ -102,6 +105,47 @@ public sealed class PdfStructureNamespace : IEquatable<PdfStructureNamespace>
     /// <c>[name namespace]</c> naming a type in another namespace.
     /// </remarks>
     public CosDictionary? RoleMap => Dictionary is null ? null : ViewReading.Get(_context?.Document, Dictionary, StructureNames.RoleMapNS) as CosDictionary;
+
+    /// <summary>Maps <paramref name="type"/>, a structure type of this namespace, to <paramref name="target"/> in the namespace's role map (<c>RoleMapNS</c>).</summary>
+    /// <param name="type">The type in this namespace.</param>
+    /// <param name="target">The type it maps to: written as a name when it is in the default namespace, else as <c>[name namespace]</c>.</param>
+    /// <exception cref="InvalidOperationException">
+    /// This is one of the standard namespace objects (<see cref="Pdf17"/>, <see cref="Pdf20"/>, <see cref="MathML"/>), which have no
+    /// dictionary: take the document's namespace from <see cref="PdfStructureTreeRoot.GetOrAddNamespace(string)"/>. The default
+    /// namespace maps through <see cref="PdfStructureTreeRoot.MapRole(CosName, CosName)"/> instead.
+    /// </exception>
+    /// <remarks>ISO 32000-2 §14.7.4.2, Table 356 (<c>RoleMapNS</c>), §14.8.6.2; ISO/TS 32005 §5.6. Replaces an earlier mapping of the type.</remarks>
+    public void MapRole(CosName type, PdfStructureType target)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        ArgumentNullException.ThrowIfNull(target);
+        if (Dictionary is null || _context is null)
+        {
+            throw new InvalidOperationException("A standard namespace object has no namespace dictionary to hold a role map; use the document's namespace from GetOrAddNamespace.");
+        }
+
+        CosObject value = StructureWriter.NamespaceReference(_context, target.Namespace) is { } ns
+            ? new CosArray { new CosName(target.Name), ns }
+            : new CosName(target.Name);
+        if (ViewReading.Get(_context.Document, Dictionary, StructureNames.RoleMapNS) is CosDictionary map)
+        {
+            map[type] = value;
+        }
+        else
+        {
+            Dictionary[StructureNames.RoleMapNS] = new CosDictionary { [type] = value };
+        }
+    }
+
+    /// <summary>Removes the role mapping of <paramref name="type"/> from the namespace's role map.</summary>
+    /// <param name="type">The type in this namespace.</param>
+    /// <returns><see langword="true"/> when a mapping was removed.</returns>
+    /// <remarks>ISO 32000-2 §14.7.4.2, Table 356.</remarks>
+    public bool RemoveRoleMapping(CosName type)
+    {
+        ArgumentNullException.ThrowIfNull(type);
+        return RoleMap is { } map && map.Remove(type);
+    }
 
     /// <summary>Gets the schema file specification (<c>Schema</c>), as its COS object, or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §14.7.4.2, Table 356.</remarks>

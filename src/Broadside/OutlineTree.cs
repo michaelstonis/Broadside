@@ -31,9 +31,11 @@ internal sealed class OutlineTree
 
     private readonly Dictionary<CosDictionary, Node> _nodes = new(ReferenceEqualityComparer.Instance);
     private readonly int _rootVersion;
+    private long _epoch;
 
     private OutlineTree(CosDictionary root, CosReference? rootReference)
     {
+        _epoch = CosMutation.Epoch;
         Root = root;
         RootReference = rootReference;
         _rootVersion = root.Version;
@@ -54,11 +56,23 @@ internal sealed class OutlineTree
     /// </summary>
     /// <remarks>
     /// The one place that decides whether the walk is reused: it compares the <c>Version</c> of the outline dictionary and of every
-    /// item dictionary reached with the one the walk recorded, allocating nothing. A cheaper global "nothing changed" test goes here.
+    /// item dictionary reached with the one the walk recorded, allocating nothing. The comparison is skipped while
+    /// <see cref="CosMutation.Epoch"/> has not moved since the walk was last found current.
     /// </remarks>
     public bool IsCurrent(CosDictionary root, CosReference? reference)
     {
-        if (!ReferenceEquals(root, Root) || !Equals(reference, RootReference) || root.Version != _rootVersion)
+        if (!ReferenceEquals(root, Root) || !Equals(reference, RootReference))
+        {
+            return false;
+        }
+
+        long epoch = CosMutation.Epoch;
+        if (Volatile.Read(ref _epoch) == epoch)
+        {
+            return true;
+        }
+
+        if (root.Version != _rootVersion)
         {
             return false;
         }
@@ -71,6 +85,7 @@ internal sealed class OutlineTree
             }
         }
 
+        Volatile.Write(ref _epoch, epoch);
         return true;
     }
 

@@ -257,8 +257,8 @@ public sealed partial class PdfDocument : IDisposable
     /// <remarks>
     /// ISO 32000-2 §7.7.2, Table 29 (<c>StructTreeRoot</c>), §14.7.2. Read when first asked for; an untagged document has no structure
     /// tree and no diagnostic. A <c>StructTreeRoot</c> that is not a dictionary is ignored with a <c>StructTreeRootInvalid</c> diagnostic.
-    /// The views share indexes built on first use (see <see cref="PdfStructureTreeRoot"/>); they are rebuilt when the catalog's
-    /// <c>StructTreeRoot</c> entry is replaced.
+    /// The views share indexes built on first use (see <see cref="PdfStructureTreeRoot"/>); they are rebuilt when anything they were
+    /// built from changes, and when the catalog's <c>StructTreeRoot</c> entry is replaced. <see cref="CreateStructureTree"/> adds one.
     /// </remarks>
     public PdfStructureTreeRoot? StructureTree
     {

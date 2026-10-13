@@ -3,7 +3,7 @@ using Broadside.Parsing;
 
 namespace Broadside.Structure;
 
-/// <summary>The MCID-to-element map of one content stream (a page or a form XObject), built once per stream.</summary>
+/// <summary>The MCID-to-element map of one content stream (a page or a form XObject), built once per stream and generation.</summary>
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §14.7.5.4, Table 359: the stream's <c>StructParents</c> is a key of the parent tree, whose value is an array indexed
@@ -28,9 +28,12 @@ internal sealed class MarkedContentIndex
 
     public IReadOnlyDictionary<int, PdfStructureElement> Elements { get; }
 
-    public static MarkedContentIndex Build(StructureContext context, CosObject owner)
+    public static MarkedContentIndex Build(StructureContext context, CosObject owner, StructureStamps stamps)
     {
         CosDictionary? ownerDictionary = owner as CosDictionary ?? (owner as CosStream)?.Dictionary;
+        stamps.Add(ownerDictionary);
+        stamps.Add(context.Root);
+        context.StampParentTree(stamps);
         int? key = ownerDictionary is null ? null : ViewReading.Int32(context.Document, ownerDictionary, StructureNames.StructParents);
         if (context.ParentTree is not { } tree)
         {
@@ -54,6 +57,7 @@ internal sealed class MarkedContentIndex
             return From(fromWalk);
         }
 
+        stamps.Add(array);
         var elements = new Dictionary<int, PdfStructureElement>();
         var owned = new Dictionary<CosDictionary, HashSet<int>>(ReferenceEqualityComparer.Instance);
         int count = Math.Min(array.Count, StructureContext.MaxParentTreeArray);
@@ -66,7 +70,7 @@ internal sealed class MarkedContentIndex
                 continue;
             }
 
-            if (resolved is CosDictionary dictionary && Owns(context, owned, dictionary, entry as CosReference, owner).Contains(mcid))
+            if (resolved is CosDictionary dictionary && Owns(context, owned, dictionary, entry as CosReference, owner, stamps).Contains(mcid))
             {
                 elements[mcid] = new PdfStructureElement(context, dictionary, entry as CosReference, null, parentKnown: false, depth: 0);
                 continue;
@@ -88,7 +92,7 @@ internal sealed class MarkedContentIndex
     private static MarkedContentIndex From(IReadOnlyDictionary<int, PdfStructureElement>? elements) => elements is null ? Empty : new MarkedContentIndex(elements);
 
     /// <summary>The MCIDs of <paramref name="owner"/>'s content that <paramref name="dictionary"/>'s <c>K</c> holds, read once per element.</summary>
-    private static HashSet<int> Owns(StructureContext context, Dictionary<CosDictionary, HashSet<int>> owned, CosDictionary dictionary, CosReference? reference, CosObject owner)
+    private static HashSet<int> Owns(StructureContext context, Dictionary<CosDictionary, HashSet<int>> owned, CosDictionary dictionary, CosReference? reference, CosObject owner, StructureStamps stamps)
     {
         if (owned.TryGetValue(dictionary, out HashSet<int>? mcids))
         {
@@ -96,6 +100,7 @@ internal sealed class MarkedContentIndex
         }
 
         mcids = [];
+        _ = KidReader.Entries(context, dictionary, stamps);
         var element = new PdfStructureElement(context, dictionary, reference, null, parentKnown: false, depth: 0);
         foreach (PdfStructureItem item in element.Children)
         {

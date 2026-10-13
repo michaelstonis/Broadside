@@ -3824,3 +3824,37 @@ Broadside.PdfPageCollection.Move(int fromIndex, int toIndex) -> void
 Broadside.PdfPageCollection.Remove(Broadside.PdfPage! page) -> bool
 Broadside.PdfPageCollection.RemoveAt(int index) -> void
 Broadside.PdfPage.Rotation.set -> void
+Broadside.PdfDocument.CreateStructureTree() -> Broadside.Structure.PdfStructureTreeRoot!
+Broadside.Structure.PdfAttributeObject.SetValue(Broadside.Objects.CosName! name, Broadside.Objects.CosObject? value) -> void
+Broadside.Structure.PdfMarkInfo.Marked.set -> void
+Broadside.Structure.PdfMarkInfo.Suspects.set -> void
+Broadside.Structure.PdfMarkInfo.UserProperties.set -> void
+Broadside.Structure.PdfStructureElement.ActualText.set -> void
+Broadside.Structure.PdfStructureElement.AddAttributes(Broadside.Objects.CosName! owner) -> Broadside.Structure.PdfAttributeObject!
+Broadside.Structure.PdfStructureElement.AddAttributes(Broadside.Structure.PdfStructureNamespace! ns) -> Broadside.Structure.PdfAttributeObject!
+Broadside.Structure.PdfStructureElement.AddClassName(Broadside.Objects.CosName! className) -> void
+Broadside.Structure.PdfStructureElement.AddElement(Broadside.Structure.PdfStructureType! type) -> Broadside.Structure.PdfStructureElement!
+Broadside.Structure.PdfStructureElement.AddElement(string! type) -> Broadside.Structure.PdfStructureElement!
+Broadside.Structure.PdfStructureElement.AddMarkedContent(Broadside.PdfPage! page) -> Broadside.Structure.PdfMarkedContentReference!
+Broadside.Structure.PdfStructureElement.AddMarkedContent(Broadside.PdfPage! page, Broadside.Graphics.PdfFormXObject! form) -> Broadside.Structure.PdfMarkedContentReference!
+Broadside.Structure.PdfStructureElement.AddMarkedContent(Broadside.PdfPage! page, Broadside.Graphics.PdfFormXObject! form, int mcid) -> Broadside.Structure.PdfMarkedContentReference!
+Broadside.Structure.PdfStructureElement.AddMarkedContent(Broadside.PdfPage! page, int mcid) -> Broadside.Structure.PdfMarkedContentReference!
+Broadside.Structure.PdfStructureElement.AddObjectReference(Broadside.Objects.CosReference! target, Broadside.PdfPage? page) -> Broadside.Structure.PdfObjectReference!
+Broadside.Structure.PdfStructureElement.AlternateDescription.set -> void
+Broadside.Structure.PdfStructureElement.Expansion.set -> void
+Broadside.Structure.PdfStructureElement.Id.set -> void
+Broadside.Structure.PdfStructureElement.Language.set -> void
+Broadside.Structure.PdfStructureElement.Remove() -> void
+Broadside.Structure.PdfStructureElement.SetStructureType(Broadside.Structure.PdfStructureType! type) -> void
+Broadside.Structure.PdfStructureElement.Title.set -> void
+Broadside.Structure.PdfStructureNamespace.MapRole(Broadside.Objects.CosName! type, Broadside.Structure.PdfStructureType! target) -> void
+Broadside.Structure.PdfStructureNamespace.RemoveRoleMapping(Broadside.Objects.CosName! type) -> bool
+Broadside.Structure.PdfStructureTreeRoot.AddClassAttributes(Broadside.Objects.CosName! className, Broadside.Objects.CosName! owner) -> Broadside.Structure.PdfAttributeObject!
+Broadside.Structure.PdfStructureTreeRoot.AddElement(Broadside.Structure.PdfStructureType! type) -> Broadside.Structure.PdfStructureElement!
+Broadside.Structure.PdfStructureTreeRoot.AddElement(string! type) -> Broadside.Structure.PdfStructureElement!
+Broadside.Structure.PdfStructureTreeRoot.GetOrAddNamespace(string! name) -> Broadside.Structure.PdfStructureNamespace!
+Broadside.Structure.PdfStructureTreeRoot.IdTree.get -> Broadside.PdfNameTree?
+Broadside.Structure.PdfStructureTreeRoot.MapRole(Broadside.Objects.CosName! type, Broadside.Objects.CosName! target) -> void
+Broadside.Structure.PdfStructureTreeRoot.MinimumVersion.get -> Broadside.PdfVersion
+Broadside.Structure.PdfStructureTreeRoot.ParentTree.get -> Broadside.PdfNumberTree?
+Broadside.Structure.PdfStructureTreeRoot.RemoveRoleMapping(Broadside.Objects.CosName! type) -> bool

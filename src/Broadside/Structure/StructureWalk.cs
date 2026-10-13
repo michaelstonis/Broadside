@@ -37,12 +37,12 @@ internal sealed class StructureWalk
     /// <summary>Gets a value indicating whether any element has a content item.</summary>
     public bool HasContentItems { get; private set; }
 
-    public static StructureWalk Build(StructureContext context)
+    public static StructureWalk Build(StructureContext context, StructureStamps stamps)
     {
         var walk = new StructureWalk();
         var visited = new HashSet<CosDictionary>(ReferenceEqualityComparer.Instance);
         var stack = new Stack<(CosObject Entry, PdfStructureElement? Parent, int Depth)>();
-        Push(stack, KidReader.Entries(context, context.Root), null, 0);
+        Push(stack, KidReader.Entries(context, context.Root, stamps), null, 0);
         while (stack.TryPop(out (CosObject Entry, PdfStructureElement? Parent, int Depth) next))
         {
             (CosObject entry, PdfStructureElement? parent, int depth) = next;
@@ -56,7 +56,7 @@ internal sealed class StructureWalk
             switch (kid.Kind)
             {
                 case KidKind.Element:
-                    walk.VisitElement(context, kid, parent, depth, visited, stack);
+                    walk.VisitElement(context, kid, parent, depth, visited, stack, stamps);
                     break;
                 case KidKind.MarkedContent:
                     walk.VisitMarkedContent(context, parent!.CreateMarkedContent(kid));
@@ -95,7 +95,7 @@ internal sealed class StructureWalk
         }
     }
 
-    private void VisitElement(StructureContext context, Kid kid, PdfStructureElement? parent, int depth, HashSet<CosDictionary> visited, Stack<(CosObject, PdfStructureElement?, int)> stack)
+    private void VisitElement(StructureContext context, Kid kid, PdfStructureElement? parent, int depth, HashSet<CosDictionary> visited, Stack<(CosObject, PdfStructureElement?, int)> stack, StructureStamps stamps)
     {
         CosDictionary dictionary = kid.Dictionary!;
         CosReference? where = kid.Reference ?? parent?.Reference;
@@ -133,7 +133,7 @@ internal sealed class StructureWalk
             }
         }
 
-        Push(stack, KidReader.Entries(context, dictionary), element, depth + 1);
+        Push(stack, KidReader.Entries(context, dictionary, stamps), element, depth + 1);
     }
 
     private void VisitMarkedContent(StructureContext context, PdfMarkedContentReference item)
