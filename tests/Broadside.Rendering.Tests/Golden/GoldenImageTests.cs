@@ -26,52 +26,62 @@ public sealed class GoldenImageTests
         const string backend = "harness-self-test";
         const string fileName = "paths-fill-rules.pdf";
         GoldenImage reference = GoldenCorpus.LoadReference(fileName, 0);
-        string stem = Path.Combine(GoldenCorpus.Directory, GoldenCorpus.SnapshotName(fileName, 0) + "." + backend);
+        GoldenImage same = AsTransparentPremultipliedRgba(reference, shift: 0);
+        GoldenImage moved = AsTransparentPremultipliedRgba(reference, shift: 1);
 
-        // A backend that hands over premultiplied RGBA with a transparent page: the same image once composited over white.
-        byte[] rgba = new byte[reference.Width * reference.Height * 4];
-        for (int y = 0; y < reference.Height; y++)
-        {
-            for (int x = 0; x < reference.Width; x++)
-            {
-                (byte r, byte g, byte b) = reference[x, y];
-                byte alpha = (byte)(255 - Math.Min(r, Math.Min(g, b)));
-                int offset = ((y * reference.Width) + x) * 4;
-                rgba[offset] = (byte)(r - (255 - alpha));
-                rgba[offset + 1] = (byte)(g - (255 - alpha));
-                rgba[offset + 2] = (byte)(b - (255 - alpha));
-                rgba[offset + 3] = alpha;
-            }
-        }
-
-        GoldenImage same = GoldenImage.FromPixels(rgba, reference.Width, reference.Height, reference.Width * 4, GoldenPixelFormat.Rgba8Premultiplied);
-        GoldenCorpus.AssertMatchesReference(backend, fileName, 0, same);
-        Assert.False(File.Exists(stem + ".received.png"));
-
-        // Shifted one pixel to the right.
-        byte[] shifted = new byte[rgba.Length];
-        for (int y = 0; y < reference.Height; y++)
-        {
-            rgba.AsSpan(y * reference.Width * 4, (reference.Width - 1) * 4).CopyTo(shifted.AsSpan((y * reference.Width * 4) + 4));
-        }
-
-        GoldenImage moved = GoldenImage.FromPixels(shifted, reference.Width, reference.Height, reference.Width * 4, GoldenPixelFormat.Rgba8Premultiplied);
-        var failure = Assert.Throws<GoldenImageMismatchException>(() => GoldenCorpus.AssertMatchesReference(backend, fileName, 0, moved));
+        // A directory of this run's own (issue #293): runs sharing a checkout never meet over the same received and diff images.
+        DirectoryInfo output = Directory.CreateTempSubdirectory("broadside-golden-");
         try
         {
+            string stem = Path.Combine(output.FullName, GoldenCorpus.SnapshotName(fileName, 0) + "." + backend);
+
+            GoldenCorpus.AssertMatchesReference(backend, fileName, 0, same, output.FullName);
+            Assert.False(File.Exists(stem + ".received.png"));
+
+            var failure = Assert.Throws<GoldenImageMismatchException>(
+                () => GoldenCorpus.AssertMatchesReference(backend, fileName, 0, moved, output.FullName));
             Assert.Contains("does not match", failure.Message, StringComparison.Ordinal);
+            Assert.Contains(stem + ".received.png", failure.Message, StringComparison.Ordinal);
             Assert.True(GoldenComparison.Compare(moved, GoldenImage.LoadPng(stem + ".received.png"), GoldenThreshold.Exact).Matches);
             GoldenImage diff = GoldenImage.LoadPng(stem + ".diff.png");
             Assert.Equal((reference.Width, reference.Height), (diff.Width, diff.Height));
+
+            // A later match removes them, and nothing was written beside the golden images.
+            GoldenCorpus.AssertMatchesReference(backend, fileName, 0, same, output.FullName);
+            Assert.False(File.Exists(stem + ".received.png"));
+            Assert.False(File.Exists(stem + ".diff.png"));
+            Assert.Empty(Directory.GetFiles(GoldenCorpus.Directory, "*." + backend + ".*"));
         }
         finally
         {
-            // A later match removes them.
-            GoldenCorpus.AssertMatchesReference(backend, fileName, 0, same);
+            output.Delete(recursive: true);
         }
+    }
 
-        Assert.False(File.Exists(stem + ".received.png"));
-        Assert.False(File.Exists(stem + ".diff.png"));
+    [Fact]
+    public void A_backend_failure_leaves_its_received_and_diff_images_beside_the_golden_image_by_default()
+    {
+        // A backend name of this run's own, so concurrent runs in one checkout never share these files.
+        string backend = "harness-self-test-" + Guid.NewGuid().ToString("N");
+        const string fileName = "paths-fill-rules.pdf";
+        GoldenImage reference = GoldenCorpus.LoadReference(fileName, 0);
+        string stem = Path.Combine(GoldenCorpus.Directory, GoldenCorpus.SnapshotName(fileName, 0) + "." + backend);
+        try
+        {
+            Assert.Throws<GoldenImageMismatchException>(
+                () => GoldenCorpus.AssertMatchesReference(backend, fileName, 0, AsTransparentPremultipliedRgba(reference, shift: 1)));
+            Assert.True(File.Exists(stem + ".received.png"));
+            Assert.True(File.Exists(stem + ".diff.png"));
+
+            GoldenCorpus.AssertMatchesReference(backend, fileName, 0, reference);
+            Assert.False(File.Exists(stem + ".received.png"));
+            Assert.False(File.Exists(stem + ".diff.png"));
+        }
+        finally
+        {
+            File.Delete(stem + ".received.png");
+            File.Delete(stem + ".diff.png");
+        }
     }
 
     [Fact]
@@ -82,5 +92,27 @@ public sealed class GoldenImageTests
         var present = Directory.GetFiles(GoldenCorpus.Directory, "*.verified.png").Select(Path.GetFileName).ToHashSet(StringComparer.Ordinal);
 
         Assert.Empty(present.Except(expected));
+    }
+
+    // A backend that hands over premultiplied RGBA with a transparent page: the golden image once composited over white, optionally
+    // shifted right by some pixels (the uncovered columns are transparent, so white).
+    private static GoldenImage AsTransparentPremultipliedRgba(GoldenImage reference, int shift)
+    {
+        byte[] rgba = new byte[reference.Width * reference.Height * 4];
+        for (int y = 0; y < reference.Height; y++)
+        {
+            for (int x = shift; x < reference.Width; x++)
+            {
+                (byte r, byte g, byte b) = reference[x - shift, y];
+                byte alpha = (byte)(255 - Math.Min(r, Math.Min(g, b)));
+                int offset = ((y * reference.Width) + x) * 4;
+                rgba[offset] = (byte)(r - (255 - alpha));
+                rgba[offset + 1] = (byte)(g - (255 - alpha));
+                rgba[offset + 2] = (byte)(b - (255 - alpha));
+                rgba[offset + 3] = alpha;
+            }
+        }
+
+        return GoldenImage.FromPixels(rgba, reference.Width, reference.Height, reference.Width * 4, GoldenPixelFormat.Rgba8Premultiplied);
     }
 }
