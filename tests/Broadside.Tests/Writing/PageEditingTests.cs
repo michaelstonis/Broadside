@@ -367,6 +367,64 @@ public sealed class PageEditingTests
         PageTreeShape.AssertBalanced(saved, maxKids: 32);
     }
 
+    public static TheoryData<string, bool> AnnotsEdits => new()
+    {
+        { "insert", false }, { "insert", true }, { "remove", false }, { "remove", true }, { "move", false }, { "move", true },
+    };
+
+    [Theory]
+    [MemberData(nameof(AnnotsEdits))]
+    public void Annotations_listed_on_a_page_tree_node_stay_on_every_page_that_showed_them_through_an_edit(string edit, bool incremental)
+    {
+        // Annots is not inheritable (Table 31), but viewers read it from a node: pages 4 and 11 show A and B, page 6 shows D.
+        byte[] original = new TestPdf().Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R 6 0 R] /Count 4 /Annots [10 0 R] /MediaBox [0 0 612 792] /Resources << >> >>",
+            "<< /Type /Pages /Parent 2 0 R /Kids [4 0 R 11 0 R 5 0 R] /Count 3 /Annots [7 0 R 8 0 R] >>",
+            "<< /Type /Page /Parent 3 0 R >>",
+            "<< /Type /Page /Parent 3 0 R /Annots [9 0 R] >>",
+            "<< /Type /Page /Parent 2 0 R >>",
+            "<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] /Contents (A) >>",
+            "<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] /Contents (B) >>",
+            "<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] /Contents (C) >>",
+            "<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] /Contents (D) >>",
+            "<< /Type /Page /Parent 3 0 R >>");
+        using (PdfDocument unedited = PdfDocument.Open(original))
+        {
+            Assert.Equal("A B|A B|C|D", AnnotationContents(unedited));
+        }
+
+        // Annotations are not read before the edit, so the diagnostics below are the rebuild's.
+        using PdfDocument document = PdfDocument.Open(original);
+
+        (string expected, int[] inheriting) = edit switch
+        {
+            "insert" => Edit(() => document.Pages.Insert(1, new PdfRectangle(0, 0, 100, 100)), "A B||A B|C|D", [4, 11, 6]),
+            "remove" => Edit(() => document.Pages.RemoveAt(0), "A B|C|D", [11, 6]),
+            _ => Edit(() => document.Pages.Move(3, 0), "D|A B|A B|C", [4, 11, 6]),
+        };
+
+        Assert.Equal(expected, AnnotationContents(document));
+        Assert.Equal(
+            inheriting.Order(),
+            document.Diagnostics.Where(diagnostic => diagnostic.Code == "AnnotsInherited").Select(diagnostic => diagnostic.ObjectReference!.ObjectNumber).Order());
+        byte[] file = Save(document, incremental);
+        using PdfDocument saved = PdfDocument.Open(file);
+        Assert.Equal(expected, AnnotationContents(saved));
+        Assert.DoesNotContain(saved.Diagnostics, diagnostic => diagnostic.Code == "AnnotsInherited");
+        PageTreeShape.AssertBalanced(saved, maxKids: 32);
+        AssertQpdfCheck(file);
+
+        static (string Expected, int[] Inheriting) Edit(Action action, string expected, int[] inheriting)
+        {
+            action();
+            return (expected, inheriting);
+        }
+
+        static string AnnotationContents(PdfDocument document) =>
+            string.Join('|', document.Pages.Select(page => string.Join(' ', page.Annotations.Select(annotation => annotation.Contents))));
+    }
+
     /// <summary>Saves the document; <c>dated: false</c> leaves the modification date alone so an update writes only the edit.</summary>
     private static byte[] Save(PdfDocument document, bool incremental, bool dated = true)
     {

@@ -1,3 +1,4 @@
+using Broadside.Annotations;
 using Broadside.Objects;
 
 namespace Broadside;
@@ -8,12 +9,15 @@ namespace Broadside;
 /// ISO 32000-2 §7.7.3: "PDF processors shall not be required to preserve the existing structure of the page tree" (§7.7.3.2), so
 /// every edit rebuilds it. Before any node changes, each page's inherited attributes (§7.7.3.4: <c>Resources</c>, <c>MediaBox</c>,
 /// <c>CropBox</c>, <c>Rotate</c>) are made its own: an inherited reference is copied, an inherited direct dictionary becomes one
-/// new indirect object the pages share (as they shared it through the node), an inherited direct array is copied per page. The tree
+/// new indirect object the pages share (as they shared it through the node), an inherited direct array is copied per page. An
+/// <c>Annots</c> a page reads from a node (not inheritable, Table 31, but used as viewers use it, §7.7.3.3) is made its own the same
+/// way, recorded as <c>AnnotsInherited</c> for every such page before anything changes (so strict mode throws first). The tree
 /// is then rebuilt with at most <see cref="MaxKids"/> kids per node and every page at the same depth (§7.7.3.1, note: a balanced
 /// tree), each node's <c>Count</c> its number of pages and each kid's <c>Parent</c> its node (Table 30).
 /// </para>
 /// <para>
-/// The root keeps its object (the catalog's <c>Pages</c>) and its other entries; its inheritable entries, now redundant, are removed.
+/// The root keeps its object (the catalog's <c>Pages</c>) and its other entries; its inheritable entries and <c>Annots</c>, now
+/// redundant, are removed from it and every reused node, so a page added later inherits none of them.
 /// Intermediate nodes the previous tree used are reused, in order, before new ones are added, and the ones left over are removed from
 /// the document, so an edit changes only the nodes whose kids changed. An entry is only written when its value changes, so an
 /// incremental update (§7.5.6) holds the pages and nodes the edit touched.
@@ -36,6 +40,16 @@ internal static class PageTreeEditor
     {
         (CosDictionary root, CosReference rootReference) = Root(document, previous);
         var reusable = new Queue<CosReference>(nodes ?? NodesBelow(root, previous));
+
+        // An Annots a page reads from a node is not inheritable (Table 31): it is recorded for every page first, so strict mode throws
+        // before anything changes.
+        foreach (PdfPage page in pages)
+        {
+            if (page.FindInheritedAnnots() is not null)
+            {
+                document.AnnotationIndex.ReportInherited(page.Reference);
+            }
+        }
 
         // Inherited attributes are read through the current tree, so they are made explicit before any node changes.
         var promoted = new Dictionary<CosDictionary, CosReference>(ReferenceEqualityComparer.Instance);
@@ -149,31 +163,42 @@ internal static class PageTreeEditor
         return nodes;
     }
 
-    /// <summary>Gives the page its own copy of each attribute it inherits (§7.7.3.4).</summary>
+    /// <summary>Gives the page its own copy of each attribute it inherits (§7.7.3.4), and of an <c>Annots</c> it reads from a node.</summary>
     private static void MakeInheritedExplicit(PdfDocument document, PdfPage page, Dictionary<CosDictionary, CosReference> promoted)
     {
         foreach (CosName key in InheritableKeys)
         {
-            switch (page.FindInheritedEntry(key))
-            {
-                case null:
-                    break;
-                case CosDictionary dictionary:
-                    if (!promoted.TryGetValue(dictionary, out CosReference? reference))
-                    {
-                        reference = document.AddObject(dictionary);
-                        promoted.Add(dictionary, reference);
-                    }
+            MakeOwn(document, page, key, page.FindInheritedEntry(key), promoted);
+        }
 
-                    page.Dictionary[key] = reference;
-                    break;
-                case CosArray array:
-                    page.Dictionary[key] = new CosArray(array);
-                    break;
-                case { } value:
-                    page.Dictionary[key] = value;
-                    break;
-            }
+        MakeOwn(document, page, AnnotationNames.Annots, page.FindInheritedAnnots(), promoted);
+    }
+
+    /// <summary>
+    /// Sets the page's <paramref name="key"/> to the value it inherits: a reference is copied, a direct dictionary becomes one indirect
+    /// object the pages share, a direct array is copied per page.
+    /// </summary>
+    private static void MakeOwn(PdfDocument document, PdfPage page, CosName key, CosObject? inherited, Dictionary<CosDictionary, CosReference> promoted)
+    {
+        switch (inherited)
+        {
+            case null:
+                break;
+            case CosDictionary dictionary:
+                if (!promoted.TryGetValue(dictionary, out CosReference? reference))
+                {
+                    reference = document.AddObject(dictionary);
+                    promoted.Add(dictionary, reference);
+                }
+
+                page.Dictionary[key] = reference;
+                break;
+            case CosArray array:
+                page.Dictionary[key] = new CosArray(array);
+                break;
+            case { } value:
+                page.Dictionary[key] = value;
+                break;
         }
     }
 
@@ -203,6 +228,7 @@ internal static class PageTreeEditor
             dictionary.Remove(key);
         }
 
+        dictionary.Remove(AnnotationNames.Annots);
         return node;
     }
 
