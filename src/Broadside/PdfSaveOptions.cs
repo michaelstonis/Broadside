@@ -127,7 +127,9 @@ public sealed class PdfSaveOptions
     /// ISO 32000-2 §7.6.2: the trailer has no <c>Encrypt</c> entry, and every string and stream is written as plaintext. A stream that
     /// selected a crypt filter (§7.4.10) is written without its <c>Crypt</c> filter. Data the document's credentials could not
     /// decrypt (a crypt filter they do not unlock) cannot be written unencrypted, and such a save is refused. Cannot be combined with
-    /// <see cref="Encryption"/>.
+    /// <see cref="Encryption"/>. An incremental update cannot remove encryption from an encrypted document (its earlier revisions
+    /// stay encrypted); for a document read as not encrypted because its <c>Encrypt</c> entry is damaged
+    /// (<see cref="PdfDocument.IsEncrypted"/> is <see langword="false"/>) it drops the entry from the update's trailer.
     /// </remarks>
     public bool RemoveEncryption { get; set; }
 

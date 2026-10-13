@@ -69,7 +69,7 @@ public static class DocumentWalker
         long size = document.Trailer.TryGetValue(SizeKey, out CosObject? entry) && entry is CosInteger integer ? integer.Value : 0;
         for (int number = 1; number < Math.Min(size, MaxObjectNumber + 1L); number++)
         {
-            walk.Visit(new CosReference(number, 0));
+            walk.VisitNumber(number);
         }
 
         return new DocumentWalkResult(pages, walk.Objects, walk.Streams, walk.DecodedBytes);
@@ -187,6 +187,20 @@ public static class DocumentWalker
         public int Streams { get; private set; }
 
         public long DecodedBytes => _sink.Written;
+
+        /// <summary>
+        /// Visits object <paramref name="number"/> when it holds something. A free number is not remembered: a damaged trailer may
+        /// claim millions of them (pdf.js bug 1980958 claims 2^31), and a visited set that large cost hundreds of megabytes and
+        /// seconds of collection (issue #280). Resolving a free number again is a dictionary miss in the library.
+        /// </summary>
+        public void VisitNumber(int number)
+        {
+            var reference = new CosReference(number, 0);
+            if (!_references.Contains(reference) && document.Resolve(reference) is not CosNull)
+            {
+                Visit(reference);
+            }
+        }
 
         public void Visit(CosObject root)
         {
