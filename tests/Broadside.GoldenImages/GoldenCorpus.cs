@@ -153,13 +153,30 @@ public static class GoldenCorpus
     /// <param name="page">The zero-based page.</param>
     /// <param name="render">The backend's render at <see cref="Dpi"/> through <see cref="CreateRenderOptions"/>.</param>
     /// <exception cref="GoldenImageMismatchException">The render does not match.</exception>
-    public static void AssertMatchesReference(string backend, string fileName, int page, GoldenImage render)
+    public static void AssertMatchesReference(string backend, string fileName, int page, GoldenImage render) =>
+        AssertMatchesReference(backend, fileName, page, render, Directory);
+
+    /// <summary>
+    /// Asserts that a backend's render of a page matches the page's golden image, as
+    /// <see cref="AssertMatchesReference(string, string, int, GoldenImage)"/> does, but writes and deletes the received and diff images
+    /// in another directory. Tests of the harness itself use a temporary directory of their own here, so test runs sharing a checkout
+    /// never race over the same files in <see cref="Directory"/> (issue #293).
+    /// </summary>
+    /// <param name="backend">The backend's name, as in the threshold table.</param>
+    /// <param name="fileName">The corpus file.</param>
+    /// <param name="page">The zero-based page.</param>
+    /// <param name="render">The backend's render at <see cref="Dpi"/> through <see cref="CreateRenderOptions"/>.</param>
+    /// <param name="outputDirectory">The existing directory that receives <c>&lt;page&gt;.&lt;backend&gt;.received.png</c> and
+    /// <c>&lt;page&gt;.&lt;backend&gt;.diff.png</c>.</param>
+    /// <exception cref="GoldenImageMismatchException">The render does not match.</exception>
+    public static void AssertMatchesReference(string backend, string fileName, int page, GoldenImage render, string outputDirectory)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(backend);
         ArgumentNullException.ThrowIfNull(render);
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
         GoldenImage expected = LoadReference(fileName, page);
         GoldenComparison comparison = GoldenComparison.Compare(expected, render, GoldenThresholds.For(backend, fileName, page));
-        string stem = Path.Combine(Directory, $"{SnapshotName(fileName, page)}.{backend}");
+        string stem = Path.Combine(outputDirectory, $"{SnapshotName(fileName, page)}.{backend}");
         string received = stem + ".received.png";
         string diff = stem + ".diff.png";
         if (comparison.Matches)

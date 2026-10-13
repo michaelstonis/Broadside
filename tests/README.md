@@ -89,7 +89,7 @@ The comparison (`tests/Broadside.GoldenImages`, `GoldenComparison`) is perceptua
 
 A failing comparison writes a `.diff.png` beside the received image: red pixels are beyond tolerance, amber ones within it, the rest is the golden image faded. Both are gitignored, and CI uploads them as the `golden-images-<os>` artifact when a run fails.
 
-Backend test projects reference `Broadside.GoldenImages` and call `GoldenCorpus.AssertMatchesReference("<backend>", fileName, page, GoldenImage.FromPixels(...))` with their own render; see `Broadside.Rendering.Skia.Tests.GoldenHarnessTests` and the `adding-a-rendering-backend` skill. They need no rasterizer internals.
+Backend test projects reference `Broadside.GoldenImages` and call `GoldenCorpus.AssertMatchesReference("<backend>", fileName, page, GoldenImage.FromPixels(...))` with their own render; see `Broadside.Rendering.Skia.Tests.GoldenHarnessTests` and the `adding-a-rendering-backend` skill. They need no rasterizer internals. A test that fails a comparison on purpose (a test of the harness itself) passes its own temporary directory as the last argument of `AssertMatchesReference`, never writing a fixed name into `Golden/`, so test runs sharing a checkout do not race (#293).
 
 ## The AOT smoke host
 
