@@ -35,7 +35,8 @@ namespace Broadside.Writing;
 /// Encryption (§7.6) follows <see cref="EncryptionPlan"/>: when the source or the output is encrypted, nothing is copied (the source
 /// bytes are ciphertext tied to the old key and object number) and every object goes through an <see cref="Security.ObjectEncryptor"/>
 /// under its written number. New encryption drops the old encryption dictionary and writes its own as a new object, numbered above
-/// every number the file lists or refers to.
+/// every number the file lists or refers to. The object streams and the cross-reference stream a save adds are numbered the same
+/// way, above every number written, whenever the file keeps its references as they are (issue #295).
 /// </para>
 /// <para>
 /// An unfiltered stream that <see cref="PdfSaveOptions.StreamCompression"/> selects is written instead as a <c>FlateDecode</c> copy
@@ -222,7 +223,12 @@ internal static class SavePlan
             options.CompressionLevel,
             references,
             update: null,
-            encryption.Encryptor);
+            encryption.Encryptor)
+        {
+            // A renumbered file (references is not null) writes a dangling reference as null; one whose references are written as
+            // they are keeps it, so the streams the save adds skip its number.
+            StreamNumbers = references is null && options.CrossReferenceLayout != PdfCrossReferenceLayout.Table ? StreamNumbers(loader) : null,
+        };
     }
 
     /// <summary>Plans an incremental update of an opened document (§7.5.6).</summary>
@@ -237,8 +243,10 @@ internal static class SavePlan
     /// <para>
     /// ISO 32000-2 §7.5.6: "A cross-reference section for an incremental update shall contain entries only for objects that have been
     /// changed, replaced, or deleted." The update writes every loaded object that is dirty, every added object, and a free entry for
-    /// every removed one, with its generation raised by one (H.7.4). Nothing is loaded: an object nobody loaded has not changed. The
-    /// written objects are serialized; a written stream is compressed per <see cref="PdfSaveOptions.StreamCompression"/>.
+    /// every removed one, with its generation raised by one (H.7.4). Nothing is loaded to decide that: an object nobody loaded has
+    /// not changed. (An update that writes a cross-reference stream reads every object once, to number the stream away from every
+    /// dangling reference: issue #295.) The written objects are serialized; a written stream is compressed per
+    /// <see cref="PdfSaveOptions.StreamCompression"/>.
     /// </para>
     /// <para>
     /// The section takes the form of the file's newest one, a stream after a stream and a table after a table or a hybrid file's
@@ -348,7 +356,21 @@ internal static class SavePlan
             options.CompressionLevel,
             references: null,
             target,
-            encryption.Encryptor);
+            encryption.Encryptor)
+        {
+            StreamNumbers = form == XrefSectionKind.Stream ? StreamNumbers(loader) : null,
+        };
+    }
+
+    /// <summary>
+    /// The numbers of the streams a save adds, through the document's allocator (<see cref="ObjectLoader.NextNumberFrom"/>), so none
+    /// takes the number of a dangling reference (§7.3.10, issue #295). The numbers references name are found now (reading every
+    /// object, once per document), so in strict mode a deviation throws before anything is written.
+    /// </summary>
+    private static Func<int, int> StreamNumbers(ObjectLoader loader)
+    {
+        _ = loader.NextNumber;
+        return loader.NextNumberFrom;
     }
 
     /// <summary>
