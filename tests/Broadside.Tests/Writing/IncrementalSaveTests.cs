@@ -246,10 +246,11 @@ public sealed class IncrementalSaveTests
         using PdfDocument second = PdfDocument.Open(file);
         first.Catalog[PageLayout] = new CosName("SinglePage");
         second.Catalog[PageLayout] = new CosName("SinglePage");
-        byte[] synchronous = SaveIncrementally(first);
+        // Undated: the three saves are compared byte for byte, and a save dates a changed document by default (#162).
+        byte[] synchronous = SaveIncrementally(first, Undated);
         using var output = new MemoryStream();
 
-        await second.SaveAsync(output, new PdfSaveOptions().WithIncrementalUpdate(true), TestContext.Current.CancellationToken);
+        await second.SaveAsync(output, Undated.WithIncrementalUpdate(true), TestContext.Current.CancellationToken);
 
         Assert.Equal(synchronous, output.ToArray());
         Assert.Equal(first.Revisions.Count, second.Revisions.Count);
@@ -258,7 +259,7 @@ public sealed class IncrementalSaveTests
         {
             using PdfDocument third = PdfDocument.Open(file);
             third.Catalog[PageLayout] = new CosName("SinglePage");
-            third.Save(path, new PdfSaveOptions().WithIncrementalUpdate(true));
+            third.Save(path, Undated.WithIncrementalUpdate(true));
             Assert.Equal(synchronous, await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken));
             Assert.False(third.Catalog.IsDirty);
         }
