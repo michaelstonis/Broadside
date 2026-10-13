@@ -228,10 +228,13 @@ public sealed partial class PdfDocument : IDisposable
     /// <remarks>ISO 32000-2 Annex F, F.3.3.</remarks>
     public PdfLinearization? Linearization { get; }
 
-    /// <summary>Gets a value indicating whether the document is encrypted (its trailer has an <c>Encrypt</c> entry).</summary>
+    /// <summary>Gets a value indicating whether the document is encrypted (its trailer's <c>Encrypt</c> entry is an encryption dictionary).</summary>
     /// <remarks>
-    /// ISO 32000-2 §7.6. An encrypted document opens transparently: strings and streams read through it are decrypted, so its COS
-    /// objects hold plaintext.
+    /// ISO 32000-2 §7.6.1, §7.6.2. An encrypted document opens transparently: strings and streams read through it are decrypted, so its
+    /// COS objects hold plaintext. An <c>Encrypt</c> entry that is not a dictionary (a damaged file) is reported as an
+    /// <c>EncryptDictionaryInvalid</c> error (strict mode throws) and the document is read as not encrypted; it then also saves as
+    /// one, so a save never refuses it for its encryption: a complete file drops the entry, and so does an incremental update that
+    /// removes encryption (<see cref="PdfSaveOptions.RemoveEncryption"/>).
     /// </remarks>
     public bool IsEncrypted => Security is not null;
 
