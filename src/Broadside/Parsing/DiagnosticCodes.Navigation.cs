@@ -29,6 +29,9 @@ internal static partial class DiagnosticCodes
     public const string DestinationPageNotFound = nameof(DestinationPageNotFound);
     public const string NamedDestinationNotFound = nameof(NamedDestinationNotFound);
 
+    // A destination to a page removed through the page editing API, reported on save (issue #158).
+    public const string DestinationPageRemoved = nameof(DestinationPageRemoved);
+
     // Document outline (§12.3.3).
     public const string OutlineInvalid = nameof(OutlineInvalid);
     public const string OutlineItemInvalid = nameof(OutlineItemInvalid);

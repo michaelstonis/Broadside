@@ -353,7 +353,9 @@ public sealed partial class SoftwareRasterizer : IDisposable
         }
 
         /// <summary>Adds every subpath of <paramref name="path"/> to the scan converter, applying the filling rules of §8.5.3.3.1.</summary>
-        private void AddPath(PathView path)
+        /// <param name="path">The path, mapped to the device by the current transform.</param>
+        /// <param name="degenerateDots">Whether a degenerate subpath paints the pixel under it (path objects do; glyph outlines do not).</param>
+        private void AddPath(PathView path, bool degenerateDots = true)
         {
             ReadOnlySpan<PathVerb> verbs = path.Verbs;
             ReadOnlySpan<PathPoint> points = path.Points;
@@ -364,7 +366,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
                 switch (verb)
                 {
                     case PathVerb.MoveTo:
-                        Finish(ref subpath);
+                        Finish(ref subpath, degenerateDots);
                         subpath = new Subpath(points[p], Map(points[p]));
                         p++;
                         break;
@@ -387,11 +389,11 @@ public sealed partial class SoftwareRasterizer : IDisposable
                 }
             }
 
-            Finish(ref subpath);
+            Finish(ref subpath, degenerateDots);
         }
 
         /// <summary>Ends a subpath: closes it if open, and gives a degenerate one the pixel under its point (§8.5.3.3.1).</summary>
-        private void Finish(ref Subpath subpath)
+        private void Finish(ref Subpath subpath, bool degenerateDots)
         {
             if (!subpath.IsOpen)
             {
@@ -399,7 +401,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             }
 
             Close(ref subpath);
-            if (subpath.HasSegments && subpath.IsDegenerate)
+            if (degenerateDots && subpath.HasSegments && subpath.IsDegenerate)
             {
                 _scan.AddPixel(subpath.Start.X, subpath.Start.Y);
             }

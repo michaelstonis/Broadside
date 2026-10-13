@@ -27,7 +27,7 @@ public sealed class PdfPage
     private static readonly PdfRectangle DefaultMediaBox = new(0, 0, 612, 792);
 
     private readonly PdfDocument _document;
-    private readonly PageTreeAncestor? _ancestors;
+    private PageTreeAncestor? _ancestors;
     private volatile AnnotationList? _annotations;
 
     internal PdfPage(PdfDocument document, CosDictionary dictionary, CosReference? reference, PageTreeAncestor? ancestors)
@@ -42,8 +42,8 @@ public sealed class PdfPage
     /// <remarks>ISO 32000-2 §7.7.3.3, Table 31.</remarks>
     public CosDictionary Dictionary { get; }
 
-    /// <summary>Gets the indirect reference to the page object, or <see langword="null"/> when the page tree holds it directly.</summary>
-    public CosReference? Reference { get; }
+    /// <summary>Gets the indirect reference to the page object, or <see langword="null"/> when the page tree holds it directly (until a page edit through <see cref="PdfDocument.Pages"/> makes it indirect).</summary>
+    public CosReference? Reference { get; private set; }
 
     /// <summary>Gets the page's additional actions (<c>AA</c>, PDF 1.2): actions when the page opens and closes; <see langword="null"/> when absent.</summary>
     /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §12.6.3, Table 198. Not inheritable; read on every call, never created by reading.</remarks>
@@ -70,12 +70,38 @@ public sealed class PdfPage
     /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Defaults to the crop box; reduced to its intersection with the media box.</remarks>
     public PdfRectangle ArtBox => ClipToMediaBox(KnownNames.ArtBox, inheritable: false, CropBox);
 
-    /// <summary>Gets the number of degrees the page is rotated clockwise when displayed or printed: 0, 90, 180 or 270. Inheritable.</summary>
+    /// <summary>Gets or sets the number of degrees the page is rotated clockwise when displayed or printed: 0, 90, 180 or 270. Inheritable.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">On set, the value is not a multiple of 90.</exception>
     /// <remarks>
-    /// ISO 32000-2 §7.7.3.3, Table 31. The entry shall be a multiple of 90; it is normalized into 0 to 270 (−90 reads as 270, 450 as
-    /// 90). A value that is not a multiple of 90 reads as 0.
+    /// <para>
+    /// ISO 32000-2 §7.7.3.3, Table 31 (PDF 1.0). The entry shall be a multiple of 90; it is normalized into 0 to 270 (−90 reads as 270,
+    /// 450 as 90). A value that is not a multiple of 90 reads as 0.
+    /// </para>
+    /// <para>
+    /// Setting writes the page's own <c>Rotate</c>, normalized into 0 to 270, which overrides an inherited one (§7.7.3.4); setting 0
+    /// when no ancestor gives a rotation removes the entry instead. A mutation: no read may run concurrently with it.
+    /// </para>
     /// </remarks>
-    public int Rotation => ReadRotation(out int degrees) is PageAttributeState.Valid or PageAttributeState.Repaired ? degrees : 0;
+    public int Rotation
+    {
+        get => ReadRotation(out int degrees) is PageAttributeState.Valid or PageAttributeState.Repaired ? degrees : 0;
+        set
+        {
+            if (value % 90 != 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "A page's rotation shall be a multiple of 90 degrees.");
+            }
+
+            int degrees = ((value % 360) + 360) % 360;
+            if (degrees == 0 && !AncestorsHave(KnownNames.Rotate))
+            {
+                Dictionary.Remove(KnownNames.Rotate);
+                return;
+            }
+
+            Dictionary[KnownNames.Rotate] = new CosInteger(degrees);
+        }
+    }
 
     /// <summary>Gets the resource dictionary the page's content streams use, or <see langword="null"/> when the page has none. Inheritable.</summary>
     /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §7.8.3.</remarks>
@@ -409,6 +435,32 @@ public sealed class PdfPage
         return null;
     }
 
+    /// <summary>Whether a node above the page has <paramref name="key"/>, resolving to a value.</summary>
+    private bool AncestorsHave(CosName key)
+    {
+        for (PageTreeAncestor? node = _ancestors; node is not null; node = node.Parent)
+        {
+            if (EntryReader.Get(_document, node.Dictionary, key) is not null)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Gets the page tree nodes above the page, nearest first, as the page tree was last read or rebuilt.</summary>
+    internal PageTreeAncestor? Ancestors => _ancestors;
+
+    /// <summary>Points the view at the page's place in a rebuilt page tree (issue #158): its reference and its new ancestors.</summary>
+    /// <param name="reference">The page object's reference; a page the tree held directly gets one when the tree is rebuilt.</param>
+    /// <param name="ancestors">The nodes above the page, nearest first.</param>
+    internal void Relink(CosReference reference, PageTreeAncestor? ancestors)
+    {
+        Reference = reference;
+        _ancestors = ancestors;
+    }
+
     /// <summary>The page's own entry, resolved; <see langword="null"/> when absent or a reference to nothing.</summary>
     private CosObject? Find(CosName key) => EntryReader.Get(_document, Dictionary, key);
 
@@ -435,7 +487,8 @@ public sealed class PdfPage
 /// <summary>A page tree node on the path from the root to a page, nearest first: the nodes a page inherits from (§7.7.3.4).</summary>
 /// <param name="Dictionary">The node's dictionary.</param>
 /// <param name="Parent">The node above it, or <see langword="null"/> for the root.</param>
-internal sealed record PageTreeAncestor(CosDictionary Dictionary, PageTreeAncestor? Parent);
+/// <param name="Reference">The node's reference, or <see langword="null"/> when its parent holds it directly.</param>
+internal sealed record PageTreeAncestor(CosDictionary Dictionary, PageTreeAncestor? Parent, CosReference? Reference);
 
 /// <summary>A page's annotation list and the <c>Annots</c> entry, array and array version it was built from.</summary>
 internal sealed record AnnotationList(CosObject? Entry, CosArray? Array, int ArrayVersion, IReadOnlyList<PdfAnnotation> Items);

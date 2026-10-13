@@ -101,6 +101,27 @@ public sealed class RenderOptions
         return this;
     }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether every glyph is drawn from the outline the display list carries rather than by the
+    /// backend's own font rendering; <see langword="false"/> by default.
+    /// </summary>
+    /// <remarks>
+    /// ADR 0006: a display list's glyph runs carry the font program and glyph ids, so a native backend (SkiaSharp, CoreGraphics,
+    /// Direct2D, Android) may draw glyphs with its platform's font engine, whose hinting and anti-aliasing differ from the outlines'.
+    /// With this set, such a backend fills and strokes <see cref="GlyphRun.GetOutline"/> like any path, so its output matches the
+    /// software rasterizer's within the golden-image threshold. The software rasterizer always draws outlines (ISO 32000-2 §9.2.4).
+    /// </remarks>
+    public bool ForceOutlines { get; set; }
+
+    /// <summary>Sets <see cref="ForceOutlines"/>.</summary>
+    /// <param name="forceOutlines">Whether glyphs are always drawn from their outlines.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithForceOutlines(bool forceOutlines)
+    {
+        ForceOutlines = forceOutlines;
+        return this;
+    }
+
     /// <summary>Returns the size in pixels of <paramref name="page"/> rendered with these options.</summary>
     /// <param name="page">The page.</param>
     /// <returns>

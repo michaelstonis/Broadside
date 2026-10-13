@@ -28,6 +28,37 @@ public sealed class DisplayListAllocationTests
         Assert.True(backend.Strokes > 1000);
     }
 
+    [Fact]
+    public void Replaying_glyph_runs_allocates_nothing()
+    {
+        // Text in an embedded TrueType font in modes 0, 1 and 2, with every text state operator: runs of filled, stroked and both.
+        using PdfDocument document = PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(2000)));
+        DisplayList list = document.Pages[0].CreateDisplayList();
+        var backend = new CountingBackend();
+        Action replay = () => list.Replay(backend);
+
+        long allocated = Allocations.Measure(replay);
+
+        Assert.Equal(0, allocated);
+        Assert.True(backend.Glyphs > 2000);
+    }
+
+    [Theory]
+    [InlineData(47)]
+    [InlineData(2000)]
+    public void Building_a_display_list_of_text_allocates_the_glyph_records_and_nothing_else_per_glyph(int glyphs)
+    {
+        // Each glyph's record (glyph id, text matrix, scale and outline index: 72 bytes) is copied into the list; outlines are read
+        // once per glyph id, so nothing else may grow with the glyph count.
+        using PdfDocument document = PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(glyphs)));
+        PdfPage page = document.Pages[0];
+        Action build = () => page.CreateDisplayList();
+
+        long allocated = Allocations.Measure(build);
+
+        Assert.InRange(allocated, 1, 8192 + (96 * glyphs));
+    }
+
     [Theory]
     [InlineData(10)]
     [InlineData(2000)]
@@ -78,6 +109,8 @@ public sealed class DisplayListAllocationTests
 
         public int Strokes { get; private set; }
 
+        public int Glyphs { get; private set; }
+
         public double Checksum { get; private set; }
 
         public void SaveState() => Checksum++;
@@ -102,5 +135,14 @@ public sealed class DisplayListAllocationTests
 
         public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion) =>
             Checksum += image.Width + image.Height;
+
+        public void DrawGlyphs(in GlyphRun run)
+        {
+            Glyphs += run.Glyphs.Length;
+            for (int i = 0; i < run.Glyphs.Length; i++)
+            {
+                Checksum += run.Glyphs[i].GlyphId + run.GetOutline(i).Points.Length + run.GetGlyphTransform(i).E;
+            }
+        }
     }
 }
