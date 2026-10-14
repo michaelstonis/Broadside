@@ -40,6 +40,9 @@ internal sealed class FunctionCache
         _resolve = document.Resolve;
     }
 
+    /// <summary>Gets the document the functions belong to.</summary>
+    public PdfDocument Document => _document;
+
     /// <summary>Returns the view of a function object.</summary>
     /// <param name="value">A function dictionary or stream, or a reference to one.</param>
     /// <param name="expectedInputs">The number of inputs the consumer passes (repairs a missing Domain); 0 when unknown.</param>

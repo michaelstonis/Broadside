@@ -74,7 +74,7 @@ internal static class ContentRewriting
                 return false;
             }
 
-            Store(form.Stream, editor.Output);
+            StoreUnfiltered(form.Stream, editor.Output);
             return true;
         }
         finally
@@ -102,7 +102,7 @@ internal static class ContentRewriting
     }
 
     /// <summary>Replaces a stream's data with unfiltered content and drops what described the old encoding.</summary>
-    private static void Store(CosStream stream, ReadOnlySpan<byte> data)
+    internal static void StoreUnfiltered(CosStream stream, ReadOnlySpan<byte> data)
     {
         foreach (CosName key in EncodingEntries)
         {
