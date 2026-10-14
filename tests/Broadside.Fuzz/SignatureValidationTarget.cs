@@ -6,7 +6,8 @@ namespace Broadside.Fuzz;
 /// <summary>
 /// The signature validation targets (issue #196). <c>signature-validation</c> opens the input as a whole file and validates every
 /// signature; invariants: validation never throws, a signature is valid exactly when it has no problem, and a certificate path exists
-/// exactly when a signer certificate was found, starting with it. <c>cms</c> decodes the input as the <c>Contents</c> of a signature
+/// exactly when a signer certificate was found, starting with it; modification detection (issue #199) reports changes only after a
+/// signed revision inside the file and makes a signature with a change it does not permit invalid. <c>cms</c> decodes the input as the <c>Contents</c> of a signature
 /// (a CMS <c>ContentInfo</c>, zero padding allowed) and, when it decodes, reads a timestamp token's message imprint from its content;
 /// invariant: neither throws.
 /// </summary>
@@ -34,6 +35,24 @@ internal static class SignatureValidationTarget
                 || (validation.SignerCertificate is { } signer && !ReferenceEquals(signer, validation.CertificatePath[0])))
             {
                 throw new InvalidOperationException("The certificate path does not start with the signer certificate.");
+            }
+
+            // Modification detection (issue #199): changes follow a known signed revision, within the file's revisions, and a change
+            // that is not permitted is reported.
+            if (validation.Modifications.Count > 0 && validation.SignedRevision is not { } signed)
+            {
+                throw new InvalidOperationException("Modifications without a signed revision.");
+            }
+
+            if (validation.SignedRevision is { } revision
+                && (revision < 0 || revision >= document.Revisions.Count || validation.Modifications.Any(change => change.Revision <= revision || change.Revision >= document.Revisions.Count)))
+            {
+                throw new InvalidOperationException("A modification or the signed revision is outside the file's revisions.");
+            }
+
+            if (validation.Modifications.Any(static change => !change.IsPermitted) && validation.Status != PdfSignatureStatus.Invalid)
+            {
+                throw new InvalidOperationException("A change that is not permitted left the signature not invalid.");
             }
         }
     }

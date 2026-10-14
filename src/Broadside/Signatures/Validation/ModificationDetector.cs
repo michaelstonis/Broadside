@@ -150,8 +150,8 @@ internal sealed class ModificationDetector
                 modifications.Add(new PdfModification(revision, change.Kind, change.Object, change.FieldName, change.Description, permitted));
                 if (locked)
                 {
-                    string message = $"Revision {revision.ToString(CultureInfo.InvariantCulture)} changed the field '{change.FieldName}', which the signature locks: {change.Description}.";
-                    if (reported.Add(message))
+                    string message = $"Revision {revision.ToString(CultureInfo.InvariantCulture)} changed the field '{change.FieldName}', which the signature locks ({change.Description}).";
+                    if (reported.Add(string.Create(CultureInfo.InvariantCulture, $"{revision} {change.FieldName}")))
                     {
                         problems.Add(new(PdfSignatureProblemKind.LockedFieldModified, message));
                     }

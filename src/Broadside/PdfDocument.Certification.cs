@@ -24,11 +24,16 @@ public sealed partial class PdfDocument
                 "A certification signature shall be the document's first signature (ISO 32000-2 §12.8.1: approval signatures follow it); the document is already signed.");
         }
 
-        // §12.8.2.2, Table 263: with a DocMDP permission in effect, "PDF processors shall enforce the permissions"; P 1 (or a lock's
-        // P 1, Table 236) permits no further signature.
+        // Table 263: when the catalog's Perms names a certification signature, "PDF processors shall enforce the permissions"; P 1
+        // permits no further signature, and neither does a signed field lock's P 1 (Table 236).
+        CosDictionary? certification = Resolve(Catalog.GetValueOrDefault(TransformMethods.Perms)) is CosDictionary perms
+            ? Resolve(perms.GetValueOrDefault(TransformMethods.DocMdp)) as CosDictionary
+            : null;
         foreach (PdfSignatureField field in signed)
         {
-            PdfCertificationPermissions? docMdp = TransformMethods.DocMdpPermissions(field.SignatureDictionary!, Resolve);
+            PdfCertificationPermissions? docMdp = certification is not null && ReferenceEquals(field.SignatureDictionary, certification)
+                ? TransformMethods.DocMdpPermissions(certification, Resolve)
+                : null;
             PdfCertificationPermissions? lockPermissions = field.Dictionary.TryGetValue(FormNames.Lock, out CosObject? lockValue) && Resolve(lockValue) is CosDictionary lockDictionary
                 ? TransformMethods.ReadLock(lockDictionary, Resolve)?.Permissions
                 : null;
