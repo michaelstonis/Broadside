@@ -1026,8 +1026,9 @@ public sealed partial class PdfDocument : IDisposable
     /// </para>
     /// <para>The stream's <see cref="CosStream.EncodedData"/> is replaced, which marks it changed; its dictionary is not changed.</para>
     /// <para>
-    /// <c>FlateDecode</c> is PDF 1.2 (§7.4.4): once a stream is encoded with it, a save of a document of an earlier version raises the
-    /// version, or refuses in strict mode (ADR 0003).
+    /// <c>FlateDecode</c> is PDF 1.2 (§7.4.4), <c>JBIG2Decode</c> PDF 1.4 (§7.4.7) and <c>JPXDecode</c> PDF 1.5 (§7.4.9; Table 6):
+    /// once a stream is encoded with one of them, a save of a document of an earlier version raises the version, or refuses in strict
+    /// mode (ADR 0003).
     /// </para>
     /// </remarks>
     public void EncodeStream(CosStream stream, ReadOnlySpan<byte> data, System.IO.Compression.CompressionLevel compressionLevel = System.IO.Compression.CompressionLevel.Optimal)
@@ -1037,11 +1038,16 @@ public sealed partial class PdfDocument : IDisposable
         new StreamEncoder(StreamEncoders, Resolve).Encode(data, stream.Dictionary, output, compressionLevel);
         stream.EncodedData = output.WrittenSpan.ToArray();
 
-        // §7.4.4: FlateDecode is PDF 1.2; a later save raises an earlier document to it (issue #141).
+        // §7.4.1, Table 6: FlateDecode is PDF 1.2, JBIG2Decode 1.4 and JPXDecode 1.5 (through an encoder the caller registers); a
+        // later save raises an earlier document to them (issues #141, #299).
         CosObject filter = Resolve(stream.Dictionary.GetValueOrDefault(FilterNames.Filter));
-        if (FilterNames.FlateDecode.Equals(filter) || (filter is CosArray filters && filters.Any(name => FilterNames.FlateDecode.Equals(Resolve(name)))))
+        IEnumerable<CosObject> names = filter is CosArray filters ? filters : [filter];
+        foreach (CosObject name in names)
         {
-            RequireFeature(VersionedFeatures.FlateCompression);
+            if (Resolve(name) is CosName filterName && VersionedFeatures.Filter(filterName) is { } feature)
+            {
+                RequireFeature(feature);
+            }
         }
     }
 

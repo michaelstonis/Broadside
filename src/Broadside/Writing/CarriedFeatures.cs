@@ -1,4 +1,6 @@
+using Broadside.Annotations;
 using Broadside.Filters;
+using Broadside.Images;
 using Broadside.Objects;
 using Broadside.Structure;
 
@@ -26,6 +28,20 @@ namespace Broadside.Writing;
 /// <c>F</c> (§12.3.3, Table 151).</item>
 /// <item><see cref="VersionedFeatures.BoundingBoxDestinations"/>: an explicit destination array whose view is <c>FitB</c>,
 /// <c>FitBH</c> or <c>FitBV</c> (§12.3.2.2, Table 149).</item>
+/// <item><see cref="VersionedFeatures.Jbig2Compression"/> and <see cref="VersionedFeatures.JpxCompression"/>: a stream whose
+/// <c>Filter</c> names <c>JBIG2Decode</c> or <c>JPXDecode</c> (§7.4.7, §7.4.9; Table 6).</item>
+/// <item><see cref="VersionedFeatures.SoftMasks"/>: an <c>SMask</c> entry (a graphics state parameter dictionary's, Table 57, or an
+/// image's, Table 87) and a soft-mask dictionary (<c>Type</c> <c>Mask</c>, Table 142).</item>
+/// <item><see cref="VersionedFeatures.TransparencyGroups"/>: a group attributes dictionary of subtype <c>Transparency</c> (§11.6.6,
+/// Table 145), which a form's or a page's <c>Group</c> holds.</item>
+/// <item><see cref="VersionedFeatures.TransparencyParameters"/>: a numeric <c>CA</c> or <c>ca</c>, or a <c>BM</c>, <c>AIS</c> or
+/// <c>TK</c> entry, outside an annotation (Table 57; the appearance characteristics' <c>CA</c> is a text string and is not one),
+/// and a markup annotation's <c>CA</c> (Table 166).</item>
+/// <item><see cref="VersionedFeatures.OptionalContent"/>: an optional content group or membership dictionary (<c>Type</c>
+/// <c>OCG</c> or <c>OCMD</c>, Tables 96 and 98) and an <c>OC</c> entry (Tables 87, 93 and 166).</item>
+/// <item><see cref="VersionedFeatures.Pdf20AnnotationEntries"/>: an annotation (<c>Type</c> <c>Annot</c>, or untyped with
+/// <c>Subtype</c> and <c>Rect</c>) with <c>ca</c>, <c>BM</c> or <c>Lang</c>, a non-markup annotation with <c>CA</c> (Table 166),
+/// and the <c>Projection</c> and <c>RichMedia</c> types (Table 171).</item>
 /// </list>
 /// <para>
 /// The catalog-level rows (page labels, the name trees, developer extensions) are not found here: a copy never carries the source's
@@ -37,6 +53,19 @@ internal static class CarriedFeatures
     private static readonly CosName FitB = new("FitB");
     private static readonly CosName FitBH = new("FitBH");
     private static readonly CosName FitBV = new("FitBV");
+    private static readonly CosName Group = new("Group");
+    private static readonly CosName Transparency = new("Transparency");
+    private static readonly CosName Mask = new("Mask");
+    private static readonly CosName S = new("S");
+    private static readonly CosName CA = new("CA");
+    private static readonly CosName LowerCA = new("ca");
+    private static readonly CosName BM = new("BM");
+    private static readonly CosName AIS = new("AIS");
+    private static readonly CosName TK = new("TK");
+
+    /// <summary>The annotation types Table 171 marks as not markup annotations, whose <c>CA</c> is PDF 2.0 (Table 166).</summary>
+    private static readonly HashSet<string> NonMarkupTypes =
+        ["Link", "Popup", "Movie", "Screen", "Widget", "PrinterMark", "TrapNet", "Watermark", "3D", "RichMedia"];
 
     /// <summary>Reports each feature <paramref name="dictionary"/>'s own entries use.</summary>
     /// <param name="document">The document the dictionary belongs to, which resolves its entries.</param>
@@ -55,6 +84,16 @@ internal static class CarriedFeatures
             found(VersionedFeatures.UnicodeFileName);
         }
 
+        if (dictionary.ContainsKey(ImageNames.SMask))
+        {
+            found(VersionedFeatures.SoftMasks);
+        }
+
+        if (dictionary.ContainsKey(FileAndLayerNames.OC))
+        {
+            found(VersionedFeatures.OptionalContent);
+        }
+
         CosObject? type = EntryReader.Get(document, dictionary, KnownNames.Type);
         if (isStream)
         {
@@ -63,12 +102,34 @@ internal static class CarriedFeatures
                 found(VersionedFeatures.EmbeddedFileStream);
             }
 
-            if (NamesFlate(document, EntryReader.Get(document, dictionary, FilterNames.Filter)))
-            {
-                found(VersionedFeatures.FlateCompression);
-            }
-
+            Filters(document, EntryReader.Get(document, dictionary, FilterNames.Filter), found);
             return;
+        }
+
+        if (FileAndLayerNames.OCG.Equals(type) || FileAndLayerNames.OCMD.Equals(type))
+        {
+            found(VersionedFeatures.OptionalContent);
+        }
+        else if (Mask.Equals(type))
+        {
+            found(VersionedFeatures.SoftMasks);
+        }
+        else if ((type is null || Group.Equals(type)) && Transparency.Equals(EntryReader.Get(document, dictionary, S))
+            && !dictionary.ContainsKey(StructureNames.P))
+        {
+            found(VersionedFeatures.TransparencyGroups);
+        }
+
+        if (AnnotationNames.Annot.Equals(type)
+            || (type is null && dictionary.ContainsKey(AnnotationNames.Rect) && dictionary.ContainsKey(AnnotationNames.Subtype)))
+        {
+            Annotation(document, dictionary, found);
+        }
+        else if (dictionary.ContainsKey(BM) || dictionary.ContainsKey(AIS) || dictionary.ContainsKey(TK)
+            || EntryReader.Get(document, dictionary, CA) is CosInteger or CosReal
+            || EntryReader.Get(document, dictionary, LowerCA) is CosInteger or CosReal)
+        {
+            found(VersionedFeatures.TransparencyParameters);
         }
 
         if (dictionary.ContainsKey(FileAndLayerNames.Desc)
@@ -126,11 +187,48 @@ internal static class CarriedFeatures
         return VersionedFeatures.StructureTree(version);
     }
 
-    /// <summary>Whether a <c>Filter</c> value is or lists <c>FlateDecode</c>.</summary>
-    private static bool NamesFlate(PdfDocument document, CosObject? filter) => filter switch
+    /// <summary>Reports the PDF 2.0 entries an annotation uses (Tables 166 and 171), and a markup annotation's <c>CA</c> (PDF 1.4).</summary>
+    private static void Annotation(PdfDocument document, CosDictionary annotation, Action<VersionedFeature> found)
     {
-        CosName name => FilterNames.FlateDecode.Equals(name),
-        CosArray filters => filters.Any(item => FilterNames.FlateDecode.Equals(document.Resolve(item))),
-        _ => false,
-    };
+        string? subtype = (EntryReader.Get(document, annotation, AnnotationNames.Subtype) as CosName)?.Value;
+        if (annotation.ContainsKey(LowerCA) || annotation.ContainsKey(BM) || annotation.ContainsKey(AnnotationNames.Lang)
+            || subtype is "Projection" or "RichMedia")
+        {
+            found(VersionedFeatures.Pdf20AnnotationEntries);
+        }
+
+        if (annotation.ContainsKey(CA))
+        {
+            found(subtype is not null && NonMarkupTypes.Contains(subtype)
+                ? VersionedFeatures.Pdf20AnnotationEntries
+                : VersionedFeatures.TransparencyParameters);
+        }
+    }
+
+    /// <summary>Reports the feature of each filter a <c>Filter</c> value names that has a version row (§7.4.1, Table 6).</summary>
+    private static void Filters(PdfDocument document, CosObject? filter, Action<VersionedFeature> found)
+    {
+        if (filter is CosName name)
+        {
+            Filter(name, found);
+        }
+        else if (filter is CosArray filters)
+        {
+            foreach (CosObject item in filters)
+            {
+                if (document.Resolve(item) is CosName each)
+                {
+                    Filter(each, found);
+                }
+            }
+        }
+    }
+
+    private static void Filter(CosName name, Action<VersionedFeature> found)
+    {
+        if (VersionedFeatures.Filter(name) is { } feature)
+        {
+            found(feature);
+        }
+    }
 }
