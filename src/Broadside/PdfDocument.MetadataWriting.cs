@@ -11,10 +11,18 @@ public sealed partial class PdfDocument
     /// <summary>Whether a modification date was set through <see cref="PdfDocumentProperties.ModificationDate"/> since the last save.</summary>
     private bool _modificationDateSet;
 
+    /// <summary>The Info dates written since the last save, in the form of the document's version then (issue #291).</summary>
+    private readonly HashSet<MetadataEntry> _writtenDates = [];
+
     /// <summary>Writes one metadata entry to the Info dictionary and the XMP packet (<see cref="DocumentMetadataWriter"/>).</summary>
     internal void WriteMetadata(MetadataEntry entry, object? value)
     {
         new DocumentMetadataWriter(this).Set(entry, value).Commit(Now(), createPacket: true);
+        if (entry is MetadataEntry.CreationDate or MetadataEntry.ModificationDate)
+        {
+            _writtenDates.Add(entry);
+        }
+
         if (entry == MetadataEntry.ModificationDate)
         {
             _modificationDateSet = true;
@@ -45,15 +53,33 @@ public sealed partial class PdfDocument
         if (!_modificationDateSet)
         {
             writer.Set(MetadataEntry.ModificationDate, now);
+            _writtenDates.Add(MetadataEntry.ModificationDate);
         }
 
         if (_isNew && !writer.Has(MetadataEntry.CreationDate))
         {
             writer.Set(MetadataEntry.CreationDate, now);
+            _writtenDates.Add(MetadataEntry.CreationDate);
         }
 
         writer.Commit(now, createPacket: false);
         _modificationDateSet = false;
+    }
+
+    /// <summary>
+    /// Once the version plan has decided the version <paramref name="written"/> the save writes: when it is PDF 2.0 or later, writes the
+    /// dates written since the last save (by <see cref="DateModification"/> or through <see cref="PdfDocumentProperties"/>, in the form
+    /// of the version the document had then) again in the 2.0 form, without the terminating apostrophe (ISO 32000-2 §7.9.4 NOTE 2). The
+    /// Info dictionary they are in changed, so the plan already writes it; the writer serializes it as it is when it writes.
+    /// </summary>
+    private void FormatDatesFor(PdfVersion written)
+    {
+        if (written >= new PdfVersion(2, 0) && _writtenDates.Count > 0)
+        {
+            new DocumentMetadataWriter(this).FormatDatesForPdf20(_writtenDates);
+        }
+
+        _writtenDates.Clear();
     }
 
     private MetadataDate Now() => MetadataDate.FromInstant(TimeProvider.GetLocalNow());
