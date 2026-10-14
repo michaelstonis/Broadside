@@ -88,6 +88,11 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <item><term><see cref="TransparencyGroups"/></term><description>1.4 (§11.6.6; Table 31 and Table 93, <c>Group</c>)</description></item>
 /// <item><term><see cref="OptionalContent"/></term><description>1.5 (§8.11.1; Table 29, <c>OCProperties</c>; Tables 87, 93 and 166, <c>OC</c>)</description></item>
 /// <item><term><see cref="Pdf20AnnotationEntries"/></term><description>2.0 (§12.5.2, Table 166, <c>ca</c>, <c>BM</c>, <c>Lang</c>, <c>CA</c> of a non-markup annotation; §12.5.6.1, Table 171, <c>Projection</c> and <c>RichMedia</c>)</description></item>
+/// <item><term><see cref="InteractiveForm"/></term><description>1.2 (§12.7.3; §7.7.2, Table 29, <c>AcroForm</c>): every field <see cref="Forms.PdfAcroForm"/> creates.</description></item>
+/// <item><term><see cref="SignatureFields"/></term><description>1.3 (§12.7.5.5; Table 224, <c>SigFlags</c>)</description></item>
+/// <item><term><see cref="FieldAlternateName"/></term><description>1.3 (§12.7.4.1, Table 226, <c>TU</c>)</description></item>
+/// <item><term><see cref="FieldFlags14"/></term><description>1.4 (Tables 231 and 233: FileSelect, MultiSelect, DoNotSpellCheck, DoNotScroll)</description></item>
+/// <item><term><see cref="FieldFlags15"/></term><description>1.5 (Tables 229, 231 and 233: Comb, RichText, RadiosInUnison, CommitOnSelChange)</description></item>
 /// <item><term><see cref="DeveloperExtension"/></term><description>The extension's <c>BaseVersion</c> (§7.12.4)</description></item>
 /// </list>
 /// <para>
@@ -198,6 +203,28 @@ internal static class VersionedFeatures
         "PDF 2.0 annotation entries (ca, BM, Lang, CA of a non-markup annotation, Projection and RichMedia types)",
         "ISO 32000-2 §12.5.2, Table 166; §12.5.6.1, Table 171",
         Pdf20);
+
+    /// <summary>Gets an interactive form (<c>AcroForm</c>) with its fields, widget annotations and their appearance characteristics: PDF 1.2.</summary>
+    public static VersionedFeature InteractiveForm { get; } = new(
+        "an interactive form (AcroForm) with fields and widget annotations", "ISO 32000-2 §12.7.3; §7.7.2, Table 29", Pdf12);
+
+    /// <summary>Gets signature fields (<c>FT</c> <c>Sig</c>) and the interactive form's <c>SigFlags</c>: PDF 1.3.</summary>
+    public static VersionedFeature SignatureFields { get; } = new(
+        "signature fields (FT Sig, SigFlags)", "ISO 32000-2 §12.7.5.5; §12.7.3, Table 224", new PdfVersion(1, 3));
+
+    /// <summary>Gets a field's alternative name (<c>TU</c>): PDF 1.3.</summary>
+    public static VersionedFeature FieldAlternateName { get; } = new(
+        "a field's alternative name (TU)", "ISO 32000-2 §12.7.4.1, Table 226", new PdfVersion(1, 3));
+
+    /// <summary>Gets the PDF 1.4 field flags: FileSelect, MultiSelect, DoNotSpellCheck and DoNotScroll.</summary>
+    public static VersionedFeature FieldFlags14 { get; } = new(
+        "the field flags FileSelect, MultiSelect, DoNotSpellCheck or DoNotScroll", "ISO 32000-2 §12.7.5.3, Table 231; §12.7.5.4, Table 233", Pdf14);
+
+    /// <summary>Gets the PDF 1.5 field flags: Comb, RichText, RadiosInUnison and CommitOnSelChange.</summary>
+    public static VersionedFeature FieldFlags15 { get; } = new(
+        "the field flags Comb, RichText, RadiosInUnison or CommitOnSelChange",
+        "ISO 32000-2 §12.7.5.2.4, Table 229; §12.7.5.3, Table 231; §12.7.5.4, Table 233",
+        Pdf15);
 
     /// <summary>Returns the feature a filter's encoding stands for, or <see langword="null"/> when it has no version row.</summary>
     /// <param name="filter">A filter name.</param>
