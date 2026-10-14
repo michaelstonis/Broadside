@@ -5,6 +5,7 @@ using Broadside.Forms;
 using Broadside.Graphics;
 using Broadside.Objects;
 using Broadside.Parsing;
+using Broadside.Structure;
 
 namespace Broadside.Annotations;
 
@@ -12,7 +13,10 @@ namespace Broadside.Annotations;
 /// Flattens annotations into page content (<see cref="PdfDocument.Flatten(PdfFlattenOptions)"/>): plans every page first, without
 /// changing anything, then rewrites each page's content, resources and <c>Annots</c>, undoing every change if one fails.
 /// </summary>
-/// <remarks>ISO 32000-2 §12.5.5 (Algorithm "Appearance streams"), §12.5.3 (flags), §8.10 (form XObjects), §8.11.3.2 (optional content in content).</remarks>
+/// <remarks>
+/// ISO 32000-2 §12.5.5 (Algorithm "Appearance streams"), §12.5.3 (flags), §8.10 (form XObjects), §8.11.3.2 (optional content in
+/// content), §14.7.5.2-§14.7.5.4 (content items and the parent tree of removed annotations), §12.8.6 (permissions).
+/// </remarks>
 internal static class AnnotationFlattening
 {
     private static readonly CosName ExtGState = new("ExtGState");
@@ -28,6 +32,8 @@ internal static class AnnotationFlattening
     private static readonly CosName FormSubtype = new("Form");
     private static readonly CosName OC = new("OC");
     private static readonly CosName Appearance = new("Ap");
+    private static readonly CosName Perms = new("Perms");
+    private static readonly CosName Span = new("Span");
 
     public static bool Flatten(PdfDocument document, PdfFlattenOptions options)
     {
@@ -52,6 +58,8 @@ internal static class AnnotationFlattening
             return false;
         }
 
+        StructurePlan? structure = PlanStructure(document, plans);
+
         if (form is not null && form.TerminalFields.OfType<PdfSignatureField>().Any(field => field.IsSigned))
         {
             form.Report(
@@ -69,8 +77,11 @@ internal static class AnnotationFlattening
 
             if (form is not null)
             {
+                RemovePermissions(document, form, undo);
                 undo.Remove(document.Catalog, FormNames.AcroForm);
             }
+
+            structure?.Apply();
         }
         catch
         {
@@ -107,7 +118,96 @@ internal static class AnnotationFlattening
             }
         }
 
-        return removed.Count == 0 ? null : new PagePlan(page, drawn, kept);
+        return removed.Count == 0 ? null : new PagePlan(page, drawn, kept, removed);
+    }
+
+    /// <summary>
+    /// Finds the structure-tree object references (OBJR, §14.7.5.3) of the annotations that leave, without changing anything, and
+    /// gives each drawn one's placement the element that held it and a free MCID of its page; null when nothing refers to them.
+    /// </summary>
+    private static StructurePlan? PlanStructure(PdfDocument document, List<PagePlan> plans)
+    {
+        if (plans.Count == 0 || !document.Catalog.ContainsKey(StructureNames.StructTreeRoot) || document.StructureTree is not { } tree)
+        {
+            return null;
+        }
+
+        StructureContext context = tree.Context;
+        var removed = new HashSet<CosDictionary>(ReferenceEqualityComparer.Instance);
+        foreach (PagePlan plan in plans)
+        {
+            removed.UnionWith(plan.Removed);
+        }
+
+        Dictionary<CosDictionary, List<PdfObjectReference>> references = StructureWriter.FindObjectReferences(context, removed);
+        var tagged = new Dictionary<CosDictionary, (PdfPage Page, int Mcid)>(ReferenceEqualityComparer.Instance);
+        foreach (PagePlan plan in plans)
+        {
+            int? next = null;
+            for (int index = 0; index < plan.Drawn.Count; index++)
+            {
+                Placement placement = plan.Drawn[index];
+                CosDictionary annotation = placement.Annotation.Dictionary;
+                if (!references.TryGetValue(annotation, out List<PdfObjectReference>? held) || tagged.ContainsKey(annotation) || plan.Page.Reference is null)
+                {
+                    continue;
+                }
+
+                // MCIDs are unique per content stream (§14.7.5.2): past those the tree knows of and those the page's content uses.
+                // An MCID indexes the page's parent-tree array, so one past the length the reader takes leaves the content untagged.
+                next ??= Math.Max(StructureWriter.PeekNextMcid(context, plan.Page), McidScanner.NextMcid(plan.Page));
+                int mcid = next.Value;
+                if (mcid >= StructureContext.MaxParentTreeArray)
+                {
+                    continue;
+                }
+
+                next = mcid + 1;
+                tagged.Add(annotation, (plan.Page, mcid));
+                plan.Drawn[index] = placement with { Owner = held[0].Parent, Mcid = mcid };
+            }
+        }
+
+        return new StructurePlan(context, removed, references, tagged);
+    }
+
+    /// <summary>
+    /// Removes the entries of the catalog's permissions dictionary (<c>Perms</c>, §12.8.6, Table 263) that name a signature of the form
+    /// being removed: a certification signature's dictionary is a signature field's <c>V</c> that <c>DocMDP</c> refers to (§12.8.1,
+    /// §12.8.2.2). A usage rights signature (<c>UR3</c>) is not a field's value, so it stays. <c>Perms</c> goes when nothing is left.
+    /// </summary>
+    private static void RemovePermissions(PdfDocument document, PdfAcroForm form, UndoLog undo)
+    {
+        if (!document.Catalog.TryGetValue(Perms, out CosObject? value) || document.Resolve(value) is not CosDictionary permissions)
+        {
+            return;
+        }
+
+        var signatures = new HashSet<CosDictionary>(ReferenceEqualityComparer.Instance);
+        foreach (PdfSignatureField field in form.TerminalFields.OfType<PdfSignatureField>())
+        {
+            if (field.SignatureDictionary is { } signature)
+            {
+                signatures.Add(signature);
+            }
+        }
+
+        List<CosName> removed = [.. permissions.Where(entry => document.Resolve(entry.Value) is CosDictionary target && signatures.Contains(target)).Select(entry => entry.Key)];
+        if (removed.Count == 0)
+        {
+            return;
+        }
+
+        if (removed.Count == permissions.Count)
+        {
+            undo.Remove(document.Catalog, Perms);
+            return;
+        }
+
+        foreach (CosName key in removed)
+        {
+            undo.Remove(permissions, key);
+        }
     }
 
     /// <summary>Applies Table 167's Hidden, Invisible, NoView and Print flags for the intent.</summary>
@@ -216,6 +316,14 @@ internal static class AnnotationFlattening
         Dictionary<CosName, CosDictionary> categories,
         Dictionary<CosReference, CosName> forms)
     {
+        if (placement.Owner is { } owner)
+        {
+            // §14.7.5.2: the sequence's MCID, with the element's type as its tag, ties the content to the element (§14.8.2.5.2).
+            writer.Name(owner.StructureType ?? Span).Write("<</MCID "u8);
+            writer.Number(placement.Mcid).Write(">> "u8);
+            writer.Operator("BDC");
+        }
+
         if (placement.OptionalContent is { } optionalContent)
         {
             CosName properties = Add(document, resources, categories, Properties, "BrsOC", optionalContent);
@@ -255,6 +363,11 @@ internal static class AnnotationFlattening
         writer.Name(name).Operator("Do");
         writer.Operator("Q");
         if (placement.OptionalContent is not null)
+        {
+            writer.Operator("EMC");
+        }
+
+        if (placement.Owner is not null)
         {
             writer.Operator("EMC");
         }
@@ -339,10 +452,17 @@ internal static class AnnotationFlattening
         CosObject? OptionalContent,
         double StrokingOpacity,
         double NonStrokingOpacity,
-        BlendMode BlendMode);
+        BlendMode BlendMode)
+    {
+        /// <summary>Gets the structure element whose object reference held the annotation, which the drawn appearance is now marked content of.</summary>
+        public PdfStructureElement? Owner { get; init; }
+
+        /// <summary>Gets the MCID of the marked-content sequence the appearance is drawn in, when it has an <see cref="Owner"/>.</summary>
+        public int Mcid { get; init; }
+    }
 
     /// <summary>What a page draws and keeps: the annotations it keeps, in <c>Annots</c> order, are what its new <c>Annots</c> lists.</summary>
-    private sealed record PagePlan(PdfPage Page, List<Placement> Drawn, List<CosObject> Kept);
+    private sealed record PagePlan(PdfPage Page, List<Placement> Drawn, List<CosObject> Kept, HashSet<CosDictionary> Removed);
 
     /// <summary>
     /// Wraps a page's operators in <c>q</c> … <c>Q</c> and appends the appearances after them: as many <c>q</c> as the content
@@ -403,6 +523,71 @@ internal static class AnnotationFlattening
             after.Insert(after.Length, "EMC\n", marked).Insert(after.Length, "Q\n", 1 - lowest + depth);
             byte[] closing = [.. Encoding.ASCII.GetBytes(after.ToString()), .. appended];
             Wrap(0, count - 1, Encoding.ASCII.GetBytes(before.ToString().TrimEnd('\n')), closing);
+        }
+    }
+
+    /// <summary>
+    /// The structure edits of a flatten, made after the pages: each removed annotation's object references go from their elements'
+    /// <c>K</c> (§14.7.5.3), the first of a drawn one replaced by the marked-content item its appearance was drawn in (§14.7.5.2),
+    /// and its <c>StructParent</c> entry goes from the parent tree (§14.7.5.4).
+    /// </summary>
+    private sealed class StructurePlan(
+        StructureContext context,
+        HashSet<CosDictionary> removed,
+        Dictionary<CosDictionary, List<PdfObjectReference>> references,
+        Dictionary<CosDictionary, (PdfPage Page, int Mcid)> tagged)
+    {
+        public void Apply()
+        {
+            foreach ((CosDictionary annotation, List<PdfObjectReference> held) in references)
+            {
+                int first = 0;
+                if (tagged.TryGetValue(annotation, out (PdfPage Page, int Mcid) drawn))
+                {
+                    PdfObjectReference owner = held[0];
+                    StructureWriter.AddMarkedContent(context, owner.Parent, drawn.Page, null, drawn.Mcid, replacing: owner.Dictionary);
+                    first = 1;
+                }
+
+                for (int index = first; index < held.Count; index++)
+                {
+                    StructureWriter.RemoveObjectReference(context, held[index]);
+                }
+            }
+
+            foreach (CosDictionary annotation in removed)
+            {
+                StructureWriter.UnlinkRemovedObject(context, annotation);
+            }
+        }
+    }
+
+    /// <summary>Finds the lowest MCID above every one a page's own content uses (§14.7.5.2); forms have MCIDs of their own and are not entered.</summary>
+    private sealed class McidScanner : ContentProcessor
+    {
+        private int _next;
+
+        public override ContentEvents Events => ContentEvents.MarkedContent;
+
+        public static int NextMcid(PdfPage page)
+        {
+            var scanner = new McidScanner();
+            page.ProcessContent(scanner);
+            return scanner._next;
+        }
+
+        public override ContentVisit BeginForm(in FormEvent form, ContentContext context) => ContentVisit.Skip;
+
+        public override void BeginMarkedContent(in MarkedContentEvent mc, ContentContext context) => Note(mc);
+
+        public override void MarkedContentPoint(in MarkedContentEvent mc, ContentContext context) => Note(mc);
+
+        private void Note(in MarkedContentEvent mc)
+        {
+            if (mc.ContentStream is null && mc.Mcid is { } mcid and >= 0)
+            {
+                _next = Math.Max(_next, (int)Math.Min((long)mcid + 1, int.MaxValue));
+            }
         }
     }
 
