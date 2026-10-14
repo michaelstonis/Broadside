@@ -3893,6 +3893,21 @@ Broadside.Rendering.GlyphRun.StrokeColor.get -> Broadside.Rendering.DisplayColor
 Broadside.Rendering.GlyphRun.Strokes.get -> bool
 Broadside.Rendering.GlyphRun.StrokeStyle.get -> Broadside.Rendering.StrokeStyle
 Broadside.Rendering.IRenderingBackend.DrawGlyphs(in Broadside.Rendering.GlyphRun run) -> void
+Broadside.PdfOutputIntent
+Broadside.PdfOutputIntent.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfOutputIntent.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfOutputIntent.Subtype.get -> string?
+Broadside.PdfOutputIntent.OutputCondition.get -> string?
+Broadside.PdfOutputIntent.OutputConditionIdentifier.get -> string?
+Broadside.PdfOutputIntent.RegistryName.get -> string?
+Broadside.PdfOutputIntent.Info.get -> string?
+Broadside.PdfOutputIntent.DestinationProfile.get -> Broadside.Graphics.PdfIccBasedColorSpace?
+override Broadside.PdfOutputIntent.ToString() -> string!
+Broadside.PdfDocument.OutputIntents.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOutputIntent!>!
+Broadside.PdfPage.OutputIntents.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOutputIntent!>!
+Broadside.Graphics.GraphicsState.OutputIntent.get -> Broadside.PdfOutputIntent?
+Broadside.Graphics.ColorConversion.OutputIntent.get -> Broadside.PdfOutputIntent?
+Broadside.Graphics.ColorConversion.OutputIntent.init -> void
 Broadside.PdfObjectCopier
 Broadside.PdfObjectCopier.Copy(Broadside.Objects.CosObject! value) -> Broadside.Objects.CosObject!
 Broadside.PdfObjectCopier.CopyPage(Broadside.PdfPage! page) -> Broadside.Objects.CosReference!
@@ -3994,11 +4009,19 @@ Broadside.Forms.PdfChoiceField.SetValue(string? value) -> void
 Broadside.Forms.PdfChoiceField.SetSelectedIndices(System.Collections.Generic.IEnumerable<int>! indices) -> void
 Broadside.Forms.PdfChoiceField.GenerateAppearances() -> void
 Broadside.Forms.PdfListBoxField.SetTopIndex(int topIndex) -> void
+Broadside.Rendering.DisplayList.Replay(Broadside.Rendering.IRenderingBackend! backend, Broadside.PdfRectangle region) -> void
 Broadside.PdfEncryptionAlgorithm.Aes256Gcm = 3 -> Broadside.PdfEncryptionAlgorithm
 Broadside.PdfEncryptionOptions.IntegrityProtection.get -> bool
 Broadside.PdfEncryptionOptions.IntegrityProtection.set -> void
 Broadside.PdfEncryptionOptions.WithIntegrityProtection(bool integrityProtection) -> Broadside.PdfEncryptionOptions!
 Broadside.Rendering.IRenderingBackend.SetCompositing(double strokeAlpha, double fillAlpha, Broadside.Graphics.BlendMode blendMode) -> void
+Broadside.Rendering.DisplayTilingPattern
+Broadside.Rendering.DisplayTilingPattern.Cell.get -> Broadside.Rendering.DisplayList!
+Broadside.Rendering.DisplayTilingPattern.DisplayTilingPattern() -> void
+Broadside.Rendering.DisplayTilingPattern.Matrix.get -> Broadside.Graphics.Matrix
+Broadside.Rendering.DisplayTilingPattern.Pattern.get -> Broadside.Graphics.PdfTilingPattern!
+Broadside.Rendering.IRenderingBackend.FillPathWithTilingPattern(Broadside.Graphics.PathView path, Broadside.Graphics.FillRule rule, in Broadside.Rendering.DisplayTilingPattern pattern) -> void
+Broadside.Rendering.IRenderingBackend.StrokePathWithTilingPattern(Broadside.Graphics.PathView path, in Broadside.Rendering.StrokeStyle style, in Broadside.Rendering.DisplayTilingPattern pattern) -> void
 Broadside.PdfPage.CreateDisplayList(Broadside.Rendering.DisplayLayers layers) -> Broadside.Rendering.DisplayList!
 Broadside.PdfPage.CreateDisplayList(Broadside.Rendering.DisplayLayers layers, Broadside.Rendering.DisplayIntent intent, Broadside.Content.ContentOptions! options) -> Broadside.Rendering.DisplayList!
 Broadside.Rendering.DisplayAnnotation
@@ -4023,3 +4046,8 @@ Broadside.Rendering.DisplayLayers.FormFields = 4 -> Broadside.Rendering.DisplayL
 Broadside.Rendering.DisplayLayers.None = 0 -> Broadside.Rendering.DisplayLayers
 Broadside.Rendering.IRenderingBackend.BeginAnnotation(in Broadside.Rendering.DisplayAnnotation annotation) -> void
 Broadside.Rendering.IRenderingBackend.EndAnnotation() -> void
+Broadside.PdfDocument.AppendPages(Broadside.PdfDocument! source) -> void
+Broadside.PdfDocument.AppendPages(Broadside.PdfDocument! source, System.Range pages) -> void
+Broadside.PdfDocument.ExtractPages(System.Range pages) -> Broadside.PdfDocument!
+Broadside.PdfDocument.Split(params System.Collections.Generic.IEnumerable<System.Range>! ranges) -> System.Collections.Generic.IReadOnlyList<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.Merge(params System.Collections.Generic.IEnumerable<Broadside.PdfDocument!>! sources) -> Broadside.PdfDocument!

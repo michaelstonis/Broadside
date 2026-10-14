@@ -150,6 +150,17 @@ public struct GraphicsState
     /// <remarks>ISO 32000-2 §10.4.2.4, Table 52. Set through <c>gs</c> (UCR, UCR2, PDF 1.3); pass it to <see cref="ColorConversion"/>.</remarks>
     public PdfFunction? UndercolorRemoval { readonly get; internal set; }
 
+    /// <summary>
+    /// Gets the output intent in effect for the content being run: the page's first output intent with a profile, else the
+    /// document's, or <see langword="null"/>. Not a graphics state parameter; carried here so every conversion made from the state
+    /// can honour it.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §14.11.5 (a page-level output intent is used for its page). Set by the interpreter when a run starts and kept by
+    /// nested runs; <c>gs</c> does not change it. <see cref="ColorConversion.FromState"/> passes it on.
+    /// </remarks>
+    public PdfOutputIntent? OutputIntent { readonly get; internal set; }
+
     /// <summary>Gets the transfer function, or <see langword="null"/> for the device's default. Initially the default.</summary>
     /// <remarks>ISO 32000-2 §10.5, Table 52. Set through <c>gs</c> (TR, TR2; deprecated in PDF 2.0).</remarks>
     public PdfTransferFunction? TransferFunction { readonly get; internal set; }

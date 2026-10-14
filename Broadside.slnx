@@ -34,9 +34,11 @@
     <Project Path="tests/Broadside.Tests/Broadside.Tests.csproj" />
     <Project Path="tests/Broadside.TestSupport/Broadside.TestSupport.csproj" />
     <Project Path="tests/ConformanceCheck.Tests/ConformanceCheck.Tests.csproj" />
+    <Project Path="tests/RenderDiff.Tests/RenderDiff.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/ConformanceCheck/ConformanceCheck.csproj" />
     <Project Path="tools/CorpusFetcher/CorpusFetcher.csproj" />
+    <Project Path="tools/RenderDiff/RenderDiff.csproj" />
   </Folder>
 </Solution>

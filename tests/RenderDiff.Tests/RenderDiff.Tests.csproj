@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Drives tools/RenderDiff over hand-written corpus files, with reference renders from fixture directories and, when installed, poppler. -->
+  <PropertyGroup>
+    <RootNamespace>Broadside.Tools.RenderDiff.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../tools/RenderDiff/RenderDiff.csproj" />
+    <ProjectReference Include="../Broadside.TestSupport/Broadside.TestSupport.csproj" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+</Project>
