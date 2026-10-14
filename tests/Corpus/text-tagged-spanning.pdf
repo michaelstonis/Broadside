@@ -1,0 +1,76 @@
+%PDF-2.0
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /StructTreeRoot 10 0 R /Lang (en-US) >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 5 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 7 0 R >> >> /StructParents 0 >>
+endobj
+4 0 obj
+<<  /Length 184 >>
+stream
+/P <</MCID 0>> BDC BT /F1 12 Tf 72 700 Td (Before) Tj ET EMC
+/Span <</MCID 1>> BDC BT /F1 12 Tf 72 680 Td (Druk-) Tj ET EMC
+/Figure <</MCID 2>> BDC BT /F1 12 Tf 72 660 Td (*) Tj ET EMC
+endstream
+endobj
+5 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 6 0 R /Resources << /Font << /F1 7 0 R >> >> /StructParents 1 >>
+endobj
+6 0 obj
+<<  /Length 181 >>
+stream
+/Span <</MCID 0>> BDC BT /F1 12 Tf 72 700 Td (ker) Tj ET EMC
+/Figure <</MCID 1>> BDC BT /F1 12 Tf 72 680 Td (*) Tj ET EMC
+/P <</MCID 2>> BDC BT /F1 12 Tf 72 660 Td (After) Tj ET EMC
+endstream
+endobj
+7 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+9 0 obj
+<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>
+endobj
+10 0 obj
+<< /Type /StructTreeRoot /K [11 0 R] /Namespaces [9 0 R] /ParentTree << /Nums [0 [12 0 R 13 0 R 14 0 R] 1 [13 0 R 14 0 R 15 0 R]] >> /ParentTreeNextKey 2 >>
+endobj
+11 0 obj
+<< /Type /StructElem /S /Document /P 10 0 R /NS 9 0 R /K [12 0 R 13 0 R 14 0 R 15 0 R] >>
+endobj
+12 0 obj
+<< /Type /StructElem /S /P /P 11 0 R /NS 9 0 R /Pg 3 0 R /K 0 >>
+endobj
+13 0 obj
+<< /Type /StructElem /S /Span /P 11 0 R /NS 9 0 R /ActualText (Drucker) /K [<< /Type /MCR /Pg 3 0 R /MCID 1 >> << /Type /MCR /Pg 5 0 R /MCID 0 >>] >>
+endobj
+14 0 obj
+<< /Type /StructElem /S /Figure /P 11 0 R /NS 9 0 R /Alt (Two stars) /K [<< /Type /MCR /Pg 3 0 R /MCID 2 >> << /Type /MCR /Pg 5 0 R /MCID 1 >>] >>
+endobj
+15 0 obj
+<< /Type /StructElem /S /P /P 11 0 R /NS 9 0 R /Pg 5 0 R /K 2 >>
+endobj
+xref
+0 16
+0000000000 65535 f 
+0000000009 00000 n 
+0000000124 00000 n 
+0000000187 00000 n 
+0000000330 00000 n 
+0000000566 00000 n 
+0000000709 00000 n 
+0000000942 00000 n 
+0000000000 00000 f 
+0000001039 00000 n 
+0000001107 00000 n 
+0000001280 00000 n 
+0000001386 00000 n 
+0000001467 00000 n 
+0000001633 00000 n 
+0000001796 00000 n 
+trailer
+<< /Size 16 /Root 1 0 R /ID [<415773ee604528cc7e8ba94af8a6474c> <415773ee604528cc7e8ba94af8a6474c>] >>
+startxref
+1877
+%%EOF

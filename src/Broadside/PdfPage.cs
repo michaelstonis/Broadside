@@ -259,7 +259,10 @@ public sealed class PdfPage
     /// logical content order, the order of its structure tree, with structure elements' <c>ActualText</c> and <c>Lang</c> applied
     /// (<see cref="Text.TextReadingOrder.Structure"/>); other pages in content order. Text hidden by optional content and artifacts
     /// are left out; invisible text and text replaced by <c>ActualText</c> are extracted and flagged (<see cref="Text.TextGlyphFlags"/>).
-    /// Positions are in default user space. Annotation appearances are not part of the page's content and are not extracted.
+    /// A structure element whose content spans pages gives its replacement once, on the page where its content starts (the page of
+    /// its first content item in logical order), so pages read one after another hold it once; on a later page its glyphs are still
+    /// returned, in order, with their element and replacement flag, but each with an empty text range, so they add no text, words or
+    /// lines. Positions are in default user space. Annotation appearances are not part of the page's content and are not extracted.
     /// </remarks>
     public Text.TextPage ExtractText() => ExtractText(new Text.TextExtractionOptions());
 
