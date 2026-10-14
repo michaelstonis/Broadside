@@ -309,6 +309,85 @@ public sealed class MetadataWritingTests
         AssertDatedPacket(resaved, later, "Dated again", encryptMetadata);
     }
 
+    [Theory]
+    [InlineData(PdfEncryptionAlgorithm.Aes256, "2.0", "D:20261012093015+02'00")]
+    [InlineData(PdfEncryptionAlgorithm.Aes128, "1.7", "D:20261012093015+02'00'")]
+    public void A_save_dates_the_modification_in_the_form_of_the_version_it_writes(PdfEncryptionAlgorithm algorithm, string version, string modified)
+    {
+        // §7.9.4 NOTE 2: the terminating apostrophe is PDF 1.7 and earlier's; AES-256 raises the 1.7 file to 2.0 (§7.6.2, Table 20),
+        // AES-128 needs only 1.6 and leaves it at 1.7.
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("metadata-xmp.pdf"), Options);
+        document.Properties.Title = "Raised";
+
+        byte[] saved = Save(document, new PdfSaveOptions().WithEncryption(new PdfEncryptionOptions("user", "owner").WithAlgorithm(algorithm)));
+
+        using PdfDocument reopened = new PdfEngine().Open(saved, new PdfPassword("user"));
+        Assert.Equal(version, reopened.Version.ToString());
+        Assert.Equal(modified, reopened.Information!.ModificationDate!.Value.Text);
+        Assert.Equal("2026-10-12T09:30:15+02:00", reopened.Metadata!.Packet!.ModifyDate!.Value.Text);
+        Assert.Equal(Now, reopened.Information.ModificationDate.Value.Value);
+    }
+
+    [Fact]
+    public void An_incremental_save_that_raises_to_2_0_dates_the_modification_and_a_set_creation_date_in_the_2_0_form()
+    {
+        // An associated file is PDF 2.0 (§14.13): the update raises the catalog's Version (§7.7.2, Table 29).
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("info-dictionary.pdf"), Options);
+        document.Properties.CreationDate = new DateTimeOffset(2025, 1, 2, 3, 4, 5, TimeSpan.FromHours(-5));
+        document.AddAssociatedFile(document.Catalog, document.CreateEmbeddedFile("a.txt", "a"u8));
+
+        byte[] saved = Save(document, new PdfSaveOptions().WithIncrementalUpdate(true));
+
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Equal(new PdfVersion(2, 0), reopened.Version);
+        Assert.Equal("D:20261012093015+02'00", reopened.Information!.ModificationDate!.Value.Text);
+        Assert.Equal("D:20250102030405-05'00", reopened.Information.CreationDate!.Value.Text);
+    }
+
+    [Fact]
+    public void A_date_set_explicitly_is_written_in_the_2_0_form_when_the_save_raises_to_2_0_without_dating()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("info-dictionary.pdf"), Options);
+        document.Properties.ModificationDate = new DateTimeOffset(2025, 1, 2, 3, 4, 5, TimeSpan.FromHours(1));
+
+        byte[] saved = Save(document, new PdfSaveOptions().WithUpdateModificationDate(false).WithEncryption(new PdfEncryptionOptions("user", "owner")));
+
+        using PdfDocument reopened = new PdfEngine().Open(saved, new PdfPassword("user"));
+        Assert.Equal(new PdfVersion(2, 0), reopened.Version);
+        Assert.Equal("D:20250102030405+01'00", reopened.Information!.ModificationDate!.Value.Text);
+        Assert.Equal("D:20140314124211+01'00", reopened.Information.CreationDate!.Value.Text); // The file's own, kept as it was.
+    }
+
+    [Fact]
+    public void A_save_of_a_pdf_2_0_document_that_needs_no_raise_dates_it_in_the_2_0_form()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("info-dictionary.pdf"), Options);
+        document.Catalog[new CosName("Version")] = new CosName("2.0");
+
+        byte[] saved = Save(document, new PdfSaveOptions().WithEncryption(new PdfEncryptionOptions("user", "owner")));
+
+        using PdfDocument reopened = new PdfEngine().Open(saved, new PdfPassword("user"));
+        Assert.Equal("D:20261012093015+02'00", reopened.Information!.ModificationDate!.Value.Text);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void Strict_mode_refusing_the_raise_to_2_0_writes_nothing_and_leaves_the_version()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("metadata-xmp.pdf"), new PdfOptions().UseTimeProvider(new FixedTimeProvider(Now)).UseStrict());
+        document.Properties.Title = "Refused";
+        using var output = new MemoryStream();
+
+        Diagnostics.DiagnosticException exception = Assert.Throws<Diagnostics.DiagnosticException>(
+            () => document.Save(output, new PdfSaveOptions().WithEncryption(new PdfEncryptionOptions("user", "owner"))));
+
+        Assert.Equal("VersionRaised", exception.Diagnostic.Code);
+        Assert.Equal(0, output.Length);
+        Assert.Equal(new PdfVersion(1, 7), document.Version);
+        Assert.Null(document.CatalogVersion);
+        Assert.DoesNotContain(new CosName("Extensions"), document.Catalog.Keys);
+    }
+
     private static void AssertDatedPacket(byte[] file, DateTimeOffset dated, string title, bool encryptMetadata)
     {
         ReadOnlySpan<byte> bytes = file;

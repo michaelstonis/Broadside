@@ -154,6 +154,30 @@ internal sealed class DocumentMetadataWriter
         WriteInfo(info, infoValues, isPdf20);
     }
 
+    /// <summary>
+    /// Writes the Info dictionary's <paramref name="entries"/> dates again in the PDF 2.0 form, without the terminating apostrophe of
+    /// PDF 1.7 and earlier (ISO 32000-2 §7.9.4 NOTE 2): for a save that raises the document to 2.0 after they were written in the
+    /// form of its version then. A date already in that form, or one the Info dictionary does not hold, is left as it is.
+    /// </summary>
+    public void FormatDatesForPdf20(IEnumerable<MetadataEntry> entries)
+    {
+        (CosDictionary? info, CosReference? reference) = ReadInfo();
+        foreach (MetadataEntry entry in entries)
+        {
+            if (info is null || ReadInfoValue(info, reference, entry) is not MetadataDate date)
+            {
+                continue;
+            }
+
+            var text = new CosString(Encoding.ASCII.GetBytes(date.ToPdfDate(terminatingApostrophe: false)));
+            CosName key = InfoKeyOf(entry);
+            if (!text.Equals(_document.Resolve(info.GetValueOrDefault(key))))
+            {
+                info[key] = text;
+            }
+        }
+    }
+
     private (CosDictionary? Info, CosReference? Reference) ReadInfo()
     {
         _document.Trailer.TryGetValue(InfoKey, out CosObject? entry);
