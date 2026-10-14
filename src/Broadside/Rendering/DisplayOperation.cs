@@ -55,6 +55,11 @@ internal enum DisplayOperationKind : byte
     /// <see cref="DisplayOperation.Second"/> the strokes, whose <see cref="DisplayStroke.ColorIndex"/> then indexes the tiling paints.
     /// </summary>
     StrokePathWithTilingPattern,
+    /// <summary><see cref="IRenderingBackend.BeginAnnotation"/>; <see cref="DisplayOperation.First"/> indexes the annotations.</summary>
+    BeginAnnotation,
+
+    /// <summary><see cref="IRenderingBackend.EndAnnotation"/>.</summary>
+    EndAnnotation,
 }
 
 /// <summary>One record of a display list: a kind and up to two indexes into the list's tables, 16 bytes.</summary>

@@ -60,3 +60,9 @@ Broadside.Rendering.Icc.IccProfileModel.LookupTable = 3 -> Broadside.Rendering.I
 Broadside.Rendering.RenderOptions.ForceOutlines.get -> bool
 Broadside.Rendering.RenderOptions.ForceOutlines.set -> void
 Broadside.Rendering.RenderOptions.WithForceOutlines(bool forceOutlines) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.RenderOptions.Intent.get -> Broadside.Rendering.DisplayIntent
+Broadside.Rendering.RenderOptions.Intent.set -> void
+Broadside.Rendering.RenderOptions.Layers.get -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.RenderOptions.Layers.set -> void
+Broadside.Rendering.RenderOptions.WithIntent(Broadside.Rendering.DisplayIntent intent) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.RenderOptions.WithLayers(Broadside.Rendering.DisplayLayers layers) -> Broadside.Rendering.RenderOptions!

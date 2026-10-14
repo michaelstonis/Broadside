@@ -64,6 +64,7 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <list type="table">
 /// <listheader><term>Feature</term><description>Minimum version (clause)</description></listheader>
 /// <item><term><see cref="FlateCompression"/></term><description>1.2 (§7.4.4): a save that compresses a stream, or <see cref="PdfDocument.EncodeStream"/> through <c>FlateDecode</c>.</description></item>
+/// <item><term><see cref="Linearization"/></term><description>1.1 (Annex F, F.3.2): a save with <see cref="PdfSaveOptions.Linearize"/>, whose hint stream also counts as <see cref="FlateCompression"/> unless compression is off.</description></item>
 /// <item><term><see cref="CrossReferenceStream"/></term><description>1.5 (§7.5.8)</description></item>
 /// <item><term><see cref="ObjectStreams"/></term><description>1.5 (§7.5.7)</description></item>
 /// <item><term><see cref="Rc4Encryption"/></term><description>1.4 (§7.6.2, Table 20, V 2)</description></item>
@@ -109,6 +110,9 @@ internal static class VersionedFeatures
 
     /// <summary>Gets streams compressed with the <c>FlateDecode</c> filter: PDF 1.2.</summary>
     public static VersionedFeature FlateCompression { get; } = new("FlateDecode compression", "ISO 32000-2 §7.4.4", Pdf12);
+
+    /// <summary>Gets a linearized file (Annex F): PDF 1.1, the first version linearization may be applied to (F.3.2).</summary>
+    public static VersionedFeature Linearization { get; } = new("linearization", "ISO 32000-2 Annex F, F.3.2", Pdf11);
 
     /// <summary>Gets a cross-reference stream: PDF 1.5.</summary>
     public static VersionedFeature CrossReferenceStream { get; } = new("a cross-reference stream", "ISO 32000-2 §7.5.8", Pdf15);
