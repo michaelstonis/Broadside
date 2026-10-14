@@ -316,6 +316,18 @@ public sealed class DisplayListTests
         public void DrawGlyphs(in GlyphRun run)
         {
         }
+
+        public void DrawShading(in DisplayShading shading)
+        {
+        }
+
+        public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading)
+        {
+        }
+
+        public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading)
+        {
+        }
     }
 
     /// <summary>Counts the converters requested per source family, then defers to the inner management.</summary>

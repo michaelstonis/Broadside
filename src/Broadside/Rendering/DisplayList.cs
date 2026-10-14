@@ -17,9 +17,10 @@ namespace Broadside.Rendering;
 /// <para>
 /// Today the list carries the graphics state stack (ISO 32000-2 §8.4.2), transforms (§8.3.2), path fills with their colour
 /// (§8.5.3, §8.6), strokes with their colour and line parameters (§8.4.3, §8.5.3.2), path clips (§8.5.4, including form
-/// bounding boxes, §8.10.1), images (§8.9, <see cref="DisplayImage"/>, decoded once per image XObject) and text as glyph runs
-/// (§9.4.3, §9.3.6, <see cref="GlyphRun"/>: font program, glyph ids, text matrices, outlines interned once per program and glyph).
-/// Type 3 glyphs, text clips, image masks, shadings, patterns and transparency join it in later Phase 3 tickets, each as new
+/// bounding boxes, §8.10.1), images (§8.9, <see cref="DisplayImage"/>, decoded once per image XObject), text as glyph runs
+/// (§9.4.3, §9.3.6, <see cref="GlyphRun"/>: font program, glyph ids, text matrices, outlines interned once per program and glyph)
+/// and shadings, from <c>sh</c> and as shading patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>). Type 3
+/// glyphs, text clips, image masks, tiling patterns and transparency join it in later Phase 3 tickets, each as new
 /// <see cref="IRenderingBackend"/> calls.
 /// </para>
 /// <para>
@@ -74,6 +75,9 @@ public sealed class DisplayList
     /// <summary>Gets the glyphs the runs slice.</summary>
     internal DisplayGlyph[] Glyphs { get; init; } = [];
 
+    /// <summary>Gets the shading paints (indexed by the shading records).</summary>
+    internal DisplayShadingPaint[] ShadingPaints { get; init; } = [];
+
     /// <summary>Gets the document the list was built from, whose colour converters a backend uses (see <see cref="DisplayColor"/>).</summary>
     public PdfDocument Document { get; }
 
@@ -123,6 +127,21 @@ public sealed class DisplayList
                     break;
                 case DisplayOperationKind.DrawGlyphs:
                     DrawGlyphs(backend, operation);
+                    break;
+                case DisplayOperationKind.DrawShading:
+                    DisplayShading drawn = Shading(operation.First);
+                    backend.DrawShading(in drawn);
+                    break;
+                case DisplayOperationKind.FillPathWithShading:
+                    ref readonly DisplayPath shaded = ref _paths[operation.First];
+                    DisplayShading filled = Shading(operation.Second);
+                    backend.FillPathWithShading(
+                        new PathView(_verbs.AsSpan(shaded.VerbStart, shaded.VerbCount), _points.AsSpan(shaded.PointStart, shaded.PointCount)),
+                        operation.FillRule,
+                        in filled);
+                    break;
+                case DisplayOperationKind.StrokePathWithShading:
+                    Stroke(backend, operation);
                     break;
             }
         }
@@ -177,13 +196,18 @@ public sealed class DisplayList
         return new DisplayColor(entry.ColorSpace, _components.AsSpan(entry.ComponentStart, entry.ComponentCount), entry.DefaultColorSpaces, entry.Conversion);
     }
 
-    /// <summary>Hands a stroke record to the backend.</summary>
+    /// <summary>Returns the shading paint at <paramref name="index"/> as the backend receives it.</summary>
+    private DisplayShading Shading(int index)
+    {
+        ref readonly DisplayShadingPaint paint = ref ShadingPaints[index];
+        return new DisplayShading(paint.Shading, paint.Matrix, paint.PaintsBackground, paint.DefaultColorSpaces, paint.Conversion);
+    }
+
+    /// <summary>Hands a stroke record (with a colour or, for <see cref="DisplayOperationKind.StrokePathWithShading"/>, a shading) to the backend.</summary>
     private void Stroke(IRenderingBackend backend, in DisplayOperation operation)
     {
         ref readonly DisplayPath path = ref _paths[operation.First];
         ref readonly DisplayStroke stroke = ref Strokes[operation.Second];
-        ref readonly DisplayColorEntry entry = ref _colors[stroke.ColorIndex];
-        var color = new DisplayColor(entry.ColorSpace, _components.AsSpan(entry.ComponentStart, entry.ComponentCount), entry.DefaultColorSpaces, entry.Conversion);
         var style = new StrokeStyle(
             stroke.LineWidth,
             stroke.LineCap,
@@ -192,9 +216,16 @@ public sealed class DisplayList
             Dashes.AsSpan(stroke.DashStart, stroke.DashCount),
             stroke.DashPhase,
             stroke.StrokeAdjustment);
-        backend.StrokePath(
-            new PathView(_verbs.AsSpan(path.VerbStart, path.VerbCount), _points.AsSpan(path.PointStart, path.PointCount)),
-            in style,
-            in color);
+        var view = new PathView(_verbs.AsSpan(path.VerbStart, path.VerbCount), _points.AsSpan(path.PointStart, path.PointCount));
+        if (operation.Kind == DisplayOperationKind.StrokePathWithShading)
+        {
+            DisplayShading shading = Shading(stroke.ColorIndex);
+            backend.StrokePathWithShading(view, in style, in shading);
+            return;
+        }
+
+        ref readonly DisplayColorEntry entry = ref _colors[stroke.ColorIndex];
+        var color = new DisplayColor(entry.ColorSpace, _components.AsSpan(entry.ComponentStart, entry.ComponentCount), entry.DefaultColorSpaces, entry.Conversion);
+        backend.StrokePath(view, in style, in color);
     }
 }

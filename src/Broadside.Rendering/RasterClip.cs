@@ -53,6 +53,15 @@ internal sealed class RasterClip : IDisposable
     /// <summary>Gets a value indicating whether the clip is the whole bitmap, so paints need no clipping.</summary>
     public bool IsWholeBitmap { get; private set; }
 
+    /// <summary>Returns the pixel rectangle outside which the clip's coverage is zero (right and bottom exclusive), for a paint that fills the whole clip (<c>sh</c>).</summary>
+    public void GetBounds(out int left, out int top, out int right, out int bottom)
+    {
+        left = _columnLeft;
+        top = _rowTop;
+        right = _columnRight;
+        bottom = _rowBottom;
+    }
+
     /// <summary>Starts a render into <paramref name="width"/> × <paramref name="height"/> pixels: the clip is all of them (§8.5.4, the initial clipping path).</summary>
     public void Reset(int width, int height)
     {

@@ -144,5 +144,19 @@ public sealed class DisplayListAllocationTests
                 Checksum += run.Glyphs[i].GlyphId + run.GetOutline(i).Points.Length + run.GetGlyphTransform(i).E;
             }
         }
+
+        public void DrawShading(in DisplayShading shading) => Checksum += shading.Matrix.A;
+
+        public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading)
+        {
+            Fills++;
+            Checksum += path.Points.Length + shading.Matrix.A;
+        }
+
+        public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading)
+        {
+            Strokes++;
+            Checksum += path.Points.Length + style.LineWidth + shading.Matrix.A;
+        }
     }
 }
