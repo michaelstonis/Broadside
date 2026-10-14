@@ -20,6 +20,12 @@ namespace Broadside.Writing;
 /// <see cref="CreateIncremental"/> plans an incremental update instead (§7.5.6), through the same <see cref="FileWriter"/>.
 /// </para>
 /// <para>
+/// With <see cref="PdfSaveOptions.Linearize"/>, the same objects are laid out as a linearized file (Annex F): a
+/// <see cref="LinearizedLayout"/> orders them by part, renumbers them through the same reference map a renumbered save uses, and
+/// writes copies of the pages and page tree nodes whose inherited attributes it moves; the <see cref="FileWriter"/> then writes the
+/// linearized structure around them.
+/// </para>
+/// <para>
 /// With <see cref="PdfSaveOptions.RemoveUnreachableObjects"/>, only the objects the trailer reaches through indirect references are
 /// written (garbage collection), which drops the old file structure too, since nothing reaches it. Objects keep their numbers and
 /// generations unless <see cref="PdfSaveOptions.ObjectNumbering"/> is <see cref="PdfObjectNumbering.Compact"/> or the numbering is
@@ -77,7 +83,10 @@ internal static class SavePlan
     /// compression and encryption. The writer's header states the document's header version; the caller raises it (<see cref="VersionPlan"/>).
     /// </param>
     /// <returns>The writer.</returns>
-    /// <exception cref="NotSupportedException">What <see cref="EncryptionPlan"/> refuses.</exception>
+    /// <exception cref="NotSupportedException">
+    /// What <see cref="EncryptionPlan"/> refuses, or a linearized save of a document without a catalog or a page, or whose page tree
+    /// lists a page twice.
+    /// </exception>
     public static FileWriter Create(
         PdfSource source,
         ObjectLoader loader,
@@ -158,8 +167,18 @@ internal static class SavePlan
             trailer[KnownNames.Encrypt] = reference;
         }
 
+        // A linearized file (Annex F) orders and numbers its objects by part; nothing is freed.
+        LinearizedLayout? linearized = options.Linearize
+            ? LinearizedLayout.Create(trailer, kept, options.CrossReferenceLayout, value => value is not (CosStream or CosReference))
+            : null;
         Dictionary<CosReference, CosReference>? references = null;
-        if (options.ObjectNumbering == PdfObjectNumbering.Compact || !IsCompact(Highest(kept, freeGenerations), kept.Count))
+        if (linearized is not null)
+        {
+            references = linearized.References;
+            kept = [.. linearized.Objects];
+            freeGenerations.Clear();
+        }
+        else if (options.ObjectNumbering == PdfObjectNumbering.Compact || !IsCompact(Highest(kept, freeGenerations), kept.Count))
         {
             references = new Dictionary<CosReference, CosReference>(kept.Count);
             for (int index = 0; index < kept.Count; index++)
@@ -196,6 +215,7 @@ internal static class SavePlan
             // serializes every object.
             ObjectSourceBytes? bytes = encryption.Encryptor is null
                 && !value.IsDirty
+                && (linearized is null || CopiesIntoLinearized(linearized, reference, value))
                 && loader.TryGetSourceBytes(reference, out ObjectSourceBytes found)
                 && (references is null || KeepsReferences(value, references))
                     ? found
@@ -217,6 +237,16 @@ internal static class SavePlan
                 : null;
 
         AddFeatures(features, options.CrossReferenceLayout, objects, encryption);
+        if (linearized is not null)
+        {
+            // Annex F, F.3.2: a linearized file is PDF 1.1 or later; its hint stream is FlateDecode-compressed unless compression is off.
+            features.Add(VersionedFeatures.Linearization);
+            if (options.StreamCompression != PdfStreamCompression.None)
+            {
+                features.Add(VersionedFeatures.FlateCompression);
+            }
+        }
+
         return new FileWriter(
             source,
             loader.Header.Version ?? FileHeader.DefaultVersion,
@@ -231,11 +261,22 @@ internal static class SavePlan
             update: null,
             encryption.Encryptor)
         {
-            // A renumbered file (references is not null) writes a dangling reference as null; one whose references are written as
-            // they are keeps it, so the streams the save adds skip its number.
+            // A renumbered file (references is not null, which includes every linearized file: its layout's References) writes a
+            // dangling reference as null; one whose references are written as they are keeps it, so the streams the save adds skip
+            // its number. A linearized file numbers its own streams in the renumbered space (FileWriter.Linearized.cs).
             StreamNumbers = references is null && options.CrossReferenceLayout != PdfCrossReferenceLayout.Table ? StreamNumbers(loader) : null,
+            Linearized = linearized,
+            CompressHintStream = options.StreamCompression != PdfStreamCompression.None,
         };
     }
+
+    /// <summary>
+    /// Whether an unchanged object may be copied byte for byte into a linearized file: not a page or page tree node the layout
+    /// rewrote, and not a stream with an indirect <c>Length</c>, which the layout treats as written with a direct one (§7.3.8.2).
+    /// </summary>
+    private static bool CopiesIntoLinearized(LinearizedLayout linearized, CosReference reference, CosObject value) =>
+        !linearized.IsSubstituted(reference)
+        && !(value is CosStream stream && stream.Dictionary.TryGetValue(KnownNames.Length, out CosObject? length) && length is CosReference);
 
     /// <summary>Plans an incremental update of an opened document (§7.5.6).</summary>
     /// <param name="source">The document's file, which the update is appended to.</param>

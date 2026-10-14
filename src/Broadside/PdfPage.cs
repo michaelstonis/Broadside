@@ -343,6 +343,53 @@ public sealed class PdfPage
         return HitTestIndex.Create(displayList, HitTestIndex.CollectLinks(this, _document, optionalContentState));
     }
 
+    /// <summary>Builds the display list of some of the page's layers, for the screen: content, annotations, form fields, or any combination.</summary>
+    /// <param name="layers">The layers the list holds, painted in content, annotations, form fields order.</param>
+    /// <returns>The list.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content or an appearance.</exception>
+    /// <remarks>As <see cref="CreateDisplayList(DisplayLayers, DisplayIntent, ContentOptions)"/> with <see cref="DisplayIntent.View"/> and default limits.</remarks>
+    public DisplayList CreateDisplayList(DisplayLayers layers) => CreateDisplayList(layers, DisplayIntent.View, ContentInterpreter.DefaultOptions);
+
+    /// <summary>Builds the display list of some of the page's layers for an intent, with limits and cancellation.</summary>
+    /// <param name="layers">The layers the list holds, painted in content, annotations, form fields order.</param>
+    /// <param name="intent">Whether the list is for the screen or for printing, which decides the annotations drawn.</param>
+    /// <param name="options">Limits, optional-content state and cancellation for the content and appearance runs.</param>
+    /// <returns>The list.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content or an appearance.</exception>
+    /// <exception cref="OperationCanceledException">The options' cancellation token was canceled.</exception>
+    /// <remarks>
+    /// <para>
+    /// ADR 0006; ISO 32000-2 §12.5.5 (Algorithm "Appearance streams"), §12.5.3 (flags) and §12.7 (form fields through their widgets).
+    /// The content layer is what <see cref="CreateDisplayList(ContentOptions)"/> builds. The annotation layer holds every annotation
+    /// but widgets, the form-field layer every widget, each in <c>Annots</c> order, each between
+    /// <see cref="IRenderingBackend.BeginAnnotation"/> and <see cref="IRenderingBackend.EndAnnotation"/>: its normal appearance for
+    /// its appearance state (<c>AS</c>), placed on its rectangle, which a backend composites as a transparency group with the
+    /// annotation's <c>ca</c> (or <c>CA</c>) and <c>BM</c> (§12.5.5, §11.6.6). Building each layer as a list of its own lets a
+    /// viewer redraw the overlays without re-rasterizing the page; replaying the three lists in order draws what one list of all
+    /// three draws.
+    /// </para>
+    /// <para>
+    /// Not drawn (Table 167): <c>Hidden</c> annotations; unknown types with <c>Invisible</c>; for <see cref="DisplayIntent.View"/>
+    /// those with <c>NoView</c>, for <see cref="DisplayIntent.Print"/> those without <c>Print</c>; annotations whose optional
+    /// content (<c>OC</c>, §8.11.3.3) is hidden in the options' optional-content state (the document's default without one);
+    /// popups, which a viewer shows as windows of their own (§12.5.6.14); and annotations without a normal appearance for their
+    /// state, recorded as <c>AppearanceNotRendered</c> (Information) unless they are links or projections or their rectangle has
+    /// no size, which need none (Table 166). Appearances are drawn as they are; none is generated. For
+    /// <see cref="DisplayIntent.View"/>, <c>NoZoom</c> and <c>NoRotate</c> (always for text annotations, §12.5.6.4) travel to the
+    /// backend in <see cref="DisplayAnnotation"/>.
+    /// </para>
+    /// </remarks>
+    public DisplayList CreateDisplayList(DisplayLayers layers, DisplayIntent intent, ContentOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (!Enum.IsDefined(intent))
+        {
+            throw new ArgumentOutOfRangeException(nameof(intent), intent, "The intent must be View or Print.");
+        }
+
+        return DisplayListBuilder.Build(this, _document, layers & DisplayLayers.All, intent, options);
+    }
+
     /// <summary>Reads a page boundary; for an inheritable one, from the nearest node that has it.</summary>
     internal PageAttributeState ReadBox(CosName key, bool inheritable, out PdfRectangle box)
     {

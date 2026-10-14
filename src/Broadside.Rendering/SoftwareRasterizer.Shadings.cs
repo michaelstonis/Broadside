@@ -21,7 +21,7 @@ public sealed partial class SoftwareRasterizer
         {
             // The BBox, when there is one, is the painted shape, so its edges are anti-aliased like a fill's and need no test per pixel.
             PdfRectangle? box = shading.Shading.BoundingBox;
-            if (_clip.IsEmpty || !TryPrepareShading(shading, clipToBox: box is null, out Matrix inverse, out ShadingGeometry geometry) || geometry.IsEmpty)
+            if (_clip.IsEmpty || _fillCompositor.PaintsNothing || !TryPrepareShading(shading, clipToBox: box is null, out Matrix inverse, out ShadingGeometry geometry) || geometry.IsEmpty)
             {
                 return;
             }
@@ -46,33 +46,33 @@ public sealed partial class SoftwareRasterizer
                 _scan.AddLine(left, bottom, left, top);
             }
 
-            PaintShading(shading, inverse, geometry, background: false);
+            PaintShading(shading, inverse, geometry, background: false, _fillCompositor);
         }
 
         /// <summary>Fills the path with the shading pattern's shading and its Background (§8.7.4.1, §8.7.4.3).</summary>
         public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading)
         {
-            if (path.IsEmpty || _clip.IsEmpty || !TryPrepareShading(shading, clipToBox: true, out Matrix inverse, out ShadingGeometry geometry))
+            if (path.IsEmpty || _clip.IsEmpty || _fillCompositor.PaintsNothing || !TryPrepareShading(shading, clipToBox: true, out Matrix inverse, out ShadingGeometry geometry))
             {
                 return;
             }
 
             _scan.Reset(_width, _height);
             AddPath(path);
-            PaintShading(shading, inverse, geometry, background: true, rule);
+            PaintShading(shading, inverse, geometry, background: true, _fillCompositor, rule);
         }
 
         /// <summary>Paints the area the stroke covers (§8.5.3.2, outlined like <see cref="StrokePath"/>) as a fill with the shading pattern's shading.</summary>
         public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading)
         {
-            if (path.IsEmpty || _clip.IsEmpty || !TryPrepareShading(shading, clipToBox: true, out Matrix inverse, out ShadingGeometry geometry))
+            if (path.IsEmpty || _clip.IsEmpty || _strokeCompositor.PaintsNothing || !TryPrepareShading(shading, clipToBox: true, out Matrix inverse, out ShadingGeometry geometry))
             {
                 return;
             }
 
             _scan.Reset(_width, _height);
             _stroker.Stroke(path, style, _toDevice);
-            PaintShading(shading, inverse, geometry, background: true);
+            PaintShading(shading, inverse, geometry, background: true, _strokeCompositor);
         }
 
         /// <summary>
@@ -93,7 +93,7 @@ public sealed partial class SoftwareRasterizer
         }
 
         /// <summary>Hands the shape's coverage to a <see cref="ShadingPainter"/>; the Background applies when <paramref name="background"/> is set and the shading has one.</summary>
-        private void PaintShading(in DisplayShading shading, in Matrix inverse, in ShadingGeometry geometry, bool background, FillRule rule = FillRule.NonZero)
+        private void PaintShading(in DisplayShading shading, in Matrix inverse, in ShadingGeometry geometry, bool background, Compositor compositor, FillRule rule = FillRule.NonZero)
         {
             bool hasBackground = background && shading.PaintsBackground && _shadingSource.HasBackground;
             if (geometry.IsEmpty && !hasBackground)
@@ -111,7 +111,8 @@ public sealed partial class SoftwareRasterizer
                 _shadingSource.Table,
                 hasBackground,
                 _shadingSource.Background,
-                shading.Shading.AntiAlias);
+                shading.Shading.AntiAlias,
+                compositor);
             _scan.Paint(rule, ref painter);
         }
 

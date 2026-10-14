@@ -87,6 +87,19 @@ internal sealed class HitTestCollector : IRenderingBackend
     /// <inheritdoc/>
     public void FillImageMask(DisplayImageMask mask, in DisplayColor color) => AddUnitSquare();
 
+    /// <inheritdoc/>
+    /// <remarks>Opacity does not change where a paint lands: a paint with alpha 0 is still indexed.</remarks>
+    public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode)
+    {
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>An appearance's paints are indexed where they land in default user space, as on a page shown at 100% unrotated.</remarks>
+    public void BeginAnnotation(in DisplayAnnotation annotation) => SaveState();
+
+    /// <inheritdoc/>
+    public void EndAnnotation() => RestoreState();
+
     private void AddStroke(PathView path, in StrokeStyle style)
     {
         // Half the width reaches past the path's points on either side; a miter can reach the miter limit times that, a square cap

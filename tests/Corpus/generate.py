@@ -2623,6 +2623,48 @@ def gen_annotations_appearance() -> bytes:
     return simple_file(objects)
 
 
+def gen_annotations_nozoom() -> bytes:
+    """12.5.3 Table 167 NoZoom and NoRotate, Figure 78, and 12.5.6.4 (a text annotation behaves as if both
+    were set). Two 300 x 300 pages, the second with /Rotate 90, each with the same five annotations whose
+    appearances are 40 x 40 squares with a black band along their top edge (so orientation shows): Square
+    with F 12 (Print, NoZoom) red at [40 220 80 260]; F 20 (Print, NoRotate) blue at [180 220 220 260];
+    F 28 (Print, NoZoom, NoRotate) green at [40 80 80 120]; F 4 grey at [180 80 220 120] for reference;
+    and a Text annotation with F 4 (no NoZoom or NoRotate bit), yellow 20 x 20 at [120 150 140 170]. The
+    page content strokes each rectangle in light grey, so the annotations' places at 100% stay visible."""
+    def band(rgb: bytes, size: int) -> bytes:
+        return stream(b"/Type /XObject /Subtype /Form /Resources << >> /BBox [0 0 %d %d]" % (size, size),
+                      rgb + b" rg 0 0 %d %d re f 0 g 0 %d %d %d re f" % (size, size * 3 // 4, size * 3 // 4, size, size // 4))
+    content = (b"0.75 G 1 w 40 220 40 40 re S 180 220 40 40 re S 40 80 40 40 re S 180 80 40 40 re S"
+               b" 120 150 20 20 re S")
+    box = b"[0 0 300 300]"
+
+    def annotations(first: int, parent: int) -> list[tuple[int, bytes]]:
+        return [
+            (first, b"<< /Type /Annot /Subtype /Square /Rect [40 220 80 260] /F 12 /P %d 0 R /AP << /N 6 0 R >> >>" % parent),
+            (first + 1, b"<< /Type /Annot /Subtype /Square /Rect [180 220 220 260] /F 20 /P %d 0 R /AP << /N 7 0 R >> >>" % parent),
+            (first + 2, b"<< /Type /Annot /Subtype /Square /Rect [40 80 80 120] /F 28 /P %d 0 R /AP << /N 8 0 R >> >>" % parent),
+            (first + 3, b"<< /Type /Annot /Subtype /Square /Rect [180 80 220 120] /F 4 /P %d 0 R /AP << /N 9 0 R >> >>" % parent),
+            (first + 4, b"<< /Type /Annot /Subtype /Text /Rect [120 150 140 170] /F 4 /P %d 0 R /AP << /N 15 0 R >> >>" % parent),
+        ]
+
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog()),
+        (2, pages([3, 4])),
+        (3, page(mediabox=box, contents=5, extra=b" /Annots [10 0 R 11 0 R 12 0 R 13 0 R 14 0 R]")),
+        (4, page(mediabox=box, contents=5, extra=b" /Rotate 90 /Annots [20 0 R 21 0 R 22 0 R 23 0 R 24 0 R]")),
+        (5, stream(b"", content)),
+        (6, band(b"1 0 0", 40)),
+        (7, band(b"0 0 1", 40)),
+        (8, band(b"0 0.6 0", 40)),
+        (9, band(b"0.5 0.5 0.5", 40)),
+        (15, band(b"1 0.8 0", 20)),
+    ]
+    objects += annotations(10, 3)
+    objects += annotations(20, 4)
+    objects.sort(key=lambda item: item[0])
+    return simple_file(objects)
+
+
 def gen_annotations_malformed() -> bytes:
     """12.5 real-world deviations, two pages. Page 3's Annots: [null 9 0 R (an integer) 10 10 11 12 13 14 15
     16 << direct >>]: 10 is listed twice; 11 has no Subtype; 12 has a three-number Rect; 13 is a Highlight
@@ -4404,6 +4446,37 @@ def gen_extgstate_params() -> bytes:
         (8, b"<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >>"),
         (9, HELVETICA),
     ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (file_id("extgstate-params").hex().encode(), file_id("extgstate-params").hex().encode()))
+
+
+BLEND_MODES = ["Normal", "Multiply", "Screen", "Overlay", "Darken", "Lighten", "ColorDodge", "ColorBurn", "HardLight",
+               "SoftLight", "Difference", "Exclusion", "Hue", "Saturation", "Color", "Luminosity"]
+
+
+def gen_transparency_blend_modes() -> bytes:
+    """11.3.5 Tables 134 and 135, 11.6.3, 11.6.4.4: the 16 standard blend modes, each at nonstroking alpha 1 and 0.5, over
+    a gradient backdrop. The page is a 4 x 4 grid of 153 x 198 cells, the modes in table order left to right, top to
+    bottom. In each cell an axial shading (8.7.4.5.3) from yellow (1 0.9 0.1) at x = 8 to dark blue (0.1 0.2 0.6) at
+    x = 145, painted with sh inside a 137 x 178 clip from (8, 10), is the backdrop; a rectangle in (0.2 0.7 0.9), from
+    x = 20 to 133, is filled over it at y 110..170 under /BM mode /ca 1 and at y 30..90 under /BM mode /ca 0.5. The
+    band y 90..110 shows the backdrop alone."""
+    cells = []
+    for index, mode in enumerate(BLEND_MODES):
+        x = (index % 4) * 153
+        y = 792 - (index // 4 + 1) * 198
+        cells.append(b"q 1 0 0 1 %d %d cm q 8 10 137 178 re W n /Sh0 sh Q 0.2 0.7 0.9 rg "
+                     b"q /G%dA gs 20 110 113 60 re f Q q /G%dH gs 20 30 113 60 re f Q Q\n" % (x, y, index, index))
+    states = b" ".join(b"/G%dA << /BM /%s /ca 1 >> /G%dH << /BM /%s /ca 0.5 >>" % (i, m.encode(), i, m.encode())
+                       for i, m in enumerate(BLEND_MODES))
+    shading = (b"<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [8 0 145 0] /Function << /FunctionType 2 /Domain [0 1]"
+               b" /C0 [1 0.9 0.1] /C1 [0.1 0.2 0.6] /N 1 >> >>")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << /ExtGState << " + states + b" >> /Shading << /Sh0 5 0 R >> >>")),
+        (4, stream(b"", b"".join(cells))),
+        (5, shading),
+    ], version="1.7")
 
 
 def gen_marked_content() -> bytes:
@@ -6207,6 +6280,7 @@ FILES = {
     "annotations-link.pdf": gen_annotations_link,
     "annotations-subtypes.pdf": gen_annotations_subtypes,
     "annotations-appearance.pdf": gen_annotations_appearance,
+    "annotations-nozoom.pdf": gen_annotations_nozoom,
     "annotations-malformed.pdf": gen_annotations_malformed,
     "text-type1-pfb.pdf": gen_text_type1_pfb,
     "text-type1-hex-eexec.pdf": gen_text_type1_hex_eexec,
@@ -6245,6 +6319,7 @@ FILES = {
     "icc-lut.pdf": gen_icc_lut,
     "form-xobject-nested.pdf": gen_form_xobject_nested,
     "extgstate-params.pdf": gen_extgstate_params,
+    "transparency-blend-modes.pdf": gen_transparency_blend_modes,
     "marked-content.pdf": gen_marked_content,
     "image-stencil-mask.pdf": gen_image_stencil_mask,
     "image-explicit-mask.pdf": gen_image_explicit_mask,

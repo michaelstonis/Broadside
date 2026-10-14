@@ -56,6 +56,7 @@ internal sealed partial class DisplayListBuilder
         bool strokes = mode is TextRenderingMode.Stroke or TextRenderingMode.FillStroke or TextRenderingMode.StrokeClip or TextRenderingMode.FillStrokeClip
             && state.StrokeColor.ColorSpace.Family != PdfColorSpaceFamily.Pattern;
         ColorConversion conversion = ColorConversion.FromState(state, DeviceColorModel.Rgb);
+        SetCompositing(state);
         if (!ContinuesRun(program, mode, fills, strokes, state, context.DefaultColorSpaces, conversion))
         {
             int fill = fills ? AddColor(state.FillColor, context.DefaultColorSpaces, conversion) : -1;
