@@ -127,15 +127,15 @@ public sealed class SignatureValidationTests
     }
 
     [Theory]
-    [InlineData("[0 10 5 20]")]
-    [InlineData("[0 10 20]")]
-    [InlineData("[0 -1 20 5]")]
-    [InlineData("[0 10 20 999999999]")]
+    [InlineData("0 10 5 20")]
+    [InlineData("0 10 20")]
+    [InlineData("0 -1 20 5")]
+    [InlineData("0 10 20 999999999")]
     public void A_byte_range_that_is_not_pairs_within_the_file_is_invalid(string byteRange)
     {
         using X509Certificate2 certificate = TestCertificates.SelfSigned("CN=Broadside signer");
         byte[] signed = SignCorpusFile("empty-page.pdf", new PdfCertificateSigner(certificate));
-        long[] values = [.. byteRange.Trim('[', ']').Split(' ').Select(long.Parse)];
+        long[] values = [.. byteRange.Split(' ').Select(long.Parse)];
 
         PdfSignatureValidation validation = ValidateSingle(SignedFileEditor.RewriteByteRange(signed, values), Trusting(certificate));
 
