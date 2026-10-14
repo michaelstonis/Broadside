@@ -34,7 +34,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     private int _savedAtCount;
 
     /// <inheritdoc/>
-    public override ContentEvents Events => ContentEvents.Paths | ContentEvents.StateStack | ContentEvents.Clips | ContentEvents.Images | ContentEvents.Glyphs | ContentEvents.Shadings;
+    public override ContentEvents Events => ContentEvents.Paths | ContentEvents.StateStack | ContentEvents.Clips | ContentEvents.Images | ContentEvents.Glyphs | ContentEvents.Shadings | ContentEvents.Type3GlyphContent;
 
     /// <summary>Builds the display list of <paramref name="page"/>.</summary>
     /// <param name="page">The page.</param>
@@ -99,11 +99,13 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         ResetCompositing();
         ResetTiling();
         ResetAnnotations();
+        ResetType3();
     }
 
     /// <inheritdoc/>
     public override void SaveState(ContentContext context)
     {
+        NoteType3Save();
         Append(ref _saved, ref _savedCount, _current);
         Append(ref _savedAt, ref _savedAtCount, _operationCount);
         SaveCompositing();

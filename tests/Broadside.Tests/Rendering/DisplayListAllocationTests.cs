@@ -76,6 +76,39 @@ public sealed class DisplayListAllocationTests
     }
 
     [Theory]
+    [InlineData(28)]
+    [InlineData(2016)]
+    public void Building_a_display_list_of_type3_text_runs_each_glyph_description_once_and_allocates_only_the_records_of_each_show(int glyphs)
+    {
+        // Four Type 3 glyphs (a d1 shape, a d1 inline image mask, a d0 glyph, a d1 glyph with a form) in three colours and two sizes:
+        // each description runs once per build, then every show copies its sub-list's records into the list: 16-byte operations and
+        // 48-byte transforms, 80 bytes for a, 112 for b, 96 for c and 208 for d (7 operations, 2 transforms), 124 on average.
+        using PdfDocument document = PdfDocument.Open(Type3Samples.Type3Heavy(glyphs));
+        PdfPage page = document.Pages[0];
+        Action build = () => page.CreateDisplayList();
+
+        long allocated = Allocations.Measure(build);
+
+        Assert.InRange(allocated, 1, 8192 + (144 * glyphs));
+    }
+
+    [Fact]
+    public void Replaying_type3_glyphs_allocates_nothing()
+    {
+        using PdfDocument document = PdfDocument.Open(Type3Samples.Type3Heavy(2000));
+        DisplayList list = document.Pages[0].CreateDisplayList();
+        var backend = new CountingBackend();
+        Action replay = () => list.Replay(backend);
+
+        long allocated = Allocations.Measure(replay);
+
+        Assert.Equal(0, allocated);
+        Assert.True(backend.Fills > 2000);
+        Assert.True(backend.Strokes > 400);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Theory]
     [InlineData(10)]
     [InlineData(2000)]
     public void Building_a_display_list_allocates_per_page_not_per_operation(int fills)
