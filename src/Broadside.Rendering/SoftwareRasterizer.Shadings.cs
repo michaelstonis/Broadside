@@ -15,8 +15,8 @@ public sealed partial class SoftwareRasterizer
         /// when it has one (§8.7.4.3), are scan converted and painted through the clip, without the Background.
         /// </summary>
         /// <remarks>
-        /// Axial and radial shadings (Types 2 and 3) are painted here; function-based and triangle-mesh shadings (Types 1, 4 and 5)
-        /// through the mesh layer (<see cref="DrawMeshShading"/>); the patch meshes (Types 6 and 7) are not painted yet.
+        /// Axial and radial shadings (Types 2 and 3) are painted here; function-based, triangle-mesh and patch-mesh shadings (Types 1
+        /// and 4 to 7) through the mesh layer (<see cref="DrawMeshShading"/>).
         /// </remarks>
         public void DrawShading(in DisplayShading shading)
         {

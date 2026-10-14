@@ -9,15 +9,15 @@ namespace Broadside.Fuzz;
 /// quarter turn chosen from the input length.
 /// Unlike <c>rasterize</c>, whose content has no resources, names resolve here, so the shadings of <c>sh</c> and shading patterns
 /// (their coordinates, radii, Domain, Extend, Background, BBox and functions, mutated from the <c>shading-*</c> and
-/// <c>pattern-*</c> corpus files; since #110 also function-based shadings and triangle meshes, their Matrix, mesh data and Decode),
-/// forms, image XObjects and Type 3 glyph descriptions (issue #108, from the <c>text-type3*</c>
+/// <c>pattern-*</c> corpus files; since #110 also function-based shadings and triangle meshes, since #111 patch meshes, their
+/// Matrix, mesh data and Decode), forms, image XObjects and Type 3 glyph descriptions (issue #108, from the <c>text-type3*</c>
 /// files: each description built once per list and replayed at every show) reach the rasterizer, and so do the annotation and
 /// form-field layers (issue #98: appearances, flags, NoZoom/NoRotate placement, opacity layers) for the view or the print intent.
 /// The first page is also rendered with overprint preview (issue #227: colourant planes, spot colourants, OP/op/OPM), twice.
 /// Invariants: nothing throws besides an unreadable input; no colour channel exceeds its alpha; a list rendered twice, and a second
 /// list built from the same page (the display-list cache is off, issue #103), render identically.
 /// </summary>
-/// <remarks>ADR 0006; ISO 32000-2 §9.6.4, §8.7.4.1, §8.7.4.3, §8.7.4.5.2 to §8.7.4.5.6, §8.9.4, §10.7.4.</remarks>
+/// <remarks>ADR 0006; ISO 32000-2 §9.6.4, §8.7.4.1, §8.7.4.3, §8.7.4.5.2 to §8.7.4.5.8, §8.9.4, §10.7.4.</remarks>
 internal static class RasterizePageTarget
 {
     private const int Size = 48;

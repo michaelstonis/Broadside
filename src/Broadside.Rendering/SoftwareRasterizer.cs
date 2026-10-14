@@ -424,6 +424,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             ResetCompositing();
             BeginAnnotations();
             BeginPreview(preview);
+            BeginPatches();
         }
 
         public void End()

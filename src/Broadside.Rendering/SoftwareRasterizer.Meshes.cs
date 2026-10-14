@@ -2,7 +2,7 @@ using Broadside.Graphics;
 
 namespace Broadside.Rendering;
 
-/// <summary>Function-based and triangle-mesh shadings (ISO 32000-2 §8.7.4.5.2, §8.7.4.5.5, §8.7.4.5.6).</summary>
+/// <summary>Function-based, triangle-mesh and patch-mesh shadings (ISO 32000-2 §8.7.4.5.2, §8.7.4.5.5 to §8.7.4.5.8).</summary>
 public sealed partial class SoftwareRasterizer
 {
     /// <summary>The backend's mesh half: shadings whose colours are drawn as Gouraud-shaded triangles into a <see cref="MeshLayer"/>.</summary>
@@ -24,10 +24,10 @@ public sealed partial class SoftwareRasterizer
         private PdfColorConverter? _meshRgbConverter;
 
         /// <summary>Whether <paramref name="shading"/> is painted through the mesh layer rather than <see cref="ShadingPainter"/>.</summary>
-        private static bool PaintsAsMesh(PdfShading shading) => shading is PdfFunctionShading or PdfTriangleMeshShading;
+        private static bool PaintsAsMesh(PdfShading shading) => shading is PdfFunctionShading or PdfTriangleMeshShading or PdfPatchMeshShading;
 
         /// <summary>
-        /// <c>sh</c> with a function-based or triangle-mesh shading (§8.7.4.2): the clip's pixel bounds, or the BBox mapped to the
+        /// <c>sh</c> with a function-based, triangle-mesh or patch-mesh shading (§8.7.4.2): the clip's pixel bounds, or the BBox mapped to the
         /// device, painted with the shading's own points and nothing elsewhere (no Background).
         /// </summary>
         private void DrawMeshShading(in DisplayShading shading)
@@ -60,7 +60,7 @@ public sealed partial class SoftwareRasterizer
             PaintMeshShading(shading, toDevice, inverse, background: false, clipToBox: false, _fillCompositor, _deviceParameters.FillOverprint);
         }
 
-        /// <summary>Fills the path with a function-based or triangle-mesh shading pattern, the Background outside the shading's points (§8.7.4.3).</summary>
+        /// <summary>Fills the path with a function-based, triangle-mesh or patch-mesh shading pattern, the Background outside the shading's points (§8.7.4.3).</summary>
         private void FillPathWithMeshShading(PathView path, FillRule rule, in DisplayShading shading)
         {
             if (path.IsEmpty || _clip.IsEmpty || _fillCompositor.PaintsNothing || !TryPrepareMesh(shading, out Matrix toDevice, out Matrix inverse))
@@ -73,7 +73,7 @@ public sealed partial class SoftwareRasterizer
             PaintMeshShading(shading, toDevice, inverse, background: true, clipToBox: true, _fillCompositor, _deviceParameters.FillOverprint, rule);
         }
 
-        /// <summary>Paints the area a stroke covers with a function-based or triangle-mesh shading pattern (§8.5.3.2).</summary>
+        /// <summary>Paints the area a stroke covers with a function-based, triangle-mesh or patch-mesh shading pattern (§8.5.3.2).</summary>
         private void StrokePathWithMeshShading(PathView path, in StrokeStyle style, in DisplayShading shading)
         {
             if (path.IsEmpty || _clip.IsEmpty || _strokeCompositor.PaintsNothing || !TryPrepareMesh(shading, out Matrix toDevice, out Matrix inverse))
@@ -133,6 +133,9 @@ public sealed partial class SoftwareRasterizer
                     case PdfTriangleMeshShading mesh:
                         DrawTriangleMesh(mesh, toDevice);
                         break;
+                    case PdfPatchMeshShading patches:
+                        DrawPatchMesh(patches, toDevice);
+                        break;
                 }
             }
             else
@@ -159,7 +162,7 @@ public sealed partial class SoftwareRasterizer
             _scan.Paint(rule, ref painter);
         }
 
-        /// <summary>The device pixels the shading's own points can reach: its mapped domain (Type 1) or its vertices' bounds.</summary>
+        /// <summary>The device pixels the shading's own points can reach: its mapped domain (Type 1), its vertices' or its control points' bounds.</summary>
         private static bool TryGetMeshBounds(PdfShading model, in Matrix toDevice, out int left, out int top, out int right, out int bottom)
         {
             double minX = double.PositiveInfinity;
@@ -181,6 +184,15 @@ public sealed partial class SoftwareRasterizer
 
                 case PdfTriangleMeshShading mesh:
                     foreach (PathPoint point in mesh.Vertices)
+                    {
+                        Include(toDevice.Transform(point.X, point.Y), ref minX, ref minY, ref maxX, ref maxY);
+                    }
+
+                    break;
+
+                case PdfPatchMeshShading patches:
+                    // A patch lies in the convex hull of its control points.
+                    foreach (PathPoint point in patches.ControlPoints)
                     {
                         Include(toDevice.Transform(point.X, point.Y), ref minX, ref minY, ref maxX, ref maxY);
                     }
@@ -447,6 +459,7 @@ public sealed partial class SoftwareRasterizer
         private void DisposeMeshes()
         {
             EndMeshes();
+            DisposePatches();
             _meshLayer.Release();
             Pooled.Return(ref _meshComponents);
             Pooled.Return(ref _meshRgb);
