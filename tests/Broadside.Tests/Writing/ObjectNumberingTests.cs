@@ -56,6 +56,33 @@ public sealed class ObjectNumberingTests
     }
 
     [Fact]
+    public void An_update_to_a_repaired_file_whose_scan_found_a_huge_object_number_lists_only_its_objects()
+    {
+        // Found by the save fuzz target: the scan of a damaged file read "1000000115 0 obj", and the update of a repaired file listed
+        // every number below it, a table of 20 GB that ran past the largest array. An update cannot renumber, so it lists the objects
+        // in subsections instead (§7.5.4, §7.5.6).
+        byte[] file = Encoding.ASCII.GetBytes(
+            "%PDF-1.7\n"
+            + "1 0 obj\n<< /Type /Catalog /Pages 2 0 R /Answer 1000000115 0 R >>\nendobj\n"
+            + "2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n"
+            + "3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> >>\nendobj\n"
+            + "1000000115 0 obj\n42\nendobj\n"
+            + "%%EOF\n");
+        using PdfDocument document = PdfDocument.Open(file);
+        document.Catalog[new CosName("Lang")] = new CosString("en"u8);
+        CosReference added = document.AddObject(new CosInteger(7));
+
+        byte[] saved = Save(document, incremental: true);
+
+        Assert.True(saved.Length < file.Length + 4096, $"The update is {saved.Length - file.Length} bytes.");
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Single(reopened.Pages);
+        Assert.Equal(42L, ((CosInteger)reopened.Resolve(reopened.Catalog[new CosName("Answer")])).Value);
+        Assert.Equal(7L, ((CosInteger)reopened.Resolve(added)).Value);
+        Assert.DoesNotContain(reopened.Diagnostics, diagnostic => diagnostic.Severity >= Diagnostics.DiagnosticSeverity.Warning);
+    }
+
+    [Fact]
     public void A_dangling_reference_above_Size_is_skipped_and_later_objects_number_on_from_it()
     {
         using PdfDocument document = PdfDocument.Open(DanglingAboveSize);

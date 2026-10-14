@@ -1,6 +1,7 @@
 using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Tests.Document;
+using Broadside.TestSupport;
 
 namespace Broadside.Tests.Writing;
 
@@ -97,6 +98,60 @@ public sealed class DamagedEncryptionSaveTests
             Assert.Single(reopened.Pages);
             Assert.DoesNotContain(reopened.Diagnostics, d => d.Code == "EncryptDictionaryInvalid");
         }
+    }
+
+    /// <summary>Each save that replaces or drops the encryption dictionary, with and without garbage collection and renumbering.</summary>
+    public static TheoryData<int> ReplacingSaves => [.. Enumerable.Range(0, 8)];
+
+    [Theory]
+    [MemberData(nameof(ReplacingSaves))]
+    public void An_encryption_dictionary_the_catalog_also_refers_to_stays_in_a_save_that_replaces_or_drops_it(int save)
+    {
+        // Found by the save fuzz target: one byte turned the catalog's Pages 2 0 R into 6 0 R, the trailer's Encrypt. The document
+        // reads with the encryption dictionary as its only page, so a save that drops the old dictionary must keep that object.
+        byte[] file = Corpus.Bytes("encrypted-owner-key-variant.pdf");
+        int pages = file.AsSpan().IndexOf("/Pages 2 0 R"u8);
+        file[pages + "/Pages ".Length] = (byte)'6';
+        using PdfDocument document = PdfDocument.Open(file);
+        Assert.True(document.IsEncrypted);
+        Assert.Equal(new CosReference(6, 0), Assert.Single(document.Pages).Reference);
+
+        byte[] saved = Save(document, ReplacingSave(save));
+
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Single(reopened.Pages);
+        Assert.Equal(save >= 4, reopened.IsEncrypted);
+    }
+
+    [Theory]
+    [MemberData(nameof(ReplacingSaves))]
+    public void A_damaged_encrypt_entry_to_an_object_the_document_uses_does_not_take_that_object_out_of_a_save(int save)
+    {
+        // The trailer's Encrypt entry reaches the integer the catalog's Answer entry holds: read as not encrypted, and every save drops
+        // the entry but keeps the object.
+        byte[] file = new TestPdf { TrailerEntries = $"/Encrypt 4 0 R {Id}" }.Build(
+            "<< /Type /Catalog /Pages 2 0 R /Answer 4 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 200 200] /Resources << >> >>",
+            "42");
+        using PdfDocument document = PdfDocument.Open(file);
+        Assert.False(document.IsEncrypted);
+
+        byte[] saved = Save(document, ReplacingSave(save));
+
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Single(reopened.Pages);
+        Assert.Equal(42L, ((CosInteger)reopened.Resolve(reopened.Catalog[new CosName("Answer")])).Value);
+        Assert.Equal(save >= 4, reopened.IsEncrypted);
+    }
+
+    /// <summary>Saves 0-3 remove encryption and 4-7 replace it, each with and without garbage collection and compact numbering.</summary>
+    private static PdfSaveOptions ReplacingSave(int save)
+    {
+        PdfSaveOptions options = new PdfSaveOptions()
+            .WithRemoveUnreachableObjects(save % 2 == 1)
+            .WithObjectNumbering(save / 2 % 2 == 1 ? PdfObjectNumbering.Compact : PdfObjectNumbering.Automatic);
+        return save < 4 ? options.WithRemoveEncryption(true) : options.WithEncryption(new PdfEncryptionOptions(null, "owner"));
     }
 
     /// <summary>One page, object 4 an integer, and the damaged <c>Encrypt</c> entry in the trailer.</summary>
