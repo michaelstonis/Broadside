@@ -10,6 +10,7 @@
 | `Broadside.Rendering.CoreGraphics.Tests` | Tests for the CoreGraphics backend: its renders of corpus pages against the golden images, and replay allocation. A macOS app (`net10.0-macos`) under the same platform gate as the package; see "The CoreGraphics backend" below. |
 | `Broadside.Rendering.Android.Device` | An Android app (built only with the android workload) whose instrumentation renders corpus pages through the Android backend on a device or emulator and measures replay allocations there. Not a test project. |
 | `Broadside.Rendering.Android.Tests` | Host tests for the Android backend: install the device app over adb, run it, and compare its renders with the golden images. Skip without adb, a device or the built APK (`BROADSIDE_ANDROID_REQUIRED=1` fails instead); not in `Broadside.Core.slnf`; run by `.github/workflows/android.yml`. |
+| `Broadside.Rendering.Direct2D.Tests` | Tests for the Direct2D backend: renders on a WARP device compared with the golden images, and replay allocation tests. Windows only: outside `Broadside.Core.slnf`, run by the Windows leg of CI. |
 | `Broadside.Rendering.AotSmoke` | A console host published with Native AOT that renders the rendering corpus files and compares them with the rasterizer's snapshots. Not a test project; see "The AOT smoke host" below. |
 | `Broadside.Fonts.Standard14.Tests` | Tests for the standard 14 font metrics and programs. |
 | `Broadside.Fonts.Cmaps.Tests` | Tests for the predefined CMaps. |
@@ -19,7 +20,7 @@
 | `Broadside.Fuzz` | The SharpFuzz harness. A console application, not a test project; see its [README](Broadside.Fuzz/README.md). |
 | `Corpus/` | Hand-written minimal PDFs, one feature each; see its [README](Corpus/README.md). |
 
-One test project per core package, named `<Package>.Tests`; `src/Directory.Build.props` grants each one `InternalsVisibleTo` on its package (and grants it to `Broadside.Benchmarks` and `Broadside.Fuzz`). Unit tests sit next to the feature they cover, in the same namespace as the code plus `.Tests`. The Direct2D backend has no test project yet: it runs only on its own platform, so it gets a project, and a CI leg, when the backend exists. The Android backend's tests run on the host against a device (see the two `Broadside.Rendering.Android.*` rows above and the `adding-a-rendering-backend` skill); the CoreGraphics backend's are a macOS app (see "The CoreGraphics backend" below).
+One test project per core package, named `<Package>.Tests`; `src/Directory.Build.props` grants each one `InternalsVisibleTo` on its package (and grants it to `Broadside.Benchmarks` and `Broadside.Fuzz`). Unit tests sit next to the feature they cover, in the same namespace as the code plus `.Tests`. The platform backends' tests run on their own platforms: the Android backend's on the host against a device (see the two `Broadside.Rendering.Android.*` rows above and the `adding-a-rendering-backend` skill); the CoreGraphics backend's are a macOS app (see "The CoreGraphics backend" below); `Broadside.Rendering.Direct2D.Tests` builds everywhere (the Windows targeting pack is a NuGet package) but runs only on Windows: `dotnet test --project tests/Broadside.Rendering.Direct2D.Tests`.
 
 Every test project is xUnit v3 on the Microsoft Testing Platform runner (`tests/Directory.Build.props` sets `OutputType=Exe`, the runner, and a global `using Xunit`), with `AnalysisLevel=latest-all` and warnings as errors like the rest of the repository; the folder props relax the few rules that only matter for shipping code.
 
@@ -131,6 +132,8 @@ dotnet run -c Release --project bench/Broadside.Benchmarks -- --list flat       
 ```sh
 dotnet run -c Release --project bench/Broadside.Rendering.CoreGraphics.Benchmarks -- --filter '*' --job short
 ```
+
+`bench/Broadside.Rendering.Direct2D.Benchmarks` holds the Direct2D backend's benchmarks in a project of its own, because it targets Windows; it links `BenchmarkConfig` and takes the same options (`dotnet run -c Release --project bench/Broadside.Rendering.Direct2D.Benchmarks -- --filter '*'`), and CI dry-runs it on Windows.
 
 `--job short` and `--job dry` are handled by `BenchmarkConfig`; any other BenchmarkDotNet option, including other `--job` values, passes through. Results land in `BenchmarkDotNet.Artifacts/` (gitignored).
 
