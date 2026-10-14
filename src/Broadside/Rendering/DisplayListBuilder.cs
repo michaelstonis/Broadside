@@ -136,9 +136,11 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
 
     /// <summary>Records the CTM before a paint, when it differs from the transform the backend holds there.</summary>
     /// <param name="ctm">The CTM of the paint (to pattern space instead while building a tiling pattern's cell).</param>
-    private void SetTransform(in Matrix ctm)
+    private void SetTransform(in Matrix ctm) => SetRecordedTransform(Relative(ctm));
+
+    /// <summary>Records a transform already in the space this builder records in (see <see cref="Relative"/>), when it differs from the backend's.</summary>
+    private void SetRecordedTransform(in Matrix transform)
     {
-        Matrix transform = Relative(ctm);
         if (transform == _current)
         {
             return;

@@ -164,6 +164,72 @@ public sealed class DisplayListType3Tests
             recorder.Operations.Where(static line => line.StartsWith("fill", StringComparison.Ordinal)));
     }
 
+    [Fact]
+    public void A_glyph_shown_again_after_the_backend_changed_its_compositing_sets_the_alpha_of_its_show()
+    {
+        // #113: the glyph is built while the backend already holds ca 0.5, then shown again (same inherited state) after a paint at
+        // ca 1 changed what the backend holds; its paint must set ca 0.5 again rather than inherit the backend's 1.
+        using PdfDocument document = PdfDocument.Open(Type3Page(
+            "/ExtGState << /G1 << /ca 0.5 >> /G2 << /ca 1 >> >>",
+            "/G1 gs 0 0 1 1 re f BT /T3 10 Tf 10 10 Td (a) Tj ET /G2 gs 0 0 1 1 re f /G1 gs BT /T3 10 Tf 30 10 Td (a) Tj ET"));
+        var recorder = new RecordingBackend();
+
+        document.Pages[0].CreateDisplayList().Replay(recorder);
+
+        Assert.Equal(
+            ["compositing 1 0.5 Normal", "fill", "fill", "compositing 1 1 Normal", "fill", "compositing 1 0.5 Normal", "fill"],
+            recorder.Operations.Where(static line => line.StartsWith("compositing", StringComparison.Ordinal) || line.StartsWith("fill", StringComparison.Ordinal))
+                .Select(static line => line.StartsWith("fill", StringComparison.Ordinal) ? "fill" : line));
+
+        // The glyph's own save and restore are dropped: the compositing it sets is tracked like the transform.
+        Assert.DoesNotContain("save", recorder.Operations);
+    }
+
+    [Fact]
+    public void A_glyph_shown_in_a_tiling_cell_is_placed_in_pattern_space_at_every_show()
+    {
+        // #112: a cell records in pattern space (here [2 0 0 2 10 10] from the page). The glyph is built at its first show and
+        // copied to the second; both must land where the same text lands on a page of its own: x = 10 and 16, scale 0.01.
+        using PdfDocument document = PdfDocument.Open(Type3Page(
+            "/Pattern << /P0 7 0 R >>",
+            "/Pattern cs /P0 scn 0 0 300 300 re f",
+            ContentSamples.Stream(
+                "BT /T3 10 Tf 10 10 Td (aa) Tj ET",
+                "/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 100 100] /XStep 100 /YStep 100 /Matrix [2 0 0 2 10 10] /Resources << /Font << /T3 5 0 R >> >>")));
+        var recorder = new RecordingBackend();
+
+        document.Pages[0].CreateDisplayList().Replay(recorder);
+
+        var cell = new RecordingBackend();
+        Assert.Single(recorder.Tilings).Cell.Replay(cell);
+        double[][] transforms = [.. cell.Operations.Where(static line => line.StartsWith("transform", StringComparison.Ordinal)).Select(Numbers)];
+        Assert.Equal(2, transforms.Length);
+        double[][] expected = [[0.01, 0, 0, 0.01, 10, 10], [0.01, 0, 0, 0.01, 16, 10]];
+        for (int show = 0; show < 2; show++)
+        {
+            for (int k = 0; k < 6; k++)
+            {
+                Assert.Equal(expected[show][k], transforms[show][k], 1e-9);
+            }
+        }
+
+        static double[] Numbers(string line) =>
+            [.. line[(line.IndexOf('[', StringComparison.Ordinal) + 1)..line.IndexOf(']', StringComparison.Ordinal)]
+                .Split(' ').Select(static n => double.Parse(n, System.Globalization.CultureInfo.InvariantCulture))];
+    }
+
+    /// <summary>A page with Type 3 font <c>/T3</c> (object 5; FontMatrix 0.001, glyph <c>a</c> a d0 600-unit square, object 6) and more objects from 7.</summary>
+    private static byte[] Type3Page(string resources, string content, params string[] objects) =>
+        ContentSamples.OnePage(
+            Encoding.ASCII.GetBytes(content),
+            $"/Font << /T3 5 0 R >> {resources}",
+            [
+                "<< /Type /Font /Subtype /Type3 /FontBBox [0 0 600 600] /FontMatrix [0.001 0 0 0.001 0 0] /CharProcs << /a 6 0 R >>"
+                + " /Encoding << /Type /Encoding /Differences [97 /a] >> /FirstChar 97 /LastChar 97 /Widths [600] >>",
+                ContentSamples.Stream("600 0 d0 0 0 600 600 re f"),
+                .. objects,
+            ]);
+
     private static PdfDocument OpenWithContent(string fileName, string content, PdfOptions? options = null)
     {
         PdfDocument document = new PdfEngine(options ?? new PdfOptions()).Open(Corpus.Bytes(fileName));

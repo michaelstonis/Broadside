@@ -35,6 +35,10 @@ internal sealed partial class DisplayListBuilder
     private DisplayOperation[] _type3Operations = new DisplayOperation[32];
     private int _type3OperationCount;
 
+    // What the builder tracks as the backend's compositing while a description records: equal to no real compositing, so the first
+    // paint of the sub-list records its own.
+    private static readonly DisplayCompositing UnknownCompositing = new(double.NaN, double.NaN, BlendMode.Normal);
+
     // The glyphs whose descriptions are running, innermost last.
     private Type3Frame[] _type3Frames = new Type3Frame[4];
     private int _type3FrameCount;
@@ -56,7 +60,8 @@ internal sealed partial class DisplayListBuilder
         _runOperation = -1;
         byte code = (byte)glyph.CharacterCode;
         ref readonly GraphicsState state = ref context.State;
-        Matrix glyphSpace = font.FontMatrix * glyph.TextMatrix * glyph.Ctm;
+        // In the space this builder records in (pattern space inside a tiling cell, #112), like every matrix in a sub-list.
+        Matrix glyphSpace = Relative(font.FontMatrix * glyph.TextMatrix * glyph.Ctm);
         bool shapeOnly = kind == Type3GlyphKind.ShapeOnly;
         if (!glyphSpace.TryInvert(out _))
         {
@@ -95,14 +100,17 @@ internal sealed partial class DisplayListBuilder
             Code = code,
             Start = _operationCount,
             SavedTransform = _current,
+            SavedCompositing = _compositing,
             GlyphSpace = glyphSpace,
             ShapeOnly = shapeOnly,
             Key = key,
             State = state,
         });
 
-        // The sub-list sets every transform it paints with, whatever the backend holds where it is replayed.
+        // The sub-list sets every transform and compositing (#113) it paints with, whatever the backend holds where it is replayed;
+        // ReplayType3 drops those equal to what the backend holds there.
         _current = new Matrix(double.NaN, 0, 0, 0, 0, 0);
+        _compositing = UnknownCompositing;
         return ContentVisit.Enter;
     }
 
@@ -130,6 +138,7 @@ internal sealed partial class DisplayListBuilder
         int count = _operationCount - start;
         _operationCount = start;
         _current = frame.SavedTransform;
+        _compositing = frame.SavedCompositing;
         if (!frame.Ran)
         {
             return;
@@ -208,8 +217,12 @@ internal sealed partial class DisplayListBuilder
                     RestoreState(context);
                     break;
                 case DisplayOperationKind.SetTransform:
+                    // Already in the space this builder records in (Relative), as the glyph spaces are, so not mapped again.
                     Matrix transform = _transforms[operation.First];
-                    SetTransform(moved ? transform * delta : transform);
+                    SetRecordedTransform(moved ? transform * delta : transform);
+                    break;
+                case DisplayOperationKind.SetCompositing:
+                    SetCompositing(_compositings[operation.First]);
                     break;
                 case DisplayOperationKind.FillPath or DisplayOperationKind.FillImageMask when recolors:
                     AddOperation(operation with { Second = TextFill(ref fill, context) });
@@ -235,6 +248,12 @@ internal sealed partial class DisplayListBuilder
                     break;
                 case DisplayOperationKind.StrokePathWithShading when moved:
                     AddOperation(operation with { Second = Recolor(operation.Second, Move(_shadingPaints[_strokes[operation.Second].ColorIndex], delta)) });
+                    break;
+                case DisplayOperationKind.FillPathWithTilingPattern when moved:
+                    AddOperation(operation with { Second = Move(_tilingPaints[operation.Second], delta) });
+                    break;
+                case DisplayOperationKind.StrokePathWithTilingPattern when moved:
+                    AddOperation(operation with { Second = Recolor(operation.Second, Move(_tilingPaints[_strokes[operation.Second].ColorIndex], delta)) });
                     break;
                 default:
                     AddOperation(operation);
@@ -294,9 +313,17 @@ internal sealed partial class DisplayListBuilder
         return _shadingPaintCount - 1;
     }
 
+    /// <summary>Returns a tiling paint like <paramref name="paint"/> (the same cell) whose pattern space is mapped by <paramref name="delta"/>.</summary>
+    private int Move(in DisplayTilingPaint paint, in Matrix delta)
+    {
+        Append(ref _tilingPaints, ref _tilingPaintCount, paint with { Matrix = paint.Matrix * delta });
+        return _tilingPaintCount - 1;
+    }
+
     /// <summary>
     /// Whether <paramref name="operations"/> is one save, a restore matching it last, and between them nothing that changes the
-    /// state those two keep but saves and restores of its own: transforms and paints only (the builder tracks the transform).
+    /// state those two keep but saves and restores of its own: transforms, compositing and paints only (the builder tracks the
+    /// transform and the compositing, and replays both through that tracking).
     /// </summary>
     private static bool EnclosedOnlyByOwnState(ReadOnlySpan<DisplayOperation> operations)
     {
@@ -320,9 +347,11 @@ internal sealed partial class DisplayListBuilder
                     }
 
                     break;
-                case DisplayOperationKind.SetTransform or DisplayOperationKind.FillPath or DisplayOperationKind.StrokePath
-                    or DisplayOperationKind.DrawImage or DisplayOperationKind.DrawGlyphs or DisplayOperationKind.DrawShading
-                    or DisplayOperationKind.FillPathWithShading or DisplayOperationKind.StrokePathWithShading or DisplayOperationKind.FillImageMask:
+                case DisplayOperationKind.SetTransform or DisplayOperationKind.SetCompositing or DisplayOperationKind.FillPath
+                    or DisplayOperationKind.StrokePath or DisplayOperationKind.DrawImage or DisplayOperationKind.DrawGlyphs
+                    or DisplayOperationKind.DrawShading or DisplayOperationKind.FillPathWithShading or DisplayOperationKind.StrokePathWithShading
+                    or DisplayOperationKind.FillImageMask or DisplayOperationKind.FillPathWithTilingPattern
+                    or DisplayOperationKind.StrokePathWithTilingPattern:
                     break;
                 default:
                     if (depth == 0)
@@ -437,6 +466,7 @@ internal sealed partial class DisplayListBuilder
         public byte Code;
         public int Start;
         public Matrix SavedTransform;
+        public DisplayCompositing SavedCompositing;
         public Matrix GlyphSpace;
         public Type3Key Key;
         public GraphicsState State;
