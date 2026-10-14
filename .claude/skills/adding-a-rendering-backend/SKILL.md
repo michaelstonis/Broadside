@@ -48,6 +48,7 @@ public interface IRenderingBackend
     void DrawShading(in DisplayShading shading);   // §8.7.4.2 sh: fills the current clip, no Background (#109)
     void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading);   // §8.7.4.1 shading pattern fill, with Background (#109)
     void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading);   // §8.7.4.1 shading pattern stroke (#109)
+    void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode);   // §11.6.4.4 CA (strokes) / ca (all else), §11.6.3 BM, §11.3 formulas; saved/restored with the state, starts 1/1/Normal (#113)
 }
 
 public sealed class DisplayImage                      // §8.9.5, §8.9.7: decoded once per list, one instance per image XObject

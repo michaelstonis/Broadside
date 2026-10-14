@@ -160,6 +160,7 @@
   text-type1-symbolic-noencoding.pdf,
   text-type3-recursive.pdf,
   text-type3.pdf,
+  transparency-blend-modes.pdf,
   viewer-preferences.pdf,
   wrong-stream-length.pdf,
   xref-stream.pdf

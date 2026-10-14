@@ -181,6 +181,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _height = height;
             _clip.Reset(width, height);
             _scan.Clip = _clip;
+            ResetCompositing();
         }
 
         public void End()
@@ -204,6 +205,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
             _stack[_depth++] = _ctm;
             _clip.Save();
+            SaveCompositing();
         }
 
         public void RestoreState()
@@ -214,6 +216,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             }
 
             _clip.Restore();
+            RestoreCompositing();
         }
 
         public void SetTransform(in Matrix transform)
@@ -225,7 +228,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         public void FillPath(PathView path, FillRule rule, in DisplayColor color)
         {
             PdfColorConverter converter = Converter(color);
-            if (converter.PaintsNothing || path.IsEmpty || _clip.IsEmpty)
+            if (converter.PaintsNothing || path.IsEmpty || _clip.IsEmpty || _fillCompositor.PaintsNothing)
             {
                 return;
             }
@@ -236,13 +239,13 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
             _scan.Reset(_width, _height);
             AddPath(path);
-            _scan.Fill(_target!, rule, pixel);
+            _scan.Fill(_target!, rule, pixel, _fillCompositor);
         }
 
         public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
         {
             PdfColorConverter converter = Converter(color);
-            if (converter.PaintsNothing || path.IsEmpty || _clip.IsEmpty)
+            if (converter.PaintsNothing || path.IsEmpty || _clip.IsEmpty || _strokeCompositor.PaintsNothing)
             {
                 return;
             }
@@ -253,7 +256,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
             _scan.Reset(_width, _height);
             _stroker.Stroke(path, style, _toDevice);
-            _scan.Fill(_target!, FillRule.NonZero, pixel);
+            _scan.Fill(_target!, FillRule.NonZero, pixel, _strokeCompositor);
         }
 
         /// <summary>

@@ -157,13 +157,17 @@ internal sealed class ScanlineRasterizer : IDisposable
         AddLine(left + 1, top + 1, left + 1, top);
     }
 
-    /// <summary>Composites <paramref name="color"/> over <paramref name="bitmap"/> by the coverage of the shape within <see cref="Clip"/>, then starts a new shape.</summary>
+    /// <summary>
+    /// Composites <paramref name="color"/> over <paramref name="bitmap"/> through <paramref name="compositor"/> (constant alpha and
+    /// blend mode, ISO 32000-2 §11.3) by the coverage of the shape within <see cref="Clip"/>, then starts a new shape.
+    /// </summary>
     /// <param name="bitmap">The target; at least as large as the clip.</param>
     /// <param name="rule">How the winding value decides coverage.</param>
     /// <param name="color">The opaque colour as premultiplied BGRA in memory order.</param>
-    public void Fill(Bitmap bitmap, FillRule rule, uint color)
+    /// <param name="compositor">The alpha and blend mode; the default is opaque Normal.</param>
+    public void Fill(Bitmap bitmap, FillRule rule, uint color, Compositor compositor = default)
     {
-        var sink = new ColorSink(bitmap.Pixels, bitmap.Stride, color);
+        var sink = new ColorSink(bitmap.Pixels, bitmap.Stride, color, compositor);
         Paint(rule, ref sink);
     }
 
@@ -323,46 +327,6 @@ internal sealed class ScanlineRasterizer : IDisposable
         return (int)((value * 255) + 0.5);
     }
 
-    /// <summary>Composites an opaque colour over <paramref name="count"/> pixels at <paramref name="coverage"/> (0 to 255).</summary>
-    private static void Blend(Span<uint> line, int x, int count, int coverage, uint color)
-    {
-        if (coverage <= 0)
-        {
-            return;
-        }
-
-        Span<uint> span = line.Slice(x, count);
-        if (coverage >= 255)
-        {
-            span.Fill(color);
-            return;
-        }
-
-        // Premultiplied "source over" with source alpha = coverage: d = s × c + d × (1 − c), per channel, rounded.
-        int inverse = 255 - coverage;
-        Span<byte> bytes = MemoryMarshal.AsBytes(span);
-        Span<byte> source = stackalloc byte[4];
-        MemoryMarshal.Write(source, in color);
-        int s0 = source[0] * coverage;
-        int s1 = source[1] * coverage;
-        int s2 = source[2] * coverage;
-        int s3 = source[3] * coverage;
-        for (int i = 0; i < bytes.Length; i += 4)
-        {
-            bytes[i] = Divide255(s0 + (bytes[i] * inverse));
-            bytes[i + 1] = Divide255(s1 + (bytes[i + 1] * inverse));
-            bytes[i + 2] = Divide255(s2 + (bytes[i + 2] * inverse));
-            bytes[i + 3] = Divide255(s3 + (bytes[i + 3] * inverse));
-        }
-    }
-
-    /// <summary>Rounds <paramref name="value"/> / 255 for 0 ≤ value ≤ 255 × 255.</summary>
-    private static byte Divide255(int value)
-    {
-        value += 128;
-        return (byte)((value + (value >> 8)) >> 8);
-    }
-
     /// <summary>Adds an edge that lies inside <c>[0, width] × [0, height]</c>, one cell per pixel it crosses.</summary>
     private void AddClippedLine(double x0, double y0, double x1, double y1)
     {
@@ -462,13 +426,13 @@ internal sealed class ScanlineRasterizer : IDisposable
         _cells = cells;
     }
 
-    /// <summary>Composites an opaque colour by the coverage of each run.</summary>
-    private readonly ref struct ColorSink(Span<byte> pixels, int stride, uint color) : ICoverageSink
+    /// <summary>Composites an opaque colour by the coverage of each run, through a compositor.</summary>
+    private readonly ref struct ColorSink(Span<byte> pixels, int stride, uint color, Compositor compositor) : ICoverageSink
     {
         private readonly Span<byte> _pixels = pixels;
 
         public void Span(int row, int x, int count, int coverage) =>
-            Blend(MemoryMarshal.Cast<byte, uint>(_pixels.Slice(row * stride, (x + count) * 4)), x, count, coverage, color);
+            compositor.Fill(MemoryMarshal.Cast<byte, uint>(_pixels.Slice(row * stride, (x + count) * 4)), x, count, coverage, color);
     }
 
     /// <summary>What the edges crossing one pixel contribute: their signed heights and the parts of the pixel left of them, times height.</summary>

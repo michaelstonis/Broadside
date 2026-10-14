@@ -3985,3 +3985,4 @@ Broadside.PdfEncryptionOptions.WithIntegrityProtection(bool integrityProtection)
 Broadside.PdfPublicKeyEncryptionOptions.IntegrityProtection.get -> bool
 Broadside.PdfPublicKeyEncryptionOptions.IntegrityProtection.set -> void
 Broadside.PdfPublicKeyEncryptionOptions.WithIntegrityProtection(bool integrityProtection) -> Broadside.PdfPublicKeyEncryptionOptions!
+Broadside.Rendering.IRenderingBackend.SetCompositing(double strokeAlpha, double fillAlpha, Broadside.Graphics.BlendMode blendMode) -> void

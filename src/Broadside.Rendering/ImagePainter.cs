@@ -21,7 +21,7 @@ namespace Broadside.Rendering;
 /// </para>
 /// <para>
 /// Hot path: allocates nothing; the per-pixel work is a few multiply-adds for enlargement and proportional to the samples averaged
-/// for reduction. Compositing is premultiplied source-over (§11.3), the coverage of the image's outline scaling the sample.
+/// for reduction. Compositing goes through a <see cref="Compositor"/> (§11.3: constant alpha and blend mode), the coverage of the image's outline scaling the sample.
 /// It is a coverage sink of <see cref="ScanlineRasterizer.Paint"/>, so the runs it receives are already cut by the clipping path
 /// (§8.5.4), like those of fills and strokes.
 /// </para>
@@ -39,6 +39,7 @@ internal readonly ref struct ImagePainter : ICoverageSink
     private readonly Matrix _inverse;
     private readonly Span<byte> _target;
     private readonly int _stride;
+    private readonly Compositor _compositor;
 
     /// <summary>Creates a painter of image pixels.</summary>
     /// <param name="target">The device pixels painted into, premultiplied BGRA in memory order.</param>
@@ -52,6 +53,7 @@ internal readonly ref struct ImagePainter : ICoverageSink
     /// <param name="maskWidth">The mask width in samples.</param>
     /// <param name="maskHeight">The mask height in samples.</param>
     /// <param name="maskInterpolate">Whether the mask's enlarged samples are blended bilinearly.</param>
+    /// <param name="compositor">The constant alpha and blend mode the pixels composite with (§11.3); the default is opaque Normal.</param>
     public ImagePainter(
         Span<byte> target,
         int stride,
@@ -63,8 +65,10 @@ internal readonly ref struct ImagePainter : ICoverageSink
         byte[]? mask = null,
         int maskWidth = 1,
         int maskHeight = 1,
-        bool maskInterpolate = false)
+        bool maskInterpolate = false,
+        Compositor compositor = default)
     {
+        _compositor = compositor;
         _target = target;
         _stride = stride;
         _pixels = pixels;
@@ -83,8 +87,10 @@ internal readonly ref struct ImagePainter : ICoverageSink
     /// <param name="height">The mask height in samples.</param>
     /// <param name="inverse">Device pixels to mask space (samples, y down from the first row).</param>
     /// <param name="interpolate">Whether enlarged samples are blended bilinearly rather than shown as blocks.</param>
-    public ImagePainter(Span<byte> target, int stride, uint color, byte[] mask, int width, int height, in Matrix inverse, bool interpolate)
+    /// <param name="compositor">The constant alpha and blend mode the colour composites with (§11.3); the default is opaque Normal.</param>
+    public ImagePainter(Span<byte> target, int stride, uint color, byte[] mask, int width, int height, in Matrix inverse, bool interpolate, Compositor compositor = default)
     {
+        _compositor = compositor;
         _target = target;
         _stride = stride;
         _solid = color;
@@ -123,31 +129,8 @@ internal readonly ref struct ImagePainter : ICoverageSink
             }
 
             ref uint target = ref line[x + i];
-            target = Composite(sample, target, coverage);
+            target = _compositor.Composite(sample, target, coverage);
         }
-    }
-
-    /// <summary>Premultiplied source-over with the source scaled by <paramref name="coverage"/>: d = s·c + d·(1 − a·c).</summary>
-    private static uint Composite(uint source, uint destination, int coverage)
-    {
-        uint alpha = source >> 24;
-        if (coverage == 255 && alpha == 255)
-        {
-            return source;
-        }
-
-        int sourceAlpha = Divide255((int)alpha * coverage);
-        int keep = 255 - sourceAlpha;
-        uint result = 0;
-        for (int shift = 0; shift < 32; shift += 8)
-        {
-            int s = (int)((source >> shift) & 0xFF);
-            int d = (int)((destination >> shift) & 0xFF);
-            int value = Divide255((s * coverage) + (d * keep));
-            result |= (uint)Math.Min(value, 255) << shift;
-        }
-
-        return result;
     }
 
     /// <summary>Scales every channel of a premultiplied pixel by <paramref name="alpha"/> / 255.</summary>
