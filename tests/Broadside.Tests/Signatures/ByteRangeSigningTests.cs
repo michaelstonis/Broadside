@@ -254,14 +254,13 @@ public sealed class ByteRangeSigningTests
     [Fact]
     public void What_byte_range_signing_does_not_write_yet_is_refused_before_anything_changes()
     {
-        using var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        using X509Certificate2 ecCertificate = new CertificateRequest("CN=EC signer", ecdsa, HashAlgorithmName.SHA256).CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
         using X509Certificate2 certificate = TestCertificates.SelfSigned("CN=Broadside signer");
+        using X509Certificate2 edwards = TestCertificates.WithKeyAlgorithm("CN=Ed25519 signer", "1.3.101.112", new byte[32], certificate);
         using X509Certificate2 publicOnly = X509CertificateLoader.LoadCertificate(certificate.RawData);
         using PdfDocument document = PdfDocument.Open(Corpus.Bytes("empty-page.pdf"));
         using var output = new MemoryStream();
 
-        Assert.Throws<NotSupportedException>(() => new PdfCertificateSigner(ecCertificate));
+        Assert.Throws<NotSupportedException>(() => document.Sign(output, new FailingSigner(edwards)));
         Assert.Throws<ArgumentException>(() => new PdfCertificateSigner(publicOnly));
         Assert.Throws<NotSupportedException>(() => new PdfSignatureOptions().WithDigestAlgorithm(HashAlgorithmName.SHA1));
         Assert.Throws<ArgumentException>(() => document.Sign(output, new PdfCertificateSigner(certificate), new PdfSignatureOptions().WithFieldName("a.b")));
