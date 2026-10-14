@@ -1162,23 +1162,31 @@ def gen_text_truetype_embedded() -> bytes:
 
 
 def gen_text_render_modes() -> bytes:
-    """9.3.6 text rendering modes 0-3 (Table 104) with the embedded font of text-truetype-embedded.pdf at 48 pt.
+    """9.3.6 text rendering modes (Table 104) with the embedded font of text-truetype-embedded.pdf; 8.5.4 clipping.
 
-    Four lines of HI, from the top: mode 0 filled with the blue nonstroking colour, mode 1 stroked with the red stroking colour
-    (8.4.3: 4-unit lines, round joins), mode 2 filled then stroked, mode 3 invisible followed by an I in mode 0 that starts where
-    the invisible text's advance (9.4.4) left the pen.
+    Page 1, modes 0-3 at 48 pt: four lines of HI, from the top: mode 0 filled with the blue nonstroking colour, mode 1 stroked with
+    the red stroking colour (8.4.3: 4-unit lines, round joins), mode 2 filled then stroked, mode 3 invisible followed by an I in
+    mode 0 that starts where the invisible text's advance (9.4.4) left the pen.
+
+    Pages 2-5, the clipping modes 4-7 at 120 pt: one HI from (30, 100) painted as the mode says (4 fill, 5 stroke, 6 fill then
+    stroke, 7 neither), then a 6 x 6 green and yellow checkerboard image over the whole page, which the text clip set at ET
+    (after the glyphs were painted) shows only inside the glyph outlines.
     """
     font, widths = minimal_truetype()
     first, last = min(widths), max(widths)
     w = b" ".join(b"%d" % widths[c] for c in range(first, last + 1))
-    content = (b"0.2 0.4 0.8 rg 0.8 0.1 0.1 RG 4 w 1 j\n"
+    setup = b"0.2 0.4 0.8 rg 0.8 0.1 0.1 RG 4 w 1 j\n"
+    content = (setup +
                b"BT /F1 48 Tf 40 230 Td 0 Tr (HI) Tj\n"
                b"0 -60 Td 1 Tr (HI) Tj\n"
                b"0 -60 Td 2 Tr (HI) Tj\n"
                b"0 -60 Td 3 Tr (HI) Tj 0 Tr (I) Tj ET")
-    return simple_file([
+    green, yellow = bytes([26, 179, 51]), bytes([242, 204, 26])
+    checker = b"".join(green if (x + y) % 2 == 0 else yellow for y in range(6) for x in range(6))
+    clip_pages = [8, 9, 10, 11]
+    objects = [
         (1, catalog()),
-        (2, pages()),
+        (2, pages([3] + clip_pages)),
         (3, page(mediabox=b"[0 0 300 300]", contents=4, font=5)),
         (4, stream(b"", content)),
         (5, b"<< /Type /Font /Subtype /TrueType /BaseFont /BroadsideMinimal /FirstChar %d /LastChar %d "
@@ -1186,7 +1194,16 @@ def gen_text_render_modes() -> bytes:
         (6, b"<< /Type /FontDescriptor /FontName /BroadsideMinimal /Flags 32 /FontBBox [0 0 700 700] "
             b"/ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 200 /FontFile2 7 0 R >>"),
         (7, stream(b"/Length1 %d" % len(font), font)),
-    ], binary=True)
+    ]
+    for index, mode in enumerate(range(4, 8)):
+        objects.append((clip_pages[index], page(mediabox=b"[0 0 300 300]", contents=12 + index, resources=False,
+                                                extra=b" /Resources << /Font << /F1 5 0 R >> /XObject << /Im1 16 0 R >> >>")))
+    for index, mode in enumerate(range(4, 8)):
+        objects.append((12 + index, stream(b"", setup + b"BT /F1 120 Tf 30 100 Td %d Tr (HI) Tj ET\n"
+                                                    b"q 300 0 0 300 0 0 cm /Im1 Do Q" % mode)))
+    objects.append((16, stream(b"/Type /XObject /Subtype /Image /Width 6 /Height 6 /ColorSpace /DeviceRGB /BitsPerComponent 8",
+                               checker)))
+    return simple_file(objects, binary=True)
 
 
 def codes_content(lines: list[tuple[str, bytes]]) -> bytes:

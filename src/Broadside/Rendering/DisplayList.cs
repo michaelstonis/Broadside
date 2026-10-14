@@ -25,7 +25,8 @@ namespace Broadside.Rendering;
 /// <see cref="DisplayAnnotation"/>; a list holds the page's content, annotation and form-field layers as <see cref="DisplayLayers"/>
 /// asks). Type 3 glyphs (§9.6.4) are in it as what their descriptions paint, under each glyph's transform and, for a <c>d1</c>
 /// glyph, in the colours of the text that shows it; each description is interpreted once per font, code and inherited graphics
-/// state in a list and replayed at every show. Text clips and transparency groups and soft masks join it in later Phase 3 tickets
+/// state in a list and replayed at every show. Text clips (§9.3.6) reach backends as path clips of the glyph outlines.
+/// Transparency groups and soft masks join it in later Phase 3 tickets
 /// (constant alpha and blend modes are there already, as <see cref="IRenderingBackend.SetCompositing"/>), each as new
 /// <see cref="IRenderingBackend"/> calls.
 /// </para>

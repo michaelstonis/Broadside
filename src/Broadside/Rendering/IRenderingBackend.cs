@@ -79,7 +79,8 @@ public interface IRenderingBackend
     /// <para>
     /// A replay starts with the initial clipping path (§8.5.4: the whole page): the area the renderer maps the page to, which is the
     /// crop box (§14.11.2, never larger than the media box). Clipping is anti-aliased like filling where the backend anti-aliases.
-    /// Text clips (§9.3.6, rendering modes 4 to 7) are not in the list yet.
+    /// A text clip (§9.3.6, rendering modes 4 to 7) arrives the same way at the end of its text object, after its glyphs are painted:
+    /// the glyphs' outlines placed in user space as one path, with the non-zero rule.
     /// </para>
     /// </remarks>
     void IntersectClip(PathView path, FillRule rule);
