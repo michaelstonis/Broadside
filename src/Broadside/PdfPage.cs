@@ -26,6 +26,8 @@ public sealed class PdfPage
     /// <summary>The media box used when a page has none, US Letter, as pdf.js and PDFBox use.</summary>
     private static readonly PdfRectangle DefaultMediaBox = new(0, 0, 612, 792);
 
+    private static readonly CosName OutputIntentsKey = new("OutputIntents");
+
     private readonly PdfDocument _document;
     private PageTreeAncestor? _ancestors;
     private volatile AnnotationList? _annotations;
@@ -49,6 +51,14 @@ public sealed class PdfPage
     /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §12.6.3, Table 198. Not inheritable; read on every call, never created by reading.</remarks>
     public PdfPageAdditionalActions? AdditionalActions =>
         PdfAdditionalActions.Create(_document, Dictionary.TryGetValue(ActionNames.AA, out CosObject? aa) ? aa : null, Reference, static (d, a, r, o) => new PdfPageAdditionalActions(d, a, r, o));
+
+    /// <summary>Gets the page's own output intents (<c>OutputIntents</c>, PDF 2.0), in the order written; empty when it has none.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.3.3, Table 31, and §14.11.5: when a page has output intents, a processor that respects output intents uses
+    /// them for that page instead of the document's (<see cref="PdfDocument.OutputIntents"/>). Not inheritable; read on every call.
+    /// </remarks>
+    public IReadOnlyList<PdfOutputIntent> OutputIntents =>
+        PdfOutputIntent.Read(_document, Dictionary.GetValueOrDefault(OutputIntentsKey), Reference, _document.OutputIntentViews);
 
     /// <summary>Gets the media box: the boundaries of the physical medium the page is displayed or printed on. Inheritable.</summary>
     /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Required; when missing or malformed, US Letter <c>[0 0 612 792]</c>.</remarks>
@@ -317,6 +327,53 @@ public sealed class PdfPage
     {
         ArgumentNullException.ThrowIfNull(options);
         return DisplayListBuilder.Build(this, _document, options);
+    }
+
+    /// <summary>Builds the display list of some of the page's layers, for the screen: content, annotations, form fields, or any combination.</summary>
+    /// <param name="layers">The layers the list holds, painted in content, annotations, form fields order.</param>
+    /// <returns>The list.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content or an appearance.</exception>
+    /// <remarks>As <see cref="CreateDisplayList(DisplayLayers, DisplayIntent, ContentOptions)"/> with <see cref="DisplayIntent.View"/> and default limits.</remarks>
+    public DisplayList CreateDisplayList(DisplayLayers layers) => CreateDisplayList(layers, DisplayIntent.View, ContentInterpreter.DefaultOptions);
+
+    /// <summary>Builds the display list of some of the page's layers for an intent, with limits and cancellation.</summary>
+    /// <param name="layers">The layers the list holds, painted in content, annotations, form fields order.</param>
+    /// <param name="intent">Whether the list is for the screen or for printing, which decides the annotations drawn.</param>
+    /// <param name="options">Limits, optional-content state and cancellation for the content and appearance runs.</param>
+    /// <returns>The list.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content or an appearance.</exception>
+    /// <exception cref="OperationCanceledException">The options' cancellation token was canceled.</exception>
+    /// <remarks>
+    /// <para>
+    /// ADR 0006; ISO 32000-2 §12.5.5 (Algorithm "Appearance streams"), §12.5.3 (flags) and §12.7 (form fields through their widgets).
+    /// The content layer is what <see cref="CreateDisplayList(ContentOptions)"/> builds. The annotation layer holds every annotation
+    /// but widgets, the form-field layer every widget, each in <c>Annots</c> order, each between
+    /// <see cref="IRenderingBackend.BeginAnnotation"/> and <see cref="IRenderingBackend.EndAnnotation"/>: its normal appearance for
+    /// its appearance state (<c>AS</c>), placed on its rectangle, which a backend composites as a transparency group with the
+    /// annotation's <c>ca</c> (or <c>CA</c>) and <c>BM</c> (§12.5.5, §11.6.6). Building each layer as a list of its own lets a
+    /// viewer redraw the overlays without re-rasterizing the page; replaying the three lists in order draws what one list of all
+    /// three draws.
+    /// </para>
+    /// <para>
+    /// Not drawn (Table 167): <c>Hidden</c> annotations; unknown types with <c>Invisible</c>; for <see cref="DisplayIntent.View"/>
+    /// those with <c>NoView</c>, for <see cref="DisplayIntent.Print"/> those without <c>Print</c>; annotations whose optional
+    /// content (<c>OC</c>, §8.11.3.3) is hidden in the options' optional-content state (the document's default without one);
+    /// popups, which a viewer shows as windows of their own (§12.5.6.14); and annotations without a normal appearance for their
+    /// state, recorded as <c>AppearanceNotRendered</c> (Information) unless they are links or projections or their rectangle has
+    /// no size, which need none (Table 166). Appearances are drawn as they are; none is generated. For
+    /// <see cref="DisplayIntent.View"/>, <c>NoZoom</c> and <c>NoRotate</c> (always for text annotations, §12.5.6.4) travel to the
+    /// backend in <see cref="DisplayAnnotation"/>.
+    /// </para>
+    /// </remarks>
+    public DisplayList CreateDisplayList(DisplayLayers layers, DisplayIntent intent, ContentOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (!Enum.IsDefined(intent))
+        {
+            throw new ArgumentOutOfRangeException(nameof(intent), intent, "The intent must be View or Print.");
+        }
+
+        return DisplayListBuilder.Build(this, _document, layers & DisplayLayers.All, intent, options);
     }
 
     /// <summary>Reads a page boundary; for an inheritable one, from the nearest node that has it.</summary>

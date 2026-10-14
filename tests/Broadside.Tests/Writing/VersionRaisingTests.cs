@@ -147,6 +147,7 @@ public sealed class VersionRaisingTests
     [InlineData(PdfEncryptionAlgorithm.Rc4, "%PDF-1.1", 1, 4, "RC4")]
     [InlineData(PdfEncryptionAlgorithm.Aes128, "%PDF-1.4", 1, 6, "AES-128")]
     [InlineData(PdfEncryptionAlgorithm.Aes256, "%PDF-1.7", 2, 0, "AES-256")]
+    [InlineData(PdfEncryptionAlgorithm.Aes256Gcm, "%PDF-1.7", 2, 0, "AES-GCM")]
     public void New_encryption_raises_the_version_to_its_algorithms(PdfEncryptionAlgorithm algorithm, string header, int major, int minor, string feature)
     {
         using PdfDocument document = PdfDocument.Open(Document.TestPdf.OnePage(string.Empty, header: header));

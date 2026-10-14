@@ -9,7 +9,8 @@ namespace Broadside.Fuzz;
 /// Unlike <c>rasterize</c>, whose content has no resources, names resolve here, so the shadings of <c>sh</c> and shading patterns
 /// (their coordinates, radii, Domain, Extend, Background, BBox and functions, mutated from the <c>shading-*</c> and
 /// <c>pattern-*</c> corpus files; since #110 also function-based shadings and triangle meshes, their Matrix, mesh data and
-/// Decode), forms and image XObjects reach the rasterizer. Invariants: nothing throws besides an unreadable
+/// Decode), forms and image XObjects reach the rasterizer, and so do the annotation and form-field layers
+/// (issue #98: appearances, flags, NoZoom/NoRotate placement, opacity layers) for the view or the print intent. Invariants: nothing throws besides an unreadable
 /// input; no colour channel exceeds its alpha; both renders are identical.
 /// </summary>
 /// <remarks>ADR 0006; ISO 32000-2 §8.7.4.1, §8.7.4.3, §8.7.4.5.2 to §8.7.4.5.6, §8.9.4, §10.7.4.</remarks>
@@ -19,6 +20,7 @@ internal static class RasterizePageTarget
 
     // Small limits keep a mutated image, stream or mesh from costing gigabytes.
     private static readonly PdfEngine Engine = new(new PdfOptions().WithMaxImagePixels(1 << 16).WithMaxDecodedStreamLength(1 << 20).WithMaxMeshVertices(1 << 14));
+    private static readonly Content.ContentOptions Options = new();
 
     public static void Target(ReadOnlySpan<byte> data)
     {
@@ -37,12 +39,14 @@ internal static class RasterizePageTarget
             _ => new Matrix(scale, 0, 0, -scale, 0, Size),
         };
 
+        // Issue #98: the annotation and form-field layers too, for the screen or for printing; NoZoom/NoRotate pivot them.
+        DisplayIntent intent = data.Length / 32 % 2 == 0 ? DisplayIntent.View : DisplayIntent.Print;
         using var rasterizer = new SoftwareRasterizer();
         using var first = new Bitmap(Size, Size);
         using var second = new Bitmap(Size, Size);
         for (int index = 0; index < Math.Min(2, document.Pages.Count); index++)
         {
-            DisplayList list = document.Pages[index].CreateDisplayList();
+            DisplayList list = document.Pages[index].CreateDisplayList(DisplayLayers.All, intent, Options);
             rasterizer.Render(list, first, device);
             rasterizer.Render(list, second, device);
         }

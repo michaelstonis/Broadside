@@ -2600,6 +2600,48 @@ def gen_annotations_appearance() -> bytes:
     return simple_file(objects)
 
 
+def gen_annotations_nozoom() -> bytes:
+    """12.5.3 Table 167 NoZoom and NoRotate, Figure 78, and 12.5.6.4 (a text annotation behaves as if both
+    were set). Two 300 x 300 pages, the second with /Rotate 90, each with the same five annotations whose
+    appearances are 40 x 40 squares with a black band along their top edge (so orientation shows): Square
+    with F 12 (Print, NoZoom) red at [40 220 80 260]; F 20 (Print, NoRotate) blue at [180 220 220 260];
+    F 28 (Print, NoZoom, NoRotate) green at [40 80 80 120]; F 4 grey at [180 80 220 120] for reference;
+    and a Text annotation with F 4 (no NoZoom or NoRotate bit), yellow 20 x 20 at [120 150 140 170]. The
+    page content strokes each rectangle in light grey, so the annotations' places at 100% stay visible."""
+    def band(rgb: bytes, size: int) -> bytes:
+        return stream(b"/Type /XObject /Subtype /Form /Resources << >> /BBox [0 0 %d %d]" % (size, size),
+                      rgb + b" rg 0 0 %d %d re f 0 g 0 %d %d %d re f" % (size, size * 3 // 4, size * 3 // 4, size, size // 4))
+    content = (b"0.75 G 1 w 40 220 40 40 re S 180 220 40 40 re S 40 80 40 40 re S 180 80 40 40 re S"
+               b" 120 150 20 20 re S")
+    box = b"[0 0 300 300]"
+
+    def annotations(first: int, parent: int) -> list[tuple[int, bytes]]:
+        return [
+            (first, b"<< /Type /Annot /Subtype /Square /Rect [40 220 80 260] /F 12 /P %d 0 R /AP << /N 6 0 R >> >>" % parent),
+            (first + 1, b"<< /Type /Annot /Subtype /Square /Rect [180 220 220 260] /F 20 /P %d 0 R /AP << /N 7 0 R >> >>" % parent),
+            (first + 2, b"<< /Type /Annot /Subtype /Square /Rect [40 80 80 120] /F 28 /P %d 0 R /AP << /N 8 0 R >> >>" % parent),
+            (first + 3, b"<< /Type /Annot /Subtype /Square /Rect [180 80 220 120] /F 4 /P %d 0 R /AP << /N 9 0 R >> >>" % parent),
+            (first + 4, b"<< /Type /Annot /Subtype /Text /Rect [120 150 140 170] /F 4 /P %d 0 R /AP << /N 15 0 R >> >>" % parent),
+        ]
+
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog()),
+        (2, pages([3, 4])),
+        (3, page(mediabox=box, contents=5, extra=b" /Annots [10 0 R 11 0 R 12 0 R 13 0 R 14 0 R]")),
+        (4, page(mediabox=box, contents=5, extra=b" /Rotate 90 /Annots [20 0 R 21 0 R 22 0 R 23 0 R 24 0 R]")),
+        (5, stream(b"", content)),
+        (6, band(b"1 0 0", 40)),
+        (7, band(b"0 0 1", 40)),
+        (8, band(b"0 0.6 0", 40)),
+        (9, band(b"0.5 0.5 0.5", 40)),
+        (15, band(b"1 0.8 0", 20)),
+    ]
+    objects += annotations(10, 3)
+    objects += annotations(20, 4)
+    objects.sort(key=lambda item: item[0])
+    return simple_file(objects)
+
+
 def gen_annotations_malformed() -> bytes:
     """12.5 real-world deviations, two pages. Page 3's Annots: [null 9 0 R (an integer) 10 10 11 12 13 14 15
     16 << direct >>]: 10 is listed twice; 11 has no Subtype; 12 has a three-number Rect; 13 is a Highlight
@@ -4048,6 +4090,151 @@ def gen_icc_lut() -> bytes:
         (8, stream(b"/N 3", profiles["CS3"])),
         (9, stream(b"/N 1", profiles["CS4"])),
     ], binary=True)
+
+
+def icc_press_profile(name: str, paper: float, density: float, saturation: float | None = None,
+                      perceptual: tuple[float, float] | None = None, white: tuple[float, float, float] = ICC_D50) -> bytes:
+    """A version 2.1 'prtr' CMYK output profile of the made-up press icc_ink(paper, density), PCS Lab, lut16Type throughout
+    (ICC.1:2022 8.5.2, 10.10): A2B1 and B2A1 the press itself; A2B0 and B2A0 a perceptual rendering (another paper and density,
+    the same press when not given); A2B2 (only when `saturation` is given) the press with a* and b* scaled by it. 9-point CLUTs,
+    identity input and output tables except 256-entry output tables on the BToA side."""
+    def legacy(lab):
+        return icc_lab_legacy(lab)
+
+    def press(p: float, d: float, chroma: float = 1.0):
+        def function(c, m, y, k):
+            lab = icc_ink(c, m, y, k, p, d)
+            return legacy((lab[0], lab[1] * chroma, lab[2] * chroma))
+        return function
+
+    def from_legacy(v):
+        return v[0] * 65535 / 65280 * 100, v[1] * 65535 / 256 - 128, v[2] * 65535 / 256 - 128
+
+    def separation(*pcs: float) -> tuple[float, ...]:
+        return icc_cmyk_from_lab(from_legacy(pcs))
+
+    in4 = [icc_identity_table(2)] * 4
+    out3 = [icc_identity_table(2)] * 3
+    in3 = [icc_identity_table(2)] * 3
+    out4 = [icc_identity_table(256)] * 4
+    p_paper, p_density = perceptual or (paper, density)
+    tags = [
+        (b"desc", icc_desc(name.encode())), (b"cprt", ICC_COPYRIGHT), (b"wtpt", icc_xyz(*white)),
+        (b"A2B0", icc_lut16(9, press(p_paper, p_density), in4, out3)),
+        (b"A2B1", icc_lut16(9, press(paper, density), in4, out3)),
+        (b"B2A0", icc_lut16(9, separation, in3, out4)),
+        (b"B2A1", icc_lut16(9, separation, in3, out4)),
+    ]
+    if saturation is not None:
+        tags.append((b"A2B2", icc_lut16(9, press(paper, density, saturation), in4, out3)))
+    return icc_profile(b"prtr", b"CMYK", tags, pcs=b"Lab ")
+
+
+OUTPUT_INTENT_PROFILES: dict[str, bytes] = {}
+"""Filled lazily by output_intent_profiles(): the catalog's and the page's output intent profiles of output-intent-cmyk.pdf."""
+
+OUTPUT_INTENT_SAMPLES = [(0, 0, 0, 0), (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1), (0.2, 0.4, 0.6, 0.1),
+                         (0.6, 0.4, 0.4, 1.0)]
+"""The DeviceCMYK colours output-intent-cmyk.pdf paints on each page, left to right."""
+
+
+def output_intent_profiles() -> dict[str, bytes]:
+    """The output intent profiles of output-intent-cmyk.pdf (icc_press_profile): "catalog", a dense press on white paper, and
+    "page", a lighter press on a warmer paper with a separate perceptual rendering."""
+    if not OUTPUT_INTENT_PROFILES:
+        OUTPUT_INTENT_PROFILES["catalog"] = icc_press_profile("Broadside made-up press", 1.0, 0.9)
+        OUTPUT_INTENT_PROFILES["page"] = icc_press_profile("Broadside made-up newsprint", 0.92, 0.65, perceptual=(0.95, 0.75),
+                                                           white=(0.90, 0.93, 0.74))
+    return OUTPUT_INTENT_PROFILES
+
+
+def gen_output_intent_cmyk() -> bytes:
+    """14.11.5 output intents (Table 401): the catalog's OutputIntents holds one GTS_PDFX output intent dictionary (indirect) whose
+    DestOutputProfile is a CMYK output profile (output_intent_profiles()["catalog"]); page 2 has its own OutputIntents (PDF 2.0,
+    7.7.3.3 Table 31) with a direct dictionary and another profile, which takes precedence for that page. Both pages paint
+    OUTPUT_INTENT_SAMPLES in DeviceCMYK (one row of 50 x 50 squares), then a DeviceRGB and a DeviceGray square below, which a CMYK
+    output intent does not characterise."""
+    profiles = output_intent_profiles()
+    identifier = file_id("output-intent-cmyk").hex().encode()
+    content = b""
+    for column, sample in enumerate(OUTPUT_INTENT_SAMPLES):
+        content += b"%s k %d 680 50 50 re f\n" % (b" ".join(b"%g" % v for v in sample), 40 + 65 * column)
+    content += b"0.9 0.2 0.1 rg 40 600 50 50 re f\n0.4 g 105 600 50 50 re f\n"
+    intent = (b"/Type /OutputIntent /S /GTS_PDFX /OutputCondition (Broadside made-up press) /OutputConditionIdentifier (Custom) "
+              b"/RegistryName (http://www.color.org) /Info (A made-up CMYK press for tests)")
+    page_intent = (b"<< /Type /OutputIntent /S /GTS_PDFX /OutputConditionIdentifier (Custom) /Info (A made-up newsprint press) "
+                   b"/DestOutputProfile 8 0 R >>")
+    return simple_file([
+        (1, catalog(b" /OutputIntents [6 0 R]")),
+        (2, pages([3, 4])),
+        (3, page(contents=5)),
+        (4, page(contents=5, extra=b" /OutputIntents [" + page_intent + b"]")),
+        (5, stream(b"", content)),
+        (6, b"<< " + intent + b" /DestOutputProfile 7 0 R >>"),
+        (7, stream(b"/N 4", profiles["catalog"])),
+        (8, stream(b"/N 4", profiles["page"])),
+    ], version="2.0", binary=True, trailer_extra=b" /ID [<%s> <%s>]" % (identifier, identifier))
+
+
+RENDERING_INTENT_PROFILE: list[bytes] = []
+"""Filled lazily by rendering_intent_profile(): the CMYK profile of rendering-intents.pdf."""
+
+RENDERING_INTENT_COLORS = {"bright": (0.2, 0.6, 0.8, 0.0), "dark": (0.6, 0.4, 0.4, 1.0)}
+"""The two colours rendering-intents.pdf paints; both are exact in 8-bit image samples."""
+
+RENDERING_INTENT_SQUARES = [
+    ("bright", "RelativeColorimetric", b"", "the initial intent"),
+    ("bright", "Perceptual", b"/Perceptual ri ", "ri"),
+    ("bright", "Saturation", b"/Saturation ri ", "ri"),
+    ("bright", "AbsoluteColorimetric", b"/AbsoluteColorimetric ri ", "ri"),
+    ("bright", "Saturation", b"/GS0 gs ", "the ExtGState RI"),
+    ("bright", "Perceptual", b"/GS0 gs ", "the image Intent over the ExtGState RI"),
+    ("dark", "RelativeColorimetric", b"/GS1 gs ", "UseBlackPtComp OFF"),
+    ("dark", "RelativeColorimetric", b"/GS2 gs ", "UseBlackPtComp ON"),
+    ("dark", "RelativeColorimetric", b"", "UseBlackPtComp Default"),
+]
+"""The squares of rendering-intents.pdf, left to right, six on the first row and three on the second: colour, the intent in
+effect, the operators that set it, and what they exercise. The sixth square is an image XObject; the others are filled paths."""
+
+
+def rendering_intent_profile() -> bytes:
+    """The profile of rendering-intents.pdf (icc_press_profile): a dense press on a bluish-white paper (wtpt 0.93 0.97 0.86)
+    whose four intents give different colours: A2B0 a lighter perceptual rendering, A2B1 the press, A2B2 the press with chroma
+    raised by 1.4, and ICC-absolute colorimetry through the media white point; its black is far from L* 0."""
+    if not RENDERING_INTENT_PROFILE:
+        RENDERING_INTENT_PROFILE.append(icc_press_profile("Broadside four intents", 0.97, 0.8, saturation=1.4,
+                                                          perceptual=(1.0, 0.6), white=(0.93, 0.97, 0.86)))
+    return RENDERING_INTENT_PROFILE[0]
+
+
+def gen_rendering_intents() -> bytes:
+    """8.6.5.8 rendering intents (Table 69) set by ri (8.4.4), the ExtGState RI entry (8.4.5 Table 57) and an image's Intent entry
+    (8.9.5 Table 87), and 8.6.5.9 UseBlackPtComp (Table 57, PDF 2.0) OFF, ON and absent, all on colours of one ICCBased CMYK space
+    (rendering_intent_profile(), N 4) whose intents differ. RENDERING_INTENT_SQUARES lists the 70 x 70 squares; each is
+    painted inside q ... Q so its intent does not carry over."""
+    content = b""
+    for index, (color, _, operators, _) in enumerate(RENDERING_INTENT_SQUARES):
+        x = 40 + 85 * (index % 6)
+        y = 650 - 100 * (index // 6)
+        if index == 5:
+            content += b"q %s%d 0 0 70 %d %d cm /Im0 Do Q\n" % (operators, 70, x, y)
+            continue
+        values = b" ".join(b"%g" % v for v in RENDERING_INTENT_COLORS[color])
+        content += b"q %s/CS0 cs %s scn %d %d 70 70 re f Q\n" % (operators, values, x, y)
+    image = bytes(round(v * 255) for v in RENDERING_INTENT_COLORS["bright"]) * 4
+    identifier = file_id("rendering-intents").hex().encode()
+    resources = (b"<< /ColorSpace << /CS0 [/ICCBased 5 0 R] >> /XObject << /Im0 6 0 R >> /ExtGState << "
+                 b"/GS0 << /Type /ExtGState /RI /Saturation >> /GS1 << /Type /ExtGState /UseBlackPtComp /OFF >> "
+                 b"/GS2 << /Type /ExtGState /UseBlackPtComp /ON >> >> >>")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/N 4", rendering_intent_profile())),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 2 /BitsPerComponent 8 /ColorSpace [/ICCBased 5 0 R] "
+                   b"/Intent /Perceptual", image)),
+    ], version="2.0", binary=True, trailer_extra=b" /ID [<%s> <%s>]" % (identifier, identifier))
 
 # ---------------------------------------------------------------------------
 # Shadings and patterns (clause 8.7)
@@ -6214,6 +6401,7 @@ FILES = {
     "annotations-link.pdf": gen_annotations_link,
     "annotations-subtypes.pdf": gen_annotations_subtypes,
     "annotations-appearance.pdf": gen_annotations_appearance,
+    "annotations-nozoom.pdf": gen_annotations_nozoom,
     "annotations-malformed.pdf": gen_annotations_malformed,
     "text-type1-pfb.pdf": gen_text_type1_pfb,
     "text-type1-hex-eexec.pdf": gen_text_type1_hex_eexec,
@@ -6250,6 +6438,8 @@ FILES = {
     "separation-special.pdf": gen_separation_special,
     "icc-rgb-matrix.pdf": gen_icc_rgb_matrix,
     "icc-lut.pdf": gen_icc_lut,
+    "output-intent-cmyk.pdf": gen_output_intent_cmyk,
+    "rendering-intents.pdf": gen_rendering_intents,
     "form-xobject-nested.pdf": gen_form_xobject_nested,
     "extgstate-params.pdf": gen_extgstate_params,
     "transparency-blend-modes.pdf": gen_transparency_blend_modes,

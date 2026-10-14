@@ -32,6 +32,7 @@ public sealed class IccProfile
     private readonly IccLut?[] _aToB;
     private readonly IccLut?[] _bToA;
     private readonly double[]? _chromaticAdaptation;
+    private IccMatrixOutput? _matrixOutput;
 
     private IccProfile(IccProfileHeader header, IccProfileModel model, CieXyz mediaWhitePoint, Tags tags)
     {
@@ -44,7 +45,25 @@ public sealed class IccProfile
         _bToA = tags.BToA;
         _chromaticAdaptation = tags.ChromaticAdaptation;
         Warning = tags.LutProblem;
+        ActualWhitePoint = mediaWhitePoint;
+        if (tags.ChromaticAdaptation is { } chad && Colorimetry.Invert(chad) is { } inverse)
+        {
+            CieXyz actual = Colorimetry.Transform(inverse, mediaWhitePoint);
+            if (actual.X > 0 && actual.Y > 0 && actual.Z > 0)
+            {
+                ActualWhitePoint = actual;
+            }
+        }
     }
+
+    /// <summary>Gets Broadside's own sRGB profile, the ICC engine's default RGB target.</summary>
+    /// <remarks>
+    /// IEC 61966-2-1 written as an ICC.1:2022 version 4.4 display profile (§8.4.3): the sRGB primaries adapted to D50 by the Bradford
+    /// transform (Annex E, recorded in <c>chad</c>, §9.2.15), the sRGB curve as parametric function type 3 (§10.18), the PCS white as
+    /// media white point (§9.2.34). Generated in-house, so no third-party profile ships; <see cref="CreateSrgbProfileData"/> gives its
+    /// bytes, for instance to embed as an ICCBased space or an output intent.
+    /// </remarks>
+    public static IccProfile Srgb { get; } = ParseOwn(SrgbProfile.Create());
 
     /// <summary>Gets the profile header.</summary>
     /// <remarks>ICC.1:2022 §7.2.</remarks>
@@ -68,14 +87,55 @@ public sealed class IccProfile
     /// </remarks>
     public IReadOnlyList<double>? ChromaticAdaptation => _chromaticAdaptation;
 
+    /// <summary>
+    /// Gets the white of the actual medium under its actual illuminant: the media white point taken back through the inverse of
+    /// <see cref="ChromaticAdaptation"/> when the profile has one, else the media white point itself.
+    /// </summary>
+    /// <remarks>
+    /// ICC.1:2022 §9.2.15: <c>chad</c> converts colours relative to the actual adopted white to the PCS adopted white, so its inverse
+    /// recovers the actual white of a display whose <c>wtpt</c> is the PCS white (§9.2.34): D65 for an sRGB display.
+    /// </remarks>
+    internal CieXyz ActualWhitePoint { get; }
+
+    /// <summary>Gets a value indicating whether the profile has usable matrix/TRC or gray TRC tags (ICC.1:2022 Annex F.2, F.3).</summary>
+    internal bool IsMatrixShaper => Curves.Length > 0;
+
+    /// <summary>Gets a value indicating whether the profile is of version 4 or later, whose perceptual PCS has a defined black (§6.3.4.3).</summary>
+    internal bool IsVersion4 => Header.Version.Major >= 4;
+
     /// <summary>Gets the tone reproduction curves: red, green and blue, or the one gray curve; empty when the profile has none.</summary>
     internal IccCurve[] Curves { get; }
 
     /// <summary>Gets the PCSXYZ matrix columns red, green and blue; empty unless the profile has matrix/TRC tags.</summary>
     internal CieXyz[] Columns { get; }
 
+    /// <summary>
+    /// Gets the inverse of the profile's matrix/TRC model, for converting to the profile (ICC.1:2022 Annex F.3, F.1); built on first
+    /// use. Only for an RGB profile with matrix/TRC tags.
+    /// </summary>
+    /// <exception cref="InvalidOperationException">The profile has no invertible matrix/TRC tags.</exception>
+    internal IccMatrixOutput MatrixOutput
+    {
+        get
+        {
+            IccMatrixOutput? output = Volatile.Read(ref _matrixOutput);
+            if (output is null)
+            {
+                output = CreateMatrixOutput() ?? throw new InvalidOperationException("The profile has no invertible matrix/TRC tags.");
+                Volatile.Write(ref _matrixOutput, output);
+            }
+
+            return output;
+        }
+    }
+
     /// <summary>Gets why an AToB tag the profile has cannot be used, when the profile still converts by other tags.</summary>
     internal string? Warning { get; }
+
+    /// <summary>Returns the bytes of <see cref="Srgb"/>.</summary>
+    /// <returns>A new array holding the profile, the same bytes on every call.</returns>
+    /// <remarks>ICC.1:2022 §7 to §10; see <see cref="Srgb"/>.</remarks>
+    public static byte[] CreateSrgbProfileData() => SrgbProfile.Create();
 
     /// <summary>Reads a profile.</summary>
     /// <param name="data">The profile's bytes.</param>
@@ -235,6 +295,43 @@ public sealed class IccProfile
         return true;
     }
 
+    /// <summary>Gets whether the profile can be the destination of a conversion under an intent: a BToA tag, or invertible RGB matrix/TRC tags.</summary>
+    internal bool CanBeDestination(RenderingIntent intent) => SelectBToA(intent) is not null || CreateMatrixOutput() is not null;
+
+    private IccMatrixOutput? CreateMatrixOutput()
+    {
+        if (Volatile.Read(ref _matrixOutput) is { } built)
+        {
+            return built;
+        }
+
+        if (Columns.Length != 3)
+        {
+            return null;
+        }
+
+        double[] forward = new double[9];
+        for (int column = 0; column < 3; column++)
+        {
+            forward[column] = Columns[column].X;
+            forward[3 + column] = Columns[column].Y;
+            forward[6 + column] = Columns[column].Z;
+        }
+
+        return Colorimetry.Invert(forward) is { } inverse
+            ? new IccMatrixOutput(inverse, [Curves[0].ToInverseTable(IccTables.Size), Curves[1].ToInverseTable(IccTables.Size), Curves[2].ToInverseTable(IccTables.Size)])
+            : null;
+    }
+
+    private static IccProfile ParseOwn(byte[] data) =>
+        TryParse(data, out IccProfile? profile, out string? problem) ? profile : throw new InvalidOperationException(problem);
+
+    /// <summary>Gets whether the profile has a usable AToB tag of the intent's own index (Table 25), without falling back to another.</summary>
+    internal bool HasAToBTag(RenderingIntent intent) => _aToB[TagIndex(intent)] is not null;
+
+    /// <summary>Gets whether the profile has a usable BToA tag of the intent's own index (Table 25), without falling back to another.</summary>
+    internal bool HasBToATag(RenderingIntent intent) => _bToA[TagIndex(intent)] is not null;
+
     /// <summary>The AToB tag for an intent by §8.10.2 b) and c), or <see langword="null"/> when d) applies (the matrix/TRC tags).</summary>
     internal IccLut? SelectAToB(RenderingIntent intent) => Select(_aToB, intent, hasMatrix: Curves.Length > 0);
 
@@ -247,14 +344,17 @@ public sealed class IccProfile
     /// </summary>
     private static IccLut? Select(IccLut?[] luts, RenderingIntent intent, bool hasMatrix)
     {
-        int index = intent switch
-        {
-            RenderingIntent.Perceptual => 0,
-            RenderingIntent.Saturation => 2,
-            _ => 1,
-        };
+        int index = TagIndex(intent);
         return luts[index] ?? luts[0] ?? (hasMatrix ? null : luts[1] ?? luts[2]);
     }
+
+    /// <summary>The tag number of an intent (Table 25): 0 perceptual, 1 media-relative and ICC-absolute colorimetric, 2 saturation.</summary>
+    private static int TagIndex(RenderingIntent intent) => intent switch
+    {
+        RenderingIntent.Perceptual => 0,
+        RenderingIntent.Saturation => 2,
+        _ => 1,
+    };
 
     private static double Get(CieXyz xyz, int row) => row switch
     {
