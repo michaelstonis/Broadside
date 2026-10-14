@@ -172,6 +172,30 @@ public sealed class DisplayListTilingTests
         Assert.DoesNotContain(Replay(Assert.Single(recorder.Tilings).Cell), static line => line.StartsWith("compositing", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void A_region_replay_visits_a_tiling_paint_only_where_its_path_or_stroke_reaches()
+    {
+        // Region replay (#96) bounds a fill or stroke in a tiling pattern by its path like any other paint, never as unbounded.
+        using PdfDocument document = PdfDocument.Open(Page(
+            "/Pattern << /P0 5 0 R >>",
+            "/Pattern cs /P0 scn /Pattern CS /P0 SCN 0 0 10 10 re f 200 200 10 10 re f 20 w 1 j 400 0 m 450 0 l S",
+            Cell("0 0 5 5 re f", "/PaintType 1 /TilingType 1 /BBox [0 0 5 5] /XStep 5 /YStep 5")));
+        DisplayList list = document.Pages[0].CreateDisplayList();
+
+        var fill = new RecordingBackend();
+        list.Replay(fill, new PdfRectangle(195, 195, 215, 215));
+        Assert.StartsWith("fill nonzero M 200 200 L 210 200", Assert.Single(fill.Operations), StringComparison.Ordinal);
+
+        // The round-joined 20-unit stroke reaches 10 units above its line, into the region; neither fill does.
+        var stroke = new RecordingBackend();
+        list.Replay(stroke, new PdfRectangle(380, 5, 500, 9));
+        Assert.StartsWith("stroke 20 Butt Round 10 [] 0 M 400 0 L 450 0 | tiling Colored", Assert.Single(stroke.Operations), StringComparison.Ordinal);
+
+        var nothing = new RecordingBackend();
+        list.Replay(nothing, new PdfRectangle(300, 300, 350, 350));
+        Assert.Empty(nothing.Operations);
+    }
+
     private static string Cell(string content, string entries, string resources = "") =>
         ContentSamples.Stream(content, $"/Type /Pattern /PatternType 1 /Resources << {resources} >> {entries}");
 

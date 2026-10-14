@@ -26,7 +26,8 @@ public sealed partial class DisplayList
     /// <para>
     /// ADR 0006; spec #33 story 14 (viewer capability 1: render tiles at many zoom levels from one cached list). Each paint's bounds are
     /// in default user space (ISO 32000-2 §8.3.2.3): its path's points (curve control points included, which bound the curve) under
-    /// the transform of the paint; a stroke's path widened by half the line width times the miter limit or √2 for square caps
+    /// the transform of the paint (a fill or stroke in a shading or tiling pattern (§8.7.3) is bounded by its path like any other); a
+    /// stroke's path widened by half the line width times the miter limit or √2 for square caps
     /// (§8.4.3.3–§8.4.3.5), in user space where the pen is; an image's or stencil mask's unit square (§8.9.4); a glyph run's outlines
     /// under their glyph transforms (§9.4.4); a shading's <c>BBox</c> (§8.7.4.3), or no bound without one. Every paint's bounds are
     /// cut by the clipping path's bounds at that point (§8.5.4), so the content of a clip outside the region is skipped too. An
@@ -128,10 +129,10 @@ public sealed partial class DisplayList
                     clip = Box.Intersect(clip, PathBounds(operation.First, 0, ctm, pathBounds, computed));
                     extents[index] = OperationExtent.Everything(index);
                     continue;
-                case DisplayOperationKind.FillPath or DisplayOperationKind.FillPathWithShading:
+                case DisplayOperationKind.FillPath or DisplayOperationKind.FillPathWithShading or DisplayOperationKind.FillPathWithTilingPattern:
                     paint = PathBounds(operation.First, 0, ctm, pathBounds, computed);
                     break;
-                case DisplayOperationKind.StrokePath or DisplayOperationKind.StrokePathWithShading:
+                case DisplayOperationKind.StrokePath or DisplayOperationKind.StrokePathWithShading or DisplayOperationKind.StrokePathWithTilingPattern:
                     paint = PathBounds(operation.First, StrokeReach(Strokes[operation.Second]), ctm, pathBounds, computed);
                     break;
                 case DisplayOperationKind.DrawImage or DisplayOperationKind.FillImageMask:
