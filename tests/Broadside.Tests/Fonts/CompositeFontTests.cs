@@ -41,6 +41,32 @@ public sealed class CompositeFontTests
     }
 
     [Fact]
+    public void A_W_array_removed_as_an_object_is_seen_by_the_metrics_read_before()
+    {
+        using PdfDocument document = Open(cidEntries: "/W 6 0 R", objects: ["[1 [700]]"]);
+        PdfCidFont font = Descendant(document);
+        Assert.Equal(700, font.GetWidth(1));
+
+        // §7.3.10: W now resolves to null, so DW (1000) applies (§9.7.4.3); the CIDFont dictionary is unchanged.
+        Assert.True(document.RemoveObject(new CosReference(6, 0)));
+
+        Assert.Equal(1000, font.GetWidth(1));
+    }
+
+    [Fact]
+    public void A_descendant_font_removed_as_an_object_is_seen_by_the_type_0_font_read_before()
+    {
+        using PdfDocument document = Open();
+        PdfType0Font font = CompositeFontCorpusTests.Font(document);
+        Assert.NotNull(font.DescendantFont);
+
+        // §7.3.10: the unchanged DescendantFonts array's element now resolves to null.
+        Assert.True(document.RemoveObject(new CosReference(5, 0)));
+
+        Assert.Null(font.DescendantFont);
+    }
+
+    [Fact]
     public void Malformed_W_and_DW_keep_what_can_be_read_with_diagnostics()
     {
         using PdfDocument document = Open(cidEntries: "/DW (wide) /W [1 [600 /x 650] 4 /y]");

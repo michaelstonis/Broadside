@@ -163,15 +163,17 @@ public sealed class EncryptedSaveTests
     public void Without_metadata_encryption_the_metadata_stream_is_readable_without_a_password(PdfEncryptionAlgorithm algorithm)
     {
         using PdfDocument source = PdfDocument.Open(Corpus.Path("metadata-xmp.pdf"));
-        CosStream metadata = (CosStream)source.Resolve(source.Catalog[new CosName("Metadata")]);
-        byte[] packet = metadata.EncodedData.ToArray();
         var encryption = new PdfEncryptionOptions("user", "owner").WithAlgorithm(algorithm).WithEncryptMetadata(false);
 
         byte[] saved = Save(source, new PdfSaveOptions().WithStreamCompression(PdfStreamCompression.AllStreams).WithEncryption(encryption));
 
+        // AES-256 raises the 1.7 file to 2.0, which moves Info's Title into the packet and writes the packet again (§14.3.3; #301),
+        // so the packet looked for is the one written, read back without decryption.
+        using PdfDocument reopened = new PdfEngine().Open(saved, new PdfPassword("user"));
+        byte[] packet = reopened.Metadata!.Stream.EncodedData.ToArray();
+        Assert.True(((ReadOnlySpan<byte>)packet).IndexOf("<?xpacket"u8) >= 0);
         Assert.True(((ReadOnlySpan<byte>)saved).IndexOf(packet) >= 0, "The metadata stream is not in the file as plaintext.");
         Assert.True(((ReadOnlySpan<byte>)saved).IndexOf("(Broadside)"u8) < 0, "A string outside the metadata stream was written unencrypted.");
-        using PdfDocument reopened = new PdfEngine().Open(saved, new PdfPassword("user"));
         Assert.False(reopened.Security!.EncryptsMetadata);
         AssertSameDocument(source, reopened);
         Assert.Empty(reopened.Diagnostics);

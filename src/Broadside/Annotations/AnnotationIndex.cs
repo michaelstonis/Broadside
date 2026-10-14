@@ -12,7 +12,7 @@ namespace Broadside.Annotations;
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §12.5.2 and §7.7.3.3. Thread-safe: views are created and published with first-publisher-wins semantics; the page map
-/// is built on first use and rebuilt when a page dictionary or an <c>Annots</c> array it read has changed (ADR 0004).
+/// is built on first use and rebuilt when a page dictionary or an <c>Annots</c> array it read has changed, or an object was added or removed (ADR 0004).
 /// </remarks>
 internal sealed class AnnotationIndex
 {
@@ -182,7 +182,7 @@ internal sealed class AnnotationIndex
         }
 
         var owners = new Dictionary<CosDictionary, PdfPage>(ReferenceEqualityComparer.Instance);
-        var stamps = new ContainerStamps();
+        var stamps = new ContainerStamps(_document);
         foreach (PdfPage page in _document.Pages)
         {
             stamps.Add(page.Dictionary);
