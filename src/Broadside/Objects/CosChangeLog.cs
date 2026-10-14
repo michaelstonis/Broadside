@@ -22,24 +22,24 @@ namespace Broadside.Objects;
 internal sealed class CosChangeLog
 {
     /// <summary>How many threads are recording: zero lets every change skip the thread-local lookup.</summary>
-    private static int s_recording;
+    private static int _recording;
 
     [ThreadStatic]
-    private static CosChangeLog? t_current;
+    private static CosChangeLog? _current;
 
     private readonly List<Action> _undo = [];
     private readonly HashSet<CosObject> _recorded = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>Gets the log recording on this thread, or <see langword="null"/>.</summary>
-    public static CosChangeLog? Current => Volatile.Read(ref s_recording) == 0 ? null : t_current;
+    public static CosChangeLog? Current => Volatile.Read(ref _recording) == 0 ? null : _current;
 
     /// <summary>Records every change this thread makes until the returned scope is disposed; scopes nest.</summary>
     /// <returns>The scope; disposing it stops recording into this log.</returns>
     public Recording Record()
     {
-        CosChangeLog? previous = t_current;
-        t_current = this;
-        Interlocked.Increment(ref s_recording);
+        CosChangeLog? previous = _current;
+        _current = this;
+        Interlocked.Increment(ref _recording);
         return new Recording(previous);
     }
 
@@ -75,8 +75,8 @@ internal sealed class CosChangeLog
     {
         public void Dispose()
         {
-            t_current = previous;
-            Interlocked.Decrement(ref s_recording);
+            _current = previous;
+            Interlocked.Decrement(ref _recording);
         }
     }
 }
