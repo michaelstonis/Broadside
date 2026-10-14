@@ -15,7 +15,7 @@ public sealed partial class SoftwareRasterizer
         /// <summary>The most grid cells along each side of a patch.</summary>
         private const int MaxPatchSteps = 64;
 
-        /// <summary>The most triangles one paint cuts its visible patches into; past it every patch gets fewer cells.</summary>
+        /// <summary>The most triangles one paint cuts its patches into; past it every patch gets fewer cells.</summary>
         private const int MaxPatchTriangles = 1 << 21;
 
         /// <summary>The largest distance, in device pixels, between a patch's surface and the triangles that stand for it.</summary>
@@ -43,7 +43,8 @@ public sealed partial class SoftwareRasterizer
         /// Adaptive subdivision: N is the smallest count that keeps the triangles within <see cref="PatchFlatness"/> device pixels of
         /// the surface (the chord bound 6/8 · |Δ²p| / N² along u and v plus the twist bound 9/4 · |Δ<sub>u</sub>Δ<sub>v</sub>p| / N²
         /// of the control net) and the bilinear colour within <see cref="PatchColorTolerance"/> of each cell's triangles (the
-        /// corners' colour twist / 4N²), taken over every patch the layer shows, so N grows as the square root of the device scale
+        /// corners' colour twist / 4N²), taken over every patch of the shading whatever part of it the paint shows (so a tile or
+        /// region cuts the same grid as the whole page), so N grows as the square root of the device scale
         /// and the triangle count at most linearly with it: from 72 to 300 DPI by at most (⌈√(300/72) · N₇₂⌉ / N₇₂)², which is 9
         /// for N₇₂ = 1 and tends to 300/72 ≈ 4.17. N is capped at <see cref="MaxPatchSteps"/> and so that the paint cuts no more than
         /// <see cref="MaxPatchTriangles"/> triangles.
@@ -92,15 +93,15 @@ public sealed partial class SoftwareRasterizer
                 }
             }
 
-            // The grid every visible patch is cut into.
+            // The grid every patch is cut into, set by all of them, so it does not depend on the part of the page being drawn.
             Span<PathPoint> net = stackalloc PathPoint[16];
-            int visible = 0;
+            int finite = 0;
             int steps = 1;
             for (int patch = 0; patch < patches; patch++)
             {
-                if (MapPatch(control.Slice(patch * 16, 16), toDevice, net))
+                if (MapPatch(control.Slice(patch * 16, 16), toDevice, net, out _))
                 {
-                    visible++;
+                    finite++;
                     double twist = model.HasFunction
                         ? Math.Abs(((colors[patch * 4] - colors[(patch * 4) + 1] + colors[(patch * 4) + 2] - colors[(patch * 4) + 3]) * scale))
                         : RgbTwist(_meshRgb.AsSpan(patch * 12, 12));
@@ -108,12 +109,12 @@ public sealed partial class SoftwareRasterizer
                 }
             }
 
-            if (visible == 0)
+            if (finite == 0)
             {
                 return;
             }
 
-            steps = Math.Min(steps, Math.Max(1, (int)Math.Sqrt(MaxPatchTriangles / (2.0 * visible))));
+            steps = Math.Min(steps, Math.Max(1, (int)Math.Sqrt(MaxPatchTriangles / (2.0 * finite))));
             int across = steps + 1;
             int points = across * across;
             Pooled.Ensure(ref _patchGrid, points);
@@ -133,7 +134,7 @@ public sealed partial class SoftwareRasterizer
 
             for (int patch = 0; patch < patches; patch++)
             {
-                if (!MapPatch(control.Slice(patch * 16, 16), toDevice, net))
+                if (!MapPatch(control.Slice(patch * 16, 16), toDevice, net, out bool visible) || !visible)
                 {
                     continue;
                 }
@@ -155,9 +156,10 @@ public sealed partial class SoftwareRasterizer
             }
         }
 
-        /// <summary>Maps a patch's control points to the device; false when they are not finite or their hull misses the layer.</summary>
-        private bool MapPatch(ReadOnlySpan<PathPoint> points, in Matrix toDevice, Span<PathPoint> net)
+        /// <summary>Maps a patch's control points to the device; false when they are not finite. <paramref name="visible"/>: their hull meets the layer.</summary>
+        private bool MapPatch(ReadOnlySpan<PathPoint> points, in Matrix toDevice, Span<PathPoint> net, out bool visible)
         {
+            visible = false;
             double minX = double.PositiveInfinity;
             double minY = double.PositiveInfinity;
             double maxX = double.NegativeInfinity;
@@ -177,8 +179,9 @@ public sealed partial class SoftwareRasterizer
                 maxY = Math.Max(maxY, p.Y);
             }
 
-            return maxX >= _meshLayer.Left && minX <= _meshLayer.Left + _meshLayer.Width
+            visible = maxX >= _meshLayer.Left && minX <= _meshLayer.Left + _meshLayer.Width
                 && maxY >= _meshLayer.Top && minY <= _meshLayer.Top + _meshLayer.Height;
+            return true;
         }
 
         /// <summary>The grid cells along each side that keep a patch within <see cref="PatchFlatness"/> and <see cref="PatchColorTolerance"/>.</summary>
