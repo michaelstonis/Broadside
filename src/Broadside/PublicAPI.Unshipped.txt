@@ -3696,6 +3696,16 @@ Broadside.Rendering.DisplayImage.StorageBits.get -> int
 Broadside.Rendering.DisplayImage.Stride.get -> int
 Broadside.Rendering.DisplayImage.Width.get -> int
 Broadside.Rendering.IRenderingBackend.DrawImage(Broadside.Rendering.DisplayImage! image, Broadside.Graphics.PdfDefaultColorSpaces! defaultColorSpaces, Broadside.Graphics.ColorConversion conversion) -> void
+Broadside.Rendering.DisplayShading
+Broadside.Rendering.DisplayShading.Conversion.get -> Broadside.Graphics.ColorConversion
+Broadside.Rendering.DisplayShading.DefaultColorSpaces.get -> Broadside.Graphics.PdfDefaultColorSpaces!
+Broadside.Rendering.DisplayShading.DisplayShading() -> void
+Broadside.Rendering.DisplayShading.Matrix.get -> Broadside.Graphics.Matrix
+Broadside.Rendering.DisplayShading.PaintsBackground.get -> bool
+Broadside.Rendering.DisplayShading.Shading.get -> Broadside.Graphics.PdfShading!
+Broadside.Rendering.IRenderingBackend.DrawShading(in Broadside.Rendering.DisplayShading shading) -> void
+Broadside.Rendering.IRenderingBackend.FillPathWithShading(Broadside.Graphics.PathView path, Broadside.Graphics.FillRule rule, in Broadside.Rendering.DisplayShading shading) -> void
+Broadside.Rendering.IRenderingBackend.StrokePathWithShading(Broadside.Graphics.PathView path, in Broadside.Rendering.StrokeStyle style, in Broadside.Rendering.DisplayShading shading) -> void
 Broadside.PdfDocument.AddObject(Broadside.Objects.CosObject! value) -> Broadside.Objects.CosReference!
 Broadside.PdfDocument.RemoveObject(Broadside.Objects.CosReference! reference) -> bool
 Broadside.PdfSaveOptions.IncrementalUpdate.get -> bool

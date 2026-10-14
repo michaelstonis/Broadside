@@ -72,5 +72,11 @@ public class DisplayListBenchmarks
                 Calls += run.Glyphs[index].GlyphId + run.GetOutline(index).Verbs.Length;
             }
         }
+
+        public void DrawShading(in DisplayShading shading) => Calls += (int)shading.Shading.ShadingType;
+
+        public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading) => Calls += path.Verbs.Length + (int)shading.Shading.ShadingType;
+
+        public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading) => Calls += path.Verbs.Length + (int)shading.Shading.ShadingType;
     }
 }

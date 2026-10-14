@@ -1261,7 +1261,12 @@ public sealed partial class PdfDocument : IDisposable
 
         bool changed = CompleteFontSubsets();
         changed |= DateModification(options);
-        return ApplyVersionedSave(options, planned, changed);
+        FileWriter writer = ApplyVersionedSave(options, planned, changed);
+
+        // Issue #291: the dates written since the last save take the form of the version the save writes. Only Info entries the
+        // dating or a setter already changed are rewritten, so the plan already writes them and needs no third pass.
+        FormatDatesFor(writer.Version > Version ? writer.Version : Version);
+        return writer;
     }
 
     /// <summary>
