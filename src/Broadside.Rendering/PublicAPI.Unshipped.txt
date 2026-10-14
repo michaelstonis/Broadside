@@ -96,3 +96,11 @@ Broadside.Rendering.RenderOptions.Layers.get -> Broadside.Rendering.DisplayLayer
 Broadside.Rendering.RenderOptions.Layers.set -> void
 Broadside.Rendering.RenderOptions.WithIntent(Broadside.Rendering.DisplayIntent intent) -> Broadside.Rendering.RenderOptions!
 Broadside.Rendering.RenderOptions.WithLayers(Broadside.Rendering.DisplayLayers layers) -> Broadside.Rendering.RenderOptions!
+static Broadside.Rendering.Icc.IccProfile.Srgb.get -> Broadside.Rendering.Icc.IccProfile!
+static Broadside.Rendering.Icc.IccProfile.CreateSrgbProfileData() -> byte[]!
+Broadside.Rendering.Icc.IccColorManagement.RgbProfile.get -> Broadside.Rendering.Icc.IccProfile!
+Broadside.Rendering.Icc.IccColorManagement.CompensatesBlackPointByDefault.get -> bool
+Broadside.Rendering.Icc.IccColorManagement.UsesOutputIntents.get -> bool
+Broadside.Rendering.Icc.IccColorManagement.WithRgbProfile(Broadside.Rendering.Icc.IccProfile! profile) -> Broadside.Rendering.Icc.IccColorManagement!
+Broadside.Rendering.Icc.IccColorManagement.WithDefaultBlackPointCompensation(bool compensate) -> Broadside.Rendering.Icc.IccColorManagement!
+Broadside.Rendering.Icc.IccColorManagement.WithOutputIntents(bool use) -> Broadside.Rendering.Icc.IccColorManagement!

@@ -211,6 +211,7 @@ internal sealed partial class ContentInterpreter
         _arena.Limit = options.MaxOperands;
         _path.Accumulate = (_events & (ContentEvents.Paths | ContentEvents.Clips)) != 0;
         _states[0] = GraphicsState.CreateInitial();
+        _states[0].OutputIntent = document.GetOutputIntent(page);
         _maxNestingDepth = options.MaxNestingDepth;
         _frames.Clear();
         _frames.Add(new RunFrame(null, Matrix.Identity, _states[0]));

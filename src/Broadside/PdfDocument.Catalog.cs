@@ -20,7 +20,10 @@ public sealed partial class PdfDocument
     private static readonly CosName SubtypeKey = new("Subtype");
     private static readonly CosName XmlSubtype = new("XML");
 
+    private static readonly CosName OutputIntentsKey = new("OutputIntents");
+
     private readonly OnceCache<CosStream, XmpPacket?> _xmpPackets = new();
+    private readonly Dictionary<CosDictionary, PdfOutputIntent> _outputIntents = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>Gets the version the file header states, or <see langword="null"/> when the header has no valid version.</summary>
     /// <remarks>ISO 32000-2 §7.5.2. <see cref="Version"/> is the version the document conforms to.</remarks>
@@ -89,6 +92,23 @@ public sealed partial class PdfDocument
     /// </remarks>
     public PdfPageLabels? PageLabels =>
         GetNumberTreeReader(Catalog.GetValueOrDefault(PageLabelsKey)) is { } tree ? new PdfPageLabels(this, tree) : null;
+
+    /// <summary>Gets the document's output intents (<c>OutputIntents</c>, PDF 1.4), in the order written; empty when it has none.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.2, Table 29, and §14.11.5. Read on every call; the same <see cref="PdfOutputIntent"/> is returned for the same
+    /// dictionary. A page's own output intents (<see cref="PdfPage.OutputIntents"/>) take precedence for that page.
+    /// </remarks>
+    public IReadOnlyList<PdfOutputIntent> OutputIntents =>
+        PdfOutputIntent.Read(this, Catalog.GetValueOrDefault(OutputIntentsKey), CatalogReference, _outputIntents);
+
+    /// <summary>The output intent whose profile applies to a page: the page's first with a profile, else the document's (§14.11.5).</summary>
+    /// <param name="page">The page, or <see langword="null"/> for content that belongs to no page.</param>
+    /// <returns>The output intent, or <see langword="null"/>.</returns>
+    internal PdfOutputIntent? GetOutputIntent(PdfPage? page) =>
+        (page is null ? null : PdfOutputIntent.FirstWithProfile(page.OutputIntents)) ?? PdfOutputIntent.FirstWithProfile(OutputIntents);
+
+    /// <summary>The views of the output intent dictionaries read so far.</summary>
+    internal Dictionary<CosDictionary, PdfOutputIntent> OutputIntentViews => _outputIntents;
 
     /// <summary>Gets the natural language of the document's text (<c>Lang</c>), such as <c>en-US</c>, or <see langword="null"/> when unknown.</summary>
     /// <remarks>ISO 32000-2 §7.7.2, Table 29 (PDF 1.4), and §14.9.2. Not checked against BCP 47.</remarks>

@@ -20,7 +20,7 @@ public sealed class IccLutTests
         PdfColorSpace space = IccTesting.Space(document, resource);
         float[] rgb = new float[3];
 
-        document.GetColorConverter(space).Convert(components, rgb);
+        document.GetColorConverter(space, IccTesting.WithoutCompensation).Convert(components, rgb);
 
         float[] rgb255 = [rgb[0] * 255, rgb[1] * 255, rgb[2] * 255];
         double difference = ColorDifference.DeltaE2000(ColorDifference.LabOfSrgb(rgb255), ColorDifference.LabOfSrgb(expected));
