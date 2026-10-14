@@ -132,6 +132,31 @@ internal static class OpenSsl
             Directory.Delete(directory, recursive: true);
         }
     }
+
+    /// <summary>
+    /// Verifies the RFC 3161 time-stamp token <paramref name="token"/> over <paramref name="data"/> with <c>openssl ts -verify</c>:
+    /// the imprint against the data's digest, the authority's signature, its certificate's time-stamping usage and its chain to
+    /// <paramref name="trusted"/>.
+    /// </summary>
+    public static void VerifyTimestamp(byte[] token, byte[] data, X509Certificate2 trusted)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"broadside-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string dataPath = Path.Combine(directory, "data.bin");
+            string trustedPath = Path.Combine(directory, "trusted.pem");
+            File.WriteAllBytes(dataPath, data);
+            File.WriteAllText(trustedPath, trusted.ExportCertificatePem());
+            (int exitCode, string output) = ExternalTool.Run("openssl", token, "ts", "-verify", "-token_in", "-data", dataPath, "-CAfile", trustedPath, "-in");
+            Assert.True(exitCode == 0, output);
+            Assert.Contains("Verification: OK", output, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
 }
 
 /// <summary>poppler's <c>pdfsig</c>, which verifies every signature of a file (the certificate's trust aside).</summary>

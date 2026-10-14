@@ -54,6 +54,7 @@ internal static class FuzzTargets
         ["encrypted-document"] = EncryptedDocument,
         ["decrypt"] = Decrypt,
         ["mac-token"] = MacToken,
+        ["timestamp-response"] = TimestampResponseTarget.Target,
         ["public-key"] = PublicKey.Target,
         ["xmp"] = Xmp,
         ["pdf-date"] = PdfDateTarget,

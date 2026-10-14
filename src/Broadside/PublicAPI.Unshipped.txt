@@ -2758,6 +2758,8 @@ Broadside.PdfDocument.Save(System.IO.Stream! stream, Broadside.PdfSaveOptions! o
 Broadside.PdfDocument.SaveAsync(System.IO.Stream! stream, Broadside.PdfSaveOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Broadside.PdfDocument.Sign(System.IO.Stream! stream, Broadside.Signatures.IPdfSigner! signer, Broadside.Signatures.PdfSignatureOptions? options = null) -> void
 Broadside.PdfDocument.SignAsync(System.IO.Stream! stream, Broadside.Signatures.IPdfSigner! signer, Broadside.Signatures.PdfSignatureOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.PdfDocument.Timestamp(System.IO.Stream! stream, Broadside.Signatures.PdfTimestampClient! timestampClient, string? fieldName = null) -> void
+Broadside.PdfDocument.TimestampAsync(System.IO.Stream! stream, Broadside.Signatures.PdfTimestampClient! timestampClient, string? fieldName = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Broadside.PdfSaveOptions
 Broadside.PdfSaveOptions.CrossReferenceLayout.get -> Broadside.PdfCrossReferenceLayout
 Broadside.PdfSaveOptions.CrossReferenceLayout.set -> void
@@ -3164,6 +3166,27 @@ Broadside.Signatures.PdfSignatureOptions.WithReason(string? reason) -> Broadside
 Broadside.Signatures.PdfSignatureOptions.WithSignerName(string? signerName) -> Broadside.Signatures.PdfSignatureOptions!
 Broadside.Signatures.PdfSignatureOptions.WithSigningTime(System.DateTimeOffset? signingTime) -> Broadside.Signatures.PdfSignatureOptions!
 Broadside.Signatures.PdfSignatureOptions.WithSubFilter(Broadside.Signatures.PdfSignatureSubFilter subFilter) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureOptions.TimestampClient.get -> Broadside.Signatures.PdfTimestampClient?
+Broadside.Signatures.PdfSignatureOptions.TimestampClient.set -> void
+Broadside.Signatures.PdfSignatureOptions.WithTimestampClient(Broadside.Signatures.PdfTimestampClient? timestampClient) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfTimestampClient
+Broadside.Signatures.PdfTimestampClient.AuthorityUri.get -> System.Uri!
+Broadside.Signatures.PdfTimestampClient.DigestAlgorithm.get -> System.Security.Cryptography.HashAlgorithmName
+Broadside.Signatures.PdfTimestampClient.DigestAlgorithm.set -> void
+Broadside.Signatures.PdfTimestampClient.PdfTimestampClient(System.Net.Http.HttpClient! httpClient, System.Uri! authorityUri) -> void
+Broadside.Signatures.PdfTimestampClient.Policy.get -> string?
+Broadside.Signatures.PdfTimestampClient.Policy.set -> void
+Broadside.Signatures.PdfTimestampClient.TokenSizeEstimate.get -> int
+Broadside.Signatures.PdfTimestampClient.TokenSizeEstimate.set -> void
+Broadside.Signatures.PdfTimestampClient.WithDigestAlgorithm(System.Security.Cryptography.HashAlgorithmName digestAlgorithm) -> Broadside.Signatures.PdfTimestampClient!
+Broadside.Signatures.PdfTimestampClient.WithPolicy(string? policy) -> Broadside.Signatures.PdfTimestampClient!
+Broadside.Signatures.PdfTimestampClient.WithTokenSizeEstimate(int tokenSizeEstimate) -> Broadside.Signatures.PdfTimestampClient!
+Broadside.Signatures.PdfTimestampException
+Broadside.Signatures.PdfTimestampException.AuthorityStatus.get -> int?
+Broadside.Signatures.PdfTimestampException.FailureInfo.get -> int?
+Broadside.Signatures.PdfTimestampException.PdfTimestampException() -> void
+Broadside.Signatures.PdfTimestampException.PdfTimestampException(string? message) -> void
+Broadside.Signatures.PdfTimestampException.PdfTimestampException(string? message, System.Exception? innerException) -> void
 Broadside.Signatures.PdfSignatureSubFilter
 Broadside.Signatures.PdfSignatureSubFilter.AdobePkcs7Detached = 0 -> Broadside.Signatures.PdfSignatureSubFilter
 Broadside.Signatures.PdfSignatureSubFilter.EtsiCadesDetached = 1 -> Broadside.Signatures.PdfSignatureSubFilter
