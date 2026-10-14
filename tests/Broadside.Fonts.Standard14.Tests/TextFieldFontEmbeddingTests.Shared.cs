@@ -19,6 +19,7 @@ public sealed partial class TextFieldFontEmbeddingTests
 {
     private const string Cyrillic = "АБВГДЕЁЖЗИЙКЛМНОПРСТУФХЦЧШЩЪЫЬЭЮЯабвгдеёжзийклмнопрстуфхцчшщъыьэюя";
     private const int FieldCount = 50;
+    private const int ComboFlag = 1 << 17;
 
     [Fact]
     public void Fifty_cyrillic_fields_filled_in_one_document_share_one_embedded_subset()
@@ -99,6 +100,66 @@ public sealed partial class TextFieldFontEmbeddingTests
         using PdfDocument reopened = PdfDocument.Open(SaveUndated(document, incremental: false));
         var saved = (PdfType0Font)reopened.GetFont(Type0Font(reopened, CyrillicField(reopened, 1).Widgets[0]))!;
         Assert.InRange(saved.DescendantFont!.Descriptor!.FontFile2!.EncodedData.Length, 1, 40_000);
+    }
+
+    [Fact]
+    public void Combo_and_list_box_appearances_show_cyrillic_options_through_the_text_fields_shared_subset()
+    {
+        // Choice fields (issue #168) build their variable text through the same font choice as text fields, so they grow the same
+        // shared subset rather than embedding one of their own.
+        using PdfDocument document = OpenWithCyrillicFields();
+        PdfTextField text = CyrillicField(document, 0);
+        text.SetValue(CyrillicValue(0));
+        PdfComboBoxField combo = AddCyrillicChoice<PdfComboBoxField>(document, "cyrillicCombo", ComboFlag, ["Южный", "Северный"]);
+        PdfListBoxField list = AddCyrillicChoice<PdfListBoxField>(document, "cyrillicList", 0, ["Восток", "Запад", "Центр"]);
+
+        combo.SetValue("Северный");
+        list.SetSelectedIndices([1]);
+
+        CosReference font = Type0Font(document, text.Widgets[0]);
+        Assert.Equal(font, Type0Font(document, combo.Widgets[0]));
+        Assert.Equal(font, Type0Font(document, list.Widgets[0]));
+
+        byte[] saved = SaveUndated(document, incremental: false);
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        var reopenedCombo = (PdfComboBoxField)reopened.AcroForm!.FindField("cyrillicCombo")!;
+        var reopenedList = (PdfListBoxField)reopened.AcroForm!.FindField("cyrillicList")!;
+        Assert.Equal("Северный", AppearanceText(reopenedCombo.Widgets[0]).Text);
+        Assert.Contains("Запад", AppearanceText(reopenedList.Widgets[0]).Text, StringComparison.Ordinal);
+        CosReference savedFont = Type0Font(reopened, CyrillicField(reopened, 0).Widgets[0]);
+        Assert.Equal(savedFont, Type0Font(reopened, reopenedCombo.Widgets[0]));
+        Assert.Equal(savedFont, Type0Font(reopened, reopenedList.Widgets[0]));
+        var embedded = (PdfType0Font)reopened.GetFont(savedFont)!;
+        Assert.InRange(embedded.DescendantFont!.Descriptor!.FontFile2!.EncodedData.Length, 1, 40_000);
+        (int exitCode, string output) = ExternalTool.Run("pdffonts", saved);
+        Assert.Equal(0, exitCode);
+        Assert.Single(Regex.Matches(output, @"[A-Z]{6}\+LiberationSans\s+CID TrueType\s+Identity-H\s+yes\s+yes\s+yes"));
+    }
+
+    /// <summary>Adds a choice field (<c>Ch</c>, with <paramref name="flags"/>: <see cref="ComboFlag"/> for a combo box) of Cyrillic options to page 1, below the text fields.</summary>
+    private static TField AddCyrillicChoice<TField>(PdfDocument document, string name, int flags, string[] options)
+        where TField : PdfChoiceField
+    {
+        var acroForm = (CosDictionary)document.Resolve(document.Catalog[new CosName("AcroForm")]);
+        var fields = (CosArray)document.Resolve(acroForm[new CosName("Fields")]);
+        var annotations = (CosArray)document.Resolve(document.Pages[0].Dictionary[new CosName("Annots")]);
+        bool comboBox = flags == ComboFlag;
+        int bottom = comboBox ? 330 : 250;
+        CosReference field = document.AddObject(new CosDictionary
+        {
+            [new CosName("Type")] = new CosName("Annot"),
+            [new CosName("Subtype")] = new CosName("Widget"),
+            [new CosName("FT")] = new CosName("Ch"),
+            [new CosName("Ff")] = new CosInteger(flags),
+            [new CosName("T")] = new CosString(Encoding.ASCII.GetBytes(name)),
+            [new CosName("Opt")] = new CosArray([.. options.Select(option => (CosObject)new CosString(Encoding.BigEndianUnicode.GetPreamble().Concat(Encoding.BigEndianUnicode.GetBytes(option)).ToArray()))]),
+            [new CosName("Rect")] = new CosArray([new CosInteger(300), new CosInteger(bottom), new CosInteger(440), new CosInteger(bottom + (comboBox ? 14 : 60))]),
+            [new CosName("F")] = new CosInteger(4),
+            [new CosName("DA")] = new CosString("/Helv 0 Tf 0 g"u8),
+        });
+        fields.Add(field);
+        annotations.Add(field);
+        return (TField)document.AcroForm!.FindField(name)!;
     }
 
     /// <summary>The value of field <paramref name="index"/>: eight letters from a different place in the alphabet, so the font grows.</summary>
