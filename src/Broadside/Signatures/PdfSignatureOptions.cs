@@ -13,6 +13,7 @@ namespace Broadside.Signatures;
 public sealed class PdfSignatureOptions
 {
     private HashAlgorithmName? _digestAlgorithm;
+    private PdfCertificationPermissions? _certification;
 
     /// <summary>
     /// Gets or sets the fully qualified name of the signature field to sign. An unsigned signature field of that name is signed; when
@@ -93,6 +94,55 @@ public sealed class PdfSignatureOptions
 
             _digestAlgorithm = value;
         }
+    }
+
+    /// <summary>
+    /// Gets or sets the changes the document permits after this signature, which makes it a certification signature; <see langword="null"/>
+    /// (the default) makes an approval signature. A certification signature shall be the document's first signature.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §12.8.1 (at most one certification signature; approval signatures follow it), §12.8.2.2 (DocMDP, Table 257) and
+    /// §12.8.6 (the catalog's <c>Perms</c> <c>DocMDP</c> entry, Table 263). PDF 1.5.
+    /// </remarks>
+    public PdfCertificationPermissions? Certification
+    {
+        get => _certification;
+        set
+        {
+            if (value is { } permissions && !Enum.IsDefined(permissions))
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), permissions, "The permissions shall be 1, 2 or 3 (Table 257).");
+            }
+
+            _certification = value;
+        }
+    }
+
+    /// <summary>
+    /// Gets or sets the fields this signature locks, written as the signature field's lock dictionary; <see langword="null"/> (the
+    /// default) writes none. A field that already has a lock dictionary is locked by it whatever this says, and cannot take another.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.7.5.5, Tables 235 and 236, and §12.8.2.4 (FieldMDP, Table 259). PDF 1.5; a lock's <c>P</c>, PDF 2.0.</remarks>
+    public PdfFieldLockOptions? FieldLock { get; set; }
+
+    /// <summary>Sets <see cref="Certification"/>.</summary>
+    /// <param name="permissions">The changes permitted after the certification signature, or <see langword="null"/> for an approval signature.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §12.8.2.2, Table 257.</remarks>
+    public PdfSignatureOptions WithCertification(PdfCertificationPermissions? permissions)
+    {
+        Certification = permissions;
+        return this;
+    }
+
+    /// <summary>Sets <see cref="FieldLock"/>.</summary>
+    /// <param name="fieldLock">The fields the signature locks, or <see langword="null"/>.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §12.7.5.5, Table 236.</remarks>
+    public PdfSignatureOptions WithFieldLock(PdfFieldLockOptions? fieldLock)
+    {
+        FieldLock = fieldLock;
+        return this;
     }
 
     /// <summary>Sets <see cref="FieldName"/>.</summary>

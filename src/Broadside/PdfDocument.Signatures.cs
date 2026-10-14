@@ -12,7 +12,7 @@ using Broadside.Writing;
 
 namespace Broadside;
 
-/// <content>Byte range signing (issue #193): ISO 32000-2 §12.8.1 and §12.8.3.3.</content>
+/// <content>Byte range signing (issues #193, #199): ISO 32000-2 §12.8.1, §12.8.2 and §12.8.3.3.</content>
 public sealed partial class PdfDocument
 {
     /// <summary>The placeholder each of the three computed <c>ByteRange</c> numbers is written as, wide enough for any of them.</summary>
@@ -50,7 +50,9 @@ public sealed partial class PdfDocument
     /// <param name="signer">Signs the digest; <see cref="PdfCertificateSigner"/> for a certificate with its private key.</param>
     /// <param name="options">The field, the signature properties and the digest algorithm; <see langword="null"/> for the defaults.</param>
     /// <exception cref="InvalidOperationException">
-    /// The field <see cref="PdfSignatureOptions.FieldName"/> names is already signed or is not a signature field.
+    /// The field <see cref="PdfSignatureOptions.FieldName"/> names is already signed or is not a signature field; a certification
+    /// signature is asked for a signed document; a lock is given for a field that has one; or the document's certification or a signed
+    /// field lock permits no changes.
     /// </exception>
     /// <exception cref="ArgumentException"><see cref="PdfSignatureOptions.FieldName"/> is empty or, for a new field, holds a period.</exception>
     /// <exception cref="NotSupportedException">
@@ -88,6 +90,16 @@ public sealed partial class PdfDocument
     /// PKCS #1 v1.5 or RSASSA-PSS as <see cref="IPdfSigner.RsaSignaturePadding"/> says, or ECDSA) is written into <c>Contents</c>,
     /// padded with zeros (§12.8.3.3.1). With <c>ETSI.CAdES.detached</c> that is a PAdES baseline B-B signature (ETSI EN 319 142-1).
     /// Earlier signatures stay valid: the update only appends (§7.5.6, NOTE 1 of §12.8.1).
+    /// </para>
+    /// <para>
+    /// With <see cref="PdfSignatureOptions.Certification"/> the signature is a certification signature (§12.8.2.2): its dictionary gets
+    /// a <c>Reference</c> with a DocMDP signature reference whose transform parameters hold the permissions (Table 257, <c>P</c>,
+    /// <c>V</c> 1.2), and the catalog's permissions dictionary a <c>DocMDP</c> entry naming it (Table 263); it is refused when the
+    /// document already has a signature (§12.8.1). When the field has a lock dictionary, or
+    /// <see cref="PdfSignatureOptions.FieldLock"/> gives one (written to the field, indirect, Table 236), the lock's <c>Action</c> and
+    /// <c>Fields</c> are copied into a FieldMDP signature reference whose <c>Data</c> is the catalog (§12.8.2.4, Table 256). A
+    /// document whose certification signature, named by the catalog's <c>Perms</c>, or a signed field lock permits no changes (<c>P</c> 1) refuses another signature: the
+    /// permissions dictionary asks processors to enforce them (Table 263).
     /// </para>
     /// <para>
     /// The save raises the version to what the signature needs (Table 260: PDF 1.6 for SHA-256, 1.7 for SHA-384 and SHA-512, 2.0 for
@@ -144,7 +156,8 @@ public sealed partial class PdfDocument
     /// <param name="cancellationToken">Cancels the signing and the writes.</param>
     /// <returns>A task that completes when the signed file is written.</returns>
     /// <exception cref="InvalidOperationException">
-    /// The field <see cref="PdfSignatureOptions.FieldName"/> names is already signed or is not a signature field.
+    /// The field <see cref="PdfSignatureOptions.FieldName"/> names is already signed or is not a signature field, or what
+    /// certification and field locks do not allow is asked for (see <see cref="Sign"/>).
     /// </exception>
     /// <exception cref="ArgumentException"><see cref="PdfSignatureOptions.FieldName"/> is empty or, for a new field, holds a period.</exception>
     /// <exception cref="NotSupportedException">
@@ -214,10 +227,11 @@ public sealed partial class PdfDocument
             reserved += IntegrityAttributeAllowance;
         }
 
+        ModificationDetectionPlan modificationDetection = PlanModificationDetection(options);
         var undo = new List<Action>();
         try
         {
-            VersionedFeature[] features = SignatureFeatures(key, digestAlgorithm, options.SubFilter);
+            VersionedFeature[] features = [.. SignatureFeatures(key, digestAlgorithm, options.SubFilter), .. modificationDetection.Features];
             if (timestamp is not null)
             {
                 features = [.. features, .. TimestampFeatures(VersionedFeatures.SignatureTimestamp, timestamp)];
@@ -232,7 +246,8 @@ public sealed partial class PdfDocument
             CosDictionary signature = SignatureDictionary(options, reserved, pdf20);
             CosReference signatureReference = AddObject(signature);
             undo.Add(() => RemoveObject(signatureReference));
-            PlaceSignature(options.FieldName, signatureReference, undo);
+            CosDictionary field = PlaceSignature(options.FieldName, signatureReference, undo);
+            ApplyModificationDetection(modificationDetection, signature, signatureReference, field, digestAlgorithm, undo);
 
             FileWriter writer = PlanSave(new PdfSaveOptions { IncrementalUpdate = true });
             IntegrityCodeWriter? integrity = writer.Integrity;
@@ -504,7 +519,7 @@ public sealed partial class PdfDocument
     /// Makes <paramref name="signature"/> the value of the signature field: the unsigned one <paramref name="fieldName"/> names, or a
     /// new invisible one; sets SignaturesExist and AppendOnly (§12.7.3, Table 225).
     /// </summary>
-    private void PlaceSignature(string? fieldName, CosReference signature, List<Action> undo)
+    private CosDictionary PlaceSignature(string? fieldName, CosReference signature, List<Action> undo)
     {
         if (fieldName is not null && fieldName.Length == 0)
         {
@@ -536,6 +551,7 @@ public sealed partial class PdfDocument
         Set(field, FormNames.V, signature, undo);
         long flags = Resolve(form.TryGetValue(FormNames.SigFlags, out CosObject? sigFlags) ? sigFlags : null) is CosInteger integer ? integer.Value : 0;
         Set(form, FormNames.SigFlags, new CosInteger(flags | 3), undo);
+        return field;
     }
 
     /// <summary>The interactive form dictionary, created (indirect, with an empty <c>Fields</c>) when the catalog has none.</summary>

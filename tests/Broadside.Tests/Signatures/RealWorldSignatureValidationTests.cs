@@ -94,7 +94,10 @@ public sealed class RealWorldSignatureValidationTests(ITestOutputHelper output)
                 string kinds = validation.Problems.Count == 0 ? "-" : string.Join(", ", validation.Problems.Select(static problem => problem.Kind).Distinct().Order());
                 string timestamp = validation.Timestamp is { } token ? $"timestamp {token.Status}" : "no timestamp";
                 string revocations = validation.Revocations.Count == 0 ? "-" : string.Join("/", validation.Revocations.Select(static revocation => revocation.Status));
-                lines.Add($"{file} | {validation.FieldName} | {validation.SubFilter ?? "-"} | {validation.DigestAlgorithm?.Name ?? "-"} | {validation.Status} | {kinds} | {timestamp} | revocation {revocations}");
+                string changes = validation.Modifications.Count == 0
+                    ? "-"
+                    : string.Join(", ", validation.Modifications.Select(static change => change.IsPermitted ? change.Kind.ToString() : $"{change.Kind}!").Distinct().Order(StringComparer.Ordinal));
+                lines.Add($"{file} | {validation.FieldName} | {validation.SubFilter ?? "-"} | {validation.DigestAlgorithm?.Name ?? "-"} | {validation.Status} | {kinds} | revision {validation.SignedRevision?.ToString(CultureInfo.InvariantCulture) ?? "-"} | {changes} | {timestamp} | revocation {revocations}");
             }
         }
 

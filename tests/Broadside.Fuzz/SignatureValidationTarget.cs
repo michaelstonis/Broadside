@@ -6,12 +6,13 @@ namespace Broadside.Fuzz;
 /// <summary>
 /// The signature validation targets (issue #196). <c>signature-validation</c> opens the input as a whole file and validates every
 /// signature; invariants: validation never throws, a signature is valid exactly when it has no problem, and a certificate path exists
-/// exactly when a signer certificate was found, starting with it; a time-stamp token's status follows its problems the same way, and a
-/// revocation is listed only for a certificate of the path. <c>cms</c> decodes the input as the <c>Contents</c> of a signature (a CMS
-/// <c>ContentInfo</c>, zero padding allowed) and, when it decodes, reads a timestamp token's TSTInfo from its content and decodes the
-/// revocation information and time-stamp tokens it carries (issue #197); invariant: none of it throws. <c>ocsp-response</c> and
-/// <c>crl</c> (issue #197) decode the input as an OCSP response and a CRL, and look a serial number up in the CRL; invariant: neither
-/// throws.
+/// exactly when a signer certificate was found, starting with it; modification detection (issue #199) reports changes only after a
+/// signed revision inside the file and makes a signature with a change it does not permit invalid; a time-stamp token's status follows
+/// its problems as a signature's does, and a revocation is listed only for a certificate of the path (issue #197). <c>cms</c> decodes
+/// the input as the <c>Contents</c> of a signature (a CMS <c>ContentInfo</c>, zero padding allowed) and, when it decodes, reads a
+/// timestamp token's TSTInfo from its content and decodes the revocation information and time-stamp tokens it carries (issue #197);
+/// invariant: none of it throws. <c>ocsp-response</c> and <c>crl</c> (issue #197) decode the input as an OCSP response and a CRL, and
+/// look a serial number up in the CRL; invariant: neither throws.
 /// </summary>
 /// <remarks>ISO 32000-2 §12.8.1, §12.8.3.3.1, §12.8.3.3.2, §12.8.5; RFC 5652 §5 and §10.2.1; RFC 3161 §2.4.2; RFC 6960 §4.2.1; RFC 5280 §5.1.</remarks>
 internal static class SignatureValidationTarget
@@ -47,6 +48,24 @@ internal static class SignatureValidationTarget
             if (validation.Revocations.Any(revocation => !validation.CertificatePath.Contains(revocation.Certificate)))
             {
                 throw new InvalidOperationException("A revocation names a certificate outside the path.");
+            }
+
+            // Modification detection (issue #199): changes follow a known signed revision, within the file's revisions, and a change
+            // that is not permitted is reported.
+            if (validation.Modifications.Count > 0 && validation.SignedRevision is not { } signed)
+            {
+                throw new InvalidOperationException("Modifications without a signed revision.");
+            }
+
+            if (validation.SignedRevision is { } revision
+                && (revision < 0 || revision >= document.Revisions.Count || validation.Modifications.Any(change => change.Revision <= revision || change.Revision >= document.Revisions.Count)))
+            {
+                throw new InvalidOperationException("A modification or the signed revision is outside the file's revisions.");
+            }
+
+            if (validation.Modifications.Any(static change => !change.IsPermitted) && validation.Status != PdfSignatureStatus.Invalid)
+            {
+                throw new InvalidOperationException("A change that is not permitted left the signature not invalid.");
             }
         }
     }
