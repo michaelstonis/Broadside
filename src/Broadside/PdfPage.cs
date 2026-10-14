@@ -26,6 +26,8 @@ public sealed class PdfPage
     /// <summary>The media box used when a page has none, US Letter, as pdf.js and PDFBox use.</summary>
     private static readonly PdfRectangle DefaultMediaBox = new(0, 0, 612, 792);
 
+    private static readonly CosName OutputIntentsKey = new("OutputIntents");
+
     private readonly PdfDocument _document;
     private PageTreeAncestor? _ancestors;
     private volatile AnnotationList? _annotations;
@@ -49,6 +51,14 @@ public sealed class PdfPage
     /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §12.6.3, Table 198. Not inheritable; read on every call, never created by reading.</remarks>
     public PdfPageAdditionalActions? AdditionalActions =>
         PdfAdditionalActions.Create(_document, Dictionary.TryGetValue(ActionNames.AA, out CosObject? aa) ? aa : null, Reference, static (d, a, r, o) => new PdfPageAdditionalActions(d, a, r, o));
+
+    /// <summary>Gets the page's own output intents (<c>OutputIntents</c>, PDF 2.0), in the order written; empty when it has none.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.3.3, Table 31, and §14.11.5: when a page has output intents, a processor that respects output intents uses
+    /// them for that page instead of the document's (<see cref="PdfDocument.OutputIntents"/>). Not inheritable; read on every call.
+    /// </remarks>
+    public IReadOnlyList<PdfOutputIntent> OutputIntents =>
+        PdfOutputIntent.Read(_document, Dictionary.GetValueOrDefault(OutputIntentsKey), Reference, _document.OutputIntentViews);
 
     /// <summary>Gets the media box: the boundaries of the physical medium the page is displayed or printed on. Inheritable.</summary>
     /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Required; when missing or malformed, US Letter <c>[0 0 612 792]</c>.</remarks>
