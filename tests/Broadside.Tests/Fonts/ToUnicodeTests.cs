@@ -202,6 +202,22 @@ public sealed class ToUnicodeTests
     }
 
     [Fact]
+    public void A_used_ToUnicode_CMap_removed_as_an_object_is_seen_by_the_font_read_before()
+    {
+        string parent = ToUnicode("2 beginbfchar\n<0001> <0058>\n<0002> <0042>\nendbfchar");
+        string child = ToUnicode("1 beginbfchar\n<0001> <0041>\nendbfchar", entries: "/UseCMap 7 0 R");
+        using PdfDocument document = OpenType0(child, extra: parent);
+        Assert.Equal("B", Map(FontPdf.Font(document), 2).Text);
+
+        // §7.3.10: UseCMap now resolves to null, so code 2 has no mapping of its own (§9.10.3); the ToUnicode stream is unchanged.
+        Assert.True(document.RemoveObject(new CosReference(7, 0)));
+
+        PdfFont font = FontPdf.Font(document);
+        Assert.Equal("A", Map(font, 1).Text);
+        Assert.NotEqual("B", Map(font, 2).Text);
+    }
+
+    [Fact]
     public void Overlapping_entries_take_the_later_one()
     {
         using PdfDocument document = OpenType0(ToUnicode("1 beginbfrange\n<0001> <0003> <0061>\nendbfrange\n1 beginbfchar\n<0002> <0058>\nendbfchar"));

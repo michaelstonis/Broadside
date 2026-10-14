@@ -41,6 +41,32 @@ public sealed class CompositeFontTests
     }
 
     [Fact]
+    public void A_W_array_removed_as_an_object_is_seen_by_the_metrics_read_before()
+    {
+        using PdfDocument document = Open(cidEntries: "/W 6 0 R", objects: ["[1 [700]]"]);
+        PdfCidFont font = Descendant(document);
+        Assert.Equal(700, font.GetWidth(1));
+
+        // §7.3.10: W now resolves to null, so DW (1000) applies (§9.7.4.3); the CIDFont dictionary is unchanged.
+        Assert.True(document.RemoveObject(new CosReference(6, 0)));
+
+        Assert.Equal(1000, font.GetWidth(1));
+    }
+
+    [Fact]
+    public void A_descendant_font_removed_as_an_object_is_seen_by_the_type_0_font_read_before()
+    {
+        using PdfDocument document = Open();
+        PdfType0Font font = CompositeFontCorpusTests.Font(document);
+        Assert.NotNull(font.DescendantFont);
+
+        // §7.3.10: the unchanged DescendantFonts array's element now resolves to null.
+        Assert.True(document.RemoveObject(new CosReference(5, 0)));
+
+        Assert.Null(font.DescendantFont);
+    }
+
+    [Fact]
     public void Malformed_W_and_DW_keep_what_can_be_read_with_diagnostics()
     {
         using PdfDocument document = Open(cidEntries: "/DW (wide) /W [1 [600 /x 650] 4 /y]");
@@ -204,6 +230,20 @@ public sealed class CompositeFontTests
         Assert.Equal("Parent-H", cmap.Parent?.Name);
         Assert.Equal([9, 101], new[] { "A"u8.ToArray(), "B"u8.ToArray() }.Select(text => cmap.GetCid(cmap.ReadCode(text))));
         Assert.Empty(Codes(document));
+    }
+
+    [Fact]
+    public void A_UseCMap_stream_removed_as_an_object_is_seen_by_the_CMap_read_before()
+    {
+        string child = CMapStream("1 begincidchar <41> 9 endcidchar", "/UseCMap 7 0 R", name: "Child-H");
+        string parent = CMapStream("1 begincodespacerange <00> <FF> endcodespacerange 1 begincidrange <41> <5A> 100 endcidrange", name: "Parent-H");
+        using PdfDocument document = Open(encoding: "6 0 R", objects: [child, parent]);
+        Assert.Equal("Parent-H", CompositeFontCorpusTests.Font(document).Encoding.Parent?.Name);
+
+        // §7.3.10: UseCMap now resolves to null, so the CMap uses none (§9.7.5.3, Table 118); the CMap stream is unchanged.
+        Assert.True(document.RemoveObject(new CosReference(7, 0)));
+
+        Assert.Null(CompositeFontCorpusTests.Font(document).Encoding.Parent);
     }
 
     [Fact]

@@ -31,10 +31,15 @@ public sealed partial class PdfDocument
     /// <param name="reference">The reference it was reached through, which its diagnostics carry.</param>
     /// <param name="depth">How many CMaps use this one through <c>UseCMap</c> on the way here.</param>
     /// <returns>The CMap; <see langword="null"/> only when the stream is reached again through its own <c>UseCMap</c> chain.</returns>
-    /// <remarks>ISO 32000-2 §9.7.5.3, Table 118, and §9.7.5.4; Adobe TN 5014 §5.4 and §7.4 (usecmap nests at most five levels).</remarks>
+    /// <remarks>
+    /// ISO 32000-2 §9.7.5.3, Table 118, and §9.7.5.4; Adobe TN 5014 §5.4 and §7.4 (usecmap nests at most five levels). A CMap whose
+    /// <c>UseCMap</c> is an indirect reference also records the document's <c>ObjectsVersion</c>: after an object is added or removed
+    /// the reference may resolve to something else (§7.3.10), so it is parsed again and replaces the stale entry (issue #304).
+    /// </remarks>
     internal CMap? GetCMap(CosStream stream, CosReference? reference, int depth = 0) =>
         _cmaps.GetOrCreate(
-            new CMapKey(stream, stream.Version),
+            new CMapKey(stream, stream.Version, stream.Dictionary.Version),
+            UseCMapStamp(stream),
             (Document: this, Reference: reference, Depth: depth),
             static (key, state) => new Created<CMap?>(state.Document.ParseCMap(key.Stream, state.Reference, state.Depth)),
             static (key, state) =>
@@ -174,6 +179,14 @@ public sealed partial class PdfDocument
         return CMap.Create(file, parent, file.WMode ?? 0, context);
     }
 
-    /// <summary>A CMap stream at one version: a changed stream is parsed again.</summary>
-    private readonly record struct CMapKey(CosStream Stream, int Version);
+    /// <summary>
+    /// What a parsed CMap stream (an encoding or a ToUnicode CMap) records besides its key: the document's <c>ObjectsVersion</c> when
+    /// its <c>UseCMap</c> is an indirect reference, which an object added or removed can make resolve to something else (§7.3.10,
+    /// issue #304); nothing otherwise, so other CMaps are not parsed again after every added object.
+    /// </summary>
+    private int? UseCMapStamp(CosStream stream) =>
+        stream.Dictionary.TryGetValue(CompositeFontNames.UseCMap, out CosObject? use) && use is CosReference ? ObjectsVersion : null;
+
+    /// <summary>A CMap stream at one version of its data and dictionary: a changed stream is parsed again.</summary>
+    private readonly record struct CMapKey(CosStream Stream, int Version, int DictionaryVersion);
 }

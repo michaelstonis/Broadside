@@ -19,6 +19,8 @@ internal sealed class CidFontMetrics
 
     private readonly CosObject[] _sources;
     private readonly int[] _versions;
+    private readonly PdfDocument _document;
+    private readonly int _objectsVersion;
     private readonly IntervalTable _widths;
     private readonly double[] _widthValues;
     private readonly IntervalTable _vertical;
@@ -29,6 +31,8 @@ internal sealed class CidFontMetrics
     {
         _sources = [.. builder.Sources];
         _versions = [.. builder.Sources.Select(VersionOf)];
+        _document = builder.Document;
+        _objectsVersion = builder.ObjectsVersion;
         DefaultWidth = builder.DefaultWidth;
         DefaultPositionY = builder.DefaultPositionY;
         DefaultVerticalAdvance = builder.DefaultVerticalAdvance;
@@ -60,11 +64,16 @@ internal sealed class CidFontMetrics
     /// <summary>Gets a value indicating whether the descriptor holds a font file.</summary>
     public bool IsEmbedded { get; }
 
-    /// <summary>Gets a value indicating whether no source has changed since the metrics were built.</summary>
+    /// <summary>Gets a value indicating whether no object was added or removed (§7.3.10) and no source has changed since the metrics were built.</summary>
     public bool IsCurrent
     {
         get
         {
+            if (_document.ObjectsVersion != _objectsVersion)
+            {
+                return false;
+            }
+
             for (int index = 0; index < _sources.Length; index++)
             {
                 if (VersionOf(_sources[index]) != _versions[index])
@@ -127,6 +136,11 @@ internal sealed class CidFontMetrics
     private sealed class Builder(PdfCidFont font)
     {
         public List<CosObject> Sources { get; } = [font.Dictionary];
+
+        public PdfDocument Document { get; } = font.Document;
+
+        /// <summary>Gets the document's <c>ObjectsVersion</c> before anything was read.</summary>
+        public int ObjectsVersion { get; } = font.Document.ObjectsVersion;
 
         public double DefaultWidth { get; private set; } = 1000;
 
