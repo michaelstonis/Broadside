@@ -1822,6 +1822,46 @@ def gen_text_tagged_spanning() -> bytes:
     ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
 
 
+def gen_text_tagged_spanning_image() -> bytes:
+    """14.7.5.2 marked-content items on two pages, 14.8.2.5 logical content order and 14.9.4 element-level ActualText whose
+    element's first content item shows no glyph. A PDF 2.0 tagged file of two pages: Document > [P (page 1 MCID 0, "Before"),
+    Span /ActualText (ACME Corp) over MCRs page 1 MCID 1 (a 2 x 2 black and grey inline image with its /L, the logo, the
+    last thing on page 1) and page 2 MCID 0 ("ACME", the first line of page 2), P (page 2 MCID 1, "After")]. The Span's
+    content starts on page 1 but shows its first glyph on page 2, so its replacement belongs there, once."""
+    def line(tag: bytes, mcid: int, y: int, text: bytes) -> bytes:
+        return b"/%s <</MCID %d>> BDC BT /F1 12 Tf 72 %d Td (%s) Tj ET EMC" % (tag, mcid, y, text)
+
+    logo = b"/Span <</MCID 1>> BDC q 40 0 0 40 72 630 cm BI /W 2 /H 2 /CS /G /BPC 8 /L 4 ID \x00\x80\x80\x00 EI Q EMC"
+    first = b"\n".join([line(b"P", 0, 700, b"Before"), logo])
+    second = b"\n".join([line(b"Span", 0, 700, b"ACME"), line(b"P", 1, 680, b"After")])
+    resources = b" /Resources << /Font << /F1 7 0 R >> >>"
+    ns = b"/NS 9 0 R"
+    id0 = file_id("text-tagged-spanning-image").hex().encode()
+
+    def elem(s: bytes, extra: bytes, parent: int = 11) -> bytes:
+        return b"<< /Type /StructElem /S /%s /P %d 0 R %s %s >>" % (s, parent, ns, extra)
+
+    def mcr(pg: int, mcid: int) -> bytes:
+        return b"<< /Type /MCR /Pg %d 0 R /MCID %d >>" % (pg, mcid)
+
+    return simple_file([
+        (1, catalog(b" /MarkInfo << /Marked true >> /StructTreeRoot 10 0 R /Lang (en-US)")),
+        (2, pages([3, 5])),
+        (3, page(contents=4, resources=False, extra=resources + b" /StructParents 0")),
+        (4, stream(b"", first)),
+        (5, page(contents=6, resources=False, extra=resources + b" /StructParents 1")),
+        (6, stream(b"", second)),
+        (7, HELVETICA),
+        (9, b"<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>"),
+        (10, b"<< /Type /StructTreeRoot /K [11 0 R] /Namespaces [9 0 R] "
+             b"/ParentTree << /Nums [0 [12 0 R 13 0 R] 1 [13 0 R 14 0 R]] >> /ParentTreeNextKey 2 >>"),
+        (11, elem(b"Document", b"/K [12 0 R 13 0 R 14 0 R]", parent=10)),
+        (12, elem(b"P", b"/Pg 3 0 R /K 0")),
+        (13, elem(b"Span", b"/ActualText (ACME Corp) /K [%s %s]" % (mcr(3, 1), mcr(5, 0)))),
+        (14, elem(b"P", b"/Pg 5 0 R /K 1")),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
 def gen_text_cid_identity_v() -> bytes:
     """9.7.4.1 Table 115 (CIDToGIDMap stream, DW2, W2), 9.7.4.3 (W2 in both forms, DW2 fallback, v.x = w0/2), 9.7.5.2
     Identity-V. The map covers CIDs 0 to 0x22 (0x21 -> 1, 0x22 -> 2); CID 0x23 is past its end and shows CID 0's glyph."""
@@ -6097,6 +6137,7 @@ FILES = {
     "text-lines-rotated.pdf": gen_text_lines_rotated,
     "text-tagged-replacements.pdf": gen_text_tagged_replacements,
     "text-tagged-spanning.pdf": gen_text_tagged_spanning,
+    "text-tagged-spanning-image.pdf": gen_text_tagged_spanning_image,
     "text-cid-embedded-cmap.pdf": gen_text_cid_embedded_cmap,
     "text-cidcff-predefined-cmap.pdf": gen_text_cidcff_predefined_cmap,
     "text-cid-nonembedded.pdf": gen_text_cid_nonembedded,
