@@ -69,7 +69,10 @@ jobs:
         run: dotnet restore Broadside.slnx
 
       - name: Build
-        run: dotnet build Broadside.slnx -c Release -warnaserror --no-restore
+        # ValidateXcodeVersion=false: the macOS workload of the 10.0.4xx workload set (macOS SDK pack 27.0) demands Xcode 27.0 for
+        # anything that outputs an app bundle (the CoreGraphics test and benchmark apps), and the macos-26 runner image has Xcode
+        # 26.x only. The check is an exact major.minor match; the build itself does not need the newer Xcode.
+        run: dotnet build Broadside.slnx -c Release -warnaserror --no-restore -p:ValidateXcodeVersion=false
 
       - name: Test
         run: dotnet test Broadside.Core.slnf -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
