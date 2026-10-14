@@ -392,7 +392,9 @@ public sealed class TextExtractor : ContentProcessor
             }
             else if (matched)
             {
-                return item.Kind == ContentOperandKind.String ? new CosString(item.Bytes, item.IsHexadecimal).DecodeText() : null;
+                // Decoded from the operand's bytes: a CosString here would copy them, and only an optimizing JIT that proves it
+                // does not escape keeps it off the heap, so what the sequence allocates would depend on the JIT tier (CI saw it).
+                return item.Kind == ContentOperandKind.String ? TextStringDecoder.Decode(item.Bytes) : null;
             }
 
             isKey = !isKey;
