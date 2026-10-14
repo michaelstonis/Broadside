@@ -229,6 +229,33 @@ public sealed class ReadingOrderTests
     }
 
     [Fact]
+    public void An_element_removed_as_an_object_no_longer_gives_its_replacement()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes(SpanningImage));
+        Assert.Equal("ACME Corp\nAfter", document.Pages[1].ExtractText().PlainText);
+
+        // §7.3.10: the Span carrying the ActualText (object 13) is removed; its parent's K and the parent tree still name it.
+        Assert.True(document.RemoveObject(new Broadside.Objects.CosReference(13, 0)));
+
+        Assert.DoesNotContain("Corp", document.Pages[1].ExtractText().PlainText, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void A_content_stream_removed_as_an_object_moves_the_replacement_back_to_its_later_glyph()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes(SpanningImage));
+        var contents = (Broadside.Objects.CosStream)document.Resolve(document.Pages[0].Dictionary[new Broadside.Objects.CosName("Contents")]);
+        contents.EncodedData = System.Text.Encoding.ASCII.GetBytes(
+            "/P <</MCID 0>> BDC BT /F1 12 Tf 72 700 Td (Before) Tj ET EMC /Span <</MCID 1>> BDC BT /F1 12 Tf 72 680 Td (Logo) Tj ET EMC");
+        Assert.Equal("After", document.Pages[1].ExtractText().PlainText);
+
+        // Page 1's content stream (object 4) is removed: page 1 shows nothing, so the Span's first glyph is "ACME" on page 2 again.
+        Assert.True(document.RemoveObject(new Broadside.Objects.CosReference(4, 0)));
+
+        Assert.Equal("ACME Corp\nAfter", document.Pages[1].ExtractText().PlainText);
+    }
+
+    [Fact]
     public void A_page_of_a_document_without_a_structure_tree_keeps_content_order()
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Path("text-lines-rotated.pdf"));
