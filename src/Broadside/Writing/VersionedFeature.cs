@@ -258,6 +258,12 @@ internal static class VersionedFeatures
     /// <summary>Gets exponential, stitching and PostScript calculator functions (types 2, 3 and 4): PDF 1.3.</summary>
     public static VersionedFeature CalculatedFunction { get; } = new("an exponential, stitching or PostScript calculator function (FunctionType 2, 3 or 4)", "ISO 32000-2 §7.10.3 to §7.10.5", new PdfVersion(1, 3));
 
+    /// <summary>Gets shadings: the <c>sh</c> operator, <c>Shading</c> resources and shading patterns (PatternType 2): PDF 1.3.</summary>
+    public static VersionedFeature Shadings { get; } = new("a shading (sh, Shading resources, shading patterns)", "ISO 32000-2 §8.7.4.3, Table 77; §8.7.4.2, Table 76", new PdfVersion(1, 3));
+
+    /// <summary>Gets the Pattern colour space and tiling patterns (PatternType 1): PDF 1.2.</summary>
+    public static VersionedFeature PatternColorSpace { get; } = new("a Pattern colour space or tiling pattern", "ISO 32000-2 §8.6.3, Table 61; §8.7.3.1, Table 74", Pdf12);
+
     /// <summary>Returns the feature a colour space stands for (§8.6.3, Table 61), or <see langword="null"/> for a device space (PDF 1.0).</summary>
     /// <param name="space">The space.</param>
     /// <returns>The feature.</returns>
@@ -266,6 +272,7 @@ internal static class VersionedFeatures
         Graphics.PdfColorSpaceFamily.CalGray or Graphics.PdfColorSpaceFamily.CalRgb or Graphics.PdfColorSpaceFamily.Lab
             or Graphics.PdfColorSpaceFamily.Indexed => CieBasedColorSpace,
         Graphics.PdfColorSpaceFamily.Separation => SeparationColorSpace,
+        Graphics.PdfColorSpaceFamily.Pattern => PatternColorSpace,
         Graphics.PdfColorSpaceFamily.IccBased => IccBasedColorSpace,
         Graphics.PdfColorSpaceFamily.DeviceN => space.MinimumVersion > new PdfVersion(1, 3) ? DeviceNAttributes : DeviceNColorSpace,
         _ => null,

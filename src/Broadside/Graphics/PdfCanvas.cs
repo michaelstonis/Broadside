@@ -31,7 +31,7 @@ namespace Broadside.Graphics;
 /// read may run concurrently with it, and it is not thread-safe.
 /// </para>
 /// </remarks>
-public sealed class PdfCanvas : IDisposable
+public sealed partial class PdfCanvas : IDisposable
 {
     private static readonly CosName[] BlendModeNames = [.. Enum.GetNames<BlendMode>().Select(static name => new CosName(name))];
     private static readonly CosName[] IntentNames = [.. Enum.GetNames<RenderingIntent>().Select(static name => new CosName(name))];
@@ -248,6 +248,7 @@ public sealed class PdfCanvas : IDisposable
     {
         ThrowIfNotAtPageLevel();
         ThrowIfUndefined(intent);
+        ThrowIfStencil();
         _document.RequireFeature(VersionedFeatures.RenderingIntentOperator);
         _writer.Name(IntentNames[(int)intent]).Operator("ri");
     }
@@ -495,7 +496,7 @@ public sealed class PdfCanvas : IDisposable
         }
         else
         {
-            StoreInForm(_form!);
+            StoreInStream(_form?.Stream ?? _cell!);
         }
     }
 
@@ -536,10 +537,11 @@ public sealed class PdfCanvas : IDisposable
     private void SetColor(PdfColor color, bool stroking)
     {
         ThrowIfNotAtPageLevel();
+        ThrowIfStencil();
         PdfColorSpace space = color.ColorSpace;
         if (space.Family == PdfColorSpaceFamily.Pattern)
         {
-            throw new ArgumentException("A Pattern colour cannot be set on the canvas yet.", nameof(color));
+            throw new ArgumentException("A Pattern colour is set with SetFillPattern or SetStrokePattern.", nameof(color));
         }
 
         if (space.Cache is { } cache && !ReferenceEquals(cache.Document, _document))
@@ -655,12 +657,12 @@ public sealed class PdfCanvas : IDisposable
         dictionary[KnownNames.Contents] = parts;
     }
 
-    private void StoreInForm(PdfFormXObject form)
+    private void StoreInStream(CosStream stream)
     {
-        ReadOnlySpan<byte> existing = _document.DecodeStream(form.Stream).Span;
+        ReadOnlySpan<byte> existing = _document.DecodeStream(stream).Span;
         if (existing.IsEmpty)
         {
-            ContentRewriting.StoreUnfiltered(form.Stream, _writer.Written);
+            ContentRewriting.StoreUnfiltered(stream, _writer.Written);
             return;
         }
 
@@ -669,7 +671,7 @@ public sealed class PdfCanvas : IDisposable
         content.Write(existing);
         content.Write("\nQ\n"u8);
         content.Write(_writer.Written);
-        ContentRewriting.StoreUnfiltered(form.Stream, content.Written);
+        ContentRewriting.StoreUnfiltered(stream, content.Written);
     }
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);

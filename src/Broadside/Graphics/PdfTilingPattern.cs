@@ -126,4 +126,24 @@ public sealed class PdfTilingPattern : PdfPattern
     /// <returns>The decoded content.</returns>
     /// <remarks>ISO 32000-2 §8.7.3.1.</remarks>
     public ReadOnlyMemory<byte> GetContent() => _document.DecodeStream(Stream);
+
+    /// <summary>Returns a canvas that draws the pattern's cell, after its existing content; dispose it to store what was drawn.</summary>
+    /// <returns>The canvas, drawing in pattern space.</returns>
+    /// <exception cref="InvalidOperationException">The pattern is a dictionary rather than a stream, so it has no content to draw in.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §8.7.3.1 to §8.7.3.3. The pattern's stream is replaced by its decoded content wrapped in <c>q</c> and <c>Q</c>
+    /// followed by what was drawn, unfiltered (a save compresses it); resources go into the pattern's <c>Resources</c>, created when
+    /// missing. The cell of an uncoloured pattern (<see cref="PdfTilingPaintType.Uncolored"/>) is a stencil: its canvas refuses colours,
+    /// pattern colours, shadings and the rendering intent with <see cref="InvalidOperationException"/>. This model is a snapshot: read
+    /// the pattern again (<see cref="PdfDocument.GetPattern"/>) to see the new content. See <see cref="PdfCanvas"/>. A mutation.
+    /// </remarks>
+    public PdfCanvas CreateCanvas()
+    {
+        if (!ReferenceEquals(Stream, CosObject))
+        {
+            throw new InvalidOperationException("The tiling pattern is not a stream; its cell has no content stream to draw in.");
+        }
+
+        return new PdfCanvas(_document, this);
+    }
 }

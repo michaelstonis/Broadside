@@ -42,6 +42,12 @@ namespace Broadside.Writing;
 /// <item><see cref="VersionedFeatures.Pdf20AnnotationEntries"/>: an annotation (<c>Type</c> <c>Annot</c>, or untyped with
 /// <c>Subtype</c> and <c>Rect</c>) with <c>ca</c>, <c>BM</c> or <c>Lang</c>, a non-markup annotation with <c>CA</c> (Table 166),
 /// and the <c>Projection</c> and <c>RichMedia</c> types (Table 171).</item>
+/// <item><see cref="VersionedFeatures.SampledFunction"/> and <see cref="VersionedFeatures.CalculatedFunction"/>: a function
+/// dictionary or stream (<c>FunctionType</c> 0, or 2, 3 and 4; §7.10, Table 38).</item>
+/// <item><see cref="VersionedFeatures.Shadings"/>: a shading dictionary or stream (<c>ShadingType</c> 1 to 7, Table 77) and a shading
+/// pattern (<c>PatternType</c> 2, Table 76).</item>
+/// <item><see cref="VersionedFeatures.PatternColorSpace"/>: a tiling pattern (<c>PatternType</c> 1, Table 74) and a Pattern colour
+/// space array <c>[/Pattern underlying]</c> (§8.6.6.2).</item>
 /// </list>
 /// <para>
 /// The catalog-level rows (page labels, the name trees, developer extensions) are not found here: a copy never carries the source's
@@ -62,6 +68,10 @@ internal static class CarriedFeatures
     private static readonly CosName BM = new("BM");
     private static readonly CosName AIS = new("AIS");
     private static readonly CosName TK = new("TK");
+    private static readonly CosName FunctionType = new("FunctionType");
+    private static readonly CosName ShadingType = new("ShadingType");
+    private static readonly CosName PatternType = new("PatternType");
+    private static readonly CosName Pattern = new("Pattern");
 
     /// <summary>The annotation types Table 171 marks as not markup annotations, whose <c>CA</c> is PDF 2.0 (Table 166).</summary>
     private static readonly HashSet<string> NonMarkupTypes =
@@ -94,6 +104,7 @@ internal static class CarriedFeatures
             found(VersionedFeatures.OptionalContent);
         }
 
+        Graphics(document, dictionary, found);
         CosObject? type = EntryReader.Get(document, dictionary, KnownNames.Type);
         if (isStream)
         {
@@ -169,6 +180,30 @@ internal static class CarriedFeatures
         if (array.Count >= 2 && array[1] is CosName view && (view.Equals(FitB) || view.Equals(FitBH) || view.Equals(FitBV)))
         {
             found(VersionedFeatures.BoundingBoxDestinations);
+        }
+
+        if (array.Count == 2 && Pattern.Equals(array[0]))
+        {
+            found(VersionedFeatures.PatternColorSpace);
+        }
+    }
+
+    /// <summary>Reports a function's, a shading's or a pattern's version (§7.10, Table 38; §8.7, Tables 74, 76 and 77).</summary>
+    private static void Graphics(PdfDocument document, CosDictionary dictionary, Action<VersionedFeature> found)
+    {
+        if (EntryReader.Get(document, dictionary, FunctionType) is CosInteger { Value: var function and (0 or 2 or 3 or 4) })
+        {
+            found(function == 0 ? VersionedFeatures.SampledFunction : VersionedFeatures.CalculatedFunction);
+        }
+
+        if (EntryReader.Get(document, dictionary, ShadingType) is CosInteger { Value: >= 1 and <= 7 })
+        {
+            found(VersionedFeatures.Shadings);
+        }
+
+        if (EntryReader.Get(document, dictionary, PatternType) is CosInteger { Value: var pattern and (1 or 2) })
+        {
+            found(pattern == 1 ? VersionedFeatures.PatternColorSpace : VersionedFeatures.Shadings);
         }
     }
 
