@@ -322,6 +322,71 @@ public sealed class SignatureValidationTests
         Assert.Equal(PdfSignatureStatus.Valid, validation.Status);
     }
 
+    /// <summary>Every key and digest <see cref="PdfDocument.Sign"/> writes (#194), as key kind, digest and SubFilter.</summary>
+    public static TheoryData<string, string, PdfSignatureSubFilter> SigningAlgorithms => new()
+    {
+        { "RSA", "SHA256", PdfSignatureSubFilter.AdobePkcs7Detached },
+        { "RSA", "SHA384", PdfSignatureSubFilter.EtsiCadesDetached },
+        { "RSA", "SHA512", PdfSignatureSubFilter.EtsiCadesDetached },
+        { "RSA", "SHA3-256", PdfSignatureSubFilter.AdobePkcs7Detached },
+        { "RSA", "SHA3-384", PdfSignatureSubFilter.EtsiCadesDetached },
+        { "RSA", "SHA3-512", PdfSignatureSubFilter.EtsiCadesDetached },
+        { "RSA-PSS", "SHA256", PdfSignatureSubFilter.EtsiCadesDetached },
+        { "RSA-PSS", "SHA384", PdfSignatureSubFilter.EtsiCadesDetached },
+        { "RSA-PSS", "SHA512", PdfSignatureSubFilter.EtsiCadesDetached },
+        { "RSA-PSS", "SHA3-256", PdfSignatureSubFilter.EtsiCadesDetached },
+        { "RSA-PSS", "SHA3-512", PdfSignatureSubFilter.EtsiCadesDetached },
+        { "RSASSA-PSS key", "SHA256", PdfSignatureSubFilter.EtsiCadesDetached },
+        { "P-256", "SHA256", PdfSignatureSubFilter.EtsiCadesDetached },
+        { "P-384", "SHA384", PdfSignatureSubFilter.EtsiCadesDetached },
+        { "P-521", "SHA512", PdfSignatureSubFilter.AdobePkcs7Detached },
+        { "P-256", "SHA3-256", PdfSignatureSubFilter.EtsiCadesDetached },
+        { "P-384", "SHA3-384", PdfSignatureSubFilter.EtsiCadesDetached },
+        { "P-521", "SHA3-512", PdfSignatureSubFilter.EtsiCadesDetached },
+    };
+
+    [Theory]
+    [MemberData(nameof(SigningAlgorithms))]
+    public void Every_algorithm_broadside_signs_with_validates(string key, string digest, PdfSignatureSubFilter subFilter)
+    {
+        // The platform's RSA signs SHA-3 digests with PSS on Windows and Linux only (PKCS #1 goes through a raw signer below).
+        bool sha3 = digest.StartsWith("SHA3-", StringComparison.Ordinal);
+        Assert.SkipWhen(key == "RSA-PSS" && sha3 && !SHA3_256.IsSupported, "The platform's RSA has no SHA-3.");
+        using X509Certificate2 authority = TestCertificates.SelfSigned("CN=Broadside test authority");
+        using RSA rsaKey = RSA.Create(2048);
+        X509Certificate2 certificate = key switch
+        {
+            "RSA" or "RSA-PSS" => TestCertificates.SelfSigned("CN=Broadside RSA signer"),
+            "RSASSA-PSS key" => TestCertificates.WithKeyAlgorithm("CN=Broadside RSASSA-PSS key", "1.2.840.113549.1.1.10", rsaKey.ExportRSAPublicKey(), authority),
+            _ => TestCertificates.SelfSignedEcdsa("CN=Broadside ECDSA signer", ECCurve.CreateFromFriendlyName("nist" + key.Replace("-", string.Empty, StringComparison.Ordinal))),
+        };
+        using (certificate)
+        {
+            using RSA? signingKey = key == "RSA" && sha3 ? certificate.GetRSAPrivateKey() : null;
+            IPdfSigner signer = key switch
+            {
+                "RSA" when signingKey is not null => new RawRsaPkcs1Signer(certificate, signingKey),
+                "RSA-PSS" => new PdfCertificateSigner(certificate, rsaSignaturePadding: RSASignaturePadding.Pss),
+                "RSASSA-PSS key" => new DelegateSigner(certificate, (value, name) => rsaKey.SignHash(value, name, RSASignaturePadding.Pss)),
+                _ => new PdfCertificateSigner(certificate),
+            };
+            byte[] signed = SignCorpusFile("empty-page.pdf", signer, new PdfSignatureOptions().WithSubFilter(subFilter).WithDigestAlgorithm(new HashAlgorithmName(digest)));
+            PdfSignatureValidationOptions trust = Trusting(key == "RSASSA-PSS key" ? authority : certificate);
+
+            PdfSignatureValidation validation = ValidateSingle(signed, trust);
+            PdfSignatureValidation managed;
+            using (CryptographyBackend.ForceManaged())
+            {
+                managed = ValidateSingle(signed, trust);
+            }
+
+            Assert.True(validation.Status == PdfSignatureStatus.Valid, string.Join("; ", validation.Problems));
+            Assert.Equal(digest, validation.DigestAlgorithm?.Name);
+            Assert.Equal(subFilter == PdfSignatureSubFilter.EtsiCadesDetached ? "ETSI.CAdES.detached" : "adbe.pkcs7.detached", validation.SubFilter);
+            Assert.True(managed.Status == PdfSignatureStatus.Valid, string.Join("; ", managed.Problems));
+        }
+    }
+
     [Fact]
     public void A_sha1_signature_identified_by_subject_key_identifier_validates()
     {
@@ -503,8 +568,62 @@ public sealed class SignatureValidationTests
         "SHA1" => new Oid("1.3.14.3.2.26"),
         "SHA256" => new Oid("2.16.840.1.101.3.4.2.1"),
         "SHA384" => new Oid("2.16.840.1.101.3.4.2.2"),
+        "SHA3-256" => new Oid("2.16.840.1.101.3.4.2.8"),
+        "SHA3-384" => new Oid("2.16.840.1.101.3.4.2.9"),
+        "SHA3-512" => new Oid("2.16.840.1.101.3.4.2.10"),
         _ => new Oid("2.16.840.1.101.3.4.2.3"),
     };
+
+    /// <summary>
+    /// An RSA signer that does the PKCS #1 v1.5 operation itself (RFC 8017 §8.2.1, §9.2), so it signs SHA-3 digests where the
+    /// platform's RSA cannot (macOS); validation must then verify them without the platform too.
+    /// </summary>
+    private sealed class RawRsaPkcs1Signer(X509Certificate2 certificate, RSA key) : IPdfSigner
+    {
+        public X509Certificate2 Certificate => certificate;
+
+        public IReadOnlyList<X509Certificate2> CertificateChain => [];
+
+        public byte[] SignDigest(ReadOnlySpan<byte> digest, HashAlgorithmName digestAlgorithm)
+        {
+            var writer = new System.Formats.Asn1.AsnWriter(System.Formats.Asn1.AsnEncodingRules.DER);
+            using (writer.PushSequence())
+            {
+                using (writer.PushSequence())
+                {
+                    writer.WriteObjectIdentifier(DigestOid(digestAlgorithm.Name!).Value!);
+                    writer.WriteNull();
+                }
+
+                writer.WriteOctetString(digest);
+            }
+
+            byte[] digestInfo = writer.Encode();
+            RSAParameters parameters = key.ExportParameters(includePrivateParameters: true);
+            int length = parameters.Modulus!.Length;
+            byte[] encoded = new byte[length];
+            encoded[1] = 0x01;
+            encoded.AsSpan(2, length - digestInfo.Length - 3).Fill(0xFF);
+            digestInfo.CopyTo(encoded, length - digestInfo.Length);
+            var message = new System.Numerics.BigInteger(encoded, isUnsigned: true, isBigEndian: true);
+            var modulus = new System.Numerics.BigInteger(parameters.Modulus, isUnsigned: true, isBigEndian: true);
+            var exponent = new System.Numerics.BigInteger(parameters.D, isUnsigned: true, isBigEndian: true);
+            byte[] value = System.Numerics.BigInteger.ModPow(message, exponent, modulus).ToByteArray(isUnsigned: true, isBigEndian: true);
+            byte[] signature = new byte[length];
+            value.CopyTo(signature, length - value.Length);
+            return signature;
+        }
+    }
+
+    /// <summary>A signer whose key is held apart from its certificate (an <c>id-RSASSA-PSS</c> key the platform cannot attach).</summary>
+    private sealed class DelegateSigner(X509Certificate2 certificate, Func<byte[], HashAlgorithmName, byte[]> sign) : IPdfSigner
+    {
+        public X509Certificate2 Certificate => certificate;
+
+        public IReadOnlyList<X509Certificate2> CertificateChain => [];
+
+        public byte[] SignDigest(ReadOnlySpan<byte> digest, HashAlgorithmName digestAlgorithm) => sign(digest.ToArray(), digestAlgorithm);
+    }
 
     /// <summary>A minimal <c>TSTInfo</c> (RFC 3161 §2.4.2) whose message imprint is <paramref name="digest"/> under SHA-256.</summary>
     private static byte[] TstInfo(byte[] digest)

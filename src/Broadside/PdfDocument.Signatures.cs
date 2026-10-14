@@ -5,6 +5,7 @@ using System.Text;
 using Broadside.Annotations;
 using Broadside.Forms;
 using Broadside.Objects;
+using Broadside.Security;
 using Broadside.Security.Cryptography;
 using Broadside.Signatures;
 using Broadside.Writing;
@@ -17,6 +18,12 @@ public sealed partial class PdfDocument
     /// <summary>The placeholder each of the three computed <c>ByteRange</c> numbers is written as, wide enough for any of them.</summary>
     private const long ByteRangePlaceholder = 9_999_999_999;
 
+    /// <summary>
+    /// The room reserved in <c>Contents</c> for a PDF MAC token attached to the signature (ISO/TS 32004 §6.5.2): the token with its
+    /// signatureDigest (under 400 bytes) and the attribute around it.
+    /// </summary>
+    private const int IntegrityAttributeAllowance = 512;
+
     private static readonly CosName ByteRangeName = new("ByteRange");
     private static readonly CosName ContentsName = new("Contents");
     private static readonly CosName FilterName = new("Filter");
@@ -24,6 +31,7 @@ public sealed partial class PdfDocument
     private static readonly CosName SigName = new("Sig");
     private static readonly CosName AdobePpkLite = new("Adobe.PPKLite");
     private static readonly CosName Pkcs7Detached = new("adbe.pkcs7.detached");
+    private static readonly CosName CadesDetached = new("ETSI.CAdES.detached");
     private static readonly CosName MName = new("M");
     private static readonly CosName NameName = new("Name");
     private static readonly CosName ReasonName = new("Reason");
@@ -45,23 +53,43 @@ public sealed partial class PdfDocument
     /// The field <see cref="PdfSignatureOptions.FieldName"/> names is already signed or is not a signature field.
     /// </exception>
     /// <exception cref="ArgumentException"><see cref="PdfSignatureOptions.FieldName"/> is empty or, for a new field, holds a period.</exception>
-    /// <exception cref="NotSupportedException">The signer's key is not an RSA key, or the document cannot be updated incrementally (it is encrypted).</exception>
+    /// <exception cref="NotSupportedException">
+    /// The signer's key is neither an RSA key nor an ECDSA key on P-256, P-384 or P-521, the digest algorithm is not one ISO/TS 32002
+    /// Table 3 pairs with the key's curve, or the document cannot be updated incrementally (it is encrypted).
+    /// </exception>
+    /// <exception cref="Diagnostics.DiagnosticException">
+    /// In strict mode, when the signature needs a later PDF version than the document's (ECDSA, SHA-3 or a PAdES signature need 2.0).
+    /// </exception>
     /// <remarks>
     /// <para>
-    /// ISO 32000-2 §12.8.1, §12.8.3.3 and §12.7.5.5. The signature goes into the unsigned signature field the options name, or into a
+    /// ISO 32000-2 §12.8.1, §12.8.3.3, §12.8.3.4 and §12.7.5.5; ISO/TS 32001; ISO/TS 32002; ETSI EN 319 142-1. The signature goes into the unsigned signature field the options name, or into a
     /// new invisible signature field (a widget with an empty rectangle on the first page, flags Print and Locked) added to the
     /// interactive form, which is created when the document has none; the form's <c>SigFlags</c> gets SignaturesExist and AppendOnly
     /// (Table 225). The field's value becomes a signature dictionary (Table 255, every value direct) with <c>Filter</c>
-    /// <c>Adobe.PPKLite</c>, <c>SubFilter</c> <c>adbe.pkcs7.detached</c>, <c>M</c> and the properties the options give, a
+    /// <c>Adobe.PPKLite</c>, the options' <c>SubFilter</c> (<c>adbe.pkcs7.detached</c>, or <c>ETSI.CAdES.detached</c> for a PAdES
+    /// signature, which has no <c>Cert</c> entry, §12.8.3.4.2), <c>M</c> and the properties the options give, a
     /// <c>Contents</c> hexadecimal string reserved before anything is hashed, and a <c>ByteRange</c> of two ranges: from the first byte
     /// of the file to the <c>&lt;</c> of <c>Contents</c>, and from after its <c>&gt;</c> to the end of the file, which is the end of
     /// the update's <c>%%EOF</c> line. The offsets count from the first byte of the file.
     /// </para>
     /// <para>
-    /// The ranges are hashed with the options' digest algorithm, the signer signs the digest of the CMS signed attributes (content type
-    /// and that message digest), and the DER-encoded detached CMS <c>SignedData</c> (RFC 5652, with the signer's certificate and chain)
-    /// is written into <c>Contents</c>, padded with zeros (§12.8.3.3.1). Earlier signatures stay valid: the update only appends
-    /// (§7.5.6, NOTE 1 of §12.8.1).
+    /// The ranges are hashed with the options' digest algorithm (or the key's, <see cref="PdfSignatureOptions.DigestAlgorithm"/>), the
+    /// signer signs the digest of the CMS signed attributes (content type, that message digest and the ESS signing-certificate-v2
+    /// attribute; no signing time, §12.8.3.4.3), digested with the same algorithm (ISO/TS 32002 §5.1.4), and the DER-encoded detached
+    /// CMS <c>SignedData</c> (RFC 5652, with the signer's certificate and chain, and the signature algorithm the key calls for: RSA
+    /// PKCS #1 v1.5 or RSASSA-PSS as <see cref="IPdfSigner.RsaSignaturePadding"/> says, or ECDSA) is written into <c>Contents</c>,
+    /// padded with zeros (§12.8.3.3.1). With <c>ETSI.CAdES.detached</c> that is a PAdES baseline B-B signature (ETSI EN 319 142-1).
+    /// Earlier signatures stay valid: the update only appends (§7.5.6, NOTE 1 of §12.8.1).
+    /// </para>
+    /// <para>
+    /// The save raises the version to what the signature needs (Table 260: PDF 1.6 for SHA-256, 1.7 for SHA-384 and SHA-512, 2.0 for
+    /// ECDSA, SHA-3 and PAdES) and declares the ISO_ developer extensions of ISO/TS 32001 (SHA-3 digests) and ISO/TS 32002 (ECDSA), in
+    /// the signed update; in strict mode a raise is refused before anything changes (issue #141).
+    /// </para>
+    /// <para>
+    /// An encrypted document is updated with its own key. When it has, or its permissions require, an integrity MAC (ISO/TS 32004),
+    /// the new MAC is attached to this signature as its <c>pdfMacData</c> unsigned attribute, digesting the signature's byte ranges
+    /// and its signature value, and the trailer's <c>AuthCode</c> points at the signature dictionary (§6.5.2, §6.6.3).
     /// </para>
     /// <para>
     /// Once the last byte is written the document reads from the signed file, as after an incremental save
@@ -101,9 +129,13 @@ public sealed partial class PdfDocument
     /// The field <see cref="PdfSignatureOptions.FieldName"/> names is already signed or is not a signature field.
     /// </exception>
     /// <exception cref="ArgumentException"><see cref="PdfSignatureOptions.FieldName"/> is empty or, for a new field, holds a period.</exception>
-    /// <exception cref="NotSupportedException">The signer's key is not an RSA key, or the document cannot be updated incrementally (it is encrypted).</exception>
+    /// <exception cref="NotSupportedException">
+    /// The signer's key or the digest algorithm is not supported (see <see cref="Sign"/>), or the document cannot be updated
+    /// incrementally (it is encrypted).
+    /// </exception>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, when the signature needs a later PDF version than the document's.</exception>
     /// <remarks>
-    /// ISO 32000-2 §12.8.1 and §12.8.3.3. Writes what <see cref="Sign"/> writes; only the signer call and the writes to
+    /// ISO 32000-2 §12.8.1, §12.8.3.3 and §12.8.3.4. Writes what <see cref="Sign"/> writes; only the signer call and the writes to
     /// <paramref name="stream"/> are asynchronous. A cancelled or failed signer leaves the document as it was.
     /// </remarks>
     public async Task SignAsync(Stream stream, IPdfSigner signer, PdfSignatureOptions? options = null, CancellationToken cancellationToken = default)
@@ -141,20 +173,42 @@ public sealed partial class PdfDocument
     /// </summary>
     private PendingSignature PrepareSignature(IPdfSigner signer, PdfSignatureOptions options)
     {
-        CmsSignedData.RequireSupportedKey(signer.Certificate);
-        HashAlgorithmName digestAlgorithm = options.DigestAlgorithm;
+        ArgumentNullException.ThrowIfNull(signer.Certificate);
+        SigningKey key = CmsSignedData.ReadKey(signer.Certificate);
+        RSASignaturePadding padding = signer.RsaSignaturePadding ?? RSASignaturePadding.Pkcs1;
+        HashAlgorithmName digestAlgorithm = options.DigestAlgorithm ?? CmsSignedData.DefaultDigest(key);
+        CmsSignedData.RequireCompatible(key, digestAlgorithm, padding);
         IReadOnlyList<X509Certificate2> chain = signer.CertificateChain ?? [];
-        int reserved = CmsSignedData.EstimateLength(signer.Certificate, chain);
+        int reserved = CmsSignedData.EstimateLength(key, signer.Certificate, chain);
+        if (Security is { } security && (security.Integrity != PdfIntegrityStatus.None || security.RequiresIntegrityCode))
+        {
+            // ISO/TS 32004 §6.5.2: the save keeps the document's MAC, as a pdfMacData unsigned attribute of this signature.
+            reserved += IntegrityAttributeAllowance;
+        }
 
         var undo = new List<Action>();
         try
         {
-            CosDictionary signature = SignatureDictionary(options, reserved);
+            VersionedFeature[] features = SignatureFeatures(key, digestAlgorithm, options.SubFilter);
+            foreach (VersionedFeature feature in features)
+            {
+                RequireSignatureFeature(feature, undo);
+            }
+
+            KeepVersionDeclarations(undo);
+            bool pdf20 = Version >= Pdf20 || features.Any(feature => feature.MinimumVersion >= Pdf20);
+            CosDictionary signature = SignatureDictionary(options, reserved, pdf20);
             CosReference signatureReference = AddObject(signature);
             undo.Add(() => RemoveObject(signatureReference));
             PlaceSignature(options.FieldName, signatureReference, undo);
 
             FileWriter writer = PlanSave(new PdfSaveOptions { IncrementalUpdate = true });
+            IntegrityCodeWriter? integrity = writer.Integrity;
+            if (integrity is not null)
+            {
+                writer.IntegritySignature = signatureReference;
+            }
+
             foreach (ReadOnlyMemory<byte> _ in writer.Write())
             {
                 // The source's bytes are copied again from the source once signed; the update is kept by the writer.
@@ -173,19 +227,30 @@ public sealed partial class PdfDocument
             placeholders.WriteByteRange(bytes, byteRange);
 
             using IncrementalDigest digest = IncrementalDigest.Create(digestAlgorithm);
+            using IncrementalDigest? macDigest = integrity is null ? null : IntegrityCodeWriter.CreateDigest();
             for (long position = 0; position < sourceLength;)
             {
                 ReadOnlyMemory<byte> window = SourceWindow(position, sourceLength);
                 digest.AppendData(window.Span);
+                macDigest?.AppendData(window.Span);
                 position += window.Length;
             }
 
             digest.AppendData(bytes.AsSpan(0, placeholders.ContentsStart));
             digest.AppendData(bytes.AsSpan(placeholders.ContentsEnd));
-            byte[] signedAttributes = CmsSignedData.SignedAttributes(digest.GetHashAndReset());
+            macDigest?.AppendData(bytes.AsSpan(0, placeholders.ContentsStart));
+            macDigest?.AppendData(bytes.AsSpan(placeholders.ContentsEnd));
+            byte[] signedAttributes = CmsSignedData.SignedAttributes(digest.GetHashAndReset(), digestAlgorithm, signer.Certificate);
+
+            // ISO/TS 32002 §5.1.4: the signed attributes are digested with the message digest's algorithm.
             byte[] toSign = IncrementalDigest.HashData(digestAlgorithm, signedAttributes);
 
-            return new PendingSignature(signer, chain, digestAlgorithm, signature, update with { Bytes = bytes }, placeholders, byteRange, signedAttributes, toSign, reserved, undo);
+            return new PendingSignature(
+                signer, chain, key, padding, digestAlgorithm, signature, update with { Bytes = bytes }, placeholders, byteRange, signedAttributes, toSign, reserved, undo)
+            {
+                Integrity = integrity,
+                IntegrityDataDigest = macDigest?.GetHashAndReset(),
+            };
         }
         catch
         {
@@ -201,7 +266,21 @@ public sealed partial class PdfDocument
         try
         {
             ArgumentNullException.ThrowIfNull(signature);
-            cms = CmsSignedData.Encode(pending.DigestAlgorithm, pending.SignedAttributes, signature, pending.Signer.Certificate, pending.Chain);
+            byte[] value = CmsSignedData.NormalizeSignature(pending.Key, signature);
+
+            // ISO/TS 32004 §6.6.3: the token digests the signature's byte range and its signature value, as the CMS object holds it.
+            byte[]? macToken = pending.Integrity?.CreateToken(
+                pending.IntegrityDataDigest,
+                IncrementalDigest.HashData(HashAlgorithmName.SHA256, value));
+            cms = CmsSignedData.Encode(
+                pending.DigestAlgorithm,
+                pending.Key,
+                pending.Padding,
+                pending.SignedAttributes,
+                value,
+                pending.Signer.Certificate,
+                pending.Chain,
+                macToken);
             if (cms.Length > pending.Reserved)
             {
                 throw new InvalidOperationException(
@@ -225,8 +304,114 @@ public sealed partial class PdfDocument
         return pending.Update with { Bytes = bytes };
     }
 
+    /// <summary>
+    /// The features a signature writes (Table 260; ISO/TS 32001 and 32002): the sub-filter, the key and the digest, each with the
+    /// version it needs and, for ECDSA and SHA-3, the developer extension it declares.
+    /// </summary>
+    private static VersionedFeature[] SignatureFeatures(SigningKey key, HashAlgorithmName digestAlgorithm, PdfSignatureSubFilter subFilter)
+    {
+        var features = new List<VersionedFeature>
+        {
+            subFilter == PdfSignatureSubFilter.EtsiCadesDetached ? VersionedFeatures.CadesSignature : VersionedFeatures.ByteRangeSignature,
+        };
+        if (key.Type == SigningKeyType.Ecdsa)
+        {
+            features.Add(VersionedFeatures.EcdsaSignature);
+        }
+        else if (key.Size > 1024)
+        {
+            features.Add(VersionedFeatures.LongRsaKeySignature);
+        }
+
+        features.Add(
+            CmsSignedData.IsSha3(digestAlgorithm) ? VersionedFeatures.Sha3SignatureDigest
+            : digestAlgorithm == HashAlgorithmName.SHA256 ? VersionedFeatures.Sha256SignatureDigest
+            : VersionedFeatures.Sha2SignatureDigest);
+        return [.. features];
+    }
+
+    /// <summary>Records <paramref name="feature"/> (<see cref="RequireFeature"/>), forgetting it again on undo when it is new.</summary>
+    private void RequireSignatureFeature(VersionedFeature feature, List<Action> undo)
+    {
+        bool added;
+        lock (_featureGate)
+        {
+            added = _features.Add(feature);
+        }
+
+        if (added)
+        {
+            undo.Add(() =>
+            {
+                lock (_featureGate)
+                {
+                    _features.Remove(feature);
+                }
+            });
+        }
+    }
+
+    /// <summary>
+    /// Undoes, on undo, what the save inside signing declares in the catalog: its <c>Version</c> and its <c>Extensions</c> dictionary
+    /// with the arrays under each prefix (§7.7.2, §7.12), which the save adds to for the features signing records.
+    /// </summary>
+    private void KeepVersionDeclarations(List<Action> undo)
+    {
+        CosDictionary catalog = Catalog;
+        bool hadVersion = catalog.TryGetValue(KnownNames.Version, out CosObject? version);
+        bool hadExtensions = catalog.TryGetValue(KnownNames.Extensions, out CosObject? extensions);
+        CosDictionary? dictionary = Resolve(extensions) as CosDictionary;
+        KeyValuePair<CosName, CosObject>[] entries = dictionary is null ? [] : [.. dictionary];
+        (CosArray Array, CosObject[] Items)[] arrays = [.. entries.Select(entry => Resolve(entry.Value)).OfType<CosArray>().Select(array => (array, array.ToArray()))];
+        undo.Add(() =>
+        {
+            foreach ((CosArray array, CosObject[] items) in arrays)
+            {
+                if (!array.SequenceEqual(items))
+                {
+                    array.Clear();
+                    foreach (CosObject item in items)
+                    {
+                        array.Add(item);
+                    }
+                }
+            }
+
+            if (dictionary is not null && !dictionary.SequenceEqual(entries))
+            {
+                dictionary.Clear();
+                foreach ((CosName prefix, CosObject value) in entries)
+                {
+                    dictionary[prefix] = value;
+                }
+            }
+
+            Restore(KnownNames.Version, hadVersion, version);
+            Restore(KnownNames.Extensions, hadExtensions, extensions);
+        });
+
+        void Restore(CosName name, bool had, CosObject? value)
+        {
+            if (had)
+            {
+                if (!ReferenceEquals(catalog.GetValueOrDefault(name), value))
+                {
+                    catalog[name] = value!;
+                }
+            }
+            else
+            {
+                catalog.Remove(name);
+            }
+        }
+    }
+
     /// <summary>A new signature dictionary (Table 255): the two placeholders first, so the writer puts them where they are found.</summary>
-    private CosDictionary SignatureDictionary(PdfSignatureOptions options, int reserved)
+    /// <remarks>
+    /// §12.8.3.4.2: a PAdES signature has no <c>Cert</c> entry and gives the time of signing in <c>M</c>, its signed attributes
+    /// holding no signing time.
+    /// </remarks>
+    private static CosDictionary SignatureDictionary(PdfSignatureOptions options, int reserved, bool pdf20)
     {
         var dictionary = new CosDictionary
         {
@@ -234,8 +419,8 @@ public sealed partial class PdfDocument
             [ContentsName] = new CosString(new byte[reserved], hexadecimal: true),
             [KnownNames.Type] = SigName,
             [FilterName] = AdobePpkLite,
-            [SubFilterName] = Pkcs7Detached,
-            [MName] = new CosString(Encoding.ASCII.GetBytes(FormatDate(options.SigningTime ?? DateTimeOffset.Now, Version >= Pdf20))),
+            [SubFilterName] = options.SubFilter == PdfSignatureSubFilter.EtsiCadesDetached ? CadesDetached : Pkcs7Detached,
+            [MName] = new CosString(Encoding.ASCII.GetBytes(FormatDate(options.SigningTime ?? DateTimeOffset.Now, pdf20))),
         };
         AddText(dictionary, NameName, options.SignerName);
         AddText(dictionary, ReasonName, options.Reason);
@@ -446,6 +631,8 @@ public sealed partial class PdfDocument
     private sealed record PendingSignature(
         IPdfSigner Signer,
         IReadOnlyList<X509Certificate2> Chain,
+        SigningKey Key,
+        RSASignaturePadding Padding,
         HashAlgorithmName DigestAlgorithm,
         CosDictionary Signature,
         UpdateResult Update,
@@ -456,6 +643,12 @@ public sealed partial class PdfDocument
         int Reserved,
         List<Action> UndoActions)
     {
+        /// <summary>Gets the composer of the PDF MAC token attached to the signature, or <see langword="null"/> when the document has no MAC.</summary>
+        public IntegrityCodeWriter? Integrity { get; init; }
+
+        /// <summary>Gets the SHA-256 digest of the signature's byte range, the token's dataDigest (ISO/TS 32004 §6.6.3).</summary>
+        public byte[]? IntegrityDataDigest { get; init; }
+
         public void Undo() => Revert(UndoActions);
     }
 }

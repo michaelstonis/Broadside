@@ -71,6 +71,7 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <item><term><see cref="Aes128Encryption"/></term><description>1.6 (§7.6.2, Table 20, V 4; §7.6.5, Table 25, AESV2)</description></item>
 /// <item><term><see cref="Aes256Encryption"/></term><description>2.0 (§7.6.2, Table 20, V 5)</description></item>
 /// <item><term><see cref="AesGcmEncryption"/></term><description>2.0 and the ISO_ extension level 32003 (ISO/TS 32003, clause 4)</description></item>
+/// <item><term><see cref="IntegrityProtection"/></term><description>2.0 and the ISO_ extension level 32004 (ISO/TS 32004, clause 4)</description></item>
 /// <item><term><see cref="EmbeddedFileStream"/></term><description>1.3 (§7.11.4)</description></item>
 /// <item><term><see cref="EmbeddedFilesTree"/></term><description>1.4 (§7.7.4, Table 32)</description></item>
 /// <item><term><see cref="FileDescription"/></term><description>1.6 (§7.11.3, Table 43, <c>Desc</c>)</description></item>
@@ -89,6 +90,13 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <item><term><see cref="TransparencyGroups"/></term><description>1.4 (§11.6.6; Table 31 and Table 93, <c>Group</c>)</description></item>
 /// <item><term><see cref="OptionalContent"/></term><description>1.5 (§8.11.1; Table 29, <c>OCProperties</c>; Tables 87, 93 and 166, <c>OC</c>)</description></item>
 /// <item><term><see cref="Pdf20AnnotationEntries"/></term><description>2.0 (§12.5.2, Table 166, <c>ca</c>, <c>BM</c>, <c>Lang</c>, <c>CA</c> of a non-markup annotation; §12.5.6.1, Table 171, <c>Projection</c> and <c>RichMedia</c>)</description></item>
+/// <item><term><see cref="ByteRangeSignature"/></term><description>1.3 (§12.8.3.1, Table 260, <c>adbe.pkcs7.detached</c>)</description></item>
+/// <item><term><see cref="CadesSignature"/></term><description>2.0 (§12.8.3.4, <c>ETSI.CAdES.detached</c>)</description></item>
+/// <item><term><see cref="LongRsaKeySignature"/></term><description>1.5 (Table 260, RSA keys of 2048 and 4096 bits)</description></item>
+/// <item><term><see cref="EcdsaSignature"/></term><description>2.0 (Table 260) and the ISO_ extension level 32002 (ISO/TS 32002, clause 4)</description></item>
+/// <item><term><see cref="Sha256SignatureDigest"/></term><description>1.6 (Table 260)</description></item>
+/// <item><term><see cref="Sha2SignatureDigest"/></term><description>1.7 (Table 260, SHA-384 and SHA-512)</description></item>
+/// <item><term><see cref="Sha3SignatureDigest"/></term><description>2.0 and the ISO_ extension level 32001 (ISO/TS 32001, clause 4 and §5.1.4)</description></item>
 /// <item><term><see cref="DeveloperExtension"/></term><description>The extension's <c>BaseVersion</c> (§7.12.4)</description></item>
 /// </list>
 /// <para>
@@ -129,12 +137,22 @@ internal static class VersionedFeatures
     /// <summary>Gets new AES-256 encryption (V 5, R 6): PDF 2.0.</summary>
     public static VersionedFeature Aes256Encryption { get; } = new("AES-256 encryption (V 5)", "ISO 32000-2 §7.6.2, Table 20", Pdf20);
 
-    /// <summary>Gets AES-GCM encryption (V 6, R 7), kept from the document: PDF 2.0 and the ISO_ extension level 32003.</summary>
+    /// <summary>Gets AES-GCM encryption (V 6, R 7), new or kept from the document: PDF 2.0 and the ISO_ extension level 32003.</summary>
     public static VersionedFeature AesGcmEncryption { get; } = new(
         "AES-GCM encryption (V 6)",
         "ISO/TS 32003, clause 4",
         Pdf20,
         new DeveloperExtensionDeclaration(KnownNames.IsoPrefix, Pdf20, 32003, ":2023", "https://www.iso.org/standard/45876.html"));
+
+    /// <summary>
+    /// Gets an integrity MAC (a PDF MAC token in the trailer's <c>AuthCode</c>), new or recomputed for the document's own: PDF 2.0
+    /// (ISO/TS 32004 clause 4: documents using it "shall conform to ISO 32000-2") and the ISO_ extension level 32004.
+    /// </summary>
+    public static VersionedFeature IntegrityProtection { get; } = new(
+        "an integrity MAC (PDF MAC token)",
+        "ISO/TS 32004, clause 4",
+        Pdf20,
+        new DeveloperExtensionDeclaration(KnownNames.IsoPrefix, Pdf20, 32004, ":2024", "https://www.iso.org/standard/45877.html"));
 
     /// <summary>Gets embedded file streams: PDF 1.3.</summary>
     public static VersionedFeature EmbeddedFileStream { get; } = new("an embedded file stream", "ISO 32000-2 §7.11.4", new PdfVersion(1, 3));
@@ -202,6 +220,35 @@ internal static class VersionedFeatures
         "PDF 2.0 annotation entries (ca, BM, Lang, CA of a non-markup annotation, Projection and RichMedia types)",
         "ISO 32000-2 §12.5.2, Table 166; §12.5.6.1, Table 171",
         Pdf20);
+
+    /// <summary>Gets a byte range signature (a signature dictionary with <c>ByteRange</c> and a CMS <c>Contents</c>): PDF 1.3.</summary>
+    public static VersionedFeature ByteRangeSignature { get; } = new("a byte range signature (adbe.pkcs7.detached)", "ISO 32000-2 §12.8.3.1, Table 260", new PdfVersion(1, 3));
+
+    /// <summary>Gets a PAdES signature, sub-filter <c>ETSI.CAdES.detached</c>: PDF 2.0.</summary>
+    public static VersionedFeature CadesSignature { get; } = new("a PAdES signature (ETSI.CAdES.detached)", "ISO 32000-2 §12.8.3.4; Table 260", Pdf20);
+
+    /// <summary>Gets an RSA signature with a key longer than 1024 bits: PDF 1.5.</summary>
+    public static VersionedFeature LongRsaKeySignature { get; } = new("an RSA signature with a key over 1024 bits", "ISO 32000-2 §12.8.3.1, Table 260", Pdf15);
+
+    /// <summary>Gets an ECDSA signature: PDF 2.0 and the ISO_ extension level 32002 for the curves of ISO/TS 32002 Table 3.</summary>
+    public static VersionedFeature EcdsaSignature { get; } = new(
+        "an ECDSA signature",
+        "ISO 32000-2 §12.8.3.1, Table 260; ISO/TS 32002, clause 4 and §5.1.3",
+        Pdf20,
+        new DeveloperExtensionDeclaration(KnownNames.IsoPrefix, Pdf20, 32002, ":2022", "https://www.iso.org/standard/45875.html"));
+
+    /// <summary>Gets a signature with a SHA-256 digest: PDF 1.6.</summary>
+    public static VersionedFeature Sha256SignatureDigest { get; } = new("a SHA-256 signature digest", "ISO 32000-2 §12.8.3.1, Table 260", Pdf16);
+
+    /// <summary>Gets a signature with a SHA-384 or SHA-512 digest: PDF 1.7.</summary>
+    public static VersionedFeature Sha2SignatureDigest { get; } = new("a SHA-384 or SHA-512 signature digest", "ISO 32000-2 §12.8.3.1, Table 260", new PdfVersion(1, 7));
+
+    /// <summary>Gets a signature with a SHA3-256, SHA3-384 or SHA3-512 digest: PDF 2.0 and the ISO_ extension level 32001.</summary>
+    public static VersionedFeature Sha3SignatureDigest { get; } = new(
+        "a SHA-3 signature digest",
+        "ISO/TS 32001, clause 4 and §5.1.4",
+        Pdf20,
+        new DeveloperExtensionDeclaration(KnownNames.IsoPrefix, Pdf20, 32001, ":2022", "https://www.iso.org/standard/45874.html"));
 
     /// <summary>Returns the feature a filter's encoding stands for, or <see langword="null"/> when it has no version row.</summary>
     /// <param name="filter">A filter name.</param>
