@@ -1,0 +1,25 @@
+﻿Document lang en-US p1 [72 58.1 316 732.9] g0+119 t0+119
+  Section /Sect p1 [72 58.1 316 732.9] g0+119 t0+119
+    Heading level 1 /H p1 [72 716.3 132 732.9] g0+7 t0+7: Results
+    Paragraph /Para p1 [72 692 151.4 708] g7+15 t7+15: See the report.
+      Link annot PdfLinkAnnotation p1 [116 692 148 708] g15+6 t15+6: report
+    Note /FENote p1 [72 58.1 146.5 66.5] g22+18 t22+18: 1 Fetched in 2026.
+    Figure alt "A grey square" p1 [72 562.9 176.5 680] g40+23 t40+23
+      Caption p1 [72 562.9 176.5 572.2] g40+23 t40+23: Figure 1. A grey square
+    Figure /Formula alt "E = mc2" p1 [200 580 300 620] g63+0 t63+0
+    Table 4x3 p1 [72 452.5 316 508.6] g63+30 t63+30
+      TableRow /TR p1 [72 497.5 246 508.6] g63+14 t63+14
+        TableCell (0,0) header span 2x1 /TH p1 [72 497.5 104 508.6] g63+4 t63+4: Name
+        TableCell (0,1) header span 1x2 /TH p1 [200 497.5 246 508.6] g67+10 t67+10: First half
+      TableRow /TR p1 [200 482.5 316 493.6] g77+4 t77+4
+        TableCell (1,1) header /TH p1 [200 482.5 216 493.6] g77+2 t77+2: Q1
+        TableCell (1,2) header /TH p1 [300 482.5 316 493.6] g79+2 t79+2: Q2
+      TableRow /TR p1 [72 467.5 306.7 478.6] g81+7 t81+7
+        TableCell (2,0) /TD p1 [72 467.5 102.7 478.6] g81+5 t81+5: Alpha
+        TableCell (2,1) headers (1,1) (0,1) /TD p1 [200 467.5 206.7 478.6] g86+1 t86+1: 1
+        TableCell (2,2) headers (1,2) (0,1) /TD p1 [300 467.5 306.7 478.6] g87+1 t87+1: 2
+      TableRow /TR p1 [72 452.5 306.7 463.6] g88+5 t88+5
+        TableCell (3,0) /TD p1 [72 452.5 96.7 463.6] g88+4 t88+4: Beta
+        TableCell (3,1) /TD
+        TableCell (3,2) headers (1,2) /TD p1 [300 452.5 306.7 463.6] g92+1 t92+1: 4
+    Paragraph /P p1 [72 417.5 213.4 428.6] g93+26 t93+26: Grouped without structure.

@@ -277,13 +277,40 @@ public sealed class PdfPage
     public Text.TextPage ExtractText(Text.TextExtractionOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
+        return ExtractText(options, null);
+    }
 
+    /// <summary>Builds the page's layout tree: the nodes of the document's layout tree that have content on this page.</summary>
+    /// <returns>The tree, with this page alone in <see cref="Layout.LayoutTree.Pages"/>; a new one on every call.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content, its fonts or the structure tree.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §14.8.4 and ISO/TS 32005; as <see cref="PdfDocument.ExtractLayout()"/> for this page only: nodes whose content is
+    /// all on other pages are left out, and those that span pages have their extent on this one.
+    /// </remarks>
+    public Layout.LayoutTree ExtractLayout() => ExtractLayout(new Layout.LayoutOptions());
+
+    /// <summary>Builds the page's layout tree with options.</summary>
+    /// <param name="options">What content to include and the content run's options.</param>
+    /// <returns>The tree.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content, its fonts or the structure tree.</exception>
+    /// <exception cref="OperationCanceledException">The content options' cancellation token was canceled.</exception>
+    /// <remarks>ISO 32000-2 §14.8.4; ISO/TS 32005. As <see cref="ExtractLayout()"/>.</remarks>
+    public Layout.LayoutTree ExtractLayout(Layout.LayoutOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return Layout.StructureLayout.Build(_document, [this], options);
+    }
+
+    /// <summary>Extracts the page's text with <paramref name="companion"/>, when given, run in the same pass over the content (issue #186).</summary>
+    internal Text.TextPage ExtractText(Text.TextExtractionOptions options, ContentProcessor? companion)
+    {
         // Issue #284: the thread's extractor is reused, so only the returned page (its glyphs and text, copied at their exact size) is allocated per page.
         // Issue #185: structure order reads the extractor's glyphs and content items, so it runs before the extractor is returned.
         Text.TextExtractor extractor = Text.TextExtractor.Rent(options);
         try
         {
-            ProcessContent(extractor, options.ContentOptions ?? ContentInterpreter.DefaultOptions);
+            ContentProcessor processor = companion is null ? extractor : new CompositeContentProcessor(extractor, companion);
+            ProcessContent(processor, options.ContentOptions ?? ContentInterpreter.DefaultOptions);
             return options.ReadingOrder == Text.TextReadingOrder.Structure && Text.StructureOrder.Build(_document, this, extractor, options) is { } ordered
                 ? ordered
                 : extractor.ToTextPage();

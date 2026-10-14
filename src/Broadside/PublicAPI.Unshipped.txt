@@ -3925,3 +3925,71 @@ Broadside.Forms.PdfChoiceField.SetValue(string? value) -> void
 Broadside.Forms.PdfChoiceField.SetSelectedIndices(System.Collections.Generic.IEnumerable<int>! indices) -> void
 Broadside.Forms.PdfChoiceField.GenerateAppearances() -> void
 Broadside.Forms.PdfListBoxField.SetTopIndex(int topIndex) -> void
+Broadside.Layout.LayoutExtent
+Broadside.Layout.LayoutExtent.Bounds.get -> Broadside.PdfRectangle?
+Broadside.Layout.LayoutExtent.GlyphCount.get -> int
+Broadside.Layout.LayoutExtent.GlyphStart.get -> int
+Broadside.Layout.LayoutExtent.LayoutExtent() -> void
+Broadside.Layout.LayoutExtent.Page.get -> Broadside.Layout.LayoutPage!
+Broadside.Layout.LayoutExtent.TextLength.get -> int
+Broadside.Layout.LayoutExtent.TextStart.get -> int
+Broadside.Layout.LayoutHeading
+Broadside.Layout.LayoutHeading.Level.get -> int
+Broadside.Layout.LayoutNode
+Broadside.Layout.LayoutNode.AlternateDescription.get -> string?
+Broadside.Layout.LayoutNode.Annotations.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfAnnotation!>!
+Broadside.Layout.LayoutNode.Children.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.LayoutNode!>!
+Broadside.Layout.LayoutNode.Extents.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.LayoutExtent>!
+Broadside.Layout.LayoutNode.Kind.get -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNode.Language.get -> string?
+Broadside.Layout.LayoutNode.Parent.get -> Broadside.Layout.LayoutNode?
+Broadside.Layout.LayoutNode.StructureElement.get -> Broadside.Structure.PdfStructureElement?
+Broadside.Layout.LayoutNode.Text.get -> string!
+Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Caption = 12 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Document = 0 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Figure = 11 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Heading = 3 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Label = 6 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Link = 14 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.List = 4 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.ListBody = 7 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.ListItem = 5 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Note = 15 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Paragraph = 2 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Section = 1 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Span = 13 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Table = 8 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.TableCell = 10 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.TableRow = 9 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutOptions
+Broadside.Layout.LayoutOptions.ContentOptions.get -> Broadside.Content.ContentOptions?
+Broadside.Layout.LayoutOptions.ContentOptions.set -> void
+Broadside.Layout.LayoutOptions.IncludeHiddenContent.get -> bool
+Broadside.Layout.LayoutOptions.IncludeHiddenContent.set -> void
+Broadside.Layout.LayoutOptions.LayoutOptions() -> void
+Broadside.Layout.LayoutOptions.WithContentOptions(Broadside.Content.ContentOptions? options) -> Broadside.Layout.LayoutOptions!
+Broadside.Layout.LayoutOptions.WithHiddenContent(bool include = true) -> Broadside.Layout.LayoutOptions!
+Broadside.Layout.LayoutPage
+Broadside.Layout.LayoutPage.Page.get -> Broadside.PdfPage!
+Broadside.Layout.LayoutPage.PageIndex.get -> int
+Broadside.Layout.LayoutPage.Text.get -> Broadside.Text.TextPage!
+Broadside.Layout.LayoutTable
+Broadside.Layout.LayoutTable.ColumnCount.get -> int
+Broadside.Layout.LayoutTable.RowCount.get -> int
+Broadside.Layout.LayoutTableCell
+Broadside.Layout.LayoutTableCell.Column.get -> int
+Broadside.Layout.LayoutTableCell.ColumnSpan.get -> int
+Broadside.Layout.LayoutTableCell.Headers.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.LayoutTableCell!>!
+Broadside.Layout.LayoutTableCell.IsHeader.get -> bool
+Broadside.Layout.LayoutTableCell.Row.get -> int
+Broadside.Layout.LayoutTableCell.RowSpan.get -> int
+Broadside.Layout.LayoutTree
+Broadside.Layout.LayoutTree.Pages.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.LayoutPage!>!
+Broadside.Layout.LayoutTree.Root.get -> Broadside.Layout.LayoutNode!
+Broadside.PdfDocument.ExtractLayout() -> Broadside.Layout.LayoutTree!
+Broadside.PdfDocument.ExtractLayout(Broadside.Layout.LayoutOptions! options) -> Broadside.Layout.LayoutTree!
+Broadside.PdfPage.ExtractLayout() -> Broadside.Layout.LayoutTree!
+Broadside.PdfPage.ExtractLayout(Broadside.Layout.LayoutOptions! options) -> Broadside.Layout.LayoutTree!
+override Broadside.Layout.LayoutNode.ToString() -> string!
+override Broadside.Layout.LayoutPage.ToString() -> string!
