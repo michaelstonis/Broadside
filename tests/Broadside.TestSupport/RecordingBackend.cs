@@ -15,10 +15,11 @@ namespace Broadside.TestSupport;
 /// <c>stroke width Cap Join miterLimit [dash …] phase [adjust] M … | Family c0 c1 …</c>,
 /// <c>clip nonzero|evenodd M x y L … Z</c>,
 /// <c>image WxH Family bpc N[ interpolate][ mask WxH[ inverted]][ smask WxH Family bpc N][ matte m…][ colorkey min max …]</c>,
-/// <c>imagemask WxH[ inverted][ interpolate] | Family c0 c1 …</c>, <c>shading Type [matrix][ background]</c>,
+/// <c>imagemask WxH[ inverted][ interpolate] | Family c0 c1 …</c>,
+/// <c>annotation Kind [left bottom right top][ nozoom][ norotate][ opacity a][ blend Mode][ isolated][ knockout]</c>, <c>end annotation</c>, <c>shading Type [matrix][ background]</c>,
 /// <c>glyphs Mode Format gid [text matrix][ xScale] … [| fill Family c0 …][| stroke width Cap Join miterLimit [dash …] phase[ adjust] Family c0 …]</c>
 /// (Format is the program's format, <c>none</c> without a program), and fills and strokes in a shading pattern ending
-/// <c>| shading Type [matrix] background</c> instead of a colour. Numbers are written round-trippable and culture-invariant.
+/// <c>| shading Type [matrix] background</c> instead of a colour; <c>compositing CA ca BlendMode</c>. Numbers are written round-trippable and culture-invariant.
 /// </remarks>
 public sealed class RecordingBackend : IRenderingBackend
 {
@@ -42,6 +43,9 @@ public sealed class RecordingBackend : IRenderingBackend
 
     /// <summary>Gets the stencil mask paints, in replay order: the interned mask and a copy of its colour, like <see cref="Fills"/>.</summary>
     public List<(DisplayImageMask Mask, PdfColorSpace ColorSpace, float[] Components, PdfDefaultColorSpaces Defaults, ColorConversion Conversion)> ImageMasks { get; } = [];
+
+    /// <summary>Gets the annotations begun, in replay order.</summary>
+    public List<DisplayAnnotation> Annotations { get; } = [];
 
     /// <inheritdoc/>
     public void SaveState() => Operations.Add("save");
@@ -242,6 +246,36 @@ public sealed class RecordingBackend : IRenderingBackend
         Operations.Add(text.ToString());
         ImageMasks.Add((mask, color.ColorSpace, color.Components.ToArray(), color.DefaultColorSpaces, color.Conversion));
     }
+
+    /// <inheritdoc/>
+    public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode) =>
+        Operations.Add(string.Create(CultureInfo.InvariantCulture, $"compositing {Number(strokeAlpha)} {Number(fillAlpha)} {blendMode}"));
+
+    /// <inheritdoc/>
+    public void BeginAnnotation(in DisplayAnnotation annotation)
+    {
+        PdfRectangle rect = annotation.Rectangle;
+        var text = new StringBuilder("annotation ").Append(annotation.Kind)
+            .Append(" [").Append(Number(rect.Left)).Append(' ').Append(Number(rect.Bottom)).Append(' ')
+            .Append(Number(rect.Right)).Append(' ').Append(Number(rect.Top)).Append(']');
+        text.Append(annotation.NoZoom ? " nozoom" : string.Empty).Append(annotation.NoRotate ? " norotate" : string.Empty);
+        if (annotation.Opacity != 1)
+        {
+            text.Append(" opacity ").Append(Number(annotation.Opacity));
+        }
+
+        if (annotation.BlendMode != BlendMode.Normal)
+        {
+            text.Append(" blend ").Append(annotation.BlendMode);
+        }
+
+        text.Append(annotation.Isolated ? " isolated" : string.Empty).Append(annotation.Knockout ? " knockout" : string.Empty);
+        Operations.Add(text.ToString());
+        Annotations.Add(annotation);
+    }
+
+    /// <inheritdoc/>
+    public void EndAnnotation() => Operations.Add("end annotation");
 
     /// <summary>Writes a path as its verbs and points.</summary>
     /// <param name="path">The path.</param>

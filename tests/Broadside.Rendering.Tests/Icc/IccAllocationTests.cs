@@ -79,4 +79,39 @@ public sealed class IccAllocationTests
             }
         }
     }
+
+    [Fact]
+    public void Image_rows_convert_through_an_output_intent_with_black_point_compensation_without_allocating()
+    {
+        // Issue #119: DeviceCMYK through the output intent's profile to sRGB, every intent, compensated and not; and ICCBased RGB to
+        // the output intent's CMYK device through its BToA tables.
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("output-intent-cmyk.pdf"), new PdfOptions().UseIccColorManagement());
+        PdfOutputIntent intent = document.OutputIntents[0];
+        PdfColorSpace rgb = document.GetColorSpace(IccProfiles.Space(IccProfiles.Rgb(), 3));
+        PdfColorConverter[] converters =
+        [
+            .. Enum.GetValues<RenderingIntent>().Select(r => document.GetColorConverter(
+                PdfDeviceCmykColorSpace.Instance, new ColorConversion { Intent = r, OutputIntent = intent })),
+            document.GetColorConverter(PdfDeviceCmykColorSpace.Instance, new ColorConversion { BlackPointCompensation = BlackPointCompensation.Off, OutputIntent = intent }),
+            document.GetColorConverter(rgb, new ColorConversion { Target = DeviceColorModel.Cmyk, OutputIntent = intent }),
+        ];
+        byte[] row = new byte[4096 * 4];
+        byte[] pixels = new byte[4096 * 4];
+        for (int i = 0; i < row.Length; i++)
+        {
+            row[i] = (byte)(i * 7);
+        }
+
+        long allocated = Allocations.Measure(Run);
+
+        Assert.Equal(0, allocated);
+
+        void Run()
+        {
+            foreach (PdfColorConverter converter in converters)
+            {
+                converter.Convert(row, pixels, 4096 / converter.InputCount);
+            }
+        }
+    }
 }

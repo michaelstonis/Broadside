@@ -131,14 +131,6 @@ public sealed class EncryptedSaveTests
             EncryptedSaveMode.Replace => new PdfSaveOptions().WithEncryption(new PdfEncryptionOptions("user", "new owner")),
             _ => new PdfSaveOptions().WithRemoveEncryption(true),
         };
-        if (mode == EncryptedSaveMode.Keep && source.Security!.Integrity != PdfIntegrityStatus.None)
-        {
-            using var refused = new MemoryStream();
-            Assert.Throws<NotSupportedException>(() => source.Save(refused, options));
-            Assert.Equal(0, refused.Length);
-            return;
-        }
-
         byte[] saved = Save(source, options);
 
         string reopenWith = mode switch { EncryptedSaveMode.Keep => password, EncryptedSaveMode.Replace => "user", _ => "anything" };
@@ -370,14 +362,11 @@ public sealed class EncryptedSaveTests
     {
         using PdfDocument encrypted = PdfDocument.Open(Corpus.Path("encrypted-aes-256.pdf"));
         using PdfDocument plain = PdfDocument.Open(Corpus.Path("empty-page.pdf"));
-        using PdfDocument withMac = PdfDocument.Open(Corpus.Path("encrypted-mac.pdf"));
         using var output = new MemoryStream();
-        PdfSaveOptions incremental = new PdfSaveOptions().WithIncrementalUpdate(true);
 
         Assert.Throws<NotSupportedException>(() => encrypted.Save(output, new PdfSaveOptions().WithIncrementalUpdate(true).WithRemoveEncryption(true)));
         Assert.Throws<NotSupportedException>(() => encrypted.Save(output, new PdfSaveOptions().WithIncrementalUpdate(true).WithEncryption(new PdfEncryptionOptions("a", "b"))));
         Assert.Throws<NotSupportedException>(() => plain.Save(output, new PdfSaveOptions().WithIncrementalUpdate(true).WithEncryption(new PdfEncryptionOptions("a", "b"))));
-        Assert.Throws<NotSupportedException>(() => withMac.Save(output, incremental));
         Assert.Equal(0, output.Length);
     }
 

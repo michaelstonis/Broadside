@@ -60,6 +60,7 @@ internal sealed partial class DisplayListBuilder
 
         int paint = _imagePaintCount;
         Append(ref _imagePaints, ref _imagePaintCount, new DisplayImagePaint(context.DefaultColorSpaces, conversion));
+        SetCompositing(state);
         SetTransform(image.Ctm);
         AddOperation(new DisplayOperation(DisplayOperationKind.DrawImage, default, index, paint));
     }
@@ -102,6 +103,7 @@ internal sealed partial class DisplayListBuilder
         }
 
         int color = AddColor(fill, context.DefaultColorSpaces, ColorConversion.FromState(state, DeviceColorModel.Rgb));
+        SetCompositing(state);
         SetTransform(image.Ctm);
         AddOperation(new DisplayOperation(DisplayOperationKind.FillImageMask, default, index, color));
     }

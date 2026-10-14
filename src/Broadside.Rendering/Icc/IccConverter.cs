@@ -2,7 +2,7 @@ using Broadside.Graphics;
 
 namespace Broadside.Rendering.Icc;
 
-/// <summary>Converts an ICCBased space's colours through its profile to sRGB, then, for a gray or CMYK target, through the fallback's DeviceRGB conversion.</summary>
+/// <summary>Converts an ICCBased space's colours through an ICC transform: to the RGB profile, then, for a gray or CMYK target, through the fallback's DeviceRGB conversion; or straight to an output intent's device.</summary>
 /// <remarks>
 /// ISO 32000-2 §10.3 (CIE-based to device colour through the profile) and §10.4.2 (RGB to gray and CMYK, by whatever DeviceRGB
 /// conversion the wrapped colour management makes, so black generation and undercolour removal apply). Allocates nothing per call.
@@ -18,7 +18,7 @@ internal sealed class IccConverter : IColorConverter
     {
         _transform = transform;
         _fromRgb = fromRgb;
-        OutputCount = fromRgb?.OutputCount ?? 3;
+        OutputCount = fromRgb?.OutputCount ?? transform.OutputCount;
     }
 
     /// <inheritdoc/>

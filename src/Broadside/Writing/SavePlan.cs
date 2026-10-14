@@ -84,8 +84,8 @@ internal static class SavePlan
     /// </param>
     /// <returns>The writer.</returns>
     /// <exception cref="NotSupportedException">
-    /// What <see cref="EncryptionPlan"/> refuses, or a linearized save of a document without a catalog or a page, or whose page tree
-    /// lists a page twice.
+    /// What <see cref="EncryptionPlan"/> refuses, or a linearized save of a document without a catalog or a page, whose page tree
+    /// lists a page twice, or whose file carries an integrity MAC (ISO/TS 32004).
     /// </exception>
     public static FileWriter Create(
         PdfSource source,
@@ -141,7 +141,7 @@ internal static class SavePlan
         foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
         {
             if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID)
-                && !(encryption.ReplacesDictionary && EncryptionPlan.IsEncryptionEntry(entry.Key)))
+                && encryption.KeepsTrailerEntry(entry.Key))
             {
                 trailer[entry.Key] = entry.Value;
             }
@@ -167,7 +167,13 @@ internal static class SavePlan
             trailer[KnownNames.Encrypt] = reference;
         }
 
-        // A linearized file (Annex F) orders and numbers its objects by part; nothing is freed.
+        // A linearized file (Annex F) orders and numbers its objects by part; nothing is freed. Its writer does not compose the PDF MAC
+        // token (ISO/TS 32004 §5.2.3), so a save that must carry one is not linearized rather than written without it.
+        if (options.Linearize && encryption.Integrity is not null)
+        {
+            throw new NotSupportedException("A file with an integrity MAC (ISO/TS 32004) cannot be saved linearized.");
+        }
+
         LinearizedLayout? linearized = options.Linearize
             ? LinearizedLayout.Create(trailer, kept, options.CrossReferenceLayout, value => value is not (CosStream or CosReference))
             : null;
@@ -267,6 +273,7 @@ internal static class SavePlan
             StreamNumbers = references is null && options.CrossReferenceLayout != PdfCrossReferenceLayout.Table ? StreamNumbers(loader) : null,
             Linearized = linearized,
             CompressHintStream = options.StreamCompression != PdfStreamCompression.None,
+            Integrity = encryption.Integrity,
         };
     }
 
@@ -365,7 +372,7 @@ internal static class SavePlan
         foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
         {
             if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID)
-                && !(encryption.ReplacesDictionary && EncryptionPlan.IsEncryptionEntry(entry.Key)))
+                && encryption.KeepsTrailerEntry(entry.Key))
             {
                 trailer[entry.Key] = entry.Value;
             }
@@ -418,6 +425,7 @@ internal static class SavePlan
             encryption.Encryptor)
         {
             StreamNumbers = form == XrefSectionKind.Stream ? StreamNumbers(loader) : null,
+            Integrity = encryption.Integrity,
         };
     }
 
@@ -435,7 +443,7 @@ internal static class SavePlan
     /// <summary>
     /// Adds the features of the version table a file uses: a cross-reference stream and object streams (PDF 1.5, §7.5.7, §7.5.8),
     /// <c>FlateDecode</c> compression of a stream (PDF 1.2, §7.4.4; declared when a stream may be compressed, whether or not the
-    /// compressed copy turns out smaller), and the encryption <see cref="EncryptionPlan.Feature"/> names.
+    /// compressed copy turns out smaller), and the encryption <see cref="EncryptionPlan.Features"/> name.
     /// </summary>
     private static void AddFeatures(ICollection<VersionedFeature> features, PdfCrossReferenceLayout layout, List<WriterObject> objects, EncryptionPlan encryption)
     {
@@ -454,7 +462,7 @@ internal static class SavePlan
             features.Add(VersionedFeatures.FlateCompression);
         }
 
-        if (encryption.Feature is { } feature)
+        foreach (VersionedFeature feature in encryption.Features)
         {
             features.Add(feature);
         }

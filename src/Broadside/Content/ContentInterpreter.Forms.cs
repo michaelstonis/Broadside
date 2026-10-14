@@ -227,6 +227,7 @@ internal sealed partial class ContentInterpreter
         GraphicsState initial = GraphicsState.CreateInitial();
         initial.Ctm = group.Matrix * State.SoftMaskMatrix;
         initial.ClipHandle = State.ClipHandle;
+        initial.OutputIntent = State.OutputIntent;
         var run = new NestedRun
         {
             Kind = ContentRunKind.SoftMask,
