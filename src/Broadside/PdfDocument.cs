@@ -1452,6 +1452,7 @@ public sealed partial class PdfDocument : IDisposable
                 TimeProvider = configuration.TimeProvider,
                 Configuration = configuration,
                 Caches = new DocumentCaches(configuration.CacheBudgets),
+                MaxMeshVertices = configuration.MaxMeshVertices,
             };
             document.DetectXfa();
 

@@ -45,6 +45,9 @@ public sealed class PdfOptions
     /// <summary>The default of <see cref="DisplayListCacheBudget"/>: 32 MiB.</summary>
     public const long DefaultDisplayListCacheBudget = 32L << 20;
 
+    /// <summary>The default of <see cref="MaxMeshVertices"/>: 2^22 (4,194,304) vertices.</summary>
+    public const int DefaultMaxMeshVertices = 1 << 22;
+
     private readonly List<IStreamFilter> _filters = [];
     private readonly List<IStreamEncoder> _streamEncoders = [];
     private readonly List<ISecurityHandler> _securityHandlers = [];
@@ -59,6 +62,7 @@ public sealed class PdfOptions
     private long _imageCacheBudget = DefaultImageCacheBudget;
     private long _glyphCacheBudget = DefaultGlyphCacheBudget;
     private long _displayListCacheBudget = DefaultDisplayListCacheBudget;
+    private int _maxMeshVertices = DefaultMaxMeshVertices;
 
     /// <summary>Gets or sets how deviations from the specification are treated. The default is <see cref="PdfReadingMode.Lenient"/>.</summary>
     /// <remarks>ADR 0005.</remarks>
@@ -308,6 +312,37 @@ public sealed class PdfOptions
     public PdfOptions WithDisplayListCacheBudget(long budget)
     {
         DisplayListCacheBudget = budget;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the most vertices one mesh shading (Types 4 to 7) decodes, a patch counting as 16; the rest of a larger mesh is
+    /// dropped with a <c>MeshSizeExceeded</c> diagnostic. Default 2^22.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §8.7.4.5.5 to §8.7.4.5.8: a mesh is as long as its stream, so a small compressed stream can decode to more
+    /// triangles or patches than a page can usefully show; the limit bounds the memory and the time one shading takes. The data is
+    /// also limited by <see cref="MaxDecodedStreamLength"/>.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not positive.</exception>
+    public int MaxMeshVertices
+    {
+        get => _maxMeshVertices;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
+            _maxMeshVertices = value;
+        }
+    }
+
+    /// <summary>Sets <see cref="MaxMeshVertices"/>.</summary>
+    /// <param name="maxVertices">The most vertices one mesh shading decodes.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxVertices"/> is not positive.</exception>
+    /// <remarks>ISO 32000-2 §8.7.4.5.5 to §8.7.4.5.8.</remarks>
+    public PdfOptions WithMaxMeshVertices(int maxVertices)
+    {
+        MaxMeshVertices = maxVertices;
         return this;
     }
 

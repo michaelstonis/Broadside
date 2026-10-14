@@ -20,8 +20,11 @@ public sealed partial class PdfDocument
     }
 
     /// <summary>Gets or sets the most vertices a mesh shading decodes (a patch counts as 16); the rest is dropped with a diagnostic.</summary>
-    /// <remarks>Guards against decompression bombs feeding meshes (ISO 32000-2 §8.7.4.5.5 to §8.7.4.5.8). Settable for tests.</remarks>
-    internal int MaxMeshVertices { get; set; } = MeshLayout.DefaultMaxVertices;
+    /// <remarks>
+    /// Guards against decompression bombs feeding meshes (ISO 32000-2 §8.7.4.5.5 to §8.7.4.5.8). Set from
+    /// <see cref="PdfOptions.MaxMeshVertices"/> when the document is opened.
+    /// </remarks>
+    internal int MaxMeshVertices { get; set; } = PdfOptions.DefaultMaxMeshVertices;
 
     /// <summary>Returns the resolved model of a shading of this document.</summary>
     /// <param name="shading">A shading dictionary or stream, or an indirect reference to one, such as a value of a resource dictionary's <c>Shading</c> subdictionary.</param>

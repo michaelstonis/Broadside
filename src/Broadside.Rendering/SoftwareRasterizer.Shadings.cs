@@ -15,10 +15,17 @@ public sealed partial class SoftwareRasterizer
         /// when it has one (§8.7.4.3), are scan converted and painted through the clip, without the Background.
         /// </summary>
         /// <remarks>
-        /// Axial and radial shadings (Types 2 and 3) are painted; the function-based and mesh types (1, 4 to 7) are not yet.
+        /// Axial and radial shadings (Types 2 and 3) are painted here; function-based and triangle-mesh shadings (Types 1, 4 and 5)
+        /// through the mesh layer (<see cref="DrawMeshShading"/>); the patch meshes (Types 6 and 7) are not painted yet.
         /// </remarks>
         public void DrawShading(in DisplayShading shading)
         {
+            if (PaintsAsMesh(shading.Shading))
+            {
+                DrawMeshShading(shading);
+                return;
+            }
+
             // The BBox, when there is one, is the painted shape, so its edges are anti-aliased like a fill's and need no test per pixel.
             PdfRectangle? box = shading.Shading.BoundingBox;
             if (_clip.IsEmpty || _fillCompositor.PaintsNothing || !TryPrepareShading(shading, clipToBox: box is null, out Matrix inverse, out ShadingGeometry geometry) || geometry.IsEmpty)
@@ -52,6 +59,12 @@ public sealed partial class SoftwareRasterizer
         /// <summary>Fills the path with the shading pattern's shading and its Background (§8.7.4.1, §8.7.4.3).</summary>
         public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading)
         {
+            if (PaintsAsMesh(shading.Shading))
+            {
+                FillPathWithMeshShading(path, rule, shading);
+                return;
+            }
+
             if (path.IsEmpty || _clip.IsEmpty || _fillCompositor.PaintsNothing || !TryPrepareShading(shading, clipToBox: true, out Matrix inverse, out ShadingGeometry geometry))
             {
                 return;
@@ -65,6 +78,12 @@ public sealed partial class SoftwareRasterizer
         /// <summary>Paints the area the stroke covers (§8.5.3.2, outlined like <see cref="StrokePath"/>) as a fill with the shading pattern's shading.</summary>
         public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading)
         {
+            if (PaintsAsMesh(shading.Shading))
+            {
+                StrokePathWithMeshShading(path, style, shading);
+                return;
+            }
+
             if (path.IsEmpty || _clip.IsEmpty || _strokeCompositor.PaintsNothing || !TryPrepareShading(shading, clipToBox: true, out Matrix inverse, out ShadingGeometry geometry))
             {
                 return;
