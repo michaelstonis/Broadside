@@ -60,6 +60,7 @@ public sealed partial class PdfDocument
             validations.Add((end, validations.Count, validation));
         }
 
-        return [.. validations.OrderBy(static item => item.End).ThenBy(static item => item.Order).Select(static item => item.Validation)];
+        PdfSignatureValidation[] ordered = [.. validations.OrderBy(static item => item.End).ThenBy(static item => item.Order).Select(static item => item.Validation)];
+        return ModificationDetector.Apply(_source, _loader, _streams, Revisions, ordered, Resolve);
     }
 }

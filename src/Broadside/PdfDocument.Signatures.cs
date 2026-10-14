@@ -186,10 +186,11 @@ public sealed partial class PdfDocument
             reserved += IntegrityAttributeAllowance;
         }
 
+        ModificationDetectionPlan modificationDetection = PlanModificationDetection(options);
         var undo = new List<Action>();
         try
         {
-            VersionedFeature[] features = SignatureFeatures(key, digestAlgorithm, options.SubFilter);
+            VersionedFeature[] features = [.. SignatureFeatures(key, digestAlgorithm, options.SubFilter), .. modificationDetection.Features];
             foreach (VersionedFeature feature in features)
             {
                 RequireSignatureFeature(feature, undo);
@@ -200,7 +201,8 @@ public sealed partial class PdfDocument
             CosDictionary signature = SignatureDictionary(options, reserved, pdf20);
             CosReference signatureReference = AddObject(signature);
             undo.Add(() => RemoveObject(signatureReference));
-            PlaceSignature(options.FieldName, signatureReference, undo);
+            CosDictionary field = PlaceSignature(options.FieldName, signatureReference, undo);
+            ApplyModificationDetection(modificationDetection, signature, signatureReference, field, digestAlgorithm, undo);
 
             FileWriter writer = PlanSave(new PdfSaveOptions { IncrementalUpdate = true });
             IntegrityCodeWriter? integrity = writer.Integrity;
@@ -459,7 +461,7 @@ public sealed partial class PdfDocument
     /// Makes <paramref name="signature"/> the value of the signature field: the unsigned one <paramref name="fieldName"/> names, or a
     /// new invisible one; sets SignaturesExist and AppendOnly (§12.7.3, Table 225).
     /// </summary>
-    private void PlaceSignature(string? fieldName, CosReference signature, List<Action> undo)
+    private CosDictionary PlaceSignature(string? fieldName, CosReference signature, List<Action> undo)
     {
         if (fieldName is not null && fieldName.Length == 0)
         {
@@ -491,6 +493,7 @@ public sealed partial class PdfDocument
         Set(field, FormNames.V, signature, undo);
         long flags = Resolve(form.TryGetValue(FormNames.SigFlags, out CosObject? sigFlags) ? sigFlags : null) is CosInteger integer ? integer.Value : 0;
         Set(form, FormNames.SigFlags, new CosInteger(flags | 3), undo);
+        return field;
     }
 
     /// <summary>The interactive form dictionary, created (indirect, with an empty <c>Fields</c>) when the catalog has none.</summary>
