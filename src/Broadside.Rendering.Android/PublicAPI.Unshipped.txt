@@ -1,6 +1,7 @@
 #nullable enable
 Broadside.Rendering.Android.AndroidCanvasBackend
 Broadside.Rendering.Android.AndroidCanvasBackend.AndroidCanvasBackend() -> void
+Broadside.Rendering.Android.AndroidCanvasBackend.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
 Broadside.Rendering.Android.AndroidCanvasBackend.Dispose() -> void
 Broadside.Rendering.Android.AndroidCanvasBackend.Render(Broadside.PdfPage! page) -> Android.Graphics.Bitmap!
 Broadside.Rendering.Android.AndroidCanvasBackend.Render(Broadside.PdfPage! page, Android.Graphics.Canvas! canvas, Broadside.Rendering.RenderOptions! options) -> void

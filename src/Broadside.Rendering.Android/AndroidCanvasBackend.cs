@@ -31,8 +31,14 @@ namespace Broadside.Rendering.Android;
 /// management decides them (§8.6, §10). Every edge is anti-aliased by the canvas.
 /// </para>
 /// <para>
-/// Not drawn yet: images, image masks, shadings and patterns (issue #134), glyph runs (#135), transparency (#136); the list's
-/// operations of those kinds are skipped.
+/// Constant alpha and blend modes (§11.3.6, §11.6.3, §11.6.4.4) are the paints' own: the alpha goes into the paint's colour and the
+/// blend mode into the paint (Android 10, API level 29, and later; earlier versions composite as Normal and report it in
+/// <see cref="Diagnostics"/>). Annotations (§12.5.5) are placed as the software rasterizer places them (§12.5.3 NoZoom, NoRotate),
+/// clipped to their rectangle and composited as a layer with their opacity and blend mode.
+/// </para>
+/// <para>
+/// Not drawn yet: images, image masks, shadings and patterns (issue #134), glyph runs (#135), transparency groups and soft masks
+/// (#136); the list's operations of those kinds are skipped.
 /// </para>
 /// <para>
 /// Reuse one instance for many renders: its Android path, paints and matrix are created once and kept, so a warm replay allocates
@@ -40,9 +46,10 @@ namespace Broadside.Rendering.Android;
 /// concurrent renders while nobody changes it). Dispose it to release its Android objects.
 /// </para>
 /// </remarks>
-public sealed class AndroidCanvasBackend : IDisposable
+public sealed partial class AndroidCanvasBackend : IDisposable
 {
     private static readonly RenderOptions DefaultOptions = new();
+    private static readonly Content.ContentOptions DefaultContentOptions = new();
 
     private readonly Backend _backend = new();
     private bool _disposed;
@@ -96,7 +103,7 @@ public sealed class AndroidCanvasBackend : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         PixelSize size = options.GetPixelSize(page);
         Matrix device = options.GetDeviceTransform(page);
-        DisplayList list = page.CreateDisplayList();
+        DisplayList list = page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions);
         int count = canvas.Save();
         try
         {
@@ -145,7 +152,7 @@ public sealed class AndroidCanvasBackend : IDisposable
     }
 
     /// <summary>The backend the display list replays through: graphics state, path building, paints and colour.</summary>
-    private sealed class Backend : IRenderingBackend, IDisposable
+    private sealed partial class Backend : IRenderingBackend, IDisposable
     {
         /// <summary>Device coordinates are kept within ±2^30 so that they stay exact enough as floats for the canvas.</summary>
         private const double CoordinateLimit = 1073741824.0;
@@ -187,9 +194,10 @@ public sealed class AndroidCanvasBackend : IDisposable
         private double _scale;
         private bool _strokeInDevice;
 
-        private Matrix[] _stack = new Matrix[16];
+        private SavedState[] _stack = new SavedState[16];
         private int _depth;
         private Matrix _device;
+        private Matrix _ctm;
         private Matrix _toDevice;
         private AndroidCanvas? _canvas;
         private PdfDocument? _document;
@@ -211,8 +219,10 @@ public sealed class AndroidCanvasBackend : IDisposable
             _document = document;
             _canvas = canvas;
             _device = device;
+            _ctm = Matrix.Identity;
             _toDevice = device;
             _depth = 0;
+            BeginCompositing();
             _baseCount = canvas.Save();
         }
 
@@ -234,7 +244,7 @@ public sealed class AndroidCanvasBackend : IDisposable
                 Array.Resize(ref _stack, _stack.Length * 2);
             }
 
-            _stack[_depth++] = _toDevice;
+            _stack[_depth++] = new SavedState(_ctm, _toDevice, _compositing);
             _canvas!.Save();
         }
 
@@ -243,23 +253,31 @@ public sealed class AndroidCanvasBackend : IDisposable
         {
             if (_depth > 0)
             {
-                _toDevice = _stack[--_depth];
+                SavedState saved = _stack[--_depth];
+                _ctm = saved.Ctm;
+                _toDevice = saved.ToDevice;
+                _compositing = saved.Compositing;
                 _canvas!.Restore();
             }
         }
 
-        public void SetTransform(in Matrix transform) => _toDevice = transform * _device;
+        public void SetTransform(in Matrix transform)
+        {
+            _ctm = transform;
+            _toDevice = transform * _device;
+        }
 
         /// <summary>Fills the path mapped to the device with the rule (§8.5.3.3).</summary>
         public void FillPath(PathView path, FillRule rule, in DisplayColor color)
         {
             PdfColorConverter converter = Converter(color);
-            if (converter.PaintsNothing || path.IsEmpty)
+            if (converter.PaintsNothing || path.IsEmpty || _compositing.FillAlpha == 0)
             {
                 return;
             }
 
-            SetColor(_fill, converter, color.Components);
+            SetColor(_fill, converter, color.Components, _compositing.FillAlpha);
+            SetBlendMode(_fill, ref _fillBlendMode);
             BuildDevicePath(path, rule);
             _canvas!.DrawPath(_path, _fill);
         }
@@ -272,7 +290,7 @@ public sealed class AndroidCanvasBackend : IDisposable
         public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
         {
             PdfColorConverter converter = Converter(color);
-            if (converter.PaintsNothing || path.IsEmpty)
+            if (converter.PaintsNothing || path.IsEmpty || _compositing.StrokeAlpha == 0)
             {
                 return;
             }
@@ -284,7 +302,8 @@ public sealed class AndroidCanvasBackend : IDisposable
                 return;
             }
 
-            SetColor(_stroke, converter, color.Components);
+            SetColor(_stroke, converter, color.Components, _compositing.StrokeAlpha);
+            SetBlendMode(_stroke, ref _strokeBlendMode);
             _stroke.StrokeWidth = _strokeInDevice ? OnePixel : (float)width;
             _stroke.StrokeCap = style.LineCap switch
             {
@@ -374,6 +393,7 @@ public sealed class AndroidCanvasBackend : IDisposable
             _path.Dispose();
             _fill.Dispose();
             _stroke.Dispose();
+            _layerPaint.Dispose();
             _matrix.Dispose();
         }
 
@@ -433,11 +453,11 @@ public sealed class AndroidCanvasBackend : IDisposable
             return pixels / scale;
         }
 
-        private static void SetColor(Paint paint, PdfColorConverter converter, ReadOnlySpan<float> components)
+        private static void SetColor(Paint paint, PdfColorConverter converter, ReadOnlySpan<float> components, byte alpha)
         {
             Span<float> rgb = stackalloc float[4];
             converter.Convert(components, rgb);
-            paint.SetARGB(255, Channel(rgb[0]), Channel(rgb[1]), Channel(rgb[2]));
+            paint.SetARGB(alpha, Channel(rgb[0]), Channel(rgb[1]), Channel(rgb[2]));
         }
 
         private static int Channel(float value) => (int)((Math.Clamp(value, 0f, 1f) * 255f) + 0.5f);
