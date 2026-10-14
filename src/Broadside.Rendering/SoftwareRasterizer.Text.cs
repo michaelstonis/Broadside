@@ -37,6 +37,26 @@ public sealed partial class SoftwareRasterizer
                 return;
             }
 
+            if (_previewing)
+            {
+                // The stroke's colour may add a spot colourant, which the fill's ink must then cover too (to erase it).
+                int planes = _planes.Count;
+                if (fills)
+                {
+                    PrepareInk(run.FillColor, _deviceParameters.FillOverprint, _fillInk);
+                }
+
+                if (strokes)
+                {
+                    PrepareInk(run.StrokeColor, _deviceParameters.StrokeOverprint, _strokeInk);
+                }
+
+                if (fills && _planes.Count != planes)
+                {
+                    PrepareInk(run.FillColor, _deviceParameters.FillOverprint, _fillInk);
+                }
+            }
+
             Matrix ctm = _toDevice;
             try
             {
@@ -55,7 +75,7 @@ public sealed partial class SoftwareRasterizer
                         _scan.Reset(_width, _height);
                         AddPath(outline, degenerateDots: false);
                         _toDevice = ctm;
-                        _scan.Fill(_target!, FillRule.NonZero, fill, _fillCompositor);
+                        PaintSolid(FillRule.NonZero, fill, _fillCompositor, _fillInk);
                     }
 
                     if (strokes)
@@ -63,7 +83,7 @@ public sealed partial class SoftwareRasterizer
                         _toDevice = ctm;
                         _scan.Reset(_width, _height);
                         _stroker.Stroke(ToUserSpace(outline, glyphToUser), run.StrokeStyle, ctm);
-                        _scan.Fill(_target!, FillRule.NonZero, stroke, _strokeCompositor);
+                        PaintSolid(FillRule.NonZero, stroke, _strokeCompositor, _strokeInk);
                     }
                 }
             }

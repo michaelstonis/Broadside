@@ -74,3 +74,6 @@ Broadside.Rendering.Icc.IccColorManagement.UsesOutputIntents.get -> bool
 Broadside.Rendering.Icc.IccColorManagement.WithRgbProfile(Broadside.Rendering.Icc.IccProfile! profile) -> Broadside.Rendering.Icc.IccColorManagement!
 Broadside.Rendering.Icc.IccColorManagement.WithDefaultBlackPointCompensation(bool compensate) -> Broadside.Rendering.Icc.IccColorManagement!
 Broadside.Rendering.Icc.IccColorManagement.WithOutputIntents(bool use) -> Broadside.Rendering.Icc.IccColorManagement!
+Broadside.Rendering.RenderOptions.OverprintPreview.get -> bool
+Broadside.Rendering.RenderOptions.OverprintPreview.set -> void
+Broadside.Rendering.RenderOptions.WithOverprintPreview(bool overprintPreview) -> Broadside.Rendering.RenderOptions!

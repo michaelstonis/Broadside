@@ -137,6 +137,39 @@ public sealed class RenderOptions
     /// <remarks>ISO 32000-2 §12.5.3, Table 167 (<c>NoView</c>, <c>Print</c>, <c>NoZoom</c>, <c>NoRotate</c>).</remarks>
     public DisplayIntent Intent { get; set; }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the page is rendered with overprint preview, as a print-preview viewer shows it;
+    /// <see langword="false"/> by default.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §8.6.7 and §11.7.4. Off, the rasterizer is a composite RGB device that does not overprint, and §8.6.7 says such a
+    /// device ignores the overprint parameters: every paint knocks out what is below it. On, the page content is painted into a
+    /// buffer of device colourants, the four process colourants (cyan, magenta, yellow, black) and one more per spot colourant a
+    /// Separation or DeviceN colour names, and <c>OP</c>, <c>op</c> and <c>OPM</c> decide which colourants a paint replaces
+    /// (§11.7.4.5 Table 146): with overprint off, every colourant the paint does not specify is erased; with it on, they are left
+    /// as they are, and with overprint mode 1 a DeviceCMYK component of 0 leaves its colourant unchanged too. At the end each
+    /// pixel's colourants are converted for display: every spot adds its tint times its process equivalent at tint 1, clipped at 1,
+    /// and the result converts as DeviceCMYK through the document's colour management (the output intent's profile, when it
+    /// has one and the engine uses output intents). Every colour goes through the device colourants, so RGB, gray and CIE-based
+    /// colours show as their CMYK conversion prints. Annotations and form fields are drawn over the result as usual.
+    /// </para>
+    /// <para>
+    /// Deviations: images and shadings in a Separation or DeviceN space are painted as their process equivalent; non-separable blend
+    /// modes, and on spot colourants blend modes that are not white-preserving, composite as Normal (§11.7.4.2).
+    /// </para>
+    /// </remarks>
+    public bool OverprintPreview { get; set; }
+
+    /// <summary>Sets <see cref="OverprintPreview"/>.</summary>
+    /// <param name="overprintPreview">Whether the page is rendered with overprint preview.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithOverprintPreview(bool overprintPreview)
+    {
+        OverprintPreview = overprintPreview;
+        return this;
+    }
+
     /// <summary>Sets <see cref="Layers"/>.</summary>
     /// <param name="layers">The layers drawn.</param>
     /// <returns>This instance.</returns>

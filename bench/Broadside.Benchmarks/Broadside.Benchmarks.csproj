@@ -27,6 +27,7 @@
     <Compile Include="../../tests/Broadside.TestSupport/TrueTypeBuilder.cs" Link="TrueTypeBuilder.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/ShadingSamples.cs" Link="ShadingSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/BlendSamples.cs" Link="BlendSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/OverprintSamples.cs" Link="OverprintSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/MaskSamples.cs" Link="MaskSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/MeshSamples.cs" Link="MeshSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/JpxSamples.cs" Link="JpxSamples.cs" />

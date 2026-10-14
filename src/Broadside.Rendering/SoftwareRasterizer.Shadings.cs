@@ -46,7 +46,7 @@ public sealed partial class SoftwareRasterizer
                 _scan.AddLine(left, bottom, left, top);
             }
 
-            PaintShading(shading, inverse, geometry, background: false, _fillCompositor);
+            PaintShading(shading, inverse, geometry, background: false, _fillCompositor, _deviceParameters.FillOverprint);
         }
 
         /// <summary>Fills the path with the shading pattern's shading and its Background (§8.7.4.1, §8.7.4.3).</summary>
@@ -59,7 +59,7 @@ public sealed partial class SoftwareRasterizer
 
             _scan.Reset(_width, _height);
             AddPath(path);
-            PaintShading(shading, inverse, geometry, background: true, _fillCompositor, rule);
+            PaintShading(shading, inverse, geometry, background: true, _fillCompositor, _deviceParameters.FillOverprint, rule);
         }
 
         /// <summary>Paints the area the stroke covers (§8.5.3.2, outlined like <see cref="StrokePath"/>) as a fill with the shading pattern's shading.</summary>
@@ -72,7 +72,7 @@ public sealed partial class SoftwareRasterizer
 
             _scan.Reset(_width, _height);
             _stroker.Stroke(path, style, _toDevice);
-            PaintShading(shading, inverse, geometry, background: true, _strokeCompositor);
+            PaintShading(shading, inverse, geometry, background: true, _strokeCompositor, _deviceParameters.StrokeOverprint);
         }
 
         /// <summary>
@@ -89,12 +89,18 @@ public sealed partial class SoftwareRasterizer
                 return false;
             }
 
-            return _shadingSource.Prepare(_document!, shading);
+            return _previewing ? PreparePreviewShading(shading) : _shadingSource.Prepare(_document!, shading);
         }
 
         /// <summary>Hands the shape's coverage to a <see cref="ShadingPainter"/>; the Background applies when <paramref name="background"/> is set and the shading has one.</summary>
-        private void PaintShading(in DisplayShading shading, in Matrix inverse, in ShadingGeometry geometry, bool background, Compositor compositor, FillRule rule = FillRule.NonZero)
+        private void PaintShading(in DisplayShading shading, in Matrix inverse, in ShadingGeometry geometry, bool background, Compositor compositor, bool overprint, FillRule rule = FillRule.NonZero)
         {
+            if (_previewing)
+            {
+                PreviewShading(shading, inverse, geometry, background, compositor, rule, overprint);
+                return;
+            }
+
             bool hasBackground = background && shading.PaintsBackground && _shadingSource.HasBackground;
             if (geometry.IsEmpty && !hasBackground)
             {

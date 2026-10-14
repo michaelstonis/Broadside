@@ -24,6 +24,8 @@ public sealed partial class SoftwareRasterizer
         /// </summary>
         public void BeginAnnotation(in DisplayAnnotation annotation)
         {
+            // An overprint preview covers the page content; annotations are drawn over its result (RenderOptions.OverprintPreview).
+            FinishPreview();
             SaveState();
             if (_annotationDepth == _annotationFrames.Length)
             {

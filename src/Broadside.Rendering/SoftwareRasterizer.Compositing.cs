@@ -12,6 +12,7 @@ public sealed partial class SoftwareRasterizer
         private Compositor _fillCompositor;
         private Compositor _strokeCompositor;
         private Compositor[] _savedCompositors = new Compositor[32];
+        private DisplayDeviceParameters[] _savedDeviceParameters = new DisplayDeviceParameters[16];
         private int _savedCompositorCount;
 
         /// <summary>Sets the alpha constants and blend mode of the paints that follow (§11.6.4.4, §11.6.3).</summary>
@@ -26,17 +27,6 @@ public sealed partial class SoftwareRasterizer
             _fillCompositor = new Compositor(fillAlpha, blendMode);
         }
 
-        /// <summary>Takes the overprint parameters and halftone of the paints that follow, and ignores them (§8.6.7, §10.6).</summary>
-        /// <remarks>
-        /// The rasterizer is a composite, continuous-tone RGB device that does not overprint: §8.6.7 says such a device ignores the
-        /// overprint parameter, and §10.6.1 that a device that reproduces continuous tones needs no halftoning (owner decision 5 of
-        /// the Phase 3 plan). Overprint preview is a separate render option (#227). Transfer functions are applied: they come with
-        /// each colour's conversion (§10.5).
-        /// </remarks>
-        public void SetDeviceParameters(in DisplayDeviceParameters parameters)
-        {
-        }
-
         private void SaveCompositing()
         {
             if (_savedCompositorCount + 2 > _savedCompositors.Length)
@@ -44,6 +34,12 @@ public sealed partial class SoftwareRasterizer
                 Array.Resize(ref _savedCompositors, _savedCompositors.Length * 2);
             }
 
+            if (_savedCompositorCount / 2 == _savedDeviceParameters.Length)
+            {
+                Array.Resize(ref _savedDeviceParameters, _savedDeviceParameters.Length * 2);
+            }
+
+            _savedDeviceParameters[_savedCompositorCount / 2] = _deviceParameters;
             _savedCompositors[_savedCompositorCount++] = _fillCompositor;
             _savedCompositors[_savedCompositorCount++] = _strokeCompositor;
         }
@@ -54,6 +50,7 @@ public sealed partial class SoftwareRasterizer
             {
                 _strokeCompositor = _savedCompositors[--_savedCompositorCount];
                 _fillCompositor = _savedCompositors[--_savedCompositorCount];
+                _deviceParameters = _savedDeviceParameters[_savedCompositorCount / 2];
             }
         }
 
@@ -61,7 +58,9 @@ public sealed partial class SoftwareRasterizer
         {
             _fillCompositor = default;
             _strokeCompositor = default;
+            _deviceParameters = default;
             _savedCompositorCount = 0;
+            Array.Clear(_savedDeviceParameters);
         }
     }
 }

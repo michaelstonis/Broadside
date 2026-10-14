@@ -58,7 +58,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         var bitmap = new Bitmap(geometry.PixelWidth, geometry.PixelHeight);
         try
         {
-            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true);
+            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, options.OverprintPreview);
         }
         catch
         {
@@ -88,7 +88,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             throw new ArgumentException($"The page needs {geometry.PixelWidth} x {geometry.PixelHeight} pixels; the bitmap has {target.Width} x {target.Height}.", nameof(target));
         }
 
-        Draw(page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true);
+        Draw(page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, options.OverprintPreview);
     }
 
     /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background.</summary>
@@ -103,7 +103,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
     {
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
-        Draw(list, target, deviceTransform, target.Width, target.Height, white: false);
+        Draw(list, target, deviceTransform, target.Width, target.Height, white: false, preview: false);
     }
 
     /// <summary>Returns the rasterizer's pooled working buffers; it renders no more after this.</summary>
@@ -116,7 +116,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         }
     }
 
-    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white)
+    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white, bool preview)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (white)
@@ -127,10 +127,11 @@ public sealed partial class SoftwareRasterizer : IDisposable
             }
         }
 
-        _backend.Begin(list.Document, target, device, width, height);
+        _backend.Begin(list.Document, target, device, width, height, preview);
         try
         {
             list.Replay(_backend);
+            _backend.FinishPreview();
         }
         finally
         {
@@ -170,7 +171,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
         public Backend() => _stroker = new Stroker(_scan);
 
-        public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height)
+        public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height, bool preview)
         {
             _document = document;
             _target = target;
@@ -184,6 +185,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _scan.Clip = _clip;
             ResetCompositing();
             BeginAnnotations();
+            BeginPreview(preview);
         }
 
         public void End()
@@ -196,6 +198,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _converter = null;
             EndImages();
             EndShadings();
+            EndPreview();
         }
 
         public void SaveState()
@@ -235,13 +238,21 @@ public sealed partial class SoftwareRasterizer : IDisposable
                 return;
             }
 
-            Span<float> rgb = stackalloc float[4];
-            converter.Convert(color.Components, rgb);
-            uint pixel = Pack(rgb);
+            uint pixel = 0;
+            if (_previewing)
+            {
+                PrepareInk(color, _deviceParameters.FillOverprint, _fillInk);
+            }
+            else
+            {
+                Span<float> rgb = stackalloc float[4];
+                converter.Convert(color.Components, rgb);
+                pixel = Pack(rgb);
+            }
 
             _scan.Reset(_width, _height);
             AddPath(path);
-            _scan.Fill(_target!, rule, pixel, _fillCompositor);
+            PaintSolid(rule, pixel, _fillCompositor, _fillInk);
         }
 
         public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
@@ -252,13 +263,21 @@ public sealed partial class SoftwareRasterizer : IDisposable
                 return;
             }
 
-            Span<float> rgb = stackalloc float[4];
-            converter.Convert(color.Components, rgb);
-            uint pixel = Pack(rgb);
+            uint pixel = 0;
+            if (_previewing)
+            {
+                PrepareInk(color, _deviceParameters.StrokeOverprint, _strokeInk);
+            }
+            else
+            {
+                Span<float> rgb = stackalloc float[4];
+                converter.Convert(color.Components, rgb);
+                pixel = Pack(rgb);
+            }
 
             _scan.Reset(_width, _height);
             _stroker.Stroke(path, style, _toDevice);
-            _scan.Fill(_target!, FillRule.NonZero, pixel, _strokeCompositor);
+            PaintSolid(FillRule.NonZero, pixel, _strokeCompositor, _strokeInk);
         }
 
         /// <summary>
@@ -289,6 +308,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _clip.Dispose();
             DisposeImages();
             DisposeAnnotations();
+            DisposePreview();
         }
 
         /// <summary>
