@@ -107,9 +107,10 @@ internal sealed class FunctionCache
     /// <returns>The compiled function.</returns>
     internal CompiledFunction Compile(CosObject function, CosReference? reference, PdfFunctionType type, int expectedInputs, int expectedOutputs)
     {
+        int objectsVersion = _document.ObjectsVersion;
         var compilation = new FunctionCompilation(_document, _diagnostics) { Reference = reference };
         FunctionEvaluator evaluator = FunctionCompiler.Compile(function, compilation, type, expectedInputs, expectedOutputs);
-        return new CompiledFunction(evaluator, compilation.Dependencies());
+        return new CompiledFunction(evaluator, compilation.Dependencies(), _document, objectsVersion);
     }
 
     /// <summary>Resolves an object through the document.</summary>

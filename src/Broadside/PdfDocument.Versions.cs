@@ -51,7 +51,7 @@ public sealed partial class PdfDocument
     /// </summary>
     /// <param name="options">The save's options.</param>
     /// <param name="planned">What <see cref="CheckVersionedSave"/> planned.</param>
-    /// <param name="changed">Whether the save changed the document since (dated it, completed font subsets).</param>
+    /// <param name="changed">Whether the save changed the document since (dated it, completed font subsets, laid its metadata out for PDF 2.0).</param>
     private FileWriter ApplyVersionedSave(PdfSaveOptions options, VersionedSave planned, bool changed)
     {
         List<VersionedFeature> features = planned.Features;
@@ -66,7 +66,7 @@ public sealed partial class PdfDocument
         if (changed)
         {
             // The document changed after it was planned: plan again, so the update writes what changed and a full save serializes
-            // it. Dating and completing font subsets add no feature, so the version decided stands.
+            // it. Dating, completing font subsets and the metadata layout add no feature, so the version decided stands.
             features.Clear();
             writer = PlanWriter(options, features);
             AddDocumentFeatures(features);

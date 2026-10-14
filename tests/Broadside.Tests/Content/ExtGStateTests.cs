@@ -1,5 +1,7 @@
 using Broadside.Content;
 using Broadside.Graphics;
+using Broadside.Objects;
+using Broadside.Tests.Colors;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.Content;
@@ -59,6 +61,22 @@ public sealed class ExtGStateTests
         Assert.Null(second.Halftone);
         Assert.Equal(BlendMode.Screen, second.BlendMode);
         Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void An_entry_removed_as_an_object_is_seen_by_the_next_run()
+    {
+        using PdfDocument document = PdfDocument.Open(ColorTesting.Page("<< /ExtGState << /G0 5 0 R >> >>", "/G0 gs 0 0 10 10 re S", "<< /Type /ExtGState /LW 6 0 R >>", "7"));
+        var before = new StateRecorder();
+        document.Pages[0].ProcessContent(before);
+        Assert.Equal(7, Assert.Single(before.States).LineWidth);
+
+        // §7.3.10: LW now resolves to null, so the line width set before gs (1.0) stays; the ExtGState dictionary is unchanged.
+        Assert.True(document.RemoveObject(new CosReference(6, 0)));
+        var after = new StateRecorder();
+        document.Pages[0].ProcessContent(after);
+
+        Assert.Equal(1, Assert.Single(after.States).LineWidth);
     }
 
     [Fact]
