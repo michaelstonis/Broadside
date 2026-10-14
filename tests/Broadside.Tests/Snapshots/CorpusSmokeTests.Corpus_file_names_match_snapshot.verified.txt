@@ -114,6 +114,7 @@
   runlength-stream.pdf,
   separation-special.pdf,
   shading-mesh-truncated.pdf,
+  shading-radial-cases.pdf,
   shading-type1-function.pdf,
   shading-type2-axial.pdf,
   shading-type3-radial.pdf,

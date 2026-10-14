@@ -192,6 +192,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _defaults = null;
             _converter = null;
             EndImages();
+            EndShadings();
         }
 
         public void SaveState()

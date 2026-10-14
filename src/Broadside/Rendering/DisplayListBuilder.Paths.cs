@@ -29,8 +29,8 @@ internal sealed partial class DisplayListBuilder
     /// <remarks>
     /// ISO 32000-2 §8.5.3, Table 59: <c>f</c>, <c>F</c>, <c>f*</c> and the fill of <c>B</c>, <c>B*</c>, <c>b</c>, <c>b*</c> become a
     /// fill with the nonstroking colour (§8.5.3.3.1); <c>S</c>, <c>s</c> and the stroke of the <c>B</c> family, after its fill, become
-    /// a stroke (§8.5.3.2, <c>DisplayListBuilder.Strokes.cs</c>). Clips (§8.5.4) and paints in a Pattern colour (§8.7) are not in
-    /// the list yet; later Phase 3 tickets add them.
+    /// a stroke (§8.5.3.2, <c>DisplayListBuilder.Strokes.cs</c>). A paint in a shading pattern becomes a paint with its shading
+    /// (§8.7.4.1, <c>DisplayListBuilder.Shadings.cs</c>); one in a tiling pattern (§8.7.3) is not in the list yet.
     /// </remarks>
     public override void PaintPath(in PathEvent path, ContentContext context)
     {
@@ -52,6 +52,7 @@ internal sealed partial class DisplayListBuilder
         ref readonly PdfColor fill = ref state.FillColor;
         if (fill.ColorSpace.Family == PdfColorSpaceFamily.Pattern)
         {
+            FillPathWithShading(path, context);
             return;
         }
 
@@ -59,6 +60,20 @@ internal sealed partial class DisplayListBuilder
         int colorIndex = AddColor(fill, context.DefaultColorSpaces, ColorConversion.FromState(state, DeviceColorModel.Rgb));
         SetTransform(state.Ctm);
         AddOperation(new DisplayOperation(DisplayOperationKind.FillPath, path.FillRule, pathIndex, colorIndex));
+    }
+
+    /// <summary>Records the fill of a path in a shading pattern (§8.7.4.1); a tiling pattern's fill is not in the list yet.</summary>
+    private void FillPathWithShading(in PathEvent path, ContentContext context)
+    {
+        int shading = AddPatternShading(context.State.FillColor, context);
+        if (shading < 0)
+        {
+            return;
+        }
+
+        int pathIndex = InternPath(path.Path);
+        SetTransform(context.State.Ctm);
+        AddOperation(new DisplayOperation(DisplayOperationKind.FillPathWithShading, path.FillRule, pathIndex, shading));
     }
 
     /// <summary>Returns the index of <paramref name="path"/> in the path table, adding it when no equal path is there yet.</summary>
