@@ -917,11 +917,11 @@ internal static class FuzzTargets
     /// length selects, and reopens the output. Whatever opened must save, and what was saved must open again with the same number of
     /// pages: a full save writes every object the trailer reaches (repaired ones re-serialized, references renumbered), so nothing the
     /// first open could read through the page tree may become unreadable. The input's length also selects the encryption: the
-    /// document's own, new AES-256 encryption with an empty user password, or none (issue #180); either way the output opens without
-    /// a password. <see cref="NotSupportedException"/> is the documented outcome for what a save cannot write (an encrypted file with
-    /// an integrity MAC kept as it is, data its credentials do not decrypt).
+    /// document's own, new AES-256 or AES-GCM with an integrity MAC encryption with an empty user password, or none (issues #180,
+    /// #181); either way the output opens without a password, and a MAC written new or kept from a verified one verifies.
+    /// <see cref="NotSupportedException"/> is the documented outcome for what a save cannot write (data its credentials do not decrypt).
     /// </summary>
-    /// <remarks>ISO 32000-2 §7.5, §7.3.10, §7.6 (issues #44, #144, #180).</remarks>
+    /// <remarks>ISO 32000-2 §7.5, §7.3.10, §7.6; ISO/TS 32003, ISO/TS 32004 (issues #44, #144, #180, #181).</remarks>
     private static void Save(ReadOnlySpan<byte> data)
     {
         using PdfDocument? document = OpenOrNull(data);
@@ -941,15 +941,21 @@ internal static class FuzzTargets
         var numbering = (PdfObjectNumbering)(data.Length / 3 % 2);
         bool removeUnreachable = data.Length / 6 % 2 == 1;
         PdfSaveOptions options = new PdfSaveOptions().WithCrossReferenceLayout(layout).WithObjectNumbering(numbering).WithRemoveUnreachableObjects(removeUnreachable);
+        bool protect = false;
         switch (data.Length / 24 % 3)
         {
             case 1:
-                options.WithEncryption(new PdfEncryptionOptions(null, "owner"));
+                protect = data.Length / 72 % 2 == 1;
+                options.WithEncryption(protect
+                    ? new PdfEncryptionOptions(null, "owner").WithAlgorithm(PdfEncryptionAlgorithm.Aes256Gcm).WithIntegrityProtection(true)
+                    : new PdfEncryptionOptions(null, "owner"));
                 break;
             case 2:
                 options.WithRemoveEncryption(true);
                 break;
             default:
+                // The document's own encryption: a MAC it verified is computed again over the saved file (issue #181).
+                protect = document.Security is { Integrity: PdfIntegrityStatus.Verified };
                 break;
         }
 
@@ -967,6 +973,11 @@ internal static class FuzzTargets
         if (saved.Pages.Count != pages)
         {
             throw new InvalidOperationException($"The saved file has {saved.Pages.Count} pages; the input had {pages}.");
+        }
+
+        if (protect && saved.Security?.Integrity != PdfIntegrityStatus.Verified)
+        {
+            throw new InvalidOperationException($"The saved file's integrity MAC is {saved.Security?.Integrity}, not verified.");
         }
     }
 

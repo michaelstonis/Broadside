@@ -9,7 +9,7 @@ namespace Broadside;
 /// without asking for one, with those permissions.
 /// </para>
 /// <para>
-/// The default algorithm, <see cref="PdfEncryptionAlgorithm.Aes256"/> (revision 6), takes passwords of any Unicode text, prepared
+/// The default algorithm, <see cref="PdfEncryptionAlgorithm.Aes256"/> (revision 6), like <see cref="PdfEncryptionAlgorithm.Aes256Gcm"/> (revision 7), takes passwords of any Unicode text, prepared
 /// with SASLprep (RFC 4013) and encoded as UTF-8, of which the first 127 bytes count (§7.6.4.3.3). The deprecated algorithms take
 /// passwords PDFDocEncoding can represent, of which the first 32 bytes count (§7.6.4.3.2).
 /// </para>
@@ -42,9 +42,10 @@ public sealed class PdfEncryptionOptions
     public string OwnerPassword { get; }
 
     /// <summary>
-    /// Gets or sets the algorithm. The default is <see cref="PdfEncryptionAlgorithm.Aes256"/>; the others are deprecated in PDF 2.0.
+    /// Gets or sets the algorithm. The default is <see cref="PdfEncryptionAlgorithm.Aes256"/>; <see cref="PdfEncryptionAlgorithm.Aes256Gcm"/>
+    /// is its ISO/TS 32003 extension, and the others are deprecated in PDF 2.0.
     /// </summary>
-    /// <remarks>ISO 32000-2 §7.6.2, Table 20; §7.6.4.2, Table 21.</remarks>
+    /// <remarks>ISO 32000-2 §7.6.2, Table 20; §7.6.4.2, Table 21; ISO/TS 32003 §5.1.</remarks>
     /// <exception cref="ArgumentOutOfRangeException">The value is not a defined algorithm.</exception>
     public PdfEncryptionAlgorithm Algorithm
     {
@@ -63,8 +64,8 @@ public sealed class PdfEncryptionOptions
     /// <summary>Gets or sets what opening the document with the user password permits. The default is <see cref="PdfPermissions.All"/>.</summary>
     /// <remarks>
     /// ISO 32000-2 §7.6.4.2, Table 22: written as the <c>P</c> entry, with the reserved bits set and bit 10 set (PDF 2.0 writers shall
-    /// set it), and bit 13 set, so no integrity MAC is required (ISO/TS 32004 §5.1.2). Values outside <see cref="PdfPermissions.All"/>
-    /// are ignored. Readers are expected to respect the permissions; nothing in PDF enforces them (§7.6.4.1).
+    /// set it), and bit 13 set unless <see cref="IntegrityProtection"/> requires a MAC (ISO/TS 32004 §5.1.2). Values outside
+    /// <see cref="PdfPermissions.All"/> are ignored. Readers are expected to respect the permissions; nothing in PDF enforces them (§7.6.4.1).
     /// </remarks>
     public PdfPermissions Permissions { get; set; } = PdfPermissions.All;
 
@@ -78,6 +79,27 @@ public sealed class PdfEncryptionOptions
     /// it with <see langword="false"/> is refused. Unencrypted metadata streams are also left uncompressed.
     /// </remarks>
     public bool EncryptMetadata { get; set; } = true;
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the saved file carries an integrity MAC (a PDF MAC token) that a reader holding the file
+    /// encryption key checks against every byte of the file. The default is <see langword="false"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ISO/TS 32004: the encryption dictionary gets a random 32-byte <c>KDFSalt</c> (§5.1.1), permission bit 13 is cleared so a MAC is
+    /// required in every revision (§5.1.2), and the trailer an <c>AuthCode</c> dictionary whose standalone token covers the whole file
+    /// except the token (§5.2.3, §6.5.1): HMAC-SHA-256 under a random key wrapped with AES-256 key wrap, its key encryption key
+    /// derived from the file encryption key with HKDF-SHA-256 (§6.3, §6.4), over the SHA-256 digest of the file (§6.6.2). The save
+    /// declares the extension in the catalog's <c>Extensions</c> (<c>ISO_</c>, level 32004, §4). An incremental update of the saved
+    /// file, and a complete save with its own key, compute the MAC again.
+    /// </para>
+    /// <para>
+    /// Needs <see cref="PdfEncryptionAlgorithm.Aes256"/> or <see cref="PdfEncryptionAlgorithm.Aes256Gcm"/> (<c>V</c> 5 or later,
+    /// Table 5); a save that combines it with a deprecated algorithm is refused. The MAC proves knowledge of the file encryption key,
+    /// so with an empty user password it protects nothing (§6.4, NOTE 2).
+    /// </para>
+    /// </remarks>
+    public bool IntegrityProtection { get; set; }
 
     /// <summary>Sets <see cref="Algorithm"/>.</summary>
     /// <param name="algorithm">The algorithm.</param>
@@ -107,6 +129,16 @@ public sealed class PdfEncryptionOptions
     public PdfEncryptionOptions WithEncryptMetadata(bool encryptMetadata)
     {
         EncryptMetadata = encryptMetadata;
+        return this;
+    }
+
+    /// <summary>Sets <see cref="IntegrityProtection"/>.</summary>
+    /// <param name="integrityProtection">Whether the saved file carries an integrity MAC.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO/TS 32004 §5, §6.</remarks>
+    public PdfEncryptionOptions WithIntegrityProtection(bool integrityProtection)
+    {
+        IntegrityProtection = integrityProtection;
         return this;
     }
 }

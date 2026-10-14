@@ -109,8 +109,9 @@ public sealed class PdfSaveOptions
     /// </para>
     /// <para>
     /// Keeping the document's own encryption re-encrypts every string and stream with the key it was opened with, under the
-    /// encryption dictionary it was read with; ciphertext is never copied from the source file. Its integrity MAC (ISO/TS 32004) cannot
-    /// be written yet, so a document that has one, or whose permissions require one, must be saved with new encryption or none.
+    /// encryption dictionary it was read with; ciphertext is never copied from the source file. A document that has an integrity MAC
+    /// (ISO/TS 32004), or whose permissions require one, gets a new one computed over the whole saved file with its own key and
+    /// <c>KDFSalt</c>; one opened without its file encryption key cannot, and is refused.
     /// </para>
     /// <para>
     /// An incremental update (<see cref="IncrementalUpdate"/>) always keeps the document's encryption (§7.5.6: earlier revisions stay

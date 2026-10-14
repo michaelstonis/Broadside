@@ -132,7 +132,7 @@ internal static class SavePlan
         foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
         {
             if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID)
-                && !(encryption.ReplacesDictionary && EncryptionPlan.IsEncryptionEntry(entry.Key)))
+                && encryption.KeepsTrailerEntry(entry.Key))
             {
                 trailer[entry.Key] = entry.Value;
             }
@@ -234,6 +234,7 @@ internal static class SavePlan
             // A renumbered file (references is not null) writes a dangling reference as null; one whose references are written as
             // they are keeps it, so the streams the save adds skip its number.
             StreamNumbers = references is null && options.CrossReferenceLayout != PdfCrossReferenceLayout.Table ? StreamNumbers(loader) : null,
+            Integrity = encryption.Integrity,
         };
     }
 
@@ -324,7 +325,7 @@ internal static class SavePlan
         foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
         {
             if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID)
-                && !(encryption.ReplacesDictionary && EncryptionPlan.IsEncryptionEntry(entry.Key)))
+                && encryption.KeepsTrailerEntry(entry.Key))
             {
                 trailer[entry.Key] = entry.Value;
             }
@@ -377,6 +378,7 @@ internal static class SavePlan
             encryption.Encryptor)
         {
             StreamNumbers = form == XrefSectionKind.Stream ? StreamNumbers(loader) : null,
+            Integrity = encryption.Integrity,
         };
     }
 
@@ -394,7 +396,7 @@ internal static class SavePlan
     /// <summary>
     /// Adds the features of the version table a file uses: a cross-reference stream and object streams (PDF 1.5, §7.5.7, §7.5.8),
     /// <c>FlateDecode</c> compression of a stream (PDF 1.2, §7.4.4; declared when a stream may be compressed, whether or not the
-    /// compressed copy turns out smaller), and the encryption <see cref="EncryptionPlan.Feature"/> names.
+    /// compressed copy turns out smaller), and the encryption <see cref="EncryptionPlan.Features"/> name.
     /// </summary>
     private static void AddFeatures(ICollection<VersionedFeature> features, PdfCrossReferenceLayout layout, List<WriterObject> objects, EncryptionPlan encryption)
     {
@@ -413,7 +415,7 @@ internal static class SavePlan
             features.Add(VersionedFeatures.FlateCompression);
         }
 
-        if (encryption.Feature is { } feature)
+        foreach (VersionedFeature feature in encryption.Features)
         {
             features.Add(feature);
         }
