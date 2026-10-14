@@ -86,6 +86,10 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <para>
 /// A metadata stream needs PDF 1.4 (§14.3.2); the metadata writer creates none below it (issue #162), so it never raises the version.
 /// </para>
+/// <para>
+/// Objects copied from another document carry the rows <see cref="CarriedFeatures"/> finds in them (issue #290); a row whose
+/// objects can be recognised by their entries should be added there too.
+/// </para>
 /// </remarks>
 internal static class VersionedFeatures
 {
