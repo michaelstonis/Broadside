@@ -1254,6 +1254,7 @@ public sealed partial class PdfDocument : IDisposable
         CompleteFontSubsets();
         DateModification(options);
         FileWriter writer = PlanVersionedSave(options);
+        FormatDatesFor(writer.Version > Version ? writer.Version : Version);
 
         // Table 20: V 1 to 4 (RC4 and AES-128) are deprecated in PDF 2.0. Reported before anything is written, so strict mode refuses.
         string? deprecated = options.Encryption switch
