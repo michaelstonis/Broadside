@@ -276,7 +276,7 @@ internal sealed class PopplerReferenceEngine(string? executable) : ReferenceEngi
 
             string number = (page + 1).ToString(CultureInfo.InvariantCulture);
             string prefix = Path.Combine(request.OutputDirectory, $"page{page}");
-            string[] arguments = ["-r", resolution, "-f", number, "-l", number, "-singlefile", "-hide-annotations", "-png", request.PdfPath, prefix];
+            string[] arguments = ["-r", resolution, "-f", number, "-l", number, "-singlefile", "-png", request.PdfPath, prefix];
             string? error = await RunProcessAsync(executable!, arguments, null, left, cancellationToken).ConfigureAwait(false);
             if (error is not null)
             {

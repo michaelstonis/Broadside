@@ -121,7 +121,8 @@ public static class RenderDiffRun
 #pragma warning disable CA2000
             var rasterizer = new SoftwareRasterizer();
 #pragma warning restore CA2000
-            var renderOptions = new RenderOptions { Dpi = options.Dpi };
+            // The whole page as a viewer shows it (#98): content, annotations and form fields; the references are asked for the same.
+            var renderOptions = new RenderOptions { Dpi = options.Dpi, Layers = DisplayLayers.All, Intent = DisplayIntent.View };
             var clock = System.Diagnostics.Stopwatch.StartNew();
             bool abandoned = false;
             foreach (int index in pageIndexes)

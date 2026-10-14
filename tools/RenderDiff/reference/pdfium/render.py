@@ -3,7 +3,7 @@
 Usage: python -I render.py <pdf> <out-dir> <dpi> <pages>
 
 <pages> is a comma-separated list of zero-based page indexes. Writes <out-dir>/page<N>.png (opaque RGB, the page's crop box with
-its /Rotate, white background, no annotations or form fields) for every page it can render and reports the others on stderr.
+its /Rotate, white background, annotations and form fields drawn from their appearances) for every page it can render and reports the others on stderr.
 Exits 0 when the document opened, 1 when it did not, 2 on bad arguments. Runs in the venv acquire-references.sh creates; needs
 only pypdfium2 and the standard library.
 """
@@ -41,11 +41,17 @@ def main(argv):
         print(f"cannot open: {error}", file=sys.stderr)
         return 1
 
+    try:
+        # Form fields are drawn only once the form environment exists; a file whose form cannot be set up still renders.
+        document.init_forms()
+    except Exception as error:  # noqa: BLE001
+        print(f"forms not initialized: {error}", file=sys.stderr)
+
     os.makedirs(out_dir, exist_ok=True)
     for index in pages:
         try:
             page = document[index]
-            bitmap = page.render(scale=dpi / 72, draw_annots=False, may_draw_forms=False, rev_byteorder=True)
+            bitmap = page.render(scale=dpi / 72, draw_annots=True, may_draw_forms=True, rev_byteorder=True)
             width, height, stride = bitmap.width, bitmap.height, bitmap.stride
             channels = bitmap.n_channels
             buffer = bytes(bitmap.buffer)

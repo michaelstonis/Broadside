@@ -3,7 +3,7 @@
 // Usage: node render.mjs <pdf> <out-dir> <dpi> <pages>
 //
 // <pages> is a comma-separated list of zero-based page indexes. Writes <out-dir>/page<N>.png (the page's crop box with its /Rotate,
-// white background, no annotations or form fields) for every page it can render and reports the others on stderr. Exits 0 when the
+// white background, annotations and form fields drawn from their appearances) for every page it can render and reports the others on stderr. Exits 0 when the
 // document opened, 1 when it did not, 2 on bad arguments. The modules come from the directory acquire-references.sh installed, named
 // by RENDERDIFF_PDFJS_DIR, so this script can stay in the repository.
 import { mkdir, readFile, rename, writeFile } from "node:fs/promises";
@@ -55,7 +55,8 @@ for (const index of pages) {
       canvasContext: context,
       viewport,
       background: "white",
-      annotationMode: pdfjs.AnnotationMode.DISABLE,
+      // ENABLE paints every annotation, widgets included, from its appearance onto the canvas (no HTML form layer here).
+      annotationMode: pdfjs.AnnotationMode.ENABLE,
     }).promise;
     const target = path.join(outDir, `page${index}.png`);
     await writeFile(target + ".partial", await canvas.encode("png"));
