@@ -170,6 +170,39 @@ public sealed class OverprintRenderingTests
         Assert.NotEqual(overprinted.At(Overlay), overprinted.At(Both));
     }
 
+    [Theory]
+    [InlineData("shading-type1-function.pdf")]
+    [InlineData("shading-type4-freeform.pdf")]
+    [InlineData("shading-type5-lattice.pdf")]
+    [InlineData("shading-type6-coons.pdf")]
+    [InlineData("shading-type7-tensor.pdf")]
+    public void Function_based_mesh_and_patch_shadings_reach_the_preview(string file)
+    {
+        // Shadings of types 1 and 4 to 7 paint through the mesh layer (#110, #111); in the preview they must land in the colourant
+        // planes, not in the target the planes overwrite: the preview paints (nearly) every pixel the plain render paints.
+        using PdfDocument document = PdfDocument.Open(Corpus.Path(file));
+        using var rasterizer = new SoftwareRasterizer();
+        using Bitmap plain = rasterizer.Render(document.Pages[0], new RenderOptions());
+        using Bitmap preview = rasterizer.Render(document.Pages[0], new RenderOptions().WithOverprintPreview(true));
+
+        int painted = 0;
+        int previewed = 0;
+        for (int y = 0; y < plain.Height; y++)
+        {
+            for (int x = 0; x < plain.Width; x++)
+            {
+                if (plain.At(x, y) != White)
+                {
+                    painted++;
+                    previewed += preview.At(x, y) != White ? 1 : 0;
+                }
+            }
+        }
+
+        Assert.True(painted > 1000, $"{file}: only {painted} painted pixels.");
+        Assert.True(previewed >= painted * 0.95, $"{file}: the preview painted {previewed} of {painted} pixels.");
+    }
+
     [Fact]
     public void A_progressive_render_draws_the_same_preview_as_a_render()
     {
