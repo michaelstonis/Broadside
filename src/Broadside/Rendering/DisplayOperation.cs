@@ -52,6 +52,12 @@ internal enum DisplayOperationKind : byte
     /// operations from this one's successor up to the group's end.
     /// </summary>
     DrawGroup,
+
+    /// <summary><see cref="IRenderingBackend.BeginAnnotation"/>; <see cref="DisplayOperation.First"/> indexes the annotations.</summary>
+    BeginAnnotation,
+
+    /// <summary><see cref="IRenderingBackend.EndAnnotation"/>.</summary>
+    EndAnnotation,
 }
 
 /// <summary>One record of a display list: a kind and up to two indexes into the list's tables, 16 bytes.</summary>

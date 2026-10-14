@@ -338,6 +338,14 @@ public sealed class DisplayListTests
         }
 
         public void DrawGroup(in DisplayGroup group) => group.Replay(this);
+
+        public void BeginAnnotation(in DisplayAnnotation annotation)
+        {
+        }
+
+        public void EndAnnotation()
+        {
+        }
     }
 
     /// <summary>Counts the converters requested per source family, then defers to the inner management.</summary>

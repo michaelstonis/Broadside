@@ -21,9 +21,11 @@ namespace Broadside.Rendering;
 /// stencil masks (§8.9.6.2, <see cref="DisplayImageMask"/>), text as glyph runs (§9.4.3, §9.3.6, <see cref="GlyphRun"/>: font
 /// program, glyph ids, text matrices, outlines interned once per program and glyph) and shadings, from <c>sh</c> and as shading
 /// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>), constant alpha and blend modes
-/// (<see cref="IRenderingBackend.SetCompositing"/>, §11.6.3, §11.6.4.4) and transparency groups (§11.4, <see cref="DisplayGroup"/>:
-/// group XObjects, the page group and the implicit group of a combined fill and stroke). Type 3 glyphs, text clips, tiling patterns
-/// and soft masks join it in later Phase 3 tickets, each as new <see cref="IRenderingBackend"/> calls.
+/// (<see cref="IRenderingBackend.SetCompositing"/>, §11.6.3, §11.6.4.4), transparency groups (§11.4, <see cref="DisplayGroup"/>:
+/// group XObjects, the page group and the implicit group of a combined fill and stroke) and annotations' appearances (§12.5.5,
+/// <see cref="DisplayAnnotation"/>; a list holds the page's content, annotation and form-field layers as <see cref="DisplayLayers"/>
+/// asks). Type 3 glyphs, text clips, tiling patterns and soft masks join it in later Phase 3 tickets, each as new
+/// <see cref="IRenderingBackend"/> calls.
 /// </para>
 /// <para>
 /// Immutable once built: any number of threads may replay the same list at once, each into its own backend.
@@ -88,6 +90,9 @@ public sealed class DisplayList
 
     /// <summary>Gets the transparency groups the list paints (indexed by <see cref="DisplayOperationKind.DrawGroup"/> records).</summary>
     internal DisplayGroupEntry[] Groups { get; init; } = [];
+
+    /// <summary>Gets the annotations the list draws (indexed by <see cref="DisplayOperationKind.BeginAnnotation"/> records).</summary>
+    internal DisplayAnnotation[] Annotations { get; init; } = [];
 
     /// <summary>Gets the document the list was built from, whose colour converters a backend uses (see <see cref="DisplayColor"/>).</summary>
     public PdfDocument Document { get; }
@@ -175,6 +180,12 @@ public sealed class DisplayList
                     ref readonly DisplayGroupEntry group = ref Groups[operation.First];
                     backend.DrawGroup(new DisplayGroup(this, group));
                     index = group.End - start - 1;
+                    break;
+                case DisplayOperationKind.BeginAnnotation:
+                    backend.BeginAnnotation(in Annotations[operation.First]);
+                    break;
+                case DisplayOperationKind.EndAnnotation:
+                    backend.EndAnnotation();
                     break;
             }
         }

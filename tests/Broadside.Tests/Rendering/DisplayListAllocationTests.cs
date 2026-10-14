@@ -170,5 +170,9 @@ public sealed class DisplayListAllocationTests
             Checksum += group.Opacity + (group.IsKnockout ? 1 : 0);
             group.Replay(this);
         }
+
+        public void BeginAnnotation(in DisplayAnnotation annotation) => Checksum += annotation.Rectangle.Width + annotation.Opacity;
+
+        public void EndAnnotation() => Checksum++;
     }
 }

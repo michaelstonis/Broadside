@@ -10,7 +10,7 @@ namespace Broadside.Rendering;
 /// their category in a file of their own.
 /// </summary>
 /// <remarks>
-/// One builder per thread is reused (<see cref="Build"/>), so its growable tables stay warm and building a page allocates only the
+/// One builder per thread is reused (<see cref="Build(PdfPage, PdfDocument, ContentOptions)"/>), so its growable tables stay warm and building a page allocates only the
 /// list itself: a fixed number of arrays sized to the page. The builder keeps no reference into the document between builds.
 /// </remarks>
 internal sealed partial class DisplayListBuilder : ContentProcessor
@@ -82,6 +82,8 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         ImageMasks = _imageMasks.AsSpan(0, _imageMaskCount).ToArray(),
         Compositings = _compositings.AsSpan(0, _compositingCount).ToArray(),
         Groups = _groups.AsSpan(0, _groupCount).ToArray(),
+
+        Annotations = _annotations.AsSpan(0, _annotationCount).ToArray(),
     };
 
     /// <summary>Forgets everything built, keeping the tables' capacity and no reference into a document.</summary>
@@ -99,6 +101,8 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         ResetShadings();
         ResetCompositing();
         ResetGroups();
+
+        ResetAnnotations();
     }
 
     /// <inheritdoc/>

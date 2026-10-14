@@ -88,5 +88,9 @@ public class DisplayListBenchmarks
             Calls++;
             group.Replay(this);
         }
+
+        public void BeginAnnotation(in DisplayAnnotation annotation) => Calls += (int)annotation.Kind;
+
+        public void EndAnnotation() => Calls++;
     }
 }
