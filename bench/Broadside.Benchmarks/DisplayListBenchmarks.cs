@@ -93,6 +93,8 @@ public class DisplayListBenchmarks
             group.Replay(this);
         }
 
+        public void SetSoftMask(in DisplaySoftMask mask) => Calls += mask.IsNone ? 1 : 2;
+
         public void BeginAnnotation(in DisplayAnnotation annotation) => Calls += (int)annotation.Kind;
 
         public void EndAnnotation() => Calls++;

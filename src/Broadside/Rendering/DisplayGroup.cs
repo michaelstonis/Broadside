@@ -28,6 +28,7 @@ public readonly ref struct DisplayGroup
     private readonly DisplayList _list;
     private readonly int _start;
     private readonly int _end;
+    private readonly int _softMask;
 
     internal DisplayGroup(DisplayList list, in DisplayGroupEntry entry)
     {
@@ -45,6 +46,7 @@ public readonly ref struct DisplayGroup
         HasBoundingBox = entry.HasBoundingBox;
         BoundingBox = entry.BoundingBox;
         Matrix = entry.Matrix;
+        _softMask = entry.SoftMask;
     }
 
     /// <summary>Gets where the group comes from: a group XObject, the page group, or the implicit group of a combined fill and stroke.</summary>
@@ -109,6 +111,18 @@ public readonly ref struct DisplayGroup
     /// </summary>
     /// <remarks>ISO 32000-2 §8.10.1.</remarks>
     public Matrix Matrix { get; }
+
+    /// <summary>
+    /// Gets the soft mask the group's result composites through: the one in the graphics state at <c>Do</c>, whose values give
+    /// the result's shape or opacity per point; <see cref="DisplaySoftMask.IsNone"/> when there is none (always for the page group
+    /// and the implicit group of a fill and stroke, whose paints carry the mask themselves).
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §11.6.4.3 (NOTE 2: a mask applies to a group as a whole) and §11.6.6: inside the group the soft mask starts as None,
+    /// so the content is not masked again; the backend's own mask (<see cref="IRenderingBackend.SetSoftMask"/>) does not apply to
+    /// the group's result, this one does.
+    /// </remarks>
+    public DisplaySoftMask SoftMask => _softMask < 0 ? default : new DisplaySoftMask(_list.SoftMasks[_softMask]);
 
     /// <summary>Calls <paramref name="backend"/> once for every operation of the group's content, in order (nested groups included).</summary>
     /// <param name="backend">The backend that draws the content, usually the one <see cref="IRenderingBackend.DrawGroup"/> was called on.</param>

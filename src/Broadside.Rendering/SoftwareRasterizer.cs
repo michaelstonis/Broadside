@@ -240,6 +240,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             ResetCompositing();
             BeginAnnotations();
             BeginGroups();
+            BeginSoftMasks(width, height);
         }
 
         public void End()
@@ -253,6 +254,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             EndImages();
             EndShadings();
             EndGroups();
+            EndSoftMasks();
         }
 
         public void SaveState()
@@ -265,6 +267,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _stack[_depth++] = _ctm;
             _clip.Save();
             SaveCompositing();
+            SaveSoftMask();
         }
 
         public void RestoreState()
@@ -276,6 +279,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
             _clip.Restore();
             RestoreCompositing();
+            RestoreSoftMask();
         }
 
         public void SetTransform(in Matrix transform)
@@ -347,6 +351,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             DisposeImages();
             DisposeGroups();
             DisposeTiling();
+            DisposeSoftMasks();
         }
 
         /// <summary>

@@ -220,7 +220,7 @@ internal sealed partial class DisplayListBuilder
                 case DisplayOperationKind.DrawGroup:
                     // A transparency group (#114): a group of its own here, its content the sub-list's operations that followed it.
                     DisplayGroupEntry group = _groups[operation.First];
-                    int replayed = OpenGroup(moved ? group with { Matrix = group.Matrix * delta } : group);
+                    int replayed = OpenGroup(moved ? group with { Matrix = group.Matrix * delta, SoftMask = MoveSoftMask(group.SoftMask, delta, description.State) } : group);
                     Append(ref _type3Groups, ref _type3GroupCount, (replayed, k + 1 + (group.End - group.Start)));
                     break;
                 case DisplayOperationKind.SaveState:
@@ -236,6 +236,10 @@ internal sealed partial class DisplayListBuilder
                     break;
                 case DisplayOperationKind.SetCompositing:
                     SetCompositing(_compositings[operation.First]);
+                    break;
+                case DisplayOperationKind.SetSoftMask:
+                    // Through the builder's tracking, like compositing; a mask set inside the description moves with it.
+                    SetSoftMaskRecord(moved ? MoveSoftMask(operation.First, delta, description.State) : operation.First);
                     break;
                 case DisplayOperationKind.FillPath or DisplayOperationKind.FillImageMask when recolors:
                     AddOperation(operation with { Second = TextFill(ref fill, context) });
@@ -344,8 +348,8 @@ internal sealed partial class DisplayListBuilder
 
     /// <summary>
     /// Whether <paramref name="operations"/> is one save, a restore matching it last, and between them nothing that changes the
-    /// state those two keep but saves and restores of its own: transforms, compositing and paints only (the builder tracks the
-    /// transform and the compositing, and replays both through that tracking).
+    /// state those two keep but saves and restores of its own: transforms, compositing, soft masks and paints only (the builder
+    /// tracks the transform, the compositing and the soft mask, and replays them through that tracking).
     /// </summary>
     private static bool EnclosedOnlyByOwnState(ReadOnlySpan<DisplayOperation> operations)
     {
@@ -369,7 +373,7 @@ internal sealed partial class DisplayListBuilder
                     }
 
                     break;
-                case DisplayOperationKind.SetTransform or DisplayOperationKind.SetCompositing or DisplayOperationKind.FillPath
+                case DisplayOperationKind.SetTransform or DisplayOperationKind.SetCompositing or DisplayOperationKind.SetSoftMask or DisplayOperationKind.FillPath
                     or DisplayOperationKind.StrokePath or DisplayOperationKind.DrawImage or DisplayOperationKind.DrawGlyphs
                     or DisplayOperationKind.DrawShading or DisplayOperationKind.FillPathWithShading or DisplayOperationKind.StrokePathWithShading
                     or DisplayOperationKind.FillImageMask or DisplayOperationKind.FillPathWithTilingPattern

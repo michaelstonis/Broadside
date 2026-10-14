@@ -22,7 +22,8 @@ namespace Broadside.TestSupport;
 /// <c>| shading Type [matrix] background</c> instead of a colour, and in a tiling pattern ending
 /// <c>| tiling PaintType TilingType [matrix] bbox [l b r t] step x y</c>; <c>compositing CA ca BlendMode</c>;
 /// <c>group Kind[ isolated][ knockout][ Family][ opacity a][ BlendMode][ bbox [l b r t] [matrix]]</c>, then the group's content, then
-/// <c>end group</c>. Numbers are written round-trippable and culture-invariant.
+/// <c>end group</c> (a group with a soft mask adds <c> softmask …</c> as below before its content);
+/// <c>softmask None</c> or <c>softmask Alpha|Luminosity [matrix][ Family bc …][ tr FunctionType][ shape][ bbox [l b r t]]</c>. Numbers are written round-trippable and culture-invariant.
 /// </remarks>
 public sealed class RecordingBackend : IRenderingBackend
 {
@@ -52,6 +53,9 @@ public sealed class RecordingBackend : IRenderingBackend
 
     /// <summary>Gets the groups, in replay order: their kind, colour space, default colour spaces and conversion.</summary>
     public List<(DisplayGroupKind Kind, PdfColorSpace? ColorSpace, PdfDefaultColorSpaces Defaults, ColorConversion Conversion)> Groups { get; } = [];
+
+    /// <summary>Gets the soft masks set (none included) and those of groups, in replay order.</summary>
+    public List<(bool IsNone, PdfSoftMaskType Subtype, DisplayList? Content, Matrix Matrix, PdfFunction? TransferFunction)> SoftMasks { get; } = [];
 
     /// <summary>Gets the annotations begun, in replay order.</summary>
     public List<DisplayAnnotation> Annotations { get; } = [];
@@ -324,11 +328,19 @@ public sealed class RecordingBackend : IRenderingBackend
             text.Append(CultureInfo.InvariantCulture, $" bbox [{Number(box.Left)} {Number(box.Bottom)} {Number(box.Right)} {Number(box.Top)}] {group.Matrix}");
         }
 
+        if (!group.SoftMask.IsNone)
+        {
+            text.Append(' ').Append(SoftMask(group.SoftMask));
+        }
+
         Operations.Add(text.ToString());
         Groups.Add((group.Kind, group.ColorSpace, group.DefaultColorSpaces, group.Conversion));
         group.Replay(this);
         Operations.Add("end group");
     }
+
+    /// <inheritdoc/>
+    public void SetSoftMask(in DisplaySoftMask mask) => Operations.Add(SoftMask(mask));
 
     public void BeginAnnotation(in DisplayAnnotation annotation)
     {
@@ -396,4 +408,41 @@ public sealed class RecordingBackend : IRenderingBackend
     }
 
     private static string Number(double value) => value.ToString("R", CultureInfo.InvariantCulture);
+
+    private string SoftMask(in DisplaySoftMask mask)
+    {
+        SoftMasks.Add((mask.IsNone, mask.Subtype, mask.IsNone ? null : mask.Content, mask.Matrix, mask.TransferFunction));
+        if (mask.IsNone)
+        {
+            return "softmask None";
+        }
+
+        var text = new StringBuilder("softmask ").Append(mask.Subtype).Append(' ').Append(mask.Matrix);
+        if (mask.ColorSpace is { } space)
+        {
+            text.Append(' ').Append(space.Family);
+            foreach (float component in mask.Backdrop)
+            {
+                text.Append(' ').Append(component.ToString("R", CultureInfo.InvariantCulture));
+            }
+        }
+
+        if (mask.TransferFunction is { } function)
+        {
+            text.Append(" tr ").Append(function.FunctionType);
+        }
+
+        if (mask.IsShape)
+        {
+            text.Append(" shape");
+        }
+
+        if (mask.HasBoundingBox)
+        {
+            PdfRectangle box = mask.BoundingBox;
+            text.Append(CultureInfo.InvariantCulture, $" bbox [{Number(box.Left)} {Number(box.Bottom)} {Number(box.Right)} {Number(box.Top)}]");
+        }
+
+        return text.ToString();
+    }
 }

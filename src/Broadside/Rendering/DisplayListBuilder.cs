@@ -84,6 +84,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         Groups = _groups.AsSpan(0, _groupCount).ToArray(),
         TilingPaints = _tilingPaints.AsSpan(0, _tilingPaintCount).ToArray(),
         Annotations = _annotations.AsSpan(0, _annotationCount).ToArray(),
+        SoftMasks = _softMasks.AsSpan(0, _softMaskCount).ToArray(),
     };
 
     /// <summary>Forgets everything built, keeping the tables' capacity and no reference into a document.</summary>
@@ -104,6 +105,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         ResetTiling();
         ResetAnnotations();
         ResetType3();
+        ResetSoftMasks();
     }
 
     /// <inheritdoc/>
@@ -166,7 +168,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     {
         for (int index = _operationCount - 1; index >= start; index--)
         {
-            if (_operations[index].Kind is not (DisplayOperationKind.SetTransform or DisplayOperationKind.IntersectClip or DisplayOperationKind.SetCompositing))
+            if (_operations[index].Kind is not (DisplayOperationKind.SetTransform or DisplayOperationKind.IntersectClip or DisplayOperationKind.SetCompositing or DisplayOperationKind.SetSoftMask))
             {
                 return true;
             }

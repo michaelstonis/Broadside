@@ -76,7 +76,7 @@ internal sealed partial class DisplayListBuilder
 
         int pathIndex = InternPath(path.Path);
         int colorIndex = AddColor(fill, context.DefaultColorSpaces, ColorConversion.FromState(state, DeviceColorModel.Rgb));
-        SetCompositing(state);
+        SetCompositing(state, context);
         SetTransform(state.Ctm);
         AddOperation(new DisplayOperation(DisplayOperationKind.FillPath, path.FillRule, pathIndex, colorIndex));
     }

@@ -4,7 +4,7 @@ namespace Broadside.Rendering;
 
 /// <summary>What a transparency group's content does that decides how the rasterizer can composite it.</summary>
 /// <param name="Blends">Whether any paint or nested group in it uses a blend mode other than Normal.</param>
-/// <param name="Transparency">Whether anything in it is not opaque: an alpha constant below 1, a nested group, or a masked image.</param>
+/// <param name="Transparency">Whether anything in it is not opaque: an alpha constant below 1, a nested group, a masked image or a soft mask.</param>
 internal readonly record struct GroupContent(bool Blends, bool Transparency);
 
 /// <summary>
@@ -95,6 +95,9 @@ internal sealed class GroupProbe : IRenderingBackend
         _transparency = true;
         group.Replay(this);
     }
+
+    /// <summary>A soft mask makes its paints transparent (§11.6.4.3); its own group is not part of the content.</summary>
+    public void SetSoftMask(in DisplaySoftMask mask) => _transparency |= !mask.IsNone;
 
     public void BeginAnnotation(in DisplayAnnotation annotation)
     {

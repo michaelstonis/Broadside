@@ -13,7 +13,8 @@ namespace Broadside.Fuzz;
 /// Decode map that agree on its component count; every glyph run (issue #100) has glyphs whose outlines are well formed, paints
 /// in no Pattern colour, paints nothing in mode 3 and fills or strokes only in the modes that do; every shading (issue #109) is
 /// valid, evaluates to finite colours and paints its Background only as a pattern; every tiling pattern (issue #112) is valid with
-/// an invertible pattern space and a cell that replays balanced; two replays of one list make the same calls; a region replay
+/// an invertible pattern space and a cell that replays balanced; every soft mask (issue #115) has a backdrop that fits its
+/// space and a group list that replays balanced; two replays of one list make the same calls; a region replay
 /// (issue #96) holding everything makes them all, and any other makes a balanced subset.
 /// Each call runs in a new empty document.
 /// </summary>
@@ -67,6 +68,9 @@ internal static class DisplayListTarget
         public int Calls { get; private set; }
 
         public double Checksum { get; private set; }
+
+        // The soft-mask lists already checked (each is replayed once per backend: a mask arrives before many paints).
+        private HashSet<DisplayList> CheckedMasks { get; } = new(ReferenceEqualityComparer.Instance);
 
         public void SaveState()
         {
@@ -214,6 +218,32 @@ internal static class DisplayListTarget
             group.Replay(this);
             Check(Depth == depth, "a group's content is not balanced");
             Checksum += group.Opacity + (int)group.BlendMode;
+            CheckSoftMask(group.SoftMask);
+        }
+
+        public void SetSoftMask(in DisplaySoftMask mask)
+        {
+            Calls++;
+            CheckSoftMask(mask);
+        }
+
+        /// <summary>A soft mask's list holds at most one group, balanced, its backdrop fits its space, and it is only checked once per list.</summary>
+        private void CheckSoftMask(in DisplaySoftMask mask)
+        {
+            if (mask.IsNone)
+            {
+                return;
+            }
+
+            Check(Enum.IsDefined(mask.Subtype), "an undefined soft-mask subtype");
+            Check(mask.Subtype == PdfSoftMaskType.Luminosity ? mask.ColorSpace is { ComponentCount: 1 or 3 or 4 } && mask.Backdrop.Length == mask.ColorSpace.ComponentCount : mask.ColorSpace is null && mask.Backdrop.IsEmpty, "a soft-mask backdrop that does not fit its space");
+            Checksum += mask.Matrix.A + (mask.IsShape ? 1 : 0);
+            if (CheckedMasks.Add(mask.Content))
+            {
+                int depth = Depth;
+                mask.Content.Replay(this);
+                Check(Depth == depth, "a soft mask's group is not balanced");
+            }
         }
 
         public void BeginAnnotation(in DisplayAnnotation annotation)

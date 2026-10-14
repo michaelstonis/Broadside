@@ -207,10 +207,32 @@ public interface IRenderingBackend
     /// A shading pattern's paint arrives with its pattern's ExtGState applied (§11.6.7): its <c>ca</c> already multiplied into the
     /// alpha of the paint, its blend mode, when not Normal, in place of the state's. The page's blending colour space is the
     /// backend's (§11.3.4, §11.4.7) unless a page group names one. Transparency groups, including the implicit knockout group of a
-    /// combined fill and stroke (§11.7.4.4), arrive through <see cref="DrawGroup"/>; soft masks are not in the list yet.
+    /// combined fill and stroke (§11.7.4.4), arrive through <see cref="DrawGroup"/>; soft masks through <see cref="SetSoftMask"/>.
     /// </para>
     /// </remarks>
     void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode);
+
+    /// <summary>Sets the soft mask the paints that follow composite through, or removes it (<see cref="DisplaySoftMask.IsNone"/>).</summary>
+    /// <param name="mask">The mask: its group's list in mask space, how values derive from it, its backdrop and transfer function.</param>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §11.5, §11.6.4.3 and §11.6.5.1. Every paint's source shape (when <see cref="DisplaySoftMask.IsShape"/>) or opacity
+    /// is multiplied, point by point, by the mask value there, on top of its coverage, clip and alpha constant. The call arrives before
+    /// the first paint it applies to, only when the mask changes, and <see cref="SaveState"/> and <see cref="RestoreState"/> save and
+    /// restore it. It applies to paints only: a group's result composites through <see cref="DisplayGroup.SoftMask"/> instead, and a
+    /// group's content starts with no mask (§11.6.6), which this call sets inside it when the backend holds one.
+    /// </para>
+    /// <para>
+    /// An image with a mask of its own (soft mask, explicit or colour key mask, or an opacity channel) is preceded by a call with no
+    /// mask: the image's mask overrides the graphics state's for that image (§11.6.4.3).
+    /// </para>
+    /// <para>
+    /// The same mask (same <see cref="DisplaySoftMask.Content"/> and <see cref="DisplaySoftMask.Matrix"/>) usually arrives many
+    /// times in one replay; a backend renders it once and keeps it. A backend that cannot apply soft masks paints unmasked and
+    /// reports that it did (ADR 0005).
+    /// </para>
+    /// </remarks>
+    void SetSoftMask(in DisplaySoftMask mask);
 
     /// <summary>Paints a transparency group: its content composited as a group, then the result composited onto the backdrop as one object.</summary>
     /// <param name="group">
@@ -227,7 +249,8 @@ public interface IRenderingBackend
     /// parent, the parent's initial backdrop); in a knockout group each paint composites with the initial backdrop only and
     /// replaces, in proportion to its shape, what earlier paints of the group left. The group's colour, shape and alpha (with the
     /// backdrop's contribution removed, §11.4.4) then composite onto the backdrop with <see cref="DisplayGroup.Opacity"/> and
-    /// <see cref="DisplayGroup.BlendMode"/>, through the clip in force at this call (§8.5.4).
+    /// <see cref="DisplayGroup.BlendMode"/>, through the clip in force at this call (§8.5.4) and <see cref="DisplayGroup.SoftMask"/>
+    /// (§11.6.4.3).
     /// </para>
     /// <para>
     /// Colour: in a group with a <see cref="DisplayGroup.ColorSpace"/> colours convert to it and blend there (subtractive spaces

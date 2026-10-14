@@ -159,9 +159,16 @@ internal sealed class GroupLayer : IDisposable
     /// Takes one run of a paint's coverage (shape fs, clipped) in group pixels and lets <paramref name="inner"/> composite it into the
     /// plane, applying knockout and recording alpha and shape around it (see the type's remarks).
     /// </summary>
-    public void Span<TSink>(int row, int x, int count, int coverage, ref TSink inner)
+    /// <param name="row">The row, in group pixels.</param>
+    /// <param name="x">The first pixel of the run.</param>
+    /// <param name="count">The pixels in the run.</param>
+    /// <param name="coverage">The paint's shape over the run (coverage, clip, and a soft mask that is shape).</param>
+    /// <param name="inner">The paint's sink.</param>
+    /// <param name="opacity">A soft mask's opacity over the run (§11.6.4.3), which scales what the paint composites but not its shape.</param>
+    public void Span<TSink>(int row, int x, int count, int coverage, ref TSink inner, int opacity = 255)
         where TSink : ICoverageSink, allows ref struct
     {
+        int paint = opacity >= 255 ? coverage : Compositor.Divide255(coverage * opacity);
         Span<uint> line = PlaneRow(Pass, row, x, count);
         bool alpha = TracksAlpha && Records;
         if (Knockout)
@@ -170,13 +177,13 @@ internal sealed class GroupLayer : IDisposable
             line.CopyTo(previous);
             Span<uint> backdrop = BackdropRow(Pass, row, x, count);
             backdrop.CopyTo(line);
-            inner.Span(row, x, count, coverage);
+            Paint(ref inner, row, x, count, paint);
             if (alpha)
             {
                 Span<uint> composited = _element.AsSpan(0, count);
                 line.CopyTo(composited);
                 line.Clear();
-                inner.Span(row, x, count, coverage);
+                Paint(ref inner, row, x, count, paint);
                 Span<byte> groupAlpha = AlphaRow(row, x, count);
                 for (int i = 0; i < count; i++)
                 {
@@ -197,7 +204,7 @@ internal sealed class GroupLayer : IDisposable
             Span<uint> previous = _saved.AsSpan(0, count);
             line.CopyTo(previous);
             line.Clear();
-            inner.Span(row, x, count, coverage);
+            Paint(ref inner, row, x, count, paint);
             Span<byte> groupAlpha = AlphaRow(row, x, count);
             for (int i = 0; i < count; i++)
             {
@@ -205,11 +212,11 @@ internal sealed class GroupLayer : IDisposable
             }
 
             previous.CopyTo(line);
-            inner.Span(row, x, count, coverage);
+            Paint(ref inner, row, x, count, paint);
         }
         else
         {
-            inner.Span(row, x, count, coverage);
+            Paint(ref inner, row, x, count, paint);
         }
 
         if (TracksShape && Records)
@@ -218,6 +225,16 @@ internal sealed class GroupLayer : IDisposable
             {
                 shape = (byte)Compositor.Union(shape, coverage);
             }
+        }
+    }
+
+    /// <summary>Hands a run to the paint's sink unless the paint covers nothing there.</summary>
+    private static void Paint<TSink>(ref TSink inner, int row, int x, int count, int coverage)
+        where TSink : ICoverageSink, allows ref struct
+    {
+        if (coverage > 0)
+        {
+            inner.Span(row, x, count, coverage);
         }
     }
 

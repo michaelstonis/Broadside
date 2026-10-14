@@ -23,8 +23,14 @@ internal sealed partial class DisplayListBuilder
     /// transparency group the interpreter starts both alphas at 1 and the blend mode at Normal (§11.6.6); the group itself is not in
     /// the list yet.
     /// </remarks>
-    private void SetCompositing(in GraphicsState state) =>
+    /// <param name="state">The paint's graphics state.</param>
+    /// <param name="context">The run, which builds the soft mask's group the first time it is needed.</param>
+    /// <param name="ownMask">Whether the paint is an image with a mask of its own, which overrides the soft mask (§11.6.4.3).</param>
+    private void SetCompositing(in GraphicsState state, ContentContext context, bool ownMask = false)
+    {
+        SetSoftMask(state, context, ownMask);
         SetCompositing(new DisplayCompositing(state.StrokeAlpha, state.FillAlpha, state.BlendMode));
+    }
 
     /// <summary>
     /// Records the compositing of a paint in a shading pattern: the state's, with the pattern's own ExtGState applied as §11.6.7
@@ -38,6 +44,7 @@ internal sealed partial class DisplayListBuilder
     private void SetPatternCompositing(in PdfColor color, ContentContext context, bool stroke)
     {
         ref readonly GraphicsState state = ref context.State;
+        SetSoftMask(state, context, overridden: false);
         var compositing = new DisplayCompositing(state.StrokeAlpha, state.FillAlpha, state.BlendMode);
         if (context.GetPattern(color) is PdfShadingPattern { ExtGState: { } dictionary })
         {
@@ -67,14 +74,23 @@ internal sealed partial class DisplayListBuilder
         Append(ref _compositings, ref _compositingCount, compositing);
     }
 
-    private void SaveCompositing() => Append(ref _savedCompositings, ref _savedCompositingCount, _compositing);
+    private void SaveCompositing()
+    {
+        Append(ref _savedCompositings, ref _savedCompositingCount, _compositing);
+        SaveSoftMask();
+    }
 
-    private void RestoreCompositing() => _compositing = _savedCompositings[--_savedCompositingCount];
+    private void RestoreCompositing()
+    {
+        _compositing = _savedCompositings[--_savedCompositingCount];
+        RestoreSoftMask();
+    }
 
     private void ResetCompositing()
     {
         _compositingCount = 0;
         _compositing = DisplayCompositing.Initial;
         _savedCompositingCount = 0;
+        ResetSoftMaskTracking();
     }
 }
