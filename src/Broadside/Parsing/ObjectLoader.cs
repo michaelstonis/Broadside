@@ -119,6 +119,14 @@ internal sealed class ObjectLoader
     private static IReadOnlyDictionary<int, int> EmptyRemoved { get; } = new Dictionary<int, int>();
 
     /// <summary>
+    /// Gets a number that changes every time an object is added (<see cref="Add"/>) or removed (<see cref="Remove"/>), and never by
+    /// reading or loading: what a reference resolves to can change only then. A cache that recorded the <c>Version</c> of every
+    /// container it read also records this, since a removal changes what a reference in an unchanged container resolves to, and an
+    /// addition can give a dangling reference an object (§7.3.10). Every change also advances <see cref="CosMutation.Epoch"/>.
+    /// </summary>
+    public int ObjectsVersion { get; private set; }
+
+    /// <summary>
     /// Gets whether anything changed since the document was read or last re-pointed (an incremental save): an object was added or
     /// removed, the trailer changed, or a loaded object is dirty. Objects nobody loaded have not changed and are not loaded.
     /// </summary>
@@ -206,6 +214,7 @@ internal sealed class ObjectLoader
         var reference = new CosReference(number, 0);
         (_added ??= [])[number] = value;
         Hooks.Cache.Publish(reference, value);
+        ObjectsChanged();
         return reference;
     }
 
@@ -221,6 +230,7 @@ internal sealed class ObjectLoader
         if (_added is { } added && reference.Generation == 0 && added.Remove(number))
         {
             Hooks.Cache.Remove(reference);
+            ObjectsChanged();
             return true;
         }
 
@@ -238,7 +248,15 @@ internal sealed class ObjectLoader
 
         (_removed ??= [])[number] = reference.Generation;
         Hooks.Cache.Remove(reference);
+        ObjectsChanged();
         return true;
+    }
+
+    /// <summary>Records that an object was added or removed: caches that resolved references through the loader are stale.</summary>
+    private void ObjectsChanged()
+    {
+        ObjectsVersion++;
+        CosMutation.Advance();
     }
 
     /// <summary>Finds an object that has been loaded (or added) without loading it.</summary>

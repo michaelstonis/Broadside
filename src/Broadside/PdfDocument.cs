@@ -613,13 +613,20 @@ public sealed partial class PdfDocument : IDisposable
     /// ISO 32000-2 §7.3.10 and §7.5.4. References to the object resolve to null from now on; remove them too, or they are written as
     /// references to a free object. A save writes the object's number as a free entry whose generation is one more than the
     /// object's, the generation a new object reusing the number would take (§7.5.6, H.7.4: an incremental update leaves the object's
-    /// old bytes in the file). A mutation: no read may run concurrently with it.
+    /// old bytes in the file). Views read before the removal (the structure tree, the outline, text extraction's reading order) see
+    /// it at their next read (ADR 0004). A mutation: no read may run concurrently with it.
     /// </remarks>
     public bool RemoveObject(CosReference reference)
     {
         ArgumentNullException.ThrowIfNull(reference);
         return _loader.Remove(reference);
     }
+
+    /// <summary>
+    /// Gets a number that changes every time <see cref="AddObject"/> or <see cref="RemoveObject"/> changes which objects references
+    /// resolve to (§7.3.10); live-view caches built from many containers record it with their <c>Version</c>s (ADR 0004).
+    /// </summary>
+    internal int ObjectsVersion => _loader.ObjectsVersion;
 
     /// <summary>Returns <paramref name="value"/>, or the indirect object it refers to when it is a <see cref="CosReference"/>.</summary>
     /// <param name="value">A COS object from this document, or <see langword="null"/>.</param>

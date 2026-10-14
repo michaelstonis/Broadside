@@ -73,6 +73,47 @@ public sealed class OutlineLiveViewTests
     }
 
     [Fact]
+    public void An_item_removed_as_an_object_leaves_the_children_of_views_read_before()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("outline-full.pdf"));
+        PdfOutlineItem part1 = document.Outline!.Items[0];
+        PdfOutlineItem chapter2 = part1.Children[1];
+        Assert.Equal(["Chapter 1", "Chapter 2"], part1.Children.Select(item => item.Title));
+
+        // §7.3.10: Chapter 1's Next and Part I's Last now resolve to null; no dictionary the walk read has changed.
+        Assert.True(document.RemoveObject(chapter2.Reference!));
+
+        Assert.Equal(["Chapter 1"], part1.Children.Select(item => item.Title));
+        Assert.Equal((null, 0), (chapter2.Parent, chapter2.Level));
+    }
+
+    [Fact]
+    public void An_object_added_under_the_number_of_a_dangling_link_shows_in_the_children_of_views_read_before()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("outline-full.pdf"));
+        PdfOutlineItem part1 = document.Outline!.Items[0];
+        PdfOutlineItem chapter2 = part1.Children[1];
+
+        // Links to an object the document does not hold yet, made after the first AddObject looked for such references.
+        CosReference first = document.AddObject(new CosDictionary());
+        var dangling = new CosReference(first.ObjectNumber + 1, 0);
+        chapter2.Dictionary[Next] = dangling;
+        part1.Dictionary[Last] = dangling;
+        Assert.Equal(["Chapter 1", "Chapter 2"], part1.Children.Select(item => item.Title));
+
+        // §7.3.10: the link resolves to the new object from now on; no dictionary the walk read has changed since.
+        var chapter3 = new CosDictionary
+        {
+            [Title] = new CosString("Chapter 3"u8),
+            [Parent] = part1.Reference!,
+            [Prev] = chapter2.Reference!,
+        };
+        Assert.Equal(dangling, document.AddObject(chapter3));
+
+        Assert.Equal(["Chapter 1", "Chapter 2", "Chapter 3"], part1.Children.Select(item => item.Title));
+    }
+
+    [Fact]
     public void Links_edited_in_the_cos_objects_are_seen_by_views_read_before_the_edit()
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Path("outline-full.pdf"));
