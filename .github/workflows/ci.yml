@@ -66,12 +66,14 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y qpdf poppler-utils
 
       - name: Restore
-        run: dotnet restore Broadside.slnx
+        # In the configuration the build uses: a macOS app (the CoreGraphics test and benchmark apps) builds for both osx-arm64 and
+        # osx-x64 in Release but only for the host in Debug, and the assets file must list every runtime the build compiles for.
+        run: dotnet restore Broadside.slnx -p:Configuration=Release
 
       - name: Build
         # ValidateXcodeVersion=false: the macOS workload of the 10.0.4xx workload set (macOS SDK pack 27.0) demands Xcode 27.0 for
         # anything that outputs an app bundle (the CoreGraphics test and benchmark apps), and the macos-26 runner image has Xcode
-        # 26.x only. The check is an exact major.minor match; the build itself does not need the newer Xcode.
+        # 26.x only. The check is an exact major.minor match.
         run: dotnet build Broadside.slnx -c Release -warnaserror --no-restore -p:ValidateXcodeVersion=false
 
       - name: Test
