@@ -57,12 +57,13 @@ public sealed class TileRenderingTests
     [MemberData(nameof(Pages))]
     public void Every_corpus_page_rendered_as_tiles_matches_its_whole_render(string fileName, int pageIndex)
     {
-        // Tiles skip every paint whose bounds miss them; a bound too small would leave a hole. Away from the arithmetic of
+        // Tiles skip every paint whose bounds miss them (annotations and form fields included, as the whole render draws them); a
+        // bound too small would leave a hole. Away from the arithmetic of
         // paths-fill-rules.pdf, a tile's transform rounds differently from the page's in the last bit, which can move a pixel's
         // coverage across a rounding boundary: one level at most.
         using PdfDocument document = GoldenCorpus.Open(fileName);
         PdfPage page = document.Pages[pageIndex];
-        DisplayList list = page.CreateDisplayList();
+        DisplayList list = page.CreateDisplayList(DisplayLayers.All);
         using var rasterizer = new SoftwareRasterizer();
         var options = new RenderOptions().WithScale(1.7);
         using Bitmap whole = rasterizer.Render(page, options);

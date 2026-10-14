@@ -94,9 +94,60 @@ public sealed class VersionRaisingTests
     }
 
     [Theory]
+    [InlineData(PdfStreamCompression.None, "1.1", "linearization")]
+    [InlineData(PdfStreamCompression.ChangedStreams, "1.2", "FlateDecode")]
+    public void Linearizing_a_pdf_1_0_file_raises_it_to_1_1_and_a_compressed_hint_stream_to_1_2(PdfStreamCompression compression, string version, string named)
+    {
+        // Annex F, F.3.2: linearization applies to PDF 1.1 or later; the hint stream is FlateDecode-compressed (§7.4.4, PDF 1.2)
+        // unless compression is off.
+        using PdfDocument document = PdfDocument.Open(Document.TestPdf.OnePage("/MediaBox [0 0 612 792]", header: "%PDF-1.0"));
+
+        byte[] saved = Save(document, Options.WithLinearize(true).WithStreamCompression(compression));
+
+        Assert.Equal(version, HeaderVersion(saved));
+        Diagnostic raised = Assert.Single(document.Diagnostics);
+        Assert.Equal("VersionRaised", raised.Code);
+        Assert.Contains(named, raised.Message, StringComparison.Ordinal);
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.True(reopened.IsLinearized);
+        Assert.Empty(reopened.Diagnostics);
+        (int exitCode, string output) = ExternalTool.Run("qpdf", saved, "--check-linearization");
+        Assert.True(exitCode == 0 && output.Contains("no linearization errors", StringComparison.Ordinal), output);
+    }
+
+    [Fact]
+    public void Strict_mode_refuses_linearizing_a_pdf_1_0_file_before_writing()
+    {
+        using PdfDocument document = PdfDocument.Open(Document.TestPdf.OnePage("/MediaBox [0 0 612 792]", header: "%PDF-1.0"), new PdfOptions().UseStrict());
+        using var output = new MemoryStream();
+
+        DiagnosticException exception = Assert.Throws<DiagnosticException>(
+            () => document.Save(output, Options.WithLinearize(true).WithStreamCompression(PdfStreamCompression.None)));
+
+        Assert.Equal("VersionRaised", exception.Diagnostic.Code);
+        Assert.Contains("linearization", exception.Message, StringComparison.Ordinal);
+        Assert.Equal(0, output.Length);
+    }
+
+    [Fact]
+    public void A_linearized_incremental_update_is_refused_with_an_argument_exception_before_any_version_check()
+    {
+        // The refusal is the first check of the save (issue #300's check step), ahead of the strict-mode version refusal.
+        using PdfDocument document = PdfDocument.Open(Document.TestPdf.OnePage(string.Empty, LaterExtension, header: "%PDF-1.4"), new PdfOptions().UseStrict());
+        using var output = new MemoryStream();
+
+        Assert.Throws<ArgumentException>(() => document.Save(output, Options.WithIncrementalUpdate(true).WithLinearize(true)));
+
+        Assert.Equal(0, output.Length);
+        Assert.Empty(document.Diagnostics);
+        Assert.Null(document.CatalogVersion);
+    }
+
+    [Theory]
     [InlineData(PdfEncryptionAlgorithm.Rc4, "%PDF-1.1", 1, 4, "RC4")]
     [InlineData(PdfEncryptionAlgorithm.Aes128, "%PDF-1.4", 1, 6, "AES-128")]
     [InlineData(PdfEncryptionAlgorithm.Aes256, "%PDF-1.7", 2, 0, "AES-256")]
+    [InlineData(PdfEncryptionAlgorithm.Aes256Gcm, "%PDF-1.7", 2, 0, "AES-GCM")]
     public void New_encryption_raises_the_version_to_its_algorithms(PdfEncryptionAlgorithm algorithm, string header, int major, int minor, string feature)
     {
         using PdfDocument document = PdfDocument.Open(Document.TestPdf.OnePage(string.Empty, header: header));

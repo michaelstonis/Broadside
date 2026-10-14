@@ -98,6 +98,40 @@ public sealed class PdfSaveOptions
     public bool IncrementalUpdate { get; set; }
 
     /// <summary>
+    /// Gets or sets a value indicating whether the file is written linearized, so that a viewer reading it over a network can show the
+    /// first page before the rest has arrived. The default is <see langword="false"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 Annex F. The file starts with a linearization parameter dictionary (F.3.3) and a first-page cross-reference section
+    /// (F.3.4); then come the catalog and the objects needed at open (F.3.5), the primary hint stream with the page offset, shared
+    /// object and (when the document has an outline) outline hint tables (F.3.6, F.4), the first page's objects (F.3.7), each other
+    /// page with the objects only it uses (F.3.8), the objects several of those pages share (F.3.9), everything else (F.3.10), and the
+    /// main cross-reference section (F.3.11). Objects are renumbered as F.3.1 requires, so <see cref="ObjectNumbering"/> does not
+    /// apply, and the attributes pages inherit from the page tree are written on each page instead (F.3.10). The parts follow qpdf's
+    /// partition, which is validated against Acrobat; the first page is page 0.
+    /// </para>
+    /// <para>
+    /// <see cref="PdfCrossReferenceLayout.Table"/> writes two classic tables, <see cref="PdfCrossReferenceLayout.Stream"/> two
+    /// cross-reference streams, and <see cref="PdfCrossReferenceLayout.StreamWithObjectStreams"/> also stores the objects that no page
+    /// and nothing needed at open uses in object streams at the end of the file (F.3.1). The hint stream is compressed unless
+    /// <see cref="StreamCompression"/> is <see cref="PdfStreamCompression.None"/>. A linearized file cannot be an incremental update
+    /// (F.1, G.7), and a document without pages, or whose page tree lists a page twice, cannot be linearized.
+    /// </para>
+    /// </remarks>
+    public bool Linearize { get; set; }
+
+    /// <summary>Sets <see cref="Linearize"/>.</summary>
+    /// <param name="linearize">Whether the file is written linearized.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 Annex F.</remarks>
+    public PdfSaveOptions WithLinearize(bool linearize)
+    {
+        Linearize = linearize;
+        return this;
+    }
+
+    /// <summary>
     /// Gets or sets how the saved file is encrypted with the standard security handler; <see langword="null"/> (the default) keeps
     /// the document's own encryption: an encrypted document is saved encrypted with its own key, an unencrypted one unencrypted.
     /// </summary>
@@ -109,8 +143,9 @@ public sealed class PdfSaveOptions
     /// </para>
     /// <para>
     /// Keeping the document's own encryption re-encrypts every string and stream with the key it was opened with, under the
-    /// encryption dictionary it was read with; ciphertext is never copied from the source file. Its integrity MAC (ISO/TS 32004) cannot
-    /// be written yet, so a document that has one, or whose permissions require one, must be saved with new encryption or none.
+    /// encryption dictionary it was read with; ciphertext is never copied from the source file. A document that has an integrity MAC
+    /// (ISO/TS 32004), or whose permissions require one, gets a new one computed over the whole saved file with its own key and
+    /// <c>KDFSalt</c>; one opened without its file encryption key cannot, and is refused.
     /// </para>
     /// <para>
     /// An incremental update (<see cref="IncrementalUpdate"/>) always keeps the document's encryption (§7.5.6: earlier revisions stay

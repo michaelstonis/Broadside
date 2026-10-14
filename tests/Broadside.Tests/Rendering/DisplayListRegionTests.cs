@@ -117,6 +117,23 @@ public sealed class DisplayListRegionTests
         Assert.DoesNotContain(far.Operations, line => line.StartsWith("shading", StringComparison.Ordinal) || line.StartsWith("fill", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void An_annotation_is_skipped_whole_unless_it_keeps_its_size_or_orientation()
+    {
+        // Five annotations on page 1; only the grey one (F 4) is placed by the page. The others are NoZoom, NoRotate or a Text
+        // annotation, which a backend draws at its own size or upright about their corner, so their page bounds do not hold.
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("annotations-nozoom.pdf"));
+        DisplayList list = document.Pages[0].CreateDisplayList(DisplayLayers.All);
+        var recorder = new RecordingBackend();
+
+        list.Replay(recorder, new PdfRectangle(0, 0, 10, 10));
+
+        List<string> annotations = recorder.Operations.FindAll(line => line.StartsWith("annotation ", StringComparison.Ordinal));
+        Assert.Equal(4, annotations.Count);
+        Assert.All(annotations, line => Assert.True(line.Contains(" nozoom", StringComparison.Ordinal) || line.Contains(" norotate", StringComparison.Ordinal), line));
+        Assert.Equal(4, recorder.Operations.Count(line => line == "end annotation"));
+    }
+
     [Theory]
     [MemberData(nameof(Corpus.WellFormedFiles), MemberType = typeof(Corpus))]
     public void A_region_that_holds_everything_replays_every_operation(string fileName)
@@ -124,7 +141,7 @@ public sealed class DisplayListRegionTests
         using PdfDocument document = PdfDocument.Open(Corpus.Bytes(fileName));
         foreach (PdfPage page in document.Pages)
         {
-            DisplayList list = page.CreateDisplayList();
+            DisplayList list = page.CreateDisplayList(DisplayLayers.All);
             var all = new RecordingBackend();
             var region = new RecordingBackend();
             list.Replay(all);

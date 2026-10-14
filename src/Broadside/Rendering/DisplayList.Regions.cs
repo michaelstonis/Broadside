@@ -29,7 +29,10 @@ public sealed partial class DisplayList
     /// the transform of the paint; a stroke's path widened by half the line width times the miter limit or √2 for square caps
     /// (§8.4.3.3–§8.4.3.5), in user space where the pen is; an image's or stencil mask's unit square (§8.9.4); a glyph run's outlines
     /// under their glyph transforms (§9.4.4); a shading's <c>BBox</c> (§8.7.4.3), or no bound without one. Every paint's bounds are
-    /// cut by the clipping path's bounds at that point (§8.5.4), so the content of a clip outside the region is skipped too.
+    /// cut by the clipping path's bounds at that point (§8.5.4), so the content of a clip outside the region is skipped too. An
+    /// annotation (§12.5.5) is skipped whole like a saved state; one drawn with <c>NoZoom</c> or <c>NoRotate</c> (§12.5.3), which the
+    /// backend places by its own mapping, is never skipped. Alpha constants and blend modes act per pixel (§11.3), so skipping a paint
+    /// that changes no pixel of the region changes nothing in it.
     /// </para>
     /// <para>
     /// The bounds are computed once per list, on the first region replay (one array of an operation's size per list), and replaying a
@@ -47,11 +50,8 @@ public sealed partial class DisplayList
             ref readonly OperationExtent extent = ref extents[index];
             if (extent.IsCullable && !extent.Meets(region))
             {
-                if (operation.Kind == DisplayOperationKind.SaveState)
-                {
-                    index = extent.End;
-                }
-
+                // A paint ends where it is; a saved state or an annotation at the operation that restores it.
+                index = extent.End;
                 continue;
             }
 
@@ -83,26 +83,41 @@ public sealed partial class DisplayList
         Matrix ctm = Matrix.Identity;
         Box clip = Box.Everything;
         Box group = Box.Empty;
+
+        // Inside a NoZoom or NoRotate annotation the backend maps default user space differently (§12.5.3), so page bounds do not hold.
+        int unbounded = 0;
         for (int index = 0; index < _operations.Length; index++)
         {
             ref readonly DisplayOperation operation = ref _operations[index];
             Box paint;
             switch (operation.Kind)
             {
-                case DisplayOperationKind.SaveState:
-                    stack.Push(new Frame(ctm, clip, index, group));
+                case DisplayOperationKind.SaveState or DisplayOperationKind.BeginAnnotation:
+                    bool keepsSize = operation.Kind == DisplayOperationKind.BeginAnnotation
+                        && Annotations[operation.First] is { NoZoom: true } or { NoRotate: true };
+                    stack.Push(new Frame(ctm, clip, index, group, keepsSize));
+                    unbounded += keepsSize ? 1 : 0;
                     group = Box.Empty;
                     extents[index] = OperationExtent.Everything(index);
                     continue;
-                case DisplayOperationKind.RestoreState:
+                case DisplayOperationKind.RestoreState or DisplayOperationKind.EndAnnotation:
                     if (stack.TryPop(out Frame frame))
                     {
+                        unbounded -= frame.KeepsSize ? 1 : 0;
+                        if (frame.KeepsSize)
+                        {
+                            group = Box.Everything;
+                        }
+
                         extents[frame.SaveIndex] = new OperationExtent(group, cullable: true, index);
                         ctm = frame.Ctm;
                         clip = frame.Clip;
                         group = Box.Union(frame.Group, group);
                     }
 
+                    extents[index] = OperationExtent.Everything(index);
+                    continue;
+                case DisplayOperationKind.SetCompositing:
                     extents[index] = OperationExtent.Everything(index);
                     continue;
                 case DisplayOperationKind.SetTransform:
@@ -137,7 +152,7 @@ public sealed partial class DisplayList
                     break;
             }
 
-            paint = Box.Intersect(paint, clip);
+            paint = unbounded > 0 ? Box.Everything : Box.Intersect(paint, clip);
             extents[index] = new OperationExtent(paint, cullable: true, index);
             group = Box.Union(group, paint);
         }
@@ -235,8 +250,11 @@ public sealed partial class DisplayList
         return bounds;
     }
 
-    /// <summary>A saved state during the walk: what <c>RestoreState</c> brings back, where the save is, and the bounds of the enclosing group so far.</summary>
-    private readonly record struct Frame(Matrix Ctm, Box Clip, int SaveIndex, Box Group);
+    /// <summary>
+    /// A saved state (or an annotation) during the walk: what <c>RestoreState</c> brings back, where the save is, the bounds of the
+    /// enclosing group so far, and whether it is an annotation that keeps its size or orientation.
+    /// </summary>
+    private readonly record struct Frame(Matrix Ctm, Box Clip, int SaveIndex, Box Group, bool KeepsSize);
 
     /// <summary>
     /// A rectangle in default user space with double coordinates; empty when <see cref="Left"/> &gt; <see cref="Right"/>, unbounded

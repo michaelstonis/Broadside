@@ -2,12 +2,14 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.Globalization;
 using System.IO.Compression;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Broadside.Filters;
 using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
 using Broadside.Security;
+using Broadside.Security.Cryptography;
 
 namespace Broadside.Writing;
 
@@ -73,21 +75,23 @@ internal sealed record UpdateResult(ReadOnlyMemory<byte> Bytes, XrefSection Sect
 /// <para>
 /// With an <see cref="ObjectEncryptor"/> (§7.6), every object is serialized through it under the number it is written with,
 /// compressed first and then encrypted; the encryption dictionary is written as it is and kept out of object streams (§7.5.7), and
-/// the cross-reference stream and the trailer are never encrypted.
+/// the cross-reference stream and the trailer are never encrypted. With an <see cref="IntegrityCodeWriter"/> (ISO/TS 32004), the
+/// trailer carries an <c>AuthCode</c> dictionary whose standalone PDF MAC token covers every byte from the header to the end of the
+/// file, the source's bytes of an incremental update included, except the token itself (§5.2.3, §6.5.1, §6.6.2).
 /// </para>
 /// <para>
-/// Output is deterministic (encrypted output aside: its IVs are random): the second file identifier is the first 16 bytes of the SHA-256 hash of everything written before the
+/// Output is deterministic (encrypted output aside: its IVs and MAC keys are random): the second file identifier is the first 16 bytes of the SHA-256 hash of everything written before the
 /// cross-reference information, and the first is the source's or, for a file without one, the same value (§14.4: both are equal
 /// when a file is first written). Nothing depends on the clock or a random source.
 /// </para>
 /// </remarks>
-internal sealed class FileWriter
+internal sealed partial class FileWriter
 {
     /// <summary>How many bytes are gathered before a chunk is handed out.</summary>
     private const int ChunkSize = 64 * 1024;
 
     /// <summary>The most objects one object stream holds, to keep random access cheap (§7.5.7, NOTE 4).</summary>
-    private const int ObjectStreamCapacity = 100;
+    internal const int ObjectStreamCapacity = 100;
 
     /// <summary>The largest offset a classic cross-reference entry's ten digits can state (§7.5.4).</summary>
     private const long MaxTableOffset = 9_999_999_999;
@@ -109,6 +113,9 @@ internal sealed class FileWriter
     private readonly IReadOnlyDictionary<CosReference, CosReference>? _references;
     private readonly UpdateTarget? _update;
     private readonly ObjectEncryptor? _encryption;
+
+    /// <summary>The <c>AuthCode</c> dictionary of the trailer being written, while <see cref="Integrity"/> is set.</summary>
+    private AuthCodePlaceholder? _authCode;
 
     /// <summary>Initializes a new instance of the <see cref="FileWriter"/> class.</summary>
     /// <param name="source">The file source bytes are copied from; <see langword="null"/> when no object has source bytes.</param>
@@ -170,6 +177,19 @@ internal sealed class FileWriter
     /// </summary>
     public Func<int, int>? StreamNumbers { get; init; }
 
+    /// <summary>
+    /// Gets the composer of the PDF MAC token the trailer carries in a new <c>AuthCode</c> dictionary, standalone, over the whole file
+    /// but the token (ISO/TS 32004 §5.2.3, §6.5.1, §6.6.2); <see langword="null"/> writes none.
+    /// </summary>
+    public IntegrityCodeWriter? Integrity { get; init; }
+
+    /// <summary>
+    /// Gets or sets the signature dictionary of a signed revision the writer writes, whose signature carries the PDF MAC token as an
+    /// unsigned attribute (ISO/TS 32004 §6.5.2): the trailer's <c>AuthCode</c> is then <c>MACLocation</c> <c>AttachedToSig</c> with
+    /// <c>SigObjRef</c> (Table 6), and the signer composes the token. <see langword="null"/> writes a standalone token.
+    /// </summary>
+    public CosReference? IntegritySignature { get; set; }
+
     /// <summary>Gets or sets the version the header states (§7.5.2); an incremental update writes no header.</summary>
     public PdfVersion Version { get; set; }
 
@@ -180,9 +200,21 @@ internal sealed class FileWriter
     /// <returns>The file's bytes, in order.</returns>
     public IEnumerable<ReadOnlyMemory<byte>> Write()
     {
+        if (Linearized is { } layout)
+        {
+            foreach (ReadOnlyMemory<byte> chunk in WriteLinearized(layout))
+            {
+                yield return chunk;
+            }
+
+            yield break;
+        }
+
+        // ISO/TS 32004 §6.6.2: the MAC digests the file from its header (offset 0 of the byte range, §7.5.2) to its end.
+        using IncrementalDigest? integrity = Integrity is null || IntegritySignature is not null ? null : IntegrityCodeWriter.CreateDigest();
         if (_update is null)
         {
-            foreach (ReadOnlyMemory<byte> chunk in WriteFrom(0))
+            foreach (ReadOnlyMemory<byte> chunk in WriteFrom(0, integrity))
             {
                 yield return chunk;
             }
@@ -207,12 +239,18 @@ internal sealed class FileWriter
             }
 
             window = window[..(int)Math.Min(window.Length, Math.Min(length - position, PrefixChunkSize))];
+            long beforeHeader = _update.HeaderOffset - position;
+            if (integrity is not null && beforeHeader < window.Length)
+            {
+                integrity.AppendData(window.Span[(int)Math.Max(0, beforeHeader)..]);
+            }
+
             yield return window;
             position += window.Length;
         }
 
         var appended = new ArrayBufferWriter<byte>(ChunkSize);
-        foreach (ReadOnlyMemory<byte> chunk in WriteFrom(length))
+        foreach (ReadOnlyMemory<byte> chunk in WriteFrom(length, integrity))
         {
             appended.Write(chunk.Span);
             yield return chunk;
@@ -223,9 +261,10 @@ internal sealed class FileWriter
 
     /// <summary>
     /// Writes everything after the source's bytes: the whole file (header included) when <paramref name="begin"/> is 0, else an
-    /// incremental update appended at <paramref name="begin"/>.
+    /// incremental update appended at <paramref name="begin"/>. With <paramref name="integrity"/>, every byte before the
+    /// cross-reference section is digested into it as it is handed out, and the section's trailer carries the PDF MAC token.
     /// </summary>
-    private IEnumerable<ReadOnlyMemory<byte>> WriteFrom(long begin)
+    private IEnumerable<ReadOnlyMemory<byte>> WriteFrom(long begin, IncrementalDigest? integrity)
     {
         using var buffer = new PooledBufferWriter(ChunkSize * 2, Array.MaxLength);
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
@@ -274,6 +313,7 @@ internal sealed class FileWriter
             if (buffer.WrittenSpan.Length >= ChunkSize)
             {
                 hash.AppendData(buffer.WrittenSpan);
+                integrity?.AppendData(buffer.WrittenSpan);
                 yield return buffer.WrittenMemory;
                 flushed += buffer.WrittenSpan.Length;
                 buffer.Clear();
@@ -308,6 +348,7 @@ internal sealed class FileWriter
             if (buffer.WrittenSpan.Length >= ChunkSize)
             {
                 hash.AppendData(buffer.WrittenSpan);
+                integrity?.AppendData(buffer.WrittenSpan);
                 yield return buffer.WrittenMemory;
                 flushed += buffer.WrittenSpan.Length;
                 buffer.Clear();
@@ -315,6 +356,7 @@ internal sealed class FileWriter
         }
 
         hash.AppendData(buffer.WrittenSpan);
+        integrity?.AppendData(buffer.WrittenSpan);
         if (buffer.WrittenSpan.Length > 0)
         {
             yield return buffer.WrittenMemory;
@@ -326,9 +368,14 @@ internal sealed class FileWriter
         var secondIdentifier = new CosString(digest.AsSpan(0, 16), hexadecimal: true);
         var identifier = new CosArray([_firstIdentifier ?? secondIdentifier, secondIdentifier]);
 
+        // ISO/TS 32004 §5.2.3: the AuthCode dictionary's byte range and MAC are placeholders of their final widths, filled in once
+        // the whole file but the token is digested; the section is the last chunk, so nothing has been handed out past them.
+        _authCode = Integrity is null || IntegritySignature is not null ? null : AuthCodePlaceholder.Create(Integrity.TokenLength, flushed - origin);
         XrefSection section = _layout == PdfCrossReferenceLayout.Table
             ? WriteTable(buffer, entries, nextNumber, flushed, origin, identifier)
             : WriteStream(buffer, entries, StreamNumber(nextNumber), flushed, origin, identifier);
+        _authCode?.Fill(MemoryMarshal.AsMemory(buffer.WrittenMemory).Span, flushed - origin, integrity!, Integrity!);
+
         if (_update is not null)
         {
             Update = new UpdateResult(ReadOnlyMemory<byte>.Empty, section, _update.PreviousSection is null, written);
@@ -713,6 +760,15 @@ internal sealed class FileWriter
         }
 
         trailer[KnownNames.ID] = identifier;
+        if (_authCode is not null)
+        {
+            trailer[AuthCodePlaceholder.Key] = _authCode.Dictionary;
+        }
+        else if (Integrity is not null && IntegritySignature is { } signature)
+        {
+            trailer[AuthCodePlaceholder.Key] = AuthCodePlaceholder.AttachedTo(signature);
+        }
+
         return trailer;
     }
 

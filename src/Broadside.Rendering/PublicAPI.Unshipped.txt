@@ -75,3 +75,9 @@ Broadside.Rendering.RenderOptions.GetPixelRectangle(Broadside.PdfPage! page) -> 
 Broadside.Rendering.RenderOptions.Region.get -> Broadside.PdfRectangle?
 Broadside.Rendering.RenderOptions.Region.set -> void
 Broadside.Rendering.RenderOptions.WithRegion(Broadside.PdfRectangle? region) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.RenderOptions.Intent.get -> Broadside.Rendering.DisplayIntent
+Broadside.Rendering.RenderOptions.Intent.set -> void
+Broadside.Rendering.RenderOptions.Layers.get -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.RenderOptions.Layers.set -> void
+Broadside.Rendering.RenderOptions.WithIntent(Broadside.Rendering.DisplayIntent intent) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.RenderOptions.WithLayers(Broadside.Rendering.DisplayLayers layers) -> Broadside.Rendering.RenderOptions!
