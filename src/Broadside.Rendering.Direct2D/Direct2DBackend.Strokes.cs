@@ -91,12 +91,12 @@ internal sealed unsafe partial class Direct2DBackend
     public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
     {
         PdfColorConverter converter = Converter(color);
-        if (converter.PaintsNothing || path.IsEmpty || !ConfigurePen(style))
+        if (converter.PaintsNothing || path.IsEmpty || _compositing.StrokeAlpha == 0 || !ConfigurePen(style))
         {
             return;
         }
 
-        SetColor(converter, color.Components);
+        SetColor(converter, color.Components, _compositing.StrokeAlpha);
         _dotCount = 0;
         _hasStrokeFigures = false;
         ID2D1PathGeometry* geometry = OpenGeometry(out ID2D1GeometrySink* sink);

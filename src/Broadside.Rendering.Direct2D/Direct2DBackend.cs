@@ -79,6 +79,8 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
         ImageMasks = 2,
         Shadings = 4,
         Glyphs = 8,
+        TilingPatterns = 16,
+        BlendModes = 32,
     }
 
     /// <summary>Gets the diagnostics of the last replay: one for each kind of operation the backend skipped.</summary>
@@ -98,6 +100,7 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
         _clipCount = 0;
         _diagnostics.Clear();
         _skipped = SkippedOperations.None;
+        BeginCompositing();
     }
 
     /// <summary>Pops every clip still pushed and lets go of the document and the surface.</summary>
@@ -120,9 +123,11 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
         {
             Array.Resize(ref _transforms, _depth * 2);
             Array.Resize(ref _clipMarks, _depth * 2);
+            Array.Resize(ref _savedCompositing, _depth * 2);
         }
 
         _transforms[_depth] = _ctm;
+        _savedCompositing[_depth] = _compositing;
         _clipMarks[_depth] = _clipCount;
         _depth++;
     }
@@ -136,6 +141,7 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
 
         _depth--;
         PopClips(_clipMarks[_depth]);
+        _compositing = _savedCompositing[_depth];
         SetTransform(in _transforms[_depth]);
     }
 
@@ -149,12 +155,12 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
     public void FillPath(PathView path, FillRule rule, in DisplayColor color)
     {
         PdfColorConverter converter = Converter(color);
-        if (converter.PaintsNothing || path.IsEmpty)
+        if (converter.PaintsNothing || path.IsEmpty || _compositing.FillAlpha == 0)
         {
             return;
         }
 
-        SetColor(converter, color.Components);
+        SetColor(converter, color.Components, _compositing.FillAlpha);
         _pixelCount = 0;
         ID2D1PathGeometry* geometry = CreateFillGeometry(path, rule, collectPixels: true, out bool hasFigures);
         try
@@ -270,8 +276,11 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
         return _converter;
     }
 
-    /// <summary>Sets the brush to the colour, rounded to eight bits a channel like the software rasterizer's (opaque, §8.6).</summary>
-    private void SetColor(PdfColorConverter converter, ReadOnlySpan<float> components)
+    /// <summary>
+    /// Sets the brush to the colour, rounded to eight bits a channel like the software rasterizer's (§8.6), with
+    /// <paramref name="alpha"/> (the constant alpha, 0 to 255, §11.6.4.4) as its alpha.
+    /// </summary>
+    private void SetColor(PdfColorConverter converter, ReadOnlySpan<float> components, byte alpha)
     {
         Span<float> rgb = stackalloc float[4];
         converter.Convert(components, rgb);
@@ -280,7 +289,7 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
             r = Channel(rgb[0]) / 255f,
             g = Channel(rgb[1]) / 255f,
             b = Channel(rgb[2]) / 255f,
-            a = 1,
+            a = alpha / 255f,
         };
         _brush->SetColor(&color);
     }
@@ -473,14 +482,17 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
         while (_clipCount > count)
         {
             Clip clip = _clips[--_clipCount];
-            if (clip.Mask is null)
+            if (!clip.IsLayer)
             {
                 _context->PopAxisAlignedClip();
             }
             else
             {
                 _context->PopLayer();
-                clip.Mask->Release();
+                if (clip.Mask is not null)
+                {
+                    clip.Mask->Release();
+                }
             }
 
             _clips[_clipCount] = default;
@@ -537,9 +549,12 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
     }
 
     /// <summary>A clip pushed on the device context: the geometric mask of its layer, or none for an axis-aligned clip.</summary>
-    private readonly struct Clip(ID2D1Geometry* mask)
+    private readonly struct Clip(ID2D1Geometry* mask, bool isLayer = false)
     {
         public ID2D1Geometry* Mask { get; } = mask;
+
+        /// <summary>Gets a value indicating whether the clip is a layer (with a geometric mask, or an annotation's opacity layer).</summary>
+        public bool IsLayer { get; } = isLayer || mask is not null;
     }
 
     /// <summary>The subpath being written for a fill: its first point, whether a figure has begun, and whether it is degenerate.</summary>

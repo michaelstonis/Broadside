@@ -20,8 +20,14 @@ namespace Broadside.Rendering.Direct2D;
 /// §14.11.2), the same mapping the software rasterizer uses.
 /// </para>
 /// <para>
-/// Images, stencil masks, shadings and text are not drawn by this backend yet; a render that meets them leaves them out and reports
-/// one <see cref="Diagnostics"/> entry per kind rather than approximating them.
+/// Images, stencil masks, shadings, tiling patterns and text are not drawn by this backend yet; a render that meets them leaves them
+/// out and reports one <see cref="Diagnostics"/> entry per kind rather than approximating them.
+/// </para>
+/// <para>
+/// Constant alpha (ISO 32000-2 §11.6.4.4) is the brush colour's alpha. Direct2D's primitive blend is source-over only, so blend modes
+/// other than Normal (§11.3.5) composite as Normal and are reported (<c>BackendBlendModeUnsupported</c>). Annotations and form fields
+/// (§12.5.5) are placed as the software rasterizer places them (NoZoom and NoRotate, §12.5.3), clipped to their rectangle and, when
+/// translucent, drawn in a layer with their opacity.
 /// </para>
 /// <para>
 /// Reuse one instance for many renders: its device, device context and target bitmaps are created once (the targets again when the
@@ -32,6 +38,7 @@ namespace Broadside.Rendering.Direct2D;
 public sealed class Direct2DRenderer : IDisposable
 {
     private static readonly RenderOptions DefaultOptions = new();
+    private static readonly Content.ContentOptions DefaultContentOptions = new();
 
     private readonly Direct2DDriver _requested;
     private readonly Direct2DBackend _backend = new();
@@ -89,7 +96,7 @@ public sealed class Direct2DRenderer : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         PixelSize size = options.GetPixelSize(page);
         Matrix device = options.GetDeviceTransform(page);
-        DisplayList list = page.CreateDisplayList();
+        DisplayList list = page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions);
         var bitmap = new Bitmap(size.Width, size.Height);
         try
         {
@@ -124,7 +131,7 @@ public sealed class Direct2DRenderer : IDisposable
             throw new ArgumentException($"The page needs {size.Width} x {size.Height} pixels; the bitmap has {target.Width} x {target.Height}.", nameof(target));
         }
 
-        Draw(page.CreateDisplayList(), target, options.GetDeviceTransform(page), size.Width, size.Height, white: true);
+        Draw(page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions), target, options.GetDeviceTransform(page), size.Width, size.Height, white: true);
     }
 
     /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background.</summary>
