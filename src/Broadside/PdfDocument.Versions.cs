@@ -27,50 +27,51 @@ public sealed partial class PdfDocument
     }
 
     /// <summary>
-    /// Plans a save: the writer, with its header raised to the highest minimum version the save's features need. A version later than
-    /// the document's is recorded as <c>VersionRaised</c> (Information), or refused in strict mode, before anything is written; an
-    /// incremental update, which writes no header, raises the catalog's <c>Version</c> entry instead (§7.5.6, §7.7.2 Table 29). The
-    /// developer extensions ISO/TS features declare are added to the catalog's <c>Extensions</c> dictionary (§7.12).
+    /// The first half of planning a save, which changes nothing in the document (issue #300): the writer for the document as it is,
+    /// which refuses what it cannot write, and the version the save needs, the highest minimum version of its features. A version
+    /// later than the document's is recorded as <c>VersionRaised</c> (Information), or refused in strict mode, before anything is
+    /// written or changed.
     /// </summary>
-    private FileWriter PlanVersionedSave(PdfSaveOptions options)
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for a version later than the document's.</exception>
+    private VersionedSave CheckVersionedSave(PdfSaveOptions options)
     {
         var features = new List<VersionedFeature>();
         FileWriter writer = PlanWriter(options, features);
         AddDocumentFeatures(features);
-
-        PdfVersion current = Version;
-        PdfVersion needed = Writing.VersionPlan.Check(current, features, _diagnostics);
-        bool changed = Writing.VersionPlan.AddExtensions(Catalog, features, Resolve);
-        if (options.IncrementalUpdate && needed > current)
-        {
-            Catalog[KnownNames.Version] = new CosName(needed.ToString());
-            changed = true;
-        }
-
-        if (changed)
-        {
-            // The catalog changed after it was planned: plan again, so the update writes it and a full save serializes it.
-            return PlanVersionedSaveAgain(options);
-        }
-
-        if (!options.IncrementalUpdate)
-        {
-            writer.Version = Writing.VersionPlan.Highest(features, writer.Version);
-        }
-
-        return writer;
+        PdfVersion needed = Writing.VersionPlan.Check(Version, features, _diagnostics);
+        return new VersionedSave(writer, features, needed);
     }
 
     /// <summary>
-    /// Plans a save again after objects changed or were added since <see cref="PlanVersionedSave"/> planned it, at the version it
-    /// decided (which was already checked and recorded): the catalog's raised <c>Version</c> and extensions, or the metadata a raise
-    /// to PDF 2.0 lays out again (<see cref="LayOutMetadataFor"/>).
+    /// The second half of planning a save, once it has passed every check (issue #300): declares in the catalog what
+    /// <paramref name="planned"/> decided, the developer extensions ISO/TS features declare (§7.12) and, for an incremental update,
+    /// which writes no header, the raised version in the catalog's <c>Version</c> entry (§7.5.6, §7.7.2 Table 29); plans the writer
+    /// again when the document changed since <paramref name="planned"/> (<paramref name="changed"/>, or the catalog here); and raises
+    /// a full save's header to the highest minimum version the save's features need.
     /// </summary>
-    private FileWriter PlanVersionedSaveAgain(PdfSaveOptions options)
+    /// <param name="options">The save's options.</param>
+    /// <param name="planned">What <see cref="CheckVersionedSave"/> planned.</param>
+    /// <param name="changed">Whether the save changed the document since (dated it, completed font subsets, laid its metadata out for PDF 2.0).</param>
+    private FileWriter ApplyVersionedSave(PdfSaveOptions options, VersionedSave planned, bool changed)
     {
-        var features = new List<VersionedFeature>();
-        FileWriter writer = PlanWriter(options, features);
-        AddDocumentFeatures(features);
+        List<VersionedFeature> features = planned.Features;
+        changed |= Writing.VersionPlan.AddExtensions(Catalog, features, Resolve);
+        if (options.IncrementalUpdate && planned.Needed > Version)
+        {
+            Catalog[KnownNames.Version] = new CosName(planned.Needed.ToString());
+            changed = true;
+        }
+
+        FileWriter writer = planned.Writer;
+        if (changed)
+        {
+            // The document changed after it was planned: plan again, so the update writes what changed and a full save serializes
+            // it. Dating, completing font subsets and the metadata layout add no feature, so the version decided stands.
+            features.Clear();
+            writer = PlanWriter(options, features);
+            AddDocumentFeatures(features);
+        }
+
         if (!options.IncrementalUpdate)
         {
             writer.Version = Writing.VersionPlan.Highest(features, writer.Version);
@@ -78,6 +79,9 @@ public sealed partial class PdfDocument
 
         return writer;
     }
+
+    /// <summary>What <see cref="CheckVersionedSave"/> planned: the writer, the features the save uses and the version they need.</summary>
+    private readonly record struct VersionedSave(FileWriter Writer, List<VersionedFeature> Features, PdfVersion Needed);
 
     private FileWriter PlanWriter(PdfSaveOptions options, List<VersionedFeature> features) => options.IncrementalUpdate
         ? SavePlan.CreateIncremental(_source, _loader, options, StreamEncoders, Security, features)

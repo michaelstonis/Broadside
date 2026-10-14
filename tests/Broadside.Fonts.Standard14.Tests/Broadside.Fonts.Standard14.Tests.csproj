@@ -12,6 +12,8 @@
     <Compile Include="../Broadside.Tests/Fonts/FontPdf.cs" Link="Shared/FontPdf.cs" />
     <Compile Include="../Broadside.Tests/Fonts/OutlineText.cs" Link="Shared/OutlineText.cs" />
     <Compile Include="../Broadside.Tests/Writing/ExternalTool.cs" Link="Shared/ExternalTool.cs" />
+    <Compile Include="../Broadside.Tests/Writing/CosGraph.cs" Link="Shared/CosGraph.cs" />
+    <Compile Include="../Broadside.Tests/Writing/CosSnapshot.cs" Link="Shared/CosSnapshot.cs" />
   </ItemGroup>
 
 </Project>

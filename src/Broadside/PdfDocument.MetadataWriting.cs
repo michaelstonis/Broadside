@@ -30,22 +30,25 @@ public sealed partial class PdfDocument
     }
 
     /// <summary>
-    /// Before a save plans what to write: when <paramref name="options"/> asks for it and the document changed (or is new), dates the
-    /// modification (and, for a new document without one, the creation) in the Info dictionary and the XMP packet (§14.3.4).
+    /// Once a save has passed every check that can refuse it (issue #300), before it plans the file it writes: when
+    /// <paramref name="options"/> asks for it and the document changed (or is new), dates the modification (and, for a new document
+    /// without one, the creation) in the Info dictionary and the XMP packet (§14.3.4).
     /// </summary>
-    private void DateModification(PdfSaveOptions options)
+    /// <returns>Whether the document changed: dated, or a new document's placeholder identifiers dropped.</returns>
+    private bool DateModification(PdfSaveOptions options)
     {
+        bool changed = false;
         if (_isNew && !options.IncrementalUpdate)
         {
             // §14.4: "When a PDF file is first written, both identifiers shall be set to the same value." The identifiers of the
             // in-memory file Create() built are placeholders; without them the writer derives both from what it writes.
-            _ = Trailer.Remove(KnownNames.ID);
+            changed = Trailer.Remove(KnownNames.ID);
         }
 
         if (!options.UpdateModificationDate || !(_isNew || _loader.HasChanges))
         {
             _modificationDateSet = false;
-            return;
+            return changed;
         }
 
         MetadataDate now = Now();
@@ -64,11 +67,12 @@ public sealed partial class PdfDocument
 
         writer.Commit(now, createPacket: false);
         _modificationDateSet = false;
+        return true;
     }
 
     /// <summary>
-    /// Once the version plan has decided the version <paramref name="written"/> the save writes, and every refusal check has passed:
-    /// lays the metadata out for that version. A save that raises the document from <paramref name="before"/> to PDF 2.0 applies the
+    /// Once a save has passed every check that can refuse it (issue #300) and the version plan has decided the version
+    /// <paramref name="written"/> it writes, before the catalog declares it: lays the metadata out for that version. A save that raises the document from <paramref name="before"/> to PDF 2.0 applies the
     /// layout a PDF 2.0 document's metadata edits get (<see cref="DocumentMetadataWriter.Commit"/>): the entries Table 349 deprecates
     /// move from the Info dictionary to the XMP packet, which is created when the document has none, and Info keeps only
     /// <c>CreationDate</c>, <c>ModDate</c> and keys Table 349 does not define (ISO 32000-2 §14.3.3; issue #301). Then the dates written

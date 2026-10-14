@@ -458,7 +458,7 @@ public sealed partial class PdfDocument : IDisposable
     /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>); nothing is written then.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
     public void Save(Stream stream) => Save(stream, new PdfSaveOptions());
 
@@ -470,7 +470,7 @@ public sealed partial class PdfDocument : IDisposable
     /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>); nothing is written then.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
     /// <remarks>
     /// <para>
     /// ISO 32000-2 §7.5: a header, every object, the cross-reference information and the trailer. Objects keep their numbers and
@@ -505,6 +505,11 @@ public sealed partial class PdfDocument : IDisposable
     /// <c>EncryptionDeprecated</c> warning first, so strict mode refuses it.
     /// </para>
     /// <para>
+    /// A save checks everything that can refuse it before it changes the document (ADR 0005): a save that throws has written nothing
+    /// and left the document as it was. Only a save that goes ahead dates the modification (<see cref="PdfSaveOptions.UpdateModificationDate"/>,
+    /// §14.3.4), subsets the fonts filled fields grew, and declares extensions and a raised version in the catalog.
+    /// </para>
+    /// <para>
     /// With <see cref="PdfSaveOptions.IncrementalUpdate"/>, the file is instead the document's file followed by an incremental update
     /// holding only what changed (§7.5.6), and once its last byte is written the document reads from it: a mutation, which no read
     /// may run concurrently with.
@@ -525,7 +530,7 @@ public sealed partial class PdfDocument : IDisposable
     /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>); nothing is written then.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
     public void Save(string path) => Save(path, new PdfSaveOptions());
 
@@ -537,7 +542,7 @@ public sealed partial class PdfDocument : IDisposable
     /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>); nothing is written then.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/>.</remarks>
     public void Save(string path, PdfSaveOptions options)
     {
@@ -563,7 +568,7 @@ public sealed partial class PdfDocument : IDisposable
     /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>); nothing is written then.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
     /// <remarks>
     /// ISO 32000-2 §7.5. Writes exactly the bytes <see cref="Save(Stream, PdfSaveOptions)"/> writes, from the same writer; only the
     /// writes to <paramref name="stream"/> are asynchronous.
@@ -1251,18 +1256,38 @@ public sealed partial class PdfDocument : IDisposable
         }
     }
 
-    /// <summary>Plans a save: reports what the document's edits leave broken, then plans the file.</summary>
+    /// <summary>
+    /// Plans a save in two steps, so that a save refused changes nothing in the document (issue #300). First every check that can
+    /// refuse it, on the document as it is: what the document's edits leave broken (<see cref="ReportBeforeSave"/>), what the writer
+    /// cannot write (encryption it refuses, in strict mode a deviation found loading the objects to write), a version later than the
+    /// document's in strict mode, deprecated encryption. Then what a save changes in the document: grown font subsets completed
+    /// (#285), the modification dated (#162), the catalog's extensions and version (#141), and the file planned again when any of
+    /// them changed something.
+    /// </summary>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation the save-time checks report.</exception>
     private FileWriter PlanSave(PdfSaveOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
         ReportBeforeSave();
-        CompleteFontSubsets();
-        PdfVersion before = Version;
-        DateModification(options);
-        FileWriter writer = PlanVersionedSave(options);
+        VersionedSave planned = CheckVersionedSave(options);
+        ReportDeprecatedEncryption(options);
 
-        // Table 20: V 1 to 4 (RC4 and AES-128) are deprecated in PDF 2.0. Reported before anything is written, so strict mode refuses.
+        bool changed = CompleteFontSubsets();
+        changed |= DateModification(options);
+
+        // Issues #291 and #301: the metadata takes the layout and date form of the version the save writes, read before the
+        // incremental update's catalog Version below changes it. A raise to 2.0 moves the deprecated Info entries to the XMP packet
+        // (§14.3.3); it only moves metadata the document has, so it adds no versioned feature and the version decided stands.
+        changed |= LayOutMetadataFor(Version, planned.Needed);
+        return ApplyVersionedSave(options, planned, changed);
+    }
+
+    /// <summary>
+    /// Reports encryption with RC4 or AES-128, new or kept, which ISO 32000-2 §7.6.2, Table 20 deprecates (V 1 to 4), as an
+    /// <c>EncryptionDeprecated</c> warning, so strict mode refuses the save before anything is written or changed.
+    /// </summary>
+    private void ReportDeprecatedEncryption(PdfSaveOptions options)
+    {
         string? deprecated = options.Encryption switch
         {
             { Algorithm: PdfEncryptionAlgorithm.Rc4 } => "RC4 (V 2)",
@@ -1277,16 +1302,6 @@ public sealed partial class PdfDocument : IDisposable
                 DiagnosticSeverity.Warning,
                 $"The saved file is encrypted with {deprecated}, which is deprecated in PDF 2.0 (ISO 32000-2 §7.6.2, Table 20; RC4 offers little protection); AES-256 is the PDF 2.0 algorithm.");
         }
-
-        // After the version is decided and every refusal check has passed: the metadata layout and date form of the written version
-        // (§14.3.3, §7.9.4). A raise to 2.0 can change or add objects the plan did not include, so the save is planned again.
-        PdfVersion written = writer.Version > Version ? writer.Version : Version;
-        if (LayOutMetadataFor(before, written))
-        {
-            writer = PlanVersionedSaveAgain(options);
-        }
-
-        return writer;
     }
 
     /// <summary>
