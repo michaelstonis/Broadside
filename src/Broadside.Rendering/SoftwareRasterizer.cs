@@ -184,6 +184,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _scan.Clip = _clip;
             ResetCompositing();
             BeginAnnotations();
+            BeginGroups();
         }
 
         public void End()
@@ -196,6 +197,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _converter = null;
             EndImages();
             EndShadings();
+            EndGroups();
         }
 
         public void SaveState()
@@ -288,7 +290,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _scan.Dispose();
             _clip.Dispose();
             DisposeImages();
-            DisposeAnnotations();
+            DisposeGroups();
         }
 
         /// <summary>
@@ -338,22 +340,18 @@ public sealed partial class SoftwareRasterizer : IDisposable
             return true;
         }
 
-        private static uint Pack(ReadOnlySpan<float> rgb)
-        {
-            Span<byte> bgra = [Channel(rgb[2]), Channel(rgb[1]), Channel(rgb[0]), 0xFF];
-            return MemoryMarshal.Read<uint>(bgra);
-        }
-
-        private static byte Channel(float value) => (byte)((Math.Clamp(value, 0f, 1f) * 255f) + 0.5f);
+        /// <summary>Packs a colour <see cref="Converter"/> converted as the opaque pixel the current target stores (RGB, or a group's gray or CMYK plane).</summary>
+        private uint Pack(ReadOnlySpan<float> components) => _pixelModel.Pack(components);
 
         private PdfColorConverter Converter(in DisplayColor color)
         {
-            if (_converter is null || !ReferenceEquals(_space, color.ColorSpace) || !ReferenceEquals(_defaults, color.DefaultColorSpaces) || _conversion != color.Conversion)
+            ColorConversion conversion = _pixelModel.Convert(color.Conversion);
+            if (_converter is null || !ReferenceEquals(_space, color.ColorSpace) || !ReferenceEquals(_defaults, color.DefaultColorSpaces) || _conversion != conversion)
             {
                 _space = color.ColorSpace;
                 _defaults = color.DefaultColorSpaces;
-                _conversion = color.Conversion;
-                _converter = _document!.GetColorConverter(color.ColorSpace, color.Conversion with { Target = DeviceColorModel.Rgb }, color.DefaultColorSpaces);
+                _conversion = conversion;
+                _converter = _document!.GetColorConverter(color.ColorSpace, conversion, color.DefaultColorSpaces);
             }
 
             return _converter;

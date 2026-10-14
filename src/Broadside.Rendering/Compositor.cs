@@ -137,6 +137,101 @@ internal readonly struct Compositor
         return result;
     }
 
+    /// <summary>The union of two shapes or alphas, 0 to 255: b + s − b × s (ISO 32000-2 §11.3.7.3).</summary>
+    public static int Union(int backdrop, int source) => backdrop + source - Divide255(backdrop * source);
+
+    /// <summary>
+    /// The knockout of one paint in a knockout group (ISO 32000-2 §11.4.6, §11.4.8 with b = 0), premultiplied: given what the group
+    /// held, the paint composited over the initial backdrop at shape <paramref name="shape"/>, and that backdrop, the result is
+    /// (1 − fs) × previous + composited − (1 − fs) × backdrop.
+    /// </summary>
+    /// <param name="previous">What the group held at the pixel.</param>
+    /// <param name="composited">The paint composited over <paramref name="backdrop"/> with its shape, alpha and blend mode.</param>
+    /// <param name="backdrop">The group's initial backdrop at the pixel.</param>
+    /// <param name="shape">The paint's shape fs, 0 to 255.</param>
+    /// <returns>The pixel.</returns>
+    public static uint KnockOut(uint previous, uint composited, uint backdrop, int shape)
+    {
+        if (shape >= 255)
+        {
+            return composited;
+        }
+
+        if (shape <= 0 || previous == backdrop)
+        {
+            return shape <= 0 ? previous : composited;
+        }
+
+        int keep = 255 - shape;
+        int alpha = Math.Clamp((int)(composited >> 24) + Scaled((int)(previous >> 24) - (int)(backdrop >> 24), keep), 0, 255);
+        uint result = (uint)alpha << 24;
+        for (int shift = 0; shift < 24; shift += 8)
+        {
+            int c = (int)((composited >> shift) & 0xFF) + Scaled((int)((previous >> shift) & 0xFF) - (int)((backdrop >> shift) & 0xFF), keep);
+            result |= (uint)Math.Clamp(c, 0, alpha) << shift;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Mixes two premultiplied pixels: <paramref name="from"/> + (<paramref name="to"/> − <paramref name="from"/>) × amount / 255. A
+    /// non-isolated group in the Normal blend mode composites onto the backdrop it started from this way (ISO 32000-2 §11.4.4: the
+    /// group composited with constant alpha q onto its backdrop B is (1 − q) × B + q × the group's complete result).
+    /// </summary>
+    public static uint Mix(uint from, uint to, int amount)
+    {
+        if (amount >= 255 || from == to)
+        {
+            return to;
+        }
+
+        if (amount <= 0)
+        {
+            return from;
+        }
+
+        uint result = 0;
+        for (int shift = 0; shift < 32; shift += 8)
+        {
+            int f = (int)((from >> shift) & 0xFF);
+            int t = (int)((to >> shift) & 0xFF);
+            result |= (uint)Math.Clamp(f + Scaled(t - f, amount), 0, 255) << shift;
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// Removes the backdrop from a non-isolated group's complete result (ISO 32000-2 §11.4.4, Result): with the group alpha αg,
+    /// αg × C = αn × Cn − (1 − αg) × α0 × C0, premultiplied, so the group's own colour and alpha can composite as one object.
+    /// </summary>
+    /// <param name="complete">The group's complete result αn Cn at the pixel.</param>
+    /// <param name="backdrop">The group's initial backdrop α0 C0.</param>
+    /// <param name="groupAlpha">αg, 0 to 255.</param>
+    /// <returns>The group's colour and alpha, premultiplied.</returns>
+    public static uint RemoveBackdrop(uint complete, uint backdrop, int groupAlpha)
+    {
+        if (groupAlpha <= 0)
+        {
+            return 0;
+        }
+
+        int keep = 255 - groupAlpha;
+        uint result = (uint)groupAlpha << 24;
+        for (int shift = 0; shift < 24; shift += 8)
+        {
+            int c = (int)((complete >> shift) & 0xFF) - Divide255((int)((backdrop >> shift) & 0xFF) * keep);
+            result |= (uint)Math.Clamp(c, 0, groupAlpha) << shift;
+        }
+
+        return result;
+    }
+
+    /// <summary>Rounds <paramref name="difference"/> × <paramref name="amount"/> / 255 for a difference of either sign.</summary>
+    private static int Scaled(int difference, int amount) =>
+        difference >= 0 ? Divide255(difference * amount) : -Divide255(-difference * amount);
+
     /// <summary>Rounds <paramref name="value"/> / 255 for 0 ≤ value ≤ 2 × 255 × 255.</summary>
     public static int Divide255(int value)
     {

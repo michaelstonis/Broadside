@@ -33,6 +33,7 @@ internal sealed class ShadingSource
     private PdfShading? _shading;
     private PdfDefaultColorSpaces? _defaults;
     private ColorConversion _conversion;
+    private PixelModel _model;
     private bool _paintsNothing;
 
     /// <summary>Gets the table: entry i is the colour at s = i / (<see cref="Size"/> − 1).</summary>
@@ -46,10 +47,13 @@ internal sealed class ShadingSource
 
     /// <summary>Builds the table for <paramref name="shading"/> unless it is the one built last.</summary>
     /// <returns><see langword="false"/> when the shading's colours paint nothing (a Separation None or all-None DeviceN space, §8.6.6.4).</returns>
-    public bool Prepare(PdfDocument document, in DisplayShading shading)
+    /// <param name="document">The document whose colour converters convert the shading's colours.</param>
+    /// <param name="shading">The shading paint.</param>
+    /// <param name="pixels">What the table's pixels hold: RGB, or a transparency group's gray or CMYK plane.</param>
+    public bool Prepare(PdfDocument document, in DisplayShading shading, PixelModel pixels = default)
     {
         PdfShading model = shading.Shading;
-        if (ReferenceEquals(_shading, model) && ReferenceEquals(_defaults, shading.DefaultColorSpaces) && _conversion == shading.Conversion)
+        if (ReferenceEquals(_shading, model) && ReferenceEquals(_defaults, shading.DefaultColorSpaces) && _conversion == shading.Conversion && _model == pixels)
         {
             return !_paintsNothing;
         }
@@ -57,7 +61,8 @@ internal sealed class ShadingSource
         _shading = model;
         _defaults = shading.DefaultColorSpaces;
         _conversion = shading.Conversion;
-        ColorConversion conversion = shading.Conversion with { Target = DeviceColorModel.Rgb };
+        _model = pixels;
+        ColorConversion conversion = pixels.Convert(shading.Conversion);
         PdfColorConverter converter = document.GetColorConverter(model.InterpolationColorSpace, conversion, shading.DefaultColorSpaces);
         _paintsNothing = converter.PaintsNothing;
         if (_paintsNothing)
@@ -65,7 +70,7 @@ internal sealed class ShadingSource
             return false;
         }
 
-        Fill(model, converter);
+        Fill(model, converter, pixels);
         HasBackground = false;
         if (model.Background is { } background)
         {
@@ -80,9 +85,9 @@ internal sealed class ShadingSource
                     components[i] = background[i];
                 }
 
-                Span<float> rgb = stackalloc float[3];
+                Span<float> rgb = stackalloc float[4];
                 backgroundConverter.Convert(components[..background.Count], rgb);
-                Background = Pack(rgb[0], rgb[1], rgb[2]);
+                Background = pixels == default ? Pack(rgb[0], rgb[1], rgb[2]) : pixels.Pack(rgb);
                 HasBackground = true;
             }
         }
@@ -103,17 +108,18 @@ internal sealed class ShadingSource
     private static byte Channel(float value) => (byte)((Math.Clamp(value, 0f, 1f) * 255f) + 0.5f);
 
     /// <summary>Samples the function at every entry and converts the colours in one batch.</summary>
-    private void Fill(PdfShading model, PdfColorConverter converter)
+    private void Fill(PdfShading model, PdfColorConverter converter, PixelModel pixels)
     {
+        int outputs = pixels.Components;
         int n = model.ColorComponentCount;
         if (_components.Length < Size * n)
         {
             _components = new float[Size * n];
         }
 
-        if (_rgb.Length < Size * 3)
+        if (_rgb.Length < Size * outputs)
         {
-            _rgb = new float[Size * 3];
+            _rgb = new float[Size * outputs];
         }
 
         (double t0, double t1) = Domain(model);
@@ -124,11 +130,11 @@ internal sealed class ShadingSource
             model.EvaluateFunction(input, _components.AsSpan(i * n, n));
         }
 
-        converter.Convert(_components.AsSpan(0, Size * n), _rgb.AsSpan(0, Size * 3), Size);
-        Span<float> rgb = _rgb.AsSpan(0, Size * 3);
+        converter.Convert(_components.AsSpan(0, Size * n), _rgb.AsSpan(0, Size * outputs), Size);
+        Span<float> rgb = _rgb.AsSpan(0, Size * outputs);
         for (int i = 0; i < Size; i++)
         {
-            _table[i] = Pack(rgb[3 * i], rgb[(3 * i) + 1], rgb[(3 * i) + 2]);
+            _table[i] = pixels == default ? Pack(rgb[3 * i], rgb[(3 * i) + 1], rgb[(3 * i) + 2]) : pixels.Pack(rgb.Slice(outputs * i, outputs));
         }
     }
 

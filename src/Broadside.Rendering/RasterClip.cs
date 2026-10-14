@@ -41,6 +41,10 @@ internal sealed class RasterClip : IDisposable
 
     // Derived from _current by Refresh: the pixels where the clip's coverage can be above zero, and its fractional edge columns.
     private int _rowTop;
+
+    // Where the coordinates paints use start in the clip's pixels (SetOrigin).
+    private int _originX;
+    private int _originY;
     private int _rowBottom;
     private int _columnLeft;
     private int _columnRight;
@@ -56,10 +60,21 @@ internal sealed class RasterClip : IDisposable
     /// <summary>Returns the pixel rectangle outside which the clip's coverage is zero (right and bottom exclusive), for a paint that fills the whole clip (<c>sh</c>).</summary>
     public void GetBounds(out int left, out int top, out int right, out int bottom)
     {
-        left = _columnLeft;
-        top = _rowTop;
-        right = _columnRight;
-        bottom = _rowBottom;
+        left = _columnLeft - _originX;
+        top = _rowTop - _originY;
+        right = _columnRight - _originX;
+        bottom = _rowBottom - _originY;
+    }
+
+    /// <summary>
+    /// Sets where the coordinates paints use start in the clip's (the render's) pixels: a transparency group paints into a buffer
+    /// that covers only its bounds, whose pixel (0, 0) is the render's (<paramref name="x"/>, <paramref name="y"/>). Every member
+    /// takes and gives coordinates in that system; the clip itself stays in the render's.
+    /// </summary>
+    public void SetOrigin(int x, int y)
+    {
+        _originX = x;
+        _originY = y;
     }
 
     /// <summary>Starts a render into <paramref name="width"/> × <paramref name="height"/> pixels: the clip is all of them (§8.5.4, the initial clipping path).</summary>
@@ -69,6 +84,8 @@ internal sealed class RasterClip : IDisposable
         _width = width;
         _height = height;
         _current = new State { Right = width, Bottom = height };
+        _originX = 0;
+        _originY = 0;
         Refresh();
     }
 
@@ -127,6 +144,10 @@ internal sealed class RasterClip : IDisposable
     /// <summary>Intersects the clip with an axis-aligned rectangle in device pixels; no mask is involved.</summary>
     public void IntersectRectangle(double left, double top, double right, double bottom)
     {
+        left += _originX;
+        right += _originX;
+        top += _originY;
+        bottom += _originY;
         _current.Left = Math.Max(_current.Left, Math.Min(left, right));
         _current.Top = Math.Max(_current.Top, Math.Min(top, bottom));
         _current.Right = Math.Min(_current.Right, Math.Max(left, right));
@@ -143,9 +164,14 @@ internal sealed class RasterClip : IDisposable
         if (IsEmpty || !shape.TryGetBounds(out int shapeLeft, out int shapeTop, out int shapeRight, out int shapeBottom))
         {
             SetEmpty();
-            shape.Reset(_width, _height);
+            shape.Clear();
             return;
         }
+
+        shapeLeft += _originX;
+        shapeRight += _originX;
+        shapeTop += _originY;
+        shapeBottom += _originY;
 
         int left = Math.Max(_columnLeft, shapeLeft);
         int top = Math.Max(_rowTop, shapeTop);
@@ -154,7 +180,7 @@ internal sealed class RasterClip : IDisposable
         if (left >= right || top >= bottom)
         {
             SetEmpty();
-            shape.Reset(_width, _height);
+            shape.Clear();
             return;
         }
 
@@ -168,7 +194,7 @@ internal sealed class RasterClip : IDisposable
             target.OwnsMask = true;
         }
 
-        var sink = new MaskSink(in _current, in target, left, top, right, bottom);
+        var sink = new MaskSink(in _current, in target, left, top, right, bottom, _originX, _originY);
         shape.Sweep(rule, ref sink);
         sink.Finish();
         target.MaskLeft = Math.Max(left, sink.MinX);
@@ -183,9 +209,17 @@ internal sealed class RasterClip : IDisposable
     /// Hands a run of a shape's coverage to <paramref name="sink"/> cut by the clip: only the pixels inside it, each with the shape's
     /// coverage times the clip's, in runs of equal coverage above zero.
     /// </summary>
-    public void Apply<TSink>(int row, int x, int count, int coverage, ref TSink sink)
+    /// <param name="row">The row, in the coordinates paints use (see <see cref="SetOrigin"/>).</param>
+    /// <param name="x">The first pixel of the run.</param>
+    /// <param name="count">The pixels in the run.</param>
+    /// <param name="coverage">The shape's coverage over the run.</param>
+    /// <param name="sink">What the paint does with each run.</param>
+    /// <param name="hook">The transparency group the runs paint into, which sees every run before the sink (or <see langword="null"/>).</param>
+    public void Apply<TSink>(int row, int x, int count, int coverage, ref TSink sink, GroupLayer? hook = null)
         where TSink : ICoverageSink, allows ref struct
     {
+        row += _originY;
+        x += _originX;
         if (row < _rowTop || row >= _rowBottom)
         {
             return;
@@ -210,7 +244,7 @@ internal sealed class RasterClip : IDisposable
         {
             if (start == _leftEdge)
             {
-                Emit(ref sink, row, start, 1, Scale(rowCoverage, ColumnShare(start)));
+                Emit(ref sink, hook, row, start, 1, Scale(rowCoverage, ColumnShare(start)));
                 start++;
             }
 
@@ -220,14 +254,11 @@ internal sealed class RasterClip : IDisposable
                 end--;
             }
 
-            if (end > start)
-            {
-                sink.Span(row, start, end - start, rowCoverage);
-            }
+            Emit(ref sink, hook, row, start, end - start, rowCoverage);
 
             if (rightPartial)
             {
-                Emit(ref sink, row, end, 1, Scale(rowCoverage, ColumnShare(end)));
+                Emit(ref sink, hook, row, end, 1, Scale(rowCoverage, ColumnShare(end)));
             }
 
             return;
@@ -241,7 +272,7 @@ internal sealed class RasterClip : IDisposable
             byte value = line[column - start];
             if (column == _leftEdge || column == _rightEdge)
             {
-                Emit(ref sink, row, column, 1, Divide255(Scale(rowCoverage, ColumnShare(column)) * value));
+                Emit(ref sink, hook, row, column, 1, Divide255(Scale(rowCoverage, ColumnShare(column)) * value));
                 column++;
                 continue;
             }
@@ -249,7 +280,7 @@ internal sealed class RasterClip : IDisposable
             int limit = _rightEdge > column && _rightEdge < end ? _rightEdge : end;
             int length = line[(column + 1 - start)..(limit - start)].IndexOfAnyExcept(value);
             int runEnd = length < 0 ? limit : column + 1 + length;
-            Emit(ref sink, row, column, runEnd - column, rowCoverage == 255 ? value : Divide255(rowCoverage * value));
+            Emit(ref sink, hook, row, column, runEnd - column, rowCoverage == 255 ? value : Divide255(rowCoverage * value));
             column = runEnd;
         }
     }
@@ -267,12 +298,20 @@ internal sealed class RasterClip : IDisposable
         _freeCount = 0;
     }
 
-    private static void Emit<TSink>(ref TSink sink, int row, int x, int count, int coverage)
+    /// <summary>Hands a run, in clip coordinates, to the sink (through the group hook, when there is one) in the coordinates paints use.</summary>
+    private void Emit<TSink>(ref TSink sink, GroupLayer? hook, int row, int x, int count, int coverage)
         where TSink : ICoverageSink, allows ref struct
     {
         if (coverage > 0 && count > 0)
         {
-            sink.Span(row, x, count, coverage);
+            if (hook is null)
+            {
+                sink.Span(row - _originY, x - _originX, count, coverage);
+            }
+            else
+            {
+                hook.Span(row - _originY, x - _originX, count, coverage, ref sink);
+            }
         }
     }
 
@@ -396,10 +435,14 @@ internal sealed class RasterClip : IDisposable
         private readonly int _top;
         private readonly int _right;
         private readonly int _bottom;
+        private readonly int _shiftX;
+        private readonly int _shiftY;
         private int _row;
 
-        public MaskSink(in State source, in State target, int left, int top, int right, int bottom)
+        public MaskSink(in State source, in State target, int left, int top, int right, int bottom, int shiftX, int shiftY)
         {
+            _shiftX = shiftX;
+            _shiftY = shiftY;
             _source = source.Mask;
             _sourceOffsetX = source.OriginX;
             _sourceOriginY = source.OriginY;
@@ -429,6 +472,8 @@ internal sealed class RasterClip : IDisposable
 
         public void Span(int row, int x, int count, int coverage)
         {
+            row += _shiftY;
+            x += _shiftX;
             if (row < _top || row >= _bottom)
             {
                 return;

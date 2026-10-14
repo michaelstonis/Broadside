@@ -50,9 +50,9 @@ public sealed partial class SoftwareRasterizer
             }
 
             PdfColorConverter? baseConverter = image.ColorSpace is PdfIndexedColorSpace indexed && !image.Matte.IsEmpty
-                ? _imageBaseConverter ??= _document!.GetColorConverter(indexed.Base, conversion with { Target = DeviceColorModel.Rgb }, defaultColorSpaces)
+                ? _imageBaseConverter ??= _document!.GetColorConverter(indexed.Base, _pixelModel.Convert(conversion), defaultColorSpaces)
                 : null;
-            _imageSource.Prepare(image, converter, baseConverter);
+            _imageSource.Prepare(image, converter, baseConverter, _pixelModel);
             byte[]? opacity = null;
             int maskWidth = 1;
             int maskHeight = 1;
@@ -129,12 +129,13 @@ public sealed partial class SoftwareRasterizer
 
         private PdfColorConverter ImageConverter(PdfColorSpace space, PdfDefaultColorSpaces defaults, ColorConversion conversion)
         {
+            conversion = _pixelModel.Convert(conversion);
             if (_imageConverter is null || !ReferenceEquals(_imageSpace, space) || !ReferenceEquals(_imageDefaults, defaults) || _imageConversion != conversion)
             {
                 _imageSpace = space;
                 _imageDefaults = defaults;
                 _imageConversion = conversion;
-                _imageConverter = _document!.GetColorConverter(space, conversion with { Target = DeviceColorModel.Rgb }, defaults);
+                _imageConverter = _document!.GetColorConverter(space, conversion, defaults);
                 _imageBaseConverter = null;
             }
 

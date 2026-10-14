@@ -28,7 +28,7 @@ public sealed class DisplayListGroupTests
         Assert.Equal(
             [
                 "save",
-                "group Transparency isolated knockout DeviceCMYK opacity 0.25 Multiply bbox [0 0 10 10] [1 0 0 1 100 100]",
+                "group Transparency isolated knockout DeviceCmyk opacity 0.25 Multiply bbox [0 0 10 10] [1 0 0 1 100 100]",
                 "save",
                 "transform [1 0 0 1 100 100]",
                 "clip nonzero M 0 0 L 10 0 L 10 10 L 0 10 Z",
@@ -107,7 +107,7 @@ public sealed class DisplayListGroupTests
             "/Fm1 Do",
             "/XObject << /Fm1 6 0 R >>",
             Form("/Group << /S /Transparency /I true >> /BBox [0 0 5 5]", "0 0 5 5 re f"),
-            Form("/Group << /S /Transparency /K true >> /BBox [0 0 10 10]", "/Screen gs /Fm0 Do", "/XObject << /Fm0 5 0 R >>"));
+            Form("/Group << /S /Transparency /K true >> /BBox [0 0 10 10]", "/Screen gs /Fm0 Do", "/XObject << /Fm0 5 0 R >> " + States));
 
         Assert.Equal(
             [
@@ -144,7 +144,7 @@ public sealed class DisplayListGroupTests
         // §11.4.7 and Table 145: the page group is isolated whatever its I says, and its CS is honoured.
         Assert.Equal(
             [
-                "group Page isolated knockout DeviceCMYK",
+                "group Page isolated knockout DeviceCmyk",
                 "save",
                 "fill nonzero M 0 0 L 1 0 L 1 1 L 0 1 Z | DeviceGray 0",
                 "restore",
@@ -164,8 +164,8 @@ public sealed class DisplayListGroupTests
             [
                 "group FillAndStroke knockout bbox [-10 -10 40 40] [1 0 0 1 0 0]",
                 "save",
-                "fill nonzero M 10 10 L 20 10 L 20 20 Z | DeviceGray 0",
                 "compositing 0.5 1 Normal",
+                "fill nonzero M 10 10 L 20 10 L 20 20 Z | DeviceGray 0",
                 "stroke 4 Butt Miter 10 [] 0 M 10 10 L 20 10 L 20 20 Z | DeviceGray 0",
                 "restore",
                 "end group",
@@ -184,6 +184,39 @@ public sealed class DisplayListGroupTests
                 "stroke 4 Butt Miter 10 [] 0 M 10 10 L 20 10 L 20 20 Z | DeviceGray 0",
             ],
             operations);
+    }
+
+    [Fact]
+    public void Each_translucent_glyph_filled_and_stroked_is_its_own_implicit_knockout_group()
+    {
+        using PdfDocument document = PdfDocument.Open(TextSamples.Page(Encoding.Latin1.GetBytes("/Stroke gs BT /F1 10 Tf 2 Tr 100 100 Td (BD) Tj ET"), States));
+        var recorder = new RecordingBackend();
+
+        document.Pages[0].CreateDisplayList().Replay(recorder);
+
+        // Glyph B's box runs from (50, 0) to (280, 460) in glyph space: (100.5, 100) to (102.8, 104.6) on the page, widened by half
+        // the line width times the miter limit.
+        List<string> operations = recorder.Operations;
+        Assert.Equal(2, operations.Count(line => line.StartsWith("group FillAndStroke knockout bbox [", StringComparison.Ordinal)));
+        Assert.Equal(2, operations.Count(line => line.StartsWith("glyphs FillStroke", StringComparison.Ordinal)));
+        string[] box = operations[0]["group FillAndStroke knockout bbox [".Length..].Split(']')[0].Split(' ');
+        double[] bounds = [.. box.Select(value => double.Parse(value, System.Globalization.CultureInfo.InvariantCulture))];
+        Assert.Equal([95.5, 95, 107.8, 109.6], bounds, (expected, actual) => Math.Abs(expected - actual) < 1e-9);
+    }
+
+    [Fact]
+    public void A_group_colour_space_that_cannot_blend_is_dropped_with_a_diagnostic()
+    {
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(
+            Encoding.Latin1.GetBytes("/Fm0 Do"),
+            "/XObject << /Fm0 5 0 R >>",
+            Form("/Group << /S /Transparency /I true /CS [/Indexed /DeviceRGB 0 <000000>] >> /BBox [0 0 10 10]", "0 0 10 10 re f")));
+        var recorder = new RecordingBackend();
+
+        document.Pages[0].CreateDisplayList().Replay(recorder);
+
+        Assert.Equal("group Transparency isolated bbox [0 0 10 10] [1 0 0 1 0 0]", recorder.Operations[0]);
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "GroupColorSpaceInvalid");
     }
 
     private static string Form(string entries, string content, string resources = "") =>

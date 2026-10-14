@@ -1,9 +1,8 @@
 using System.Diagnostics.CodeAnalysis;
-using System.Runtime.InteropServices;
 using Broadside.Graphics;
 
-// The target is the caller's bitmap or, inside a translucent annotation, the backend's layer (disposed through _layer).
-[assembly: SuppressMessage("Reliability", "CA2213:Disposable fields should be disposed", Justification = "Borrowed: the caller's bitmap or the annotation layer, which _layer owns.", Scope = "member", Target = "~F:Broadside.Rendering.SoftwareRasterizer.Backend._target")]
+// The target is the caller's bitmap or, inside a transparency group or translucent annotation, a plane its GroupLayer owns.
+[assembly: SuppressMessage("Reliability", "CA2213:Disposable fields should be disposed", Justification = "Borrowed: the caller's bitmap or a group layer's plane, which the GroupLayer owns.", Scope = "member", Target = "~F:Broadside.Rendering.SoftwareRasterizer.Backend._target")]
 
 namespace Broadside.Rendering;
 
@@ -14,7 +13,6 @@ public sealed partial class SoftwareRasterizer
     {
         private AnnotationFrame[] _annotationFrames = new AnnotationFrame[2];
         private int _annotationDepth;
-        private Bitmap? _layer;
 
         /// <summary>
         /// Begins an annotation (ISO 32000-2 §12.5.5): saves the state; for <c>NoZoom</c> or <c>NoRotate</c> (§12.5.3, Figure 78) maps
@@ -31,7 +29,7 @@ public sealed partial class SoftwareRasterizer
             }
 
             ref AnnotationFrame frame = ref _annotationFrames[_annotationDepth++];
-            frame = new AnnotationFrame(_device, _target!, default, Layered: false, 0, 0, 0, 0);
+            frame = new AnnotationFrame(_device, _target!, Layered: false);
             _device = Place(annotation, _device);
             SetTransform(in _ctm);
 
@@ -56,17 +54,36 @@ public sealed partial class SoftwareRasterizer
                 return;
             }
 
-            // §12.5.5, §11.6.4.4 and §11.6.3: the appearance is a group composited with the annotation's nonstroking alpha and
-            // blend mode, through the same Compositor every paint goes through (§11.3.6).
+            // §12.5.5, §11.6.4.4 and §11.6.3: the appearance is a transparency group composited with the annotation's nonstroking
+            // alpha and blend mode, isolated and knockout as its group dictionary says (§11.6.6): one of the rasterizer's group
+            // layers over the clip's pixels. Its content cannot be inspected ahead, so a non-isolated appearance in a blend mode
+            // other than Normal keeps its group alpha.
             _clip.GetBounds(out int x0, out int y0, out int x1, out int y1);
-            Bitmap layer = Layer();
-            for (int y = y0; y < y1; y++)
+            x0 = Math.Max(x0, 0);
+            y0 = Math.Max(y0, 0);
+            x1 = Math.Min(x1, _width);
+            y1 = Math.Min(y1, _height);
+            if (x0 >= x1 || y0 >= y1)
             {
-                layer.GetRow(y).Slice(x0 * 4, (x1 - x0) * 4).Clear();
+                return;
             }
 
-            frame = frame with { Compositor = new Compositor(annotation.Opacity, annotation.BlendMode), Layered = true, Left = x0, Top = y0, Right = x1, Bottom = y1 };
-            _target = layer;
+            GroupLayer layer = OpenLayer(
+                x0,
+                y0,
+                x1 - x0,
+                y1 - y0,
+                annotation.Isolated,
+                annotation.Knockout,
+                tracksAlpha: !annotation.Isolated && annotation.BlendMode != BlendMode.Normal,
+                _pixelModel,
+                new Compositor(annotation.Opacity, annotation.BlendMode),
+                ontoWhite: false,
+                colorSpace: null,
+                defaults: null,
+                conversion: default);
+            BeginPass(layer, 0, first: true);
+            frame = frame with { Layered = true };
         }
 
         /// <summary>Ends the annotation: composites its layer, if any, and restores the device mapping and the state.</summary>
@@ -80,7 +97,9 @@ public sealed partial class SoftwareRasterizer
             AnnotationFrame frame = _annotationFrames[--_annotationDepth];
             if (frame.Layered)
             {
-                Composite(_target!, frame.Target, frame);
+                GroupLayer layer = CurrentLayer!;
+                EndPass(layer);
+                CloseLayer(layer);
             }
 
             _target = frame.Target;
@@ -93,12 +112,6 @@ public sealed partial class SoftwareRasterizer
         {
             _annotationDepth = 0;
             Array.Clear(_annotationFrames);
-        }
-
-        private void DisposeAnnotations()
-        {
-            _layer?.Dispose();
-            _layer = null;
         }
 
         /// <summary>
@@ -144,47 +157,7 @@ public sealed partial class SoftwareRasterizer
         private Device MapDevice(double x, double y) =>
             new((_device.A * x) + (_device.C * y) + _device.E, (_device.B * x) + (_device.D * y) + _device.F);
 
-        /// <summary>Returns the layer bitmap, the size of the render, kept between annotations and renders.</summary>
-        private Bitmap Layer()
-        {
-            if (_layer is null || _layer.Width != _width || _layer.Height != _height)
-            {
-                _layer?.Dispose();
-                _layer = null;
-                _layer = new Bitmap(_width, _height);
-            }
-
-            return _layer;
-        }
-
-        /// <summary>
-        /// Composites the layer's premultiplied pixels over the target within the frame's bounds, with its alpha and blend mode
-        /// (§11.3.6, through <see cref="Compositor"/>).
-        /// </summary>
-        private static void Composite(Bitmap layer, Bitmap target, in AnnotationFrame frame)
-        {
-            Compositor compositor = frame.Compositor;
-            if (compositor.PaintsNothing)
-            {
-                return;
-            }
-
-            for (int y = frame.Top; y < frame.Bottom; y++)
-            {
-                ReadOnlySpan<uint> source = MemoryMarshal.Cast<byte, uint>(layer.GetRow(y).Slice(frame.Left * 4, (frame.Right - frame.Left) * 4));
-                Span<uint> destination = MemoryMarshal.Cast<byte, uint>(target.GetRow(y).Slice(frame.Left * 4, (frame.Right - frame.Left) * 4));
-                for (int i = 0; i < source.Length; i++)
-                {
-                    uint pixel = source[i];
-                    if (pixel != 0)
-                    {
-                        destination[i] = compositor.Composite(pixel, destination[i], 255);
-                    }
-                }
-            }
-        }
-
-        /// <summary>What an annotation changed at its start: the device mapping and target to restore, and its layer's bounds and compositor.</summary>
-        private readonly record struct AnnotationFrame(Matrix Device, Bitmap Target, Compositor Compositor, bool Layered, int Left, int Top, int Right, int Bottom);
+        /// <summary>What an annotation changed at its start: the device mapping and target to restore, and whether it opened a group layer.</summary>
+        private readonly record struct AnnotationFrame(Matrix Device, Bitmap Target, bool Layered);
     }
 }

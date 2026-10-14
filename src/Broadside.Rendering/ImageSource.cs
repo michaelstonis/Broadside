@@ -35,6 +35,7 @@ internal sealed class ImageSource : IDisposable
     private float[] _alphaValues = [];
     private DisplayImage? _image;
     private PdfColorConverter? _converter;
+    private PixelModel _model;
 
     /// <summary>Gets the converted pixels, <see cref="Width"/> × <see cref="Height"/>, rows top to bottom.</summary>
     public ReadOnlySpan<uint> Pixels => _pixels.AsSpan(0, Width * Height);
@@ -63,19 +64,22 @@ internal sealed class ImageSource : IDisposable
     /// For an Indexed image with a <see cref="DisplayImage.Matte"/>, the converter of its base space (the matte is removed from the
     /// table's colours); otherwise unused.
     /// </param>
-    public void Prepare(DisplayImage image, PdfColorConverter converter, PdfColorConverter? baseConverter = null)
+    /// <param name="model">What the pixels hold: RGB, or a transparency group's gray or CMYK plane; the converters convert to its target.</param>
+    public void Prepare(DisplayImage image, PdfColorConverter converter, PdfColorConverter? baseConverter = null, PixelModel model = default)
     {
-        if (ReferenceEquals(image, _image) && ReferenceEquals(converter, _converter))
+        if (ReferenceEquals(image, _image) && ReferenceEquals(converter, _converter) && model == _model)
         {
             return;
         }
+
+        int outputs = model.Components;
 
         int width = image.Width;
         int height = image.Height;
         int components = image.Components;
         int values = width * components;
         Pooled.Ensure(ref _pixels, width * height);
-        Pooled.Ensure(ref _rgb, width * 3);
+        Pooled.Ensure(ref _rgb, width * outputs);
 
         PdfColorSpace space = image.ColorSpace;
         var indexed = space as PdfIndexedColorSpace;
@@ -104,7 +108,7 @@ internal sealed class ImageSource : IDisposable
         if (kind is RowKind.Values or RowKind.TableValues)
         {
             Pooled.Ensure(ref _values, colorValues);
-            Pooled.Ensure(ref _rgbValues, width * 3);
+            Pooled.Ensure(ref _rgbValues, width * outputs);
         }
 
         if (alpha)
@@ -121,7 +125,7 @@ internal sealed class ImageSource : IDisposable
 
         ReadOnlySpan<byte> table = kind == RowKind.TableValues ? image.ColorTable : default;
         int highValue = indexed?.HighValue ?? 0;
-        Span<byte> rgb = _rgb.AsSpan(0, width * 3);
+        Span<byte> rgb = _rgb.AsSpan(0, width * outputs);
         Span<ushort> raw = _raw.AsSpan(0, values);
         Span<byte> bytes = _bytes.AsSpan(0, values);
         Span<byte> opacity = alpha ? _alpha.AsSpan(0, width) : default;
@@ -177,9 +181,10 @@ internal sealed class ImageSource : IDisposable
             for (int x = 0; x < width; x++)
             {
                 // BGRA in memory order, little-endian uint: B | G << 8 | R << 16 | A << 24, premultiplied by the folded opacity.
-                uint r = rgb[3 * x];
-                uint g = rgb[(3 * x) + 1];
-                uint b = rgb[(3 * x) + 2];
+                uint packed = model == default ? 0 : model.Pack(rgb.Slice(outputs * x, outputs));
+                uint r = model == default ? rgb[3 * x] : (packed >> 16) & 0xFF;
+                uint g = model == default ? rgb[(3 * x) + 1] : (packed >> 8) & 0xFF;
+                uint b = model == default ? rgb[(3 * x) + 2] : packed & 0xFF;
                 uint a = alpha ? opacity[x] : 255u;
                 if (a != 255)
                 {
@@ -205,6 +210,7 @@ internal sealed class ImageSource : IDisposable
         Height = height;
         _image = image;
         _converter = converter;
+        _model = model;
     }
 
     /// <summary>Forgets the image converted last, so that nothing it belongs to is kept alive; the buffers stay.</summary>
@@ -240,7 +246,7 @@ internal sealed class ImageSource : IDisposable
     /// <summary>Converts component values to RGB bytes.</summary>
     private void ToBytes(PdfColorConverter converter, ReadOnlySpan<float> values, Span<byte> rgb, int width)
     {
-        Span<float> rgbValues = _rgbValues.AsSpan(0, width * 3);
+        Span<float> rgbValues = _rgbValues.AsSpan(0, rgb.Length);
         converter.Convert(values, rgbValues, width);
         for (int i = 0; i < rgb.Length; i++)
         {
