@@ -59,7 +59,8 @@ public sealed partial class PdfDocument
 
     private ToUnicodeMap? GetToUnicode(CosStream stream, CosReference? reference, int depth) =>
         _toUnicodeMaps.GetOrCreate(
-            new CMapKey(stream, stream.Version),
+            new CMapKey(stream, stream.Version, stream.Dictionary.Version),
+            UseCMapStamp(stream),
             (Document: this, Reference: reference, Depth: depth),
             static (key, state) => new Created<ToUnicodeMap?>(state.Document.ParseToUnicode(key.Stream, state.Reference, state.Depth)),
             static (_, state) =>

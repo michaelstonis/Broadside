@@ -52,7 +52,8 @@ internal enum NamedLookup
 /// </para>
 /// <para>
 /// Converters are keyed by source space, conversion and default spaces, and rebuilt when any container they were built from has
-/// changed.
+/// changed. Default colour spaces and converters are also read again after an object is added or removed (§7.3.10), replacing the
+/// stale entry.
 /// </para>
 /// </remarks>
 internal sealed class ColorSpaceCache
@@ -247,7 +248,10 @@ internal sealed class ColorSpaceCache
     /// <summary>Returns the default colour spaces of a resource dictionary.</summary>
     /// <param name="resources">The resource dictionary, or <see langword="null"/>.</param>
     /// <returns>The defaults; <see cref="PdfDefaultColorSpaces.None"/> when it has none.</returns>
-    /// <remarks>ISO 32000-2 §8.6.5.6.</remarks>
+    /// <remarks>
+    /// ISO 32000-2 §8.6.5.6. Read again after the subdictionary changes or an object is added or removed: a removal changes what a
+    /// reference in the unchanged subdictionary resolves to (§7.3.10, issue #304), and the stale defaults are replaced, not kept.
+    /// </remarks>
     public PdfDefaultColorSpaces GetDefaults(CosDictionary? resources)
     {
         if (resources is null
@@ -260,6 +264,7 @@ internal sealed class ColorSpaceCache
 
         return _defaults.GetOrCreate(
             new Key(spaces, spaces.Version),
+            Document.ObjectsVersion,
             (Cache: this, Spaces: spaces, Owner: entry as CosReference),
             static (_, state) => new Created<PdfDefaultColorSpaces>(state.Cache.CreateDefaults(state.Spaces, state.Owner)),
             static (_, _) => PdfDefaultColorSpaces.None);
@@ -272,7 +277,7 @@ internal sealed class ColorSpaceCache
     /// <returns>The converter, built once and rebuilt when what it was built from changes.</returns>
     public PdfColorConverter GetConverter(PdfColorSpace source, ColorConversion conversion, PdfDefaultColorSpaces defaults)
     {
-        var key = new ConverterKey(source, conversion, defaults);
+        var key = new ConverterKey(source, conversion, defaults.Gray, defaults.Rgb, defaults.Cmyk);
         if (_converters.TryGetValue(key, out PdfColorConverter? converter) && converter.IsCurrent)
         {
             return converter;
@@ -414,6 +419,9 @@ internal sealed class ColorSpaceCache
     /// <summary>A colour space object's identity (its reference, else the direct container) and the container's version.</summary>
     private readonly record struct Key(object Identity, int Version);
 
-    /// <summary>What a converter is built from.</summary>
-    private readonly record struct ConverterKey(PdfColorSpace Source, ColorConversion Conversion, PdfDefaultColorSpaces Defaults);
+    /// <summary>
+    /// What a converter is built from: the default spaces themselves rather than the defaults instance, so defaults read again with
+    /// the same spaces (after an unrelated object was added, issue #304) share the converter instead of leaving one behind.
+    /// </summary>
+    private readonly record struct ConverterKey(PdfColorSpace Source, ColorConversion Conversion, PdfColorSpace? Gray, PdfColorSpace? Rgb, PdfColorSpace? Cmyk);
 }
