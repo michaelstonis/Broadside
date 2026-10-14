@@ -31,6 +31,23 @@ public static class GoldenThresholds
             new GoldenThreshold(0.01, 0.01, 0),
             "The rasterizer is compared with its own reviewed renders, so anything visible is a regression; 0.01 (under 3 levels of " +
             "grey) absorbs last-bit differences of the platform maths library between operating systems and nothing more."),
+        new(
+            "android",
+            "paths-strokes.pdf",
+            0,
+            new GoldenThreshold(GoldenThreshold.Default.EdgeTolerance, GoldenThreshold.Default.FlatTolerance, 8),
+            "Android's stroker (Skia) leaves an anti-aliasing residue one pixel wide at the inner corner of each sharp black chevron, " +
+            "lopsided between the two rows the apex spans (0.08 to 0.2 on pixels the rasterizer leaves black), and the one-pixel pens " +
+            "of the zero-width circle and diagonal overlap differently on one pixel where they cross (issue #133: 3 pixels on the " +
+            "Android 15 emulator). Every other pixel of the page is within the default."),
+        new(
+            "skia",
+            "paths-strokes.pdf",
+            0,
+            new GoldenThreshold(0.3, 0.05, 2),
+            "Skia's analytic anti-aliasing leaves the one pixel at the inner corner of each 30 degree chevron of band B (8 wide, mitered) " +
+            "at about 92 % instead of fully covered (0.08 against the 0.05 flat tolerance), where its stroker's inner join folds the " +
+            "outline back through the vertex; the two pixels are inside the stroke and everything else matches within the defaults (#121)."),
     ];
 
     /// <summary>Returns the threshold a backend's render of one corpus page must meet.</summary>

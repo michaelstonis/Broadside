@@ -1,6 +1,8 @@
 <Solution>
   <Folder Name="/bench/">
     <Project Path="bench/Broadside.Benchmarks/Broadside.Benchmarks.csproj" />
+    <Project Path="bench/Broadside.Rendering.CoreGraphics.Benchmarks/Broadside.Rendering.CoreGraphics.Benchmarks.csproj" />
+    <Project Path="bench/Broadside.Rendering.Direct2D.Benchmarks/Broadside.Rendering.Direct2D.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/solution-items/">
     <File Path="Directory.Build.props" />
@@ -28,7 +30,11 @@
     <Project Path="tests/Broadside.Fuzz/Broadside.Fuzz.csproj" />
     <Project Path="tests/Broadside.Globalization.Tests/Broadside.Globalization.Tests.csproj" />
     <Project Path="tests/Broadside.GoldenImages/Broadside.GoldenImages.csproj" />
+    <Project Path="tests/Broadside.Rendering.Android.Device/Broadside.Rendering.Android.Device.csproj" />
+    <Project Path="tests/Broadside.Rendering.Android.Tests/Broadside.Rendering.Android.Tests.csproj" />
     <Project Path="tests/Broadside.Rendering.AotSmoke/Broadside.Rendering.AotSmoke.csproj" />
+    <Project Path="tests/Broadside.Rendering.CoreGraphics.Tests/Broadside.Rendering.CoreGraphics.Tests.csproj" />
+    <Project Path="tests/Broadside.Rendering.Direct2D.Tests/Broadside.Rendering.Direct2D.Tests.csproj" />
     <Project Path="tests/Broadside.Rendering.Skia.Tests/Broadside.Rendering.Skia.Tests.csproj" />
     <Project Path="tests/Broadside.Rendering.Tests/Broadside.Rendering.Tests.csproj" />
     <Project Path="tests/Broadside.Tests/Broadside.Tests.csproj" />

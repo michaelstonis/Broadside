@@ -4041,6 +4041,53 @@ Broadside.Forms.PdfChoiceField.SetValue(string? value) -> void
 Broadside.Forms.PdfChoiceField.SetSelectedIndices(System.Collections.Generic.IEnumerable<int>! indices) -> void
 Broadside.Forms.PdfChoiceField.GenerateAppearances() -> void
 Broadside.Forms.PdfListBoxField.SetTopIndex(int topIndex) -> void
+Broadside.PdfDocument.CreateAcroForm() -> Broadside.Forms.PdfAcroForm!
+Broadside.Forms.PdfAcroForm.AddTextField(string! name, Broadside.PdfPage! page, Broadside.PdfRectangle rectangle, Broadside.Forms.PdfFieldOptions? options = null) -> Broadside.Forms.PdfTextField!
+Broadside.Forms.PdfAcroForm.AddCheckBox(string! name, Broadside.PdfPage! page, Broadside.PdfRectangle rectangle, Broadside.Forms.PdfFieldOptions? options = null) -> Broadside.Forms.PdfCheckBoxField!
+Broadside.Forms.PdfAcroForm.AddRadioButtons(string! name, System.Collections.Generic.IEnumerable<Broadside.Forms.PdfRadioButton!>! buttons, Broadside.Forms.PdfFieldOptions? options = null) -> Broadside.Forms.PdfRadioButtonField!
+Broadside.Forms.PdfAcroForm.AddComboBox(string! name, Broadside.PdfPage! page, Broadside.PdfRectangle rectangle, System.Collections.Generic.IEnumerable<Broadside.Forms.PdfChoiceOption!>! choices, Broadside.Forms.PdfFieldOptions? options = null) -> Broadside.Forms.PdfComboBoxField!
+Broadside.Forms.PdfAcroForm.AddListBox(string! name, Broadside.PdfPage! page, Broadside.PdfRectangle rectangle, System.Collections.Generic.IEnumerable<Broadside.Forms.PdfChoiceOption!>! choices, Broadside.Forms.PdfFieldOptions? options = null) -> Broadside.Forms.PdfListBoxField!
+Broadside.Forms.PdfAcroForm.AddPushButton(string! name, Broadside.PdfPage! page, Broadside.PdfRectangle rectangle, Broadside.Forms.PdfFieldOptions? options = null) -> Broadside.Forms.PdfPushButtonField!
+Broadside.Forms.PdfAcroForm.AddSignatureField(string! name, Broadside.PdfPage! page, Broadside.PdfRectangle rectangle, Broadside.Forms.PdfFieldOptions? options = null) -> Broadside.Forms.PdfSignatureField!
+Broadside.Forms.PdfChoiceOption.PdfChoiceOption(string! exportValue, string! displayText) -> void
+Broadside.Forms.PdfChoiceOption.PdfChoiceOption(string! text) -> void
+Broadside.Forms.PdfRadioButton
+Broadside.Forms.PdfRadioButton.PdfRadioButton(Broadside.PdfPage! page, Broadside.PdfRectangle rectangle, string! state) -> void
+Broadside.Forms.PdfRadioButton.Page.get -> Broadside.PdfPage!
+Broadside.Forms.PdfRadioButton.Rectangle.get -> Broadside.PdfRectangle
+Broadside.Forms.PdfRadioButton.State.get -> string!
+Broadside.Forms.PdfFieldOptions
+Broadside.Forms.PdfFieldOptions.PdfFieldOptions() -> void
+Broadside.Forms.PdfFieldOptions.Flags.get -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldOptions.Flags.set -> void
+Broadside.Forms.PdfFieldOptions.AlternateName.get -> string?
+Broadside.Forms.PdfFieldOptions.AlternateName.set -> void
+Broadside.Forms.PdfFieldOptions.FontSize.get -> double
+Broadside.Forms.PdfFieldOptions.FontSize.set -> void
+Broadside.Forms.PdfFieldOptions.TextColor.get -> Broadside.Annotations.PdfDeviceColor!
+Broadside.Forms.PdfFieldOptions.TextColor.set -> void
+Broadside.Forms.PdfFieldOptions.Quadding.get -> Broadside.Annotations.PdfTextJustification
+Broadside.Forms.PdfFieldOptions.Quadding.set -> void
+Broadside.Forms.PdfFieldOptions.BorderColor.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.Forms.PdfFieldOptions.BorderColor.set -> void
+Broadside.Forms.PdfFieldOptions.BackgroundColor.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.Forms.PdfFieldOptions.BackgroundColor.set -> void
+Broadside.Forms.PdfFieldOptions.BorderWidth.get -> double
+Broadside.Forms.PdfFieldOptions.BorderWidth.set -> void
+Broadside.Forms.PdfFieldOptions.MaxLength.get -> int?
+Broadside.Forms.PdfFieldOptions.MaxLength.set -> void
+Broadside.Forms.PdfFieldOptions.Caption.get -> string?
+Broadside.Forms.PdfFieldOptions.Caption.set -> void
+Broadside.Forms.PdfFieldOptions.WithFlags(Broadside.Forms.PdfFieldFlags flags) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithAlternateName(string? alternateName) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithFontSize(double fontSize) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithTextColor(Broadside.Annotations.PdfDeviceColor! color) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithQuadding(Broadside.Annotations.PdfTextJustification quadding) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithBorderColor(Broadside.Annotations.PdfDeviceColor? color) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithBackgroundColor(Broadside.Annotations.PdfDeviceColor? color) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithBorderWidth(double width) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithMaxLength(int? maxLength) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithCaption(string? caption) -> Broadside.Forms.PdfFieldOptions!
 Broadside.Rendering.DisplayList.Replay(Broadside.Rendering.IRenderingBackend! backend, Broadside.PdfRectangle region) -> void
 Broadside.PdfEncryptionAlgorithm.Aes256Gcm = 3 -> Broadside.PdfEncryptionAlgorithm
 Broadside.PdfEncryptionOptions.IntegrityProtection.get -> bool
@@ -4147,3 +4194,55 @@ Broadside.Signatures.PdfSignatureValidationOptions.WithOcspResponses(params Syst
 Broadside.Signatures.PdfSignatureValidationOptions.WithCertificateRevocationLists(params System.Collections.Generic.IEnumerable<byte[]!>! certificateRevocationLists) -> Broadside.Signatures.PdfSignatureValidationOptions!
 Broadside.Signatures.PdfSignatureValidationOptions.WithRequireRevocationStatus(bool requireRevocationStatus) -> Broadside.Signatures.PdfSignatureValidationOptions!
 Broadside.Signatures.PdfSignatureValidationOptions.UseOnlineRevocation(System.Net.Http.HttpClient? httpClient) -> Broadside.Signatures.PdfSignatureValidationOptions!
+Broadside.Graphics.PdfCanvas
+Broadside.Graphics.PdfCanvas.Clip(Broadside.Graphics.FillRule rule = Broadside.Graphics.FillRule.NonZero) -> void
+Broadside.Graphics.PdfCanvas.CloseAndStroke() -> void
+Broadside.Graphics.PdfCanvas.CloseFillAndStroke(Broadside.Graphics.FillRule rule = Broadside.Graphics.FillRule.NonZero) -> void
+Broadside.Graphics.PdfCanvas.ClosePath() -> void
+Broadside.Graphics.PdfCanvas.CurveTo(double x1, double y1, double x2, double y2, double x3, double y3) -> void
+Broadside.Graphics.PdfCanvas.Dispose() -> void
+Broadside.Graphics.PdfCanvas.DrawForm(Broadside.Graphics.PdfFormXObject! form) -> void
+Broadside.Graphics.PdfCanvas.EndPath() -> void
+Broadside.Graphics.PdfCanvas.Fill(Broadside.Graphics.FillRule rule = Broadside.Graphics.FillRule.NonZero) -> void
+Broadside.Graphics.PdfCanvas.FillAndStroke(Broadside.Graphics.FillRule rule = Broadside.Graphics.FillRule.NonZero) -> void
+Broadside.Graphics.PdfCanvas.LineTo(double x, double y) -> void
+Broadside.Graphics.PdfCanvas.MoveTo(double x, double y) -> void
+Broadside.Graphics.PdfCanvas.Rectangle(double x, double y, double width, double height) -> void
+Broadside.Graphics.PdfCanvas.RestoreState() -> void
+Broadside.Graphics.PdfCanvas.Rotate(double degrees) -> void
+Broadside.Graphics.PdfCanvas.SaveState() -> void
+Broadside.Graphics.PdfCanvas.Scale(double x, double y) -> void
+Broadside.Graphics.PdfCanvas.SetBlendMode(Broadside.Graphics.BlendMode mode) -> void
+Broadside.Graphics.PdfCanvas.SetDashPattern(System.ReadOnlySpan<double> dashArray, double phase) -> void
+Broadside.Graphics.PdfCanvas.SetFillAlpha(double alpha) -> void
+Broadside.Graphics.PdfCanvas.SetFillColor(Broadside.Graphics.PdfColor color) -> void
+Broadside.Graphics.PdfCanvas.SetFlatness(double flatness) -> void
+Broadside.Graphics.PdfCanvas.SetLineCap(Broadside.Graphics.LineCap cap) -> void
+Broadside.Graphics.PdfCanvas.SetLineJoin(Broadside.Graphics.LineJoin join) -> void
+Broadside.Graphics.PdfCanvas.SetLineWidth(double width) -> void
+Broadside.Graphics.PdfCanvas.SetMiterLimit(double limit) -> void
+Broadside.Graphics.PdfCanvas.SetRenderingIntent(Broadside.Graphics.RenderingIntent intent) -> void
+Broadside.Graphics.PdfCanvas.SetStrokeAlpha(double alpha) -> void
+Broadside.Graphics.PdfCanvas.SetStrokeColor(Broadside.Graphics.PdfColor color) -> void
+Broadside.Graphics.PdfCanvas.StateDepth.get -> int
+Broadside.Graphics.PdfCanvas.Stroke() -> void
+Broadside.Graphics.PdfCanvas.Transform(Broadside.Graphics.Matrix matrix) -> void
+Broadside.Graphics.PdfCanvas.Translate(double x, double y) -> void
+static Broadside.Graphics.PdfColor.FromCmyk(float cyan, float magenta, float yellow, float black) -> Broadside.Graphics.PdfColor
+static Broadside.Graphics.PdfColor.FromGray(float gray) -> Broadside.Graphics.PdfColor
+static Broadside.Graphics.PdfColor.FromRgb(float red, float green, float blue) -> Broadside.Graphics.PdfColor
+Broadside.Graphics.PdfFormXObject.CreateCanvas() -> Broadside.Graphics.PdfCanvas!
+Broadside.PdfDocument.CreateDeviceNColorSpace(System.Collections.Generic.IReadOnlyList<string!>! colorants, Broadside.Graphics.PdfColorSpace! alternate, Broadside.Graphics.PdfFunction! tintTransform) -> Broadside.Graphics.PdfDeviceNColorSpace!
+Broadside.PdfDocument.CreateDeviceNColorSpace(System.Collections.Generic.IReadOnlyList<string!>! colorants, System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PdfColor>! alternateColors) -> Broadside.Graphics.PdfDeviceNColorSpace!
+Broadside.PdfDocument.CreateExponentialFunction(System.ReadOnlySpan<double> c0, System.ReadOnlySpan<double> c1, double exponent) -> Broadside.Graphics.PdfExponentialFunction!
+Broadside.PdfDocument.CreateFormXObject(Broadside.PdfRectangle boundingBox) -> Broadside.Graphics.PdfFormXObject!
+Broadside.PdfDocument.CreateIccBasedColorSpace(System.ReadOnlySpan<byte> profile) -> Broadside.Graphics.PdfIccBasedColorSpace!
+Broadside.PdfDocument.CreatePostScriptFunction(System.ReadOnlySpan<double> domain, System.ReadOnlySpan<double> range, string! program) -> Broadside.Graphics.PdfPostScriptFunction!
+Broadside.PdfDocument.CreateSeparationColorSpace(string! colorant, Broadside.Graphics.PdfColor alternateColor) -> Broadside.Graphics.PdfSeparationColorSpace!
+Broadside.PdfDocument.CreateSeparationColorSpace(string! colorant, Broadside.Graphics.PdfColorSpace! alternate, Broadside.Graphics.PdfFunction! tintTransform) -> Broadside.Graphics.PdfSeparationColorSpace!
+Broadside.PdfPage.ArtBox.set -> void
+Broadside.PdfPage.BleedBox.set -> void
+Broadside.PdfPage.CreateCanvas() -> Broadside.Graphics.PdfCanvas!
+Broadside.PdfPage.CropBox.set -> void
+Broadside.PdfPage.MediaBox.set -> void
+Broadside.PdfPage.TrimBox.set -> void

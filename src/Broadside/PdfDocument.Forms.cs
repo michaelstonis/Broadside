@@ -41,6 +41,28 @@ public sealed partial class PdfDocument
         }
     }
 
+    /// <summary>Gives the document an interactive form with no fields and default resources, and returns it.</summary>
+    /// <returns>The new form; add fields with its <c>Add</c> methods, such as <see cref="PdfAcroForm.AddTextField"/>.</returns>
+    /// <exception cref="InvalidOperationException">The document already has an interactive form (<see cref="AcroForm"/>).</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.2, Table 29 (<c>AcroForm</c>, PDF 1.2), and §12.7.3, Table 224: a new indirect dictionary with an empty
+    /// <c>Fields</c>, default resources (<c>DR</c>) whose fonts are Helvetica in WinAnsiEncoding as <c>Helv</c> and ZapfDingbats as
+    /// <c>ZaDb</c> (standard 14 fonts, §9.6.2.2), and the default appearance <c>/Helv 0 Tf 0 g</c> (auto-sized black text,
+    /// §12.7.4.3). It has no <c>NeedAppearances</c>: every field created through it gets its appearances. A mutation: no read may
+    /// run concurrently with it.
+    /// </remarks>
+    public PdfAcroForm CreateAcroForm()
+    {
+        if (AcroForm is not null)
+        {
+            throw new InvalidOperationException("The document already has an interactive form; add fields through PdfDocument.AcroForm.");
+        }
+
+        Catalog[FormNames.AcroForm] = AddObject(FieldCreation.NewForm(this));
+        RequireFeature(Writing.VersionedFeatures.InteractiveForm);
+        return AcroForm!;
+    }
+
     /// <summary>
     /// Records, when the document is opened, that its interactive form carries an XFA resource (and whether the form is dynamic): a
     /// legal but deprecated feature Broadside keeps without rendering, so an Information diagnostic. No stream is decoded.
