@@ -37,8 +37,12 @@ internal sealed class ToggleButtonAppearance
 
     /// <summary>Builds the on and off appearances of every widget of <paramref name="field"/>.</summary>
     /// <param name="field">The field.</param>
+    /// <param name="onStates">
+    /// The on state of each widget in <c>Kids</c> order for widgets that have none yet, or <see langword="null"/> for the defaults
+    /// (<c>Yes</c> for a check box, the position in <c>Kids</c> for a radio button).
+    /// </param>
     /// <returns>The appearances, not yet placed on the widgets (<see cref="Apply"/>).</returns>
-    public static ToggleButtonAppearance Build(PdfToggleButtonField field)
+    public static ToggleButtonAppearance Build(PdfToggleButtonField field, IReadOnlyList<CosName>? onStates = null)
     {
         PdfDocument document = field.Document;
         PdfDefaultAppearance? appearance = field.ParsedDefaultAppearance;
@@ -70,7 +74,8 @@ internal sealed class ToggleButtonAppearance
         foreach (PdfWidgetAnnotation widget in field.Widgets)
         {
             CosName? existing = field.GetOnState(widget);
-            CosName on = existing ?? field.DefaultOnState(field.IndexOfWidget(widget.Dictionary));
+            int index = field.IndexOfWidget(widget.Dictionary);
+            CosName on = existing ?? (onStates is not null && index >= 0 && index < onStates.Count ? onStates[index] : field.DefaultOnState(index));
             bool isOn = existing is not null ? selected.Any(other => ReferenceEquals(other.Dictionary, widget.Dictionary)) : on.Equals(value);
             byte[] codes = Codes(widget.AppearanceCharacteristics?.NormalCaption is { Length: > 0 } caption ? caption : field.DefaultCaption);
             CosStream onStream = TextFieldAppearance.BuildStream(document, widget, appearance?.FontResources, fonts, (content, box, _) =>
