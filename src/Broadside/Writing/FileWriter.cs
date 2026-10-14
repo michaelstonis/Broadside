@@ -183,6 +183,13 @@ internal sealed class FileWriter
     /// </summary>
     public IntegrityCodeWriter? Integrity { get; init; }
 
+    /// <summary>
+    /// Gets or sets the signature dictionary of a signed revision the writer writes, whose signature carries the PDF MAC token as an
+    /// unsigned attribute (ISO/TS 32004 §6.5.2): the trailer's <c>AuthCode</c> is then <c>MACLocation</c> <c>AttachedToSig</c> with
+    /// <c>SigObjRef</c> (Table 6), and the signer composes the token. <see langword="null"/> writes a standalone token.
+    /// </summary>
+    public CosReference? IntegritySignature { get; set; }
+
     /// <summary>Gets or sets the version the header states (§7.5.2); an incremental update writes no header.</summary>
     public PdfVersion Version { get; set; }
 
@@ -194,7 +201,7 @@ internal sealed class FileWriter
     public IEnumerable<ReadOnlyMemory<byte>> Write()
     {
         // ISO/TS 32004 §6.6.2: the MAC digests the file from its header (offset 0 of the byte range, §7.5.2) to its end.
-        using IncrementalDigest? integrity = Integrity is null ? null : IntegrityCodeWriter.CreateDigest();
+        using IncrementalDigest? integrity = Integrity is null || IntegritySignature is not null ? null : IntegrityCodeWriter.CreateDigest();
         if (_update is null)
         {
             foreach (ReadOnlyMemory<byte> chunk in WriteFrom(0, integrity))
@@ -353,7 +360,7 @@ internal sealed class FileWriter
 
         // ISO/TS 32004 §5.2.3: the AuthCode dictionary's byte range and MAC are placeholders of their final widths, filled in once
         // the whole file but the token is digested; the section is the last chunk, so nothing has been handed out past them.
-        _authCode = Integrity is null ? null : AuthCodePlaceholder.Create(Integrity.TokenLength, flushed - origin);
+        _authCode = Integrity is null || IntegritySignature is not null ? null : AuthCodePlaceholder.Create(Integrity.TokenLength, flushed - origin);
         XrefSection section = _layout == PdfCrossReferenceLayout.Table
             ? WriteTable(buffer, entries, nextNumber, flushed, origin, identifier)
             : WriteStream(buffer, entries, StreamNumber(nextNumber), flushed, origin, identifier);
@@ -746,6 +753,10 @@ internal sealed class FileWriter
         if (_authCode is not null)
         {
             trailer[AuthCodePlaceholder.Key] = _authCode.Dictionary;
+        }
+        else if (Integrity is not null && IntegritySignature is { } signature)
+        {
+            trailer[AuthCodePlaceholder.Key] = AuthCodePlaceholder.AttachedTo(signature);
         }
 
         return trailer;

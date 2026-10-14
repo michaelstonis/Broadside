@@ -1,9 +1,12 @@
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Security;
 using Broadside.Security.Cryptography;
+using Broadside.Signatures;
 using Broadside.Tests.Security;
+using Broadside.Tests.Signatures;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.Writing;
@@ -259,6 +262,32 @@ public sealed class IntegrityProtectedSaveTests
         Assert.Equal(PdfIntegrityStatus.Verified, reopened.Security!.Integrity);
         Assert.Equal(EncryptedCorpusTests.ContentText(source), EncryptedCorpusTests.ContentText(reopened));
         Assert.Empty(reopened.Diagnostics);
+    }
+
+    [Fact]
+    public void Signing_a_protected_document_attaches_its_new_mac_to_the_signature()
+    {
+        // ISO/TS 32004 §6.5.2: in a signed revision the token is an unsigned attribute of the signature, which covers the file.
+        using X509Certificate2 certificate = TestCertificates.SelfSigned("CN=Broadside signer");
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("encrypted-mac.pdf"), new PdfOptions().WithPassword("owner"));
+        using var output = new MemoryStream();
+
+        document.Sign(output, new PdfCertificateSigner(certificate));
+
+        byte[] signed = output.ToArray();
+        using PdfDocument reopened = PdfDocument.Open(signed);
+        Assert.Equal(PdfIntegrityStatus.Verified, reopened.Security!.Integrity);
+        var authCode = (CosDictionary)reopened.Trailer[new CosName("AuthCode")];
+        Assert.Equal(new CosName("AttachedToSig"), authCode[new CosName("MACLocation")]);
+        Assert.False(authCode.ContainsKey(new CosName("MAC")));
+        Assert.Empty(reopened.Diagnostics);
+        SignedFile signature = SignedFile.Last(signed);
+        OpenSsl.VerifyCms(signature.Cms, signature.CoveredBytes(), certificate);
+
+        // The token binds the signature value too: a changed byte anywhere in the covered ranges fails both.
+        byte[] tampered = Encoding.Latin1.GetBytes(Encoding.Latin1.GetString(signed).Replace("target: original", "target: Original", StringComparison.Ordinal));
+        using PdfDocument changed = PdfDocument.Open(tampered);
+        Assert.Equal(PdfIntegrityStatus.Failed, changed.Security!.Integrity);
     }
 
     private static int[] IsoExtensionLevels(PdfDocument document) =>

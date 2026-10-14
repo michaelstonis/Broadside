@@ -29,6 +29,8 @@ internal sealed class AuthCodePlaceholder
     private static readonly CosName MacLocation = new("MACLocation");
     private static readonly CosName Standalone = new("Standalone");
     private static readonly CosName Mac = new("MAC");
+    private static readonly CosName AttachedToSig = new("AttachedToSig");
+    private static readonly CosName SigObjRef = new("SigObjRef");
 
     private readonly int _width;
     private readonly byte[] _byteRangeText;
@@ -47,6 +49,18 @@ internal sealed class AuthCodePlaceholder
 
     /// <summary>Gets the dictionary: placeholders until <see cref="Fill"/>, the written values after it.</summary>
     public CosDictionary Dictionary { get; }
+
+    /// <summary>
+    /// The <c>AuthCode</c> dictionary of a signed revision, whose PDF MAC token is an unsigned attribute of the signature (ISO/TS 32004
+    /// §6.5.2, Table 6): <c>MACLocation</c> <c>AttachedToSig</c> and <c>SigObjRef</c>, no byte range and no MAC.
+    /// </summary>
+    /// <param name="signature">The signature dictionary the token is attached to.</param>
+    /// <returns>The dictionary.</returns>
+    public static CosDictionary AttachedTo(CosReference signature) => new()
+    {
+        [MacLocation] = AttachedToSig,
+        [SigObjRef] = signature,
+    };
 
     /// <summary>Creates the placeholder dictionary for a token of <paramref name="tokenLength"/> bytes.</summary>
     /// <param name="tokenLength">The DER-encoded token's length.</param>

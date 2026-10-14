@@ -10,8 +10,8 @@ namespace Broadside.Security;
 /// ISO/TS 32004 §6.2-§6.6. The token is a CMS ContentInfo of type id-ct-authData (RFC 5652 §9.1) whose AuthenticatedData has one
 /// PasswordRecipientInfo (§6.3.3: key derivation pdfMacWrapKdf, key encryption AES-256 key wrap without padding, RFC 3394), the MAC
 /// algorithm HMAC with SHA-256 (§6.3.5, Table 9), the digest algorithm SHA-256 (§6.3.4, Table 8), the encapsulated content a
-/// PdfMacIntegrityInfo of version 0 holding the digest of the file's byte range (§6.2, §6.6.2; no signatureDigest: the token stands
-/// alone in the trailer, §6.5.1), and the authenticated attributes content type, message digest and CMS algorithm protection
+/// PdfMacIntegrityInfo of version 0 holding the digest of the file's byte range and, for a token attached to a signature, the digest
+/// of the signature value (§6.2, §6.6.2, §6.6.3), and the authenticated attributes content type, message digest and CMS algorithm protection
 /// (§6.3.6, RFC 6211), with no unauthenticated attributes (§6.3.7).
 /// </para>
 /// <para>
@@ -45,11 +45,15 @@ internal sealed class IntegrityCodeWriter
     public IntegrityCodeWriter(ReadOnlySpan<byte> fileKey, ReadOnlySpan<byte> kdfSalt)
     {
         _keyEncryptionKey = HKDF.DeriveKey(HashAlgorithmName.SHA256, fileKey.ToArray(), 32, kdfSalt.ToArray(), "PDFMAC"u8.ToArray());
-        TokenLength = Compose(new byte[DigestLength], new byte[MacKeyLength]).Length;
+        TokenLength = Compose(new byte[DigestLength], [], new byte[MacKeyLength]).Length;
+        SignedTokenLength = Compose(new byte[DigestLength], new byte[DigestLength], new byte[MacKeyLength]).Length;
     }
 
-    /// <summary>Gets the length of the DER-encoded token in bytes, the same for every token this writer composes.</summary>
+    /// <summary>Gets the length of a standalone DER-encoded token in bytes, the same for every one this writer composes.</summary>
     public int TokenLength { get; }
+
+    /// <summary>Gets the length of a token attached to a signature (with a <c>signatureDigest</c>, §6.6.3) in bytes.</summary>
+    public int SignedTokenLength { get; }
 
     /// <summary>Gets the length of the file digest <see cref="CreateToken"/> takes.</summary>
     public static int DigestLength => 32;
@@ -59,14 +63,21 @@ internal sealed class IntegrityCodeWriter
     public static IncrementalDigest CreateDigest() => IncrementalDigest.Create(HashAlgorithmName.SHA256);
 
     /// <summary>Composes a token for a file whose byte range digests to <paramref name="dataDigest"/>, under a new random MAC key.</summary>
-    /// <param name="dataDigest">The SHA-256 digest of the bytes the <c>AuthCode</c> byte range covers (§6.6.2).</param>
-    /// <returns>The DER-encoded token, <see cref="TokenLength"/> bytes.</returns>
-    public byte[] CreateToken(ReadOnlySpan<byte> dataDigest)
+    /// <param name="dataDigest">
+    /// The SHA-256 digest of the bytes the <c>AuthCode</c> byte range covers (§6.6.2), or, for a token attached to a signature, the
+    /// signature's byte range (§6.6.3).
+    /// </param>
+    /// <param name="signatureDigest">
+    /// For a token attached to a signature, the SHA-256 digest of the signature value of the <c>SignerInfo</c> it is an unsigned
+    /// attribute of (§6.6.3); empty for a standalone token.
+    /// </param>
+    /// <returns>The DER-encoded token, <see cref="TokenLength"/> or <see cref="SignedTokenLength"/> bytes.</returns>
+    public byte[] CreateToken(ReadOnlySpan<byte> dataDigest, ReadOnlySpan<byte> signatureDigest = default)
     {
         byte[] macKey = RandomNumberGenerator.GetBytes(MacKeyLength);
         try
         {
-            return Compose(dataDigest, macKey);
+            return Compose(dataDigest, signatureDigest, macKey);
         }
         finally
         {
@@ -74,14 +85,19 @@ internal sealed class IntegrityCodeWriter
         }
     }
 
-    private byte[] Compose(ReadOnlySpan<byte> dataDigest, byte[] macKey)
+    private byte[] Compose(ReadOnlySpan<byte> dataDigest, ReadOnlySpan<byte> signatureDigest, byte[] macKey)
     {
-        // §6.2: PdfMacIntegrityInfo ::= SEQUENCE { version INTEGER (0), dataDigest OCTET STRING }.
+        // §6.2: PdfMacIntegrityInfo ::= SEQUENCE { version INTEGER (0), dataDigest OCTET STRING, signatureDigest [0] IMPLICIT OCTET
+        // STRING OPTIONAL }, the last only in a signed revision (§6.6.2, §6.6.3).
         var info = new AsnWriter(AsnEncodingRules.DER);
         using (info.PushSequence())
         {
             info.WriteInteger(0);
             info.WriteOctetString(dataDigest);
+            if (!signatureDigest.IsEmpty)
+            {
+                info.WriteOctetString(signatureDigest, new Asn1Tag(TagClass.ContextSpecific, 0));
+            }
         }
 
         byte[] content = info.Encode();
