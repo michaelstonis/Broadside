@@ -104,6 +104,13 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <item><term><see cref="FieldAlternateName"/></term><description>1.3 (§12.7.4.1, Table 226, <c>TU</c>)</description></item>
 /// <item><term><see cref="FieldFlags14"/></term><description>1.4 (Tables 231 and 233: FileSelect, MultiSelect, DoNotSpellCheck, DoNotScroll)</description></item>
 /// <item><term><see cref="FieldFlags15"/></term><description>1.5 (Tables 229, 231 and 233: Comb, RichText, RadiosInUnison, CommitOnSelChange)</description></item>
+/// <item><term><see cref="ByteRangeSignature"/></term><description>1.3 (§12.8.3.1, Table 260, <c>adbe.pkcs7.detached</c>)</description></item>
+/// <item><term><see cref="CadesSignature"/></term><description>2.0 (§12.8.3.4, <c>ETSI.CAdES.detached</c>)</description></item>
+/// <item><term><see cref="LongRsaKeySignature"/></term><description>1.5 (Table 260, RSA keys of 2048 and 4096 bits)</description></item>
+/// <item><term><see cref="EcdsaSignature"/></term><description>2.0 (Table 260) and the ISO_ extension level 32002 (ISO/TS 32002, clause 4)</description></item>
+/// <item><term><see cref="Sha256SignatureDigest"/></term><description>1.6 (Table 260)</description></item>
+/// <item><term><see cref="Sha2SignatureDigest"/></term><description>1.7 (Table 260, SHA-384 and SHA-512)</description></item>
+/// <item><term><see cref="Sha3SignatureDigest"/></term><description>2.0 and the ISO_ extension level 32001 (ISO/TS 32001, clause 4 and §5.1.4)</description></item>
 /// <item><term><see cref="DeveloperExtension"/></term><description>The extension's <c>BaseVersion</c> (§7.12.4)</description></item>
 /// </list>
 /// <para>
@@ -292,6 +299,35 @@ internal static class VersionedFeatures
         "the field flags Comb, RichText, RadiosInUnison or CommitOnSelChange",
         "ISO 32000-2 §12.7.5.2.4, Table 229; §12.7.5.3, Table 231; §12.7.5.4, Table 233",
         Pdf15);
+
+    /// <summary>Gets a byte range signature (a signature dictionary with <c>ByteRange</c> and a CMS <c>Contents</c>): PDF 1.3.</summary>
+    public static VersionedFeature ByteRangeSignature { get; } = new("a byte range signature (adbe.pkcs7.detached)", "ISO 32000-2 §12.8.3.1, Table 260", new PdfVersion(1, 3));
+
+    /// <summary>Gets a PAdES signature, sub-filter <c>ETSI.CAdES.detached</c>: PDF 2.0.</summary>
+    public static VersionedFeature CadesSignature { get; } = new("a PAdES signature (ETSI.CAdES.detached)", "ISO 32000-2 §12.8.3.4; Table 260", Pdf20);
+
+    /// <summary>Gets an RSA signature with a key longer than 1024 bits: PDF 1.5.</summary>
+    public static VersionedFeature LongRsaKeySignature { get; } = new("an RSA signature with a key over 1024 bits", "ISO 32000-2 §12.8.3.1, Table 260", Pdf15);
+
+    /// <summary>Gets an ECDSA signature: PDF 2.0 and the ISO_ extension level 32002 for the curves of ISO/TS 32002 Table 3.</summary>
+    public static VersionedFeature EcdsaSignature { get; } = new(
+        "an ECDSA signature",
+        "ISO 32000-2 §12.8.3.1, Table 260; ISO/TS 32002, clause 4 and §5.1.3",
+        Pdf20,
+        new DeveloperExtensionDeclaration(KnownNames.IsoPrefix, Pdf20, 32002, ":2022", "https://www.iso.org/standard/45875.html"));
+
+    /// <summary>Gets a signature with a SHA-256 digest: PDF 1.6.</summary>
+    public static VersionedFeature Sha256SignatureDigest { get; } = new("a SHA-256 signature digest", "ISO 32000-2 §12.8.3.1, Table 260", Pdf16);
+
+    /// <summary>Gets a signature with a SHA-384 or SHA-512 digest: PDF 1.7.</summary>
+    public static VersionedFeature Sha2SignatureDigest { get; } = new("a SHA-384 or SHA-512 signature digest", "ISO 32000-2 §12.8.3.1, Table 260", new PdfVersion(1, 7));
+
+    /// <summary>Gets a signature with a SHA3-256, SHA3-384 or SHA3-512 digest: PDF 2.0 and the ISO_ extension level 32001.</summary>
+    public static VersionedFeature Sha3SignatureDigest { get; } = new(
+        "a SHA-3 signature digest",
+        "ISO/TS 32001, clause 4 and §5.1.4",
+        Pdf20,
+        new DeveloperExtensionDeclaration(KnownNames.IsoPrefix, Pdf20, 32001, ":2022", "https://www.iso.org/standard/45874.html"));
 
     /// <summary>Returns the feature a filter's encoding stands for, or <see langword="null"/> when it has no version row.</summary>
     /// <param name="filter">A filter name.</param>
