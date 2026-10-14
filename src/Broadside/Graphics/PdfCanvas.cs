@@ -31,7 +31,7 @@ namespace Broadside.Graphics;
 /// read may run concurrently with it, and it is not thread-safe.
 /// </para>
 /// </remarks>
-public sealed class PdfCanvas : IDisposable
+public sealed partial class PdfCanvas : IDisposable
 {
     private static readonly CosName[] BlendModeNames = [.. Enum.GetNames<BlendMode>().Select(static name => new CosName(name))];
     private static readonly CosName[] IntentNames = [.. Enum.GetNames<RenderingIntent>().Select(static name => new CosName(name))];
