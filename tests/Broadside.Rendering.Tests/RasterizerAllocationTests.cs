@@ -167,4 +167,38 @@ public sealed class RasterizerAllocationTests
 
         Assert.Equal(0, allocated);
     }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(4)]
+    public void Rendering_tiles_from_a_cached_display_list_allocates_nothing(double scale)
+    {
+        // Sixteen 256-pixel tiles spread over the page in a 4 x 4 grid, each culling the list against its own region.
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(ContentSamples.PathHeavy(64 * 1024)));
+        PdfPage page = document.Pages[0];
+        DisplayList list = page.CreateDisplayList();
+        var options = new RenderOptions().WithScale(scale);
+        Matrix device = options.GetDeviceTransform(page);
+        PixelSize size = options.GetPixelSize(page);
+        using var tile = new Bitmap(256, 256);
+        using var rasterizer = new SoftwareRasterizer();
+        int painted = 0;
+        Action render = () =>
+        {
+            painted = 0;
+            for (int index = 0; index < 16; index++)
+            {
+                tile.Pixels.Clear();
+                int x = (index % 4) * (size.Width - 256) / 3;
+                int y = (index / 4) * (size.Height - 256) / 3;
+                rasterizer.Render(list, tile, device * Matrix.CreateTranslation(-x, -y));
+                painted += tile.Pixels.IndexOfAnyExcept((byte)0) >= 0 ? 1 : 0;
+            }
+        };
+
+        long allocated = Allocations.Measure(render, warmUpCalls: 3);
+
+        Assert.Equal(0, allocated);
+        Assert.True(painted > 0);
+    }
 }
