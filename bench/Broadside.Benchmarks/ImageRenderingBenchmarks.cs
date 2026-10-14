@@ -26,10 +26,13 @@ public class ImageRenderingBenchmarks
     [Params(72, 300)]
     public int Dpi { get; set; }
 
+    /// <summary>Keeps no display lists (issue #103), so that <c>Build</c> builds on every call instead of returning the kept list.</summary>
+    private static PdfOptions BuildOptions => new PdfOptions().WithDisplayListCacheBudget(0).WithImageCacheBudget(0);
+
     [GlobalSetup]
     public void Setup()
     {
-        _document = PdfDocument.Open(ContentSamples.ImageHeavy());
+        _document = PdfDocument.Open(ContentSamples.ImageHeavy(), BuildOptions);
         PdfPage page = _document.Pages[0];
         _list = page.CreateDisplayList();
         RenderOptions options = new RenderOptions().WithDpi(Dpi);

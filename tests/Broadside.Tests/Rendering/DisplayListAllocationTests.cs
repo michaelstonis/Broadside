@@ -13,6 +13,9 @@ namespace Broadside.Tests.Rendering;
 [Collection(HeavyTestCollection.Name)]
 public sealed class DisplayListAllocationTests
 {
+    /// <summary>Options that keep no display lists, so that every <see cref="PdfPage.CreateDisplayList()"/> builds (issue #103).</summary>
+    private static PdfOptions NoListCache => new PdfOptions().WithDisplayListCacheBudget(0);
+
     [Fact]
     public void Replaying_a_display_list_allocates_nothing()
     {
@@ -50,7 +53,8 @@ public sealed class DisplayListAllocationTests
     {
         // Each glyph's record (glyph id, text matrix, scale and outline index: 72 bytes) is copied into the list; outlines are read
         // once per glyph id, so nothing else may grow with the glyph count.
-        using PdfDocument document = PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(glyphs)));
+        // The display-list cache is off: a kept list would make every call after the first free.
+        using PdfDocument document = PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(glyphs)), NoListCache);
         PdfPage page = document.Pages[0];
         Action build = () => page.CreateDisplayList();
 
@@ -72,7 +76,7 @@ public sealed class DisplayListAllocationTests
             content.Append("10 10 100 50 re f\n");
         }
 
-        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(Encoding.ASCII.GetBytes(content.ToString())));
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(Encoding.ASCII.GetBytes(content.ToString())), NoListCache);
         PdfPage page = document.Pages[0];
         Action build = () => page.CreateDisplayList();
 
@@ -93,7 +97,7 @@ public sealed class DisplayListAllocationTests
             content.Append("10 10 100 50 re S\n");
         }
 
-        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(Encoding.ASCII.GetBytes(content.ToString())));
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(Encoding.ASCII.GetBytes(content.ToString())), NoListCache);
         PdfPage page = document.Pages[0];
         Action build = () => page.CreateDisplayList();
 

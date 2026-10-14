@@ -31,12 +31,15 @@ public class TextRenderingBenchmarks
     [Params(72, 300)]
     public int Dpi { get; set; }
 
+    /// <summary>Keeps no display lists (issue #103), so that <c>Build</c> builds on every call instead of returning the kept list.</summary>
+    private static PdfOptions BuildOptions => new PdfOptions().WithDisplayListCacheBudget(0);
+
     [GlobalSetup]
     public void Setup()
     {
         _document = Page == "text-heavy-2000"
-            ? PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(2000)))
-            : PdfDocument.Open(Path.Combine(CorpusLocator.CorpusDirectory, Page));
+            ? PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(2000)), BuildOptions)
+            : PdfDocument.Open(Path.Combine(CorpusLocator.CorpusDirectory, Page), BuildOptions);
         _page = _document.Pages[0];
         _list = _page.CreateDisplayList();
         RenderOptions options = new RenderOptions().WithDpi(Dpi);

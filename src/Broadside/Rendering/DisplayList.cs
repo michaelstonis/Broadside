@@ -27,7 +27,7 @@ namespace Broadside.Rendering;
 /// Immutable once built: any number of threads may replay the same list at once, each into its own backend.
 /// </para>
 /// </remarks>
-public sealed class DisplayList
+public sealed partial class DisplayList
 {
     private readonly DisplayOperation[] _operations;
     private readonly PathVerb[] _verbs;

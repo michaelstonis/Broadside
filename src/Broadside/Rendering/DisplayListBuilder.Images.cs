@@ -2,12 +2,13 @@ using System.Runtime.InteropServices;
 using Broadside.Content;
 using Broadside.Graphics;
 using Broadside.Images;
+using Broadside.Objects;
 
 namespace Broadside.Rendering;
 
 /// <summary>
 /// Image XObjects and inline images (ISO 32000-2 §8.9.4, §8.9.5, §8.9.7) with their masks (§8.9.6, §11.6.5), and stencil masks
-/// (§8.9.6.2), decoded once per list and interned.
+/// (§8.9.6.2), decoded once per list and interned, and kept across lists in the document's image cache (issue #103).
 /// </summary>
 internal sealed partial class DisplayListBuilder
 {
@@ -45,7 +46,7 @@ internal sealed partial class DisplayListBuilder
             return;
         }
 
-        int index = InternImage(image.IsInline ? null : image.Stream, model);
+        int index = InternImage(image.IsInline ? null : image.Stream, model, context.Document);
         if (index < 0)
         {
             return;
@@ -74,7 +75,7 @@ internal sealed partial class DisplayListBuilder
             return;
         }
 
-        object? stream = image.IsInline ? null : image.Stream;
+        CosStream? stream = image.IsInline ? null : image.Stream;
         int index;
         if (stream is not null && _internedMasks is not null && _internedMasks.TryGetValue(stream, out int known))
         {
@@ -82,7 +83,21 @@ internal sealed partial class DisplayListBuilder
         }
         else
         {
-            DisplayImageMask? mask = DecodeMask(model);
+            DisplayImageMask? mask;
+            if (stream is not null && context.Document.Caches.Images.TryGet((stream, true), out DisplayImageEntry? cached))
+            {
+                mask = cached.Mask;
+            }
+            else
+            {
+                long epoch = CosMutation.Epoch;
+                mask = DecodeMask(model);
+                if (stream is not null)
+                {
+                    context.Document.Caches.Images.Add((stream, true), new DisplayImageEntry(epoch, null, mask));
+                }
+            }
+
             index = mask is null ? -1 : _imageMaskCount;
             if (mask is not null)
             {
@@ -106,18 +121,42 @@ internal sealed partial class DisplayListBuilder
         AddOperation(new DisplayOperation(DisplayOperationKind.FillImageMask, default, index, color));
     }
 
-    /// <summary>Returns the index of the decoded image, decoding it unless this image XObject was decoded earlier in the build.</summary>
-    /// <param name="stream">The image XObject's stream, the interning key; <see langword="null"/> for an inline image.</param>
+    /// <summary>
+    /// Returns the index of the decoded image: the one interned earlier in the build, else the document's cached one (issue #103),
+    /// else a fresh decode, offered to the document's image cache.
+    /// </summary>
+    /// <param name="stream">The image XObject's stream, the interning key; <see langword="null"/> for an inline image, never cached.</param>
     /// <param name="model">The image.</param>
+    /// <param name="document">The document whose image cache to use.</param>
     /// <returns>The index into the image table, or −1 when the image cannot be decoded or has no usable colour space.</returns>
-    private int InternImage(object? stream, PdfImage model)
+    private int InternImage(CosStream? stream, PdfImage model, PdfDocument document)
     {
         if (stream is not null && _internedImages is not null && _internedImages.TryGetValue(stream, out int known))
         {
             return known;
         }
 
-        int index = Decode(model);
+        DisplayImage? image;
+        if (stream is not null && document.Caches.Images.TryGet((stream, false), out DisplayImageEntry? cached))
+        {
+            image = cached.Image;
+        }
+        else
+        {
+            long epoch = CosMutation.Epoch;
+            image = Decode(model);
+            if (stream is not null)
+            {
+                document.Caches.Images.Add((stream, false), new DisplayImageEntry(epoch, image, null));
+            }
+        }
+
+        int index = image is null ? -1 : _imageCount;
+        if (image is not null)
+        {
+            Append(ref _images, ref _imageCount, image);
+        }
+
         if (stream is not null)
         {
             _internedImages ??= new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
@@ -127,9 +166,9 @@ internal sealed partial class DisplayListBuilder
         return index;
     }
 
-    /// <summary>Decodes an image and its mask into the image table.</summary>
-    /// <returns>Its index, or −1 (the reason is already a diagnostic of the image).</returns>
-    private int Decode(PdfImage model)
+    /// <summary>Decodes an image and its mask.</summary>
+    /// <returns>The image, or <see langword="null"/> (the reason is already a diagnostic of the image).</returns>
+    private static DisplayImage? Decode(PdfImage model)
     {
         DecodedImage? decoded = model.Decode();
         try
@@ -139,21 +178,20 @@ internal sealed partial class DisplayListBuilder
                 || space.Family == PdfColorSpaceFamily.Pattern
                 || space.ComponentCount != decoded.Components)
             {
-                return -1;
+                return null;
             }
 
             MaskParts mask = DecodeMasks(model, decoded, space);
-            int index = _imageCount;
-            Append(ref _images, ref _imageCount, new DisplayImage(decoded, space, model.CreateDecodeMap(decoded), model.Interpolate)
+            var image = new DisplayImage(decoded, space, model.CreateDecodeMap(decoded), model.Interpolate)
             {
                 Mask = mask.Mask,
                 SoftMask = mask.SoftMask,
                 ColorKeyRanges = mask.ColorKey,
                 MatteColor = mask.Matte,
                 ColorTableBytes = space is PdfIndexedColorSpace indexed ? ColorTable(indexed) : [],
-            });
+            };
             decoded = null;
-            return index;
+            return image;
         }
         finally
         {
@@ -239,7 +277,10 @@ internal sealed partial class DisplayListBuilder
         }
     }
 
-    /// <summary>Forgets the images and masks, without disposing them: the lists built from them own them.</summary>
+    /// <summary>
+    /// Forgets the images and masks, without disposing them: the lists built from them, and the document's image cache, hold them,
+    /// and the garbage collector frees them with the last holder.
+    /// </summary>
     private void ResetImages()
     {
         Array.Clear(_images, 0, _imageCount);
