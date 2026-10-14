@@ -43,6 +43,7 @@ internal static class SeedWriter
     private static readonly CosName EarlyChange = new("EarlyChange");
     private static readonly CosName AuthCode = new("AuthCode");
     private static readonly CosName Mac = new("MAC");
+    private static readonly CosName KnownContents = new("Contents");
     private static readonly CosName Metadata = new("Metadata");
     private static readonly CosName Contents = new("Contents");
     private static readonly CosName AcroForm = new("AcroForm");
@@ -104,6 +105,7 @@ internal static class SeedWriter
         "hint-tables" => Streams(file).Select(stream => HintSeed(stream.Document, stream.Value)).OfType<byte[]>(),
         "mac-token" => MacTokens(file),
         "timestamp-response" => [TimestampResponseTarget.ValidResponse()],
+        "cms" => SignatureContents(file),
         "default-appearance" => DefaultAppearances(file),
         "content-lexer" or "content-interpreter" or "content-objects" or "display-list" or "filter-encode" or "text-extraction" or "rasterize" or "content-rewrite" => ContentStreams(file),
         "xmp" => Streams(file).Where(stream => Metadata.Equals(stream.Value.Dictionary.TryGetValue(Type, out CosObject? type) ? type : null))
@@ -331,6 +333,24 @@ internal static class SeedWriter
     }
 
     /// <summary><c>mac-token</c>: the DER token of a standalone PDF MAC (ISO/TS 32004).</summary>
+    /// <summary><c>cms</c>: the <c>Contents</c> of every signed signature field, zero padding included (§12.8.3.3.1).</summary>
+    private static IEnumerable<byte[]> SignatureContents(byte[] file)
+    {
+        using PdfDocument? document = Open(file);
+        if (document?.AcroForm is not { } form)
+        {
+            yield break;
+        }
+
+        foreach (Broadside.Forms.PdfSignatureField field in form.TerminalFields.OfType<Broadside.Forms.PdfSignatureField>())
+        {
+            if (field.SignatureDictionary?.TryGetValue(KnownContents, out CosObject? contents) == true && document.Resolve(contents) is CosString value)
+            {
+                yield return value.Bytes.ToArray();
+            }
+        }
+    }
+
     private static IEnumerable<byte[]> MacTokens(byte[] file)
     {
         using PdfDocument? document = Open(file);

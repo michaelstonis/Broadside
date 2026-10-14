@@ -83,6 +83,8 @@ internal static class FuzzTargets
         ["icc-profile"] = IccProfileTarget.Target,
         ["rasterize"] = RasterizeTarget.Target,
         ["rasterize-page"] = RasterizePageTarget.Target,
+        ["signature-validation"] = SignatureValidationTarget.Target,
+        ["cms"] = SignatureValidationTarget.Cms,
     };
 
     /// <summary>
