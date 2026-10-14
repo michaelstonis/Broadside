@@ -57,6 +57,30 @@ public readonly struct PdfColor : IEquatable<PdfColor>
         PatternMatrix = patternMatrix;
     }
 
+    /// <summary>Returns a DeviceGray colour.</summary>
+    /// <param name="gray">0 (black) to 1 (white).</param>
+    /// <returns>The colour.</returns>
+    /// <remarks>ISO 32000-2 §8.6.4.2.</remarks>
+    public static PdfColor FromGray(float gray) => new(PdfDeviceGrayColorSpace.Instance, [gray]);
+
+    /// <summary>Returns a DeviceRGB colour.</summary>
+    /// <param name="red">The red component, 0 to 1.</param>
+    /// <param name="green">The green component, 0 to 1.</param>
+    /// <param name="blue">The blue component, 0 to 1.</param>
+    /// <returns>The colour.</returns>
+    /// <remarks>ISO 32000-2 §8.6.4.3.</remarks>
+    public static PdfColor FromRgb(float red, float green, float blue) => new(PdfDeviceRgbColorSpace.Instance, [red, green, blue]);
+
+    /// <summary>Returns a DeviceCMYK colour.</summary>
+    /// <param name="cyan">The cyan component, 0 to 1.</param>
+    /// <param name="magenta">The magenta component, 0 to 1.</param>
+    /// <param name="yellow">The yellow component, 0 to 1.</param>
+    /// <param name="black">The black component, 0 to 1.</param>
+    /// <returns>The colour.</returns>
+    /// <remarks>ISO 32000-2 §8.6.4.4.</remarks>
+    public static PdfColor FromCmyk(float cyan, float magenta, float yellow, float black) =>
+        new(PdfDeviceCmykColorSpace.Instance, [cyan, magenta, yellow, black]);
+
     /// <summary>Gets the colour space; DeviceGray for a default instance.</summary>
     public PdfColorSpace ColorSpace => _colorSpace ?? PdfDeviceGrayColorSpace.Instance;
 

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Direct2D backend's tests (issue #129). They draw through Direct2D on a WARP device, so they only run on Windows: CI runs this
+    project on its Windows leg only (.github/workflows/ci.yml), and it is outside Broadside.Core.slnf. It builds on every host,
+    because the Windows targeting pack is a NuGet package.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Rendering.Direct2D/Broadside.Rendering.Direct2D.csproj" />
+    <ProjectReference Include="../Broadside.TestSupport/Broadside.TestSupport.csproj" />
+    <ProjectReference Include="../Broadside.GoldenImages/Broadside.GoldenImages.csproj" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Verify.XunitV3" />
+  </ItemGroup>
+
+</Project>
