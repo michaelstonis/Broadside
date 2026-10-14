@@ -129,6 +129,24 @@ public sealed class CopiedFeatureVersionTests
         { "<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>", "2.0", "structure namespaces or other PDF 2.0 structure entries" },
         { "<< /S /Span /P << >> /Phoneme (x) >>", "2.0", "structure namespaces or other PDF 2.0 structure entries" },
         { "<< /Type /StructTreeRoot /Namespaces [] >>", "2.0", "structure namespaces or other PDF 2.0 structure entries" },
+        { "<< /Type /Group /S /Transparency >>", "1.4", "a transparency group (Group) (ISO 32000-2 §11.6.6; Tables 31 and 93) needs PDF 1.4" },
+        { "<< /Type /XObject /Subtype /Form /BBox [0 0 1 1] /Group << /S /Transparency /I true >> >> stream", "1.4", "a transparency group (Group) (ISO 32000-2 §11.6.6; Tables 31 and 93) needs PDF 1.4" },
+        { "<< /Type /ExtGState /SMask /None >>", "1.4", "a soft mask (SMask) (ISO 32000-2 §11.6.5; Tables 57 and 87) needs PDF 1.4" },
+        { "<< /Type /Mask /S /Luminosity /BC [0] >>", "1.4", "a soft mask (SMask) (ISO 32000-2 §11.6.5; Tables 57 and 87) needs PDF 1.4" },
+        { "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /SMask 3 0 R >> stream", "1.4", "a soft mask (SMask) (ISO 32000-2 §11.6.5; Tables 57 and 87) needs PDF 1.4" },
+        { "<< /Type /ExtGState /CA 0.5 >>", "1.4", "transparency parameters (CA, ca, BM, AIS, TK) (ISO 32000-2 §11.6.3 and §11.6.4.4, Table 57) needs PDF 1.4" },
+        { "<< /BM /Multiply /AIS true >>", "1.4", "transparency parameters (CA, ca, BM, AIS, TK) (ISO 32000-2 §11.6.3 and §11.6.4.4, Table 57) needs PDF 1.4" },
+        { "<< /Filter /JBIG2Decode >> stream", "1.4", "JBIG2Decode compression (ISO 32000-2 §7.4.7, Table 6) needs PDF 1.4" },
+        { "<< /Filter [/ASCII85Decode /JPXDecode] >> stream", "1.5", "JPXDecode compression (ISO 32000-2 §7.4.9, Table 6) needs PDF 1.5" },
+        { "<< /Type /OCG /Name (Layer) >>", "1.5", "optional content (OCG, OCMD, OC, OCProperties) (ISO 32000-2 §8.11; Table 29) needs PDF 1.5" },
+        { "<< /Type /XObject /Subtype /Form /BBox [0 0 1 1] /OC << /Type /OCMD /OCGs [] >> >> stream", "1.5", "optional content (OCG, OCMD, OC, OCProperties) (ISO 32000-2 §8.11; Table 29) needs PDF 1.5" },
+        { "<< /Type /Annot /Subtype /Square /Rect [0 0 1 1] /CA 0.5 >>", "1.4", "transparency parameters (CA, ca, BM, AIS, TK) (ISO 32000-2 §11.6.3 and §11.6.4.4, Table 57) needs PDF 1.4" },
+        { "<< /Type /Annot /Subtype /Link /Rect [0 0 1 1] /CA 0.5 >>", "2.0", "PDF 2.0 annotation entries (ca, BM, Lang, CA of a non-markup annotation, Projection and RichMedia types) (ISO 32000-2 §12.5.2, Table 166; §12.5.6.1, Table 171) needs PDF 2.0" },
+        { "<< /Type /Annot /Subtype /Square /Rect [0 0 1 1] /ca 0.5 >>", "2.0", "PDF 2.0 annotation entries" },
+        { "<< /Subtype /Highlight /Rect [0 0 1 1] /BM /Multiply >>", "2.0", "PDF 2.0 annotation entries" },
+        { "<< /Subtype /Text /Rect [0 0 1 1] /Lang (en-GB) >>", "2.0", "PDF 2.0 annotation entries" },
+        { "<< /Type /Annot /Subtype /Projection /Rect [0 0 1 1] >>", "2.0", "PDF 2.0 annotation entries" },
+        { "<< /Type /Annot /Subtype /RichMedia /Rect [0 0 1 1] >>", "2.0", "PDF 2.0 annotation entries" },
     };
 
     [Theory]
@@ -146,6 +164,24 @@ public sealed class CopiedFeatureVersionTests
 
         Assert.Equal(version, HeaderVersion(saved));
         Assert.Contains(named, Assert.Single(target.Diagnostics, diagnostic => diagnostic.Code == "VersionRaised").Message, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [MemberData(nameof(CarriedObjects))]
+    public void A_copied_object_into_a_target_already_at_its_features_version_saves_without_a_raise(string body, string version, string named)
+    {
+        _ = named;
+        using PdfDocument source = PdfDocument.Open(new Document.TestPdf { Header = "%PDF-2.0" }.Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [] /Count 0 >>",
+            body.EndsWith("stream", StringComparison.Ordinal) ? body + "\nx\nendstream" : body));
+        using PdfDocument target = PdfDocument.Open(Document.TestPdf.OnePage("/MediaBox [0 0 612 792]", header: "%PDF-" + version));
+
+        new PdfObjectCopier(source, target).Copy(new CosReference(3, 0));
+        byte[] saved = Save(target, Options.WithStreamCompression(PdfStreamCompression.None));
+
+        Assert.Equal(version, HeaderVersion(saved));
+        Assert.DoesNotContain(target.Diagnostics, diagnostic => diagnostic.Code == "VersionRaised");
     }
 
     /// <summary>A PDF 2.0 document whose page has an associated file (§14.13): an <c>AF</c> array and an <c>AFRelationship</c>.</summary>

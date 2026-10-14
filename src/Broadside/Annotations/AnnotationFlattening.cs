@@ -89,7 +89,33 @@ internal static class AnnotationFlattening
             throw;
         }
 
+        RequireFeatures(document, plans);
         return true;
+    }
+
+    /// <summary>
+    /// Records the versioned features the drawn appearances wrote (issue #299): an <c>OC</c> marked-content sequence (optional
+    /// content, PDF 1.5, §8.11.3.2), a graphics state with <c>CA</c>, <c>ca</c> and <c>BM</c> (PDF 1.4, Table 57) and the
+    /// transparency group drawn through it (PDF 1.4, §11.6.6).
+    /// </summary>
+    private static void RequireFeatures(PdfDocument document, List<PagePlan> plans)
+    {
+        foreach (Placement placement in plans.SelectMany(plan => plan.Drawn))
+        {
+            if (placement.OptionalContent is not null)
+            {
+                document.RequireFeature(Writing.VersionedFeatures.OptionalContent);
+            }
+
+            if (placement.IsTransparent)
+            {
+                document.RequireFeature(Writing.VersionedFeatures.TransparencyParameters);
+                if (placement.Appearance.Group is null)
+                {
+                    document.RequireFeature(Writing.VersionedFeatures.TransparencyGroups);
+                }
+            }
+        }
     }
 
     /// <summary>Decides what leaves a page and what of it is drawn; null when nothing on the page is flattened.</summary>
@@ -331,7 +357,7 @@ internal static class AnnotationFlattening
         }
 
         writer.Operator("q");
-        bool transparent = placement.StrokingOpacity < 1 || placement.NonStrokingOpacity < 1 || placement.BlendMode != BlendMode.Normal;
+        bool transparent = placement.IsTransparent;
         if (transparent)
         {
             var state = new CosDictionary
@@ -459,6 +485,9 @@ internal static class AnnotationFlattening
 
         /// <summary>Gets the MCID of the marked-content sequence the appearance is drawn in, when it has an <see cref="Owner"/>.</summary>
         public int Mcid { get; init; }
+
+        /// <summary>Gets whether the appearance is composited with an opacity below 1 or a blend mode other than Normal.</summary>
+        public bool IsTransparent => StrokingOpacity < 1 || NonStrokingOpacity < 1 || BlendMode != BlendMode.Normal;
     }
 
     /// <summary>What a page draws and keeps: the annotations it keeps, in <c>Annots</c> order, are what its new <c>Annots</c> lists.</summary>

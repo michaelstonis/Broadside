@@ -406,6 +406,125 @@ public sealed class VersionRaisingTests
         Assert.Equal(0, output.Length);
     }
 
+    public static TheoryData<string, string, int, int, string> GraphicsFeatures => new()
+    {
+        { "JBIG2 encoding", "1.3", 1, 4, "JBIG2Decode compression (ISO 32000-2 §7.4.7, Table 6) needs PDF 1.4" },
+        { "JPX encoding", "1.4", 1, 5, "JPXDecode compression (ISO 32000-2 §7.4.9, Table 6) needs PDF 1.5" },
+        { "transparent annotation flattened", "1.3", 1, 4, "transparency parameters (CA, ca, BM, AIS, TK) (ISO 32000-2 §11.6.3 and §11.6.4.4, Table 57) needs PDF 1.4" },
+        { "transparent annotation flattened", "1.3", 1, 4, "a transparency group (Group) (ISO 32000-2 §11.6.6; Tables 31 and 93) needs PDF 1.4" },
+        { "optional annotation flattened", "1.4", 1, 5, "optional content (OCG, OCMD, OC, OCProperties) (ISO 32000-2 §8.11; Table 29) needs PDF 1.5" },
+        { "soft mask copied", "1.3", 1, 4, "a soft mask (SMask) (ISO 32000-2 §11.6.5; Tables 57 and 87) needs PDF 1.4" },
+        { "annotation language copied", "1.7", 2, 0, "PDF 2.0 annotation entries (ca, BM, Lang, CA of a non-markup annotation, Projection and RichMedia types) (ISO 32000-2 §12.5.2, Table 166; §12.5.6.1, Table 171) needs PDF 2.0" },
+    };
+
+    /// <summary>
+    /// Each transparency, filter, optional content and annotation feature (issue #299) raises a document below its minimum, through
+    /// the API that writes it: <see cref="PdfDocument.EncodeStream"/> with a registered encoder, <see cref="PdfDocument.Flatten()"/>
+    /// (whose graphics state, transparency group and <c>OC</c> sequence carry an annotation's opacity and optional content), and, for
+    /// the features no API creates, a page copy (<see cref="PdfObjectCopier"/>).
+    /// </summary>
+    [Theory]
+    [MemberData(nameof(GraphicsFeatures))]
+    public void Each_graphics_feature_raises_a_document_below_its_minimum(string scenario, string header, int major, int minor, string named)
+    {
+        using PdfDocument document = OpenForGraphicsFeature(scenario, header);
+        UseGraphicsFeature(document, scenario);
+
+        byte[] saved = Save(document, Options.WithStreamCompression(PdfStreamCompression.None));
+
+        var expected = new PdfVersion(major, minor);
+        Assert.Equal(expected.ToString(), HeaderVersion(saved));
+        Assert.Contains(named, Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == "VersionRaised").Message, StringComparison.Ordinal);
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Equal(expected, reopened.Version);
+    }
+
+    [Theory]
+    [MemberData(nameof(GraphicsFeatures))]
+    public void Each_graphics_feature_keeps_a_document_already_at_its_minimum(string scenario, string header, int major, int minor, string named)
+    {
+        _ = (header, named);
+        string version = new PdfVersion(major, minor).ToString();
+        using PdfDocument document = OpenForGraphicsFeature(scenario, version);
+        UseGraphicsFeature(document, scenario);
+
+        byte[] saved = Save(document, Options.WithStreamCompression(PdfStreamCompression.None));
+
+        Assert.Equal(version, HeaderVersion(saved));
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code == "VersionRaised");
+    }
+
+    /// <summary>
+    /// The document a <see cref="GraphicsFeatures"/> scenario starts from: for a flattening, a page with one square annotation drawn
+    /// at half opacity, or in an optional content group; for an encoding, the encoder registered; otherwise one empty page.
+    /// </summary>
+    private static PdfDocument OpenForGraphicsFeature(string scenario, string header)
+    {
+        const string appearance = "<< /Type /XObject /Subtype /Form /BBox [0 0 100 50] /Resources << >> /Length 24 >>\nstream\n0 0 1 rg 0 0 100 50 re f\nendstream";
+        switch (scenario)
+        {
+            case "JBIG2 encoding" or "JPX encoding":
+                PdfOptions options = new PdfOptions().UseStreamEncoder(new CopyingEncoder(FilterFor(scenario)));
+                return PdfDocument.Open(Document.TestPdf.OnePage("/MediaBox [0 0 612 792]", header: "%PDF-" + header), options);
+            case "transparent annotation flattened":
+                return PdfDocument.Open(new Document.TestPdf { Header = "%PDF-" + header }.Build(
+                    "<< /Type /Catalog /Pages 2 0 R >>",
+                    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+                    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Annots [4 0 R] >>",
+                    "<< /Type /Annot /Subtype /Square /Rect [72 600 172 650] /CA 0.5 /AP << /N 5 0 R >> >>",
+                    appearance));
+            case "optional annotation flattened":
+                return PdfDocument.Open(new Document.TestPdf { Header = "%PDF-" + header }.Build(
+                    "<< /Type /Catalog /Pages 2 0 R /OCProperties << /OCGs [6 0 R] /D << >> >> >>",
+                    "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+                    "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Annots [4 0 R] >>",
+                    "<< /Type /Annot /Subtype /Square /Rect [72 600 172 650] /OC 6 0 R /AP << /N 5 0 R >> >>",
+                    appearance,
+                    "<< /Type /OCG /Name (Layer) >>"));
+            default:
+                return PdfDocument.Open(Document.TestPdf.OnePage("/MediaBox [0 0 612 792]", header: "%PDF-" + header));
+        }
+    }
+
+    /// <summary>Writes the scenario's feature into <paramref name="document"/> through the API that writes it.</summary>
+    private static void UseGraphicsFeature(PdfDocument document, string scenario)
+    {
+        switch (scenario)
+        {
+            case "JBIG2 encoding" or "JPX encoding":
+                var stream = new CosStream(new CosDictionary { [new CosName("Filter")] = FilterFor(scenario) }, ReadOnlyMemory<byte>.Empty);
+                document.AddObject(stream);
+                document.EncodeStream(stream, new byte[8]);
+                break;
+            case "transparent annotation flattened" or "optional annotation flattened":
+                Assert.True(document.Flatten(new PdfFlattenOptions().WithAnnotations(true)));
+                break;
+            default:
+                // No API creates a soft mask or a PDF 2.0 annotation entry; a page copy from a PDF 2.0 document carries them.
+                using (PdfDocument source = PdfDocument.Open(Document.TestPdf.OnePage(
+                    scenario == "soft mask copied"
+                        ? "/MediaBox [0 0 612 792] /Resources << /ExtGState << /G0 << /Type /ExtGState /SMask /None >> >> >>"
+                        : "/MediaBox [0 0 612 792] /Annots [<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] /Lang (en-GB) >>]",
+                    header: "%PDF-2.0")))
+                {
+                    document.Pages.Add(new PdfObjectCopier(source, document).CopyPage(source.Pages[0]));
+                }
+
+                break;
+        }
+    }
+
+    private static CosName FilterFor(string scenario) => new(scenario == "JPX encoding" ? "JPXDecode" : "JBIG2Decode");
+
+    /// <summary>An encoder for a filter the library has no encoder for, which writes the data as it is.</summary>
+    private sealed class CopyingEncoder(CosName name) : Broadside.Filters.IStreamEncoder
+    {
+        public CosName Name => name;
+
+        public void Encode(ReadOnlySpan<byte> data, System.Buffers.IBufferWriter<byte> output, Broadside.Filters.StreamEncoderContext context) =>
+            System.Buffers.BuffersExtensions.Write(output, data);
+    }
+
     /// <summary>A catalog entry declaring a developer extension of PDF 1.6.</summary>
     private const string LaterExtension = "/Extensions << /XYZ_ << /BaseVersion /1.6 /ExtensionLevel 1 >> >>";
 
