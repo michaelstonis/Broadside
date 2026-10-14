@@ -22,9 +22,11 @@
     <Compile Include="../../tests/Broadside.TestSupport/FormWalker.cs" Link="FormWalker.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/ContentSamples.cs" Link="ContentSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/ClipSamples.cs" Link="ClipSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/AnnotationSamples.cs" Link="AnnotationSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/TextSamples.cs" Link="TextSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/TrueTypeBuilder.cs" Link="TrueTypeBuilder.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/ShadingSamples.cs" Link="ShadingSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/BlendSamples.cs" Link="BlendSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/MaskSamples.cs" Link="MaskSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/MeshSamples.cs" Link="MeshSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/JpxSamples.cs" Link="JpxSamples.cs" />

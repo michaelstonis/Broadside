@@ -64,12 +64,14 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <list type="table">
 /// <listheader><term>Feature</term><description>Minimum version (clause)</description></listheader>
 /// <item><term><see cref="FlateCompression"/></term><description>1.2 (§7.4.4): a save that compresses a stream, or <see cref="PdfDocument.EncodeStream"/> through <c>FlateDecode</c>.</description></item>
+/// <item><term><see cref="Linearization"/></term><description>1.1 (Annex F, F.3.2): a save with <see cref="PdfSaveOptions.Linearize"/>, whose hint stream also counts as <see cref="FlateCompression"/> unless compression is off.</description></item>
 /// <item><term><see cref="CrossReferenceStream"/></term><description>1.5 (§7.5.8)</description></item>
 /// <item><term><see cref="ObjectStreams"/></term><description>1.5 (§7.5.7)</description></item>
 /// <item><term><see cref="Rc4Encryption"/></term><description>1.4 (§7.6.2, Table 20, V 2)</description></item>
 /// <item><term><see cref="Aes128Encryption"/></term><description>1.6 (§7.6.2, Table 20, V 4; §7.6.5, Table 25, AESV2)</description></item>
 /// <item><term><see cref="Aes256Encryption"/></term><description>2.0 (§7.6.2, Table 20, V 5)</description></item>
 /// <item><term><see cref="AesGcmEncryption"/></term><description>2.0 and the ISO_ extension level 32003 (ISO/TS 32003, clause 4)</description></item>
+/// <item><term><see cref="IntegrityProtection"/></term><description>2.0 and the ISO_ extension level 32004 (ISO/TS 32004, clause 4)</description></item>
 /// <item><term><see cref="EmbeddedFileStream"/></term><description>1.3 (§7.11.4)</description></item>
 /// <item><term><see cref="EmbeddedFilesTree"/></term><description>1.4 (§7.7.4, Table 32)</description></item>
 /// <item><term><see cref="FileDescription"/></term><description>1.6 (§7.11.3, Table 43, <c>Desc</c>)</description></item>
@@ -115,6 +117,9 @@ internal static class VersionedFeatures
     /// <summary>Gets streams compressed with the <c>FlateDecode</c> filter: PDF 1.2.</summary>
     public static VersionedFeature FlateCompression { get; } = new("FlateDecode compression", "ISO 32000-2 §7.4.4", Pdf12);
 
+    /// <summary>Gets a linearized file (Annex F): PDF 1.1, the first version linearization may be applied to (F.3.2).</summary>
+    public static VersionedFeature Linearization { get; } = new("linearization", "ISO 32000-2 Annex F, F.3.2", Pdf11);
+
     /// <summary>Gets a cross-reference stream: PDF 1.5.</summary>
     public static VersionedFeature CrossReferenceStream { get; } = new("a cross-reference stream", "ISO 32000-2 §7.5.8", Pdf15);
 
@@ -130,12 +135,22 @@ internal static class VersionedFeatures
     /// <summary>Gets new AES-256 encryption (V 5, R 6): PDF 2.0.</summary>
     public static VersionedFeature Aes256Encryption { get; } = new("AES-256 encryption (V 5)", "ISO 32000-2 §7.6.2, Table 20", Pdf20);
 
-    /// <summary>Gets AES-GCM encryption (V 6, R 7), kept from the document: PDF 2.0 and the ISO_ extension level 32003.</summary>
+    /// <summary>Gets AES-GCM encryption (V 6, R 7), new or kept from the document: PDF 2.0 and the ISO_ extension level 32003.</summary>
     public static VersionedFeature AesGcmEncryption { get; } = new(
         "AES-GCM encryption (V 6)",
         "ISO/TS 32003, clause 4",
         Pdf20,
         new DeveloperExtensionDeclaration(KnownNames.IsoPrefix, Pdf20, 32003, ":2023", "https://www.iso.org/standard/45876.html"));
+
+    /// <summary>
+    /// Gets an integrity MAC (a PDF MAC token in the trailer's <c>AuthCode</c>), new or recomputed for the document's own: PDF 2.0
+    /// (ISO/TS 32004 clause 4: documents using it "shall conform to ISO 32000-2") and the ISO_ extension level 32004.
+    /// </summary>
+    public static VersionedFeature IntegrityProtection { get; } = new(
+        "an integrity MAC (PDF MAC token)",
+        "ISO/TS 32004, clause 4",
+        Pdf20,
+        new DeveloperExtensionDeclaration(KnownNames.IsoPrefix, Pdf20, 32004, ":2024", "https://www.iso.org/standard/45877.html"));
 
     /// <summary>Gets embedded file streams: PDF 1.3.</summary>
     public static VersionedFeature EmbeddedFileStream { get; } = new("an embedded file stream", "ISO 32000-2 §7.11.4", new PdfVersion(1, 3));

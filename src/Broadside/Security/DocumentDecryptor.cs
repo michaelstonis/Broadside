@@ -107,6 +107,12 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
     /// <summary>Gets a value indicating whether metadata streams are encrypted (Table 21).</summary>
     public bool EncryptMetadata { get; }
 
+    /// <summary>
+    /// Gets the file encryption key the handler returned, the input key material of the integrity MAC (ISO/TS 32004 §6.4); empty for a
+    /// document opened without authentication.
+    /// </summary>
+    public byte[] FileEncryptionKey { get; private init; } = [];
+
     /// <summary>Gets the crypt filter strings are decrypted with.</summary>
     public CryptFilter Strings => _strings;
 
@@ -152,7 +158,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
                     }
 
                     var rc4 = new CryptFilter(StandardFilterName, CryptMethod.Rc4, fileKey);
-                    return new DocumentDecryptor(rc4, rc4, rc4, [], encryptMetadata: true, diagnostics, resolve);
+                    return new DocumentDecryptor(rc4, rc4, rc4, [], encryptMetadata: true, diagnostics, resolve) { FileEncryptionKey = fileKey };
                 }
 
             case 4 or 5 or 6:
@@ -227,7 +233,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
                     }
 
                     bool encryptMetadata = flag is not CosBoolean { Value: false };
-                    return new DocumentDecryptor(strings, streams, embedded, named, encryptMetadata, diagnostics, resolve);
+                    return new DocumentDecryptor(strings, streams, embedded, named, encryptMetadata, diagnostics, resolve) { FileEncryptionKey = fileKey };
                 }
 
             default:

@@ -58,6 +58,7 @@ internal sealed partial class DisplayListBuilder
 
         int pathIndex = InternPath(path.Path);
         int colorIndex = AddColor(fill, context.DefaultColorSpaces, ColorConversion.FromState(state, DeviceColorModel.Rgb));
+        SetCompositing(state);
         SetTransform(state.Ctm);
         AddOperation(new DisplayOperation(DisplayOperationKind.FillPath, path.FillRule, pathIndex, colorIndex));
     }
@@ -72,6 +73,7 @@ internal sealed partial class DisplayListBuilder
         }
 
         int pathIndex = InternPath(path.Path);
+        SetPatternCompositing(context.State.FillColor, context, stroke: false);
         SetTransform(context.State.Ctm);
         AddOperation(new DisplayOperation(DisplayOperationKind.FillPathWithShading, path.FillRule, pathIndex, shading));
     }

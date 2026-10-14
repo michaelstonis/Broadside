@@ -125,6 +125,36 @@ public sealed class ObjectNumberingTests
         AssertDanglingIsNull(output.ToArray());
     }
 
+    [Theory]
+    [InlineData(PdfCrossReferenceLayout.Table, false)]
+    [InlineData(PdfCrossReferenceLayout.Stream, false)]
+    [InlineData(PdfCrossReferenceLayout.StreamWithObjectStreams, false)]
+    [InlineData(PdfCrossReferenceLayout.Table, true)]
+    [InlineData(PdfCrossReferenceLayout.StreamWithObjectStreams, true)]
+    public void A_linearized_save_numbers_its_own_streams_and_writes_a_dangling_reference_as_null(PdfCrossReferenceLayout layout, bool streamSource)
+    {
+        // Annex F: a linearized file renumbers every object by part and numbers its object streams, cross-reference streams,
+        // linearization dictionary and hint stream itself, in that renumbered space; the dangling reference is written as null
+        // (§7.3.10), so none of them can come to be it, without the document's allocator.
+        using PdfDocument document = PdfDocument.Open(streamSource
+            ? WithCrossReferenceStream(["<< /Type /Catalog /Pages 2 0 R /Dangling 5 0 R >>", DanglingJustAboveHighest[1], DanglingJustAboveHighest[2]])
+            : WithCrossReferenceTable(DanglingJustAboveHighest));
+        Assert.Empty(document.Diagnostics);
+
+        using var output = new MemoryStream();
+        document.Save(output, new PdfSaveOptions().WithUpdateModificationDate(false).WithCrossReferenceLayout(layout).WithLinearize(true));
+        byte[] saved = output.ToArray();
+
+        AssertDanglingIsNull(saved);
+        using (PdfDocument reopened = PdfDocument.Open(saved))
+        {
+            Assert.True(reopened.IsLinearized);
+        }
+
+        (int exitCode, string report) = ExternalTool.Run("qpdf", saved, "--check-linearization");
+        Assert.True(exitCode == 0 && report.Contains("no linearization errors", StringComparison.Ordinal), report);
+    }
+
     /// <summary>Reopens a saved file: one page, the catalog's <c>Dangling</c> entry still null or gone, and qpdf finds nothing wrong.</summary>
     private static void AssertDanglingIsNull(byte[] file)
     {
