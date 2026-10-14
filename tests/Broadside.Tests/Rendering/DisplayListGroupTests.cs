@@ -1,0 +1,199 @@
+using System.Text;
+using Broadside.Rendering;
+using Broadside.TestSupport;
+
+namespace Broadside.Tests.Rendering;
+
+/// <summary>
+/// Transparency groups in the display list (ISO 32000-2 §11.4, §11.6.6, §11.7.4.4; ADR 0006): a transparency group XObject, a page
+/// group and the implicit knockout group of a combined fill and stroke reach the backend through
+/// <see cref="IRenderingBackend.DrawGroup"/>, carrying the group's attributes and the alpha and blend mode it composites with, and
+/// its content replays inside it.
+/// </summary>
+public sealed class DisplayListGroupTests
+{
+    private const string States =
+        "/ExtGState << /Half << /CA 0.5 /ca 0.25 /BM /Multiply >> /Stroke << /CA 0.5 >> /Screen << /BM /Screen >> >>";
+
+    [Fact]
+    public void A_transparency_group_form_paints_as_a_group_with_the_alpha_and_blend_mode_at_Do()
+    {
+        List<string> operations = Record(
+            "q 1 0 0 1 100 100 cm /Half gs /Fm0 Do Q",
+            "/XObject << /Fm0 5 0 R >>",
+            Form("/Group << /S /Transparency /I true /K true /CS /DeviceCMYK >> /BBox [0 0 10 10]", "0 0 10 10 re f"));
+
+        // Inside the group the alphas and blend mode start from their initial values (§11.6.6), so the fill needs no compositing
+        // record: the backend's compositing is the one before the group's.
+        Assert.Equal(
+            [
+                "save",
+                "group Transparency isolated knockout DeviceCMYK opacity 0.25 Multiply bbox [0 0 10 10] [1 0 0 1 100 100]",
+                "save",
+                "transform [1 0 0 1 100 100]",
+                "clip nonzero M 0 0 L 10 0 L 10 10 L 0 10 Z",
+                "fill nonzero M 0 0 L 10 0 L 10 10 L 0 10 Z | DeviceGray 0",
+                "restore",
+                "end group",
+                "restore",
+            ],
+            operations);
+    }
+
+    [Fact]
+    public void Paints_after_a_group_get_back_the_compositing_they_had_before_it()
+    {
+        List<string> operations = Record(
+            "/Half gs 0 0 1 1 re f /Fm0 Do 0 0 2 2 re f",
+            "/XObject << /Fm0 5 0 R >>",
+            Form("/Group << /S /Transparency >> /BBox [0 0 10 10]", "0 0 10 10 re f"));
+
+        Assert.Equal(
+            [
+                "compositing 0.5 0.25 Multiply",
+                "fill nonzero M 0 0 L 1 0 L 1 1 L 0 1 Z | DeviceGray 0",
+                "group Transparency opacity 0.25 Multiply bbox [0 0 10 10] [1 0 0 1 0 0]",
+                "save",
+                "clip nonzero M 0 0 L 10 0 L 10 10 L 0 10 Z",
+                "compositing 1 1 Normal",
+                "fill nonzero M 0 0 L 10 0 L 10 10 L 0 10 Z | DeviceGray 0",
+                "restore",
+                "end group",
+                "fill nonzero M 0 0 L 2 0 L 2 2 L 0 2 Z | DeviceGray 0",
+            ],
+            operations);
+    }
+
+    [Fact]
+    public void A_group_that_paints_nothing_is_not_in_the_list()
+    {
+        List<string> operations = Record(
+            "/Fm0 Do /Fm1 Do",
+            "/XObject << /Fm0 5 0 R /Fm1 6 0 R >>",
+            Form("/Group << /S /Transparency >> /BBox [0 0 10 10]", "0 0 10 10 re n"),
+            Form("/Group << /S /Transparency >> /BBox [0 0 10 10]", "/Fm0 Do", "/XObject << /Fm0 5 0 R >>"));
+
+        Assert.Empty(operations);
+    }
+
+    [Fact]
+    public void A_form_whose_group_is_not_a_transparency_group_paints_without_one()
+    {
+        List<string> operations = Record(
+            "/Fm0 Do",
+            "/XObject << /Fm0 5 0 R >>",
+            Form("/Group << /S /Other >> /BBox [0 0 10 10]", "0 0 10 10 re f"));
+
+        Assert.DoesNotContain(operations, line => line.StartsWith("group", StringComparison.Ordinal));
+        Assert.Contains("fill nonzero M 0 0 L 10 0 L 10 10 L 0 10 Z | DeviceGray 0", operations);
+    }
+
+    [Fact]
+    public void A_group_colour_space_counts_only_for_an_isolated_group()
+    {
+        List<string> operations = Record(
+            "/Fm0 Do",
+            "/XObject << /Fm0 5 0 R >>",
+            Form("/Group << /S /Transparency /CS /DeviceGray >> /BBox [0 0 10 10]", "0 0 10 10 re f"));
+
+        // §11.6.6: a non-isolated group's colour space is its parent's.
+        Assert.Equal("group Transparency bbox [0 0 10 10] [1 0 0 1 0 0]", operations[0]);
+    }
+
+    [Fact]
+    public void Nested_groups_replay_inside_their_parent()
+    {
+        List<string> operations = Record(
+            "/Fm1 Do",
+            "/XObject << /Fm1 6 0 R >>",
+            Form("/Group << /S /Transparency /I true >> /BBox [0 0 5 5]", "0 0 5 5 re f"),
+            Form("/Group << /S /Transparency /K true >> /BBox [0 0 10 10]", "/Screen gs /Fm0 Do", "/XObject << /Fm0 5 0 R >>"));
+
+        Assert.Equal(
+            [
+                "group Transparency knockout bbox [0 0 10 10] [1 0 0 1 0 0]",
+                "save",
+                "clip nonzero M 0 0 L 10 0 L 10 10 L 0 10 Z",
+                "group Transparency isolated Screen bbox [0 0 5 5] [1 0 0 1 0 0]",
+                "save",
+                "clip nonzero M 0 0 L 5 0 L 5 5 L 0 5 Z",
+                "fill nonzero M 0 0 L 5 0 L 5 5 L 0 5 Z | DeviceGray 0",
+                "restore",
+                "end group",
+                "restore",
+                "end group",
+            ],
+            operations);
+    }
+
+    [Fact]
+    public void A_page_with_a_transparency_group_paints_its_content_in_an_isolated_page_group()
+    {
+        byte[] file = ContentSamples.File(
+        [
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Group << /S /Transparency /CS /DeviceCMYK /K true >> /Contents 4 0 R >>",
+            ContentSamples.Stream("0 0 1 1 re f"),
+        ]);
+        using PdfDocument document = PdfDocument.Open(file);
+        var recorder = new RecordingBackend();
+
+        document.Pages[0].CreateDisplayList().Replay(recorder);
+
+        // §11.4.7 and Table 145: the page group is isolated whatever its I says, and its CS is honoured.
+        Assert.Equal(
+            [
+                "group Page isolated knockout DeviceCMYK",
+                "save",
+                "fill nonzero M 0 0 L 1 0 L 1 1 L 0 1 Z | DeviceGray 0",
+                "restore",
+                "end group",
+            ],
+            recorder.Operations);
+    }
+
+    [Fact]
+    public void A_translucent_fill_and_stroke_of_one_path_paint_as_one_implicit_knockout_group()
+    {
+        List<string> operations = Record("/Stroke gs 4 w 10 10 m 20 10 l 20 20 l b");
+
+        // §11.7.4.4: a non-isolated knockout group composited at alpha 1 with Normal, the fill and stroke inside it with their own
+        // alphas. The bounds hold the path and the stroke's reach.
+        Assert.Equal(
+            [
+                "group FillAndStroke knockout bbox [-10 -10 40 40] [1 0 0 1 0 0]",
+                "save",
+                "fill nonzero M 10 10 L 20 10 L 20 20 Z | DeviceGray 0",
+                "compositing 0.5 1 Normal",
+                "stroke 4 Butt Miter 10 [] 0 M 10 10 L 20 10 L 20 20 Z | DeviceGray 0",
+                "restore",
+                "end group",
+            ],
+            operations);
+    }
+
+    [Fact]
+    public void An_opaque_fill_and_stroke_in_the_normal_blend_mode_needs_no_group()
+    {
+        List<string> operations = Record("4 w 10 10 m 20 10 l 20 20 l b");
+
+        Assert.Equal(
+            [
+                "fill nonzero M 10 10 L 20 10 L 20 20 Z | DeviceGray 0",
+                "stroke 4 Butt Miter 10 [] 0 M 10 10 L 20 10 L 20 20 Z | DeviceGray 0",
+            ],
+            operations);
+    }
+
+    private static string Form(string entries, string content, string resources = "") =>
+        ContentSamples.Stream(content, $"/Type /XObject /Subtype /Form {entries} /Resources << {resources} >>");
+
+    private static List<string> Record(string content, string resources = "", params string[] objects)
+    {
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(Encoding.Latin1.GetBytes(content), States + " " + resources, objects));
+        var recorder = new RecordingBackend();
+        document.Pages[0].CreateDisplayList().Replay(recorder);
+        return recorder.Operations;
+    }
+}

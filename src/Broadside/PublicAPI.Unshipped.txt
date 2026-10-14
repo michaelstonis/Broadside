@@ -3964,3 +3964,22 @@ Broadside.Forms.PdfChoiceField.SetSelectedIndices(System.Collections.Generic.IEn
 Broadside.Forms.PdfChoiceField.GenerateAppearances() -> void
 Broadside.Forms.PdfListBoxField.SetTopIndex(int topIndex) -> void
 Broadside.Rendering.IRenderingBackend.SetCompositing(double strokeAlpha, double fillAlpha, Broadside.Graphics.BlendMode blendMode) -> void
+Broadside.Rendering.DisplayGroup
+Broadside.Rendering.DisplayGroup.BlendMode.get -> Broadside.Graphics.BlendMode
+Broadside.Rendering.DisplayGroup.BoundingBox.get -> Broadside.PdfRectangle
+Broadside.Rendering.DisplayGroup.ColorSpace.get -> Broadside.Graphics.PdfColorSpace?
+Broadside.Rendering.DisplayGroup.Conversion.get -> Broadside.Graphics.ColorConversion
+Broadside.Rendering.DisplayGroup.DefaultColorSpaces.get -> Broadside.Graphics.PdfDefaultColorSpaces!
+Broadside.Rendering.DisplayGroup.DisplayGroup() -> void
+Broadside.Rendering.DisplayGroup.HasBoundingBox.get -> bool
+Broadside.Rendering.DisplayGroup.IsIsolated.get -> bool
+Broadside.Rendering.DisplayGroup.IsKnockout.get -> bool
+Broadside.Rendering.DisplayGroup.Kind.get -> Broadside.Rendering.DisplayGroupKind
+Broadside.Rendering.DisplayGroup.Matrix.get -> Broadside.Graphics.Matrix
+Broadside.Rendering.DisplayGroup.Opacity.get -> double
+Broadside.Rendering.DisplayGroup.Replay(Broadside.Rendering.IRenderingBackend! backend) -> void
+Broadside.Rendering.DisplayGroupKind
+Broadside.Rendering.DisplayGroupKind.FillAndStroke = 2 -> Broadside.Rendering.DisplayGroupKind
+Broadside.Rendering.DisplayGroupKind.Page = 1 -> Broadside.Rendering.DisplayGroupKind
+Broadside.Rendering.DisplayGroupKind.Transparency = 0 -> Broadside.Rendering.DisplayGroupKind
+Broadside.Rendering.IRenderingBackend.DrawGroup(in Broadside.Rendering.DisplayGroup group) -> void

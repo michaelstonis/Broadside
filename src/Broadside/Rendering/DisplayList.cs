@@ -20,9 +20,10 @@ namespace Broadside.Rendering;
 /// bounding boxes, §8.10.1), images with their masks (§8.9, §11.6.5, <see cref="DisplayImage"/>, decoded once per image XObject),
 /// stencil masks (§8.9.6.2, <see cref="DisplayImageMask"/>), text as glyph runs (§9.4.3, §9.3.6, <see cref="GlyphRun"/>: font
 /// program, glyph ids, text matrices, outlines interned once per program and glyph) and shadings, from <c>sh</c> and as shading
-/// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>). Type 3 glyphs, text clips, tiling patterns and
-/// transparency groups and soft masks join it in later Phase 3 tickets (constant alpha and blend modes are there already, as
-/// <see cref="IRenderingBackend.SetCompositing"/>), each as new <see cref="IRenderingBackend"/> calls.
+/// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>), constant alpha and blend modes
+/// (<see cref="IRenderingBackend.SetCompositing"/>, §11.6.3, §11.6.4.4) and transparency groups (§11.4, <see cref="DisplayGroup"/>:
+/// group XObjects, the page group and the implicit group of a combined fill and stroke). Type 3 glyphs, text clips, tiling patterns
+/// and soft masks join it in later Phase 3 tickets, each as new <see cref="IRenderingBackend"/> calls.
 /// </para>
 /// <para>
 /// Immutable once built: any number of threads may replay the same list at once, each into its own backend.
@@ -85,6 +86,9 @@ public sealed class DisplayList
     /// <summary>Gets the alpha constants and blend modes the list sets (indexed by <see cref="DisplayOperationKind.SetCompositing"/> records).</summary>
     internal DisplayCompositing[] Compositings { get; init; } = [];
 
+    /// <summary>Gets the transparency groups the list paints (indexed by <see cref="DisplayOperationKind.DrawGroup"/> records).</summary>
+    internal DisplayGroupEntry[] Groups { get; init; } = [];
+
     /// <summary>Gets the document the list was built from, whose colour converters a backend uses (see <see cref="DisplayColor"/>).</summary>
     public PdfDocument Document { get; }
 
@@ -97,8 +101,16 @@ public sealed class DisplayList
     public void Replay(IRenderingBackend backend)
     {
         ArgumentNullException.ThrowIfNull(backend);
-        foreach (ref readonly DisplayOperation operation in _operations.AsSpan())
+        ReplayRange(backend, 0, _operations.Length);
+    }
+
+    /// <summary>Replays the operations from <paramref name="start"/> to <paramref name="end"/> (exclusive); a group's content goes to the backend through its <see cref="DisplayGroup"/>.</summary>
+    internal void ReplayRange(IRenderingBackend backend, int start, int end)
+    {
+        ReadOnlySpan<DisplayOperation> operations = _operations.AsSpan(start, end - start);
+        for (int index = 0; index < operations.Length; index++)
         {
+            ref readonly DisplayOperation operation = ref operations[index];
             switch (operation.Kind)
             {
                 case DisplayOperationKind.SaveState:
@@ -158,6 +170,11 @@ public sealed class DisplayList
                 case DisplayOperationKind.SetCompositing:
                     ref readonly DisplayCompositing compositing = ref Compositings[operation.First];
                     backend.SetCompositing(compositing.StrokeAlpha, compositing.FillAlpha, compositing.BlendMode);
+                    break;
+                case DisplayOperationKind.DrawGroup:
+                    ref readonly DisplayGroupEntry group = ref Groups[operation.First];
+                    backend.DrawGroup(new DisplayGroup(this, group));
+                    index = group.End - start - 1;
                     break;
             }
         }

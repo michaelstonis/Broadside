@@ -34,7 +34,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     private int _savedAtCount;
 
     /// <inheritdoc/>
-    public override ContentEvents Events => ContentEvents.Paths | ContentEvents.StateStack | ContentEvents.Clips | ContentEvents.Images | ContentEvents.Glyphs | ContentEvents.Shadings;
+    public override ContentEvents Events => ContentEvents.Paths | ContentEvents.StateStack | ContentEvents.Clips | ContentEvents.Images | ContentEvents.Glyphs | ContentEvents.Shadings | ContentEvents.Forms;
 
     /// <summary>Builds the display list of <paramref name="page"/>.</summary>
     /// <param name="page">The page.</param>
@@ -47,7 +47,9 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         _cached = null;
         try
         {
+            int pageGroup = builder.OpenPageGroup(page, document);
             ContentInterpreter.RunPage(page, document, builder, options);
+            builder.ClosePageGroup(pageGroup);
             return builder.ToDisplayList(document);
         }
         finally
@@ -79,6 +81,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         ShadingPaints = _shadingPaints.AsSpan(0, _shadingPaintCount).ToArray(),
         ImageMasks = _imageMasks.AsSpan(0, _imageMaskCount).ToArray(),
         Compositings = _compositings.AsSpan(0, _compositingCount).ToArray(),
+        Groups = _groups.AsSpan(0, _groupCount).ToArray(),
     };
 
     /// <summary>Forgets everything built, keeping the tables' capacity and no reference into a document.</summary>
@@ -95,10 +98,17 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         ResetText();
         ResetShadings();
         ResetCompositing();
+        ResetGroups();
     }
 
     /// <inheritdoc/>
-    public override void SaveState(ContentContext context)
+    public override void SaveState(ContentContext context) => Save();
+
+    /// <inheritdoc/>
+    public override void RestoreState(ContentContext context) => Restore();
+
+    /// <summary>Records a save of the state (§8.4.2 <c>q</c>).</summary>
+    private void Save()
     {
         Append(ref _saved, ref _savedCount, _current);
         Append(ref _savedAt, ref _savedAtCount, _operationCount);
@@ -106,8 +116,8 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         AddOperation(new DisplayOperation(DisplayOperationKind.SaveState, default, 0, 0));
     }
 
-    /// <inheritdoc/>
-    public override void RestoreState(ContentContext context)
+    /// <summary>Records a restore of the state (§8.4.2 <c>Q</c>), dropping the save and what follows it when nothing was painted since.</summary>
+    private void Restore()
     {
         if (_savedCount == 0)
         {

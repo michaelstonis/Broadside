@@ -55,6 +55,10 @@ internal sealed partial class DisplayListBuilder
         bool strokes = mode is TextRenderingMode.Stroke or TextRenderingMode.FillStroke or TextRenderingMode.StrokeClip or TextRenderingMode.FillStrokeClip
             && state.StrokeColor.ColorSpace.Family != PdfColorSpaceFamily.Pattern;
         ColorConversion conversion = ColorConversion.FromState(state, DeviceColorModel.Rgb);
+
+        // §11.7.4.4: a glyph both filled and stroked is one object, as if in a non-isolated knockout group.
+        int group = fills && strokes ? OpenFillAndStrokeGroup(state, context.DefaultColorSpaces, default) : -1;
+        int firstGlyph = _glyphCount;
         SetCompositing(state);
         if (!ContinuesRun(program, mode, fills, strokes, state, context.DefaultColorSpaces, conversion))
         {
@@ -71,6 +75,7 @@ internal sealed partial class DisplayListBuilder
             // A substitute's missing glyph is not the font's: a code it has no glyph for draws nothing rather than its .notdef box.
             int outline = _substitute is not null && glyphId == 0 ? InternPath(default) : InternOutline(program, glyphId);
             AppendGlyph(new DisplayGlyph(glyphId, glyph.TextMatrix, scale, outline));
+            CloseGlyphGroup(group, firstGlyph, state);
             return;
         }
 
@@ -83,6 +88,44 @@ internal sealed partial class DisplayListBuilder
             AppendGlyph(new DisplayGlyph(component, textMatrix, scale, InternOutline(program, component)));
             offset += _substitute!.GetWidth(component) * scale / 1000;
         }
+
+        CloseGlyphGroup(group, firstGlyph, state);
+    }
+
+    /// <summary>Closes the implicit group of a filled and stroked glyph, bounded by the glyphs' outlines and the stroke's reach.</summary>
+    private void CloseGlyphGroup(int group, int firstGlyph, in GraphicsState state)
+    {
+        if (group < 0)
+        {
+            return;
+        }
+
+        DisplayGlyphRun run = _glyphRuns[_glyphRunCount - 1];
+        double left = double.PositiveInfinity;
+        double bottom = double.PositiveInfinity;
+        double right = double.NegativeInfinity;
+        double top = double.NegativeInfinity;
+        for (int index = firstGlyph; index < _glyphCount; index++)
+        {
+            DisplayGlyph glyph = _glyphs[index];
+            Matrix font = glyph.HorizontalScale == 1 ? run.FontMatrix : run.FontMatrix * Matrix.CreateScale(glyph.HorizontalScale, 1);
+            Matrix toUser = font * glyph.TextMatrix;
+            DisplayPath outline = _paths[glyph.Outline];
+            foreach (PathPoint point in _points.AsSpan(outline.PointStart, outline.PointCount))
+            {
+                PathPoint mapped = toUser.Transform(point);
+                left = Math.Min(left, mapped.X);
+                right = Math.Max(right, mapped.X);
+                bottom = Math.Min(bottom, mapped.Y);
+                top = Math.Max(top, mapped.Y);
+            }
+        }
+
+        double reach = StrokeReach(state);
+        PdfRectangle bounds = double.IsFinite(left + right + bottom + top)
+            ? new PdfRectangle(left - reach, bottom - reach, right + reach, top + reach)
+            : default;
+        CloseFillAndStrokeGroup(group, bounds);
     }
 
     /// <summary>Appends a glyph to the open run.</summary>

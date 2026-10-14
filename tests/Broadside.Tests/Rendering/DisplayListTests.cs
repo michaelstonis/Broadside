@@ -336,6 +336,8 @@ public sealed class DisplayListTests
         public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode)
         {
         }
+
+        public void DrawGroup(in DisplayGroup group) => group.Replay(this);
     }
 
     /// <summary>Counts the converters requested per source family, then defers to the inner management.</summary>

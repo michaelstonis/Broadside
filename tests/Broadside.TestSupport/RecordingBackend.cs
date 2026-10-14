@@ -18,7 +18,9 @@ namespace Broadside.TestSupport;
 /// <c>imagemask WxH[ inverted][ interpolate] | Family c0 c1 …</c>, <c>shading Type [matrix][ background]</c>,
 /// <c>glyphs Mode Format gid [text matrix][ xScale] … [| fill Family c0 …][| stroke width Cap Join miterLimit [dash …] phase[ adjust] Family c0 …]</c>
 /// (Format is the program's format, <c>none</c> without a program), and fills and strokes in a shading pattern ending
-/// <c>| shading Type [matrix] background</c> instead of a colour; <c>compositing CA ca BlendMode</c>. Numbers are written round-trippable and culture-invariant.
+/// <c>| shading Type [matrix] background</c> instead of a colour; <c>compositing CA ca BlendMode</c>;
+/// <c>group Kind[ isolated][ knockout][ Family][ opacity a][ BlendMode][ bbox [l b r t] [matrix]]</c>, then the group's content, then
+/// <c>end group</c>. Numbers are written round-trippable and culture-invariant.
 /// </remarks>
 public sealed class RecordingBackend : IRenderingBackend
 {
@@ -42,6 +44,9 @@ public sealed class RecordingBackend : IRenderingBackend
 
     /// <summary>Gets the stencil mask paints, in replay order: the interned mask and a copy of its colour, like <see cref="Fills"/>.</summary>
     public List<(DisplayImageMask Mask, PdfColorSpace ColorSpace, float[] Components, PdfDefaultColorSpaces Defaults, ColorConversion Conversion)> ImageMasks { get; } = [];
+
+    /// <summary>Gets the groups, in replay order: their kind, colour space, default colour spaces and conversion.</summary>
+    public List<(DisplayGroupKind Kind, PdfColorSpace? ColorSpace, PdfDefaultColorSpaces Defaults, ColorConversion Conversion)> Groups { get; } = [];
 
     /// <inheritdoc/>
     public void SaveState() => Operations.Add("save");
@@ -246,6 +251,47 @@ public sealed class RecordingBackend : IRenderingBackend
     /// <inheritdoc/>
     public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode) =>
         Operations.Add(string.Create(CultureInfo.InvariantCulture, $"compositing {Number(strokeAlpha)} {Number(fillAlpha)} {blendMode}"));
+
+    /// <inheritdoc/>
+    public void DrawGroup(in DisplayGroup group)
+    {
+        var text = new StringBuilder("group ").Append(group.Kind);
+        if (group.IsIsolated)
+        {
+            text.Append(" isolated");
+        }
+
+        if (group.IsKnockout)
+        {
+            text.Append(" knockout");
+        }
+
+        if (group.ColorSpace is { } space)
+        {
+            text.Append(' ').Append(space.Family);
+        }
+
+        if (group.Opacity != 1)
+        {
+            text.Append(" opacity ").Append(Number(group.Opacity));
+        }
+
+        if (group.BlendMode != BlendMode.Normal)
+        {
+            text.Append(' ').Append(group.BlendMode);
+        }
+
+        if (group.HasBoundingBox)
+        {
+            PdfRectangle box = group.BoundingBox;
+            text.Append(CultureInfo.InvariantCulture, $" bbox [{Number(box.Left)} {Number(box.Bottom)} {Number(box.Right)} {Number(box.Top)}] {group.Matrix}");
+        }
+
+        Operations.Add(text.ToString());
+        Groups.Add((group.Kind, group.ColorSpace, group.DefaultColorSpaces, group.Conversion));
+        group.Replay(this);
+        Operations.Add("end group");
+    }
 
     /// <summary>Writes a path as its verbs and points.</summary>
     /// <param name="path">The path.</param>

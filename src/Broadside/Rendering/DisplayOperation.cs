@@ -46,6 +46,12 @@ internal enum DisplayOperationKind : byte
 
     /// <summary><see cref="IRenderingBackend.SetCompositing"/>; <see cref="DisplayOperation.First"/> indexes the compositing table.</summary>
     SetCompositing,
+
+    /// <summary>
+    /// <see cref="IRenderingBackend.DrawGroup"/>; <see cref="DisplayOperation.First"/> indexes the groups, whose content is the
+    /// operations from this one's successor up to the group's end.
+    /// </summary>
+    DrawGroup,
 }
 
 /// <summary>One record of a display list: a kind and up to two indexes into the list's tables, 16 bytes.</summary>
@@ -97,6 +103,25 @@ internal readonly record struct DisplayShadingPaint(
     bool PaintsBackground,
     PdfDefaultColorSpaces DefaultColorSpaces,
     ColorConversion Conversion);
+
+/// <summary>
+/// A transparency group in a display list: its attributes, how it composites, its bounds and the range of operations that are its
+/// content (<see cref="Start"/> inclusive to <see cref="End"/> exclusive).
+/// </summary>
+internal readonly record struct DisplayGroupEntry(
+    DisplayGroupKind Kind,
+    bool IsIsolated,
+    bool IsKnockout,
+    PdfColorSpace? ColorSpace,
+    PdfDefaultColorSpaces DefaultColorSpaces,
+    ColorConversion Conversion,
+    double Opacity,
+    BlendMode BlendMode,
+    bool HasBoundingBox,
+    PdfRectangle BoundingBox,
+    Matrix Matrix,
+    int Start,
+    int End);
 
 /// <summary>The alpha constants and blend mode a display list sets with <see cref="DisplayOperationKind.SetCompositing"/>.</summary>
 internal readonly record struct DisplayCompositing(double StrokeAlpha, double FillAlpha, BlendMode BlendMode)
