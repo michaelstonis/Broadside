@@ -15,14 +15,20 @@ internal sealed partial class DisplayListBuilder
     /// Records the stroke of a path with the stroking colour and the line parameters current at the operator. Consecutive strokes
     /// with the same colour and parameters share one record.
     /// </summary>
-    /// <remarks>ISO 32000-2 §8.5.3.2. A stroke in a shading pattern (§8.7.4.1) strokes with its shading; one in a tiling pattern (§8.7.3) is not in the list yet.</remarks>
+    /// <remarks>ISO 32000-2 §8.5.3.2. A stroke in a shading pattern (§8.7.4.1) strokes with its shading; one in a tiling pattern (§8.7.3) with its cell.</remarks>
     private void StrokePath(in PathEvent path, ContentContext context)
     {
         ref readonly GraphicsState state = ref context.State;
         ref readonly PdfColor stroke = ref state.StrokeColor;
         if (stroke.ColorSpace.Family == PdfColorSpaceFamily.Pattern)
         {
-            // §8.7.4.1: a shading pattern; the stroke record's colour index is the shading paint's. Tiling patterns are not in the list yet.
+            if (context.GetPattern(stroke) is PdfTilingPattern)
+            {
+                StrokePathWithTilingPattern(path, context);
+                return;
+            }
+
+            // §8.7.4.1: a shading pattern; the stroke record's colour index is the shading paint's.
             int shading = AddPatternShading(stroke, context);
             if (shading >= 0)
             {

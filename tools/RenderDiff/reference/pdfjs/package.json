@@ -1,0 +1,10 @@
+{
+  "name": "broadside-renderdiff-pdfjs",
+  "private": true,
+  "description": "pdf.js reference renderer for tools/RenderDiff, installed by tools/RenderDiff/acquire-references.sh outside the repository's tracked files.",
+  "license": "MIT",
+  "dependencies": {
+    "@napi-rs/canvas": "1.0.9",
+    "pdfjs-dist": "6.3.289"
+  }
+}
