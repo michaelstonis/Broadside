@@ -142,11 +142,13 @@ public sealed partial class SoftwareRasterizer
             return _imageConverter;
         }
 
-        /// <summary>Lets go of the render's image, mask, converters and document; the pooled buffers stay for the next render.</summary>
+        /// <summary>
+        /// Lets go of the render's converters and document; the pooled buffers stay for the next render, and so do the image and
+        /// mask converted last, so that the tiles of one display list (spec #33 story 14) convert an image once, not once per tile.
+        /// They are released by the next image or by <see cref="Dispose"/>.
+        /// </summary>
         private void EndImages()
         {
-            _imageSource.Forget();
-            _maskSource.Forget();
             _imageSpace = null;
             _imageDefaults = null;
             _imageConverter = null;
