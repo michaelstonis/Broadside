@@ -32,7 +32,7 @@ public sealed partial class DisplayList
     {
         long bytes = SizeOf(_operations) + SizeOf(_verbs) + SizeOf(_points) + SizeOf(_paths) + SizeOf(_colors) + SizeOf(_components)
             + SizeOf(_transforms) + SizeOf(Strokes) + SizeOf(Dashes) + SizeOf(Images) + SizeOf(ImagePaints) + SizeOf(GlyphRuns)
-            + SizeOf(Glyphs) + SizeOf(ShadingPaints) + SizeOf(ImageMasks) + SizeOf(Compositings) + SizeOf(Annotations)
+            + SizeOf(Glyphs) + SizeOf(ShadingPaints) + SizeOf(ImageMasks) + SizeOf(Compositings) + SizeOf(DeviceParameters) + SizeOf(Annotations)
             + SizeOf(TilingPaints) + SizeOf(TextGlyphs) + SizeOf(Text)
 
             // The region bounds (issue #96) are charged up front: a kept list is what tiles replay, so it gains them on the first one.

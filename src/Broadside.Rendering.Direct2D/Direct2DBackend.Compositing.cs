@@ -20,6 +20,15 @@ internal sealed unsafe partial class Direct2DBackend
     private Matrix[] _annotationDevices = new Matrix[2];
     private int _annotationDepth;
 
+    /// <summary>Takes the overprint parameters and halftone of the paints that follow, and ignores them (§8.6.7, §10.6).</summary>
+    /// <remarks>
+    /// A composite RGB device that does not overprint ignores the overprint parameters (§8.6.7), and a continuous-tone device needs no
+    /// halftone (§10.6.1). Transfer functions come with each colour's conversion (§10.5).
+    /// </remarks>
+    public void SetDeviceParameters(in DisplayDeviceParameters parameters)
+    {
+    }
+
     /// <summary>
     /// Sets the alpha constants and blend mode of the paints that follow (§11.6.4.4, §11.6.3): the alphas go into the brush colour
     /// (strokes take <paramref name="strokeAlpha"/>, everything else <paramref name="fillAlpha"/>). Direct2D's primitive blend is

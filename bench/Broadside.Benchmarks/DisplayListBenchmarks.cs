@@ -93,5 +93,7 @@ public class DisplayListBenchmarks
         public void BeginAnnotation(in DisplayAnnotation annotation) => Calls += (int)annotation.Kind;
 
         public void EndAnnotation() => Calls++;
+
+        public void SetDeviceParameters(in DisplayDeviceParameters parameters) => Calls += parameters.OverprintMode + 1;
     }
 }

@@ -101,6 +101,12 @@ internal sealed class HitTestCollector : IRenderingBackend
     }
 
     /// <inheritdoc/>
+    /// <remarks>Overprint and halftones do not change where a paint lands.</remarks>
+    public void SetDeviceParameters(in DisplayDeviceParameters parameters)
+    {
+    }
+
+    /// <inheritdoc/>
     /// <remarks>An appearance's paints are indexed where they land in default user space, as on a page shown at 100% unrotated.</remarks>
     public void BeginAnnotation(in DisplayAnnotation annotation) => SaveState();
 

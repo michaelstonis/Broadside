@@ -240,6 +240,14 @@ internal static class DisplayListTarget
             Checksum += strokeAlpha + fillAlpha + (int)blendMode;
         }
 
+        public void SetDeviceParameters(in DisplayDeviceParameters parameters)
+        {
+            Calls++;
+            Check(parameters.OverprintMode is 0 or 1, "an overprint mode other than 0 or 1");
+            Check(parameters.Halftone is null or Broadside.Objects.CosDictionary or Broadside.Objects.CosStream, "a halftone that is not a dictionary or stream");
+            Checksum += parameters.OverprintMode + (parameters.StrokeOverprint ? 2 : 0) + (parameters.FillOverprint ? 4 : 0);
+        }
+
         public void BeginAnnotation(in DisplayAnnotation annotation)
         {
             Calls++;

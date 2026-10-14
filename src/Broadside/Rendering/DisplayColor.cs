@@ -41,9 +41,10 @@ public readonly ref struct DisplayColor
     public PdfDefaultColorSpaces DefaultColorSpaces { get; }
 
     /// <summary>
-    /// Gets the conversion the graphics state asked for at the paint: rendering intent, black point compensation, black generation and
-    /// undercolour removal, with <see cref="ColorConversion.Target"/> RGB; a backend for another device model replaces the target.
+    /// Gets the conversion the graphics state asked for at the paint: rendering intent, black point compensation, black generation,
+    /// undercolour removal and transfer function, with <see cref="ColorConversion.Target"/> RGB; a backend for another device model
+    /// replaces the target.
     /// </summary>
-    /// <remarks>ISO 32000-2 §8.6.5.8, §8.6.5.9 and §10.4.2.3.</remarks>
+    /// <remarks>ISO 32000-2 §8.6.5.8, §8.6.5.9, §10.4.2.3 and §10.5.</remarks>
     public ColorConversion Conversion { get; }
 }

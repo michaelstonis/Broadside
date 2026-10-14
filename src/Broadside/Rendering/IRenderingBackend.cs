@@ -235,4 +235,26 @@ public interface IRenderingBackend
     /// <summary>Ends the annotation <see cref="BeginAnnotation"/> began: composites its appearance and restores the state saved there.</summary>
     /// <remarks>ISO 32000-2 §12.5.5.</remarks>
     void EndAnnotation();
+
+    /// <summary>Sets the overprint parameters and the halftone the paints that follow are rendered with, until the state is restored.</summary>
+    /// <param name="parameters">
+    /// Whether strokes (<see cref="StrokePath"/>, <see cref="StrokePathWithShading"/> and the stroke of <see cref="DrawGlyphs"/>) and
+    /// every other paint overprint, the overprint mode, and the halftone and its origin.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §8.6.7 (overprint control) and §10.6 (halftones), Table 52. A replay starts with no overprint, mode 0 and the
+    /// device's halftone; the call arrives before the first paint it applies to (before <see cref="SetCompositing"/> and
+    /// <see cref="SetTransform"/>), only when one of the values changes, and <see cref="SaveState"/> and <see cref="RestoreState"/>
+    /// save and restore it.
+    /// </para>
+    /// <para>
+    /// These are device-dependent: a backend for a composite display that does not overprint ignores the overprint parameters
+    /// (§8.6.7: "If overprinting is not supported, the value of the overprint parameter shall be ignored") and a continuous-tone
+    /// device needs no halftone (§10.6.1); a separation, CMYK or overprint-preview backend can honour them. Transfer functions do
+    /// not come through here: they travel with each colour in its <see cref="ColorConversion"/> and the converters apply them
+    /// (§10.5).
+    /// </para>
+    /// </remarks>
+    void SetDeviceParameters(in DisplayDeviceParameters parameters);
 }

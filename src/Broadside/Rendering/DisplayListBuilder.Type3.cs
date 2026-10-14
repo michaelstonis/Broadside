@@ -224,6 +224,9 @@ internal sealed partial class DisplayListBuilder
                 case DisplayOperationKind.SetCompositing:
                     SetCompositing(_compositings[operation.First]);
                     break;
+                case DisplayOperationKind.SetDeviceParameters:
+                    SetDeviceParameters(_deviceParameters[operation.First]);
+                    break;
                 case DisplayOperationKind.FillPath or DisplayOperationKind.FillImageMask when recolors:
                     AddOperation(operation with { Second = TextFill(ref fill, context) });
                     break;
@@ -347,7 +350,8 @@ internal sealed partial class DisplayListBuilder
                     }
 
                     break;
-                case DisplayOperationKind.SetTransform or DisplayOperationKind.SetCompositing or DisplayOperationKind.FillPath
+                case DisplayOperationKind.SetTransform or DisplayOperationKind.SetCompositing or DisplayOperationKind.SetDeviceParameters
+                    or DisplayOperationKind.FillPath
                     or DisplayOperationKind.StrokePath or DisplayOperationKind.DrawImage or DisplayOperationKind.DrawGlyphs
                     or DisplayOperationKind.DrawShading or DisplayOperationKind.FillPathWithShading or DisplayOperationKind.StrokePathWithShading
                     or DisplayOperationKind.FillImageMask or DisplayOperationKind.FillPathWithTilingPattern
