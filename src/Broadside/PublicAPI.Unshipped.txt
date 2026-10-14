@@ -4017,6 +4017,10 @@ Broadside.Rendering.HitTestShape.HitTestShape() -> void
 Broadside.Rendering.HitTestShape.HitTestShape(Broadside.Graphics.Quad Quad, Broadside.PdfRectangle Bounds) -> void
 Broadside.Rendering.HitTestShape.Quad.get -> Broadside.Graphics.Quad
 Broadside.Rendering.HitTestShape.Quad.init -> void
+Broadside.PdfEncryptionAlgorithm.Aes256Gcm = 3 -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionOptions.IntegrityProtection.get -> bool
+Broadside.PdfEncryptionOptions.IntegrityProtection.set -> void
+Broadside.PdfEncryptionOptions.WithIntegrityProtection(bool integrityProtection) -> Broadside.PdfEncryptionOptions!
 Broadside.Rendering.IRenderingBackend.SetCompositing(double strokeAlpha, double fillAlpha, Broadside.Graphics.BlendMode blendMode) -> void
 Broadside.PdfPage.CreateDisplayList(Broadside.Rendering.DisplayLayers layers) -> Broadside.Rendering.DisplayList!
 Broadside.PdfPage.CreateDisplayList(Broadside.Rendering.DisplayLayers layers, Broadside.Rendering.DisplayIntent intent, Broadside.Content.ContentOptions! options) -> Broadside.Rendering.DisplayList!
