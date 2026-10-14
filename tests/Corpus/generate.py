@@ -3589,6 +3589,92 @@ def gen_tagged_structure() -> bytes:
     ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
 
 
+def gen_layout_tagged() -> bytes:
+    """14.8.4 standard structure types read as a layout tree (ISO/TS 32005): a PDF 2.0 tagged page (/StructParents 0)
+    whose Document > Sect holds an H (level from nesting, 14.8.4.5 Table 366), a role-mapped Para (RoleMap /Para /P)
+    with a Link (MCID and an OBJR to a Link annotation, /StructParent 1) inside its text, an FENote, a Figure with
+    /Alt over an image XObject and a Caption, a Formula with /Alt over an empty sequence and a Layout BBox attribute
+    (14.8.5.4.3), a Table whose THead holds TH cells with RowSpan 2 and ColSpan 2 and whose TBody TD cells name their
+    headers by ID (Table 384 Headers, IDTree), one TD empty, a NonStruct around a P (14.8.4.4), and an Artifact element
+    (14.8.4.8.7). The content paints the table first."""
+    content = b"\n".join([
+        b"/TH <</MCID 8>> BDC BT /F1 12 Tf 72 500 Td (Name) Tj ET EMC",
+        b"/TH <</MCID 9>> BDC BT /F1 12 Tf 200 500 Td (First half) Tj ET EMC",
+        b"/TH <</MCID 10>> BDC BT /F1 12 Tf 200 485 Td (Q1) Tj ET EMC",
+        b"/TH <</MCID 11>> BDC BT /F1 12 Tf 300 485 Td (Q2) Tj ET EMC",
+        b"/TD <</MCID 12>> BDC BT /F1 12 Tf 72 470 Td (Alpha) Tj ET EMC",
+        b"/TD <</MCID 13>> BDC BT /F1 12 Tf 200 470 Td (1) Tj ET EMC",
+        b"/TD <</MCID 14>> BDC BT /F1 12 Tf 300 470 Td (2) Tj ET EMC",
+        b"/TD <</MCID 15>> BDC BT /F1 12 Tf 72 455 Td (Beta) Tj ET EMC",
+        b"/TD <</MCID 16>> BDC BT /F1 12 Tf 300 455 Td (4) Tj ET EMC",
+        b"/H <</MCID 0>> BDC BT /F1 18 Tf 72 720 Td (Results) Tj ET EMC",
+        b"/P <</MCID 1>> BDC BT /F1 12 Tf 72 696 Td (See the ) Tj ET EMC",
+        b"/Link <</MCID 2>> BDC BT /F1 12 Tf 116.7 696 Td (report) Tj ET EMC",
+        b"/P <</MCID 3>> BDC BT /F1 12 Tf 148.044 696 Td (.) Tj ET EMC",
+        b"/FENote <</MCID 4>> BDC BT /F1 9 Tf 72 60 Td (1 Fetched in 2026.) Tj ET EMC",
+        b"/Figure <</MCID 5>> BDC q 100 0 0 100 72 580 cm /Im1 Do Q EMC",
+        b"/Caption <</MCID 6>> BDC BT /F1 10 Tf 72 565 Td (Figure 1. A grey square) Tj ET EMC",
+        b"/Formula <</MCID 7>> BDC EMC",
+        b"/P <</MCID 17>> BDC BT /F1 12 Tf 72 420 Td (Grouped without structure.) Tj ET EMC",
+        b"/Span <</MCID 18>> BDC BT /F1 10 Tf 500 750 Td (Draft) Tj ET EMC",
+    ])
+    ns = b"/NS 7 0 R"
+    id0 = file_id("layout-tagged").hex().encode()
+
+    def elem(s: bytes, parent: int, extra: bytes) -> bytes:
+        return b"<< /Type /StructElem /S /%s /P %d 0 R %s %s >>" % (s, parent, ns if s != b"Para" else b"", extra)
+
+    pg = b"/Pg 3 0 R"
+    # MCID -> owning element, for the parent tree (14.7.5.4).
+    owners = {0: 13, 1: 14, 2: 15, 3: 14, 4: 16, 5: 17, 6: 18, 7: 19, 8: 23, 9: 24, 10: 26, 11: 27,
+              12: 30, 13: 31, 14: 32, 15: 34, 16: 36, 17: 38, 18: 39}
+    parent_array = b" ".join(b"%d 0 R" % owners[m] for m in range(19))
+    return simple_file([
+        (1, catalog(b" /MarkInfo << /Marked true >> /StructTreeRoot 10 0 R /Lang (en-US)")),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << /Font << /F1 6 0 R >> /XObject << /Im1 8 0 R >> >> /StructParents 0 /Tabs /S /Annots [5 0 R]")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Annot /Subtype /Link /Rect [116 692 148 708] /Border [0 0 0] "
+            b"/A << /S /URI /URI (https://example.com/report) >> /StructParent 1 >>"),
+        (6, HELVETICA),
+        (7, b"<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>"),
+        (8, stream(b"/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8", b"\x80")),
+        (10, b"<< /Type /StructTreeRoot /K [11 0 R] /ParentTree << /Nums [0 [%s] 1 15 0 R] >> /ParentTreeNextKey 2 "
+             b"/IDTree << /Names [(half) 24 0 R (q1) 26 0 R (q2) 27 0 R] >> /RoleMap << /Para /P >> /Namespaces [7 0 R] >>"
+             % parent_array),
+        (11, elem(b"Document", 10, b"/K [12 0 R]")),
+        (12, elem(b"Sect", 11, b"/K [13 0 R 14 0 R 16 0 R 17 0 R 19 0 R 20 0 R 37 0 R 39 0 R]")),
+        (13, elem(b"H", 12, pg + b" /K 0")),
+        (14, elem(b"Para", 12, pg + b" /K [1 15 0 R 3]")),
+        (15, elem(b"Link", 14, pg + b" /K [2 << /Type /OBJR /Obj 5 0 R >>]")),
+        (16, elem(b"FENote", 12, pg + b" /K 4")),
+        (17, elem(b"Figure", 12, pg + b" /Alt (A grey square) /K [5 18 0 R]")),
+        (18, elem(b"Caption", 17, pg + b" /K 6")),
+        (19, elem(b"Formula", 12, pg + b" /Alt (E = mc2) /A << /O /Layout /BBox [200 580 300 620] >> /K 7")),
+        (20, elem(b"Table", 12, b"/K [21 0 R 28 0 R]")),
+        (21, elem(b"THead", 20, b"/K [22 0 R 25 0 R]")),
+        (22, elem(b"TR", 21, b"/K [23 0 R 24 0 R]")),
+        (23, elem(b"TH", 22, pg + b" /K 8 /A << /O /Table /RowSpan 2 >>")),
+        (24, elem(b"TH", 22, pg + b" /ID (half) /K 9 /A << /O /Table /ColSpan 2 /Scope /Column >>")),
+        (25, elem(b"TR", 21, b"/K [26 0 R 27 0 R]")),
+        (26, elem(b"TH", 25, pg + b" /ID (q1) /K 10")),
+        (27, elem(b"TH", 25, pg + b" /ID (q2) /K 11")),
+        (28, elem(b"TBody", 20, b"/K [29 0 R 33 0 R]")),
+        (29, elem(b"TR", 28, b"/K [30 0 R 31 0 R 32 0 R]")),
+        (30, elem(b"TD", 29, pg + b" /K 12")),
+        (31, elem(b"TD", 29, pg + b" /K 13 /A << /O /Table /Headers [(q1) (half)] >>")),
+        (32, elem(b"TD", 29, pg + b" /K 14 /A << /O /Table /Headers [(q2) (half)] >>")),
+        (33, elem(b"TR", 28, b"/K [34 0 R 35 0 R 36 0 R]")),
+        (34, elem(b"TD", 33, pg + b" /K 15")),
+        (35, elem(b"TD", 33, b"")),
+        (36, elem(b"TD", 33, pg + b" /K 16 /A << /O /Table /Headers [(q2)] >>")),
+        (37, elem(b"NonStruct", 12, b"/K [38 0 R]")),
+        (38, elem(b"P", 37, pg + b" /K 17")),
+        (39, elem(b"Artifact", 12, pg + b" /K 18")),
+    ], version="2.0", binary=True, trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
 def gen_functions() -> bytes:
     """7.10 functions as Separation tint transforms (8.6.6.4), one rectangle per colour space.
     CS0: Type 0 (7.10.2), 8-bit, 1 in, 4 out (DeviceCMYK), Size [3], painted at 0.5 (the middle sample).
@@ -6720,6 +6806,7 @@ FILES = {
     "number-tree-deep.pdf": gen_number_tree_deep,
     "name-tree-broken.pdf": gen_name_tree_broken,
     "tagged-structure.pdf": gen_tagged_structure,
+    "layout-tagged.pdf": gen_layout_tagged,
     "destinations-all.pdf": gen_destinations_all,
     "outline-full.pdf": gen_outline_full,
     "outline-broken.pdf": gen_outline_broken,

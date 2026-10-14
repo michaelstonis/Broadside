@@ -84,6 +84,7 @@ public static class Corpus
         "name-tree-deep.pdf",
         "number-tree-deep.pdf",
         "tagged-structure.pdf",
+        "layout-tagged.pdf",
         "destinations-all.pdf",
         "outline-full.pdf",
         "functions.pdf",

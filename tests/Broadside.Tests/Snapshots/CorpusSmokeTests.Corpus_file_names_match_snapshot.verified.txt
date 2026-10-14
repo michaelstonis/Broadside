@@ -82,6 +82,7 @@
   jpx-lossless.pdf,
   jpx-smask-in-data.pdf,
   jpx-subsampled.pdf,
+  layout-tagged.pdf,
   linearized-flate-hints.pdf,
   linearized-xref-stream.pdf,
   linearized.pdf,
