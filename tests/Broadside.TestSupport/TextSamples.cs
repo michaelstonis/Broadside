@@ -24,15 +24,41 @@ public static class TextSamples
     /// </summary>
     /// <param name="content">The page's content.</param>
     /// <param name="resources">More entries of the page's resource dictionary.</param>
+    /// <param name="fonts">More entries of the page's font dictionary, beside <c>/F1</c>.</param>
+    /// <param name="objects">More objects, numbered from 8.</param>
     /// <returns>The file.</returns>
-    public static byte[] Page(byte[] content, string resources = "")
+    public static byte[] Page(byte[] content, string resources = "", string fonts = "", params string[] objects)
     {
         byte[] program = FontProgram;
         string widths = string.Join(' ', Enumerable.Repeat("600", 95));
         string font = string.Create(CultureInfo.InvariantCulture, $"<< /Type /Font /Subtype /TrueType /BaseFont /BroadsideSample /FirstChar 32 /LastChar 126 /Widths [{widths}] /Encoding /WinAnsiEncoding /FontDescriptor 6 0 R >>");
         const string descriptor = "<< /Type /FontDescriptor /FontName /BroadsideSample /Flags 32 /FontBBox [0 0 1000 1000] /ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 100 /FontFile2 7 0 R >>";
         string stream = string.Create(CultureInfo.InvariantCulture, $"<< /Length {program.Length} /Length1 {program.Length} >>\nstream\n") + Encoding.Latin1.GetString(program) + "\nendstream";
-        return ContentSamples.OnePage(content, "/Font << /F1 5 0 R >> " + resources, font, descriptor, stream);
+        return ContentSamples.OnePage(content, "/Font << /F1 5 0 R " + fonts + " >> " + resources, [font, descriptor, stream, .. objects]);
+    }
+
+    /// <summary>
+    /// A content stream showing at least <paramref name="glyphs"/> glyphs of <c>/F1</c> in the clipping rendering modes 4 to 7 (ISO
+    /// 32000-2 §9.3.6), each text object of 24 glyphs followed by a page-sized fill painted through its text clip and a <c>Q</c>
+    /// that restores the clip; every other line repeats a string, so outlines and clip paths are reused as well as new.
+    /// </summary>
+    /// <param name="glyphs">The least number of glyphs to show.</param>
+    /// <returns>The content.</returns>
+    public static byte[] TextClipHeavy(int glyphs)
+    {
+        var text = new StringBuilder(glyphs * 4);
+        int shown = 0;
+        int line = 0;
+        while (shown < glyphs)
+        {
+            string shownText = line % 2 == 0 ? "Clipping, Broadside text" : string.Create(CultureInfo.InvariantCulture, $"Line {line,5} clips here!");
+            text.Append(CultureInfo.InvariantCulture, $"q BT /F1 {14 + (line % 3)} Tf {4 + (line % 4)} Tr 36 {760 - (line % 60 * 12)} Td ({shownText}) Tj ET ");
+            text.Append(CultureInfo.InvariantCulture, $"{line % 7 / 7.0:0.###} g 0 0 612 792 re f Q\n");
+            shown += shownText.Length;
+            line++;
+        }
+
+        return Encoding.ASCII.GetBytes(text.ToString());
     }
 
     private static byte[] BuildProgram()

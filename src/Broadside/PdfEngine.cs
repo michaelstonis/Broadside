@@ -55,6 +55,9 @@ public sealed class PdfEngine
     /// <summary>Gets the engine the static entry points use when no options are given: default options, no state.</summary>
     internal static PdfEngine Default { get; } = new();
 
+    /// <summary>Gets the engine's configuration, for documents made from others (<see cref="PdfDocument.Merge"/>).</summary>
+    internal EngineConfiguration Configuration => _configuration;
+
     /// <summary>Opens the PDF file at <paramref name="path"/>.</summary>
     /// <param name="path">The file path.</param>
     /// <returns>The document. Dispose it when done.</returns>

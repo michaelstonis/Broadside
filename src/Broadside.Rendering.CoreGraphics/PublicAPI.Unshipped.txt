@@ -1,1 +1,7 @@
 #nullable enable
+Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer
+Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.CoreGraphicsRenderer() -> void
+Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.Dispose() -> void
+Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.Render(Broadside.PdfPage! page, CoreGraphics.CGBitmapContext! target, Broadside.Rendering.RenderOptions! options) -> void
+Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.Render(Broadside.Rendering.DisplayList! list, CoreGraphics.CGContext! context, in Broadside.Graphics.Matrix deviceTransform) -> void

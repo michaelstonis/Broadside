@@ -30,7 +30,8 @@ internal sealed partial class DisplayListBuilder
     /// ISO 32000-2 §8.5.3, Table 59: <c>f</c>, <c>F</c>, <c>f*</c> and the fill of <c>B</c>, <c>B*</c>, <c>b</c>, <c>b*</c> become a
     /// fill with the nonstroking colour (§8.5.3.3.1); <c>S</c>, <c>s</c> and the stroke of the <c>B</c> family, after its fill, become
     /// a stroke (§8.5.3.2, <c>DisplayListBuilder.Strokes.cs</c>). A paint in a shading pattern becomes a paint with its shading
-    /// (§8.7.4.1, <c>DisplayListBuilder.Shadings.cs</c>); one in a tiling pattern (§8.7.3) is not in the list yet.
+    /// (§8.7.4.1, <c>DisplayListBuilder.Shadings.cs</c>); one in a tiling pattern becomes a paint with its cell (§8.7.3,
+    /// <c>DisplayListBuilder.Tiling.cs</c>).
     /// </remarks>
     public override void PaintPath(in PathEvent path, ContentContext context)
     {
@@ -52,6 +53,12 @@ internal sealed partial class DisplayListBuilder
         ref readonly PdfColor fill = ref state.FillColor;
         if (fill.ColorSpace.Family == PdfColorSpaceFamily.Pattern)
         {
+            if (context.GetPattern(fill) is PdfTilingPattern)
+            {
+                FillPathWithTilingPattern(path, context);
+                return;
+            }
+
             FillPathWithShading(path, context);
             return;
         }
@@ -63,7 +70,7 @@ internal sealed partial class DisplayListBuilder
         AddOperation(new DisplayOperation(DisplayOperationKind.FillPath, path.FillRule, pathIndex, colorIndex));
     }
 
-    /// <summary>Records the fill of a path in a shading pattern (§8.7.4.1); a tiling pattern's fill is not in the list yet.</summary>
+    /// <summary>Records the fill of a path in a shading pattern (§8.7.4.1).</summary>
     private void FillPathWithShading(in PathEvent path, ContentContext context)
     {
         int shading = AddPatternShading(context.State.FillColor, context);
