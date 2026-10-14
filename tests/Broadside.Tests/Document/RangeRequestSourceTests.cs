@@ -32,17 +32,20 @@ public sealed class RangeRequestSourceTests
         Assert.Contains("Page 1", text, StringComparison.Ordinal);
         Assert.Empty(document.Diagnostics);
 
-        // The tail is read first: startxref, the cross-reference table and the trailer are at the end of the file.
-        Assert.StartsWith("bytes=-", server.Requests[0].Range, StringComparison.Ordinal);
+        // The head is read first, to see whether the file is linearized (issue #208); it is not, so the tail follows: startxref,
+        // the cross-reference table and the trailer are at the end of the file.
+        Assert.StartsWith("bytes=0-", server.Requests[0].Range, StringComparison.Ordinal);
+        long headEnd = server.Requests[0].Length;
+        long tailStart = server.Requests[1].Start;
+        Assert.Equal(file.Length, tailStart + server.Requests[1].Length);
         Assert.All(server.Requests, request => Assert.Equal(HttpStatusCode.PartialContent, request.Status));
 
         // The page tree reads every page object, but no other page's content is fetched: the middle of each content stream is never
-        // sent, except for those inside the tail.
-        long tailStart = server.Requests[0].Start;
+        // sent, except for those inside the head or the tail.
         for (int page = 1; page < PageCount; page++)
         {
             long middle = contentOffsets[page] + (ContentPadding / 2);
-            if (middle + 1024 <= tailStart)
+            if (middle >= headEnd && middle + 1024 <= tailStart)
             {
                 Assert.False(server.AnyServed(middle, middle + 1024), string.Create(CultureInfo.InvariantCulture, $"Page {page + 1}'s content was fetched: {server}"));
             }

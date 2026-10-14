@@ -193,7 +193,7 @@ internal static class PageTreeReader
     }
 
     /// <summary>Checks the attributes of a page object (Table 31) and reports each one that will read as its default.</summary>
-    private static void CheckPage(PdfPage page, DiagnosticSink diagnostics)
+    internal static void CheckPage(PdfPage page, DiagnosticSink diagnostics)
     {
         CosReference? reference = page.Reference;
         switch (page.ReadBox(KnownNames.MediaBox, inheritable: true, out _))

@@ -1,3 +1,4 @@
+using Broadside.Caching;
 using Broadside.IO;
 using Broadside.Objects;
 
@@ -113,27 +114,43 @@ internal sealed record XrefSection(long Offset, long End, XrefSectionKind Kind, 
 /// The cross-reference information of a file: its sections, newest first, and the lookup they define together.
 /// </summary>
 /// <remarks>
+/// <para>
 /// ISO 32000-2 §7.5.4, §7.5.5 and §7.5.6. Lookup is newest first, first write wins: an object number takes its entry from the most
 /// recent section that lists it; a hybrid table's free entry gives way to its own <c>XRefStm</c> stream's entry (§7.5.8.4), which
 /// otherwise comes after the table and before older sections. The trailer is the newest section's, with keys only an older trailer has filled in (a lenient
 /// fallback; §7.5.6 says each update's trailer repeats them).
+/// </para>
+/// <para>
+/// A linearized file read through range requests (issue #208, Annex G, G.2) starts <see cref="Deferred"/>: only its first-page
+/// section (F.3.4) is read, and the rest of the chain, from the main section at the end of the file on, is read the first time a
+/// lookup misses the first-page section and the hint tables cannot place the object (<see cref="Locator"/>), or anything needs every
+/// section. The first-page section is the newest, so what it lists never changes when the rest arrives.
+/// </para>
 /// </remarks>
 internal sealed class CrossReference
 {
     private readonly Dictionary<int, XrefEntry> _merged = [];
+    private readonly IReadOnlyList<XrefSection>? _sections;
+    private readonly IReadOnlyList<XrefRevision>? _revisions;
+    private readonly IReadOnlyList<CosName>? _inheritedTrailerKeys;
+    private readonly XrefSection? _firstPage;
+    private readonly Func<CrossReference>? _readComplete;
+    private readonly OnceCache<bool, CrossReference>? _complete;
+    private IObjectLocator? _locator;
 
     /// <summary>Initializes a new instance of the <see cref="CrossReference"/> class.</summary>
     /// <param name="sections">The sections, newest first. At least one.</param>
     public CrossReference(IReadOnlyList<XrefSection> sections)
     {
         ArgumentOutOfRangeException.ThrowIfZero(sections.Count);
-        Sections = sections;
-        Revisions = GroupRevisions(sections);
+        _sections = sections;
+        _revisions = GroupRevisions(sections);
+        IReadOnlyList<XrefRevision> revisions = _revisions;
         var trailer = new OrderedDictionary<CosName, CosObject>();
         var inherited = new List<CosName>();
-        for (int revision = Revisions.Count - 1; revision >= 0; revision--)
+        for (int revision = revisions.Count - 1; revision >= 0; revision--)
         {
-            IReadOnlyList<XrefSection> revisionSections = Revisions[revision].Sections;
+            IReadOnlyList<XrefSection> revisionSections = revisions[revision].Sections;
             for (int index = 0; index < revisionSections.Count; index++)
             {
                 XrefSection section = revisionSections[index];
@@ -155,7 +172,7 @@ internal sealed class CrossReference
 
                 foreach (KeyValuePair<CosName, CosObject> entry in section.Trailer)
                 {
-                    if (trailer.TryAdd(entry.Key, entry.Value) && revision < Revisions.Count - 1)
+                    if (trailer.TryAdd(entry.Key, entry.Value) && revision < revisions.Count - 1)
                     {
                         inherited.Add(entry.Key);
                     }
@@ -164,11 +181,52 @@ internal sealed class CrossReference
         }
 
         Trailer = CosDictionary.FromOwnedEntries(trailer);
-        InheritedTrailerKeys = inherited;
+        _inheritedTrailerKeys = inherited;
+    }
+
+    private CrossReference(XrefSection firstPage, Func<CrossReference> readComplete)
+    {
+        _firstPage = firstPage;
+        _readComplete = readComplete;
+        _complete = new();
+        foreach ((int number, XrefEntry entry) in firstPage.Entries)
+        {
+            _merged.TryAdd(number, entry);
+        }
+
+        var trailer = new OrderedDictionary<CosName, CosObject>();
+        foreach (KeyValuePair<CosName, CosObject> entry in firstPage.Trailer)
+        {
+            trailer.TryAdd(entry.Key, entry.Value);
+        }
+
+        Trailer = CosDictionary.FromOwnedEntries(trailer);
+    }
+
+    /// <summary>
+    /// Gets a value indicating whether only the first-page section has been read so far (<see cref="Deferred"/>); every other
+    /// member reads the rest of the chain on first use.
+    /// </summary>
+    public bool IsDeferred => _firstPage is not null && !_complete!.TryGet(true, out _);
+
+    /// <summary>
+    /// Gets the first-page section of a linearized file (F.3.4): the section a deferred read started from, else the newest section
+    /// of the original revision when that revision is a linearized pair; <see langword="null"/> otherwise.
+    /// </summary>
+    public XrefSection? FirstPageSection => _firstPage ?? (Revisions[0].IsLinearizedPair ? Revisions[0].Newest : null);
+
+    /// <summary>
+    /// Gets or sets what places an object the first-page section does not list without reading the rest of the chain: the hint
+    /// tables of a linearized file (F.4). Only consulted while <see cref="IsDeferred"/>.
+    /// </summary>
+    public IObjectLocator? Locator
+    {
+        get => Volatile.Read(ref _locator);
+        set => Volatile.Write(ref _locator, value);
     }
 
     /// <summary>Gets the sections, newest first.</summary>
-    public IReadOnlyList<XrefSection> Sections { get; }
+    public IReadOnlyList<XrefSection> Sections => _sections ?? Complete.Sections;
 
     /// <summary>Gets the revisions the sections form, oldest first (§7.5.6).</summary>
     /// <remarks>
@@ -179,19 +237,39 @@ internal sealed class CrossReference
     /// stream through <c>XRefStm</c> (§7.5.8.4: the stream belongs to its table's revision).
     /// </para>
     /// </remarks>
-    public IReadOnlyList<XrefRevision> Revisions { get; }
+    public IReadOnlyList<XrefRevision> Revisions => _revisions ?? Complete.Revisions;
 
     /// <summary>
     /// Gets the trailer keys the newest revision's trailer lacks and an older revision's trailer supplied (§7.5.6: an update's
     /// trailer shall repeat every entry of the previous one except <c>Prev</c>).
     /// </summary>
-    public IReadOnlyList<CosName> InheritedTrailerKeys { get; }
+    public IReadOnlyList<CosName> InheritedTrailerKeys => _inheritedTrailerKeys ?? Complete.InheritedTrailerKeys;
 
     /// <summary>Gets the merged lookup: for every object number a section lists, the entry <see cref="TryGetEntry"/> returns.</summary>
-    public IReadOnlyDictionary<int, XrefEntry> Entries => _merged;
+    public IReadOnlyDictionary<int, XrefEntry> Entries => _firstPage is null ? _merged : Complete.Entries;
 
     /// <summary>Gets the merged trailer dictionary.</summary>
+    /// <remarks>
+    /// For a <see cref="Deferred"/> read, the first-page trailer's entries, which F.3.4 says hold everything needed to display the
+    /// document; the main trailer "should not contain any entries other than Size" (F.3.11) and is not merged in.
+    /// </remarks>
     public CosDictionary Trailer { get; }
+
+    /// <summary>The whole chain, read on first use for a deferred read; a lookup made while it is being read finds the first-page section only.</summary>
+    private CrossReference Complete => _complete!.GetOrCreate(
+        true,
+        this,
+        static (_, self) => new Created<CrossReference>(self._readComplete!()),
+        static (_, self) => new CrossReference([self._firstPage!]));
+
+    /// <summary>
+    /// Starts the cross-reference information of a linearized file from its first-page section alone (Annex G, G.2); the rest of the
+    /// chain is read by <paramref name="readComplete"/> when first needed, and must start with <paramref name="firstPage"/>.
+    /// </summary>
+    /// <param name="firstPage">The first-page section (F.3.4).</param>
+    /// <param name="readComplete">Reads every section, the first-page section first.</param>
+    /// <returns>The cross-reference information.</returns>
+    public static CrossReference Deferred(XrefSection firstPage, Func<CrossReference> readComplete) => new(firstPage, readComplete);
 
     /// <summary>Finds the entry for an object number.</summary>
     /// <param name="objectNumber">The object number.</param>
@@ -205,7 +283,17 @@ internal sealed class CrossReference
         }
 
         entry = XrefEntry.Free;
-        return false;
+        if (_firstPage is null)
+        {
+            return false;
+        }
+
+        if (_complete!.TryGet(true, out CrossReference? complete))
+        {
+            return complete.TryGetEntry(objectNumber, out entry);
+        }
+
+        return Locator?.TryLocate(objectNumber, out entry) == true || Complete.TryGetEntry(objectNumber, out entry);
     }
 
     /// <summary>Splits the sections, newest first, into revisions, oldest first.</summary>
@@ -245,4 +333,14 @@ internal sealed record XrefRevision(IReadOnlyList<XrefSection> Sections)
 
     /// <summary>Gets a value indicating whether the revision is a linearized file's first-page and main sections (F.3.4).</summary>
     public bool IsLinearizedPair => Sections.Count > 1 && Sections[1].Offset > Sections[0].Offset;
+}
+
+/// <summary>Places an object without the cross-reference section that lists it: a linearized file's hint tables (F.4).</summary>
+internal interface IObjectLocator
+{
+    /// <summary>Finds where the object numbered <paramref name="objectNumber"/> (generation 0) is.</summary>
+    /// <param name="objectNumber">The object number.</param>
+    /// <param name="entry">An in-use entry for the object, its offset relative to the header.</param>
+    /// <returns><see langword="false"/> when the object cannot be placed this way: the cross-reference section decides.</returns>
+    bool TryLocate(int objectNumber, out XrefEntry entry);
 }

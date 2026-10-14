@@ -1393,7 +1393,8 @@ public sealed partial class PdfDocument : IDisposable
             };
             // Publication only: the scan is pure, and a scan of a remote file that misses (issue #207) must not be cached as failed.
             var scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.PublicationOnly);
-            CrossReference? crossReference = CrossReferenceReader.Read(source, header, streams, diagnostics, scan);
+            CrossReference? crossReference = (source.IsLocal || diagnostics.IsStrict ? null : ReadFirstPageFirst(source, header, streams, diagnostics, scan))
+                ?? CrossReferenceReader.Read(source, header, streams, diagnostics, scan);
             bool reconstructed = crossReference is null;
             crossReference ??= Reconstruct(source, header, scan.Value, streams, diagnostics, reportMissingTrailer: true);
             loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks(), streams) { Scan = scan, Logger = configuration.Logger };
@@ -1423,7 +1424,10 @@ public sealed partial class PdfDocument : IDisposable
                 catalog = ReadCatalog(loader, diagnostics, reportUnusableRoot: true)!;
             }
 
-            IReadOnlyList<PdfRevision> revisions = ReadRevisions(source, crossReference, diagnostics);
+            // A linearized file whose length is its L has one revision (F.3.4, G.7), ending with the file; its tail is not read for it.
+            IReadOnlyList<PdfRevision> revisions = loader.CrossReference.IsDeferred
+                ? [new PdfRevision(0, source.Length, loader.CrossReference.FirstPageSection!.Trailer)]
+                : ReadRevisions(source, crossReference, diagnostics);
             if (security is not null)
             {
                 DocumentSecurity.CheckExtensions(security, catalog, loader.Resolve, diagnostics);
@@ -1435,6 +1439,21 @@ public sealed partial class PdfDocument : IDisposable
                 StreamEncoders = configuration.StreamEncoders,
                 TimeProvider = configuration.TimeProvider,
             };
+            if (loader.CrossReference.IsDeferred && linearization is not null)
+            {
+                // Annex G, G.4: the hint tables place other pages' objects and the shared objects, and find the pages, so neither
+                // the main cross-reference section nor the page tree is read for them (issue #208).
+                CrossReference deferred = loader.CrossReference;
+                deferred.Locator = new HintObjectLocator(source, header.Offset, () => linearization.Hints);
+                document.Pages.UseHints(new HintedPageList(
+                    document,
+                    source,
+                    header.Offset,
+                    linearization,
+                    number => deferred.FirstPageSection!.Entries.TryGetValue(number, out XrefEntry entry) ? entry : null,
+                    diagnostics));
+            }
+
             document.DetectXfa();
 
             // Table 15: ID is "required in PDF 2.0 or if an Encrypt entry is present" (the latter is the security handler's
@@ -1455,6 +1474,36 @@ public sealed partial class PdfDocument : IDisposable
             source.Dispose();
             throw;
         }
+    }
+
+    /// <summary>
+    /// Starts the cross-reference information of a remote linearized file from its first-page section (Annex G, G.2: "reading the
+    /// startxref line is not necessary"): the parameter dictionary is valid and its <c>L</c> is the file's length, the section after
+    /// it reads cleanly, lists the dictionary, has no free entries and a trailer with <c>Root</c> and a forward <c>Prev</c> (F.3.4).
+    /// The rest of the chain is read when first needed (issue #208). Anything else reads the file from its end as usual.
+    /// </summary>
+    private static CrossReference? ReadFirstPageFirst(PdfSource source, FileHeader header, StreamDecoder streams, DiagnosticSink diagnostics, Lazy<FileScan> scan)
+    {
+        if (LinearizationReader.ReadParameters(source, header) is not { } parameters
+            || CrossReferenceReader.ReadFirstPageSection(source, parameters.End, streams) is not { } firstPage
+            || firstPage.Trailer.ContainsKey(KnownNames.XRefStm)
+            || !firstPage.Trailer.ContainsKey(KnownNames.Root)
+            || !firstPage.Trailer.TryGetValue(KnownNames.Prev, out CosObject? prev)
+            || prev is not CosInteger { Value: var previous }
+            || header.Offset + previous <= firstPage.Offset
+            || !firstPage.Entries.TryGetValue(parameters.Reference.ObjectNumber, out XrefEntry dictionaryEntry)
+            || dictionaryEntry.Kind != XrefEntryKind.InUse
+            || firstPage.Entries.Values.Any(static entry => entry.Kind == XrefEntryKind.Free))
+        {
+            return null;
+        }
+
+        return CrossReference.Deferred(firstPage, () =>
+        {
+            CrossReference complete = CrossReferenceReader.ReadAfterFirstPage(source, header, firstPage, streams, diagnostics, scan);
+            source.AddObjectBoundaries(ObjectBoundaries(complete.Sections, header.Offset));
+            return complete;
+        });
     }
 
     /// <summary>Describes each revision: its byte range and its own trailer (§7.5.6).</summary>
