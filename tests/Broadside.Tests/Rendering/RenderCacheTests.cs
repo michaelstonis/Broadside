@@ -1,5 +1,6 @@
 using System.Buffers;
 using System.IO.Compression;
+using System.Runtime.CompilerServices;
 using System.Text;
 using Broadside.Content;
 using Broadside.Filters;
@@ -262,6 +263,50 @@ public sealed class RenderCacheTests
         PdfDocumentCacheStatistics statistics = document.CacheStatistics;
         Assert.Equal(0, statistics.Images.Count + statistics.DisplayLists.Count + statistics.Content.Count + statistics.Glyphs.Count);
         Assert.Equal(0, statistics.Images.Bytes);
+    }
+
+    [Fact]
+    public void A_list_charges_each_tiling_cell_once_however_many_paints_share_it_and_its_text_positions()
+    {
+        // Issue #112's cells are lists of their own, shared by every paint of one pattern: a list charges each once (issue #103).
+        var cell = new StringBuilder();
+        for (int square = 0; square < 40; square++)
+        {
+            cell.Append(System.Globalization.CultureInfo.InvariantCulture, $"{square % 8} {square / 8} 0.5 0.5 re f ");
+        }
+
+        string pattern = ContentSamples.Stream(
+            cell.ToString(),
+            "/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 8 5] /XStep 8 /YStep 5 /Resources << >>");
+        long Charge(int paints, out DisplayList list)
+        {
+            var content = new StringBuilder("/Pattern cs /P1 scn ");
+            for (int paint = 0; paint < paints; paint++)
+            {
+                content.Append(System.Globalization.CultureInfo.InvariantCulture, $"q 1 0 0 1 {paint} 0 cm 0 0 10 10 re f Q ");
+            }
+
+            byte[] file = ContentSamples.OnePage(Encoding.ASCII.GetBytes(content.ToString()), "/Pattern << /P1 5 0 R >>", pattern);
+            using PdfDocument document = PdfDocument.Open(file);
+            list = document.Pages[0].CreateDisplayList();
+            return list.RetainedBytes;
+        }
+
+        long one = Charge(1, out DisplayList single);
+        long fifty = Charge(50, out DisplayList many);
+        long cellBytes = Assert.Single(single.TilingPaints).Cell.RetainedBytes;
+        Assert.Equal(50, many.TilingPaints.Length);
+        Assert.Single(many.TilingPaints.Select(paint => paint.Cell).Distinct());
+        Assert.InRange(one, cellBytes + 1, long.MaxValue);
+        Assert.InRange((fifty - one) / 49, 1, cellBytes / 2);
+
+        using PdfDocument text = PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(100)));
+        DisplayList textList = text.Pages[0].CreateDisplayList();
+        long textTables = (textList.TextGlyphs.Length * (long)Unsafe.SizeOf<DisplayTextGlyph>())
+            + (textList.Text.Length * sizeof(char))
+            + (textList.Glyphs.Length * (long)Unsafe.SizeOf<DisplayGlyph>());
+        Assert.InRange(textList.TextGlyphs.Length, 100, int.MaxValue);
+        Assert.InRange(textList.RetainedBytes, textTables, long.MaxValue);
     }
 
     /// <summary>Options with every cache budget at zero.</summary>

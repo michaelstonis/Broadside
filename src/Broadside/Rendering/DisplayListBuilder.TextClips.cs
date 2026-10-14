@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using Broadside.Caching;
 using Broadside.Content;
 using Broadside.Fonts;
 using Broadside.Graphics;
@@ -32,7 +33,7 @@ internal sealed partial class DisplayListBuilder
     /// </para>
     /// <para>Allocates nothing per glyph once the outline buffer and the build's tables have grown.</para>
     /// </remarks>
-    private void IntersectTextClip(in ClipEvent clip)
+    private void IntersectTextClip(in ClipEvent clip, DocumentCaches caches)
     {
         ReadOnlySpan<TextClipGlyph> glyphs = clip.Glyphs;
         bool sameSpace = true;
@@ -69,7 +70,7 @@ internal sealed partial class DisplayListBuilder
             {
                 if (_substitute is null || glyphId != 0)
                 {
-                    AppendTextClipOutline(InternOutline(program, glyphId), glyphSpace * toSpace);
+                    AppendTextClipOutline(InternOutline(program, glyphId, caches), glyphSpace * toSpace);
                 }
 
                 continue;
@@ -79,7 +80,7 @@ internal sealed partial class DisplayListBuilder
             foreach (int component in components)
             {
                 Matrix placed = offset == 0 ? toSpace : Matrix.CreateTranslation(offset, 0) * toSpace;
-                AppendTextClipOutline(InternOutline(program, component), glyphSpace * placed);
+                AppendTextClipOutline(InternOutline(program, component, caches), glyphSpace * placed);
                 offset += _substitute!.GetWidth(component) * scale / 1000;
             }
         }

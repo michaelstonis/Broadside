@@ -32,7 +32,25 @@ public sealed partial class DisplayList
     {
         long bytes = SizeOf(_operations) + SizeOf(_verbs) + SizeOf(_points) + SizeOf(_paths) + SizeOf(_colors) + SizeOf(_components)
             + SizeOf(_transforms) + SizeOf(Strokes) + SizeOf(Dashes) + SizeOf(Images) + SizeOf(ImagePaints) + SizeOf(GlyphRuns)
-            + SizeOf(Glyphs) + SizeOf(ShadingPaints) + SizeOf(ImageMasks) + SizeOf(Compositings) + SizeOf(Annotations);
+            + SizeOf(Glyphs) + SizeOf(ShadingPaints) + SizeOf(ImageMasks) + SizeOf(Compositings) + SizeOf(Annotations)
+            + SizeOf(TilingPaints) + SizeOf(TextGlyphs) + SizeOf(Text)
+
+            // The region bounds (issue #96) are charged up front: a kept list is what tiles replay, so it gains them on the first one.
+            + ((long)_operations.Length * Unsafe.SizeOf<OperationExtent>());
+
+        // A tiling pattern's cell (issue #112) is a list of its own, shared by every paint of the same pattern: charged once.
+        if (TilingPaints.Length > 0)
+        {
+            var cells = new HashSet<DisplayList>(ReferenceEqualityComparer.Instance);
+            foreach (DisplayTilingPaint paint in TilingPaints)
+            {
+                if (cells.Add(paint.Cell))
+                {
+                    bytes += paint.Cell.RetainedBytes;
+                }
+            }
+        }
+
         foreach (DisplayImage image in Images)
         {
             bytes += image.RetainedBytes;
