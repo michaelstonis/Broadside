@@ -86,7 +86,11 @@ internal sealed class EncryptionPlan
     /// <param name="options">The save options.</param>
     /// <param name="incremental">Whether the save is an incremental update, which keeps the document's encryption.</param>
     /// <returns>The plan.</returns>
-    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption the algorithm cannot write.</exception>
+    /// <exception cref="ArgumentException">
+    /// The options both set and remove encryption, set password and public-key encryption together, set encryption the algorithm
+    /// cannot write, or set public-key encryption without a recipient.
+    /// </exception>
+    /// <exception cref="PdfEncryptionNotSupportedException">Public-key encryption in a browser, which has no CMS.</exception>
     /// <exception cref="NotSupportedException">
     /// The save would change an incremental update's encryption, or keep an integrity MAC it cannot compute again (a document opened
     /// without its file encryption key, or whose encryption dictionary has no 32-byte <c>KDFSalt</c> or a <c>V</c> below 5). Never for

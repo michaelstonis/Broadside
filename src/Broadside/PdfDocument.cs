@@ -502,7 +502,8 @@ public sealed partial class PdfDocument : IDisposable
     /// </para>
     /// <para>
     /// An encrypted document is saved encrypted with the key it was opened with, unless <see cref="PdfSaveOptions.Encryption"/> gives
-    /// new encryption or <see cref="PdfSaveOptions.RemoveEncryption"/> drops it (§7.6). Either way every object of an encrypted
+    /// new password encryption, <see cref="PdfSaveOptions.PublicKeyEncryption"/> new encryption for certificate recipients (§7.6.5), or
+    /// <see cref="PdfSaveOptions.RemoveEncryption"/> drops it (§7.6). Either way every object of an encrypted
     /// document, or of an encrypted file, is serialized and its strings and streams encrypted again under its written number; nothing
     /// is copied from the source, whose bytes are ciphertext. New encryption raises the header to the version its algorithm needs, and
     /// encrypted output is not deterministic (random keys, salts and IVs). Saving with RC4 or AES-128, new or kept, records an
