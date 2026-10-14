@@ -96,6 +96,7 @@
   number-tree-deep.pdf,
   object-metadata.pdf,
   object-stream.pdf,
+  optional-content-pages.pdf,
   optional-content.pdf,
   outline-broken.pdf,
   outline-full.pdf,
