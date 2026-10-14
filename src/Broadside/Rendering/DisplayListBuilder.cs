@@ -82,7 +82,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         ImageMasks = _imageMasks.AsSpan(0, _imageMaskCount).ToArray(),
         Compositings = _compositings.AsSpan(0, _compositingCount).ToArray(),
         Groups = _groups.AsSpan(0, _groupCount).ToArray(),
-
+        TilingPaints = _tilingPaints.AsSpan(0, _tilingPaintCount).ToArray(),
         Annotations = _annotations.AsSpan(0, _annotationCount).ToArray(),
     };
 
@@ -101,7 +101,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         ResetShadings();
         ResetCompositing();
         ResetGroups();
-
+        ResetTiling();
         ResetAnnotations();
     }
 
@@ -143,17 +143,18 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     }
 
     /// <summary>Records the CTM before a paint, when it differs from the transform the backend holds there.</summary>
-    /// <param name="ctm">The CTM of the paint.</param>
+    /// <param name="ctm">The CTM of the paint (to pattern space instead while building a tiling pattern's cell).</param>
     private void SetTransform(in Matrix ctm)
     {
-        if (ctm == _current)
+        Matrix transform = Relative(ctm);
+        if (transform == _current)
         {
             return;
         }
 
-        _current = ctm;
+        _current = transform;
         AddOperation(new DisplayOperation(DisplayOperationKind.SetTransform, default, _transformCount, 0));
-        Append(ref _transforms, ref _transformCount, ctm);
+        Append(ref _transforms, ref _transformCount, transform);
     }
 
     /// <summary>Returns whether any operation from <paramref name="start"/> on is something other than a state change.</summary>

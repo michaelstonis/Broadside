@@ -27,6 +27,15 @@ internal sealed class GroupProbe : IRenderingBackend
         return new GroupContent(_blends, _transparency);
     }
 
+    /// <summary>Inspects a whole list, such as a tiling pattern's cell.</summary>
+    public GroupContent Inspect(DisplayList list)
+    {
+        _blends = false;
+        _transparency = false;
+        list.Replay(this);
+        return new GroupContent(_blends, _transparency);
+    }
+
     public void SaveState()
     {
     }
@@ -91,7 +100,18 @@ internal sealed class GroupProbe : IRenderingBackend
     {
     }
 
+    public void FillPathWithTilingPattern(PathView path, FillRule rule, in DisplayTilingPattern pattern) => InspectCell(pattern.Cell);
+
+    public void StrokePathWithTilingPattern(PathView path, in StrokeStyle style, in DisplayTilingPattern pattern) => InspectCell(pattern.Cell);
+
     public void EndAnnotation()
     {
+    }
+
+    /// <summary>A tiling pattern paints its cell as a group of its own (§11.6.7): what it does counts as transparency, its blend modes too.</summary>
+    private void InspectCell(DisplayList cell)
+    {
+        _transparency = true;
+        cell.Replay(this);
     }
 }

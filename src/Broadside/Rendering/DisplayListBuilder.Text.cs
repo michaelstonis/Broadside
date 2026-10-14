@@ -236,7 +236,7 @@ internal sealed partial class DisplayListBuilder
         PdfDefaultColorSpaces defaults,
         ColorConversion conversion)
     {
-        if (_runOperation < 0 || _runOperation != _operationCount - 1 || state.Ctm != _current)
+        if (_runOperation < 0 || _runOperation != _operationCount - 1 || Relative(state.Ctm) != _current)
         {
             return false;
         }

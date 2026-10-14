@@ -53,7 +53,7 @@ internal sealed partial class DisplayListBuilder
             form.BlendMode,
             form.HasBoundingBox,
             form.BoundingBox,
-            form.Matrix * state.Ctm,
+            Relative(form.Matrix * state.Ctm),
             0,
             0));
         Append(ref _openForms, ref _openFormCount, group);
@@ -139,7 +139,7 @@ internal sealed partial class DisplayListBuilder
             BlendMode.Normal,
             HasBoundingBox: true,
             bounds,
-            state.Ctm,
+            Relative(state.Ctm),
             0,
             0));
         Save();

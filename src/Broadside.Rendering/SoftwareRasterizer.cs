@@ -291,6 +291,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _clip.Dispose();
             DisposeImages();
             DisposeGroups();
+            DisposeTiling();
         }
 
         /// <summary>

@@ -195,6 +195,22 @@ public sealed class GroupRenderingTests
         AssertNear(new Rgba(166, 166, 166, 255), bitmap.At(200, 591));
     }
 
+    [Theory]
+    [InlineData("/Multiply gs ", 128)]
+    [InlineData("", 255)]
+    public void A_tiling_pattern_s_cell_is_a_non_isolated_group_whose_blend_modes_see_the_backdrop(string blend, int red)
+    {
+        // §11.6.7: red multiplied over the page's gray inside the cell gives (0.5, 0, 0); in the Normal mode the cell is the same
+        // isolated or not, and its red composites as it is.
+        string cell = ContentSamples.Stream(
+            blend + "1 0 0 rg 0 0 10 10 re f",
+            "/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 10 10] /XStep 10 /YStep 10 /Resources << " + States + " >>");
+        using Bitmap bitmap = Render("0.5 g 0 0 612 792 re f /Pattern cs /P0 scn 100 100 200 200 re f", "/Pattern << /P0 5 0 R >>", [cell]);
+
+        AssertNear(new Rgba((byte)red, 0, 0, 255), bitmap.At(200, 591));
+        AssertNear(new Rgba(128, 128, 128, 255), bitmap.At(450, 591));
+    }
+
     [Fact]
     public void Groups_nested_eight_deep_composite_each_at_their_opacity()
     {

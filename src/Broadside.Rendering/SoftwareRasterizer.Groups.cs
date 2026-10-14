@@ -29,6 +29,10 @@ public sealed partial class SoftwareRasterizer
         private float[] _groupConverted = [];
         private uint[] _groupRow = [];
 
+        // The backdrop a non-isolated tiling cell is rendered over, and the bitmap over it.
+        private byte[] _groundPixels = [];
+        private Bitmap? _groundBitmap;
+
         private GroupLayer? CurrentLayer => _layerDepth > 0 ? _layers[_layerDepth - 1] : null;
 
         /// <summary>
@@ -132,6 +136,90 @@ public sealed partial class SoftwareRasterizer
             CloseLayer(layer);
         }
 
+        /// <summary>
+        /// Renders a tiling pattern's cell over <paramref name="area"/> as the non-isolated group §11.6.7 makes of it, every tile into
+        /// one group (NOTE 2): the cell list replays once per tile into a layer that starts as the backdrop under the area, so its blend
+        /// modes see the page, and the group's own colour and alpha (the backdrop removed, §11.4.4) land in <paramref name="result"/>,
+        /// premultiplied, for the paint to composite through its shape.
+        /// </summary>
+        private void PaintNonIsolatedTiles(DisplayList cell, in TilingLayout layout, PixelBox area, Span<uint> result)
+        {
+            int width = area.Width;
+            int height = area.Height;
+            int length = width * height * 4;
+            Pooled.Ensure(ref _groundPixels, length);
+            Memory<byte> pixels = _groundPixels.AsMemory(0, length);
+            Bitmap target = _target!;
+            for (int row = 0; row < height; row++)
+            {
+                target.Pixels.Slice(((area.Top + row) * target.Stride) + (area.Left * 4), width * 4).CopyTo(pixels.Span.Slice(row * width * 4, width * 4));
+            }
+
+            if (_groundBitmap is null)
+            {
+                _groundBitmap = new Bitmap(pixels, width, height, width * 4);
+            }
+            else
+            {
+                _groundBitmap.Attach(pixels, width, height, width * 4);
+            }
+
+            Backend child = _cellBackend ??= new Backend();
+            child.Begin(_document!, _groundBitmap, Matrix.Identity, width, height);
+            child._pixelModel = _pixelModel;
+            try
+            {
+                int pass = _pixelModel.Model == DeviceColorModel.Cmyk ? _pixelModel.Pass : 0;
+                GroupLayer layer = child.OpenLayer(
+                    0,
+                    0,
+                    width,
+                    height,
+                    isolated: false,
+                    knockout: false,
+                    tracksAlpha: true,
+                    _pixelModel,
+                    default,
+                    ontoWhite: false,
+                    colorSpace: null,
+                    defaults: null,
+                    conversion: default);
+                child.BeginPass(layer, pass, first: true);
+                for (long j = layout.JFirst; j <= layout.JLast; j++)
+                {
+                    for (long i = layout.IFirst; i <= layout.ILast; i++)
+                    {
+                        layout.GetOffset(i, j, out long offsetX, out long offsetY);
+                        child._device = layout.CellMatrix * Matrix.CreateTranslation(offsetX - area.Left, offsetY - area.Top);
+                        child.SaveState();
+                        child.SetTransform(in child._ctm);
+                        cell.Replay(child);
+                        child.RestoreState();
+                    }
+                }
+
+                child.EndPass(layer);
+                for (int row = 0; row < height; row++)
+                {
+                    Span<uint> plane = layer.PlaneRow(pass, row, 0, width);
+                    Span<uint> backdrop = layer.BackdropRow(pass, row, 0, width);
+                    Span<byte> alpha = layer.AlphaRow(row, 0, width);
+                    Span<uint> destination = result.Slice(row * width, width);
+                    for (int x = 0; x < width; x++)
+                    {
+                        destination[x] = Compositor.RemoveBackdrop(plane[x], backdrop[x], alpha[x]);
+                    }
+                }
+
+                layer.Forget();
+                child._layerDepth--;
+            }
+            finally
+            {
+                child.End();
+            }
+        }
+
         /// <summary>Forgets open groups at the start of a render.</summary>
         private void BeginGroups()
         {
@@ -165,6 +253,9 @@ public sealed partial class SoftwareRasterizer
             Pooled.Return(ref _groupComponents);
             Pooled.Return(ref _groupConverted);
             Pooled.Return(ref _groupRow);
+            _groundBitmap?.Dispose();
+            _groundBitmap = null;
+            Pooled.Return(ref _groundPixels);
         }
 
         /// <summary>

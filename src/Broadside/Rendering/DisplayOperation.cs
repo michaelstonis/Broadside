@@ -52,7 +52,14 @@ internal enum DisplayOperationKind : byte
     /// operations from this one's successor up to the group's end.
     /// </summary>
     DrawGroup,
+    /// <summary><see cref="IRenderingBackend.FillPathWithTilingPattern"/>; <see cref="DisplayOperation.First"/> indexes the paths, <see cref="DisplayOperation.Second"/> the tiling paints.</summary>
+    FillPathWithTilingPattern,
 
+    /// <summary>
+    /// <see cref="IRenderingBackend.StrokePathWithTilingPattern"/>; <see cref="DisplayOperation.First"/> indexes the paths,
+    /// <see cref="DisplayOperation.Second"/> the strokes, whose <see cref="DisplayStroke.ColorIndex"/> then indexes the tiling paints.
+    /// </summary>
+    StrokePathWithTilingPattern,
     /// <summary><see cref="IRenderingBackend.BeginAnnotation"/>; <see cref="DisplayOperation.First"/> indexes the annotations.</summary>
     BeginAnnotation,
 
@@ -135,3 +142,6 @@ internal readonly record struct DisplayCompositing(double StrokeAlpha, double Fi
     /// <summary>The compositing a replay starts with: both alphas 1, Normal (ISO 32000-2 §8.4.1, Table 52).</summary>
     public static DisplayCompositing Initial => new(1, 1, BlendMode.Normal);
 }
+
+/// <summary>A tiling-pattern paint in a display list: the pattern, its pattern space relative to the list, and its cell's own list.</summary>
+internal readonly record struct DisplayTilingPaint(PdfTilingPattern Pattern, Matrix Matrix, DisplayList Cell);

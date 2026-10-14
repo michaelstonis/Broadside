@@ -219,6 +219,26 @@ public sealed class DisplayListGroupTests
         Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "GroupColorSpaceInvalid");
     }
 
+    [Fact]
+    public void A_group_in_a_tiling_pattern_s_cell_is_recorded_in_pattern_space()
+    {
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(
+            Encoding.Latin1.GetBytes("/Pattern cs /P0 scn 0 0 100 100 re f"),
+            "/Pattern << /P0 5 0 R >>",
+            ContentSamples.Stream(
+                "/Fm0 Do",
+                "/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 10 10] /XStep 10 /YStep 10 /Matrix [1 0 0 1 30 40] /Resources << /XObject << /Fm0 6 0 R >> >>"),
+            Form("/Group << /S /Transparency /I true >> /BBox [0 0 5 5] /Matrix [1 0 0 1 2 3]", "0 0 5 5 re f")));
+        var recorder = new RecordingBackend();
+        document.Pages[0].CreateDisplayList().Replay(recorder);
+        var cell = new RecordingBackend();
+
+        Assert.Single(recorder.Tilings).Cell.Replay(cell);
+
+        // The cell's list replays with pattern space as its default space (§8.7.3.1): the group's matrix is the form's alone.
+        Assert.Contains("group Transparency isolated bbox [0 0 5 5] [1 0 0 1 2 3]", cell.Operations);
+    }
+
     private static string Form(string entries, string content, string resources = "") =>
         ContentSamples.Stream(content, $"/Type /XObject /Subtype /Form {entries} /Resources << {resources} >>");
 

@@ -20,12 +20,13 @@ namespace Broadside.Rendering;
 /// bounding boxes, §8.10.1), images with their masks (§8.9, §11.6.5, <see cref="DisplayImage"/>, decoded once per image XObject),
 /// stencil masks (§8.9.6.2, <see cref="DisplayImageMask"/>), text as glyph runs (§9.4.3, §9.3.6, <see cref="GlyphRun"/>: font
 /// program, glyph ids, text matrices, outlines interned once per program and glyph) and shadings, from <c>sh</c> and as shading
-/// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>), constant alpha and blend modes
+/// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>), tiling patterns on fills and strokes, each cell a display
+/// list of its own (§8.7.3, <see cref="DisplayTilingPattern"/>), constant alpha and blend modes
 /// (<see cref="IRenderingBackend.SetCompositing"/>, §11.6.3, §11.6.4.4), transparency groups (§11.4, <see cref="DisplayGroup"/>:
 /// group XObjects, the page group and the implicit group of a combined fill and stroke) and annotations' appearances (§12.5.5,
 /// <see cref="DisplayAnnotation"/>; a list holds the page's content, annotation and form-field layers as <see cref="DisplayLayers"/>
-/// asks). Type 3 glyphs, text clips, tiling patterns and soft masks join it in later Phase 3 tickets, each as new
-/// <see cref="IRenderingBackend"/> calls.
+/// asks). Type 3 glyphs, text clips and soft masks join it in later Phase 3 tickets, each as new <see cref="IRenderingBackend"/>
+/// calls.
 /// </para>
 /// <para>
 /// Immutable once built: any number of threads may replay the same list at once, each into its own backend.
@@ -90,6 +91,8 @@ public sealed class DisplayList
 
     /// <summary>Gets the transparency groups the list paints (indexed by <see cref="DisplayOperationKind.DrawGroup"/> records).</summary>
     internal DisplayGroupEntry[] Groups { get; init; } = [];
+    /// <summary>Gets the tiling-pattern paints (indexed by the tiling-pattern records).</summary>
+    internal DisplayTilingPaint[] TilingPaints { get; init; } = [];
 
     /// <summary>Gets the annotations the list draws (indexed by <see cref="DisplayOperationKind.BeginAnnotation"/> records).</summary>
     internal DisplayAnnotation[] Annotations { get; init; } = [];
@@ -181,6 +184,17 @@ public sealed class DisplayList
                     backend.DrawGroup(new DisplayGroup(this, group));
                     index = group.End - start - 1;
                     break;
+                case DisplayOperationKind.FillPathWithTilingPattern:
+                    ref readonly DisplayPath tiled = ref _paths[operation.First];
+                    DisplayTilingPattern tiling = Tiling(operation.Second);
+                    backend.FillPathWithTilingPattern(
+                        new PathView(_verbs.AsSpan(tiled.VerbStart, tiled.VerbCount), _points.AsSpan(tiled.PointStart, tiled.PointCount)),
+                        operation.FillRule,
+                        in tiling);
+                    break;
+                case DisplayOperationKind.StrokePathWithTilingPattern:
+                    Stroke(backend, operation);
+                    break;
                 case DisplayOperationKind.BeginAnnotation:
                     backend.BeginAnnotation(in Annotations[operation.First]);
                     break;
@@ -247,7 +261,17 @@ public sealed class DisplayList
         return new DisplayShading(paint.Shading, paint.Matrix, paint.PaintsBackground, paint.DefaultColorSpaces, paint.Conversion);
     }
 
-    /// <summary>Hands a stroke record (with a colour or, for <see cref="DisplayOperationKind.StrokePathWithShading"/>, a shading) to the backend.</summary>
+    /// <summary>Returns the tiling paint at <paramref name="index"/> as the backend receives it.</summary>
+    private DisplayTilingPattern Tiling(int index)
+    {
+        ref readonly DisplayTilingPaint paint = ref TilingPaints[index];
+        return new DisplayTilingPattern(paint.Pattern, paint.Matrix, paint.Cell);
+    }
+
+    /// <summary>
+    /// Hands a stroke record (with a colour or, for <see cref="DisplayOperationKind.StrokePathWithShading"/> and
+    /// <see cref="DisplayOperationKind.StrokePathWithTilingPattern"/>, a shading or tiling pattern) to the backend.
+    /// </summary>
     private void Stroke(IRenderingBackend backend, in DisplayOperation operation)
     {
         ref readonly DisplayPath path = ref _paths[operation.First];
@@ -265,6 +289,13 @@ public sealed class DisplayList
         {
             DisplayShading shading = Shading(stroke.ColorIndex);
             backend.StrokePathWithShading(view, in style, in shading);
+            return;
+        }
+
+        if (operation.Kind == DisplayOperationKind.StrokePathWithTilingPattern)
+        {
+            DisplayTilingPattern tiling = Tiling(stroke.ColorIndex);
+            backend.StrokePathWithTilingPattern(view, in style, in tiling);
             return;
         }
 

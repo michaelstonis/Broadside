@@ -14,7 +14,8 @@ public static class GroupSamples
     /// rasterizer composites a group: a plain non-isolated group (painted straight into the backdrop), an isolated group of
     /// Multiply paints, isolated and non-isolated knockout groups, a non-isolated group of Multiply paints itself painted in
     /// Multiply (its alpha kept), a DeviceCMYK and a DeviceGray group holding a fill, a stroke, an inline image, a stencil mask and a
-    /// shading, groups nested eight deep at alpha 0.5, a translucent fill and stroke (the implicit knockout group), groups inside a
+    /// shading, groups nested eight deep at alpha 0.5 beside a tiling pattern whose cell blends (a non-isolated group, §11.6.7),
+    /// a translucent fill and stroke (the implicit knockout group), groups inside a
     /// knockout group, and a group under a clip.
     /// </summary>
     /// <returns>The file.</returns>
@@ -31,7 +32,7 @@ public static class GroupSamples
             "/Mul gs /F4 Do",
             "/Half gs /F5 Do",
             "/Half gs /F6 Do",
-            "/Half gs /N7 Do",
+            "/Half gs /N7 Do /Pattern cs /TP scn 20 20 160 100 re f",
             "/HalfStroke gs 12 w 1 0 0 rg 0 0 1 RG 30 30 140 120 re b /Half gs 6 w 50 50 100 80 re B",
             "/F8 Do",
             "q 40 40 120 100 re W n /Half gs /F1 Do Q",
@@ -84,7 +85,10 @@ public static class GroupSamples
             xobjects.Append(Format(" /N{0} {1} 0 R", level, number++));
         }
 
-        string resources = States + " /Shading << /Bg 5 0 R /Sh 6 0 R >> /XObject <<" + xobjects + " >>";
+        objects.Add(ContentSamples.Stream(
+            "/Mul gs 0.9 0.2 0.1 rg 0 0 8 8 re f",
+            "/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 10 10] /XStep 10 /YStep 10 /Resources << " + States + " >>"));
+        string resources = States + " /Shading << /Bg 5 0 R /Sh 6 0 R >> /Pattern << /TP " + number + " 0 R >> /XObject <<" + xobjects + " >>";
         for (int index = 2; index < objects.Count; index++)
         {
             objects[index] = objects[index].Replace("RESOURCES", resources, StringComparison.Ordinal);
