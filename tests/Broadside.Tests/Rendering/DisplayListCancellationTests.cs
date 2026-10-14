@@ -31,12 +31,12 @@ public sealed class DisplayListCancellationTests
         // Cancel at evenly spaced moments through one uncancelled build (cold: content decoded afresh each time, as nothing
         // cancelled is cached). Scheduling on a busy machine can delay the cancelled thread itself, so each moment is tried up to five
         // times and its best latency counts: a decode that ignored the token would be slow every time.
-        using PdfDocument document = PdfDocument.Open(bytes);
+        using PdfDocument document = PdfDocument.Open(bytes, RenderCacheTests.NoCaches());
         PdfPage page = document.Pages[0];
         CancelAt(page, TimeSpan.Zero); // The first cancellation through each code path pays for the runtime's exception setup.
         TimeSpan full = Measure(() =>
         {
-            using PdfDocument fresh = PdfDocument.Open(bytes);
+            using PdfDocument fresh = PdfDocument.Open(bytes, RenderCacheTests.NoCaches());
             fresh.Pages[0].CreateDisplayList();
         });
         var latencies = new List<(TimeSpan At, TimeSpan Latency)>();
@@ -76,7 +76,7 @@ public sealed class DisplayListCancellationTests
     {
         byte[] bytes = RealWorldFile(file);
         RecordingBackend expected = Record(bytes);
-        using PdfDocument document = PdfDocument.Open(bytes);
+        using PdfDocument document = PdfDocument.Open(bytes, RenderCacheTests.NoCaches());
         PdfPage page = document.Pages[0];
         var reports = new RecordingProgress();
         page.CreateDisplayList(new ContentOptions().WithProgress(reports));
@@ -124,7 +124,8 @@ public sealed class DisplayListCancellationTests
         using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(
             content,
             "/XObject << /Im1 5 0 R >>",
-            ContentSamples.Stream(samples.ToString(), "/Type /XObject /Subtype /Image /Width 2048 /Height 1024 /ColorSpace /DeviceGray /BitsPerComponent 8")));
+            ContentSamples.Stream(samples.ToString(), "/Type /XObject /Subtype /Image /Width 2048 /Height 1024 /ColorSpace /DeviceGray /BitsPerComponent 8")),
+            RenderCacheTests.NoCaches()); // Every build decodes (issue #103's caches would hand back the image or the list).
         PdfPage page = document.Pages[0];
         Assert.Equal(4, page.CreateDisplayList().OperationCount); // save, transform, image, restore: the padding records nothing
         Action cancelledBuild = () =>
@@ -191,7 +192,7 @@ public sealed class DisplayListCancellationTests
 
     private static RecordingBackend Record(byte[] bytes)
     {
-        using PdfDocument document = PdfDocument.Open(bytes);
+        using PdfDocument document = PdfDocument.Open(bytes, RenderCacheTests.NoCaches());
         var recorder = new RecordingBackend();
         document.Pages[0].CreateDisplayList().Replay(recorder);
         return recorder;

@@ -27,6 +27,8 @@ internal sealed partial class DisplayListBuilder
         var key = new DisplayListKey(page.Dictionary, layers, intent, options.MaxOperands, options.MaxSaveDepth, options.MaxNestingDepth);
         if (document.Caches.DisplayLists.TryGet(key, out DisplayListEntry? cached))
         {
+            // Nothing is left to build: the run is complete (issue #97's progress ends at exactly 1).
+            options.Progress?.Report(1);
             return cached.List;
         }
 

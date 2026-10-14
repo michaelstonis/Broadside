@@ -308,6 +308,44 @@ public sealed class RenderCacheTests
         Assert.InRange(textList.RetainedBytes, textTables, long.MaxValue);
     }
 
+    [Fact]
+    public void A_cancelled_build_keeps_the_cached_images_other_lists_paint_and_a_kept_list_reports_completion()
+    {
+        // Issue #97 with #103: a failed build gives back only the samples it decoded and no cache holds.
+        var content = new StringBuilder("/Im0 Do ");
+        for (int fill = 0; fill < 4096; fill++)
+        {
+            content.Append("0 0 1 1 re f ");
+        }
+
+        byte[] file = ContentSamples.OnePage(
+            Encoding.ASCII.GetBytes(content.ToString()), "/XObject << /Im0 5 0 R >>", GrayImage(32, 3, flate: false));
+        using PdfDocument document = PdfDocument.Open(file, new PdfOptions().WithDisplayListCacheBudget(0));
+        DisplayList first = document.Pages[0].CreateDisplayList();
+        DisplayImage image = Assert.Single(first.Images);
+        byte[] row = image.GetRow(5).ToArray();
+
+        using var cancellation = new CancellationTokenSource();
+        var progress = new RecordingProgress(onReport: (_, value) =>
+        {
+            if (value > 0)
+            {
+                cancellation.Cancel();
+            }
+        });
+        Assert.Throws<OperationCanceledException>(() => document.Pages[0].CreateDisplayList(
+            new ContentOptions().WithCancellation(cancellation.Token).WithProgress(progress)));
+
+        Assert.Equal(1, document.CacheStatistics.Images.Hits);
+        Assert.Equal(row, image.GetRow(5).ToArray());
+
+        using PdfDocument kept = PdfDocument.Open(file);
+        DisplayList list = kept.Pages[0].CreateDisplayList();
+        var completion = new RecordingProgress();
+        Assert.Same(list, kept.Pages[0].CreateDisplayList(new ContentOptions().WithProgress(completion)));
+        Assert.Equal(1.0, Assert.Single(completion.Values));
+    }
+
     /// <summary>Options with every cache budget at zero.</summary>
     internal static PdfOptions NoCaches() =>
         new PdfOptions().WithContentCacheBudget(0).WithImageCacheBudget(0).WithGlyphCacheBudget(0).WithDisplayListCacheBudget(0);
