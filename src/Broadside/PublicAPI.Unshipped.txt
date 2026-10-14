@@ -4033,6 +4033,50 @@ Broadside.Rendering.HitTestShape.HitTestShape() -> void
 Broadside.Rendering.HitTestShape.HitTestShape(Broadside.Graphics.Quad Quad, Broadside.PdfRectangle Bounds) -> void
 Broadside.Rendering.HitTestShape.Quad.get -> Broadside.Graphics.Quad
 Broadside.Rendering.HitTestShape.Quad.init -> void
+Broadside.PdfCacheStatistics
+Broadside.PdfCacheStatistics.Budget.get -> long
+Broadside.PdfCacheStatistics.Budget.init -> void
+Broadside.PdfCacheStatistics.Bytes.get -> long
+Broadside.PdfCacheStatistics.Bytes.init -> void
+Broadside.PdfCacheStatistics.Count.get -> int
+Broadside.PdfCacheStatistics.Count.init -> void
+Broadside.PdfCacheStatistics.Evictions.get -> long
+Broadside.PdfCacheStatistics.Evictions.init -> void
+Broadside.PdfCacheStatistics.Hits.get -> long
+Broadside.PdfCacheStatistics.Hits.init -> void
+Broadside.PdfCacheStatistics.Misses.get -> long
+Broadside.PdfCacheStatistics.Misses.init -> void
+Broadside.PdfCacheStatistics.PdfCacheStatistics() -> void
+Broadside.PdfCacheStatistics.PdfCacheStatistics(long Budget, long Bytes, long PeakBytes, int Count, long Hits, long Misses, long Evictions) -> void
+Broadside.PdfCacheStatistics.PeakBytes.get -> long
+Broadside.PdfCacheStatistics.PeakBytes.init -> void
+Broadside.PdfDocument.CacheStatistics.get -> Broadside.PdfDocumentCacheStatistics!
+Broadside.PdfDocumentCacheStatistics
+Broadside.PdfDocumentCacheStatistics.Content.get -> Broadside.PdfCacheStatistics
+Broadside.PdfDocumentCacheStatistics.Content.init -> void
+Broadside.PdfDocumentCacheStatistics.DisplayLists.get -> Broadside.PdfCacheStatistics
+Broadside.PdfDocumentCacheStatistics.DisplayLists.init -> void
+Broadside.PdfDocumentCacheStatistics.Glyphs.get -> Broadside.PdfCacheStatistics
+Broadside.PdfDocumentCacheStatistics.Glyphs.init -> void
+Broadside.PdfDocumentCacheStatistics.Images.get -> Broadside.PdfCacheStatistics
+Broadside.PdfDocumentCacheStatistics.Images.init -> void
+Broadside.PdfDocumentCacheStatistics.PdfDocumentCacheStatistics(Broadside.PdfCacheStatistics Content, Broadside.PdfCacheStatistics Images, Broadside.PdfCacheStatistics Glyphs, Broadside.PdfCacheStatistics DisplayLists) -> void
+Broadside.PdfOptions.ContentCacheBudget.get -> long
+Broadside.PdfOptions.ContentCacheBudget.set -> void
+Broadside.PdfOptions.DisplayListCacheBudget.get -> long
+Broadside.PdfOptions.DisplayListCacheBudget.set -> void
+Broadside.PdfOptions.GlyphCacheBudget.get -> long
+Broadside.PdfOptions.GlyphCacheBudget.set -> void
+Broadside.PdfOptions.ImageCacheBudget.get -> long
+Broadside.PdfOptions.ImageCacheBudget.set -> void
+Broadside.PdfOptions.WithContentCacheBudget(long budget) -> Broadside.PdfOptions!
+Broadside.PdfOptions.WithDisplayListCacheBudget(long budget) -> Broadside.PdfOptions!
+Broadside.PdfOptions.WithGlyphCacheBudget(long budget) -> Broadside.PdfOptions!
+Broadside.PdfOptions.WithImageCacheBudget(long budget) -> Broadside.PdfOptions!
+const Broadside.PdfOptions.DefaultContentCacheBudget = 33554432 -> long
+const Broadside.PdfOptions.DefaultDisplayListCacheBudget = 33554432 -> long
+const Broadside.PdfOptions.DefaultGlyphCacheBudget = 8388608 -> long
+const Broadside.PdfOptions.DefaultImageCacheBudget = 67108864 -> long
 Broadside.PdfEncryptionAlgorithm.Aes256Gcm = 3 -> Broadside.PdfEncryptionAlgorithm
 Broadside.PdfEncryptionOptions.IntegrityProtection.get -> bool
 Broadside.PdfEncryptionOptions.IntegrityProtection.set -> void

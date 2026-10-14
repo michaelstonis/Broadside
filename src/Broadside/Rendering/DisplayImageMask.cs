@@ -61,4 +61,7 @@ public sealed class DisplayImageMask
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="y"/> is outside the mask.</exception>
     /// <remarks>ISO 32000-2 §8.9.3.</remarks>
     public ReadOnlySpan<byte> GetRow(int y) => _samples.GetRow(y);
+
+    /// <summary>Gets the bytes this mask keeps: its sample buffer; what a render cache charges for it (issue #103).</summary>
+    internal long RetainedBytes => _samples.RetainedBytes;
 }
