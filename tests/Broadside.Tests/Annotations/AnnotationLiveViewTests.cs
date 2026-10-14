@@ -29,4 +29,22 @@ public sealed class AnnotationLiveViewTests
         Assert.Same(document.Pages[1], target.Page);
         Assert.Same(document.Pages[1].Annotations[0], target);
     }
+
+    [Fact]
+    public void An_annotation_removed_as_an_object_leaves_the_page_list_read_before()
+    {
+        byte[] file = new TestPdf().Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /Resources << >> /MediaBox [0 0 612 792] /Annots [4 0 R 5 0 R] >>",
+            "<< /Type /Annot /Subtype /Text /Rect [0 0 10 10] /P 3 0 R >>",
+            "<< /Type /Annot /Subtype /Square /Rect [0 0 10 10] /P 3 0 R >>");
+        using PdfDocument document = PdfDocument.Open(file);
+        Assert.Equal([PdfAnnotationKind.Text, PdfAnnotationKind.Square], document.Pages[0].Annotations.Select(annotation => annotation.Kind));
+
+        // §7.3.10: element 1 of the unchanged Annots array now resolves to null.
+        Assert.True(document.RemoveObject(new CosReference(5, 0)));
+
+        Assert.Equal([PdfAnnotationKind.Text], document.Pages[0].Annotations.Select(annotation => annotation.Kind));
+    }
 }

@@ -58,10 +58,20 @@ internal sealed class ExtGStateParameters
     private static readonly CosName Default = new("Default");
     private static readonly CosName None = new("None");
 
-    private ExtGStateParameters(int version) => Version = version;
+    private ExtGStateParameters(int version, int objectsVersion)
+    {
+        Version = version;
+        ObjectsVersion = objectsVersion;
+    }
 
     /// <summary>Gets the version of the dictionary these were read from.</summary>
     public int Version { get; }
+
+    /// <summary>
+    /// Gets the document's <c>ObjectsVersion</c> when these were read: an added or removed object changes what a reference in the
+    /// unchanged dictionary resolves to (§7.3.10).
+    /// </summary>
+    public int ObjectsVersion { get; }
 
     /// <summary>Gets the first deviation found, or <see langword="null"/>.</summary>
     public string? Problem { get; private set; }
@@ -142,7 +152,7 @@ internal sealed class ExtGStateParameters
     public static ExtGStateParameters Read(PdfDocument document, CosDictionary dictionary, CosReference? reference)
     {
         _ = reference;
-        var parameters = new ExtGStateParameters(dictionary.Version);
+        var parameters = new ExtGStateParameters(dictionary.Version, document.ObjectsVersion);
         parameters.ReadEntries(document, dictionary);
         return parameters;
     }

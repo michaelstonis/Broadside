@@ -17,9 +17,9 @@ namespace Broadside;
 /// </para>
 /// <para>
 /// The group list (<c>OCGs</c>) and each group's intents are read when the view is created, recording the version of every container
-/// read: <see cref="PdfDocument.OptionalContent"/> returns a new view once <c>OCProperties</c> is replaced or any of them has changed
-/// (ADR 0004), and states computed from the old view are refused by the new one. Each membership dictionary's compiled visibility is
-/// recompiled when its dictionary or arrays change. Everything else (configurations, names, usage) reads the COS objects on every
+/// read: <see cref="PdfDocument.OptionalContent"/> returns a new view once <c>OCProperties</c> is replaced, any of them has changed,
+/// or an object was added or removed (§7.3.10) (ADR 0004), and states computed from the old view are refused by the new one. Each
+/// membership dictionary's compiled visibility is recompiled when its dictionary or arrays change or an object is added or removed. Everything else (configurations, names, usage) reads the COS objects on every
 /// call. Nothing is ever written to the file: a missing <c>D</c> reads as an empty configuration with a diagnostic.
 /// </para>
 /// <para>
@@ -38,7 +38,7 @@ public sealed class PdfOptionalContentProperties
     private readonly PdfOptionalContentGroup[] _groups;
     private readonly Dictionary<CosDictionary, PdfOptionalContentGroup> _byDictionary = new(ReferenceEqualityComparer.Instance);
     private readonly ConcurrentDictionary<CosDictionary, CompiledVisibility> _programs = new(ReferenceEqualityComparer.Instance);
-    private readonly ContainerStamps _stamps = new();
+    private readonly ContainerStamps _stamps;
     private readonly CosDictionary _missingDefault = new();
 
     internal PdfOptionalContentProperties(PdfDocument document, CosDictionary dictionary, CosReference? reference)
@@ -46,6 +46,7 @@ public sealed class PdfOptionalContentProperties
         Document = document;
         Dictionary = dictionary;
         _reference = reference;
+        _stamps = new ContainerStamps(document);
         var groups = new List<PdfOptionalContentGroup>();
         _stamps.Add(dictionary);
         if (ViewReading.Get(document, dictionary, FileAndLayerNames.OCGs) is CosArray array)
@@ -204,7 +205,7 @@ public sealed class PdfOptionalContentProperties
 
         if (!_programs.TryGetValue(dictionary, out CompiledVisibility? compiled) || !compiled.Stamps.IsCurrent)
         {
-            var stamps = new ContainerStamps();
+            var stamps = new ContainerStamps(Document);
             compiled = new CompiledVisibility(Compile(dictionary, ocgOrOcmd as CosReference, stamps), stamps);
             _programs[dictionary] = compiled;
         }
