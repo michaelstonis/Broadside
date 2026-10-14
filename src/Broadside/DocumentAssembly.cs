@@ -79,6 +79,9 @@ internal sealed class DocumentAssembly
         {
             WriteLabels(labels);
         }
+
+        // Last, so every group the copied objects reach has its copy (§8.11.4, issue #307).
+        new OptionalContentAssembly(_source, _target, _copier, _whole).Run();
     }
 
     private bool InRange(int? pageIndex) => pageIndex is { } index && index >= _first && index < _first + _count;
