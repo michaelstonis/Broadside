@@ -19,6 +19,7 @@ public sealed class WellFormedCorpusTests
             "page-tree-inherited.pdf" or "linearized.pdf" or "linearized-xref-stream.pdf" or "linearized-flate-hints.pdf" or "acroform-fields.pdf" or "text-tagged-spanning.pdf" or "text-tagged-spanning-image.pdf" => 2,
             "number-tree-deep.pdf" or "page-labels.pdf" => 12,
             "page-rotation.pdf" => 4,
+            "text-render-modes.pdf" => 5,
             _ => 1,
         };
         Assert.Equal(expectedPages, document.Pages.Count);

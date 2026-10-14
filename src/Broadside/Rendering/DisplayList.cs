@@ -20,7 +20,7 @@ namespace Broadside.Rendering;
 /// bounding boxes, §8.10.1), images with their masks (§8.9, §11.6.5, <see cref="DisplayImage"/>, decoded once per image XObject),
 /// stencil masks (§8.9.6.2, <see cref="DisplayImageMask"/>), text as glyph runs (§9.4.3, §9.3.6, <see cref="GlyphRun"/>: font
 /// program, glyph ids, text matrices, outlines interned once per program and glyph) and shadings, from <c>sh</c> and as shading
-/// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>). Type 3 glyphs, text clips, tiling patterns and
+/// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>). Text clips (§9.3.6) reach backends as path clips of the glyph outlines. Type 3 glyphs, tiling patterns and
 /// transparency groups and soft masks join it in later Phase 3 tickets (constant alpha and blend modes are there already, as
 /// <see cref="IRenderingBackend.SetCompositing"/>), each as new <see cref="IRenderingBackend"/> calls.
 /// </para>

@@ -60,6 +60,36 @@ public sealed class DisplayListAllocationTests
     }
 
     [Theory]
+    [InlineData(48)]
+    [InlineData(2000)]
+    public void Building_a_display_list_of_text_clips_allocates_the_glyph_and_clip_outline_records_and_nothing_else_per_glyph(int glyphs)
+    {
+        // Each glyph's record (72 bytes) and its outline in the text clip's path (up to 12 points of 16 bytes and 9 verbs) are copied
+        // into the list; outlines are read once per glyph id and the clip path is built in a reused buffer.
+        using PdfDocument document = PdfDocument.Open(TextSamples.Page(TextSamples.TextClipHeavy(glyphs)));
+        PdfPage page = document.Pages[0];
+        Action build = () => page.CreateDisplayList();
+
+        long allocated = Allocations.Measure(build);
+
+        Assert.InRange(allocated, 1, 16384 + (600 * glyphs));
+    }
+
+    [Fact]
+    public void Replaying_text_clips_allocates_nothing()
+    {
+        using PdfDocument document = PdfDocument.Open(TextSamples.Page(TextSamples.TextClipHeavy(2000)));
+        DisplayList list = document.Pages[0].CreateDisplayList();
+        var backend = new CountingBackend();
+        Action replay = () => list.Replay(backend);
+
+        long allocated = Allocations.Measure(replay);
+
+        Assert.Equal(0, allocated);
+        Assert.True(backend.Glyphs > 2000);
+    }
+
+    [Theory]
     [InlineData(10)]
     [InlineData(2000)]
     public void Building_a_display_list_allocates_per_page_not_per_operation(int fills)
