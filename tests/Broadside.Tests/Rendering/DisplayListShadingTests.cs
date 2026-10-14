@@ -104,13 +104,13 @@ public sealed class DisplayListShadingTests
     [Fact]
     public void Unusable_shadings_and_tiling_patterns_paint_nothing_in_the_list()
     {
-        // An axial shading with no Function is not valid (§8.7.4.5.3, Table 79); a missing name paints nothing; tiling patterns
-        // are not in the list yet.
+        // An axial shading with no Function is not valid (§8.7.4.5.3, Table 79); a missing name paints nothing; a tiling pattern
+        // with neither steps nor a bounding box is not valid (§8.7.3.1, Table 74).
         using PdfDocument document = PdfDocument.Open(Page(
             "<< /Shading << /Bad 5 0 R >> /Pattern << /T 6 0 R >> >>",
             "/Bad sh /Missing sh /Pattern cs /T scn 0 0 10 10 re f",
             "<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 1 0] >>",
-            ContentSamples.Stream("0 0 1 1 re f", "/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 1 1] /XStep 1 /YStep 1 /Resources << >>")));
+            ContentSamples.Stream("0 0 1 1 re f", "/Type /Pattern /PatternType 1 /PaintType 1 /TilingType 1 /Resources << >>")));
         var recorder = new RecordingBackend();
 
         document.Pages[0].CreateDisplayList().Replay(recorder);
