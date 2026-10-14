@@ -74,11 +74,11 @@ internal sealed class JpxTileDecoder : IDisposable
             _reporter.ThrowIfCancellationRequested();
             if (component.Style.Reversible)
             {
-                JpxWavelet.Inverse53(component, buffer);
+                JpxWavelet.Inverse53(component, buffer, _reporter);
             }
             else
             {
-                JpxWavelet.Inverse97(component, MemoryMarshal.Cast<int, float>(buffer.AsSpan()));
+                JpxWavelet.Inverse97(component, MemoryMarshal.Cast<int, float>(buffer.AsSpan()), _reporter);
             }
         }
 
