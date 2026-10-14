@@ -52,6 +52,9 @@ internal enum DisplayOperationKind : byte
 
     /// <summary><see cref="IRenderingBackend.EndAnnotation"/>.</summary>
     EndAnnotation,
+
+    /// <summary><see cref="IRenderingBackend.SetDeviceParameters"/>; <see cref="DisplayOperation.First"/> indexes the device parameters.</summary>
+    SetDeviceParameters,
 }
 
 /// <summary>One record of a display list: a kind and up to two indexes into the list's tables, 16 bytes.</summary>

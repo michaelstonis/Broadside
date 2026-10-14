@@ -168,5 +168,7 @@ public sealed class DisplayListAllocationTests
         public void BeginAnnotation(in DisplayAnnotation annotation) => Checksum += annotation.Rectangle.Width + annotation.Opacity;
 
         public void EndAnnotation() => Checksum++;
+
+        public void SetDeviceParameters(in DisplayDeviceParameters parameters) => Checksum += parameters.OverprintMode + (parameters.FillOverprint ? 1 : 0);
     }
 }

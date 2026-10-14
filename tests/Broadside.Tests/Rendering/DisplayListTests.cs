@@ -337,6 +337,10 @@ public sealed class DisplayListTests
         {
         }
 
+        public void SetDeviceParameters(in DisplayDeviceParameters parameters)
+        {
+        }
+
         public void BeginAnnotation(in DisplayAnnotation annotation)
         {
         }

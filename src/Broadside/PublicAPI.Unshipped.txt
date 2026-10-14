@@ -1064,6 +1064,8 @@ Broadside.Graphics.ColorConversion.Target.get -> Broadside.Graphics.DeviceColorM
 Broadside.Graphics.ColorConversion.Target.init -> void
 Broadside.Graphics.ColorConversion.UndercolorRemoval.get -> Broadside.Graphics.PdfFunction?
 Broadside.Graphics.ColorConversion.UndercolorRemoval.init -> void
+Broadside.Graphics.ColorConversion.TransferFunction.get -> Broadside.Graphics.PdfTransferFunction?
+Broadside.Graphics.ColorConversion.TransferFunction.init -> void
 Broadside.Graphics.ComponentRange
 Broadside.Graphics.ComponentRange.Clamp(double value) -> double
 Broadside.Graphics.ComponentRange.ComponentRange() -> void
@@ -3968,6 +3970,14 @@ Broadside.PdfEncryptionOptions.IntegrityProtection.get -> bool
 Broadside.PdfEncryptionOptions.IntegrityProtection.set -> void
 Broadside.PdfEncryptionOptions.WithIntegrityProtection(bool integrityProtection) -> Broadside.PdfEncryptionOptions!
 Broadside.Rendering.IRenderingBackend.SetCompositing(double strokeAlpha, double fillAlpha, Broadside.Graphics.BlendMode blendMode) -> void
+Broadside.Rendering.IRenderingBackend.SetDeviceParameters(in Broadside.Rendering.DisplayDeviceParameters parameters) -> void
+Broadside.Rendering.DisplayDeviceParameters
+Broadside.Rendering.DisplayDeviceParameters.DisplayDeviceParameters() -> void
+Broadside.Rendering.DisplayDeviceParameters.FillOverprint.get -> bool
+Broadside.Rendering.DisplayDeviceParameters.Halftone.get -> Broadside.Objects.CosObject?
+Broadside.Rendering.DisplayDeviceParameters.HalftoneOrigin.get -> Broadside.Graphics.PathPoint?
+Broadside.Rendering.DisplayDeviceParameters.OverprintMode.get -> int
+Broadside.Rendering.DisplayDeviceParameters.StrokeOverprint.get -> bool
 Broadside.PdfPage.CreateDisplayList(Broadside.Rendering.DisplayLayers layers) -> Broadside.Rendering.DisplayList!
 Broadside.PdfPage.CreateDisplayList(Broadside.Rendering.DisplayLayers layers, Broadside.Rendering.DisplayIntent intent, Broadside.Content.ContentOptions! options) -> Broadside.Rendering.DisplayList!
 Broadside.Rendering.DisplayAnnotation

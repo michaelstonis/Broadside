@@ -23,7 +23,8 @@ namespace Broadside.Rendering;
 /// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>), and annotations' appearances (§12.5.5,
 /// <see cref="DisplayAnnotation"/>; a list holds the page's content, annotation and form-field layers as <see cref="DisplayLayers"/>
 /// asks). Type 3 glyphs, text clips, tiling patterns and transparency groups and soft masks join it in later Phase 3 tickets
-/// (constant alpha and blend modes are there already, as <see cref="IRenderingBackend.SetCompositing"/>), each as new
+/// (constant alpha and blend modes are there already, as <see cref="IRenderingBackend.SetCompositing"/>, and overprint control and
+/// halftones as <see cref="IRenderingBackend.SetDeviceParameters"/>; transfer functions travel with each colour), each as new
 /// <see cref="IRenderingBackend"/> calls.
 /// </para>
 /// <para>
@@ -89,6 +90,9 @@ public sealed class DisplayList
 
     /// <summary>Gets the annotations the list draws (indexed by <see cref="DisplayOperationKind.BeginAnnotation"/> records).</summary>
     internal DisplayAnnotation[] Annotations { get; init; } = [];
+
+    /// <summary>Gets the overprint parameters and halftones the list sets (indexed by <see cref="DisplayOperationKind.SetDeviceParameters"/> records).</summary>
+    internal DisplayDeviceParameters[] DeviceParameters { get; init; } = [];
 
     /// <summary>Gets the document the list was built from, whose colour converters a backend uses (see <see cref="DisplayColor"/>).</summary>
     public PdfDocument Document { get; }
@@ -169,6 +173,9 @@ public sealed class DisplayList
                     break;
                 case DisplayOperationKind.EndAnnotation:
                     backend.EndAnnotation();
+                    break;
+                case DisplayOperationKind.SetDeviceParameters:
+                    backend.SetDeviceParameters(in DeviceParameters[operation.First]);
                     break;
             }
         }

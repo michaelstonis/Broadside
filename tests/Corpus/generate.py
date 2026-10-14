@@ -4425,6 +4425,51 @@ def gen_extgstate_params() -> bytes:
     ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (file_id("extgstate-params").hex().encode(), file_id("extgstate-params").hex().encode()))
 
 
+def gen_transfer_functions() -> bytes:
+    """10.5 transfer functions set through 8.4.5 Table 57 (TR, TR2), on a Letter page in rows of 100 x 100 patches from x = 40
+    every 140 (ISO 32000-2 deprecates TR in PDF 2.0; the file is PDF 1.7). Functions (7.10): Square f(x) = x^2, Invert
+    1 - x, Root x^0.5 (Type 2), PsInvert {1 exch sub} (Type 4) and Sampled (Type 0, 5 samples 0 200 60 230 255 / 255,
+    linear between them).
+    Row 1 (y 640), TR Square (one function for every component): 0.25 g, 0.75 g, 0.2 0.5 0.8 rg, and image Im0 (2 x 1
+    DeviceGray, samples 64 and 192).
+    Row 2 (y 500), TR [Invert Square Root Invert] (red, green, blue, gray: an RGB device uses the first three): 0.25 g,
+    0.2 0.5 0.8 rg, 1 1 1 rg, Im0.
+    Row 3 (y 360), TR2 PsInvert: 0.25 g, 0.2 0.5 0.8 rg; then in q/Q TR2 /Default 0.25 g; then in q/Q TR /Identity 0.75 g.
+    Row 4 (y 220), TR2 [Sampled Square Root Invert] with TR Invert in the same dictionary (TR2 wins): 0.6 0.6 0.6 rg,
+    Separation /All at tint 0.5 (1 - tint on every component, then the functions), Separation /None at 0.5 (paints nothing,
+    the page shows), and a DeviceGray axial shading 0 to 1 across the patch (sh in a clip).
+    Row 5 (y 130): under TR Square, a 10-wide 0.5 g stroke from x 40 to 560."""
+    square = b"<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 2 >>"
+    invert = b"<< /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >>"
+    root = b"<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 0.5 >>"
+    content = (b"q /Square gs 0.25 g 40 640 100 100 re f 0.75 g 180 640 100 100 re f 0.2 0.5 0.8 rg 320 640 100 100 re f"
+               b" q 100 0 0 100 460 640 cm /Im0 Do Q Q\n"
+               b"q /Four gs 0.25 g 40 500 100 100 re f 0.2 0.5 0.8 rg 180 500 100 100 re f 1 1 1 rg 320 500 100 100 re f"
+               b" q 100 0 0 100 460 500 cm /Im0 Do Q Q\n"
+               b"q /PsInvert gs 0.25 g 40 360 100 100 re f 0.2 0.5 0.8 rg 180 360 100 100 re f"
+               b" q /Default gs 0.25 g 320 360 100 100 re f Q q /Identity gs 0.75 g 460 360 100 100 re f Q Q\n"
+               b"q /Sampled gs 0.6 0.6 0.6 rg 40 220 100 100 re f /CS0 cs 0.5 scn 180 220 100 100 re f"
+               b" /CS1 cs 0.5 scn 320 220 100 100 re f q 460 220 100 100 re W n /Sh0 sh Q Q\n"
+               b"q /Square gs 10 w 0.5 G 40 130 m 560 130 l S Q\n")
+    resources = (b" /Resources << /ExtGState << /Square << /TR " + square + b" >> /Four << /TR [" + invert + b" " + square
+                 + b" " + root + b" " + invert + b"] >> /PsInvert << /TR2 6 0 R >> /Default << /TR2 /Default >>"
+                 b" /Identity << /TR /Identity >> /Sampled << /TR " + invert + b" /TR2 [7 0 R " + square + b" " + root + b" "
+                 + invert + b"] >> >> /XObject << /Im0 5 0 R >> /ColorSpace << /CS0 [/Separation /All /DeviceGray " + invert
+                 + b"] /CS1 [/Separation /None /DeviceGray " + invert + b"] >> /Shading << /Sh0 << /ShadingType 2"
+                 b" /ColorSpace /DeviceGray /Coords [460 0 560 0] /Function << /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1]"
+                 b" /N 1 >> /Extend [true true] >> >> >>")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8",
+                   bytes([64, 192]))),
+        (6, stream(b"/FunctionType 4 /Domain [0 1] /Range [0 1]", b"{1 exch sub}")),
+        (7, stream(b"/FunctionType 0 /Domain [0 1] /Range [0 1] /Size [5] /BitsPerSample 8", bytes([0, 200, 60, 230, 255]))),
+    ])
+
+
 BLEND_MODES = ["Normal", "Multiply", "Screen", "Overlay", "Darken", "Lighten", "ColorDodge", "ColorBurn", "HardLight",
                "SoftLight", "Difference", "Exclusion", "Hue", "Saturation", "Color", "Luminosity"]
 
@@ -6296,6 +6341,7 @@ FILES = {
     "form-xobject-nested.pdf": gen_form_xobject_nested,
     "extgstate-params.pdf": gen_extgstate_params,
     "transparency-blend-modes.pdf": gen_transparency_blend_modes,
+    "transfer-functions.pdf": gen_transfer_functions,
     "marked-content.pdf": gen_marked_content,
     "image-stencil-mask.pdf": gen_image_stencil_mask,
     "image-explicit-mask.pdf": gen_image_explicit_mask,

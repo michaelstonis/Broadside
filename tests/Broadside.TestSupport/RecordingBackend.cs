@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text;
 using Broadside.Graphics;
+using Broadside.Objects;
 using Broadside.Rendering;
 
 namespace Broadside.TestSupport;
@@ -19,7 +20,7 @@ namespace Broadside.TestSupport;
 /// <c>annotation Kind [left bottom right top][ nozoom][ norotate][ opacity a][ blend Mode][ isolated][ knockout]</c>, <c>end annotation</c>, <c>shading Type [matrix][ background]</c>,
 /// <c>glyphs Mode Format gid [text matrix][ xScale] … [| fill Family c0 …][| stroke width Cap Join miterLimit [dash …] phase[ adjust] Family c0 …]</c>
 /// (Format is the program's format, <c>none</c> without a program), and fills and strokes in a shading pattern ending
-/// <c>| shading Type [matrix] background</c> instead of a colour; <c>compositing CA ca BlendMode</c>. Numbers are written round-trippable and culture-invariant.
+/// <c>| shading Type [matrix] background</c> instead of a colour; <c>compositing CA ca BlendMode</c>, <c>device overprint OP op OPM[ halftone HalftoneType][ origin x y]</c>. Numbers are written round-trippable and culture-invariant.
 /// </remarks>
 public sealed class RecordingBackend : IRenderingBackend
 {
@@ -43,6 +44,9 @@ public sealed class RecordingBackend : IRenderingBackend
 
     /// <summary>Gets the stencil mask paints, in replay order: the interned mask and a copy of its colour, like <see cref="Fills"/>.</summary>
     public List<(DisplayImageMask Mask, PdfColorSpace ColorSpace, float[] Components, PdfDefaultColorSpaces Defaults, ColorConversion Conversion)> ImageMasks { get; } = [];
+
+    /// <summary>Gets the device parameters set, in replay order.</summary>
+    public List<DisplayDeviceParameters> DeviceParameters { get; } = [];
 
     /// <summary>Gets the annotations begun, in replay order.</summary>
     public List<DisplayAnnotation> Annotations { get; } = [];
@@ -250,6 +254,33 @@ public sealed class RecordingBackend : IRenderingBackend
     /// <inheritdoc/>
     public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode) =>
         Operations.Add(string.Create(CultureInfo.InvariantCulture, $"compositing {Number(strokeAlpha)} {Number(fillAlpha)} {blendMode}"));
+
+    /// <inheritdoc/>
+    public void SetDeviceParameters(in DisplayDeviceParameters parameters)
+    {
+        var text = new StringBuilder("device overprint ")
+            .Append(parameters.StrokeOverprint ? "true" : "false").Append(' ')
+            .Append(parameters.FillOverprint ? "true" : "false").Append(' ')
+            .Append(parameters.OverprintMode.ToString(CultureInfo.InvariantCulture));
+        CosDictionary? halftone = parameters.Halftone switch
+        {
+            CosStream stream => stream.Dictionary,
+            CosDictionary dictionary => dictionary,
+            _ => null,
+        };
+        if (halftone is not null)
+        {
+            text.Append(" halftone ").Append(halftone.TryGetValue(new CosName("HalftoneType"), out CosObject? type) ? type.ToString() : "?");
+        }
+
+        if (parameters.HalftoneOrigin is { } origin)
+        {
+            text.Append(" origin ").Append(Number(origin.X)).Append(' ').Append(Number(origin.Y));
+        }
+
+        Operations.Add(text.ToString());
+        DeviceParameters.Add(parameters);
+    }
 
     /// <inheritdoc/>
     public void BeginAnnotation(in DisplayAnnotation annotation)

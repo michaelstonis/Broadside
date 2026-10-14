@@ -15,6 +15,7 @@ namespace Broadside.Graphics;
 /// underlying space of an uncoloured pattern. Device spaces, including a nested Indexed base, Pattern underlying space and
 /// Separation or DeviceN alternate, are replaced by the given defaults (§8.6.5.6). What remains, a device, CIE-based or ICCBased
 /// space, goes to the <see cref="IColorManagement"/> the engine was configured with, every component clipped into its range first.
+/// The conversion's transfer function, when it has one, then applies to the device colour (§10.5).
 /// </para>
 /// <para>
 /// A converter is built once per document, source, conversion and defaults, and again when a COS object it was built from changes or an object is added or removed (§7.3.10).
@@ -141,6 +142,14 @@ public sealed class PdfColorConverter
         int objectsVersion = cache.Document.ObjectsVersion;
         var dependencies = new List<FunctionDependency>();
         ColorPipeline pipeline = Build(cache, source, conversion, defaults, dependencies, depth: 0);
+        if (conversion.TransferFunction is { IsIdentity: false } transfer && !pipeline.PaintsNothing)
+        {
+            // §10.5: the transfer function applies to the device colour, after every conversion; a DeviceGray colour on a CMYK
+            // device passes only its black through the gray function.
+            bool gray = conversion.Target == DeviceColorModel.Cmyk && defaults.Remap(source) is PdfDeviceGrayColorSpace;
+            pipeline = new TransferPipeline(pipeline, transfer, conversion.Target, gray);
+        }
+
         return new PdfColorConverter(source, conversion, pipeline, [.. dependencies], cache.Document, objectsVersion);
     }
 

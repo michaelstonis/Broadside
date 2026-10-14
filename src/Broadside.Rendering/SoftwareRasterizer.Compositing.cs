@@ -26,6 +26,17 @@ public sealed partial class SoftwareRasterizer
             _fillCompositor = new Compositor(fillAlpha, blendMode);
         }
 
+        /// <summary>Takes the overprint parameters and halftone of the paints that follow, and ignores them (§8.6.7, §10.6).</summary>
+        /// <remarks>
+        /// The rasterizer is a composite, continuous-tone RGB device that does not overprint: §8.6.7 says such a device ignores the
+        /// overprint parameter, and §10.6.1 that a device that reproduces continuous tones needs no halftoning (owner decision 5 of
+        /// the Phase 3 plan). Overprint preview is a separate render option (#227). Transfer functions are applied: they come with
+        /// each colour's conversion (§10.5).
+        /// </remarks>
+        public void SetDeviceParameters(in DisplayDeviceParameters parameters)
+        {
+        }
+
         private void SaveCompositing()
         {
             if (_savedCompositorCount + 2 > _savedCompositors.Length)
