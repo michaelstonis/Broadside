@@ -201,8 +201,12 @@ public sealed partial class SoftwareRasterizer
         private readonly double _cellTop;
         private readonly double _cellRight;
         private readonly double _cellBottom;
+        private readonly double _baseI;
+        private readonly double _baseJ;
+        private readonly double _baseX;
+        private readonly double _baseY;
 
-        private TilingLayout(in Matrix cellMatrix, double ux, double uy, double vx, double vy, double cellLeft, double cellTop, double cellRight, double cellBottom, long iFirst, long iLast, long jFirst, long jLast)
+        private TilingLayout(in Matrix cellMatrix, double ux, double uy, double vx, double vy, double cellLeft, double cellTop, double cellRight, double cellBottom, double baseI, double baseJ, double baseX, double baseY, long iFirst, long iLast, long jFirst, long jLast)
         {
             CellMatrix = cellMatrix;
             _ux = ux;
@@ -213,6 +217,10 @@ public sealed partial class SoftwareRasterizer
             _cellTop = cellTop;
             _cellRight = cellRight;
             _cellBottom = cellBottom;
+            _baseI = baseI;
+            _baseJ = baseJ;
+            _baseX = baseX;
+            _baseY = baseY;
             IFirst = iFirst;
             ILast = iLast;
             JFirst = jFirst;
@@ -294,7 +302,9 @@ public sealed partial class SoftwareRasterizer
             cellBottom = Math.Max(cellBottom, cellTop + 1);
 
             // The tile nearest the area becomes the one rendered, so that every box below stays within a few areas of the bitmap
-            // even when pattern space puts the origin's cell far away. It moves by whole pixels: nothing changes phase.
+            // even when pattern space puts the origin's cell far away. It moves by whole pixels: nothing changes phase. Offsets stay
+            // rounded from the origin's cell (GetOffset), so a no-distortion tile lands on the same pixel whatever the area (a
+            // region render, #96, has a different area from the whole page).
             double nearX = ((area.Left + area.Right) / 2.0) - ((cellLeft + cellRight) / 2);
             double nearY = ((area.Top + area.Bottom) / 2.0) - ((cellTop + cellBottom) / 2);
             double nearI = Math.Round(((vy * nearX) - (vx * nearY)) / determinant);
@@ -341,15 +351,21 @@ public sealed partial class SoftwareRasterizer
                 return false;
             }
 
-            layout = new TilingLayout(m, ux, uy, vx, vy, cellLeft, cellTop, cellRight, cellBottom, (long)iMin, (long)iMax, (long)jMin, (long)jMax);
+            layout = new TilingLayout(m, ux, uy, vx, vy, cellLeft, cellTop, cellRight, cellBottom, nearI, nearJ, shiftX, shiftY, (long)iMin, (long)iMax, (long)jMin, (long)jMax);
             return true;
         }
 
-        /// <summary>Returns the device offset of tile (i, j) from the cell at the origin, in whole pixels.</summary>
+        /// <summary>Returns the device offset of tile (i, j) from the cell rendered (the one nearest the area), in whole pixels.</summary>
+        /// <remarks>
+        /// Each tile's position is rounded from the cell at the origin of pattern space, not from the one rendered, so that it does
+        /// not depend on the area painted: a tile of a page (#96) puts every tile where the whole page does.
+        /// </remarks>
         public void GetOffset(long i, long j, out long x, out long y)
         {
-            x = (long)Round((i * _ux) + (j * _vx));
-            y = (long)Round((i * _uy) + (j * _vy));
+            double fromOriginI = i + _baseI;
+            double fromOriginJ = j + _baseJ;
+            x = (long)(Round((fromOriginI * _ux) + (fromOriginJ * _vx)) - _baseX);
+            y = (long)(Round((fromOriginI * _uy) + (fromOriginJ * _vy)) - _baseY);
         }
 
         /// <summary>
