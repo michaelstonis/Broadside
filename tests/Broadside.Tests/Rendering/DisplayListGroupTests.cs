@@ -260,6 +260,30 @@ public sealed class DisplayListGroupTests
         Assert.Contains(outside.Operations, line => line.StartsWith("fill nonzero M 500 500", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void A_group_in_a_type3_glyph_is_a_group_at_every_show_of_the_glyph()
+    {
+        // The description of a runs once and is replayed at the second show (#108); its group XObject is a group at both shows,
+        // under each glyph's transform.
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(
+            Encoding.Latin1.GetBytes("BT /T3 10 Tf 100 100 Td (aa) Tj ET"),
+            "/Font << /T3 5 0 R >>",
+            "<< /Type /Font /Subtype /Type3 /FontBBox [0 0 1000 1000] /FontMatrix [0.001 0 0 0.001 0 0] /CharProcs << /a 6 0 R >> "
+            + "/Encoding << /Type /Encoding /Differences [97 /a] >> /FirstChar 97 /LastChar 97 /Widths [1000] /Resources << /XObject << /Fm0 7 0 R >> " + States + " >> >>",
+            ContentSamples.Stream("1000 0 d0 /Half gs /Fm0 Do"),
+            Form("/Group << /S /Transparency >> /BBox [0 0 1000 1000]", "0 0 1000 1000 re f")));
+        var recorder = new RecordingBackend();
+
+        document.Pages[0].CreateDisplayList().Replay(recorder);
+
+        string[] groups = [.. recorder.Operations.Where(line => line.StartsWith("group", StringComparison.Ordinal))];
+        Assert.Equal(2, groups.Length);
+        Assert.All(groups, line => Assert.StartsWith("group Transparency opacity 0.25 Multiply bbox [0 0 1000 1000] [", line));
+        Assert.EndsWith(" 100 100]", groups[0], StringComparison.Ordinal);
+        Assert.EndsWith(" 110 100]", groups[1], StringComparison.Ordinal);
+        Assert.Equal(2, recorder.Operations.Count(line => line == "end group"));
+    }
+
     private static string Form(string entries, string content, string resources = "") =>
         ContentSamples.Stream(content, $"/Type /XObject /Subtype /Form {entries} /Resources << {resources} >>");
 

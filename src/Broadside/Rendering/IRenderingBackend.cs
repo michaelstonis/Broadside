@@ -79,7 +79,8 @@ public interface IRenderingBackend
     /// <para>
     /// A replay starts with the initial clipping path (§8.5.4: the whole page): the area the renderer maps the page to, which is the
     /// crop box (§14.11.2, never larger than the media box). Clipping is anti-aliased like filling where the backend anti-aliases.
-    /// Text clips (§9.3.6, rendering modes 4 to 7) are not in the list yet.
+    /// A text clip (§9.3.6, rendering modes 4 to 7) arrives the same way at the end of its text object, after its glyphs are painted:
+    /// the glyphs' outlines placed in user space as one path, with the non-zero rule.
     /// </para>
     /// </remarks>
     void IntersectClip(PathView path, FillRule rule);
@@ -115,7 +116,8 @@ public interface IRenderingBackend
     /// ISO 32000-2 §9.4.3 (<c>Tj</c>, <c>TJ</c>, <c>'</c>, <c>"</c>), §9.3.6 (text rendering mode, Table 104) and §9.2.4 (glyph
     /// outlines, filled by the non-zero winding rule). Glyphs whose run neither fills nor strokes (mode 3, invisible text) paint
     /// nothing; they reach the backend so that a backend collecting positions (hit-testing) sees them. Text in clipping modes 4 to 7
-    /// paints like modes 0 to 3; its contribution to the clip is not in the list yet. Type 3 glyphs (§9.6.4) are not in the list yet.
+    /// paints like modes 0 to 3; its contribution to the clip is not in the list yet. Type 3 glyphs (§9.6.4) never come
+    /// through this call: each glyph's description reaches the backend as the transforms, paths, clips and image masks it paints.
     /// </para>
     /// <para>
     /// A backend may draw the glyphs natively from <see cref="GlyphRun.Program"/> and the glyph ids, or from the interned outlines

@@ -34,7 +34,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     private int _savedAtCount;
 
     /// <inheritdoc/>
-    public override ContentEvents Events => ContentEvents.Paths | ContentEvents.StateStack | ContentEvents.Clips | ContentEvents.Images | ContentEvents.Glyphs | ContentEvents.Shadings | ContentEvents.Forms;
+    public override ContentEvents Events => ContentEvents.Paths | ContentEvents.StateStack | ContentEvents.Clips | ContentEvents.Images | ContentEvents.Glyphs | ContentEvents.Shadings | ContentEvents.Type3GlyphContent | ContentEvents.Forms;
 
     /// <summary>Builds the display list of <paramref name="page"/>.</summary>
     /// <param name="page">The page.</param>
@@ -103,6 +103,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         ResetGroups();
         ResetTiling();
         ResetAnnotations();
+        ResetType3();
     }
 
     /// <inheritdoc/>
@@ -114,6 +115,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     /// <summary>Records a save of the state (§8.4.2 <c>q</c>).</summary>
     private void Save()
     {
+        NoteType3Save();
         Append(ref _saved, ref _savedCount, _current);
         Append(ref _savedAt, ref _savedAtCount, _operationCount);
         SaveCompositing();
@@ -144,9 +146,11 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
 
     /// <summary>Records the CTM before a paint, when it differs from the transform the backend holds there.</summary>
     /// <param name="ctm">The CTM of the paint (to pattern space instead while building a tiling pattern's cell).</param>
-    private void SetTransform(in Matrix ctm)
+    private void SetTransform(in Matrix ctm) => SetRecordedTransform(Relative(ctm));
+
+    /// <summary>Records a transform already in the space this builder records in (see <see cref="Relative"/>), when it differs from the backend's.</summary>
+    private void SetRecordedTransform(in Matrix transform)
     {
-        Matrix transform = Relative(ctm);
         if (transform == _current)
         {
             return;
