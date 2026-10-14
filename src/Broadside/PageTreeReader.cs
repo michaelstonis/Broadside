@@ -51,7 +51,7 @@ internal static class PageTreeReader
         while (stack.TryPop(out Frame frame))
         {
             CheckParent(frame, diagnostics);
-            if (IsLeaf(frame, diagnostics))
+            if (IsLeaf(document, frame, diagnostics))
             {
                 var page = new PdfPage(document, frame.Node, frame.Reference, frame.Ancestors);
                 CheckPage(page, diagnostics);
@@ -150,7 +150,12 @@ internal static class PageTreeReader
     }
 
     /// <summary>Decides whether a node is a page (§7.7.3.3) or an intermediate node (§7.7.3.2), reporting a missing or wrong <c>Type</c>.</summary>
-    private static bool IsLeaf(Frame frame, DiagnosticSink diagnostics)
+    /// <remarks>
+    /// A <c>Kids</c> entry whose value is null, or a reference to an object that does not exist, is an absent entry (§7.3.7,
+    /// §7.3.10), so it decides the same way as no <c>Kids</c> at all: a writer that renumbers objects writes such a reference as
+    /// null, and the node must read the same before and after.
+    /// </remarks>
+    private static bool IsLeaf(PdfDocument document, Frame frame, DiagnosticSink diagnostics)
     {
         frame.Node.TryGetValue(KnownNames.Type, out CosObject? type);
         if (KnownNames.Page.Equals(type))
@@ -163,7 +168,7 @@ internal static class PageTreeReader
             return false;
         }
 
-        bool hasKids = frame.Node.ContainsKey(KnownNames.Kids);
+        bool hasKids = frame.Node.TryGetValue(KnownNames.Kids, out CosObject? kids) && document.Resolve(kids) is not CosNull;
         diagnostics.Report(
             DiagnosticCodes.PageTreeNodeTypeInvalid,
             DiagnosticSeverity.Warning,
