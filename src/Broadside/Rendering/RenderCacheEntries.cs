@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Broadside.Caching;
 using Broadside.Graphics;
+using Broadside.Objects;
 
 namespace Broadside.Rendering;
 
@@ -67,3 +68,18 @@ internal sealed class DisplayListEntry(long epoch, DisplayList list) : EpochEntr
     /// <inheritdoc/>
     public override long Bytes { get; } = Overhead + list.RetainedBytes;
 }
+
+/// <summary>What a kept display list was built from besides the document: the page, its layers and intent, and the content limits.</summary>
+/// <param name="Page">The page object.</param>
+/// <param name="Layers">The layers in the list.</param>
+/// <param name="Intent">The intent the annotations were chosen for.</param>
+/// <param name="MaxOperands">The content limit on operands.</param>
+/// <param name="MaxSaveDepth">The content limit on the graphics state stack.</param>
+/// <param name="MaxNestingDepth">The content limit on nested streams.</param>
+internal readonly record struct DisplayListKey(
+    CosDictionary Page,
+    DisplayLayers Layers,
+    DisplayIntent Intent,
+    int MaxOperands,
+    int MaxSaveDepth,
+    int MaxNestingDepth);

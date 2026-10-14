@@ -7,28 +7,31 @@ namespace Broadside.Rendering;
 internal sealed partial class DisplayListBuilder
 {
     /// <summary>
-    /// Returns the page's kept display list while it is current, else builds one and offers it to the document's display-list cache.
+    /// Returns the page's kept display list of these layers while it is current, else builds one and offers it to the document's
+    /// display-list cache.
     /// </summary>
     /// <param name="page">The page.</param>
     /// <param name="document">The page's document.</param>
+    /// <param name="layers">The layers the list holds.</param>
+    /// <param name="intent">Whether the list is for the screen or for printing.</param>
     /// <param name="options">Limits and cancellation for the content run; a list built with an optional-content state is not kept.</param>
     /// <returns>The list.</returns>
-    public static DisplayList BuildCached(PdfPage page, PdfDocument document, ContentOptions options)
+    public static DisplayList BuildCached(PdfPage page, PdfDocument document, DisplayLayers layers, DisplayIntent intent, ContentOptions options)
     {
         options.CancellationToken.ThrowIfCancellationRequested();
         if (options.OptionalContentState is not null)
         {
-            return Build(page, document, options);
+            return BuildLayers(page, document, layers, intent, options);
         }
 
-        var key = (page.Dictionary, options.MaxOperands, options.MaxSaveDepth, options.MaxNestingDepth);
+        var key = new DisplayListKey(page.Dictionary, layers, intent, options.MaxOperands, options.MaxSaveDepth, options.MaxNestingDepth);
         if (document.Caches.DisplayLists.TryGet(key, out DisplayListEntry? cached))
         {
             return cached.List;
         }
 
         long epoch = CosMutation.Epoch;
-        DisplayList list = Build(page, document, options);
+        DisplayList list = BuildLayers(page, document, layers, intent, options);
         if (document.Caches.DisplayLists.Budget > 0)
         {
             document.Caches.DisplayLists.Add(key, new DisplayListEntry(epoch, list));
@@ -36,4 +39,9 @@ internal sealed partial class DisplayListBuilder
 
         return list;
     }
+
+    private static DisplayList BuildLayers(PdfPage page, PdfDocument document, DisplayLayers layers, DisplayIntent intent, ContentOptions options) =>
+        layers == DisplayLayers.Content && intent == DisplayIntent.View
+            ? Build(page, document, options)
+            : Build(page, document, layers, intent, options);
 }

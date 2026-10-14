@@ -10,7 +10,11 @@ namespace Broadside.Security;
 /// <param name="Dictionary">The encryption dictionary (Tables 20 and 21), written unencrypted.</param>
 /// <param name="Filter">The crypt filter strings, streams and embedded files are encrypted with.</param>
 /// <param name="EncryptMetadata">Whether metadata streams are encrypted.</param>
-internal sealed record StandardEncryption(CosDictionary Dictionary, CryptFilter Filter, bool EncryptMetadata)
+/// <param name="KdfSalt">
+/// The 32-byte <c>KDFSalt</c> the integrity MAC derives its key with (ISO/TS 32004 §5.1.1, §6.4), or <see langword="null"/> when the
+/// file carries no MAC.
+/// </param>
+internal sealed record StandardEncryption(CosDictionary Dictionary, CryptFilter Filter, bool EncryptMetadata, byte[]? KdfSalt)
 {
     private static readonly CosName StandardFilterName = new("StdCF");
     private static readonly CosName O = new("O");
@@ -20,6 +24,8 @@ internal sealed record StandardEncryption(CosDictionary Dictionary, CryptFilter 
     private static readonly CosName Perms = new("Perms");
     private static readonly CosName AuthEvent = new("AuthEvent");
     private static readonly CosName DocOpen = new("DocOpen");
+    private static readonly CosName AESV4 = new("AESV4");
+    private static readonly CosName KdfSaltKey = new("KDFSalt");
 
     /// <summary>
     /// The bits of <c>P</c> a writer sets whatever the permissions: 7 and 8 and 13 to 32 (reserved, 1; bit 13 set means no integrity
@@ -27,21 +33,38 @@ internal sealed record StandardEncryption(CosDictionary Dictionary, CryptFilter 
     /// </summary>
     private const uint ReservedPermissionBits = 0xFFFF_F2C0;
 
+    /// <summary>Bit 13 of <c>P</c>: when clear, a PDF MAC token is required in every revision (ISO/TS 32004 §5.1.2, Table 3).</summary>
+    private const uint NoIntegrityCodeRequiredBit = 1 << 12;
+
     /// <summary>Creates the encryption <paramref name="options"/> describe, with a new file encryption key.</summary>
     /// <param name="options">The passwords, permissions, algorithm and metadata choice.</param>
     /// <param name="documentId">The first file identifier the file is written with (Algorithms 2 and 5 hash it for revisions 3 and 4).</param>
     /// <returns>The encryption.</returns>
-    /// <exception cref="ArgumentException">A password the algorithm cannot encode, or RC4 without metadata encryption.</exception>
+    /// <exception cref="ArgumentException">
+    /// A password the algorithm cannot encode, RC4 without metadata encryption, or an integrity MAC with an algorithm older than
+    /// <c>V</c> 5.
+    /// </exception>
     /// <remarks>
     /// ISO 32000-2 §7.6.4.4.7-§7.6.4.4.9 (Algorithms 8, 9 and 10, revision 6) and §7.6.4.3.2, §7.6.4.4.2 and §7.6.4.4.4 (Algorithms
-    /// 2, 3 and 5, revisions 3 and 4).
+    /// 2, 3 and 5, revisions 3 and 4); ISO/TS 32003 §5.1 (revision 7: <c>V</c> 6, <c>AESV4</c>, the algorithms of revision 6);
+    /// ISO/TS 32004 §5.1 (<c>KDFSalt</c>, permission bit 13 clear when the file carries a MAC).
     /// </remarks>
     public static StandardEncryption Create(PdfEncryptionOptions options, ReadOnlySpan<byte> documentId)
     {
-        int permissions = unchecked((int)(ReservedPermissionBits | (uint)(options.Permissions & PdfPermissions.All)));
+        bool modern = options.Algorithm is PdfEncryptionAlgorithm.Aes256 or PdfEncryptionAlgorithm.Aes256Gcm;
+        if (options.IntegrityProtection && !modern)
+        {
+            throw new ArgumentException(
+                "An integrity MAC needs AES-256 or AES-GCM encryption: the AuthCode entry requires V 5 or later (ISO/TS 32004 §5.2.1, Table 5).",
+                nameof(options));
+        }
+
+        uint reserved = options.IntegrityProtection ? ReservedPermissionBits & ~NoIntegrityCodeRequiredBit : ReservedPermissionBits;
+        int permissions = unchecked((int)(reserved | (uint)(options.Permissions & PdfPermissions.All)));
         return options.Algorithm switch
         {
-            PdfEncryptionAlgorithm.Aes256 => CreateRevision6(options, permissions),
+            PdfEncryptionAlgorithm.Aes256 => CreateRevision6(options, permissions, gcm: false),
+            PdfEncryptionAlgorithm.Aes256Gcm => CreateRevision6(options, permissions, gcm: true),
             PdfEncryptionAlgorithm.Aes128 => CreateLegacy(options, permissions, documentId, revision: 4),
             _ when !options.EncryptMetadata => throw new ArgumentException(
                 "RC4 encryption (V 2) always encrypts metadata streams: EncryptMetadata is meaningful from V 4 (ISO 32000-2 §7.6.4.2, Table 21).",
@@ -50,8 +73,12 @@ internal sealed record StandardEncryption(CosDictionary Dictionary, CryptFilter 
         };
     }
 
-    /// <summary>Revision 6: a random 256-bit key, <c>U</c>/<c>UE</c> (Algorithm 8), <c>O</c>/<c>OE</c> (Algorithm 9), <c>Perms</c> (Algorithm 10).</summary>
-    private static StandardEncryption CreateRevision6(PdfEncryptionOptions options, int permissions)
+    /// <summary>
+    /// Revision 6, or with <paramref name="gcm"/> revision 7 (ISO/TS 32003 §5.1: the same password algorithms, <c>V</c> 6 and the
+    /// <c>AESV4</c> method): a random 256-bit key, <c>U</c>/<c>UE</c> (Algorithm 8), <c>O</c>/<c>OE</c> (Algorithm 9), <c>Perms</c>
+    /// (Algorithm 10), and a random <c>KDFSalt</c> when the file carries an integrity MAC.
+    /// </summary>
+    private static StandardEncryption CreateRevision6(PdfEncryptionOptions options, int permissions, bool gcm)
     {
         byte[] user = PasswordEncoding.EncodeUnicode(options.UserPassword, nameof(options));
         byte[] owner = PasswordEncoding.EncodeUnicode(options.OwnerPassword, nameof(options));
@@ -89,11 +116,22 @@ internal sealed record StandardEncryption(CosDictionary Dictionary, CryptFilter 
             aes.EncryptEcb(block, perms);
         }
 
-        CosDictionary dictionary = BuildDictionary(version: 5, revision: 6, keyLength: 256, KnownNames.AESV3, 32, permissions, o, u, options.EncryptMetadata);
+        CosDictionary dictionary = gcm
+            ? BuildDictionary(version: 6, revision: 7, keyLength: 256, AESV4, 32, permissions, o, u, options.EncryptMetadata)
+            : BuildDictionary(version: 5, revision: 6, keyLength: 256, KnownNames.AESV3, 32, permissions, o, u, options.EncryptMetadata);
         dictionary[OE] = Binary(oe);
         dictionary[UE] = Binary(ue);
         dictionary[Perms] = Binary(perms);
-        return new StandardEncryption(dictionary, new CryptFilter(StandardFilterName, CryptMethod.AesV3, fileKey), options.EncryptMetadata);
+        byte[]? kdfSalt = null;
+        if (options.IntegrityProtection)
+        {
+            // ISO/TS 32004 §5.1.1, Table 2: a 32-byte salt, a direct object, constant through every later update.
+            kdfSalt = RandomNumberGenerator.GetBytes(32);
+            dictionary[KdfSaltKey] = Binary((byte[])kdfSalt.Clone());
+        }
+
+        var filter = new CryptFilter(StandardFilterName, gcm ? CryptMethod.AesV4 : CryptMethod.AesV3, fileKey);
+        return new StandardEncryption(dictionary, filter, options.EncryptMetadata, kdfSalt);
     }
 
     /// <summary>Revisions 3 (RC4, <c>V</c> 2) and 4 (AES-128, <c>V</c> 4), 128-bit keys: <c>O</c> (Algorithm 3), the key (Algorithm 2), <c>U</c> (Algorithm 5).</summary>
@@ -140,7 +178,7 @@ internal sealed record StandardEncryption(CosDictionary Dictionary, CryptFilter 
             ? BuildDictionary(version: 4, revision: 4, keyLength: 128, KnownNames.AESV2, keyLength, permissions, o, u, encryptMetadata)
             : BuildDictionary(version: 2, revision: 3, keyLength: 128, method: null, keyLength, permissions, o, u, encryptMetadata: true);
         var filter = new CryptFilter(StandardFilterName, revision == 4 ? CryptMethod.AesV2 : CryptMethod.Rc4, fileKey);
-        return new StandardEncryption(dictionary, filter, encryptMetadata);
+        return new StandardEncryption(dictionary, filter, encryptMetadata, KdfSalt: null);
     }
 
     /// <summary>Algorithms 3 step g and 5 step e: 19 more RC4 passes, each with the key's bytes XORed with the pass number 1 to 19.</summary>

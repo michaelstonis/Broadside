@@ -32,7 +32,7 @@ public sealed partial class DisplayList
     {
         long bytes = SizeOf(_operations) + SizeOf(_verbs) + SizeOf(_points) + SizeOf(_paths) + SizeOf(_colors) + SizeOf(_components)
             + SizeOf(_transforms) + SizeOf(Strokes) + SizeOf(Dashes) + SizeOf(Images) + SizeOf(ImagePaints) + SizeOf(GlyphRuns)
-            + SizeOf(Glyphs) + SizeOf(ShadingPaints) + SizeOf(ImageMasks);
+            + SizeOf(Glyphs) + SizeOf(ShadingPaints) + SizeOf(ImageMasks) + SizeOf(Compositings) + SizeOf(Annotations);
         foreach (DisplayImage image in Images)
         {
             bytes += image.RetainedBytes;

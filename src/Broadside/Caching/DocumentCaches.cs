@@ -38,8 +38,8 @@ internal sealed class DocumentCaches(CacheBudgets budgets)
     /// <summary>Gets the glyph outlines, keyed by the font program and glyph id.</summary>
     public ByteBudgetCache<(FontProgram Program, int GlyphId), GlyphOutlineEntry> Glyphs { get; } = new(budgets.Glyphs);
 
-    /// <summary>Gets the display lists, keyed by the page object and the content limits they were built with.</summary>
-    public ByteBudgetCache<(CosDictionary Page, int MaxOperands, int MaxSaveDepth, int MaxNestingDepth), DisplayListEntry> DisplayLists { get; } = new(budgets.DisplayLists);
+    /// <summary>Gets the display lists, keyed by the page object, the layers and intent, and the content limits they were built with.</summary>
+    public ByteBudgetCache<DisplayListKey, DisplayListEntry> DisplayLists { get; } = new(budgets.DisplayLists);
 
     /// <summary>Returns every cache's counters.</summary>
     /// <returns>The counters.</returns>

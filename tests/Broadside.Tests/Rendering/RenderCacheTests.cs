@@ -75,6 +75,24 @@ public sealed class RenderCacheTests
     }
 
     [Fact]
+    public void Lists_of_other_layers_and_intents_are_cached_apart_from_the_content_list()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("annotations-appearance.pdf"));
+        PdfPage page = document.Pages[0];
+
+        DisplayList content = page.CreateDisplayList();
+        DisplayList all = page.CreateDisplayList(DisplayLayers.All);
+        DisplayList print = page.CreateDisplayList(DisplayLayers.All, DisplayIntent.Print, new ContentOptions());
+
+        Assert.Same(content, page.CreateDisplayList(DisplayLayers.Content));
+        Assert.NotSame(content, all);
+        Assert.NotSame(all, print);
+        Assert.Same(all, page.CreateDisplayList(DisplayLayers.All));
+        Assert.Same(print, page.CreateDisplayList(DisplayLayers.All, DisplayIntent.Print, new ContentOptions()));
+        Assert.Equal(3, document.CacheStatistics.DisplayLists.Count);
+    }
+
+    [Fact]
     public void An_image_xobject_is_decoded_once_for_every_list_that_paints_it()
     {
         var counting = new CountingFlateFilter();

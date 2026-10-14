@@ -43,6 +43,15 @@ internal enum DisplayOperationKind : byte
 
     /// <summary><see cref="IRenderingBackend.FillImageMask"/>; <see cref="DisplayOperation.First"/> indexes the image masks, <see cref="DisplayOperation.Second"/> the colours.</summary>
     FillImageMask,
+
+    /// <summary><see cref="IRenderingBackend.SetCompositing"/>; <see cref="DisplayOperation.First"/> indexes the compositing table.</summary>
+    SetCompositing,
+
+    /// <summary><see cref="IRenderingBackend.BeginAnnotation"/>; <see cref="DisplayOperation.First"/> indexes the annotations.</summary>
+    BeginAnnotation,
+
+    /// <summary><see cref="IRenderingBackend.EndAnnotation"/>.</summary>
+    EndAnnotation,
 }
 
 /// <summary>One record of a display list: a kind and up to two indexes into the list's tables, 16 bytes.</summary>
@@ -94,3 +103,10 @@ internal readonly record struct DisplayShadingPaint(
     bool PaintsBackground,
     PdfDefaultColorSpaces DefaultColorSpaces,
     ColorConversion Conversion);
+
+/// <summary>The alpha constants and blend mode a display list sets with <see cref="DisplayOperationKind.SetCompositing"/>.</summary>
+internal readonly record struct DisplayCompositing(double StrokeAlpha, double FillAlpha, BlendMode BlendMode)
+{
+    /// <summary>The compositing a replay starts with: both alphas 1, Normal (ISO 32000-2 §8.4.1, Table 52).</summary>
+    public static DisplayCompositing Initial => new(1, 1, BlendMode.Normal);
+}
