@@ -47,6 +47,14 @@ public sealed partial class PdfDocument
     /// none): the page then keeps an empty one, so the node's annotations do not show on it instead.
     /// </para>
     /// <para>
+    /// In a tagged document, the structure tree keeps no reference to a removed annotation (§14.7.5.3, §14.7.5.4): its object
+    /// references (<c>OBJR</c>) leave their elements' <c>K</c>, and its <c>StructParent</c> entry leaves the parent tree. A drawn
+    /// annotation's appearance keeps its structure: it is drawn inside a marked-content sequence tagged with the element's type whose
+    /// <c>MCID</c> (one the page's content and tree do not use) takes the place of the element's first object reference to it
+    /// (§14.7.5.2). The catalog's permissions (<c>Perms</c>, §12.8.6) lose the <c>DocMDP</c> entry naming a removed signature field's
+    /// signature, and go when nothing else is left in them.
+    /// </para>
+    /// <para>
     /// Removed annotations and the form's fields stay objects of the document until a save with
     /// <see cref="PdfSaveOptions.RemoveUnreachableObjects"/> drops them. NoZoom and NoRotate cannot be kept in page content: the
     /// appearance is placed as at 100% zoom on an unrotated page. A mutation: no read may run concurrently with it.

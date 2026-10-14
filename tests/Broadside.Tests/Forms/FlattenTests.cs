@@ -1,9 +1,12 @@
 using System.Globalization;
 using System.Text;
 using Broadside.Annotations;
+using Broadside.Content;
 using Broadside.Diagnostics;
 using Broadside.Forms;
+using Broadside.Graphics;
 using Broadside.Objects;
+using Broadside.Structure;
 using Broadside.Tests.Document;
 using Broadside.Tests.Writing;
 using Broadside.TestSupport;
@@ -18,6 +21,7 @@ namespace Broadside.Tests.Forms;
 public sealed class FlattenTests
 {
     private static readonly CosName F = new("F");
+    private static readonly CosName Perms = new("Perms");
     private static readonly PdfRectangle NameRect = new(50, 700, 250, 720);
 
     [Fact]
@@ -286,6 +290,130 @@ public sealed class FlattenTests
         AssertSameRender(original, full, 1);
     }
 
+    [Fact]
+    public void Flattening_a_tagged_form_ties_each_drawn_field_to_the_element_that_held_its_widget_and_nothing_refers_to_a_removed_widget()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("acroform-fields.pdf"));
+        PdfStructureElement body = document.CreateStructureTree().AddElement(new PdfStructureType("Document", PdfStructureNamespace.Pdf17));
+        int widgets = 0;
+        foreach (PdfPage page in document.Pages)
+        {
+            foreach (PdfAnnotation widget in page.Annotations)
+            {
+                PdfStructureElement field = body.AddElement(new PdfStructureType("Form", PdfStructureNamespace.Pdf17));
+                field.Title = widget.Rect == NameRect ? "name" : widget.Rect.Width == 0 ? "undrawn" : "other";
+                field.AddObjectReference(widget.Reference!, page);
+                widgets++;
+            }
+        }
+
+        Assert.True(document.Flatten());
+        byte[] flattened = Save(document);
+
+        using PdfDocument reopened = PdfDocument.Open(flattened);
+        PdfStructureTreeRoot tree = reopened.StructureTree!;
+        Assert.Equal(widgets + 1, tree.Elements.Count);
+        Assert.All(tree.Elements, element => Assert.DoesNotContain(element.Children, item => item is PdfObjectReference));
+        Assert.All(tree.ParentTree!, entry => Assert.IsType<CosArray>(reopened.Resolve(entry.Value)));
+
+        // The name field's appearance is now page content, marked as a content item of the element that held the widget.
+        PdfStructureElement name = Assert.Single(tree.Elements, element => element.Title == "name");
+        PdfMarkedContentReference item = Assert.IsType<PdfMarkedContentReference>(Assert.Single(name.Children));
+        Assert.Same(reopened.Pages[0].Dictionary, item.Page!.Dictionary);
+        Assert.Equal(name, tree.FindElement(reopened.Pages[0], item.Mcid));
+        var owners = new GlyphOwners();
+        reopened.Pages[0].ProcessContent(owners);
+        PdfStructureElement?[] ada = [.. owners.Glyphs.Where(glyph => Inside(NameRect, glyph.Origin)).Select(glyph => glyph.Owner)];
+        Assert.Equal(3, ada.Length);
+        Assert.All(ada, owner => Assert.Equal(name, owner));
+
+        // Text extraction (#185) ties the same glyphs to the Form element.
+        TextGlyph[] extracted = [.. reopened.Pages[0].ExtractText().Glyphs.Where(glyph => Inside(NameRect, glyph.Origin))];
+        Assert.Equal(3, extracted.Length);
+        Assert.All(extracted, glyph => Assert.Equal(name, glyph.StructureElement));
+        Assert.Equal("Form", name.StructureType!.Value);
+
+        // Every drawn field kept its element; the undrawn signature's element is left with nothing; the structure reads back with
+        // nothing to repair.
+        Assert.Equal(10, tree.Elements.Count(element => element.Title == "other"));
+        Assert.All(tree.Elements.Where(element => element.Title == "other"), element => Assert.IsType<PdfMarkedContentReference>(Assert.Single(element.Children)));
+        Assert.Empty(Assert.Single(tree.Elements, element => element.Title == "undrawn").Children);
+        Assert.DoesNotContain(reopened.Diagnostics, diagnostic => diagnostic.Severity != DiagnosticSeverity.Information);
+        (int exitCode, string output) = ExternalTool.Run("qpdf", flattened, "--check");
+        Assert.True(exitCode == 0, output);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Flattening_the_link_of_tagged_structure_pdf_leaves_its_paragraph_no_object_reference_and_the_parent_tree_no_entry_for_it(bool withAppearance)
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("tagged-structure.pdf"));
+        PdfAnnotation link = Assert.Single(document.Pages[0].Annotations);
+        if (withAppearance)
+        {
+            var box = new CosArray([new CosInteger(0), new CosInteger(0), new CosInteger(168), new CosInteger(16)]);
+            CosReference appearance = document.AddObject(new CosStream(
+                new CosDictionary { [KnownNames.Type] = new CosName("XObject"), [new CosName("Subtype")] = new CosName("Form"), [new CosName("BBox")] = box },
+                "0 0 1 rg 0 1 168 1 re f\n"u8.ToArray()));
+            link.Dictionary[new CosName("AP")] = new CosDictionary { [new CosName("N")] = appearance };
+        }
+
+        Assert.True(document.Flatten(new PdfFlattenOptions().WithAnnotations(true)));
+        byte[] flattened = Save(document);
+
+        using PdfDocument reopened = PdfDocument.Open(flattened);
+        PdfStructureTreeRoot tree = reopened.StructureTree!;
+        PdfStructureElement paragraph = tree.FindElement(reopened.Pages[0], 1)!;
+        Assert.Equal("Para", paragraph.StructureType!.Value);
+        Assert.DoesNotContain(paragraph.Children, item => item is PdfObjectReference);
+        Assert.False(tree.ParentTree!.ContainsKey(1));
+
+        // Drawn, the link's appearance is the paragraph's next content item, where its object reference was; else it is gone.
+        int[] mcids = [.. paragraph.Children.OfType<PdfMarkedContentReference>().Select(item => item.Mcid)];
+        Assert.Equal(withAppearance ? [1, 10] : [1], mcids);
+        Assert.Equal(withAppearance ? paragraph : null, tree.FindElement(reopened.Pages[0], 10));
+        Assert.DoesNotContain(reopened.Diagnostics, diagnostic => diagnostic.Severity != DiagnosticSeverity.Information);
+        (int exitCode, string output) = ExternalTool.Run("qpdf", flattened, "--check");
+        Assert.True(exitCode == 0, output);
+    }
+
+    [Fact]
+    public void Flattening_a_signed_form_leaves_no_permissions_entry_pointing_at_a_removed_signature()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("acroform-fields.pdf"));
+        Sign(document);
+        CosObject signature = ((PdfSignatureField)document.AcroForm!.FindField("sig")!).Dictionary[new CosName("V")];
+        // A usage rights signature is not a field's value (§12.8.1): flattening does not remove it.
+        var kept = new CosName("UR3");
+        CosReference usageRights = document.AddObject(new CosDictionary { [KnownNames.Type] = new CosName("Sig"), [new CosName("Filter")] = new CosName("Adobe.PPKLite") });
+        document.Catalog[Perms] = new CosDictionary { [new CosName("DocMDP")] = signature, [kept] = usageRights };
+
+        Assert.True(document.Flatten());
+
+        Assert.Equal([kept], Assert.IsType<CosDictionary>(document.Catalog[Perms]).Keys);
+        using PdfDocument reopened = PdfDocument.Open(Save(document));
+        Assert.Equal([kept], Assert.IsType<CosDictionary>(reopened.Resolve(reopened.Catalog[Perms])).Keys);
+    }
+
+    [Fact]
+    public void Flattening_a_form_signed_with_only_a_docmdp_permission_removes_the_catalog_permissions()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("acroform-fields.pdf"));
+        Sign(document);
+        CosObject signature = ((PdfSignatureField)document.AcroForm!.FindField("sig")!).Dictionary[new CosName("V")];
+        document.Catalog[Perms] = document.AddObject(new CosDictionary { [new CosName("DocMDP")] = signature });
+
+        Assert.True(document.Flatten());
+        byte[] flattened = Save(document);
+
+        Assert.False(document.Catalog.ContainsKey(Perms));
+        using PdfDocument reopened = PdfDocument.Open(flattened);
+        Assert.False(reopened.Catalog.ContainsKey(Perms));
+        (int exitCode, string output) = ExternalTool.Run("qpdf", flattened, "--check");
+        Assert.True(exitCode == 0, output);
+    }
+
     internal static byte[] Save(PdfDocument document) => Save(document, new PdfSaveOptions());
 
     internal static byte[] Save(PdfDocument document, PdfSaveOptions options)
@@ -349,6 +477,9 @@ public sealed class FlattenTests
     private static PdfAnnotation NameWidget(PdfDocument document) =>
         document.Pages[0].Annotations.Single(annotation => annotation.Kind == PdfAnnotationKind.Widget && annotation.Rect == NameRect);
 
+    private static bool Inside(PdfRectangle rect, PathPoint point) =>
+        point.X >= rect.Left && point.X <= rect.Right && point.Y >= rect.Bottom && point.Y <= rect.Top;
+
     /// <summary>The text of the glyphs the page's content shows with their origin inside <paramref name="rect"/>.</summary>
     private static string TextIn(PdfPage page, PdfRectangle rect)
     {
@@ -364,6 +495,27 @@ public sealed class FlattenTests
         (int exitCode, byte[] image, string error) = ExternalTool.RunBinary("pdftoppm", file, "-r", "72", "-f", number, "-l", number);
         Assert.True(exitCode == 0, error);
         return Pixmap.Parse(image);
+    }
+
+    /// <summary>
+    /// Records each glyph's origin in default user space and the structure element of the innermost page-content marked-content
+    /// sequence with an MCID it is shown in (§14.7.5.2), found through the parent tree (§14.7.5.4).
+    /// </summary>
+    private sealed class GlyphOwners : ContentProcessor
+    {
+        private readonly Stack<PdfStructureElement?> _owners = new([null]);
+
+        public List<(PathPoint Origin, PdfStructureElement? Owner)> Glyphs { get; } = [];
+
+        public override ContentEvents Events => ContentEvents.Glyphs | ContentEvents.Forms | ContentEvents.MarkedContent;
+
+        public override void BeginMarkedContent(in MarkedContentEvent mc, ContentContext context) =>
+            _owners.Push(mc.ContentStream is null && mc.Mcid is { } mcid ? context.FindStructureElement(mcid) : _owners.Peek());
+
+        public override void EndMarkedContent(in MarkedContentEvent mc, ContentContext context) => _owners.Pop();
+
+        public override void ShowGlyph(in GlyphEvent glyph, ContentContext context) =>
+            Glyphs.Add((glyph.Ctm.Transform(glyph.TextMatrix.E, glyph.TextMatrix.F), _owners.Peek()));
     }
 
     /// <summary>A binary PPM (P6) image as pdftoppm writes it.</summary>

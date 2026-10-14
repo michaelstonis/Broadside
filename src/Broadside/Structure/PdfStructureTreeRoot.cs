@@ -30,6 +30,9 @@ public sealed class PdfStructureTreeRoot
 
     internal PdfStructureTreeRoot(StructureContext context) => _context = context;
 
+    /// <summary>The structure state behind the view, for edits made by other parts of the library (flattening, issue #281).</summary>
+    internal StructureContext Context => _context;
+
     /// <summary>Gets the structure tree root dictionary.</summary>
     /// <remarks>ISO 32000-2 §14.7.2, Table 354.</remarks>
     public CosDictionary Dictionary => _context.Root;
