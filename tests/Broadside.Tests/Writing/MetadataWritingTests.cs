@@ -371,6 +371,82 @@ public sealed class MetadataWritingTests
         Assert.Empty(document.Diagnostics);
     }
 
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    public void A_save_that_raises_to_2_0_moves_the_deprecated_info_entries_to_a_new_packet(bool incremental, bool dating)
+    {
+        // info-dictionary.pdf is 1.7 with Title, Author and the other Table 349 entries in Info and no metadata stream. An associated
+        // file is PDF 2.0 (§14.13), so the save raises the document, and §14.3.3 then applies: the deprecated entries live in XMP.
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("info-dictionary.pdf"), Options);
+        document.AddAssociatedFile(document.Catalog, document.CreateEmbeddedFile("a.txt", "a"u8));
+
+        byte[] saved = Save(document, new PdfSaveOptions().WithIncrementalUpdate(incremental).WithUpdateModificationDate(dating));
+
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Equal(new PdfVersion(2, 0), reopened.Version);
+        CosDictionary info = reopened.Information!.Dictionary;
+        Assert.Equal(["CreationDate", "Department", "ModDate", "Printed"], info.Keys.Select(key => key.Value).Order(StringComparer.Ordinal));
+        Assert.Equal("D:20140314124211+01'00", reopened.Information.CreationDate!.Value.Text);
+        Assert.Equal(dating ? "D:20261012093015+02'00" : "D:20140924212303Z", reopened.Information.ModificationDate!.Value.Text);
+        XmpPacket packet = reopened.Metadata!.Packet!;
+        Assert.Equal("Broadside – Info", packet.Title);
+        Assert.Equal(["Ada Lovelace"], packet.Creators);
+        Assert.Equal("Document information", packet.Description);
+        Assert.Equal("info, metadata", packet.Keywords);
+        Assert.Equal("generate.py", packet.CreatorTool);
+        Assert.Equal("Broadside corpus", packet.Producer);
+        Assert.Equal("True", packet.Trapped);
+        Assert.Equal("application/pdf", packet.Format);
+        Assert.Equal("2014-03-14T12:42:11+01:00", packet.CreateDate!.Value.Text);
+        Assert.Equal(dating ? "2026-10-12T09:30:15+02:00" : "2014-09-24T21:23:03Z", packet.ModifyDate!.Value.Text);
+        Assert.Equal(Now, packet.MetadataDate!.Value.Value);
+        Assert.Equal("Broadside – Info", reopened.Properties.Title);
+        Assert.Equal("Ada Lovelace", reopened.Properties.Author);
+        Assert.Empty(reopened.Diagnostics);
+    }
+
+    [Fact]
+    public void A_raise_to_2_0_with_no_info_entry_to_move_and_no_dating_adds_no_packet()
+    {
+        // empty-page.pdf has neither Info nor a metadata stream; a PDF 2.0 document whose metadata nobody writes gets none either.
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("empty-page.pdf"), Options);
+        document.AddAssociatedFile(document.Catalog, document.CreateEmbeddedFile("a.txt", "a"u8));
+
+        byte[] saved = Save(document, new PdfSaveOptions().WithUpdateModificationDate(false));
+
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Equal(new PdfVersion(2, 0), reopened.Version);
+        Assert.Null(reopened.Metadata);
+        Assert.Null(reopened.Information);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void A_save_that_stays_below_2_0_keeps_the_info_entries_and_creates_no_packet(bool incremental)
+    {
+        // An embedded file without a relationship needs PDF 1.7 at most (§7.11.4, Table 43): the 1.7 document is not raised.
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("info-dictionary.pdf"), Options);
+        document.AddEmbeddedFile("a.txt", "a"u8);
+
+        byte[] saved = Save(document, new PdfSaveOptions().WithIncrementalUpdate(incremental));
+
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Equal(new PdfVersion(1, 7), reopened.Version);
+        Assert.Null(reopened.Metadata);
+        CosDictionary info = reopened.Information!.Dictionary;
+        Assert.Equal(
+            ["Author", "CreationDate", "Creator", "Department", "Keywords", "ModDate", "Printed", "Producer", "Subject", "Title", "Trapped"],
+            info.Keys.Select(key => key.Value).Order(StringComparer.Ordinal));
+        Assert.Equal("Broadside – Info", reopened.Information.Title);
+        Assert.Equal("Ada Lovelace", reopened.Information.Author);
+        Assert.Equal("D:20261012093015+02'00'", reopened.Information.ModificationDate!.Value.Text);
+        Assert.Empty(reopened.Diagnostics);
+    }
+
     [Fact]
     public void Strict_mode_refusing_the_raise_to_2_0_writes_nothing_and_leaves_the_version()
     {

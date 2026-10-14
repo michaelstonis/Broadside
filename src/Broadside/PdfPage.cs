@@ -181,7 +181,7 @@ public sealed class PdfPage
     /// <remarks>
     /// <para>
     /// ISO 32000-2 §7.7.3.3, Table 31 (<c>Annots</c>), and §12.5. The list is built on first use and rebuilt when the page's
-    /// <c>Annots</c> entry or array, or an annotation's <c>Subtype</c>, changes; each annotation is a live view over its dictionary, and the same dictionary always
+    /// <c>Annots</c> entry or array, or an annotation's <c>Subtype</c>, changes, or an object is added or removed (§7.3.10); each annotation is a live view over its dictionary, and the same dictionary always
     /// gives the same instance. An element that is not an annotation dictionary is skipped; one listed twice appears twice. An
     /// <c>Annots</c> entry on a page tree node above the page, which is not inheritable, is used as viewers use it.
     /// </para>
@@ -191,17 +191,19 @@ public sealed class PdfPage
     {
         get
         {
+            int objectsVersion = _document.ObjectsVersion;
             (CosObject? entry, bool inherited) = FindAnnots();
             var array = _document.Resolve(entry) as CosArray;
             AnnotationList? cached = _annotations;
-            if (cached is not null && ReferenceEquals(cached.Entry, entry) && ReferenceEquals(cached.Array, array) && cached.ArrayVersion == (array?.Version ?? 0)
+            if (cached is not null && cached.ObjectsVersion == objectsVersion && ReferenceEquals(cached.Entry, entry) && ReferenceEquals(cached.Array, array)
+                && cached.ArrayVersion == (array?.Version ?? 0)
                 && cached.Items.All(annotation => Equals(annotation.CreatedSubtype, PdfAnnotation.ReadSubtype(_document, annotation.Dictionary, out _))))
             {
                 return cached.Items;
             }
 
             IReadOnlyList<PdfAnnotation> items = _document.AnnotationIndex.Read(this, entry, inherited);
-            _annotations = new AnnotationList(entry, array, array?.Version ?? 0, items);
+            _annotations = new AnnotationList(entry, array, array?.Version ?? 0, objectsVersion, items);
             return items;
         }
     }
@@ -564,8 +566,11 @@ public sealed class PdfPage
 /// <param name="Reference">The node's reference, or <see langword="null"/> when its parent holds it directly.</param>
 internal sealed record PageTreeAncestor(CosDictionary Dictionary, PageTreeAncestor? Parent, CosReference? Reference);
 
-/// <summary>A page's annotation list and the <c>Annots</c> entry, array and array version it was built from.</summary>
-internal sealed record AnnotationList(CosObject? Entry, CosArray? Array, int ArrayVersion, IReadOnlyList<PdfAnnotation> Items);
+/// <summary>
+/// A page's annotation list and the <c>Annots</c> entry, array and array version it was built from, with the document's
+/// <c>ObjectsVersion</c> then (a removed annotation object leaves the array unchanged, §7.3.10).
+/// </summary>
+internal sealed record AnnotationList(CosObject? Entry, CosArray? Array, int ArrayVersion, int ObjectsVersion, IReadOnlyList<PdfAnnotation> Items);
 
 /// <summary>What reading a page attribute found.</summary>
 internal enum PageAttributeState : byte

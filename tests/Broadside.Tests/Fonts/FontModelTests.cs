@@ -44,6 +44,19 @@ public sealed class FontModelTests
         Assert.Empty(document.Diagnostics);
     }
 
+    [Fact]
+    public void A_widths_array_removed_as_an_object_is_seen_by_the_metrics_read_before()
+    {
+        using PdfDocument document = FontPdf.Open("<< /Type /Font /Subtype /Type1 /BaseFont /Plain /FirstChar 32 /LastChar 32 /Widths 5 0 R /FontDescriptor 6 0 R >>", "[ 187 ]", Descriptor);
+        PdfSimpleFont font = FontPdf.SimpleFont(document);
+        Assert.Equal(187, font.GetWidth(32));
+
+        // §7.3.10: Widths now resolves to null, so the descriptor's MissingWidth (0) applies (§9.6.2.1); the font dictionary is unchanged.
+        Assert.True(document.RemoveObject(new CosReference(5, 0)));
+
+        Assert.Equal(0, font.GetWidth(32));
+    }
+
     [Theory]
     [InlineData("<< /Type /Font /Subtype /CIDFontType2 /BaseFont /Helvetica >>", "FontSubtypeInvalid")]
     [InlineData("<< /Type /Font /BaseFont /Helvetica >>", "FontSubtypeInvalid")]

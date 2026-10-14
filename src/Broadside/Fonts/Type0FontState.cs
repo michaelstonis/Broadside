@@ -13,9 +13,13 @@ internal sealed class Type0FontState
 {
     private readonly CosObject[] _sources;
     private readonly int[] _versions;
+    private readonly PdfDocument _document;
+    private readonly int _objectsVersion;
 
-    private Type0FontState(CMap encoding, PdfCidFont? descendant, List<CosObject> sources)
+    private Type0FontState(CMap encoding, PdfCidFont? descendant, List<CosObject> sources, PdfDocument document, int objectsVersion)
     {
+        _document = document;
+        _objectsVersion = objectsVersion;
         Encoding = encoding;
         Descendant = descendant;
         _sources = [.. sources];
@@ -28,11 +32,16 @@ internal sealed class Type0FontState
     /// <summary>Gets the descendant CIDFont, or <see langword="null"/> when the font has none.</summary>
     public PdfCidFont? Descendant { get; }
 
-    /// <summary>Gets a value indicating whether no source has changed since the state was built.</summary>
+    /// <summary>Gets a value indicating whether no object was added or removed (§7.3.10) and no source has changed since the state was built.</summary>
     public bool IsCurrent
     {
         get
         {
+            if (_document.ObjectsVersion != _objectsVersion)
+            {
+                return false;
+            }
+
             for (int index = 0; index < _sources.Length; index++)
             {
                 if (VersionOf(_sources[index]) != _versions[index])
@@ -51,6 +60,7 @@ internal sealed class Type0FontState
     /// <returns>The state.</returns>
     public static Type0FontState Build(PdfType0Font font, Type0FontState? previous)
     {
+        int objectsVersion = font.Document.ObjectsVersion;
         var sources = new List<CosObject> { font.Dictionary };
         PdfCidFont? descendant = ReadDescendant(font, previous, sources);
         CMap encoding = ReadEncoding(font, sources, out bool standIn);
@@ -59,7 +69,7 @@ internal sealed class Type0FontState
             Check(font, encoding, standIn, descendant);
         }
 
-        return new Type0FontState(encoding, descendant, sources);
+        return new Type0FontState(encoding, descendant, sources, font.Document, objectsVersion);
     }
 
     private static int VersionOf(CosObject source) => source switch

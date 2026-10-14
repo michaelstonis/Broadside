@@ -613,8 +613,9 @@ public sealed partial class PdfDocument : IDisposable
     /// ISO 32000-2 §7.3.10 and §7.5.4. References to the object resolve to null from now on; remove them too, or they are written as
     /// references to a free object. A save writes the object's number as a free entry whose generation is one more than the
     /// object's, the generation a new object reusing the number would take (§7.5.6, H.7.4: an incremental update leaves the object's
-    /// old bytes in the file). Views read before the removal (the structure tree, the outline, text extraction's reading order) see
-    /// it at their next read (ADR 0004). A mutation: no read may run concurrently with it.
+    /// old bytes in the file). Views read before the removal (the structure tree, the outline, text extraction's reading order,
+    /// annotation lists, the form's fields, optional content, name and number trees, functions, colour converters, font metrics and
+    /// graphics state parameters) see it at their next read (ADR 0004). A mutation: no read may run concurrently with it.
     /// </remarks>
     public bool RemoveObject(CosReference reference)
     {
@@ -810,7 +811,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <returns>The reader; <see langword="null"/> when the root does not resolve to a dictionary.</returns>
     internal NameTreeReader? GetNameTreeReader(CosObject? root) =>
         ResolveTreeRoot(root, DiagnosticCodes.NameTreeNodeInvalid, "name tree") is { } node
-            ? _nameTrees.GetValue(node, dictionary => new NameTreeReader(dictionary, root as CosReference, Resolve, _diagnostics))
+            ? _nameTrees.GetValue(node, dictionary => new NameTreeReader(dictionary, root as CosReference, Resolve, _diagnostics, () => ObjectsVersion))
             : null;
 
     /// <summary>Returns the document's reader for the number tree rooted at <paramref name="root"/>, creating it on first use.</summary>
@@ -818,7 +819,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <returns>The reader; <see langword="null"/> when the root does not resolve to a dictionary.</returns>
     internal NumberTreeReader? GetNumberTreeReader(CosObject? root) =>
         ResolveTreeRoot(root, DiagnosticCodes.NumberTreeNodeInvalid, "number tree") is { } node
-            ? _numberTrees.GetValue(node, dictionary => new NumberTreeReader(dictionary, root as CosReference, Resolve, _diagnostics))
+            ? _numberTrees.GetValue(node, dictionary => new NumberTreeReader(dictionary, root as CosReference, Resolve, _diagnostics, () => ObjectsVersion))
             : null;
 
     /// <summary>Gets the diagnostics sink, for document-model views that report what they find on first read.</summary>
@@ -1274,12 +1275,12 @@ public sealed partial class PdfDocument : IDisposable
 
         bool changed = CompleteFontSubsets();
         changed |= DateModification(options);
-        FileWriter writer = ApplyVersionedSave(options, planned, changed);
 
-        // Issue #291: the dates written since the last save take the form of the version the save writes. Only Info entries the
-        // dating or a setter already changed are rewritten, so the plan already writes them and needs no third pass.
-        FormatDatesFor(writer.Version > Version ? writer.Version : Version);
-        return writer;
+        // Issues #291 and #301: the metadata takes the layout and date form of the version the save writes, read before the
+        // incremental update's catalog Version below changes it. A raise to 2.0 moves the deprecated Info entries to the XMP packet
+        // (§14.3.3); it only moves metadata the document has, so it adds no versioned feature and the version decided stands.
+        changed |= LayOutMetadataFor(Version, planned.Needed);
+        return ApplyVersionedSave(options, planned, changed);
     }
 
     /// <summary>
@@ -1316,9 +1317,12 @@ public sealed partial class PdfDocument : IDisposable
     /// leads the cross-reference information, its revision is added, and the objects it wrote are no longer dirty. A full save
     /// changes nothing: the document keeps reading the file it was opened from.
     /// </summary>
-    private void Rebase(FileWriter writer)
+    private void Rebase(FileWriter writer) => Rebase(writer.Update);
+
+    /// <summary>As <see cref="Rebase(FileWriter)"/>, for an update whose bytes were completed after writing (a signature, issue #193).</summary>
+    private void Rebase(UpdateResult? update)
     {
-        if (writer.Update is not { } update)
+        if (update is null)
         {
             return;
         }

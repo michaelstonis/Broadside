@@ -100,6 +100,21 @@ public sealed class FieldTreeTests
     }
 
     [Fact]
+    public void A_field_removed_as_an_object_leaves_the_fields_read_before()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("acroform-fields.pdf"));
+        PdfAcroForm form = document.AcroForm!;
+        CosReference submit = form.FindField("submit")!.Reference!;
+        Assert.Contains("submit", form.Fields.Select(field => field.FullyQualifiedName));
+
+        // §7.3.10: the unchanged Fields array's element now resolves to null.
+        Assert.True(document.RemoveObject(submit));
+
+        Assert.Equal(["name", "person", "agree", "color", "country", "toppings", "sig"], document.AcroForm!.Fields.Select(field => field.FullyQualifiedName));
+        Assert.Null(document.AcroForm.FindField("submit"));
+    }
+
+    [Fact]
     public void A_document_without_an_acroform_has_no_form_and_its_widgets_no_field()
     {
         using PdfDocument plain = PdfDocument.Open(Corpus.Path("empty-page.pdf"));
