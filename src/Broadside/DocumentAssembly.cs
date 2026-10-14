@@ -2,6 +2,7 @@ using System.Text;
 using Broadside.Annotations;
 using Broadside.Forms;
 using Broadside.Objects;
+using Broadside.Structure;
 using Broadside.Writing;
 
 namespace Broadside;
@@ -25,9 +26,9 @@ internal sealed class DocumentAssembly
     private static readonly CosName SubmitForm = new("SubmitForm");
     private static readonly CosName Hide = new("Hide");
 
-    /// <summary>Outline item entries the item's copy gets from its new place rather than from the source (Table 151), or not at all (<c>SE</c>).</summary>
+    /// <summary>Outline item entries the item's copy gets from its new place rather than from the source (Table 151).</summary>
     private static readonly HashSet<CosName> OutlineLinks =
-        [NavigationNames.Title, KnownNames.Parent, NavigationNames.First, NavigationNames.Last, NavigationNames.Next, Prev, Count, NavigationNames.SE];
+        [NavigationNames.Title, KnownNames.Parent, NavigationNames.First, NavigationNames.Last, NavigationNames.Next, Prev, Count];
 
     private readonly PdfDocument _source;
     private readonly PdfDocument _target;
@@ -36,6 +37,7 @@ internal sealed class DocumentAssembly
     private readonly bool _whole;
     private readonly PdfObjectCopier _copier;
     private readonly CosReference[] _pageCopies;
+    private readonly StructureAssembly _structure;
     private readonly Dictionary<string, CosString> _renamedStrings = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CosName> _renamedNames = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _renamedFields = new(StringComparer.Ordinal);
@@ -49,6 +51,7 @@ internal sealed class DocumentAssembly
         _whole = first == 0 && count == source.Pages.Count;
         _copier = new PdfObjectCopier(source, target);
         _pageCopies = new CosReference[count];
+        _structure = new StructureAssembly(source, target, _copier, first, count, _whole, _pageCopies);
     }
 
     /// <summary>Appends the pages and what belongs to them.</summary>
@@ -65,6 +68,7 @@ internal sealed class DocumentAssembly
         }
 
         List<Label>? labels = PlanLabels(_target.Pages.Count);
+        _structure.Plan();
         for (int index = 0; index < _count; index++)
         {
             _pageCopies[index] = _copier.CopyPage(_source.Pages[_first + index]);
@@ -79,6 +83,11 @@ internal sealed class DocumentAssembly
         {
             WriteLabels(labels);
         }
+
+        // After every copy, so every group the copied objects reach has its copy (§8.11.4, issue #307).
+        new OptionalContentAssembly(_source, _target, _copier, _whole).Run();
+
+        _structure.Finish();
     }
 
     private bool InRange(int? pageIndex) => pageIndex is { } index && index >= _first && index < _first + _count;
@@ -447,6 +456,17 @@ internal sealed class DocumentAssembly
                 continue;
             }
 
+            if (key.Equals(NavigationNames.SE))
+            {
+                // The item's structure element (§12.3.3, Table 151), when its copy is kept (issue #161).
+                if (_structure.MapElement(value) is { } element)
+                {
+                    copy[key] = element;
+                }
+
+                continue;
+            }
+
             if (key.Equals(NavigationNames.Dest))
             {
                 if (!dropTarget)
@@ -718,6 +738,14 @@ internal sealed class DocumentAssembly
     /// <summary>Carries the source form's form-wide entries (Table 224) the copied fields rely on into the target's form.</summary>
     private void CombineForms(CosDictionary sourceForm, CosDictionary targetForm, List<CosObject> copiedRoots, HashSet<CosDictionary> kept)
     {
+        // DR first: a font the target has a different one under the same name is added under a free name, which the copied DA
+        // strings then name (#308).
+        Dictionary<CosName, CosName> renamedFonts = CombineDefaultResources(sourceForm, targetForm);
+        if (renamedFonts.Count > 0)
+        {
+            RenameDefaultAppearanceFonts(copiedRoots, renamedFonts);
+        }
+
         // DA and Q are inherited by fields that do not set them (§12.7.4.3): when the target's differ, the copied roots get the source's.
         foreach (CosName key in (ReadOnlySpan<CosName>)[FormNames.DA, FormNames.Q])
         {
@@ -730,48 +758,17 @@ internal sealed class DocumentAssembly
             CosObject copied = _copier.Copy(value);
             if (!targetForm.TryGetValue(key, out CosObject? existing))
             {
-                targetForm[key] = copied;
-            }
-            else if (!Equals(_target.Resolve(existing), value))
-            {
-                foreach (CosObject root in copiedRoots)
-                {
-                    if (_target.Resolve(root) is CosDictionary field && !field.ContainsKey(key))
-                    {
-                        field[key] = copied;
-                    }
-                }
-            }
-        }
-
-        // DR: the resources the target lacks, by category and name; a name the target has keeps the target's resource.
-        if (_source.Resolve(sourceForm.GetValueOrDefault(FormNames.DR)) is CosDictionary sourceResources)
-        {
-            if (_target.Resolve(targetForm.GetValueOrDefault(FormNames.DR)) is not CosDictionary targetResources)
-            {
-                targetResources = new CosDictionary();
-                targetForm[FormNames.DR] = targetResources;
+                targetForm[key] = existing = Carried(value, copied, renamedFonts, fieldFonts: null);
             }
 
-            foreach ((CosName category, CosObject entries) in sourceResources)
+            CosObject current = _target.Resolve(existing);
+            foreach (CosObject root in copiedRoots)
             {
-                if (_source.Resolve(entries) is not CosDictionary sourceCategory)
+                if (_target.Resolve(root) is CosDictionary field && !field.ContainsKey(key)
+                    && Carried(value, copied, renamedFonts, FieldFonts(field, inherited: null)) is var carried
+                    && !Equals(current, carried))
                 {
-                    continue;
-                }
-
-                if (_target.Resolve(targetResources.GetValueOrDefault(category)) is not CosDictionary targetCategory)
-                {
-                    targetCategory = new CosDictionary();
-                    targetResources[category] = targetCategory;
-                }
-
-                foreach ((CosName name, CosObject resource) in sourceCategory)
-                {
-                    if (!targetCategory.ContainsKey(name))
-                    {
-                        targetCategory[name] = _copier.Copy(resource);
-                    }
+                    field[key] = carried;
                 }
             }
         }
@@ -798,6 +795,166 @@ internal sealed class DocumentAssembly
                     (targetOrder ??= TargetArray(targetForm, FormNames.CO)).Add(_copier.Copy(field));
                 }
             }
+        }
+    }
+
+    /// <summary>
+    /// A form-wide <c>DA</c> or <c>Q</c> as a copied field (whose own <c>DR</c> fonts are <paramref name="fieldFonts"/>) inherits it:
+    /// a <c>DA</c> naming a font that <paramref name="renamedFonts"/> renames, and that the field's own resources do not hold, names
+    /// the new name.
+    /// </summary>
+    private static CosObject Carried(CosObject value, CosObject copied, Dictionary<CosName, CosName> renamedFonts, CosDictionary? fieldFonts) =>
+        renamedFonts.Count > 0
+            && value is CosString appearance
+            && PdfDefaultAppearance.RenameFonts(appearance.Bytes, Renaming(renamedFonts, fieldFonts)) is { } renamed
+            ? new CosString(renamed)
+            : copied;
+
+    /// <summary>
+    /// The new name of a font a copied <c>DA</c> names: none when the nearest field-chain <c>DR</c> (<paramref name="fieldFonts"/>,
+    /// which readers search before the form's) holds it.
+    /// </summary>
+    private static Func<CosName, CosName?> Renaming(Dictionary<CosName, CosName> renamedFonts, CosDictionary? fieldFonts) =>
+        name => fieldFonts is not null && fieldFonts.ContainsKey(name) ? null : renamedFonts.GetValueOrDefault(name);
+
+    /// <summary>The <c>Font</c> subdictionary of a copied field's own <c>DR</c>, else <paramref name="inherited"/>.</summary>
+    private CosDictionary? FieldFonts(CosDictionary field, CosDictionary? inherited) =>
+        _target.Resolve(field.GetValueOrDefault(FormNames.DR)) is CosDictionary resources
+            && _target.Resolve(resources.GetValueOrDefault(Fonts.FontNames.Font)) is CosDictionary fonts
+            ? fonts
+            : inherited;
+
+    /// <summary>
+    /// Rewrites the <c>DA</c> of every node of the copied field trees (fields and widgets) whose font <paramref name="renamedFonts"/>
+    /// renames, through the default appearance tokenizer; the rest of each string is kept as written.
+    /// </summary>
+    private void RenameDefaultAppearanceFonts(List<CosObject> copiedRoots, Dictionary<CosName, CosName> renamedFonts)
+    {
+        var visited = new HashSet<CosDictionary>(ReferenceEqualityComparer.Instance);
+        var pending = new Stack<(CosObject Node, CosDictionary? Fonts)>();
+        foreach (CosObject root in copiedRoots)
+        {
+            pending.Push((root, null));
+        }
+
+        while (pending.TryPop(out (CosObject Node, CosDictionary? Fonts) next))
+        {
+            if (_target.Resolve(next.Node) is not CosDictionary node || !visited.Add(node))
+            {
+                continue;
+            }
+
+            CosDictionary? fonts = FieldFonts(node, next.Fonts);
+            if (_target.Resolve(node.GetValueOrDefault(FormNames.DA)) is CosString appearance
+                && PdfDefaultAppearance.RenameFonts(appearance.Bytes, Renaming(renamedFonts, fonts)) is { } renamed)
+            {
+                node[FormNames.DA] = new CosString(renamed);
+            }
+
+            if (_target.Resolve(node.GetValueOrDefault(FormNames.Kids)) is CosArray kids)
+            {
+                foreach (CosObject kid in kids)
+                {
+                    pending.Push((kid, fonts));
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// Adds the source form's default resources (<c>DR</c>) to the target's, by category and name, and returns the fonts renamed: a
+    /// name the target lacks is added as it is; a font under a name the target gives a different font is added under a free name
+    /// (<c>_1</c>, <c>_2</c>, … appended); any other resource under a name the target has keeps the target's.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.7.3, Table 224 (<c>DR</c>) and §12.7.4.3: a <c>DA</c> font names an entry of the <c>DR</c> <c>Font</c> subdictionary.</remarks>
+    private Dictionary<CosName, CosName> CombineDefaultResources(CosDictionary sourceForm, CosDictionary targetForm)
+    {
+        var renamedFonts = new Dictionary<CosName, CosName>();
+        if (_source.Resolve(sourceForm.GetValueOrDefault(FormNames.DR)) is CosDictionary sourceResources)
+        {
+            if (_target.Resolve(targetForm.GetValueOrDefault(FormNames.DR)) is not CosDictionary targetResources)
+            {
+                targetResources = new CosDictionary();
+                targetForm[FormNames.DR] = targetResources;
+            }
+
+            foreach ((CosName category, CosObject entries) in sourceResources)
+            {
+                if (_source.Resolve(entries) is not CosDictionary sourceCategory)
+                {
+                    continue;
+                }
+
+                if (_target.Resolve(targetResources.GetValueOrDefault(category)) is not CosDictionary targetCategory)
+                {
+                    targetCategory = new CosDictionary();
+                    targetResources[category] = targetCategory;
+                }
+
+                bool fonts = category.Equals(Fonts.FontNames.Font);
+                HashSet<string>? taken = null;
+                foreach ((CosName name, CosObject resource) in sourceCategory)
+                {
+                    if (!targetCategory.TryGetValue(name, out CosObject? existing))
+                    {
+                        targetCategory[name] = _copier.Copy(resource);
+                    }
+                    else if (fonts && !SameResource(resource, existing))
+                    {
+                        // Free in both dictionaries, so it takes neither a target font nor a source name added later.
+                        taken ??= [.. targetCategory.Select(entry => Key(entry.Key.Bytes)), .. sourceCategory.Select(entry => Key(entry.Key.Bytes))];
+                        var renamed = CosName.FromOwnedBytes(FreeName(name.Bytes, taken));
+                        targetCategory[renamed] = _copier.Copy(resource);
+                        renamedFonts[name] = renamed;
+                    }
+                }
+            }
+        }
+
+        return renamedFonts;
+    }
+
+    /// <summary>
+    /// Whether a source resource and a target resource are the same: equal structure (as <see cref="CosObject.DeepEquals"/>, stream
+    /// data compared as encoded) with references followed in each one's document. A pair of references met again compares equal, so
+    /// cycles end; too large or too deep a graph compares different, which only costs a copy.
+    /// </summary>
+    private bool SameResource(CosObject source, CosObject target)
+    {
+        const int maxDepth = 64;
+        var assumed = new HashSet<(CosReference, CosReference)>();
+        int budget = 10_000;
+        return Same(source, target, 0);
+
+        bool Same(CosObject left, CosObject right, int depth)
+        {
+            if (--budget < 0 || depth > maxDepth)
+            {
+                return false;
+            }
+
+            if (left is CosReference leftReference && right is CosReference rightReference && !assumed.Add((leftReference, rightReference)))
+            {
+                return true;
+            }
+
+            return (_source.Resolve(left), _target.Resolve(right)) switch
+            {
+                (CosArray a, CosArray b) => a.Count == b.Count && Enumerable.Range(0, a.Count).All(index => Same(a[index], b[index], depth + 1)),
+                (CosStream a, CosStream b) => SameDictionaries(a.Dictionary, b.Dictionary, depth, ignoreLength: true)
+                    && a.EncodedData.Span.SequenceEqual(b.EncodedData.Span),
+                (CosDictionary a, CosDictionary b) => SameDictionaries(a, b, depth, ignoreLength: false),
+                (CosArray or CosDictionary or CosStream, _) or (_, CosArray or CosDictionary or CosStream) => false,
+                (var a, var b) => a.Equals(b),
+            };
+        }
+
+        bool SameDictionaries(CosDictionary left, CosDictionary right, int depth, bool ignoreLength)
+        {
+            int Count(CosDictionary dictionary) => dictionary.Count - (ignoreLength && dictionary.ContainsKey(KnownNames.Length) ? 1 : 0);
+            return Count(left) == Count(right)
+                && left.All(entry => ignoreLength && entry.Key.Equals(KnownNames.Length)
+                    || right.TryGetValue(entry.Key, out CosObject? other) && Same(entry.Value, other, depth + 1));
         }
     }
 

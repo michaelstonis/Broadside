@@ -445,7 +445,7 @@ public sealed class TextExtractor : ContentProcessor
     /// §9.8.1 Table 120: Ascent and Descent, else the FontBBox, in glyph space (thousandths of text space); a Type 3 font's FontBBox
     /// through its FontMatrix (§9.6.4); else 0.8 and -0.2 as pdf.js and MuPDF do.
     /// </summary>
-    private static (double Descent, double Ascent) ReadExtent(PdfFont font)
+    internal static (double Descent, double Ascent) ReadExtent(PdfFont font)
     {
         if (font is PdfType3Font type3)
         {

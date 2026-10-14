@@ -116,10 +116,10 @@ public sealed class DisplayListImageTests
     }
 
     [Fact]
-    public void Each_list_decodes_its_images_afresh()
+    public void With_the_image_and_display_list_caches_off_each_list_decodes_its_images_afresh()
     {
         byte[] file = ContentSamples.OnePage(Encoding.ASCII.GetBytes("/Im0 Do"), "/XObject << /Im0 5 0 R >>", Checkerboard());
-        using PdfDocument document = PdfDocument.Open(file);
+        using PdfDocument document = PdfDocument.Open(file, new PdfOptions().WithImageCacheBudget(0).WithDisplayListCacheBudget(0));
         var first = new RecordingBackend();
         var second = new RecordingBackend();
 

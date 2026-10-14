@@ -44,12 +44,15 @@ public sealed class DisplayListTilingTests
     [Fact]
     public void A_cell_is_built_once_per_pattern_per_page_and_shared_by_every_paint_with_it()
     {
-        // Two fills and a stroke with P0, one fill with P1: two cells. A second list of the same page builds its own.
-        using PdfDocument document = PdfDocument.Open(Page(
-            "/Pattern << /P0 5 0 R /P1 6 0 R >>",
-            "/Pattern cs /P0 scn /Pattern CS /P0 SCN 0 0 10 10 re f 20 0 10 10 re f 40 0 m 50 0 l S /P1 scn 60 0 10 10 re f",
-            Cell("0 0 5 5 re f", "/PaintType 1 /TilingType 1 /BBox [0 0 5 5] /XStep 5 /YStep 5"),
-            Cell("0 0 2 2 re f", "/PaintType 1 /TilingType 1 /BBox [0 0 5 5] /XStep 5 /YStep 5")));
+        // Two fills and a stroke with P0, one fill with P1: two cells. A second list of the same page builds its own (with the
+        // display-list cache off, issue #103: the cache would hand back the first list).
+        using PdfDocument document = PdfDocument.Open(
+            Page(
+                "/Pattern << /P0 5 0 R /P1 6 0 R >>",
+                "/Pattern cs /P0 scn /Pattern CS /P0 SCN 0 0 10 10 re f 20 0 10 10 re f 40 0 m 50 0 l S /P1 scn 60 0 10 10 re f",
+                Cell("0 0 5 5 re f", "/PaintType 1 /TilingType 1 /BBox [0 0 5 5] /XStep 5 /YStep 5"),
+                Cell("0 0 2 2 re f", "/PaintType 1 /TilingType 1 /BBox [0 0 5 5] /XStep 5 /YStep 5")),
+            new PdfOptions().WithDisplayListCacheBudget(0));
         var recorder = new RecordingBackend();
 
         document.Pages[0].CreateDisplayList().Replay(recorder);

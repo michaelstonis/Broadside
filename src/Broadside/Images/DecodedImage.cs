@@ -127,6 +127,12 @@ public sealed class DecodedImage : IDisposable
 
     private byte[] Buffer => _buffer ?? throw new ObjectDisposedException(nameof(DecodedImage));
 
+    /// <summary>
+    /// Gets the bytes this image keeps: its sample buffer as rented (zero once disposed), its alpha image's, its ICC profile and its
+    /// palette; what a render cache charges for it (issue #103).
+    /// </summary>
+    internal long RetainedBytes => (_buffer?.Length ?? 0L) + (Alpha?.RetainedBytes ?? 0L) + IccProfile.Length + Palette.Length;
+
     /// <summary>Returns row <paramref name="y"/>: <see cref="Stride"/> bytes, top row first.</summary>
     /// <param name="y">The row, from 0 at the top (§8.9.4: image space has its origin at the upper-left corner).</param>
     /// <returns>The row's bytes.</returns>

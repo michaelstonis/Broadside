@@ -33,6 +33,18 @@ public sealed class PdfOptions
     /// <summary>The default of <see cref="MaxImagePixels"/>: 2^28 (268,435,456) pixels, a 16384 x 16384 image.</summary>
     public const long DefaultMaxImagePixels = 1L << 28;
 
+    /// <summary>The default of <see cref="ContentCacheBudget"/>: 32 MiB.</summary>
+    public const long DefaultContentCacheBudget = 32L << 20;
+
+    /// <summary>The default of <see cref="ImageCacheBudget"/>: 64 MiB.</summary>
+    public const long DefaultImageCacheBudget = 64L << 20;
+
+    /// <summary>The default of <see cref="GlyphCacheBudget"/>: 8 MiB.</summary>
+    public const long DefaultGlyphCacheBudget = 8L << 20;
+
+    /// <summary>The default of <see cref="DisplayListCacheBudget"/>: 32 MiB.</summary>
+    public const long DefaultDisplayListCacheBudget = 32L << 20;
+
     private readonly List<IStreamFilter> _filters = [];
     private readonly List<IStreamEncoder> _streamEncoders = [];
     private readonly List<ISecurityHandler> _securityHandlers = [];
@@ -43,6 +55,10 @@ public sealed class PdfOptions
     private int _rangeBlockSize = DefaultRangeBlockSize;
     private long _rangeCacheLimit = DefaultRangeCacheLimit;
     private long _maxImagePixels = DefaultMaxImagePixels;
+    private long _contentCacheBudget = DefaultContentCacheBudget;
+    private long _imageCacheBudget = DefaultImageCacheBudget;
+    private long _glyphCacheBudget = DefaultGlyphCacheBudget;
+    private long _displayListCacheBudget = DefaultDisplayListCacheBudget;
 
     /// <summary>Gets or sets how deviations from the specification are treated. The default is <see cref="PdfReadingMode.Lenient"/>.</summary>
     /// <remarks>ADR 0005.</remarks>
@@ -166,6 +182,132 @@ public sealed class PdfOptions
     public PdfOptions WithMaxImagePixels(long maxPixels)
     {
         MaxImagePixels = maxPixels;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the most bytes of decoded content streams (pages, form XObjects, tiling patterns, Type 3 glyphs) a document keeps
+    /// for its next content run; the least recently used are dropped beyond it and decoded again when needed. Zero keeps none. Default
+    /// 32 MiB.
+    /// </summary>
+    /// <remarks>
+    /// Spec #33 viewer capability 13; ISO 32000-2 §7.8.2 (content streams, decoded through their filters, §7.4). Observed through
+    /// <see cref="PdfDocument.CacheStatistics"/> (<see cref="PdfDocumentCacheStatistics.Content"/>). Changes nothing a run produces.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    public long ContentCacheBudget
+    {
+        get => _contentCacheBudget;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _contentCacheBudget = value;
+        }
+    }
+
+    /// <summary>Sets <see cref="ContentCacheBudget"/>.</summary>
+    /// <param name="budget">The most bytes of decoded content a document keeps; zero for none.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="budget"/> is negative.</exception>
+    /// <remarks>Spec #33 viewer capability 13; ISO 32000-2 §7.8.2.</remarks>
+    public PdfOptions WithContentCacheBudget(long budget)
+    {
+        ContentCacheBudget = budget;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the most bytes of decoded images (image XObjects with their masks, soft masks and colour tables, and stencil masks)
+    /// a document keeps for its next display lists; the least recently used are dropped beyond it and decoded again when painted. An
+    /// image larger than the budget is decoded for each list that paints it. Zero keeps none: each list decodes its own. Default
+    /// 64 MiB.
+    /// </summary>
+    /// <remarks>
+    /// Spec #33 viewer capability 13; ISO 32000-2 §8.9.5 (image XObjects), §8.9.6 and §11.6.5 (masks). Observed through
+    /// <see cref="PdfDocument.CacheStatistics"/> (<see cref="PdfDocumentCacheStatistics.Images"/>). A display list holds the images it
+    /// paints whatever this budget, so a list kept by the caller keeps its images alive after they leave the cache.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    public long ImageCacheBudget
+    {
+        get => _imageCacheBudget;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _imageCacheBudget = value;
+        }
+    }
+
+    /// <summary>Sets <see cref="ImageCacheBudget"/>.</summary>
+    /// <param name="budget">The most bytes of decoded images a document keeps; zero for none.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="budget"/> is negative.</exception>
+    /// <remarks>Spec #33 viewer capability 13; ISO 32000-2 §8.9.5.</remarks>
+    public PdfOptions WithImageCacheBudget(long budget)
+    {
+        ImageCacheBudget = budget;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the most bytes of glyph outlines a document keeps once read from its font programs; the least recently used are
+    /// dropped beyond it and read again when shown. Zero keeps none: each display list reads its own. Default 8 MiB.
+    /// </summary>
+    /// <remarks>
+    /// Spec #33 viewer capability 13; ISO 32000-2 §9.2.4 (glyph descriptions in font programs). Observed through
+    /// <see cref="PdfDocument.CacheStatistics"/> (<see cref="PdfDocumentCacheStatistics.Glyphs"/>).
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    public long GlyphCacheBudget
+    {
+        get => _glyphCacheBudget;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _glyphCacheBudget = value;
+        }
+    }
+
+    /// <summary>Sets <see cref="GlyphCacheBudget"/>.</summary>
+    /// <param name="budget">The most bytes of glyph outlines a document keeps; zero for none.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="budget"/> is negative.</exception>
+    /// <remarks>Spec #33 viewer capability 13; ISO 32000-2 §9.2.4.</remarks>
+    public PdfOptions WithGlyphCacheBudget(long budget)
+    {
+        GlyphCacheBudget = budget;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the most bytes of display lists a document keeps, so that rendering a page again (another zoom, another tile)
+    /// reuses its list while the document is unchanged; the least recently used are dropped beyond it. A list is charged its tables
+    /// and the images it holds. Zero keeps none: <see cref="PdfPage.CreateDisplayList()"/> builds a new list on every call. Default
+    /// 32 MiB.
+    /// </summary>
+    /// <remarks>
+    /// Spec #33 viewer capability 13, ADR 0006. Observed through <see cref="PdfDocument.CacheStatistics"/>
+    /// (<see cref="PdfDocumentCacheStatistics.DisplayLists"/>).
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    public long DisplayListCacheBudget
+    {
+        get => _displayListCacheBudget;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _displayListCacheBudget = value;
+        }
+    }
+
+    /// <summary>Sets <see cref="DisplayListCacheBudget"/>.</summary>
+    /// <param name="budget">The most bytes of display lists a document keeps; zero for none.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="budget"/> is negative.</exception>
+    /// <remarks>Spec #33 viewer capability 13, ADR 0006.</remarks>
+    public PdfOptions WithDisplayListCacheBudget(long budget)
+    {
+        DisplayListCacheBudget = budget;
         return this;
     }
 

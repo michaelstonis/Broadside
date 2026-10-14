@@ -1206,6 +1206,28 @@ def gen_text_render_modes() -> bytes:
     return simple_file(objects, binary=True)
 
 
+def gen_text_rotated() -> bytes:
+    """9.4.4 (the text rendering matrix) and 8.3.4: the embedded font of text-truetype-embedded.pdf at 24 pt, HI twice, rotated two
+    ways. Line 1 is rotated 30 degrees by the text matrix (Tm [0.866025 0.5 -0.5 0.866025 100 500]); line 2 is rotated 90 degrees
+    by the CTM (cm [0 1 -1 0 300 300]) with the text at the origin of the rotated space. Glyph boxes are rotated with the text."""
+    font, widths = minimal_truetype()
+    first, last = min(widths), max(widths)
+    w = b" ".join(b"%d" % widths[c] for c in range(first, last + 1))
+    content = (b"BT /F1 24 Tf 0.866025 0.5 -0.5 0.866025 100 500 Tm (HI) Tj ET\n"
+               b"q 0 1 -1 0 300 300 cm BT /F1 24 Tf (HI) Tj ET Q")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, font=5)),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Font /Subtype /TrueType /BaseFont /BroadsideMinimal /FirstChar %d /LastChar %d "
+            b"/Widths [%s] /Encoding /WinAnsiEncoding /FontDescriptor 6 0 R >>" % (first, last, w)),
+        (6, b"<< /Type /FontDescriptor /FontName /BroadsideMinimal /Flags 32 /FontBBox [0 0 700 700] "
+            b"/ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 200 /FontFile2 7 0 R >>"),
+        (7, stream(b"/Length1 %d" % len(font), font)),
+    ], binary=True)
+
+
 def codes_content(lines: list[tuple[str, bytes]]) -> bytes:
     """One text line per (font resource, codes); codes as a hexadecimal string so any byte can be shown."""
     out = b"BT /%s 24 Tf 72 700 Td <%s> Tj" % (lines[0][0].encode(), lines[0][1].hex().upper().encode())
@@ -2514,6 +2536,7 @@ def gen_annotations_link() -> bytes:
         (2, pages()),
         (3, page(extra=b" /Annots [4 0 R]")),
         (4, b"<< /Type /Annot /Subtype /Link /Rect [72 700 300 724] /Border [0 0 0] "
+            b"/QuadPoints [72 712 300 712 300 724 72 724 72 700 150 700 150 712 72 712] "
             b"/A << /S /URI /URI (https://example.com/) >> >>"),
     ])
 
@@ -3268,6 +3291,33 @@ def gen_optional_content() -> bytes:
         (12, b"<< /Type /Annot /Subtype /Square /Rect [100 100 200 200] /OC 7 0 R >>"),
     ])
 
+
+def gen_optional_content_pages() -> bytes:
+    """8.11.4: three pages, each using its own optional content group, for merging and splitting by page.
+    Page 1 draws a section /OC /base (Base), page 2 a section /OC /notes (Notes, OFF in D, with a Zoom usage),
+    page 3 has a Square annotation with /OC Draft; Unused is used by no page (OFF in D). D (8.11.4.3 Table 99)
+    carries Name, Order [Base [Notes Draft] [(Extras) Unused]] (Notes and Draft as Base's sublayers), RBGroups
+    [[Notes Draft]], Locked [Draft] and AS [View event, OCGs [Base Notes], Category [/Zoom]] (8.11.4.4 Table 101);
+    Configs has one alternate configuration (Review: BaseState OFF, ON [Notes Draft])."""
+    ocprops = (b" /OCProperties << /OCGs [9 0 R 10 0 R 11 0 R 12 0 R]"
+               b" /D << /Name (Layers) /OFF [10 0 R 12 0 R] /Order [9 0 R [10 0 R 11 0 R] [(Extras) 12 0 R]]"
+               b" /RBGroups [[10 0 R 11 0 R]] /Locked [11 0 R]"
+               b" /AS [<< /Event /View /OCGs [9 0 R 10 0 R] /Category [/Zoom] >>] >>"
+               b" /Configs [<< /Name (Review) /BaseState /OFF /ON [10 0 R 11 0 R] >>] >>")
+    return simple_file([
+        (1, catalog(ocprops)),
+        (2, pages([3, 5, 7])),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /Properties << /base 9 0 R >> >>")),
+        (4, stream(b"", b"/OC /base BDC 0 0 10 10 re f EMC\n")),
+        (5, page(contents=6, resources=False, extra=b" /Resources << /Properties << /notes 10 0 R >> >>")),
+        (6, stream(b"", b"/OC /notes BDC 20 0 10 10 re f EMC\n")),
+        (7, page(extra=b" /Annots [8 0 R]")),
+        (8, b"<< /Type /Annot /Subtype /Square /Rect [100 100 200 200] /OC 11 0 R >>"),
+        (9, b"<< /Type /OCG /Name (Base) >>"),
+        (10, b"<< /Type /OCG /Name (Notes) /Usage << /Zoom << /min 2 >> >> >>"),
+        (11, b"<< /Type /OCG /Name (Draft) >>"),
+        (12, b"<< /Type /OCG /Name (Unused) >>"),
+    ])
 
 def utf16_text(text: str) -> bytes:
     """7.9.2.2 text string as a hexadecimal string: FEFF byte order mark, then UTF-16BE."""
@@ -6350,6 +6400,7 @@ FILES = {
     "text-standard14.pdf": gen_text_standard14,
     "text-truetype-embedded.pdf": gen_text_truetype_embedded,
     "text-render-modes.pdf": gen_text_render_modes,
+    "text-rotated.pdf": gen_text_rotated,
     "text-standard14-differences.pdf": gen_text_standard14_differences,
     "text-standard14-winansi-quirks.pdf": gen_text_standard14_winansi_quirks,
     "text-standard14-macroman.pdf": gen_text_standard14_macroman,
@@ -6440,6 +6491,7 @@ FILES = {
     "outline-broken.pdf": gen_outline_broken,
     "functions.pdf": gen_functions,
     "optional-content.pdf": gen_optional_content,
+    "optional-content-pages.pdf": gen_optional_content_pages,
     "embedded-files.pdf": gen_embedded_files,
     "collection-portfolio.pdf": gen_collection_portfolio,
     "associated-files.pdf": gen_associated_files,
