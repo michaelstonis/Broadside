@@ -15,10 +15,11 @@ namespace Broadside.Content;
 [SuppressMessage("Performance", "CA1815:Override equals and operator equals on value types", Justification = "A record of interpreter output, never compared.")]
 public readonly struct TextClipGlyph
 {
-    internal TextClipGlyph(PdfFont font, uint characterCode, Matrix textMatrix, Matrix ctm)
+    internal TextClipGlyph(PdfFont font, uint characterCode, int codeLength, Matrix textMatrix, Matrix ctm)
     {
         Font = font;
         CharacterCode = characterCode;
+        CodeLength = codeLength;
         TextMatrix = textMatrix;
         Ctm = ctm;
     }
@@ -28,6 +29,9 @@ public readonly struct TextClipGlyph
 
     /// <summary>Gets the character code.</summary>
     public uint CharacterCode { get; }
+
+    /// <summary>Gets the number of bytes the code took in the shown string, so the glyph a composite font selects can be read again.</summary>
+    internal int CodeLength { get; }
 
     /// <summary>Gets the matrix from text space to user space for the glyph, as <see cref="GlyphEvent.TextMatrix"/>.</summary>
     public Matrix TextMatrix { get; }

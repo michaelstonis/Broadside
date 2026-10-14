@@ -61,10 +61,55 @@ public sealed class RasterizerAllocationTests
     [Theory]
     [InlineData(1)]
     [InlineData(4)]
+    public void Clipping_to_text_allocates_nothing_per_glyph_once_warm(double scale)
+    {
+        // More than 2,000 glyphs in the clipping modes 4 to 7, each text object's clip (an anti-aliased mask) painted through.
+        using PdfDocument document = PdfDocument.Open(TextSamples.Page(TextSamples.TextClipHeavy(2000)));
+        PdfPage page = document.Pages[0];
+        DisplayList list = page.CreateDisplayList();
+        RenderOptions options = new RenderOptions().WithScale(scale);
+        PixelSize size = options.GetPixelSize(page);
+        Matrix device = options.GetDeviceTransform(page);
+        using var bitmap = new Bitmap(size.Width, size.Height);
+        using var rasterizer = new SoftwareRasterizer();
+        Action render = () => rasterizer.Render(list, bitmap, device);
+
+        long allocated = Allocations.Measure(render, warmUpCalls: 3);
+
+        Assert.Equal(0, allocated);
+        Assert.Contains(bitmap.Pixels.ToArray(), value => value != 0);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(4)]
     public void Drawing_glyphs_allocates_nothing_per_glyph_once_warm(double scale)
     {
         // More than 2,000 glyphs filled, stroked and both, from outlines with lines and quadratic curves.
         using PdfDocument document = PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(2000)));
+        PdfPage page = document.Pages[0];
+        DisplayList list = page.CreateDisplayList();
+        RenderOptions options = new RenderOptions().WithScale(scale);
+        PixelSize size = options.GetPixelSize(page);
+        Matrix device = options.GetDeviceTransform(page);
+        using var bitmap = new Bitmap(size.Width, size.Height);
+        using var rasterizer = new SoftwareRasterizer();
+        Action render = () => rasterizer.Render(list, bitmap, device);
+
+        long allocated = Allocations.Measure(render, warmUpCalls: 3);
+
+        Assert.Equal(0, allocated);
+        Assert.Contains(bitmap.Pixels.ToArray(), value => value != 0);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(4)]
+    public void Drawing_type3_glyphs_allocates_nothing_per_glyph_once_warm(double scale)
+    {
+        // More than 2,000 Type 3 glyphs: d1 shapes and inline image masks in the text's colours, d0 glyphs filled and stroked in
+        // their own, and d1 glyphs painting a clipped form.
+        using PdfDocument document = PdfDocument.Open(Type3Samples.Type3Heavy(2000));
         PdfPage page = document.Pages[0];
         DisplayList list = page.CreateDisplayList();
         RenderOptions options = new RenderOptions().WithScale(scale);

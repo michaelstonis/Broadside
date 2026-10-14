@@ -16,3 +16,23 @@
     words HI glyphs 4+2
   line HII glyphs 6+3 quad (40, 40.4) (116.8, 40.4) (116.8, 88.4) (40, 88.4)
     words HII glyphs 6+3
+page 2: HI
+  H code 48/1 GlyphName font BroadsideMinimal 120 FillClip origin (30, 100) advance (96, 0) quad (30, 76) (126, 76) (126, 196) (30, 196)
+  I code 49/1 GlyphName font BroadsideMinimal 120 FillClip origin (126, 100) advance (48, 0) quad (126, 76) (174, 76) (174, 196) (126, 196)
+  line HI glyphs 0+2 quad (30, 76) (174, 76) (174, 196) (30, 196)
+    words HI glyphs 0+2
+page 3: HI
+  H code 48/1 GlyphName font BroadsideMinimal 120 StrokeClip origin (30, 100) advance (96, 0) quad (30, 76) (126, 76) (126, 196) (30, 196)
+  I code 49/1 GlyphName font BroadsideMinimal 120 StrokeClip origin (126, 100) advance (48, 0) quad (126, 76) (174, 76) (174, 196) (126, 196)
+  line HI glyphs 0+2 quad (30, 76) (174, 76) (174, 196) (30, 196)
+    words HI glyphs 0+2
+page 4: HI
+  H code 48/1 GlyphName font BroadsideMinimal 120 FillStrokeClip origin (30, 100) advance (96, 0) quad (30, 76) (126, 76) (126, 196) (30, 196)
+  I code 49/1 GlyphName font BroadsideMinimal 120 FillStrokeClip origin (126, 100) advance (48, 0) quad (126, 76) (174, 76) (174, 196) (126, 196)
+  line HI glyphs 0+2 quad (30, 76) (174, 76) (174, 196) (30, 196)
+    words HI glyphs 0+2
+page 5: HI
+  H code 48/1 GlyphName font BroadsideMinimal 120 Clip Invisible origin (30, 100) advance (96, 0) quad (30, 76) (126, 76) (126, 196) (30, 196)
+  I code 49/1 GlyphName font BroadsideMinimal 120 Clip Invisible origin (126, 100) advance (48, 0) quad (126, 76) (174, 76) (174, 196) (126, 196)
+  line HI glyphs 0+2 quad (30, 76) (174, 76) (174, 196) (30, 196)
+    words HI glyphs 0+2
