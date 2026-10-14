@@ -4,7 +4,7 @@
 
 | Job | Runs on | What it does |
 |---|---|---|
-| `build-test` | ubuntu, windows, macos | `dotnet build Broadside.slnx -c Release -warnaserror`, then `dotnet test Broadside.Core.slnf` with TRX reports uploaded as `test-results-<os>`. On Linux and Windows the CoreGraphics and Android backends drop out through the `BroadsideBuildPlatformBackends` gate; macOS installs the `macos ios maccatalyst android` workloads first and builds them. Linux also packs the core packages and uploads them as `packages`. |
+| `build-test` | ubuntu, windows, macos | `dotnet build Broadside.slnx -c Release -warnaserror`, then `dotnet test Broadside.Core.slnf` with TRX reports uploaded as `test-results-<os>`. On Linux and Windows the CoreGraphics and Android backends drop out through the `BroadsideBuildPlatformBackends` gate; macOS installs the `macos ios maccatalyst android` workloads first and builds them (the CoreGraphics package for macOS, iOS and Mac Catalyst), then also runs `tests/Broadside.Rendering.CoreGraphics.Tests`, the CoreGraphics backend's golden-image and allocation tests (issue #125). Linux also packs the core packages and uploads them as `packages`. |
 | `aot-smoke` | ubuntu, windows, macos | `dotnet publish tests/Broadside.Rendering.AotSmoke -c Release --use-current-runtime` (Native AOT, trimmed, trim and AOT warnings are errors), then runs the executable with `--require-aot`: it renders the rendering corpus files with the software rasterizer, compares every pixel with the reviewed snapshots of `Broadside.Rendering.Tests` and round-trips the PNG output (issue #95). |
 | `api-surface` | ubuntu (PRs only) | Writes the diff of every `src/**/PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt` against the base branch to the job summary. Never fails; the PublicApiAnalyzers already fail the build on an undeclared API change. |
 | `conformance-map` | ubuntu | `dotnet run --project tools/ConformanceCheck -- --root . --summary` into the job summary; fails on a `done` row without a test. Its steps are skipped, with a note in the summary, until `tools/ConformanceCheck` lands (issue #7). |
@@ -21,6 +21,14 @@ A newer push to the same PR or branch cancels the older run. NuGet packages are 
 | `corpus-gates` | ubuntu | Fetches every non-manual corpus with `tools/CorpusFetcher`, builds in Release, and runs `tests/Broadside.Tests` with `--filter-trait "Category=Corpus"` and `BROADSIDE_CORPUS_DIR` set: the open-and-walk gate (#47), the veraPDF agreement, the real-world font, image and colour sweeps, and the content interpreter gate (#80, one class per corpus, with its allowlist and snapshots). Uploads `artifacts/corpus-gate/*.json` (per-file counts, diagnostics, time and allocation) as `corpus-gate`. |
 
 The corpus tests skip when `corpus/` is absent, which is why `ci.yml` cannot catch a regression in them; this workflow is where they run.
+
+## `android.yml`: the Android backend on an emulator, weekly, on Android pull requests and the "Run workflow" button
+
+Runs Mondays 05:17 UTC, on pull requests that touch `src/Broadside.Rendering.Android/**`, the display list (`src/Broadside/Rendering/**`, `src/Broadside/Graphics/**`), the Android test projects, the golden-image harness, `tests/Golden/**`, `tests/Corpus/**` or the workflow itself, and on the "Run workflow" button (spec #33 open decision 9: emulators are too slow and flaky for every PR).
+
+| Job | Runs on | What it does |
+|---|---|---|
+| `emulator (API 35)` | ubuntu | Installs the `android` workload and the SDK packages it needs (`-t:InstallAndroidDependencies`), builds `tests/Broadside.Rendering.Android.Device` in Release for `android-x64` and the host project `tests/Broadside.Rendering.Android.Tests`, enables KVM, boots an x86_64 `google_apis` emulator with `reactivecircus/android-emulator-runner` and runs the host tests with `BROADSIDE_ANDROID_REQUIRED=1` (a missing device fails instead of skipping). The tests install the APK, run its instrumentation (render the path corpus files through `AndroidCanvasBackend`, measure warm replays), pull the pixels over adb and compare them with the golden images (issue #133). Uploads TRX as `android-test-results`, and on failure `tests/Golden/*.android.received.png` and `.diff.png` as `golden-images-android`. |
 
 ## `fuzz.yml`: real fuzzing, weekly and on the "Run workflow" button
 
@@ -50,7 +58,7 @@ Locally, `./check-docs.sh` runs the same build and checks. To preview with live 
 ## `release.yml`: tags `v*` and the "Run workflow" button
 
 1. `build-linux`: builds, tests and packs the core packages (`Broadside.Core.slnf`).
-2. `build-macos`: installs the workloads, builds and tests the full solution, packs it, and uploads only `Broadside.Rendering.CoreGraphics` and `Broadside.Rendering.Android`, so that every package comes from exactly one build.
+2. `build-macos`: installs the workloads, builds the full solution, tests `Broadside.Core.slnf` and the CoreGraphics backend, packs it, and uploads only `Broadside.Rendering.CoreGraphics` and `Broadside.Rendering.Android`, so that every package comes from exactly one build.
 3. `publish`: merges the two sets into the `packages` artifact. On a `v*` tag that is not a dry run it logs in to NuGet.org with trusted publishing, runs `dotnet nuget push --skip-duplicate`, and creates a GitHub release with generated notes and the packages attached (marked pre-release when the tag has a `-` suffix, e.g. `v0.1.0-preview.1`).
 
 MinVer derives the package version from the tag (`v1.2.3` → `1.2.3`); a dispatch run on a branch produces `0.1.0-preview.0.<height>`.

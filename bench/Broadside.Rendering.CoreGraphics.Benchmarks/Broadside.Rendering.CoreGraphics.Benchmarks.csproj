@@ -1,0 +1,44 @@
+<Project>
+
+  <!--
+    Benchmarks of the CoreGraphics backend (issue #125). A macOS app, so it lives beside bench/Broadside.Benchmarks (net10.0, which
+    cannot reference an Apple target framework) and imports the SDK under the same platform gate as
+    src/Broadside.Rendering.CoreGraphics (BroadsideBuildPlatformBackends). Benchmarks run in process: BenchmarkDotNet cannot generate
+    and build a child app bundle. Run it as tests/README.md ("Benchmarks") shows.
+  -->
+  <PropertyGroup Label="Platform gate">
+    <BroadsideBuildPlatformBackends Condition="'$(BroadsideBuildPlatformBackends)' == ''">$([MSBuild]::IsOSPlatform('OSX'))</BroadsideBuildPlatformBackends>
+  </PropertyGroup>
+
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" Condition="'$(BroadsideBuildPlatformBackends)' == 'true'" />
+
+  <PropertyGroup>
+    <TargetFramework>net10.0-macos</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Broadside.Benchmarks</RootNamespace>
+    <ApplicationId>dev.broadside.rendering.coregraphics.benchmarks</ApplicationId>
+    <!-- Run the bundle's executable in this terminal, not through `open`, so its output and exit code come back. -->
+    <RunWithOpen>false</RunWithOpen>
+    <!-- BenchmarkDotNet needs the benchmark assembly to be optimized; a Debug build is refused by its validator. -->
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Rendering.CoreGraphics/Broadside.Rendering.CoreGraphics.csproj" />
+    <PackageReference Include="BenchmarkDotNet" />
+    <!-- Shared corpus locator and content samples, linked as source so this project does not drag xunit and Verify in through Broadside.TestSupport. -->
+    <Compile Include="../../tests/Broadside.TestSupport/CorpusLocator.cs" Link="CorpusLocator.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/ContentSamples.cs" Link="ContentSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/ClipSamples.cs" Link="ClipSamples.cs" />
+  </ItemGroup>
+
+  <!-- No-op targets for a host that cannot build this project. The SDK, when imported below, replaces every one of them. -->
+  <Target Name="Restore" />
+  <Target Name="Build" />
+  <Target Name="Rebuild" />
+  <Target Name="Clean" />
+  <Target Name="Pack" />
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" Condition="'$(BroadsideBuildPlatformBackends)' == 'true'" />
+
+</Project>

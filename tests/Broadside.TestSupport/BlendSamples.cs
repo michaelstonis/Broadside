@@ -58,5 +58,45 @@ public static class BlendSamples
             "<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 150 0] /Extend [true true] /Function << /FunctionType 2 /Domain [0 1] /C0 [0 0.5 1] /C1 [1 0.5 0] /N 1 >> >>");
     }
 
+    /// <summary>
+    /// A 612 x 792 page for backends that draw only paths: a backdrop of 12-unit vertical stripes in six saturated colours, then a grid
+    /// of 4 × 8 cells, one per blend mode and alpha (each mode at alpha 1 and 0.5), each with a filled rectangle and a stroked diagonal
+    /// over it, so fills (ca) and strokes (CA) composite through every mode over several backdrop colours.
+    /// </summary>
+    /// <param name="modes">The blend mode names, at most 16; none means the 16 standard modes in table order.</param>
+    /// <returns>The file.</returns>
+    public static byte[] SolidGrid(params string[] modes)
+    {
+        modes = modes.Length == 0 ? Modes : modes;
+        const int columns = 4;
+        const int rows = 8;
+        const double width = 612.0 / columns;
+        const double height = 792.0 / rows;
+        string[] stripes = ["0.9 0.15 0.1", "0.15 0.65 0.2", "0.15 0.25 0.85", "0.95 0.8 0.1", "0.6 0.1 0.7", "0.1 0.7 0.75"];
+        var text = new StringBuilder();
+        for (int stripe = 0; stripe * 12 < 612; stripe++)
+        {
+            text.Append(Format("{0} rg {1} 0 12 792 re f\n", stripes[stripe % stripes.Length], stripe * 12));
+        }
+
+        for (int cell = 0; cell < modes.Length * 2; cell++)
+        {
+            double x = cell % columns * width;
+            double y = cell / columns * height;
+            text.Append(Format("q /G{0} gs 1 0 0 1 {1} {2} cm 0.9 0.3 0.6 rg 0.1 0.8 0.4 RG ", cell, x, y));
+            text.Append(Format("10 10 {0} {1} re f 8 w 5 5 m {2} {3} l S Q\n", width - 40, height - 20, width - 5, height - 5));
+        }
+
+        var states = new StringBuilder("/ExtGState <<");
+        for (int cell = 0; cell < modes.Length * 2; cell++)
+        {
+            string alpha = cell % 2 == 0 ? "1" : "0.5";
+            states.Append(Format(" /G{0} << /BM /{1} /ca {2} /CA {2} >>", cell, modes[cell / 2], alpha));
+        }
+
+        states.Append(" >>");
+        return ContentSamples.OnePage(Encoding.Latin1.GetBytes(text.ToString()), states.ToString());
+    }
+
     private static string Format(string format, params object[] values) => string.Format(CultureInfo.InvariantCulture, format, values);
 }
