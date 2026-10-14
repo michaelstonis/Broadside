@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Android backend's golden-image and allocation tests (issue #133). They run on the host: the Android Canvas only exists on a
+    device, so the tests install Broadside.Rendering.Android.Device on a device or emulator, run its instrumentation (which renders
+    the requested corpus pages through the backend and measures replay allocations there), pull the pixels back over adb and compare
+    them with the software rasterizer's golden images through the harness. Without adb, a device or the built APK every test skips;
+    set BROADSIDE_ANDROID_REQUIRED=1 (the emulator CI job does) to fail instead. Not in Broadside.Core.slnf: it needs the device app.
+  -->
+  <ItemGroup>
+    <ProjectReference Include="../Broadside.TestSupport/Broadside.TestSupport.csproj" />
+    <ProjectReference Include="../Broadside.GoldenImages/Broadside.GoldenImages.csproj" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Verify.XunitV3" />
+    <Compile Include="../Broadside.Rendering.Android.Device/DeviceProtocol.cs" Link="DeviceProtocol.cs" />
+  </ItemGroup>
+
+</Project>
