@@ -29,11 +29,20 @@ public sealed class ReplayAllocationTests
     public void Replaying_nested_clips_allocates_nothing_per_clip(ClipSampleKind kind) =>
         AssertReplayAllocatesNothing(ContentSamples.OnePage(ClipSamples.Grid(kind)), 1);
 
-    private static void AssertReplayAllocatesNothing(byte[] file, double scale)
+    [Fact]
+    public void Replaying_blend_modes_and_translucent_annotations_allocates_nothing_per_operation()
+    {
+        // ISO 32000-2 §11.3.5 and §11.6.4.4: every blend mode at two alphas; §12.5.5: annotations with transparency layers, NoZoom
+        // and NoRotate placement and widgets.
+        AssertReplayAllocatesNothing(BlendSamples.SolidGrid(), 1);
+        AssertReplayAllocatesNothing(AnnotationSamples.Grid(), 2, DisplayLayers.All);
+    }
+
+    private static void AssertReplayAllocatesNothing(byte[] file, double scale, DisplayLayers layers = DisplayLayers.Content)
     {
         using PdfDocument document = PdfDocument.Open(file);
         PdfPage page = document.Pages[0];
-        DisplayList list = page.CreateDisplayList();
+        DisplayList list = page.CreateDisplayList(layers);
         RenderOptions options = new RenderOptions().WithScale(scale);
         PixelSize size = options.GetPixelSize(page);
         Matrix device = options.GetDeviceTransform(page);

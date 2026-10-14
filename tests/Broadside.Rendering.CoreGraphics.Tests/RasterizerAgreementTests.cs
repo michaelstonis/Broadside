@@ -6,7 +6,9 @@ namespace Broadside.Rendering.CoreGraphics.Tests;
 
 /// <summary>
 /// Beyond the corpus: the CoreGraphics backend and the software rasterizer (the reference) render the same synthetic pages within
-/// the default golden-image threshold, through public API only.
+/// the default golden-image threshold, through public API only: clips, path edge cases, the 13 blend modes CoreGraphics defines as
+/// ISO 32000-2 §11.3.5 does at alpha 1 and 0.5 over solid backdrops (§11.6.4.4), and translucent, NoZoom and NoRotate annotations
+/// and widgets (§12.5.3, §12.5.5).
 /// </summary>
 /// <remarks>
 /// The dense stroke and path samples of the allocation tests are not compared: where pieces of one stroke overlap (dashes whose caps
@@ -32,12 +34,14 @@ public sealed class RasterizerAgreementTests
     }
 
     public static TheoryData<string> Pages() =>
-        ["clip-paths", "clip-rectangles", "clip-paths 2x", "edge-cases", "edge-cases 2x"];
+        ["clip-paths", "clip-rectangles", "clip-paths 2x", "edge-cases", "edge-cases 2x", "blend-modes", "annotations", "annotations 2x"];
 
     private static byte[] Create(string name) => name switch
     {
         "clip-paths" or "clip-paths 2x" => ContentSamples.OnePage(ClipSamples.Grid(ClipSampleKind.Paths)),
         "clip-rectangles" => ContentSamples.OnePage(ClipSamples.Grid(ClipSampleKind.Rectangles)),
+        "blend-modes" => BlendSamples.SolidGrid(CompositingTests.ExactModes),
+        "annotations" or "annotations 2x" => AnnotationSamples.Grid(),
         _ => ContentSamples.OnePage(Encoding.ASCII.GetBytes(EdgeCases)),
     };
 

@@ -19,7 +19,7 @@ namespace Broadside.Rendering.CoreGraphics;
 /// backend's lifetime, strokes through <see cref="CoreGraphicsStroker"/>'s kept arrays.
 /// </para>
 /// </remarks>
-internal sealed class CoreGraphicsBackend : IRenderingBackend
+internal sealed partial class CoreGraphicsBackend : IRenderingBackend
 {
     /// <summary>Mapped coordinates are kept within ±2^40 units, as the software rasterizer keeps its device coordinates.</summary>
     internal const double CoordinateLimit = 1099511627776.0;
@@ -28,9 +28,10 @@ internal sealed class CoreGraphicsBackend : IRenderingBackend
 
     private readonly nfloat[] _color = new nfloat[4];
     private readonly CoreGraphicsStroker _stroker = new();
-    private Matrix[] _stack = new Matrix[16];
+    private SavedState[] _stack = new SavedState[16];
     private int _depth;
     private Matrix _device;
+    private Matrix _ctm;
     private Matrix _toDevice;
     private CGContext? _context;
     private PdfDocument? _document;
@@ -46,8 +47,10 @@ internal sealed class CoreGraphicsBackend : IRenderingBackend
         _context = context;
         _document = list.Document;
         _device = device;
+        _ctm = Matrix.Identity;
         _toDevice = device;
         _depth = 0;
+        BeginCompositing();
         context.SaveState();
         try
         {
@@ -60,6 +63,7 @@ internal sealed class CoreGraphicsBackend : IRenderingBackend
         {
             for (; _depth > 0; _depth--)
             {
+                EndLayerAt(_depth);
                 context.RestoreState();
             }
 
@@ -79,7 +83,7 @@ internal sealed class CoreGraphicsBackend : IRenderingBackend
             Array.Resize(ref _stack, _stack.Length * 2);
         }
 
-        _stack[_depth++] = _toDevice;
+        _stack[_depth++] = new SavedState(_ctm, _toDevice, _compositing);
         _context!.SaveState();
     }
 
@@ -87,16 +91,23 @@ internal sealed class CoreGraphicsBackend : IRenderingBackend
     {
         if (_depth > 0)
         {
-            _toDevice = _stack[--_depth];
+            SavedState saved = _stack[--_depth];
+            _ctm = saved.Ctm;
+            _toDevice = saved.ToDevice;
+            _compositing = saved.Compositing;
             _context!.RestoreState();
         }
     }
 
-    public void SetTransform(in Matrix transform) => _toDevice = transform * _device;
+    public void SetTransform(in Matrix transform)
+    {
+        _ctm = transform;
+        _toDevice = transform * _device;
+    }
 
     public void FillPath(PathView path, FillRule rule, in DisplayColor color)
     {
-        if (path.IsEmpty || !TryLoadColor(color))
+        if (path.IsEmpty || _compositing.FillAlpha == 0 || !TryLoadColor(color, _compositing.FillAlpha))
         {
             return;
         }
@@ -117,7 +128,7 @@ internal sealed class CoreGraphicsBackend : IRenderingBackend
 
     public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
     {
-        if (path.IsEmpty || !TryLoadColor(color))
+        if (path.IsEmpty || _compositing.StrokeAlpha == 0 || !TryLoadColor(color, _compositing.StrokeAlpha))
         {
             return;
         }
@@ -174,8 +185,11 @@ internal sealed class CoreGraphicsBackend : IRenderingBackend
 
     private static nfloat Quantize(float value) => (nfloat)(MathF.Round(Math.Clamp(value, 0f, 1f) * 255f) / 255f);
 
-    /// <summary>Converts <paramref name="color"/> to sRGB into the colour buffer; false when it paints nothing (Separation None).</summary>
-    private bool TryLoadColor(in DisplayColor color)
+    /// <summary>
+    /// Converts <paramref name="color"/> to sRGB into the colour buffer, with <paramref name="alpha"/> (the constant alpha, 0 to 255) as
+    /// its alpha (§11.6.4.4); false when it paints nothing (Separation None).
+    /// </summary>
+    private bool TryLoadColor(in DisplayColor color, byte alpha)
     {
         if (_converter is null || !ReferenceEquals(_space, color.ColorSpace) || !ReferenceEquals(_defaults, color.DefaultColorSpaces) || _conversion != color.Conversion)
         {
@@ -197,7 +211,7 @@ internal sealed class CoreGraphicsBackend : IRenderingBackend
         _color[0] = Quantize(rgb[0]);
         _color[1] = Quantize(rgb[1]);
         _color[2] = Quantize(rgb[2]);
-        _color[3] = 1;
+        _color[3] = (nfloat)(alpha / 255.0);
         return true;
     }
 

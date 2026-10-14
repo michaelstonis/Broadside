@@ -1,3 +1,4 @@
+using Broadside.Diagnostics;
 using Broadside.Graphics;
 using CoreGraphics;
 
@@ -22,6 +23,13 @@ namespace Broadside.Rendering.CoreGraphics;
 /// The page mapping is the software rasterizer's (<see cref="RenderOptions.GetDeviceTransform"/>, <see cref="RenderOptions.GetPixelSize"/>),
 /// so both backends put every page on the same pixels. Images, shadings, glyph runs and stencil masks are not drawn by this backend
 /// yet (issues #126 and #127).
+/// </para>
+/// <para>
+/// Constant alpha (§11.6.4.4) is the paint colour's alpha and the blend mode (§11.3.5) the context's; CoreGraphics has all sixteen
+/// standard modes, but its ColorDodge, ColorBurn and SoftLight are other functions, reported in <see cref="Diagnostics"/>.
+/// Annotations and form fields (§12.5.5) are placed as the software rasterizer places them (NoZoom and NoRotate, §12.5.3), clipped
+/// to their rectangle and, when translucent or blending, drawn in a transparency layer composited with their opacity and blend
+/// mode. Transparency groups and soft masks are not drawn yet (#128).
 /// </para>
 /// <para>
 /// Reuse one instance for many renders: its working buffers are kept, so a warm replay allocates nothing per path, segment or
@@ -66,7 +74,7 @@ public sealed class CoreGraphicsRenderer : IDisposable
         }
 
         Matrix device = options.GetDeviceTransform(page);
-        DisplayList list = page.CreateDisplayList();
+        DisplayList list = page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions);
         target.SaveState();
         try
         {
@@ -101,8 +109,13 @@ public sealed class CoreGraphicsRenderer : IDisposable
         _backend.Replay(list, context, deviceTransform);
     }
 
+    /// <summary>Gets what the last render could not draw exactly as the file asks: one diagnostic per kind.</summary>
+    /// <remarks>ADR 0005: nothing is approximated silently. CoreGraphics' ColorDodge, ColorBurn and SoftLight are not ISO 32000-2 §11.3.5's.</remarks>
+    public IReadOnlyList<Diagnostic> Diagnostics => _backend.Diagnostics;
+
     /// <summary>Ends the renderer's use; it renders no more after this.</summary>
     public void Dispose() => _disposed = true;
 
     private static readonly CGColor White = new(1, 1, 1, 1);
+    private static readonly Content.ContentOptions DefaultContentOptions = new();
 }

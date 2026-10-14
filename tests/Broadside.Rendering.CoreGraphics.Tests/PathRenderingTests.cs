@@ -103,6 +103,20 @@ public sealed class PathRenderingTests
         Assert.Equal(clipBefore, context.GetClipBoundingBox());
     }
 
+    [Theory]
+    [MemberData(nameof(AnnotationPages))]
+    public void An_annotation_page_matches_its_golden_image(string fileName, int page)
+    {
+        using PdfDocument document = GoldenCorpus.Open(fileName);
+
+        GoldenImage render = BitmapRendering.Render(document.Pages[page], GoldenCorpus.CreateRenderOptions());
+
+        GoldenCorpus.AssertMatchesReference(Backend, fileName, page, render);
+    }
+
+    /// <summary>NoZoom and NoRotate annotations (ISO 32000-2 §12.5.3) on an upright and a rotated page, appearances of paths only.</summary>
+    public static TheoryData<string, int> AnnotationPages() => GoldenCorpus.PagesOf("annotations-nozoom.pdf");
+
     public static TheoryData<string, int> PathPages() =>
         GoldenCorpus.PagesOf("paths-fill-rules.pdf", "paths-strokes.pdf", "clipping-paths.pdf", "page-rotation.pdf");
 }
