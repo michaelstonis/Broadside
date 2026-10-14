@@ -4227,6 +4227,44 @@ def gen_pattern_in_form() -> bytes:
                     b"/Resources << >>", b"0 0.5 0 rg 0 0 10 10 re f"))])
 
 
+def gen_shading_radial_cases() -> bytes:
+    """8.7.4.5.4 Table 80 and Figures 34-36: radial shadings (red to blue, DeviceRGB) in six 180 x 180 cells, each painted
+    with sh inside a re W n clip, except the last, a shading pattern (8.7.4.1). Top row, left to right: A a sphere, the
+    starting circle a point inside the ending circle (Figure 35 left), with a Background (Table 77) that sh ignores; B a
+    sphere, the ending circle a point inside the starting circle (Figure 35 right); C an inner circle of radius 15 inside
+    the ending circle, extended at the larger end (Figure 36), so the whole cell is painted. Bottom row: D the starting
+    circle inside the ending circle and touching it at one point (|centre distance| = r1 - r0, so the quadratic in s is
+    linear); E circles touching from outside (|centre distance| = r0 + r1), extended at both ends (a cone, Figure 34);
+    F shading A as a shading pattern translated into the cell, its Background filling the cell outside the circles."""
+    cells = [(21, 591), (216, 591), (411, 591), (21, 396), (216, 396), (411, 396)]
+    function = b"/Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >>"
+
+    def radial(coords: str, extra: str = "") -> bytes:
+        return b"<< /ShadingType 3 /ColorSpace /DeviceRGB /Coords [%s] %s %s >>" % (
+            coords.encode(), function, extra.encode())
+
+    (ax, ay), (bx, by), (cx, cy), (dx, dy), (ex, ey), (fx, fy) = [(x + 90, y + 90) for x, y in cells]
+    shadings = [
+        radial(f"{ax - 25} {ay + 25} 0 {ax} {ay} 70", "/Background [0.8 0.8 0.8]"),
+        radial(f"{bx} {by} 70 {bx + 25} {by + 25} 0"),
+        radial(f"{cx} {cy} 15 {cx + 15} {cy} 50", "/Extend [false true]"),
+        radial(f"{dx - 30} {dy} 30 {dx} {dy} 60"),
+        radial(f"{ex - 45} {ey} 15 {ex + 15} {ey} 45", "/Extend [true true]"),
+    ]
+    content = b"".join(b"q %d %d 180 180 re W n /Sh%d sh Q\n" % (x, y, i) for i, (x, y) in enumerate(cells[:5]))
+    content += b"/Pattern cs /P0 scn %d %d 180 180 re f\n" % cells[5]
+    names = b" ".join(b"/Sh%d %d 0 R" % (i, 5 + i) for i in range(5))
+    resources = b" /Resources << /Shading << %s >> /Pattern << /P0 10 0 R >> >>" % names
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=resources)),
+        (4, stream(b"", content)),
+        *[(5 + i, shading) for i, shading in enumerate(shadings)],
+        (10, b"<< /Type /Pattern /PatternType 2 /Matrix [1 0 0 1 %d %d] /Shading 5 0 R >>" % (fx - ax, fy - ay)),
+    ], version="1.7", binary=True)
+
+
 def gen_pattern_recursive() -> bytes:
     """Broken (8.7.3.1): the tiling pattern's cell fills with the pattern itself, an endless recursion."""
     return pattern_page(
@@ -6172,6 +6210,7 @@ FILES = {
     "pattern-tiling-uncolored.pdf": gen_pattern_tiling_uncolored,
     "pattern-shading-axial.pdf": gen_pattern_shading,
     "pattern-in-form.pdf": gen_pattern_in_form,
+    "shading-radial-cases.pdf": gen_shading_radial_cases,
     "text-type3.pdf": gen_text_type3,
     "pattern-recursive.pdf": gen_pattern_recursive,
     "shading-mesh-truncated.pdf": gen_shading_mesh_truncated,

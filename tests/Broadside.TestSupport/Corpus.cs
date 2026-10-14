@@ -132,6 +132,7 @@ public static class Corpus
         "pattern-tiling-uncolored.pdf",
         "pattern-shading-axial.pdf",
         "pattern-in-form.pdf",
+        "shading-radial-cases.pdf",
         "text-type3.pdf",
         "ccitt-g3-1d.pdf",
         "ccitt-g3-1d-eol-align.pdf",

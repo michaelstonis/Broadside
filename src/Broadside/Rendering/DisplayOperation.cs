@@ -28,6 +28,18 @@ internal enum DisplayOperationKind : byte
 
     /// <summary><see cref="IRenderingBackend.DrawGlyphs"/>; <see cref="DisplayOperation.First"/> indexes the glyph runs.</summary>
     DrawGlyphs,
+
+    /// <summary><see cref="IRenderingBackend.DrawShading"/>; <see cref="DisplayOperation.First"/> indexes the shading paints.</summary>
+    DrawShading,
+
+    /// <summary><see cref="IRenderingBackend.FillPathWithShading"/>; <see cref="DisplayOperation.First"/> indexes the paths, <see cref="DisplayOperation.Second"/> the shading paints.</summary>
+    FillPathWithShading,
+
+    /// <summary>
+    /// <see cref="IRenderingBackend.StrokePathWithShading"/>; <see cref="DisplayOperation.First"/> indexes the paths,
+    /// <see cref="DisplayOperation.Second"/> the strokes, whose <see cref="DisplayStroke.ColorIndex"/> then indexes the shading paints.
+    /// </summary>
+    StrokePathWithShading,
 }
 
 /// <summary>One record of a display list: a kind and up to two indexes into the list's tables, 16 bytes.</summary>
@@ -71,3 +83,11 @@ internal readonly record struct DisplayGlyphRun(
     int GlyphCount,
     int FillColor,
     int Stroke);
+
+/// <summary>A shading paint in a display list: the shading, its target space, whether its Background is painted, and its conversion.</summary>
+internal readonly record struct DisplayShadingPaint(
+    PdfShading Shading,
+    Matrix Matrix,
+    bool PaintsBackground,
+    PdfDefaultColorSpaces DefaultColorSpaces,
+    ColorConversion Conversion);
