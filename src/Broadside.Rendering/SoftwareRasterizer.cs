@@ -24,6 +24,12 @@ namespace Broadside.Rendering;
 /// Every paint's coverage is multiplied by the clip's.
 /// </para>
 /// <para>
+/// Tiles and regions (spec #33 story 14): <see cref="RenderOptions.Region"/>, or a cached <see cref="DisplayList"/> rendered with
+/// <see cref="Render(DisplayList, Bitmap, in Matrix)"/> under the page's device transform moved by a tile's offset, draws only the
+/// paints whose bounds reach the bitmap. A tile has the pixels of the whole render at the same place: exactly where the arithmetic
+/// is exact, and otherwise within one level at a pixel whose coverage sits on a rounding boundary.
+/// </para>
+/// <para>
 /// Reuse one instance for many renders: its working buffers are pooled and kept, so a warm render allocates nothing per path, cell or
 /// scanline. An instance renders one page at a time; use one per thread to render in parallel (a document is safe for concurrent
 /// renders while nobody changes it).
@@ -37,6 +43,14 @@ namespace Broadside.Rendering;
 public sealed partial class SoftwareRasterizer : IDisposable
 {
     private static readonly RenderOptions DefaultOptions = new();
+    private static readonly Content.ContentOptions DefaultContentOptions = new();
+
+    /// <summary>
+    /// How many device pixels beyond a paint's bounds it may still touch: a degenerate subpath's pixel, the one-pixel pen of the
+    /// thinnest line and stroke adjustment's rounding and snapping (ISO 32000-2 §8.5.3.3.1, §10.7.5). Region culling widens the
+    /// bitmap by this much.
+    /// </summary>
+    private const double RegionMargin = 2;
 
     private readonly Backend _backend = new();
     private DisplayListReplay? _progressive;
@@ -46,19 +60,16 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// <param name="page">The page.</param>
     /// <returns>The bitmap; dispose it to return its buffer to the pool.</returns>
     /// <exception cref="ArgumentException">The page would need more pixels than a bitmap can hold.</exception>
-    /// <remarks>ISO 32000-2 §8.3.2.3, §7.7.3.3 Table 31 and §14.11.2 for the page mapping (see <see cref="RenderOptions"/>).</remarks>
+    /// <remarks>ISO 32000-2 §8.3.2.3, §7.7.3.3 Table 31 and §14.11.2 for the page mapping (see <see cref="RenderOptions"/>); §12.5.5 and §12.5.3 for the annotation and form-field layers drawn over the content (see <see cref="PdfPage.CreateDisplayList(DisplayLayers, DisplayIntent, Content.ContentOptions)"/>).</remarks>
     public Bitmap Render(PdfPage page) => Render(page, DefaultOptions);
 
     /// <summary>Renders <paramref name="page"/> into a new pooled bitmap of <see cref="RenderOptions.GetPixelSize"/> pixels, on white.</summary>
     /// <param name="page">The page.</param>
-    /// <param name="options">The scale and rotation.</param>
+    /// <param name="options">The scale, rotation, layers and intent.</param>
     /// <returns>The bitmap; dispose it to return its buffer to the pool.</returns>
     /// <exception cref="ArgumentException">The page would need more pixels than a bitmap can hold.</exception>
     /// <exception cref="OperationCanceledException"><see cref="RenderOptions.CancellationToken"/> was cancelled; the bitmap is returned to the pool.</exception>
-    /// <remarks>
-    /// ISO 32000-2 §8.3.2.3, §7.7.3.3 Table 31 and §14.11.2 for the page mapping (see <see cref="RenderOptions"/>). Cancellation and
-    /// progress come from <paramref name="options"/> (viewer capability 2).
-    /// </remarks>
+    /// <remarks>ISO 32000-2 §8.3.2.3, §7.7.3.3 Table 31 and §14.11.2 for the page mapping (see <see cref="RenderOptions"/>); §12.5.5 and §12.5.3 for the annotation and form-field layers drawn over the content (see <see cref="PdfPage.CreateDisplayList(DisplayLayers, DisplayIntent, Content.ContentOptions)"/>). Cancellation and progress come from <paramref name="options"/> (viewer capability 2).</remarks>
     public Bitmap Render(PdfPage page, RenderOptions options)
     {
         ArgumentNullException.ThrowIfNull(page);
@@ -69,7 +80,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         var bitmap = new Bitmap(geometry.PixelWidth, geometry.PixelHeight);
         try
         {
-            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, options.CancellationToken, DrawingProgress(options));
+            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, cull: options.Region is not null, options.CancellationToken, DrawingProgress(options));
         }
         catch
         {
@@ -86,7 +97,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// </summary>
     /// <param name="page">The page.</param>
     /// <param name="target">The bitmap, for example one over caller memory; at least the page's pixel size.</param>
-    /// <param name="options">The scale and rotation.</param>
+    /// <param name="options">The scale, rotation, layers and intent.</param>
     /// <exception cref="ArgumentException"><paramref name="target"/> is smaller than the page's pixel size.</exception>
     /// <exception cref="OperationCanceledException">
     /// <see cref="RenderOptions.CancellationToken"/> was cancelled; the bitmap keeps what was drawn (nothing, when the build was cancelled).
@@ -98,9 +109,8 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(options);
         ThrowIfBusy();
         PageGeometry geometry = CheckTarget(page, target, options);
-        Draw(Build(page, options), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, options.CancellationToken, DrawingProgress(options));
+        Draw(Build(page, options), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, cull: options.Region is not null, options.CancellationToken, DrawingProgress(options));
     }
-
     /// <summary>
     /// Builds <paramref name="page"/>'s display list and starts drawing it into the top-left <see cref="RenderOptions.GetPixelSize"/>
     /// pixels of <paramref name="target"/>, on white, in time slices: each <see cref="ProgressiveRender.Continue"/> draws until its
@@ -128,7 +138,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         PageGeometry geometry = CheckTarget(page, target, options);
         DisplayList list = Build(page, options);
         FillWhite(target, geometry.PixelWidth, geometry.PixelHeight);
-        return Begin(list, target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, options.CancellationToken, DrawingProgress(options));
+        return Begin(list, target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, cull: options.Region is not null, options.CancellationToken, DrawingProgress(options));
     }
 
     /// <summary>
@@ -139,7 +149,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// <param name="target">The bitmap; drawing is clipped to it.</param>
     /// <param name="deviceTransform">The transform from the list's default user space to the bitmap's pixels, as for <see cref="Render(DisplayList, Bitmap, in Matrix)"/>.</param>
     /// <param name="cancellationToken">Cancels the render before its next operation.</param>
-    /// <param name="progress">Receives the share of the list's operations drawn so far, from 0 to 1 (see <see cref="DisplayList.BeginReplay"/>), or <see langword="null"/>.</param>
+    /// <param name="progress">Receives the share of the list's operations drawn so far, from 0 to 1 (see <see cref="DisplayList.BeginReplay(IRenderingBackend, CancellationToken, IProgress{double})"/>), or <see langword="null"/>.</param>
     /// <returns>The render, with nothing drawn yet. Continue it to the end, or dispose it.</returns>
     /// <exception cref="InvalidOperationException">Another progressive render of this rasterizer has not ended.</exception>
     /// <remarks>ADR 0006; viewer capability 2 (issue #97). Continued to the end, it draws exactly what <see cref="Render(DisplayList, Bitmap, in Matrix)"/> draws.</remarks>
@@ -148,7 +158,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         ThrowIfBusy();
-        return Begin(list, target, deviceTransform, target.Width, target.Height, cancellationToken, progress);
+        return Begin(list, target, deviceTransform, target.Width, target.Height, cull: true, cancellationToken, progress);
     }
 
     /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background.</summary>
@@ -156,15 +166,20 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// <param name="target">The bitmap; drawing is clipped to it.</param>
     /// <param name="deviceTransform">
     /// The transform from the list's default user space to the bitmap's pixels (origin top-left, y down), such as
-    /// <see cref="RenderOptions.GetDeviceTransform"/>; a tile renderer adds its own offset.
+    /// <see cref="RenderOptions.GetDeviceTransform"/>; a tile renderer adds its own offset (the tile's top-left pixel moved to the
+    /// origin) and gets the same pixels as the whole page's render.
     /// </param>
-    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space).</remarks>
+    /// <remarks>
+    /// ADR 0006; ISO 32000-2 §8.3.2.2 (device space). Spec #33 story 14 (viewer capability 1): only the paints whose bounds reach the
+    /// bitmap are drawn (<see cref="DisplayList.Replay(IRenderingBackend, PdfRectangle)"/>), so one cached list renders tiles at any
+    /// scale, each costing what its own content costs. The list computes the bounds on its first such render.
+    /// </remarks>
     public void Render(DisplayList list, Bitmap target, in Matrix deviceTransform)
     {
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         ThrowIfBusy();
-        Draw(list, target, deviceTransform, target.Width, target.Height, white: false, CancellationToken.None, progress: null);
+        Draw(list, target, deviceTransform, target.Width, target.Height, white: false, cull: true, CancellationToken.None, progress: null);
     }
 
     /// <summary>Returns the rasterizer's pooled working buffers; it renders no more after this.</summary>
@@ -201,10 +216,10 @@ public sealed partial class SoftwareRasterizer : IDisposable
     {
         if (options.Progress is null && !options.CancellationToken.CanBeCanceled)
         {
-            return page.CreateDisplayList();
+            return page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions);
         }
 
-        return page.CreateDisplayList(new ContentOptions()
+        return page.CreateDisplayList(options.Layers, options.Intent, new ContentOptions()
             .WithCancellation(options.CancellationToken)
             .WithProgress(options.Progress is { } progress ? new ScaledProgress(progress, 0, 0.5) : null));
     }
@@ -241,15 +256,17 @@ public sealed partial class SoftwareRasterizer : IDisposable
         }
     }
 
-    private ProgressiveRender Begin(DisplayList list, Bitmap target, in Matrix device, int width, int height, CancellationToken cancellationToken, IProgress<double>? progress)
+    private ProgressiveRender Begin(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool cull, CancellationToken cancellationToken, IProgress<double>? progress)
     {
         _backend.Begin(list.Document, target, device, width, height);
-        DisplayListReplay replay = list.BeginReplay(_backend, cancellationToken, progress);
+        DisplayListReplay replay = cull && TryGetRegion(device, width, height, out PdfRectangle region)
+            ? list.BeginReplay(_backend, region, cancellationToken, progress)
+            : list.BeginReplay(_backend, cancellationToken, progress);
         _progressive = replay;
         return new ProgressiveRender(this, replay, target);
     }
 
-    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white, CancellationToken cancellationToken, IProgress<double>? progress)
+    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white, bool cull, CancellationToken cancellationToken, IProgress<double>? progress)
     {
         if (white)
         {
@@ -259,9 +276,23 @@ public sealed partial class SoftwareRasterizer : IDisposable
         _backend.Begin(list.Document, target, device, width, height);
         try
         {
+            PdfRectangle region = default;
+            bool culled = cull && TryGetRegion(device, width, height, out region);
             if (progress is null && !cancellationToken.CanBeCanceled)
             {
-                list.Replay(_backend);
+                if (culled)
+                {
+                    list.Replay(_backend, region);
+                }
+                else
+                {
+                    list.Replay(_backend);
+                }
+            }
+            else if (culled)
+            {
+                // A cancellable or reported replay of a region: one slice without a deadline.
+                ProgressiveReplay(list.BeginReplay(_backend, region, cancellationToken, progress));
             }
             else
             {
@@ -274,10 +305,43 @@ public sealed partial class SoftwareRasterizer : IDisposable
         }
     }
 
+    /// <summary>Runs a replay to its end in one slice.</summary>
+    private static void ProgressiveReplay(DisplayListReplay replay) => replay.Continue(Timeout.InfiniteTimeSpan);
+
     /// <summary>Reports a part of a render's progress: <c>offset + value × scale</c>.</summary>
     private sealed class ScaledProgress(IProgress<double> target, double offset, double scale) : IProgress<double>
     {
         public void Report(double value) => target.Report(offset + (value * scale));
+    }
+
+    /// <summary>
+    /// Returns the part of default user space that can change the pixels of a <paramref name="width"/> × <paramref name="height"/>
+    /// bitmap under <paramref name="device"/>: the bitmap widened by <see cref="RegionMargin"/> pixels, mapped back. False when the
+    /// transform has no inverse.
+    /// </summary>
+    private static bool TryGetRegion(in Matrix device, int width, int height, out PdfRectangle region)
+    {
+        region = default;
+        if (!device.TryInvert(out Matrix inverse))
+        {
+            return false;
+        }
+
+        PathPoint a = inverse.Transform(-RegionMargin, -RegionMargin);
+        PathPoint b = inverse.Transform(width + RegionMargin, -RegionMargin);
+        PathPoint c = inverse.Transform(width + RegionMargin, height + RegionMargin);
+        PathPoint d = inverse.Transform(-RegionMargin, height + RegionMargin);
+        double left = Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X));
+        double bottom = Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y));
+        double right = Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X));
+        double top = Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y));
+        if (!(double.IsFinite(left) && double.IsFinite(bottom) && double.IsFinite(right) && double.IsFinite(top)))
+        {
+            return false;
+        }
+
+        region = new PdfRectangle(left, bottom, right, top);
+        return true;
     }
 
     /// <summary>The backend the rasterizer replays display lists through: graphics state, path mapping and colour.</summary>
@@ -324,6 +388,8 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _height = height;
             _clip.Reset(width, height);
             _scan.Clip = _clip;
+            ResetCompositing();
+            BeginAnnotations();
         }
 
         public void End()
@@ -347,6 +413,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
             _stack[_depth++] = _ctm;
             _clip.Save();
+            SaveCompositing();
         }
 
         public void RestoreState()
@@ -357,6 +424,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             }
 
             _clip.Restore();
+            RestoreCompositing();
         }
 
         public void SetTransform(in Matrix transform)
@@ -368,7 +436,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         public void FillPath(PathView path, FillRule rule, in DisplayColor color)
         {
             PdfColorConverter converter = Converter(color);
-            if (converter.PaintsNothing || path.IsEmpty || _clip.IsEmpty)
+            if (converter.PaintsNothing || path.IsEmpty || _clip.IsEmpty || _fillCompositor.PaintsNothing)
             {
                 return;
             }
@@ -379,13 +447,13 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
             _scan.Reset(_width, _height);
             AddPath(path);
-            _scan.Fill(_target!, rule, pixel);
+            _scan.Fill(_target!, rule, pixel, _fillCompositor);
         }
 
         public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
         {
             PdfColorConverter converter = Converter(color);
-            if (converter.PaintsNothing || path.IsEmpty || _clip.IsEmpty)
+            if (converter.PaintsNothing || path.IsEmpty || _clip.IsEmpty || _strokeCompositor.PaintsNothing)
             {
                 return;
             }
@@ -396,7 +464,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
             _scan.Reset(_width, _height);
             _stroker.Stroke(path, style, _toDevice);
-            _scan.Fill(_target!, FillRule.NonZero, pixel);
+            _scan.Fill(_target!, FillRule.NonZero, pixel, _strokeCompositor);
         }
 
         /// <summary>
@@ -426,6 +494,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _scan.Dispose();
             _clip.Dispose();
             DisposeImages();
+            DisposeAnnotations();
         }
 
         /// <summary>

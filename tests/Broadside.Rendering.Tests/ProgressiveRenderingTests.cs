@@ -56,6 +56,33 @@ public sealed class ProgressiveRenderingTests
         Assert.True(expected.AsSpan().SequenceEqual(bitmap.Pixels));
     }
 
+    [Theory]
+    [InlineData("clips")]
+    [InlineData("text")]
+    [InlineData("images")]
+    public void A_tile_sliced_at_every_operation_matches_the_same_tile_rendered_in_one_go(string sample)
+    {
+        // A tile skips the paints it does not reach (#96); sliced, it skips the same ones and draws the same pixels.
+        using PdfDocument document = PdfDocument.Open(Open(sample));
+        PdfPage page = document.Pages[0];
+        DisplayList list = page.CreateDisplayList();
+        Matrix device = new RenderOptions().WithScale(2).GetDeviceTransform(page) * new Matrix(1, 0, 0, 1, -300, -500);
+        using var rasterizer = new SoftwareRasterizer();
+        using var whole = new Bitmap(160, 120);
+        rasterizer.Render(list, whole, device);
+        using var sliced = new Bitmap(160, 120);
+
+        using ProgressiveRender render = rasterizer.BeginRender(list, sliced, device, CancellationToken.None, progress: null);
+        int slices = 1;
+        while (!render.Continue(TimeSpan.Zero))
+        {
+            slices++;
+        }
+
+        Assert.True(slices < list.OperationCount, "Nothing was skipped outside the tile.");
+        Assert.True(whole.Pixels.SequenceEqual(sliced.Pixels));
+    }
+
     [Fact]
     public void Each_slice_leaves_the_bitmap_holding_the_operations_drawn_so_far()
     {

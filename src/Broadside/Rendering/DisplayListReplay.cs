@@ -5,7 +5,7 @@ namespace Broadside.Rendering;
 /// <summary>
 /// A replay of a <see cref="DisplayList"/> into one backend that runs in time slices: <see cref="Continue"/> hands operations over
 /// until its budget is used, and the next call resumes at the operation where it stopped. Start one with
-/// <see cref="DisplayList.BeginReplay"/>.
+/// <see cref="DisplayList.BeginReplay(IRenderingBackend, CancellationToken, IProgress{double})"/>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -26,12 +26,19 @@ public sealed class DisplayListReplay
 {
     private readonly CancellationToken _cancellationToken;
     private readonly IProgress<double>? _progress;
+    private readonly PdfRectangle? _region;
     private bool _completionReported;
 
     internal DisplayListReplay(DisplayList list, IRenderingBackend backend, CancellationToken cancellationToken, IProgress<double>? progress)
+        : this(list, backend, null, cancellationToken, progress)
+    {
+    }
+
+    internal DisplayListReplay(DisplayList list, IRenderingBackend backend, PdfRectangle? region, CancellationToken cancellationToken, IProgress<double>? progress)
     {
         List = list;
         Backend = backend;
+        _region = region;
         _cancellationToken = cancellationToken;
         _progress = progress;
     }
@@ -71,7 +78,7 @@ public sealed class DisplayListReplay
 
         if (!IsCompleted)
         {
-            Position = List.ReplayRange(Backend, Position, Deadline(budget), _cancellationToken, _progress);
+            Position = List.ReplayRange(Backend, Position, Deadline(budget), _cancellationToken, _progress, _region);
         }
 
         if (!IsCompleted)

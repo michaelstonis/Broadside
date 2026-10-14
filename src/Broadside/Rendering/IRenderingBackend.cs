@@ -166,4 +166,53 @@ public interface IRenderingBackend
     /// is not in the list yet.
     /// </remarks>
     void FillImageMask(DisplayImageMask mask, in DisplayColor color);
+
+    /// <summary>Sets the alpha constants and the blend mode the paints that follow composite with, until the state is restored.</summary>
+    /// <param name="strokeAlpha">
+    /// The stroking alpha constant (<c>CA</c>), 0 to 1: the opacity of <see cref="StrokePath"/>, <see cref="StrokePathWithShading"/> and
+    /// the stroke of <see cref="DrawGlyphs"/>.
+    /// </param>
+    /// <param name="fillAlpha">The nonstroking alpha constant (<c>ca</c>), 0 to 1: the opacity of every other paint.</param>
+    /// <param name="blendMode">The blend function that combines the source colour with the backdrop.</param>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §11.6.4.4 (constant shape and opacity), §11.6.3 (blend mode) and §11.3 (the compositing formulas, §11.3.3 and
+    /// §11.3.6; the blend functions of §11.3.5, Tables 134 and 135). Each paint's source alpha is its shape (coverage, and an image's
+    /// own masks) times the alpha constant that applies to it, and it composites over the backdrop, the result of earlier painting,
+    /// as αr × Cr = (1 − αs) × αb × Cb + (1 − αb) × αs × Cs + αb × αs × B(Cb, Cs), with αr = αs + αb − αs × αb. A replay starts with
+    /// both alphas at 1 and the Normal blend mode; the call arrives before the first paint it applies to, only when one of the values
+    /// changes, and <see cref="SaveState"/> and <see cref="RestoreState"/> save and restore it.
+    /// </para>
+    /// <para>
+    /// A shading pattern's paint arrives with its pattern's ExtGState applied (§11.6.7): its <c>ca</c> already multiplied into the
+    /// alpha of the paint, its blend mode, when not Normal, in place of the state's. The page's blending colour space is the
+    /// backend's (§11.3.4, §11.4.7). Transparency groups, soft masks and the knockout of a combined fill and stroke (§11.7.4.4) are
+    /// not in the list yet: a fill and stroke of one path composite as two objects.
+    /// </para>
+    /// </remarks>
+    void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode);
+
+    /// <summary>
+    /// Begins an annotation's appearance: saves the state as <see cref="SaveState"/> does, and the paints until the matching
+    /// <see cref="EndAnnotation"/> are the appearance, composited as one group.
+    /// </summary>
+    /// <param name="annotation">Where the annotation sits, whether it keeps its size and orientation on screen, and how it is composited.</param>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §12.5.5: the paints that follow are already placed on the annotation rectangle (their transforms include the
+    /// matrix <c>AA</c>) and clipped to the appearance's bounding box. A backend that honours <see cref="DisplayAnnotation.NoZoom"/>
+    /// or <see cref="DisplayAnnotation.NoRotate"/> (§12.5.3) maps default user space to the device differently until
+    /// <see cref="EndAnnotation"/>: about the rectangle's upper-left corner, without the device transform's scale or rotation. The
+    /// appearance is a transparency group composited with <see cref="DisplayAnnotation.Opacity"/> and
+    /// <see cref="DisplayAnnotation.BlendMode"/> (§12.5.5, §11.6.6), through the same compositing formulas as
+    /// <see cref="SetCompositing"/>; inside it, paints composite with the alpha constants and blend mode that
+    /// <see cref="SetCompositing"/> sets, which <see cref="EndAnnotation"/> restores with the rest of the state.
+    /// </para>
+    /// <para>Annotations never nest, and a list that holds one starts it with the identity transform (default user space).</para>
+    /// </remarks>
+    void BeginAnnotation(in DisplayAnnotation annotation);
+
+    /// <summary>Ends the annotation <see cref="BeginAnnotation"/> began: composites its appearance and restores the state saved there.</summary>
+    /// <remarks>ISO 32000-2 §12.5.5.</remarks>
+    void EndAnnotation();
 }

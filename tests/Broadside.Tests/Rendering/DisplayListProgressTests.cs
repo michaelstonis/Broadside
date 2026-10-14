@@ -107,6 +107,27 @@ public sealed class DisplayListProgressTests
     }
 
     [Fact]
+    public void A_region_replay_sliced_at_every_operation_hands_the_backend_the_same_calls_as_one_region_replay()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("clipping-paths.pdf"));
+        DisplayList list = document.Pages[0].CreateDisplayList();
+        var region = new PdfRectangle(0, 0, 150, 120);
+        var expected = new RecordingBackend();
+        list.Replay(expected, region);
+        var recorder = new RecordingBackend();
+        var progress = new RecordingProgress();
+        DisplayListReplay replay = list.BeginReplay(recorder, region, CancellationToken.None, progress);
+
+        while (!replay.Continue(TimeSpan.Zero))
+        {
+        }
+
+        Assert.Equal(expected.Operations, recorder.Operations);
+        AssertNonDecreasing(progress.Values);
+        Assert.Equal(1, progress.Values[^1]);
+    }
+
+    [Fact]
     public void A_time_budget_stops_a_replay_that_the_next_slice_resumes_where_it_stopped()
     {
         using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(ContentSamples.PathHeavy(256 * 1024)));

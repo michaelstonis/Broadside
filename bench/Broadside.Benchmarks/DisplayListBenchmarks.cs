@@ -80,5 +80,11 @@ public class DisplayListBenchmarks
         public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading) => Calls += path.Verbs.Length + (int)shading.Shading.ShadingType;
 
         public void FillImageMask(DisplayImageMask mask, in DisplayColor color) => Calls += mask.Width + color.Components.Length;
+
+        public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode) => Calls += (int)blendMode + 1;
+
+        public void BeginAnnotation(in DisplayAnnotation annotation) => Calls += (int)annotation.Kind;
+
+        public void EndAnnotation() => Calls++;
     }
 }

@@ -75,3 +75,24 @@ Broadside.Rendering.Icc.IccProfileModel.LookupTable = 3 -> Broadside.Rendering.I
 Broadside.Rendering.RenderOptions.ForceOutlines.get -> bool
 Broadside.Rendering.RenderOptions.ForceOutlines.set -> void
 Broadside.Rendering.RenderOptions.WithForceOutlines(bool forceOutlines) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.PixelRectangle
+Broadside.Rendering.PixelRectangle.Height.get -> int
+Broadside.Rendering.PixelRectangle.Height.init -> void
+Broadside.Rendering.PixelRectangle.PixelRectangle() -> void
+Broadside.Rendering.PixelRectangle.PixelRectangle(int X, int Y, int Width, int Height) -> void
+Broadside.Rendering.PixelRectangle.Width.get -> int
+Broadside.Rendering.PixelRectangle.Width.init -> void
+Broadside.Rendering.PixelRectangle.X.get -> int
+Broadside.Rendering.PixelRectangle.X.init -> void
+Broadside.Rendering.PixelRectangle.Y.get -> int
+Broadside.Rendering.PixelRectangle.Y.init -> void
+Broadside.Rendering.RenderOptions.GetPixelRectangle(Broadside.PdfPage! page) -> Broadside.Rendering.PixelRectangle
+Broadside.Rendering.RenderOptions.Region.get -> Broadside.PdfRectangle?
+Broadside.Rendering.RenderOptions.Region.set -> void
+Broadside.Rendering.RenderOptions.WithRegion(Broadside.PdfRectangle? region) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.RenderOptions.Intent.get -> Broadside.Rendering.DisplayIntent
+Broadside.Rendering.RenderOptions.Intent.set -> void
+Broadside.Rendering.RenderOptions.Layers.get -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.RenderOptions.Layers.set -> void
+Broadside.Rendering.RenderOptions.WithIntent(Broadside.Rendering.DisplayIntent intent) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.RenderOptions.WithLayers(Broadside.Rendering.DisplayLayers layers) -> Broadside.Rendering.RenderOptions!

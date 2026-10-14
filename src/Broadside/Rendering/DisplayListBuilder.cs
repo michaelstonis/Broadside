@@ -10,7 +10,7 @@ namespace Broadside.Rendering;
 /// their category in a file of their own.
 /// </summary>
 /// <remarks>
-/// One builder per thread is reused (<see cref="Build"/>), so its growable tables stay warm and building a page allocates only the
+/// One builder per thread is reused (<see cref="Build(PdfPage, PdfDocument, ContentOptions)"/>), so its growable tables stay warm and building a page allocates only the
 /// list itself: a fixed number of arrays sized to the page. The builder keeps no reference into the document between builds.
 /// </remarks>
 internal sealed partial class DisplayListBuilder : ContentProcessor
@@ -84,6 +84,8 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         Glyphs = _glyphs.AsSpan(0, _glyphCount).ToArray(),
         ShadingPaints = _shadingPaints.AsSpan(0, _shadingPaintCount).ToArray(),
         ImageMasks = _imageMasks.AsSpan(0, _imageMaskCount).ToArray(),
+        Compositings = _compositings.AsSpan(0, _compositingCount).ToArray(),
+        Annotations = _annotations.AsSpan(0, _annotationCount).ToArray(),
     };
 
     /// <summary>Forgets everything built, keeping the tables' capacity and no reference into a document.</summary>
@@ -99,6 +101,8 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         ResetImages();
         ResetText();
         ResetShadings();
+        ResetCompositing();
+        ResetAnnotations();
     }
 
     /// <inheritdoc/>
@@ -106,6 +110,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     {
         Append(ref _saved, ref _savedCount, _current);
         Append(ref _savedAt, ref _savedAtCount, _operationCount);
+        SaveCompositing();
         AddOperation(new DisplayOperation(DisplayOperationKind.SaveState, default, 0, 0));
     }
 
@@ -119,6 +124,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
 
         _current = _saved[--_savedCount];
         int saveAt = _savedAt[--_savedAtCount];
+        RestoreCompositing();
 
         // A save with nothing painted after it restores to what it saved: drop the pair and the state changes between them.
         if (!PaintsSince(saveAt + 1))
@@ -149,7 +155,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     {
         for (int index = _operationCount - 1; index >= start; index--)
         {
-            if (_operations[index].Kind is not (DisplayOperationKind.SetTransform or DisplayOperationKind.IntersectClip))
+            if (_operations[index].Kind is not (DisplayOperationKind.SetTransform or DisplayOperationKind.IntersectClip or DisplayOperationKind.SetCompositing))
             {
                 return true;
             }

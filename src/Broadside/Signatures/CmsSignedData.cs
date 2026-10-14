@@ -20,6 +20,7 @@ internal static class CmsSignedData
     private const string ContentTypeOid = "1.2.840.113549.1.9.3";
     private const string MessageDigestOid = "1.2.840.113549.1.9.4";
     private const string RsaEncryptionOid = "1.2.840.113549.1.1.1";
+    private const string PdfMacDataOid = "1.0.32004.1.2";
 
     /// <summary>Throws for a digest algorithm byte range signing does not write (§12.8.3.1, Table 260).</summary>
     public static void RequireSupportedDigest(HashAlgorithmName algorithm) => DigestOid(algorithm);
@@ -93,12 +94,16 @@ internal static class CmsSignedData
     /// <param name="signature">The signature value over the signed attributes' digest.</param>
     /// <param name="certificate">The signer's certificate.</param>
     /// <param name="chain">The other certificates to embed.</param>
+    /// <param name="macToken">
+    /// A PDF MAC token to carry as the signer's <c>pdfMacData</c> unsigned attribute (ISO/TS 32004 §6.5.2), or <see langword="null"/>.
+    /// </param>
     public static byte[] Encode(
         HashAlgorithmName digestAlgorithm,
         byte[] signedAttributes,
         byte[] signature,
         X509Certificate2 certificate,
-        IReadOnlyList<X509Certificate2> chain)
+        IReadOnlyList<X509Certificate2> chain,
+        byte[]? macToken = null)
     {
         string digestOid = DigestOid(digestAlgorithm);
         var writer = new AsnWriter(AsnEncodingRules.DER);
@@ -136,7 +141,7 @@ internal static class CmsSignedData
                 using (writer.PushSetOf())
                 using (writer.PushSequence())
                 {
-                    WriteSignerInfo(writer, digestOid, signedAttributes, signature, certificate);
+                    WriteSignerInfo(writer, digestOid, signedAttributes, signature, certificate, macToken);
                 }
             }
         }
@@ -161,7 +166,7 @@ internal static class CmsSignedData
         return certificates + certificate.IssuerName.RawData.Length + signature + 1024;
     }
 
-    private static void WriteSignerInfo(AsnWriter writer, string digestOid, byte[] signedAttributes, byte[] signature, X509Certificate2 certificate)
+    private static void WriteSignerInfo(AsnWriter writer, string digestOid, byte[] signedAttributes, byte[] signature, X509Certificate2 certificate, byte[]? macToken)
     {
         writer.WriteInteger(1);
         using (writer.PushSequence())
@@ -179,6 +184,19 @@ internal static class CmsSignedData
 
         WriteAlgorithm(writer, RsaEncryptionOid, withNullParameters: true);
         writer.WriteOctetString(signature);
+        if (macToken is not null)
+        {
+            // unsignedAttrs [1] IMPLICIT SET OF Attribute (RFC 5652 §5.3): id-attr-pdfMacData with exactly one value, the token.
+            using (writer.PushSetOf(new Asn1Tag(TagClass.ContextSpecific, 1, isConstructed: true)))
+            using (writer.PushSequence())
+            {
+                writer.WriteObjectIdentifier(PdfMacDataOid);
+                using (writer.PushSetOf())
+                {
+                    writer.WriteEncodedValue(macToken);
+                }
+            }
+        }
     }
 
     private static void WriteAlgorithm(AsnWriter writer, string oid, bool withNullParameters)

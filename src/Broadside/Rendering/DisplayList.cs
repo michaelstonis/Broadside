@@ -13,7 +13,7 @@ namespace Broadside.Rendering;
 /// and points in shared arrays) and colours once per run of equal colours, so building costs a fixed number of arrays per page and
 /// replaying allocates nothing. Fonts, images and colour spaces are resolved before an operation enters the list; the list never
 /// reads the file again (a replay touches only the list), so it can be cached and replayed many times, for example per tile and
-/// zoom. Converting its colours goes through <see cref="Document"/>, which must still be open for that.
+/// zoom, where <see cref="Replay(IRenderingBackend, PdfRectangle)"/> skips the paints a tile does not reach. Converting its colours goes through <see cref="Document"/>, which must still be open for that.
 /// </para>
 /// <para>
 /// Today the list carries the graphics state stack (ISO 32000-2 §8.4.2), transforms (§8.3.2), path fills with their colour
@@ -21,14 +21,17 @@ namespace Broadside.Rendering;
 /// bounding boxes, §8.10.1), images with their masks (§8.9, §11.6.5, <see cref="DisplayImage"/>, decoded once per image XObject),
 /// stencil masks (§8.9.6.2, <see cref="DisplayImageMask"/>), text as glyph runs (§9.4.3, §9.3.6, <see cref="GlyphRun"/>: font
 /// program, glyph ids, text matrices, outlines interned once per program and glyph) and shadings, from <c>sh</c> and as shading
-/// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>). Type 3 glyphs, text clips, tiling patterns and
-/// transparency join it in later Phase 3 tickets, each as new <see cref="IRenderingBackend"/> calls.
+/// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>), and annotations' appearances (§12.5.5,
+/// <see cref="DisplayAnnotation"/>; a list holds the page's content, annotation and form-field layers as <see cref="DisplayLayers"/>
+/// asks). Type 3 glyphs, text clips, tiling patterns and transparency groups and soft masks join it in later Phase 3 tickets
+/// (constant alpha and blend modes are there already, as <see cref="IRenderingBackend.SetCompositing"/>), each as new
+/// <see cref="IRenderingBackend"/> calls.
 /// </para>
 /// <para>
 /// Immutable once built: any number of threads may replay the same list at once, each into its own backend.
 /// </para>
 /// </remarks>
-public sealed class DisplayList
+public sealed partial class DisplayList
 {
     /// <summary>How many operations a replay hands over between progress reports.</summary>
     private const int ProgressInterval = 1024;
@@ -85,6 +88,12 @@ public sealed class DisplayList
     /// <summary>Gets the stencil masks the list paints, each decoded once (indexed by <see cref="DisplayOperationKind.FillImageMask"/> records).</summary>
     internal DisplayImageMask[] ImageMasks { get; init; } = [];
 
+    /// <summary>Gets the alpha constants and blend modes the list sets (indexed by <see cref="DisplayOperationKind.SetCompositing"/> records).</summary>
+    internal DisplayCompositing[] Compositings { get; init; } = [];
+
+    /// <summary>Gets the annotations the list draws (indexed by <see cref="DisplayOperationKind.BeginAnnotation"/> records).</summary>
+    internal DisplayAnnotation[] Annotations { get; init; } = [];
+
     /// <summary>Gets the document the list was built from, whose colour converters a backend uses (see <see cref="DisplayColor"/>).</summary>
     public PdfDocument Document { get; }
 
@@ -102,7 +111,7 @@ public sealed class DisplayList
         ArgumentNullException.ThrowIfNull(backend);
         foreach (ref readonly DisplayOperation operation in _operations.AsSpan())
         {
-            Replay(backend, operation);
+            Execute(backend, in operation);
         }
     }
 
@@ -121,7 +130,7 @@ public sealed class DisplayList
     /// </exception>
     /// <remarks>
     /// ADR 0006; viewer capability 2 (issue #97). Allocates nothing. To stop after a time budget and resume later, use
-    /// <see cref="BeginReplay"/>.
+    /// <see cref="BeginReplay(IRenderingBackend, CancellationToken, IProgress{double})"/>.
     /// </remarks>
     public void Replay(IRenderingBackend backend, CancellationToken cancellationToken, IProgress<double>? progress)
     {
@@ -153,18 +162,46 @@ public sealed class DisplayList
     }
 
     /// <summary>
+    /// As <see cref="BeginReplay(IRenderingBackend, CancellationToken, IProgress{double})"/>, handing over only what
+    /// <see cref="Replay(IRenderingBackend, PdfRectangle)"/> hands over for <paramref name="region"/>.
+    /// </summary>
+    /// <param name="backend">The backend that draws; it keeps its state between slices.</param>
+    /// <param name="region">The region in the list's default user space, as for <see cref="Replay(IRenderingBackend, PdfRectangle)"/>.</param>
+    /// <param name="cancellationToken">Cancels the replay before its next operation.</param>
+    /// <param name="progress">Receives the share of the operations handed over or skipped so far, as for the overload without a region.</param>
+    /// <returns>The replay, at the first operation.</returns>
+    /// <remarks>
+    /// ADR 0006; viewer capabilities 1 and 2 (issues #96, #97): a tile of a cached list, drawn in time slices. Skipped operations
+    /// count towards <see cref="DisplayListReplay.Position"/> and progress but take no time from a slice's budget.
+    /// </remarks>
+    public DisplayListReplay BeginReplay(IRenderingBackend backend, PdfRectangle region, CancellationToken cancellationToken, IProgress<double>? progress)
+    {
+        ArgumentNullException.ThrowIfNull(backend);
+        return new DisplayListReplay(this, backend, region, cancellationToken, progress);
+    }
+
+    /// <summary>
     /// Hands the operations from <paramref name="start"/> on to <paramref name="backend"/> until the end of the list or, after at
-    /// least one, until <see cref="Stopwatch.GetTimestamp"/> reaches <paramref name="deadline"/>.
+    /// least one, until <see cref="Stopwatch.GetTimestamp"/> reaches <paramref name="deadline"/>; with a <paramref name="region"/>,
+    /// skipping what <see cref="Replay(IRenderingBackend, PdfRectangle)"/> skips.
     /// </summary>
     /// <returns>The index of the first operation not handed over.</returns>
-    internal int ReplayRange(IRenderingBackend backend, int start, long deadline, CancellationToken cancellationToken, IProgress<double>? progress)
+    internal int ReplayRange(IRenderingBackend backend, int start, long deadline, CancellationToken cancellationToken, IProgress<double>? progress, PdfRectangle? region = null)
     {
         ReadOnlySpan<DisplayOperation> operations = _operations;
+        OperationExtent[]? extents = region is null ? null : GetExtents();
         int index = start;
         while (index < operations.Length)
         {
+            if (extents is not null && extents[index].IsCullable && !extents[index].Meets(region!.Value))
+            {
+                // As in the region replay: a paint ends where it is, a saved state or an annotation where it is restored.
+                index = extents[index].End + 1;
+                continue;
+            }
+
             cancellationToken.ThrowIfCancellationRequested();
-            Replay(backend, operations[index]);
+            Execute(backend, operations[index]);
             index++;
             if (progress is not null && index % ProgressInterval == 0 && index < operations.Length)
             {
@@ -180,8 +217,8 @@ public sealed class DisplayList
         return index;
     }
 
-    /// <summary>Hands one operation to the backend.</summary>
-    private void Replay(IRenderingBackend backend, in DisplayOperation operation)
+    /// <summary>Hands one record of the list to the backend.</summary>
+    private void Execute(IRenderingBackend backend, in DisplayOperation operation)
     {
         switch (operation.Kind)
         {
@@ -238,6 +275,16 @@ public sealed class DisplayList
                 ref readonly DisplayColorEntry maskColor = ref _colors[operation.Second];
                 var maskPaint = new DisplayColor(maskColor.ColorSpace, _components.AsSpan(maskColor.ComponentStart, maskColor.ComponentCount), maskColor.DefaultColorSpaces, maskColor.Conversion);
                 backend.FillImageMask(ImageMasks[operation.First], in maskPaint);
+                break;
+            case DisplayOperationKind.SetCompositing:
+                ref readonly DisplayCompositing compositing = ref Compositings[operation.First];
+                backend.SetCompositing(compositing.StrokeAlpha, compositing.FillAlpha, compositing.BlendMode);
+                break;
+            case DisplayOperationKind.BeginAnnotation:
+                backend.BeginAnnotation(in Annotations[operation.First]);
+                break;
+            case DisplayOperationKind.EndAnnotation:
+                backend.EndAnnotation();
                 break;
         }
     }
