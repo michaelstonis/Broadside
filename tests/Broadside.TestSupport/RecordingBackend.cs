@@ -18,7 +18,7 @@ namespace Broadside.TestSupport;
 /// <c>imagemask WxH[ inverted][ interpolate] | Family c0 c1 …</c>, <c>shading Type [matrix][ background]</c>,
 /// <c>glyphs Mode Format gid [text matrix][ xScale] … [| fill Family c0 …][| stroke width Cap Join miterLimit [dash …] phase[ adjust] Family c0 …]</c>
 /// (Format is the program's format, <c>none</c> without a program), and fills and strokes in a shading pattern ending
-/// <c>| shading Type [matrix] background</c> instead of a colour. Numbers are written round-trippable and culture-invariant.
+/// <c>| shading Type [matrix] background</c> instead of a colour; <c>compositing CA ca BlendMode</c>. Numbers are written round-trippable and culture-invariant.
 /// </remarks>
 public sealed class RecordingBackend : IRenderingBackend
 {
@@ -242,6 +242,10 @@ public sealed class RecordingBackend : IRenderingBackend
         Operations.Add(text.ToString());
         ImageMasks.Add((mask, color.ColorSpace, color.Components.ToArray(), color.DefaultColorSpaces, color.Conversion));
     }
+
+    /// <inheritdoc/>
+    public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode) =>
+        Operations.Add(string.Create(CultureInfo.InvariantCulture, $"compositing {Number(strokeAlpha)} {Number(fillAlpha)} {blendMode}"));
 
     /// <summary>Writes a path as its verbs and points.</summary>
     /// <param name="path">The path.</param>

@@ -161,5 +161,8 @@ public sealed class DisplayListAllocationTests
 
         public void FillImageMask(DisplayImageMask mask, in DisplayColor color) =>
             Checksum += mask.Width + mask.Height + color.Components.Length;
+
+        public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode) =>
+            Checksum += strokeAlpha + fillAlpha + (int)blendMode;
     }
 }

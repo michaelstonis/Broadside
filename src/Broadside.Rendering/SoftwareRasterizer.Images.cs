@@ -33,7 +33,7 @@ public sealed partial class SoftwareRasterizer
         /// </remarks>
         public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
         {
-            if ((long)image.Width * image.Height > Array.MaxLength || _clip.IsEmpty)
+            if ((long)image.Width * image.Height > Array.MaxLength || _clip.IsEmpty || _fillCompositor.PaintsNothing)
             {
                 return;
             }
@@ -70,7 +70,7 @@ public sealed partial class SoftwareRasterizer
 
             Bitmap target = _target!;
             var painter = new ImagePainter(
-                target.Pixels, target.Stride, _imageSource.Buffer, image.Width, image.Height, inverse, image.Interpolate, opacity, maskWidth, maskHeight, maskInterpolate);
+                target.Pixels, target.Stride, _imageSource.Buffer, image.Width, image.Height, inverse, image.Interpolate, opacity, maskWidth, maskHeight, maskInterpolate, _fillCompositor);
             _scan.Paint(FillRule.NonZero, ref painter);
         }
 
@@ -81,7 +81,7 @@ public sealed partial class SoftwareRasterizer
         /// </remarks>
         public void FillImageMask(DisplayImageMask mask, in DisplayColor color)
         {
-            if ((long)mask.Width * mask.Height > Array.MaxLength || _clip.IsEmpty)
+            if ((long)mask.Width * mask.Height > Array.MaxLength || _clip.IsEmpty || _fillCompositor.PaintsNothing)
             {
                 return;
             }
@@ -96,7 +96,7 @@ public sealed partial class SoftwareRasterizer
             converter.Convert(color.Components, rgb);
             _maskSource.Prepare(mask);
             Bitmap target = _target!;
-            var painter = new ImagePainter(target.Pixels, target.Stride, Pack(rgb), _maskSource.Buffer, mask.Width, mask.Height, inverse, mask.Interpolate);
+            var painter = new ImagePainter(target.Pixels, target.Stride, Pack(rgb), _maskSource.Buffer, mask.Width, mask.Height, inverse, mask.Interpolate, _fillCompositor);
             _scan.Paint(FillRule.NonZero, ref painter);
         }
 
