@@ -194,5 +194,9 @@ public sealed class DisplayListAllocationTests
 
         public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode) =>
             Checksum += strokeAlpha + fillAlpha + (int)blendMode;
+
+        public void BeginAnnotation(in DisplayAnnotation annotation) => Checksum += annotation.Rectangle.Width + annotation.Opacity;
+
+        public void EndAnnotation() => Checksum++;
     }
 }
