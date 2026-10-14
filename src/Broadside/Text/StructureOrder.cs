@@ -1,3 +1,4 @@
+using Broadside.Objects;
 using Broadside.Structure;
 
 namespace Broadside.Text;
@@ -25,6 +26,11 @@ namespace Broadside.Text;
 /// wins, its first glyph on the page carries the replacement and the others carry none. <c>Alt</c> (§14.9.3) and <c>E</c> (§14.9.5)
 /// are applied the same way when the options ask, flagged so words break around them. An element whose content shows no glyph on
 /// the page adds nothing, as no position stands for its replacement.
+/// </para>
+/// <para>
+/// An element whose content spans pages gives its replacement once, so a document read page by page holds it once: on the page
+/// where its content starts, the page of its first content item in logical order (§14.8.2.5.1). On a later page its glyphs stay,
+/// in order, owned by the element and flagged with the replacement, but with empty text ranges: the continuation adds no text.
 /// </para>
 /// </remarks>
 internal static class StructureOrder
@@ -100,7 +106,7 @@ internal static class StructureOrder
             if (info.Replacer is { } replacer)
             {
                 flags = (flags & ~Replacements) | info.ReplacementFlag;
-                if (!ReferenceEquals(replacer, replacing))
+                if (!ReferenceEquals(replacer, replacing) && StartsOn(walk, replacer, page))
                 {
                     text.Append(info.Replacement);
                 }
@@ -132,6 +138,13 @@ internal static class StructureOrder
 
         return new TextPage(ordered, text.ToString());
     }
+
+    /// <summary>
+    /// Whether <paramref name="replacer"/>'s content starts on <paramref name="page"/>, so the page carries its replacement: the page
+    /// of its first content item with a known page, or any page showing it when no item names one.
+    /// </summary>
+    private static bool StartsOn(StructureWalk walk, PdfStructureElement replacer, PdfPage page) =>
+        !walk.TryGetFirstPage(replacer, out CosDictionary? first) || ReferenceEquals(first, page.Dictionary);
 
     /// <summary>What an element contributes to the glyphs it encloses, inherited down the hierarchy.</summary>
     private sealed record ElementInfo(bool IsArtifact, PdfStructureElement? Replacer, string? Replacement, TextGlyphFlags ReplacementFlag, string? Language);

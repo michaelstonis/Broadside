@@ -34,7 +34,8 @@ public enum TextGlyphFlags
     /// <summary>
     /// The glyph is inside a marked-content sequence, or under a structure element, whose <c>ActualText</c> replaces its text: the
     /// first glyph of the sequence or element carries the replacement text and the others carry none, while every glyph keeps its
-    /// own position.
+    /// own position. For an element whose content spans pages, that first glyph is on the page where its content starts; on later
+    /// pages every glyph of the element carries none.
     /// </summary>
     /// <remarks>ISO 32000-2 §14.9.4.</remarks>
     ActualText = 1 << 3,
@@ -42,14 +43,15 @@ public enum TextGlyphFlags
     /// <summary>
     /// The glyph is under a structure element whose alternate description (<c>Alt</c>) replaces its text, as a whole word or phrase
     /// (<see cref="TextExtractionOptions.ApplyAlternateDescriptions"/>): the element's first glyph carries the description and the
-    /// others carry none.
+    /// others carry none, on later pages too when its content spans pages.
     /// </summary>
     /// <remarks>ISO 32000-2 §14.9.3.</remarks>
     AlternateDescription = 1 << 4,
 
     /// <summary>
     /// The glyph is under a structure element whose expansion (<c>E</c>) replaces its text, as a whole word
-    /// (<see cref="TextExtractionOptions.ApplyExpansions"/>): the element's first glyph carries the expansion and the others carry none.
+    /// (<see cref="TextExtractionOptions.ApplyExpansions"/>): the element's first glyph carries the expansion and the others carry none,
+    /// on later pages too when its content spans pages.
     /// </summary>
     /// <remarks>ISO 32000-2 §14.9.5.</remarks>
     Expansion = 1 << 5,
