@@ -109,6 +109,15 @@ public sealed class PdfFormXObject
         return ContentRewriting.RewriteForm(this, _document, editor, options);
     }
 
+    /// <summary>Returns a canvas that draws in the form, after its existing content; dispose it to store what was drawn.</summary>
+    /// <returns>The canvas.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §8.10.1, Table 93, and §8.2 to §8.6. The form's stream is replaced by its decoded content wrapped in <c>q</c> and
+    /// <c>Q</c> followed by what was drawn, unfiltered (a save compresses it); resources go into the form's <c>Resources</c>, created
+    /// when missing. Every use of the form shows the change. See <see cref="PdfCanvas"/>. A mutation.
+    /// </remarks>
+    public PdfCanvas CreateCanvas() => new(_document, this);
+
     /// <summary>Returns the form view over <paramref name="value"/> when it is a stream, else <see langword="null"/>.</summary>
     internal static PdfFormXObject? Create(PdfDocument document, CosObject? value) =>
         document.Resolve(value) is CosStream stream ? new PdfFormXObject(document, stream, value as CosReference) : null;

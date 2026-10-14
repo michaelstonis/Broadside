@@ -104,8 +104,22 @@ internal sealed class TextFieldAppearance
         return Build(field, string.Empty, string.Concat(lines), multiline: false, comb: null, list);
     }
 
+    /// <summary>
+    /// Builds the appearances of every widget of a push button showing <paramref name="caption"/> on one line, centred, in the default
+    /// appearance's font, size and colour (§12.7.5.2.2 and §12.5.6.19, Table 192, <c>CA</c>).
+    /// </summary>
+    /// <param name="field">The push button.</param>
+    /// <param name="caption">The caption; empty for none.</param>
+    /// <returns>The appearances, not yet placed on the widgets (<see cref="Apply"/>).</returns>
+    /// <exception cref="InvalidOperationException">A character has no glyph in the default appearance font and no font program that has one was found.</exception>
+    public static TextFieldAppearance BuildCaption(PdfPushButtonField field, string caption)
+    {
+        string shown = DisplayText(caption, password: false, multiline: false, comb: null);
+        return Build(field, shown, shown, multiline: false, comb: null, list: null, PdfTextJustification.Centered);
+    }
+
     /// <summary>Builds the appearances of every widget of <paramref name="field"/> showing <paramref name="text"/>, or a list.</summary>
-    private static TextFieldAppearance Build(PdfTerminalField field, string text, string fontText, bool multiline, int? comb, ListContent? list)
+    private static TextFieldAppearance Build(PdfTerminalField field, string text, string fontText, bool multiline, int? comb, ListContent? list, PdfTextJustification? quadding = null)
     {
         PdfDocument document = field.Document;
         PdfDefaultAppearance? appearance = field.ParsedDefaultAppearance;
@@ -120,7 +134,7 @@ internal sealed class TextFieldAppearance
             appearance?.Color,
             appearance?.TextMatrix,
             StateOperators(appearance?.OtherOperators ?? ReadOnlyMemory<byte>.Empty),
-            field.Quadding,
+            quadding ?? field.Quadding,
             multiline,
             comb,
             list);
