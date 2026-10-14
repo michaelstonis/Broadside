@@ -87,6 +87,7 @@ public static class Corpus
         "outline-full.pdf",
         "functions.pdf",
         "optional-content.pdf",
+        "optional-content-pages.pdf",
         "embedded-files.pdf",
         "collection-portfolio.pdf",
         "associated-files.pdf",

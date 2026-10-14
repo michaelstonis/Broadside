@@ -11,7 +11,7 @@ public sealed partial class PdfDocument
     /// <returns>The merged document, not yet saved; dispose it when done. The sources are only read and may be disposed once this returns.</returns>
     /// <exception cref="ArgumentException"><paramref name="sources"/> is empty or holds a null document.</exception>
     /// <remarks>
-    /// ISO 32000-2 §7.7.3, §12.3.2.4, §12.3.3, §12.4.2 and §12.7.3. A document made by <see cref="Create()"/> (PDF 2.0, on an engine with
+    /// ISO 32000-2 §7.7.3, §12.3.2.4, §12.3.3, §12.4.2, §12.7.3 and §14.7. A document made by <see cref="Create()"/> (PDF 2.0, on an engine with
     /// default options) with its one blank page removed, then <see cref="AppendPages(PdfDocument)"/> for each source in turn: see there
     /// for what each source contributes and how names that collide are renamed. To merge on an engine with other options, create the
     /// document with <see cref="PdfEngine.Create"/> and append the sources to it.
@@ -52,7 +52,7 @@ public sealed partial class PdfDocument
     /// <exception cref="ArgumentException"><paramref name="source"/> is this document.</exception>
     /// <exception cref="NotSupportedException">A stream of an encrypted source cannot be copied decrypted (see <see cref="PdfObjectCopier.Copy"/>).</exception>
     /// <exception cref="Diagnostics.DiagnosticException">The source is in strict mode and a page reads its <c>Annots</c> from a page tree node.</exception>
-    /// <remarks>ISO 32000-2 §7.7.3, §12.3 and §12.7. As <see cref="AppendPages(PdfDocument, Range)"/> with every page.</remarks>
+    /// <remarks>ISO 32000-2 §7.7.3, §12.3, §12.7 and §14.7. As <see cref="AppendPages(PdfDocument, Range)"/> with every page.</remarks>
     public void AppendPages(PdfDocument source) => AppendPages(source, Range.All);
 
     /// <summary>Appends the pages of <paramref name="source"/> that <paramref name="pages"/> selects to this document, with the outline items, named destinations, form fields and page labels that belong to them.</summary>
@@ -72,7 +72,8 @@ public sealed partial class PdfDocument
     /// <b>Outline</b> (§12.3.3): the source's items are added after this document's top-level items, keeping their levels, titles,
     /// colours, styles, open states and destinations or actions. When every page is copied every item is; otherwise an item is kept
     /// when it shows a copied page or one of its descendants is kept, and a kept item whose own destination is a page not copied
-    /// loses that destination (it stays as a heading for its descendants). An item's structure element (<c>SE</c>) is not copied.
+    /// loses that destination (it stays as a heading for its descendants). An item's structure element (<c>SE</c>) names the element's
+    /// copy when the element is copied, and is left out otherwise.
     /// </para>
     /// <para>
     /// <b>Named destinations</b> (§12.3.2.4): those of the source's <c>Dests</c> name tree and catalog <c>Dests</c> dictionary that
@@ -96,9 +97,25 @@ public sealed partial class PdfDocument
     /// (a source without labels numbers them in decimal, as a reader would) and this document's pages keep theirs.
     /// </para>
     /// <para>
-    /// Structure (§14.7) is not merged: a copied page keeps its <c>StructParents</c> as it was. Copied objects may raise this
-    /// document's version on save (ADR 0003). A mutation of this document: no read of it may run concurrently; the source may be read
-    /// by others.
+    /// <b>Optional content</b> (§8.11.4): the source's optional content groups the copies use (all of them when every page is copied)
+    /// are listed in this document's <c>OCProperties</c>, which is created when absent, after its own groups, each with its default
+    /// state; the source's <c>Order</c>, <c>RBGroups</c>, <c>Locked</c> and <c>AS</c> are appended to the default configuration's
+    /// and its alternate configurations to <c>Configs</c>, each keeping only those groups. This document's own entries are unchanged.
+    /// </para>
+    /// <para>
+    /// <b>Structure</b> (§14.7): the structure elements with a content item on a copied page (all of them when every page is copied),
+    /// and their ancestors, are added after this document's top-level elements, which gives this document a structure tree when it has
+    /// none. An element whose content is partly on pages not copied keeps only its content on copied pages. The copied pages, forms
+    /// and annotations get new parent-tree keys (§14.7.5.4), so their content finds the copied elements; content that is no element's
+    /// in the copy loses its key. Namespaces are matched by name, and role map, namespace role map and class map entries this document
+    /// lacks are added. A structure type this document maps differently, an attribute class it defines differently and an element ID
+    /// it already has are renamed in the copies by appending <c>_1</c>, <c>_2</c>, … (a table cell's <c>Headers</c> follow the IDs),
+    /// each recorded as an Information diagnostic (<c>StructureRoleConflict</c>, <c>StructureClassConflict</c>,
+    /// <c>StructureIdConflict</c>).
+    /// </para>
+    /// <para>
+    /// Copied objects may raise this document's version on save (ADR 0003). A mutation of this document: no read of it may run
+    /// concurrently; the source may be read by others.
     /// </para>
     /// </remarks>
     public void AppendPages(PdfDocument source, Range pages)
@@ -122,9 +139,10 @@ public sealed partial class PdfDocument
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="pages"/> is not within the document's pages.</exception>
     /// <exception cref="ArgumentException"><paramref name="pages"/> selects no page.</exception>
     /// <remarks>
-    /// ISO 32000-2 §7.7.3, §12.3 and §12.4.2. A new PDF 2.0 document to which the pages are appended as
+    /// ISO 32000-2 §7.7.3, §12.3, §12.4.2 and §14.7. A new PDF 2.0 document to which the pages are appended as
     /// <see cref="AppendPages(PdfDocument, Range)"/> appends them: it keeps the outline items that show those pages (and the items
-    /// above them), the named destinations and form fields on them, and their page labels. This document is only read.
+    /// above them), the named destinations and form fields on them, their page labels, and the structure elements whose content is on
+    /// them (pruned of content on other pages). This document is only read.
     /// </remarks>
     public PdfDocument ExtractPages(Range pages)
     {
@@ -153,8 +171,8 @@ public sealed partial class PdfDocument
     /// <exception cref="ArgumentOutOfRangeException">A range is not within the document's pages.</exception>
     /// <exception cref="ArgumentException">A range selects no page, or there is none.</exception>
     /// <remarks>
-    /// ISO 32000-2 §7.7.3, §12.3 and §12.4.2. Each document is made as <see cref="ExtractPages"/> makes it, so its outline holds only
-    /// the items that show its own pages. Every range is checked before any document is made. This document is only read.
+    /// ISO 32000-2 §7.7.3, §12.3, §12.4.2 and §14.7. Each document is made as <see cref="ExtractPages"/> makes it, so its outline
+    /// holds only the items that show its own pages and its structure tree only the elements whose content is on them. Every range is checked before any document is made. This document is only read.
     /// </remarks>
     public IReadOnlyList<PdfDocument> Split(params IEnumerable<Range> ranges)
     {
