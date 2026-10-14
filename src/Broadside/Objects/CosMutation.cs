@@ -2,7 +2,9 @@ namespace Broadside.Objects;
 
 /// <summary>
 /// A process-wide count of changes to COS containers: every change to a <see cref="CosDictionary"/> or <see cref="CosArray"/>, and
-/// every replacement of a <see cref="CosStream"/>'s data, through the public API advances it; reading and loading never do.
+/// every replacement of a <see cref="CosStream"/>'s data, through the public API advances it, and so does every indirect object
+/// added to or removed from a document (<see cref="PdfDocument.AddObject"/>, <see cref="PdfDocument.RemoveObject"/>); reading and
+/// loading never do.
 /// </summary>
 /// <remarks>
 /// <para>

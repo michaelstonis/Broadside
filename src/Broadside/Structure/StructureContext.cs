@@ -34,7 +34,7 @@ internal sealed class StructureContext
         Document = document;
         Root = root;
         RootReference = rootReference;
-        _indexes = new StructureIndexes(CosMutation.Epoch);
+        _indexes = new StructureIndexes(CosMutation.Epoch, document.ObjectsVersion);
     }
 
     public PdfDocument Document { get; }
@@ -73,12 +73,13 @@ internal sealed class StructureContext
         {
             StructureIndexes current = Volatile.Read(ref _indexes);
             long epoch = CosMutation.Epoch;
-            if (current.IsCurrent(epoch))
+            int objectsVersion = Document.ObjectsVersion;
+            if (current.IsCurrent(epoch, objectsVersion))
             {
                 return current;
             }
 
-            var fresh = new StructureIndexes(epoch);
+            var fresh = new StructureIndexes(epoch, objectsVersion);
             StructureIndexes previous = Interlocked.CompareExchange(ref _indexes, fresh, current);
             return ReferenceEquals(previous, current) ? fresh : previous;
         }
