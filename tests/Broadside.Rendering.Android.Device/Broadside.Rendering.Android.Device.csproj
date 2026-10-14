@@ -1,0 +1,60 @@
+<Project>
+
+  <!--
+    The Android backend's device app (issue #133): an Android application whose instrumentation renders corpus pages through
+    Broadside.Rendering.Android on a device or emulator, measures replay allocations there, and leaves the pixels in its files
+    directory. Broadside.Rendering.Android.Tests drives it over adb from the host and compares the pixels with the golden images.
+    The platform gate is the one of src/Broadside.Rendering.Android: without the android workload the project is a set of no-op
+    targets, so Broadside.slnx still builds; -p:BroadsideBuildPlatformBackends=true|false forces the decision.
+  -->
+  <PropertyGroup Label="Platform gate">
+    <BroadsideBuildPlatformBackends Condition="'$(BroadsideBuildPlatformBackends)' == ''">$([MSBuild]::IsOSPlatform('OSX'))</BroadsideBuildPlatformBackends>
+  </PropertyGroup>
+
+  <Import Project="Sdk.props" Sdk="Microsoft.NET.Sdk" Condition="'$(BroadsideBuildPlatformBackends)' == 'true'" />
+
+  <PropertyGroup>
+    <TargetFramework />
+    <TargetFrameworks>net10.0-android</TargetFrameworks>
+    <SupportedOSPlatformVersion>26</SupportedOSPlatformVersion>
+    <OutputType>Exe</OutputType>
+    <IsTestProject>false</IsTestProject>
+    <UseMicrosoftTestingPlatformRunner>false</UseMicrosoftTestingPlatformRunner>
+    <TestingPlatformDotnetTestSupport>false</TestingPlatformDotnetTestSupport>
+    <ApplicationId>com.broadside.rendering.android.device</ApplicationId>
+    <ApplicationTitle>Broadside rendering device tests</ApplicationTitle>
+    <ApplicationVersion>1</ApplicationVersion>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <!-- The host installs the APK with adb install: every assembly goes into it (no fast deployment). Build it in Release: trimmed, it is
+         small enough for a crowded emulator, and the replay measurement runs the code a consumer ships. -->
+    <EmbedAssembliesIntoApk>true</EmbedAssembliesIntoApk>
+    <AndroidPackageFormat>apk</AndroidPackageFormat>
+    <!-- No ahead-of-time compilation: it would add minutes to every macOS solution build for a test app. -->
+    <RunAOTCompilation>false</RunAOTCompilation>
+    <AndroidEnableProfiledAot>false</AndroidEnableProfiledAot>
+    <AndroidGenerateResourceDesigner>false</AndroidGenerateResourceDesigner>
+    <RootNamespace>Broadside.Rendering.Android.Device</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Rendering.Android/Broadside.Rendering.Android.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
+    <Compile Include="../Broadside.TestSupport/Allocations.cs" Link="Allocations.cs" />
+    <!-- tests/Directory.Build.props imports Xunit everywhere; this app runs no xUnit. -->
+    <Using Remove="Xunit" />
+    <!-- Every hand-written corpus file, so the host can ask for any of them. -->
+    <AndroidAsset Include="../Corpus/*.pdf" Link="Assets/corpus/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- No-op targets for a host that cannot build this project. The SDK, when imported below, replaces every one of them. -->
+  <Target Name="Restore" />
+  <Target Name="Build" />
+  <Target Name="Rebuild" />
+  <Target Name="Clean" />
+  <Target Name="Pack" />
+  <Target Name="VSTest" />
+
+  <Import Project="Sdk.targets" Sdk="Microsoft.NET.Sdk" Condition="'$(BroadsideBuildPlatformBackends)' == 'true'" />
+
+</Project>
