@@ -30,6 +30,7 @@ internal sealed class StructureWalk
     private readonly Dictionary<string, PdfStructureElement> _ids = new(StringComparer.Ordinal);
     private readonly Dictionary<(CosObject StreamKey, int Mcid), int> _markedContentOrder = new(StreamMcidComparer.Instance);
     private readonly Dictionary<CosObject, int> _objectOrder = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<PdfStructureElement, CosDictionary> _firstPages = new(ReferenceEqualityComparer.Instance);
     private int _contentItems;
 
     public static StructureWalk Empty { get; } = new();
@@ -70,6 +71,7 @@ internal sealed class StructureWalk
                     if (reference.ReferencedObject is not CosNull && walk._objects.TryAdd(reference.ReferencedObject, parent))
                     {
                         walk._objectOrder.Add(reference.ReferencedObject, walk._contentItems++);
+                        walk.RecordPage(parent, reference.Page?.Dictionary);
                     }
 
                     break;
@@ -106,9 +108,36 @@ internal sealed class StructureWalk
         return _objects.TryGetValue(value, out element) && _objectOrder.TryGetValue(value, out order);
     }
 
+    /// <summary>
+    /// Finds the page object on which <paramref name="element"/>'s content starts: the page of the first content item, in logical
+    /// content order (§14.8.2.5.1), of the element or any element below it whose page is known (<c>Pg</c>, Table 355, Table 357,
+    /// Table 358).
+    /// </summary>
+    public bool TryGetFirstPage(PdfStructureElement element, [MaybeNullWhen(false)] out CosDictionary page) => _firstPages.TryGetValue(element, out page);
+
     /// <summary>The MCID-to-element map of one content stream (a page object or a stream), from <c>K</c>.</summary>
     public IReadOnlyDictionary<int, PdfStructureElement>? MarkedContent(CosObject streamKey) =>
         _markedContent.TryGetValue(streamKey, out Dictionary<int, PdfStructureElement>? map) ? map : null;
+
+    /// <summary>
+    /// Records <paramref name="page"/> as the first page of <paramref name="parent"/> and of each ancestor that has none yet. The walk
+    /// meets content items in logical order, so an element that already has a first page has an ancestor chain that has one too.
+    /// </summary>
+    private void RecordPage(PdfStructureElement parent, CosDictionary? page)
+    {
+        if (page is null)
+        {
+            return;
+        }
+
+        for (PdfStructureElement? element = parent; element is not null; element = element.Parent)
+        {
+            if (!_firstPages.TryAdd(element, page))
+            {
+                break;
+            }
+        }
+    }
 
     private static void Push(Stack<(CosObject, PdfStructureElement?, int)> stack, IReadOnlyList<CosObject> entries, PdfStructureElement? parent, int depth)
     {
@@ -176,6 +205,7 @@ internal sealed class StructureWalk
         if (map.TryAdd(item.Mcid, item.Parent))
         {
             _markedContentOrder.Add((key, item.Mcid), _contentItems++);
+            RecordPage(item.Parent, item.PageObject);
         }
         else
         {

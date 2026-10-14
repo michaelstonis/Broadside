@@ -141,6 +141,51 @@ public sealed class ReadingOrderTests
     }
 
     [Fact]
+    public void An_element_spanning_two_pages_gives_its_ActualText_once_on_the_page_where_its_content_starts()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path(Spanning));
+
+        string[] pages = [.. document.Pages.Select(page => page.ExtractText().PlainText)];
+
+        // The Span's content is "Druk-" (last line of page 1) and "ker" (first line of page 2); §14.9.4: one replacement for both.
+        Assert.Equal(["Before\nDrucker\n*", "*\nAfter"], pages);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(string.Join("\n", pages), "Drucker"));
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void An_alternate_description_spanning_two_pages_is_applied_once_on_the_page_where_its_content_starts()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path(Spanning));
+        TextExtractionOptions options = new TextExtractionOptions().WithAlternateDescriptions();
+
+        string[] pages = [.. document.Pages.Select(page => page.ExtractText(options).PlainText)];
+
+        Assert.Equal(["Before\nDrucker\nTwo stars", "After"], pages);
+    }
+
+    [Fact]
+    public void The_later_page_of_a_spanning_element_keeps_its_glyphs_flagged_with_no_text()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path(Spanning));
+
+        TextPage text = document.Pages[1].ExtractText(new TextExtractionOptions().WithAlternateDescriptions());
+
+        // The continuation: "ker" and "*" are still glyphs of the page, in logical order, owned by their elements and flagged with
+        // the replacement that stands for them, but each has an empty text range, so the page's text holds only "After".
+        Assert.Equal("After", text.Text);
+        Assert.Equal(9, text.Glyphs.Count);
+        TextGlyph[] continuation = [.. text.Glyphs.Take(4)];
+        Assert.All(continuation, glyph => Assert.Equal(0, glyph.TextLength));
+        Assert.Equal(["Span", "Span", "Span", "Figure"], continuation.Select(glyph => glyph.StructureElement!.StructureType!.Value));
+        Assert.All(continuation[..3], glyph => Assert.Equal(TextGlyphFlags.ActualText, glyph.Flags));
+        Assert.Equal(TextGlyphFlags.AlternateDescription, continuation[3].Flags);
+        Assert.Equal(700, continuation[0].Origin.Y, 6);
+        TextWord word = Assert.Single(text.Words);
+        Assert.Equal((4, 5), (word.GlyphStart, word.GlyphCount));
+    }
+
+    [Fact]
     public void A_page_of_a_document_without_a_structure_tree_keeps_content_order()
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Path("text-lines-rotated.pdf"));
@@ -233,6 +278,8 @@ public sealed class ReadingOrderTests
         Task.Factory.StartNew(action, CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default).GetAwaiter().GetResult();
 
     private const string Replacements = "text-tagged-replacements.pdf";
+
+    private const string Spanning = "text-tagged-spanning.pdf";
 
     /// <summary>A tagged page showing "ab" and "cd" as two Span elements (MCIDs 0 and 1) whose <paramref name="key"/> entries are "x" and "y".</summary>
     private static byte[] TwoTouchingSpans(string key, int gap = 0) => new Document.TestPdf { Header = "%PDF-2.0" }.Build(
