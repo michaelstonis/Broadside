@@ -3269,6 +3269,33 @@ def gen_optional_content() -> bytes:
     ])
 
 
+def gen_optional_content_pages() -> bytes:
+    """8.11.4: three pages, each using its own optional content group, for merging and splitting by page.
+    Page 1 draws a section /OC /base (Base), page 2 a section /OC /notes (Notes, OFF in D, with a Zoom usage),
+    page 3 has a Square annotation with /OC Draft; Unused is used by no page (OFF in D). D (8.11.4.3 Table 99)
+    carries Name, Order [Base [Notes Draft] [(Extras) Unused]] (Notes and Draft as Base's sublayers), RBGroups
+    [[Notes Draft]], Locked [Draft] and AS [View event, OCGs [Base Notes], Category [/Zoom]] (8.11.4.4 Table 101);
+    Configs has one alternate configuration (Review: BaseState OFF, ON [Notes Draft])."""
+    ocprops = (b" /OCProperties << /OCGs [9 0 R 10 0 R 11 0 R 12 0 R]"
+               b" /D << /Name (Layers) /OFF [10 0 R 12 0 R] /Order [9 0 R [10 0 R 11 0 R] [(Extras) 12 0 R]]"
+               b" /RBGroups [[10 0 R 11 0 R]] /Locked [11 0 R]"
+               b" /AS [<< /Event /View /OCGs [9 0 R 10 0 R] /Category [/Zoom] >>] >>"
+               b" /Configs [<< /Name (Review) /BaseState /OFF /ON [10 0 R 11 0 R] >>] >>")
+    return simple_file([
+        (1, catalog(ocprops)),
+        (2, pages([3, 5, 7])),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /Properties << /base 9 0 R >> >>")),
+        (4, stream(b"", b"/OC /base BDC 0 0 10 10 re f EMC\n")),
+        (5, page(contents=6, resources=False, extra=b" /Resources << /Properties << /notes 10 0 R >> >>")),
+        (6, stream(b"", b"/OC /notes BDC 20 0 10 10 re f EMC\n")),
+        (7, page(extra=b" /Annots [8 0 R]")),
+        (8, b"<< /Type /Annot /Subtype /Square /Rect [100 100 200 200] /OC 11 0 R >>"),
+        (9, b"<< /Type /OCG /Name (Base) >>"),
+        (10, b"<< /Type /OCG /Name (Notes) /Usage << /Zoom << /min 2 >> >> >>"),
+        (11, b"<< /Type /OCG /Name (Draft) >>"),
+        (12, b"<< /Type /OCG /Name (Unused) >>"),
+    ])
+
 def utf16_text(text: str) -> bytes:
     """7.9.2.2 text string as a hexadecimal string: FEFF byte order mark, then UTF-16BE."""
     return b"<FEFF" + text.encode("utf-16-be").hex().upper().encode() + b">"
@@ -6440,6 +6467,7 @@ FILES = {
     "outline-broken.pdf": gen_outline_broken,
     "functions.pdf": gen_functions,
     "optional-content.pdf": gen_optional_content,
+    "optional-content-pages.pdf": gen_optional_content_pages,
     "embedded-files.pdf": gen_embedded_files,
     "collection-portfolio.pdf": gen_collection_portfolio,
     "associated-files.pdf": gen_associated_files,
