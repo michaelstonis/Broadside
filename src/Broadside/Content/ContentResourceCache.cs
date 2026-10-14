@@ -93,10 +93,13 @@ internal sealed class ContentResourceCache(PdfDocument document)
         return metrics;
     }
 
-    /// <summary>Returns the parameters of a graphics state parameter dictionary, read once while the dictionary is unchanged.</summary>
+    /// <summary>
+    /// Returns the parameters of a graphics state parameter dictionary, read once while the dictionary is unchanged and no object is
+    /// added or removed (a removal changes what its references resolve to, §7.3.10).
+    /// </summary>
     public ExtGStateParameters GetGraphicsState(CosDictionary dictionary, CosReference? reference)
     {
-        if (_graphicsStates.TryGetValue(dictionary, out ExtGStateParameters? cached) && cached.Version == dictionary.Version)
+        if (_graphicsStates.TryGetValue(dictionary, out ExtGStateParameters? cached) && cached.Version == dictionary.Version && cached.ObjectsVersion == document.ObjectsVersion)
         {
             return cached;
         }

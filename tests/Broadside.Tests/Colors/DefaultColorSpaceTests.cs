@@ -1,4 +1,5 @@
 using Broadside.Graphics;
+using Broadside.Objects;
 using static Broadside.Tests.Colors.ColorTesting;
 
 namespace Broadside.Tests.Colors;
@@ -54,6 +55,20 @@ public sealed class DefaultColorSpaceTests
         Near([Remapped, Remapped, Remapped], paints[1].FillRgb, 2e-3);
         Near([Remapped, Remapped, Remapped], paints[2].FillRgb, 2e-3);
         Assert.Empty(codes);
+    }
+
+    [Fact]
+    public void A_default_removed_as_an_object_is_seen_by_the_defaults_read_before()
+    {
+        using PdfDocument document = PdfDocument.Create();
+        CosReference rgb = document.AddObject(Cos("[/CalRGB << /WhitePoint [0.95047 1 1.08883] >>]"));
+        var resources = (CosDictionary)Cos($"<< /ColorSpace << /DefaultRGB {rgb.ObjectNumber} 0 R >> >>");
+        Assert.IsType<PdfCalRgbColorSpace>(document.GetDefaultColorSpaces(resources).Rgb);
+
+        // §7.3.10: DefaultRGB now resolves to null, which is not a colour space, so DeviceRGB is no longer replaced; the dictionaries are unchanged.
+        Assert.True(document.RemoveObject(rgb));
+
+        Assert.Null(document.GetDefaultColorSpaces(resources).Rgb);
     }
 
     [Fact]
