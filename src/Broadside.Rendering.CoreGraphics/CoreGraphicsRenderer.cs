@@ -110,7 +110,7 @@ public sealed class CoreGraphicsRenderer : IDisposable
     }
 
     /// <summary>Gets what the last render could not draw exactly as the file asks: one diagnostic per kind.</summary>
-    /// <remarks>ADR 0005: nothing is approximated silently. CoreGraphics' ColorDodge, ColorBurn and SoftLight are not ISO 32000-2 §11.3.5's.</remarks>
+    /// <remarks>ADR 0005: nothing is skipped or approximated silently. CoreGraphics' ColorDodge, ColorBurn and SoftLight are not ISO 32000-2 §11.3.5's; tiling patterns (§8.7.3) are not drawn yet.</remarks>
     public IReadOnlyList<Diagnostic> Diagnostics => _backend.Diagnostics;
 
     /// <summary>Ends the renderer's use; it renders no more after this.</summary>

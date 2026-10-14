@@ -109,6 +109,7 @@ internal sealed partial class CoreGraphicsBackend
         _compositing = Compositing.Initial;
         _annotationDepth = 0;
         _approximationReported = false;
+        _tilingReported = false;
         Diagnostics.Clear();
     }
 
