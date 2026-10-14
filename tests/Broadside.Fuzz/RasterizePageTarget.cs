@@ -40,14 +40,17 @@ internal static class RasterizePageTarget
 
         // Issue #98: the annotation and form-field layers too, for the screen or for printing; NoZoom/NoRotate pivot them.
         DisplayIntent intent = data.Length / 32 % 2 == 0 ? DisplayIntent.View : DisplayIntent.Print;
+
+        // Issue #104: any combination of the anti-aliasing switches (print lists also select DefaultForPrinting alternates).
+        var antiAliasing = (AntiAliasing)(data.Length / 64 % 8);
         using var rasterizer = new SoftwareRasterizer();
         using var first = new Bitmap(Size, Size);
         using var second = new Bitmap(Size, Size);
         for (int index = 0; index < Math.Min(2, document.Pages.Count); index++)
         {
             DisplayList list = document.Pages[index].CreateDisplayList(DisplayLayers.All, intent, Options);
-            rasterizer.Render(list, first, device);
-            rasterizer.Render(list, second, device);
+            rasterizer.Render(list, first, device, antiAliasing);
+            rasterizer.Render(list, second, device, antiAliasing);
         }
 
         ReadOnlySpan<byte> pixels = first.Pixels;

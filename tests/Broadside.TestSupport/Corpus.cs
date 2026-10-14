@@ -118,6 +118,7 @@ public static class Corpus
         "image-4bpc-indexed.pdf",
         "image-16bpc.pdf",
         "image-decode-inverted.pdf",
+        "image-alternates.pdf",
         "jpx-lossless.pdf",
         "jpx-subsampled.pdf",
         "jpx-smask-in-data.pdf",

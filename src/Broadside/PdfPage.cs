@@ -364,6 +364,11 @@ public sealed class PdfPage
     /// <see cref="DisplayIntent.View"/>, <c>NoZoom</c> and <c>NoRotate</c> (always for text annotations, §12.5.6.4) travel to the
     /// backend in <see cref="DisplayAnnotation"/>.
     /// </para>
+    /// <para>
+    /// For <see cref="DisplayIntent.Print"/> the optional-content state (the options', else the default configuration's) has its
+    /// configuration's auto-state entries for the Print event applied (§8.11.4.4), for the content and the annotations alike, and an
+    /// image XObject without <c>OC</c> is painted as its alternate marked <c>DefaultForPrinting</c> (§8.9.5.4).
+    /// </para>
     /// </remarks>
     public DisplayList CreateDisplayList(DisplayLayers layers, DisplayIntent intent, ContentOptions options)
     {

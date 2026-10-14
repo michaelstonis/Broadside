@@ -74,3 +74,19 @@ Broadside.Rendering.Icc.IccColorManagement.UsesOutputIntents.get -> bool
 Broadside.Rendering.Icc.IccColorManagement.WithRgbProfile(Broadside.Rendering.Icc.IccProfile! profile) -> Broadside.Rendering.Icc.IccColorManagement!
 Broadside.Rendering.Icc.IccColorManagement.WithDefaultBlackPointCompensation(bool compensate) -> Broadside.Rendering.Icc.IccColorManagement!
 Broadside.Rendering.Icc.IccColorManagement.WithOutputIntents(bool use) -> Broadside.Rendering.Icc.IccColorManagement!
+Broadside.Rendering.AntiAliasing
+Broadside.Rendering.AntiAliasing.All = Broadside.Rendering.AntiAliasing.Paths | Broadside.Rendering.AntiAliasing.Text | Broadside.Rendering.AntiAliasing.Images -> Broadside.Rendering.AntiAliasing
+Broadside.Rendering.AntiAliasing.Images = 4 -> Broadside.Rendering.AntiAliasing
+Broadside.Rendering.AntiAliasing.None = 0 -> Broadside.Rendering.AntiAliasing
+Broadside.Rendering.AntiAliasing.Paths = 1 -> Broadside.Rendering.AntiAliasing
+Broadside.Rendering.AntiAliasing.Text = 2 -> Broadside.Rendering.AntiAliasing
+Broadside.Rendering.RenderOptions.AntiAliasing.get -> Broadside.Rendering.AntiAliasing
+Broadside.Rendering.RenderOptions.AntiAliasing.set -> void
+Broadside.Rendering.RenderOptions.OptionalContentState.get -> Broadside.PdfOptionalContentState?
+Broadside.Rendering.RenderOptions.OptionalContentState.set -> void
+Broadside.Rendering.RenderOptions.TransparentBackground.get -> bool
+Broadside.Rendering.RenderOptions.TransparentBackground.set -> void
+Broadside.Rendering.RenderOptions.WithAntiAliasing(Broadside.Rendering.AntiAliasing antiAliasing) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.RenderOptions.WithOptionalContentState(Broadside.PdfOptionalContentState? state) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.RenderOptions.WithTransparentBackground(bool transparent) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.SoftwareRasterizer.Render(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, Broadside.Rendering.AntiAliasing antiAliasing) -> void

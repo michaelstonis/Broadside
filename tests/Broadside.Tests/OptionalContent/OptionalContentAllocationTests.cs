@@ -33,7 +33,8 @@ public sealed class OptionalContentAllocationTests
             },
             warmUpCalls: 1);
 
-        Assert.Equal(1000 * 3, visible);
+        // Three before issue #104 added /d2 (D2, ON by default) to the page's Properties, which adds one visible check per run.
+        Assert.Equal(1000 * 4, visible);
         Assert.Equal(0, allocated);
 
         int Run()

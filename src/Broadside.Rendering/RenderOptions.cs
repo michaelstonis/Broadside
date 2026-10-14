@@ -133,8 +133,15 @@ public sealed class RenderOptions
     /// </remarks>
     public DisplayLayers Layers { get; set; } = DisplayLayers.All;
 
-    /// <summary>Gets or sets what the render is for, which decides the annotations drawn; <see cref="DisplayIntent.View"/> by default.</summary>
-    /// <remarks>ISO 32000-2 §12.5.3, Table 167 (<c>NoView</c>, <c>Print</c>, <c>NoZoom</c>, <c>NoRotate</c>).</remarks>
+    /// <summary>
+    /// Gets or sets what the render is for, which decides the annotations drawn, the optional content shown and the alternate images
+    /// painted; <see cref="DisplayIntent.View"/> by default.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §12.5.3, Table 167 (<c>NoView</c>, <c>Print</c>, <c>NoZoom</c>, <c>NoRotate</c>); §8.11.4.4 (the auto-state
+    /// entries for the Print event apply when printing); §8.9.5.4 (an image without <c>OC</c> is printed as its alternate marked
+    /// <c>DefaultForPrinting</c>).
+    /// </remarks>
     public DisplayIntent Intent { get; set; }
 
     /// <summary>Sets <see cref="Layers"/>.</summary>
@@ -152,6 +159,64 @@ public sealed class RenderOptions
     public RenderOptions WithIntent(DisplayIntent intent)
     {
         Intent = intent;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the states of the optional content groups that decide what the render shows, computed from any configuration
+    /// of the document (<see cref="PdfOptionalContentProperties.GetStates"/>); <see langword="null"/>, the default, for the states
+    /// of the default configuration.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §8.11.4.3 (configurations) and §8.11.4.5 (the initial states). It decides the page content's optional sections
+    /// and XObjects (§8.11.3), the annotations' <c>OC</c> entries (§8.11.3.3) and which alternate image is painted (§8.9.5.4). For
+    /// <see cref="DisplayIntent.Print"/> the configuration's auto-state entries for the Print event are applied over these states
+    /// (§8.11.4.4); see <see cref="PdfPage.CreateDisplayList(DisplayLayers, DisplayIntent, Content.ContentOptions)"/>.
+    /// </remarks>
+    public PdfOptionalContentState? OptionalContentState { get; set; }
+
+    /// <summary>Sets <see cref="OptionalContentState"/>.</summary>
+    /// <param name="state">The group states, or <see langword="null"/> for those of the default configuration.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithOptionalContentState(PdfOptionalContentState? state)
+    {
+        OptionalContentState = state;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the kinds of painting that are anti-aliased; <see cref="Rendering.AntiAliasing.All"/> by default. A kind left out
+    /// paints whole pixels only.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §10.7.4 (scan conversion rules); see <see cref="Rendering.AntiAliasing"/>.</remarks>
+    public AntiAliasing AntiAliasing { get; set; } = AntiAliasing.All;
+
+    /// <summary>Sets <see cref="AntiAliasing"/>.</summary>
+    /// <param name="antiAliasing">The kinds anti-aliased.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithAntiAliasing(AntiAliasing antiAliasing)
+    {
+        AntiAliasing = antiAliasing;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a page render starts from transparent black instead of opaque white, so that the
+    /// pixels nothing paints keep zero alpha and partly covered ones are partly transparent; <see langword="false"/> by default.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §11.4.7: the page group is composited over a transparent backdrop, (C<sub>g</sub>, α<sub>g</sub>), and the
+    /// second step that composites it with the medium's white, C = (1 − α<sub>g</sub>) × W + α<sub>g</sub> × C<sub>g</sub>, is left
+    /// to whoever shows the bitmap (premultiplied BGRA). An opaque render is that step done over white.
+    /// </remarks>
+    public bool TransparentBackground { get; set; }
+
+    /// <summary>Sets <see cref="TransparentBackground"/>.</summary>
+    /// <param name="transparent">Whether the background is transparent rather than white.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithTransparentBackground(bool transparent)
+    {
+        TransparentBackground = transparent;
         return this;
     }
 

@@ -64,6 +64,7 @@
   image-1bpc.pdf,
   image-2bpc.pdf,
   image-4bpc-indexed.pdf,
+  image-alternates.pdf,
   image-color-key-mask.pdf,
   image-decode-inverted.pdf,
   image-explicit-mask.pdf,

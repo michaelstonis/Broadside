@@ -38,6 +38,7 @@ public sealed partial class SoftwareRasterizer
             }
 
             Matrix ctm = _toDevice;
+            _scan.Rule = _textRule;
             try
             {
                 for (int index = 0; index < run.Glyphs.Length; index++)
@@ -70,6 +71,7 @@ public sealed partial class SoftwareRasterizer
             finally
             {
                 _toDevice = ctm;
+                _scan.Rule = _pathRule;
             }
         }
 

@@ -1,6 +1,7 @@
 using System.Buffers;
 using System.IO.Compression;
 using System.Text;
+using Broadside.Content;
 using Broadside.Filters;
 using Broadside.Graphics;
 using Broadside.Objects;
@@ -38,6 +39,44 @@ public sealed class DisplayListImageTests
 
         // Every one of these files paints its image with "q w 0 0 h 72 600 cm ... Q": a save, the CTM, the image, a restore.
         Assert.Equal(["save", "transform " + new Matrix(width, 0, 0, height, 72, 600), expected, "restore"], recorder.Operations);
+    }
+
+    [Theory]
+    [InlineData(DisplayIntent.View, "FF0000 0000FF 00FFFF 808080")]
+    [InlineData(DisplayIntent.Print, "00FF00 0000FF 00FFFF")]
+    public void Image_alternates_pdf_paints_the_image_the_alternate_selection_rules_choose(DisplayIntent intent, string expected)
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("image-alternates.pdf"));
+        var recorder = new RecordingBackend();
+
+        document.Pages[0].CreateDisplayList(DisplayLayers.Content, intent, new ContentOptions()).Replay(recorder);
+
+        // §8.9.5.4: Im1 (no OC) prints its DefaultForPrinting alternate; Im2's visible OC keeps the base and ignores
+        // DefaultForPrinting; Im3's hidden OC selects the first visible alternate; Im4's print alternate is hidden, so nothing prints.
+        Assert.Equal(expected, string.Join(' ', recorder.Images.Select(paint => Convert.ToHexString(paint.Image.Samples))));
+    }
+
+    [Fact]
+    public void An_explicit_state_decides_between_base_images_and_alternates()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("image-alternates.pdf"));
+        PdfOptionalContentProperties properties = document.OptionalContent!;
+        PdfOptionalContentState hiddenOn = properties.GetDefaultStates().With(properties.Groups[1], on: true);
+        PdfOptionalContentState screenOff = properties.GetDefaultStates().With(properties.Groups[0], on: false);
+        var shown = new RecordingBackend();
+        var printed = new RecordingBackend();
+        var fallback = new RecordingBackend();
+
+        document.Pages[0].CreateDisplayList(DisplayLayers.Content, DisplayIntent.View, new ContentOptions().WithOptionalContentState(hiddenOn)).Replay(shown);
+        document.Pages[0].CreateDisplayList(DisplayLayers.Content, DisplayIntent.Print, new ContentOptions().WithOptionalContentState(hiddenOn)).Replay(printed);
+        document.Pages[0].CreateDisplayList(DisplayLayers.Content, DisplayIntent.View, new ContentOptions().WithOptionalContentState(screenOff)).Replay(fallback);
+
+        // Hidden ON: Im3's base is visible (red); when printing, Im4's alternate (black) is visible too.
+        Assert.Equal(["FF0000", "0000FF", "FF0000", "808080"], shown.Images.Select(paint => Convert.ToHexString(paint.Image.Samples)));
+        Assert.Equal(["00FF00", "0000FF", "FF0000", "000000"], printed.Images.Select(paint => Convert.ToHexString(paint.Image.Samples)));
+
+        // Screen OFF: Im2's base is hidden and its only alternate has no OC, so it is selected (yellow), DefaultForPrinting or not.
+        Assert.Equal(["FF0000", "FFFF00", "00FFFF", "808080"], fallback.Images.Select(paint => Convert.ToHexString(paint.Image.Samples)));
     }
 
     [Fact]

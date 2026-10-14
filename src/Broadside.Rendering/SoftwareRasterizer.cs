@@ -33,6 +33,12 @@ public sealed partial class SoftwareRasterizer : IDisposable
     private static readonly RenderOptions DefaultOptions = new();
     private static readonly Content.ContentOptions DefaultContentOptions = new();
 
+    /// <summary>Opaque white, premultiplied BGRA.</summary>
+    private const uint White = uint.MaxValue;
+
+    /// <summary>Transparent black: the backdrop of a page group composited with nothing (ISO 32000-2 §11.4.7).</summary>
+    private const uint Transparent = 0;
+
     private readonly Backend _backend = new();
     private bool _disposed;
 
@@ -43,7 +49,10 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// <remarks>ISO 32000-2 §8.3.2.3, §7.7.3.3 Table 31 and §14.11.2 for the page mapping (see <see cref="RenderOptions"/>); §12.5.5 and §12.5.3 for the annotation and form-field layers drawn over the content (see <see cref="PdfPage.CreateDisplayList(DisplayLayers, DisplayIntent, Content.ContentOptions)"/>).</remarks>
     public Bitmap Render(PdfPage page) => Render(page, DefaultOptions);
 
-    /// <summary>Renders <paramref name="page"/> into a new pooled bitmap of <see cref="RenderOptions.GetPixelSize"/> pixels, on white.</summary>
+    /// <summary>
+    /// Renders <paramref name="page"/> into a new pooled bitmap of <see cref="RenderOptions.GetPixelSize"/> pixels, on white or,
+    /// with <see cref="RenderOptions.TransparentBackground"/>, on transparent black.
+    /// </summary>
     /// <param name="page">The page.</param>
     /// <param name="options">The scale, rotation, layers and intent.</param>
     /// <returns>The bitmap; dispose it to return its buffer to the pool.</returns>
@@ -54,11 +63,11 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(options);
         PageGeometry geometry = options.Measure(page);
-        DisplayList list = page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions);
+        DisplayList list = page.CreateDisplayList(options.Layers, options.Intent, ContentOptionsFor(options));
         var bitmap = new Bitmap(geometry.PixelWidth, geometry.PixelHeight);
         try
         {
-            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true);
+            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, options.TransparentBackground ? null : White, options.AntiAliasing);
         }
         catch
         {
@@ -71,7 +80,8 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
     /// <summary>
     /// Renders <paramref name="page"/> into the top-left <see cref="RenderOptions.GetPixelSize"/> pixels of <paramref name="target"/>,
-    /// on white; pixels outside that area are left as they are.
+    /// on white or, with <see cref="RenderOptions.TransparentBackground"/>, on transparent black; pixels outside that area are left as
+    /// they are.
     /// </summary>
     /// <param name="page">The page.</param>
     /// <param name="target">The bitmap, for example one over caller memory; at least the page's pixel size.</param>
@@ -88,7 +98,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             throw new ArgumentException($"The page needs {geometry.PixelWidth} x {geometry.PixelHeight} pixels; the bitmap has {target.Width} x {target.Height}.", nameof(target));
         }
 
-        Draw(page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true);
+        Draw(page.CreateDisplayList(options.Layers, options.Intent, ContentOptionsFor(options)), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, options.TransparentBackground ? Transparent : White, options.AntiAliasing);
     }
 
     /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background.</summary>
@@ -103,7 +113,20 @@ public sealed partial class SoftwareRasterizer : IDisposable
     {
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
-        Draw(list, target, deviceTransform, target.Width, target.Height, white: false);
+        Draw(list, target, deviceTransform, target.Width, target.Height, background: null, AntiAliasing.All);
+    }
+
+    /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, anti-aliasing only the kinds of painting given.</summary>
+    /// <param name="list">The display list.</param>
+    /// <param name="target">The bitmap; drawing is clipped to it.</param>
+    /// <param name="deviceTransform">The transform from the list's default user space to the bitmap's pixels, as for <see cref="Render(DisplayList, Bitmap, in Matrix)"/>.</param>
+    /// <param name="antiAliasing">The kinds anti-aliased; the others paint whole pixels only (see <see cref="Rendering.AntiAliasing"/>).</param>
+    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space) and §10.7.4 (scan conversion rules).</remarks>
+    public void Render(DisplayList list, Bitmap target, in Matrix deviceTransform, AntiAliasing antiAliasing)
+    {
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentNullException.ThrowIfNull(target);
+        Draw(list, target, deviceTransform, target.Width, target.Height, background: null, antiAliasing);
     }
 
     /// <summary>Returns the rasterizer's pooled working buffers; it renders no more after this.</summary>
@@ -116,18 +139,23 @@ public sealed partial class SoftwareRasterizer : IDisposable
         }
     }
 
-    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white)
+    /// <summary>The content options a page render builds its list with: the default ones, or ones carrying the optional-content state.</summary>
+    private static Content.ContentOptions ContentOptionsFor(RenderOptions options) =>
+        options.OptionalContentState is { } state ? new Content.ContentOptions().WithOptionalContentState(state) : DefaultContentOptions;
+
+    /// <summary>Fills the page area with <paramref name="background"/> (none when null), then replays the list over it.</summary>
+    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, uint? background, AntiAliasing antiAliasing)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
-        if (white)
+        if (background is { } pixel)
         {
             for (int y = 0; y < height; y++)
             {
-                MemoryMarshal.Cast<byte, uint>(target.Pixels.Slice(y * target.Stride, width * 4)).Fill(uint.MaxValue);
+                MemoryMarshal.Cast<byte, uint>(target.Pixels.Slice(y * target.Stride, width * 4)).Fill(pixel);
             }
         }
 
-        _backend.Begin(list.Document, target, device, width, height);
+        _backend.Begin(list.Document, target, device, width, height, antiAliasing);
         try
         {
             list.Replay(_backend);
@@ -146,6 +174,9 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
         /// <summary>The most line segments one curve is flattened into.</summary>
         private const int MaxCurveSegments = 1000;
+
+        /// <summary>How far a device coordinate may stray past a pixel boundary by rounding and still count as on it.</summary>
+        private const double PixelResidue = 1e-9;
 
         /// <summary>Device coordinates are kept within ±2^40 pixels so that the clipping arithmetic stays finite.</summary>
         private const double CoordinateLimit = 1099511627776.0;
@@ -170,8 +201,9 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
         public Backend() => _stroker = new Stroker(_scan);
 
-        public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height)
+        public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height, AntiAliasing antiAliasing = AntiAliasing.All)
         {
+            SetAntiAliasing(antiAliasing);
             _document = document;
             _target = target;
             _device = device;
@@ -227,6 +259,24 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _toDevice = transform * _device;
         }
 
+        /// <summary>The coverage rule of paths, the one the scan converter holds between the paints of other kinds.</summary>
+        private CoverageRule _pathRule;
+
+        /// <summary>The coverage rule of glyphs.</summary>
+        private CoverageRule _textRule;
+
+        /// <summary>The coverage rule of image outlines, and whether reduced images average the samples under a pixel.</summary>
+        private CoverageRule _imageRule;
+
+        /// <summary>Chooses the coverage rule of each kind of paint (ISO 32000-2 §10.7.4; see <see cref="AntiAliasing"/>).</summary>
+        private void SetAntiAliasing(AntiAliasing antiAliasing)
+        {
+            _pathRule = (antiAliasing & AntiAliasing.Paths) != 0 ? CoverageRule.Exact : CoverageRule.AnyArea;
+            _textRule = (antiAliasing & AntiAliasing.Text) != 0 ? CoverageRule.Exact : CoverageRule.AnyArea;
+            _imageRule = (antiAliasing & AntiAliasing.Images) != 0 ? CoverageRule.Exact : CoverageRule.PixelCentre;
+            _scan.Rule = _pathRule;
+        }
+
         public void FillPath(PathView path, FillRule rule, in DisplayColor color)
         {
             PdfColorConverter converter = Converter(color);
@@ -274,6 +324,12 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
             if (TryMapRectangle(path, out double left, out double top, out double right, out double bottom))
             {
+                if (_pathRule != CoverageRule.Exact)
+                {
+                    // Whole pixels: every pixel the rectangle reaches into (§10.7.4: the clip is the pixels a fill would paint).
+                    (left, top, right, bottom) = (Math.Floor(left + PixelResidue), Math.Floor(top + PixelResidue), Math.Ceiling(right - PixelResidue), Math.Ceiling(bottom - PixelResidue));
+                }
+
                 _clip.IntersectRectangle(left, top, right, bottom);
                 return;
             }

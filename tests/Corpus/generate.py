@@ -3224,27 +3224,31 @@ def gen_optional_content() -> bytes:
     OCMD 9 (/OCGs [A B] /P /AllOff) and OCMD 10 (/VE [/Or A [/Not B]]), content sections /OC /a, /m1, /m2
     and /a nested in /b, a form XObject with /OC B, an annotation with /OC C; D carries Order (a label and
     an unlabelled nested array), RBGroups and Locked; Configs has one alternate configuration
-    (8.11.4.3 Table 99: BaseState OFF, ON [C], Intent All)."""
+    (8.11.4.3 Table 99: BaseState OFF, ON [C], Intent All). D2 also has a Print usage (PrintState OFF) that D's only AS entry
+    (Event Print, Category [Print], 8.11.4.4) applies when printing, and a last section /OC /d2 paints at x 100 (visible on screen,
+    hidden in print)."""
     content = (b"/OC /a BDC 0 0 10 10 re f EMC\n"
                b"/OC /m1 BDC 20 0 10 10 re f EMC\n"
                b"/OC /m2 BDC 40 0 10 10 re f EMC\n"
                b"/OC /b BDC /OC /a BDC 60 0 10 10 re f EMC EMC\n"
-               b"/Fm Do\n")
+               b"/Fm Do\n"
+               b"/OC /d2 BDC 100 0 10 10 re f EMC\n")
     ocprops = (b" /OCProperties << /OCGs [5 0 R 6 0 R 7 0 R 8 0 R]"
                b" /D << /Name (Default) /Creator (Broadside corpus) /OFF [6 0 R]"
-               b" /Order [5 0 R [(Labelled) 6 0 R 7 0 R] [8 0 R]] /RBGroups [[5 0 R 6 0 R]] /Locked [7 0 R] >>"
+               b" /Order [5 0 R [(Labelled) 6 0 R 7 0 R] [8 0 R]] /RBGroups [[5 0 R 6 0 R]] /Locked [7 0 R]"
+               b" /AS [<< /Event /Print /Category [/Print] /OCGs [8 0 R] >>] >>"
                b" /Configs [<< /Name (Only C) /BaseState /OFF /ON [7 0 R] /Intent /All /ListMode /VisiblePages >>] >>")
     return simple_file([
         (1, catalog(ocprops)),
         (2, pages()),
         (3, page(contents=4, resources=False,
-                 extra=b" /Resources << /Properties << /a 5 0 R /b 6 0 R /m1 9 0 R /m2 10 0 R >>"
+                 extra=b" /Resources << /Properties << /a 5 0 R /b 6 0 R /m1 9 0 R /m2 10 0 R /d2 8 0 R >>"
                        b" /XObject << /Fm 11 0 R >> >> /Annots [12 0 R]")),
         (4, stream(b"", content)),
         (5, b"<< /Type /OCG /Name (A) >>"),
         (6, b"<< /Type /OCG /Name (B) >>"),
         (7, b"<< /Type /OCG /Name (C) /Intent /Design /Usage << /CreatorInfo << /Creator (Broadside) /Subtype /Technical >> >> >>"),
-        (8, b"<< /Type /OCG /Name (D2) /Usage << /View << /ViewState /OFF >> /Zoom << /min 1.5 >> >> >>"),
+        (8, b"<< /Type /OCG /Name (D2) /Usage << /View << /ViewState /OFF >> /Print << /PrintState /OFF >> /Zoom << /min 1.5 >> >> >>"),
         (9, b"<< /Type /OCMD /OCGs [5 0 R 6 0 R] /P /AllOff >>"),
         (10, b"<< /Type /OCMD /VE [/Or 5 0 R [/Not 6 0 R]] >>"),
         (11, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10] /OC 6 0 R", b"80 0 10 10 re f")),
@@ -4785,6 +4789,41 @@ def gen_image_16bpc() -> bytes:
 def gen_image_decode_inverted() -> bytes:
     """8.9.5.2 Table 88 Decode: a 4 x 1 DeviceGray 8-bit ramp 0, 85, 170, 255 with /Decode [1 0], which reverses it."""
     return one_image(b"/Width 4 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Decode [1 0]", bytes([0, 85, 170, 255]))
+
+
+def gen_image_alternates() -> bytes:
+    """8.9.5.4 Table 89 alternate images and the selection algorithm, with 8.11.3.3 optional content. One 200 x 200 page, four
+    cells, each a 1 x 1 DeviceRGB image XObject painted 80 x 80 (named by colour below). Groups: Screen (ON) and Hidden (OFF in D).
+    Top left /Im1: red base, Alternates [green DefaultForPrinting]: red on screen, green when printed (rule d). Top right /Im2:
+    blue base with /OC Screen, Alternates [yellow DefaultForPrinting]: the base OC is visible, so blue for both (rules a, b).
+    Bottom left /Im3: red base with /OC Hidden, Alternates [magenta /OC Hidden, cyan]: the first visible alternate, cyan, for both
+    (rule c). Bottom right /Im4: grey base, Alternates [black DefaultForPrinting /OC Hidden]: grey on screen, nothing printed
+    (rule d, the selected alternate's OC is processed). PDF 1.5."""
+    def rgb(r: int, g: int, b: int, extra: bytes = b"") -> bytes:
+        return stream(b"/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8" + extra,
+                      bytes([r, g, b]))
+    content = (b"q 80 0 0 80 10 110 cm /Im1 Do Q\n"
+               b"q 80 0 0 80 110 110 cm /Im2 Do Q\n"
+               b"q 80 0 0 80 10 10 cm /Im3 Do Q\n"
+               b"q 80 0 0 80 110 10 cm /Im4 Do Q\n")
+    return simple_file([
+        (1, catalog(b" /OCProperties << /OCGs [5 0 R 6 0 R] /D << /OFF [6 0 R] >> >>")),
+        (2, pages()),
+        (3, page(mediabox=b"[0 0 200 200]", contents=4, resources=False,
+                 extra=b" /Resources << /XObject << /Im1 7 0 R /Im2 9 0 R /Im3 11 0 R /Im4 14 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /OCG /Name (Screen) >>"),
+        (6, b"<< /Type /OCG /Name (Hidden) >>"),
+        (7, rgb(255, 0, 0, b" /Alternates [<< /Image 8 0 R /DefaultForPrinting true >>]")),
+        (8, rgb(0, 255, 0)),
+        (9, rgb(0, 0, 255, b" /OC 5 0 R /Alternates [<< /Image 10 0 R /DefaultForPrinting true >>]")),
+        (10, rgb(255, 255, 0)),
+        (11, rgb(255, 0, 0, b" /OC 6 0 R /Alternates [<< /Image 12 0 R /OC 6 0 R >> << /Image 13 0 R >>]")),
+        (12, rgb(255, 0, 255)),
+        (13, rgb(0, 255, 255)),
+        (14, rgb(128, 128, 128, b" /Alternates [<< /Image 15 0 R /DefaultForPrinting true /OC 6 0 R >>]")),
+        (15, rgb(0, 0, 0)),
+    ], version="1.5", binary=True)
 
 
 INLINE_FILTERS_SAMPLES = bytes(range(0, 240, 5))
@@ -6454,6 +6493,7 @@ FILES = {
     "image-4bpc-indexed.pdf": gen_image_4bpc_indexed,
     "image-16bpc.pdf": gen_image_16bpc,
     "image-decode-inverted.pdf": gen_image_decode_inverted,
+    "image-alternates.pdf": gen_image_alternates,
     "jpx-lossless.pdf": gen_jpx_lossless,
     "jpx-subsampled.pdf": gen_jpx_subsampled,
     "jpx-smask-in-data.pdf": gen_jpx_smask_in_data,
