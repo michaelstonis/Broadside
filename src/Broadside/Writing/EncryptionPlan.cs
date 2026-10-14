@@ -79,6 +79,11 @@ internal sealed class EncryptionPlan
             throw new ArgumentException("A save cannot both set new encryption and remove encryption.", nameof(options));
         }
 
+        if (options.PublicKeyEncryption is not null && (options.Encryption is not null || options.RemoveEncryption))
+        {
+            throw new ArgumentException("A save cannot set public-key encryption together with password encryption or with removing encryption.", nameof(options));
+        }
+
         CosDictionary trailer = loader.CrossReference.Trailer;
         bool hasEncrypt = trailer.ContainsKey(KnownNames.Encrypt);
         DocumentDecryptor? decryptor = security is null ? null : loader.Hooks.Decryptor as DocumentDecryptor;
@@ -86,6 +91,29 @@ internal sealed class EncryptionPlan
         {
             throw new NotSupportedException(
                 "An incremental update keeps the document's encryption (ISO 32000-2 §7.5.6: the earlier revisions stay as written); save a complete file to encrypt, re-encrypt or decrypt it.");
+        }
+
+        if (options.PublicKeyEncryption is { } publicKey)
+        {
+            if (incremental)
+            {
+                throw new NotSupportedException(
+                    "An incremental update keeps the document's encryption (ISO 32000-2 §7.5.6: the earlier revisions stay as written); save a complete file to encrypt it for certificate recipients.");
+            }
+
+            // The public-key file key does not hash the file identifier (§7.6.5.3); the source's first one is kept, or a random one written.
+            byte[] identifier = trailer.TryGetValue(KnownNames.ID, out CosObject? ids) && loader.Resolve(ids) is CosArray { Count: >= 1 } idArray && loader.Resolve(idArray[0]) is CosString firstId
+                ? firstId.Bytes.ToArray()
+                : RandomNumberGenerator.GetBytes(16);
+            PublicKeyEncryption recipients = PublicKeyEncryption.Create(publicKey);
+            return new EncryptionPlan(
+                ObjectEncryptor.Create(recipients.Filter, recipients.EncryptMetadata, recipients.Dictionary, loader.Resolve),
+                replacesDictionary: true,
+                recipients.Dictionary,
+                new CosString(identifier, hexadecimal: true),
+                VersionedFeatures.Aes256Encryption,
+                decryptor,
+                keepsSourceEncryption: false);
         }
 
         if (options.Encryption is { } encryption)

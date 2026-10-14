@@ -3963,3 +3963,18 @@ Broadside.Forms.PdfChoiceField.SetValue(string? value) -> void
 Broadside.Forms.PdfChoiceField.SetSelectedIndices(System.Collections.Generic.IEnumerable<int>! indices) -> void
 Broadside.Forms.PdfChoiceField.GenerateAppearances() -> void
 Broadside.Forms.PdfListBoxField.SetTopIndex(int topIndex) -> void
+Broadside.PdfEncryptionRecipient
+Broadside.PdfEncryptionRecipient.Access.get -> Broadside.PdfAccessLevel
+Broadside.PdfEncryptionRecipient.Certificate.get -> System.Security.Cryptography.X509Certificates.X509Certificate2!
+Broadside.PdfEncryptionRecipient.Permissions.get -> Broadside.PdfPermissions
+Broadside.PdfPublicKeyEncryptionOptions
+Broadside.PdfPublicKeyEncryptionOptions.AddOwner(System.Security.Cryptography.X509Certificates.X509Certificate2! certificate) -> Broadside.PdfPublicKeyEncryptionOptions!
+Broadside.PdfPublicKeyEncryptionOptions.AddRecipient(System.Security.Cryptography.X509Certificates.X509Certificate2! certificate, Broadside.PdfPermissions permissions) -> Broadside.PdfPublicKeyEncryptionOptions!
+Broadside.PdfPublicKeyEncryptionOptions.EncryptMetadata.get -> bool
+Broadside.PdfPublicKeyEncryptionOptions.EncryptMetadata.set -> void
+Broadside.PdfPublicKeyEncryptionOptions.PdfPublicKeyEncryptionOptions() -> void
+Broadside.PdfPublicKeyEncryptionOptions.Recipients.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfEncryptionRecipient!>!
+Broadside.PdfPublicKeyEncryptionOptions.WithEncryptMetadata(bool encryptMetadata) -> Broadside.PdfPublicKeyEncryptionOptions!
+Broadside.PdfSaveOptions.PublicKeyEncryption.get -> Broadside.PdfPublicKeyEncryptionOptions?
+Broadside.PdfSaveOptions.PublicKeyEncryption.set -> void
+Broadside.PdfSaveOptions.WithPublicKeyEncryption(Broadside.PdfPublicKeyEncryptionOptions? encryption) -> Broadside.PdfSaveOptions!
