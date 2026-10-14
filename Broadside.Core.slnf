@@ -17,7 +17,9 @@
       "tests/Broadside.Fonts.Standard14.Tests/Broadside.Fonts.Standard14.Tests.csproj",
       "tests/Broadside.Fonts.Cmaps.Tests/Broadside.Fonts.Cmaps.Tests.csproj",
       "tests/Broadside.Globalization.Tests/Broadside.Globalization.Tests.csproj",
-      "tests/ConformanceCheck.Tests/ConformanceCheck.Tests.csproj"
+      "tests/ConformanceCheck.Tests/ConformanceCheck.Tests.csproj",
+      "tools/RenderDiff/RenderDiff.csproj",
+      "tests/RenderDiff.Tests/RenderDiff.Tests.csproj"
     ]
   }
 }
