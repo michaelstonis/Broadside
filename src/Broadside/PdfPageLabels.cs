@@ -1,6 +1,7 @@
 using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
+using Broadside.Writing;
 
 namespace Broadside;
 
@@ -121,6 +122,7 @@ public sealed class PdfPageLabels
             throw new ArgumentException("A page label prefix cannot hold U+0000.", nameof(prefix));
         }
 
+        _document.RequireFeature(VersionedFeatures.PageLabels);
         CosDictionary dictionary = PdfDocument.PageLabelDictionary(style, prefix, firstNumber);
         new PdfNumberTree(_tree, _document).Set(startPageIndex, dictionary);
         return new PdfPageLabelRange(_document, startPageIndex, dictionary, _tree.RootReference ?? _document.CatalogReference);

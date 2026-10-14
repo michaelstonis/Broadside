@@ -6,12 +6,11 @@ using Broadside.Security.Cryptography;
 
 namespace Broadside.Security;
 
-/// <summary>A new standard security handler encryption for a save: its encryption dictionary, crypt filter and minimum version.</summary>
+/// <summary>A new standard security handler encryption for a save: its encryption dictionary and crypt filter.</summary>
 /// <param name="Dictionary">The encryption dictionary (Tables 20 and 21), written unencrypted.</param>
 /// <param name="Filter">The crypt filter strings, streams and embedded files are encrypted with.</param>
 /// <param name="EncryptMetadata">Whether metadata streams are encrypted.</param>
-/// <param name="MinimumVersion">The PDF version the algorithm needs.</param>
-internal sealed record StandardEncryption(CosDictionary Dictionary, CryptFilter Filter, bool EncryptMetadata, PdfVersion MinimumVersion)
+internal sealed record StandardEncryption(CosDictionary Dictionary, CryptFilter Filter, bool EncryptMetadata)
 {
     private static readonly CosName StandardFilterName = new("StdCF");
     private static readonly CosName O = new("O");
@@ -94,7 +93,7 @@ internal sealed record StandardEncryption(CosDictionary Dictionary, CryptFilter 
         dictionary[OE] = Binary(oe);
         dictionary[UE] = Binary(ue);
         dictionary[Perms] = Binary(perms);
-        return new StandardEncryption(dictionary, new CryptFilter(StandardFilterName, CryptMethod.AesV3, fileKey), options.EncryptMetadata, new PdfVersion(2, 0));
+        return new StandardEncryption(dictionary, new CryptFilter(StandardFilterName, CryptMethod.AesV3, fileKey), options.EncryptMetadata);
     }
 
     /// <summary>Revisions 3 (RC4, <c>V</c> 2) and 4 (AES-128, <c>V</c> 4), 128-bit keys: <c>O</c> (Algorithm 3), the key (Algorithm 2), <c>U</c> (Algorithm 5).</summary>
@@ -141,7 +140,7 @@ internal sealed record StandardEncryption(CosDictionary Dictionary, CryptFilter 
             ? BuildDictionary(version: 4, revision: 4, keyLength: 128, KnownNames.AESV2, keyLength, permissions, o, u, encryptMetadata)
             : BuildDictionary(version: 2, revision: 3, keyLength: 128, method: null, keyLength, permissions, o, u, encryptMetadata: true);
         var filter = new CryptFilter(StandardFilterName, revision == 4 ? CryptMethod.AesV2 : CryptMethod.Rc4, fileKey);
-        return new StandardEncryption(dictionary, filter, encryptMetadata, revision == 4 ? new PdfVersion(1, 6) : new PdfVersion(1, 4));
+        return new StandardEncryption(dictionary, filter, encryptMetadata);
     }
 
     /// <summary>Algorithms 3 step g and 5 step e: 19 more RC4 passes, each with the key's bytes XORed with the pass number 1 to 19.</summary>

@@ -237,13 +237,16 @@ public sealed class EncryptedSaveTests
     }
 
     [Fact]
-    public void Aes256_records_no_diagnostic()
+    public void Aes256_records_no_deprecation_only_the_raise_to_pdf_2_0()
     {
         using PdfDocument source = PdfDocument.Open(Corpus.Path("empty-page.pdf"));
 
         Save(source, new PdfSaveOptions().WithEncryption(new PdfEncryptionOptions("user", "owner")));
 
-        Assert.Empty(source.Diagnostics);
+        // empty-page.pdf is PDF 1.7; AES-256 (V 5) is PDF 2.0 (#141).
+        Diagnostic raised = Assert.Single(source.Diagnostics);
+        Assert.Equal("VersionRaised", raised.Code);
+        Assert.Equal(DiagnosticSeverity.Information, raised.Severity);
     }
 
     [Fact]

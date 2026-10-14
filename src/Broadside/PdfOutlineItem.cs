@@ -1,4 +1,5 @@
 using Broadside.Objects;
+using Broadside.Writing;
 
 namespace Broadside;
 
@@ -131,7 +132,7 @@ public sealed class PdfOutlineItem
     /// <exception cref="ArgumentOutOfRangeException">A component of the value set is not a number from 0 to 1.</exception>
     /// <remarks>
     /// ISO 32000-2 §12.3.3, Table 151: DeviceRGB, default <c>[0.0 0.0 0.0]</c>. Setting black removes <c>C</c>, the default; any other
-    /// colour is written as three numbers (PDF 1.4).
+    /// colour is written as three numbers (PDF 1.4), and a later save of a document below PDF 1.4 raises it to 1.4 (ADR 0003).
     /// </remarks>
     public PdfRgbColor Color
     {
@@ -153,6 +154,7 @@ public sealed class PdfOutlineItem
                 return;
             }
 
+            _document.RequireFeature(VersionedFeatures.OutlineItemStyle);
             Dictionary[NavigationNames.C] = new CosArray([new CosReal(value.Red), new CosReal(value.Green), new CosReal(value.Blue)]);
         }
     }
@@ -161,7 +163,8 @@ public sealed class PdfOutlineItem
     /// <exception cref="ArgumentOutOfRangeException">The value set has a bit Table 152 does not define.</exception>
     /// <remarks>
     /// ISO 32000-2 §12.3.3, Tables 151 and 152: "all other bits of the integer shall be 0". Setting
-    /// <see cref="PdfOutlineItemFlags.None"/> removes <c>F</c>, the default.
+    /// <see cref="PdfOutlineItemFlags.None"/> removes <c>F</c>, the default; any other value raises a later save of a document below
+    /// PDF 1.4 to 1.4 (ADR 0003).
     /// </remarks>
     public PdfOutlineItemFlags Flags
     {
@@ -179,6 +182,7 @@ public sealed class PdfOutlineItem
             }
             else
             {
+                _document.RequireFeature(VersionedFeatures.OutlineItemStyle);
                 Dictionary[NavigationNames.F] = new CosInteger((int)value);
             }
         }
