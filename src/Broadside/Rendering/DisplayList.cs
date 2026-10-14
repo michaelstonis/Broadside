@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Broadside.Graphics;
 
 namespace Broadside.Rendering;
@@ -36,6 +37,9 @@ namespace Broadside.Rendering;
 /// </remarks>
 public sealed partial class DisplayList
 {
+    /// <summary>How many operations a replay hands over between progress reports.</summary>
+    private const int ProgressInterval = 1024;
+
     private readonly DisplayOperation[] _operations;
     private readonly PathVerb[] _verbs;
     private readonly PathPoint[] _points;
@@ -100,6 +104,9 @@ public sealed partial class DisplayList
     /// <summary>Gets the document the list was built from, whose colour converters a backend uses (see <see cref="DisplayColor"/>).</summary>
     public PdfDocument Document { get; }
 
+    /// <summary>Gets the number of operations in the list: what <see cref="DisplayListReplay.Position"/> counts up to.</summary>
+    public int OperationCount => _operations.Length;
+
     /// <summary>Calls <paramref name="backend"/> once for every operation of the list, in order.</summary>
     /// <param name="backend">The backend that draws.</param>
     /// <remarks>
@@ -113,6 +120,108 @@ public sealed partial class DisplayList
         {
             Execute(backend, in operation);
         }
+    }
+
+    /// <summary>
+    /// Calls <paramref name="backend"/> once for every operation of the list, in order, checking <paramref name="cancellationToken"/>
+    /// before each and reporting progress.
+    /// </summary>
+    /// <param name="backend">The backend that draws.</param>
+    /// <param name="cancellationToken">Cancels the replay before its next operation.</param>
+    /// <param name="progress">
+    /// Receives the share of the operations handed over so far, from 0 to 1, synchronously on this thread every 1,024 operations and
+    /// once with exactly 1 at the end; <see langword="null"/> for none.
+    /// </param>
+    /// <exception cref="OperationCanceledException">
+    /// <paramref name="cancellationToken"/> was cancelled; the backend holds whatever the operations before it drew.
+    /// </exception>
+    /// <remarks>
+    /// ADR 0006; viewer capability 2 (issue #97). Allocates nothing. To stop after a time budget and resume later, use
+    /// <see cref="BeginReplay(IRenderingBackend, CancellationToken, IProgress{double})"/>.
+    /// </remarks>
+    public void Replay(IRenderingBackend backend, CancellationToken cancellationToken, IProgress<double>? progress)
+    {
+        ArgumentNullException.ThrowIfNull(backend);
+        ReplayRange(backend, 0, long.MaxValue, cancellationToken, progress);
+        progress?.Report(1);
+    }
+
+    /// <summary>
+    /// Starts a replay into <paramref name="backend"/> that runs in slices: each <see cref="DisplayListReplay.Continue"/> hands over
+    /// operations until its time budget is used, and the next resumes where it stopped.
+    /// </summary>
+    /// <param name="backend">The backend that draws; it keeps its state (graphics state stack, clip, output so far) between slices.</param>
+    /// <param name="cancellationToken">Cancels the replay before its next operation.</param>
+    /// <param name="progress">
+    /// Receives the share of the operations handed over so far, from 0 to 1, synchronously on the replaying thread every 1,024
+    /// operations and at the end of every slice, then once with exactly 1 at the end; <see langword="null"/> for none.
+    /// </param>
+    /// <returns>The replay, at the first operation; nothing has been handed over yet.</returns>
+    /// <remarks>
+    /// ADR 0006; viewer capability 2 (issue #97), like PDFium's progressive rendering: a host that must not block, such as a Blazor
+    /// WebAssembly page on its only thread, replays a slice, yields to its event loop, and continues. Slicing never changes what
+    /// the backend receives: the calls are those of <see cref="Replay(IRenderingBackend)"/>, in the same order.
+    /// </remarks>
+    public DisplayListReplay BeginReplay(IRenderingBackend backend, CancellationToken cancellationToken, IProgress<double>? progress)
+    {
+        ArgumentNullException.ThrowIfNull(backend);
+        return new DisplayListReplay(this, backend, cancellationToken, progress);
+    }
+
+    /// <summary>
+    /// As <see cref="BeginReplay(IRenderingBackend, CancellationToken, IProgress{double})"/>, handing over only what
+    /// <see cref="Replay(IRenderingBackend, PdfRectangle)"/> hands over for <paramref name="region"/>.
+    /// </summary>
+    /// <param name="backend">The backend that draws; it keeps its state between slices.</param>
+    /// <param name="region">The region in the list's default user space, as for <see cref="Replay(IRenderingBackend, PdfRectangle)"/>.</param>
+    /// <param name="cancellationToken">Cancels the replay before its next operation.</param>
+    /// <param name="progress">Receives the share of the operations handed over or skipped so far, as for the overload without a region.</param>
+    /// <returns>The replay, at the first operation.</returns>
+    /// <remarks>
+    /// ADR 0006; viewer capabilities 1 and 2 (issues #96, #97): a tile of a cached list, drawn in time slices. Skipped operations
+    /// count towards <see cref="DisplayListReplay.Position"/> and progress but take no time from a slice's budget.
+    /// </remarks>
+    public DisplayListReplay BeginReplay(IRenderingBackend backend, PdfRectangle region, CancellationToken cancellationToken, IProgress<double>? progress)
+    {
+        ArgumentNullException.ThrowIfNull(backend);
+        return new DisplayListReplay(this, backend, region, cancellationToken, progress);
+    }
+
+    /// <summary>
+    /// Hands the operations from <paramref name="start"/> on to <paramref name="backend"/> until the end of the list or, after at
+    /// least one, until <see cref="Stopwatch.GetTimestamp"/> reaches <paramref name="deadline"/>; with a <paramref name="region"/>,
+    /// skipping what <see cref="Replay(IRenderingBackend, PdfRectangle)"/> skips.
+    /// </summary>
+    /// <returns>The index of the first operation not handed over.</returns>
+    internal int ReplayRange(IRenderingBackend backend, int start, long deadline, CancellationToken cancellationToken, IProgress<double>? progress, PdfRectangle? region = null)
+    {
+        ReadOnlySpan<DisplayOperation> operations = _operations;
+        OperationExtent[]? extents = region is null ? null : GetExtents();
+        int index = start;
+        while (index < operations.Length)
+        {
+            if (extents is not null && extents[index].IsCullable && !extents[index].Meets(region!.Value))
+            {
+                // As in the region replay: a paint ends where it is, a saved state or an annotation where it is restored.
+                index = extents[index].End + 1;
+                continue;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            Execute(backend, operations[index]);
+            index++;
+            if (progress is not null && index % ProgressInterval == 0 && index < operations.Length)
+            {
+                progress.Report((double)index / operations.Length);
+            }
+
+            if (deadline != long.MaxValue && Stopwatch.GetTimestamp() >= deadline)
+            {
+                break;
+            }
+        }
+
+        return index;
     }
 
     /// <summary>Hands one record of the list to the backend.</summary>

@@ -69,7 +69,30 @@ public sealed class ContentOptions
     }
 
     /// <summary>Gets or sets the token that cancels the run; it is checked every 1,024 operators and at every nested run.</summary>
+    /// <remarks>
+    /// A display-list build (<see cref="PdfPage.CreateDisplayList(ContentOptions)"/>) also hands the token to the image codecs that
+    /// decode the page's images, so a long decode stops too. A cancelled run throws <see cref="OperationCanceledException"/> and
+    /// leaves nothing behind that changes a later run.
+    /// </remarks>
     public CancellationToken CancellationToken { get; set; }
+
+    /// <summary>
+    /// Gets or sets what receives the run's progress: the share of the run's content stream executed so far, from 0 to 1;
+    /// <see langword="null"/>, the default, for none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Reported on the running thread, synchronously, where the run checks <see cref="CancellationToken"/> (every 1,024 operators),
+    /// then once with exactly 1 when the run completes; a run that throws reports no completion. Values never decrease. The share is
+    /// measured in bytes of the top-level stream (for a page, its <c>Contents</c> joined, ISO 32000-2 §7.7.3.3 Table 31), so the
+    /// work of nested forms counts at the position of their <c>Do</c> operator.
+    /// </para>
+    /// <para>
+    /// The receiver may cancel <see cref="CancellationToken"/>'s source; the run stops before its next operator. A host without
+    /// threads (Blazor WebAssembly) can bound a build that way, by cancelling once its time slice is used.
+    /// </para>
+    /// </remarks>
+    public IProgress<double>? Progress { get; set; }
 
     /// <summary>
     /// Gets or sets the states of the optional content groups that decide what is hidden (<see cref="ContentContext.IsHidden"/>);
@@ -114,6 +137,15 @@ public sealed class ContentOptions
     public ContentOptions WithMaxNestingDepth(int maxNestingDepth)
     {
         MaxNestingDepth = maxNestingDepth;
+        return this;
+    }
+
+    /// <summary>Sets <see cref="Progress"/>.</summary>
+    /// <param name="progress">What receives the share of the content run so far, or <see langword="null"/>.</param>
+    /// <returns>These options.</returns>
+    public ContentOptions WithProgress(IProgress<double>? progress)
+    {
+        Progress = progress;
         return this;
     }
 

@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Broadside.Content;
 using Broadside.Graphics;
 
 namespace Broadside.Rendering;
@@ -33,6 +34,11 @@ namespace Broadside.Rendering;
 /// scanline. An instance renders one page at a time; use one per thread to render in parallel (a document is safe for concurrent
 /// renders while nobody changes it).
 /// </para>
+/// <para>
+/// Viewer capability 2 (issue #97): a page render takes a cancellation token and a progress receiver from its
+/// <see cref="RenderOptions"/>, and <see cref="BeginRender(PdfPage, Bitmap, RenderOptions)"/> draws in time slices that resume
+/// where they stopped (<see cref="ProgressiveRender"/>), for hosts that must not block.
+/// </para>
 /// </remarks>
 public sealed partial class SoftwareRasterizer : IDisposable
 {
@@ -47,6 +53,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
     private const double RegionMargin = 2;
 
     private readonly Backend _backend = new();
+    private DisplayListReplay? _progressive;
     private bool _disposed;
 
     /// <summary>Renders <paramref name="page"/> at 72 DPI into a new pooled bitmap, on white.</summary>
@@ -61,17 +68,19 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// <param name="options">The scale, rotation, layers and intent.</param>
     /// <returns>The bitmap; dispose it to return its buffer to the pool.</returns>
     /// <exception cref="ArgumentException">The page would need more pixels than a bitmap can hold.</exception>
-    /// <remarks>ISO 32000-2 §8.3.2.3, §7.7.3.3 Table 31 and §14.11.2 for the page mapping (see <see cref="RenderOptions"/>); §12.5.5 and §12.5.3 for the annotation and form-field layers drawn over the content (see <see cref="PdfPage.CreateDisplayList(DisplayLayers, DisplayIntent, Content.ContentOptions)"/>).</remarks>
+    /// <exception cref="OperationCanceledException"><see cref="RenderOptions.CancellationToken"/> was cancelled; the bitmap is returned to the pool.</exception>
+    /// <remarks>ISO 32000-2 §8.3.2.3, §7.7.3.3 Table 31 and §14.11.2 for the page mapping (see <see cref="RenderOptions"/>); §12.5.5 and §12.5.3 for the annotation and form-field layers drawn over the content (see <see cref="PdfPage.CreateDisplayList(DisplayLayers, DisplayIntent, Content.ContentOptions)"/>). Cancellation and progress come from <paramref name="options"/> (viewer capability 2).</remarks>
     public Bitmap Render(PdfPage page, RenderOptions options)
     {
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(options);
+        ThrowIfBusy();
         PageGeometry geometry = options.Measure(page);
-        DisplayList list = page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions);
+        DisplayList list = Build(page, options);
         var bitmap = new Bitmap(geometry.PixelWidth, geometry.PixelHeight);
         try
         {
-            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, cull: options.Region is not null);
+            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, cull: options.Region is not null, options.CancellationToken, DrawingProgress(options));
         }
         catch
         {
@@ -90,18 +99,66 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// <param name="target">The bitmap, for example one over caller memory; at least the page's pixel size.</param>
     /// <param name="options">The scale, rotation, layers and intent.</param>
     /// <exception cref="ArgumentException"><paramref name="target"/> is smaller than the page's pixel size.</exception>
+    /// <exception cref="OperationCanceledException">
+    /// <see cref="RenderOptions.CancellationToken"/> was cancelled; the bitmap keeps what was drawn (nothing, when the build was cancelled).
+    /// </exception>
     public void Render(PdfPage page, Bitmap target, RenderOptions options)
     {
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(target);
         ArgumentNullException.ThrowIfNull(options);
-        PageGeometry geometry = options.Measure(page);
-        if (target.Width < geometry.PixelWidth || target.Height < geometry.PixelHeight)
-        {
-            throw new ArgumentException($"The page needs {geometry.PixelWidth} x {geometry.PixelHeight} pixels; the bitmap has {target.Width} x {target.Height}.", nameof(target));
-        }
+        ThrowIfBusy();
+        PageGeometry geometry = CheckTarget(page, target, options);
+        Draw(Build(page, options), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, cull: options.Region is not null, options.CancellationToken, DrawingProgress(options));
+    }
+    /// <summary>
+    /// Builds <paramref name="page"/>'s display list and starts drawing it into the top-left <see cref="RenderOptions.GetPixelSize"/>
+    /// pixels of <paramref name="target"/>, on white, in time slices: each <see cref="ProgressiveRender.Continue"/> draws until its
+    /// budget is used.
+    /// </summary>
+    /// <param name="page">The page.</param>
+    /// <param name="target">The bitmap, at least the page's pixel size; pixels outside the page's area are left as they are.</param>
+    /// <param name="options">The scale and rotation, the cancellation token and the progress receiver.</param>
+    /// <returns>The render: the page area is white and nothing is drawn yet. Continue it to the end, or dispose it.</returns>
+    /// <exception cref="ArgumentException"><paramref name="target"/> is smaller than the page's pixel size.</exception>
+    /// <exception cref="OperationCanceledException"><see cref="RenderOptions.CancellationToken"/> was cancelled while the list was built.</exception>
+    /// <exception cref="InvalidOperationException">Another progressive render of this rasterizer has not ended.</exception>
+    /// <remarks>
+    /// Viewer capability 2 (issue #97). The display list is built here, at once (cancellable, reporting progress from 0 to 0.5); the
+    /// slices draw it, reporting from 0.5 to 1. To keep a long build off a thread that must not block, build the list elsewhere
+    /// (<see cref="PdfPage.CreateDisplayList(ContentOptions)"/>) and use
+    /// <see cref="BeginRender(DisplayList, Bitmap, in Matrix, CancellationToken, IProgress{double})"/>.
+    /// </remarks>
+    public ProgressiveRender BeginRender(PdfPage page, Bitmap target, RenderOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(page);
+        ArgumentNullException.ThrowIfNull(target);
+        ArgumentNullException.ThrowIfNull(options);
+        ThrowIfBusy();
+        PageGeometry geometry = CheckTarget(page, target, options);
+        DisplayList list = Build(page, options);
+        FillWhite(target, geometry.PixelWidth, geometry.PixelHeight);
+        return Begin(list, target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, cull: options.Region is not null, options.CancellationToken, DrawingProgress(options));
+    }
 
-        Draw(page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, cull: options.Region is not null);
+    /// <summary>
+    /// Starts drawing <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background, in time
+    /// slices: each <see cref="ProgressiveRender.Continue"/> draws until its budget is used.
+    /// </summary>
+    /// <param name="list">The display list.</param>
+    /// <param name="target">The bitmap; drawing is clipped to it.</param>
+    /// <param name="deviceTransform">The transform from the list's default user space to the bitmap's pixels, as for <see cref="Render(DisplayList, Bitmap, in Matrix)"/>.</param>
+    /// <param name="cancellationToken">Cancels the render before its next operation.</param>
+    /// <param name="progress">Receives the share of the list's operations drawn so far, from 0 to 1 (see <see cref="DisplayList.BeginReplay(IRenderingBackend, CancellationToken, IProgress{double})"/>), or <see langword="null"/>.</param>
+    /// <returns>The render, with nothing drawn yet. Continue it to the end, or dispose it.</returns>
+    /// <exception cref="InvalidOperationException">Another progressive render of this rasterizer has not ended.</exception>
+    /// <remarks>ADR 0006; viewer capability 2 (issue #97). Continued to the end, it draws exactly what <see cref="Render(DisplayList, Bitmap, in Matrix)"/> draws.</remarks>
+    public ProgressiveRender BeginRender(DisplayList list, Bitmap target, in Matrix deviceTransform, CancellationToken cancellationToken, IProgress<double>? progress)
+    {
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentNullException.ThrowIfNull(target);
+        ThrowIfBusy();
+        return Begin(list, target, deviceTransform, target.Width, target.Height, cull: true, cancellationToken, progress);
     }
 
     /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background.</summary>
@@ -121,7 +178,8 @@ public sealed partial class SoftwareRasterizer : IDisposable
     {
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
-        Draw(list, target, deviceTransform, target.Width, target.Height, white: false, cull: true);
+        ThrowIfBusy();
+        Draw(list, target, deviceTransform, target.Width, target.Height, white: false, cull: true, CancellationToken.None, progress: null);
     }
 
     /// <summary>Returns the rasterizer's pooled working buffers; it renders no more after this.</summary>
@@ -129,38 +187,131 @@ public sealed partial class SoftwareRasterizer : IDisposable
     {
         if (!_disposed)
         {
+            if (_progressive is not null)
+            {
+                _progressive = null;
+                _backend.End();
+            }
+
             _disposed = true;
             _backend.Dispose();
         }
     }
 
-    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white, bool cull)
+    /// <summary>Returns whether <paramref name="replay"/> is the progressive render this rasterizer is drawing.</summary>
+    internal bool IsDrawing(DisplayListReplay replay) => !_disposed && ReferenceEquals(_progressive, replay);
+
+    /// <summary>Ends the progressive render of <paramref name="render"/>: releases the per-render state, so the rasterizer may render again.</summary>
+    internal void EndProgressive(DisplayListReplay render)
+    {
+        if (ReferenceEquals(_progressive, render))
+        {
+            _progressive = null;
+            _backend.End();
+        }
+    }
+
+    /// <summary>Builds the page's display list with the options' token, reporting its progress as the first half of the render's.</summary>
+    private static DisplayList Build(PdfPage page, RenderOptions options)
+    {
+        if (options.Progress is null && !options.CancellationToken.CanBeCanceled)
+        {
+            return page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions);
+        }
+
+        return page.CreateDisplayList(options.Layers, options.Intent, new ContentOptions()
+            .WithCancellation(options.CancellationToken)
+            .WithProgress(options.Progress is { } progress ? new ScaledProgress(progress, 0, 0.5) : null));
+    }
+
+    /// <summary>The receiver of the drawing's progress: the second half of the render's.</summary>
+    private static ScaledProgress? DrawingProgress(RenderOptions options) =>
+        options.Progress is { } progress ? new ScaledProgress(progress, 0.5, 0.5) : null;
+
+    private static PageGeometry CheckTarget(PdfPage page, Bitmap target, RenderOptions options)
+    {
+        PageGeometry geometry = options.Measure(page);
+        if (target.Width < geometry.PixelWidth || target.Height < geometry.PixelHeight)
+        {
+            throw new ArgumentException($"The page needs {geometry.PixelWidth} x {geometry.PixelHeight} pixels; the bitmap has {target.Width} x {target.Height}.", nameof(target));
+        }
+
+        return geometry;
+    }
+
+    private static void FillWhite(Bitmap target, int width, int height)
+    {
+        for (int y = 0; y < height; y++)
+        {
+            MemoryMarshal.Cast<byte, uint>(target.Pixels.Slice(y * target.Stride, width * 4)).Fill(uint.MaxValue);
+        }
+    }
+
+    private void ThrowIfBusy()
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
+        if (_progressive is not null)
+        {
+            throw new InvalidOperationException("The rasterizer is drawing a progressive render; continue it to the end or dispose it first.");
+        }
+    }
+
+    private ProgressiveRender Begin(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool cull, CancellationToken cancellationToken, IProgress<double>? progress)
+    {
+        _backend.Begin(list.Document, target, device, width, height);
+        DisplayListReplay replay = cull && TryGetRegion(device, width, height, out PdfRectangle region)
+            ? list.BeginReplay(_backend, region, cancellationToken, progress)
+            : list.BeginReplay(_backend, cancellationToken, progress);
+        _progressive = replay;
+        return new ProgressiveRender(this, replay, target);
+    }
+
+    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white, bool cull, CancellationToken cancellationToken, IProgress<double>? progress)
+    {
         if (white)
         {
-            for (int y = 0; y < height; y++)
-            {
-                MemoryMarshal.Cast<byte, uint>(target.Pixels.Slice(y * target.Stride, width * 4)).Fill(uint.MaxValue);
-            }
+            FillWhite(target, width, height);
         }
 
         _backend.Begin(list.Document, target, device, width, height);
         try
         {
-            if (cull && TryGetRegion(device, width, height, out PdfRectangle region))
+            PdfRectangle region = default;
+            bool culled = cull && TryGetRegion(device, width, height, out region);
+            if (progress is null && !cancellationToken.CanBeCanceled)
             {
-                list.Replay(_backend, region);
+                if (culled)
+                {
+                    list.Replay(_backend, region);
+                }
+                else
+                {
+                    list.Replay(_backend);
+                }
+            }
+            else if (culled)
+            {
+                // A cancellable or reported replay of a region: one slice without a deadline.
+                ProgressiveReplay(list.BeginReplay(_backend, region, cancellationToken, progress));
             }
             else
             {
-                list.Replay(_backend);
+                list.Replay(_backend, cancellationToken, progress);
             }
         }
         finally
         {
             _backend.End();
         }
+    }
+
+    /// <summary>Runs a replay to its end in one slice.</summary>
+    private static void ProgressiveReplay(DisplayListReplay replay) => replay.Continue(Timeout.InfiniteTimeSpan);
+
+    /// <summary>Reports a part of a render's progress: <c>offset + value × scale</c>.</summary>
+    private sealed class ScaledProgress(IProgress<double> target, double offset, double scale) : IProgress<double>
+    {
+        public void Report(double value) => target.Report(offset + (value * scale));
     }
 
     /// <summary>

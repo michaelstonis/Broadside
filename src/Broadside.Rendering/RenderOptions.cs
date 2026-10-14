@@ -198,6 +198,45 @@ public sealed class RenderOptions
         return this;
     }
 
+    /// <summary>Gets or sets the token that cancels a render of a page: its display-list build and its drawing.</summary>
+    /// <remarks>
+    /// Viewer capability 2 (issue #97). The build checks it as <see cref="Content.ContentOptions.CancellationToken"/> does (every
+    /// 1,024 operators, every nested stream, and inside the decoding of content and images); the drawing before every operation of
+    /// the display list. A cancelled render throws <see cref="OperationCanceledException"/>; the bitmap keeps what was drawn, and
+    /// nothing is left behind that changes a later render.
+    /// </remarks>
+    public CancellationToken CancellationToken { get; set; }
+
+    /// <summary>Sets <see cref="CancellationToken"/>.</summary>
+    /// <param name="cancellationToken">The token.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithCancellation(CancellationToken cancellationToken)
+    {
+        CancellationToken = cancellationToken;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets what receives a page render's progress, from 0 to 1; <see langword="null"/>, the default, for none.
+    /// </summary>
+    /// <remarks>
+    /// Viewer capability 2 (issue #97). Reported synchronously on the rendering thread: building the display list moves it from 0
+    /// to 0.5 (<see cref="Content.ContentOptions.Progress"/>, halved), drawing from 0.5 to 1 (the share of the list's operations
+    /// drawn, every 1,024 operations and at the end of every slice of a <see cref="ProgressiveRender"/>). Values never decrease, and
+    /// the last report of a render that completes is exactly 1, reported once. The receiver may cancel
+    /// <see cref="CancellationToken"/>'s source.
+    /// </remarks>
+    public IProgress<double>? Progress { get; set; }
+
+    /// <summary>Sets <see cref="Progress"/>.</summary>
+    /// <param name="progress">What receives the render's progress, or <see langword="null"/>.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithProgress(IProgress<double>? progress)
+    {
+        Progress = progress;
+        return this;
+    }
+
     /// <summary>Returns the size in pixels of <paramref name="page"/> rendered with these options.</summary>
     /// <param name="page">The page.</param>
     /// <returns>

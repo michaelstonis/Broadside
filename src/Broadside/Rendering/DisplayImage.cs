@@ -172,4 +172,11 @@ public sealed class DisplayImage
         + (_colorKey.Length * (long)sizeof(double))
         + (_matte.Length * (long)sizeof(float))
         + _colorTable.Length;
+    /// <summary>Returns the pooled samples (and the masks'), for an image no list will own: the build that decoded it failed.</summary>
+    internal void Release()
+    {
+        _samples.Dispose();
+        Mask?.Release();
+        SoftMask?.Release();
+    }
 }

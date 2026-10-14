@@ -120,10 +120,12 @@ internal static class JpxDecoder
             {
                 foreach (JpxTile tile in stream.Tiles)
                 {
+                    reporter.ThrowIfCancellationRequested();
                     DecodeTile(stream, tile, codestream, tiles, planes, reporter);
                 }
             }
 
+            reporter.ThrowIfCancellationRequested();
             JpxComposer.Compose(size, plan, planes, builder, alpha, reporter);
             builder.ColorModel = plan.Model;
             if (plan.IccProfile is { } profile)

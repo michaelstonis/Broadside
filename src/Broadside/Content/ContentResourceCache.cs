@@ -70,14 +70,15 @@ internal sealed class ContentResourceCache(PdfDocument document)
     /// Returns the decoded data of a content stream, decoded once while the stream and its dictionary are unchanged and the
     /// document's content cache holds it (issue #103: least recently used dropped beyond <see cref="PdfOptions.ContentCacheBudget"/>).
     /// </summary>
-    public ReadOnlyMemory<byte> GetContent(CosStream stream)
+    public ReadOnlyMemory<byte> GetContent(CosStream stream, CancellationToken cancellationToken = default)
     {
         if (document.Caches.Content.TryGet(stream, out IBudgetedEntry? cached) && cached is DecodedContent content)
         {
             return content.Data;
         }
 
-        var decoded = new DecodedContent(stream, stream.Version, stream.Dictionary.Version, document.DecodeStream(stream));
+        // A cancelled decode throws before anything is stored, so the next run decodes afresh.
+        var decoded = new DecodedContent(stream, stream.Version, stream.Dictionary.Version, document.Streams.Decode(stream, 0, cancellationToken));
         document.Caches.Content.Add(stream, decoded);
         return decoded.Data;
     }
@@ -120,14 +121,14 @@ internal sealed class ContentResourceCache(PdfDocument document)
     /// Returns the content of a page's <c>Contents</c> array: its streams decoded and joined with a line feed after each (Table 31),
     /// built once while the array, the objects its elements resolve to and their data and dictionaries are unchanged.
     /// </summary>
-    public JoinedContent GetContent(CosArray contents)
+    public JoinedContent GetContent(CosArray contents, CancellationToken cancellationToken = default)
     {
         if (document.Caches.Content.TryGet(contents, out IBudgetedEntry? cached) && cached is JoinedContent joined)
         {
             return joined;
         }
 
-        joined = JoinedContent.Create(contents, document);
+        joined = JoinedContent.Create(contents, document, cancellationToken);
         document.Caches.Content.Add(contents, joined);
         return joined;
     }
@@ -182,7 +183,7 @@ internal sealed class ContentResourceCache(PdfDocument document)
         /// <inheritdoc/>
         bool IBudgetedEntry.IsCurrent => IsCurrent(_array, _document);
 
-        public static JoinedContent Create(CosArray array, PdfDocument document)
+        public static JoinedContent Create(CosArray array, PdfDocument document, CancellationToken cancellationToken)
         {
             int count = array.Count;
             var elements = new CosObject[count];
@@ -199,7 +200,7 @@ internal sealed class ContentResourceCache(PdfDocument document)
                 {
                     dataVersions[index] = stream.Version;
                     dictionaryVersions[index] = stream.Dictionary.Version;
-                    decoded[index] = document.DecodeStream(stream);
+                    decoded[index] = document.Streams.Decode(stream, 0, cancellationToken);
                     total += decoded[index].Length + 1;
                 }
                 else

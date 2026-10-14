@@ -85,12 +85,13 @@ internal sealed class ByteBudgetCache<TKey, TEntry>
     /// </summary>
     /// <param name="key">The key.</param>
     /// <param name="entry">The entry.</param>
-    public void Add(TKey key, TEntry entry)
+    /// <returns>Whether the entry was stored (it was not when it is larger than the budget).</returns>
+    public bool Add(TKey key, TEntry entry)
     {
         long bytes = entry.Bytes;
         if (bytes > Budget)
         {
-            return;
+            return false;
         }
 
         lock (_gate)
@@ -115,6 +116,8 @@ internal sealed class ByteBudgetCache<TKey, TEntry>
             _bytes += bytes;
             _peakBytes = Math.Max(_peakBytes, _bytes);
         }
+
+        return true;
     }
 
     /// <summary>Drops every entry; the counters keep counting.</summary>

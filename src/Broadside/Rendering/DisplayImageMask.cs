@@ -64,4 +64,6 @@ public sealed class DisplayImageMask
 
     /// <summary>Gets the bytes this mask keeps: its sample buffer; what a render cache charges for it (issue #103).</summary>
     internal long RetainedBytes => _samples.RetainedBytes;
+    /// <summary>Returns the pooled samples, for a mask no list will own: the build that decoded it failed.</summary>
+    internal void Release() => _samples.Dispose();
 }

@@ -330,11 +330,11 @@ public sealed class ContentContext
     /// a soft-mask group), decoded once per document while the stream is unchanged.
     /// </summary>
     /// <remarks>ISO 32000-2 §7.8.2.</remarks>
-    internal ReadOnlyMemory<byte> GetContent(CosStream stream) => Document.ContentResources.GetContent(stream);
+    internal ReadOnlyMemory<byte> GetContent(CosStream stream) => Document.ContentResources.GetContent(stream, CancellationToken);
 
     /// <summary>Returns a page's <c>Contents</c> array read as one stream (Table 31), built once per document while it is unchanged.</summary>
     /// <remarks>ISO 32000-2 §7.8.2 and §7.7.3.3, Table 31.</remarks>
-    internal ContentResourceCache.JoinedContent GetContent(CosArray contents) => Document.ContentResources.GetContent(contents);
+    internal ContentResourceCache.JoinedContent GetContent(CosArray contents) => Document.ContentResources.GetContent(contents, CancellationToken);
 
     /// <summary>Returns the one form view of a form XObject's stream.</summary>
     /// <remarks>ISO 32000-2 §8.10.</remarks>

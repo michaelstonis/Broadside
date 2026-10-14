@@ -21,10 +21,10 @@ namespace Broadside.Images;
 /// throws from the member that meets it.
 /// </para>
 /// <para>
-/// <see cref="Decode"/> returns the samples in the §8.9.3 layout as a <see cref="DecodedImage"/>; the Decode array, colour
+/// <see cref="Decode()"/> returns the samples in the §8.9.3 layout as a <see cref="DecodedImage"/>; the Decode array, colour
 /// conversion and masks are applied by the reader of the samples, with <see cref="CreateDecodeMap"/>, <see cref="ImageRows"/> and
 /// <see cref="PdfDocument.GetColorConverter(PdfColorSpace)"/>. Masks are decoded at their own size (<see cref="Mask"/>), never
-/// resampled here. Nothing is cached; each <see cref="Decode"/> decodes again.
+/// resampled here. Nothing is cached; each <see cref="Decode()"/> decodes again.
 /// </para>
 /// <para>Thread-safe for concurrent reads while the document is not mutated.</para>
 /// </remarks>
@@ -290,7 +290,12 @@ public sealed class PdfImage
     /// than 1, 2, 4, 8 and 16 are stored at the next wider depth, values unchanged.
     /// </para>
     /// </remarks>
-    public DecodedImage? Decode()
+    public DecodedImage? Decode() => DecodeSamples(CancellationToken.None);
+
+    /// <summary>As <see cref="Decode()"/>, stopping with <see cref="OperationCanceledException"/> when <paramref name="cancellationToken"/> is cancelled.</summary>
+    /// <param name="cancellationToken">Given to the filters (<see cref="FilterContext.CancellationToken"/>); what they rented is returned.</param>
+    /// <returns>As <see cref="Decode()"/>.</returns>
+    internal DecodedImage? DecodeSamples(CancellationToken cancellationToken)
     {
         ImageLayout layout = ReadLayout();
         if (!layout.IsDecodable)
@@ -308,7 +313,7 @@ public sealed class PdfImage
 
         long expected = layout.BitsPerComponent > 0 ? ImageGeometry.Stride(layout.Width, Math.Max(1, layout.Components), layout.BitsPerComponent) * layout.Height : 0;
         using var data = new PooledBufferWriter(Math.Clamp(expected, 256, 1 << 24), streams.MaxDecodedLength);
-        streams.Decode(_stream, data, 0, stopBeforeImageFilter: true, out StreamDecoder.ChainOutcome outcome);
+        streams.Decode(_stream, data, 0, stopBeforeImageFilter: true, out StreamDecoder.ChainOutcome outcome, cancellationToken);
         if (!outcome.Complete)
         {
             return null;
@@ -320,7 +325,7 @@ public sealed class PdfImage
     }
 
     /// <summary>Returns the Decode mapping for samples of this image decoded as <paramref name="decoded"/>.</summary>
-    /// <param name="decoded">The samples, from <see cref="Decode"/>.</param>
+    /// <param name="decoded">The samples, from <see cref="Decode()"/>.</param>
     /// <returns>The map: the image's <see cref="DecodeArray"/> at the samples' depth, its pairs swapped when <see cref="DecodedImage.SamplesInverted"/>.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="decoded"/> is <see langword="null"/>.</exception>
     /// <remarks>ISO 32000-2 §8.9.5.2, Table 88; §7.4.9 (a JPEG 2000 image without a colour space maps every component onto [0 1]).</remarks>
@@ -348,7 +353,7 @@ public sealed class PdfImage
     /// ICCBased space over the ICC profile the codec reported (when its header is usable and its component count matches), else the
     /// colour model the codec reported, else the device space with as many components (1 gray, 3 RGB, 4 CMYK).
     /// </summary>
-    /// <param name="decoded">The samples, from <see cref="Decode"/>.</param>
+    /// <param name="decoded">The samples, from <see cref="Decode()"/>.</param>
     /// <returns>The space; <see langword="null"/> for an image mask or when none fits.</returns>
     /// <exception cref="ArgumentNullException"><paramref name="decoded"/> is <see langword="null"/>.</exception>
     /// <remarks>
@@ -801,7 +806,8 @@ public sealed class PdfImage
 
         StrongBox<ImageHeader>? read = streams.RunImageFilter(
             filter.Name,
-            () => filter.TryReadHeader(data.Span, context, out ImageHeader found) ? new StrongBox<ImageHeader>(found) : null);
+            () => filter.TryReadHeader(data.Span, context, out ImageHeader found) ? new StrongBox<ImageHeader>(found) : null,
+            filterContext.CancellationToken);
         if (read?.Value is { Width: > 0, Height: > 0 } header
             && ImageGeometry.CheckLimits(header.Width, header.Height, Math.Clamp(header.Components, 1, ImageGeometry.MaxComponents), Math.Clamp(header.BitsPerComponent, 1, 16), streams.MaxImagePixels, streams.MaxDecodedLength) is { } reason)
         {
@@ -809,7 +815,7 @@ public sealed class PdfImage
             return null;
         }
 
-        DecodedImage? decoded = streams.RunImageFilter(filter.Name, () => filter.DecodeImage(data, context));
+        DecodedImage? decoded = streams.RunImageFilter(filter.Name, () => filter.DecodeImage(data, context), filterContext.CancellationToken);
         if (decoded is null)
         {
             return null;
