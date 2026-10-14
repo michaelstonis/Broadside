@@ -233,6 +233,20 @@ public sealed class CompositeFontTests
     }
 
     [Fact]
+    public void A_UseCMap_stream_removed_as_an_object_is_seen_by_the_CMap_read_before()
+    {
+        string child = CMapStream("1 begincidchar <41> 9 endcidchar", "/UseCMap 7 0 R", name: "Child-H");
+        string parent = CMapStream("1 begincodespacerange <00> <FF> endcodespacerange 1 begincidrange <41> <5A> 100 endcidrange", name: "Parent-H");
+        using PdfDocument document = Open(encoding: "6 0 R", objects: [child, parent]);
+        Assert.Equal("Parent-H", CompositeFontCorpusTests.Font(document).Encoding.Parent?.Name);
+
+        // §7.3.10: UseCMap now resolves to null, so the CMap uses none (§9.7.5.3, Table 118); the CMap stream is unchanged.
+        Assert.True(document.RemoveObject(new CosReference(7, 0)));
+
+        Assert.Null(CompositeFontCorpusTests.Font(document).Encoding.Parent);
+    }
+
+    [Fact]
     public void An_in_file_usecmap_naming_another_CMap_than_the_UseCMap_stream_is_reported_and_the_stream_wins()
     {
         string child = CMapStream("/Other-H usecmap", "/UseCMap 7 0 R", name: "Child-H");
