@@ -52,6 +52,21 @@ public sealed class FunctionViewTests
     }
 
     [Fact]
+    public void An_entry_removed_as_an_object_is_seen_by_the_next_evaluation()
+    {
+        using PdfDocument document = PdfDocument.Create();
+        CosReference c1 = document.AddObject(Cos("[3]"));
+        var dictionary = (CosDictionary)Cos($"<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 {c1.ObjectNumber} 0 R /N 1 >>");
+        PdfFunction function = document.Function(dictionary);
+        Near([1.5f], function.At(0.5f));
+
+        // §7.3.10: C1 now resolves to null, so its default [1.0] applies (Table 40); the dictionary is unchanged.
+        Assert.True(document.RemoveObject(c1));
+
+        Near([0.5f], function.At(0.5f));
+    }
+
+    [Fact]
     public void Changing_the_function_type_gives_a_new_view_and_invalidates_the_old_one()
     {
         using PdfDocument document = PdfDocument.Create();
