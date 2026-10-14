@@ -184,6 +184,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _scan.Clip = _clip;
             ResetCompositing();
             BeginAnnotations();
+            BeginPatches();
         }
 
         public void End()
