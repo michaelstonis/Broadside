@@ -13,7 +13,7 @@ public sealed class GroupRenderingTests
 {
     private const string States =
         "/ExtGState << /Half << /ca 0.5 >> /HalfStroke << /CA 0.5 >> /Multiply << /BM /Multiply >> /Difference << /BM /Difference >> "
-        + "/HalfMultiply << /ca 0.5 /BM /Multiply >> >>";
+        + "/HalfMultiply << /ca 0.5 /BM /Multiply >> /Clear << /ca 0 >> >>";
 
     private static readonly Rgba White = new(255, 255, 255, 255);
 
@@ -58,6 +58,19 @@ public sealed class GroupRenderingTests
         AssertNear(new Rgba((byte)overlap, (byte)overlap, (byte)overlap, 255), bitmap.At(250, 591));
         AssertNear(new Rgba(128, 128, 128, 255), bitmap.At(150, 591));
         AssertNear(new Rgba(128, 128, 128, 255), bitmap.At(350, 591));
+    }
+
+    [Fact]
+    public void A_paint_of_alpha_zero_still_knocks_out_what_is_under_its_shape()
+    {
+        // Shape and opacity are separate (§11.4.6): the second square has shape 1 and opacity 0, so in a knockout group it replaces
+        // the black under it with the initial backdrop (transparent, then the white page) and adds nothing of its own.
+        using Bitmap bitmap = Render(
+            "/Fm0 Do",
+            Form("/Group << /S /Transparency /I true /K true >>", "100 100 200 200 re f /Clear gs 200 100 200 200 re f"));
+
+        Assert.Equal(White, bitmap.At(250, 591));
+        AssertNear(new Rgba(0, 0, 0, 255), bitmap.At(150, 591));
     }
 
     [Fact]

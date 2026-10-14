@@ -61,7 +61,7 @@ public sealed partial class SoftwareRasterizer
             GroupLayer? parent = CurrentLayer;
             bool parentKnockout = parent?.Knockout == true;
             bool sameModel = group.ColorSpace is not { } space || ModelOf(space) == _pixelModel.Model;
-            var compositor = new Compositor(group.Opacity, group.BlendMode);
+            var compositor = new Compositor(group.Opacity, group.BlendMode).WithKnockout(parentKnockout);
             if (compositor.PaintsNothing)
             {
                 return;
@@ -262,6 +262,8 @@ public sealed partial class SoftwareRasterizer
             _clip.SetOrigin(_originX, _originY);
             _pixelModel = new PixelModel(layer.Model.Model, pass);
             _scan.Hook = layer.Knockout || layer.TracksAlpha || layer.TracksShape ? layer : null;
+            _fillCompositor = _fillCompositor.WithKnockout(layer.Knockout);
+            _strokeCompositor = _strokeCompositor.WithKnockout(layer.Knockout);
             SetTransform(in _ctm);
         }
 
@@ -278,6 +280,9 @@ public sealed partial class SoftwareRasterizer
             _clip.SetOrigin(_originX, _originY);
             _pixelModel = saved.Model;
             _scan.Hook = saved.Hook;
+            bool knockout = _layerDepth > 1 && _layers[_layerDepth - 2].Knockout;
+            _fillCompositor = _fillCompositor.WithKnockout(knockout);
+            _strokeCompositor = _strokeCompositor.WithKnockout(knockout);
             SetTransform(in _ctm);
         }
 

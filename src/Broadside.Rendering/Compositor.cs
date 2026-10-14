@@ -28,6 +28,9 @@ internal readonly struct Compositor
     // 255 − alpha × 255, so that default(Compositor) is opaque.
     private readonly byte _transparency;
 
+    // Whether paints go into a knockout group, where a paint of alpha 0 still knocks out what is under its shape.
+    private readonly bool _knocksOut;
+
     /// <summary>Creates a compositor.</summary>
     /// <param name="alpha">The constant alpha, 0 to 1 (clamped).</param>
     /// <param name="mode">The blend mode.</param>
@@ -38,14 +41,27 @@ internal readonly struct Compositor
         Mode = mode;
     }
 
+    private Compositor(in Compositor compositor, bool knocksOut)
+    {
+        _transparency = compositor._transparency;
+        Mode = compositor.Mode;
+        _knocksOut = knocksOut;
+    }
+
     /// <summary>Gets the blend mode.</summary>
     public BlendMode Mode { get; }
 
     /// <summary>Gets the constant alpha, 0 to 255.</summary>
     public int Alpha => 255 - _transparency;
 
-    /// <summary>Gets a value indicating whether every paint through this compositor leaves the backdrop as it is (alpha 0).</summary>
-    public bool PaintsNothing => _transparency == 255;
+    /// <summary>
+    /// Gets a value indicating whether every paint through this compositor leaves the backdrop as it is: alpha 0, outside a knockout
+    /// group (inside one, a paint of alpha 0 still replaces what earlier paints left under its shape, ISO 32000-2 §11.4.6).
+    /// </summary>
+    public bool PaintsNothing => _transparency == 255 && !_knocksOut;
+
+    /// <summary>Returns this compositor for paints into a knockout group, or not.</summary>
+    public Compositor WithKnockout(bool knocksOut) => new(this, knocksOut);
 
     /// <summary>Gets a value indicating whether the blend is plain source-over (Normal).</summary>
     public bool IsNormal => Mode == BlendMode.Normal;
