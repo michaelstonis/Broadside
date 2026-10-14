@@ -50,11 +50,27 @@ public sealed partial class PdfDocument
         if (changed)
         {
             // The catalog changed after it was planned: plan again, so the update writes it and a full save serializes it.
-            features.Clear();
-            writer = PlanWriter(options, features);
-            AddDocumentFeatures(features);
+            return PlanVersionedSaveAgain(options);
         }
 
+        if (!options.IncrementalUpdate)
+        {
+            writer.Version = Writing.VersionPlan.Highest(features, writer.Version);
+        }
+
+        return writer;
+    }
+
+    /// <summary>
+    /// Plans a save again after objects changed or were added since <see cref="PlanVersionedSave"/> planned it, at the version it
+    /// decided (which was already checked and recorded): the catalog's raised <c>Version</c> and extensions, or the metadata a raise
+    /// to PDF 2.0 lays out again (<see cref="LayOutMetadataFor"/>).
+    /// </summary>
+    private FileWriter PlanVersionedSaveAgain(PdfSaveOptions options)
+    {
+        var features = new List<VersionedFeature>();
+        FileWriter writer = PlanWriter(options, features);
+        AddDocumentFeatures(features);
         if (!options.IncrementalUpdate)
         {
             writer.Version = Writing.VersionPlan.Highest(features, writer.Version);

@@ -67,6 +67,37 @@ public sealed partial class PdfDocument
     }
 
     /// <summary>
+    /// Once the version plan has decided the version <paramref name="written"/> the save writes, and every refusal check has passed:
+    /// lays the metadata out for that version. A save that raises the document from <paramref name="before"/> to PDF 2.0 applies the
+    /// layout a PDF 2.0 document's metadata edits get (<see cref="DocumentMetadataWriter.Commit"/>): the entries Table 349 deprecates
+    /// move from the Info dictionary to the XMP packet, which is created when the document has none, and Info keeps only
+    /// <c>CreationDate</c>, <c>ModDate</c> and keys Table 349 does not define (ISO 32000-2 §14.3.3; issue #301). Then the dates written
+    /// since the last save take the form of <paramref name="written"/> (<see cref="FormatDatesFor"/>).
+    /// </summary>
+    /// <remarks>
+    /// The layout is written when there is something for it to do, as a PDF 2.0 document's would be: when Info holds a deprecated
+    /// entry, or a date was written since the last save (the dating, or a date property set). A raise of a document whose metadata
+    /// nobody touched and that has nothing to move adds no packet.
+    /// </remarks>
+    /// <returns>Whether objects the plan had already planned changed or were added, so the save must be planned again.</returns>
+    private bool LayOutMetadataFor(PdfVersion before, PdfVersion written)
+    {
+        bool laidOut = false;
+        if (before < Pdf20 && written >= Pdf20)
+        {
+            var writer = new DocumentMetadataWriter(this);
+            if (_writtenDates.Count > 0 || writer.HasDeprecatedInfoEntry())
+            {
+                writer.Commit(Now(), createPacket: true, layout: written);
+                laidOut = true;
+            }
+        }
+
+        FormatDatesFor(written);
+        return laidOut;
+    }
+
+    /// <summary>
     /// Once the version plan has decided the version <paramref name="written"/> the save writes: when it is PDF 2.0 or later, writes the
     /// dates written since the last save (by <see cref="DateModification"/> or through <see cref="PdfDocumentProperties"/>, in the form
     /// of the version the document had then) again in the 2.0 form, without the terminating apostrophe (ISO 32000-2 §7.9.4 NOTE 2). The
@@ -74,7 +105,7 @@ public sealed partial class PdfDocument
     /// </summary>
     private void FormatDatesFor(PdfVersion written)
     {
-        if (written >= new PdfVersion(2, 0) && _writtenDates.Count > 0)
+        if (written >= Pdf20 && _writtenDates.Count > 0)
         {
             new DocumentMetadataWriter(this).FormatDatesForPdf20(_writtenDates);
         }

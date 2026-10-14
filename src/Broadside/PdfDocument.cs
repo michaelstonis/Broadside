@@ -1245,9 +1245,9 @@ public sealed partial class PdfDocument : IDisposable
         ArgumentNullException.ThrowIfNull(options);
         ReportBeforeSave();
         CompleteFontSubsets();
+        PdfVersion before = Version;
         DateModification(options);
         FileWriter writer = PlanVersionedSave(options);
-        FormatDatesFor(writer.Version > Version ? writer.Version : Version);
 
         // Table 20: V 1 to 4 (RC4 and AES-128) are deprecated in PDF 2.0. Reported before anything is written, so strict mode refuses.
         string? deprecated = options.Encryption switch
@@ -1263,6 +1263,14 @@ public sealed partial class PdfDocument : IDisposable
                 DiagnosticCodes.EncryptionDeprecated,
                 DiagnosticSeverity.Warning,
                 $"The saved file is encrypted with {deprecated}, which is deprecated in PDF 2.0 (ISO 32000-2 §7.6.2, Table 20; RC4 offers little protection); AES-256 is the PDF 2.0 algorithm.");
+        }
+
+        // After the version is decided and every refusal check has passed: the metadata layout and date form of the written version
+        // (§14.3.3, §7.9.4). A raise to 2.0 can change or add objects the plan did not include, so the save is planned again.
+        PdfVersion written = writer.Version > Version ? writer.Version : Version;
+        if (LayOutMetadataFor(before, written))
+        {
+            writer = PlanVersionedSaveAgain(options);
         }
 
         return writer;
