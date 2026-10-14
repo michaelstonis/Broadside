@@ -31,7 +31,7 @@ public class Type3RenderingBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        _document = PdfDocument.Open(Type3Samples.Type3Heavy(2000));
+        _document = PdfDocument.Open(Type3Samples.Type3Heavy(2000), new PdfOptions().WithDisplayListCacheBudget(0)); // Build measures building (issue #103).
         _page = _document.Pages[0];
         _list = _page.CreateDisplayList();
         RenderOptions options = new RenderOptions().WithDpi(Dpi);

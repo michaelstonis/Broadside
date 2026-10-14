@@ -348,13 +348,20 @@ public sealed class PdfPage
     }
 
     /// <summary>Builds the page's display list: its content interpreted once into resolved drawing operations any backend replays.</summary>
-    /// <returns>The list; a new one on every call, reading the page live.</returns>
+    /// <returns>
+    /// The list: the one built earlier while the document is unchanged and the display-list cache still holds it, else a new one
+    /// reading the page live.
+    /// </returns>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
     /// <remarks>
     /// ADR 0006; ISO 32000-2 §8.5.3 (path painting) and §8.6 (colour). The content runs through the same interpreter as
     /// <see cref="ProcessContent(ContentProcessor)"/>, so lenient repairs are recorded in <see cref="PdfDocument.Diagnostics"/> the
     /// same way. Geometry is in user space with the transform to default user space; the media box, crop box, rotation and user unit
     /// are the renderer's to apply. Colours keep their colour space; a backend converts them (see <see cref="DisplayColor"/>).
+    /// A list is immutable and replays on any number of threads at once, so the document keeps the lists it builds, within
+    /// <see cref="PdfOptions.DisplayListCacheBudget"/>, and returns the same list again until any COS object changes (spec #33 viewer
+    /// capability 13); its images, masks, glyph outlines and decoded content come from the document's other caches
+    /// (<see cref="PdfDocument.CacheStatistics"/>). Diagnostics are recorded when a list is built, not when a kept one is returned.
     /// </remarks>
     public DisplayList CreateDisplayList() => CreateDisplayList(ContentInterpreter.DefaultOptions);
 
@@ -363,11 +370,38 @@ public sealed class PdfPage
     /// <returns>The list.</returns>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
     /// <exception cref="OperationCanceledException">The options' cancellation token was canceled.</exception>
-    /// <remarks>ADR 0006; ISO 32000-2 §8.5.3, §8.6. As <see cref="CreateDisplayList()"/>.</remarks>
+    /// <remarks>
+    /// ADR 0006; ISO 32000-2 §8.5.3, §8.6. As <see cref="CreateDisplayList()"/>: lists are kept per page and limits; a list built with
+    /// an <see cref="ContentOptions.OptionalContentState"/> is not kept, since the state can change without any COS object changing.
+    /// </remarks>
     public DisplayList CreateDisplayList(ContentOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return DisplayListBuilder.Build(this, _document, options);
+        return DisplayListBuilder.BuildCached(this, _document, DisplayLayers.Content, DisplayIntent.View, options);
+    }
+
+    /// <summary>Builds the page's hit-test index: its display list's glyphs, images and paths, and its link annotations.</summary>
+    /// <returns>The index, from a display list built for it under the document's default optional-content states.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
+    /// <remarks>Viewer capability 4; ADR 0006. As <see cref="CreateHitTestIndex(DisplayList, PdfOptionalContentState?)"/>.</remarks>
+    public HitTestIndex CreateHitTestIndex() => CreateHitTestIndex(CreateDisplayList());
+
+    /// <summary>Builds the page's hit-test index from a display list the caller already has, adding the page's link annotations.</summary>
+    /// <param name="displayList">The page's display list, such as the one a viewer caches to render tiles.</param>
+    /// <param name="optionalContentState">
+    /// The optional-content states that decide which links are visible, as the list was built with; <see langword="null"/> for the
+    /// document's default configuration.
+    /// </param>
+    /// <returns>The index.</returns>
+    /// <remarks>
+    /// Viewer capability 4; ISO 32000-2 §12.5.6.5 (links: <c>QuadPoints</c> inside <c>Rect</c>, else <c>Rect</c>), §12.5.3
+    /// (<c>Hidden</c> and <c>NoView</c> links are left out) and §8.11.3.3 (a link whose optional content is off is left out). The
+    /// links are read from <see cref="Annotations"/> now; the list's content is indexed as by <see cref="DisplayList.CreateHitTestIndex"/>.
+    /// </remarks>
+    public HitTestIndex CreateHitTestIndex(DisplayList displayList, PdfOptionalContentState? optionalContentState = null)
+    {
+        ArgumentNullException.ThrowIfNull(displayList);
+        return HitTestIndex.Create(displayList, HitTestIndex.CollectLinks(this, _document, optionalContentState));
     }
 
     /// <summary>Builds the display list of some of the page's layers, for the screen: content, annotations, form fields, or any combination.</summary>
@@ -405,6 +439,10 @@ public sealed class PdfPage
     /// <see cref="DisplayIntent.View"/>, <c>NoZoom</c> and <c>NoRotate</c> (always for text annotations, §12.5.6.4) travel to the
     /// backend in <see cref="DisplayAnnotation"/>.
     /// </para>
+    /// <para>
+    /// Lists are kept like <see cref="CreateDisplayList()"/>'s, per page, layers, intent and limits, within
+    /// <see cref="PdfOptions.DisplayListCacheBudget"/> (spec #33 viewer capability 13).
+    /// </para>
     /// </remarks>
     public DisplayList CreateDisplayList(DisplayLayers layers, DisplayIntent intent, ContentOptions options)
     {
@@ -414,7 +452,7 @@ public sealed class PdfPage
             throw new ArgumentOutOfRangeException(nameof(intent), intent, "The intent must be View or Print.");
         }
 
-        return DisplayListBuilder.Build(this, _document, layers & DisplayLayers.All, intent, options);
+        return DisplayListBuilder.BuildCached(this, _document, layers & DisplayLayers.All, intent, options);
     }
 
     /// <summary>Reads a page boundary; for an inheritable one, from the nearest node that has it.</summary>

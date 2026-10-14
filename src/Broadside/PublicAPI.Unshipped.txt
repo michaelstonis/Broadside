@@ -4026,6 +4026,104 @@ Broadside.Forms.PdfFieldOptions.WithBorderWidth(double width) -> Broadside.Forms
 Broadside.Forms.PdfFieldOptions.WithMaxLength(int? maxLength) -> Broadside.Forms.PdfFieldOptions!
 Broadside.Forms.PdfFieldOptions.WithCaption(string? caption) -> Broadside.Forms.PdfFieldOptions!
 Broadside.Rendering.DisplayList.Replay(Broadside.Rendering.IRenderingBackend! backend, Broadside.PdfRectangle region) -> void
+Broadside.PdfPage.CreateHitTestIndex() -> Broadside.Rendering.HitTestIndex!
+Broadside.PdfPage.CreateHitTestIndex(Broadside.Rendering.DisplayList! displayList, Broadside.PdfOptionalContentState? optionalContentState = null) -> Broadside.Rendering.HitTestIndex!
+Broadside.Rendering.DisplayList.CreateHitTestIndex() -> Broadside.Rendering.HitTestIndex!
+Broadside.Rendering.HitTestGlyph
+Broadside.Rendering.HitTestGlyph.CharacterCode.get -> uint
+Broadside.Rendering.HitTestGlyph.CodeLength.get -> int
+Broadside.Rendering.HitTestGlyph.HitTestGlyph() -> void
+Broadside.Rendering.HitTestGlyph.IsVertical.get -> bool
+Broadside.Rendering.HitTestGlyph.Quad.get -> Broadside.Graphics.Quad
+Broadside.Rendering.HitTestGlyph.RenderingMode.get -> Broadside.Graphics.TextRenderingMode
+Broadside.Rendering.HitTestGlyph.TextLength.get -> int
+Broadside.Rendering.HitTestGlyph.TextStart.get -> int
+Broadside.Rendering.HitTestIndex
+Broadside.Rendering.HitTestIndex.Find(Broadside.Graphics.PathPoint point, Broadside.Rendering.HitTestKinds kinds) -> Broadside.Rendering.HitTestMatches
+Broadside.Rendering.HitTestIndex.Find(Broadside.PdfRectangle area, Broadside.Rendering.HitTestKinds kinds) -> Broadside.Rendering.HitTestMatches
+Broadside.Rendering.HitTestIndex.GetGlyph(int index) -> Broadside.Rendering.HitTestGlyph
+Broadside.Rendering.HitTestIndex.GetGlyphText(in Broadside.Rendering.HitTestGlyph glyph) -> System.ReadOnlySpan<char>
+Broadside.Rendering.HitTestIndex.GlyphCount.get -> int
+Broadside.Rendering.HitTestIndex.Images.get -> System.ReadOnlySpan<Broadside.Rendering.HitTestShape>
+Broadside.Rendering.HitTestIndex.Links.get -> System.Collections.Generic.IReadOnlyList<Broadside.Rendering.HitTestLink!>!
+Broadside.Rendering.HitTestIndex.Paths.get -> System.ReadOnlySpan<Broadside.Rendering.HitTestShape>
+Broadside.Rendering.HitTestIndex.Text.get -> System.ReadOnlySpan<char>
+Broadside.Rendering.HitTestItem
+Broadside.Rendering.HitTestItem.HitTestItem() -> void
+Broadside.Rendering.HitTestItem.HitTestItem(Broadside.Rendering.HitTestKinds Kind, int Index) -> void
+Broadside.Rendering.HitTestItem.Index.get -> int
+Broadside.Rendering.HitTestItem.Index.init -> void
+Broadside.Rendering.HitTestItem.Kind.get -> Broadside.Rendering.HitTestKinds
+Broadside.Rendering.HitTestItem.Kind.init -> void
+Broadside.Rendering.HitTestKinds
+Broadside.Rendering.HitTestKinds.All = Broadside.Rendering.HitTestKinds.Glyphs | Broadside.Rendering.HitTestKinds.Images | Broadside.Rendering.HitTestKinds.Paths | Broadside.Rendering.HitTestKinds.Links -> Broadside.Rendering.HitTestKinds
+Broadside.Rendering.HitTestKinds.Glyphs = 1 -> Broadside.Rendering.HitTestKinds
+Broadside.Rendering.HitTestKinds.Images = 2 -> Broadside.Rendering.HitTestKinds
+Broadside.Rendering.HitTestKinds.Links = 8 -> Broadside.Rendering.HitTestKinds
+Broadside.Rendering.HitTestKinds.None = 0 -> Broadside.Rendering.HitTestKinds
+Broadside.Rendering.HitTestKinds.Paths = 4 -> Broadside.Rendering.HitTestKinds
+Broadside.Rendering.HitTestLink
+Broadside.Rendering.HitTestLink.Action.get -> Broadside.PdfAction?
+Broadside.Rendering.HitTestLink.Annotation.get -> Broadside.Annotations.PdfLinkAnnotation!
+Broadside.Rendering.HitTestLink.Bounds.get -> Broadside.PdfRectangle
+Broadside.Rendering.HitTestLink.Destination.get -> Broadside.PdfDestination?
+Broadside.Rendering.HitTestLink.Region.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>!
+Broadside.Rendering.HitTestMatches
+Broadside.Rendering.HitTestMatches.Current.get -> Broadside.Rendering.HitTestItem
+Broadside.Rendering.HitTestMatches.GetEnumerator() -> Broadside.Rendering.HitTestMatches
+Broadside.Rendering.HitTestMatches.HitTestMatches() -> void
+Broadside.Rendering.HitTestMatches.MoveNext() -> bool
+Broadside.Rendering.HitTestShape
+Broadside.Rendering.HitTestShape.Bounds.get -> Broadside.PdfRectangle
+Broadside.Rendering.HitTestShape.Bounds.init -> void
+Broadside.Rendering.HitTestShape.HitTestShape() -> void
+Broadside.Rendering.HitTestShape.HitTestShape(Broadside.Graphics.Quad Quad, Broadside.PdfRectangle Bounds) -> void
+Broadside.Rendering.HitTestShape.Quad.get -> Broadside.Graphics.Quad
+Broadside.Rendering.HitTestShape.Quad.init -> void
+Broadside.PdfCacheStatistics
+Broadside.PdfCacheStatistics.Budget.get -> long
+Broadside.PdfCacheStatistics.Budget.init -> void
+Broadside.PdfCacheStatistics.Bytes.get -> long
+Broadside.PdfCacheStatistics.Bytes.init -> void
+Broadside.PdfCacheStatistics.Count.get -> int
+Broadside.PdfCacheStatistics.Count.init -> void
+Broadside.PdfCacheStatistics.Evictions.get -> long
+Broadside.PdfCacheStatistics.Evictions.init -> void
+Broadside.PdfCacheStatistics.Hits.get -> long
+Broadside.PdfCacheStatistics.Hits.init -> void
+Broadside.PdfCacheStatistics.Misses.get -> long
+Broadside.PdfCacheStatistics.Misses.init -> void
+Broadside.PdfCacheStatistics.PdfCacheStatistics() -> void
+Broadside.PdfCacheStatistics.PdfCacheStatistics(long Budget, long Bytes, long PeakBytes, int Count, long Hits, long Misses, long Evictions) -> void
+Broadside.PdfCacheStatistics.PeakBytes.get -> long
+Broadside.PdfCacheStatistics.PeakBytes.init -> void
+Broadside.PdfDocument.CacheStatistics.get -> Broadside.PdfDocumentCacheStatistics!
+Broadside.PdfDocumentCacheStatistics
+Broadside.PdfDocumentCacheStatistics.Content.get -> Broadside.PdfCacheStatistics
+Broadside.PdfDocumentCacheStatistics.Content.init -> void
+Broadside.PdfDocumentCacheStatistics.DisplayLists.get -> Broadside.PdfCacheStatistics
+Broadside.PdfDocumentCacheStatistics.DisplayLists.init -> void
+Broadside.PdfDocumentCacheStatistics.Glyphs.get -> Broadside.PdfCacheStatistics
+Broadside.PdfDocumentCacheStatistics.Glyphs.init -> void
+Broadside.PdfDocumentCacheStatistics.Images.get -> Broadside.PdfCacheStatistics
+Broadside.PdfDocumentCacheStatistics.Images.init -> void
+Broadside.PdfDocumentCacheStatistics.PdfDocumentCacheStatistics(Broadside.PdfCacheStatistics Content, Broadside.PdfCacheStatistics Images, Broadside.PdfCacheStatistics Glyphs, Broadside.PdfCacheStatistics DisplayLists) -> void
+Broadside.PdfOptions.ContentCacheBudget.get -> long
+Broadside.PdfOptions.ContentCacheBudget.set -> void
+Broadside.PdfOptions.DisplayListCacheBudget.get -> long
+Broadside.PdfOptions.DisplayListCacheBudget.set -> void
+Broadside.PdfOptions.GlyphCacheBudget.get -> long
+Broadside.PdfOptions.GlyphCacheBudget.set -> void
+Broadside.PdfOptions.ImageCacheBudget.get -> long
+Broadside.PdfOptions.ImageCacheBudget.set -> void
+Broadside.PdfOptions.WithContentCacheBudget(long budget) -> Broadside.PdfOptions!
+Broadside.PdfOptions.WithDisplayListCacheBudget(long budget) -> Broadside.PdfOptions!
+Broadside.PdfOptions.WithGlyphCacheBudget(long budget) -> Broadside.PdfOptions!
+Broadside.PdfOptions.WithImageCacheBudget(long budget) -> Broadside.PdfOptions!
+const Broadside.PdfOptions.DefaultContentCacheBudget = 33554432 -> long
+const Broadside.PdfOptions.DefaultDisplayListCacheBudget = 33554432 -> long
+const Broadside.PdfOptions.DefaultGlyphCacheBudget = 8388608 -> long
+const Broadside.PdfOptions.DefaultImageCacheBudget = 67108864 -> long
 Broadside.PdfEncryptionAlgorithm.Aes256Gcm = 3 -> Broadside.PdfEncryptionAlgorithm
 Broadside.PdfEncryptionOptions.IntegrityProtection.get -> bool
 Broadside.PdfEncryptionOptions.IntegrityProtection.set -> void
