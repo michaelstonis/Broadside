@@ -56,7 +56,7 @@ public sealed class IccMatrixTests
         PdfColorSpace space = IccTesting.Space(document, resource);
         float[] rgb = new float[3];
 
-        document.GetColorConverter(space).Convert(components, rgb);
+        document.GetColorConverter(space, IccTesting.WithoutCompensation).Convert(components, rgb);
 
         for (int i = 0; i < 3; i++)
         {

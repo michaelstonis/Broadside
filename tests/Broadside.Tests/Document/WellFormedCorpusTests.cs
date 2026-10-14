@@ -16,7 +16,7 @@ public sealed class WellFormedCorpusTests
 
         int expectedPages = fileName switch
         {
-            "page-tree-inherited.pdf" or "linearized.pdf" or "linearized-xref-stream.pdf" or "linearized-flate-hints.pdf" or "acroform-fields.pdf" or "annotations-nozoom.pdf" or "transparency-groups.pdf" or "text-tagged-spanning.pdf" or "text-tagged-spanning-image.pdf" => 2,
+            "page-tree-inherited.pdf" or "linearized.pdf" or "linearized-xref-stream.pdf" or "linearized-flate-hints.pdf" or "acroform-fields.pdf" or "annotations-nozoom.pdf" or "transparency-groups.pdf" or "text-tagged-spanning.pdf" or "text-tagged-spanning-image.pdf" or "output-intent-cmyk.pdf" => 2,
             "number-tree-deep.pdf" or "page-labels.pdf" => 12,
             "page-rotation.pdf" => 4,
             _ => 1,

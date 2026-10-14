@@ -102,6 +102,8 @@ public static class Corpus
         "separation-special.pdf",
         "icc-rgb-matrix.pdf",
         "icc-lut.pdf",
+        "output-intent-cmyk.pdf",
+        "rendering-intents.pdf",
         "form-xobject-nested.pdf",
         "extgstate-params.pdf",
         "transparency-blend-modes.pdf",

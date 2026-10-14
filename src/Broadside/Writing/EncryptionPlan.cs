@@ -12,6 +12,7 @@ namespace Broadside.Writing;
 internal sealed class EncryptionPlan
 {
     private static readonly CosName AuthCode = new("AuthCode");
+    private static readonly CosName KdfSalt = new("KDFSalt");
 
     private readonly DocumentDecryptor? _sourceDecryptor;
     private readonly bool _keepsSourceEncryption;
@@ -21,7 +22,8 @@ internal sealed class EncryptionPlan
         bool replacesDictionary,
         CosDictionary? newDictionary,
         CosString? firstIdentifier,
-        VersionedFeature? feature,
+        IReadOnlyList<VersionedFeature> features,
+        IntegrityCodeWriter? integrity,
         DocumentDecryptor? sourceDecryptor,
         bool keepsSourceEncryption)
     {
@@ -29,7 +31,8 @@ internal sealed class EncryptionPlan
         ReplacesDictionary = replacesDictionary;
         NewDictionary = newDictionary;
         FirstIdentifier = firstIdentifier;
-        Feature = feature;
+        Features = features;
+        Integrity = integrity;
         _sourceDecryptor = sourceDecryptor;
         _keepsSourceEncryption = keepsSourceEncryption;
     }
@@ -47,19 +50,35 @@ internal sealed class EncryptionPlan
     public CosString? FirstIdentifier { get; }
 
     /// <summary>
-    /// Gets the encryption the save writes as a feature of the version table (<see cref="VersionedFeatures"/>): new encryption's
-    /// algorithm, or kept AES-GCM encryption (ISO/TS 32003), whose extension the catalog shall declare; <see langword="null"/> for none.
+    /// Gets the encryption the save writes as features of the version table (<see cref="VersionedFeatures"/>): new encryption's
+    /// algorithm, kept AES-GCM encryption (ISO/TS 32003) and an integrity MAC (ISO/TS 32004), whose extensions the catalog shall
+    /// declare; empty for none.
     /// </summary>
     /// <remarks>
     /// Other kept encryption declares nothing: the document's version already covers it, or it is declared by a developer extension
     /// of an earlier version (Adobe's AES-256 for PDF 1.7, for example), which the save keeps.
     /// </remarks>
-    public VersionedFeature? Feature { get; }
+    public IReadOnlyList<VersionedFeature> Features { get; }
+
+    /// <summary>
+    /// Gets the composer of the PDF MAC token the saved file's trailer carries in a new <c>AuthCode</c> dictionary (ISO/TS 32004
+    /// §5.2.3, §6.5.1), or <see langword="null"/> when the file carries none. The source's <c>AuthCode</c> is then not repeated.
+    /// </summary>
+    public IntegrityCodeWriter? Integrity { get; }
 
     /// <summary>Whether a trailer entry belongs to the source's encryption: <c>Encrypt</c>, or the ISO/TS 32004 <c>AuthCode</c>.</summary>
     /// <param name="key">The trailer key.</param>
     /// <returns><see langword="true"/> for <c>Encrypt</c> and <c>AuthCode</c>.</returns>
     public static bool IsEncryptionEntry(CosName key) => key.Equals(KnownNames.Encrypt) || key.Equals(AuthCode);
+
+    /// <summary>Whether the save repeats an entry of the source's trailer as it is.</summary>
+    /// <param name="key">The trailer key.</param>
+    /// <returns>
+    /// <see langword="false"/> for the encryption entries a replaced or dropped encryption takes along, and for an <c>AuthCode</c> the
+    /// save writes anew.
+    /// </returns>
+    public bool KeepsTrailerEntry(CosName key) =>
+        !(ReplacesDictionary && IsEncryptionEntry(key)) && !(Integrity is not null && key.Equals(AuthCode));
 
     /// <summary>Decides what a save does about encryption.</summary>
     /// <param name="loader">The document's loader.</param>
@@ -69,8 +88,10 @@ internal sealed class EncryptionPlan
     /// <returns>The plan.</returns>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption the algorithm cannot write.</exception>
     /// <exception cref="NotSupportedException">
-    /// The save would need an integrity MAC, or would change an incremental update's encryption. Never for a document read as not
-    /// encrypted (<paramref name="security"/> <see langword="null"/>) unless new encryption is asked of an incremental update.
+    /// The save would change an incremental update's encryption, or keep an integrity MAC it cannot compute again (a document opened
+    /// without its file encryption key, or whose encryption dictionary has no 32-byte <c>KDFSalt</c> or a <c>V</c> below 5). Never for
+    /// a document read as not encrypted (<paramref name="security"/> <see langword="null"/>) unless new encryption is asked of an
+    /// incremental update.
     /// </exception>
     public static EncryptionPlan Create(ObjectLoader loader, PdfSecurity? security, PdfSaveOptions options, bool incremental)
     {
@@ -94,17 +115,21 @@ internal sealed class EncryptionPlan
                 ? first.Bytes.ToArray()
                 : RandomNumberGenerator.GetBytes(16);
             StandardEncryption created = StandardEncryption.Create(encryption, documentId);
+            VersionedFeature algorithm = encryption.Algorithm switch
+            {
+                PdfEncryptionAlgorithm.Rc4 => VersionedFeatures.Rc4Encryption,
+                PdfEncryptionAlgorithm.Aes128 => VersionedFeatures.Aes128Encryption,
+                PdfEncryptionAlgorithm.Aes256Gcm => VersionedFeatures.AesGcmEncryption,
+                _ => VersionedFeatures.Aes256Encryption,
+            };
+            IntegrityCodeWriter? mac = created.KdfSalt is { } salt ? new IntegrityCodeWriter(created.Filter.Key, salt) : null;
             return new EncryptionPlan(
                 ObjectEncryptor.Create(created.Filter, created.EncryptMetadata, created.Dictionary, loader.Resolve),
                 replacesDictionary: true,
                 created.Dictionary,
                 new CosString(documentId, hexadecimal: true),
-                encryption.Algorithm switch
-                {
-                    PdfEncryptionAlgorithm.Rc4 => VersionedFeatures.Rc4Encryption,
-                    PdfEncryptionAlgorithm.Aes128 => VersionedFeatures.Aes128Encryption,
-                    _ => VersionedFeatures.Aes256Encryption,
-                },
+                mac is null ? [algorithm] : [algorithm, VersionedFeatures.IntegrityProtection],
+                mac,
                 decryptor,
                 keepsSourceEncryption: false);
         }
@@ -115,18 +140,29 @@ internal sealed class EncryptionPlan
             // read, and IsEncrypted reports it, as not encrypted): nothing to decrypt or encrypt, so the save is the one an
             // unencrypted document gets. The damaged entry is dropped from a complete file, and from an incremental update asked to
             // remove encryption; any other update repeats it, so the file reads back the way it was read.
-            return new EncryptionPlan(null, replacesDictionary: hasEncrypt && (!incremental || options.RemoveEncryption), null, null, null, null, keepsSourceEncryption: false);
+            return new EncryptionPlan(null, replacesDictionary: hasEncrypt && (!incremental || options.RemoveEncryption), null, null, [], null, null, keepsSourceEncryption: false);
         }
 
         if (options.RemoveEncryption)
         {
-            return new EncryptionPlan(ObjectEncryptor.Remove(loader.Resolve), replacesDictionary: true, null, null, null, decryptor, keepsSourceEncryption: false);
+            return new EncryptionPlan(ObjectEncryptor.Remove(loader.Resolve), replacesDictionary: true, null, null, [], null, decryptor, keepsSourceEncryption: false);
         }
 
-        if (security.Integrity != PdfIntegrityStatus.None || security.RequiresIntegrityCode)
+        // ISO/TS 32004 §6.5.1: the revision the save writes is the newest and unsigned, so its token stands alone in the trailer and
+        // covers the whole file. The document's own token (standalone or attached to a signature) is replaced whatever its status:
+        // the saver holds the file encryption key the MAC proves knowledge of (§6.4, NOTE 2).
+        IntegrityCodeWriter? integrity = security.Integrity != PdfIntegrityStatus.None || security.RequiresIntegrityCode
+            ? KeptIntegrity(security, decryptor, loader.Resolve)
+            : null;
+        var features = new List<VersionedFeature>(2);
+        if (security.Version >= 6)
         {
-            throw new NotSupportedException(
-                "The document's encryption carries an integrity MAC (ISO/TS 32004), which a save cannot recompute yet; save it with new encryption (PdfSaveOptions.Encryption) or without encryption (PdfSaveOptions.RemoveEncryption).");
+            features.Add(VersionedFeatures.AesGcmEncryption);
+        }
+
+        if (integrity is not null)
+        {
+            features.Add(VersionedFeatures.IntegrityProtection);
         }
 
         // The keys of revisions 2-4 hash the first file identifier as the reader took it (an empty one when the trailer has none).
@@ -138,9 +174,34 @@ internal sealed class EncryptionPlan
             replacesDictionary: false,
             null,
             firstIdentifier,
-            security.Version >= 6 ? VersionedFeatures.AesGcmEncryption : null,
+            features,
+            integrity,
             decryptor,
             keepsSourceEncryption: true);
+    }
+
+    /// <summary>The MAC composer for a document that keeps its encryption and has, or needs, a PDF MAC token (ISO/TS 32004).</summary>
+    private static IntegrityCodeWriter KeptIntegrity(PdfSecurity security, DocumentDecryptor decryptor, Func<CosObject?, CosObject> resolve)
+    {
+        if (security.Version < 5)
+        {
+            throw new NotSupportedException(
+                "The document's trailer has an AuthCode entry, which needs an encryption dictionary with V 5 or later (ISO/TS 32004 §5.2.1, Table 5); save it with new encryption (PdfSaveOptions.Encryption) or without encryption (PdfSaveOptions.RemoveEncryption).");
+        }
+
+        if (decryptor.FileEncryptionKey.Length == 0)
+        {
+            throw new NotSupportedException(
+                "The document's integrity MAC (ISO/TS 32004 §6.4) is derived from the file encryption key, which the document was opened without; open it with its password or certificate to save it with its own encryption.");
+        }
+
+        if (resolve(security.EncryptionDictionary.TryGetValue(KdfSalt, out CosObject? salt) ? salt : null) is not CosString { Bytes.Length: 32 } kdfSalt)
+        {
+            throw new NotSupportedException(
+                "The document's integrity MAC needs a 32-byte KDFSalt in its encryption dictionary (ISO/TS 32004 §5.1.1, Table 2), which it lacks; save it with new encryption (PdfSaveOptions.Encryption) or without encryption (PdfSaveOptions.RemoveEncryption).");
+        }
+
+        return new IntegrityCodeWriter(decryptor.FileEncryptionKey, kdfSalt.Bytes);
     }
 
     /// <summary>
