@@ -68,6 +68,9 @@ internal sealed class EngineConfiguration
     /// <summary>Gets the most pixels one image may have (issue #60).</summary>
     public long MaxImagePixels { get; private init; } = PdfOptions.DefaultMaxImagePixels;
 
+    /// <summary>Gets the most vertices one mesh shading decodes (issue #110).</summary>
+    public int MaxMeshVertices { get; private init; } = PdfOptions.DefaultMaxMeshVertices;
+
     /// <summary>Gets the clock that dates what the engine writes (issue #162).</summary>
     public TimeProvider TimeProvider { get; private init; } = TimeProvider.System;
 
@@ -96,6 +99,7 @@ internal sealed class EngineConfiguration
         Credentials = options.Credentials,
         StreamBufferLimit = options.StreamBufferLimit,
         MaxImagePixels = options.MaxImagePixels,
+        MaxMeshVertices = options.MaxMeshVertices,
         RangeSource = new(
             options.RangeBlockSize,
             Math.Max(options.RangeCacheLimit, options.RangeBlockSize),

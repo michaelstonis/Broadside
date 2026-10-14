@@ -8,16 +8,17 @@ namespace Broadside.Fuzz;
 /// with the software rasterizer into a small transparent bitmap, twice, at a scale and quarter turn chosen from the input length.
 /// Unlike <c>rasterize</c>, whose content has no resources, names resolve here, so the shadings of <c>sh</c> and shading patterns
 /// (their coordinates, radii, Domain, Extend, Background, BBox and functions, mutated from the <c>shading-*</c> and
-/// <c>pattern-*</c> corpus files), forms and image XObjects reach the rasterizer. Invariants: nothing throws besides an unreadable
+/// <c>pattern-*</c> corpus files; since #110 also function-based shadings and triangle meshes, their Matrix, mesh data and
+/// Decode), forms and image XObjects reach the rasterizer. Invariants: nothing throws besides an unreadable
 /// input; no colour channel exceeds its alpha; both renders are identical.
 /// </summary>
-/// <remarks>ADR 0006; ISO 32000-2 §8.7.4.1, §8.7.4.3, §8.7.4.5.3, §8.7.4.5.4, §8.9.4, §10.7.4.</remarks>
+/// <remarks>ADR 0006; ISO 32000-2 §8.7.4.1, §8.7.4.3, §8.7.4.5.2 to §8.7.4.5.6, §8.9.4, §10.7.4.</remarks>
 internal static class RasterizePageTarget
 {
     private const int Size = 48;
 
-    // Small limits keep a mutated image or stream from costing gigabytes.
-    private static readonly PdfEngine Engine = new(new PdfOptions().WithMaxImagePixels(1 << 16).WithMaxDecodedStreamLength(1 << 20));
+    // Small limits keep a mutated image, stream or mesh from costing gigabytes.
+    private static readonly PdfEngine Engine = new(new PdfOptions().WithMaxImagePixels(1 << 16).WithMaxDecodedStreamLength(1 << 20).WithMaxMeshVertices(1 << 14));
 
     public static void Target(ReadOnlySpan<byte> data)
     {

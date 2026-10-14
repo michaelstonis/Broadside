@@ -194,6 +194,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _converter = null;
             EndImages();
             EndShadings();
+            EndMeshes();
         }
 
         public void SaveState()
@@ -286,6 +287,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _scan.Dispose();
             _clip.Dispose();
             DisposeImages();
+            DisposeMeshes();
         }
 
         /// <summary>

@@ -1434,6 +1434,7 @@ public sealed partial class PdfDocument : IDisposable
             {
                 StreamEncoders = configuration.StreamEncoders,
                 TimeProvider = configuration.TimeProvider,
+                MaxMeshVertices = configuration.MaxMeshVertices,
             };
             document.DetectXfa();
 

@@ -1608,11 +1608,14 @@ Broadside.Objects.CosString.IsHexadecimal.get -> bool
 Broadside.PdfDocument.GetImage(Broadside.Objects.CosObject? image) -> Broadside.Images.PdfImage?
 Broadside.PdfOptions.MaxImagePixels.get -> long
 Broadside.PdfOptions.MaxImagePixels.set -> void
+Broadside.PdfOptions.MaxMeshVertices.get -> int
+Broadside.PdfOptions.MaxMeshVertices.set -> void
 Broadside.PdfDocument.GetPattern(Broadside.Objects.CosObject! pattern) -> Broadside.Graphics.PdfPattern?
 Broadside.PdfDocument.GetShading(Broadside.Objects.CosObject! shading) -> Broadside.Graphics.PdfShading?
 Broadside.PdfDocument.AcroForm.get -> Broadside.Forms.PdfAcroForm?
 Broadside.PdfOptions.UseFontProgramParser(Broadside.Fonts.IFontProgramParser! parser) -> Broadside.PdfOptions!
 Broadside.PdfOptions.WithMaxImagePixels(long maxPixels) -> Broadside.PdfOptions!
+Broadside.PdfOptions.WithMaxMeshVertices(int maxVertices) -> Broadside.PdfOptions!
 Broadside.PdfPage.Annotations.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfAnnotation!>!
 Broadside.PdfAction.EnumerateActionTree(int maxDepth = 64) -> System.Collections.Generic.IEnumerable<Broadside.PdfAction!>!
 Broadside.PdfAction.Next.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfAction!>!
@@ -2268,6 +2271,7 @@ const Broadside.Graphics.IccProfileHeader.Length = 128 -> int
 const Broadside.Graphics.PdfColor.MaxComponents = 32 -> int
 const Broadside.Objects.CosReference.MaxGeneration = 65535 -> int
 const Broadside.PdfOptions.DefaultMaxImagePixels = 268435456 -> long
+const Broadside.PdfOptions.DefaultMaxMeshVertices = 4194304 -> int
 override Broadside.Annotations.PdfDeviceColor.Equals(object? obj) -> bool
 override Broadside.Annotations.PdfDeviceColor.GetHashCode() -> int
 override Broadside.Annotations.PdfDeviceColor.ToString() -> string!
