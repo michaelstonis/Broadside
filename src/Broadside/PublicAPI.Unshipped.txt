@@ -4015,3 +4015,8 @@ Broadside.Rendering.DisplayLayers.FormFields = 4 -> Broadside.Rendering.DisplayL
 Broadside.Rendering.DisplayLayers.None = 0 -> Broadside.Rendering.DisplayLayers
 Broadside.Rendering.IRenderingBackend.BeginAnnotation(in Broadside.Rendering.DisplayAnnotation annotation) -> void
 Broadside.Rendering.IRenderingBackend.EndAnnotation() -> void
+Broadside.PdfDocument.AppendPages(Broadside.PdfDocument! source) -> void
+Broadside.PdfDocument.AppendPages(Broadside.PdfDocument! source, System.Range pages) -> void
+Broadside.PdfDocument.ExtractPages(System.Range pages) -> Broadside.PdfDocument!
+Broadside.PdfDocument.Split(params System.Collections.Generic.IEnumerable<System.Range>! ranges) -> System.Collections.Generic.IReadOnlyList<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.Merge(params System.Collections.Generic.IEnumerable<Broadside.PdfDocument!>! sources) -> Broadside.PdfDocument!
