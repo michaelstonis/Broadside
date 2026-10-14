@@ -110,6 +110,7 @@ public static class Corpus
         "extgstate-params.pdf",
         "transparency-blend-modes.pdf",
         "transfer-functions.pdf",
+        "overprint.pdf",
         "marked-content.pdf",
         "image-stencil-mask.pdf",
         "image-explicit-mask.pdf",

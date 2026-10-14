@@ -13,6 +13,7 @@ namespace Broadside.Fuzz;
 /// forms, image XObjects and Type 3 glyph descriptions (issue #108, from the <c>text-type3*</c>
 /// files: each description built once per list and replayed at every show) reach the rasterizer, and so do the annotation and
 /// form-field layers (issue #98: appearances, flags, NoZoom/NoRotate placement, opacity layers) for the view or the print intent.
+/// The first page is also rendered with overprint preview (issue #227: colourant planes, spot colourants, OP/op/OPM), twice.
 /// Invariants: nothing throws besides an unreadable input; no colour channel exceeds its alpha; a list rendered twice, and a second
 /// list built from the same page (the display-list cache is off, issue #103), render identically.
 /// </summary>
@@ -65,6 +66,30 @@ internal static class RasterizePageTarget
 
         Check(pixels.SequenceEqual(second.Pixels), "two renders of one list differ");
         Check(pixels.SequenceEqual(rebuilt.Pixels), "two lists built from one page render differently");
+
+        // Issue #227: the first page again with overprint preview (colourant planes, spot colourants, the OP/op/OPM state), scaled
+        // to fit the bitmap; the result is opaque and the same twice.
+        if (document.Pages.Count > 0 && PreviewOptions(document.Pages[0]) is { } preview)
+        {
+            rasterizer.Render(document.Pages[0], first, preview);
+            rasterizer.Render(document.Pages[0], second, preview);
+            Check(first.Pixels.SequenceEqual(second.Pixels), "two overprint previews of one page differ");
+        }
+    }
+
+    private static RenderOptions? PreviewOptions(PdfPage page)
+    {
+        PdfRectangle crop = page.CropBox;
+        double extent = Math.Max(crop.Width, crop.Height) * page.UserUnit;
+        double scale = Size / 2.0 / extent;
+        if (!(extent > 0) || !double.IsFinite(extent) || !double.IsFinite(scale) || !(scale > 0))
+        {
+            return null;
+        }
+
+        var options = new RenderOptions { Scale = scale, OverprintPreview = true };
+        PixelSize size = options.GetPixelSize(page);
+        return size.Width <= Size && size.Height <= Size ? options : null;
     }
 
     private static void Check(bool condition, string message)

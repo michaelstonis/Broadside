@@ -80,7 +80,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         var bitmap = new Bitmap(geometry.PixelWidth, geometry.PixelHeight);
         try
         {
-            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, cull: options.Region is not null, options.CancellationToken, DrawingProgress(options));
+            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, cull: options.Region is not null, options.OverprintPreview, options.CancellationToken, DrawingProgress(options));
         }
         catch
         {
@@ -109,7 +109,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(options);
         ThrowIfBusy();
         PageGeometry geometry = CheckTarget(page, target, options);
-        Draw(Build(page, options), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, cull: options.Region is not null, options.CancellationToken, DrawingProgress(options));
+        Draw(Build(page, options), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, cull: options.Region is not null, options.OverprintPreview, options.CancellationToken, DrawingProgress(options));
     }
     /// <summary>
     /// Builds <paramref name="page"/>'s display list and starts drawing it into the top-left <see cref="RenderOptions.GetPixelSize"/>
@@ -138,7 +138,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         PageGeometry geometry = CheckTarget(page, target, options);
         DisplayList list = Build(page, options);
         FillWhite(target, geometry.PixelWidth, geometry.PixelHeight);
-        return Begin(list, target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, cull: options.Region is not null, options.CancellationToken, DrawingProgress(options));
+        return Begin(list, target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, cull: options.Region is not null, options.OverprintPreview, options.CancellationToken, DrawingProgress(options));
     }
 
     /// <summary>
@@ -158,7 +158,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         ThrowIfBusy();
-        return Begin(list, target, deviceTransform, target.Width, target.Height, cull: true, cancellationToken, progress);
+        return Begin(list, target, deviceTransform, target.Width, target.Height, cull: true, preview: false, cancellationToken, progress);
     }
 
     /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background.</summary>
@@ -179,7 +179,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         ThrowIfBusy();
-        Draw(list, target, deviceTransform, target.Width, target.Height, white: false, cull: true, CancellationToken.None, progress: null);
+        Draw(list, target, deviceTransform, target.Width, target.Height, white: false, cull: true, preview: false, CancellationToken.None, progress: null);
     }
 
     /// <summary>Returns the rasterizer's pooled working buffers; it renders no more after this.</summary>
@@ -207,6 +207,11 @@ public sealed partial class SoftwareRasterizer : IDisposable
         if (ReferenceEquals(_progressive, render))
         {
             _progressive = null;
+            if (render.IsCompleted)
+            {
+                _backend.FinishPreview(); // As Draw does after the replay: a completed overprint preview is converted for display.
+            }
+
             _backend.End();
         }
     }
@@ -256,9 +261,9 @@ public sealed partial class SoftwareRasterizer : IDisposable
         }
     }
 
-    private ProgressiveRender Begin(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool cull, CancellationToken cancellationToken, IProgress<double>? progress)
+    private ProgressiveRender Begin(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool cull, bool preview, CancellationToken cancellationToken, IProgress<double>? progress)
     {
-        _backend.Begin(list.Document, target, device, width, height);
+        _backend.Begin(list.Document, target, device, width, height, preview);
         DisplayListReplay replay = cull && TryGetRegion(device, width, height, out PdfRectangle region)
             ? list.BeginReplay(_backend, region, cancellationToken, progress)
             : list.BeginReplay(_backend, cancellationToken, progress);
@@ -266,14 +271,14 @@ public sealed partial class SoftwareRasterizer : IDisposable
         return new ProgressiveRender(this, replay, target);
     }
 
-    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white, bool cull, CancellationToken cancellationToken, IProgress<double>? progress)
+    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white, bool cull, bool preview, CancellationToken cancellationToken, IProgress<double>? progress)
     {
         if (white)
         {
             FillWhite(target, width, height);
         }
 
-        _backend.Begin(list.Document, target, device, width, height);
+        _backend.Begin(list.Document, target, device, width, height, preview);
         try
         {
             PdfRectangle region = default;
@@ -298,6 +303,8 @@ public sealed partial class SoftwareRasterizer : IDisposable
             {
                 list.Replay(_backend, cancellationToken, progress);
             }
+
+            _backend.FinishPreview();
         }
         finally
         {
@@ -376,7 +383,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
         public Backend() => _stroker = new Stroker(_scan);
 
-        public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height)
+        public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height, bool preview)
         {
             _document = document;
             _target = target;
@@ -390,6 +397,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _scan.Clip = _clip;
             ResetCompositing();
             BeginAnnotations();
+            BeginPreview(preview);
         }
 
         public void End()
@@ -403,6 +411,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             EndImages();
             EndShadings();
             EndMeshes();
+            EndPreview();
         }
 
         public void SaveState()
@@ -442,13 +451,21 @@ public sealed partial class SoftwareRasterizer : IDisposable
                 return;
             }
 
-            Span<float> rgb = stackalloc float[4];
-            converter.Convert(color.Components, rgb);
-            uint pixel = Pack(rgb);
+            uint pixel = 0;
+            if (_previewing)
+            {
+                PrepareInk(color, _deviceParameters.FillOverprint, _fillInk);
+            }
+            else
+            {
+                Span<float> rgb = stackalloc float[4];
+                converter.Convert(color.Components, rgb);
+                pixel = Pack(rgb);
+            }
 
             _scan.Reset(_width, _height);
             AddPath(path);
-            _scan.Fill(_target!, rule, pixel, _fillCompositor);
+            PaintSolid(rule, pixel, _fillCompositor, _fillInk);
         }
 
         public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
@@ -459,13 +476,21 @@ public sealed partial class SoftwareRasterizer : IDisposable
                 return;
             }
 
-            Span<float> rgb = stackalloc float[4];
-            converter.Convert(color.Components, rgb);
-            uint pixel = Pack(rgb);
+            uint pixel = 0;
+            if (_previewing)
+            {
+                PrepareInk(color, _deviceParameters.StrokeOverprint, _strokeInk);
+            }
+            else
+            {
+                Span<float> rgb = stackalloc float[4];
+                converter.Convert(color.Components, rgb);
+                pixel = Pack(rgb);
+            }
 
             _scan.Reset(_width, _height);
             _stroker.Stroke(path, style, _toDevice);
-            _scan.Fill(_target!, FillRule.NonZero, pixel, _strokeCompositor);
+            PaintSolid(FillRule.NonZero, pixel, _strokeCompositor, _strokeInk);
         }
 
         /// <summary>
@@ -498,6 +523,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             DisposeTiling();
             DisposeMeshes();
             DisposeAnnotations();
+            DisposePreview();
         }
 
         /// <summary>

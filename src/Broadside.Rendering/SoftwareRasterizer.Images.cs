@@ -46,6 +46,13 @@ public sealed partial class SoftwareRasterizer
             PdfColorConverter converter = ImageConverter(image.ColorSpace, defaultColorSpaces, conversion);
             if (converter.PaintsNothing)
             {
+                _scan.Reset(_width, _height);
+                return;
+            }
+
+            if (_previewing)
+            {
+                PreviewImage(image, defaultColorSpaces, conversion, inverse);
                 return;
             }
 
@@ -53,25 +60,29 @@ public sealed partial class SoftwareRasterizer
                 ? _imageBaseConverter ??= _document!.GetColorConverter(indexed.Base, conversion with { Target = DeviceColorModel.Rgb }, defaultColorSpaces)
                 : null;
             _imageSource.Prepare(image, converter, baseConverter);
-            byte[]? opacity = null;
-            int maskWidth = 1;
-            int maskHeight = 1;
-            bool maskInterpolate = false;
-            if (image.SoftMask is { } soft && !ImageSource.FoldsSoftMask(image) && (long)soft.Width * soft.Height <= Array.MaxLength)
-            {
-                _maskSource.Prepare(soft);
-                (opacity, maskWidth, maskHeight, maskInterpolate) = (_maskSource.Buffer, soft.Width, soft.Height, soft.Interpolate);
-            }
-            else if (image.Mask is { } mask && !ImageSource.FoldsMask(image) && (long)mask.Width * mask.Height <= Array.MaxLength)
-            {
-                _maskSource.Prepare(mask);
-                (opacity, maskWidth, maskHeight, maskInterpolate) = (_maskSource.Buffer, mask.Width, mask.Height, mask.Interpolate);
-            }
-
+            (byte[]? opacity, int maskWidth, int maskHeight, bool maskInterpolate) = PrepareImageMask(image);
             Bitmap target = _target!;
             var painter = new ImagePainter(
                 target.Pixels, target.Stride, _imageSource.Buffer, image.Width, image.Height, inverse, image.Interpolate, opacity, maskWidth, maskHeight, maskInterpolate, _fillCompositor);
             _scan.Paint(FillRule.NonZero, ref painter);
+        }
+
+        /// <summary>Prepares the image's mask of another size than its own (§8.9.6.3, §11.6.5.2): its opacities and grid, or none.</summary>
+        private (byte[]? Opacity, int Width, int Height, bool Interpolate) PrepareImageMask(DisplayImage image)
+        {
+            if (image.SoftMask is { } soft && !ImageSource.FoldsSoftMask(image) && (long)soft.Width * soft.Height <= Array.MaxLength)
+            {
+                _maskSource.Prepare(soft);
+                return (_maskSource.Buffer, soft.Width, soft.Height, soft.Interpolate);
+            }
+
+            if (image.Mask is { } mask && !ImageSource.FoldsMask(image) && (long)mask.Width * mask.Height <= Array.MaxLength)
+            {
+                _maskSource.Prepare(mask);
+                return (_maskSource.Buffer, mask.Width, mask.Height, mask.Interpolate);
+            }
+
+            return (null, 1, 1, false);
         }
 
         /// <summary>Paints the colour through the stencil mask in the parallelogram the unit square maps to.</summary>
@@ -89,6 +100,12 @@ public sealed partial class SoftwareRasterizer
             PdfColorConverter converter = Converter(color);
             if (converter.PaintsNothing || !TryCoverUnitSquare(mask.Width, mask.Height, out Matrix inverse))
             {
+                return;
+            }
+
+            if (_previewing)
+            {
+                PreviewImageMask(mask, color, inverse);
                 return;
             }
 

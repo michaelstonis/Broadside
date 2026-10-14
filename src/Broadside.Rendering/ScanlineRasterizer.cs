@@ -178,7 +178,8 @@ internal sealed class ScanlineRasterizer : IDisposable
     /// </summary>
     /// <param name="rule">How the winding value decides coverage.</param>
     /// <param name="sink">What the paint does with each run.</param>
-    public void Paint<TSink>(FillRule rule, ref TSink sink)
+    /// <param name="keep">Whether the shape stays for another paint (an overprint preview paints an image or a shading twice).</param>
+    public void Paint<TSink>(FillRule rule, ref TSink sink, bool keep = false)
         where TSink : ICoverageSink, allows ref struct
     {
         RasterClip? clip = Clip;
@@ -187,7 +188,10 @@ internal sealed class ScanlineRasterizer : IDisposable
             Sweep(rule, ref sink, clip is { IsWholeBitmap: false } ? clip : null, zeros: false);
         }
 
-        Reset(_width, _height);
+        if (!keep)
+        {
+            Reset(_width, _height);
+        }
     }
 
     /// <summary>

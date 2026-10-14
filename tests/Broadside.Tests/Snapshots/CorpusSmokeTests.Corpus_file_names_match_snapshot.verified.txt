@@ -102,6 +102,7 @@
   outline-full.pdf,
   outline.pdf,
   output-intent-cmyk.pdf,
+  overprint.pdf,
   page-labels.pdf,
   page-rotation.pdf,
   page-tree-inherited.pdf,

@@ -4682,6 +4682,79 @@ def gen_transfer_functions() -> bytes:
     ])
 
 
+def gen_overprint() -> bytes:
+    """8.6.7 overprint control (OP, op, OPM; Table 57) and 11.7.4.5 Table 146, for overprint preview: 20 cells on a Letter page,
+    4 per row from x = 36 every 144, rows from the top every 150 (row r's cell origin is y = 612 - 150 r). In each cell a
+    backdrop square (x0, y0 + 40, 80 x 80) is painted first, then an overlay square (x0 + 40, y0, 80 x 80) under an ExtGState:
+    /Knock (OP false), /Op0 (OP true, OPM 0), /Op1 (OP true, OPM 1), /Stroke (OP true, op false, OPM 1). The middle
+    40 x 40 is where they overlap. Spot colours: /Orange = Separation /BroadsideOrange (alternate DeviceCMYK 0 0.6 1 0),
+    /Green = Separation /BroadsideGreen (0.8 0 1 0), /Cyan = Separation /Cyan (a process colourant), /MG = DeviceN
+    [/Magenta /BroadsideGreen] (Type 4 tint transform to 0.8g m g 0).
+    Row 0: cyan backdrop, magenta overlay under Knock, Op0, Op1; 0.6 0 0.3 0 k under 0 0.5 0 0.2 k with Op1.
+    Row 1: Op1 with every component 0 (0 0 0 0 k over 0.2 0.8 0.4 0 k: paints nothing); Op1 0.5 g and 1 g over cyan
+    (DeviceGray, a process space, replaces every process colourant: 1 g knocks out to white where 0 0 0 0 k did not);
+    Stroke: a magenta overlay fill knocks out, then a yellow 10-wide vertical stroke at x0 + 60 from y0 to y0 + 120
+    overprints.
+    Row 2: Orange over cyan (Knock, Op0); magenta (Op0) over Orange; 0.5 g (Op1) over Orange 0.8.
+    Row 3: Separation /Cyan over magenta (Op0); MG 0.5 1 over cyan (Op0); Orange over Green (Op0); MG 1 0 over Green (Knock).
+    Row 4: a 2 x 2 DeviceCMYK image over Orange (Op0, Knock); a DeviceCMYK axial shading cyan to magenta over Orange (Op1, sh
+    in a clip); an 8 x 8 checkerboard stencil mask in 0 1 0 0 k over cyan (Op1)."""
+    def cell(index: int, backdrop: bytes, overlay: bytes) -> bytes:
+        x = 36 + (index % 4) * 144
+        y = 612 - (index // 4) * 150
+        return (b"q %s %d %d 80 80 re f Q\n" % (backdrop, x, y + 40)
+                + b"q " + overlay.replace(b"$X", b"%d" % (x + 40)).replace(b"$Y", b"%d" % y).replace(b"$S", b"%d" % (x + 60))
+                .replace(b"$T", b"%d" % (y + 120)) + b" Q\n")
+
+    square = b"$X $Y 80 80 re f"
+    image = b"q 80 0 0 80 $X $Y cm /Im0 Do Q"
+    content = b"".join([
+        cell(0, b"1 0 0 0 k", b"/Knock gs 0 1 0 0 k " + square),
+        cell(1, b"1 0 0 0 k", b"/Op0 gs 0 1 0 0 k " + square),
+        cell(2, b"1 0 0 0 k", b"/Op1 gs 0 1 0 0 k " + square),
+        cell(3, b"0.6 0 0.3 0 k", b"/Op1 gs 0 0.5 0 0.2 k " + square),
+        cell(4, b"0.2 0.8 0.4 0 k", b"/Op1 gs 0 0 0 0 k " + square),
+        cell(5, b"1 0 0 0 k", b"/Op1 gs 0.5 g " + square),
+        cell(6, b"1 0 0 0 k", b"/Op1 gs 1 g " + square),
+        cell(7, b"1 0 0 0 k", b"/Stroke gs 0 1 0 0 k " + square + b" 0 0 1 0 K 10 w $S $Y m $S $T l S"),
+        cell(8, b"1 0 0 0 k", b"/Knock gs /Orange cs 1 scn " + square),
+        cell(9, b"1 0 0 0 k", b"/Op0 gs /Orange cs 1 scn " + square),
+        cell(10, b"/Orange cs 1 scn", b"/Op0 gs 0 1 0 0 k " + square),
+        cell(11, b"/Orange cs 0.8 scn", b"/Op1 gs 0.5 g " + square),
+        cell(12, b"0 1 0 0 k", b"/Op0 gs /Cyan cs 1 scn " + square),
+        cell(13, b"1 0 0 0 k", b"/Op0 gs /MG cs 0.5 1 scn " + square),
+        cell(14, b"/Green cs 1 scn", b"/Op0 gs /Orange cs 1 scn " + square),
+        cell(15, b"/Green cs 1 scn", b"/Knock gs /MG cs 1 0 scn " + square),
+        cell(16, b"/Orange cs 1 scn", b"/Op0 gs " + image),
+        cell(17, b"/Orange cs 1 scn", b"/Knock gs " + image),
+        cell(18, b"/Orange cs 1 scn", b"/Op1 gs $X $Y 80 80 re W n q 80 0 0 80 $X $Y cm /Sh0 sh Q"),
+        cell(19, b"1 0 0 0 k", b"/Op1 gs 0 1 0 0 k q 80 0 0 80 $X $Y cm /Im1 Do Q"),
+    ])
+    orange = b"<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [0 0.6 1 0] /N 1 >>"
+    green = b"<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [0.8 0 1 0] /N 1 >>"
+    cyan = b"<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [1 0 0 0] /N 1 >>"
+    resources = (b" /Resources << /ExtGState << /Knock << /OP false /op false /OPM 0 >> /Op0 << /OP true /op true /OPM 0 >>"
+                 b" /Op1 << /OP true /op true /OPM 1 >> /Stroke << /OP true /op false /OPM 1 >> >>"
+                 b" /ColorSpace << /Orange [/Separation /BroadsideOrange /DeviceCMYK " + orange + b"]"
+                 b" /Green [/Separation /BroadsideGreen /DeviceCMYK " + green + b"]"
+                 b" /Cyan [/Separation /Cyan /DeviceCMYK " + cyan + b"]"
+                 b" /MG [/DeviceN [/Magenta /BroadsideGreen] /DeviceCMYK 7 0 R] >>"
+                 b" /XObject << /Im0 5 0 R /Im1 6 0 R >>"
+                 b" /Shading << /Sh0 << /ShadingType 2 /ColorSpace /DeviceCMYK /Coords [0 0 1 0] /Function << /FunctionType 2"
+                 b" /Domain [0 1] /C0 [1 0 0 0] /C1 [0 1 0 0] /N 1 >> /Extend [true true] >> >> >>")
+    checkerboard = bytes([0xAA if row % 2 == 0 else 0x55 for row in range(8)])
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceCMYK /BitsPerComponent 8",
+                   bytes([255, 0, 0, 0, 0, 255, 0, 0, 0, 0, 255, 0, 0, 0, 0, 255]))),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 8 /Height 8 /ImageMask true /Decode [1 0]", checkerboard)),
+        (7, stream(b"/FunctionType 4 /Domain [0 1 0 1] /Range [0 1 0 1 0 1 0 1]", b"{dup 0.8 mul 3 1 roll 0}")),
+    ])
+
+
 BLEND_MODES = ["Normal", "Multiply", "Screen", "Overlay", "Darken", "Lighten", "ColorDodge", "ColorBurn", "HardLight",
                "SoftLight", "Difference", "Exclusion", "Hue", "Saturation", "Color", "Luminosity"]
 
@@ -6558,6 +6631,7 @@ FILES = {
     "extgstate-params.pdf": gen_extgstate_params,
     "transparency-blend-modes.pdf": gen_transparency_blend_modes,
     "transfer-functions.pdf": gen_transfer_functions,
+    "overprint.pdf": gen_overprint,
     "marked-content.pdf": gen_marked_content,
     "image-stencil-mask.pdf": gen_image_stencil_mask,
     "image-explicit-mask.pdf": gen_image_explicit_mask,

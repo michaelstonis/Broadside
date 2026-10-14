@@ -35,6 +35,13 @@ internal sealed class ShadingSource
     private ColorConversion _conversion;
     private bool _paintsNothing;
 
+    /// <summary>Initializes a new instance of the <see cref="ShadingSource"/> class.</summary>
+    /// <param name="channels">What the table holds; anything but RGB converts the colours to DeviceCMYK.</param>
+    public ShadingSource(SourceChannels channels = SourceChannels.Rgb) => Channels = channels;
+
+    /// <summary>Gets what the table holds.</summary>
+    public SourceChannels Channels { get; }
+
     /// <summary>Gets the table: entry i is the colour at s = i / (<see cref="Size"/> − 1).</summary>
     public uint[] Table => _table;
 
@@ -63,7 +70,7 @@ internal sealed class ShadingSource
         _shading = model;
         _defaults = shading.DefaultColorSpaces;
         _conversion = shading.Conversion;
-        ColorConversion conversion = shading.Conversion with { Target = DeviceColorModel.Rgb };
+        ColorConversion conversion = shading.Conversion with { Target = Channels == SourceChannels.Rgb ? DeviceColorModel.Rgb : DeviceColorModel.Cmyk };
         PdfColorConverter converter = document.GetColorConverter(model.InterpolationColorSpace, conversion, shading.DefaultColorSpaces);
         _paintsNothing = converter.PaintsNothing;
         Converter = converter;
@@ -93,9 +100,9 @@ internal sealed class ShadingSource
                     components[i] = background[i];
                 }
 
-                Span<float> rgb = stackalloc float[3];
+                Span<float> rgb = stackalloc float[4];
                 backgroundConverter.Convert(components[..background.Count], rgb);
-                Background = Pack(rgb[0], rgb[1], rgb[2]);
+                Background = Pack(rgb);
                 HasBackground = true;
             }
         }
@@ -114,6 +121,14 @@ internal sealed class ShadingSource
     private static uint Pack(float r, float g, float b) =>
         (uint)Channel(b) | ((uint)Channel(g) << 8) | ((uint)Channel(r) << 16) | 0xFF000000u;
 
+    /// <summary>Packs one converted colour as the table holds it (<see cref="Channels"/>).</summary>
+    private uint Pack(ReadOnlySpan<float> color) => Channels switch
+    {
+        SourceChannels.Rgb => Pack(color[0], color[1], color[2]),
+        SourceChannels.Cmy => Pack(1 - color[0], 1 - color[1], 1 - color[2]),
+        _ => Pack(1 - color[3], 1 - color[3], 1 - color[3]),
+    };
+
     private static byte Channel(float value) => (byte)((Math.Clamp(value, 0f, 1f) * 255f) + 0.5f);
 
     /// <summary>Samples the function at every entry and converts the colours in one batch.</summary>
@@ -125,9 +140,10 @@ internal sealed class ShadingSource
             _components = new float[Size * n];
         }
 
-        if (_rgb.Length < Size * 3)
+        int outputs = Channels == SourceChannels.Rgb ? 3 : 4;
+        if (_rgb.Length < Size * outputs)
         {
-            _rgb = new float[Size * 3];
+            _rgb = new float[Size * outputs];
         }
 
         (double t0, double t1) = Domain(model);
@@ -139,11 +155,11 @@ internal sealed class ShadingSource
             model.EvaluateFunction(input, _components.AsSpan(i * n, n));
         }
 
-        converter.Convert(_components.AsSpan(0, Size * n), _rgb.AsSpan(0, Size * 3), Size);
-        Span<float> rgb = _rgb.AsSpan(0, Size * 3);
+        converter.Convert(_components.AsSpan(0, Size * n), _rgb.AsSpan(0, Size * outputs), Size);
+        Span<float> rgb = _rgb.AsSpan(0, Size * outputs);
         for (int i = 0; i < Size; i++)
         {
-            _table[i] = Pack(rgb[3 * i], rgb[(3 * i) + 1], rgb[(3 * i) + 2]);
+            _table[i] = Pack(rgb.Slice(i * outputs, outputs));
         }
     }
 
