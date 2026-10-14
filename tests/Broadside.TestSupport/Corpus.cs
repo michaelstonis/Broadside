@@ -103,6 +103,7 @@ public static class Corpus
         "icc-lut.pdf",
         "form-xobject-nested.pdf",
         "extgstate-params.pdf",
+        "transparency-blend-modes.pdf",
         "marked-content.pdf",
         "image-stencil-mask.pdf",
         "image-explicit-mask.pdf",

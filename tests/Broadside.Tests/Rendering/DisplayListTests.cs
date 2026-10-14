@@ -332,6 +332,10 @@ public sealed class DisplayListTests
         public void FillImageMask(DisplayImageMask mask, in DisplayColor color)
         {
         }
+
+        public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode)
+        {
+        }
     }
 
     /// <summary>Counts the converters requested per source family, then defers to the inner management.</summary>

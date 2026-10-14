@@ -4383,6 +4383,37 @@ def gen_extgstate_params() -> bytes:
     ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (file_id("extgstate-params").hex().encode(), file_id("extgstate-params").hex().encode()))
 
 
+BLEND_MODES = ["Normal", "Multiply", "Screen", "Overlay", "Darken", "Lighten", "ColorDodge", "ColorBurn", "HardLight",
+               "SoftLight", "Difference", "Exclusion", "Hue", "Saturation", "Color", "Luminosity"]
+
+
+def gen_transparency_blend_modes() -> bytes:
+    """11.3.5 Tables 134 and 135, 11.6.3, 11.6.4.4: the 16 standard blend modes, each at nonstroking alpha 1 and 0.5, over
+    a gradient backdrop. The page is a 4 x 4 grid of 153 x 198 cells, the modes in table order left to right, top to
+    bottom. In each cell an axial shading (8.7.4.5.3) from yellow (1 0.9 0.1) at x = 8 to dark blue (0.1 0.2 0.6) at
+    x = 145, painted with sh inside a 137 x 178 clip from (8, 10), is the backdrop; a rectangle in (0.2 0.7 0.9), from
+    x = 20 to 133, is filled over it at y 110..170 under /BM mode /ca 1 and at y 30..90 under /BM mode /ca 0.5. The
+    band y 90..110 shows the backdrop alone."""
+    cells = []
+    for index, mode in enumerate(BLEND_MODES):
+        x = (index % 4) * 153
+        y = 792 - (index // 4 + 1) * 198
+        cells.append(b"q 1 0 0 1 %d %d cm q 8 10 137 178 re W n /Sh0 sh Q 0.2 0.7 0.9 rg "
+                     b"q /G%dA gs 20 110 113 60 re f Q q /G%dH gs 20 30 113 60 re f Q Q\n" % (x, y, index, index))
+    states = b" ".join(b"/G%dA << /BM /%s /ca 1 >> /G%dH << /BM /%s /ca 0.5 >>" % (i, m.encode(), i, m.encode())
+                       for i, m in enumerate(BLEND_MODES))
+    shading = (b"<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [8 0 145 0] /Function << /FunctionType 2 /Domain [0 1]"
+               b" /C0 [1 0.9 0.1] /C1 [0.1 0.2 0.6] /N 1 >> >>")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << /ExtGState << " + states + b" >> /Shading << /Sh0 5 0 R >> >>")),
+        (4, stream(b"", b"".join(cells))),
+        (5, shading),
+    ], version="1.7")
+
+
 def gen_marked_content() -> bytes:
     """14.6 marked content: BMC /Artifact; BDC /P with an inline <</MCID 0>>; BDC /Span naming /P1 in the page's
     /Properties (MCID 1, Lang); MP /Pt; DP /Pt2 with an inline property list; BDC /OC naming an optional content
@@ -6221,6 +6252,7 @@ FILES = {
     "icc-lut.pdf": gen_icc_lut,
     "form-xobject-nested.pdf": gen_form_xobject_nested,
     "extgstate-params.pdf": gen_extgstate_params,
+    "transparency-blend-modes.pdf": gen_transparency_blend_modes,
     "marked-content.pdf": gen_marked_content,
     "image-stencil-mask.pdf": gen_image_stencil_mask,
     "image-explicit-mask.pdf": gen_image_explicit_mask,

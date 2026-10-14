@@ -178,6 +178,14 @@ internal static class DisplayListTarget
             Checksum += color.Components.Length;
         }
 
+        public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode)
+        {
+            Calls++;
+            Check(strokeAlpha is >= 0 and <= 1 && fillAlpha is >= 0 and <= 1, "an alpha constant outside 0 to 1");
+            Check(Enum.IsDefined(blendMode), "an undefined blend mode");
+            Checksum += strokeAlpha + fillAlpha + (int)blendMode;
+        }
+
         private void CheckMask(DisplayImageMask mask)
         {
             Check(mask.Width > 0 && mask.Height > 0, "a mask without samples");
