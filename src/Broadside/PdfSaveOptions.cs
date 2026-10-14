@@ -189,6 +189,28 @@ public sealed class PdfSaveOptions
     }
 
     /// <summary>
+    /// Gets or sets how the saved file is encrypted for certificate recipients with the public-key security handler;
+    /// <see langword="null"/> (the default) keeps the document's own encryption.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.6.5. Like <see cref="Encryption"/>, the saved file has a new encryption dictionary and file encryption key,
+    /// whatever encryption the document was read with, and its output is not deterministic (random seed, CMS keys and IVs). Cannot be
+    /// combined with <see cref="Encryption"/> or <see cref="RemoveEncryption"/>, and an incremental update (<see cref="IncrementalUpdate"/>)
+    /// refuses it. A save without any recipient is refused.
+    /// </remarks>
+    public PdfPublicKeyEncryptionOptions? PublicKeyEncryption { get; set; }
+
+    /// <summary>Sets <see cref="PublicKeyEncryption"/>.</summary>
+    /// <param name="encryption">How to encrypt the saved file for certificate recipients; <see langword="null"/> to keep the document's own encryption.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §7.6.5.</remarks>
+    public PdfSaveOptions WithPublicKeyEncryption(PdfPublicKeyEncryptionOptions? encryption)
+    {
+        PublicKeyEncryption = encryption;
+        return this;
+    }
+
+    /// <summary>
     /// Gets or sets whether a save of a changed document records the save as the document's most recent modification. The default is
     /// <see langword="true"/>.
     /// </summary>
