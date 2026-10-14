@@ -183,6 +183,18 @@ public sealed class HitTestIndexTests
     }
 
     [Fact]
+    public void A_tiling_pattern_paint_is_indexed_by_its_shape_and_its_cell_contents_are_not()
+    {
+        // The page fills 0 0 200 200 under 2 0 0 2 0 0 cm with a tiling pattern whose cell paints two squares (issue #112).
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("pattern-tiling-colored.pdf"));
+        HitTestIndex index = document.Pages[0].CreateHitTestIndex();
+
+        HitTestShape path = Assert.Single(index.Paths.ToArray());
+        Assert.Equal(new PdfRectangle(0, 0, 400, 400), path.Bounds);
+        Assert.Equal(new HitTestItem(HitTestKinds.Paths, 0), Assert.Single(Matches(index.Find(new PathPoint(399, 1), HitTestKinds.All))));
+    }
+
+    [Fact]
     public void Invisible_text_is_indexed_with_its_rendering_mode()
     {
         // Four lines of HI in modes 0 to 3, then an I in mode 0.

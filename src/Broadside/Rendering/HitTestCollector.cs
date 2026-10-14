@@ -85,6 +85,13 @@ internal sealed class HitTestCollector : IRenderingBackend
     public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading) => AddStroke(path, style);
 
     /// <inheritdoc/>
+    /// <remarks>A tiling-pattern paint is indexed by its shape, like any filled path; the cell's own contents are not.</remarks>
+    public void FillPathWithTilingPattern(PathView path, FillRule rule, in DisplayTilingPattern pattern) => AddPath(path, 0, 1);
+
+    /// <inheritdoc/>
+    public void StrokePathWithTilingPattern(PathView path, in StrokeStyle style, in DisplayTilingPattern pattern) => AddStroke(path, style);
+
+    /// <inheritdoc/>
     public void FillImageMask(DisplayImageMask mask, in DisplayColor color) => AddUnitSquare();
 
     /// <inheritdoc/>
