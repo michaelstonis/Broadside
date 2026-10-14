@@ -42,6 +42,27 @@ public sealed class PdfPublicKeyEncryptionOptions
     /// </remarks>
     public bool EncryptMetadata { get; set; } = true;
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the saved file carries an integrity MAC (a PDF MAC token) that every later revision
+    /// must carry as well. The default is <see langword="false"/>.
+    /// </summary>
+    /// <remarks>
+    /// ISO/TS 32004 §5.1 and §6: every recipient's permissions clear bit 13 (Table 4), the encryption dictionary gets a random 32-byte
+    /// <c>KDFSalt</c>, and the trailer's <c>AuthCode</c> holds a MAC over the whole file keyed from the <c>DefaultCryptFilter</c> key
+    /// (§6.4). The catalog declares the ISO/TS 32004 extension. A linearized save cannot carry the MAC and is refused.
+    /// </remarks>
+    public bool IntegrityProtection { get; set; }
+
+    /// <summary>Sets <see cref="IntegrityProtection"/>.</summary>
+    /// <param name="integrityProtection">Whether the saved file carries an integrity MAC.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO/TS 32004 §5.1, §6.</remarks>
+    public PdfPublicKeyEncryptionOptions WithIntegrityProtection(bool integrityProtection)
+    {
+        IntegrityProtection = integrityProtection;
+        return this;
+    }
+
     /// <summary>Adds a recipient who opens the document with <paramref name="permissions"/>.</summary>
     /// <param name="certificate">
     /// The recipient's X.509 certificate, whose RSA public key the enveloped data's key is encrypted with. Only its public part is used;

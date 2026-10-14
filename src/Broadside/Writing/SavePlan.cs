@@ -85,7 +85,7 @@ internal static class SavePlan
     /// <returns>The writer.</returns>
     /// <exception cref="NotSupportedException">
     /// What <see cref="EncryptionPlan"/> refuses, or a linearized save of a document without a catalog or a page, or whose page tree
-    /// lists a page twice.
+    /// lists a page twice, or whose encryption writes an integrity MAC.
     /// </exception>
     public static FileWriter Create(
         PdfSource source,
@@ -99,6 +99,11 @@ internal static class SavePlan
         CrossReference crossReference = loader.CrossReference;
         CosDictionary sourceTrailer = crossReference.Trailer;
         EncryptionPlan encryption = EncryptionPlan.Create(loader, security, options, incremental: false);
+        if (options.Linearize && encryption.Integrity is not null)
+        {
+            throw new NotSupportedException(
+                "A linearized file cannot carry an integrity MAC yet (ISO/TS 32004 §6.6: the MAC token goes in the last trailer, which the linearized layout does not digest); save it without linearizing, or without the MAC.");
+        }
 
         var existing = new Dictionary<int, CosReference>();
         var freeGenerations = new Dictionary<int, int>();
@@ -141,7 +146,7 @@ internal static class SavePlan
         foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
         {
             if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID)
-                && !(encryption.ReplacesDictionary && EncryptionPlan.IsEncryptionEntry(entry.Key)))
+                && encryption.KeepsTrailerEntry(entry.Key))
             {
                 trailer[entry.Key] = entry.Value;
             }
@@ -267,6 +272,7 @@ internal static class SavePlan
             StreamNumbers = references is null && options.CrossReferenceLayout != PdfCrossReferenceLayout.Table ? StreamNumbers(loader) : null,
             Linearized = linearized,
             CompressHintStream = options.StreamCompression != PdfStreamCompression.None,
+            Integrity = encryption.Integrity,
         };
     }
 
@@ -365,7 +371,7 @@ internal static class SavePlan
         foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
         {
             if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID)
-                && !(encryption.ReplacesDictionary && EncryptionPlan.IsEncryptionEntry(entry.Key)))
+                && encryption.KeepsTrailerEntry(entry.Key))
             {
                 trailer[entry.Key] = entry.Value;
             }
@@ -418,6 +424,7 @@ internal static class SavePlan
             encryption.Encryptor)
         {
             StreamNumbers = form == XrefSectionKind.Stream ? StreamNumbers(loader) : null,
+            Integrity = encryption.Integrity,
         };
     }
 
@@ -435,7 +442,7 @@ internal static class SavePlan
     /// <summary>
     /// Adds the features of the version table a file uses: a cross-reference stream and object streams (PDF 1.5, §7.5.7, §7.5.8),
     /// <c>FlateDecode</c> compression of a stream (PDF 1.2, §7.4.4; declared when a stream may be compressed, whether or not the
-    /// compressed copy turns out smaller), and the encryption <see cref="EncryptionPlan.Feature"/> names.
+    /// compressed copy turns out smaller), and the encryption <see cref="EncryptionPlan.Features"/> name.
     /// </summary>
     private static void AddFeatures(ICollection<VersionedFeature> features, PdfCrossReferenceLayout layout, List<WriterObject> objects, EncryptionPlan encryption)
     {
@@ -454,7 +461,7 @@ internal static class SavePlan
             features.Add(VersionedFeatures.FlateCompression);
         }
 
-        if (encryption.Feature is { } feature)
+        foreach (VersionedFeature feature in encryption.Features)
         {
             features.Add(feature);
         }

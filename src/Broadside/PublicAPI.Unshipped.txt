@@ -3978,3 +3978,10 @@ Broadside.PdfPublicKeyEncryptionOptions.WithEncryptMetadata(bool encryptMetadata
 Broadside.PdfSaveOptions.PublicKeyEncryption.get -> Broadside.PdfPublicKeyEncryptionOptions?
 Broadside.PdfSaveOptions.PublicKeyEncryption.set -> void
 Broadside.PdfSaveOptions.WithPublicKeyEncryption(Broadside.PdfPublicKeyEncryptionOptions? encryption) -> Broadside.PdfSaveOptions!
+Broadside.PdfEncryptionAlgorithm.Aes256Gcm = 3 -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionOptions.IntegrityProtection.get -> bool
+Broadside.PdfEncryptionOptions.IntegrityProtection.set -> void
+Broadside.PdfEncryptionOptions.WithIntegrityProtection(bool integrityProtection) -> Broadside.PdfEncryptionOptions!
+Broadside.PdfPublicKeyEncryptionOptions.IntegrityProtection.get -> bool
+Broadside.PdfPublicKeyEncryptionOptions.IntegrityProtection.set -> void
+Broadside.PdfPublicKeyEncryptionOptions.WithIntegrityProtection(bool integrityProtection) -> Broadside.PdfPublicKeyEncryptionOptions!

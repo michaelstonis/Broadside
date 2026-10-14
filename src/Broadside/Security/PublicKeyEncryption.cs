@@ -10,11 +10,12 @@ namespace Broadside.Security;
 /// <param name="Dictionary">The encryption dictionary (Tables 20 and 27), written unencrypted.</param>
 /// <param name="Filter">The crypt filter strings, streams and embedded files are encrypted with.</param>
 /// <param name="EncryptMetadata">Whether metadata streams are encrypted.</param>
+/// <param name="KdfSalt">The <c>KDFSalt</c> the integrity MAC's key derivation uses (ISO/TS 32004 §6.4), or <see langword="null"/> without a MAC.</param>
 /// <remarks>
 /// The inverse of <see cref="PublicKeySecurityHandler"/>: <c>adbe.pkcs7.s5</c>, <c>V</c> 5, one crypt filter <c>DefaultCryptFilter</c>
 /// (<c>AESV3</c>, 256 bits) holding the recipient lists, which <c>StmF</c> and <c>StrF</c> name.
 /// </remarks>
-internal sealed record PublicKeyEncryption(CosDictionary Dictionary, CryptFilter Filter, bool EncryptMetadata)
+internal sealed record PublicKeyEncryption(CosDictionary Dictionary, CryptFilter Filter, bool EncryptMetadata, byte[]? KdfSalt)
 {
     private static readonly CosName PubSec = new("Adobe.PubSec");
     private static readonly CosName S5 = new("adbe.pkcs7.s5");
@@ -22,6 +23,7 @@ internal sealed record PublicKeyEncryption(CosDictionary Dictionary, CryptFilter
     private static readonly CosName Recipients = new("Recipients");
     private static readonly CosName AuthEvent = new("AuthEvent");
     private static readonly CosName DocOpen = new("DocOpen");
+    private static readonly CosName KdfSaltKey = new("KDFSalt");
 
     /// <summary>AES-256 in CBC mode (NIST, 2.16.840.1.101.3.4.1.42): the one content-encryption algorithm §7.6.5.3 does not deprecate.</summary>
     private const string Aes256CbcOid = "2.16.840.1.101.3.4.1.42";
@@ -35,12 +37,19 @@ internal sealed record PublicKeyEncryption(CosDictionary Dictionary, CryptFilter
     /// <summary>Table 24, bit 2: change of encryption, and every other permission.</summary>
     private const uint ChangeEncryption = 1 << 1;
 
+    /// <summary>Bit 13 (ISO/TS 32004 §5.1.3, Table 4): set when no PDF MAC token is required.</summary>
+    private const uint NoIntegrityCodeRequired = 1 << 12;
+
     /// <summary>Creates the encryption <paramref name="options"/> describe, with a new seed and file encryption key.</summary>
-    /// <param name="options">The recipients and the metadata choice.</param>
+    /// <param name="options">The recipients, the metadata choice and whether a MAC is required.</param>
     /// <returns>The encryption.</returns>
     /// <exception cref="ArgumentException">The options name no recipient.</exception>
     /// <exception cref="PdfEncryptionNotSupportedException">In a browser, where certificates and CMS are not available.</exception>
-    /// <remarks>ISO 32000-2 §7.6.5.3, Table 27.</remarks>
+    /// <remarks>
+    /// ISO 32000-2 §7.6.5.3, Table 27. With integrity protection, every recipient's permissions clear bit 13 (a MAC is required) and
+    /// the dictionary gets a random 32-byte <c>KDFSalt</c> (ISO/TS 32004 §5.1.1, §5.1.3); the MAC's key derives from the
+    /// <c>DefaultCryptFilter</c> key (§6.4).
+    /// </remarks>
     public static PublicKeyEncryption Create(PdfPublicKeyEncryptionOptions options)
     {
         if (options.Recipients.Count == 0)
@@ -58,7 +67,8 @@ internal sealed record PublicKeyEncryption(CosDictionary Dictionary, CryptFilter
         // One seed for every list: the key digests the seed and every list, so each recipient must reach the same seed.
         byte[] seed = RandomNumberGenerator.GetBytes(20);
         List<byte[]> envelopes = [];
-        foreach (IGrouping<uint, PdfEncryptionRecipient> list in options.Recipients.GroupBy(PermissionWord))
+        uint reserved = options.IntegrityProtection ? ReservedPermissionBits & ~NoIntegrityCodeRequired : ReservedPermissionBits;
+        foreach (IGrouping<uint, PdfEncryptionRecipient> list in options.Recipients.GroupBy(recipient => PermissionWord(recipient, reserved)))
         {
             envelopes.Add(Envelope(seed, list.Key, list));
         }
@@ -106,12 +116,19 @@ internal sealed record PublicKeyEncryption(CosDictionary Dictionary, CryptFilter
             [KnownNames.StmF] = DefaultCryptFilter,
             [KnownNames.StrF] = DefaultCryptFilter,
         };
-        return new PublicKeyEncryption(dictionary, new CryptFilter(DefaultCryptFilter, CryptMethod.AesV3, fileKey), options.EncryptMetadata);
+        byte[]? kdfSalt = null;
+        if (options.IntegrityProtection)
+        {
+            kdfSalt = RandomNumberGenerator.GetBytes(32);
+            dictionary[KdfSaltKey] = CosString.FromOwnedBytes((byte[])kdfSalt.Clone(), hexadecimal: true);
+        }
+
+        return new PublicKeyEncryption(dictionary, new CryptFilter(DefaultCryptFilter, CryptMethod.AesV3, fileKey), options.EncryptMetadata, kdfSalt);
     }
 
     /// <summary>The 4-byte permissions word of Table 24 a recipient's list carries.</summary>
-    private static uint PermissionWord(PdfEncryptionRecipient recipient) =>
-        ReservedPermissionBits | (uint)(recipient.Permissions & PdfPermissions.All) | (recipient.Access == PdfAccessLevel.Owner ? ChangeEncryption : 0);
+    private static uint PermissionWord(PdfEncryptionRecipient recipient, uint reserved) =>
+        reserved | (uint)(recipient.Permissions & PdfPermissions.All) | (recipient.Access == PdfAccessLevel.Owner ? ChangeEncryption : 0);
 
     /// <summary>
     /// One recipient list (§7.6.5.3): CMS enveloped data whose content is the seed and the permissions, most significant byte first,
