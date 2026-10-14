@@ -917,13 +917,13 @@ internal static class FuzzTargets
     /// length selects, and reopens the output. Whatever opened must save, and what was saved must open again with the same number of
     /// pages: a full save writes every object the trailer reaches (repaired ones re-serialized, references renumbered), so nothing the
     /// first open could read through the page tree may become unreadable. The input's length also selects the encryption: the
-    /// document's own, new AES-256 encryption with an empty user password, or none (issue #180); either way the output opens without
-    /// a password. It also selects a linearized save (issue #228), which must read as linearized, with hint tables that read.
-    /// <see cref="NotSupportedException"/> is the documented outcome for what a save cannot write (an encrypted file with an integrity
-    /// MAC kept as it is, data its credentials do not decrypt, a linearized save of a document without pages or whose page tree lists
-    /// a page twice).
+    /// document's own, new AES-256 or AES-GCM with an integrity MAC encryption with an empty user password, or none (issues #180,
+    /// #181); either way the output opens without a password, and a MAC written new or kept from a verified one verifies. It also
+    /// selects a linearized save (issue #228), which must read as linearized, with hint tables that read.
+    /// <see cref="NotSupportedException"/> is the documented outcome for what a save cannot write (data its credentials do not decrypt,
+    /// a linearized save of a document without pages, whose page tree lists a page twice, or that carries an integrity MAC).
     /// </summary>
-    /// <remarks>ISO 32000-2 §7.5, §7.3.10, §7.6, Annex F (issues #44, #144, #180, #228).</remarks>
+    /// <remarks>ISO 32000-2 §7.5, §7.3.10, §7.6, Annex F; ISO/TS 32003, ISO/TS 32004 (issues #44, #144, #180, #181, #228).</remarks>
     private static void Save(ReadOnlySpan<byte> data)
     {
         using PdfDocument? document = OpenOrNull(data);
@@ -942,17 +942,23 @@ internal static class FuzzTargets
         var layout = (PdfCrossReferenceLayout)(data.Length % 3);
         var numbering = (PdfObjectNumbering)(data.Length / 3 % 2);
         bool removeUnreachable = data.Length / 6 % 2 == 1;
-        bool linearize = data.Length / 72 % 2 == 1;
+        bool linearize = data.Length / 144 % 2 == 1;
         PdfSaveOptions options = new PdfSaveOptions().WithCrossReferenceLayout(layout).WithObjectNumbering(numbering).WithRemoveUnreachableObjects(removeUnreachable).WithLinearize(linearize);
+        bool protect = false;
         switch (data.Length / 24 % 3)
         {
             case 1:
-                options.WithEncryption(new PdfEncryptionOptions(null, "owner"));
+                protect = data.Length / 72 % 2 == 1;
+                options.WithEncryption(protect
+                    ? new PdfEncryptionOptions(null, "owner").WithAlgorithm(PdfEncryptionAlgorithm.Aes256Gcm).WithIntegrityProtection(true)
+                    : new PdfEncryptionOptions(null, "owner"));
                 break;
             case 2:
                 options.WithRemoveEncryption(true);
                 break;
             default:
+                // The document's own encryption: a MAC it verified is computed again over the saved file (issue #181).
+                protect = document.Security is { Integrity: PdfIntegrityStatus.Verified };
                 break;
         }
 
@@ -975,6 +981,11 @@ internal static class FuzzTargets
         if (linearize && (!saved.IsLinearized || saved.Linearization!.Hints is null))
         {
             throw new InvalidOperationException("A file saved linearized does not read as linearized, or its hint tables do not read.");
+        }
+
+        if (protect && saved.Security?.Integrity != PdfIntegrityStatus.Verified)
+        {
+            throw new InvalidOperationException($"The saved file's integrity MAC is {saved.Security?.Integrity}, not verified.");
         }
     }
 
