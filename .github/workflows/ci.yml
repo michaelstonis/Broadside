@@ -79,6 +79,17 @@ jobs:
         if: runner.os == 'macOS'
         run: dotnet test tests/Broadside.Rendering.CoreGraphics.Tests -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
 
+      - name: Test the Direct2D backend (Windows)
+        # Draws through Direct2D on a WARP device and compares with the golden images (issue #129); outside Broadside.Core.slnf
+        # because it needs Windows. Built above with the rest of the solution.
+        if: runner.os == 'Windows'
+        run: dotnet test --project tests/Broadside.Rendering.Direct2D.Tests -c Release --no-build --minimum-expected-tests 1 --results-directory artifacts/test-results -- --report-xunit-trx
+
+      - name: Dry run the Direct2D benchmarks (Windows)
+        # bench-dry runs bench/Broadside.Benchmarks on Linux; the Direct2D backend's benchmarks need Windows.
+        if: runner.os == 'Windows'
+        run: dotnet run -c Release --project bench/Broadside.Rendering.Direct2D.Benchmarks --no-build -- --filter '*' --job dry
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
@@ -225,8 +236,8 @@ jobs:
             echo "Skipped: \`tools/ConformanceCheck\` is not on this branch yet (issue #7)."
           } >> "${GITHUB_STEP_SUMMARY}"
 
-  # Checks the formatting of everything dotnet format can see: the core solution filter, and the fuzz and benchmark projects,
-  # which are outside it.
+  # Checks the formatting of everything dotnet format can see: the core solution filter, and the fuzz, benchmark and Windows-only
+  # Direct2D test and benchmark projects, which are outside it.
   format:
     name: format
     runs-on: ubuntu-latest
@@ -254,6 +265,8 @@ jobs:
           dotnet format Broadside.Core.slnf --verify-no-changes
           dotnet format tests/Broadside.Fuzz/Broadside.Fuzz.csproj --verify-no-changes
           dotnet format bench/Broadside.Benchmarks/Broadside.Benchmarks.csproj --verify-no-changes
+          dotnet format tests/Broadside.Rendering.Direct2D.Tests/Broadside.Rendering.Direct2D.Tests.csproj --verify-no-changes
+          dotnet format bench/Broadside.Rendering.Direct2D.Benchmarks/Broadside.Rendering.Direct2D.Benchmarks.csproj --verify-no-changes
 
   # Runs every fuzz target in smoke mode for 60 s (tests/Broadside.Fuzz/README.md), the targets of the --list split over
   # parallel shards (target i runs in shard i mod the shard count) so the run stays far below its timeout as targets are added.
