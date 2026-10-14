@@ -219,6 +219,24 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
         Commit(previous, pages);
     }
 
+    /// <summary>Adds page objects copied into the document, not yet in the page tree, after the last page, rebuilding the tree once.</summary>
+    /// <param name="pageObjects">References to page dictionaries of the document, such as <see cref="PdfObjectCopier.CopyPage"/> returns.</param>
+    /// <remarks>ISO 32000-2 §7.7.3.3. For merging (issue #160): one rebuild for every page appended, where <see cref="Add(CosReference)"/> rebuilds per page.</remarks>
+    internal void AddRange(IReadOnlyList<CosReference> pageObjects)
+    {
+        IReadOnlyList<PdfPage> previous = Pages;
+        var pages = new List<PdfPage>(previous.Count + pageObjects.Count);
+        pages.AddRange(previous);
+        foreach (CosReference reference in pageObjects)
+        {
+            var dictionary = (CosDictionary)_document.Resolve(reference);
+            dictionary[KnownNames.Type] = KnownNames.Page;
+            pages.Add(new PdfPage(_document, dictionary, reference, ancestors: null));
+        }
+
+        Commit(previous, pages);
+    }
+
     /// <summary>Returns the index of the page whose page object is <paramref name="page"/>, or -1 when no page has it.</summary>
     /// <param name="page">A page object, as resolved through the document (resolving returns the same instance every time).</param>
     /// <returns>The 0-based index, or -1.</returns>

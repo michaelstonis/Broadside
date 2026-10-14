@@ -301,6 +301,15 @@ public sealed partial class PdfDocument
         return names;
     }
 
+    /// <summary>The name dictionary's <c>Dests</c> tree, created (with the name dictionary) when absent.</summary>
+    /// <remarks>ISO 32000-2 §12.3.2.4 and §7.7.4, Table 32. For writers adding many destinations at once (merging, issue #160).</remarks>
+    internal PdfNameTree DestsTreeForWriting()
+    {
+        RequireFeature(VersionedFeatures.NamedDestinationsTree);
+        CosDictionary names = NameDictionaryForWriting();
+        return GetNameTree(names.TryGetValue(NavigationNames.Dests, out CosObject? root) ? root : null) ?? CreateDestsTree(names);
+    }
+
     private PdfNameTree CreateDestsTree(CosDictionary names)
     {
         PdfNameTree tree = CreateNameTree([]);
