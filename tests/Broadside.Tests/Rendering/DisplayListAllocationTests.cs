@@ -175,6 +175,18 @@ public sealed class DisplayListAllocationTests
             Checksum += path.Points.Length + style.LineWidth + shading.Matrix.A;
         }
 
+        public void FillPathWithTilingPattern(PathView path, FillRule rule, in DisplayTilingPattern pattern)
+        {
+            Fills++;
+            Checksum += path.Points.Length + pattern.Matrix.A;
+        }
+
+        public void StrokePathWithTilingPattern(PathView path, in StrokeStyle style, in DisplayTilingPattern pattern)
+        {
+            Strokes++;
+            Checksum += path.Points.Length + style.LineWidth + pattern.Matrix.A;
+        }
+
         public void FillImageMask(DisplayImageMask mask, in DisplayColor color) =>
             Checksum += mask.Width + mask.Height + color.Components.Length;
 
