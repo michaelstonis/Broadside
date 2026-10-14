@@ -35,6 +35,9 @@
     <PackageVersion Include="SharpFuzz" Version="2.3.0" />
     <!-- An independent, fully managed PNG decoder (public domain port of stb_image) that checks the rasterizer's PNG output (#95); never in a package. -->
     <PackageVersion Include="StbImageSharp" Version="2.30.15" />
+    <!-- SkiaSharp's native library for Linux (SkiaSharp itself carries only the Windows and Apple ones), so the Skia backend's tests and
+         benchmarks run on the Linux CI legs (#121); same version as SkiaSharp, never in a package: an application picks its own. -->
+    <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
     <!-- A concrete container, logging pipeline and configuration for the dependency-injection tests (#46); never in the core. -->
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
