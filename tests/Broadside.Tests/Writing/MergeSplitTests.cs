@@ -384,6 +384,28 @@ public sealed class MergeSplitTests
                 string.Join(',', field.Widgets.Select(widget => document.Pages.IndexOf(widget.Page!) + pageOffset))))
             .OrderBy(field => field.FullyQualifiedName, StringComparer.Ordinal);
 
+    [Fact]
+    public void Appending_pages_with_labels_to_a_pdf_1_1_document_raises_its_version_to_1_3_on_save()
+    {
+        // ADR 0003: the page labels the append writes (PageLabels, PDF 1.3, Table 29) raise an older target on its next save.
+        using PdfDocument source = PdfDocument.Open(Document.TestPdf.OnePage("/MediaBox [0 0 612 792]"));
+        source.CreatePageLabels().SetRange(0, PdfPageLabelStyle.UppercaseRoman);
+        using PdfDocument target = PdfDocument.Open(Document.TestPdf.OnePage("/MediaBox [0 0 612 792]", header: "%PDF-1.1"));
+
+        target.AppendPages(source);
+
+        byte[] file = Save(target, new PdfSaveOptions().WithUpdateModificationDate(false));
+        Assert.Equal("%PDF-1.3", System.Text.Encoding.Latin1.GetString(file, 0, 8));
+        Assert.Contains(
+            "page labels (PageLabels)",
+            Assert.Single(target.Diagnostics, diagnostic => diagnostic.Code == "VersionRaised").Message,
+            StringComparison.Ordinal);
+        AssertQpdfCheck(file);
+        using PdfDocument reopened = PdfDocument.Open(file);
+        Assert.Equal(new PdfVersion(1, 3), reopened.Version);
+        Assert.Equal(["1", "I"], reopened.PageLabels!.GetLabels());
+    }
+
     private static byte[] Save(PdfDocument document, PdfSaveOptions? options = null)
     {
         using var stream = new MemoryStream();
