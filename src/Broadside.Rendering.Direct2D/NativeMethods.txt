@@ -1,0 +1,15 @@
+D2D1CreateFactory
+D3D11CreateDevice
+ID2D1Factory1
+ID2D1Device
+ID2D1DeviceContext
+ID2D1Bitmap1
+ID2D1PathGeometry
+ID2D1GeometrySink
+ID2D1SolidColorBrush
+ID2D1StrokeStyle1
+IDXGIDevice
+ID3D11Device
+D3D11_SDK_VERSION
+D2DERR_RECREATE_TARGET
+IUnknown
