@@ -28,6 +28,8 @@
     <Project Path="tests/Broadside.Fuzz/Broadside.Fuzz.csproj" />
     <Project Path="tests/Broadside.Globalization.Tests/Broadside.Globalization.Tests.csproj" />
     <Project Path="tests/Broadside.GoldenImages/Broadside.GoldenImages.csproj" />
+    <Project Path="tests/Broadside.Rendering.Android.Device/Broadside.Rendering.Android.Device.csproj" />
+    <Project Path="tests/Broadside.Rendering.Android.Tests/Broadside.Rendering.Android.Tests.csproj" />
     <Project Path="tests/Broadside.Rendering.AotSmoke/Broadside.Rendering.AotSmoke.csproj" />
     <Project Path="tests/Broadside.Rendering.Skia.Tests/Broadside.Rendering.Skia.Tests.csproj" />
     <Project Path="tests/Broadside.Rendering.Tests/Broadside.Rendering.Tests.csproj" />

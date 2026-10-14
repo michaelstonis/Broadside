@@ -7,6 +7,8 @@
 | `Broadside.Tests` | Tests for the core package (COS layer, document model, filters, security, content, text, layout, forms, signatures). |
 | `Broadside.Rendering.Tests` | Tests for the managed rasterizer, color engine and PNG encoder. Rendering snapshots live here. |
 | `Broadside.Rendering.Skia.Tests` | Tests for the SkiaSharp backend against the same display lists. |
+| `Broadside.Rendering.Android.Device` | An Android app (built only with the android workload) whose instrumentation renders corpus pages through the Android backend on a device or emulator and measures replay allocations there. Not a test project. |
+| `Broadside.Rendering.Android.Tests` | Host tests for the Android backend: install the device app over adb, run it, and compare its renders with the golden images. Skip without adb, a device or the built APK (`BROADSIDE_ANDROID_REQUIRED=1` fails instead); not in `Broadside.Core.slnf`; run by `.github/workflows/android.yml`. |
 | `Broadside.Rendering.AotSmoke` | A console host published with Native AOT that renders the rendering corpus files and compares them with the rasterizer's snapshots. Not a test project; see "The AOT smoke host" below. |
 | `Broadside.Fonts.Standard14.Tests` | Tests for the standard 14 font metrics and programs. |
 | `Broadside.Fonts.Cmaps.Tests` | Tests for the predefined CMaps. |
@@ -16,7 +18,7 @@
 | `Broadside.Fuzz` | The SharpFuzz harness. A console application, not a test project; see its [README](Broadside.Fuzz/README.md). |
 | `Corpus/` | Hand-written minimal PDFs, one feature each; see its [README](Corpus/README.md). |
 
-One test project per core package, named `<Package>.Tests`; `src/Directory.Build.props` grants each one `InternalsVisibleTo` on its package (and grants it to `Broadside.Benchmarks` and `Broadside.Fuzz`). Unit tests sit next to the feature they cover, in the same namespace as the code plus `.Tests`. The Direct2D, CoreGraphics and Android backends have no test projects yet: each runs only on its own platform, so they get projects, and a CI leg, when those backends exist.
+One test project per core package, named `<Package>.Tests`; `src/Directory.Build.props` grants each one `InternalsVisibleTo` on its package (and grants it to `Broadside.Benchmarks` and `Broadside.Fuzz`). Unit tests sit next to the feature they cover, in the same namespace as the code plus `.Tests`. The Direct2D and CoreGraphics backends have no test projects yet: each runs only on its own platform, so they get projects, and a CI leg, when those backends exist. The Android backend's tests run on the host against a device (see the two `Broadside.Rendering.Android.*` rows above and the `adding-a-rendering-backend` skill).
 
 Every test project is xUnit v3 on the Microsoft Testing Platform runner (`tests/Directory.Build.props` sets `OutputType=Exe`, the runner, and a global `using Xunit`), with `AnalysisLevel=latest-all` and warnings as errors like the rest of the repository; the folder props relax the few rules that only matter for shipping code.
 
