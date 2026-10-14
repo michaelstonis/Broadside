@@ -17,7 +17,7 @@ namespace Broadside.Graphics;
 /// space, goes to the <see cref="IColorManagement"/> the engine was configured with, every component clipped into its range first.
 /// </para>
 /// <para>
-/// A converter is built once per document, source, conversion and defaults, and again when a COS object it was built from changes.
+/// A converter is built once per document, source, conversion and defaults, and again when a COS object it was built from changes or an object is added or removed (§7.3.10).
 /// It is immutable, safe to use from several threads at once, and allocates nothing per call.
 /// </para>
 /// </remarks>
@@ -25,13 +25,17 @@ public sealed class PdfColorConverter
 {
     private readonly ColorPipeline _pipeline;
     private readonly FunctionDependency[] _dependencies;
+    private readonly PdfDocument _document;
+    private readonly int _objectsVersion;
 
-    private PdfColorConverter(PdfColorSpace source, ColorConversion conversion, ColorPipeline pipeline, FunctionDependency[] dependencies)
+    private PdfColorConverter(PdfColorSpace source, ColorConversion conversion, ColorPipeline pipeline, FunctionDependency[] dependencies, PdfDocument document, int objectsVersion)
     {
         Source = source;
         Conversion = conversion;
         _pipeline = pipeline;
         _dependencies = dependencies;
+        _document = document;
+        _objectsVersion = objectsVersion;
     }
 
     /// <summary>Gets the colour space converted from, as selected (before default colour spaces apply).</summary>
@@ -50,11 +54,19 @@ public sealed class PdfColorConverter
     /// <remarks>ISO 32000-2 §8.6.6.4 and §8.6.6.5. Converted colours are then no ink: white, or CMYK 0 0 0 0.</remarks>
     public bool PaintsNothing => _pipeline.PaintsNothing;
 
-    /// <summary>Gets a value indicating whether nothing the converter was built from has changed since.</summary>
+    /// <summary>
+    /// Gets a value indicating whether nothing the converter was built from has changed since, and no object was added or removed (a
+    /// removal changes what a reference in an unchanged container resolves to, §7.3.10).
+    /// </summary>
     internal bool IsCurrent
     {
         get
         {
+            if (_document.ObjectsVersion != _objectsVersion)
+            {
+                return false;
+            }
+
             foreach (FunctionDependency dependency in _dependencies)
             {
                 if (!dependency.IsCurrent)
@@ -126,9 +138,10 @@ public sealed class PdfColorConverter
     /// <summary>Builds the converter.</summary>
     internal static PdfColorConverter Create(ColorSpaceCache cache, PdfColorSpace source, ColorConversion conversion, PdfDefaultColorSpaces defaults)
     {
+        int objectsVersion = cache.Document.ObjectsVersion;
         var dependencies = new List<FunctionDependency>();
         ColorPipeline pipeline = Build(cache, source, conversion, defaults, dependencies, depth: 0);
-        return new PdfColorConverter(source, conversion, pipeline, [.. dependencies]);
+        return new PdfColorConverter(source, conversion, pipeline, [.. dependencies], cache.Document, objectsVersion);
     }
 
     private static ColorPipeline Build(ColorSpaceCache cache, PdfColorSpace space, ColorConversion conversion, PdfDefaultColorSpaces defaults, List<FunctionDependency> dependencies, int depth)

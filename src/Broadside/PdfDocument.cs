@@ -608,8 +608,9 @@ public sealed partial class PdfDocument : IDisposable
     /// ISO 32000-2 §7.3.10 and §7.5.4. References to the object resolve to null from now on; remove them too, or they are written as
     /// references to a free object. A save writes the object's number as a free entry whose generation is one more than the
     /// object's, the generation a new object reusing the number would take (§7.5.6, H.7.4: an incremental update leaves the object's
-    /// old bytes in the file). Views read before the removal (the structure tree, the outline, text extraction's reading order) see
-    /// it at their next read (ADR 0004). A mutation: no read may run concurrently with it.
+    /// old bytes in the file). Views read before the removal (the structure tree, the outline, text extraction's reading order,
+    /// annotation lists, the form's fields, optional content, name and number trees, functions, colour converters, font metrics and
+    /// graphics state parameters) see it at their next read (ADR 0004). A mutation: no read may run concurrently with it.
     /// </remarks>
     public bool RemoveObject(CosReference reference)
     {
@@ -805,7 +806,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <returns>The reader; <see langword="null"/> when the root does not resolve to a dictionary.</returns>
     internal NameTreeReader? GetNameTreeReader(CosObject? root) =>
         ResolveTreeRoot(root, DiagnosticCodes.NameTreeNodeInvalid, "name tree") is { } node
-            ? _nameTrees.GetValue(node, dictionary => new NameTreeReader(dictionary, root as CosReference, Resolve, _diagnostics))
+            ? _nameTrees.GetValue(node, dictionary => new NameTreeReader(dictionary, root as CosReference, Resolve, _diagnostics, () => ObjectsVersion))
             : null;
 
     /// <summary>Returns the document's reader for the number tree rooted at <paramref name="root"/>, creating it on first use.</summary>
@@ -813,7 +814,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <returns>The reader; <see langword="null"/> when the root does not resolve to a dictionary.</returns>
     internal NumberTreeReader? GetNumberTreeReader(CosObject? root) =>
         ResolveTreeRoot(root, DiagnosticCodes.NumberTreeNodeInvalid, "number tree") is { } node
-            ? _numberTrees.GetValue(node, dictionary => new NumberTreeReader(dictionary, root as CosReference, Resolve, _diagnostics))
+            ? _numberTrees.GetValue(node, dictionary => new NumberTreeReader(dictionary, root as CosReference, Resolve, _diagnostics, () => ObjectsVersion))
             : null;
 
     /// <summary>Gets the diagnostics sink, for document-model views that report what they find on first read.</summary>

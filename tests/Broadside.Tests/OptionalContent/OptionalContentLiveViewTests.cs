@@ -19,6 +19,18 @@ public sealed class OptionalContentLiveViewTests
     }
 
     [Fact]
+    public void A_group_removed_as_an_object_leaves_the_groups_read_before()
+    {
+        using PdfDocument document = PdfDocument.Open(OptionalContentPdf.Build("/OCGs [4 0 R 5 0 R] /D << >>", "<< /Type /OCG /Name (A) >>", "<< /Type /OCG /Name (B) >>"));
+        Assert.Equal(["A", "B"], document.OptionalContent!.Groups.Select(group => group.Name));
+
+        // §7.3.10: the unchanged OCGs array's element now resolves to null.
+        Assert.True(document.RemoveObject(new CosReference(5, 0)));
+
+        Assert.Equal(["A"], document.OptionalContent!.Groups.Select(group => group.Name));
+    }
+
+    [Fact]
     public void A_group_intent_changed_after_a_first_read_decides_whether_the_group_counts()
     {
         using PdfDocument document = PdfDocument.Open(OptionalContentPdf.Build("/OCGs [4 0 R] /D << /OFF [4 0 R] >>", "<< /Type /OCG /Name (A) >>"));
