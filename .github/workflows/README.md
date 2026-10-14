@@ -22,6 +22,14 @@ A newer push to the same PR or branch cancels the older run. NuGet packages are 
 
 The corpus tests skip when `corpus/` is absent, which is why `ci.yml` cannot catch a regression in them; this workflow is where they run.
 
+## `android.yml`: the Android backend on an emulator, weekly, on Android pull requests and the "Run workflow" button
+
+Runs Mondays 05:17 UTC, on pull requests that touch `src/Broadside.Rendering.Android/**`, the display list (`src/Broadside/Rendering/**`, `src/Broadside/Graphics/**`), the Android test projects, the golden-image harness, `tests/Golden/**`, `tests/Corpus/**` or the workflow itself, and on the "Run workflow" button (spec #33 open decision 9: emulators are too slow and flaky for every PR).
+
+| Job | Runs on | What it does |
+|---|---|---|
+| `emulator (API 35)` | ubuntu | Installs the `android` workload and the SDK packages it needs (`-t:InstallAndroidDependencies`), builds `tests/Broadside.Rendering.Android.Device` in Release for `android-x64` and the host project `tests/Broadside.Rendering.Android.Tests`, enables KVM, boots an x86_64 `google_apis` emulator with `reactivecircus/android-emulator-runner` and runs the host tests with `BROADSIDE_ANDROID_REQUIRED=1` (a missing device fails instead of skipping). The tests install the APK, run its instrumentation (render the path corpus files through `AndroidCanvasBackend`, measure warm replays), pull the pixels over adb and compare them with the golden images (issue #133). Uploads TRX as `android-test-results`, and on failure `tests/Golden/*.android.received.png` and `.diff.png` as `golden-images-android`. |
+
 ## `fuzz.yml`: real fuzzing, weekly and on the "Run workflow" button
 
 Every fuzz target under libFuzzer through SharpFuzz, one parallel job per target (issue #48; `tests/Broadside.Fuzz/README.md`, "Scheduled runs in CI").
