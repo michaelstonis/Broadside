@@ -15,7 +15,8 @@ namespace Broadside.Signatures.Validation;
 /// (a)(2) validity, (a)(4) issuer name; §6.1.4 (k) basic constraints, (l) and (m) path length, (n) key usage; §4.2.1.3 for the
 /// signer's key usage. Built here rather than with <see cref="X509Chain"/> so the result is the same on every platform, works
 /// in the browser where the platform chain engine does not, never downloads an issuer, and uses the same algorithm table as the CMS
-/// signature (<see cref="SignatureAlgorithms"/>). Revocation and timestamps arrive with issue #197.
+/// signature (<see cref="SignatureAlgorithms"/>). The revocation of each certificate of the built path (RFC 5280 §6.1.3 (a)(3)) is
+/// checked afterwards by <see cref="RevocationChecker"/>, which needs the path and its issuers.
 /// </remarks>
 internal static class CertificatePath
 {
@@ -26,17 +27,24 @@ internal static class CertificatePath
     /// Builds the path from <paramref name="signer"/> through <paramref name="pool"/> to one of <paramref name="anchors"/>, checks it at
     /// <paramref name="time"/>, and adds a problem for each check that fails.
     /// </summary>
+    /// <param name="signer">The certificate the path starts at.</param>
+    /// <param name="pool">Certificates that may be issuers.</param>
+    /// <param name="anchors">The trust anchors.</param>
+    /// <param name="time">The time certificates must be valid at.</param>
+    /// <param name="problems">Where problems go.</param>
+    /// <param name="anchorIndex">The index of the trust anchor in the path, or -1 when the path reaches none.</param>
     /// <returns>The path, signer first, as far as it was built.</returns>
     public static IReadOnlyList<X509Certificate2> Build(
         X509Certificate2 signer,
         IReadOnlyList<X509Certificate2> pool,
         IReadOnlyList<X509Certificate2> anchors,
         DateTimeOffset time,
-        List<PdfSignatureProblem> problems)
+        List<PdfSignatureProblem> problems,
+        out int anchorIndex)
     {
         var path = new List<X509Certificate2> { signer };
         X509Certificate2 current = signer;
-        int anchorIndex = -1;
+        anchorIndex = -1;
         while (true)
         {
             if (IsAnchor(current, anchors))
@@ -165,12 +173,13 @@ internal static class CertificatePath
         return null;
     }
 
-    private static bool IsSelfIssued(X509Certificate2 certificate) => NamesMatch(certificate.IssuerName, certificate.SubjectName);
+    /// <summary>Whether the certificate's issuer and subject are the same name (RFC 5280 §6.1).</summary>
+    internal static bool IsSelfIssued(X509Certificate2 certificate) => NamesMatch(certificate.IssuerName, certificate.SubjectName);
 
     private static bool IsSelfSigned(X509Certificate2 certificate) => IsSelfIssued(certificate) && VerifyIssuedBy(certificate, certificate) == SignatureCheck.Valid;
 
     /// <summary>Whether two names are the same: the same encoding, or the same decoded text (RFC 5280 §7.1 allows more; this suffices for signers).</summary>
-    private static bool NamesMatch(X500DistinguishedName first, X500DistinguishedName second) =>
+    internal static bool NamesMatch(X500DistinguishedName first, X500DistinguishedName second) =>
         first.RawData.AsSpan().SequenceEqual(second.RawData)
         || (first.Name.Length > 0 && string.Equals(first.Name, second.Name, StringComparison.OrdinalIgnoreCase));
 
@@ -183,7 +192,7 @@ internal static class CertificatePath
     }
 
     /// <summary>Verifies the signature on <paramref name="subject"/> with <paramref name="issuer"/>'s key (RFC 5280 §4.1.1.2, §4.1.1.3).</summary>
-    private static SignatureCheck VerifyIssuedBy(X509Certificate2 subject, X509Certificate2 issuer)
+    internal static SignatureCheck VerifyIssuedBy(X509Certificate2 subject, X509Certificate2 issuer)
     {
         ReadOnlyMemory<byte> toBeSigned;
         AlgorithmIdentifier algorithm;
@@ -204,12 +213,21 @@ internal static class CertificatePath
             return SignatureCheck.Invalid;
         }
 
-        if (!SignatureAlgorithms.TryGetSignatureDigest(algorithm, null, out HashAlgorithmName digestAlgorithm))
+        return VerifySigned(toBeSigned.Span, algorithm, signature, issuer.PublicKey);
+    }
+
+    /// <summary>
+    /// Verifies a signature over the DER encoding <paramref name="signed"/> of a certificate, CRL or OCSP response with
+    /// <paramref name="key"/> (RFC 5280 §4.1.1.3 and §5.1.1.3; RFC 6960 §4.2.1).
+    /// </summary>
+    internal static SignatureCheck VerifySigned(ReadOnlySpan<byte> signed, AlgorithmIdentifier algorithm, byte[] signature, PublicKey key)
+    {
+        if (!SignatureAlgorithms.TryGetSignatureDigest(algorithm, null, out HashAlgorithmName digestAlgorithm) || !IncrementalDigest.IsSupported(digestAlgorithm))
         {
             return SignatureCheck.Unsupported;
         }
 
-        byte[] digest = IncrementalDigest.HashData(digestAlgorithm, toBeSigned.Span);
-        return SignatureAlgorithms.Verify(algorithm, digestAlgorithm, issuer.PublicKey, digest, signature);
+        byte[] digest = IncrementalDigest.HashData(digestAlgorithm, signed);
+        return SignatureAlgorithms.Verify(algorithm, digestAlgorithm, key, digest, signature);
     }
 }

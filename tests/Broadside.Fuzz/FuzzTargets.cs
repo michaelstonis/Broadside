@@ -85,6 +85,8 @@ internal static class FuzzTargets
         ["rasterize-page"] = RasterizePageTarget.Target,
         ["signature-validation"] = SignatureValidationTarget.Target,
         ["cms"] = SignatureValidationTarget.Cms,
+        ["ocsp-response"] = SignatureValidationTarget.OcspResponse,
+        ["crl"] = SignatureValidationTarget.Crl,
     };
 
     /// <summary>

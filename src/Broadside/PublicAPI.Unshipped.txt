@@ -3170,25 +3170,6 @@ Broadside.Signatures.PdfSignatureProblem
 Broadside.Signatures.PdfSignatureProblem.Kind.get -> Broadside.Signatures.PdfSignatureProblemKind
 Broadside.Signatures.PdfSignatureProblem.Message.get -> string!
 Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.AlgorithmUnsupported = 10 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.ByteRangeGap = 2 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.ByteRangeInvalid = 1 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.ByteRangeMissing = 0 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.CertificateExpired = 12 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.CertificateNotYetValid = 13 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.ChainIncomplete = 14 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.ChainUntrusted = 15 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.ContentsMissing = 3 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.ContentsOutsideGap = 4 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.DigestMismatch = 6 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.IssuerNotCertificateAuthority = 16 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.KeyUsageNotPermitted = 17 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.PathLengthExceeded = 18 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.SignatureEncodingInvalid = 5 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.SignatureValueInvalid = 8 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.SignedAttributesInvalid = 7 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.SignerCertificateMissing = 11 -> Broadside.Signatures.PdfSignatureProblemKind
-Broadside.Signatures.PdfSignatureProblemKind.SubFilterUnsupported = 9 -> Broadside.Signatures.PdfSignatureProblemKind
 Broadside.Signatures.PdfSignatureStatus
 Broadside.Signatures.PdfSignatureStatus.Indeterminate = 2 -> Broadside.Signatures.PdfSignatureStatus
 Broadside.Signatures.PdfSignatureStatus.Invalid = 1 -> Broadside.Signatures.PdfSignatureStatus
@@ -4102,3 +4083,67 @@ Broadside.PdfDocument.AppendPages(Broadside.PdfDocument! source, System.Range pa
 Broadside.PdfDocument.ExtractPages(System.Range pages) -> Broadside.PdfDocument!
 Broadside.PdfDocument.Split(params System.Collections.Generic.IEnumerable<System.Range>! ranges) -> System.Collections.Generic.IReadOnlyList<Broadside.PdfDocument!>!
 static Broadside.PdfDocument.Merge(params System.Collections.Generic.IEnumerable<Broadside.PdfDocument!>! sources) -> Broadside.PdfDocument!
+Broadside.Signatures.PdfSignatureProblemKind.ByteRangeMissing = 0 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ByteRangeInvalid = 1 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ByteRangeGap = 2 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ContentsMissing = 3 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ContentsOutsideGap = 4 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.SignatureEncodingInvalid = 5 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.DigestMismatch = 6 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.SignedAttributesInvalid = 7 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.SignatureValueInvalid = 8 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.SigningCertificateMismatch = 9 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.SubFilterUnsupported = 10 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.AlgorithmUnsupported = 11 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.SignerCertificateMissing = 12 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.CertificateExpired = 13 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.CertificateNotYetValid = 14 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ChainIncomplete = 15 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ChainUntrusted = 16 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.IssuerNotCertificateAuthority = 17 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.KeyUsageNotPermitted = 18 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.PathLengthExceeded = 19 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.CertificateRevoked = 20 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.RevocationUnknown = 21 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.TimestampInvalid = 22 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.PdfDocument.ValidateSignaturesAsync(Broadside.Signatures.PdfSignatureValidationOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Broadside.Signatures.PdfSignatureValidation!>!>!
+Broadside.Signatures.PdfRevocationStatus
+Broadside.Signatures.PdfRevocationStatus.NotChecked = 0 -> Broadside.Signatures.PdfRevocationStatus
+Broadside.Signatures.PdfRevocationStatus.Good = 1 -> Broadside.Signatures.PdfRevocationStatus
+Broadside.Signatures.PdfRevocationStatus.Revoked = 2 -> Broadside.Signatures.PdfRevocationStatus
+Broadside.Signatures.PdfRevocationStatus.Unknown = 3 -> Broadside.Signatures.PdfRevocationStatus
+Broadside.Signatures.PdfRevocationSource
+Broadside.Signatures.PdfRevocationSource.None = 0 -> Broadside.Signatures.PdfRevocationSource
+Broadside.Signatures.PdfRevocationSource.Ocsp = 1 -> Broadside.Signatures.PdfRevocationSource
+Broadside.Signatures.PdfRevocationSource.Crl = 2 -> Broadside.Signatures.PdfRevocationSource
+Broadside.Signatures.PdfCertificateRevocation
+Broadside.Signatures.PdfCertificateRevocation.Certificate.get -> System.Security.Cryptography.X509Certificates.X509Certificate2!
+Broadside.Signatures.PdfCertificateRevocation.Status.get -> Broadside.Signatures.PdfRevocationStatus
+Broadside.Signatures.PdfCertificateRevocation.Source.get -> Broadside.Signatures.PdfRevocationSource
+Broadside.Signatures.PdfCertificateRevocation.RevocationTime.get -> System.DateTimeOffset?
+Broadside.Signatures.PdfCertificateRevocation.Reason.get -> System.Security.Cryptography.X509Certificates.X509RevocationReason?
+Broadside.Signatures.PdfCertificateRevocation.Fetched.get -> bool
+Broadside.Signatures.PdfTimestampValidation
+Broadside.Signatures.PdfTimestampValidation.Status.get -> Broadside.Signatures.PdfSignatureStatus
+Broadside.Signatures.PdfTimestampValidation.Problems.get -> System.Collections.Generic.IReadOnlyList<Broadside.Signatures.PdfSignatureProblem!>!
+Broadside.Signatures.PdfTimestampValidation.Time.get -> System.DateTimeOffset
+Broadside.Signatures.PdfTimestampValidation.Policy.get -> string?
+Broadside.Signatures.PdfTimestampValidation.DigestAlgorithm.get -> System.Security.Cryptography.HashAlgorithmName?
+Broadside.Signatures.PdfTimestampValidation.SignerCertificate.get -> System.Security.Cryptography.X509Certificates.X509Certificate2?
+Broadside.Signatures.PdfTimestampValidation.CertificatePath.get -> System.Collections.Generic.IReadOnlyList<System.Security.Cryptography.X509Certificates.X509Certificate2!>!
+Broadside.Signatures.PdfTimestampValidation.Revocations.get -> System.Collections.Generic.IReadOnlyList<Broadside.Signatures.PdfCertificateRevocation!>!
+Broadside.Signatures.PdfSignatureValidation.ValidationTime.get -> System.DateTimeOffset
+Broadside.Signatures.PdfSignatureValidation.Timestamp.get -> Broadside.Signatures.PdfTimestampValidation?
+Broadside.Signatures.PdfSignatureValidation.Revocations.get -> System.Collections.Generic.IReadOnlyList<Broadside.Signatures.PdfCertificateRevocation!>!
+Broadside.Signatures.PdfSignatureValidationOptions.OcspResponses.get -> System.Collections.Generic.IReadOnlyList<byte[]!>!
+Broadside.Signatures.PdfSignatureValidationOptions.OcspResponses.set -> void
+Broadside.Signatures.PdfSignatureValidationOptions.CertificateRevocationLists.get -> System.Collections.Generic.IReadOnlyList<byte[]!>!
+Broadside.Signatures.PdfSignatureValidationOptions.CertificateRevocationLists.set -> void
+Broadside.Signatures.PdfSignatureValidationOptions.RequireRevocationStatus.get -> bool
+Broadside.Signatures.PdfSignatureValidationOptions.RequireRevocationStatus.set -> void
+Broadside.Signatures.PdfSignatureValidationOptions.OnlineRevocationClient.get -> System.Net.Http.HttpClient?
+Broadside.Signatures.PdfSignatureValidationOptions.OnlineRevocationClient.set -> void
+Broadside.Signatures.PdfSignatureValidationOptions.WithOcspResponses(params System.Collections.Generic.IEnumerable<byte[]!>! ocspResponses) -> Broadside.Signatures.PdfSignatureValidationOptions!
+Broadside.Signatures.PdfSignatureValidationOptions.WithCertificateRevocationLists(params System.Collections.Generic.IEnumerable<byte[]!>! certificateRevocationLists) -> Broadside.Signatures.PdfSignatureValidationOptions!
+Broadside.Signatures.PdfSignatureValidationOptions.WithRequireRevocationStatus(bool requireRevocationStatus) -> Broadside.Signatures.PdfSignatureValidationOptions!
+Broadside.Signatures.PdfSignatureValidationOptions.UseOnlineRevocation(System.Net.Http.HttpClient? httpClient) -> Broadside.Signatures.PdfSignatureValidationOptions!

@@ -67,6 +67,13 @@ public enum PdfSignatureProblemKind
     /// <summary>The signature value does not verify with the signer certificate's public key (RFC 5652 §5.6).</summary>
     SignatureValueInvalid,
 
+    /// <summary>
+    /// The ESS signing-certificate or signing-certificate-v2 attribute does not identify the signer's certificate (§12.8.3.4.5 a): "if
+    /// the hashes do not match, then the signature is considered invalid"; RFC 5035 §3, RFC 2634 §5.4). A time-stamp token without the
+    /// attribute is reported too (RFC 3161 §2.4.1, RFC 5816 §2.2.1).
+    /// </summary>
+    SigningCertificateMismatch,
+
     /// <summary>The <c>SubFilter</c> names an encoding this validation does not implement (§12.8.3.1, Table 260).</summary>
     SubFilterUnsupported,
 
@@ -96,6 +103,27 @@ public enum PdfSignatureProblemKind
 
     /// <summary>The chain is longer than an issuer's path length constraint allows (RFC 5280 §6.1.4 (l), (m)).</summary>
     PathLengthExceeded,
+
+    /// <summary>
+    /// A certificate of the chain was revoked at or before the time it is validated at, by a CRL or an OCSP response its issuer signed
+    /// (RFC 5280 §6.1.3 (a)(3), §5.3; RFC 6960 §2.2; ISO 32000-2 §12.8.3.4.6). ETSI EN 319 102-1 reports this as REVOKED_NO_POE: no
+    /// proof shows the signature existed before the revocation.
+    /// </summary>
+    CertificateRevoked,
+
+    /// <summary>
+    /// The revocation status of a certificate of the chain is not known: an OCSP responder answered unknown, or, when
+    /// <see cref="PdfSignatureValidationOptions.RequireRevocationStatus"/> is set, no CRL or OCSP response that applies at the validation
+    /// time was found (ISO 32000-2 §12.8.3.4.6 to §12.8.3.4.8; RFC 6960 §2.2).
+    /// </summary>
+    RevocationUnknown,
+
+    /// <summary>
+    /// The signature's time-stamp token does not check out (its signature, its message imprint over the signature value, or its
+    /// signing-certificate attribute), so its time is not used (RFC 3161 §2.4.2 and Appendix A; ISO 32000-2 §12.8.3.4.8).
+    /// <see cref="PdfSignatureValidation.Timestamp"/> holds the reasons.
+    /// </summary>
+    TimestampInvalid,
 }
 
 /// <summary>One reason a signature is not valid, with what was found.</summary>
@@ -126,7 +154,9 @@ public sealed class PdfSignatureProblem
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §12.8.1 (verification: the signer's certificate is determined and verified, the digest recomputed and compared) and
-/// §12.8.3 (Table 260, CMS signatures). Revocation, timestamps and modification detection are not part of this validation.
+/// §12.8.3 (Table 260, CMS signatures). The signer's path is validated at the time of a verified signature time-stamp token
+/// (§12.8.3.4.8) and the revocation of each of its certificates checked (§12.8.3.4.6; RFC 5280 §6.3, RFC 6960). Modification detection
+/// between revisions is not part of this validation.
 /// </remarks>
 public sealed class PdfSignatureValidation
 {
@@ -138,7 +168,10 @@ public sealed class PdfSignatureValidation
         HashAlgorithmName? digestAlgorithm,
         X509Certificate2? signerCertificate,
         IReadOnlyList<X509Certificate2> certificatePath,
-        IReadOnlyList<PdfSignatureProblem> problems)
+        IReadOnlyList<PdfSignatureProblem> problems,
+        DateTimeOffset validationTime,
+        PdfTimestampValidation? timestamp,
+        IReadOnlyList<PdfCertificateRevocation> revocations)
     {
         Field = field;
         FieldName = field.FullyQualifiedName;
@@ -149,9 +182,10 @@ public sealed class PdfSignatureValidation
         SignerCertificate = signerCertificate;
         CertificatePath = certificatePath;
         Problems = problems;
-        Status = problems.Count == 0 ? PdfSignatureStatus.Valid
-            : problems.Any(static problem => problem.Kind < PdfSignatureProblemKind.SubFilterUnsupported) ? PdfSignatureStatus.Invalid
-            : PdfSignatureStatus.Indeterminate;
+        Status = StatusOf(problems);
+        ValidationTime = validationTime;
+        Timestamp = timestamp;
+        Revocations = revocations;
     }
 
     /// <summary>Gets the signature field whose value the signature dictionary is.</summary>
@@ -199,4 +233,35 @@ public sealed class PdfSignatureValidation
     /// </summary>
     /// <remarks>RFC 5280 §6.1.</remarks>
     public IReadOnlyList<X509Certificate2> CertificatePath { get; }
+
+    /// <summary>
+    /// Gets the time the signer's certificate path was validated at: the time of <see cref="Timestamp"/> when that token is
+    /// <see cref="PdfSignatureStatus.Valid"/> and earlier than <see cref="PdfSignatureValidationOptions.ValidationTime"/>, otherwise that
+    /// option (the time validation ran, by default).
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §12.8.3.4.5 b) ("the signature may be verified against a time other than the current time if ... a signature timestamp
+    /// is present"), §12.8.3.4.8; RFC 5280 §6.1.1 (b). The signature dictionary's <c>M</c> is not a trusted time and is not used.
+    /// </remarks>
+    public DateTimeOffset ValidationTime { get; }
+
+    /// <summary>
+    /// Gets the validation of the signature's time-stamp token: the first signature time-stamp attribute of a CMS signature, or, for a
+    /// document timestamp (<c>ETSI.RFC3161</c>), the token the signature is. <see langword="null"/> when there is none.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.8.3.3.1, §12.8.3.4.3 b), §12.8.5; RFC 3161 Appendix A.</remarks>
+    public PdfTimestampValidation? Timestamp { get; }
+
+    /// <summary>
+    /// Gets the revocation status of each certificate of <see cref="CertificatePath"/> but the trust anchor (and a self-signed end of an
+    /// untrusted chain), at <see cref="ValidationTime"/>, in path order.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.8.3.4.6; RFC 5280 §6.1.3 (a)(3); RFC 6960.</remarks>
+    public IReadOnlyList<PdfCertificateRevocation> Revocations { get; }
+
+    /// <summary>Valid without problems, Invalid with one of the kinds before <see cref="PdfSignatureProblemKind.SubFilterUnsupported"/>.</summary>
+    internal static PdfSignatureStatus StatusOf(IReadOnlyList<PdfSignatureProblem> problems) =>
+        problems.Count == 0 ? PdfSignatureStatus.Valid
+        : problems.Any(static problem => problem.Kind < PdfSignatureProblemKind.SubFilterUnsupported) ? PdfSignatureStatus.Invalid
+        : PdfSignatureStatus.Indeterminate;
 }
