@@ -23,17 +23,27 @@ public class IccLutConversionBenchmarks
     private byte[] _samples = [];
     private byte[] _bytes = [];
 
-    /// <summary>The ColorSpace resource of the corpus file.</summary>
-    [Params("CS0", "CS1")]
+    /// <summary>The ColorSpace resource of the corpus file, or <c>OutputIntent</c>: DeviceCMYK through the output intent of <c>output-intent-cmyk.pdf</c> (#119).</summary>
+    [Params("CS0", "CS1", "OutputIntent")]
     public string Space { get; set; } = "";
 
     [GlobalSetup]
     public void Setup()
     {
-        _document = PdfDocument.Open(Path.Combine(CorpusLocator.CorpusDirectory, "icc-lut.pdf"), new PdfOptions().UseIccColorManagement());
-        var resources = (CosDictionary)_document.Pages[0].Resources!;
-        var spaces = (CosDictionary)_document.Resolve(resources[new CosName("ColorSpace")]);
-        _converter = _document.GetColorConverter(_document.GetColorSpace(spaces[new CosName(Space)]));
+        if (Space == "OutputIntent")
+        {
+            // Issue #119: a lut16Type output profile with black point compensation folded into the PCS step.
+            _document = PdfDocument.Open(Path.Combine(CorpusLocator.CorpusDirectory, "output-intent-cmyk.pdf"), new PdfOptions().UseIccColorManagement());
+            _converter = _document.GetColorConverter(PdfDeviceCmykColorSpace.Instance, new ColorConversion { OutputIntent = _document.OutputIntents[0] });
+        }
+        else
+        {
+            _document = PdfDocument.Open(Path.Combine(CorpusLocator.CorpusDirectory, "icc-lut.pdf"), new PdfOptions().UseIccColorManagement());
+            var resources = (CosDictionary)_document.Pages[0].Resources!;
+            var spaces = (CosDictionary)_document.Resolve(resources[new CosName("ColorSpace")]);
+            _converter = _document.GetColorConverter(_document.GetColorSpace(spaces[new CosName(Space)]));
+        }
+
         if (_document.Diagnostics.Count > 0 || _converter.InputCount != 4)
         {
             throw new InvalidOperationException($"{Space} does not read cleanly as CMYK.");

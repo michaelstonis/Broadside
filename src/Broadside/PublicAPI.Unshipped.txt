@@ -3921,6 +3921,21 @@ Broadside.Rendering.GlyphRun.StrokeColor.get -> Broadside.Rendering.DisplayColor
 Broadside.Rendering.GlyphRun.Strokes.get -> bool
 Broadside.Rendering.GlyphRun.StrokeStyle.get -> Broadside.Rendering.StrokeStyle
 Broadside.Rendering.IRenderingBackend.DrawGlyphs(in Broadside.Rendering.GlyphRun run) -> void
+Broadside.PdfOutputIntent
+Broadside.PdfOutputIntent.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfOutputIntent.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfOutputIntent.Subtype.get -> string?
+Broadside.PdfOutputIntent.OutputCondition.get -> string?
+Broadside.PdfOutputIntent.OutputConditionIdentifier.get -> string?
+Broadside.PdfOutputIntent.RegistryName.get -> string?
+Broadside.PdfOutputIntent.Info.get -> string?
+Broadside.PdfOutputIntent.DestinationProfile.get -> Broadside.Graphics.PdfIccBasedColorSpace?
+override Broadside.PdfOutputIntent.ToString() -> string!
+Broadside.PdfDocument.OutputIntents.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOutputIntent!>!
+Broadside.PdfPage.OutputIntents.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOutputIntent!>!
+Broadside.Graphics.GraphicsState.OutputIntent.get -> Broadside.PdfOutputIntent?
+Broadside.Graphics.ColorConversion.OutputIntent.get -> Broadside.PdfOutputIntent?
+Broadside.Graphics.ColorConversion.OutputIntent.init -> void
 Broadside.PdfObjectCopier
 Broadside.PdfObjectCopier.Copy(Broadside.Objects.CosObject! value) -> Broadside.Objects.CosObject!
 Broadside.PdfObjectCopier.CopyPage(Broadside.PdfPage! page) -> Broadside.Objects.CosReference!
