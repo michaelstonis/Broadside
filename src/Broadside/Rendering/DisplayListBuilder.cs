@@ -78,6 +78,8 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         Glyphs = _glyphs.AsSpan(0, _glyphCount).ToArray(),
         ShadingPaints = _shadingPaints.AsSpan(0, _shadingPaintCount).ToArray(),
         ImageMasks = _imageMasks.AsSpan(0, _imageMaskCount).ToArray(),
+        TextGlyphs = _textGlyphs.AsSpan(0, _textGlyphCount).ToArray(),
+        Text = _text.AsSpan(0, _textLength).ToArray(),
         Compositings = _compositings.AsSpan(0, _compositingCount).ToArray(),
         TilingPaints = _tilingPaints.AsSpan(0, _tilingPaintCount).ToArray(),
         Annotations = _annotations.AsSpan(0, _annotationCount).ToArray(),
@@ -96,6 +98,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         ResetImages();
         ResetText();
         ResetShadings();
+        ResetTextPositions();
         ResetCompositing();
         ResetTiling();
         ResetAnnotations();

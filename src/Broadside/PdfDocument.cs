@@ -1116,7 +1116,12 @@ public sealed partial class PdfDocument : IDisposable
     }
 
     /// <inheritdoc/>
-    public void Dispose() => _source.Dispose();
+    /// <remarks>Also empties the document's render caches (<see cref="CacheStatistics"/>).</remarks>
+    public void Dispose()
+    {
+        _source.Dispose();
+        Caches.Clear();
+    }
 
     /// <summary>
     /// Returns the parsed program of a font file stream, parsing it on first use with the engine's font program parsers (issue #50):
@@ -1447,6 +1452,7 @@ public sealed partial class PdfDocument : IDisposable
                 StreamEncoders = configuration.StreamEncoders,
                 TimeProvider = configuration.TimeProvider,
                 Configuration = configuration,
+                Caches = new DocumentCaches(configuration.CacheBudgets),
             };
             document.DetectXfa();
 
