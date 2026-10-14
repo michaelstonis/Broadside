@@ -23,6 +23,12 @@ namespace Broadside.Rendering;
 /// Every paint's coverage is multiplied by the clip's.
 /// </para>
 /// <para>
+/// Tiles and regions (spec #33 story 14): <see cref="RenderOptions.Region"/>, or a cached <see cref="DisplayList"/> rendered with
+/// <see cref="Render(DisplayList, Bitmap, in Matrix)"/> under the page's device transform moved by a tile's offset, draws only the
+/// paints whose bounds reach the bitmap. A tile has the pixels of the whole render at the same place: exactly where the arithmetic
+/// is exact, and otherwise within one level at a pixel whose coverage sits on a rounding boundary.
+/// </para>
+/// <para>
 /// Reuse one instance for many renders: its working buffers are pooled and kept, so a warm render allocates nothing per path, cell or
 /// scanline. An instance renders one page at a time; use one per thread to render in parallel (a document is safe for concurrent
 /// renders while nobody changes it).
@@ -31,6 +37,13 @@ namespace Broadside.Rendering;
 public sealed partial class SoftwareRasterizer : IDisposable
 {
     private static readonly RenderOptions DefaultOptions = new();
+
+    /// <summary>
+    /// How many device pixels beyond a paint's bounds it may still touch: a degenerate subpath's pixel, the one-pixel pen of the
+    /// thinnest line and stroke adjustment's rounding and snapping (ISO 32000-2 §8.5.3.3.1, §10.7.5). Region culling widens the
+    /// bitmap by this much.
+    /// </summary>
+    private const double RegionMargin = 2;
 
     private readonly Backend _backend = new();
     private bool _disposed;
@@ -57,7 +70,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         var bitmap = new Bitmap(geometry.PixelWidth, geometry.PixelHeight);
         try
         {
-            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true);
+            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, cull: options.Region is not null);
         }
         catch
         {
@@ -87,7 +100,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             throw new ArgumentException($"The page needs {geometry.PixelWidth} x {geometry.PixelHeight} pixels; the bitmap has {target.Width} x {target.Height}.", nameof(target));
         }
 
-        Draw(page.CreateDisplayList(), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true);
+        Draw(page.CreateDisplayList(), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, cull: options.Region is not null);
     }
 
     /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background.</summary>
@@ -95,14 +108,19 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// <param name="target">The bitmap; drawing is clipped to it.</param>
     /// <param name="deviceTransform">
     /// The transform from the list's default user space to the bitmap's pixels (origin top-left, y down), such as
-    /// <see cref="RenderOptions.GetDeviceTransform"/>; a tile renderer adds its own offset.
+    /// <see cref="RenderOptions.GetDeviceTransform"/>; a tile renderer adds its own offset (the tile's top-left pixel moved to the
+    /// origin) and gets the same pixels as the whole page's render.
     /// </param>
-    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space).</remarks>
+    /// <remarks>
+    /// ADR 0006; ISO 32000-2 §8.3.2.2 (device space). Spec #33 story 14 (viewer capability 1): only the paints whose bounds reach the
+    /// bitmap are drawn (<see cref="DisplayList.Replay(IRenderingBackend, PdfRectangle)"/>), so one cached list renders tiles at any
+    /// scale, each costing what its own content costs. The list computes the bounds on its first such render.
+    /// </remarks>
     public void Render(DisplayList list, Bitmap target, in Matrix deviceTransform)
     {
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
-        Draw(list, target, deviceTransform, target.Width, target.Height, white: false);
+        Draw(list, target, deviceTransform, target.Width, target.Height, white: false, cull: true);
     }
 
     /// <summary>Returns the rasterizer's pooled working buffers; it renders no more after this.</summary>
@@ -115,7 +133,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         }
     }
 
-    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white)
+    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white, bool cull)
     {
         ObjectDisposedException.ThrowIf(_disposed, this);
         if (white)
@@ -129,12 +147,49 @@ public sealed partial class SoftwareRasterizer : IDisposable
         _backend.Begin(list.Document, target, device, width, height);
         try
         {
-            list.Replay(_backend);
+            if (cull && TryGetRegion(device, width, height, out PdfRectangle region))
+            {
+                list.Replay(_backend, region);
+            }
+            else
+            {
+                list.Replay(_backend);
+            }
         }
         finally
         {
             _backend.End();
         }
+    }
+
+    /// <summary>
+    /// Returns the part of default user space that can change the pixels of a <paramref name="width"/> × <paramref name="height"/>
+    /// bitmap under <paramref name="device"/>: the bitmap widened by <see cref="RegionMargin"/> pixels, mapped back. False when the
+    /// transform has no inverse.
+    /// </summary>
+    private static bool TryGetRegion(in Matrix device, int width, int height, out PdfRectangle region)
+    {
+        region = default;
+        if (!device.TryInvert(out Matrix inverse))
+        {
+            return false;
+        }
+
+        PathPoint a = inverse.Transform(-RegionMargin, -RegionMargin);
+        PathPoint b = inverse.Transform(width + RegionMargin, -RegionMargin);
+        PathPoint c = inverse.Transform(width + RegionMargin, height + RegionMargin);
+        PathPoint d = inverse.Transform(-RegionMargin, height + RegionMargin);
+        double left = Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X));
+        double bottom = Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y));
+        double right = Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X));
+        double top = Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y));
+        if (!(double.IsFinite(left) && double.IsFinite(bottom) && double.IsFinite(right) && double.IsFinite(top)))
+        {
+            return false;
+        }
+
+        region = new PdfRectangle(left, bottom, right, top);
+        return true;
     }
 
     /// <summary>The backend the rasterizer replays display lists through: graphics state, path mapping and colour.</summary>

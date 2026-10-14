@@ -29,6 +29,22 @@ public sealed class DisplayListAllocationTests
     }
 
     [Fact]
+    public void Replaying_a_region_allocates_nothing_once_the_list_has_its_bounds()
+    {
+        // The bounds are computed by the first region replay (the warm-up); every later one only reads them.
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(ContentSamples.PathHeavy(64 * 1024)));
+        DisplayList list = document.Pages[0].CreateDisplayList();
+        var backend = new CountingBackend();
+        var region = new PdfRectangle(100, 100, 300, 300);
+        Action replay = () => list.Replay(backend, region);
+
+        long allocated = Allocations.Measure(replay);
+
+        Assert.Equal(0, allocated);
+        Assert.True(backend.Fills > 0);
+    }
+
+    [Fact]
     public void Replaying_glyph_runs_allocates_nothing()
     {
         // Text in an embedded TrueType font in modes 0, 1 and 2, with every text state operator: runs of filled, stroked and both.

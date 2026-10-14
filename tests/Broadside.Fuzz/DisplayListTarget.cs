@@ -12,7 +12,8 @@ namespace Broadside.Fuzz;
 /// #99); every clip's path is well formed with a known rule (issue #105); every image (issue #102) has samples, a colour space and a
 /// Decode map that agree on its component count; every glyph run (issue #100) has glyphs whose outlines are well formed, paints
 /// in no Pattern colour, paints nothing in mode 3 and fills or strokes only in the modes that do; every shading (issue #109) is
-/// valid, evaluates to finite colours and paints its Background only as a pattern; two replays of one list make the same calls.
+/// valid, evaluates to finite colours and paints its Background only as a pattern; two replays of one list make the same calls; a
+/// region replay (issue #96) holding everything makes them all, and any other makes a balanced subset.
 /// Each call runs in a new empty document.
 /// </summary>
 /// <remarks>ADR 0006; ISO 32000-2 §8.4.2, §8.4.3, §8.5.3, §8.5.4, §8.6.</remarks>
@@ -34,6 +35,15 @@ internal static class DisplayListTarget
         list.Replay(second);
         Check(first.Depth == 0, "saves and restores do not balance");
         Check(first.Calls == second.Calls && first.Checksum.Equals(second.Checksum), "two replays of one list differ");
+
+        // Issue #96: a region holding everything replays every call; any other region a subset, with saves still balanced.
+        var everything = new CheckingBackend();
+        list.Replay(everything, new PdfRectangle(double.NegativeInfinity, double.NegativeInfinity, double.PositiveInfinity, double.PositiveInfinity));
+        Check(everything.Calls == first.Calls && everything.Checksum.Equals(first.Checksum), "a region holding everything skips calls");
+        double corner = (data.Length % 97) * 4;
+        var region = new CheckingBackend();
+        list.Replay(region, new PdfRectangle(corner, corner, corner + 50, corner + 50));
+        Check(region.Depth == 0 && region.Calls <= first.Calls, "a region replay is not a balanced subset");
     }
 
     private static void Check(bool condition, string message)

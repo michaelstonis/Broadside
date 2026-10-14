@@ -26,6 +26,7 @@ public sealed class DisplayList
 {
     public PdfDocument Document { get; }               // whose GetColorConverter a backend converts colours through
     public void Replay(IRenderingBackend backend);     // reads only the list, allocates nothing
+    public void Replay(IRenderingBackend backend, PdfRectangle region); // only paints whose bounds meet the region (#96)
 }
 
 public sealed class PdfPage
@@ -112,7 +113,7 @@ Rules every backend follows:
 A backend must also, as those operations arrive:
 
 - draw clipping (path and text, intersect), decoded images with transforms and resampling, shadings 1–7, tiling patterns, glyph runs (font reference + glyph ids + positions, native glyph rendering where the platform has it with an outline fallback when `ForceOutlines` is set), and the transparency model (§11: isolated and non-isolated groups, knockout, soft masks, the 16 blend modes, constant alpha);
-- honour the render options of Track 3A: scale or DPI, rotation, clip rectangle (tiled region rendering), layer selection (annotations and forms are separate replayable lists), rendering intent, anti-aliasing, cancellation and progress;
+- honour the render options of Track 3A: scale or DPI, rotation, clip rectangle (tiled region rendering: `RenderOptions.Region`, whose `GetPixelSize`/`GetDeviceTransform`/`GetPixelRectangle` already describe the region's pixels, and `DisplayList.Replay(backend, region)` with the target's pixels mapped back to default user space and widened by whatever the backend paints beyond a shape's outline, as the rasterizer does with 2 px, #96), layer selection (annotations and forms are separate replayable lists), rendering intent, anti-aliasing, cancellation and progress;
 - keep per-surface resource caches (glyphs, images, shaders) within the deterministic memory budgets the viewer relies on;
 - fall back to the software rasterizer for any group or blend it cannot express (plan, Track 3D) rather than approximate silently, and record a `Diagnostic` when it does;
 - allocate nothing per operation, glyph or scanline during replay; buffers are pooled per surface (`CLAUDE.md`, "Code conventions");
