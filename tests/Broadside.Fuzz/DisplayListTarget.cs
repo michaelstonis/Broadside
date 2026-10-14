@@ -248,6 +248,21 @@ internal static class DisplayListTarget
             Checksum += parameters.OverprintMode + (parameters.StrokeOverprint ? 2 : 0) + (parameters.FillOverprint ? 4 : 0);
         }
 
+        public void DrawGroup(in DisplayGroup group)
+        {
+            Calls++;
+            Check(group.Opacity is >= 0 and <= 1, "a group opacity outside 0 to 1");
+            Check(Enum.IsDefined(group.BlendMode) && Enum.IsDefined(group.Kind), "an undefined blend mode or group kind");
+            Check(group.Kind != DisplayGroupKind.Page || group.IsIsolated, "a page group that is not isolated");
+            Check(group.Kind != DisplayGroupKind.FillAndStroke || (group.IsKnockout && !group.IsIsolated), "a fill-and-stroke group that is not a non-isolated knockout group");
+            Check(group.ColorSpace is null || group.IsIsolated, "a non-isolated group with its own colour space");
+            Check(group.ColorSpace is null || group.ColorSpace.ComponentCount is 1 or 3 or 4, "a group colour space that cannot blend");
+            int depth = Depth;
+            group.Replay(this);
+            Check(Depth == depth, "a group's content is not balanced");
+            Checksum += group.Opacity + (int)group.BlendMode;
+        }
+
         public void BeginAnnotation(in DisplayAnnotation annotation)
         {
             Calls++;

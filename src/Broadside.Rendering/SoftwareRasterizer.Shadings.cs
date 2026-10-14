@@ -108,7 +108,7 @@ public sealed partial class SoftwareRasterizer
                 return false;
             }
 
-            return _previewing ? PreparePreviewShading(shading) : _shadingSource.Prepare(_document!, shading);
+            return _previewing ? PreparePreviewShading(shading) : _shadingSource.Prepare(_document!, shading, _pixelModel);
         }
 
         /// <summary>Hands the shape's coverage to a <see cref="ShadingPainter"/>; the Background applies when <paramref name="background"/> is set and the shading has one.</summary>

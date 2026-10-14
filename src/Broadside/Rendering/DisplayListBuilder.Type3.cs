@@ -39,6 +39,10 @@ internal sealed partial class DisplayListBuilder
     // paint of the sub-list records its own.
     private static readonly DisplayCompositing UnknownCompositing = new(double.NaN, double.NaN, BlendMode.Normal);
 
+    // The groups a sub-list replay has open: the group's index and the sub-list operation its content ends at.
+    private (int Group, int End)[] _type3Groups = new (int, int)[4];
+    private int _type3GroupCount;
+
     // The glyphs whose descriptions are running, innermost last.
     private Type3Frame[] _type3Frames = new Type3Frame[4];
     private int _type3FrameCount;
@@ -205,11 +209,20 @@ internal sealed partial class DisplayListBuilder
         bool recolors = description.Key.Recolors;
         int fill = -1;
         int stroke = -1;
-        for (int k = description.OperationStart; k < description.OperationStart + description.OperationCount; k++)
+        int groupsOpen = _type3GroupCount;
+        int end = description.OperationStart + description.OperationCount;
+        for (int k = description.OperationStart; k < end; k++)
         {
+            CloseType3Groups(k, groupsOpen);
             DisplayOperation operation = _type3Operations[k];
             switch (operation.Kind)
             {
+                case DisplayOperationKind.DrawGroup:
+                    // A transparency group (#114): a group of its own here, its content the sub-list's operations that followed it.
+                    DisplayGroupEntry group = _groups[operation.First];
+                    int replayed = OpenGroup(moved ? group with { Matrix = group.Matrix * delta } : group);
+                    Append(ref _type3Groups, ref _type3GroupCount, (replayed, k + 1 + (group.End - group.Start)));
+                    break;
                 case DisplayOperationKind.SaveState:
                     SaveState(context);
                     break;
@@ -264,8 +277,17 @@ internal sealed partial class DisplayListBuilder
             }
         }
 
+        CloseType3Groups(end, groupsOpen);
         _runOperation = -1;
+    }
 
+    /// <summary>Closes the groups a sub-list replay opened whose content ends at sub-list operation <paramref name="k"/>.</summary>
+    private void CloseType3Groups(int k, int floor)
+    {
+        while (_type3GroupCount > floor && _type3Groups[_type3GroupCount - 1].End <= k)
+        {
+            CloseGroup(_type3Groups[--_type3GroupCount].Group);
+        }
     }
 
     /// <summary>Returns the colour-table index of the text's nonstroking colour, adding it the first time a replay needs it.</summary>
@@ -437,6 +459,7 @@ internal sealed partial class DisplayListBuilder
         _type3OperationCount = 0;
         Array.Clear(_type3Frames, 0, _type3FrameCount);
         _type3FrameCount = 0;
+        _type3GroupCount = 0;
     }
 
     /// <summary>What a sub-list was built under besides the graphics state: it is reused only under the same.</summary>

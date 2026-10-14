@@ -84,12 +84,14 @@ public sealed partial class SoftwareRasterizer
                 }
 
                 int corners = patches * 4;
-                if (!ReferenceEquals(_meshRgbShading, model) || !ReferenceEquals(_meshRgbConverter, converter))
+                if (!ReferenceEquals(_meshRgbShading, model) || !ReferenceEquals(_meshRgbConverter, converter) || _meshRgbModel != _pixelModel)
                 {
-                    Pooled.Ensure(ref _meshRgb, corners * 3);
-                    converter.Convert(colors, _meshRgb.AsSpan(0, corners * 3), corners);
+                    Pooled.Ensure(ref _meshRgb, corners * _pixelModel.Components);
+                    converter.Convert(colors, _meshRgb.AsSpan(0, corners * _pixelModel.Components), corners);
+                    ToLayerChannels(_meshRgb, corners);
                     _meshRgbShading = model;
                     _meshRgbConverter = converter;
+                    _meshRgbModel = _pixelModel;
                 }
             }
 

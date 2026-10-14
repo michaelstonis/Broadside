@@ -66,6 +66,16 @@ internal sealed class ScanlineRasterizer : IDisposable
     /// </summary>
     public CoverageRule Rule { get; set; }
 
+    /// <summary>
+    /// Gets or sets the transparency group paints go into (ISO 32000-2 §11.4), which sees every run of a paint's coverage before the
+    /// paint's sink, after the clip: a knockout group or one that keeps its own shape or alpha needs that. <see langword="null"/>
+    /// (no group, or a group that needs nothing per paint) hands the runs straight to the sink.
+    /// </summary>
+    public GroupLayer? Hook { get; set; }
+
+    /// <summary>Starts a new shape with the size of the last one.</summary>
+    public void Clear() => Reset(_width, _height);
+
     /// <summary>Gets a value indicating whether the shape has no edges inside the clip.</summary>
     public bool IsEmpty => _count == 0;
 
@@ -197,7 +207,7 @@ internal sealed class ScanlineRasterizer : IDisposable
         RasterClip? clip = Clip;
         if (_count > 0 && clip?.IsEmpty != true)
         {
-            Sweep(rule, ref sink, clip is { IsWholeBitmap: false } ? clip : null, zeros: false);
+            Sweep(rule, ref sink, clip is { IsWholeBitmap: false } ? clip : null, zeros: false, Hook);
         }
 
         if (!keep)
@@ -215,7 +225,7 @@ internal sealed class ScanlineRasterizer : IDisposable
     {
         if (_count > 0)
         {
-            Sweep(rule, ref sink, null, zeros: true);
+            Sweep(rule, ref sink, null, zeros: true, hook: null);
         }
     }
 
@@ -260,7 +270,7 @@ internal sealed class ScanlineRasterizer : IDisposable
     }
 
     /// <summary>The sweep: turns the sorted cells into runs of constant coverage, clipped or not, with or without the zero runs.</summary>
-    private void Sweep<TSink>(FillRule rule, ref TSink sink, RasterClip? clip, bool zeros)
+    private void Sweep<TSink>(FillRule rule, ref TSink sink, RasterClip? clip, bool zeros, GroupLayer? hook)
         where TSink : ICoverageSink, allows ref struct
     {
         Sort();
@@ -284,18 +294,18 @@ internal sealed class ScanlineRasterizer : IDisposable
                 }
                 while (index < cells.Length && keys[index] == keys[index - 1]);
 
-                Emit(ref sink, clip, zeros, row, x, 1, Coverage(accumulated + cover - area, rule, Rule));
+                Emit(ref sink, clip, zeros, hook, row, x, 1, Coverage(accumulated + cover - area, rule, Rule));
                 accumulated += cover;
                 int next = index < cells.Length && (int)(keys[index] >> 32) == row ? (int)(uint)keys[index] : _width;
                 if (next > x + 1)
                 {
-                    Emit(ref sink, clip, zeros, row, x + 1, next - x - 1, Coverage(accumulated, rule, Rule));
+                    Emit(ref sink, clip, zeros, hook, row, x + 1, next - x - 1, Coverage(accumulated, rule, Rule));
                 }
             }
         }
     }
 
-    private static void Emit<TSink>(ref TSink sink, RasterClip? clip, bool zeros, int row, int x, int count, int coverage)
+    private static void Emit<TSink>(ref TSink sink, RasterClip? clip, bool zeros, GroupLayer? hook, int row, int x, int count, int coverage)
         where TSink : ICoverageSink, allows ref struct
     {
         if (coverage <= 0 && !zeros)
@@ -303,13 +313,17 @@ internal sealed class ScanlineRasterizer : IDisposable
             return;
         }
 
-        if (clip is null)
+        if (clip is not null)
         {
-            sink.Span(row, x, count, coverage);
+            clip.Apply(row, x, count, coverage, ref sink, hook);
+        }
+        else if (hook is not null)
+        {
+            hook.Span(row, x, count, coverage, ref sink);
         }
         else
         {
-            clip.Apply(row, x, count, coverage, ref sink);
+            sink.Span(row, x, count, coverage);
         }
     }
 

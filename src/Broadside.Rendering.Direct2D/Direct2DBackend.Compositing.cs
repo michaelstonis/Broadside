@@ -15,6 +15,11 @@ internal sealed unsafe partial class Direct2DBackend
 
     private static readonly Diagnostic TilingPatternsSkipped = Skipped("tiling patterns", 130);
 
+    private static readonly Diagnostic GroupApproximated = new(
+        "BackendTransparencyGroupApproximated",
+        DiagnosticSeverity.Warning,
+        "The Direct2D backend does not composite transparency groups yet (ISO 32000-2 §11.4); groups with an opacity, a blend mode, knockout, isolation or a colour space of their own were drawn as their content alone.");
+
     private Compositing _compositing = Compositing.Initial;
     private Compositing[] _savedCompositing = new Compositing[16];
     private Matrix[] _annotationDevices = new Matrix[2];
@@ -126,6 +131,20 @@ internal sealed unsafe partial class Direct2DBackend
     /// <summary>Skips a stroke with a tiling pattern (§8.7.3.1), reported once per render.</summary>
     public void StrokePathWithTilingPattern(PathView path, in StrokeStyle style, in DisplayTilingPattern pattern) =>
         Skip(SkippedOperations.TilingPatterns, TilingPatternsSkipped);
+
+    /// <summary>
+    /// Draws a transparency group's content straight onto the context (ISO 32000-2 §11.4.4 NOTE 5: exact for a non-isolated,
+    /// non-knockout group in the Normal blend mode at opacity 1); any other group is approximated that way and reported once per render.
+    /// </summary>
+    public void DrawGroup(in DisplayGroup group)
+    {
+        if (group.IsKnockout || group.Opacity < 1 || group.BlendMode != BlendMode.Normal || (group.IsIsolated && group.ColorSpace is not null))
+        {
+            Skip(SkippedOperations.Groups, GroupApproximated);
+        }
+
+        group.Replay(this);
+    }
 
     /// <summary>Resets the compositing state and the annotations at the start of a replay.</summary>
     private void BeginCompositing()

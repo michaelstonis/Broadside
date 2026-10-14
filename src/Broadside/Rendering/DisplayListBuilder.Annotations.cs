@@ -45,7 +45,9 @@ internal sealed partial class DisplayListBuilder
                     builder.OpenLayer();
                 }
 
+                int pageGroup = builder.OpenPageGroup(page, document);
                 ContentInterpreter.RunPage(page, document, builder, options);
+                builder.ClosePageGroup(pageGroup);
                 if (more)
                 {
                     builder.CloseLayer();

@@ -22,15 +22,15 @@ namespace Broadside.Rendering;
 /// stencil masks (§8.9.6.2, <see cref="DisplayImageMask"/>), text as glyph runs (§9.4.3, §9.3.6, <see cref="GlyphRun"/>: font
 /// program, glyph ids, text matrices, outlines interned once per program and glyph) and shadings, from <c>sh</c> and as shading
 /// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>), tiling patterns on fills and strokes, each cell a display
-/// list of its own (§8.7.3, <see cref="DisplayTilingPattern"/>), and annotations' appearances (§12.5.5,
+/// list of its own (§8.7.3, <see cref="DisplayTilingPattern"/>), constant alpha and blend modes
+/// (<see cref="IRenderingBackend.SetCompositing"/>, §11.6.3, §11.6.4.4), transparency groups (§11.4, <see cref="DisplayGroup"/>:
+/// group XObjects, the page group and the implicit group of a combined fill and stroke) and annotations' appearances (§12.5.5,
 /// <see cref="DisplayAnnotation"/>; a list holds the page's content, annotation and form-field layers as <see cref="DisplayLayers"/>
 /// asks). Type 3 glyphs (§9.6.4) are in it as what their descriptions paint, under each glyph's transform and, for a <c>d1</c>
 /// glyph, in the colours of the text that shows it; each description is interpreted once per font, code and inherited graphics
-/// state in a list and replayed at every show. Text clips (§9.3.6) reach backends as path clips of the glyph outlines.
-/// Transparency groups and soft masks join it in later Phase 3 tickets
-/// (constant alpha and blend modes are there already, as <see cref="IRenderingBackend.SetCompositing"/>, and overprint control and
-/// halftones as <see cref="IRenderingBackend.SetDeviceParameters"/>; transfer functions travel with each colour), each as new
-/// <see cref="IRenderingBackend"/> calls.
+/// state in a list and replayed at every show. Text clips (§9.3.6) reach backends as path clips of the glyph outlines. Overprint
+/// control and halftones reach them as <see cref="IRenderingBackend.SetDeviceParameters"/> (transfer functions travel with each
+/// colour). Soft masks join it in a later Phase 3 ticket, as new <see cref="IRenderingBackend"/> calls.
 /// </para>
 /// <para>
 /// Immutable once built: any number of threads may replay the same list at once, each into its own backend.
@@ -96,6 +96,8 @@ public sealed partial class DisplayList
     /// <summary>Gets the alpha constants and blend modes the list sets (indexed by <see cref="DisplayOperationKind.SetCompositing"/> records).</summary>
     internal DisplayCompositing[] Compositings { get; init; } = [];
 
+    /// <summary>Gets the transparency groups the list paints (indexed by <see cref="DisplayOperationKind.DrawGroup"/> records).</summary>
+    internal DisplayGroupEntry[] Groups { get; init; } = [];
     /// <summary>Gets the tiling-pattern paints (indexed by the tiling-pattern records).</summary>
     internal DisplayTilingPaint[] TilingPaints { get; init; } = [];
 
@@ -120,9 +122,22 @@ public sealed partial class DisplayList
     public void Replay(IRenderingBackend backend)
     {
         ArgumentNullException.ThrowIfNull(backend);
-        foreach (ref readonly DisplayOperation operation in _operations.AsSpan())
+        ReplayRange(backend, 0, _operations.Length);
+    }
+
+    /// <summary>Replays the operations from <paramref name="start"/> to <paramref name="end"/> (exclusive); a group's content goes to the backend through its <see cref="DisplayGroup"/>.</summary>
+    internal void ReplayRange(IRenderingBackend backend, int start, int end)
+    {
+        ReadOnlySpan<DisplayOperation> operations = _operations.AsSpan(start, end - start);
+        for (int index = 0; index < operations.Length; index++)
         {
+            ref readonly DisplayOperation operation = ref operations[index];
             Execute(backend, in operation);
+            if (operation.Kind == DisplayOperationKind.DrawGroup)
+            {
+                // The backend replayed the group's content through its DisplayGroup (or chose not to).
+                index = Groups[operation.First].End - start - 1;
+            }
         }
     }
 
@@ -212,8 +227,11 @@ public sealed partial class DisplayList
             }
 
             cancellationToken.ThrowIfCancellationRequested();
-            Execute(backend, operations[index]);
-            index++;
+            ref readonly DisplayOperation operation = ref operations[index];
+            Execute(backend, in operation);
+
+            // A group's content went to the backend through its DisplayGroup (#114): continue after it.
+            index = operation.Kind == DisplayOperationKind.DrawGroup ? Groups[operation.First].End : index + 1;
             if (progress is not null && index % ProgressInterval == 0 && index < operations.Length)
             {
                 progress.Report((double)index / operations.Length);
@@ -293,6 +311,9 @@ public sealed partial class DisplayList
                 break;
             case DisplayOperationKind.SetDeviceParameters:
                 backend.SetDeviceParameters(in DeviceParameters[operation.First]);
+                break;
+            case DisplayOperationKind.DrawGroup:
+                backend.DrawGroup(new DisplayGroup(this, Groups[operation.First]));
                 break;
             case DisplayOperationKind.FillPathWithTilingPattern:
                 ref readonly DisplayPath tiled = ref _paths[operation.First];

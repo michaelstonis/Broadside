@@ -262,6 +262,12 @@ public sealed class DisplayListAllocationTests
         public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode) =>
             Checksum += strokeAlpha + fillAlpha + (int)blendMode;
 
+        public void DrawGroup(in DisplayGroup group)
+        {
+            Checksum += group.Opacity + (group.IsKnockout ? 1 : 0);
+            group.Replay(this);
+        }
+
         public void BeginAnnotation(in DisplayAnnotation annotation) => Checksum += annotation.Rectangle.Width + annotation.Opacity;
 
         public void EndAnnotation() => Checksum++;

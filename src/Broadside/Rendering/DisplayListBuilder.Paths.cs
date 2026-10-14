@@ -35,12 +35,23 @@ internal sealed partial class DisplayListBuilder
     /// </remarks>
     public override void PaintPath(in PathEvent path, ContentContext context)
     {
-        if (path.Paint is PathPaint.Fill or PathPaint.FillAndStroke)
+        if (path.Paint == PathPaint.FillAndStroke)
+        {
+            // §11.7.4.4: one object, as if in a non-isolated knockout group, when transparency makes that differ.
+            ref readonly GraphicsState state = ref context.State;
+            int group = OpenFillAndStrokeGroup(state, context.DefaultColorSpaces, Bounds(path.Path.Points, StrokeReach(state)));
+            FillPath(path, context);
+            StrokePath(path, context);
+            CloseFillAndStrokeGroup(group);
+            return;
+        }
+
+        if (path.Paint == PathPaint.Fill)
         {
             FillPath(path, context);
         }
 
-        if (path.Paint is PathPaint.Stroke or PathPaint.FillAndStroke)
+        if (path.Paint == PathPaint.Stroke)
         {
             StrokePath(path, context);
         }

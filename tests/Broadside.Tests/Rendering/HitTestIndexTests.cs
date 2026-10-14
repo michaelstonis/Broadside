@@ -36,6 +36,26 @@ public sealed class HitTestIndexTests
     }
 
     [Fact]
+    public void Paths_inside_a_transparency_group_are_indexed_where_they_land()
+    {
+        // A form XObject with a transparency group (§11.6.6, #114), drawn at half opacity under a translation: the backend gets
+        // one DrawGroup call, and the collector replays its content.
+        byte[] file = ContentSamples.OnePage(
+            "q /Half gs 1 0 0 1 200 300 cm /G Do Q"u8.ToArray(),
+            "/ExtGState << /Half << /ca 0.5 >> >> /XObject << /G 5 0 R >>",
+            ContentSamples.Stream("0 0 1 rg 0 0 50 50 re f", "/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Group << /S /Transparency /I true >>"));
+        using PdfDocument document = PdfDocument.Open(file);
+        DisplayList list = document.Pages[0].CreateDisplayList();
+        var recorder = new RecordingBackend();
+        list.Replay(recorder);
+        Assert.Single(recorder.Groups);
+
+        HitTestIndex index = list.CreateHitTestIndex();
+        Assert.Single(Matches(index.Find(new PathPoint(225, 325), HitTestKinds.Paths)));
+        Assert.Empty(Matches(index.Find(new PathPoint(25, 25), HitTestKinds.Paths)));
+    }
+
+    [Fact]
     public void Rotated_text_returns_rotated_quads_not_upright_boxes()
     {
         // Line 1: Tm [0.866025 0.5 -0.5 0.866025 100 500] (30 degrees); line 2: cm [0 1 -1 0 300 300] (90 degrees), text at the origin.

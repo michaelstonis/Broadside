@@ -90,6 +90,12 @@ public class DisplayListBenchmarks
 
         public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode) => Calls += (int)blendMode + 1;
 
+        public void DrawGroup(in DisplayGroup group)
+        {
+            Calls++;
+            group.Replay(this);
+        }
+
         public void BeginAnnotation(in DisplayAnnotation annotation) => Calls += (int)annotation.Kind;
 
         public void EndAnnotation() => Calls++;

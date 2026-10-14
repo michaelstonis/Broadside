@@ -107,6 +107,10 @@ internal sealed class HitTestCollector : IRenderingBackend
     }
 
     /// <inheritdoc/>
+    /// <remarks>A transparency group's paints are indexed where they land, as if painted directly (#114).</remarks>
+    public void DrawGroup(in DisplayGroup group) => group.Replay(this);
+
+    /// <inheritdoc/>
     /// <remarks>An appearance's paints are indexed where they land in default user space, as on a page shown at 100% unrotated.</remarks>
     public void BeginAnnotation(in DisplayAnnotation annotation) => SaveState();
 

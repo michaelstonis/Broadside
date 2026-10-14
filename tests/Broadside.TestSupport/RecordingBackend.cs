@@ -21,7 +21,9 @@ namespace Broadside.TestSupport;
 /// <c>glyphs Mode Format gid [text matrix][ xScale] … [| fill Family c0 …][| stroke width Cap Join miterLimit [dash …] phase[ adjust] Family c0 …]</c>
 /// (Format is the program's format, <c>none</c> without a program), and fills and strokes in a shading pattern ending
 /// <c>| shading Type [matrix] background</c> instead of a colour, and in a tiling pattern ending
-/// <c>| tiling PaintType TilingType [matrix] bbox [l b r t] step x y</c>; <c>compositing CA ca BlendMode</c>, <c>device overprint OP op OPM[ halftone HalftoneType][ origin x y]</c>. Numbers are written round-trippable and culture-invariant.
+/// <c>| tiling PaintType TilingType [matrix] bbox [l b r t] step x y</c>; <c>compositing CA ca BlendMode</c>, <c>device overprint OP op OPM[ halftone HalftoneType][ origin x y]</c>;
+/// <c>group Kind[ isolated][ knockout][ Family][ opacity a][ BlendMode][ bbox [l b r t] [matrix]]</c>, then the group's content, then
+/// <c>end group</c>. Numbers are written round-trippable and culture-invariant.
 /// </remarks>
 public sealed class RecordingBackend : IRenderingBackend
 {
@@ -51,6 +53,9 @@ public sealed class RecordingBackend : IRenderingBackend
 
     /// <summary>Gets the device parameters set, in replay order.</summary>
     public List<DisplayDeviceParameters> DeviceParameters { get; } = [];
+
+    /// <summary>Gets the groups, in replay order: their kind, colour space, default colour spaces and conversion.</summary>
+    public List<(DisplayGroupKind Kind, PdfColorSpace? ColorSpace, PdfDefaultColorSpaces Defaults, ColorConversion Conversion)> Groups { get; } = [];
 
     /// <summary>Gets the annotations begun, in replay order.</summary>
     public List<DisplayAnnotation> Annotations { get; } = [];
@@ -316,6 +321,46 @@ public sealed class RecordingBackend : IRenderingBackend
     }
 
     /// <inheritdoc/>
+    public void DrawGroup(in DisplayGroup group)
+    {
+        var text = new StringBuilder("group ").Append(group.Kind);
+        if (group.IsIsolated)
+        {
+            text.Append(" isolated");
+        }
+
+        if (group.IsKnockout)
+        {
+            text.Append(" knockout");
+        }
+
+        if (group.ColorSpace is { } space)
+        {
+            text.Append(' ').Append(space.Family);
+        }
+
+        if (group.Opacity != 1)
+        {
+            text.Append(" opacity ").Append(Number(group.Opacity));
+        }
+
+        if (group.BlendMode != BlendMode.Normal)
+        {
+            text.Append(' ').Append(group.BlendMode);
+        }
+
+        if (group.HasBoundingBox)
+        {
+            PdfRectangle box = group.BoundingBox;
+            text.Append(CultureInfo.InvariantCulture, $" bbox [{Number(box.Left)} {Number(box.Bottom)} {Number(box.Right)} {Number(box.Top)}] {group.Matrix}");
+        }
+
+        Operations.Add(text.ToString());
+        Groups.Add((group.Kind, group.ColorSpace, group.DefaultColorSpaces, group.Conversion));
+        group.Replay(this);
+        Operations.Add("end group");
+    }
+
     public void BeginAnnotation(in DisplayAnnotation annotation)
     {
         PdfRectangle rect = annotation.Rectangle;

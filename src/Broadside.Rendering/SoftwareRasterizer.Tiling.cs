@@ -85,10 +85,21 @@ public sealed partial class SoftwareRasterizer
                 return;
             }
 
-            Bitmap cellBitmap = RenderCell(pattern.Cell, layout.CellMatrix, cell);
             int layerLength = area.Width * area.Height;
             Pooled.Ensure(ref _tileLayer, layerLength);
             Span<uint> layer = _tileLayer.AsSpan(0, layerLength);
+            if (_probe.Inspect(pattern.Cell).Blends)
+            {
+                // §11.6.7: the cell is a non-isolated group, so its blend modes see the backdrop; only a cell in the Normal mode alone
+                // may be rendered once on a clear surface (NOTE 1).
+                PaintNonIsolatedTiles(pattern.Cell, layout, area, layer);
+                Bitmap ground = _target!;
+                var blended = new TilingPainter(ground.Pixels, ground.Stride, layer, area.Left, area.Top, area.Width, area.Height, compositor);
+                _scan.Paint(rule, ref blended);
+                return;
+            }
+
+            Bitmap cellBitmap = RenderCell(pattern.Cell, layout.CellMatrix, cell);
             layer.Clear();
             ReadOnlySpan<uint> cellPixels = MemoryMarshal.Cast<byte, uint>(cellBitmap.Pixels[..(cell.Width * cell.Height * 4)]);
             for (long j = layout.JFirst; j <= layout.JLast; j++)
@@ -129,6 +140,7 @@ public sealed partial class SoftwareRasterizer
 
             Backend child = _cellBackend ??= new Backend();
             child.Begin(_document!, _cellBitmap, cellMatrix * Matrix.CreateTranslation(-box.Left, -box.Top), box.Width, box.Height, preview: false, _antiAliasing);
+            child._pixelModel = _pixelModel;
             try
             {
                 cell.Replay(child);

@@ -33,14 +33,8 @@ internal sealed class ShadingSource
     private PdfShading? _shading;
     private PdfDefaultColorSpaces? _defaults;
     private ColorConversion _conversion;
+    private PixelModel _model;
     private bool _paintsNothing;
-
-    /// <summary>Initializes a new instance of the <see cref="ShadingSource"/> class.</summary>
-    /// <param name="channels">What the table holds; anything but RGB converts the colours to DeviceCMYK.</param>
-    public ShadingSource(SourceChannels channels = SourceChannels.Rgb) => Channels = channels;
-
-    /// <summary>Gets what the table holds.</summary>
-    public SourceChannels Channels { get; }
 
     /// <summary>Gets the table: entry i is the colour at s = i / (<see cref="Size"/> − 1).</summary>
     public uint[] Table => _table;
@@ -59,10 +53,13 @@ internal sealed class ShadingSource
 
     /// <summary>Builds the table for <paramref name="shading"/> unless it is the one built last.</summary>
     /// <returns><see langword="false"/> when the shading's colours paint nothing (a Separation None or all-None DeviceN space, §8.6.6.4).</returns>
-    public bool Prepare(PdfDocument document, in DisplayShading shading)
+    /// <param name="document">The document whose colour converters convert the shading's colours.</param>
+    /// <param name="shading">The shading paint.</param>
+    /// <param name="pixels">What the table's pixels hold: RGB, or a transparency group's gray or CMYK plane.</param>
+    public bool Prepare(PdfDocument document, in DisplayShading shading, PixelModel pixels = default)
     {
         PdfShading model = shading.Shading;
-        if (ReferenceEquals(_shading, model) && ReferenceEquals(_defaults, shading.DefaultColorSpaces) && _conversion == shading.Conversion)
+        if (ReferenceEquals(_shading, model) && ReferenceEquals(_defaults, shading.DefaultColorSpaces) && _conversion == shading.Conversion && _model == pixels)
         {
             return !_paintsNothing;
         }
@@ -70,7 +67,8 @@ internal sealed class ShadingSource
         _shading = model;
         _defaults = shading.DefaultColorSpaces;
         _conversion = shading.Conversion;
-        ColorConversion conversion = shading.Conversion with { Target = Channels == SourceChannels.Rgb ? DeviceColorModel.Rgb : DeviceColorModel.Cmyk };
+        _model = pixels;
+        ColorConversion conversion = pixels.Convert(shading.Conversion);
         PdfColorConverter converter = document.GetColorConverter(model.InterpolationColorSpace, conversion, shading.DefaultColorSpaces);
         _paintsNothing = converter.PaintsNothing;
         Converter = converter;
@@ -83,7 +81,7 @@ internal sealed class ShadingSource
         // and is sampled by its painter, and a mesh without a function has its colours at the vertices.
         if (model.HasFunction && model is not PdfFunctionShading)
         {
-            Fill(model, converter);
+            Fill(model, converter, pixels);
         }
 
         HasBackground = false;
@@ -102,7 +100,7 @@ internal sealed class ShadingSource
 
                 Span<float> rgb = stackalloc float[4];
                 backgroundConverter.Convert(components[..background.Count], rgb);
-                Background = Pack(rgb);
+                Background = pixels == default ? Pack(rgb[0], rgb[1], rgb[2]) : pixels.Pack(rgb);
                 HasBackground = true;
             }
         }
@@ -121,26 +119,18 @@ internal sealed class ShadingSource
     private static uint Pack(float r, float g, float b) =>
         (uint)Channel(b) | ((uint)Channel(g) << 8) | ((uint)Channel(r) << 16) | 0xFF000000u;
 
-    /// <summary>Packs one converted colour as the table holds it (<see cref="Channels"/>).</summary>
-    private uint Pack(ReadOnlySpan<float> color) => Channels switch
-    {
-        SourceChannels.Rgb => Pack(color[0], color[1], color[2]),
-        SourceChannels.Cmy => Pack(1 - color[0], 1 - color[1], 1 - color[2]),
-        _ => Pack(1 - color[3], 1 - color[3], 1 - color[3]),
-    };
-
     private static byte Channel(float value) => (byte)((Math.Clamp(value, 0f, 1f) * 255f) + 0.5f);
 
     /// <summary>Samples the function at every entry and converts the colours in one batch.</summary>
-    private void Fill(PdfShading model, PdfColorConverter converter)
+    private void Fill(PdfShading model, PdfColorConverter converter, PixelModel pixels)
     {
+        int outputs = pixels.Components;
         int n = model.ColorComponentCount;
         if (_components.Length < Size * n)
         {
             _components = new float[Size * n];
         }
 
-        int outputs = Channels == SourceChannels.Rgb ? 3 : 4;
         if (_rgb.Length < Size * outputs)
         {
             _rgb = new float[Size * outputs];
@@ -159,7 +149,7 @@ internal sealed class ShadingSource
         Span<float> rgb = _rgb.AsSpan(0, Size * outputs);
         for (int i = 0; i < Size; i++)
         {
-            _table[i] = Pack(rgb.Slice(i * outputs, outputs));
+            _table[i] = pixels == default ? Pack(rgb[3 * i], rgb[(3 * i) + 1], rgb[(3 * i) + 2]) : pixels.Pack(rgb.Slice(outputs * i, outputs));
         }
     }
 

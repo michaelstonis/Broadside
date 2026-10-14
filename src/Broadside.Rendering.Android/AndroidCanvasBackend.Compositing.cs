@@ -132,6 +132,7 @@ public sealed partial class AndroidCanvasBackend
             _annotationDepth = 0;
             _blendReported = false;
             _tilingReported = false;
+            _groupReported = false;
             Diagnostics.Clear();
         }
 

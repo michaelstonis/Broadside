@@ -36,6 +36,11 @@ public sealed partial class SkiaBackend
             DiagnosticSeverity.Information,
             "The Skia backend does not draw tiling patterns yet (ISO 32000-2 §8.7.3); the page's fills and strokes with a tiling pattern were left out of this render.");
 
+        private static readonly Diagnostic GroupApproximated = new(
+            "BackendTransparencyGroupApproximated",
+            DiagnosticSeverity.Warning,
+            "The Skia backend does not composite transparency groups yet (ISO 32000-2 §11.4); groups with an opacity, a blend mode, knockout, isolation or a colour space of their own were drawn as their content alone.");
+
         private int _reported;
 
         /// <summary>Gets the diagnostics of the current or last render.</summary>
@@ -71,6 +76,21 @@ public sealed partial class SkiaBackend
 
         /// <summary>Skips a stroke with a tiling pattern (ISO 32000-2 §8.7.3.1).</summary>
         public void StrokePathWithTilingPattern(PathView path, in StrokeStyle style, in DisplayTilingPattern pattern) => Report(16, TilingPatternSkipped);
+
+        /// <summary>
+        /// Draws a transparency group's content straight onto the canvas (ISO 32000-2 §11.4.4 NOTE 5: exact for a non-isolated,
+        /// non-knockout group in the Normal blend mode at opacity 1); any other group is approximated that way and reported (#124
+        /// composites groups in layers).
+        /// </summary>
+        public void DrawGroup(in DisplayGroup group)
+        {
+            if (group.IsKnockout || group.Opacity < 1 || group.BlendMode != BlendMode.Normal || (group.IsIsolated && group.ColorSpace is not null))
+            {
+                Report(32, GroupApproximated);
+            }
+
+            group.Replay(this);
+        }
 
         private void Report(int kind, Diagnostic diagnostic)
         {

@@ -26,6 +26,15 @@ public sealed partial class SoftwareRasterizer
         private DisplayDeviceParameters _deviceParameters;
 
         private bool _previewing;
+
+        private Backend? _groupPreviewBackend;
+        private Bitmap? _groupPreviewBitmap;
+        private byte[] _groupPreviewPixels = [];
+
+        /// <summary>The scratch layers' pixel models (#114's <see cref="PixelModel"/>): 1 − C, M, Y as RGB, and 1 − K in all three channels.</summary>
+        private static readonly PixelModel CmyPass = new(DeviceColorModel.Cmyk, 0);
+
+        private static readonly PixelModel BlackPass = new(DeviceColorModel.Cmyk, 1);
         private PdfOutputIntent? _previewOutputIntent;
 
         // The converter of the last colour to DeviceCMYK, for the process colourants of a paint.
@@ -109,6 +118,56 @@ public sealed partial class SoftwareRasterizer
             _blackLayer?.Dispose();
             _cmyImage?.Dispose();
             _blackImage?.Dispose();
+            _groupPreviewBackend?.Dispose();
+            _groupPreviewBitmap?.Dispose();
+            Pooled.Return(ref _groupPreviewPixels);
+        }
+
+        /// <summary>
+        /// Routes a transparency group (#114) that needs its own layer into the preview: the group is rendered in RGB, with its
+        /// isolation, knockout, opacity and blend mode, by a child backend over a clear surface, and the result is converted to process
+        /// colourants and merged as one process paint through the clip, as a tiling cell's is.
+        /// </summary>
+        /// <remarks>
+        /// Approximations of §11.7.4.5 under the preview: the group's content is composited without the planes as its backdrop, so a
+        /// non-isolated group's blend modes and a group's own blend mode see a clear backdrop; spot colours inside the group reach the
+        /// planes as their process equivalents; the group's result knocks out (no overprint).
+        /// </remarks>
+        private void PreviewGroup(in DisplayGroup group, int left, int top, int right, int bottom)
+        {
+            var box = new PixelBox(left, top, right, bottom);
+            int length = box.Width * box.Height * 4;
+            Pooled.Ensure(ref _groupPreviewPixels, length);
+            Memory<byte> pixels = _groupPreviewPixels.AsMemory(0, length);
+            pixels.Span.Clear();
+            if (_groupPreviewBitmap is null)
+            {
+                _groupPreviewBitmap = new Bitmap(pixels, box.Width, box.Height, box.Width * 4);
+            }
+            else
+            {
+                _groupPreviewBitmap.Attach(pixels, box.Width, box.Height, box.Width * 4);
+            }
+
+            Backend child = _groupPreviewBackend ??= new Backend();
+            child.Begin(_document!, _groupPreviewBitmap, _device * Matrix.CreateTranslation(-left, -top), box.Width, box.Height, preview: false, _antiAliasing);
+            try
+            {
+                child.SetTransform(_ctm);
+                child.DrawGroup(group);
+            }
+            finally
+            {
+                child.End();
+            }
+
+            _previewOutputIntent ??= group.Conversion.OutputIntent;
+            _scan.Reset(_width, _height);
+            AddDeviceLine(new PathPoint(left, top), new PathPoint(right, top));
+            AddDeviceLine(new PathPoint(right, top), new PathPoint(right, bottom));
+            AddDeviceLine(new PathPoint(right, bottom), new PathPoint(left, bottom));
+            AddDeviceLine(new PathPoint(left, bottom), new PathPoint(left, top));
+            PreviewTiling(MemoryMarshal.Cast<byte, uint>(pixels.Span), box, FillRule.NonZero, new Compositor(1, BlendMode.Normal), overprint: false);
         }
 
         /// <summary>Paints the scan converter's shape in one colour: into the planes with <paramref name="ink"/> when previewing, else into the target.</summary>
@@ -386,10 +445,10 @@ public sealed partial class SoftwareRasterizer
             PdfColorConverter? baseConverter = image.ColorSpace is PdfIndexedColorSpace indexed && !image.Matte.IsEmpty
                 ? _previewImageBaseConverter ??= _document!.GetColorConverter(indexed.Base, conversion with { Target = DeviceColorModel.Cmyk }, defaultColorSpaces)
                 : null;
-            ImageSource cmy = _cmyImage ??= new ImageSource(SourceChannels.Cmy);
-            ImageSource black = _blackImage ??= new ImageSource(SourceChannels.Black);
-            cmy.Prepare(image, converter, baseConverter);
-            black.Prepare(image, converter, baseConverter);
+            ImageSource cmy = _cmyImage ??= new ImageSource();
+            ImageSource black = _blackImage ??= new ImageSource();
+            cmy.Prepare(image, converter, baseConverter, CmyPass);
+            black.Prepare(image, converter, baseConverter, BlackPass);
             (byte[]? opacity, int maskWidth, int maskHeight, bool maskInterpolate) = PrepareImageMask(image);
             if (!TryBeginLayers(black: true, out PixelBounds bounds))
             {
@@ -526,9 +585,9 @@ public sealed partial class SoftwareRasterizer
         /// <summary>Builds the CMY and black colour tables of a shading for the preview; false when its colours paint nothing.</summary>
         private bool PreparePreviewShading(in DisplayShading shading)
         {
-            ShadingSource cmy = _cmyShading ??= new ShadingSource(SourceChannels.Cmy);
-            ShadingSource black = _blackShading ??= new ShadingSource(SourceChannels.Black);
-            return cmy.Prepare(_document!, shading) & black.Prepare(_document!, shading);
+            ShadingSource cmy = _cmyShading ??= new ShadingSource();
+            ShadingSource black = _blackShading ??= new ShadingSource();
+            return cmy.Prepare(_document!, shading, CmyPass) & black.Prepare(_document!, shading, BlackPass);
         }
 
         /// <summary>A rectangle of device pixels, right and bottom exclusive.</summary>

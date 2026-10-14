@@ -204,6 +204,31 @@ public sealed class OverprintRenderingTests
     }
 
     [Fact]
+    public void A_transparency_group_paints_into_the_preview()
+    {
+        // An isolated group at ca 0.5 (#114) needs its own layer: in the preview it is rendered in RGB, converted to process
+        // colourants and merged, instead of being lost under the planes.
+        byte[] file = ContentSamples.OnePage(
+            "q 0 0 1 0 k 100 400 200 200 re f Q q /Fade gs /G Do Q"u8.ToArray(),
+            "/ExtGState << /Fade << /ca 0.5 >> >> /XObject << /G 5 0 R >>",
+            ContentSamples.Stream("0 1 0 0 k 200 300 200 200 re f", "/Type /XObject /Subtype /Form /BBox [0 0 612 792] /Group << /S /Transparency /I true >>"));
+        using PdfDocument document = PdfDocument.Open(file);
+        using var rasterizer = new SoftwareRasterizer();
+        using Bitmap plain = rasterizer.Render(document.Pages[0], new RenderOptions());
+        using Bitmap preview = rasterizer.Render(document.Pages[0], new RenderOptions().WithOverprintPreview(true));
+
+        foreach ((int x, int y) in new[] { Overlay, Both })
+        {
+            Rgba expected = plain.At(x, y);
+            Rgba actual = preview.At(x, y);
+            Assert.NotEqual(White, actual);
+            Assert.True(
+                Math.Abs(expected.R - actual.R) <= 40 && Math.Abs(expected.G - actual.G) <= 40 && Math.Abs(expected.B - actual.B) <= 40,
+                $"At ({x}, {y}): plain {expected}, preview {actual}.");
+        }
+    }
+
+    [Fact]
     public void A_progressive_render_draws_the_same_preview_as_a_render()
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Path("overprint.pdf"));

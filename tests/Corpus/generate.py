@@ -4790,6 +4790,83 @@ def gen_transparency_blend_modes() -> bytes:
     ], version="1.7")
 
 
+def disc(cx: float, cy: float, r: float) -> bytes:
+    """A circle of radius ``r`` about (cx, cy) as four cubic Bezier arcs (8.5.2.2), closed."""
+    k = 0.5523 * r
+    return (b"%g %g m %g %g %g %g %g %g c %g %g %g %g %g %g c %g %g %g %g %g %g c %g %g %g %g %g %g c h"
+            % (cx + r, cy,
+               cx + r, cy + k, cx + k, cy + r, cx, cy + r,
+               cx - k, cy + r, cx - r, cy + k, cx - r, cy,
+               cx - r, cy - k, cx - k, cy - r, cx, cy - r,
+               cx + k, cy - r, cx + r, cy - k, cx + r, cy))
+
+
+def gen_transparency_groups() -> bytes:
+    """11.4.5, 11.4.6, 11.4.7, 11.6.6 Table 145, 11.7.4.4: transparency groups. Page 1 (no page group) is a 2 x 4 grid of
+    306 x 198 cells, each over a DeviceRGB axial shading from yellow (1 0.9 0.1) to dark blue (0.1 0.2 0.6) across the
+    cell (8.7.4.5.3). In rows 1 and 2 a group XObject holds four overlapping discs of radius 40 (red, green, blue and
+    yellow, after Figure 74) painted with /BM /Multiply inside it: row 1 isolated (/I true), row 2 non-isolated; the left
+    column knockout (/K true), the right not. Row 3 left: the same discs in an isolated group painted with /ca 0.5 and
+    /BM /Multiply at Do; right: cyan, magenta and yellow discs (DeviceCMYK, Multiply) in an isolated group with
+    /CS /DeviceCMYK, beside the same discs in an isolated /CS /DeviceRGB group. Row 4 left: a rectangle filled red and
+    stroked 16 wide in blue with b under /CA 0.5 (one object, 11.7.4.4: the stroke does not show the fill through it);
+    right: a non-isolated group at /ca 0.5 holding two overlapping black squares. Page 2 has a page group
+    /CS /DeviceCMYK: cyan and magenta discs at /ca 0.5 overlap, a yellow disc multiplies over them, on white."""
+    shading = (b"<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 306 0] /Function << /FunctionType 2 /Domain [0 1]"
+               b" /C0 [1 0.9 0.1] /C1 [0.1 0.2 0.6] /N 1 >> >>")
+    rgb_discs = (b"1 0 0 rg " + disc(-25, 25, 40) + b" f 0 1 0 rg " + disc(25, 25, 40) + b" f "
+                 b"0 0 1 rg " + disc(-25, -25, 40) + b" f 1 1 0 rg " + disc(25, -25, 40) + b" f")
+    cmy_discs = (b"1 0 0 0 k " + disc(0, 25, 35) + b" f 0 1 0 0 k " + disc(-22, -12, 35) + b" f "
+                 b"0 0 1 0 k " + disc(22, -12, 35) + b" f")
+    states = (b"/ExtGState << /M << /BM /Multiply >> /HM << /BM /Multiply /ca 0.5 >> /H << /ca 0.5 >> "
+              b"/HS << /CA 0.5 >> >>")
+    resources = b"/Resources << " + states + b" >>"
+
+    def form(group: bytes, content: bytes, bbox: bytes = b"[-80 -80 80 80]") -> bytes:
+        return stream(b"/Type /XObject /Subtype /Form /BBox " + bbox + b" /Group << /S /Transparency " + group + b" >> "
+                      + resources, content)
+
+    forms = [
+        form(b"/I true /K true", b"/M gs " + rgb_discs),          # 6: isolated knockout
+        form(b"/I true", b"/M gs " + rgb_discs),                  # 7: isolated
+        form(b"/K true", b"/M gs " + rgb_discs),                  # 8: non-isolated knockout
+        form(b"", b"/M gs " + rgb_discs),                         # 9: non-isolated
+        form(b"/I true /CS /DeviceCMYK", b"/M gs " + cmy_discs),  # 10: CMYK
+        form(b"/I true /CS /DeviceRGB", b"/M gs " + cmy_discs),   # 11: RGB
+        form(b"", b"0 g -60 -40 80 80 re f -20 -40 80 80 re f"),  # 12: two black squares
+    ]
+    cells = []
+
+    def cell(column: int, row: int, body: bytes) -> None:
+        x = column * 306
+        y = 792 - (row + 1) * 198
+        cells.append(b"q 1 0 0 1 %d %d cm q 0 0 306 198 re W n /Sh0 sh Q %s Q\n" % (x, y, body))
+
+    cell(0, 0, b"q 1 0 0 1 153 99 cm /G6 Do Q")
+    cell(1, 0, b"q 1 0 0 1 153 99 cm /G7 Do Q")
+    cell(0, 1, b"q 1 0 0 1 153 99 cm /G8 Do Q")
+    cell(1, 1, b"q 1 0 0 1 153 99 cm /G9 Do Q")
+    cell(0, 2, b"q /HM gs 1 0 0 1 153 99 cm /G7 Do Q")
+    cell(1, 2, b"q 1 0 0 1 80 99 cm /G10 Do Q q 1 0 0 1 226 99 cm /G11 Do Q")
+    cell(0, 3, b"q /HS gs 16 w 1 0 0 rg 0 0 1 RG 83 49 140 100 re b Q")
+    cell(1, 3, b"q /H gs 1 0 0 1 153 99 cm /G12 Do Q")
+    xobjects = b" ".join(b"/G%d %d 0 R" % (n, n) for n in range(6, 13))
+    page2 = (b"/H gs 1 0 0 0 k " + disc(256, 420, 90) + b" f 0 1 0 0 k " + disc(356, 420, 90) + b" f "
+             b"/M gs 0 0 1 0 k " + disc(306, 340, 90) + b" f")
+    return simple_file([
+        (1, catalog()),
+        (2, pages([3, 13])),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << " + states + b" /Shading << /Sh0 5 0 R >> /XObject << " + xobjects + b" >> >>")),
+        (4, stream(b"", b"".join(cells))),
+        (5, shading),
+        *[(6 + i, f) for i, f in enumerate(forms)],
+        (13, page(contents=14, resources=False,
+                  extra=b" /Group << /S /Transparency /CS /DeviceCMYK >> /Resources << " + states + b" >>")),
+        (14, stream(b"", page2)),
+    ], version="1.7")
+
+
 def gen_marked_content() -> bytes:
     """14.6 marked content: BMC /Artifact; BDC /P with an inline <</MCID 0>>; BDC /Span naming /P1 in the page's
     /Properties (MCID 1, Lang); MP /Pt; DP /Pt2 with an inline property list; BDC /OC naming an optional content
@@ -6671,6 +6748,7 @@ FILES = {
     "transparency-blend-modes.pdf": gen_transparency_blend_modes,
     "transfer-functions.pdf": gen_transfer_functions,
     "overprint.pdf": gen_overprint,
+    "transparency-groups.pdf": gen_transparency_groups,
     "marked-content.pdf": gen_marked_content,
     "image-stencil-mask.pdf": gen_image_stencil_mask,
     "image-explicit-mask.pdf": gen_image_explicit_mask,

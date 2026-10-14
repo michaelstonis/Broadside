@@ -23,8 +23,9 @@ public sealed partial class SoftwareRasterizer
         /// </remarks>
         public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode)
         {
-            _strokeCompositor = new Compositor(strokeAlpha, blendMode);
-            _fillCompositor = new Compositor(fillAlpha, blendMode);
+            bool knockout = CurrentLayer?.Knockout == true;
+            _strokeCompositor = new Compositor(strokeAlpha, blendMode).WithKnockout(knockout);
+            _fillCompositor = new Compositor(fillAlpha, blendMode).WithKnockout(knockout);
         }
 
         private void SaveCompositing()

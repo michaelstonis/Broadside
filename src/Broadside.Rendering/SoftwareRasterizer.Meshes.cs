@@ -22,6 +22,42 @@ public sealed partial class SoftwareRasterizer
         private float[] _meshRgb = [];
         private PdfShading? _meshRgbShading;
         private PdfColorConverter? _meshRgbConverter;
+        private PixelModel _meshRgbModel;
+
+        /// <summary>
+        /// Turns <paramref name="count"/> colours converted to the pixel model's target (#114: RGB, or CMYK in a CMYK group) into the
+        /// three channels the mesh layer interpolates and packs as RGB, in place: RGB as is, a gray group's level in all three, a CMYK
+        /// group's complemented C, M, Y (pass 0) or complemented K (pass 1), as <see cref="PixelModel.Pack(ReadOnlySpan{float})"/> stores them.
+        /// </summary>
+        private void ToLayerChannels(Span<float> colors, int count)
+        {
+            PixelModel model = _pixelModel;
+            if (model == PixelModel.Rgb)
+            {
+                return;
+            }
+
+            int stride = model.Components;
+            for (int i = 0; i < count; i++)
+            {
+                ReadOnlySpan<float> c = colors.Slice(i * stride, stride);
+                (float r, float g, float b) = model.Model switch
+                {
+                    DeviceColorModel.Gray => ((0.3f * c[0]) + (0.59f * c[1]) + (0.11f * c[2]), 0f, 0f),
+                    DeviceColorModel.Cmyk when model.Pass == 0 => (1 - c[0], 1 - c[1], 1 - c[2]),
+                    DeviceColorModel.Cmyk => (1 - c[3], 1 - c[3], 1 - c[3]),
+                    _ => (c[0], c[1], c[2]),
+                };
+                if (model.Model == DeviceColorModel.Gray)
+                {
+                    (g, b) = (r, r);
+                }
+
+                colors[i * 3] = r;
+                colors[(i * 3) + 1] = g;
+                colors[(i * 3) + 2] = b;
+            }
+        }
 
         /// <summary>Whether <paramref name="shading"/> is painted through the mesh layer rather than <see cref="ShadingPainter"/>.</summary>
         private static bool PaintsAsMesh(PdfShading shading) => shading is PdfFunctionShading or PdfTriangleMeshShading or PdfPatchMeshShading;
@@ -94,8 +130,8 @@ public sealed partial class SoftwareRasterizer
             return IsFinite(toDevice)
                 && toDevice.TryInvert(out inverse)
                 && IsFinite(inverse)
-                && _shadingSource.Prepare(_document!, shading)
-                && _shadingSource.Converter is { OutputCount: 3 };
+                && _shadingSource.Prepare(_document!, shading, _pixelModel)
+                && _shadingSource.Converter is { } converter && converter.OutputCount == _pixelModel.Components;
         }
 
         /// <summary>
@@ -271,7 +307,7 @@ public sealed partial class SoftwareRasterizer
             }
 
             Pooled.Ensure(ref _meshComponents, points * n);
-            Pooled.Ensure(ref _meshRgb, points * 3);
+            Pooled.Ensure(ref _meshRgb, points * _pixelModel.Components);
             _meshRgbShading = null;
             Span<float> input = stackalloc float[2];
             for (int j = 0, k = 0; j <= rows; j++)
@@ -284,7 +320,8 @@ public sealed partial class SoftwareRasterizer
                 }
             }
 
-            converter.Convert(_meshComponents.AsSpan(0, points * n), _meshRgb.AsSpan(0, points * 3), points);
+            converter.Convert(_meshComponents.AsSpan(0, points * n), _meshRgb.AsSpan(0, points * _pixelModel.Components), points);
+            ToLayerChannels(_meshRgb, points);
             for (int j = 0; j < rows; j++)
             {
                 double va = v0 + ((v1 - v0) * j / rows);
@@ -351,12 +388,14 @@ public sealed partial class SoftwareRasterizer
                 return;
             }
 
-            if (!ReferenceEquals(_meshRgbShading, model) || !ReferenceEquals(_meshRgbConverter, converter))
+            if (!ReferenceEquals(_meshRgbShading, model) || !ReferenceEquals(_meshRgbConverter, converter) || _meshRgbModel != _pixelModel)
             {
-                Pooled.Ensure(ref _meshRgb, points.Length * 3);
-                converter.Convert(colors, _meshRgb.AsSpan(0, points.Length * 3), points.Length);
+                Pooled.Ensure(ref _meshRgb, points.Length * _pixelModel.Components);
+                converter.Convert(colors, _meshRgb.AsSpan(0, points.Length * _pixelModel.Components), points.Length);
+                ToLayerChannels(_meshRgb, points.Length);
                 _meshRgbShading = model;
                 _meshRgbConverter = converter;
+                _meshRgbModel = _pixelModel;
             }
 
             for (int k = 0; k + 2 < triangles.Length; k += 3)
@@ -453,6 +492,7 @@ public sealed partial class SoftwareRasterizer
         {
             _meshRgbShading = null;
             _meshRgbConverter = null;
+            _meshRgbModel = default;
         }
 
         /// <summary>Returns the mesh buffers to the pool.</summary>
