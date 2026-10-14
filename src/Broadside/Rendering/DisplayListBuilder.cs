@@ -77,6 +77,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         GlyphRuns = _glyphRuns.AsSpan(0, _glyphRunCount).ToArray(),
         Glyphs = _glyphs.AsSpan(0, _glyphCount).ToArray(),
         ShadingPaints = _shadingPaints.AsSpan(0, _shadingPaintCount).ToArray(),
+        ImageMasks = _imageMasks.AsSpan(0, _imageMaskCount).ToArray(),
     };
 
     /// <summary>Forgets everything built, keeping the tables' capacity and no reference into a document.</summary>

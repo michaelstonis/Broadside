@@ -80,6 +80,35 @@ public sealed class RasterizerAllocationTests
         Assert.Contains(bitmap.Pixels.ToArray(), value => value != 0);
     }
 
+    [Theory]
+    [InlineData(72)]
+    [InlineData(300)]
+    public void Drawing_masked_images_and_stencil_masks_allocates_nothing_per_mask_row_or_pixel(double dpi)
+    {
+        // Every mask path (ISO 32000-2 §8.9.6, §11.6.5): stencil masks enlarged, reduced, interpolated, rotated and inline; explicit
+        // masks of another size and of the image's; a 16-bit soft mask with Decode at another size; Matte on DeviceRGB and Indexed
+        // images; colour key masking. Each image and mask is converted afresh per render.
+        using PdfDocument document = PdfDocument.Open(MaskSamples.MaskHeavy());
+        PdfPage page = document.Pages[0];
+        DisplayList list = page.CreateDisplayList();
+        var recorder = new RecordingBackend();
+        list.Replay(recorder);
+        Assert.Equal(6, recorder.Images.Count);
+        Assert.Equal(5, recorder.ImageMasks.Count);
+        Assert.Empty(document.Diagnostics);
+        var options = new RenderOptions().WithDpi(dpi);
+        PixelSize size = options.GetPixelSize(page);
+        Matrix device = options.GetDeviceTransform(page);
+        using var bitmap = new Bitmap(size.Width, size.Height);
+        using var rasterizer = new SoftwareRasterizer();
+        Action render = () => rasterizer.Render(list, bitmap, device);
+
+        long allocated = Allocations.Measure(render, warmUpCalls: 3);
+
+        Assert.Equal(0, allocated);
+        Assert.Contains(bitmap.Pixels.ToArray(), value => value is not (0 or 0xFF));
+    }
+
     [Fact]
     public void Replaying_the_corpus_fill_rules_page_allocates_nothing()
     {

@@ -3695,6 +3695,19 @@ Broadside.Rendering.DisplayImage.Samples.get -> System.ReadOnlySpan<byte>
 Broadside.Rendering.DisplayImage.StorageBits.get -> int
 Broadside.Rendering.DisplayImage.Stride.get -> int
 Broadside.Rendering.DisplayImage.Width.get -> int
+Broadside.Rendering.DisplayImage.ColorKey.get -> System.ReadOnlySpan<double>
+Broadside.Rendering.DisplayImage.ColorTable.get -> System.ReadOnlySpan<byte>
+Broadside.Rendering.DisplayImage.Mask.get -> Broadside.Rendering.DisplayImageMask?
+Broadside.Rendering.DisplayImage.Matte.get -> System.ReadOnlySpan<float>
+Broadside.Rendering.DisplayImage.SoftMask.get -> Broadside.Rendering.DisplayImage?
+Broadside.Rendering.DisplayImageMask
+Broadside.Rendering.DisplayImageMask.GetRow(int y) -> System.ReadOnlySpan<byte>
+Broadside.Rendering.DisplayImageMask.Height.get -> int
+Broadside.Rendering.DisplayImageMask.Interpolate.get -> bool
+Broadside.Rendering.DisplayImageMask.IsInverted.get -> bool
+Broadside.Rendering.DisplayImageMask.Samples.get -> System.ReadOnlySpan<byte>
+Broadside.Rendering.DisplayImageMask.Stride.get -> int
+Broadside.Rendering.DisplayImageMask.Width.get -> int
 Broadside.Rendering.IRenderingBackend.DrawImage(Broadside.Rendering.DisplayImage! image, Broadside.Graphics.PdfDefaultColorSpaces! defaultColorSpaces, Broadside.Graphics.ColorConversion conversion) -> void
 Broadside.Rendering.DisplayShading
 Broadside.Rendering.DisplayShading.Conversion.get -> Broadside.Graphics.ColorConversion
@@ -3706,6 +3719,7 @@ Broadside.Rendering.DisplayShading.Shading.get -> Broadside.Graphics.PdfShading!
 Broadside.Rendering.IRenderingBackend.DrawShading(in Broadside.Rendering.DisplayShading shading) -> void
 Broadside.Rendering.IRenderingBackend.FillPathWithShading(Broadside.Graphics.PathView path, Broadside.Graphics.FillRule rule, in Broadside.Rendering.DisplayShading shading) -> void
 Broadside.Rendering.IRenderingBackend.StrokePathWithShading(Broadside.Graphics.PathView path, in Broadside.Rendering.StrokeStyle style, in Broadside.Rendering.DisplayShading shading) -> void
+Broadside.Rendering.IRenderingBackend.FillImageMask(Broadside.Rendering.DisplayImageMask! mask, in Broadside.Rendering.DisplayColor color) -> void
 Broadside.PdfDocument.AddObject(Broadside.Objects.CosObject! value) -> Broadside.Objects.CosReference!
 Broadside.PdfDocument.RemoveObject(Broadside.Objects.CosReference! reference) -> bool
 Broadside.PdfSaveOptions.IncrementalUpdate.get -> bool
