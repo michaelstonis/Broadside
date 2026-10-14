@@ -4026,10 +4026,28 @@ Broadside.Forms.PdfFieldOptions.WithBorderWidth(double width) -> Broadside.Forms
 Broadside.Forms.PdfFieldOptions.WithMaxLength(int? maxLength) -> Broadside.Forms.PdfFieldOptions!
 Broadside.Forms.PdfFieldOptions.WithCaption(string? caption) -> Broadside.Forms.PdfFieldOptions!
 Broadside.Rendering.DisplayList.Replay(Broadside.Rendering.IRenderingBackend! backend, Broadside.PdfRectangle region) -> void
+Broadside.PdfEncryptionRecipient
+Broadside.PdfEncryptionRecipient.Access.get -> Broadside.PdfAccessLevel
+Broadside.PdfEncryptionRecipient.Certificate.get -> System.Security.Cryptography.X509Certificates.X509Certificate2!
+Broadside.PdfEncryptionRecipient.Permissions.get -> Broadside.PdfPermissions
+Broadside.PdfPublicKeyEncryptionOptions
+Broadside.PdfPublicKeyEncryptionOptions.AddOwner(System.Security.Cryptography.X509Certificates.X509Certificate2! certificate) -> Broadside.PdfPublicKeyEncryptionOptions!
+Broadside.PdfPublicKeyEncryptionOptions.AddRecipient(System.Security.Cryptography.X509Certificates.X509Certificate2! certificate, Broadside.PdfPermissions permissions) -> Broadside.PdfPublicKeyEncryptionOptions!
+Broadside.PdfPublicKeyEncryptionOptions.EncryptMetadata.get -> bool
+Broadside.PdfPublicKeyEncryptionOptions.EncryptMetadata.set -> void
+Broadside.PdfPublicKeyEncryptionOptions.PdfPublicKeyEncryptionOptions() -> void
+Broadside.PdfPublicKeyEncryptionOptions.Recipients.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfEncryptionRecipient!>!
+Broadside.PdfPublicKeyEncryptionOptions.WithEncryptMetadata(bool encryptMetadata) -> Broadside.PdfPublicKeyEncryptionOptions!
+Broadside.PdfSaveOptions.PublicKeyEncryption.get -> Broadside.PdfPublicKeyEncryptionOptions?
+Broadside.PdfSaveOptions.PublicKeyEncryption.set -> void
+Broadside.PdfSaveOptions.WithPublicKeyEncryption(Broadside.PdfPublicKeyEncryptionOptions? encryption) -> Broadside.PdfSaveOptions!
 Broadside.PdfEncryptionAlgorithm.Aes256Gcm = 3 -> Broadside.PdfEncryptionAlgorithm
 Broadside.PdfEncryptionOptions.IntegrityProtection.get -> bool
 Broadside.PdfEncryptionOptions.IntegrityProtection.set -> void
 Broadside.PdfEncryptionOptions.WithIntegrityProtection(bool integrityProtection) -> Broadside.PdfEncryptionOptions!
+Broadside.PdfPublicKeyEncryptionOptions.IntegrityProtection.get -> bool
+Broadside.PdfPublicKeyEncryptionOptions.IntegrityProtection.set -> void
+Broadside.PdfPublicKeyEncryptionOptions.WithIntegrityProtection(bool integrityProtection) -> Broadside.PdfPublicKeyEncryptionOptions!
 Broadside.Rendering.IRenderingBackend.SetCompositing(double strokeAlpha, double fillAlpha, Broadside.Graphics.BlendMode blendMode) -> void
 Broadside.Rendering.DisplayTilingPattern
 Broadside.Rendering.DisplayTilingPattern.Cell.get -> Broadside.Rendering.DisplayList!
