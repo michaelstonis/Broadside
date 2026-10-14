@@ -93,12 +93,24 @@ internal sealed class DocumentMetadataWriter
         return ReadInfoValue(info, reference, entry) is not null || ReadXmpValue(packet, entry) is not null;
     }
 
+    /// <summary>Gets whether the Info dictionary holds an entry PDF 2.0 deprecates there (every Table 349 entry but the two dates, §14.3.3).</summary>
+    public bool HasDeprecatedInfoEntry()
+    {
+        (CosDictionary? info, CosReference? reference) = ReadInfo();
+        return info is not null && Entries.Any(entry =>
+            entry is not (MetadataEntry.CreationDate or MetadataEntry.ModificationDate) && ReadInfoValue(info, reference, entry) is not null);
+    }
+
     /// <summary>Writes the edit.</summary>
     /// <param name="now">The edit's time: <c>xmp:MetadataDate</c>.</param>
     /// <param name="createPacket">Whether a document before PDF 2.0 without a metadata stream gets one.</param>
-    public void Commit(MetadataDate now, bool createPacket)
+    /// <param name="layout">
+    /// The version whose layout to write when it is not the document's own: the version a save raises the document to, once the
+    /// version plan has decided it (§14.3.3). <see langword="null"/> is <see cref="PdfDocument.Version"/>.
+    /// </param>
+    public void Commit(MetadataDate now, bool createPacket, PdfVersion? layout = null)
     {
-        PdfVersion version = _document.Version;
+        PdfVersion version = layout ?? _document.Version;
         bool isPdf20 = version >= Pdf20;
         (CosDictionary? info, CosReference? infoReference) = ReadInfo();
         (CosStream? stream, XmpPacket? packet) = ReadMetadata();
