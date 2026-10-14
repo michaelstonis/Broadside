@@ -81,13 +81,13 @@ internal sealed record UpdateResult(ReadOnlyMemory<byte> Bytes, XrefSection Sect
 /// when a file is first written). Nothing depends on the clock or a random source.
 /// </para>
 /// </remarks>
-internal sealed class FileWriter
+internal sealed partial class FileWriter
 {
     /// <summary>How many bytes are gathered before a chunk is handed out.</summary>
     private const int ChunkSize = 64 * 1024;
 
     /// <summary>The most objects one object stream holds, to keep random access cheap (§7.5.7, NOTE 4).</summary>
-    private const int ObjectStreamCapacity = 100;
+    internal const int ObjectStreamCapacity = 100;
 
     /// <summary>The largest offset a classic cross-reference entry's ten digits can state (§7.5.4).</summary>
     private const long MaxTableOffset = 9_999_999_999;
@@ -180,6 +180,16 @@ internal sealed class FileWriter
     /// <returns>The file's bytes, in order.</returns>
     public IEnumerable<ReadOnlyMemory<byte>> Write()
     {
+        if (Linearized is { } layout)
+        {
+            foreach (ReadOnlyMemory<byte> chunk in WriteLinearized(layout))
+            {
+                yield return chunk;
+            }
+
+            yield break;
+        }
+
         if (_update is null)
         {
             foreach (ReadOnlyMemory<byte> chunk in WriteFrom(0))
