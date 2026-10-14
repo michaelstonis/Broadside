@@ -2756,6 +2756,8 @@ Broadside.PdfDocument.Save(string! path, Broadside.PdfSaveOptions! options) -> v
 Broadside.PdfDocument.Save(System.IO.Stream! stream) -> void
 Broadside.PdfDocument.Save(System.IO.Stream! stream, Broadside.PdfSaveOptions! options) -> void
 Broadside.PdfDocument.SaveAsync(System.IO.Stream! stream, Broadside.PdfSaveOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.PdfDocument.Sign(System.IO.Stream! stream, Broadside.Signatures.IPdfSigner! signer, Broadside.Signatures.PdfSignatureOptions? options = null) -> void
+Broadside.PdfDocument.SignAsync(System.IO.Stream! stream, Broadside.Signatures.IPdfSigner! signer, Broadside.Signatures.PdfSignatureOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Broadside.PdfSaveOptions
 Broadside.PdfSaveOptions.CrossReferenceLayout.get -> Broadside.PdfCrossReferenceLayout
 Broadside.PdfSaveOptions.CrossReferenceLayout.set -> void
@@ -3124,6 +3126,39 @@ Broadside.PdfPageLabelStyle.UppercaseLetters = 4 -> Broadside.PdfPageLabelStyle
 Broadside.PdfPageLabelStyle.UppercaseRoman = 2 -> Broadside.PdfPageLabelStyle
 Broadside.PdfDocument.MarkInfo.get -> Broadside.Structure.PdfMarkInfo!
 Broadside.PdfDocument.StructureTree.get -> Broadside.Structure.PdfStructureTreeRoot?
+Broadside.Signatures.IPdfSigner
+Broadside.Signatures.IPdfSigner.Certificate.get -> System.Security.Cryptography.X509Certificates.X509Certificate2!
+Broadside.Signatures.IPdfSigner.CertificateChain.get -> System.Collections.Generic.IReadOnlyList<System.Security.Cryptography.X509Certificates.X509Certificate2!>!
+Broadside.Signatures.IPdfSigner.SignDigest(System.ReadOnlySpan<byte> digest, System.Security.Cryptography.HashAlgorithmName digestAlgorithm) -> byte[]!
+Broadside.Signatures.IPdfSigner.SignDigestAsync(System.ReadOnlyMemory<byte> digest, System.Security.Cryptography.HashAlgorithmName digestAlgorithm, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<byte[]!>
+Broadside.Signatures.PdfCertificateSigner
+Broadside.Signatures.PdfCertificateSigner.Certificate.get -> System.Security.Cryptography.X509Certificates.X509Certificate2!
+Broadside.Signatures.PdfCertificateSigner.CertificateChain.get -> System.Collections.Generic.IReadOnlyList<System.Security.Cryptography.X509Certificates.X509Certificate2!>!
+Broadside.Signatures.PdfCertificateSigner.PdfCertificateSigner(System.Security.Cryptography.X509Certificates.X509Certificate2! certificate, System.Collections.Generic.IEnumerable<System.Security.Cryptography.X509Certificates.X509Certificate2!>? certificateChain = null) -> void
+Broadside.Signatures.PdfCertificateSigner.SignDigest(System.ReadOnlySpan<byte> digest, System.Security.Cryptography.HashAlgorithmName digestAlgorithm) -> byte[]!
+Broadside.Signatures.PdfSignatureOptions
+Broadside.Signatures.PdfSignatureOptions.ContactInfo.get -> string?
+Broadside.Signatures.PdfSignatureOptions.ContactInfo.set -> void
+Broadside.Signatures.PdfSignatureOptions.DigestAlgorithm.get -> System.Security.Cryptography.HashAlgorithmName
+Broadside.Signatures.PdfSignatureOptions.DigestAlgorithm.set -> void
+Broadside.Signatures.PdfSignatureOptions.FieldName.get -> string?
+Broadside.Signatures.PdfSignatureOptions.FieldName.set -> void
+Broadside.Signatures.PdfSignatureOptions.Location.get -> string?
+Broadside.Signatures.PdfSignatureOptions.Location.set -> void
+Broadside.Signatures.PdfSignatureOptions.PdfSignatureOptions() -> void
+Broadside.Signatures.PdfSignatureOptions.Reason.get -> string?
+Broadside.Signatures.PdfSignatureOptions.Reason.set -> void
+Broadside.Signatures.PdfSignatureOptions.SignerName.get -> string?
+Broadside.Signatures.PdfSignatureOptions.SignerName.set -> void
+Broadside.Signatures.PdfSignatureOptions.SigningTime.get -> System.DateTimeOffset?
+Broadside.Signatures.PdfSignatureOptions.SigningTime.set -> void
+Broadside.Signatures.PdfSignatureOptions.WithContactInfo(string? contactInfo) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureOptions.WithDigestAlgorithm(System.Security.Cryptography.HashAlgorithmName digestAlgorithm) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureOptions.WithFieldName(string? fieldName) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureOptions.WithLocation(string? location) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureOptions.WithReason(string? reason) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureOptions.WithSignerName(string? signerName) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureOptions.WithSigningTime(System.DateTimeOffset? signingTime) -> Broadside.Signatures.PdfSignatureOptions!
 Broadside.Structure.PdfArtifactAttributes
 Broadside.Structure.PdfArtifactAttributes.ArtifactSubtype.get -> string?
 Broadside.Structure.PdfArtifactAttributes.ArtifactType.get -> string?

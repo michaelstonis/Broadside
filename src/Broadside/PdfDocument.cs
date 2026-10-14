@@ -1153,7 +1153,10 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Returns the default colour spaces of a resource dictionary.</summary>
     /// <param name="resources">The resource dictionary, such as <see cref="PdfPage.Resources"/>; <see langword="null"/> for none.</param>
     /// <returns>The defaults; <see cref="PdfDefaultColorSpaces.None"/> when the dictionary has none.</returns>
-    /// <remarks>ISO 32000-2 §8.6.5.6. Invalid defaults are ignored with a diagnostic.</remarks>
+    /// <remarks>
+    /// ISO 32000-2 §8.6.5.6. Invalid defaults are ignored with a diagnostic. Read again after the dictionary's <c>ColorSpace</c>
+    /// subdictionary changes or an object is added or removed (which can change what a reference in it resolves to, §7.3.10).
+    /// </remarks>
     public PdfDefaultColorSpaces GetDefaultColorSpaces(CosDictionary? resources) => ColorSpaces.GetDefaults(resources);
 
     /// <summary>Returns the converter from <paramref name="source"/> to RGB with the relative colorimetric intent.</summary>
@@ -1317,9 +1320,12 @@ public sealed partial class PdfDocument : IDisposable
     /// leads the cross-reference information, its revision is added, and the objects it wrote are no longer dirty. A full save
     /// changes nothing: the document keeps reading the file it was opened from.
     /// </summary>
-    private void Rebase(FileWriter writer)
+    private void Rebase(FileWriter writer) => Rebase(writer.Update);
+
+    /// <summary>As <see cref="Rebase(FileWriter)"/>, for an update whose bytes were completed after writing (a signature, issue #193).</summary>
+    private void Rebase(UpdateResult? update)
     {
-        if (writer.Update is not { } update)
+        if (update is null)
         {
             return;
         }
