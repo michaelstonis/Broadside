@@ -1,5 +1,6 @@
 using System.Text;
 using Broadside.Diagnostics;
+using Broadside.Forms;
 using Broadside.Objects;
 using Broadside.Security;
 using Broadside.Structure;
@@ -474,6 +475,60 @@ public sealed class VersionRaisingTests
     /// (whose graphics state, transparency group and <c>OC</c> sequence carry an annotation's opacity and optional content), and, for
     /// the features no API creates, a page copy (<see cref="PdfObjectCopier"/>).
     /// </summary>
+    public static TheoryData<string, string, int, int, string> FormFeatures => new()
+    {
+        { "text field", "1.1", 1, 2, "an interactive form (AcroForm) with fields and widget annotations (ISO 32000-2 §12.7.3; §7.7.2, Table 29) needs PDF 1.2" },
+        { "signature field", "1.2", 1, 3, "signature fields (FT Sig, SigFlags) (ISO 32000-2 §12.7.5.5; §12.7.3, Table 224) needs PDF 1.3" },
+        { "alternate name", "1.2", 1, 3, "a field's alternative name (TU) (ISO 32000-2 §12.7.4.1, Table 226) needs PDF 1.3" },
+        { "do not spell check", "1.3", 1, 4, "the field flags FileSelect, MultiSelect, DoNotSpellCheck or DoNotScroll" },
+        { "multiple selection", "1.3", 1, 4, "the field flags FileSelect, MultiSelect, DoNotSpellCheck or DoNotScroll" },
+        { "comb", "1.4", 1, 5, "the field flags Comb, RichText, RadiosInUnison or CommitOnSelChange" },
+        { "radios in unison", "1.4", 1, 5, "the field flags Comb, RichText, RadiosInUnison or CommitOnSelChange" },
+    };
+
+    [Theory]
+    [MemberData(nameof(FormFeatures))]
+    public void Each_form_field_feature_raises_a_document_below_its_minimum(string scenario, string header, int major, int minor, string named)
+    {
+        using PdfDocument document = PdfDocument.Open(Document.TestPdf.OnePage("/MediaBox [0 0 612 792]", header: "%PDF-" + header));
+        PdfPage page = document.Pages[0];
+        var rect = new PdfRectangle(72, 700, 272, 724);
+        PdfAcroForm form = document.CreateAcroForm();
+        switch (scenario)
+        {
+            case "text field":
+                form.AddTextField("name", page, rect);
+                break;
+            case "signature field":
+                form.AddSignatureField("approval", page, rect);
+                break;
+            case "alternate name":
+                form.AddTextField("name", page, rect, new PdfFieldOptions().WithAlternateName("Name"));
+                break;
+            case "do not spell check":
+                form.AddTextField("name", page, rect, new PdfFieldOptions().WithFlags(PdfFieldFlags.DoNotSpellCheck));
+                break;
+            case "multiple selection":
+                form.AddListBox("pick", page, rect, [new PdfChoiceOption("A")], new PdfFieldOptions().WithFlags(PdfFieldFlags.MultiSelect));
+                break;
+            case "comb":
+                form.AddTextField("code", page, rect, new PdfFieldOptions().WithFlags(PdfFieldFlags.Comb).WithMaxLength(6));
+                break;
+            default:
+                form.AddRadioButtons("pick", [new PdfRadioButton(page, rect, "A")], new PdfFieldOptions().WithFlags(PdfFieldFlags.RadiosInUnison));
+                break;
+        }
+
+        byte[] saved = Save(document, Options.WithStreamCompression(PdfStreamCompression.None));
+
+        var expected = new PdfVersion(major, minor);
+        Assert.Equal(expected.ToString(), HeaderVersion(saved));
+        Assert.Contains(named, Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == "VersionRaised").Message, StringComparison.Ordinal);
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Equal(expected, reopened.Version);
+        Assert.DoesNotContain(reopened.Diagnostics, diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning);
+    }
+
     [Theory]
     [MemberData(nameof(GraphicsFeatures))]
     public void Each_graphics_feature_raises_a_document_below_its_minimum(string scenario, string header, int major, int minor, string named)
