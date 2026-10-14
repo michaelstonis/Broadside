@@ -78,6 +78,8 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         Glyphs = _glyphs.AsSpan(0, _glyphCount).ToArray(),
         ShadingPaints = _shadingPaints.AsSpan(0, _shadingPaintCount).ToArray(),
         ImageMasks = _imageMasks.AsSpan(0, _imageMaskCount).ToArray(),
+        TextGlyphs = _textGlyphs.AsSpan(0, _textGlyphCount).ToArray(),
+        Text = _text.AsSpan(0, _textLength).ToArray(),
     };
 
     /// <summary>Forgets everything built, keeping the tables' capacity and no reference into a document.</summary>
@@ -93,6 +95,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         ResetImages();
         ResetText();
         ResetShadings();
+        ResetTextPositions();
     }
 
     /// <inheritdoc/>

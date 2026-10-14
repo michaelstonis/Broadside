@@ -48,15 +48,16 @@ public sealed class DisplayListAllocationTests
     [InlineData(2000)]
     public void Building_a_display_list_of_text_allocates_the_glyph_records_and_nothing_else_per_glyph(int glyphs)
     {
-        // Each glyph's record (glyph id, text matrix, scale and outline index: 72 bytes) is copied into the list; outlines are read
-        // once per glyph id, so nothing else may grow with the glyph count.
+        // Each glyph's record (glyph id, text matrix, scale and outline index: 72 bytes) is copied into the list, with its hit-test
+        // position (box and text slice: 40 bytes) and its Unicode text (a char or two); outlines are read once per glyph id, so
+        // nothing else may grow with the glyph count.
         using PdfDocument document = PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(glyphs)));
         PdfPage page = document.Pages[0];
         Action build = () => page.CreateDisplayList();
 
         long allocated = Allocations.Measure(build);
 
-        Assert.InRange(allocated, 1, 8192 + (96 * glyphs));
+        Assert.InRange(allocated, 1, 8192 + (120 * glyphs));
     }
 
     [Theory]

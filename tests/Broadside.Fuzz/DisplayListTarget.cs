@@ -13,7 +13,8 @@ namespace Broadside.Fuzz;
 /// Decode map that agree on its component count; every glyph run (issue #100) has glyphs whose outlines are well formed, paints
 /// in no Pattern colour, paints nothing in mode 3 and fills or strokes only in the modes that do; every shading (issue #109) is
 /// valid, evaluates to finite colours and paints its Background only as a pattern; two replays of one list make the same calls.
-/// Each call runs in a new empty document.
+/// The list's hit-test index (issue #101) gives every glyph a contiguous slice of its text, returns point matches in kind and content
+/// order, and finds every glyph whose box has real size at its centre. Each call runs in a new empty document.
 /// </summary>
 /// <remarks>ADR 0006; ISO 32000-2 §8.4.2, §8.4.3, §8.5.3, §8.5.4, §8.6.</remarks>
 internal static class DisplayListTarget
@@ -34,6 +35,44 @@ internal static class DisplayListTarget
         list.Replay(second);
         Check(first.Depth == 0, "saves and restores do not balance");
         Check(first.Calls == second.Calls && first.Checksum.Equals(second.Checksum), "two replays of one list differ");
+        CheckHitTest(list.CreateHitTestIndex());
+    }
+
+    private static void CheckHitTest(HitTestIndex index)
+    {
+        int text = 0;
+        for (int glyph = 0; glyph < index.GlyphCount; glyph++)
+        {
+            HitTestGlyph entry = index.GetGlyph(glyph);
+            Check(entry.TextStart == text && entry.TextLength >= 0, "a glyph's text does not follow the one before");
+            text += entry.TextLength;
+        }
+
+        Check(text == index.Text.Length, "the glyphs' text does not cover the index's text");
+        for (int glyph = 0; glyph < Math.Min(index.GlyphCount, 64); glyph++)
+        {
+            Quad quad = index.GetGlyph(glyph).Quad;
+            double ux = quad.BottomRight.X - quad.BottomLeft.X;
+            double uy = quad.BottomRight.Y - quad.BottomLeft.Y;
+            double vx = quad.TopLeft.X - quad.BottomLeft.X;
+            double vy = quad.TopLeft.Y - quad.BottomLeft.Y;
+            var centre = new PathPoint(quad.BottomLeft.X + ((ux + vx) / 2), quad.BottomLeft.Y + ((uy + vy) / 2));
+            PdfRectangle bounds = quad.Bounds;
+            bool sized = Math.Abs((ux * vy) - (uy * vx)) > 1
+                && Math.Max(Math.Max(Math.Abs(bounds.Left), Math.Abs(bounds.Right)), Math.Max(Math.Abs(bounds.Bottom), Math.Abs(bounds.Top))) < 1e6;
+            bool found = false;
+            int previousKind = 0;
+            int previousIndex = -1;
+            foreach (HitTestItem item in index.Find(centre, HitTestKinds.All))
+            {
+                Check((int)item.Kind > previousKind || ((int)item.Kind == previousKind && item.Index > previousIndex), "matches are out of order");
+                previousKind = (int)item.Kind;
+                previousIndex = item.Index;
+                found |= item.Kind == HitTestKinds.Glyphs && item.Index == glyph;
+            }
+
+            Check(found || !sized, "a glyph is not found at its centre");
+        }
     }
 
     private static void Check(bool condition, string message)

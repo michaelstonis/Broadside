@@ -42,6 +42,7 @@ internal sealed partial class DisplayListBuilder
     /// </remarks>
     public override void ShowGlyph(in GlyphEvent glyph, ContentContext context)
     {
+        RecordText(glyph, context);
         if (glyph.Font is not { } font || font is PdfType3Font)
         {
             return;
