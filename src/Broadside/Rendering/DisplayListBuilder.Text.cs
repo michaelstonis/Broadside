@@ -38,16 +38,21 @@ internal sealed partial class DisplayListBuilder
     /// (§9.4.4); its rendering mode (§9.3.6) decides whether the run fills with the nonstroking colour, strokes with the stroking
     /// colour and line parameters, both, or neither (mode 3, kept for hit-testing).
     /// </para>
-    /// <para>Type 3 glyphs (§9.6.4) and the clip of modes 4 to 7 are not in the list yet; later Phase 3 tickets add them.</para>
+    /// <para>
+    /// A Type 3 glyph (§9.6.4) adds nothing here: its description enters the list as what it paints, through
+    /// <see cref="BeginType3Glyph"/> (<c>DisplayListBuilder.Type3.cs</c>). The clip of modes 4 to 7 is recorded at the end of the
+    /// text object (<c>DisplayListBuilder.TextClips.cs</c>).
+    /// </para>
     /// </remarks>
     public override void ShowGlyph(in GlyphEvent glyph, ContentContext context)
     {
+        NoteType3Text();
         if (glyph.Font is not { } font || font is PdfType3Font)
         {
             return;
         }
 
-        FontProgram? program = SelectGlyph(font, glyph, out int glyphId, out double scale, out int[]? components);
+        FontProgram? program = SelectGlyph(font, glyph.CharacterCode, glyph.SourceBytes[glyph.SourceIndex..], out int glyphId, out double scale, out int[]? components);
         ref readonly GraphicsState state = ref context.State;
         TextRenderingMode mode = glyph.RenderingMode;
         bool fills = mode is TextRenderingMode.Fill or TextRenderingMode.FillStroke or TextRenderingMode.FillClip or TextRenderingMode.FillStrokeClip
@@ -98,7 +103,7 @@ internal sealed partial class DisplayListBuilder
     /// that fits a substitute's glyph to the PDF width; or, for a code the substitute draws as several glyphs, those glyphs and the
     /// scale that fits them together to the PDF width.
     /// </summary>
-    private FontProgram? SelectGlyph(PdfFont font, in GlyphEvent glyph, out int glyphId, out double scale, out int[]? components)
+    private FontProgram? SelectGlyph(PdfFont font, uint code, ReadOnlySpan<byte> source, out int glyphId, out double scale, out int[]? components)
     {
         scale = 1;
         components = null;
@@ -118,21 +123,21 @@ internal sealed partial class DisplayListBuilder
         switch (font)
         {
             case PdfType0Font composite:
-                CidGlyph cid = composite.ReadGlyph(glyph.SourceBytes[glyph.SourceIndex..]);
+                CidGlyph cid = composite.ReadGlyph(source);
                 glyphId = cid.GlyphId;
                 width = composite.IsVertical ? 0 : cid.Width;
                 break;
             case PdfSimpleFont simple when _substitute is not null:
-                glyphId = simple.GetSubstituteGlyphId((byte)glyph.CharacterCode, out components);
-                width = simple.GetWidth((byte)glyph.CharacterCode);
+                glyphId = simple.GetSubstituteGlyphId((byte)code, out components);
+                width = simple.GetWidth((byte)code);
                 break;
             case PdfTrueTypeFont trueType:
-                glyphId = trueType.GetGlyphId((byte)glyph.CharacterCode);
-                width = trueType.GetWidth((byte)glyph.CharacterCode);
+                glyphId = trueType.GetGlyphId((byte)code);
+                width = trueType.GetWidth((byte)code);
                 break;
             case PdfType1Font type1:
-                glyphId = type1.GetGlyphId((byte)glyph.CharacterCode);
-                width = type1.GetWidth((byte)glyph.CharacterCode);
+                glyphId = type1.GetGlyphId((byte)code);
+                width = type1.GetWidth((byte)code);
                 break;
             default:
                 glyphId = 0;
@@ -193,7 +198,7 @@ internal sealed partial class DisplayListBuilder
         PdfDefaultColorSpaces defaults,
         ColorConversion conversion)
     {
-        if (_runOperation < 0 || _runOperation != _operationCount - 1 || state.Ctm != _current)
+        if (_runOperation < 0 || _runOperation != _operationCount - 1 || Relative(state.Ctm) != _current)
         {
             return false;
         }

@@ -19,8 +19,9 @@ namespace Broadside.Rendering;
 /// </para>
 /// <para>
 /// One per rasterizer, reused for every image: its buffers are pooled and grow to the largest image seen, so converting allocates
-/// nothing per row or per image once warm. The last image converted is kept until the next one or the end of the render, so an
-/// image painted several times in a row is converted once.
+/// nothing per row or per image once warm. The last image converted is kept until the next one, across renders, so an image
+/// painted several times in a row, or in every tile of a display list, is converted once (the converter is the document's shared
+/// one, so a later render of the same list finds the same pair).
 /// </para>
 /// </remarks>
 internal sealed class ImageSource : IDisposable

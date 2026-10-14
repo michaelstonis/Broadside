@@ -73,6 +73,14 @@ internal sealed partial class ContentInterpreter
         bool uncolored = pattern.IsPaintTypeKnown ? pattern.PaintType == PdfTilingPaintType.Uncolored : color.ComponentCount > 0;
         GraphicsState initial = StartStateFor(color.PatternMatrix);
         initial.Ctm = pattern.GetPatternSpace(color);
+
+        // §11.6.7: the cell is an implicit transparency group, so it starts with the default blend mode, alpha and soft mask; the
+        // state's own take effect when the finished pattern paints.
+        initial.BlendMode = BlendMode.Normal;
+        initial.StrokeAlpha = 1;
+        initial.FillAlpha = 1;
+        initial.SoftMask = null;
+        initial.SoftMaskMatrix = Matrix.Identity;
         if (uncolored && underlying is not null)
         {
             // §8.7.3.3: the cell is a stencil painted in the colour given with the pattern (PDFBox sets both colours to it).

@@ -315,7 +315,7 @@ internal sealed partial class ContentInterpreter
             _pendingAdjustment = 0;
             if (clips)
             {
-                AddClipGlyph(new TextClipGlyph(font, code, glyphMatrix, State.Ctm));
+                AddClipGlyph(new TextClipGlyph(font, code, length, glyphMatrix, State.Ctm));
             }
 
             _textMatrix = Matrix.CreateTranslation(advanceX, advanceY) * _textMatrix;

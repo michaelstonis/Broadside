@@ -71,9 +71,19 @@ internal sealed partial class DisplayListBuilder
         Append(ref _compositings, ref _compositingCount, compositing);
     }
 
-    private void SaveCompositing() => Append(ref _savedCompositings, ref _savedCompositingCount, _compositing);
+    /// <summary>Saves the alpha constants, blend mode and device parameters the backend holds, as its state save does.</summary>
+    private void SaveCompositing()
+    {
+        Append(ref _savedCompositings, ref _savedCompositingCount, _compositing);
+        SaveDeviceParameters();
+    }
 
-    private void RestoreCompositing() => _compositing = _savedCompositings[--_savedCompositingCount];
+    /// <summary>Restores what <see cref="SaveCompositing"/> saved, as the backend's state restore does.</summary>
+    private void RestoreCompositing()
+    {
+        _compositing = _savedCompositings[--_savedCompositingCount];
+        RestoreDeviceParameters();
+    }
 
     private void ResetCompositing()
     {

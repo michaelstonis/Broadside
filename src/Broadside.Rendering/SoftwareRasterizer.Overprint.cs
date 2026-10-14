@@ -440,6 +440,56 @@ public sealed partial class SoftwareRasterizer
             MergeProcess(bounds, compositor, overprint);
         }
 
+        /// <summary>
+        /// Paints a tiling pattern's tiled cells (§8.7.3) into the planes as a process paint. The cell is rendered in RGB, so its
+        /// colours come back to DeviceCMYK through the formulas of §10.4.2.3 (a deviation: the cell's own colourants and overprinting
+        /// are not kept).
+        /// </summary>
+        private void PreviewTiling(ReadOnlySpan<uint> tiles, PixelBox area, FillRule rule, Compositor compositor, bool overprint)
+        {
+            if (!TryBeginLayers(black: true, out PixelBounds bounds))
+            {
+                return;
+            }
+
+            var painter = new TilingPainter(_cmyLayer!.Pixels, _cmyLayer.Stride, tiles, area.Left, area.Top, area.Width, area.Height, default);
+            _scan.Paint(rule, ref painter);
+            PdfColorConverter converter = _document!.GetColorConverter(
+                PdfDeviceRgbColorSpace.Instance, new ColorConversion { Target = DeviceColorModel.Cmyk, OutputIntent = _previewOutputIntent }, defaults: null);
+            Span<byte> rgb = stackalloc byte[3];
+            Span<byte> cmyk = stackalloc byte[ColorantPlanes.ProcessCount];
+            for (int y = bounds.Top; y < bounds.Bottom; y++)
+            {
+                Span<uint> cmy = MemoryMarshal.Cast<byte, uint>(_cmyLayer.GetRow(y));
+                Span<uint> black = MemoryMarshal.Cast<byte, uint>(_blackLayer!.GetRow(y));
+                for (int x = bounds.Left; x < bounds.Right; x++)
+                {
+                    uint pixel = cmy[x];
+                    int coverage = (int)(pixel >> 24);
+                    if (coverage == 0)
+                    {
+                        continue;
+                    }
+
+                    // Unpremultiplied RGB to CMYK, then the layers' form: 1 − tint premultiplied by the coverage.
+                    rgb[0] = (byte)(255 - Ink.Unpremultiplied((pixel >> 16) & 0xFF, coverage));
+                    rgb[1] = (byte)(255 - Ink.Unpremultiplied((pixel >> 8) & 0xFF, coverage));
+                    rgb[2] = (byte)(255 - Ink.Unpremultiplied(pixel & 0xFF, coverage));
+                    converter.Convert(rgb, cmyk, 1);
+                    cmy[x] = Premultiplied(cmyk[0], cmyk[1], cmyk[2], coverage);
+                    black[x] = Premultiplied(cmyk[3], cmyk[3], cmyk[3], coverage);
+                }
+            }
+
+            MergeProcess(bounds, compositor, overprint);
+        }
+
+        private static uint Premultiplied(int c, int m, int y, int coverage) =>
+            (uint)Compositor.Divide255((255 - y) * coverage)
+            | ((uint)Compositor.Divide255((255 - m) * coverage) << 8)
+            | ((uint)Compositor.Divide255((255 - c) * coverage) << 16)
+            | ((uint)coverage << 24);
+
         /// <summary>Builds the CMY and black colour tables of a shading for the preview; false when its colours paint nothing.</summary>
         private bool PreparePreviewShading(in DisplayShading shading)
         {

@@ -24,7 +24,12 @@ internal sealed partial class DisplayListBuilder
     /// </remarks>
     private void SetDeviceParameters(in GraphicsState state)
     {
-        DisplayDeviceParameters parameters = DisplayDeviceParameters.FromState(state);
+        SetDeviceParameters(DisplayDeviceParameters.FromState(state));
+    }
+
+    /// <summary>Records <paramref name="parameters"/> when they differ from the backend's (also for a Type 3 description's replay).</summary>
+    private void SetDeviceParameters(in DisplayDeviceParameters parameters)
+    {
         if (parameters == _deviceParameter)
         {
             return;

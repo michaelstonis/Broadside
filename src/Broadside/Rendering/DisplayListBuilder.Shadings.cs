@@ -29,7 +29,7 @@ internal sealed partial class DisplayListBuilder
 
     /// <summary>
     /// Returns the shading paint of a fill or stroke in <paramref name="color"/>, a Pattern colour, or −1 when it selects no usable
-    /// shading pattern (a tiling pattern, not in the list yet, or an invalid one).
+    /// shading pattern (a tiling pattern, painted by <c>DisplayListBuilder.Tiling.cs</c>, or an invalid one).
     /// </summary>
     /// <remarks>
     /// ISO 32000-2 §8.7.4.1, Table 75: the shading is in pattern space, which <see cref="PdfPattern.GetPatternSpace"/> maps to the
@@ -49,7 +49,7 @@ internal sealed partial class DisplayListBuilder
     private int AddShadingPaint(PdfShading shading, in Matrix matrix, bool paintsBackground, ContentContext context)
     {
         ref readonly GraphicsState state = ref context.State;
-        var paint = new DisplayShadingPaint(shading, matrix, paintsBackground, context.DefaultColorSpaces, ColorConversion.FromState(state, DeviceColorModel.Rgb));
+        var paint = new DisplayShadingPaint(shading, Relative(matrix), paintsBackground, context.DefaultColorSpaces, ColorConversion.FromState(state, DeviceColorModel.Rgb));
         if (_shadingPaintCount > 0 && _shadingPaints[_shadingPaintCount - 1] == paint)
         {
             return _shadingPaintCount - 1;

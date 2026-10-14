@@ -111,6 +111,47 @@ public sealed class DisplayListDeviceParameterTests
         Assert.Equal("device overprint true true 1", recorder.Operations[^2]);
     }
 
+    [Fact]
+    public void A_region_replay_keeps_the_parameters_of_the_paints_it_skips()
+    {
+        // #96: SetDeviceParameters is state, never culled, so the paint inside the region still gets the overprint set before it.
+        using PdfDocument document = Open("/Over gs 0 0 1 1 re f 500 500 10 10 re f");
+        var recorder = new RecordingBackend();
+
+        document.Pages[0].CreateDisplayList().Replay(recorder, new PdfRectangle(400, 400, 600, 600));
+
+        Assert.Equal(["device overprint true true 1", "fill nonzero M 500 500 L 510 500 L 510 510 L 500 510 Z | DeviceGray 0"], recorder.Operations);
+    }
+
+    [Fact]
+    public void A_Type_3_glyph_that_sets_overprint_hands_it_over_and_the_page_state_comes_back_after_it()
+    {
+        // #108: a d0 description that sets OP is built once and replayed at each show; the parameters it sets end with the glyph.
+        const string glyph = "600 0 d0 /Over gs 0 0 600 600 re f";
+        List<string> operations = Record(
+            "BT /T3 10 Tf 0 0 Td (cc) Tj ET 0 0 1 1 re f",
+            "/Font << /T3 5 0 R >>",
+            "<< /Type /Font /Subtype /Type3 /FontBBox [0 0 600 600] /FontMatrix [0.001 0 0 0.001 0 0] /CharProcs << /c 6 0 R >>"
+            + " /Encoding << /Type /Encoding /Differences [99 /c] >> /FirstChar 99 /LastChar 99 /Widths [600]"
+            + " /Resources << /ExtGState << /Over << /OP true /OPM 1 >> >> >> >>",
+            ContentSamples.Stream(glyph));
+
+        // The description's own state is tracked by the builder (no save/restore around it): overprint is set once for both
+        // glyphs and handed back to the page's before the page paints again.
+        Assert.Equal(
+            [
+                "device overprint true true 1",
+                "transform [0.01 0 0 0.01 0 0]",
+                "fill nonzero M 0 0 L 600 0 L 600 600 L 0 600 Z | DeviceGray 0",
+                "transform [0.01 0 0 0.01 6 0]",
+                "fill nonzero M 0 0 L 600 0 L 600 600 L 0 600 Z | DeviceGray 0",
+                "device overprint false false 0",
+                "transform [1 0 0 1 0 0]",
+                "fill nonzero M 0 0 L 1 0 L 1 1 L 0 1 Z | DeviceGray 0",
+            ],
+            operations);
+    }
+
     private static PdfDocument Open(string content, string resources = "", params string[] objects) =>
         PdfDocument.Open(ContentSamples.OnePage(Encoding.Latin1.GetBytes(content), Resources + " " + resources, objects));
 

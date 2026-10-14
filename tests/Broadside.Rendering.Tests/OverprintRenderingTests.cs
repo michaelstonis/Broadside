@@ -19,7 +19,7 @@ public sealed class OverprintRenderingTests
         + " /Stroke << /OP true /op false /OPM 1 >> /Half << /OP true /op true /OPM 1 /ca 0.5 >> >>"
         + " /ColorSpace << /Orange [/Separation /BroadsideOrange /DeviceCMYK << /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0]"
         + " /C1 [0 0.6 1 0] /N 1 >>] /Cyan [/Separation /Cyan /DeviceCMYK << /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0]"
-        + " /C1 [1 0 0 0] /N 1 >>] /MG [/DeviceN [/Magenta /BroadsideGreen] /DeviceCMYK 5 0 R] >>";
+        + " /C1 [1 0 0 0] /N 1 >>] /MG [/DeviceN [/Magenta /BroadsideGreen] /DeviceCMYK 5 0 R] >> /Pattern << /Tile 6 0 R >>";
 
     private const string MgTint = "<< /FunctionType 4 /Domain [0 1 0 1] /Range [0 1 0 1 0 1 0 1] /Length 24 >>\nstream\n{dup 0.8 mul 3 1 roll 0}\nendstream";
 
@@ -139,6 +139,20 @@ public sealed class OverprintRenderingTests
     }
 
     [Fact]
+    public void A_tiling_pattern_paints_as_a_process_colour_that_keeps_or_erases_the_spot_below_it()
+    {
+        // A coloured pattern whose 10 x 10 cell is filled with magenta (§8.7.3.2): a process paint, so overprinting keeps the
+        // orange spot below it (Table 146) and knocking out erases it.
+        const string pattern = "/Pattern cs /Tile scn";
+        using Rendered overprinted = Render("/Orange cs 1 scn", "/Op0 gs " + pattern);
+        using Rendered knocked = Render("/Orange cs 1 scn", "/Knock gs " + pattern);
+
+        Assert.Equal(knocked.At(Overlay), knocked.At(Both));
+        Assert.Equal(overprinted.At(Overlay), knocked.At(Overlay));
+        Assert.NotEqual(overprinted.At(Overlay), overprinted.At(Both));
+    }
+
+    [Fact]
     public void Annotations_are_drawn_over_the_preview_of_the_content()
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Path("annotations-appearance.pdf"));
@@ -171,7 +185,8 @@ public sealed class OverprintRenderingTests
     private static Rendered Render(string backdrop, string overlay, bool preview = true, string shape = "200 300 200 200 re f")
     {
         string content = $"q {backdrop} 100 400 200 200 re f Q q {overlay} {shape} Q";
-        return new Rendered(ContentSamples.OnePage(Encoding.Latin1.GetBytes(content), Resources, MgTint), preview);
+        string tile = ContentSamples.Stream("0 1 0 0 k 0 0 10 10 re f", "/PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 10 10] /XStep 10 /YStep 10 /Resources << >>");
+        return new Rendered(ContentSamples.OnePage(Encoding.Latin1.GetBytes(content), Resources, MgTint, tile), preview);
     }
 
     /// <summary>A rendered page and the document's colour converters, to compute expected pixels.</summary>

@@ -4,7 +4,7 @@ namespace Broadside.Rendering;
 
 /// <summary>
 /// The backend contract: what a backend implements to draw a <see cref="DisplayList"/> on one technology (the software rasterizer,
-/// SkiaSharp, CoreGraphics, Direct2D, Android Canvas). <see cref="DisplayList.Replay"/> calls these members in the list's order.
+/// SkiaSharp, CoreGraphics, Direct2D, Android Canvas). <see cref="DisplayList.Replay(IRenderingBackend)"/> calls these members in the list's order.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -79,7 +79,8 @@ public interface IRenderingBackend
     /// <para>
     /// A replay starts with the initial clipping path (§8.5.4: the whole page): the area the renderer maps the page to, which is the
     /// crop box (§14.11.2, never larger than the media box). Clipping is anti-aliased like filling where the backend anti-aliases.
-    /// Text clips (§9.3.6, rendering modes 4 to 7) are not in the list yet.
+    /// A text clip (§9.3.6, rendering modes 4 to 7) arrives the same way at the end of its text object, after its glyphs are painted:
+    /// the glyphs' outlines placed in user space as one path, with the non-zero rule.
     /// </para>
     /// </remarks>
     void IntersectClip(PathView path, FillRule rule);
@@ -115,7 +116,8 @@ public interface IRenderingBackend
     /// ISO 32000-2 §9.4.3 (<c>Tj</c>, <c>TJ</c>, <c>'</c>, <c>"</c>), §9.3.6 (text rendering mode, Table 104) and §9.2.4 (glyph
     /// outlines, filled by the non-zero winding rule). Glyphs whose run neither fills nor strokes (mode 3, invisible text) paint
     /// nothing; they reach the backend so that a backend collecting positions (hit-testing) sees them. Text in clipping modes 4 to 7
-    /// paints like modes 0 to 3; its contribution to the clip is not in the list yet. Type 3 glyphs (§9.6.4) are not in the list yet.
+    /// paints like modes 0 to 3; its contribution to the clip is not in the list yet. Type 3 glyphs (§9.6.4) never come
+    /// through this call: each glyph's description reaches the backend as the transforms, paths, clips and image masks it paints.
     /// </para>
     /// <para>
     /// A backend may draw the glyphs natively from <see cref="GlyphRun.Program"/> and the glyph ids, or from the interned outlines
@@ -154,6 +156,24 @@ public interface IRenderingBackend
     /// <remarks>ISO 32000-2 §8.7.4.1 and §8.5.3.2: the area the stroke covers is painted as <see cref="FillPathWithShading"/> paints a fill's.</remarks>
     void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading);
 
+    /// <summary>Fills a path with a tiling pattern.</summary>
+    /// <param name="path">The path in user space under the current transform, exactly as for <see cref="FillPath"/>.</param>
+    /// <param name="rule">The rule that decides the inside (§8.5.3.3.2, §8.5.3.3.3).</param>
+    /// <param name="pattern">The pattern, its cell and its pattern space (<see cref="DisplayTilingPattern.Matrix"/>).</param>
+    /// <remarks>
+    /// ISO 32000-2 §8.7.3.1: inside the path (and the clip), the cell is painted as many times as needed, at multiples of XStep and
+    /// YStep in pattern space, each copy clipped to the bounding box (the cell list does that itself). The tiles, painted onto a
+    /// clear surface, are then composited over the backdrop as one object with the alpha and blend mode in force (§11.6.7).
+    /// </remarks>
+    void FillPathWithTilingPattern(PathView path, FillRule rule, in DisplayTilingPattern pattern);
+
+    /// <summary>Strokes a path with a tiling pattern.</summary>
+    /// <param name="path">The path in user space under the current transform, exactly as for <see cref="StrokePath"/>.</param>
+    /// <param name="style">The line parameters, as for <see cref="StrokePath"/>.</param>
+    /// <param name="pattern">The pattern, its cell and its pattern space (<see cref="DisplayTilingPattern.Matrix"/>).</param>
+    /// <remarks>ISO 32000-2 §8.7.3.1 and §8.5.3.2: the area the stroke covers is tiled as <see cref="FillPathWithTilingPattern"/> tiles a fill's.</remarks>
+    void StrokePathWithTilingPattern(PathView path, in StrokeStyle style, in DisplayTilingPattern pattern);
+
     /// <summary>Paints a colour through a stencil mask in the unit square of user space: where the mask paints, the colour is painted.</summary>
     /// <param name="mask">
     /// The image mask, the same instance for every paint of one mask XObject in a list; it maps to the unit square like an image
@@ -169,8 +189,8 @@ public interface IRenderingBackend
 
     /// <summary>Sets the alpha constants and the blend mode the paints that follow composite with, until the state is restored.</summary>
     /// <param name="strokeAlpha">
-    /// The stroking alpha constant (<c>CA</c>), 0 to 1: the opacity of <see cref="StrokePath"/>, <see cref="StrokePathWithShading"/> and
-    /// the stroke of <see cref="DrawGlyphs"/>.
+    /// The stroking alpha constant (<c>CA</c>), 0 to 1: the opacity of <see cref="StrokePath"/>, <see cref="StrokePathWithShading"/>,
+    /// <see cref="StrokePathWithTilingPattern"/> and the stroke of <see cref="DrawGlyphs"/>.
     /// </param>
     /// <param name="fillAlpha">The nonstroking alpha constant (<c>ca</c>), 0 to 1: the opacity of every other paint.</param>
     /// <param name="blendMode">The blend function that combines the source colour with the backdrop.</param>
