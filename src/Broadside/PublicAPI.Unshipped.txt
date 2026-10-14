@@ -3961,3 +3961,10 @@ Broadside.Forms.PdfChoiceField.SetSelectedIndices(System.Collections.Generic.IEn
 Broadside.Forms.PdfChoiceField.GenerateAppearances() -> void
 Broadside.Forms.PdfListBoxField.SetTopIndex(int topIndex) -> void
 Broadside.Rendering.IRenderingBackend.SetCompositing(double strokeAlpha, double fillAlpha, Broadside.Graphics.BlendMode blendMode) -> void
+Broadside.Rendering.DisplayTilingPattern
+Broadside.Rendering.DisplayTilingPattern.Cell.get -> Broadside.Rendering.DisplayList!
+Broadside.Rendering.DisplayTilingPattern.DisplayTilingPattern() -> void
+Broadside.Rendering.DisplayTilingPattern.Matrix.get -> Broadside.Graphics.Matrix
+Broadside.Rendering.DisplayTilingPattern.Pattern.get -> Broadside.Graphics.PdfTilingPattern!
+Broadside.Rendering.IRenderingBackend.FillPathWithTilingPattern(Broadside.Graphics.PathView path, Broadside.Graphics.FillRule rule, in Broadside.Rendering.DisplayTilingPattern pattern) -> void
+Broadside.Rendering.IRenderingBackend.StrokePathWithTilingPattern(Broadside.Graphics.PathView path, in Broadside.Rendering.StrokeStyle style, in Broadside.Rendering.DisplayTilingPattern pattern) -> void

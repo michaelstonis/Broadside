@@ -298,7 +298,7 @@ public sealed class ContentContext
     /// <para>
     /// ISO 32000-2 §8.7.3.1, steps a to d: the cell runs between an implicit save and restore (<see cref="ContentProcessor.SaveState"/>
     /// and <see cref="ContentProcessor.RestoreState"/>), from the graphics state at the beginning of the stream that selected the
-    /// pattern, with the CTM set to the pattern space (<see cref="PdfPattern.GetPatternSpace"/>), the clip intersected with the cell's
+    /// pattern (its blend mode, alpha constants and soft mask at their defaults, §11.6.7), with the CTM set to the pattern space (<see cref="PdfPattern.GetPatternSpace"/>), the clip intersected with the cell's
     /// bounding box (a <see cref="ClipKind.Rectangle"/> clip event), <see cref="RunKind"/> <see cref="ContentRunKind.Pattern"/> and the
     /// pattern's resources (the current ones when it has none). One cell is run, at the origin of pattern space; replicating it every
     /// XStep and YStep is the processor's.

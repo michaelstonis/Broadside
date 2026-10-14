@@ -18,7 +18,8 @@ namespace Broadside.TestSupport;
 /// <c>imagemask WxH[ inverted][ interpolate] | Family c0 c1 …</c>, <c>shading Type [matrix][ background]</c>,
 /// <c>glyphs Mode Format gid [text matrix][ xScale] … [| fill Family c0 …][| stroke width Cap Join miterLimit [dash …] phase[ adjust] Family c0 …]</c>
 /// (Format is the program's format, <c>none</c> without a program), and fills and strokes in a shading pattern ending
-/// <c>| shading Type [matrix] background</c> instead of a colour; <c>compositing CA ca BlendMode</c>. Numbers are written round-trippable and culture-invariant.
+/// <c>| shading Type [matrix] background</c> instead of a colour, and in a tiling pattern ending
+/// <c>| tiling PaintType TilingType [matrix] bbox [l b r t] step x y</c>; <c>compositing CA ca BlendMode</c>. Numbers are written round-trippable and culture-invariant.
 /// </remarks>
 public sealed class RecordingBackend : IRenderingBackend
 {
@@ -39,6 +40,9 @@ public sealed class RecordingBackend : IRenderingBackend
 
     /// <summary>Gets the shading paints (<c>sh</c> and shading-pattern fills and strokes), in replay order.</summary>
     public List<(PdfShading Shading, Matrix Matrix, bool PaintsBackground, PdfDefaultColorSpaces Defaults, ColorConversion Conversion)> Shadings { get; } = [];
+
+    /// <summary>Gets the tiling-pattern paints (fills and strokes), in replay order: the pattern, its pattern space and its cell list.</summary>
+    public List<(PdfTilingPattern Pattern, Matrix Matrix, DisplayList Cell)> Tilings { get; } = [];
 
     /// <summary>Gets the stencil mask paints, in replay order: the interned mask and a copy of its colour, like <see cref="Fills"/>.</summary>
     public List<(DisplayImageMask Mask, PdfColorSpace ColorSpace, float[] Components, PdfDefaultColorSpaces Defaults, ColorConversion Conversion)> ImageMasks { get; } = [];
@@ -227,6 +231,35 @@ public sealed class RecordingBackend : IRenderingBackend
     }
 
     /// <inheritdoc/>
+    public void FillPathWithTilingPattern(PathView path, FillRule rule, in DisplayTilingPattern pattern)
+    {
+        var text = new StringBuilder("fill ").Append(rule == FillRule.EvenOdd ? "evenodd" : "nonzero");
+        Describe(path, text);
+        Operations.Add(text.Append(" | ").Append(Tiling(pattern)).ToString());
+    }
+
+    /// <inheritdoc/>
+    public void StrokePathWithTilingPattern(PathView path, in StrokeStyle style, in DisplayTilingPattern pattern)
+    {
+        var text = new StringBuilder("stroke ")
+            .Append(Number(style.LineWidth)).Append(' ').Append(style.LineCap).Append(' ').Append(style.LineJoin).Append(' ')
+            .Append(Number(style.MiterLimit)).Append(" [");
+        for (int i = 0; i < style.DashArray.Length; i++)
+        {
+            text.Append(i == 0 ? string.Empty : " ").Append(Number(style.DashArray[i]));
+        }
+
+        text.Append("] ").Append(Number(style.DashPhase));
+        if (style.StrokeAdjustment)
+        {
+            text.Append(" adjust");
+        }
+
+        Describe(path, text);
+        Operations.Add(text.Append(" | ").Append(Tiling(pattern)).ToString());
+    }
+
+    /// <inheritdoc/>
     public void FillImageMask(DisplayImageMask mask, in DisplayColor color)
     {
         ArgumentNullException.ThrowIfNull(mask);
@@ -277,6 +310,14 @@ public sealed class RecordingBackend : IRenderingBackend
     {
         Shadings.Add((shading.Shading, shading.Matrix, shading.PaintsBackground, shading.DefaultColorSpaces, shading.Conversion));
         return $"shading {shading.Shading.ShadingType} {shading.Matrix}{(shading.PaintsBackground ? " background" : string.Empty)}";
+    }
+
+    private string Tiling(in DisplayTilingPattern tiling)
+    {
+        PdfTilingPattern pattern = tiling.Pattern;
+        Tilings.Add((pattern, tiling.Matrix, tiling.Cell));
+        PdfRectangle box = pattern.BoundingBox;
+        return $"tiling {pattern.PaintType} {pattern.TilingType} {tiling.Matrix} bbox [{Number(box.Left)} {Number(box.Bottom)} {Number(box.Right)} {Number(box.Top)}] step {Number(pattern.XStep)} {Number(pattern.YStep)}";
     }
 
     private static string Number(double value) => value.ToString("R", CultureInfo.InvariantCulture);

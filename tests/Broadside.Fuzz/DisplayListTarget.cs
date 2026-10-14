@@ -12,7 +12,8 @@ namespace Broadside.Fuzz;
 /// #99); every clip's path is well formed with a known rule (issue #105); every image (issue #102) has samples, a colour space and a
 /// Decode map that agree on its component count; every glyph run (issue #100) has glyphs whose outlines are well formed, paints
 /// in no Pattern colour, paints nothing in mode 3 and fills or strokes only in the modes that do; every shading (issue #109) is
-/// valid, evaluates to finite colours and paints its Background only as a pattern; two replays of one list make the same calls.
+/// valid, evaluates to finite colours and paints its Background only as a pattern; every tiling pattern (issue #112) is valid with
+/// an invertible pattern space and a cell that replays balanced; two replays of one list make the same calls.
 /// Each call runs in a new empty document.
 /// </summary>
 /// <remarks>ADR 0006; ISO 32000-2 §8.4.2, §8.4.3, §8.5.3, §8.5.4, §8.6.</remarks>
@@ -262,6 +263,35 @@ internal static class DisplayListTarget
             Check(shading.PaintsBackground, "a shading pattern does not paint its Background");
             CheckShading(shading);
             Checksum += style.LineWidth + path.Points.Length;
+        }
+
+        public void FillPathWithTilingPattern(PathView path, FillRule rule, in DisplayTilingPattern pattern)
+        {
+            Calls++;
+            Check(!path.IsEmpty && path.Verbs[0] == PathVerb.MoveTo, "a tiled path does not start with a moveto");
+            CheckTiling(pattern);
+            Checksum += (int)rule + path.Points.Length;
+        }
+
+        public void StrokePathWithTilingPattern(PathView path, in StrokeStyle style, in DisplayTilingPattern pattern)
+        {
+            Calls++;
+            Check(!path.IsEmpty && path.Verbs[0] == PathVerb.MoveTo, "a tiled stroke does not start with a moveto");
+            Check(style.LineWidth >= 0, "a negative stroke width");
+            CheckTiling(pattern);
+            Checksum += style.LineWidth + path.Points.Length;
+        }
+
+        /// <summary>Checks that a tiling pattern reaching the backend is valid and that its cell replays balanced (issue #112).</summary>
+        private void CheckTiling(in DisplayTilingPattern pattern)
+        {
+            PdfTilingPattern model = pattern.Pattern;
+            Check(model.IsValid && model.XStep != 0 && model.YStep != 0, "an invalid tiling pattern reached the backend");
+            Check(pattern.Matrix.TryInvert(out _), "a tiling pattern with a singular pattern space");
+            var cell = new CheckingBackend();
+            pattern.Cell.Replay(cell);
+            Check(cell.Depth == 0, "a cell's saves and restores do not balance");
+            Checksum += model.XStep + model.YStep + pattern.Matrix.A + cell.Checksum + cell.Calls;
         }
 
         /// <summary>Checks that a shading reaching the backend is usable and evaluates it like a backend would.</summary>

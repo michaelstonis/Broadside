@@ -20,8 +20,8 @@ namespace Broadside.Rendering;
 /// bounding boxes, §8.10.1), images with their masks (§8.9, §11.6.5, <see cref="DisplayImage"/>, decoded once per image XObject),
 /// stencil masks (§8.9.6.2, <see cref="DisplayImageMask"/>), text as glyph runs (§9.4.3, §9.3.6, <see cref="GlyphRun"/>: font
 /// program, glyph ids, text matrices, outlines interned once per program and glyph) and shadings, from <c>sh</c> and as shading
-/// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>). Type 3 glyphs, text clips, tiling patterns and
-/// transparency groups and soft masks join it in later Phase 3 tickets (constant alpha and blend modes are there already, as
+/// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>), and tiling patterns on fills and strokes, each cell a
+/// display list of its own (§8.7.3, <see cref="DisplayTilingPattern"/>). Type 3 glyphs, text clips and transparency groups and soft masks join it in later Phase 3 tickets (constant alpha and blend modes are there already, as
 /// <see cref="IRenderingBackend.SetCompositing"/>), each as new <see cref="IRenderingBackend"/> calls.
 /// </para>
 /// <para>
@@ -84,6 +84,9 @@ public sealed class DisplayList
 
     /// <summary>Gets the alpha constants and blend modes the list sets (indexed by <see cref="DisplayOperationKind.SetCompositing"/> records).</summary>
     internal DisplayCompositing[] Compositings { get; init; } = [];
+
+    /// <summary>Gets the tiling-pattern paints (indexed by the tiling-pattern records).</summary>
+    internal DisplayTilingPaint[] TilingPaints { get; init; } = [];
 
     /// <summary>Gets the document the list was built from, whose colour converters a backend uses (see <see cref="DisplayColor"/>).</summary>
     public PdfDocument Document { get; }
@@ -159,6 +162,17 @@ public sealed class DisplayList
                     ref readonly DisplayCompositing compositing = ref Compositings[operation.First];
                     backend.SetCompositing(compositing.StrokeAlpha, compositing.FillAlpha, compositing.BlendMode);
                     break;
+                case DisplayOperationKind.FillPathWithTilingPattern:
+                    ref readonly DisplayPath tiled = ref _paths[operation.First];
+                    DisplayTilingPattern tiling = Tiling(operation.Second);
+                    backend.FillPathWithTilingPattern(
+                        new PathView(_verbs.AsSpan(tiled.VerbStart, tiled.VerbCount), _points.AsSpan(tiled.PointStart, tiled.PointCount)),
+                        operation.FillRule,
+                        in tiling);
+                    break;
+                case DisplayOperationKind.StrokePathWithTilingPattern:
+                    Stroke(backend, operation);
+                    break;
             }
         }
     }
@@ -219,7 +233,17 @@ public sealed class DisplayList
         return new DisplayShading(paint.Shading, paint.Matrix, paint.PaintsBackground, paint.DefaultColorSpaces, paint.Conversion);
     }
 
-    /// <summary>Hands a stroke record (with a colour or, for <see cref="DisplayOperationKind.StrokePathWithShading"/>, a shading) to the backend.</summary>
+    /// <summary>Returns the tiling paint at <paramref name="index"/> as the backend receives it.</summary>
+    private DisplayTilingPattern Tiling(int index)
+    {
+        ref readonly DisplayTilingPaint paint = ref TilingPaints[index];
+        return new DisplayTilingPattern(paint.Pattern, paint.Matrix, paint.Cell);
+    }
+
+    /// <summary>
+    /// Hands a stroke record (with a colour or, for <see cref="DisplayOperationKind.StrokePathWithShading"/> and
+    /// <see cref="DisplayOperationKind.StrokePathWithTilingPattern"/>, a shading or tiling pattern) to the backend.
+    /// </summary>
     private void Stroke(IRenderingBackend backend, in DisplayOperation operation)
     {
         ref readonly DisplayPath path = ref _paths[operation.First];
@@ -237,6 +261,13 @@ public sealed class DisplayList
         {
             DisplayShading shading = Shading(stroke.ColorIndex);
             backend.StrokePathWithShading(view, in style, in shading);
+            return;
+        }
+
+        if (operation.Kind == DisplayOperationKind.StrokePathWithTilingPattern)
+        {
+            DisplayTilingPattern tiling = Tiling(stroke.ColorIndex);
+            backend.StrokePathWithTilingPattern(view, in style, in tiling);
             return;
         }
 
