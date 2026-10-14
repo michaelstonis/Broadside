@@ -74,6 +74,11 @@ jobs:
       - name: Test
         run: dotnet test Broadside.Core.slnf -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
 
+      - name: Test the CoreGraphics backend (macOS)
+        # The backend's render tests run on macOS only; the build above already compiled it for macOS, iOS and Mac Catalyst (issue #125).
+        if: runner.os == 'macOS'
+        run: dotnet test tests/Broadside.Rendering.CoreGraphics.Tests -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
+
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v7
