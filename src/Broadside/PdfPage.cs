@@ -27,6 +27,7 @@ public sealed class PdfPage
     private static readonly PdfRectangle DefaultMediaBox = new(0, 0, 612, 792);
 
     private static readonly CosName OutputIntentsKey = new("OutputIntents");
+    private static readonly CosName GroupKey = new("Group");
 
     private readonly PdfDocument _document;
     private PageTreeAncestor? _ancestors;
@@ -271,6 +272,23 @@ public sealed class PdfPage
     /// is none). See <see cref="Graphics.PdfCanvas"/>. A mutation.
     /// </remarks>
     public Graphics.PdfCanvas CreateCanvas() => new(_document, this);
+
+    /// <summary>Gets the attributes of the page group when the page has a transparency <c>Group</c>, else <see langword="null"/>.</summary>
+    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31 (<c>Group</c>, PDF 1.4), §11.4.7 and §11.6.6, Table 145. Not inheritable.</remarks>
+    public Graphics.PdfTransparencyGroup? TransparencyGroup =>
+        Graphics.PdfTransparencyGroup.Read(_document, Dictionary.TryGetValue(GroupKey, out CosObject? value) ? value : null, Reference);
+
+    /// <summary>
+    /// Gives the page a page group, writing <c>&lt;&lt; /Type /Group /S /Transparency &gt;&gt;</c> as its <c>Group</c>, and returns
+    /// the group's attributes to set; returns the existing attributes when the page already has one.
+    /// </summary>
+    /// <returns>The group attributes.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.3.3, Table 31, §11.4.7 and §11.6.6, Table 145 (PDF 1.4). The page group is effectively isolated whatever
+    /// <see cref="Graphics.PdfTransparencyGroup.IsIsolated"/> says; its <see cref="Graphics.PdfTransparencyGroup.ColorSpace"/> is
+    /// honoured, and is the space the page's transparent content blends in. Records PDF 1.4. A mutation.
+    /// </remarks>
+    public Graphics.PdfTransparencyGroup CreateTransparencyGroup() => Graphics.PdfTransparencyGroup.Create(_document, Dictionary, Reference);
 
     /// <summary>
     /// Runs the page's content through <paramref name="editor"/> and, when it made edits, replaces the content with the result: one

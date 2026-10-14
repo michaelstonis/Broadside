@@ -4119,3 +4119,18 @@ Broadside.PdfPage.CreateCanvas() -> Broadside.Graphics.PdfCanvas!
 Broadside.PdfPage.CropBox.set -> void
 Broadside.PdfPage.MediaBox.set -> void
 Broadside.PdfPage.TrimBox.set -> void
+Broadside.Graphics.PdfTransparencyGroup
+Broadside.Graphics.PdfTransparencyGroup.ColorSpace.get -> Broadside.Graphics.PdfColorSpace?
+Broadside.Graphics.PdfTransparencyGroup.ColorSpace.set -> void
+Broadside.Graphics.PdfTransparencyGroup.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Graphics.PdfTransparencyGroup.IsIsolated.get -> bool
+Broadside.Graphics.PdfTransparencyGroup.IsIsolated.set -> void
+Broadside.Graphics.PdfTransparencyGroup.IsKnockout.get -> bool
+Broadside.Graphics.PdfTransparencyGroup.IsKnockout.set -> void
+Broadside.Graphics.PdfFormXObject.TransparencyGroup.get -> Broadside.Graphics.PdfTransparencyGroup?
+Broadside.Graphics.PdfFormXObject.CreateTransparencyGroup() -> Broadside.Graphics.PdfTransparencyGroup!
+Broadside.Graphics.PdfFormXObject.Matrix.set -> void
+Broadside.PdfPage.TransparencyGroup.get -> Broadside.Graphics.PdfTransparencyGroup?
+Broadside.PdfPage.CreateTransparencyGroup() -> Broadside.Graphics.PdfTransparencyGroup!
+Broadside.PdfDocument.CreateSoftMask(Broadside.Graphics.PdfSoftMaskType type, Broadside.Graphics.PdfFormXObject! group, System.Collections.Generic.IReadOnlyList<double>? backdrop = null, Broadside.Graphics.PdfFunction? transferFunction = null) -> Broadside.Graphics.PdfSoftMask!
+Broadside.Graphics.PdfCanvas.SetSoftMask(Broadside.Graphics.PdfSoftMask? mask) -> void
