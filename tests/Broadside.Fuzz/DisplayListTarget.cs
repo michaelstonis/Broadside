@@ -49,6 +49,10 @@ internal static class DisplayListTarget
     {
         public int Depth { get; private set; }
 
+        public bool InAnnotation { get; private set; }
+
+        public int AnnotationDepth { get; private set; }
+
         public int Calls { get; private set; }
 
         public double Checksum { get; private set; }
@@ -176,6 +180,26 @@ internal static class DisplayListTarget
             Check(color.ColorSpace.Family != PdfColorSpaceFamily.Pattern, "a stencil mask in a Pattern colour space");
             Check(color.Components.Length <= PdfColor.MaxComponents, "too many components");
             Checksum += color.Components.Length;
+        }
+
+        public void BeginAnnotation(in DisplayAnnotation annotation)
+        {
+            Calls++;
+            Check(!InAnnotation, "an annotation inside an annotation");
+            InAnnotation = true;
+            AnnotationDepth = Depth++;
+            PdfRectangle rect = annotation.Rectangle;
+            Check(rect.Width >= 0 && rect.Height >= 0 && double.IsFinite(rect.Width + rect.Height), "an annotation rectangle that is not normalized");
+            Check(annotation.Opacity is >= 0 and <= 1, "an annotation opacity outside 0 to 1");
+            Checksum += rect.Left + annotation.Opacity + (int)annotation.BlendMode;
+        }
+
+        public void EndAnnotation()
+        {
+            Calls++;
+            Check(InAnnotation, "an annotation end without a begin");
+            Check(--Depth == AnnotationDepth, "an annotation's saves and restores do not balance");
+            InAnnotation = false;
         }
 
         private void CheckMask(DisplayImageMask mask)

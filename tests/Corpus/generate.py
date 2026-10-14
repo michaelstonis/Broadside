@@ -2600,6 +2600,48 @@ def gen_annotations_appearance() -> bytes:
     return simple_file(objects)
 
 
+def gen_annotations_nozoom() -> bytes:
+    """12.5.3 Table 167 NoZoom and NoRotate, Figure 78, and 12.5.6.4 (a text annotation behaves as if both
+    were set). Two 300 x 300 pages, the second with /Rotate 90, each with the same five annotations whose
+    appearances are 40 x 40 squares with a black band along their top edge (so orientation shows): Square
+    with F 12 (Print, NoZoom) red at [40 220 80 260]; F 20 (Print, NoRotate) blue at [180 220 220 260];
+    F 28 (Print, NoZoom, NoRotate) green at [40 80 80 120]; F 4 grey at [180 80 220 120] for reference;
+    and a Text annotation with F 4 (no NoZoom or NoRotate bit), yellow 20 x 20 at [120 150 140 170]. The
+    page content strokes each rectangle in light grey, so the annotations' places at 100% stay visible."""
+    def band(rgb: bytes, size: int) -> bytes:
+        return stream(b"/Type /XObject /Subtype /Form /Resources << >> /BBox [0 0 %d %d]" % (size, size),
+                      rgb + b" rg 0 0 %d %d re f 0 g 0 %d %d %d re f" % (size, size * 3 // 4, size * 3 // 4, size, size // 4))
+    content = (b"0.75 G 1 w 40 220 40 40 re S 180 220 40 40 re S 40 80 40 40 re S 180 80 40 40 re S"
+               b" 120 150 20 20 re S")
+    box = b"[0 0 300 300]"
+
+    def annotations(first: int, parent: int) -> list[tuple[int, bytes]]:
+        return [
+            (first, b"<< /Type /Annot /Subtype /Square /Rect [40 220 80 260] /F 12 /P %d 0 R /AP << /N 6 0 R >> >>" % parent),
+            (first + 1, b"<< /Type /Annot /Subtype /Square /Rect [180 220 220 260] /F 20 /P %d 0 R /AP << /N 7 0 R >> >>" % parent),
+            (first + 2, b"<< /Type /Annot /Subtype /Square /Rect [40 80 80 120] /F 28 /P %d 0 R /AP << /N 8 0 R >> >>" % parent),
+            (first + 3, b"<< /Type /Annot /Subtype /Square /Rect [180 80 220 120] /F 4 /P %d 0 R /AP << /N 9 0 R >> >>" % parent),
+            (first + 4, b"<< /Type /Annot /Subtype /Text /Rect [120 150 140 170] /F 4 /P %d 0 R /AP << /N 15 0 R >> >>" % parent),
+        ]
+
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog()),
+        (2, pages([3, 4])),
+        (3, page(mediabox=box, contents=5, extra=b" /Annots [10 0 R 11 0 R 12 0 R 13 0 R 14 0 R]")),
+        (4, page(mediabox=box, contents=5, extra=b" /Rotate 90 /Annots [20 0 R 21 0 R 22 0 R 23 0 R 24 0 R]")),
+        (5, stream(b"", content)),
+        (6, band(b"1 0 0", 40)),
+        (7, band(b"0 0 1", 40)),
+        (8, band(b"0 0.6 0", 40)),
+        (9, band(b"0.5 0.5 0.5", 40)),
+        (15, band(b"1 0.8 0", 20)),
+    ]
+    objects += annotations(10, 3)
+    objects += annotations(20, 4)
+    objects.sort(key=lambda item: item[0])
+    return simple_file(objects)
+
+
 def gen_annotations_malformed() -> bytes:
     """12.5 real-world deviations, two pages. Page 3's Annots: [null 9 0 R (an integer) 10 10 11 12 13 14 15
     16 << direct >>]: 10 is listed twice; 11 has no Subtype; 12 has a three-number Rect; 13 is a Highlight
@@ -6183,6 +6225,7 @@ FILES = {
     "annotations-link.pdf": gen_annotations_link,
     "annotations-subtypes.pdf": gen_annotations_subtypes,
     "annotations-appearance.pdf": gen_annotations_appearance,
+    "annotations-nozoom.pdf": gen_annotations_nozoom,
     "annotations-malformed.pdf": gen_annotations_malformed,
     "text-type1-pfb.pdf": gen_text_type1_pfb,
     "text-type1-hex-eexec.pdf": gen_text_type1_hex_eexec,

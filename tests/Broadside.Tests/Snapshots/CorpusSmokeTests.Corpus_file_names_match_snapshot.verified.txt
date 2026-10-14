@@ -4,6 +4,7 @@
   actions-all.pdf,
   actions-preserved.pdf,
   annotations-appearance.pdf,
+  annotations-nozoom.pdf,
   annotations-link.pdf,
   annotations-malformed.pdf,
   annotations-subtypes.pdf,

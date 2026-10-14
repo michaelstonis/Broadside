@@ -31,6 +31,7 @@ namespace Broadside.Rendering;
 public sealed partial class SoftwareRasterizer : IDisposable
 {
     private static readonly RenderOptions DefaultOptions = new();
+    private static readonly Content.ContentOptions DefaultContentOptions = new();
 
     private readonly Backend _backend = new();
     private bool _disposed;
@@ -39,21 +40,21 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// <param name="page">The page.</param>
     /// <returns>The bitmap; dispose it to return its buffer to the pool.</returns>
     /// <exception cref="ArgumentException">The page would need more pixels than a bitmap can hold.</exception>
-    /// <remarks>ISO 32000-2 §8.3.2.3, §7.7.3.3 Table 31 and §14.11.2 for the page mapping (see <see cref="RenderOptions"/>).</remarks>
+    /// <remarks>ISO 32000-2 §8.3.2.3, §7.7.3.3 Table 31 and §14.11.2 for the page mapping (see <see cref="RenderOptions"/>); §12.5.5 and §12.5.3 for the annotation and form-field layers drawn over the content (see <see cref="PdfPage.CreateDisplayList(DisplayLayers, DisplayIntent, Content.ContentOptions)"/>).</remarks>
     public Bitmap Render(PdfPage page) => Render(page, DefaultOptions);
 
     /// <summary>Renders <paramref name="page"/> into a new pooled bitmap of <see cref="RenderOptions.GetPixelSize"/> pixels, on white.</summary>
     /// <param name="page">The page.</param>
-    /// <param name="options">The scale and rotation.</param>
+    /// <param name="options">The scale, rotation, layers and intent.</param>
     /// <returns>The bitmap; dispose it to return its buffer to the pool.</returns>
     /// <exception cref="ArgumentException">The page would need more pixels than a bitmap can hold.</exception>
-    /// <remarks>ISO 32000-2 §8.3.2.3, §7.7.3.3 Table 31 and §14.11.2 for the page mapping (see <see cref="RenderOptions"/>).</remarks>
+    /// <remarks>ISO 32000-2 §8.3.2.3, §7.7.3.3 Table 31 and §14.11.2 for the page mapping (see <see cref="RenderOptions"/>); §12.5.5 and §12.5.3 for the annotation and form-field layers drawn over the content (see <see cref="PdfPage.CreateDisplayList(DisplayLayers, DisplayIntent, Content.ContentOptions)"/>).</remarks>
     public Bitmap Render(PdfPage page, RenderOptions options)
     {
         ArgumentNullException.ThrowIfNull(page);
         ArgumentNullException.ThrowIfNull(options);
         PageGeometry geometry = options.Measure(page);
-        DisplayList list = page.CreateDisplayList();
+        DisplayList list = page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions);
         var bitmap = new Bitmap(geometry.PixelWidth, geometry.PixelHeight);
         try
         {
@@ -74,7 +75,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// </summary>
     /// <param name="page">The page.</param>
     /// <param name="target">The bitmap, for example one over caller memory; at least the page's pixel size.</param>
-    /// <param name="options">The scale and rotation.</param>
+    /// <param name="options">The scale, rotation, layers and intent.</param>
     /// <exception cref="ArgumentException"><paramref name="target"/> is smaller than the page's pixel size.</exception>
     public void Render(PdfPage page, Bitmap target, RenderOptions options)
     {
@@ -87,7 +88,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             throw new ArgumentException($"The page needs {geometry.PixelWidth} x {geometry.PixelHeight} pixels; the bitmap has {target.Width} x {target.Height}.", nameof(target));
         }
 
-        Draw(page.CreateDisplayList(), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true);
+        Draw(page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true);
     }
 
     /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background.</summary>
@@ -181,6 +182,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _height = height;
             _clip.Reset(width, height);
             _scan.Clip = _clip;
+            BeginAnnotations();
         }
 
         public void End()
@@ -283,6 +285,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             _scan.Dispose();
             _clip.Dispose();
             DisposeImages();
+            DisposeAnnotations();
         }
 
         /// <summary>

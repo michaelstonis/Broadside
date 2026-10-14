@@ -161,5 +161,9 @@ public sealed class DisplayListAllocationTests
 
         public void FillImageMask(DisplayImageMask mask, in DisplayColor color) =>
             Checksum += mask.Width + mask.Height + color.Components.Length;
+
+        public void BeginAnnotation(in DisplayAnnotation annotation) => Checksum += annotation.Rectangle.Width + annotation.Opacity;
+
+        public void EndAnnotation() => Checksum++;
     }
 }

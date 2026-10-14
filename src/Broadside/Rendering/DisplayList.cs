@@ -20,7 +20,9 @@ namespace Broadside.Rendering;
 /// bounding boxes, §8.10.1), images with their masks (§8.9, §11.6.5, <see cref="DisplayImage"/>, decoded once per image XObject),
 /// stencil masks (§8.9.6.2, <see cref="DisplayImageMask"/>), text as glyph runs (§9.4.3, §9.3.6, <see cref="GlyphRun"/>: font
 /// program, glyph ids, text matrices, outlines interned once per program and glyph) and shadings, from <c>sh</c> and as shading
-/// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>). Type 3 glyphs, text clips, tiling patterns and
+/// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>), and annotations' appearances (§12.5.5,
+/// <see cref="DisplayAnnotation"/>; a list holds the page's content, annotation and form-field layers as <see cref="DisplayLayers"/>
+/// asks). Type 3 glyphs, text clips, tiling patterns and
 /// transparency join it in later Phase 3 tickets, each as new <see cref="IRenderingBackend"/> calls.
 /// </para>
 /// <para>
@@ -80,6 +82,9 @@ public sealed class DisplayList
 
     /// <summary>Gets the stencil masks the list paints, each decoded once (indexed by <see cref="DisplayOperationKind.FillImageMask"/> records).</summary>
     internal DisplayImageMask[] ImageMasks { get; init; } = [];
+
+    /// <summary>Gets the annotations the list draws (indexed by <see cref="DisplayOperationKind.BeginAnnotation"/> records).</summary>
+    internal DisplayAnnotation[] Annotations { get; init; } = [];
 
     /// <summary>Gets the document the list was built from, whose colour converters a backend uses (see <see cref="DisplayColor"/>).</summary>
     public PdfDocument Document { get; }
@@ -150,6 +155,12 @@ public sealed class DisplayList
                     ref readonly DisplayColorEntry maskColor = ref _colors[operation.Second];
                     var maskPaint = new DisplayColor(maskColor.ColorSpace, _components.AsSpan(maskColor.ComponentStart, maskColor.ComponentCount), maskColor.DefaultColorSpaces, maskColor.Conversion);
                     backend.FillImageMask(ImageMasks[operation.First], in maskPaint);
+                    break;
+                case DisplayOperationKind.BeginAnnotation:
+                    backend.BeginAnnotation(in Annotations[operation.First]);
+                    break;
+                case DisplayOperationKind.EndAnnotation:
+                    backend.EndAnnotation();
                     break;
             }
         }
