@@ -122,6 +122,39 @@ public sealed class RenderOptions
         return this;
     }
 
+    /// <summary>
+    /// Gets or sets the layers a page render draws: the content, the annotations and the form fields, in that order;
+    /// <see cref="DisplayLayers.All"/> by default.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §12.5 and §12.7, through <see cref="PdfPage.CreateDisplayList(DisplayLayers, DisplayIntent, Content.ContentOptions)"/>.
+    /// A viewer that redraws overlays without re-rasterizing the page builds each layer's list itself and replays them with
+    /// <see cref="SoftwareRasterizer.Render(DisplayList, Bitmap, in Matrix)"/>.
+    /// </remarks>
+    public DisplayLayers Layers { get; set; } = DisplayLayers.All;
+
+    /// <summary>Gets or sets what the render is for, which decides the annotations drawn; <see cref="DisplayIntent.View"/> by default.</summary>
+    /// <remarks>ISO 32000-2 §12.5.3, Table 167 (<c>NoView</c>, <c>Print</c>, <c>NoZoom</c>, <c>NoRotate</c>).</remarks>
+    public DisplayIntent Intent { get; set; }
+
+    /// <summary>Sets <see cref="Layers"/>.</summary>
+    /// <param name="layers">The layers drawn.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithLayers(DisplayLayers layers)
+    {
+        Layers = layers;
+        return this;
+    }
+
+    /// <summary>Sets <see cref="Intent"/>.</summary>
+    /// <param name="intent">Screen or print.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithIntent(DisplayIntent intent)
+    {
+        Intent = intent;
+        return this;
+    }
+
     /// <summary>Returns the size in pixels of <paramref name="page"/> rendered with these options.</summary>
     /// <param name="page">The page.</param>
     /// <returns>

@@ -330,6 +330,26 @@ public sealed class ByteRangeSigningTests
         return output.ToArray();
     }
 
+    [Fact]
+    public void Signing_a_linearized_file_appends_an_update_that_leaves_it_unlinearized()
+    {
+        // A signature is an incremental update (§12.8.1), which cannot be linearized (Annex F, F.1, G.7): the original bytes are
+        // kept, the update is recorded as dropping the linearization, and the signature still verifies.
+        using X509Certificate2 certificate = TestCertificates.SelfSigned("CN=Broadside signer");
+        byte[] file = Corpus.Bytes("linearized.pdf");
+        using PdfDocument document = PdfDocument.Open(file);
+        Assert.True(document.IsLinearized);
+
+        byte[] signed = Sign(document, new PdfCertificateSigner(certificate));
+
+        Assert.True(signed.AsSpan(0, file.Length).SequenceEqual(file), "The original bytes changed.");
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == "LinearizationDropped");
+        SignedFile signature = SignedFile.Last(signed);
+        OpenSsl.VerifyCms(signature.Cms, signature.CoveredBytes(), certificate);
+        using PdfDocument reopened = PdfDocument.Open(signed);
+        Assert.Equal(2, reopened.Pages.Count);
+    }
+
     private static byte[] Sign(PdfDocument document, IPdfSigner signer, PdfSignatureOptions? options = null)
     {
         using var output = new MemoryStream();

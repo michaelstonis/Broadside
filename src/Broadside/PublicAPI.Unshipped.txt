@@ -3768,6 +3768,9 @@ Broadside.PdfDocument.RemoveObject(Broadside.Objects.CosReference! reference) ->
 Broadside.PdfSaveOptions.IncrementalUpdate.get -> bool
 Broadside.PdfSaveOptions.IncrementalUpdate.set -> void
 Broadside.PdfSaveOptions.WithIncrementalUpdate(bool incremental) -> Broadside.PdfSaveOptions!
+Broadside.PdfSaveOptions.Linearize.get -> bool
+Broadside.PdfSaveOptions.Linearize.set -> void
+Broadside.PdfSaveOptions.WithLinearize(bool linearize) -> Broadside.PdfSaveOptions!
 Broadside.PdfDocument.CreateNameTree(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Broadside.Objects.CosString!, Broadside.Objects.CosObject!>>! entries) -> Broadside.PdfNameTree!
 Broadside.PdfDocument.CreateNumberTree(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<int, Broadside.Objects.CosObject!>>! entries) -> Broadside.PdfNumberTree!
 Broadside.PdfNameTree.Remove(Broadside.Objects.CosString! key) -> bool
@@ -3968,3 +3971,32 @@ Broadside.Forms.PdfChoiceField.SetValue(string? value) -> void
 Broadside.Forms.PdfChoiceField.SetSelectedIndices(System.Collections.Generic.IEnumerable<int>! indices) -> void
 Broadside.Forms.PdfChoiceField.GenerateAppearances() -> void
 Broadside.Forms.PdfListBoxField.SetTopIndex(int topIndex) -> void
+Broadside.PdfEncryptionAlgorithm.Aes256Gcm = 3 -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionOptions.IntegrityProtection.get -> bool
+Broadside.PdfEncryptionOptions.IntegrityProtection.set -> void
+Broadside.PdfEncryptionOptions.WithIntegrityProtection(bool integrityProtection) -> Broadside.PdfEncryptionOptions!
+Broadside.Rendering.IRenderingBackend.SetCompositing(double strokeAlpha, double fillAlpha, Broadside.Graphics.BlendMode blendMode) -> void
+Broadside.PdfPage.CreateDisplayList(Broadside.Rendering.DisplayLayers layers) -> Broadside.Rendering.DisplayList!
+Broadside.PdfPage.CreateDisplayList(Broadside.Rendering.DisplayLayers layers, Broadside.Rendering.DisplayIntent intent, Broadside.Content.ContentOptions! options) -> Broadside.Rendering.DisplayList!
+Broadside.Rendering.DisplayAnnotation
+Broadside.Rendering.DisplayAnnotation.BlendMode.get -> Broadside.Graphics.BlendMode
+Broadside.Rendering.DisplayAnnotation.DisplayAnnotation() -> void
+Broadside.Rendering.DisplayAnnotation.Isolated.get -> bool
+Broadside.Rendering.DisplayAnnotation.Kind.get -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Rendering.DisplayAnnotation.Knockout.get -> bool
+Broadside.Rendering.DisplayAnnotation.NoRotate.get -> bool
+Broadside.Rendering.DisplayAnnotation.NoZoom.get -> bool
+Broadside.Rendering.DisplayAnnotation.Opacity.get -> double
+Broadside.Rendering.DisplayAnnotation.Rectangle.get -> Broadside.PdfRectangle
+Broadside.Rendering.DisplayAnnotation.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Rendering.DisplayIntent
+Broadside.Rendering.DisplayIntent.Print = 1 -> Broadside.Rendering.DisplayIntent
+Broadside.Rendering.DisplayIntent.View = 0 -> Broadside.Rendering.DisplayIntent
+Broadside.Rendering.DisplayLayers
+Broadside.Rendering.DisplayLayers.All = Broadside.Rendering.DisplayLayers.Content | Broadside.Rendering.DisplayLayers.Annotations | Broadside.Rendering.DisplayLayers.FormFields -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.DisplayLayers.Annotations = 2 -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.DisplayLayers.Content = 1 -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.DisplayLayers.FormFields = 4 -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.DisplayLayers.None = 0 -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.IRenderingBackend.BeginAnnotation(in Broadside.Rendering.DisplayAnnotation annotation) -> void
+Broadside.Rendering.IRenderingBackend.EndAnnotation() -> void

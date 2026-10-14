@@ -19,7 +19,7 @@ namespace Broadside.Rendering;
 /// </para>
 /// <para>
 /// Hot path: allocates nothing; the per-pixel work is a few multiply-adds (axial) or a square root (radial) and a table read.
-/// Compositing is premultiplied source-over (§11.3) by the coverage of the painted shape. It is a coverage sink of
+/// Compositing goes through a <see cref="Compositor"/> (§11.3: constant alpha and blend mode) by the coverage of the painted shape. It is a coverage sink of
 /// <see cref="ScanlineRasterizer.Paint"/>, so the runs it receives are already cut by the clipping path (§8.5.4).
 /// </para>
 /// </remarks>
@@ -33,6 +33,7 @@ internal readonly ref struct ShadingPainter : ICoverageSink
     private readonly bool _hasBackground;
     private readonly uint _background;
     private readonly bool _antiAlias;
+    private readonly Compositor _compositor;
 
     /// <summary>Creates the painter.</summary>
     /// <param name="target">The device pixels painted into, premultiplied BGRA in memory order.</param>
@@ -43,8 +44,10 @@ internal readonly ref struct ShadingPainter : ICoverageSink
     /// <param name="hasBackground">Whether undefined points take <paramref name="background"/>.</param>
     /// <param name="background">The Background colour, opaque premultiplied BGRA.</param>
     /// <param name="antiAlias">Whether each pixel averages four samples.</param>
-    public ShadingPainter(Span<byte> target, int stride, in Matrix inverse, in ShadingGeometry geometry, uint[] table, bool hasBackground, uint background, bool antiAlias)
+    /// <param name="compositor">The constant alpha and blend mode the shading composites with (§11.3); the default is opaque Normal.</param>
+    public ShadingPainter(Span<byte> target, int stride, in Matrix inverse, in ShadingGeometry geometry, uint[] table, bool hasBackground, uint background, bool antiAlias, Compositor compositor = default)
     {
+        _compositor = compositor;
         _target = target;
         _stride = stride;
         _inverse = inverse;
@@ -82,7 +85,7 @@ internal readonly ref struct ShadingPainter : ICoverageSink
             {
                 if (Sample(u, v, out uint color))
                 {
-                    pixel = Composite(color, pixel, coverage);
+                    pixel = _compositor.Composite(color, pixel, coverage);
                 }
 
                 continue;
@@ -100,37 +103,9 @@ internal readonly ref struct ShadingPainter : ICoverageSink
             {
                 // The average of the four samples, unpainted ones transparent: premultiplied, alpha = painted / 4.
                 uint average = (uint)((blue + 2) >> 2) | ((uint)((green + 2) >> 2) << 8) | ((uint)((red + 2) >> 2) << 16) | ((uint)(((painted * 255) + 2) >> 2) << 24);
-                pixel = Composite(average, pixel, coverage);
+                pixel = _compositor.Composite(average, pixel, coverage);
             }
         }
-    }
-
-    /// <summary>Premultiplied source-over with the source scaled by <paramref name="coverage"/>: d = s·c + d·(1 − a·c).</summary>
-    private static uint Composite(uint source, uint destination, int coverage)
-    {
-        uint alpha = source >> 24;
-        if (coverage == 255 && alpha == 255)
-        {
-            return source;
-        }
-
-        int keep = 255 - Divide255((int)alpha * coverage);
-        uint result = 0;
-        for (int shift = 0; shift < 32; shift += 8)
-        {
-            int s = (int)((source >> shift) & 0xFF);
-            int d = (int)((destination >> shift) & 0xFF);
-            result |= (uint)Math.Min(Divide255((s * coverage) + (d * keep)), 255) << shift;
-        }
-
-        return result;
-    }
-
-    /// <summary>Rounds <paramref name="value"/> / 255 for 0 ≤ value ≤ 2 × 255 × 255.</summary>
-    private static int Divide255(int value)
-    {
-        value += 128;
-        return (value + (value >> 8)) >> 8;
     }
 
     private void Accumulate(double u, double v, ref int painted, ref int blue, ref int green, ref int red)

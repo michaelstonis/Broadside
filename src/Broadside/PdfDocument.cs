@@ -454,7 +454,8 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file with a classic cross-reference table.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
     /// <exception cref="NotSupportedException">
-    /// The save cannot be written as asked: the document's encryption carries an integrity MAC (ISO/TS 32004) and is kept, it holds
+    /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
+    /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
     /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
@@ -466,8 +467,10 @@ public sealed partial class PdfDocument : IDisposable
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
     /// <param name="options">How to lay the file out.</param>
     /// <exception cref="NotSupportedException">
-    /// The save cannot be written as asked: the document's encryption carries an integrity MAC (ISO/TS 32004) and is kept, it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
+    /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
+    /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption,
+    /// or a linearized save would carry an integrity MAC.
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
@@ -478,7 +481,8 @@ public sealed partial class PdfDocument : IDisposable
     /// write compactly; <see cref="PdfSaveOptions.RemoveUnreachableObjects"/> leaves out objects the trailer does not reach. An object
     /// that has not changed since it was read, was read without any repair and holds no reference that was renumbered is written with
     /// exactly the bytes it was read from; other objects are serialized, stream data as stored. The revisions of an incrementally
-    /// updated file collapse into one, and a linearized file is written unlinearized (Annex F).
+    /// updated file collapse into one, and a linearized file is written unlinearized (Annex F) unless
+    /// <see cref="PdfSaveOptions.Linearize"/> lays the file out linearized again.
     /// </para>
     /// <para>
     /// Unfiltered streams that are new or changed are written compressed with the engine's <c>FlateDecode</c> encoder when that makes
@@ -491,7 +495,8 @@ public sealed partial class PdfDocument : IDisposable
     /// of each developer extension (§7.12.4). An incremental update writes no header: it raises the catalog's <c>Version</c> entry
     /// instead (§7.5.6, §7.7.2 Table 29). A raise above <see cref="Version"/> is recorded as a <c>VersionRaised</c> diagnostic
     /// (Information); in strict mode it is refused, and the save throws naming the features, before anything is written. A feature of an
-    /// ISO/TS extension (AES-GCM encryption, ISO/TS 32003) adds its developer extension to the catalog's <c>Extensions</c> (§7.12),
+    /// ISO/TS extension (AES-GCM encryption, ISO/TS 32003; an integrity MAC, ISO/TS 32004) adds its developer extension to the
+    /// catalog's <c>Extensions</c> (§7.12),
     /// keeping every other declaration. The trailer's first
     /// file identifier is kept; the second is derived from the written bytes, so saving the same document the same way always writes
     /// the same bytes (§14.4).
@@ -502,7 +507,9 @@ public sealed partial class PdfDocument : IDisposable
     /// document, or of an encrypted file, is serialized and its strings and streams encrypted again under its written number; nothing
     /// is copied from the source, whose bytes are ciphertext. New encryption raises the header to the version its algorithm needs, and
     /// encrypted output is not deterministic (random keys, salts and IVs). Saving with RC4 or AES-128, new or kept, records an
-    /// <c>EncryptionDeprecated</c> warning first, so strict mode refuses it.
+    /// <c>EncryptionDeprecated</c> warning first, so strict mode refuses it. A file with an integrity MAC (ISO/TS 32004), new
+    /// (<see cref="PdfEncryptionOptions.IntegrityProtection"/>) or the document's own, gets a standalone PDF MAC token in its trailer's
+    /// <c>AuthCode</c>, computed over every byte of the file but the token; an incremental update computes it over the whole updated file.
     /// </para>
     /// <para>
     /// A save checks everything that can refuse it before it changes the document (ADR 0005): a save that throws has written nothing
@@ -526,7 +533,8 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it, with a classic cross-reference table.</summary>
     /// <param name="path">The file path. Do not name the file the document was opened from.</param>
     /// <exception cref="NotSupportedException">
-    /// The save cannot be written as asked: the document's encryption carries an integrity MAC (ISO/TS 32004) and is kept, it holds
+    /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
+    /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
     /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
@@ -538,8 +546,10 @@ public sealed partial class PdfDocument : IDisposable
     /// <param name="path">The file path. Do not name the file the document was opened from.</param>
     /// <param name="options">How to lay the file out.</param>
     /// <exception cref="NotSupportedException">
-    /// The save cannot be written as asked: the document's encryption carries an integrity MAC (ISO/TS 32004) and is kept, it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
+    /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
+    /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption,
+    /// or a linearized save would carry an integrity MAC.
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
@@ -564,8 +574,10 @@ public sealed partial class PdfDocument : IDisposable
     /// <param name="cancellationToken">Cancels the writes.</param>
     /// <returns>A task that completes when the file is written.</returns>
     /// <exception cref="NotSupportedException">
-    /// The save cannot be written as asked: the document's encryption carries an integrity MAC (ISO/TS 32004) and is kept, it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
+    /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
+    /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption,
+    /// or a linearized save would carry an integrity MAC.
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
@@ -1272,6 +1284,7 @@ public sealed partial class PdfDocument : IDisposable
     private FileWriter PlanSave(PdfSaveOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
+        CheckLinearization(options);
         ReportBeforeSave();
         VersionedSave planned = CheckVersionedSave(options);
         ReportDeprecatedEncryption(options);
@@ -1314,6 +1327,34 @@ public sealed partial class PdfDocument : IDisposable
     /// recorded once however often the document is saved. Add later save-time checks here.
     /// </summary>
     private void ReportBeforeSave() => RemovedPageReport.Report(this, _diagnostics);
+
+    /// <summary>
+    /// Refuses a linearized incremental update, and records that an incremental update of a linearized file leaves it unlinearized:
+    /// its parameter dictionary's <c>L</c> no longer matches the file length (Annex F, F.1, Table F.1, G.7).
+    /// </summary>
+    private void CheckLinearization(PdfSaveOptions options)
+    {
+        if (!options.IncrementalUpdate)
+        {
+            return;
+        }
+
+        if (options.Linearize)
+        {
+            throw new ArgumentException(
+                "An incremental update cannot be linearized: appending to a file leaves it unlinearized (ISO 32000-2 F.1, G.7). Save without IncrementalUpdate to linearize.",
+                nameof(options));
+        }
+
+        if (IsLinearized)
+        {
+            _diagnostics.Report(
+                DiagnosticCodes.LinearizationDropped,
+                DiagnosticSeverity.Information,
+                "The incremental update leaves the linearized file unlinearized: its linearization dictionary's L entry no longer matches the file length (ISO 32000-2 F.1, G.7). Save with Linearize to linearize it again.",
+                objectReference: Linearization!.Reference);
+        }
+    }
 
     /// <summary>
     /// After an incremental update's last byte is written, reads the document from the updated file (§7.5.6): the update's section

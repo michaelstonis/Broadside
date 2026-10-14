@@ -29,9 +29,9 @@ public sealed partial class SoftwareRasterizer
             }
 
             uint fill = 0;
-            bool fills = run.Fills && TryGetPixel(run.FillColor, out fill);
+            bool fills = run.Fills && !_fillCompositor.PaintsNothing && TryGetPixel(run.FillColor, out fill);
             uint stroke = 0;
-            bool strokes = run.Strokes && TryGetPixel(run.StrokeColor, out stroke);
+            bool strokes = run.Strokes && !_strokeCompositor.PaintsNothing && TryGetPixel(run.StrokeColor, out stroke);
             if (!fills && !strokes)
             {
                 return;
@@ -55,7 +55,7 @@ public sealed partial class SoftwareRasterizer
                         _scan.Reset(_width, _height);
                         AddPath(outline, degenerateDots: false);
                         _toDevice = ctm;
-                        _scan.Fill(_target!, FillRule.NonZero, fill);
+                        _scan.Fill(_target!, FillRule.NonZero, fill, _fillCompositor);
                     }
 
                     if (strokes)
@@ -63,7 +63,7 @@ public sealed partial class SoftwareRasterizer
                         _toDevice = ctm;
                         _scan.Reset(_width, _height);
                         _stroker.Stroke(ToUserSpace(outline, glyphToUser), run.StrokeStyle, ctm);
-                        _scan.Fill(_target!, FillRule.NonZero, stroke);
+                        _scan.Fill(_target!, FillRule.NonZero, stroke, _strokeCompositor);
                     }
                 }
             }

@@ -5,6 +5,7 @@ using System.Text;
 using Broadside.Annotations;
 using Broadside.Forms;
 using Broadside.Objects;
+using Broadside.Security;
 using Broadside.Security.Cryptography;
 using Broadside.Signatures;
 using Broadside.Writing;
@@ -16,6 +17,12 @@ public sealed partial class PdfDocument
 {
     /// <summary>The placeholder each of the three computed <c>ByteRange</c> numbers is written as, wide enough for any of them.</summary>
     private const long ByteRangePlaceholder = 9_999_999_999;
+
+    /// <summary>
+    /// The room reserved in <c>Contents</c> for a PDF MAC token attached to the signature (ISO/TS 32004 §6.5.2): the token with its
+    /// signatureDigest (under 400 bytes) and the attribute around it.
+    /// </summary>
+    private const int IntegrityAttributeAllowance = 512;
 
     private static readonly CosName ByteRangeName = new("ByteRange");
     private static readonly CosName ContentsName = new("Contents");
@@ -78,6 +85,11 @@ public sealed partial class PdfDocument
     /// The save raises the version to what the signature needs (Table 260: PDF 1.6 for SHA-256, 1.7 for SHA-384 and SHA-512, 2.0 for
     /// ECDSA, SHA-3 and PAdES) and declares the ISO_ developer extensions of ISO/TS 32001 (SHA-3 digests) and ISO/TS 32002 (ECDSA), in
     /// the signed update; in strict mode a raise is refused before anything changes (issue #141).
+    /// </para>
+    /// <para>
+    /// An encrypted document is updated with its own key. When it has, or its permissions require, an integrity MAC (ISO/TS 32004),
+    /// the new MAC is attached to this signature as its <c>pdfMacData</c> unsigned attribute, digesting the signature's byte ranges
+    /// and its signature value, and the trailer's <c>AuthCode</c> points at the signature dictionary (§6.5.2, §6.6.3).
     /// </para>
     /// <para>
     /// Once the last byte is written the document reads from the signed file, as after an incremental save
@@ -168,6 +180,11 @@ public sealed partial class PdfDocument
         CmsSignedData.RequireCompatible(key, digestAlgorithm, padding);
         IReadOnlyList<X509Certificate2> chain = signer.CertificateChain ?? [];
         int reserved = CmsSignedData.EstimateLength(key, signer.Certificate, chain);
+        if (Security is { } security && (security.Integrity != PdfIntegrityStatus.None || security.RequiresIntegrityCode))
+        {
+            // ISO/TS 32004 §6.5.2: the save keeps the document's MAC, as a pdfMacData unsigned attribute of this signature.
+            reserved += IntegrityAttributeAllowance;
+        }
 
         var undo = new List<Action>();
         try
@@ -186,6 +203,12 @@ public sealed partial class PdfDocument
             PlaceSignature(options.FieldName, signatureReference, undo);
 
             FileWriter writer = PlanSave(new PdfSaveOptions { IncrementalUpdate = true });
+            IntegrityCodeWriter? integrity = writer.Integrity;
+            if (integrity is not null)
+            {
+                writer.IntegritySignature = signatureReference;
+            }
+
             foreach (ReadOnlyMemory<byte> _ in writer.Write())
             {
                 // The source's bytes are copied again from the source once signed; the update is kept by the writer.
@@ -204,22 +227,30 @@ public sealed partial class PdfDocument
             placeholders.WriteByteRange(bytes, byteRange);
 
             using IncrementalDigest digest = IncrementalDigest.Create(digestAlgorithm);
+            using IncrementalDigest? macDigest = integrity is null ? null : IntegrityCodeWriter.CreateDigest();
             for (long position = 0; position < sourceLength;)
             {
                 ReadOnlyMemory<byte> window = SourceWindow(position, sourceLength);
                 digest.AppendData(window.Span);
+                macDigest?.AppendData(window.Span);
                 position += window.Length;
             }
 
             digest.AppendData(bytes.AsSpan(0, placeholders.ContentsStart));
             digest.AppendData(bytes.AsSpan(placeholders.ContentsEnd));
+            macDigest?.AppendData(bytes.AsSpan(0, placeholders.ContentsStart));
+            macDigest?.AppendData(bytes.AsSpan(placeholders.ContentsEnd));
             byte[] signedAttributes = CmsSignedData.SignedAttributes(digest.GetHashAndReset(), digestAlgorithm, signer.Certificate);
 
             // ISO/TS 32002 §5.1.4: the signed attributes are digested with the message digest's algorithm.
             byte[] toSign = IncrementalDigest.HashData(digestAlgorithm, signedAttributes);
 
             return new PendingSignature(
-                signer, chain, key, padding, digestAlgorithm, signature, update with { Bytes = bytes }, placeholders, byteRange, signedAttributes, toSign, reserved, undo);
+                signer, chain, key, padding, digestAlgorithm, signature, update with { Bytes = bytes }, placeholders, byteRange, signedAttributes, toSign, reserved, undo)
+            {
+                Integrity = integrity,
+                IntegrityDataDigest = macDigest?.GetHashAndReset(),
+            };
         }
         catch
         {
@@ -235,14 +266,21 @@ public sealed partial class PdfDocument
         try
         {
             ArgumentNullException.ThrowIfNull(signature);
+            byte[] value = CmsSignedData.NormalizeSignature(pending.Key, signature);
+
+            // ISO/TS 32004 §6.6.3: the token digests the signature's byte range and its signature value, as the CMS object holds it.
+            byte[]? macToken = pending.Integrity?.CreateToken(
+                pending.IntegrityDataDigest,
+                IncrementalDigest.HashData(HashAlgorithmName.SHA256, value));
             cms = CmsSignedData.Encode(
                 pending.DigestAlgorithm,
                 pending.Key,
                 pending.Padding,
                 pending.SignedAttributes,
-                CmsSignedData.NormalizeSignature(pending.Key, signature),
+                value,
                 pending.Signer.Certificate,
-                pending.Chain);
+                pending.Chain,
+                macToken);
             if (cms.Length > pending.Reserved)
             {
                 throw new InvalidOperationException(
@@ -605,6 +643,12 @@ public sealed partial class PdfDocument
         int Reserved,
         List<Action> UndoActions)
     {
+        /// <summary>Gets the composer of the PDF MAC token attached to the signature, or <see langword="null"/> when the document has no MAC.</summary>
+        public IntegrityCodeWriter? Integrity { get; init; }
+
+        /// <summary>Gets the SHA-256 digest of the signature's byte range, the token's dataDigest (ISO/TS 32004 §6.6.3).</summary>
+        public byte[]? IntegrityDataDigest { get; init; }
+
         public void Undo() => Revert(UndoActions);
     }
 }
