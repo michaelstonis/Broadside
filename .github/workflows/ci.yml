@@ -71,10 +71,11 @@ jobs:
         run: dotnet restore Broadside.slnx -p:Configuration=Release
 
       - name: Build
-        # ValidateXcodeVersion=false: the macOS workload of the 10.0.4xx workload set (macOS SDK pack 27.0) demands Xcode 27.0 for
-        # anything that outputs an app bundle (the CoreGraphics test and benchmark apps), and the macos-26 runner image has Xcode
-        # 26.x only. The check is an exact major.minor match.
-        run: dotnet build Broadside.slnx -c Release -warnaserror --no-restore -p:ValidateXcodeVersion=false
+        # The macOS workload of the 10.0.4xx workload set (macOS SDK pack 27.0) demands Xcode 27.0 for anything that outputs an app
+        # bundle (the CoreGraphics test and benchmark apps), and the macos-26 runner image has Xcode 26.x only. ValidateXcodeVersion=false
+        # skips the exact major.minor check, and Registrar=dynamic skips the static registrar, the one build step that needs the macOS
+        # 27.0 SDK headers (MT0179). Both only affect Apple app projects; drop them once the image ships Xcode 27.
+        run: dotnet build Broadside.slnx -c Release -warnaserror --no-restore -p:ValidateXcodeVersion=false -p:Registrar=dynamic
 
       - name: Test
         run: dotnet test Broadside.Core.slnf -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
