@@ -4012,3 +4012,55 @@ Broadside.PdfDocument.AppendPages(Broadside.PdfDocument! source, System.Range pa
 Broadside.PdfDocument.ExtractPages(System.Range pages) -> Broadside.PdfDocument!
 Broadside.PdfDocument.Split(params System.Collections.Generic.IEnumerable<System.Range>! ranges) -> System.Collections.Generic.IReadOnlyList<Broadside.PdfDocument!>!
 static Broadside.PdfDocument.Merge(params System.Collections.Generic.IEnumerable<Broadside.PdfDocument!>! sources) -> Broadside.PdfDocument!
+Broadside.Graphics.PdfCanvas
+Broadside.Graphics.PdfCanvas.Clip(Broadside.Graphics.FillRule rule = Broadside.Graphics.FillRule.NonZero) -> void
+Broadside.Graphics.PdfCanvas.CloseAndStroke() -> void
+Broadside.Graphics.PdfCanvas.CloseFillAndStroke(Broadside.Graphics.FillRule rule = Broadside.Graphics.FillRule.NonZero) -> void
+Broadside.Graphics.PdfCanvas.ClosePath() -> void
+Broadside.Graphics.PdfCanvas.CurveTo(double x1, double y1, double x2, double y2, double x3, double y3) -> void
+Broadside.Graphics.PdfCanvas.Dispose() -> void
+Broadside.Graphics.PdfCanvas.DrawForm(Broadside.Graphics.PdfFormXObject! form) -> void
+Broadside.Graphics.PdfCanvas.EndPath() -> void
+Broadside.Graphics.PdfCanvas.Fill(Broadside.Graphics.FillRule rule = Broadside.Graphics.FillRule.NonZero) -> void
+Broadside.Graphics.PdfCanvas.FillAndStroke(Broadside.Graphics.FillRule rule = Broadside.Graphics.FillRule.NonZero) -> void
+Broadside.Graphics.PdfCanvas.LineTo(double x, double y) -> void
+Broadside.Graphics.PdfCanvas.MoveTo(double x, double y) -> void
+Broadside.Graphics.PdfCanvas.Rectangle(double x, double y, double width, double height) -> void
+Broadside.Graphics.PdfCanvas.RestoreState() -> void
+Broadside.Graphics.PdfCanvas.Rotate(double degrees) -> void
+Broadside.Graphics.PdfCanvas.SaveState() -> void
+Broadside.Graphics.PdfCanvas.Scale(double x, double y) -> void
+Broadside.Graphics.PdfCanvas.SetBlendMode(Broadside.Graphics.BlendMode mode) -> void
+Broadside.Graphics.PdfCanvas.SetDashPattern(System.ReadOnlySpan<double> dashArray, double phase) -> void
+Broadside.Graphics.PdfCanvas.SetFillAlpha(double alpha) -> void
+Broadside.Graphics.PdfCanvas.SetFillColor(Broadside.Graphics.PdfColor color) -> void
+Broadside.Graphics.PdfCanvas.SetFlatness(double flatness) -> void
+Broadside.Graphics.PdfCanvas.SetLineCap(Broadside.Graphics.LineCap cap) -> void
+Broadside.Graphics.PdfCanvas.SetLineJoin(Broadside.Graphics.LineJoin join) -> void
+Broadside.Graphics.PdfCanvas.SetLineWidth(double width) -> void
+Broadside.Graphics.PdfCanvas.SetMiterLimit(double limit) -> void
+Broadside.Graphics.PdfCanvas.SetRenderingIntent(Broadside.Graphics.RenderingIntent intent) -> void
+Broadside.Graphics.PdfCanvas.SetStrokeAlpha(double alpha) -> void
+Broadside.Graphics.PdfCanvas.SetStrokeColor(Broadside.Graphics.PdfColor color) -> void
+Broadside.Graphics.PdfCanvas.StateDepth.get -> int
+Broadside.Graphics.PdfCanvas.Stroke() -> void
+Broadside.Graphics.PdfCanvas.Transform(Broadside.Graphics.Matrix matrix) -> void
+Broadside.Graphics.PdfCanvas.Translate(double x, double y) -> void
+static Broadside.Graphics.PdfColor.FromCmyk(float cyan, float magenta, float yellow, float black) -> Broadside.Graphics.PdfColor
+static Broadside.Graphics.PdfColor.FromGray(float gray) -> Broadside.Graphics.PdfColor
+static Broadside.Graphics.PdfColor.FromRgb(float red, float green, float blue) -> Broadside.Graphics.PdfColor
+Broadside.Graphics.PdfFormXObject.CreateCanvas() -> Broadside.Graphics.PdfCanvas!
+Broadside.PdfDocument.CreateDeviceNColorSpace(System.Collections.Generic.IReadOnlyList<string!>! colorants, Broadside.Graphics.PdfColorSpace! alternate, Broadside.Graphics.PdfFunction! tintTransform) -> Broadside.Graphics.PdfDeviceNColorSpace!
+Broadside.PdfDocument.CreateDeviceNColorSpace(System.Collections.Generic.IReadOnlyList<string!>! colorants, System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PdfColor>! alternateColors) -> Broadside.Graphics.PdfDeviceNColorSpace!
+Broadside.PdfDocument.CreateExponentialFunction(System.ReadOnlySpan<double> c0, System.ReadOnlySpan<double> c1, double exponent) -> Broadside.Graphics.PdfExponentialFunction!
+Broadside.PdfDocument.CreateFormXObject(Broadside.PdfRectangle boundingBox) -> Broadside.Graphics.PdfFormXObject!
+Broadside.PdfDocument.CreateIccBasedColorSpace(System.ReadOnlySpan<byte> profile) -> Broadside.Graphics.PdfIccBasedColorSpace!
+Broadside.PdfDocument.CreatePostScriptFunction(System.ReadOnlySpan<double> domain, System.ReadOnlySpan<double> range, string! program) -> Broadside.Graphics.PdfPostScriptFunction!
+Broadside.PdfDocument.CreateSeparationColorSpace(string! colorant, Broadside.Graphics.PdfColor alternateColor) -> Broadside.Graphics.PdfSeparationColorSpace!
+Broadside.PdfDocument.CreateSeparationColorSpace(string! colorant, Broadside.Graphics.PdfColorSpace! alternate, Broadside.Graphics.PdfFunction! tintTransform) -> Broadside.Graphics.PdfSeparationColorSpace!
+Broadside.PdfPage.ArtBox.set -> void
+Broadside.PdfPage.BleedBox.set -> void
+Broadside.PdfPage.CreateCanvas() -> Broadside.Graphics.PdfCanvas!
+Broadside.PdfPage.CropBox.set -> void
+Broadside.PdfPage.MediaBox.set -> void
+Broadside.PdfPage.TrimBox.set -> void

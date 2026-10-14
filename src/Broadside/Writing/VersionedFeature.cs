@@ -90,6 +90,15 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <item><term><see cref="TransparencyGroups"/></term><description>1.4 (§11.6.6; Table 31 and Table 93, <c>Group</c>)</description></item>
 /// <item><term><see cref="OptionalContent"/></term><description>1.5 (§8.11.1; Table 29, <c>OCProperties</c>; Tables 87, 93 and 166, <c>OC</c>)</description></item>
 /// <item><term><see cref="Pdf20AnnotationEntries"/></term><description>2.0 (§12.5.2, Table 166, <c>ca</c>, <c>BM</c>, <c>Lang</c>, <c>CA</c> of a non-markup annotation; §12.5.6.1, Table 171, <c>Projection</c> and <c>RichMedia</c>)</description></item>
+/// <item><term><see cref="PageBoundaries"/></term><description>1.3 (§7.7.3.3, Table 31, <c>BleedBox</c>, <c>TrimBox</c>, <c>ArtBox</c>)</description></item>
+/// <item><term><see cref="RenderingIntentOperator"/></term><description>1.1 (§8.4.4, Table 56, <c>ri</c>)</description></item>
+/// <item><term><see cref="GraphicsStateParameters"/></term><description>1.2 (§8.4.4, Table 56, <c>gs</c>)</description></item>
+/// <item><term><see cref="CieBasedColorSpace"/></term><description>1.1 (§8.6.3, Table 61: CalGray, CalRGB, Lab, Indexed)</description></item>
+/// <item><term><see cref="SeparationColorSpace"/></term><description>1.2 (§8.6.6.4)</description></item>
+/// <item><term><see cref="IccBasedColorSpace"/></term><description>1.3 (§8.6.5.5)</description></item>
+/// <item><term><see cref="DeviceNColorSpace"/></term><description>1.3 (§8.6.6.5); <see cref="DeviceNAttributes"/> 1.6 (Table 70)</description></item>
+/// <item><term><see cref="SampledFunction"/></term><description>1.2 (§7.10.2)</description></item>
+/// <item><term><see cref="CalculatedFunction"/></term><description>1.3 (§7.10.3 to §7.10.5, types 2, 3 and 4)</description></item>
 /// <item><term><see cref="DeveloperExtension"/></term><description>The extension's <c>BaseVersion</c> (§7.12.4)</description></item>
 /// </list>
 /// <para>
@@ -213,6 +222,49 @@ internal static class VersionedFeatures
         "PDF 2.0 annotation entries (ca, BM, Lang, CA of a non-markup annotation, Projection and RichMedia types)",
         "ISO 32000-2 §12.5.2, Table 166; §12.5.6.1, Table 171",
         Pdf20);
+
+    /// <summary>Gets the <c>BleedBox</c>, <c>TrimBox</c> and <c>ArtBox</c> page boundaries: PDF 1.3.</summary>
+    public static VersionedFeature PageBoundaries { get; } = new("a page's BleedBox, TrimBox or ArtBox", "ISO 32000-2 §7.7.3.3, Table 31", new PdfVersion(1, 3));
+
+    /// <summary>Gets the <c>ri</c> operator: PDF 1.1.</summary>
+    public static VersionedFeature RenderingIntentOperator { get; } = new("the rendering intent operator (ri)", "ISO 32000-2 §8.4.4, Table 56", Pdf11);
+
+    /// <summary>Gets graphics state parameter dictionaries and the <c>gs</c> operator: PDF 1.2.</summary>
+    public static VersionedFeature GraphicsStateParameters { get; } = new("a graphics state parameter dictionary (gs)", "ISO 32000-2 §8.4.4, Table 56", Pdf12);
+
+    /// <summary>Gets the CIE-based spaces CalGray, CalRGB and Lab, and Indexed spaces: PDF 1.1.</summary>
+    public static VersionedFeature CieBasedColorSpace { get; } = new("a CalGray, CalRGB, Lab or Indexed colour space", "ISO 32000-2 §8.6.3, Table 61", Pdf11);
+
+    /// <summary>Gets Separation colour spaces: PDF 1.2.</summary>
+    public static VersionedFeature SeparationColorSpace { get; } = new("a Separation colour space", "ISO 32000-2 §8.6.6.4", Pdf12);
+
+    /// <summary>Gets ICCBased colour spaces: PDF 1.3.</summary>
+    public static VersionedFeature IccBasedColorSpace { get; } = new("an ICCBased colour space", "ISO 32000-2 §8.6.5.5", new PdfVersion(1, 3));
+
+    /// <summary>Gets DeviceN colour spaces: PDF 1.3.</summary>
+    public static VersionedFeature DeviceNColorSpace { get; } = new("a DeviceN colour space", "ISO 32000-2 §8.6.6.5", new PdfVersion(1, 3));
+
+    /// <summary>Gets a DeviceN colour space's attributes dictionary: PDF 1.6.</summary>
+    public static VersionedFeature DeviceNAttributes { get; } = new("a DeviceN colour space's attributes dictionary", "ISO 32000-2 §8.6.6.5, Table 70", Pdf16);
+
+    /// <summary>Gets sampled (type 0) functions: PDF 1.2.</summary>
+    public static VersionedFeature SampledFunction { get; } = new("a sampled function (FunctionType 0)", "ISO 32000-2 §7.10.2", Pdf12);
+
+    /// <summary>Gets exponential, stitching and PostScript calculator functions (types 2, 3 and 4): PDF 1.3.</summary>
+    public static VersionedFeature CalculatedFunction { get; } = new("an exponential, stitching or PostScript calculator function (FunctionType 2, 3 or 4)", "ISO 32000-2 §7.10.3 to §7.10.5", new PdfVersion(1, 3));
+
+    /// <summary>Returns the feature a colour space stands for (§8.6.3, Table 61), or <see langword="null"/> for a device space (PDF 1.0).</summary>
+    /// <param name="space">The space.</param>
+    /// <returns>The feature.</returns>
+    public static VersionedFeature? ColorSpace(Graphics.PdfColorSpace space) => space.Family switch
+    {
+        Graphics.PdfColorSpaceFamily.CalGray or Graphics.PdfColorSpaceFamily.CalRgb or Graphics.PdfColorSpaceFamily.Lab
+            or Graphics.PdfColorSpaceFamily.Indexed => CieBasedColorSpace,
+        Graphics.PdfColorSpaceFamily.Separation => SeparationColorSpace,
+        Graphics.PdfColorSpaceFamily.IccBased => IccBasedColorSpace,
+        Graphics.PdfColorSpaceFamily.DeviceN => space.MinimumVersion > new PdfVersion(1, 3) ? DeviceNAttributes : DeviceNColorSpace,
+        _ => null,
+    };
 
     /// <summary>Returns the feature a filter's encoding stands for, or <see langword="null"/> when it has no version row.</summary>
     /// <param name="filter">A filter name.</param>
