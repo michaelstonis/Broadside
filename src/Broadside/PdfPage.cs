@@ -60,25 +60,56 @@ public sealed class PdfPage
     public IReadOnlyList<PdfOutputIntent> OutputIntents =>
         PdfOutputIntent.Read(_document, Dictionary.GetValueOrDefault(OutputIntentsKey), Reference, _document.OutputIntentViews);
 
-    /// <summary>Gets the media box: the boundaries of the physical medium the page is displayed or printed on. Inheritable.</summary>
-    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Required; when missing or malformed, US Letter <c>[0 0 612 792]</c>.</remarks>
-    public PdfRectangle MediaBox => ReadBox(KnownNames.MediaBox, inheritable: true, out PdfRectangle box) == PageAttributeState.Valid ? box : DefaultMediaBox;
+    /// <summary>Gets or sets the media box: the boundaries of the physical medium the page is displayed or printed on. Inheritable.</summary>
+    /// <exception cref="ArgumentException">On set, a coordinate is not finite, or the box has no area.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Required; when missing or malformed, US Letter <c>[0 0 612 792]</c>. Setting
+    /// writes the page's own entry, which overrides an inherited one (§7.7.3.4). A mutation.
+    /// </remarks>
+    public PdfRectangle MediaBox
+    {
+        get => ReadBox(KnownNames.MediaBox, inheritable: true, out PdfRectangle box) == PageAttributeState.Valid ? box : DefaultMediaBox;
+        set => WriteBox(KnownNames.MediaBox, value, feature: null);
+    }
 
-    /// <summary>Gets the crop box: the region the page's contents are clipped to when displayed or printed. Inheritable.</summary>
-    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Defaults to the media box; reduced to its intersection with the media box.</remarks>
-    public PdfRectangle CropBox => ClipToMediaBox(KnownNames.CropBox, inheritable: true, MediaBox);
+    /// <summary>Gets or sets the crop box: the region the page's contents are clipped to when displayed or printed. Inheritable.</summary>
+    /// <exception cref="ArgumentException">On set, a coordinate is not finite, or the box has no area.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Defaults to the media box; reduced to its intersection with the media box. Setting
+    /// writes the page's own entry as given (reading reduces it again). A mutation.
+    /// </remarks>
+    public PdfRectangle CropBox
+    {
+        get => ClipToMediaBox(KnownNames.CropBox, inheritable: true, MediaBox);
+        set => WriteBox(KnownNames.CropBox, value, feature: null);
+    }
 
-    /// <summary>Gets the bleed box: the region the contents are clipped to in a production environment.</summary>
-    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Defaults to the crop box; reduced to its intersection with the media box.</remarks>
-    public PdfRectangle BleedBox => ClipToMediaBox(KnownNames.BleedBox, inheritable: false, CropBox);
+    /// <summary>Gets or sets the bleed box: the region the contents are clipped to in a production environment.</summary>
+    /// <exception cref="ArgumentException">On set, a coordinate is not finite, or the box has no area.</exception>
+    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Defaults to the crop box; reduced to its intersection with the media box. Setting writes the entry as given (reading reduces it again) and records PDF 1.3 (Table 31). A mutation.</remarks>
+    public PdfRectangle BleedBox
+    {
+        get => ClipToMediaBox(KnownNames.BleedBox, inheritable: false, CropBox);
+        set => WriteBox(KnownNames.BleedBox, value, Writing.VersionedFeatures.PageBoundaries);
+    }
 
-    /// <summary>Gets the trim box: the intended dimensions of the finished page after trimming.</summary>
-    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Defaults to the crop box; reduced to its intersection with the media box.</remarks>
-    public PdfRectangle TrimBox => ClipToMediaBox(KnownNames.TrimBox, inheritable: false, CropBox);
+    /// <summary>Gets or sets the trim box: the intended dimensions of the finished page after trimming.</summary>
+    /// <exception cref="ArgumentException">On set, a coordinate is not finite, or the box has no area.</exception>
+    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Defaults to the crop box; reduced to its intersection with the media box. Setting writes the entry as given (reading reduces it again) and records PDF 1.3 (Table 31). A mutation.</remarks>
+    public PdfRectangle TrimBox
+    {
+        get => ClipToMediaBox(KnownNames.TrimBox, inheritable: false, CropBox);
+        set => WriteBox(KnownNames.TrimBox, value, Writing.VersionedFeatures.PageBoundaries);
+    }
 
-    /// <summary>Gets the art box: the extent of the page's meaningful content.</summary>
-    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Defaults to the crop box; reduced to its intersection with the media box.</remarks>
-    public PdfRectangle ArtBox => ClipToMediaBox(KnownNames.ArtBox, inheritable: false, CropBox);
+    /// <summary>Gets or sets the art box: the extent of the page's meaningful content.</summary>
+    /// <exception cref="ArgumentException">On set, a coordinate is not finite, or the box has no area.</exception>
+    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Defaults to the crop box; reduced to its intersection with the media box. Setting writes the entry as given (reading reduces it again) and records PDF 1.3 (Table 31). A mutation.</remarks>
+    public PdfRectangle ArtBox
+    {
+        get => ClipToMediaBox(KnownNames.ArtBox, inheritable: false, CropBox);
+        set => WriteBox(KnownNames.ArtBox, value, Writing.VersionedFeatures.PageBoundaries);
+    }
 
     /// <summary>Gets or sets the number of degrees the page is rotated clockwise when displayed or printed: 0, 90, 180 or 270. Inheritable.</summary>
     /// <exception cref="ArgumentOutOfRangeException">On set, the value is not a multiple of 90.</exception>
@@ -230,6 +261,16 @@ public sealed class PdfPage
         ArgumentNullException.ThrowIfNull(options);
         ContentInterpreter.RunPage(this, _document, processor, options);
     }
+
+    /// <summary>Returns a canvas that draws on the page, after its existing content; dispose it to store what was drawn.</summary>
+    /// <returns>The canvas.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.8.2, §8.2 to §8.6; Table 31 (<c>Contents</c>, <c>Resources</c>). The new content goes into a new stream added to
+    /// the page's <c>Contents</c> (existing content wrapped in <c>q</c> and <c>Q</c>); resources go into the page's resource dictionary
+    /// (the inherited one when the page has none of its own, which other pages sharing it then also hold, unused; a new one when there
+    /// is none). See <see cref="Graphics.PdfCanvas"/>. A mutation.
+    /// </remarks>
+    public Graphics.PdfCanvas CreateCanvas() => new(_document, this);
 
     /// <summary>
     /// Runs the page's content through <paramref name="editor"/> and, when it made edits, replaces the content with the result: one
@@ -485,6 +526,23 @@ public sealed class PdfPage
             default:
                 return PageAttributeState.Invalid;
         }
+    }
+
+    /// <summary>Writes a page boundary as the page's own entry, recording the version it needs.</summary>
+    private void WriteBox(CosName key, PdfRectangle box, Writing.VersionedFeature? feature)
+    {
+        if (!double.IsFinite(box.Left) || !double.IsFinite(box.Bottom) || !double.IsFinite(box.Right) || !double.IsFinite(box.Top)
+            || box.Width <= 0 || box.Height <= 0)
+        {
+            throw new ArgumentException("A page boundary shall have finite coordinates and an area (ISO 32000-2 §14.11.2).", nameof(box));
+        }
+
+        if (feature is not null)
+        {
+            _document.RequireFeature(feature);
+        }
+
+        Dictionary[key] = Graphics.DrawingCache.Rectangle(box);
     }
 
     /// <summary>A box that defaults to <paramref name="fallback"/>, reduced to its intersection with the media box (§14.11.2).</summary>
