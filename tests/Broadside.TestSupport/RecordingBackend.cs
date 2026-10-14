@@ -13,7 +13,9 @@ namespace Broadside.TestSupport;
 /// Lines: <c>save</c>, <c>restore</c>, <c>transform [a b c d e f]</c>,
 /// <c>fill nonzero|evenodd M x y L x y Q … C … Z | Family c0 c1 …</c>,
 /// <c>stroke width Cap Join miterLimit [dash …] phase [adjust] M … | Family c0 c1 …</c>,
-/// <c>clip nonzero|evenodd M x y L … Z</c>, <c>image WxH Family bpc N[ interpolate]</c>, <c>shading Type [matrix][ background]</c>,
+/// <c>clip nonzero|evenodd M x y L … Z</c>,
+/// <c>image WxH Family bpc N[ interpolate][ mask WxH[ inverted]][ smask WxH Family bpc N][ matte m…][ colorkey min max …]</c>,
+/// <c>imagemask WxH[ inverted][ interpolate] | Family c0 c1 …</c>, <c>shading Type [matrix][ background]</c>,
 /// <c>glyphs Mode Format gid [text matrix][ xScale] … [| fill Family c0 …][| stroke width Cap Join miterLimit [dash …] phase[ adjust] Family c0 …]</c>
 /// (Format is the program's format, <c>none</c> without a program), and fills and strokes in a shading pattern ending
 /// <c>| shading Type [matrix] background</c> instead of a colour. Numbers are written round-trippable and culture-invariant.
@@ -37,6 +39,9 @@ public sealed class RecordingBackend : IRenderingBackend
 
     /// <summary>Gets the shading paints (<c>sh</c> and shading-pattern fills and strokes), in replay order.</summary>
     public List<(PdfShading Shading, Matrix Matrix, bool PaintsBackground, PdfDefaultColorSpaces Defaults, ColorConversion Conversion)> Shadings { get; } = [];
+
+    /// <summary>Gets the stencil mask paints, in replay order: the interned mask and a copy of its colour, like <see cref="Fills"/>.</summary>
+    public List<(DisplayImageMask Mask, PdfColorSpace ColorSpace, float[] Components, PdfDefaultColorSpaces Defaults, ColorConversion Conversion)> ImageMasks { get; } = [];
 
     /// <inheritdoc/>
     public void SaveState() => Operations.Add("save");
@@ -102,9 +107,38 @@ public sealed class RecordingBackend : IRenderingBackend
     public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
     {
         ArgumentNullException.ThrowIfNull(image);
-        Operations.Add(string.Create(
+        var text = new StringBuilder(string.Create(
             CultureInfo.InvariantCulture,
             $"image {image.Width}x{image.Height} {image.ColorSpace.Family} bpc {image.BitsPerComponent}{(image.Interpolate ? " interpolate" : string.Empty)}"));
+        if (image.Mask is { } mask)
+        {
+            text.Append(CultureInfo.InvariantCulture, $" mask {mask.Width}x{mask.Height}{(mask.IsInverted ? " inverted" : string.Empty)}");
+        }
+
+        if (image.SoftMask is { } soft)
+        {
+            text.Append(CultureInfo.InvariantCulture, $" smask {soft.Width}x{soft.Height} {soft.ColorSpace.Family} bpc {soft.BitsPerComponent}");
+        }
+
+        if (!image.Matte.IsEmpty)
+        {
+            text.Append(" matte");
+            foreach (float component in image.Matte)
+            {
+                text.Append(' ').Append(component.ToString("R", CultureInfo.InvariantCulture));
+            }
+        }
+
+        if (!image.ColorKey.IsEmpty)
+        {
+            text.Append(" colorkey");
+            foreach (double value in image.ColorKey)
+            {
+                text.Append(' ').Append(Number(value));
+            }
+        }
+
+        Operations.Add(text.ToString());
         Images.Add((image, defaultColorSpaces, conversion));
     }
 
@@ -190,6 +224,23 @@ public sealed class RecordingBackend : IRenderingBackend
 
         Describe(path, text);
         Operations.Add(text.Append(" | ").Append(Shading(shading)).ToString());
+    }
+
+    /// <inheritdoc/>
+    public void FillImageMask(DisplayImageMask mask, in DisplayColor color)
+    {
+        ArgumentNullException.ThrowIfNull(mask);
+        var text = new StringBuilder(string.Create(
+            CultureInfo.InvariantCulture,
+            $"imagemask {mask.Width}x{mask.Height}{(mask.IsInverted ? " inverted" : string.Empty)}{(mask.Interpolate ? " interpolate" : string.Empty)}"));
+        text.Append(" | ").Append(color.ColorSpace.Family.ToString());
+        foreach (float component in color.Components)
+        {
+            text.Append(' ').Append(component.ToString("R", CultureInfo.InvariantCulture));
+        }
+
+        Operations.Add(text.ToString());
+        ImageMasks.Add((mask, color.ColorSpace, color.Components.ToArray(), color.DefaultColorSpaces, color.Conversion));
     }
 
     /// <summary>Writes a path as its verbs and points.</summary>

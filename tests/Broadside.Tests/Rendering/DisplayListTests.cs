@@ -328,6 +328,10 @@ public sealed class DisplayListTests
         public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading)
         {
         }
+
+        public void FillImageMask(DisplayImageMask mask, in DisplayColor color)
+        {
+        }
     }
 
     /// <summary>Counts the converters requested per source family, then defers to the inner management.</summary>

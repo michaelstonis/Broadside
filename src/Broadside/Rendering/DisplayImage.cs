@@ -28,6 +28,9 @@ namespace Broadside.Rendering;
 public sealed class DisplayImage
 {
     private readonly DecodedImage _samples;
+    private readonly double[] _colorKey = [];
+    private readonly float[] _matte = [];
+    private readonly byte[] _colorTable = [];
 
     internal DisplayImage(DecodedImage samples, PdfColorSpace colorSpace, ImageDecodeMap decodeMap, bool interpolate)
     {
@@ -79,6 +82,77 @@ public sealed class DisplayImage
     /// <summary>Gets a value indicating whether the image asks to be interpolated (smoothed) when it is enlarged.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.3 and Table 87 (Interpolate; <c>I</c> for an inline image, Table 91).</remarks>
     public bool Interpolate { get; }
+
+    /// <summary>
+    /// Gets the image's soft mask: a one-component image (DeviceGray, its own Decode mapping) whose values, 0 to 1, are the opacity
+    /// of the image at each point; <see langword="null"/> when the image has none.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §11.6.5.2 (a soft-mask image, <c>SMask</c>, Table 143) or §7.4.9 and §8.9.5.1 Table 87 (<c>SMaskInData</c>:
+    /// the opacity channel of JPEG 2000 data). It maps onto the unit square like the image, at its own width and height, which may
+    /// differ from the image's; a backend resamples it to the device, never to the image's size. It overrides any soft mask in the
+    /// graphics state for this image (§11.6.4.3).
+    /// </remarks>
+    public DisplayImage? SoftMask { get; internal init; }
+
+    /// <summary>Gets the image's explicit mask: where it paints, the image shows; elsewhere it leaves the backdrop; <see langword="null"/> when the image has none.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §8.9.6.3 (<c>Mask</c> naming an image mask): the mask maps onto the unit square like the image, at its own
+    /// resolution.
+    /// </remarks>
+    public DisplayImageMask? Mask { get; internal init; }
+
+    /// <summary>
+    /// Gets the colour key ranges: a minimum and maximum raw sample value per component; a sample whose every component is in its
+    /// range is not painted. Empty when the image has none.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §8.9.6.4 (<c>Mask</c> as an array): compared with the raw samples, before <see cref="DecodeMap"/>; for an Indexed
+    /// image the values are indices. <see cref="ImageRows.ColorKey"/> computes the coverage of a row.
+    /// </remarks>
+    public ReadOnlySpan<double> ColorKey => _colorKey;
+
+    /// <summary>
+    /// Gets the colour the samples were pre-blended with, one value per component of <see cref="ColorSpace"/> (of its base for an
+    /// Indexed space), to be removed with the <see cref="SoftMask"/>'s opacity before conversion; empty when there is none.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §11.6.5.2, Table 144 (<c>Matte</c>): c = m + (c′ − m) / α (see <see cref="ImageRows.Unpremultiply"/>); the soft
+    /// mask then has the image's size. JPEG 2000 opacity premultiplied into the colour (<c>SMaskInData</c> 2, §8.9.5.1 Table 87) is
+    /// a matte of zeros.
+    /// </remarks>
+    public ReadOnlySpan<float> Matte => _matte;
+
+    /// <summary>
+    /// Gets the colour table of an Indexed image as stored (m bytes per colour, m the base space's component count), read when the
+    /// list is built so that a backend never reads the file for it; empty for any other image.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §8.6.6.3: each byte maps onto its base component's range. A backend needs it where it works in the base space,
+    /// such as removing a <see cref="Matte"/> from the table's colours (§11.6.5.2).
+    /// </remarks>
+    public ReadOnlySpan<byte> ColorTable => _colorTable;
+
+    /// <summary>Gets the colour table's backing array.</summary>
+    internal byte[] ColorTableBytes
+    {
+        get => _colorTable;
+        init => _colorTable = value;
+    }
+
+    /// <summary>Gets the colour key ranges' backing array.</summary>
+    internal double[] ColorKeyRanges
+    {
+        get => _colorKey;
+        init => _colorKey = value;
+    }
+
+    /// <summary>Gets the matte's backing array.</summary>
+    internal float[] MatteColor
+    {
+        get => _matte;
+        init => _matte = value;
+    }
 
     /// <summary>Gets one row of <see cref="Samples"/>.</summary>
     /// <param name="y">The row, from 0 at the top of the image.</param>

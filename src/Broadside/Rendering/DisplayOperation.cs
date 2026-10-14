@@ -40,6 +40,9 @@ internal enum DisplayOperationKind : byte
     /// <see cref="DisplayOperation.Second"/> the strokes, whose <see cref="DisplayStroke.ColorIndex"/> then indexes the shading paints.
     /// </summary>
     StrokePathWithShading,
+
+    /// <summary><see cref="IRenderingBackend.FillImageMask"/>; <see cref="DisplayOperation.First"/> indexes the image masks, <see cref="DisplayOperation.Second"/> the colours.</summary>
+    FillImageMask,
 }
 
 /// <summary>One record of a display list: a kind and up to two indexes into the list's tables, 16 bytes.</summary>
