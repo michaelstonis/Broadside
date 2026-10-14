@@ -2,6 +2,7 @@ using System.Runtime.InteropServices;
 using Broadside.Annotations;
 using Broadside.Filters;
 using Broadside.Objects;
+using Broadside.Writing;
 
 namespace Broadside;
 
@@ -36,6 +37,13 @@ namespace Broadside;
 /// library only preserves (JavaScript, 3D and RichMedia annotations and their assets, XFA).
 /// </para>
 /// <para>
+/// <b>Versions.</b> The features of the version table that the copied objects use (associated files, a file specification's
+/// <c>UF</c> or <c>Desc</c>, embedded file streams, <c>FlateDecode</c>, structure elements and namespaces, outline item styles,
+/// <c>FitB</c> destinations) are recorded in the target as its own writing APIs record theirs, so its next save raises its version to
+/// the highest of them, or refuses in strict mode before writing (ISO 32000-2 §7.5.2, ADR 0003). A copy between documents of the
+/// same version raises nothing the source did not already need.
+/// </para>
+/// <para>
 /// A session mutates the target: no read of the target may run concurrently with a copy. The source is only read, and may be read
 /// concurrently by others.
 /// </para>
@@ -48,6 +56,8 @@ public sealed class PdfObjectCopier
     private readonly Dictionary<CosReference, List<PendingPage>> _pendingPages = [];
     private readonly Stack<(CosObject Source, CosObject Copy)> _work = new();
     private readonly CosReference? _encryptionDictionary;
+    private readonly HashSet<VersionedFeature> _carried = [];
+    private readonly Action<VersionedFeature> _carry;
 
     /// <summary>Initializes a new copy session from <paramref name="source"/> into <paramref name="target"/>.</summary>
     /// <param name="source">The document the objects are copied from.</param>
@@ -62,6 +72,7 @@ public sealed class PdfObjectCopier
         _encryptionDictionary = source.IsEncrypted && source.Trailer.TryGetValue(KnownNames.Encrypt, out CosObject? encrypt)
             ? encrypt as CosReference
             : null;
+        _carry = Carry;
     }
 
     /// <summary>Gets the document objects are copied from.</summary>
@@ -338,6 +349,7 @@ public sealed class PdfObjectCopier
 
     private void FillArray(CosArray source, CosArray copy)
     {
+        CarriedFeatures.InArray(source, _carry);
         for (int index = 0; index < source.Count; index++)
         {
             CosObject item = source[index];
@@ -356,6 +368,7 @@ public sealed class PdfObjectCopier
     {
         bool pageTreeNode = IsType(source, KnownNames.Page) || IsType(source, KnownNames.Pages);
         bool dropCrypt = isStream && Source.IsEncrypted && StartsWithCrypt(source);
+        CarriedFeatures.InDictionary(Source, source, isStream, _carry);
         foreach (KeyValuePair<CosName, CosObject> entry in source)
         {
             if ((pageTreeNode && entry.Key.Equals(KnownNames.Parent)) || (isStream && entry.Key.Equals(KnownNames.Length)))
@@ -383,6 +396,18 @@ public sealed class PdfObjectCopier
             {
                 copy[entry.Key] = mapped;
             }
+        }
+    }
+
+    /// <summary>
+    /// Records in the target a feature a copied object uses (issue #290), once per session: the target's next save raises its
+    /// version to the feature's, or refuses in strict mode (§7.5.2, ADR 0003).
+    /// </summary>
+    private void Carry(VersionedFeature feature)
+    {
+        if (_carried.Add(feature))
+        {
+            Target.RequireFeature(feature);
         }
     }
 
