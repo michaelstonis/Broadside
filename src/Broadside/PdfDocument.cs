@@ -1280,8 +1280,13 @@ public sealed partial class PdfDocument : IDisposable
     /// (#285), the modification dated (#162), the catalog's extensions and version (#141), and the file planned again when any of
     /// them changed something.
     /// </summary>
+    /// <param name="options">The save's options.</param>
+    /// <param name="changes">
+    /// Where to record what the second step changes, so that it can be reverted (<see cref="CosChangeLog.Revert"/>): signing, whose
+    /// save changes the document before the signer is asked (issue #306). <see langword="null"/> for a save, which keeps its changes.
+    /// </param>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation the save-time checks report.</exception>
-    private FileWriter PlanSave(PdfSaveOptions options)
+    private FileWriter PlanSave(PdfSaveOptions options, CosChangeLog? changes = null)
     {
         ArgumentNullException.ThrowIfNull(options);
         CheckLinearization(options);
@@ -1289,6 +1294,12 @@ public sealed partial class PdfDocument : IDisposable
         VersionedSave planned = CheckVersionedSave(options);
         ReportDeprecatedEncryption(options);
 
+        if (changes is not null)
+        {
+            KeepMetadataSaveState(changes);
+        }
+
+        using CosChangeLog.Recording? recording = changes?.Record();
         bool changed = CompleteFontSubsets();
         changed |= DateModification(options);
 

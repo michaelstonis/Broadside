@@ -3,6 +3,7 @@ using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using Broadside.Objects;
 using Broadside.Signatures;
+using Broadside.Tests.Writing;
 using Broadside.TestSupport;
 
 namespace Broadside.Tests.Signatures;
@@ -258,11 +259,13 @@ public sealed class PadesSigningTests
     {
         using X509Certificate2 certificate = TestCertificates.SelfSignedEcdsa("CN=ECDSA signer", ECCurve.NamedCurves.nistP256);
         using PdfDocument document = PdfDocument.Open(Corpus.Bytes("empty-page.pdf"));
+        string before = CosSnapshot.Of(document);
         using var output = new MemoryStream();
 
         Assert.Throws<CryptographicException>(() => document.Sign(output, new FailingSigner(certificate), new PdfSignatureOptions().WithDigestAlgorithm(new HashAlgorithmName("SHA3-256"))));
 
         Assert.Equal(0, output.Length);
+        Assert.Equal(before, CosSnapshot.Of(document));
         Assert.Empty(document.Extensions);
         Assert.False(document.Catalog.ContainsKey(new CosName("Version")));
         using var saved = new MemoryStream();

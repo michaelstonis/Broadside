@@ -180,7 +180,7 @@ public sealed class TimestampTests
         using var http = new HttpClient(authority, disposeHandler: false);
         using PdfDocument document = PdfDocument.Open(Corpus.Bytes("empty-page.pdf"));
         var client = new PdfTimestampClient(http, TestTimestampAuthority.Address);
-        string before = Unsigned(document);
+        string before = CosSnapshot.Of(document);
         using var output = new MemoryStream();
 
         PdfTimestampException signing = Assert.Throws<PdfTimestampException>(
@@ -190,7 +190,32 @@ public sealed class TimestampTests
         Assert.Contains(message, signing.Message, StringComparison.Ordinal);
         Assert.Contains(message, stamping.Message, StringComparison.Ordinal);
         Assert.Equal(0, output.Length);
-        Assert.Equal(before, Unsigned(document));
+
+        // Issue #306: the save inside signing and time-stamping dated the document (adding an Info dictionary), raised it to PDF 2.0
+        // for the document timestamp and laid its metadata out for 2.0 before the authority was asked; all of it is undone.
+        Assert.Equal(before, CosSnapshot.Of(document));
+        Assert.Equal(2, authority.Requests.Count);
+    }
+
+    [Fact]
+    public async Task An_authority_that_fails_asynchronously_leaves_every_object_of_the_document_as_it_was()
+    {
+        using X509Certificate2 certificate = TestCertificates.SelfSigned("CN=Broadside signer");
+        using var authority = new TestTimestampAuthority { Fault = TimestampFault.Rejection };
+        using var http = new HttpClient(authority, disposeHandler: false);
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("metadata-xmp.pdf"));
+        var client = new PdfTimestampClient(http, TestTimestampAuthority.Address);
+        string before = CosSnapshot.Of(document);
+        using var output = new MemoryStream();
+        CancellationToken cancellationToken = TestContext.Current.CancellationToken;
+
+        await Assert.ThrowsAsync<PdfTimestampException>(
+            () => document.SignAsync(output, new PdfCertificateSigner(certificate), new PdfSignatureOptions().WithTimestampClient(client), cancellationToken));
+        Assert.Equal(before, CosSnapshot.Of(document));
+        await Assert.ThrowsAsync<PdfTimestampException>(() => document.TimestampAsync(output, client, cancellationToken: cancellationToken));
+        Assert.Equal(before, CosSnapshot.Of(document));
+
+        Assert.Equal(0, output.Length);
         Assert.Equal(2, authority.Requests.Count);
     }
 
@@ -236,7 +261,7 @@ public sealed class TimestampTests
         using var http = new HttpClient(authority, disposeHandler: false);
         using PdfDocument document = PdfDocument.Open(Corpus.Bytes("empty-page.pdf"));
         var client = new PdfTimestampClient(http, TestTimestampAuthority.Address).WithTokenSizeEstimate(4096);
-        string before = Unsigned(document);
+        string before = CosSnapshot.Of(document);
         using var output = new MemoryStream();
 
         InvalidOperationException stamping = Assert.Throws<InvalidOperationException>(() => document.Timestamp(output, client));
@@ -246,7 +271,7 @@ public sealed class TimestampTests
         Assert.Contains("TokenSizeEstimate", stamping.Message, StringComparison.Ordinal);
         Assert.Contains("TokenSizeEstimate", signing.Message, StringComparison.Ordinal);
         Assert.Equal(0, output.Length);
-        Assert.Equal(before, Unsigned(document));
+        Assert.Equal(before, CosSnapshot.Of(document));
 
         // With the room raised, the same authority's token fits.
         client.TokenSizeEstimate = 16384;
@@ -351,13 +376,6 @@ public sealed class TimestampTests
         Assert.Throws<ArgumentException>(() => client.WithPolicy("not an oid"));
         Assert.Throws<ArgumentOutOfRangeException>(() => client.WithTokenSizeEstimate(0));
     }
-
-    /// <summary>
-    /// What a failed signature or timestamp must leave as it was: the form, the first page's annotations, the version and the
-    /// extensions. (The save inside signing dates the document before the signer or the authority is asked; that is not undone.)
-    /// </summary>
-    private static string Unsigned(PdfDocument document) =>
-        $"{document.AcroForm is null} {document.Pages[0].Dictionary.ContainsKey(new CosName("Annots"))} {document.Version} {document.Catalog.ContainsKey(new CosName("Version"))} {document.Extensions.Count}";
 
     private static void Stamp(PdfDocument document, Stream output, PdfTimestampClient client) => document.Timestamp(output, client);
 

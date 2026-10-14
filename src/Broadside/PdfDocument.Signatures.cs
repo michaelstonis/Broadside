@@ -108,7 +108,10 @@ public sealed partial class PdfDocument
     /// <para>
     /// Once the last byte is written the document reads from the signed file, as after an incremental save
     /// (<see cref="PdfSaveOptions.IncrementalUpdate"/>), so signing again adds another revision. If the signer throws, nothing is
-    /// written and the document is left as it was. A mutation: no read may run concurrently with it.
+    /// written and the document is left as it was: every object, including what the save inside signing changed before the signer was
+    /// asked (the modification date, the metadata layout of a raised version, completed font subsets, the catalog's version and
+    /// extensions), and a modification date set explicitly is still the one the next save writes. A mutation: no read may run
+    /// concurrently with it.
     /// </para>
     /// </remarks>
     public void Sign(Stream stream, IPdfSigner signer, PdfSignatureOptions? options = null)
@@ -227,14 +230,17 @@ public sealed partial class PdfDocument
                 RequireSignatureFeature(feature, undo);
             }
 
-            KeepVersionDeclarations(undo);
             bool pdf20 = Version >= Pdf20 || features.Any(feature => feature.MinimumVersion >= Pdf20);
             CosDictionary signature = SignatureDictionary(options, reserved, pdf20);
             CosReference signatureReference = AddObject(signature);
             undo.Add(() => RemoveObject(signatureReference));
             PlaceSignature(options.FieldName, signatureReference, undo);
 
-            FileWriter writer = PlanSave(new PdfSaveOptions { IncrementalUpdate = true });
+            // Issue #306: what the save changes (the dating, the metadata layout, completed font subsets, the catalog's version and
+            // extensions) is reverted with the rest when the signer or the authority fails.
+            var saveChanges = new CosChangeLog();
+            undo.Add(saveChanges.Revert);
+            FileWriter writer = PlanSave(new PdfSaveOptions { IncrementalUpdate = true }, saveChanges);
             IntegrityCodeWriter? integrity = writer.Integrity;
             if (integrity is not null)
             {
@@ -393,61 +399,6 @@ public sealed partial class PdfDocument
                     _features.Remove(feature);
                 }
             });
-        }
-    }
-
-    /// <summary>
-    /// Undoes, on undo, what the save inside signing declares in the catalog: its <c>Version</c> and its <c>Extensions</c> dictionary
-    /// with the arrays under each prefix (§7.7.2, §7.12), which the save adds to for the features signing records.
-    /// </summary>
-    private void KeepVersionDeclarations(List<Action> undo)
-    {
-        CosDictionary catalog = Catalog;
-        bool hadVersion = catalog.TryGetValue(KnownNames.Version, out CosObject? version);
-        bool hadExtensions = catalog.TryGetValue(KnownNames.Extensions, out CosObject? extensions);
-        CosDictionary? dictionary = Resolve(extensions) as CosDictionary;
-        KeyValuePair<CosName, CosObject>[] entries = dictionary is null ? [] : [.. dictionary];
-        (CosArray Array, CosObject[] Items)[] arrays = [.. entries.Select(entry => Resolve(entry.Value)).OfType<CosArray>().Select(array => (array, array.ToArray()))];
-        undo.Add(() =>
-        {
-            foreach ((CosArray array, CosObject[] items) in arrays)
-            {
-                if (!array.SequenceEqual(items))
-                {
-                    array.Clear();
-                    foreach (CosObject item in items)
-                    {
-                        array.Add(item);
-                    }
-                }
-            }
-
-            if (dictionary is not null && !dictionary.SequenceEqual(entries))
-            {
-                dictionary.Clear();
-                foreach ((CosName prefix, CosObject value) in entries)
-                {
-                    dictionary[prefix] = value;
-                }
-            }
-
-            Restore(KnownNames.Version, hadVersion, version);
-            Restore(KnownNames.Extensions, hadExtensions, extensions);
-        });
-
-        void Restore(CosName name, bool had, CosObject? value)
-        {
-            if (had)
-            {
-                if (!ReferenceEquals(catalog.GetValueOrDefault(name), value))
-                {
-                    catalog[name] = value!;
-                }
-            }
-            else
-            {
-                catalog.Remove(name);
-            }
         }
     }
 
