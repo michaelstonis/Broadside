@@ -94,6 +94,30 @@ public sealed class RenderCacheTests
     }
 
     [Fact]
+    public void A_print_list_is_kept_under_the_callers_options_not_the_print_state_derived_from_them()
+    {
+        // optional-content.pdf's default configuration has an AS entry for the Print event that hides group D2 (#104): the print
+        // list is built with a derived state, yet it is kept, and found again, under the caller's options, which have none.
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("optional-content.pdf"));
+        PdfPage page = document.Pages[0];
+        var options = new ContentOptions();
+
+        DisplayList print = page.CreateDisplayList(DisplayLayers.Content, DisplayIntent.Print, options);
+        DisplayList view = page.CreateDisplayList(DisplayLayers.Content, DisplayIntent.View, new ContentOptions());
+
+        Assert.Null(options.OptionalContentState);
+        Assert.Same(print, page.CreateDisplayList(DisplayLayers.Content, DisplayIntent.Print, options));
+        Assert.Same(print, page.CreateDisplayList(DisplayLayers.Content, DisplayIntent.Print, new ContentOptions()));
+        Assert.True(print.OperationCount < view.OperationCount, $"print {print.OperationCount}, view {view.OperationCount}");
+
+        // A caller's own state is never kept: each such build is new.
+        ContentOptions withState = new ContentOptions().WithOptionalContentState(document.OptionalContent!.GetDefaultStates());
+        Assert.NotSame(
+            page.CreateDisplayList(DisplayLayers.Content, DisplayIntent.Print, withState),
+            page.CreateDisplayList(DisplayLayers.Content, DisplayIntent.Print, withState));
+    }
+
+    [Fact]
     public void An_image_xobject_is_decoded_once_for_every_list_that_paints_it()
     {
         var counting = new CountingFlateFilter();

@@ -396,12 +396,22 @@ public sealed partial class SoftwareRasterizer
                 return;
             }
 
-            var cmyPainter = new ImagePainter(
-                _cmyLayer!.Pixels, _cmyLayer.Stride, cmy.Buffer, image.Width, image.Height, inverse, image.Interpolate, opacity, maskWidth, maskHeight, maskInterpolate);
-            _scan.Paint(FillRule.NonZero, ref cmyPainter, keep: true);
-            var blackPainter = new ImagePainter(
-                _blackLayer!.Pixels, _blackLayer.Stride, black.Buffer, image.Width, image.Height, inverse, image.Interpolate, opacity, maskWidth, maskHeight, maskInterpolate);
-            _scan.Paint(FillRule.NonZero, ref blackPainter);
+            // The image coverage rule and sampling, as PaintImage applies them outside the preview (#104, §10.7.4).
+            _scan.Rule = _imageRule;
+            try
+            {
+                var cmyPainter = new ImagePainter(
+                    _cmyLayer!.Pixels, _cmyLayer.Stride, cmy.Buffer, image.Width, image.Height, inverse, image.Interpolate, opacity, maskWidth, maskHeight, maskInterpolate, average: Averages);
+                _scan.Paint(FillRule.NonZero, ref cmyPainter, keep: true);
+                var blackPainter = new ImagePainter(
+                    _blackLayer!.Pixels, _blackLayer.Stride, black.Buffer, image.Width, image.Height, inverse, image.Interpolate, opacity, maskWidth, maskHeight, maskInterpolate, average: Averages);
+                _scan.Paint(FillRule.NonZero, ref blackPainter);
+            }
+            finally
+            {
+                _scan.Rule = _pathRule;
+            }
+
             MergeProcess(bounds, _fillCompositor, _deviceParameters.FillOverprint);
         }
 
@@ -415,8 +425,8 @@ public sealed partial class SoftwareRasterizer
                 return;
             }
 
-            var painter = new ImagePainter(_cmyLayer!.Pixels, _cmyLayer.Stride, uint.MaxValue, _maskSource.Buffer, mask.Width, mask.Height, inverse, mask.Interpolate);
-            _scan.Paint(FillRule.NonZero, ref painter);
+            var painter = new ImagePainter(_cmyLayer!.Pixels, _cmyLayer.Stride, uint.MaxValue, _maskSource.Buffer, mask.Width, mask.Height, inverse, mask.Interpolate, average: Averages);
+            PaintImage(ref painter);
             MergeInk(bounds, _fillInk, _fillCompositor);
         }
 
