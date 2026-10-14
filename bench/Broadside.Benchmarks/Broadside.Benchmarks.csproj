@@ -29,6 +29,7 @@
     <Compile Include="../../tests/Broadside.TestSupport/TilingSamples.cs" Link="TilingSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/BlendSamples.cs" Link="BlendSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/MaskSamples.cs" Link="MaskSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/Type3Samples.cs" Link="Type3Samples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/MeshSamples.cs" Link="MeshSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/JpxSamples.cs" Link="JpxSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/Jbig2Encoder.cs" Link="Jbig2Encoder.cs" />
