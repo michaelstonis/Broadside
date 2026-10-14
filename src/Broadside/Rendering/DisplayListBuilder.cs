@@ -34,7 +34,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     private int _savedAtCount;
 
     /// <inheritdoc/>
-    public override ContentEvents Events => ContentEvents.Paths | ContentEvents.StateStack | ContentEvents.Clips | ContentEvents.Images | ContentEvents.Glyphs | ContentEvents.Shadings;
+    public override ContentEvents Events => ContentEvents.Paths | ContentEvents.StateStack | ContentEvents.Clips | ContentEvents.Images | ContentEvents.Glyphs | ContentEvents.Shadings | ContentEvents.Type3GlyphContent;
 
     /// <summary>Builds the display list of <paramref name="page"/>.</summary>
     /// <param name="page">The page.</param>
@@ -79,6 +79,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         ShadingPaints = _shadingPaints.AsSpan(0, _shadingPaintCount).ToArray(),
         ImageMasks = _imageMasks.AsSpan(0, _imageMaskCount).ToArray(),
         Compositings = _compositings.AsSpan(0, _compositingCount).ToArray(),
+        TilingPaints = _tilingPaints.AsSpan(0, _tilingPaintCount).ToArray(),
         Annotations = _annotations.AsSpan(0, _annotationCount).ToArray(),
     };
 
@@ -96,12 +97,15 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         ResetText();
         ResetShadings();
         ResetCompositing();
+        ResetTiling();
         ResetAnnotations();
+        ResetType3();
     }
 
     /// <inheritdoc/>
     public override void SaveState(ContentContext context)
     {
+        NoteType3Save();
         Append(ref _saved, ref _savedCount, _current);
         Append(ref _savedAt, ref _savedAtCount, _operationCount);
         SaveCompositing();
@@ -131,17 +135,20 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     }
 
     /// <summary>Records the CTM before a paint, when it differs from the transform the backend holds there.</summary>
-    /// <param name="ctm">The CTM of the paint.</param>
-    private void SetTransform(in Matrix ctm)
+    /// <param name="ctm">The CTM of the paint (to pattern space instead while building a tiling pattern's cell).</param>
+    private void SetTransform(in Matrix ctm) => SetRecordedTransform(Relative(ctm));
+
+    /// <summary>Records a transform already in the space this builder records in (see <see cref="Relative"/>), when it differs from the backend's.</summary>
+    private void SetRecordedTransform(in Matrix transform)
     {
-        if (ctm == _current)
+        if (transform == _current)
         {
             return;
         }
 
-        _current = ctm;
+        _current = transform;
         AddOperation(new DisplayOperation(DisplayOperationKind.SetTransform, default, _transformCount, 0));
-        Append(ref _transforms, ref _transformCount, ctm);
+        Append(ref _transforms, ref _transformCount, transform);
     }
 
     /// <summary>Returns whether any operation from <paramref name="start"/> on is something other than a state change.</summary>

@@ -3978,11 +3978,19 @@ Broadside.Forms.PdfChoiceField.SetValue(string? value) -> void
 Broadside.Forms.PdfChoiceField.SetSelectedIndices(System.Collections.Generic.IEnumerable<int>! indices) -> void
 Broadside.Forms.PdfChoiceField.GenerateAppearances() -> void
 Broadside.Forms.PdfListBoxField.SetTopIndex(int topIndex) -> void
+Broadside.Rendering.DisplayList.Replay(Broadside.Rendering.IRenderingBackend! backend, Broadside.PdfRectangle region) -> void
 Broadside.PdfEncryptionAlgorithm.Aes256Gcm = 3 -> Broadside.PdfEncryptionAlgorithm
 Broadside.PdfEncryptionOptions.IntegrityProtection.get -> bool
 Broadside.PdfEncryptionOptions.IntegrityProtection.set -> void
 Broadside.PdfEncryptionOptions.WithIntegrityProtection(bool integrityProtection) -> Broadside.PdfEncryptionOptions!
 Broadside.Rendering.IRenderingBackend.SetCompositing(double strokeAlpha, double fillAlpha, Broadside.Graphics.BlendMode blendMode) -> void
+Broadside.Rendering.DisplayTilingPattern
+Broadside.Rendering.DisplayTilingPattern.Cell.get -> Broadside.Rendering.DisplayList!
+Broadside.Rendering.DisplayTilingPattern.DisplayTilingPattern() -> void
+Broadside.Rendering.DisplayTilingPattern.Matrix.get -> Broadside.Graphics.Matrix
+Broadside.Rendering.DisplayTilingPattern.Pattern.get -> Broadside.Graphics.PdfTilingPattern!
+Broadside.Rendering.IRenderingBackend.FillPathWithTilingPattern(Broadside.Graphics.PathView path, Broadside.Graphics.FillRule rule, in Broadside.Rendering.DisplayTilingPattern pattern) -> void
+Broadside.Rendering.IRenderingBackend.StrokePathWithTilingPattern(Broadside.Graphics.PathView path, in Broadside.Rendering.StrokeStyle style, in Broadside.Rendering.DisplayTilingPattern pattern) -> void
 Broadside.PdfPage.CreateDisplayList(Broadside.Rendering.DisplayLayers layers) -> Broadside.Rendering.DisplayList!
 Broadside.PdfPage.CreateDisplayList(Broadside.Rendering.DisplayLayers layers, Broadside.Rendering.DisplayIntent intent, Broadside.Content.ContentOptions! options) -> Broadside.Rendering.DisplayList!
 Broadside.Rendering.DisplayAnnotation

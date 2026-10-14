@@ -20,6 +20,7 @@ public sealed class WellFormedCorpusTests
             "number-tree-deep.pdf" or "page-labels.pdf" => 12,
             "page-rotation.pdf" => 4,
             "optional-content-pages.pdf" => 3,
+            "text-render-modes.pdf" => 5,
             _ => 1,
         };
         Assert.Equal(expectedPages, document.Pages.Count);

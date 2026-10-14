@@ -1,0 +1,116 @@
+# The Android backend on an emulator (issue #133): weekly, on pull requests that touch the Android backend or what it draws from,
+# and on the "Run workflow" button. Emulators are slow and flaky on hosted runners, so this is not part of ci.yml (spec #33 open
+# decision 9). See .github/workflows/README.md.
+name: Android
+
+on:
+  schedule:
+    # Mondays 05:17 UTC, after the corpus gates and away from the top of the hour when scheduled runs queue.
+    - cron: '17 5 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'src/Broadside.Rendering.Android/**'
+      - 'src/Broadside/Rendering/**'
+      - 'src/Broadside/Graphics/**'
+      - 'tests/Broadside.Rendering.Android.Device/**'
+      - 'tests/Broadside.Rendering.Android.Tests/**'
+      - 'tests/Broadside.GoldenImages/**'
+      - 'tests/Golden/**'
+      - 'tests/Corpus/**'
+      - '.github/workflows/android.yml'
+
+concurrency:
+  group: android-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DiffEngine_Disabled: true
+
+jobs:
+  # Builds the device app for x86_64 (the emulator's ABI on a Linux runner), boots an emulator, and runs
+  # tests/Broadside.Rendering.Android.Tests against it: every page of the path corpus files compared with the software
+  # rasterizer's golden images, and each page's warm replay measured on the device to allocate nothing.
+  emulator:
+    name: emulator (API ${{ matrix.api-level }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [35]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-android-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-android-${{ runner.os }}-
+
+      - name: Install the android workload
+        run: dotnet workload install android
+
+      - name: Install the Android SDK packages the workload needs
+        run: >
+          dotnet build tests/Broadside.Rendering.Android.Device -t:InstallAndroidDependencies -f net10.0-android
+          -p:BroadsideBuildPlatformBackends=true -p:AndroidSdkDirectory="$ANDROID_HOME" -p:AcceptAndroidSDKLicenses=true
+
+      - name: Build the device app
+        run: >
+          dotnet build tests/Broadside.Rendering.Android.Device -c Release -warnaserror -p:BroadsideBuildPlatformBackends=true
+          -p:RuntimeIdentifier=android-x64 -p:AndroidSdkDirectory="$ANDROID_HOME"
+
+      - name: Build the host tests
+        run: dotnet build tests/Broadside.Rendering.Android.Tests -c Release -warnaserror
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run the tests on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          BROADSIDE_ANDROID_REQUIRED: 1
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect
+          script: dotnet test tests/Broadside.Rendering.Android.Tests -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: android-test-results
+          path: artifacts/test-results/**/*.trx
+          if-no-files-found: warn
+
+      - name: Upload golden-image differences
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: golden-images-android
+          path: |
+            tests/Golden/*.android.received.png
+            tests/Golden/*.android.diff.png
+          if-no-files-found: ignore
