@@ -1,0 +1,26 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The Direct2D backend's benchmarks (issue #129). A project of its own because it targets Windows: bench/Broadside.Benchmarks runs
+    (and is gated) on Linux. CI dry-runs it on its Windows leg (.github/workflows/ci.yml); it builds on every host.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows10.0.19041.0</TargetFramework>
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Broadside.Benchmarks</RootNamespace>
+    <!-- BenchmarkDotNet needs the benchmark assembly to be optimized; a Debug build is refused by its validator. -->
+    <Optimize>true</Optimize>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Rendering.Direct2D/Broadside.Rendering.Direct2D.csproj" />
+    <PackageReference Include="BenchmarkDotNet" />
+    <!-- The configuration and samples of bench/Broadside.Benchmarks, linked as source. -->
+    <Compile Include="../Broadside.Benchmarks/BenchmarkConfig.cs" Link="BenchmarkConfig.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/CorpusLocator.cs" Link="CorpusLocator.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/ContentSamples.cs" Link="ContentSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/ClipSamples.cs" Link="ClipSamples.cs" />
+  </ItemGroup>
+
+</Project>
