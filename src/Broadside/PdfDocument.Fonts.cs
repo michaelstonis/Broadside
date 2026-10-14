@@ -39,8 +39,12 @@ public sealed partial class PdfDocument
     /// <remarks>ISO 32000-2 §9.9.2 and §12.7.4.3.</remarks>
     internal Forms.SharedFontSubsets FontSubsets => _fontSubsets ??= new Forms.SharedFontSubsets();
 
-    /// <summary>Before a save plans what to write: subsets every shared font that grew since it was last subset (issue #285).</summary>
-    private void CompleteFontSubsets() => _fontSubsets?.Complete(this);
+    /// <summary>
+    /// Once a save has passed every check that can refuse it (issue #300): subsets every shared font that grew since it was last
+    /// subset (issue #285).
+    /// </summary>
+    /// <returns>Whether any font program changed.</returns>
+    private bool CompleteFontSubsets() => _fontSubsets?.Complete(this) ?? false;
 
     private PdfFont? _fallbackFont;
 
