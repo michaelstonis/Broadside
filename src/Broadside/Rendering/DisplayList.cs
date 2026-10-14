@@ -4,7 +4,7 @@ namespace Broadside.Rendering;
 
 /// <summary>
 /// The device-independent, fully resolved sequence of drawing operations a page's content produces, which every backend consumes
-/// through <see cref="Replay"/>. Build one with <see cref="PdfPage.CreateDisplayList()"/>.
+/// through <see cref="Replay(IRenderingBackend)"/>. Build one with <see cref="PdfPage.CreateDisplayList()"/>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -12,7 +12,7 @@ namespace Broadside.Rendering;
 /// and points in shared arrays) and colours once per run of equal colours, so building costs a fixed number of arrays per page and
 /// replaying allocates nothing. Fonts, images and colour spaces are resolved before an operation enters the list; the list never
 /// reads the file again (a replay touches only the list), so it can be cached and replayed many times, for example per tile and
-/// zoom. Converting its colours goes through <see cref="Document"/>, which must still be open for that.
+/// zoom, where <see cref="Replay(IRenderingBackend, PdfRectangle)"/> skips the paints a tile does not reach. Converting its colours goes through <see cref="Document"/>, which must still be open for that.
 /// </para>
 /// <para>
 /// Today the list carries the graphics state stack (ISO 32000-2 §8.4.2), transforms (§8.3.2), path fills with their colour
@@ -20,17 +20,18 @@ namespace Broadside.Rendering;
 /// bounding boxes, §8.10.1), images with their masks (§8.9, §11.6.5, <see cref="DisplayImage"/>, decoded once per image XObject),
 /// stencil masks (§8.9.6.2, <see cref="DisplayImageMask"/>), text as glyph runs (§9.4.3, §9.3.6, <see cref="GlyphRun"/>: font
 /// program, glyph ids, text matrices, outlines interned once per program and glyph) and shadings, from <c>sh</c> and as shading
-/// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>), and annotations' appearances (§12.5.5,
+/// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>), tiling patterns on fills and strokes, each cell a display
+/// list of its own (§8.7.3, <see cref="DisplayTilingPattern"/>), and annotations' appearances (§12.5.5,
 /// <see cref="DisplayAnnotation"/>; a list holds the page's content, annotation and form-field layers as <see cref="DisplayLayers"/>
-/// asks). Type 3 glyphs, text clips, tiling patterns and transparency groups and soft masks join it in later Phase 3 tickets
-/// (constant alpha and blend modes are there already, as <see cref="IRenderingBackend.SetCompositing"/>), each as new
-/// <see cref="IRenderingBackend"/> calls.
+/// asks). Type 3 glyphs, text clips and transparency groups and soft masks join it in later Phase 3 tickets (constant alpha and
+/// blend modes are there already, as <see cref="IRenderingBackend.SetCompositing"/>), each as new <see cref="IRenderingBackend"/>
+/// calls.
 /// </para>
 /// <para>
 /// Immutable once built: any number of threads may replay the same list at once, each into its own backend.
 /// </para>
 /// </remarks>
-public sealed class DisplayList
+public sealed partial class DisplayList
 {
     private readonly DisplayOperation[] _operations;
     private readonly PathVerb[] _verbs;
@@ -87,6 +88,9 @@ public sealed class DisplayList
     /// <summary>Gets the alpha constants and blend modes the list sets (indexed by <see cref="DisplayOperationKind.SetCompositing"/> records).</summary>
     internal DisplayCompositing[] Compositings { get; init; } = [];
 
+    /// <summary>Gets the tiling-pattern paints (indexed by the tiling-pattern records).</summary>
+    internal DisplayTilingPaint[] TilingPaints { get; init; } = [];
+
     /// <summary>Gets the annotations the list draws (indexed by <see cref="DisplayOperationKind.BeginAnnotation"/> records).</summary>
     internal DisplayAnnotation[] Annotations { get; init; } = [];
 
@@ -104,73 +108,90 @@ public sealed class DisplayList
         ArgumentNullException.ThrowIfNull(backend);
         foreach (ref readonly DisplayOperation operation in _operations.AsSpan())
         {
-            switch (operation.Kind)
-            {
-                case DisplayOperationKind.SaveState:
-                    backend.SaveState();
-                    break;
-                case DisplayOperationKind.RestoreState:
-                    backend.RestoreState();
-                    break;
-                case DisplayOperationKind.SetTransform:
-                    backend.SetTransform(in _transforms[operation.First]);
-                    break;
-                case DisplayOperationKind.FillPath:
-                    ref readonly DisplayPath path = ref _paths[operation.First];
-                    ref readonly DisplayColorEntry entry = ref _colors[operation.Second];
-                    var color = new DisplayColor(entry.ColorSpace, _components.AsSpan(entry.ComponentStart, entry.ComponentCount), entry.DefaultColorSpaces, entry.Conversion);
-                    backend.FillPath(
-                        new PathView(_verbs.AsSpan(path.VerbStart, path.VerbCount), _points.AsSpan(path.PointStart, path.PointCount)),
-                        operation.FillRule,
-                        in color);
-                    break;
-                case DisplayOperationKind.StrokePath:
-                    Stroke(backend, operation);
-                    break;
-                case DisplayOperationKind.IntersectClip:
-                    ref readonly DisplayPath clip = ref _paths[operation.First];
-                    backend.IntersectClip(
-                        new PathView(_verbs.AsSpan(clip.VerbStart, clip.VerbCount), _points.AsSpan(clip.PointStart, clip.PointCount)),
-                        operation.FillRule);
-                    break;
-                case DisplayOperationKind.DrawImage:
-                    ref readonly DisplayImagePaint paint = ref ImagePaints[operation.Second];
-                    backend.DrawImage(Images[operation.First], paint.DefaultColorSpaces, paint.Conversion);
-                    break;
-                case DisplayOperationKind.DrawGlyphs:
-                    DrawGlyphs(backend, operation);
-                    break;
-                case DisplayOperationKind.DrawShading:
-                    DisplayShading drawn = Shading(operation.First);
-                    backend.DrawShading(in drawn);
-                    break;
-                case DisplayOperationKind.FillPathWithShading:
-                    ref readonly DisplayPath shaded = ref _paths[operation.First];
-                    DisplayShading filled = Shading(operation.Second);
-                    backend.FillPathWithShading(
-                        new PathView(_verbs.AsSpan(shaded.VerbStart, shaded.VerbCount), _points.AsSpan(shaded.PointStart, shaded.PointCount)),
-                        operation.FillRule,
-                        in filled);
-                    break;
-                case DisplayOperationKind.StrokePathWithShading:
-                    Stroke(backend, operation);
-                    break;
-                case DisplayOperationKind.FillImageMask:
-                    ref readonly DisplayColorEntry maskColor = ref _colors[operation.Second];
-                    var maskPaint = new DisplayColor(maskColor.ColorSpace, _components.AsSpan(maskColor.ComponentStart, maskColor.ComponentCount), maskColor.DefaultColorSpaces, maskColor.Conversion);
-                    backend.FillImageMask(ImageMasks[operation.First], in maskPaint);
-                    break;
-                case DisplayOperationKind.SetCompositing:
-                    ref readonly DisplayCompositing compositing = ref Compositings[operation.First];
-                    backend.SetCompositing(compositing.StrokeAlpha, compositing.FillAlpha, compositing.BlendMode);
-                    break;
-                case DisplayOperationKind.BeginAnnotation:
-                    backend.BeginAnnotation(in Annotations[operation.First]);
-                    break;
-                case DisplayOperationKind.EndAnnotation:
-                    backend.EndAnnotation();
-                    break;
-            }
+            Execute(backend, in operation);
+        }
+    }
+
+    /// <summary>Hands one record of the list to the backend.</summary>
+    private void Execute(IRenderingBackend backend, in DisplayOperation operation)
+    {
+        switch (operation.Kind)
+        {
+            case DisplayOperationKind.SaveState:
+                backend.SaveState();
+                break;
+            case DisplayOperationKind.RestoreState:
+                backend.RestoreState();
+                break;
+            case DisplayOperationKind.SetTransform:
+                backend.SetTransform(in _transforms[operation.First]);
+                break;
+            case DisplayOperationKind.FillPath:
+                ref readonly DisplayPath path = ref _paths[operation.First];
+                ref readonly DisplayColorEntry entry = ref _colors[operation.Second];
+                var color = new DisplayColor(entry.ColorSpace, _components.AsSpan(entry.ComponentStart, entry.ComponentCount), entry.DefaultColorSpaces, entry.Conversion);
+                backend.FillPath(
+                    new PathView(_verbs.AsSpan(path.VerbStart, path.VerbCount), _points.AsSpan(path.PointStart, path.PointCount)),
+                    operation.FillRule,
+                    in color);
+                break;
+            case DisplayOperationKind.StrokePath:
+                Stroke(backend, operation);
+                break;
+            case DisplayOperationKind.IntersectClip:
+                ref readonly DisplayPath clip = ref _paths[operation.First];
+                backend.IntersectClip(
+                    new PathView(_verbs.AsSpan(clip.VerbStart, clip.VerbCount), _points.AsSpan(clip.PointStart, clip.PointCount)),
+                    operation.FillRule);
+                break;
+            case DisplayOperationKind.DrawImage:
+                ref readonly DisplayImagePaint paint = ref ImagePaints[operation.Second];
+                backend.DrawImage(Images[operation.First], paint.DefaultColorSpaces, paint.Conversion);
+                break;
+            case DisplayOperationKind.DrawGlyphs:
+                DrawGlyphs(backend, operation);
+                break;
+            case DisplayOperationKind.DrawShading:
+                DisplayShading drawn = Shading(operation.First);
+                backend.DrawShading(in drawn);
+                break;
+            case DisplayOperationKind.FillPathWithShading:
+                ref readonly DisplayPath shaded = ref _paths[operation.First];
+                DisplayShading filled = Shading(operation.Second);
+                backend.FillPathWithShading(
+                    new PathView(_verbs.AsSpan(shaded.VerbStart, shaded.VerbCount), _points.AsSpan(shaded.PointStart, shaded.PointCount)),
+                    operation.FillRule,
+                    in filled);
+                break;
+            case DisplayOperationKind.StrokePathWithShading:
+                Stroke(backend, operation);
+                break;
+            case DisplayOperationKind.FillImageMask:
+                ref readonly DisplayColorEntry maskColor = ref _colors[operation.Second];
+                var maskPaint = new DisplayColor(maskColor.ColorSpace, _components.AsSpan(maskColor.ComponentStart, maskColor.ComponentCount), maskColor.DefaultColorSpaces, maskColor.Conversion);
+                backend.FillImageMask(ImageMasks[operation.First], in maskPaint);
+                break;
+            case DisplayOperationKind.SetCompositing:
+                ref readonly DisplayCompositing compositing = ref Compositings[operation.First];
+                backend.SetCompositing(compositing.StrokeAlpha, compositing.FillAlpha, compositing.BlendMode);
+                break;
+            case DisplayOperationKind.FillPathWithTilingPattern:
+                ref readonly DisplayPath tiled = ref _paths[operation.First];
+                DisplayTilingPattern tiling = Tiling(operation.Second);
+                backend.FillPathWithTilingPattern(
+                    new PathView(_verbs.AsSpan(tiled.VerbStart, tiled.VerbCount), _points.AsSpan(tiled.PointStart, tiled.PointCount)),
+                    operation.FillRule,
+                    in tiling);
+                break;
+            case DisplayOperationKind.StrokePathWithTilingPattern:
+                Stroke(backend, operation);
+                break;
+            case DisplayOperationKind.BeginAnnotation:
+                backend.BeginAnnotation(in Annotations[operation.First]);
+                break;
+            case DisplayOperationKind.EndAnnotation:
+                backend.EndAnnotation();
+                break;
         }
     }
 
@@ -230,7 +251,17 @@ public sealed class DisplayList
         return new DisplayShading(paint.Shading, paint.Matrix, paint.PaintsBackground, paint.DefaultColorSpaces, paint.Conversion);
     }
 
-    /// <summary>Hands a stroke record (with a colour or, for <see cref="DisplayOperationKind.StrokePathWithShading"/>, a shading) to the backend.</summary>
+    /// <summary>Returns the tiling paint at <paramref name="index"/> as the backend receives it.</summary>
+    private DisplayTilingPattern Tiling(int index)
+    {
+        ref readonly DisplayTilingPaint paint = ref TilingPaints[index];
+        return new DisplayTilingPattern(paint.Pattern, paint.Matrix, paint.Cell);
+    }
+
+    /// <summary>
+    /// Hands a stroke record (with a colour or, for <see cref="DisplayOperationKind.StrokePathWithShading"/> and
+    /// <see cref="DisplayOperationKind.StrokePathWithTilingPattern"/>, a shading or tiling pattern) to the backend.
+    /// </summary>
     private void Stroke(IRenderingBackend backend, in DisplayOperation operation)
     {
         ref readonly DisplayPath path = ref _paths[operation.First];
@@ -248,6 +279,13 @@ public sealed class DisplayList
         {
             DisplayShading shading = Shading(stroke.ColorIndex);
             backend.StrokePathWithShading(view, in style, in shading);
+            return;
+        }
+
+        if (operation.Kind == DisplayOperationKind.StrokePathWithTilingPattern)
+        {
+            DisplayTilingPattern tiling = Tiling(stroke.ColorIndex);
+            backend.StrokePathWithTilingPattern(view, in style, in tiling);
             return;
         }
 

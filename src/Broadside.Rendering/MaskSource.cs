@@ -14,7 +14,7 @@ namespace Broadside.Rendering;
 /// </para>
 /// <para>
 /// One per rasterizer, reused for every mask: its buffers are pooled and grow to the largest mask seen, so converting allocates
-/// nothing once warm. The last mask converted is kept until the next one or the end of the render.
+/// nothing once warm. The last mask converted is kept until the next one, across renders (tiles of one list convert it once).
 /// </para>
 /// </remarks>
 internal sealed class MaskSource : IDisposable
