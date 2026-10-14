@@ -81,6 +81,29 @@ public sealed class RasterizerAllocationTests
     }
 
     [Theory]
+    [InlineData(1)]
+    [InlineData(4)]
+    public void Drawing_type3_glyphs_allocates_nothing_per_glyph_once_warm(double scale)
+    {
+        // More than 2,000 Type 3 glyphs: d1 shapes and inline image masks in the text's colours, d0 glyphs filled and stroked in
+        // their own, and d1 glyphs painting a clipped form.
+        using PdfDocument document = PdfDocument.Open(Type3Samples.Type3Heavy(2000));
+        PdfPage page = document.Pages[0];
+        DisplayList list = page.CreateDisplayList();
+        RenderOptions options = new RenderOptions().WithScale(scale);
+        PixelSize size = options.GetPixelSize(page);
+        Matrix device = options.GetDeviceTransform(page);
+        using var bitmap = new Bitmap(size.Width, size.Height);
+        using var rasterizer = new SoftwareRasterizer();
+        Action render = () => rasterizer.Render(list, bitmap, device);
+
+        long allocated = Allocations.Measure(render, warmUpCalls: 3);
+
+        Assert.Equal(0, allocated);
+        Assert.Contains(bitmap.Pixels.ToArray(), value => value != 0);
+    }
+
+    [Theory]
     [InlineData(72)]
     [InlineData(300)]
     public void Drawing_masked_images_and_stencil_masks_allocates_nothing_per_mask_row_or_pixel(double dpi)

@@ -20,8 +20,10 @@ namespace Broadside.Rendering;
 /// bounding boxes, §8.10.1), images with their masks (§8.9, §11.6.5, <see cref="DisplayImage"/>, decoded once per image XObject),
 /// stencil masks (§8.9.6.2, <see cref="DisplayImageMask"/>), text as glyph runs (§9.4.3, §9.3.6, <see cref="GlyphRun"/>: font
 /// program, glyph ids, text matrices, outlines interned once per program and glyph) and shadings, from <c>sh</c> and as shading
-/// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>). Type 3 glyphs, text clips, tiling patterns and
-/// transparency join it in later Phase 3 tickets, each as new <see cref="IRenderingBackend"/> calls.
+/// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>). Type 3 glyphs (§9.6.4) are in it as what their
+/// descriptions paint, under each glyph's transform and, for a <c>d1</c> glyph, in the colours of the text that shows it; each
+/// description is interpreted once per font, code and inherited graphics state in a list and replayed at every show. Text clips,
+/// tiling patterns and transparency join it in later Phase 3 tickets, each as new <see cref="IRenderingBackend"/> calls.
 /// </para>
 /// <para>
 /// Immutable once built: any number of threads may replay the same list at once, each into its own backend.

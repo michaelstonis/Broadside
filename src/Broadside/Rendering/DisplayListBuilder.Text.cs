@@ -38,10 +38,14 @@ internal sealed partial class DisplayListBuilder
     /// (§9.4.4); its rendering mode (§9.3.6) decides whether the run fills with the nonstroking colour, strokes with the stroking
     /// colour and line parameters, both, or neither (mode 3, kept for hit-testing).
     /// </para>
-    /// <para>Type 3 glyphs (§9.6.4) and the clip of modes 4 to 7 are not in the list yet; later Phase 3 tickets add them.</para>
+    /// <para>
+    /// A Type 3 glyph (§9.6.4) adds nothing here: its description enters the list as what it paints, through
+    /// <see cref="BeginType3Glyph"/> (<c>DisplayListBuilder.Type3.cs</c>). The clip of modes 4 to 7 is not in the list yet.
+    /// </para>
     /// </remarks>
     public override void ShowGlyph(in GlyphEvent glyph, ContentContext context)
     {
+        NoteType3Text();
         if (glyph.Font is not { } font || font is PdfType3Font)
         {
             return;

@@ -115,7 +115,8 @@ public interface IRenderingBackend
     /// ISO 32000-2 §9.4.3 (<c>Tj</c>, <c>TJ</c>, <c>'</c>, <c>"</c>), §9.3.6 (text rendering mode, Table 104) and §9.2.4 (glyph
     /// outlines, filled by the non-zero winding rule). Glyphs whose run neither fills nor strokes (mode 3, invisible text) paint
     /// nothing; they reach the backend so that a backend collecting positions (hit-testing) sees them. Text in clipping modes 4 to 7
-    /// paints like modes 0 to 3; its contribution to the clip is not in the list yet. Type 3 glyphs (§9.6.4) are not in the list yet.
+    /// paints like modes 0 to 3; its contribution to the clip is not in the list yet. Type 3 glyphs (§9.6.4) never come
+    /// through this call: each glyph's description reaches the backend as the transforms, paths, clips and image masks it paints.
     /// </para>
     /// <para>
     /// A backend may draw the glyphs natively from <see cref="GlyphRun.Program"/> and the glyph ids, or from the interned outlines

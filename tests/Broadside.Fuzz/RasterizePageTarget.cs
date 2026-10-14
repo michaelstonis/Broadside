@@ -5,13 +5,16 @@ namespace Broadside.Fuzz;
 
 /// <summary>
 /// The <c>rasterize-page</c> target (issue #109): opens the input as a whole file and renders its first two pages' display lists
-/// with the software rasterizer into a small transparent bitmap, twice, at a scale and quarter turn chosen from the input length.
+/// with the software rasterizer into small transparent bitmaps, twice and once more from a list built again, at a scale and
+/// quarter turn chosen from the input length.
 /// Unlike <c>rasterize</c>, whose content has no resources, names resolve here, so the shadings of <c>sh</c> and shading patterns
 /// (their coordinates, radii, Domain, Extend, Background, BBox and functions, mutated from the <c>shading-*</c> and
-/// <c>pattern-*</c> corpus files), forms and image XObjects reach the rasterizer. Invariants: nothing throws besides an unreadable
-/// input; no colour channel exceeds its alpha; both renders are identical.
+/// <c>pattern-*</c> corpus files), forms, image XObjects and Type 3 glyph descriptions (issue #108, from the <c>text-type3*</c>
+/// files: each description built once per list and replayed at every show) reach the rasterizer. Invariants: nothing throws besides
+/// an unreadable input; no colour channel exceeds its alpha; a list rendered twice, and a second list built from the same page,
+/// render identically.
 /// </summary>
-/// <remarks>ADR 0006; ISO 32000-2 §8.7.4.1, §8.7.4.3, §8.7.4.5.3, §8.7.4.5.4, §8.9.4, §10.7.4.</remarks>
+/// <remarks>ADR 0006; ISO 32000-2 §9.6.4, §8.7.4.1, §8.7.4.3, §8.7.4.5.3, §8.7.4.5.4, §8.9.4, §10.7.4.</remarks>
 internal static class RasterizePageTarget
 {
     private const int Size = 48;
@@ -39,11 +42,13 @@ internal static class RasterizePageTarget
         using var rasterizer = new SoftwareRasterizer();
         using var first = new Bitmap(Size, Size);
         using var second = new Bitmap(Size, Size);
+        using var rebuilt = new Bitmap(Size, Size);
         for (int index = 0; index < Math.Min(2, document.Pages.Count); index++)
         {
             DisplayList list = document.Pages[index].CreateDisplayList();
             rasterizer.Render(list, first, device);
             rasterizer.Render(list, second, device);
+            rasterizer.Render(document.Pages[index].CreateDisplayList(), rebuilt, device);
         }
 
         ReadOnlySpan<byte> pixels = first.Pixels;
@@ -54,6 +59,7 @@ internal static class RasterizePageTarget
         }
 
         Check(pixels.SequenceEqual(second.Pixels), "two renders of one list differ");
+        Check(pixels.SequenceEqual(rebuilt.Pixels), "two lists built from one page render differently");
     }
 
     private static void Check(bool condition, string message)
