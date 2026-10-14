@@ -14,6 +14,11 @@ namespace Broadside.Graphics;
 /// CalRGB, Lab and ICCBased, with every component already clipped into its range.
 /// </para>
 /// <para>
+/// The conversion carries the rendering intent (§8.6.5.8), the black point compensation setting (§8.6.5.9) and the output intent
+/// in effect (§14.11.5, <see cref="ColorConversion.OutputIntent"/>); an implementation may honour or disregard each, as those clauses
+/// allow.
+/// </para>
+/// <para>
 /// Converters are requested once per document, source space and conversion, and then used from any number of threads at once.
 /// </para>
 /// </remarks>
