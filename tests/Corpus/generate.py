@@ -1206,6 +1206,28 @@ def gen_text_render_modes() -> bytes:
     return simple_file(objects, binary=True)
 
 
+def gen_text_rotated() -> bytes:
+    """9.4.4 (the text rendering matrix) and 8.3.4: the embedded font of text-truetype-embedded.pdf at 24 pt, HI twice, rotated two
+    ways. Line 1 is rotated 30 degrees by the text matrix (Tm [0.866025 0.5 -0.5 0.866025 100 500]); line 2 is rotated 90 degrees
+    by the CTM (cm [0 1 -1 0 300 300]) with the text at the origin of the rotated space. Glyph boxes are rotated with the text."""
+    font, widths = minimal_truetype()
+    first, last = min(widths), max(widths)
+    w = b" ".join(b"%d" % widths[c] for c in range(first, last + 1))
+    content = (b"BT /F1 24 Tf 0.866025 0.5 -0.5 0.866025 100 500 Tm (HI) Tj ET\n"
+               b"q 0 1 -1 0 300 300 cm BT /F1 24 Tf (HI) Tj ET Q")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, font=5)),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Font /Subtype /TrueType /BaseFont /BroadsideMinimal /FirstChar %d /LastChar %d "
+            b"/Widths [%s] /Encoding /WinAnsiEncoding /FontDescriptor 6 0 R >>" % (first, last, w)),
+        (6, b"<< /Type /FontDescriptor /FontName /BroadsideMinimal /Flags 32 /FontBBox [0 0 700 700] "
+            b"/ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 200 /FontFile2 7 0 R >>"),
+        (7, stream(b"/Length1 %d" % len(font), font)),
+    ], binary=True)
+
+
 def codes_content(lines: list[tuple[str, bytes]]) -> bytes:
     """One text line per (font resource, codes); codes as a hexadecimal string so any byte can be shown."""
     out = b"BT /%s 24 Tf 72 700 Td <%s> Tj" % (lines[0][0].encode(), lines[0][1].hex().upper().encode())
@@ -2514,6 +2536,7 @@ def gen_annotations_link() -> bytes:
         (2, pages()),
         (3, page(extra=b" /Annots [4 0 R]")),
         (4, b"<< /Type /Annot /Subtype /Link /Rect [72 700 300 724] /Border [0 0 0] "
+            b"/QuadPoints [72 712 300 712 300 724 72 724 72 700 150 700 150 712 72 712] "
             b"/A << /S /URI /URI (https://example.com/) >> >>"),
     ])
 
@@ -6350,6 +6373,7 @@ FILES = {
     "text-standard14.pdf": gen_text_standard14,
     "text-truetype-embedded.pdf": gen_text_truetype_embedded,
     "text-render-modes.pdf": gen_text_render_modes,
+    "text-rotated.pdf": gen_text_rotated,
     "text-standard14-differences.pdf": gen_text_standard14_differences,
     "text-standard14-winansi-quirks.pdf": gen_text_standard14_winansi_quirks,
     "text-standard14-macroman.pdf": gen_text_standard14_macroman,

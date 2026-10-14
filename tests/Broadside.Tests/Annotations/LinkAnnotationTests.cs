@@ -26,7 +26,13 @@ public sealed class LinkAnnotationTests
         Assert.Null(link.GetAppearance());
         Assert.Same(document.Pages[0], link.Page);
         Assert.Equal(PdfAnnotationFlags.None, link.Flags);
-        Assert.Empty(link.QuadPoints);
+        Assert.Equal(
+            [
+                new PdfQuadrilateral(new(72, 712), new(300, 712), new(300, 724), new(72, 724)),
+                new PdfQuadrilateral(new(72, 700), new(150, 700), new(150, 712), new(72, 712)),
+            ],
+            link.QuadPoints);
+        Assert.Equal(link.QuadPoints, link.ActivationRegion);
         Assert.Empty(document.Diagnostics);
     }
 }

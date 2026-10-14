@@ -329,6 +329,30 @@ public sealed class PdfPage
         return DisplayListBuilder.Build(this, _document, options);
     }
 
+    /// <summary>Builds the page's hit-test index: its display list's glyphs, images and paths, and its link annotations.</summary>
+    /// <returns>The index, from a display list built for it under the document's default optional-content states.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
+    /// <remarks>Viewer capability 4; ADR 0006. As <see cref="CreateHitTestIndex(DisplayList, PdfOptionalContentState?)"/>.</remarks>
+    public HitTestIndex CreateHitTestIndex() => CreateHitTestIndex(CreateDisplayList());
+
+    /// <summary>Builds the page's hit-test index from a display list the caller already has, adding the page's link annotations.</summary>
+    /// <param name="displayList">The page's display list, such as the one a viewer caches to render tiles.</param>
+    /// <param name="optionalContentState">
+    /// The optional-content states that decide which links are visible, as the list was built with; <see langword="null"/> for the
+    /// document's default configuration.
+    /// </param>
+    /// <returns>The index.</returns>
+    /// <remarks>
+    /// Viewer capability 4; ISO 32000-2 §12.5.6.5 (links: <c>QuadPoints</c> inside <c>Rect</c>, else <c>Rect</c>), §12.5.3
+    /// (<c>Hidden</c> and <c>NoView</c> links are left out) and §8.11.3.3 (a link whose optional content is off is left out). The
+    /// links are read from <see cref="Annotations"/> now; the list's content is indexed as by <see cref="DisplayList.CreateHitTestIndex"/>.
+    /// </remarks>
+    public HitTestIndex CreateHitTestIndex(DisplayList displayList, PdfOptionalContentState? optionalContentState = null)
+    {
+        ArgumentNullException.ThrowIfNull(displayList);
+        return HitTestIndex.Create(displayList, HitTestIndex.CollectLinks(this, _document, optionalContentState));
+    }
+
     /// <summary>Builds the display list of some of the page's layers, for the screen: content, annotations, form fields, or any combination.</summary>
     /// <param name="layers">The layers the list holds, painted in content, annotations, form fields order.</param>
     /// <returns>The list.</returns>
