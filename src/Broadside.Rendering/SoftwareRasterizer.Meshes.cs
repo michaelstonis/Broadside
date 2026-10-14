@@ -57,7 +57,7 @@ public sealed partial class SoftwareRasterizer
                 _scan.AddLine(left, bottom, left, top);
             }
 
-            PaintMeshShading(shading, toDevice, inverse, background: false, clipToBox: false, _fillCompositor);
+            PaintMeshShading(shading, toDevice, inverse, background: false, clipToBox: false, _fillCompositor, _deviceParameters.FillOverprint);
         }
 
         /// <summary>Fills the path with a function-based or triangle-mesh shading pattern, the Background outside the shading's points (§8.7.4.3).</summary>
@@ -70,7 +70,7 @@ public sealed partial class SoftwareRasterizer
 
             _scan.Reset(_width, _height);
             AddPath(path);
-            PaintMeshShading(shading, toDevice, inverse, background: true, clipToBox: true, _fillCompositor, rule);
+            PaintMeshShading(shading, toDevice, inverse, background: true, clipToBox: true, _fillCompositor, _deviceParameters.FillOverprint, rule);
         }
 
         /// <summary>Paints the area a stroke covers with a function-based or triangle-mesh shading pattern (§8.5.3.2).</summary>
@@ -83,7 +83,7 @@ public sealed partial class SoftwareRasterizer
 
             _scan.Reset(_width, _height);
             _stroker.Stroke(path, style, _toDevice);
-            PaintMeshShading(shading, toDevice, inverse, background: true, clipToBox: true, _strokeCompositor);
+            PaintMeshShading(shading, toDevice, inverse, background: true, clipToBox: true, _strokeCompositor, _deviceParameters.StrokeOverprint);
         }
 
         /// <summary>The shading's transform to the device and back, and its colours; false when it cannot paint.</summary>
@@ -102,7 +102,7 @@ public sealed partial class SoftwareRasterizer
         /// Draws the shading's triangles into the mesh layer over the shape's pixels and paints the shape (already in the scan
         /// converter) from it: the layer's colours, else the Background when <paramref name="background"/> is set and the shading has one.
         /// </summary>
-        private void PaintMeshShading(in DisplayShading shading, in Matrix toDevice, in Matrix inverse, bool background, bool clipToBox, Compositor compositor, FillRule rule = FillRule.NonZero)
+        private void PaintMeshShading(in DisplayShading shading, in Matrix toDevice, in Matrix inverse, bool background, bool clipToBox, Compositor compositor, bool overprint, FillRule rule = FillRule.NonZero)
         {
             PdfShading model = shading.Shading;
             bool hasBackground = background && shading.PaintsBackground && _shadingSource.HasBackground;
@@ -143,6 +143,14 @@ public sealed partial class SoftwareRasterizer
             if (!_meshLayer.HasPaint && !hasBackground)
             {
                 _scan.Reset(_width, _height);
+                return;
+            }
+
+            if (_previewing)
+            {
+                // Overprint preview (#227): the mesh's RGB goes through a scratch layer and is converted to process colourants.
+                _previewOutputIntent ??= shading.Conversion.OutputIntent;
+                PreviewMesh(hasBackground, rule, compositor, overprint);
                 return;
             }
 
