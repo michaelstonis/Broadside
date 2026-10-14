@@ -7,6 +7,9 @@
 | `Broadside.Tests` | Tests for the core package (COS layer, document model, filters, security, content, text, layout, forms, signatures). |
 | `Broadside.Rendering.Tests` | Tests for the managed rasterizer, color engine and PNG encoder. Rendering snapshots live here. |
 | `Broadside.Rendering.Skia.Tests` | Tests for the SkiaSharp backend against the same display lists. |
+| `Broadside.Rendering.CoreGraphics.Tests` | Tests for the CoreGraphics backend: its renders of corpus pages against the golden images, and replay allocation. A macOS app (`net10.0-macos`) under the same platform gate as the package; see "The CoreGraphics backend" below. |
+| `Broadside.Rendering.Android.Device` | An Android app (built only with the android workload) whose instrumentation renders corpus pages through the Android backend on a device or emulator and measures replay allocations there. Not a test project. |
+| `Broadside.Rendering.Android.Tests` | Host tests for the Android backend: install the device app over adb, run it, and compare its renders with the golden images. Skip without adb, a device or the built APK (`BROADSIDE_ANDROID_REQUIRED=1` fails instead); not in `Broadside.Core.slnf`; run by `.github/workflows/android.yml`. |
 | `Broadside.Rendering.AotSmoke` | A console host published with Native AOT that renders the rendering corpus files and compares them with the rasterizer's snapshots. Not a test project; see "The AOT smoke host" below. |
 | `Broadside.Fonts.Standard14.Tests` | Tests for the standard 14 font metrics and programs. |
 | `Broadside.Fonts.Cmaps.Tests` | Tests for the predefined CMaps. |
@@ -16,7 +19,7 @@
 | `Broadside.Fuzz` | The SharpFuzz harness. A console application, not a test project; see its [README](Broadside.Fuzz/README.md). |
 | `Corpus/` | Hand-written minimal PDFs, one feature each; see its [README](Corpus/README.md). |
 
-One test project per core package, named `<Package>.Tests`; `src/Directory.Build.props` grants each one `InternalsVisibleTo` on its package (and grants it to `Broadside.Benchmarks` and `Broadside.Fuzz`). Unit tests sit next to the feature they cover, in the same namespace as the code plus `.Tests`. The Direct2D, CoreGraphics and Android backends have no test projects yet: each runs only on its own platform, so they get projects, and a CI leg, when those backends exist.
+One test project per core package, named `<Package>.Tests`; `src/Directory.Build.props` grants each one `InternalsVisibleTo` on its package (and grants it to `Broadside.Benchmarks` and `Broadside.Fuzz`). Unit tests sit next to the feature they cover, in the same namespace as the code plus `.Tests`. The Direct2D backend has no test project yet: it runs only on its own platform, so it gets a project, and a CI leg, when the backend exists. The Android backend's tests run on the host against a device (see the two `Broadside.Rendering.Android.*` rows above and the `adding-a-rendering-backend` skill); the CoreGraphics backend's are a macOS app (see "The CoreGraphics backend" below).
 
 Every test project is xUnit v3 on the Microsoft Testing Platform runner (`tests/Directory.Build.props` sets `OutputType=Exe`, the runner, and a global `using Xunit`), with `AnalysisLevel=latest-all` and warnings as errors like the rest of the repository; the folder props relax the few rules that only matter for shipping code.
 
@@ -102,6 +105,16 @@ artifacts/aot-smoke/Broadside.Rendering.AotSmoke --require-aot     # exit 0 when
 
 Trim and AOT analysis warnings fail the publish. Native AOT needs the platform linker (clang, Xcode or the MSVC tools); on a Mac whose Command Line Tools SDK is newer than its linker, point the build at an Xcode with `DEVELOPER_DIR` and `SDKROOT`. `dotnet run --project tests/Broadside.Rendering.AotSmoke` runs the same checks under the JIT.
 
+## The CoreGraphics backend
+
+`Broadside.Rendering.CoreGraphics.Tests` targets `net10.0-macos`, so it builds as an app bundle and runs on macOS only; it is in `Broadside.slnx`, not in `Broadside.Core.slnf`, and the macOS CI leg runs it after the solution build. It needs the `macos` workload, and on a machine with several .NET installs the SDK that has it (on the owner's Mac, `/usr/local/share/dotnet/dotnet`). Two things differ from the other test projects: xUnit's check for a .NET app host is replaced (a macOS app's host is the native launcher inside its bundle), and `Program.cs` replaces xUnit's generated entry point, because the macOS framework delivers some completions on the main run loop, which xUnit's entry point would block forever.
+
+```sh
+dotnet test tests/Broadside.Rendering.CoreGraphics.Tests
+```
+
+The package itself also builds for iOS and Mac Catalyst; nothing runs on a simulator.
+
 ## Benchmarks
 
 `bench/Broadside.Benchmarks` is a BenchmarkDotNet console application. Every hot path gets a benchmark class with `[MemoryDiagnoser]` (CLAUDE.md, "Code conventions"); `CorpusBenchmarks` is the placeholder that proves the harness runs.
@@ -111,6 +124,12 @@ dotnet run -c Release --project bench/Broadside.Benchmarks -- --filter '*'      
 dotnet run -c Release --project bench/Broadside.Benchmarks -- --filter '*' --job short  # quick local signal (3 iterations)
 dotnet run -c Release --project bench/Broadside.Benchmarks -- --filter '*' --job dry    # CI smoke: one in-process iteration, no measurement
 dotnet run -c Release --project bench/Broadside.Benchmarks -- --list flat               # the benchmark names
+```
+
+`bench/Broadside.Rendering.CoreGraphics.Benchmarks` holds the CoreGraphics backend's benchmarks. It is a macOS app (it cannot live in the `net10.0` project) and runs every job in process; it takes the same `--filter` and `--job` options:
+
+```sh
+dotnet run -c Release --project bench/Broadside.Rendering.CoreGraphics.Benchmarks -- --filter '*' --job short
 ```
 
 `--job short` and `--job dry` are handled by `BenchmarkConfig`; any other BenchmarkDotNet option, including other `--job` values, passes through. Results land in `BenchmarkDotNet.Artifacts/` (gitignored).
