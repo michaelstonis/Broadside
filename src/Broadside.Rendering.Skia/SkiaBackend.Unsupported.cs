@@ -31,6 +31,11 @@ public sealed partial class SkiaBackend
             DiagnosticSeverity.Information,
             "The Skia backend does not draw shadings yet (ISO 32000-2 §8.7.4); the page's shadings and shading-pattern paints were left out of this render.");
 
+        private static readonly Diagnostic TilingPatternSkipped = new(
+            "BackendTilingPatternUnsupported",
+            DiagnosticSeverity.Information,
+            "The Skia backend does not draw tiling patterns yet (ISO 32000-2 §8.7.3); the page's fills and strokes with a tiling pattern were left out of this render.");
+
         private int _reported;
 
         /// <summary>Gets the diagnostics of the current or last render.</summary>
@@ -60,6 +65,12 @@ public sealed partial class SkiaBackend
 
         /// <summary>Skips a stroke with a shading pattern (ISO 32000-2 §8.7.4.1).</summary>
         public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading) => Report(8, ShadingSkipped);
+
+        /// <summary>Skips a fill with a tiling pattern (ISO 32000-2 §8.7.3.1).</summary>
+        public void FillPathWithTilingPattern(PathView path, FillRule rule, in DisplayTilingPattern pattern) => Report(16, TilingPatternSkipped);
+
+        /// <summary>Skips a stroke with a tiling pattern (ISO 32000-2 §8.7.3.1).</summary>
+        public void StrokePathWithTilingPattern(PathView path, in StrokeStyle style, in DisplayTilingPattern pattern) => Report(16, TilingPatternSkipped);
 
         private void Report(int kind, Diagnostic diagnostic)
         {

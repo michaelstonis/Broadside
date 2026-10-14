@@ -58,7 +58,7 @@ public sealed partial class SkiaBackend
         /// </summary>
         public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
         {
-            if (path.IsEmpty || !TryGetColor(color, out SKColor paint))
+            if (path.IsEmpty || _compositing.StrokeAlpha == 0 || !TryGetColor(color, out SKColor paint))
             {
                 return;
             }
@@ -72,7 +72,8 @@ public sealed partial class SkiaBackend
                 return;
             }
 
-            _stroke.Color = paint;
+            _stroke.Color = paint.WithAlpha(_compositing.StrokeAlpha);
+            _stroke.BlendMode = _compositing.BlendMode;
             _stroke.StrokeCap = style.LineCap switch
             {
                 LineCap.Round => SKStrokeCap.Round,

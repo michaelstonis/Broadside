@@ -21,10 +21,17 @@ namespace Broadside.Rendering.Skia;
 /// both backends' images line up.
 /// </para>
 /// <para>
-/// Images, stencil masks, glyph runs and shadings are not drawn by this backend yet: each is skipped, never approximated, and the
-/// first one of each kind in a render adds an <see cref="DiagnosticSeverity.Information"/> diagnostic to <see cref="Diagnostics"/>
-/// (codes <c>BackendImageUnsupported</c>, <c>BackendImageMaskUnsupported</c>, <c>BackendGlyphsUnsupported</c> and
-/// <c>BackendShadingUnsupported</c>). Invisible text (rendering mode 3) paints nothing and is not reported.
+/// Constant alpha (§11.6.4.4) goes into the paints' colours and the blend mode (§11.3.5) into the paints: Skia's sixteen blend
+/// modes are the functions of Tables 134 and 135. Annotations and form fields (§12.5.5) are placed as the software rasterizer places
+/// them (NoZoom and NoRotate, §12.5.3), clipped to their rectangle and, when translucent or blending, drawn in a layer composited
+/// with their opacity and blend mode. Transparency groups and soft masks are not drawn yet (#124).
+/// </para>
+/// <para>
+/// Images, stencil masks, glyph runs, shadings and tiling patterns are not drawn by this backend yet: each is skipped, never
+/// approximated, and the first one of each kind in a render adds an <see cref="DiagnosticSeverity.Information"/> diagnostic to
+/// <see cref="Diagnostics"/> (codes <c>BackendImageUnsupported</c>, <c>BackendImageMaskUnsupported</c>, <c>BackendGlyphsUnsupported</c>,
+/// <c>BackendShadingUnsupported</c> and <c>BackendTilingPatternUnsupported</c>). Invisible text (rendering mode 3) paints nothing
+/// and is not reported.
 /// </para>
 /// <para>
 /// Reuse one instance for many renders (one per surface): it keeps its paints and caches every Skia path it builds, keyed by the
@@ -37,6 +44,7 @@ namespace Broadside.Rendering.Skia;
 public sealed partial class SkiaBackend : IDisposable
 {
     private static readonly RenderOptions DefaultOptions = new();
+    private static readonly Content.ContentOptions DefaultContentOptions = new();
 
     private readonly Replayer _replayer = new();
     private readonly ReadOnlyCollection<Diagnostic> _diagnostics;
@@ -107,7 +115,7 @@ public sealed partial class SkiaBackend : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         PixelSize size = options.GetPixelSize(page);
         Matrix device = options.GetDeviceTransform(page);
-        Draw(page.CreateDisplayList(), canvas, device, new SKRect(0, 0, size.Width, size.Height));
+        Draw(page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions), canvas, device, new SKRect(0, 0, size.Width, size.Height));
     }
 
     /// <summary>

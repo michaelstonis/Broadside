@@ -37,10 +37,20 @@ public sealed class SkiaAllocationTests
         Assert.Equal(0, MeasureReplay(document, dpi));
     }
 
-    private static long MeasureReplay(PdfDocument document, int dpi)
+    [Fact]
+    public void Replaying_blend_modes_and_translucent_annotations_allocates_nothing()
+    {
+        // ISO 32000-2 §11.3.5 and §11.6.4.4: every blend mode at two alphas; §12.5.5: annotation layers, NoZoom and NoRotate.
+        using PdfDocument blends = PdfDocument.Open(BlendSamples.SolidGrid());
+        using PdfDocument annotations = PdfDocument.Open(AnnotationSamples.Grid());
+        Assert.Equal(0, MeasureReplay(blends, 72));
+        Assert.Equal(0, MeasureReplay(annotations, 144, DisplayLayers.All));
+    }
+
+    private static long MeasureReplay(PdfDocument document, int dpi, DisplayLayers layers = DisplayLayers.Content)
     {
         PdfPage page = document.Pages[0];
-        DisplayList list = page.CreateDisplayList();
+        DisplayList list = page.CreateDisplayList(layers);
         RenderOptions options = new RenderOptions().WithDpi(dpi);
         PixelSize size = options.GetPixelSize(page);
         Matrix device = options.GetDeviceTransform(page);

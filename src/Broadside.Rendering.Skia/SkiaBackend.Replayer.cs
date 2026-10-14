@@ -21,7 +21,7 @@ public sealed partial class SkiaBackend
         private Matrix _device;
         private Matrix _ctm;
         private Matrix _toDevice;
-        private Matrix[] _stack = new Matrix[16];
+        private SavedState[] _stack = new SavedState[16];
         private int _depth;
         private PdfDocument? _document;
 
@@ -43,6 +43,7 @@ public sealed partial class SkiaBackend
             _depth = 0;
             Diagnostics.Clear();
             _reported = 0;
+            BeginCompositing();
         }
 
         public void End()
@@ -61,7 +62,7 @@ public sealed partial class SkiaBackend
                 Array.Resize(ref _stack, _stack.Length * 2);
             }
 
-            _stack[_depth++] = _ctm;
+            _stack[_depth++] = new SavedState(_ctm, _compositing);
             _canvas!.Save();
         }
 
@@ -69,7 +70,9 @@ public sealed partial class SkiaBackend
         {
             if (_depth > 0)
             {
-                SetTransform(in _stack[--_depth]);
+                SavedState saved = _stack[--_depth];
+                SetTransform(saved.Ctm);
+                _compositing = saved.Compositing;
             }
 
             _canvas!.Restore();
@@ -84,14 +87,15 @@ public sealed partial class SkiaBackend
         /// <summary>Fills the path (ISO 32000-2 §8.5.3.3) mapped to the device, so Skia sees device coordinates in double precision.</summary>
         public void FillPath(PathView path, FillRule rule, in DisplayColor color)
         {
-            if (path.IsEmpty || !TryGetColor(color, out SKColor paint))
+            if (path.IsEmpty || _compositing.FillAlpha == 0 || !TryGetColor(color, out SKColor paint))
             {
                 return;
             }
 
             AddDevicePath(path);
             _path.FillType = rule == FillRule.EvenOdd ? SKPathFillType.EvenOdd : SKPathFillType.Winding;
-            _fill.Color = paint;
+            _fill.Color = paint.WithAlpha(_compositing.FillAlpha);
+            _fill.BlendMode = _compositing.BlendMode;
             _canvas!.SetMatrix(in _base);
             _canvas.DrawPath(_paths.Get(_path), _fill);
         }
@@ -110,6 +114,7 @@ public sealed partial class SkiaBackend
             _paths.Dispose();
             _fill.Dispose();
             DisposeStrokes();
+            DisposeCompositing();
         }
 
         private static float Clamp(double value) => (float)Math.Clamp(value, -DeviceLimit, DeviceLimit);
