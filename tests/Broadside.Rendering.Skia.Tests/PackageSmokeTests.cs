@@ -6,6 +6,6 @@ public sealed class PackageSmokeTests
     [Fact]
     public void Package_assembly_loads()
     {
-        Assert.Equal("Broadside.Rendering.Skia", typeof(AssemblyMarker).Assembly.GetName().Name);
+        Assert.Equal("Broadside.Rendering.Skia", typeof(SkiaBackend).Assembly.GetName().Name);
     }
 }

@@ -1,1 +1,14 @@
 #nullable enable
+Broadside.Rendering.Direct2D.Direct2DDriver
+Broadside.Rendering.Direct2D.Direct2DDriver.Hardware = 0 -> Broadside.Rendering.Direct2D.Direct2DDriver
+Broadside.Rendering.Direct2D.Direct2DDriver.Warp = 1 -> Broadside.Rendering.Direct2D.Direct2DDriver
+Broadside.Rendering.Direct2D.Direct2DRenderer
+Broadside.Rendering.Direct2D.Direct2DRenderer.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.Rendering.Direct2D.Direct2DRenderer.Direct2DRenderer() -> void
+Broadside.Rendering.Direct2D.Direct2DRenderer.Direct2DRenderer(Broadside.Rendering.Direct2D.Direct2DDriver driver) -> void
+Broadside.Rendering.Direct2D.Direct2DRenderer.Dispose() -> void
+Broadside.Rendering.Direct2D.Direct2DRenderer.Driver.get -> Broadside.Rendering.Direct2D.Direct2DDriver
+Broadside.Rendering.Direct2D.Direct2DRenderer.Render(Broadside.PdfPage! page) -> Broadside.Rendering.Bitmap!
+Broadside.Rendering.Direct2D.Direct2DRenderer.Render(Broadside.PdfPage! page, Broadside.Rendering.Bitmap! target, Broadside.Rendering.RenderOptions! options) -> void
+Broadside.Rendering.Direct2D.Direct2DRenderer.Render(Broadside.PdfPage! page, Broadside.Rendering.RenderOptions! options) -> Broadside.Rendering.Bitmap!
+Broadside.Rendering.Direct2D.Direct2DRenderer.Render(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform) -> void

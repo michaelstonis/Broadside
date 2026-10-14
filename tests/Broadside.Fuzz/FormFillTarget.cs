@@ -13,9 +13,10 @@ namespace Broadside.Fuzz;
 /// at most the value's length; the saved file opens with the same page count. Check boxes, radio buttons and choice fields are
 /// then set too (issue #168, <see cref="FillButtonsAndChoices"/>). An encrypted input stops after filling (the <c>save</c> target
 /// covers encrypted saves); one read as not encrypted, a damaged <c>Encrypt</c> entry included, must save (issue #283:
-/// <see cref="PdfDocument.IsEncrypted"/> and the save agree), so no exception is tolerated there.
+/// <see cref="PdfDocument.IsEncrypted"/> and the save agree), so no exception is tolerated there. Fields of every kind are then
+/// created on the first page (issue #169, <see cref="CreateFields"/>) and must re-read after the save.
 /// </summary>
-/// <remarks>ISO 32000-2 §12.7.4.3, §12.7.5.2, §12.7.5.3, §12.7.5.4, §12.5.5, §7.6.2.</remarks>
+/// <remarks>ISO 32000-2 §12.7.3, §12.7.4, §12.7.4.3, §12.7.5.2, §12.7.5.3, §12.7.5.4, §12.5.5, §7.6.2.</remarks>
 internal static class FormFillTarget
 {
     private const string Value = "Fill 42 été\nzwei";
@@ -51,6 +52,7 @@ internal static class FormFillTarget
         }
 
         FillButtonsAndChoices(form);
+        bool created = CreateFields(document, form);
         if (document.IsEncrypted)
         {
             return;
@@ -64,9 +66,58 @@ internal static class FormFillTarget
             throw new InvalidOperationException($"The saved file has {saved.Pages.Count} pages; the input had {pages}.");
         }
 
+        if (created && CreatedNames.Any(name => saved.AcroForm?.FindField(name) is not PdfTerminalField { Widgets.Count: > 0 }))
+        {
+            throw new InvalidOperationException("A created field does not re-read with its widget after the save.");
+        }
+
         _ = saved.AcroForm?.TerminalFields.OfType<PdfTextField>().Select(field => field.Value).Count();
         _ = saved.AcroForm?.TerminalFields.OfType<PdfToggleButtonField>().Select(field => field.SelectedWidgets.Count).Count();
         _ = saved.AcroForm?.TerminalFields.OfType<PdfChoiceField>().Select(field => field.SelectedIndices.Count).Count();
+    }
+
+    /// <summary>The fields <see cref="CreateFields"/> adds.</summary>
+    private static readonly string[] CreatedNames = ["BrsFuzz.text", "BrsFuzz.check", "BrsFuzz.radio", "BrsFuzz.list", "BrsFuzz.button", "BrsFuzz.sign"];
+
+    /// <summary>
+    /// Issue #169: creates one field of several kinds on the first page, under a non-terminal field <c>BrsFuzz</c>, whatever the form's
+    /// <c>Fields</c>, <c>DR</c> and <c>DA</c> and the page's <c>Annots</c> hold. Invariants: each is found by its name afterwards
+    /// with its kind and a widget with a normal appearance on the page. A name the file already uses refuses (the documented
+    /// <see cref="InvalidOperationException"/>, nothing changed); so does a page the page tree does not hold as an indirect object.
+    /// </summary>
+    /// <returns>Whether the fields were created.</returns>
+    private static bool CreateFields(PdfDocument document, PdfAcroForm form)
+    {
+        if (document.Pages.Count == 0 || document.Pages[0] is not { Reference: not null } page || form.FindFields("BrsFuzz").Count > 0)
+        {
+            return false;
+        }
+
+        var options = new PdfFieldOptions().WithBackgroundColor(new PdfDeviceColor(0.9));
+        try
+        {
+            form.AddTextField(CreatedNames[0], page, new PdfRectangle(10, 10, 110, 30), options);
+        }
+        catch (ArgumentException)
+        {
+            // A page view the page collection does not hold (a damaged tree) is refused before anything changes.
+            return false;
+        }
+
+        form.AddCheckBox(CreatedNames[1], page, new PdfRectangle(120, 10, 140, 30), options);
+        form.AddRadioButtons(CreatedNames[2], [new PdfRadioButton(page, new PdfRectangle(150, 10, 170, 30), "A"), new PdfRadioButton(page, new PdfRectangle(180, 10, 200, 30), "B")], options);
+        form.AddListBox(CreatedNames[3], page, new PdfRectangle(210, 10, 310, 50), [new PdfChoiceOption("a", "Fill"), new PdfChoiceOption("zwei")], options);
+        form.AddPushButton(CreatedNames[4], page, new PdfRectangle(320, 10, 380, 30), new PdfFieldOptions().WithCaption("Go"));
+        form.AddSignatureField(CreatedNames[5], page, new PdfRectangle(390, 10, 490, 50), options);
+        foreach (string name in CreatedNames)
+        {
+            if (form.FindField(name) is not PdfTerminalField field || field.Widgets.Count == 0 || field.Widgets.Any(widget => widget.GetAppearance() is null))
+            {
+                throw new InvalidOperationException($"The created field {name} is not read back with its widgets and appearances.");
+            }
+        }
+
+        return true;
     }
 
     /// <summary>
