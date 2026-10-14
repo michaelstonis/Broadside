@@ -158,5 +158,8 @@ public sealed class DisplayListAllocationTests
             Strokes++;
             Checksum += path.Points.Length + style.LineWidth + shading.Matrix.A;
         }
+
+        public void FillImageMask(DisplayImageMask mask, in DisplayColor color) =>
+            Checksum += mask.Width + mask.Height + color.Components.Length;
     }
 }

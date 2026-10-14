@@ -35,6 +35,13 @@ public sealed class RenderingSnapshotTests
     [InlineData("jpx-lossless.pdf")]
     [InlineData("jbig2-generic.pdf")]
     [InlineData("ccitt-g4.pdf")]
+    [InlineData("image-stencil-mask.pdf")]
+    [InlineData("image-explicit-mask.pdf")]
+    [InlineData("image-color-key-mask.pdf")]
+    [InlineData("image-smask.pdf")]
+    [InlineData("image-smask-matte.pdf")]
+    [InlineData("ccitt-blackis1-mask.pdf")]
+    [InlineData("jpx-smask-in-data.pdf")]
     public async Task Image_files_match_their_reviewed_snapshots(string fileName)
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Bytes(fileName));

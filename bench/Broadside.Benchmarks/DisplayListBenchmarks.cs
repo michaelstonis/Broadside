@@ -78,5 +78,7 @@ public class DisplayListBenchmarks
         public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading) => Calls += path.Verbs.Length + (int)shading.Shading.ShadingType;
 
         public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading) => Calls += path.Verbs.Length + (int)shading.Shading.ShadingType;
+
+        public void FillImageMask(DisplayImageMask mask, in DisplayColor color) => Calls += mask.Width + color.Components.Length;
     }
 }

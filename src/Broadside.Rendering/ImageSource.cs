@@ -1,4 +1,3 @@
-using System.Buffers;
 using System.Runtime.InteropServices;
 using Broadside.Graphics;
 using Broadside.Images;
@@ -7,12 +6,16 @@ namespace Broadside.Rendering;
 
 /// <summary>
 /// A display-list image converted to the rasterizer's pixels: every sample mapped through the Decode array, converted to RGB
-/// through colour management and stored as opaque premultiplied BGRA, at the image's own resolution, ready to be resampled.
+/// through colour management and stored as premultiplied BGRA, at the image's own resolution, ready to be resampled. A mask of the
+/// image's own size (a colour key, an explicit or soft mask, JPEG 2000 opacity) is folded into the pixels' alpha; a mask of another
+/// size is left to <see cref="MaskSource"/> and sampled at its own resolution.
 /// </summary>
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §8.9.5.2 (Decode, Table 88), §8.6.6.3 (Indexed: samples are indices, rounded and clipped to the table) and §8.9.3
 /// (the sample layout). Colours are converted before resampling, so an Indexed image is never interpolated between indices.
+/// Masks: §8.9.6.3 (explicit), §8.9.6.4 (colour key, on the raw samples), §11.6.5.2 (soft mask; Matte, removed from the component
+/// values with the mask's opacity before conversion, Table 144), §7.4.9 and §8.9.5.1 Table 87 (opacity in JPEG 2000 data, SMaskInData).
 /// </para>
 /// <para>
 /// One per rasterizer, reused for every image: its buffers are pooled and grow to the largest image seen, so converting allocates
@@ -28,6 +31,8 @@ internal sealed class ImageSource : IDisposable
     private float[] _values = [];
     private float[] _rgbValues = [];
     private byte[] _rgb = [];
+    private byte[] _alpha = [];
+    private float[] _alphaValues = [];
     private DisplayImage? _image;
     private PdfColorConverter? _converter;
 
@@ -43,10 +48,22 @@ internal sealed class ImageSource : IDisposable
     /// <summary>Gets the height of the image converted last.</summary>
     public int Height { get; private set; }
 
+    /// <summary>Whether the image's soft mask has the image's size, so that its opacity is folded into the converted pixels.</summary>
+    public static bool FoldsSoftMask(DisplayImage image) =>
+        image.SoftMask is { } soft && soft.Width == image.Width && soft.Height == image.Height;
+
+    /// <summary>Whether the image's explicit mask has the image's size, so that it is folded into the converted pixels.</summary>
+    public static bool FoldsMask(DisplayImage image) =>
+        image.Mask is { } mask && mask.Width == image.Width && mask.Height == image.Height;
+
     /// <summary>Converts <paramref name="image"/> with <paramref name="converter"/>, unless it is the image and converter of the last call.</summary>
     /// <param name="image">The image; at most <see cref="Array.MaxLength"/> pixels.</param>
     /// <param name="converter">Its converter to RGB.</param>
-    public void Prepare(DisplayImage image, PdfColorConverter converter)
+    /// <param name="baseConverter">
+    /// For an Indexed image with a <see cref="DisplayImage.Matte"/>, the converter of its base space (the matte is removed from the
+    /// table's colours); otherwise unused.
+    /// </param>
+    public void Prepare(DisplayImage image, PdfColorConverter converter, PdfColorConverter? baseConverter = null)
     {
         if (ReferenceEquals(image, _image) && ReferenceEquals(converter, _converter))
         {
@@ -57,10 +74,11 @@ internal sealed class ImageSource : IDisposable
         int height = image.Height;
         int components = image.Components;
         int values = width * components;
-        Ensure(ref _pixels, width * height);
-        Ensure(ref _rgb, width * 3);
+        Pooled.Ensure(ref _pixels, width * height);
+        Pooled.Ensure(ref _rgb, width * 3);
 
         PdfColorSpace space = image.ColorSpace;
+        var indexed = space as PdfIndexedColorSpace;
         ImageDecodeMap map = image.DecodeMap;
         Span<ComponentRange> ranges = stackalloc ComponentRange[components];
         for (int c = 0; c < components; c++)
@@ -68,66 +86,118 @@ internal sealed class ImageSource : IDisposable
             ranges[c] = space.GetComponentRange(c);
         }
 
-        RowKind kind = space is PdfIndexedColorSpace ? RowKind.Indices
+        bool foldSoft = FoldsSoftMask(image);
+        bool foldMask = FoldsMask(image);
+        bool colorKey = !image.ColorKey.IsEmpty;
+        bool matte = foldSoft && !image.Matte.IsEmpty
+            && (indexed is null ? image.Matte.Length == components : baseConverter is not null && image.Matte.Length == indexed.Base.ComponentCount);
+        bool alpha = foldSoft || foldMask || colorKey;
+
+        RowKind kind = matte ? (indexed is null ? RowKind.Values : RowKind.TableValues)
+            : indexed is not null ? RowKind.Indices
             : image.StorageBits <= 8 && IsDefault(map, ranges) ? RowKind.Bytes
             : RowKind.Values;
-        if (kind != RowKind.Bytes)
+        int colorComponents = kind == RowKind.TableValues ? indexed!.Base.ComponentCount : components;
+        int colorValues = width * colorComponents;
+        Pooled.Ensure(ref _raw, values + width);
+        Pooled.Ensure(ref _bytes, values);
+        if (kind is RowKind.Values or RowKind.TableValues)
         {
-            Ensure(ref _raw, values);
+            Pooled.Ensure(ref _values, colorValues);
+            Pooled.Ensure(ref _rgbValues, width * 3);
         }
 
-        if (kind != RowKind.Values)
+        if (alpha)
         {
-            Ensure(ref _bytes, values);
-        }
-        else
-        {
-            Ensure(ref _values, values);
-            Ensure(ref _rgbValues, width * 3);
+            Pooled.Ensure(ref _alpha, width);
+            Pooled.Ensure(ref _alphaValues, width);
         }
 
-        int highValue = space is PdfIndexedColorSpace indexed ? indexed.HighValue : 0;
+        Span<ComponentRange> baseRanges = stackalloc ComponentRange[kind == RowKind.TableValues ? colorComponents : 0];
+        for (int c = 0; c < baseRanges.Length; c++)
+        {
+            baseRanges[c] = indexed!.Base.GetComponentRange(c);
+        }
+
+        ReadOnlySpan<byte> table = kind == RowKind.TableValues ? image.ColorTable : default;
+        int highValue = indexed?.HighValue ?? 0;
         Span<byte> rgb = _rgb.AsSpan(0, width * 3);
+        Span<ushort> raw = _raw.AsSpan(0, values);
+        Span<byte> bytes = _bytes.AsSpan(0, values);
+        Span<byte> opacity = alpha ? _alpha.AsSpan(0, width) : default;
         for (int y = 0; y < height; y++)
         {
             ReadOnlySpan<byte> row = image.GetRow(y);
+            if (kind != RowKind.Bytes || colorKey)
+            {
+                ImageRows.Unpack(row, image.StorageBits, values, raw);
+            }
+
+            if (foldSoft)
+            {
+                MaskSource.SoftRow(image.SoftMask!, y, opacity, _raw.AsSpan(values, width), _alphaValues.AsSpan(0, width));
+            }
+            else if (foldMask)
+            {
+                MaskSource.StencilRow(image.Mask!, y, opacity);
+            }
+            else if (colorKey)
+            {
+                ImageRows.ColorKey(raw, components, image.ColorKey, opacity);
+            }
+
             switch (kind)
             {
                 case RowKind.Indices:
-                    ImageRows.Unpack(row, image.StorageBits, values, _raw.AsSpan(0, values));
-                    map.MapToIndices(_raw.AsSpan(0, values), _bytes.AsSpan(0, values), highValue);
-                    converter.Convert(_bytes.AsSpan(0, values), rgb, width);
+                    map.MapToIndices(raw, bytes, highValue);
+                    converter.Convert(bytes, rgb, width);
                     break;
                 case RowKind.Bytes:
-                    ImageRows.UnpackScaled(row, image.StorageBits, image.BitsPerComponent, values, _bytes.AsSpan(0, values));
-                    converter.Convert(_bytes.AsSpan(0, values), rgb, width);
+                    ImageRows.UnpackScaled(row, image.StorageBits, image.BitsPerComponent, values, bytes);
+                    converter.Convert(bytes, rgb, width);
+                    break;
+                case RowKind.TableValues:
+                    map.MapToIndices(raw, bytes, highValue);
+                    TableValues(bytes, table, baseRanges, _values.AsSpan(0, colorValues));
+                    Unmatte(image, opacity, baseRanges, _values.AsSpan(0, colorValues));
+                    ToBytes(baseConverter!, _values.AsSpan(0, colorValues), rgb, width);
                     break;
                 default:
-                    ImageRows.Unpack(row, image.StorageBits, values, _raw.AsSpan(0, values));
-                    map.Map(_raw.AsSpan(0, values), _values.AsSpan(0, values), ranges);
-                    converter.Convert(_values.AsSpan(0, values), _rgbValues.AsSpan(0, width * 3), width);
-                    for (int i = 0; i < rgb.Length; i++)
+                    map.Map(raw, _values.AsSpan(0, values), ranges);
+                    if (matte)
                     {
-                        rgb[i] = (byte)((Math.Clamp(_rgbValues[i], 0f, 1f) * 255f) + 0.5f);
+                        Unmatte(image, opacity, ranges, _values.AsSpan(0, values));
                     }
 
+                    ToBytes(converter, _values.AsSpan(0, values), rgb, width);
                     break;
             }
 
             Span<uint> pixels = _pixels.AsSpan(y * width, width);
             for (int x = 0; x < width; x++)
             {
-                // BGRA in memory order, little-endian uint: B | G << 8 | R << 16 | A << 24.
-                pixels[x] = rgb[(3 * x) + 2] | ((uint)rgb[(3 * x) + 1] << 8) | ((uint)rgb[3 * x] << 16) | 0xFF000000u;
+                // BGRA in memory order, little-endian uint: B | G << 8 | R << 16 | A << 24, premultiplied by the folded opacity.
+                uint r = rgb[3 * x];
+                uint g = rgb[(3 * x) + 1];
+                uint b = rgb[(3 * x) + 2];
+                uint a = alpha ? opacity[x] : 255u;
+                if (a != 255)
+                {
+                    r = Divide255(r * a);
+                    g = Divide255(g * a);
+                    b = Divide255(b * a);
+                }
+
+                pixels[x] = b | (g << 8) | (r << 16) | (a << 24);
             }
         }
 
         if (!BitConverter.IsLittleEndian)
         {
-            Span<byte> bytes = MemoryMarshal.AsBytes(_pixels.AsSpan(0, width * height));
-            for (int i = 0; i < bytes.Length; i += 4)
+            Span<byte> pixelBytes = MemoryMarshal.AsBytes(_pixels.AsSpan(0, width * height));
+            for (int i = 0; i < pixelBytes.Length; i += 4)
             {
-                bytes.Slice(i, 4).Reverse();
+                pixelBytes.Slice(i, 4).Reverse();
             }
         }
 
@@ -148,14 +218,61 @@ internal sealed class ImageSource : IDisposable
     public void Dispose()
     {
         Forget();
-        Return(ref _pixels);
-        Return(ref _raw);
-        Return(ref _bytes);
-        Return(ref _values);
-        Return(ref _rgbValues);
-        Return(ref _rgb);
+        Pooled.Return(ref _pixels);
+        Pooled.Return(ref _raw);
+        Pooled.Return(ref _bytes);
+        Pooled.Return(ref _values);
+        Pooled.Return(ref _rgbValues);
+        Pooled.Return(ref _rgb);
+        Pooled.Return(ref _alpha);
+        Pooled.Return(ref _alphaValues);
         Width = 0;
         Height = 0;
+    }
+
+    /// <summary>Rounds <paramref name="value"/> / 255 for 0 ≤ value ≤ 255 × 255.</summary>
+    private static uint Divide255(uint value)
+    {
+        value += 128;
+        return (value + (value >> 8)) >> 8;
+    }
+
+    /// <summary>Converts component values to RGB bytes.</summary>
+    private void ToBytes(PdfColorConverter converter, ReadOnlySpan<float> values, Span<byte> rgb, int width)
+    {
+        Span<float> rgbValues = _rgbValues.AsSpan(0, width * 3);
+        converter.Convert(values, rgbValues, width);
+        for (int i = 0; i < rgb.Length; i++)
+        {
+            rgb[i] = (byte)((Math.Clamp(rgbValues[i], 0f, 1f) * 255f) + 0.5f);
+        }
+    }
+
+    /// <summary>Removes the matte from component values with the folded soft mask's opacities (§11.6.5.2: c = m + (c′ − m) / α).</summary>
+    private void Unmatte(DisplayImage image, ReadOnlySpan<byte> opacity, ReadOnlySpan<ComponentRange> ranges, Span<float> values)
+    {
+        Span<float> alpha = _alphaValues.AsSpan(0, opacity.Length);
+        for (int x = 0; x < alpha.Length; x++)
+        {
+            alpha[x] = opacity[x] / 255f;
+        }
+
+        ImageRows.Unpremultiply(values, ranges.Length, alpha, image.Matte, ranges);
+    }
+
+    /// <summary>Looks up the base-space component values of table indices (§8.6.6.3: each byte maps onto its component's range).</summary>
+    private static void TableValues(ReadOnlySpan<byte> indices, ReadOnlySpan<byte> table, ReadOnlySpan<ComponentRange> ranges, Span<float> values)
+    {
+        int n = ranges.Length;
+        for (int i = 0, v = 0; i < indices.Length; i++)
+        {
+            int entry = indices[i] * n;
+            for (int c = 0; c < n; c++, v++)
+            {
+                int value = entry + c < table.Length ? table[entry + c] : 0;
+                values[v] = (float)(ranges[c].Minimum + (value / 255.0 * (ranges[c].Maximum - ranges[c].Minimum)));
+            }
+        }
     }
 
     /// <summary>Whether the Decode map is the default of Table 88: 0 and 2^n − 1 map onto each component's range.</summary>
@@ -173,25 +290,6 @@ internal sealed class ImageSource : IDisposable
         return true;
     }
 
-    private static void Ensure<T>(ref T[] buffer, int length)
-    {
-        if (buffer.Length < length)
-        {
-            Return(ref buffer);
-            buffer = ArrayPool<T>.Shared.Rent(length);
-        }
-    }
-
-    private static void Return<T>(ref T[] buffer)
-    {
-        if (buffer.Length > 0)
-        {
-            ArrayPool<T>.Shared.Return(buffer);
-        }
-
-        buffer = [];
-    }
-
     /// <summary>How a row of samples becomes colours.</summary>
     private enum RowKind
     {
@@ -203,5 +301,8 @@ internal sealed class ImageSource : IDisposable
 
         /// <summary>Anything else: raw values through the Decode map to component values, clipped to their ranges (§8.9.5.2).</summary>
         Values,
+
+        /// <summary>Indexed with a Matte: the table's colours as base-space component values, so the matte can be removed (§11.6.5.2).</summary>
+        TableValues,
     }
 }

@@ -4,17 +4,20 @@ using Broadside.Graphics;
 namespace Broadside.Rendering;
 
 /// <summary>
-/// Paints converted image pixels (<see cref="ImageSource"/>) through the inverse of the image-to-device transform: each device pixel's
-/// centre maps back into image space and takes the samples its footprint covers. Enlarged axes take the nearest sample, or a bilinear
-/// blend of the four nearest when the image asks for interpolation; reduced axes average every sample under the pixel's footprint
-/// (a box filter), so a reduced image neither aliases nor drops detail.
+/// Paints converted image pixels (<see cref="ImageSource"/>), or one colour through a stencil mask, through the inverse of the
+/// image-to-device transform: each device pixel's centre maps back into image space and takes the samples its footprint covers.
+/// Enlarged axes take the nearest sample, or a bilinear blend of the four nearest when the image asks for interpolation; reduced axes
+/// average every sample under the pixel's footprint (a box filter), so a reduced image neither aliases nor drops detail. A mask of
+/// its own resolution (<see cref="MaskSource"/>) is resampled the same way on its own grid and scales the colour's opacity.
 /// </summary>
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §8.9.4 (image space to the unit square to device space), §8.9.5.3 (Interpolate: without it, samples are shown as
 /// square blocks; with it, the processor may smooth them) and §10.7.4 (device pixels). The footprint of a pixel in image space is
 /// the bounding box of its preimage, the same for every pixel of an affine transform; axes where it spans more than one sample are
-/// box-filtered by exact overlap, through at most <see cref="MaxTaps"/> evenly spaced samples per axis when it spans more.
+/// box-filtered by exact overlap, through at most <see cref="MaxTaps"/> evenly spaced samples per axis when it spans more. Masks
+/// (§8.9.6.2, §8.9.6.3, §11.6.5.2) map onto the same unit square at their own width and height, so a mask sample position is the
+/// image sample position scaled by the ratio of the sizes.
 /// </para>
 /// <para>
 /// Hot path: allocates nothing; the per-pixel work is a few multiply-adds for enlargement and proportional to the samples averaged
@@ -28,35 +31,67 @@ internal readonly ref struct ImagePainter : ICoverageSink
     /// <summary>The most samples one axis of a reduced pixel averages exactly; wider footprints are sampled at this many points.</summary>
     private const int MaxTaps = 16;
 
-    private readonly uint[] _pixels;
-    private readonly int _width;
-    private readonly int _height;
+    private readonly uint[]? _pixels;
+    private readonly uint _solid;
+    private readonly Grid _grid;
+    private readonly byte[]? _mask;
+    private readonly Grid _maskGrid;
     private readonly Matrix _inverse;
-    private readonly bool _interpolate;
-    private readonly double _halfU;
-    private readonly double _halfV;
     private readonly Span<byte> _target;
     private readonly int _stride;
 
-    /// <summary>Creates the painter.</summary>
+    /// <summary>Creates a painter of image pixels.</summary>
     /// <param name="target">The device pixels painted into, premultiplied BGRA in memory order.</param>
     /// <param name="stride">The bytes from one row of <paramref name="target"/> to the next.</param>
-    /// <param name="pixels">The converted pixels, <paramref name="width"/> × <paramref name="height"/>.</param>
+    /// <param name="pixels">The converted pixels, <paramref name="width"/> × <paramref name="height"/>, premultiplied.</param>
     /// <param name="width">The image width in samples.</param>
     /// <param name="height">The image height in samples.</param>
     /// <param name="inverse">Device pixels to image space (samples, y down from the first row).</param>
     /// <param name="interpolate">Whether enlarged samples are blended bilinearly rather than shown as blocks.</param>
-    public ImagePainter(Span<byte> target, int stride, uint[] pixels, int width, int height, in Matrix inverse, bool interpolate)
+    /// <param name="mask">Opacities of a mask of its own resolution that scale the image's, <paramref name="maskWidth"/> × <paramref name="maskHeight"/>; <see langword="null"/> for none.</param>
+    /// <param name="maskWidth">The mask width in samples.</param>
+    /// <param name="maskHeight">The mask height in samples.</param>
+    /// <param name="maskInterpolate">Whether the mask's enlarged samples are blended bilinearly.</param>
+    public ImagePainter(
+        Span<byte> target,
+        int stride,
+        uint[] pixels,
+        int width,
+        int height,
+        in Matrix inverse,
+        bool interpolate,
+        byte[]? mask = null,
+        int maskWidth = 1,
+        int maskHeight = 1,
+        bool maskInterpolate = false)
     {
         _target = target;
         _stride = stride;
         _pixels = pixels;
-        _width = width;
-        _height = height;
         _inverse = inverse;
-        _interpolate = interpolate;
-        _halfU = 0.5 * (Math.Abs(inverse.A) + Math.Abs(inverse.C));
-        _halfV = 0.5 * (Math.Abs(inverse.B) + Math.Abs(inverse.D));
+        _grid = new Grid(width, height, inverse, 1, 1, interpolate);
+        _mask = mask;
+        _maskGrid = new Grid(maskWidth, maskHeight, inverse, (double)maskWidth / width, (double)maskHeight / height, maskInterpolate);
+    }
+
+    /// <summary>Creates a painter of one colour through a mask.</summary>
+    /// <param name="target">The device pixels painted into, premultiplied BGRA in memory order.</param>
+    /// <param name="stride">The bytes from one row of <paramref name="target"/> to the next.</param>
+    /// <param name="color">The colour, opaque BGRA.</param>
+    /// <param name="mask">The opacities, <paramref name="width"/> × <paramref name="height"/>.</param>
+    /// <param name="width">The mask width in samples.</param>
+    /// <param name="height">The mask height in samples.</param>
+    /// <param name="inverse">Device pixels to mask space (samples, y down from the first row).</param>
+    /// <param name="interpolate">Whether enlarged samples are blended bilinearly rather than shown as blocks.</param>
+    public ImagePainter(Span<byte> target, int stride, uint color, byte[] mask, int width, int height, in Matrix inverse, bool interpolate)
+    {
+        _target = target;
+        _stride = stride;
+        _solid = color;
+        _inverse = inverse;
+        _grid = new Grid(width, height, inverse, 1, 1, interpolate);
+        _mask = mask;
+        _maskGrid = _grid;
     }
 
     /// <inheritdoc/>
@@ -73,10 +108,20 @@ internal readonly ref struct ImagePainter : ICoverageSink
         double py = row + 0.5;
         double u = (m.A * px) + (m.C * py) + m.E;
         double v = (m.B * px) + (m.D * py) + m.F;
-        bool boxed = _halfU > 0.5 || _halfV > 0.5;
         for (int i = 0; i < count; i++, u += m.A, v += m.B)
         {
-            uint sample = boxed ? Average(u, v) : _interpolate ? Bilinear(u, v) : Nearest(u, v);
+            uint sample = _pixels is { } pixels ? SampleColor(pixels, _grid, u, v) : _solid;
+            if (_mask is { } mask)
+            {
+                int alpha = SampleMask(mask, _maskGrid, u * _maskGrid.ScaleU, v * _maskGrid.ScaleV);
+                if (alpha == 0)
+                {
+                    continue;
+                }
+
+                sample = Scale(sample, alpha);
+            }
+
             ref uint target = ref line[x + i];
             target = Composite(sample, target, coverage);
         }
@@ -105,6 +150,23 @@ internal readonly ref struct ImagePainter : ICoverageSink
         return result;
     }
 
+    /// <summary>Scales every channel of a premultiplied pixel by <paramref name="alpha"/> / 255.</summary>
+    private static uint Scale(uint pixel, int alpha)
+    {
+        if (alpha == 255)
+        {
+            return pixel;
+        }
+
+        uint result = 0;
+        for (int shift = 0; shift < 32; shift += 8)
+        {
+            result |= (uint)Divide255((int)((pixel >> shift) & 0xFF) * alpha) << shift;
+        }
+
+        return result;
+    }
+
     /// <summary>Rounds <paramref name="value"/> / 255 for 0 ≤ value ≤ 2 × 255 × 255.</summary>
     private static int Divide255(int value)
     {
@@ -115,10 +177,56 @@ internal readonly ref struct ImagePainter : ICoverageSink
     private static int Clamp(double value, int size) =>
         value >= size ? size - 1 : value > 0 ? (int)value : 0;
 
-    private uint Nearest(double u, double v) => _pixels[(Clamp(Math.Floor(v), _height) * _width) + Clamp(Math.Floor(u), _width)];
+    /// <summary>The colour of the image at (u, v): the samples under the pixel's footprint, by the grid's filter.</summary>
+    private static uint SampleColor(uint[] pixels, in Grid grid, double u, double v)
+    {
+        if (grid.Boxed)
+        {
+            return Average(pixels, grid, u, v);
+        }
+
+        return grid.Interpolate ? Bilinear(pixels, grid, u, v) : pixels[(Clamp(Math.Floor(v), grid.Height) * grid.Width) + Clamp(Math.Floor(u), grid.Width)];
+    }
+
+    /// <summary>The opacity of the mask at (u, v) of its own grid, 0 to 255, by the grid's filter.</summary>
+    private static int SampleMask(byte[] mask, in Grid grid, double u, double v)
+    {
+        if (!grid.Boxed && !grid.Interpolate)
+        {
+            return mask[(Clamp(Math.Floor(v), grid.Height) * grid.Width) + Clamp(Math.Floor(u), grid.Width)];
+        }
+
+        Axis across = Axis.Create(u, grid.HalfU, grid.Width, grid.Interpolate);
+        Axis down = Axis.Create(v, grid.HalfV, grid.Height, grid.Interpolate);
+        double sum = 0;
+        double total = 0;
+        for (int j = 0; j < down.Count; j++)
+        {
+            double wy = down.Weight(j);
+            if (wy <= 0)
+            {
+                continue;
+            }
+
+            int offset = down.Index(j) * grid.Width;
+            for (int i = 0; i < across.Count; i++)
+            {
+                double w = across.Weight(i) * wy;
+                if (w > 0)
+                {
+                    sum += w * mask[offset + across.Index(i)];
+                    total += w;
+                }
+            }
+        }
+
+        return total <= 0
+            ? mask[(Clamp(Math.Floor(v), grid.Height) * grid.Width) + Clamp(Math.Floor(u), grid.Width)]
+            : (int)Channel(sum / total);
+    }
 
     /// <summary>Blends the four samples whose centres surround (u, v), the image's edge samples extended outwards.</summary>
-    private uint Bilinear(double u, double v)
+    private static uint Bilinear(uint[] pixels, in Grid grid, double u, double v)
     {
         double cu = u - 0.5;
         double cv = v - 0.5;
@@ -126,14 +234,14 @@ internal readonly ref struct ImagePainter : ICoverageSink
         double fv0 = Math.Floor(cv);
         double fu = Math.Clamp(cu - fu0, 0, 1);
         double fv = Math.Clamp(cv - fv0, 0, 1);
-        int u0 = Clamp(fu0, _width);
-        int u1 = Clamp(fu0 + 1, _width);
-        int row0 = Clamp(fv0, _height) * _width;
-        int row1 = Clamp(fv0 + 1, _height) * _width;
-        uint p00 = _pixels[row0 + u0];
-        uint p10 = _pixels[row0 + u1];
-        uint p01 = _pixels[row1 + u0];
-        uint p11 = _pixels[row1 + u1];
+        int u0 = Clamp(fu0, grid.Width);
+        int u1 = Clamp(fu0 + 1, grid.Width);
+        int row0 = Clamp(fv0, grid.Height) * grid.Width;
+        int row1 = Clamp(fv0 + 1, grid.Height) * grid.Width;
+        uint p00 = pixels[row0 + u0];
+        uint p10 = pixels[row0 + u1];
+        uint p01 = pixels[row1 + u0];
+        uint p11 = pixels[row1 + u1];
         if (p00 == p10 && p00 == p01 && p00 == p11)
         {
             return p00;
@@ -154,10 +262,10 @@ internal readonly ref struct ImagePainter : ICoverageSink
     }
 
     /// <summary>Averages the samples under the footprint of the pixel centred at (u, v); an enlarged axis takes one or two samples.</summary>
-    private uint Average(double u, double v)
+    private static uint Average(uint[] pixels, in Grid grid, double u, double v)
     {
-        Axis across = Axis.Create(u, _halfU, _width, _interpolate);
-        Axis down = Axis.Create(v, _halfV, _height, _interpolate);
+        Axis across = Axis.Create(u, grid.HalfU, grid.Width, grid.Interpolate);
+        Axis down = Axis.Create(v, grid.HalfV, grid.Height, grid.Interpolate);
         double b = 0;
         double g = 0;
         double r = 0;
@@ -171,7 +279,7 @@ internal readonly ref struct ImagePainter : ICoverageSink
                 continue;
             }
 
-            int offset = down.Index(j) * _width;
+            int offset = down.Index(j) * grid.Width;
             for (int i = 0; i < across.Count; i++)
             {
                 double w = across.Weight(i) * wy;
@@ -180,7 +288,7 @@ internal readonly ref struct ImagePainter : ICoverageSink
                     continue;
                 }
 
-                uint pixel = _pixels[offset + across.Index(i)];
+                uint pixel = pixels[offset + across.Index(i)];
                 b += w * (pixel & 0xFF);
                 g += w * ((pixel >> 8) & 0xFF);
                 r += w * ((pixel >> 16) & 0xFF);
@@ -191,7 +299,7 @@ internal readonly ref struct ImagePainter : ICoverageSink
 
         if (total <= 0)
         {
-            return Nearest(u, v);
+            return pixels[(Clamp(Math.Floor(v), grid.Height) * grid.Width) + Clamp(Math.Floor(u), grid.Width)];
         }
 
         double scale = 1 / total;
@@ -199,6 +307,41 @@ internal readonly ref struct ImagePainter : ICoverageSink
     }
 
     private static uint Channel(double value) => (uint)Math.Clamp((int)(value + 0.5), 0, 255);
+
+    /// <summary>A grid of samples that maps onto the unit square: its size, the half-extents of a pixel's footprint on it, its filter.</summary>
+    private readonly struct Grid
+    {
+        public Grid(int width, int height, in Matrix inverse, double scaleU, double scaleV, bool interpolate)
+        {
+            Width = width;
+            Height = height;
+            ScaleU = scaleU;
+            ScaleV = scaleV;
+            Interpolate = interpolate;
+            HalfU = 0.5 * (Math.Abs(inverse.A) + Math.Abs(inverse.C)) * scaleU;
+            HalfV = 0.5 * (Math.Abs(inverse.B) + Math.Abs(inverse.D)) * scaleV;
+            Boxed = HalfU > 0.5 || HalfV > 0.5;
+        }
+
+        public int Width { get; }
+
+        public int Height { get; }
+
+        /// <summary>Gets the factor from the painter's image-space u to this grid's.</summary>
+        public double ScaleU { get; }
+
+        /// <summary>Gets the factor from the painter's image-space v to this grid's.</summary>
+        public double ScaleV { get; }
+
+        public bool Interpolate { get; }
+
+        public double HalfU { get; }
+
+        public double HalfV { get; }
+
+        /// <summary>Gets a value indicating whether a pixel's footprint spans more than one sample on some axis.</summary>
+        public bool Boxed { get; }
+    }
 
     /// <summary>The samples one axis of a pixel's footprint takes, and their weights.</summary>
     private readonly struct Axis
