@@ -1,4 +1,5 @@
 using Broadside.Objects;
+using Broadside.Writing;
 
 namespace Broadside;
 
@@ -52,7 +53,8 @@ public sealed partial class PdfDocument
     /// <remarks>
     /// ISO 32000-2 §12.3.2.2, Table 149: <c>[page /XYZ left top zoom]</c>, <c>[page /Fit]</c>, <c>[page /FitH top]</c>,
     /// <c>[page /FitV left]</c>, <c>[page /FitR left bottom right top]</c>, <c>[page /FitB]</c> (PDF 1.1), <c>[page /FitBH top]</c>
-    /// (PDF 1.1), <c>[page /FitBV left]</c> (PDF 1.1), in default user space, null for a value kept.
+    /// (PDF 1.1), <c>[page /FitBV left]</c> (PDF 1.1), in default user space, null for a value kept. A <c>FitB</c>, <c>FitBH</c> or
+    /// <c>FitBV</c> destination raises a later save of a PDF 1.0 document to 1.1 (ADR 0003).
     /// </remarks>
     public PdfExplicitDestination CreateDestination(
         PdfPage page,
@@ -86,6 +88,12 @@ public sealed partial class PdfDocument
         Check(right, hasRightBottom, nameof(right));
         Check(bottom, hasRightBottom, nameof(bottom));
         Check(zoom, hasZoom, nameof(zoom));
+        if (view is PdfDestinationView.FitB or PdfDestinationView.FitBH or PdfDestinationView.FitBV)
+        {
+            // Recorded when made rather than where stored (an outline item, the Dests tree, a link): every place takes the array.
+            RequireFeature(VersionedFeatures.BoundingBoxDestinations);
+        }
+
         var array = new CosArray([page.Reference, new CosName(name)]);
         if (view == PdfDestinationView.FitR)
         {
@@ -143,7 +151,8 @@ public sealed partial class PdfDocument
     /// <remarks>
     /// ISO 32000-2 §12.3.2.4 (PDF 1.2) and §7.7.4, Table 32. The name dictionary and its <c>Dests</c> tree are created when absent; the
     /// key is found as <see cref="GetNamedDestination(string)"/> finds it (PDFDocEncoding, then UTF-16BE, then every key decoded). A
-    /// PDF 1.1 entry of the same name in the catalog's <c>Dests</c> dictionary is removed, so both lookups agree. A mutation.
+    /// PDF 1.1 entry of the same name in the catalog's <c>Dests</c> dictionary is removed, so both lookups agree. A later save of a document
+    /// below PDF 1.2 raises it to 1.2 (ADR 0003). A mutation.
     /// </remarks>
     public PdfNamedDestination SetNamedDestination(string name, PdfExplicitDestination destination)
     {
@@ -168,6 +177,7 @@ public sealed partial class PdfDocument
             throw new ArgumentException("A named destination shall be a destination in this document, not a remote one or one of another document.", nameof(destination));
         }
 
+        RequireFeature(VersionedFeatures.NamedDestinationsTree);
         CosDictionary names = NameDictionaryForWriting();
         PdfNameTree tree = GetNameTree(names.TryGetValue(NavigationNames.Dests, out CosObject? root) ? root : null) ?? CreateDestsTree(names);
         tree.Set(name, destination.Array);
@@ -210,10 +220,11 @@ public sealed partial class PdfDocument
     /// <remarks>
     /// ISO 32000-2 §7.7.2, Table 29 (<c>PageLabels</c>, PDF 1.3), and §12.4.2: a new number tree holding the range for page index 0
     /// the clause requires, <c>&lt;&lt; /S /D &gt;&gt;</c>. A tree it replaces stays in the file until a save that removes unreachable
-    /// objects. A mutation.
+    /// objects. A later save of a document below PDF 1.3 raises it to 1.3 (ADR 0003). A mutation.
     /// </remarks>
     public PdfPageLabels CreatePageLabels()
     {
+        RequireFeature(VersionedFeatures.PageLabels);
         PdfNumberTree tree = CreateNumberTree([KeyValuePair.Create(0, (CosObject)PageLabelDictionary(PdfPageLabelStyle.Arabic, null, 1))]);
         Catalog[PageLabelsKey] = tree.RootReference!;
         return new PdfPageLabels(this, GetNumberTreeReader(tree.RootReference)!);

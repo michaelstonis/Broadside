@@ -12,6 +12,7 @@ internal static partial class DiagnosticCodes
     public const string ExtensionsInvalid = nameof(ExtensionsInvalid);
     public const string ExtensionsNotDirect = nameof(ExtensionsNotDirect);
     public const string DeveloperExtensionInvalid = nameof(DeveloperExtensionInvalid);
+    public const string DeveloperExtensionBaseVersionLater = nameof(DeveloperExtensionBaseVersionLater);
     public const string RequirementInvalid = nameof(RequirementInvalid);
 
     // Page labels (§12.4.2).
@@ -35,4 +36,7 @@ internal static partial class DiagnosticCodes
     public const string XmpLeadingJunk = nameof(XmpLeadingJunk);
     public const string XmpPropertyDuplicate = nameof(XmpPropertyDuplicate);
     public const string FileIdentifierInvalid = nameof(FileIdentifierInvalid);
+
+    // Saving (ADR 0003; §7.5.2, §7.7.2 Table 29): the version a save writes (issue #141).
+    public const string VersionRaised = nameof(VersionRaised);
 }
