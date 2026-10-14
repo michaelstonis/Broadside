@@ -11,11 +11,14 @@ namespace Broadside.Graphics;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ISO 32000-2 §8.2 (graphics objects), §8.4 (graphics state), §8.5 (path construction and painting) and §8.6 (colour spaces). Get a
+/// ISO 32000-2 §8.2 (graphics objects), §8.4 (graphics state), §8.5 (path construction and painting), §8.6 (colour spaces) and §9.2–9.4
+/// (text objects, text state, text positioning and showing). Get a
 /// canvas with <see cref="PdfPage.CreateCanvas"/> or <see cref="PdfFormXObject.CreateCanvas"/>. Each call writes the operator it
 /// names; the canvas keeps the order Figure 9 of §8.2 requires: a path object is begun with <see cref="MoveTo"/> or
 /// <see cref="Rectangle"/>, continued with path construction, optionally marked as a clip with <see cref="Clip"/>, and ended by
-/// exactly one painting call; any other call while a path is being built throws <see cref="InvalidOperationException"/>.
+/// exactly one painting call; any other call while a path is being built throws <see cref="InvalidOperationException"/>. A text object
+/// is begun with <see cref="BeginText"/> and ended with <see cref="EndText"/>; inside it only general graphics state, colour, text
+/// state, text positioning and text showing calls are allowed (no paths, <c>q</c>/<c>Q</c>, transforms or XObjects).
 /// </para>
 /// <para>
 /// Resources are added to the page's or form's resource dictionary as they are used, each under a name the dictionary does not have
@@ -24,14 +27,14 @@ namespace Broadside.Graphics;
 /// save raises the document's version to it, or refuses in strict mode.
 /// </para>
 /// <para>
-/// <see cref="Dispose"/> ends a path still being built (<c>n</c>), restores every state still saved (<c>Q</c>), and stores the
+/// <see cref="Dispose"/> ends a path still being built (<c>n</c>) and a text object still open (<c>ET</c>), restores every state still saved (<c>Q</c>), and stores the
 /// content: on a page, as a new content stream after the page's existing content, which is wrapped in <c>q</c> and <c>Q</c> so the
 /// state it leaves does not reach the new content; on a form, appended to the form's own stream the same way. The stream is written
 /// unfiltered; a save compresses it (<see cref="PdfSaveOptions.StreamCompression"/>). A canvas is a mutation of its document: no
 /// read may run concurrently with it, and it is not thread-safe.
 /// </para>
 /// </remarks>
-public sealed class PdfCanvas : IDisposable
+public sealed partial class PdfCanvas : IDisposable
 {
     private static readonly CosName[] BlendModeNames = [.. Enum.GetNames<BlendMode>().Select(static name => new CosName(name))];
     private static readonly CosName[] IntentNames = [.. Enum.GetNames<RenderingIntent>().Select(static name => new CosName(name))];
@@ -89,6 +92,7 @@ public sealed class PdfCanvas : IDisposable
     {
         ThrowIfNotAtPageLevel();
         _saved.Push(_colors);
+        _savedFonts.Push(_font);
         _writer.Operator("q");
     }
 
@@ -104,6 +108,7 @@ public sealed class PdfCanvas : IDisposable
         }
 
         _colors = colors;
+        _font = _savedFonts.Pop();
         _writer.Operator("Q");
     }
 
@@ -148,7 +153,7 @@ public sealed class PdfCanvas : IDisposable
     /// <remarks>ISO 32000-2 §8.4.3.2 and Table 56.</remarks>
     public void SetLineWidth(double width)
     {
-        ThrowIfNotAtPageLevel();
+        ThrowIfPathOpen();
         ThrowIfNegativeOrNotFinite(width, nameof(width));
         _writer.Number(width).Operator("w");
     }
@@ -160,7 +165,7 @@ public sealed class PdfCanvas : IDisposable
     /// <remarks>ISO 32000-2 §8.4.3.3, Table 53.</remarks>
     public void SetLineCap(LineCap cap)
     {
-        ThrowIfNotAtPageLevel();
+        ThrowIfPathOpen();
         ThrowIfUndefined(cap);
         _writer.Number((int)cap).Operator("J");
     }
@@ -172,7 +177,7 @@ public sealed class PdfCanvas : IDisposable
     /// <remarks>ISO 32000-2 §8.4.3.4, Table 54.</remarks>
     public void SetLineJoin(LineJoin join)
     {
-        ThrowIfNotAtPageLevel();
+        ThrowIfPathOpen();
         ThrowIfUndefined(join);
         _writer.Number((int)join).Operator("j");
     }
@@ -184,7 +189,7 @@ public sealed class PdfCanvas : IDisposable
     /// <remarks>ISO 32000-2 §8.4.3.5: the ratio of the miter length to the line width is at least 1, so a limit below 1 cannot be met.</remarks>
     public void SetMiterLimit(double limit)
     {
-        ThrowIfNotAtPageLevel();
+        ThrowIfPathOpen();
         if (!double.IsFinite(limit) || limit < 1)
         {
             throw new ArgumentOutOfRangeException(nameof(limit), limit, "The miter limit shall be a finite number of at least 1.");
@@ -201,7 +206,7 @@ public sealed class PdfCanvas : IDisposable
     /// <remarks>ISO 32000-2 §8.4.3.6: the dash array's elements shall be non-negative numbers, not all zero.</remarks>
     public void SetDashPattern(ReadOnlySpan<double> dashArray, double phase)
     {
-        ThrowIfNotAtPageLevel();
+        ThrowIfPathOpen();
         bool allZero = true;
         foreach (double length in dashArray)
         {
@@ -230,7 +235,7 @@ public sealed class PdfCanvas : IDisposable
     /// <remarks>ISO 32000-2 §8.4.4, Table 56, and §10.7.2.</remarks>
     public void SetFlatness(double flatness)
     {
-        ThrowIfNotAtPageLevel();
+        ThrowIfPathOpen();
         if (!(flatness is >= 0 and <= 100))
         {
             throw new ArgumentOutOfRangeException(nameof(flatness), flatness, "The flatness tolerance shall be in the range 0 to 100.");
@@ -246,7 +251,7 @@ public sealed class PdfCanvas : IDisposable
     /// <remarks>ISO 32000-2 §8.4.4, Table 56, and §8.6.5.8, Table 69.</remarks>
     public void SetRenderingIntent(RenderingIntent intent)
     {
-        ThrowIfNotAtPageLevel();
+        ThrowIfPathOpen();
         ThrowIfUndefined(intent);
         _document.RequireFeature(VersionedFeatures.RenderingIntentOperator);
         _writer.Name(IntentNames[(int)intent]).Operator("ri");
@@ -291,7 +296,7 @@ public sealed class PdfCanvas : IDisposable
     /// <remarks>ISO 32000-2 §8.4.5, Table 57 (<c>BM</c>, PDF 1.4), and §11.3.5, Tables 134 and 135. Raises the document to PDF 1.4.</remarks>
     public void SetBlendMode(BlendMode mode)
     {
-        ThrowIfNotAtPageLevel();
+        ThrowIfPathOpen();
         ThrowIfUndefined(mode);
         SetGraphicsStateParameter("BM", BlendModeNames[(int)mode]);
     }
@@ -479,6 +484,12 @@ public sealed class PdfCanvas : IDisposable
             _path = PathState.None;
         }
 
+        if (_inText)
+        {
+            _writer.Operator("ET");
+            _inText = false;
+        }
+
         while (_saved.TryPop(out _))
         {
             _writer.Operator("Q");
@@ -535,7 +546,7 @@ public sealed class PdfCanvas : IDisposable
 
     private void SetColor(PdfColor color, bool stroking)
     {
-        ThrowIfNotAtPageLevel();
+        ThrowIfPathOpen();
         PdfColorSpace space = color.ColorSpace;
         if (space.Family == PdfColorSpaceFamily.Pattern)
         {
@@ -595,7 +606,7 @@ public sealed class PdfCanvas : IDisposable
 
     private void SetAlpha(double alpha, string key)
     {
-        ThrowIfNotAtPageLevel();
+        ThrowIfPathOpen();
         if (!(alpha is >= 0 and <= 1))
         {
             throw new ArgumentOutOfRangeException(nameof(alpha), alpha, "An opacity shall be in the range 0 to 1.");
@@ -676,6 +687,12 @@ public sealed class PdfCanvas : IDisposable
 
     private void ThrowIfNotAtPageLevel()
     {
+        ThrowIfPathOpen();
+        ThrowIfInTextObject();
+    }
+
+    private void ThrowIfPathOpen()
+    {
         ThrowIfDisposed();
         if (_path != PathState.None)
         {
@@ -687,6 +704,7 @@ public sealed class PdfCanvas : IDisposable
     private void ThrowIfCannotConstruct()
     {
         ThrowIfDisposed();
+        ThrowIfInTextObject();
         if (_path == PathState.Clipped)
         {
             throw new InvalidOperationException("The path is marked as a clip: a painting call shall follow (ISO 32000-2 §8.5.4).");
