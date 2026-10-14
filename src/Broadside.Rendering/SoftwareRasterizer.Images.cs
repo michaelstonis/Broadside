@@ -63,8 +63,8 @@ public sealed partial class SoftwareRasterizer
             (byte[]? opacity, int maskWidth, int maskHeight, bool maskInterpolate) = PrepareImageMask(image);
             Bitmap target = _target!;
             var painter = new ImagePainter(
-                target.Pixels, target.Stride, _imageSource.Buffer, image.Width, image.Height, inverse, image.Interpolate, opacity, maskWidth, maskHeight, maskInterpolate, _fillCompositor);
-            _scan.Paint(FillRule.NonZero, ref painter);
+                target.Pixels, target.Stride, _imageSource.Buffer, image.Width, image.Height, inverse, image.Interpolate, opacity, maskWidth, maskHeight, maskInterpolate, _fillCompositor, Averages);
+            PaintImage(ref painter);
         }
 
         /// <summary>Prepares the image's mask of another size than its own (§8.9.6.3, §11.6.5.2): its opacities and grid, or none.</summary>
@@ -113,8 +113,25 @@ public sealed partial class SoftwareRasterizer
             converter.Convert(color.Components, rgb);
             _maskSource.Prepare(mask);
             Bitmap target = _target!;
-            var painter = new ImagePainter(target.Pixels, target.Stride, Pack(rgb), _maskSource.Buffer, mask.Width, mask.Height, inverse, mask.Interpolate, _fillCompositor);
-            _scan.Paint(FillRule.NonZero, ref painter);
+            var painter = new ImagePainter(target.Pixels, target.Stride, Pack(rgb), _maskSource.Buffer, mask.Width, mask.Height, inverse, mask.Interpolate, _fillCompositor, Averages);
+            PaintImage(ref painter);
+        }
+
+        /// <summary>Whether reduced images average the samples under each pixel; without anti-aliasing the sample under its centre is taken (§10.7.4).</summary>
+        private bool Averages => _imageRule == CoverageRule.Exact;
+
+        /// <summary>Paints the unit square's outline with the image coverage rule (§10.7.4: pixel centres inside, without anti-aliasing).</summary>
+        private void PaintImage(ref ImagePainter painter)
+        {
+            _scan.Rule = _imageRule;
+            try
+            {
+                _scan.Paint(FillRule.NonZero, ref painter);
+            }
+            finally
+            {
+                _scan.Rule = _pathRule;
+            }
         }
 
         private static bool IsFinite(in Matrix m) =>

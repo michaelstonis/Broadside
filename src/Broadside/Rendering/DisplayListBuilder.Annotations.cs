@@ -16,6 +16,9 @@ internal sealed partial class DisplayListBuilder
     private static readonly CosName Isolated = new("I");
     private static readonly CosName Knockout = new("K");
 
+    // Printing supplies no zoom, language or user: only the Print category's PrintState recommends a state (§8.11.4.4).
+    private static readonly PdfOptionalContentUsageContext PrintContext = new();
+
     private DisplayAnnotation[] _annotations = new DisplayAnnotation[4];
     private int _annotationCount;
 
@@ -28,6 +31,7 @@ internal sealed partial class DisplayListBuilder
     /// <returns>The list.</returns>
     public static DisplayList Build(PdfPage page, PdfDocument document, DisplayLayers layers, DisplayIntent intent, ContentOptions options)
     {
+        options = ForIntent(document, intent, options);
         DisplayListBuilder builder = _cached ?? new DisplayListBuilder();
         _cached = null;
         try
@@ -70,6 +74,36 @@ internal sealed partial class DisplayListBuilder
             builder.Reset();
             _cached = builder;
         }
+    }
+
+    /// <summary>
+    /// Returns the options a build for <paramref name="intent"/> runs with: <paramref name="options"/> on screen; for printing, a copy
+    /// that selects the alternate images marked for printing (§8.9.5.4) and whose optional-content states have the configuration's
+    /// auto-state entries for the Print event applied (§8.11.4.4).
+    /// </summary>
+    private static ContentOptions ForIntent(PdfDocument document, DisplayIntent intent, ContentOptions options)
+    {
+        if (intent != DisplayIntent.Print)
+        {
+            return options;
+        }
+
+        ContentOptions printing = options.Clone();
+        printing.Printing = true;
+        if (document.OptionalContent is { } properties)
+        {
+            PdfOptionalContentState state = options.OptionalContentState ?? properties.GetDefaultStates();
+            foreach (PdfOptionalContentUsageApplication application in state.Configuration.AutoStates)
+            {
+                if (application.Event == PdfOptionalContentEvent.Print)
+                {
+                    printing.OptionalContentState = properties.ApplyAutoStates(state, PdfOptionalContentEvent.Print, PrintContext);
+                    break;
+                }
+            }
+        }
+
+        return printing;
     }
 
     private void ResetAnnotations()

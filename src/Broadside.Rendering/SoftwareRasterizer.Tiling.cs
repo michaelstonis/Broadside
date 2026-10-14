@@ -128,7 +128,7 @@ public sealed partial class SoftwareRasterizer
             }
 
             Backend child = _cellBackend ??= new Backend();
-            child.Begin(_document!, _cellBitmap, cellMatrix * Matrix.CreateTranslation(-box.Left, -box.Top), box.Width, box.Height, preview: false);
+            child.Begin(_document!, _cellBitmap, cellMatrix * Matrix.CreateTranslation(-box.Left, -box.Top), box.Width, box.Height, preview: false, _antiAliasing);
             try
             {
                 cell.Replay(child);

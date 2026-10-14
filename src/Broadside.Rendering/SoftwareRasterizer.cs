@@ -45,6 +45,10 @@ public sealed partial class SoftwareRasterizer : IDisposable
     private static readonly RenderOptions DefaultOptions = new();
     private static readonly Content.ContentOptions DefaultContentOptions = new();
 
+    private const uint White = uint.MaxValue;
+
+    private const uint Transparent = 0;
+
     /// <summary>
     /// How many device pixels beyond a paint's bounds it may still touch: a degenerate subpath's pixel, the one-pixel pen of the
     /// thinnest line and stroke adjustment's rounding and snapping (ISO 32000-2 §8.5.3.3.1, §10.7.5). Region culling widens the
@@ -80,7 +84,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         var bitmap = new Bitmap(geometry.PixelWidth, geometry.PixelHeight);
         try
         {
-            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, cull: options.Region is not null, options.OverprintPreview, options.CancellationToken, DrawingProgress(options));
+            Draw(list, bitmap, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, options.TransparentBackground ? null : White, options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, options.CancellationToken, DrawingProgress(options));
         }
         catch
         {
@@ -109,7 +113,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(options);
         ThrowIfBusy();
         PageGeometry geometry = CheckTarget(page, target, options);
-        Draw(Build(page, options), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, white: true, cull: options.Region is not null, options.OverprintPreview, options.CancellationToken, DrawingProgress(options));
+        Draw(Build(page, options), target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, Background(options), options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, options.CancellationToken, DrawingProgress(options));
     }
     /// <summary>
     /// Builds <paramref name="page"/>'s display list and starts drawing it into the top-left <see cref="RenderOptions.GetPixelSize"/>
@@ -137,8 +141,8 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ThrowIfBusy();
         PageGeometry geometry = CheckTarget(page, target, options);
         DisplayList list = Build(page, options);
-        FillWhite(target, geometry.PixelWidth, geometry.PixelHeight);
-        return Begin(list, target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, cull: options.Region is not null, options.OverprintPreview, options.CancellationToken, DrawingProgress(options));
+        Fill(target, geometry.PixelWidth, geometry.PixelHeight, Background(options));
+        return Begin(list, target, geometry.Transform, geometry.PixelWidth, geometry.PixelHeight, options.AntiAliasing, cull: options.Region is not null, options.OverprintPreview, options.CancellationToken, DrawingProgress(options));
     }
 
     /// <summary>
@@ -158,7 +162,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         ThrowIfBusy();
-        return Begin(list, target, deviceTransform, target.Width, target.Height, cull: true, preview: false, cancellationToken, progress);
+        return Begin(list, target, deviceTransform, target.Width, target.Height, AntiAliasing.All, cull: true, preview: false, cancellationToken, progress);
     }
 
     /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background.</summary>
@@ -179,7 +183,21 @@ public sealed partial class SoftwareRasterizer : IDisposable
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         ThrowIfBusy();
-        Draw(list, target, deviceTransform, target.Width, target.Height, white: false, cull: true, preview: false, CancellationToken.None, progress: null);
+        Draw(list, target, deviceTransform, target.Width, target.Height, background: null, AntiAliasing.All, cull: true, preview: false, CancellationToken.None, progress: null);
+    }
+
+    /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, anti-aliasing only the kinds of painting given.</summary>
+    /// <param name="list">The display list.</param>
+    /// <param name="target">The bitmap; drawing is clipped to it.</param>
+    /// <param name="deviceTransform">The transform from the list's default user space to the bitmap's pixels, as for <see cref="Render(DisplayList, Bitmap, in Matrix)"/>.</param>
+    /// <param name="antiAliasing">The kinds anti-aliased; the others paint whole pixels only (see <see cref="Rendering.AntiAliasing"/>).</param>
+    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space) and §10.7.4 (scan conversion rules).</remarks>
+    public void Render(DisplayList list, Bitmap target, in Matrix deviceTransform, AntiAliasing antiAliasing)
+    {
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentNullException.ThrowIfNull(target);
+        ThrowIfBusy();
+        Draw(list, target, deviceTransform, target.Width, target.Height, background: null, antiAliasing, cull: true, preview: false, CancellationToken.None, progress: null);
     }
 
     /// <summary>Returns the rasterizer's pooled working buffers; it renders no more after this.</summary>
@@ -219,12 +237,13 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// <summary>Builds the page's display list with the options' token, reporting its progress as the first half of the render's.</summary>
     private static DisplayList Build(PdfPage page, RenderOptions options)
     {
-        if (options.Progress is null && !options.CancellationToken.CanBeCanceled)
+        if (options.Progress is null && !options.CancellationToken.CanBeCanceled && options.OptionalContentState is null)
         {
             return page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions);
         }
 
         return page.CreateDisplayList(options.Layers, options.Intent, new ContentOptions()
+            .WithOptionalContentState(options.OptionalContentState)
             .WithCancellation(options.CancellationToken)
             .WithProgress(options.Progress is { } progress ? new ScaledProgress(progress, 0, 0.5) : null));
     }
@@ -244,11 +263,14 @@ public sealed partial class SoftwareRasterizer : IDisposable
         return geometry;
     }
 
-    private static void FillWhite(Bitmap target, int width, int height)
+    /// <summary>The background a page render into a caller's bitmap fills its area with: white, or transparent.</summary>
+    private static uint Background(RenderOptions options) => options.TransparentBackground ? Transparent : White;
+
+    private static void Fill(Bitmap target, int width, int height, uint pixel)
     {
         for (int y = 0; y < height; y++)
         {
-            MemoryMarshal.Cast<byte, uint>(target.Pixels.Slice(y * target.Stride, width * 4)).Fill(uint.MaxValue);
+            MemoryMarshal.Cast<byte, uint>(target.Pixels.Slice(y * target.Stride, width * 4)).Fill(pixel);
         }
     }
 
@@ -261,9 +283,9 @@ public sealed partial class SoftwareRasterizer : IDisposable
         }
     }
 
-    private ProgressiveRender Begin(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool cull, bool preview, CancellationToken cancellationToken, IProgress<double>? progress)
+    private ProgressiveRender Begin(DisplayList list, Bitmap target, in Matrix device, int width, int height, AntiAliasing antiAliasing, bool cull, bool preview, CancellationToken cancellationToken, IProgress<double>? progress)
     {
-        _backend.Begin(list.Document, target, device, width, height, preview);
+        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing);
         DisplayListReplay replay = cull && TryGetRegion(device, width, height, out PdfRectangle region)
             ? list.BeginReplay(_backend, region, cancellationToken, progress)
             : list.BeginReplay(_backend, cancellationToken, progress);
@@ -271,14 +293,14 @@ public sealed partial class SoftwareRasterizer : IDisposable
         return new ProgressiveRender(this, replay, target);
     }
 
-    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white, bool cull, bool preview, CancellationToken cancellationToken, IProgress<double>? progress)
+    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, uint? background, AntiAliasing antiAliasing, bool cull, bool preview, CancellationToken cancellationToken, IProgress<double>? progress)
     {
-        if (white)
+        if (background is { } pixel)
         {
-            FillWhite(target, width, height);
+            Fill(target, width, height, pixel);
         }
 
-        _backend.Begin(list.Document, target, device, width, height, preview);
+        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing);
         try
         {
             PdfRectangle region = default;
@@ -360,6 +382,9 @@ public sealed partial class SoftwareRasterizer : IDisposable
         /// <summary>The most line segments one curve is flattened into.</summary>
         private const int MaxCurveSegments = 1000;
 
+        /// <summary>How far a device coordinate may stray past a pixel boundary by rounding and still count as on it.</summary>
+        private const double PixelResidue = 1e-9;
+
         /// <summary>Device coordinates are kept within ±2^40 pixels so that the clipping arithmetic stays finite.</summary>
         private const double CoordinateLimit = 1099511627776.0;
 
@@ -383,8 +408,9 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
         public Backend() => _stroker = new Stroker(_scan);
 
-        public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height, bool preview)
+        public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height, bool preview, AntiAliasing antiAliasing = AntiAliasing.All)
         {
+            SetAntiAliasing(antiAliasing);
             _document = document;
             _target = target;
             _device = device;
@@ -441,6 +467,28 @@ public sealed partial class SoftwareRasterizer : IDisposable
         {
             _ctm = transform;
             _toDevice = transform * _device;
+        }
+
+        /// <summary>The kinds of painting this render anti-aliases; a tiling pattern's cell renders with the same.</summary>
+        private AntiAliasing _antiAliasing = AntiAliasing.All;
+
+        /// <summary>The coverage rule of paths, the one the scan converter holds between the paints of other kinds.</summary>
+        private CoverageRule _pathRule;
+
+        /// <summary>The coverage rule of glyphs.</summary>
+        private CoverageRule _textRule;
+
+        /// <summary>The coverage rule of image outlines, and whether reduced images average the samples under a pixel.</summary>
+        private CoverageRule _imageRule;
+
+        /// <summary>Chooses the coverage rule of each kind of paint (ISO 32000-2 §10.7.4; see <see cref="AntiAliasing"/>).</summary>
+        private void SetAntiAliasing(AntiAliasing antiAliasing)
+        {
+            _antiAliasing = antiAliasing;
+            _pathRule = (antiAliasing & AntiAliasing.Paths) != 0 ? CoverageRule.Exact : CoverageRule.AnyArea;
+            _textRule = (antiAliasing & AntiAliasing.Text) != 0 ? CoverageRule.Exact : CoverageRule.AnyArea;
+            _imageRule = (antiAliasing & AntiAliasing.Images) != 0 ? CoverageRule.Exact : CoverageRule.PixelCentre;
+            _scan.Rule = _pathRule;
         }
 
         public void FillPath(PathView path, FillRule rule, in DisplayColor color)
@@ -506,6 +554,12 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
             if (TryMapRectangle(path, out double left, out double top, out double right, out double bottom))
             {
+                if (_pathRule != CoverageRule.Exact)
+                {
+                    // Whole pixels: every pixel the rectangle reaches into (§10.7.4: the clip is the pixels a fill would paint).
+                    (left, top, right, bottom) = (Math.Floor(left + PixelResidue), Math.Floor(top + PixelResidue), Math.Ceiling(right - PixelResidue), Math.Ceiling(bottom - PixelResidue));
+                }
+
                 _clip.IntersectRectangle(left, top, right, bottom);
                 return;
             }

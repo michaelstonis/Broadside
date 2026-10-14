@@ -59,6 +59,14 @@ public class RasterizerBenchmarks
         return _bitmap!.Pixels[(_bitmap.Height / 2 * _bitmap.Stride) + 2];
     }
 
+    /// <summary>The same replay with anti-aliasing off (§10.7.4: whole pixels only); it too must allocate nothing.</summary>
+    [Benchmark]
+    public int ReplayAliased()
+    {
+        _rasterizer!.Render(_list!, _bitmap!, _device, AntiAliasing.None);
+        return _bitmap!.Pixels[(_bitmap.Height / 2 * _bitmap.Stride) + 2];
+    }
+
     [Benchmark]
     public long EncodePng()
     {

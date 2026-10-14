@@ -110,6 +110,16 @@ public sealed class ContentOptions
         return this;
     }
 
+    /// <summary>
+    /// Gets or sets a value indicating whether the run is for printing: an image XObject without <c>OC</c> is then painted as its
+    /// alternate marked <c>DefaultForPrinting</c> (ISO 32000-2 §8.9.5.4 rule d). Set by display-list builds for
+    /// <see cref="Rendering.DisplayIntent.Print"/> on their own copy of the caller's options.
+    /// </summary>
+    internal bool Printing { get; set; }
+
+    /// <summary>Returns a copy of these options, every setting included.</summary>
+    internal ContentOptions Clone() => (ContentOptions)MemberwiseClone();
+
     /// <summary>Sets <see cref="MaxOperands"/>.</summary>
     /// <param name="maxOperands">The limit, at least 16.</param>
     /// <returns>These options.</returns>
