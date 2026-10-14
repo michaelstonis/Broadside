@@ -1397,6 +1397,7 @@ public sealed partial class PdfDocument : IDisposable
             {
                 StreamEncoders = configuration.StreamEncoders,
                 TimeProvider = configuration.TimeProvider,
+                Configuration = configuration,
             };
             document.DetectXfa();
 

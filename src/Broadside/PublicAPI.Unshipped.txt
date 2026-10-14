@@ -3925,3 +3925,8 @@ Broadside.Forms.PdfChoiceField.SetValue(string? value) -> void
 Broadside.Forms.PdfChoiceField.SetSelectedIndices(System.Collections.Generic.IEnumerable<int>! indices) -> void
 Broadside.Forms.PdfChoiceField.GenerateAppearances() -> void
 Broadside.Forms.PdfListBoxField.SetTopIndex(int topIndex) -> void
+Broadside.PdfDocument.AppendPages(Broadside.PdfDocument! source) -> void
+Broadside.PdfDocument.AppendPages(Broadside.PdfDocument! source, System.Range pages) -> void
+Broadside.PdfDocument.ExtractPages(System.Range pages) -> Broadside.PdfDocument!
+Broadside.PdfDocument.Split(params System.Collections.Generic.IEnumerable<System.Range>! ranges) -> System.Collections.Generic.IReadOnlyList<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.Merge(params System.Collections.Generic.IEnumerable<Broadside.PdfDocument!>! sources) -> Broadside.PdfDocument!
