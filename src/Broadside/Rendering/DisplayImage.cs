@@ -160,4 +160,12 @@ public sealed class DisplayImage
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="y"/> is outside the image.</exception>
     /// <remarks>ISO 32000-2 §8.9.3.</remarks>
     public ReadOnlySpan<byte> GetRow(int y) => _samples.GetRow(y);
+
+    /// <summary>Returns the pooled samples (and the masks'), for an image no list will own: the build that decoded it failed.</summary>
+    internal void Release()
+    {
+        _samples.Dispose();
+        Mask?.Release();
+        SoftMask?.Release();
+    }
 }

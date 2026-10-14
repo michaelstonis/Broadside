@@ -25,8 +25,14 @@ Namespace `Broadside.Rendering`, core package (ADR 0006: backends consume displa
 public sealed class DisplayList
 {
     public PdfDocument Document { get; }               // whose GetColorConverter a backend converts colours through
+    public int OperationCount { get; }
     public void Replay(IRenderingBackend backend);     // reads only the list, allocates nothing
+    public void Replay(IRenderingBackend backend, CancellationToken cancellationToken, IProgress<double>? progress);   // #97
+    public DisplayListReplay BeginReplay(IRenderingBackend backend, CancellationToken cancellationToken, IProgress<double>? progress);
 }
+
+// #97: a replay in time slices; Continue(budget) hands over operations until the budget is used (at least one), the next resumes.
+public sealed class DisplayListReplay { int Position; bool IsCompleted; double Progress; bool Continue(TimeSpan budget); }
 
 public sealed class PdfPage
 {
@@ -112,7 +118,8 @@ Rules every backend follows:
 A backend must also, as those operations arrive:
 
 - draw clipping (path and text, intersect), decoded images with transforms and resampling, shadings 1–7, tiling patterns, glyph runs (font reference + glyph ids + positions, native glyph rendering where the platform has it with an outline fallback when `ForceOutlines` is set), and the transparency model (§11: isolated and non-isolated groups, knockout, soft masks, the 16 blend modes, constant alpha);
-- honour the render options of Track 3A: scale or DPI, rotation, clip rectangle (tiled region rendering), layer selection (annotations and forms are separate replayable lists), rendering intent, anti-aliasing, cancellation and progress;
+- honour the render options of Track 3A: scale or DPI, rotation, clip rectangle (tiled region rendering), layer selection (annotations and forms are separate replayable lists), rendering intent, anti-aliasing, cancellation and progress (#97: `RenderOptions.CancellationToken`/`Progress`; build with `ContentOptions` carrying the token, replay through `DisplayList.Replay(backend, token, progress)` or `BeginReplay`, map build progress to 0-0.5 and drawing to 0.5-1 as the rasterizer does);
+- survive a sliced replay: `DisplayList.BeginReplay` may hand the operations over across many calls, with the host presenting the surface between them, so keep the graphics state, clip and target alive between `Continue` calls and expect a partial image to be shown (offer a `BeginRender` returning a `ProgressiveRender`-like handle, like `SoftwareRasterizer`);
 - keep per-surface resource caches (glyphs, images, shaders) within the deterministic memory budgets the viewer relies on;
 - fall back to the software rasterizer for any group or blend it cannot express (plan, Track 3D) rather than approximate silently, and record a `Diagnostic` when it does;
 - allocate nothing per operation, glyph or scanline during replay; buffers are pooled per surface (`CLAUDE.md`, "Code conventions");

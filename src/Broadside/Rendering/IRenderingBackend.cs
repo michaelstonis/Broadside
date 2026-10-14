@@ -4,7 +4,7 @@ namespace Broadside.Rendering;
 
 /// <summary>
 /// The backend contract: what a backend implements to draw a <see cref="DisplayList"/> on one technology (the software rasterizer,
-/// SkiaSharp, CoreGraphics, Direct2D, Android Canvas). <see cref="DisplayList.Replay"/> calls these members in the list's order.
+/// SkiaSharp, CoreGraphics, Direct2D, Android Canvas). <see cref="DisplayList.Replay(IRenderingBackend)"/> calls these members in the list's order.
 /// </summary>
 /// <remarks>
 /// <para>

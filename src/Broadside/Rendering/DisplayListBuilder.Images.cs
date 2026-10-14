@@ -45,7 +45,7 @@ internal sealed partial class DisplayListBuilder
             return;
         }
 
-        int index = InternImage(image.IsInline ? null : image.Stream, model);
+        int index = InternImage(image.IsInline ? null : image.Stream, model, context.CancellationToken);
         if (index < 0)
         {
             return;
@@ -82,7 +82,7 @@ internal sealed partial class DisplayListBuilder
         }
         else
         {
-            DisplayImageMask? mask = DecodeMask(model);
+            DisplayImageMask? mask = DecodeMask(model, context.CancellationToken);
             index = mask is null ? -1 : _imageMaskCount;
             if (mask is not null)
             {
@@ -110,14 +110,15 @@ internal sealed partial class DisplayListBuilder
     /// <param name="stream">The image XObject's stream, the interning key; <see langword="null"/> for an inline image.</param>
     /// <param name="model">The image.</param>
     /// <returns>The index into the image table, or −1 when the image cannot be decoded or has no usable colour space.</returns>
-    private int InternImage(object? stream, PdfImage model)
+    /// <param name="cancellationToken">The build's token, given to the image's filters.</param>
+    private int InternImage(object? stream, PdfImage model, CancellationToken cancellationToken)
     {
         if (stream is not null && _internedImages is not null && _internedImages.TryGetValue(stream, out int known))
         {
             return known;
         }
 
-        int index = Decode(model);
+        int index = Decode(model, cancellationToken);
         if (stream is not null)
         {
             _internedImages ??= new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
@@ -129,9 +130,9 @@ internal sealed partial class DisplayListBuilder
 
     /// <summary>Decodes an image and its mask into the image table.</summary>
     /// <returns>Its index, or −1 (the reason is already a diagnostic of the image).</returns>
-    private int Decode(PdfImage model)
+    private int Decode(PdfImage model, CancellationToken cancellationToken)
     {
-        DecodedImage? decoded = model.Decode();
+        DecodedImage? decoded = model.DecodeSamples(cancellationToken);
         try
         {
             if (decoded is null
@@ -142,7 +143,7 @@ internal sealed partial class DisplayListBuilder
                 return -1;
             }
 
-            MaskParts mask = DecodeMasks(model, decoded, space);
+            MaskParts mask = DecodeMasks(model, decoded, space, cancellationToken);
             int index = _imageCount;
             Append(ref _images, ref _imageCount, new DisplayImage(decoded, space, model.CreateDecodeMap(decoded), model.Interpolate)
             {
@@ -176,15 +177,15 @@ internal sealed partial class DisplayListBuilder
     /// key), §11.6.5.2 (soft mask and Matte), §7.4.9 and Table 87 (SMaskInData: 1 opacity, 2 opacity premultiplied into the
     /// colour, which is a Matte of zeros). An unusable mask leaves the image unmasked; its reason is already a diagnostic.
     /// </remarks>
-    private static MaskParts DecodeMasks(PdfImage model, DecodedImage decoded, PdfColorSpace space)
+    private static MaskParts DecodeMasks(PdfImage model, DecodedImage decoded, PdfColorSpace space, CancellationToken cancellationToken)
     {
         switch (model.MaskKind)
         {
             case PdfImageMaskKind.Explicit when model.Mask is { } explicitMask:
-                return new MaskParts(DecodeMask(explicitMask), null, [], []);
+                return new MaskParts(DecodeMask(explicitMask, cancellationToken), null, [], []);
             case PdfImageMaskKind.ColorKey when model.ColorKey is { } ranges:
                 return new MaskParts(null, null, [.. ranges], []);
-            case PdfImageMaskKind.Soft when model.Mask is { } softMask && DecodeSoftMask(softMask) is { } soft:
+            case PdfImageMaskKind.Soft when model.Mask is { } softMask && DecodeSoftMask(softMask, cancellationToken) is { } soft:
                 return new MaskParts(null, soft, [], model.Matte is { } matte ? [.. matte.Select(static m => (float)m)] : []);
             case PdfImageMaskKind.SoftInData when decoded.Alpha is { } alpha:
                 int components = space is PdfIndexedColorSpace indexed ? indexed.Base.ComponentCount : space.ComponentCount;
@@ -197,9 +198,9 @@ internal sealed partial class DisplayListBuilder
 
     /// <summary>Decodes an image mask (a stencil mask, or an image's explicit mask) at its own size.</summary>
     /// <returns>The mask, or <see langword="null"/> when it cannot be decoded (already a diagnostic) or is not one bit per sample.</returns>
-    private static DisplayImageMask? DecodeMask(PdfImage model)
+    private static DisplayImageMask? DecodeMask(PdfImage model, CancellationToken cancellationToken)
     {
-        DecodedImage? decoded = model.Decode();
+        DecodedImage? decoded = model.DecodeSamples(cancellationToken);
         try
         {
             if (decoded is null || decoded.Components != 1 || decoded.BitsPerComponent != 1)
@@ -219,9 +220,9 @@ internal sealed partial class DisplayListBuilder
 
     /// <summary>Decodes a soft-mask image at its own size, as a one-component image whose Decode mapping gives the opacity.</summary>
     /// <returns>The soft mask, or <see langword="null"/> when it cannot be decoded (already a diagnostic) or has more than one component.</returns>
-    private static DisplayImage? DecodeSoftMask(PdfImage model)
+    private static DisplayImage? DecodeSoftMask(PdfImage model, CancellationToken cancellationToken)
     {
-        DecodedImage? decoded = model.Decode();
+        DecodedImage? decoded = model.DecodeSamples(cancellationToken);
         try
         {
             if (decoded is null || decoded.Components != 1)
@@ -236,6 +237,23 @@ internal sealed partial class DisplayListBuilder
         finally
         {
             decoded?.Dispose();
+        }
+    }
+
+    /// <summary>
+    /// Returns the pooled samples of the images and masks decoded so far, for a build that failed (cancelled, or strict mode): no list
+    /// owns them.
+    /// </summary>
+    private void ReleaseImages()
+    {
+        foreach (DisplayImage image in _images.AsSpan(0, _imageCount))
+        {
+            image.Release();
+        }
+
+        foreach (DisplayImageMask mask in _imageMasks.AsSpan(0, _imageMaskCount))
+        {
+            mask.Release();
         }
     }
 

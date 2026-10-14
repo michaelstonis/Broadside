@@ -39,7 +39,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     /// <summary>Builds the display list of <paramref name="page"/>.</summary>
     /// <param name="page">The page.</param>
     /// <param name="document">The page's document.</param>
-    /// <param name="options">Limits and cancellation for the content run.</param>
+    /// <param name="options">Limits, cancellation and progress for the content run.</param>
     /// <returns>The list.</returns>
     public static DisplayList Build(PdfPage page, PdfDocument document, ContentOptions options)
     {
@@ -49,6 +49,12 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         {
             ContentInterpreter.RunPage(page, document, builder, options);
             return builder.ToDisplayList(document);
+        }
+        catch
+        {
+            // Cancelled (or a strict-mode deviation): nothing owns what was decoded, so its pooled buffers go back now.
+            builder.ReleaseImages();
+            throw;
         }
         finally
         {

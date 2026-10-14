@@ -530,6 +530,8 @@ Broadside.Content.ContentOptions.MaxOperands.get -> int
 Broadside.Content.ContentOptions.MaxOperands.set -> void
 Broadside.Content.ContentOptions.MaxSaveDepth.get -> int
 Broadside.Content.ContentOptions.MaxSaveDepth.set -> void
+Broadside.Content.ContentOptions.Progress.get -> System.IProgress<double>?
+Broadside.Content.ContentOptions.Progress.set -> void
 Broadside.Content.ContentOptions.OptionalContentState.get -> Broadside.PdfOptionalContentState?
 Broadside.Content.ContentOptions.OptionalContentState.set -> void
 Broadside.Content.ContentOptions.WithCancellation(System.Threading.CancellationToken cancellationToken) -> Broadside.Content.ContentOptions!
@@ -537,6 +539,7 @@ Broadside.Content.ContentOptions.WithMaxNestingDepth(int maxNestingDepth) -> Bro
 Broadside.Content.ContentOptions.WithMaxOperands(int maxOperands) -> Broadside.Content.ContentOptions!
 Broadside.Content.ContentOptions.WithMaxSaveDepth(int maxSaveDepth) -> Broadside.Content.ContentOptions!
 Broadside.Content.ContentOptions.WithOptionalContentState(Broadside.PdfOptionalContentState? state) -> Broadside.Content.ContentOptions!
+Broadside.Content.ContentOptions.WithProgress(System.IProgress<double>? progress) -> Broadside.Content.ContentOptions!
 Broadside.Content.ContentProcessor
 Broadside.Content.ContentProcessor.ContentProcessor() -> void
 Broadside.Content.ContentRunKind
@@ -2494,6 +2497,8 @@ Broadside.Filters.DctDecodeFilter.Name.get -> Broadside.Objects.CosName!
 Broadside.Filters.DctDecodeFilter.TryReadHeader(System.ReadOnlySpan<byte> encoded, Broadside.Filters.ImageFilterContext! context, out Broadside.Filters.ImageHeader header) -> bool
 Broadside.Filters.FilterContext
 Broadside.Filters.FilterContext.DecodeStream(Broadside.Objects.CosStream! stream) -> System.ReadOnlyMemory<byte>
+Broadside.Filters.FilterContext.CancellationToken.get -> System.Threading.CancellationToken
+Broadside.Filters.FilterContext.CancellationToken.init -> void
 Broadside.Filters.FilterContext.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
 Broadside.Filters.FilterContext.FilterContext() -> void
 Broadside.Filters.FilterContext.MaxDecodedLength.get -> long
@@ -3604,6 +3609,16 @@ Broadside.Rendering.DisplayColor.DisplayColor() -> void
 Broadside.Rendering.DisplayList
 Broadside.Rendering.DisplayList.Document.get -> Broadside.PdfDocument!
 Broadside.Rendering.DisplayList.Replay(Broadside.Rendering.IRenderingBackend! backend) -> void
+Broadside.Rendering.DisplayList.BeginReplay(Broadside.Rendering.IRenderingBackend! backend, System.Threading.CancellationToken cancellationToken, System.IProgress<double>? progress) -> Broadside.Rendering.DisplayListReplay!
+Broadside.Rendering.DisplayList.OperationCount.get -> int
+Broadside.Rendering.DisplayList.Replay(Broadside.Rendering.IRenderingBackend! backend, System.Threading.CancellationToken cancellationToken, System.IProgress<double>? progress) -> void
+Broadside.Rendering.DisplayListReplay
+Broadside.Rendering.DisplayListReplay.Backend.get -> Broadside.Rendering.IRenderingBackend!
+Broadside.Rendering.DisplayListReplay.Continue(System.TimeSpan budget) -> bool
+Broadside.Rendering.DisplayListReplay.IsCompleted.get -> bool
+Broadside.Rendering.DisplayListReplay.List.get -> Broadside.Rendering.DisplayList!
+Broadside.Rendering.DisplayListReplay.Position.get -> int
+Broadside.Rendering.DisplayListReplay.Progress.get -> double
 Broadside.Rendering.IRenderingBackend
 Broadside.Rendering.IRenderingBackend.FillPath(Broadside.Graphics.PathView path, Broadside.Graphics.FillRule rule, in Broadside.Rendering.DisplayColor color) -> void
 Broadside.Rendering.IRenderingBackend.IntersectClip(Broadside.Graphics.PathView path, Broadside.Graphics.FillRule rule) -> void

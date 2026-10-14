@@ -53,6 +53,11 @@ internal sealed partial class ContentInterpreter
     private FillRule? _pendingClip;
     private bool _busy;
 
+    // Progress of the top-level stream (ContentOptions.Progress): its length and the end of its last operator executed.
+    private IProgress<double>? _progress;
+    private int _progressLength;
+    private int _progressPosition;
+
     private ContentInterpreter() => _context = new ContentContext(this);
 
     /// <summary>Gets the current graphics state.</summary>
@@ -220,6 +225,9 @@ internal sealed partial class ContentInterpreter
         _context.ContentStream = null;
         _context.StructParents = page is null ? null : Annotations.AnnotationValues.ReadInteger(document, page.Dictionary.TryGetValue(StructParentsName, out CosObject? key) ? key : null);
         _context.CancellationToken = options.CancellationToken;
+        _progress = options.Progress;
+        _progressLength = 0;
+        _progressPosition = 0;
     }
 
     /// <summary>Prepares a top-level run (<see cref="Prepare"/>) and starts it.</summary>
@@ -240,6 +248,22 @@ internal sealed partial class ContentInterpreter
     {
         FinishStream();
         _processor.EndRun(_context);
+        _progress?.Report(1);
+    }
+
+    /// <summary>
+    /// At a cancellation point: checks the token, reports progress (whose receiver may cancel it), and checks again, so a cancel from
+    /// the receiver stops the run before its next operator.
+    /// </summary>
+    private void CheckPoint()
+    {
+        CancellationToken token = _context.CancellationToken;
+        token.ThrowIfCancellationRequested();
+        if (_progress is { } progress)
+        {
+            progress.Report(_progressLength == 0 ? 0 : (double)_progressPosition / _progressLength);
+            token.ThrowIfCancellationRequested();
+        }
     }
 
     private void Release()
@@ -252,6 +276,7 @@ internal sealed partial class ContentInterpreter
         _frames.Clear();
         _processor = null!;
         _diagnostics = null;
+        _progress = null;
         _context.Document = null!;
         _context.Page = null;
         _context.Resources = null;
@@ -264,6 +289,12 @@ internal sealed partial class ContentInterpreter
     {
         var reader = new ContentReader(content, _arena);
         _arena.Clear();
+        bool topLevel = _context.Depth == 0;
+        if (topLevel)
+        {
+            _progressLength = content.Length;
+        }
+
         while (reader.Next(out ReadOperator op))
         {
             if (reader.Issues != ReaderIssues.None)
@@ -278,9 +309,14 @@ internal sealed partial class ContentInterpreter
                 Report(ContentIssue.OperandOverflow, op.KeywordStart, "More operands than the limit were written before an operator; the oldest were dropped.");
             }
 
+            if (topLevel)
+            {
+                _progressPosition = op.End;
+            }
+
             if (++_operatorCount % CancellationInterval == 0)
             {
-                _context.CancellationToken.ThrowIfCancellationRequested();
+                CheckPoint();
             }
 
             LocatePart(op.KeywordStart);

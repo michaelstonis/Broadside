@@ -63,14 +63,15 @@ internal sealed class ContentResourceCache(PdfDocument document)
     }
 
     /// <summary>Returns the decoded data of a content stream, decoded once while the stream and its dictionary are unchanged.</summary>
-    public ReadOnlyMemory<byte> GetContent(CosStream stream)
+    public ReadOnlyMemory<byte> GetContent(CosStream stream, CancellationToken cancellationToken = default)
     {
         if (_streams.TryGetValue(stream, out DecodedContent? cached) && cached.DataVersion == stream.Version && cached.DictionaryVersion == stream.Dictionary.Version)
         {
             return cached.Data;
         }
 
-        var decoded = new DecodedContent(stream.Version, stream.Dictionary.Version, document.DecodeStream(stream));
+        // A cancelled decode throws before anything is stored, so the next run decodes afresh.
+        var decoded = new DecodedContent(stream.Version, stream.Dictionary.Version, document.Streams.Decode(stream, 0, cancellationToken));
         _streams.AddOrUpdate(stream, decoded);
         return decoded.Data;
     }
@@ -113,14 +114,14 @@ internal sealed class ContentResourceCache(PdfDocument document)
     /// Returns the content of a page's <c>Contents</c> array: its streams decoded and joined with a line feed after each (Table 31),
     /// built once while the array, the objects its elements resolve to and their data and dictionaries are unchanged.
     /// </summary>
-    public JoinedContent GetContent(CosArray contents)
+    public JoinedContent GetContent(CosArray contents, CancellationToken cancellationToken = default)
     {
         if (_joined.TryGetValue(contents, out JoinedContent? cached) && cached.IsCurrent(contents, document))
         {
             return cached;
         }
 
-        JoinedContent joined = JoinedContent.Create(contents, document);
+        JoinedContent joined = JoinedContent.Create(contents, document, cancellationToken);
         _joined.AddOrUpdate(contents, joined);
         return joined;
     }
@@ -157,7 +158,7 @@ internal sealed class ContentResourceCache(PdfDocument document)
         /// <summary>Gets the messages of the elements that are not streams, which every run reports again (<see cref="ContentIssue.StreamInvalid"/>).</summary>
         public string[] Problems { get; }
 
-        public static JoinedContent Create(CosArray array, PdfDocument document)
+        public static JoinedContent Create(CosArray array, PdfDocument document, CancellationToken cancellationToken)
         {
             int count = array.Count;
             var elements = new CosObject[count];
@@ -174,7 +175,7 @@ internal sealed class ContentResourceCache(PdfDocument document)
                 {
                     dataVersions[index] = stream.Version;
                     dictionaryVersions[index] = stream.Dictionary.Version;
-                    decoded[index] = document.DecodeStream(stream);
+                    decoded[index] = document.Streams.Decode(stream, 0, cancellationToken);
                     total += decoded[index].Length + 1;
                 }
                 else
