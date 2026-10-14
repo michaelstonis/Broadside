@@ -1274,12 +1274,12 @@ public sealed partial class PdfDocument : IDisposable
 
         bool changed = CompleteFontSubsets();
         changed |= DateModification(options);
-        FileWriter writer = ApplyVersionedSave(options, planned, changed);
 
-        // Issue #291: the dates written since the last save take the form of the version the save writes. Only Info entries the
-        // dating or a setter already changed are rewritten, so the plan already writes them and needs no third pass.
-        FormatDatesFor(writer.Version > Version ? writer.Version : Version);
-        return writer;
+        // Issues #291 and #301: the metadata takes the layout and date form of the version the save writes, read before the
+        // incremental update's catalog Version below changes it. A raise to 2.0 moves the deprecated Info entries to the XMP packet
+        // (§14.3.3); it only moves metadata the document has, so it adds no versioned feature and the version decided stands.
+        changed |= LayOutMetadataFor(Version, planned.Needed);
+        return ApplyVersionedSave(options, planned, changed);
     }
 
     /// <summary>
