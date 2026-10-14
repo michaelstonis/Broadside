@@ -469,7 +469,8 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption,
+    /// or a linearized save would carry an integrity MAC.
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
@@ -548,7 +549,8 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption,
+    /// or a linearized save would carry an integrity MAC.
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
@@ -575,7 +577,8 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption,
+    /// or a linearized save would carry an integrity MAC.
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
     /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>

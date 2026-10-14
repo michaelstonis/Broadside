@@ -3986,3 +3986,27 @@ Broadside.PdfPublicKeyEncryptionOptions.IntegrityProtection.get -> bool
 Broadside.PdfPublicKeyEncryptionOptions.IntegrityProtection.set -> void
 Broadside.PdfPublicKeyEncryptionOptions.WithIntegrityProtection(bool integrityProtection) -> Broadside.PdfPublicKeyEncryptionOptions!
 Broadside.Rendering.IRenderingBackend.SetCompositing(double strokeAlpha, double fillAlpha, Broadside.Graphics.BlendMode blendMode) -> void
+Broadside.PdfPage.CreateDisplayList(Broadside.Rendering.DisplayLayers layers) -> Broadside.Rendering.DisplayList!
+Broadside.PdfPage.CreateDisplayList(Broadside.Rendering.DisplayLayers layers, Broadside.Rendering.DisplayIntent intent, Broadside.Content.ContentOptions! options) -> Broadside.Rendering.DisplayList!
+Broadside.Rendering.DisplayAnnotation
+Broadside.Rendering.DisplayAnnotation.BlendMode.get -> Broadside.Graphics.BlendMode
+Broadside.Rendering.DisplayAnnotation.DisplayAnnotation() -> void
+Broadside.Rendering.DisplayAnnotation.Isolated.get -> bool
+Broadside.Rendering.DisplayAnnotation.Kind.get -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Rendering.DisplayAnnotation.Knockout.get -> bool
+Broadside.Rendering.DisplayAnnotation.NoRotate.get -> bool
+Broadside.Rendering.DisplayAnnotation.NoZoom.get -> bool
+Broadside.Rendering.DisplayAnnotation.Opacity.get -> double
+Broadside.Rendering.DisplayAnnotation.Rectangle.get -> Broadside.PdfRectangle
+Broadside.Rendering.DisplayAnnotation.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Rendering.DisplayIntent
+Broadside.Rendering.DisplayIntent.Print = 1 -> Broadside.Rendering.DisplayIntent
+Broadside.Rendering.DisplayIntent.View = 0 -> Broadside.Rendering.DisplayIntent
+Broadside.Rendering.DisplayLayers
+Broadside.Rendering.DisplayLayers.All = Broadside.Rendering.DisplayLayers.Content | Broadside.Rendering.DisplayLayers.Annotations | Broadside.Rendering.DisplayLayers.FormFields -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.DisplayLayers.Annotations = 2 -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.DisplayLayers.Content = 1 -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.DisplayLayers.FormFields = 4 -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.DisplayLayers.None = 0 -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.IRenderingBackend.BeginAnnotation(in Broadside.Rendering.DisplayAnnotation annotation) -> void
+Broadside.Rendering.IRenderingBackend.EndAnnotation() -> void

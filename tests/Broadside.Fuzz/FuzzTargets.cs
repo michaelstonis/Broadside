@@ -920,9 +920,8 @@ internal static class FuzzTargets
     /// document's own, new AES-256 or AES-GCM with an integrity MAC encryption with an empty user password, or none (issues #180,
     /// #181); either way the output opens without a password, and a MAC written new or kept from a verified one verifies. It also
     /// selects a linearized save (issue #228), which must read as linearized, with hint tables that read.
-    /// <see cref="NotSupportedException"/> is the documented outcome for what a save cannot write (data its credentials do not
-    /// decrypt, a linearized save of a document without pages or whose page tree lists a page twice, a linearized save with an
-    /// integrity MAC).
+    /// <see cref="NotSupportedException"/> is the documented outcome for what a save cannot write (data its credentials do not decrypt,
+    /// a linearized save of a document without pages, whose page tree lists a page twice, or that carries an integrity MAC).
     /// </summary>
     /// <remarks>ISO 32000-2 §7.5, §7.3.10, §7.6, Annex F; ISO/TS 32003, ISO/TS 32004 (issues #44, #144, #180, #181, #228).</remarks>
     private static void Save(ReadOnlySpan<byte> data)

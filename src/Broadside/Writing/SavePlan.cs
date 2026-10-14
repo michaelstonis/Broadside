@@ -84,8 +84,8 @@ internal static class SavePlan
     /// </param>
     /// <returns>The writer.</returns>
     /// <exception cref="NotSupportedException">
-    /// What <see cref="EncryptionPlan"/> refuses, or a linearized save of a document without a catalog or a page, or whose page tree
-    /// lists a page twice, or whose encryption writes an integrity MAC.
+    /// What <see cref="EncryptionPlan"/> refuses, or a linearized save of a document without a catalog or a page, whose page tree
+    /// lists a page twice, or whose file carries an integrity MAC (ISO/TS 32004).
     /// </exception>
     public static FileWriter Create(
         PdfSource source,
@@ -99,11 +99,6 @@ internal static class SavePlan
         CrossReference crossReference = loader.CrossReference;
         CosDictionary sourceTrailer = crossReference.Trailer;
         EncryptionPlan encryption = EncryptionPlan.Create(loader, security, options, incremental: false);
-        if (options.Linearize && encryption.Integrity is not null)
-        {
-            throw new NotSupportedException(
-                "A linearized file cannot carry an integrity MAC yet (ISO/TS 32004 §6.6: the MAC token goes in the last trailer, which the linearized layout does not digest); save it without linearizing, or without the MAC.");
-        }
 
         var existing = new Dictionary<int, CosReference>();
         var freeGenerations = new Dictionary<int, int>();
@@ -172,7 +167,13 @@ internal static class SavePlan
             trailer[KnownNames.Encrypt] = reference;
         }
 
-        // A linearized file (Annex F) orders and numbers its objects by part; nothing is freed.
+        // A linearized file (Annex F) orders and numbers its objects by part; nothing is freed. Its writer does not compose the PDF MAC
+        // token (ISO/TS 32004 §5.2.3), so a save that must carry one is not linearized rather than written without it.
+        if (options.Linearize && encryption.Integrity is not null)
+        {
+            throw new NotSupportedException("A file with an integrity MAC (ISO/TS 32004) cannot be saved linearized.");
+        }
+
         LinearizedLayout? linearized = options.Linearize
             ? LinearizedLayout.Create(trailer, kept, options.CrossReferenceLayout, value => value is not (CosStream or CosReference))
             : null;

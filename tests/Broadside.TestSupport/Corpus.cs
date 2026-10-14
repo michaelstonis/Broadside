@@ -71,6 +71,7 @@ public static class Corpus
         "annotations-link.pdf",
         "annotations-subtypes.pdf",
         "annotations-appearance.pdf",
+        "annotations-nozoom.pdf",
         "outline.pdf",
         "name-tree-dests.pdf",
         "metadata-xmp.pdf",

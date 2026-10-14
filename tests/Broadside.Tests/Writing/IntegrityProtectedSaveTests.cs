@@ -143,6 +143,18 @@ public sealed class IntegrityProtectedSaveTests
         Assert.Equal(0, output.Length);
     }
 
+    [Fact]
+    public void A_linearized_save_is_refused_rather_than_written_without_its_mac()
+    {
+        using PdfDocument source = PdfDocument.Open(Corpus.Path("text-standard14.pdf"));
+        using var output = new MemoryStream();
+
+        Assert.Throws<NotSupportedException>(() => source.Save(output, new PdfSaveOptions().WithLinearize(true).WithEncryption(
+            new PdfEncryptionOptions("user", "owner").WithAlgorithm(PdfEncryptionAlgorithm.Aes256Gcm).WithIntegrityProtection(true))));
+
+        Assert.Equal(0, output.Length);
+    }
+
     [Theory]
     [InlineData("encrypted-mac.pdf", PdfCrossReferenceLayout.Table)]
     [InlineData("encrypted-mac.pdf", PdfCrossReferenceLayout.StreamWithObjectStreams)]

@@ -200,7 +200,6 @@ internal sealed partial class FileWriter
     /// <returns>The file's bytes, in order.</returns>
     public IEnumerable<ReadOnlyMemory<byte>> Write()
     {
-        // SavePlan refuses a linearized save with an integrity MAC, so the linearized layout never digests.
         if (Linearized is { } layout)
         {
             foreach (ReadOnlyMemory<byte> chunk in WriteLinearized(layout))

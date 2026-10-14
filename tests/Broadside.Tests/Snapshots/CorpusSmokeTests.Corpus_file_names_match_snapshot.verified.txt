@@ -6,6 +6,7 @@
   annotations-appearance.pdf,
   annotations-link.pdf,
   annotations-malformed.pdf,
+  annotations-nozoom.pdf,
   annotations-subtypes.pdf,
   ascii85-stream.pdf,
   asciihex-stream.pdf,
