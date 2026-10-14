@@ -4,7 +4,7 @@
 
 | Job | Runs on | What it does |
 |---|---|---|
-| `build-test` | ubuntu, windows, macos | `dotnet build Broadside.slnx -c Release -warnaserror`, then `dotnet test Broadside.Core.slnf` with TRX reports uploaded as `test-results-<os>`. On Linux and Windows the CoreGraphics and Android backends drop out through the `BroadsideBuildPlatformBackends` gate; macOS installs the `macos ios maccatalyst android` workloads first and builds them. Linux also packs the core packages and uploads them as `packages`. |
+| `build-test` | ubuntu, windows, macos | `dotnet build Broadside.slnx -c Release -warnaserror`, then `dotnet test Broadside.Core.slnf` with TRX reports uploaded as `test-results-<os>`. On Linux and Windows the CoreGraphics and Android backends drop out through the `BroadsideBuildPlatformBackends` gate; macOS installs the `macos ios maccatalyst android` workloads first and builds them (the CoreGraphics package for macOS, iOS and Mac Catalyst), then also runs `tests/Broadside.Rendering.CoreGraphics.Tests`, the CoreGraphics backend's golden-image and allocation tests (issue #125). Linux also packs the core packages and uploads them as `packages`. |
 | `aot-smoke` | ubuntu, windows, macos | `dotnet publish tests/Broadside.Rendering.AotSmoke -c Release --use-current-runtime` (Native AOT, trimmed, trim and AOT warnings are errors), then runs the executable with `--require-aot`: it renders the rendering corpus files with the software rasterizer, compares every pixel with the reviewed snapshots of `Broadside.Rendering.Tests` and round-trips the PNG output (issue #95). |
 | `api-surface` | ubuntu (PRs only) | Writes the diff of every `src/**/PublicAPI.Shipped.txt` and `PublicAPI.Unshipped.txt` against the base branch to the job summary. Never fails; the PublicApiAnalyzers already fail the build on an undeclared API change. |
 | `conformance-map` | ubuntu | `dotnet run --project tools/ConformanceCheck -- --root . --summary` into the job summary; fails on a `done` row without a test. Its steps are skipped, with a note in the summary, until `tools/ConformanceCheck` lands (issue #7). |
@@ -50,7 +50,7 @@ Locally, `./check-docs.sh` runs the same build and checks. To preview with live 
 ## `release.yml`: tags `v*` and the "Run workflow" button
 
 1. `build-linux`: builds, tests and packs the core packages (`Broadside.Core.slnf`).
-2. `build-macos`: installs the workloads, builds and tests the full solution, packs it, and uploads only `Broadside.Rendering.CoreGraphics` and `Broadside.Rendering.Android`, so that every package comes from exactly one build.
+2. `build-macos`: installs the workloads, builds the full solution, tests `Broadside.Core.slnf` and the CoreGraphics backend, packs it, and uploads only `Broadside.Rendering.CoreGraphics` and `Broadside.Rendering.Android`, so that every package comes from exactly one build.
 3. `publish`: merges the two sets into the `packages` artifact. On a `v*` tag that is not a dry run it logs in to NuGet.org with trusted publishing, runs `dotnet nuget push --skip-duplicate`, and creates a GitHub release with generated notes and the packages attached (marked pre-release when the tag has a `-` suffix, e.g. `v0.1.0-preview.1`).
 
 MinVer derives the package version from the tag (`v1.2.3` → `1.2.3`); a dispatch run on a branch produces `0.1.0-preview.0.<height>`.
