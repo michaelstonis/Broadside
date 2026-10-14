@@ -87,14 +87,15 @@ public sealed class DisplayListAllocationTests
     {
         // Four Type 3 glyphs (a d1 shape, a d1 inline image mask, a d0 glyph, a d1 glyph with a form) in three colours and two sizes:
         // each description runs once per build, then every show copies its sub-list's records into the list: 16-byte operations and
-        // 48-byte transforms, 80 bytes for a, 112 for b, 96 for c and 208 for d (7 operations, 2 transforms), 124 on average.
+        // 48-byte transforms, 80 bytes for a, 112 for b, 96 for c and 208 for d (7 operations, 2 transforms), 124 on average. Each
+        // show also has its hit-test position (40 bytes) and its text (a char or two) (issue #101).
         using PdfDocument document = PdfDocument.Open(Type3Samples.Type3Heavy(glyphs), NoListCache);
         PdfPage page = document.Pages[0];
         Action build = () => page.CreateDisplayList();
 
         long allocated = Allocations.Measure(build);
 
-        Assert.InRange(allocated, 1, 8192 + (144 * glyphs));
+        Assert.InRange(allocated, 1, 8192 + (192 * glyphs));
     }
 
     [Fact]

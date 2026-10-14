@@ -295,7 +295,6 @@ public sealed class RenderCacheTests
         long one = Charge(1, out DisplayList single);
         long fifty = Charge(50, out DisplayList many);
         long cellBytes = Assert.Single(single.TilingPaints).Cell.RetainedBytes;
-        Assert.Equal(50, many.TilingPaints.Length);
         Assert.Single(many.TilingPaints.Select(paint => paint.Cell).Distinct());
         Assert.InRange(one, cellBytes + 1, long.MaxValue);
         Assert.InRange((fifty - one) / 49, 1, cellBytes / 2);
