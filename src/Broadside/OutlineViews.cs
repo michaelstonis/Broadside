@@ -26,7 +26,7 @@ internal sealed class OutlineViews(PdfDocument document)
     public OutlineTree Tree(CosDictionary root, CosReference? reference)
     {
         OutlineTree? tree = _tree;
-        if (tree is not null && tree.IsCurrent(root, reference))
+        if (tree is not null && tree.IsCurrent(root, reference, document.ObjectsVersion))
         {
             return tree;
         }
@@ -34,7 +34,7 @@ internal sealed class OutlineViews(PdfDocument document)
         lock (_gate)
         {
             tree = _tree;
-            if (tree is null || !tree.IsCurrent(root, reference))
+            if (tree is null || !tree.IsCurrent(root, reference, document.ObjectsVersion))
             {
                 tree = OutlineTree.Build(document, root, reference, tree, _created);
                 _created = null;

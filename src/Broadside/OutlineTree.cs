@@ -31,11 +31,13 @@ internal sealed class OutlineTree
 
     private readonly Dictionary<CosDictionary, Node> _nodes = new(ReferenceEqualityComparer.Instance);
     private readonly int _rootVersion;
+    private readonly int _objectsVersion;
     private long _epoch;
 
-    private OutlineTree(CosDictionary root, CosReference? rootReference)
+    private OutlineTree(CosDictionary root, CosReference? rootReference, int objectsVersion)
     {
         _epoch = CosMutation.Epoch;
+        _objectsVersion = objectsVersion;
         Root = root;
         RootReference = rootReference;
         _rootVersion = root.Version;
@@ -54,12 +56,16 @@ internal sealed class OutlineTree
     /// Gets a value indicating whether this walk is of <paramref name="root"/> through <paramref name="reference"/> and nothing it read
     /// has changed since.
     /// </summary>
+    /// <param name="root">The outline dictionary the catalog names now.</param>
+    /// <param name="reference">Its reference, or <see langword="null"/> when it is direct.</param>
+    /// <param name="objectsVersion">The document's <c>ObjectsVersion</c> now.</param>
     /// <remarks>
     /// The one place that decides whether the walk is reused: it compares the <c>Version</c> of the outline dictionary and of every
-    /// item dictionary reached with the one the walk recorded, allocating nothing. The comparison is skipped while
-    /// <see cref="CosMutation.Epoch"/> has not moved since the walk was last found current.
+    /// item dictionary reached with the one the walk recorded, allocating nothing. An object added to or removed from the document
+    /// since the walk changes what an unchanged link resolves to (§7.3.10), so the walk is not reused then either (issue #302). The
+    /// comparison is skipped while <see cref="CosMutation.Epoch"/> has not moved since the walk was last found current.
     /// </remarks>
-    public bool IsCurrent(CosDictionary root, CosReference? reference)
+    public bool IsCurrent(CosDictionary root, CosReference? reference, int objectsVersion)
     {
         if (!ReferenceEquals(root, Root) || !Equals(reference, RootReference))
         {
@@ -72,7 +78,7 @@ internal sealed class OutlineTree
             return true;
         }
 
-        if (root.Version != _rootVersion)
+        if (objectsVersion != _objectsVersion || root.Version != _rootVersion)
         {
             return false;
         }
@@ -107,7 +113,7 @@ internal sealed class OutlineTree
         OutlineTree? previous,
         Dictionary<CosDictionary, PdfOutlineItem>? created)
     {
-        var tree = new OutlineTree(root, rootReference);
+        var tree = new OutlineTree(root, rootReference, document.ObjectsVersion);
         new Builder(document, tree, previous, created).Run();
         return tree;
     }

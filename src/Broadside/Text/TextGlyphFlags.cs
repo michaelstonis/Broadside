@@ -34,8 +34,8 @@ public enum TextGlyphFlags
     /// <summary>
     /// The glyph is inside a marked-content sequence, or under a structure element, whose <c>ActualText</c> replaces its text: the
     /// first glyph of the sequence or element carries the replacement text and the others carry none, while every glyph keeps its
-    /// own position. For an element whose content spans pages, that first glyph is on the page where its content starts; on later
-    /// pages every glyph of the element carries none.
+    /// own position. For an element whose content spans pages, that first glyph is its first in logical order, wherever its
+    /// content starts; on its other pages every glyph of the element carries none.
     /// </summary>
     /// <remarks>ISO 32000-2 §14.9.4.</remarks>
     ActualText = 1 << 3,

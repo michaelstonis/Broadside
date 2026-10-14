@@ -81,6 +81,13 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <item><term><see cref="OutlineItemStyle"/></term><description>1.4 (§12.3.3, Table 151, <c>C</c> and <c>F</c>)</description></item>
 /// <item><term><see cref="StructureTree"/></term><description>What the tree uses, <see cref="Structure.PdfStructureTreeRoot.MinimumVersion"/>: 1.3 to 1.5 (§14.7.2, Tables 353 to 355)</description></item>
 /// <item><term><see cref="StructureNamespaces"/></term><description>2.0 (§14.7.4, Table 356; Tables 354 and 355, <c>Namespaces</c>, <c>NS</c> and the other PDF 2.0 entries)</description></item>
+/// <item><term><see cref="Jbig2Compression"/></term><description>1.4 (§7.4.7; §7.4.1, Table 6)</description></item>
+/// <item><term><see cref="JpxCompression"/></term><description>1.5 (§7.4.9; §7.4.1, Table 6)</description></item>
+/// <item><term><see cref="TransparencyParameters"/></term><description>1.4 (§11.1 NOTE; §11.6.3 and §11.6.4.4, Table 57, <c>CA</c>, <c>ca</c>, <c>BM</c>, <c>AIS</c>, <c>TK</c>)</description></item>
+/// <item><term><see cref="SoftMasks"/></term><description>1.4 (§11.6.5; Table 57 and Table 87, <c>SMask</c>)</description></item>
+/// <item><term><see cref="TransparencyGroups"/></term><description>1.4 (§11.6.6; Table 31 and Table 93, <c>Group</c>)</description></item>
+/// <item><term><see cref="OptionalContent"/></term><description>1.5 (§8.11.1; Table 29, <c>OCProperties</c>; Tables 87, 93 and 166, <c>OC</c>)</description></item>
+/// <item><term><see cref="Pdf20AnnotationEntries"/></term><description>2.0 (§12.5.2, Table 166, <c>ca</c>, <c>BM</c>, <c>Lang</c>, <c>CA</c> of a non-markup annotation; §12.5.6.1, Table 171, <c>Projection</c> and <c>RichMedia</c>)</description></item>
 /// <item><term><see cref="DeveloperExtension"/></term><description>The extension's <c>BaseVersion</c> (§7.12.4)</description></item>
 /// </list>
 /// <para>
@@ -157,6 +164,49 @@ internal static class VersionedFeatures
         "structure namespaces or other PDF 2.0 structure entries (Namespaces, NS, Ref, AF, Phoneme, PronunciationLexicon)",
         "ISO 32000-2 §14.7.4, Table 356; Tables 354 and 355",
         Pdf20);
+
+    /// <summary>Gets streams compressed with the <c>JBIG2Decode</c> filter: PDF 1.4.</summary>
+    public static VersionedFeature Jbig2Compression { get; } = new("JBIG2Decode compression", "ISO 32000-2 §7.4.7, Table 6", Pdf14);
+
+    /// <summary>Gets streams compressed with the <c>JPXDecode</c> filter: PDF 1.5.</summary>
+    public static VersionedFeature JpxCompression { get; } = new("JPXDecode compression", "ISO 32000-2 §7.4.9, Table 6", Pdf15);
+
+    /// <summary>
+    /// Gets the transparency parameters of a graphics state parameter dictionary (<c>CA</c>, <c>ca</c>, <c>BM</c>, <c>AIS</c>,
+    /// <c>TK</c>), also a markup annotation's <c>CA</c>: PDF 1.4.
+    /// </summary>
+    public static VersionedFeature TransparencyParameters { get; } = new(
+        "transparency parameters (CA, ca, BM, AIS, TK)", "ISO 32000-2 §11.6.3 and §11.6.4.4, Table 57", Pdf14);
+
+    /// <summary>Gets soft masks: a graphics state's or an image's <c>SMask</c>, and soft-mask dictionaries: PDF 1.4.</summary>
+    public static VersionedFeature SoftMasks { get; } = new("a soft mask (SMask)", "ISO 32000-2 §11.6.5; Tables 57 and 87", Pdf14);
+
+    /// <summary>Gets transparency groups: a form's or a page's <c>Group</c> of subtype <c>Transparency</c>: PDF 1.4.</summary>
+    public static VersionedFeature TransparencyGroups { get; } = new("a transparency group (Group)", "ISO 32000-2 §11.6.6; Tables 31 and 93", Pdf14);
+
+    /// <summary>
+    /// Gets optional content: groups (<c>OCG</c>), membership dictionaries (<c>OCMD</c>), an <c>OC</c> entry and the catalog's
+    /// <c>OCProperties</c>: PDF 1.5.
+    /// </summary>
+    public static VersionedFeature OptionalContent { get; } = new("optional content (OCG, OCMD, OC, OCProperties)", "ISO 32000-2 §8.11; Table 29", Pdf15);
+
+    /// <summary>
+    /// Gets the PDF 2.0 annotation entries: <c>ca</c>, <c>BM</c> and <c>Lang</c>, <c>CA</c> of a non-markup annotation, and the
+    /// <c>Projection</c> and <c>RichMedia</c> types: PDF 2.0.
+    /// </summary>
+    public static VersionedFeature Pdf20AnnotationEntries { get; } = new(
+        "PDF 2.0 annotation entries (ca, BM, Lang, CA of a non-markup annotation, Projection and RichMedia types)",
+        "ISO 32000-2 §12.5.2, Table 166; §12.5.6.1, Table 171",
+        Pdf20);
+
+    /// <summary>Returns the feature a filter's encoding stands for, or <see langword="null"/> when it has no version row.</summary>
+    /// <param name="filter">A filter name.</param>
+    /// <returns><see cref="FlateCompression"/>, <see cref="Jbig2Compression"/>, <see cref="JpxCompression"/> or <see langword="null"/>.</returns>
+    public static VersionedFeature? Filter(CosName filter) =>
+        Filters.FilterNames.FlateDecode.Equals(filter) ? FlateCompression
+        : Filters.FilterNames.Jbig2Decode.Equals(filter) ? Jbig2Compression
+        : Filters.FilterNames.JpxDecode.Equals(filter) ? JpxCompression
+        : null;
 
     /// <summary>Returns the feature a structure tree stands for: the lowest version that has everything it uses.</summary>
     /// <param name="minimum">The tree's <see cref="Structure.PdfStructureTreeRoot.MinimumVersion"/>.</param>

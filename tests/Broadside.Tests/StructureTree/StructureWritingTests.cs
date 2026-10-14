@@ -148,6 +148,25 @@ public sealed class StructureWritingTests
     }
 
     [Fact]
+    public void An_element_removed_as_an_object_is_gone_from_the_next_lookup()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("text-tagged-spanning-image.pdf"));
+        PdfStructureTreeRoot root = document.StructureTree!;
+        PdfStructureElement body = root.Children[0];
+        PdfPage second = document.Pages[1];
+        Assert.Equal(["P", "Span", "P"], body.Children.OfType<PdfStructureElement>().Select(element => element.StructureType!.Value));
+        Assert.Equal("Span", root.FindElement(second, 0)!.StructureType!.Value);
+        Assert.Equal(4, root.Elements.Count);
+
+        // §7.3.10: references to the removed Span (object 13) now resolve to null; no container the indexes read has changed.
+        Assert.True(document.RemoveObject(new CosReference(13, 0)));
+
+        Assert.Equal(["P", "P"], body.Children.OfType<PdfStructureElement>().Select(element => element.StructureType!.Value));
+        Assert.Null(root.FindElement(second, 0));
+        Assert.Equal(3, root.Elements.Count);
+    }
+
+    [Fact]
     public void Namespaced_elements_round_trip_with_their_namespaces_and_role_maps()
     {
         using PdfDocument document = PdfDocument.Create();
