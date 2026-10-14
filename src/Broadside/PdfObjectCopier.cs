@@ -53,6 +53,7 @@ public sealed class PdfObjectCopier
     private static readonly CosName[] InheritableEntries = [KnownNames.Resources, KnownNames.MediaBox, KnownNames.CropBox, KnownNames.Rotate];
 
     private readonly Dictionary<CosReference, CosReference> _copies = [];
+    private readonly HashSet<CosReference> _excluded = [];
     private readonly Dictionary<CosReference, List<PendingPage>> _pendingPages = [];
     private readonly Stack<(CosObject Source, CosObject Copy)> _work = new();
     private readonly CosReference? _encryptionDictionary;
@@ -242,6 +243,19 @@ public sealed class PdfObjectCopier
         return null;
     }
 
+    /// <summary>Gets the target references of every indirect object the session has copied or been given (<see cref="Assign"/>).</summary>
+    internal IEnumerable<CosReference> Copies => _copies.Values;
+
+    /// <summary>
+    /// Makes <paramref name="copy"/>, an object of the target the caller fills, the copy of the source object <paramref name="source"/>:
+    /// every reference to it the session reaches names <paramref name="copy"/>, and the session never fills it (issue #161: structure
+    /// elements copied element by element).
+    /// </summary>
+    internal void Assign(CosReference source, CosReference copy) => Register(source, copy);
+
+    /// <summary>Makes every reference to the source object <paramref name="source"/> the session reaches copy as null (an element not kept).</summary>
+    internal void Exclude(CosReference source) => _excluded.Add(source);
+
     /// <summary>Records <paramref name="copy"/> as the copy of <paramref name="source"/> and fills the slots that waited for it.</summary>
     private void Register(CosReference source, CosReference copy)
     {
@@ -276,7 +290,7 @@ public sealed class PdfObjectCopier
                     return copied;
                 }
 
-                if (reference.Equals(_encryptionDictionary))
+                if (reference.Equals(_encryptionDictionary) || _excluded.Contains(reference))
                 {
                     return CosNull.Instance;
                 }

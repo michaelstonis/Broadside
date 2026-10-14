@@ -2,6 +2,7 @@ using System.Text;
 using Broadside.Annotations;
 using Broadside.Forms;
 using Broadside.Objects;
+using Broadside.Structure;
 using Broadside.Writing;
 
 namespace Broadside;
@@ -25,9 +26,9 @@ internal sealed class DocumentAssembly
     private static readonly CosName SubmitForm = new("SubmitForm");
     private static readonly CosName Hide = new("Hide");
 
-    /// <summary>Outline item entries the item's copy gets from its new place rather than from the source (Table 151), or not at all (<c>SE</c>).</summary>
+    /// <summary>Outline item entries the item's copy gets from its new place rather than from the source (Table 151).</summary>
     private static readonly HashSet<CosName> OutlineLinks =
-        [NavigationNames.Title, KnownNames.Parent, NavigationNames.First, NavigationNames.Last, NavigationNames.Next, Prev, Count, NavigationNames.SE];
+        [NavigationNames.Title, KnownNames.Parent, NavigationNames.First, NavigationNames.Last, NavigationNames.Next, Prev, Count];
 
     private readonly PdfDocument _source;
     private readonly PdfDocument _target;
@@ -36,6 +37,7 @@ internal sealed class DocumentAssembly
     private readonly bool _whole;
     private readonly PdfObjectCopier _copier;
     private readonly CosReference[] _pageCopies;
+    private readonly StructureAssembly _structure;
     private readonly Dictionary<string, CosString> _renamedStrings = new(StringComparer.Ordinal);
     private readonly Dictionary<string, CosName> _renamedNames = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _renamedFields = new(StringComparer.Ordinal);
@@ -49,6 +51,7 @@ internal sealed class DocumentAssembly
         _whole = first == 0 && count == source.Pages.Count;
         _copier = new PdfObjectCopier(source, target);
         _pageCopies = new CosReference[count];
+        _structure = new StructureAssembly(source, target, _copier, first, count, _whole, _pageCopies);
     }
 
     /// <summary>Appends the pages and what belongs to them.</summary>
@@ -65,6 +68,7 @@ internal sealed class DocumentAssembly
         }
 
         List<Label>? labels = PlanLabels(_target.Pages.Count);
+        _structure.Plan();
         for (int index = 0; index < _count; index++)
         {
             _pageCopies[index] = _copier.CopyPage(_source.Pages[_first + index]);
@@ -80,8 +84,10 @@ internal sealed class DocumentAssembly
             WriteLabels(labels);
         }
 
-        // Last, so every group the copied objects reach has its copy (§8.11.4, issue #307).
+        // After every copy, so every group the copied objects reach has its copy (§8.11.4, issue #307).
         new OptionalContentAssembly(_source, _target, _copier, _whole).Run();
+
+        _structure.Finish();
     }
 
     private bool InRange(int? pageIndex) => pageIndex is { } index && index >= _first && index < _first + _count;
@@ -447,6 +453,17 @@ internal sealed class DocumentAssembly
         {
             if (OutlineLinks.Contains(key))
             {
+                continue;
+            }
+
+            if (key.Equals(NavigationNames.SE))
+            {
+                // The item's structure element (§12.3.3, Table 151), when its copy is kept (issue #161).
+                if (_structure.MapElement(value) is { } element)
+                {
+                    copy[key] = element;
+                }
+
                 continue;
             }
 
