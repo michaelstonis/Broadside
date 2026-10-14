@@ -198,18 +198,22 @@ internal sealed class SharedFontSubset
     }
 
     /// <summary>Reduces the embedded program to the subset of the glyphs used, when it grew since it was last subset (§9.9.2).</summary>
-    public void Complete(PdfDocument document)
+    /// <returns>Whether the program stream changed.</returns>
+    public bool Complete(PdfDocument document)
     {
         if (!_pending || !IsIntact(document))
         {
-            return;
+            return false;
         }
 
         _pending = false;
-        if (TrueTypeSubsetter.Subset(_sfnt, _widths.Keys) is { } subset)
+        if (TrueTypeSubsetter.Subset(_sfnt, _widths.Keys) is not { } subset)
         {
-            SetProgram((CosStream)document.Resolve(_fontFile), subset);
+            return false;
         }
+
+        SetProgram((CosStream)document.Resolve(_fontFile), subset);
+        return true;
     }
 
     private static void SetProgram(CosStream stream, byte[] program)
@@ -355,11 +359,15 @@ internal sealed class SharedFontSubsets
     public void Add(FontResolution resolution, SharedFontSubset subset) => _subsets[(resolution.Data, resolution.FaceIndex)] = subset;
 
     /// <summary>Subsets every font that grew since its program was last subset (<see cref="SharedFontSubset.Complete"/>).</summary>
-    public void Complete(PdfDocument document)
+    /// <returns>Whether any program stream changed.</returns>
+    public bool Complete(PdfDocument document)
     {
+        bool changed = false;
         foreach (SharedFontSubset subset in _subsets.Values)
         {
-            subset.Complete(document);
+            changed |= subset.Complete(document);
         }
+
+        return changed;
     }
 }

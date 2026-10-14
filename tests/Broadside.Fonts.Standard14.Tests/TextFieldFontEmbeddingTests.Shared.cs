@@ -76,6 +76,31 @@ public sealed partial class TextFieldFontEmbeddingTests
         Assert.Equal(saved.Glyphs.Select(glyph => glyph.Advance), text.Glyphs.Select(glyph => glyph.Advance));
     }
 
+    [Fact]
+    public void A_save_strict_mode_refuses_leaves_a_grown_shared_font_whole_and_the_next_save_subsets_it()
+    {
+        // acroform-fields.pdf is PDF 2.0: RC4 needs no raise, and its deprecation is what strict mode refuses (issue #300).
+        using PdfDocument document = OpenWithCyrillicFields(new PdfOptions().UseStandard14Fonts().UseStrict());
+        CyrillicField(document, 0).SetValue(CyrillicValue(0));
+        CyrillicField(document, 1).SetValue("Южный сбор");
+        string before = CosSnapshot.Of(document);
+        using var refused = new MemoryStream();
+
+        DiagnosticException thrown = Assert.Throws<DiagnosticException>(() => document.Save(
+            refused,
+            new PdfSaveOptions().WithEncryption(new PdfEncryptionOptions("user", "owner").WithAlgorithm(PdfEncryptionAlgorithm.Rc4))));
+
+        Assert.Equal("EncryptionDeprecated", thrown.Diagnostic.Code);
+        Assert.Equal(0, refused.Length);
+        Assert.Equal(before, CosSnapshot.Of(document));
+        var font = (PdfType0Font)document.GetFont(Type0Font(document, CyrillicField(document, 1).Widgets[0]))!;
+        Assert.True(font.DescendantFont!.Descriptor!.FontFile2!.EncodedData.Length > 40_000, "The pending font was subset by the refused save.");
+
+        using PdfDocument reopened = PdfDocument.Open(SaveUndated(document, incremental: false));
+        var saved = (PdfType0Font)reopened.GetFont(Type0Font(reopened, CyrillicField(reopened, 1).Widgets[0]))!;
+        Assert.InRange(saved.DescendantFont!.Descriptor!.FontFile2!.EncodedData.Length, 1, 40_000);
+    }
+
     /// <summary>The value of field <paramref name="index"/>: eight letters from a different place in the alphabet, so the font grows.</summary>
     private static string CyrillicValue(int index)
     {
@@ -93,9 +118,9 @@ public sealed partial class TextFieldFontEmbeddingTests
     }
 
     /// <summary>Opens acroform-fields.pdf with <see cref="FieldCount"/> more text fields in the free right half of page 1.</summary>
-    private static PdfDocument OpenWithCyrillicFields()
+    private static PdfDocument OpenWithCyrillicFields(PdfOptions? options = null)
     {
-        PdfDocument document = PdfDocument.Open(Corpus.Path("acroform-fields.pdf"), new PdfOptions().UseStandard14Fonts());
+        PdfDocument document = PdfDocument.Open(Corpus.Path("acroform-fields.pdf"), options ?? new PdfOptions().UseStandard14Fonts());
         var acroForm = (CosDictionary)document.Resolve(document.Catalog[new CosName("AcroForm")]);
         var fields = (CosArray)document.Resolve(acroForm[new CosName("Fields")]);
         PdfPage page = document.Pages[0];
