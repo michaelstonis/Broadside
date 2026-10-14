@@ -35,6 +35,7 @@ public static class Corpus
         "text-lines-rotated.pdf",
         "text-tagged-replacements.pdf",
         "text-tagged-spanning.pdf",
+        "text-tagged-spanning-image.pdf",
         "text-cid-embedded-cmap.pdf",
         "text-cidcff-predefined-cmap.pdf",
         "text-cid-nonembedded.pdf",

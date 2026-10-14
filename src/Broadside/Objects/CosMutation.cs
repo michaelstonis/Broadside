@@ -1,8 +1,8 @@
 namespace Broadside.Objects;
 
 /// <summary>
-/// A process-wide count of changes to COS containers: every change to a <see cref="CosDictionary"/> or <see cref="CosArray"/> through
-/// the public API advances it, reading and loading never do.
+/// A process-wide count of changes to COS containers: every change to a <see cref="CosDictionary"/> or <see cref="CosArray"/>, and
+/// every replacement of a <see cref="CosStream"/>'s data, through the public API advances it; reading and loading never do.
 /// </summary>
 /// <remarks>
 /// <para>

@@ -29,8 +29,9 @@ namespace Broadside.Text;
 /// </para>
 /// <para>
 /// An element whose content spans pages gives its replacement once, so a document read page by page holds it once: on the page
-/// where its content starts, the page of its first content item in logical order (§14.8.2.5.1). On a later page its glyphs stay,
-/// in order, owned by the element and flagged with the replacement, but with empty text ranges: the continuation adds no text.
+/// where it shows its first glyph in logical order (§14.8.2.5.1), which is a later page than its first content item's when that
+/// item shows no glyph (an image, an empty sequence; issue #298). On the other pages its glyphs stay, in order, owned by the
+/// element and flagged with the replacement, but with empty text ranges: they add no text.
 /// </para>
 /// </remarks>
 internal static class StructureOrder
@@ -96,7 +97,7 @@ internal static class StructureOrder
         var text = new System.Text.StringBuilder(source.Length);
         int count = 0;
         PdfStructureElement? replacing = null;
-        foreach ((int _, int index) in structural)
+        foreach ((int order, int index) in structural)
         {
             ref readonly TextGlyph glyph = ref glyphs[index];
             PdfStructureElement element = owners[glyphItems[index]].Element!;
@@ -106,7 +107,7 @@ internal static class StructureOrder
             if (info.Replacer is { } replacer)
             {
                 flags = (flags & ~Replacements) | info.ReplacementFlag;
-                if (!ReferenceEquals(replacer, replacing) && StartsOn(walk, replacer, page))
+                if (!ReferenceEquals(replacer, replacing) && FirstShownOn(document, walk, replacer, page, order, options))
                 {
                     text.Append(info.Replacement);
                 }
@@ -140,11 +141,52 @@ internal static class StructureOrder
     }
 
     /// <summary>
-    /// Whether <paramref name="replacer"/>'s content starts on <paramref name="page"/>, so the page carries its replacement: the page
-    /// of its first content item with a known page, or any page showing it when no item names one.
+    /// Whether <paramref name="replacer"/> shows its first glyph on <paramref name="page"/>, so the page carries its replacement:
+    /// <paramref name="order"/> is the position of its first content item showing a glyph on this page, and no content item of it
+    /// before that, on another page, shows one there. Items of this page before it show none (glyphs are in order); items whose
+    /// page is unknown cannot be looked at and count as showing none.
     /// </summary>
-    private static bool StartsOn(StructureWalk walk, PdfStructureElement replacer, PdfPage page) =>
-        !walk.TryGetFirstPage(replacer, out CosDictionary? first) || ReferenceEquals(first, page.Dictionary);
+    /// <remarks>
+    /// Issue #298: the element's subtree holds the consecutive positions from its first item, and only the pages of the items before
+    /// <paramref name="order"/> are looked at, each extracted at most once per document (<see cref="ShownItems"/>). The common case,
+    /// a first item that shows a glyph, ends at that item.
+    /// </remarks>
+    private static bool FirstShownOn(PdfDocument document, StructureWalk walk, PdfStructureElement replacer, PdfPage page, int order, TextExtractionOptions options)
+    {
+        if (!walk.TryGetFirstItem(replacer, out int first))
+        {
+            return true;
+        }
+
+        ShownItems? shown = null;
+        for (int earlier = first; earlier < order; earlier++)
+        {
+            if (walk.ItemPage(earlier) is { } other && !ReferenceEquals(other, page.Dictionary)
+                && (shown ??= ShownItems.Of(walk)).Shows(document, walk, other, earlier, options))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>Whether <paramref name="element"/> or an element above it is an <c>Artifact</c> (§14.8.2.2.2), as <see cref="ElementCache"/> decides.</summary>
+    internal static bool IsArtifact(PdfStructureElement element)
+    {
+        int depth = 0;
+        for (PdfStructureElement? current = element; current is not null && depth <= StructureContext.MaxDepth; current = current.Parent, depth++)
+        {
+            if (IsArtifactType(current))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool IsArtifactType(PdfStructureElement element) => element.StandardType is { Name: "Artifact", IsStandard: true };
 
     /// <summary>What an element contributes to the glyphs it encloses, inherited down the hierarchy.</summary>
     private sealed record ElementInfo(bool IsArtifact, PdfStructureElement? Replacer, string? Replacement, TextGlyphFlags ReplacementFlag, string? Language);
@@ -196,7 +238,7 @@ internal static class StructureOrder
 
         private ElementInfo Derive(PdfStructureElement element, ElementInfo parent)
         {
-            bool artifact = parent.IsArtifact || element.StandardType is { Name: "Artifact", IsStandard: true };
+            bool artifact = parent.IsArtifact || IsArtifactType(element);
             string? language = element.Language ?? parent.Language;
             if (parent.Replacer is not null)
             {

@@ -186,6 +186,49 @@ public sealed class ReadingOrderTests
     }
 
     [Fact]
+    public void An_element_whose_first_content_item_shows_no_glyph_gives_its_ActualText_once_on_the_page_of_its_first_glyph()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path(SpanningImage));
+
+        string[] pages = [.. document.Pages.Select(page => page.ExtractText().PlainText)];
+
+        // The Span's content starts with an image on page 1 (no glyph to carry the replacement) and goes on with "ACME" on page 2;
+        // §14.9.4: its ActualText stands for all of it once, on the page where it first shows a glyph.
+        Assert.Equal(["Before", "ACME Corp\nAfter"], pages);
+        Assert.Single(System.Text.RegularExpressions.Regex.Matches(string.Join("\n", pages), "ACME"));
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
+    public void The_page_carrying_a_replacement_does_not_depend_on_the_order_the_pages_are_read_in()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path(SpanningImage));
+
+        TextPage second = document.Pages[1].ExtractText();
+        TextPage first = document.Pages[0].ExtractText();
+
+        Assert.Equal("ACME Corp\nAfter", second.PlainText);
+        Assert.Equal(TextGlyphFlags.ActualText, second.Glyphs[0].Flags);
+        Assert.Equal("Span", second.Glyphs[0].StructureElement!.StructureType!.Value);
+        Assert.Equal("Before", first.PlainText);
+    }
+
+    [Fact]
+    public void Content_edited_to_show_a_glyph_earlier_moves_the_replacement_to_that_page()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes(SpanningImage));
+        Assert.Equal("ACME Corp\nAfter", document.Pages[1].ExtractText().PlainText);
+
+        // Page 1's MCID 1 now shows text instead of the image: the Span's first glyph, and so its replacement, is on page 1.
+        var contents = (Broadside.Objects.CosStream)document.Resolve(document.Pages[0].Dictionary[new Broadside.Objects.CosName("Contents")]);
+        contents.EncodedData = System.Text.Encoding.ASCII.GetBytes(
+            "/P <</MCID 0>> BDC BT /F1 12 Tf 72 700 Td (Before) Tj ET EMC /Span <</MCID 1>> BDC BT /F1 12 Tf 72 680 Td (Logo) Tj ET EMC");
+
+        Assert.Equal("After", document.Pages[1].ExtractText().PlainText);
+        Assert.Equal("Before\nACME Corp", document.Pages[0].ExtractText().PlainText);
+    }
+
+    [Fact]
     public void A_page_of_a_document_without_a_structure_tree_keeps_content_order()
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Path("text-lines-rotated.pdf"));
@@ -280,6 +323,8 @@ public sealed class ReadingOrderTests
     private const string Replacements = "text-tagged-replacements.pdf";
 
     private const string Spanning = "text-tagged-spanning.pdf";
+
+    private const string SpanningImage = "text-tagged-spanning-image.pdf";
 
     /// <summary>A tagged page showing "ab" and "cd" as two Span elements (MCIDs 0 and 1) whose <paramref name="key"/> entries are "x" and "y".</summary>
     private static byte[] TwoTouchingSpans(string key, int gap = 0) => new Document.TestPdf { Header = "%PDF-2.0" }.Build(
