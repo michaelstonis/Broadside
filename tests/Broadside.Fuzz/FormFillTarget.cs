@@ -10,11 +10,12 @@ namespace Broadside.Fuzz;
 /// <c>Rect</c>, <c>Q</c> and flags the file holds; then runs every generated appearance through a text extractor, saves, and
 /// reopens. Invariants: filling never throws (the value is one Helvetica can always show, so no font program is needed; the system
 /// font resolver is off so runs are deterministic); each widget's normal appearance is afterwards a form XObject whose text is
-/// at most the value's length; the saved file opens with the same page count. An encrypted input stops after filling (the
-/// <c>save</c> target covers encrypted saves); one read as not encrypted, a damaged <c>Encrypt</c> entry included, must save
-/// (issue #283: <see cref="PdfDocument.IsEncrypted"/> and the save agree), so no exception is tolerated there.
+/// at most the value's length; the saved file opens with the same page count. Check boxes, radio buttons and choice fields are
+/// then set too (issue #168, <see cref="FillButtonsAndChoices"/>). An encrypted input stops after filling (the <c>save</c> target
+/// covers encrypted saves); one read as not encrypted, a damaged <c>Encrypt</c> entry included, must save (issue #283:
+/// <see cref="PdfDocument.IsEncrypted"/> and the save agree), so no exception is tolerated there.
 /// </summary>
-/// <remarks>ISO 32000-2 §12.7.4.3, §12.7.5.3, §12.5.5, §7.6.2.</remarks>
+/// <remarks>ISO 32000-2 §12.7.4.3, §12.7.5.2, §12.7.5.3, §12.7.5.4, §12.5.5, §7.6.2.</remarks>
 internal static class FormFillTarget
 {
     private const string Value = "Fill 42 été\nzwei";
@@ -49,6 +50,7 @@ internal static class FormFillTarget
             }
         }
 
+        FillButtonsAndChoices(form);
         if (document.IsEncrypted)
         {
             return;
@@ -63,5 +65,59 @@ internal static class FormFillTarget
         }
 
         _ = saved.AcroForm?.TerminalFields.OfType<PdfTextField>().Select(field => field.Value).Count();
+        _ = saved.AcroForm?.TerminalFields.OfType<PdfToggleButtonField>().Select(field => field.SelectedWidgets.Count).Count();
+        _ = saved.AcroForm?.TerminalFields.OfType<PdfChoiceField>().Select(field => field.SelectedIndices.Count).Count();
+    }
+
+    /// <summary>
+    /// Issue #168: generates the appearances of up to 32 check boxes and radio button fields and turns their last widget on, then
+    /// generates up to 32 choice fields' appearances and selects their last option. Invariants: a selected widget shows its on state
+    /// and is among the selected widgets; a selected option is the selection read back. Choice options are the file's text, so a
+    /// character no font can show may refuse (the documented <see cref="InvalidOperationException"/>, with nothing changed).
+    /// </summary>
+    private static void FillButtonsAndChoices(PdfAcroForm form)
+    {
+        foreach (PdfToggleButtonField field in form.TerminalFields.OfType<PdfToggleButtonField>().Take(32))
+        {
+            field.GenerateAppearances();
+            if (field.Widgets.LastOrDefault(widget => field.GetOnState(widget) is not null) is not { } widget)
+            {
+                // A field whose kids are no widget annotations has nothing to show; any widget it has gets an on state.
+                if (field.Widgets.Count > 0)
+                {
+                    throw new InvalidOperationException("A button field has no on state after its appearances were generated.");
+                }
+
+                continue;
+            }
+
+            field.Select(widget);
+            if (!Equals(widget.AppearanceState, field.GetOnState(widget)) || !field.SelectedWidgets.Any(selected => ReferenceEquals(selected.Dictionary, widget.Dictionary)))
+            {
+                throw new InvalidOperationException("A selected button widget does not show its on state.");
+            }
+        }
+
+        foreach (PdfChoiceField field in form.TerminalFields.OfType<PdfChoiceField>().Take(32))
+        {
+            int count = field.Options.Count;
+            try
+            {
+                field.GenerateAppearances();
+                if (count > 0)
+                {
+                    field.SetSelectedIndices([count - 1]);
+                }
+            }
+            catch (InvalidOperationException)
+            {
+                continue;
+            }
+
+            if (count > 0 && !field.SelectedIndices.Contains(count - 1) && field.Options[count - 1].ExportValue.Length > 0 && !field.Options.Take(count - 1).Any(option => option.ExportValue == field.Options[count - 1].ExportValue))
+            {
+                throw new InvalidOperationException("A selected option is not the selection read back.");
+            }
+        }
     }
 }

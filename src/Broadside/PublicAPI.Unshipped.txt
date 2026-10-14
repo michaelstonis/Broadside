@@ -3916,3 +3916,12 @@ Broadside.Structure.PdfStructureTreeRoot.MapRole(Broadside.Objects.CosName! type
 Broadside.Structure.PdfStructureTreeRoot.MinimumVersion.get -> Broadside.PdfVersion
 Broadside.Structure.PdfStructureTreeRoot.ParentTree.get -> Broadside.PdfNumberTree?
 Broadside.Structure.PdfStructureTreeRoot.RemoveRoleMapping(Broadside.Objects.CosName! type) -> bool
+Broadside.Forms.PdfToggleButtonField.SetValue(Broadside.Objects.CosName! value) -> void
+Broadside.Forms.PdfToggleButtonField.Select(Broadside.Annotations.PdfWidgetAnnotation! widget) -> void
+Broadside.Forms.PdfToggleButtonField.SetExportValue(string? exportValue) -> void
+Broadside.Forms.PdfToggleButtonField.GenerateAppearances() -> void
+Broadside.Forms.PdfCheckBoxField.SetChecked(bool isChecked) -> void
+Broadside.Forms.PdfChoiceField.SetValue(string? value) -> void
+Broadside.Forms.PdfChoiceField.SetSelectedIndices(System.Collections.Generic.IEnumerable<int>! indices) -> void
+Broadside.Forms.PdfChoiceField.GenerateAppearances() -> void
+Broadside.Forms.PdfListBoxField.SetTopIndex(int topIndex) -> void
