@@ -7,10 +7,24 @@ namespace Broadside.Forms;
 /// <remarks>ISO 32000-2 §12.7.5.4, Table 234 (<c>Opt</c>): a text string is both; a two-element array is <c>[export display]</c>.</remarks>
 public sealed class PdfChoiceOption
 {
-    internal PdfChoiceOption(string exportValue, string displayText)
+    /// <summary>Initializes a new instance of the <see cref="PdfChoiceOption"/> class: an option whose export value and display text differ.</summary>
+    /// <param name="exportValue">The value exported when the option is selected.</param>
+    /// <param name="displayText">The text shown for the option.</param>
+    /// <remarks>ISO 32000-2 §12.7.5.4, Table 234 (<c>Opt</c>): written as <c>[export display]</c>, or as one text string when both are equal.</remarks>
+    public PdfChoiceOption(string exportValue, string displayText)
     {
+        ArgumentNullException.ThrowIfNull(exportValue);
+        ArgumentNullException.ThrowIfNull(displayText);
         ExportValue = exportValue;
         DisplayText = displayText;
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="PdfChoiceOption"/> class: an option shown and exported as <paramref name="text"/>.</summary>
+    /// <param name="text">The option's text and export value.</param>
+    /// <remarks>ISO 32000-2 §12.7.5.4, Table 234 (<c>Opt</c>): a text string.</remarks>
+    public PdfChoiceOption(string text)
+        : this(text, text)
+    {
     }
 
     /// <summary>Gets the value exported when the option is selected.</summary>
