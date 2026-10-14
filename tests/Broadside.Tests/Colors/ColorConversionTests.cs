@@ -184,6 +184,21 @@ public sealed class ColorConversionTests
     }
 
     [Fact]
+    public void A_tint_transform_removed_as_an_object_is_seen_by_the_converter_built_before()
+    {
+        using PdfDocument document = PdfDocument.Open(
+            Page("<< >>", string.Empty, "<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0] /C1 [1 0 0] /N 1 >>"),
+            new PdfOptions().UseColorManagement(ManagedColorManagement.Classic));
+        PdfColorSpace spot = document.GetColorSpace(Cos("[/Separation /Spot /DeviceRGB 5 0 R]"));
+        Near([1f, 0f, 0f], document.Rgb(spot, 1));
+
+        // §7.3.10: the tint transform now resolves to null, so subtractive ink applies (§8.6.6.4); the array is unchanged.
+        Assert.True(document.RemoveObject(new CosReference(5, 0)));
+
+        Near([0.75f, 0.75f, 0.75f], document.Rgb(spot, 0.25f));
+    }
+
+    [Fact]
     public void A_missing_tint_transform_is_replaced_by_subtractive_ink_on_the_alternate()
     {
         using PdfDocument document = PdfDocument.Open(Page("<< >>", string.Empty), new PdfOptions().UseColorManagement(ManagedColorManagement.Classic));

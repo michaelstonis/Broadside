@@ -26,9 +26,10 @@ internal sealed class NumberTreeReader : TreeReader<int>
     /// <param name="rootReference">The root's reference, for diagnostics; <see langword="null"/> when the root is direct.</param>
     /// <param name="resolve">Resolves references through the document.</param>
     /// <param name="diagnostics">Where to report deviations.</param>
+    /// <param name="objectsVersion">Reads the document's <c>ObjectsVersion</c>, which changes when an object is added or removed.</param>
     /// <param name="maxDepth">The deepest level the walk descends to.</param>
-    internal NumberTreeReader(CosDictionary root, CosReference? rootReference, Func<CosObject?, CosObject> resolve, DiagnosticSink diagnostics, int maxDepth = DefaultMaxDepth)
-        : base(root, rootReference, resolve, diagnostics, maxDepth)
+    internal NumberTreeReader(CosDictionary root, CosReference? rootReference, Func<CosObject?, CosObject> resolve, DiagnosticSink diagnostics, Func<int> objectsVersion, int maxDepth = DefaultMaxDepth)
+        : base(root, rootReference, resolve, diagnostics, objectsVersion, maxDepth)
     {
     }
 

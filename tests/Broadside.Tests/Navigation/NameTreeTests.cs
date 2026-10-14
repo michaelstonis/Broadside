@@ -37,6 +37,21 @@ public sealed class NameTreeTests
     }
 
     [Fact]
+    public void A_leaf_removed_as_an_object_leaves_the_keys_looked_up_before()
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("name-tree-dests.pdf"));
+        PdfNameTree tree = document.Names!.Dests!;
+        Assert.False(tree.TryGetValue("delta", out _));
+        Assert.True(tree.TryGetValue("gamma", out _));
+
+        // §7.3.10: the root's unchanged Kids array's second element now resolves to null.
+        Assert.True(document.RemoveObject(new CosReference(6, 0)));
+
+        Assert.False(document.Names!.Dests!.TryGetValue("gamma", out _));
+        Assert.True(document.Names!.Dests!.TryGetValue("alpha", out _));
+    }
+
+    [Fact]
     public void Every_key_of_a_four_level_tree_resolves_and_enumeration_returns_them_once_in_byte_order()
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Path("name-tree-deep.pdf"));
