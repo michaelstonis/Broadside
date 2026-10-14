@@ -147,6 +147,10 @@ public sealed class PdfObjectCopier
         return copy as CosReference ?? Target.AddObject(copy);
     }
 
+    /// <summary>Gets the target's copy of the source object <paramref name="reference"/> names, when this session has copied it.</summary>
+    internal bool TryGetCopy(CosReference reference, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out CosReference? copy) =>
+        _copies.TryGetValue(reference, out copy);
+
     private CosObject CopyPageObject(CosReference? reference, CosDictionary page, Func<CosName, CosObject?> inherited, CosObject? inheritedAnnots)
     {
         if (reference is not null && _copies.TryGetValue(reference, out CosReference? existing))

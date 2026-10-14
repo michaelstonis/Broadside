@@ -96,6 +96,12 @@ public sealed partial class PdfDocument
     /// (a source without labels numbers them in decimal, as a reader would) and this document's pages keep theirs.
     /// </para>
     /// <para>
+    /// <b>Optional content</b> (§8.11.4): the source's optional content groups the copies use (all of them when every page is copied)
+    /// are listed in this document's <c>OCProperties</c>, which is created when absent, after its own groups, each with its default
+    /// state; the source's <c>Order</c>, <c>RBGroups</c>, <c>Locked</c> and <c>AS</c> are appended to the default configuration's
+    /// and its alternate configurations to <c>Configs</c>, each keeping only those groups. This document's own entries are unchanged.
+    /// </para>
+    /// <para>
     /// Structure (§14.7) is not merged: a copied page keeps its <c>StructParents</c> as it was. Copied objects may raise this
     /// document's version on save (ADR 0003). A mutation of this document: no read of it may run concurrently; the source may be read
     /// by others.
