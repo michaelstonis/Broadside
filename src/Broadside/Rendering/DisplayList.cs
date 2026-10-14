@@ -4,7 +4,7 @@ namespace Broadside.Rendering;
 
 /// <summary>
 /// The device-independent, fully resolved sequence of drawing operations a page's content produces, which every backend consumes
-/// through <see cref="Replay"/>. Build one with <see cref="PdfPage.CreateDisplayList()"/>.
+/// through <see cref="Replay(IRenderingBackend)"/>. Build one with <see cref="PdfPage.CreateDisplayList()"/>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -12,7 +12,7 @@ namespace Broadside.Rendering;
 /// and points in shared arrays) and colours once per run of equal colours, so building costs a fixed number of arrays per page and
 /// replaying allocates nothing. Fonts, images and colour spaces are resolved before an operation enters the list; the list never
 /// reads the file again (a replay touches only the list), so it can be cached and replayed many times, for example per tile and
-/// zoom. Converting its colours goes through <see cref="Document"/>, which must still be open for that.
+/// zoom, where <see cref="Replay(IRenderingBackend, PdfRectangle)"/> skips the paints a tile does not reach. Converting its colours goes through <see cref="Document"/>, which must still be open for that.
 /// </para>
 /// <para>
 /// Today the list carries the graphics state stack (ISO 32000-2 §8.4.2), transforms (§8.3.2), path fills with their colour
@@ -30,7 +30,7 @@ namespace Broadside.Rendering;
 /// Immutable once built: any number of threads may replay the same list at once, each into its own backend.
 /// </para>
 /// </remarks>
-public sealed class DisplayList
+public sealed partial class DisplayList
 {
     private readonly DisplayOperation[] _operations;
     private readonly PathVerb[] _verbs;
@@ -104,73 +104,79 @@ public sealed class DisplayList
         ArgumentNullException.ThrowIfNull(backend);
         foreach (ref readonly DisplayOperation operation in _operations.AsSpan())
         {
-            switch (operation.Kind)
-            {
-                case DisplayOperationKind.SaveState:
-                    backend.SaveState();
-                    break;
-                case DisplayOperationKind.RestoreState:
-                    backend.RestoreState();
-                    break;
-                case DisplayOperationKind.SetTransform:
-                    backend.SetTransform(in _transforms[operation.First]);
-                    break;
-                case DisplayOperationKind.FillPath:
-                    ref readonly DisplayPath path = ref _paths[operation.First];
-                    ref readonly DisplayColorEntry entry = ref _colors[operation.Second];
-                    var color = new DisplayColor(entry.ColorSpace, _components.AsSpan(entry.ComponentStart, entry.ComponentCount), entry.DefaultColorSpaces, entry.Conversion);
-                    backend.FillPath(
-                        new PathView(_verbs.AsSpan(path.VerbStart, path.VerbCount), _points.AsSpan(path.PointStart, path.PointCount)),
-                        operation.FillRule,
-                        in color);
-                    break;
-                case DisplayOperationKind.StrokePath:
-                    Stroke(backend, operation);
-                    break;
-                case DisplayOperationKind.IntersectClip:
-                    ref readonly DisplayPath clip = ref _paths[operation.First];
-                    backend.IntersectClip(
-                        new PathView(_verbs.AsSpan(clip.VerbStart, clip.VerbCount), _points.AsSpan(clip.PointStart, clip.PointCount)),
-                        operation.FillRule);
-                    break;
-                case DisplayOperationKind.DrawImage:
-                    ref readonly DisplayImagePaint paint = ref ImagePaints[operation.Second];
-                    backend.DrawImage(Images[operation.First], paint.DefaultColorSpaces, paint.Conversion);
-                    break;
-                case DisplayOperationKind.DrawGlyphs:
-                    DrawGlyphs(backend, operation);
-                    break;
-                case DisplayOperationKind.DrawShading:
-                    DisplayShading drawn = Shading(operation.First);
-                    backend.DrawShading(in drawn);
-                    break;
-                case DisplayOperationKind.FillPathWithShading:
-                    ref readonly DisplayPath shaded = ref _paths[operation.First];
-                    DisplayShading filled = Shading(operation.Second);
-                    backend.FillPathWithShading(
-                        new PathView(_verbs.AsSpan(shaded.VerbStart, shaded.VerbCount), _points.AsSpan(shaded.PointStart, shaded.PointCount)),
-                        operation.FillRule,
-                        in filled);
-                    break;
-                case DisplayOperationKind.StrokePathWithShading:
-                    Stroke(backend, operation);
-                    break;
-                case DisplayOperationKind.FillImageMask:
-                    ref readonly DisplayColorEntry maskColor = ref _colors[operation.Second];
-                    var maskPaint = new DisplayColor(maskColor.ColorSpace, _components.AsSpan(maskColor.ComponentStart, maskColor.ComponentCount), maskColor.DefaultColorSpaces, maskColor.Conversion);
-                    backend.FillImageMask(ImageMasks[operation.First], in maskPaint);
-                    break;
-                case DisplayOperationKind.SetCompositing:
-                    ref readonly DisplayCompositing compositing = ref Compositings[operation.First];
-                    backend.SetCompositing(compositing.StrokeAlpha, compositing.FillAlpha, compositing.BlendMode);
-                    break;
-                case DisplayOperationKind.BeginAnnotation:
-                    backend.BeginAnnotation(in Annotations[operation.First]);
-                    break;
-                case DisplayOperationKind.EndAnnotation:
-                    backend.EndAnnotation();
-                    break;
-            }
+            Execute(backend, in operation);
+        }
+    }
+
+    /// <summary>Hands one record of the list to the backend.</summary>
+    private void Execute(IRenderingBackend backend, in DisplayOperation operation)
+    {
+        switch (operation.Kind)
+        {
+            case DisplayOperationKind.SaveState:
+                backend.SaveState();
+                break;
+            case DisplayOperationKind.RestoreState:
+                backend.RestoreState();
+                break;
+            case DisplayOperationKind.SetTransform:
+                backend.SetTransform(in _transforms[operation.First]);
+                break;
+            case DisplayOperationKind.FillPath:
+                ref readonly DisplayPath path = ref _paths[operation.First];
+                ref readonly DisplayColorEntry entry = ref _colors[operation.Second];
+                var color = new DisplayColor(entry.ColorSpace, _components.AsSpan(entry.ComponentStart, entry.ComponentCount), entry.DefaultColorSpaces, entry.Conversion);
+                backend.FillPath(
+                    new PathView(_verbs.AsSpan(path.VerbStart, path.VerbCount), _points.AsSpan(path.PointStart, path.PointCount)),
+                    operation.FillRule,
+                    in color);
+                break;
+            case DisplayOperationKind.StrokePath:
+                Stroke(backend, operation);
+                break;
+            case DisplayOperationKind.IntersectClip:
+                ref readonly DisplayPath clip = ref _paths[operation.First];
+                backend.IntersectClip(
+                    new PathView(_verbs.AsSpan(clip.VerbStart, clip.VerbCount), _points.AsSpan(clip.PointStart, clip.PointCount)),
+                    operation.FillRule);
+                break;
+            case DisplayOperationKind.DrawImage:
+                ref readonly DisplayImagePaint paint = ref ImagePaints[operation.Second];
+                backend.DrawImage(Images[operation.First], paint.DefaultColorSpaces, paint.Conversion);
+                break;
+            case DisplayOperationKind.DrawGlyphs:
+                DrawGlyphs(backend, operation);
+                break;
+            case DisplayOperationKind.DrawShading:
+                DisplayShading drawn = Shading(operation.First);
+                backend.DrawShading(in drawn);
+                break;
+            case DisplayOperationKind.FillPathWithShading:
+                ref readonly DisplayPath shaded = ref _paths[operation.First];
+                DisplayShading filled = Shading(operation.Second);
+                backend.FillPathWithShading(
+                    new PathView(_verbs.AsSpan(shaded.VerbStart, shaded.VerbCount), _points.AsSpan(shaded.PointStart, shaded.PointCount)),
+                    operation.FillRule,
+                    in filled);
+                break;
+            case DisplayOperationKind.StrokePathWithShading:
+                Stroke(backend, operation);
+                break;
+            case DisplayOperationKind.FillImageMask:
+                ref readonly DisplayColorEntry maskColor = ref _colors[operation.Second];
+                var maskPaint = new DisplayColor(maskColor.ColorSpace, _components.AsSpan(maskColor.ComponentStart, maskColor.ComponentCount), maskColor.DefaultColorSpaces, maskColor.Conversion);
+                backend.FillImageMask(ImageMasks[operation.First], in maskPaint);
+                break;
+            case DisplayOperationKind.SetCompositing:
+                ref readonly DisplayCompositing compositing = ref Compositings[operation.First];
+                backend.SetCompositing(compositing.StrokeAlpha, compositing.FillAlpha, compositing.BlendMode);
+                break;
+            case DisplayOperationKind.BeginAnnotation:
+                backend.BeginAnnotation(in Annotations[operation.First]);
+                break;
+            case DisplayOperationKind.EndAnnotation:
+                backend.EndAnnotation();
+                break;
         }
     }
 
