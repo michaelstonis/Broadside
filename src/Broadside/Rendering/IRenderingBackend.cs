@@ -191,4 +191,28 @@ public interface IRenderingBackend
     /// </para>
     /// </remarks>
     void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode);
+
+    /// <summary>
+    /// Begins an annotation's appearance: saves the state as <see cref="SaveState"/> does, and the paints until the matching
+    /// <see cref="EndAnnotation"/> are the appearance, composited as one group.
+    /// </summary>
+    /// <param name="annotation">Where the annotation sits, whether it keeps its size and orientation on screen, and how it is composited.</param>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §12.5.5: the paints that follow are already placed on the annotation rectangle (their transforms include the
+    /// matrix <c>AA</c>) and clipped to the appearance's bounding box. A backend that honours <see cref="DisplayAnnotation.NoZoom"/>
+    /// or <see cref="DisplayAnnotation.NoRotate"/> (§12.5.3) maps default user space to the device differently until
+    /// <see cref="EndAnnotation"/>: about the rectangle's upper-left corner, without the device transform's scale or rotation. The
+    /// appearance is a transparency group composited with <see cref="DisplayAnnotation.Opacity"/> and
+    /// <see cref="DisplayAnnotation.BlendMode"/> (§12.5.5, §11.6.6), through the same compositing formulas as
+    /// <see cref="SetCompositing"/>; inside it, paints composite with the alpha constants and blend mode that
+    /// <see cref="SetCompositing"/> sets, which <see cref="EndAnnotation"/> restores with the rest of the state.
+    /// </para>
+    /// <para>Annotations never nest, and a list that holds one starts it with the identity transform (default user space).</para>
+    /// </remarks>
+    void BeginAnnotation(in DisplayAnnotation annotation);
+
+    /// <summary>Ends the annotation <see cref="BeginAnnotation"/> began: composites its appearance and restores the state saved there.</summary>
+    /// <remarks>ISO 32000-2 §12.5.5.</remarks>
+    void EndAnnotation();
 }
