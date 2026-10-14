@@ -239,6 +239,27 @@ public sealed class DisplayListGroupTests
         Assert.Contains("group Transparency isolated bbox [0 0 5 5] [1 0 0 1 2 3]", cell.Operations);
     }
 
+    [Fact]
+    public void A_region_replay_hands_a_group_over_once_or_skips_it_whole()
+    {
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(
+            Encoding.Latin1.GetBytes("/Half gs /Fm0 Do 500 500 10 10 re f"),
+            States + " /XObject << /Fm0 5 0 R >>",
+            Form("/Group << /S /Transparency >> /BBox [0 0 100 100]", "10 10 20 20 re f")));
+        DisplayList list = document.Pages[0].CreateDisplayList();
+        var inside = new RecordingBackend();
+        var outside = new RecordingBackend();
+
+        list.Replay(inside, new PdfRectangle(0, 0, 50, 50));
+        list.Replay(outside, new PdfRectangle(400, 400, 600, 600));
+
+        // Bounded by its content (10..30), the group reaches the backend once, its content through the group alone.
+        Assert.Single(inside.Operations, line => line.StartsWith("group", StringComparison.Ordinal));
+        Assert.Single(inside.Operations, line => line.StartsWith("fill nonzero M 10 10", StringComparison.Ordinal));
+        Assert.DoesNotContain(outside.Operations, line => line.StartsWith("group", StringComparison.Ordinal) || line.StartsWith("fill nonzero M 10 10", StringComparison.Ordinal));
+        Assert.Contains(outside.Operations, line => line.StartsWith("fill nonzero M 500 500", StringComparison.Ordinal));
+    }
+
     private static string Form(string entries, string content, string resources = "") =>
         ContentSamples.Stream(content, $"/Type /XObject /Subtype /Form {entries} /Resources << {resources} >>");
 
