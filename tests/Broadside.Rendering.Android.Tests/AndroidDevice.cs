@@ -61,28 +61,46 @@ internal sealed class AndroidDevice
         return device;
     }
 
-    /// <summary>Returns the device's render of a page, read back from the app's external files directory.</summary>
-    public GoldenImage Render(string fileName, int page)
+    /// <summary>
+    /// Returns the device's render of a page in a variant (<see cref="DeviceProtocol.Native"/>, <see cref="DeviceProtocol.Outlines"/>
+    /// or <see cref="DeviceProtocol.Paths"/>), read back from the app's external files directory.
+    /// </summary>
+    public GoldenImage Render(string fileName, int page, string variant = DeviceProtocol.Native)
     {
         string[] size = Result(DeviceProtocol.SizeKey(fileName, page)).Split(' ');
         int width = int.Parse(size[0], CultureInfo.InvariantCulture);
         int height = int.Parse(size[1], CultureInfo.InvariantCulture);
-        string path = $"{DeviceProtocol.DeviceFilesDirectory}/{DeviceProtocol.OutputDirectory}/{DeviceProtocol.PixelFile(fileName, page)}";
+        string path = $"{DeviceProtocol.DeviceFilesDirectory}/{DeviceProtocol.OutputDirectory}/{DeviceProtocol.PixelFile(fileName, page, variant)}";
         byte[] pixels = RunAdb(_adb, ["-s", _serial, "exec-out", "cat", path]).Output;
         Assert.True(pixels.Length == width * height * 4, $"{path} holds {pixels.Length} bytes; a {width} x {height} render needs {width * height * 4}.");
         return GoldenImage.FromPixels(pixels, width, height, width * 4, GoldenPixelFormat.Bgra8);
     }
 
-    /// <summary>Returns the fewest bytes one warm replay of the page allocated on the device.</summary>
-    public long ReplayAllocatedBytes(string fileName, int page) =>
-        long.Parse(Result(DeviceProtocol.AllocatedKey(fileName, page)), CultureInfo.InvariantCulture);
+    /// <summary>Returns the diagnostic codes the backend reported for a render variant of the page.</summary>
+    public string[] Diagnostics(string fileName, int page, string variant = DeviceProtocol.Native) =>
+        Result(DeviceProtocol.DiagnosticsKey(fileName, page, variant)).Split(',', StringSplitOptions.RemoveEmptyEntries);
+
+    /// <summary>Returns how many glyphs a render variant of the page drew through Android's font engine.</summary>
+    public int NativeGlyphs(string fileName, int page, string variant = DeviceProtocol.Native) =>
+        int.Parse(Result(DeviceProtocol.NativeGlyphsKey(fileName, page, variant)), CultureInfo.InvariantCulture);
+
+    /// <summary>Returns how many Android fonts a fresh backend built while rendering every page of the file twice.</summary>
+    public int FontsCreated(string fileName) => int.Parse(Result(DeviceProtocol.FontsKey(fileName)), CultureInfo.InvariantCulture);
+
+    /// <summary>Returns why the device's path reference did not draw the page, or <see langword="null"/> when it did.</summary>
+    public string? PathReference(string fileName, int page) =>
+        Result(DeviceProtocol.PathsKey(fileName, page)) is var answer && answer == "yes" ? null : answer;
+
+    /// <summary>Returns the fewest bytes one warm replay of the page allocated on the device, with native glyphs or forced outlines.</summary>
+    public long ReplayAllocatedBytes(string fileName, int page, string variant = DeviceProtocol.Native) =>
+        long.Parse(Result(DeviceProtocol.AllocatedKey(fileName, page, variant)), CultureInfo.InvariantCulture);
 
     /// <summary>Returns what the device's measurement reports for one 64-byte array: above zero when the runtime counts allocations.</summary>
     public long AllocationProbeBytes() => long.Parse(Result(DeviceProtocol.AllocationProbeKey), CultureInfo.InvariantCulture);
 
     /// <summary>Returns the mean time of one warm replay of the page on the device, in microseconds.</summary>
-    public double ReplayMicroseconds(string fileName, int page) =>
-        double.Parse(Result(DeviceProtocol.ReplayTimeKey(fileName, page)), CultureInfo.InvariantCulture);
+    public double ReplayMicroseconds(string fileName, int page, string variant = DeviceProtocol.Native) =>
+        double.Parse(Result(DeviceProtocol.ReplayTimeKey(fileName, page, variant)), CultureInfo.InvariantCulture);
 
     private string Result(string key) =>
         _results.TryGetValue(key, out string? value) ? value : throw new InvalidOperationException($"The instrumentation reported no '{key}'.");

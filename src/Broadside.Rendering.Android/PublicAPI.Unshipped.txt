@@ -7,3 +7,4 @@ Broadside.Rendering.Android.AndroidCanvasBackend.Render(Broadside.PdfPage! page)
 Broadside.Rendering.Android.AndroidCanvasBackend.Render(Broadside.PdfPage! page, Android.Graphics.Canvas! canvas, Broadside.Rendering.RenderOptions! options) -> void
 Broadside.Rendering.Android.AndroidCanvasBackend.Render(Broadside.PdfPage! page, Broadside.Rendering.RenderOptions! options) -> Android.Graphics.Bitmap!
 Broadside.Rendering.Android.AndroidCanvasBackend.Render(Broadside.Rendering.DisplayList! list, Android.Graphics.Canvas! canvas, in Broadside.Graphics.Matrix deviceTransform) -> void
+Broadside.Rendering.Android.AndroidCanvasBackend.Render(Broadside.Rendering.DisplayList! list, Android.Graphics.Canvas! canvas, in Broadside.Graphics.Matrix deviceTransform, bool forceOutlines) -> void

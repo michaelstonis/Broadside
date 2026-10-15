@@ -27,8 +27,38 @@ internal static class DeviceProtocol
     /// <summary>The app's external files directory as adb's shell sees it; readable without <c>run-as</c>, so release builds work.</summary>
     public const string DeviceFilesDirectory = "/sdcard/Android/data/" + Package + "/files";
 
-    /// <summary>Returns the name of the file that holds a page's pixels: 32-bit ARGB per pixel, little-endian (B, G, R, A bytes), rows top first, no padding.</summary>
-    public static string PixelFile(string fileName, int page) => $"{Path.GetFileNameWithoutExtension(fileName)}.page{page}.bgra";
+    /// <summary>The render variant with native glyphs (the backend's default).</summary>
+    public const string Native = "";
+
+    /// <summary>The render variant with <c>RenderOptions.ForceOutlines</c> set.</summary>
+    public const string Outlines = "outlines";
+
+    /// <summary>The render variant drawn by the device app's independent path reference (glyph outlines filled as plain Android paths).</summary>
+    public const string Paths = "paths";
+
+    /// <summary>
+    /// Returns the name of the file that holds a page's pixels in a render variant: 32-bit ARGB per pixel, little-endian (B, G, R, A
+    /// bytes), rows top first, no padding.
+    /// </summary>
+    public static string PixelFile(string fileName, int page, string variant = Native) =>
+        variant.Length == 0
+            ? $"{Path.GetFileNameWithoutExtension(fileName)}.page{page}.bgra"
+            : $"{Path.GetFileNameWithoutExtension(fileName)}.page{page}.{variant}.bgra";
+
+    /// <summary>Returns the result key of how many glyphs a render variant of the page drew through Android's font engine.</summary>
+    public static string NativeGlyphsKey(string fileName, int page, string variant = Native) => $"native-glyphs{Suffix(variant)}:{fileName}:{page}";
+
+    /// <summary>Returns the result key of how many Android fonts a fresh backend built while rendering every page of a file twice.</summary>
+    public static string FontsKey(string fileName) => "fonts:" + fileName;
+
+    /// <summary>Returns the result key of the diagnostic codes a render variant of the page reported, separated by commas.</summary>
+    public static string DiagnosticsKey(string fileName, int page, string variant = Native) => $"diagnostics{Suffix(variant)}:{fileName}:{page}";
+
+    /// <summary>
+    /// Returns the result key that says whether the path reference drew the page: <c>yes</c>, or why not (the page paints something
+    /// the reference does not draw).
+    /// </summary>
+    public static string PathsKey(string fileName, int page) => $"paths:{fileName}:{page}";
 
     /// <summary>Returns the result key of a file's page count.</summary>
     public static string PageCountKey(string fileName) => "pages:" + fileName;
@@ -37,7 +67,7 @@ internal static class DeviceProtocol
     public static string SizeKey(string fileName, int page) => $"size:{fileName}:{page}";
 
     /// <summary>Returns the result key of the fewest bytes one warm replay of the page allocated on the replaying thread.</summary>
-    public static string AllocatedKey(string fileName, int page) => $"allocated:{fileName}:{page}";
+    public static string AllocatedKey(string fileName, int page, string variant = Native) => $"allocated{Suffix(variant)}:{fileName}:{page}";
 
     /// <summary>
     /// The result key of what the same measurement reports for one small allocation: above zero, it shows that the runtime on the
@@ -46,5 +76,7 @@ internal static class DeviceProtocol
     public const string AllocationProbeKey = "allocation-probe";
 
     /// <summary>Returns the result key of the mean time of one warm replay of the page, in microseconds.</summary>
-    public static string ReplayTimeKey(string fileName, int page) => $"replay-us:{fileName}:{page}";
+    public static string ReplayTimeKey(string fileName, int page, string variant = Native) => $"replay-us{Suffix(variant)}:{fileName}:{page}";
+
+    private static string Suffix(string variant) => variant.Length == 0 ? string.Empty : "-" + variant;
 }
