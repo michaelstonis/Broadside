@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Security.Cryptography.Pkcs;
 using System.Security.Cryptography.X509Certificates;
 using Broadside.Objects;
+using Broadside.Security.Cryptography;
 using Broadside.Signatures;
 using Broadside.Tests.Writing;
 using Broadside.TestSupport;
@@ -180,6 +181,44 @@ public sealed class PadesSigningTests
         OpenSsl.VerifyCms(signature.Cms, signature.CoveredBytes(), publicOnly);
         Assert.Equal("2.16.840.1.101.3.4.2.2", DecodeSigner(signature).DigestAlgorithm.Value);
         Assert.Equal(1, Pdfsig.ValidSignatures(Pdfsig.Run(signed)));
+    }
+
+    [Theory]
+    [InlineData("nistP256", 'r', "00")]
+    [InlineData("nistP256", 's', "00")]
+    [InlineData("nistP256", 'r', "0080")]
+    [InlineData("nistP256", 's', "80")]
+    [InlineData("nistP384", 'r', "00")]
+    [InlineData("nistP384", 's', "00")]
+    [InlineData("nistP384", 's', "0080")]
+    [InlineData("nistP384", 'r', "80")]
+    [InlineData("nistP521", 'r', "00")]
+    [InlineData("nistP521", 's', "00")]
+    [InlineData("nistP521", 'r', "0000")]
+    [InlineData("nistP521", 's', "0080")]
+    public void An_r_or_s_with_a_leading_zero_or_high_bit_byte_is_written_as_a_minimal_der_integer(string curve, char half, string prefix)
+    {
+        // The signer signs until the chosen half starts with the shape ("00": a zero byte then one below 0x80; "0080": a zero
+        // byte then one at or above 0x80; "0000": two zero bytes; "80": a first byte at or above 0x80), so every case exercises
+        // its shape whatever nonce the platform draws.
+        using X509Certificate2 withKey = TestCertificates.SelfSignedEcdsa("CN=Token signer", ECCurve.CreateFromFriendlyName(curve));
+        using ECDsa certificateKey = withKey.GetECDsaPrivateKey()!;
+        using ECDsa key = ECDsa.Create(certificateKey.ExportParameters(includePrivateParameters: true));
+        using X509Certificate2 publicOnly = X509CertificateLoader.LoadCertificate(withKey.RawData);
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("empty-page.pdf"));
+
+        byte[] signed = Sign(document, new ShapedP1363Signer(publicOnly, key, half, prefix));
+
+        SignedFile signature = SignedFile.Last(signed);
+        OpenSsl.VerifyCms(signature.Cms, signature.CoveredBytes(), publicOnly);
+        PdfSignatureValidationOptions trust = SignatureValidationTests.Trusting(publicOnly);
+        PdfSignatureValidation validation = SignatureValidationTests.ValidateSingle(signed, trust);
+        Assert.True(validation.Status == PdfSignatureStatus.Valid, string.Join("; ", validation.Problems));
+        using (CryptographyBackend.ForceManaged())
+        {
+            PdfSignatureValidation managed = SignatureValidationTests.ValidateSingle(signed, trust);
+            Assert.True(managed.Status == PdfSignatureStatus.Valid, string.Join("; ", managed.Problems));
+        }
     }
 
     [Theory]
@@ -395,6 +434,38 @@ public sealed class PadesSigningTests
 
         public byte[] SignDigest(ReadOnlySpan<byte> digest, HashAlgorithmName digestAlgorithm) =>
             key.SignHash(digest.ToArray(), digestAlgorithm, RSASignaturePadding.Pss);
+    }
+
+    /// <summary>An IEEE P1363 signer whose <c>r</c> or <c>s</c> starts with the byte shape <c>prefix</c> names.</summary>
+    private sealed class ShapedP1363Signer(X509Certificate2 certificate, ECDsa key, char half, string prefix) : IPdfSigner
+    {
+        public X509Certificate2 Certificate => certificate;
+
+        public IReadOnlyList<X509Certificate2> CertificateChain => [];
+
+        public byte[] SignDigest(ReadOnlySpan<byte> digest, HashAlgorithmName digestAlgorithm)
+        {
+            byte[] hash = digest.ToArray();
+            for (int attempt = 0; attempt < 1_000_000; attempt++)
+            {
+                byte[] value = key.SignHash(hash, DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+                int coordinate = value.Length / 2;
+                ReadOnlySpan<byte> part = half == 'r' ? value.AsSpan(0, coordinate) : value.AsSpan(coordinate);
+                bool matches = prefix switch
+                {
+                    "00" => part[0] == 0 && part[1] < 0x80,
+                    "0080" => part[0] == 0 && part[1] >= 0x80,
+                    "0000" => part[0] == 0 && part[1] == 0,
+                    _ => part[0] >= 0x80,
+                };
+                if (matches)
+                {
+                    return value;
+                }
+            }
+
+            throw new InvalidOperationException($"No signature with {half} starting {prefix}.");
+        }
     }
 
     /// <summary>An ECDSA signer returning <c>r</c> and <c>s</c> concatenated, as a PKCS #11 token does.</summary>
