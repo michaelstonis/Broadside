@@ -29,6 +29,9 @@ internal abstract class ColorPipeline
         OutputCount = outputs;
     }
 
+    /// <summary>Gets the range of each input component.</summary>
+    public ComponentRange[] InputRanges => _ranges;
+
     /// <summary>Gets the number of input components.</summary>
     public int InputCount => _ranges.Length;
 

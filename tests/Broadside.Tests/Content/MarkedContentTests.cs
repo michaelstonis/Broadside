@@ -83,8 +83,9 @@ public sealed class MarkedContentTests
 
         document.Pages[0].ProcessContent(recorder);
 
-        // /a visible, /m1 (A and B all off: false) hidden, /m2 (A or not B) visible, /a inside /b (off) hidden; the form /OC B is not run.
-        Assert.Equal([(0.0, false), (20.0, true), (40.0, false), (60.0, true)], recorder.Paints);
+        // /a visible, /m1 (A and B all off: false) hidden, /m2 (A or not B) visible, /a inside /b (off) hidden; the form /OC B is not
+        // run; /d2 visible (its Print usage applies only through the AS entry, when printing).
+        Assert.Equal([(0.0, false), (20.0, true), (40.0, false), (60.0, true), (100.0, false)], recorder.Paints);
     }
 
     [Fact]
@@ -98,7 +99,7 @@ public sealed class MarkedContentTests
         document.Pages[0].ProcessContent(recorder, new ContentOptions().WithOptionalContentState(state));
 
         // With B on, /b is visible, /m1 is still hidden (A is on) and the form is drawn.
-        Assert.Equal([0.0, 40.0, 60.0, 80.0], recorder.Paints.Select(paint => paint.X));
+        Assert.Equal([0.0, 40.0, 60.0, 80.0, 100.0], recorder.Paints.Select(paint => paint.X));
     }
 
     [Fact]

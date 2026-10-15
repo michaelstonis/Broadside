@@ -63,6 +63,17 @@ public sealed class FilterContext
     /// </remarks>
     public long MaxDecodedLength { get; init; } = PdfOptions.DefaultMaxDecodedStreamLength;
 
+    /// <summary>
+    /// Gets the token that cancels the decode: a filter that runs long (an image codec, an inflater) checks it between units of work
+    /// (a row of blocks, a code-block, a chunk of output) and throws <see cref="OperationCanceledException"/>, returning what it rented.
+    /// </summary>
+    /// <remarks>
+    /// Viewer capability 2 (issue #97): building a display list hands its <see cref="Content.ContentOptions.CancellationToken"/> to
+    /// the decodes of the page's content and images, so a long decode stops when the build is cancelled. The pipeline never turns
+    /// the exception into a diagnostic. <see cref="CancellationToken.None"/> by default and for <see cref="DecodeStream"/>.
+    /// </remarks>
+    public CancellationToken CancellationToken { get; init; }
+
     /// <summary>Gets the diagnostics reported through this context, in order.</summary>
     public IReadOnlyList<Diagnostic> Diagnostics => (IReadOnlyList<Diagnostic>?)_diagnostics ?? [];
 

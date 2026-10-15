@@ -10,7 +10,8 @@ namespace Broadside.Content;
 /// <remarks>
 /// ISO 32000-2 §8.9.4 (image space maps to the unit square, then the CTM), §8.9.5 (image XObjects), §8.9.7 (inline images).
 /// Declared with the content interpreter's processor surface (issue #55); reported from issue #56, with the decoded image model of
-/// issue #60. Members are added, never changed.
+/// issue #60. Members are added, never changed. For <c>Do</c> the image is the one §8.9.5.4 selects: the base image named in the
+/// resources, or one of its <c>Alternates</c> (by optional content, or <c>DefaultForPrinting</c> in a run for printing).
 /// </remarks>
 public readonly ref struct ImageEvent
 {

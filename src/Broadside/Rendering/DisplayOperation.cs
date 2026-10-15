@@ -47,6 +47,11 @@ internal enum DisplayOperationKind : byte
     /// <summary><see cref="IRenderingBackend.SetCompositing"/>; <see cref="DisplayOperation.First"/> indexes the compositing table.</summary>
     SetCompositing,
 
+    /// <summary>
+    /// <see cref="IRenderingBackend.DrawGroup"/>; <see cref="DisplayOperation.First"/> indexes the groups, whose content is the
+    /// operations from this one's successor up to the group's end.
+    /// </summary>
+    DrawGroup,
     /// <summary><see cref="IRenderingBackend.FillPathWithTilingPattern"/>; <see cref="DisplayOperation.First"/> indexes the paths, <see cref="DisplayOperation.Second"/> the tiling paints.</summary>
     FillPathWithTilingPattern,
 
@@ -60,6 +65,14 @@ internal enum DisplayOperationKind : byte
 
     /// <summary><see cref="IRenderingBackend.EndAnnotation"/>.</summary>
     EndAnnotation,
+
+    /// <summary><see cref="IRenderingBackend.SetDeviceParameters"/>; <see cref="DisplayOperation.First"/> indexes the device parameters.</summary>
+    SetDeviceParameters,
+    /// <summary>
+    /// <see cref="IRenderingBackend.SetSoftMask"/>; <see cref="DisplayOperation.First"/> indexes the soft masks, or is −1 for none.
+    /// State only, like <see cref="SetCompositing"/>.
+    /// </summary>
+    SetSoftMask,
 }
 
 /// <summary>One record of a display list: a kind and up to two indexes into the list's tables, 16 bytes.</summary>
@@ -112,6 +125,26 @@ internal readonly record struct DisplayShadingPaint(
     PdfDefaultColorSpaces DefaultColorSpaces,
     ColorConversion Conversion);
 
+/// <summary>
+/// A transparency group in a display list: its attributes, how it composites, its bounds and the range of operations that are its
+/// content (<see cref="Start"/> inclusive to <see cref="End"/> exclusive).
+/// </summary>
+internal readonly record struct DisplayGroupEntry(
+    DisplayGroupKind Kind,
+    bool IsIsolated,
+    bool IsKnockout,
+    PdfColorSpace? ColorSpace,
+    PdfDefaultColorSpaces DefaultColorSpaces,
+    ColorConversion Conversion,
+    double Opacity,
+    BlendMode BlendMode,
+    bool HasBoundingBox,
+    PdfRectangle BoundingBox,
+    Matrix Matrix,
+    int Start,
+    int End,
+    int SoftMask = -1);
+
 /// <summary>The alpha constants and blend mode a display list sets with <see cref="DisplayOperationKind.SetCompositing"/>.</summary>
 internal readonly record struct DisplayCompositing(double StrokeAlpha, double FillAlpha, BlendMode BlendMode)
 {
@@ -121,3 +154,20 @@ internal readonly record struct DisplayCompositing(double StrokeAlpha, double Fi
 
 /// <summary>A tiling-pattern paint in a display list: the pattern, its pattern space relative to the list, and its cell's own list.</summary>
 internal readonly record struct DisplayTilingPaint(PdfTilingPattern Pattern, Matrix Matrix, DisplayList Cell);
+
+/// <summary>
+/// A soft mask in a display list (ISO 32000-2 §11.6.5.1): how its values derive from its group, the group's own list in mask space,
+/// where mask space is, the luminosity backdrop and transfer function, whether it gives shape or opacity, and the group's bounds.
+/// </summary>
+internal readonly record struct DisplaySoftMaskEntry(
+    Graphics.PdfSoftMaskType Subtype,
+    DisplayList Content,
+    Matrix Matrix,
+    PdfColorSpace? ColorSpace,
+    float[] Backdrop,
+    PdfDefaultColorSpaces DefaultColorSpaces,
+    ColorConversion Conversion,
+    PdfFunction? TransferFunction,
+    bool IsShape,
+    bool HasBoundingBox,
+    PdfRectangle BoundingBox);

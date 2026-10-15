@@ -86,7 +86,11 @@ internal sealed class EncryptionPlan
     /// <param name="options">The save options.</param>
     /// <param name="incremental">Whether the save is an incremental update, which keeps the document's encryption.</param>
     /// <returns>The plan.</returns>
-    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption the algorithm cannot write.</exception>
+    /// <exception cref="ArgumentException">
+    /// The options both set and remove encryption, set password and public-key encryption together, set encryption the algorithm
+    /// cannot write, or set public-key encryption without a recipient.
+    /// </exception>
+    /// <exception cref="PdfEncryptionNotSupportedException">Public-key encryption in a browser, which has no CMS.</exception>
     /// <exception cref="NotSupportedException">
     /// The save would change an incremental update's encryption, or keep an integrity MAC it cannot compute again (a document opened
     /// without its file encryption key, or whose encryption dictionary has no 32-byte <c>KDFSalt</c> or a <c>V</c> below 5). Never for
@@ -100,6 +104,11 @@ internal sealed class EncryptionPlan
             throw new ArgumentException("A save cannot both set new encryption and remove encryption.", nameof(options));
         }
 
+        if (options.PublicKeyEncryption is not null && (options.Encryption is not null || options.RemoveEncryption))
+        {
+            throw new ArgumentException("A save cannot set public-key encryption together with password encryption or with removing encryption.", nameof(options));
+        }
+
         CosDictionary trailer = loader.CrossReference.Trailer;
         bool hasEncrypt = trailer.ContainsKey(KnownNames.Encrypt);
         DocumentDecryptor? decryptor = security is null ? null : loader.Hooks.Decryptor as DocumentDecryptor;
@@ -107,6 +116,33 @@ internal sealed class EncryptionPlan
         {
             throw new NotSupportedException(
                 "An incremental update keeps the document's encryption (ISO 32000-2 §7.5.6: the earlier revisions stay as written); save a complete file to encrypt, re-encrypt or decrypt it.");
+        }
+
+        if (options.PublicKeyEncryption is { } publicKey)
+        {
+            if (incremental)
+            {
+                throw new NotSupportedException(
+                    "An incremental update keeps the document's encryption (ISO 32000-2 §7.5.6: the earlier revisions stay as written); save a complete file to encrypt it for certificate recipients.");
+            }
+
+            // The public-key file key does not hash the file identifier (§7.6.5.3); the source's first one is kept, or a random one written.
+            byte[] identifier = trailer.TryGetValue(KnownNames.ID, out CosObject? ids) && loader.Resolve(ids) is CosArray { Count: >= 1 } idArray && loader.Resolve(idArray[0]) is CosString firstId
+                ? firstId.Bytes.ToArray()
+                : RandomNumberGenerator.GetBytes(16);
+            PublicKeyEncryption recipients = PublicKeyEncryption.Create(publicKey);
+
+            // ISO/TS 32004 §6.4: with adbe.pkcs7.s5 the MAC's key material is the key of the crypt filter DefaultCryptFilter.
+            IntegrityCodeWriter? recipientsMac = recipients.KdfSalt is { } recipientsSalt ? new IntegrityCodeWriter(recipients.Filter.Key, recipientsSalt) : null;
+            return new EncryptionPlan(
+                ObjectEncryptor.Create(recipients.Filter, recipients.EncryptMetadata, recipients.Dictionary, loader.Resolve),
+                replacesDictionary: true,
+                recipients.Dictionary,
+                new CosString(identifier, hexadecimal: true),
+                recipientsMac is null ? [VersionedFeatures.Aes256Encryption] : [VersionedFeatures.Aes256Encryption, VersionedFeatures.IntegrityProtection],
+                recipientsMac,
+                decryptor,
+                keepsSourceEncryption: false);
         }
 
         if (options.Encryption is { } encryption)

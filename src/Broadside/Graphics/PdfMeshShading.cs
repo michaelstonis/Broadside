@@ -20,7 +20,7 @@ namespace Broadside.Graphics;
 /// <para>
 /// Repairs: field widths outside the sets the tables allow are read as given (1 to 32 bits) with a diagnostic; truncated data keeps
 /// the complete triangles or patches before the cut with one <c>MeshDataTruncated</c> diagnostic; see the subclasses for edge
-/// flags. Meshes larger than the limit are cut there with a diagnostic.
+/// flags. Meshes larger than <see cref="PdfOptions.MaxMeshVertices"/> are cut there with a <c>MeshSizeExceeded</c> diagnostic.
 /// </para>
 /// </remarks>
 public abstract class PdfMeshShading : PdfShading
@@ -32,6 +32,7 @@ public abstract class PdfMeshShading : PdfShading
     private readonly Lazy<MeshData> _mesh;
     private readonly MeshLayout? _layout;
     private readonly double[] _decode;
+    private readonly IReadOnlyList<double> _decodeView;
 
     private protected PdfMeshShading(ShadingReader reader, PdfShadingType type)
         : base(reader, type)
@@ -43,6 +44,7 @@ public abstract class PdfMeshShading : PdfShading
         VerticesPerRowValue = shadingType == 5 ? ReadVerticesPerRow(reader) : 0;
         int values = HasFunction ? 1 : ColorSpace.ComponentCount;
         _decode = reader.Numbers(ShadingNames.Decode) ?? [];
+        _decodeView = Array.AsReadOnly(_decode);
         if (_decode.Length < 4 + (2 * values))
         {
             reader.Invalid(
@@ -90,7 +92,7 @@ public abstract class PdfMeshShading : PdfShading
 
     /// <summary>Gets the Decode array: x<sub>min</sub> x<sub>max</sub> y<sub>min</sub> y<sub>max</sub>, then a pair per colour value.</summary>
     /// <remarks>ISO 32000-2 Tables 81 to 83 (<c>Decode</c>) and §8.9.5.2.</remarks>
-    public IReadOnlyList<double> Decode => Array.AsReadOnly(_decode);
+    public IReadOnlyList<double> Decode => _decodeView;
 
     /// <summary>Gets the number of floats per stored colour: 1 (t) with a function, else the components of the interpolation space.</summary>
     public int ColorStride => HasFunction ? 1 : ColorComponentCount;

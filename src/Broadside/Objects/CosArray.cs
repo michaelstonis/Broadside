@@ -97,6 +97,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
         set
         {
             ArgumentNullException.ThrowIfNull(value);
+            CosChangeLog.Changing(this);
             _items[index] = value;
             _changed = true;
             Version++;
@@ -108,6 +109,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     public void Add(CosObject item)
     {
         ArgumentNullException.ThrowIfNull(item);
+        CosChangeLog.Changing(this);
         _items.Add(item);
         _changed = true;
         Version++;
@@ -119,6 +121,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     public void Insert(int index, CosObject item)
     {
         ArgumentNullException.ThrowIfNull(item);
+        CosChangeLog.Changing(this);
         _items.Insert(index, item);
         _changed = true;
         Version++;
@@ -128,6 +131,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     /// <param name="index">The zero-based index.</param>
     public void RemoveAt(int index)
     {
+        CosChangeLog.Changing(this);
         _items.RemoveAt(index);
         _changed = true;
         Version++;
@@ -138,6 +142,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     /// <returns><see langword="true"/> when an element was removed.</returns>
     public bool Remove(CosObject item)
     {
+        CosChangeLog.Changing(this);
         bool removed = _items.Remove(item);
         _changed |= removed;
         Version += removed ? 1 : 0;
@@ -147,6 +152,7 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
     /// <summary>Removes every element; marks the array dirty when it was not already empty.</summary>
     public void Clear()
     {
+        CosChangeLog.Changing(this);
         _changed |= _items.Count > 0;
         Version += _items.Count > 0 ? 1 : 0;
         _items.Clear();
@@ -166,6 +172,20 @@ public sealed class CosArray : CosObject, IList<CosObject>, IReadOnlyList<CosObj
 
     /// <inheritdoc/>
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+
+    /// <inheritdoc/>
+    internal override Action CaptureState()
+    {
+        CosObject[] items = [.. _items];
+        bool changed = _changed;
+        return () =>
+        {
+            _items.Clear();
+            _items.AddRange(items);
+            _changed = changed;
+            Version++;
+        };
+    }
 
     /// <summary>Replaces the element at <paramref name="index"/> as part of loading (decryption), without marking the array dirty.</summary>
     /// <param name="index">The element's position.</param>

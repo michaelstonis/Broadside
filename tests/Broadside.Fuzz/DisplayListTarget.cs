@@ -13,9 +13,11 @@ namespace Broadside.Fuzz;
 /// Decode map that agree on its component count; every glyph run (issue #100) has glyphs whose outlines are well formed, paints
 /// in no Pattern colour, paints nothing in mode 3 and fills or strokes only in the modes that do; every shading (issue #109) is
 /// valid, evaluates to finite colours and paints its Background only as a pattern; every tiling pattern (issue #112) is valid with
-/// an invertible pattern space and a cell that replays balanced; two replays of one list make the same calls; a region replay
-/// (issue #96) holding everything makes them all, and any other makes a balanced subset.
-/// Each call runs in a new empty document.
+/// an invertible pattern space and a cell that replays balanced; every soft mask (issue #115)
+/// has a backdrop that fits its space and a group list that replays balanced; two replays of one list make the same calls; a region replay
+/// (issue #96) holding everything makes them all, and any other makes a balanced subset. The list's hit-test index (issue #101)
+/// gives every glyph a contiguous slice of its text, returns point matches in kind and content order, and finds every glyph whose
+/// box has real size at its centre. Each call runs in a new empty document.
 /// </summary>
 /// <remarks>ADR 0006; ISO 32000-2 §8.4.2, §8.4.3, §8.5.3, §8.5.4, §8.6.</remarks>
 internal static class DisplayListTarget
@@ -45,6 +47,44 @@ internal static class DisplayListTarget
         var region = new CheckingBackend();
         list.Replay(region, new PdfRectangle(corner, corner, corner + 50, corner + 50));
         Check(region.Depth == 0 && region.Calls <= first.Calls, "a region replay is not a balanced subset");
+        CheckHitTest(list.CreateHitTestIndex());
+    }
+
+    private static void CheckHitTest(HitTestIndex index)
+    {
+        int text = 0;
+        for (int glyph = 0; glyph < index.GlyphCount; glyph++)
+        {
+            HitTestGlyph entry = index.GetGlyph(glyph);
+            Check(entry.TextStart == text && entry.TextLength >= 0, "a glyph's text does not follow the one before");
+            text += entry.TextLength;
+        }
+
+        Check(text == index.Text.Length, "the glyphs' text does not cover the index's text");
+        for (int glyph = 0; glyph < Math.Min(index.GlyphCount, 64); glyph++)
+        {
+            Quad quad = index.GetGlyph(glyph).Quad;
+            double ux = quad.BottomRight.X - quad.BottomLeft.X;
+            double uy = quad.BottomRight.Y - quad.BottomLeft.Y;
+            double vx = quad.TopLeft.X - quad.BottomLeft.X;
+            double vy = quad.TopLeft.Y - quad.BottomLeft.Y;
+            var centre = new PathPoint(quad.BottomLeft.X + ((ux + vx) / 2), quad.BottomLeft.Y + ((uy + vy) / 2));
+            PdfRectangle bounds = quad.Bounds;
+            bool sized = Math.Abs((ux * vy) - (uy * vx)) > 1
+                && Math.Max(Math.Max(Math.Abs(bounds.Left), Math.Abs(bounds.Right)), Math.Max(Math.Abs(bounds.Bottom), Math.Abs(bounds.Top))) < 1e6;
+            bool found = false;
+            int previousKind = 0;
+            int previousIndex = -1;
+            foreach (HitTestItem item in index.Find(centre, HitTestKinds.All))
+            {
+                Check((int)item.Kind > previousKind || ((int)item.Kind == previousKind && item.Index > previousIndex), "matches are out of order");
+                previousKind = (int)item.Kind;
+                previousIndex = item.Index;
+                found |= item.Kind == HitTestKinds.Glyphs && item.Index == glyph;
+            }
+
+            Check(found || !sized, "a glyph is not found at its centre");
+        }
     }
 
     private static void Check(bool condition, string message)
@@ -67,6 +107,9 @@ internal static class DisplayListTarget
         public int Calls { get; private set; }
 
         public double Checksum { get; private set; }
+
+        // The soft-mask lists already checked (each is replayed once per backend: a mask arrives before many paints).
+        private HashSet<DisplayList> CheckedMasks { get; } = new(ReferenceEqualityComparer.Instance);
 
         public void SaveState()
         {
@@ -199,6 +242,55 @@ internal static class DisplayListTarget
             Check(strokeAlpha is >= 0 and <= 1 && fillAlpha is >= 0 and <= 1, "an alpha constant outside 0 to 1");
             Check(Enum.IsDefined(blendMode), "an undefined blend mode");
             Checksum += strokeAlpha + fillAlpha + (int)blendMode;
+        }
+
+        public void SetDeviceParameters(in DisplayDeviceParameters parameters)
+        {
+            Calls++;
+            Check(parameters.OverprintMode is 0 or 1, "an overprint mode other than 0 or 1");
+            Check(parameters.Halftone is null or Broadside.Objects.CosDictionary or Broadside.Objects.CosStream, "a halftone that is not a dictionary or stream");
+            Checksum += parameters.OverprintMode + (parameters.StrokeOverprint ? 2 : 0) + (parameters.FillOverprint ? 4 : 0);
+        }
+
+        public void DrawGroup(in DisplayGroup group)
+        {
+            Calls++;
+            Check(group.Opacity is >= 0 and <= 1, "a group opacity outside 0 to 1");
+            Check(Enum.IsDefined(group.BlendMode) && Enum.IsDefined(group.Kind), "an undefined blend mode or group kind");
+            Check(group.Kind != DisplayGroupKind.Page || group.IsIsolated, "a page group that is not isolated");
+            Check(group.Kind != DisplayGroupKind.FillAndStroke || (group.IsKnockout && !group.IsIsolated), "a fill-and-stroke group that is not a non-isolated knockout group");
+            Check(group.ColorSpace is null || group.IsIsolated, "a non-isolated group with its own colour space");
+            Check(group.ColorSpace is null || group.ColorSpace.ComponentCount is 1 or 3 or 4, "a group colour space that cannot blend");
+            int depth = Depth;
+            group.Replay(this);
+            Check(Depth == depth, "a group's content is not balanced");
+            Checksum += group.Opacity + (int)group.BlendMode;
+            CheckSoftMask(group.SoftMask);
+        }
+
+        public void SetSoftMask(in DisplaySoftMask mask)
+        {
+            Calls++;
+            CheckSoftMask(mask);
+        }
+
+        /// <summary>A soft mask's list holds at most one group, balanced, its backdrop fits its space, and it is only checked once per list.</summary>
+        private void CheckSoftMask(in DisplaySoftMask mask)
+        {
+            if (mask.IsNone)
+            {
+                return;
+            }
+
+            Check(Enum.IsDefined(mask.Subtype), "an undefined soft-mask subtype");
+            Check(mask.Subtype == PdfSoftMaskType.Luminosity ? mask.ColorSpace is { ComponentCount: 1 or 3 or 4 } && mask.Backdrop.Length == mask.ColorSpace.ComponentCount : mask.ColorSpace is null && mask.Backdrop.IsEmpty, "a soft-mask backdrop that does not fit its space");
+            Checksum += mask.Matrix.A + (mask.IsShape ? 1 : 0);
+            if (CheckedMasks.Add(mask.Content))
+            {
+                int depth = Depth;
+                mask.Content.Replay(this);
+                Check(Depth == depth, "a soft mask's group is not balanced");
+            }
         }
 
         public void BeginAnnotation(in DisplayAnnotation annotation)

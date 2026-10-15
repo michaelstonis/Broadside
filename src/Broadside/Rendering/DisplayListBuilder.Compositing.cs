@@ -21,10 +21,17 @@ internal sealed partial class DisplayListBuilder
     /// <remarks>
     /// ISO 32000-2 §11.6.4.4: <c>CA</c> applies to strokes, <c>ca</c> to every other paint; §11.6.3: the blend mode. Inside a
     /// transparency group the interpreter starts both alphas at 1 and the blend mode at Normal (§11.6.6); the group itself is not in
-    /// the list yet.
+    /// the list yet. The device parameters (overprint, halftone) are recorded here too, so every paint gets them.
     /// </remarks>
-    private void SetCompositing(in GraphicsState state) =>
+    /// <param name="state">The paint's graphics state.</param>
+    /// <param name="context">The run, which builds the soft mask's group the first time it is needed.</param>
+    /// <param name="ownMask">Whether the paint is an image with a mask of its own, which overrides the soft mask (§11.6.4.3).</param>
+    private void SetCompositing(in GraphicsState state, ContentContext context, bool ownMask = false)
+    {
+        SetSoftMask(state, context, ownMask);
+        SetDeviceParameters(state);
         SetCompositing(new DisplayCompositing(state.StrokeAlpha, state.FillAlpha, state.BlendMode));
+    }
 
     /// <summary>
     /// Records the compositing of a paint in a shading pattern: the state's, with the pattern's own ExtGState applied as §11.6.7
@@ -38,6 +45,8 @@ internal sealed partial class DisplayListBuilder
     private void SetPatternCompositing(in PdfColor color, ContentContext context, bool stroke)
     {
         ref readonly GraphicsState state = ref context.State;
+        SetSoftMask(state, context, overridden: false);
+        SetDeviceParameters(state);
         var compositing = new DisplayCompositing(state.StrokeAlpha, state.FillAlpha, state.BlendMode);
         if (context.GetPattern(color) is PdfShadingPattern { ExtGState: { } dictionary })
         {
@@ -67,14 +76,27 @@ internal sealed partial class DisplayListBuilder
         Append(ref _compositings, ref _compositingCount, compositing);
     }
 
-    private void SaveCompositing() => Append(ref _savedCompositings, ref _savedCompositingCount, _compositing);
+    /// <summary>Saves the alpha constants, blend mode and device parameters the backend holds, as its state save does.</summary>
+    private void SaveCompositing()
+    {
+        Append(ref _savedCompositings, ref _savedCompositingCount, _compositing);
+        SaveDeviceParameters();
+        SaveSoftMask();
+    }
 
-    private void RestoreCompositing() => _compositing = _savedCompositings[--_savedCompositingCount];
+    /// <summary>Restores what <see cref="SaveCompositing"/> saved, as the backend's state restore does.</summary>
+    private void RestoreCompositing()
+    {
+        _compositing = _savedCompositings[--_savedCompositingCount];
+        RestoreDeviceParameters();
+        RestoreSoftMask();
+    }
 
     private void ResetCompositing()
     {
         _compositingCount = 0;
         _compositing = DisplayCompositing.Initial;
         _savedCompositingCount = 0;
+        ResetSoftMaskTracking();
     }
 }

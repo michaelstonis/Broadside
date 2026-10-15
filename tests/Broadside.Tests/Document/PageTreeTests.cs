@@ -99,6 +99,31 @@ public sealed class PageTreeTests
         Assert.Equal(["PageTreeNodeTypeInvalid", "PageTreeNodeTypeInvalid"], document.Diagnostics.Select(static diagnostic => diagnostic.Code));
     }
 
+    [Theory]
+    [InlineData("/Kids null")]
+    [InlineData("/Kids 9 0 R")]
+    [InlineData("/Kids 4 0 R")]
+    public void A_node_without_a_type_whose_kids_entry_is_null_is_a_page_as_if_it_had_no_kids(string kids)
+    {
+        // §7.3.7: an entry whose value is null is absent; §7.3.10: a reference to an object that does not exist is null. A save that
+        // renumbers writes such a reference as null, so the node must read the same before and after (fuzz finding, save target).
+        byte[] file = new TestPdf().Build(
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            $"<< {kids} /Count 1 /Resources << >> /MediaBox [0 0 612 792] >>",
+            "<< /Type /Page /Parent 2 0 R /Resources << >> /MediaBox [0 0 612 792] >>",
+            "null");
+        using PdfDocument document = PdfDocument.Open(file);
+
+        PdfPage page = Assert.Single(document.Pages);
+        Assert.Equal(new CosReference(2, 0), page.Reference);
+        Assert.Equal(["PageTreeNodeTypeInvalid"], document.Diagnostics.Select(static diagnostic => diagnostic.Code));
+
+        using var output = new MemoryStream();
+        document.Save(output, new PdfSaveOptions().WithObjectNumbering(PdfObjectNumbering.Compact));
+        using PdfDocument saved = PdfDocument.Open(output.ToArray());
+        Assert.Single(saved.Pages);
+    }
+
     [Fact]
     public void A_root_that_is_itself_a_page_is_the_only_page()
     {

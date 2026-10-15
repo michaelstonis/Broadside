@@ -4,8 +4,9 @@ namespace Broadside.Images;
 
 /// <summary>An alternate image: another version of an image, for printing or for another optional content state.</summary>
 /// <remarks>
-/// ISO 32000-2 §8.9.5.4, Table 89. Read from the base image's <c>Alternates</c> array (PDF 1.3). Which alternate to use is the
-/// viewer's choice (the selection rules of §8.9.5.4 depend on the output device and optional content), so none is selected here.
+/// ISO 32000-2 §8.9.5.4, Table 89. Read from the base image's <c>Alternates</c> array (PDF 1.3). The selection rules of §8.9.5.4
+/// depend on the output and optional content, so none is selected here: content runs apply them when an image is painted (see
+/// <see cref="PdfPage.CreateDisplayList(Rendering.DisplayLayers, Rendering.DisplayIntent, Content.ContentOptions)"/>).
 /// </remarks>
 public sealed class PdfAlternateImage
 {

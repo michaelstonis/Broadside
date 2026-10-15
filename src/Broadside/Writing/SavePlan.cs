@@ -129,11 +129,14 @@ internal static class SavePlan
             existing[number] = new CosReference(number, 0);
         }
 
-        // An encryption dictionary that is replaced or dropped is not written; its number is freed.
-        if (encryption.ReplacesDictionary && sourceTrailer.TryGetValue(KnownNames.Encrypt, out CosObject? oldEncryption)
-            && oldEncryption is CosReference oldReference && existing.TryGetValue(oldReference.ObjectNumber, out CosReference? listed) && listed.Equals(oldReference))
+        // An encryption dictionary that is replaced or dropped is not written and its number is freed, unless an object the save
+        // keeps refers to it: then it is an ordinary object of the document too (a damaged file's page tree root, say), and dropping
+        // it would change what the document shows (fuzz finding).
+        CosReference? oldEncryption = null;
+        if (encryption.ReplacesDictionary && sourceTrailer.TryGetValue(KnownNames.Encrypt, out CosObject? oldEntry)
+            && oldEntry is CosReference oldReference && existing.TryGetValue(oldReference.ObjectNumber, out CosReference? listed) && listed.Equals(oldReference))
         {
-            existing.Remove(oldReference.ObjectNumber);
+            oldEncryption = oldReference;
             freeGenerations[oldReference.ObjectNumber] = NextGeneration(oldReference.Generation);
         }
 
@@ -149,7 +152,11 @@ internal static class SavePlan
 
         List<(CosReference Reference, CosObject Value)> kept = options.RemoveUnreachableObjects
             ? LoadReachable(loader, trailer, existing)
-            : LoadAll(loader, linearization, crossReference, sourceTrailer, existing);
+            : LoadAll(loader, linearization, crossReference, sourceTrailer, existing, oldEncryption);
+        if (oldEncryption is not null && kept.Exists(item => item.Reference.Equals(oldEncryption)))
+        {
+            freeGenerations.Remove(oldEncryption.ObjectNumber);
+        }
 
         if (encryption.NewDictionary is { } dictionary)
         {
@@ -522,16 +529,33 @@ internal static class SavePlan
 
     /// <summary>
     /// Loads every object the cross-reference information lists as in use, in ascending number, except the old file's structure
-    /// (cross-reference and object streams, the linearization dictionary and hint streams) when nothing kept refers to it.
+    /// (cross-reference and object streams, the linearization dictionary and hint streams) and a replaced or dropped encryption
+    /// dictionary (<paramref name="oldEncryption"/>) when nothing kept refers to them.
     /// </summary>
     private static List<(CosReference Reference, CosObject Value)> LoadAll(
         ObjectLoader loader,
         PdfLinearization? linearization,
         CrossReference crossReference,
         CosDictionary sourceTrailer,
-        Dictionary<int, CosReference> existing)
+        Dictionary<int, CosReference> existing,
+        CosReference? oldEncryption)
     {
         var candidates = new HashSet<int>();
+        CosDictionary trailer = sourceTrailer;
+        if (oldEncryption is not null)
+        {
+            // The trailer's own Encrypt entry does not keep it.
+            candidates.Add(oldEncryption.ObjectNumber);
+            trailer = new CosDictionary();
+            foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
+            {
+                if (!entry.Key.Equals(KnownNames.Encrypt))
+                {
+                    trailer[entry.Key] = entry.Value;
+                }
+            }
+        }
+
         if (linearization is not null)
         {
             candidates.Add(linearization.Reference.ObjectNumber);
@@ -550,7 +574,7 @@ internal static class SavePlan
             loaded.Add((reference, value));
         }
 
-        HashSet<CosReference> referenced = FindReferenced(sourceTrailer, loaded, candidates);
+        HashSet<CosReference> referenced = FindReferenced(trailer, loaded, candidates);
         loaded.RemoveAll(item => candidates.Contains(item.Reference.ObjectNumber) && !referenced.Contains(item.Reference));
         return loaded;
     }

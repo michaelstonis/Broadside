@@ -11,7 +11,7 @@ namespace Broadside.Tests.Writing;
 public sealed class MergeOptionalContentTests
 {
     private const string OptionalContent =
-        "groups: A on, B off, C on, D2 on | order: A, (Labelled)[B, C], [D2] | rb: [A B] | locked: C | as: none"
+        "groups: A on, B off, C on, D2 on | order: A, (Labelled)[B, C], [D2] | rb: [A B] | locked: C | as: Print [D2] Print"
         + " | configs: Only C: Off on [C] off [] locked []";
 
     private const string OptionalContentPages =
@@ -53,7 +53,7 @@ public sealed class MergeOptionalContentTests
         Assert.Equal(
             "groups: Base on, Notes off, Draft on, Unused off, A on, B off, C on, D2 on"
             + " | order: Base[Notes, Draft], (Extras)[Unused], A, (Labelled)[B, C], [D2] | rb: [Notes Draft], [A B] | locked: Draft, C"
-            + " | as: View [Base Notes] Zoom"
+            + " | as: View [Base Notes] Zoom, Print [D2] Print"
             + " | configs: Review: Off on [Notes Draft] off [] locked [], Only C: Off on [C] off [] locked []",
             Describe(reopened.OptionalContent));
         Assert.Equal("Layers", reopened.OptionalContent!.DefaultConfiguration.Name);
@@ -71,7 +71,7 @@ public sealed class MergeOptionalContentTests
         PdfOptionalContentProperties properties = reopened.OptionalContent!;
         Assert.Equal(
             "groups: A on, B off, C on, D2 on, A on, B off, C on, D2 on"
-            + " | order: A, (Labelled)[B, C], [D2], A, (Labelled)[B, C], [D2] | rb: [A B], [A B] | locked: C, C | as: none"
+            + " | order: A, (Labelled)[B, C], [D2], A, (Labelled)[B, C], [D2] | rb: [A B], [A B] | locked: C, C | as: Print [D2] Print, Print [D2] Print"
             + " | configs: Only C: Off on [C] off [] locked [], Only C: Off on [C] off [] locked []",
             Describe(properties));
         Assert.Equal(8, properties.Groups.Select(group => group.Reference).Distinct().Count());

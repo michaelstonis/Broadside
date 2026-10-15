@@ -34,12 +34,12 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     private int _savedAtCount;
 
     /// <inheritdoc/>
-    public override ContentEvents Events => ContentEvents.Paths | ContentEvents.StateStack | ContentEvents.Clips | ContentEvents.Images | ContentEvents.Glyphs | ContentEvents.Shadings | ContentEvents.Type3GlyphContent;
+    public override ContentEvents Events => ContentEvents.Paths | ContentEvents.StateStack | ContentEvents.Clips | ContentEvents.Images | ContentEvents.Glyphs | ContentEvents.Shadings | ContentEvents.Type3GlyphContent | ContentEvents.Forms;
 
     /// <summary>Builds the display list of <paramref name="page"/>.</summary>
     /// <param name="page">The page.</param>
     /// <param name="document">The page's document.</param>
-    /// <param name="options">Limits and cancellation for the content run.</param>
+    /// <param name="options">Limits, cancellation and progress for the content run.</param>
     /// <returns>The list.</returns>
     public static DisplayList Build(PdfPage page, PdfDocument document, ContentOptions options)
     {
@@ -47,8 +47,16 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         _cached = null;
         try
         {
+            int pageGroup = builder.OpenPageGroup(page, document);
             ContentInterpreter.RunPage(page, document, builder, options);
+            builder.ClosePageGroup(pageGroup);
             return builder.ToDisplayList(document);
+        }
+        catch
+        {
+            // Cancelled (or a strict-mode deviation): nothing owns what was decoded, so its pooled buffers go back now.
+            builder.ReleaseImages();
+            throw;
         }
         finally
         {
@@ -78,9 +86,14 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         Glyphs = _glyphs.AsSpan(0, _glyphCount).ToArray(),
         ShadingPaints = _shadingPaints.AsSpan(0, _shadingPaintCount).ToArray(),
         ImageMasks = _imageMasks.AsSpan(0, _imageMaskCount).ToArray(),
+        TextGlyphs = _textGlyphs.AsSpan(0, _textGlyphCount).ToArray(),
+        Text = _text.AsSpan(0, _textLength).ToArray(),
         Compositings = _compositings.AsSpan(0, _compositingCount).ToArray(),
+        Groups = _groups.AsSpan(0, _groupCount).ToArray(),
         TilingPaints = _tilingPaints.AsSpan(0, _tilingPaintCount).ToArray(),
         Annotations = _annotations.AsSpan(0, _annotationCount).ToArray(),
+        SoftMasks = _softMasks.AsSpan(0, _softMaskCount).ToArray(),
+        DeviceParameters = _deviceParameters.AsSpan(0, _deviceParameterCount).ToArray(),
     };
 
     /// <summary>Forgets everything built, keeping the tables' capacity and no reference into a document.</summary>
@@ -96,14 +109,24 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         ResetImages();
         ResetText();
         ResetShadings();
+        ResetTextPositions();
         ResetCompositing();
+        ResetGroups();
         ResetTiling();
+        ResetDeviceParameters();
         ResetAnnotations();
         ResetType3();
+        ResetSoftMasks();
     }
 
     /// <inheritdoc/>
-    public override void SaveState(ContentContext context)
+    public override void SaveState(ContentContext context) => Save();
+
+    /// <inheritdoc/>
+    public override void RestoreState(ContentContext context) => Restore();
+
+    /// <summary>Records a save of the state (§8.4.2 <c>q</c>).</summary>
+    private void Save()
     {
         NoteType3Save();
         Append(ref _saved, ref _savedCount, _current);
@@ -112,8 +135,8 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         AddOperation(new DisplayOperation(DisplayOperationKind.SaveState, default, 0, 0));
     }
 
-    /// <inheritdoc/>
-    public override void RestoreState(ContentContext context)
+    /// <summary>Records a restore of the state (§8.4.2 <c>Q</c>), dropping the save and what follows it when nothing was painted since.</summary>
+    private void Restore()
     {
         if (_savedCount == 0)
         {
@@ -156,7 +179,8 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     {
         for (int index = _operationCount - 1; index >= start; index--)
         {
-            if (_operations[index].Kind is not (DisplayOperationKind.SetTransform or DisplayOperationKind.IntersectClip or DisplayOperationKind.SetCompositing))
+            if (_operations[index].Kind is not (DisplayOperationKind.SetTransform or DisplayOperationKind.IntersectClip or DisplayOperationKind.SetCompositing
+                or DisplayOperationKind.SetDeviceParameters or DisplayOperationKind.SetSoftMask))
             {
                 return true;
             }

@@ -20,6 +20,34 @@ internal static class TestCertificates
         return request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(1));
     }
 
+    /// <summary>A self-signed ECDSA certificate on <paramref name="curve"/> with its private key (a named curve, RFC 5480 §2.1.1).</summary>
+    public static X509Certificate2 SelfSignedEcdsa(string subject, ECCurve curve)
+    {
+        using var ecdsa = ECDsa.Create(curve);
+        var request = new CertificateRequest(subject, ecdsa, HashAlgorithmName.SHA256);
+        request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.NonRepudiation | X509KeyUsageFlags.KeyCertSign, critical: true));
+        request.CertificateExtensions.Add(new X509BasicConstraintsExtension(certificateAuthority: true, hasPathLengthConstraint: false, 0, critical: true));
+        return request.CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(1));
+    }
+
+    /// <summary>
+    /// A certificate without a private key whose subject key has the algorithm <paramref name="algorithm"/> and the key bytes
+    /// <paramref name="key"/>, issued by <paramref name="issuer"/> (an RSA certificate with its private key).
+    /// </summary>
+    public static X509Certificate2 WithKeyAlgorithm(string subject, string algorithm, byte[] key, X509Certificate2 issuer)
+    {
+        var publicKey = new PublicKey(new Oid(algorithm), null, new AsnEncodedData(key));
+        var request = new CertificateRequest(new X500DistinguishedName(subject), publicKey, HashAlgorithmName.SHA256);
+        request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.NonRepudiation, critical: true));
+        using RSA issuerKey = issuer.GetRSAPrivateKey()!;
+        return request.Create(
+            issuer.SubjectName,
+            X509SignatureGenerator.CreateForRSA(issuerKey, RSASignaturePadding.Pkcs1),
+            DateTimeOffset.UtcNow.AddDays(-1),
+            DateTimeOffset.UtcNow.AddMonths(6),
+            [0x02, 0x07]);
+    }
+
     /// <summary>A certificate authority and a leaf certificate it issued, both with private keys.</summary>
     public static (X509Certificate2 Authority, X509Certificate2 Leaf) Chain(string leafSubject)
     {
@@ -98,6 +126,31 @@ internal static class OpenSsl
                 "cms", "-verify", "-binary", "-inform", "DER", "-content", contentPath, "-CAfile", trustedPath, "-purpose", "any", "-out", Path.Combine(directory, "out.bin"), "-in");
             Assert.True(exitCode == 0, output);
             Assert.Contains("Verification successful", output, StringComparison.Ordinal);
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
+    }
+
+    /// <summary>
+    /// Verifies the RFC 3161 time-stamp token <paramref name="token"/> over <paramref name="data"/> with <c>openssl ts -verify</c>:
+    /// the imprint against the data's digest, the authority's signature, its certificate's time-stamping usage and its chain to
+    /// <paramref name="trusted"/>.
+    /// </summary>
+    public static void VerifyTimestamp(byte[] token, byte[] data, X509Certificate2 trusted)
+    {
+        string directory = Path.Combine(Path.GetTempPath(), $"broadside-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            string dataPath = Path.Combine(directory, "data.bin");
+            string trustedPath = Path.Combine(directory, "trusted.pem");
+            File.WriteAllBytes(dataPath, data);
+            File.WriteAllText(trustedPath, trusted.ExportCertificatePem());
+            (int exitCode, string output) = ExternalTool.Run("openssl", token, "ts", "-verify", "-token_in", "-data", dataPath, "-CAfile", trustedPath, "-in");
+            Assert.True(exitCode == 0, output);
+            Assert.Contains("Verification: OK", output, StringComparison.Ordinal);
         }
         finally
         {
