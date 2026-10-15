@@ -52,7 +52,8 @@ public sealed partial class PdfDocument
     /// </para>
     /// <para>
     /// Once the last byte is written the document reads from the time-stamped file. If the authority fails, nothing is written and the
-    /// document is left as it was. A mutation: no read may run concurrently with it.
+    /// document is left as it was, as a failed signer leaves it (<see cref="Sign"/>): every object, including what the save inside
+    /// time-stamping changed before the authority was asked. A mutation: no read may run concurrently with it.
     /// </para>
     /// </remarks>
     public void Timestamp(Stream stream, PdfTimestampClient timestampClient, string? fieldName = null)
@@ -153,7 +154,6 @@ public sealed partial class PdfDocument
                 RequireSignatureFeature(feature, undo);
             }
 
-            KeepVersionDeclarations(undo);
             var dictionary = new CosDictionary
             {
                 [ByteRangeName] = new CosArray([new CosInteger(0), new CosInteger(ByteRangePlaceholder), new CosInteger(ByteRangePlaceholder), new CosInteger(ByteRangePlaceholder)]),
@@ -166,7 +166,11 @@ public sealed partial class PdfDocument
             undo.Add(() => RemoveObject(reference));
             PlaceSignature(fieldName, reference, undo);
 
-            FileWriter writer = PlanSave(new PdfSaveOptions { IncrementalUpdate = true });
+            // Issue #306: what the save changes (the dating, the metadata layout, completed font subsets, the catalog's version and
+            // extensions) is reverted with the rest when the signer or the authority fails.
+            var saveChanges = new CosChangeLog();
+            undo.Add(saveChanges.Revert);
+            FileWriter writer = PlanSave(new PdfSaveOptions { IncrementalUpdate = true }, saveChanges);
             IntegrityCodeWriter? integrity = writer.Integrity;
             if (integrity is not null)
             {
