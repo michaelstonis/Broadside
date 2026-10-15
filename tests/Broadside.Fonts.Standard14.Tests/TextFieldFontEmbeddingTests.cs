@@ -42,7 +42,7 @@ public sealed partial class TextFieldFontEmbeddingTests
         {
             if (text.GetGlyphText(glyph) is not " ")
             {
-                Assert.Equal(GlyphOutlineStatus.Complete, program.GetOutline((int)glyph.CharacterCode, outline));
+                Assert.Equal(GlyphOutlineStatus.Complete, program.GetOutline(descendant.GetGlyphId((int)glyph.CharacterCode), outline));
                 Assert.False(outline.IsEmpty);
             }
         }

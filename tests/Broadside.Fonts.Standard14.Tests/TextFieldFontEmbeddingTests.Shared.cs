@@ -295,8 +295,8 @@ public sealed partial class TextFieldFontEmbeddingTests
         {
             if (text.GetGlyphText(glyph) is not " ")
             {
-                FontProgram program = Assert.IsType<PdfType0Font>(glyph.Font).DescendantFont!.Program!;
-                Assert.Equal(GlyphOutlineStatus.Complete, program.GetOutline((int)glyph.CharacterCode, outline));
+                PdfCidFont descendant = Assert.IsType<PdfType0Font>(glyph.Font).DescendantFont!;
+                Assert.Equal(GlyphOutlineStatus.Complete, descendant.Program!.GetOutline(descendant.GetGlyphId((int)glyph.CharacterCode), outline));
                 Assert.False(outline.IsEmpty);
             }
         }

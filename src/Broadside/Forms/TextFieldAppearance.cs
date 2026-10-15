@@ -279,7 +279,7 @@ internal sealed class TextFieldAppearance
             return (helvetica, UniqueName(fonts, "Helv"));
         }
 
-        if (EmbeddedAppearanceFont.Create(document, appearance?.Font, [text], out string? missing) is { } embedded)
+        if (CanvasAppearanceFont.CreateEmbedded(document, appearance?.Font, [text], out string? missing) is { } embedded)
         {
             return (embedded, UniqueName(fonts, "BrsF"));
         }

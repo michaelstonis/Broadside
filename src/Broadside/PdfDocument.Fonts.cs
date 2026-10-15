@@ -30,14 +30,14 @@ public sealed partial class PdfDocument
                 new FontProgramContext(state.Document._diagnostics, state.Reference) { FaceIndex = key.FaceIndex })),
             static (_, _) => null);
 
-    private Forms.SharedFontSubsets? _fontSubsets;
+    private Fonts.SharedFontSubsets? _fontSubsets;
 
     /// <summary>
-    /// Gets the subset fonts filled fields share (issue #285): one per resolved program, grown as fields need glyphs and subset again
+    /// Gets the subset fonts canvases and filled fields share (issues #150, #285): one per resolved program, grown as fields need glyphs and subset again
     /// before every save. Used only by mutations and saves.
     /// </summary>
     /// <remarks>ISO 32000-2 §9.9.2 and §12.7.4.3.</remarks>
-    internal Forms.SharedFontSubsets FontSubsets => _fontSubsets ??= new Forms.SharedFontSubsets();
+    internal Fonts.SharedFontSubsets FontSubsets => _fontSubsets ??= new Fonts.SharedFontSubsets();
 
     /// <summary>
     /// Once a save has passed every check that can refuse it (issue #300): subsets every shared font that grew since it was last
