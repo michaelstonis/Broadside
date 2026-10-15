@@ -125,6 +125,23 @@ public sealed class PdfSignatureOptions
     /// <remarks>ISO 32000-2 §12.7.5.5, Tables 235 and 236, and §12.8.2.4 (FieldMDP, Table 259). PDF 1.5; a lock's <c>P</c>, PDF 2.0.</remarks>
     public PdfFieldLockOptions? FieldLock { get; set; }
 
+    /// <summary>
+    /// Gets or sets the visible appearance of the signature; <see langword="null"/> (the default) makes a new field invisible (an
+    /// empty rectangle on the first page) and leaves an existing field's appearance as it is.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.7.5.5 (visible and invisible signature fields) and §12.5.5 (appearance streams).</remarks>
+    public PdfSignatureAppearance? Appearance { get; set; }
+
+    /// <summary>Sets <see cref="Appearance"/>.</summary>
+    /// <param name="appearance">The appearance, or <see langword="null"/> for an invisible signature.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §12.7.5.5.</remarks>
+    public PdfSignatureOptions WithAppearance(PdfSignatureAppearance? appearance)
+    {
+        Appearance = appearance;
+        return this;
+    }
+
     /// <summary>Sets <see cref="Certification"/>.</summary>
     /// <param name="permissions">The changes permitted after the certification signature, or <see langword="null"/> for an approval signature.</param>
     /// <returns>These options.</returns>

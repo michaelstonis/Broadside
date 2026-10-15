@@ -4819,3 +4819,26 @@ Broadside.Annotations.PdfAnnotationOptions.WithSubject(string? subject) -> Broad
 Broadside.Annotations.PdfAnnotationOptions.WithName(string? name) -> Broadside.Annotations.PdfAnnotationOptions!
 Broadside.Annotations.PdfAnnotationOptions.WithFontSize(double size) -> Broadside.Annotations.PdfAnnotationOptions!
 Broadside.Annotations.PdfAnnotationOptions.WithTextColor(Broadside.Annotations.PdfDeviceColor! color) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Signatures.PdfSignatureAppearance
+Broadside.Signatures.PdfSignatureAppearance.Font.get -> Broadside.Fonts.PdfCanvasFont?
+Broadside.Signatures.PdfSignatureAppearance.Font.set -> void
+Broadside.Signatures.PdfSignatureAppearance.FontSize.get -> double?
+Broadside.Signatures.PdfSignatureAppearance.FontSize.set -> void
+Broadside.Signatures.PdfSignatureAppearance.Image.get -> Broadside.Images.PdfImage?
+Broadside.Signatures.PdfSignatureAppearance.Image.set -> void
+Broadside.Signatures.PdfSignatureAppearance.PageIndex.get -> int
+Broadside.Signatures.PdfSignatureAppearance.PageIndex.set -> void
+Broadside.Signatures.PdfSignatureAppearance.PdfSignatureAppearance(int pageIndex, Broadside.PdfRectangle rectangle) -> void
+Broadside.Signatures.PdfSignatureAppearance.Rectangle.get -> Broadside.PdfRectangle
+Broadside.Signatures.PdfSignatureAppearance.Rectangle.set -> void
+Broadside.Signatures.PdfSignatureAppearance.Text.get -> string?
+Broadside.Signatures.PdfSignatureAppearance.Text.set -> void
+Broadside.Signatures.PdfSignatureAppearance.WithFont(Broadside.Fonts.PdfCanvasFont? font) -> Broadside.Signatures.PdfSignatureAppearance!
+Broadside.Signatures.PdfSignatureAppearance.WithFontSize(double? fontSize) -> Broadside.Signatures.PdfSignatureAppearance!
+Broadside.Signatures.PdfSignatureAppearance.WithImage(Broadside.Images.PdfImage? image) -> Broadside.Signatures.PdfSignatureAppearance!
+Broadside.Signatures.PdfSignatureAppearance.WithPageIndex(int pageIndex) -> Broadside.Signatures.PdfSignatureAppearance!
+Broadside.Signatures.PdfSignatureAppearance.WithRectangle(Broadside.PdfRectangle rectangle) -> Broadside.Signatures.PdfSignatureAppearance!
+Broadside.Signatures.PdfSignatureAppearance.WithText(string? text) -> Broadside.Signatures.PdfSignatureAppearance!
+Broadside.Signatures.PdfSignatureOptions.Appearance.get -> Broadside.Signatures.PdfSignatureAppearance?
+Broadside.Signatures.PdfSignatureOptions.Appearance.set -> void
+Broadside.Signatures.PdfSignatureOptions.WithAppearance(Broadside.Signatures.PdfSignatureAppearance? appearance) -> Broadside.Signatures.PdfSignatureOptions!

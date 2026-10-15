@@ -231,6 +231,12 @@ public sealed partial class PdfDocument
         }
 
         ModificationDetectionPlan modificationDetection = PlanModificationDetection(options);
+        if (options.Appearance is { } appearance)
+        {
+            CheckAppearance(appearance);
+        }
+
+        DateTimeOffset signingTime = options.SigningTime ?? DateTimeOffset.Now;
         var undo = new List<Action>();
         try
         {
@@ -245,10 +251,18 @@ public sealed partial class PdfDocument
             }
 
             bool pdf20 = Version >= Pdf20 || features.Any(feature => feature.MinimumVersion >= Pdf20);
-            CosDictionary signature = SignatureDictionary(options, reserved, pdf20);
+            CosDictionary signature = SignatureDictionary(options, signingTime, reserved, pdf20);
             CosReference signatureReference = AddObject(signature);
             undo.Add(() => RemoveObject(signatureReference));
-            CosDictionary field = PlaceSignature(options.FieldName, signatureReference, undo);
+            CosDictionary field = PlaceSignature(options.FieldName, signatureReference, undo, options.Appearance);
+            if (options.Appearance is { } visible)
+            {
+                // Issue #200: the appearance is part of the signed update, so it is drawn before the save lays out the byte range.
+                var appearanceChanges = new CosChangeLog();
+                undo.Add(appearanceChanges.Revert);
+                DrawSignatureAppearance(field, visible, options, signer.Certificate, signingTime, appearanceChanges);
+            }
+
             ApplyModificationDetection(modificationDetection, signature, signatureReference, field, digestAlgorithm, undo);
 
             // Issue #306: what the save changes (the dating, the metadata layout, completed font subsets, the catalog's version and
@@ -422,7 +436,7 @@ public sealed partial class PdfDocument
     /// §12.8.3.4.2: a PAdES signature has no <c>Cert</c> entry and gives the time of signing in <c>M</c>, its signed attributes
     /// holding no signing time.
     /// </remarks>
-    private static CosDictionary SignatureDictionary(PdfSignatureOptions options, int reserved, bool pdf20)
+    private static CosDictionary SignatureDictionary(PdfSignatureOptions options, DateTimeOffset signingTime, int reserved, bool pdf20)
     {
         var dictionary = new CosDictionary
         {
@@ -431,7 +445,7 @@ public sealed partial class PdfDocument
             [KnownNames.Type] = SigName,
             [FilterName] = AdobePpkLite,
             [SubFilterName] = options.SubFilter == PdfSignatureSubFilter.EtsiCadesDetached ? CadesDetached : Pkcs7Detached,
-            [MName] = new CosString(Encoding.ASCII.GetBytes(FormatDate(options.SigningTime ?? DateTimeOffset.Now, pdf20))),
+            [MName] = new CosString(Encoding.ASCII.GetBytes(FormatDate(signingTime, pdf20))),
         };
         AddText(dictionary, NameName, options.SignerName);
         AddText(dictionary, ReasonName, options.Reason);
@@ -470,7 +484,7 @@ public sealed partial class PdfDocument
     /// Makes <paramref name="signature"/> the value of the signature field: the unsigned one <paramref name="fieldName"/> names, or a
     /// new invisible one; sets SignaturesExist and AppendOnly (§12.7.3, Table 225).
     /// </summary>
-    private CosDictionary PlaceSignature(string? fieldName, CosReference signature, List<Action> undo)
+    private CosDictionary PlaceSignature(string? fieldName, CosReference signature, List<Action> undo, PdfSignatureAppearance? appearance = null)
     {
         if (fieldName is not null && fieldName.Length == 0)
         {
@@ -496,7 +510,7 @@ public sealed partial class PdfDocument
         }
         else
         {
-            field = NewSignatureField(form, fieldName ?? UnusedFieldName(view), undo);
+            field = NewSignatureField(form, fieldName ?? UnusedFieldName(view), undo, appearance);
         }
 
         Set(field, FormNames.V, signature, undo);
@@ -526,10 +540,11 @@ public sealed partial class PdfDocument
     }
 
     /// <summary>
-    /// A new signature field merged with its widget (§12.7.5.5, §12.5.6.19): an empty rectangle makes it invisible, on the first page
-    /// when there is one, flags Print and Locked (Table 167).
+    /// A new signature field merged with its widget (§12.7.5.5, §12.5.6.19), flags Print and Locked (Table 167): without
+    /// <paramref name="appearance"/>, invisible (an empty rectangle) on the first page when there is one; with it, on its page and
+    /// rectangle (#200).
     /// </summary>
-    private CosDictionary NewSignatureField(CosDictionary form, string name, List<Action> undo)
+    private CosDictionary NewSignatureField(CosDictionary form, string name, List<Action> undo, PdfSignatureAppearance? appearance)
     {
         if (name.Contains('.', StringComparison.Ordinal))
         {
@@ -542,10 +557,12 @@ public sealed partial class PdfDocument
             [FormNames.T] = new CosString(TextStringEncoder.Encode(name)),
             [KnownNames.Type] = AnnotationNames.Annot,
             [SubtypeName] = WidgetName,
-            [RectName] = new CosArray([new CosInteger(0), new CosInteger(0), new CosInteger(0), new CosInteger(0)]),
+            [RectName] = appearance is null
+                ? new CosArray([new CosInteger(0), new CosInteger(0), new CosInteger(0), new CosInteger(0)])
+                : AnnotationEditing.Rectangle(appearance.Rectangle),
             [FName] = new CosInteger(132),
         };
-        PdfPage? page = Pages.Count > 0 ? Pages[0] : null;
+        PdfPage? page = Pages.Count > (appearance?.PageIndex ?? 0) ? Pages[appearance?.PageIndex ?? 0] : null;
         if (page?.Reference is { } pageReference)
         {
             field[FormNames.P] = pageReference;
