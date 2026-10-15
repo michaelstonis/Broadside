@@ -21,7 +21,7 @@ namespace Broadside;
 /// gives; the reader records a diagnostic for it when it first walks the page tree.
 /// </para>
 /// </remarks>
-public sealed class PdfPage
+public sealed partial class PdfPage
 {
     /// <summary>The media box used when a page has none, US Letter, as pdf.js and PDFBox use.</summary>
     private static readonly PdfRectangle DefaultMediaBox = new(0, 0, 612, 792);
