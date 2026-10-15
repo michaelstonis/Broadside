@@ -1,3 +1,4 @@
+using Broadside.Annotations;
 using Broadside.Fonts;
 using Broadside.Graphics;
 
@@ -34,24 +35,27 @@ internal readonly record struct ShapedRun(ShapedText Glyphs, double[]? Adjustmen
 internal interface ITextShaper
 {
     /// <summary>The advance of <paramref name="text"/> in points as shown, at character spacing 0, word spacing 0, scaling 100.</summary>
-    double Measure(ReadOnlySpan<char> text, ParagraphStyle style);
+    double Measure(ReadOnlySpan<char> text, TextStyle style);
 
     /// <summary>Shapes <paramref name="text"/> into what is shown; its advance equals <see cref="Measure"/>.</summary>
-    ShapedRun Shape(string text, ParagraphStyle style);
+    ShapedRun Shape(string text, TextStyle style);
 }
 
-/// <summary>Shapes with the canvas font under the style's shaping (<see cref="ParagraphStyle.Shaping"/>, <c>kern</c> from <see cref="ParagraphStyle.Kerning"/>).</summary>
+/// <summary>Shapes with the canvas font under the style's shaping (<see cref="TextStyle.Shaping"/>, <c>kern</c> from <see cref="TextStyle.Kerning"/>).</summary>
 internal sealed class CanvasFontShaper : ITextShaper
 {
     public static CanvasFontShaper Instance { get; } = new();
 
-    public double Measure(ReadOnlySpan<char> text, ParagraphStyle style) => style.Font.MeasureWidth(text, style.FontSize, style.EffectiveShaping);
+    public double Measure(ReadOnlySpan<char> text, TextStyle style) => style.Font.MeasureWidth(text, style.FontSize, style.EffectiveShaping);
 
-    public ShapedRun Shape(string text, ParagraphStyle style) => new(style.Font.Shape(text, style.EffectiveShaping), null);
+    public ShapedRun Shape(string text, TextStyle style) => new(style.Font.Shape(text, style.EffectiveShaping), null);
 }
 
-/// <summary>A run of a composed line: a slice of the paragraph text with its measured advance in points.</summary>
-internal readonly record struct LineRun(int Start, int Length, double Width);
+/// <summary>
+/// A run of a composed line: a slice of the paragraph text with its measured advance in points, inside one piece of the paragraph's
+/// content (<see cref="Piece"/>: the index of the <see cref="InlineElement"/> it comes from, so each run has one style).
+/// </summary>
+internal readonly record struct LineRun(int Start, int Length, double Width, int Piece = 0);
 
 /// <summary>Reorders the runs of one broken line from logical into visual order. #173 implements UAX #9 here.</summary>
 internal interface IBidiResolver
@@ -81,4 +85,25 @@ internal interface IStructureSink
 
     /// <summary>The block stops drawing on <paramref name="page"/>, at its end or at a page break.</summary>
     void EndBlock(FlowBlock block, PdfPage page, PdfCanvas canvas);
+
+    /// <summary>
+    /// A part inside a block starts drawing: a list item (<c>LI</c>), its label (<c>Lbl</c>) or body (<c>LBody</c>), or an inline
+    /// element of a paragraph (<c>Span</c>, <c>Link</c>, <c>Figure</c>). Parts nest inside the innermost open block or part and are
+    /// ended and begun again at a page break like blocks. Inline parts begin and end within one line (inside its text object). A
+    /// list item's label arrives after its body has begun, on the item's first line: <see cref="FlowPart.Owner"/> names the item.
+    /// </summary>
+    void BeginPart(FlowPart part, PdfPage page, PdfCanvas canvas);
+
+    /// <summary>The part stops drawing on <paramref name="page"/>.</summary>
+    void EndPart(FlowPart part, PdfPage page, PdfCanvas canvas);
+
+    /// <summary>An annotation was added for <paramref name="part"/> (a link annotation over a <c>Link</c> run's portion on one line).</summary>
+    void AddAnnotation(FlowPart part, PdfAnnotation annotation);
 }
+
+/// <summary>
+/// A structure part below a block: <paramref name="StructureType"/> is the standard structure type to tag it with,
+/// <paramref name="Owner"/> the object it comes from (a <see cref="ListItem"/> for <c>LI</c>, <c>Lbl</c> and <c>LBody</c>; the
+/// <see cref="InlineElement"/> for inline parts) and <paramref name="Language"/> its BCP 47 language, or null to inherit.
+/// </summary>
+internal readonly record struct FlowPart(string StructureType, object Owner, string? Language);
