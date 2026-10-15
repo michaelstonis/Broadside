@@ -259,6 +259,30 @@ public sealed class PdfImage
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87, and §8.11.3.3: when it is off, the image is not painted.</remarks>
     public CosDictionary? OptionalContent => Resolve(ReadRaw(ImageNames.OC)) as CosDictionary;
 
+    /// <summary>Makes the image optional content of <paramref name="group"/> (<c>OC</c>): shown only while the group is ON.</summary>
+    /// <param name="group">A group of this document.</param>
+    /// <exception cref="ArgumentException"><paramref name="group"/> belongs to another document or is not an indirect object.</exception>
+    /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 (<c>OC</c>, PDF 1.5), and §8.11.3.3. Records PDF 1.5. A mutation.</remarks>
+    public void SetOptionalContent(PdfOptionalContentGroup group)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+        OptionalContentWriter.Assign(_document, Dictionary, OptionalContentWriter.ReferenceOf(_document, group.Document, group.Reference, nameof(group)));
+    }
+
+    /// <summary>Makes the image optional content whose visibility <paramref name="membership"/> decides (<c>OC</c>).</summary>
+    /// <param name="membership">A membership dictionary of this document.</param>
+    /// <exception cref="ArgumentException"><paramref name="membership"/> belongs to another document or is not an indirect object.</exception>
+    /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 (<c>OC</c>, PDF 1.5), and §8.11.3.3. Records PDF 1.5. A mutation.</remarks>
+    public void SetOptionalContent(PdfOptionalContentMembership membership)
+    {
+        ArgumentNullException.ThrowIfNull(membership);
+        OptionalContentWriter.Assign(_document, Dictionary, OptionalContentWriter.ReferenceOf(_document, membership.Document, membership.Reference, nameof(membership)));
+    }
+
+    /// <summary>Removes the image's <c>OC</c> entry: it is no longer optional content.</summary>
+    /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 and §8.11.3.3. A mutation.</remarks>
+    public void RemoveOptionalContent() => OptionalContentWriter.Assign(_document, Dictionary, null);
+
     /// <summary>Gets the image's metadata stream (<c>Metadata</c>, PDF 1.4), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87, and §14.3.2.</remarks>
     public CosStream? Metadata => Resolve(ReadRaw(ImageNames.Metadata)) as CosStream;

@@ -144,6 +144,11 @@ internal static class CarriedFeatures
         {
             found(VersionedFeatures.OptionalContent);
         }
+
+        if (FileAndLayerNames.OCMD.Equals(type) && dictionary.ContainsKey(FileAndLayerNames.VE))
+        {
+            found(VersionedFeatures.VisibilityExpression);
+        }
         else if (Mask.Equals(type))
         {
             found(VersionedFeatures.SoftMasks);

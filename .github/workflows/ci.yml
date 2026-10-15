@@ -244,6 +244,7 @@ jobs:
         run: |
           dotnet build tests/Broadside.Tests -c Release -warnaserror
           dotnet build tests/Broadside.Fonts.Standard14.Tests -c Release -warnaserror
+          dotnet build tests/Broadside.Layout.Tests -c Release -warnaserror
 
       - name: Validate PDF/A output with veraPDF
         env:
@@ -251,6 +252,14 @@ jobs:
         run: |
           dotnet test --project tests/Broadside.Tests -c Release --no-build -- --filter-trait "Category=VeraPdf"
           dotnet test --project tests/Broadside.Fonts.Standard14.Tests -c Release --no-build -- --filter-trait "Category=VeraPdf"
+
+      # Smoke check of tagging by construction (#179) against veraPDF's PDF/UA-1 profile; PDF/UA output itself is #204, so this
+      # step reports without blocking.
+      - name: PDF/UA-1 smoke check of tagged flow output
+        continue-on-error: true
+        env:
+          BROADSIDE_REQUIRE_VERAPDF: '1'
+        run: dotnet test --project tests/Broadside.Layout.Tests -c Release --no-build -- --filter-trait "Category=VeraPdf"
 
   # Shows the public API diff of the PR in the job summary for human review. It never fails: the
   # PublicApiAnalyzers (RS0016/RS0017) already fail the build when the API files and the code disagree.

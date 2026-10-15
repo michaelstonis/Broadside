@@ -24,6 +24,9 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
     private readonly PdfStructureElement? _parent;
     private readonly bool _parentKnown;
 
+    /// <summary>Gets the document.</summary>
+    internal PdfDocument Document => _context.Document;
+
     internal PdfStructureElement(StructureContext context, CosDictionary dictionary, CosReference? reference, PdfStructureElement? parent, bool parentKnown, int depth)
     {
         _context = context;

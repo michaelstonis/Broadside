@@ -4850,3 +4850,38 @@ Broadside.Graphics.PdfCanvas.BeginMarkedContent(string! tag) -> void
 Broadside.Graphics.PdfCanvas.BeginMarkedContent(string! tag, Broadside.Objects.CosDictionary! properties) -> void
 Broadside.Graphics.PdfCanvas.EndMarkedContent() -> void
 Broadside.Graphics.PdfCanvas.MarkedContentDepth.get -> int
+Broadside.Structure.PdfArtifactEdges
+Broadside.Structure.PdfArtifactEdges.None = 0 -> Broadside.Structure.PdfArtifactEdges
+Broadside.Structure.PdfArtifactEdges.Top = 1 -> Broadside.Structure.PdfArtifactEdges
+Broadside.Structure.PdfArtifactEdges.Bottom = 2 -> Broadside.Structure.PdfArtifactEdges
+Broadside.Structure.PdfArtifactEdges.Left = 4 -> Broadside.Structure.PdfArtifactEdges
+Broadside.Structure.PdfArtifactEdges.Right = 8 -> Broadside.Structure.PdfArtifactEdges
+Broadside.Structure.PdfArtifactType
+Broadside.Structure.PdfArtifactType.Pagination = 0 -> Broadside.Structure.PdfArtifactType
+Broadside.Structure.PdfArtifactType.Layout = 1 -> Broadside.Structure.PdfArtifactType
+Broadside.Structure.PdfArtifactType.Page = 2 -> Broadside.Structure.PdfArtifactType
+Broadside.Structure.PdfArtifactType.Background = 3 -> Broadside.Structure.PdfArtifactType
+Broadside.Graphics.PdfCanvas.BeginArtifact() -> void
+Broadside.Graphics.PdfCanvas.BeginArtifact(Broadside.Structure.PdfArtifactType type) -> void
+Broadside.Graphics.PdfCanvas.BeginArtifact(Broadside.Structure.PdfArtifactType type, string? subtype, Broadside.Structure.PdfArtifactEdges attached, Broadside.PdfRectangle? boundingBox) -> void
+Broadside.Graphics.PdfCanvas.BeginOptionalContent(Broadside.PdfOptionalContentGroup! group) -> void
+Broadside.Graphics.PdfCanvas.BeginOptionalContent(Broadside.PdfOptionalContentMembership! membership) -> void
+Broadside.Graphics.PdfCanvas.BeginTaggedContent(Broadside.Structure.PdfStructureElement! element) -> Broadside.Structure.PdfMarkedContentReference!
+Broadside.Graphics.PdfCanvas.BeginTaggedContent(Broadside.Structure.PdfStructureElement! element, Broadside.Objects.CosDictionary! properties) -> Broadside.Structure.PdfMarkedContentReference!
+Broadside.Graphics.PdfCanvas.BeginTaggedContent(Broadside.Structure.PdfStructureElement! element, Broadside.PdfPage? page, Broadside.Objects.CosDictionary? properties) -> Broadside.Structure.PdfMarkedContentReference!
+Broadside.PdfDocument.CreateOptionalContentGroup(string! name, bool visible = true) -> Broadside.PdfOptionalContentGroup!
+Broadside.PdfDocument.CreateOptionalContentMembership(Broadside.PdfVisibilityExpression! expression) -> Broadside.PdfOptionalContentMembership!
+Broadside.PdfDocument.CreateOptionalContentMembership(System.Collections.Generic.IEnumerable<Broadside.PdfOptionalContentGroup!>! groups, Broadside.PdfVisibilityPolicy policy) -> Broadside.PdfOptionalContentMembership!
+static Broadside.PdfVisibilityExpression.And(params Broadside.PdfVisibilityExpression![]! operands) -> Broadside.PdfVisibilityExpression!
+static Broadside.PdfVisibilityExpression.Not(Broadside.PdfVisibilityExpression! operand) -> Broadside.PdfVisibilityExpression!
+static Broadside.PdfVisibilityExpression.Of(Broadside.PdfOptionalContentGroup! group) -> Broadside.PdfVisibilityExpression!
+static Broadside.PdfVisibilityExpression.Or(params Broadside.PdfVisibilityExpression![]! operands) -> Broadside.PdfVisibilityExpression!
+Broadside.Graphics.PdfFormXObject.RemoveOptionalContent() -> void
+Broadside.Graphics.PdfFormXObject.SetOptionalContent(Broadside.PdfOptionalContentGroup! group) -> void
+Broadside.Graphics.PdfFormXObject.SetOptionalContent(Broadside.PdfOptionalContentMembership! membership) -> void
+Broadside.Images.PdfImage.RemoveOptionalContent() -> void
+Broadside.Images.PdfImage.SetOptionalContent(Broadside.PdfOptionalContentGroup! group) -> void
+Broadside.Images.PdfImage.SetOptionalContent(Broadside.PdfOptionalContentMembership! membership) -> void
+Broadside.Annotations.PdfAnnotation.RemoveOptionalContent() -> void
+Broadside.Annotations.PdfAnnotation.SetOptionalContent(Broadside.PdfOptionalContentGroup! group) -> void
+Broadside.Annotations.PdfAnnotation.SetOptionalContent(Broadside.PdfOptionalContentMembership! membership) -> void

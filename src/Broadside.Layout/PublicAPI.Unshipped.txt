@@ -289,3 +289,19 @@ Broadside.Layout.Flow.Watermark.Angle.get -> double
 Broadside.Layout.Flow.Watermark.Angle.init -> void
 Broadside.Layout.Flow.Watermark.Opacity.get -> double
 Broadside.Layout.Flow.Watermark.Opacity.init -> void
+Broadside.Layout.Flow.FlowDocument.Tagging.get -> Broadside.Layout.Flow.FlowTagging?
+Broadside.Layout.Flow.FlowDocument.Tagging.set -> void
+Broadside.Layout.Flow.FlowLayoutResult.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.Layout.Flow.FlowStructureNamespace
+Broadside.Layout.Flow.FlowStructureNamespace.Pdf17 = 1 -> Broadside.Layout.Flow.FlowStructureNamespace
+Broadside.Layout.Flow.FlowStructureNamespace.Pdf20 = 0 -> Broadside.Layout.Flow.FlowStructureNamespace
+Broadside.Layout.Flow.FlowTagging
+Broadside.Layout.Flow.FlowTagging.Language.get -> string?
+Broadside.Layout.Flow.FlowTagging.Namespace.get -> Broadside.Layout.Flow.FlowStructureNamespace
+Broadside.Layout.Flow.FlowTagging.RoleMap.get -> System.Collections.Generic.IReadOnlyDictionary<string!, string!>!
+Broadside.Layout.Flow.FlowTagging.Title.get -> string?
+Broadside.Layout.Flow.FlowTagging.WithLanguage(string? language) -> Broadside.Layout.Flow.FlowTagging!
+Broadside.Layout.Flow.FlowTagging.WithNamespace(Broadside.Layout.Flow.FlowStructureNamespace ns) -> Broadside.Layout.Flow.FlowTagging!
+Broadside.Layout.Flow.FlowTagging.WithRoleMapping(string! type, string! standardType) -> Broadside.Layout.Flow.FlowTagging!
+Broadside.Layout.Flow.FlowTagging.WithTitle(string? title) -> Broadside.Layout.Flow.FlowTagging!
+static Broadside.Layout.Flow.FlowTagging.Default.get -> Broadside.Layout.Flow.FlowTagging!
