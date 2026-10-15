@@ -42,6 +42,7 @@ public sealed class PdfACffTests
         byte[] saved = stream.ToArray();
 
         Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Severity != DiagnosticSeverity.Information);
-        Assert.Empty(VeraPdf.FailedRules(saved, flavour));
+        IReadOnlyList<string> failed = VeraPdf.FailedRules(saved, flavour);
+        Assert.True(failed.Count == 0, string.Join(Environment.NewLine, failed));
     }
 }

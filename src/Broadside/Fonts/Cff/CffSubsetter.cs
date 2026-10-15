@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Globalization;
 using System.Text;
+using Broadside.Fonts.CharStrings;
 using Broadside.Graphics;
 
 namespace Broadside.Fonts.Cff;
@@ -30,8 +31,8 @@ namespace Broadside.Fonts.Cff;
 /// </para>
 /// <para>
 /// A font is written CID-keyed with Registry <c>Adobe</c>, Ordering <c>Identity</c> (its CIDs are the original glyph ids, whatever
-/// its own ROS); a name-keyed one gets one Font DICT holding its FontMatrix and Private DICT and an identity Top DICT FontMatrix
-/// (#5014 §4.2). Top and Font DICT entries that name strings (version, Notice, FullName, FontName and the like) are dropped, so the
+/// its own ROS); a name-keyed one gets one Font DICT holding its FontMatrix and Private DICT, and no Top DICT FontMatrix (the layout
+/// of Adobe's CID fonts, #5014 §4.2, which veraPDF reads widths through). Top and Font DICT entries that name strings (version, Notice, FullName, FontName and the like) are dropped, so the
 /// String INDEX holds only the ROS strings. A name-keyed font whose kept glyphs use <c>endchar</c> accents (which name
 /// their components by StandardEncoding code, which a CID-keyed font cannot resolve) stays name-keyed, keeps its glyph ids (the
 /// glyphs not kept become an empty <c>endchar</c>) and its charset, so its CIDs are still its glyph ids (§9.7.4.2). The output
@@ -55,9 +56,6 @@ internal static class CffSubsetter
     private const int OpUidBase = 0x0C23;
     private const int OpFdArray = 0x0C24;
     private const int OpFdSelect = 0x0C25;
-
-    /// <summary>The subroutine nesting limit (Adobe Technical Note #5177, Appendix B).</summary>
-    private const int MaxDepth = 10;
 
     /// <summary>Charstring bytes walked per glyph, subroutines included, before the walk gives up and keeps every subroutine.</summary>
     private const int Budget = 1 << 20;
@@ -115,7 +113,13 @@ internal static class CffSubsetter
             }
         }
 
-        if (!font.IsCidKeyed && accents)
+        if (!font.IsCidKeyed && reach.All)
+        {
+            // A walk stopped early may have missed an accent, whose components only keeping every glyph keeps.
+            kept.UnionWith(Enumerable.Range(0, glyphCount));
+        }
+
+        if (!font.IsCidKeyed && (accents || reach.All))
         {
             return NameKeyed(font, top, kept, reach);
         }
@@ -189,12 +193,6 @@ internal static class CffSubsetter
             Int32(dict, 0);
             dict.AddRange((ReadOnlySpan<byte>)[12, 30]);
             dict.AddRange(Raw(topBytes, top.Where(entry => TopKept.Contains(entry.Operator) || (font.IsCidKeyed && entry.Operator == OpFontMatrix))));
-            if (!font.IsCidKeyed)
-            {
-                // FontMatrix [1 0 0 1 0 0]: the font's own matrix moves to its Font DICT.
-                dict.AddRange((ReadOnlySpan<byte>)[140, 139, 139, 140, 139, 139, 12, 7]);
-            }
-
             Int32(dict, cidCount);
             dict.AddRange((ReadOnlySpan<byte>)[12, 34]);
             Int32(dict, charsetAt);
@@ -217,7 +215,7 @@ internal static class CffSubsetter
             }
             else
             {
-                // The matrix the parser read (the Top DICT's, or the 0.001 default), stated: without one a Font DICT would inherit the identity.
+                // The matrix the parser read (the Top DICT's, or the 0.001 default); the Top DICT has none, as in Adobe's CID fonts.
                 Matrix matrix = font.FontMatrix;
                 foreach (double value in (ReadOnlySpan<double>)[matrix.A, matrix.B, matrix.C, matrix.D, matrix.E, matrix.F])
                 {
@@ -716,13 +714,14 @@ internal static class CffSubsetter
                         position = Math.Min(position + ((_stems + 7) / 8), code.Length);
                         break;
                     case 10 or 29: // callsubr, callgsubr: inlined, without the number operand and the subroutine's return
-                        CffIndex subrs = b0 == 10 ? values.Subrs : font.GlobalSubrs;
-                        double operand = _count > 0 ? _stack[--_count] : double.NaN;
-                        int number = (int)operand + (b0 == 10 ? values.SubrBias : font.GlobalSubrBias);
-                        if (operand != Math.Floor(operand) || (uint)number >= (uint)subrs.Count || depth >= MaxDepth)
+                        if (_count == 0)
                         {
-                            return Result.Fail;
+                            // The interpreter skips a call without an operand.
+                            break;
                         }
+
+                        CffIndex subrs = b0 == 10 ? values.Subrs : font.GlobalSubrs;
+                        double number = _stack[--_count] + (b0 == 10 ? values.SubrBias : font.GlobalSubrBias);
 
                         // The operand is the last number written (no operator between a push and a call clears or computes it).
                         int token = _tokens[_count];
@@ -736,8 +735,19 @@ internal static class CffSubsetter
                         }
 
                         _lastToken = -1;
-                        (b0 == 10 ? local : Global)[number] = true;
-                        Result result = Run(subrs.Get(font.Data.Span, number), values, local, depth + 1);
+                        if (!(number >= 0 && number < subrs.Count))
+                        {
+                            // The interpreter skips a call out of range, its operand popped.
+                            continue;
+                        }
+
+                        if (depth >= CharStringLimits.MaxSubroutineDepth)
+                        {
+                            return Result.Fail;
+                        }
+
+                        (b0 == 10 ? local : Global)[(int)number] = true;
+                        Result result = Run(subrs.Get(font.Data.Span, (int)number), values, local, depth + 1);
                         if (result is Result.End or Result.Fail)
                         {
                             return result;
@@ -746,8 +756,8 @@ internal static class CffSubsetter
                         continue;
                     case 11: // return
                         return Result.Return;
-                    case 14: // endchar, with an accent: adx ady bchar achar
-                        if (_count >= 4)
+                    case 14: // endchar, with an accent: adx ady bchar achar (and the width first, as the interpreter takes it)
+                        if (_count is 4 or 5)
                         {
                             _accents.Add((int)_stack[_count - 2]);
                             _accents.Add((int)_stack[_count - 1]);

@@ -75,6 +75,25 @@ public sealed class CffSubsetterTests
     }
 
     [Fact]
+    public void An_accent_after_a_call_out_of_range_keeps_its_components_as_the_interpreter_skips_the_call()
+    {
+        // Fuzz finding (cff-subset): the interpreter pops the operand of a call out of range and goes on, here to an endchar accent.
+        var builder = new CffBuilder { Name = "SkippedCall" };
+        builder.GlobalSubrs.Add(CffBuilder.T2(0, 0, "rmoveto", 10, 10, "rlineto", "return"));
+        builder.Glyphs.Add((".notdef", CffBuilder.T2("endchar")));
+        builder.Glyphs.Add(("A", CffBuilder.T2(600, 0, 0, "rmoveto", 300, 700, "rlineto", 300, -700, "rlineto", "endchar")));
+        builder.Glyphs.Add(("acute", CffBuilder.T2(300, 0, 750, "rmoveto", 100, 100, "rlineto", 50, -50, "rlineto", "endchar")));
+        builder.Glyphs.Add(("Aacute", CffBuilder.T2(-48, -76, -30, "callgsubr", 750, 65, 194, "endchar")));
+        byte[] program = builder.Build();
+        CffFontProgram original = Parse(program);
+        Assert.StartsWith("Complete MoveTo LineTo LineTo Close MoveTo LineTo LineTo Close ", Outline(original, 3), StringComparison.Ordinal);
+
+        SubsetProgram subset = CffSubsetter.Subset(program, [3])!;
+        CffFontProgram result = Parse(subset.Program);
+        Assert.Equal(Outline(original, 3), Outline(result, subset.NewId(3)));
+    }
+
+    [Fact]
     public void A_program_that_is_not_cff_or_has_type_1_charstrings_is_not_subset()
     {
         Assert.Null(CffSubsetter.Subset(new byte[] { 0, 1, 0, 0, 0, 0 }, [1]));
