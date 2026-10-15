@@ -4694,3 +4694,10 @@ Broadside.PdfDocument.CreateShadingPattern(Broadside.Graphics.PdfShading! shadin
 Broadside.PdfDocument.CreateTilingPattern(Broadside.PdfRectangle boundingBox, double xStep, double yStep, Broadside.Graphics.PdfTilingPaintType paintType, Broadside.Graphics.Matrix? matrix = null, Broadside.Graphics.PdfTilingType tilingType = Broadside.Graphics.PdfTilingType.ConstantSpacing) -> Broadside.Graphics.PdfTilingPattern!
 Broadside.PdfDocument.EmbedTrueTypeFont(Broadside.Fonts.FontQuery! query) -> Broadside.Fonts.PdfCanvasFont?
 Broadside.PdfDocument.EmbedTrueTypeFont(System.ReadOnlyMemory<byte> program, int faceIndex = 0) -> Broadside.Fonts.PdfCanvasFont!
+Broadside.PdfAConformance
+Broadside.PdfAConformance.None = 0 -> Broadside.PdfAConformance
+Broadside.PdfAConformance.PdfA2b = 1 -> Broadside.PdfAConformance
+Broadside.PdfSaveOptions.PdfAConformance.get -> Broadside.PdfAConformance
+Broadside.PdfSaveOptions.PdfAConformance.set -> void
+Broadside.PdfSaveOptions.WithPdfAConformance(Broadside.PdfAConformance conformance) -> Broadside.PdfSaveOptions!
+static Broadside.Graphics.PdfIccBasedColorSpace.CreateSrgbProfileData() -> byte[]!

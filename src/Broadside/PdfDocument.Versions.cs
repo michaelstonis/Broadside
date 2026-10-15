@@ -33,11 +33,18 @@ public sealed partial class PdfDocument
     /// written or changed.
     /// </summary>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for a version later than the document's.</exception>
-    private VersionedSave CheckVersionedSave(PdfSaveOptions options)
+    /// <param name="options">The save's options.</param>
+    /// <param name="archival">Whether the save writes a PDF/A conformance (#201), which adds <see cref="VersionedFeatures.PdfAOutput"/>.</param>
+    private VersionedSave CheckVersionedSave(PdfSaveOptions options, bool archival = false)
     {
         var features = new List<VersionedFeature>();
         FileWriter writer = PlanWriter(options, features);
         AddDocumentFeatures(features);
+        if (archival)
+        {
+            features.Add(VersionedFeatures.PdfAOutput);
+        }
+
         PdfVersion needed = Writing.VersionPlan.Check(Version, features, _diagnostics);
         return new VersionedSave(writer, features, needed);
     }
@@ -52,7 +59,11 @@ public sealed partial class PdfDocument
     /// <param name="options">The save's options.</param>
     /// <param name="planned">What <see cref="CheckVersionedSave"/> planned.</param>
     /// <param name="changed">Whether the save changed the document since (dated it, completed font subsets, laid its metadata out for PDF 2.0).</param>
-    private FileWriter ApplyVersionedSave(PdfSaveOptions options, VersionedSave planned, bool changed)
+    /// <param name="ceiling">
+    /// The latest version a full save's header may state, for a conformance level based on an earlier version (PDF/A-2: 1.7, #201);
+    /// the check step made sure no feature of the save needs more, so a new document's 2.0 is lowered to it.
+    /// </param>
+    private FileWriter ApplyVersionedSave(PdfSaveOptions options, VersionedSave planned, bool changed, PdfVersion? ceiling = null)
     {
         List<VersionedFeature> features = planned.Features;
         changed |= Writing.VersionPlan.AddExtensions(Catalog, features, Resolve);
@@ -67,14 +78,23 @@ public sealed partial class PdfDocument
         {
             // The document changed after it was planned: plan again, so the update writes what changed and a full save serializes
             // it. Dating, completing font subsets and the metadata layout add no feature, so the version decided stands.
+            bool archival = features.Contains(VersionedFeatures.PdfAOutput);
             features.Clear();
             writer = PlanWriter(options, features);
             AddDocumentFeatures(features);
+            if (archival)
+            {
+                features.Add(VersionedFeatures.PdfAOutput);
+            }
         }
 
         if (!options.IncrementalUpdate)
         {
             writer.Version = Writing.VersionPlan.Highest(features, writer.Version);
+            if (ceiling is { } latest && writer.Version > latest)
+            {
+                writer.Version = latest;
+            }
         }
 
         return writer;

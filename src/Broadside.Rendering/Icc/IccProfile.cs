@@ -63,7 +63,7 @@ public sealed class IccProfile
     /// media white point (§9.2.34). Generated in-house, so no third-party profile ships; <see cref="CreateSrgbProfileData"/> gives its
     /// bytes, for instance to embed as an ICCBased space or an output intent.
     /// </remarks>
-    public static IccProfile Srgb { get; } = ParseOwn(SrgbProfile.Create());
+    public static IccProfile Srgb { get; } = ParseOwn(PdfIccBasedColorSpace.CreateSrgbProfileData());
 
     /// <summary>Gets the profile header.</summary>
     /// <remarks>ICC.1:2022 §7.2.</remarks>
@@ -135,7 +135,7 @@ public sealed class IccProfile
     /// <summary>Returns the bytes of <see cref="Srgb"/>.</summary>
     /// <returns>A new array holding the profile, the same bytes on every call.</returns>
     /// <remarks>ICC.1:2022 §7 to §10; see <see cref="Srgb"/>.</remarks>
-    public static byte[] CreateSrgbProfileData() => SrgbProfile.Create();
+    public static byte[] CreateSrgbProfileData() => PdfIccBasedColorSpace.CreateSrgbProfileData();
 
     /// <summary>Reads a profile.</summary>
     /// <param name="data">The profile's bytes.</param>

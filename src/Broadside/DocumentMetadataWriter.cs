@@ -75,6 +75,7 @@ internal sealed class DocumentMetadataWriter
 
     private readonly PdfDocument _document;
     private readonly Dictionary<MetadataEntry, object?> _changes = [];
+    private readonly List<(string NamespaceName, string Name, string? Value)> _properties = [];
 
     public DocumentMetadataWriter(PdfDocument document) => _document = document;
 
@@ -82,6 +83,16 @@ internal sealed class DocumentMetadataWriter
     public DocumentMetadataWriter Set(MetadataEntry entry, object? value)
     {
         _changes[entry] = value;
+        return this;
+    }
+
+    /// <summary>
+    /// Sets (or, for <see langword="null"/>, removes) a simple XMP property outside Table 349, such as the PDF/A identification
+    /// (<c>pdfaid:part</c>, issue #201); written only to the packet, which <see cref="Commit"/> then always writes.
+    /// </summary>
+    public DocumentMetadataWriter SetProperty(string namespaceName, string name, string? value)
+    {
+        _properties.Add((namespaceName, name, value));
         return this;
     }
 
@@ -114,7 +125,7 @@ internal sealed class DocumentMetadataWriter
         bool isPdf20 = version >= Pdf20;
         (CosDictionary? info, CosReference? infoReference) = ReadInfo();
         (CosStream? stream, XmpPacket? packet) = ReadMetadata();
-        bool writePacket = stream is not null || isPdf20 || (createPacket && version >= Pdf14);
+        bool writePacket = stream is not null || isPdf20 || ((createPacket || _properties.Count > 0) && version >= Pdf14);
 
         List<XmpProperty> properties = packet is null ? [] : [.. packet.Properties];
         var infoValues = new Dictionary<MetadataEntry, object?>();
@@ -154,6 +165,26 @@ internal sealed class DocumentMetadataWriter
 
         if (writePacket)
         {
+            foreach ((string namespaceName, string name, string? value) in _properties)
+            {
+                int index = properties.FindIndex(property => property.Name == name && property.NamespaceName == namespaceName);
+                if (value is null)
+                {
+                    if (index >= 0)
+                    {
+                        properties.RemoveAt(index);
+                    }
+                }
+                else if (index >= 0)
+                {
+                    properties[index] = XmpProperty.Simple(namespaceName, name, value);
+                }
+                else
+                {
+                    properties.Add(XmpProperty.Simple(namespaceName, name, value));
+                }
+            }
+
             SetXmp(properties, null, now);
             if (packet is null)
             {

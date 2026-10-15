@@ -18,8 +18,9 @@ One file per specification. One row per clause. Status is one of `not started`, 
 | [icc-1-2022.md](./icc-1-2022.md) | ICC.1:2022 colour profile format (reading, for ICCBased colour spaces) |
 | [iso-14289-1.md](./iso-14289-1.md) | ISO 14289-1:2014 PDF/UA-1 |
 | [iso-14289-2.md](./iso-14289-2.md) | ISO 14289-2:2024 PDF/UA-2 |
+| [iso-19005-2.md](./iso-19005-2.md) | ISO 19005-2:2011 PDF/A-2 output, cited by veraPDF rule identifiers (open decision 12) |
 
-PDF/A and PDF/X get files when their documents are purchased; see `docs/research/missing-iso-specs.md`. The PDF Association's Tagged PDF Best Practice Guide in `Specs/` is guidance, not a conformance target.
+PDF/A rows cite veraPDF validation-profile rule identifiers, the standards not being purchased (open decision 12); PDF/X gets a file when its document is purchased; see `docs/research/missing-iso-specs.md`. The PDF Association's Tagged PDF Best Practice Guide in `Specs/` is guidance, not a conformance target.
 
 ## Row format
 
