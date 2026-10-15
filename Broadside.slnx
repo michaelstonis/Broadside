@@ -17,6 +17,7 @@
   <Folder Name="/src/">
     <Project Path="src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
     <Project Path="src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <Project Path="src/Broadside.Layout/Broadside.Layout.csproj" />
     <Project Path="src/Broadside.Rendering.Android/Broadside.Rendering.Android.csproj" />
     <Project Path="src/Broadside.Rendering.CoreGraphics/Broadside.Rendering.CoreGraphics.csproj" />
     <Project Path="src/Broadside.Rendering.Direct2D/Broadside.Rendering.Direct2D.csproj" />
@@ -30,6 +31,7 @@
     <Project Path="tests/Broadside.Fuzz/Broadside.Fuzz.csproj" />
     <Project Path="tests/Broadside.Globalization.Tests/Broadside.Globalization.Tests.csproj" />
     <Project Path="tests/Broadside.GoldenImages/Broadside.GoldenImages.csproj" />
+    <Project Path="tests/Broadside.Layout.Tests/Broadside.Layout.Tests.csproj" />
     <Project Path="tests/Broadside.Rendering.Android.Device/Broadside.Rendering.Android.Device.csproj" />
     <Project Path="tests/Broadside.Rendering.Android.Tests/Broadside.Rendering.Android.Tests.csproj" />
     <Project Path="tests/Broadside.Rendering.AotSmoke/Broadside.Rendering.AotSmoke.csproj" />

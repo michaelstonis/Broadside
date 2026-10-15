@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Layout/Broadside.Layout.csproj" />
+    <ProjectReference Include="../Broadside.TestSupport/Broadside.TestSupport.csproj" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,66 @@
+#nullable enable
+Broadside.Layout.Flow.FlowBlock
+Broadside.Layout.Flow.FlowBlock.Language.get -> string?
+Broadside.Layout.Flow.FlowBlock.Language.init -> void
+Broadside.Layout.Flow.FlowBlock.StructureType.get -> string!
+Broadside.Layout.Flow.FlowBlock.StructureType.init -> void
+Broadside.Layout.Flow.FlowDocument
+Broadside.Layout.Flow.FlowDocument.Add(Broadside.Layout.Flow.FlowBlock! block) -> Broadside.Layout.Flow.FlowDocument!
+Broadside.Layout.Flow.FlowDocument.Blocks.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.Flow.FlowBlock!>!
+Broadside.Layout.Flow.FlowDocument.FlowDocument(Broadside.Layout.Flow.PageSetup page) -> void
+Broadside.Layout.Flow.FlowDocument.Page.get -> Broadside.Layout.Flow.PageSetup
+Broadside.Layout.Flow.FlowDocument.Render(Broadside.PdfDocument! document) -> Broadside.Layout.Flow.FlowLayoutResult!
+Broadside.Layout.Flow.FlowLayoutResult
+Broadside.Layout.Flow.FlowLayoutResult.Pages.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfPage!>!
+Broadside.Layout.Flow.PageMargins
+Broadside.Layout.Flow.PageMargins.Bottom.get -> double
+Broadside.Layout.Flow.PageMargins.Bottom.init -> void
+Broadside.Layout.Flow.PageMargins.Left.get -> double
+Broadside.Layout.Flow.PageMargins.Left.init -> void
+Broadside.Layout.Flow.PageMargins.PageMargins() -> void
+Broadside.Layout.Flow.PageMargins.PageMargins(double all) -> void
+Broadside.Layout.Flow.PageMargins.PageMargins(double Left, double Top, double Right, double Bottom) -> void
+Broadside.Layout.Flow.PageMargins.Right.get -> double
+Broadside.Layout.Flow.PageMargins.Right.init -> void
+Broadside.Layout.Flow.PageMargins.Top.get -> double
+Broadside.Layout.Flow.PageMargins.Top.init -> void
+Broadside.Layout.Flow.PageSetup
+Broadside.Layout.Flow.PageSetup.ContentHeight.get -> double
+Broadside.Layout.Flow.PageSetup.ContentWidth.get -> double
+Broadside.Layout.Flow.PageSetup.Height.get -> double
+Broadside.Layout.Flow.PageSetup.Height.init -> void
+Broadside.Layout.Flow.PageSetup.Margins.get -> Broadside.Layout.Flow.PageMargins
+Broadside.Layout.Flow.PageSetup.Margins.init -> void
+Broadside.Layout.Flow.PageSetup.PageSetup() -> void
+Broadside.Layout.Flow.PageSetup.PageSetup(double Width, double Height, Broadside.Layout.Flow.PageMargins Margins) -> void
+Broadside.Layout.Flow.PageSetup.Width.get -> double
+Broadside.Layout.Flow.PageSetup.Width.init -> void
+Broadside.Layout.Flow.PageSetup.WithMargins(Broadside.Layout.Flow.PageMargins margins) -> Broadside.Layout.Flow.PageSetup
+Broadside.Layout.Flow.PageSetup.WithSize(double width, double height) -> Broadside.Layout.Flow.PageSetup
+Broadside.Layout.Flow.Paragraph
+Broadside.Layout.Flow.Paragraph.Paragraph(string! text, Broadside.Layout.Flow.ParagraphStyle! style) -> void
+Broadside.Layout.Flow.Paragraph.Style.get -> Broadside.Layout.Flow.ParagraphStyle!
+Broadside.Layout.Flow.Paragraph.Text.get -> string!
+Broadside.Layout.Flow.ParagraphStyle
+Broadside.Layout.Flow.ParagraphStyle.Alignment.get -> Broadside.Layout.Flow.TextAlignment
+Broadside.Layout.Flow.ParagraphStyle.FirstLineIndent.get -> double
+Broadside.Layout.Flow.ParagraphStyle.Font.get -> Broadside.Fonts.PdfCanvasFont!
+Broadside.Layout.Flow.ParagraphStyle.FontSize.get -> double
+Broadside.Layout.Flow.ParagraphStyle.Kerning.get -> bool
+Broadside.Layout.Flow.ParagraphStyle.LineHeight.get -> double
+Broadside.Layout.Flow.ParagraphStyle.ParagraphStyle(Broadside.Fonts.PdfCanvasFont! font, double fontSize) -> void
+Broadside.Layout.Flow.ParagraphStyle.SpaceAfter.get -> double
+Broadside.Layout.Flow.ParagraphStyle.SpaceBefore.get -> double
+Broadside.Layout.Flow.ParagraphStyle.WithAlignment(Broadside.Layout.Flow.TextAlignment alignment) -> Broadside.Layout.Flow.ParagraphStyle!
+Broadside.Layout.Flow.ParagraphStyle.WithFirstLineIndent(double indent) -> Broadside.Layout.Flow.ParagraphStyle!
+Broadside.Layout.Flow.ParagraphStyle.WithKerning(bool kerning) -> Broadside.Layout.Flow.ParagraphStyle!
+Broadside.Layout.Flow.ParagraphStyle.WithLineHeight(double multiple) -> Broadside.Layout.Flow.ParagraphStyle!
+Broadside.Layout.Flow.ParagraphStyle.WithSpaceAfter(double space) -> Broadside.Layout.Flow.ParagraphStyle!
+Broadside.Layout.Flow.ParagraphStyle.WithSpaceBefore(double space) -> Broadside.Layout.Flow.ParagraphStyle!
+Broadside.Layout.Flow.TextAlignment
+Broadside.Layout.Flow.TextAlignment.Center = 1 -> Broadside.Layout.Flow.TextAlignment
+Broadside.Layout.Flow.TextAlignment.Justify = 3 -> Broadside.Layout.Flow.TextAlignment
+Broadside.Layout.Flow.TextAlignment.Left = 0 -> Broadside.Layout.Flow.TextAlignment
+Broadside.Layout.Flow.TextAlignment.Right = 2 -> Broadside.Layout.Flow.TextAlignment
+static Broadside.Layout.Flow.PageSetup.A4.get -> Broadside.Layout.Flow.PageSetup
+static Broadside.Layout.Flow.PageSetup.Letter.get -> Broadside.Layout.Flow.PageSetup
