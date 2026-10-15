@@ -11,10 +11,14 @@ namespace Broadside.Rendering.Android.Tests;
 /// built APK on the attached device or emulator over adb, renders the files there, and reads back the results and the pixels.
 /// </summary>
 /// <remarks>
+/// The pixels come back in one <c>adb pull</c> of the output directory, retried after reconnecting: an emulator's adb transport can
+/// drop to "device offline" during a long transfer, which one <c>exec-out</c> per file turned into dozens of failed tests.
+/// </remarks>
+/// <remarks>
 /// Where it finds things: adb in <c>ANDROID_HOME</c> or <c>ANDROID_SDK_ROOT</c> (<c>platform-tools</c>), the default SDK location on
 /// macOS, or the <c>PATH</c>; the device named by <c>ANDROID_SERIAL</c>, else the first one <c>adb devices</c> lists; the APK named by
 /// <c>BROADSIDE_ANDROID_APK</c>, else the newest <c>*-Signed.apk</c> under <c>artifacts/bin/Broadside.Rendering.Android.Device/</c>
-/// (build it with <c>dotnet build tests/Broadside.Rendering.Android.Device</c>). When one is missing the tests skip, unless
+/// (build it with <c>dotnet build tests/Broadside.Rendering.Android.Device -c Release</c>; a Debug build skips the allocation tests). When one is missing the tests skip, unless
 /// <c>BROADSIDE_ANDROID_REQUIRED</c> is <c>1</c>.
 /// </remarks>
 internal sealed class AndroidDevice
@@ -25,20 +29,20 @@ internal sealed class AndroidDevice
     /// <summary>Replays per page for the allocation and time measurement.</summary>
     private const int Replays = 20;
 
+    private const int PullAttempts = 3;
+
     private static readonly TimeSpan Timeout = TimeSpan.FromMinutes(10);
 
     private static readonly Lazy<AndroidDevice> Shared = new(Start);
 
-    private readonly string _adb;
-    private readonly string _serial;
     private readonly Dictionary<string, string> _results;
+    private readonly string _pixels;
 
-    private AndroidDevice(string? unavailable, string adb = "", string serial = "", Dictionary<string, string>? results = null)
+    private AndroidDevice(string? unavailable, Dictionary<string, string>? results = null, string pixels = "")
     {
         Unavailable = unavailable;
-        _adb = adb;
-        _serial = serial;
         _results = results ?? [];
+        _pixels = pixels;
     }
 
     /// <summary>Gets why no device run could be made, or <see langword="null"/> when it was.</summary>
@@ -63,15 +67,16 @@ internal sealed class AndroidDevice
 
     /// <summary>
     /// Returns the device's render of a page in a variant (<see cref="DeviceProtocol.Native"/>, <see cref="DeviceProtocol.Outlines"/>
-    /// or <see cref="DeviceProtocol.Paths"/>), read back from the app's external files directory.
+    /// or <see cref="DeviceProtocol.Paths"/>), as pulled from the app's external files directory.
     /// </summary>
     public GoldenImage Render(string fileName, int page, string variant = DeviceProtocol.Native)
     {
         string[] size = Result(DeviceProtocol.SizeKey(fileName, page)).Split(' ');
         int width = int.Parse(size[0], CultureInfo.InvariantCulture);
         int height = int.Parse(size[1], CultureInfo.InvariantCulture);
-        string path = $"{DeviceProtocol.DeviceFilesDirectory}/{DeviceProtocol.OutputDirectory}/{DeviceProtocol.PixelFile(fileName, page, variant)}";
-        byte[] pixels = RunAdb(_adb, ["-s", _serial, "exec-out", "cat", path]).Output;
+        string path = Path.Combine(_pixels, DeviceProtocol.PixelFile(fileName, page, variant));
+        Assert.True(File.Exists(path), $"The device wrote no {DeviceProtocol.PixelFile(fileName, page, variant)}.");
+        byte[] pixels = File.ReadAllBytes(path);
         Assert.True(pixels.Length == width * height * 4, $"{path} holds {pixels.Length} bytes; a {width} x {height} render needs {width * height * 4}.");
         return GoldenImage.FromPixels(pixels, width, height, width * 4, GoldenPixelFormat.Bgra8);
     }
@@ -96,6 +101,9 @@ internal sealed class AndroidDevice
         long.Parse(Result(DeviceProtocol.AllocatedKey(fileName, page, variant)), CultureInfo.InvariantCulture);
 
     /// <summary>Returns what the device's measurement reports for one 64-byte array: above zero when the runtime counts allocations.</summary>
+    /// <summary>Gets whether the device app was built optimized, the only build whose allocation measurement means anything.</summary>
+    public bool IsOptimizedBuild => Result(DeviceProtocol.BuildKey) == DeviceProtocol.Optimized;
+
     public long AllocationProbeBytes() => long.Parse(Result(DeviceProtocol.AllocationProbeKey), CultureInfo.InvariantCulture);
 
     /// <summary>Returns the mean time of one warm replay of the page on the device, in microseconds.</summary>
@@ -141,7 +149,35 @@ internal sealed class AndroidDevice
             throw new InvalidOperationException($"The instrumentation failed on {serial}:{Environment.NewLine}{text}");
         }
 
-        return new AndroidDevice(null, adb, serial, results);
+        return new AndroidDevice(null, results, Pull(adb, serial));
+    }
+
+    /// <summary>
+    /// Copies the app's output directory to a new local directory and returns the copy, reconnecting and retrying when the transfer
+    /// fails.
+    /// </summary>
+    private static string Pull(string adb, string serial)
+    {
+        string remote = $"{DeviceProtocol.DeviceFilesDirectory}/{DeviceProtocol.OutputDirectory}";
+        (byte[] Output, int ExitCode) result = default;
+        for (int attempt = 0; attempt < PullAttempts; attempt++)
+        {
+            if (attempt > 0)
+            {
+                RunAdb(adb, ["reconnect", "offline"]);
+                RunAdb(adb, ["-s", serial, "wait-for-device"]);
+            }
+
+            string local = Directory.CreateTempSubdirectory("broadside-android-").FullName;
+            result = RunAdb(adb, ["-s", serial, "pull", remote, local]);
+            if (result.ExitCode == 0)
+            {
+                return Path.Combine(local, DeviceProtocol.OutputDirectory);
+            }
+        }
+
+        Check(result, "pull");
+        throw new UnreachableException();
     }
 
     /// <summary>Reads the <c>INSTRUMENTATION_RESULT: key=value</c> lines <c>am instrument</c> prints for the finishing bundle.</summary>

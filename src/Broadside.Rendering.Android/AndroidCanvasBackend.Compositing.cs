@@ -3,9 +3,9 @@ using Broadside.Diagnostics;
 using Broadside.Graphics;
 using AndroidBlendMode = Android.Graphics.BlendMode;
 using AndroidCanvas = Android.Graphics.Canvas;
+using Matrix = Broadside.Graphics.Matrix;
 using Paint = Android.Graphics.Paint;
 using PaintFlags = Android.Graphics.PaintFlags;
-using Matrix = Broadside.Graphics.Matrix;
 
 namespace Broadside.Rendering.Android;
 
@@ -23,7 +23,7 @@ public sealed partial class AndroidCanvasBackend
             DiagnosticSeverity.Warning,
             "This Android version (before 10, API level 29) has no blend modes for the canvas; the page's paints that blend other than Normal (ISO 32000-2 §11.3.5) were composited as Normal.");
 
-        private static AndroidBlendMode?[]? s_blendModes;
+        private static AndroidBlendMode?[]? _blendModes;
 
         private readonly Paint _layerPaint = new(PaintFlags.AntiAlias);
         private Compositing _compositing;
@@ -167,7 +167,7 @@ public sealed partial class AndroidCanvasBackend
         [SupportedOSPlatform("android29.0")]
         private static AndroidBlendMode? NativeBlendMode(BlendMode mode)
         {
-            AndroidBlendMode?[] modes = s_blendModes ??=
+            AndroidBlendMode?[] modes = _blendModes ??=
             [
                 null,
                 AndroidBlendMode.Multiply,

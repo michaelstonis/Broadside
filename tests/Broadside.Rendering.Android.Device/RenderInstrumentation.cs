@@ -72,6 +72,11 @@ public sealed class RenderInstrumentation : Instrumentation
         using var backend = new AndroidCanvasBackend();
         Action probe = () => GC.KeepAlive(new byte[64]);
         results.PutString(DeviceProtocol.AllocationProbeKey, Allocations.Measure(probe).ToString(CultureInfo.InvariantCulture));
+#if DEBUG
+        results.PutString(DeviceProtocol.BuildKey, DeviceProtocol.Debugging);
+#else
+        results.PutString(DeviceProtocol.BuildKey, DeviceProtocol.Optimized);
+#endif
 
         foreach (string fileName in _files.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {

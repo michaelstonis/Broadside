@@ -75,6 +75,19 @@ internal static class DeviceProtocol
     /// </summary>
     public const string AllocationProbeKey = "allocation-probe";
 
+    /// <summary>
+    /// The result key of whether the app was built optimized (<see cref="Optimized"/>) or for debugging. Mono runs a debug build
+    /// without JIT optimizations, and then its shared generic code over struct keys allocates (192 to 480 B per colour converter
+    /// lookup, issue #314), so only an optimized build's allocation measurement says anything about the backend.
+    /// </summary>
+    public const string BuildKey = "build";
+
+    /// <summary>The <see cref="BuildKey"/> value of an optimized (Release) build.</summary>
+    public const string Optimized = "optimized";
+
+    /// <summary>The <see cref="BuildKey"/> value of a debug build.</summary>
+    public const string Debugging = "debug";
+
     /// <summary>Returns the result key of the mean time of one warm replay of the page, in microseconds.</summary>
     public static string ReplayTimeKey(string fileName, int page, string variant = Native) => $"replay-us{Suffix(variant)}:{fileName}:{page}";
 
