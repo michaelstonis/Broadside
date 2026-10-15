@@ -86,7 +86,7 @@ public sealed partial class PdfCanvas : IDisposable
     public int StateDepth => _saved.Count;
 
     /// <summary>Saves the graphics state (<c>q</c>).</summary>
-    /// <exception cref="InvalidOperationException">A path is being built, or the canvas is disposed.</exception>
+    /// <exception cref="InvalidOperationException">A path is being built, a text object is open, or the canvas is disposed.</exception>
     /// <remarks>ISO 32000-2 §8.4.2 and §8.4.4, Table 56. Restore it with <see cref="RestoreState"/>.</remarks>
     public void SaveState()
     {
@@ -97,7 +97,7 @@ public sealed partial class PdfCanvas : IDisposable
     }
 
     /// <summary>Restores the graphics state saved last (<c>Q</c>).</summary>
-    /// <exception cref="InvalidOperationException">No state is saved, a path is being built, or the canvas is disposed.</exception>
+    /// <exception cref="InvalidOperationException">No state is saved, a path is being built, a text object is open, or the canvas is disposed.</exception>
     /// <remarks>ISO 32000-2 §8.4.2 and §8.4.4, Table 56: <c>q</c> and <c>Q</c> shall be balanced.</remarks>
     public void RestoreState()
     {
@@ -115,7 +115,7 @@ public sealed partial class PdfCanvas : IDisposable
     /// <summary>Concatenates <paramref name="matrix"/> to the current transformation matrix (<c>cm</c>).</summary>
     /// <param name="matrix">The transformation, from the new user space to the current one.</param>
     /// <exception cref="ArgumentException">A component is not finite.</exception>
-    /// <exception cref="InvalidOperationException">A path is being built, or the canvas is disposed.</exception>
+    /// <exception cref="InvalidOperationException">A path is being built, a text object is open, or the canvas is disposed.</exception>
     /// <remarks>ISO 32000-2 §8.3.4 and §8.4.4, Table 56.</remarks>
     public void Transform(Matrix matrix)
     {
@@ -305,7 +305,7 @@ public sealed partial class PdfCanvas : IDisposable
     /// <param name="x">The horizontal coordinate, in user space.</param>
     /// <param name="y">The vertical coordinate, in user space.</param>
     /// <exception cref="ArgumentException">A coordinate is not finite.</exception>
-    /// <exception cref="InvalidOperationException">The path is already marked as a clip, or the canvas is disposed.</exception>
+    /// <exception cref="InvalidOperationException">The path is already marked as a clip, a text object is open, or the canvas is disposed.</exception>
     /// <remarks>ISO 32000-2 §8.5.2.1, Table 58.</remarks>
     public void MoveTo(double x, double y)
     {
@@ -360,7 +360,7 @@ public sealed partial class PdfCanvas : IDisposable
     /// <param name="width">The width (negative extends to the left).</param>
     /// <param name="height">The height (negative extends downwards).</param>
     /// <exception cref="ArgumentException">A value is not finite.</exception>
-    /// <exception cref="InvalidOperationException">The path is already marked as a clip, or the canvas is disposed.</exception>
+    /// <exception cref="InvalidOperationException">The path is already marked as a clip, a text object is open, or the canvas is disposed.</exception>
     /// <remarks>ISO 32000-2 §8.5.2.1, Table 58.</remarks>
     public void Rectangle(double x, double y, double width, double height)
     {
@@ -444,7 +444,7 @@ public sealed partial class PdfCanvas : IDisposable
     /// <summary>Paints a form XObject of this document (<c>Do</c>), with the form's matrix and bounding box.</summary>
     /// <param name="form">The form: <see cref="PdfDocument.CreateFormXObject"/>, or one read from the document.</param>
     /// <exception cref="ArgumentException"><paramref name="form"/> belongs to another document, or has no indirect reference (a form XObject shall be an indirect stream).</exception>
-    /// <exception cref="InvalidOperationException">A path is being built, the form is the one this canvas draws on, or the canvas is disposed.</exception>
+    /// <exception cref="InvalidOperationException">A path is being built, a text object is open, the form is the one this canvas draws on, or the canvas is disposed.</exception>
     /// <remarks>ISO 32000-2 §8.8 (<c>Do</c>, Table 86) and §8.10.1. The form is named in the <c>XObject</c> resources.</remarks>
     public void DrawForm(PdfFormXObject form)
     {
