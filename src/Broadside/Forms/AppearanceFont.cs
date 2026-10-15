@@ -1,6 +1,5 @@
 using System.Text;
 using Broadside.Fonts;
-using Broadside.Fonts.TrueType;
 using Broadside.Objects;
 
 namespace Broadside.Forms;
@@ -118,27 +117,27 @@ internal sealed class SimpleAppearanceFont : AppearanceFont
 }
 
 /// <summary>
-/// A TrueType program found by the engine's font resolvers, embedded as a subset Type 0 font (CIDFontType2, <c>Identity-H</c>, glyph
-/// ids as CIDs) with a <c>W</c> array and a <c>ToUnicode</c> CMap: for text the default appearance font cannot encode. Every
-/// appearance of a document that needs the same program shows it through one <see cref="SharedFontSubset"/>, grown as needed.
+/// A canvas font an appearance shows text with: for text the default appearance font cannot encode, the TrueType program the engine's
+/// font resolvers find, embedded through the same <see cref="TrueTypeCanvasFont"/> (and the same shared subset) a canvas uses.
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §9.7 (Type 0 fonts, CIDFontType2, <c>W</c>, <c>CIDToGIDMap</c>), §9.8 (descriptor, <c>FontFile2</c>), §9.9.2 (subset
-/// tag) and §9.10.3 (<c>ToUnicode</c>). Internal and minimal (issues #167, #285); issue #150 owns general TrueType embedding.
+/// tag) and §9.10.3 (<c>ToUnicode</c>). Every appearance of a document that needs the same program shows it through one subset, grown
+/// as needed (issues #150, #285).
 /// </remarks>
-internal sealed class EmbeddedAppearanceFont : AppearanceFont
+internal sealed class CanvasAppearanceFont : AppearanceFont
 {
-    private readonly SharedFontSubset _subset;
+    private readonly PdfCanvasFont _font;
 
-    private EmbeddedAppearanceFont(SharedFontSubset subset) => _subset = subset;
+    private CanvasAppearanceFont(PdfCanvasFont font) => _font = font;
 
-    public override CosObject FontObject => _subset.Font;
+    public override CosObject FontObject => _font.Reference;
 
-    public override double Ascent => _subset.Ascent;
+    public override double Ascent => _font.Ascent;
 
-    public override double Descent => _subset.Descent;
+    public override double Descent => _font.Descent;
 
-    public override bool IsHexadecimal => true;
+    public override bool IsHexadecimal => _font.CodeLength > 1;
 
     /// <summary>
     /// Finds a TrueType program for <paramref name="text"/> through the document's font resolvers (one like <paramref name="like"/>,
@@ -150,7 +149,7 @@ internal sealed class EmbeddedAppearanceFont : AppearanceFont
     /// <param name="text">Every text the font will show.</param>
     /// <param name="missing">When no program has glyphs for all of it, the first character none has; else <see langword="null"/>.</param>
     /// <returns>The font, or <see langword="null"/> when no resolver found a TrueType program covering the text.</returns>
-    public static EmbeddedAppearanceFont? Create(PdfDocument document, PdfFont? like, IReadOnlyList<string> text, out string? missing)
+    public static CanvasAppearanceFont? CreateEmbedded(PdfDocument document, PdfFont? like, IReadOnlyList<string> text, out string? missing)
     {
         missing = null;
         var queries = new List<FontQuery>();
@@ -172,105 +171,39 @@ internal sealed class EmbeddedAppearanceFont : AppearanceFont
                 continue;
             }
 
-            Dictionary<int, int>? glyphs;
-            string? uncovered;
-            if (document.FontSubsets.Find(document, resolution) is { } shared)
+            if (TrueTypeCanvasFont.Get(document, resolution, text, out string? uncovered, out _) is { } font)
             {
-                if ((glyphs = shared.Cover(text, out uncovered)) is null)
-                {
-                    missing ??= uncovered;
-                    continue;
-                }
-
-                shared.Include(document, glyphs);
                 missing = null;
-                return new EmbeddedAppearanceFont(shared);
+                return new CanvasAppearanceFont(font);
             }
 
-            if (SfntFile.Open(resolution.Data, new FontProgramContext { FaceIndex = resolution.FaceIndex }) is not { } sfnt
-                || !sfnt.Has(SfntFile.Tag("glyf"))
-                || document.GetSubstituteProgram(resolution, reference: null) is not { } program
-                || PickCharacterMap(program) is not { } cmap)
-            {
-                continue;
-            }
-
-            if ((glyphs = SharedFontSubset.Cover(cmap, program.GlyphCount, text, out uncovered)) is null)
-            {
-                missing ??= uncovered;
-                continue;
-            }
-
-            if (SharedFontSubset.Create(document, sfnt, program, cmap, glyphs) is not { } created)
-            {
-                continue;
-            }
-
-            document.FontSubsets.Add(resolution, created);
-            missing = null;
-            return new EmbeddedAppearanceFont(created);
+            missing ??= uncovered;
         }
 
         return null;
     }
 
-    public override bool CanEncode(string text)
-    {
-        foreach (Rune rune in text.EnumerateRunes())
-        {
-            if (!_subset.Has(rune.Value))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
+    public override bool CanEncode(string text) => _font.CanEncode(text);
 
     public override byte[] Encode(string text)
     {
-        var bytes = new List<byte>(text.Length * 2);
+        var bytes = new List<byte>(text.Length * _font.CodeLength);
+        int index = 0;
         foreach (Rune rune in text.EnumerateRunes())
         {
-            int glyph = _subset.GlyphOf(rune.Value);
-            bytes.Add((byte)(glyph >> 8));
-            bytes.Add((byte)glyph);
+            CanvasGlyph glyph = _font.GlyphOrThrow(rune, index, nameof(text));
+            for (int shift = 8 * (_font.CodeLength - 1); shift >= 0; shift -= 8)
+            {
+                bytes.Add((byte)(glyph.Code >> shift));
+            }
+
+            _font.OnShown(glyph);
+            index += rune.Utf16SequenceLength;
         }
 
         return [.. bytes];
     }
 
-    public override double Measure(string text)
-    {
-        double width = 0;
-        foreach (Rune rune in text.EnumerateRunes())
-        {
-            width += _subset.WidthOf(_subset.GlyphOf(rune.Value));
-        }
-
-        return width;
-    }
-
-    /// <summary>The Unicode subtable: (3, 10), else (3, 1), else (0, any).</summary>
-    private static FontCharacterMap? PickCharacterMap(FontProgram program)
-    {
-        FontCharacterMap? best = null;
-        int rank = 0;
-        foreach (FontCharacterMap map in program.CharacterMaps)
-        {
-            int candidate = (map.PlatformId, map.EncodingId) switch
-            {
-                (3, 10) => 3,
-                (3, 1) => 2,
-                (0, _) => 1,
-                _ => 0,
-            };
-            if (candidate > rank)
-            {
-                (best, rank) = (map, candidate);
-            }
-        }
-
-        return best;
-    }
+    public override double Measure(string text) => _font.MeasureWidth(text, 1000);
 }
+

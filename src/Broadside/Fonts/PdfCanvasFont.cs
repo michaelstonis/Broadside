@@ -7,7 +7,8 @@ namespace Broadside.Fonts;
 
 /// <summary>
 /// A font of a document that a <see cref="PdfCanvas"/> shows text with: how text encodes in it, how wide it is, and its vertical
-/// metrics. Get one with <see cref="PdfDocument.GetStandard14Font"/>.
+/// metrics. Get one with <see cref="PdfDocument.GetStandard14Font"/> or
+/// <see cref="PdfDocument.EmbedTrueTypeFont(ReadOnlyMemory{byte}, int)"/>.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -161,4 +162,5 @@ public abstract class PdfCanvasFont
 /// <param name="Code">The character code, written in <see cref="PdfCanvasFont.CodeLength"/> bytes, high byte first.</param>
 /// <param name="Width">The glyph's horizontal displacement in glyph space units (§9.2.4).</param>
 /// <param name="Key">What the font identifies the glyph by (a Standard 14 font: its glyph name's index; an embedded font: its glyph id).</param>
-internal readonly record struct CanvasGlyph(uint Code, double Width, int Key);
+/// <param name="Scalar">The Unicode scalar value the glyph was found for (an embedded font maps the glyph back to it in <c>ToUnicode</c>); 0 when the font does not say.</param>
+internal readonly record struct CanvasGlyph(uint Code, double Width, int Key, int Scalar = 0);

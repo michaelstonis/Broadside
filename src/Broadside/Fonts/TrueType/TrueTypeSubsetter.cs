@@ -3,19 +3,22 @@ using System.Buffers.Binary;
 namespace Broadside.Fonts.TrueType;
 
 /// <summary>
-/// Reduces a TrueType program to the glyphs a text uses, keeping every glyph id: unused glyphs are emptied rather than removed, so a
-/// CIDFontType2 with an <c>Identity</c> <c>CIDToGIDMap</c> addresses the subset with the original ids.
+/// Reduces a TrueType program to the glyphs a text uses and the glyphs their composites are built from, renumbered in ascending order
+/// of their original ids after <c>.notdef</c>; the result says which original glyph each new id is.
 /// </summary>
 /// <remarks>
 /// <para>
-/// ISO 32000-2 §9.9 (Table 126: the tables a TrueType program embedded as <c>FontFile2</c> needs) and §9.9.2 (subset fonts). Kept:
-/// <c>head</c>, <c>hhea</c>, <c>maxp</c>, <c>hmtx</c>, <c>loca</c>, <c>glyf</c>, and <c>cvt </c>, <c>fpgm</c>, <c>prep</c>,
-/// <c>OS/2</c> and <c>name</c> when present; <c>cmap</c> is not needed for a CIDFontType2 (§9.7.4.2) and is dropped with every
-/// other table. Composite glyphs keep the glyphs they are built from. The output is the same for the same input and glyph set.
+/// ISO 32000-2 §9.9 (Table 124: a <c>FontFile2</c> program for a CIDFontType2 has <c>glyf</c>, <c>head</c>, <c>hhea</c>,
+/// <c>hmtx</c>, <c>loca</c> and <c>maxp</c>, and <c>cvt </c>, <c>fpgm</c> and <c>prep</c> when its instructions need them) and
+/// §9.9.2 (subset fonts: <c>.notdef</c> is kept as glyph 0). Written: those tables (<c>loca</c> in the long format; <c>hmtx</c>,
+/// <c>hhea</c> and <c>maxp</c> for the new glyph count; composite glyphs' component ids renumbered), plus <c>OS/2</c>, <c>name</c>
+/// and a format 3 <c>post</c> when the program has them. <c>cmap</c> is not needed for a CIDFontType2 (§9.7.4.2), and every table
+/// indexed by glyph id that is not rewritten (<c>hdmx</c>, <c>kern</c>, <c>LTSH</c>, <c>VDMX</c>, layout tables) is dropped. The
+/// output depends only on the program and the glyph set, so the same input always gives the same bytes.
 /// </para>
 /// <para>
-/// Internal and minimal: written for form-field appearances (issue #167). Issue #150 (TrueType embedding with subsetting) owns the
-/// general embedder with glyph renumbering; it should replace or absorb this.
+/// Instructions in <c>fpgm</c>, <c>prep</c> and the glyphs address no glyph ids, so they are copied unchanged. Hinting that relies
+/// on dropped tables is a quality loss only.
 /// </para>
 /// </remarks>
 internal static class TrueTypeSubsetter
@@ -26,29 +29,26 @@ internal static class TrueTypeSubsetter
     private const int HaveXAndYScale = 0x0040;
     private const int HaveTwoByTwo = 0x0080;
 
-    private static readonly uint[] KeptTables =
-    [
-        SfntFile.Tag("OS/2"), SfntFile.Tag("cvt "), SfntFile.Tag("fpgm"), SfntFile.Tag("glyf"), SfntFile.Tag("head"), SfntFile.Tag("hhea"),
-        SfntFile.Tag("hmtx"), SfntFile.Tag("loca"), SfntFile.Tag("maxp"), SfntFile.Tag("name"), SfntFile.Tag("prep"),
-    ];
+    private static readonly uint[] CopiedTables = [SfntFile.Tag("OS/2"), SfntFile.Tag("cvt "), SfntFile.Tag("fpgm"), SfntFile.Tag("name"), SfntFile.Tag("prep")];
 
     /// <summary>Writes the subset of <paramref name="font"/> that outlines <paramref name="glyphs"/>, glyph 0 and their components.</summary>
     /// <param name="font">The program's table directory: a TrueType (<c>glyf</c>) program.</param>
-    /// <param name="glyphs">The glyph ids the text uses.</param>
-    /// <returns>The subset program, or <see langword="null"/> when the program has no usable <c>head</c>, <c>maxp</c>, <c>loca</c> and <c>glyf</c>.</returns>
-    public static byte[]? Subset(SfntFile font, IEnumerable<int> glyphs)
+    /// <param name="glyphs">The original glyph ids the text uses; ids past the program's glyph count are ignored.</param>
+    /// <returns>The subset, or <see langword="null"/> when the program has no usable <c>head</c>, <c>hhea</c>, <c>maxp</c>, <c>loca</c> and <c>glyf</c>.</returns>
+    public static TrueTypeSubset? Subset(SfntFile font, IEnumerable<int> glyphs)
     {
         if (!font.TryGetTable(SfntFile.Tag("head"), out ReadOnlyMemory<byte> headTable) || headTable.Length < 54
-            || !font.TryGetTable(SfntFile.Tag("maxp"), out ReadOnlyMemory<byte> maxp) || maxp.Length < 6
+            || !font.TryGetTable(SfntFile.Tag("hhea"), out ReadOnlyMemory<byte> hheaTable) || hheaTable.Length < 36
+            || !font.TryGetTable(SfntFile.Tag("maxp"), out ReadOnlyMemory<byte> maxpTable) || maxpTable.Length < 6
             || !font.TryGetTable(SfntFile.Tag("loca"), out ReadOnlyMemory<byte> loca)
             || !font.TryGetTable(SfntFile.Tag("glyf"), out ReadOnlyMemory<byte> glyf))
         {
             return null;
         }
 
-        int glyphCount = BinaryPrimitives.ReadUInt16BigEndian(maxp.Span[4..]);
+        int glyphCount = BinaryPrimitives.ReadUInt16BigEndian(maxpTable.Span[4..]);
         bool longOffsets = BinaryPrimitives.ReadInt16BigEndian(headTable.Span[50..]) != 0;
-        if (loca.Length < (glyphCount + 1) * (longOffsets ? 4 : 2))
+        if (glyphCount == 0 || loca.Length < (glyphCount + 1) * (longOffsets ? 4 : 2))
         {
             return null;
         }
@@ -74,43 +74,78 @@ internal static class TrueTypeSubsetter
             }
         }
 
-        // The new glyf and loca (32-bit offsets): kept glyphs copied, padded to four bytes; the others empty.
+        int[] order = [.. kept];
+        int count = order.Length;
+
+        // glyf and loca (32-bit offsets): each kept glyph copied in its new order, components renumbered, padded to four bytes.
         using var newGlyf = new MemoryStream();
-        byte[] newLoca = new byte[(glyphCount + 1) * 4];
-        for (int glyph = 0; glyph < glyphCount; glyph++)
+        byte[] newLoca = new byte[(count + 1) * 4];
+        for (int index = 0; index < count; index++)
         {
-            BinaryPrimitives.WriteUInt32BigEndian(newLoca.AsSpan(glyph * 4), (uint)newGlyf.Length);
-            if (kept.Contains(glyph))
-            {
-                ReadOnlySpan<byte> data = GlyphData(glyf.Span, loca.Span, longOffsets, glyph);
-                newGlyf.Write(data);
-                newGlyf.Write(new byte[(4 - (data.Length % 4)) % 4]);
-            }
+            BinaryPrimitives.WriteUInt32BigEndian(newLoca.AsSpan(index * 4), (uint)newGlyf.Length);
+            byte[] data = GlyphData(glyf.Span, loca.Span, longOffsets, order[index]).ToArray();
+            Renumber(data, order);
+            newGlyf.Write(data);
+            newGlyf.Write(new byte[(4 - (data.Length % 4)) % 4]);
         }
 
-        BinaryPrimitives.WriteUInt32BigEndian(newLoca.AsSpan(glyphCount * 4), (uint)newGlyf.Length);
+        BinaryPrimitives.WriteUInt32BigEndian(newLoca.AsSpan(count * 4), (uint)newGlyf.Length);
+        if (newGlyf.Length == 0)
+        {
+            // Every kept glyph is empty: a glyf table of padding no loca entry reaches, since a table directory entry of length 0 reads as absent.
+            newGlyf.Write(new byte[4]);
+        }
+
+        // hmtx: one long metric per new glyph, from the original's long metrics or its trailing left side bearings.
+        font.TryGetTable(SfntFile.Tag("hmtx"), out ReadOnlyMemory<byte> hmtxTable);
+        ReadOnlySpan<byte> hmtx = hmtxTable.Span;
+        int longMetrics = Math.Clamp((int)BinaryPrimitives.ReadUInt16BigEndian(hheaTable.Span[34..]), 1, glyphCount);
+        byte[] newHmtx = new byte[count * 4];
+        for (int index = 0; index < count; index++)
+        {
+            int glyph = order[index];
+            int advanceAt = Math.Min(glyph, longMetrics - 1) * 4;
+            int bearingAt = glyph < longMetrics ? (glyph * 4) + 2 : (longMetrics * 4) + ((glyph - longMetrics) * 2);
+            ushort advance = advanceAt + 2 <= hmtx.Length ? BinaryPrimitives.ReadUInt16BigEndian(hmtx[advanceAt..]) : (ushort)0;
+            short bearing = bearingAt + 2 <= hmtx.Length ? BinaryPrimitives.ReadInt16BigEndian(hmtx[bearingAt..]) : (short)0;
+            BinaryPrimitives.WriteUInt16BigEndian(newHmtx.AsSpan(index * 4), advance);
+            BinaryPrimitives.WriteInt16BigEndian(newHmtx.AsSpan((index * 4) + 2), bearing);
+        }
 
         byte[] head = headTable.ToArray();
         BinaryPrimitives.WriteUInt32BigEndian(head.AsSpan(8), 0);
         BinaryPrimitives.WriteInt16BigEndian(head.AsSpan(50), 1);
+        byte[] hhea = hheaTable.ToArray();
+        BinaryPrimitives.WriteUInt16BigEndian(hhea.AsSpan(34), (ushort)count);
+        byte[] maxp = maxpTable.ToArray();
+        BinaryPrimitives.WriteUInt16BigEndian(maxp.AsSpan(4), (ushort)count);
 
-        var tables = new List<(uint Tag, byte[] Data)>();
-        foreach (uint tag in KeptTables)
+        var tables = new List<(uint Tag, byte[] Data)>
         {
-            byte[]? data = tag switch
+            (SfntFile.Tag("glyf"), newGlyf.ToArray()),
+            (SfntFile.Tag("head"), head),
+            (SfntFile.Tag("hhea"), hhea),
+            (SfntFile.Tag("hmtx"), newHmtx),
+            (SfntFile.Tag("loca"), newLoca),
+            (SfntFile.Tag("maxp"), maxp),
+        };
+        foreach (uint tag in CopiedTables)
+        {
+            if (font.TryGetTable(tag, out ReadOnlyMemory<byte> table))
             {
-                _ when tag == SfntFile.Tag("glyf") => newGlyf.ToArray(),
-                _ when tag == SfntFile.Tag("loca") => newLoca,
-                _ when tag == SfntFile.Tag("head") => head,
-                _ => font.TryGetTable(tag, out ReadOnlyMemory<byte> table) ? table.ToArray() : null,
-            };
-            if (data is not null)
-            {
-                tables.Add((tag, data));
+                tables.Add((tag, table.ToArray()));
             }
         }
 
-        return Write(tables);
+        // post: its 32-byte header as format 3 (no glyph names, which are indexed by the old ids).
+        if (font.TryGetTable(SfntFile.Tag("post"), out ReadOnlyMemory<byte> post) && post.Length >= 32)
+        {
+            byte[] header = post[..32].ToArray();
+            BinaryPrimitives.WriteUInt32BigEndian(header, 0x00030000);
+            tables.Add((SfntFile.Tag("post"), header));
+        }
+
+        return new TrueTypeSubset(Write(tables), order);
     }
 
     /// <summary>The bytes of one glyph description; empty when the glyph has no outline or its offsets are out of range.</summary>
@@ -125,16 +160,38 @@ internal static class TrueTypeSubsetter
     private static List<int> Components(ReadOnlySpan<byte> glyph)
     {
         var components = new List<int>();
+        foreach (int offset in ComponentOffsets(glyph))
+        {
+            components.Add(BinaryPrimitives.ReadUInt16BigEndian(glyph[offset..]));
+        }
+
+        return components;
+    }
+
+    /// <summary>Rewrites the component glyph ids of a composite description to their new ids (a component not kept becomes 0).</summary>
+    private static void Renumber(byte[] glyph, int[] order)
+    {
+        foreach (int offset in ComponentOffsets(glyph))
+        {
+            int index = Array.BinarySearch(order, (int)BinaryPrimitives.ReadUInt16BigEndian(glyph.AsSpan(offset)));
+            BinaryPrimitives.WriteUInt16BigEndian(glyph.AsSpan(offset), (ushort)Math.Max(index, 0));
+        }
+    }
+
+    /// <summary>The offset of each component's glyph index in a composite glyph description; none for a simple glyph.</summary>
+    private static List<int> ComponentOffsets(ReadOnlySpan<byte> glyph)
+    {
+        var offsets = new List<int>();
         if (glyph.Length < 10 || BinaryPrimitives.ReadInt16BigEndian(glyph) >= 0)
         {
-            return components;
+            return offsets;
         }
 
         int offset = 10;
         while (offset + 4 <= glyph.Length)
         {
             int flags = BinaryPrimitives.ReadUInt16BigEndian(glyph[offset..]);
-            components.Add(BinaryPrimitives.ReadUInt16BigEndian(glyph[(offset + 2)..]));
+            offsets.Add(offset + 2);
             offset += 4 + ((flags & ArgsAreWords) != 0 ? 4 : 2);
             offset += (flags & HaveScale) != 0 ? 2 : (flags & HaveXAndYScale) != 0 ? 4 : (flags & HaveTwoByTwo) != 0 ? 8 : 0;
             if ((flags & MoreComponents) == 0)
@@ -143,7 +200,7 @@ internal static class TrueTypeSubsetter
             }
         }
 
-        return components;
+        return offsets;
     }
 
     /// <summary>Writes a TrueType program from its tables, in tag order, with checksums and the <c>head</c> checksum adjustment.</summary>
@@ -209,4 +266,13 @@ internal static class TrueTypeSubsetter
 
         return sum;
     }
+}
+
+/// <summary>A subset TrueType program and the original id of each of its glyphs.</summary>
+/// <param name="Program">The program's bytes.</param>
+/// <param name="Glyphs">The original glyph id of each new glyph id, ascending; <c>Glyphs[0]</c> is 0 (<c>.notdef</c>).</param>
+internal sealed record TrueTypeSubset(byte[] Program, int[] Glyphs)
+{
+    /// <summary>The new glyph id of original glyph <paramref name="glyph"/>, or 0 when the subset lacks it.</summary>
+    public int NewId(int glyph) => Math.Max(Array.BinarySearch(Glyphs, glyph), 0);
 }
