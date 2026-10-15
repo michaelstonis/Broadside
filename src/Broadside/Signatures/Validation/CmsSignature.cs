@@ -3,13 +3,17 @@ using System.Formats.Asn1;
 namespace Broadside.Signatures.Validation;
 
 /// <summary>
-/// The parts of a CMS <c>SignedData</c> (RFC 5652 §5) that signature validation reads: the encapsulated content, the certificates,
-/// and the first signer's identifier, algorithms, signed attributes and signature value. BER is accepted throughout, since signers
-/// before PDF 2.0 wrote indefinite lengths.
+/// The parts of a CMS <c>SignedData</c> (RFC 5652 §5) that signature validation reads: the encapsulated content, the certificates and
+/// revocation information, and the first signer's identifier, algorithms, signed attributes, signature value and signature time-stamp
+/// tokens. BER is accepted throughout, since signers before PDF 2.0 wrote indefinite lengths.
 /// </summary>
 /// <remarks>
-/// ISO 32000-2 §12.8.3.3.1: "the value of Contents shall be a DER-encoded CMS binary data object containing the signature". Unsigned
-/// attributes (a timestamp token, a PDF MAC token per ISO/TS 32004 §6.5) are skipped: they are not part of the signature value.
+/// ISO 32000-2 §12.8.3.3.1: "the value of Contents shall be a DER-encoded CMS binary data object containing the signature". Revocation
+/// information comes from the <c>crls</c> field (RFC 5652 §10.2.1, with OCSP responses per RFC 5940 §4) and the
+/// <c>adbe-revocationInfoArchival</c> signed attribute (§12.8.3.3.2); the ESS signing-certificate attributes from RFC 2634 §5.4 and
+/// RFC 5035 §3; time-stamp tokens from the id-aa-signatureTimeStampToken unsigned attribute (RFC 3161 Appendix A). Other unsigned
+/// attributes (a PDF MAC token per ISO/TS 32004 §6.5) are skipped. A malformed optional attribute is left out rather than failing the
+/// whole object.
 /// </remarks>
 internal sealed class CmsSignature
 {
@@ -22,8 +26,17 @@ internal sealed class CmsSignature
     /// <summary>id-ct-TSTInfo (RFC 3161 §2.4.2).</summary>
     public const string TstInfoOid = "1.2.840.113549.1.9.16.1.4";
 
+    /// <summary>id-ri-ocsp-response (RFC 5940 §4): an OCSP response as other revocation information.</summary>
+    public const string OcspRevocationInfoOid = "1.3.6.1.5.5.7.16.2";
+
     private const string ContentTypeAttribute = "1.2.840.113549.1.9.3";
     private const string MessageDigestAttribute = "1.2.840.113549.1.9.4";
+    private const string SigningCertificateAttribute = "1.2.840.113549.1.9.16.2.12";
+    private const string SigningCertificateV2Attribute = "1.2.840.113549.1.9.16.2.47";
+    private const string RevocationInfoArchivalAttribute = "1.2.840.113583.1.1.8";
+    private const string SignatureTimeStampAttribute = "1.2.840.113549.1.9.16.2.14";
+    private const string Sha256Oid = "2.16.840.1.101.3.4.2.1";
+    private const string Sha1Oid = "1.3.14.3.2.26";
 
     private CmsSignature()
     {
@@ -67,6 +80,21 @@ internal sealed class CmsSignature
 
     /// <summary>Gets the signature value.</summary>
     public byte[] Signature { get; private init; } = [];
+
+    /// <summary>Gets the DER encodings of the certificate revocation lists the object carries (crls field, adbe attribute).</summary>
+    public IReadOnlyList<byte[]> Crls { get; private init; } = [];
+
+    /// <summary>Gets the encodings of the OCSP responses the object carries (crls field per RFC 5940, adbe attribute).</summary>
+    public IReadOnlyList<byte[]> OcspResponses { get; private init; } = [];
+
+    /// <summary>
+    /// Gets the first certificate identifier of the signer's ESS signing-certificate(-v2) attribute, the one that names the signing
+    /// certificate (RFC 5035 §3), or <see langword="null"/> when there is none.
+    /// </summary>
+    public EssCertificateId? SigningCertificate { get; private init; }
+
+    /// <summary>Gets the encodings of the signer's signature time-stamp tokens (RFC 3161 Appendix A), each a <c>ContentInfo</c>.</summary>
+    public IReadOnlyList<byte[]> TimestampTokens { get; private init; } = [];
 
     /// <summary>Gets how many signer infos the object holds; only the first is validated.</summary>
     public int SignerCount { get; private init; }
@@ -116,9 +144,11 @@ internal sealed class CmsSignature
                 }
             }
 
+            var crls = new List<byte[]>();
+            var ocsps = new List<byte[]>();
             if (signedData.HasData && signedData.PeekTag().HasSameClassAndValue(new Asn1Tag(TagClass.ContextSpecific, 1)))
             {
-                _ = signedData.ReadEncodedValue();
+                ReadRevocationChoices(signedData.ReadEncodedValue(), crls, ocsps);
             }
 
             AsnReader signerInfos = signedData.ReadSetOf(skipSortOrderValidation: true);
@@ -155,6 +185,8 @@ internal sealed class CmsSignature
             byte[]? signedAttributes = null;
             var digests = new List<byte[]>();
             var types = new List<string>();
+            EssCertificateId? signingCertificate = null;
+            EssCertificateId? signingCertificateV1 = null;
             if (signer.PeekTag().HasSameClassAndValue(new Asn1Tag(TagClass.ContextSpecific, 0)))
             {
                 signedAttributes = signer.PeekEncodedValue().ToArray();
@@ -175,6 +207,15 @@ internal sealed class CmsSignature
                             case ContentTypeAttribute:
                                 types.Add(values.ReadObjectIdentifier());
                                 break;
+                            case SigningCertificateV2Attribute:
+                                signingCertificate ??= ReadEssCertificateId(values.ReadEncodedValue(), version2: true);
+                                break;
+                            case SigningCertificateAttribute:
+                                signingCertificateV1 ??= ReadEssCertificateId(values.ReadEncodedValue(), version2: false);
+                                break;
+                            case RevocationInfoArchivalAttribute:
+                                ReadRevocationInfoArchival(values.ReadEncodedValue(), crls, ocsps);
+                                break;
                             default:
                                 _ = values.ReadEncodedValue();
                                 break;
@@ -185,6 +226,26 @@ internal sealed class CmsSignature
 
             AlgorithmIdentifier signatureAlgorithm = AlgorithmIdentifier.Read(signer);
             byte[] signatureValue = signer.ReadOctetString();
+            var tokens = new List<byte[]>();
+            if (signer.HasData && signer.PeekTag().HasSameClassAndValue(new Asn1Tag(TagClass.ContextSpecific, 1)))
+            {
+                AsnReader unsigned = signer.ReadSetOf(skipSortOrderValidation: true, new Asn1Tag(TagClass.ContextSpecific, 1));
+                while (unsigned.HasData)
+                {
+                    AsnReader attribute = unsigned.ReadSequence();
+                    string type = attribute.ReadObjectIdentifier();
+                    AsnReader values = attribute.ReadSetOf(skipSortOrderValidation: true);
+                    while (values.HasData)
+                    {
+                        ReadOnlyMemory<byte> value = values.ReadEncodedValue();
+                        if (type == SignatureTimeStampAttribute)
+                        {
+                            tokens.Add(value.ToArray());
+                        }
+                    }
+                }
+            }
+
             signature = new CmsSignature
             {
                 ContentType = encapsulatedType,
@@ -200,6 +261,10 @@ internal sealed class CmsSignature
                 ContentTypes = types,
                 Signature = signatureValue,
                 SignerCount = signerCount,
+                Crls = crls,
+                OcspResponses = ocsps,
+                SigningCertificate = signingCertificate ?? signingCertificateV1,
+                TimestampTokens = tokens,
             };
             error = string.Empty;
             return true;
@@ -211,24 +276,123 @@ internal sealed class CmsSignature
         }
     }
 
-    /// <summary>Reads the message imprint of a <c>TSTInfo</c> (RFC 3161 §2.4.2): its digest algorithm and the digest.</summary>
-    public static bool TryReadMessageImprint(byte[] tstInfo, out AlgorithmIdentifier algorithm, out byte[] digest)
+    /// <summary>Reads a <c>TSTInfo</c> (RFC 3161 §2.4.2): its policy, message imprint and time.</summary>
+    public static bool TryReadTstInfo(byte[] tstInfo, out TstInfo info)
     {
-        algorithm = default;
-        digest = [];
+        info = default;
         try
         {
-            AsnReader info = new AsnReader(tstInfo, AsnEncodingRules.BER).ReadSequence();
-            _ = info.ReadIntegerBytes();
-            _ = info.ReadObjectIdentifier();
-            AsnReader imprint = info.ReadSequence();
-            algorithm = AlgorithmIdentifier.Read(imprint);
-            digest = imprint.ReadOctetString();
+            AsnReader sequence = new AsnReader(tstInfo, AsnEncodingRules.BER).ReadSequence();
+            _ = sequence.ReadIntegerBytes();
+            string policy = sequence.ReadObjectIdentifier();
+            AsnReader imprint = sequence.ReadSequence();
+            AlgorithmIdentifier algorithm = AlgorithmIdentifier.Read(imprint);
+            byte[] digest = imprint.ReadOctetString();
+            _ = sequence.ReadIntegerBytes();
+            DateTimeOffset time = sequence.ReadGeneralizedTime();
+            info = new TstInfo(policy, algorithm, digest, time);
             return true;
         }
         catch (AsnContentException)
         {
             return false;
+        }
+    }
+
+    /// <summary>
+    /// Reads <c>RevocationInfoChoices</c> (RFC 5652 §10.2.1): CRLs, and OCSP responses as <c>other</c> revocation information
+    /// (RFC 5940 §4); other formats are skipped.
+    /// </summary>
+    private static void ReadRevocationChoices(ReadOnlyMemory<byte> encoded, List<byte[]> crls, List<byte[]> ocsps)
+    {
+        try
+        {
+            AsnReader set = new AsnReader(encoded, AsnEncodingRules.BER).ReadSetOf(skipSortOrderValidation: true, new Asn1Tag(TagClass.ContextSpecific, 1));
+            while (set.HasData)
+            {
+                Asn1Tag tag = set.PeekTag();
+                if (tag.HasSameClassAndValue(Asn1Tag.Sequence))
+                {
+                    crls.Add(set.ReadEncodedValue().ToArray());
+                }
+                else if (tag.HasSameClassAndValue(new Asn1Tag(TagClass.ContextSpecific, 1)))
+                {
+                    AsnReader other = set.ReadSequence(new Asn1Tag(TagClass.ContextSpecific, 1));
+                    if (other.ReadObjectIdentifier() == OcspRevocationInfoOid)
+                    {
+                        ocsps.Add(other.ReadEncodedValue().ToArray());
+                    }
+                }
+                else
+                {
+                    _ = set.ReadEncodedValue();
+                }
+            }
+        }
+        catch (AsnContentException)
+        {
+            // Revocation information that cannot be read is not used.
+        }
+    }
+
+    /// <summary>Reads <c>RevocationInfoArchival</c> (ISO 32000-2 §12.8.3.3.2): its CRLs and OCSP responses.</summary>
+    private static void ReadRevocationInfoArchival(ReadOnlyMemory<byte> encoded, List<byte[]> crls, List<byte[]> ocsps)
+    {
+        try
+        {
+            AsnReader archival = new AsnReader(encoded, AsnEncodingRules.BER).ReadSequence();
+            while (archival.HasData)
+            {
+                Asn1Tag tag = archival.PeekTag();
+                List<byte[]>? target = tag.HasSameClassAndValue(new Asn1Tag(TagClass.ContextSpecific, 0)) ? crls
+                    : tag.HasSameClassAndValue(new Asn1Tag(TagClass.ContextSpecific, 1)) ? ocsps
+                    : null;
+                if (target is null)
+                {
+                    _ = archival.ReadEncodedValue();
+                    continue;
+                }
+
+                AsnReader items = archival.ReadSequence(tag).ReadSequence();
+                while (items.HasData)
+                {
+                    target.Add(items.ReadEncodedValue().ToArray());
+                }
+            }
+        }
+        catch (AsnContentException)
+        {
+            // Revocation information that cannot be read is not used.
+        }
+    }
+
+    /// <summary>The first <c>ESSCertID</c> (RFC 2634 §5.4.1) or <c>ESSCertIDv2</c> (RFC 5035 §4) of a signing-certificate attribute.</summary>
+    private static EssCertificateId ReadEssCertificateId(ReadOnlyMemory<byte> encoded, bool version2)
+    {
+        try
+        {
+            AsnReader certificates = new AsnReader(encoded, AsnEncodingRules.BER).ReadSequence().ReadSequence();
+            AsnReader identifier = certificates.ReadSequence();
+            string algorithm = Sha1Oid;
+            if (version2)
+            {
+                algorithm = identifier.PeekTag().HasSameClassAndValue(Asn1Tag.Sequence) ? AlgorithmIdentifier.Read(identifier).Oid : Sha256Oid;
+            }
+
+            byte[] hash = identifier.ReadOctetString();
+            ReadOnlyMemory<byte> serial = default;
+            if (identifier.HasData)
+            {
+                AsnReader issuerSerial = identifier.ReadSequence();
+                _ = issuerSerial.ReadEncodedValue();
+                serial = TrimLeadingZeros(issuerSerial.ReadIntegerBytes());
+            }
+
+            return new EssCertificateId(algorithm, hash, serial);
+        }
+        catch (AsnContentException)
+        {
+            return new EssCertificateId(string.Empty, [], default);
         }
     }
 
@@ -238,3 +402,16 @@ internal sealed class CmsSignature
         return start < 0 ? ReadOnlyMemory<byte>.Empty : value[start..];
     }
 }
+
+/// <summary>A certificate identifier of an ESS signing-certificate attribute: the hash of the certificate and, optionally, its serial.</summary>
+/// <param name="HashAlgorithm">The hash algorithm's object identifier; empty when the attribute could not be read.</param>
+/// <param name="Hash">The hash of the whole certificate.</param>
+/// <param name="SerialNumber">The serial number (leading zeros removed), or empty when absent.</param>
+internal readonly record struct EssCertificateId(string HashAlgorithm, byte[] Hash, ReadOnlyMemory<byte> SerialNumber);
+
+/// <summary>The parts of a <c>TSTInfo</c> (RFC 3161 §2.4.2) validation uses.</summary>
+/// <param name="Policy">The TSA policy.</param>
+/// <param name="ImprintAlgorithm">The message imprint's hash algorithm.</param>
+/// <param name="Imprint">The message imprint's hash.</param>
+/// <param name="Time">The time the token asserts (genTime).</param>
+internal readonly record struct TstInfo(string Policy, AlgorithmIdentifier ImprintAlgorithm, byte[] Imprint, DateTimeOffset Time);

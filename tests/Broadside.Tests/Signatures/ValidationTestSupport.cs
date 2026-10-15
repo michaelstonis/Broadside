@@ -52,13 +52,22 @@ internal static class ValidationCertificates
         X509Certificate2 issuer,
         string subject,
         X509KeyUsageFlags usage = X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.NonRepudiation,
-        RSASignaturePadding? issuerPadding = null)
+        RSASignaturePadding? issuerPadding = null,
+        bool revocationAddresses = false,
+        DateTimeOffset? notAfter = null)
     {
         using var rsa = RSA.Create(2048);
         var request = new CertificateRequest(subject, rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         request.CertificateExtensions.Add(new X509KeyUsageExtension(usage, critical: true));
         request.CertificateExtensions.Add(new X509SubjectKeyIdentifierExtension(request.PublicKey, critical: false));
-        using X509Certificate2 issued = Issue(request, issuer, issuerPadding, DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddMonths(6));
+        if (revocationAddresses)
+        {
+            // RFC 5280 §4.2.2.1 and §4.2.1.13: where to ask about this certificate.
+            request.CertificateExtensions.Add(new X509AuthorityInformationAccessExtension([TestRevocationAuthority.OcspAddress.AbsoluteUri], null));
+            request.CertificateExtensions.Add(CertificateRevocationListBuilder.BuildCrlDistributionPointExtension([TestRevocationAuthority.CrlAddress.AbsoluteUri]));
+        }
+
+        using X509Certificate2 issued = Issue(request, issuer, issuerPadding, DateTimeOffset.UtcNow.AddDays(-1), notAfter ?? DateTimeOffset.UtcNow.AddMonths(6));
         return issued.CopyWithPrivateKey(rsa);
     }
 

@@ -58,6 +58,12 @@ internal sealed class TestTimestampAuthority : HttpMessageHandler
     /// <summary>Gets the authority's (the time-stamping unit's) certificate, with its private key.</summary>
     public static X509Certificate2 Unit => Certificates.Value.Unit;
 
+    /// <summary>Gets the certificate (with its private key) the authority signs tokens with: <see cref="Unit"/> unless another is given.</summary>
+    public X509Certificate2 Certificate { get; init; } = Unit;
+
+    /// <summary>Gets or sets a value indicating whether tokens leave out the ESS signing-certificate-v2 attribute RFC 3161 §2.4.1 requires.</summary>
+    public bool OmitSigningCertificate { get; set; }
+
     /// <summary>Gets or sets what the authority does wrong.</summary>
     public TimestampFault Fault { get; set; }
 
@@ -147,12 +153,16 @@ internal sealed class TestTimestampAuthority : HttpMessageHandler
             nonce: nonce);
 
         var signed = new SignedCms(new ContentInfo(new Oid(TstInfoOid), info.Encode()), detached: false);
-        var signer = new CmsSigner(SubjectIdentifierType.IssuerAndSerialNumber, Unit)
+        var signer = new CmsSigner(SubjectIdentifierType.IssuerAndSerialNumber, Certificate)
         {
             DigestAlgorithm = new Oid("2.16.840.1.101.3.4.2.1"),
             IncludeOption = request.RequestSignerCertificate ? X509IncludeOption.EndCertOnly : X509IncludeOption.None,
         };
-        signer.SignedAttributes.Add(new AsnEncodedData(SigningCertificateV2Oid, SigningCertificateV2(Unit)));
+        if (!OmitSigningCertificate)
+        {
+            signer.SignedAttributes.Add(new AsnEncodedData(SigningCertificateV2Oid, SigningCertificateV2(Certificate)));
+        }
+
         signed.ComputeSignature(signer, silent: true);
         if (Padding > 0)
         {
@@ -202,7 +212,7 @@ internal sealed class TestTimestampAuthority : HttpMessageHandler
     }
 
     /// <summary>The ESS signing-certificate-v2 attribute value (RFC 5035 §3): SHA-256 (the default, omitted) of the certificate.</summary>
-    private static byte[] SigningCertificateV2(X509Certificate2 certificate)
+    public static byte[] SigningCertificateV2(X509Certificate2 certificate)
     {
         var writer = new AsnWriter(AsnEncodingRules.DER);
         using (writer.PushSequence())
@@ -218,12 +228,48 @@ internal sealed class TestTimestampAuthority : HttpMessageHandler
     private static (X509Certificate2 Root, X509Certificate2 Unit) CreateCertificates()
     {
         X509Certificate2 root = TestCertificates.SelfSigned("CN=Broadside test time-stamping root");
+        return (root, IssueUnit(root));
+    }
+
+    /// <summary>
+    /// A time-stamping unit's certificate <paramref name="issuer"/> issues, valid from yesterday for six months, with the critical
+    /// time-stamping extended key usage (RFC 3161 §2.3) unless <paramref name="timeStamping"/> is false.
+    /// </summary>
+    public static X509Certificate2 IssueUnit(X509Certificate2 issuer, bool timeStamping = true)
+    {
         using var rsa = RSA.Create(2048);
         var request = new CertificateRequest("CN=Broadside test time-stamping unit", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
         request.CertificateExtensions.Add(new X509KeyUsageExtension(X509KeyUsageFlags.DigitalSignature | X509KeyUsageFlags.NonRepudiation, critical: true));
-        request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension([new Oid(TimeStampingUsage)], critical: true));
-        using X509Certificate2 issued = request.Create(root, DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddMonths(6), [0x01, 0x95, 0x00, 0x01]);
-        return (root, issued.CopyWithPrivateKey(rsa));
+        if (timeStamping)
+        {
+            request.CertificateExtensions.Add(new X509EnhancedKeyUsageExtension([new Oid(TimeStampingUsage)], critical: true));
+        }
+
+        if (issuer.Extensions.OfType<X509SubjectKeyIdentifierExtension>().FirstOrDefault() is { } key)
+        {
+            request.CertificateExtensions.Add(X509AuthorityKeyIdentifierExtension.CreateFromSubjectKeyIdentifier(key));
+        }
+
+        using X509Certificate2 issued = request.Create(issuer, DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddMonths(6), RandomNumberGenerator.GetBytes(8).Prepend((byte)0x01).ToArray());
+        return issued.CopyWithPrivateKey(rsa);
+    }
+
+    /// <summary>
+    /// A token from this authority over the hash of <paramref name="data"/> (SHA-256), requested as a client would: what a signature
+    /// time-stamp attribute holds when <paramref name="data"/> is the signature value (RFC 3161 Appendix A).
+    /// </summary>
+    public byte[] Stamp(byte[] data)
+    {
+        Rfc3161TimestampRequest request = Rfc3161TimestampRequest.CreateFromHash(SHA256.HashData(data), HashAlgorithmName.SHA256, requestSignerCertificates: true, nonce: RandomNumberGenerator.GetBytes(8));
+        using var http = new HttpClient(this, disposeHandler: false);
+        using var content = new ByteArrayContent(request.Encode());
+        content.Headers.ContentType = new MediaTypeHeaderValue("application/timestamp-query");
+        using var message = new HttpRequestMessage(HttpMethod.Post, Address) { Content = content };
+        using HttpResponseMessage response = http.Send(message);
+        byte[] body = response.Content.ReadAsByteArrayAsync().GetAwaiter().GetResult();
+        AsnReader reply = new AsnReader(body, AsnEncodingRules.DER).ReadSequence();
+        _ = reply.ReadSequence();
+        return reply.ReadEncodedValue().ToArray();
     }
 
     /// <summary>A named-bit-list stand-in for PKIFailureInfo with only badDataFormat (bit 5) set.</summary>

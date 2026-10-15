@@ -13,7 +13,8 @@ namespace Broadside.Tests.Signatures;
 /// Every signed signature field in the real-world corpora (PDFBox, veraPDF and the others the gate fetches) is validated: each one is
 /// valid or reports specific reasons, and the per-signature outcome is a snapshot reviewed by hand. No trust anchor is given, so a
 /// complete chain ends <see cref="PdfSignatureProblemKind.ChainUntrusted"/>; the validation time is fixed so certificate expiry does not
-/// drift with the calendar. Skips when the corpora are not fetched. ISO 32000-2 §12.8.1, §12.8.3.
+/// drift with the calendar. Each line also gives the signature time-stamp token's status and each certificate's revocation status from
+/// the data the file carries (nothing is fetched). Skips when the corpora are not fetched. ISO 32000-2 §12.8.1, §12.8.3, §12.8.3.4.8.
 /// </summary>
 [Trait("Category", "Corpus")]
 public sealed class RealWorldSignatureValidationTests(ITestOutputHelper output)
@@ -91,10 +92,12 @@ public sealed class RealWorldSignatureValidationTests(ITestOutputHelper output)
             {
                 Assert.Equal(validation.Status == PdfSignatureStatus.Valid, validation.Problems.Count == 0);
                 string kinds = validation.Problems.Count == 0 ? "-" : string.Join(", ", validation.Problems.Select(static problem => problem.Kind).Distinct().Order());
+                string timestamp = validation.Timestamp is { } token ? $"timestamp {token.Status}" : "no timestamp";
+                string revocations = validation.Revocations.Count == 0 ? "-" : string.Join("/", validation.Revocations.Select(static revocation => revocation.Status));
                 string changes = validation.Modifications.Count == 0
                     ? "-"
                     : string.Join(", ", validation.Modifications.Select(static change => change.IsPermitted ? change.Kind.ToString() : $"{change.Kind}!").Distinct().Order(StringComparer.Ordinal));
-                lines.Add($"{file} | {validation.FieldName} | {validation.SubFilter ?? "-"} | {validation.DigestAlgorithm?.Name ?? "-"} | {validation.Status} | {kinds} | revision {validation.SignedRevision?.ToString(CultureInfo.InvariantCulture) ?? "-"} | {changes}");
+                lines.Add($"{file} | {validation.FieldName} | {validation.SubFilter ?? "-"} | {validation.DigestAlgorithm?.Name ?? "-"} | {validation.Status} | {kinds} | revision {validation.SignedRevision?.ToString(CultureInfo.InvariantCulture) ?? "-"} | {changes} | {timestamp} | revocation {revocations}");
             }
         }
 

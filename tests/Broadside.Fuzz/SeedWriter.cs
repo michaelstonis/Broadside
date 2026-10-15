@@ -106,6 +106,8 @@ internal static class SeedWriter
         "mac-token" => MacTokens(file),
         "cms" => SignatureContents(file),
         "timestamp-response" => [TimestampResponseTarget.ValidResponse()],
+        "ocsp-response" => SignatureContents(file).SelectMany(static contents => Revocation(contents, ocsp: true)),
+        "crl" => SignatureContents(file).SelectMany(static contents => Revocation(contents, ocsp: false)),
         "default-appearance" => DefaultAppearances(file),
         "content-lexer" or "content-interpreter" or "content-objects" or "display-list" or "filter-encode" or "text-extraction" or "rasterize" or "content-rewrite" => ContentStreams(file),
         "xmp" => Streams(file).Where(stream => Metadata.Equals(stream.Value.Dictionary.TryGetValue(Type, out CosObject? type) ? type : null))
@@ -350,6 +352,12 @@ internal static class SeedWriter
             }
         }
     }
+
+    /// <summary><c>ocsp-response</c> and <c>crl</c>: the OCSP responses or CRLs a signature's CMS object carries (§12.8.3.3.2).</summary>
+    private static IReadOnlyList<byte[]> Revocation(byte[] contents, bool ocsp) =>
+        Broadside.Signatures.Validation.CmsSignature.TryDecode(contents, out Broadside.Signatures.Validation.CmsSignature cms, out _)
+            ? ocsp ? cms.OcspResponses : cms.Crls
+            : [];
 
     private static IEnumerable<byte[]> MacTokens(byte[] file)
     {

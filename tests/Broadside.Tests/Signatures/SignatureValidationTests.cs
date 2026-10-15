@@ -475,12 +475,14 @@ public sealed class SignatureValidationTests
     public void A_document_timestamp_validates_its_message_imprint()
     {
         using X509Certificate2 root = ValidationCertificates.Authority("CN=Broadside root");
-        using X509Certificate2 authority = ValidationCertificates.IssueRsaSigner(root, "CN=Broadside timestamp authority");
+        using X509Certificate2 authority = TestTimestampAuthority.IssueUnit(root);
         byte[] template = SignCorpusFile("empty-page.pdf", new PdfCertificateSigner(Placeholder()));
+        CmsSigner unit = Signer(authority);
+        unit.SignedAttributes.Add(RevocationTestSupport.SigningCertificateV2(authority));
 
         byte[] stamped = SignedFileEditor.ReplaceSignature(
             template,
-            covered => SignedFileEditor.PlatformCms(new ContentInfo(new Oid("1.2.840.113549.1.9.16.1.4"), TstInfo(SHA256.HashData(covered))), Signer(authority), detached: false),
+            covered => SignedFileEditor.PlatformCms(new ContentInfo(new Oid("1.2.840.113549.1.9.16.1.4"), TstInfo(SHA256.HashData(covered))), unit, detached: false),
             "ETSI.RFC3161");
         byte[] tampered = (byte[])stamped.Clone();
         tampered[7] ^= 0x01; // The header's version digit, signed and harmless to reading.
@@ -644,7 +646,9 @@ public sealed class SignatureValidationTests
             }
 
             writer.WriteInteger(42);
-            writer.WriteGeneralizedTime(SigningTime);
+
+            // Within the unit certificate's validity period, as RFC 3161 §2.4.2 genTime must be.
+            writer.WriteGeneralizedTime(DateTimeOffset.UtcNow.AddMinutes(-5), omitFractionalSeconds: true);
         }
 
         return writer.Encode();

@@ -7,11 +7,14 @@ namespace Broadside.Fuzz;
 /// The signature validation targets (issue #196). <c>signature-validation</c> opens the input as a whole file and validates every
 /// signature; invariants: validation never throws, a signature is valid exactly when it has no problem, and a certificate path exists
 /// exactly when a signer certificate was found, starting with it; modification detection (issue #199) reports changes only after a
-/// signed revision inside the file and makes a signature with a change it does not permit invalid. <c>cms</c> decodes the input as the <c>Contents</c> of a signature
-/// (a CMS <c>ContentInfo</c>, zero padding allowed) and, when it decodes, reads a timestamp token's message imprint from its content;
-/// invariant: neither throws.
+/// signed revision inside the file and makes a signature with a change it does not permit invalid; a time-stamp token's status follows
+/// its problems as a signature's does, and a revocation is listed only for a certificate of the path (issue #197). <c>cms</c> decodes
+/// the input as the <c>Contents</c> of a signature (a CMS <c>ContentInfo</c>, zero padding allowed) and, when it decodes, reads a
+/// timestamp token's TSTInfo from its content and decodes the revocation information and time-stamp tokens it carries (issue #197);
+/// invariant: none of it throws. <c>ocsp-response</c> and <c>crl</c> (issue #197) decode the input as an OCSP response and a CRL, and
+/// look a serial number up in the CRL; invariant: neither throws.
 /// </summary>
-/// <remarks>ISO 32000-2 §12.8.1, §12.8.3.3.1, §12.8.5; RFC 5652 §5; RFC 3161 §2.4.2.</remarks>
+/// <remarks>ISO 32000-2 §12.8.1, §12.8.3.3.1, §12.8.3.3.2, §12.8.5; RFC 5652 §5 and §10.2.1; RFC 3161 §2.4.2; RFC 6960 §4.2.1; RFC 5280 §5.1.</remarks>
 internal static class SignatureValidationTarget
 {
     private static readonly PdfEngine Engine = new(new PdfOptions().UseSystemFontResolver(null));
@@ -37,6 +40,16 @@ internal static class SignatureValidationTarget
                 throw new InvalidOperationException("The certificate path does not start with the signer certificate.");
             }
 
+            if (validation.Timestamp is { } timestamp && (timestamp.Status == PdfSignatureStatus.Valid) != (timestamp.Problems.Count == 0))
+            {
+                throw new InvalidOperationException($"Time-stamp status {timestamp.Status} with {timestamp.Problems.Count} problems.");
+            }
+
+            if (validation.Revocations.Any(revocation => !validation.CertificatePath.Contains(revocation.Certificate)))
+            {
+                throw new InvalidOperationException("A revocation names a certificate outside the path.");
+            }
+
             // Modification detection (issue #199): changes follow a known signed revision, within the file's revisions, and a change
             // that is not permitted is reported.
             if (validation.Modifications.Count > 0 && validation.SignedRevision is not { } signed)
@@ -59,9 +72,39 @@ internal static class SignatureValidationTarget
 
     public static void Cms(ReadOnlySpan<byte> data)
     {
-        if (CmsSignature.TryDecode(data.ToArray(), out CmsSignature cms, out _) && cms.Content is { } content)
+        if (!CmsSignature.TryDecode(data.ToArray(), out CmsSignature cms, out _))
         {
-            _ = CmsSignature.TryReadMessageImprint(content, out _, out _);
+            return;
+        }
+
+        if (cms.Content is { } content)
+        {
+            _ = CmsSignature.TryReadTstInfo(content, out _);
+        }
+
+        foreach (byte[] response in cms.OcspResponses)
+        {
+            OcspResponse(response);
+        }
+
+        foreach (byte[] list in cms.Crls)
+        {
+            Crl(list);
+        }
+
+        foreach (byte[] token in cms.TimestampTokens)
+        {
+            Cms(token);
+        }
+    }
+
+    public static void OcspResponse(ReadOnlySpan<byte> data) => _ = Signatures.Validation.OcspResponse.TryDecode(data.ToArray(), out _);
+
+    public static void Crl(ReadOnlySpan<byte> data)
+    {
+        if (RevocationList.TryDecode(data.ToArray(), out RevocationList? list))
+        {
+            _ = list!.TryFind(data[..Math.Min(data.Length, 8)], out _, out _);
         }
     }
 }
