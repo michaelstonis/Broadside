@@ -36,6 +36,9 @@ internal ref struct CffDictReader
     /// <summary>Gets an operand of the operator just read (0 when out of range).</summary>
     public readonly double this[int index] => (uint)index < (uint)OperandCount ? _operands[index] : 0;
 
+    /// <summary>Gets the offset in the DICT just past the last operator read.</summary>
+    public readonly int Position => _position;
+
     /// <summary>Reads the next operator and its operands.</summary>
     /// <returns><see langword="false"/> at the end of the DICT (operands with no operator after them are dropped).</returns>
     public bool Next()

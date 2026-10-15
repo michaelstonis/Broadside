@@ -118,7 +118,7 @@ internal sealed class SimpleAppearanceFont : AppearanceFont
 
 /// <summary>
 /// A canvas font an appearance shows text with: for text the default appearance font cannot encode, the TrueType program the engine's
-/// font resolvers find, embedded through the same <see cref="TrueTypeCanvasFont"/> (and the same shared subset) a canvas uses.
+/// font resolvers find, embedded through the same <see cref="EmbeddedCanvasFont"/> (and the same shared subset) a canvas uses.
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §9.7 (Type 0 fonts, CIDFontType2, <c>W</c>, <c>CIDToGIDMap</c>), §9.8 (descriptor, <c>FontFile2</c>), §9.9.2 (subset
@@ -171,7 +171,7 @@ internal sealed class CanvasAppearanceFont : AppearanceFont
                 continue;
             }
 
-            if (TrueTypeCanvasFont.Get(document, resolution, text, out string? uncovered, out _) is { } font)
+            if (EmbeddedCanvasFont.Get(document, resolution, text, out string? uncovered, out _) is { } font)
             {
                 missing = null;
                 return new CanvasAppearanceFont(font);
