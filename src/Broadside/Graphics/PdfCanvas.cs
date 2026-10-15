@@ -516,12 +516,14 @@ public sealed partial class PdfCanvas : IDisposable
             _path = PathState.None;
         }
 
+        CloseMarked(insideTextOnly: true);
         if (_inText)
         {
             _writer.Operator("ET");
             _inText = false;
         }
 
+        CloseMarked(insideTextOnly: false);
         while (_saved.TryPop(out _))
         {
             _writer.Operator("Q");

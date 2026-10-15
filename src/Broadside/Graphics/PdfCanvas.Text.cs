@@ -33,11 +33,12 @@ public sealed partial class PdfCanvas
     }
 
     /// <summary>Ends the text object (<c>ET</c>); glyphs shown in a clipping rendering mode then narrow the clipping path.</summary>
-    /// <exception cref="InvalidOperationException">No text object is open, or the canvas is disposed.</exception>
+    /// <exception cref="InvalidOperationException">No text object is open, a marked-content sequence begun inside it is open, or the canvas is disposed.</exception>
     /// <remarks>ISO 32000-2 §9.4.1, Table 105, and §9.3.6 (text rendering modes 4 to 7 clip at the end of the text object).</remarks>
     public void EndText()
     {
         ThrowIfNotInTextObject();
+        ThrowIfMarkedOpenInText();
         _writer.Operator("ET");
         _inText = false;
     }
