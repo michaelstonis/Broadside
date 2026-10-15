@@ -66,6 +66,14 @@ public static class GoldenThresholds
             "to its stem's and overlaps it. The non-zero rule (ISO 32000-2 §9.2.4, §8.5.3.3.2) correctly leaves that overlap empty " +
             "(windings +1 and -1 cancel), a hole two pixel rows high in the golden image; CoreGraphics' CFF scaler fills it. Four pixels " +
             "of the hole differ by up to 1; everything else is within the coregraphics-text row."),
+        new(
+            "direct2d-outlines",
+            "text-lines-rotated.pdf",
+            0,
+            new GoldenThreshold(0.05, 0.05, 0),
+            "Forced outlines on Direct2D (#131) against the same outlines written as path objects, otherwise held to GoldenThreshold.Tight: " +
+            "the glyphs arrive pre-mapped to user space while the path page reaches them through its cm, so Direct2D flattens the " +
+            "curves of the rotated lines under different transforms; four edge pixels differ by up to 0.047 on WARP, the same ink."),
     ];
 
     /// <summary>Returns the threshold a backend's render of one corpus page must meet.</summary>

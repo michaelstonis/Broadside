@@ -6,7 +6,7 @@ namespace Broadside.Rendering.Direct2D.Tests;
 
 /// <summary>
 /// Replay is a hot path (CLAUDE.md, "Code conventions"): once a renderer's device resources and working buffers are warm, replaying a
-/// display list onto its device context allocates nothing managed per fill, stroke, dash or clip. <c>Direct2DBackendBenchmarks</c>
+/// display list onto its device context allocates nothing managed per fill, stroke, dash, clip or glyph (native or outlined, #131). <c>Direct2DBackendBenchmarks</c>
 /// shows the same in its <c>Allocated</c> column.
 /// </summary>
 [Collection(HeavyTestCollection.Name)]
@@ -17,11 +17,30 @@ public sealed class ReplayAllocationTests
     [InlineData("paths-strokes.pdf", 72)]
     [InlineData("clipping-paths.pdf", 72)]
     [InlineData("paths-strokes.pdf", 300)]
+    [InlineData("text-truetype-embedded.pdf", 72)]
+    [InlineData("text-standard14.pdf", 72)]
+    [InlineData("text-standard14.pdf", 300)]
+    [InlineData("text-render-modes.pdf", 72)]
+    [InlineData("text-type1-embedded.pdf", 72)]
+    [InlineData("text-cid-identity-v.pdf", 72)]
     public void Replaying_a_corpus_page_allocates_nothing(string fileName, double dpi)
     {
         using PdfDocument document = GoldenCorpus.Open(fileName);
 
         long allocated = MeasureReplay(document, new RenderOptions().WithDpi(dpi));
+
+        Assert.Equal(0, allocated);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void Replaying_text_allocates_nothing_per_glyph(bool forceOutlines)
+    {
+        // 2,000 glyphs in modes 0 to 2 with every text state operator (ISO 32000-2 §9.3, §9.4).
+        using PdfDocument document = PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(2000)));
+
+        long allocated = MeasureReplay(document, new RenderOptions().WithForceOutlines(forceOutlines));
 
         Assert.Equal(0, allocated);
     }
@@ -74,7 +93,7 @@ public sealed class ReplayAllocationTests
         Matrix device = options.GetDeviceTransform(page);
         using var bitmap = new Bitmap(size.Width, size.Height);
         using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
-        Action render = () => renderer.Render(list, bitmap, device);
+        Action render = () => renderer.Render(list, bitmap, device, options.ForceOutlines);
 
         long allocated = Allocations.Measure(render, warmUpCalls: 5);
 

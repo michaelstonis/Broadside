@@ -38,8 +38,6 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
 
     private static readonly Diagnostic ShadingsSkipped = Skipped("shadings and shading patterns", 130);
 
-    private static readonly Diagnostic GlyphsSkipped = Skipped("glyph runs (text)", 131);
-
     private readonly List<Diagnostic> _diagnostics = [];
     private SkippedOperations _skipped;
 
@@ -78,18 +76,18 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
         Images = 1,
         ImageMasks = 2,
         Shadings = 4,
-        Glyphs = 8,
         TilingPatterns = 16,
         BlendModes = 32,
         Groups = 64,
         SoftMasks = 128,
+        NativeGlyphs = 256,
     }
 
-    /// <summary>Gets the diagnostics of the last replay: one for each kind of operation the backend skipped.</summary>
+    /// <summary>Gets the diagnostics of the last replay: one for each kind of operation the backend skipped or drew another way.</summary>
     public IReadOnlyList<Diagnostic> Diagnostics { get; }
 
     /// <summary>Starts a replay onto the surface's device context, which is between <c>BeginDraw</c> and <c>EndDraw</c>.</summary>
-    public void Begin(Direct2DSurface surface, PdfDocument document, in Matrix device)
+    public void Begin(Direct2DSurface surface, DirectWriteFonts? fonts, PdfDocument document, in Matrix device)
     {
         _factory = surface.Factory;
         _context = surface.Context;
@@ -103,6 +101,7 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
         _diagnostics.Clear();
         _skipped = SkippedOperations.None;
         BeginCompositing();
+        BeginText(fonts);
     }
 
     /// <summary>Pops every clip still pushed and lets go of the document and the surface.</summary>
@@ -116,6 +115,7 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
         _factory = null;
         _context = null;
         _brush = null;
+        _fonts = null;
         EndStrokes();
     }
 
@@ -233,8 +233,6 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
         Skip(SkippedOperations.Images, ImagesSkipped);
 
     public void FillImageMask(DisplayImageMask mask, in DisplayColor color) => Skip(SkippedOperations.ImageMasks, ImageMasksSkipped);
-
-    public void DrawGlyphs(in GlyphRun run) => Skip(SkippedOperations.Glyphs, GlyphsSkipped);
 
     public void DrawShading(in DisplayShading shading) => Skip(SkippedOperations.Shadings, ShadingsSkipped);
 

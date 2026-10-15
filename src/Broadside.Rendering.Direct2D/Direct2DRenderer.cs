@@ -20,8 +20,15 @@ namespace Broadside.Rendering.Direct2D;
 /// §14.11.2), the same mapping the software rasterizer uses.
 /// </para>
 /// <para>
-/// Images, stencil masks, shadings, tiling patterns and text are not drawn by this backend yet; a render that meets them leaves them
-/// out and reports one <see cref="Diagnostics"/> entry per kind rather than approximating them.
+/// Text (ISO 32000-2 §9.4.3, §9.3.6): glyphs of TrueType and OpenType programs are filled by DirectWrite from a font face loaded from
+/// the program's bytes (§9.9), created once per program and renderer; glyphs of every other program, and every glyph when
+/// <see cref="RenderOptions.ForceOutlines"/> is set, are filled from the outlines the display list carries by the non-zero winding
+/// rule (§9.2.4). Stroked text is stroked from the outlines like a path. A TrueType or OpenType program DirectWrite cannot read as
+/// Broadside does draws from its outlines and is reported (<c>BackendNativeGlyphsUnavailable</c>, information).
+/// </para>
+/// <para>
+/// Images, stencil masks, shadings and tiling patterns are not drawn by this backend yet; a render that meets them leaves them out and
+/// reports one <see cref="Diagnostics"/> entry per kind rather than approximating them.
 /// </para>
 /// <para>
 /// Constant alpha (ISO 32000-2 §11.6.4.4) is the brush colour's alpha. Direct2D's primitive blend is source-over only, so blend modes
@@ -42,6 +49,7 @@ public sealed class Direct2DRenderer : IDisposable
 
     private readonly Direct2DDriver _requested;
     private readonly Direct2DBackend _backend = new();
+    private readonly DirectWriteFonts _fonts = new();
     private Direct2DSurface _surface;
     private bool _disposed;
 
@@ -72,7 +80,8 @@ public sealed class Direct2DRenderer : IDisposable
 
     /// <summary>
     /// Gets the diagnostics of the last render: one warning, code <c>RenderingOperationSkipped</c>, for each kind of display-list
-    /// operation this backend does not draw yet and left out.
+    /// operation this backend does not draw yet and left out, and one information entry, code <c>BackendNativeGlyphsUnavailable</c>,
+    /// when glyphs of a TrueType or OpenType program were drawn from their outlines because DirectWrite could not read the program.
     /// </summary>
     public IReadOnlyList<Diagnostic> Diagnostics => _backend.Diagnostics;
 
@@ -100,7 +109,7 @@ public sealed class Direct2DRenderer : IDisposable
         var bitmap = new Bitmap(size.Width, size.Height);
         try
         {
-            Draw(list, bitmap, device, size.Width, size.Height, white: true);
+            Draw(list, bitmap, device, size.Width, size.Height, white: true, options.ForceOutlines);
         }
         catch
         {
@@ -131,7 +140,7 @@ public sealed class Direct2DRenderer : IDisposable
             throw new ArgumentException($"The page needs {size.Width} x {size.Height} pixels; the bitmap has {target.Width} x {target.Height}.", nameof(target));
         }
 
-        Draw(page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions), target, options.GetDeviceTransform(page), size.Width, size.Height, white: true);
+        Draw(page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions), target, options.GetDeviceTransform(page), size.Width, size.Height, white: true, options.ForceOutlines);
     }
 
     /// <summary>Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background.</summary>
@@ -145,23 +154,42 @@ public sealed class Direct2DRenderer : IDisposable
     /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space).</remarks>
     public void Render(DisplayList list, Bitmap target, in Matrix deviceTransform)
     {
+        Render(list, target, deviceTransform, forceOutlines: false);
+    }
+
+    /// <summary>
+    /// Draws <paramref name="list"/> over the current pixels of <paramref name="target"/>, without a background, drawing every glyph
+    /// from its outline when <paramref name="forceOutlines"/> is set.
+    /// </summary>
+    /// <param name="list">The display list.</param>
+    /// <param name="target">The bitmap; drawing is clipped to it.</param>
+    /// <param name="deviceTransform">The transform from the list's default user space to the bitmap's pixels (origin top-left, y down).</param>
+    /// <param name="forceOutlines">Whether to draw every glyph from its outline, never through DirectWrite (<see cref="RenderOptions.ForceOutlines"/>).</param>
+    /// <exception cref="ArgumentException">The device cannot hold a bitmap of <paramref name="target"/>'s size.</exception>
+    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space), §9.2.4 (glyph outlines).</remarks>
+    public void Render(DisplayList list, Bitmap target, in Matrix deviceTransform, bool forceOutlines)
+    {
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(target);
         ObjectDisposedException.ThrowIf(_disposed, this);
-        Draw(list, target, deviceTransform, target.Width, target.Height, white: false);
+        Draw(list, target, deviceTransform, target.Width, target.Height, white: false, forceOutlines);
     }
 
-    /// <summary>Releases the Direct2D device, its device context and bitmaps; the renderer renders no more after this.</summary>
+    /// <summary>Releases the Direct2D device, its device context and bitmaps, and the DirectWrite font faces; the renderer renders no more after this.</summary>
     public void Dispose()
     {
         if (!_disposed)
         {
             _disposed = true;
             _surface.Dispose();
+            _fonts.Dispose();
         }
     }
 
-    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white)
+    /// <summary>Gets how many DirectWrite font faces this renderer has created from font programs.</summary>
+    internal int FontFacesCreated => _fonts.FacesCreated;
+
+    private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white, bool forceOutlines)
     {
         if (width > _surface.MaximumSize || height > _surface.MaximumSize)
         {
@@ -176,7 +204,8 @@ public sealed class Direct2DRenderer : IDisposable
             HRESULT result;
             try
             {
-                _backend.Begin(_surface, list.Document, device);
+                _backend.ForceOutlines = forceOutlines;
+                _backend.Begin(_surface, _fonts, list.Document, device);
                 try
                 {
                     list.Replay(_backend);
