@@ -159,6 +159,11 @@ internal sealed class EmbeddedCanvasFont : PdfCanvasFont
     internal override OpenType.OpenTypeLayout? OpenTypeLayout => _subset.Layout;
 
     /// <inheritdoc/>
+    /// <remarks>The program's <c>GPOS</c> pair adjustment under the default features, else its <c>kern</c> table (OpenType "GPOS" lookup type 2, "kern" format 0).</remarks>
+    internal override int GetKerning(in CanvasGlyph left, in CanvasGlyph right) =>
+        _subset.Layout is { } layout ? (int)Math.Round(layout.PairAdjustment(left.Key, right.Key)) : 0;
+
+    /// <inheritdoc/>
     internal override bool TryGetGlyphById(int glyphId, out CanvasGlyph glyph)
     {
         bool valid = glyphId >= 0 && glyphId < _subset.GlyphCount;

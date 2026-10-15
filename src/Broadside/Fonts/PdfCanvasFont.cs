@@ -138,16 +138,17 @@ public abstract class PdfCanvasFont
 
     /// <summary>
     /// Shapes text into the glyphs this font shows for it: for an embedded OpenType or TrueType program, its <c>GSUB</c> lookups
-    /// for the features <paramref name="shaping"/> turns on (ligatures, contextual and localised forms, Arabic joining forms) and
-    /// pair kerning; for other fonts, one glyph per character and pair kerning.
+    /// for the features <paramref name="shaping"/> turns on (ligatures, contextual and localised forms, Arabic joining forms), then its
+    /// <c>GPOS</c> lookups (pair kerning, marks on their bases, cursive attachment; its legacy <c>kern</c> table when GPOS has no
+    /// kerning); for other fonts, one glyph per character and pair kerning.
     /// </summary>
     /// <param name="text">The text, one script in one direction.</param>
     /// <param name="shaping">How the text is shaped (<see cref="TextShaping.Default"/> for the defaults).</param>
     /// <returns>The shaped text, to show with <see cref="PdfCanvas.ShowText(ShapedText)"/> while this font is the canvas's font.</returns>
     /// <exception cref="ArgumentException">A character of <paramref name="text"/> has no glyph in this font (the message names it).</exception>
     /// <remarks>
-    /// OpenType specification, "GSUB — Glyph Substitution Table" (lookup types 1–8) and "Developing OpenType Fonts for Arabic
-    /// Script"; Unicode §9.2 (cursive joining). Shown glyphs map back to their text through the font's <c>ToUnicode</c> CMap
+    /// OpenType specification, "GSUB — Glyph Substitution Table" (lookup types 1–8), "GPOS — Glyph Positioning Table" (lookup types
+    /// 1–9), "kern" and "Developing OpenType Fonts for Arabic Script"; Unicode §9.2 (cursive joining). Shown glyphs map back to their text through the font's <c>ToUnicode</c> CMap
     /// (ISO 32000-2 §9.10.3; a ligature maps to all its characters) or, where it cannot, an <c>ActualText</c> span (§14.9.4).
     /// </remarks>
     public ShapedText Shape(string text, TextShaping shaping)

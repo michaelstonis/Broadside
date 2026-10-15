@@ -119,4 +119,25 @@ internal struct ShapingGlyph
 
     /// <summary>The glyph class (<see cref="GdefTable.BaseGlyph"/>, <see cref="GdefTable.LigatureGlyph"/>, <see cref="GdefTable.MarkGlyph"/>, 4 component).</summary>
     public int Class;
+
+    /// <summary>
+    /// For a ligature, the number of components it was formed from; for a mark that a ligature substitution skipped, the 1-based
+    /// component it followed (mark-to-ligature attachment picks that component's anchor); 0 otherwise.
+    /// </summary>
+    public int Component;
+
+    /// <summary>The advance after positioning, in thousandths of the font size (the glyph's width until <c>GPOS</c> or kerning changes it).</summary>
+    public double XAdvance;
+
+    /// <summary>The horizontal placement from the pen position, in thousandths of the font size (positive moves the glyph right).</summary>
+    public double XOffset;
+
+    /// <summary>The vertical placement from the baseline, in thousandths of the font size (positive moves the glyph up).</summary>
+    public double YOffset;
+
+    /// <summary>The index of the glyph this one is attached to, relative to this one (negative before it); 0 when not attached.</summary>
+    public int AttachChain;
+
+    /// <summary>How the glyph is attached: 0 none, <see cref="LayoutApplier.MarkAttachment"/> or <see cref="LayoutApplier.CursiveAttachment"/>.</summary>
+    public int AttachType;
 }

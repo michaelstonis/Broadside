@@ -251,14 +251,14 @@ internal sealed class SharedFontSubset
     /// <summary>Gets the number of glyphs of the program.</summary>
     public int GlyphCount => _program.GlyphCount;
 
-    /// <summary>Gets the program's OpenType layout tables (read once), or <see langword="null"/> when it has no <c>GSUB</c> table or is a bare CFF program.</summary>
+    /// <summary>Gets the program's OpenType layout tables (read once), or <see langword="null"/> when it has no <c>GSUB</c>, <c>GPOS</c> or <c>kern</c> table or is a bare CFF program.</summary>
     public OpenType.OpenTypeLayout? Layout
     {
         get
         {
             if (!Volatile.Read(ref _layoutRead))
             {
-                _layout = _sfnt is null ? null : OpenType.OpenTypeLayout.Read(_sfnt, _program.GlyphCount);
+                _layout = _sfnt is null ? null : OpenType.OpenTypeLayout.Read(_sfnt, _program.GlyphCount, _scale);
                 Volatile.Write(ref _layoutRead, true);
             }
 

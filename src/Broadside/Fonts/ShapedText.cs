@@ -7,7 +7,7 @@ namespace Broadside.Fonts;
 /// its advance. Get one with <see cref="PdfCanvasFont.Shape"/> and show it with <see cref="PdfCanvas.ShowText(ShapedText)"/>.
 /// </summary>
 /// <remarks>
-/// OpenType specification, GSUB (substitution) and the positioning step; ISO 32000-2 §9.4.3 (<c>TJ</c>) and §9.10.2 (mapping
+/// OpenType specification, GSUB (substitution), GPOS and kern (positioning: advances, and offsets that place marks on their bases); ISO 32000-2 §9.4.3 (<c>TJ</c>) and §9.10.2 (mapping
 /// glyphs back to text: <c>ToUnicode</c>, and <c>ActualText</c>, §14.9.4, where a glyph stands for text <c>ToUnicode</c> cannot
 /// give it).
 /// </remarks>
@@ -67,6 +67,8 @@ public sealed class ShapedText
 /// is also its CID; for a Standard 14 font, its one-byte code.
 /// </param>
 /// <param name="Cluster">The UTF-16 index in <see cref="ShapedText.Text"/> of the first character the glyph shows (a ligature shows several, from here).</param>
-/// <param name="Advance">The glyph's advance after positioning, in thousandths of the font size (its width plus kerning).</param>
-/// <remarks>OpenType specification, GSUB; ISO 32000-2 §9.2.4 (glyph widths in thousandths of text space).</remarks>
-public readonly record struct ShapedGlyph(int Code, int Cluster, double Advance);
+/// <param name="Advance">The glyph's advance after positioning, in thousandths of the font size (its width plus kerning and the other <c>GPOS</c> advance adjustments; 0 for a mark).</param>
+/// <param name="XOffset">How far the glyph is drawn right of its pen position, in thousandths of the font size (a mark placed on its base, a <c>GPOS</c> placement); it does not move the glyphs after it.</param>
+/// <param name="YOffset">How far the glyph is drawn above the baseline, in thousandths of the font size (a mark above or below its base, a cursive connection); it does not move the glyphs after it.</param>
+/// <remarks>OpenType specification, GSUB and GPOS (ValueRecord, mark and cursive attachment); ISO 32000-2 §9.2.4 (glyph widths in thousandths of text space).</remarks>
+public readonly record struct ShapedGlyph(int Code, int Cluster, double Advance, double XOffset, double YOffset);
