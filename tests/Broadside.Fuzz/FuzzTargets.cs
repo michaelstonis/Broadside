@@ -68,6 +68,7 @@ internal static class FuzzTargets
         ["font-truetype"] = FontTrueType,
         ["font-cff"] = FontCff,
         ["truetype-subset"] = TrueTypeSubsetTarget.Target,
+        ["cff-subset"] = CffSubsetTarget.Target,
         ["font-scanner"] = FontScanner,
         ["font-index"] = FontIndex,
         ["font-type1"] = FontType1,

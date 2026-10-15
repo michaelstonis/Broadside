@@ -2,14 +2,15 @@ using System.Buffers.Binary;
 using System.Globalization;
 using System.Security.Cryptography;
 using System.Text;
+using Broadside.Fonts.Cff;
 using Broadside.Fonts.TrueType;
 using Broadside.Objects;
 
 namespace Broadside.Fonts;
 
 /// <summary>
-/// One TrueType program embedded once per document as a subset Type 0 font (CIDFontType2, <c>Identity-H</c>, the program's glyph ids
-/// as CIDs) that every canvas and appearance showing the program shares, grown as text needs more glyphs (issues #150, #285).
+/// One TrueType, OpenType or CFF program embedded once per document as a subset Type 0 font (<c>Identity-H</c>, the program's glyph
+/// ids as CIDs) that every canvas and appearance showing the program shares, grown as text needs more glyphs (issues #150, #151, #285).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -18,6 +19,14 @@ namespace Broadside.Fonts;
 /// (<c>ToUnicode</c>). The font's six objects are added once, through <see cref="PdfDocument.AddObject"/>; references to them never
 /// change. A CID is the glyph's id in the original program, so text already written never changes; the <c>CIDToGIDMap</c> stream maps
 /// it to the glyph's id in the embedded subset, which keeps only the used glyphs and their components (renumbered, §9.7.4.2).
+/// </para>
+/// <para>
+/// A program with CFF outlines (issue #151) is a CIDFontType0 font instead, with five objects (no <c>CIDToGIDMap</c>): its
+/// <c>FontFile3</c> is a CID-keyed CFF program (<c>CIDFontType0C</c>, PDF 1.3) whose charset maps each CID, the original glyph id, to
+/// the glyph's id in the subset (§9.7.4.2, <see cref="CffSubsetter"/>). An OpenType program's <c>CFF </c> table is embedded that
+/// way too, not as an <c>OpenType</c> <c>FontFile3</c>: FreeType reads the glyph index it is given for a CID-keyed CFF font as a
+/// CID and maps it through the charset again, so poppler, which maps an OpenType program's CIDs through the charset first, would
+/// draw the wrong glyphs from a renumbered subset.
 /// </para>
 /// <para>
 /// Growing keeps the document readable at once: the glyph map, <c>W</c>, <c>ToUnicode</c> and the subset tag are rewritten, and the
@@ -31,7 +40,9 @@ internal sealed class SharedFontSubset
     private const int RestrictedLicence = 0x0002;
     private const int NoSubsetting = 0x0100;
 
-    private readonly SfntFile _sfnt;
+    private readonly SfntFile? _sfnt;
+    private readonly ReadOnlyMemory<byte> _data;
+    private readonly EmbeddedOutlines _outlines;
     private readonly FontProgram _program;
     private readonly FontCharacterMap _cmap;
     private readonly double _scale;
@@ -41,14 +52,17 @@ internal sealed class SharedFontSubset
     private readonly CosReference _fontFile;
     private readonly CosReference _descriptor;
     private readonly CosReference _cidFont;
-    private readonly CosReference _cidToGid;
+    private readonly CosReference? _cidToGid;
     private readonly CosReference _toUnicode;
-    private TrueTypeSubset? _wholeProgram;
+    private SubsetProgram? _wholeProgram;
     private bool _pending;
 
-    private SharedFontSubset(PdfDocument document, SfntFile sfnt, FontProgram program, FontCharacterMap cmap, bool subsettable, TrueTypeSubset subset, Dictionary<int, int> glyphs)
+    private SharedFontSubset(PdfDocument document, EmbeddedProgram source, FontProgram program, FontCharacterMap cmap, bool subsettable, SubsetProgram subset, Dictionary<int, int> glyphs)
     {
-        _sfnt = sfnt;
+        _sfnt = source.Sfnt;
+        _data = source.Data;
+        _outlines = source.Outlines;
+        SfntFile? sfnt = source.Sfnt;
         _program = program;
         _cmap = cmap;
         _scale = program.FontMatrix.A * 1000;
@@ -60,8 +74,9 @@ internal sealed class SharedFontSubset
         }
 
         PostScriptName = Sanitize(program.PostScriptName);
-        double ascent = Math.Round(program.Ascender * _scale);
-        double descent = Math.Round(program.Descender * _scale);
+        (double ascender, double descender) = ReadAscent(program, sfnt);
+        double ascent = Math.Round(ascender * _scale);
+        double descent = Math.Round(descender * _scale);
         Ascent = ascent > 0 ? ascent : 800;
         Descent = descent < 0 ? descent : -200;
         PdfRectangle box = program.FontBBox;
@@ -72,7 +87,12 @@ internal sealed class SharedFontSubset
         (double italicAngle, bool fixedPitch) = ReadPost(sfnt);
 
         string name = SubsetName();
-        _fontFile = document.AddObject(new CosStream(new CosDictionary { [FontNames.Length1] = new CosInteger(subset.Program.Length) }, subset.Program));
+        bool trueType = _outlines == EmbeddedOutlines.TrueType;
+        _fontFile = document.AddObject(new CosStream(
+            trueType
+                ? new CosDictionary { [FontNames.Length1] = new CosInteger(subset.Program.Length) }
+                : new CosDictionary { [FontNames.Subtype] = new CosName("CIDFontType0C") },
+            subset.Program));
         _descriptor = document.AddObject(new CosDictionary
         {
             [KnownNames.Type] = new CosName("FontDescriptor"),
@@ -84,18 +104,18 @@ internal sealed class SharedFontSubset
             [FontNames.Descent] = Number(descent),
             [FontNames.CapHeight] = Number(CapHeight),
             [FontNames.StemV] = new CosInteger(weight >= 600 ? 120 : 80),
-            [FontNames.FontFile2] = _fontFile,
+            [trueType ? FontNames.FontFile2 : FontNames.FontFile3] = _fontFile,
         });
         if (XHeight > 0)
         {
             ((CosDictionary)document.Resolve(_descriptor))[new CosName("XHeight")] = Number(XHeight);
         }
 
-        _cidToGid = document.AddObject(new CosStream(new CosDictionary(), CidToGidMap(subset)));
-        _cidFont = document.AddObject(new CosDictionary
+        _cidToGid = trueType ? document.AddObject(new CosStream(new CosDictionary(), CidToGidMap(subset))) : null;
+        var cidFont = new CosDictionary
         {
             [KnownNames.Type] = FontNames.Font,
-            [FontNames.Subtype] = CompositeFontNames.CidFontType2,
+            [FontNames.Subtype] = trueType ? CompositeFontNames.CidFontType2 : CompositeFontNames.CidFontType0,
             [FontNames.BaseFont] = new CosName(name),
             [CompositeFontNames.CidSystemInfo] = new CosDictionary
             {
@@ -106,8 +126,13 @@ internal sealed class SharedFontSubset
             [FontNames.FontDescriptor] = _descriptor,
             [CompositeFontNames.DW] = new CosInteger(1000),
             [CompositeFontNames.W] = WidthArray(),
-            [CompositeFontNames.CidToGidMap] = _cidToGid,
-        });
+        };
+        if (_cidToGid is not null)
+        {
+            cidFont[CompositeFontNames.CidToGidMap] = _cidToGid;
+        }
+
+        _cidFont = document.AddObject(cidFont);
 
         _toUnicode = document.AddObject(new CosStream(new CosDictionary(), ToUnicodeCMap()));
         Font = document.AddObject(new CosDictionary
@@ -120,6 +145,10 @@ internal sealed class SharedFontSubset
             [CompositeFontNames.ToUnicode] = _toUnicode,
         });
     }
+
+    /// <summary>Gets the feature (and PDF version) the font needs: its font type and its <c>FontFile2</c> or <c>FontFile3</c> subtype.</summary>
+    public Writing.VersionedFeature Feature =>
+        _outlines == EmbeddedOutlines.TrueType ? Writing.VersionedFeatures.EmbeddedTrueTypeFont : Writing.VersionedFeatures.EmbeddedCffFont;
 
     /// <summary>Gets the reference of the Type 0 font dictionary canvases and appearances name in their <c>Font</c> resources.</summary>
     public CosReference Font { get; }
@@ -173,9 +202,10 @@ internal sealed class SharedFontSubset
     /// Adds the subset of <paramref name="glyphs"/> to the document as a new shared font; <see langword="null"/> with the reason when
     /// the program cannot be embedded (its licence restricts embedding, or it cannot be subset).
     /// </summary>
-    public static SharedFontSubset? Create(PdfDocument document, SfntFile sfnt, FontProgram program, FontCharacterMap cmap, Dictionary<int, int> glyphs, out string? problem)
+    public static SharedFontSubset? Create(PdfDocument document, EmbeddedProgram source, FontProgram program, FontCharacterMap cmap, Dictionary<int, int> glyphs, out string? problem)
     {
-        int fsType = sfnt.TryGetTable(SfntFile.Tag("OS/2"), out ReadOnlyMemory<byte> os2) && os2.Length >= 10 ? BinaryPrimitives.ReadUInt16BigEndian(os2.Span[8..]) : 0;
+        SfntFile? sfnt = source.Sfnt;
+        int fsType = sfnt is not null && sfnt.TryGetTable(SfntFile.Tag("OS/2"), out ReadOnlyMemory<byte> os2) && os2.Length >= 10 ? BinaryPrimitives.ReadUInt16BigEndian(os2.Span[8..]) : 0;
         if ((fsType & 0x000F) == RestrictedLicence)
         {
             problem = "its OS/2 fsType is 2 (restricted licence embedding): the font's licence does not allow embedding it";
@@ -183,20 +213,22 @@ internal sealed class SharedFontSubset
         }
 
         bool subsettable = (fsType & NoSubsetting) == 0;
-        if (TrueTypeSubsetter.Subset(sfnt, subsettable ? glyphs.Values : Enumerable.Range(0, program.GlyphCount)) is not { } subset)
+        if (Subset(source, subsettable ? glyphs.Values : Enumerable.Range(0, program.GlyphCount)) is not { } subset)
         {
-            problem = "its head, hhea, maxp, loca or glyf table is missing or damaged";
+            problem = source.Outlines == EmbeddedOutlines.TrueType
+                ? "its head, hhea, maxp, loca or glyf table is missing or damaged"
+                : "its CFF program is damaged or does not use Type 2 charstrings";
             return null;
         }
 
         problem = null;
-        return new SharedFontSubset(document, sfnt, program, cmap, subsettable, subset, glyphs);
+        return new SharedFontSubset(document, source, program, cmap, subsettable, subset, glyphs);
     }
 
     /// <summary>Whether the font's objects are still the document's: nobody removed or replaced them.</summary>
     public bool IsIntact(PdfDocument document) =>
         document.Resolve(Font) is CosDictionary && document.Resolve(_cidFont) is CosDictionary && document.Resolve(_descriptor) is CosDictionary
-        && document.Resolve(_fontFile) is CosStream && document.Resolve(_toUnicode) is CosStream && document.Resolve(_cidToGid) is CosStream;
+        && document.Resolve(_fontFile) is CosStream && document.Resolve(_toUnicode) is CosStream && (_cidToGid is null || document.Resolve(_cidToGid) is CosStream);
 
     /// <summary>The glyph id the program's Unicode cmap gives <paramref name="scalar"/>, or 0 when it has none.</summary>
     public int GlyphFor(int scalar)
@@ -247,11 +279,11 @@ internal sealed class SharedFontSubset
         ((CosDictionary)document.Resolve(_descriptor))[FontNames.FontName] = name;
         SetData((CosStream)document.Resolve(_toUnicode), ToUnicodeCMap());
 
-        _wholeProgram ??= TrueTypeSubsetter.Subset(_sfnt, Enumerable.Range(0, _program.GlyphCount));
+        _wholeProgram ??= Subset(Source, Enumerable.Range(0, _program.GlyphCount));
         if (_wholeProgram is not null)
         {
             SetProgram((CosStream)document.Resolve(_fontFile), _wholeProgram.Program);
-            SetData((CosStream)document.Resolve(_cidToGid), CidToGidMap(_wholeProgram));
+            SetMap(document, _wholeProgram);
             _pending = _subsettable;
         }
     }
@@ -267,20 +299,62 @@ internal sealed class SharedFontSubset
 
         _pending = false;
         CosChangeLog.OnRevert(() => _pending = true);
-        if (TrueTypeSubsetter.Subset(_sfnt, _widths.Keys) is not { } subset)
+        if (Subset(Source, _widths.Keys) is not { } subset)
         {
             return false;
         }
 
         SetProgram((CosStream)document.Resolve(_fontFile), subset.Program);
-        SetData((CosStream)document.Resolve(_cidToGid), CidToGidMap(subset));
+        SetMap(document, subset);
         return true;
     }
 
-    private static void SetProgram(CosStream stream, byte[] program)
+    private EmbeddedProgram Source => new(_outlines, _sfnt, _data);
+
+    /// <summary>Subsets a program to <paramref name="glyphs"/>: a TrueType program, or the CFF program of an OpenType or bare CFF one.</summary>
+    private static SubsetProgram? Subset(EmbeddedProgram source, IEnumerable<int> glyphs) => source.Outlines switch
     {
-        stream.Dictionary[FontNames.Length1] = new CosInteger(program.Length);
+        EmbeddedOutlines.TrueType => TrueTypeSubsetter.Subset(source.Sfnt!, glyphs),
+        EmbeddedOutlines.OpenTypeCff => source.Sfnt!.TryGetTable(SfntFile.Tag("CFF "), out ReadOnlyMemory<byte> cff) ? CffSubsetter.Subset(cff, glyphs) : null,
+        _ => CffSubsetter.Subset(source.Data, glyphs),
+    };
+
+    private void SetProgram(CosStream stream, byte[] program)
+    {
+        if (_outlines == EmbeddedOutlines.TrueType)
+        {
+            stream.Dictionary[FontNames.Length1] = new CosInteger(program.Length);
+        }
+
         SetData(stream, program);
+    }
+
+    /// <summary>Rewrites the <c>CIDToGIDMap</c> for a TrueType program (a CIDFontType0 program's charset maps CIDs itself).</summary>
+    private void SetMap(PdfDocument document, SubsetProgram program)
+    {
+        if (_cidToGid is not null)
+        {
+            SetData((CosStream)document.Resolve(_cidToGid), CidToGidMap(program));
+        }
+    }
+
+    /// <summary>
+    /// The ascender and descender in font units: the program's, else (a CFF program, which has none) its OpenType <c>hhea</c>
+    /// table's, else its bounding box's top and bottom.
+    /// </summary>
+    private static (double Ascender, double Descender) ReadAscent(FontProgram program, SfntFile? sfnt)
+    {
+        if (program.Ascender != 0 || program.Descender != 0)
+        {
+            return (program.Ascender, program.Descender);
+        }
+
+        if (sfnt is not null && sfnt.TryGetTable(SfntFile.Tag("hhea"), out ReadOnlyMemory<byte> hhea) && hhea.Length >= 8)
+        {
+            return (BinaryPrimitives.ReadInt16BigEndian(hhea.Span[4..]), BinaryPrimitives.ReadInt16BigEndian(hhea.Span[6..]));
+        }
+
+        return (program.FontBBox.Top, program.FontBBox.Bottom);
     }
 
     /// <summary>Replaces a stream's data with unfiltered bytes; a save compresses the stream again (#142).</summary>
@@ -295,9 +369,9 @@ internal sealed class SharedFontSubset
     }
 
     /// <summary>OS/2 <c>sCapHeight</c>, <c>sxHeight</c> (version 2 and later), <c>usWeightClass</c> and the italic selection bit.</summary>
-    private static (double CapHeight, double XHeight, int Weight, bool Italic) ReadOs2(SfntFile sfnt, double scale)
+    private static (double CapHeight, double XHeight, int Weight, bool Italic) ReadOs2(SfntFile? sfnt, double scale)
     {
-        if (!sfnt.TryGetTable(SfntFile.Tag("OS/2"), out ReadOnlyMemory<byte> table) || table.Length < 64)
+        if (sfnt is null || !sfnt.TryGetTable(SfntFile.Tag("OS/2"), out ReadOnlyMemory<byte> table) || table.Length < 64)
         {
             return (0, 0, 400, false);
         }
@@ -314,9 +388,9 @@ internal sealed class SharedFontSubset
     }
 
     /// <summary>post <c>italicAngle</c> (16.16 fixed) and <c>isFixedPitch</c>.</summary>
-    private static (double ItalicAngle, bool FixedPitch) ReadPost(SfntFile sfnt)
+    private static (double ItalicAngle, bool FixedPitch) ReadPost(SfntFile? sfnt)
     {
-        if (!sfnt.TryGetTable(SfntFile.Tag("post"), out ReadOnlyMemory<byte> table) || table.Length < 16)
+        if (sfnt is null || !sfnt.TryGetTable(SfntFile.Tag("post"), out ReadOnlyMemory<byte> table) || table.Length < 16)
         {
             return (0, false);
         }
@@ -326,7 +400,7 @@ internal sealed class SharedFontSubset
     }
 
     /// <summary>The <c>CIDToGIDMap</c> stream data: two bytes per CID up to the largest used, the glyph's id in <paramref name="program"/> (§9.7.4.1, Table 115).</summary>
-    private byte[] CidToGidMap(TrueTypeSubset program)
+    private byte[] CidToGidMap(SubsetProgram program)
     {
         int last = _widths.Count == 0 ? 0 : _widths.Keys.Max();
         byte[] map = new byte[(last + 1) * 2];
@@ -437,6 +511,25 @@ internal sealed class SharedFontSubset
         return Encoding.ASCII.GetBytes(cmap.ToString());
     }
 }
+
+/// <summary>The outlines of an embedded program, which choose its <c>FontFile</c> entry and subtype (ISO 32000-2 §9.9, Tables 124 and 125).</summary>
+internal enum EmbeddedOutlines
+{
+    /// <summary>A TrueType program (<c>glyf</c>): <c>FontFile2</c>, CIDFontType2.</summary>
+    TrueType,
+
+    /// <summary>An OpenType program with a <c>CFF </c> table: its CFF program as <c>FontFile3</c> <c>CIDFontType0C</c>, CIDFontType0.</summary>
+    OpenTypeCff,
+
+    /// <summary>A bare CFF program: <c>FontFile3</c> <c>CIDFontType0C</c>, CIDFontType0.</summary>
+    Cff,
+}
+
+/// <summary>A program to embed: its outlines, its table directory (TrueType and OpenType) and its bytes (bare CFF).</summary>
+/// <param name="Outlines">The outlines.</param>
+/// <param name="Sfnt">The table directory, or <see langword="null"/> for bare CFF.</param>
+/// <param name="Data">The program's bytes.</param>
+internal readonly record struct EmbeddedProgram(EmbeddedOutlines Outlines, SfntFile? Sfnt, ReadOnlyMemory<byte> Data);
 
 /// <summary>
 /// A document's shared font subsets, one per embedded program (its bytes and face), completed before every save (issues #150, #285).

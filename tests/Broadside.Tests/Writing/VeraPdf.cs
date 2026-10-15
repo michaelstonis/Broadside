@@ -47,13 +47,17 @@ internal static class VeraPdf
             Assert.True(details is not null, $"veraPDF did not validate the file (exit code {process.ExitCode}): {output}{error.Result}");
             return [.. details.Elements("rule")
                 .Where(rule => (string?)rule.Attribute("status") == "failed")
-                .Select(rule => $"{(string?)rule.Attribute("clause")}-{(string?)rule.Attribute("testNumber")}: {((string?)rule.Element("description"))?.Trim()} ({(string?)rule.Attribute("failedChecks")})")];
+                .Select(rule => $"{(string?)rule.Attribute("clause")}-{(string?)rule.Attribute("testNumber")}: {((string?)rule.Element("description"))?.Trim()} ({(string?)rule.Attribute("failedChecks")}){Checks(rule)}")];
         }
         finally
         {
             File.Delete(path);
         }
     }
+
+    /// <summary>The first failed checks of a rule: their error messages (with veraPDF's arguments) and contexts.</summary>
+    private static string Checks(XElement rule) => string.Concat(rule.Elements("check").Take(3)
+        .Select(check => $" | {((string?)check.Element("errorMessage"))?.Trim()} at {((string?)check.Element("context"))?.Trim()}"));
 
     private static string Find()
     {
