@@ -23,7 +23,7 @@ namespace Broadside.Images.Png;
 /// <para>
 /// The image is checked against the pixel limit before anything the size of the image is allocated. Decoding inflates the
 /// concatenated IDAT data row by row into two pooled rows (plus one pooled image for an interlaced file) and allocates nothing
-/// per row: the BCL inflater and the IDAT copy are per file.
+/// per row: the BCL inflater is per file, and the IDAT copy is pooled unless it passes through.
 /// </para>
 /// </remarks>
 internal static class PngReader
@@ -61,13 +61,17 @@ internal static class PngReader
             return null;
         }
 
-        var image = new PngImage(chunks.Width, chunks.Height, chunks.BitDepth, chunks.ColorType, chunks.Interlaced);
+        PngImage? owned = new PngImage(chunks.Width, chunks.Height, chunks.BitDepth, chunks.ColorType, chunks.Interlaced);
+        PngImage image = owned;
+        bool passThrough = !chunks.Interlaced && chunks.ColorType is PngColorType.Gray or PngColorType.Rgb or PngColorType.Palette;
+
+        // Data that may pass through becomes the image's stream data; any other is only inflated, so it is pooled.
+        byte[] idat = passThrough ? new byte[chunks.IdatLength] : ArrayPool<byte>.Shared.Rent(chunks.IdatLength);
         try
         {
-            byte[] idat = new byte[chunks.IdatLength];
             int written = 0;
             int position = chunks.FirstIdat;
-            while (written < idat.Length)
+            while (written < chunks.IdatLength)
             {
                 int length = BinaryPrimitives.ReadInt32BigEndian(png[position..]);
                 png.Slice(position + 8, length).CopyTo(idat.AsSpan(written));
@@ -76,20 +80,17 @@ internal static class PngReader
             }
 
             ReadAncillary(png, chunks, image);
-            bool passThrough = !chunks.Interlaced && chunks.ColorType is PngColorType.Gray or PngColorType.Rgb or PngColorType.Palette;
             ReadOnlySpan<byte> paletteAlpha = chunks.ColorType == PngColorType.Palette && chunks.Transparency >= 0
                 ? png.Slice(chunks.Transparency + 8, BinaryPrimitives.ReadInt32BigEndian(png[chunks.Transparency..]))
                 : [];
             bool keep = keepSamples || !passThrough;
-            if (!Decode(image, idat, paletteAlpha, keep, out bool extraData, out int maxIndex, out error))
+            if (!Decode(image, idat, chunks.IdatLength, paletteAlpha, keep, out bool extraData, out int maxIndex, out error))
             {
-                image.Dispose();
                 return null;
             }
 
-            if (passThrough && extraData && !keep && !Decode(image, idat, paletteAlpha, keepColor: true, out _, out _, out error))
+            if (passThrough && extraData && !keep && !Decode(image, idat, chunks.IdatLength, paletteAlpha, keepColor: true, out _, out _, out error))
             {
-                image.Dispose();
                 return null;
             }
 
@@ -102,12 +103,16 @@ internal static class PngReader
                 image.Palette = padded;
             }
 
+            owned = null;
             return image;
         }
-        catch
+        finally
         {
-            image.Dispose();
-            throw;
+            owned?.Dispose();
+            if (!passThrough)
+            {
+                ArrayPool<byte>.Shared.Return(idat);
+            }
         }
     }
 
@@ -409,7 +414,7 @@ internal static class PngReader
     }
 
     /// <summary>Inflates and unfilters every row, de-interlacing when needed, and separates colour, alpha and palette transparency.</summary>
-    private static bool Decode(PngImage image, byte[] idat, ReadOnlySpan<byte> paletteAlpha, bool keepColor, out bool extraData, out int maxIndex, out string? error)
+    private static bool Decode(PngImage image, byte[] idat, int idatLength, ReadOnlySpan<byte> paletteAlpha, bool keepColor, out bool extraData, out int maxIndex, out string? error)
     {
         int channels = Channels(image.ColorType);
         int bitsPerPixel = channels * image.BitDepth;
@@ -423,7 +428,7 @@ internal static class PngReader
         maxIndex = 0;
         try
         {
-            using var source = new MemoryStream(idat, writable: false);
+            using var source = new MemoryStream(idat, 0, idatLength, writable: false);
             using var inflater = new ZLibStream(source, CompressionMode.Decompress);
             if (!image.Interlaced)
             {

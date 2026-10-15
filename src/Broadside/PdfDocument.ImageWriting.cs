@@ -110,10 +110,15 @@ public sealed partial class PdfDocument
     /// <c>DeviceCMYK</c>; an ICC profile in APP2 segments of the right number of components makes it <c>ICCBased</c>.
     /// </para>
     /// <para>
-    /// A four-component file with an Adobe APP14 segment is read as Adobe writes CMYK (and YCCK) JPEG, with every component
-    /// inverted, so the image gets <c>Decode [1 0 1 0 1 0 1 0]</c> (§8.9.5.2), as other PDF writers and readers treat such files;
-    /// a four-component file without one is not inverted. NOTE <see cref="DctEncoder"/> writes CMYK not inverted with an APP14
-    /// segment, for a stream whose dictionary it controls; place its output with <see cref="CreateImage(ReadOnlySpan{byte}, PdfImageLayout, PdfImageCompression)"/> instead.
+    /// Four components are CMYK (YCCK when the Adobe APP14 segment says transform 2), placed as the file stores them, the way
+    /// a DCTDecode stream is read (§7.4.8): libjpeg-turbo, <see cref="DctEncoder"/> and Adobe's own DCTEncode filter write CMYK
+    /// that way, with an APP14 segment. Adobe Photoshop writes every component inverted with the same APP14 segment, so a
+    /// four-component file that also carries Photoshop's APP13 <c>Photoshop 3.0</c> image resource segment, which Photoshop
+    /// writes in every JPEG file it saves, gets <c>Decode [1 0 1 0 1 0 1 0]</c> (§8.9.5.2). Files from other writers that invert
+    /// CMYK as Photoshop does (Pillow, ImageMagick) are byte-for-byte indistinguishable in their markers from libjpeg-turbo's and
+    /// are placed as stored.
+    /// </para>
+    /// <para>
     /// Three components identified as R, G and B without an APP14 segment get <c>DecodeParms &lt;&lt; /ColorTransform 0 &gt;&gt;</c>,
     /// so they are not converted from YCbCr (Table 13). A progressive file records PDF 1.3. A mutation.
     /// </para>
@@ -142,7 +147,7 @@ public sealed partial class PdfDocument
             ? new CosDictionary { [FilterNames.ColorTransform] = new CosInteger(0) }
             : null;
         CosStream stream = ImageStream(info.Width, info.Height, space, 8, FilterNames.DctDecode, parameters);
-        if (info is { Components: 4, AdobeTransform: not null })
+        if (info is { Components: 4, AdobeTransform: not null, Photoshop: true })
         {
             stream.Dictionary[ImageNames.Decode] = new CosArray
             {

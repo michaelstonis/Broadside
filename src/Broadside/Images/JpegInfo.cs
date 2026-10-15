@@ -13,13 +13,14 @@ namespace Broadside.Images;
 /// <param name="Progressive">Whether the frame is progressive (SOF2).</param>
 /// <param name="AdobeTransform">The APP14 Adobe segment's transform flag, or <see langword="null"/> when the file has none.</param>
 /// <param name="RgbIdentifiers">Whether three components are identified as 'R', 'G' and 'B'.</param>
+/// <param name="Photoshop">Whether the file has an APP13 <c>Photoshop 3.0</c> image resource segment, which Adobe Photoshop writes in every JPEG file it saves.</param>
 /// <param name="IccProfile">The ICC profile of the APP2 <c>ICC_PROFILE</c> segments, put together; <see langword="null"/> when there is none or a part is missing.</param>
 /// <remarks>
-/// ITU-T T.81 Annex B (marker segments, B.2.2 frame header), Adobe Technical Note #5116 §18 (APP14) and ICC.1 Annex B.4
+/// ITU-T T.81 Annex B (marker segments, B.2.2 frame header), Adobe Technical Note #5116 §18 (APP14), the Photoshop File Formats Specification (image resources, APP13) and ICC.1 Annex B.4
 /// (embedding in JPEG). ISO 32000-2 §7.4.8 allows baseline and (PDF 1.3) progressive Huffman-coded frames of 8-bit samples with 1,
 /// 3 or 4 components.
 /// </remarks>
-internal sealed record JpegInfo(int Width, int Height, int Components, bool Progressive, int? AdobeTransform, bool RgbIdentifiers, byte[]? IccProfile)
+internal sealed record JpegInfo(int Width, int Height, int Components, bool Progressive, int? AdobeTransform, bool RgbIdentifiers, bool Photoshop, byte[]? IccProfile)
 {
     /// <summary>Reads the markers up to the first scan; never throws.</summary>
     /// <param name="jpeg">The JPEG file (JFIF, Exif or Adobe).</param>
@@ -36,6 +37,7 @@ internal sealed record JpegInfo(int Width, int Height, int Components, bool Prog
 
         int position = 2;
         int? transform = null;
+        bool photoshop = false;
         (int Width, int Height, int Components, bool Progressive, bool Rgb)? frame = null;
         List<(int Sequence, int Count, int Start, int Length)>? profile = null;
         while (true)
@@ -94,12 +96,16 @@ internal sealed record JpegInfo(int Width, int Height, int Components, bool Prog
 
                 error = null;
                 byte[]? icc = readProfile && profile is not null ? Assemble(jpeg, profile) : null;
-                return new JpegInfo(found.Width, found.Height, found.Components, found.Progressive, transform, found.Rgb, icc);
+                return new JpegInfo(found.Width, found.Height, found.Components, found.Progressive, transform, found.Rgb, photoshop, icc);
             }
 
             if (marker == 0xEE && segment.Length >= 12 && segment.StartsWith("Adobe"u8))
             {
                 transform = segment[11];
+            }
+            else if (marker == 0xED && segment.StartsWith("Photoshop 3.0\0"u8))
+            {
+                photoshop = true;
             }
             else if (marker == 0xE2 && readProfile && segment.Length > 14 && segment.StartsWith("ICC_PROFILE\0"u8))
             {

@@ -134,6 +134,8 @@ public sealed class CopiedFeatureVersionTests
         { "<< /Type /ExtGState /SMask /None >>", "1.4", "a soft mask (SMask) (ISO 32000-2 §11.6.5; Tables 57 and 87) needs PDF 1.4" },
         { "<< /Type /Mask /S /Luminosity /BC [0] >>", "1.4", "a soft mask (SMask) (ISO 32000-2 §11.6.5; Tables 57 and 87) needs PDF 1.4" },
         { "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /SMask 3 0 R >> stream", "1.4", "a soft mask (SMask) (ISO 32000-2 §11.6.5; Tables 57 and 87) needs PDF 1.4" },
+        { "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Mask [0 0] >> stream", "1.3", "an image's Mask entry (explicit or colour key masking) (ISO 32000-2 §8.9.6.3 and §8.9.6.4; Table 87) needs PDF 1.3" },
+        { "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 16 >> stream", "1.5", "16 bits per image component (ISO 32000-2 §8.9.5.1, Table 87) needs PDF 1.5" },
         { "<< /Type /ExtGState /CA 0.5 >>", "1.4", "transparency parameters (CA, ca, BM, AIS, TK) (ISO 32000-2 §11.6.3 and §11.6.4.4, Table 57) needs PDF 1.4" },
         { "<< /BM /Multiply /AIS true >>", "1.4", "transparency parameters (CA, ca, BM, AIS, TK) (ISO 32000-2 §11.6.3 and §11.6.4.4, Table 57) needs PDF 1.4" },
         { "<< /Filter /JBIG2Decode >> stream", "1.4", "JBIG2Decode compression (ISO 32000-2 §7.4.7, Table 6) needs PDF 1.4" },
