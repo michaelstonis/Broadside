@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>Flow layout for Broadside: paragraphs broken into lines, aligned and justified, and flowed across pages of a set size and margins through the core's canvas API. Depends only on the Broadside core. No native dependencies.</Description>
+    <RootNamespace>Broadside.Layout.Flow</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Broadside/Broadside.csproj" />
+  </ItemGroup>
+
+</Project>
