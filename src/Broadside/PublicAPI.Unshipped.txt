@@ -4413,7 +4413,39 @@ Broadside.Fonts.PdfCanvasFont
 Broadside.Fonts.PdfCanvasFont.AppliesWordSpacing.get -> bool
 Broadside.Fonts.PdfCanvasFont.CanEncode(System.ReadOnlySpan<char> text) -> bool
 Broadside.Fonts.PdfCanvasFont.Font.get -> Broadside.Fonts.PdfFont!
-Broadside.Fonts.PdfCanvasFont.MeasureWidth(System.ReadOnlySpan<char> text, double fontSize, bool kerning = false) -> double
+Broadside.Fonts.PdfCanvasFont.MeasureWidth(System.ReadOnlySpan<char> text, double fontSize) -> double
+Broadside.Fonts.PdfCanvasFont.MeasureWidth(System.ReadOnlySpan<char> text, double fontSize, bool kerning) -> double
+Broadside.Fonts.PdfCanvasFont.MeasureWidth(System.ReadOnlySpan<char> text, double fontSize, Broadside.Fonts.TextShaping! shaping) -> double
+Broadside.Fonts.PdfCanvasFont.Shape(string! text, Broadside.Fonts.TextShaping! shaping) -> Broadside.Fonts.ShapedText!
+Broadside.Fonts.ShapedGlyph
+Broadside.Fonts.ShapedGlyph.Advance.get -> double
+Broadside.Fonts.ShapedGlyph.Advance.init -> void
+Broadside.Fonts.ShapedGlyph.Cluster.get -> int
+Broadside.Fonts.ShapedGlyph.Cluster.init -> void
+Broadside.Fonts.ShapedGlyph.Code.get -> int
+Broadside.Fonts.ShapedGlyph.Code.init -> void
+Broadside.Fonts.ShapedGlyph.ShapedGlyph() -> void
+Broadside.Fonts.ShapedGlyph.ShapedGlyph(int Code, int Cluster, double Advance) -> void
+Broadside.Fonts.ShapedText
+Broadside.Fonts.ShapedText.Font.get -> Broadside.Fonts.PdfCanvasFont!
+Broadside.Fonts.ShapedText.Glyphs.get -> System.ReadOnlySpan<Broadside.Fonts.ShapedGlyph>
+Broadside.Fonts.ShapedText.IsRightToLeft.get -> bool
+Broadside.Fonts.ShapedText.MeasureWidth(double fontSize) -> double
+Broadside.Fonts.ShapedText.Text.get -> string!
+Broadside.Fonts.TextShaping
+Broadside.Fonts.TextShaping.Equals(Broadside.Fonts.TextShaping? other) -> bool
+Broadside.Fonts.TextShaping.Features.get -> System.Collections.Generic.IReadOnlyDictionary<string!, bool>!
+Broadside.Fonts.TextShaping.IsEnabled(string! feature) -> bool
+Broadside.Fonts.TextShaping.Language.get -> string?
+Broadside.Fonts.TextShaping.RightToLeft.get -> bool?
+Broadside.Fonts.TextShaping.Script.get -> string?
+Broadside.Fonts.TextShaping.WithFeature(string! feature, bool enabled) -> Broadside.Fonts.TextShaping!
+Broadside.Fonts.TextShaping.WithLanguage(string? language) -> Broadside.Fonts.TextShaping!
+Broadside.Fonts.TextShaping.WithRightToLeft(bool? rightToLeft) -> Broadside.Fonts.TextShaping!
+Broadside.Fonts.TextShaping.WithScript(string? script) -> Broadside.Fonts.TextShaping!
+override Broadside.Fonts.TextShaping.Equals(object? obj) -> bool
+override Broadside.Fonts.TextShaping.GetHashCode() -> int
+static Broadside.Fonts.TextShaping.Default.get -> Broadside.Fonts.TextShaping!
 abstract Broadside.Fonts.PdfCanvasFont.Ascent.get -> double
 abstract Broadside.Fonts.PdfCanvasFont.CapHeight.get -> double
 abstract Broadside.Fonts.PdfCanvasFont.Descent.get -> double
@@ -4438,6 +4470,8 @@ Broadside.Graphics.PdfCanvas.SetTextRise(double rise) -> void
 Broadside.Graphics.PdfCanvas.SetWordSpacing(double spacing) -> void
 Broadside.Graphics.PdfCanvas.ShowText(System.ReadOnlySpan<char> text) -> void
 Broadside.Graphics.PdfCanvas.ShowText(System.ReadOnlySpan<char> text, bool kerning) -> void
+Broadside.Graphics.PdfCanvas.ShowText(Broadside.Fonts.ShapedText! text) -> void
+Broadside.Graphics.PdfCanvas.ShowText(Broadside.Fonts.ShapedText! text, System.ReadOnlySpan<double> adjustments) -> void
 Broadside.Graphics.PdfCanvas.ShowText(System.ReadOnlySpan<char> text, System.ReadOnlySpan<double> adjustments) -> void
 Broadside.Graphics.PdfCanvas.ShowTextOnNextLine(System.ReadOnlySpan<char> text) -> void
 Broadside.Graphics.PdfCanvas.ShowTextOnNextLine(System.ReadOnlySpan<char> text, double wordSpacing, double characterSpacing) -> void

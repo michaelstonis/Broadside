@@ -40,6 +40,9 @@ internal sealed class SharedFontSubset
     private const int RestrictedLicence = 0x0002;
     private const int NoSubsetting = 0x0100;
 
+    // The longest text a glyph is mapped to in ToUnicode; a bfchar destination holds at most 512 bytes (Adobe TN 5411).
+    private const int MaxMappedText = 64;
+
     private readonly SfntFile? _sfnt;
     private readonly ReadOnlyMemory<byte> _data;
     private readonly EmbeddedOutlines _outlines;
@@ -47,7 +50,7 @@ internal sealed class SharedFontSubset
     private readonly FontCharacterMap _cmap;
     private readonly double _scale;
     private readonly bool _subsettable;
-    private readonly Dictionary<int, int> _glyphs;
+    private readonly Dictionary<int, string> _texts = [];
     private readonly Dictionary<int, double> _widths = [];
     private readonly CosReference _fontFile;
     private readonly CosReference _descriptor;
@@ -55,6 +58,8 @@ internal sealed class SharedFontSubset
     private readonly CosReference? _cidToGid;
     private readonly CosReference _toUnicode;
     private SubsetProgram? _wholeProgram;
+    private OpenType.OpenTypeLayout? _layout;
+    private bool _layoutRead;
     private bool _pending;
 
     private SharedFontSubset(PdfDocument document, EmbeddedProgram source, FontProgram program, FontCharacterMap cmap, bool subsettable, SubsetProgram subset, Dictionary<int, int> glyphs)
@@ -67,10 +72,10 @@ internal sealed class SharedFontSubset
         _cmap = cmap;
         _scale = program.FontMatrix.A * 1000;
         _subsettable = subsettable;
-        _glyphs = glyphs;
-        foreach (int glyph in glyphs.Values)
+        foreach ((int scalar, int glyph) in glyphs.OrderBy(pair => pair.Key))
         {
             _widths[glyph] = WidthOf(glyph);
+            _texts.TryAdd(glyph, char.ConvertFromUtf32(scalar));
         }
 
         PostScriptName = Sanitize(program.PostScriptName);
@@ -243,29 +248,83 @@ internal sealed class SharedFontSubset
     /// <summary>Finds the glyphs of <paramref name="text"/> in this font's program; <see langword="null"/> with the first character it lacks.</summary>
     public Dictionary<int, int>? Cover(IReadOnlyList<string> text, out string? uncovered) => Cover(_cmap, _program.GlyphCount, text, out uncovered);
 
-    /// <summary>Grows the font by one shown glyph and the character it stands for (see <see cref="Include(PdfDocument, Dictionary{int, int})"/>).</summary>
-    public void Include(PdfDocument document, int scalar, int glyph)
+    /// <summary>Gets the number of glyphs of the program.</summary>
+    public int GlyphCount => _program.GlyphCount;
+
+    /// <summary>Gets the program's OpenType layout tables (read once), or <see langword="null"/> when it has no <c>GSUB</c> table or is a bare CFF program.</summary>
+    public OpenType.OpenTypeLayout? Layout
     {
-        if (!_glyphs.ContainsKey(scalar) || !_widths.ContainsKey(glyph))
+        get
         {
-            Include(document, new Dictionary<int, int> { [scalar] = glyph });
+            if (!Volatile.Read(ref _layoutRead))
+            {
+                _layout = _sfnt is null ? null : OpenType.OpenTypeLayout.Read(_sfnt, _program.GlyphCount);
+                Volatile.Write(ref _layoutRead, true);
+            }
+
+            return _layout;
         }
     }
 
     /// <summary>
-    /// Grows the font by the glyphs of <paramref name="glyphs"/> it does not have yet: the glyph map, <c>W</c>, <c>ToUnicode</c> and
-    /// the subset tag are rewritten, and the program is embedded whole until <see cref="Complete"/> subsets it again.
+    /// Grows the font by one shown glyph and the text it stands for (see <see cref="Include(PdfDocument, Dictionary{int, int})"/>):
+    /// a glyph is mapped in <c>ToUnicode</c> to the first non-empty text it is shown for, and keeps that mapping.
+    /// </summary>
+    /// <returns>Whether <c>ToUnicode</c> maps the glyph to exactly <paramref name="text"/> (false for empty text, or text the mapping cannot hold).</returns>
+    public bool Include(PdfDocument document, int glyph, ReadOnlySpan<char> text)
+    {
+        bool grew = false;
+        if (!_widths.ContainsKey(glyph))
+        {
+            _widths[glyph] = WidthOf(glyph);
+            grew = true;
+        }
+
+        bool mapped;
+        if (_texts.TryGetValue(glyph, out string? existing))
+        {
+            mapped = text.SequenceEqual(existing);
+        }
+        else if (text.IsEmpty || text.Length > MaxMappedText)
+        {
+            mapped = false;
+        }
+        else
+        {
+            _texts.Add(glyph, text.ToString());
+            mapped = grew = true;
+        }
+
+        if (grew)
+        {
+            Rewrite(document);
+        }
+
+        return mapped;
+    }
+
+    /// <summary>
+    /// Grows the font by the glyphs of <paramref name="glyphs"/> (character to glyph) it does not have yet: the glyph map, <c>W</c>,
+    /// <c>ToUnicode</c> and the subset tag are rewritten, and the program is embedded whole until <see cref="Complete"/> subsets it again.
     /// </summary>
     public void Include(PdfDocument document, Dictionary<int, int> glyphs)
     {
         bool grew = false;
-        foreach ((int scalar, int glyph) in glyphs)
+        foreach ((int scalar, int glyph) in glyphs.OrderBy(pair => pair.Key))
         {
-            grew |= _glyphs.TryAdd(scalar, glyph);
+            grew |= _texts.TryAdd(glyph, char.ConvertFromUtf32(scalar));
             grew |= _widths.TryAdd(glyph, WidthOf(glyph));
         }
 
-        if (!grew || !IsIntact(document))
+        if (grew)
+        {
+            Rewrite(document);
+        }
+    }
+
+    private void Rewrite(PdfDocument document)
+    {
+        if (!IsIntact(document))
         {
             return;
         }
@@ -474,21 +533,17 @@ internal sealed class SharedFontSubset
         return name.Length == 0 ? "Font" : name.ToString();
     }
 
-    /// <summary>A ToUnicode CMap mapping each two-byte CID to its character (§9.10.3, Adobe TN 5411); the lowest character wins for a shared glyph.</summary>
+    /// <summary>A ToUnicode CMap mapping each two-byte CID to its text (§9.10.3, Adobe TN 5411): one character, or all the characters of a ligature.</summary>
     private byte[] ToUnicodeCMap()
     {
-        var byGlyph = new SortedDictionary<int, int>();
-        foreach ((int scalar, int glyph) in _glyphs.OrderBy(pair => pair.Key))
-        {
-            byGlyph.TryAdd(glyph, scalar);
-        }
+        var byGlyph = new SortedDictionary<int, string>(_texts);
 
         var cmap = new StringBuilder();
         cmap.Append("/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n");
         cmap.Append("/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n");
         cmap.Append("/CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n");
         cmap.Append("1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n");
-        KeyValuePair<int, int>[] entries = [.. byGlyph];
+        KeyValuePair<int, string>[] entries = [.. byGlyph];
         for (int start = 0; start < entries.Length; start += 100)
         {
             int count = Math.Min(100, entries.Length - start);
@@ -496,7 +551,7 @@ internal sealed class SharedFontSubset
             for (int index = start; index < start + count; index++)
             {
                 cmap.Append(CultureInfo.InvariantCulture, $"<{entries[index].Key:X4}> <");
-                foreach (char unit in char.ConvertFromUtf32(entries[index].Value))
+                foreach (char unit in entries[index].Value)
                 {
                     cmap.Append(CultureInfo.InvariantCulture, $"{(int)unit:X4}");
                 }

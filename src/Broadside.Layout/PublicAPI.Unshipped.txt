@@ -54,6 +54,8 @@ Broadside.Layout.Flow.ParagraphStyle.SpaceBefore.get -> double
 Broadside.Layout.Flow.ParagraphStyle.WithAlignment(Broadside.Layout.Flow.TextAlignment alignment) -> Broadside.Layout.Flow.ParagraphStyle!
 Broadside.Layout.Flow.ParagraphStyle.WithFirstLineIndent(double indent) -> Broadside.Layout.Flow.ParagraphStyle!
 Broadside.Layout.Flow.ParagraphStyle.WithKerning(bool kerning) -> Broadside.Layout.Flow.ParagraphStyle!
+Broadside.Layout.Flow.ParagraphStyle.Shaping.get -> Broadside.Fonts.TextShaping!
+Broadside.Layout.Flow.ParagraphStyle.WithShaping(Broadside.Fonts.TextShaping! shaping) -> Broadside.Layout.Flow.ParagraphStyle!
 Broadside.Layout.Flow.ParagraphStyle.WithLineHeight(double multiple) -> Broadside.Layout.Flow.ParagraphStyle!
 Broadside.Layout.Flow.ParagraphStyle.WithSpaceAfter(double space) -> Broadside.Layout.Flow.ParagraphStyle!
 Broadside.Layout.Flow.ParagraphStyle.WithSpaceBefore(double space) -> Broadside.Layout.Flow.ParagraphStyle!

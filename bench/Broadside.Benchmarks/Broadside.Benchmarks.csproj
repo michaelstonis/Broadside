@@ -30,6 +30,8 @@
     <Compile Include="../../tests/Broadside.TestSupport/AnnotationSamples.cs" Link="AnnotationSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/TextSamples.cs" Link="TextSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/TrueTypeBuilder.cs" Link="TrueTypeBuilder.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/OpenTypeLayoutBuilder.cs" Link="OpenTypeLayoutBuilder.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/ShapingTestFont.cs" Link="ShapingTestFont.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/ShadingSamples.cs" Link="ShadingSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/TilingSamples.cs" Link="TilingSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/BlendSamples.cs" Link="BlendSamples.cs" />

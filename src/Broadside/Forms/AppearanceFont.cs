@@ -197,7 +197,7 @@ internal sealed class CanvasAppearanceFont : AppearanceFont
                 bytes.Add((byte)(glyph.Code >> shift));
             }
 
-            _font.OnShown(glyph);
+            _font.OnShown(glyph, text.AsSpan(index, rune.Utf16SequenceLength));
             index += rune.Utf16SequenceLength;
         }
 

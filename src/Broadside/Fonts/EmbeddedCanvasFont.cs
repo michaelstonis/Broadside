@@ -14,8 +14,8 @@ namespace Broadside.Fonts;
 /// grows and is completed before a save. A character maps to the glyph the program's Unicode <c>cmap</c> subtable gives it ((3, 10),
 /// else (3, 1), else (0, any)), or for a bare CFF program, which has none, to the glyph its charset names after the character (Adobe
 /// Glyph List); every glyph the canvas writes is recorded in the subset with the character it was written for, which
-/// the <c>ToUnicode</c> CMap maps it back to. The font has no kerning of its own (the program's <c>kern</c> and <c>GPOS</c> tables are
-/// not read).
+/// the <c>ToUnicode</c> CMap maps it back to. <see cref="PdfCanvasFont.Shape"/> applies the program's <c>GSUB</c> table; the font has no
+/// kerning of its own yet (the program's <c>kern</c> and <c>GPOS</c> tables are issue #175).
 /// </remarks>
 internal sealed class EmbeddedCanvasFont : PdfCanvasFont
 {
@@ -153,7 +153,18 @@ internal sealed class EmbeddedCanvasFont : PdfCanvasFont
     }
 
     /// <inheritdoc/>
-    internal override void OnShown(in CanvasGlyph glyph) => _subset.Include(Document, glyph.Scalar, glyph.Key);
+    internal override bool OnShown(in CanvasGlyph glyph, ReadOnlySpan<char> text) => _subset.Include(Document, glyph.Key, text);
+
+    /// <inheritdoc/>
+    internal override OpenType.OpenTypeLayout? OpenTypeLayout => _subset.Layout;
+
+    /// <inheritdoc/>
+    internal override bool TryGetGlyphById(int glyphId, out CanvasGlyph glyph)
+    {
+        bool valid = glyphId >= 0 && glyphId < _subset.GlyphCount;
+        glyph = valid ? new CanvasGlyph((uint)glyphId, _subset.WidthOf(glyphId), glyphId) : default;
+        return valid;
+    }
 
     /// <inheritdoc/>
     internal override string DescribeUnencodable(Rune character, int index) =>
