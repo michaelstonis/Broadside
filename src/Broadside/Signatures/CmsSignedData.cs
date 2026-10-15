@@ -224,11 +224,19 @@ internal static class CmsSignedData
         var writer = new AsnWriter(AsnEncodingRules.DER);
         using (writer.PushSequence())
         {
-            writer.WriteIntegerUnsigned(signature.AsSpan(0, coordinate));
-            writer.WriteIntegerUnsigned(signature.AsSpan(coordinate));
+            writer.WriteIntegerUnsigned(Minimal(signature.AsSpan(0, coordinate)));
+            writer.WriteIntegerUnsigned(Minimal(signature.AsSpan(coordinate)));
         }
 
         return writer.Encode();
+
+        // A P1363 half is fixed-width, so r or s below 2^(8(n-1)) arrives with leading zero bytes; a DER INTEGER is minimal
+        // (X.690 §8.3.2), so they go, keeping one byte for a zero value. WriteIntegerUnsigned adds the 0x00 a high bit needs.
+        static ReadOnlySpan<byte> Minimal(ReadOnlySpan<byte> value)
+        {
+            int start = value.IndexOfAnyExcept((byte)0);
+            return start < 0 ? value[^1..] : value[start..];
+        }
 
         static bool IsDerEcdsaSignature(byte[] value)
         {
