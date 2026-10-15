@@ -4842,3 +4842,5 @@ Broadside.Signatures.PdfSignatureAppearance.WithText(string? text) -> Broadside.
 Broadside.Signatures.PdfSignatureOptions.Appearance.get -> Broadside.Signatures.PdfSignatureAppearance?
 Broadside.Signatures.PdfSignatureOptions.Appearance.set -> void
 Broadside.Signatures.PdfSignatureOptions.WithAppearance(Broadside.Signatures.PdfSignatureAppearance? appearance) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.PdfDocument.AddValidationData(System.IO.Stream! stream, Broadside.Signatures.PdfSignatureValidationOptions? options = null) -> void
+Broadside.PdfDocument.AddValidationDataAsync(System.IO.Stream! stream, Broadside.Signatures.PdfSignatureValidationOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!

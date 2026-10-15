@@ -54,6 +54,9 @@ internal sealed class OcspResponse
     /// <summary>Gets the value of the nonce extension, or <see langword="null"/> when there is none.</summary>
     public byte[]? Nonce { get; private init; }
 
+    /// <summary>Gets the DER <c>OCSPResponse</c> (a bare <c>BasicOCSPResponse</c> wrapped in one), as a document security store holds it (ISO 32000-2 §12.8.4.3, Table 261).</summary>
+    public ReadOnlyMemory<byte> Encoded { get; private set; }
+
     /// <summary>Decodes an <c>OCSPResponse</c> whose status is successful and whose type is basic, or a <c>BasicOCSPResponse</c>.</summary>
     /// <param name="encoded">The encoding.</param>
     /// <param name="response">The response.</param>
@@ -64,7 +67,9 @@ internal sealed class OcspResponse
         try
         {
             AsnReader outer = new AsnReader(encoded, AsnEncodingRules.BER).ReadSequence();
-            if (outer.PeekTag().HasSameClassAndValue(Asn1Tag.Enumerated))
+            bool wrapped = outer.PeekTag().HasSameClassAndValue(Asn1Tag.Enumerated);
+            ReadOnlyMemory<byte> basicEncoding = encoded;
+            if (wrapped)
             {
                 // OCSPResponseStatus successful (0) is the only one with response bytes.
                 if (ReadEnumerated(outer) != 0 || !outer.HasData)
@@ -78,16 +83,36 @@ internal sealed class OcspResponse
                     return false;
                 }
 
-                outer = new AsnReader(bytes.ReadOctetString(), AsnEncodingRules.BER).ReadSequence();
+                basicEncoding = bytes.ReadOctetString();
+                outer = new AsnReader(basicEncoding, AsnEncodingRules.BER).ReadSequence();
             }
 
             response = ReadBasic(outer);
+            response.Encoded = wrapped ? encoded : Wrap(basicEncoding.Span);
             return true;
         }
         catch (AsnContentException)
         {
             return false;
         }
+    }
+
+    /// <summary>An <c>OCSPResponse</c> with status successful around <paramref name="basic"/> (RFC 6960 §4.2.1).</summary>
+    private static byte[] Wrap(ReadOnlySpan<byte> basic)
+    {
+        var writer = new AsnWriter(AsnEncodingRules.DER);
+        using (writer.PushSequence())
+        {
+            writer.WriteEncodedValue([0x0A, 0x01, 0x00]);
+            using (writer.PushSequence(Context0))
+            using (writer.PushSequence())
+            {
+                writer.WriteObjectIdentifier(BasicResponseOid);
+                writer.WriteOctetString(basic);
+            }
+        }
+
+        return writer.Encode();
     }
 
     private static OcspResponse ReadBasic(AsnReader basic)
