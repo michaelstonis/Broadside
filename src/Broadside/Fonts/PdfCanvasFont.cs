@@ -18,7 +18,7 @@ namespace Broadside.Fonts;
 /// </para>
 /// <para>
 /// Metrics are in glyph space units, thousandths of text space: multiply by the font size and divide by 1000 for text space units.
-/// <see cref="MeasureWidth"/> gives the advance of text without character spacing, word spacing or horizontal scaling, which the
+/// <see cref="MeasureWidth(ReadOnlySpan{char}, double, bool)"/> gives the advance of text without character spacing, word spacing or horizontal scaling, which the
 /// canvas's text state adds when the text is shown (§9.4.4: <c>tx = ((w0 − Tj/1000) × Tfs + Tc + Tw) × Th</c>).
 /// </para>
 /// </remarks>
@@ -72,6 +72,15 @@ public abstract class PdfCanvasFont
     /// <returns><see langword="false"/> when <see cref="PdfCanvas.ShowText(ReadOnlySpan{char}, bool)"/> would refuse it.</returns>
     public bool CanEncode(ReadOnlySpan<char> text) => FindUnencodable(text) < 0;
 
+    /// <summary>Measures the advance of <paramref name="text"/> shown at <paramref name="fontSize"/> without kerning: the sum of its glyph widths.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="fontSize">The font size (<c>Tf</c>'s size operand).</param>
+    /// <returns>The advance in unscaled text space units, without character spacing, word spacing or horizontal scaling.</returns>
+    /// <exception cref="ArgumentException">A character of <paramref name="text"/> has no code in this font (the message names it).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="fontSize"/> is not finite.</exception>
+    /// <remarks>ISO 32000-2 §9.2.4 and §9.4.4, as <see cref="MeasureWidth(ReadOnlySpan{char}, double, bool)"/> without kerning.</remarks>
+    public double MeasureWidth(ReadOnlySpan<char> text, double fontSize) => MeasureWidth(text, fontSize, kerning: false);
+
     /// <summary>Measures the advance of <paramref name="text"/> shown at <paramref name="fontSize"/>: the sum of its glyph widths, and of the font's kerning between neighbouring glyphs when <paramref name="kerning"/>.</summary>
     /// <param name="text">The text.</param>
     /// <param name="fontSize">The font size (<c>Tf</c>'s size operand).</param>
@@ -80,7 +89,7 @@ public abstract class PdfCanvasFont
     /// <exception cref="ArgumentException">A character of <paramref name="text"/> has no code in this font (the message names it).</exception>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="fontSize"/> is not finite.</exception>
     /// <remarks>ISO 32000-2 §9.2.4 and §9.4.4 (with <c>Tc</c> = <c>Tw</c> = 0 and <c>Th</c> = 1); the kerning is the font's own (for a Standard 14 font, the AFM <c>KPX</c> pairs).</remarks>
-    public double MeasureWidth(ReadOnlySpan<char> text, double fontSize, bool kerning = false)
+    public double MeasureWidth(ReadOnlySpan<char> text, double fontSize, bool kerning)
     {
         if (!double.IsFinite(fontSize))
         {
@@ -108,6 +117,56 @@ public abstract class PdfCanvasFont
         return units * fontSize / 1000;
     }
 
+    /// <summary>Measures the advance of <paramref name="text"/> shaped by <paramref name="shaping"/> at <paramref name="fontSize"/>, as <see cref="Shape"/> then <see cref="ShapedText.MeasureWidth"/> would, without keeping the glyphs.</summary>
+    /// <param name="text">The text.</param>
+    /// <param name="fontSize">The font size (<c>Tf</c>'s size operand).</param>
+    /// <param name="shaping">How the text is shaped.</param>
+    /// <returns>The advance in unscaled text space units, without character spacing, word spacing or horizontal scaling.</returns>
+    /// <exception cref="ArgumentException">A character of <paramref name="text"/> has no glyph in this font (the message names it).</exception>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="fontSize"/> is not finite.</exception>
+    /// <remarks>OpenType specification, GSUB; ISO 32000-2 §9.2.4 and §9.4.4.</remarks>
+    public double MeasureWidth(ReadOnlySpan<char> text, double fontSize, TextShaping shaping)
+    {
+        ArgumentNullException.ThrowIfNull(shaping);
+        if (!double.IsFinite(fontSize))
+        {
+            throw new ArgumentOutOfRangeException(nameof(fontSize), fontSize, "The font size shall be a finite number.");
+        }
+
+        return OpenType.OpenTypeShaper.Measure(this, text, shaping) * fontSize / 1000;
+    }
+
+    /// <summary>
+    /// Shapes text into the glyphs this font shows for it: for an embedded OpenType or TrueType program, its <c>GSUB</c> lookups
+    /// for the features <paramref name="shaping"/> turns on (ligatures, contextual and localised forms, Arabic joining forms) and
+    /// pair kerning; for other fonts, one glyph per character and pair kerning.
+    /// </summary>
+    /// <param name="text">The text, one script in one direction.</param>
+    /// <param name="shaping">How the text is shaped (<see cref="TextShaping.Default"/> for the defaults).</param>
+    /// <returns>The shaped text, to show with <see cref="PdfCanvas.ShowText(ShapedText)"/> while this font is the canvas's font.</returns>
+    /// <exception cref="ArgumentException">A character of <paramref name="text"/> has no glyph in this font (the message names it).</exception>
+    /// <remarks>
+    /// OpenType specification, "GSUB — Glyph Substitution Table" (lookup types 1–8) and "Developing OpenType Fonts for Arabic
+    /// Script"; Unicode §9.2 (cursive joining). Shown glyphs map back to their text through the font's <c>ToUnicode</c> CMap
+    /// (ISO 32000-2 §9.10.3; a ligature maps to all its characters) or, where it cannot, an <c>ActualText</c> span (§14.9.4).
+    /// </remarks>
+    public ShapedText Shape(string text, TextShaping shaping)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        ArgumentNullException.ThrowIfNull(shaping);
+        return OpenType.OpenTypeShaper.Shape(this, text, shaping);
+    }
+
+    /// <summary>Gets the OpenType layout tables of the font's program, or <see langword="null"/> when it has none (shaping maps one glyph per character).</summary>
+    internal virtual OpenType.OpenTypeLayout? OpenTypeLayout => null;
+
+    /// <summary>Finds a glyph by its id in the font program (a font with <see cref="OpenTypeLayout"/>): its code, width and key.</summary>
+    internal virtual bool TryGetGlyphById(int glyphId, out CanvasGlyph glyph)
+    {
+        glyph = default;
+        return false;
+    }
+
     /// <summary>Finds the glyph that shows a Unicode scalar value: its character code and width.</summary>
     /// <param name="scalar">The Unicode scalar value.</param>
     /// <param name="glyph">The glyph.</param>
@@ -117,10 +176,12 @@ public abstract class PdfCanvasFont
     /// <summary>The kerning between two glyphs, in glyph space units (negative brings them closer); 0 by default.</summary>
     internal virtual int GetKerning(in CanvasGlyph left, in CanvasGlyph right) => 0;
 
-    /// <summary>Called for every glyph a canvas writes, after the whole string encoded; an embedding font records the glyphs its subset needs.</summary>
-    internal virtual void OnShown(in CanvasGlyph glyph)
-    {
-    }
+    /// <summary>
+    /// Called for every glyph a canvas writes, with the text it shows (empty for a glyph that shows no text of its own); an embedding
+    /// font records the glyphs its subset needs and maps a new glyph to its text in <c>ToUnicode</c>.
+    /// </summary>
+    /// <returns>Whether the font's <c>ToUnicode</c> maps the glyph to exactly <paramref name="text"/>; when not, the canvas adds <c>ActualText</c>.</returns>
+    internal virtual bool OnShown(in CanvasGlyph glyph, ReadOnlySpan<char> text) => true;
 
     /// <summary>The message of the exception for a character the font cannot show, naming it and the alternative.</summary>
     internal abstract string DescribeUnencodable(Rune character, int index);

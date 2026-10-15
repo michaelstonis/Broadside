@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Broadside.Fonts;
 using Broadside.Graphics;
 
 namespace Broadside.Layout.Flow;
@@ -195,18 +196,11 @@ public sealed class Paragraph : FlowBlock
             double[]? adjustments = shaped.Adjustments;
             if (!wordSpacing && extra > 0)
             {
-                adjustments ??= new double[CountScalars(shaped.Text)];
-                AddSpaceAdjustments(shaped.Text, adjustments, -extra * 1000 / style.FontSize);
+                adjustments ??= new double[shaped.Glyphs.Glyphs.Length];
+                AddSpaceAdjustments(shaped.Glyphs, adjustments, -extra * 1000 / style.FontSize);
             }
 
-            if (adjustments is null)
-            {
-                canvas.ShowText(shaped.Text);
-            }
-            else
-            {
-                canvas.ShowText(shaped.Text, adjustments);
-            }
+            canvas.ShowText(shaped.Glyphs, adjustments);
         }
 
         canvas.EndText();
@@ -298,28 +292,16 @@ public sealed class Paragraph : FlowBlock
         return fitting;
     }
 
-    private static int CountScalars(string text)
+    /// <summary>Adds <paramref name="adjustment"/> after every glyph that shows a space.</summary>
+    private static void AddSpaceAdjustments(ShapedText shaped, double[] adjustments, double adjustment)
     {
-        int count = 0;
-        foreach (Rune _ in text.EnumerateRunes())
+        ReadOnlySpan<ShapedGlyph> glyphs = shaped.Glyphs;
+        for (int index = 0; index < glyphs.Length; index++)
         {
-            count++;
-        }
-
-        return count;
-    }
-
-    private static void AddSpaceAdjustments(string text, double[] adjustments, double adjustment)
-    {
-        int index = 0;
-        foreach (Rune rune in text.EnumerateRunes())
-        {
-            if (rune.Value == ' ')
+            if (shaped.Text[glyphs[index].Cluster] == ' ')
             {
                 adjustments[index] += adjustment;
             }
-
-            index++;
         }
     }
 }

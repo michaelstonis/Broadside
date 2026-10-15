@@ -8,6 +8,7 @@ namespace Broadside.Graphics;
 /// <summary>Text objects, text state, positioning and showing (issue #149).</summary>
 public sealed partial class PdfCanvas
 {
+    private static readonly CosName SpanTag = new("Span");
     private readonly Stack<FontState> _savedFonts = new();
     private FontState _font;
     private bool _inText;
@@ -172,7 +173,7 @@ public sealed partial class PdfCanvas
 
     /// <summary>Shows text in the current font at the current text position (<c>Tj</c>, or <c>TJ</c> when it is kerned).</summary>
     /// <param name="text">The text; every character shall have a code in the font (<see cref="PdfCanvasFont.CanEncode"/>).</param>
-    /// <param name="kerning">Whether to apply the font's kerning between neighbouring glyphs, written as <c>TJ</c> adjustments (<see cref="PdfCanvasFont.MeasureWidth"/> measures the same advance).</param>
+    /// <param name="kerning">Whether to apply the font's kerning between neighbouring glyphs, written as <c>TJ</c> adjustments (<see cref="PdfCanvasFont.MeasureWidth(ReadOnlySpan{char}, double, bool)"/> measures the same advance).</param>
     /// <exception cref="ArgumentException">A character of <paramref name="text"/> has no code in the font; the message names it and the alternative (an embedded font). Nothing is written.</exception>
     /// <exception cref="InvalidOperationException">No text object is open, no font is set, or the canvas is disposed.</exception>
     /// <remarks>
@@ -192,7 +193,7 @@ public sealed partial class PdfCanvas
             }
         }
 
-        WriteShown(font, glyphs, "Tj");
+        WriteShown(font, glyphs, "Tj", !Register(font, glyphs, text), text);
     }
 
     /// <summary>Shows text with an explicit adjustment after each character (<c>TJ</c>): positive moves the next glyph left (closer), negative right.</summary>
@@ -220,7 +221,59 @@ public sealed partial class PdfCanvas
             glyphs[index] = glyphs[index] with { Adjustment = adjustments[index] };
         }
 
-        WriteShown(font, glyphs, "Tj");
+        WriteShown(font, glyphs, "Tj", !Register(font, glyphs, text), text);
+    }
+
+    /// <summary>Shows shaped text (<c>Tj</c>, or <c>TJ</c> where glyph advances differ from glyph widths) at the current text position.</summary>
+    /// <param name="text">Text shaped in the canvas's current font (<see cref="PdfCanvasFont.Shape"/>).</param>
+    /// <exception cref="ArgumentException"><paramref name="text"/> was shaped in another font. Nothing is written.</exception>
+    /// <exception cref="InvalidOperationException">No text object is open, no font is set, or the canvas is disposed.</exception>
+    /// <remarks>As <see cref="ShowText(ShapedText, ReadOnlySpan{double})"/> with no adjustments.</remarks>
+    public void ShowText(ShapedText text) => ShowText(text, []);
+
+    /// <summary>Shows shaped text with an extra adjustment after each glyph (<c>TJ</c>): positive moves the next glyph left (closer), negative right.</summary>
+    /// <param name="text">Text shaped in the canvas's current font (<see cref="PdfCanvasFont.Shape"/>).</param>
+    /// <param name="adjustments">One number per glyph of <paramref name="text"/> (in visual order), in thousandths of the font size, subtracted from the position after that glyph; empty for none.</param>
+    /// <exception cref="ArgumentException"><paramref name="text"/> was shaped in another font, there is not one adjustment per glyph, or an adjustment is not finite. Nothing is written.</exception>
+    /// <exception cref="InvalidOperationException">No text object is open, no font is set, or the canvas is disposed.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §9.4.3, Table 107 (<c>TJ</c>), and §9.4.4: each glyph is written as its character code and moves the text position
+    /// by its shaped advance (a <c>TJ</c> number makes up the difference from its width). The text each glyph shows is mapped in the
+    /// font's <c>ToUnicode</c> CMap (§9.10.3; a ligature maps to all its characters). Where that cannot give the text back exactly
+    /// (a right-to-left run, whose glyphs are written in visual order; a character shown by several glyphs; a glyph already mapped to
+    /// other text), the glyphs are enclosed in a <c>Span</c> marked-content sequence whose <c>ActualText</c> is the text (§14.9.4,
+    /// §14.6.2).
+    /// </remarks>
+    public void ShowText(ShapedText text, ReadOnlySpan<double> adjustments)
+    {
+        ArgumentNullException.ThrowIfNull(text);
+        PdfCanvasFont font = ThrowIfCannotShow();
+        if (!ReferenceEquals(text.Font.Document, font.Document) || !text.Font.Reference.Equals(font.Reference))
+        {
+            throw new ArgumentException("The text was shaped in another font than the canvas's current font (SetFont); shape it in the font it is shown in.", nameof(text));
+        }
+
+        ReadOnlySpan<ShapedGlyph> shaped = text.Glyphs;
+        if (!adjustments.IsEmpty && adjustments.Length != shaped.Length)
+        {
+            throw new ArgumentException($"There shall be one adjustment per glyph of the shaped text ({shaped.Length}), not {adjustments.Length}.", nameof(adjustments));
+        }
+
+        var glyphs = new List<(CanvasGlyph Glyph, double Adjustment)>(shaped.Length);
+        for (int index = 0; index < shaped.Length; index++)
+        {
+            double extra = adjustments.IsEmpty ? 0 : adjustments[index];
+            if (!double.IsFinite(extra))
+            {
+                throw new ArgumentException("Adjustments shall be finite numbers.", nameof(adjustments));
+            }
+
+            CanvasGlyph glyph = text.CanvasGlyphs[index];
+            glyphs.Add((glyph, Math.Round(glyph.Width - shaped[index].Advance, 9) + extra));
+        }
+
+        bool exact = Register(font, text) && !(text.IsRightToLeft && shaped.Length > 1);
+        WriteShown(font, glyphs, "Tj", !exact, text.Text);
     }
 
     /// <summary>Moves to the next line and shows text there (<c>'</c>, the same as <see cref="MoveToNextLine"/> then <see cref="ShowText(ReadOnlySpan{char}, bool)"/>).</summary>
@@ -231,7 +284,8 @@ public sealed partial class PdfCanvas
     public void ShowTextOnNextLine(ReadOnlySpan<char> text)
     {
         PdfCanvasFont font = ThrowIfCannotShow();
-        WriteShown(font, Encode(font, text, nameof(text)), "'");
+        List<(CanvasGlyph Glyph, double Adjustment)> glyphs = Encode(font, text, nameof(text));
+        WriteShown(font, glyphs, "'", !Register(font, glyphs, text), text);
     }
 
     /// <summary>Sets the word and character spacing, moves to the next line and shows text there (<c>"</c>).</summary>
@@ -246,8 +300,11 @@ public sealed partial class PdfCanvas
         PdfCanvasFont font = ThrowIfCannotShow();
         ThrowIfNotFinite(wordSpacing, characterSpacing);
         List<(CanvasGlyph Glyph, double Adjustment)> glyphs = Encode(font, text, nameof(text));
+        bool replaced = !Register(font, glyphs, text);
+        BeginActualText(replaced, text);
         _writer.Number(wordSpacing).Number(characterSpacing);
         WriteShown(font, glyphs, "\"");
+        EndActualText(replaced);
     }
 
     /// <summary>Every glyph of <paramref name="text"/>, with no adjustment; throws for the first character the font has no code for.</summary>
@@ -262,6 +319,88 @@ public sealed partial class PdfCanvas
         }
 
         return glyphs;
+    }
+
+    /// <summary>Records every glyph of <paramref name="text"/> (one per scalar value) with its character; whether <c>ToUnicode</c> gives each one back.</summary>
+    private static bool Register(PdfCanvasFont font, List<(CanvasGlyph Glyph, double Adjustment)> glyphs, ReadOnlySpan<char> text)
+    {
+        bool exact = true;
+        int index = 0;
+        int glyph = 0;
+        foreach (Rune rune in text.EnumerateRunes())
+        {
+            exact &= font.OnShown(glyphs[glyph++].Glyph, text.Slice(index, rune.Utf16SequenceLength));
+            index += rune.Utf16SequenceLength;
+        }
+
+        return exact;
+    }
+
+    /// <summary>
+    /// Records every glyph of shaped text with the text of its cluster (the first glyph of a cluster gets it, the others none);
+    /// whether <c>ToUnicode</c> gives the whole text back in logical order.
+    /// </summary>
+    private static bool Register(PdfCanvasFont font, ShapedText text)
+    {
+        ReadOnlySpan<ShapedGlyph> shaped = text.Glyphs;
+        int count = shaped.Length;
+        bool reversed = text.IsRightToLeft;
+        var ends = new int[count];
+        int previous = -1;
+        int end = text.Text.Length;
+        for (int logical = count - 1; logical >= 0; logical--)
+        {
+            int cluster = shaped[reversed ? count - 1 - logical : logical].Cluster;
+            if (cluster != previous)
+            {
+                end = previous < 0 ? text.Text.Length : previous;
+                previous = cluster;
+            }
+
+            ends[logical] = end;
+        }
+
+        bool exact = count == 0 ? text.Text.Length == 0 : shaped[reversed ? count - 1 : 0].Cluster == 0;
+        for (int logical = 0; logical < count; logical++)
+        {
+            int visual = reversed ? count - 1 - logical : logical;
+            int cluster = shaped[visual].Cluster;
+            bool first = logical == 0 || shaped[reversed ? visual + 1 : visual - 1].Cluster != cluster;
+            ReadOnlySpan<char> source = first && ends[logical] > cluster ? text.Text.AsSpan(cluster, ends[logical] - cluster) : default;
+            exact &= font.OnShown(text.CanvasGlyphs[visual], source) && !source.IsEmpty;
+        }
+
+        return exact;
+    }
+
+    /// <summary>Opens a <c>Span</c> marked-content sequence whose <c>ActualText</c> is <paramref name="text"/> (§14.9.4, §14.6.2) when <paramref name="open"/>.</summary>
+    private void BeginActualText(bool open, ReadOnlySpan<char> text)
+    {
+        if (open)
+        {
+            _writer.Name(SpanTag);
+            _writer.Write("<</ActualText "u8);
+            _writer.String(TextStringEncoder.EncodeUtf16(text.ToString()), hexadecimal: true);
+            _writer.Write(">> "u8);
+            _writer.Operator("BDC");
+        }
+    }
+
+    /// <summary>Ends the sequence <see cref="BeginActualText"/> opened.</summary>
+    private void EndActualText(bool open)
+    {
+        if (open)
+        {
+            _writer.Operator("EMC");
+        }
+    }
+
+    /// <summary>Writes the glyphs, enclosed in an <c>ActualText</c> span of <paramref name="text"/> when <paramref name="replaced"/>.</summary>
+    private void WriteShown(PdfCanvasFont font, List<(CanvasGlyph Glyph, double Adjustment)> glyphs, string op, bool replaced, ReadOnlySpan<char> text)
+    {
+        BeginActualText(replaced, text);
+        WriteShown(font, glyphs, op);
+        EndActualText(replaced);
     }
 
     /// <summary>Writes the glyphs as one string and <paramref name="op"/>, or, when any adjustment is not 0, as a <c>TJ</c> array.</summary>
@@ -297,11 +436,6 @@ public sealed partial class PdfCanvas
             }
 
             _writer.EndArray().Operator("TJ");
-        }
-
-        foreach ((CanvasGlyph glyph, double _) in glyphs)
-        {
-            font.OnShown(glyph);
         }
     }
 

@@ -1,4 +1,4 @@
-using System.Text;
+using Broadside.Fonts;
 using Broadside.Graphics;
 
 namespace Broadside.Layout.Flow;
@@ -25,12 +25,12 @@ internal interface ILineBreaker
 }
 
 /// <summary>
-/// Text as it will be shown: the characters and, when needed, one <c>TJ</c> adjustment per Unicode scalar value in thousandths of
-/// the font size (null when there are none). The shaping step between text and what the canvas writes.
+/// Text as it will be shown: the shaped glyphs and, when needed, one extra <c>TJ</c> adjustment per glyph in thousandths of the font
+/// size (null when there are none). The shaping step between text and what the canvas writes.
 /// </summary>
-internal readonly record struct ShapedRun(string Text, double[]? Adjustments);
+internal readonly record struct ShapedRun(ShapedText Glyphs, double[]? Adjustments);
 
-/// <summary>Measures and shapes runs of one style. #174/#175 replace this with GSUB/GPOS shaping.</summary>
+/// <summary>Measures and shapes runs of one style: GSUB (#174) and the positioning step (#175 GPOS) through <see cref="PdfCanvasFont.Shape"/>.</summary>
 internal interface ITextShaper
 {
     /// <summary>The advance of <paramref name="text"/> in points as shown, at character spacing 0, word spacing 0, scaling 100.</summary>
@@ -40,47 +40,14 @@ internal interface ITextShaper
     ShapedRun Shape(string text, ParagraphStyle style);
 }
 
-/// <summary>One glyph per character from the canvas font's encoding, with its pair kerning as <c>TJ</c> adjustments when asked.</summary>
+/// <summary>Shapes with the canvas font under the style's shaping (<see cref="ParagraphStyle.Shaping"/>, <c>kern</c> from <see cref="ParagraphStyle.Kerning"/>).</summary>
 internal sealed class CanvasFontShaper : ITextShaper
 {
     public static CanvasFontShaper Instance { get; } = new();
 
-    public double Measure(ReadOnlySpan<char> text, ParagraphStyle style) => style.Font.MeasureWidth(text, style.FontSize, style.Kerning);
+    public double Measure(ReadOnlySpan<char> text, ParagraphStyle style) => style.Font.MeasureWidth(text, style.FontSize, style.EffectiveShaping);
 
-    public ShapedRun Shape(string text, ParagraphStyle style)
-    {
-        if (!style.Kerning)
-        {
-            return new ShapedRun(text, null);
-        }
-
-        // ISO 32000-2 §9.4.3: a kerning amount k (in thousandths of the font size) is written as the TJ number -k.
-        int scalars = 0;
-        foreach (Rune _ in text.EnumerateRunes())
-        {
-            scalars++;
-        }
-
-        double[] adjustments = new double[scalars];
-        int start = 0;
-        int previousStart = -1;
-        int index = 0;
-        foreach (Rune rune in text.EnumerateRunes())
-        {
-            if (previousStart >= 0)
-            {
-                ReadOnlySpan<char> pair = text.AsSpan(previousStart, start + rune.Utf16SequenceLength - previousStart);
-                double kerned = style.Font.MeasureWidth(pair, 1000, kerning: true) - style.Font.MeasureWidth(pair, 1000);
-                adjustments[index - 1] = Math.Abs(kerned) < 1e-9 ? 0 : -Math.Round(kerned, 9);
-            }
-
-            previousStart = start;
-            start += rune.Utf16SequenceLength;
-            index++;
-        }
-
-        return new ShapedRun(text, adjustments);
-    }
+    public ShapedRun Shape(string text, ParagraphStyle style) => new(style.Font.Shape(text, style.EffectiveShaping), null);
 }
 
 /// <summary>A run of a composed line: a slice of the paragraph text with its measured advance in points.</summary>

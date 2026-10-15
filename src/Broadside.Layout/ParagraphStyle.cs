@@ -25,10 +25,12 @@ public enum TextAlignment
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §9.3 (text state: <c>Tf</c> font and size) and §9.4.4 (text space): widths are measured with
-/// <see cref="PdfCanvasFont.MeasureWidth"/> at character spacing 0, word spacing 0 and horizontal scaling 100.
+/// <see cref="PdfCanvasFont.MeasureWidth(ReadOnlySpan{char}, double, bool)"/> at character spacing 0, word spacing 0 and horizontal scaling 100.
 /// </remarks>
 public sealed class ParagraphStyle
 {
+    private TextShaping? _effective;
+
     /// <summary>Creates a left-aligned style with line height 1.2, no indent and no paragraph spacing.</summary>
     /// <param name="font">The font, from the document the paragraph will be rendered into.</param>
     /// <param name="fontSize">The font size in points; positive and finite.</param>
@@ -51,6 +53,7 @@ public sealed class ParagraphStyle
         SpaceBefore = source.SpaceBefore;
         SpaceAfter = source.SpaceAfter;
         Kerning = source.Kerning;
+        Shaping = source.Shaping;
     }
 
     /// <summary>The font text is shown in.</summary>
@@ -76,6 +79,13 @@ public sealed class ParagraphStyle
 
     /// <summary>Whether pair kerning from the font is applied when measuring and showing text.</summary>
     public bool Kerning { get; private init; }
+
+    /// <summary>
+    /// How text is shaped into glyphs (<see cref="TextShaping.Default"/> by default: the font's ligatures, contextual and localised
+    /// forms and Arabic joining, for an embedded OpenType or TrueType font). <see cref="Kerning"/> decides the <c>kern</c> feature.
+    /// </summary>
+    /// <remarks>OpenType specification, GSUB; see <see cref="PdfCanvasFont.Shape"/>.</remarks>
+    public TextShaping Shaping { get; private init; } = TextShaping.Default;
 
     /// <summary>The line height in points: <see cref="LineHeight"/> times <see cref="FontSize"/>.</summary>
     internal double LineAdvance => LineHeight * FontSize;
@@ -122,6 +132,19 @@ public sealed class ParagraphStyle
     /// <param name="kerning">Whether to apply the font's kerning pairs.</param>
     /// <returns>The changed copy.</returns>
     public ParagraphStyle WithKerning(bool kerning) => new(this) { Kerning = kerning };
+
+    /// <summary>Returns this style with other shaping: script, language system, direction or features.</summary>
+    /// <param name="shaping">How text is shaped.</param>
+    /// <returns>The changed copy.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="shaping"/> is null.</exception>
+    public ParagraphStyle WithShaping(TextShaping shaping)
+    {
+        ArgumentNullException.ThrowIfNull(shaping);
+        return new(this) { Shaping = shaping };
+    }
+
+    /// <summary>The shaping text is measured and shown with: <see cref="Shaping"/> with <c>kern</c> as <see cref="Kerning"/> says.</summary>
+    internal TextShaping EffectiveShaping => _effective ??= Shaping.WithFeature("kern", Kerning);
 
     private static double Positive(double value, string name) =>
         double.IsFinite(value) && value > 0 ? value : throw new ArgumentOutOfRangeException(name, value, "The value shall be positive and finite.");
