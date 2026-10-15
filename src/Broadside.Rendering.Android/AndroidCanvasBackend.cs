@@ -7,6 +7,7 @@ using AndroidPath = Android.Graphics.Path;
 using DashPathEffect = Android.Graphics.DashPathEffect;
 using Paint = Android.Graphics.Paint;
 using PaintFlags = Android.Graphics.PaintFlags;
+using PaintHinting = Android.Graphics.PaintHinting;
 using Matrix = Broadside.Graphics.Matrix;
 
 namespace Broadside.Rendering.Android;
@@ -37,8 +38,16 @@ namespace Broadside.Rendering.Android;
 /// clipped to their rectangle and composited as a layer with their opacity and blend mode.
 /// </para>
 /// <para>
-/// Not drawn yet: images, image masks, shadings and patterns (issue #134), glyph runs (#135), transparency groups and soft masks
-/// (#136); the list's operations of those kinds are skipped.
+/// Text (§9.3.6, §9.4.3, §9.9): glyphs of embedded TrueType and OpenType programs are drawn by Android's font engine from a font built
+/// from the program's bytes, once per program per backend (Android 12, API level 31, and later), unhinted and positioned exactly, each
+/// glyph checked once against its outline; every other program, a glyph the engine reads differently, and every glyph when
+/// <see cref="RenderOptions.ForceOutlines"/> is set are filled from their outlines (§9.2.4) with the non-zero rule, so they match the
+/// software rasterizer as paths do. Stroked modes stroke the outlines in user space. Glyphs drawn from their outlines where a native
+/// font was expected are reported in <see cref="Diagnostics"/>.
+/// </para>
+/// <para>
+/// Not drawn yet: images, image masks, shadings and patterns (issue #134), transparency groups and soft masks (#136); the list's
+/// operations of those kinds are skipped.
 /// </para>
 /// <para>
 /// Reuse one instance for many renders: its Android path, paints and matrix are created once and kept, so a warm replay allocates
@@ -109,7 +118,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
         {
             canvas.ClipRect(0, 0, size.Width, size.Height);
             canvas.DrawColor(AndroidColor.White);
-            Render(list, canvas, device);
+            Render(list, canvas, device, options.ForceOutlines);
         }
         finally
         {
@@ -124,12 +133,26 @@ public sealed partial class AndroidCanvasBackend : IDisposable
     /// The transform from the list's default user space to the canvas's coordinates (origin top-left, y down), such as
     /// <see cref="RenderOptions.GetDeviceTransform"/>; a tile renderer adds its own offset.
     /// </param>
-    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space).</remarks>
-    public void Render(DisplayList list, AndroidCanvas canvas, in Matrix deviceTransform)
+    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space). Glyphs of TrueType and OpenType programs are drawn natively.</remarks>
+    public void Render(DisplayList list, AndroidCanvas canvas, in Matrix deviceTransform) => Render(list, canvas, deviceTransform, forceOutlines: false);
+
+    /// <summary>Draws <paramref name="list"/> onto <paramref name="canvas"/>, without a background; the canvas is left as it was found.</summary>
+    /// <param name="list">The display list.</param>
+    /// <param name="canvas">The canvas; its current matrix and clip apply.</param>
+    /// <param name="deviceTransform">
+    /// The transform from the list's default user space to the canvas's coordinates (origin top-left, y down), such as
+    /// <see cref="RenderOptions.GetDeviceTransform"/>; a tile renderer adds its own offset.
+    /// </param>
+    /// <param name="forceOutlines">
+    /// Whether to fill every glyph from its outline, never through Android's font engine (<see cref="RenderOptions.ForceOutlines"/>).
+    /// </param>
+    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space), §9.2.4 (glyph outlines).</remarks>
+    public void Render(DisplayList list, AndroidCanvas canvas, in Matrix deviceTransform, bool forceOutlines)
     {
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(canvas);
         ObjectDisposedException.ThrowIf(_disposed, this);
+        _backend.ForceOutlines = forceOutlines;
         _backend.Begin(list.Document, canvas, deviceTransform);
         try
         {
@@ -141,7 +164,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
         }
     }
 
-    /// <summary>Releases the backend's Android path, paints, matrix and dash effects; it renders no more after this.</summary>
+    /// <summary>Releases the backend's Android path, paints, matrix, dash effects and fonts; it renders no more after this.</summary>
     public void Dispose()
     {
         if (!_disposed)
@@ -178,7 +201,8 @@ public sealed partial class AndroidCanvasBackend : IDisposable
         private static readonly Paint.Join BevelJoin = Paint.Join.Bevel!;
 
         private readonly AndroidPath _path = new();
-        private readonly Paint _fill = new(PaintFlags.AntiAlias);
+        // Fills draw paths and native glyphs: unhinted, positioned exactly (subpixel), with linear metrics.
+        private readonly Paint _fill = new(PaintFlags.AntiAlias | PaintFlags.SubpixelText | PaintFlags.LinearText);
         private readonly Paint _stroke = new(PaintFlags.AntiAlias);
         private readonly AndroidMatrix _matrix = new();
         private readonly Dash[] _dashes = new Dash[DashCacheSize];
@@ -211,6 +235,10 @@ public sealed partial class AndroidCanvasBackend : IDisposable
         public Backend()
         {
             _fill.SetStyle(Paint.Style.Fill);
+            _fill.Hinting = PaintHinting.Off;
+            _fill.TextSize = DrawSize;
+            _checkPaint.Hinting = PaintHinting.Off;
+            _checkPaint.TextSize = CheckSize;
             _stroke.SetStyle(Paint.Style.Stroke);
         }
 
@@ -223,6 +251,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
             _toDevice = device;
             _depth = 0;
             BeginCompositing();
+            BeginText();
             _baseCount = canvas.Save();
         }
 
@@ -362,11 +391,6 @@ public sealed partial class AndroidCanvasBackend : IDisposable
             // Issue #134.
         }
 
-        public void DrawGlyphs(in GlyphRun run)
-        {
-            // Issue #135.
-        }
-
         public void DrawShading(in DisplayShading shading)
         {
             // Issue #134.
@@ -395,6 +419,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
             _stroke.Dispose();
             _layerPaint.Dispose();
             _matrix.Dispose();
+            DisposeText();
         }
 
         /// <summary>
@@ -551,7 +576,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
         /// the canvas, a trailing lone moveto adds nothing, and a degenerate subpath (one with segments whose points all equal its
         /// first) becomes the device pixel under it, as in the software rasterizer (§8.5.3.3.1).
         /// </summary>
-        private void BuildDevicePath(PathView path, FillRule rule)
+        private void BuildDevicePath(PathView path, FillRule rule, bool degenerateDots = true)
         {
             AndroidPath android = _path;
             android.Reset();
@@ -565,7 +590,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
                 switch (verb)
                 {
                     case PathVerb.MoveTo:
-                        FinishDevice(ref subpath);
+                        FinishDevice(ref subpath, degenerateDots);
                         subpath = new Subpath(points[p]);
                         MoveTo(points[p++]);
                         break;
@@ -593,13 +618,13 @@ public sealed partial class AndroidCanvasBackend : IDisposable
                 }
             }
 
-            FinishDevice(ref subpath);
+            FinishDevice(ref subpath, degenerateDots);
         }
 
-        /// <summary>Gives a finished degenerate subpath the device pixel under its point.</summary>
-        private void FinishDevice(ref Subpath subpath)
+        /// <summary>Gives a finished degenerate subpath the device pixel under its point, when <paramref name="dots"/>.</summary>
+        private void FinishDevice(ref Subpath subpath, bool dots)
         {
-            if (subpath.IsOpen && subpath.HasSegments && subpath.IsDegenerate)
+            if (dots && subpath.IsOpen && subpath.HasSegments && subpath.IsDegenerate)
             {
                 (double x, double y) = Map(subpath.First);
                 double left = Math.Floor(x);
