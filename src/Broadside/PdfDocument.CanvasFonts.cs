@@ -92,12 +92,13 @@ public sealed partial class PdfDocument
     }
 
     /// <summary>
-    /// Embeds a TrueType, OpenType or CFF program a <see cref="PdfCanvas"/> of this document can show any text its glyphs cover with,
+    /// Embeds a TrueType, OpenType, CFF or Type 1 program a <see cref="PdfCanvas"/> of this document can show any text its glyphs cover with,
     /// subset to the glyphs shown.
     /// </summary>
     /// <param name="program">
     /// The program: a TrueType or OpenType file (<c>.ttf</c>, <c>.otf</c>, with <c>glyf</c> or <c>CFF </c> outlines), a collection
-    /// (<c>.ttc</c>, <c>.otc</c>) with <paramref name="faceIndex"/>, or a bare CFF program with Type 2 charstrings.
+    /// (<c>.ttc</c>, <c>.otc</c>) with <paramref name="faceIndex"/>, a bare CFF program with Type 2 charstrings, or a Type 1 program
+    /// (<c>.pfa</c>, <c>.pfb</c>).
     /// </param>
     /// <param name="faceIndex">The face of a collection; 0 for a single font.</param>
     /// <returns>The font. Calls with the same program memory and face return fonts over one font of the document.</returns>
@@ -116,6 +117,12 @@ public sealed partial class PdfDocument
     /// copied unchanged and only the subroutines they reach (Adobe Technical Notes #5176 and #5177); until then the document holds
     /// the whole program. A save raises an older document to the version the font needs. A mutation: the font's objects are added on
     /// the first call for a program.
+    /// </para>
+    /// <para>
+    /// A Type 1 program (Type 1 Font Format) is converted to a CFF program first and then embeds as one: each glyph's charstring
+    /// becomes a Type 2 charstring drawing the same outline (subroutines, flex and multiple master blends resolved, <c>seac</c>
+    /// accented characters composed), without hints. Its glyphs map to characters through their names (Adobe Glyph List, and the
+    /// ITC Zapf Dingbats list for names such as <c>a1</c>).
     /// </para>
     /// </remarks>
     public PdfCanvasFont EmbedFont(ReadOnlyMemory<byte> program, int faceIndex = 0)

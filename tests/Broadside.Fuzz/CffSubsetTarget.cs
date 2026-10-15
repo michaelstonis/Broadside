@@ -146,7 +146,7 @@ internal static class CffSubsetTarget
         return data;
     }
 
-    private static void Embed(byte[] bytes)
+    internal static void Embed(byte[] bytes)
     {
         using PdfDocument document = PdfDocument.Create(new PdfOptions().UseSystemFontResolver(null));
         var resolution = new FontResolution(bytes, "fuzz", FontMatchKind.Exact);
