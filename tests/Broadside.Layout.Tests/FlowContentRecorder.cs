@@ -13,6 +13,9 @@ internal sealed class FlowContentRecorder : ContentProcessor
 
     public List<Matrix> Images { get; } = [];
 
+    /// <summary>Stroked paths: their bounds (without the line width) and line width.</summary>
+    public List<(PdfRectangle Bounds, double LineWidth)> Strokes { get; } = [];
+
     public override ContentEvents Events => ContentEvents.Glyphs | ContentEvents.Paths | ContentEvents.Images;
 
     public static FlowContentRecorder Record(PdfPage page)
@@ -43,6 +46,10 @@ internal sealed class FlowContentRecorder : ContentProcessor
         if (path.Paint == PathPaint.Fill)
         {
             Fills.Add((path.Path.Bounds, context.State.FillColor));
+        }
+        else if (path.Paint == PathPaint.Stroke)
+        {
+            Strokes.Add((path.Path.Bounds, context.State.LineWidth));
         }
     }
 

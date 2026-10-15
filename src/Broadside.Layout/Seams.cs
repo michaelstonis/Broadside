@@ -107,3 +107,6 @@ internal interface IStructureSink
 /// <see cref="InlineElement"/> for inline parts) and <paramref name="Language"/> its BCP 47 language, or null to inherit.
 /// </summary>
 internal readonly record struct FlowPart(string StructureType, object Owner, string? Language);
+
+/// <summary>A block's least width (its widest unbreakable content) and preferred width (its content unwrapped), in points.</summary>
+internal readonly record struct ContentWidths(double Min, double Max);

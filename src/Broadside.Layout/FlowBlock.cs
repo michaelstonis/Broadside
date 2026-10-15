@@ -31,4 +31,7 @@ public abstract class FlowBlock
 
     /// <summary>Lays the block out from the context's cursor, breaking pages through it as needed.</summary>
     internal abstract void LayOut(FlowContext context);
+
+    /// <summary>The block's least width (its widest unbreakable content) and preferred width (unwrapped), for content-sized table columns.</summary>
+    internal abstract ContentWidths MeasureWidths(FlowServices services);
 }

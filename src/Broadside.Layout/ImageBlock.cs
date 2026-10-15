@@ -64,6 +64,8 @@ public sealed class ImageBlock : FlowBlock
     {
     }
 
+    internal override ContentWidths MeasureWidths(FlowServices services) => new(Width, Width);
+
     internal override void LayOut(FlowContext context)
     {
         context.AddSpace(SpaceBefore);
@@ -83,7 +85,11 @@ public sealed class ImageBlock : FlowBlock
         };
         context.PlaceMarkersAtTop();
         context.BeginBlock(this);
-        context.Canvas.DrawImage(Image, x, context.CursorY - height, width, height);
+        if (context.Drawing)
+        {
+            context.Canvas.DrawImage(Image, x, context.CursorY - height, width, height);
+        }
+
         context.Advance(height);
         context.EndBlock();
         context.AddSpace(SpaceAfter);

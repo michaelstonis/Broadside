@@ -154,3 +154,87 @@ Broadside.Layout.Flow.TextStyle.WithKerning(bool kerning) -> Broadside.Layout.Fl
 Broadside.Layout.Flow.TextStyle.WithShaping(Broadside.Fonts.TextShaping! shaping) -> Broadside.Layout.Flow.TextStyle!
 Broadside.Layout.Flow.TextStyle.WithStrikeThrough(bool strikeThrough) -> Broadside.Layout.Flow.TextStyle!
 Broadside.Layout.Flow.TextStyle.WithUnderline(bool underline) -> Broadside.Layout.Flow.TextStyle!
+Broadside.Layout.Flow.CellPadding
+Broadside.Layout.Flow.CellPadding.Bottom.get -> double
+Broadside.Layout.Flow.CellPadding.CellPadding() -> void
+Broadside.Layout.Flow.CellPadding.CellPadding(double all) -> void
+Broadside.Layout.Flow.CellPadding.CellPadding(double top, double right, double bottom, double left) -> void
+Broadside.Layout.Flow.CellPadding.Left.get -> double
+Broadside.Layout.Flow.CellPadding.Right.get -> double
+Broadside.Layout.Flow.CellPadding.Top.get -> double
+Broadside.Layout.Flow.ColumnWidth
+static Broadside.Layout.Flow.ColumnWidth.Auto.get -> Broadside.Layout.Flow.ColumnWidth
+Broadside.Layout.Flow.ColumnWidth.ColumnWidth() -> void
+static Broadside.Layout.Flow.ColumnWidth.Fixed(double points) -> Broadside.Layout.Flow.ColumnWidth
+Broadside.Layout.Flow.ColumnWidth.Kind.get -> Broadside.Layout.Flow.ColumnWidthKind
+static Broadside.Layout.Flow.ColumnWidth.Percent(double percent) -> Broadside.Layout.Flow.ColumnWidth
+static Broadside.Layout.Flow.ColumnWidth.Proportional(double weight = 1) -> Broadside.Layout.Flow.ColumnWidth
+Broadside.Layout.Flow.ColumnWidth.Value.get -> double
+Broadside.Layout.Flow.ColumnWidthKind
+Broadside.Layout.Flow.ColumnWidthKind.Auto = 0 -> Broadside.Layout.Flow.ColumnWidthKind
+Broadside.Layout.Flow.ColumnWidthKind.Fixed = 1 -> Broadside.Layout.Flow.ColumnWidthKind
+Broadside.Layout.Flow.ColumnWidthKind.Percent = 2 -> Broadside.Layout.Flow.ColumnWidthKind
+Broadside.Layout.Flow.ColumnWidthKind.Proportional = 3 -> Broadside.Layout.Flow.ColumnWidthKind
+Broadside.Layout.Flow.Table
+Broadside.Layout.Flow.Table.Add(Broadside.Layout.Flow.TableRow! row) -> Broadside.Layout.Flow.Table!
+Broadside.Layout.Flow.Table.AddRow(params System.Collections.Generic.IEnumerable<Broadside.Layout.Flow.TableCell!>! cells) -> Broadside.Layout.Flow.Table!
+Broadside.Layout.Flow.Table.Columns.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.Flow.ColumnWidth>!
+Broadside.Layout.Flow.Table.HeaderRows.get -> int
+Broadside.Layout.Flow.Table.HeaderRows.init -> void
+Broadside.Layout.Flow.Table.Rows.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.Flow.TableRow!>!
+Broadside.Layout.Flow.Table.SpaceAfter.get -> double
+Broadside.Layout.Flow.Table.SpaceAfter.init -> void
+Broadside.Layout.Flow.Table.SpaceBefore.get -> double
+Broadside.Layout.Flow.Table.SpaceBefore.init -> void
+Broadside.Layout.Flow.Table.Style.get -> Broadside.Layout.Flow.TableStyle!
+Broadside.Layout.Flow.Table.Style.init -> void
+Broadside.Layout.Flow.Table.Table(params System.Collections.Generic.IEnumerable<Broadside.Layout.Flow.ColumnWidth>! columns) -> void
+Broadside.Layout.Flow.TableBorder
+Broadside.Layout.Flow.TableBorder.Color.get -> Broadside.Graphics.PdfColor?
+static Broadside.Layout.Flow.TableBorder.None.get -> Broadside.Layout.Flow.TableBorder!
+Broadside.Layout.Flow.TableBorder.TableBorder(double width, Broadside.Graphics.PdfColor? color = null) -> void
+Broadside.Layout.Flow.TableBorder.Width.get -> double
+Broadside.Layout.Flow.TableCell
+Broadside.Layout.Flow.TableCell.Background.get -> Broadside.Graphics.PdfColor?
+Broadside.Layout.Flow.TableCell.Background.init -> void
+Broadside.Layout.Flow.TableCell.Blocks.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.Flow.FlowBlock!>!
+Broadside.Layout.Flow.TableCell.Border.get -> Broadside.Layout.Flow.TableBorder?
+Broadside.Layout.Flow.TableCell.Border.init -> void
+Broadside.Layout.Flow.TableCell.ColumnSpan.get -> int
+Broadside.Layout.Flow.TableCell.ColumnSpan.init -> void
+Broadside.Layout.Flow.TableCell.Padding.get -> Broadside.Layout.Flow.CellPadding?
+Broadside.Layout.Flow.TableCell.Padding.init -> void
+Broadside.Layout.Flow.TableCell.RowSpan.get -> int
+Broadside.Layout.Flow.TableCell.RowSpan.init -> void
+Broadside.Layout.Flow.TableCell.Scope.get -> Broadside.Layout.Flow.TableHeaderScope
+Broadside.Layout.Flow.TableCell.Scope.init -> void
+Broadside.Layout.Flow.TableCell.TableCell(params System.Collections.Generic.IEnumerable<Broadside.Layout.Flow.FlowBlock!>! blocks) -> void
+Broadside.Layout.Flow.TableCell.TableCell(string! text, Broadside.Layout.Flow.ParagraphStyle! style) -> void
+Broadside.Layout.Flow.TableHeaderScope
+Broadside.Layout.Flow.TableHeaderScope.Both = 3 -> Broadside.Layout.Flow.TableHeaderScope
+Broadside.Layout.Flow.TableHeaderScope.Column = 2 -> Broadside.Layout.Flow.TableHeaderScope
+Broadside.Layout.Flow.TableHeaderScope.None = 0 -> Broadside.Layout.Flow.TableHeaderScope
+Broadside.Layout.Flow.TableHeaderScope.Row = 1 -> Broadside.Layout.Flow.TableHeaderScope
+Broadside.Layout.Flow.TableRow
+Broadside.Layout.Flow.TableRow.Background.get -> Broadside.Graphics.PdfColor?
+Broadside.Layout.Flow.TableRow.Background.init -> void
+Broadside.Layout.Flow.TableRow.Cells.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.Flow.TableCell!>!
+Broadside.Layout.Flow.TableRow.KeepTogether.get -> bool?
+Broadside.Layout.Flow.TableRow.KeepTogether.init -> void
+Broadside.Layout.Flow.TableRow.MinHeight.get -> double
+Broadside.Layout.Flow.TableRow.MinHeight.init -> void
+Broadside.Layout.Flow.TableRow.TableRow(params System.Collections.Generic.IEnumerable<Broadside.Layout.Flow.TableCell!>! cells) -> void
+Broadside.Layout.Flow.TableStyle
+Broadside.Layout.Flow.TableStyle.Background.get -> Broadside.Graphics.PdfColor?
+Broadside.Layout.Flow.TableStyle.Border.get -> Broadside.Layout.Flow.TableBorder!
+static Broadside.Layout.Flow.TableStyle.Default.get -> Broadside.Layout.Flow.TableStyle!
+Broadside.Layout.Flow.TableStyle.HeaderBackground.get -> Broadside.Graphics.PdfColor?
+Broadside.Layout.Flow.TableStyle.KeepRowsTogether.get -> bool
+Broadside.Layout.Flow.TableStyle.Padding.get -> Broadside.Layout.Flow.CellPadding
+Broadside.Layout.Flow.TableStyle.RepeatHeaderRows.get -> bool
+Broadside.Layout.Flow.TableStyle.WithBackground(Broadside.Graphics.PdfColor? color) -> Broadside.Layout.Flow.TableStyle!
+Broadside.Layout.Flow.TableStyle.WithBorder(Broadside.Layout.Flow.TableBorder! border) -> Broadside.Layout.Flow.TableStyle!
+Broadside.Layout.Flow.TableStyle.WithHeaderBackground(Broadside.Graphics.PdfColor? color) -> Broadside.Layout.Flow.TableStyle!
+Broadside.Layout.Flow.TableStyle.WithKeepRowsTogether(bool keep) -> Broadside.Layout.Flow.TableStyle!
+Broadside.Layout.Flow.TableStyle.WithPadding(Broadside.Layout.Flow.CellPadding padding) -> Broadside.Layout.Flow.TableStyle!
+Broadside.Layout.Flow.TableStyle.WithRepeatHeaderRows(bool repeat) -> Broadside.Layout.Flow.TableStyle!
