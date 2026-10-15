@@ -20,8 +20,8 @@ env:
 
 jobs:
   # Fetches every corpus that is not manual (tools/CorpusFetcher/corpora.json), then runs every test in the
-  # Category=Corpus trait: the open-and-walk gate (#47), the veraPDF agreement, the per-area real-world sweeps and
-  # the content interpreter gate (#80). The gate's per-file detail is uploaded for diffing and benchmark picking.
+  # Category=Corpus trait: the open-and-walk gate (#47), the veraPDF agreement, the per-area real-world sweeps,
+  # the content interpreter gate (#80) and the rendering gate (#138). The gate's per-file detail is uploaded for diffing and benchmark picking.
   corpus-gates:
     runs-on: ubuntu-latest
     timeout-minutes: 120
@@ -49,4 +49,19 @@ jobs:
         with:
           name: corpus-gate
           path: artifacts/corpus-gate/*.json
+          if-no-files-found: warn
+
+      # The rendering gate (#138): every page of every file through the software rasterizer, its allowlist and snapshots, and the
+      # pinned subset's fingerprints and parallel-equals-sequential check. Runs even when the tests above failed.
+      - name: Rendering corpus tests
+        if: success() || failure()
+        run: dotnet test --project tests/Broadside.Rendering.Tests -c Release --no-build -- --filter-trait "Category=Corpus"
+
+      # Open decision 8: real-world renders are not committed; the pinned pages' PNGs and the per-file detail are kept here.
+      - name: Upload the rendering gate's detail and pinned renders
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: render-gate
+          path: artifacts/render-gate/
           if-no-files-found: warn

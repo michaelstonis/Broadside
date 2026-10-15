@@ -237,6 +237,28 @@ public sealed class PatchShadingRenderingTests
         return rasterizer.Render(document.Pages[0], new RenderOptions().WithDpi(dpi));
     }
 
+    [Fact]
+    public void Patch_and_free_form_meshes_in_a_cmyk_group_paint_as_they_do_on_the_page()
+    {
+        // Real-world gate (#138): pdfjs/personwithdog.pdf, pdfjs/issue13520.pdf and the GWG CMYK test pages threw, because the patch
+        // grid and the Gouraud subdivision converted colours into three-value buffers inside a DeviceCMYK group (§11.6.6).
+        using PdfDocument grouped = PdfDocument.Open(MeshShadingSamples.MeshesInCmykGroup());
+        using PdfDocument direct = PdfDocument.Open(MeshShadingSamples.MeshesInCmykGroup(inGroup: false));
+        using var rasterizer = new SoftwareRasterizer();
+        using Bitmap inGroup = rasterizer.Render(grouped.Pages[0]);
+        using Bitmap onPage = rasterizer.Render(direct.Pages[0]);
+
+        foreach ((int x, int y) in (ReadOnlySpan<(int, int)>)[(30, 760), (100, 692), (170, 622), (60, 560), (140, 470)])
+        {
+            Rgba a = inGroup.At(x, y);
+            Rgba b = onPage.At(x, y);
+            Assert.NotEqual(new Rgba(255, 255, 255, 255), b);
+            Assert.True(
+                Math.Abs(a.R - b.R) <= 24 && Math.Abs(a.G - b.G) <= 24 && Math.Abs(a.B - b.B) <= 24,
+                $"({x}, {y}): {a} in the group, {b} on the page");
+        }
+    }
+
     private static Bitmap RenderContent(string content, string resources = "", params string[] objects)
     {
         using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(Encoding.ASCII.GetBytes(content), resources, objects));

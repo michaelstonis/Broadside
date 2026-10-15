@@ -1,0 +1,29 @@
+﻿corpus: qpdf @ 4eba95899886e851cc41d76886483b347612f2a8
+files: 639
+well-formed files: 394
+outcomes:
+  Rendered: 605
+  PasswordRequired: 20
+  CertificateRequired: 0
+  EncryptionUnsupported: 1
+  Rejected: 13
+  Crash: 0
+  Timeout: 0
+pages rendered: 3575
+render diagnostics on well-formed files (files, total):
+  ColorSpaceInvalid: 1, 1
+  ContentFontMissing: 7, 8
+  ContentInlineImageInvalid: 5, 5
+  ContentMarkedContentUnbalanced: 2, 2
+  ContentOperandCount: 11, 16
+  ContentSyntaxInvalid: 4, 6
+  ContentTextObjectUnbalanced: 1, 3
+  ContentUnbalancedSave: 4, 4
+  ContentUnknownOperator: 2, 2
+  ContentXObjectMissing: 4, 4
+  FilterDataInvalid: 1, 1
+  FontDescriptorMissing: 1, 1
+  FontProgramInvalid: 2, 2
+  FontWidthsMissing: 1, 1
+  ImageDataTruncated: 3, 14
+  PredictorInvalid: 2, 2

@@ -1,0 +1,13 @@
+﻿corpus: pdf20examples @ c20f2c17bfcc4baab7cfe62e70fae64caf14d5fa
+files: 7
+well-formed files: 7
+outcomes:
+  Rendered: 7
+  PasswordRequired: 0
+  CertificateRequired: 0
+  EncryptionUnsupported: 0
+  Rejected: 0
+  Crash: 0
+  Timeout: 0
+pages rendered: 8
+render diagnostics on well-formed files (files, total):

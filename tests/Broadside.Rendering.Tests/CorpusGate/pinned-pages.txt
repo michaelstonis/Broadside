@@ -1,0 +1,22 @@
+# Pinned real-world pages of the rendering gate (issue #138; see RenderCorpusPinnedSubsetTests). One line per file:
+# corpus/path<TAB>zero-based pages, comma-separated<TAB>why it is pinned. Every page of each file is also rendered in parallel.
+gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Patches/GWG160_Transp_Basic_BM_DeviceCMYK_Non-knockout_X4.pdf	0	Blend modes in DeviceCMYK non-knockout groups (11.3.5, 11.4.7)
+gwg-output-suite/Ghent_PDF_Output_Suite_V50_Patches/Categories/1-CMYK/Test pages/Ghent_PDF-Output-Test-V50_CMYK_X4.pdf	0	Gate regression: patch meshes inside a DeviceCMYK group threw (8.7.4.5.7, 11.6.6); spot colours, overprint, transparency
+pdf20examples/PDF 2.0 image with BPC.pdf	0	PDF 2.0 image with black point compensation (8.6.5.9)
+pdf20examples/PDF 2.0 with page level output intent.pdf	0	PDF 2.0 page-level output intent (14.11.5)
+pdfjs/alphatrans.pdf	0	Constant alpha and transparency groups (11.3.7, 11.4)
+pdfjs/annotation-highlight.pdf	0	Annotation layer: highlight appearance (12.5.5)
+pdfjs/bug_jpx.pdf	0	JPXDecode image (7.4.9)
+pdfjs/calgray.pdf	0	CalGray colour space (8.6.5.2)
+pdfjs/ccitt_EndOfBlock_false.pdf	0	CCITTFaxDecode image without EndOfBlock (7.4.6)
+pdfjs/cmykjpeg.pdf	0	DCT image in DeviceCMYK (7.4.8, 8.9.5)
+pdfjs/devicen.pdf	0	DeviceN colour space (8.6.6.5)
+pdfjs/function_based_shading.pdf	0	Function-based shadings incl. a Type 4 mod on reals (8.7.4.5.2, 7.10.5); poppler draws the checkerboard black
+pdfjs/issue2948.pdf	0	Free-form triangle mesh shading and text (8.7.4.5.5)
+pdfjs/issue3584.pdf	0	Text render mode 7 clip then fill (9.3.6)
+pdfjs/issue6296.pdf	0	Radial shading pattern (8.7.4.5.4)
+pdfjs/jbig2_symbol_offset.pdf	0	JBIG2Decode symbol dictionary (7.4.7)
+pdfjs/personwithdog.pdf	0	Gate regression: Coons patch mesh in a DeviceCMYK group threw (8.7.4.5.7, 11.6.6)
+pdfjs/smask_alpha_oob.pdf	0	Alpha soft mask with a transfer function (11.6.5.2)
+pdfjs/tiling-pattern-large-steps.pdf	0	Tiling pattern with large steps (8.7.3)
+pdfjs/tracemonkey.pdf	0,1	Embedded Type 1 text, 14 pages for the parallel pass (9.6.2)

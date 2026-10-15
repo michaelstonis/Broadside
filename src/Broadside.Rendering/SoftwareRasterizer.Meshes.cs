@@ -463,10 +463,13 @@ public sealed partial class SoftwareRasterizer
                 sca[i] = (sc[i] + sa[i]) / 2;
             }
 
-            Span<float> rgb = stackalloc float[9];
-            converter.Convert(sab, rgb[..3]);
-            converter.Convert(sbc, rgb[3..6]);
-            converter.Convert(sca, rgb[6..]);
+            // Converted to the layer's pixel model (4 components in a CMYK group), then to the layer's three channels.
+            int m = _pixelModel.Components;
+            Span<float> rgb = stackalloc float[12];
+            converter.Convert(sab, rgb.Slice(0, m));
+            converter.Convert(sbc, rgb.Slice(m, m));
+            converter.Convert(sca, rgb.Slice(2 * m, m));
+            ToLayerChannels(rgb, 3);
             if (Near(rgb[..3], a, b) && Near(rgb[3..6], b, c) && Near(rgb[6..], c, a))
             {
                 _meshLayer.FillTriangle(a, b, c);

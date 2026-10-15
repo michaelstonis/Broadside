@@ -95,6 +95,27 @@ public static class MeshShadingSamples
     }
 
     /// <summary>
+    /// A 612 x 792 page whose content is <c>/A gs /G Do</c> when <paramref name="inGroup"/> is set (A sets ca 0.9, G is an isolated
+    /// DeviceCMYK transparency group, ISO 32000-2 §11.4.7, §11.6.6) and <c>/A gs</c> then the group's content otherwise: <c>sh</c> of a DeviceCMYK tensor-product patch
+    /// mesh over (0, 0)-(200, 200) and of a DeviceCMYK free-form strip over (0, 200)-(200, 400) (§8.7.4.5.5, §8.7.4.5.8). Inside the
+    /// group the meshes convert to the group's four components (issue #138).
+    /// </summary>
+    public static byte[] MeshesInCmykGroup(bool inGroup = true)
+    {
+        const string content = "q 2 0 0 2 0 0 cm /Tensor sh Q q 2 0 0 2 0 200 cm /Strip sh Q";
+        string tensor = PatchGrid("/ShadingType 7 /ColorSpace /DeviceCMYK", 3, tensor: true, components: 4);
+        string strip = Strip("/ColorSpace /DeviceCMYK", 32, 4);
+        return inGroup
+            ? ContentSamples.OnePage(
+                "/A gs /G Do"u8.ToArray(),
+                "/ExtGState << /A << /ca 0.9 >> >> /XObject << /G 5 0 R >>",
+                ContentSamples.Stream(content, "/Type /XObject /Subtype /Form /BBox [0 0 612 792] /Group << /S /Transparency /CS /DeviceCMYK /I true >> /Resources << /Shading << /Tensor 6 0 R /Strip 7 0 R >> >>"),
+                tensor,
+                strip)
+            : ContentSamples.OnePage(Encoding.ASCII.GetBytes("/A gs " + content), "/ExtGState << /A << /ca 0.9 >> >> /Shading << /Tensor 5 0 R /Strip 6 0 R >>", tensor, strip);
+    }
+
+    /// <summary>
     /// A patch mesh of <paramref name="across"/> × <paramref name="across"/> patches over a 100 x 100 cell, every patch written in
     /// full (flag 0) with 8-bit fields; every control point but the corners is moved off the straight lattice, so the patches are curved and share
     /// their edges point for point.
