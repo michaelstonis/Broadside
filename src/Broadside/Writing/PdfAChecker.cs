@@ -1,6 +1,8 @@
 using System.Globalization;
+using System.Text.RegularExpressions;
 using Broadside.Content;
 using Broadside.Filters;
+using Broadside.Fonts;
 using Broadside.Objects;
 
 namespace Broadside.Writing;
@@ -12,8 +14,8 @@ namespace Broadside.Writing;
 internal readonly record struct PdfAViolation(string Rule, string Message, CosReference? Reference);
 
 /// <summary>
-/// The check step of a PDF/A-2b save (issue #201): walks what the file will hold and lists every rule of veraPDF's PDF/A-2B validation
-/// profile the save cannot meet by itself. It reads and changes nothing in the document.
+/// The check step of a PDF/A save (issues #201, #202): walks what the file will hold and lists every rule of veraPDF's validation
+/// profile for the level (PDF/A-2B, -2U, -3B, -3U) the save cannot meet by itself. It reads and changes nothing in the document.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -28,6 +30,15 @@ internal readonly record struct PdfAViolation(string Rule, string Message, CosRe
 /// allows only when they are PDF/A-1 or -2 themselves, which is not verified: each is reported), 6.10-1, 6.10-2 and 6.11-1.
 /// </para>
 /// <para>
+/// Level U (PDF/A-2u, -3u, issue #202) adds 6.2.11.7.2-1 and -2: every character code a text-showing operator shows in the content
+/// the check walks maps to Unicode through the font's ToUnicode CMap, its encoding's glyph names (Adobe Glyph List) or a predefined
+/// CJK collection (<see cref="PdfFont.GetUnicode(CharacterCode, Span{char}, out UnicodeSource)"/>, but not the embedded program's
+/// own "cmap", which ISO 19005 does not accept), and never to U+0000, U+FEFF or U+FFFE. The text state is followed per content
+/// stream (a font set before <c>Q</c> is kept: conservative). PDF/A-3 (issue #202) replaces 6.8-5 with 6.8-1, 6.8-3 and 6.8-4: each
+/// embedded file (in the EmbeddedFiles tree or a file attachment annotation) names a MIME type, has an <c>AFRelationship</c> and is
+/// listed in an <c>AF</c> array of the catalog, a page, an annotation, an XObject or a structure element.
+/// </para>
+/// <para>
 /// Not checked (left to the writing APIs, which produce conformant objects, and to veraPDF in CI): the file syntax rules the writer
 /// always meets (6.1.2-2, 6.1.3-1, 6.1.3-3, 6.1.4, 6.1.6, 6.1.7.1-1/-2, 6.1.9), implementation limits (6.1.13), font program internals
 /// (6.2.11.2, 6.2.11.3, 6.2.11.5 to 6.2.11.8), ICC profile versions (6.2.4.2), JPEG 2000 data (6.2.8.3), optional content
@@ -35,11 +46,12 @@ internal readonly record struct PdfAViolation(string Rule, string Message, CosRe
 /// colour space is still reported (conservative). Converting an existing file to conform is issue #229.
 /// </para>
 /// </remarks>
-internal sealed class PdfAChecker
+internal sealed partial class PdfAChecker
 {
     private static readonly PdfVersion Pdf17 = new(1, 7);
     private static readonly CosName A = new("A");
     private static readonly CosName AA = new("AA");
+    private static readonly CosName AF = new("AF");
     private static readonly CosName AcroForm = new("AcroForm");
     private static readonly CosName Alternate = new("Alternates");
     private static readonly CosName AlternatePresentations = new("AlternatePresentations");
@@ -58,6 +70,8 @@ internal sealed class PdfAChecker
     private static readonly CosName F = new("F");
     private static readonly CosName Fields = new("Fields");
     private static readonly CosName First = new("First");
+    private static readonly CosName FS = new("FS");
+    private static readonly CosName K = new("K");
     private static readonly CosName Font = new("Font");
     private static readonly CosName FontDescriptor = new("FontDescriptor");
     private static readonly CosName[] FontFiles = [new("FontFile"), new("FontFile2"), new("FontFile3")];
@@ -86,6 +100,7 @@ internal sealed class PdfAChecker
     private static readonly CosName S = new("S");
     private static readonly CosName Shading = new("Shading");
     private static readonly CosName SMask = new("SMask");
+    private static readonly CosName StructTreeRoot = new("StructTreeRoot");
     private static readonly CosName Subtype = new("Subtype");
     private static readonly CosName Subtype2 = new("Subtype2");
     private static readonly CosName TR = new("TR");
@@ -115,21 +130,29 @@ internal sealed class PdfAChecker
     ];
 
     private readonly PdfDocument _document;
+    private readonly PdfAConformance _conformance;
     private readonly List<PdfAViolation> _violations = [];
+    private readonly HashSet<(CosDictionary Font, string Rule)> _unicodeReported = new(UnicodeReportComparer.Instance);
+    private readonly List<(CosDictionary Specification, CosReference? Reference)> _embeddedFiles = [];
+    private readonly HashSet<CosObject> _associatedFiles = new(ReferenceEqualityComparer.Instance);
     private readonly HashSet<(string, string)> _reported = [];
     private readonly HashSet<CosObject> _visited = new(ReferenceEqualityComparer.Instance);
     private readonly OperandArena _arena = new();
     private string _outputSpace = "RGB ";
 
-    private PdfAChecker(PdfDocument document) => _document = document;
+    private PdfAChecker(PdfDocument document, PdfAConformance conformance)
+    {
+        _document = document;
+        _conformance = conformance;
+    }
 
-    /// <summary>Lists the PDF/A-2b rules a save of <paramref name="document"/> with <paramref name="options"/> cannot meet.</summary>
+    /// <summary>Lists the rules of the options' PDF/A level a save of <paramref name="document"/> with <paramref name="options"/> cannot meet.</summary>
     /// <param name="document">The document, as it is: nothing is changed.</param>
     /// <param name="options">The save's options.</param>
     /// <returns>The rules not met, in document order; empty when the save can conform.</returns>
     public static IReadOnlyList<PdfAViolation> Check(PdfDocument document, PdfSaveOptions options)
     {
-        var checker = new PdfAChecker(document);
+        var checker = new PdfAChecker(document, options.PdfAConformance);
         checker.CheckFile(options);
         checker.CheckOutputIntents();
         checker.CheckCatalog();
@@ -138,6 +161,7 @@ internal sealed class PdfAChecker
             checker.CheckPage(page);
         }
 
+        checker.CheckEmbeddedFiles();
         return checker._violations;
     }
 
@@ -188,7 +212,7 @@ internal sealed class PdfAChecker
 
         if (options.IncrementalUpdate ? _document.Version > Pdf17 : CatalogVersion() > Pdf17)
         {
-            Report("6.1.2-1", string.Create(CultureInfo.InvariantCulture, $"the document is PDF {_document.Version}; PDF/A-2 is based on PDF 1.7"));
+            Report("6.1.2-1", string.Create(CultureInfo.InvariantCulture, $"the document is PDF {_document.Version}; PDF/A-{_conformance.Part()} is based on PDF 1.7"));
         }
     }
 
@@ -266,7 +290,17 @@ internal sealed class PdfAChecker
 
             if (names.ContainsKey(EmbeddedFiles))
             {
-                Report("6.8-5", "the document embeds files, which PDF/A-2 allows only when each is PDF/A-1 or PDF/A-2 itself (not verified; PDF/A-3 allows any)");
+                if (_conformance.AllowsAssociatedFiles())
+                {
+                    foreach (PdfEmbeddedFileEntry entry in _document.EmbeddedFiles)
+                    {
+                        AddEmbeddedFile(entry.File.Dictionary, entry.File.Reference);
+                    }
+                }
+                else
+                {
+                    Report("6.8-5", "the document embeds files, which PDF/A-2 allows only when each is PDF/A-1 or PDF/A-2 itself (not verified; PDF/A-3 allows any)");
+                }
             }
         }
 
@@ -292,7 +326,100 @@ internal sealed class PdfAChecker
         {
             CheckOutlineItems(outlines.GetValueOrDefault(First));
         }
+
+        if (_conformance.AllowsAssociatedFiles())
+        {
+            AddAssociatedFiles(catalog);
+            AddStructureAssociatedFiles(catalog.GetValueOrDefault(StructTreeRoot), new HashSet<CosObject>(ReferenceEqualityComparer.Instance));
+        }
     }
+
+    /// <summary>Records an embedded file's specification (a dictionary with <c>EF</c>) for the PDF/A-3 checks of <see cref="CheckEmbeddedFiles"/>.</summary>
+    private void AddEmbeddedFile(CosDictionary? specification, CosReference? reference)
+    {
+        if (specification is not null && Dictionary(specification, FileAndLayerNames.EF) is not null && !_embeddedFiles.Exists(file => ReferenceEquals(file.Specification, specification)))
+        {
+            _embeddedFiles.Add((specification, reference));
+        }
+    }
+
+    /// <summary>Records the file specifications an object's <c>AF</c> entry (an array, or one dictionary) associates with it (ISO 32000-2 §14.13).</summary>
+    private void AddAssociatedFiles(CosDictionary owner)
+    {
+        switch (Resolve(owner.GetValueOrDefault(AF)))
+        {
+            case CosArray files:
+                foreach (CosObject file in files)
+                {
+                    if (Resolve(file) is CosDictionary specification)
+                    {
+                        _associatedFiles.Add(specification);
+                    }
+                }
+
+                break;
+            case CosDictionary specification:
+                _associatedFiles.Add(specification);
+                break;
+        }
+    }
+
+    /// <summary>Records the associated files of every structure element below <paramref name="node"/> (ISO 32000-2 §14.7.2, Table 355, AF).</summary>
+    private void AddStructureAssociatedFiles(CosObject? node, HashSet<CosObject> seen)
+    {
+        switch (Resolve(node))
+        {
+            case CosDictionary element when seen.Add(element):
+                AddAssociatedFiles(element);
+                AddStructureAssociatedFiles(element.GetValueOrDefault(K), seen);
+                break;
+            case CosArray kids when seen.Add(kids):
+                foreach (CosObject kid in kids)
+                {
+                    AddStructureAssociatedFiles(kid, seen);
+                }
+
+                break;
+        }
+    }
+
+    /// <summary>
+    /// The PDF/A-3 embedded file rules (veraPDF 6.8-1, 6.8-3, 6.8-4): each embedded file's stream names a MIME type in
+    /// <c>Subtype</c>, its specification has an <c>AFRelationship</c> and an <c>AF</c> array lists it.
+    /// </summary>
+    private void CheckEmbeddedFiles()
+    {
+        foreach ((CosDictionary specification, CosReference? reference) in _embeddedFiles)
+        {
+            string name = _document.Resolve(specification.GetValueOrDefault(FileAndLayerNames.UF) ?? specification.GetValueOrDefault(F)) is CosString file
+                ? file.DecodeText()
+                : "(unnamed)";
+            if (Dictionary(specification, FileAndLayerNames.EF) is { } streams)
+            {
+                foreach ((CosName _, CosObject value) in streams)
+                {
+                    if (Resolve(value) is CosStream stream && (NameOf(stream.Dictionary, Subtype) is not { } mediaType || !MediaType().IsMatch(mediaType)))
+                    {
+                        Report("6.8-1", $"the embedded file {name} names no MIME type in its Subtype", value as CosReference ?? reference);
+                    }
+                }
+            }
+
+            if (Resolve(specification.GetValueOrDefault(FileAndLayerNames.AFRelationship)) is not CosName)
+            {
+                Report("6.8-3", $"the embedded file {name} has no AFRelationship", reference);
+            }
+
+            if (!_associatedFiles.Contains(specification))
+            {
+                Report("6.8-4", $"the embedded file {name} is not an associated file (no AF array lists it)", reference);
+            }
+        }
+    }
+
+    /// <summary>A MIME type as veraPDF's rule 6.8-1 accepts it: <c>type/subtype</c>.</summary>
+    [GeneratedRegex(@"^[-\w+.]+/[-\w+.]+$", RegexOptions.CultureInvariant)]
+    private static partial Regex MediaType();
 
     private void CheckFields(CosArray fields)
     {
@@ -398,6 +525,11 @@ internal sealed class PdfAChecker
         }
 
         CheckContent(dictionary.GetValueOrDefault(KnownNames.Contents), page.Resources);
+        if (_conformance.AllowsAssociatedFiles())
+        {
+            AddAssociatedFiles(dictionary);
+        }
+
         if (Resolve(dictionary.GetValueOrDefault(Annots)) is CosArray annotations)
         {
             foreach (CosObject item in annotations)
@@ -413,6 +545,15 @@ internal sealed class PdfAChecker
     private void CheckAnnotation(CosDictionary annotation, CosReference? reference)
     {
         string subtype = NameOf(annotation, Subtype) ?? string.Empty;
+        if (_conformance.AllowsAssociatedFiles())
+        {
+            AddAssociatedFiles(annotation);
+            if (subtype == "FileAttachment")
+            {
+                AddEmbeddedFile(Dictionary(annotation, FS), annotation.GetValueOrDefault(FS) as CosReference);
+            }
+        }
+
         if (!AnnotationTypes.Contains(subtype))
         {
             Report("6.3.1-1", $"a {subtype} annotation, which PDF/A-2 forbids", reference);
@@ -517,14 +658,14 @@ internal sealed class PdfAChecker
         switch (Resolve(contents))
         {
             case CosStream stream:
-                ScanContent(stream);
+                ScanContent(stream, resources);
                 break;
             case CosArray parts:
                 foreach (CosObject part in parts)
                 {
                     if (Resolve(part) is CosStream stream)
                     {
-                        ScanContent(stream);
+                        ScanContent(stream, resources);
                     }
                 }
 
@@ -532,8 +673,11 @@ internal sealed class PdfAChecker
         }
     }
 
-    /// <summary>Reads a content stream's colour operators and inline images (6.2.4.3, 6.2.8-3, 6.1.10-1).</summary>
-    private void ScanContent(CosStream stream)
+    /// <summary>
+    /// Reads a content stream's colour operators and inline images (6.2.4.3, 6.2.8-3, 6.1.10-1) and, for level U, the character codes
+    /// its text-showing operators show in the fonts of <paramref name="resources"/> (6.2.11.7.2).
+    /// </summary>
+    private void ScanContent(CosStream stream, CosDictionary? resources)
     {
         if (!_visited.Add(stream))
         {
@@ -554,11 +698,32 @@ internal sealed class PdfAChecker
         _arena.Clear();
         _arena.Overflowed = false;
         var reader = new ContentReader(data.Span, _arena);
+        bool unicode = _conformance.NeedsUnicode();
+        (PdfFont Font, string Name)? font = null;
         while (reader.Next(out ReadOperator op))
         {
             ContentOperands operands = _arena.Operands;
             switch (op.Code)
             {
+                case ContentOperatorCode.SetFont when unicode && operands.Count > 0 && operands[0].Kind == ContentOperandKind.Name:
+                    string fontName = System.Text.Encoding.ASCII.GetString(operands[0].Bytes);
+                    CosObject? fontObject = resources is null ? null : Dictionary(resources, Font)?.GetValueOrDefault(new CosName(fontName));
+                    font = _document.GetFont(fontObject) is { } shown ? (shown, fontName) : null;
+                    break;
+                case ContentOperatorCode.ShowText or ContentOperatorCode.NextLineShowText or ContentOperatorCode.NextLineShowTextWithSpacing
+                    when font is { } current && operands.Count > 0 && operands[operands.Count - 1].Kind == ContentOperandKind.String:
+                    CheckUnicode(current.Font, current.Name, operands[operands.Count - 1].Bytes);
+                    break;
+                case ContentOperatorCode.ShowTextAdjusted when font is { } current && operands.Count > 0 && operands[0].Kind == ContentOperandKind.Array:
+                    foreach (ContentOperand item in operands[0].Items)
+                    {
+                        if (item.Kind == ContentOperandKind.String)
+                        {
+                            CheckUnicode(current.Font, current.Name, item.Bytes);
+                        }
+                    }
+
+                    break;
                 case ContentOperatorCode.SetFillRgb or ContentOperatorCode.SetStrokeRgb:
                     CheckDeviceSpace("DeviceRGB");
                     break;
@@ -577,6 +742,38 @@ internal sealed class PdfAChecker
         }
 
         _arena.Trim();
+    }
+
+    /// <summary>
+    /// Checks that every character code of a shown string maps to Unicode by a means ISO 19005 accepts (veraPDF 6.2.11.7.2-1), and
+    /// not to U+0000, U+FEFF or U+FFFE (6.2.11.7.2-2); each rule is reported once per font.
+    /// </summary>
+    private void CheckUnicode(PdfFont font, string resourceName, ReadOnlySpan<byte> text)
+    {
+        Span<char> buffer = stackalloc char[FontUnicode.MaxLength];
+        while (!text.IsEmpty)
+        {
+            ShownGlyph glyph = font.ReadShownGlyph(text);
+            int written = font.ReadUnicode(text, buffer, out UnicodeSource source);
+            if (source is UnicodeSource.Unmapped or UnicodeSource.FontProgram)
+            {
+                ReportUnicode(font, resourceName, "6.2.11.7.2-1", string.Create(CultureInfo.InvariantCulture, $"maps the character code {glyph.Code} to no Unicode value (no ToUnicode entry for it, and no standard encoding or glyph name gives one)"));
+            }
+            else if (buffer[..written].IndexOfAny('\0', '\uFEFF', '\uFFFE') >= 0)
+            {
+                ReportUnicode(font, resourceName, "6.2.11.7.2-2", string.Create(CultureInfo.InvariantCulture, $"maps the character code {glyph.Code} to U+0000, U+FEFF or U+FFFE"));
+            }
+
+            text = text[Math.Clamp(glyph.Length, 1, text.Length)..];
+        }
+    }
+
+    private void ReportUnicode(PdfFont font, string resourceName, string rule, string message)
+    {
+        if (_unicodeReported.Add((font.Dictionary, rule)))
+        {
+            Report(rule, $"the font {resourceName}{(font.BaseFont is { } name ? $" ({name})" : string.Empty)} {message}", font.Reference);
+        }
     }
 
     private void CheckInlineImage(CosDictionary inline)
@@ -721,7 +918,7 @@ internal sealed class PdfAChecker
                 {
                     if (Resolve(procedure) is CosStream stream)
                     {
-                        ScanContent(stream);
+                        ScanContent(stream, Dictionary(font, KnownNames.Resources));
                     }
                 }
             }
@@ -751,6 +948,11 @@ internal sealed class PdfAChecker
 
         CheckStream(image);
         CosDictionary dictionary = image.Dictionary;
+        if (_conformance.AllowsAssociatedFiles())
+        {
+            AddAssociatedFiles(dictionary);
+        }
+
         if (dictionary.ContainsKey(Alternate))
         {
             Report("6.2.8-1", "an image has an Alternates entry");
@@ -791,8 +993,14 @@ internal sealed class PdfAChecker
             Report("6.2.9-2", "a reference XObject");
         }
 
-        CheckResources(Dictionary(dictionary, KnownNames.Resources));
-        ScanContent(form);
+        if (_conformance.AllowsAssociatedFiles())
+        {
+            AddAssociatedFiles(dictionary);
+        }
+
+        CosDictionary? resources = Dictionary(dictionary, KnownNames.Resources);
+        CheckResources(resources);
+        ScanContent(form, resources);
     }
 
     private void CheckGraphicsState(CosDictionary state, CosReference? reference)
@@ -863,5 +1071,17 @@ internal sealed class PdfAChecker
         {
             CheckColorSpace(shading.GetValueOrDefault(ColorSpace));
         }
+    }
+
+    /// <summary>Compares (font, rule) pairs by the font dictionary's identity.</summary>
+    private sealed class UnicodeReportComparer : IEqualityComparer<(CosDictionary Font, string Rule)>
+    {
+        public static readonly UnicodeReportComparer Instance = new();
+
+        public bool Equals((CosDictionary Font, string Rule) x, (CosDictionary Font, string Rule) y) =>
+            ReferenceEquals(x.Font, y.Font) && string.Equals(x.Rule, y.Rule, StringComparison.Ordinal);
+
+        public int GetHashCode((CosDictionary Font, string Rule) obj) =>
+            HashCode.Combine(ReferenceEqualityComparer.Instance.GetHashCode(obj.Font), StringComparer.Ordinal.GetHashCode(obj.Rule));
     }
 }

@@ -8,8 +8,9 @@ using Broadside.Writing;
 namespace Broadside;
 
 /// <content>
-/// PDF/A output (issue #201): a save with <see cref="PdfSaveOptions.PdfAConformance"/> checks the document against the conformance
-/// level, then adds what the level requires. ISO 19005-2, cited by veraPDF validation-profile rule identifiers (open decision 12).
+/// PDF/A output (issues #201, #202): a save with <see cref="PdfSaveOptions.PdfAConformance"/> checks the document against the
+/// conformance level, then adds what the level requires. ISO 19005-2 and ISO 19005-3, cited by veraPDF validation-profile rule
+/// identifiers (open decision 12).
 /// </content>
 public sealed partial class PdfDocument
 {
@@ -46,8 +47,8 @@ public sealed partial class PdfDocument
     }
 
     /// <summary>
-    /// Checks the version the save needs against PDF/A-2's PDF 1.7 (veraPDF rule 6.1.2-1): a feature the save writes that needs a later
-    /// version cannot conform.
+    /// Checks the version the save needs against the PDF 1.7 PDF/A-2 and PDF/A-3 are based on (veraPDF rule 6.1.2-1): a feature the
+    /// save writes that needs a later version cannot conform. PDF/A-3's associated files are not among them (see <see cref="AddArchivalFeatures"/>).
     /// </summary>
     /// <returns>Whether the save still writes the conformance.</returns>
     /// <exception cref="DiagnosticException">In strict mode, when a feature needs a version later than 1.7.</exception>
@@ -57,7 +58,7 @@ public sealed partial class PdfDocument
         bool conformant = true;
         foreach (VersionedFeature feature in later)
         {
-            ReportNonConformance(options, new PdfAViolation("6.1.2-1", string.Create(CultureInfo.InvariantCulture, $"{feature} needs PDF {feature.MinimumVersion}; PDF/A-2 is based on PDF 1.7"), null));
+            ReportNonConformance(options, new PdfAViolation("6.1.2-1", string.Create(CultureInfo.InvariantCulture, $"{feature} needs PDF {feature.MinimumVersion}; PDF/A-{options.PdfAConformance.Part()} is based on PDF 1.7"), null));
             conformant = false;
         }
 
@@ -68,7 +69,7 @@ public sealed partial class PdfDocument
         _diagnostics.Report(
             DiagnosticCodes.PdfANonConformant,
             DiagnosticSeverity.Warning,
-            $"The file cannot conform to {Describe(options.PdfAConformance)}: {violation.Message} (veraPDF rule {violation.Rule}, ISO 19005-2 clause {violation.Rule[..violation.Rule.LastIndexOf('-')]}).",
+            $"The file cannot conform to {options.PdfAConformance.Describe()}: {violation.Message} (veraPDF rule {violation.Rule}, ISO 19005-{options.PdfAConformance.Part()} clause {violation.Rule[..violation.Rule.LastIndexOf('-')]}).",
             objectReference: violation.Reference);
 
     /// <summary>Records that a lenient save does not claim the conformance it could not meet.</summary>
@@ -76,27 +77,36 @@ public sealed partial class PdfDocument
         _diagnostics.Report(
             DiagnosticCodes.PdfANotIdentified,
             DiagnosticSeverity.Information,
-            $"The file is saved without the {Describe(options.PdfAConformance)} identification, output intent or other PDF/A changes: the document cannot conform (see the PdfANonConformant diagnostics).");
+            $"The file is saved without the {options.PdfAConformance.Describe()} identification, output intent or other PDF/A changes: the document cannot conform (see the PdfANonConformant diagnostics).");
 
-    private static string Describe(PdfAConformance conformance) => conformance switch
+    /// <summary>
+    /// Adds to <paramref name="features"/> what a conformant PDF/A save writes (<see cref="VersionedFeatures.PdfAOutput"/>) and, for
+    /// PDF/A-3, takes associated files out: ISO 19005-3 adds <c>AF</c> and <c>AFRelationship</c> to its PDF 1.7 base (6.8, veraPDF
+    /// rules 6.8-3 and 6.8-4), so they neither raise the version nor break rule 6.1.2-1.
+    /// </summary>
+    private static void AddArchivalFeatures(List<VersionedFeature> features, PdfSaveOptions options)
     {
-        PdfAConformance.PdfA2b => "PDF/A-2b",
-        _ => conformance.ToString(),
-    };
+        features.Add(VersionedFeatures.PdfAOutput);
+        if (options.PdfAConformance.AllowsAssociatedFiles())
+        {
+            features.RemoveAll(feature => feature == VersionedFeatures.AssociatedFiles);
+        }
+    }
 
     /// <summary>
     /// The change step of a conformant PDF/A save, after the checks (issue #300) and recorded by the save's change log when it has
     /// one (issue #306): adds a <c>GTS_PDFA1</c> output intent with Broadside's sRGB profile unless an output intent already has a
-    /// destination profile (which it then shares, veraPDF rule 6.2.3-2), and writes the XMP packet with the PDF/A identification
-    /// (rules 6.6.2.1-1, 6.6.4-1 to 6.6.4-5), without <c>pdf:Trapped</c> (6.6.2.3.1-1) in the layout of the PDF 1.7 file the save writes.
+    /// destination profile (which it then shares, veraPDF rule 6.2.3-2), and writes the XMP packet with the PDF/A identification of
+    /// the level, its part and conformance (rules 6.6.2.1-1, 6.6.4-1 to 6.6.4-5), without <c>pdf:Trapped</c> (6.6.2.3.1-1) in the
+    /// layout of the PDF 1.7 file the save writes.
     /// </summary>
     /// <returns><see langword="true"/>: the document changed.</returns>
     private bool ApplyArchivalSave(PdfSaveOptions options)
     {
         AddPdfAOutputIntent();
         new DocumentMetadataWriter(this)
-            .SetProperty(XmpNamespaces.PdfAIdentification, "part", "2")
-            .SetProperty(XmpNamespaces.PdfAIdentification, "conformance", "B")
+            .SetProperty(XmpNamespaces.PdfAIdentification, "part", options.PdfAConformance.Part().ToString(CultureInfo.InvariantCulture))
+            .SetProperty(XmpNamespaces.PdfAIdentification, "conformance", options.PdfAConformance.Level())
             .SetProperty(XmpNamespaces.PdfAIdentification, "amd", null)
             .SetProperty(XmpNamespaces.PdfAIdentification, "corr", null)
 

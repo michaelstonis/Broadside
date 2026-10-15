@@ -4697,6 +4697,9 @@ Broadside.PdfDocument.EmbedTrueTypeFont(System.ReadOnlyMemory<byte> program, int
 Broadside.PdfAConformance
 Broadside.PdfAConformance.None = 0 -> Broadside.PdfAConformance
 Broadside.PdfAConformance.PdfA2b = 1 -> Broadside.PdfAConformance
+Broadside.PdfAConformance.PdfA2u = 2 -> Broadside.PdfAConformance
+Broadside.PdfAConformance.PdfA3b = 3 -> Broadside.PdfAConformance
+Broadside.PdfAConformance.PdfA3u = 4 -> Broadside.PdfAConformance
 Broadside.PdfSaveOptions.PdfAConformance.get -> Broadside.PdfAConformance
 Broadside.PdfSaveOptions.PdfAConformance.set -> void
 Broadside.PdfSaveOptions.WithPdfAConformance(Broadside.PdfAConformance conformance) -> Broadside.PdfSaveOptions!

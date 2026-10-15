@@ -34,7 +34,7 @@ public sealed partial class PdfDocument
     /// </summary>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for a version later than the document's.</exception>
     /// <param name="options">The save's options.</param>
-    /// <param name="archival">Whether the save writes a PDF/A conformance (#201), which adds <see cref="VersionedFeatures.PdfAOutput"/>.</param>
+    /// <param name="archival">Whether the save writes a PDF/A conformance (#201), which adds <see cref="VersionedFeatures.PdfAOutput"/> (and, for PDF/A-3, takes out associated files, #202).</param>
     private VersionedSave CheckVersionedSave(PdfSaveOptions options, bool archival = false)
     {
         var features = new List<VersionedFeature>();
@@ -42,7 +42,7 @@ public sealed partial class PdfDocument
         AddDocumentFeatures(features);
         if (archival)
         {
-            features.Add(VersionedFeatures.PdfAOutput);
+            AddArchivalFeatures(features, options);
         }
 
         PdfVersion needed = Writing.VersionPlan.Check(Version, features, _diagnostics);
@@ -84,7 +84,7 @@ public sealed partial class PdfDocument
             AddDocumentFeatures(features);
             if (archival)
             {
-                features.Add(VersionedFeatures.PdfAOutput);
+                AddArchivalFeatures(features, options);
             }
         }
 

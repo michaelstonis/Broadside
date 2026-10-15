@@ -19,6 +19,7 @@ One file per specification. One row per clause. Status is one of `not started`, 
 | [iso-14289-1.md](./iso-14289-1.md) | ISO 14289-1:2014 PDF/UA-1 |
 | [iso-14289-2.md](./iso-14289-2.md) | ISO 14289-2:2024 PDF/UA-2 |
 | [iso-19005-2.md](./iso-19005-2.md) | ISO 19005-2:2011 PDF/A-2 output, cited by veraPDF rule identifiers (open decision 12) |
+| [iso-19005-3.md](./iso-19005-3.md) | ISO 19005-3:2012 PDF/A-3 output: what it changes from PDF/A-2, cited by veraPDF rule identifiers (open decision 12) |
 
 PDF/A rows cite veraPDF validation-profile rule identifiers, the standards not being purchased (open decision 12); PDF/X gets a file when its document is purchased; see `docs/research/missing-iso-specs.md`. The PDF Association's Tagged PDF Best Practice Guide in `Specs/` is guidance, not a conformance target.
 
