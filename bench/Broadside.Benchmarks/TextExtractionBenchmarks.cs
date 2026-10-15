@@ -20,6 +20,7 @@ public class TextExtractionBenchmarks
     private PdfPage? _page;
     private PdfDocument? _tagged;
     private PdfPage? _taggedPage;
+    private PdfDocument? _headings;
 
     [GlobalSetup]
     public void Setup()
@@ -32,6 +33,7 @@ public class TextExtractionBenchmarks
         _tagged = PdfDocument.Open(ContentSamples.TaggedText(500));
         _taggedPage = _tagged.Pages[0];
         _ = _taggedPage.ExtractText();
+        _headings = PdfDocument.Open(ContentSamples.HeadingsAndLists(8));
     }
 
     [GlobalCleanup]
@@ -39,6 +41,7 @@ public class TextExtractionBenchmarks
     {
         _document?.Dispose();
         _tagged?.Dispose();
+        _headings?.Dispose();
     }
 
     [Benchmark(Baseline = true)]
@@ -100,4 +103,13 @@ public class TextExtractionBenchmarks
     /// <returns>The number of paragraphs.</returns>
     [Benchmark]
     public int DetectTaggedLayout() => _taggedPage!.ExtractLayout(_detectAll).Root.Children.Count;
+
+    /// <summary>
+    /// The layout tree of eight untagged pages of headings and nested lists (about 9,500 glyphs; issue #188): the detection of
+    /// <see cref="DetectLayout"/> plus each paragraph's style, the document's body style and heading levels, and the lists' items,
+    /// labels, bodies and nesting. Node texts are not assembled.
+    /// </summary>
+    /// <returns>The number of nodes under the root.</returns>
+    [Benchmark]
+    public int DetectHeadingsAndLists() => _headings!.ExtractLayout().Root.Children.Count;
 }

@@ -3,20 +3,22 @@
 # sees on the page (titles, headings, paragraphs, form labels, footnotes; running headers and footers left out). Labels come
 # from reading the page (pdftotext -layout and the rendered page), not from the detector. A paragraph continued from the
 # previous column starts an item. White space is compared collapsed.
+# Issue #188: a label may start with its kind, [H] a heading or [LI] a list item ([LI2] an item of a list nested in an item); a
+# section headed "== <path> <page> kinds" lists only the page's headings and list items, all of them, in reading order.
 
 == pdfjs/tracemonkey.pdf 1
-Trace-based Just-in-Time Type Specialization
+[H] Trace-based Just-in-Time Type Specialization
 Andreas Gal
 Mozilla Corporation
 Adobe Corporation
 Intel Corporation
 University of California, Irvine
-Abstract
+[H] Abstract
 Dynamic languages such as JavaScript are more
 Categories and Subject Descriptors
 General Terms
 Keywords
-1. Introduction
+[H] 1. Introduction
 Dynamic languages such as JavaScript, Python
 Permission to make digital or hard copies
 PLDI’09, June 15–20, 2009
@@ -42,7 +44,7 @@ The forces for FM, largely engineering
 RCA at ﬁrst kept the technology
 
 == pdfjs/bug1883609.pdf 1
-PDF Form Example
+[H] PDF Form Example
 This is an example of a user fillable PDF form
 This document and PDF form have been created
 To fill out the form, make sure
@@ -65,7 +67,7 @@ Important: Save the completed PDF form
 
 == pdfjs/bug1669099.pdf 1
 Verein zur Förderung der prosperitiven Koexistenz
-Antrag auf Mitgliedschaft
+[H] Antrag auf Mitgliedschaft
 Ich möchte Mitglied im CCC Salzburg
 Normale Hackerspace Mitgliedschaft
 Ermäßigte2 Hackerspace Mitgliedschaft
@@ -89,3 +91,36 @@ Bemerkung:
 Internet:
 Adresse:
 Bankverbindung:
+
+== pdfjs/tracemonkey.pdf 2 kinds
+[LI] • We explain an algorithm
+[LI] • We explain how to speculatively
+[LI] • We validate our tracing techniques
+[H] 2. Overview: Example Tracing Run
+
+== pdfjs/tracemonkey.pdf 6 kinds
+[H] 3.3 Blacklisting
+[LI] • The VM can form at least one root trace
+[LI] • There is at least one hot side exit
+[LI] • The loop body is short.
+[H] 4. Nested Trace Tree Formation
+
+== pdfjs/tracemonkey.pdf 8 kinds
+[H] 5.1 Optimizations
+[LI] • On ISAs without
+[LI] • CSE (constant subexpression elimination),
+[LI] • expression
+[LI] • source language
+[LI] • Dead data-stack store elimination.
+[LI] • Dead call-stack store elimination.
+[LI] • Dead code elimination.
+[H] 5.2 Register Allocation
+[H] 6. Implementation
+[H] 6.1 Calling Compiled Traces
+
+== pdfjs/tracemonkey.pdf 11 kinds
+[LI] • The implementation does not currently trace recursion
+[LI] • The implementation does not currently trace eval
+[LI] • The implementation does not currently trace through
+[LI] • Two programs trace well
+[LI] • Some programs trace very well
