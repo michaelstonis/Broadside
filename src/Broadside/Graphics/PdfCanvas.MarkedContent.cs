@@ -17,15 +17,24 @@ public sealed partial class PdfCanvas
     /// <remarks>ISO 32000-2 §14.6.1, Table 352: end it with <see cref="EndMarkedContent"/>; sequences nest, and nest separately from text objects.</remarks>
     public void BeginMarkedContent(string tag) => BeginMarked(tag, properties: null);
 
-    /// <summary>Begins a marked-content sequence with an inline property list (<c>BDC</c>), such as an artifact's <c>Type</c> and <c>Subtype</c> or an <c>MCID</c>.</summary>
+    /// <summary>Begins a marked-content sequence with an inline property list (<c>BDC</c>), such as an artifact's <c>Type</c> and <c>Subtype</c>.</summary>
     /// <param name="tag">The tag: the role of the sequence, such as <c>Artifact</c> or a structure type.</param>
-    /// <param name="properties">The property list, written inline: it shall hold direct objects only.</param>
-    /// <exception cref="ArgumentException"><paramref name="tag"/> is empty, or <paramref name="properties"/> holds an indirect reference or a stream.</exception>
+    /// <param name="properties">The property list, written inline: it shall hold direct objects only, and no <c>MCID</c>.</param>
+    /// <exception cref="ArgumentException"><paramref name="tag"/> is empty, or <paramref name="properties"/> holds an <c>MCID</c>, an indirect reference or a stream.</exception>
     /// <exception cref="InvalidOperationException">A path is being built, or the canvas is disposed.</exception>
-    /// <remarks>ISO 32000-2 §14.6.1, Table 352, §14.6.2 (property lists) and §14.8.2.2.2, Table 363 (artifact property lists).</remarks>
+    /// <remarks>
+    /// ISO 32000-2 §14.6.1, Table 352, §14.6.2 (property lists) and §14.8.2.2.2, Table 363 (artifact property lists). Tagged content
+    /// (an <c>MCID</c> linked into the structure tree) is begun with <see cref="BeginTaggedContent(Structure.PdfStructureElement)"/>, which
+    /// allocates the MCID; artifacts with <see cref="BeginArtifact()"/>; optional content with <see cref="BeginOptionalContent(PdfOptionalContentGroup)"/>.
+    /// </remarks>
     public void BeginMarkedContent(string tag, CosDictionary properties)
     {
         ArgumentNullException.ThrowIfNull(properties);
+        if (properties.ContainsKey(McidKey))
+        {
+            throw new ArgumentException("An MCID is allocated by BeginTaggedContent, which links it into the structure tree (ISO 32000-2 §14.7.5.2).", nameof(properties));
+        }
+
         BeginMarked(tag, properties);
     }
 

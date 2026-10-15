@@ -90,6 +90,9 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <item><term><see cref="SoftMasks"/></term><description>1.4 (§11.6.5; Table 57 and Table 87, <c>SMask</c>)</description></item>
 /// <item><term><see cref="TransparencyGroups"/></term><description>1.4 (§11.6.6; Table 31 and Table 93, <c>Group</c>)</description></item>
 /// <item><term><see cref="OptionalContent"/></term><description>1.5 (§8.11.1; Table 29, <c>OCProperties</c>; Tables 87, 93 and 166, <c>OC</c>)</description></item>
+/// <item><term><see cref="VisibilityExpression"/></term><description>1.6 (§8.11.2.2, Table 97, <c>VE</c>)</description></item>
+/// <item><term><see cref="ArtifactSubtype"/></term><description>1.7 (§14.8.2.2.2, Table 363, <c>Subtype</c>)</description></item>
+/// <item><term><see cref="ArtifactSubtypes20"/></term><description>2.0 (§14.8.2.2.2, Table 363, <c>Subtype</c> PageNum, LineNum, Redaction, Bates)</description></item>
 /// <item><term><see cref="Pdf20AnnotationEntries"/></term><description>2.0 (§12.5.2, Table 166, <c>ca</c>, <c>BM</c>, <c>Lang</c>, <c>CA</c> of a non-markup annotation; §12.5.6.1, Table 171, <c>Projection</c> and <c>RichMedia</c>)</description></item>
 /// <item><term><see cref="AnnotationEntries11"/></term><description>1.1 (§12.5.2, Table 166, <c>F</c>, <c>M</c>; §12.5.6.2, Table 172, <c>T</c>; §12.6.4.8, URI actions)</description></item>
 /// <item><term><see cref="AnnotationBorderStyle"/></term><description>1.2 (§12.5.4, Table 168, <c>BS</c>)</description></item>
@@ -245,6 +248,15 @@ internal static class VersionedFeatures
     /// <c>OCProperties</c>: PDF 1.5.
     /// </summary>
     public static VersionedFeature OptionalContent { get; } = new("optional content (OCG, OCMD, OC, OCProperties)", "ISO 32000-2 §8.11; Table 29", Pdf15);
+
+    /// <summary>Gets an optional content membership dictionary's visibility expression (<c>VE</c>): PDF 1.6.</summary>
+    public static VersionedFeature VisibilityExpression { get; } = new("an optional content visibility expression (VE)", "ISO 32000-2 §8.11.2.2, Table 97", Pdf16);
+
+    /// <summary>Gets an artifact property list's <c>Subtype</c>: PDF 1.7.</summary>
+    public static VersionedFeature ArtifactSubtype { get; } = new("an artifact subtype (Subtype)", "ISO 32000-2 §14.8.2.2.2, Table 363", new PdfVersion(1, 7));
+
+    /// <summary>Gets the PDF 2.0 artifact subtypes <c>PageNum</c>, <c>LineNum</c>, <c>Redaction</c> and <c>Bates</c>: PDF 2.0.</summary>
+    public static VersionedFeature ArtifactSubtypes20 { get; } = new("a PDF 2.0 artifact subtype (PageNum, LineNum, Redaction, Bates)", "ISO 32000-2 §14.8.2.2.2, Table 363", Pdf20);
 
     /// <summary>
     /// Gets the PDF 2.0 annotation entries: <c>ca</c>, <c>BM</c> and <c>Lang</c>, <c>CA</c> of a non-markup annotation, and the

@@ -13,6 +13,9 @@ public sealed class PdfOptionalContentGroup
 {
     private readonly PdfDocument _document;
 
+    /// <summary>Gets the document.</summary>
+    internal PdfDocument Document => _document;
+
     internal PdfOptionalContentGroup(PdfDocument document, CosDictionary dictionary, CosReference? reference, int ordinal)
     {
         _document = document;

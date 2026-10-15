@@ -140,6 +140,7 @@ public sealed class CopiedFeatureVersionTests
         { "<< /BM /Multiply /AIS true >>", "1.4", "transparency parameters (CA, ca, BM, AIS, TK) (ISO 32000-2 §11.6.3 and §11.6.4.4, Table 57) needs PDF 1.4" },
         { "<< /Filter /JBIG2Decode >> stream", "1.4", "JBIG2Decode compression (ISO 32000-2 §7.4.7, Table 6) needs PDF 1.4" },
         { "<< /Filter [/ASCII85Decode /JPXDecode] >> stream", "1.5", "JPXDecode compression (ISO 32000-2 §7.4.9, Table 6) needs PDF 1.5" },
+        { "<< /Type /OCMD /VE [/Or] >>", "1.6", "an optional content visibility expression (VE) (ISO 32000-2 §8.11.2.2, Table 97) needs PDF 1.6" },
         { "<< /Type /OCG /Name (Layer) >>", "1.5", "optional content (OCG, OCMD, OC, OCProperties) (ISO 32000-2 §8.11; Table 29) needs PDF 1.5" },
         { "<< /Type /XObject /Subtype /Form /BBox [0 0 1 1] /OC << /Type /OCMD /OCGs [] >> >> stream", "1.5", "optional content (OCG, OCMD, OC, OCProperties) (ISO 32000-2 §8.11; Table 29) needs PDF 1.5" },
         { "<< /Type /Annot /Subtype /Square /Rect [0 0 1 1] /CA 0.5 >>", "1.4", "transparency parameters (CA, ca, BM, AIS, TK) (ISO 32000-2 §11.6.3 and §11.6.4.4, Table 57) needs PDF 1.4" },

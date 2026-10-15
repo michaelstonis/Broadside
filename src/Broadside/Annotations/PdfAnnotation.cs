@@ -235,6 +235,30 @@ public abstract class PdfAnnotation
     /// <remarks>ISO 32000-2 §12.5.2, Table 166, and §8.11.3.3.</remarks>
     public CosDictionary? OptionalContent => ReadDictionary(AnnotationNames.OC);
 
+    /// <summary>Makes the annotation optional content of <paramref name="group"/> (<c>OC</c>): shown only while the group is ON.</summary>
+    /// <param name="group">A group of this document.</param>
+    /// <exception cref="ArgumentException"><paramref name="group"/> belongs to another document or is not an indirect object.</exception>
+    /// <remarks>ISO 32000-2 §12.5.2, Table 166 (<c>OC</c>, PDF 1.5), and §8.11.3.3. Records PDF 1.5. A mutation.</remarks>
+    public void SetOptionalContent(PdfOptionalContentGroup group)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+        OptionalContentWriter.Assign(Document, Dictionary, OptionalContentWriter.ReferenceOf(Document, group.Document, group.Reference, nameof(group)));
+    }
+
+    /// <summary>Makes the annotation optional content whose visibility <paramref name="membership"/> decides (<c>OC</c>).</summary>
+    /// <param name="membership">A membership dictionary of this document.</param>
+    /// <exception cref="ArgumentException"><paramref name="membership"/> belongs to another document or is not an indirect object.</exception>
+    /// <remarks>ISO 32000-2 §12.5.2, Table 166 (<c>OC</c>, PDF 1.5), and §8.11.3.3. Records PDF 1.5. A mutation.</remarks>
+    public void SetOptionalContent(PdfOptionalContentMembership membership)
+    {
+        ArgumentNullException.ThrowIfNull(membership);
+        OptionalContentWriter.Assign(Document, Dictionary, OptionalContentWriter.ReferenceOf(Document, membership.Document, membership.Reference, nameof(membership)));
+    }
+
+    /// <summary>Removes the annotation's <c>OC</c> entry: it is no longer optional content.</summary>
+    /// <remarks>ISO 32000-2 §12.5.2, Table 166 and §8.11.3.3. A mutation.</remarks>
+    public void RemoveOptionalContent() => OptionalContentWriter.Assign(Document, Dictionary, null);
+
     /// <summary>Gets the files associated with the annotation (<c>AF</c>, PDF 2.0); empty when there are none.</summary>
     /// <remarks>ISO 32000-2 §12.5.2, Table 166, and §14.13.9; read as <see cref="PdfDocument.ReadAssociatedFiles"/> reads any owner's.</remarks>
     public IReadOnlyList<PdfFileSpecification> AssociatedFiles => Document.ReadAssociatedFiles(Dictionary, DiagnosticReference);
