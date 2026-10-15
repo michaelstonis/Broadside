@@ -66,3 +66,91 @@ Broadside.Layout.Flow.TextAlignment.Left = 0 -> Broadside.Layout.Flow.TextAlignm
 Broadside.Layout.Flow.TextAlignment.Right = 2 -> Broadside.Layout.Flow.TextAlignment
 static Broadside.Layout.Flow.PageSetup.A4.get -> Broadside.Layout.Flow.PageSetup
 static Broadside.Layout.Flow.PageSetup.Letter.get -> Broadside.Layout.Flow.PageSetup
+Broadside.Layout.Flow.ImageBlock
+Broadside.Layout.Flow.ImageBlock.Alignment.get -> Broadside.Layout.Flow.TextAlignment
+Broadside.Layout.Flow.ImageBlock.Alignment.init -> void
+Broadside.Layout.Flow.ImageBlock.AlternateText.get -> string?
+Broadside.Layout.Flow.ImageBlock.AlternateText.init -> void
+Broadside.Layout.Flow.ImageBlock.Height.get -> double
+Broadside.Layout.Flow.ImageBlock.Image.get -> Broadside.Images.PdfImage!
+Broadside.Layout.Flow.ImageBlock.ImageBlock(Broadside.Images.PdfImage! image, double width, double height) -> void
+Broadside.Layout.Flow.ImageBlock.SpaceAfter.get -> double
+Broadside.Layout.Flow.ImageBlock.SpaceAfter.init -> void
+Broadside.Layout.Flow.ImageBlock.SpaceBefore.get -> double
+Broadside.Layout.Flow.ImageBlock.SpaceBefore.init -> void
+Broadside.Layout.Flow.ImageBlock.Width.get -> double
+Broadside.Layout.Flow.InlineElement
+Broadside.Layout.Flow.InlineElement.Language.get -> string?
+Broadside.Layout.Flow.InlineElement.Language.init -> void
+Broadside.Layout.Flow.InlineElement.StructureType.get -> string!
+Broadside.Layout.Flow.InlineElement.StructureType.init -> void
+Broadside.Layout.Flow.InlineImage
+Broadside.Layout.Flow.InlineImage.AlternateText.get -> string?
+Broadside.Layout.Flow.InlineImage.AlternateText.init -> void
+Broadside.Layout.Flow.InlineImage.Height.get -> double
+Broadside.Layout.Flow.InlineImage.Image.get -> Broadside.Images.PdfImage!
+Broadside.Layout.Flow.InlineImage.InlineImage(Broadside.Images.PdfImage! image, double width, double height) -> void
+Broadside.Layout.Flow.InlineImage.Width.get -> double
+Broadside.Layout.Flow.ListBlock
+Broadside.Layout.Flow.ListBlock.Add(Broadside.Layout.Flow.ListItem! item) -> Broadside.Layout.Flow.ListBlock!
+Broadside.Layout.Flow.ListBlock.Items.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.Flow.ListItem!>!
+Broadside.Layout.Flow.ListBlock.ListBlock(Broadside.Layout.Flow.ListStyle! style) -> void
+Broadside.Layout.Flow.ListBlock.Style.get -> Broadside.Layout.Flow.ListStyle!
+Broadside.Layout.Flow.ListItem
+Broadside.Layout.Flow.ListItem.Blocks.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.Flow.FlowBlock!>!
+Broadside.Layout.Flow.ListItem.ListItem(params System.Collections.Generic.IEnumerable<Broadside.Layout.Flow.FlowBlock!>! blocks) -> void
+Broadside.Layout.Flow.ListItem.ListItem(string! text, Broadside.Layout.Flow.ParagraphStyle! style) -> void
+Broadside.Layout.Flow.ListItem.Marker.get -> string?
+Broadside.Layout.Flow.ListItem.Marker.init -> void
+Broadside.Layout.Flow.ListNumbering
+Broadside.Layout.Flow.ListNumbering.Bullet = 0 -> Broadside.Layout.Flow.ListNumbering
+Broadside.Layout.Flow.ListNumbering.Decimal = 1 -> Broadside.Layout.Flow.ListNumbering
+Broadside.Layout.Flow.ListNumbering.LowerAlpha = 2 -> Broadside.Layout.Flow.ListNumbering
+Broadside.Layout.Flow.ListNumbering.LowerRoman = 4 -> Broadside.Layout.Flow.ListNumbering
+Broadside.Layout.Flow.ListNumbering.UpperAlpha = 3 -> Broadside.Layout.Flow.ListNumbering
+Broadside.Layout.Flow.ListNumbering.UpperRoman = 5 -> Broadside.Layout.Flow.ListNumbering
+Broadside.Layout.Flow.ListStyle
+Broadside.Layout.Flow.ListStyle.Bullet.get -> string!
+Broadside.Layout.Flow.ListStyle.FormatMarker(int number) -> string!
+Broadside.Layout.Flow.ListStyle.Indent.get -> double
+Broadside.Layout.Flow.ListStyle.ListStyle(Broadside.Layout.Flow.TextStyle! markerStyle) -> void
+Broadside.Layout.Flow.ListStyle.MarkerGap.get -> double
+Broadside.Layout.Flow.ListStyle.MarkerStyle.get -> Broadside.Layout.Flow.TextStyle!
+Broadside.Layout.Flow.ListStyle.Numbering.get -> Broadside.Layout.Flow.ListNumbering
+Broadside.Layout.Flow.ListStyle.Prefix.get -> string!
+Broadside.Layout.Flow.ListStyle.StartAt.get -> int
+Broadside.Layout.Flow.ListStyle.Suffix.get -> string!
+Broadside.Layout.Flow.ListStyle.WithBullet(string! bullet) -> Broadside.Layout.Flow.ListStyle!
+Broadside.Layout.Flow.ListStyle.WithIndent(double indent) -> Broadside.Layout.Flow.ListStyle!
+Broadside.Layout.Flow.ListStyle.WithMarkerGap(double gap) -> Broadside.Layout.Flow.ListStyle!
+Broadside.Layout.Flow.ListStyle.WithMarkerStyle(Broadside.Layout.Flow.TextStyle! markerStyle) -> Broadside.Layout.Flow.ListStyle!
+Broadside.Layout.Flow.ListStyle.WithNumbering(Broadside.Layout.Flow.ListNumbering numbering) -> Broadside.Layout.Flow.ListStyle!
+Broadside.Layout.Flow.ListStyle.WithPrefix(string! prefix) -> Broadside.Layout.Flow.ListStyle!
+Broadside.Layout.Flow.ListStyle.WithStartAt(int startAt) -> Broadside.Layout.Flow.ListStyle!
+Broadside.Layout.Flow.ListStyle.WithSuffix(string! suffix) -> Broadside.Layout.Flow.ListStyle!
+Broadside.Layout.Flow.Paragraph.Content.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.Flow.InlineElement!>!
+Broadside.Layout.Flow.Paragraph.Paragraph(System.Collections.Generic.IEnumerable<Broadside.Layout.Flow.InlineElement!>! content, Broadside.Layout.Flow.ParagraphStyle! style) -> void
+Broadside.Layout.Flow.ParagraphStyle.TextStyle.get -> Broadside.Layout.Flow.TextStyle!
+Broadside.Layout.Flow.TextRun
+Broadside.Layout.Flow.TextRun.Link.get -> System.Uri?
+Broadside.Layout.Flow.TextRun.Link.init -> void
+Broadside.Layout.Flow.TextRun.Style.get -> Broadside.Layout.Flow.TextStyle?
+Broadside.Layout.Flow.TextRun.Text.get -> string!
+Broadside.Layout.Flow.TextRun.TextRun(string! text) -> void
+Broadside.Layout.Flow.TextRun.TextRun(string! text, Broadside.Layout.Flow.TextStyle! style) -> void
+Broadside.Layout.Flow.TextStyle
+Broadside.Layout.Flow.TextStyle.Color.get -> Broadside.Graphics.PdfColor?
+Broadside.Layout.Flow.TextStyle.Font.get -> Broadside.Fonts.PdfCanvasFont!
+Broadside.Layout.Flow.TextStyle.FontSize.get -> double
+Broadside.Layout.Flow.TextStyle.Kerning.get -> bool
+Broadside.Layout.Flow.TextStyle.Shaping.get -> Broadside.Fonts.TextShaping!
+Broadside.Layout.Flow.TextStyle.StrikeThrough.get -> bool
+Broadside.Layout.Flow.TextStyle.TextStyle(Broadside.Fonts.PdfCanvasFont! font, double fontSize) -> void
+Broadside.Layout.Flow.TextStyle.Underline.get -> bool
+Broadside.Layout.Flow.TextStyle.WithColor(Broadside.Graphics.PdfColor? color) -> Broadside.Layout.Flow.TextStyle!
+Broadside.Layout.Flow.TextStyle.WithFont(Broadside.Fonts.PdfCanvasFont! font) -> Broadside.Layout.Flow.TextStyle!
+Broadside.Layout.Flow.TextStyle.WithFontSize(double fontSize) -> Broadside.Layout.Flow.TextStyle!
+Broadside.Layout.Flow.TextStyle.WithKerning(bool kerning) -> Broadside.Layout.Flow.TextStyle!
+Broadside.Layout.Flow.TextStyle.WithShaping(Broadside.Fonts.TextShaping! shaping) -> Broadside.Layout.Flow.TextStyle!
+Broadside.Layout.Flow.TextStyle.WithStrikeThrough(bool strikeThrough) -> Broadside.Layout.Flow.TextStyle!
+Broadside.Layout.Flow.TextStyle.WithUnderline(bool underline) -> Broadside.Layout.Flow.TextStyle!

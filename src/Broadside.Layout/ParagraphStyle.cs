@@ -29,7 +29,7 @@ public enum TextAlignment
 /// </remarks>
 public sealed class ParagraphStyle
 {
-    private TextShaping? _effective;
+    private TextStyle? _text;
 
     /// <summary>Creates a left-aligned style with line height 1.2, no indent and no paragraph spacing.</summary>
     /// <param name="font">The font, from the document the paragraph will be rendered into.</param>
@@ -144,7 +144,11 @@ public sealed class ParagraphStyle
     }
 
     /// <summary>The shaping text is measured and shown with: <see cref="Shaping"/> with <c>kern</c> as <see cref="Kerning"/> says.</summary>
-    internal TextShaping EffectiveShaping => _effective ??= Shaping.WithFeature("kern", Kerning);
+    /// <summary>
+    /// The paragraph's text style: its font, size, kerning and shaping, in the default colour without decorations. Inline runs
+    /// without a style of their own use it; <c>TextStyle.With*</c> derives run styles from it.
+    /// </summary>
+    public TextStyle TextStyle => _text ??= new TextStyle(Font, FontSize).WithKerning(Kerning).WithShaping(Shaping);
 
     private static double Positive(double value, string name) =>
         double.IsFinite(value) && value > 0 ? value : throw new ArgumentOutOfRangeException(name, value, "The value shall be positive and finite.");
