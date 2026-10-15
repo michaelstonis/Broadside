@@ -3,28 +3,35 @@ using static Broadside.Fonts.OpenType.LayoutData;
 namespace Broadside.Fonts.OpenType;
 
 /// <summary>
-/// A font's <c>GSUB</c> table: its script, feature and lookup lists, with every lookup's type, flags and subtables read once
-/// (extension subtables, type 7, resolved to the subtable they point at). The subtables themselves are read in place while shaping.
+/// A font's <c>GSUB</c> or <c>GPOS</c> table: its script, feature and lookup lists, with every lookup's type, flags and subtables
+/// read once (extension subtables, GSUB type 7 and GPOS type 9, resolved to the subtable they point at). The subtables themselves
+/// are read in place while shaping.
 /// </summary>
 /// <remarks>
-/// OpenType specification, "GSUB — Glyph Substitution Table" (versions 1.0 and 1.1; feature variations are not applied) and
-/// "OpenType Layout Common Table Formats" (ScriptList, LangSys, FeatureList, LookupList). Offsets that point outside the table
-/// make the record absent; nothing is trusted to size an allocation beyond what the table's bytes can hold.
+/// OpenType specification, "GSUB — Glyph Substitution Table" and "GPOS — Glyph Positioning Table" (versions 1.0 and 1.1; feature
+/// variations are not applied) and "OpenType Layout Common Table Formats" (ScriptList, LangSys, FeatureList, LookupList). Both
+/// tables share that header. Offsets that point outside the table make the record absent; nothing is trusted to size an allocation
+/// beyond what the table's bytes can hold.
 /// </remarks>
-internal sealed class GsubTable
+internal sealed class LayoutTable
 {
-    private const int ExtensionType = 7;
+    private const int SubstitutionExtension = 7;
+    private const int PositioningExtension = 9;
 
     private readonly int _scriptList;
     private readonly int _featureList;
 
-    private GsubTable(ReadOnlyMemory<byte> data, int scriptList, int featureList, Lookup[] lookups)
+    private LayoutTable(ReadOnlyMemory<byte> data, int scriptList, int featureList, Lookup[] lookups, bool positioning)
     {
         Data = data;
         _scriptList = scriptList;
         _featureList = featureList;
         Lookups = lookups;
+        IsPositioning = positioning;
     }
+
+    /// <summary>Gets a value indicating whether this is a <c>GPOS</c> table (else <c>GSUB</c>).</summary>
+    public bool IsPositioning { get; }
 
     /// <summary>Gets the table's bytes.</summary>
     public ReadOnlyMemory<byte> Data { get; }
@@ -32,8 +39,13 @@ internal sealed class GsubTable
     /// <summary>Gets the lookups of the LookupList, in order.</summary>
     public Lookup[] Lookups { get; }
 
-    /// <summary>Reads the table, or returns <see langword="null"/> when it is not a GSUB table of major version 1.</summary>
-    public static GsubTable? Read(ReadOnlyMemory<byte> data)
+    /// <summary>Reads a <c>GSUB</c> table, or returns <see langword="null"/> when it is not one of major version 1.</summary>
+    public static LayoutTable? Read(ReadOnlyMemory<byte> data) => Read(data, positioning: false);
+
+    /// <summary>Reads a <c>GPOS</c> table, or returns <see langword="null"/> when it is not one of major version 1.</summary>
+    public static LayoutTable? ReadPositioning(ReadOnlyMemory<byte> data) => Read(data, positioning: true);
+
+    private static LayoutTable? Read(ReadOnlyMemory<byte> data, bool positioning)
     {
         ReadOnlySpan<byte> span = data.Span;
         if (span.Length < 10 || U16(span, 0) != 1)
@@ -46,10 +58,10 @@ internal sealed class GsubTable
         var lookups = new Lookup[Math.Max(0, count)];
         for (int index = 0; index < lookups.Length; index++)
         {
-            lookups[index] = ReadLookup(span, Offset16(span, lookupList, lookupList + 2 + (index * 2)));
+            lookups[index] = ReadLookup(span, Offset16(span, lookupList, lookupList + 2 + (index * 2)), positioning ? PositioningExtension : SubstitutionExtension);
         }
 
-        return new GsubTable(data, Offset16(span, 0, 4), Offset16(span, 0, 6), lookups);
+        return new LayoutTable(data, Offset16(span, 0, 4), Offset16(span, 0, 6), lookups, positioning);
     }
 
     /// <summary>The offset of the Script table tagged <paramref name="tag"/>, or -1.</summary>
@@ -136,6 +148,23 @@ internal sealed class GsubTable
         }
     }
 
+    /// <summary>Whether the FeatureList has a feature tagged <paramref name="tag"/> with at least one lookup, in any script.</summary>
+    public bool HasFeature(uint tag)
+    {
+        ReadOnlySpan<byte> span = Data.Span;
+        int count = _featureList < 0 ? 0 : U16(span, _featureList);
+        for (int index = 0; index < count && _featureList + 8 + (index * 6) <= span.Length; index++)
+        {
+            int record = _featureList + 2 + (index * 6);
+            if (U32(span, record) == tag && Offset16(span, _featureList, record + 4) is var table and >= 0 && U16(span, table + 2) > 0)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private void AddFeatureLookups(ReadOnlySpan<byte> span, int featureIndex, int featureCount, uint tag, List<int> lookups)
     {
         int record = _featureList + 2 + (featureIndex * 6);
@@ -169,12 +198,12 @@ internal sealed class GsubTable
             return subtable;
         }
 
-        // Extension Substitution Format 1: the 32-bit offset is relative to the extension subtable.
+        // Extension Substitution/Positioning Format 1: the 32-bit offset is relative to the extension subtable.
         long target = subtable + (long)U32(span, subtable + 4);
         return U16(span, subtable) == 1 && U16(span, subtable + 2) == lookup.Type && target > subtable && target < span.Length ? (int)target : -1;
     }
 
-    private static Lookup ReadLookup(ReadOnlySpan<byte> span, int offset)
+    private static Lookup ReadLookup(ReadOnlySpan<byte> span, int offset, int extensionType)
     {
         if (offset < 0)
         {
@@ -185,7 +214,7 @@ internal sealed class GsubTable
         int flag = U16(span, offset + 2);
         int count = Math.Max(0, Math.Min(U16(span, offset + 4), (span.Length - offset - 6) / 2));
         int markSet = (flag & LookupFlags.UseMarkFilteringSet) != 0 ? U16(span, offset + 6 + (count * 2)) : 0;
-        bool extension = type == ExtensionType;
+        bool extension = type == extensionType;
         if (extension)
         {
             // Every extension subtable of a lookup shall point at the same type; the first one says which.
@@ -193,24 +222,27 @@ internal sealed class GsubTable
             type = first < 0 || U16(span, first) != 1 ? 0 : U16(span, first + 2);
         }
 
-        return type is >= 1 and <= 8 and not ExtensionType ? new Lookup(offset, type, flag, markSet, count, extension) : default;
+        return type is >= 1 and <= 8 && type != extensionType ? new Lookup(offset, type, flag, markSet, count, extension) : default;
     }
 }
 
 /// <summary>
-/// One lookup of a GSUB LookupList: where it is, its type (1–6 or 8, extensions resolved; 0 for an unusable one), flags and number
-/// of subtables, which <see cref="GsubTable.Subtable"/> finds in place.
+/// One lookup of a GSUB or GPOS LookupList: where it is, its type (GSUB 1–6 or 8, GPOS 1–8, extensions resolved; 0 for an unusable one), flags and number
+/// of subtables, which <see cref="LayoutTable.Subtable"/> finds in place.
 /// </summary>
 /// <param name="Offset">The absolute offset of the Lookup table.</param>
 /// <param name="Type">The lookup type.</param>
 /// <param name="Flag">The LookupFlag bits.</param>
 /// <param name="MarkFilteringSet">The mark glyph set of <see cref="LookupFlags.UseMarkFilteringSet"/>.</param>
 /// <param name="SubtableCount">The number of subtables.</param>
-/// <param name="Extension">Whether the subtables are extension subtables (type 7) pointing at subtables of <paramref name="Type"/>.</param>
+/// <param name="Extension">Whether the subtables are extension subtables (GSUB type 7, GPOS type 9) pointing at subtables of <paramref name="Type"/>.</param>
 internal readonly record struct Lookup(int Offset, int Type, int Flag, int MarkFilteringSet, int SubtableCount, bool Extension);
 /// <summary>The LookupFlag bits (OpenType specification, "Lookup Table").</summary>
 internal static class LookupFlags
 {
+    /// <summary>GPOS cursive attachment: the last glyph of a cursive chain is the one on the baseline (right-to-left chains).</summary>
+    public const int RightToLeft = 0x0001;
+
     /// <summary>Skip base glyphs.</summary>
     public const int IgnoreBaseGlyphs = 0x0002;
 

@@ -19,16 +19,16 @@ internal static class GsubTarget
     public static void Target(ReadOnlySpan<byte> data)
     {
         byte[] bytes = data.ToArray();
-        GsubTable? gsub;
+        LayoutTable? gsub;
         GdefTable? gdef;
         if (SfntFile.Open(bytes, new FontProgramContext()) is { } sfnt && sfnt.TryGetTable(SfntFile.Tag("GSUB"), out ReadOnlyMemory<byte> table))
         {
-            gsub = GsubTable.Read(table);
+            gsub = LayoutTable.Read(table);
             gdef = sfnt.TryGetTable(SfntFile.Tag("GDEF"), out ReadOnlyMemory<byte> definitions) ? GdefTable.Read(definitions) : null;
         }
         else
         {
-            gsub = GsubTable.Read((byte[])[0, 1, 0, 0, .. bytes]);
+            gsub = LayoutTable.Read((byte[])[0, 1, 0, 0, .. bytes]);
             gdef = GdefTable.Read((byte[])[0, 1, 0, 2, .. bytes]);
         }
 
@@ -46,7 +46,7 @@ internal static class GsubTarget
         }
     }
 
-    private static void Run(GsubTable gsub, GdefTable? gdef, ShapePlan plan, byte[] bytes, bool ascending)
+    private static void Run(LayoutTable gsub, GdefTable? gdef, ShapePlan plan, byte[] bytes, bool ascending)
     {
         GlyphBuffer buffer = GlyphBuffer.Rent();
         int count = ascending ? 48 : Math.Min(bytes.Length / 2, 48);
@@ -59,7 +59,7 @@ internal static class GsubTarget
 
         int bound = Math.Max(64, buffer.Length * 32);
         buffer.MaxLength = bound;
-        var applier = new GsubApplier(gsub, gdef, buffer, Math.Max(1024, buffer.Length * 64 * Math.Max(1, plan.Stages.Length)));
+        var applier = new LayoutApplier(gsub, gdef, buffer, Math.Max(1024, buffer.Length * 64 * Math.Max(1, plan.Stages.Length)));
         foreach (LookupStep[] stage in plan.Stages)
         {
             foreach (LookupStep step in stage)

@@ -67,7 +67,7 @@ public sealed partial class PdfCanvas
         }
 
         _writer.Name(_resources.Name(CanvasResources.Font, "F", font.Reference)).Number(size).Operator("Tf");
-        _font = new FontState(font, size);
+        _font = _font with { Font = font, Size = size };
     }
 
     /// <summary>Sets the character spacing (<c>Tc</c>), added to every glyph's displacement.</summary>
@@ -103,7 +103,11 @@ public sealed partial class PdfCanvas
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="rise"/> is not finite.</exception>
     /// <exception cref="InvalidOperationException">A path is being built, or the canvas is disposed.</exception>
     /// <remarks>ISO 32000-2 §9.3.7 and Table 103.</remarks>
-    public void SetTextRise(double rise) => SetTextState(rise, nameof(rise), "Ts");
+    public void SetTextRise(double rise)
+    {
+        SetTextState(rise, nameof(rise), "Ts");
+        _font = _font with { Rise = rise };
+    }
 
     /// <summary>Sets the text rendering mode (<c>Tr</c>): fill, stroke, invisible, or add the glyphs to the clipping path.</summary>
     /// <param name="mode">The mode.</param>
@@ -238,7 +242,9 @@ public sealed partial class PdfCanvas
     /// <exception cref="InvalidOperationException">No text object is open, no font is set, or the canvas is disposed.</exception>
     /// <remarks>
     /// ISO 32000-2 §9.4.3, Table 107 (<c>TJ</c>), and §9.4.4: each glyph is written as its character code and moves the text position
-    /// by its shaped advance (a <c>TJ</c> number makes up the difference from its width). The text each glyph shows is mapped in the
+    /// by its shaped advance (a <c>TJ</c> number makes up the difference from its width); a glyph placed off its pen position (a
+    /// mark on its base) is moved there by <c>TJ</c> numbers around it, and one placed above or below the baseline is shown with the
+    /// text rise (§9.3.7, <c>Ts</c>) raised by its offset and then restored. The text each glyph shows is mapped in the
     /// font's <c>ToUnicode</c> CMap (§9.10.3; a ligature maps to all its characters). Where that cannot give the text back exactly
     /// (a right-to-left run, whose glyphs are written in visual order; a character shown by several glyphs; a glyph already mapped to
     /// other text), the glyphs are enclosed in a <c>Span</c> marked-content sequence whose <c>ActualText</c> is the text (§14.9.4,
@@ -259,7 +265,9 @@ public sealed partial class PdfCanvas
             throw new ArgumentException($"There shall be one adjustment per glyph of the shaped text ({shaped.Length}), not {adjustments.Length}.", nameof(adjustments));
         }
 
+        // A glyph drawn off its pen position (x offset) is moved there by the number before it and back by the number after it.
         var glyphs = new List<(CanvasGlyph Glyph, double Adjustment)>(shaped.Length);
+        bool raised = false;
         for (int index = 0; index < shaped.Length; index++)
         {
             double extra = adjustments.IsEmpty ? 0 : adjustments[index];
@@ -269,11 +277,51 @@ public sealed partial class PdfCanvas
             }
 
             CanvasGlyph glyph = text.CanvasGlyphs[index];
-            glyphs.Add((glyph, Math.Round(glyph.Width - shaped[index].Advance, 9) + extra));
+            double next = index + 1 < shaped.Length ? shaped[index + 1].XOffset : 0;
+            glyphs.Add((glyph, Math.Round(glyph.Width - shaped[index].Advance + shaped[index].XOffset - next, 9) + extra));
+            raised |= Math.Round(shaped[index].YOffset, 4) != 0;
         }
 
         bool exact = Register(font, text) && !(text.IsRightToLeft && shaped.Length > 1);
-        WriteShown(font, glyphs, "Tj", !exact, text.Text);
+        double leading = shaped.IsEmpty ? 0 : -Math.Round(shaped[0].XOffset, 9);
+        if (!raised)
+        {
+            BeginActualText(!exact, text.Text);
+            WriteShown(font, glyphs, "Tj", leading);
+            EndActualText(!exact);
+            return;
+        }
+
+        // A glyph drawn above or below the baseline (y offset) is shown with the text rise raised by it (Ts), in runs of equal offset.
+        BeginActualText(!exact, text.Text);
+        double rise = _font.Rise;
+        int start = 0;
+        while (start < shaped.Length)
+        {
+            double offset = Math.Round(shaped[start].YOffset, 4);
+            int end = start + 1;
+            while (end < shaped.Length && Math.Round(shaped[end].YOffset, 4) == offset)
+            {
+                end++;
+            }
+
+            double target = _font.Rise + (offset * _font.Size / 1000);
+            if (target != rise)
+            {
+                _writer.Number(target).Operator("Ts");
+                rise = target;
+            }
+
+            WriteShown(font, glyphs.GetRange(start, end - start), "Tj", start == 0 ? leading : 0);
+            start = end;
+        }
+
+        if (rise != _font.Rise)
+        {
+            _writer.Number(_font.Rise).Operator("Ts");
+        }
+
+        EndActualText(!exact);
     }
 
     /// <summary>Moves to the next line and shows text there (<c>'</c>, the same as <see cref="MoveToNextLine"/> then <see cref="ShowText(ReadOnlySpan{char}, bool)"/>).</summary>
@@ -403,10 +451,13 @@ public sealed partial class PdfCanvas
         EndActualText(replaced);
     }
 
-    /// <summary>Writes the glyphs as one string and <paramref name="op"/>, or, when any adjustment is not 0, as a <c>TJ</c> array.</summary>
-    private void WriteShown(PdfCanvasFont font, List<(CanvasGlyph Glyph, double Adjustment)> glyphs, string op)
+    /// <summary>
+    /// Writes the glyphs as one string and <paramref name="op"/>, or, when any adjustment (or, for <c>Tj</c>, the
+    /// <paramref name="leading"/> number before the first glyph) is not 0, as a <c>TJ</c> array.
+    /// </summary>
+    private void WriteShown(PdfCanvasFont font, List<(CanvasGlyph Glyph, double Adjustment)> glyphs, string op, double leading = 0)
     {
-        bool adjusted = false;
+        bool adjusted = op == "Tj" && Math.Round(leading, 4) != 0;
         foreach ((CanvasGlyph _, double adjustment) in glyphs)
         {
             adjusted |= Math.Round(adjustment, 4) != 0;
@@ -420,6 +471,11 @@ public sealed partial class PdfCanvas
         else
         {
             _writer.BeginArray();
+            if (Math.Round(leading, 4) != 0)
+            {
+                _writer.Number(leading);
+            }
+
             int start = 0;
             for (int index = 0; index < glyphs.Count; index++)
             {
@@ -492,5 +548,5 @@ public sealed partial class PdfCanvas
     }
 
     /// <summary>The font and size of the text state (§9.3.1), saved and restored with the graphics state.</summary>
-    private readonly record struct FontState(PdfCanvasFont? Font, double Size);
+    private readonly record struct FontState(PdfCanvasFont? Font, double Size, double Rise = 0);
 }

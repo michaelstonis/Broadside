@@ -9,11 +9,13 @@ namespace Broadside.Fonts;
 /// </summary>
 /// <remarks>
 /// <para>
-/// OpenType specification, "GSUB — Glyph Substitution Table" and "OpenType Layout Common Table Formats" (ScriptList, LangSys,
+/// OpenType specification, "GSUB — Glyph Substitution Table", "GPOS — Glyph Positioning Table", "kern" and "OpenType Layout Common Table Formats" (ScriptList, LangSys,
 /// FeatureList), and the Feature Tags registry. Shaping applies the font's <c>GSUB</c> lookups for the default features
 /// <c>ccmp</c>, <c>locl</c>, <c>rlig</c>, <c>rclt</c>, <c>calt</c>, <c>liga</c> and <c>clig</c>, and, for Arabic, the joining
 /// forms <c>isol</c>, <c>fina</c>, <c>medi</c> and <c>init</c> chosen by the Unicode cursive joining rules; <c>kern</c> (also on
-/// by default) adds the font's pair kerning. <see cref="WithFeature"/> turns any of these off or another feature (such as
+/// by default) adds the font's pair kerning (its <c>GPOS</c> pair adjustments, else its <c>kern</c> table), and the <c>GPOS</c>
+/// features <c>mark</c>, <c>mkmk</c>, <c>curs</c>, <c>dist</c>, <c>abvm</c> and <c>blwm</c> (on by default) place marks on their
+/// bases and join cursive glyphs. <see cref="WithFeature"/> turns any of these off or another feature (such as
 /// <c>smcp</c>, <c>dlig</c> or <c>salt</c>, taking its first alternate) on.
 /// </para>
 /// <para>
@@ -24,7 +26,7 @@ namespace Broadside.Fonts;
 /// </remarks>
 public sealed class TextShaping : IEquatable<TextShaping>
 {
-    private static readonly string[] DefaultFeatures = ["ccmp", "locl", "rlig", "rclt", "calt", "liga", "clig", "kern", "isol", "fina", "medi", "init"];
+    private static readonly string[] DefaultFeatures = ["ccmp", "locl", "rlig", "rclt", "calt", "liga", "clig", "kern", "isol", "fina", "medi", "init", "mark", "mkmk", "curs", "dist", "abvm", "blwm"];
 
     private readonly SortedDictionary<string, bool> _features;
     private readonly int _hash;

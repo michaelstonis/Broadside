@@ -3,17 +3,19 @@ using static Broadside.Fonts.OpenType.LayoutData;
 namespace Broadside.Fonts.OpenType;
 
 /// <summary>
-/// Applies GSUB lookups to a <see cref="GlyphBuffer"/>: single (1), multiple (2), alternate (3), ligature (4), contextual (5) and
-/// chained contextual (6) substitution in formats 1–3, extension (7, resolved by <see cref="GsubTable"/>) and reverse chaining
-/// contextual single substitution (8). Subtables are read in place; nothing allocates.
+/// Applies GSUB or GPOS lookups to a <see cref="GlyphBuffer"/>. GSUB: single (1), multiple (2), alternate (3), ligature (4),
+/// contextual (5) and chained contextual (6) substitution in formats 1–3, extension (7, resolved by <see cref="LayoutTable"/>) and
+/// reverse chaining contextual single substitution (8); GPOS: lookup types 1–9 (LayoutApplier.Positioning.cs). Subtables are read
+/// in place; nothing allocates.
 /// </summary>
 /// <remarks>
-/// OpenType specification, "GSUB — Glyph Substitution Table", lookup types 1–8, and "Lookup Table" (LookupFlag: glyphs a lookup
-/// skips while matching). A lookup applies to a glyph whose feature mask it shares; the glyphs of a context are matched whatever
-/// their mask, a ligature's components only when they share it. Nested lookups go at most <see cref="MaxNesting"/> deep, and a
-/// budget of subtable applications bounds the work a damaged or hostile table can cause.
+/// OpenType specification, "GSUB — Glyph Substitution Table", lookup types 1–8, "GPOS — Glyph Positioning Table", lookup types
+/// 1–9, and "Lookup Table" (LookupFlag: glyphs a lookup skips while matching). A lookup applies to a glyph whose feature mask it
+/// shares; the glyphs of a context are matched whatever their mask, a ligature's components only when they share it. Nested
+/// lookups go at most <see cref="MaxNesting"/> deep, and a budget of subtable applications bounds the work a damaged or hostile
+/// table can cause.
 /// </remarks>
-internal ref struct GsubApplier
+internal ref partial struct LayoutApplier
 {
     /// <summary>The deepest nesting of contextual lookups applied.</summary>
     public const int MaxNesting = 6;
@@ -22,18 +24,31 @@ internal ref struct GsubApplier
     public const int MaxContext = 64;
 
     private readonly ReadOnlySpan<byte> _data;
-    private readonly GsubTable _table;
+    private readonly LayoutTable _table;
     private readonly GdefTable? _gdef;
     private readonly GlyphBuffer _buffer;
+    private readonly bool _positioning;
+    private readonly double _scale;
+    private readonly bool _rightToLeft;
     private int _budget;
 
-    public GsubApplier(GsubTable table, GdefTable? gdef, GlyphBuffer buffer, int budget)
+    /// <summary>Creates an applier of <paramref name="table"/>'s lookups.</summary>
+    /// <param name="table">The GSUB or GPOS table.</param>
+    /// <param name="gdef">The glyph definitions, or <see langword="null"/>.</param>
+    /// <param name="buffer">The run.</param>
+    /// <param name="budget">The most subtable applications and glyph steps the lookups may take.</param>
+    /// <param name="scale">For GPOS: thousandths of the font size per font design unit.</param>
+    /// <param name="rightToLeft">For GPOS: whether the run is right to left (cursive attachment and mark offsets).</param>
+    public LayoutApplier(LayoutTable table, GdefTable? gdef, GlyphBuffer buffer, int budget, double scale = 1, bool rightToLeft = false)
     {
         _data = table.Data.Span;
         _table = table;
         _gdef = gdef;
         _buffer = buffer;
         _budget = budget;
+        _positioning = table.IsPositioning;
+        _scale = scale;
+        _rightToLeft = rightToLeft;
     }
 
     private enum Match
@@ -47,7 +62,7 @@ internal ref struct GsubApplier
     public void Apply(int lookupIndex, uint mask)
     {
         Lookup lookup = _table.Lookups[lookupIndex];
-        if (lookup.Type == 8)
+        if (lookup.Type == 8 && !_positioning)
         {
             for (int index = _buffer.Length - 1; index >= 0 && _budget > 0; index--)
             {
@@ -90,7 +105,7 @@ internal ref struct GsubApplier
                 continue;
             }
 
-            bool applied = lookup.Type switch
+            bool applied = _positioning ? Position(lookup, subtable, index, depth, out next) : lookup.Type switch
             {
                 1 => Single(subtable, index, out next),
                 2 => Multiple(subtable, index, out next),
@@ -246,6 +261,7 @@ internal ref struct GsubApplier
         head.Glyph = ligature;
         head.Cluster = cluster;
         head.Class = _gdef?.GlyphClass(ligature) is int known and > 0 ? known : GdefTable.LigatureGlyph;
+        head.Component = positions.Length;
         int write = first + 1;
         int component = 1;
         for (int index = first + 1; index <= last; index++)
@@ -258,6 +274,7 @@ internal ref struct GsubApplier
 
             ShapingGlyph kept = _buffer[index];
             kept.Cluster = cluster;
+            kept.Component = component;
             _buffer[write++] = kept;
         }
 
@@ -489,7 +506,7 @@ internal ref struct GsubApplier
             int at = records + (record * 4);
             int sequenceIndex = U16(_data, at);
             int lookupIndex = U16(_data, at + 2);
-            if (sequenceIndex >= inputCount || lookupIndex >= _table.Lookups.Length || _table.Lookups[lookupIndex].Type is 0 or 8
+            if (sequenceIndex >= inputCount || lookupIndex >= _table.Lookups.Length || _table.Lookups[lookupIndex].Type == 0 || (_table.Lookups[lookupIndex].Type == 8 && !_positioning)
                 || positions[sequenceIndex] >= _buffer.Length)
             {
                 continue;

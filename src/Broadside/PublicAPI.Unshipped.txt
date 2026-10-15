@@ -4425,7 +4425,11 @@ Broadside.Fonts.ShapedGlyph.Cluster.init -> void
 Broadside.Fonts.ShapedGlyph.Code.get -> int
 Broadside.Fonts.ShapedGlyph.Code.init -> void
 Broadside.Fonts.ShapedGlyph.ShapedGlyph() -> void
-Broadside.Fonts.ShapedGlyph.ShapedGlyph(int Code, int Cluster, double Advance) -> void
+Broadside.Fonts.ShapedGlyph.ShapedGlyph(int Code, int Cluster, double Advance, double XOffset, double YOffset) -> void
+Broadside.Fonts.ShapedGlyph.XOffset.get -> double
+Broadside.Fonts.ShapedGlyph.XOffset.init -> void
+Broadside.Fonts.ShapedGlyph.YOffset.get -> double
+Broadside.Fonts.ShapedGlyph.YOffset.init -> void
 Broadside.Fonts.ShapedText
 Broadside.Fonts.ShapedText.Font.get -> Broadside.Fonts.PdfCanvasFont!
 Broadside.Fonts.ShapedText.Glyphs.get -> System.ReadOnlySpan<Broadside.Fonts.ShapedGlyph>
