@@ -38,7 +38,7 @@ namespace Broadside.Layout;
 /// reused from page to page.
 /// </para>
 /// </remarks>
-internal sealed class GeometryLayout
+internal sealed partial class GeometryLayout
 {
     /// <summary>A word gap, in line heights, beyond which a line splits into two fragments.</summary>
     internal const double FragmentGap = 1.5;
@@ -95,7 +95,7 @@ internal sealed class GeometryLayout
     private readonly List<(double Low, double High)> _gutters = [];
     private readonly List<(double Low, double High)> _unionGutters = [];
     private readonly List<int> _order = [];
-    private readonly List<int> _paragraphs = [];
+    private readonly List<Paragraph> _paragraphs = [];
     private readonly StringBuilder _key = new();
     private int[] _items = [];
     private int[] _scratch = [];
@@ -124,6 +124,8 @@ internal sealed class GeometryLayout
         detector._order.Clear();
         detector._paragraphs.Clear();
         detector._fragments = [];
+        detector._styles.Clear();
+        detector._bold.Clear();
         _cached = detector;
     }
 
@@ -157,6 +159,11 @@ internal sealed class GeometryLayout
                     bool artifact = (glyphs[word.GlyphStart].Flags & TextGlyphFlags.Artifact) != 0;
                     if (open && artifact == current.Artifact && (!horizontal || bounds.Left - current.Right <= FragmentGap * lineHeight))
                     {
+                        if (current.MarkerEnd > 0 && double.IsNaN(current.BodyLeft))
+                        {
+                            current.BodyLeft = bounds.Left;
+                        }
+
                         current.Left = Math.Min(current.Left, bounds.Left);
                         current.Bottom = Math.Min(current.Bottom, bounds.Bottom);
                         current.Right = Math.Max(current.Right, bounds.Right);
@@ -178,7 +185,13 @@ internal sealed class GeometryLayout
                         Top = bounds.Top,
                         Horizontal = horizontal,
                         Artifact = artifact,
+                        BodyLeft = double.NaN,
                     };
+                    if (horizontal && !artifact)
+                    {
+                        FindMarker(ref current, word, glyphs, text);
+                    }
+
                     open = true;
                 }
 
@@ -249,6 +262,12 @@ internal sealed class GeometryLayout
         foreach (Analysis analysis in _pages)
         {
             LayOut(analysis);
+            Describe(analysis);
+        }
+
+        Classify();
+        foreach (Analysis analysis in _pages)
+        {
             pages[analysis.Slot] = Emit(analysis, root);
         }
     }
@@ -428,7 +447,7 @@ internal sealed class GeometryLayout
         {
             if (!_fragments[index].Horizontal && !_fragments[index].Artifact)
             {
-                _paragraphs.Add(_order.Count);
+                _paragraphs.Add(new Paragraph(_order.Count) { Rows = 1 });
                 _order.Add(index);
             }
         }
@@ -498,11 +517,13 @@ internal sealed class GeometryLayout
         items.Sort(new ByLeft(_fragments));
         double gutter = Gutter * _height;
         double right = _fragments[items[0]].Right;
+        bool markers = _fragments[items[0]].IsMarkerOnly;
         bool any = false;
         for (int index = 1; index < items.Length && !any; index++)
         {
-            any = _fragments[items[index]].Left - right >= gutter;
+            any = _fragments[items[index]].Left - right >= gutter && !markers;
             right = Math.Max(right, _fragments[items[index]].Right);
+            markers &= _fragments[items[index]].IsMarkerOnly;
         }
 
         if (!any || !Columnar(items))
@@ -512,16 +533,19 @@ internal sealed class GeometryLayout
 
         int start = 0;
         right = _fragments[items[0]].Right;
+        markers = _fragments[items[0]].IsMarkerOnly;
         for (int index = 1; index < items.Length; index++)
         {
             ref readonly Fragment fragment = ref _fragments[items[index]];
-            if (fragment.Left - right >= gutter)
+            if (fragment.Left - right >= gutter && !markers)
             {
                 Cut(items[start..index], depth + 1, columnsFirst: false);
                 start = index;
+                markers = true;
             }
 
             right = Math.Max(right, fragment.Right);
+            markers &= fragment.IsMarkerOnly;
         }
 
         Cut(items[start..], depth + 1, columnsFirst: false);
@@ -667,15 +691,18 @@ internal sealed class GeometryLayout
         items.CopyTo(sorted);
         sorted.Sort(new ByLeft(_fragments));
         double right = _fragments[sorted[0]].Right;
+        bool markers = _fragments[sorted[0]].IsMarkerOnly;
         for (int index = 1; index < sorted.Length; index++)
         {
             ref readonly Fragment fragment = ref _fragments[sorted[index]];
-            if (fragment.Left - right >= Gutter * _height)
+            if (fragment.Left - right >= Gutter * _height && !markers)
             {
                 gutters.Add((right, fragment.Left));
+                markers = true;
             }
 
             right = Math.Max(right, fragment.Right);
+            markers &= fragment.IsMarkerOnly;
         }
     }
 
@@ -751,25 +778,47 @@ internal sealed class GeometryLayout
 
         bool indents = rows.Length >= 2 && onMargin * 2 >= rows.Length;
         bool shortLines = rows.Length >= 3 && justified * 5 >= (rows.Length - 1) * 3;
+        int previousCount = 0;
+        double body = double.NaN;
         for (int index = 0; index < rows.Length; index++)
         {
             Row row = rows[index];
-            if (index == 0 || StartsParagraph(rows[index - 1], row, margin, edge, lineGap, indents, shortLines))
+
+            // A list item's marker set apart by a gutter-wide gap is a fragment of its own that does not make the row a form row.
+            ref readonly Fragment head = ref _fragments[items[row.Start]];
+            bool markerOnly = head.IsMarkerOnly;
+            int count = markerOnly && row.Count > 1 ? row.Count - 1 : row.Count;
+            bool item = head.MarkerEnd > 0 && (!markerOnly || row.Count > 1);
+            if (index == 0 || item || (!ContinuesItem(rows[index - 1], row, previousCount, count, body, margin, edge, lineGap)
+                && StartsParagraph(rows[index - 1], row, previousCount, count, margin, edge, lineGap, indents, shortLines)))
             {
-                _paragraphs.Add(_order.Count);
+                body = !item ? double.NaN : markerOnly ? _fragments[items[row.Start + 1]].Left : head.BodyLeft;
+                _paragraphs.Add(new Paragraph(_order.Count) { Body = body });
             }
 
-            foreach (int item in items.Slice(row.Start, row.Count))
+            ref Paragraph paragraph = ref CollectionsMarshal.AsSpan(_paragraphs)[^1];
+            paragraph.Rows++;
+            paragraph.Tabular |= count > 1;
+            previousCount = count;
+            foreach (int fragment in items.Slice(row.Start, row.Count))
             {
-                _order.Add(item);
+                _order.Add(fragment);
             }
         }
     }
 
-    private bool StartsParagraph(in Row previous, in Row row, double margin, double edge, double lineGap, bool indents, bool shortLines)
+    /// <summary>Whether a row continues the list item above: it starts where the item's body does, with no break in spacing or size.</summary>
+    private bool ContinuesItem(in Row previous, in Row row, int previousCount, int count, double body, double margin, double edge, double lineGap) =>
+        !double.IsNaN(body) && previousCount == 1 && count == 1
+        && Math.Abs(row.Left - body) <= Margin * _height
+        && previous.Right - margin >= ShortRow * (edge - margin)
+        && previous.Bottom - row.Top <= lineGap + (ParagraphGap * _height)
+        && Math.Abs(row.Height - previous.Height) <= SizeChange * Math.Max(row.Height, previous.Height);
+
+    private bool StartsParagraph(in Row previous, in Row row, int previousCount, int count, double margin, double edge, double lineGap, bool indents, bool shortLines)
     {
         double indent = row.Left - margin;
-        return previous.Count > 1 || row.Count > 1
+        return previousCount > 1 || count > 1
             || previous.Right - margin < ShortRow * (edge - margin)
             || previous.Bottom - row.Top > lineGap + (ParagraphGap * _height)
             || Math.Abs(row.Height - previous.Height) > SizeChange * Math.Max(row.Height, previous.Height)
@@ -777,79 +826,91 @@ internal sealed class GeometryLayout
             || (shortLines && edge - previous.Right >= ShortLine * _height && indent <= Margin * _height);
     }
 
-    /// <summary>Rebuilds the page's text in reading order and adds a paragraph node per paragraph.</summary>
+    /// <summary>Rebuilds the page's text in reading order and adds its headings, paragraphs and lists to <paramref name="root"/>.</summary>
     private LayoutPage Emit(Analysis analysis, LayoutNode root)
     {
+        _fragments = analysis.Fragments;
+        int[] order = analysis.Order;
+        Paragraph[] paragraphs = analysis.Paragraphs;
         TextPage source = analysis.Text;
         ReadOnlySpan<TextGlyph> glyphs = source.GlyphSpan;
         var ordered = new TextGlyph[glyphs.Length];
         var text = new StringBuilder(source.Text.Length);
         int count = 0;
-        var paragraphs = new (int GlyphStart, int GlyphCount, int TextStart, int TextLength, PdfRectangle Bounds)[_paragraphs.Count];
-        for (int paragraph = 0; paragraph < _paragraphs.Count; paragraph++)
+        var placed = new Placed[paragraphs.Length];
+        for (int paragraph = 0; paragraph < paragraphs.Length; paragraph++)
         {
-            int end = paragraph + 1 < _paragraphs.Count ? _paragraphs[paragraph + 1] : _order.Count;
-            int glyphStart = count;
-            int textStart = text.Length;
+            int start = paragraphs[paragraph].Start;
+            int end = paragraph + 1 < paragraphs.Length ? paragraphs[paragraph + 1].Start : order.Length;
+            ref Placed place = ref placed[paragraph];
+            place.GlyphStart = count;
+            place.TextStart = text.Length;
             PdfRectangle? bounds = null;
-            for (int position = _paragraphs[paragraph]; position < end; position++)
+            PdfRectangle? body = null;
+            for (int position = start; position < end; position++)
             {
-                ref readonly Fragment fragment = ref _fragments[_order[position]];
-                Copy(glyphs, source.Text, ordered, ref count, text, fragment, artifact: false);
+                ref readonly Fragment fragment = ref _fragments[order[position]];
                 var box = new PdfRectangle(fragment.Left, fragment.Bottom, fragment.Right, fragment.Top);
-                bounds = bounds is { } known ? MarkGeometry.Union(known, box) : box;
+                bounds = Union(bounds, box);
+                if (position == start && paragraphs[paragraph].IsItem)
+                {
+                    // The marker is the item's label; the rest of the fragment starts its body.
+                    Copy(glyphs, source.Text, ordered, ref count, text, fragment.GlyphStart, fragment.MarkerEnd, artifact: false);
+                    place.LabelGlyphs = count - place.GlyphStart;
+                    place.LabelText = text.Length - place.TextStart;
+                    place.Label = new PdfRectangle(fragment.Left, fragment.Bottom, Math.Max(fragment.MarkerRight, fragment.Left), fragment.Top);
+                    Copy(glyphs, source.Text, ordered, ref count, text, fragment.MarkerEnd, fragment.GlyphEnd, artifact: false);
+                    if (!fragment.IsMarkerOnly)
+                    {
+                        body = new PdfRectangle(Math.Min(fragment.BodyLeft, fragment.Right), fragment.Bottom, fragment.Right, fragment.Top);
+                    }
+
+                    continue;
+                }
+
+                Copy(glyphs, source.Text, ordered, ref count, text, fragment.GlyphStart, fragment.GlyphEnd, artifact: false);
+                body = Union(body, box);
             }
 
-            paragraphs[paragraph] = (glyphStart, count - glyphStart, textStart, text.Length - textStart, bounds!.Value);
+            place.GlyphCount = count - place.GlyphStart;
+            place.TextLength = text.Length - place.TextStart;
+            place.Bounds = bounds!.Value;
+            place.Body = body ?? bounds.Value;
         }
 
         if (_fragments.Length == 0)
         {
             // No words: the page holds only white space or empty glyphs, which no paragraph takes.
-            Copy(glyphs, source.Text, ordered, ref count, text, new Fragment { GlyphStart = 0, GlyphEnd = glyphs.Length }, artifact: false);
+            Copy(glyphs, source.Text, ordered, ref count, text, 0, glyphs.Length, artifact: false);
         }
 
         foreach (ref readonly Fragment fragment in _fragments.AsSpan())
         {
             if (fragment.Artifact)
             {
-                Copy(glyphs, source.Text, ordered, ref count, text, fragment, artifact: true);
+                Copy(glyphs, source.Text, ordered, ref count, text, fragment.GlyphStart, fragment.GlyphEnd, artifact: true);
             }
         }
 
         Debug.Assert(count == glyphs.Length, "The fragments partition the page's glyphs.");
         var page = new LayoutPage(analysis.Page, analysis.PageIndex, new TextPage(ordered, text.ToString()), isDetected: true);
-        PdfRectangle? all = null;
-        foreach ((int glyphStart, int glyphCount, int textStart, int textLength, PdfRectangle bounds) in paragraphs)
-        {
-            all = all is { } known ? MarkGeometry.Union(known, bounds) : bounds;
-            LayoutNode node = LayoutNode.Create(LayoutNodeKind.Paragraph, null);
-            node.AddExtent(new LayoutExtent
-            {
-                Page = page,
-                Bounds = bounds,
-                GlyphStart = glyphStart,
-                GlyphCount = glyphCount,
-                TextStart = textStart,
-                TextLength = textLength,
-            });
-            root.Add(node);
-        }
-
-        if (paragraphs.Length > 0)
+        var placement = new Placement(page, paragraphs, placed, analysis.Height);
+        AddNodes(placement, root);
+        if (placed.Length > 0)
         {
             // The root covers its descendants, as a structure-built node does.
-            (int lastGlyph, int lastCount, int lastText, int lastLength, _) = paragraphs[^1];
-            root.AddExtent(new LayoutExtent { Page = page, Bounds = all, GlyphCount = lastGlyph + lastCount, TextLength = lastText + lastLength });
+            root.AddExtent(Covering(placement, 0, placed.Length - 1));
         }
 
         return page;
     }
 
-    /// <summary>Appends a fragment's glyphs to the reordered page, their text ranges moved to the rebuilt text.</summary>
-    private static void Copy(ReadOnlySpan<TextGlyph> glyphs, string source, TextGlyph[] ordered, ref int count, StringBuilder text, in Fragment fragment, bool artifact)
+    private static PdfRectangle Union(PdfRectangle? known, PdfRectangle box) => known is { } value ? MarkGeometry.Union(value, box) : box;
+
+    /// <summary>Appends glyphs <c>[start, end)</c> to the reordered page, their text ranges moved to the rebuilt text.</summary>
+    private static void Copy(ReadOnlySpan<TextGlyph> glyphs, string source, TextGlyph[] ordered, ref int count, StringBuilder text, int start, int end, bool artifact)
     {
-        for (int index = fragment.GlyphStart; index < fragment.GlyphEnd; index++)
+        for (int index = start; index < end; index++)
         {
             ref readonly TextGlyph glyph = ref glyphs[index];
             ordered[count++] = glyph with
@@ -900,13 +961,35 @@ internal sealed class GeometryLayout
 
         /// <summary>Whether the fragment is an artifact: marked so in the content, or a running header or footer.</summary>
         public bool Artifact;
+
+        /// <summary>The glyph after the list marker the fragment starts with; 0 when it starts with none.</summary>
+        public int MarkerEnd;
+
+        /// <summary>The right edge of the list marker.</summary>
+        public double MarkerRight;
+
+        /// <summary>The left edge of the first word after the list marker; NaN when the marker is the whole fragment.</summary>
+        public double BodyLeft;
+
+        /// <summary>The list marker the fragment starts with.</summary>
+        public Marker Marker;
+
+        /// <summary>Gets a value indicating whether the fragment is a list marker and nothing else.</summary>
+        public readonly bool IsMarkerOnly => MarkerEnd > 0 && double.IsNaN(BodyLeft);
     }
 
     /// <summary>The fragments of a block at <c>[Start, Start + Count)</c> of its items that share a line, and their extent.</summary>
     private readonly record struct Row(int Start, int Count, double Left, double Right, double Top, double Bottom, double Height);
 
     /// <summary>A page to lay out: where it goes, its text, its fragments and its body height.</summary>
-    private sealed record Analysis(int Slot, PdfPage Page, int PageIndex, TextPage Text, Fragment[] Fragments, double Height, double LineGap);
+    private sealed record Analysis(int Slot, PdfPage Page, int PageIndex, TextPage Text, Fragment[] Fragments, double Height, double LineGap)
+    {
+        /// <summary>Gets or sets the eligible fragments in reading order.</summary>
+        public int[] Order { get; set; } = [];
+
+        /// <summary>Gets or sets the paragraphs, each starting at its <see cref="Paragraph.Start"/> in <see cref="Order"/>.</summary>
+        public Paragraph[] Paragraphs { get; set; } = [];
+    }
 
     /// <summary>Top to bottom, then left to right, then by index: a total order.</summary>
     private readonly struct ByTop(Fragment[] fragments) : IComparer<int>

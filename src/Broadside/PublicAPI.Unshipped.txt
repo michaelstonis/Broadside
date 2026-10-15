@@ -4506,6 +4506,8 @@ Broadside.Layout.LayoutExtent.TextLength.get -> int
 Broadside.Layout.LayoutExtent.TextStart.get -> int
 Broadside.Layout.LayoutHeading
 Broadside.Layout.LayoutHeading.Level.get -> int
+Broadside.Layout.LayoutList
+Broadside.Layout.LayoutList.Numbering.get -> string!
 Broadside.Layout.LayoutNode
 Broadside.Layout.LayoutNode.AlternateDescription.get -> string?
 Broadside.Layout.LayoutNode.Annotations.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfAnnotation!>!

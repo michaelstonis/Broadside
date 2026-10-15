@@ -126,6 +126,52 @@ public static class ContentSamples
         ]);
     }
 
+    /// <summary>
+    /// Untagged pages of sections (spec story 36, issue #188): on each page three sections of a Helvetica-Bold 14 heading, two lines
+    /// of Helvetica 10 body text and a list of four bulleted items, each with a nested list of two lettered items (about 1,200 glyphs
+    /// a page).
+    /// </summary>
+    /// <param name="pages">The number of pages.</param>
+    /// <returns>The file.</returns>
+    public static byte[] HeadingsAndLists(int pages)
+    {
+        var objects = new List<string>
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            $"<< /Type /Pages /Kids [{string.Join(' ', Enumerable.Range(0, pages).Select(static page => string.Create(CultureInfo.InvariantCulture, $"{3 + (2 * page)} 0 R")))}] /Count {pages} >>",
+        };
+        int fonts = 3 + (2 * pages);
+        for (int page = 0; page < pages; page++)
+        {
+            var content = new StringBuilder();
+            int y = 740;
+            for (int section = 0; section < 3; section++)
+            {
+                content.Append(CultureInfo.InvariantCulture, $"BT /F2 14 Tf 72 {y} Td (Section {(char)('A' + page)}{(char)('a' + section)}) Tj ET\n");
+                y -= 24;
+                content.Append(CultureInfo.InvariantCulture, $"BT /F1 10 Tf 72 {y} Td (Body text that introduces the list below it, long enough to fill most of) Tj ET\n");
+                content.Append(CultureInfo.InvariantCulture, $"BT /F1 10 Tf 72 {y - 12} Td (the line it is set on.) Tj ET\n");
+                y -= 36;
+                for (int item = 0; item < 4; item++)
+                {
+                    content.Append(CultureInfo.InvariantCulture, $"BT /F1 10 Tf 84 {y} Td (\x95) Tj ET BT /F1 10 Tf 96 {y} Td (Item {item + 1} of the list, with a line of text) Tj ET\n");
+                    content.Append(CultureInfo.InvariantCulture, $"BT /F1 10 Tf 108 {y - 12} Td (a\\)) Tj ET BT /F1 10 Tf 122 {y - 12} Td (a nested item) Tj ET\n");
+                    content.Append(CultureInfo.InvariantCulture, $"BT /F1 10 Tf 108 {y - 24} Td (b\\)) Tj ET BT /F1 10 Tf 122 {y - 24} Td (another nested item) Tj ET\n");
+                    y -= 36;
+                }
+
+                y -= 12;
+            }
+
+            objects.Add(string.Create(CultureInfo.InvariantCulture, $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 {fonts} 0 R /F2 {fonts + 1} 0 R >> >> /Contents {4 + (2 * page)} 0 R >>"));
+            objects.Add(Stream(content.ToString()));
+        }
+
+        objects.Add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+        objects.Add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+        return File([.. objects]);
+    }
+
     /// <summary>A file of the objects, numbered from 1 (object 1 the catalog), with a cross-reference table (ISO 32000-2 §7.5).</summary>
     public static byte[] File(string[] objects)
     {

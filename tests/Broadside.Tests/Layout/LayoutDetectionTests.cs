@@ -41,7 +41,9 @@ public sealed class LayoutDetectionTests
                 "Its second paragraph follows\nright after the first one\nand closes the column.",
             ],
             firstPage);
-        Assert.All(tree.Root.Children, static node => Assert.Equal(LayoutNodeKind.Paragraph, node.Kind));
+        // The 18-point title over 9-point columns is a heading (#188); the rest are paragraphs.
+        Assert.Equal(1, Assert.IsType<LayoutHeading>(tree.Root.Children[0]).Level);
+        Assert.All(tree.Root.Children.Skip(1), static node => Assert.Equal(LayoutNodeKind.Paragraph, node.Kind));
         Assert.Equal(19, tree.Root.Children.Count);
     }
 
