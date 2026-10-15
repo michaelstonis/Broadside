@@ -1,26 +1,36 @@
+using System.Globalization;
 using System.Text;
 using Broadside.Graphics;
 
 namespace Broadside.Layout.Flow;
 
 /// <summary>
-/// A paragraph of text in one style, broken into lines greedily: each line takes as many words as fit the content width, breaking
-/// after spaces, and a line feed (U+000A) always ends a line. Lines are aligned or justified and placed one line height apart,
-/// continuing on the next page when a line would cross the bottom margin.
+/// A paragraph of text in one style, broken into lines greedily: each line takes as much text as fits the content width, ending at
+/// a line break opportunity of the Unicode Line Breaking Algorithm, and a hard line break (line feed, carriage return, next line,
+/// line or paragraph separator, vertical tab, form feed) always ends a line. Lines are aligned or justified and placed one line
+/// height apart, continuing on the next page when a line would cross the bottom margin.
 /// </summary>
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §9.4.3 and §9.4.4: each line is one text object positioned with <c>Tm</c> and shown with <c>Tj</c> (or <c>TJ</c>
-/// when kerned). Justification stretches the spaces of every line but a paragraph's last (and lines ended by a line feed): with
-/// word spacing <c>Tw</c> when the font applies it to its single-byte space code, otherwise with a <c>TJ</c> adjustment after each
-/// space. The glyph box of a line ([descent, ascent] of the font) is centred vertically in the line height.
+/// when kerned). Justification stretches the spaces of every line but a paragraph's last (and lines ended by a hard line break):
+/// with word spacing <c>Tw</c> when the font applies it to its single-byte space code, otherwise with a <c>TJ</c> adjustment after
+/// each space. The glyph box of a line ([descent, ascent] of the font) is centred vertically in the line height.
 /// </para>
-/// <para>A word wider than the content width is placed alone on a line and overflows it (emergency breaks come with UAX #14).</para>
+/// <para>
+/// UAX #14, Unicode Line Breaking Algorithm (revision 53, Unicode 16.0.0), default rules untailored: lines may break after spaces
+/// and hyphens, between ideographs and before opening punctuation, never at a no-break space or word joiner. A soft hyphen (U+00AD)
+/// is not shown unless the line breaks after it, where a hyphen-minus is shown in its place (UAX #14 §5.3). Spaces and hard line
+/// breaks at a line end are not shown. A word wider than the content width breaks at the last extended grapheme cluster boundary
+/// (UAX #29) that fits, at least one cluster per line: the emergency break UAX #14 describes under rule LB3.
+/// </para>
 /// </remarks>
 public sealed class Paragraph : FlowBlock
 {
+    private const char SoftHyphen = '\u00AD';
+
     /// <summary>Creates a paragraph with structure type <c>P</c>.</summary>
-    /// <param name="text">The text. Line feeds force line breaks; carriage returns are ignored at line ends.</param>
+    /// <param name="text">The text. Hard line breaks force line breaks and are not shown; soft hyphens show only at a break.</param>
     /// <param name="style">The style.</param>
     /// <exception cref="ArgumentNullException"><paramref name="text"/> or <paramref name="style"/> is null.</exception>
     public Paragraph(string text, ParagraphStyle style)
@@ -43,7 +53,7 @@ public sealed class Paragraph : FlowBlock
         Span<char> buffer = stackalloc char[2];
         foreach (Rune rune in Text.EnumerateRunes())
         {
-            if (rune.Value is '\n' or '\r')
+            if (rune.IsBmp && ((char)rune.Value == SoftHyphen || IsHardBreak((char)rune.Value)))
             {
                 continue;
             }
@@ -54,6 +64,12 @@ public sealed class Paragraph : FlowBlock
                 throw new ArgumentException(
                     $"The text of paragraph {index} has U+{rune.Value:X4}, which the font {Style.Font.Name} cannot encode.");
             }
+        }
+
+        if (Text.Contains(SoftHyphen, StringComparison.Ordinal) && !Style.Font.CanEncode("-"))
+        {
+            throw new ArgumentException(
+                $"The text of paragraph {index} has soft hyphens, and the font {Style.Font.Name} cannot encode the hyphen shown at a break.");
         }
     }
 
@@ -84,31 +100,46 @@ public sealed class Paragraph : FlowBlock
             int chosen = -1;
             int end = start;
             double width = 0;
+            bool hyphen = false;
             for (int candidate = next; candidate < breaks.Count; candidate++)
             {
-                int candidateEnd = TrimEnd(Text, start, breaks[candidate].Position);
-                double candidateWidth = services.Shaper.Measure(Text.AsSpan(start, candidateEnd - start), style);
+                BreakOpportunity opportunity = breaks[candidate];
+                int candidateEnd = TrimEnd(Text, start, opportunity.Position);
+                bool candidateHyphen = !opportunity.Mandatory && Text[opportunity.Position - 1] == SoftHyphen;
+                double candidateWidth = Measure(services.Shaper, start, candidateEnd, candidateHyphen);
                 bool fits = candidateWidth <= available + 1e-9;
                 if (!fits && chosen >= 0)
                 {
                     break;
                 }
 
-                (chosen, end, width) = (candidate, candidateEnd, candidateWidth);
-                if (breaks[candidate].Mandatory || !fits)
+                (chosen, end, width, hyphen) = (candidate, candidateEnd, candidateWidth, candidateHyphen);
+                if (opportunity.Mandatory || !fits)
                 {
                     break;
+                }
+            }
+
+            int resume = breaks[chosen].Position;
+            bool isLast = breaks[chosen].Mandatory;
+            if (width > available + 1e-9)
+            {
+                // Nothing up to the first opportunity fits: an emergency break inside it, at a grapheme cluster boundary.
+                int emergency = EmergencyBreak(services.Shaper, start, end, available, out double emergencyWidth);
+                if (emergency < end)
+                {
+                    (end, resume, width, hyphen, isLast) = (emergency, emergency, emergencyWidth, false, false);
                 }
             }
 
             double baseline = context.CursorY - halfLeading - ascent;
             runs[0] = new LineRun(start, end - start, width);
             services.Bidi.ReorderLine(Text, runs);
-            DrawLine(context, runs, context.Left + indent, available, baseline, isLast: breaks[chosen].Mandatory);
+            DrawLine(context, runs, context.Left + indent, available, baseline, isLast, hyphen ? end : -1);
             context.Advance(lineAdvance);
 
-            start = breaks[chosen].Position;
-            next = chosen + 1;
+            next = resume == breaks[chosen].Position ? chosen + 1 : chosen;
+            start = resume;
             first = false;
         }
 
@@ -116,7 +147,8 @@ public sealed class Paragraph : FlowBlock
         context.AddSpace(style.SpaceAfter);
     }
 
-    private void DrawLine(FlowContext context, ReadOnlySpan<LineRun> runs, double left, double available, double baseline, bool isLast)
+    /// <summary>Draws one line; <paramref name="hyphenAt"/> is the line end when it breaks at a soft hyphen, otherwise -1.</summary>
+    private void DrawLine(FlowContext context, ReadOnlySpan<LineRun> runs, double left, double available, double baseline, bool isLast, int hyphenAt)
     {
         ParagraphStyle style = Style;
         double width = 0;
@@ -158,7 +190,8 @@ public sealed class Paragraph : FlowBlock
         canvas.SetTextMatrix(new Matrix(1, 0, 0, 1, x, baseline));
         foreach (LineRun run in runs)
         {
-            ShapedRun shaped = context.Services.Shaper.Shape(Text.Substring(run.Start, run.Length), style);
+            int runEnd = run.Start + run.Length;
+            ShapedRun shaped = context.Services.Shaper.Shape(Shown(run.Start, runEnd, runEnd == hyphenAt), style);
             double[]? adjustments = shaped.Adjustments;
             if (!wordSpacing && extra > 0)
             {
@@ -179,16 +212,90 @@ public sealed class Paragraph : FlowBlock
         canvas.EndText();
     }
 
-    /// <summary>The end of the line that breaks at <paramref name="position"/>: trailing spaces and line ends are not shown.</summary>
+    /// <summary>The end of the line that breaks at <paramref name="position"/>: trailing spaces and hard line breaks are not shown.</summary>
     private static int TrimEnd(string text, int start, int position)
     {
         int end = position;
-        while (end > start && text[end - 1] is ' ' or '\n' or '\r')
+        while (end > start && (text[end - 1] == ' ' || IsHardBreak(text[end - 1])))
         {
             end--;
         }
 
         return end;
+    }
+
+    /// <summary>The characters of the mandatory breaks of UAX #14 (classes BK, CR, LF and NL).</summary>
+    private static bool IsHardBreak(char character) => character is '\n' or '\r' or '\v' or '\f' or '\u0085' or '\u2028' or '\u2029';
+
+    /// <summary>The advance of the text from <paramref name="start"/> to <paramref name="end"/> as shown.</summary>
+    private double Measure(ITextShaper shaper, int start, int end, bool hyphen)
+    {
+        ReadOnlySpan<char> text = Text.AsSpan(start, end - start);
+        return !hyphen && !text.Contains(SoftHyphen) ? shaper.Measure(text, Style) : shaper.Measure(Shown(start, end, hyphen), Style);
+    }
+
+    /// <summary>
+    /// The text from <paramref name="start"/> to <paramref name="end"/> as shown: without soft hyphens, and with a hyphen-minus at
+    /// the end when <paramref name="hyphen"/> (the line breaks at a soft hyphen).
+    /// </summary>
+    private string Shown(int start, int end, bool hyphen)
+    {
+        ReadOnlySpan<char> text = Text.AsSpan(start, end - start);
+        if (!hyphen && !text.Contains(SoftHyphen))
+        {
+            return text.ToString();
+        }
+
+        var builder = new StringBuilder(text.Length + 1);
+        foreach (char character in text)
+        {
+            if (character != SoftHyphen)
+            {
+                builder.Append(character);
+            }
+        }
+
+        return (hyphen ? builder.Append('-') : builder).ToString();
+    }
+
+    /// <summary>
+    /// The end of the most extended grapheme clusters (UAX #29) from <paramref name="start"/> that fit <paramref name="available"/>,
+    /// at least one.
+    /// </summary>
+    private int EmergencyBreak(ITextShaper shaper, int start, int end, double available, out double width)
+    {
+        int first = start + StringInfo.GetNextTextElementLength(Text.AsSpan(start, end - start));
+        int fitting = first;
+        double sum = 0;
+        for (int position = start; position < end;)
+        {
+            int following = position + StringInfo.GetNextTextElementLength(Text.AsSpan(position, end - position));
+            sum += Measure(shaper, position, following, hyphen: false);
+            if (sum > available + 1e-9)
+            {
+                break;
+            }
+
+            fitting = following;
+            position = following;
+        }
+
+        // Kerning between clusters is not in the sum: measure the line as shown and give back clusters until it fits.
+        width = Measure(shaper, start, fitting, hyphen: false);
+        while (width > available + 1e-9 && fitting > first)
+        {
+            int previous = first;
+            for (int position = first; position < fitting;)
+            {
+                previous = position;
+                position += StringInfo.GetNextTextElementLength(Text.AsSpan(position, end - position));
+            }
+
+            fitting = previous;
+            width = Measure(shaper, start, fitting, hyphen: false);
+        }
+
+        return fitting;
     }
 
     private static int CountScalars(string text)

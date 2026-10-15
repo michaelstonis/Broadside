@@ -10,8 +10,8 @@ namespace Broadside.Layout.Flow;
 /// </summary>
 internal sealed record FlowServices(ILineBreaker LineBreaker, ITextShaper Shaper, IBidiResolver Bidi, IStructureSink? Structure)
 {
-    /// <summary>Breaks at spaces and newlines, measures with the canvas font, keeps logical order and writes no structure.</summary>
-    public static FlowServices Default { get; } = new(WhitespaceLineBreaker.Instance, CanvasFontShaper.Instance, LogicalOrder.Instance, null);
+    /// <summary>Breaks lines by UAX #14, measures with the canvas font, keeps logical order and writes no structure.</summary>
+    public static FlowServices Default { get; } = new(UnicodeLineBreaker.Instance, CanvasFontShaper.Instance, LogicalOrder.Instance, null);
 }
 
 /// <summary>A position a line may (or, after a mandatory break, must) end at: the index the next line starts from.</summary>
@@ -22,33 +22,6 @@ internal interface ILineBreaker
 {
     /// <summary>Appends the break opportunities of <paramref name="text"/> in ascending position.</summary>
     void FindBreaks(ReadOnlySpan<char> text, List<BreakOpportunity> breaks);
-}
-
-/// <summary>Breaks after every run of spaces and, mandatorily, after every line feed: the greedy breaking of #171, until #172.</summary>
-internal sealed class WhitespaceLineBreaker : ILineBreaker
-{
-    public static WhitespaceLineBreaker Instance { get; } = new();
-
-    public void FindBreaks(ReadOnlySpan<char> text, List<BreakOpportunity> breaks)
-    {
-        for (int index = 0; index < text.Length; index++)
-        {
-            char next = index + 1 < text.Length ? text[index + 1] : '\0';
-            if (text[index] == '\n')
-            {
-                breaks.Add(new BreakOpportunity(index + 1, Mandatory: true));
-            }
-            else if (text[index] == ' ' && index + 1 < text.Length && next is not ' ' and not '\n' and not '\r')
-            {
-                breaks.Add(new BreakOpportunity(index + 1, Mandatory: false));
-            }
-        }
-
-        if (breaks.Count == 0 || breaks[^1].Position != text.Length)
-        {
-            breaks.Add(new BreakOpportunity(text.Length, Mandatory: true));
-        }
-    }
 }
 
 /// <summary>
