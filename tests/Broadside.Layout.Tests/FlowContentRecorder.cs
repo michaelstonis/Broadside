@@ -12,6 +12,7 @@ namespace Broadside.Layout.Tests;
 internal sealed class FlowContentRecorder : ContentProcessor
 {
     private readonly Stack<string?> _marked = new();
+    private readonly Stack<bool> _tagged = new();
 
     public List<RecordedGlyph> Glyphs { get; } = [];
 
@@ -43,7 +44,24 @@ internal sealed class FlowContentRecorder : ContentProcessor
     /// <summary>The text of the glyphs outside artifacts.</summary>
     public string BodyText => string.Concat(Glyphs.Where(glyph => glyph.Artifact is null).Select(glyph => glyph.Text));
 
+    /// <summary>Gets the number of glyphs, paths and images painted neither inside an artifact nor inside an MCID sequence.</summary>
+    public int Untagged { get; private set; }
+
+    /// <summary>Gets the number of marked-content sequences that mix artifacts and tagged content or nest one MCID in another.</summary>
+    public int Mixed { get; private set; }
+
+    /// <summary>Gets the MCIDs of the page in content order.</summary>
+    public List<int> Mcids { get; } = [];
+
     private string? CurrentArtifact => _marked.FirstOrDefault(kind => kind is not null);
+
+    private void Painted()
+    {
+        if (CurrentArtifact is null && !_tagged.Contains(true))
+        {
+            Untagged++;
+        }
+    }
 
     public override void ShowGlyph(in GlyphEvent glyph, ContentContext context)
     {
@@ -58,10 +76,12 @@ internal sealed class FlowContentRecorder : ContentProcessor
             glyph.DeviceAdvanceX,
             CurrentArtifact));
         Order.Add(("glyph", CurrentArtifact));
+        Painted();
     }
 
     public override void PaintPath(in PathEvent path, ContentContext context)
     {
+        Painted();
         if (path.Paint == PathPaint.Fill)
         {
             Fills.Add((path.Path.Bounds, context.State.FillColor));
@@ -76,6 +96,7 @@ internal sealed class FlowContentRecorder : ContentProcessor
     public override void PaintImage(in ImageEvent image, ContentContext context)
     {
         Images.Add(image.Ctm);
+        Painted();
         Order.Add(("image", CurrentArtifact));
     }
 
@@ -90,10 +111,28 @@ internal sealed class FlowContentRecorder : ContentProcessor
             Artifacts.Add(kind);
         }
 
+        CosDictionary? list = mc.Properties ?? (mc.InlineProperties.Kind == ContentOperandKind.Dictionary ? mc.InlineProperties.ToCosObject() as CosDictionary : null);
+        int? mcid = list is not null && list.TryGetValue(new CosName("MCID"), out CosObject? value) && value is CosInteger number ? (int)number.Value : null;
+        bool tagged = mcid is not null;
+        if (mcid is { } id)
+        {
+            Mcids.Add(id);
+        }
+
+        if ((tagged && (CurrentArtifact is not null || _tagged.Contains(true))) || (kind is not null && _tagged.Contains(true)))
+        {
+            Mixed++;
+        }
+
         _marked.Push(kind);
+        _tagged.Push(tagged);
     }
 
-    public override void EndMarkedContent(in MarkedContentEvent mc, ContentContext context) => _marked.TryPop(out _);
+    public override void EndMarkedContent(in MarkedContentEvent mc, ContentContext context)
+    {
+        _marked.TryPop(out _);
+        _tagged.TryPop(out _);
+    }
 
     private static string NameOf(CosDictionary? properties, string key) =>
         properties is not null && properties.TryGetValue(new CosName(key), out CosObject? value) && value is CosName name ? name.Value : string.Empty;

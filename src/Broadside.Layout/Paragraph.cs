@@ -4,6 +4,7 @@ using System.Text;
 using Broadside.Annotations;
 using Broadside.Fonts;
 using Broadside.Graphics;
+using Broadside.Structure;
 
 namespace Broadside.Layout.Flow;
 
@@ -59,6 +60,9 @@ public sealed class Paragraph : FlowBlock
 
     /// <summary>True for a paragraph made from a string: its one run is not an inline structure part.</summary>
     private readonly bool _plain;
+
+    /// <summary>Gets whether the paragraph was made from a string: one run, no inline parts, so it is tagged as one leaf.</summary>
+    internal bool IsPlain => _plain;
 
     /// <summary>Creates a paragraph with structure type <c>P</c>.</summary>
     /// <param name="text">The text. Hard line breaks force line breaks and are not shown; soft hyphens show only at a break.</param>
@@ -497,15 +501,22 @@ public sealed class Paragraph : FlowBlock
         {
             TextStyle style = _styles[piece]!;
             double thickness = style.FontSize * UnderlineThickness;
-            if (style.Underline)
+            if (style.Underline || style.StrikeThrough)
             {
-                Bar(canvas, style, x, baseline + (style.FontSize * UnderlinePosition) - (thickness / 2), width, thickness);
-            }
+                // Decorations repeat what the text says: a layout artifact (ISO 32000-2 §14.8.2.2.2).
+                context.BeginPart(new FlowPart("Artifact", PdfArtifactType.Layout, null));
+                if (style.Underline)
+                {
+                    Bar(canvas, style, x, baseline + (style.FontSize * UnderlinePosition) - (thickness / 2), width, thickness);
+                }
 
-            if (style.StrikeThrough)
-            {
-                double middle = style.Font.XHeight > 0 ? style.Font.XHeight * style.FontSize / 2000 : style.FontSize / 4;
-                Bar(canvas, style, x, baseline + middle - (thickness / 2), width, thickness);
+                if (style.StrikeThrough)
+                {
+                    double middle = style.Font.XHeight > 0 ? style.Font.XHeight * style.FontSize / 2000 : style.FontSize / 4;
+                    Bar(canvas, style, x, baseline + middle - (thickness / 2), width, thickness);
+                }
+
+                context.EndPart();
             }
 
             InlineElement element = _pieces[piece];

@@ -36,11 +36,16 @@ internal sealed class FlowContext : IDisposable
     private double _wordSpacing;
 
     public FlowContext(PdfDocument document, FlowDocument flow)
+        : this(document, flow, flow.Services)
+    {
+    }
+
+    public FlowContext(PdfDocument document, FlowDocument flow, FlowServices services)
     {
         _document = document;
         _flow = flow;
         _template = flow.Template;
-        Services = flow.Services;
+        Services = services;
     }
 
     /// <summary>

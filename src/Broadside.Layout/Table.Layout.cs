@@ -1,4 +1,5 @@
 using Broadside.Graphics;
+using Broadside.Structure;
 
 namespace Broadside.Layout.Flow;
 
@@ -267,7 +268,7 @@ public sealed partial class Table
         state.CanBreak = false;
         if (Style.RepeatHeaderRows && state.HeaderEnd > 0)
         {
-            context.BeginPart(new FlowPart("Artifact", this, null));
+            context.BeginPart(new FlowPart("Artifact", PdfArtifactType.Pagination, null));
             DrawRows(context, grid, 0, state.HeaderEnd, tagged: false);
             context.EndPart();
         }
