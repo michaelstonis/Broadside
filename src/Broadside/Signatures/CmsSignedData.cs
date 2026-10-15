@@ -35,6 +35,7 @@ internal static class CmsSignedData
     private const string EcPublicKeyOid = "1.2.840.10045.2.1";
     private const string Sha256Oid = "2.16.840.1.101.3.4.2.1";
     private const string PdfMacDataOid = "1.0.32004.1.2";
+    private const string SignatureTimeStampOid = "1.2.840.113549.1.9.16.2.14";
 
     /// <summary>Gets the SHA3-256 digest algorithm (FIPS 202; ISO/TS 32001 §5.1.1).</summary>
     public static HashAlgorithmName Sha3_256 { get; } = new("SHA3-256");
@@ -257,6 +258,10 @@ internal static class CmsSignedData
     /// <param name="macToken">
     /// A PDF MAC token to carry as the signer's <c>pdfMacData</c> unsigned attribute (ISO/TS 32004 §6.5.2), or <see langword="null"/>.
     /// </param>
+    /// <param name="timestampToken">
+    /// An RFC 3161 time-stamp token over <paramref name="signature"/> to carry as the signer's <c>id-aa-signatureTimeStampToken</c>
+    /// unsigned attribute (RFC 3161 Appendix A; ISO 32000-2 §12.8.3.3.1, §12.8.3.4.3 b), PAdES B-T), or <see langword="null"/>.
+    /// </param>
     public static byte[] Encode(
         HashAlgorithmName digestAlgorithm,
         SigningKey key,
@@ -265,7 +270,8 @@ internal static class CmsSignedData
         byte[] signature,
         X509Certificate2 certificate,
         IReadOnlyList<X509Certificate2> chain,
-        byte[]? macToken = null)
+        byte[]? macToken = null,
+        byte[]? timestampToken = null)
     {
         string digestOid = DigestOid(digestAlgorithm);
         var writer = new AsnWriter(AsnEncodingRules.DER);
@@ -303,7 +309,7 @@ internal static class CmsSignedData
                 using (writer.PushSetOf())
                 using (writer.PushSequence())
                 {
-                    WriteSignerInfo(writer, digestAlgorithm, key, padding, signedAttributes, signature, certificate, macToken);
+                    WriteSignerInfo(writer, digestAlgorithm, key, padding, signedAttributes, signature, certificate, macToken, timestampToken);
                 }
             }
         }
@@ -314,9 +320,10 @@ internal static class CmsSignedData
     /// <summary>
     /// How many bytes to reserve for the encoded signature: the certificates, the longest signature value the key makes, the issuer
     /// name (twice: the signer identifier and the signing certificate attribute), and room for the rest of the structure (and for an
-    /// unsigned attribute a later revision may add).
+    /// unsigned attribute a later revision may add), plus <paramref name="timestampTokenSize"/> and its attribute for a signature
+    /// time-stamp token.
     /// </summary>
-    public static int EstimateLength(SigningKey key, X509Certificate2 certificate, IReadOnlyList<X509Certificate2> chain)
+    public static int EstimateLength(SigningKey key, X509Certificate2 certificate, IReadOnlyList<X509Certificate2> chain, int timestampTokenSize = 0)
     {
         int certificates = certificate.RawData.Length;
         foreach (X509Certificate2 other in chain)
@@ -326,7 +333,9 @@ internal static class CmsSignedData
 
         // An ECDSA-Sig-Value is a sequence of two integers of up to the coordinate size plus a sign byte (RFC 5753 §7.2).
         int signature = key.Type == SigningKeyType.Ecdsa ? (2 * (((key.Size + 7) / 8) + 3)) + 4 : (key.Size + 7) / 8;
-        return certificates + (2 * certificate.IssuerName.RawData.Length) + signature + 1280;
+        // The attribute around a token: its SEQUENCE, the OID, the SET, and the [1] set when it is the only unsigned attribute.
+        int timestamp = timestampTokenSize > 0 ? timestampTokenSize + 32 : 0;
+        return certificates + (2 * certificate.IssuerName.RawData.Length) + signature + 1280 + timestamp;
     }
 
     /// <summary>
@@ -366,7 +375,8 @@ internal static class CmsSignedData
         byte[] signedAttributes,
         byte[] signature,
         X509Certificate2 certificate,
-        byte[]? macToken)
+        byte[]? macToken,
+        byte[]? timestampToken)
     {
         writer.WriteInteger(1);
         using (writer.PushSequence())
@@ -384,16 +394,32 @@ internal static class CmsSignedData
 
         WriteSignatureAlgorithm(writer, digestAlgorithm, key, padding);
         writer.WriteOctetString(signature);
-        if (macToken is not null)
+        if (macToken is null && timestampToken is null)
         {
-            // unsignedAttrs [1] IMPLICIT SET OF Attribute (RFC 5652 §5.3): id-attr-pdfMacData with exactly one value, the token.
-            using (writer.PushSetOf(new Asn1Tag(TagClass.ContextSpecific, 1, isConstructed: true)))
+            return;
+        }
+
+        // unsignedAttrs [1] IMPLICIT SET OF Attribute (RFC 5652 §5.3), each attribute with exactly one value: id-attr-pdfMacData,
+        // the PDF MAC token, and id-aa-signatureTimeStampToken, the time-stamp token over the signature value (RFC 3161 Appendix A).
+        using (writer.PushSetOf(new Asn1Tag(TagClass.ContextSpecific, 1, isConstructed: true)))
+        {
+            WriteAttribute(writer, PdfMacDataOid, macToken);
+            WriteAttribute(writer, SignatureTimeStampOid, timestampToken);
+        }
+
+        static void WriteAttribute(AsnWriter writer, string oid, byte[]? value)
+        {
+            if (value is null)
+            {
+                return;
+            }
+
             using (writer.PushSequence())
             {
-                writer.WriteObjectIdentifier(PdfMacDataOid);
+                writer.WriteObjectIdentifier(oid);
                 using (writer.PushSetOf())
                 {
-                    writer.WriteEncodedValue(macToken);
+                    writer.WriteEncodedValue(value);
                 }
             }
         }

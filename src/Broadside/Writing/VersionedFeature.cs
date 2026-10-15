@@ -111,6 +111,8 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <item><term><see cref="Sha256SignatureDigest"/></term><description>1.6 (Table 260)</description></item>
 /// <item><term><see cref="Sha2SignatureDigest"/></term><description>1.7 (Table 260, SHA-384 and SHA-512)</description></item>
 /// <item><term><see cref="Sha3SignatureDigest"/></term><description>2.0 and the ISO_ extension level 32001 (ISO/TS 32001, clause 4 and §5.1.4)</description></item>
+/// <item><term><see cref="SignatureTimestamp"/></term><description>1.6 (§12.8.3.3.1, timestamp information as an unsigned attribute)</description></item>
+/// <item><term><see cref="DocumentTimestamp"/></term><description>2.0 (§12.8.5; Table 255, <c>DocTimeStamp</c> and <c>ETSI.RFC3161</c>)</description></item>
 /// <item><term><see cref="DeveloperExtension"/></term><description>The extension's <c>BaseVersion</c> (§7.12.4)</description></item>
 /// </list>
 /// <para>
@@ -328,6 +330,12 @@ internal static class VersionedFeatures
         "ISO/TS 32001, clause 4 and §5.1.4",
         Pdf20,
         new DeveloperExtensionDeclaration(KnownNames.IsoPrefix, Pdf20, 32001, ":2022", "https://www.iso.org/standard/45874.html"));
+
+    /// <summary>Gets a signature time-stamp token as an unsigned attribute of a CMS signature (RFC 3161 Appendix A): PDF 1.6.</summary>
+    public static VersionedFeature SignatureTimestamp { get; } = new("a signature time-stamp token", "ISO 32000-2 §12.8.3.3.1", Pdf16);
+
+    /// <summary>Gets a document timestamp, a <c>DocTimeStamp</c> signature dictionary with sub-filter <c>ETSI.RFC3161</c>: PDF 2.0.</summary>
+    public static VersionedFeature DocumentTimestamp { get; } = new("a document timestamp (ETSI.RFC3161)", "ISO 32000-2 §12.8.5; §12.8.1, Table 255", Pdf20);
 
     /// <summary>Returns the feature a filter's encoding stands for, or <see langword="null"/> when it has no version row.</summary>
     /// <param name="filter">A filter name.</param>

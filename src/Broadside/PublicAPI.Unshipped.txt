@@ -4412,3 +4412,26 @@ Broadside.PdfPage.ExtractLayout(Broadside.Layout.LayoutOptions! options) -> Broa
 override Broadside.Layout.LayoutNode.ToString() -> string!
 override Broadside.Layout.LayoutPage.ToString() -> string!
 Broadside.PdfPageCollection.PrefetchAsync(int index, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfPage!>!
+Broadside.PdfDocument.Timestamp(System.IO.Stream! stream, Broadside.Signatures.PdfTimestampClient! timestampClient, string? fieldName = null) -> void
+Broadside.PdfDocument.TimestampAsync(System.IO.Stream! stream, Broadside.Signatures.PdfTimestampClient! timestampClient, string? fieldName = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.Signatures.PdfSignatureOptions.TimestampClient.get -> Broadside.Signatures.PdfTimestampClient?
+Broadside.Signatures.PdfSignatureOptions.TimestampClient.set -> void
+Broadside.Signatures.PdfSignatureOptions.WithTimestampClient(Broadside.Signatures.PdfTimestampClient? timestampClient) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfTimestampClient
+Broadside.Signatures.PdfTimestampClient.AuthorityUri.get -> System.Uri!
+Broadside.Signatures.PdfTimestampClient.DigestAlgorithm.get -> System.Security.Cryptography.HashAlgorithmName
+Broadside.Signatures.PdfTimestampClient.DigestAlgorithm.set -> void
+Broadside.Signatures.PdfTimestampClient.PdfTimestampClient(System.Net.Http.HttpClient! httpClient, System.Uri! authorityUri) -> void
+Broadside.Signatures.PdfTimestampClient.Policy.get -> string?
+Broadside.Signatures.PdfTimestampClient.Policy.set -> void
+Broadside.Signatures.PdfTimestampClient.TokenSizeEstimate.get -> int
+Broadside.Signatures.PdfTimestampClient.TokenSizeEstimate.set -> void
+Broadside.Signatures.PdfTimestampClient.WithDigestAlgorithm(System.Security.Cryptography.HashAlgorithmName digestAlgorithm) -> Broadside.Signatures.PdfTimestampClient!
+Broadside.Signatures.PdfTimestampClient.WithPolicy(string? policy) -> Broadside.Signatures.PdfTimestampClient!
+Broadside.Signatures.PdfTimestampClient.WithTokenSizeEstimate(int tokenSizeEstimate) -> Broadside.Signatures.PdfTimestampClient!
+Broadside.Signatures.PdfTimestampException
+Broadside.Signatures.PdfTimestampException.AuthorityStatus.get -> int?
+Broadside.Signatures.PdfTimestampException.FailureInfo.get -> int?
+Broadside.Signatures.PdfTimestampException.PdfTimestampException() -> void
+Broadside.Signatures.PdfTimestampException.PdfTimestampException(string? message) -> void
+Broadside.Signatures.PdfTimestampException.PdfTimestampException(string? message, System.Exception? innerException) -> void

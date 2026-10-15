@@ -60,6 +60,14 @@ public sealed partial class PdfDocument
     /// <exception cref="Diagnostics.DiagnosticException">
     /// In strict mode, when the signature needs a later PDF version than the document's (ECDSA, SHA-3 or a PAdES signature need 2.0).
     /// </exception>
+    /// <exception cref="PdfTimestampException">
+    /// With <see cref="PdfSignatureOptions.TimestampClient"/>, the time-stamp authority refused, could not be reached, or returned a
+    /// token that does not answer the request.
+    /// </exception>
+    /// <exception cref="PlatformNotSupportedException">
+    /// With <see cref="PdfSignatureOptions.TimestampClient"/>, the platform cannot send HTTP requests synchronously (the browser): use
+    /// <see cref="SignAsync"/>.
+    /// </exception>
     /// <remarks>
     /// <para>
     /// ISO 32000-2 §12.8.1, §12.8.3.3, §12.8.3.4 and §12.7.5.5; ISO/TS 32001; ISO/TS 32002; ETSI EN 319 142-1. The signature goes into the unsigned signature field the options name, or into a
@@ -87,6 +95,12 @@ public sealed partial class PdfDocument
     /// the signed update; in strict mode a raise is refused before anything changes (issue #141).
     /// </para>
     /// <para>
+    /// With <see cref="PdfSignatureOptions.TimestampClient"/>, once the signer returns the signature value the time-stamp authority is
+    /// asked for a token over it, and the token is added as the signer's signature time-stamp unsigned attribute (§12.8.3.3.1,
+    /// §12.8.3.4.3 b); RFC 3161 Appendix A): with <c>ETSI.CAdES.detached</c>, a PAdES B-T signature. Its room in <c>Contents</c> is
+    /// reserved with <see cref="PdfTimestampClient.TokenSizeEstimate"/>. A failed request leaves the document as a failed signer does.
+    /// </para>
+    /// <para>
     /// An encrypted document is updated with its own key. When it has, or its permissions require, an integrity MAC (ISO/TS 32004),
     /// the new MAC is attached to this signature as its <c>pdfMacData</c> unsigned attribute, digesting the signature's byte ranges
     /// and its signature value, and the trailer's <c>AuthCode</c> points at the signature dictionary (§6.5.2, §6.6.3).
@@ -106,6 +120,10 @@ public sealed partial class PdfDocument
         try
         {
             signature = signer.SignDigest(pending.ToSign, pending.DigestAlgorithm);
+            if (pending.Timestamp is { } timestamp)
+            {
+                pending.TimestampToken = timestamp.RequestToken(timestamp.DigestAlgorithm, SignatureImprint(pending, signature));
+            }
         }
         catch
         {
@@ -134,6 +152,10 @@ public sealed partial class PdfDocument
     /// incrementally (it is encrypted).
     /// </exception>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, when the signature needs a later PDF version than the document's.</exception>
+    /// <exception cref="PdfTimestampException">
+    /// With <see cref="PdfSignatureOptions.TimestampClient"/>, the time-stamp authority refused, could not be reached, or returned a
+    /// token that does not answer the request.
+    /// </exception>
     /// <remarks>
     /// ISO 32000-2 §12.8.1, §12.8.3.3 and §12.8.3.4. Writes what <see cref="Sign"/> writes; only the signer call and the writes to
     /// <paramref name="stream"/> are asynchronous. A cancelled or failed signer leaves the document as it was.
@@ -147,6 +169,11 @@ public sealed partial class PdfDocument
         try
         {
             signature = await signer.SignDigestAsync(pending.ToSign, pending.DigestAlgorithm, cancellationToken).ConfigureAwait(false);
+            if (pending.Timestamp is { } timestamp)
+            {
+                pending.TimestampToken = await timestamp.RequestTokenAsync(timestamp.DigestAlgorithm, SignatureImprint(pending, signature), cancellationToken)
+                    .ConfigureAwait(false);
+            }
         }
         catch
         {
@@ -179,7 +206,8 @@ public sealed partial class PdfDocument
         HashAlgorithmName digestAlgorithm = options.DigestAlgorithm ?? CmsSignedData.DefaultDigest(key);
         CmsSignedData.RequireCompatible(key, digestAlgorithm, padding);
         IReadOnlyList<X509Certificate2> chain = signer.CertificateChain ?? [];
-        int reserved = CmsSignedData.EstimateLength(key, signer.Certificate, chain);
+        PdfTimestampClient? timestamp = options.TimestampClient;
+        int reserved = CmsSignedData.EstimateLength(key, signer.Certificate, chain, timestamp?.TokenSizeEstimate ?? 0);
         if (Security is { } security && (security.Integrity != PdfIntegrityStatus.None || security.RequiresIntegrityCode))
         {
             // ISO/TS 32004 §6.5.2: the save keeps the document's MAC, as a pdfMacData unsigned attribute of this signature.
@@ -190,6 +218,10 @@ public sealed partial class PdfDocument
         try
         {
             VersionedFeature[] features = SignatureFeatures(key, digestAlgorithm, options.SubFilter);
+            if (timestamp is not null)
+            {
+                features = [.. features, .. TimestampFeatures(VersionedFeatures.SignatureTimestamp, timestamp)];
+            }
             foreach (VersionedFeature feature in features)
             {
                 RequireSignatureFeature(feature, undo);
@@ -250,6 +282,7 @@ public sealed partial class PdfDocument
             {
                 Integrity = integrity,
                 IntegrityDataDigest = macDigest?.GetHashAndReset(),
+                Timestamp = timestamp,
             };
         }
         catch
@@ -280,11 +313,13 @@ public sealed partial class PdfDocument
                 value,
                 pending.Signer.Certificate,
                 pending.Chain,
-                macToken);
+                macToken,
+                pending.TimestampToken);
             if (cms.Length > pending.Reserved)
             {
-                throw new InvalidOperationException(
-                    $"The signature takes {cms.Length} bytes, more than the {pending.Reserved} reserved for it; the signer returned an unexpectedly long signature value.");
+                throw new InvalidOperationException(pending.TimestampToken is null
+                    ? $"The signature takes {cms.Length} bytes, more than the {pending.Reserved} reserved for it; the signer returned an unexpectedly long signature value."
+                    : $"The signature with its {pending.TimestampToken.Length}-byte time-stamp token takes {cms.Length} bytes, more than the {pending.Reserved} reserved for it; raise {nameof(PdfTimestampClient)}.{nameof(PdfTimestampClient.TokenSizeEstimate)} ({pending.Timestamp!.TokenSizeEstimate}).");
             }
         }
         catch
@@ -302,6 +337,16 @@ public sealed partial class PdfDocument
         cms.CopyTo(contents, 0);
         pending.Signature[ContentsName] = new CosString(contents, hexadecimal: true);
         return pending.Update with { Bytes = bytes };
+    }
+
+    /// <summary>
+    /// The message imprint of a signature time-stamp: the hash of the signature value as the <c>SignerInfo</c> holds it (RFC 3161
+    /// Appendix A; ETSI EN 319 122-1 §5.3), with the time-stamp client's algorithm.
+    /// </summary>
+    private static byte[] SignatureImprint(PendingSignature pending, byte[] signature)
+    {
+        ArgumentNullException.ThrowIfNull(signature);
+        return pending.Timestamp!.Hash(CmsSignedData.NormalizeSignature(pending.Key, signature));
     }
 
     /// <summary>
@@ -648,6 +693,12 @@ public sealed partial class PdfDocument
 
         /// <summary>Gets the SHA-256 digest of the signature's byte range, the token's dataDigest (ISO/TS 32004 §6.6.3).</summary>
         public byte[]? IntegrityDataDigest { get; init; }
+
+        /// <summary>Gets the client of the authority that time-stamps the signature value, or <see langword="null"/> for no timestamp.</summary>
+        public PdfTimestampClient? Timestamp { get; init; }
+
+        /// <summary>Gets or sets the signature time-stamp token, once the authority issued it.</summary>
+        public byte[]? TimestampToken { get; set; }
 
         public void Undo() => Revert(UndoActions);
     }

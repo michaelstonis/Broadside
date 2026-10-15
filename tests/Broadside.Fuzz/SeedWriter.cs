@@ -105,6 +105,7 @@ internal static class SeedWriter
         "hint-tables" => Streams(file).Select(stream => HintSeed(stream.Document, stream.Value)).OfType<byte[]>(),
         "mac-token" => MacTokens(file),
         "cms" => SignatureContents(file),
+        "timestamp-response" => [TimestampResponseTarget.ValidResponse()],
         "default-appearance" => DefaultAppearances(file),
         "content-lexer" or "content-interpreter" or "content-objects" or "display-list" or "filter-encode" or "text-extraction" or "rasterize" or "content-rewrite" => ContentStreams(file),
         "xmp" => Streams(file).Where(stream => Metadata.Equals(stream.Value.Dictionary.TryGetValue(Type, out CosObject? type) ? type : null))

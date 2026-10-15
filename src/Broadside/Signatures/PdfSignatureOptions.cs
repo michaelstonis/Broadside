@@ -56,6 +56,20 @@ public sealed class PdfSignatureOptions
     public PdfSignatureSubFilter SubFilter { get; set; } = PdfSignatureSubFilter.AdobePkcs7Detached;
 
     /// <summary>
+    /// Gets or sets the client of the time-stamp authority that time-stamps the signature, or <see langword="null"/> (the default) for
+    /// none. With a client, once the signer returns the signature value, the authority is asked for a token over it, and the token is
+    /// added to the signature as its signature time-stamp unsigned attribute: with <see cref="PdfSignatureSubFilter.EtsiCadesDetached"/>
+    /// that is a PAdES baseline B-T signature. The room for the token is reserved with
+    /// <see cref="PdfTimestampClient.TokenSizeEstimate"/>; the timestamp needs PDF 1.6.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §12.8.3.3.1 (timestamp information as an unsigned attribute, PDF 1.6) and §12.8.3.4.3 b) (the signature timestamp
+    /// "should be applied on the digital signature immediately after the signature is created"); RFC 3161 Appendix A, as updated by
+    /// RFC 5816; ETSI EN 319 142-1 (B-T).
+    /// </remarks>
+    public PdfTimestampClient? TimestampClient { get; set; }
+
+    /// <summary>
     /// Gets or sets the digest algorithm for the byte range digest and the signed attributes: SHA-256, SHA-384, SHA-512 or, as
     /// <see cref="HashAlgorithmName"/>s named <c>SHA3-256</c>, <c>SHA3-384</c> and <c>SHA3-512</c>, the SHA-3 digests.
     /// <see langword="null"/> (the default) picks the one the signer's key calls for: SHA-384 for an ECDSA key on P-384, SHA-512 on
@@ -138,6 +152,16 @@ public sealed class PdfSignatureOptions
     public PdfSignatureOptions WithSigningTime(DateTimeOffset? signingTime)
     {
         SigningTime = signingTime;
+        return this;
+    }
+
+    /// <summary>Sets <see cref="TimestampClient"/>.</summary>
+    /// <param name="timestampClient">The time-stamp authority's client, or <see langword="null"/> for no signature timestamp.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §12.8.3.3.1, §12.8.3.4.3 b); RFC 3161 Appendix A.</remarks>
+    public PdfSignatureOptions WithTimestampClient(PdfTimestampClient? timestampClient)
+    {
+        TimestampClient = timestampClient;
         return this;
     }
 
