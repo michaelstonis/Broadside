@@ -1,8 +1,8 @@
 namespace Broadside.Layout.Flow;
 
 /// <summary>
-/// A flow-layout document: blocks laid out top to bottom in the content area of pages of one <see cref="PageSetup"/>, starting a
-/// new page whenever the next line would cross the bottom margin. <see cref="Render"/> appends the pages to a
+/// A flow-layout document: blocks laid out top to bottom in the body area of pages of a <see cref="PageTemplate"/> (one per
+/// section, <see cref="StartSection"/>), starting a new page whenever the next line would cross the bottom of the body area. <see cref="Render"/> appends the pages to a
 /// <see cref="PdfDocument"/> and draws through its canvas, so the result saves like any other page content.
 /// </summary>
 /// <remarks>
@@ -16,18 +16,45 @@ namespace Broadside.Layout.Flow;
 public sealed class FlowDocument
 {
     private readonly List<FlowBlock> _blocks = [];
+    private readonly List<(int Block, PageTemplate Template)> _sections = [];
 
-    /// <summary>Creates an empty flow with pages of <paramref name="page"/>.</summary>
+    /// <summary>Creates an empty flow with pages of <paramref name="page"/> and no header, footer or background.</summary>
     /// <param name="page">The page size and margins.</param>
     /// <exception cref="ArgumentException">A dimension or margin is not finite or negative, or the margins leave no content area.</exception>
     public FlowDocument(PageSetup page)
     {
         page.Validate(nameof(page));
-        Page = page;
+        Template = new PageTemplate(page);
     }
 
-    /// <summary>The size and margins of every page.</summary>
-    public PageSetup Page { get; }
+    /// <summary>Creates an empty flow whose pages follow <paramref name="template"/> until a <see cref="StartSection"/>.</summary>
+    /// <param name="template">The template of the first section.</param>
+    /// <exception cref="ArgumentNullException"><paramref name="template"/> is null.</exception>
+    public FlowDocument(PageTemplate template)
+    {
+        ArgumentNullException.ThrowIfNull(template);
+        Template = template;
+    }
+
+    /// <summary>The size and margins of the pages of the first section.</summary>
+    public PageSetup Page => Template.Setup;
+
+    /// <summary>The template of the first section.</summary>
+    public PageTemplate Template { get; }
+
+    /// <summary>
+    /// Starts a section: the blocks added from now on begin on a new page and flow on pages of <paramref name="template"/>, whose
+    /// first-page header and footer apply to that page. Page numbers continue across sections.
+    /// </summary>
+    /// <param name="template">The template of the new section.</param>
+    /// <returns>This flow, for chaining.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="template"/> is null.</exception>
+    public FlowDocument StartSection(PageTemplate template)
+    {
+        ArgumentNullException.ThrowIfNull(template);
+        _sections.Add((_blocks.Count, template));
+        return this;
+    }
 
     /// <summary>The blocks, in the order they flow.</summary>
     public IReadOnlyList<FlowBlock> Blocks => _blocks;
@@ -62,20 +89,31 @@ public sealed class FlowDocument
             _blocks[index].Validate(index);
         }
 
-        using var context = new FlowContext(document, this);
-        foreach (FlowBlock block in _blocks)
+        Template.Validate();
+        foreach ((_, PageTemplate template) in _sections)
         {
-            block.LayOut(context);
+            template.Validate();
+        }
+
+        using var context = new FlowContext(document, this);
+        int section = 0;
+        for (int index = 0; index < _blocks.Count; index++)
+        {
+            PageTemplate? next = null;
+            while (section < _sections.Count && _sections[section].Block == index)
+            {
+                next = _sections[section++].Template;
+            }
+
+            if (next is not null)
+            {
+                context.StartSection(next);
+            }
+
+            _blocks[index].LayOut(context);
         }
 
         return new FlowLayoutResult([.. context.Pages]);
-    }
-
-    /// <summary>The setup of the page at <paramref name="pageIndex"/> (0-based within this flow). Sections and templates (#178) vary it.</summary>
-    internal PageSetup PageSetupFor(int pageIndex)
-    {
-        _ = pageIndex;
-        return Page;
     }
 }
 

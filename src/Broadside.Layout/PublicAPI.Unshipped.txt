@@ -238,3 +238,54 @@ Broadside.Layout.Flow.TableStyle.WithHeaderBackground(Broadside.Graphics.PdfColo
 Broadside.Layout.Flow.TableStyle.WithKeepRowsTogether(bool keep) -> Broadside.Layout.Flow.TableStyle!
 Broadside.Layout.Flow.TableStyle.WithPadding(Broadside.Layout.Flow.CellPadding padding) -> Broadside.Layout.Flow.TableStyle!
 Broadside.Layout.Flow.TableStyle.WithRepeatHeaderRows(bool repeat) -> Broadside.Layout.Flow.TableStyle!
+Broadside.Layout.Flow.FlowDocument.FlowDocument(Broadside.Layout.Flow.PageTemplate! template) -> void
+Broadside.Layout.Flow.FlowDocument.StartSection(Broadside.Layout.Flow.PageTemplate! template) -> Broadside.Layout.Flow.FlowDocument!
+Broadside.Layout.Flow.FlowDocument.Template.get -> Broadside.Layout.Flow.PageTemplate!
+Broadside.Layout.Flow.PageOrientation
+Broadside.Layout.Flow.PageOrientation.Landscape = 1 -> Broadside.Layout.Flow.PageOrientation
+Broadside.Layout.Flow.PageOrientation.Portrait = 0 -> Broadside.Layout.Flow.PageOrientation
+Broadside.Layout.Flow.PageSetup.Orientation.get -> Broadside.Layout.Flow.PageOrientation
+Broadside.Layout.Flow.PageSetup.WithOrientation(Broadside.Layout.Flow.PageOrientation orientation) -> Broadside.Layout.Flow.PageSetup
+Broadside.Layout.Flow.PageTemplate
+Broadside.Layout.Flow.PageTemplate.PageTemplate(Broadside.Layout.Flow.PageSetup setup) -> void
+Broadside.Layout.Flow.PageTemplate.Setup.get -> Broadside.Layout.Flow.PageSetup
+Broadside.Layout.Flow.PageTemplate.BackgroundColor.get -> Broadside.Graphics.PdfColor?
+Broadside.Layout.Flow.PageTemplate.BackgroundColor.init -> void
+Broadside.Layout.Flow.PageTemplate.BackgroundImage.get -> Broadside.Images.PdfImage?
+Broadside.Layout.Flow.PageTemplate.BackgroundImage.init -> void
+Broadside.Layout.Flow.PageTemplate.Watermark.get -> Broadside.Layout.Flow.Watermark?
+Broadside.Layout.Flow.PageTemplate.Watermark.init -> void
+Broadside.Layout.Flow.PageTemplate.Header.get -> Broadside.Layout.Flow.HeaderFooter?
+Broadside.Layout.Flow.PageTemplate.Header.init -> void
+Broadside.Layout.Flow.PageTemplate.Footer.get -> Broadside.Layout.Flow.HeaderFooter?
+Broadside.Layout.Flow.PageTemplate.Footer.init -> void
+Broadside.Layout.Flow.PageTemplate.FirstPageHeader.get -> Broadside.Layout.Flow.HeaderFooter?
+Broadside.Layout.Flow.PageTemplate.FirstPageHeader.init -> void
+Broadside.Layout.Flow.PageTemplate.FirstPageFooter.get -> Broadside.Layout.Flow.HeaderFooter?
+Broadside.Layout.Flow.PageTemplate.FirstPageFooter.init -> void
+Broadside.Layout.Flow.PageTemplate.EvenPageHeader.get -> Broadside.Layout.Flow.HeaderFooter?
+Broadside.Layout.Flow.PageTemplate.EvenPageHeader.init -> void
+Broadside.Layout.Flow.PageTemplate.EvenPageFooter.get -> Broadside.Layout.Flow.HeaderFooter?
+Broadside.Layout.Flow.PageTemplate.EvenPageFooter.init -> void
+Broadside.Layout.Flow.HeaderFooter
+Broadside.Layout.Flow.HeaderFooter.HeaderFooter(Broadside.Layout.Flow.TextStyle! style) -> void
+static Broadside.Layout.Flow.HeaderFooter.None.get -> Broadside.Layout.Flow.HeaderFooter!
+const Broadside.Layout.Flow.HeaderFooter.PageNumberField = "{page}" -> string!
+const Broadside.Layout.Flow.HeaderFooter.PageCountField = "{pages}" -> string!
+Broadside.Layout.Flow.HeaderFooter.Style.get -> Broadside.Layout.Flow.TextStyle!
+Broadside.Layout.Flow.HeaderFooter.Left.get -> string?
+Broadside.Layout.Flow.HeaderFooter.Left.init -> void
+Broadside.Layout.Flow.HeaderFooter.Center.get -> string?
+Broadside.Layout.Flow.HeaderFooter.Center.init -> void
+Broadside.Layout.Flow.HeaderFooter.Right.get -> string?
+Broadside.Layout.Flow.HeaderFooter.Right.init -> void
+Broadside.Layout.Flow.HeaderFooter.Offset.get -> double
+Broadside.Layout.Flow.HeaderFooter.Offset.init -> void
+Broadside.Layout.Flow.Watermark
+Broadside.Layout.Flow.Watermark.Watermark(string! text, Broadside.Layout.Flow.TextStyle! style) -> void
+Broadside.Layout.Flow.Watermark.Text.get -> string!
+Broadside.Layout.Flow.Watermark.Style.get -> Broadside.Layout.Flow.TextStyle!
+Broadside.Layout.Flow.Watermark.Angle.get -> double
+Broadside.Layout.Flow.Watermark.Angle.init -> void
+Broadside.Layout.Flow.Watermark.Opacity.get -> double
+Broadside.Layout.Flow.Watermark.Opacity.init -> void

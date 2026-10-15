@@ -6,8 +6,9 @@ namespace Broadside.Layout.Flow;
 /// <summary>
 /// The paginator one <see cref="FlowDocument.Render"/> call runs: the current page, its canvas and content area, and a cursor moving
 /// down from the top margin. Blocks ask it for room (<see cref="EnsureRoom"/>) before drawing a line and move the cursor
-/// (<see cref="Advance"/>); it starts a page when a line would cross the bottom margin. Page templates, headers and footers (#178)
-/// hook <see cref="StartPage"/> and <see cref="FinishPage"/>; tables (#177) use the same room and cursor calls per row.
+/// (<see cref="Advance"/>); it starts a page when a line would cross the bottom margin. Each page follows the current section's
+/// <see cref="PageTemplate"/> (<see cref="StartSection"/>): <see cref="StartPage"/> paints its background and sets the body area,
+/// and headers and footers are drawn at <see cref="Dispose"/> once the page count is known; tables (#177) use the same room and cursor calls per row.
 /// Blocks nest (a list item holds paragraphs and lists): open blocks and parts form a stack that a page break ends innermost first
 /// and begins again outermost first, and <see cref="PushIndent"/> narrows the content area for nested content on every page.
 /// </summary>
@@ -26,6 +27,9 @@ internal sealed class FlowContext : IDisposable
     private readonly double[]? _heights;
     private readonly int _drawPage;
     private readonly double _regionLeft;
+    private readonly List<(PdfPage Page, PageTemplate Template, bool First)> _templated = [];
+    private PageTemplate _template;
+    private bool _sectionStart = true;
     private PdfPage? _page;
     private PdfCanvas? _canvas;
     private int _virtualPage;
@@ -35,6 +39,7 @@ internal sealed class FlowContext : IDisposable
     {
         _document = document;
         _flow = flow;
+        _template = flow.Template;
         Services = flow.Services;
     }
 
@@ -50,6 +55,7 @@ internal sealed class FlowContext : IDisposable
         _parent = parent;
         _document = parent._document;
         _flow = parent._flow;
+        _template = parent._template;
         Services = parent.Services;
         _heights = heights;
         _drawPage = drawPage;
@@ -83,8 +89,8 @@ internal sealed class FlowContext : IDisposable
                 return HeightOf(_virtualPage + 1);
             }
 
-            PageSetup setup = _flow.PageSetupFor(_pages.Count);
-            return setup.Height - setup.Margins.Top - setup.Margins.Bottom;
+            (double bottom, double top) = _template.BodyFor(_pages.Count + 1, _page is null && _sectionStart);
+            return top - bottom;
         }
     }
 
@@ -374,7 +380,18 @@ internal sealed class FlowContext : IDisposable
         BeginOpen();
     }
 
-    /// <summary>Finishes the last page.</summary>
+    /// <summary>Makes <paramref name="template"/> the template of the pages from here on, breaking to a new page when one is open.</summary>
+    public void StartSection(PageTemplate template)
+    {
+        _template = template;
+        _sectionStart = true;
+        if (_page is not null)
+        {
+            BreakPage();
+        }
+    }
+
+    /// <summary>Finishes the last page, then draws every page's header and footer now that the page count is known.</summary>
     public void Dispose()
     {
         if (_parent is not null)
@@ -395,6 +412,7 @@ internal sealed class FlowContext : IDisposable
         }
 
         FinishPage();
+        PageDecorations.DrawHeadersAndFooters(_templated, Services.Shaper);
     }
 
     /// <summary>True when structure hooks fire now: a page is open at the root, or this region draws.</summary>
@@ -443,23 +461,31 @@ internal sealed class FlowContext : IDisposable
         }
     }
 
-    /// <summary>Appends a page with the setup for its index and opens its canvas. Page templates (#178) draw backgrounds and headers here.</summary>
+    /// <summary>
+    /// Appends a page of the current template, opens its canvas and paints the template's background and watermark first; the body
+    /// area is the margins moved in past the page's header and footer, which are drawn after the last page.
+    /// </summary>
     private void StartPage()
     {
-        PageSetup setup = _flow.PageSetupFor(_pages.Count);
+        PageSetup setup = _template.Setup;
+        bool first = _sectionStart;
+        _sectionStart = false;
         _page = _document.Pages.Add(new PdfRectangle(0, 0, setup.Width, setup.Height));
         _pages.Add(_page);
+        _templated.Add((_page, _template, first));
         _canvas = _page.CreateCanvas();
+        PageDecorations.DrawBackground(_canvas, _template, Services.Shaper);
+        (double bottom, double top) = _template.BodyFor(_pages.Count, first);
         Left = setup.Margins.Left + Indent;
         Right = setup.Width - setup.Margins.Right;
-        Bottom = setup.Margins.Bottom;
-        Top = setup.Height - setup.Margins.Top;
+        Bottom = bottom;
+        Top = top;
         CursorY = Top;
         AtPageTop = true;
         WordSpacing = 0;
     }
 
-    /// <summary>Closes the current page's canvas. Footers and "page n of N" fields (#178) are completed here or after the last page.</summary>
+    /// <summary>Closes the current page's canvas.</summary>
     private void FinishPage()
     {
         _canvas?.Dispose();

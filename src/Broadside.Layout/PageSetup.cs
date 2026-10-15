@@ -43,6 +43,16 @@ public readonly record struct PageSetup(double Width, double Height, PageMargins
     /// <returns>The changed copy.</returns>
     public PageSetup WithSize(double width, double height) => this with { Width = width, Height = height };
 
+    /// <summary>Landscape when the page is wider than tall, otherwise portrait.</summary>
+    public PageOrientation Orientation => Width > Height ? PageOrientation.Landscape : PageOrientation.Portrait;
+
+    /// <summary>Returns this page setup turned to <paramref name="orientation"/>: width and height swap when it differs, the margins stay on their sides.</summary>
+    /// <param name="orientation">The orientation wanted.</param>
+    /// <returns>This setup when it already has that orientation (a square page is portrait), else the turned copy.</returns>
+    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31: the media box itself is turned; the page's <c>Rotate</c> entry stays 0.</remarks>
+    public PageSetup WithOrientation(PageOrientation orientation) =>
+        orientation == Orientation || Width == Height ? this : this with { Width = Height, Height = Width };
+
     /// <summary>The width of the content area: the page width less the left and right margins.</summary>
     public double ContentWidth => Width - Margins.Left - Margins.Right;
 
