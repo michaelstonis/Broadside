@@ -33,6 +33,7 @@
     <Compile Include="../../tests/Broadside.TestSupport/BlendSamples.cs" Link="BlendSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/OverprintSamples.cs" Link="OverprintSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/GroupSamples.cs" Link="GroupSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/SoftMaskSamples.cs" Link="SoftMaskSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/MaskSamples.cs" Link="MaskSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/Type3Samples.cs" Link="Type3Samples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/MeshSamples.cs" Link="MeshSamples.cs" />

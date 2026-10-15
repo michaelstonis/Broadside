@@ -167,7 +167,11 @@ public sealed partial class SoftwareRasterizer
             AddDeviceLine(new PathPoint(right, top), new PathPoint(right, bottom));
             AddDeviceLine(new PathPoint(right, bottom), new PathPoint(left, bottom));
             AddDeviceLine(new PathPoint(left, bottom), new PathPoint(left, top));
+
+            // The group's own mask applied in the child; the mask the paints outside the group go through does not apply to it.
+            _clip.SetSoftMask(null, false);
             PreviewTiling(MemoryMarshal.Cast<byte, uint>(pixels.Span), box, FillRule.NonZero, new Compositor(1, BlendMode.Normal), overprint: false);
+            _clip.SetSoftMask(_softMask, _softMaskShape);
         }
 
         /// <summary>Paints the scan converter's shape in one colour: into the planes with <paramref name="ink"/> when previewing, else into the target.</summary>

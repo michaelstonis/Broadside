@@ -32,7 +32,7 @@ public sealed partial class DisplayList
     {
         long bytes = SizeOf(_operations) + SizeOf(_verbs) + SizeOf(_points) + SizeOf(_paths) + SizeOf(_colors) + SizeOf(_components)
             + SizeOf(_transforms) + SizeOf(Strokes) + SizeOf(Dashes) + SizeOf(Images) + SizeOf(ImagePaints) + SizeOf(GlyphRuns)
-            + SizeOf(Glyphs) + SizeOf(ShadingPaints) + SizeOf(ImageMasks) + SizeOf(Compositings) + SizeOf(DeviceParameters) + SizeOf(Groups) + SizeOf(Annotations)
+            + SizeOf(Glyphs) + SizeOf(ShadingPaints) + SizeOf(ImageMasks) + SizeOf(Compositings) + SizeOf(DeviceParameters) + SizeOf(SoftMasks) + SizeOf(Groups) + SizeOf(Annotations)
             + SizeOf(TilingPaints) + SizeOf(TextGlyphs) + SizeOf(Text)
 
             // The region bounds (issue #96) are charged up front: a kept list is what tiles replay, so it gains them on the first one.
@@ -47,6 +47,19 @@ public sealed partial class DisplayList
                 if (cells.Add(paint.Cell))
                 {
                     bytes += paint.Cell.RetainedBytes;
+                }
+            }
+        }
+
+        // A soft mask's group (issue #115) is a list of its own, shared by every paint under the same mask: charged once.
+        if (SoftMasks.Length > 0)
+        {
+            var groups = new HashSet<DisplayList>(ReferenceEqualityComparer.Instance);
+            foreach (DisplaySoftMaskEntry mask in SoftMasks)
+            {
+                if (groups.Add(mask.Content))
+                {
+                    bytes += mask.Content.RetainedBytes + ((long)mask.Backdrop.Length * sizeof(float));
                 }
             }
         }

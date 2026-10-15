@@ -5,7 +5,7 @@ namespace Broadside.Rendering;
 /// <summary>
 /// Overprint control and halftones (ISO 32000-2 §8.6.7, §10.6): recorded before a paint when they differ from what the backend holds
 /// at that point of the replay, and saved and restored with the state like the transform, so a backend whose device overprints or
-/// halftones can honour them. Recorded through <see cref="SetCompositing(in GraphicsState)"/>, which every paint calls.
+/// halftones can honour them. Recorded through <see cref="SetCompositing(in GraphicsState, Content.ContentContext, bool)"/>, which every paint calls.
 /// </summary>
 internal sealed partial class DisplayListBuilder
 {

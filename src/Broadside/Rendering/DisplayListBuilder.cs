@@ -92,6 +92,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         Groups = _groups.AsSpan(0, _groupCount).ToArray(),
         TilingPaints = _tilingPaints.AsSpan(0, _tilingPaintCount).ToArray(),
         Annotations = _annotations.AsSpan(0, _annotationCount).ToArray(),
+        SoftMasks = _softMasks.AsSpan(0, _softMaskCount).ToArray(),
         DeviceParameters = _deviceParameters.AsSpan(0, _deviceParameterCount).ToArray(),
     };
 
@@ -115,6 +116,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         ResetDeviceParameters();
         ResetAnnotations();
         ResetType3();
+        ResetSoftMasks();
     }
 
     /// <inheritdoc/>
@@ -178,7 +180,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         for (int index = _operationCount - 1; index >= start; index--)
         {
             if (_operations[index].Kind is not (DisplayOperationKind.SetTransform or DisplayOperationKind.IntersectClip or DisplayOperationKind.SetCompositing
-                or DisplayOperationKind.SetDeviceParameters))
+                or DisplayOperationKind.SetDeviceParameters or DisplayOperationKind.SetSoftMask))
             {
                 return true;
             }

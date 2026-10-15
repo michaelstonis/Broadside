@@ -268,6 +268,8 @@ public sealed class DisplayListAllocationTests
             group.Replay(this);
         }
 
+        public void SetSoftMask(in DisplaySoftMask mask) => Checksum += mask.IsNone ? 1 : mask.Matrix.A;
+
         public void BeginAnnotation(in DisplayAnnotation annotation) => Checksum += annotation.Rectangle.Width + annotation.Opacity;
 
         public void EndAnnotation() => Checksum++;

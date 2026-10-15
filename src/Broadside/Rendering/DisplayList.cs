@@ -30,7 +30,9 @@ namespace Broadside.Rendering;
 /// glyph, in the colours of the text that shows it; each description is interpreted once per font, code and inherited graphics
 /// state in a list and replayed at every show. Text clips (§9.3.6) reach backends as path clips of the glyph outlines. Overprint
 /// control and halftones reach them as <see cref="IRenderingBackend.SetDeviceParameters"/> (transfer functions travel with each
-/// colour). Soft masks join it in a later Phase 3 ticket, as new <see cref="IRenderingBackend"/> calls.
+/// colour). Soft masks in the
+/// graphics state (§11.5, §11.6.5.1) reach them through <see cref="IRenderingBackend.SetSoftMask"/> and
+/// <see cref="DisplayGroup.SoftMask"/>, each mask's group a list of its own (<see cref="DisplaySoftMask"/>), built once per mask.
 /// </para>
 /// <para>
 /// Immutable once built: any number of threads may replay the same list at once, each into its own backend.
@@ -100,6 +102,9 @@ public sealed partial class DisplayList
     internal DisplayGroupEntry[] Groups { get; init; } = [];
     /// <summary>Gets the tiling-pattern paints (indexed by the tiling-pattern records).</summary>
     internal DisplayTilingPaint[] TilingPaints { get; init; } = [];
+
+    /// <summary>Gets the soft masks the list sets (indexed by <see cref="DisplayOperationKind.SetSoftMask"/> records and groups).</summary>
+    internal DisplaySoftMaskEntry[] SoftMasks { get; init; } = [];
 
     /// <summary>Gets the annotations the list draws (indexed by <see cref="DisplayOperationKind.BeginAnnotation"/> records).</summary>
     internal DisplayAnnotation[] Annotations { get; init; } = [];
@@ -331,6 +336,9 @@ public sealed partial class DisplayList
                 break;
             case DisplayOperationKind.EndAnnotation:
                 backend.EndAnnotation();
+                break;
+            case DisplayOperationKind.SetSoftMask:
+                backend.SetSoftMask(operation.First < 0 ? default : new DisplaySoftMask(SoftMasks[operation.First]));
                 break;
         }
     }

@@ -29,8 +29,8 @@ internal sealed partial class DisplayListBuilder
     /// <inheritdoc/>
     /// <remarks>
     /// ISO 32000-2 §11.6.6: a transparency group XObject opens a group with the attributes of its group dictionary (I, K, and CS when
-    /// isolated) and the nonstroking alpha and blend mode at <c>Do</c>, which composite its result; its content (from the implicit
-    /// save the form runs in) follows. A form without a transparency group paints as before, without one (§8.10.3).
+    /// isolated) and the nonstroking alpha, blend mode and soft mask at <c>Do</c>, which composite its result (§11.6.4.3: the mask
+    /// applies to the group as a whole); its content (from the implicit save the form runs in) follows. A form without a transparency group paints as before, without one (§8.10.3).
     /// </remarks>
     public override ContentVisit BeginForm(in FormEvent form, ContentContext context)
     {
@@ -42,6 +42,7 @@ internal sealed partial class DisplayListBuilder
         PdfDocument document = context.Document;
         PdfColorSpace? space = form.IsIsolated ? BlendingSpace(form.GroupColorSpace, document, form.Reference) : null;
         ref readonly GraphicsState state = ref context.State;
+        int softMask = SoftMaskIndex(form.SoftMask, form.SoftMaskMatrix, form.AlphaIsShape, context);
         int group = OpenGroup(new DisplayGroupEntry(
             DisplayGroupKind.Transparency,
             form.IsIsolated,
@@ -55,7 +56,8 @@ internal sealed partial class DisplayListBuilder
             form.BoundingBox,
             Relative(form.Matrix * state.Ctm),
             0,
-            0));
+            0,
+            softMask));
         Append(ref _openForms, ref _openFormCount, group);
         return ContentVisit.Enter;
     }

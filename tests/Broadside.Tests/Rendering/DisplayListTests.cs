@@ -352,6 +352,10 @@ public sealed class DisplayListTests
 
         public void DrawGroup(in DisplayGroup group) => group.Replay(this);
 
+        public void SetSoftMask(in DisplaySoftMask mask)
+        {
+        }
+
         public void BeginAnnotation(in DisplayAnnotation annotation)
         {
         }

@@ -20,6 +20,11 @@ internal sealed unsafe partial class Direct2DBackend
         DiagnosticSeverity.Warning,
         "The Direct2D backend does not composite transparency groups yet (ISO 32000-2 §11.4); groups with an opacity, a blend mode, knockout, isolation or a colour space of their own were drawn as their content alone.");
 
+    private static readonly Diagnostic SoftMaskIgnored = new(
+        "BackendSoftMaskIgnored",
+        DiagnosticSeverity.Warning,
+        "The Direct2D backend does not apply soft masks yet (ISO 32000-2 §11.5, §11.6.5.1); paints and groups under a soft mask were drawn unmasked.");
+
     private Compositing _compositing = Compositing.Initial;
     private Compositing[] _savedCompositing = new Compositing[16];
     private Matrix[] _annotationDevices = new Matrix[2];
@@ -138,12 +143,22 @@ internal sealed unsafe partial class Direct2DBackend
     /// </summary>
     public void DrawGroup(in DisplayGroup group)
     {
-        if (group.IsKnockout || group.Opacity < 1 || group.BlendMode != BlendMode.Normal || (group.IsIsolated && group.ColorSpace is not null))
+        if (group.IsKnockout || group.Opacity < 1 || group.BlendMode != BlendMode.Normal || (group.IsIsolated && group.ColorSpace is not null)
+            || !group.SoftMask.IsNone)
         {
             Skip(SkippedOperations.Groups, GroupApproximated);
         }
 
         group.Replay(this);
+    }
+
+    /// <summary>Ignores a soft mask (ISO 32000-2 §11.6.5.1): the paints that follow are drawn unmasked, reported once per replay (ADR 0005).</summary>
+    public void SetSoftMask(in DisplaySoftMask mask)
+    {
+        if (!mask.IsNone)
+        {
+            Skip(SkippedOperations.SoftMasks, SoftMaskIgnored);
+        }
     }
 
     /// <summary>Resets the compositing state and the annotations at the start of a replay.</summary>

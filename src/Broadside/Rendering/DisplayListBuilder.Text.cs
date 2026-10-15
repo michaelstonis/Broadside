@@ -66,7 +66,7 @@ internal sealed partial class DisplayListBuilder
         // §11.7.4.4: a glyph both filled and stroked is one object, as if in a non-isolated knockout group.
         int group = fills && strokes ? OpenFillAndStrokeGroup(state, context.DefaultColorSpaces, default) : -1;
         int firstGlyph = _glyphCount;
-        SetCompositing(state);
+        SetCompositing(state, context);
         if (!ContinuesRun(program, mode, fills, strokes, state, context.DefaultColorSpaces, conversion))
         {
             int fill = fills ? AddColor(state.FillColor, context.DefaultColorSpaces, conversion) : -1;

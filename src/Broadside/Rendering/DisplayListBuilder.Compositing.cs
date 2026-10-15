@@ -23,8 +23,12 @@ internal sealed partial class DisplayListBuilder
     /// transparency group the interpreter starts both alphas at 1 and the blend mode at Normal (§11.6.6); the group itself is not in
     /// the list yet. The device parameters (overprint, halftone) are recorded here too, so every paint gets them.
     /// </remarks>
-    private void SetCompositing(in GraphicsState state)
+    /// <param name="state">The paint's graphics state.</param>
+    /// <param name="context">The run, which builds the soft mask's group the first time it is needed.</param>
+    /// <param name="ownMask">Whether the paint is an image with a mask of its own, which overrides the soft mask (§11.6.4.3).</param>
+    private void SetCompositing(in GraphicsState state, ContentContext context, bool ownMask = false)
     {
+        SetSoftMask(state, context, ownMask);
         SetDeviceParameters(state);
         SetCompositing(new DisplayCompositing(state.StrokeAlpha, state.FillAlpha, state.BlendMode));
     }
@@ -41,6 +45,7 @@ internal sealed partial class DisplayListBuilder
     private void SetPatternCompositing(in PdfColor color, ContentContext context, bool stroke)
     {
         ref readonly GraphicsState state = ref context.State;
+        SetSoftMask(state, context, overridden: false);
         SetDeviceParameters(state);
         var compositing = new DisplayCompositing(state.StrokeAlpha, state.FillAlpha, state.BlendMode);
         if (context.GetPattern(color) is PdfShadingPattern { ExtGState: { } dictionary })
@@ -76,6 +81,7 @@ internal sealed partial class DisplayListBuilder
     {
         Append(ref _savedCompositings, ref _savedCompositingCount, _compositing);
         SaveDeviceParameters();
+        SaveSoftMask();
     }
 
     /// <summary>Restores what <see cref="SaveCompositing"/> saved, as the backend's state restore does.</summary>
@@ -83,6 +89,7 @@ internal sealed partial class DisplayListBuilder
     {
         _compositing = _savedCompositings[--_savedCompositingCount];
         RestoreDeviceParameters();
+        RestoreSoftMask();
     }
 
     private void ResetCompositing()
@@ -90,5 +97,6 @@ internal sealed partial class DisplayListBuilder
         _compositingCount = 0;
         _compositing = DisplayCompositing.Initial;
         _savedCompositingCount = 0;
+        ResetSoftMaskTracking();
     }
 }

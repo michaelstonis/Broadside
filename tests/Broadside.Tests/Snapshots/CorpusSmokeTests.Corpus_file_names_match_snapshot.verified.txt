@@ -171,6 +171,7 @@
   transfer-functions.pdf,
   transparency-blend-modes.pdf,
   transparency-groups.pdf,
+  transparency-soft-masks.pdf,
   viewer-preferences.pdf,
   wrong-stream-length.pdf,
   xref-stream.pdf

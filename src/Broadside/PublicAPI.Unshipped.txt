@@ -4372,6 +4372,22 @@ Broadside.PdfPage.CreateCanvas() -> Broadside.Graphics.PdfCanvas!
 Broadside.PdfPage.CropBox.set -> void
 Broadside.PdfPage.MediaBox.set -> void
 Broadside.PdfPage.TrimBox.set -> void
+Broadside.Rendering.DisplayGroup.SoftMask.get -> Broadside.Rendering.DisplaySoftMask
+Broadside.Rendering.DisplaySoftMask
+Broadside.Rendering.DisplaySoftMask.Backdrop.get -> System.ReadOnlySpan<float>
+Broadside.Rendering.DisplaySoftMask.BoundingBox.get -> Broadside.PdfRectangle
+Broadside.Rendering.DisplaySoftMask.ColorSpace.get -> Broadside.Graphics.PdfColorSpace?
+Broadside.Rendering.DisplaySoftMask.Content.get -> Broadside.Rendering.DisplayList!
+Broadside.Rendering.DisplaySoftMask.Conversion.get -> Broadside.Graphics.ColorConversion
+Broadside.Rendering.DisplaySoftMask.DefaultColorSpaces.get -> Broadside.Graphics.PdfDefaultColorSpaces!
+Broadside.Rendering.DisplaySoftMask.DisplaySoftMask() -> void
+Broadside.Rendering.DisplaySoftMask.HasBoundingBox.get -> bool
+Broadside.Rendering.DisplaySoftMask.IsNone.get -> bool
+Broadside.Rendering.DisplaySoftMask.IsShape.get -> bool
+Broadside.Rendering.DisplaySoftMask.Matrix.get -> Broadside.Graphics.Matrix
+Broadside.Rendering.DisplaySoftMask.Subtype.get -> Broadside.Graphics.PdfSoftMaskType
+Broadside.Rendering.DisplaySoftMask.TransferFunction.get -> Broadside.Graphics.PdfFunction?
+Broadside.Rendering.IRenderingBackend.SetSoftMask(in Broadside.Rendering.DisplaySoftMask mask) -> void
 Broadside.Layout.LayoutExtent
 Broadside.Layout.LayoutExtent.Bounds.get -> Broadside.PdfRectangle?
 Broadside.Layout.LayoutExtent.GlyphCount.get -> int

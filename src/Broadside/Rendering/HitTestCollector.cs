@@ -107,6 +107,12 @@ internal sealed class HitTestCollector : IRenderingBackend
     }
 
     /// <inheritdoc/>
+    /// <remarks>A soft mask changes how much of a paint shows, not where it lands: masked paints are still indexed.</remarks>
+    public void SetSoftMask(in DisplaySoftMask mask)
+    {
+    }
+
+    /// <inheritdoc/>
     /// <remarks>A transparency group's paints are indexed where they land, as if painted directly (#114).</remarks>
     public void DrawGroup(in DisplayGroup group) => group.Replay(this);
 

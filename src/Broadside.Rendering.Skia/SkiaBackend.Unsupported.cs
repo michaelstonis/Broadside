@@ -41,6 +41,11 @@ public sealed partial class SkiaBackend
             DiagnosticSeverity.Warning,
             "The Skia backend does not composite transparency groups yet (ISO 32000-2 §11.4); groups with an opacity, a blend mode, knockout, isolation or a colour space of their own were drawn as their content alone.");
 
+        private static readonly Diagnostic SoftMaskIgnored = new(
+            "BackendSoftMaskIgnored",
+            DiagnosticSeverity.Warning,
+            "The Skia backend does not apply soft masks yet (ISO 32000-2 §11.5, §11.6.5.1); paints and groups under a soft mask were drawn unmasked.");
+
         private int _reported;
 
         /// <summary>Gets the diagnostics of the current or last render.</summary>
@@ -84,12 +89,22 @@ public sealed partial class SkiaBackend
         /// </summary>
         public void DrawGroup(in DisplayGroup group)
         {
-            if (group.IsKnockout || group.Opacity < 1 || group.BlendMode != BlendMode.Normal || (group.IsIsolated && group.ColorSpace is not null))
+            if (group.IsKnockout || group.Opacity < 1 || group.BlendMode != BlendMode.Normal || (group.IsIsolated && group.ColorSpace is not null)
+                || !group.SoftMask.IsNone)
             {
                 Report(32, GroupApproximated);
             }
 
             group.Replay(this);
+        }
+
+        /// <summary>Ignores a soft mask (ISO 32000-2 §11.6.5.1): the paints that follow are drawn unmasked, reported once per replay (ADR 0005).</summary>
+        public void SetSoftMask(in DisplaySoftMask mask)
+        {
+            if (!mask.IsNone)
+            {
+                Report(64, SoftMaskIgnored);
+            }
         }
 
         private void Report(int kind, Diagnostic diagnostic)
