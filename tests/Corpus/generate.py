@@ -3772,6 +3772,60 @@ def gen_layout_three_column() -> bytes:
     return simple_file(sorted(objects))
 
 
+def gen_layout_headings_lists() -> bytes:
+    """Heading and list detection (spec story 36, issue #188) over one untagged page: body text in Helvetica 10 on a 12-point
+    pitch, headings in Helvetica-Bold 20, 14 and 11 (levels 1, 2 and 3), a three-level list (WinAnsi bullets, then a) b) c)
+    letters, then i. ii. roman numerals) with a hanging indent under the first item's wrapped line, a decimal list, an
+    upper-case roman list whose bodies sit past a gap wider than a column gutter, and an upper-case lettered list in
+    parentheses. 9.6.2.2 Standard Type 1 fonts, D.2 WinAnsiEncoding (bullet 0x95)."""
+    rows = [
+        (2, 20, 72, 740, b"Headings and Lists"),
+        (1, 10, 72, 710, b"This page tests the detection of headings and lists from the"),
+        (1, 10, 72, 698, b"geometry of untagged text: font size, weight and spacing set"),
+        (1, 10, 72, 686, b"headings apart, and markers start list items."),
+        (2, 14, 72, 656, b"1 Bulleted items"),
+        (1, 10, 72, 632, b"A bulleted list follows, three levels deep, with a hanging"),
+        (1, 10, 72, 620, b"indent for the line that wraps."),
+        (2, 11, 72, 596, b"1.1 Three levels"),
+        (1, 10, 84, 576, b"\x95"), (1, 10, 96, 576, b"The first item has a body long enough to wrap onto"),
+        (1, 10, 96, 564, b"a second line under its own text."),
+        (1, 10, 84, 552, b"\x95"), (1, 10, 96, 552, b"The second item holds a nested list:"),
+        (1, 10, 108, 540, b"a)"), (1, 10, 122, 540, b"a lettered item at the second level"),
+        (1, 10, 108, 528, b"b)"), (1, 10, 122, 528, b"another lettered item, which nests deeper:"),
+        (1, 10, 134, 516, b"i."), (1, 10, 148, 516, b"a roman item at the third level"),
+        (1, 10, 134, 504, b"ii."), (1, 10, 148, 504, b"and a second roman item"),
+        (1, 10, 108, 492, b"c)"), (1, 10, 122, 492, b"a third lettered item"),
+        (1, 10, 84, 480, b"\x95"), (1, 10, 96, 480, b"The third item closes the list."),
+        (2, 14, 72, 450, b"2 Numbered items"),
+        (1, 10, 72, 426, b"Numbers, upper-case roman numerals and letters mark ordered lists."),
+        (1, 10, 84, 402, b"1."), (1, 10, 100, 402, b"Decimal numbers with a full stop"),
+        (1, 10, 84, 390, b"2."), (1, 10, 100, 390, b"count the items of a list"),
+        (1, 10, 84, 378, b"3."), (1, 10, 100, 378, b"one after the other."),
+        (1, 10, 72, 354, b"Upper-case roman numerals with a wide gap after the marker:"),
+        (1, 10, 84, 330, b"I."), (1, 10, 120, 330, b"the first numeral"),
+        (1, 10, 84, 318, b"II."), (1, 10, 120, 318, b"the second numeral"),
+        (1, 10, 84, 306, b"III."), (1, 10, 120, 306, b"the third numeral"),
+        (1, 10, 84, 294, b"IV."), (1, 10, 120, 294, b"the fourth numeral"),
+        (1, 10, 72, 270, b"Upper-case letters in parentheses:"),
+        (1, 10, 84, 246, b"(A)"), (1, 10, 104, 246, b"a first lettered item"),
+        (1, 10, 84, 234, b"(B)"), (1, 10, 104, 234, b"a second lettered item"),
+        (1, 10, 84, 222, b"(C)"), (1, 10, 104, 222, b"a third lettered item"),
+        (2, 11, 72, 198, b"2.1 Closing"),
+        (1, 10, 72, 174, b"A last paragraph ends the page after the lists, back on the"),
+        (1, 10, 72, 162, b"left margin of the body text."),
+    ]
+    content = b"\n".join(b"BT /F%d %d Tf %d %d Td (%s) Tj ET" % (font, size, x, y, text.replace(b"(", b"\\(").replace(b")", b"\\)"))
+                          for font, size, x, y, text in rows)
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, HELVETICA),
+        (6, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"),
+    ])
+
+
 def gen_functions() -> bytes:
     """7.10 functions as Separation tint transforms (8.6.6.4), one rectangle per colour space.
     CS0: Type 0 (7.10.2), 8-bit, 1 in, 4 out (DeviceCMYK), Size [3], painted at 0.5 (the middle sample).
@@ -6958,6 +7012,7 @@ FILES = {
     "layout-two-column-tagged.pdf": gen_layout_two_column_tagged,
     "layout-two-column-untagged.pdf": gen_layout_two_column_untagged,
     "layout-three-column.pdf": gen_layout_three_column,
+    "layout-headings-lists.pdf": gen_layout_headings_lists,
     "destinations-all.pdf": gen_destinations_all,
     "outline-full.pdf": gen_outline_full,
     "outline-broken.pdf": gen_outline_broken,

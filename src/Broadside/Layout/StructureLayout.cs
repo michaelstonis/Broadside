@@ -26,6 +26,7 @@ internal static class StructureLayout
     private static readonly CosName Headers = new("Headers");
     private static readonly CosName RowSpan = new("RowSpan");
     private static readonly CosName ColSpan = new("ColSpan");
+    private static readonly CosName ListNumbering = new("ListNumbering");
 
     /// <summary>The widest a column span is taken to be, as HTML caps <c>colspan</c>, so a damaged value cannot blow up the grid.</summary>
     private const int MaxColumnSpan = 1000;
@@ -381,6 +382,7 @@ internal static class StructureLayout
             {
                 LayoutNodeKind.Heading => new LayoutHeading(element, HeadingLevel(element, type)),
                 LayoutNodeKind.Table => new LayoutTable(element),
+                LayoutNodeKind.List => new LayoutList(element, element.GetAttributeValue(StructureNames.List, ListNumbering) is { } value && _document.Resolve(value) is CosName numbering ? numbering.Value : "None"),
                 LayoutNodeKind.TableCell => new LayoutTableCell(element, type == "TH", SpanOf(element, RowSpan, int.MaxValue), SpanOf(element, ColSpan, MaxColumnSpan)),
                 _ => LayoutNode.Create(kind, element),
             };
