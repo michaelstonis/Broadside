@@ -153,6 +153,64 @@ internal static class StructureTree
             _ = root.GetMarkedContentElements(page);
             CheckReadingOrder(page);
         }
+
+        CheckLayout(document.ExtractLayout());
+        if (document.Pages.Count > 0)
+        {
+            CheckLayout(document.Pages[0].ExtractLayout());
+        }
+    }
+
+    /// <summary>
+    /// Checks a layout tree built from the structure tree (issue #186): every node is reached once with its parent set, every extent's
+    /// ranges lie within its page and within its parent's extent on that page, table cells have spans of at least 1 and grid positions
+    /// inside the table, and every node's text assembles.
+    /// </summary>
+    private static void CheckLayout(Broadside.Layout.LayoutTree tree)
+    {
+        var seen = new HashSet<Broadside.Layout.LayoutNode>(ReferenceEqualityComparer.Instance);
+        var stack = new Stack<Broadside.Layout.LayoutNode>([tree.Root]);
+        while (stack.TryPop(out Broadside.Layout.LayoutNode? node))
+        {
+            if (!seen.Add(node))
+            {
+                throw new InvalidOperationException("A layout node is reached twice.");
+            }
+
+            _ = node.Text;
+            foreach (Broadside.Layout.LayoutExtent extent in node.Extents)
+            {
+                Broadside.Text.TextPage text = extent.Page.Text;
+                if (extent.GlyphStart < 0 || extent.GlyphCount < 0 || extent.GlyphStart + extent.GlyphCount > text.Glyphs.Count
+                    || extent.TextStart < 0 || extent.TextLength < 0 || extent.TextStart + extent.TextLength > text.Text.Length)
+                {
+                    throw new InvalidOperationException("A layout extent's range lies outside its page.");
+                }
+
+                if (node.Parent is { } parent
+                    && !parent.Extents.Any(outer => ReferenceEquals(outer.Page, extent.Page) && outer.GlyphStart <= extent.GlyphStart && extent.GlyphStart + extent.GlyphCount <= outer.GlyphStart + outer.GlyphCount))
+                {
+                    throw new InvalidOperationException("A layout extent is not inside its parent's.");
+                }
+            }
+
+            if (node is Broadside.Layout.LayoutTableCell cell
+                && (cell.RowSpan < 1 || cell.ColumnSpan < 1
+                    || (cell.Row >= 0 && node.Parent?.Parent is Broadside.Layout.LayoutTable table && (cell.Row + cell.RowSpan > table.RowCount || cell.Column + cell.ColumnSpan > table.ColumnCount))))
+            {
+                throw new InvalidOperationException("A table cell lies outside its table's grid.");
+            }
+
+            foreach (Broadside.Layout.LayoutNode child in node.Children)
+            {
+                if (!ReferenceEquals(child.Parent, node))
+                {
+                    throw new InvalidOperationException("A layout node's parent is not the node holding it.");
+                }
+
+                stack.Push(child);
+            }
+        }
     }
 
     /// <summary>

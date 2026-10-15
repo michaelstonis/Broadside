@@ -48,7 +48,7 @@ public sealed partial class SoftwareRasterizer
 
             _scan.Reset(_width, _height);
             AddPath(path);
-            PaintTiling(pattern, rule, _fillCompositor);
+            PaintTiling(pattern, rule, _fillCompositor, _deviceParameters.FillOverprint);
         }
 
         /// <summary>Tiles the area the stroke covers (§8.5.3.2, outlined like <see cref="StrokePath"/>) with the pattern.</summary>
@@ -61,11 +61,11 @@ public sealed partial class SoftwareRasterizer
 
             _scan.Reset(_width, _height);
             _stroker.Stroke(path, style, _toDevice);
-            PaintTiling(pattern, FillRule.NonZero, _strokeCompositor);
+            PaintTiling(pattern, FillRule.NonZero, _strokeCompositor, _deviceParameters.StrokeOverprint);
         }
 
         /// <summary>Paints the shape in the scan converter with the pattern's tiles.</summary>
-        private void PaintTiling(in DisplayTilingPattern pattern, FillRule rule, Compositor compositor)
+        private void PaintTiling(in DisplayTilingPattern pattern, FillRule rule, Compositor compositor, bool overprint)
         {
             if (!_scan.TryGetBounds(out int left, out int top, out int right, out int bottom))
             {
@@ -85,10 +85,21 @@ public sealed partial class SoftwareRasterizer
                 return;
             }
 
-            Bitmap cellBitmap = RenderCell(pattern.Cell, layout.CellMatrix, cell);
             int layerLength = area.Width * area.Height;
             Pooled.Ensure(ref _tileLayer, layerLength);
             Span<uint> layer = _tileLayer.AsSpan(0, layerLength);
+            if (_probe.Inspect(pattern.Cell).Blends)
+            {
+                // §11.6.7: the cell is a non-isolated group, so its blend modes see the backdrop; only a cell in the Normal mode alone
+                // may be rendered once on a clear surface (NOTE 1).
+                PaintNonIsolatedTiles(pattern.Cell, layout, area, layer);
+                Bitmap ground = _target!;
+                var blended = new TilingPainter(ground.Pixels, ground.Stride, layer, area.Left, area.Top, area.Width, area.Height, compositor);
+                _scan.Paint(rule, ref blended);
+                return;
+            }
+
+            Bitmap cellBitmap = RenderCell(pattern.Cell, layout.CellMatrix, cell);
             layer.Clear();
             ReadOnlySpan<uint> cellPixels = MemoryMarshal.Cast<byte, uint>(cellBitmap.Pixels[..(cell.Width * cell.Height * 4)]);
             for (long j = layout.JFirst; j <= layout.JLast; j++)
@@ -98,6 +109,12 @@ public sealed partial class SoftwareRasterizer
                     layout.GetOffset(i, j, out long offsetX, out long offsetY);
                     CopyTile(cellPixels, cell, offsetX, offsetY, layer, area);
                 }
+            }
+
+            if (_previewing)
+            {
+                PreviewTiling(layer, area, rule, compositor, overprint);
+                return;
             }
 
             Bitmap target = _target!;
@@ -122,7 +139,8 @@ public sealed partial class SoftwareRasterizer
             }
 
             Backend child = _cellBackend ??= new Backend();
-            child.Begin(_document!, _cellBitmap, cellMatrix * Matrix.CreateTranslation(-box.Left, -box.Top), box.Width, box.Height);
+            child.Begin(_document!, _cellBitmap, cellMatrix * Matrix.CreateTranslation(-box.Left, -box.Top), box.Width, box.Height, preview: false, _antiAliasing);
+            child._pixelModel = _pixelModel;
             try
             {
                 cell.Replay(child);

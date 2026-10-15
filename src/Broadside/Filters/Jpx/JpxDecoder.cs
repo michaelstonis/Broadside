@@ -120,10 +120,12 @@ internal static class JpxDecoder
             {
                 foreach (JpxTile tile in stream.Tiles)
                 {
+                    reporter.ThrowIfCancellationRequested();
                     DecodeTile(stream, tile, codestream, tiles, planes, reporter);
                 }
             }
 
+            reporter.ThrowIfCancellationRequested();
             JpxComposer.Compose(size, plan, planes, builder, alpha, reporter);
             builder.ColorModel = plan.Model;
             if (plan.IccProfile is { } profile)
@@ -239,10 +241,10 @@ internal static class JpxDecoder
             {
                 if (!components[c].Style.Reversible)
                 {
-                    RoundToIntegers(buffers[c].AsSpan(0, components[c].Width * components[c].Height));
+                    RoundToIntegers(buffers[c].AsSpan(0, components[c].Width * components[c].Height), reporter);
                 }
 
-                planes[c]?.Write(components[c], buffers[c]);
+                planes[c]?.Write(components[c], buffers[c], reporter);
             }
         }
         finally
@@ -266,6 +268,9 @@ internal static class JpxDecoder
     /// The inverse component transformation of components 0 to 2 (G.2.2, G.3.2): the RCT when they use the 5/3 filter, the ICT when
     /// they use the 9/7 one; skipped with a diagnostic when they differ in size or filter.
     /// </summary>
+    /// <summary>How many samples a whole-component loop handles between cancellation checks, less one (a mask: 64 Ki samples).</summary>
+    private const int CancellationStride = (1 << 16) - 1;
+
     private static void ApplyComponentTransform(JpxTileParameters parameters, JpxTileComponent[] components, int[][] buffers, CodecReporter reporter)
     {
         if (parameters.Coding.Transform != 1 || components.Length < 3)
@@ -294,6 +299,11 @@ internal static class JpxDecoder
             Span<int> y2 = buffers[2].AsSpan(0, count);
             for (int i = 0; i < y0.Length; i++)
             {
+                if ((i & CancellationStride) == 0)
+                {
+                    reporter.ThrowIfCancellationRequested();
+                }
+
                 int g = y0[i] - ((y1[i] + y2[i]) >> 2);
                 y0[i] = y2[i] + g;
                 y2[i] = y1[i] + g;
@@ -309,6 +319,11 @@ internal static class JpxDecoder
         Span<float> f2 = MemoryMarshal.Cast<int, float>(buffers[2].AsSpan(0, count));
         for (int i = 0; i < f0.Length; i++)
         {
+            if ((i & CancellationStride) == 0)
+            {
+                reporter.ThrowIfCancellationRequested();
+            }
+
             float y = f0[i];
             float cb = f1[i];
             float cr = f2[i];
@@ -319,11 +334,16 @@ internal static class JpxDecoder
     }
 
     /// <summary>Rounds an irreversible tile-component's reconstructed values to integers in place (G.1.2, before the DC level shift).</summary>
-    private static void RoundToIntegers(Span<int> buffer)
+    private static void RoundToIntegers(Span<int> buffer, CodecReporter reporter)
     {
         Span<float> values = MemoryMarshal.Cast<int, float>(buffer);
         for (int i = 0; i < buffer.Length; i++)
         {
+            if ((i & CancellationStride) == 0)
+            {
+                reporter.ThrowIfCancellationRequested();
+            }
+
             float value = values[i];
             buffer[i] = value >= int.MaxValue ? int.MaxValue : value <= int.MinValue ? int.MinValue : float.IsNaN(value) ? 0 : (int)MathF.Round(value);
         }

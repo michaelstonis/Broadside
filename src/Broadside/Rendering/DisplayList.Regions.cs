@@ -57,6 +57,11 @@ public sealed partial class DisplayList
             }
 
             Execute(backend, in operation);
+            if (operation.Kind == DisplayOperationKind.DrawGroup)
+            {
+                // A group's content reaches the backend through its DisplayGroup, whole.
+                index = Groups[operation.First].End - 1;
+            }
         }
     }
 
@@ -89,20 +94,27 @@ public sealed partial class DisplayList
         int unbounded = 0;
         for (int index = 0; index < _operations.Length; index++)
         {
+            CloseGroups(index, extents, stack, ref ctm, ref clip, ref group);
             ref readonly DisplayOperation operation = ref _operations[index];
             Box paint;
             switch (operation.Kind)
             {
+                case DisplayOperationKind.DrawGroup:
+                    // A transparency group (§11.4) is skipped whole, bounded by its content, which ends at the group's End.
+                    stack.Push(new Frame(ctm, clip, index, group, KeepsSize: false, GroupEnd: Groups[operation.First].End));
+                    group = Box.Empty;
+                    extents[index] = OperationExtent.Everything(index);
+                    continue;
                 case DisplayOperationKind.SaveState or DisplayOperationKind.BeginAnnotation:
                     bool keepsSize = operation.Kind == DisplayOperationKind.BeginAnnotation
                         && Annotations[operation.First] is { NoZoom: true } or { NoRotate: true };
-                    stack.Push(new Frame(ctm, clip, index, group, keepsSize));
+                    stack.Push(new Frame(ctm, clip, index, group, keepsSize, GroupEnd: -1));
                     unbounded += keepsSize ? 1 : 0;
                     group = Box.Empty;
                     extents[index] = OperationExtent.Everything(index);
                     continue;
                 case DisplayOperationKind.RestoreState or DisplayOperationKind.EndAnnotation:
-                    if (stack.TryPop(out Frame frame))
+                    if (stack.TryPeek(out Frame top) && top.GroupEnd < 0 && stack.TryPop(out Frame frame))
                     {
                         unbounded -= frame.KeepsSize ? 1 : 0;
                         if (frame.KeepsSize)
@@ -118,7 +130,8 @@ public sealed partial class DisplayList
 
                     extents[index] = OperationExtent.Everything(index);
                     continue;
-                case DisplayOperationKind.SetCompositing:
+                case DisplayOperationKind.SetCompositing or DisplayOperationKind.SetDeviceParameters
+                    or DisplayOperationKind.SetSoftMask:
                     extents[index] = OperationExtent.Everything(index);
                     continue;
                 case DisplayOperationKind.SetTransform:
@@ -158,6 +171,8 @@ public sealed partial class DisplayList
             group = Box.Union(group, paint);
         }
 
+        CloseGroups(_operations.Length, extents, stack, ref ctm, ref clip, ref group);
+
         // A save never restored (the builder balances them, so this is defensive) is never skipped.
         while (stack.TryPop(out Frame open))
         {
@@ -165,6 +180,19 @@ public sealed partial class DisplayList
         }
 
         return extents;
+    }
+
+    /// <summary>Ends the groups whose content ends at <paramref name="index"/>: each is bounded by what its content paints.</summary>
+    private static void CloseGroups(int index, OperationExtent[] extents, Stack<Frame> stack, ref Matrix ctm, ref Box clip, ref Box group)
+    {
+        while (stack.TryPeek(out Frame frame) && frame.GroupEnd == index)
+        {
+            stack.Pop();
+            extents[frame.SaveIndex] = new OperationExtent(group, cullable: true, index - 1);
+            ctm = frame.Ctm;
+            clip = frame.Clip;
+            group = Box.Union(frame.Group, group);
+        }
     }
 
     /// <summary>How far a stroke reaches beyond its path in user space: half the line width, times the miter limit or √2 for square caps.</summary>
@@ -255,7 +283,8 @@ public sealed partial class DisplayList
     /// A saved state (or an annotation) during the walk: what <c>RestoreState</c> brings back, where the save is, the bounds of the
     /// enclosing group so far, and whether it is an annotation that keeps its size or orientation.
     /// </summary>
-    private readonly record struct Frame(Matrix Ctm, Box Clip, int SaveIndex, Box Group, bool KeepsSize);
+    /// <remarks>A transparency group's frame has the index its content ends at (<see cref="GroupEnd"/>), −1 for the others.</remarks>
+    private readonly record struct Frame(Matrix Ctm, Box Clip, int SaveIndex, Box Group, bool KeepsSize, int GroupEnd);
 
     /// <summary>
     /// A rectangle in default user space with double coordinates; empty when <see cref="Left"/> &gt; <see cref="Right"/>, unbounded

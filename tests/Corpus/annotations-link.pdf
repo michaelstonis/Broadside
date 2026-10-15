@@ -9,7 +9,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << >> /Annots [4 0 R] >>
 endobj
 4 0 obj
-<< /Type /Annot /Subtype /Link /Rect [72 700 300 724] /Border [0 0 0] /A << /S /URI /URI (https://example.com/) >> >>
+<< /Type /Annot /Subtype /Link /Rect [72 700 300 724] /Border [0 0 0] /QuadPoints [72 712 300 712 300 724 72 724 72 700 150 700 150 712 72 712] /A << /S /URI /URI (https://example.com/) >> >>
 endobj
 xref
 0 5
@@ -21,5 +21,5 @@ xref
 trailer
 << /Size 5 /Root 1 0 R >>
 startxref
-352
+426
 %%EOF

@@ -13,6 +13,9 @@ namespace Broadside.Tests.Rendering;
 [Collection(HeavyTestCollection.Name)]
 public sealed class DisplayListAllocationTests
 {
+    /// <summary>Options that keep no display lists, so that every <see cref="PdfPage.CreateDisplayList()"/> builds (issue #103).</summary>
+    private static PdfOptions NoListCache => new PdfOptions().WithDisplayListCacheBudget(0);
+
     [Fact]
     public void Replaying_a_display_list_allocates_nothing()
     {
@@ -64,15 +67,17 @@ public sealed class DisplayListAllocationTests
     [InlineData(2000)]
     public void Building_a_display_list_of_text_allocates_the_glyph_records_and_nothing_else_per_glyph(int glyphs)
     {
-        // Each glyph's record (glyph id, text matrix, scale and outline index: 72 bytes) is copied into the list; outlines are read
-        // once per glyph id, so nothing else may grow with the glyph count.
-        using PdfDocument document = PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(glyphs)));
+        // Each glyph's record (glyph id, text matrix, scale and outline index: 72 bytes) is copied into the list, with its hit-test
+        // position (box and text slice: 40 bytes) and its Unicode text (a char or two); outlines are read once per glyph id, so
+        // nothing else may grow with the glyph count.
+        // The display-list cache is off: a kept list would make every call after the first free.
+        using PdfDocument document = PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(glyphs)), NoListCache);
         PdfPage page = document.Pages[0];
         Action build = () => page.CreateDisplayList();
 
         long allocated = Allocations.Measure(build);
 
-        Assert.InRange(allocated, 1, 8192 + (96 * glyphs));
+        Assert.InRange(allocated, 1, 8192 + (120 * glyphs));
     }
 
     [Theory]
@@ -82,14 +87,15 @@ public sealed class DisplayListAllocationTests
     {
         // Four Type 3 glyphs (a d1 shape, a d1 inline image mask, a d0 glyph, a d1 glyph with a form) in three colours and two sizes:
         // each description runs once per build, then every show copies its sub-list's records into the list: 16-byte operations and
-        // 48-byte transforms, 80 bytes for a, 112 for b, 96 for c and 208 for d (7 operations, 2 transforms), 124 on average.
-        using PdfDocument document = PdfDocument.Open(Type3Samples.Type3Heavy(glyphs));
+        // 48-byte transforms, 80 bytes for a, 112 for b, 96 for c and 208 for d (7 operations, 2 transforms), 124 on average. Each
+        // show also has its hit-test position (40 bytes) and its text (a char or two) (issue #101).
+        using PdfDocument document = PdfDocument.Open(Type3Samples.Type3Heavy(glyphs), NoListCache);
         PdfPage page = document.Pages[0];
         Action build = () => page.CreateDisplayList();
 
         long allocated = Allocations.Measure(build);
 
-        Assert.InRange(allocated, 1, 8192 + (144 * glyphs));
+        Assert.InRange(allocated, 1, 8192 + (192 * glyphs));
     }
 
     [Fact]
@@ -115,7 +121,7 @@ public sealed class DisplayListAllocationTests
     {
         // Each glyph's record (72 bytes) and its outline in the text clip's path (up to 12 points of 16 bytes and 9 verbs) are copied
         // into the list; outlines are read once per glyph id and the clip path is built in a reused buffer.
-        using PdfDocument document = PdfDocument.Open(TextSamples.Page(TextSamples.TextClipHeavy(glyphs)));
+        using PdfDocument document = PdfDocument.Open(TextSamples.Page(TextSamples.TextClipHeavy(glyphs)), NoListCache);
         PdfPage page = document.Pages[0];
         Action build = () => page.CreateDisplayList();
 
@@ -151,7 +157,7 @@ public sealed class DisplayListAllocationTests
             content.Append("10 10 100 50 re f\n");
         }
 
-        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(Encoding.ASCII.GetBytes(content.ToString())));
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(Encoding.ASCII.GetBytes(content.ToString())), NoListCache);
         PdfPage page = document.Pages[0];
         Action build = () => page.CreateDisplayList();
 
@@ -172,7 +178,7 @@ public sealed class DisplayListAllocationTests
             content.Append("10 10 100 50 re S\n");
         }
 
-        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(Encoding.ASCII.GetBytes(content.ToString())));
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage(Encoding.ASCII.GetBytes(content.ToString())), NoListCache);
         PdfPage page = document.Pages[0];
         Action build = () => page.CreateDisplayList();
 
@@ -256,8 +262,18 @@ public sealed class DisplayListAllocationTests
         public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode) =>
             Checksum += strokeAlpha + fillAlpha + (int)blendMode;
 
+        public void DrawGroup(in DisplayGroup group)
+        {
+            Checksum += group.Opacity + (group.IsKnockout ? 1 : 0);
+            group.Replay(this);
+        }
+
+        public void SetSoftMask(in DisplaySoftMask mask) => Checksum += mask.IsNone ? 1 : mask.Matrix.A;
+
         public void BeginAnnotation(in DisplayAnnotation annotation) => Checksum += annotation.Rectangle.Width + annotation.Opacity;
 
         public void EndAnnotation() => Checksum++;
+
+        public void SetDeviceParameters(in DisplayDeviceParameters parameters) => Checksum += parameters.OverprintMode + (parameters.FillOverprint ? 1 : 0);
     }
 }

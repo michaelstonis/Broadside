@@ -206,11 +206,63 @@ public interface IRenderingBackend
     /// <para>
     /// A shading pattern's paint arrives with its pattern's ExtGState applied (§11.6.7): its <c>ca</c> already multiplied into the
     /// alpha of the paint, its blend mode, when not Normal, in place of the state's. The page's blending colour space is the
-    /// backend's (§11.3.4, §11.4.7). Transparency groups, soft masks and the knockout of a combined fill and stroke (§11.7.4.4) are
-    /// not in the list yet: a fill and stroke of one path composite as two objects.
+    /// backend's (§11.3.4, §11.4.7) unless a page group names one. Transparency groups, including the implicit knockout group of a
+    /// combined fill and stroke (§11.7.4.4), arrive through <see cref="DrawGroup"/>; soft masks through <see cref="SetSoftMask"/>.
     /// </para>
     /// </remarks>
     void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode);
+
+    /// <summary>Sets the soft mask the paints that follow composite through, or removes it (<see cref="DisplaySoftMask.IsNone"/>).</summary>
+    /// <param name="mask">The mask: its group's list in mask space, how values derive from it, its backdrop and transfer function.</param>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §11.5, §11.6.4.3 and §11.6.5.1. Every paint's source shape (when <see cref="DisplaySoftMask.IsShape"/>) or opacity
+    /// is multiplied, point by point, by the mask value there, on top of its coverage, clip and alpha constant. The call arrives before
+    /// the first paint it applies to, only when the mask changes, and <see cref="SaveState"/> and <see cref="RestoreState"/> save and
+    /// restore it. It applies to paints only: a group's result composites through <see cref="DisplayGroup.SoftMask"/> instead, and a
+    /// group's content starts with no mask (§11.6.6), which this call sets inside it when the backend holds one.
+    /// </para>
+    /// <para>
+    /// An image with a mask of its own (soft mask, explicit or colour key mask, or an opacity channel) is preceded by a call with no
+    /// mask: the image's mask overrides the graphics state's for that image (§11.6.4.3).
+    /// </para>
+    /// <para>
+    /// The same mask (same <see cref="DisplaySoftMask.Content"/> and <see cref="DisplaySoftMask.Matrix"/>) usually arrives many
+    /// times in one replay; a backend renders it once and keeps it. A backend that cannot apply soft masks paints unmasked and
+    /// reports that it did (ADR 0005).
+    /// </para>
+    /// </remarks>
+    void SetSoftMask(in DisplaySoftMask mask);
+
+    /// <summary>Paints a transparency group: its content composited as a group, then the result composited onto the backdrop as one object.</summary>
+    /// <param name="group">
+    /// The group: whether it is isolated and knockout, its blending colour space, the alpha and blend mode its result composites
+    /// with, its bounds, and its content (<see cref="DisplayGroup.Replay"/>). The list does not replay the content itself: the
+    /// backend replays it, usually into an offscreen layer, once or more.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §11.4 (group compositing, §11.4.4 to §11.4.6 and the summary in §11.4.8), §11.6.6 (transparency group XObjects:
+    /// initial backdrop, initial blend mode and alphas, group colour space, final compositing) and §11.7.4.4 (the implicit
+    /// non-isolated knockout group of a combined fill and stroke). The content's paints composite with one another into the group,
+    /// over a transparent initial backdrop when the group is isolated and over the backdrop at the group otherwise (in a knockout
+    /// parent, the parent's initial backdrop); in a knockout group each paint composites with the initial backdrop only and
+    /// replaces, in proportion to its shape, what earlier paints of the group left. The group's colour, shape and alpha (with the
+    /// backdrop's contribution removed, §11.4.4) then composite onto the backdrop with <see cref="DisplayGroup.Opacity"/> and
+    /// <see cref="DisplayGroup.BlendMode"/>, through the clip in force at this call (§8.5.4) and <see cref="DisplayGroup.SoftMask"/>
+    /// (§11.6.4.3).
+    /// </para>
+    /// <para>
+    /// Colour: in a group with a <see cref="DisplayGroup.ColorSpace"/> colours convert to it and blend there (subtractive spaces
+    /// complemented, §11.3.4); the result converts to the parent's space with <see cref="DisplayGroup.Conversion"/>. The page group
+    /// (<see cref="DisplayGroupKind.Page"/>) is isolated and composites onto the page's white (§11.4.7).
+    /// </para>
+    /// <para>
+    /// A backend that does not composite groups can replay the content directly (<c>group.Replay(this)</c>): that is exact for a
+    /// non-isolated, non-knockout group in the Normal blend mode at opacity 1 (§11.4.4 NOTE 5), and an approximation otherwise.
+    /// </para>
+    /// </remarks>
+    void DrawGroup(in DisplayGroup group);
 
     /// <summary>
     /// Begins an annotation's appearance: saves the state as <see cref="SaveState"/> does, and the paints until the matching
@@ -235,4 +287,26 @@ public interface IRenderingBackend
     /// <summary>Ends the annotation <see cref="BeginAnnotation"/> began: composites its appearance and restores the state saved there.</summary>
     /// <remarks>ISO 32000-2 §12.5.5.</remarks>
     void EndAnnotation();
+
+    /// <summary>Sets the overprint parameters and the halftone the paints that follow are rendered with, until the state is restored.</summary>
+    /// <param name="parameters">
+    /// Whether strokes (<see cref="StrokePath"/>, <see cref="StrokePathWithShading"/> and the stroke of <see cref="DrawGlyphs"/>) and
+    /// every other paint overprint, the overprint mode, and the halftone and its origin.
+    /// </param>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §8.6.7 (overprint control) and §10.6 (halftones), Table 52. A replay starts with no overprint, mode 0 and the
+    /// device's halftone; the call arrives before the first paint it applies to (before <see cref="SetCompositing"/> and
+    /// <see cref="SetTransform"/>), only when one of the values changes, and <see cref="SaveState"/> and <see cref="RestoreState"/>
+    /// save and restore it.
+    /// </para>
+    /// <para>
+    /// These are device-dependent: a backend for a composite display that does not overprint ignores the overprint parameters
+    /// (§8.6.7: "If overprinting is not supported, the value of the overprint parameter shall be ignored") and a continuous-tone
+    /// device needs no halftone (§10.6.1); a separation, CMYK or overprint-preview backend can honour them. Transfer functions do
+    /// not come through here: they travel with each colour in its <see cref="ColorConversion"/> and the converters apply them
+    /// (§10.5).
+    /// </para>
+    /// </remarks>
+    void SetDeviceParameters(in DisplayDeviceParameters parameters);
 }

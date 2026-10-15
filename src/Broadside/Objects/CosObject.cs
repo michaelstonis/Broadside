@@ -48,6 +48,12 @@ public abstract class CosObject
     {
     }
 
+    /// <summary>
+    /// Captures how this container is now, for <see cref="CosChangeLog"/>: the returned action puts its contents and dirty state back
+    /// as they are, and records the change for the caches that follow its <c>Version</c>. Only containers change.
+    /// </summary>
+    internal virtual Action CaptureState() => throw new InvalidOperationException("Only a dictionary, an array or a stream changes.");
+
     /// <summary>Parses exactly one COS object from <paramref name="bytes"/>.</summary>
     /// <param name="bytes">The object's syntax, optionally surrounded by white-space and comments.</param>
     /// <returns>The parsed object. Parsed objects are not dirty.</returns>
