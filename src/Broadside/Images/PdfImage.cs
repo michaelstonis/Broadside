@@ -78,6 +78,9 @@ public sealed class PdfImage
     /// <summary>Gets the indirect reference to the image's stream, or <see langword="null"/> when it is direct or inline.</summary>
     public CosReference? Reference { get; }
 
+    /// <summary>Gets the document the image belongs to.</summary>
+    internal PdfDocument Document => _document;
+
     /// <summary>Gets a value indicating whether this is an inline image.</summary>
     /// <remarks>ISO 32000-2 §8.9.7.</remarks>
     public bool IsInline => _role == ImageRole.Inline;

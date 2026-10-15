@@ -4372,6 +4372,27 @@ Broadside.PdfPage.CreateCanvas() -> Broadside.Graphics.PdfCanvas!
 Broadside.PdfPage.CropBox.set -> void
 Broadside.PdfPage.MediaBox.set -> void
 Broadside.PdfPage.TrimBox.set -> void
+Broadside.Graphics.PdfCanvas.DrawImage(Broadside.Images.PdfImage! image) -> void
+Broadside.Graphics.PdfCanvas.DrawImage(Broadside.Images.PdfImage! image, double x, double y, double width, double height) -> void
+Broadside.Images.PdfImageCompression
+Broadside.Images.PdfImageCompression.Dct = 1 -> Broadside.Images.PdfImageCompression
+Broadside.Images.PdfImageCompression.Flate = 0 -> Broadside.Images.PdfImageCompression
+Broadside.Images.PdfImageLayout
+Broadside.Images.PdfImageLayout.BitsPerComponent.get -> int
+Broadside.Images.PdfImageLayout.BitsPerComponent.init -> void
+Broadside.Images.PdfImageLayout.ColorSpace.get -> Broadside.Graphics.PdfColorSpace!
+Broadside.Images.PdfImageLayout.ColorSpace.init -> void
+Broadside.Images.PdfImageLayout.Height.get -> int
+Broadside.Images.PdfImageLayout.Height.init -> void
+Broadside.Images.PdfImageLayout.PdfImageLayout() -> void
+Broadside.Images.PdfImageLayout.PdfImageLayout(int Width, int Height, Broadside.Graphics.PdfColorSpace! ColorSpace, int BitsPerComponent = 8) -> void
+Broadside.Images.PdfImageLayout.Width.get -> int
+Broadside.Images.PdfImageLayout.Width.init -> void
+Broadside.PdfDocument.CreateImage(System.ReadOnlySpan<byte> samples, Broadside.Images.PdfImageLayout layout, Broadside.Images.PdfImageCompression compression) -> Broadside.Images.PdfImage!
+Broadside.PdfDocument.CreateImage(System.ReadOnlySpan<byte> samples, System.ReadOnlySpan<byte> alpha, Broadside.Images.PdfImageLayout layout, Broadside.Images.PdfImageCompression compression) -> Broadside.Images.PdfImage!
+Broadside.PdfDocument.CreateImageFromJpeg(System.ReadOnlySpan<byte> jpeg) -> Broadside.Images.PdfImage!
+Broadside.PdfDocument.CreateImageFromPng(System.ReadOnlySpan<byte> png) -> Broadside.Images.PdfImage!
+Broadside.PdfDocument.CreateIndexedColorSpace(Broadside.Graphics.PdfColorSpace! baseSpace, System.ReadOnlySpan<byte> lookup) -> Broadside.Graphics.PdfIndexedColorSpace!
 Broadside.Fonts.PdfCanvasFont
 Broadside.Fonts.PdfCanvasFont.AppliesWordSpacing.get -> bool
 Broadside.Fonts.PdfCanvasFont.CanEncode(System.ReadOnlySpan<char> text) -> bool

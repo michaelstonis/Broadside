@@ -99,6 +99,9 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <item><term><see cref="DeviceNColorSpace"/></term><description>1.3 (§8.6.6.5); <see cref="DeviceNAttributes"/> 1.6 (Table 70)</description></item>
 /// <item><term><see cref="SampledFunction"/></term><description>1.2 (§7.10.2)</description></item>
 /// <item><term><see cref="CalculatedFunction"/></term><description>1.3 (§7.10.3 to §7.10.5, types 2, 3 and 4)</description></item>
+/// <item><term><see cref="ImageMasks"/></term><description>1.3 (§8.9.6.3 and §8.9.6.4; Table 87, an image's <c>Mask</c>)</description></item>
+/// <item><term><see cref="SixteenBitImages"/></term><description>1.5 (§8.9.5.1, Table 87, <c>BitsPerComponent</c> 16)</description></item>
+/// <item><term><see cref="ProgressiveDct"/></term><description>1.3 (§7.4.8, progressive JPEG in <c>DCTDecode</c>)</description></item>
 /// <item><term><see cref="InteractiveForm"/></term><description>1.2 (§12.7.3; §7.7.2, Table 29, <c>AcroForm</c>): every field <see cref="Forms.PdfAcroForm"/> creates.</description></item>
 /// <item><term><see cref="SignatureFields"/></term><description>1.3 (§12.7.5.5; Table 224, <c>SigFlags</c>)</description></item>
 /// <item><term><see cref="FieldAlternateName"/></term><description>1.3 (§12.7.4.1, Table 226, <c>TU</c>)</description></item>
@@ -269,6 +272,16 @@ internal static class VersionedFeatures
 
     /// <summary>Gets exponential, stitching and PostScript calculator functions (types 2, 3 and 4): PDF 1.3.</summary>
     public static VersionedFeature CalculatedFunction { get; } = new("an exponential, stitching or PostScript calculator function (FunctionType 2, 3 or 4)", "ISO 32000-2 §7.10.3 to §7.10.5", new PdfVersion(1, 3));
+
+    /// <summary>Gets an image's <c>Mask</c> entry, an explicit mask or a colour key mask: PDF 1.3.</summary>
+    public static VersionedFeature ImageMasks { get; } = new(
+        "an image's Mask entry (explicit or colour key masking)", "ISO 32000-2 §8.9.6.3 and §8.9.6.4; Table 87", new PdfVersion(1, 3));
+
+    /// <summary>Gets images of 16 bits per component: PDF 1.5.</summary>
+    public static VersionedFeature SixteenBitImages { get; } = new("16 bits per image component", "ISO 32000-2 §8.9.5.1, Table 87", Pdf15);
+
+    /// <summary>Gets progressive JPEG data in a <c>DCTDecode</c> stream: PDF 1.3.</summary>
+    public static VersionedFeature ProgressiveDct { get; } = new("progressive JPEG (DCTDecode)", "ISO 32000-2 §7.4.8", new PdfVersion(1, 3));
 
     /// <summary>Returns the feature a colour space stands for (§8.6.3, Table 61), or <see langword="null"/> for a device space (PDF 1.0).</summary>
     /// <param name="space">The space.</param>
