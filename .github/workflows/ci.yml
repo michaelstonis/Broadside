@@ -62,8 +62,20 @@ jobs:
 
       - name: Install qpdf and poppler-utils (Linux)
         # Written files are checked with qpdf --check and pdfinfo (issue #44); the tests skip where the tools are missing.
+        # The linearized writer follows qpdf 12's object placement and the tests require qpdf 12 or later (Ubuntu's package is 11.9,
+        # whose linearization check disagrees with qpdf 12's own output), so qpdf comes from its pinned, checksummed release build.
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y qpdf poppler-utils
+        env:
+          QPDF_VERSION: 12.4.2
+          QPDF_SHA256: db367d897829f22c4198ce1094143c9d467bd6ee7dfabc44ba6f02056b24f8b1
+        run: |
+          sudo apt-get update && sudo apt-get install -y poppler-utils
+          curl -fsSL -o "$RUNNER_TEMP/qpdf.zip" "https://github.com/qpdf/qpdf/releases/download/v${QPDF_VERSION}/qpdf-${QPDF_VERSION}-bin-linux-x86_64.zip"
+          echo "${QPDF_SHA256}  $RUNNER_TEMP/qpdf.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/qpdf.zip" -d "$RUNNER_TEMP/qpdf"
+          QPDF_BIN="$(dirname "$(find "$RUNNER_TEMP/qpdf" -type f -name qpdf -perm -u+x | head -n 1)")"
+          echo "$QPDF_BIN" >> "$GITHUB_PATH"
+          "$QPDF_BIN/qpdf" --version
 
       - name: Restore
         # In the configuration the build uses: a macOS app (the CoreGraphics test and benchmark apps) builds for both osx-arm64 and
