@@ -21,8 +21,15 @@ namespace Broadside.Rendering.CoreGraphics;
 /// </para>
 /// <para>
 /// The page mapping is the software rasterizer's (<see cref="RenderOptions.GetDeviceTransform"/>, <see cref="RenderOptions.GetPixelSize"/>),
-/// so both backends put every page on the same pixels. Images, shadings, glyph runs and stencil masks are not drawn by this backend
-/// yet (issues #126 and #127).
+/// so both backends put every page on the same pixels. Images, shadings and stencil masks are not drawn by this backend yet (issue
+/// #126).
+/// </para>
+/// <para>
+/// Text (§9.2.4, §9.3.6, §9.4.3): glyphs of TrueType and OpenType programs (§9.9, embedded or substituted) are filled by CoreGraphics'
+/// font engine from the program's bytes (<see cref="Fonts.FontProgram.TryGetSfntData"/>), loaded once per program per renderer; glyphs of every
+/// other program (Type 1, CFF), of a program CoreGraphics cannot load as the engine reads it, and every glyph when
+/// <see cref="RenderOptions.ForceOutlines"/> is set are filled from the outlines the display list carries. Stroked text (modes 1, 2, 5
+/// and 6) is always stroked from the outlines, with the stroke rules of paths; text clips (modes 4 to 7) arrive as clip paths.
 /// </para>
 /// <para>
 /// Constant alpha (§11.6.4.4) is the paint colour's alpha and the blend mode (§11.3.5) the context's; CoreGraphics has all sixteen
@@ -84,6 +91,7 @@ public sealed class CoreGraphicsRenderer : IDisposable
             target.ClipToRect(area);
             target.SetFillColor(White);
             target.FillRect(area);
+            _backend.ForceOutlines = options.ForceOutlines;
             _backend.Replay(list, target, device);
         }
         finally
@@ -105,7 +113,27 @@ public sealed class CoreGraphicsRenderer : IDisposable
     {
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(context);
+        Render(list, context, deviceTransform, forceOutlines: false);
+    }
+
+    /// <summary>
+    /// Draws <paramref name="list"/> over what <paramref name="context"/> already holds, without a background, drawing every glyph from
+    /// its outline when <paramref name="forceOutlines"/> is set.
+    /// </summary>
+    /// <param name="list">The display list.</param>
+    /// <param name="context">The context; drawing is clipped to its current clip. Its graphics state is as it was when the call returns.</param>
+    /// <param name="deviceTransform">
+    /// The transform from the list's default user space to the context's current user space, such as
+    /// <see cref="RenderOptions.GetDeviceTransform"/>; a tile renderer adds its own offset.
+    /// </param>
+    /// <param name="forceOutlines">Whether every glyph is filled from its outline (<see cref="RenderOptions.ForceOutlines"/>).</param>
+    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space), §9.2.4 (glyph outlines).</remarks>
+    public void Render(DisplayList list, CGContext context, in Matrix deviceTransform, bool forceOutlines)
+    {
+        ArgumentNullException.ThrowIfNull(list);
+        ArgumentNullException.ThrowIfNull(context);
         ObjectDisposedException.ThrowIf(_disposed, this);
+        _backend.ForceOutlines = forceOutlines;
         _backend.Replay(list, context, deviceTransform);
     }
 
@@ -114,7 +142,11 @@ public sealed class CoreGraphicsRenderer : IDisposable
     public IReadOnlyList<Diagnostic> Diagnostics => _backend.Diagnostics;
 
     /// <summary>Ends the renderer's use; it renders no more after this.</summary>
-    public void Dispose() => _disposed = true;
+    public void Dispose()
+    {
+        _disposed = true;
+        _backend.ClearFonts();
+    }
 
     private static readonly CGColor White = new(1, 1, 1, 1);
     private static readonly Content.ContentOptions DefaultContentOptions = new();

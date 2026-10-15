@@ -51,12 +51,21 @@ internal sealed partial class CoreGraphicsBackend : IRenderingBackend
         _toDevice = device;
         _depth = 0;
         BeginCompositing();
+
+        // The text matrix is the context's but not part of its graphics state: kept here and put back, as glyphs replace it.
+        CGAffineTransform textMatrix = context.TextMatrix;
         context.SaveState();
         try
         {
             context.SetFillColorSpace(Srgb);
             context.SetStrokeColorSpace(Srgb);
             context.SetShouldAntialias(true);
+
+            // Glyphs drawn natively are anti-aliased like paths: grey-scale coverage (no LCD smoothing, which also thickens stems) at
+            // their exact position (no quantization of the origin to a fraction of a pixel).
+            context.SetShouldSmoothFonts(false);
+            context.SetShouldSubpixelPositionFonts(true);
+            SetShouldSubpixelQuantizeFonts(context.Handle, false);
             list.Replay(this);
         }
         finally
@@ -68,6 +77,7 @@ internal sealed partial class CoreGraphicsBackend : IRenderingBackend
             }
 
             context.RestoreState();
+            context.TextMatrix = textMatrix;
             _context = null;
             _document = null;
             _space = null;
@@ -158,16 +168,12 @@ internal sealed partial class CoreGraphicsBackend : IRenderingBackend
         }
     }
 
-    // Images, shadings, glyph runs and stencil masks are drawn by the CoreGraphics tickets that follow this one (#126, #127).
+    // Images, shadings and stencil masks are drawn by the CoreGraphics ticket that follows this one (#126).
     public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
     {
     }
 
     public void FillImageMask(DisplayImageMask mask, in DisplayColor color)
-    {
-    }
-
-    public void DrawGlyphs(in GlyphRun run)
     {
     }
 
@@ -221,11 +227,18 @@ internal sealed partial class CoreGraphicsBackend : IRenderingBackend
     /// pixel under that point instead (§8.5.3.3.1).
     /// </summary>
     /// <returns>Whether anything was added.</returns>
-    private bool AddMappedPath(CGContext context, PathView path)
+    private bool AddMappedPath(CGContext context, PathView path) => AddMappedPath(context, path, _toDevice, degenerateDots: true);
+
+    /// <summary>
+    /// Adds <paramref name="path"/> mapped by <paramref name="m"/>; a degenerate subpath adds its device pixel only when
+    /// <paramref name="degenerateDots"/> (path objects, §8.5.3.3.1), and nothing for a glyph outline, whose single-point contours
+    /// (TrueType anchors) paint nothing.
+    /// </summary>
+    /// <returns>Whether anything was added.</returns>
+    private static bool AddMappedPath(CGContext context, PathView path, in Matrix m, bool degenerateDots)
     {
         ReadOnlySpan<PathVerb> verbs = path.Verbs;
         ReadOnlySpan<PathPoint> points = path.Points;
-        Matrix m = _toDevice;
         bool added = false;
         int verb = 0;
         int p = 0;
@@ -266,7 +279,7 @@ internal sealed partial class CoreGraphicsBackend : IRenderingBackend
 
                 added = true;
             }
-            else if (segments)
+            else if (segments && degenerateDots)
             {
                 PathPoint point = Map(m, points[start]);
                 context.AddRect(new CGRect(Math.Floor(point.X), Math.Floor(point.Y), 1, 1));
