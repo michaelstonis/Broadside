@@ -1,3 +1,8 @@
+using System.Text;
+using Broadside.Diagnostics;
+using Broadside.Objects;
+using Broadside.Structure;
+
 namespace Broadside.Layout.Flow;
 
 /// <summary>
@@ -62,6 +67,13 @@ public sealed class FlowDocument
     /// <summary>The replaceable layout steps (line breaking, shaping, bidi, structure).</summary>
     internal FlowServices Services { get; } = FlowServices.Default;
 
+    /// <summary>
+    /// Gets or sets how <see cref="Render"/> tags the content it lays out, or <see langword="null"/> (the default) for untagged content. Page
+    /// backgrounds, watermarks, headers and footers are marked as artifacts either way.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §14.8. See <see cref="FlowTagging"/> for the structure written.</remarks>
+    public FlowTagging? Tagging { get; set; }
+
     /// <summary>Appends a block.</summary>
     /// <param name="block">The block.</param>
     /// <returns>This flow, for chaining.</returns>
@@ -95,7 +107,9 @@ public sealed class FlowDocument
             template.Validate();
         }
 
-        using var context = new FlowContext(document, this);
+        var diagnostics = new List<Diagnostic>();
+        FlowStructure? structure = Tagging is { } tagging ? BeginTagging(document, tagging, diagnostics) : null;
+        using var context = new FlowContext(document, this, structure is null ? Services : Services with { Structure = structure });
         int section = 0;
         for (int index = 0; index < _blocks.Count; index++)
         {
@@ -108,22 +122,59 @@ public sealed class FlowDocument
             if (next is not null)
             {
                 context.StartSection(next);
+                structure?.BeginSection(next);
             }
 
             _blocks[index].LayOut(context);
         }
 
-        return new FlowLayoutResult([.. context.Pages]);
+        return new FlowLayoutResult([.. context.Pages], diagnostics);
     }
+
+    /// <summary>Gets or creates the structure tree and writes the document-level tagging entries: <c>Lang</c>, the title and <c>MarkInfo</c>.</summary>
+    private static FlowStructure BeginTagging(PdfDocument document, FlowTagging tagging, List<Diagnostic> diagnostics)
+    {
+        PdfStructureTreeRoot root = document.StructureTree ?? document.CreateStructureTree();
+        document.MarkInfo.Marked = true;
+        if (tagging.Language is { } language)
+        {
+            document.Catalog[new CosName("Lang")] = TextString(language);
+        }
+
+        if (tagging.Title is { } title)
+        {
+            document.Properties.Title = title;
+            CosDictionary preferences = document.ViewerPreferences?.Dictionary ?? new CosDictionary();
+            preferences[new CosName("DisplayDocTitle")] = CosBoolean.True;
+            if (document.ViewerPreferences is null)
+            {
+                document.Catalog[new CosName("ViewerPreferences")] = preferences;
+            }
+        }
+
+        return new FlowStructure(root, tagging, diagnostics);
+    }
+
+    /// <summary>A text string (§7.9.2.2): PDFDocEncoding for printable ASCII, else UTF-16BE with a byte order mark.</summary>
+    private static CosString TextString(string text) =>
+        new(text.All(static c => c is >= ' ' and <= '~') ? Encoding.ASCII.GetBytes(text) : [0xFE, 0xFF, .. Encoding.BigEndianUnicode.GetBytes(text)]);
 }
 
 /// <summary>What <see cref="FlowDocument.Render"/> produced.</summary>
 public sealed class FlowLayoutResult
 {
-    internal FlowLayoutResult(IReadOnlyList<PdfPage> pages)
+    internal FlowLayoutResult(IReadOnlyList<PdfPage> pages, IReadOnlyList<Diagnostic> diagnostics)
     {
         Pages = pages;
+        Diagnostics = diagnostics;
     }
+
+    /// <summary>
+    /// Gets what the layout found worth reporting. With <see cref="FlowDocument.Tagging"/> on, a figure (an <see cref="ImageBlock"/> or an
+    /// <see cref="InlineImage"/>) without alternate text records <c>FigureWithoutAlternateText</c> (warning, with the element's reference).
+    /// </summary>
+    /// <remarks>ISO 32000-2 §14.9.3.</remarks>
+    public IReadOnlyList<Diagnostic> Diagnostics { get; }
 
     /// <summary>The pages added to the document, in order.</summary>
     public IReadOnlyList<PdfPage> Pages { get; }
