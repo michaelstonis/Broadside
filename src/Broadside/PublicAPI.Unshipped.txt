@@ -2769,6 +2769,7 @@ Broadside.PdfDocument.Save(System.IO.Stream! stream, Broadside.PdfSaveOptions! o
 Broadside.PdfDocument.SaveAsync(System.IO.Stream! stream, Broadside.PdfSaveOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
 Broadside.PdfDocument.Sign(System.IO.Stream! stream, Broadside.Signatures.IPdfSigner! signer, Broadside.Signatures.PdfSignatureOptions? options = null) -> void
 Broadside.PdfDocument.SignAsync(System.IO.Stream! stream, Broadside.Signatures.IPdfSigner! signer, Broadside.Signatures.PdfSignatureOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.PdfDocument.ValidateSignatures(Broadside.Signatures.PdfSignatureValidationOptions? options = null) -> System.Collections.Generic.IReadOnlyList<Broadside.Signatures.PdfSignatureValidation!>!
 Broadside.PdfSaveOptions
 Broadside.PdfSaveOptions.CrossReferenceLayout.get -> Broadside.PdfCrossReferenceLayout
 Broadside.PdfSaveOptions.CrossReferenceLayout.set -> void
@@ -3174,6 +3175,55 @@ Broadside.Signatures.PdfSignatureOptions.WithLocation(string? location) -> Broad
 Broadside.Signatures.PdfSignatureOptions.WithReason(string? reason) -> Broadside.Signatures.PdfSignatureOptions!
 Broadside.Signatures.PdfSignatureOptions.WithSignerName(string? signerName) -> Broadside.Signatures.PdfSignatureOptions!
 Broadside.Signatures.PdfSignatureOptions.WithSigningTime(System.DateTimeOffset? signingTime) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureProblem
+Broadside.Signatures.PdfSignatureProblem.Kind.get -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblem.Message.get -> string!
+Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.AlgorithmUnsupported = 10 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ByteRangeGap = 2 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ByteRangeInvalid = 1 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ByteRangeMissing = 0 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.CertificateExpired = 12 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.CertificateNotYetValid = 13 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ChainIncomplete = 14 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ChainUntrusted = 15 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ContentsMissing = 3 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ContentsOutsideGap = 4 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.DigestMismatch = 6 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.IssuerNotCertificateAuthority = 16 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.KeyUsageNotPermitted = 17 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.PathLengthExceeded = 18 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.SignatureEncodingInvalid = 5 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.SignatureValueInvalid = 8 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.SignedAttributesInvalid = 7 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.SignerCertificateMissing = 11 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.SubFilterUnsupported = 9 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureStatus
+Broadside.Signatures.PdfSignatureStatus.Indeterminate = 2 -> Broadside.Signatures.PdfSignatureStatus
+Broadside.Signatures.PdfSignatureStatus.Invalid = 1 -> Broadside.Signatures.PdfSignatureStatus
+Broadside.Signatures.PdfSignatureStatus.Valid = 0 -> Broadside.Signatures.PdfSignatureStatus
+Broadside.Signatures.PdfSignatureValidation
+Broadside.Signatures.PdfSignatureValidation.ByteRange.get -> System.Collections.Generic.IReadOnlyList<long>!
+Broadside.Signatures.PdfSignatureValidation.CertificatePath.get -> System.Collections.Generic.IReadOnlyList<System.Security.Cryptography.X509Certificates.X509Certificate2!>!
+Broadside.Signatures.PdfSignatureValidation.CoversWholeFile.get -> bool
+Broadside.Signatures.PdfSignatureValidation.DigestAlgorithm.get -> System.Security.Cryptography.HashAlgorithmName?
+Broadside.Signatures.PdfSignatureValidation.Field.get -> Broadside.Forms.PdfSignatureField!
+Broadside.Signatures.PdfSignatureValidation.FieldName.get -> string!
+Broadside.Signatures.PdfSignatureValidation.Problems.get -> System.Collections.Generic.IReadOnlyList<Broadside.Signatures.PdfSignatureProblem!>!
+Broadside.Signatures.PdfSignatureValidation.SignerCertificate.get -> System.Security.Cryptography.X509Certificates.X509Certificate2?
+Broadside.Signatures.PdfSignatureValidation.Status.get -> Broadside.Signatures.PdfSignatureStatus
+Broadside.Signatures.PdfSignatureValidation.SubFilter.get -> string?
+Broadside.Signatures.PdfSignatureValidationOptions
+Broadside.Signatures.PdfSignatureValidationOptions.ExtraCertificates.get -> System.Collections.Generic.IReadOnlyList<System.Security.Cryptography.X509Certificates.X509Certificate2!>!
+Broadside.Signatures.PdfSignatureValidationOptions.ExtraCertificates.set -> void
+Broadside.Signatures.PdfSignatureValidationOptions.PdfSignatureValidationOptions() -> void
+Broadside.Signatures.PdfSignatureValidationOptions.TrustAnchors.get -> System.Collections.Generic.IReadOnlyList<System.Security.Cryptography.X509Certificates.X509Certificate2!>!
+Broadside.Signatures.PdfSignatureValidationOptions.TrustAnchors.set -> void
+Broadside.Signatures.PdfSignatureValidationOptions.ValidationTime.get -> System.DateTimeOffset?
+Broadside.Signatures.PdfSignatureValidationOptions.ValidationTime.set -> void
+Broadside.Signatures.PdfSignatureValidationOptions.WithExtraCertificates(params System.Collections.Generic.IEnumerable<System.Security.Cryptography.X509Certificates.X509Certificate2!>! extraCertificates) -> Broadside.Signatures.PdfSignatureValidationOptions!
+Broadside.Signatures.PdfSignatureValidationOptions.WithTrustAnchors(params System.Collections.Generic.IEnumerable<System.Security.Cryptography.X509Certificates.X509Certificate2!>! trustAnchors) -> Broadside.Signatures.PdfSignatureValidationOptions!
+Broadside.Signatures.PdfSignatureValidationOptions.WithValidationTime(System.DateTimeOffset? validationTime) -> Broadside.Signatures.PdfSignatureValidationOptions!
 Broadside.Signatures.PdfSignatureOptions.WithSubFilter(Broadside.Signatures.PdfSignatureSubFilter subFilter) -> Broadside.Signatures.PdfSignatureOptions!
 Broadside.Signatures.PdfSignatureSubFilter
 Broadside.Signatures.PdfSignatureSubFilter.AdobePkcs7Detached = 0 -> Broadside.Signatures.PdfSignatureSubFilter
@@ -3347,6 +3397,7 @@ abstract Broadside.Structure.PdfStructureItem.Parent.get -> Broadside.Structure.
 const Broadside.Structure.PdfStructureNamespace.MathMLName = "http://www.w3.org/1998/Math/MathML" -> string!
 const Broadside.Structure.PdfStructureNamespace.Pdf17Name = "http://iso.org/pdf/ssn" -> string!
 const Broadside.Structure.PdfStructureNamespace.Pdf20Name = "http://iso.org/pdf2/ssn" -> string!
+override Broadside.Signatures.PdfSignatureProblem.ToString() -> string!
 override Broadside.Structure.PdfMarkedContentReference.Parent.get -> Broadside.Structure.PdfStructureElement!
 override Broadside.Structure.PdfObjectReference.Parent.get -> Broadside.Structure.PdfStructureElement!
 override Broadside.Structure.PdfStructureElement.Equals(object? obj) -> bool
