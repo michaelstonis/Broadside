@@ -487,7 +487,7 @@ internal static class CffSubsetter
     }
 
     /// <summary>An INDEX (5176 §5) with the smallest offset size its data needs.</summary>
-    private static byte[] Index(List<byte[]> items)
+    internal static byte[] Index(List<byte[]> items)
     {
         if (items.Count == 0)
         {
@@ -524,7 +524,7 @@ internal static class CffSubsetter
     }
 
     /// <summary>A five-byte DICT integer (operator 29), so a DICT's size does not depend on the offsets it holds.</summary>
-    private static void Int32(List<byte> dict, int value)
+    internal static void Int32(List<byte> dict, int value)
     {
         dict.Add(29);
         dict.Add((byte)(value >> 24));
@@ -534,7 +534,7 @@ internal static class CffSubsetter
     }
 
     /// <summary>A DICT number: a five-byte integer when it is one, else a real.</summary>
-    private static void Number(List<byte> dict, double value)
+    internal static void Number(List<byte> dict, double value)
     {
         if (value == Math.Floor(value) && value is >= int.MinValue and <= int.MaxValue)
         {

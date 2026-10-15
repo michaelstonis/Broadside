@@ -77,9 +77,27 @@ internal sealed class EmbeddedCanvasFont : PdfCanvasFont
         }
 
         EmbeddedProgram source;
+        FontResolution parsed = resolution;
         if (cff && resolution.FaceIndex == 0 && CffFont.IsHeader(resolution.Data.Span))
         {
             source = new EmbeddedProgram(EmbeddedOutlines.Cff, null, resolution.Data);
+        }
+        else if (cff && resolution.FaceIndex == 0 && Type1.Type1FontProgramParser.IsType1(resolution.Data.Span))
+        {
+            // Issue #152: a Type 1 program converts to a bare CFF program, which embeds and subsets as one.
+            if (document.GetSubstituteProgram(resolution, reference: null) is not Type1.Type1FontProgram type1)
+            {
+                problem = "it is a damaged Type 1 program";
+                return null;
+            }
+
+            if (Type1.Type1CffConverter.Convert(type1, out problem) is not { } converted)
+            {
+                return null;
+            }
+
+            source = new EmbeddedProgram(EmbeddedOutlines.Cff, null, converted);
+            parsed = new FontResolution(converted, resolution.Name, resolution.MatchKind);
         }
         else if (SfntFile.Open(resolution.Data, new FontProgramContext { FaceIndex = resolution.FaceIndex }) is { } sfnt)
         {
@@ -102,12 +120,12 @@ internal sealed class EmbeddedCanvasFont : PdfCanvasFont
         else
         {
             problem = cff
-                ? "it is not a TrueType, OpenType or CFF program (or the face index is out of range)"
+                ? "it is not a TrueType, OpenType, CFF or Type 1 program (or the face index is out of range)"
                 : "it is not a TrueType or OpenType program (or the face index is out of range)";
             return null;
         }
 
-        if (document.GetSubstituteProgram(resolution, reference: null) is not { } program
+        if (document.GetSubstituteProgram(parsed, reference: null) is not { } program
             || (PickCharacterMap(program) ?? GlyphNameCharacterMap.Create(program)) is not { } cmap)
         {
             problem = source.Outlines == EmbeddedOutlines.Cff

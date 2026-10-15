@@ -45,4 +45,35 @@ public sealed class PdfACffTests
         IReadOnlyList<string> failed = VeraPdf.FailedRules(saved, flavour);
         Assert.True(failed.Count == 0, string.Join(Environment.NewLine, failed));
     }
+
+    [Theory]
+    [InlineData(PdfAConformance.PdfA2b, "2b")]
+    [InlineData(PdfAConformance.PdfA2u, "2u")]
+    public void Text_in_a_type1_program_converted_to_cff_passes_verapdf(PdfAConformance conformance, string flavour)
+    {
+        // Issue #152: Type 1 programs (rebuilt from Liberation Sans and Foxit Symbol, with hint replacement and flex) convert to CFF.
+        using PdfDocument document = PdfDocument.Create();
+        document.Properties.Title = $"Broadside PDF/A-{flavour} Type 1 sample";
+        PdfCanvasFont latin = document.EmbedFont(Type1TestFonts.FromCff(CffTestFonts.Cff(LiberationSans)));
+        PdfCanvasFont symbol = document.EmbedFont(Type1TestFonts.FromCff(Standard14FontResolver.GetProgram(Standard14Font.Symbol)));
+        using (PdfCanvas canvas = document.Pages[0].CreateCanvas())
+        {
+            canvas.BeginText();
+            canvas.SetFont(latin, 18);
+            canvas.MoveText(72, 700);
+            canvas.ShowText("Type 1, converted: 0123456789");
+            canvas.SetFont(symbol, 18);
+            canvas.MoveText(0, -30);
+            canvas.ShowText("αβγ∑∫≠∞");
+            canvas.EndText();
+        }
+
+        using var stream = new MemoryStream();
+        document.Save(stream, new PdfSaveOptions().WithPdfAConformance(conformance));
+        byte[] saved = stream.ToArray();
+
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Severity != DiagnosticSeverity.Information);
+        IReadOnlyList<string> failed = VeraPdf.FailedRules(saved, flavour);
+        Assert.True(failed.Count == 0, string.Join(Environment.NewLine, failed));
+    }
 }
