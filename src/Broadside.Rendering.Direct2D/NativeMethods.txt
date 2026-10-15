@@ -13,3 +13,11 @@ ID3D11Device
 D3D11_SDK_VERSION
 D2DERR_RECREATE_TARGET
 IUnknown
+DWriteCreateFactory
+IDWriteFactory5
+IDWriteInMemoryFontFileLoader
+IDWriteFontFile
+IDWriteFontFace
+IDWriteRenderingParams3
+DWRITE_GLYPH_RUN
+DWRITE_FONT_METRICS
