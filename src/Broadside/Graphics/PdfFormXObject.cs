@@ -108,6 +108,30 @@ public sealed class PdfFormXObject
     /// <remarks>ISO 32000-2 §8.10.1, Table 93 (<c>OC</c>, PDF 1.5), and §8.11.3.3.</remarks>
     public CosDictionary? OptionalContent => _document.Resolve(Get(AnnotationNames.OC)) as CosDictionary;
 
+    /// <summary>Makes the form optional content of <paramref name="group"/> (<c>OC</c>): shown only while the group is ON.</summary>
+    /// <param name="group">A group of this document.</param>
+    /// <exception cref="ArgumentException"><paramref name="group"/> belongs to another document or is not an indirect object.</exception>
+    /// <remarks>ISO 32000-2 §8.10.1, Table 93 (<c>OC</c>, PDF 1.5), and §8.11.3.3. Records PDF 1.5. A mutation.</remarks>
+    public void SetOptionalContent(PdfOptionalContentGroup group)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+        OptionalContentWriter.Assign(_document, Dictionary, OptionalContentWriter.ReferenceOf(_document, group.Document, group.Reference, nameof(group)));
+    }
+
+    /// <summary>Makes the form optional content whose visibility <paramref name="membership"/> decides (<c>OC</c>).</summary>
+    /// <param name="membership">A membership dictionary of this document.</param>
+    /// <exception cref="ArgumentException"><paramref name="membership"/> belongs to another document or is not an indirect object.</exception>
+    /// <remarks>ISO 32000-2 §8.10.1, Table 93 (<c>OC</c>, PDF 1.5), and §8.11.3.3. Records PDF 1.5. A mutation.</remarks>
+    public void SetOptionalContent(PdfOptionalContentMembership membership)
+    {
+        ArgumentNullException.ThrowIfNull(membership);
+        OptionalContentWriter.Assign(_document, Dictionary, OptionalContentWriter.ReferenceOf(_document, membership.Document, membership.Reference, nameof(membership)));
+    }
+
+    /// <summary>Removes the form's <c>OC</c> entry: it is no longer optional content.</summary>
+    /// <remarks>ISO 32000-2 §8.10.1, Table 93 and §8.11.3.3. A mutation.</remarks>
+    public void RemoveOptionalContent() => OptionalContentWriter.Assign(_document, Dictionary, null);
+
     /// <summary>Gets the form's key in the structural parent tree when it is one content item, or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §8.10.1, Table 93 (<c>StructParent</c>, PDF 1.3), and §14.7.5.4.</remarks>
     public int? StructParent => AnnotationValues.ReadInteger(_document, Get(AnnotationNames.StructParent));

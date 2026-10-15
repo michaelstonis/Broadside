@@ -21,6 +21,9 @@ public sealed class PdfOptionalContentMembership
         Reference = reference;
     }
 
+    /// <summary>Gets the document.</summary>
+    internal PdfDocument Document => _properties.Document;
+
     /// <summary>Gets the membership dictionary.</summary>
     /// <remarks>ISO 32000-2 §8.11.2.2, Table 97.</remarks>
     public CosDictionary Dictionary { get; }

@@ -26,6 +26,9 @@ internal sealed class CanvasResources(PdfDocument document, CosDictionary resour
     /// <summary>The <c>Font</c> category (§9.2.2: the operand of <c>Tf</c>).</summary>
     public static readonly CosName Font = new("Font");
 
+    /// <summary>The <c>Properties</c> category (§14.6.2: the named property list operand of <c>BDC</c>).</summary>
+    public static readonly CosName Properties = new("Properties");
+
     private readonly Dictionary<(CosName Category, CosObject Value), CosName> _names = [];
 
     /// <summary>Returns the name <paramref name="value"/> has, or is given, in the <paramref name="category"/> subdictionary.</summary>
