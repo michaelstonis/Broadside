@@ -149,6 +149,14 @@ public sealed class CopiedFeatureVersionTests
         { "<< /Subtype /Text /Rect [0 0 1 1] /Lang (en-GB) >>", "2.0", "PDF 2.0 annotation entries" },
         { "<< /Type /Annot /Subtype /Projection /Rect [0 0 1 1] >>", "2.0", "PDF 2.0 annotation entries" },
         { "<< /Type /Annot /Subtype /RichMedia /Rect [0 0 1 1] >>", "2.0", "PDF 2.0 annotation entries" },
+        { "<< /FunctionType 0 /Domain [0 1] /Range [0 1] /Size [2] /BitsPerSample 8 >> stream", "1.2", "a sampled function (FunctionType 0) (ISO 32000-2 §7.10.2) needs PDF 1.2" },
+        { "<< /FunctionType 2 /Domain [0 1] /N 1 >>", "1.3", "an exponential, stitching or PostScript calculator function (FunctionType 2, 3 or 4)" },
+        { "<< /FunctionType 3 /Domain [0 1] /Functions [] /Bounds [] /Encode [] >>", "1.3", "an exponential, stitching or PostScript calculator function (FunctionType 2, 3 or 4)" },
+        { "<< /ShadingType 2 /ColorSpace /DeviceGray /Coords [0 0 1 0] /Function 4 0 R >>", "1.3", "a shading (sh, Shading resources, shading patterns)" },
+        { "<< /ShadingType 4 /ColorSpace /DeviceGray /BitsPerCoordinate 8 /BitsPerComponent 8 /BitsPerFlag 8 /Decode [0 1 0 1 0 1] >> stream", "1.3", "a shading (sh, Shading resources, shading patterns)" },
+        { "<< /PatternType 2 /Shading 4 0 R >>", "1.3", "a shading (sh, Shading resources, shading patterns)" },
+        { "<< /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 1 1] /XStep 1 /YStep 1 /Resources << >> >> stream", "1.2", "a Pattern colour space or tiling pattern" },
+        { "[/Pattern /DeviceRGB]", "1.2", "a Pattern colour space or tiling pattern" },
     };
 
     [Theory]

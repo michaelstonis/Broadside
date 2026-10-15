@@ -59,6 +59,12 @@ public sealed partial class PdfCanvas
             throw new ArgumentException("An image painted with Do shall be an image XObject, an indirect stream (ISO 32000-2 §8.9.5).", nameof(image));
         }
 
+        if (_stencil && !image.IsStencil)
+        {
+            throw new InvalidOperationException(
+                "An uncoloured tiling pattern's cell shall paint only image masks, not images with colours of their own (ISO 32000-2 §8.7.3.3).");
+        }
+
         if (!ReferenceEquals(image.Document, _document))
         {
             throw new ArgumentException("The image belongs to another document.", nameof(image));

@@ -4607,3 +4607,87 @@ Broadside.Signatures.PdfSignatureProblemKind.PathLengthExceeded = 22 -> Broadsid
 Broadside.Signatures.PdfSignatureProblemKind.CertificateRevoked = 23 -> Broadside.Signatures.PdfSignatureProblemKind
 Broadside.Signatures.PdfSignatureProblemKind.RevocationUnknown = 24 -> Broadside.Signatures.PdfSignatureProblemKind
 Broadside.Signatures.PdfSignatureProblemKind.TimestampInvalid = 25 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Graphics.PdfCanvas.PaintShading(Broadside.Graphics.PdfShading! shading) -> void
+Broadside.Graphics.PdfCanvas.SetFillPattern(Broadside.Graphics.PdfPattern! pattern) -> void
+Broadside.Graphics.PdfCanvas.SetStrokePattern(Broadside.Graphics.PdfPattern! pattern) -> void
+Broadside.Graphics.PdfCanvas.SetFillPattern(Broadside.Graphics.PdfTilingPattern! pattern, Broadside.Graphics.PdfColor color) -> void
+Broadside.Graphics.PdfCanvas.SetStrokePattern(Broadside.Graphics.PdfTilingPattern! pattern, Broadside.Graphics.PdfColor color) -> void
+Broadside.Graphics.PdfFreeFormMeshBuilder
+Broadside.Graphics.PdfFreeFormMeshBuilder.PdfFreeFormMeshBuilder(Broadside.Graphics.PdfColorSpace! colorSpace) -> void
+Broadside.Graphics.PdfFreeFormMeshBuilder.PdfFreeFormMeshBuilder(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PdfFunction! function) -> void
+Broadside.Graphics.PdfFreeFormMeshBuilder.TriangleCount.get -> int
+Broadside.Graphics.PdfFreeFormMeshBuilder.AddTriangle(Broadside.Graphics.PdfMeshVertex a, Broadside.Graphics.PdfMeshVertex b, Broadside.Graphics.PdfMeshVertex c) -> Broadside.Graphics.PdfFreeFormMeshBuilder!
+Broadside.Graphics.PdfFreeFormMeshBuilder.AddStripVertex(Broadside.Graphics.PdfMeshVertex vertex) -> Broadside.Graphics.PdfFreeFormMeshBuilder!
+Broadside.Graphics.PdfFreeFormMeshBuilder.AddFanVertex(Broadside.Graphics.PdfMeshVertex vertex) -> Broadside.Graphics.PdfFreeFormMeshBuilder!
+Broadside.Graphics.PdfGradientStop
+Broadside.Graphics.PdfGradientStop.PdfGradientStop() -> void
+Broadside.Graphics.PdfGradientStop.PdfGradientStop(double Offset, Broadside.Graphics.PdfColor Color) -> void
+Broadside.Graphics.PdfGradientStop.Offset.get -> double
+Broadside.Graphics.PdfGradientStop.Offset.init -> void
+Broadside.Graphics.PdfGradientStop.Color.get -> Broadside.Graphics.PdfColor
+Broadside.Graphics.PdfGradientStop.Color.init -> void
+Broadside.Graphics.PdfLatticeMeshBuilder
+Broadside.Graphics.PdfLatticeMeshBuilder.PdfLatticeMeshBuilder(Broadside.Graphics.PdfColorSpace! colorSpace, int verticesPerRow) -> void
+Broadside.Graphics.PdfLatticeMeshBuilder.PdfLatticeMeshBuilder(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PdfFunction! function, int verticesPerRow) -> void
+Broadside.Graphics.PdfLatticeMeshBuilder.VerticesPerRow.get -> int
+Broadside.Graphics.PdfLatticeMeshBuilder.RowCount.get -> int
+Broadside.Graphics.PdfLatticeMeshBuilder.AddRow(params System.ReadOnlySpan<Broadside.Graphics.PdfMeshVertex> vertices) -> Broadside.Graphics.PdfLatticeMeshBuilder!
+Broadside.Graphics.PdfMeshBuilder
+Broadside.Graphics.PdfMeshBuilder.ColorSpace.get -> Broadside.Graphics.PdfColorSpace!
+Broadside.Graphics.PdfMeshBuilder.Function.get -> Broadside.Graphics.PdfFunction?
+Broadside.Graphics.PdfMeshVertex
+Broadside.Graphics.PdfMeshVertex.PdfMeshVertex() -> void
+Broadside.Graphics.PdfMeshVertex.PdfMeshVertex(double x, double y, Broadside.Graphics.PdfColor color) -> void
+Broadside.Graphics.PdfMeshVertex.PdfMeshVertex(double x, double y, double t) -> void
+Broadside.Graphics.PdfMeshVertex.Point.get -> Broadside.Graphics.PathPoint
+Broadside.Graphics.PdfMeshVertex.Color.get -> Broadside.Graphics.PdfColor
+Broadside.Graphics.PdfMeshVertex.Parameter.get -> double
+Broadside.Graphics.PdfMeshVertex.IsParametric.get -> bool
+Broadside.Graphics.PdfMeshVertex.Equals(Broadside.Graphics.PdfMeshVertex other) -> bool
+override Broadside.Graphics.PdfMeshVertex.Equals(object? obj) -> bool
+override Broadside.Graphics.PdfMeshVertex.GetHashCode() -> int
+static Broadside.Graphics.PdfMeshVertex.operator ==(Broadside.Graphics.PdfMeshVertex left, Broadside.Graphics.PdfMeshVertex right) -> bool
+static Broadside.Graphics.PdfMeshVertex.operator !=(Broadside.Graphics.PdfMeshVertex left, Broadside.Graphics.PdfMeshVertex right) -> bool
+Broadside.Graphics.PdfPatchMeshBuilder
+Broadside.Graphics.PdfPatchMeshBuilder.PdfPatchMeshBuilder(Broadside.Graphics.PdfColorSpace! colorSpace, bool tensorProduct) -> void
+Broadside.Graphics.PdfPatchMeshBuilder.PdfPatchMeshBuilder(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PdfFunction! function, bool tensorProduct) -> void
+Broadside.Graphics.PdfPatchMeshBuilder.IsTensorProduct.get -> bool
+Broadside.Graphics.PdfPatchMeshBuilder.PatchCount.get -> int
+Broadside.Graphics.PdfPatchMeshBuilder.AddPatch(System.ReadOnlySpan<Broadside.Graphics.PathPoint> controlPoints, System.ReadOnlySpan<Broadside.Graphics.PdfColor> cornerColors) -> Broadside.Graphics.PdfPatchMeshBuilder!
+Broadside.Graphics.PdfPatchMeshBuilder.AddPatch(System.ReadOnlySpan<Broadside.Graphics.PathPoint> controlPoints, System.ReadOnlySpan<double> cornerParameters) -> Broadside.Graphics.PdfPatchMeshBuilder!
+Broadside.Graphics.PdfShadingOptions
+Broadside.Graphics.PdfShadingOptions.PdfShadingOptions() -> void
+Broadside.Graphics.PdfShadingOptions.BoundingBox.get -> Broadside.PdfRectangle?
+Broadside.Graphics.PdfShadingOptions.BoundingBox.set -> void
+Broadside.Graphics.PdfShadingOptions.Background.get -> Broadside.Graphics.PdfColor?
+Broadside.Graphics.PdfShadingOptions.Background.set -> void
+Broadside.Graphics.PdfShadingOptions.AntiAlias.get -> bool
+Broadside.Graphics.PdfShadingOptions.AntiAlias.set -> void
+Broadside.Graphics.PdfShadingOptions.ExtendStart.get -> bool
+Broadside.Graphics.PdfShadingOptions.ExtendStart.set -> void
+Broadside.Graphics.PdfShadingOptions.ExtendEnd.get -> bool
+Broadside.Graphics.PdfShadingOptions.ExtendEnd.set -> void
+Broadside.Graphics.PdfShadingOptions.WithBoundingBox(Broadside.PdfRectangle boundingBox) -> Broadside.Graphics.PdfShadingOptions!
+Broadside.Graphics.PdfShadingOptions.WithBackground(Broadside.Graphics.PdfColor background) -> Broadside.Graphics.PdfShadingOptions!
+Broadside.Graphics.PdfShadingOptions.WithAntiAlias(bool antiAlias) -> Broadside.Graphics.PdfShadingOptions!
+Broadside.Graphics.PdfShadingOptions.WithExtend(bool start, bool end) -> Broadside.Graphics.PdfShadingOptions!
+Broadside.Graphics.PdfTilingPattern.CreateCanvas() -> Broadside.Graphics.PdfCanvas!
+Broadside.PdfDocument.CreateGradientFunction(System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PdfGradientStop>! stops) -> Broadside.Graphics.PdfFunction!
+Broadside.PdfDocument.CreateAxialShading(Broadside.Graphics.PathPoint start, Broadside.Graphics.PathPoint end, System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PdfGradientStop>! stops) -> Broadside.Graphics.PdfAxialShading!
+Broadside.PdfDocument.CreateAxialShading(Broadside.Graphics.PathPoint start, Broadside.Graphics.PathPoint end, System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PdfGradientStop>! stops, Broadside.Graphics.PdfShadingOptions? options) -> Broadside.Graphics.PdfAxialShading!
+Broadside.PdfDocument.CreateAxialShading(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PathPoint start, Broadside.Graphics.PathPoint end, Broadside.Graphics.PdfFunction! function) -> Broadside.Graphics.PdfAxialShading!
+Broadside.PdfDocument.CreateAxialShading(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PathPoint start, Broadside.Graphics.PathPoint end, Broadside.Graphics.PdfFunction! function, Broadside.Graphics.PdfShadingOptions? options) -> Broadside.Graphics.PdfAxialShading!
+Broadside.PdfDocument.CreateRadialShading(Broadside.Graphics.PathPoint startCenter, double startRadius, Broadside.Graphics.PathPoint endCenter, double endRadius, System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PdfGradientStop>! stops) -> Broadside.Graphics.PdfRadialShading!
+Broadside.PdfDocument.CreateRadialShading(Broadside.Graphics.PathPoint startCenter, double startRadius, Broadside.Graphics.PathPoint endCenter, double endRadius, System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PdfGradientStop>! stops, Broadside.Graphics.PdfShadingOptions? options) -> Broadside.Graphics.PdfRadialShading!
+Broadside.PdfDocument.CreateRadialShading(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PathPoint startCenter, double startRadius, Broadside.Graphics.PathPoint endCenter, double endRadius, Broadside.Graphics.PdfFunction! function) -> Broadside.Graphics.PdfRadialShading!
+Broadside.PdfDocument.CreateRadialShading(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PathPoint startCenter, double startRadius, Broadside.Graphics.PathPoint endCenter, double endRadius, Broadside.Graphics.PdfFunction! function, Broadside.Graphics.PdfShadingOptions? options) -> Broadside.Graphics.PdfRadialShading!
+Broadside.PdfDocument.CreateFunctionShading(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PdfFunction! function, Broadside.PdfRectangle domain, Broadside.Graphics.Matrix matrix) -> Broadside.Graphics.PdfFunctionShading!
+Broadside.PdfDocument.CreateFunctionShading(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PdfFunction! function, Broadside.PdfRectangle domain, Broadside.Graphics.Matrix matrix, Broadside.Graphics.PdfShadingOptions? options) -> Broadside.Graphics.PdfFunctionShading!
+Broadside.PdfDocument.CreateMeshShading(Broadside.Graphics.PdfFreeFormMeshBuilder! mesh) -> Broadside.Graphics.PdfTriangleMeshShading!
+Broadside.PdfDocument.CreateMeshShading(Broadside.Graphics.PdfFreeFormMeshBuilder! mesh, Broadside.Graphics.PdfShadingOptions? options) -> Broadside.Graphics.PdfTriangleMeshShading!
+Broadside.PdfDocument.CreateMeshShading(Broadside.Graphics.PdfLatticeMeshBuilder! mesh) -> Broadside.Graphics.PdfTriangleMeshShading!
+Broadside.PdfDocument.CreateMeshShading(Broadside.Graphics.PdfLatticeMeshBuilder! mesh, Broadside.Graphics.PdfShadingOptions? options) -> Broadside.Graphics.PdfTriangleMeshShading!
+Broadside.PdfDocument.CreateMeshShading(Broadside.Graphics.PdfPatchMeshBuilder! mesh) -> Broadside.Graphics.PdfPatchMeshShading!
+Broadside.PdfDocument.CreateMeshShading(Broadside.Graphics.PdfPatchMeshBuilder! mesh, Broadside.Graphics.PdfShadingOptions? options) -> Broadside.Graphics.PdfPatchMeshShading!
+Broadside.PdfDocument.CreateShadingPattern(Broadside.Graphics.PdfShading! shading, Broadside.Graphics.Matrix? matrix = null) -> Broadside.Graphics.PdfShadingPattern!
+Broadside.PdfDocument.CreateTilingPattern(Broadside.PdfRectangle boundingBox, double xStep, double yStep, Broadside.Graphics.PdfTilingPaintType paintType, Broadside.Graphics.Matrix? matrix = null, Broadside.Graphics.PdfTilingType tilingType = Broadside.Graphics.PdfTilingType.ConstantSpacing) -> Broadside.Graphics.PdfTilingPattern!
