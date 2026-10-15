@@ -373,12 +373,33 @@ public sealed class LinearizedSaveTests
     }
 
     /// <summary>
+    /// The writer places objects as qpdf 12 does: an object one other page and a document-level entry both reach is that page's own.
+    /// qpdf 11's linearization check counts such an object as shared and warns about the page's object count, for qpdf 12's own
+    /// linearization of the file too (optional-content-pages.pdf, whose layers the catalog also lists). An older qpdf is not the
+    /// reference, so the check fails on every OS with the version it found rather than on one corpus file.
+    /// </summary>
+    private static void AssertQpdfIsTheReferenceVersion()
+    {
+        string? version = ExternalTool.Version("qpdf");
+        if (version is null)
+        {
+            Assert.Skip("qpdf is not on the PATH.");
+        }
+
+        Match match = Regex.Match(version, @"qpdf version (\d+)\.");
+        Assert.True(
+            match.Success && int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture) >= 12,
+            $"The linearization checks need qpdf 12 or later, whose placement the writer follows; found: {version.Trim()}");
+    }
+
+    /// <summary>
     /// qpdf's structural check and its linearization check (which recomputes the parts and hint tables from the file) find no error
     /// and nothing wrong with the linearization. A warning qpdf gives the source file too (name-tree-deep.pdf's keys are in byte
     /// order, which qpdf's comparison disagrees with) is allowed.
     /// </summary>
     private static void AssertQpdfAcceptsLinearization(byte[] file, params string[] options)
     {
+        AssertQpdfIsTheReferenceVersion();
         (int exitCode, string output) = ExternalTool.Run("qpdf", file, [.. options, "--check"]);
         Assert.True(exitCode is 0 or 3 && output.Contains("File is linearized", StringComparison.Ordinal) && !output.Contains("ERROR", StringComparison.Ordinal), output);
         (exitCode, output) = ExternalTool.Run("qpdf", file, [.. options, "--check-linearization"]);

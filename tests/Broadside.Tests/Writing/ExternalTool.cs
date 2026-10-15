@@ -84,6 +84,28 @@ internal static class ExternalTool
         }
     }
 
+    /// <summary>Runs <paramref name="tool"/> with <c>--version</c> alone.</summary>
+    /// <returns>The standard output and error joined, or null when the tool is not on the PATH.</returns>
+    public static string? Version(string tool)
+    {
+        string? executable = Find(tool);
+        if (executable is null)
+        {
+            return null;
+        }
+
+        var start = new ProcessStartInfo(executable, "--version")
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        using Process process = Process.Start(start)!;
+        string output = process.StandardOutput.ReadToEnd() + process.StandardError.ReadToEnd();
+        process.WaitForExit();
+        return output;
+    }
+
     private static string? Find(string tool)
     {
         string[] directories = (Environment.GetEnvironmentVariable("PATH") ?? string.Empty).Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries);
