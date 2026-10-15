@@ -5,10 +5,10 @@ using AndroidColor = Android.Graphics.Color;
 using AndroidMatrix = Android.Graphics.Matrix;
 using AndroidPath = Android.Graphics.Path;
 using DashPathEffect = Android.Graphics.DashPathEffect;
+using Matrix = Broadside.Graphics.Matrix;
 using Paint = Android.Graphics.Paint;
 using PaintFlags = Android.Graphics.PaintFlags;
 using PaintHinting = Android.Graphics.PaintHinting;
-using Matrix = Broadside.Graphics.Matrix;
 
 namespace Broadside.Rendering.Android;
 

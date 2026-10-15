@@ -6,11 +6,11 @@ using Broadside.Graphics;
 using Java.Interop;
 using AndroidCanvas = Android.Graphics.Canvas;
 using ByteBuffer = Java.Nio.ByteBuffer;
+using Matrix = Broadside.Graphics.Matrix;
 using NativeFont = Android.Graphics.Fonts.Font;
 using Paint = Android.Graphics.Paint;
 using PaintFlags = Android.Graphics.PaintFlags;
 using RectF = Android.Graphics.RectF;
-using Matrix = Broadside.Graphics.Matrix;
 
 namespace Broadside.Rendering.Android;
 
@@ -43,7 +43,7 @@ public sealed partial class AndroidCanvasBackend
             "Android's font engine: this Android version (before 12, API level 31) cannot draw glyphs by id, Android could not load " +
             "the program, or its font engine reads a glyph differently from the program's outline.");
 
-        private static JniMethodInfo? s_drawGlyphs;
+        private static JniMethodInfo? _drawGlyphs;
 
         private readonly Paint _checkPaint = new(PaintFlags.AntiAlias | PaintFlags.SubpixelText | PaintFlags.LinearText);
         private readonly RectF _bounds = new();
@@ -282,7 +282,7 @@ public sealed partial class AndroidCanvasBackend
                 JniEnvironment.Arrays.SetFloatArrayRegion(_javaPositions, 0, 2 * count, points);
             }
 
-            JniMethodInfo method = s_drawGlyphs ??= DrawGlyphsMethod();
+            JniMethodInfo method = _drawGlyphs ??= DrawGlyphsMethod();
             JniArgumentValue* arguments = stackalloc JniArgumentValue[7];
             arguments[0] = new JniArgumentValue(_javaGlyphs);
             arguments[1] = new JniArgumentValue(0);

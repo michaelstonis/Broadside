@@ -139,6 +139,11 @@ public sealed class AndroidBackendTests
     public void Replaying_the_page_allocates_nothing_once_warm(string fileName, int page)
     {
         AndroidDevice device = AndroidDevice.Run();
+        if (!device.IsOptimizedBuild)
+        {
+            Assert.Skip("The device app is a Debug build: Mono runs it without JIT optimizations, which allocate in shared generic code; build it with -c Release.");
+        }
+
         Assert.True(device.AllocationProbeBytes() > 0, "The device's runtime reports no allocation for a new array, so a zero would prove nothing.");
 
         long native = device.ReplayAllocatedBytes(fileName, page);
