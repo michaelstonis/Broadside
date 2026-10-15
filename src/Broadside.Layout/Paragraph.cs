@@ -169,6 +169,33 @@ public sealed class Paragraph : FlowBlock
         }
     }
 
+    internal override ContentWidths MeasureWidths(FlowServices services)
+    {
+        var breaks = new List<BreakOpportunity>();
+        services.LineBreaker.FindBreaks(Text, breaks);
+        double min = 0;
+        double max = 0;
+        int start = 0;
+        int lineStart = 0;
+        foreach (BreakOpportunity opportunity in breaks)
+        {
+            // The pieces between break opportunities are unbreakable; the lines between mandatory breaks are the unwrapped widths.
+            double indent = start == 0 ? Style.FirstLineIndent : 0;
+            bool hyphen = !opportunity.Mandatory && Text[opportunity.Position - 1] == SoftHyphen;
+            min = Math.Max(min, indent + Measure(services.Shaper, start, TrimEnd(Text, start, opportunity.Position), hyphen));
+            if (opportunity.Mandatory)
+            {
+                double lineIndent = lineStart == 0 ? Style.FirstLineIndent : 0;
+                max = Math.Max(max, lineIndent + Measure(services.Shaper, lineStart, TrimEnd(Text, lineStart, opportunity.Position), false));
+                lineStart = opportunity.Position;
+            }
+
+            start = opportunity.Position;
+        }
+
+        return new(min, Math.Max(min, max));
+    }
+
     internal override void LayOut(FlowContext context)
     {
         FlowServices services = context.Services;
@@ -191,7 +218,7 @@ public sealed class Paragraph : FlowBlock
         {
             // Room first: the line is measured against the width of the page it lands on.
             context.EnsureRoom(strutAdvance);
-            int page = context.Pages.Count;
+            int page = context.PageCount;
             double indent = first ? style.FirstLineIndent : 0;
             double available = context.Width - indent;
             int chosen = -1;
@@ -239,7 +266,7 @@ public sealed class Paragraph : FlowBlock
                 above = Math.Max(above, strutLeading + strutAscent);
                 lineAdvance = above + Math.Max(below, strutAdvance - (strutLeading + strutAscent));
                 context.EnsureRoom(lineAdvance);
-                if (context.Pages.Count != page)
+                if (context.PageCount != page)
                 {
                     continue;
                 }
@@ -255,7 +282,11 @@ public sealed class Paragraph : FlowBlock
                 begun = true;
             }
 
-            DrawLine(context, CollectionsMarshal.AsSpan(runs), context.Left + indent, available, baseline, isLast, hyphen ? end : -1);
+            if (context.Drawing)
+            {
+                DrawLine(context, CollectionsMarshal.AsSpan(runs), context.Left + indent, available, baseline, isLast, hyphen ? end : -1);
+            }
+
             context.Advance(lineAdvance);
 
             next = resume == breaks[chosen].Position ? chosen + 1 : chosen;

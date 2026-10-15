@@ -22,8 +22,14 @@ internal sealed class FlowContext : IDisposable
     private readonly List<object> _open = [];
     private readonly Stack<double> _indents = new();
     private readonly List<ListMarker> _markers = [];
+    private readonly FlowContext? _parent;
+    private readonly double[]? _heights;
+    private readonly int _drawPage;
+    private readonly double _regionLeft;
     private PdfPage? _page;
     private PdfCanvas? _canvas;
+    private int _virtualPage;
+    private double _wordSpacing;
 
     public FlowContext(PdfDocument document, FlowDocument flow)
     {
@@ -32,17 +38,69 @@ internal sealed class FlowContext : IDisposable
         Services = flow.Services;
     }
 
+    /// <summary>
+    /// A region of <paramref name="parent"/> (a table cell): content laid out between <paramref name="left"/> and
+    /// <paramref name="right"/> from <paramref name="top"/> down, on virtual pages whose content heights are
+    /// <paramref name="heights"/> (the last repeating). Only virtual page <paramref name="drawPage"/> draws, on the parent's canvas
+    /// at <paramref name="top"/>, and only while the parent draws; -1 draws nothing (measuring). A break moves to the next virtual
+    /// page, never the parent's.
+    /// </summary>
+    public FlowContext(FlowContext parent, double left, double right, double top, double[] heights, int drawPage)
+    {
+        _parent = parent;
+        _document = parent._document;
+        _flow = parent._flow;
+        Services = parent.Services;
+        _heights = heights;
+        _drawPage = drawPage;
+        _regionLeft = left;
+        Left = left;
+        Right = right;
+        Top = top;
+        Bottom = top - heights[0];
+        CursorY = top;
+    }
+
     /// <summary>The replaceable layout steps.</summary>
     public FlowServices Services { get; }
 
     /// <summary>The pages created so far, in order.</summary>
-    public IReadOnlyList<PdfPage> Pages => _pages;
+    public IReadOnlyList<PdfPage> Pages => _parent?.Pages ?? _pages;
+
+    /// <summary>The number of pages started so far (virtual pages in a region): changes exactly when a page breaks.</summary>
+    public int PageCount => _parent is null ? _pages.Count : _virtualPage + 1;
+
+    /// <summary>True when what blocks draw now lands on a page: always at the root, on its drawn virtual page in a region.</summary>
+    public bool Drawing => _parent is null || (_virtualPage == _drawPage && _parent.Drawing);
+
+    /// <summary>The content height of the page a break would start next.</summary>
+    public double NextPageHeight
+    {
+        get
+        {
+            if (_parent is not null)
+            {
+                return HeightOf(_virtualPage + 1);
+            }
+
+            PageSetup setup = _flow.PageSetupFor(_pages.Count);
+            return setup.Height - setup.Margins.Top - setup.Margins.Bottom;
+        }
+    }
+
+    /// <summary>True when content placed on the first page of a region crossed its bottom (it did not fit there).</summary>
+    public bool OverflowedFirstPage { get; private set; }
 
     /// <summary>The canvas of the current page; starts the first page when none is open.</summary>
     public PdfCanvas Canvas
     {
         get
         {
+            if (_parent is not null)
+            {
+                return _parent.Canvas;
+            }
+
             EnsurePage();
             return _canvas!;
         }
@@ -53,6 +111,11 @@ internal sealed class FlowContext : IDisposable
     {
         get
         {
+            if (_parent is not null)
+            {
+                return _parent.Page;
+            }
+
             EnsurePage();
             return _page!;
         }
@@ -86,13 +149,27 @@ internal sealed class FlowContext : IDisposable
     public bool AtPageTop { get; private set; } = true;
 
     /// <summary>The word spacing (<c>Tw</c>) the current page's content stream has set; 0 at the start of each page.</summary>
-    public double WordSpacing { get; set; }
+    public double WordSpacing
+    {
+        get => _parent?.WordSpacing ?? _wordSpacing;
+        set
+        {
+            if (_parent is not null)
+            {
+                _parent.WordSpacing = value;
+            }
+            else
+            {
+                _wordSpacing = value;
+            }
+        }
+    }
 
     /// <summary>Starts a block: its portions on each page are reported to the structure sink. Blocks nest inside open blocks and parts.</summary>
     public void BeginBlock(FlowBlock block)
     {
         _open.Add(block);
-        if (_page is not null)
+        if (Live)
         {
             Begin(block);
         }
@@ -103,7 +180,7 @@ internal sealed class FlowContext : IDisposable
     {
         if (_open.Count > 0 && _open[^1] is FlowBlock)
         {
-            if (_page is not null)
+            if (Live)
             {
                 End(_open[^1]);
             }
@@ -116,7 +193,7 @@ internal sealed class FlowContext : IDisposable
     public void BeginPart(FlowPart part)
     {
         _open.Add(part);
-        if (_page is not null)
+        if (Live)
         {
             Begin(part);
         }
@@ -127,7 +204,7 @@ internal sealed class FlowContext : IDisposable
     {
         if (_open.Count > 0 && _open[^1] is FlowPart)
         {
-            if (_page is not null)
+            if (Live)
             {
                 End(_open[^1]);
             }
@@ -166,6 +243,12 @@ internal sealed class FlowContext : IDisposable
     {
         if (_markers.Count == 0)
         {
+            return;
+        }
+
+        if (!Drawing)
+        {
+            _markers.Clear();
             return;
         }
 
@@ -246,12 +329,39 @@ internal sealed class FlowContext : IDisposable
         EnsurePage();
         CursorY -= height;
         AtPageTop = false;
+        if (_parent is not null && _virtualPage == 0 && CursorY < Bottom - Tolerance)
+        {
+            OverflowedFirstPage = true;
+        }
     }
 
     /// <summary>Finishes the current page and starts the next, carrying the open block over.</summary>
     public void BreakPage()
     {
-        if (_page is not null)
+        if (_parent is not null)
+        {
+            if (Drawing)
+            {
+                for (int index = _open.Count - 1; index >= 0; index--)
+                {
+                    End(_open[index]);
+                }
+            }
+
+            _virtualPage++;
+            Left = _regionLeft + Indent;
+            Bottom = Top - HeightOf(_virtualPage);
+            CursorY = Top;
+            AtPageTop = true;
+            if (Drawing)
+            {
+                BeginOpen();
+            }
+
+            return;
+        }
+
+        if (Live)
         {
             for (int index = _open.Count - 1; index >= 0; index--)
             {
@@ -267,6 +377,11 @@ internal sealed class FlowContext : IDisposable
     /// <summary>Finishes the last page.</summary>
     public void Dispose()
     {
+        if (_parent is not null)
+        {
+            return;
+        }
+
         while (_open.Count > 0)
         {
             if (_open[^1] is FlowBlock)
@@ -282,9 +397,14 @@ internal sealed class FlowContext : IDisposable
         FinishPage();
     }
 
+    /// <summary>True when structure hooks fire now: a page is open at the root, or this region draws.</summary>
+    private bool Live => _parent is null ? _page is not null : Drawing;
+
+    private double HeightOf(int virtualPage) => _heights![Math.Min(virtualPage, _heights.Length - 1)];
+
     private void EnsurePage()
     {
-        if (_page is null)
+        if (_parent is null && _page is null)
         {
             StartPage();
             BeginOpen();
@@ -303,11 +423,11 @@ internal sealed class FlowContext : IDisposable
     {
         if (open is FlowBlock block)
         {
-            Services.Structure?.BeginBlock(block, _page!, _canvas!);
+            Services.Structure?.BeginBlock(block, Page, Canvas);
         }
         else
         {
-            Services.Structure?.BeginPart((FlowPart)open, _page!, _canvas!);
+            Services.Structure?.BeginPart((FlowPart)open, Page, Canvas);
         }
     }
 
@@ -315,11 +435,11 @@ internal sealed class FlowContext : IDisposable
     {
         if (open is FlowBlock block)
         {
-            Services.Structure?.EndBlock(block, _page!, _canvas!);
+            Services.Structure?.EndBlock(block, Page, Canvas);
         }
         else
         {
-            Services.Structure?.EndPart((FlowPart)open, _page!, _canvas!);
+            Services.Structure?.EndPart((FlowPart)open, Page, Canvas);
         }
     }
 

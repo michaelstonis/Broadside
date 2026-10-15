@@ -275,6 +275,23 @@ public sealed class ListBlock : FlowBlock
 
     internal override void Validate(int index) => Validate(index, 0);
 
+    internal override ContentWidths MeasureWidths(FlowServices services)
+    {
+        double min = 0;
+        double max = 0;
+        foreach (ListItem item in _items)
+        {
+            foreach (FlowBlock block in item.Blocks)
+            {
+                ContentWidths content = block.MeasureWidths(services);
+                min = Math.Max(min, content.Min);
+                max = Math.Max(max, content.Max);
+            }
+        }
+
+        return new(Style.Indent + min, Style.Indent + max);
+    }
+
     internal override void LayOut(FlowContext context)
     {
         context.BeginBlock(this);
