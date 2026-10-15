@@ -121,6 +121,7 @@ internal sealed partial class CoreGraphicsBackend
         _tilingReported = false;
         _groupReported = false;
         _softMaskReported = false;
+        _glyphsOutlinedReported = false;
         Diagnostics.Clear();
     }
 

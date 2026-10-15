@@ -48,6 +48,24 @@ public static class GoldenThresholds
             "Skia's analytic anti-aliasing leaves the one pixel at the inner corner of each 30 degree chevron of band B (8 wide, mitered) " +
             "at about 92 % instead of fully covered (0.08 against the 0.05 flat tolerance), where its stroker's inner join folds the " +
             "outline back through the vertex; the two pixels are inside the stroke and everything else matches within the defaults (#121)."),
+        new(
+            "coregraphics-text",
+            null,
+            null,
+            new GoldenThreshold(0.6, 0.05, 0),
+            "Text pages with glyphs drawn by CoreGraphics' own font engine (TrueType and OpenType programs, #127): its glyph rasterizer " +
+            "leaves single edge pixels of small text up to about half a level from the rasterizer's exact area coverage (0.52 at most " +
+            "on the corpus, 12 pt Liberation Sans in text-lines-rotated and text-tagged-replacements) with the same total ink; with " +
+            "outlines forced the same pages match within the default."),
+        new(
+            "coregraphics-text",
+            "text-opentype-cff-embedded.pdf",
+            0,
+            new GoldenThreshold(0.6, 0.05, 4),
+            "Glyph I of the corpus OpenType CFF font (generate.py minimal_cff) has a serif contour that runs in the opposite direction " +
+            "to its stem's and overlaps it. The non-zero rule (ISO 32000-2 §9.2.4, §8.5.3.3.2) correctly leaves that overlap empty " +
+            "(windings +1 and -1 cancel), a hole two pixel rows high in the golden image; CoreGraphics' CFF scaler fills it. Four pixels " +
+            "of the hole differ by up to 1; everything else is within the coregraphics-text row."),
     ];
 
     /// <summary>Returns the threshold a backend's render of one corpus page must meet.</summary>

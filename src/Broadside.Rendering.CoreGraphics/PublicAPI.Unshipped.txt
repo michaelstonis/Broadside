@@ -5,3 +5,4 @@ Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.Diagnostics.get -> System.
 Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.Dispose() -> void
 Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.Render(Broadside.PdfPage! page, CoreGraphics.CGBitmapContext! target, Broadside.Rendering.RenderOptions! options) -> void
 Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.Render(Broadside.Rendering.DisplayList! list, CoreGraphics.CGContext! context, in Broadside.Graphics.Matrix deviceTransform) -> void
+Broadside.Rendering.CoreGraphics.CoreGraphicsRenderer.Render(Broadside.Rendering.DisplayList! list, CoreGraphics.CGContext! context, in Broadside.Graphics.Matrix deviceTransform, bool forceOutlines) -> void

@@ -38,7 +38,19 @@ public sealed class ReplayAllocationTests
         AssertReplayAllocatesNothing(AnnotationSamples.Grid(), 2, DisplayLayers.All);
     }
 
-    private static void AssertReplayAllocatesNothing(byte[] file, double scale, DisplayLayers layers = DisplayLayers.Content)
+    [Theory]
+    [InlineData(1, false)]
+    [InlineData(4, false)]
+    [InlineData(1, true)]
+    [InlineData(4, true)]
+    public void Replaying_glyph_runs_allocates_nothing_per_glyph(double scale, bool forceOutlines)
+    {
+        // About 2,000 glyphs of an embedded TrueType program in modes 0 to 2 with every text state operator: drawn by CoreGraphics'
+        // font engine (the font loaded once per program and renderer, during the warm-up), or filled and stroked from the outlines.
+        AssertReplayAllocatesNothing(TextSamples.Page(ContentSamples.TextHeavy(2000)), scale, forceOutlines: forceOutlines);
+    }
+
+    private static void AssertReplayAllocatesNothing(byte[] file, double scale, DisplayLayers layers = DisplayLayers.Content, bool forceOutlines = false)
     {
         using PdfDocument document = PdfDocument.Open(file);
         PdfPage page = document.Pages[0];
@@ -49,7 +61,7 @@ public sealed class ReplayAllocationTests
         using CGBitmapContext context = BitmapRendering.CreateContext(size.Width, size.Height, out byte[] pixels, out _);
         context.ConcatCTM(new CGAffineTransform(1, 0, 0, -1, 0, size.Height));
         using var renderer = new CoreGraphicsRenderer();
-        Action render = () => renderer.Render(list, context, device);
+        Action render = () => renderer.Render(list, context, device, forceOutlines);
 
         long allocated = Allocations.Measure(render, warmUpCalls: 5);
 

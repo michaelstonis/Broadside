@@ -30,6 +30,8 @@
     <Compile Include="../../tests/Broadside.TestSupport/CorpusLocator.cs" Link="CorpusLocator.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/ContentSamples.cs" Link="ContentSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/ClipSamples.cs" Link="ClipSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/TextSamples.cs" Link="TextSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/TrueTypeBuilder.cs" Link="TrueTypeBuilder.cs" />
   </ItemGroup>
 
   <!-- No-op targets for a host that cannot build this project. The SDK, when imported below, replaces every one of them. -->
