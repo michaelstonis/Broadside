@@ -242,6 +242,45 @@ public sealed class PdfSaveOptions
         return this;
     }
 
+    /// <summary>
+    /// Gets or sets the PDF/A conformance level the saved file claims and is checked against, or <see cref="PdfAConformance.None"/>
+    /// (the default) for none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ISO 19005-2 (PDF/A-2), cited by the rule identifiers of veraPDF's validation profile, the reference the output is validated
+    /// with: see <see cref="PdfAConformance"/>. The save first checks the document, changing nothing: each rule it cannot meet (a font
+    /// program not embedded, encryption, an action PDF/A forbids, an annotation without an appearance, a device colour space the output
+    /// intent does not cover, a feature later than PDF 1.7, ...) is reported as a <c>PdfANonConformant</c> warning naming the rule. In
+    /// strict mode the first one throws and nothing is written or changed. In lenient mode the file is saved without the PDF/A changes
+    /// below and without claiming conformance (a <c>PdfANotIdentified</c> information diagnostic says so): it never claims a
+    /// conformance it does not have.
+    /// </para>
+    /// <para>
+    /// When every check passes, the save adds what PDF/A requires: an output intent (<c>GTS_PDFA1</c>) with Broadside's own sRGB
+    /// profile unless the document has one with a destination profile, the XMP metadata stream with the PDF/A identification
+    /// (<c>pdfaid:part</c>, <c>pdfaid:conformance</c>) mirroring the document information, and the file identifiers; it writes the
+    /// header as PDF 1.7 (PDF/A-2 is based on ISO 32000-1), lowering a new document's 2.0.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a defined level.</exception>
+    public PdfAConformance PdfAConformance
+    {
+        get;
+        set => field = Enum.IsDefined(value) ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "Not a defined PDF/A conformance level.");
+    }
+
+    /// <summary>Sets <see cref="PdfAConformance"/>.</summary>
+    /// <param name="conformance">The PDF/A conformance level, or <see cref="PdfAConformance.None"/>.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="conformance"/> is not a defined level.</exception>
+    /// <remarks>ISO 19005-2 (veraPDF PDF/A-2B validation profile).</remarks>
+    public PdfSaveOptions WithPdfAConformance(PdfAConformance conformance)
+    {
+        PdfAConformance = conformance;
+        return this;
+    }
+
     /// <summary>Sets <see cref="IncrementalUpdate"/>.</summary>
     /// <param name="incremental">Whether the save appends an incremental update.</param>
     /// <returns>These options.</returns>

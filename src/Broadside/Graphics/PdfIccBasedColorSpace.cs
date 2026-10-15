@@ -29,6 +29,18 @@ public sealed class PdfIccBasedColorSpace : PdfColorSpace
     {
     }
 
+    /// <summary>
+    /// Returns the bytes of Broadside's own sRGB profile: IEC 61966-2-1 as an ICC version 4.4 display profile, generated in-house, so
+    /// no third-party profile ships. To embed as an ICCBased space (<see cref="PdfDocument.CreateIccBasedColorSpace"/>) or as an output
+    /// intent's destination profile; a PDF/A save uses it as its default output intent (<see cref="PdfSaveOptions.PdfAConformance"/>).
+    /// </summary>
+    /// <returns>A new array holding the profile, the same bytes on every call.</returns>
+    /// <remarks>
+    /// ICC.1:2022 §7.2, §7.3, §8.4.3 (a matrix-based display profile's required tags), §9.2.15 and Annex E (Bradford adaptation to
+    /// D50), §10.18 (the sRGB curve as parametric function type 3); ISO 32000-2 §8.6.5.5 (Table 66: version 4 profiles).
+    /// </remarks>
+    public static byte[] CreateSrgbProfileData() => SrgbProfile.Create();
+
     /// <inheritdoc/>
     public override PdfColorSpaceFamily Family => PdfColorSpaceFamily.IccBased;
 

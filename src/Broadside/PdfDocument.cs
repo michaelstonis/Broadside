@@ -1282,9 +1282,9 @@ public sealed partial class PdfDocument : IDisposable
     /// Plans a save in two steps, so that a save refused changes nothing in the document (issue #300). First every check that can
     /// refuse it, on the document as it is: what the document's edits leave broken (<see cref="ReportBeforeSave"/>), what the writer
     /// cannot write (encryption it refuses, in strict mode a deviation found loading the objects to write), a version later than the
-    /// document's in strict mode, deprecated encryption. Then what a save changes in the document: grown font subsets completed
-    /// (#285), the modification dated (#162), the catalog's extensions and version (#141), and the file planned again when any of
-    /// them changed something.
+    /// document's in strict mode, deprecated encryption, the rules of a PDF/A conformance level (#201). Then what a save changes in
+    /// the document: grown font subsets completed (#285), the modification dated (#162), the PDF/A output intent and identification
+    /// (#201), the catalog's extensions and version (#141), and the file planned again when any of them changed something.
     /// </summary>
     /// <param name="options">The save's options.</param>
     /// <param name="changes">
@@ -1297,8 +1297,14 @@ public sealed partial class PdfDocument : IDisposable
         ArgumentNullException.ThrowIfNull(options);
         CheckLinearization(options);
         ReportBeforeSave();
-        VersionedSave planned = CheckVersionedSave(options);
+        bool archival = CheckArchivalSave(options);
+        VersionedSave planned = CheckVersionedSave(options, archival);
         ReportDeprecatedEncryption(options);
+        archival = archival && CheckArchivalVersion(options, planned);
+        if (options.PdfAConformance != PdfAConformance.None && !archival)
+        {
+            ReportNotIdentified(options);
+        }
 
         if (changes is not null)
         {
@@ -1313,7 +1319,15 @@ public sealed partial class PdfDocument : IDisposable
         // incremental update's catalog Version below changes it. A raise to 2.0 moves the deprecated Info entries to the XMP packet
         // (§14.3.3); it only moves metadata the document has, so it adds no versioned feature and the version decided stands.
         changed |= LayOutMetadataFor(Version, planned.Needed);
-        return ApplyVersionedSave(options, planned, changed);
+
+        // Issue #201: what a conformant PDF/A save adds, an output intent and the identified XMP packet, PDF 1.4 features the check
+        // step already counted (VersionedFeatures.PdfAOutput); the file is written as PDF 1.7, PDF/A-2's base.
+        if (archival)
+        {
+            changed |= ApplyArchivalSave(options);
+        }
+
+        return ApplyVersionedSave(options, planned, changed, archival ? PdfA2Version : null);
     }
 
     /// <summary>

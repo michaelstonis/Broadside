@@ -178,6 +178,80 @@ jobs:
         shell: bash
         run: artifacts/aot-smoke/Broadside.Rendering.AotSmoke --require-aot
 
+  # Validates the files Broadside writes in a PDF/A mode with veraPDF, the PDF Association's reference validator (issue #201; spec
+  # story 42): every test in the VeraPdf trait saves a document as PDF/A and asserts that veraPDF reports no failed rule. veraPDF is a
+  # Java tool used here only, never by the library (ADR 0001); its release is pinned and checksummed like qpdf above, and
+  # BROADSIDE_REQUIRE_VERAPDF makes a test fail rather than skip if the tool cannot be found, so the check never silently stops.
+  verapdf:
+    name: verapdf
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Install veraPDF
+        # The greenfield (PDF/A and PDF/UA) command-line validator, installed headless by its IzPack installer from the pinned,
+        # checksummed release archive.
+        env:
+          VERAPDF_VERSION: 1.28.2
+          VERAPDF_SHA256: d1693a5f0bf0997180f6d97e8a5568b0cf39e27eee338d439c8adb58435c1e89
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/verapdf.zip" "https://software.verapdf.org/rel/${VERAPDF_VERSION%.*}/verapdf-greenfield-${VERAPDF_VERSION}-installer.zip"
+          echo "${VERAPDF_SHA256}  $RUNNER_TEMP/verapdf.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/verapdf.zip" -d "$RUNNER_TEMP/verapdf-installer"
+          cat > "$RUNNER_TEMP/auto-install.xml" <<EOF
+          <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+          <AutomatedInstallation langpack="eng">
+            <com.izforge.izpack.panels.htmlhello.HTMLHelloPanel id="welcome"/>
+            <com.izforge.izpack.panels.target.TargetPanel id="install_dir"><installpath>$RUNNER_TEMP/verapdf</installpath></com.izforge.izpack.panels.target.TargetPanel>
+            <com.izforge.izpack.panels.packs.PacksPanel id="sdk_pack_select">
+              <pack index="0" name="veraPDF GUI" selected="true"/>
+              <pack index="1" name="veraPDF Mac and *nix Scripts" selected="true"/>
+              <pack index="2" name="veraPDF Validation model" selected="false"/>
+              <pack index="3" name="veraPDF Documentation" selected="false"/>
+              <pack index="4" name="veraPDF Sample Plugins" selected="false"/>
+            </com.izforge.izpack.panels.packs.PacksPanel>
+            <com.izforge.izpack.panels.install.InstallPanel id="install"/>
+            <com.izforge.izpack.panels.finish.FinishPanel id="finish"/>
+          </AutomatedInstallation>
+          EOF
+          java -jar "$RUNNER_TEMP/verapdf-installer/verapdf-greenfield-${VERAPDF_VERSION}/verapdf-izpack-installer-${VERAPDF_VERSION}.jar" "$RUNNER_TEMP/auto-install.xml"
+          echo "$RUNNER_TEMP/verapdf" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/verapdf/verapdf" --version
+
+      - name: Build the tests
+        run: |
+          dotnet build tests/Broadside.Tests -c Release -warnaserror
+          dotnet build tests/Broadside.Fonts.Standard14.Tests -c Release -warnaserror
+
+      - name: Validate PDF/A output with veraPDF
+        env:
+          BROADSIDE_REQUIRE_VERAPDF: '1'
+        run: |
+          dotnet test --project tests/Broadside.Tests -c Release --no-build -- --filter-trait "Category=VeraPdf"
+          dotnet test --project tests/Broadside.Fonts.Standard14.Tests -c Release --no-build -- --filter-trait "Category=VeraPdf"
+
   # Shows the public API diff of the PR in the job summary for human review. It never fails: the
   # PublicApiAnalyzers (RS0016/RS0017) already fail the build when the API files and the code disagree.
   api-surface:

@@ -42,4 +42,9 @@ internal static partial class DiagnosticCodes
 
     // Saving (ADR 0003; §7.5.2, §7.7.2 Table 29): the version a save writes (issue #141).
     public const string VersionRaised = nameof(VersionRaised);
+
+    // Saving with a PDF/A conformance level (issue #201; veraPDF validation-profile rule identifiers): a rule the document cannot
+    // meet (Warning, refused in strict mode), and a lenient save that therefore does not claim the conformance (Information).
+    public const string PdfANonConformant = nameof(PdfANonConformant);
+    public const string PdfANotIdentified = nameof(PdfANotIdentified);
 }

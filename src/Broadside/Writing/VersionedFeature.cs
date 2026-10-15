@@ -74,6 +74,7 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <item><term><see cref="IntegrityProtection"/></term><description>2.0 and the ISO_ extension level 32004 (ISO/TS 32004, clause 4)</description></item>
 /// <item><term><see cref="EmbeddedFileStream"/></term><description>1.3 (§7.11.4)</description></item>
 /// <item><term><see cref="EmbeddedFilesTree"/></term><description>1.4 (§7.7.4, Table 32)</description></item>
+/// <item><term><see cref="PdfAOutput"/></term><description>1.4 (§14.11.5, §14.3.2; a PDF/A save, issue #201)</description></item>
 /// <item><term><see cref="FileDescription"/></term><description>1.6 (§7.11.3, Table 43, <c>Desc</c>)</description></item>
 /// <item><term><see cref="UnicodeFileName"/></term><description>1.7 (§7.11.3, Table 43, <c>UF</c>)</description></item>
 /// <item><term><see cref="AssociatedFiles"/></term><description>2.0 (§14.13, <c>AF</c> and <c>AFRelationship</c>)</description></item>
@@ -179,6 +180,9 @@ internal static class VersionedFeatures
 
     /// <summary>Gets embedded file streams: PDF 1.3.</summary>
     public static VersionedFeature EmbeddedFileStream { get; } = new("an embedded file stream", "ISO 32000-2 §7.11.4", new PdfVersion(1, 3));
+
+    /// <summary>Gets what a PDF/A save writes, an output intent (§14.11.5) and a metadata stream (§14.3.2): PDF 1.4.</summary>
+    public static VersionedFeature PdfAOutput { get; } = new("PDF/A output (an output intent and a metadata stream)", "ISO 32000-2 §14.11.5, §14.3.2", Pdf14);
 
     /// <summary>Gets the name dictionary's <c>EmbeddedFiles</c> tree: PDF 1.4.</summary>
     public static VersionedFeature EmbeddedFilesTree { get; } = new("the EmbeddedFiles name tree", "ISO 32000-2 §7.7.4, Table 32", Pdf14);

@@ -1,8 +1,8 @@
 using System.Buffers.Binary;
 using System.Text;
-using Broadside.Graphics;
+using Broadside.Graphics.Colors;
 
-namespace Broadside.Rendering.Icc;
+namespace Broadside.Graphics;
 
 /// <summary>Writes Broadside's own sRGB profile: IEC 61966-2-1 as an ICC version 4.4 display profile, generated, not copied.</summary>
 /// <remarks>
@@ -27,8 +27,8 @@ internal static class SrgbProfile
     /// <returns>A new array holding the profile.</returns>
     public static byte[] Create()
     {
-        double[] chad = Colorimetry.Bradford(CieXyz.D65, CieXyz.D50);
-        double[] colorants = Colorimetry.Multiply(chad, SrgbToXyz);
+        double[] chad = ColorMath.Adapt(CieXyz.D65, CieXyz.D50);
+        double[] colorants = ColorMath.Multiply(chad, SrgbToXyz);
         byte[] curve = Parametric(3, 2.4, 1 / 1.055, 0.055 / 1.055, 1 / 12.92, 0.04045);
         (string Signature, byte[] Data)[] tags =
         [
