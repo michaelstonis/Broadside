@@ -5,7 +5,7 @@ namespace Broadside.Graphics.Shadings;
 internal sealed class MeshLayout
 {
     /// <summary>The default limit on vertices per shading (a patch counts as 16), guarding against decompression bombs.</summary>
-    public const int DefaultMaxVertices = 1 << 22;
+    public const int DefaultMaxVertices = PdfOptions.DefaultMaxMeshVertices;
 
     /// <summary>Gets the shading type, 4 to 7.</summary>
     public required int ShadingType { get; init; }

@@ -77,4 +77,12 @@ public class TextExtractionBenchmarks
     /// <returns>The number of plain text units.</returns>
     [Benchmark]
     public int ExtractTaggedInContentOrder() => _taggedPage!.ExtractText(_contentOrder).PlainText.Length;
+
+    /// <summary>
+    /// The layout tree of the tagged page of <see cref="ExtractTaggedInStructureOrder"/> (issue #186, ISO 32000-2 §14.8.4): the same
+    /// extraction plus the mark geometry pass, one node per paragraph and its extent. Node texts are not assembled.
+    /// </summary>
+    /// <returns>The number of nodes under the root.</returns>
+    [Benchmark]
+    public int ExtractTaggedLayout() => _taggedPage!.ExtractLayout().Root.Children.Count;
 }

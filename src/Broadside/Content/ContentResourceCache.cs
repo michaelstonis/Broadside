@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using Broadside.Caching;
 using Broadside.Fonts;
 using Broadside.Graphics;
 using Broadside.Objects;
@@ -14,16 +15,19 @@ namespace Broadside.Content;
 /// ISO 32000-2 §7.8.2, §7.8.3, §8.4.5, §8.10, §9.6.4. Entries are keyed by the object's identity and rebuilt when the object's
 /// <c>Version</c> moved (a public mutation), so an edit is seen by the next run. Thread-safe for concurrent runs: two threads may
 /// compute the same entry and the last published wins; the values are immutable, so either is right. Entries live as long as the
-/// object they are keyed on, which the document's object cache keeps for the document's lifetime.
+/// object they are keyed on, which the document's object cache keeps for the document's lifetime, except decoded content: pages',
+/// form XObjects' and patterns' decoded streams live in the document's content cache (issue #103), within
+/// <see cref="PdfOptions.ContentCacheBudget"/>, the least recently used dropped and decoded again at their next run.
 /// </remarks>
 internal sealed class ContentResourceCache(PdfDocument document)
 {
-    private readonly ConditionalWeakTable<CosStream, DecodedContent> _streams = [];
-    private readonly ConditionalWeakTable<CosArray, JoinedContent> _joined = [];
     private readonly ConditionalWeakTable<CosDictionary, ExtGStateParameters> _graphicsStates = [];
     private readonly ConditionalWeakTable<CosStream, PdfFormXObject> _forms = [];
     private readonly ConditionalWeakTable<CosStream, Images.PdfImage> _images = [];
     private readonly ConditionalWeakTable<CosStream, GlyphHead> _glyphHeads = [];
+
+    /// <summary>The bytes charged for a content cache entry beyond its data.</summary>
+    private const long ContentOverhead = 64;
 
     /// <summary>The scratch operands of <see cref="GetType3GlyphMetrics"/> on this thread.</summary>
     [ThreadStatic]
@@ -62,16 +66,20 @@ internal sealed class ContentResourceCache(PdfDocument document)
         return form;
     }
 
-    /// <summary>Returns the decoded data of a content stream, decoded once while the stream and its dictionary are unchanged.</summary>
-    public ReadOnlyMemory<byte> GetContent(CosStream stream)
+    /// <summary>
+    /// Returns the decoded data of a content stream, decoded once while the stream and its dictionary are unchanged and the
+    /// document's content cache holds it (issue #103: least recently used dropped beyond <see cref="PdfOptions.ContentCacheBudget"/>).
+    /// </summary>
+    public ReadOnlyMemory<byte> GetContent(CosStream stream, CancellationToken cancellationToken = default)
     {
-        if (_streams.TryGetValue(stream, out DecodedContent? cached) && cached.DataVersion == stream.Version && cached.DictionaryVersion == stream.Dictionary.Version)
+        if (document.Caches.Content.TryGet(stream, out IBudgetedEntry? cached) && cached is DecodedContent content)
         {
-            return cached.Data;
+            return content.Data;
         }
 
-        var decoded = new DecodedContent(stream.Version, stream.Dictionary.Version, document.DecodeStream(stream));
-        _streams.AddOrUpdate(stream, decoded);
+        // A cancelled decode throws before anything is stored, so the next run decodes afresh.
+        var decoded = new DecodedContent(stream, stream.Version, stream.Dictionary.Version, document.Streams.Decode(stream, 0, cancellationToken));
+        document.Caches.Content.Add(stream, decoded);
         return decoded.Data;
     }
 
@@ -113,33 +121,45 @@ internal sealed class ContentResourceCache(PdfDocument document)
     /// Returns the content of a page's <c>Contents</c> array: its streams decoded and joined with a line feed after each (Table 31),
     /// built once while the array, the objects its elements resolve to and their data and dictionaries are unchanged.
     /// </summary>
-    public JoinedContent GetContent(CosArray contents)
+    public JoinedContent GetContent(CosArray contents, CancellationToken cancellationToken = default)
     {
-        if (_joined.TryGetValue(contents, out JoinedContent? cached) && cached.IsCurrent(contents, document))
+        if (document.Caches.Content.TryGet(contents, out IBudgetedEntry? cached) && cached is JoinedContent joined)
         {
-            return cached;
+            return joined;
         }
 
-        JoinedContent joined = JoinedContent.Create(contents, document);
-        _joined.AddOrUpdate(contents, joined);
+        joined = JoinedContent.Create(contents, document, cancellationToken);
+        document.Caches.Content.Add(contents, joined);
         return joined;
     }
 
-    private sealed record DecodedContent(int DataVersion, int DictionaryVersion, ReadOnlyMemory<byte> Data);
+    /// <summary>A content stream's decoded data, current while the stream's data and dictionary are unchanged.</summary>
+    private sealed record DecodedContent(CosStream Stream, int DataVersion, int DictionaryVersion, ReadOnlyMemory<byte> Data) : IBudgetedEntry
+    {
+        /// <inheritdoc/>
+        public long Bytes => ContentOverhead + Data.Length;
+
+        /// <inheritdoc/>
+        public bool IsCurrent => Stream.Version == DataVersion && Stream.Dictionary.Version == DictionaryVersion;
+    }
 
     private sealed record GlyphHead(int DataVersion, int DictionaryVersion, Type3GlyphMetrics Metrics);
 
     /// <summary>A page's <c>Contents</c> array read as one stream, and what it was built from.</summary>
-    internal sealed class JoinedContent
+    internal sealed class JoinedContent : IBudgetedEntry
     {
+        private readonly CosArray _array;
+        private readonly PdfDocument _document;
         private readonly int _arrayVersion;
         private readonly CosObject[] _elements;
         private readonly int[] _dataVersions;
         private readonly int[] _dictionaryVersions;
 
-        private JoinedContent(int arrayVersion, CosObject[] elements, int[] dataVersions, int[] dictionaryVersions, byte[] data, ContentPart[] parts, string[] problems)
+        private JoinedContent(CosArray array, PdfDocument document, CosObject[] elements, int[] dataVersions, int[] dictionaryVersions, byte[] data, ContentPart[] parts, string[] problems)
         {
-            _arrayVersion = arrayVersion;
+            _array = array;
+            _document = document;
+            _arrayVersion = array.Version;
             _elements = elements;
             _dataVersions = dataVersions;
             _dictionaryVersions = dictionaryVersions;
@@ -157,7 +177,13 @@ internal sealed class ContentResourceCache(PdfDocument document)
         /// <summary>Gets the messages of the elements that are not streams, which every run reports again (<see cref="ContentIssue.StreamInvalid"/>).</summary>
         public string[] Problems { get; }
 
-        public static JoinedContent Create(CosArray array, PdfDocument document)
+        /// <inheritdoc/>
+        public long Bytes => ContentOverhead + Data.Length;
+
+        /// <inheritdoc/>
+        bool IBudgetedEntry.IsCurrent => IsCurrent(_array, _document);
+
+        public static JoinedContent Create(CosArray array, PdfDocument document, CancellationToken cancellationToken)
         {
             int count = array.Count;
             var elements = new CosObject[count];
@@ -174,7 +200,7 @@ internal sealed class ContentResourceCache(PdfDocument document)
                 {
                     dataVersions[index] = stream.Version;
                     dictionaryVersions[index] = stream.Dictionary.Version;
-                    decoded[index] = document.DecodeStream(stream);
+                    decoded[index] = document.Streams.Decode(stream, 0, cancellationToken);
                     total += decoded[index].Length + 1;
                 }
                 else
@@ -197,7 +223,7 @@ internal sealed class ContentResourceCache(PdfDocument document)
                 }
             }
 
-            return new JoinedContent(array.Version, elements, dataVersions, dictionaryVersions, data, [.. parts], problems is null ? [] : [.. problems]);
+            return new JoinedContent(array, document, elements, dataVersions, dictionaryVersions, data, [.. parts], problems is null ? [] : [.. problems]);
         }
 
         /// <summary>Returns whether nothing this content was built from has changed since: the array, what its elements resolve to, their data and dictionaries.</summary>

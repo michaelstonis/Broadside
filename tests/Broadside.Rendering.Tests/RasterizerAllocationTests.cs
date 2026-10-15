@@ -33,6 +33,36 @@ public sealed class RasterizerAllocationTests
     }
 
     [Theory]
+    [InlineData("paths", 1)]
+    [InlineData("paths", 4)]
+    [InlineData("images", 1)]
+    [InlineData("images", 4)]
+    [InlineData("text", 1)]
+    [InlineData("text", 4)]
+    public void Rendering_without_anti_aliasing_allocates_nothing_once_warm(string content, double scale)
+    {
+        using PdfDocument document = PdfDocument.Open(content switch
+        {
+            "paths" => ContentSamples.OnePage(ContentSamples.PathHeavy(64 * 1024)),
+            "images" => ContentSamples.ImageHeavy(),
+            _ => TextSamples.Page(ContentSamples.TextHeavy(2000)),
+        });
+        PdfPage page = document.Pages[0];
+        DisplayList list = page.CreateDisplayList();
+        RenderOptions options = new RenderOptions().WithScale(scale);
+        PixelSize size = options.GetPixelSize(page);
+        Matrix device = options.GetDeviceTransform(page);
+        using var bitmap = new Bitmap(size.Width, size.Height);
+        using var rasterizer = new SoftwareRasterizer();
+        Action render = () => rasterizer.Render(list, bitmap, device, AntiAliasing.None);
+
+        long allocated = Allocations.Measure(render, warmUpCalls: 3);
+
+        Assert.Equal(0, allocated);
+        Assert.Contains(bitmap.Pixels.ToArray(), value => value != 0);
+    }
+
+    [Theory]
     [InlineData(72)]
     [InlineData(300)]
     public void Drawing_images_allocates_nothing_per_image_row_or_pixel(double dpi)

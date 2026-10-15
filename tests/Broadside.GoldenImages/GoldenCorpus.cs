@@ -122,16 +122,29 @@ public static class GoldenCorpus
     /// <param name="page">The zero-based page.</param>
     /// <param name="render">The rasterizer's render at <see cref="Dpi"/>.</param>
     /// <returns>The verification; await it from the test.</returns>
-    public static async Task VerifyAsync(string fileName, int page, GoldenImage render)
+    public static Task VerifyAsync(string fileName, int page, GoldenImage render) => VerifyAsync(fileName, page, render, variant: null);
+
+    /// <summary>
+    /// Verifies the software rasterizer's render of a page with a render option that changes its look (such as overprint preview)
+    /// as a golden image of its own, in the subdirectory <paramref name="variant"/> of <see cref="Directory"/>, compared like
+    /// <see cref="VerifyAsync(string, int, GoldenImage)"/>.
+    /// </summary>
+    /// <param name="fileName">The corpus file.</param>
+    /// <param name="page">The zero-based page.</param>
+    /// <param name="render">The rasterizer's render at <see cref="Dpi"/>.</param>
+    /// <param name="variant">The subdirectory, named after the option (for example <c>OverprintPreview</c>); null for the default render.</param>
+    /// <returns>The verification; await it from the test.</returns>
+    public static async Task VerifyAsync(string fileName, int page, GoldenImage render, string? variant)
     {
         ArgumentNullException.ThrowIfNull(render);
         string name = SnapshotName(fileName, page);
+        string directory = VariantDirectory(variant);
         var settings = new VerifySettings();
-        settings.UseDirectory(Directory);
+        settings.UseDirectory(directory);
         settings.UseFileName(name);
         settings.UseStreamComparer(CompareSnapshot);
         settings.Context[ThresholdKey] = GoldenThresholds.For(GoldenThresholds.SoftwareRasterizer, fileName, page);
-        settings.Context[DiffPathKey] = Path.Combine(Directory, name + ".diff.png");
+        settings.Context[DiffPathKey] = Path.Combine(directory, name + ".diff.png");
         if (Environment.GetEnvironmentVariable(AcceptVariable) == "1")
         {
             settings.AutoVerify();
@@ -192,6 +205,11 @@ public static class GoldenCorpus
             $"The {backend} render of page {page} of {fileName} does not match its golden image. {comparison.Describe()} " +
             $"See {received} and {diff}.");
     }
+
+    /// <summary>Returns the directory of a variant's golden images: <see cref="Directory"/> itself, or a subdirectory of it.</summary>
+    /// <param name="variant">The variant, or null for the default render.</param>
+    /// <returns>The directory.</returns>
+    public static string VariantDirectory(string? variant) => variant is null ? Directory : Path.Combine(Directory, variant);
 
     private static Task<CompareResult> CompareSnapshot(Stream received, Stream verified, IReadOnlyDictionary<string, object> context)
     {

@@ -12,6 +12,7 @@ public sealed partial class SoftwareRasterizer
         private Compositor _fillCompositor;
         private Compositor _strokeCompositor;
         private Compositor[] _savedCompositors = new Compositor[32];
+        private DisplayDeviceParameters[] _savedDeviceParameters = new DisplayDeviceParameters[16];
         private int _savedCompositorCount;
 
         /// <summary>Sets the alpha constants and blend mode of the paints that follow (§11.6.4.4, §11.6.3).</summary>
@@ -22,8 +23,9 @@ public sealed partial class SoftwareRasterizer
         /// </remarks>
         public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode)
         {
-            _strokeCompositor = new Compositor(strokeAlpha, blendMode);
-            _fillCompositor = new Compositor(fillAlpha, blendMode);
+            bool knockout = CurrentLayer?.Knockout == true;
+            _strokeCompositor = new Compositor(strokeAlpha, blendMode).WithKnockout(knockout);
+            _fillCompositor = new Compositor(fillAlpha, blendMode).WithKnockout(knockout);
         }
 
         private void SaveCompositing()
@@ -33,6 +35,12 @@ public sealed partial class SoftwareRasterizer
                 Array.Resize(ref _savedCompositors, _savedCompositors.Length * 2);
             }
 
+            if (_savedCompositorCount / 2 == _savedDeviceParameters.Length)
+            {
+                Array.Resize(ref _savedDeviceParameters, _savedDeviceParameters.Length * 2);
+            }
+
+            _savedDeviceParameters[_savedCompositorCount / 2] = _deviceParameters;
             _savedCompositors[_savedCompositorCount++] = _fillCompositor;
             _savedCompositors[_savedCompositorCount++] = _strokeCompositor;
         }
@@ -43,6 +51,7 @@ public sealed partial class SoftwareRasterizer
             {
                 _strokeCompositor = _savedCompositors[--_savedCompositorCount];
                 _fillCompositor = _savedCompositors[--_savedCompositorCount];
+                _deviceParameters = _savedDeviceParameters[_savedCompositorCount / 2];
             }
         }
 
@@ -50,7 +59,9 @@ public sealed partial class SoftwareRasterizer
         {
             _fillCompositor = default;
             _strokeCompositor = default;
+            _deviceParameters = default;
             _savedCompositorCount = 0;
+            Array.Clear(_savedDeviceParameters);
         }
     }
 }

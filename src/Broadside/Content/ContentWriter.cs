@@ -90,6 +90,25 @@ internal sealed class ContentWriter : IBufferWriter<byte>
         return Space();
     }
 
+    /// <summary>Begins an array operand (<c>[</c>), such as the operand of <c>TJ</c> (§9.4.3).</summary>
+    public ContentWriter BeginArray()
+    {
+        Write((byte)'[');
+        return this;
+    }
+
+    /// <summary>Ends an array operand begun with <see cref="BeginArray"/> (<c>]</c>).</summary>
+    public ContentWriter EndArray()
+    {
+        if (Last == ' ')
+        {
+            _length--;
+        }
+
+        Write((byte)']');
+        return Space();
+    }
+
     /// <summary>Writes a name operand.</summary>
     public ContentWriter Name(CosName name)
     {

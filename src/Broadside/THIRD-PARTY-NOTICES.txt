@@ -14,7 +14,7 @@ Source:   https://github.com/apache/pdfbox, commit 8712d47b075511a4c5a2829c3713b
 Licence:  the notice in MustRead.html (SPDX: APAFML), shipped in this package as licenses/adobe-core14-afm/MustRead.html
 Used as:  per-glyph widths, font-wide metrics and the Symbol and ZapfDingbats built-in encodings, in
           src/Broadside/Fonts/Standard14Data.g.cs and src/Broadside/Fonts/GlyphNameTable.g.cs.
-Modified: yes. The AFM files were converted to C# tables; kerning, ligature and glyph bounding-box data were removed.
+Modified: yes. The AFM files were converted to C# tables; ligature and glyph bounding-box data were removed.
           The unmodified files are in the repository.
 
 Notice (MustRead.html, verbatim):

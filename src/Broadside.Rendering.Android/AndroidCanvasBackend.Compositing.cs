@@ -37,6 +37,15 @@ public sealed partial class AndroidCanvasBackend
         /// <summary>Gets the diagnostics of the current or last render.</summary>
         public List<Diagnostic> Diagnostics { get; } = new(2);
 
+        /// <summary>Takes the overprint parameters and halftone of the paints that follow, and ignores them (§8.6.7, §10.6).</summary>
+        /// <remarks>
+        /// A composite RGB device that does not overprint ignores the overprint parameters (§8.6.7), and a continuous-tone device needs no
+        /// halftone (§10.6.1). Transfer functions come with each colour's conversion (§10.5).
+        /// </remarks>
+        public void SetDeviceParameters(in DisplayDeviceParameters parameters)
+        {
+        }
+
         /// <summary>
         /// Sets the alpha constants and blend mode of the paints that follow (§11.6.4.4, §11.6.3): the alphas go into the paints' colours
         /// (strokes take <paramref name="strokeAlpha"/>, everything else <paramref name="fillAlpha"/>), the blend mode into the paints.
@@ -123,6 +132,8 @@ public sealed partial class AndroidCanvasBackend
             _annotationDepth = 0;
             _blendReported = false;
             _tilingReported = false;
+            _groupReported = false;
+            _softMaskReported = false;
             Diagnostics.Clear();
         }
 

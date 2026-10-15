@@ -392,7 +392,9 @@ public sealed class TextExtractor : ContentProcessor
             }
             else if (matched)
             {
-                return item.Kind == ContentOperandKind.String ? new CosString(item.Bytes, item.IsHexadecimal).DecodeText() : null;
+                // Decoded from the operand's bytes: a CosString here would copy them, and only an optimizing JIT that proves it
+                // does not escape keeps it off the heap, so what the sequence allocates would depend on the JIT tier (CI saw it).
+                return item.Kind == ContentOperandKind.String ? TextStringDecoder.Decode(item.Bytes) : null;
             }
 
             isKey = !isKey;
@@ -445,7 +447,7 @@ public sealed class TextExtractor : ContentProcessor
     /// §9.8.1 Table 120: Ascent and Descent, else the FontBBox, in glyph space (thousandths of text space); a Type 3 font's FontBBox
     /// through its FontMatrix (§9.6.4); else 0.8 and -0.2 as pdf.js and MuPDF do.
     /// </summary>
-    private static (double Descent, double Ascent) ReadExtent(PdfFont font)
+    internal static (double Descent, double Ascent) ReadExtent(PdfFont font)
     {
         if (font is PdfType3Font type3)
         {

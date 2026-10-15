@@ -254,14 +254,13 @@ public sealed class ByteRangeSigningTests
     [Fact]
     public void What_byte_range_signing_does_not_write_yet_is_refused_before_anything_changes()
     {
-        using var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-        using X509Certificate2 ecCertificate = new CertificateRequest("CN=EC signer", ecdsa, HashAlgorithmName.SHA256).CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddDays(1));
         using X509Certificate2 certificate = TestCertificates.SelfSigned("CN=Broadside signer");
+        using X509Certificate2 edwards = TestCertificates.WithKeyAlgorithm("CN=Ed25519 signer", "1.3.101.112", new byte[32], certificate);
         using X509Certificate2 publicOnly = X509CertificateLoader.LoadCertificate(certificate.RawData);
         using PdfDocument document = PdfDocument.Open(Corpus.Bytes("empty-page.pdf"));
         using var output = new MemoryStream();
 
-        Assert.Throws<NotSupportedException>(() => new PdfCertificateSigner(ecCertificate));
+        Assert.Throws<NotSupportedException>(() => document.Sign(output, new FailingSigner(edwards)));
         Assert.Throws<ArgumentException>(() => new PdfCertificateSigner(publicOnly));
         Assert.Throws<NotSupportedException>(() => new PdfSignatureOptions().WithDigestAlgorithm(HashAlgorithmName.SHA1));
         Assert.Throws<ArgumentException>(() => document.Sign(output, new PdfCertificateSigner(certificate), new PdfSignatureOptions().WithFieldName("a.b")));
@@ -300,28 +299,59 @@ public sealed class ByteRangeSigningTests
         Assert.True(exitCode == 0, output);
     }
 
-    [Fact]
-    public void A_signer_that_fails_leaves_the_document_as_it_was()
+    [Theory]
+    [InlineData("empty-page.pdf", false)]
+    [InlineData("metadata-xmp.pdf", false)]
+    [InlineData("info-dictionary.pdf", true)]
+    public async Task A_signer_that_fails_leaves_every_object_of_the_document_as_it_was(string file, bool ecdsa)
     {
-        using X509Certificate2 certificate = TestCertificates.SelfSigned("CN=Broadside signer");
-        byte[] file = Corpus.Bytes("empty-page.pdf");
-        using PdfDocument document = PdfDocument.Open(file);
+        // Issue #306: the save inside signing changes the document before the signer is asked. empty-page.pdf has no Info, so the
+        // dating adds one and points the trailer at it; metadata-xmp.pdf has Info and an XMP packet, both dated; an ECDSA signature
+        // raises info-dictionary.pdf (PDF 1.7) to 2.0, which declares the ISO_ extension and the catalog Version and moves the
+        // deprecated Info entries to a new XMP packet (#301). All of it is undone when the signer throws.
+        using X509Certificate2 certificate = ecdsa
+            ? TestCertificates.SelfSignedEcdsa("CN=ECDSA signer", ECCurve.NamedCurves.nistP256)
+            : TestCertificates.SelfSigned("CN=Broadside signer");
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes(file));
+        string before = CosSnapshot.Of(document);
         using var output = new MemoryStream();
 
         Assert.Throws<CryptographicException>(() => document.Sign(output, new FailingSigner(certificate)));
+        Assert.Equal(before, CosSnapshot.Of(document));
 
+        await Assert.ThrowsAsync<CryptographicException>(
+            () => document.SignAsync(output, new FailingSigner(certificate), cancellationToken: TestContext.Current.CancellationToken));
+        Assert.Equal(before, CosSnapshot.Of(document));
         Assert.Equal(0, output.Length);
-        Assert.Null(document.AcroForm);
-        Assert.False(document.Pages[0].Dictionary.ContainsKey(new CosName("Annots")));
-        byte[] saved;
-        using (var update = new MemoryStream())
-        {
-            document.Save(update, new PdfSaveOptions().WithIncrementalUpdate(true));
-            saved = update.ToArray();
-        }
 
-        using PdfDocument reopened = PdfDocument.Open(saved);
+        // Nothing the failed signatures changed comes back with a later save.
+        using var update = new MemoryStream();
+        await document.SaveAsync(update, new PdfSaveOptions().WithIncrementalUpdate(true), TestContext.Current.CancellationToken);
+        using PdfDocument reopened = PdfDocument.Open(update.ToArray());
         Assert.Null(reopened.AcroForm);
+        Assert.Empty(reopened.Extensions);
+        Assert.Equal(document.Version, reopened.Version);
+    }
+
+    [Fact]
+    public void A_signature_after_a_failed_one_keeps_the_modification_date_set_before_both_in_the_form_of_the_raised_version()
+    {
+        // A date set explicitly is what the signed update writes (#162), in the PDF 2.0 form (no terminating apostrophe) once the
+        // ECDSA signature raises the PDF 1.7 document to 2.0 (#291). The failed signature must not use up either.
+        using X509Certificate2 certificate = TestCertificates.SelfSignedEcdsa("CN=ECDSA signer", ECCurve.NamedCurves.nistP256);
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("info-dictionary.pdf"));
+        var date = new DateTimeOffset(2025, 1, 2, 3, 4, 5, TimeSpan.FromHours(1));
+        document.Properties.ModificationDate = date;
+        Assert.Throws<CryptographicException>(() => document.Sign(new MemoryStream(), new FailingSigner(certificate)));
+
+        byte[] signed = Sign(document, new PdfCertificateSigner(certificate));
+
+        SignedFile signature = SignedFile.Last(signed);
+        OpenSsl.VerifyCms(signature.Cms, signature.CoveredBytes(), certificate);
+        using PdfDocument reopened = PdfDocument.Open(signed);
+        Assert.Equal(new PdfVersion(2, 0), reopened.Version);
+        var info = (CosDictionary)reopened.Resolve(reopened.Trailer[new CosName("Info")]);
+        Assert.Equal("D:20250102030405+01'00", ((CosString)reopened.Resolve(info[new CosName("ModDate")])).DecodeText());
     }
 
     private static async Task<byte[]> SignThroughSignAsync(PdfDocument document, IPdfSigner signer)

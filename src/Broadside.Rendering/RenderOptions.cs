@@ -176,9 +176,50 @@ public sealed class RenderOptions
     /// </remarks>
     public DisplayLayers Layers { get; set; } = DisplayLayers.All;
 
-    /// <summary>Gets or sets what the render is for, which decides the annotations drawn; <see cref="DisplayIntent.View"/> by default.</summary>
-    /// <remarks>ISO 32000-2 §12.5.3, Table 167 (<c>NoView</c>, <c>Print</c>, <c>NoZoom</c>, <c>NoRotate</c>).</remarks>
+    /// <summary>
+    /// Gets or sets what the render is for, which decides the annotations drawn, the optional content shown and the alternate images
+    /// painted; <see cref="DisplayIntent.View"/> by default.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §12.5.3, Table 167 (<c>NoView</c>, <c>Print</c>, <c>NoZoom</c>, <c>NoRotate</c>); §8.11.4.4 (the auto-state
+    /// entries for the Print event apply when printing); §8.9.5.4 (an image without <c>OC</c> is printed as its alternate marked
+    /// <c>DefaultForPrinting</c>).
+    /// </remarks>
     public DisplayIntent Intent { get; set; }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether the page is rendered with overprint preview, as a print-preview viewer shows it;
+    /// <see langword="false"/> by default.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §8.6.7 and §11.7.4. Off, the rasterizer is a composite RGB device that does not overprint, and §8.6.7 says such a
+    /// device ignores the overprint parameters: every paint knocks out what is below it. On, the page content is painted into a
+    /// buffer of device colourants, the four process colourants (cyan, magenta, yellow, black) and one more per spot colourant a
+    /// Separation or DeviceN colour names, and <c>OP</c>, <c>op</c> and <c>OPM</c> decide which colourants a paint replaces
+    /// (§11.7.4.5 Table 146): with overprint off, every colourant the paint does not specify is erased; with it on, they are left
+    /// as they are, and with overprint mode 1 a DeviceCMYK component of 0 leaves its colourant unchanged too. At the end each
+    /// pixel's colourants are converted for display: every spot adds its tint times its process equivalent at tint 1, clipped at 1,
+    /// and the result converts as DeviceCMYK through the document's colour management (the output intent's profile, when it
+    /// has one and the engine uses output intents). Every colour goes through the device colourants, so RGB, gray and CIE-based
+    /// colours show as their CMYK conversion prints. Annotations and form fields are drawn over the result as usual.
+    /// </para>
+    /// <para>
+    /// Deviations: images and shadings in a Separation or DeviceN space are painted as their process equivalent; a tiling pattern's
+    /// cell is rendered in RGB and painted as its DeviceCMYK conversion; non-separable blend modes, and on spot colourants blend modes
+    /// that are not white-preserving, composite as Normal (§11.7.4.2).
+    /// </para>
+    /// </remarks>
+    public bool OverprintPreview { get; set; }
+
+    /// <summary>Sets <see cref="OverprintPreview"/>.</summary>
+    /// <param name="overprintPreview">Whether the page is rendered with overprint preview.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithOverprintPreview(bool overprintPreview)
+    {
+        OverprintPreview = overprintPreview;
+        return this;
+    }
 
     /// <summary>Sets <see cref="Layers"/>.</summary>
     /// <param name="layers">The layers drawn.</param>
@@ -195,6 +236,103 @@ public sealed class RenderOptions
     public RenderOptions WithIntent(DisplayIntent intent)
     {
         Intent = intent;
+        return this;
+    }
+
+    /// <summary>Gets or sets the token that cancels a render of a page: its display-list build and its drawing.</summary>
+    /// <remarks>
+    /// Viewer capability 2 (issue #97). The build checks it as <see cref="Content.ContentOptions.CancellationToken"/> does (every
+    /// 1,024 operators, every nested stream, and inside the decoding of content and images); the drawing before every operation of
+    /// the display list. A cancelled render throws <see cref="OperationCanceledException"/>; the bitmap keeps what was drawn, and
+    /// nothing is left behind that changes a later render.
+    /// </remarks>
+    public CancellationToken CancellationToken { get; set; }
+
+    /// <summary>Sets <see cref="CancellationToken"/>.</summary>
+    /// <param name="cancellationToken">The token.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithCancellation(CancellationToken cancellationToken)
+    {
+        CancellationToken = cancellationToken;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the states of the optional content groups that decide what the render shows, computed from any configuration
+    /// of the document (<see cref="PdfOptionalContentProperties.GetStates"/>); <see langword="null"/>, the default, for the states
+    /// of the default configuration.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §8.11.4.3 (configurations) and §8.11.4.5 (the initial states). It decides the page content's optional sections
+    /// and XObjects (§8.11.3), the annotations' <c>OC</c> entries (§8.11.3.3) and which alternate image is painted (§8.9.5.4). For
+    /// <see cref="DisplayIntent.Print"/> the configuration's auto-state entries for the Print event are applied over these states
+    /// (§8.11.4.4); see <see cref="PdfPage.CreateDisplayList(DisplayLayers, DisplayIntent, Content.ContentOptions)"/>.
+    /// </remarks>
+    public PdfOptionalContentState? OptionalContentState { get; set; }
+
+    /// <summary>Sets <see cref="OptionalContentState"/>.</summary>
+    /// <param name="state">The group states, or <see langword="null"/> for those of the default configuration.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithOptionalContentState(PdfOptionalContentState? state)
+    {
+        OptionalContentState = state;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets what receives a page render's progress, from 0 to 1; <see langword="null"/>, the default, for none.
+    /// </summary>
+    /// <remarks>
+    /// Viewer capability 2 (issue #97). Reported synchronously on the rendering thread: building the display list moves it from 0
+    /// to 0.5 (<see cref="Content.ContentOptions.Progress"/>, halved), drawing from 0.5 to 1 (the share of the list's operations
+    /// drawn, every 1,024 operations and at the end of every slice of a <see cref="ProgressiveRender"/>). Values never decrease, and
+    /// the last report of a render that completes is exactly 1, reported once. The receiver may cancel
+    /// <see cref="CancellationToken"/>'s source.
+    /// </remarks>
+    public IProgress<double>? Progress { get; set; }
+
+    /// <summary>Sets <see cref="Progress"/>.</summary>
+    /// <param name="progress">What receives the render's progress, or <see langword="null"/>.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithProgress(IProgress<double>? progress)
+    {
+        Progress = progress;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the kinds of painting that are anti-aliased; <see cref="Rendering.AntiAliasing.All"/> by default. A kind left out
+    /// paints whole pixels only.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §10.7.4 (scan conversion rules); see <see cref="Rendering.AntiAliasing"/>.</remarks>
+    public AntiAliasing AntiAliasing { get; set; } = AntiAliasing.All;
+
+    /// <summary>Sets <see cref="AntiAliasing"/>.</summary>
+    /// <param name="antiAliasing">The kinds anti-aliased.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithAntiAliasing(AntiAliasing antiAliasing)
+    {
+        AntiAliasing = antiAliasing;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether a page render starts from transparent black instead of opaque white, so that the
+    /// pixels nothing paints keep zero alpha and partly covered ones are partly transparent; <see langword="false"/> by default.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §11.4.7: the page group is composited over a transparent backdrop, (C<sub>g</sub>, α<sub>g</sub>), and the
+    /// second step that composites it with the medium's white, C = (1 − α<sub>g</sub>) × W + α<sub>g</sub> × C<sub>g</sub>, is left
+    /// to whoever shows the bitmap (premultiplied BGRA). An opaque render is that step done over white.
+    /// </remarks>
+    public bool TransparentBackground { get; set; }
+
+    /// <summary>Sets <see cref="TransparentBackground"/>.</summary>
+    /// <param name="transparent">Whether the background is transparent rather than white.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithTransparentBackground(bool transparent)
+    {
+        TransparentBackground = transparent;
         return this;
     }
 

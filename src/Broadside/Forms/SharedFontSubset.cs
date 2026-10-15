@@ -207,6 +207,7 @@ internal sealed class SharedFontSubset
         }
 
         _pending = false;
+        Objects.CosChangeLog.OnRevert(() => _pending = true);
         if (TrueTypeSubsetter.Subset(_sfnt, _widths.Keys) is not { } subset)
         {
             return false;

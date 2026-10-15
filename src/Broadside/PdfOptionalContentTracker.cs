@@ -114,6 +114,10 @@ public sealed class PdfOptionalContentTracker
         return _properties is null || !dictionary.TryGetValue(OC, out CosObject? value) || _properties.IsVisible(value, _state!);
     }
 
+    /// <summary>Returns whether an <c>OC</c> value (a group, a membership dictionary or a reference to one) is visible in the tracker's states, ignoring the enclosing sections.</summary>
+    /// <remarks>ISO 32000-2 §8.11.2 and §8.11.3.3; <see langword="null"/>, or a document without optional content, is visible.</remarks>
+    internal bool IsGroupVisible(CosObject? value) => _properties is null || value is null || _properties.IsVisible(value, _state!);
+
     /// <summary>Forgets every open section, for reuse with another content stream.</summary>
     public void Reset()
     {

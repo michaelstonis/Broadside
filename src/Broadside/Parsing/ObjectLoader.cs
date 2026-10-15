@@ -215,6 +215,7 @@ internal sealed class ObjectLoader
         (_added ??= [])[number] = value;
         Hooks.Cache.Publish(reference, value);
         ObjectsChanged();
+        CosChangeLog.OnRevert(() => Remove(reference));
         return reference;
     }
 
@@ -227,10 +228,16 @@ internal sealed class ObjectLoader
     public bool Remove(CosReference reference)
     {
         int number = reference.ObjectNumber;
-        if (_added is { } added && reference.Generation == 0 && added.Remove(number))
+        if (_added is { } added && reference.Generation == 0 && added.Remove(number, out CosObject? addedValue))
         {
             Hooks.Cache.Remove(reference);
             ObjectsChanged();
+            CosChangeLog.OnRevert(() =>
+            {
+                added[number] = addedValue;
+                Hooks.Cache.Publish(reference, addedValue);
+                ObjectsChanged();
+            });
             return true;
         }
 
@@ -246,9 +253,20 @@ internal sealed class ObjectLoader
             return false;
         }
 
+        bool loaded = TryGetLoaded(reference, out CosObject? value);
         (_removed ??= [])[number] = reference.Generation;
         Hooks.Cache.Remove(reference);
         ObjectsChanged();
+        CosChangeLog.OnRevert(() =>
+        {
+            _removed!.Remove(number);
+            if (loaded)
+            {
+                Hooks.Cache.Publish(reference, value!);
+            }
+
+            ObjectsChanged();
+        });
         return true;
     }
 

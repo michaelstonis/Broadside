@@ -3,7 +3,7 @@ using System.Security.Cryptography;
 namespace Broadside.Security.Cryptography;
 
 /// <summary>
-/// An incremental message digest over SHA-2 or SHA-3, the latter from the base class library where the platform has it and from
+/// An incremental message digest over SHA-1, SHA-2 or SHA-3, the latter from the base class library where the platform has it and from
 /// <see cref="ManagedSha3"/> elsewhere (<see cref="CryptographyBackend"/>).
 /// </summary>
 /// <remarks>
@@ -11,7 +11,8 @@ namespace Broadside.Security.Cryptography;
 /// ISO/TS 32001 §5.1 adds SHA3-256, SHA3-384 and SHA3-512 (FIPS 202) to the digests a signature may use, and ISO/TS 32004 Table 8
 /// to those a PDF MAC token may use. The base class library implements SHA-3 only where the operating system's library does
 /// (Windows 11 and Linux with OpenSSL 1.1.1 or later, not macOS, iOS or the browser), so SHA-3 goes through this facade and works
-/// everywhere. SHA-256, SHA-384 and SHA-512 exist on every platform and pass straight through to <see cref="IncrementalHash"/>.
+/// everywhere. SHA-256, SHA-384 and SHA-512 exist on every platform and pass straight through to <see cref="IncrementalHash"/>, as
+/// does SHA-1, which signature validation still needs for signatures made before PDF 2.0 deprecated it (ISO 32000-2 Table 260).
 /// </para>
 /// <para>
 /// Byte ranges are hashed with <see cref="AppendData"/> a window at a time; neither implementation allocates per call, so a
@@ -38,14 +39,14 @@ internal sealed class IncrementalDigest : IDisposable
     public int HashLengthInBytes { get; }
 
     /// <summary>Returns a value indicating whether <paramref name="algorithm"/> is one this facade computes (on every platform).</summary>
-    /// <param name="algorithm">SHA-256, SHA-384, SHA-512, SHA3-256, SHA3-384 or SHA3-512.</param>
-    /// <returns><see langword="true"/> for those six.</returns>
+    /// <param name="algorithm">SHA-1, SHA-256, SHA-384, SHA-512, SHA3-256, SHA3-384 or SHA3-512.</param>
+    /// <returns><see langword="true"/> for those seven.</returns>
     public static bool IsSupported(HashAlgorithmName algorithm) => HashLength(algorithm) > 0;
 
     /// <summary>Starts a digest.</summary>
-    /// <param name="algorithm">SHA-256, SHA-384, SHA-512, SHA3-256, SHA3-384 or SHA3-512.</param>
+    /// <param name="algorithm">SHA-1, SHA-256, SHA-384, SHA-512, SHA3-256, SHA3-384 or SHA3-512.</param>
     /// <returns>The digest; dispose it.</returns>
-    /// <exception cref="CryptographicException"><paramref name="algorithm"/> is not one of the six.</exception>
+    /// <exception cref="CryptographicException"><paramref name="algorithm"/> is not one of the seven.</exception>
     public static IncrementalDigest Create(HashAlgorithmName algorithm)
     {
         int length = HashLength(algorithm);
@@ -60,7 +61,7 @@ internal sealed class IncrementalDigest : IDisposable
     }
 
     /// <summary>Hashes <paramref name="source"/> in one call.</summary>
-    /// <param name="algorithm">SHA-256, SHA-384, SHA-512, SHA3-256, SHA3-384 or SHA3-512.</param>
+    /// <param name="algorithm">SHA-1, SHA-256, SHA-384, SHA-512, SHA3-256, SHA3-384 or SHA3-512.</param>
     /// <param name="source">The data.</param>
     /// <returns>The digest.</returns>
     public static byte[] HashData(HashAlgorithmName algorithm, ReadOnlySpan<byte> source)
@@ -114,7 +115,8 @@ internal sealed class IncrementalDigest : IDisposable
         algorithm == HashAlgorithmName.SHA3_256 || algorithm == HashAlgorithmName.SHA3_384 || algorithm == HashAlgorithmName.SHA3_512;
 
     private static int HashLength(HashAlgorithmName algorithm) =>
-        algorithm == HashAlgorithmName.SHA256 || algorithm == HashAlgorithmName.SHA3_256 ? 32
+        algorithm == HashAlgorithmName.SHA1 ? 20
+        : algorithm == HashAlgorithmName.SHA256 || algorithm == HashAlgorithmName.SHA3_256 ? 32
         : algorithm == HashAlgorithmName.SHA384 || algorithm == HashAlgorithmName.SHA3_384 ? 48
         : algorithm == HashAlgorithmName.SHA512 || algorithm == HashAlgorithmName.SHA3_512 ? 64
         : 0;
