@@ -1,0 +1,91 @@
+# Hand-labelled paragraphs of real-world untagged pages, for RealWorldLayoutDetectionTests (issue #187).
+# Each "== <corpus path> <page number>" section lists, in true reading order, the start of every paragraph-level item a reader
+# sees on the page (titles, headings, paragraphs, form labels, footnotes; running headers and footers left out). Labels come
+# from reading the page (pdftotext -layout and the rendered page), not from the detector. A paragraph continued from the
+# previous column starts an item. White space is compared collapsed.
+
+== pdfjs/tracemonkey.pdf 1
+Trace-based Just-in-Time Type Specialization
+Andreas Gal
+Mozilla Corporation
+Adobe Corporation
+Intel Corporation
+University of California, Irvine
+Abstract
+Dynamic languages such as JavaScript are more
+Categories and Subject Descriptors
+General Terms
+Keywords
+1. Introduction
+Dynamic languages such as JavaScript, Python
+Permission to make digital or hard copies
+PLDI’09, June 15–20, 2009
+Copyright
+and is used for the application logic
+Compilers for statically typed languages
+We present a trace-based compilation
+Unlike method-based dynamic compilers
+Each compiled trace covers one path
+
+== pdfjs/freeculture.pdf 20
+On the day after Christmas, 1933
+On November 5, 1935
+The audience was hearing something
+A glass of water was poured
+As our own common sense tells us
+
+== pdfjs/freeculture.pdf 21
+RCA’s president, David Sarnoff
+I thought Armstrong would invent
+Armstrong’s invention threatened
+The forces for FM, largely engineering
+RCA at ﬁrst kept the technology
+
+== pdfjs/bug1883609.pdf 1
+PDF Form Example
+This is an example of a user fillable PDF form
+This document and PDF form have been created
+To fill out the form, make sure
+Please fill out the following fields
+Given Name:
+Family Name:
+Address 1:
+House nr:
+Address 2:
+Postcode:
+City:
+Country:
+Gender:
+Height (cm):
+Driving License:
+I speak and understand
+Deutsch
+Favourite colour:
+Important: Save the completed PDF form
+
+== pdfjs/bug1669099.pdf 1
+Verein zur Förderung der prosperitiven Koexistenz
+Antrag auf Mitgliedschaft
+Ich möchte Mitglied im CCC Salzburg
+Normale Hackerspace Mitgliedschaft
+Ermäßigte2 Hackerspace Mitgliedschaft
+Normale Mitgliedschaft für 70€
+Ermäßigte2 Mitgliedschaft für 35€
+Mitgliedsnummer
+Vorname(n)
+Nachname
+Straße, Hausnummer
+PLZ
+Stadt/Ort
+Staat
+E-Mail-Adresse(n)
+Bezahlung des Mitgliedsbeitrags
+Die Hausordnung ist
+Datum
+Unterschrift
+Bemerkung:
+1 https://cccsbg.at/about/statuten.pdf
+2 Ermäßigung für SchülerInnen
+Internet:
+Adresse:
+Bankverbindung:

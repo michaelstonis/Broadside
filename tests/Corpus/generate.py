@@ -3675,6 +3675,103 @@ def gen_layout_tagged() -> bytes:
     ], version="2.0", binary=True, trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
 
 
+TWO_COLUMN_PARAGRAPHS = [
+    # (column x, first baseline, first-line indent, lines); the left column's paragraphs follow each other, the right
+    # column's second paragraph is set off by extra space instead of an indent.
+    (72, 700, 12, [b"Columns are found from the white", b"space that runs down the page", b"between blocks of text, and the",
+                   b"reader goes down one column first."]),
+    (72, 652, 12, [b"A paragraph starts where a line", b"is indented from the left edge", b"of its column."]),
+    (324, 700, 12, [b"The second column is read after", b"the first one, even when the", b"content stream draws the lines",
+                    b"across both columns in turn."]),
+    (324, 642, 0, [b"Extra space between lines also", b"starts a new paragraph here."]),
+]
+
+
+def two_column_lines() -> list[tuple[int, int, int, bytes]]:
+    """The two-column page's lines as (paragraph, x, baseline, text), in the order the content draws them: row by row
+    across both columns, top to bottom, so content order is not reading order."""
+    lines = []
+    for index, (x, y, indent, texts) in enumerate(TWO_COLUMN_PARAGRAPHS):
+        for row, text in enumerate(texts):
+            lines.append((index, x + (indent if row == 0 else 0), y - 12 * row, text))
+    return sorted(lines, key=lambda line: (-line[2], line[1]))
+
+
+def gen_layout_two_column_untagged() -> bytes:
+    """Layout detection (spec story 36) over an untagged page: two columns of Helvetica 10 on a 12-point pitch, four
+    paragraphs (three start with a 12-point first-line indent, one after 10 points of extra space). The content draws
+    the lines row by row across both columns, so reading order differs from content order. The tagged twin is
+    layout-two-column-tagged.pdf."""
+    content = b"\n".join(b"BT /F1 10 Tf %d %d Td (%s) Tj ET" % (x, y, text) for _, x, y, text in two_column_lines())
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, font=5)),
+        (4, stream(b"", content)),
+        (5, HELVETICA),
+    ])
+
+
+def gen_layout_two_column_tagged() -> bytes:
+    """14.7.5.2 marked content and 14.8.4.3 P elements over the same page as layout-two-column-untagged.pdf: a PDF 2.0
+    tagged file whose Document holds one P per paragraph in reading order, each P over the MCIDs of its lines (the
+    content draws them row by row across both columns, so every P has several MCIDs)."""
+    lines = two_column_lines()
+    content = b"\n".join(b"/P <</MCID %d>> BDC BT /F1 10 Tf %d %d Td (%s) Tj ET EMC" % (mcid, x, y, text)
+                         for mcid, (_, x, y, text) in enumerate(lines))
+    count = len(TWO_COLUMN_PARAGRAPHS)
+    first = 12
+    elements = []
+    for index in range(count):
+        mcids = b" ".join(b"%d" % mcid for mcid, line in enumerate(lines) if line[0] == index)
+        elements.append((first + index, b"<< /Type /StructElem /S /P /P 11 0 R /NS 9 0 R /Pg 3 0 R /K [%s] >>" % mcids))
+    parents = b" ".join(b"%d 0 R" % (first + line[0]) for line in lines)
+    kids = b" ".join(b"%d 0 R" % (first + index) for index in range(count))
+    id0 = file_id("layout-two-column-tagged").hex().encode()
+    return simple_file([
+        (1, catalog(b" /MarkInfo << /Marked true >> /StructTreeRoot 10 0 R /Lang (en-US)")),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /Font << /F1 5 0 R >> >> /StructParents 0")),
+        (4, stream(b"", content)),
+        (5, HELVETICA),
+        (9, b"<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>"),
+        (10, b"<< /Type /StructTreeRoot /K [11 0 R] /Namespaces [9 0 R] /ParentTree << /Nums [0 [%s]] >> "
+             b"/ParentTreeNextKey 1 >>" % parents),
+        (11, b"<< /Type /StructElem /S /Document /P 10 0 R /NS 9 0 R /K [%s] >>" % kids),
+        *elements,
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_layout_three_column() -> bytes:
+    """Layout detection (spec story 36) over three untagged pages of three columns (Helvetica 9 on an 11-point pitch, two
+    paragraphs per column, each with a 9-point first-line indent), under a running header ("Broadside Quarterly" left,
+    "Issue 7" right) and a footer ("Page n") repeated on every page. Page 1 has a full-width 18-point title above the
+    columns, drawn last; every page draws its columns middle, right, left."""
+    names = [b"one", b"two", b"three"]
+    objects = [(1, catalog()), (2, pages([3, 5, 7])), (9, HELVETICA)]
+    for number in range(1, 4):
+        parts = [b"BT /F1 9 Tf 72 750 Td (Broadside Quarterly) Tj ET", b"BT /F1 9 Tf 504 750 Td (Issue 7) Tj ET"]
+        for column in (1, 2, 0):
+            x = 72 + 180 * column
+            paragraphs = [
+                [b"Column %s opens page %d with" % (names[column], number), b"a first paragraph of three",
+                 b"short lines."],
+                [b"Its second paragraph follows", b"right after the first one", b"and closes the column."],
+            ]
+            y = 660
+            for lines in paragraphs:
+                for row, text in enumerate(lines):
+                    parts.append(b"BT /F1 9 Tf %d %d Td (%s) Tj ET" % (x + (9 if row == 0 else 0), y, text))
+                    y -= 11
+        parts.append(b"BT /F1 9 Tf 288 40 Td (Page %d) Tj ET" % number)
+        if number == 1:
+            parts.append(b"BT /F1 18 Tf 72 700 Td (Three Columns Under One Title) Tj ET")
+        page_number = 1 + 2 * number
+        objects.append((page_number, page(contents=page_number + 1, font=9)))
+        objects.append((page_number + 1, stream(b"", b"\n".join(parts))))
+    return simple_file(sorted(objects))
+
+
 def gen_functions() -> bytes:
     """7.10 functions as Separation tint transforms (8.6.6.4), one rectangle per colour space.
     CS0: Type 0 (7.10.2), 8-bit, 1 in, 4 out (DeviceCMYK), Size [3], painted at 0.5 (the middle sample).
@@ -6858,6 +6955,9 @@ FILES = {
     "name-tree-broken.pdf": gen_name_tree_broken,
     "tagged-structure.pdf": gen_tagged_structure,
     "layout-tagged.pdf": gen_layout_tagged,
+    "layout-two-column-tagged.pdf": gen_layout_two_column_tagged,
+    "layout-two-column-untagged.pdf": gen_layout_two_column_untagged,
+    "layout-three-column.pdf": gen_layout_three_column,
     "destinations-all.pdf": gen_destinations_all,
     "outline-full.pdf": gen_outline_full,
     "outline-broken.pdf": gen_outline_broken,

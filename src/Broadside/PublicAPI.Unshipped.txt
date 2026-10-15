@@ -4701,3 +4701,11 @@ Broadside.PdfSaveOptions.PdfAConformance.get -> Broadside.PdfAConformance
 Broadside.PdfSaveOptions.PdfAConformance.set -> void
 Broadside.PdfSaveOptions.WithPdfAConformance(Broadside.PdfAConformance conformance) -> Broadside.PdfSaveOptions!
 static Broadside.Graphics.PdfIccBasedColorSpace.CreateSrgbProfileData() -> byte[]!
+Broadside.Layout.LayoutDetection
+Broadside.Layout.LayoutDetection.AllPages = 1 -> Broadside.Layout.LayoutDetection
+Broadside.Layout.LayoutDetection.None = 2 -> Broadside.Layout.LayoutDetection
+Broadside.Layout.LayoutDetection.UntaggedPages = 0 -> Broadside.Layout.LayoutDetection
+Broadside.Layout.LayoutOptions.Detection.get -> Broadside.Layout.LayoutDetection
+Broadside.Layout.LayoutOptions.Detection.set -> void
+Broadside.Layout.LayoutOptions.WithDetection(Broadside.Layout.LayoutDetection detection) -> Broadside.Layout.LayoutOptions!
+Broadside.Layout.LayoutPage.IsDetected.get -> bool
