@@ -35,7 +35,7 @@ internal static class TrueTypeSubsetter
     /// <param name="font">The program's table directory: a TrueType (<c>glyf</c>) program.</param>
     /// <param name="glyphs">The original glyph ids the text uses; ids past the program's glyph count are ignored.</param>
     /// <returns>The subset, or <see langword="null"/> when the program has no usable <c>head</c>, <c>hhea</c>, <c>maxp</c>, <c>loca</c> and <c>glyf</c>.</returns>
-    public static TrueTypeSubset? Subset(SfntFile font, IEnumerable<int> glyphs)
+    public static SubsetProgram? Subset(SfntFile font, IEnumerable<int> glyphs)
     {
         if (!font.TryGetTable(SfntFile.Tag("head"), out ReadOnlyMemory<byte> headTable) || headTable.Length < 54
             || !font.TryGetTable(SfntFile.Tag("hhea"), out ReadOnlyMemory<byte> hheaTable) || hheaTable.Length < 36
@@ -145,7 +145,7 @@ internal static class TrueTypeSubsetter
             tables.Add((SfntFile.Tag("post"), header));
         }
 
-        return new TrueTypeSubset(Write(tables), order);
+        return new SubsetProgram(Write(tables), order);
     }
 
     /// <summary>The bytes of one glyph description; empty when the glyph has no outline or its offsets are out of range.</summary>
@@ -266,13 +266,4 @@ internal static class TrueTypeSubsetter
 
         return sum;
     }
-}
-
-/// <summary>A subset TrueType program and the original id of each of its glyphs.</summary>
-/// <param name="Program">The program's bytes.</param>
-/// <param name="Glyphs">The original glyph id of each new glyph id, ascending; <c>Glyphs[0]</c> is 0 (<c>.notdef</c>).</param>
-internal sealed record TrueTypeSubset(byte[] Program, int[] Glyphs)
-{
-    /// <summary>The new glyph id of original glyph <paramref name="glyph"/>, or 0 when the subset lacks it.</summary>
-    public int NewId(int glyph) => Math.Max(Array.BinarySearch(Glyphs, glyph), 0);
 }

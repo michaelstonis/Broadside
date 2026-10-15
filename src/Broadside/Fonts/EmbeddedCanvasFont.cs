@@ -1,24 +1,27 @@
 using System.Text;
+using Broadside.Fonts.Cff;
 using Broadside.Fonts.TrueType;
 
 namespace Broadside.Fonts;
 
 /// <summary>
-/// An embedded TrueType program a canvas (or a form field appearance) shows text with: a Type 0 font with <c>Identity-H</c> two-byte
-/// codes over a CIDFontType2 whose CIDs are the program's glyph ids, backed by the document's one growing subset of the program.
+/// An embedded TrueType, OpenType or CFF program a canvas (or a form field appearance) shows text with: a Type 0 font with
+/// <c>Identity-H</c> two-byte codes over a CIDFontType2 (TrueType outlines) or CIDFontType0 (CFF outlines) whose CIDs are the
+/// program's glyph ids, backed by the document's one growing subset of the program.
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §9.7.4–§9.7.6, §9.8, §9.9 and §9.10.3; see <see cref="SharedFontSubset"/> for the objects written and how the subset
 /// grows and is completed before a save. A character maps to the glyph the program's Unicode <c>cmap</c> subtable gives it ((3, 10),
-/// else (3, 1), else (0, any)); every glyph the canvas writes is recorded in the subset with the character it was written for, which
+/// else (3, 1), else (0, any)), or for a bare CFF program, which has none, to the glyph its charset names after the character (Adobe
+/// Glyph List); every glyph the canvas writes is recorded in the subset with the character it was written for, which
 /// the <c>ToUnicode</c> CMap maps it back to. The font has no kerning of its own (the program's <c>kern</c> and <c>GPOS</c> tables are
 /// not read).
 /// </remarks>
-internal sealed class TrueTypeCanvasFont : PdfCanvasFont
+internal sealed class EmbeddedCanvasFont : PdfCanvasFont
 {
     private readonly SharedFontSubset _subset;
 
-    private TrueTypeCanvasFont(PdfDocument document, SharedFontSubset subset)
+    private EmbeddedCanvasFont(PdfDocument document, SharedFontSubset subset)
         : base(document, subset.Font) => _subset = subset;
 
     /// <inheritdoc/>
@@ -42,17 +45,22 @@ internal sealed class TrueTypeCanvasFont : PdfCanvasFont
     /// <inheritdoc/>
     internal override int CodeLength => 2;
 
+    /// <summary>Gets the feature (and PDF version) the font needs: <c>FontFile2</c>, or <c>FontFile3</c> <c>CIDFontType0C</c> or <c>OpenType</c>.</summary>
+    public Writing.VersionedFeature Feature => _subset.Feature;
+
     /// <summary>
-    /// Returns the document's font for a TrueType program, adding the subset font to the document the first time the program is
-    /// embedded; the glyphs of <paramref name="text"/> are added to its subset at once.
+    /// Returns the document's font for a TrueType program (or, with <paramref name="cff"/>, an OpenType or bare CFF program with CFF
+    /// outlines), adding the subset font to the document the first time the program is embedded; the glyphs of
+    /// <paramref name="text"/> are added to its subset at once.
     /// </summary>
     /// <param name="document">The document.</param>
     /// <param name="resolution">The program's bytes and face (from a caller or a font resolver).</param>
     /// <param name="text">Text the font must be able to show, whose glyphs it includes at once; may be empty.</param>
     /// <param name="uncovered">The first character of <paramref name="text"/> the program has no glyph for, else <see langword="null"/>.</param>
     /// <param name="problem">Why the program cannot be embedded, else <see langword="null"/>.</param>
+    /// <param name="cff">Whether a program with CFF outlines may be embedded (as <c>FontFile3</c>, issue #151).</param>
     /// <returns>The font, or <see langword="null"/> when <paramref name="uncovered"/> or <paramref name="problem"/> is set.</returns>
-    public static TrueTypeCanvasFont? Get(PdfDocument document, FontResolution resolution, IReadOnlyList<string> text, out string? uncovered, out string? problem)
+    public static EmbeddedCanvasFont? Get(PdfDocument document, FontResolution resolution, IReadOnlyList<string> text, out string? uncovered, out string? problem, bool cff = false)
     {
         uncovered = null;
         problem = null;
@@ -65,35 +73,57 @@ internal sealed class TrueTypeCanvasFont : PdfCanvasFont
             }
 
             shared.Include(document, glyphs);
-            return new TrueTypeCanvasFont(document, shared);
+            return new EmbeddedCanvasFont(document, shared);
         }
 
-        if (SfntFile.Open(resolution.Data, new FontProgramContext { FaceIndex = resolution.FaceIndex }) is not { } sfnt)
+        EmbeddedProgram source;
+        if (cff && resolution.FaceIndex == 0 && CffFont.IsHeader(resolution.Data.Span))
         {
-            problem = "it is not a TrueType or OpenType program (or the face index is out of range)";
+            source = new EmbeddedProgram(EmbeddedOutlines.Cff, null, resolution.Data);
+        }
+        else if (SfntFile.Open(resolution.Data, new FontProgramContext { FaceIndex = resolution.FaceIndex }) is { } sfnt)
+        {
+            if (sfnt.Has(SfntFile.Tag("glyf")))
+            {
+                source = new EmbeddedProgram(EmbeddedOutlines.TrueType, sfnt, resolution.Data);
+            }
+            else if (cff && sfnt.Has(SfntFile.Tag("CFF ")))
+            {
+                source = new EmbeddedProgram(EmbeddedOutlines.OpenTypeCff, sfnt, resolution.Data);
+            }
+            else
+            {
+                problem = cff
+                    ? "it has neither a glyf nor a CFF table (CFF2 and bitmap-only programs are not embedded)"
+                    : "it has no glyf table (an OpenType program with CFF outlines, which EmbedFont embeds as FontFile3)";
+                return null;
+            }
+        }
+        else
+        {
+            problem = cff
+                ? "it is not a TrueType, OpenType or CFF program (or the face index is out of range)"
+                : "it is not a TrueType or OpenType program (or the face index is out of range)";
             return null;
         }
 
-        if (!sfnt.Has(SfntFile.Tag("glyf")))
+        if (document.GetSubstituteProgram(resolution, reference: null) is not { } program
+            || (PickCharacterMap(program) ?? GlyphNameCharacterMap.Create(program)) is not { } cmap)
         {
-            problem = "it has no glyf table (an OpenType program with CFF outlines, which embeds as FontFile3)";
-            return null;
-        }
-
-        if (document.GetSubstituteProgram(resolution, reference: null) is not { } program || PickCharacterMap(program) is not { } cmap)
-        {
-            problem = "it has no Unicode cmap subtable (3, 10), (3, 1) or (0, any) to map characters to glyphs";
+            problem = source.Outlines == EmbeddedOutlines.Cff
+                ? "its glyphs have no names the Adobe Glyph List maps to characters (a CID-keyed CFF program has none)"
+                : "it has no Unicode cmap subtable (3, 10), (3, 1) or (0, any) to map characters to glyphs";
             return null;
         }
 
         if ((glyphs = SharedFontSubset.Cover(cmap, program.GlyphCount, text, out uncovered)) is null
-            || SharedFontSubset.Create(document, sfnt, program, cmap, glyphs, out problem) is not { } created)
+            || SharedFontSubset.Create(document, source, program, cmap, glyphs, out problem) is not { } created)
         {
             return null;
         }
 
         document.FontSubsets.Add(resolution, created);
-        return new TrueTypeCanvasFont(document, created);
+        return new EmbeddedCanvasFont(document, created);
     }
 
     /// <inheritdoc/>

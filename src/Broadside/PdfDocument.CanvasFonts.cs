@@ -38,7 +38,7 @@ public sealed partial class PdfDocument
     /// </returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="faceIndex"/> is negative.</exception>
     /// <exception cref="ArgumentException">
-    /// The program cannot be embedded: it is not a TrueType program, has CFF outlines (embedded as <c>FontFile3</c>, issue #151), has
+    /// The program cannot be embedded: it is not a TrueType program, has CFF outlines (embed it with <see cref="EmbedFont(ReadOnlyMemory{byte}, int)"/>), has
     /// no Unicode <c>cmap</c> subtable, is damaged, or its <c>OS/2</c> <c>fsType</c> says its licence restricts embedding.
     /// </exception>
     /// <remarks>
@@ -61,7 +61,7 @@ public sealed partial class PdfDocument
     {
         ArgumentOutOfRangeException.ThrowIfNegative(faceIndex);
         var resolution = new FontResolution(program, "embedded", FontMatchKind.Exact) { FaceIndex = faceIndex };
-        if (TrueTypeCanvasFont.Get(this, resolution, [], out _, out string? problem) is not { } font)
+        if (EmbeddedCanvasFont.Get(this, resolution, [], out _, out string? problem) is not { } font)
         {
             throw new ArgumentException($"The font program cannot be embedded: {problem} (ISO 32000-2 §9.9, Table 124).", nameof(program));
         }
@@ -82,12 +82,69 @@ public sealed partial class PdfDocument
     public PdfCanvasFont? EmbedTrueTypeFont(FontQuery query)
     {
         ArgumentNullException.ThrowIfNull(query);
-        if (FontResolvers.ResolveFont(query) is not { } resolution || TrueTypeCanvasFont.Get(this, resolution, [], out _, out _) is not { } font)
+        if (FontResolvers.ResolveFont(query) is not { } resolution || EmbeddedCanvasFont.Get(this, resolution, [], out _, out _) is not { } font)
         {
             return null;
         }
 
         RequireFeature(Writing.VersionedFeatures.EmbeddedTrueTypeFont);
+        return font;
+    }
+
+    /// <summary>
+    /// Embeds a TrueType, OpenType or CFF program a <see cref="PdfCanvas"/> of this document can show any text its glyphs cover with,
+    /// subset to the glyphs shown.
+    /// </summary>
+    /// <param name="program">
+    /// The program: a TrueType or OpenType file (<c>.ttf</c>, <c>.otf</c>, with <c>glyf</c> or <c>CFF </c> outlines), a collection
+    /// (<c>.ttc</c>, <c>.otc</c>) with <paramref name="faceIndex"/>, or a bare CFF program with Type 2 charstrings.
+    /// </param>
+    /// <param name="faceIndex">The face of a collection; 0 for a single font.</param>
+    /// <returns>The font. Calls with the same program memory and face return fonts over one font of the document.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="faceIndex"/> is negative.</exception>
+    /// <exception cref="ArgumentException">
+    /// The program cannot be embedded: it is none of those formats, has no Unicode <c>cmap</c> subtable (a bare CFF program: no glyph
+    /// names the Adobe Glyph List maps), is damaged, or its <c>OS/2</c> <c>fsType</c> says its licence restricts embedding.
+    /// </exception>
+    /// <remarks>
+    /// <para>
+    /// TrueType outlines embed as <see cref="EmbedTrueTypeFont(ReadOnlyMemory{byte}, int)"/> does. CFF outlines embed as a Type 0 font
+    /// (§9.7.6, <c>Identity-H</c>) over a CIDFontType0 (§9.7.4) whose CIDs are the program's glyph ids, with a <c>W</c> array, a
+    /// <c>ToUnicode</c> CMap (§9.10.3) and a subset tag (§9.9.2); its CFF program (an OpenType program's <c>CFF </c> table) is
+    /// <c>FontFile3</c> with subtype <c>CIDFontType0C</c> (§9.9, Table 124), which needs PDF 1.3. A save subsets it to the
+    /// glyphs shown and glyph 0 as a CID-keyed CFF font whose charset maps each CID to its glyph (§9.7.4.2), with the charstrings
+    /// copied unchanged and only the subroutines they reach (Adobe Technical Notes #5176 and #5177); until then the document holds
+    /// the whole program. A save raises an older document to the version the font needs. A mutation: the font's objects are added on
+    /// the first call for a program.
+    /// </para>
+    /// </remarks>
+    public PdfCanvasFont EmbedFont(ReadOnlyMemory<byte> program, int faceIndex = 0)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(faceIndex);
+        var resolution = new FontResolution(program, "embedded", FontMatchKind.Exact) { FaceIndex = faceIndex };
+        if (EmbeddedCanvasFont.Get(this, resolution, [], out _, out string? problem, cff: true) is not { } font)
+        {
+            throw new ArgumentException($"The font program cannot be embedded: {problem} (ISO 32000-2 §9.9, Table 124).", nameof(program));
+        }
+
+        RequireFeature(font.Feature);
+        return font;
+    }
+
+    /// <summary>Embeds the program the document's font resolvers find for <paramref name="query"/>, as <see cref="EmbedFont(ReadOnlyMemory{byte}, int)"/> does.</summary>
+    /// <param name="query">What to look for: a PostScript or family name, and optionally style, weight and a Standard 14 stand-in.</param>
+    /// <returns>The font, or <see langword="null"/> when no resolver finds a program for the query or the program it finds cannot be embedded.</returns>
+    /// <exception cref="ArgumentNullException"><paramref name="query"/> is <see langword="null"/>.</exception>
+    /// <remarks>ISO 32000-2 §9.7.4–§9.7.6, §9.8, §9.9 and §9.10.3. A mutation the first time a program is embedded.</remarks>
+    public PdfCanvasFont? EmbedFont(FontQuery query)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+        if (FontResolvers.ResolveFont(query) is not { } resolution || EmbeddedCanvasFont.Get(this, resolution, [], out _, out _, cff: true) is not { } font)
+        {
+            return null;
+        }
+
+        RequireFeature(font.Feature);
         return font;
     }
 }

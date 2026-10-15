@@ -104,6 +104,7 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <item><term><see cref="SixteenBitImages"/></term><description>1.5 (§8.9.5.1, Table 87, <c>BitsPerComponent</c> 16)</description></item>
 /// <item><term><see cref="ProgressiveDct"/></term><description>1.3 (§7.4.8, progressive JPEG in <c>DCTDecode</c>)</description></item>
 /// <item><term><see cref="EmbeddedTrueTypeFont"/></term><description>1.2 (§9.7.6, Table 119, <c>Type0</c>; §9.10.3, <c>ToUnicode</c>): every <see cref="PdfDocument.EmbedTrueTypeFont(ReadOnlyMemory{byte}, int)"/>.</description></item>
+/// <item><term><see cref="EmbeddedCffFont"/></term><description>1.3 (§9.9, Table 124, <c>FontFile3</c> <c>CIDFontType0C</c>): <see cref="PdfDocument.EmbedFont(ReadOnlyMemory{byte}, int)"/> of a program with CFF outlines.</description></item>
 /// <item><term><see cref="InteractiveForm"/></term><description>1.2 (§12.7.3; §7.7.2, Table 29, <c>AcroForm</c>): every field <see cref="Forms.PdfAcroForm"/> creates.</description></item>
 /// <item><term><see cref="SignatureFields"/></term><description>1.3 (§12.7.5.5; Table 224, <c>SigFlags</c>)</description></item>
 /// <item><term><see cref="FieldAlternateName"/></term><description>1.3 (§12.7.4.1, Table 226, <c>TU</c>)</description></item>
@@ -311,6 +312,10 @@ internal static class VersionedFeatures
     /// <summary>Gets an embedded TrueType program as a Type 0 font (CIDFontType2, <c>Identity-H</c>, <c>ToUnicode</c>): PDF 1.2.</summary>
     public static VersionedFeature EmbeddedTrueTypeFont { get; } = new(
         "an embedded TrueType Type 0 font (CIDFontType2, Identity-H, ToUnicode)", "ISO 32000-2 §9.7.6, Table 119; §9.10.3", Pdf12);
+
+    /// <summary>Gets an embedded CFF program as a Type 0 font (CIDFontType0, <c>FontFile3</c> <c>CIDFontType0C</c>): PDF 1.3.</summary>
+    public static VersionedFeature EmbeddedCffFont { get; } = new(
+        "an embedded CFF Type 0 font (CIDFontType0, FontFile3 CIDFontType0C)", "ISO 32000-2 §9.9, Table 124", new PdfVersion(1, 3));
 
     /// <summary>Gets an interactive form (<c>AcroForm</c>) with its fields, widget annotations and their appearance characteristics: PDF 1.2.</summary>
     public static VersionedFeature InteractiveForm { get; } = new(

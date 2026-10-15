@@ -4692,6 +4692,8 @@ Broadside.PdfDocument.CreateMeshShading(Broadside.Graphics.PdfPatchMeshBuilder! 
 Broadside.PdfDocument.CreateMeshShading(Broadside.Graphics.PdfPatchMeshBuilder! mesh, Broadside.Graphics.PdfShadingOptions? options) -> Broadside.Graphics.PdfPatchMeshShading!
 Broadside.PdfDocument.CreateShadingPattern(Broadside.Graphics.PdfShading! shading, Broadside.Graphics.Matrix? matrix = null) -> Broadside.Graphics.PdfShadingPattern!
 Broadside.PdfDocument.CreateTilingPattern(Broadside.PdfRectangle boundingBox, double xStep, double yStep, Broadside.Graphics.PdfTilingPaintType paintType, Broadside.Graphics.Matrix? matrix = null, Broadside.Graphics.PdfTilingType tilingType = Broadside.Graphics.PdfTilingType.ConstantSpacing) -> Broadside.Graphics.PdfTilingPattern!
+Broadside.PdfDocument.EmbedFont(Broadside.Fonts.FontQuery! query) -> Broadside.Fonts.PdfCanvasFont?
+Broadside.PdfDocument.EmbedFont(System.ReadOnlyMemory<byte> program, int faceIndex = 0) -> Broadside.Fonts.PdfCanvasFont!
 Broadside.PdfDocument.EmbedTrueTypeFont(Broadside.Fonts.FontQuery! query) -> Broadside.Fonts.PdfCanvasFont?
 Broadside.PdfDocument.EmbedTrueTypeFont(System.ReadOnlyMemory<byte> program, int faceIndex = 0) -> Broadside.Fonts.PdfCanvasFont!
 Broadside.PdfAConformance

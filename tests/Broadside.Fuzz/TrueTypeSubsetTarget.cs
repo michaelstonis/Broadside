@@ -79,7 +79,7 @@ internal static class TrueTypeSubsetTarget
     {
         using PdfDocument document = PdfDocument.Create(new PdfOptions().UseSystemFontResolver(null));
         var resolution = new FontResolution(bytes, "fuzz", FontMatchKind.Exact);
-        if (TrueTypeCanvasFont.Get(document, resolution, [], out _, out _) is not { } font)
+        if (EmbeddedCanvasFont.Get(document, resolution, [], out _, out _) is not { } font)
         {
             return;
         }

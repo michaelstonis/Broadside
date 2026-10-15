@@ -110,6 +110,9 @@ internal sealed partial class CffFont
     /// <remarks>Adobe Technical Note #5176 §18 (each Font DICT has its own Private DICT) and §19 (FDSelect).</remarks>
     public CffPrivate GetPrivate(int glyphId) => _cid is { } cid ? cid.GetPrivate(glyphId) : _private;
 
+    /// <summary>Gets the index in the FDArray of the Font DICT FDSelect gives a glyph of a CID-keyed font (5176 §19); 0 for a name-keyed font.</summary>
+    public int GetFontDict(int glyphId) => _cid is { } cid ? cid.GetFontDict(glyphId) : 0;
+
     /// <summary>Gets a glyph's name through the charset; <see langword="null"/> in a CID-keyed font or when the charset names none.</summary>
     public string? GetGlyphName(int glyphId) => (uint)glyphId < (uint)GlyphCount ? Names.ByGlyph[glyphId] : null;
 
