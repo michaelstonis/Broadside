@@ -166,7 +166,7 @@ internal static class StructureTree
     /// ranges lie within its page and within its parent's extent on that page, table cells have spans of at least 1 and grid positions
     /// inside the table, and every node's text assembles.
     /// </summary>
-    private static void CheckLayout(Broadside.Layout.LayoutTree tree)
+    internal static void CheckLayout(Broadside.Layout.LayoutTree tree)
     {
         var seen = new HashSet<Broadside.Layout.LayoutNode>(ReferenceEqualityComparer.Instance);
         var stack = new Stack<Broadside.Layout.LayoutNode>([tree.Root]);

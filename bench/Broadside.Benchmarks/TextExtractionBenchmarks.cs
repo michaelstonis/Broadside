@@ -15,6 +15,7 @@ public class TextExtractionBenchmarks
 {
     private readonly TextExtractor _extractor = new();
     private readonly TextExtractionOptions _contentOrder = new TextExtractionOptions().WithReadingOrder(TextReadingOrder.Content);
+    private readonly Broadside.Layout.LayoutOptions _detectAll = new Broadside.Layout.LayoutOptions().WithDetection(Broadside.Layout.LayoutDetection.AllPages);
     private PdfDocument? _document;
     private PdfPage? _page;
     private PdfDocument? _tagged;
@@ -85,4 +86,18 @@ public class TextExtractionBenchmarks
     /// <returns>The number of nodes under the root.</returns>
     [Benchmark]
     public int ExtractTaggedLayout() => _taggedPage!.ExtractLayout().Root.Children.Count;
+
+    /// <summary>
+    /// The layout tree of the untagged page of <see cref="ExtractReused"/> detected from its geometry (issue #187, spec story 36):
+    /// the extraction plus words and lines, the cut into blocks and paragraphs and the text rebuilt in reading order. Node texts are
+    /// not assembled.
+    /// </summary>
+    /// <returns>The number of paragraphs.</returns>
+    [Benchmark]
+    public int DetectLayout() => _page!.ExtractLayout().Root.Children.Count;
+
+    /// <summary>The tagged page of <see cref="ExtractTaggedLayout"/> detected from its geometry instead (issue #187), for comparison.</summary>
+    /// <returns>The number of paragraphs.</returns>
+    [Benchmark]
+    public int DetectTaggedLayout() => _taggedPage!.ExtractLayout(_detectAll).Root.Children.Count;
 }

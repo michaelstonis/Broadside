@@ -1,0 +1,44 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>
+endobj
+4 0 obj
+<<  /Length 797 >>
+stream
+BT /F1 10 Tf 84 700 Td (Columns are found from the white) Tj ET
+BT /F1 10 Tf 336 700 Td (The second column is read after) Tj ET
+BT /F1 10 Tf 72 688 Td (space that runs down the page) Tj ET
+BT /F1 10 Tf 324 688 Td (the first one, even when the) Tj ET
+BT /F1 10 Tf 72 676 Td (between blocks of text, and the) Tj ET
+BT /F1 10 Tf 324 676 Td (content stream draws the lines) Tj ET
+BT /F1 10 Tf 72 664 Td (reader goes down one column first.) Tj ET
+BT /F1 10 Tf 324 664 Td (across both columns in turn.) Tj ET
+BT /F1 10 Tf 84 652 Td (A paragraph starts where a line) Tj ET
+BT /F1 10 Tf 324 642 Td (Extra space between lines also) Tj ET
+BT /F1 10 Tf 72 640 Td (is indented from the left edge) Tj ET
+BT /F1 10 Tf 324 630 Td (starts a new paragraph here.) Tj ET
+BT /F1 10 Tf 72 628 Td (of its column.) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 6
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000115 00000 n 
+0000000241 00000 n 
+0000001090 00000 n 
+trailer
+<< /Size 6 /Root 1 0 R >>
+startxref
+1187
+%%EOF

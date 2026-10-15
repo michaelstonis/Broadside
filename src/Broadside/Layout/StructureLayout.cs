@@ -37,22 +37,64 @@ internal static class StructureLayout
             IncludeHiddenContent = options.IncludeHiddenContent,
             ContentOptions = options.ContentOptions,
         };
-        PdfStructureTreeRoot? root = document.StructureTree;
+        PdfStructureTreeRoot? root = options.Detection == LayoutDetection.AllPages ? null : document.StructureTree;
         var builder = new Builder(document, root);
         var layoutPages = new LayoutPage[pages.Count];
         var geometry = new MarkGeometry(options.IncludeHiddenContent);
+        GeometryLayout? detector = null;
+        try
+        {
+            return Build(document, pages, options, textOptions, root, builder, layoutPages, geometry, ref detector);
+        }
+        finally
+        {
+            if (detector is not null)
+            {
+                GeometryLayout.Return(detector);
+            }
+        }
+    }
+
+    private static LayoutTree Build(
+        PdfDocument document, IReadOnlyList<PdfPage> pages, LayoutOptions options, TextExtractionOptions textOptions, PdfStructureTreeRoot? root,
+        Builder builder, LayoutPage[] layoutPages, MarkGeometry geometry, ref GeometryLayout? detector)
+    {
         for (int index = 0; index < pages.Count; index++)
         {
             PdfPage page = pages[index];
             TextPage text = page.ExtractText(textOptions, root is null ? null : geometry);
-            layoutPages[index] = new LayoutPage(page, document.Pages.IndexOf(page), text);
+            int pageIndex = document.Pages.IndexOf(page);
+            if (options.Detection != LayoutDetection.None && (root is null || (text.Glyphs.Count > 0 && !IsTagged(text))))
+            {
+                // Spec story 36: a page with no tagged content is laid out from its geometry once every page is known.
+                (detector ??= GeometryLayout.Rent()).Analyze(index, page, pageIndex, text);
+                continue;
+            }
+
+            layoutPages[index] = new LayoutPage(page, pageIndex, text);
             if (root is not null)
             {
                 builder.AddPage(layoutPages[index], geometry);
             }
         }
 
-        return new LayoutTree(builder.Finish(), layoutPages);
+        LayoutNode rootNode = builder.Finish();
+        detector?.Finish(rootNode, layoutPages);
+        return new LayoutTree(rootNode, layoutPages);
+    }
+
+    /// <summary>Whether any of a page's glyphs belongs to a structure element.</summary>
+    private static bool IsTagged(TextPage text)
+    {
+        foreach (ref readonly TextGlyph glyph in text.GlyphSpan)
+        {
+            if (glyph.StructureElement is not null)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     /// <summary>The node kind of a standard structure type, or <see langword="null"/> when it makes no node.</summary>

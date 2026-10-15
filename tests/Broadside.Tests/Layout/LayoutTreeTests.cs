@@ -224,12 +224,13 @@ public sealed class LayoutTreeTests
     }
 
     [Fact]
-    public void An_untagged_document_has_only_the_root_and_its_page_text()
+    public void An_untagged_document_with_detection_off_has_only_the_root_and_its_page_text()
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Path("text-standard14.pdf"));
 
-        LayoutTree tree = document.ExtractLayout();
+        LayoutTree tree = document.ExtractLayout(new LayoutOptions().WithDetection(LayoutDetection.None));
 
+        Assert.Single(document.ExtractLayout().Root.Children);
         Assert.Empty(tree.Root.Children);
         Assert.Null(tree.Root.StructureElement);
         Assert.NotEmpty(Assert.Single(tree.Pages).Text.Glyphs);
