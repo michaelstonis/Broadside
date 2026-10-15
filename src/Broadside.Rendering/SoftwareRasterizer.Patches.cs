@@ -121,7 +121,7 @@ public sealed partial class SoftwareRasterizer
             int points = across * across;
             Pooled.Ensure(ref _patchGrid, points);
             Pooled.Ensure(ref _patchComponents, points * n);
-            Pooled.Ensure(ref _patchRgb, points * 3);
+            Pooled.Ensure(ref _patchRgb, points * _pixelModel.Components);
             Pooled.Ensure(ref _patchWeights, across * 4);
             for (int k = 0; k <= steps; k++)
             {
@@ -150,7 +150,8 @@ public sealed partial class SoftwareRasterizer
                 }
                 else
                 {
-                    converter.Convert(_patchComponents.AsSpan(0, points * n), _patchRgb.AsSpan(0, points * 3), points);
+                    converter.Convert(_patchComponents.AsSpan(0, points * n), _patchRgb.AsSpan(0, points * _pixelModel.Components), points);
+                    ToLayerChannels(_patchRgb, points);
                     DrawColorGrid(steps, n, converter);
                 }
 

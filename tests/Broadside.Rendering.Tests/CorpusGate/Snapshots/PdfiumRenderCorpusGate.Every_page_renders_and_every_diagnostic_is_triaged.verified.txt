@@ -1,0 +1,24 @@
+﻿corpus: pdfium-tests @ 141d7ba49d797e856f57fd7e76a9b7f73468988e
+files: 840
+well-formed files: 302
+outcomes:
+  Rendered: 835
+  PasswordRequired: 0
+  CertificateRequired: 4
+  EncryptionUnsupported: 0
+  Rejected: 1
+  Crash: 0
+  Timeout: 0
+pages rendered: 1145
+render diagnostics on well-formed files (files, total):
+  AppearanceResourcesMissing: 33, 78
+  ContentFormInvalid: 11, 11
+  ContentUnbalancedSave: 17, 26
+  FontStandard14EntriesIncomplete: 1, 2
+  FunctionEntryInvalid: 1, 1
+  FunctionEvaluationRepaired: 2, 2
+  IccProfileInvalid: 1, 4
+  ShadingCoordsInvalid: 1, 1
+  ToUnicodeBfRangeOverflow: 8, 18
+  ToUnicodeDestinationInvalid: 8, 18
+  Type0IdentityNotEmbedded: 14, 28
