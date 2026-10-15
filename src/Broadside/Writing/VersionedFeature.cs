@@ -108,6 +108,9 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <item><term><see cref="CadesSignature"/></term><description>2.0 (§12.8.3.4, <c>ETSI.CAdES.detached</c>)</description></item>
 /// <item><term><see cref="LongRsaKeySignature"/></term><description>1.5 (Table 260, RSA keys of 2048 and 4096 bits)</description></item>
 /// <item><term><see cref="EcdsaSignature"/></term><description>2.0 (Table 260) and the ISO_ extension level 32002 (ISO/TS 32002, clause 4)</description></item>
+/// <item><term><see cref="CertificationSignature"/></term><description>1.5 (§12.8.2.2; Table 255, <c>Reference</c>; Table 263, <c>DocMDP</c>)</description></item>
+/// <item><term><see cref="SignatureFieldLock"/></term><description>1.5 (§12.7.5.5, Table 235, <c>Lock</c>; §12.8.2.4)</description></item>
+/// <item><term><see cref="SignatureFieldLockPermissions"/></term><description>2.0 (§12.7.5.5, Table 236, <c>P</c>)</description></item>
 /// <item><term><see cref="Sha256SignatureDigest"/></term><description>1.6 (Table 260)</description></item>
 /// <item><term><see cref="Sha2SignatureDigest"/></term><description>1.7 (Table 260, SHA-384 and SHA-512)</description></item>
 /// <item><term><see cref="Sha3SignatureDigest"/></term><description>2.0 and the ISO_ extension level 32001 (ISO/TS 32001, clause 4 and §5.1.4)</description></item>
@@ -317,6 +320,15 @@ internal static class VersionedFeatures
         "ISO 32000-2 §12.8.3.1, Table 260; ISO/TS 32002, clause 4 and §5.1.3",
         Pdf20,
         new DeveloperExtensionDeclaration(KnownNames.IsoPrefix, Pdf20, 32002, ":2022", "https://www.iso.org/standard/45875.html"));
+
+    /// <summary>Gets a certification signature: a DocMDP signature reference and the catalog's <c>Perms</c>, PDF 1.5.</summary>
+    public static VersionedFeature CertificationSignature { get; } = new("a certification signature (DocMDP)", "ISO 32000-2 §12.8.2.2; Tables 255, 256, 257 and 263", Pdf15);
+
+    /// <summary>Gets a signature field lock dictionary and the FieldMDP signature reference copied from it: PDF 1.5.</summary>
+    public static VersionedFeature SignatureFieldLock { get; } = new("a signature field lock (FieldMDP)", "ISO 32000-2 §12.7.5.5, Tables 235 and 236; §12.8.2.4", Pdf15);
+
+    /// <summary>Gets a signature field lock dictionary's <c>P</c> entry: PDF 2.0.</summary>
+    public static VersionedFeature SignatureFieldLockPermissions { get; } = new("the permissions of a signature field lock", "ISO 32000-2 §12.7.5.5, Table 236, P", Pdf20);
 
     /// <summary>Gets a signature with a SHA-256 digest: PDF 1.6.</summary>
     public static VersionedFeature Sha256SignatureDigest { get; } = new("a SHA-256 signature digest", "ISO 32000-2 §12.8.3.1, Table 260", Pdf16);

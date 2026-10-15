@@ -67,6 +67,27 @@ public enum PdfSignatureProblemKind
     /// <summary>The signature value does not verify with the signer certificate's public key (RFC 5652 §5.6).</summary>
     SignatureValueInvalid,
 
+    /// <summary>
+    /// The byte ranges do not end at the end of a revision of the file: at a <c>%%EOF</c> marker, and the end-of-line marker after it,
+    /// that terminates a revision's trailer, so what was signed cannot be compared with what follows (§12.8.1: the range ends "to the
+    /// end of the %%EOF comment, possibly followed by an optional EOL marker, terminating the incremental update that adds the digital
+    /// signature dictionary"; §7.5.6).
+    /// </summary>
+    SignedRevisionUnknown,
+
+    /// <summary>
+    /// An incremental update after the signature changed the document in a way the permissions in effect do not allow: those of the
+    /// certification signature (§12.8.2.2, Table 257), narrowed by signed field locks (§12.7.5.5, Table 236). See
+    /// <see cref="PdfSignatureValidation.Modifications"/>.
+    /// </summary>
+    ModificationNotPermitted,
+
+    /// <summary>
+    /// An incremental update after the signature changed a form field the signature locks: its field's lock dictionary or its FieldMDP
+    /// transform parameters name it (§12.7.5.5, Table 236; §12.8.2.4, Table 259).
+    /// </summary>
+    LockedFieldModified,
+
     /// <summary>The <c>SubFilter</c> names an encoding this validation does not implement (§12.8.3.1, Table 260).</summary>
     SubFilterUnsupported,
 
@@ -126,7 +147,9 @@ public sealed class PdfSignatureProblem
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §12.8.1 (verification: the signer's certificate is determined and verified, the digest recomputed and compared) and
-/// §12.8.3 (Table 260, CMS signatures). Revocation, timestamps and modification detection are not part of this validation.
+/// §12.8.3 (Table 260, CMS signatures), and modification detection (§12.8.2.2.2, §12.8.2.4): what the incremental updates after the
+/// signed revision changed, and whether the permissions in effect and the signature's field locks allow it. Revocation and timestamps
+/// are not part of this validation.
 /// </remarks>
 public sealed class PdfSignatureValidation
 {
@@ -138,7 +161,10 @@ public sealed class PdfSignatureValidation
         HashAlgorithmName? digestAlgorithm,
         X509Certificate2? signerCertificate,
         IReadOnlyList<X509Certificate2> certificatePath,
-        IReadOnlyList<PdfSignatureProblem> problems)
+        IReadOnlyList<PdfSignatureProblem> problems,
+        int? signedRevision = null,
+        PdfCertificationPermissions? certificationPermissions = null,
+        IReadOnlyList<PdfModification>? modifications = null)
     {
         Field = field;
         FieldName = field.FullyQualifiedName;
@@ -149,6 +175,9 @@ public sealed class PdfSignatureValidation
         SignerCertificate = signerCertificate;
         CertificatePath = certificatePath;
         Problems = problems;
+        SignedRevision = signedRevision;
+        CertificationPermissions = certificationPermissions;
+        Modifications = modifications ?? [];
         Status = problems.Count == 0 ? PdfSignatureStatus.Valid
             : problems.Any(static problem => problem.Kind < PdfSignatureProblemKind.SubFilterUnsupported) ? PdfSignatureStatus.Invalid
             : PdfSignatureStatus.Indeterminate;
@@ -199,4 +228,34 @@ public sealed class PdfSignatureValidation
     /// </summary>
     /// <remarks>RFC 5280 §6.1.</remarks>
     public IReadOnlyList<X509Certificate2> CertificatePath { get; }
+
+    /// <summary>
+    /// Gets the index in <see cref="PdfDocument.Revisions"/> of the revision the signature covers: the one whose end the byte ranges
+    /// end at; <see langword="null"/> when they end elsewhere or could not be read.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.8.1, Table 255, and §7.5.6.</remarks>
+    public int? SignedRevision { get; }
+
+    /// <summary>
+    /// Gets the changes a certification signature permits after it (its DocMDP transform parameters' <c>P</c>), or
+    /// <see langword="null"/> for an approval signature or a document timestamp. Only the document's first signature certifies: a
+    /// DocMDP reference in a later one is ignored (§12.8.1).
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.8.1 and §12.8.2.2, Tables 256 and 257.</remarks>
+    public PdfCertificationPermissions? CertificationPermissions { get; }
+
+    /// <summary>
+    /// Gets what the incremental updates after the signed revision changed, in revision order, each with whether the permissions in
+    /// effect and the signature's field locks allow it; empty when nothing follows the signed revision or it is unknown.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.8.2.2.2 and §12.8.2.4.</remarks>
+    public IReadOnlyList<PdfModification> Modifications { get; }
+
+    /// <summary>Returns this validation with the outcome of modification detection added.</summary>
+    internal PdfSignatureValidation WithModifications(
+        int? signedRevision,
+        PdfCertificationPermissions? certificationPermissions,
+        IReadOnlyList<PdfModification> modifications,
+        IReadOnlyList<PdfSignatureProblem> problems) =>
+        new(Field, SubFilter, ByteRange, CoversWholeFile, DigestAlgorithm, SignerCertificate, CertificatePath, [.. Problems, .. problems], signedRevision, certificationPermissions, modifications);
 }
