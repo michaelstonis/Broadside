@@ -113,6 +113,7 @@ public static class Corpus
         "transfer-functions.pdf",
         "overprint.pdf",
         "transparency-groups.pdf",
+        "transparency-soft-masks.pdf",
         "marked-content.pdf",
         "image-stencil-mask.pdf",
         "image-explicit-mask.pdf",

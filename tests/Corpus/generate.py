@@ -4953,6 +4953,57 @@ def gen_transparency_groups() -> bytes:
     ], version="1.7")
 
 
+def gen_transparency_soft_masks() -> bytes:
+    """11.5, 11.6.4.3, 11.6.5.1 Table 142 (SMask, TR, BC), 11.6.6: soft masks in the graphics state. A 2 x 3 grid of 306 x 264
+    cells, each over a DeviceRGB axial shading from yellow (1 0.9 0.1) to dark blue (0.1 0.2 0.6), each painting a red
+    240 x 200 rectangle (or a group) about the cell centre under a soft mask. The luminosity masks' group (/CS /DeviceGray,
+    BBox [-100 -80 100 80] about the centre) is a horizontal gray axial shading from black to white; the alpha masks' group
+    is an opaque disc of radius 70. Row 1 left: luminosity with /BC [1] (the rectangle shows whole outside the mask's
+    bounding box, fades to nothing at its left edge inside it); right: alpha (the rectangle shows as a disc). Row 2 left: alpha
+    with an inverting /TR (a disc-shaped hole); right: luminosity set under a 30 degree rotation (the gradient runs at 30
+    degrees, the rectangle stays square; outside the rotated box /BC 0 hides it). Row 3 left: a mask turned off again by
+    /SMask /None (the plain rectangle); right: a transparency group of two overlapping blue discs painted with Do under the
+    luminosity mask (masked as a whole: the overlap is no darker than the rest)."""
+    backdrop = (b"<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 306 0] /Function << /FunctionType 2 /Domain [0 1]"
+                b" /C0 [1 0.9 0.1] /C1 [0.1 0.2 0.6] /N 1 >> >>")
+    gradient = (b"/Resources << /Shading << /SG << /ShadingType 2 /ColorSpace /DeviceGray /Coords [-100 0 100 0] /Function"
+                b" << /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >> >> >> >>")
+    states = (b"/ExtGState << /LB << /SMask << /Type /Mask /S /Luminosity /G 6 0 R /BC [1] >> >>"
+              b" /L << /SMask << /Type /Mask /S /Luminosity /G 6 0 R >> >>"
+              b" /A << /SMask << /Type /Mask /S /Alpha /G 7 0 R >> >>"
+              b" /AT << /SMask << /Type /Mask /S /Alpha /G 7 0 R /TR 8 0 R >> >>"
+              b" /N << /SMask /None >> >>")
+    rect = b"1 0 0 rg -120 -100 240 200 re f"
+    cells = []
+
+    def cell(column: int, row: int, body: bytes) -> None:
+        x = column * 306
+        y = 792 - (row + 1) * 264
+        cells.append(b"q 1 0 0 1 %d %d cm q 0 0 306 264 re W n /Sh0 sh Q 1 0 0 1 153 132 cm %s Q\n" % (x, y, body))
+
+    cell(0, 0, b"/LB gs " + rect)
+    cell(1, 0, b"/A gs " + rect)
+    cell(0, 1, b"/AT gs " + rect)
+    cell(1, 1, b"0.866 0.5 -0.5 0.866 0 0 cm /L gs 0.866 -0.5 0.5 0.866 0 0 cm " + rect)
+    cell(0, 2, b"/L gs /N gs " + rect)
+    cell(1, 2, b"/L gs /G9 Do")
+    return simple_file([
+        (1, catalog()),
+        (2, pages([3])),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << " + states + b" /Shading << /Sh0 5 0 R >> /XObject << /G9 9 0 R >> >>")),
+        (4, stream(b"", b"".join(cells))),
+        (5, backdrop),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [-100 -80 100 80] /Group << /S /Transparency /CS /DeviceGray >> "
+                   + gradient, b"/SG sh")),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [-100 -80 100 80] /Group << /S /Transparency >>",
+                   b"0 g " + disc(0, 0, 70) + b" f")),
+        (8, b"<< /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >>"),
+        (9, stream(b"/Type /XObject /Subtype /Form /BBox [-120 -100 120 100] /Group << /S /Transparency >>",
+                   b"0 0 1 rg " + disc(-35, 0, 65) + b" f " + disc(35, 0, 65) + b" f")),
+    ], version="1.7")
+
+
 def gen_marked_content() -> bytes:
     """14.6 marked content: BMC /Artifact; BDC /P with an inline <</MCID 0>>; BDC /Span naming /P1 in the page's
     /Properties (MCID 1, Lang); MP /Pt; DP /Pt2 with an inline property list; BDC /OC naming an optional content
@@ -6836,6 +6887,7 @@ FILES = {
     "transfer-functions.pdf": gen_transfer_functions,
     "overprint.pdf": gen_overprint,
     "transparency-groups.pdf": gen_transparency_groups,
+    "transparency-soft-masks.pdf": gen_transparency_soft_masks,
     "marked-content.pdf": gen_marked_content,
     "image-stencil-mask.pdf": gen_image_stencil_mask,
     "image-explicit-mask.pdf": gen_image_explicit_mask,
