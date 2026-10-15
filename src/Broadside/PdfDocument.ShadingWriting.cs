@@ -34,6 +34,20 @@ public sealed partial class PdfDocument
     /// <param name="start">The point where offset 0 lies, in the shading's target space.</param>
     /// <param name="end">The point where offset 1 lies; not <paramref name="start"/>.</param>
     /// <param name="stops">The stops, as for <see cref="CreateGradientFunction"/>; their colour space is the shading's.</param>
+    /// <returns>The shading, a new indirect dictionary, as read back.</returns>
+    /// <exception cref="ArgumentException">A coordinate is not finite, the points are equal, the stops are not usable (see <see cref="CreateGradientFunction"/>), or an option does not fit.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §8.7.4.5.3, Table 79 (PDF 1.3). <c>Coords</c> is the axis, <c>Domain</c> [0 1], and the <c>Function</c> is written
+    /// inline as <see cref="CreateGradientFunction"/> builds it. Paint it with <see cref="PdfCanvas.PaintShading"/> or through
+    /// <see cref="CreateShadingPattern"/>. Records PDF 1.3. A mutation.
+    /// </remarks>
+    public PdfAxialShading CreateAxialShading(PathPoint start, PathPoint end, IReadOnlyList<PdfGradientStop> stops) =>
+        CreateAxialShading(start, end, stops, null);
+
+    /// <summary>Creates an axial shading (Type 2) that blends between gradient stops along the line from <paramref name="start"/> to <paramref name="end"/>.</summary>
+    /// <param name="start">The point where offset 0 lies, in the shading's target space.</param>
+    /// <param name="end">The point where offset 1 lies; not <paramref name="start"/>.</param>
+    /// <param name="stops">The stops, as for <see cref="CreateGradientFunction"/>; their colour space is the shading's.</param>
     /// <param name="options">The optional entries; <see langword="null"/> for none.</param>
     /// <returns>The shading, a new indirect dictionary, as read back.</returns>
     /// <exception cref="ArgumentException">A coordinate is not finite, the points are equal, the stops are not usable (see <see cref="CreateGradientFunction"/>), or an option does not fit.</exception>
@@ -42,7 +56,7 @@ public sealed partial class PdfDocument
     /// inline as <see cref="CreateGradientFunction"/> builds it. Paint it with <see cref="PdfCanvas.PaintShading"/> or through
     /// <see cref="CreateShadingPattern"/>. Records PDF 1.3. A mutation.
     /// </remarks>
-    public PdfAxialShading CreateAxialShading(PathPoint start, PathPoint end, IReadOnlyList<PdfGradientStop> stops, PdfShadingOptions? options = null)
+    public PdfAxialShading CreateAxialShading(PathPoint start, PathPoint end, IReadOnlyList<PdfGradientStop> stops, PdfShadingOptions? options)
     {
         CosDictionary function = GradientFunction(stops, out PdfColorSpace space);
         return (PdfAxialShading)CreateAxial(space, start, end, function, [0, 1], options);
@@ -53,15 +67,38 @@ public sealed partial class PdfDocument
     /// <param name="start">The point where the function's domain starts (t<sub>0</sub>).</param>
     /// <param name="end">The point where it ends (t<sub>1</sub>); not <paramref name="start"/>.</param>
     /// <param name="function">A function of this document from one input to the colour space's components; its domain is the shading's <c>Domain</c>.</param>
+    /// <returns>The shading, a new indirect dictionary, as read back.</returns>
+    /// <exception cref="ArgumentException">A coordinate is not finite, the points are equal, the space or the function cannot be used, or an option does not fit.</exception>
+    /// <remarks>ISO 32000-2 §8.7.4.5.3, Table 79 (PDF 1.3). Records PDF 1.3 and the function's version. A mutation.</remarks>
+    public PdfAxialShading CreateAxialShading(PdfColorSpace colorSpace, PathPoint start, PathPoint end, PdfFunction function) =>
+        CreateAxialShading(colorSpace, start, end, function, null);
+
+    /// <summary>Creates an axial shading (Type 2) coloured by a function of the caller's along the line from <paramref name="start"/> to <paramref name="end"/>.</summary>
+    /// <param name="colorSpace">The shading's colour space: a space of this document, not Pattern or Indexed.</param>
+    /// <param name="start">The point where the function's domain starts (t<sub>0</sub>).</param>
+    /// <param name="end">The point where it ends (t<sub>1</sub>); not <paramref name="start"/>.</param>
+    /// <param name="function">A function of this document from one input to the colour space's components; its domain is the shading's <c>Domain</c>.</param>
     /// <param name="options">The optional entries; <see langword="null"/> for none.</param>
     /// <returns>The shading, a new indirect dictionary, as read back.</returns>
     /// <exception cref="ArgumentException">A coordinate is not finite, the points are equal, the space or the function cannot be used, or an option does not fit.</exception>
     /// <remarks>ISO 32000-2 §8.7.4.5.3, Table 79 (PDF 1.3). Records PDF 1.3 and the function's version. A mutation.</remarks>
-    public PdfAxialShading CreateAxialShading(PdfColorSpace colorSpace, PathPoint start, PathPoint end, PdfFunction function, PdfShadingOptions? options = null)
+    public PdfAxialShading CreateAxialShading(PdfColorSpace colorSpace, PathPoint start, PathPoint end, PdfFunction function, PdfShadingOptions? options)
     {
         (CosObject value, double[] domain) = ShadingFunction(colorSpace, function, 1);
         return (PdfAxialShading)CreateAxial(colorSpace, start, end, value, domain, options);
     }
+
+    /// <summary>Creates a radial shading (Type 3) that blends between gradient stops from one circle to another.</summary>
+    /// <param name="startCenter">The centre of the circle where offset 0 lies, in the shading's target space.</param>
+    /// <param name="startRadius">Its radius: 0 or more.</param>
+    /// <param name="endCenter">The centre of the circle where offset 1 lies.</param>
+    /// <param name="endRadius">Its radius: 0 or more.</param>
+    /// <param name="stops">The stops, as for <see cref="CreateGradientFunction"/>; their colour space is the shading's.</param>
+    /// <returns>The shading, a new indirect dictionary, as read back.</returns>
+    /// <exception cref="ArgumentException">A value is not finite, a radius is negative, both circles are the same point, the stops are not usable, or an option does not fit.</exception>
+    /// <remarks>ISO 32000-2 §8.7.4.5.4, Table 80 (PDF 1.3). <c>Domain</c> is [0 1]. Records PDF 1.3. A mutation.</remarks>
+    public PdfRadialShading CreateRadialShading(PathPoint startCenter, double startRadius, PathPoint endCenter, double endRadius, IReadOnlyList<PdfGradientStop> stops) =>
+        CreateRadialShading(startCenter, startRadius, endCenter, endRadius, stops, null);
 
     /// <summary>Creates a radial shading (Type 3) that blends between gradient stops from one circle to another.</summary>
     /// <param name="startCenter">The centre of the circle where offset 0 lies, in the shading's target space.</param>
@@ -74,11 +111,24 @@ public sealed partial class PdfDocument
     /// <exception cref="ArgumentException">A value is not finite, a radius is negative, both circles are the same point, the stops are not usable, or an option does not fit.</exception>
     /// <remarks>ISO 32000-2 §8.7.4.5.4, Table 80 (PDF 1.3). <c>Domain</c> is [0 1]. Records PDF 1.3. A mutation.</remarks>
     public PdfRadialShading CreateRadialShading(
-        PathPoint startCenter, double startRadius, PathPoint endCenter, double endRadius, IReadOnlyList<PdfGradientStop> stops, PdfShadingOptions? options = null)
+        PathPoint startCenter, double startRadius, PathPoint endCenter, double endRadius, IReadOnlyList<PdfGradientStop> stops, PdfShadingOptions? options)
     {
         CosDictionary function = GradientFunction(stops, out PdfColorSpace space);
         return (PdfRadialShading)CreateRadial(space, startCenter, startRadius, endCenter, endRadius, function, [0, 1], options);
     }
+
+    /// <summary>Creates a radial shading (Type 3) coloured by a function of the caller's from one circle to another.</summary>
+    /// <param name="colorSpace">The shading's colour space: a space of this document, not Pattern or Indexed.</param>
+    /// <param name="startCenter">The centre of the circle where the function's domain starts.</param>
+    /// <param name="startRadius">Its radius: 0 or more.</param>
+    /// <param name="endCenter">The centre of the circle where it ends.</param>
+    /// <param name="endRadius">Its radius: 0 or more.</param>
+    /// <param name="function">A function of this document from one input to the colour space's components; its domain is the shading's <c>Domain</c>.</param>
+    /// <returns>The shading, a new indirect dictionary, as read back.</returns>
+    /// <exception cref="ArgumentException">A value is not finite, a radius is negative, both circles are the same point, the space or the function cannot be used, or an option does not fit.</exception>
+    /// <remarks>ISO 32000-2 §8.7.4.5.4, Table 80 (PDF 1.3). Records PDF 1.3 and the function's version. A mutation.</remarks>
+    public PdfRadialShading CreateRadialShading(PdfColorSpace colorSpace, PathPoint startCenter, double startRadius, PathPoint endCenter, double endRadius, PdfFunction function) =>
+        CreateRadialShading(colorSpace, startCenter, startRadius, endCenter, endRadius, function, null);
 
     /// <summary>Creates a radial shading (Type 3) coloured by a function of the caller's from one circle to another.</summary>
     /// <param name="colorSpace">The shading's colour space: a space of this document, not Pattern or Indexed.</param>
@@ -92,7 +142,7 @@ public sealed partial class PdfDocument
     /// <exception cref="ArgumentException">A value is not finite, a radius is negative, both circles are the same point, the space or the function cannot be used, or an option does not fit.</exception>
     /// <remarks>ISO 32000-2 §8.7.4.5.4, Table 80 (PDF 1.3). Records PDF 1.3 and the function's version. A mutation.</remarks>
     public PdfRadialShading CreateRadialShading(
-        PdfColorSpace colorSpace, PathPoint startCenter, double startRadius, PathPoint endCenter, double endRadius, PdfFunction function, PdfShadingOptions? options = null)
+        PdfColorSpace colorSpace, PathPoint startCenter, double startRadius, PathPoint endCenter, double endRadius, PdfFunction function, PdfShadingOptions? options)
     {
         (CosObject value, double[] domain) = ShadingFunction(colorSpace, function, 1);
         return (PdfRadialShading)CreateRadial(colorSpace, startCenter, startRadius, endCenter, endRadius, value, domain, options);
@@ -103,11 +153,22 @@ public sealed partial class PdfDocument
     /// <param name="function">A function of this document from two inputs (x, y) to the colour space's components, defined over <paramref name="domain"/>.</param>
     /// <param name="domain">The rectangle of (x, y) values the shading covers (<c>Domain</c> [x<sub>min</sub> x<sub>max</sub> y<sub>min</sub> y<sub>max</sub>]), in the shading's own space.</param>
     /// <param name="matrix">The transformation from the domain's space to the shading's target space (<c>Matrix</c>); the identity is not written.</param>
+    /// <returns>The shading, a new indirect dictionary, as read back.</returns>
+    /// <exception cref="ArgumentException">A value is not finite, the domain has no area, the space or the function cannot be used, or an option does not fit.</exception>
+    /// <remarks>ISO 32000-2 §8.7.4.5.2, Table 78 (PDF 1.3). Records PDF 1.3 and the function's version. A mutation.</remarks>
+    public PdfFunctionShading CreateFunctionShading(PdfColorSpace colorSpace, PdfFunction function, PdfRectangle domain, Matrix matrix) =>
+        CreateFunctionShading(colorSpace, function, domain, matrix, null);
+
+    /// <summary>Creates a function-based shading (Type 1): the colour of every point (x, y) of <paramref name="domain"/> is the function's value there.</summary>
+    /// <param name="colorSpace">The shading's colour space: a space of this document, not Pattern or Indexed.</param>
+    /// <param name="function">A function of this document from two inputs (x, y) to the colour space's components, defined over <paramref name="domain"/>.</param>
+    /// <param name="domain">The rectangle of (x, y) values the shading covers (<c>Domain</c> [x<sub>min</sub> x<sub>max</sub> y<sub>min</sub> y<sub>max</sub>]), in the shading's own space.</param>
+    /// <param name="matrix">The transformation from the domain's space to the shading's target space (<c>Matrix</c>); the identity is not written.</param>
     /// <param name="options">The optional entries (not <see cref="PdfShadingOptions.ExtendStart"/> or <see cref="PdfShadingOptions.ExtendEnd"/>); <see langword="null"/> for none.</param>
     /// <returns>The shading, a new indirect dictionary, as read back.</returns>
     /// <exception cref="ArgumentException">A value is not finite, the domain has no area, the space or the function cannot be used, or an option does not fit.</exception>
     /// <remarks>ISO 32000-2 §8.7.4.5.2, Table 78 (PDF 1.3). Records PDF 1.3 and the function's version. A mutation.</remarks>
-    public PdfFunctionShading CreateFunctionShading(PdfColorSpace colorSpace, PdfFunction function, PdfRectangle domain, Matrix matrix, PdfShadingOptions? options = null)
+    public PdfFunctionShading CreateFunctionShading(PdfColorSpace colorSpace, PdfFunction function, PdfRectangle domain, Matrix matrix, PdfShadingOptions? options)
     {
         ThrowIfNotFinite(domain.Left, domain.Bottom, domain.Right, domain.Top, matrix.A, matrix.B, matrix.C, matrix.D, matrix.E, matrix.F);
         if (!(domain.Right > domain.Left && domain.Top > domain.Bottom))
@@ -130,13 +191,31 @@ public sealed partial class PdfDocument
 
     /// <summary>Creates a free-form triangle mesh shading (Type 4) from a builder's triangles.</summary>
     /// <param name="mesh">The mesh: at least one triangle; its colour space and function belong to this document.</param>
+    /// <returns>The shading, a new indirect stream, as read back.</returns>
+    /// <exception cref="ArgumentException">The colour space or function belongs to another document, or an option does not fit.</exception>
+    /// <exception cref="InvalidOperationException">The mesh has no triangle.</exception>
+    /// <remarks>ISO 32000-2 §8.7.4.5.5, Table 81 (PDF 1.3). See <see cref="PdfMeshBuilder"/> for the data layout. Records PDF 1.3. A mutation.</remarks>
+    public PdfTriangleMeshShading CreateMeshShading(PdfFreeFormMeshBuilder mesh) =>
+        CreateMeshShading(mesh, null);
+
+    /// <summary>Creates a free-form triangle mesh shading (Type 4) from a builder's triangles.</summary>
+    /// <param name="mesh">The mesh: at least one triangle; its colour space and function belong to this document.</param>
     /// <param name="options">The optional entries (not <see cref="PdfShadingOptions.ExtendStart"/> or <see cref="PdfShadingOptions.ExtendEnd"/>); <see langword="null"/> for none.</param>
     /// <returns>The shading, a new indirect stream, as read back.</returns>
     /// <exception cref="ArgumentException">The colour space or function belongs to another document, or an option does not fit.</exception>
     /// <exception cref="InvalidOperationException">The mesh has no triangle.</exception>
     /// <remarks>ISO 32000-2 §8.7.4.5.5, Table 81 (PDF 1.3). See <see cref="PdfMeshBuilder"/> for the data layout. Records PDF 1.3. A mutation.</remarks>
-    public PdfTriangleMeshShading CreateMeshShading(PdfFreeFormMeshBuilder mesh, PdfShadingOptions? options = null) =>
+    public PdfTriangleMeshShading CreateMeshShading(PdfFreeFormMeshBuilder mesh, PdfShadingOptions? options) =>
         (PdfTriangleMeshShading)CreateMesh(mesh, options);
+
+    /// <summary>Creates a lattice-form triangle mesh shading (Type 5) from a builder's rows.</summary>
+    /// <param name="mesh">The mesh: at least two rows; its colour space and function belong to this document.</param>
+    /// <returns>The shading, a new indirect stream, as read back.</returns>
+    /// <exception cref="ArgumentException">The colour space or function belongs to another document, or an option does not fit.</exception>
+    /// <exception cref="InvalidOperationException">The mesh has fewer than two rows.</exception>
+    /// <remarks>ISO 32000-2 §8.7.4.5.6, Table 82 (PDF 1.3). Records PDF 1.3. A mutation.</remarks>
+    public PdfTriangleMeshShading CreateMeshShading(PdfLatticeMeshBuilder mesh) =>
+        CreateMeshShading(mesh, null);
 
     /// <summary>Creates a lattice-form triangle mesh shading (Type 5) from a builder's rows.</summary>
     /// <param name="mesh">The mesh: at least two rows; its colour space and function belong to this document.</param>
@@ -145,11 +224,20 @@ public sealed partial class PdfDocument
     /// <exception cref="ArgumentException">The colour space or function belongs to another document, or an option does not fit.</exception>
     /// <exception cref="InvalidOperationException">The mesh has fewer than two rows.</exception>
     /// <remarks>ISO 32000-2 §8.7.4.5.6, Table 82 (PDF 1.3). Records PDF 1.3. A mutation.</remarks>
-    public PdfTriangleMeshShading CreateMeshShading(PdfLatticeMeshBuilder mesh, PdfShadingOptions? options = null)
+    public PdfTriangleMeshShading CreateMeshShading(PdfLatticeMeshBuilder mesh, PdfShadingOptions? options)
     {
         ArgumentNullException.ThrowIfNull(mesh);
         return (PdfTriangleMeshShading)CreateMesh(mesh, options, mesh.VerticesPerRow);
     }
+
+    /// <summary>Creates a Coons (Type 6) or tensor-product (Type 7) patch mesh shading from a builder's patches.</summary>
+    /// <param name="mesh">The mesh: at least one patch; its colour space and function belong to this document.</param>
+    /// <returns>The shading, a new indirect stream, as read back.</returns>
+    /// <exception cref="ArgumentException">The colour space or function belongs to another document, or an option does not fit.</exception>
+    /// <exception cref="InvalidOperationException">The mesh has no patch.</exception>
+    /// <remarks>ISO 32000-2 §8.7.4.5.7 (Table 83) and §8.7.4.5.8 (Table 85) (PDF 1.3). Records PDF 1.3. A mutation.</remarks>
+    public PdfPatchMeshShading CreateMeshShading(PdfPatchMeshBuilder mesh) =>
+        CreateMeshShading(mesh, null);
 
     /// <summary>Creates a Coons (Type 6) or tensor-product (Type 7) patch mesh shading from a builder's patches.</summary>
     /// <param name="mesh">The mesh: at least one patch; its colour space and function belong to this document.</param>
@@ -158,7 +246,7 @@ public sealed partial class PdfDocument
     /// <exception cref="ArgumentException">The colour space or function belongs to another document, or an option does not fit.</exception>
     /// <exception cref="InvalidOperationException">The mesh has no patch.</exception>
     /// <remarks>ISO 32000-2 §8.7.4.5.7 (Table 83) and §8.7.4.5.8 (Table 85) (PDF 1.3). Records PDF 1.3. A mutation.</remarks>
-    public PdfPatchMeshShading CreateMeshShading(PdfPatchMeshBuilder mesh, PdfShadingOptions? options = null) =>
+    public PdfPatchMeshShading CreateMeshShading(PdfPatchMeshBuilder mesh, PdfShadingOptions? options) =>
         (PdfPatchMeshShading)CreateMesh(mesh, options);
 
     /// <summary>Creates a shading pattern (PatternType 2): a shading used as a colour, filling or stroking with it.</summary>

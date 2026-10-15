@@ -39,6 +39,7 @@ public sealed class StructureCorpusTests(ITestOutputHelper output)
         int expected = fileName switch
         {
             "tagged-structure.pdf" => 18,
+            "layout-tagged.pdf" => 29, // Document > Sect > H, Para > Link, FENote, Figure > Caption, Formula, Table (THead, TBody, 4 TR, 4 TH, 6 TD), NonStruct > P, Artifact
             "text-tagged-replacements.pdf" => 11, // Document, H1, two P with ActualText and E Spans, Figure, Artifact, three P (§14.8.2.5)
             "text-tagged-spanning.pdf" => 5, // Document, two P, an ActualText Span and an Alt Figure whose content spans both pages
             "text-tagged-spanning-image.pdf" => 4, // Document, two P and an ActualText Span over an image on page 1 and text on page 2

@@ -99,11 +99,26 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <item><term><see cref="DeviceNColorSpace"/></term><description>1.3 (§8.6.6.5); <see cref="DeviceNAttributes"/> 1.6 (Table 70)</description></item>
 /// <item><term><see cref="SampledFunction"/></term><description>1.2 (§7.10.2)</description></item>
 /// <item><term><see cref="CalculatedFunction"/></term><description>1.3 (§7.10.3 to §7.10.5, types 2, 3 and 4)</description></item>
+/// <item><term><see cref="ImageMasks"/></term><description>1.3 (§8.9.6.3 and §8.9.6.4; Table 87, an image's <c>Mask</c>)</description></item>
+/// <item><term><see cref="SixteenBitImages"/></term><description>1.5 (§8.9.5.1, Table 87, <c>BitsPerComponent</c> 16)</description></item>
+/// <item><term><see cref="ProgressiveDct"/></term><description>1.3 (§7.4.8, progressive JPEG in <c>DCTDecode</c>)</description></item>
 /// <item><term><see cref="InteractiveForm"/></term><description>1.2 (§12.7.3; §7.7.2, Table 29, <c>AcroForm</c>): every field <see cref="Forms.PdfAcroForm"/> creates.</description></item>
 /// <item><term><see cref="SignatureFields"/></term><description>1.3 (§12.7.5.5; Table 224, <c>SigFlags</c>)</description></item>
 /// <item><term><see cref="FieldAlternateName"/></term><description>1.3 (§12.7.4.1, Table 226, <c>TU</c>)</description></item>
 /// <item><term><see cref="FieldFlags14"/></term><description>1.4 (Tables 231 and 233: FileSelect, MultiSelect, DoNotSpellCheck, DoNotScroll)</description></item>
 /// <item><term><see cref="FieldFlags15"/></term><description>1.5 (Tables 229, 231 and 233: Comb, RichText, RadiosInUnison, CommitOnSelChange)</description></item>
+/// <item><term><see cref="ByteRangeSignature"/></term><description>1.3 (§12.8.3.1, Table 260, <c>adbe.pkcs7.detached</c>)</description></item>
+/// <item><term><see cref="CadesSignature"/></term><description>2.0 (§12.8.3.4, <c>ETSI.CAdES.detached</c>)</description></item>
+/// <item><term><see cref="LongRsaKeySignature"/></term><description>1.5 (Table 260, RSA keys of 2048 and 4096 bits)</description></item>
+/// <item><term><see cref="EcdsaSignature"/></term><description>2.0 (Table 260) and the ISO_ extension level 32002 (ISO/TS 32002, clause 4)</description></item>
+/// <item><term><see cref="CertificationSignature"/></term><description>1.5 (§12.8.2.2; Table 255, <c>Reference</c>; Table 263, <c>DocMDP</c>)</description></item>
+/// <item><term><see cref="SignatureFieldLock"/></term><description>1.5 (§12.7.5.5, Table 235, <c>Lock</c>; §12.8.2.4)</description></item>
+/// <item><term><see cref="SignatureFieldLockPermissions"/></term><description>2.0 (§12.7.5.5, Table 236, <c>P</c>)</description></item>
+/// <item><term><see cref="Sha256SignatureDigest"/></term><description>1.6 (Table 260)</description></item>
+/// <item><term><see cref="Sha2SignatureDigest"/></term><description>1.7 (Table 260, SHA-384 and SHA-512)</description></item>
+/// <item><term><see cref="Sha3SignatureDigest"/></term><description>2.0 and the ISO_ extension level 32001 (ISO/TS 32001, clause 4 and §5.1.4)</description></item>
+/// <item><term><see cref="SignatureTimestamp"/></term><description>1.6 (§12.8.3.3.1, timestamp information as an unsigned attribute)</description></item>
+/// <item><term><see cref="DocumentTimestamp"/></term><description>2.0 (§12.8.5; Table 255, <c>DocTimeStamp</c> and <c>ETSI.RFC3161</c>)</description></item>
 /// <item><term><see cref="DeveloperExtension"/></term><description>The extension's <c>BaseVersion</c> (§7.12.4)</description></item>
 /// </list>
 /// <para>
@@ -264,6 +279,16 @@ internal static class VersionedFeatures
     /// <summary>Gets the Pattern colour space and tiling patterns (PatternType 1): PDF 1.2.</summary>
     public static VersionedFeature PatternColorSpace { get; } = new("a Pattern colour space or tiling pattern", "ISO 32000-2 §8.6.3, Table 61; §8.7.3.1, Table 74", Pdf12);
 
+    /// <summary>Gets an image's <c>Mask</c> entry, an explicit mask or a colour key mask: PDF 1.3.</summary>
+    public static VersionedFeature ImageMasks { get; } = new(
+        "an image's Mask entry (explicit or colour key masking)", "ISO 32000-2 §8.9.6.3 and §8.9.6.4; Table 87", new PdfVersion(1, 3));
+
+    /// <summary>Gets images of 16 bits per component: PDF 1.5.</summary>
+    public static VersionedFeature SixteenBitImages { get; } = new("16 bits per image component", "ISO 32000-2 §8.9.5.1, Table 87", Pdf15);
+
+    /// <summary>Gets progressive JPEG data in a <c>DCTDecode</c> stream: PDF 1.3.</summary>
+    public static VersionedFeature ProgressiveDct { get; } = new("progressive JPEG (DCTDecode)", "ISO 32000-2 §7.4.8", new PdfVersion(1, 3));
+
     /// <summary>Returns the feature a colour space stands for (§8.6.3, Table 61), or <see langword="null"/> for a device space (PDF 1.0).</summary>
     /// <param name="space">The space.</param>
     /// <returns>The feature.</returns>
@@ -299,6 +324,50 @@ internal static class VersionedFeatures
         "the field flags Comb, RichText, RadiosInUnison or CommitOnSelChange",
         "ISO 32000-2 §12.7.5.2.4, Table 229; §12.7.5.3, Table 231; §12.7.5.4, Table 233",
         Pdf15);
+
+    /// <summary>Gets a byte range signature (a signature dictionary with <c>ByteRange</c> and a CMS <c>Contents</c>): PDF 1.3.</summary>
+    public static VersionedFeature ByteRangeSignature { get; } = new("a byte range signature (adbe.pkcs7.detached)", "ISO 32000-2 §12.8.3.1, Table 260", new PdfVersion(1, 3));
+
+    /// <summary>Gets a PAdES signature, sub-filter <c>ETSI.CAdES.detached</c>: PDF 2.0.</summary>
+    public static VersionedFeature CadesSignature { get; } = new("a PAdES signature (ETSI.CAdES.detached)", "ISO 32000-2 §12.8.3.4; Table 260", Pdf20);
+
+    /// <summary>Gets an RSA signature with a key longer than 1024 bits: PDF 1.5.</summary>
+    public static VersionedFeature LongRsaKeySignature { get; } = new("an RSA signature with a key over 1024 bits", "ISO 32000-2 §12.8.3.1, Table 260", Pdf15);
+
+    /// <summary>Gets an ECDSA signature: PDF 2.0 and the ISO_ extension level 32002 for the curves of ISO/TS 32002 Table 3.</summary>
+    public static VersionedFeature EcdsaSignature { get; } = new(
+        "an ECDSA signature",
+        "ISO 32000-2 §12.8.3.1, Table 260; ISO/TS 32002, clause 4 and §5.1.3",
+        Pdf20,
+        new DeveloperExtensionDeclaration(KnownNames.IsoPrefix, Pdf20, 32002, ":2022", "https://www.iso.org/standard/45875.html"));
+
+    /// <summary>Gets a certification signature: a DocMDP signature reference and the catalog's <c>Perms</c>, PDF 1.5.</summary>
+    public static VersionedFeature CertificationSignature { get; } = new("a certification signature (DocMDP)", "ISO 32000-2 §12.8.2.2; Tables 255, 256, 257 and 263", Pdf15);
+
+    /// <summary>Gets a signature field lock dictionary and the FieldMDP signature reference copied from it: PDF 1.5.</summary>
+    public static VersionedFeature SignatureFieldLock { get; } = new("a signature field lock (FieldMDP)", "ISO 32000-2 §12.7.5.5, Tables 235 and 236; §12.8.2.4", Pdf15);
+
+    /// <summary>Gets a signature field lock dictionary's <c>P</c> entry: PDF 2.0.</summary>
+    public static VersionedFeature SignatureFieldLockPermissions { get; } = new("the permissions of a signature field lock", "ISO 32000-2 §12.7.5.5, Table 236, P", Pdf20);
+
+    /// <summary>Gets a signature with a SHA-256 digest: PDF 1.6.</summary>
+    public static VersionedFeature Sha256SignatureDigest { get; } = new("a SHA-256 signature digest", "ISO 32000-2 §12.8.3.1, Table 260", Pdf16);
+
+    /// <summary>Gets a signature with a SHA-384 or SHA-512 digest: PDF 1.7.</summary>
+    public static VersionedFeature Sha2SignatureDigest { get; } = new("a SHA-384 or SHA-512 signature digest", "ISO 32000-2 §12.8.3.1, Table 260", new PdfVersion(1, 7));
+
+    /// <summary>Gets a signature with a SHA3-256, SHA3-384 or SHA3-512 digest: PDF 2.0 and the ISO_ extension level 32001.</summary>
+    public static VersionedFeature Sha3SignatureDigest { get; } = new(
+        "a SHA-3 signature digest",
+        "ISO/TS 32001, clause 4 and §5.1.4",
+        Pdf20,
+        new DeveloperExtensionDeclaration(KnownNames.IsoPrefix, Pdf20, 32001, ":2022", "https://www.iso.org/standard/45874.html"));
+
+    /// <summary>Gets a signature time-stamp token as an unsigned attribute of a CMS signature (RFC 3161 Appendix A): PDF 1.6.</summary>
+    public static VersionedFeature SignatureTimestamp { get; } = new("a signature time-stamp token", "ISO 32000-2 §12.8.3.3.1", Pdf16);
+
+    /// <summary>Gets a document timestamp, a <c>DocTimeStamp</c> signature dictionary with sub-filter <c>ETSI.RFC3161</c>: PDF 2.0.</summary>
+    public static VersionedFeature DocumentTimestamp { get; } = new("a document timestamp (ETSI.RFC3161)", "ISO 32000-2 §12.8.5; §12.8.1, Table 255", Pdf20);
 
     /// <summary>Returns the feature a filter's encoding stands for, or <see langword="null"/> when it has no version row.</summary>
     /// <param name="filter">A filter name.</param>

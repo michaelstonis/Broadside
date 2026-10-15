@@ -26,6 +26,12 @@ namespace Broadside.Rendering;
 /// </remarks>
 internal sealed class ScanlineRasterizer : IDisposable
 {
+    /// <summary>
+    /// The covered share of a pixel below which <see cref="CoverageRule.AnyArea"/> counts it as untouched: the rounding left by
+    /// summing the cells' covers and areas, far below anything a shape can cover visibly.
+    /// </summary>
+    private const double AreaResidue = 1e-9;
+
     private long[] _keys = ArrayPool<long>.Shared.Rent(1024);
     private Cell[] _cells = ArrayPool<Cell>.Shared.Rent(1024);
     private int _count;
@@ -53,6 +59,22 @@ internal sealed class ScanlineRasterizer : IDisposable
     /// the shape's coverage by it. <see langword="null"/> clips to the bitmap only.
     /// </summary>
     public RasterClip? Clip { get; set; }
+
+    /// <summary>
+    /// Gets or sets how the area a shape covers in a pixel becomes the pixel's coverage, for every sweep (<see cref="Fill"/>,
+    /// <see cref="Paint"/> and <see cref="Sweep{TSink}(FillRule, ref TSink)"/>): exact (anti-aliased, the default) or whole pixels only.
+    /// </summary>
+    public CoverageRule Rule { get; set; }
+
+    /// <summary>
+    /// Gets or sets the transparency group paints go into (ISO 32000-2 §11.4), which sees every run of a paint's coverage before the
+    /// paint's sink, after the clip: a knockout group or one that keeps its own shape or alpha needs that. <see langword="null"/>
+    /// (no group, or a group that needs nothing per paint) hands the runs straight to the sink.
+    /// </summary>
+    public GroupLayer? Hook { get; set; }
+
+    /// <summary>Starts a new shape with the size of the last one.</summary>
+    public void Clear() => Reset(_width, _height);
 
     /// <summary>Gets a value indicating whether the shape has no edges inside the clip.</summary>
     public bool IsEmpty => _count == 0;
@@ -178,16 +200,20 @@ internal sealed class ScanlineRasterizer : IDisposable
     /// </summary>
     /// <param name="rule">How the winding value decides coverage.</param>
     /// <param name="sink">What the paint does with each run.</param>
-    public void Paint<TSink>(FillRule rule, ref TSink sink)
+    /// <param name="keep">Whether the shape stays for another paint (an overprint preview paints an image or a shading twice).</param>
+    public void Paint<TSink>(FillRule rule, ref TSink sink, bool keep = false)
         where TSink : ICoverageSink, allows ref struct
     {
         RasterClip? clip = Clip;
         if (_count > 0 && clip?.IsEmpty != true)
         {
-            Sweep(rule, ref sink, clip is { IsWholeBitmap: false } ? clip : null, zeros: false);
+            Sweep(rule, ref sink, clip is { IsWholeBitmap: false } ? clip : null, zeros: false, Hook);
         }
 
-        Reset(_width, _height);
+        if (!keep)
+        {
+            Reset(_width, _height);
+        }
     }
 
     /// <summary>
@@ -199,7 +225,7 @@ internal sealed class ScanlineRasterizer : IDisposable
     {
         if (_count > 0)
         {
-            Sweep(rule, ref sink, null, zeros: true);
+            Sweep(rule, ref sink, null, zeros: true, hook: null);
         }
     }
 
@@ -244,7 +270,7 @@ internal sealed class ScanlineRasterizer : IDisposable
     }
 
     /// <summary>The sweep: turns the sorted cells into runs of constant coverage, clipped or not, with or without the zero runs.</summary>
-    private void Sweep<TSink>(FillRule rule, ref TSink sink, RasterClip? clip, bool zeros)
+    private void Sweep<TSink>(FillRule rule, ref TSink sink, RasterClip? clip, bool zeros, GroupLayer? hook)
         where TSink : ICoverageSink, allows ref struct
     {
         Sort();
@@ -268,18 +294,18 @@ internal sealed class ScanlineRasterizer : IDisposable
                 }
                 while (index < cells.Length && keys[index] == keys[index - 1]);
 
-                Emit(ref sink, clip, zeros, row, x, 1, Coverage(accumulated + cover - area, rule));
+                Emit(ref sink, clip, zeros, hook, row, x, 1, Coverage(accumulated + cover - area, rule, Rule));
                 accumulated += cover;
                 int next = index < cells.Length && (int)(keys[index] >> 32) == row ? (int)(uint)keys[index] : _width;
                 if (next > x + 1)
                 {
-                    Emit(ref sink, clip, zeros, row, x + 1, next - x - 1, Coverage(accumulated, rule));
+                    Emit(ref sink, clip, zeros, hook, row, x + 1, next - x - 1, Coverage(accumulated, rule, Rule));
                 }
             }
         }
     }
 
-    private static void Emit<TSink>(ref TSink sink, RasterClip? clip, bool zeros, int row, int x, int count, int coverage)
+    private static void Emit<TSink>(ref TSink sink, RasterClip? clip, bool zeros, GroupLayer? hook, int row, int x, int count, int coverage)
         where TSink : ICoverageSink, allows ref struct
     {
         if (coverage <= 0 && !zeros)
@@ -287,13 +313,17 @@ internal sealed class ScanlineRasterizer : IDisposable
             return;
         }
 
-        if (clip is null)
+        if (clip is not null)
         {
-            sink.Span(row, x, count, coverage);
+            clip.Apply(row, x, count, coverage, ref sink, hook);
+        }
+        else if (hook is not null)
+        {
+            hook.Span(row, x, count, coverage, ref sink);
         }
         else
         {
-            clip.Apply(row, x, count, coverage, ref sink);
+            sink.Span(row, x, count, coverage);
         }
     }
 
@@ -307,8 +337,8 @@ internal sealed class ScanlineRasterizer : IDisposable
         _count = 0;
     }
 
-    /// <summary>Turns a winding value integrated over a pixel into the 8-bit coverage the fill rule gives it.</summary>
-    private static int Coverage(double winding, FillRule rule)
+    /// <summary>Turns a winding value integrated over a pixel into the 8-bit coverage the fill rule and the coverage rule give it.</summary>
+    private static int Coverage(double winding, FillRule rule, CoverageRule coverage)
     {
         double value = Math.Abs(winding);
         if (rule == FillRule.EvenOdd)
@@ -324,7 +354,12 @@ internal sealed class ScanlineRasterizer : IDisposable
             value = 1;
         }
 
-        return (int)((value * 255) + 0.5);
+        return coverage switch
+        {
+            CoverageRule.AnyArea => value > AreaResidue ? 255 : 0,
+            CoverageRule.PixelCentre => value >= 0.5 ? 255 : 0,
+            _ => (int)((value * 255) + 0.5),
+        };
     }
 
     /// <summary>Adds an edge that lies inside <c>[0, width] × [0, height]</c>, one cell per pixel it crosses.</summary>
@@ -441,4 +476,18 @@ internal sealed class ScanlineRasterizer : IDisposable
         public double Cover;
         public double Area;
     }
+}
+
+/// <summary>How <see cref="ScanlineRasterizer"/> turns the area a shape covers in a pixel into the pixel's coverage.</summary>
+/// <remarks>ISO 32000-2 §10.7.4; see <see cref="AntiAliasing"/>.</remarks>
+internal enum CoverageRule
+{
+    /// <summary>The covered share of the pixel, anti-aliased.</summary>
+    Exact,
+
+    /// <summary>The whole pixel when the shape covers any of it: the scan-conversion rule for fills, strokes and clips.</summary>
+    AnyArea,
+
+    /// <summary>The whole pixel when the shape covers at least half of it (its centre, when one edge crosses it): the rule for images.</summary>
+    PixelCentre,
 }

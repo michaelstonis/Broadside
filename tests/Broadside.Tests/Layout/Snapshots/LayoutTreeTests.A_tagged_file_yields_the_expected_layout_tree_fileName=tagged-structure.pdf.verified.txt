@@ -1,0 +1,18 @@
+﻿Document lang en-US p1 [72 592.5 240 737.2] g0+73 t0+73
+  Section /Chapter p1 [72 592.5 240 737.2] g0+73 t0+73
+    Heading level 1 /H1 p1 [72 715 180 737.2] g0+9 t0+9: Broadside
+    Paragraph /Para annot PdfLinkAnnotation p1 [72 686 240 702] g9+24 t9+24: A paragraph with a link.
+    List /L p1 [72 642.5 162.7 668.6] g33+25 t33+25
+      ListItem /LI p1 [72 657.5 145.3 668.6] g33+12 t33+12
+        Label /Lbl p1 [72 657.5 82 668.6] g33+2 t33+2: 1.
+        ListBody /LBody p1 [96 657.5 145.3 668.6] g35+10 t35+10: First item
+      ListItem /LI p1 [72 642.5 162.7 653.6] g45+13 t45+13
+        Label /Lbl p1 [72 642.5 82 653.6] g45+2 t45+2: 2.
+        ListBody /LBody p1 [96 642.5 162.7 653.6] g47+11 t47+11: Second item
+    Table 2x2 p1 [72 592.5 230.7 618.6] g58+15 t58+15
+      TableRow /TR p1 [72 607.5 230.7 618.6] g58+9 t58+9
+        TableCell (0,0) header /TH p1 [72 607.5 104 618.6] g58+4 t58+4: Name
+        TableCell (0,1) header /TH p1 [200 607.5 230.7 618.6] g62+5 t62+5: Value
+      TableRow /TR p1 [72 592.5 206.7 603.6] g67+6 t67+6
+        TableCell (1,0) headers (0,0) /TD p1 [72 592.5 102.7 603.6] g67+5 t67+5: Alpha
+        TableCell (1,1) /TD p1 [200 592.5 206.7 603.6] g72+1 t72+1: 1

@@ -3,8 +3,8 @@ using Broadside.Graphics;
 namespace Broadside.Rendering;
 
 /// <summary>
-/// The colours of an axial or radial shading as a lookup table: the shading's function sampled at <see cref="Size"/> evenly
-/// spaced values of t across its Domain, converted to opaque premultiplied BGRA through the document's colour converter, so the
+/// The colours of an axial or radial shading, or of a triangle mesh with a function, as a lookup table: the shading's function
+/// sampled at <see cref="Size"/> evenly spaced values of t across its Domain (a mesh's Decode interval of t, §8.7.4.5.5), converted to opaque premultiplied BGRA through the document's colour converter, so the
 /// per-pixel work is finding s and reading one entry. Kept for the last shading paint and rebuilt only when the shading, its
 /// default colour spaces or its conversion change.
 /// </summary>
@@ -33,10 +33,17 @@ internal sealed class ShadingSource
     private PdfShading? _shading;
     private PdfDefaultColorSpaces? _defaults;
     private ColorConversion _conversion;
+    private PixelModel _model;
     private bool _paintsNothing;
 
     /// <summary>Gets the table: entry i is the colour at s = i / (<see cref="Size"/> − 1).</summary>
     public uint[] Table => _table;
+
+    /// <summary>Gets the interval of t the table spans, entry 0 at T0 and the last at T1.</summary>
+    public (double T0, double T1) ParameterDomain { get; private set; }
+
+    /// <summary>Gets the converter from the shading's <see cref="PdfShading.InterpolationColorSpace"/> to RGB, set by <see cref="Prepare"/>.</summary>
+    public PdfColorConverter? Converter { get; private set; }
 
     /// <summary>Gets a value indicating whether the shading has a Background colour, converted in <see cref="Background"/>.</summary>
     public bool HasBackground { get; private set; }
@@ -46,10 +53,13 @@ internal sealed class ShadingSource
 
     /// <summary>Builds the table for <paramref name="shading"/> unless it is the one built last.</summary>
     /// <returns><see langword="false"/> when the shading's colours paint nothing (a Separation None or all-None DeviceN space, §8.6.6.4).</returns>
-    public bool Prepare(PdfDocument document, in DisplayShading shading)
+    /// <param name="document">The document whose colour converters convert the shading's colours.</param>
+    /// <param name="shading">The shading paint.</param>
+    /// <param name="pixels">What the table's pixels hold: RGB, or a transparency group's gray or CMYK plane.</param>
+    public bool Prepare(PdfDocument document, in DisplayShading shading, PixelModel pixels = default)
     {
         PdfShading model = shading.Shading;
-        if (ReferenceEquals(_shading, model) && ReferenceEquals(_defaults, shading.DefaultColorSpaces) && _conversion == shading.Conversion)
+        if (ReferenceEquals(_shading, model) && ReferenceEquals(_defaults, shading.DefaultColorSpaces) && _conversion == shading.Conversion && _model == pixels)
         {
             return !_paintsNothing;
         }
@@ -57,15 +67,23 @@ internal sealed class ShadingSource
         _shading = model;
         _defaults = shading.DefaultColorSpaces;
         _conversion = shading.Conversion;
-        ColorConversion conversion = shading.Conversion with { Target = DeviceColorModel.Rgb };
+        _model = pixels;
+        ColorConversion conversion = pixels.Convert(shading.Conversion);
         PdfColorConverter converter = document.GetColorConverter(model.InterpolationColorSpace, conversion, shading.DefaultColorSpaces);
         _paintsNothing = converter.PaintsNothing;
+        Converter = converter;
         if (_paintsNothing)
         {
             return false;
         }
 
-        Fill(model, converter);
+        // A table of t serves axial, radial and mesh shadings with a function; a function-based shading (Type 1) takes two inputs
+        // and is sampled by its painter, and a mesh without a function has its colours at the vertices.
+        if (model.HasFunction && model is not PdfFunctionShading)
+        {
+            Fill(model, converter, pixels);
+        }
+
         HasBackground = false;
         if (model.Background is { } background)
         {
@@ -80,9 +98,9 @@ internal sealed class ShadingSource
                     components[i] = background[i];
                 }
 
-                Span<float> rgb = stackalloc float[3];
+                Span<float> rgb = stackalloc float[4];
                 backgroundConverter.Convert(components[..background.Count], rgb);
-                Background = Pack(rgb[0], rgb[1], rgb[2]);
+                Background = pixels == default ? Pack(rgb[0], rgb[1], rgb[2]) : pixels.Pack(rgb);
                 HasBackground = true;
             }
         }
@@ -95,6 +113,7 @@ internal sealed class ShadingSource
     {
         _shading = null;
         _defaults = null;
+        Converter = null;
     }
 
     private static uint Pack(float r, float g, float b) =>
@@ -103,20 +122,22 @@ internal sealed class ShadingSource
     private static byte Channel(float value) => (byte)((Math.Clamp(value, 0f, 1f) * 255f) + 0.5f);
 
     /// <summary>Samples the function at every entry and converts the colours in one batch.</summary>
-    private void Fill(PdfShading model, PdfColorConverter converter)
+    private void Fill(PdfShading model, PdfColorConverter converter, PixelModel pixels)
     {
+        int outputs = pixels.Components;
         int n = model.ColorComponentCount;
         if (_components.Length < Size * n)
         {
             _components = new float[Size * n];
         }
 
-        if (_rgb.Length < Size * 3)
+        if (_rgb.Length < Size * outputs)
         {
-            _rgb = new float[Size * 3];
+            _rgb = new float[Size * outputs];
         }
 
         (double t0, double t1) = Domain(model);
+        ParameterDomain = (t0, t1);
         Span<float> input = stackalloc float[2];
         for (int i = 0; i < Size; i++)
         {
@@ -124,18 +145,26 @@ internal sealed class ShadingSource
             model.EvaluateFunction(input, _components.AsSpan(i * n, n));
         }
 
-        converter.Convert(_components.AsSpan(0, Size * n), _rgb.AsSpan(0, Size * 3), Size);
-        Span<float> rgb = _rgb.AsSpan(0, Size * 3);
+        converter.Convert(_components.AsSpan(0, Size * n), _rgb.AsSpan(0, Size * outputs), Size);
+        Span<float> rgb = _rgb.AsSpan(0, Size * outputs);
         for (int i = 0; i < Size; i++)
         {
-            _table[i] = Pack(rgb[3 * i], rgb[(3 * i) + 1], rgb[(3 * i) + 2]);
+            _table[i] = pixels == default ? Pack(rgb[3 * i], rgb[(3 * i) + 1], rgb[(3 * i) + 2]) : pixels.Pack(rgb.Slice(outputs * i, outputs));
         }
+    }
+
+    /// <summary>The interval of t of a mesh with a function: its Decode pair for t, into which every input is forced (§8.7.4.5.5, Table 81).</summary>
+    private static (double T0, double T1) MeshDomain(PdfMeshShading mesh)
+    {
+        IReadOnlyList<double> decode = mesh.Decode;
+        return decode.Count >= 6 ? (decode[4], decode[5]) : (0, 1);
     }
 
     private static (double T0, double T1) Domain(PdfShading model) => model switch
     {
         PdfAxialShading axial => (axial.Domain[0], axial.Domain[1]),
         PdfRadialShading radial => (radial.Domain[0], radial.Domain[1]),
+        PdfMeshShading mesh => MeshDomain(mesh),
         _ => (0, 1),
     };
 }

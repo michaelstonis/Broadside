@@ -667,7 +667,7 @@ public sealed class CanvasTests
     /// <summary>The document saved with default options.</summary>
     internal static byte[] Saved(PdfDocument document) => Save(document, new PdfSaveOptions());
 
-    private static byte[] Save(PdfDocument document, PdfSaveOptions options)
+    internal static byte[] Save(PdfDocument document, PdfSaveOptions options)
     {
         using var output = new MemoryStream();
         document.Save(output, options);
@@ -707,7 +707,7 @@ public sealed class CanvasTests
         new((CosDictionary)document.Resolve(resources[key]));
 
     /// <summary>The RGB matrix/TRC profile of the corpus file <c>icc-rgb-matrix.pdf</c>.</summary>
-    private static byte[] RgbProfile()
+    internal static byte[] RgbProfile()
     {
         using PdfDocument source = PdfDocument.Open(Corpus.Path("icc-rgb-matrix.pdf"));
         var spaces = (CosDictionary)source.Resolve(source.Pages[0].Resources![ColorSpaceKey]);

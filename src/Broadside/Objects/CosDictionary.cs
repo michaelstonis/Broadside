@@ -113,6 +113,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
                 return;
             }
 
+            CosChangeLog.Changing(this);
             _entries[key] = value;
             _changed = true;
             Version++;
@@ -137,6 +138,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
             return;
         }
 
+        CosChangeLog.Changing(this);
         _entries.Add(key, value);
         _changed = true;
         Version++;
@@ -147,6 +149,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
     /// <returns><see langword="true"/> when an entry was removed.</returns>
     public bool Remove(CosName key)
     {
+        CosChangeLog.Changing(this);
         bool removed = _entries.Remove(key);
         _changed |= removed;
         Version += removed ? 1 : 0;
@@ -156,6 +159,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
     /// <summary>Removes every entry; marks the dictionary dirty when it was not already empty.</summary>
     public void Clear()
     {
+        CosChangeLog.Changing(this);
         _changed |= _entries.Count > 0;
         Version += _entries.Count > 0 ? 1 : 0;
         _entries.Clear();
@@ -188,10 +192,29 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
     /// <inheritdoc/>
     bool ICollection<KeyValuePair<CosName, CosObject>>.Remove(KeyValuePair<CosName, CosObject> item)
     {
+        CosChangeLog.Changing(this);
         bool removed = ((ICollection<KeyValuePair<CosName, CosObject>>)_entries).Remove(item);
         _changed |= removed;
         Version += removed ? 1 : 0;
         return removed;
+    }
+
+    /// <inheritdoc/>
+    internal override Action CaptureState()
+    {
+        KeyValuePair<CosName, CosObject>[] entries = [.. _entries];
+        bool changed = _changed;
+        return () =>
+        {
+            _entries.Clear();
+            foreach ((CosName key, CosObject value) in entries)
+            {
+                _entries.Add(key, value);
+            }
+
+            _changed = changed;
+            Version++;
+        };
     }
 
     /// <summary>Replaces the value at <paramref name="index"/> as part of loading (decryption), without marking the dictionary dirty.</summary>

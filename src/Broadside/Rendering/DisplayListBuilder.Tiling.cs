@@ -42,7 +42,7 @@ internal sealed partial class DisplayListBuilder
         }
 
         int pathIndex = InternPath(path.Path);
-        SetCompositing(state);
+        SetCompositing(state, context);
         SetTransform(state.Ctm);
         AddOperation(new DisplayOperation(DisplayOperationKind.FillPathWithTilingPattern, path.FillRule, pathIndex, paint));
     }
@@ -59,7 +59,7 @@ internal sealed partial class DisplayListBuilder
 
         int pathIndex = InternPath(path.Path);
         int strokeIndex = AddStroke(paint, state);
-        SetCompositing(state);
+        SetCompositing(state, context);
         SetTransform(state.Ctm);
         AddOperation(new DisplayOperation(DisplayOperationKind.StrokePathWithTilingPattern, default, pathIndex, strokeIndex));
     }

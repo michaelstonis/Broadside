@@ -1,3 +1,4 @@
+using Broadside.Caching;
 using Broadside.Content;
 using Broadside.Fonts;
 using Broadside.Graphics;
@@ -47,6 +48,7 @@ internal sealed partial class DisplayListBuilder
     public override void ShowGlyph(in GlyphEvent glyph, ContentContext context)
     {
         NoteType3Text();
+        RecordText(glyph, context);
         if (glyph.Font is not { } font || font is PdfType3Font)
         {
             return;
@@ -60,7 +62,11 @@ internal sealed partial class DisplayListBuilder
         bool strokes = mode is TextRenderingMode.Stroke or TextRenderingMode.FillStroke or TextRenderingMode.StrokeClip or TextRenderingMode.FillStrokeClip
             && state.StrokeColor.ColorSpace.Family != PdfColorSpaceFamily.Pattern;
         ColorConversion conversion = ColorConversion.FromState(state, DeviceColorModel.Rgb);
-        SetCompositing(state);
+
+        // §11.7.4.4: a glyph both filled and stroked is one object, as if in a non-isolated knockout group.
+        int group = fills && strokes ? OpenFillAndStrokeGroup(state, context.DefaultColorSpaces, default) : -1;
+        int firstGlyph = _glyphCount;
+        SetCompositing(state, context);
         if (!ContinuesRun(program, mode, fills, strokes, state, context.DefaultColorSpaces, conversion))
         {
             int fill = fills ? AddColor(state.FillColor, context.DefaultColorSpaces, conversion) : -1;
@@ -74,8 +80,9 @@ internal sealed partial class DisplayListBuilder
         if (components is null)
         {
             // A substitute's missing glyph is not the font's: a code it has no glyph for draws nothing rather than its .notdef box.
-            int outline = _substitute is not null && glyphId == 0 ? InternPath(default) : InternOutline(program, glyphId);
+            int outline = _substitute is not null && glyphId == 0 ? InternPath(default) : InternOutline(program, glyphId, context.Document.Caches);
             AppendGlyph(new DisplayGlyph(glyphId, glyph.TextMatrix, scale, outline));
+            CloseGlyphGroup(group, firstGlyph, state);
             return;
         }
 
@@ -85,9 +92,47 @@ internal sealed partial class DisplayListBuilder
         foreach (int component in components)
         {
             Matrix textMatrix = offset == 0 ? glyph.TextMatrix : Matrix.CreateTranslation(offset, 0) * glyph.TextMatrix;
-            AppendGlyph(new DisplayGlyph(component, textMatrix, scale, InternOutline(program, component)));
+            AppendGlyph(new DisplayGlyph(component, textMatrix, scale, InternOutline(program, component, context.Document.Caches)));
             offset += _substitute!.GetWidth(component) * scale / 1000;
         }
+
+        CloseGlyphGroup(group, firstGlyph, state);
+    }
+
+    /// <summary>Closes the implicit group of a filled and stroked glyph, bounded by the glyphs' outlines and the stroke's reach.</summary>
+    private void CloseGlyphGroup(int group, int firstGlyph, in GraphicsState state)
+    {
+        if (group < 0)
+        {
+            return;
+        }
+
+        DisplayGlyphRun run = _glyphRuns[_glyphRunCount - 1];
+        double left = double.PositiveInfinity;
+        double bottom = double.PositiveInfinity;
+        double right = double.NegativeInfinity;
+        double top = double.NegativeInfinity;
+        for (int index = firstGlyph; index < _glyphCount; index++)
+        {
+            DisplayGlyph glyph = _glyphs[index];
+            Matrix font = glyph.HorizontalScale == 1 ? run.FontMatrix : run.FontMatrix * Matrix.CreateScale(glyph.HorizontalScale, 1);
+            Matrix toUser = font * glyph.TextMatrix;
+            DisplayPath outline = _paths[glyph.Outline];
+            foreach (PathPoint point in _points.AsSpan(outline.PointStart, outline.PointCount))
+            {
+                PathPoint mapped = toUser.Transform(point);
+                left = Math.Min(left, mapped.X);
+                right = Math.Max(right, mapped.X);
+                bottom = Math.Min(bottom, mapped.Y);
+                top = Math.Max(top, mapped.Y);
+            }
+        }
+
+        double reach = StrokeReach(state);
+        PdfRectangle bounds = double.IsFinite(left + right + bottom + top)
+            ? new PdfRectangle(left - reach, bottom - reach, right + reach, top + reach)
+            : default;
+        CloseFillAndStrokeGroup(group, bounds);
     }
 
     /// <summary>Appends a glyph to the open run.</summary>
@@ -168,8 +213,11 @@ internal sealed partial class DisplayListBuilder
         return _program;
     }
 
-    /// <summary>Returns the index of a glyph's outline in the path table, extracting it the first time the build meets the glyph.</summary>
-    private int InternOutline(FontProgram? program, int glyphId)
+    /// <summary>
+    /// Returns the index of a glyph's outline in the path table: interned earlier in the build, else copied from the document's glyph
+    /// cache (issue #103), else extracted from the program and offered to that cache.
+    /// </summary>
+    private int InternOutline(FontProgram? program, int glyphId, DocumentCaches caches)
     {
         if (program is null)
         {
@@ -181,9 +229,23 @@ internal sealed partial class DisplayListBuilder
             return known;
         }
 
-        _outline ??= new GlyphOutline();
-        GlyphOutlineStatus status = program.GetOutline(glyphId, _outline);
-        int index = InternPath(status == GlyphOutlineStatus.Complete ? _outline.Path : default);
+        int index;
+        if (caches.Glyphs.TryGet((program, glyphId), out GlyphOutlineEntry? cached))
+        {
+            index = InternPath(cached.Path);
+        }
+        else
+        {
+            _outline ??= new GlyphOutline();
+            GlyphOutlineStatus status = program.GetOutline(glyphId, _outline);
+            PathView path = status == GlyphOutlineStatus.Complete ? _outline.Path : default;
+            index = InternPath(path);
+            if (GlyphOutlineEntry.BytesOf(path) <= caches.Glyphs.Budget)
+            {
+                caches.Glyphs.Add((program, glyphId), new GlyphOutlineEntry(path.Verbs.ToArray(), path.Points.ToArray()));
+            }
+        }
+
         _outlines[(program, glyphId)] = index;
         return index;
     }

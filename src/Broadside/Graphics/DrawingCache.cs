@@ -42,6 +42,27 @@ internal sealed class DrawingCache(PdfDocument document)
         return reference;
     }
 
+    /// <summary>Returns the object created for <paramref name="key"/>, when there is one and its reference still resolves to it.</summary>
+    public bool TryGet(string key, out CosReference reference)
+    {
+        if (_objects.TryGetValue(key, out (CosReference Reference, CosObject Value) known) && ReferenceEquals(document.Resolve(known.Reference), known.Value))
+        {
+            reference = known.Reference;
+            return true;
+        }
+
+        reference = null!;
+        return false;
+    }
+
+    /// <summary>Adds <paramref name="value"/> to the document and remembers it under <paramref name="key"/>; for objects whose creation needs data a <see cref="GetOrAdd"/> callback cannot capture.</summary>
+    public CosReference Add(string key, CosObject value)
+    {
+        CosReference reference = document.AddObject(value);
+        _objects[key] = (reference, value);
+        return reference;
+    }
+
     /// <summary>The value a colour space is written as where another refers to it: its reference, else the object.</summary>
     public static CosObject Value(PdfColorSpace space) => (CosObject?)space.Reference ?? space.CosObject;
 

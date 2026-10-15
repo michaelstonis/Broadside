@@ -23,7 +23,7 @@ public sealed class PdfPatchMeshBuilder : PdfMeshBuilder
     /// <param name="colorSpace">The mesh's colour space: any space except Pattern.</param>
     /// <param name="tensorProduct"><see langword="true"/> for tensor-product patches (16 control points, Type 7); <see langword="false"/> for Coons patches (12, Type 6).</param>
     /// <exception cref="ArgumentException"><paramref name="colorSpace"/> is a Pattern space.</exception>
-    public PdfPatchMeshBuilder(PdfColorSpace colorSpace, bool tensorProduct = false)
+    public PdfPatchMeshBuilder(PdfColorSpace colorSpace, bool tensorProduct)
         : base(colorSpace, null)
     {
         IsTensorProduct = tensorProduct;
@@ -34,7 +34,7 @@ public sealed class PdfPatchMeshBuilder : PdfMeshBuilder
     /// <param name="function">A function from t to the colour space's components.</param>
     /// <param name="tensorProduct"><see langword="true"/> for tensor-product patches (Type 7); <see langword="false"/> for Coons patches (Type 6).</param>
     /// <exception cref="ArgumentException">The space is a Pattern or Indexed space, or the function is unusable or does not take 1 input to the space's components.</exception>
-    public PdfPatchMeshBuilder(PdfColorSpace colorSpace, PdfFunction function, bool tensorProduct = false)
+    public PdfPatchMeshBuilder(PdfColorSpace colorSpace, PdfFunction function, bool tensorProduct)
         : base(colorSpace, function ?? throw new ArgumentNullException(nameof(function)))
     {
         IsTensorProduct = tensorProduct;

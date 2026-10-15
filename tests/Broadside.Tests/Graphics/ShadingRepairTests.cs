@@ -41,6 +41,32 @@ public sealed class ShadingRepairTests
     }
 
     [Fact]
+    public void The_mesh_limit_of_the_options_cuts_a_larger_mesh_with_one_size_diagnostic()
+    {
+        // shading-type4-freeform.pdf has five vertices; with a limit of four the third triangle, which needs the fifth, is dropped.
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("shading-type4-freeform.pdf"), new PdfOptions().WithMaxMeshVertices(4));
+
+        PdfTriangleMeshShading shading = OnlyShading<PdfTriangleMeshShading>(document);
+
+        Assert.Equal(4, shading.VertexCount);
+        Assert.Equal([0, 1, 2, 1, 2, 3], shading.Triangles.ToArray());
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal(("MeshSizeExceeded", new CosReference(5, 0)), (diagnostic.Code, diagnostic.ObjectReference));
+    }
+
+    [Fact]
+    public void The_mesh_limit_must_be_positive_and_defaults_to_2_to_the_22()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new PdfOptions().WithMaxMeshVertices(0));
+        Assert.Equal(1 << 22, new PdfOptions().MaxMeshVertices);
+        Assert.Equal(PdfOptions.DefaultMaxMeshVertices, new PdfOptions().MaxMeshVertices);
+
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("shading-type4-freeform.pdf"), new PdfOptions().WithMaxMeshVertices(5));
+        Assert.Equal(3, OnlyShading<PdfTriangleMeshShading>(document).TriangleCount);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
     public void A_shading_with_CS_instead_of_ColorSpace_is_read_with_a_diagnostic()
     {
         (PdfShading? shading, string[] codes) = Read($"<< /ShadingType 2 /CS /DeviceRGB /Coords [0 0 1 0] {Red} >>");

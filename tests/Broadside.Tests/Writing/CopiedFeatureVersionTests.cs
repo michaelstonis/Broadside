@@ -134,6 +134,8 @@ public sealed class CopiedFeatureVersionTests
         { "<< /Type /ExtGState /SMask /None >>", "1.4", "a soft mask (SMask) (ISO 32000-2 §11.6.5; Tables 57 and 87) needs PDF 1.4" },
         { "<< /Type /Mask /S /Luminosity /BC [0] >>", "1.4", "a soft mask (SMask) (ISO 32000-2 §11.6.5; Tables 57 and 87) needs PDF 1.4" },
         { "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /SMask 3 0 R >> stream", "1.4", "a soft mask (SMask) (ISO 32000-2 §11.6.5; Tables 57 and 87) needs PDF 1.4" },
+        { "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Mask [0 0] >> stream", "1.3", "an image's Mask entry (explicit or colour key masking) (ISO 32000-2 §8.9.6.3 and §8.9.6.4; Table 87) needs PDF 1.3" },
+        { "<< /Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 16 >> stream", "1.5", "16 bits per image component (ISO 32000-2 §8.9.5.1, Table 87) needs PDF 1.5" },
         { "<< /Type /ExtGState /CA 0.5 >>", "1.4", "transparency parameters (CA, ca, BM, AIS, TK) (ISO 32000-2 §11.6.3 and §11.6.4.4, Table 57) needs PDF 1.4" },
         { "<< /BM /Multiply /AIS true >>", "1.4", "transparency parameters (CA, ca, BM, AIS, TK) (ISO 32000-2 §11.6.3 and §11.6.4.4, Table 57) needs PDF 1.4" },
         { "<< /Filter /JBIG2Decode >> stream", "1.4", "JBIG2Decode compression (ISO 32000-2 §7.4.7, Table 6) needs PDF 1.4" },
@@ -147,6 +149,14 @@ public sealed class CopiedFeatureVersionTests
         { "<< /Subtype /Text /Rect [0 0 1 1] /Lang (en-GB) >>", "2.0", "PDF 2.0 annotation entries" },
         { "<< /Type /Annot /Subtype /Projection /Rect [0 0 1 1] >>", "2.0", "PDF 2.0 annotation entries" },
         { "<< /Type /Annot /Subtype /RichMedia /Rect [0 0 1 1] >>", "2.0", "PDF 2.0 annotation entries" },
+        { "<< /FunctionType 0 /Domain [0 1] /Range [0 1] /Size [2] /BitsPerSample 8 >> stream", "1.2", "a sampled function (FunctionType 0) (ISO 32000-2 §7.10.2) needs PDF 1.2" },
+        { "<< /FunctionType 2 /Domain [0 1] /N 1 >>", "1.3", "an exponential, stitching or PostScript calculator function (FunctionType 2, 3 or 4)" },
+        { "<< /FunctionType 3 /Domain [0 1] /Functions [] /Bounds [] /Encode [] >>", "1.3", "an exponential, stitching or PostScript calculator function (FunctionType 2, 3 or 4)" },
+        { "<< /ShadingType 2 /ColorSpace /DeviceGray /Coords [0 0 1 0] /Function 4 0 R >>", "1.3", "a shading (sh, Shading resources, shading patterns)" },
+        { "<< /ShadingType 4 /ColorSpace /DeviceGray /BitsPerCoordinate 8 /BitsPerComponent 8 /BitsPerFlag 8 /Decode [0 1 0 1 0 1] >> stream", "1.3", "a shading (sh, Shading resources, shading patterns)" },
+        { "<< /PatternType 2 /Shading 4 0 R >>", "1.3", "a shading (sh, Shading resources, shading patterns)" },
+        { "<< /PatternType 1 /PaintType 1 /TilingType 1 /BBox [0 0 1 1] /XStep 1 /YStep 1 /Resources << >> >> stream", "1.2", "a Pattern colour space or tiling pattern" },
+        { "[/Pattern /DeviceRGB]", "1.2", "a Pattern colour space or tiling pattern" },
     };
 
     [Theory]

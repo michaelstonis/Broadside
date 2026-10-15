@@ -14,6 +14,8 @@ internal static partial class DiagnosticCodes
     public const string TintTransformInvalid = nameof(TintTransformInvalid);
     public const string DeviceNColorantsInvalid = nameof(DeviceNColorantsInvalid);
     public const string DefaultColorSpaceInvalid = nameof(DefaultColorSpaceInvalid);
+    public const string GroupColorSpaceInvalid = nameof(GroupColorSpaceInvalid);
+    public const string SoftMaskColorSpaceMissing = nameof(SoftMaskColorSpaceMissing);
 
     // Colour operators in content streams (§8.6.8, Table 73).
     public const string ContentColorSpaceMissing = nameof(ContentColorSpaceMissing);

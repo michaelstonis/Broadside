@@ -54,6 +54,7 @@ internal readonly ref struct ImagePainter : ICoverageSink
     /// <param name="maskHeight">The mask height in samples.</param>
     /// <param name="maskInterpolate">Whether the mask's enlarged samples are blended bilinearly.</param>
     /// <param name="compositor">The constant alpha and blend mode the pixels composite with (§11.3); the default is opaque Normal.</param>
+    /// <param name="average">Whether a reduced axis averages the samples under the pixel; otherwise the sample at its centre is taken (§10.7.4).</param>
     public ImagePainter(
         Span<byte> target,
         int stride,
@@ -66,16 +67,17 @@ internal readonly ref struct ImagePainter : ICoverageSink
         int maskWidth = 1,
         int maskHeight = 1,
         bool maskInterpolate = false,
-        Compositor compositor = default)
+        Compositor compositor = default,
+        bool average = true)
     {
         _compositor = compositor;
         _target = target;
         _stride = stride;
         _pixels = pixels;
         _inverse = inverse;
-        _grid = new Grid(width, height, inverse, 1, 1, interpolate);
+        _grid = new Grid(width, height, inverse, 1, 1, interpolate, average);
         _mask = mask;
-        _maskGrid = new Grid(maskWidth, maskHeight, inverse, (double)maskWidth / width, (double)maskHeight / height, maskInterpolate);
+        _maskGrid = new Grid(maskWidth, maskHeight, inverse, (double)maskWidth / width, (double)maskHeight / height, maskInterpolate, average);
     }
 
     /// <summary>Creates a painter of one colour through a mask.</summary>
@@ -88,14 +90,15 @@ internal readonly ref struct ImagePainter : ICoverageSink
     /// <param name="inverse">Device pixels to mask space (samples, y down from the first row).</param>
     /// <param name="interpolate">Whether enlarged samples are blended bilinearly rather than shown as blocks.</param>
     /// <param name="compositor">The constant alpha and blend mode the colour composites with (§11.3); the default is opaque Normal.</param>
-    public ImagePainter(Span<byte> target, int stride, uint color, byte[] mask, int width, int height, in Matrix inverse, bool interpolate, Compositor compositor = default)
+    /// <param name="average">Whether a reduced axis averages the samples under the pixel; otherwise the sample at its centre is taken (§10.7.4).</param>
+    public ImagePainter(Span<byte> target, int stride, uint color, byte[] mask, int width, int height, in Matrix inverse, bool interpolate, Compositor compositor = default, bool average = true)
     {
         _compositor = compositor;
         _target = target;
         _stride = stride;
         _solid = color;
         _inverse = inverse;
-        _grid = new Grid(width, height, inverse, 1, 1, interpolate);
+        _grid = new Grid(width, height, inverse, 1, 1, interpolate, average);
         _mask = mask;
         _maskGrid = _grid;
     }
@@ -294,7 +297,7 @@ internal readonly ref struct ImagePainter : ICoverageSink
     /// <summary>A grid of samples that maps onto the unit square: its size, the half-extents of a pixel's footprint on it, its filter.</summary>
     private readonly struct Grid
     {
-        public Grid(int width, int height, in Matrix inverse, double scaleU, double scaleV, bool interpolate)
+        public Grid(int width, int height, in Matrix inverse, double scaleU, double scaleV, bool interpolate, bool average)
         {
             Width = width;
             Height = height;
@@ -303,6 +306,13 @@ internal readonly ref struct ImagePainter : ICoverageSink
             Interpolate = interpolate;
             HalfU = 0.5 * (Math.Abs(inverse.A) + Math.Abs(inverse.C)) * scaleU;
             HalfV = 0.5 * (Math.Abs(inverse.B) + Math.Abs(inverse.D)) * scaleV;
+            if (!average)
+            {
+                // Without averaging, a reduced axis takes the sample under the pixel's centre, as an enlarged one does.
+                HalfU = Math.Min(HalfU, 0.5);
+                HalfV = Math.Min(HalfV, 0.5);
+            }
+
             Boxed = HalfU > 0.5 || HalfV > 0.5;
         }
 

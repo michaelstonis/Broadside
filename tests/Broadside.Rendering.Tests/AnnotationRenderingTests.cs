@@ -1,3 +1,4 @@
+using Broadside.GoldenImages;
 using Broadside.Graphics;
 using Broadside.Objects;
 using Broadside.TestSupport;
@@ -7,7 +8,9 @@ namespace Broadside.Rendering.Tests;
 /// <summary>
 /// Annotation and form-field layers through the software rasterizer (ISO 32000-2 §12.5.3, §12.5.5, §12.7), observed as pixels:
 /// the layers composite in order to the whole page, NoZoom and NoRotate keep an annotation's size and orientation on screen, and
-/// an annotation's opacity applies to its appearance as a group.
+/// an annotation's opacity applies to its appearance as a group. Corpus files open through <see cref="GoldenCorpus.Open"/>, whose fonts
+/// do not depend on the machine: a widget drawn in a non-embedded font (ZapfDingbats in acroform-fields.pdf) is otherwise drawn only
+/// where the operating system has that font.
 /// </summary>
 public sealed class AnnotationRenderingTests
 {
@@ -26,7 +29,7 @@ public sealed class AnnotationRenderingTests
     [InlineData("annotations-nozoom.pdf", 1)]
     public void The_whole_page_is_the_content_annotation_and_form_field_layers_composited_in_order(string fileName, int pageIndex)
     {
-        using PdfDocument document = PdfDocument.Open(Corpus.Bytes(fileName));
+        using PdfDocument document = GoldenCorpus.Open(fileName);
         PdfPage page = document.Pages[pageIndex];
         var options = new RenderOptions().WithScale(2);
         using var rasterizer = new SoftwareRasterizer();
@@ -49,7 +52,7 @@ public sealed class AnnotationRenderingTests
     [Fact]
     public void Each_layer_draws_only_its_own_annotations()
     {
-        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("acroform-fields.pdf"));
+        using PdfDocument document = GoldenCorpus.Open("acroform-fields.pdf");
         using var rasterizer = new SoftwareRasterizer();
 
         // The name field (widget 10, Rect [50 700 250 720]) shows "Ada" in black: only in the form-field layer.
@@ -63,7 +66,7 @@ public sealed class AnnotationRenderingTests
     [Fact]
     public void NoZoom_annotations_keep_their_size_at_400_percent_and_the_others_scale()
     {
-        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("annotations-nozoom.pdf"));
+        using PdfDocument document = GoldenCorpus.Open("annotations-nozoom.pdf");
         using var rasterizer = new SoftwareRasterizer();
         using Bitmap bitmap = rasterizer.Render(document.Pages[0], new RenderOptions().WithScale(4));
 
@@ -83,7 +86,7 @@ public sealed class AnnotationRenderingTests
     [Fact]
     public void NoRotate_annotations_stay_upright_about_their_upper_left_corner_when_the_page_is_rotated()
     {
-        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("annotations-nozoom.pdf"));
+        using PdfDocument document = GoldenCorpus.Open("annotations-nozoom.pdf");
         using var rasterizer = new SoftwareRasterizer();
 
         // Page 2 is page 1 with /Rotate 90: default user space (x, y) lands on pixel (y, x).
@@ -105,7 +108,7 @@ public sealed class AnnotationRenderingTests
     [Fact]
     public void An_annotation_with_NoZoom_and_NoRotate_keeps_its_size_and_orientation_at_400_percent_on_a_rotated_page()
     {
-        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("annotations-nozoom.pdf"));
+        using PdfDocument document = GoldenCorpus.Open("annotations-nozoom.pdf");
         using var rasterizer = new SoftwareRasterizer();
         using Bitmap bitmap = rasterizer.Render(document.Pages[1], new RenderOptions().WithScale(4));
 
@@ -117,7 +120,7 @@ public sealed class AnnotationRenderingTests
     [Fact]
     public void Printing_places_NoZoom_annotations_like_any_other()
     {
-        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("annotations-nozoom.pdf"));
+        using PdfDocument document = GoldenCorpus.Open("annotations-nozoom.pdf");
         using var rasterizer = new SoftwareRasterizer();
         using Bitmap bitmap = rasterizer.Render(document.Pages[0], new RenderOptions().WithScale(4).WithIntent(DisplayIntent.Print));
 
@@ -127,7 +130,7 @@ public sealed class AnnotationRenderingTests
     [Fact]
     public void An_annotation_with_an_opacity_composites_its_appearance_with_it()
     {
-        using PdfDocument document = PdfDocument.Open(Corpus.Bytes("annotations-appearance.pdf"));
+        using PdfDocument document = GoldenCorpus.Open("annotations-appearance.pdf");
         document.Pages[0].Annotations[0].Dictionary[new CosName("CA")] = new CosReal(0.5);
         using var rasterizer = new SoftwareRasterizer();
         using Bitmap bitmap = rasterizer.Render(document.Pages[0]);
@@ -157,6 +160,34 @@ public sealed class AnnotationRenderingTests
         Assert.InRange(pixel.G, minGreen, maxGreen);
         Assert.InRange(pixel.B, minBlue, maxBlue);
         Assert.Equal(new Rgba(128, 128, 255, 255), bitmap.At(250, 792 - 150));
+    }
+
+    [Theory]
+    [InlineData("", 128)]
+    [InlineData(" /Group << /S /Transparency /I true >>", 191)]
+    public void A_translucent_appearance_is_a_group_whose_blend_modes_see_the_page_unless_it_is_isolated(string group, int red)
+    {
+        // Red multiplied over the page's gray: inside a non-isolated group it blends with the page, (0.5, 0, 0), and the group at
+        // half opacity lands halfway back to the gray, (0.5, 0.25, 0.25). Isolated, the red blends with nothing and stays red:
+        // (0.75, 0.25, 0.25) (§11.4.5, §11.6.6, §12.5.5).
+        const string resources = "/ExtGState << /M << /BM /Multiply >> >>";
+        byte[] file = ContentSamples.File(
+        [
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+            "<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Annots [6 0 R] >>",
+            ContentSamples.Stream("0.5 g 0 0 612 792 re f"),
+            ContentSamples.Stream("/M gs 1 0 0 rg 0 0 100 100 re f", $"/Type /XObject /Subtype /Form /BBox [0 0 100 100]{group} /Resources << {resources} >>"),
+            "<< /Type /Annot /Subtype /Square /Rect [100 100 200 200] /F 4 /CA 0.5 /AP << /N 5 0 R >> >>",
+        ]);
+        using PdfDocument document = PdfDocument.Open(file);
+        using var rasterizer = new SoftwareRasterizer();
+        using Bitmap bitmap = rasterizer.Render(document.Pages[0]);
+
+        Rgba pixel = bitmap.At(150, 792 - 150);
+        Assert.InRange(pixel.R, red - 1, red + 1);
+        Assert.InRange(pixel.G, 63, 65);
+        Assert.InRange(pixel.B, 63, 65);
     }
 
     [Fact]

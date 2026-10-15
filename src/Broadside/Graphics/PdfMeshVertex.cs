@@ -5,7 +5,7 @@ namespace Broadside.Graphics;
 /// ISO 32000-2 §8.7.4.5.5 and §8.7.4.5.6: each vertex has coordinates and either n colour components (in the shading's colour
 /// space) or, when the shading has a function, a single parametric value t that the function maps to a colour.
 /// </remarks>
-public readonly struct PdfMeshVertex
+public readonly struct PdfMeshVertex : IEquatable<PdfMeshVertex>
 {
     /// <summary>Initializes a new instance of the <see cref="PdfMeshVertex"/> struct with a colour, for a mesh without a function.</summary>
     /// <param name="x">The horizontal coordinate, in the shading's target space.</param>
@@ -39,4 +39,26 @@ public readonly struct PdfMeshVertex
 
     /// <summary>Gets a value indicating whether the vertex has a parametric value rather than a colour.</summary>
     public bool IsParametric { get; }
+
+    /// <summary>Compares two vertices for equality.</summary>
+    /// <param name="left">The first vertex.</param>
+    /// <param name="right">The second vertex.</param>
+    /// <returns><see langword="true"/> when they are equal.</returns>
+    public static bool operator ==(PdfMeshVertex left, PdfMeshVertex right) => left.Equals(right);
+
+    /// <summary>Compares two vertices for inequality.</summary>
+    /// <param name="left">The first vertex.</param>
+    /// <param name="right">The second vertex.</param>
+    /// <returns><see langword="true"/> when they differ.</returns>
+    public static bool operator !=(PdfMeshVertex left, PdfMeshVertex right) => !left.Equals(right);
+
+    /// <inheritdoc/>
+    public bool Equals(PdfMeshVertex other) =>
+        Point == other.Point && IsParametric == other.IsParametric && Parameter.Equals(other.Parameter) && Color.Equals(other.Color);
+
+    /// <inheritdoc/>
+    public override bool Equals(object? obj) => obj is PdfMeshVertex other && Equals(other);
+
+    /// <inheritdoc/>
+    public override int GetHashCode() => HashCode.Combine(Point, IsParametric, Parameter, Color);
 }

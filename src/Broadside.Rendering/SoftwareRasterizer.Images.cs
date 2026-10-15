@@ -46,32 +46,43 @@ public sealed partial class SoftwareRasterizer
             PdfColorConverter converter = ImageConverter(image.ColorSpace, defaultColorSpaces, conversion);
             if (converter.PaintsNothing)
             {
+                _scan.Reset(_width, _height);
+                return;
+            }
+
+            if (_previewing)
+            {
+                PreviewImage(image, defaultColorSpaces, conversion, inverse);
                 return;
             }
 
             PdfColorConverter? baseConverter = image.ColorSpace is PdfIndexedColorSpace indexed && !image.Matte.IsEmpty
-                ? _imageBaseConverter ??= _document!.GetColorConverter(indexed.Base, conversion with { Target = DeviceColorModel.Rgb }, defaultColorSpaces)
+                ? _imageBaseConverter ??= _document!.GetColorConverter(indexed.Base, _pixelModel.Convert(conversion), defaultColorSpaces)
                 : null;
-            _imageSource.Prepare(image, converter, baseConverter);
-            byte[]? opacity = null;
-            int maskWidth = 1;
-            int maskHeight = 1;
-            bool maskInterpolate = false;
+            _imageSource.Prepare(image, converter, baseConverter, _pixelModel);
+            (byte[]? opacity, int maskWidth, int maskHeight, bool maskInterpolate) = PrepareImageMask(image);
+            Bitmap target = _target!;
+            var painter = new ImagePainter(
+                target.Pixels, target.Stride, _imageSource.Buffer, image.Width, image.Height, inverse, image.Interpolate, opacity, maskWidth, maskHeight, maskInterpolate, _fillCompositor, Averages);
+            PaintImage(ref painter);
+        }
+
+        /// <summary>Prepares the image's mask of another size than its own (§8.9.6.3, §11.6.5.2): its opacities and grid, or none.</summary>
+        private (byte[]? Opacity, int Width, int Height, bool Interpolate) PrepareImageMask(DisplayImage image)
+        {
             if (image.SoftMask is { } soft && !ImageSource.FoldsSoftMask(image) && (long)soft.Width * soft.Height <= Array.MaxLength)
             {
                 _maskSource.Prepare(soft);
-                (opacity, maskWidth, maskHeight, maskInterpolate) = (_maskSource.Buffer, soft.Width, soft.Height, soft.Interpolate);
-            }
-            else if (image.Mask is { } mask && !ImageSource.FoldsMask(image) && (long)mask.Width * mask.Height <= Array.MaxLength)
-            {
-                _maskSource.Prepare(mask);
-                (opacity, maskWidth, maskHeight, maskInterpolate) = (_maskSource.Buffer, mask.Width, mask.Height, mask.Interpolate);
+                return (_maskSource.Buffer, soft.Width, soft.Height, soft.Interpolate);
             }
 
-            Bitmap target = _target!;
-            var painter = new ImagePainter(
-                target.Pixels, target.Stride, _imageSource.Buffer, image.Width, image.Height, inverse, image.Interpolate, opacity, maskWidth, maskHeight, maskInterpolate, _fillCompositor);
-            _scan.Paint(FillRule.NonZero, ref painter);
+            if (image.Mask is { } mask && !ImageSource.FoldsMask(image) && (long)mask.Width * mask.Height <= Array.MaxLength)
+            {
+                _maskSource.Prepare(mask);
+                return (_maskSource.Buffer, mask.Width, mask.Height, mask.Interpolate);
+            }
+
+            return (null, 1, 1, false);
         }
 
         /// <summary>Paints the colour through the stencil mask in the parallelogram the unit square maps to.</summary>
@@ -92,12 +103,35 @@ public sealed partial class SoftwareRasterizer
                 return;
             }
 
+            if (_previewing)
+            {
+                PreviewImageMask(mask, color, inverse);
+                return;
+            }
+
             Span<float> rgb = stackalloc float[4];
             converter.Convert(color.Components, rgb);
             _maskSource.Prepare(mask);
             Bitmap target = _target!;
-            var painter = new ImagePainter(target.Pixels, target.Stride, Pack(rgb), _maskSource.Buffer, mask.Width, mask.Height, inverse, mask.Interpolate, _fillCompositor);
-            _scan.Paint(FillRule.NonZero, ref painter);
+            var painter = new ImagePainter(target.Pixels, target.Stride, Pack(rgb), _maskSource.Buffer, mask.Width, mask.Height, inverse, mask.Interpolate, _fillCompositor, Averages);
+            PaintImage(ref painter);
+        }
+
+        /// <summary>Whether reduced images average the samples under each pixel; without anti-aliasing the sample under its centre is taken (§10.7.4).</summary>
+        private bool Averages => _imageRule == CoverageRule.Exact;
+
+        /// <summary>Paints the unit square's outline with the image coverage rule (§10.7.4: pixel centres inside, without anti-aliasing).</summary>
+        private void PaintImage(ref ImagePainter painter)
+        {
+            _scan.Rule = _imageRule;
+            try
+            {
+                _scan.Paint(FillRule.NonZero, ref painter);
+            }
+            finally
+            {
+                _scan.Rule = _pathRule;
+            }
         }
 
         private static bool IsFinite(in Matrix m) =>
@@ -129,12 +163,13 @@ public sealed partial class SoftwareRasterizer
 
         private PdfColorConverter ImageConverter(PdfColorSpace space, PdfDefaultColorSpaces defaults, ColorConversion conversion)
         {
+            conversion = _pixelModel.Convert(conversion);
             if (_imageConverter is null || !ReferenceEquals(_imageSpace, space) || !ReferenceEquals(_imageDefaults, defaults) || _imageConversion != conversion)
             {
                 _imageSpace = space;
                 _imageDefaults = defaults;
                 _imageConversion = conversion;
-                _imageConverter = _document!.GetColorConverter(space, conversion with { Target = DeviceColorModel.Rgb }, defaults);
+                _imageConverter = _document!.GetColorConverter(space, conversion, defaults);
                 _imageBaseConverter = null;
             }
 

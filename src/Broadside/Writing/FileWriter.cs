@@ -689,7 +689,10 @@ internal sealed partial class FileWriter
     /// The entries a cross-reference section lists, in ascending number. A complete file, and an update to a file whose
     /// cross-reference information was rebuilt, list every number below <paramref name="size"/> (<see cref="Complete"/>). Any other
     /// update lists object 0, the head of the free list, then the objects written and the numbers freed (§7.5.6, H.7.4): the freed
-    /// numbers link from 0 in ascending order back to 0, each with the generation a reuse would take.
+    /// numbers link from 0 in ascending order back to 0, each with the generation a reuse would take. So does an update to a rebuilt
+    /// file whose numbers are too sparse to list every one (the limits above which a complete save renumbers, <see cref="SavePlan"/>):
+    /// an update cannot renumber, and a damaged file's scan may find an object numbered near <see cref="int.MaxValue"/>, whose
+    /// complete table would not fit in memory (fuzz finding, save target).
     /// </summary>
     private List<(int Number, XrefEntry Entry)> Listing(Dictionary<int, XrefEntry> entries, int size)
     {
@@ -704,6 +707,11 @@ internal sealed partial class FileWriter
                 }
             }
 
+            if (_update is not null && !IsDense(size - 1, entries.Count + _freeGenerations.Count))
+            {
+                return SparseListing(entries);
+            }
+
             XrefEntry[] table = Complete(entries, size);
             for (int number = 0; number < table.Length; number++)
             {
@@ -713,6 +721,18 @@ internal sealed partial class FileWriter
             return listing;
         }
 
+        return SparseListing(entries);
+    }
+
+    /// <summary>Whether a section may list every number up to <paramref name="highest"/> for <paramref name="count"/> listed objects.</summary>
+    private static bool IsDense(int highest, int count) =>
+        highest <= SavePlan.MaxObjectNumber
+        && (highest <= SavePlan.MaxSparseObjectNumber || highest <= (long)SavePlan.MaxNumbersPerObject * Math.Max(count, 1));
+
+    /// <summary>Object 0, the freed numbers linked from it in ascending order, and the entries, in ascending number.</summary>
+    private List<(int Number, XrefEntry Entry)> SparseListing(Dictionary<int, XrefEntry> entries)
+    {
+        var listing = new List<(int Number, XrefEntry Entry)>();
         int[] freed = [.. _freeGenerations.Keys.Order()];
         listing.Add((0, new XrefEntry(XrefEntryKind.Free, freed.Length > 0 ? freed[0] : 0, CosReference.MaxGeneration)));
         for (int index = 0; index < freed.Length; index++)

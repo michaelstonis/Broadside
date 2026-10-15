@@ -65,7 +65,7 @@ internal static class LinearizationReader
             return null;
         }
 
-        IReadOnlyList<CosReference> firstPageObjects = FirstPageObjects(loader.CrossReference);
+        IReadOnlyList<CosReference> firstPageObjects = FirstPageObjects(loader.CrossReference.FirstPageSection);
         return new PdfLinearization(
             dictionary,
             reference,
@@ -111,6 +111,57 @@ internal static class LinearizationReader
         return true;
     }
 
+    /// <summary>
+    /// Reads the linearization parameter dictionary straight from the first 1024 bytes after the header, before any cross-reference
+    /// information is known (Annex G, G.2: a reader of a linearized file "need not read the startxref"), and returns it when it is
+    /// valid (Table F.1) and its <c>L</c> is the file's length, so the file is linearized.
+    /// </summary>
+    /// <param name="source">The file.</param>
+    /// <param name="header">The header.</param>
+    /// <returns>The parameters, or <see langword="null"/> when the file is not linearized or its first object does not parse cleanly.</returns>
+    public static LinearizationParameters? ReadParameters(PdfSource source, FileHeader header)
+    {
+        Span<byte> buffer = stackalloc byte[SearchLength];
+        ReadOnlySpan<byte> start = buffer[..source.Read(header.Offset, buffer)];
+        if (start.IndexOf("/Linearized"u8) < 0)
+        {
+            return null;
+        }
+
+        var lexer = new CosLexer(start);
+        if (!StructureTokens.TryReadUnsigned(ref lexer, out long number)
+            || !StructureTokens.TryReadUnsigned(ref lexer, out long generation)
+            || !StructureTokens.TryReadKeyword(ref lexer, "obj"u8)
+            || number is 0 or > int.MaxValue
+            || generation > CosReference.MaxGeneration)
+        {
+            return null;
+        }
+
+        var repairs = new CosRepairLog();
+        var parser = new CosParser(start, repairs, lexer.Position);
+        if (parser.ParseObject() is not CosDictionary dictionary || repairs.Count > 0)
+        {
+            return null;
+        }
+
+        var after = new CosLexer(start, parser.Position);
+        if (!StructureTokens.TryReadKeyword(ref after, "endobj"u8)
+            || !TryValidate(dictionary, out long[] hintStreams)
+            || dictionary[PdfLinearization.Names.L] is not CosInteger { Value: var length }
+            || length != source.Length - header.Offset)
+        {
+            return null;
+        }
+
+        return new LinearizationParameters(
+            new CosReference((int)number, (int)generation),
+            header.Offset,
+            ((CosInteger)dictionary[PdfLinearization.Names.E]).Value,
+            hintStreams,
+            header.Offset + after.Position);
+    }
+
     private static bool IsInteger(CosDictionary dictionary, CosName key, long minimum) =>
         dictionary.TryGetValue(key, out CosObject? value) && value is CosInteger integer && integer.Value >= minimum;
 
@@ -118,16 +169,15 @@ internal static class LinearizationReader
     /// The in-use objects of the first-page cross-reference section (F.3.4): the section the original revision's chain reaches first,
     /// whose <c>Prev</c> points forward to the main section.
     /// </summary>
-    private static List<CosReference> FirstPageObjects(CrossReference crossReference)
+    private static List<CosReference> FirstPageObjects(XrefSection? firstPage)
     {
         var objects = new List<CosReference>();
-        XrefRevision original = crossReference.Revisions[0];
-        if (!original.IsLinearizedPair)
+        if (firstPage is null)
         {
             return objects;
         }
 
-        foreach ((int number, XrefEntry entry) in original.Newest.Entries)
+        foreach ((int number, XrefEntry entry) in firstPage.Entries)
         {
             switch (entry.Kind)
             {
@@ -145,4 +195,19 @@ internal static class LinearizationReader
         objects.Sort((left, right) => left.ObjectNumber.CompareTo(right.ObjectNumber));
         return objects;
     }
+}
+
+/// <summary>A linearized file's parameter dictionary, read before its cross-reference information (Table F.1).</summary>
+/// <param name="Reference">The dictionary's object number and generation.</param>
+/// <param name="HeaderOffset">The absolute offset of the header, which the file's offsets count from.</param>
+/// <param name="FirstPageEnd">The <c>E</c> entry: the end of the first page, relative to the header.</param>
+/// <param name="HintStreams">The <c>H</c> entry: offset and length of the primary hint stream, then of the overflow stream.</param>
+/// <param name="End">The absolute offset just past the dictionary's <c>endobj</c>, where the first-page section follows (F.3.4).</param>
+internal sealed record LinearizationParameters(CosReference Reference, long HeaderOffset, long FirstPageEnd, long[] HintStreams, long End)
+{
+    /// <summary>
+    /// Gets the absolute offset up to which the file holds everything opening it and displaying its first page needs: the end of
+    /// the first page or of the primary hint stream, whichever is later (F.3.6: the hint stream may follow the first page).
+    /// </summary>
+    public long FirstPageSectionEnd => HeaderOffset + Math.Max(FirstPageEnd, HintStreams[0] + HintStreams[1]);
 }

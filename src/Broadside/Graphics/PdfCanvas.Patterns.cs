@@ -182,7 +182,7 @@ public sealed partial class PdfCanvas
     private void CheckPattern(PdfPattern pattern)
     {
         ArgumentNullException.ThrowIfNull(pattern);
-        ThrowIfNotAtPageLevel();
+        ThrowIfPathOpen();
         ThrowIfStencil();
         if (!ReferenceEquals(pattern.Document, _document))
         {

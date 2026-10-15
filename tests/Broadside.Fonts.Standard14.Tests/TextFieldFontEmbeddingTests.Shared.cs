@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 using Broadside.Annotations;
@@ -5,6 +7,7 @@ using Broadside.Diagnostics;
 using Broadside.Forms;
 using Broadside.Graphics;
 using Broadside.Objects;
+using Broadside.Signatures;
 using Broadside.Tests.Writing;
 using Broadside.TestSupport;
 using Broadside.Text;
@@ -97,6 +100,29 @@ public sealed partial class TextFieldFontEmbeddingTests
         var font = (PdfType0Font)document.GetFont(Type0Font(document, CyrillicField(document, 1).Widgets[0]))!;
         Assert.True(font.DescendantFont!.Descriptor!.FontFile2!.EncodedData.Length > 40_000, "The pending font was subset by the refused save.");
 
+        using PdfDocument reopened = PdfDocument.Open(SaveUndated(document, incremental: false));
+        var saved = (PdfType0Font)reopened.GetFont(Type0Font(reopened, CyrillicField(reopened, 1).Widgets[0]))!;
+        Assert.InRange(saved.DescendantFont!.Descriptor!.FontFile2!.EncodedData.Length, 1, 40_000);
+    }
+
+    [Fact]
+    public void A_failed_signature_leaves_a_grown_shared_font_whole_and_the_next_save_subsets_it()
+    {
+        // Issue #306: the save inside signing completes the shared subset before the signer is asked; a signer that throws leaves
+        // the program whole and still pending, as before the signature.
+        using PdfDocument document = OpenWithCyrillicFields();
+        CyrillicField(document, 0).SetValue(CyrillicValue(0));
+        CyrillicField(document, 1).SetValue("Южный сбор");
+        string before = CosSnapshot.Of(document);
+        using var rsa = RSA.Create(2048);
+        using X509Certificate2 certificate = new CertificateRequest("CN=Broadside signer", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1)
+            .CreateSelfSigned(DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddYears(1));
+        using var signed = new MemoryStream();
+
+        Assert.Throws<CryptographicException>(() => document.Sign(signed, new FailingSigner(certificate)));
+
+        Assert.Equal(0, signed.Length);
+        Assert.Equal(before, CosSnapshot.Of(document));
         using PdfDocument reopened = PdfDocument.Open(SaveUndated(document, incremental: false));
         var saved = (PdfType0Font)reopened.GetFont(Type0Font(reopened, CyrillicField(reopened, 1).Widgets[0]))!;
         Assert.InRange(saved.DescendantFont!.Descriptor!.FontFile2!.EncodedData.Length, 1, 40_000);
@@ -283,5 +309,16 @@ public sealed partial class TextFieldFontEmbeddingTests
         var fonts = (CosDictionary)document.Resolve(appearance.Resources![new CosName("Font")]);
         return Assert.Single(fonts.Values.OfType<CosReference>(), reference =>
             document.Resolve(reference) is CosDictionary font && font.TryGetValue(new CosName("Subtype"), out CosObject? subtype) && subtype.Equals(new CosName("Type0")));
+    }
+
+    /// <summary>A signer whose device refuses to sign.</summary>
+    private sealed class FailingSigner(X509Certificate2 certificate) : IPdfSigner
+    {
+        public X509Certificate2 Certificate => certificate;
+
+        public IReadOnlyList<X509Certificate2> CertificateChain => [];
+
+        public byte[] SignDigest(ReadOnlySpan<byte> digest, HashAlgorithmName digestAlgorithm) =>
+            throw new CryptographicException("The token is locked.");
     }
 }

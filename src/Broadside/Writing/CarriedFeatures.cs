@@ -32,6 +32,9 @@ namespace Broadside.Writing;
 /// <c>Filter</c> names <c>JBIG2Decode</c> or <c>JPXDecode</c> (§7.4.7, §7.4.9; Table 6).</item>
 /// <item><see cref="VersionedFeatures.SoftMasks"/>: an <c>SMask</c> entry (a graphics state parameter dictionary's, Table 57, or an
 /// image's, Table 87) and a soft-mask dictionary (<c>Type</c> <c>Mask</c>, Table 142).</item>
+/// <item><see cref="VersionedFeatures.ImageMasks"/> and <see cref="VersionedFeatures.SixteenBitImages"/>: an image stream with a
+/// <c>Mask</c> entry, or with <c>BitsPerComponent</c> 16 (Table 87); <see cref="VersionedFeatures.ProgressiveDct"/>: a stream
+/// whose lone <c>DCTDecode</c> filter holds a progressive JPEG (§7.4.8), found from the stream data.</item>
 /// <item><see cref="VersionedFeatures.TransparencyGroups"/>: a group attributes dictionary of subtype <c>Transparency</c> (§11.6.6,
 /// Table 145), which a form's or a page's <c>Group</c> holds.</item>
 /// <item><see cref="VersionedFeatures.TransparencyParameters"/>: a numeric <c>CA</c> or <c>ca</c>, or a <c>BM</c>, <c>AIS</c> or
@@ -114,6 +117,19 @@ internal static class CarriedFeatures
             }
 
             Filters(document, EntryReader.Get(document, dictionary, FilterNames.Filter), found);
+            if (ImageNames.Image.Equals(EntryReader.Get(document, dictionary, ImageNames.Subtype)))
+            {
+                if (dictionary.ContainsKey(ImageNames.Mask))
+                {
+                    found(VersionedFeatures.ImageMasks);
+                }
+
+                if (EntryReader.Get(document, dictionary, ImageNames.BitsPerComponent) is CosInteger { Value: 16 })
+                {
+                    found(VersionedFeatures.SixteenBitImages);
+                }
+            }
+
             return;
         }
 
@@ -169,6 +185,21 @@ internal static class CarriedFeatures
             && (dictionary.ContainsKey(NavigationNames.C) || dictionary.ContainsKey(NavigationNames.F)))
         {
             found(VersionedFeatures.OutlineItemStyle);
+        }
+    }
+
+    /// <summary>Reports each feature a stream's data uses: a progressive JPEG behind a lone <c>DCTDecode</c> filter (§7.4.8).</summary>
+    /// <param name="document">The document the stream belongs to.</param>
+    /// <param name="dictionary">The stream dictionary.</param>
+    /// <param name="data">The stream's encoded (decrypted) data.</param>
+    /// <param name="found">Receives each feature found.</param>
+    public static void InStreamData(PdfDocument document, CosDictionary dictionary, ReadOnlySpan<byte> data, Action<VersionedFeature> found)
+    {
+        CosObject? filter = EntryReader.Get(document, dictionary, FilterNames.Filter);
+        bool dct = FilterNames.DctDecode.Equals(filter) || (filter is CosArray { Count: 1 } array && FilterNames.DctDecode.Equals(EntryReader.Resolve(document, array[0])));
+        if (dct && JpegInfo.Read(data, readProfile: false, out _) is { Progressive: true })
+        {
+            found(VersionedFeatures.ProgressiveDct);
         }
     }
 

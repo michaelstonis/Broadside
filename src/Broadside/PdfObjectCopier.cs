@@ -357,6 +357,11 @@ public sealed class PdfObjectCopier
                     break;
                 case CosStream stream:
                     FillDictionary(stream.Dictionary, ((CosStream)item.Copy).Dictionary, isStream: true);
+                    if (!Source.Streams.CryptFilter.IsLocked(stream.Dictionary))
+                    {
+                        CarriedFeatures.InStreamData(Source, stream.Dictionary, stream.EncodedData.Span, _carry);
+                    }
+
                     break;
                 case CosDictionary dictionary:
                     FillDictionary(dictionary, (CosDictionary)item.Copy, isStream: false);

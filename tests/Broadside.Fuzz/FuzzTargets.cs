@@ -34,6 +34,7 @@ internal static class FuzzTargets
         ["object-parser"] = ObjectParser,
         ["document"] = Document,
         ["windowed-document"] = WindowedDocument,
+        ["first-page-first"] = FirstPageFirst,
         ["save"] = Save,
         ["hint-tables"] = HintTables,
         ["xref-stream"] = XrefStream,
@@ -48,12 +49,14 @@ internal static class FuzzTargets
         ["filter-encode"] = EncodeTarget,
         ["filter-dct"] = DctTarget.Target,
         ["filter-dct-encode"] = DctEncodeTarget.Target,
+        ["png-reader"] = PngTarget.Target,
         ["filter-ccitt"] = CcittTarget.Target,
         ["filter-jpx"] = Jpx,
         ["filter-jbig2"] = Jbig2Target.Target,
         ["encrypted-document"] = EncryptedDocument,
         ["decrypt"] = Decrypt,
         ["mac-token"] = MacToken,
+        ["timestamp-response"] = TimestampResponseTarget.Target,
         ["public-key"] = PublicKey.Target,
         ["xmp"] = Xmp,
         ["pdf-date"] = PdfDateTarget,
@@ -82,6 +85,10 @@ internal static class FuzzTargets
         ["icc-profile"] = IccProfileTarget.Target,
         ["rasterize"] = RasterizeTarget.Target,
         ["rasterize-page"] = RasterizePageTarget.Target,
+        ["signature-validation"] = SignatureValidationTarget.Target,
+        ["cms"] = SignatureValidationTarget.Cms,
+        ["ocsp-response"] = SignatureValidationTarget.OcspResponse,
+        ["crl"] = SignatureValidationTarget.Crl,
     };
 
     /// <summary>
@@ -863,6 +870,19 @@ internal static class FuzzTargets
         {
             throw new InvalidOperationException($"Reading in growing windows differs from reading the whole file:\n{whole}\n---\n{grown}");
         }
+    }
+
+    /// <summary>
+    /// Opens the input from memory through a source that says it is not local, as a remote file is read (issue #208): a linearized
+    /// file starts from its first-page cross-reference section, finds its pages through the page offset hint table and places other
+    /// pages' objects through the hint tables before the rest of its cross-reference information is read. Then reads what
+    /// <c>windowed-document</c> reads. The hints are untrusted: whatever they say, the read must end with a document or a diagnostic.
+    /// </summary>
+    /// <remarks>ISO 32000-2 Annex F, F.3.4, F.4.2, F.4.3 and Annex G, G.2 to G.4.</remarks>
+    private static void FirstPageFirst(ReadOnlySpan<byte> data)
+    {
+        byte[] bytes = data.ToArray();
+        _ = ReadEverything(() => PdfDocument.Read(new RemoteLikeSource(PdfSource.FromMemory(bytes)), EngineConfiguration.From(new PdfOptions())));
     }
 
     private static string ReadEverything(Func<PdfDocument> open)
@@ -2060,6 +2080,28 @@ internal static class FuzzTargets
         if (XmpDate.TryParse(text, out XmpDate xmp) && xmp.Text != text)
         {
             throw new InvalidOperationException("An XMP date must keep its text.");
+        }
+    }
+
+    /// <summary>A source over another that says it is not local, so the document reads it as it reads a remote file (issue #208).</summary>
+    private sealed class RemoteLikeSource(PdfSource inner) : PdfSource
+    {
+        public override long Length => inner.Length;
+
+        public override bool IsLocal => false;
+
+        public override int Read(long offset, Span<byte> destination) => inner.Read(offset, destination);
+
+        public override ReadOnlyMemory<byte> GetWindow(long offset, int minimumLength) => inner.GetWindow(offset, minimumLength);
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                inner.Dispose();
+            }
+
+            base.Dispose(disposing);
         }
     }
 }

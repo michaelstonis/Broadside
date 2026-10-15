@@ -1,3 +1,4 @@
+using Broadside.Caching;
 using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Fonts;
@@ -68,6 +69,11 @@ internal sealed class EngineConfiguration
     /// <summary>Gets the most pixels one image may have (issue #60).</summary>
     public long MaxImagePixels { get; private init; } = PdfOptions.DefaultMaxImagePixels;
 
+    /// <summary>Gets the byte budgets of each document's render caches (issue #103).</summary>
+    public CacheBudgets CacheBudgets { get; private init; } = CacheBudgets.Default;
+    /// <summary>Gets the most vertices one mesh shading decodes (issue #110).</summary>
+    public int MaxMeshVertices { get; private init; } = PdfOptions.DefaultMaxMeshVertices;
+
     /// <summary>Gets the clock that dates what the engine writes (issue #162).</summary>
     public TimeProvider TimeProvider { get; private init; } = TimeProvider.System;
 
@@ -96,6 +102,8 @@ internal sealed class EngineConfiguration
         Credentials = options.Credentials,
         StreamBufferLimit = options.StreamBufferLimit,
         MaxImagePixels = options.MaxImagePixels,
+        CacheBudgets = new(options.ContentCacheBudget, options.ImageCacheBudget, options.GlyphCacheBudget, options.DisplayListCacheBudget),
+        MaxMeshVertices = options.MaxMeshVertices,
         RangeSource = new(
             options.RangeBlockSize,
             Math.Max(options.RangeCacheLimit, options.RangeBlockSize),

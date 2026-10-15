@@ -1,0 +1,100 @@
+%PDF-1.7
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R 13 0 R] /Count 2 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /ExtGState << /M << /BM /Multiply >> /HM << /BM /Multiply /ca 0.5 >> /H << /ca 0.5 >> /HS << /CA 0.5 >> >> /Shading << /Sh0 5 0 R >> /XObject << /G6 6 0 R /G7 7 0 R /G8 8 0 R /G9 9 0 R /G10 10 0 R /G11 11 0 R /G12 12 0 R >> >> >>
+endobj
+4 0 obj
+<<  /Length 720 >>
+stream
+q 1 0 0 1 0 594 cm q 0 0 306 198 re W n /Sh0 sh Q q 1 0 0 1 153 99 cm /G6 Do Q Q
+q 1 0 0 1 306 594 cm q 0 0 306 198 re W n /Sh0 sh Q q 1 0 0 1 153 99 cm /G7 Do Q Q
+q 1 0 0 1 0 396 cm q 0 0 306 198 re W n /Sh0 sh Q q 1 0 0 1 153 99 cm /G8 Do Q Q
+q 1 0 0 1 306 396 cm q 0 0 306 198 re W n /Sh0 sh Q q 1 0 0 1 153 99 cm /G9 Do Q Q
+q 1 0 0 1 0 198 cm q 0 0 306 198 re W n /Sh0 sh Q q /HM gs 1 0 0 1 153 99 cm /G7 Do Q Q
+q 1 0 0 1 306 198 cm q 0 0 306 198 re W n /Sh0 sh Q q 1 0 0 1 80 99 cm /G10 Do Q q 1 0 0 1 226 99 cm /G11 Do Q Q
+q 1 0 0 1 0 0 cm q 0 0 306 198 re W n /Sh0 sh Q q /HS gs 16 w 1 0 0 rg 0 0 1 RG 83 49 140 100 re b Q Q
+q 1 0 0 1 306 0 cm q 0 0 306 198 re W n /Sh0 sh Q q /H gs 1 0 0 1 153 99 cm /G12 Do Q Q
+
+endstream
+endobj
+5 0 obj
+<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 306 0] /Function << /FunctionType 2 /Domain [0 1] /C0 [1 0.9 0.1] /C1 [0.1 0.2 0.6] /N 1 >> >>
+endobj
+6 0 obj
+<< /Type /XObject /Subtype /Form /BBox [-80 -80 80 80] /Group << /S /Transparency /I true /K true >> /Resources << /ExtGState << /M << /BM /Multiply >> /HM << /BM /Multiply /ca 0.5 >> /H << /ca 0.5 >> /HS << /CA 0.5 >> >> >> /Length 571 >>
+stream
+/M gs 1 0 0 rg 15 25 m 15 47.092 -2.908 65 -25 65 c -47.092 65 -65 47.092 -65 25 c -65 2.908 -47.092 -15 -25 -15 c -2.908 -15 15 2.908 15 25 c h f 0 1 0 rg 65 25 m 65 47.092 47.092 65 25 65 c 2.908 65 -15 47.092 -15 25 c -15 2.908 2.908 -15 25 -15 c 47.092 -15 65 2.908 65 25 c h f 0 0 1 rg 15 -25 m 15 -2.908 -2.908 15 -25 15 c -47.092 15 -65 -2.908 -65 -25 c -65 -47.092 -47.092 -65 -25 -65 c -2.908 -65 15 -47.092 15 -25 c h f 1 1 0 rg 65 -25 m 65 -2.908 47.092 15 25 15 c 2.908 15 -15 -2.908 -15 -25 c -15 -47.092 2.908 -65 25 -65 c 47.092 -65 65 -47.092 65 -25 c h f
+endstream
+endobj
+7 0 obj
+<< /Type /XObject /Subtype /Form /BBox [-80 -80 80 80] /Group << /S /Transparency /I true >> /Resources << /ExtGState << /M << /BM /Multiply >> /HM << /BM /Multiply /ca 0.5 >> /H << /ca 0.5 >> /HS << /CA 0.5 >> >> >> /Length 571 >>
+stream
+/M gs 1 0 0 rg 15 25 m 15 47.092 -2.908 65 -25 65 c -47.092 65 -65 47.092 -65 25 c -65 2.908 -47.092 -15 -25 -15 c -2.908 -15 15 2.908 15 25 c h f 0 1 0 rg 65 25 m 65 47.092 47.092 65 25 65 c 2.908 65 -15 47.092 -15 25 c -15 2.908 2.908 -15 25 -15 c 47.092 -15 65 2.908 65 25 c h f 0 0 1 rg 15 -25 m 15 -2.908 -2.908 15 -25 15 c -47.092 15 -65 -2.908 -65 -25 c -65 -47.092 -47.092 -65 -25 -65 c -2.908 -65 15 -47.092 15 -25 c h f 1 1 0 rg 65 -25 m 65 -2.908 47.092 15 25 15 c 2.908 15 -15 -2.908 -15 -25 c -15 -47.092 2.908 -65 25 -65 c 47.092 -65 65 -47.092 65 -25 c h f
+endstream
+endobj
+8 0 obj
+<< /Type /XObject /Subtype /Form /BBox [-80 -80 80 80] /Group << /S /Transparency /K true >> /Resources << /ExtGState << /M << /BM /Multiply >> /HM << /BM /Multiply /ca 0.5 >> /H << /ca 0.5 >> /HS << /CA 0.5 >> >> >> /Length 571 >>
+stream
+/M gs 1 0 0 rg 15 25 m 15 47.092 -2.908 65 -25 65 c -47.092 65 -65 47.092 -65 25 c -65 2.908 -47.092 -15 -25 -15 c -2.908 -15 15 2.908 15 25 c h f 0 1 0 rg 65 25 m 65 47.092 47.092 65 25 65 c 2.908 65 -15 47.092 -15 25 c -15 2.908 2.908 -15 25 -15 c 47.092 -15 65 2.908 65 25 c h f 0 0 1 rg 15 -25 m 15 -2.908 -2.908 15 -25 15 c -47.092 15 -65 -2.908 -65 -25 c -65 -47.092 -47.092 -65 -25 -65 c -2.908 -65 15 -47.092 15 -25 c h f 1 1 0 rg 65 -25 m 65 -2.908 47.092 15 25 15 c 2.908 15 -15 -2.908 -15 -25 c -15 -47.092 2.908 -65 25 -65 c 47.092 -65 65 -47.092 65 -25 c h f
+endstream
+endobj
+9 0 obj
+<< /Type /XObject /Subtype /Form /BBox [-80 -80 80 80] /Group << /S /Transparency  >> /Resources << /ExtGState << /M << /BM /Multiply >> /HM << /BM /Multiply /ca 0.5 >> /H << /ca 0.5 >> /HS << /CA 0.5 >> >> >> /Length 571 >>
+stream
+/M gs 1 0 0 rg 15 25 m 15 47.092 -2.908 65 -25 65 c -47.092 65 -65 47.092 -65 25 c -65 2.908 -47.092 -15 -25 -15 c -2.908 -15 15 2.908 15 25 c h f 0 1 0 rg 65 25 m 65 47.092 47.092 65 25 65 c 2.908 65 -15 47.092 -15 25 c -15 2.908 2.908 -15 25 -15 c 47.092 -15 65 2.908 65 25 c h f 0 0 1 rg 15 -25 m 15 -2.908 -2.908 15 -25 15 c -47.092 15 -65 -2.908 -65 -25 c -65 -47.092 -47.092 -65 -25 -65 c -2.908 -65 15 -47.092 15 -25 c h f 1 1 0 rg 65 -25 m 65 -2.908 47.092 15 25 15 c 2.908 15 -15 -2.908 -15 -25 c -15 -47.092 2.908 -65 25 -65 c 47.092 -65 65 -47.092 65 -25 c h f
+endstream
+endobj
+10 0 obj
+<< /Type /XObject /Subtype /Form /BBox [-80 -80 80 80] /Group << /S /Transparency /I true /CS /DeviceCMYK >> /Resources << /ExtGState << /M << /BM /Multiply >> /HM << /BM /Multiply /ca 0.5 >> /H << /ca 0.5 >> /HS << /CA 0.5 >> >> >> /Length 455 >>
+stream
+/M gs 1 0 0 0 k 35 25 m 35 44.3305 19.3305 60 0 60 c -19.3305 60 -35 44.3305 -35 25 c -35 5.6695 -19.3305 -10 0 -10 c 19.3305 -10 35 5.6695 35 25 c h f 0 1 0 0 k 13 -12 m 13 7.3305 -2.6695 23 -22 23 c -41.3305 23 -57 7.3305 -57 -12 c -57 -31.3305 -41.3305 -47 -22 -47 c -2.6695 -47 13 -31.3305 13 -12 c h f 0 0 1 0 k 57 -12 m 57 7.3305 41.3305 23 22 23 c 2.6695 23 -13 7.3305 -13 -12 c -13 -31.3305 2.6695 -47 22 -47 c 41.3305 -47 57 -31.3305 57 -12 c h f
+endstream
+endobj
+11 0 obj
+<< /Type /XObject /Subtype /Form /BBox [-80 -80 80 80] /Group << /S /Transparency /I true /CS /DeviceRGB >> /Resources << /ExtGState << /M << /BM /Multiply >> /HM << /BM /Multiply /ca 0.5 >> /H << /ca 0.5 >> /HS << /CA 0.5 >> >> >> /Length 455 >>
+stream
+/M gs 1 0 0 0 k 35 25 m 35 44.3305 19.3305 60 0 60 c -19.3305 60 -35 44.3305 -35 25 c -35 5.6695 -19.3305 -10 0 -10 c 19.3305 -10 35 5.6695 35 25 c h f 0 1 0 0 k 13 -12 m 13 7.3305 -2.6695 23 -22 23 c -41.3305 23 -57 7.3305 -57 -12 c -57 -31.3305 -41.3305 -47 -22 -47 c -2.6695 -47 13 -31.3305 13 -12 c h f 0 0 1 0 k 57 -12 m 57 7.3305 41.3305 23 22 23 c 2.6695 23 -13 7.3305 -13 -12 c -13 -31.3305 2.6695 -47 22 -47 c 41.3305 -47 57 -31.3305 57 -12 c h f
+endstream
+endobj
+12 0 obj
+<< /Type /XObject /Subtype /Form /BBox [-80 -80 80 80] /Group << /S /Transparency  >> /Resources << /ExtGState << /M << /BM /Multiply >> /HM << /BM /Multiply /ca 0.5 >> /H << /ca 0.5 >> /HS << /CA 0.5 >> >> >> /Length 41 >>
+stream
+0 g -60 -40 80 80 re f -20 -40 80 80 re f
+endstream
+endobj
+13 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 14 0 R /Group << /S /Transparency /CS /DeviceCMYK >> /Resources << /ExtGState << /M << /BM /Multiply >> /HM << /BM /Multiply /ca 0.5 >> /H << /ca 0.5 >> /HS << /CA 0.5 >> >> >> >>
+endobj
+14 0 obj
+<<  /Length 491 >>
+stream
+/H gs 1 0 0 0 k 346 420 m 346 469.707 305.707 510 256 510 c 206.293 510 166 469.707 166 420 c 166 370.293 206.293 330 256 330 c 305.707 330 346 370.293 346 420 c h f 0 1 0 0 k 446 420 m 446 469.707 405.707 510 356 510 c 306.293 510 266 469.707 266 420 c 266 370.293 306.293 330 356 330 c 405.707 330 446 370.293 446 420 c h f /M gs 0 0 1 0 k 396 340 m 396 389.707 355.707 430 306 430 c 256.293 430 216 389.707 216 340 c 216 290.293 256.293 250 306 250 c 355.707 250 396 290.293 396 340 c h f
+endstream
+endobj
+xref
+0 15
+0000000000 65535 f 
+0000000009 00000 n 
+0000000058 00000 n 
+0000000122 00000 n 
+0000000450 00000 n 
+0000001222 00000 n 
+0000001386 00000 n 
+0000002230 00000 n 
+0000003066 00000 n 
+0000003902 00000 n 
+0000004731 00000 n 
+0000005468 00000 n 
+0000006204 00000 n 
+0000006503 00000 n 
+0000006762 00000 n 
+trailer
+<< /Size 15 /Root 1 0 R >>
+startxref
+7306
+%%EOF

@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Broadside.Graphics;
 
 namespace Broadside.Rendering;
@@ -21,14 +22,17 @@ namespace Broadside.Rendering;
 /// stencil masks (§8.9.6.2, <see cref="DisplayImageMask"/>), text as glyph runs (§9.4.3, §9.3.6, <see cref="GlyphRun"/>: font
 /// program, glyph ids, text matrices, outlines interned once per program and glyph) and shadings, from <c>sh</c> and as shading
 /// patterns on fills and strokes (§8.7.4, <see cref="DisplayShading"/>), tiling patterns on fills and strokes, each cell a display
-/// list of its own (§8.7.3, <see cref="DisplayTilingPattern"/>), and annotations' appearances (§12.5.5,
+/// list of its own (§8.7.3, <see cref="DisplayTilingPattern"/>), constant alpha and blend modes
+/// (<see cref="IRenderingBackend.SetCompositing"/>, §11.6.3, §11.6.4.4), transparency groups (§11.4, <see cref="DisplayGroup"/>:
+/// group XObjects, the page group and the implicit group of a combined fill and stroke) and annotations' appearances (§12.5.5,
 /// <see cref="DisplayAnnotation"/>; a list holds the page's content, annotation and form-field layers as <see cref="DisplayLayers"/>
 /// asks). Type 3 glyphs (§9.6.4) are in it as what their descriptions paint, under each glyph's transform and, for a <c>d1</c>
 /// glyph, in the colours of the text that shows it; each description is interpreted once per font, code and inherited graphics
-/// state in a list and replayed at every show. Text clips (§9.3.6) reach backends as path clips of the glyph outlines.
-/// Transparency groups and soft masks join it in later Phase 3 tickets
-/// (constant alpha and blend modes are there already, as <see cref="IRenderingBackend.SetCompositing"/>), each as new
-/// <see cref="IRenderingBackend"/> calls.
+/// state in a list and replayed at every show. Text clips (§9.3.6) reach backends as path clips of the glyph outlines. Overprint
+/// control and halftones reach them as <see cref="IRenderingBackend.SetDeviceParameters"/> (transfer functions travel with each
+/// colour). Soft masks in the
+/// graphics state (§11.5, §11.6.5.1) reach them through <see cref="IRenderingBackend.SetSoftMask"/> and
+/// <see cref="DisplayGroup.SoftMask"/>, each mask's group a list of its own (<see cref="DisplaySoftMask"/>), built once per mask.
 /// </para>
 /// <para>
 /// Immutable once built: any number of threads may replay the same list at once, each into its own backend.
@@ -36,6 +40,9 @@ namespace Broadside.Rendering;
 /// </remarks>
 public sealed partial class DisplayList
 {
+    /// <summary>How many operations a replay hands over between progress reports.</summary>
+    private const int ProgressInterval = 1024;
+
     private readonly DisplayOperation[] _operations;
     private readonly PathVerb[] _verbs;
     private readonly PathPoint[] _points;
@@ -91,14 +98,25 @@ public sealed partial class DisplayList
     /// <summary>Gets the alpha constants and blend modes the list sets (indexed by <see cref="DisplayOperationKind.SetCompositing"/> records).</summary>
     internal DisplayCompositing[] Compositings { get; init; } = [];
 
+    /// <summary>Gets the transparency groups the list paints (indexed by <see cref="DisplayOperationKind.DrawGroup"/> records).</summary>
+    internal DisplayGroupEntry[] Groups { get; init; } = [];
     /// <summary>Gets the tiling-pattern paints (indexed by the tiling-pattern records).</summary>
     internal DisplayTilingPaint[] TilingPaints { get; init; } = [];
+
+    /// <summary>Gets the soft masks the list sets (indexed by <see cref="DisplayOperationKind.SetSoftMask"/> records and groups).</summary>
+    internal DisplaySoftMaskEntry[] SoftMasks { get; init; } = [];
 
     /// <summary>Gets the annotations the list draws (indexed by <see cref="DisplayOperationKind.BeginAnnotation"/> records).</summary>
     internal DisplayAnnotation[] Annotations { get; init; } = [];
 
+    /// <summary>Gets the overprint parameters and halftones the list sets (indexed by <see cref="DisplayOperationKind.SetDeviceParameters"/> records).</summary>
+    internal DisplayDeviceParameters[] DeviceParameters { get; init; } = [];
+
     /// <summary>Gets the document the list was built from, whose colour converters a backend uses (see <see cref="DisplayColor"/>).</summary>
     public PdfDocument Document { get; }
+
+    /// <summary>Gets the number of operations in the list: what <see cref="DisplayListReplay.Position"/> counts up to.</summary>
+    public int OperationCount => _operations.Length;
 
     /// <summary>Calls <paramref name="backend"/> once for every operation of the list, in order.</summary>
     /// <param name="backend">The backend that draws.</param>
@@ -109,10 +127,128 @@ public sealed partial class DisplayList
     public void Replay(IRenderingBackend backend)
     {
         ArgumentNullException.ThrowIfNull(backend);
-        foreach (ref readonly DisplayOperation operation in _operations.AsSpan())
+        ReplayRange(backend, 0, _operations.Length);
+    }
+
+    /// <summary>Replays the operations from <paramref name="start"/> to <paramref name="end"/> (exclusive); a group's content goes to the backend through its <see cref="DisplayGroup"/>.</summary>
+    internal void ReplayRange(IRenderingBackend backend, int start, int end)
+    {
+        ReadOnlySpan<DisplayOperation> operations = _operations.AsSpan(start, end - start);
+        for (int index = 0; index < operations.Length; index++)
         {
+            ref readonly DisplayOperation operation = ref operations[index];
             Execute(backend, in operation);
+            if (operation.Kind == DisplayOperationKind.DrawGroup)
+            {
+                // The backend replayed the group's content through its DisplayGroup (or chose not to).
+                index = Groups[operation.First].End - start - 1;
+            }
         }
+    }
+
+    /// <summary>
+    /// Calls <paramref name="backend"/> once for every operation of the list, in order, checking <paramref name="cancellationToken"/>
+    /// before each and reporting progress.
+    /// </summary>
+    /// <param name="backend">The backend that draws.</param>
+    /// <param name="cancellationToken">Cancels the replay before its next operation.</param>
+    /// <param name="progress">
+    /// Receives the share of the operations handed over so far, from 0 to 1, synchronously on this thread every 1,024 operations and
+    /// once with exactly 1 at the end; <see langword="null"/> for none.
+    /// </param>
+    /// <exception cref="OperationCanceledException">
+    /// <paramref name="cancellationToken"/> was cancelled; the backend holds whatever the operations before it drew.
+    /// </exception>
+    /// <remarks>
+    /// ADR 0006; viewer capability 2 (issue #97). Allocates nothing. To stop after a time budget and resume later, use
+    /// <see cref="BeginReplay(IRenderingBackend, CancellationToken, IProgress{double})"/>.
+    /// </remarks>
+    public void Replay(IRenderingBackend backend, CancellationToken cancellationToken, IProgress<double>? progress)
+    {
+        ArgumentNullException.ThrowIfNull(backend);
+        ReplayRange(backend, 0, long.MaxValue, cancellationToken, progress);
+        progress?.Report(1);
+    }
+
+    /// <summary>
+    /// Starts a replay into <paramref name="backend"/> that runs in slices: each <see cref="DisplayListReplay.Continue"/> hands over
+    /// operations until its time budget is used, and the next resumes where it stopped.
+    /// </summary>
+    /// <param name="backend">The backend that draws; it keeps its state (graphics state stack, clip, output so far) between slices.</param>
+    /// <param name="cancellationToken">Cancels the replay before its next operation.</param>
+    /// <param name="progress">
+    /// Receives the share of the operations handed over so far, from 0 to 1, synchronously on the replaying thread every 1,024
+    /// operations and at the end of every slice, then once with exactly 1 at the end; <see langword="null"/> for none.
+    /// </param>
+    /// <returns>The replay, at the first operation; nothing has been handed over yet.</returns>
+    /// <remarks>
+    /// ADR 0006; viewer capability 2 (issue #97), like PDFium's progressive rendering: a host that must not block, such as a Blazor
+    /// WebAssembly page on its only thread, replays a slice, yields to its event loop, and continues. Slicing never changes what
+    /// the backend receives: the calls are those of <see cref="Replay(IRenderingBackend)"/>, in the same order.
+    /// </remarks>
+    public DisplayListReplay BeginReplay(IRenderingBackend backend, CancellationToken cancellationToken, IProgress<double>? progress)
+    {
+        ArgumentNullException.ThrowIfNull(backend);
+        return new DisplayListReplay(this, backend, cancellationToken, progress);
+    }
+
+    /// <summary>
+    /// As <see cref="BeginReplay(IRenderingBackend, CancellationToken, IProgress{double})"/>, handing over only what
+    /// <see cref="Replay(IRenderingBackend, PdfRectangle)"/> hands over for <paramref name="region"/>.
+    /// </summary>
+    /// <param name="backend">The backend that draws; it keeps its state between slices.</param>
+    /// <param name="region">The region in the list's default user space, as for <see cref="Replay(IRenderingBackend, PdfRectangle)"/>.</param>
+    /// <param name="cancellationToken">Cancels the replay before its next operation.</param>
+    /// <param name="progress">Receives the share of the operations handed over or skipped so far, as for the overload without a region.</param>
+    /// <returns>The replay, at the first operation.</returns>
+    /// <remarks>
+    /// ADR 0006; viewer capabilities 1 and 2 (issues #96, #97): a tile of a cached list, drawn in time slices. Skipped operations
+    /// count towards <see cref="DisplayListReplay.Position"/> and progress but take no time from a slice's budget.
+    /// </remarks>
+    public DisplayListReplay BeginReplay(IRenderingBackend backend, PdfRectangle region, CancellationToken cancellationToken, IProgress<double>? progress)
+    {
+        ArgumentNullException.ThrowIfNull(backend);
+        return new DisplayListReplay(this, backend, region, cancellationToken, progress);
+    }
+
+    /// <summary>
+    /// Hands the operations from <paramref name="start"/> on to <paramref name="backend"/> until the end of the list or, after at
+    /// least one, until <see cref="Stopwatch.GetTimestamp"/> reaches <paramref name="deadline"/>; with a <paramref name="region"/>,
+    /// skipping what <see cref="Replay(IRenderingBackend, PdfRectangle)"/> skips.
+    /// </summary>
+    /// <returns>The index of the first operation not handed over.</returns>
+    internal int ReplayRange(IRenderingBackend backend, int start, long deadline, CancellationToken cancellationToken, IProgress<double>? progress, PdfRectangle? region = null)
+    {
+        ReadOnlySpan<DisplayOperation> operations = _operations;
+        OperationExtent[]? extents = region is null ? null : GetExtents();
+        int index = start;
+        while (index < operations.Length)
+        {
+            if (extents is not null && extents[index].IsCullable && !extents[index].Meets(region!.Value))
+            {
+                // As in the region replay: a paint ends where it is, a saved state or an annotation where it is restored.
+                index = extents[index].End + 1;
+                continue;
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
+            ref readonly DisplayOperation operation = ref operations[index];
+            Execute(backend, in operation);
+
+            // A group's content went to the backend through its DisplayGroup (#114): continue after it.
+            index = operation.Kind == DisplayOperationKind.DrawGroup ? Groups[operation.First].End : index + 1;
+            if (progress is not null && index % ProgressInterval == 0 && index < operations.Length)
+            {
+                progress.Report((double)index / operations.Length);
+            }
+
+            if (deadline != long.MaxValue && Stopwatch.GetTimestamp() >= deadline)
+            {
+                break;
+            }
+        }
+
+        return index;
     }
 
     /// <summary>Hands one record of the list to the backend.</summary>
@@ -178,6 +314,12 @@ public sealed partial class DisplayList
                 ref readonly DisplayCompositing compositing = ref Compositings[operation.First];
                 backend.SetCompositing(compositing.StrokeAlpha, compositing.FillAlpha, compositing.BlendMode);
                 break;
+            case DisplayOperationKind.SetDeviceParameters:
+                backend.SetDeviceParameters(in DeviceParameters[operation.First]);
+                break;
+            case DisplayOperationKind.DrawGroup:
+                backend.DrawGroup(new DisplayGroup(this, Groups[operation.First]));
+                break;
             case DisplayOperationKind.FillPathWithTilingPattern:
                 ref readonly DisplayPath tiled = ref _paths[operation.First];
                 DisplayTilingPattern tiling = Tiling(operation.Second);
@@ -194,6 +336,9 @@ public sealed partial class DisplayList
                 break;
             case DisplayOperationKind.EndAnnotation:
                 backend.EndAnnotation();
+                break;
+            case DisplayOperationKind.SetSoftMask:
+                backend.SetSoftMask(operation.First < 0 ? default : new DisplaySoftMask(SoftMasks[operation.First]));
                 break;
         }
     }

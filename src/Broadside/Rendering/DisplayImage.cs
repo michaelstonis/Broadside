@@ -160,4 +160,23 @@ public sealed class DisplayImage
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="y"/> is outside the image.</exception>
     /// <remarks>ISO 32000-2 §8.9.3.</remarks>
     public ReadOnlySpan<byte> GetRow(int y) => _samples.GetRow(y);
+
+    /// <summary>
+    /// Gets the bytes this image keeps: its samples (with a codec's opacity channel), its masks unless the soft mask is that channel,
+    /// its colour key, matte and colour table; what a render cache charges for it (issue #103).
+    /// </summary>
+    internal long RetainedBytes =>
+        _samples.RetainedBytes
+        + (SoftMask is { } soft && !ReferenceEquals(soft._samples, _samples.Alpha) ? soft.RetainedBytes : 0L)
+        + (Mask?.RetainedBytes ?? 0L)
+        + (_colorKey.Length * (long)sizeof(double))
+        + (_matte.Length * (long)sizeof(float))
+        + _colorTable.Length;
+    /// <summary>Returns the pooled samples (and the masks'), for an image no list will own: the build that decoded it failed.</summary>
+    internal void Release()
+    {
+        _samples.Dispose();
+        Mask?.Release();
+        SoftMask?.Release();
+    }
 }

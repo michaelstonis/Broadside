@@ -143,13 +143,14 @@ public sealed class CompositingTests
     [Fact]
     public void Extgstate_params_pdf_applies_its_alphas_and_blend_modes()
     {
-        // GS1: BM Multiply, CA 0.5, ca 0.25 (its soft mask is not applied yet); the rectangle 0..20 is black multiplied at 0.25:
-        // 0.75 × 255. Then GS2's blend mode Screen: a black stroke screened over white leaves white.
+        // GS1: BM Multiply, CA 0.5, ca 0.25 and a luminosity soft mask of 0.5 gray over the whole rectangle (#115); the
+        // rectangle 0..20 is black multiplied at 0.25 × 0.5: 0.875 × 255, as poppler gives. Then GS2's blend mode Screen: a black stroke
+        // screened over white leaves white.
         using PdfDocument document = PdfDocument.Open(Corpus.Bytes("extgstate-params.pdf"));
         using var rasterizer = new SoftwareRasterizer();
         using Bitmap bitmap = rasterizer.Render(document.Pages[0]);
 
-        AssertNear(new Rgba(191, 191, 191, 255), bitmap.At(10, 781));
+        AssertNear(new Rgba(223, 223, 223, 255), bitmap.At(10, 781));
         Assert.Equal(White, bitmap.At(20, 766));
     }
 

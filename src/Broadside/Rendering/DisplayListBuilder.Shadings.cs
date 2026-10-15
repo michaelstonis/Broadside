@@ -23,7 +23,7 @@ internal sealed partial class DisplayListBuilder
         }
 
         int paint = AddShadingPaint(model, shading.Ctm, paintsBackground: false, context);
-        SetCompositing(context.State);
+        SetCompositing(context.State, context);
         AddOperation(new DisplayOperation(DisplayOperationKind.DrawShading, default, paint, 0));
     }
 

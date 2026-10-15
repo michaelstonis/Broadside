@@ -20,8 +20,8 @@ Outputs (in ``src/Broadside/Fonts/``):
 
 * ``GlyphNameTable.g.cs``: every glyph name the built-in encodings and the AFM files use, and the encodings as
   code -> name index tables. The Symbol and ZapfDingbats built-in encodings come from the AFM ``C`` codes.
-* ``Standard14Data.g.cs``: per-font metrics and per-glyph widths of the 14 fonts (a modification of the AFM files:
-  converted to C# tables, kerning, ligature and bounding-box data removed), and, per character set, the glyphs by
+* ``Standard14Data.g.cs``: per-font metrics, per-glyph widths and kerning pairs of the 14 fonts (a modification of the
+  AFM files: converted to C# tables, ligature and bounding-box data removed), and, per character set, the glyphs by
   Unicode value (through the glyph lists) for resolving glyph names the AFM files do not use.
 * ``AdobeGlyphList.g.cs``: the two glyph lists as name -> Unicode tables.
 """
@@ -63,6 +63,7 @@ class Afm:
         self.keys: dict[str, str] = {}
         self.comments: list[str] = []
         self.glyphs: list[tuple[int, int, str]] = []  # (code or -1, width, name)
+        self.kerning: list[tuple[str, str, int]] = []  # (left, right, x adjustment) of each KPX line
         in_metrics = False
         with open(path, encoding="ascii") as fh:
             for raw in fh:
@@ -82,6 +83,9 @@ class Afm:
                             k, _, v = part.partition(" ")
                             fields.setdefault(k, v.strip())
                     self.glyphs.append((int(fields["C"]), int(fields["WX"]), fields["N"]))
+                elif key == "KPX":
+                    left, right, x = value.split()
+                    self.kerning.append((left, right, int(x)))
                 elif key == "Comment":
                     self.comments.append(value.strip())
                 elif key not in self.keys:
@@ -186,7 +190,7 @@ AFM_NOTICE = (
     "AFM files are prominently noted in the modified file(s); and that this paragraph is not modified. Adobe\n"
     "Systems has no responsibility or obligation to support the use of the AFM files.\n"
     "\n"
-    "MODIFIED: the AFM files were converted to C# tables; kerning, ligature and glyph bounding-box data were\n"
+    "MODIFIED: the AFM files were converted to C# tables; ligature and glyph bounding-box data were\n"
     "removed. The unmodified AFM files and MustRead.html are in src/Broadside/Fonts/Data/Afm/ and ship in the\n"
     "package under licenses/adobe-core14-afm/.")
 
@@ -329,6 +333,28 @@ def main() -> int:
                   "For each font (in <see cref=\"Standard14Font\"/> order) and each glyph name index, the AFM WX width, or -1 when the font has no such glyph.")
     lines += span("FontMetrics", "short", metrics,
                   "For each font: FontBBox (4 values), ItalicAngle x 10, CapHeight, XHeight, Ascent, Descent, StdVW, StdHW and the ISO 32000-2 Table 121 flags.")
+
+    # Kerning pairs (AFM KPX): per font, keys left x NameCount + right ascending with their adjustments; fonts whose pairs
+    # are identical (the oblique faces) share one run.
+    kern_keys: list[int] = []
+    kern_values: list[int] = []
+    kern_ranges: list[int] = []
+    runs: dict[tuple, int] = {}
+    for afm in afms:
+        pairs = sorted((index[left] * len(names) + index[right], x) for left, right, x in afm.kerning)
+        assert len({k for k, _ in pairs}) == len(pairs), afm.keys["FontName"]
+        run = tuple(pairs)
+        if run not in runs:
+            runs[run] = len(kern_keys)
+            kern_keys.extend(k for k, _ in pairs)
+            kern_values.extend(x for _, x in pairs)
+        kern_ranges.extend([runs[run], len(pairs)])
+    lines += span("KerningRanges", "int", kern_ranges,
+                  "For each font: where its pairs start in <see cref=\"KerningKeys\"/> and how many there are.")
+    lines += span("KerningKeys", "int", kern_keys,
+                  "Kerning pair keys, left glyph name index x <see cref=\"NameCount\"/> + right glyph name index, ascending per font.")
+    lines += span("KerningValues", "short", kern_values,
+                  "For each key of <see cref=\"KerningKeys\"/>, the AFM KPX x adjustment in glyph space units.")
 
     def by_unicode(glyph_names: set[str], glyph_list: list[tuple[str, str]]) -> tuple[list[int], list[int]]:
         lookup = dict(glyph_list)
