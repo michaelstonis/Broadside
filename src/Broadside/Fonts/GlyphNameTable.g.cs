@@ -10,7 +10,7 @@
 // AFM files are prominently noted in the modified file(s); and that this paragraph is not modified. Adobe
 // Systems has no responsibility or obligation to support the use of the AFM files.
 //
-// MODIFIED: the AFM files were converted to C# tables; kerning, ligature and glyph bounding-box data were
+// MODIFIED: the AFM files were converted to C# tables; ligature and glyph bounding-box data were
 // removed. The unmodified AFM files and MustRead.html are in src/Broadside/Fonts/Data/Afm/ and ship in the
 // package under licenses/adobe-core14-afm/.
 // </auto-generated>

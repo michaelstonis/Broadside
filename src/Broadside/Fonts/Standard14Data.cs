@@ -178,6 +178,26 @@ internal static partial class Standard14Data
         return false;
     }
 
+    /// <summary>Gets the AFM width of a glyph of a Standard 14 font by its index in <see cref="GlyphNameTable.Names"/>.</summary>
+    /// <param name="font">The font.</param>
+    /// <param name="nameIndex">The glyph name's index.</param>
+    /// <returns>The width in glyph space units, or -1 when the font has no such glyph.</returns>
+    public static short WidthOf(Standard14Font font, int nameIndex) => Widths[((int)font * NameCount) + nameIndex];
+
+    /// <summary>Gets the kerning a Standard 14 font's AFM file gives a pair of glyphs (its <c>KPX</c> entry).</summary>
+    /// <param name="font">The font.</param>
+    /// <param name="left">The index of the first glyph's name in <see cref="GlyphNameTable.Names"/>.</param>
+    /// <param name="right">The index of the second glyph's name.</param>
+    /// <returns>The x adjustment in glyph space units (negative brings the glyphs closer), or 0 when the pair is not kerned.</returns>
+    /// <remarks>Adobe Technical Note #5004 §9 (<c>KPX</c>). A binary search over the font's sorted pairs; allocates nothing.</remarks>
+    public static int Kerning(Standard14Font font, int left, int right)
+    {
+        int start = KerningRanges[2 * (int)font];
+        int count = KerningRanges[(2 * (int)font) + 1];
+        int position = KerningKeys.Slice(start, count).BinarySearch((left * NameCount) + right);
+        return position >= 0 ? KerningValues[start + position] : 0;
+    }
+
     /// <summary>Gets a value indicating whether a Standard 14 font has a glyph of this name (its AFM file lists it).</summary>
     /// <param name="font">The font.</param>
     /// <param name="glyphName">The glyph name.</param>

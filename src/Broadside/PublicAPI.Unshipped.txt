@@ -4372,6 +4372,39 @@ Broadside.PdfPage.CreateCanvas() -> Broadside.Graphics.PdfCanvas!
 Broadside.PdfPage.CropBox.set -> void
 Broadside.PdfPage.MediaBox.set -> void
 Broadside.PdfPage.TrimBox.set -> void
+Broadside.Fonts.PdfCanvasFont
+Broadside.Fonts.PdfCanvasFont.AppliesWordSpacing.get -> bool
+Broadside.Fonts.PdfCanvasFont.CanEncode(System.ReadOnlySpan<char> text) -> bool
+Broadside.Fonts.PdfCanvasFont.Font.get -> Broadside.Fonts.PdfFont!
+Broadside.Fonts.PdfCanvasFont.MeasureWidth(System.ReadOnlySpan<char> text, double fontSize, bool kerning = false) -> double
+abstract Broadside.Fonts.PdfCanvasFont.Ascent.get -> double
+abstract Broadside.Fonts.PdfCanvasFont.CapHeight.get -> double
+abstract Broadside.Fonts.PdfCanvasFont.Descent.get -> double
+abstract Broadside.Fonts.PdfCanvasFont.FontBBox.get -> Broadside.PdfRectangle
+abstract Broadside.Fonts.PdfCanvasFont.Name.get -> string!
+abstract Broadside.Fonts.PdfCanvasFont.XHeight.get -> double
+Broadside.Graphics.PdfCanvas.BeginText() -> void
+Broadside.Graphics.PdfCanvas.EndText() -> void
+Broadside.Graphics.PdfCanvas.Font.get -> Broadside.Fonts.PdfCanvasFont?
+Broadside.Graphics.PdfCanvas.FontSize.get -> double
+Broadside.Graphics.PdfCanvas.IsInTextObject.get -> bool
+Broadside.Graphics.PdfCanvas.MoveText(double x, double y) -> void
+Broadside.Graphics.PdfCanvas.MoveTextAndSetLeading(double x, double y) -> void
+Broadside.Graphics.PdfCanvas.MoveToNextLine() -> void
+Broadside.Graphics.PdfCanvas.SetCharacterSpacing(double spacing) -> void
+Broadside.Graphics.PdfCanvas.SetFont(Broadside.Fonts.PdfCanvasFont! font, double size) -> void
+Broadside.Graphics.PdfCanvas.SetHorizontalScaling(double percent) -> void
+Broadside.Graphics.PdfCanvas.SetTextLeading(double leading) -> void
+Broadside.Graphics.PdfCanvas.SetTextMatrix(Broadside.Graphics.Matrix matrix) -> void
+Broadside.Graphics.PdfCanvas.SetTextRenderingMode(Broadside.Graphics.TextRenderingMode mode) -> void
+Broadside.Graphics.PdfCanvas.SetTextRise(double rise) -> void
+Broadside.Graphics.PdfCanvas.SetWordSpacing(double spacing) -> void
+Broadside.Graphics.PdfCanvas.ShowText(System.ReadOnlySpan<char> text) -> void
+Broadside.Graphics.PdfCanvas.ShowText(System.ReadOnlySpan<char> text, bool kerning) -> void
+Broadside.Graphics.PdfCanvas.ShowText(System.ReadOnlySpan<char> text, System.ReadOnlySpan<double> adjustments) -> void
+Broadside.Graphics.PdfCanvas.ShowTextOnNextLine(System.ReadOnlySpan<char> text) -> void
+Broadside.Graphics.PdfCanvas.ShowTextOnNextLine(System.ReadOnlySpan<char> text, double wordSpacing, double characterSpacing) -> void
+Broadside.PdfDocument.GetStandard14Font(Broadside.Fonts.Standard14Font font) -> Broadside.Fonts.PdfCanvasFont!
 Broadside.Rendering.DisplayGroup.SoftMask.get -> Broadside.Rendering.DisplaySoftMask
 Broadside.Rendering.DisplaySoftMask
 Broadside.Rendering.DisplaySoftMask.Backdrop.get -> System.ReadOnlySpan<float>
