@@ -89,6 +89,11 @@ internal sealed class GroupProbe : IRenderingBackend
         _transparency |= strokeAlpha < 1 || fillAlpha < 1;
     }
 
+    /// <summary>Overprint and halftones do not make a cell blend (§11.7.4.5 applies only under the overprint preview).</summary>
+    public void SetDeviceParameters(in DisplayDeviceParameters parameters)
+    {
+    }
+
     public void DrawGroup(in DisplayGroup group)
     {
         _blends |= group.BlendMode != BlendMode.Normal;

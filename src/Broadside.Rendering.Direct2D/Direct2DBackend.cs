@@ -82,6 +82,7 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
         TilingPatterns = 16,
         BlendModes = 32,
         Groups = 64,
+        SoftMasks = 128,
     }
 
     /// <summary>Gets the diagnostics of the last replay: one for each kind of operation the backend skipped.</summary>

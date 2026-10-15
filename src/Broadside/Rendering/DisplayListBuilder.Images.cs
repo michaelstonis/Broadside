@@ -2,12 +2,13 @@ using System.Runtime.InteropServices;
 using Broadside.Content;
 using Broadside.Graphics;
 using Broadside.Images;
+using Broadside.Objects;
 
 namespace Broadside.Rendering;
 
 /// <summary>
 /// Image XObjects and inline images (ISO 32000-2 §8.9.4, §8.9.5, §8.9.7) with their masks (§8.9.6, §11.6.5), and stencil masks
-/// (§8.9.6.2), decoded once per list and interned.
+/// (§8.9.6.2), decoded once per list and interned, and kept across lists in the document's image cache (issue #103).
 /// </summary>
 internal sealed partial class DisplayListBuilder
 {
@@ -23,6 +24,10 @@ internal sealed partial class DisplayListBuilder
 
     // Stencil mask XObject streams seen in this build -> index into _imageMasks, or -1 when the mask cannot be painted.
     private Dictionary<object, int>? _internedMasks;
+
+    // Images and stencil masks this build decoded that no cache holds (issue #97: released when the build fails).
+    private object[] _owned = new object[4];
+    private int _ownedCount;
 
     /// <inheritdoc/>
     /// <remarks>
@@ -45,7 +50,7 @@ internal sealed partial class DisplayListBuilder
             return;
         }
 
-        int index = InternImage(image.IsInline ? null : image.Stream, model);
+        int index = InternImage(image.IsInline ? null : image.Stream, model, context.Document, context.CancellationToken);
         if (index < 0)
         {
             return;
@@ -76,7 +81,7 @@ internal sealed partial class DisplayListBuilder
             return;
         }
 
-        object? stream = image.IsInline ? null : image.Stream;
+        CosStream? stream = image.IsInline ? null : image.Stream;
         int index;
         if (stream is not null && _internedMasks is not null && _internedMasks.TryGetValue(stream, out int known))
         {
@@ -84,7 +89,22 @@ internal sealed partial class DisplayListBuilder
         }
         else
         {
-            DisplayImageMask? mask = DecodeMask(model);
+            DisplayImageMask? mask;
+            if (stream is not null && context.Document.Caches.Images.TryGet((stream, true), out DisplayImageEntry? cached))
+            {
+                mask = cached.Mask;
+            }
+            else
+            {
+                long epoch = CosMutation.Epoch;
+                mask = DecodeMask(model, context.CancellationToken);
+                if (mask is not null && (stream is null || !context.Document.Caches.Images.Add((stream, true), new DisplayImageEntry(epoch, null, mask))))
+                {
+                    // Only this build holds it until its list does: a failed build gives its samples back (issue #97).
+                    Append(ref _owned, ref _ownedCount, mask);
+                }
+            }
+
             index = mask is null ? -1 : _imageMaskCount;
             if (mask is not null)
             {
@@ -109,18 +129,44 @@ internal sealed partial class DisplayListBuilder
         AddOperation(new DisplayOperation(DisplayOperationKind.FillImageMask, default, index, color));
     }
 
-    /// <summary>Returns the index of the decoded image, decoding it unless this image XObject was decoded earlier in the build.</summary>
-    /// <param name="stream">The image XObject's stream, the interning key; <see langword="null"/> for an inline image.</param>
+    /// <summary>
+    /// Returns the index of the decoded image: the one interned earlier in the build, else the document's cached one (issue #103),
+    /// else a fresh decode, offered to the document's image cache.
+    /// </summary>
+    /// <param name="stream">The image XObject's stream, the interning key; <see langword="null"/> for an inline image, never cached.</param>
     /// <param name="model">The image.</param>
+    /// <param name="document">The document whose image cache to use.</param>
+    /// <param name="cancellationToken">The build's token, given to the image's filters.</param>
     /// <returns>The index into the image table, or −1 when the image cannot be decoded or has no usable colour space.</returns>
-    private int InternImage(object? stream, PdfImage model)
+    private int InternImage(CosStream? stream, PdfImage model, PdfDocument document, CancellationToken cancellationToken)
     {
         if (stream is not null && _internedImages is not null && _internedImages.TryGetValue(stream, out int known))
         {
             return known;
         }
 
-        int index = Decode(model);
+        DisplayImage? image;
+        if (stream is not null && document.Caches.Images.TryGet((stream, false), out DisplayImageEntry? cached))
+        {
+            image = cached.Image;
+        }
+        else
+        {
+            long epoch = CosMutation.Epoch;
+            image = Decode(model, cancellationToken);
+            if (image is not null && (stream is null || !document.Caches.Images.Add((stream, false), new DisplayImageEntry(epoch, image, null))))
+            {
+                // Only this build holds it until its list does: a failed build gives its samples back (issue #97).
+                Append(ref _owned, ref _ownedCount, image);
+            }
+        }
+
+        int index = image is null ? -1 : _imageCount;
+        if (image is not null)
+        {
+            Append(ref _images, ref _imageCount, image);
+        }
+
         if (stream is not null)
         {
             _internedImages ??= new Dictionary<object, int>(ReferenceEqualityComparer.Instance);
@@ -130,11 +176,11 @@ internal sealed partial class DisplayListBuilder
         return index;
     }
 
-    /// <summary>Decodes an image and its mask into the image table.</summary>
-    /// <returns>Its index, or −1 (the reason is already a diagnostic of the image).</returns>
-    private int Decode(PdfImage model)
+    /// <summary>Decodes an image and its mask.</summary>
+    /// <returns>The image, or <see langword="null"/> (the reason is already a diagnostic of the image).</returns>
+    private static DisplayImage? Decode(PdfImage model, CancellationToken cancellationToken)
     {
-        DecodedImage? decoded = model.Decode();
+        DecodedImage? decoded = model.DecodeSamples(cancellationToken);
         try
         {
             if (decoded is null
@@ -142,21 +188,20 @@ internal sealed partial class DisplayListBuilder
                 || space.Family == PdfColorSpaceFamily.Pattern
                 || space.ComponentCount != decoded.Components)
             {
-                return -1;
+                return null;
             }
 
-            MaskParts mask = DecodeMasks(model, decoded, space);
-            int index = _imageCount;
-            Append(ref _images, ref _imageCount, new DisplayImage(decoded, space, model.CreateDecodeMap(decoded), model.Interpolate)
+            MaskParts mask = DecodeMasks(model, decoded, space, cancellationToken);
+            var image = new DisplayImage(decoded, space, model.CreateDecodeMap(decoded), model.Interpolate)
             {
                 Mask = mask.Mask,
                 SoftMask = mask.SoftMask,
                 ColorKeyRanges = mask.ColorKey,
                 MatteColor = mask.Matte,
                 ColorTableBytes = space is PdfIndexedColorSpace indexed ? ColorTable(indexed) : [],
-            });
+            };
             decoded = null;
-            return index;
+            return image;
         }
         finally
         {
@@ -179,15 +224,15 @@ internal sealed partial class DisplayListBuilder
     /// key), §11.6.5.2 (soft mask and Matte), §7.4.9 and Table 87 (SMaskInData: 1 opacity, 2 opacity premultiplied into the
     /// colour, which is a Matte of zeros). An unusable mask leaves the image unmasked; its reason is already a diagnostic.
     /// </remarks>
-    private static MaskParts DecodeMasks(PdfImage model, DecodedImage decoded, PdfColorSpace space)
+    private static MaskParts DecodeMasks(PdfImage model, DecodedImage decoded, PdfColorSpace space, CancellationToken cancellationToken)
     {
         switch (model.MaskKind)
         {
             case PdfImageMaskKind.Explicit when model.Mask is { } explicitMask:
-                return new MaskParts(DecodeMask(explicitMask), null, [], []);
+                return new MaskParts(DecodeMask(explicitMask, cancellationToken), null, [], []);
             case PdfImageMaskKind.ColorKey when model.ColorKey is { } ranges:
                 return new MaskParts(null, null, [.. ranges], []);
-            case PdfImageMaskKind.Soft when model.Mask is { } softMask && DecodeSoftMask(softMask) is { } soft:
+            case PdfImageMaskKind.Soft when model.Mask is { } softMask && DecodeSoftMask(softMask, cancellationToken) is { } soft:
                 return new MaskParts(null, soft, [], model.Matte is { } matte ? [.. matte.Select(static m => (float)m)] : []);
             case PdfImageMaskKind.SoftInData when decoded.Alpha is { } alpha:
                 int components = space is PdfIndexedColorSpace indexed ? indexed.Base.ComponentCount : space.ComponentCount;
@@ -200,9 +245,9 @@ internal sealed partial class DisplayListBuilder
 
     /// <summary>Decodes an image mask (a stencil mask, or an image's explicit mask) at its own size.</summary>
     /// <returns>The mask, or <see langword="null"/> when it cannot be decoded (already a diagnostic) or is not one bit per sample.</returns>
-    private static DisplayImageMask? DecodeMask(PdfImage model)
+    private static DisplayImageMask? DecodeMask(PdfImage model, CancellationToken cancellationToken)
     {
-        DecodedImage? decoded = model.Decode();
+        DecodedImage? decoded = model.DecodeSamples(cancellationToken);
         try
         {
             if (decoded is null || decoded.Components != 1 || decoded.BitsPerComponent != 1)
@@ -222,9 +267,9 @@ internal sealed partial class DisplayListBuilder
 
     /// <summary>Decodes a soft-mask image at its own size, as a one-component image whose Decode mapping gives the opacity.</summary>
     /// <returns>The soft mask, or <see langword="null"/> when it cannot be decoded (already a diagnostic) or has more than one component.</returns>
-    private static DisplayImage? DecodeSoftMask(PdfImage model)
+    private static DisplayImage? DecodeSoftMask(PdfImage model, CancellationToken cancellationToken)
     {
-        DecodedImage? decoded = model.Decode();
+        DecodedImage? decoded = model.DecodeSamples(cancellationToken);
         try
         {
             if (decoded is null || decoded.Components != 1)
@@ -242,7 +287,31 @@ internal sealed partial class DisplayListBuilder
         }
     }
 
-    /// <summary>Forgets the images and masks, without disposing them: the lists built from them own them.</summary>
+    /// <summary>
+    /// Returns the pooled samples of the images and masks this build decoded and nothing else holds, for a build that failed
+    /// (cancelled, or strict mode; issue #97). Images from, or given to, the document's image cache (issue #103) are left alone:
+    /// other lists may hold them.
+    /// </summary>
+    private void ReleaseImages()
+    {
+        foreach (object owned in _owned.AsSpan(0, _ownedCount))
+        {
+            switch (owned)
+            {
+                case DisplayImage image:
+                    image.Release();
+                    break;
+                case DisplayImageMask mask:
+                    mask.Release();
+                    break;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Forgets the images and masks, without disposing them: the lists built from them, and the document's image cache, hold them,
+    /// and the garbage collector frees them with the last holder.
+    /// </summary>
     private void ResetImages()
     {
         Array.Clear(_images, 0, _imageCount);
@@ -253,6 +322,8 @@ internal sealed partial class DisplayListBuilder
         _imageMaskCount = 0;
         _internedImages?.Clear();
         _internedMasks?.Clear();
+        Array.Clear(_owned, 0, _ownedCount);
+        _ownedCount = 0;
     }
 
     /// <summary>The masking an image carries into the list.</summary>

@@ -71,6 +71,16 @@ internal class CodecReporter
         _context?.Report(code, severity, message);
     }
 
+    /// <summary>Throws <see cref="OperationCanceledException"/> when the decode's token (<see cref="FilterContext.CancellationToken"/>) is cancelled.</summary>
+    /// <remarks>Issue #97: codecs call this between units of work (a row of blocks, a code-block, a tile); it costs one read.</remarks>
+    public void ThrowIfCancellationRequested()
+    {
+        if (_context is { } context)
+        {
+            context.CancellationToken.ThrowIfCancellationRequested();
+        }
+    }
+
     /// <summary>Reports again what another reporter recorded (each code and key still once per call).</summary>
     /// <param name="recorded">The recorded deviations.</param>
     public void Replay(IEnumerable<CodecDiagnostic> recorded)

@@ -29,20 +29,35 @@ Broadside.Rendering.PixelSize.PixelSize() -> void
 Broadside.Rendering.PixelSize.PixelSize(int Width, int Height) -> void
 Broadside.Rendering.PixelSize.Width.get -> int
 Broadside.Rendering.PixelSize.Width.init -> void
+Broadside.Rendering.ProgressiveRender
+Broadside.Rendering.ProgressiveRender.Continue(System.TimeSpan budget) -> bool
+Broadside.Rendering.ProgressiveRender.Dispose() -> void
+Broadside.Rendering.ProgressiveRender.IsCompleted.get -> bool
+Broadside.Rendering.ProgressiveRender.List.get -> Broadside.Rendering.DisplayList!
+Broadside.Rendering.ProgressiveRender.Progress.get -> double
+Broadside.Rendering.ProgressiveRender.Target.get -> Broadside.Rendering.Bitmap!
 Broadside.Rendering.RenderOptions
+Broadside.Rendering.RenderOptions.CancellationToken.get -> System.Threading.CancellationToken
+Broadside.Rendering.RenderOptions.CancellationToken.set -> void
 Broadside.Rendering.RenderOptions.Dpi.get -> double
 Broadside.Rendering.RenderOptions.Dpi.set -> void
 Broadside.Rendering.RenderOptions.GetDeviceTransform(Broadside.PdfPage! page) -> Broadside.Graphics.Matrix
 Broadside.Rendering.RenderOptions.GetPixelSize(Broadside.PdfPage! page) -> Broadside.Rendering.PixelSize
+Broadside.Rendering.RenderOptions.Progress.get -> System.IProgress<double>?
+Broadside.Rendering.RenderOptions.Progress.set -> void
 Broadside.Rendering.RenderOptions.RenderOptions() -> void
 Broadside.Rendering.RenderOptions.Rotation.get -> int
 Broadside.Rendering.RenderOptions.Rotation.set -> void
 Broadside.Rendering.RenderOptions.Scale.get -> double
 Broadside.Rendering.RenderOptions.Scale.set -> void
+Broadside.Rendering.RenderOptions.WithCancellation(System.Threading.CancellationToken cancellationToken) -> Broadside.Rendering.RenderOptions!
 Broadside.Rendering.RenderOptions.WithDpi(double dpi) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.RenderOptions.WithProgress(System.IProgress<double>? progress) -> Broadside.Rendering.RenderOptions!
 Broadside.Rendering.RenderOptions.WithRotation(int degrees) -> Broadside.Rendering.RenderOptions!
 Broadside.Rendering.RenderOptions.WithScale(double scale) -> Broadside.Rendering.RenderOptions!
 Broadside.Rendering.SoftwareRasterizer
+Broadside.Rendering.SoftwareRasterizer.BeginRender(Broadside.PdfPage! page, Broadside.Rendering.Bitmap! target, Broadside.Rendering.RenderOptions! options) -> Broadside.Rendering.ProgressiveRender!
+Broadside.Rendering.SoftwareRasterizer.BeginRender(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, System.Threading.CancellationToken cancellationToken, System.IProgress<double>? progress) -> Broadside.Rendering.ProgressiveRender!
 Broadside.Rendering.SoftwareRasterizer.Dispose() -> void
 Broadside.Rendering.SoftwareRasterizer.Render(Broadside.PdfPage! page) -> Broadside.Rendering.Bitmap!
 Broadside.Rendering.SoftwareRasterizer.Render(Broadside.PdfPage! page, Broadside.Rendering.Bitmap! target, Broadside.Rendering.RenderOptions! options) -> void
@@ -89,3 +104,22 @@ Broadside.Rendering.Icc.IccColorManagement.UsesOutputIntents.get -> bool
 Broadside.Rendering.Icc.IccColorManagement.WithRgbProfile(Broadside.Rendering.Icc.IccProfile! profile) -> Broadside.Rendering.Icc.IccColorManagement!
 Broadside.Rendering.Icc.IccColorManagement.WithDefaultBlackPointCompensation(bool compensate) -> Broadside.Rendering.Icc.IccColorManagement!
 Broadside.Rendering.Icc.IccColorManagement.WithOutputIntents(bool use) -> Broadside.Rendering.Icc.IccColorManagement!
+Broadside.Rendering.RenderOptions.OverprintPreview.get -> bool
+Broadside.Rendering.RenderOptions.OverprintPreview.set -> void
+Broadside.Rendering.RenderOptions.WithOverprintPreview(bool overprintPreview) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.AntiAliasing
+Broadside.Rendering.AntiAliasing.All = Broadside.Rendering.AntiAliasing.Paths | Broadside.Rendering.AntiAliasing.Text | Broadside.Rendering.AntiAliasing.Images -> Broadside.Rendering.AntiAliasing
+Broadside.Rendering.AntiAliasing.Images = 4 -> Broadside.Rendering.AntiAliasing
+Broadside.Rendering.AntiAliasing.None = 0 -> Broadside.Rendering.AntiAliasing
+Broadside.Rendering.AntiAliasing.Paths = 1 -> Broadside.Rendering.AntiAliasing
+Broadside.Rendering.AntiAliasing.Text = 2 -> Broadside.Rendering.AntiAliasing
+Broadside.Rendering.RenderOptions.AntiAliasing.get -> Broadside.Rendering.AntiAliasing
+Broadside.Rendering.RenderOptions.AntiAliasing.set -> void
+Broadside.Rendering.RenderOptions.OptionalContentState.get -> Broadside.PdfOptionalContentState?
+Broadside.Rendering.RenderOptions.OptionalContentState.set -> void
+Broadside.Rendering.RenderOptions.TransparentBackground.get -> bool
+Broadside.Rendering.RenderOptions.TransparentBackground.set -> void
+Broadside.Rendering.RenderOptions.WithAntiAliasing(Broadside.Rendering.AntiAliasing antiAliasing) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.RenderOptions.WithOptionalContentState(Broadside.PdfOptionalContentState? state) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.RenderOptions.WithTransparentBackground(bool transparent) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.SoftwareRasterizer.Render(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, Broadside.Rendering.AntiAliasing antiAliasing) -> void

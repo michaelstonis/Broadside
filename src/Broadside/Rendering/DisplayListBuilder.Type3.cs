@@ -241,6 +241,9 @@ internal sealed partial class DisplayListBuilder
                     // Through the builder's tracking, like compositing; a mask set inside the description moves with it.
                     SetSoftMaskRecord(moved ? MoveSoftMask(operation.First, delta, description.State) : operation.First);
                     break;
+                case DisplayOperationKind.SetDeviceParameters:
+                    SetDeviceParameters(_deviceParameters[operation.First]);
+                    break;
                 case DisplayOperationKind.FillPath or DisplayOperationKind.FillImageMask when recolors:
                     AddOperation(operation with { Second = TextFill(ref fill, context) });
                     break;
@@ -373,7 +376,8 @@ internal sealed partial class DisplayListBuilder
                     }
 
                     break;
-                case DisplayOperationKind.SetTransform or DisplayOperationKind.SetCompositing or DisplayOperationKind.SetSoftMask or DisplayOperationKind.FillPath
+                case DisplayOperationKind.SetTransform or DisplayOperationKind.SetCompositing or DisplayOperationKind.SetDeviceParameters or DisplayOperationKind.SetSoftMask
+                    or DisplayOperationKind.FillPath
                     or DisplayOperationKind.StrokePath or DisplayOperationKind.DrawImage or DisplayOperationKind.DrawGlyphs
                     or DisplayOperationKind.DrawShading or DisplayOperationKind.FillPathWithShading or DisplayOperationKind.StrokePathWithShading
                     or DisplayOperationKind.FillImageMask or DisplayOperationKind.FillPathWithTilingPattern

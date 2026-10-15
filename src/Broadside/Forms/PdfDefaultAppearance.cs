@@ -153,6 +153,74 @@ public sealed class PdfDefaultAppearance
         }
     }
 
+    /// <summary>
+    /// Returns <paramref name="value"/> with the font name of every usable <c>Tf</c> (one <see cref="Parse"/> would read) that
+    /// <paramref name="rename"/> maps replaced by its new name, every other byte as written; <see langword="null"/> when no name
+    /// changes.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §12.7.4.3: the <c>Tf</c> font names a resource of the default resources' <c>Font</c> subdictionary.</remarks>
+    internal static byte[]? RenameFonts(ReadOnlySpan<byte> value, Func<CosName, CosName?> rename)
+    {
+        OperandArena arena = _arena ??= new OperandArena();
+        arena.Clear();
+        arena.Overflowed = false;
+        ArrayBufferWriter<byte>? output = null;
+        int copied = 0;
+        try
+        {
+            var reader = new ContentReader(value, arena);
+            while (reader.Next(out ReadOperator op))
+            {
+                if (op.Code == ContentOperatorCode.SetFont
+                    && arena.Count >= 2
+                    && arena.Last(2) is var font
+                    && font[0].Kind == ContentOperandKind.Name
+                    && !font[0].Bytes.Contains((byte)0)
+                    && font[1].IsNumber
+                    && rename(new CosName(font[0].Bytes)) is { } renamed
+                    && LastNameToken(value[..op.KeywordStart], op.Start) is { } token)
+                {
+                    // The font operand is the last name before the keyword: only the size, a number, follows it.
+                    output ??= new ArrayBufferWriter<byte>(value.Length + 8);
+                    output.Write(value[copied..token.Start]);
+                    CosWriter.Write(renamed, output);
+                    copied = token.End;
+                }
+
+                arena.Clear();
+            }
+
+            if (output is null)
+            {
+                return null;
+            }
+
+            output.Write(value[copied..]);
+            return output.WrittenSpan.ToArray();
+        }
+        finally
+        {
+            arena.Clear();
+            arena.Trim();
+        }
+    }
+
+    /// <summary>The last name token of <paramref name="source"/> from <paramref name="start"/>.</summary>
+    private static CosToken? LastNameToken(ReadOnlySpan<byte> source, int start)
+    {
+        var lexer = new CosLexer(source, start);
+        CosToken? last = null;
+        for (CosToken token = lexer.Next(); token.Kind != CosTokenKind.EndOfInput; token = lexer.Next())
+        {
+            if (token.Kind == CosTokenKind.Name)
+            {
+                last = token;
+            }
+        }
+
+        return last;
+    }
+
     /// <summary>Returns this appearance with its font resolved.</summary>
     internal PdfDefaultAppearance WithFont(PdfFont font, CosDictionary resources) =>
         new(FontName, FontSize, Color, TextMatrix, OtherOperators, Problems) { Font = font, FontResources = resources };

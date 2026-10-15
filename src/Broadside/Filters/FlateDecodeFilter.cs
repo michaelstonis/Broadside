@@ -51,6 +51,7 @@ public sealed class FlateDecodeFilter : IStreamFilter
             using var inflater = new DeflateStream(source, CompressionMode.Decompress);
             while (true)
             {
+                context.CancellationToken.ThrowIfCancellationRequested();
                 Span<byte> chunk = output.GetSpan(ChunkSize);
                 int count = inflater.Read(chunk);
                 if (count == 0)

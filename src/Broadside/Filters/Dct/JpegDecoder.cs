@@ -392,6 +392,7 @@ internal sealed class JpegDecoder
         {
             for (int row = 0; row < _mcusY; row++)
             {
+                _reporter.ThrowIfCancellationRequested();
                 EmitMcuRow(row, ref sink);
             }
         }
@@ -975,6 +976,7 @@ internal sealed class JpegDecoder
         bool countsRows = _scanKind is ScanKind.Sequential or ScanKind.DcFirst;
         for (int mcuRow = 0; mcuRow < mcuRows; mcuRow++)
         {
+            _reporter.ThrowIfCancellationRequested();
             int frameRow = !countsRows ? int.MaxValue : single ? mcuRow / first.V : mcuRow;
             if (_streaming)
             {

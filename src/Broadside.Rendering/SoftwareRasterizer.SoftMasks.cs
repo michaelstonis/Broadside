@@ -26,8 +26,8 @@ public sealed partial class SoftwareRasterizer
         private int _savedSoftMaskCount;
 
         // Rendered masks (free when their Content is null), the size of the render, and the clock for least recently used.
-        private SoftMaskPlane[] _planes = [];
-        private int _planeCount;
+        private SoftMaskPlane[] _maskPlanes = [];
+        private int _maskPlaneCount;
         private int _renderWidth;
         private int _renderHeight;
         private long _maskClock;
@@ -53,9 +53,9 @@ public sealed partial class SoftwareRasterizer
         {
             // Inside a group the device transform is the layer's; the plane is in the render's pixels, as the clip is.
             Matrix toDevice = mask.Matrix * _device * Matrix.CreateTranslation(_originX, _originY);
-            for (int index = 0; index < _planeCount; index++)
+            for (int index = 0; index < _maskPlaneCount; index++)
             {
-                SoftMaskPlane plane = _planes[index];
+                SoftMaskPlane plane = _maskPlanes[index];
                 if (ReferenceEquals(plane.Content, mask.Content) && plane.ToDevice == toDevice)
                 {
                     plane.LastUse = ++_maskClock;
@@ -75,9 +75,9 @@ public sealed partial class SoftwareRasterizer
         private SoftMaskPlane TakePlane()
         {
             SoftMaskPlane? oldest = null;
-            for (int index = 0; index < _planeCount; index++)
+            for (int index = 0; index < _maskPlaneCount; index++)
             {
-                SoftMaskPlane plane = _planes[index];
+                SoftMaskPlane plane = _maskPlanes[index];
                 if (plane.Content is null)
                 {
                     return plane;
@@ -89,14 +89,14 @@ public sealed partial class SoftwareRasterizer
                 }
             }
 
-            if (_planeCount < KeptMasks || oldest is null)
+            if (_maskPlaneCount < KeptMasks || oldest is null)
             {
-                if (_planeCount == _planes.Length)
+                if (_maskPlaneCount == _maskPlanes.Length)
                 {
-                    Array.Resize(ref _planes, Math.Max(4, _planes.Length * 2));
+                    Array.Resize(ref _maskPlanes, Math.Max(4, _maskPlanes.Length * 2));
                 }
 
-                return _planes[_planeCount++] = new SoftMaskPlane();
+                return _maskPlanes[_maskPlaneCount++] = new SoftMaskPlane();
             }
 
             return oldest;
@@ -162,7 +162,7 @@ public sealed partial class SoftwareRasterizer
             }
 
             Backend child = _maskBackend ??= new Backend();
-            child.Begin(_document!, _maskBitmap, toDevice * Matrix.CreateTranslation(-left, -top), width, height);
+            child.Begin(_document!, _maskBitmap, toDevice * Matrix.CreateTranslation(-left, -top), width, height, preview: false, _antiAliasing);
             try
             {
                 mask.Content.Replay(child);
@@ -278,10 +278,10 @@ public sealed partial class SoftwareRasterizer
             Array.Clear(_savedSoftMasks, 0, _savedSoftMaskCount);
             _savedSoftMaskCount = 0;
             _clip.SetSoftMask(null, false);
-            for (int index = 0; index < _planeCount; index++)
+            for (int index = 0; index < _maskPlaneCount; index++)
             {
-                _planes[index].Content = null;
-                _planes[index].Pins = 0;
+                _maskPlanes[index].Content = null;
+                _maskPlanes[index].Pins = 0;
             }
         }
 
@@ -290,13 +290,13 @@ public sealed partial class SoftwareRasterizer
 
         private void DisposeSoftMasks()
         {
-            for (int index = 0; index < _planeCount; index++)
+            for (int index = 0; index < _maskPlaneCount; index++)
             {
-                _planes[index].Dispose();
+                _maskPlanes[index].Dispose();
             }
 
-            _planes = [];
-            _planeCount = 0;
+            _maskPlanes = [];
+            _maskPlaneCount = 0;
             _maskBackend?.Dispose();
             _maskBackend = null;
             _maskBitmap?.Dispose();

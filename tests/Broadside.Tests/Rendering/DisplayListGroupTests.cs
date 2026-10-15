@@ -16,6 +16,30 @@ public sealed class DisplayListGroupTests
         "/ExtGState << /Half << /CA 0.5 /ca 0.25 /BM /Multiply >> /Stroke << /CA 0.5 >> /Screen << /BM /Screen >> >>";
 
     [Fact]
+    public void A_cancellable_or_sliced_replay_hands_a_groups_content_over_once_through_the_group()
+    {
+        // #97's cancellable and progressive replays walk the list themselves: a DrawGroup's content must be skipped there too, or
+        // the backend would get it twice (once from DisplayGroup.Replay, once inline).
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("transparency-groups.pdf"));
+        DisplayList list = document.Pages[0].CreateDisplayList();
+        var plain = new RecordingBackend();
+        list.Replay(plain);
+        Assert.NotEmpty(plain.Groups);
+
+        var cancellable = new RecordingBackend();
+        using var source = new CancellationTokenSource();
+        list.Replay(cancellable, source.Token, progress: null);
+        var sliced = new RecordingBackend();
+        DisplayListReplay replay = list.BeginReplay(sliced, source.Token, progress: null);
+        while (!replay.Continue(TimeSpan.Zero))
+        {
+        }
+
+        Assert.Equal(plain.Operations, cancellable.Operations);
+        Assert.Equal(plain.Operations, sliced.Operations);
+    }
+
+    [Fact]
     public void A_transparency_group_form_paints_as_a_group_with_the_alpha_and_blend_mode_at_Do()
     {
         List<string> operations = Record(

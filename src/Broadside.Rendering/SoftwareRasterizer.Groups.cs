@@ -72,9 +72,10 @@ public sealed partial class SoftwareRasterizer
             }
 
             bool normal = compositor.IsNormal && compositor.Alpha == 255;
+            bool masked = !group.SoftMask.IsNone;
             GroupContent content = default;
             bool probed = false;
-            if (!parentKnockout && !group.IsKnockout && normal)
+            if (!parentKnockout && !group.IsKnockout && normal && !masked)
             {
                 bool direct = !group.IsIsolated && sameModel;
                 if (!direct)
@@ -89,6 +90,19 @@ public sealed partial class SoftwareRasterizer
                     group.Replay(this);
                     return;
                 }
+            }
+
+            if (_previewing)
+            {
+                PreviewGroup(group, left, top, right, bottom);
+                return;
+            }
+
+            // §11.6.4.3: the soft mask at Do applies to the group's result as a whole; kept rendered while the content paints.
+            SoftMaskPlane? mask = masked ? GetPlane(group.SoftMask) : null;
+            if (mask is not null)
+            {
+                mask.Pins++;
             }
 
             bool isolated = group.IsIsolated;
@@ -133,7 +147,11 @@ public sealed partial class SoftwareRasterizer
                 EndPass(layer);
             }
 
-            CloseLayer(layer);
+            CloseLayer(layer, mask, masked && group.SoftMask.IsShape);
+            if (mask is not null)
+            {
+                mask.Pins--;
+            }
         }
 
         /// <summary>
@@ -165,7 +183,7 @@ public sealed partial class SoftwareRasterizer
             }
 
             Backend child = _cellBackend ??= new Backend();
-            child.Begin(_document!, _groundBitmap, Matrix.Identity, width, height);
+            child.Begin(_document!, _groundBitmap, Matrix.Identity, width, height, preview: false, _antiAliasing);
             child._pixelModel = _pixelModel;
             try
             {
@@ -379,10 +397,12 @@ public sealed partial class SoftwareRasterizer
 
         /// <summary>
         /// Composites a layer's result onto the parent through the clip in force (§8.5.4), as one element of the parent (§11.4.4,
-        /// §11.4.8), then closes it.
+        /// §11.4.8), then closes it. The group's own soft mask (§11.6.4.3), when it has one, scales its opacity (or shape) per pixel;
+        /// the mask the paints outside the group go through does not apply to it.
         /// </summary>
-        private void CloseLayer(GroupLayer layer)
+        private void CloseLayer(GroupLayer layer, SoftMaskPlane? mask = null, bool maskIsShape = false)
         {
+            _clip.SetSoftMask(null, false);
             GroupLayer? parent = _layerDepth > 1 ? _layers[_layerDepth - 2] : null;
             // Gray pixels are already RGB; RGB becomes gray by luminosity; anything to or from CMYK goes through the converter.
             bool converts = layer.Model.Model != _pixelModel.Model
@@ -408,10 +428,11 @@ public sealed partial class SoftwareRasterizer
                     layer.PlaneRow(pass, row, 0, layer.Width).CopyTo(source);
                 }
 
-                var sink = new GroupSink(layer, parent, _target!, _pixelModel.Pass, source, row, dx, dy, converts);
+                var sink = new GroupSink(layer, parent, _target!, _pixelModel.Pass, source, row, dx, dy, converts, mask, maskIsShape, _originX, _originY);
                 _clip.Apply(row + dy, dx, layer.Width, 255, ref sink);
             }
 
+            _clip.SetSoftMask(_softMask, _softMaskShape);
             layer.Forget();
             _layerDepth--;
         }
@@ -568,9 +589,30 @@ public sealed partial class SoftwareRasterizer
             private readonly int _dx;
             private readonly int _dy;
             private readonly bool _isolatedSource;
+            private readonly SoftMaskPlane? _mask;
+            private readonly bool _maskIsShape;
+            private readonly int _originX;
+            private readonly int _originY;
 
-            public GroupSink(GroupLayer layer, GroupLayer? parent, Bitmap target, int parentPass, Span<uint> source, int row, int dx, int dy, bool converted)
+            public GroupSink(
+                GroupLayer layer,
+                GroupLayer? parent,
+                Bitmap target,
+                int parentPass,
+                Span<uint> source,
+                int row,
+                int dx,
+                int dy,
+                bool converted,
+                SoftMaskPlane? mask,
+                bool maskIsShape,
+                int originX,
+                int originY)
             {
+                _mask = mask;
+                _maskIsShape = maskIsShape;
+                _originX = originX;
+                _originY = originY;
                 _layer = layer;
                 _parent = parent;
                 _target = target;
@@ -583,6 +625,26 @@ public sealed partial class SoftwareRasterizer
             }
 
             public void Span(int row, int x, int count, int coverage)
+            {
+                if (_mask is null)
+                {
+                    Composite(row, x, count, coverage, coverage);
+                    return;
+                }
+
+                // Runs of equal mask values, in render pixels: an opacity mask scales what composites, a shape mask the shape too.
+                int end = x + count;
+                while (x < end)
+                {
+                    int next = _mask.Run(row + _originY, x + _originX, end + _originX, out byte value) - _originX;
+                    int masked = value == 255 ? coverage : Compositor.Divide255(coverage * value);
+                    Composite(row, x, next - x, masked, _maskIsShape ? masked : coverage);
+                    x = next;
+                }
+            }
+
+            /// <summary>Composites a run whose opacity is <paramref name="coverage"/> and shape <paramref name="shapeCoverage"/>.</summary>
+            private void Composite(int row, int x, int count, int coverage, int shapeCoverage)
             {
                 GroupLayer layer = _layer;
                 Compositor compositor = layer.Compositor;
@@ -606,7 +668,7 @@ public sealed partial class SoftwareRasterizer
                         source = Compositor.RemoveBackdrop(complete, initial[i], alpha[i]);
                     }
 
-                    int fs = layer.TracksShape ? Compositor.Divide255(shape[i] * coverage) : coverage;
+                    int fs = layer.TracksShape ? Compositor.Divide255(shape[i] * shapeCoverage) : shapeCoverage;
                     if (backdrop.IsEmpty)
                     {
                         target[i] = _isolatedSource

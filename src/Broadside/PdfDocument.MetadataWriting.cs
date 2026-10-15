@@ -117,5 +117,22 @@ public sealed partial class PdfDocument
         _writtenDates.Clear();
     }
 
+    /// <summary>
+    /// Adds to <paramref name="changes"/> the undoing of what a save's dating records outside the COS graph (issue #306): the dates
+    /// written since the last save, which a save raising the version formats again, and whether the modification date was set
+    /// explicitly, which keeps the dating from replacing it.
+    /// </summary>
+    private void KeepMetadataSaveState(CosChangeLog changes)
+    {
+        MetadataEntry[] writtenDates = [.. _writtenDates];
+        bool modificationDateSet = _modificationDateSet;
+        changes.Add(() =>
+        {
+            _writtenDates.Clear();
+            _writtenDates.UnionWith(writtenDates);
+            _modificationDateSet = modificationDateSet;
+        });
+    }
+
     private MetadataDate Now() => MetadataDate.FromInstant(TimeProvider.GetLocalNow());
 }

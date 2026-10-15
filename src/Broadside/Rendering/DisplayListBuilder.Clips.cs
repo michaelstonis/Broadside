@@ -16,7 +16,7 @@ internal sealed partial class DisplayListBuilder
     {
         if (clip.Kind == ClipKind.Text)
         {
-            IntersectTextClip(clip);
+            IntersectTextClip(clip, context.Document.Caches);
             return;
         }
 

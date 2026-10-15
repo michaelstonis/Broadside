@@ -28,7 +28,7 @@ public class AnnotationRenderingBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        _document = PdfDocument.Open(AnnotationSamples.Grid());
+        _document = PdfDocument.Open(AnnotationSamples.Grid(), new PdfOptions().WithDisplayListCacheBudget(0)); // Build measures building (issue #103).
         PdfPage page = _document.Pages[0];
         _list = page.CreateDisplayList(DisplayLayers.All);
         RenderOptions options = new RenderOptions().WithDpi(Dpi);

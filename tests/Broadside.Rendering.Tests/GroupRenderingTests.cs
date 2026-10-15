@@ -229,6 +229,34 @@ public sealed class GroupRenderingTests
         AssertNear(new Rgba(254, 254, 254, 255), bitmap.At(200, 591));
     }
 
+    [Theory]
+    [InlineData("/CS /DeviceCMYK")]
+    [InlineData("/CS /DeviceGray")]
+    public void A_function_based_shading_in_an_isolated_group_paints_in_the_groups_colour_space(string space)
+    {
+        // A Type 1 shading of one colour (#110 paints it through the mesh layer) at ca 0.5 in a group: in a gray group it is the
+        // colour's gray level; in a CMYK group it goes through CMYK and back, close to the plain render (§11.3.4).
+        string shading = "<< /ShadingType 1 /ColorSpace /DeviceRGB /Domain [0 1 0 1] /Matrix [612 0 0 792 0 0] /Function 7 0 R >>";
+        string function = ContentSamples.Stream("{pop pop 0.2 0.6 0.4}", "/FunctionType 4 /Domain [0 1 0 1] /Range [0 1 0 1 0 1]");
+        string resources = States + " /Shading << /Sh 6 0 R >>";
+        const string content = "/Half gs 100 100 200 200 re W n /Sh sh";
+        using Bitmap plain = Render("/Fm0 Do", Form("", content, resources), shading, function);
+        using Bitmap grouped = Render("/Fm0 Do", Form($"/Group << /S /Transparency /I true {space} >>", content, resources), shading, function);
+
+        Rgba actual = grouped.At(200, 591);
+        if (space.Contains("Gray", StringComparison.Ordinal))
+        {
+            // Level 0.3 × 0.2 + 0.59 × 0.6 + 0.11 × 0.4 = 0.458, half over white: 0.729.
+            AssertNear(new Rgba(186, 186, 186, 255), actual, 3);
+        }
+        else
+        {
+            AssertNear(plain.At(200, 591), actual, 40);
+        }
+
+        Assert.Equal(White, grouped.At(450, 591));
+    }
+
     private static Rgba Expected(PdfDocument document, PdfColorSpace space, params float[] components)
     {
         Span<float> rgb = stackalloc float[3];

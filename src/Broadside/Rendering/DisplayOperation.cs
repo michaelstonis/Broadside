@@ -66,6 +66,8 @@ internal enum DisplayOperationKind : byte
     /// <summary><see cref="IRenderingBackend.EndAnnotation"/>.</summary>
     EndAnnotation,
 
+    /// <summary><see cref="IRenderingBackend.SetDeviceParameters"/>; <see cref="DisplayOperation.First"/> indexes the device parameters.</summary>
+    SetDeviceParameters,
     /// <summary>
     /// <see cref="IRenderingBackend.SetSoftMask"/>; <see cref="DisplayOperation.First"/> indexes the soft masks, or is −1 for none.
     /// State only, like <see cref="SetCompositing"/>.

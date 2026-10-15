@@ -244,7 +244,6 @@ public sealed class LinearizedSaveTests
         using HttpClient client = server.CreateClient();
         using PdfDocument document = await PdfDocument.OpenAsync(client, new Uri("http://broadside.test/linearized.pdf"), TestContext.Current.CancellationToken);
         Assert.True(document.IsLinearized);
-        int opened = server.Requests.Count;
 
         PdfPage first = document.Pages[0];
         await first.PrefetchAsync(TestContext.Current.CancellationToken);
@@ -253,18 +252,20 @@ public sealed class LinearizedSaveTests
         Assert.NotEmpty(backend.Operations);
         Assert.Contains("Page 1", first.ExtractText().Text, StringComparison.Ordinal);
 
-        // Everything page one needed after the open came from the first-page byte range (parts 1 to 6, up to E).
-        Assert.True(server.Requests.Count > opened, $"Page one's content was fetched by the open: {server}");
-        Assert.All(server.Requests.Skip(opened), request => Assert.True(request.Start + request.Length <= firstPageEnd, $"{request} lies past E = {firstPageEnd}: {server}"));
+        // The open and page one came from the reader's first request, the head of the file (issue #208), and beyond it from the
+        // first-page byte range only (parts 1 to 6, up to E, which holds the hint stream), whole blocks of the range source at a time.
+        long blockEnd = (firstPageEnd + PdfOptions.DefaultRangeBlockSize - 1) / PdfOptions.DefaultRangeBlockSize * PdfOptions.DefaultRangeBlockSize;
+        Assert.Equal(0, server.Requests[0].Start);
+        Assert.All(server.Requests.Skip(1), request => Assert.True(request.Start + request.Length <= blockEnd, $"{request} lies past E = {firstPageEnd}: {server}"));
 
-        // No other page's content was sent (outside the tail the open reads first).
-        long tailStart = server.Requests[0].Start;
+        // No other page's content was sent, beyond the head.
         string text = Encoding.Latin1.GetString(linearized);
+        long headEnd = server.Requests[0].Length;
         for (int page = 2; page <= pages; page++)
         {
             long content = text.IndexOf(string.Create(CultureInfo.InvariantCulture, $"(Page {page})"), StringComparison.Ordinal);
             long middle = content + (PagePadding / 2);
-            if (middle + 1024 <= tailStart)
+            if (middle >= headEnd)
             {
                 Assert.False(server.AnyServed(middle, middle + 1024), $"Page {page}'s content was fetched: {server}");
             }

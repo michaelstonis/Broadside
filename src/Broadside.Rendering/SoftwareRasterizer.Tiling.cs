@@ -48,7 +48,7 @@ public sealed partial class SoftwareRasterizer
 
             _scan.Reset(_width, _height);
             AddPath(path);
-            PaintTiling(pattern, rule, _fillCompositor);
+            PaintTiling(pattern, rule, _fillCompositor, _deviceParameters.FillOverprint);
         }
 
         /// <summary>Tiles the area the stroke covers (§8.5.3.2, outlined like <see cref="StrokePath"/>) with the pattern.</summary>
@@ -61,11 +61,11 @@ public sealed partial class SoftwareRasterizer
 
             _scan.Reset(_width, _height);
             _stroker.Stroke(path, style, _toDevice);
-            PaintTiling(pattern, FillRule.NonZero, _strokeCompositor);
+            PaintTiling(pattern, FillRule.NonZero, _strokeCompositor, _deviceParameters.StrokeOverprint);
         }
 
         /// <summary>Paints the shape in the scan converter with the pattern's tiles.</summary>
-        private void PaintTiling(in DisplayTilingPattern pattern, FillRule rule, Compositor compositor)
+        private void PaintTiling(in DisplayTilingPattern pattern, FillRule rule, Compositor compositor, bool overprint)
         {
             if (!_scan.TryGetBounds(out int left, out int top, out int right, out int bottom))
             {
@@ -111,6 +111,12 @@ public sealed partial class SoftwareRasterizer
                 }
             }
 
+            if (_previewing)
+            {
+                PreviewTiling(layer, area, rule, compositor, overprint);
+                return;
+            }
+
             Bitmap target = _target!;
             var painter = new TilingPainter(target.Pixels, target.Stride, layer, area.Left, area.Top, area.Width, area.Height, compositor);
             _scan.Paint(rule, ref painter);
@@ -133,7 +139,7 @@ public sealed partial class SoftwareRasterizer
             }
 
             Backend child = _cellBackend ??= new Backend();
-            child.Begin(_document!, _cellBitmap, cellMatrix * Matrix.CreateTranslation(-box.Left, -box.Top), box.Width, box.Height);
+            child.Begin(_document!, _cellBitmap, cellMatrix * Matrix.CreateTranslation(-box.Left, -box.Top), box.Width, box.Height, preview: false, _antiAliasing);
             child._pixelModel = _pixelModel;
             try
             {

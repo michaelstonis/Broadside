@@ -130,7 +130,8 @@ public sealed partial class DisplayList
 
                     extents[index] = OperationExtent.Everything(index);
                     continue;
-                case DisplayOperationKind.SetCompositing or DisplayOperationKind.SetSoftMask:
+                case DisplayOperationKind.SetCompositing or DisplayOperationKind.SetDeviceParameters
+                    or DisplayOperationKind.SetSoftMask:
                     extents[index] = OperationExtent.Everything(index);
                     continue;
                 case DisplayOperationKind.SetTransform:

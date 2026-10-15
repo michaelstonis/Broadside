@@ -20,6 +20,14 @@ namespace Broadside;
 /// object, and intermediate nodes are reused. Views of the pages stay valid across edits. Each edit is a mutation: no read may run
 /// concurrently with it.
 /// </para>
+/// <para>
+/// A linearized file opened through range requests (<see cref="PdfEngine.OpenAsync(HttpClient, Uri, CancellationToken)"/>)
+/// finds its pages through its page offset hint table instead (ISO 32000-2 F.4.2 and Annex G, G.4; issue #208): the count is the
+/// linearization dictionary's <c>N</c>, and each page's object is read when the page is first asked for, so going to a page fetches
+/// that page and not the tree. The page tree is still read, on first use, by anything that needs it: <see cref="IndexOf(PdfPage)"/>,
+/// editing, or a page the hints do not locate (reported as <c>LinearizationHintsInvalid</c>; the pages then come from the tree, the
+/// views already handed out included).
+/// </para>
 /// </remarks>
 public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
 {
@@ -30,6 +38,8 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
     private PageList? _edited;
     private List<CosReference>? _nodes;
     private HashSet<CosReference>? _removed;
+    private HintedPageList? _hinted;
+    private volatile bool _hintsRejected;
 
     internal PdfPageCollection(PdfDocument document, Func<IReadOnlyList<PdfPage>> walk)
     {
@@ -38,15 +48,21 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
     }
 
     /// <summary>Gets the number of pages.</summary>
-    public int Count => Pages.Count;
+    public int Count => HintedCount ?? Pages.Count;
+
+    /// <summary>Gets a value indicating whether the pages are found through the hint tables rather than the page tree.</summary>
+    internal bool UsesHints => HintedCount is not null;
+
+    /// <summary>The hinted page count while the hints are in use: before the tree is read or edited, and while no page failed.</summary>
+    private int? HintedCount => _hinted is { } hinted && _edited is null && !_hintsRejected && !_read.TryGet(true, out _) ? hinted.Count : null;
 
     /// <summary>Gets the page objects removed through <see cref="RemoveAt"/> or <see cref="Remove"/>, for the save-time report; <see langword="null"/> when none.</summary>
     internal IReadOnlySet<CosReference>? RemovedPages => _removed;
 
     private PageList Current => _edited ?? _read.GetOrCreate(
         true,
-        _walk,
-        static (_, walk) => new Created<PageList>(new PageList(walk())),
+        this,
+        static (_, self) => new Created<PageList>(new PageList(self.Walk())),
         static (_, _) => throw new InvalidOperationException("The page tree was read while it was being read."));
 
     private IReadOnlyList<PdfPage> Pages => Current.Pages;
@@ -55,10 +71,51 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
     /// <param name="index">The index: 0 for the first page.</param>
     /// <returns>The page.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="index"/> is negative or not less than <see cref="Count"/>.</exception>
-    public PdfPage this[int index] => Pages[index];
+    public PdfPage this[int index]
+    {
+        get
+        {
+            if (HintedCount is int count)
+            {
+                ArgumentOutOfRangeException.ThrowIfNegative(index);
+                ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, count);
+                if (_hinted!.Get(index) is { } page)
+                {
+                    return page;
+                }
+
+                _hintsRejected = true;
+            }
+
+            return Pages[index];
+        }
+    }
 
     /// <inheritdoc/>
-    public IEnumerator<PdfPage> GetEnumerator() => Pages.GetEnumerator();
+    public IEnumerator<PdfPage> GetEnumerator() => UsesHints ? EnumerateByIndex() : Pages.GetEnumerator();
+
+    /// <summary>
+    /// Gets the page at <paramref name="index"/> once the objects reading it needs are cached: for a remote document, its page object
+    /// (through the page offset hints of a linearized file, else the page tree) and then what <see cref="PdfPage.PrefetchAsync"/>
+    /// fetches.
+    /// </summary>
+    /// <param name="index">The index: 0 for the first page.</param>
+    /// <param name="cancellationToken">Cancels the requests.</param>
+    /// <returns>The page; already completed for a document whose bytes are all at hand.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="index"/> is negative or not less than <see cref="Count"/>.</exception>
+    /// <exception cref="HttpRequestException">The server answered with an error status, or could not be reached.</exception>
+    /// <exception cref="IOException">The server's answers are inconsistent: the file changed while it was read, for instance.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>
+    /// Spec #33, viewer capability 5; ISO 32000-2 Annex G, G.4 (going to another page of an open document). Where
+    /// <see cref="PdfOptions.SynchronousRangeFetch"/> is off (the browser), asking a linearized remote document for a page it has
+    /// not fetched throws <see cref="PdfRangeNotLoadedException"/>; this is the asynchronous way to get it.
+    /// </remarks>
+    public Task<PdfPage> PrefetchAsync(int index, CancellationToken cancellationToken = default) => _document.PrefetchPageAsync(index, cancellationToken);
+
+    /// <summary>Uses the hint tables of a linearized remote file to find pages (issue #208).</summary>
+    /// <param name="hinted">The hinted pages.</param>
+    internal void UseHints(HintedPageList hinted) => _hinted = hinted;
 
     /// <summary>Returns the index of <paramref name="page"/>, or -1 when it is not a page of the document.</summary>
     /// <param name="page">A page view.</param>
@@ -276,6 +333,60 @@ public sealed class PdfPageCollection : IReadOnlyList<PdfPage>
         pages.Insert(index, page);
         Commit(previous, pages);
         return page;
+    }
+
+    /// <summary>Enumerates the hinted pages; when a page fails its check, continues from the same index in the page tree's list.</summary>
+    private IEnumerator<PdfPage> EnumerateByIndex()
+    {
+        int index = 0;
+        while (HintedCount is int count && index < count)
+        {
+            if (_hinted!.Get(index) is not { } page)
+            {
+                _hintsRejected = true;
+                break;
+            }
+
+            yield return page;
+            index++;
+        }
+
+        if (HintedCount is null)
+        {
+            IReadOnlyList<PdfPage> pages = Pages;
+            for (; index < pages.Count; index++)
+            {
+                yield return pages[index];
+            }
+        }
+    }
+
+    /// <summary>
+    /// Walks the page tree; a page the hint tables already handed out a view for keeps that view, which now inherits through the
+    /// tree's nodes.
+    /// </summary>
+    private IReadOnlyList<PdfPage> Walk()
+    {
+        IReadOnlyList<PdfPage> pages = _walk();
+        if (_hinted is not { } hinted)
+        {
+            return pages;
+        }
+
+        var list = new PdfPage[pages.Count];
+        for (int index = 0; index < pages.Count; index++)
+        {
+            PdfPage page = pages[index];
+            if (page.Reference is { } reference && hinted.TryGetCreated(reference, out PdfPage? created))
+            {
+                created.Relink(reference, page.Ancestors);
+                page = created;
+            }
+
+            list[index] = page;
+        }
+
+        return list;
     }
 
     /// <summary>Rebuilds the page tree around <paramref name="pages"/> and makes them the list.</summary>

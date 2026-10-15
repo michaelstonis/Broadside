@@ -1206,6 +1206,28 @@ def gen_text_render_modes() -> bytes:
     return simple_file(objects, binary=True)
 
 
+def gen_text_rotated() -> bytes:
+    """9.4.4 (the text rendering matrix) and 8.3.4: the embedded font of text-truetype-embedded.pdf at 24 pt, HI twice, rotated two
+    ways. Line 1 is rotated 30 degrees by the text matrix (Tm [0.866025 0.5 -0.5 0.866025 100 500]); line 2 is rotated 90 degrees
+    by the CTM (cm [0 1 -1 0 300 300]) with the text at the origin of the rotated space. Glyph boxes are rotated with the text."""
+    font, widths = minimal_truetype()
+    first, last = min(widths), max(widths)
+    w = b" ".join(b"%d" % widths[c] for c in range(first, last + 1))
+    content = (b"BT /F1 24 Tf 0.866025 0.5 -0.5 0.866025 100 500 Tm (HI) Tj ET\n"
+               b"q 0 1 -1 0 300 300 cm BT /F1 24 Tf (HI) Tj ET Q")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, font=5)),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Font /Subtype /TrueType /BaseFont /BroadsideMinimal /FirstChar %d /LastChar %d "
+            b"/Widths [%s] /Encoding /WinAnsiEncoding /FontDescriptor 6 0 R >>" % (first, last, w)),
+        (6, b"<< /Type /FontDescriptor /FontName /BroadsideMinimal /Flags 32 /FontBBox [0 0 700 700] "
+            b"/ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 200 /FontFile2 7 0 R >>"),
+        (7, stream(b"/Length1 %d" % len(font), font)),
+    ], binary=True)
+
+
 def codes_content(lines: list[tuple[str, bytes]]) -> bytes:
     """One text line per (font resource, codes); codes as a hexadecimal string so any byte can be shown."""
     out = b"BT /%s 24 Tf 72 700 Td <%s> Tj" % (lines[0][0].encode(), lines[0][1].hex().upper().encode())
@@ -2514,6 +2536,7 @@ def gen_annotations_link() -> bytes:
         (2, pages()),
         (3, page(extra=b" /Annots [4 0 R]")),
         (4, b"<< /Type /Annot /Subtype /Link /Rect [72 700 300 724] /Border [0 0 0] "
+            b"/QuadPoints [72 712 300 712 300 724 72 724 72 700 150 700 150 712 72 712] "
             b"/A << /S /URI /URI (https://example.com/) >> >>"),
     ])
 
@@ -3241,27 +3264,31 @@ def gen_optional_content() -> bytes:
     OCMD 9 (/OCGs [A B] /P /AllOff) and OCMD 10 (/VE [/Or A [/Not B]]), content sections /OC /a, /m1, /m2
     and /a nested in /b, a form XObject with /OC B, an annotation with /OC C; D carries Order (a label and
     an unlabelled nested array), RBGroups and Locked; Configs has one alternate configuration
-    (8.11.4.3 Table 99: BaseState OFF, ON [C], Intent All)."""
+    (8.11.4.3 Table 99: BaseState OFF, ON [C], Intent All). D2 also has a Print usage (PrintState OFF) that D's only AS entry
+    (Event Print, Category [Print], 8.11.4.4) applies when printing, and a last section /OC /d2 paints at x 100 (visible on screen,
+    hidden in print)."""
     content = (b"/OC /a BDC 0 0 10 10 re f EMC\n"
                b"/OC /m1 BDC 20 0 10 10 re f EMC\n"
                b"/OC /m2 BDC 40 0 10 10 re f EMC\n"
                b"/OC /b BDC /OC /a BDC 60 0 10 10 re f EMC EMC\n"
-               b"/Fm Do\n")
+               b"/Fm Do\n"
+               b"/OC /d2 BDC 100 0 10 10 re f EMC\n")
     ocprops = (b" /OCProperties << /OCGs [5 0 R 6 0 R 7 0 R 8 0 R]"
                b" /D << /Name (Default) /Creator (Broadside corpus) /OFF [6 0 R]"
-               b" /Order [5 0 R [(Labelled) 6 0 R 7 0 R] [8 0 R]] /RBGroups [[5 0 R 6 0 R]] /Locked [7 0 R] >>"
+               b" /Order [5 0 R [(Labelled) 6 0 R 7 0 R] [8 0 R]] /RBGroups [[5 0 R 6 0 R]] /Locked [7 0 R]"
+               b" /AS [<< /Event /Print /Category [/Print] /OCGs [8 0 R] >>] >>"
                b" /Configs [<< /Name (Only C) /BaseState /OFF /ON [7 0 R] /Intent /All /ListMode /VisiblePages >>] >>")
     return simple_file([
         (1, catalog(ocprops)),
         (2, pages()),
         (3, page(contents=4, resources=False,
-                 extra=b" /Resources << /Properties << /a 5 0 R /b 6 0 R /m1 9 0 R /m2 10 0 R >>"
+                 extra=b" /Resources << /Properties << /a 5 0 R /b 6 0 R /m1 9 0 R /m2 10 0 R /d2 8 0 R >>"
                        b" /XObject << /Fm 11 0 R >> >> /Annots [12 0 R]")),
         (4, stream(b"", content)),
         (5, b"<< /Type /OCG /Name (A) >>"),
         (6, b"<< /Type /OCG /Name (B) >>"),
         (7, b"<< /Type /OCG /Name (C) /Intent /Design /Usage << /CreatorInfo << /Creator (Broadside) /Subtype /Technical >> >> >>"),
-        (8, b"<< /Type /OCG /Name (D2) /Usage << /View << /ViewState /OFF >> /Zoom << /min 1.5 >> >> >>"),
+        (8, b"<< /Type /OCG /Name (D2) /Usage << /View << /ViewState /OFF >> /Print << /PrintState /OFF >> /Zoom << /min 1.5 >> >> >>"),
         (9, b"<< /Type /OCMD /OCGs [5 0 R 6 0 R] /P /AllOff >>"),
         (10, b"<< /Type /OCMD /VE [/Or 5 0 R [/Not 6 0 R]] >>"),
         (11, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10] /OC 6 0 R", b"80 0 10 10 re f")),
@@ -3560,6 +3587,92 @@ def gen_tagged_structure() -> bytes:
         (27, elem(b"TD", 26, ns20 + b" /Pg 3 0 R /K 8 /A << /O /Table /Headers [(h1)] >>")),
         (28, elem(b"TD", 26, ns20 + b" /K << /Type /MCR /MCID 9 /Pg 3 0 R >>")),
     ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_layout_tagged() -> bytes:
+    """14.8.4 standard structure types read as a layout tree (ISO/TS 32005): a PDF 2.0 tagged page (/StructParents 0)
+    whose Document > Sect holds an H (level from nesting, 14.8.4.5 Table 366), a role-mapped Para (RoleMap /Para /P)
+    with a Link (MCID and an OBJR to a Link annotation, /StructParent 1) inside its text, an FENote, a Figure with
+    /Alt over an image XObject and a Caption, a Formula with /Alt over an empty sequence and a Layout BBox attribute
+    (14.8.5.4.3), a Table whose THead holds TH cells with RowSpan 2 and ColSpan 2 and whose TBody TD cells name their
+    headers by ID (Table 384 Headers, IDTree), one TD empty, a NonStruct around a P (14.8.4.4), and an Artifact element
+    (14.8.4.8.7). The content paints the table first."""
+    content = b"\n".join([
+        b"/TH <</MCID 8>> BDC BT /F1 12 Tf 72 500 Td (Name) Tj ET EMC",
+        b"/TH <</MCID 9>> BDC BT /F1 12 Tf 200 500 Td (First half) Tj ET EMC",
+        b"/TH <</MCID 10>> BDC BT /F1 12 Tf 200 485 Td (Q1) Tj ET EMC",
+        b"/TH <</MCID 11>> BDC BT /F1 12 Tf 300 485 Td (Q2) Tj ET EMC",
+        b"/TD <</MCID 12>> BDC BT /F1 12 Tf 72 470 Td (Alpha) Tj ET EMC",
+        b"/TD <</MCID 13>> BDC BT /F1 12 Tf 200 470 Td (1) Tj ET EMC",
+        b"/TD <</MCID 14>> BDC BT /F1 12 Tf 300 470 Td (2) Tj ET EMC",
+        b"/TD <</MCID 15>> BDC BT /F1 12 Tf 72 455 Td (Beta) Tj ET EMC",
+        b"/TD <</MCID 16>> BDC BT /F1 12 Tf 300 455 Td (4) Tj ET EMC",
+        b"/H <</MCID 0>> BDC BT /F1 18 Tf 72 720 Td (Results) Tj ET EMC",
+        b"/P <</MCID 1>> BDC BT /F1 12 Tf 72 696 Td (See the ) Tj ET EMC",
+        b"/Link <</MCID 2>> BDC BT /F1 12 Tf 116.7 696 Td (report) Tj ET EMC",
+        b"/P <</MCID 3>> BDC BT /F1 12 Tf 148.044 696 Td (.) Tj ET EMC",
+        b"/FENote <</MCID 4>> BDC BT /F1 9 Tf 72 60 Td (1 Fetched in 2026.) Tj ET EMC",
+        b"/Figure <</MCID 5>> BDC q 100 0 0 100 72 580 cm /Im1 Do Q EMC",
+        b"/Caption <</MCID 6>> BDC BT /F1 10 Tf 72 565 Td (Figure 1. A grey square) Tj ET EMC",
+        b"/Formula <</MCID 7>> BDC EMC",
+        b"/P <</MCID 17>> BDC BT /F1 12 Tf 72 420 Td (Grouped without structure.) Tj ET EMC",
+        b"/Span <</MCID 18>> BDC BT /F1 10 Tf 500 750 Td (Draft) Tj ET EMC",
+    ])
+    ns = b"/NS 7 0 R"
+    id0 = file_id("layout-tagged").hex().encode()
+
+    def elem(s: bytes, parent: int, extra: bytes) -> bytes:
+        return b"<< /Type /StructElem /S /%s /P %d 0 R %s %s >>" % (s, parent, ns if s != b"Para" else b"", extra)
+
+    pg = b"/Pg 3 0 R"
+    # MCID -> owning element, for the parent tree (14.7.5.4).
+    owners = {0: 13, 1: 14, 2: 15, 3: 14, 4: 16, 5: 17, 6: 18, 7: 19, 8: 23, 9: 24, 10: 26, 11: 27,
+              12: 30, 13: 31, 14: 32, 15: 34, 16: 36, 17: 38, 18: 39}
+    parent_array = b" ".join(b"%d 0 R" % owners[m] for m in range(19))
+    return simple_file([
+        (1, catalog(b" /MarkInfo << /Marked true >> /StructTreeRoot 10 0 R /Lang (en-US)")),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << /Font << /F1 6 0 R >> /XObject << /Im1 8 0 R >> >> /StructParents 0 /Tabs /S /Annots [5 0 R]")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Annot /Subtype /Link /Rect [116 692 148 708] /Border [0 0 0] "
+            b"/A << /S /URI /URI (https://example.com/report) >> /StructParent 1 >>"),
+        (6, HELVETICA),
+        (7, b"<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>"),
+        (8, stream(b"/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8", b"\x80")),
+        (10, b"<< /Type /StructTreeRoot /K [11 0 R] /ParentTree << /Nums [0 [%s] 1 15 0 R] >> /ParentTreeNextKey 2 "
+             b"/IDTree << /Names [(half) 24 0 R (q1) 26 0 R (q2) 27 0 R] >> /RoleMap << /Para /P >> /Namespaces [7 0 R] >>"
+             % parent_array),
+        (11, elem(b"Document", 10, b"/K [12 0 R]")),
+        (12, elem(b"Sect", 11, b"/K [13 0 R 14 0 R 16 0 R 17 0 R 19 0 R 20 0 R 37 0 R 39 0 R]")),
+        (13, elem(b"H", 12, pg + b" /K 0")),
+        (14, elem(b"Para", 12, pg + b" /K [1 15 0 R 3]")),
+        (15, elem(b"Link", 14, pg + b" /K [2 << /Type /OBJR /Obj 5 0 R >>]")),
+        (16, elem(b"FENote", 12, pg + b" /K 4")),
+        (17, elem(b"Figure", 12, pg + b" /Alt (A grey square) /K [5 18 0 R]")),
+        (18, elem(b"Caption", 17, pg + b" /K 6")),
+        (19, elem(b"Formula", 12, pg + b" /Alt (E = mc2) /A << /O /Layout /BBox [200 580 300 620] >> /K 7")),
+        (20, elem(b"Table", 12, b"/K [21 0 R 28 0 R]")),
+        (21, elem(b"THead", 20, b"/K [22 0 R 25 0 R]")),
+        (22, elem(b"TR", 21, b"/K [23 0 R 24 0 R]")),
+        (23, elem(b"TH", 22, pg + b" /K 8 /A << /O /Table /RowSpan 2 >>")),
+        (24, elem(b"TH", 22, pg + b" /ID (half) /K 9 /A << /O /Table /ColSpan 2 /Scope /Column >>")),
+        (25, elem(b"TR", 21, b"/K [26 0 R 27 0 R]")),
+        (26, elem(b"TH", 25, pg + b" /ID (q1) /K 10")),
+        (27, elem(b"TH", 25, pg + b" /ID (q2) /K 11")),
+        (28, elem(b"TBody", 20, b"/K [29 0 R 33 0 R]")),
+        (29, elem(b"TR", 28, b"/K [30 0 R 31 0 R 32 0 R]")),
+        (30, elem(b"TD", 29, pg + b" /K 12")),
+        (31, elem(b"TD", 29, pg + b" /K 13 /A << /O /Table /Headers [(q1) (half)] >>")),
+        (32, elem(b"TD", 29, pg + b" /K 14 /A << /O /Table /Headers [(q2) (half)] >>")),
+        (33, elem(b"TR", 28, b"/K [34 0 R 35 0 R 36 0 R]")),
+        (34, elem(b"TD", 33, pg + b" /K 15")),
+        (35, elem(b"TD", 33, b"")),
+        (36, elem(b"TD", 33, pg + b" /K 16 /A << /O /Table /Headers [(q2)] >>")),
+        (37, elem(b"NonStruct", 12, b"/K [38 0 R]")),
+        (38, elem(b"P", 37, pg + b" /K 17")),
+        (39, elem(b"Artifact", 12, pg + b" /K 18")),
+    ], version="2.0", binary=True, trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
 
 
 def gen_functions() -> bytes:
@@ -4614,6 +4727,124 @@ def gen_extgstate_params() -> bytes:
     ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (file_id("extgstate-params").hex().encode(), file_id("extgstate-params").hex().encode()))
 
 
+def gen_transfer_functions() -> bytes:
+    """10.5 transfer functions set through 8.4.5 Table 57 (TR, TR2), on a Letter page in rows of 100 x 100 patches from x = 40
+    every 140 (ISO 32000-2 deprecates TR in PDF 2.0; the file is PDF 1.7). Functions (7.10): Square f(x) = x^2, Invert
+    1 - x, Root x^0.5 (Type 2), PsInvert {1 exch sub} (Type 4) and Sampled (Type 0, 5 samples 0 200 60 230 255 / 255,
+    linear between them).
+    Row 1 (y 640), TR Square (one function for every component): 0.25 g, 0.75 g, 0.2 0.5 0.8 rg, and image Im0 (2 x 1
+    DeviceGray, samples 64 and 192).
+    Row 2 (y 500), TR [Invert Square Root Invert] (red, green, blue, gray: an RGB device uses the first three): 0.25 g,
+    0.2 0.5 0.8 rg, 1 1 1 rg, Im0.
+    Row 3 (y 360), TR2 PsInvert: 0.25 g, 0.2 0.5 0.8 rg; then in q/Q TR2 /Default 0.25 g; then in q/Q TR /Identity 0.75 g.
+    Row 4 (y 220), TR2 [Sampled Square Root Invert] with TR Invert in the same dictionary (TR2 wins): 0.6 0.6 0.6 rg,
+    Separation /All at tint 0.5 (1 - tint on every component, then the functions), Separation /None at 0.5 (paints nothing,
+    the page shows), and a DeviceGray axial shading 0 to 1 across the patch (sh in a clip).
+    Row 5 (y 130): under TR Square, a 10-wide 0.5 g stroke from x 40 to 560."""
+    square = b"<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 2 >>"
+    invert = b"<< /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >>"
+    root = b"<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 0.5 >>"
+    content = (b"q /Square gs 0.25 g 40 640 100 100 re f 0.75 g 180 640 100 100 re f 0.2 0.5 0.8 rg 320 640 100 100 re f"
+               b" q 100 0 0 100 460 640 cm /Im0 Do Q Q\n"
+               b"q /Four gs 0.25 g 40 500 100 100 re f 0.2 0.5 0.8 rg 180 500 100 100 re f 1 1 1 rg 320 500 100 100 re f"
+               b" q 100 0 0 100 460 500 cm /Im0 Do Q Q\n"
+               b"q /PsInvert gs 0.25 g 40 360 100 100 re f 0.2 0.5 0.8 rg 180 360 100 100 re f"
+               b" q /Default gs 0.25 g 320 360 100 100 re f Q q /Identity gs 0.75 g 460 360 100 100 re f Q Q\n"
+               b"q /Sampled gs 0.6 0.6 0.6 rg 40 220 100 100 re f /CS0 cs 0.5 scn 180 220 100 100 re f"
+               b" /CS1 cs 0.5 scn 320 220 100 100 re f q 460 220 100 100 re W n /Sh0 sh Q Q\n"
+               b"q /Square gs 10 w 0.5 G 40 130 m 560 130 l S Q\n")
+    resources = (b" /Resources << /ExtGState << /Square << /TR " + square + b" >> /Four << /TR [" + invert + b" " + square
+                 + b" " + root + b" " + invert + b"] >> /PsInvert << /TR2 6 0 R >> /Default << /TR2 /Default >>"
+                 b" /Identity << /TR /Identity >> /Sampled << /TR " + invert + b" /TR2 [7 0 R " + square + b" " + root + b" "
+                 + invert + b"] >> >> /XObject << /Im0 5 0 R >> /ColorSpace << /CS0 [/Separation /All /DeviceGray " + invert
+                 + b"] /CS1 [/Separation /None /DeviceGray " + invert + b"] >> /Shading << /Sh0 << /ShadingType 2"
+                 b" /ColorSpace /DeviceGray /Coords [460 0 560 0] /Function << /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1]"
+                 b" /N 1 >> /Extend [true true] >> >> >>")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8",
+                   bytes([64, 192]))),
+        (6, stream(b"/FunctionType 4 /Domain [0 1] /Range [0 1]", b"{1 exch sub}")),
+        (7, stream(b"/FunctionType 0 /Domain [0 1] /Range [0 1] /Size [5] /BitsPerSample 8", bytes([0, 200, 60, 230, 255]))),
+    ])
+
+
+def gen_overprint() -> bytes:
+    """8.6.7 overprint control (OP, op, OPM; Table 57) and 11.7.4.5 Table 146, for overprint preview: 20 cells on a Letter page,
+    4 per row from x = 36 every 144, rows from the top every 150 (row r's cell origin is y = 612 - 150 r). In each cell a
+    backdrop square (x0, y0 + 40, 80 x 80) is painted first, then an overlay square (x0 + 40, y0, 80 x 80) under an ExtGState:
+    /Knock (OP false), /Op0 (OP true, OPM 0), /Op1 (OP true, OPM 1), /Stroke (OP true, op false, OPM 1). The middle
+    40 x 40 is where they overlap. Spot colours: /Orange = Separation /BroadsideOrange (alternate DeviceCMYK 0 0.6 1 0),
+    /Green = Separation /BroadsideGreen (0.8 0 1 0), /Cyan = Separation /Cyan (a process colourant), /MG = DeviceN
+    [/Magenta /BroadsideGreen] (Type 4 tint transform to 0.8g m g 0).
+    Row 0: cyan backdrop, magenta overlay under Knock, Op0, Op1; 0.6 0 0.3 0 k under 0 0.5 0 0.2 k with Op1.
+    Row 1: Op1 with every component 0 (0 0 0 0 k over 0.2 0.8 0.4 0 k: paints nothing); Op1 0.5 g and 1 g over cyan
+    (DeviceGray, a process space, replaces every process colourant: 1 g knocks out to white where 0 0 0 0 k did not);
+    Stroke: a magenta overlay fill knocks out, then a yellow 10-wide vertical stroke at x0 + 60 from y0 to y0 + 120
+    overprints.
+    Row 2: Orange over cyan (Knock, Op0); magenta (Op0) over Orange; 0.5 g (Op1) over Orange 0.8.
+    Row 3: Separation /Cyan over magenta (Op0); MG 0.5 1 over cyan (Op0); Orange over Green (Op0); MG 1 0 over Green (Knock).
+    Row 4: a 2 x 2 DeviceCMYK image over Orange (Op0, Knock); a DeviceCMYK axial shading cyan to magenta over Orange (Op1, sh
+    in a clip); an 8 x 8 checkerboard stencil mask in 0 1 0 0 k over cyan (Op1)."""
+    def cell(index: int, backdrop: bytes, overlay: bytes) -> bytes:
+        x = 36 + (index % 4) * 144
+        y = 612 - (index // 4) * 150
+        return (b"q %s %d %d 80 80 re f Q\n" % (backdrop, x, y + 40)
+                + b"q " + overlay.replace(b"$X", b"%d" % (x + 40)).replace(b"$Y", b"%d" % y).replace(b"$S", b"%d" % (x + 60))
+                .replace(b"$T", b"%d" % (y + 120)) + b" Q\n")
+
+    square = b"$X $Y 80 80 re f"
+    image = b"q 80 0 0 80 $X $Y cm /Im0 Do Q"
+    content = b"".join([
+        cell(0, b"1 0 0 0 k", b"/Knock gs 0 1 0 0 k " + square),
+        cell(1, b"1 0 0 0 k", b"/Op0 gs 0 1 0 0 k " + square),
+        cell(2, b"1 0 0 0 k", b"/Op1 gs 0 1 0 0 k " + square),
+        cell(3, b"0.6 0 0.3 0 k", b"/Op1 gs 0 0.5 0 0.2 k " + square),
+        cell(4, b"0.2 0.8 0.4 0 k", b"/Op1 gs 0 0 0 0 k " + square),
+        cell(5, b"1 0 0 0 k", b"/Op1 gs 0.5 g " + square),
+        cell(6, b"1 0 0 0 k", b"/Op1 gs 1 g " + square),
+        cell(7, b"1 0 0 0 k", b"/Stroke gs 0 1 0 0 k " + square + b" 0 0 1 0 K 10 w $S $Y m $S $T l S"),
+        cell(8, b"1 0 0 0 k", b"/Knock gs /Orange cs 1 scn " + square),
+        cell(9, b"1 0 0 0 k", b"/Op0 gs /Orange cs 1 scn " + square),
+        cell(10, b"/Orange cs 1 scn", b"/Op0 gs 0 1 0 0 k " + square),
+        cell(11, b"/Orange cs 0.8 scn", b"/Op1 gs 0.5 g " + square),
+        cell(12, b"0 1 0 0 k", b"/Op0 gs /Cyan cs 1 scn " + square),
+        cell(13, b"1 0 0 0 k", b"/Op0 gs /MG cs 0.5 1 scn " + square),
+        cell(14, b"/Green cs 1 scn", b"/Op0 gs /Orange cs 1 scn " + square),
+        cell(15, b"/Green cs 1 scn", b"/Knock gs /MG cs 1 0 scn " + square),
+        cell(16, b"/Orange cs 1 scn", b"/Op0 gs " + image),
+        cell(17, b"/Orange cs 1 scn", b"/Knock gs " + image),
+        cell(18, b"/Orange cs 1 scn", b"/Op1 gs $X $Y 80 80 re W n q 80 0 0 80 $X $Y cm /Sh0 sh Q"),
+        cell(19, b"1 0 0 0 k", b"/Op1 gs 0 1 0 0 k q 80 0 0 80 $X $Y cm /Im1 Do Q"),
+    ])
+    orange = b"<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [0 0.6 1 0] /N 1 >>"
+    green = b"<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [0.8 0 1 0] /N 1 >>"
+    cyan = b"<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [1 0 0 0] /N 1 >>"
+    resources = (b" /Resources << /ExtGState << /Knock << /OP false /op false /OPM 0 >> /Op0 << /OP true /op true /OPM 0 >>"
+                 b" /Op1 << /OP true /op true /OPM 1 >> /Stroke << /OP true /op false /OPM 1 >> >>"
+                 b" /ColorSpace << /Orange [/Separation /BroadsideOrange /DeviceCMYK " + orange + b"]"
+                 b" /Green [/Separation /BroadsideGreen /DeviceCMYK " + green + b"]"
+                 b" /Cyan [/Separation /Cyan /DeviceCMYK " + cyan + b"]"
+                 b" /MG [/DeviceN [/Magenta /BroadsideGreen] /DeviceCMYK 7 0 R] >>"
+                 b" /XObject << /Im0 5 0 R /Im1 6 0 R >>"
+                 b" /Shading << /Sh0 << /ShadingType 2 /ColorSpace /DeviceCMYK /Coords [0 0 1 0] /Function << /FunctionType 2"
+                 b" /Domain [0 1] /C0 [1 0 0 0] /C1 [0 1 0 0] /N 1 >> /Extend [true true] >> >> >>")
+    checkerboard = bytes([0xAA if row % 2 == 0 else 0x55 for row in range(8)])
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceCMYK /BitsPerComponent 8",
+                   bytes([255, 0, 0, 0, 0, 255, 0, 0, 0, 0, 255, 0, 0, 0, 0, 255]))),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 8 /Height 8 /ImageMask true /Decode [1 0]", checkerboard)),
+        (7, stream(b"/FunctionType 4 /Domain [0 1 0 1] /Range [0 1 0 1 0 1 0 1]", b"{dup 0.8 mul 3 1 roll 0}")),
+    ])
+
+
 BLEND_MODES = ["Normal", "Multiply", "Screen", "Overlay", "Darken", "Lighten", "ColorDodge", "ColorBurn", "HardLight",
                "SoftLight", "Difference", "Exclusion", "Hue", "Saturation", "Color", "Luminosity"]
 
@@ -4906,6 +5137,41 @@ def gen_image_16bpc() -> bytes:
 def gen_image_decode_inverted() -> bytes:
     """8.9.5.2 Table 88 Decode: a 4 x 1 DeviceGray 8-bit ramp 0, 85, 170, 255 with /Decode [1 0], which reverses it."""
     return one_image(b"/Width 4 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Decode [1 0]", bytes([0, 85, 170, 255]))
+
+
+def gen_image_alternates() -> bytes:
+    """8.9.5.4 Table 89 alternate images and the selection algorithm, with 8.11.3.3 optional content. One 200 x 200 page, four
+    cells, each a 1 x 1 DeviceRGB image XObject painted 80 x 80 (named by colour below). Groups: Screen (ON) and Hidden (OFF in D).
+    Top left /Im1: red base, Alternates [green DefaultForPrinting]: red on screen, green when printed (rule d). Top right /Im2:
+    blue base with /OC Screen, Alternates [yellow DefaultForPrinting]: the base OC is visible, so blue for both (rules a, b).
+    Bottom left /Im3: red base with /OC Hidden, Alternates [magenta /OC Hidden, cyan]: the first visible alternate, cyan, for both
+    (rule c). Bottom right /Im4: grey base, Alternates [black DefaultForPrinting /OC Hidden]: grey on screen, nothing printed
+    (rule d, the selected alternate's OC is processed). PDF 1.5."""
+    def rgb(r: int, g: int, b: int, extra: bytes = b"") -> bytes:
+        return stream(b"/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8" + extra,
+                      bytes([r, g, b]))
+    content = (b"q 80 0 0 80 10 110 cm /Im1 Do Q\n"
+               b"q 80 0 0 80 110 110 cm /Im2 Do Q\n"
+               b"q 80 0 0 80 10 10 cm /Im3 Do Q\n"
+               b"q 80 0 0 80 110 10 cm /Im4 Do Q\n")
+    return simple_file([
+        (1, catalog(b" /OCProperties << /OCGs [5 0 R 6 0 R] /D << /OFF [6 0 R] >> >>")),
+        (2, pages()),
+        (3, page(mediabox=b"[0 0 200 200]", contents=4, resources=False,
+                 extra=b" /Resources << /XObject << /Im1 7 0 R /Im2 9 0 R /Im3 11 0 R /Im4 14 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /OCG /Name (Screen) >>"),
+        (6, b"<< /Type /OCG /Name (Hidden) >>"),
+        (7, rgb(255, 0, 0, b" /Alternates [<< /Image 8 0 R /DefaultForPrinting true >>]")),
+        (8, rgb(0, 255, 0)),
+        (9, rgb(0, 0, 255, b" /OC 5 0 R /Alternates [<< /Image 10 0 R /DefaultForPrinting true >>]")),
+        (10, rgb(255, 255, 0)),
+        (11, rgb(255, 0, 0, b" /OC 6 0 R /Alternates [<< /Image 12 0 R /OC 6 0 R >> << /Image 13 0 R >>]")),
+        (12, rgb(255, 0, 255)),
+        (13, rgb(0, 255, 255)),
+        (14, rgb(128, 128, 128, b" /Alternates [<< /Image 15 0 R /DefaultForPrinting true /OC 6 0 R >>]")),
+        (15, rgb(0, 0, 0)),
+    ], version="1.5", binary=True)
 
 
 INLINE_FILTERS_SAMPLES = bytes(range(0, 240, 5))
@@ -6454,6 +6720,7 @@ FILES = {
     "text-standard14.pdf": gen_text_standard14,
     "text-truetype-embedded.pdf": gen_text_truetype_embedded,
     "text-render-modes.pdf": gen_text_render_modes,
+    "text-rotated.pdf": gen_text_rotated,
     "text-standard14-differences.pdf": gen_text_standard14_differences,
     "text-standard14-winansi-quirks.pdf": gen_text_standard14_winansi_quirks,
     "text-standard14-macroman.pdf": gen_text_standard14_macroman,
@@ -6539,6 +6806,7 @@ FILES = {
     "number-tree-deep.pdf": gen_number_tree_deep,
     "name-tree-broken.pdf": gen_name_tree_broken,
     "tagged-structure.pdf": gen_tagged_structure,
+    "layout-tagged.pdf": gen_layout_tagged,
     "destinations-all.pdf": gen_destinations_all,
     "outline-full.pdf": gen_outline_full,
     "outline-broken.pdf": gen_outline_broken,
@@ -6565,6 +6833,8 @@ FILES = {
     "form-xobject-nested.pdf": gen_form_xobject_nested,
     "extgstate-params.pdf": gen_extgstate_params,
     "transparency-blend-modes.pdf": gen_transparency_blend_modes,
+    "transfer-functions.pdf": gen_transfer_functions,
+    "overprint.pdf": gen_overprint,
     "transparency-groups.pdf": gen_transparency_groups,
     "marked-content.pdf": gen_marked_content,
     "image-stencil-mask.pdf": gen_image_stencil_mask,
@@ -6577,6 +6847,7 @@ FILES = {
     "image-4bpc-indexed.pdf": gen_image_4bpc_indexed,
     "image-16bpc.pdf": gen_image_16bpc,
     "image-decode-inverted.pdf": gen_image_decode_inverted,
+    "image-alternates.pdf": gen_image_alternates,
     "jpx-lossless.pdf": gen_jpx_lossless,
     "jpx-subsampled.pdf": gen_jpx_subsampled,
     "jpx-smask-in-data.pdf": gen_jpx_smask_in_data,

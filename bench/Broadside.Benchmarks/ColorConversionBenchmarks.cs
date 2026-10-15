@@ -8,7 +8,8 @@ namespace Broadside.Benchmarks;
 /// <summary>
 /// Converts a 1-megapixel image's worth of colours (ISO 32000-2 §8.6, §10.4) through <see cref="PdfColorConverter"/>, as an image
 /// decoder converts rows: 8-bit DeviceCMYK through the SWOP characterisation, an 8-bit Separation through its 256-entry table,
-/// 8-bit Indexed through its palette, and Lab from floats through XYZ to sRGB. Conversion is a hot path: <c>Allocated</c> must
+/// 8-bit Indexed through its palette, Lab from floats through XYZ to sRGB, and DeviceRGB under a transfer function of four Type 2
+/// functions (§10.5, <c>RgbTransfer</c>: 256-entry tables for bytes, the functions evaluated per component for floats). Conversion is a hot path: <c>Allocated</c> must
 /// read <c>-</c>; <c>Broadside.Tests.Colors.ColorAllocationTests</c> fails the build if it does not.
 /// </summary>
 [MemoryDiagnoser]
@@ -22,7 +23,12 @@ public class ColorConversionBenchmarks
         ["Separation"] = "[/Separation /Spot /DeviceCMYK << /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [0 0.4 1 0] /N 1 >>]",
         ["Indexed"] = "[/Indexed /DeviceRGB 255 <" + string.Concat(Enumerable.Range(0, 256).Select(static i => $"{i:X2}{255 - i:X2}{(i * 7) & 255:X2}")) + ">]",
         ["Lab"] = "[/Lab << /WhitePoint [0.9642 1 0.8249] /Range [-128 127 -128 127] >>]",
+        ["RgbTransfer"] = "/DeviceRGB",
     };
+
+    private const string Transfer =
+        "<< /TR [<< /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >> << /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 2 >> "
+        + "<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 0.5 >> << /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >>] >>";
 
     private PdfDocument? _document;
     private PdfColorConverter? _converter;
@@ -32,7 +38,7 @@ public class ColorConversionBenchmarks
     private float[] _colors = [];
 
     /// <summary>The source colour space.</summary>
-    [Params("Cmyk", "Separation", "Indexed", "Lab")]
+    [Params("Cmyk", "Separation", "Indexed", "Lab", "RgbTransfer")]
     public string Space { get; set; } = "";
 
     [GlobalSetup]
@@ -40,7 +46,10 @@ public class ColorConversionBenchmarks
     {
         _document = PdfDocument.Create();
         PdfColorSpace space = _document.GetColorSpace(CosObject.Parse(Encoding.ASCII.GetBytes(Spaces[Space])));
-        _converter = _document.GetColorConverter(space);
+        ColorConversion conversion = Space == "RgbTransfer"
+            ? new ColorConversion { TransferFunction = Content.ExtGStateParameters.Read(_document, (CosDictionary)CosObject.Parse(Encoding.ASCII.GetBytes(Transfer)), null).Transfer }
+            : default;
+        _converter = _document.GetColorConverter(space, conversion);
         if (_document.Diagnostics.Count > 0)
         {
             throw new InvalidOperationException($"{Space} does not read cleanly.");

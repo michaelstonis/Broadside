@@ -17,15 +17,25 @@ public sealed class TextPage
     private readonly TextGlyph[] _glyphs;
     private Assembled? _assembled;
 
-    internal TextPage(TextGlyph[] glyphs, string text)
+    internal TextPage(TextGlyph[] glyphs, string text, int[]? contentOrders = null)
     {
         _glyphs = glyphs;
         Text = text;
+        ContentOrders = contentOrders;
     }
 
     /// <summary>Gets the glyphs, in reading order: logical content order for a tagged page read in structure order, else content order.</summary>
     /// <remarks>ISO 32000-2 §9.4.3 and §14.8.2.5.1.</remarks>
     public IReadOnlyList<TextGlyph> Glyphs => _glyphs;
+
+    /// <summary>The glyphs as a span, for assembling layout over a slice of them (issue #186).</summary>
+    internal ReadOnlySpan<TextGlyph> GlyphSpan => _glyphs;
+
+    /// <summary>
+    /// For a page read in structure order, each glyph's content item position in logical content order (ascending; -1 for an
+    /// artifact outside the tree), so content that shows no glyph can be placed among the glyphs; <see langword="null"/> otherwise.
+    /// </summary>
+    internal int[]? ContentOrders { get; }
 
     /// <summary>Gets the text of every glyph, in the order of <see cref="Glyphs"/>; <see cref="TextGlyph.TextStart"/> and <see cref="TextGlyph.TextLength"/> index it.</summary>
     /// <remarks>ISO 32000-2 §9.10.</remarks>

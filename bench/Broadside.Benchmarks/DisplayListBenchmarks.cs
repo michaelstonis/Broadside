@@ -22,12 +22,15 @@ public class DisplayListBenchmarks
     [Params("path-heavy-256kb", "colorspace-families.pdf")]
     public string Page { get; set; } = "";
 
+    /// <summary>Keeps no display lists (issue #103), so that <c>Build</c> builds on every call instead of returning the kept list.</summary>
+    private static PdfOptions BuildOptions => new PdfOptions().WithDisplayListCacheBudget(0);
+
     [GlobalSetup]
     public void Setup()
     {
         _document = Page == "path-heavy-256kb"
-            ? PdfDocument.Open(ContentSamples.OnePage(ContentSamples.PathHeavy(256 * 1024)))
-            : PdfDocument.Open(Path.Combine(CorpusLocator.CorpusDirectory, Page));
+            ? PdfDocument.Open(ContentSamples.OnePage(ContentSamples.PathHeavy(256 * 1024)), BuildOptions)
+            : PdfDocument.Open(Path.Combine(CorpusLocator.CorpusDirectory, Page), BuildOptions);
         _page = _document.Pages[0];
         _list = _page.CreateDisplayList();
     }
@@ -98,5 +101,7 @@ public class DisplayListBenchmarks
         public void BeginAnnotation(in DisplayAnnotation annotation) => Calls += (int)annotation.Kind;
 
         public void EndAnnotation() => Calls++;
+
+        public void SetDeviceParameters(in DisplayDeviceParameters parameters) => Calls += parameters.OverprintMode + 1;
     }
 }

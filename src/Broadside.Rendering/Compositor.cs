@@ -127,6 +127,42 @@ internal readonly struct Compositor
         }
     }
 
+    /// <summary>
+    /// Composites one device colourant of an overprint preview: the tint <paramref name="source"/> a paint gives the colourant over
+    /// the <paramref name="backdrop"/> tint already there, at <paramref name="coverage"/> (0 to 255, before the constant alpha).
+    /// </summary>
+    /// <param name="backdrop">The colourant's tint so far, 0 (no ink) to 255.</param>
+    /// <param name="source">The paint's tint for the colourant.</param>
+    /// <param name="coverage">The shape of the paint at the pixel.</param>
+    /// <param name="spot">Whether the colourant is a spot colourant.</param>
+    /// <returns>The new tint.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §11.7.4.3 and §11.7.4.5: only the colourants a paint marks come here (the special overprint blend mode leaves the
+    /// others as the backdrop). The backdrop is opaque, the page; the result is αs × B(Cb, Cs) + (1 − αs) × Cb (§11.3.6 with αb = 1),
+    /// on additive values (a tint t is 1 − t, Table 146). Separable modes blend each colourant (§11.3.5.2); on a spot colourant only
+    /// the white-preserving ones (§11.7.4.2: not Difference or Exclusion); otherwise, and for the non-separable modes, which have no
+    /// meaning on a single colourant, Normal.
+    /// </remarks>
+    public int CompositeTint(int backdrop, int source, int coverage, bool spot)
+    {
+        int scaled = Scale(coverage);
+        if (scaled <= 0)
+        {
+            return backdrop;
+        }
+
+        BlendMode mode = Mode;
+        if (mode == BlendMode.Normal || mode >= BlendMode.Hue || (spot && mode is BlendMode.Difference or BlendMode.Exclusion))
+        {
+            return scaled >= 255 ? source : Divide255((source * scaled) + (backdrop * (255 - scaled)));
+        }
+
+        float cb = 1 - (backdrop * Unit);
+        float blended = Separable(mode, cb, 1 - (source * Unit));
+        float alpha = scaled * Unit;
+        return 255 - ToByte((alpha * blended) + ((1 - alpha) * cb));
+    }
+
     /// <summary>Premultiplied source-over with the source scaled by <paramref name="coverage"/>: d = s·c + d·(1 − a·c).</summary>
     public static uint Over(uint source, uint destination, int coverage)
     {

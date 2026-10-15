@@ -94,6 +94,7 @@ internal static class StructureOrder
 
         ReadOnlySpan<char> source = extractor.Text;
         var ordered = new TextGlyph[structural.Count + outside.Count];
+        var orders = new int[ordered.Length];
         var text = new System.Text.StringBuilder(source.Length);
         int count = 0;
         PdfStructureElement? replacing = null;
@@ -118,6 +119,7 @@ internal static class StructureOrder
             }
 
             replacing = info.Replacer;
+            orders[count] = order;
             ordered[count++] = glyph with
             {
                 TextStart = start,
@@ -134,10 +136,11 @@ internal static class StructureOrder
             ref readonly TextGlyph glyph = ref glyphs[index];
             int start = text.Length;
             text.Append(source.Slice(glyph.TextStart, glyph.TextLength));
+            orders[count] = -1;
             ordered[count++] = glyph with { TextStart = start, TextLength = text.Length - start, Flags = glyph.Flags | TextGlyphFlags.Artifact };
         }
 
-        return new TextPage(ordered, text.ToString());
+        return new TextPage(ordered, text.ToString(), orders);
     }
 
     /// <summary>
