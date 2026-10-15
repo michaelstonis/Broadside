@@ -11,7 +11,10 @@ namespace Broadside.IO;
 /// <para>
 /// Spec #33, viewer capability 5; ISO 32000-2 §7.5.1 and §7.5.4: a file is read at random through its cross-reference table, so a
 /// viewer needs the tail (<c>startxref</c>, the table, the trailer) and the byte ranges of the objects it uses, not the whole file.
-/// <see cref="OpenAsync"/> fetches the tail first; a server that answers without a range gets its whole answer used as the file.
+/// <see cref="OpenAsync"/> fetches the head first (Annex G, G.2: a linearized file's first page, its cross-reference section and
+/// its hints are there, and a linearization parameter dictionary in the first 1024 bytes says whether the file is linearized); the
+/// caller then fetches the tail or the rest of the first-page section with <see cref="FetchRangeAsync"/>. A server that answers
+/// without a range gets its whole answer used as the file.
 /// </para>
 /// <para>
 /// Reads are synchronous (ADR 0010). A read whose blocks are cached copies them. A read that misses either blocks on the request,
@@ -27,10 +30,13 @@ namespace Broadside.IO;
 /// </remarks>
 internal sealed class HttpRangeSource : PdfSource
 {
-    /// <summary>The least number of bytes the first request asks for from the end of the file.</summary>
-    public const int MinimumTailLength = 64 * 1024;
+    /// <summary>
+    /// The least number of bytes the first request asks for from the start of the file, and the least a caller fetches from the
+    /// end of a file that is not linearized.
+    /// </summary>
+    public const int MinimumHeadLength = 64 * 1024;
 
-    /// <summary>The most bytes one miss fetches beyond what the read asked for, guided by <see cref="SetObjectBoundaries"/>.</summary>
+    /// <summary>The most bytes one miss fetches beyond what the read asked for, guided by <see cref="AddObjectBoundaries"/>.</summary>
     private const long MaxExtentFetch = 8L << 20;
 
     /// <summary>The bytes past the next object's offset an object window includes: its object number, and more white-space than usual.</summary>
@@ -86,8 +92,8 @@ internal sealed class HttpRangeSource : PdfSource
     public override int InitialWindow => 1024;
 
     /// <summary>
-    /// Opens <paramref name="uri"/>: asks for the last bytes of the file with a suffix range and, when the server answers with a
-    /// range, returns a range source holding them; otherwise returns a source over the whole answer.
+    /// Opens <paramref name="uri"/>: asks for the first bytes of the file and, when the server answers with a range, returns a range
+    /// source holding them; otherwise returns a source over the whole answer.
     /// </summary>
     /// <param name="client">The client; not disposed.</param>
     /// <param name="uri">The file.</param>
@@ -97,9 +103,9 @@ internal sealed class HttpRangeSource : PdfSource
     /// <returns>The source.</returns>
     public static async Task<PdfSource> OpenAsync(HttpClient client, Uri uri, RangeSourceSettings settings, long bufferLimit, CancellationToken cancellationToken)
     {
-        int tail = Math.Max(MinimumTailLength, settings.BlockSize);
+        int head = HeadLength(settings);
         using var request = new HttpRequestMessage(HttpMethod.Get, uri);
-        request.Headers.Range = new RangeHeaderValue(null, tail);
+        request.Headers.Range = new RangeHeaderValue(0, head - 1);
         HttpResponseMessage? response = await client.SendAsync(request, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
         try
         {
@@ -122,7 +128,7 @@ internal sealed class HttpRangeSource : PdfSource
 
             if (response.StatusCode is HttpStatusCode.PartialContent or HttpStatusCode.RequestedRangeNotSatisfiable)
             {
-                // A range without a usable Content-Range, or a file too short for the suffix: ask for the whole file.
+                // A range without a usable Content-Range, or an empty file: ask for the whole file.
                 response.Dispose();
                 using var whole = new HttpRequestMessage(HttpMethod.Get, uri);
                 response = await client.SendAsync(whole, HttpCompletionOption.ResponseHeadersRead, cancellationToken).ConfigureAwait(false);
@@ -142,16 +148,35 @@ internal sealed class HttpRangeSource : PdfSource
         }
     }
 
+    /// <summary>Returns how many bytes the first request asks for: at least <see cref="MinimumHeadLength"/>, and a whole block.</summary>
+    /// <param name="settings">The range options.</param>
+    /// <returns>The length.</returns>
+    public static int HeadLength(RangeSourceSettings settings) => Math.Max(MinimumHeadLength, settings.BlockSize);
+
     /// <summary>
-    /// Records where objects and cross-reference sections start (absolute offsets), so a miss inside an object fetches up to the
-    /// next one in one request rather than growing a window request by request.
+    /// Records where objects, cross-reference sections and hinted byte ranges start or end (absolute offsets), so a miss inside an
+    /// object fetches up to the next boundary in one request rather than growing a window request by request.
     /// </summary>
-    /// <param name="boundaries">The offsets, in any order.</param>
-    public void SetObjectBoundaries(IEnumerable<long> boundaries)
+    /// <param name="boundaries">The offsets, in any order; they join the ones recorded before.</param>
+    public override void AddObjectBoundaries(IEnumerable<long> boundaries)
     {
-        long[] sorted = [.. boundaries.Where(offset => offset >= 0 && offset < _length).Distinct()];
-        Array.Sort(sorted);
-        Volatile.Write(ref _boundaries, sorted);
+        lock (_gate)
+        {
+            long[] merged = [.. Volatile.Read(ref _boundaries).Concat(boundaries.Where(offset => offset >= 0 && offset < _length)).Distinct()];
+            Array.Sort(merged);
+            Volatile.Write(ref _boundaries, merged);
+        }
+    }
+
+    /// <summary>Fetches the bytes from <paramref name="offset"/> on that are not cached, in as few requests as their gaps allow.</summary>
+    /// <param name="offset">The absolute offset of the first byte.</param>
+    /// <param name="length">The number of bytes.</param>
+    /// <param name="cancellationToken">Cancels the requests.</param>
+    /// <returns>A task that completes when the bytes are cached.</returns>
+    public Task FetchRangeAsync(long offset, long length, CancellationToken cancellationToken)
+    {
+        long start = Math.Clamp(offset, 0, _length);
+        return FetchAsync(start, Math.Min(length, _length - start), cancellationToken);
     }
 
     /// <summary>

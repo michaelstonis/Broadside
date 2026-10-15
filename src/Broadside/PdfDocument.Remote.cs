@@ -27,9 +27,14 @@ public sealed partial class PdfDocument
     /// <summary>The catalog's optional content properties (§8.11.4.2, Table 99), which decide what a page's content shows.</summary>
     private static readonly CosName OCPropertiesKey = new("OCProperties");
 
+    /// <summary>The most bytes the open fetches ahead for a linearized file's first page; what lies beyond is fetched on a miss.</summary>
+    private const long MaxFirstPageFetch = 16L << 20;
+
     /// <summary>
-    /// Opens the file at <paramref name="uri"/>: the tail first, then, in as few round trips as the file's layout allows, the
-    /// structure, the catalog and the page tree, fetched asynchronously so that nothing blocks.
+    /// Opens the file at <paramref name="uri"/>: the head first; then, for a linearized file, the rest of its first-page section and
+    /// hint stream (Annex G, G.2, issue #208), else the tail; then, in as few round trips as the file's layout allows, the
+    /// structure, the catalog and the page tree (not read for a linearized file, whose hint tables locate the pages), fetched
+    /// asynchronously so that nothing blocks.
     /// </summary>
     /// <param name="client">The client; not disposed.</param>
     /// <param name="uri">The file.</param>
@@ -47,11 +52,35 @@ public sealed partial class PdfDocument
         PdfDocument? document = null;
         try
         {
+            // A linearized file holds everything its first page needs before E, with its hint stream (F.3, G.2); any other file
+            // starts at its end (§7.5.5).
+            if (HttpRangeSource.TryRun(() => LinearizationReader.ReadParameters(range, FileHeader.Locate(range, new DiagnosticSink(strict: false))), out LinearizationParameters? parameters) is null
+                && parameters is not null)
+            {
+                await range.FetchRangeAsync(0, Math.Min(parameters.FirstPageSectionEnd, MaxFirstPageFetch), cancellationToken).ConfigureAwait(false);
+            }
+            else
+            {
+                int tail = HttpRangeSource.HeadLength(configuration.RangeSource);
+                await range.FetchRangeAsync(range.Length - tail, tail, cancellationToken).ConfigureAwait(false);
+            }
+
             // Each attempt is a whole open: one that misses is dropped (with what it recorded) and run again once the bytes are
             // here, so the observer sees only the diagnostics of the attempt that completes.
             document = await range.RunAsync(() => ReadAttempt(range, configuration), cancellationToken).ConfigureAwait(false);
-            range.SetObjectBoundaries(ObjectBoundaries(document._loader));
-            await document.PrefetchPageTreeAsync(range, cancellationToken).ConfigureAwait(false);
+            CrossReference crossReference = document._loader.CrossReference;
+            range.AddObjectBoundaries(ObjectBoundaries(
+                crossReference.IsDeferred ? [crossReference.FirstPageSection!] : crossReference.Sections,
+                document._loader.Header.Offset));
+            if (await range.RunAsync(() => document.Pages.UsesHints && document.Pages[0] is not null && document.Pages.UsesHints, cancellationToken).ConfigureAwait(false))
+            {
+                range.AddObjectBoundaries(await range.RunAsync(document.HintBoundaries, cancellationToken).ConfigureAwait(false));
+            }
+            else
+            {
+                await document.PrefetchPageTreeAsync(range, cancellationToken).ConfigureAwait(false);
+            }
+
             _ = await range.RunAsync(() => document.Pages.Count, cancellationToken).ConfigureAwait(false);
             return document;
         }
@@ -84,6 +113,27 @@ public sealed partial class PdfDocument
         return PrefetchPageAsync(range, page, cancellationToken);
     }
 
+    /// <summary>Gets the page at <paramref name="index"/>, fetching its page object and what reading it needs first.</summary>
+    /// <param name="index">The page index.</param>
+    /// <param name="cancellationToken">Cancels the requests.</param>
+    /// <returns>The page.</returns>
+    internal Task<PdfPage> PrefetchPageAsync(int index, CancellationToken cancellationToken)
+    {
+        if (_source is not HttpRangeSource range)
+        {
+            return cancellationToken.IsCancellationRequested ? Task.FromCanceled<PdfPage>(cancellationToken) : Task.FromResult(Pages[index]);
+        }
+
+        return PrefetchRemotePageAsync(range, index, cancellationToken);
+    }
+
+    private async Task<PdfPage> PrefetchRemotePageAsync(HttpRangeSource range, int index, CancellationToken cancellationToken)
+    {
+        PdfPage page = await range.RunAsync(() => Pages[index], cancellationToken).ConfigureAwait(false);
+        await PrefetchPageAsync(range, page, cancellationToken).ConfigureAwait(false);
+        return page;
+    }
+
     private static PdfDocument ReadAttempt(HttpRangeSource source, EngineConfiguration configuration)
     {
         if (configuration.DiagnosticObserver is not { } observer)
@@ -107,10 +157,9 @@ public sealed partial class PdfDocument
     }
 
     /// <summary>Where each object and cross-reference section starts, absolute: the ends of the byte ranges a miss fetches up to.</summary>
-    private static IEnumerable<long> ObjectBoundaries(ObjectLoader loader)
+    private static IEnumerable<long> ObjectBoundaries(IEnumerable<XrefSection> sections, long header)
     {
-        long header = loader.Header.Offset;
-        foreach (XrefSection section in loader.CrossReference.Sections)
+        foreach (XrefSection section in sections)
         {
             yield return section.Offset;
             foreach (XrefEntry entry in section.Entries.Values)
@@ -121,6 +170,56 @@ public sealed partial class PdfDocument
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Where each hinted page and shared object group starts and ends, the hint streams, and the main cross-reference section (F.4.2,
+    /// F.4.3, Table F.1 <c>H</c> and <c>T</c>), absolute: so a miss in a page fetches that page's range, and no more.
+    /// </summary>
+    private long[] HintBoundaries()
+    {
+        var boundaries = new List<long>();
+        if (Linearization is not { Hints: { } hints } linearization)
+        {
+            return [];
+        }
+
+        foreach (PdfPageHint page in hints.Pages)
+        {
+            boundaries.Add(page.Offset);
+            boundaries.Add(page.Offset + page.Length);
+        }
+
+        foreach (PdfSharedObjectHint group in hints.SharedObjects)
+        {
+            boundaries.Add(group.Offset);
+            boundaries.Add(group.Offset + group.Length);
+        }
+
+        long header = _loader.Header.Offset;
+        if (linearization.Dictionary.TryGetValue(PdfLinearization.Names.H, out CosObject? h) && h is CosArray array)
+        {
+            for (int index = 0; index + 1 < array.Count; index += 2)
+            {
+                if (array[index] is CosInteger { Value: var offset } && array[index + 1] is CosInteger { Value: var length })
+                {
+                    boundaries.Add(header + offset);
+                    boundaries.Add(header + offset + length);
+                }
+            }
+        }
+
+        if (linearization.Dictionary.TryGetValue(PdfLinearization.Names.T, out CosObject? t) && t is CosInteger { Value: var main })
+        {
+            boundaries.Add(header + main);
+        }
+
+        if (_loader.CrossReference.FirstPageSection?.Trailer.TryGetValue(KnownNames.Prev, out CosObject? prev) == true && prev is CosInteger { Value: var previous })
+        {
+            boundaries.Add(header + previous);
+        }
+
+        return [.. boundaries];
     }
 
     /// <summary>
