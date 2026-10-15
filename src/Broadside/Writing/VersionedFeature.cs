@@ -127,6 +127,7 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <item><term><see cref="Sha3SignatureDigest"/></term><description>2.0 and the ISO_ extension level 32001 (ISO/TS 32001, clause 4 and §5.1.4)</description></item>
 /// <item><term><see cref="SignatureTimestamp"/></term><description>1.6 (§12.8.3.3.1, timestamp information as an unsigned attribute)</description></item>
 /// <item><term><see cref="DocumentTimestamp"/></term><description>2.0 (§12.8.5; Table 255, <c>DocTimeStamp</c> and <c>ETSI.RFC3161</c>)</description></item>
+/// <item><term><see cref="DocumentSecurityStore"/></term><description>2.0 (§12.8.4.3; Table 29, <c>DSS</c>; Table 261)</description></item>
 /// <item><term><see cref="DeveloperExtension"/></term><description>The extension's <c>BaseVersion</c> (§7.12.4)</description></item>
 /// </list>
 /// <para>
@@ -414,6 +415,9 @@ internal static class VersionedFeatures
 
     /// <summary>Gets a document timestamp, a <c>DocTimeStamp</c> signature dictionary with sub-filter <c>ETSI.RFC3161</c>: PDF 2.0.</summary>
     public static VersionedFeature DocumentTimestamp { get; } = new("a document timestamp (ETSI.RFC3161)", "ISO 32000-2 §12.8.5; §12.8.1, Table 255", Pdf20);
+
+    /// <summary>Gets a document security store, the catalog's <c>DSS</c> dictionary (§12.8.4.3, Table 261): PDF 2.0.</summary>
+    public static VersionedFeature DocumentSecurityStore { get; } = new("a document security store (DSS)", "ISO 32000-2 §12.8.4.3; Table 29, Table 261", Pdf20);
 
     /// <summary>Returns the feature a filter's encoding stands for, or <see langword="null"/> when it has no version row.</summary>
     /// <param name="filter">A filter name.</param>

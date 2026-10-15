@@ -166,7 +166,7 @@ internal static class RevocationChecker
                 }
             }
 
-            results.Add(new(certificate, outcome.Status, outcome.Statement?.Source ?? PdfRevocationSource.None, outcome.Statement?.RevocationTime, outcome.Statement?.Reason, outcome.Statement?.Fetched ?? false));
+            results.Add(new(certificate, outcome.Status, outcome.Statement?.Source ?? PdfRevocationSource.None, outcome.Statement?.RevocationTime, outcome.Statement?.Reason, outcome.Statement?.Fetched ?? false, outcome.Statement?.Evidence ?? default));
             Report(certificate, outcome, time, tokenTime, sources.Required, problems);
         }
 
@@ -270,12 +270,12 @@ internal static class RevocationChecker
             {
                 if (reason != X509RevocationReason.RemoveFromCrl)
                 {
-                    statements.Add(new(PdfRevocationStatus.Revoked, PdfRevocationSource.Crl, list.ThisUpdate, list.ThisUpdate, list.NextUpdate, date, reason, fetched));
+                    statements.Add(new(PdfRevocationStatus.Revoked, PdfRevocationSource.Crl, list.ThisUpdate, list.ThisUpdate, list.NextUpdate, date, reason, fetched, list.Encoded));
                 }
             }
             else if (list.Complete)
             {
-                statements.Add(new(PdfRevocationStatus.Good, PdfRevocationSource.Crl, list.ThisUpdate, list.ThisUpdate, list.NextUpdate, null, null, fetched));
+                statements.Add(new(PdfRevocationStatus.Good, PdfRevocationSource.Crl, list.ThisUpdate, list.ThisUpdate, list.NextUpdate, null, null, fetched, list.Encoded));
             }
         }
 
@@ -295,7 +295,7 @@ internal static class RevocationChecker
                     break;
                 }
 
-                statements.Add(new(single.Status, PdfRevocationSource.Ocsp, response.ProducedAt, single.ThisUpdate, single.NextUpdate, single.RevocationTime, single.Reason, fetched));
+                statements.Add(new(single.Status, PdfRevocationSource.Ocsp, response.ProducedAt, single.ThisUpdate, single.NextUpdate, single.RevocationTime, single.Reason, fetched, response.Encoded));
             }
         }
     }
@@ -411,7 +411,8 @@ internal static class RevocationChecker
         DateTimeOffset? NextUpdate,
         DateTimeOffset? RevocationTime,
         X509RevocationReason? Reason,
-        bool Fetched);
+        bool Fetched,
+        ReadOnlyMemory<byte> Evidence);
 
     private readonly record struct Outcome(PdfRevocationStatus Status, Statement? Statement);
 }

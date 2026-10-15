@@ -233,9 +233,9 @@ internal sealed class TestTimestampAuthority : HttpMessageHandler
 
     /// <summary>
     /// A time-stamping unit's certificate <paramref name="issuer"/> issues, valid from yesterday for six months, with the critical
-    /// time-stamping extended key usage (RFC 3161 §2.3) unless <paramref name="timeStamping"/> is false.
+    /// time-stamping extended key usage (RFC 3161 §2.3) unless <paramref name="timeStamping"/> is false, until <paramref name="notAfter"/> when given.
     /// </summary>
-    public static X509Certificate2 IssueUnit(X509Certificate2 issuer, bool timeStamping = true)
+    public static X509Certificate2 IssueUnit(X509Certificate2 issuer, bool timeStamping = true, DateTimeOffset? notAfter = null)
     {
         using var rsa = RSA.Create(2048);
         var request = new CertificateRequest("CN=Broadside test time-stamping unit", rsa, HashAlgorithmName.SHA256, RSASignaturePadding.Pkcs1);
@@ -250,7 +250,7 @@ internal sealed class TestTimestampAuthority : HttpMessageHandler
             request.CertificateExtensions.Add(X509AuthorityKeyIdentifierExtension.CreateFromSubjectKeyIdentifier(key));
         }
 
-        using X509Certificate2 issued = request.Create(issuer, DateTimeOffset.UtcNow.AddDays(-1), DateTimeOffset.UtcNow.AddMonths(6), RandomNumberGenerator.GetBytes(8).Prepend((byte)0x01).ToArray());
+        using X509Certificate2 issued = request.Create(issuer, DateTimeOffset.UtcNow.AddDays(-1), notAfter ?? DateTimeOffset.UtcNow.AddMonths(6), RandomNumberGenerator.GetBytes(8).Prepend((byte)0x01).ToArray());
         return issued.CopyWithPrivateKey(rsa);
     }
 

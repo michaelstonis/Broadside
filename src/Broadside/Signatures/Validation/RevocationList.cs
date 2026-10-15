@@ -51,6 +51,9 @@ internal sealed class RevocationList
     /// </summary>
     public bool Complete { get; private init; }
 
+    /// <summary>Gets the encoded <c>CertificateList</c>, as a document security store holds it (ISO 32000-2 §12.8.4.3, Table 261).</summary>
+    public ReadOnlyMemory<byte> Encoded { get; private init; }
+
     /// <summary>Gets a value indicating whether the list only covers end-entity certificates.</summary>
     public bool OnlyUserCertificates { get; private init; }
 
@@ -158,6 +161,7 @@ internal sealed class RevocationList
 
             list = new RevocationList
             {
+                Encoded = encoded,
                 SignedData = signed,
                 SignatureAlgorithm = algorithm,
                 Signature = signature,

@@ -45,6 +45,13 @@ public sealed partial class PdfDocument
     /// when the caller sets it. This method sends synchronously; use <see cref="ValidateSignaturesAsync"/> to fetch asynchronously.
     /// </para>
     /// <para>
+    /// Long-term validation (§12.8.5.3; ETSI EN 319 142-1 B-LTA): a document timestamp that validates proves that everything its byte
+    /// range covers (earlier signatures, their time-stamp tokens, the security store written before it) existed at its time, so each
+    /// earlier signature is validated at the time of the nearest later valid document timestamp instead of now: its unit's and
+    /// signer's certificates need only have been valid, and the store's revocation data current, then. The latest timestamp is
+    /// validated now. See <see cref="AddValidationData"/>.
+    /// </para>
+    /// <para>
     /// Modification detection (§12.8.2.2.2, §12.8.2.4): the byte ranges shall end at the <c>%%EOF</c> that terminates a revision
     /// (§12.8.1), which <see cref="PdfSignatureValidation.SignedRevision"/> names, else <c>SignedRevisionUnknown</c>. Each later
     /// revision is compared object by object with the one before it, and every change is classified
@@ -94,22 +101,50 @@ public sealed partial class PdfDocument
             [.. options.ExtraCertificates, .. certificates],
             RevocationSources.Create([.. options.OcspResponses, .. ocsps], [.. options.CertificateRevocationLists, .. crls], fetcher, options.RequireRevocationStatus));
 
-        var validations = new List<(long End, int Order, PdfSignatureValidation Validation)>();
+        var signed = new List<(long End, int Order, PdfSignatureField Field, CosDictionary Dictionary)>();
         foreach (PdfSignatureField field in form.TerminalFields.OfType<PdfSignatureField>())
         {
-            if (field.SignatureDictionary is not CosDictionary dictionary)
+            if (field.SignatureDictionary is CosDictionary dictionary)
             {
-                continue;
+                signed.Add((RangeEnd(dictionary), signed.Count, field, dictionary));
             }
-
-            PdfSignatureValidation validation = await SignatureValidator.ValidateAsync(_source, field, dictionary, Resolve, parameters, asynchronous, cancellationToken).ConfigureAwait(false);
-            IReadOnlyList<long> range = validation.ByteRange;
-            long end = range.Count >= 2 && range[^2] >= 0 && range[^1] >= 0 && range[^2] <= long.MaxValue - range[^1] ? range[^2] + range[^1] : long.MaxValue;
-            validations.Add((end, validations.Count, validation));
         }
 
-        PdfSignatureValidation[] ordered = [.. validations.OrderBy(static item => item.End).ThenBy(static item => item.Order).Select(static item => item.Validation)];
+        // §12.8.5.3 (PAdES-LTA): a valid document timestamp proves that everything it covers (earlier signatures, their tokens, the
+        // security store before it) existed at its time, so those are validated at that time; the latest first, at the current time.
+        signed.Sort(static (left, right) => left.End != right.End ? left.End.CompareTo(right.End) : left.Order.CompareTo(right.Order));
+        var ordered = new PdfSignatureValidation[signed.Count];
+        long proofEnd = long.MinValue;
+        DateTimeOffset? proof = null;
+        for (int index = signed.Count - 1; index >= 0; index--)
+        {
+            (long end, _, PdfSignatureField field, CosDictionary dictionary) = signed[index];
+            ValidationParameters current = proof is { } existed && existed < now && end < proofEnd ? parameters with { Now = existed } : parameters;
+            PdfSignatureValidation validation = await SignatureValidator.ValidateAsync(_source, field, dictionary, Resolve, current, asynchronous, cancellationToken).ConfigureAwait(false);
+            ordered[index] = validation;
+            if (validation.Status == PdfSignatureStatus.Valid && validation.Timestamp is { Status: PdfSignatureStatus.Valid } token
+                && TransformMethods.IsDocumentTimestamp(dictionary, Resolve) && end != long.MaxValue)
+            {
+                proof = token.Time;
+                proofEnd = end;
+            }
+        }
+
         return ModificationDetector.Apply(_source, _loader, _streams, Revisions, ordered, Resolve);
+    }
+
+    /// <summary>Where a signature's byte range ends (its offset plus length), or <see cref="long.MaxValue"/> when it cannot tell.</summary>
+    private long RangeEnd(CosDictionary dictionary)
+    {
+        if (Resolve(dictionary.TryGetValue(ByteRangeName, out CosObject? value) ? value : null) is CosArray { Count: >= 2 } array
+            && Resolve(array[^2]) is CosInteger { Value: >= 0 and var offset }
+            && Resolve(array[^1]) is CosInteger { Value: >= 0 and var length }
+            && offset <= long.MaxValue - length)
+        {
+            return offset + length;
+        }
+
+        return long.MaxValue;
     }
 
     /// <summary>

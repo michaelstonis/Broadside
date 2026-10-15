@@ -49,8 +49,10 @@ public sealed class PdfCertificateRevocation
         PdfRevocationSource source,
         DateTimeOffset? revocationTime,
         X509RevocationReason? reason,
-        bool fetched)
+        bool fetched,
+        ReadOnlyMemory<byte> evidence = default)
     {
+        Evidence = evidence;
         Certificate = certificate;
         Status = status;
         Source = source;
@@ -88,4 +90,7 @@ public sealed class PdfCertificateRevocation
     /// </summary>
     /// <remarks>RFC 6960 Appendix A.1; RFC 5280 §4.2.1.13.</remarks>
     public bool Fetched { get; }
+
+    /// <summary>Gets the encoded OCSP response or CRL the status comes from (empty when not checked), what a document security store keeps (ISO 32000-2 §12.8.4.3).</summary>
+    internal ReadOnlyMemory<byte> Evidence { get; }
 }
