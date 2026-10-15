@@ -70,6 +70,7 @@ public sealed class CffFontProgramParser : IFontProgramParser
 
     private static CffFontProgram? ParseOpenType(ReadOnlyMemory<byte> data, FontProgramContext context)
     {
+        int reported = context.ReportCount;
         if (SfntFile.Open(data, context) is not { } sfnt)
         {
             return null;
@@ -103,6 +104,9 @@ public sealed class CffFontProgramParser : IFontProgramParser
             maps = CmapSubtable.ReadAll(cmap, font.GlyphCount, context);
         }
 
-        return new CffFontProgram(font, context, FontProgramFormat.OpenType, sfnt.ReadPostScriptName(), maps);
+        return new CffFontProgram(font, context, FontProgramFormat.OpenType, sfnt.ReadPostScriptName(), maps)
+        {
+            Sfnt = context.ReportCount == reported ? sfnt : null,
+        };
     }
 }

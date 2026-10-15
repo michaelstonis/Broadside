@@ -55,6 +55,9 @@ internal sealed class SfntFile
     /// <summary>Gets the whole file.</summary>
     public ReadOnlyMemory<byte> Data { get; }
 
+    /// <summary>Gets the index of the font in a TrueType collection; 0 when the file is a single font.</summary>
+    public int FaceIndex { get; private init; }
+
     /// <summary>Gets the font's sfnt version.</summary>
     public uint Version { get; }
 
@@ -179,7 +182,7 @@ internal sealed class SfntFile
             return null;
         }
 
-        return ReadDirectory(data, (int)start, context);
+        return ReadDirectory(data, (int)start, context) is { } font ? new SfntFile(font.Data, font.Version, font._tables) { FaceIndex = chosen } : null;
     }
 
     /// <summary>Finds a table: its bytes, clamped to the file; <see langword="false"/> when absent or empty.</summary>
