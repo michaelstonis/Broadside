@@ -38,6 +38,7 @@ public sealed partial class PdfCanvas : IDisposable
 {
     private static readonly CosName[] BlendModeNames = [.. Enum.GetNames<BlendMode>().Select(static name => new CosName(name))];
     private static readonly CosName[] IntentNames = [.. Enum.GetNames<RenderingIntent>().Select(static name => new CosName(name))];
+    private static readonly CosName SoftMaskNone = new("None");
 
     private readonly PdfDocument _document;
     private readonly PdfPage? _page;
@@ -299,6 +300,36 @@ public sealed partial class PdfCanvas : IDisposable
         ThrowIfPathOpen();
         ThrowIfUndefined(mode);
         SetGraphicsStateParameter("BM", BlendModeNames[(int)mode]);
+    }
+
+    /// <summary>
+    /// Sets the soft mask that later painting is masked by (<c>SMask</c> through a graphics state parameter dictionary and <c>gs</c>),
+    /// or removes it (<c>/SMask /None</c>).
+    /// </summary>
+    /// <param name="mask">The mask (<see cref="PdfDocument.CreateSoftMask"/>, or one read from the document); <see langword="null"/> for none.</param>
+    /// <exception cref="ArgumentException"><paramref name="mask"/> belongs to another document.</exception>
+    /// <exception cref="InvalidOperationException">A path is being built, or the canvas is disposed.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §8.4.5, Table 57 (<c>SMask</c>, PDF 1.4), and §11.6.5.1. The mask's group is placed in the coordinate system of the
+    /// current transformation matrix at this call, concatenated with the group's own matrix: transform first, then set the mask. The
+    /// mask is part of the graphics state, so <see cref="RestoreState"/> brings back the one in effect at <see cref="SaveState"/>. Set
+    /// before <see cref="DrawForm"/> of a transparency group, it masks the group as a whole. Records PDF 1.4.
+    /// </remarks>
+    public void SetSoftMask(PdfSoftMask? mask)
+    {
+        ThrowIfNotAtPageLevel();
+        CosObject value = SoftMaskNone;
+        if (mask is not null)
+        {
+            if (!ReferenceEquals(mask.Document, _document))
+            {
+                throw new ArgumentException("The soft mask belongs to another document.", nameof(mask));
+            }
+
+            value = (CosObject?)mask.Reference ?? mask.Dictionary;
+        }
+
+        SetGraphicsStateParameter("SMask", value, VersionedFeatures.SoftMasks);
     }
 
     /// <summary>Begins a new subpath at (<paramref name="x"/>, <paramref name="y"/>) (<c>m</c>), beginning a path when none is being built.</summary>
@@ -615,10 +646,12 @@ public sealed partial class PdfCanvas : IDisposable
         SetGraphicsStateParameter(key, new CosReal(alpha));
     }
 
-    private void SetGraphicsStateParameter(string key, CosObject value)
+    private void SetGraphicsStateParameter(string key, CosObject value) => SetGraphicsStateParameter(key, value, VersionedFeatures.TransparencyParameters);
+
+    private void SetGraphicsStateParameter(string key, CosObject value, VersionedFeature feature)
     {
         _document.RequireFeature(VersionedFeatures.GraphicsStateParameters);
-        _document.RequireFeature(VersionedFeatures.TransparencyParameters);
+        _document.RequireFeature(feature);
         CosReference reference = _document.Drawing.GraphicsState(key, value);
         _writer.Name(_resources.Name(CanvasResources.ExtGState, "GS", reference)).Operator("gs");
     }
