@@ -29,6 +29,7 @@ public sealed class FontProgramContext
     public const int DefaultMaxCharStringOperators = 100_000;
 
     private readonly ContextDiagnostics _diagnostics;
+    private int _reportCount;
 
     /// <summary>Initializes a new instance of the <see cref="FontProgramContext"/> class that stands alone, outside any document.</summary>
     public FontProgramContext()
@@ -104,6 +105,10 @@ public sealed class FontProgramContext
     /// </remarks>
     public int MaxCharStringOperators { get; init; } = DefaultMaxCharStringOperators;
 
+    /// <summary>Gets how many deviations have been reported through this context, every code and repeat counted.</summary>
+    /// <remarks>A parser compares it before and after reading a program to know whether the program needed a repair.</remarks>
+    internal int ReportCount => Volatile.Read(ref _reportCount);
+
     /// <summary>Gets the diagnostics reported through this context: the first of each code, in order.</summary>
     public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics.Items;
 
@@ -117,6 +122,7 @@ public sealed class FontProgramContext
     {
         ArgumentNullException.ThrowIfNull(code);
         ArgumentNullException.ThrowIfNull(message);
+        Interlocked.Increment(ref _reportCount);
         _diagnostics.Report(code, severity, message, ReadingMode);
     }
 }

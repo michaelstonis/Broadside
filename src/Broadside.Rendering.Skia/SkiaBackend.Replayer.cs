@@ -49,6 +49,8 @@ public sealed partial class SkiaBackend
         public void End()
         {
             _canvas = null;
+            _lastProgram = null;
+            _lastFace = null;
             _document = null;
             _space = null;
             _defaults = null;
@@ -115,6 +117,7 @@ public sealed partial class SkiaBackend
             _fill.Dispose();
             DisposeStrokes();
             DisposeCompositing();
+            ReleaseFaces();
         }
 
         private static float Clamp(double value) => (float)Math.Clamp(value, -DeviceLimit, DeviceLimit);

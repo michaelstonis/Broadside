@@ -27,16 +27,27 @@ namespace Broadside.Rendering.Skia;
 /// with their opacity and blend mode. Transparency groups and soft masks are not drawn yet (#124).
 /// </para>
 /// <para>
-/// Images, stencil masks, glyph runs, shadings and tiling patterns are not drawn by this backend yet: each is skipped, never
-/// approximated, and the first one of each kind in a render adds an <see cref="DiagnosticSeverity.Information"/> diagnostic to
-/// <see cref="Diagnostics"/> (codes <c>BackendImageUnsupported</c>, <c>BackendImageMaskUnsupported</c>, <c>BackendGlyphsUnsupported</c>,
-/// <c>BackendShadingUnsupported</c> and <c>BackendTilingPatternUnsupported</c>). Invisible text (rendering mode 3) paints nothing
-/// and is not reported.
+/// Text (§9.3.6, §9.4.3): glyphs of TrueType and OpenType programs (§9.9) are filled by Skia's font engine from a typeface loaded
+/// from the program's bytes (<see cref="Fonts.FontProgram.TryGetSfntData"/>), created once per program per backend, unhinted and
+/// positioned exactly; every other program (Type 1, bare CFF), every glyph whose Skia outline does not have the bounds of the
+/// program's, and every glyph when <see cref="RenderOptions.ForceOutlines"/> is set are filled from their outlines (§9.2.4) with
+/// the non-zero winding rule. A program Skia cannot load, or a glyph it reads differently, adds the
+/// <see cref="DiagnosticSeverity.Information"/> diagnostic <c>BackendNativeGlyphsUnavailable</c>, once per render. Strokes of text (modes 1, 2, 5,
+/// 6) follow the outlines like any stroke; Type 3 glyphs arrive as the paths their descriptions paint. Invisible text (mode 3)
+/// paints nothing.
+/// </para>
+/// <para>
+/// Images, stencil masks, shadings and tiling patterns are not drawn by this backend yet: each is skipped, never approximated, and
+/// the first one of each kind in a render adds an <see cref="DiagnosticSeverity.Information"/> diagnostic to
+/// <see cref="Diagnostics"/> (codes <c>BackendImageUnsupported</c>, <c>BackendImageMaskUnsupported</c>,
+/// <c>BackendShadingUnsupported</c> and <c>BackendTilingPatternUnsupported</c>).
 /// </para>
 /// <para>
 /// Reuse one instance for many renders (one per surface): it keeps its paints and caches every Skia path it builds, keyed by the
 /// path's geometry, so replaying the same list again (a repaint, a cached display list) allocates nothing per operation. The cache
-/// holds at most 2^21 coordinates and 2^16 paths and is emptied when it would grow past them; <see cref="Dispose"/> releases it. An
+/// holds at most 2^21 coordinates and 2^16 paths and is emptied when it would grow past them; typefaces are kept per font program
+/// (at most 256, held weakly, so a closed document's go with it) with at most 2^16 glyphs among them; <see cref="Dispose"/>
+/// releases them all. An
 /// instance renders one page at a time; use one per thread to render in parallel (a document is safe for concurrent renders while
 /// nobody changes it).
 /// </para>
@@ -115,7 +126,7 @@ public sealed partial class SkiaBackend : IDisposable
         ObjectDisposedException.ThrowIf(_disposed, this);
         PixelSize size = options.GetPixelSize(page);
         Matrix device = options.GetDeviceTransform(page);
-        Draw(page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions), canvas, device, new SKRect(0, 0, size.Width, size.Height));
+        Draw(page.CreateDisplayList(options.Layers, options.Intent, DefaultContentOptions), canvas, device, new SKRect(0, 0, size.Width, size.Height), options.ForceOutlines);
     }
 
     /// <summary>
@@ -128,13 +139,28 @@ public sealed partial class SkiaBackend : IDisposable
     /// The transform from the list's default user space to the canvas's coordinates (origin top-left, y down), such as
     /// <see cref="RenderOptions.GetDeviceTransform"/>; a tile renderer adds its own offset.
     /// </param>
-    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space).</remarks>
-    public void Render(DisplayList list, SKCanvas canvas, in Matrix deviceTransform)
+    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space). Glyphs of TrueType and OpenType programs are drawn natively.</remarks>
+    public void Render(DisplayList list, SKCanvas canvas, in Matrix deviceTransform) => Render(list, canvas, deviceTransform, forceOutlines: false);
+
+    /// <summary>
+    /// Draws <paramref name="list"/> onto <paramref name="canvas"/> over what it already shows, without a background, under the canvas's
+    /// current transform and within its current clip, drawing every glyph from its outline when <paramref name="forceOutlines"/> is set.
+    /// The canvas's state is the same afterwards.
+    /// </summary>
+    /// <param name="list">The display list.</param>
+    /// <param name="canvas">The canvas.</param>
+    /// <param name="deviceTransform">
+    /// The transform from the list's default user space to the canvas's coordinates (origin top-left, y down), such as
+    /// <see cref="RenderOptions.GetDeviceTransform"/>; a tile renderer adds its own offset.
+    /// </param>
+    /// <param name="forceOutlines">Whether to draw every glyph from its outline, never through Skia's font engine (<see cref="RenderOptions.ForceOutlines"/>).</param>
+    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space), §9.2.4 (glyph outlines).</remarks>
+    public void Render(DisplayList list, SKCanvas canvas, in Matrix deviceTransform, bool forceOutlines)
     {
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(canvas);
         ObjectDisposedException.ThrowIf(_disposed, this);
-        Draw(list, canvas, deviceTransform, null);
+        Draw(list, canvas, deviceTransform, null, forceOutlines);
     }
 
     /// <summary>Releases the backend's cached Skia paths and its paints; it renders no more after this.</summary>
@@ -147,7 +173,10 @@ public sealed partial class SkiaBackend : IDisposable
         }
     }
 
-    private void Draw(DisplayList list, SKCanvas canvas, in Matrix device, SKRect? page)
+    /// <summary>Gets how many typefaces this backend has created from font programs (one per TrueType or OpenType program it drew natively).</summary>
+    internal int TypefacesCreated => _replayer.TypefacesCreated;
+
+    private void Draw(DisplayList list, SKCanvas canvas, in Matrix device, SKRect? page, bool forceOutlines)
     {
         int saveCount = canvas.Save();
         try
@@ -158,6 +187,7 @@ public sealed partial class SkiaBackend : IDisposable
                 canvas.DrawColor(SKColors.White, SKBlendMode.Src);
             }
 
+            _replayer.ForceOutlines = forceOutlines;
             _replayer.Begin(list.Document, canvas, device);
             try
             {

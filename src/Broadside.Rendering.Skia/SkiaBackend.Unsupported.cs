@@ -21,11 +21,6 @@ public sealed partial class SkiaBackend
             DiagnosticSeverity.Information,
             "The Skia backend does not draw stencil masks yet (ISO 32000-2 §8.9.6.2); the page's stencil masks were left out of this render.");
 
-        private static readonly Diagnostic GlyphsSkipped = new(
-            "BackendGlyphsUnsupported",
-            DiagnosticSeverity.Information,
-            "The Skia backend does not draw text yet (ISO 32000-2 §9.4.3); the page's visible glyphs were left out of this render.");
-
         private static readonly Diagnostic ShadingSkipped = new(
             "BackendShadingUnsupported",
             DiagnosticSeverity.Information,
@@ -57,15 +52,6 @@ public sealed partial class SkiaBackend
 
         /// <summary>Skips a stencil mask (ISO 32000-2 §8.9.6.2).</summary>
         public void FillImageMask(DisplayImageMask mask, in DisplayColor color) => Report(2, ImageMaskSkipped);
-
-        /// <summary>Skips a glyph run (ISO 32000-2 §9.4.3); invisible text (§9.3.6, mode 3) paints nothing and is not reported.</summary>
-        public void DrawGlyphs(in GlyphRun run)
-        {
-            if (run.Fills || run.Strokes)
-            {
-                Report(4, GlyphsSkipped);
-            }
-        }
 
         /// <summary>Skips a shading painted with <c>sh</c> (ISO 32000-2 §8.7.4.2).</summary>
         public void DrawShading(in DisplayShading shading) => Report(8, ShadingSkipped);

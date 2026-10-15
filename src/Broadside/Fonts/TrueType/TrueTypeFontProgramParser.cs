@@ -66,6 +66,7 @@ public sealed class TrueTypeFontProgramParser : IFontProgramParser
     public FontProgram? Parse(ReadOnlyMemory<byte> data, FontProgramContext context)
     {
         ArgumentNullException.ThrowIfNull(context);
+        int reported = context.ReportCount;
         if (context.Length1 is { } length1 && length1 > data.Length)
         {
             context.Report(
@@ -90,7 +91,9 @@ public sealed class TrueTypeFontProgramParser : IFontProgramParser
             return null;
         }
 
-        return TrueTypeFontProgram.Create(sfnt, glyf, loca, context, Read(sfnt, Head), Read(sfnt, Hhea), Read(sfnt, Hmtx), Read(sfnt, Maxp), Read(sfnt, Cmap), Read(sfnt, Post));
+        TrueTypeFontProgram program = TrueTypeFontProgram.Create(sfnt, glyf, loca, context, Read(sfnt, Head), Read(sfnt, Hhea), Read(sfnt, Hmtx), Read(sfnt, Maxp), Read(sfnt, Cmap), Read(sfnt, Post));
+        program.IsIntact = context.ReportCount == reported;
+        return program;
     }
 
     private static ReadOnlyMemory<byte>? Read(SfntFile sfnt, uint tag) => sfnt.TryGetTable(tag, out ReadOnlyMemory<byte> table) ? table : default(ReadOnlyMemory<byte>?);

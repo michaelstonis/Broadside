@@ -47,7 +47,23 @@ public sealed class SkiaAllocationTests
         Assert.Equal(0, MeasureReplay(annotations, 144, DisplayLayers.All));
     }
 
-    private static long MeasureReplay(PdfDocument document, int dpi, DisplayLayers layers = DisplayLayers.Content)
+    [Theory]
+    [InlineData(72, false)]
+    [InlineData(300, false)]
+    [InlineData(72, true)]
+    [InlineData(300, true)]
+    public void Replaying_thousands_of_glyphs_allocates_nothing_per_glyph(int dpi, bool forceOutlines)
+    {
+        // Issue #123: native glyphs come from the typeface and text blobs cached per program and glyph, outlines from the path cache.
+        using PdfDocument text = PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(2000)));
+        using PdfDocument type3 = PdfDocument.Open(Type3Samples.Type3Heavy(2000));
+        using PdfDocument standard14 = GoldenCorpus.Open("text-standard14.pdf");
+        Assert.Equal(0, MeasureReplay(text, dpi, forceOutlines: forceOutlines));
+        Assert.Equal(0, MeasureReplay(type3, dpi, forceOutlines: forceOutlines));
+        Assert.Equal(0, MeasureReplay(standard14, dpi, forceOutlines: forceOutlines));
+    }
+
+    private static long MeasureReplay(PdfDocument document, int dpi, DisplayLayers layers = DisplayLayers.Content, bool forceOutlines = false)
     {
         PdfPage page = document.Pages[0];
         DisplayList list = page.CreateDisplayList(layers);
@@ -57,7 +73,7 @@ public sealed class SkiaAllocationTests
         using var bitmap = new SKBitmap(new SKImageInfo(size.Width, size.Height, SKColorType.Bgra8888, SKAlphaType.Premul));
         using var canvas = new SKCanvas(bitmap);
         using var backend = new SkiaBackend();
-        Action replay = () => backend.Render(list, canvas, device);
+        Action replay = () => backend.Render(list, canvas, device, forceOutlines);
         return Allocations.Measure(replay);
     }
 }

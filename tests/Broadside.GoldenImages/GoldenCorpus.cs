@@ -185,10 +185,30 @@ public static class GoldenCorpus
     public static void AssertMatchesReference(string backend, string fileName, int page, GoldenImage render, string outputDirectory)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(backend);
+        AssertMatchesReference(backend, fileName, page, render, GoldenThresholds.For(backend, fileName, page), outputDirectory);
+    }
+
+    /// <summary>
+    /// Asserts that a backend's render of a page matches the page's golden image under a named threshold rather than the table's,
+    /// such as <see cref="GoldenThreshold.Text"/> for glyphs a backend draws with its platform's font engine; otherwise as
+    /// <see cref="AssertMatchesReference(string, string, int, GoldenImage)"/>.
+    /// </summary>
+    /// <param name="backend">The backend's name, used in the names of the received and diff images.</param>
+    /// <param name="fileName">The corpus file.</param>
+    /// <param name="page">The zero-based page.</param>
+    /// <param name="render">The backend's render at <see cref="Dpi"/> through <see cref="CreateRenderOptions"/>.</param>
+    /// <param name="threshold">The threshold.</param>
+    /// <exception cref="GoldenImageMismatchException">The render does not match.</exception>
+    public static void AssertMatchesReference(string backend, string fileName, int page, GoldenImage render, GoldenThreshold threshold) =>
+        AssertMatchesReference(backend, fileName, page, render, threshold, Directory);
+
+    private static void AssertMatchesReference(string backend, string fileName, int page, GoldenImage render, GoldenThreshold threshold, string outputDirectory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(backend);
         ArgumentNullException.ThrowIfNull(render);
         ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
         GoldenImage expected = LoadReference(fileName, page);
-        GoldenComparison comparison = GoldenComparison.Compare(expected, render, GoldenThresholds.For(backend, fileName, page));
+        GoldenComparison comparison = GoldenComparison.Compare(expected, render, threshold);
         string stem = Path.Combine(outputDirectory, $"{SnapshotName(fileName, page)}.{backend}");
         string received = stem + ".received.png";
         string diff = stem + ".diff.png";

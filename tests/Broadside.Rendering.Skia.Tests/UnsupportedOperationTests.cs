@@ -14,7 +14,6 @@ public sealed class UnsupportedOperationTests
     [Theory]
     [InlineData("inline-image.pdf", "BackendImageUnsupported")]
     [InlineData("image-stencil-mask.pdf", "BackendImageMaskUnsupported")]
-    [InlineData("text-truetype-embedded.pdf", "BackendGlyphsUnsupported")]
     [InlineData("shading-type2-axial.pdf", "BackendShadingUnsupported")]
     [InlineData("pattern-shading-axial.pdf", "BackendShadingUnsupported")]
     public void A_page_whose_only_paints_the_backend_cannot_draw_stays_white_and_reports_their_kind_once(string fileName, string code)
@@ -32,11 +31,11 @@ public sealed class UnsupportedOperationTests
     [Fact]
     public void Each_render_reports_only_what_it_skipped()
     {
-        using PdfDocument text = GoldenCorpus.Open("text-truetype-embedded.pdf");
+        using PdfDocument image = GoldenCorpus.Open("inline-image.pdf");
         using PdfDocument paths = GoldenCorpus.Open("paths-fill-rules.pdf");
         using var backend = new SkiaBackend();
 
-        using (backend.Render(text.Pages[0]))
+        using (backend.Render(image.Pages[0]))
         {
             Assert.Single(backend.Diagnostics);
         }
