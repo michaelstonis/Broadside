@@ -283,6 +283,45 @@ public sealed class PdfSaveOptions
         return this;
     }
 
+    /// <summary>
+    /// Gets or sets the PDF/UA conformance the saved file claims and is checked against, or <see cref="PdfUAConformance.None"/> (the
+    /// default) for none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// ISO 14289-1 (PDF/UA-1), cited by the rule identifiers of veraPDF's PDF/UA-1 validation profile. The save first checks the document,
+    /// changing nothing: each failure condition it finds (no structure tree, content neither tagged nor an artifact, a non-standard type
+    /// without a role mapping, no title, no or a malformed language, a figure without alternate text, a header cell without a scope, a
+    /// skipped heading level, a note without an ID, an untagged or undescribed annotation, a font not embedded or not mapped to Unicode,
+    /// a feature later than PDF 1.7, ...) is reported as a <c>PdfUANonConformant</c> warning naming the rule. In strict mode the first
+    /// one throws and nothing is written or changed. In lenient mode the file is saved without the changes below and without claiming
+    /// conformance (a <c>PdfUANotIdentified</c> information diagnostic says so).
+    /// </para>
+    /// <para>
+    /// When every check passes, the save writes what PDF/UA-1 requires of the file: the <c>pdfuaid:part</c> identification in the XMP
+    /// metadata stream (with its extension schema when the file is also PDF/A), <c>DisplayDocTitle</c>, <c>MarkInfo</c> <c>Marked</c>
+    /// and, on every page with annotations, <c>Tabs</c> <c>/S</c>; it writes the header as PDF 1.7. It combines with
+    /// <see cref="PdfAConformance"/>.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a defined conformance.</exception>
+    public PdfUAConformance PdfUAConformance
+    {
+        get;
+        set => field = Enum.IsDefined(value) ? value : throw new ArgumentOutOfRangeException(nameof(value), value, "Not a defined PDF/UA conformance.");
+    }
+
+    /// <summary>Sets <see cref="PdfUAConformance"/>.</summary>
+    /// <param name="conformance">The PDF/UA conformance, or <see cref="PdfUAConformance.None"/>.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="conformance"/> is not a defined conformance.</exception>
+    /// <remarks>ISO 14289-1 (veraPDF PDF/UA-1 validation profile).</remarks>
+    public PdfSaveOptions WithPdfUAConformance(PdfUAConformance conformance)
+    {
+        PdfUAConformance = conformance;
+        return this;
+    }
+
     /// <summary>Sets <see cref="IncrementalUpdate"/>.</summary>
     /// <param name="incremental">Whether the save appends an incremental update.</param>
     /// <returns>These options.</returns>

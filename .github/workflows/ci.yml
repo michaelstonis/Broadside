@@ -253,10 +253,9 @@ jobs:
           dotnet test --project tests/Broadside.Tests -c Release --no-build -- --filter-trait "Category=VeraPdf"
           dotnet test --project tests/Broadside.Fonts.Standard14.Tests -c Release --no-build -- --filter-trait "Category=VeraPdf"
 
-      # Smoke check of tagging by construction (#179) against veraPDF's PDF/UA-1 profile; PDF/UA output itself is #204, so this
-      # step reports without blocking.
-      - name: PDF/UA-1 smoke check of tagged flow output
-        continue-on-error: true
+      # PDF/UA-1 output from flow layout (#204, and the tagging by construction it builds on, #179) against veraPDF's PDF/UA-1
+      # profile (plus PDF/A-2u for a combined save).
+      - name: Validate PDF/UA-1 output with veraPDF
         env:
           BROADSIDE_REQUIRE_VERAPDF: '1'
         run: dotnet test --project tests/Broadside.Layout.Tests -c Release --no-build -- --filter-trait "Category=VeraPdf"

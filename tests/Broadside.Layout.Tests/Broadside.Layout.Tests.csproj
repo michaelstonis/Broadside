@@ -2,6 +2,7 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Broadside.Layout/Broadside.Layout.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
     <ProjectReference Include="../Broadside.TestSupport/Broadside.TestSupport.csproj" />
     <PackageReference Include="xunit.v3" />
   </ItemGroup>
@@ -9,6 +10,8 @@
   <ItemGroup>
     <Compile Include="../Broadside.Tests/Writing/ExternalTool.cs" Link="Shared/ExternalTool.cs" />
     <Compile Include="../Broadside.Tests/Writing/VeraPdf.cs" Link="Shared/VeraPdf.cs" />
+    <Compile Include="../Broadside.Tests/Writing/CosGraph.cs" Link="Shared/CosGraph.cs" />
+    <Compile Include="../Broadside.Tests/Writing/CosSnapshot.cs" Link="Shared/CosSnapshot.cs" />
   </ItemGroup>
 
   <ItemGroup>

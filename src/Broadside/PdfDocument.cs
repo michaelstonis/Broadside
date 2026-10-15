@@ -1298,12 +1298,19 @@ public sealed partial class PdfDocument : IDisposable
         CheckLinearization(options);
         ReportBeforeSave();
         bool archival = CheckArchivalSave(options);
-        VersionedSave planned = CheckVersionedSave(options, archival);
+        bool accessible = CheckAccessibleSave(options);
+        VersionedSave planned = CheckVersionedSave(options, archival, accessible);
         ReportDeprecatedEncryption(options);
         archival = archival && CheckArchivalVersion(options, planned);
+        accessible = accessible && CheckAccessibleVersion(planned);
         if (options.PdfAConformance != PdfAConformance.None && !archival)
         {
             ReportNotIdentified(options);
+        }
+
+        if (options.PdfUAConformance != PdfUAConformance.None && !accessible)
+        {
+            ReportAccessibilityNotIdentified();
         }
 
         if (changes is not null)
@@ -1324,10 +1331,16 @@ public sealed partial class PdfDocument : IDisposable
         // step already counted (VersionedFeatures.PdfAOutput); the file is written as PDF 1.7, PDF/A-2's base.
         if (archival)
         {
-            changed |= ApplyArchivalSave(options);
+            changed |= ApplyArchivalSave(options, accessible);
         }
 
-        return ApplyVersionedSave(options, planned, changed, archival ? PdfA2Version : null);
+        // Issue #204: what a conformant PDF/UA-1 save adds (identification, DisplayDocTitle, MarkInfo, Tabs); also PDF 1.7 at most.
+        if (accessible)
+        {
+            changed |= ApplyAccessibleSave(archival);
+        }
+
+        return ApplyVersionedSave(options, planned, changed, archival || accessible ? PdfA2Version : null);
     }
 
     /// <summary>
