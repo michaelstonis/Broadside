@@ -45,6 +45,12 @@ namespace Broadside.Writing;
 /// <item><see cref="VersionedFeatures.Pdf20AnnotationEntries"/>: an annotation (<c>Type</c> <c>Annot</c>, or untyped with
 /// <c>Subtype</c> and <c>Rect</c>) with <c>ca</c>, <c>BM</c> or <c>Lang</c>, a non-markup annotation with <c>CA</c> (Table 166),
 /// and the <c>Projection</c> and <c>RichMedia</c> types (Table 171).</item>
+/// <item><see cref="VersionedFeatures.AnnotationTypes13"/>, <see cref="VersionedFeatures.AnnotationTypes14"/> and
+/// <see cref="VersionedFeatures.AnnotationTypes15"/>: an annotation of a type Table 171 marks PDF 1.3, 1.4 or 1.5 among those the
+/// library writes (FreeText to Popup; Squiggly; Polygon and PolyLine), with <c>NM</c> or <c>IC</c> (1.4), or <c>Subj</c> or
+/// <c>CreationDate</c> (1.5); <see cref="VersionedFeatures.AnnotationBorderStyle"/>: an annotation with <c>BS</c>;
+/// <see cref="VersionedFeatures.AnnotationEntries11"/>: an annotation with <c>F</c>, <c>M</c> or <c>T</c>, and a URI action
+/// (<c>S</c> <c>URI</c> with a <c>URI</c> entry, §12.6.4.8).</item>
 /// <item><see cref="VersionedFeatures.SampledFunction"/> and <see cref="VersionedFeatures.CalculatedFunction"/>: a function
 /// dictionary or stream (<c>FunctionType</c> 0, or 2, 3 and 4; §7.10, Table 38).</item>
 /// <item><see cref="VersionedFeatures.Shadings"/>: a shading dictionary or stream (<c>ShadingType</c> 1 to 7, Table 77) and a shading
@@ -75,6 +81,7 @@ internal static class CarriedFeatures
     private static readonly CosName ShadingType = new("ShadingType");
     private static readonly CosName PatternType = new("PatternType");
     private static readonly CosName Pattern = new("Pattern");
+    private static readonly CosName Uri = new("URI");
 
     /// <summary>The annotation types Table 171 marks as not markup annotations, whose <c>CA</c> is PDF 2.0 (Table 166).</summary>
     private static readonly HashSet<string> NonMarkupTypes =
@@ -151,6 +158,11 @@ internal static class CarriedFeatures
             || (type is null && dictionary.ContainsKey(AnnotationNames.Rect) && dictionary.ContainsKey(AnnotationNames.Subtype)))
         {
             Annotation(document, dictionary, found);
+        }
+
+        if (dictionary.ContainsKey(Uri) && Uri.Equals(EntryReader.Get(document, dictionary, S)))
+        {
+            found(VersionedFeatures.AnnotationEntries11);
         }
         else if (dictionary.ContainsKey(BM) || dictionary.ContainsKey(AIS) || dictionary.ContainsKey(TK)
             || EntryReader.Get(document, dictionary, CA) is CosInteger or CosReal
@@ -268,6 +280,39 @@ internal static class CarriedFeatures
             found(subtype is not null && NonMarkupTypes.Contains(subtype)
                 ? VersionedFeatures.Pdf20AnnotationEntries
                 : VersionedFeatures.TransparencyParameters);
+        }
+
+        switch (subtype)
+        {
+            case "FreeText" or "Line" or "Square" or "Circle" or "Highlight" or "Underline" or "StrikeOut" or "Stamp" or "Ink" or "Popup":
+                found(VersionedFeatures.AnnotationTypes13);
+                break;
+            case "Squiggly":
+                found(VersionedFeatures.AnnotationTypes14);
+                break;
+            case "Polygon" or "PolyLine":
+                found(VersionedFeatures.AnnotationTypes15);
+                break;
+        }
+
+        if (annotation.ContainsKey(AnnotationNames.F) || annotation.ContainsKey(AnnotationNames.M) || annotation.ContainsKey(AnnotationNames.T))
+        {
+            found(VersionedFeatures.AnnotationEntries11);
+        }
+
+        if (annotation.ContainsKey(AnnotationNames.BS))
+        {
+            found(VersionedFeatures.AnnotationBorderStyle);
+        }
+
+        if (annotation.ContainsKey(AnnotationNames.NM) || annotation.ContainsKey(AnnotationNames.IC))
+        {
+            found(VersionedFeatures.AnnotationTypes14);
+        }
+
+        if (annotation.ContainsKey(AnnotationNames.Subj) || annotation.ContainsKey(AnnotationNames.CreationDate))
+        {
+            found(VersionedFeatures.AnnotationTypes15);
         }
     }
 

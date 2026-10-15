@@ -91,6 +91,11 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 /// <item><term><see cref="TransparencyGroups"/></term><description>1.4 (§11.6.6; Table 31 and Table 93, <c>Group</c>)</description></item>
 /// <item><term><see cref="OptionalContent"/></term><description>1.5 (§8.11.1; Table 29, <c>OCProperties</c>; Tables 87, 93 and 166, <c>OC</c>)</description></item>
 /// <item><term><see cref="Pdf20AnnotationEntries"/></term><description>2.0 (§12.5.2, Table 166, <c>ca</c>, <c>BM</c>, <c>Lang</c>, <c>CA</c> of a non-markup annotation; §12.5.6.1, Table 171, <c>Projection</c> and <c>RichMedia</c>)</description></item>
+/// <item><term><see cref="AnnotationEntries11"/></term><description>1.1 (§12.5.2, Table 166, <c>F</c>, <c>M</c>; §12.5.6.2, Table 172, <c>T</c>; §12.6.4.8, URI actions)</description></item>
+/// <item><term><see cref="AnnotationBorderStyle"/></term><description>1.2 (§12.5.4, Table 168, <c>BS</c>)</description></item>
+/// <item><term><see cref="AnnotationTypes13"/></term><description>1.3 (§12.5.6.1, Table 171: FreeText, Line, Square, Circle, Highlight, Underline, StrikeOut, Stamp, Ink, Popup)</description></item>
+/// <item><term><see cref="AnnotationTypes14"/></term><description>1.4 (Table 171, Squiggly; Table 166, <c>NM</c>; Tables 178, 180 and 181, <c>IC</c>)</description></item>
+/// <item><term><see cref="AnnotationTypes15"/></term><description>1.5 (Table 171, Polygon and PolyLine; Table 172, <c>Subj</c> and <c>CreationDate</c>)</description></item>
 /// <item><term><see cref="PageBoundaries"/></term><description>1.3 (§7.7.3.3, Table 31, <c>BleedBox</c>, <c>TrimBox</c>, <c>ArtBox</c>)</description></item>
 /// <item><term><see cref="RenderingIntentOperator"/></term><description>1.1 (§8.4.4, Table 56, <c>ri</c>)</description></item>
 /// <item><term><see cref="GraphicsStateParameters"/></term><description>1.2 (§8.4.4, Table 56, <c>gs</c>)</description></item>
@@ -248,6 +253,33 @@ internal static class VersionedFeatures
         "PDF 2.0 annotation entries (ca, BM, Lang, CA of a non-markup annotation, Projection and RichMedia types)",
         "ISO 32000-2 §12.5.2, Table 166; §12.5.6.1, Table 171",
         Pdf20);
+
+    /// <summary>Gets an annotation's flags and modification date (<c>F</c>, <c>M</c>), a markup annotation's title (<c>T</c>) and a URI action: PDF 1.1.</summary>
+    public static VersionedFeature AnnotationEntries11 { get; } = new(
+        "an annotation's flags, modification date or title (F, M, T) or a URI action",
+        "ISO 32000-2 §12.5.2, Table 166; §12.5.6.2, Table 172; §12.6.4.8",
+        Pdf11);
+
+    /// <summary>Gets an annotation's border style dictionary (<c>BS</c>): PDF 1.2.</summary>
+    public static VersionedFeature AnnotationBorderStyle { get; } = new("an annotation's border style dictionary (BS)", "ISO 32000-2 §12.5.4, Table 168", Pdf12);
+
+    /// <summary>Gets the annotation types of PDF 1.3: FreeText, Line, Square, Circle, Highlight, Underline, StrikeOut, Stamp, Ink and Popup.</summary>
+    public static VersionedFeature AnnotationTypes13 { get; } = new(
+        "a FreeText, Line, Square, Circle, Highlight, Underline, StrikeOut, Stamp, Ink or Popup annotation",
+        "ISO 32000-2 §12.5.6.1, Table 171",
+        new PdfVersion(1, 3));
+
+    /// <summary>Gets the Squiggly annotation type, an annotation name (<c>NM</c>) and an interior colour (<c>IC</c>): PDF 1.4.</summary>
+    public static VersionedFeature AnnotationTypes14 { get; } = new(
+        "a Squiggly annotation, an annotation name (NM) or an interior colour (IC)",
+        "ISO 32000-2 §12.5.6.1, Table 171; §12.5.2, Table 166; Tables 178, 180 and 181",
+        Pdf14);
+
+    /// <summary>Gets the Polygon and PolyLine annotation types and a markup annotation's subject and creation date (<c>Subj</c>, <c>CreationDate</c>): PDF 1.5.</summary>
+    public static VersionedFeature AnnotationTypes15 { get; } = new(
+        "a Polygon or PolyLine annotation, or a markup annotation's subject or creation date (Subj, CreationDate)",
+        "ISO 32000-2 §12.5.6.1, Table 171; §12.5.6.2, Table 172",
+        Pdf15);
 
     /// <summary>Gets the <c>BleedBox</c>, <c>TrimBox</c> and <c>ArtBox</c> page boundaries: PDF 1.3.</summary>
     public static VersionedFeature PageBoundaries { get; } = new("a page's BleedBox, TrimBox or ArtBox", "ISO 32000-2 §7.7.3.3, Table 31", new PdfVersion(1, 3));

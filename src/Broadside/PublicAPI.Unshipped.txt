@@ -4752,3 +4752,70 @@ Broadside.Layout.LayoutOptions.Detection.get -> Broadside.Layout.LayoutDetection
 Broadside.Layout.LayoutOptions.Detection.set -> void
 Broadside.Layout.LayoutOptions.WithDetection(Broadside.Layout.LayoutDetection detection) -> Broadside.Layout.LayoutOptions!
 Broadside.Layout.LayoutPage.IsDetected.get -> bool
+Broadside.PdfPage.AddTextAnnotation(Broadside.PdfRectangle rect, string! text, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfTextAnnotation!
+Broadside.PdfPage.AddLinkAnnotation(Broadside.PdfRectangle rect, System.Uri! target) -> Broadside.Annotations.PdfLinkAnnotation!
+Broadside.PdfPage.AddLinkAnnotation(Broadside.PdfRectangle rect, Broadside.PdfPage! target) -> Broadside.Annotations.PdfLinkAnnotation!
+Broadside.PdfPage.AddFreeTextAnnotation(Broadside.PdfRectangle rect, string! text, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfFreeTextAnnotation!
+Broadside.PdfPage.AddLineAnnotation(Broadside.Graphics.PathPoint start, Broadside.Graphics.PathPoint end, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfLineAnnotation!
+Broadside.PdfPage.AddSquareAnnotation(Broadside.PdfRectangle rect, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfSquareAnnotation!
+Broadside.PdfPage.AddCircleAnnotation(Broadside.PdfRectangle rect, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfCircleAnnotation!
+Broadside.PdfPage.AddPolygonAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PathPoint>! vertices, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfPolygonAnnotation!
+Broadside.PdfPage.AddPolyLineAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PathPoint>! vertices, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfPolyLineAnnotation!
+Broadside.PdfPage.AddInkAnnotation(System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PathPoint>!>! strokes, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfInkAnnotation!
+Broadside.PdfPage.AddHighlightAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>! quadrilaterals, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfHighlightAnnotation!
+Broadside.PdfPage.AddUnderlineAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>! quadrilaterals, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfUnderlineAnnotation!
+Broadside.PdfPage.AddSquigglyAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>! quadrilaterals, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfSquigglyAnnotation!
+Broadside.PdfPage.AddStrikeOutAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>! quadrilaterals, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfStrikeOutAnnotation!
+Broadside.PdfPage.AddStampAnnotation(Broadside.PdfRectangle rect, string! name, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfStampAnnotation!
+Broadside.PdfPage.RemoveAnnotation(Broadside.Annotations.PdfAnnotation! annotation) -> void
+Broadside.Annotations.PdfAnnotation.Rect.set -> void
+Broadside.Annotations.PdfAnnotation.Contents.set -> void
+Broadside.Annotations.PdfAnnotation.Name.set -> void
+Broadside.Annotations.PdfAnnotation.Flags.set -> void
+Broadside.Annotations.PdfAnnotation.Color.set -> void
+Broadside.Annotations.PdfAnnotation.StrokingOpacity.set -> void
+Broadside.Annotations.PdfAnnotation.RegenerateAppearance() -> bool
+Broadside.Annotations.PdfAnnotation.Move(double dx, double dy) -> void
+Broadside.Annotations.PdfAnnotation.SetBorderWidth(double width) -> void
+Broadside.Annotations.PdfMarkupAnnotation.Title.set -> void
+Broadside.Annotations.PdfMarkupAnnotation.Subject.set -> void
+Broadside.Annotations.PdfSquareAnnotation.InteriorColor.set -> void
+Broadside.Annotations.PdfCircleAnnotation.InteriorColor.set -> void
+Broadside.Annotations.PdfLineAnnotation.InteriorColor.set -> void
+Broadside.Annotations.PdfPolygonAnnotation.InteriorColor.set -> void
+Broadside.Annotations.PdfPolyLineAnnotation.InteriorColor.set -> void
+Broadside.Annotations.PdfAnnotationOptions
+Broadside.Annotations.PdfAnnotationOptions.PdfAnnotationOptions() -> void
+Broadside.Annotations.PdfAnnotationOptions.Color.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.Annotations.PdfAnnotationOptions.Color.set -> void
+Broadside.Annotations.PdfAnnotationOptions.InteriorColor.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.Annotations.PdfAnnotationOptions.InteriorColor.set -> void
+Broadside.Annotations.PdfAnnotationOptions.BorderWidth.get -> double
+Broadside.Annotations.PdfAnnotationOptions.BorderWidth.set -> void
+Broadside.Annotations.PdfAnnotationOptions.Opacity.get -> double
+Broadside.Annotations.PdfAnnotationOptions.Opacity.set -> void
+Broadside.Annotations.PdfAnnotationOptions.Flags.get -> Broadside.Annotations.PdfAnnotationFlags
+Broadside.Annotations.PdfAnnotationOptions.Flags.set -> void
+Broadside.Annotations.PdfAnnotationOptions.Contents.get -> string?
+Broadside.Annotations.PdfAnnotationOptions.Contents.set -> void
+Broadside.Annotations.PdfAnnotationOptions.Title.get -> string?
+Broadside.Annotations.PdfAnnotationOptions.Title.set -> void
+Broadside.Annotations.PdfAnnotationOptions.Subject.get -> string?
+Broadside.Annotations.PdfAnnotationOptions.Subject.set -> void
+Broadside.Annotations.PdfAnnotationOptions.Name.get -> string?
+Broadside.Annotations.PdfAnnotationOptions.Name.set -> void
+Broadside.Annotations.PdfAnnotationOptions.FontSize.get -> double
+Broadside.Annotations.PdfAnnotationOptions.FontSize.set -> void
+Broadside.Annotations.PdfAnnotationOptions.TextColor.get -> Broadside.Annotations.PdfDeviceColor!
+Broadside.Annotations.PdfAnnotationOptions.TextColor.set -> void
+Broadside.Annotations.PdfAnnotationOptions.WithColor(Broadside.Annotations.PdfDeviceColor? color) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithInteriorColor(Broadside.Annotations.PdfDeviceColor? color) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithBorderWidth(double width) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithOpacity(double opacity) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithFlags(Broadside.Annotations.PdfAnnotationFlags flags) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithContents(string? contents) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithTitle(string? title) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithSubject(string? subject) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithName(string? name) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithFontSize(double size) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithTextColor(Broadside.Annotations.PdfDeviceColor! color) -> Broadside.Annotations.PdfAnnotationOptions!

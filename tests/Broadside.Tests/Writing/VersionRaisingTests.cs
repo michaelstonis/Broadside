@@ -1,4 +1,5 @@
 using System.Text;
+using Broadside.Annotations;
 using Broadside.Diagnostics;
 using Broadside.Forms;
 using Broadside.Objects;
@@ -516,6 +517,60 @@ public sealed class VersionRaisingTests
                 break;
             default:
                 form.AddRadioButtons("pick", [new PdfRadioButton(page, rect, "A")], new PdfFieldOptions().WithFlags(PdfFieldFlags.RadiosInUnison));
+                break;
+        }
+
+        byte[] saved = Save(document, Options.WithStreamCompression(PdfStreamCompression.None));
+
+        var expected = new PdfVersion(major, minor);
+        Assert.Equal(expected.ToString(), HeaderVersion(saved));
+        Assert.Contains(named, Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == "VersionRaised").Message, StringComparison.Ordinal);
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Equal(expected, reopened.Version);
+        Assert.DoesNotContain(reopened.Diagnostics, diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning);
+    }
+
+    /// <summary>Each annotation the page API adds (issue #165) raises a document below the version of its type and entries.</summary>
+    public static TheoryData<string, string, int, int, string> AnnotationFeatures => new()
+    {
+        { "text", "1.0", 1, 1, "an annotation's flags, modification date or title (F, M, T) or a URI action (ISO 32000-2 §12.5.2, Table 166; §12.5.6.2, Table 172; §12.6.4.8) needs PDF 1.1" },
+        { "link", "1.1", 1, 2, "an annotation's border style dictionary (BS)" },
+        { "square", "1.2", 1, 3, "a FreeText, Line, Square, Circle, Highlight, Underline, StrikeOut, Stamp, Ink or Popup annotation (ISO 32000-2 §12.5.6.1, Table 171) needs PDF 1.3" },
+        { "squiggly", "1.3", 1, 4, "a Squiggly annotation, an annotation name (NM) or an interior colour (IC)" },
+        { "interior colour", "1.3", 1, 4, "a Squiggly annotation, an annotation name (NM) or an interior colour (IC)" },
+        { "polygon", "1.4", 1, 5, "a Polygon or PolyLine annotation, or a markup annotation's subject or creation date (Subj, CreationDate)" },
+        { "subject", "1.4", 1, 5, "a Polygon or PolyLine annotation, or a markup annotation's subject or creation date (Subj, CreationDate)" },
+    };
+
+    [Theory]
+    [MemberData(nameof(AnnotationFeatures))]
+    public void Each_annotation_feature_raises_a_document_below_its_minimum(string scenario, string header, int major, int minor, string named)
+    {
+        using PdfDocument document = PdfDocument.Open(Document.TestPdf.OnePage("/MediaBox [0 0 612 792]", header: "%PDF-" + header));
+        PdfPage page = document.Pages[0];
+        var rect = new PdfRectangle(72, 700, 272, 724);
+        switch (scenario)
+        {
+            case "text":
+                page.AddTextAnnotation(rect, "Note");
+                break;
+            case "link":
+                page.AddLinkAnnotation(rect, new Uri("https://example.com/")).SetBorderWidth(1);
+                break;
+            case "square":
+                page.AddSquareAnnotation(rect, new PdfAnnotationOptions().WithBorderWidth(2));
+                break;
+            case "squiggly":
+                page.AddSquigglyAnnotation([new PdfQuadrilateral(new(72, 724), new(272, 724), new(72, 700), new(272, 700))]);
+                break;
+            case "interior colour":
+                page.AddSquareAnnotation(rect, new PdfAnnotationOptions().WithInteriorColor(new PdfDeviceColor(1)));
+                break;
+            case "polygon":
+                page.AddPolygonAnnotation([new(72, 700), new(272, 700), new(172, 724)]);
+                break;
+            default:
+                page.AddSquareAnnotation(rect, new PdfAnnotationOptions().WithSubject("Checked"));
                 break;
         }
 
