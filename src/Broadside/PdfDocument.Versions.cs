@@ -35,7 +35,8 @@ public sealed partial class PdfDocument
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for a version later than the document's.</exception>
     /// <param name="options">The save's options.</param>
     /// <param name="archival">Whether the save writes a PDF/A conformance (#201), which adds <see cref="VersionedFeatures.PdfAOutput"/> (and, for PDF/A-3, takes out associated files, #202).</param>
-    private VersionedSave CheckVersionedSave(PdfSaveOptions options, bool archival = false)
+    /// <param name="accessible">Whether the save writes a PDF/UA conformance (#204), which adds <see cref="VersionedFeatures.PdfUAOutput"/>.</param>
+    private VersionedSave CheckVersionedSave(PdfSaveOptions options, bool archival = false, bool accessible = false)
     {
         var features = new List<VersionedFeature>();
         FileWriter writer = PlanWriter(options, features);
@@ -43,6 +44,11 @@ public sealed partial class PdfDocument
         if (archival)
         {
             AddArchivalFeatures(features, options);
+        }
+
+        if (accessible)
+        {
+            features.Add(VersionedFeatures.PdfUAOutput);
         }
 
         PdfVersion needed = Writing.VersionPlan.Check(Version, features, _diagnostics);
@@ -79,12 +85,18 @@ public sealed partial class PdfDocument
             // The document changed after it was planned: plan again, so the update writes what changed and a full save serializes
             // it. Dating, completing font subsets and the metadata layout add no feature, so the version decided stands.
             bool archival = features.Contains(VersionedFeatures.PdfAOutput);
+            bool accessible = features.Contains(VersionedFeatures.PdfUAOutput);
             features.Clear();
             writer = PlanWriter(options, features);
             AddDocumentFeatures(features);
             if (archival)
             {
                 AddArchivalFeatures(features, options);
+            }
+
+            if (accessible)
+            {
+                features.Add(VersionedFeatures.PdfUAOutput);
             }
         }
 

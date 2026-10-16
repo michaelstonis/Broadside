@@ -47,4 +47,9 @@ internal static partial class DiagnosticCodes
     // meet (Warning, refused in strict mode), and a lenient save that therefore does not claim the conformance (Information).
     public const string PdfANonConformant = nameof(PdfANonConformant);
     public const string PdfANotIdentified = nameof(PdfANotIdentified);
+
+    // Saving with a PDF/UA conformance (issue #204; veraPDF PDF/UA-1 rule identifiers): a failure condition the document has
+    // (Warning, refused in strict mode), and a lenient save that therefore does not claim the conformance (Information).
+    public const string PdfUANonConformant = nameof(PdfUANonConformant);
+    public const string PdfUANotIdentified = nameof(PdfUANotIdentified);
 }

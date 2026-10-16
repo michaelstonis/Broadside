@@ -100,11 +100,20 @@ public sealed partial class PdfDocument
     /// the level, its part and conformance (rules 6.6.2.1-1, 6.6.4-1 to 6.6.4-5), without <c>pdf:Trapped</c> (6.6.2.3.1-1) in the
     /// layout of the PDF 1.7 file the save writes.
     /// </summary>
+    /// <param name="options">The save's options.</param>
+    /// <param name="accessible">Whether the save is also a conformant PDF/UA one, whose identification this packet carries.</param>
     /// <returns><see langword="true"/>: the document changed.</returns>
-    private bool ApplyArchivalSave(PdfSaveOptions options)
+    private bool ApplyArchivalSave(PdfSaveOptions options, bool accessible)
     {
         AddPdfAOutputIntent();
-        new DocumentMetadataWriter(this)
+        var writer = new DocumentMetadataWriter(this);
+        if (accessible)
+        {
+            // Issue #204: the PDF/UA identification goes in the same packet, its schema described for PDF/A (6.6.2.3.1).
+            IdentifyAccessibility(writer, extensionSchema: true);
+        }
+
+        writer
             .SetProperty(XmpNamespaces.PdfAIdentification, "part", options.PdfAConformance.Part().ToString(CultureInfo.InvariantCulture))
             .SetProperty(XmpNamespaces.PdfAIdentification, "conformance", options.PdfAConformance.Level())
             .SetProperty(XmpNamespaces.PdfAIdentification, "amd", null)

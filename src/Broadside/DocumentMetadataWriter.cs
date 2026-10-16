@@ -76,6 +76,7 @@ internal sealed class DocumentMetadataWriter
     private readonly PdfDocument _document;
     private readonly Dictionary<MetadataEntry, object?> _changes = [];
     private readonly List<(string NamespaceName, string Name, string? Value)> _properties = [];
+    private readonly List<XmpProperty> _structured = [];
 
     public DocumentMetadataWriter(PdfDocument document) => _document = document;
 
@@ -93,6 +94,16 @@ internal sealed class DocumentMetadataWriter
     public DocumentMetadataWriter SetProperty(string namespaceName, string name, string? value)
     {
         _properties.Add((namespaceName, name, value));
+        return this;
+    }
+
+    /// <summary>
+    /// Sets an XMP property of any kind outside Table 349, replacing one of the same name, such as the PDF/A extension schemas
+    /// (<c>pdfaExtension:schemas</c>, issue #204); written only to the packet, which <see cref="Commit"/> then always writes.
+    /// </summary>
+    public DocumentMetadataWriter SetProperty(XmpProperty property)
+    {
+        _structured.Add(property);
         return this;
     }
 
@@ -125,7 +136,7 @@ internal sealed class DocumentMetadataWriter
         bool isPdf20 = version >= Pdf20;
         (CosDictionary? info, CosReference? infoReference) = ReadInfo();
         (CosStream? stream, XmpPacket? packet) = ReadMetadata();
-        bool writePacket = stream is not null || isPdf20 || ((createPacket || _properties.Count > 0) && version >= Pdf14);
+        bool writePacket = stream is not null || isPdf20 || ((createPacket || _properties.Count > 0 || _structured.Count > 0) && version >= Pdf14);
 
         List<XmpProperty> properties = packet is null ? [] : [.. packet.Properties];
         var infoValues = new Dictionary<MetadataEntry, object?>();
@@ -182,6 +193,19 @@ internal sealed class DocumentMetadataWriter
                 else
                 {
                     properties.Add(XmpProperty.Simple(namespaceName, name, value));
+                }
+            }
+
+            foreach (XmpProperty property in _structured)
+            {
+                int index = properties.FindIndex(existing => existing.Name == property.Name && existing.NamespaceName == property.NamespaceName);
+                if (index >= 0)
+                {
+                    properties[index] = property;
+                }
+                else
+                {
+                    properties.Add(property);
                 }
             }
 
