@@ -222,3 +222,89 @@ Broadside.Viewer.PageLayout.ViewportToPage(in Broadside.Viewer.Viewport viewport
 Broadside.Viewer.PageLayout.ZoomAt(in Broadside.Viewer.Viewport viewport, double zoom, double x, double y) -> Broadside.Viewer.Viewport
 static Broadside.Viewer.PageLayout.Create(System.ReadOnlySpan<Broadside.Viewer.PageMetrics> pages, Broadside.Viewer.PageLayoutOptions? options = null) -> Broadside.Viewer.PageLayout!
 static Broadside.Viewer.PageLayout.CreateAsync(Broadside.Viewer.DocumentSession! session, Broadside.Viewer.PageLayoutOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.PageLayout!>
+Broadside.Viewer.HeadlessSurface.Bytes.get -> long
+Broadside.Viewer.HeadlessSurface.Evict(Broadside.Viewer.Tile tile) -> void
+Broadside.Viewer.IRenderSurface.Evict(Broadside.Viewer.Tile tile) -> void
+Broadside.Viewer.TileScheduler
+Broadside.Viewer.TileScheduler.Dispose() -> void
+Broadside.Viewer.TileScheduler.IsIdle.get -> bool
+Broadside.Viewer.TileScheduler.Layout.get -> Broadside.Viewer.PageLayout!
+Broadside.Viewer.TileScheduler.RunFrame(System.TimeSpan budget) -> bool
+Broadside.Viewer.TileScheduler.SetLayout(Broadside.Viewer.PageLayout! layout) -> void
+Broadside.Viewer.TileScheduler.Statistics.get -> Broadside.Viewer.TileSchedulerStatistics
+Broadside.Viewer.TileScheduler.TileScheduler(Broadside.Viewer.DocumentSession! session, Broadside.Viewer.PageLayout! layout, Broadside.Viewer.IRenderSurface! surface, Broadside.Viewer.TileSchedulerOptions? options = null) -> void
+Broadside.Viewer.TileScheduler.Update(in Broadside.Viewer.Viewport viewport) -> void
+Broadside.Viewer.TileSchedulerOptions
+Broadside.Viewer.TileSchedulerOptions.TileSchedulerOptions() -> void
+Broadside.Viewer.TileSchedulerOptions.UseObserver(System.Action<Broadside.Viewer.TileSchedulerEvent>! observer) -> Broadside.Viewer.TileSchedulerOptions!
+Broadside.Viewer.TileSchedulerOptions.Observer.get -> System.Action<Broadside.Viewer.TileSchedulerEvent>?
+Broadside.Viewer.TileSchedulerOptions.Observer.set -> void
+const Broadside.Viewer.TileSchedulerOptions.DefaultMemoryBudget = 268435456 -> long
+const Broadside.Viewer.TileSchedulerOptions.DefaultTileSize = 256 -> int
+const Broadside.Viewer.TileSchedulerOptions.DefaultPlaceholderScale = 0.25 -> double
+Broadside.Viewer.TileSchedulerOptions.TileSize.get -> int
+Broadside.Viewer.TileSchedulerOptions.TileSize.set -> void
+Broadside.Viewer.TileSchedulerOptions.WithTileSize(int tileSize) -> Broadside.Viewer.TileSchedulerOptions!
+Broadside.Viewer.TileSchedulerOptions.MemoryBudget.get -> long
+Broadside.Viewer.TileSchedulerOptions.MemoryBudget.set -> void
+Broadside.Viewer.TileSchedulerOptions.WithMemoryBudget(long bytes) -> Broadside.Viewer.TileSchedulerOptions!
+Broadside.Viewer.TileSchedulerOptions.NearMargin.get -> double
+Broadside.Viewer.TileSchedulerOptions.NearMargin.set -> void
+Broadside.Viewer.TileSchedulerOptions.WithNearMargin(double pixels) -> Broadside.Viewer.TileSchedulerOptions!
+Broadside.Viewer.TileSchedulerOptions.RenderAhead.get -> double
+Broadside.Viewer.TileSchedulerOptions.RenderAhead.set -> void
+Broadside.Viewer.TileSchedulerOptions.WithRenderAhead(double viewports) -> Broadside.Viewer.TileSchedulerOptions!
+Broadside.Viewer.TileSchedulerOptions.PlaceholderScale.get -> double
+Broadside.Viewer.TileSchedulerOptions.PlaceholderScale.set -> void
+Broadside.Viewer.TileSchedulerOptions.WithPlaceholderScale(double scale) -> Broadside.Viewer.TileSchedulerOptions!
+Broadside.Viewer.TileSchedulerOptions.MaxConcurrency.get -> int
+Broadside.Viewer.TileSchedulerOptions.MaxConcurrency.set -> void
+Broadside.Viewer.TileSchedulerOptions.WithMaxConcurrency(int maxConcurrency) -> Broadside.Viewer.TileSchedulerOptions!
+Broadside.Viewer.TilePriority
+Broadside.Viewer.TilePriority.Visible = 0 -> Broadside.Viewer.TilePriority
+Broadside.Viewer.TilePriority.Near = 1 -> Broadside.Viewer.TilePriority
+Broadside.Viewer.TilePriority.Ahead = 2 -> Broadside.Viewer.TilePriority
+Broadside.Viewer.TileEventKind
+Broadside.Viewer.TileEventKind.Started = 0 -> Broadside.Viewer.TileEventKind
+Broadside.Viewer.TileEventKind.Presented = 1 -> Broadside.Viewer.TileEventKind
+Broadside.Viewer.TileEventKind.Cancelled = 2 -> Broadside.Viewer.TileEventKind
+Broadside.Viewer.TileEventKind.Evicted = 3 -> Broadside.Viewer.TileEventKind
+Broadside.Viewer.TileEventKind.Failed = 4 -> Broadside.Viewer.TileEventKind
+Broadside.Viewer.TileSchedulerEvent
+Broadside.Viewer.TileSchedulerEvent.TileSchedulerEvent() -> void
+Broadside.Viewer.TileSchedulerEvent.TileSchedulerEvent(Broadside.Viewer.TileEventKind Kind, Broadside.Viewer.Tile Tile, Broadside.Viewer.TilePriority Priority, bool IsPlaceholder, long Bytes) -> void
+Broadside.Viewer.TileSchedulerEvent.Kind.get -> Broadside.Viewer.TileEventKind
+Broadside.Viewer.TileSchedulerEvent.Kind.init -> void
+Broadside.Viewer.TileSchedulerEvent.Tile.get -> Broadside.Viewer.Tile
+Broadside.Viewer.TileSchedulerEvent.Tile.init -> void
+Broadside.Viewer.TileSchedulerEvent.Priority.get -> Broadside.Viewer.TilePriority
+Broadside.Viewer.TileSchedulerEvent.Priority.init -> void
+Broadside.Viewer.TileSchedulerEvent.IsPlaceholder.get -> bool
+Broadside.Viewer.TileSchedulerEvent.IsPlaceholder.init -> void
+Broadside.Viewer.TileSchedulerEvent.Bytes.get -> long
+Broadside.Viewer.TileSchedulerEvent.Bytes.init -> void
+Broadside.Viewer.TileSchedulerStatistics
+Broadside.Viewer.TileSchedulerStatistics.TileSchedulerStatistics() -> void
+Broadside.Viewer.TileSchedulerStatistics.TileSchedulerStatistics(long Budget, long Bytes, long PeakBytes, long TileBytes, int ResidentTiles, int PendingTiles, long TilesStarted, long TilesPresented, long TilesCancelled, long TilesEvicted, System.TimeSpan LongestFrame) -> void
+Broadside.Viewer.TileSchedulerStatistics.Budget.get -> long
+Broadside.Viewer.TileSchedulerStatistics.Budget.init -> void
+Broadside.Viewer.TileSchedulerStatistics.Bytes.get -> long
+Broadside.Viewer.TileSchedulerStatistics.Bytes.init -> void
+Broadside.Viewer.TileSchedulerStatistics.PeakBytes.get -> long
+Broadside.Viewer.TileSchedulerStatistics.PeakBytes.init -> void
+Broadside.Viewer.TileSchedulerStatistics.TileBytes.get -> long
+Broadside.Viewer.TileSchedulerStatistics.TileBytes.init -> void
+Broadside.Viewer.TileSchedulerStatistics.ResidentTiles.get -> int
+Broadside.Viewer.TileSchedulerStatistics.ResidentTiles.init -> void
+Broadside.Viewer.TileSchedulerStatistics.PendingTiles.get -> int
+Broadside.Viewer.TileSchedulerStatistics.PendingTiles.init -> void
+Broadside.Viewer.TileSchedulerStatistics.TilesStarted.get -> long
+Broadside.Viewer.TileSchedulerStatistics.TilesStarted.init -> void
+Broadside.Viewer.TileSchedulerStatistics.TilesPresented.get -> long
+Broadside.Viewer.TileSchedulerStatistics.TilesPresented.init -> void
+Broadside.Viewer.TileSchedulerStatistics.TilesCancelled.get -> long
+Broadside.Viewer.TileSchedulerStatistics.TilesCancelled.init -> void
+Broadside.Viewer.TileSchedulerStatistics.TilesEvicted.get -> long
+Broadside.Viewer.TileSchedulerStatistics.TilesEvicted.init -> void
+Broadside.Viewer.TileSchedulerStatistics.LongestFrame.get -> System.TimeSpan
+Broadside.Viewer.TileSchedulerStatistics.LongestFrame.init -> void

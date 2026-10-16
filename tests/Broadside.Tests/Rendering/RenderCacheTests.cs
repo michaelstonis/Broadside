@@ -46,6 +46,27 @@ public sealed class RenderCacheTests
     }
 
     [Fact]
+    public void Trimming_the_caches_drops_content_before_display_lists_and_keeps_what_fits()
+    {
+        using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage("0 0 1 rg 10 10 100 50 re f"u8.ToArray()));
+        DisplayList list = document.Pages[0].CreateDisplayList();
+        PdfDocumentCacheStatistics before = document.CacheStatistics;
+        long all = before.Content.Bytes + before.Images.Bytes + before.Glyphs.Bytes + before.DisplayLists.Bytes;
+        Assert.Equal(all, document.CachedBytes);
+        Assert.InRange(before.Content.Bytes, 1, all);
+
+        Assert.Equal(all, document.TrimCaches(all));
+        Assert.Equal(before.DisplayLists.Bytes, document.TrimCaches(before.DisplayLists.Bytes));
+        Assert.Equal(0, document.CacheStatistics.Content.Count);
+        Assert.Same(list, document.Pages[0].CreateDisplayList());
+
+        Assert.Equal(0, document.TrimCaches(0));
+        Assert.Equal(0, document.CachedBytes);
+        Assert.NotSame(list, document.Pages[0].CreateDisplayList());
+        Assert.Throws<ArgumentOutOfRangeException>(() => document.TrimCaches(-1));
+    }
+
+    [Fact]
     public void An_edit_to_the_page_is_seen_by_the_next_list()
     {
         using PdfDocument document = PdfDocument.Open(ContentSamples.OnePage("0 0 1 rg 10 10 100 50 re f"u8.ToArray()));

@@ -541,6 +541,7 @@
     "Broadside.Benchmarks.TileRenderingBenchmarks.Tile(Page: \"path-heavy-256kb\", Scale: 4)": 0,
     "Broadside.Benchmarks.TileRenderingBenchmarks.Tile(Page: \"paths-fill-rules.pdf\", Scale: 1)": 0,
     "Broadside.Benchmarks.TileRenderingBenchmarks.Tile(Page: \"paths-fill-rules.pdf\", Scale: 4)": 0,
+    "Broadside.Benchmarks.TileSchedulerBenchmarks.Frame": 0,
     "Broadside.Benchmarks.TilingBenchmarks.Replay(Dpi: 300)": 0,
     "Broadside.Benchmarks.TilingBenchmarks.Replay(Dpi: 72)": 0,
     "Broadside.Benchmarks.ToUnicodeBenchmarks.FontLookups": 0,

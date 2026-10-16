@@ -46,6 +46,22 @@ internal sealed class DocumentCaches(CacheBudgets budgets)
     public PdfDocumentCacheStatistics GetStatistics() =>
         new(Content.GetStatistics(), Images.GetStatistics(), Glyphs.GetStatistics(), DisplayLists.GetStatistics());
 
+    /// <summary>Gets the bytes all four caches hold.</summary>
+    public long Bytes => Content.Bytes + Images.Bytes + Glyphs.Bytes + DisplayLists.Bytes;
+
+    /// <summary>Drops least recently used entries, content first and display lists last, until the caches hold at most <paramref name="maxBytes"/>.</summary>
+    /// <param name="maxBytes">The most bytes kept.</param>
+    /// <returns>The bytes held afterwards.</returns>
+    public long Trim(long maxBytes)
+    {
+        long excess = Bytes - maxBytes;
+        excess -= Content.Trim(excess);
+        excess -= Images.Trim(excess);
+        excess -= Glyphs.Trim(excess);
+        DisplayLists.Trim(excess);
+        return Bytes;
+    }
+
     /// <summary>Drops every entry of every cache.</summary>
     public void Clear()
     {

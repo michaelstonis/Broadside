@@ -19,4 +19,14 @@ public interface IRenderSurface
     /// its pool afterwards, so copy what you keep.
     /// </param>
     void Present(Tile tile, Bitmap pixels);
+
+    /// <summary>
+    /// Drops a tile presented earlier: the <see cref="TileScheduler"/> calls it to keep the tiles a surface holds within its memory
+    /// budget, and counts the tile's pixels as freed once it returns. Called on the thread that runs the scheduler's frames.
+    /// </summary>
+    /// <param name="tile">A tile passed to <see cref="Present"/> before and not dropped since.</param>
+    /// <remarks>Spec #33 viewer capability 13. The default does nothing, for surfaces that keep no tiles.</remarks>
+    void Evict(Tile tile)
+    {
+    }
 }

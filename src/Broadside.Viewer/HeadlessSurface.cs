@@ -49,6 +49,39 @@ public sealed class HeadlessSurface : IRenderSurface, IDisposable
         }
     }
 
+    /// <summary>Drops a presented tile and returns its copy of the pixels to the pool.</summary>
+    /// <param name="tile">The tile.</param>
+    public void Evict(Tile tile)
+    {
+        lock (_gate)
+        {
+            int index = _tiles.FindIndex(presented => presented.Tile == tile);
+            if (index >= 0)
+            {
+                _tiles[index].Pixels.Dispose();
+                _tiles.RemoveAt(index);
+            }
+        }
+    }
+
+    /// <summary>Gets the bytes of pixels the surface holds.</summary>
+    public long Bytes
+    {
+        get
+        {
+            lock (_gate)
+            {
+                long bytes = 0;
+                foreach (PresentedTile presented in _tiles)
+                {
+                    bytes += (long)presented.Pixels.Stride * presented.Pixels.Height;
+                }
+
+                return bytes;
+            }
+        }
+    }
+
     /// <summary>Releases every copy.</summary>
     public void Dispose()
     {

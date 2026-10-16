@@ -4941,3 +4941,5 @@ Broadside.Layout.AutoTaggingResult.IsTagged.get -> bool
 Broadside.Layout.AutoTaggingResult.Layout.get -> Broadside.Layout.LayoutTree?
 Broadside.PdfDocument.AutoTag() -> Broadside.Layout.AutoTaggingResult!
 Broadside.PdfDocument.AutoTag(Broadside.Layout.AutoTaggingOptions! options) -> Broadside.Layout.AutoTaggingResult!
+Broadside.PdfDocument.CachedBytes.get -> long
+Broadside.PdfDocument.TrimCaches(long maxBytes) -> long
