@@ -56,14 +56,14 @@ public sealed partial class SkiaBackend
         /// transform gives an elliptical pen. The thinnest line (width 0, or under half a pixel with stroke adjustment, §10.7.5) is
         /// stroked one device pixel wide in device space instead.
         /// </summary>
-        public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
+        private void StrokePathCore(PathView path, in StrokeStyle style, in DisplayColor color)
         {
             if (path.IsEmpty || _compositing.StrokeAlpha == 0 || !TryGetColor(color, out SKColor paint))
             {
                 return;
             }
 
-            StrokeOutline(path, style, paint.WithAlpha(_compositing.StrokeAlpha), _compositing.BlendMode);
+            StrokeOutline(path, style, paint.WithAlpha(_compositing.StrokeAlpha), PaintBlend);
         }
 
         /// <summary>Strokes the path as <see cref="StrokePath"/> does, in a given colour and blend mode; false when the stroke paints nothing.</summary>

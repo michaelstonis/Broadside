@@ -26,7 +26,7 @@ public sealed partial class SkiaBackend
         private ShadingCache Shadings => (_owner ?? this)._shadingCache!;
 
         /// <summary>Paints the shading within the current clip and its BBox, without its Background (ISO 32000-2 §8.7.4.2, §8.7.4.3).</summary>
-        public void DrawShading(in DisplayShading shading)
+        private void DrawShadingCore(in DisplayShading shading)
         {
             if (_compositing.FillAlpha == 0 || GetShading(shading) is not { PaintsNothing: false } entry || entry.Gradient is null && entry.Mesh is null && entry.Texture is null)
             {
@@ -35,13 +35,13 @@ public sealed partial class SkiaBackend
 
             SKCanvas canvas = _canvas!;
             canvas.Save();
-            Prepare(_shade, _compositing.FillAlpha, _compositing.BlendMode);
+            Prepare(_shade, _compositing.FillAlpha, PaintBlend);
             PaintShading(entry, shading, _shade);
             canvas.Restore();
         }
 
         /// <summary>Fills the path with the shading pattern's shading over its Background (ISO 32000-2 §8.7.4.1, §8.7.4.3).</summary>
-        public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading)
+        private void FillPathWithShadingCore(PathView path, FillRule rule, in DisplayShading shading)
         {
             if (path.IsEmpty || _compositing.FillAlpha == 0 || GetShading(shading) is not { PaintsNothing: false } entry)
             {
@@ -52,10 +52,10 @@ public sealed partial class SkiaBackend
             canvas.Save();
             ClipToPath(path, rule);
             SKColor? background = shading.PaintsBackground ? entry.Background : null;
-            if (background is SKColor color && (_compositing.FillAlpha != 255 || _compositing.BlendMode != SKBlendMode.SrcOver))
+            if (background is SKColor color && (_compositing.FillAlpha != 255 || PaintBlend != SKBlendMode.SrcOver))
             {
                 // Background and shading composite as one paint: drawn opaque in a layer, the layer with the alpha and blend mode.
-                Prepare(_outer, _compositing.FillAlpha, _compositing.BlendMode);
+                Prepare(_outer, _compositing.FillAlpha, PaintBlend);
                 canvas.SaveLayer(_outer);
                 canvas.DrawColor(color, SKBlendMode.Src);
                 Prepare(_shade, 255, SKBlendMode.SrcOver);
@@ -71,7 +71,7 @@ public sealed partial class SkiaBackend
                     canvas.DrawPaint(_backdrop);
                 }
 
-                Prepare(_shade, _compositing.FillAlpha, _compositing.BlendMode);
+                Prepare(_shade, _compositing.FillAlpha, PaintBlend);
                 PaintShading(entry, shading, _shade);
             }
 
@@ -79,7 +79,7 @@ public sealed partial class SkiaBackend
         }
 
         /// <summary>Paints the area the stroke covers with the shading pattern's shading over its Background (ISO 32000-2 §8.7.4.1, §8.5.3.2).</summary>
-        public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading)
+        private void StrokePathWithShadingCore(PathView path, in StrokeStyle style, in DisplayShading shading)
         {
             if (path.IsEmpty || _compositing.StrokeAlpha == 0 || GetShading(shading) is not { PaintsNothing: false } entry)
             {
@@ -107,7 +107,7 @@ public sealed partial class SkiaBackend
         private bool BeginStrokeArea(PathView path, in StrokeStyle style)
         {
             SKCanvas canvas = _canvas!;
-            Prepare(_outer, _compositing.StrokeAlpha, _compositing.BlendMode);
+            Prepare(_outer, _compositing.StrokeAlpha, PaintBlend);
             canvas.SaveLayer(_outer);
             if (!StrokeOutline(path, style, SKColors.Black, SKBlendMode.SrcOver))
             {

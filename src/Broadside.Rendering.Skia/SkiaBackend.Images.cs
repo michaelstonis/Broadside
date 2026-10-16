@@ -29,7 +29,7 @@ public sealed partial class SkiaBackend
         /// current transform. A mask of the image's size is folded into the pixels; a soft mask (§11.6.5.2) or explicit mask (§8.9.6.3)
         /// of another size is drawn at its own resolution onto the image in a layer, so each is resampled from its own grid.
         /// </summary>
-        public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
+        private void DrawImageCore(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
         {
             if (_compositing.FillAlpha == 0)
             {
@@ -66,7 +66,7 @@ public sealed partial class SkiaBackend
             try
             {
                 object? maskKey = SeparateMask(image);
-                Prepare(_image, _compositing.FillAlpha, _compositing.BlendMode);
+                Prepare(_image, _compositing.FillAlpha, PaintBlend);
                 if (maskKey is null)
                 {
                     DrawSamples(pixels, entry, image.Width, image.Height, image.Interpolate, _image, clipEdges: true);
@@ -91,7 +91,7 @@ public sealed partial class SkiaBackend
         /// Fills a stencil mask with the colour (ISO 32000-2 §8.9.6.2): the mask maps onto the unit square like an image and is drawn
         /// as an alpha-only image, which Skia paints in the paint's colour.
         /// </summary>
-        public void FillImageMask(DisplayImageMask mask, in DisplayColor color)
+        private void FillImageMaskCore(DisplayImageMask mask, in DisplayColor color)
         {
             if (_compositing.FillAlpha == 0 || !TryGetColor(color, out SKColor paint))
             {
@@ -99,7 +99,7 @@ public sealed partial class SkiaBackend
             }
 
             _mask.Color = paint.WithAlpha(_compositing.FillAlpha);
-            _mask.BlendMode = _compositing.BlendMode;
+            _mask.BlendMode = PaintBlend;
             DrawMask(mask, _mask, clipEdges: true);
         }
 

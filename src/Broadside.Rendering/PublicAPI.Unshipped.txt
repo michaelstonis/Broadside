@@ -123,3 +123,4 @@ Broadside.Rendering.RenderOptions.WithAntiAliasing(Broadside.Rendering.AntiAlias
 Broadside.Rendering.RenderOptions.WithOptionalContentState(Broadside.PdfOptionalContentState? state) -> Broadside.Rendering.RenderOptions!
 Broadside.Rendering.RenderOptions.WithTransparentBackground(bool transparent) -> Broadside.Rendering.RenderOptions!
 Broadside.Rendering.SoftwareRasterizer.Render(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, Broadside.Rendering.AntiAliasing antiAliasing) -> void
+Broadside.Rendering.SoftwareRasterizer.Render(in Broadside.Rendering.DisplayGroup group, Broadside.PdfDocument! document, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, in Broadside.Graphics.Matrix transform, double strokeAlpha, double fillAlpha, Broadside.Graphics.BlendMode blendMode) -> void
