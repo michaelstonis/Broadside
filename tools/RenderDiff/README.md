@@ -60,3 +60,10 @@ Known reference-engine differences: PDFium and poppler ignore `UserUnit` (pdf.js
 ## Tests
 
 `tests/RenderDiff.Tests` drives the tool through `RenderDiffRun` and `RenderDiffCommand` over hand-written corpus files, with fixture reference directories; the poppler, PDFium and pdf.js cases are skipped where those engines are not installed.
+
+## Timing the references (issue #140)
+
+`bench-references.sh [iterations] [dpis] [engines...]` times PDFium and pdf.js (the same installs) over the rendering gate's pinned pages
+with `reference/pdfium/bench.py` and `reference/pdfjs/bench.mjs`: open, text, warm render and open-render, one JSON line per case in
+`artifacts/reference-bench/<engine>.jsonl`. `docs/benchmarks/phase-3-render-baselines.md` compares them with Broadside's
+`RealWorldRenderBenchmarks` and `RealWorldPageBenchmarks`.
