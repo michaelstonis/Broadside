@@ -305,14 +305,18 @@ internal sealed unsafe partial class Direct2DBackend : IDisposable
     private void ClipToOutline(in Matrix toDevice, int width, int height, bool upright) =>
         PushQuad(toDevice.Transform(0, 0), toDevice.Transform(width, 0), toDevice.Transform(width, height), toDevice.Transform(0, height), upright);
 
-    /// <summary>Pushes a layer whose geometric mask is <paramref name="geometry"/> (owned from now on) mapped to the device by <paramref name="toDevice"/>.</summary>
-    private void PushGeometry(ID2D1PathGeometry* geometry, in Matrix toDevice)
+    /// <summary>
+    /// Pushes a layer whose geometric mask is <paramref name="geometry"/> (owned from now on) mapped to the device by
+    /// <paramref name="toDevice"/>; <paramref name="aliased"/> keeps whole pixels whose centre is inside, as the rasterizer's per-pixel
+    /// shading evaluation does.
+    /// </summary>
+    private void PushGeometry(ID2D1PathGeometry* geometry, in Matrix toDevice, bool aliased = false)
     {
         var parameters = new D2D1_LAYER_PARAMETERS1
         {
             contentBounds = Interop.InfiniteRect,
             geometricMask = (ID2D1Geometry*)geometry,
-            maskAntialiasMode = D2D1_ANTIALIAS_MODE.D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
+            maskAntialiasMode = aliased ? D2D1_ANTIALIAS_MODE.D2D1_ANTIALIAS_MODE_ALIASED : D2D1_ANTIALIAS_MODE.D2D1_ANTIALIAS_MODE_PER_PRIMITIVE,
             maskTransform = Interop.Matrix(toDevice),
             opacity = 1,
             opacityBrush = null,

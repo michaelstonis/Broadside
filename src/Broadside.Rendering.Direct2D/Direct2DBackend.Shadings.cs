@@ -227,7 +227,7 @@ internal sealed unsafe partial class Direct2DBackend
 
         if (entry.Gradient is { } gradient)
         {
-            return gradient.Native ? UseGradient(entry, gradient, toDevice, fromDevice, opacity) : UseRadialRaster(entry, gradient, toDevice, opacity);
+            return gradient.Native ? UseGradient(entry, gradient, toDevice, fromDevice, opacity) : UseRadialRaster(entry, gradient, toDevice, shading.Shading.BoundingBox, opacity);
         }
 
         if (entry.Texture is not { } texture)
@@ -336,42 +336,97 @@ internal sealed unsafe partial class Direct2DBackend
         return true;
     }
 
-    /// <summary>A radial whose circles are not nested, evaluated at the device's pixels of the area drawn.</summary>
-    private bool UseRadialRaster(ShadingCache.Entry entry, GradientShape gradient, in Matrix toDevice, float opacity)
+    /// <summary>
+    /// A radial whose circles are not nested, evaluated at the device's pixels of the area drawn (within its BBox), kept for the first
+    /// transforms. Later transforms draw a shading-space evaluation over the BBox through the transform; without a BBox, the clip's
+    /// pixels are evaluated for this paint alone.
+    /// </summary>
+    private bool UseRadialRaster(ShadingCache.Entry entry, GradientShape gradient, in Matrix toDevice, PdfRectangle? box, float opacity)
     {
         Skip(SkippedOperations.RadialRasterized, RadialRasterized);
-        PixelRect bounds = AreaPixels;
+        PixelRect bounds = box is PdfRectangle extent ? Intersect(AreaPixels, toDevice, extent) : AreaPixels;
         if (bounds.Width <= 0 || bounds.Height <= 0)
         {
             return false;
         }
 
-        int step = Step(bounds, MeshRasterizer.MaxPixels);
-        bool kept = entry.Admit(toDevice, bounds, out int slot);
-        PixelImage? raster = kept ? entry.RasterAt(slot) : null;
-        if (raster is null)
+        if (entry.Admit(toDevice, bounds, out int slot))
         {
-#pragma warning disable CA2000 // Kept by the entry, or disposed below once the brush holds the bitmap.
-            raster = GradientRasterizer.Rasterize(gradient, toDevice, bounds, step);
-#pragma warning restore CA2000
+            int step = Step(bounds, MeshRasterizer.MaxPixels);
+            PixelImage? raster = entry.RasterAt(slot);
             if (raster is null)
+            {
+#pragma warning disable CA2000 // Kept by the entry.
+                raster = GradientRasterizer.Rasterize(gradient, toDevice, bounds, step);
+#pragma warning restore CA2000
+                if (raster is null)
+                {
+                    return false;
+                }
+
+                entry.SetRaster(slot, raster);
+            }
+
+            UseRaster(raster, bounds, step, opacity);
+            return true;
+        }
+
+        if (box is PdfRectangle area)
+        {
+            return UseRadialTexture(entry, gradient, area, toDevice, opacity);
+        }
+
+        D2D_RECT_F clip = ClipBounds;
+        var pixels = new PixelRect((int)Math.Floor(clip.left), (int)Math.Floor(clip.top), (int)Math.Ceiling(clip.right), (int)Math.Ceiling(clip.bottom));
+        if (pixels.Width <= 0 || pixels.Height <= 0)
+        {
+            return false;
+        }
+
+        int clipStep = Step(pixels, MeshRasterizer.MaxPixels);
+        using PixelImage? once = GradientRasterizer.Rasterize(gradient, toDevice, pixels, clipStep);
+        if (once is null)
+        {
+            return false;
+        }
+
+        // The brush holds its own reference to the bitmap.
+        UseRaster(once, pixels, clipStep, opacity);
+        return true;
+    }
+
+    /// <summary>A radial evaluated once in shading space over its BBox, at the scale of the first transform it met there, drawn through the transform.</summary>
+    private bool UseRadialTexture(ShadingCache.Entry entry, GradientShape gradient, PdfRectangle box, in Matrix toDevice, float opacity)
+    {
+        double left = Math.Min(box.Left, box.Right);
+        double top = Math.Max(box.Top, box.Bottom);
+        double width = Math.Abs(box.Right - box.Left);
+        double height = Math.Abs(box.Top - box.Bottom);
+        if (entry.MeshTexture is null)
+        {
+            double scale = Math.Sqrt(Math.Abs(toDevice.Determinant));
+            if (!(scale > 0) || !double.IsFinite(scale) || !(width > 0) || !(height > 0))
             {
                 return false;
             }
 
-            if (kept)
+            scale = Math.Min(scale, Math.Sqrt(MeshRasterizer.MaxPixels / (width * height)));
+            int pixelWidth = Math.Max(1, (int)Math.Ceiling(width * scale));
+            int pixelHeight = Math.Max(1, (int)Math.Ceiling(height * scale));
+            var toTexture = new Matrix(scale, 0, 0, -scale, -left * scale, top * scale);
+#pragma warning disable CA2000 // Kept by the entry.
+            if (GradientRasterizer.Rasterize(gradient, toTexture, new PixelRect(0, 0, pixelWidth, pixelHeight), 1) is not { } texture)
+#pragma warning restore CA2000
             {
-                entry.SetRaster(slot, raster);
+                return false;
             }
+
+            entry.MeshTexture = texture;
+            entry.MeshTextureScale = scale;
         }
 
-        UseRaster(raster, bounds, step, opacity);
-        if (!kept)
-        {
-            // The brush holds its own reference to the bitmap.
-            raster.Dispose();
-        }
-
+        double side = 1 / entry.MeshTextureScale;
+        UseBitmap(entry.MeshTexture.Bitmap(_context), new Matrix(side, 0, 0, -side, left, top) * toDevice, D2D1_INTERPOLATION_MODE.D2D1_INTERPOLATION_MODE_LINEAR, D2D1_EXTEND_MODE.D2D1_EXTEND_MODE_CLAMP, opacity);
         return true;
     }
 
@@ -521,7 +576,7 @@ internal sealed unsafe partial class Direct2DBackend
             sink->Release();
         }
 
-        PushGeometry(geometry, toDevice);
+        PushGeometry(geometry, toDevice, aliased: true);
     }
 
     /// <summary>
@@ -567,7 +622,7 @@ internal sealed unsafe partial class Direct2DBackend
             sink->Release();
         }
 
-        PushGeometry(geometry, toDevice);
+        PushGeometry(geometry, toDevice, aliased: true);
     }
 
     private static void Circle(ID2D1GeometrySink* sink, PathPoint c, double r)
