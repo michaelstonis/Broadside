@@ -56,7 +56,7 @@ internal sealed unsafe partial class Direct2DBackend
     internal int CellsRecorded { get; private set; }
 
     /// <summary>Fills the path with a tiling pattern (ISO 32000-2 §8.7.3.1).</summary>
-    public void FillPathWithTilingPattern(PathView path, FillRule rule, in DisplayTilingPattern pattern)
+    private void FillPathWithTilingPatternCore(PathView path, FillRule rule, in DisplayTilingPattern pattern)
     {
         if (path.IsEmpty || _compositing.FillAlpha == 0 || GetTile(pattern, out Matrix toPixels, out bool upright) is not { } tile)
         {
@@ -85,7 +85,7 @@ internal sealed unsafe partial class Direct2DBackend
     }
 
     /// <summary>Strokes the path with a tiling pattern (ISO 32000-2 §8.7.3.1).</summary>
-    public void StrokePathWithTilingPattern(PathView path, in StrokeStyle style, in DisplayTilingPattern pattern)
+    private void StrokePathWithTilingPatternCore(PathView path, in StrokeStyle style, in DisplayTilingPattern pattern)
     {
         if (path.IsEmpty || _compositing.StrokeAlpha == 0 || GetTile(pattern, out Matrix toPixels, out bool upright) is not { } tile || !ConfigurePen(style))
         {
@@ -331,9 +331,10 @@ internal sealed unsafe partial class Direct2DBackend
             context->SetTarget(null);
         }
 
-        if (result.Failed)
+        if (result.Failed || Root._rasterizePage)
         {
-            // The device was lost while drawing the cell; the page's own EndDraw reports it and the render is drawn again.
+            // The device was lost while drawing the cell (the page's own EndDraw reports it and the render is drawn again), or the
+            // cell blends with its backdrop and the software rasterizer draws the page: the tile is not kept.
             bitmap->Release();
             return;
         }

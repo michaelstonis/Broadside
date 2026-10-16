@@ -95,9 +95,12 @@ public sealed class ReplayAllocationTests
     [InlineData("shading-type6-coons.pdf", 1)]
     [InlineData("pattern-tiling-colored.pdf", 1)]
     [InlineData("pattern-tiling-uncolored.pdf", 4)]
+    [InlineData("transparency-soft-masks.pdf", 1)]
+    [InlineData("transparency-soft-masks.pdf", 4)]
     public void Replaying_a_paint_corpus_page_allocates_nothing(string fileName, double scale)
     {
-        // Issue #130: images, masks, shadings, rasterized meshes and pattern tiles come from the renderer's caches once warm. The
+        // Issue #130: images, masks, shadings, rasterized meshes and pattern tiles come from the renderer's caches once warm; #132:
+        // soft-mask values and their layers' opacity brushes too. The
         // document is its own, not the golden corpus's shared engine's, whose display-list caches other tests' pages evict from.
         using PdfDocument document = PdfDocument.Open(Corpus.Bytes(fileName));
 

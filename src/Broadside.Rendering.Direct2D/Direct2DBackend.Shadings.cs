@@ -35,7 +35,7 @@ internal sealed unsafe partial class Direct2DBackend
     private readonly ShadingCache _shadings;
 
     /// <summary>Paints the shading over the current clip (ISO 32000-2 §8.7.4.2, <c>sh</c>): its Background is not painted.</summary>
-    public void DrawShading(in DisplayShading shading)
+    private void DrawShadingCore(in DisplayShading shading)
     {
         if (_compositing.FillAlpha == 0 || GetShading(shading) is not { PaintsNothing: false } entry || !Paints(entry))
         {
@@ -62,7 +62,7 @@ internal sealed unsafe partial class Direct2DBackend
     }
 
     /// <summary>Fills the path with a shading pattern (ISO 32000-2 §8.7.3.3), its Background first where the pattern asks for it.</summary>
-    public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading)
+    private void FillPathWithShadingCore(PathView path, FillRule rule, in DisplayShading shading)
     {
         if (path.IsEmpty || _compositing.FillAlpha == 0 || GetShading(shading) is not { PaintsNothing: false } entry)
         {
@@ -73,7 +73,7 @@ internal sealed unsafe partial class Direct2DBackend
     }
 
     /// <summary>Strokes the path with a shading pattern (ISO 32000-2 §8.7.3.3).</summary>
-    public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading)
+    private void StrokePathWithShadingCore(PathView path, in StrokeStyle style, in DisplayShading shading)
     {
         if (path.IsEmpty || _compositing.StrokeAlpha == 0 || GetShading(shading) is not { PaintsNothing: false } entry || !ConfigurePen(style))
         {

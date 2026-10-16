@@ -5,24 +5,9 @@ using Windows.Win32.Graphics.Direct2D.Common;
 
 namespace Broadside.Rendering.Direct2D;
 
-/// <summary>Constant alpha, blend modes, annotations and tiling patterns (ISO 32000-2 §11.3.5, §11.6.4.4, §12.5.5, §8.7.3) on Direct2D.</summary>
+/// <summary>Constant alpha, blend modes and annotations (ISO 32000-2 §11.3.5, §11.6.4.4, §12.5.5) on Direct2D.</summary>
 internal sealed unsafe partial class Direct2DBackend
 {
-    private static readonly Diagnostic BlendModeUnsupported = new(
-        "BackendBlendModeUnsupported",
-        DiagnosticSeverity.Warning,
-        "The Direct2D backend does not blend other than Normal yet (ISO 32000-2 §11.3.5; Direct2D's primitive blend is source-over only); the page's paints and annotations in other blend modes were composited as Normal.");
-
-    private static readonly Diagnostic GroupApproximated = new(
-        "BackendTransparencyGroupApproximated",
-        DiagnosticSeverity.Warning,
-        "The Direct2D backend does not composite transparency groups yet (ISO 32000-2 §11.4); groups with an opacity, a blend mode, knockout, isolation or a colour space of their own were drawn as their content alone.");
-
-    private static readonly Diagnostic SoftMaskIgnored = new(
-        "BackendSoftMaskIgnored",
-        DiagnosticSeverity.Warning,
-        "The Direct2D backend does not apply soft masks yet (ISO 32000-2 §11.5, §11.6.5.1); paints and groups under a soft mask were drawn unmasked.");
-
     private Compositing _compositing = Compositing.Initial;
     private Compositing[] _savedCompositing = new Compositing[16];
     private Matrix[] _annotationDevices = new Matrix[2];
@@ -40,13 +25,10 @@ internal sealed unsafe partial class Direct2DBackend
     /// <summary>
     /// Sets the alpha constants and blend mode of the paints that follow (§11.6.4.4, §11.6.3): the alphas go into the brush colour
     /// (strokes take <paramref name="strokeAlpha"/>, everything else <paramref name="fillAlpha"/>). Direct2D's primitive blend is
-    /// source-over only, so a blend mode other than Normal composites as Normal and is reported once per render.
+    /// source-over only, so a paint in a blend mode other than Normal makes the page the software rasterizer's.
     /// </summary>
-    public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode)
-    {
-        _compositing = new Compositing(Alpha(strokeAlpha), Alpha(fillAlpha));
-        ReportBlendMode(blendMode);
-    }
+    public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode) =>
+        _compositing = new Compositing(Alpha(strokeAlpha), Alpha(fillAlpha), blendMode);
 
     /// <summary>
     /// Begins an annotation (§12.5.5): saves the state, places the appearance as the software rasterizer does (NoZoom and NoRotate keep
@@ -92,7 +74,13 @@ internal sealed unsafe partial class Direct2DBackend
             return;
         }
 
-        ReportBlendMode(annotation.BlendMode);
+        if (annotation.BlendMode != BlendMode.Normal)
+        {
+            // §12.5.5: the appearance composites in the annotation's blend mode, which Direct2D cannot (source-over only).
+            Root._rasterizePage = true;
+            return;
+        }
+
         byte opacity = Alpha(annotation.Opacity);
         if (opacity == 255)
         {
@@ -127,43 +115,12 @@ internal sealed unsafe partial class Direct2DBackend
         RestoreState();
     }
 
-    /// <summary>
-    /// Draws a transparency group's content straight onto the context (ISO 32000-2 §11.4.4 NOTE 5: exact for a non-isolated,
-    /// non-knockout group in the Normal blend mode at opacity 1); any other group is approximated that way and reported once per render.
-    /// </summary>
-    public void DrawGroup(in DisplayGroup group)
-    {
-        if (group.IsKnockout || group.Opacity < 1 || group.BlendMode != BlendMode.Normal || (group.IsIsolated && group.ColorSpace is not null)
-            || !group.SoftMask.IsNone)
-        {
-            Skip(SkippedOperations.Groups, GroupApproximated);
-        }
-
-        group.Replay(this);
-    }
-
-    /// <summary>Ignores a soft mask (ISO 32000-2 §11.6.5.1): the paints that follow are drawn unmasked, reported once per replay (ADR 0005).</summary>
-    public void SetSoftMask(in DisplaySoftMask mask)
-    {
-        if (!mask.IsNone)
-        {
-            Skip(SkippedOperations.SoftMasks, SoftMaskIgnored);
-        }
-    }
-
     /// <summary>Resets the compositing state and the annotations at the start of a replay.</summary>
     private void BeginCompositing()
     {
         _compositing = Compositing.Initial;
         _annotationDepth = 0;
-    }
-
-    private void ReportBlendMode(BlendMode mode)
-    {
-        if (mode != BlendMode.Normal)
-        {
-            Skip(SkippedOperations.BlendModes, BlendModeUnsupported);
-        }
+        BeginTransparency();
     }
 
     /// <summary>An alpha constant as the 8-bit alpha the software rasterizer's compositor uses (NaN is opaque).</summary>
@@ -209,9 +166,9 @@ internal sealed unsafe partial class Direct2DBackend
         return new Matrix(a, b, c, d, anchorX - ((a * x) + (c * y)), anchorY - ((b * x) + (d * y)));
     }
 
-    /// <summary>The alpha constants (8-bit) of the paints, saved and restored with the graphics state.</summary>
-    private readonly record struct Compositing(byte StrokeAlpha, byte FillAlpha)
+    /// <summary>The alpha constants (8-bit) and blend mode of the paints, saved and restored with the graphics state.</summary>
+    private readonly record struct Compositing(byte StrokeAlpha, byte FillAlpha, BlendMode BlendMode)
     {
-        public static Compositing Initial { get; } = new(255, 255);
+        public static Compositing Initial { get; } = new(255, 255, BlendMode.Normal);
     }
 }

@@ -27,14 +27,20 @@ namespace Broadside.Rendering.Direct2D;
 /// Broadside does draws from its outlines and is reported (<c>BackendNativeGlyphsUnavailable</c>, information).
 /// </para>
 /// <para>
-/// Images, stencil masks, shadings and tiling patterns are not drawn by this backend yet; a render that meets them leaves them out and
-/// reports one <see cref="Diagnostics"/> entry per kind rather than approximating them.
+/// Constant alpha (ISO 32000-2 §11.6.4.4) is the brush colour's alpha. Annotations and form fields (§12.5.5) are placed as the
+/// software rasterizer places them (NoZoom and NoRotate, §12.5.3), clipped to their rectangle and, when translucent, drawn in a layer
+/// with their opacity.
 /// </para>
 /// <para>
-/// Constant alpha (ISO 32000-2 §11.6.4.4) is the brush colour's alpha. Direct2D's primitive blend is source-over only, so blend modes
-/// other than Normal (§11.3.5) composite as Normal and are reported (<c>BackendBlendModeUnsupported</c>). Annotations and form fields
-/// (§12.5.5) are placed as the software rasterizer places them (NoZoom and NoRotate, §12.5.3), clipped to their rectangle and, when
-/// translucent, drawn in a layer with their opacity.
+/// Transparency (ISO 32000-2 §11.4, §11.5, §11.6): groups whose content does not blend are Direct2D layers with the group's opacity,
+/// and soft masks are a layer's opacity brush holding the mask values the software rasterizer computes
+/// (<c>BackendSoftMaskRasterized</c>, information). Direct2D's primitive blend is source-over only: knockout groups (§11.4.6) and
+/// isolated groups whose content blends (§11.3.5) are drawn by
+/// <see cref="SoftwareRasterizer.Render(in DisplayGroup, PdfDocument, Bitmap, in Matrix, in Matrix, double, double, BlendMode)"/>
+/// into a bitmap drawn in their place, reported once per kind (<c>BackendKnockoutGroupRasterized</c>,
+/// <c>BackendBlendingGroupRasterized</c>, <c>BackendGroupColorSpaceRasterized</c>, information); a page that blends with its backdrop
+/// in a mode other than Normal (a paint, annotation or group in another blend mode, or a non-isolated group whose content blends) is
+/// drawn whole by the software rasterizer (<c>BackendPageRasterized</c>, information).
 /// </para>
 /// <para>
 /// Reuse one instance for many renders: its device, device context and target bitmaps are created once (the targets again when the
@@ -51,6 +57,7 @@ public sealed class Direct2DRenderer : IDisposable
     private readonly Direct2DBackend _backend = new();
     private readonly DirectWriteFonts _fonts = new();
     private Direct2DSurface _surface;
+    private SoftwareRasterizer? _rasterizer;
     private bool _disposed;
 
     /// <summary>Initializes a new instance of the <see cref="Direct2DRenderer"/> class on the graphics hardware, or WARP when there is none.</summary>
@@ -182,6 +189,7 @@ public sealed class Direct2DRenderer : IDisposable
         {
             _disposed = true;
             _backend.Dispose();
+            _rasterizer?.Dispose();
             _surface.Dispose();
             _fonts.Dispose();
         }
@@ -240,8 +248,44 @@ public sealed class Direct2DRenderer : IDisposable
             }
 
             result.ThrowOnFailure();
+            if (_backend.RasterizesPage)
+            {
+                RasterizePage(list, target, device, width, height, white);
+                return;
+            }
+
             _surface.CopyTo(target, width, height);
             return;
         }
+    }
+
+    /// <summary>
+    /// Draws the list with the software rasterizer into the top-left <paramref name="width"/> × <paramref name="height"/> pixels of
+    /// <paramref name="target"/>, on white or over its pixels: the page blends with its backdrop in a mode Direct2D cannot composite.
+    /// </summary>
+    private void RasterizePage(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white)
+    {
+        int rowBytes = width * 4;
+        using var bitmap = new Bitmap(width, height);
+        for (int y = 0; y < height; y++)
+        {
+            Span<byte> row = bitmap.GetRow(y)[..rowBytes];
+            if (white)
+            {
+                row.Fill(0xFF);
+            }
+            else
+            {
+                target.GetRow(y)[..rowBytes].CopyTo(row);
+            }
+        }
+
+        (_rasterizer ??= new SoftwareRasterizer()).Render(list, bitmap, device);
+        for (int y = 0; y < height; y++)
+        {
+            bitmap.GetRow(y)[..rowBytes].CopyTo(target.GetRow(y));
+        }
+
+        _backend.ReportPageRasterized();
     }
 }
