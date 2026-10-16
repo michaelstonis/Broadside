@@ -117,6 +117,14 @@ _Avoid_: Page pair, row
 The part of a page layout a shell shows: a scroll offset and a size in pixels, and a zoom in pixels per point.
 _Avoid_: Window, visible area, camera
 
+**Text selection**:
+The selected text of a document session: an anchor and a focus caret between glyphs, in reading order, possibly on different pages; read back as quads per page to draw and as text to copy.
+_Avoid_: Highlight (a highlight is an annotation), range, marquee
+
+**Reading-order provider**:
+What decides the order a page's glyphs are selected and copied in: content order, or the layout tree's structure or detected order.
+_Avoid_: Sorter, text order strategy
+
 ### Text and layout
 
 **Layout tree**:
