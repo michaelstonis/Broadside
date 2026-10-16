@@ -1,3 +1,4 @@
+using System.Buffers;
 using Broadside.Annotations;
 using Broadside.Fonts;
 using Broadside.Graphics;
@@ -11,8 +12,8 @@ namespace Broadside.Layout.Flow;
 /// </summary>
 internal sealed record FlowServices(ILineBreaker LineBreaker, ITextShaper Shaper, IBidiResolver Bidi, IStructureSink? Structure)
 {
-    /// <summary>Breaks lines by UAX #14, measures with the canvas font, keeps logical order and writes no structure.</summary>
-    public static FlowServices Default { get; } = new(UnicodeLineBreaker.Instance, CanvasFontShaper.Instance, LogicalOrder.Instance, null);
+    /// <summary>Breaks lines by UAX #14, measures with the canvas font, reorders by UAX #9 and writes no structure.</summary>
+    public static FlowServices Default { get; } = new(UnicodeLineBreaker.Instance, CanvasFontShaper.Instance, UnicodeBidiResolver.Instance, null);
 }
 
 /// <summary>A position a line may (or, after a mandatory break, must) end at: the index the next line starts from.</summary>
@@ -34,11 +35,14 @@ internal readonly record struct ShapedRun(ShapedText Glyphs, double[]? Adjustmen
 /// <summary>Measures and shapes runs of one style: GSUB (#174) and the positioning step (#175 GPOS) through <see cref="PdfCanvasFont.Shape"/>.</summary>
 internal interface ITextShaper
 {
-    /// <summary>The advance of <paramref name="text"/> in points as shown, at character spacing 0, word spacing 0, scaling 100.</summary>
-    double Measure(ReadOnlySpan<char> text, TextStyle style);
+    /// <summary>
+    /// The advance of <paramref name="text"/> in points as shown, at character spacing 0, word spacing 0, scaling 100;
+    /// <paramref name="rightToLeft"/> is the run's direction from its bidi level, or null for the style's own.
+    /// </summary>
+    double Measure(ReadOnlySpan<char> text, TextStyle style, bool? rightToLeft = null);
 
     /// <summary>Shapes <paramref name="text"/> into what is shown; its advance equals <see cref="Measure"/>.</summary>
-    ShapedRun Shape(string text, TextStyle style);
+    ShapedRun Shape(string text, TextStyle style, bool? rightToLeft = null);
 }
 
 /// <summary>Shapes with the canvas font under the style's shaping (<see cref="TextStyle.Shaping"/>, <c>kern</c> from <see cref="TextStyle.Kerning"/>).</summary>
@@ -46,31 +50,114 @@ internal sealed class CanvasFontShaper : ITextShaper
 {
     public static CanvasFontShaper Instance { get; } = new();
 
-    public double Measure(ReadOnlySpan<char> text, TextStyle style) => style.Font.MeasureWidth(text, style.FontSize, style.EffectiveShaping);
+    public double Measure(ReadOnlySpan<char> text, TextStyle style, bool? rightToLeft = null) =>
+        style.Font.MeasureWidth(text, style.FontSize, style.ShapingFor(rightToLeft));
 
-    public ShapedRun Shape(string text, TextStyle style) => new(style.Font.Shape(text, style.EffectiveShaping), null);
+    public ShapedRun Shape(string text, TextStyle style, bool? rightToLeft = null) => new(style.Font.Shape(text, style.ShapingFor(rightToLeft)), null);
 }
 
 /// <summary>
 /// A run of a composed line: a slice of the paragraph text with its measured advance in points, inside one piece of the paragraph's
-/// content (<see cref="Piece"/>: the index of the <see cref="InlineElement"/> it comes from, so each run has one style).
+/// content (<see cref="Piece"/>: the index of the <see cref="InlineElement"/> it comes from, so each run has one style) and at one
+/// bidi embedding level (<see cref="Level"/>, -1 when the paragraph needs no bidi resolution: all left to right).
 /// </summary>
-internal readonly record struct LineRun(int Start, int Length, double Width, int Piece = 0);
-
-/// <summary>Reorders the runs of one broken line from logical into visual order. #173 implements UAX #9 here.</summary>
-internal interface IBidiResolver
+internal readonly record struct LineRun(int Start, int Length, double Width, int Piece = 0, int Level = -1)
 {
-    /// <summary>Reorders <paramref name="runs"/> in place; they arrive in logical order.</summary>
-    void ReorderLine(ReadOnlySpan<char> paragraph, Span<LineRun> runs);
+    /// <summary>The run's direction from its level (odd: right to left), or null without bidi resolution.</summary>
+    public bool? RightToLeft => Level < 0 ? null : (Level & 1) != 0;
 }
 
-/// <summary>Leaves runs in logical order: correct for left-to-right text, the only direction before #173.</summary>
-internal sealed class LogicalOrder : IBidiResolver
+/// <summary>Resolves the bidi levels of a paragraph and reorders each broken line into visual order. #173 implements UAX #9 here.</summary>
+internal interface IBidiResolver
 {
-    public static LogicalOrder Instance { get; } = new();
+    /// <summary>
+    /// Resolves the embedding level of every unit of <paramref name="text"/> (its low seven bits) and the level of its paragraph
+    /// (0 or 1, in <see cref="UnicodeBidi.ParagraphBit"/>): rules P1 to I2.
+    /// </summary>
+    void Resolve(ReadOnlySpan<char> text, TextDirection direction, Span<byte> levels);
 
-    public void ReorderLine(ReadOnlySpan<char> paragraph, Span<LineRun> runs)
+    /// <summary>
+    /// Rule L1 on one line: <paramref name="levels"/> holds the resolved levels of <paramref name="line"/> (without the paragraph
+    /// bit) and receives the separators and trailing whitespace at <paramref name="paragraphLevel"/>.
+    /// </summary>
+    void ResetWhitespace(ReadOnlySpan<char> line, int paragraphLevel, Span<byte> levels);
+
+    /// <summary>Rule L2: reorders <paramref name="runs"/> (logical order, one level each) into visual order; whether any moved.</summary>
+    bool ReorderLine(Span<LineRun> runs);
+}
+
+/// <summary>The Unicode Bidirectional Algorithm (<see cref="UnicodeBidi"/>), allocating nothing per character.</summary>
+internal sealed class UnicodeBidiResolver : IBidiResolver
+{
+    private const int StackUnits = 256;
+
+    public static UnicodeBidiResolver Instance { get; } = new();
+
+    public void Resolve(ReadOnlySpan<char> text, TextDirection direction, Span<byte> levels) =>
+        UnicodeBidi.Resolve(text, direction switch { TextDirection.LeftToRight => 0, TextDirection.RightToLeft => 1, _ => -1 }, levels);
+
+    public void ResetWhitespace(ReadOnlySpan<char> line, int paragraphLevel, Span<byte> levels)
     {
+        byte[]? rented = null;
+        Span<byte> classes = line.Length <= StackUnits ? stackalloc byte[StackUnits] : (rented = ArrayPool<byte>.Shared.Rent(line.Length));
+        try
+        {
+            classes = classes[..line.Length];
+            UnicodeBidi.Classify(line, classes);
+            UnicodeBidi.ResetWhitespace(classes, paragraphLevel, levels);
+        }
+        finally
+        {
+            if (rented is not null)
+            {
+                ArrayPool<byte>.Shared.Return(rented);
+            }
+        }
+    }
+
+    public bool ReorderLine(Span<LineRun> runs)
+    {
+        int lowestOdd = UnicodeBidi.MaxDepth + 2;
+        int highest = 0;
+        foreach (LineRun run in runs)
+        {
+            highest = Math.Max(highest, run.Level);
+            if ((run.Level & 1) != 0)
+            {
+                lowestOdd = Math.Min(lowestOdd, run.Level);
+            }
+        }
+
+        for (int level = highest; level >= lowestOdd; level--)
+        {
+            for (int index = 0; index < runs.Length; index++)
+            {
+                if (runs[index].Level < level)
+                {
+                    continue;
+                }
+
+                int end = index;
+                while (end + 1 < runs.Length && runs[end + 1].Level >= level)
+                {
+                    end++;
+                }
+
+                runs[index..(end + 1)].Reverse();
+
+                index = end;
+            }
+        }
+
+        for (int index = 1; index < runs.Length; index++)
+        {
+            if (runs[index].Start < runs[index - 1].Start)
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 }
 

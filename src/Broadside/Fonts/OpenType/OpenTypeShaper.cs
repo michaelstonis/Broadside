@@ -141,13 +141,22 @@ internal static class OpenTypeShaper
     {
         OpenTypeLayout? layout = font.OpenTypeLayout;
         GdefTable? gdef = layout?.Gdef;
+        uint script = shaping.Script is { } requested ? SfntFile.Tag(requested) : DetectScript(text);
+        rightToLeft = shaping.RightToLeft ?? (script == Arabic || script == Hebrew);
         int index = 0;
         foreach (Rune rune in text.EnumerateRunes())
         {
-            CanvasGlyph glyph = font.GlyphOrThrow(rune, index, nameof(text));
+            // UAX #9 rule L4: a right-to-left run shows a mirrored character (Bidi_Mirroring_Glyph) when the font has one.
+            Rune shown = rune;
+            if (rightToLeft && BidiMirroringData.Mirror(rune.Value) is int mirror and >= 0 && font.TryGetGlyph(mirror, out _))
+            {
+                shown = new Rune(mirror);
+            }
+
+            CanvasGlyph glyph = font.GlyphOrThrow(shown, index, nameof(text));
             UnicodeCategory category = Rune.GetUnicodeCategory(rune);
             int glyphClass = category is UnicodeCategory.NonSpacingMark or UnicodeCategory.EnclosingMark ? GdefTable.MarkGlyph : GdefTable.BaseGlyph;
-            int id = layout is null ? rune.Value : glyph.Key;
+            int id = layout is null ? shown.Value : glyph.Key;
             if (gdef?.GlyphClass(id) is int known and > 0)
             {
                 glyphClass = known;
@@ -157,8 +166,6 @@ internal static class OpenTypeShaper
             index += rune.Utf16SequenceLength;
         }
 
-        uint script = shaping.Script is { } requested ? SfntFile.Tag(requested) : DetectScript(text);
-        rightToLeft = shaping.RightToLeft ?? (script == Arabic || script == Hebrew);
         ShapePlan plan = layout?.PlanFor(shaping, script) ?? ShapePlan.WithoutLayout(shaping.IsEnabled("kern"));
         if (layout?.Gsub is not { } gsub || plan.Stages.Length == 0)
         {

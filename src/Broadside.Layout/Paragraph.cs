@@ -1,9 +1,11 @@
+using System.Buffers;
 using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Text;
 using Broadside.Annotations;
 using Broadside.Fonts;
 using Broadside.Graphics;
+using Broadside.Objects;
 using Broadside.Structure;
 
 namespace Broadside.Layout.Flow;
@@ -37,11 +39,21 @@ namespace Broadside.Layout.Flow;
 /// Underlines and strike-throughs are filled rectangles after the text; links are link annotations (§12.5.6.5) over each run's
 /// portion of a line.
 /// </para>
+/// <para>
+/// UAX #9, Unicode Bidirectional Algorithm (revision 50, Unicode 16.0.0): the paragraph's embedding levels are resolved once under
+/// <see cref="ParagraphStyle.Direction"/> (each hard paragraph separator starting a new bidi paragraph, rule P1), lines are broken
+/// in logical order, and each line is split into runs of one level, reset by rule L1 and reordered by L2. Each run is shaped on
+/// its own in its direction, right-to-left runs with mirrored glyphs (L4). A line whose runs move is wrapped in a <c>Span</c>
+/// marked-content sequence whose <c>ActualText</c> is the line's text in logical order (ISO 32000-2 §14.9.4), so extraction,
+/// which reads content order, gets the logical text; a single right-to-left run already carries its own.
+/// </para>
 /// </remarks>
 public sealed class Paragraph : FlowBlock
 {
     private const char SoftHyphen = '\u00AD';
     private const char ObjectReplacement = '\uFFFC';
+
+    private static readonly CosName ActualTextKey = new("ActualText");
 
     /// <summary>The centre of an underline below the baseline, in ems (the AFM <c>UnderlinePosition</c> of the standard fonts).</summary>
     private const double UnderlinePosition = -0.1;
@@ -177,6 +189,22 @@ public sealed class Paragraph : FlowBlock
     {
         var breaks = new List<BreakOpportunity>();
         services.LineBreaker.FindBreaks(Text, breaks);
+        byte[]? levels = ResolveLevels(services.Bidi);
+        try
+        {
+            return MeasureWidths(services.Shaper, breaks, levels);
+        }
+        finally
+        {
+            if (levels is not null)
+            {
+                ArrayPool<byte>.Shared.Return(levels);
+            }
+        }
+    }
+
+    private ContentWidths MeasureWidths(ITextShaper shaper, List<BreakOpportunity> breaks, byte[]? levels)
+    {
         double min = 0;
         double max = 0;
         int start = 0;
@@ -186,11 +214,11 @@ public sealed class Paragraph : FlowBlock
             // The pieces between break opportunities are unbreakable; the lines between mandatory breaks are the unwrapped widths.
             double indent = start == 0 ? Style.FirstLineIndent : 0;
             bool hyphen = !opportunity.Mandatory && Text[opportunity.Position - 1] == SoftHyphen;
-            min = Math.Max(min, indent + Measure(services.Shaper, start, TrimEnd(Text, start, opportunity.Position), hyphen));
+            min = Math.Max(min, indent + Measure(shaper, start, TrimEnd(Text, start, opportunity.Position), hyphen, levels));
             if (opportunity.Mandatory)
             {
                 double lineIndent = lineStart == 0 ? Style.FirstLineIndent : 0;
-                max = Math.Max(max, lineIndent + Measure(services.Shaper, lineStart, TrimEnd(Text, lineStart, opportunity.Position), false));
+                max = Math.Max(max, lineIndent + Measure(shaper, lineStart, TrimEnd(Text, lineStart, opportunity.Position), false, levels));
                 lineStart = opportunity.Position;
             }
 
@@ -203,9 +231,48 @@ public sealed class Paragraph : FlowBlock
     internal override void LayOut(FlowContext context)
     {
         FlowServices services = context.Services;
-        ParagraphStyle style = Style;
         var breaks = new List<BreakOpportunity>();
         services.LineBreaker.FindBreaks(Text, breaks);
+        byte[]? levels = ResolveLevels(services.Bidi);
+        try
+        {
+            LayOut(context, breaks, levels);
+        }
+        finally
+        {
+            if (levels is not null)
+            {
+                ArrayPool<byte>.Shared.Return(levels);
+            }
+        }
+    }
+
+    /// <summary>
+    /// The bidi levels of <see cref="Text"/> (UAX #9 P1 to I2) followed by room for one line's levels, pooled; null when every
+    /// level is 0 (left-to-right text in a left-to-right paragraph), which needs no reordering.
+    /// </summary>
+    private byte[]? ResolveLevels(IBidiResolver bidi)
+    {
+        if (Text.Length == 0)
+        {
+            return null;
+        }
+
+        byte[] levels = ArrayPool<byte>.Shared.Rent(Text.Length * 2);
+        bidi.Resolve(Text, Style.Direction, levels.AsSpan(0, Text.Length));
+        if (levels.AsSpan(0, Text.Length).ContainsAnyExcept((byte)0))
+        {
+            return levels;
+        }
+
+        ArrayPool<byte>.Shared.Return(levels);
+        return null;
+    }
+
+    private void LayOut(FlowContext context, List<BreakOpportunity> breaks, byte[]? levels)
+    {
+        FlowServices services = context.Services;
+        ParagraphStyle style = Style;
 
         context.AddSpace(style.SpaceBefore);
         double strutAdvance = style.LineAdvance;
@@ -234,7 +301,7 @@ public sealed class Paragraph : FlowBlock
                 BreakOpportunity opportunity = breaks[candidate];
                 int candidateEnd = TrimEnd(Text, start, opportunity.Position);
                 bool candidateHyphen = !opportunity.Mandatory && Text[opportunity.Position - 1] == SoftHyphen;
-                double candidateWidth = Measure(services.Shaper, start, candidateEnd, candidateHyphen);
+                double candidateWidth = Measure(services.Shaper, start, candidateEnd, candidateHyphen, levels);
                 bool fits = candidateWidth <= available + 1e-9;
                 if (!fits && chosen >= 0)
                 {
@@ -253,14 +320,14 @@ public sealed class Paragraph : FlowBlock
             if (width > available + 1e-9)
             {
                 // Nothing up to the first opportunity fits: an emergency break inside it, at a grapheme cluster boundary.
-                int emergency = EmergencyBreak(services.Shaper, start, end, available, out double emergencyWidth);
+                int emergency = EmergencyBreak(services.Shaper, start, end, available, levels, out double emergencyWidth);
                 if (emergency < end)
                 {
                     (end, resume, width, hyphen, isLast) = (emergency, emergency, emergencyWidth, false, false);
                 }
             }
 
-            Segment(services.Shaper, start, end, width, hyphen, runs);
+            Segment(services, start, end, width, hyphen, runs, levels);
             (double above, double below) = LineBox(runs);
             double lineAdvance = strutAdvance;
             double baseline = context.CursorY - strutLeading - strutAscent;
@@ -278,7 +345,10 @@ public sealed class Paragraph : FlowBlock
                 baseline = context.CursorY - above;
             }
 
-            services.Bidi.ReorderLine(Text, CollectionsMarshal.AsSpan(runs));
+            // UAX #9 L2: visual order. Extraction reads content order, so a line whose runs moved carries its logical text (§14.9.4).
+            string? logical = levels is not null && services.Bidi.ReorderLine(CollectionsMarshal.AsSpan(runs))
+                ? Shown(start, end, hyphen).Replace(ObjectReplacement.ToString(), string.Empty, StringComparison.Ordinal)
+                : null;
             context.PlaceMarkers(baseline);
             if (!begun)
             {
@@ -288,7 +358,7 @@ public sealed class Paragraph : FlowBlock
 
             if (context.Drawing)
             {
-                DrawLine(context, CollectionsMarshal.AsSpan(runs), context.Left + indent, available, baseline, isLast, hyphen ? end : -1);
+                DrawLine(context, CollectionsMarshal.AsSpan(runs), context.Left + indent, available, baseline, isLast, hyphen ? end : -1, logical);
             }
 
             context.Advance(lineAdvance);
@@ -307,10 +377,20 @@ public sealed class Paragraph : FlowBlock
         context.AddSpace(style.SpaceAfter);
     }
 
-    /// <summary>Splits the line from <paramref name="start"/> to <paramref name="end"/> into one run per piece, in logical order.</summary>
-    private void Segment(ITextShaper shaper, int start, int end, double width, bool hyphen, List<LineRun> runs)
+    /// <summary>
+    /// Splits the line from <paramref name="start"/> to <paramref name="end"/> into one run per piece and, with bidi
+    /// <paramref name="levels"/>, per level after rule L1, in logical order.
+    /// </summary>
+    private void Segment(FlowServices services, int start, int end, double width, bool hyphen, List<LineRun> runs, byte[]? levels)
     {
         runs.Clear();
+        ITextShaper shaper = services.Shaper;
+        if (levels is not null)
+        {
+            SegmentLevels(services, start, end, hyphen, runs, levels);
+            return;
+        }
+
         int firstPiece = PieceAt(start);
         if (start < end && _starts[firstPiece + 1] >= end)
         {
@@ -322,7 +402,46 @@ public sealed class Paragraph : FlowBlock
         {
             int from = Math.Max(start, _starts[piece]);
             int to = Math.Min(end, _starts[piece + 1]);
-            runs.Add(new LineRun(from, to - from, MeasurePiece(shaper, piece, from, to, hyphen && to == end), piece));
+            runs.Add(new LineRun(from, to - from, MeasurePiece(shaper, piece, from, to, hyphen && to == end, null), piece));
+        }
+    }
+
+    /// <summary>
+    /// <see cref="Segment"/> with bidi levels: the line's levels (after the paragraph's, in <paramref name="levels"/>) with
+    /// rule L1 applied, then one run per piece and level, each measured in its direction.
+    /// </summary>
+    private void SegmentLevels(FlowServices services, int start, int end, bool hyphen, List<LineRun> runs, byte[] levels)
+    {
+        int paragraphLevel = start < Text.Length ? levels[start] >> 7 : 0;
+        Span<byte> line = levels.AsSpan(Text.Length + start, end - start);
+        for (int index = 0; index < line.Length; index++)
+        {
+            line[index] = (byte)(levels[start + index] & UnicodeBidi.LevelMask);
+        }
+
+        services.Bidi.ResetWhitespace(Text.AsSpan(start, end - start), paragraphLevel, line);
+        for (int piece = PieceAt(start); piece < _pieces.Length && _starts[piece] < end; piece++)
+        {
+            int from = Math.Max(start, _starts[piece]);
+            int to = Math.Min(end, _starts[piece + 1]);
+            if (from == to)
+            {
+                runs.Add(new LineRun(from, 0, MeasurePiece(services.Shaper, piece, from, to, hyphen && to == end, null), piece, paragraphLevel));
+            }
+
+            while (from < to)
+            {
+                int level = line[from - start];
+                int next = from + 1;
+                while (next < to && line[next - start] == level)
+                {
+                    next++;
+                }
+
+                bool rightToLeft = (level & 1) != 0;
+                runs.Add(new LineRun(from, next - from, MeasurePiece(services.Shaper, piece, from, next, hyphen && next == end, rightToLeft), piece, level));
+                from = next;
+            }
         }
     }
 
@@ -350,7 +469,7 @@ public sealed class Paragraph : FlowBlock
     }
 
     /// <summary>Draws one line; <paramref name="hyphenAt"/> is the line end when it breaks at a soft hyphen, otherwise -1.</summary>
-    private void DrawLine(FlowContext context, ReadOnlySpan<LineRun> runs, double left, double available, double baseline, bool isLast, int hyphenAt)
+    private void DrawLine(FlowContext context, ReadOnlySpan<LineRun> runs, double left, double available, double baseline, bool isLast, int hyphenAt, string? logical)
     {
         ParagraphStyle style = Style;
         double width = 0;
@@ -392,6 +511,12 @@ public sealed class Paragraph : FlowBlock
         double fontSize = 0;
         PdfColor? color = null;
         List<(double X, double Width, int Piece)>? decorated = null;
+        if (logical is not null)
+        {
+            // The runs are in visual order: the line's text in logical order replaces them for extraction (§14.9.4).
+            canvas.BeginMarkedContent("Span", new CosDictionary { [ActualTextKey] = TextString(logical) });
+        }
+
         foreach (LineRun run in runs)
         {
             InlineElement element = _pieces[run.Piece];
@@ -449,7 +574,7 @@ public sealed class Paragraph : FlowBlock
             }
 
             int runEnd = run.Start + run.Length;
-            ShapedRun shaped = context.Services.Shaper.Shape(Shown(run.Start, runEnd, runEnd == hyphenAt), runStyle);
+            ShapedRun shaped = context.Services.Shaper.Shape(Shown(run.Start, runEnd, runEnd == hyphenAt), runStyle, run.RightToLeft);
             double[]? adjustments = shaped.Adjustments;
             if (!runStyle.Font.AppliesWordSpacing && extra > 0)
             {
@@ -480,6 +605,11 @@ public sealed class Paragraph : FlowBlock
         if (inText)
         {
             canvas.EndText();
+        }
+
+        if (logical is not null)
+        {
+            canvas.EndMarkedContent();
         }
 
         if (color is not null)
@@ -559,21 +689,39 @@ public sealed class Paragraph : FlowBlock
     private static bool IsHardBreak(char character) => character is '\n' or '\r' or '\v' or '\f' or '\u0085' or '\u2028' or '\u2029';
 
     /// <summary>The advance of the content from <paramref name="start"/> to <paramref name="end"/> as shown, piece by piece.</summary>
-    private double Measure(ITextShaper shaper, int start, int end, bool hyphen)
+    private double Measure(ITextShaper shaper, int start, int end, bool hyphen, byte[]? levels)
     {
         double sum = 0;
         for (int piece = PieceAt(start); piece < _pieces.Length && _starts[piece] < end; piece++)
         {
             int from = Math.Max(start, _starts[piece]);
             int to = Math.Min(end, _starts[piece + 1]);
-            sum += MeasurePiece(shaper, piece, from, to, hyphen && to == end);
+            if (levels is null)
+            {
+                sum += MeasurePiece(shaper, piece, from, to, hyphen && to == end, null);
+                continue;
+            }
+
+            // Each directional run is shaped on its own (the levels before L1, which only moves trailing whitespace).
+            while (from < to)
+            {
+                int level = levels[from] & UnicodeBidi.LevelMask;
+                int next = from + 1;
+                while (next < to && (levels[next] & UnicodeBidi.LevelMask) == level)
+                {
+                    next++;
+                }
+
+                sum += MeasurePiece(shaper, piece, from, next, hyphen && next == end, (level & 1) != 0);
+                from = next;
+            }
         }
 
         return sum;
     }
 
     /// <summary>The advance of the part of one piece from <paramref name="start"/> to <paramref name="end"/> as shown.</summary>
-    private double MeasurePiece(ITextShaper shaper, int piece, int start, int end, bool hyphen)
+    private double MeasurePiece(ITextShaper shaper, int piece, int start, int end, bool hyphen, bool? rightToLeft)
     {
         if (_styles[piece] is not { } style)
         {
@@ -581,7 +729,9 @@ public sealed class Paragraph : FlowBlock
         }
 
         ReadOnlySpan<char> text = Text.AsSpan(start, end - start);
-        return !hyphen && !text.Contains(SoftHyphen) ? shaper.Measure(text, style) : shaper.Measure(Shown(start, end, hyphen), style);
+        return !hyphen && !text.Contains(SoftHyphen)
+            ? shaper.Measure(text, style, rightToLeft)
+            : shaper.Measure(Shown(start, end, hyphen), style, rightToLeft);
     }
 
     /// <summary>The piece holding <paramref name="position"/>, or the piece count at the end of the text.</summary>
@@ -638,7 +788,7 @@ public sealed class Paragraph : FlowBlock
     /// The end of the most extended grapheme clusters (UAX #29) from <paramref name="start"/> that fit <paramref name="available"/>,
     /// at least one.
     /// </summary>
-    private int EmergencyBreak(ITextShaper shaper, int start, int end, double available, out double width)
+    private int EmergencyBreak(ITextShaper shaper, int start, int end, double available, byte[]? levels, out double width)
     {
         int first = start + StringInfo.GetNextTextElementLength(Text.AsSpan(start, end - start));
         int fitting = first;
@@ -646,7 +796,7 @@ public sealed class Paragraph : FlowBlock
         for (int position = start; position < end;)
         {
             int following = position + StringInfo.GetNextTextElementLength(Text.AsSpan(position, end - position));
-            sum += Measure(shaper, position, following, hyphen: false);
+            sum += Measure(shaper, position, following, hyphen: false, levels);
             if (sum > available + 1e-9)
             {
                 break;
@@ -657,7 +807,7 @@ public sealed class Paragraph : FlowBlock
         }
 
         // Kerning between clusters is not in the sum: measure the line as shown and give back clusters until it fits.
-        width = Measure(shaper, start, fitting, hyphen: false);
+        width = Measure(shaper, start, fitting, hyphen: false, levels);
         while (width > available + 1e-9 && fitting > first)
         {
             int previous = first;
@@ -668,11 +818,15 @@ public sealed class Paragraph : FlowBlock
             }
 
             fitting = previous;
-            width = Measure(shaper, start, fitting, hyphen: false);
+            width = Measure(shaper, start, fitting, hyphen: false, levels);
         }
 
         return fitting;
     }
+
+    /// <summary>A text string (ISO 32000-2 §7.9.2.2): PDFDocEncoding when ASCII, else UTF-16BE with its byte order mark.</summary>
+    private static CosString TextString(string text) =>
+        new(text.All(static c => c is >= ' ' and <= '~') ? Encoding.ASCII.GetBytes(text) : [0xFE, 0xFF, .. Encoding.BigEndianUnicode.GetBytes(text)]);
 
     /// <summary>Adds <paramref name="adjustment"/> after every glyph that shows a space.</summary>
     private static void AddSpaceAdjustments(ShapedText shaped, double[] adjustments, double adjustment)
