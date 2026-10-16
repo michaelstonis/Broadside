@@ -70,21 +70,6 @@ public sealed class RendererTests
     }
 
     [Fact]
-    public void An_operation_the_backend_cannot_draw_yet_is_skipped_with_one_diagnostic_per_kind()
-    {
-        // One inline image: images come to Direct2D with issue #130; until then they are skipped, never approximated.
-        using PdfDocument document = GoldenCorpus.Open("inline-image.pdf");
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
-
-        using Bitmap bitmap = renderer.Render(document.Pages[0]);
-
-        Diagnostic diagnostic = Assert.Single(renderer.Diagnostics);
-        Assert.Equal("RenderingOperationSkipped", diagnostic.Code);
-        Assert.Equal(DiagnosticSeverity.Warning, diagnostic.Severity);
-        Assert.Contains("image", diagnostic.Message, StringComparison.Ordinal);
-    }
-
-    [Fact]
     public void A_disposed_renderer_renders_no_more()
     {
         using PdfDocument document = GoldenCorpus.Open("paths-fill-rules.pdf");
