@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using Broadside.Annotations;
 using Broadside.Content;
 using Broadside.Diagnostics;
 using Broadside.Graphics;
@@ -29,6 +30,7 @@ internal sealed class AutoTagger : ContentEditor
     private const int FooterArtifact = -2;
     private const int LayoutArtifact = -3;
     private const int SplitOperator = -4;
+    private const int UnmatchedText = -5;
 
     private static readonly CosName ListOwner = new("List");
     private static readonly CosName ListNumbering = new("ListNumbering");
@@ -54,14 +56,20 @@ internal sealed class AutoTagger : ContentEditor
     private readonly List<PdfStructureElement> _figures = [];
     private readonly List<Diagnostic> _diagnostics = [];
     private readonly Dictionary<LayoutPage, List<(LayoutNode Node, int Start, int Count)>> _extents = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<LayoutHeading, int> _headingLevels = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<CosDictionary, Dictionary<LayoutNode, PdfStructureElement>> _linkElements = new(ReferenceEqualityComparer.Instance);
+    private readonly HashSet<CosDictionary> _referenced = new(ReferenceEqualityComparer.Instance);
+    private LayoutNode? _documentNode;
 
     // Per page.
     private readonly Dictionary<GlyphKey, EventQueue> _glyphs = [];
     private readonly List<GlyphRecord> _events = [];
     private readonly Dictionary<int, ShowRecord> _shows = [];
     private readonly List<LayoutNode> _pageNodes = [];
+    private readonly List<(PdfAnnotation Link, int Parent)> _pageLinks = [];
     private readonly List<(int Operator, PdfRectangle? Bounds)> _graphics = [];
     private readonly List<(int Operator, ContentOperatorCode Code)> _containers = [];
+    private readonly List<int> _paints = [];
     private readonly Dictionary<int, (bool Artifact, bool Mcid, byte[] Tag)> _marked = [];
     private LayoutPage? _page;
     private int _formDepth;
@@ -98,15 +106,23 @@ internal sealed class AutoTagger : ContentEditor
             document.Catalog[Lang] = new CosString(Encoding.UTF8.GetBytes(language));
         }
 
-        var tagger = new AutoTagger(document, options, root);
+        var tagger = new AutoTagger(document, options, root) { _documentNode = layout.Root };
         tagger.Collect(layout.Root);
+        tagger.LevelHeadings(layout.Root);
+        // Every page is tagged, a page without text (only graphics, or nothing detected) included: its content becomes artifacts and
+        // unmatched text, so no content is left neither tagged nor an artifact (ISO 14289-1 §7.1).
         foreach (LayoutPage page in layout.Pages)
         {
-            if (page.IsDetected || options.Force)
-            {
-                tagger._page = page;
-                page.Page.RewriteContent(tagger);
-            }
+            tagger._page = page;
+            IndirectAnnotations(document, page.Page);
+            page.Page.RewriteContent(tagger);
+            tagger.TagAnnotations(page.Page);
+        }
+
+        document.PlaceholderAlternateText ??= new(ReferenceEqualityComparer.Instance);
+        foreach (PdfStructureElement figure in tagger._figures)
+        {
+            document.PlaceholderAlternateText[figure.Dictionary] = options.FigureAlternateText;
         }
 
         return new AutoTaggingResult(true, layout, tagger._figures, tagger._diagnostics);
@@ -120,6 +136,7 @@ internal sealed class AutoTagger : ContentEditor
         _shows.Clear();
         _graphics.Clear();
         _containers.Clear();
+        _paints.Clear();
         _marked.Clear();
         _formDepth = 0;
     }
@@ -136,6 +153,11 @@ internal sealed class AutoTagger : ContentEditor
             or ContentOperatorCode.NextLineShowTextWithSpacing && op.Operands.Count > 0)
         {
             _shows[CurrentOperator] = ShowRecord.Read(op);
+        }
+        else if (_formDepth == 0 && op.Code is (>= ContentOperatorCode.Stroke and <= ContentOperatorCode.CloseFillEvenOddAndStroke)
+            or ContentOperatorCode.PaintShading or ContentOperatorCode.PaintXObject)
+        {
+            _paints.Add(CurrentOperator);
         }
     }
 
@@ -214,6 +236,26 @@ internal sealed class AutoTagger : ContentEditor
         AssignGlyphs(page, nodes, owners, reading, lastReadings, pieces);
         AssignGraphics(nodes, owners);
 
+        // Text the layout has no glyph for (hidden by optional content, clipped away, drawn without a font) is still real content:
+        // each run of it becomes a paragraph after the page's other elements (ISO 14289-1 §7.1, veraPDF rule 7.1-3).
+        foreach (GlyphRecord record in _events)
+        {
+            if (owners[record.Operator] == 0)
+            {
+                owners[record.Operator] = UnmatchedText;
+            }
+        }
+
+        // A show of no glyph at all (an empty string), or a painting operator that painted nothing (hidden by optional content,
+        // an empty path), draws nothing: an artifact.
+        foreach (int op in _shows.Keys.Concat(_paints))
+        {
+            if (owners[op] == 0)
+            {
+                owners[op] = LayoutArtifact;
+            }
+        }
+
         // Keys: consecutive operators of one owner whose glyphs follow each other in reading order; -1 for a split operator.
         int[] keys = new int[count];
         var keyOwners = new List<int> { 0 };
@@ -264,7 +306,7 @@ internal sealed class AutoTagger : ContentEditor
 
             int owner = keyOwners[key];
             bool glyphs = anchor != int.MaxValue;
-            if (!glyphs && owner > 0)
+            if (!glyphs && owner > 0 && owner <= _pageNodes.Count)
             {
                 anchor = nodes.Where(entry => ReferenceEquals(entry.Node, NodeOf(owner))).Select(static entry => entry.Start).DefaultIfEmpty(int.MaxValue).Min();
             }
@@ -370,6 +412,7 @@ internal sealed class AutoTagger : ContentEditor
             }
         }
 
+        AssignLinks(page, glyphs, glyphOwners);
         PdfRectangle crop = page.Page.CropBox;
         double middle = (crop.Bottom + crop.Top) / 2;
         int events = _events.Count;
@@ -637,6 +680,16 @@ internal sealed class AutoTagger : ContentEditor
                     : "/Artifact <</Type /Pagination /Subtype /Footer>> BDC");
             case LayoutArtifact:
                 return "/Artifact <</Type /Layout>> BDC"u8.ToArray();
+            case UnmatchedText:
+                int unmatched = Ensure(_documentNode!).AddElement("P").AddMarkedContent(page.Page).Mcid;
+                return Encoding.ASCII.GetBytes(string.Create(CultureInfo.InvariantCulture, $"/P <</MCID {unmatched}>> BDC"));
+        }
+
+        if (owner > _pageNodes.Count)
+        {
+            (PdfAnnotation link, int parent) = _pageLinks[owner - _pageNodes.Count - 1];
+            int linkMcid = LinkElement(link, NodeOf(parent)).AddMarkedContent(page.Page).Mcid;
+            return Encoding.ASCII.GetBytes(string.Create(CultureInfo.InvariantCulture, $"/Link <</MCID {linkMcid}>> BDC"));
         }
 
         PdfStructureElement element = Ensure(NodeOf(owner));
@@ -708,9 +761,9 @@ internal sealed class AutoTagger : ContentEditor
     }
 
     /// <summary>The standard structure type of a node (ISO 32000-2 §14.8.4, PDF 1.7 namespace).</summary>
-    private static string TypeOf(LayoutNode node) => node switch
+    private string TypeOf(LayoutNode node) => node switch
     {
-        LayoutHeading heading => string.Create(CultureInfo.InvariantCulture, $"H{Math.Clamp(heading.Level, 1, 6)}"),
+        LayoutHeading heading => string.Create(CultureInfo.InvariantCulture, $"H{(_headingLevels.TryGetValue(heading, out int level) ? level : Math.Clamp(heading.Level, 1, 6))}"),
         LayoutTableCell cell => cell.IsHeader ? "TH" : "TD",
         _ => node.Kind switch
         {
@@ -808,6 +861,165 @@ internal sealed class AutoTagger : ContentEditor
         }
 
         return id;
+    }
+
+    /// <summary>
+    /// Gives every heading the level it is written with: detected levels shifted so the shallowest is H1, and never more than one
+    /// deeper than the heading before (ISO 32000-2 §14.8.4.3.5; ISO 14289-1 §7.4.2, veraPDF rule 7.4.2-1: H1 first, no skipped level).
+    /// </summary>
+    private void LevelHeadings(LayoutNode root)
+    {
+        List<LayoutHeading> headings = [];
+        Gather(root);
+        int shift = headings.Count == 0 ? 0 : headings.Min(static heading => Math.Clamp(heading.Level, 1, 6)) - 1;
+        int previous = 0;
+        foreach (LayoutHeading heading in headings)
+        {
+            previous = Math.Min(Math.Clamp(heading.Level, 1, 6) - shift, previous + 1);
+            _headingLevels[heading] = previous;
+        }
+
+        void Gather(LayoutNode node)
+        {
+            if (node is LayoutHeading heading)
+            {
+                headings.Add(heading);
+            }
+
+            foreach (LayoutNode child in node.Children)
+            {
+                Gather(child);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Gives the glyphs inside a link annotation's rectangle an owner of their own: a <c>Link</c> element under the element they belong
+    /// to, holding the link text and an object reference to the annotation (ISO 32000-2 §14.8.4.4.2, Table 368; ISO 14289-1 §7.18.5).
+    /// </summary>
+    private void AssignLinks(LayoutPage page, IReadOnlyList<TextGlyph> glyphs, int[] glyphOwners)
+    {
+        _pageLinks.Clear();
+        int nodes = _pageNodes.Count;
+        var numbers = new Dictionary<(int Link, int Parent), int>();
+        IReadOnlyList<PdfAnnotation> annotations = page.Page.Annotations;
+        for (int link = 0; link < annotations.Count; link++)
+        {
+            PdfAnnotation annotation = annotations[link];
+            if (annotation.Kind != PdfAnnotationKind.Link || annotation.Reference is null)
+            {
+                continue;
+            }
+
+            PdfRectangle rect = annotation.Rect;
+            for (int index = 0; index < glyphs.Count; index++)
+            {
+                int parent = glyphOwners[index];
+                if (parent <= 0 || parent > nodes || (glyphs[index].Flags & TextGlyphFlags.Artifact) != 0)
+                {
+                    continue;
+                }
+
+                PdfRectangle box = glyphs[index].Quad.Bounds;
+                double x = (box.Left + box.Right) / 2;
+                double y = (box.Bottom + box.Top) / 2;
+                if (x < rect.Left || x > rect.Right || y < rect.Bottom || y > rect.Top)
+                {
+                    continue;
+                }
+
+                if (!numbers.TryGetValue((link, parent), out int number))
+                {
+                    _pageLinks.Add((annotation, parent));
+                    number = numbers[(link, parent)] = nodes + _pageLinks.Count;
+                }
+
+                glyphOwners[index] = number;
+            }
+        }
+
+        foreach (IGrouping<PdfAnnotation, int> group in Enumerable.Range(0, glyphs.Count)
+            .Where(index => glyphOwners[index] > nodes)
+            .GroupBy(index => _pageLinks[glyphOwners[index] - nodes - 1].Link))
+        {
+            if (string.IsNullOrWhiteSpace(group.Key.Contents))
+            {
+                string text = string.Join(' ', string.Concat(group.Select(index => page.Text.GetGlyphText(glyphs[index]).ToString()))
+                    .Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
+                if (text.Length > 0)
+                {
+                    group.Key.Contents = text;
+                }
+            }
+        }
+    }
+
+    /// <summary>The <c>Link</c> element of a link annotation under a node's element; the first one created holds the object reference.</summary>
+    private PdfStructureElement LinkElement(PdfAnnotation link, LayoutNode parent)
+    {
+        if (!_linkElements.TryGetValue(link.Dictionary, out Dictionary<LayoutNode, PdfStructureElement>? byParent))
+        {
+            _linkElements[link.Dictionary] = byParent = new(ReferenceEqualityComparer.Instance);
+        }
+
+        if (!byParent.TryGetValue(parent, out PdfStructureElement? element))
+        {
+            byParent[parent] = element = Ensure(parent).AddElement("Link");
+            Reference(element, link);
+        }
+
+        return element;
+    }
+
+    /// <summary>
+    /// Puts every annotation of a page not yet in the structure tree into it, after the page's content: links in <c>Link</c>, widgets
+    /// in <c>Form</c>, the others (printer's marks excepted) in <c>Annot</c>, each through an object reference (ISO 32000-2 §14.8.4.4,
+    /// Tables 368 and 370; ISO 14289-1 §7.18.1, §7.18.4, §7.18.5). Alternate descriptions are not invented.
+    /// </summary>
+    private void TagAnnotations(PdfPage page)
+    {
+        foreach (PdfAnnotation annotation in page.Annotations.ToArray())
+        {
+            if (annotation.Reference is null || annotation.Kind == PdfAnnotationKind.PrinterMark || _referenced.Contains(annotation.Dictionary))
+            {
+                continue;
+            }
+
+            string type = annotation.Kind switch
+            {
+                PdfAnnotationKind.Link => "Link",
+                PdfAnnotationKind.Widget => "Form",
+                _ => "Annot",
+            };
+            Reference(Ensure(_documentNode!).AddElement(type), annotation);
+        }
+    }
+
+    /// <summary>Adds an object reference to an annotation, once; a <c>StructParent</c> left from an old structure tree is dropped first.</summary>
+    private void Reference(PdfStructureElement element, PdfAnnotation annotation)
+    {
+        if (!_referenced.Add(annotation.Dictionary))
+        {
+            return;
+        }
+
+        annotation.Dictionary.Remove(StructureNames.StructParent);
+        element.AddObjectReference(annotation.Reference!, annotation.Page);
+    }
+
+    /// <summary>Makes every annotation listed directly in a page's <c>Annots</c> array an indirect object, which an object reference needs (§14.7.5.3).</summary>
+    private static void IndirectAnnotations(PdfDocument document, PdfPage page)
+    {
+        if (page.Dictionary.TryGetValue(Annots, out CosObject? annots) && document.Resolve(annots) is CosArray array)
+        {
+            for (int index = 0; index < array.Count; index++)
+            {
+                if (array[index] is CosDictionary annotation)
+                {
+                    array[index] = document.AddObject(annotation);
+                }
+            }
+        }
     }
 
     private static CosReal Number(double value) => new CosReal(Math.Round(value, 3));

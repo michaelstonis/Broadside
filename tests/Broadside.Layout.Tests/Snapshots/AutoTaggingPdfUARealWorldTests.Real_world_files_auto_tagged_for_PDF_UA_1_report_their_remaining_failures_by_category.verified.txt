@@ -1,0 +1,70 @@
+﻿66 files, 66 auto-tagged, 1 conform to PDF/UA-1 by the library's check
+3 files: annotations and form fields: no alternate description (Contents, TU)
+65 files: fonts: not embedded, or a glyph with no Unicode (supply fonts and ToUnicode; PDF/A conversion embeds them)
+
+pdfium-tests/third_party/tcpdf/example_001.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_002.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_003.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_004.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_005.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_006.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_007.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_008.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_009.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_010.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_011.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_012.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_013.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_014.pdf: 7.18.1-3, 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_015.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_016.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_017.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_018.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_019.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_020.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_021.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_022.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_023.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_024.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_025.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_026.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_027.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_028.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_029.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_030.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_031.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_032.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_033.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_034.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_035.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_036.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_037.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_038.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_039.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_040.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_041.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_042.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_043.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_044.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_045.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_046.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_047.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_048.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_049.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_050.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_051.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_052.pdf: 7.18.1-3, 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_053.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_054.pdf: 7.18.1-3, 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_055.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_056.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_057.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_058.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_059.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_060.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_061.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_062.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_063.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_064.pdf: 7.21.4.1-1
+pdfium-tests/third_party/tcpdf/example_065.pdf: conforms (PDF/UA-1 identified)
+pdfjs/tracemonkey.pdf: 7.21.7-1
