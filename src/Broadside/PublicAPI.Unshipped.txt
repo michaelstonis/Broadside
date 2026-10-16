@@ -4885,3 +4885,9 @@ Broadside.Images.PdfImage.SetOptionalContent(Broadside.PdfOptionalContentMembers
 Broadside.Annotations.PdfAnnotation.RemoveOptionalContent() -> void
 Broadside.Annotations.PdfAnnotation.SetOptionalContent(Broadside.PdfOptionalContentGroup! group) -> void
 Broadside.Annotations.PdfAnnotation.SetOptionalContent(Broadside.PdfOptionalContentMembership! membership) -> void
+Broadside.PdfUAConformance
+Broadside.PdfUAConformance.None = 0 -> Broadside.PdfUAConformance
+Broadside.PdfUAConformance.PdfUA1 = 1 -> Broadside.PdfUAConformance
+Broadside.PdfSaveOptions.PdfUAConformance.get -> Broadside.PdfUAConformance
+Broadside.PdfSaveOptions.PdfUAConformance.set -> void
+Broadside.PdfSaveOptions.WithPdfUAConformance(Broadside.PdfUAConformance conformance) -> Broadside.PdfSaveOptions!
