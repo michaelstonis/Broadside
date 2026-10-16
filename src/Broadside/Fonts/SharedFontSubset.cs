@@ -158,6 +158,9 @@ internal sealed class SharedFontSubset
     /// <summary>Gets the reference of the Type 0 font dictionary canvases and appearances name in their <c>Font</c> resources.</summary>
     public CosReference Font { get; }
 
+    /// <summary>Gets the reference of the CIDFont dictionary (issue #229: a font a PDF/A conversion embeds names it as its descendant).</summary>
+    public CosReference CidFont => _cidFont;
+
     /// <summary>Gets the program's PostScript name, without a subset tag.</summary>
     public string PostScriptName { get; }
 

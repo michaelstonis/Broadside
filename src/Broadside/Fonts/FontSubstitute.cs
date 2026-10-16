@@ -43,6 +43,9 @@ public sealed class FontSubstitute
     /// <summary>Gets a value indicating whether the glyph names are ZapfDingbats names (a1, a2, ...), read through its own glyph list.</summary>
     internal bool IsZapfDingbats { get; }
 
+    /// <summary>Gets the program's bytes and face as the resolver returned them (issue #229 embeds them).</summary>
+    internal FontResolution? Resolution { get; init; }
+
     /// <summary>Gets the advance width of one of the substitute's glyphs, in thousandths of text space.</summary>
     /// <param name="glyphId">The glyph id in <see cref="Program"/>.</param>
     /// <returns>The width; 0 when the program records none for the glyph.</returns>

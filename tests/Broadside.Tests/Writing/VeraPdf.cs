@@ -56,6 +56,55 @@ internal static class VeraPdf
     }
 
     /// <summary>The first failed checks of a rule: their error messages (with veraPDF's arguments) and contexts.</summary>
+    /// <summary>
+    /// Validates several files in one veraPDF run (one JVM start): the failed rules of each file, by its path, formatted as by
+    /// <see cref="FailedRules"/>; a file veraPDF could not validate gets the single entry "not validated".
+    /// </summary>
+    public static IReadOnlyDictionary<string, IReadOnlyList<string>> FailedRulesByFile(IReadOnlyList<string> paths, string flavour)
+    {
+        var result = new Dictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+        if (paths.Count == 0)
+        {
+            return result;
+        }
+
+        var start = new ProcessStartInfo(Find())
+        {
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+        };
+        foreach (string argument in new[] { "--flavour", flavour, "--format", "xml" }.Concat(paths))
+        {
+            start.ArgumentList.Add(argument);
+        }
+
+        using Process process = Process.Start(start)!;
+        Task<string> error = process.StandardError.ReadToEndAsync();
+        string output = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+        int xml = output.IndexOf('<', StringComparison.Ordinal);
+        Assert.True(xml >= 0, $"veraPDF wrote no report (exit code {process.ExitCode}): {error.Result}");
+        XDocument report = XDocument.Parse(output[xml..]);
+        foreach (XElement job in report.Descendants("job"))
+        {
+            string? name = ((string?)job.Element("item")?.Element("name"))?.Trim();
+            if (name is null)
+            {
+                continue;
+            }
+
+            XElement? details = job.Descendants("details").FirstOrDefault();
+            result[Path.GetFullPath(name)] = details is null
+                ? ["not validated"]
+                : [.. details.Elements("rule")
+                    .Where(rule => (string?)rule.Attribute("status") == "failed")
+                    .Select(rule => $"{(string?)rule.Attribute("clause")}-{(string?)rule.Attribute("testNumber")}: {((string?)rule.Element("description"))?.Trim()} ({(string?)rule.Attribute("failedChecks")}){Checks(rule)}")];
+        }
+
+        return result;
+    }
+
     private static string Checks(XElement rule) => string.Concat(rule.Elements("check").Take(3)
         .Select(check => $" | {((string?)check.Element("errorMessage"))?.Trim()} at {((string?)check.Element("context"))?.Trim()}"));
 

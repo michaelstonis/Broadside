@@ -76,6 +76,50 @@ internal sealed class EmbeddedCanvasFont : PdfCanvasFont
             return new EmbeddedCanvasFont(document, shared);
         }
 
+        if (Prepare(document, resolution, cff, out problem) is not { } prepared)
+        {
+            return null;
+        }
+
+        if ((glyphs = SharedFontSubset.Cover(prepared.Map, prepared.Program.GlyphCount, text, out uncovered)) is null
+            || SharedFontSubset.Create(document, prepared.Source, prepared.Program, prepared.Map, glyphs, out problem) is not { } created)
+        {
+            return null;
+        }
+
+        document.FontSubsets.Add(resolution, created);
+        return new EmbeddedCanvasFont(document, created);
+    }
+
+    /// <summary>
+    /// Embeds the glyphs <paramref name="glyphs"/> (character to glyph id) of a resolved program in the document's shared subset of
+    /// it, created when the document has none (issue #229: the program of a font a PDF/A conversion embeds). TrueType, OpenType,
+    /// bare CFF and Type 1 programs are accepted, as by <see cref="PdfDocument.EmbedFont(ReadOnlyMemory{byte}, int)"/>.
+    /// </summary>
+    /// <returns>The shared subset, or <see langword="null"/> with <paramref name="problem"/> when the program cannot be embedded.</returns>
+    public static SharedFontSubset? Embed(PdfDocument document, FontResolution resolution, Dictionary<int, int> glyphs, out string? problem)
+    {
+        problem = null;
+        if (document.FontSubsets.Find(document, resolution) is { } shared)
+        {
+            shared.Include(document, glyphs);
+            return shared;
+        }
+
+        if (Prepare(document, resolution, cff: true, out problem) is not { } prepared
+            || SharedFontSubset.Create(document, prepared.Source, prepared.Program, prepared.Map, glyphs, out problem) is not { } created)
+        {
+            return null;
+        }
+
+        document.FontSubsets.Add(resolution, created);
+        return created;
+    }
+
+    /// <summary>The program to embed, its parsed form and its Unicode map; <see langword="null"/> with the reason when it cannot be embedded.</summary>
+    private static (EmbeddedProgram Source, FontProgram Program, FontCharacterMap Map)? Prepare(PdfDocument document, FontResolution resolution, bool cff, out string? problem)
+    {
+        problem = null;
         EmbeddedProgram source;
         FontResolution parsed = resolution;
         if (cff && resolution.FaceIndex == 0 && CffFont.IsHeader(resolution.Data.Span))
@@ -134,14 +178,7 @@ internal sealed class EmbeddedCanvasFont : PdfCanvasFont
             return null;
         }
 
-        if ((glyphs = SharedFontSubset.Cover(cmap, program.GlyphCount, text, out uncovered)) is null
-            || SharedFontSubset.Create(document, source, program, cmap, glyphs, out problem) is not { } created)
-        {
-            return null;
-        }
-
-        document.FontSubsets.Add(resolution, created);
-        return new EmbeddedCanvasFont(document, created);
+        return (source, program, cmap);
     }
 
     /// <inheritdoc/>

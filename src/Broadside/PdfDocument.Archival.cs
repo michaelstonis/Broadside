@@ -177,6 +177,80 @@ public sealed partial class PdfDocument
         }
     }
 
+    /// <summary>
+    /// Converts the document to a PDF/A level (issue #229): changes what the level forbids that can be fixed, embeds the fonts it does
+    /// not embed, and reports what it cannot fix. Save with <see cref="PdfAConversion.CreateSaveOptions"/> to write the result; the
+    /// save adds the output intent and the XMP identification, and identifies the file only when it conforms.
+    /// </summary>
+    /// <param name="conformance">The level: any but <see cref="PdfAConformance.None"/>.</param>
+    /// <returns>What was changed, what was not and why, and the rules the document still breaks.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="conformance"/> is <see cref="PdfAConformance.None"/> or not a level.</exception>
+    /// <exception cref="DiagnosticException">
+    /// In strict mode, when the converted document would still break a rule: the conversion is undone first, so the document is as
+    /// it was (issue #306).
+    /// </exception>
+    /// <remarks>
+    /// <para>
+    /// ISO 19005-2, -3 and -4, cited by veraPDF validation-profile rule identifiers. Fixed: encryption (removed by the save,
+    /// 6.1.3-2), a catalog version above the level's base (6.1.2-1), LZWDecode streams (6.1.7.2-1), output intents'
+    /// DestOutputProfileRef (6.2.3-3), transfer functions and halftones (6.2.5), image alternates, OPI and interpolation (6.2.8),
+    /// form XObjects' OPI, PostScript and reference entries (6.2.9-1, 6.2.9-2), undefined blend modes (6.2.10-1), non-embedded
+    /// Type 1 and TrueType fonts (6.2.11.4.1-1), forbidden annotations, flags and appearance entries (6.3), form and annotation
+    /// actions (6.4.1), forbidden actions and the JavaScript name tree (6.5), alternate presentations and PresSteps (6.10),
+    /// Requirements (6.11-1) and, for PDF/A-3 and PDF/A-4f, embedded files made associated files (6.8-1, 6.8-3, 6.8-4).
+    /// </para>
+    /// <para>
+    /// A non-embedded font is embedded as a subset of the program the document's font resolvers give its text
+    /// (<see cref="Fonts.PdfSimpleFont.Substitute"/>; configure the Standard 14 fonts package or a resolver), as a Type 0 font over the same
+    /// one-byte codes, with a ToUnicode CMap that keeps the text it extracts to. A font is left unembedded, and reported, when no
+    /// program is found, when the program lacks a glyph the content shows (6.2.11.8-1) or when its widths differ from the font's
+    /// (6.2.11.5-1). Not converted: composite fonts without a program, device colour the output intent does not cover (6.2.4.3),
+    /// annotations without appearance streams (6.3.3-1), PostScript XObjects (6.2.9-3), inline images (6.1.10-1), external streams
+    /// (6.1.7.1-3) and embedded files PDF/A-2 and PDF/A-4 cannot verify (6.8-5, ISO 19005-4 6.9-3).
+    /// </para>
+    /// </remarks>
+    public PdfAConversion ConvertToPdfA(PdfAConformance conformance)
+    {
+        if (conformance == PdfAConformance.None || !Enum.IsDefined(conformance))
+        {
+            throw new ArgumentOutOfRangeException(nameof(conformance), conformance, "Choose the PDF/A level to convert to.");
+        }
+
+        var changes = new CosChangeLog();
+        IReadOnlyList<string> changed, unfixed;
+        using (changes.Record())
+        {
+            (changed, unfixed) = PdfAConverter.Convert(this, conformance);
+        }
+
+        var conversion = new PdfAConversion(conformance, changed, unfixed, [], removeEncryption: Security is not null);
+        PdfSaveOptions options = conversion.CreateSaveOptions();
+        IReadOnlyList<PdfAViolation> violations = PdfAChecker.Check(this, options);
+        if (violations.Count > 0 && _diagnostics.IsStrict)
+        {
+            changes.Revert();
+            ReportNonConformance(options, violations[0]);
+        }
+
+        // One diagnostic each, listing every item: the sink keeps one diagnostic per code for an object.
+        if (changed.Count > 0)
+        {
+            _diagnostics.Report(DiagnosticCodes.PdfAConverted, DiagnosticSeverity.Information, $"Converting to {conformance.Describe()}: {string.Join("; ", changed)}.");
+        }
+
+        if (unfixed.Count > 0)
+        {
+            _diagnostics.Report(DiagnosticCodes.PdfANotConverted, DiagnosticSeverity.Information, $"Converting to {conformance.Describe()} left what it could not fix: {string.Join("; ", unfixed)}.");
+        }
+
+        foreach (PdfAViolation violation in violations)
+        {
+            ReportNonConformance(options, violation);
+        }
+
+        return new PdfAConversion(conformance, changed, unfixed, [.. violations.Select(violation => new PdfARuleViolation(violation.Rule, violation.Message))], Security is not null);
+    }
+
     /// <summary>Adds the PDF/A output intent (ISO 32000-2 §14.11.5, Table 401) unless the catalog already has a <c>GTS_PDFA1</c> one with a profile.</summary>
     private void AddPdfAOutputIntent()
     {
