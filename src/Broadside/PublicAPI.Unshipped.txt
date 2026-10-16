@@ -4908,6 +4908,21 @@ Broadside.PdfSaveOptions.WithWellTaggedConformance(Broadside.PdfWellTaggedConfor
 const Broadside.PdfDeclaration.WellTaggedReuse = "http://pdfa.org/declarations/wtpdf#reuse1.0" -> string!
 const Broadside.PdfDeclaration.WellTaggedAccessibility = "http://pdfa.org/declarations/wtpdf#accessibility1.0" -> string!
 Broadside.XmpPacket.PdfUARevision.get -> int?
+Broadside.PdfAConversion
+Broadside.PdfAConversion.Changes.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.PdfAConversion.Conformance.get -> Broadside.PdfAConformance
+Broadside.PdfAConversion.CreateSaveOptions() -> Broadside.PdfSaveOptions!
+Broadside.PdfAConversion.IsConformant.get -> bool
+Broadside.PdfAConversion.NotConverted.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.PdfAConversion.Violations.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfARuleViolation>!
+Broadside.PdfARuleViolation
+Broadside.PdfARuleViolation.Message.get -> string!
+Broadside.PdfARuleViolation.Message.init -> void
+Broadside.PdfARuleViolation.PdfARuleViolation() -> void
+Broadside.PdfARuleViolation.PdfARuleViolation(string! Rule, string! Message) -> void
+Broadside.PdfARuleViolation.Rule.get -> string!
+Broadside.PdfARuleViolation.Rule.init -> void
+Broadside.PdfDocument.ConvertToPdfA(Broadside.PdfAConformance conformance) -> Broadside.PdfAConversion!
 Broadside.Layout.AutoTaggingOptions
 Broadside.Layout.AutoTaggingOptions.AutoTaggingOptions() -> void
 Broadside.Layout.AutoTaggingOptions.FigureAlternateText.get -> string!
