@@ -52,8 +52,10 @@ fi
 runtime_env=(DOTNET_TieredCompilation=0 DOTNET_PROCESSOR_COUNT=1)
 
 # The timing job: one process per case, 3 warm-up and 10 measured iterations of about 100 ms. Plain BenchmarkDotNet options
-# (not a --job name) so a base commit older than the gate runs the same job.
-bench_args=(--launchCount 1 --warmupCount 3 --iterationCount 10 --iterationTime 100 --exporters json
+# (not a --job name) so a base commit older than the gate runs the same job. BenchmarkDotNet builds its generated project, and
+# with it the whole project graph without the compiler server, once per invocation: since Phase 3 (rendering, fonts, Skia) that
+# takes more than its default 120 s limit on the 4-vCPU runner, so the limit is 15 minutes.
+bench_args=(--launchCount 1 --warmupCount 3 --iterationCount 10 --iterationTime 100 --exporters json --buildTimeout 900
   --envVars DOTNET_TieredCompilation:0 DOTNET_PROCESSOR_COUNT:1)
 
 filters=('*')

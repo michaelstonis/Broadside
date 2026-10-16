@@ -177,5 +177,16 @@ and changed others, e.g. +32 B per document open), the baseline was re-recorded 
 [`record-1`](https://github.com/michaelstonis/Broadside/actions/runs/38245757517): 401 cases, base and pull-request figures equal
 for all but the two ranged ones, no slower case.
 
+**Current baseline**: recorded by [run 38951269081](https://github.com/michaelstonis/Broadside/actions/runs/38951269081) (pull
+request #331, the gate merged with the Phase 3 integration branch at `c123b691`), from its `bench-gate-baseline` artifact,
+unedited: 560 cases, every one exact. Against `record-1` it adds 159 cases (Phase 3's rendering, text, Skia, hit-test,
+real-world render and `OpenAndWalk` cases of new corpus files) and changes 217, reviewed by class: about +1.6 KB per document
+open in every open path (`DocumentOpen`, `LazyLoading`, `Repair`, `OpenAndWalk`, `ContentInterpretation`, save; the Phase 3
+document model, including #288's fixed-capacity tables), +8 B per CFF parse, `CorpusBenchmarks.ReadAllCorpusFiles` +522 KB
+(more corpus files), `DisplayListBenchmarks.Build(path-heavy-256kb)` +163 KB (display-list regions and extents),
+`BuildPageMcidIndex` now exact (71,752 / 711,984 / 6,946,480 B), and `TextExtractionBenchmarks.ExtractText` -6.4 MB (Phase 3
+text extraction rework). That run's timings were not compared (BenchmarkDotNet's build hit its 120 s limit, fixed since with
+`--buildTimeout`); the run that validated this baseline in full is linked from #331.
+
 The first runs (`aa-1` to `aa-3`, before the runtime settings and the allocation mode above) are where the 4.7x tier-0 mode,
 the per-process allocation spread and the BenchmarkDotNet allocation drift were found.
