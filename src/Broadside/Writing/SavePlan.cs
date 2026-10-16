@@ -225,8 +225,10 @@ internal static class SavePlan
         foreach ((CosReference reference, CosObject value) in kept)
         {
             // Source bytes of an encrypted file are ciphertext under the old key and number; an encrypted or decrypted file
-            // serializes every object.
+            // serializes every object. A PDF/A save serializes every object too: copied bytes keep the source's stream keyword
+            // line ends and Length (ISO 19005-2 6.1.7.1, veraPDF rules 6.1.7.1-1 and -2) and other file-syntax deviations (issue #229).
             ObjectSourceBytes? bytes = encryption.Encryptor is null
+                && options.PdfAConformance == PdfAConformance.None
                 && !value.IsDirty
                 && (linearized is null || CopiesIntoLinearized(linearized, reference, value))
                 && loader.TryGetSourceBytes(reference, out ObjectSourceBytes found)

@@ -48,6 +48,11 @@ internal static partial class DiagnosticCodes
     public const string PdfANonConformant = nameof(PdfANonConformant);
     public const string PdfANotIdentified = nameof(PdfANotIdentified);
 
+    // Converting a document to a PDF/A level (issue #229): what the conversion changed or removed, and what it could not fix and why
+    // (both Information; the rules still not met are PdfANonConformant warnings).
+    public const string PdfAConverted = nameof(PdfAConverted);
+    public const string PdfANotConverted = nameof(PdfANotConverted);
+
     // Saving with a PDF/UA conformance (issue #204; veraPDF PDF/UA-1 rule identifiers): a failure condition the document has
     // (Warning, refused in strict mode), and a lenient save that therefore does not claim the conformance (Information).
     public const string PdfUANonConformant = nameof(PdfUANonConformant);

@@ -246,9 +246,14 @@ jobs:
           dotnet build tests/Broadside.Fonts.Standard14.Tests -c Release -warnaserror
           dotnet build tests/Broadside.Layout.Tests -c Release -warnaserror
 
+      # The PDF/A conversion of real-world files (#229) converts every file of these two corpora and checks each it says conforms.
+      - name: Fetch the pdfbox and pdf20examples corpora
+        run: dotnet run -c Release --project tools/CorpusFetcher -- --only pdfbox,pdf20examples
+
       - name: Validate PDF/A output with veraPDF
         env:
           BROADSIDE_REQUIRE_VERAPDF: '1'
+          BROADSIDE_CORPUS_DIR: ${{ github.workspace }}/corpus
         run: |
           dotnet test --project tests/Broadside.Tests -c Release --no-build -- --filter-trait "Category=VeraPdf"
           dotnet test --project tests/Broadside.Fonts.Standard14.Tests -c Release --no-build -- --filter-trait "Category=VeraPdf"
