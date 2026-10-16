@@ -105,6 +105,10 @@ _Avoid_: Render queue, tile manager
 Zooming that shows each step at once from the tiles already on a surface (scaled, over each page's paper), keeps the anchor under the pointer, and renders sharp tiles only once the zoom settles.
 _Avoid_: Zoom controller, live zoom
 
+**Input model**:
+Turns a shell's pointer, touch, wheel and keyboard events into the viewer's scrolls, zooms and page turns (drag with inertia, pinch, double-tap, snapping, keys), on an injected clock; each shell only translates its platform's events into it.
+_Avoid_: Gesture recognizer, input controller, input handler
+
 **Page layout**:
 Where every page of a document sits in a viewer, in points: pages grouped into spreads, spreads in a strip with gaps and padding, each page turned by its own rotation plus the user's. Maps between viewport pixels and each page's user space.
 _Avoid_: Page arrangement, document layout (ambiguous with flow layout)
