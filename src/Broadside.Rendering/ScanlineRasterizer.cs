@@ -16,7 +16,8 @@ namespace Broadside.Rendering;
 /// exact area of the pixel inside each edge-bounded region, the cell scheme of FreeType's and Anti-Grain Geometry's scanline
 /// rasterizers. The winding value integrated over a pixel decides its coverage: non-zero (§8.5.3.3.2) clamps its magnitude at 1;
 /// even-odd (§8.5.3.3.3) folds it into 0..1 by parity. Where several edges cross one pixel, this is the area-weighted estimate every
-/// such rasterizer makes. A shape covering a pixel only partly gives it partial coverage rather than painting it whole; zero-area
+/// such rasterizer makes; a stroke, whose pieces may overlap, is sampled instead so that it paints their union (<see cref="Union"/>).
+/// A shape covering a pixel only partly gives it partial coverage rather than painting it whole; zero-area
 /// shapes paint nothing, except for degenerate subpaths, which <see cref="AddPixel"/> handles as §8.5.3.3.1 requires.
 /// </para>
 /// <para>
@@ -32,6 +33,12 @@ internal sealed class ScanlineRasterizer : IDisposable
     /// </summary>
     private const double AreaResidue = 1e-9;
 
+    /// <summary>How many sample lines a pixel row is cut into when the shape is painted as a union (<see cref="Union"/>).</summary>
+    private const int SampleLines = 4;
+
+    /// <summary>The height of one sample line, in pixels.</summary>
+    private const double SampleHeight = 1.0 / SampleLines;
+
     private long[] _keys = ArrayPool<long>.Shared.Rent(1024);
     private Cell[] _cells = ArrayPool<Cell>.Shared.Rent(1024);
     private int _count;
@@ -41,6 +48,13 @@ internal sealed class ScanlineRasterizer : IDisposable
     private int _lastY = int.MinValue;
     private bool _sorted;
     private bool _reachesRight;
+    private bool _union;
+    private bool _resolved;
+
+    // A union shape's edge pieces, one per pixel, before they resolve into cells; and the crossings of one sample line in a pixel.
+    private Piece[] _pieces = ArrayPool<Piece>.Shared.Rent(1024);
+    private double[] _crossingX = new double[8];
+    private double[] _crossingDy = new double[8];
 
     /// <summary>Starts a new shape clipped to <c>[0, width) × [0, height)</c>.</summary>
     public void Reset(int width, int height)
@@ -52,6 +66,8 @@ internal sealed class ScanlineRasterizer : IDisposable
         _lastY = int.MinValue;
         _sorted = false;
         _reachesRight = false;
+        _union = false;
+        _resolved = false;
     }
 
     /// <summary>
@@ -72,6 +88,28 @@ internal sealed class ScanlineRasterizer : IDisposable
     /// (no group, or a group that needs nothing per paint) hands the runs straight to the sink.
     /// </summary>
     public GroupLayer? Hook { get; set; }
+
+    /// <summary>
+    /// Gets or sets whether the shape is painted as the union of its pieces, for a stroke (ISO 32000-2 §8.5.3.1: a stroke paints one
+    /// shape, so where its pieces overlap an edge pixel is covered once, not once per piece). Set it on a new shape, before its first
+    /// edge; <see cref="Reset"/> turns it off. It takes effect only with the exact <see cref="Rule"/>, and paints with the non-zero
+    /// winding rule.
+    /// </summary>
+    /// <remarks>
+    /// Integrating the winding number over a pixel, as the cells do, adds the anti-aliased edges of overlapping pieces before the
+    /// non-zero clamp: two pieces each covering half of an edge pixel would paint it whole. A union shape is sampled instead: each
+    /// pixel row is cut into <see cref="SampleLines"/> sample lines, an edge crosses each line it reaches once per pixel column, at
+    /// the middle of its piece there and with the height of that piece, and a walk along the line, crossings in order of position,
+    /// clamps the winding to the line's height between every two of them. Edges are kept as pieces, one per pixel, sorted like cells;
+    /// each pixel's clamped coverage becomes one ordinary cell in place, so the sweep, the clip and the hook stay the same. A shape
+    /// without overlaps gets the exact area of every pixel, as before; an overlap is exact along the line and within a sample line
+    /// across it. The walk costs about as much again as scan conversion itself, so only strokes use it.
+    /// </remarks>
+    public bool Union
+    {
+        get => _union;
+        set => _union = value && Rule == CoverageRule.Exact;
+    }
 
     /// <summary>Starts a new shape with the size of the last one.</summary>
     public void Clear() => Reset(_width, _height);
@@ -262,6 +300,7 @@ internal sealed class ScanlineRasterizer : IDisposable
     /// <summary>Sorts the cells by row, then column.</summary>
     private void Sort()
     {
+        Resolve();
         if (!_sorted)
         {
             _keys.AsSpan(0, _count).Sort(_cells.AsSpan(0, _count));
@@ -332,8 +371,10 @@ internal sealed class ScanlineRasterizer : IDisposable
     {
         ArrayPool<long>.Shared.Return(_keys);
         ArrayPool<Cell>.Shared.Return(_cells);
+        ArrayPool<Piece>.Shared.Return(_pieces);
         _keys = [];
         _cells = [];
+        _pieces = [];
         _count = 0;
     }
 
@@ -370,6 +411,7 @@ internal sealed class ScanlineRasterizer : IDisposable
             return;
         }
 
+
         double sign = y1 > y0 ? 1 : -1;
         double top = Math.Min(y0, y1);
         double bottom = Math.Max(y0, y1);
@@ -387,6 +429,12 @@ internal sealed class ScanlineRasterizer : IDisposable
 
             double xa = x0 + ((ya - y0) * slope);
             double xb = x0 + ((yb - y0) * slope);
+            if (_union)
+            {
+                AddUnionRowPiece(row, Math.Clamp(xa, 0, _width), ya, Math.Clamp(xb, 0, _width), yb, sign);
+                continue;
+            }
+
             AddRowPiece(row, Math.Clamp(xa, 0, _width), Math.Clamp(xb, 0, _width), sign * (yb - ya));
         }
     }
@@ -420,6 +468,164 @@ internal sealed class ScanlineRasterizer : IDisposable
         }
     }
 
+    /// <summary>
+    /// Adds the piece of an edge of a union shape inside one row, from (<paramref name="xa"/>, <paramref name="ya"/>) down to
+    /// (<paramref name="xb"/>, <paramref name="yb"/>), with the edge's direction <paramref name="sign"/>: one piece per pixel column.
+    /// </summary>
+    private void AddUnionRowPiece(int row, double xa, double ya, double xb, double yb, double sign)
+    {
+        double left = Math.Min(xa, xb);
+        double right = Math.Max(xa, xb);
+        int column = (int)Math.Floor(left);
+        int lastColumn = (int)Math.Ceiling(right) - 1;
+        if (lastColumn <= column)
+        {
+            AddPiece(row, column, xa, ya, xb, yb, sign);
+            return;
+        }
+
+        double slope = (yb - ya) / (xb - xa);
+        for (int x = column; x <= lastColumn; x++)
+        {
+            double u = Math.Max(left, x);
+            double v = Math.Min(right, x + 1);
+            double yu = ya + ((u - xa) * slope);
+            double yv = ya + ((v - xa) * slope);
+            if (v > u && yu != yv)
+            {
+                AddPiece(row, x, u, yu, v, yv, sign);
+            }
+        }
+    }
+
+    /// <summary>Adds the piece of a union shape's edge inside one pixel, kept relative to the pixel and pointing the edge's way.</summary>
+    private void AddPiece(int row, int column, double x0, double y0, double x1, double y1, double sign)
+    {
+        if (column >= _width)
+        {
+            _reachesRight = true;
+            return;
+        }
+
+        if (_count == _keys.Length || _count == _cells.Length || _count == _pieces.Length)
+        {
+            Grow();
+        }
+
+        if ((y1 > y0) != (sign > 0))
+        {
+            (x0, y0, x1, y1) = (x1, y1, x0, y0);
+        }
+
+        _keys[_count] = ((long)row << 32) | (uint)column;
+        _pieces[_count] = new Piece((float)(y0 - row), (float)(y1 - row), (float)(x0 - column), (float)((x1 - x0) / (y1 - y0)));
+        _count++;
+    }
+
+    /// <summary>
+    /// Turns the pieces of a union shape into cells, once. Along each sample line, in order of position, the winding clamped to the
+    /// line's height is the line's coverage; every change of it adds to the cell of its pixel. The pieces are sorted by pixel, as the
+    /// cells are, so the cells come out in place and sorted.
+    /// </summary>
+    private void Resolve()
+    {
+        if (!_union || _resolved)
+        {
+            return;
+        }
+
+        _resolved = true;
+        Span<long> keys = _keys.AsSpan(0, _count);
+        Span<Piece> pieces = _pieces.AsSpan(0, _count);
+        keys.Sort(pieces);
+        Span<double> winding = stackalloc double[SampleLines];
+        Span<double> coverage = stackalloc double[SampleLines];
+        int resolved = 0;
+        long row = -1;
+        int index = 0;
+        while (index < keys.Length)
+        {
+            long key = keys[index];
+            if (key >> 32 != row)
+            {
+                row = key >> 32;
+                winding.Clear();
+                coverage.Clear();
+            }
+
+            int end = index + 1;
+            while (end < keys.Length && keys[end] == key)
+            {
+                end++;
+            }
+
+            double cover = 0;
+            double area = 0;
+            if (end - index == 1)
+            {
+                // One edge in this pixel: only the lines it reaches.
+                Piece piece = pieces[index];
+                int first = Math.Max(0, (int)(Math.Min(piece.Y0, piece.Y1) * SampleLines));
+                int last = Math.Min(SampleLines - 1, (int)Math.Ceiling(Math.Max(piece.Y0, piece.Y1) * SampleLines) - 1);
+                for (int line = first; line <= last; line++)
+                {
+                    if (piece.Cross(line, out double x, out double dy))
+                    {
+                        Walk(ref winding[line], ref coverage[line], x, dy, ref cover, ref area);
+                    }
+                }
+            }
+            else
+            {
+                // Several edges cross this pixel: walk each sample line's crossings in order of position.
+                for (int line = 0; line < SampleLines; line++)
+                {
+                    int crossings = 0;
+                    for (int i = index; i < end; i++)
+                    {
+                        if (pieces[i].Cross(line, out double x, out double dy))
+                        {
+                            if (crossings == _crossingX.Length)
+                            {
+                                Array.Resize(ref _crossingX, crossings * 2);
+                                Array.Resize(ref _crossingDy, crossings * 2);
+                            }
+
+                            _crossingX[crossings] = x;
+                            _crossingDy[crossings] = dy;
+                            crossings++;
+                        }
+                    }
+
+                    _crossingX.AsSpan(0, crossings).Sort(_crossingDy.AsSpan(0, crossings));
+                    for (int i = 0; i < crossings; i++)
+                    {
+                        Walk(ref winding[line], ref coverage[line], _crossingX[i], _crossingDy[i], ref cover, ref area);
+                    }
+                }
+            }
+
+            _keys[resolved] = key;
+            _cells[resolved] = new Cell { Cover = cover, Area = area };
+            resolved++;
+            index = end;
+        }
+
+        _count = resolved;
+        _sorted = true;
+    }
+
+    /// <summary>Steps along a sample line over a crossing: the winding changes, and so may the line's clamped coverage.</summary>
+    private static void Walk(ref double winding, ref double coverage, double x, double dy, ref double cover, ref double area)
+    {
+        winding += dy;
+        double next = Math.Min(Math.Abs(winding), SampleHeight);
+        double change = next - coverage;
+        cover += change;
+        area += change * x;
+        coverage = next;
+    }
+
     private void AddCell(int x, int y, double cover, double area)
     {
         if (x >= _width)
@@ -436,7 +642,7 @@ internal sealed class ScanlineRasterizer : IDisposable
             return;
         }
 
-        if (_count == _cells.Length)
+        if (_count == _keys.Length || _count == _cells.Length)
         {
             Grow();
         }
@@ -448,17 +654,32 @@ internal sealed class ScanlineRasterizer : IDisposable
         _lastY = y;
     }
 
+    /// <summary>
+    /// Doubles the arrays the shape needs: keys and cells, and for a union shape its pieces too (its cells hold what they resolve
+    /// into, at most one per piece).
+    /// </summary>
     private void Grow()
     {
-        int size = _cells.Length * 2;
-        long[] keys = ArrayPool<long>.Shared.Rent(size);
-        Cell[] cells = ArrayPool<Cell>.Shared.Rent(size);
-        _keys.AsSpan(0, _count).CopyTo(keys);
-        _cells.AsSpan(0, _count).CopyTo(cells);
-        ArrayPool<long>.Shared.Return(_keys);
-        ArrayPool<Cell>.Shared.Return(_cells);
-        _keys = keys;
-        _cells = cells;
+        int size = _count * 2;
+        _keys = Grow(_keys, size, _count);
+        _cells = Grow(_cells, size, _union ? 0 : _count);
+        if (_union)
+        {
+            _pieces = Grow(_pieces, size, _count);
+        }
+    }
+
+    private static T[] Grow<T>(T[] array, int size, int live)
+    {
+        if (array.Length >= size)
+        {
+            return array;
+        }
+
+        T[] grown = ArrayPool<T>.Shared.Rent(size);
+        array.AsSpan(0, live).CopyTo(grown);
+        ArrayPool<T>.Shared.Return(array);
+        return grown;
     }
 
     /// <summary>Composites an opaque colour by the coverage of each run, through a compositor.</summary>
@@ -475,6 +696,29 @@ internal sealed class ScanlineRasterizer : IDisposable
     {
         public double Cover;
         public double Area;
+    }
+
+    /// <summary>
+    /// The piece of a union shape's edge inside one pixel, relative to the pixel: from height <see cref="Y0"/> to <see cref="Y1"/> the
+    /// edge's way, starting at <see cref="X0"/> and moving <see cref="Slope"/> across per unit down.
+    /// </summary>
+    private readonly record struct Piece(float Y0, float Y1, float X0, float Slope)
+    {
+        /// <summary>Gets where the piece crosses sample line <paramref name="line"/> (the middle of its part there) and the signed height of that part.</summary>
+        public bool Cross(int line, out double x, out double dy)
+        {
+            double top = Math.Max(Math.Min(Y0, Y1), line * SampleHeight);
+            double bottom = Math.Min(Math.Max(Y0, Y1), (line + 1) * SampleHeight);
+            if (bottom <= top)
+            {
+                x = dy = 0;
+                return false;
+            }
+
+            x = X0 + (Slope * (((top + bottom) / 2) - Y0));
+            dy = Y1 > Y0 ? bottom - top : top - bottom;
+            return true;
+        }
     }
 }
 
