@@ -39,6 +39,8 @@ internal sealed partial class PdfUAChecker
 {
     private static readonly CosName Contents = new("Contents");
     private static readonly CosName F = new("F");
+    private static readonly CosName TU = new("TU");
+    private static readonly CosName ParentKey = new("Parent");
     private static readonly CosName Font = new("Font");
     private static readonly CosName Headers = new("Headers");
     private static readonly CosName MCID = new("MCID");
@@ -53,6 +55,9 @@ internal sealed partial class PdfUAChecker
     private static readonly CosName FontDescriptor = new("FontDescriptor");
     private static readonly CosName BaseFont = new("BaseFont");
     private static readonly CosName[] FontFiles = [new("FontFile"), new("FontFile2"), new("FontFile3")];
+    private static readonly CosName EncodingKey = new("Encoding");
+    private static readonly CosName BaseEncoding = new("BaseEncoding");
+    private static readonly CosName FlagsKey = new("Flags");
 
     /// <summary>The kids each grouping element may have (7.2-3, 7.2-10, 7.2-19, 7.2-20, 7.2-27, 7.2-36 to 7.2-38).</summary>
     private static readonly Dictionary<string, (string Rule, string[] Kids)> AllowedKids = new(StringComparer.Ordinal)
@@ -197,6 +202,11 @@ internal sealed partial class PdfUAChecker
 
     private CosObject Resolve(CosObject? value) => _document.Resolve(value);
 
+    /// <summary>Whether a widget's field (the widget itself when merged, else its parent) has a non-empty <c>TU</c> (ISO 32000-2 §12.7.4.1, Table 226).</summary>
+    private bool HasToolTip(CosDictionary widget) =>
+        Resolve(widget.GetValueOrDefault(TU)) is CosString { Bytes.Length: > 0 }
+        || (Dictionary(widget, ParentKey) is { } field && Resolve(field.GetValueOrDefault(TU)) is CosString { Bytes.Length: > 0 });
+
     private CosDictionary? Dictionary(CosDictionary owner, CosName key) => Resolve(owner.GetValueOrDefault(key)) switch
     {
         CosDictionary dictionary => dictionary,
@@ -309,6 +319,10 @@ internal sealed partial class PdfUAChecker
         {
             case "Figure" when string.IsNullOrEmpty(element.AlternateDescription) && element.ActualText is null:
                 Report("7.3-1", "a Figure has no alternate text (Alt) or replacement text (ActualText)", reference);
+                break;
+            case "Figure" when element.ActualText is null && _document.PlaceholderAlternateText is { } placeholders
+                && placeholders.TryGetValue(element.Dictionary, out string? placeholder) && element.AlternateDescription == placeholder:
+                Report("7.3-1", $"a Figure still has auto-tagging's placeholder alternate text '{placeholder}', not a description", reference);
                 break;
             case "Note":
                 string? id = element.Id is { } value ? System.Text.Encoding.Latin1.GetString(value.Bytes) : null;
@@ -524,6 +538,11 @@ internal sealed partial class PdfUAChecker
                     Report("7.18.4-1", "a widget annotation is not nested in a Form structure element", reference);
                 }
 
+                if (_part == 1 && string.IsNullOrEmpty(parent?.AlternateDescription) && !HasToolTip(annotation))
+                {
+                    Report("7.18.1-3", "a form field has no TU entry and its widget annotation no alternate description (Alt) in the enclosing structure element", reference);
+                }
+
                 break;
             case "Link":
                 if (parentType != "Link" && !(_part == 2 && parentType == "Reference"))
@@ -531,7 +550,7 @@ internal sealed partial class PdfUAChecker
                     Report("7.18.5-1", "a link annotation is not nested in a Link structure element", reference);
                 }
 
-                if (!described)
+                if (Resolve(annotation.GetValueOrDefault(Contents)) is not CosString { Bytes.Length: > 0 })
                 {
                     Report("7.18.5-2", "a link annotation has no alternate description (Contents)", reference);
                 }
@@ -716,6 +735,21 @@ internal sealed partial class PdfUAChecker
         if (descriptor is null || !FontFiles.Any(key => Resolve(descriptor.GetValueOrDefault(key)) is CosStream))
         {
             Report("7.21.4.1-1", $"the font {NameOf(font, BaseFont) ?? "(unnamed)"} is not embedded", value as CosReference);
+        }
+        else if (_part == 1 && subtype == "TrueType" && Resolve(descriptor.GetValueOrDefault(FontFiles[1])) is CosStream
+            && !(Resolve(descriptor.GetValueOrDefault(FlagsKey)) is CosInteger { Value: var flags } && (flags & 4) != 0))
+        {
+            // ISO 14289-1 §7.21.6: a non-symbolic TrueType font names MacRomanEncoding or WinAnsiEncoding (Differences, if any, in AGL names).
+            string? encoding = Resolve(font.GetValueOrDefault(EncodingKey)) switch
+            {
+                CosName name => name.Value,
+                CosDictionary dictionary => NameOf(dictionary, BaseEncoding),
+                _ => null,
+            };
+            if (encoding is not ("MacRomanEncoding" or "WinAnsiEncoding"))
+            {
+                Report("7.21.6-2", $"the non-symbolic TrueType font {NameOf(font, BaseFont) ?? "(unnamed)"} has no MacRomanEncoding or WinAnsiEncoding encoding", value as CosReference);
+            }
         }
     }
 
