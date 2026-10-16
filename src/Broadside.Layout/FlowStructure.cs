@@ -32,6 +32,8 @@ internal sealed class FlowStructure : IStructureSink
     public const string FigureWithoutAlternateText = nameof(FigureWithoutAlternateText);
 
     private static readonly CosName TableOwner = new("Table");
+    private static readonly CosName ListOwner = new("List");
+    private static readonly CosName ListNumberingKey = new("ListNumbering");
     private static readonly CosName RowSpanKey = new("RowSpan");
     private static readonly CosName ColSpanKey = new("ColSpan");
     private static readonly CosName ScopeKey = new("Scope");
@@ -283,6 +285,10 @@ internal sealed class FlowStructure : IStructureSink
             case TableCell cell:
                 DescribeCell(node, element, cell);
                 break;
+            case ListBlock list:
+                // §14.8.5.5, Table 382: how the labels number the items; PDF/UA-2 requires it on lists with labels (ISO 14289-2 §8.2.5.25).
+                element.AddAttributes(ListOwner).SetValue(ListNumberingKey, new CosName(NumberingOf(list.Style)));
+                break;
         }
 
         if (node.Owner is ImageBlock or Table && node.Type == ((FlowBlock)node.Owner).StructureType && parent is not null)
@@ -448,6 +454,27 @@ internal sealed class FlowStructure : IStructureSink
 
         return new PdfStructureType(name, PdfStructureNamespace.Pdf17);
     }
+
+    /// <summary>
+    /// The <c>ListNumbering</c> value of a list style (§14.8.5.5, Table 382): the numbering's own name, and for bullets the shape of
+    /// the bullet (<c>Disc</c>, <c>Circle</c>, <c>Square</c>), or <c>Unordered</c> (PDF 2.0) for any other marker in the PDF 2.0
+    /// namespace and <c>Disc</c> in PDF 1.7's, which has no generic value.
+    /// </summary>
+    private string NumberingOf(ListStyle style) => style.Numbering switch
+    {
+        ListNumbering.Decimal => "Decimal",
+        ListNumbering.LowerAlpha => "LowerAlpha",
+        ListNumbering.UpperAlpha => "UpperAlpha",
+        ListNumbering.LowerRoman => "LowerRoman",
+        ListNumbering.UpperRoman => "UpperRoman",
+        _ => style.Bullet switch
+        {
+            "•" or "●" => "Disc",
+            "◦" or "○" => "Circle",
+            "▪" or "■" => "Square",
+            _ => _tagging.Namespace == FlowStructureNamespace.Pdf20 ? "Unordered" : "Disc",
+        },
+    };
 
     private static string DefaultType(object? owner) => owner switch
     {

@@ -35,8 +35,11 @@ public sealed partial class PdfDocument
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for a version later than the document's.</exception>
     /// <param name="options">The save's options.</param>
     /// <param name="archival">Whether the save writes a PDF/A conformance (#201), which adds <see cref="VersionedFeatures.PdfAOutput"/> (and, for PDF/A-3, takes out associated files, #202).</param>
-    /// <param name="accessible">Whether the save writes a PDF/UA conformance (#204), which adds <see cref="VersionedFeatures.PdfUAOutput"/>.</param>
-    private VersionedSave CheckVersionedSave(PdfSaveOptions options, bool archival = false, bool accessible = false)
+    /// <param name="accessible">
+    /// What the save writes of PDF/UA (#204) and WTPDF (#205): any adds <see cref="VersionedFeatures.PdfUAOutput"/>, PDF/UA-2 and WTPDF
+    /// also <see cref="VersionedFeatures.PdfUA2Output"/>.
+    /// </param>
+    private VersionedSave CheckVersionedSave(PdfSaveOptions options, bool archival = false, AccessibleSave accessible = default)
     {
         var features = new List<VersionedFeature>();
         FileWriter writer = PlanWriter(options, features);
@@ -46,13 +49,24 @@ public sealed partial class PdfDocument
             AddArchivalFeatures(features, options);
         }
 
+        AddAccessibleFeatures(features, accessible.Any, accessible.Pdf20);
+
+        PdfVersion needed = Writing.VersionPlan.Check(Version, features, _diagnostics);
+        return new VersionedSave(writer, features, needed);
+    }
+
+    /// <summary>Adds what a PDF/UA or WTPDF save writes: <see cref="VersionedFeatures.PdfUAOutput"/>, and for PDF/UA-2 or WTPDF a PDF 2.0 file (#205).</summary>
+    private static void AddAccessibleFeatures(List<VersionedFeature> features, bool accessible, bool pdf20)
+    {
         if (accessible)
         {
             features.Add(VersionedFeatures.PdfUAOutput);
         }
 
-        PdfVersion needed = Writing.VersionPlan.Check(Version, features, _diagnostics);
-        return new VersionedSave(writer, features, needed);
+        if (pdf20)
+        {
+            features.Add(VersionedFeatures.PdfUA2Output);
+        }
     }
 
     /// <summary>
@@ -86,6 +100,7 @@ public sealed partial class PdfDocument
             // it. Dating, completing font subsets and the metadata layout add no feature, so the version decided stands.
             bool archival = features.Contains(VersionedFeatures.PdfAOutput);
             bool accessible = features.Contains(VersionedFeatures.PdfUAOutput);
+            bool pdf20 = features.Contains(VersionedFeatures.PdfUA2Output);
             features.Clear();
             writer = PlanWriter(options, features);
             AddDocumentFeatures(features);
@@ -94,10 +109,7 @@ public sealed partial class PdfDocument
                 AddArchivalFeatures(features, options);
             }
 
-            if (accessible)
-            {
-                features.Add(VersionedFeatures.PdfUAOutput);
-            }
+            AddAccessibleFeatures(features, accessible, pdf20);
         }
 
         if (!options.IncrementalUpdate)

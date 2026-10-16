@@ -10,7 +10,11 @@ namespace Broadside.Writing;
 /// <summary>
 /// The check step of a PDF/UA-1 save (issue #204): the failure conditions of ISO 14289-1 a document can be checked for before it is
 /// written, each reported under the identifier of the veraPDF PDF/UA-1 validation-profile rule that would fail (clause and test number,
-/// e.g. <c>7.3-1</c>; the Matterhorn Protocol 1.1 lists the same conditions). Reads the document, never changes it.
+/// e.g. <c>7.3-1</c>; the Matterhorn Protocol 1.1 lists the same conditions). Reads the document, never changes it. Part 2 (PDF/UA-2 and
+/// Well-Tagged PDF, issue #205) reports the same conditions under veraPDF's PDF/UA-2 rule identifiers (ISO 14289-2 clause and test,
+/// or an ISO/TS 32005 <c>Table 5.</c> containment rule), drops those PDF/UA-2 does not have (Suspects, heading nesting, Note IDs,
+/// annotation descriptions), and adds a single PDF 2.0 <c>Document</c> root, no <c>H</c> or <c>Note</c>, <c>ListNumbering</c> on lists
+/// with labels, links in <c>Link</c> or <c>Reference</c>, and <c>Annot</c> only for markup annotations.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -77,7 +81,60 @@ internal sealed partial class PdfUAChecker
         ["TOCI"] = ("7.2-26", ["TOC"]),
     };
 
+    /// <summary>
+    /// The PDF/UA-2 rule (ISO 14289-2, or an ISO/TS 32005 containment rule, veraPDF PDF/UA-2 profile) each PDF/UA-1 failure condition
+    /// the checker finds is reported under in a PDF/UA-2 check (issue #205); <see langword="null"/> when PDF/UA-2 has no such rule.
+    /// </summary>
+    private static readonly Dictionary<string, string?> PdfUA2Rules = new(StringComparer.Ordinal)
+    {
+        ["7.1-1"] = null,
+        ["7.1-2"] = null,
+        ["7.1-3"] = "8.2.2-1",
+        ["7.1-4"] = null,
+        ["7.1-5"] = "8.2.4-1",
+        ["7.1-7"] = "8.2.4-4",
+        ["7.1-9"] = "8.11.1-1",
+        ["7.1-11"] = "8.2.1-1",
+        ["7.2-11"] = "Table 5. Table-THead-1",
+        ["7.2-12"] = "Table 5. Table-TFoot-1",
+        ["7.2-13"] = null,
+        ["7.2-14"] = null,
+        ["7.2-16"] = "8.2.5.27-1",
+        ["7.2-29"] = "8.4.4-2",
+        ["7.2-33"] = "8.4.4-1",
+        ["7.2-39"] = "Table 5. Table-Caption-1",
+        ["7.2-40"] = "8.2.5.27-1",
+        ["7.3-1"] = "8.2.5.28.2-1",
+        ["7.4.2-1"] = null,
+        ["7.4.4-1"] = null,
+        ["7.4.4-2"] = null,
+        ["7.5-1"] = "8.2.5.26-5",
+        ["7.9-1"] = null,
+        ["7.9-2"] = null,
+        ["7.15-1"] = "8.10.1-3",
+        ["7.18.1-1"] = "8.9.2.3-1",
+        ["7.18.1-2"] = null,
+        ["7.18.2-1"] = "8.9.2.4.15-1",
+        ["7.18.4-1"] = "8.10.1-1",
+        ["7.18.5-1"] = "8.2.5.20-1",
+        ["7.18.5-2"] = null,
+        ["7.21.4.1-1"] = "8.4.5.5.1-1",
+        ["7.21.7-1"] = "8.4.5.8-1",
+        ["7.21.7-2"] = "8.4.5.8-2",
+    };
+
+    /// <summary>The markup annotation subtypes (ISO 32000-2 §12.5.6.2, Table 172), which PDF/UA-2 encloses in <c>Annot</c> elements (8.9.2.3-1).</summary>
+    private static readonly HashSet<string> MarkupAnnotations = new(StringComparer.Ordinal)
+    {
+        "Text", "FreeText", "Line", "Square", "Circle", "Polygon", "PolyLine", "Highlight", "Underline", "Squiggly", "StrikeOut", "Caret",
+        "Stamp", "Ink", "FileAttachment", "Sound", "Redact", "Projection",
+    };
+
+    private static readonly CosName ListOwner = new("List");
+    private static readonly CosName ListNumbering = new("ListNumbering");
+
     private readonly PdfDocument _document;
+    private readonly int _part;
     private readonly List<PdfAViolation> _violations = [];
     private readonly HashSet<(string, string)> _reported = [];
     private readonly HashSet<CosObject> _visited = new(ReferenceEqualityComparer.Instance);
@@ -89,13 +146,21 @@ internal sealed partial class PdfUAChecker
     private bool _usesH;
     private bool _usesHn;
 
-    private PdfUAChecker(PdfDocument document) => _document = document;
-
-    /// <summary>Lists the PDF/UA-1 rules a save of <paramref name="document"/> cannot meet, in document order; empty when it can conform.</summary>
-    /// <param name="document">The document, as it is: nothing is changed.</param>
-    public static IReadOnlyList<PdfAViolation> Check(PdfDocument document)
+    private PdfUAChecker(PdfDocument document, int part)
     {
-        var checker = new PdfUAChecker(document);
+        _document = document;
+        _part = part;
+    }
+
+    /// <summary>
+    /// Lists the PDF/UA rules a save of <paramref name="document"/> cannot meet, in document order; empty when it can conform. Part 2
+    /// reports under veraPDF's PDF/UA-2 rule identifiers, which Well-Tagged PDF 1.0 shares (issue #205).
+    /// </summary>
+    /// <param name="document">The document, as it is: nothing is changed.</param>
+    /// <param name="part">The part of ISO 14289: 1 or 2.</param>
+    public static IReadOnlyList<PdfAViolation> Check(PdfDocument document, int part = 1)
+    {
+        var checker = new PdfUAChecker(document, part);
         checker.CheckCatalog();
         checker.CheckStructure();
         foreach (PdfPage page in document.Pages)
@@ -114,6 +179,16 @@ internal sealed partial class PdfUAChecker
 
     private void Report(string rule, string message, CosReference? reference = null)
     {
+        if (_part == 2 && rule[0] == '7')
+        {
+            if (PdfUA2Rules[rule] is not { } translated)
+            {
+                return;
+            }
+
+            rule = translated;
+        }
+
         if (_reported.Add((rule, message)))
         {
             _violations.Add(new PdfAViolation(rule, message, reference));
@@ -180,6 +255,20 @@ internal sealed partial class PdfUAChecker
                 {
                     Report("7.1-7", $"the role map remaps the standard structure type {type.Value}");
                 }
+            }
+        }
+
+        if (_part == 2)
+        {
+            // ISO 14289-2 §8.2.5.2: one Document element, of the PDF 2.0 namespace, is the structure tree root's only child.
+            PdfStructureType? document = _root.Children is [PdfStructureElement only] ? only.StandardType : null;
+            if (document?.Name != "Document")
+            {
+                Report("8.2.5.2-1", "the structure tree root does not have a single Document element as its only child", _root.Reference);
+            }
+            else if (!document.Namespace.Equals(PdfStructureNamespace.Pdf20))
+            {
+                Report("8.2.5.2-2", "the structure tree root's Document element is not of the PDF 2.0 structure namespace (a PDF/UA-1 flow's FlowStructureNamespace.Pdf17)", _root.Reference);
             }
         }
 
@@ -258,13 +347,18 @@ internal sealed partial class PdfUAChecker
         {
             foreach (string? kid in kidTypes.Where(kid => kid is not null && !allowedKids.Kids.Contains(kid)))
             {
-                Report(allowedKids.Rule, $"a {type} element has a {kid} kid", reference);
+                Report(_part == 2 ? Containment(type, kid!) : allowedKids.Rule, $"a {type} element has a {kid} kid", reference);
             }
         }
 
         if (type is not null && AllowedParents.TryGetValue(type, out (string Rule, string[] Parents) allowedParents) && (parentType is null || !allowedParents.Parents.Contains(parentType)))
         {
-            Report(allowedParents.Rule, $"a {type} element is in a {parentType ?? "(root)"} element", reference);
+            Report(_part == 2 ? Containment(parentType ?? "StructTreeRoot", type) : allowedParents.Rule, $"a {type} element is in a {parentType ?? "(root)"} element", reference);
+        }
+
+        if (_part == 2)
+        {
+            CheckPdfUA2Element(element, type, kids, reference);
         }
 
         if (kidTypes.Count(kid => kid == "H") > 1)
@@ -277,6 +371,36 @@ internal sealed partial class PdfUAChecker
             CheckElement(kid, type, seen);
         }
     }
+
+    /// <summary>
+    /// The element rules PDF/UA-2 adds (issue #205): no <c>H</c> (ISO 14289-2 §8.2.5.12, rule 8.2.5.12-1), no <c>Note</c> of the PDF 1.7
+    /// namespace (§8.2.5.14, 8.2.5.14-1; PDF 2.0 has <c>FENote</c>), and a <c>ListNumbering</c> other than <c>None</c> on a list whose
+    /// items have labels (§8.2.5.25, 8.2.5.25-1).
+    /// </summary>
+    private void CheckPdfUA2Element(PdfStructureElement element, string? type, List<PdfStructureElement> kids, CosReference? reference)
+    {
+        switch (type)
+        {
+            case "H":
+                Report("8.2.5.12-1", "the structure tree uses the H structure type", reference);
+                break;
+            case "Note":
+                Report("8.2.5.14-1", "the structure tree uses the Note structure type (PDF 2.0 has FENote)", reference);
+                break;
+            case "L" when kids.Exists(kid => kid.StandardType?.Name == "LI" && kid.Children.OfType<PdfStructureElement>().Any(label => label.StandardType?.Name == "Lbl"))
+                && element.GetAttributeValue(ListOwner, ListNumbering) is not CosName { Value: not "None" }:
+                Report("8.2.5.25-1", "a list whose items have labels (Lbl) has no ListNumbering attribute, or None", reference);
+                break;
+        }
+    }
+
+    /// <summary>
+    /// The ISO/TS 32005 containment rule (Table 5) a <paramref name="parent"/> element with a <paramref name="kid"/> kid breaks, as veraPDF's
+    /// PDF/UA-2 profile names it: <c>Table 5. L-P-1</c>, numbered headings as <c>Hn</c>.
+    /// </summary>
+    private static string Containment(string parent, string kid) => $"Table 5. {Generic(parent)}-{Generic(kid)}-1";
+
+    private static string Generic(string type) => type is ['H', >= '1' and <= '9', ..] ? "Hn" : type;
 
     /// <summary>Table rules: kid counts and the Caption's place (7.2-11 to 7.2-14, 7.2-16, 7.2-39) and header cells' scope (7.5-1).</summary>
     private void CheckTable(PdfStructureElement table, List<string?> kidTypes, CosReference? reference)
@@ -402,7 +526,7 @@ internal sealed partial class PdfUAChecker
 
                 break;
             case "Link":
-                if (parentType != "Link")
+                if (parentType != "Link" && !(_part == 2 && parentType == "Reference"))
                 {
                     Report("7.18.5-1", "a link annotation is not nested in a Link structure element", reference);
                 }
@@ -414,6 +538,12 @@ internal sealed partial class PdfUAChecker
 
                 break;
             default:
+                if (_part == 2 && !MarkupAnnotations.Contains(subtype))
+                {
+                    // ISO 14289-2 §8.9.2.3: only markup annotations must be in Annot elements (a popup must not be in the tree at all).
+                    break;
+                }
+
                 if (parentType != "Annot")
                 {
                     Report("7.18.1-1", $"a {subtype} annotation is not nested in an Annot structure element", reference);
