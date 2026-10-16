@@ -83,6 +83,20 @@ _Avoid_: CPU renderer, fallback renderer
 A backend that draws through a platform's own graphics API: CoreGraphics on Apple platforms, Direct2D on Windows, Android Canvas on Android.
 _Avoid_: Platform renderer, OS renderer
 
+### Viewer
+
+**Document session**:
+One open document in a viewer: owns the document, the engine, the options and the tile backends, and is what every UI shell drives.
+_Avoid_: Viewer model, controller, document view
+
+**Tile**:
+A rectangle of pixels of one page at one zoom, rendered from the page's cached display list and handed to a surface.
+_Avoid_: Chunk, patch (a patch is a shading)
+
+**Surface**:
+Where a document session puts finished tiles: the abstraction each UI shell implements over its own canvas, image or texture.
+_Avoid_: Canvas (the core's content-writing API), view, target
+
 ### Text and layout
 
 **Layout tree**:

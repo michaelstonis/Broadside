@@ -1,0 +1,116 @@
+#nullable enable
+Broadside.Viewer.DocumentSession
+Broadside.Viewer.DocumentSession.Dispose() -> void
+Broadside.Viewer.DocumentSession.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Broadside.Viewer.DocumentSession.Document.get -> Broadside.PdfDocument!
+Broadside.Viewer.DocumentSession.GetDisplayListAsync(int pageIndex, Broadside.Rendering.DisplayLayers layers = Broadside.Rendering.DisplayLayers.All, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Rendering.DisplayList!>
+Broadside.Viewer.DocumentSession.GetPageMetricsAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.PageMetrics>
+Broadside.Viewer.DocumentSession.GetPageTileAsync(int pageIndex, double scale, int rotation = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.Tile>
+Broadside.Viewer.DocumentSession.IsClosed.get -> bool
+Broadside.Viewer.DocumentSession.PageCount.get -> int
+Broadside.Viewer.DocumentSession.RenderPageAsync(int pageIndex, double scale, Broadside.Viewer.IRenderSurface! surface, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.Viewer.Tile>!
+Broadside.Viewer.DocumentSession.RenderTileAsync(Broadside.Viewer.Tile tile, Broadside.Viewer.IRenderSurface! surface, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.Viewer.DocumentSession.Statistics.get -> Broadside.Viewer.SessionStatistics
+Broadside.Viewer.DocumentSession.TryGetPageMetrics(int pageIndex, out Broadside.Viewer.PageMetrics metrics) -> bool
+Broadside.Viewer.HeadlessSurface
+Broadside.Viewer.HeadlessSurface.Dispose() -> void
+Broadside.Viewer.HeadlessSurface.HeadlessSurface() -> void
+Broadside.Viewer.HeadlessSurface.Present(Broadside.Viewer.Tile tile, Broadside.Rendering.Bitmap! pixels) -> void
+Broadside.Viewer.HeadlessSurface.Tiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.PresentedTile!>!
+Broadside.Viewer.IRenderSurface
+Broadside.Viewer.IRenderSurface.Present(Broadside.Viewer.Tile tile, Broadside.Rendering.Bitmap! pixels) -> void
+Broadside.Viewer.ITileBackend
+Broadside.Viewer.ITileBackend.Begin(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, System.Threading.CancellationToken cancellationToken) -> Broadside.Viewer.ITileRender!
+Broadside.Viewer.ITileRender
+Broadside.Viewer.ITileRender.RenderSlice(System.TimeSpan budget) -> bool
+Broadside.Viewer.PageMetrics
+Broadside.Viewer.PageMetrics.CropBox.get -> Broadside.PdfRectangle
+Broadside.Viewer.PageMetrics.CropBox.init -> void
+Broadside.Viewer.PageMetrics.Height.get -> double
+Broadside.Viewer.PageMetrics.Index.get -> int
+Broadside.Viewer.PageMetrics.Index.init -> void
+Broadside.Viewer.PageMetrics.PageMetrics() -> void
+Broadside.Viewer.PageMetrics.PageMetrics(int Index, Broadside.PdfRectangle CropBox, int Rotation, double UserUnit) -> void
+Broadside.Viewer.PageMetrics.Rotation.get -> int
+Broadside.Viewer.PageMetrics.Rotation.init -> void
+Broadside.Viewer.PageMetrics.UserUnit.get -> double
+Broadside.Viewer.PageMetrics.UserUnit.init -> void
+Broadside.Viewer.PageMetrics.Width.get -> double
+Broadside.Viewer.PresentedTile
+Broadside.Viewer.PresentedTile.Pixels.get -> Broadside.Rendering.Bitmap!
+Broadside.Viewer.PresentedTile.Pixels.init -> void
+Broadside.Viewer.PresentedTile.PresentedTile(Broadside.Viewer.Tile Tile, Broadside.Rendering.Bitmap! Pixels) -> void
+Broadside.Viewer.PresentedTile.Tile.get -> Broadside.Viewer.Tile
+Broadside.Viewer.PresentedTile.Tile.init -> void
+Broadside.Viewer.SessionStatistics
+Broadside.Viewer.SessionStatistics.PendingOperations.get -> int
+Broadside.Viewer.SessionStatistics.PendingOperations.init -> void
+Broadside.Viewer.SessionStatistics.PixelBytes.get -> long
+Broadside.Viewer.SessionStatistics.PixelBytes.init -> void
+Broadside.Viewer.SessionStatistics.SessionStatistics() -> void
+Broadside.Viewer.SessionStatistics.SessionStatistics(int PendingOperations, long PixelBytes, long TilesPresented, long TilesCancelled) -> void
+Broadside.Viewer.SessionStatistics.TilesCancelled.get -> long
+Broadside.Viewer.SessionStatistics.TilesCancelled.init -> void
+Broadside.Viewer.SessionStatistics.TilesPresented.get -> long
+Broadside.Viewer.SessionStatistics.TilesPresented.init -> void
+Broadside.Viewer.SoftwareTileBackend
+Broadside.Viewer.SoftwareTileBackend.Begin(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, System.Threading.CancellationToken cancellationToken) -> Broadside.Viewer.ITileRender!
+Broadside.Viewer.SoftwareTileBackend.Dispose() -> void
+Broadside.Viewer.SoftwareTileBackend.SoftwareTileBackend() -> void
+Broadside.Viewer.Tile
+Broadside.Viewer.Tile.Layers.get -> Broadside.Rendering.DisplayLayers
+Broadside.Viewer.Tile.Layers.init -> void
+Broadside.Viewer.Tile.PageIndex.get -> int
+Broadside.Viewer.Tile.PageIndex.init -> void
+Broadside.Viewer.Tile.Region.get -> Broadside.Rendering.PixelRectangle
+Broadside.Viewer.Tile.Region.init -> void
+Broadside.Viewer.Tile.Rotation.get -> int
+Broadside.Viewer.Tile.Rotation.init -> void
+Broadside.Viewer.Tile.Scale.get -> double
+Broadside.Viewer.Tile.Scale.init -> void
+Broadside.Viewer.Tile.Tile() -> void
+Broadside.Viewer.Tile.Tile(int PageIndex, double Scale, Broadside.Rendering.PixelRectangle Region) -> void
+Broadside.Viewer.ViewerOptions
+Broadside.Viewer.ViewerOptions.Credentials.get -> Broadside.Security.PdfCredentials?
+Broadside.Viewer.ViewerOptions.Credentials.set -> void
+Broadside.Viewer.ViewerOptions.DocumentOptions.get -> Broadside.PdfOptions?
+Broadside.Viewer.ViewerOptions.DocumentOptions.set -> void
+Broadside.Viewer.ViewerOptions.Engine.get -> Broadside.PdfEngine?
+Broadside.Viewer.ViewerOptions.Engine.set -> void
+Broadside.Viewer.ViewerOptions.Intent.get -> Broadside.Rendering.DisplayIntent
+Broadside.Viewer.ViewerOptions.Intent.set -> void
+Broadside.Viewer.ViewerOptions.MaxConcurrency.get -> int
+Broadside.Viewer.ViewerOptions.MaxConcurrency.set -> void
+Broadside.Viewer.ViewerOptions.BackendFactory.get -> System.Func<Broadside.Viewer.ITileBackend!>?
+Broadside.Viewer.ViewerOptions.BackendFactory.set -> void
+Broadside.Viewer.ViewerOptions.SliceBudget.get -> System.TimeSpan
+Broadside.Viewer.ViewerOptions.SliceBudget.set -> void
+Broadside.Viewer.ViewerOptions.Threading.get -> Broadside.Viewer.ViewerThreading
+Broadside.Viewer.ViewerOptions.Threading.set -> void
+Broadside.Viewer.ViewerOptions.UseEngine(Broadside.PdfEngine! engine) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.UseBackend(System.Func<Broadside.Viewer.ITileBackend!>! factory) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.UseYield(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>! yield) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.ViewerOptions() -> void
+Broadside.Viewer.ViewerOptions.WithCredentials(Broadside.Security.PdfCredentials! credentials) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.WithDocumentOptions(Broadside.PdfOptions! options) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.WithIntent(Broadside.Rendering.DisplayIntent intent) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.WithMaxConcurrency(int maxConcurrency) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.WithSliceBudget(System.TimeSpan budget) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.WithThreading(Broadside.Viewer.ViewerThreading threading) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.Yield.get -> System.Func<System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>?
+Broadside.Viewer.ViewerOptions.Yield.set -> void
+Broadside.Viewer.ViewerThreading
+Broadside.Viewer.ViewerThreading.Automatic = 0 -> Broadside.Viewer.ViewerThreading
+Broadside.Viewer.ViewerThreading.Background = 1 -> Broadside.Viewer.ViewerThreading
+Broadside.Viewer.ViewerThreading.Cooperative = 2 -> Broadside.Viewer.ViewerThreading
+static Broadside.Viewer.DocumentSession.Open(string! path) -> Broadside.Viewer.DocumentSession!
+static Broadside.Viewer.DocumentSession.Open(string! path, Broadside.Viewer.ViewerOptions? options) -> Broadside.Viewer.DocumentSession!
+static Broadside.Viewer.DocumentSession.Open(System.IO.Stream! stream) -> Broadside.Viewer.DocumentSession!
+static Broadside.Viewer.DocumentSession.Open(System.IO.Stream! stream, Broadside.Viewer.ViewerOptions? options) -> Broadside.Viewer.DocumentSession!
+static Broadside.Viewer.DocumentSession.Open(System.ReadOnlyMemory<byte> bytes) -> Broadside.Viewer.DocumentSession!
+static Broadside.Viewer.DocumentSession.Open(System.ReadOnlyMemory<byte> bytes, Broadside.Viewer.ViewerOptions? options) -> Broadside.Viewer.DocumentSession!
+static Broadside.Viewer.DocumentSession.OpenAsync(System.IO.Stream! stream) -> System.Threading.Tasks.Task<Broadside.Viewer.DocumentSession!>!
+static Broadside.Viewer.DocumentSession.OpenAsync(System.IO.Stream! stream, Broadside.Viewer.ViewerOptions? options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.Viewer.DocumentSession!>!
+static Broadside.Viewer.DocumentSession.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri) -> System.Threading.Tasks.Task<Broadside.Viewer.DocumentSession!>!
+static Broadside.Viewer.DocumentSession.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, Broadside.Viewer.ViewerOptions? options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.Viewer.DocumentSession!>!
+static readonly Broadside.Viewer.ViewerOptions.DefaultSliceBudget -> System.TimeSpan
