@@ -95,7 +95,8 @@ internal sealed unsafe partial class Direct2DBackend
     /// content does not blend are layers composited with the group's opacity and soft mask (an isolated group's layer starts
     /// transparent, §11.4.5, and a non-isolated group whose content does not blend has the same result). Knockout groups (§11.4.6)
     /// and isolated groups whose content blends are drawn by the software rasterizer; a group that blends with its backdrop (its own
-    /// blend mode is not Normal, or it is non-isolated and its content blends) makes the page the software rasterizer's.
+    /// blend mode is not Normal, it is non-isolated and its content blends, or it is a fill and stroke whose paints blend) makes the
+    /// page the software rasterizer's.
     /// </summary>
     public void DrawGroup(in DisplayGroup group)
     {
@@ -105,8 +106,10 @@ internal sealed unsafe partial class Direct2DBackend
         }
 
         GroupContent content = (_inspector ??= new GroupInspector()).Inspect(group, _compositing.BlendMode);
-        if (group.BlendMode != BlendMode.Normal || (!group.IsIsolated && content.Blends))
+        if (group.BlendMode != BlendMode.Normal || (content.Blends && (!group.IsIsolated || group.Kind == DisplayGroupKind.FillAndStroke)))
         {
+            // The group blends with its backdrop: as a whole (its blend mode, or the fill and stroke's paints, which carry theirs), or
+            // through its content (non-isolated, §11.4.8). Direct2D cannot read the backdrop to blend with it.
             Root._rasterizePage = true;
             return;
         }
