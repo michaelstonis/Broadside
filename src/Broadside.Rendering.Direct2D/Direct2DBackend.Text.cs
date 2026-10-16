@@ -41,7 +41,7 @@ internal sealed unsafe partial class Direct2DBackend
     public bool ForceOutlines { get; set; }
 
     /// <summary>Draws a glyph run (ISO 32000-2 §9.4.3) in its rendering mode (§9.3.6): each glyph filled, then stroked, before the next.</summary>
-    public void DrawGlyphs(in GlyphRun run)
+    private void DrawGlyphsCore(in GlyphRun run)
     {
         if (run.Glyphs.IsEmpty || !(run.Fills || run.Strokes))
         {
@@ -93,7 +93,7 @@ internal sealed unsafe partial class Direct2DBackend
 
             if (strokes)
             {
-                StrokePath(ToUserSpace(outline, glyphToUser), run.StrokeStyle, run.StrokeColor);
+                StrokePathCore(ToUserSpace(outline, glyphToUser), run.StrokeStyle, run.StrokeColor);
                 brushIsFill = false;
             }
         }

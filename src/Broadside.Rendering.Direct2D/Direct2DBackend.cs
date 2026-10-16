@@ -75,10 +75,12 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
         MeshRasterized = 4,
         RadialRasterized = 8,
         TilingApproximated = 16,
-        BlendModes = 32,
         Groups = 64,
-        SoftMasks = 128,
+        SoftMaskRasterized = 128,
         NativeGlyphs = 256,
+        KnockoutRasterized = 512,
+        ColorSpaceRasterized = 1024,
+        BlendingGroupRasterized = 2048,
     }
 
     /// <summary>Gets the diagnostics of the last replay: one for each kind of operation the backend skipped or drew another way.</summary>
@@ -134,10 +136,12 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
             Array.Resize(ref _transforms, _depth * 2);
             Array.Resize(ref _clipMarks, _depth * 2);
             Array.Resize(ref _savedCompositing, _depth * 2);
+            Array.Resize(ref _savedMasks, _depth * 2);
         }
 
         _transforms[_depth] = _ctm;
         _savedCompositing[_depth] = _compositing;
+        _savedMasks[_depth] = _softMask;
         _clipMarks[_depth] = _clipCount;
         _depth++;
     }
@@ -152,6 +156,8 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
         _depth--;
         PopClips(_clipMarks[_depth]);
         _compositing = _savedCompositing[_depth];
+        _softMask = _savedMasks[_depth];
+        _savedMasks[_depth] = null;
         SetTransform(in _transforms[_depth]);
     }
 
@@ -162,7 +168,7 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
     }
 
     /// <summary>Fills the path with the colour (ISO 32000-2 §8.5.3.3).</summary>
-    public void FillPath(PathView path, FillRule rule, in DisplayColor color)
+    private void FillPathCore(PathView path, FillRule rule, in DisplayColor color)
     {
         PdfColorConverter converter = Converter(color);
         if (converter.PaintsNothing || path.IsEmpty || _compositing.FillAlpha == 0)

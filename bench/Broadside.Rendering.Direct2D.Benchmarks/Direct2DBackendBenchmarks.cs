@@ -28,7 +28,7 @@ public class Direct2DBackendBenchmarks
     /// The page: one of the three path corpus files, a synthetic 256 KB fill-heavy, stroke-heavy or clip-heavy page, or text: the
     /// embedded TrueType corpus file and a synthetic page of 2,000 glyphs, natively and with outlines forced.
     /// </summary>
-    [Params("paths-fill-rules.pdf", "paths-strokes.pdf", "clipping-paths.pdf", "path-heavy-256kb", "stroke-heavy-256kb", "clip-paths-grid", "text-truetype-embedded.pdf", "text-heavy-2000", "text-heavy-2000-outlines", "image-heavy", "mask-heavy", "shading-grid", "mesh-patches", "tiling-grid")]
+    [Params("paths-fill-rules.pdf", "paths-strokes.pdf", "clipping-paths.pdf", "path-heavy-256kb", "stroke-heavy-256kb", "clip-paths-grid", "text-truetype-embedded.pdf", "text-heavy-2000", "text-heavy-2000-outlines", "image-heavy", "mask-heavy", "shading-grid", "mesh-patches", "tiling-grid", "transparency-soft-masks.pdf", "transparency-groups.pdf")]
     public string Page { get; set; } = "";
 
     /// <summary>The resolution.</summary>
