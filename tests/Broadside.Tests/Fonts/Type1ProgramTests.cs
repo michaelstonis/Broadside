@@ -284,6 +284,20 @@ public sealed class Type1ProgramTests
         Assert.Equal(new GlyphMetrics(600, 10), program.GetMetrics(3));
     }
 
+    [Fact]
+    public void A_seac_inside_a_seac_component_closes_the_component_contour_it_interrupts()
+    {
+        // Found by the font-type1 fuzz target: the accent draws an open contour, then calls seac itself, which is refused; the
+        // contour it left open must still be closed (§ Type 1 endchar semantics: every subpath ends closed).
+        var context = new FontProgramContext();
+        FontProgram program = Parse(
+            Builder().Glyph("A", Box).Glyph("B", "0 500 hsbw 0 0 rmoveto 100 hlineto 0 0 0 65 65 seac").Glyph("x", "0 500 hsbw 0 0 0 65 66 seac"),
+            context);
+
+        Assert.Equal("M 0,0 L 100,0 L 100,100 L 0,100 Z M 0,0 L 100,0 Z", OutlineText.Of(program, 3));
+        Assert.Equal(["FontCharstringSeacComponentMissing"], Codes(context));
+    }
+
     public static TheoryData<string, string, string> Repairs => new()
     {
         // charstring, outline, diagnostic code (the charstring codes Type 1 shares with Type 2, plus the Type 1 only ones)
