@@ -132,13 +132,12 @@ public sealed partial class AndroidCanvasBackend
             _annotationDepth = 0;
             _blendReported = false;
             _reported = 0;
-            _groupReported = false;
-            _softMaskReported = false;
             Diagnostics.Clear();
         }
 
         /// <summary>Gives <paramref name="paint"/> the blend mode of the current compositing state, when it does not have it already.</summary>
-        private void SetBlendMode(Paint paint, ref BlendMode current) => SetBlendMode(paint, ref current, _compositing.BlendMode);
+        /// <remarks>In a knockout layer (§11.4.6) the paint replaces what the layer holds by its coverage instead.</remarks>
+        private void SetBlendMode(Paint paint, ref BlendMode current) => SetBlendMode(paint, ref current, _knockout ? Replace : _compositing.BlendMode);
 
         private static void SetBlendMode(Paint paint, ref BlendMode current, BlendMode mode)
         {
@@ -167,6 +166,11 @@ public sealed partial class AndroidCanvasBackend
         [SupportedOSPlatform("android29.0")]
         private static AndroidBlendMode? NativeBlendMode(BlendMode mode)
         {
+            if (mode == Replace)
+            {
+                return AndroidBlendMode.Src;
+            }
+
             AndroidBlendMode?[] modes = _blendModes ??=
             [
                 null,
@@ -240,8 +244,8 @@ public sealed partial class AndroidCanvasBackend
             public static Compositing Initial { get; } = new(255, 255, BlendMode.Normal);
         }
 
-        /// <summary>What <see cref="SaveState"/> keeps: the transform and the compositing state (the canvas keeps the clip).</summary>
-        private readonly record struct SavedState(Matrix Ctm, Matrix ToDevice, Compositing Compositing);
+        /// <summary>What <see cref="SaveState"/> keeps: the transform, the compositing state and the soft mask (the canvas keeps the clip).</summary>
+        private readonly record struct SavedState(Matrix Ctm, Matrix ToDevice, Compositing Compositing, MaskImage? Mask);
 
         /// <summary>What an annotation changed at its start: the device mapping to restore and the canvas save count of its layer, or -1.</summary>
         private readonly record struct AnnotationFrame(Matrix Device, int LayerCount);
