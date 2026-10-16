@@ -401,6 +401,14 @@ internal sealed partial class GeometryLayout
         for (int index = 0; index < paragraphs.Length; index++)
         {
             ref readonly Paragraph paragraph = ref paragraphs[index];
+            if (paragraph.Table >= 0)
+            {
+                // A table closes the lists open above it.
+                open.Clear();
+                entries.Add(new Entry(index, null));
+                continue;
+            }
+
             if (paragraph.IsItem)
             {
                 // Close the lists this item is not in: those it neither lines up with nor nests under.
@@ -490,6 +498,11 @@ internal sealed partial class GeometryLayout
 
     private static LayoutNode Node(Placement placement, int index)
     {
+        if (placement.Paragraphs[index].Table >= 0)
+        {
+            return TableNode(placement, index);
+        }
+
         int level = placement.Paragraphs[index].Level;
         LayoutNode node = level > 0 ? new LayoutHeading(null, level) : LayoutNode.Create(LayoutNodeKind.Paragraph, null);
         node.AddExtent(Covering(placement, index, index));
@@ -664,6 +677,9 @@ internal sealed partial class GeometryLayout
         /// <summary>The heading level; 0 when the paragraph is not a heading.</summary>
         public int Level;
 
+        /// <summary>The index of the page's table the paragraph is; -1 when it is text.</summary>
+        public int Table = -1;
+
         /// <summary>Gets a value indicating whether the paragraph is a list item: it starts with a marker and is not a heading.</summary>
         public readonly bool IsItem => !double.IsNaN(Body) && Level == 0;
     }
@@ -683,7 +699,7 @@ internal sealed partial class GeometryLayout
     }
 
     /// <summary>A page's rebuilt text and its paragraphs, which nodes are made from.</summary>
-    private readonly record struct Placement(LayoutPage Page, Paragraph[] Paragraphs, Placed[] Placed, double Height);
+    private readonly record struct Placement(LayoutPage Page, Paragraph[] Paragraphs, Placed[] Placed, double Height, List<TablePlan>? Tables);
 
     /// <summary>A paragraph (its index) or a list, in the order they are read.</summary>
     private readonly record struct Entry(int Paragraph, ListPlan? List);

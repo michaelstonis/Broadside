@@ -3826,6 +3826,79 @@ def gen_layout_headings_lists() -> bytes:
     ])
 
 
+def gen_layout_tables() -> bytes:
+    """Table detection (spec story 36, issue #189) over three untagged pages in Helvetica 10 (headers in Helvetica-Bold). Page 1: a
+    ruled table whose lines (8.5.2 m/l, 8.5.3.2 S) leave out the sides inside merged cells (a two-row header: Region and Product each
+    span two rows, Sales spans two columns over Q1 and Q2; North spans two body rows; Total spans two columns), a paragraph, then an
+    unruled table aligned by white space with a bold header row under a heading (Temperature) centred over two columns, and a closing
+    paragraph. Pages 2 and 3: a ruled three-column table with a bold header row that runs to the foot of page 2 and continues at the
+    top of page 3 without repeating its header. 9.6.2.2 Standard Type 1 fonts."""
+    def text(font, x, y, value):
+        return b"BT /F%d 10 Tf %d %d Td (%s) Tj ET" % (font, x, y, value)
+
+    def line(x1, y1, x2, y2):
+        return b"%d %d m %d %d l S" % (x1, y1, x2, y2)
+
+    page1 = [b"BT /F2 16 Tf 72 740 Td (Detected Tables) Tj ET",
+             text(1, 72, 712, b"This page tests table detection from ruling lines and from"),
+             text(1, 72, 700, b"aligned white space, with merged cells and header rows."),
+             b"0.5 w"]
+    page1 += [line(72, 680, 432, 680), line(272, 662, 432, 662), line(72, 644, 432, 644), line(172, 626, 432, 626),
+              line(72, 608, 432, 608), line(72, 590, 432, 590), line(72, 572, 432, 572),
+              line(72, 680, 72, 572), line(172, 680, 172, 590), line(272, 680, 272, 572), line(352, 662, 352, 572),
+              line(432, 680, 432, 572)]
+    page1 += [text(2, 77, 658, b"Region"), text(2, 177, 658, b"Product"), text(2, 277, 667, b"Sales"),
+              text(2, 277, 649, b"Q1"), text(2, 357, 649, b"Q2"),
+              text(1, 77, 622, b"North"), text(1, 177, 631, b"Apples"), text(1, 277, 631, b"120"), text(1, 357, 631, b"135"),
+              text(1, 177, 613, b"Pears"), text(1, 277, 613, b"80"), text(1, 357, 613, b"95"),
+              text(1, 77, 595, b"South"), text(1, 177, 595, b"Apples"), text(1, 277, 595, b"150"), text(1, 357, 595, b"160"),
+              text(1, 77, 577, b"Total"), text(1, 277, 577, b"350"), text(1, 357, 577, b"390")]
+    page1 += [text(1, 72, 548, b"Between the tables, a paragraph of running text that is not part"),
+              text(1, 72, 536, b"of either table.")]
+    page1 += [text(2, 200, 500, b"Temperature"),
+              text(2, 72, 486, b"City"), text(2, 200, 486, b"Min"), text(2, 250, 486, b"Max"), text(2, 300, 486, b"Rain")]
+    for row, (city, low, high, rain) in enumerate([(b"Oslo", b"-4", b"3", b"49"), (b"Lima", b"15", b"22", b"1"),
+                                                   (b"Cairo", b"14", b"25", b"5"), (b"Perth", b"9", b"18", b"146")]):
+        y = 472 - 14 * row
+        page1 += [text(1, 72, y, city), text(1, 200, y, low), text(1, 250, y, high), text(1, 300, y, rain)]
+    page1 += [text(1, 72, 400, b"A closing paragraph follows the unruled table.")]
+
+    def ruled(top, rows, header):
+        """A ruled Item/Qty/Price table: one row per entry, 18 points each, from top down."""
+        content = [b"0.5 w"]
+        bottom = top - 18 * len(rows)
+        for index in range(len(rows) + 1):
+            content.append(line(72, top - 18 * index, 452, top - 18 * index))
+        for x in (72, 252, 352, 452):
+            content.append(line(x, top, x, bottom))
+        for index, cells in enumerate(rows):
+            font = 2 if header and index == 0 else 1
+            for x, value in zip((77, 257, 357), cells):
+                content.append(text(font, x, top - 18 * index - 13, value))
+        return content
+
+    parts = [(b"Part %02d" % n, b"%d" % (n * 3), b"%d.%02d" % divmod(n * 125, 100)) for n in range(1, 17)]
+    page2 = [b"BT /F2 16 Tf 72 740 Td (Continued Table) Tj ET",
+             text(1, 72, 712, b"The table below runs to the foot of the page and goes on at the"),
+             text(1, 72, 700, b"top of the next one.")]
+    page2 += ruled(300, [(b"Item", b"Qty", b"Price")] + parts[:11], header=True)
+    page3 = ruled(740, parts[11:], header=False)
+    page3 += [text(1, 72, 620, b"The table above continues the one on the previous page.")]
+    fonts = b" /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >>"
+    return simple_file([
+        (1, catalog()),
+        (2, pages([3, 7, 9])),
+        (3, page(contents=4, resources=False, extra=fonts)),
+        (4, stream(b"", b"\n".join(page1))),
+        (5, HELVETICA),
+        (6, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"),
+        (7, page(contents=8, resources=False, extra=fonts)),
+        (8, stream(b"", b"\n".join(page2))),
+        (9, page(contents=10, resources=False, extra=fonts)),
+        (10, stream(b"", b"\n".join(page3))),
+    ])
+
+
 def gen_functions() -> bytes:
     """7.10 functions as Separation tint transforms (8.6.6.4), one rectangle per colour space.
     CS0: Type 0 (7.10.2), 8-bit, 1 in, 4 out (DeviceCMYK), Size [3], painted at 0.5 (the middle sample).
@@ -7013,6 +7086,7 @@ FILES = {
     "layout-two-column-untagged.pdf": gen_layout_two_column_untagged,
     "layout-three-column.pdf": gen_layout_three_column,
     "layout-headings-lists.pdf": gen_layout_headings_lists,
+    "layout-tables.pdf": gen_layout_tables,
     "destinations-all.pdf": gen_destinations_all,
     "outline-full.pdf": gen_outline_full,
     "outline-broken.pdf": gen_outline_broken,

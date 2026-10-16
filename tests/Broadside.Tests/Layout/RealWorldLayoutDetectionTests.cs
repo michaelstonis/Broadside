@@ -15,6 +15,8 @@ public sealed class RealWorldLayoutDetectionTests : IDisposable
 {
     // Measured when the detector landed (76 labels on 5 pages): 67 found (0.88), 63 in order (recall 0.83), 77 detected (precision
     // 0.82); the paper and the book pages are exact, the forms lose checkbox options and row-wise order. The floors leave a little room.
+    // With tables (#189) a table's filled cells are items: the footer of bug1669099 (three labelled columns over key-value rows) is a
+    // table, giving 69 found (0.91), 63 in order (recall 0.83) and 79 detected (precision 0.80).
     private const double MinimumRecall = 0.80;
     private const double MinimumPrecision = 0.78;
 
@@ -137,7 +139,7 @@ public sealed class RealWorldLayoutDetectionTests : IDisposable
 
     private static string Normalize(string text) => string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
-    /// <summary>The page's paragraph-level items in reading order: paragraphs, headings, and list items (each before its nested lists).</summary>
+    /// <summary>The page's paragraph-level items in reading order: paragraphs, headings, list items (each before its nested lists) and table cells.</summary>
     private static Item[] Items(LayoutTree tree, int pageNumber)
     {
         Assert.True(tree.Pages[pageNumber - 1].IsDetected, $"page {pageNumber} is detected");
@@ -152,6 +154,17 @@ public sealed class RealWorldLayoutDetectionTests : IDisposable
 
     private static void Collect(LayoutNode node, int depth, List<Item> items)
     {
+        if (node is LayoutTable table)
+        {
+            // Issue #189: a detected table's filled cells are items, row by row.
+            foreach (LayoutNode cell in table.Children.SelectMany(static row => row.Children).Where(static cell => cell.Text.Length > 0))
+            {
+                items.Add(new Item(Normalize(cell.Text), "P", depth));
+            }
+
+            return;
+        }
+
         if (node.Kind != LayoutNodeKind.List)
         {
             items.Add(new Item(Normalize(node.Text), node.Kind == LayoutNodeKind.Heading ? "H" : "P", depth));
