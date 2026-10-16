@@ -12,6 +12,7 @@ namespace Broadside.Benchmarks;
 /// the build if it regresses.
 /// </summary>
 [MemoryDiagnoser]
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Design", "CA1001", Justification = "BenchmarkDotNet releases them in [GlobalCleanup].")]
 public class TileSchedulerBenchmarks
 {
     private DocumentSession? _session;
