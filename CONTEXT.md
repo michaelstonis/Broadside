@@ -101,6 +101,10 @@ _Avoid_: Canvas (the core's content-writing API), view, target
 Decides which tiles a viewer draws and when (visible, then near, then ahead in the scroll direction), cancels tiles the viewport has left, and keeps tiles, display lists and the core caches within one memory budget.
 _Avoid_: Render queue, tile manager
 
+**Progressive zoom**:
+Zooming that shows each step at once from the tiles already on a surface (scaled, over each page's paper), keeps the anchor under the pointer, and renders sharp tiles only once the zoom settles.
+_Avoid_: Zoom controller, live zoom
+
 **Page layout**:
 Where every page of a document sits in a viewer, in points: pages grouped into spreads, spreads in a strip with gaps and padding, each page turned by its own rotation plus the user's. Maps between viewport pixels and each page's user space.
 _Avoid_: Page arrangement, document layout (ambiguous with flow layout)

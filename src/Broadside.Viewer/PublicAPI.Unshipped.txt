@@ -308,3 +308,42 @@ Broadside.Viewer.TileSchedulerStatistics.TilesEvicted.get -> long
 Broadside.Viewer.TileSchedulerStatistics.TilesEvicted.init -> void
 Broadside.Viewer.TileSchedulerStatistics.LongestFrame.get -> System.TimeSpan
 Broadside.Viewer.TileSchedulerStatistics.LongestFrame.init -> void
+Broadside.Viewer.FramePart
+Broadside.Viewer.FramePart.FramePart() -> void
+Broadside.Viewer.FramePart.FramePart(Broadside.Viewer.FramePartKind Kind, Broadside.Viewer.Tile Tile, Broadside.Viewer.LayoutRectangle Destination) -> void
+Broadside.Viewer.FramePart.Kind.get -> Broadside.Viewer.FramePartKind
+Broadside.Viewer.FramePart.Kind.init -> void
+Broadside.Viewer.FramePart.Tile.get -> Broadside.Viewer.Tile
+Broadside.Viewer.FramePart.Tile.init -> void
+Broadside.Viewer.FramePart.Destination.get -> Broadside.Viewer.LayoutRectangle
+Broadside.Viewer.FramePart.Destination.init -> void
+Broadside.Viewer.FramePartKind
+Broadside.Viewer.FramePartKind.Paper = 0 -> Broadside.Viewer.FramePartKind
+Broadside.Viewer.FramePartKind.Scaled = 1 -> Broadside.Viewer.FramePartKind
+Broadside.Viewer.FramePartKind.Sharp = 2 -> Broadside.Viewer.FramePartKind
+Broadside.Viewer.ProgressiveZoom
+Broadside.Viewer.ProgressiveZoom.ProgressiveZoom(Broadside.Viewer.TileScheduler! scheduler, in Broadside.Viewer.Viewport viewport, Broadside.Viewer.ProgressiveZoomOptions? options = null) -> void
+Broadside.Viewer.ProgressiveZoom.Viewport.get -> Broadside.Viewer.Viewport
+Broadside.Viewer.ProgressiveZoom.IsZooming.get -> bool
+Broadside.Viewer.ProgressiveZoom.MinZoom.get -> double
+Broadside.Viewer.ProgressiveZoom.MaxZoom.get -> double
+Broadside.Viewer.ProgressiveZoom.SetViewport(in Broadside.Viewer.Viewport viewport) -> void
+Broadside.Viewer.ProgressiveZoom.BeginGesture() -> void
+Broadside.Viewer.ProgressiveZoom.ZoomBy(double factor, double anchorX, double anchorY) -> Broadside.Viewer.Viewport
+Broadside.Viewer.ProgressiveZoom.ZoomTo(double zoom, double anchorX, double anchorY) -> Broadside.Viewer.Viewport
+Broadside.Viewer.ProgressiveZoom.EndGesture() -> Broadside.Viewer.Viewport
+Broadside.Viewer.ProgressiveZoom.RunFrame(System.TimeSpan budget) -> bool
+Broadside.Viewer.ProgressiveZoom.GetFrame(System.Span<Broadside.Viewer.FramePart> destination) -> int
+Broadside.Viewer.ProgressiveZoomOptions
+Broadside.Viewer.ProgressiveZoomOptions.ProgressiveZoomOptions() -> void
+Broadside.Viewer.ProgressiveZoomOptions.MinZoom.get -> double
+Broadside.Viewer.ProgressiveZoomOptions.MaxZoom.get -> double
+Broadside.Viewer.ProgressiveZoomOptions.SettleDelay.get -> System.TimeSpan
+Broadside.Viewer.ProgressiveZoomOptions.SettleDelay.set -> void
+Broadside.Viewer.ProgressiveZoomOptions.TimeProvider.get -> System.TimeProvider!
+Broadside.Viewer.ProgressiveZoomOptions.WithZoomRange(double minZoom, double maxZoom) -> Broadside.Viewer.ProgressiveZoomOptions!
+Broadside.Viewer.ProgressiveZoomOptions.WithSettleDelay(System.TimeSpan delay) -> Broadside.Viewer.ProgressiveZoomOptions!
+Broadside.Viewer.ProgressiveZoomOptions.UseTimeProvider(System.TimeProvider! timeProvider) -> Broadside.Viewer.ProgressiveZoomOptions!
+Broadside.Viewer.TileScheduler.GetFrame(in Broadside.Viewer.Viewport viewport, System.Span<Broadside.Viewer.FramePart> destination) -> int
+const Broadside.Viewer.ProgressiveZoomOptions.DefaultMinZoom = 0.1 -> double
+const Broadside.Viewer.ProgressiveZoomOptions.DefaultMaxZoom = 64 -> double
