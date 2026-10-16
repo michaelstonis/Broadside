@@ -1298,20 +1298,17 @@ public sealed partial class PdfDocument : IDisposable
         CheckLinearization(options);
         ReportBeforeSave();
         bool archival = CheckArchivalSave(options);
-        bool accessible = CheckAccessibleSave(options);
+        AccessibleSave accessible = CheckAccessibleSave(options);
         VersionedSave planned = CheckVersionedSave(options, archival, accessible);
         ReportDeprecatedEncryption(options);
         archival = archival && CheckArchivalVersion(options, planned);
-        accessible = accessible && CheckAccessibleVersion(planned);
+        accessible = CheckAccessibleVersion(planned, accessible);
         if (options.PdfAConformance != PdfAConformance.None && !archival)
         {
             ReportNotIdentified(options);
         }
 
-        if (options.PdfUAConformance != PdfUAConformance.None && !accessible)
-        {
-            ReportAccessibilityNotIdentified();
-        }
+        ReportAccessibilityNotWritten(options, accessible);
 
         if (changes is not null)
         {
@@ -1335,13 +1332,14 @@ public sealed partial class PdfDocument : IDisposable
             changed |= ApplyArchivalSave(options, accessible);
         }
 
-        // Issue #204: what a conformant PDF/UA-1 save adds (identification, DisplayDocTitle, MarkInfo, Tabs); also PDF 1.7 at most.
-        if (accessible)
+        // Issues #204, #205: what a conformant PDF/UA or WTPDF save adds (identification, declarations, DisplayDocTitle, MarkInfo,
+        // Tabs); PDF/UA-1 is also PDF 1.7 at most, PDF/UA-2 and WTPDF PDF 2.0 (VersionedFeatures.PdfUA2Output).
+        if (accessible.Any)
         {
-            changed |= ApplyAccessibleSave(archival);
+            changed |= ApplyAccessibleSave(archival, accessible);
         }
 
-        bool basedOnPdf17 = accessible || (archival && options.PdfAConformance.BaseVersion() == PdfA2Version);
+        bool basedOnPdf17 = accessible.Conformance == PdfUAConformance.PdfUA1 || (archival && options.PdfAConformance.BaseVersion() == PdfA2Version);
         return ApplyVersionedSave(options, planned, changed, basedOnPdf17 ? PdfA2Version : null);
     }
 

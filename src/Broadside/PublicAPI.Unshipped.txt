@@ -4895,3 +4895,14 @@ Broadside.PdfUAConformance.PdfUA1 = 1 -> Broadside.PdfUAConformance
 Broadside.PdfSaveOptions.PdfUAConformance.get -> Broadside.PdfUAConformance
 Broadside.PdfSaveOptions.PdfUAConformance.set -> void
 Broadside.PdfSaveOptions.WithPdfUAConformance(Broadside.PdfUAConformance conformance) -> Broadside.PdfSaveOptions!
+Broadside.PdfUAConformance.PdfUA2 = 2 -> Broadside.PdfUAConformance
+Broadside.PdfWellTaggedConformance
+Broadside.PdfWellTaggedConformance.None = 0 -> Broadside.PdfWellTaggedConformance
+Broadside.PdfWellTaggedConformance.Reuse = 1 -> Broadside.PdfWellTaggedConformance
+Broadside.PdfWellTaggedConformance.Accessibility = 2 -> Broadside.PdfWellTaggedConformance
+Broadside.PdfSaveOptions.WellTaggedConformance.get -> Broadside.PdfWellTaggedConformance
+Broadside.PdfSaveOptions.WellTaggedConformance.set -> void
+Broadside.PdfSaveOptions.WithWellTaggedConformance(Broadside.PdfWellTaggedConformance conformance) -> Broadside.PdfSaveOptions!
+const Broadside.PdfDeclaration.WellTaggedReuse = "http://pdfa.org/declarations/wtpdf#reuse1.0" -> string!
+const Broadside.PdfDeclaration.WellTaggedAccessibility = "http://pdfa.org/declarations/wtpdf#accessibility1.0" -> string!
+Broadside.XmpPacket.PdfUARevision.get -> int?

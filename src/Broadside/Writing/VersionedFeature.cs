@@ -201,6 +201,12 @@ internal static class VersionedFeatures
     /// </summary>
     public static VersionedFeature PdfA4Output { get; } = new("PDF/A-4 output (a PDF 2.0 header)", "ISO 32000-2 §7.5.2", Pdf20);
 
+    /// <summary>
+    /// Gets what a PDF/UA-2 or Well-Tagged PDF save needs beyond <see cref="PdfUAOutput"/>: a file of ISO 32000-2, whose structure is
+    /// that of PDF 2.0 (ISO 14289-2 §6.1; WTPDF 1.0 §6.2), written with a PDF 2.0 header (issue #205): PDF 2.0.
+    /// </summary>
+    public static VersionedFeature PdfUA2Output { get; } = new("PDF/UA-2 or Well-Tagged PDF output (a PDF 2.0 file)", "ISO 32000-2 §7.5.2; ISO 14289-2 §6.1", Pdf20);
+
     /// <summary>Gets what a PDF/UA save writes, a metadata stream (§14.3.2) and pages' <c>Tabs</c> (§7.7.3.3, Table 31): PDF 1.5.</summary>
     public static VersionedFeature PdfUAOutput { get; } = new("PDF/UA output (a metadata stream and the pages' Tabs order)", "ISO 32000-2 §14.3.2, §7.7.3.3", Pdf15);
 

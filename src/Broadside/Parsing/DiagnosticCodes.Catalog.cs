@@ -52,4 +52,9 @@ internal static partial class DiagnosticCodes
     // (Warning, refused in strict mode), and a lenient save that therefore does not claim the conformance (Information).
     public const string PdfUANonConformant = nameof(PdfUANonConformant);
     public const string PdfUANotIdentified = nameof(PdfUANotIdentified);
+
+    // Saving with Well-Tagged PDF declarations (issue #205; veraPDF WTPDF 1.0 rule identifiers): a failure condition the document has
+    // (Warning, refused in strict mode), and a lenient save that therefore does not declare the level (Information).
+    public const string WellTaggedNonConformant = nameof(WellTaggedNonConformant);
+    public const string WellTaggedNotDeclared = nameof(WellTaggedNotDeclared);
 }
