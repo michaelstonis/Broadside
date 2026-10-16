@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <Description>The framework-neutral viewer core for Broadside: a document session that opens a document, caches page geometry, builds display lists off the UI thread with cancellation and renders tiles onto a surface abstraction that each UI shell implements. References no UI framework and runs in the browser on a single thread.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Broadside/Broadside.csproj" />
+    <ProjectReference Include="../Broadside.Rendering/Broadside.Rendering.csproj" />
+  </ItemGroup>
+
+</Project>
