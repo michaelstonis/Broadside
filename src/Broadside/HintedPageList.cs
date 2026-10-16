@@ -37,7 +37,7 @@ internal sealed class HintedPageList
     private readonly Func<int, XrefEntry?> _firstPageEntry;
     private readonly DiagnosticSink _diagnostics;
     private readonly OnceCache<int, PdfPage?> _pages = new();
-    private readonly ConcurrentDictionary<CosReference, PdfPage> _created = new();
+    private readonly ConcurrentDictionary<CosReference, PdfPage> _created = DeterministicTable.Create<CosReference, PdfPage>();
 
     /// <summary>Initializes a new instance of the <see cref="HintedPageList"/> class.</summary>
     /// <param name="document">The document.</param>

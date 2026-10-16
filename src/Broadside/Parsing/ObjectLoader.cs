@@ -604,7 +604,7 @@ internal sealed class ObjectLoader
         get
         {
             ConcurrentDictionary<CosReference, ObjectSourceBytes>? sourceBytes = Volatile.Read(ref _sourceBytes);
-            return sourceBytes ?? Interlocked.CompareExchange(ref _sourceBytes, new(), null) ?? _sourceBytes;
+            return sourceBytes ?? Interlocked.CompareExchange(ref _sourceBytes, DeterministicTable.Create<CosReference, ObjectSourceBytes>(), null) ?? _sourceBytes;
         }
     }
 
