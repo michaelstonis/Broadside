@@ -83,6 +83,7 @@
   jpx-smask-in-data.pdf,
   jpx-subsampled.pdf,
   layout-headings-lists.pdf,
+  layout-tables.pdf,
   layout-tagged.pdf,
   layout-three-column.pdf,
   layout-two-column-tagged.pdf,

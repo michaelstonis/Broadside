@@ -172,6 +172,69 @@ public static class ContentSamples
         return File([.. objects]);
     }
 
+    /// <summary>
+    /// Untagged pages of tables (spec story 36, issue #189): on each page a line of text, a ruled table of 21 rows and 5 columns (a
+    /// bold header row, its first column merged in pairs of rows by left-out lines) and an unruled table of 21 rows and 5 columns
+    /// aligned by white space (about 900 glyphs a page).
+    /// </summary>
+    /// <param name="pages">The number of pages.</param>
+    /// <returns>The file.</returns>
+    public static byte[] Tables(int pages)
+    {
+        var objects = new List<string>
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            $"<< /Type /Pages /Kids [{string.Join(' ', Enumerable.Range(0, pages).Select(static page => string.Create(CultureInfo.InvariantCulture, $"{3 + (2 * page)} 0 R")))}] /Count {pages} >>",
+        };
+        int fonts = 3 + (2 * pages);
+        for (int page = 0; page < pages; page++)
+        {
+            var content = new StringBuilder();
+            content.Append(CultureInfo.InvariantCulture, $"BT /F1 10 Tf 72 760 Td (Page {page + 1} holds a ruled table and an unruled one.) Tj ET\n0.5 w\n");
+            for (int row = 0; row <= 21; row++)
+            {
+                // The lines between rows 2k - 1 and 2k leave out the first column, which merges those cells.
+                int left = row > 1 && row < 21 && row % 2 == 0 ? 152 : 72;
+                content.Append(CultureInfo.InvariantCulture, $"{left} {740 - (row * 14)} m 472 {740 - (row * 14)} l S\n");
+            }
+
+            foreach (int x in (int[])[72, 152, 232, 312, 392, 472])
+            {
+                content.Append(CultureInfo.InvariantCulture, $"{x} 740 m {x} 446 l S\n");
+            }
+
+            for (int row = 0; row < 21; row++)
+            {
+                for (int column = 0; column < 5; column++)
+                {
+                    if (column == 0 && row > 1 && row % 2 == 0)
+                    {
+                        continue;
+                    }
+
+                    string cell = row == 0 ? $"Head {column + 1}" : column == 0 ? $"Group {row}" : $"{(row * 37) + (column * 11)}.{row % 10}";
+                    content.Append(CultureInfo.InvariantCulture, $"BT /F{(row == 0 ? 2 : 1)} 9 Tf {76 + (column * 80)} {730 - (row * 14)} Td ({cell}) Tj ET\n");
+                }
+            }
+
+            for (int row = 0; row < 21; row++)
+            {
+                for (int column = 0; column < 5; column++)
+                {
+                    string cell = row == 0 ? $"Col {column + 1}" : column == 0 ? $"Name {row}" : $"{(row * 13) + column}";
+                    content.Append(CultureInfo.InvariantCulture, $"BT /F{(row == 0 ? 2 : 1)} 9 Tf {72 + (column * 90)} {400 - (row * 13)} Td ({cell}) Tj ET\n");
+                }
+            }
+
+            objects.Add(string.Create(CultureInfo.InvariantCulture, $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 {fonts} 0 R /F2 {fonts + 1} 0 R >> >> /Contents {4 + (2 * page)} 0 R >>"));
+            objects.Add(Stream(content.ToString()));
+        }
+
+        objects.Add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+        objects.Add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+        return File([.. objects]);
+    }
+
     /// <summary>A file of the objects, numbered from 1 (object 1 the catalog), with a cross-reference table (ISO 32000-2 §7.5).</summary>
     public static byte[] File(string[] objects)
     {

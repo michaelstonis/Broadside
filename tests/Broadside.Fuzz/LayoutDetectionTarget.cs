@@ -43,7 +43,7 @@ internal static class LayoutDetectionTarget
 
     private static IEnumerable<string> Paragraphs(LayoutTree tree) => tree.Root.Children.Select(static node => node.Text);
 
-    private static void CheckPartition(LayoutPage page)
+    internal static void CheckPartition(LayoutPage page)
     {
         TextPage detected = page.Text;
         TextPage content = page.Page.ExtractText();

@@ -4549,6 +4549,8 @@ Broadside.Layout.LayoutPage.PageIndex.get -> int
 Broadside.Layout.LayoutPage.Text.get -> Broadside.Text.TextPage!
 Broadside.Layout.LayoutTable
 Broadside.Layout.LayoutTable.ColumnCount.get -> int
+Broadside.Layout.LayoutTable.NextPart.get -> Broadside.Layout.LayoutTable?
+Broadside.Layout.LayoutTable.PreviousPart.get -> Broadside.Layout.LayoutTable?
 Broadside.Layout.LayoutTable.RowCount.get -> int
 Broadside.Layout.LayoutTableCell
 Broadside.Layout.LayoutTableCell.Column.get -> int
