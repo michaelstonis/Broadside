@@ -179,7 +179,7 @@ jobs:
         run: artifacts/aot-smoke/Broadside.Rendering.AotSmoke --require-aot
 
   # Validates the files Broadside writes in a PDF/A mode with veraPDF, the PDF Association's reference validator (issue #201; spec
-  # story 42): every test in the VeraPdf trait saves a document as PDF/A and asserts that veraPDF reports no failed rule. veraPDF is a
+  # story 42; PDF/A-4 and 4f, #203): every test in the VeraPdf trait saves a document as PDF/A and asserts that veraPDF reports no failed rule. veraPDF is a
   # Java tool used here only, never by the library (ADR 0001); its release is pinned and checksummed like qpdf above, and
   # BROADSIDE_REQUIRE_VERAPDF makes a test fail rather than skip if the tool cannot be found, so the check never silently stops.
   verapdf:
@@ -254,7 +254,7 @@ jobs:
           dotnet test --project tests/Broadside.Fonts.Standard14.Tests -c Release --no-build -- --filter-trait "Category=VeraPdf"
 
       # PDF/UA-1 output from flow layout (#204, and the tagging by construction it builds on, #179) against veraPDF's PDF/UA-1
-      # profile (plus PDF/A-2u for a combined save).
+      # profile (plus PDF/A-2u for a combined save, and PDF/A-4 for a PDF/A-4 save asking for UA-1, #203).
       - name: Validate PDF/UA-1 output with veraPDF
         env:
           BROADSIDE_REQUIRE_VERAPDF: '1'

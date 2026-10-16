@@ -56,6 +56,23 @@ public sealed class PdfUAFlowTests
     }
 
     [Fact]
+    [Trait("Category", "VeraPdf")]
+    public void A_report_saved_as_PDF_A_4_with_PDF_UA_1_is_PDF_A_4_and_not_claimed_as_PDF_UA_1_whose_header_is_1_n()
+    {
+        using PdfDocument document = NewDocument();
+        Report(document, Accessible).Render(document);
+
+        byte[] saved = Saved(document, new PdfSaveOptions().WithPdfUAConformance(PdfUAConformance.PdfUA1).WithPdfAConformance(PdfAConformance.PdfA4));
+
+        Diagnostic reported = Assert.Single(document.Diagnostics, diagnostic => diagnostic.Code == NonConformant);
+        Assert.Contains("PDF/A-4", reported.Message, StringComparison.Ordinal);
+        Assert.Contains("veraPDF rule 6.1-1,", reported.Message, StringComparison.Ordinal);
+        Assert.Contains(document.Diagnostics, diagnostic => diagnostic.Code == NotIdentified);
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code is "PdfANonConformant" or "PdfANotIdentified");
+        Assert.Empty(VeraPdf.FailedRules(saved, "4"));
+    }
+
+    [Fact]
     public void The_save_identifies_PDF_UA_1_and_writes_what_the_profile_requires_of_the_file()
     {
         using PdfDocument document = NewDocument();

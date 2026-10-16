@@ -8,9 +8,9 @@ using Broadside.Writing;
 namespace Broadside;
 
 /// <content>
-/// PDF/A output (issues #201, #202): a save with <see cref="PdfSaveOptions.PdfAConformance"/> checks the document against the
-/// conformance level, then adds what the level requires. ISO 19005-2 and ISO 19005-3, cited by veraPDF validation-profile rule
-/// identifiers (open decision 12).
+/// PDF/A output (issues #201, #202, #203): a save with <see cref="PdfSaveOptions.PdfAConformance"/> checks the document against the
+/// conformance level, then adds what the level requires. ISO 19005-2, ISO 19005-3 and ISO 19005-4, cited by veraPDF
+/// validation-profile rule identifiers (open decision 12).
 /// </content>
 public sealed partial class PdfDocument
 {
@@ -23,6 +23,8 @@ public sealed partial class PdfDocument
     private static readonly CosName OutputIntentInfoKey = new("Info");
     private static readonly CosName DestOutputProfileKey = new("DestOutputProfile");
     private static readonly CosName OutputIntentsCatalogKey = new("OutputIntents");
+    private static readonly CosName PieceInfoKey = new("PieceInfo");
+    private static readonly CosName ModDateKey = new("ModDate");
 
     /// <summary>
     /// The check step of a PDF/A save, on the document as it is (issue #300): reports every rule the save cannot meet as a
@@ -47,18 +49,20 @@ public sealed partial class PdfDocument
     }
 
     /// <summary>
-    /// Checks the version the save needs against the PDF 1.7 PDF/A-2 and PDF/A-3 are based on (veraPDF rule 6.1.2-1): a feature the
-    /// save writes that needs a later version cannot conform. PDF/A-3's associated files are not among them (see <see cref="AddArchivalFeatures"/>).
+    /// Checks the version the save needs against the one the part is based on (veraPDF rule 6.1.2-1): PDF 1.7 for PDF/A-2 and PDF/A-3,
+    /// PDF 2.0 for PDF/A-4. A feature the save writes that needs a later version cannot conform. PDF/A-3's associated files are not
+    /// among them (see <see cref="AddArchivalFeatures"/>).
     /// </summary>
     /// <returns>Whether the save still writes the conformance.</returns>
-    /// <exception cref="DiagnosticException">In strict mode, when a feature needs a version later than 1.7.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, when a feature needs a version later than the part's.</exception>
     private bool CheckArchivalVersion(PdfSaveOptions options, VersionedSave planned)
     {
-        IEnumerable<VersionedFeature> later = planned.Features.Where(feature => feature.MinimumVersion > PdfA2Version).Distinct();
+        PdfVersion based = options.PdfAConformance.BaseVersion();
+        IEnumerable<VersionedFeature> later = planned.Features.Where(feature => feature.MinimumVersion > based).Distinct();
         bool conformant = true;
         foreach (VersionedFeature feature in later)
         {
-            ReportNonConformance(options, new PdfAViolation("6.1.2-1", string.Create(CultureInfo.InvariantCulture, $"{feature} needs PDF {feature.MinimumVersion}; PDF/A-{options.PdfAConformance.Part()} is based on PDF 1.7"), null));
+            ReportNonConformance(options, new PdfAViolation("6.1.2-1", string.Create(CultureInfo.InvariantCulture, $"{feature} needs PDF {feature.MinimumVersion}; PDF/A-{options.PdfAConformance.Part()} is based on PDF {based}"), null));
             conformant = false;
         }
 
@@ -82,12 +86,17 @@ public sealed partial class PdfDocument
     /// <summary>
     /// Adds to <paramref name="features"/> what a conformant PDF/A save writes (<see cref="VersionedFeatures.PdfAOutput"/>) and, for
     /// PDF/A-3, takes associated files out: ISO 19005-3 adds <c>AF</c> and <c>AFRelationship</c> to its PDF 1.7 base (6.8, veraPDF
-    /// rules 6.8-3 and 6.8-4), so they neither raise the version nor break rule 6.1.2-1.
+    /// rules 6.8-3 and 6.8-4), so they neither raise the version nor break rule 6.1.2-1. PDF/A-4 adds
+    /// <see cref="VersionedFeatures.PdfA4Output"/>: its file has a <c>%PDF-2.n</c> header (ISO 19005-4, rule 6.1.2-1).
     /// </summary>
     private static void AddArchivalFeatures(List<VersionedFeature> features, PdfSaveOptions options)
     {
         features.Add(VersionedFeatures.PdfAOutput);
-        if (options.PdfAConformance.AllowsAssociatedFiles())
+        if (options.PdfAConformance.Part() == 4)
+        {
+            features.Add(VersionedFeatures.PdfA4Output);
+        }
+        else if (options.PdfAConformance.AllowsAssociatedFiles())
         {
             features.RemoveAll(feature => feature == VersionedFeatures.AssociatedFiles);
         }
@@ -98,7 +107,11 @@ public sealed partial class PdfDocument
     /// one (issue #306): adds a <c>GTS_PDFA1</c> output intent with Broadside's sRGB profile unless an output intent already has a
     /// destination profile (which it then shares, veraPDF rule 6.2.3-2), and writes the XMP packet with the PDF/A identification of
     /// the level, its part and conformance (rules 6.6.2.1-1, 6.6.4-1 to 6.6.4-5), without <c>pdf:Trapped</c> (6.6.2.3.1-1) in the
-    /// layout of the PDF 1.7 file the save writes.
+    /// layout of the PDF 1.7 file the save writes. A PDF/A-4 save (issue #203) identifies the part, the revision and, for 4f, the
+    /// conformance (ISO 19005-4 rules 6.7.3-2 to 6.7.3-5) in the PDF 2.0 layout, keeps <c>pdf:Trapped</c> (PDF/A-4 needs no
+    /// extension schema), takes the document information dictionary out of the trailer once its entries are in the packet, or keeps
+    /// only its <c>ModDate</c> when the catalog has <c>PieceInfo</c> (rules 6.1.3-4, 6.1.3-5), and drops a catalog <c>Version</c>
+    /// that is not 2.n (rule 6.1.12-1).
     /// </summary>
     /// <param name="options">The save's options.</param>
     /// <param name="accessible">Whether the save is also a conformant PDF/UA one, whose identification this packet carries.</param>
@@ -113,17 +126,54 @@ public sealed partial class PdfDocument
             IdentifyAccessibility(writer, extensionSchema: true);
         }
 
+        PdfAConformance level = options.PdfAConformance;
         writer
-            .SetProperty(XmpNamespaces.PdfAIdentification, "part", options.PdfAConformance.Part().ToString(CultureInfo.InvariantCulture))
-            .SetProperty(XmpNamespaces.PdfAIdentification, "conformance", options.PdfAConformance.Level())
+            .SetProperty(XmpNamespaces.PdfAIdentification, "part", level.Part().ToString(CultureInfo.InvariantCulture))
+            .SetProperty(XmpNamespaces.PdfAIdentification, "conformance", level.Level())
+            .SetProperty(XmpNamespaces.PdfAIdentification, "rev", level.Revision())
             .SetProperty(XmpNamespaces.PdfAIdentification, "amd", null)
-            .SetProperty(XmpNamespaces.PdfAIdentification, "corr", null)
+            .SetProperty(XmpNamespaces.PdfAIdentification, "corr", null);
+        if (level.Part() == 4)
+        {
+            writer.Commit(Now(), createPacket: true, layout: level.BaseVersion());
+            KeepPdfA4Information();
+            return true;
+        }
 
-            // pdf:Trapped is not in the XMP 2005 Adobe PDF schema PDF/A-2 predefines (veraPDF rules 6.6.2.3.1-1, -2) and would need an
-            // extension schema; PDF/A-2 does not require the Info dictionary and the packet to agree, so Trapped stays in Info only.
+        // pdf:Trapped is not in the XMP 2005 Adobe PDF schema PDF/A-2 predefines (veraPDF rules 6.6.2.3.1-1, -2) and would need an
+        // extension schema; PDF/A-2 does not require the Info dictionary and the packet to agree, so Trapped stays in Info only.
+        writer
             .SetProperty(XmpNamespaces.Pdf, "Trapped", null)
             .Commit(Now(), createPacket: true, layout: PdfA2Version);
         return true;
+    }
+
+    /// <summary>
+    /// What PDF/A-4 allows of the document information dictionary and the catalog's version, once the PDF 2.0 layout has put the
+    /// metadata in the XMP packet: no <c>Info</c> in the trailer unless the catalog has <c>PieceInfo</c>, and then only its
+    /// <c>ModDate</c> (ISO 19005-4, veraPDF rules 6.1.3-4 and 6.1.3-5); no catalog <c>Version</c> other than 2.n (rule 6.1.12-1).
+    /// </summary>
+    private void KeepPdfA4Information()
+    {
+        if (Trailer.TryGetValue(KnownNames.Info, out CosObject? entry))
+        {
+            if (Catalog.ContainsKey(PieceInfoKey) && Resolve(entry) is CosDictionary info)
+            {
+                foreach (CosName key in info.Keys.Where(key => !key.Equals(ModDateKey)).ToArray())
+                {
+                    _ = info.Remove(key);
+                }
+            }
+            else
+            {
+                _ = Trailer.Remove(KnownNames.Info);
+            }
+        }
+
+        if (Catalog.ContainsKey(KnownNames.Version) && ReadCatalogVersion(Catalog, diagnostics: null) is not { Major: 2 })
+        {
+            _ = Catalog.Remove(KnownNames.Version);
+        }
     }
 
     /// <summary>Adds the PDF/A output intent (ISO 32000-2 §14.11.5, Table 401) unless the catalog already has a <c>GTS_PDFA1</c> one with a profile.</summary>

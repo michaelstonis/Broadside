@@ -14,8 +14,8 @@ namespace Broadside.Writing;
 internal readonly record struct PdfAViolation(string Rule, string Message, CosReference? Reference);
 
 /// <summary>
-/// The check step of a PDF/A save (issues #201, #202): walks what the file will hold and lists every rule of veraPDF's validation
-/// profile for the level (PDF/A-2B, -2U, -3B, -3U) the save cannot meet by itself. It reads and changes nothing in the document.
+/// The check step of a PDF/A save (issues #201, #202, #203): walks what the file will hold and lists every rule of veraPDF's validation
+/// profile for the level (PDF/A-2B, -2U, -3B, -3U, -4, -4F) the save cannot meet by itself. It reads and changes nothing in the document.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -37,6 +37,16 @@ internal readonly record struct PdfAViolation(string Rule, string Message, CosRe
 /// stream (a font set before <c>Q</c> is kept: conservative). PDF/A-3 (issue #202) replaces 6.8-5 with 6.8-1, 6.8-3 and 6.8-4: each
 /// embedded file (in the EmbeddedFiles tree or a file attachment annotation) names a MIME type, has an <c>AFRelationship</c> and is
 /// listed in an <c>AF</c> array of the catalog, a page, an annotation, an XObject or a structure element.
+/// </para>
+/// <para>
+/// PDF/A-4 (ISO 19005-4, issue #203) numbers its rules differently: the same checks are reported under the PDF/A-4 profile's
+/// identifiers (<see cref="PdfA4Rules"/>), and those PDF/A-4 drops are not reported (PostScript XObjects, a field's actions, a
+/// widget's AA, JavaScript, an embedded file missing from <c>AF</c>). 6.1.2-1 is an incremental update of a file whose header is not
+/// <c>%PDF-2.n</c> (a full save writes 2.0); 6.2.5-3 is <c>HTO</c>; 6.6.3-1 an additional-actions dictionary of the catalog or a
+/// page with a trigger other than E, X, D, U, Fo and Bl; 6.9-3 any embedded file in a PDF/A-4 save (each must be PDF/A-1, -2 or -4,
+/// not verified); in a PDF/A-4f save 6.9-1, 6.9-2 (<c>F</c> and <c>UF</c>), 6.9-4 for each embedded file and 6.9-5 (the
+/// EmbeddedFiles tree). The document information dictionary (6.1.3-4, 6.1.3-5) and the catalog's version (6.1.12-1) are made
+/// conformant by the save.
 /// </para>
 /// <para>
 /// Not checked (left to the writing APIs, which produce conformant objects, and to veraPDF in CI): the file syntax rules the writer
@@ -78,6 +88,7 @@ internal sealed partial class PdfAChecker
     private static readonly CosName G = new("G");
     private static readonly CosName HalftoneType = new("HalftoneType");
     private static readonly CosName HT = new("HT");
+    private static readonly CosName HTO = new("HTO");
     private static readonly CosName HTP = new("HTP");
     private static readonly CosName I = new("I");
     private static readonly CosName Interpolate = new("Interpolate");
@@ -121,6 +132,41 @@ internal sealed partial class PdfAChecker
 
     /// <summary>The named actions PDF/A-2 allows (6.5.1-2).</summary>
     private static readonly HashSet<string> NamedActions = ["NextPage", "PrevPage", "FirstPage", "LastPage"];
+
+    /// <summary>The action types PDF/A-4 adds to <see cref="ActionTypes"/>: it forbids neither (ISO 19005-4, veraPDF rule 6.6.1-1).</summary>
+    private static readonly HashSet<string> PdfA4ActionTypes = ["JavaScript", "GoToDp"];
+
+    /// <summary>The triggers an additional-actions dictionary of the catalog or a page may have in PDF/A-4 (veraPDF rule 6.6.3-1).</summary>
+    private static readonly HashSet<string> PdfA4Triggers = ["E", "X", "D", "U", "Fo", "Bl"];
+
+    /// <summary>
+    /// The PDF/A-4 profile's identifier for each PDF/A-2 rule this checker reports where the two differ (ISO 19005-4 renumbers
+    /// clauses 6.1.6 to 6.12); <see langword="null"/> where PDF/A-4 has no such rule.
+    /// </summary>
+    private static readonly Dictionary<string, string?> PdfA4Rules = new(StringComparer.Ordinal)
+    {
+        ["6.1.7.1-3"] = "6.1.6.1-2",
+        ["6.1.7.2-1"] = "6.1.6.2-1",
+        ["6.1.10-1"] = "6.1.9-1",
+        ["6.2.8-1"] = "6.2.7.1-1",
+        ["6.2.8-2"] = "6.2.7.1-2",
+        ["6.2.8-3"] = "6.2.7.1-3",
+        ["6.2.9-1"] = "6.2.8.1-1",
+        ["6.2.9-2"] = "6.2.8.2-1",
+        ["6.2.9-3"] = null,
+        ["6.2.10-1"] = "6.2.9-1",
+        ["6.2.11.4.1-1"] = "6.2.10.4.1-1",
+        ["6.4.1-2"] = null,
+        ["6.4.1-3"] = "6.4.1-2",
+        ["6.5.1-1"] = "6.6.1-1",
+        ["6.5.1-2"] = "6.6.1-2",
+        ["6.8-1"] = "6.9-1",
+        ["6.8-3"] = "6.9-4",
+        ["6.8-4"] = null,
+        ["6.10-1"] = "6.11-1",
+        ["6.10-2"] = "6.11-2",
+        ["6.11-1"] = "6.12-1",
+    };
 
     /// <summary>The blend modes ISO 32000-1 defines (6.2.10-1).</summary>
     private static readonly HashSet<string> BlendModes =
@@ -186,6 +232,16 @@ internal sealed partial class PdfAChecker
 
     private void Report(string rule, string message, CosReference? reference = null)
     {
+        if (_conformance.Part() == 4 && PdfA4Rules.TryGetValue(rule, out string? renumbered))
+        {
+            if (renumbered is null)
+            {
+                return;
+            }
+
+            rule = renumbered;
+        }
+
         if (_reported.Add((rule, message)))
         {
             _violations.Add(new PdfAViolation(rule, message, reference));
@@ -203,6 +259,27 @@ internal sealed partial class PdfAChecker
 
     private string? NameOf(CosDictionary owner, CosName key) => (Resolve(owner.GetValueOrDefault(key)) as CosName)?.Value;
 
+    /// <summary>
+    /// Checks an additional-actions dictionary of the catalog or a page: PDF/A-2 and -3 forbid it (<paramref name="pdfA2Rule"/>),
+    /// PDF/A-4 allows only the triggers E, X, D, U, Fo and Bl (veraPDF rule 6.6.3-1).
+    /// </summary>
+    private void CheckAdditionalActions(CosDictionary owner, string pdfA2Rule, string ownerName, CosReference? reference)
+    {
+        if (!owner.ContainsKey(AA))
+        {
+            return;
+        }
+
+        if (_conformance.Part() != 4)
+        {
+            Report(pdfA2Rule, $"{ownerName} has an AA (additional actions) entry", reference);
+        }
+        else if (Dictionary(owner, AA) is not { } actions || actions.Keys.Any(trigger => !PdfA4Triggers.Contains(trigger.Value)))
+        {
+            Report("6.6.3-1", $"{ownerName}'s AA (additional actions) has a trigger other than E, X, D, U, Fo or Bl", reference);
+        }
+    }
+
     private void CheckFile(PdfSaveOptions options)
     {
         if (options.Encryption is not null || options.PublicKeyEncryption is not null || (_document.Security is not null && !options.RemoveEncryption))
@@ -210,7 +287,15 @@ internal sealed partial class PdfAChecker
             Report("6.1.3-2", "the file would be encrypted (PDF/A forbids the Encrypt entry)");
         }
 
-        if (options.IncrementalUpdate ? _document.Version > Pdf17 : CatalogVersion() > Pdf17)
+        if (_conformance.Part() == 4)
+        {
+            // A full save writes a 2.0 header (VersionedFeatures.PdfA4Output); an update keeps the file's.
+            if (options.IncrementalUpdate && _document.HeaderVersion is { } header && header.Major != 2)
+            {
+                Report("6.1.2-1", string.Create(CultureInfo.InvariantCulture, $"an incremental update keeps the file's PDF {header} header; a PDF/A-4 file has a %PDF-2.n header"));
+            }
+        }
+        else if (options.IncrementalUpdate ? _document.Version > Pdf17 : CatalogVersion() > Pdf17)
         {
             Report("6.1.2-1", string.Create(CultureInfo.InvariantCulture, $"the document is PDF {_document.Version}; PDF/A-{_conformance.Part()} is based on PDF 1.7"));
         }
@@ -256,10 +341,7 @@ internal sealed partial class PdfAChecker
     private void CheckCatalog()
     {
         CosDictionary catalog = _document.Catalog;
-        if (catalog.ContainsKey(AA))
-        {
-            Report("6.5.2-1", "the catalog has an AA (additional actions) entry");
-        }
+        CheckAdditionalActions(catalog, "6.5.2-1", "the catalog", reference: null);
 
         if (catalog.ContainsKey(Requirements))
         {
@@ -278,7 +360,7 @@ internal sealed partial class PdfAChecker
 
         if (Dictionary(catalog, Names) is { } names)
         {
-            if (names.ContainsKey(JavaScript))
+            if (names.ContainsKey(JavaScript) && _conformance.Part() != 4)
             {
                 Report("6.5.1-1", "the name dictionary has a JavaScript tree");
             }
@@ -292,6 +374,7 @@ internal sealed partial class PdfAChecker
             {
                 if (_conformance.AllowsAssociatedFiles())
                 {
+                    // PDF/A-4 too: its check step reports 6.9-3 for each file it collects (CheckEmbeddedFiles).
                     foreach (PdfEmbeddedFileEntry entry in _document.EmbeddedFiles)
                     {
                         AddEmbeddedFile(entry.File.Dictionary, entry.File.Reference);
@@ -302,6 +385,11 @@ internal sealed partial class PdfAChecker
                     Report("6.8-5", "the document embeds files, which PDF/A-2 allows only when each is PDF/A-1 or PDF/A-2 itself (not verified; PDF/A-3 allows any)");
                 }
             }
+        }
+
+        if (_conformance == PdfAConformance.PdfA4f && (Dictionary(catalog, Names) is not { } nameTrees || !nameTrees.ContainsKey(EmbeddedFiles)))
+        {
+            Report("6.9-5", "the catalog's name dictionary has no EmbeddedFiles tree, which a PDF/A-4f file has");
         }
 
         if (Dictionary(catalog, AcroForm) is { } form)
@@ -394,6 +482,16 @@ internal sealed partial class PdfAChecker
             string name = _document.Resolve(specification.GetValueOrDefault(FileAndLayerNames.UF) ?? specification.GetValueOrDefault(F)) is CosString file
                 ? file.DecodeText()
                 : "(unnamed)";
+            if (_conformance == PdfAConformance.PdfA4)
+            {
+                Report("6.9-3", $"the embedded file {name}, which PDF/A-4 allows only when it is PDF/A-1, -2 or -4 itself (not verified; PDF/A-4f allows any)", reference);
+                continue;
+            }
+
+            if (_conformance.Part() == 4 && (Resolve(specification.GetValueOrDefault(F)) is not CosString || Resolve(specification.GetValueOrDefault(FileAndLayerNames.UF)) is not CosString))
+            {
+                Report("6.9-2", $"the embedded file {name}'s specification lacks F or UF", reference);
+            }
             if (Dictionary(specification, FileAndLayerNames.EF) is { } streams)
             {
                 foreach ((CosName _, CosObject value) in streams)
@@ -432,7 +530,7 @@ internal sealed partial class PdfAChecker
                 continue;
             }
 
-            if (field.ContainsKey(A) || field.ContainsKey(AA))
+            if (_conformance.Part() == 4 ? field.ContainsKey(A) && NameOf(field, Subtype) == "Widget" : field.ContainsKey(A) || field.ContainsKey(AA))
             {
                 Report(NameOf(field, Subtype) == "Widget" ? "6.4.1-1" : "6.4.1-2", "a form field has an A or AA (actions) entry", item as CosReference);
             }
@@ -483,7 +581,7 @@ internal sealed partial class PdfAChecker
             }
 
             string? type = NameOf(current, S);
-            if (type is null || !ActionTypes.Contains(type))
+            if (type is null || !(ActionTypes.Contains(type) || (_conformance.Part() == 4 && PdfA4ActionTypes.Contains(type))))
             {
                 Report("6.5.1-1", $"a {type ?? "typeless"} action, which PDF/A forbids", currentReference);
             }
@@ -514,10 +612,7 @@ internal sealed partial class PdfAChecker
     private void CheckPage(PdfPage page)
     {
         CosDictionary dictionary = page.Dictionary;
-        if (dictionary.ContainsKey(AA))
-        {
-            Report("6.5.2-2", "a page has an AA (additional actions) entry", page.Reference);
-        }
+        CheckAdditionalActions(dictionary, "6.5.2-2", "a page", page.Reference);
 
         if (dictionary.ContainsKey(PresSteps))
         {
@@ -556,7 +651,7 @@ internal sealed partial class PdfAChecker
 
         if (!AnnotationTypes.Contains(subtype))
         {
-            Report("6.3.1-1", $"a {subtype} annotation, which PDF/A-2 forbids", reference);
+            Report("6.3.1-1", $"a {subtype} annotation, which PDF/A forbids", reference);
         }
 
         CosObject flags = Resolve(annotation.GetValueOrDefault(F));
@@ -619,7 +714,7 @@ internal sealed partial class PdfAChecker
             }
         }
 
-        if (subtype == "Widget" && annotation.ContainsKey(AA))
+        if (subtype == "Widget" && annotation.ContainsKey(AA) && _conformance.Part() != 4)
         {
             Report("6.4.1-1", "a widget annotation has an AA (additional actions) entry", reference);
         }
@@ -1020,9 +1115,9 @@ internal sealed partial class PdfAChecker
             Report("6.2.5-2", "a graphics state has a TR2 entry other than Default", reference);
         }
 
-        if (state.ContainsKey(HTP))
+        if (_conformance.Part() == 4 ? state.ContainsKey(HTO) : state.ContainsKey(HTP))
         {
-            Report("6.2.5-3", "a graphics state has an HTP entry", reference);
+            Report("6.2.5-3", _conformance.Part() == 4 ? "a graphics state has an HTO entry" : "a graphics state has an HTP entry", reference);
         }
 
         if (Dictionary(state, HT) is { } halftone && Resolve(halftone.GetValueOrDefault(HalftoneType)) is CosInteger { Value: not (1 or 5) })

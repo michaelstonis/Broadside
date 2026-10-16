@@ -195,6 +195,12 @@ internal static class VersionedFeatures
     /// <summary>Gets what a PDF/A save writes, an output intent (§14.11.5) and a metadata stream (§14.3.2): PDF 1.4.</summary>
     public static VersionedFeature PdfAOutput { get; } = new("PDF/A output (an output intent and a metadata stream)", "ISO 32000-2 §14.11.5, §14.3.2", Pdf14);
 
+    /// <summary>
+    /// Gets what a PDF/A-4 save needs beyond <see cref="PdfAOutput"/>, a <c>%PDF-2.n</c> header (ISO 19005-4, veraPDF rule 6.1.2-1):
+    /// PDF 2.0.
+    /// </summary>
+    public static VersionedFeature PdfA4Output { get; } = new("PDF/A-4 output (a PDF 2.0 header)", "ISO 32000-2 §7.5.2", Pdf20);
+
     /// <summary>Gets what a PDF/UA save writes, a metadata stream (§14.3.2) and pages' <c>Tabs</c> (§7.7.3.3, Table 31): PDF 1.5.</summary>
     public static VersionedFeature PdfUAOutput { get; } = new("PDF/UA output (a metadata stream and the pages' Tabs order)", "ISO 32000-2 §14.3.2, §7.7.3.3", Pdf15);
 
