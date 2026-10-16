@@ -56,6 +56,19 @@ public sealed class SkiaAllocationTests
     }
 
     [Theory]
+    [InlineData(72)]
+    [InlineData(300)]
+    public void Replaying_layered_groups_and_soft_masks_allocates_nothing(int dpi)
+    {
+        // Issue #124: groups Skia composites are layers, soft-mask values are rendered once per mask, placement and clip and kept.
+        // A group handed to the software rasterizer (knockout, gray or CMYK blending) allocates its bitmap and image per draw.
+        using PdfDocument masks = GoldenCorpus.Open("transparency-soft-masks.pdf");
+        using PdfDocument blends = GoldenCorpus.Open("transparency-blend-modes.pdf");
+        Assert.Equal(0, MeasureReplay(masks, dpi));
+        Assert.Equal(0, MeasureReplay(blends, dpi));
+    }
+
+    [Theory]
     [InlineData(72, false)]
     [InlineData(300, false)]
     [InlineData(72, true)]

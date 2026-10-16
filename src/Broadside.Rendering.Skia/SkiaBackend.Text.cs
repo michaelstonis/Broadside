@@ -23,7 +23,7 @@ public sealed partial class SkiaBackend
         /// ISO 32000-2 §9.2.4 (glyph outlines, the font matrix), §9.3.6 and §8.4.3 (text strokes use the graphics state's line
         /// parameters in user space), §9.9 (embedded font programs). A run with neither fill nor stroke (mode 3) paints nothing.
         /// </remarks>
-        public void DrawGlyphs(in GlyphRun run)
+        private void DrawGlyphsCore(in GlyphRun run)
         {
             if (run.Glyphs.IsEmpty || !(run.Fills || run.Strokes))
             {
@@ -41,7 +41,7 @@ public sealed partial class SkiaBackend
             if (fills)
             {
                 _fill.Color = fill.WithAlpha(_compositing.FillAlpha);
-                _fill.BlendMode = _compositing.BlendMode;
+                _fill.BlendMode = PaintBlend;
             }
 
             Face? face = fills ? GetFace(run.Program) : null;
@@ -70,7 +70,7 @@ public sealed partial class SkiaBackend
 
                 if (strokes)
                 {
-                    StrokePath(ToUserSpace(outline, glyphToUser), run.StrokeStyle, run.StrokeColor);
+                    StrokePathCore(ToUserSpace(outline, glyphToUser), run.StrokeStyle, run.StrokeColor);
                 }
             }
         }

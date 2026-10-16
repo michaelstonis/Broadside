@@ -59,6 +59,12 @@ internal sealed partial class CoreGraphicsBackend : IRenderingBackend, IDisposab
         ShadingUnsupported = 2,
         MeshRasterized = 4,
         TilingApproximated = 8,
+        KnockoutRasterized = 16,
+        ColorSpaceRasterized = 32,
+        NonIsolatedRasterized = 64,
+        NonIsolatedApproximated = 128,
+        SoftMaskRasterized = 256,
+        GroupApproximated = 512,
     }
 
     /// <summary>Replays <paramref name="list"/> onto <paramref name="context"/>, leaving its graphics state as it was.</summary>
@@ -92,6 +98,7 @@ internal sealed partial class CoreGraphicsBackend : IRenderingBackend, IDisposab
         }
         finally
         {
+            EndMaskedPaint();
             for (; _depth > 0; _depth--)
             {
                 EndLayerAt(_depth);
@@ -115,7 +122,7 @@ internal sealed partial class CoreGraphicsBackend : IRenderingBackend, IDisposab
             Array.Resize(ref _stack, _stack.Length * 2);
         }
 
-        _stack[_depth++] = new SavedState(_ctm, _toDevice, _compositing);
+        _stack[_depth++] = new SavedState(_ctm, _toDevice, _compositing, _softMask);
         _context!.SaveState();
     }
 
@@ -127,6 +134,7 @@ internal sealed partial class CoreGraphicsBackend : IRenderingBackend, IDisposab
             _ctm = saved.Ctm;
             _toDevice = saved.ToDevice;
             _compositing = saved.Compositing;
+            _softMask = saved.Mask;
             _context!.RestoreState();
         }
     }
@@ -137,7 +145,7 @@ internal sealed partial class CoreGraphicsBackend : IRenderingBackend, IDisposab
         _toDevice = transform * _device;
     }
 
-    public void FillPath(PathView path, FillRule rule, in DisplayColor color)
+    private void FillPathCore(PathView path, FillRule rule, in DisplayColor color)
     {
         if (path.IsEmpty || _compositing.FillAlpha == 0 || !TryLoadColor(color, _compositing.FillAlpha))
         {
@@ -158,7 +166,7 @@ internal sealed partial class CoreGraphicsBackend : IRenderingBackend, IDisposab
         }
     }
 
-    public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
+    private void StrokePathCore(PathView path, in StrokeStyle style, in DisplayColor color)
     {
         if (path.IsEmpty || _compositing.StrokeAlpha == 0 || !TryLoadColor(color, _compositing.StrokeAlpha))
         {
@@ -198,6 +206,7 @@ internal sealed partial class CoreGraphicsBackend : IRenderingBackend, IDisposab
         _cellBackend?.Dispose();
         if (_owner is null)
         {
+            DisposeTransparency();
             _images.Dispose();
             _shadings.Dispose();
         }
