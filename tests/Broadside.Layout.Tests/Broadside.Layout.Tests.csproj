@@ -16,6 +16,8 @@
 
   <ItemGroup>
     <None Include="Data/LineBreakTest-16.0.0.txt.gz" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Data/BidiTest-16.0.0.txt.gz" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="Data/BidiCharacterTest-16.0.0.txt.gz" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>

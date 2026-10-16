@@ -64,7 +64,10 @@ public sealed class TextShaping : IEquatable<TextShaping>
     /// <summary>Gets the OpenType language system tag (such as <c>TRK</c> or <c>URD</c>), or <see langword="null"/> for the script's default language system.</summary>
     public string? Language { get; }
 
-    /// <summary>Gets whether the run is right to left, or <see langword="null"/> for the script's direction (Arabic and Hebrew are right to left).</summary>
+    /// <summary>
+    /// Gets whether the run is right to left (glyphs in reverse order, mirrored characters shown mirrored, UAX #9 rules L2 and L4),
+    /// or <see langword="null"/> for the script's direction (Arabic and Hebrew are right to left).
+    /// </summary>
     public bool? RightToLeft { get; }
 
     /// <summary>Gets the features turned on or off explicitly, by tag; the others keep their default.</summary>

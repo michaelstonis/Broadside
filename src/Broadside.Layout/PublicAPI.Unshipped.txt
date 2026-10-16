@@ -305,3 +305,9 @@ Broadside.Layout.Flow.FlowTagging.WithNamespace(Broadside.Layout.Flow.FlowStruct
 Broadside.Layout.Flow.FlowTagging.WithRoleMapping(string! type, string! standardType) -> Broadside.Layout.Flow.FlowTagging!
 Broadside.Layout.Flow.FlowTagging.WithTitle(string? title) -> Broadside.Layout.Flow.FlowTagging!
 static Broadside.Layout.Flow.FlowTagging.Default.get -> Broadside.Layout.Flow.FlowTagging!
+Broadside.Layout.Flow.ParagraphStyle.Direction.get -> Broadside.Layout.Flow.TextDirection
+Broadside.Layout.Flow.ParagraphStyle.WithDirection(Broadside.Layout.Flow.TextDirection direction) -> Broadside.Layout.Flow.ParagraphStyle!
+Broadside.Layout.Flow.TextDirection
+Broadside.Layout.Flow.TextDirection.Auto = 0 -> Broadside.Layout.Flow.TextDirection
+Broadside.Layout.Flow.TextDirection.LeftToRight = 1 -> Broadside.Layout.Flow.TextDirection
+Broadside.Layout.Flow.TextDirection.RightToLeft = 2 -> Broadside.Layout.Flow.TextDirection
