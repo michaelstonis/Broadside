@@ -53,6 +53,10 @@ public sealed class TileScheduler : IDisposable
     private List<TileJob> _previous = [];
     private Tile[] _tiles = new Tile[64];
     private VisiblePage[] _pages = new VisiblePage[16];
+    private VisiblePage[] _framePages = new VisiblePage[16];
+    private readonly List<TileJob> _stale = [];
+    private double _plannedZoom = double.NaN;
+    private bool _sweepStale;
     private PageLayout _layout;
     private Viewport _viewport;
     private bool _hasViewport;
@@ -160,11 +164,7 @@ public sealed class TileScheduler : IDisposable
     /// <remarks>Spec #33 viewer capability 3. Allocates nothing once the tiles it names are known.</remarks>
     public void Update(in Viewport viewport)
     {
-        if (!(viewport.Width > 0) || !(viewport.Height > 0) || !(viewport.Zoom > 0) || double.IsInfinity(viewport.Zoom))
-        {
-            throw new ArgumentOutOfRangeException(nameof(viewport), viewport, "A viewport needs a positive size and a positive, finite zoom.");
-        }
-
+        CheckViewport(viewport);
         List<CancellationTokenSource>? cancel;
         lock (_gate)
         {
@@ -252,6 +252,11 @@ public sealed class TileScheduler : IDisposable
                 StartBackground();
             }
 
+            if (_sweepStale)
+            {
+                SweepStale();
+            }
+
             _longestFrame = Math.Max(_longestFrame, Stopwatch.GetElapsedTime(start).Ticks);
             // Work the budget cannot make room for waits for the viewport to move (or, on workers, for running renders to end).
             more = HasWork() && (!_blocked || _running > 0);
@@ -259,6 +264,80 @@ public sealed class TileScheduler : IDisposable
 
         CancelAll(cancel);
         return more;
+    }
+
+    /// <summary>
+    /// Lists what a shell draws for <paramref name="viewport"/> from what is on the surface now, before any render for it completes:
+    /// each visible page's paper, then every tile on the surface that shows in the viewport, stretched or shrunk from its own scale to
+    /// the viewport's zoom, the sharpest last. A zoom step shows at once this way (scaled tiles, never a blank page) while sharp tiles
+    /// render at the settled scale.
+    /// </summary>
+    /// <param name="viewport">The viewport, which may differ from the one given to <see cref="Update"/> (a zoom in progress).</param>
+    /// <param name="destination">Receives the parts in drawing order.</param>
+    /// <returns>How many parts the frame has; when more than fit, call again with a larger span (nothing is sorted until they fit).</returns>
+    /// <exception cref="ArgumentOutOfRangeException">The viewport is empty or its zoom is not positive and finite.</exception>
+    /// <remarks>
+    /// Spec #33 viewer capability 2. Tiles drawn at another layout rotation are left out. Allocates nothing once its page buffer has grown
+    /// to the viewport.
+    /// </remarks>
+    public int GetFrame(in Viewport viewport, Span<FramePart> destination)
+    {
+        CheckViewport(viewport);
+        lock (_gate)
+        {
+            int pages = VisiblePagesOf(viewport);
+            int count = 0;
+            for (int i = 0; i < pages; i++)
+            {
+                VisiblePage page = _framePages[i];
+                PixelRectangle whole = _layout.GetPagePixels(page.PageIndex, viewport.Zoom);
+                var paper = new FramePart(
+                    FramePartKind.Paper,
+                    new Tile(page.PageIndex, viewport.Zoom, whole) { Rotation = _layout.Rotation },
+                    new LayoutRectangle(page.X, page.Y, whole.Width, whole.Height));
+                Add(destination, ref count, paper);
+            }
+
+            foreach (TileJob job in _jobs.Values)
+            {
+                Tile tile = job.Tile;
+                if (job.State != TileState.Resident || tile.Rotation != _layout.Rotation || IndexOfPage(tile.PageIndex, pages) is not int at)
+                {
+                    continue;
+                }
+
+                VisiblePage page = _framePages[at];
+                double factor = viewport.Zoom / tile.Scale;
+                var to = new LayoutRectangle(
+                    page.X + (tile.Region.X * factor),
+                    page.Y + (tile.Region.Y * factor),
+                    tile.Region.Width * factor,
+                    tile.Region.Height * factor);
+                if (to.Right <= 0 || to.Bottom <= 0 || to.X >= viewport.Width || to.Y >= viewport.Height)
+                {
+                    continue;
+                }
+
+                Add(destination, ref count, new FramePart(tile.Scale == viewport.Zoom ? FramePartKind.Sharp : FramePartKind.Scaled, tile, to));
+            }
+
+            if (count <= destination.Length)
+            {
+                destination[pages..count].Sort(DrawingOrder);
+            }
+
+            return count;
+        }
+
+        static void Add(Span<FramePart> destination, ref int count, in FramePart part)
+        {
+            if (count < destination.Length)
+            {
+                destination[count] = part;
+            }
+
+            count++;
+        }
     }
 
     /// <summary>Cancels every render; tiles already on the surface stay there.</summary>
@@ -285,6 +364,32 @@ public sealed class TileScheduler : IDisposable
         }
 
         CancelAll(cancel);
+    }
+
+    private static readonly Comparison<FramePart> DrawingOrder = static (a, b) =>
+    {
+        // Farthest from the frame's zoom first (the stretch is the destination's width over the tile's), so the sharpest end on top.
+        int byDistance = Distance(b).CompareTo(Distance(a));
+        if (byDistance != 0)
+        {
+            return byDistance;
+        }
+
+        int byPage = a.Tile.PageIndex.CompareTo(b.Tile.PageIndex);
+        int byScale = a.Tile.Scale.CompareTo(b.Tile.Scale);
+        int byRow = a.Tile.Region.Y.CompareTo(b.Tile.Region.Y);
+        int byLayers = ((int)a.Tile.Layers).CompareTo((int)b.Tile.Layers);
+        return byPage != 0 ? byPage : byScale != 0 ? byScale : byRow != 0 ? byRow : a.Tile.Region.X.CompareTo(b.Tile.Region.X) is int byColumn and not 0 ? byColumn : byLayers;
+
+        static double Distance(in FramePart part) => part.Kind == FramePartKind.Sharp ? 0 : Math.Abs(Math.Log(part.Destination.Width / part.Tile.Region.Width));
+    };
+
+    private static void CheckViewport(in Viewport viewport)
+    {
+        if (!(viewport.Width > 0) || !(viewport.Height > 0) || !(viewport.Zoom > 0) || double.IsInfinity(viewport.Zoom))
+        {
+            throw new ArgumentOutOfRangeException(nameof(viewport), viewport, "A viewport needs a positive size and a positive, finite zoom.");
+        }
     }
 
     private static long BytesOf(in Tile tile) => (long)tile.Region.Width * tile.Region.Height * 4;
@@ -334,6 +439,8 @@ public sealed class TileScheduler : IDisposable
         _wanted.Clear();
 
         Viewport viewport = _viewport;
+        _sweepStale |= viewport.Zoom != _plannedZoom;
+        _plannedZoom = viewport.Zoom;
         AddPlaceholders(viewport, TilePriority.Visible);
         AddTiles(viewport, 0, TilePriority.Visible);
         if (_nearMargin > 0)
@@ -538,6 +645,13 @@ public sealed class TileScheduler : IDisposable
             return false;
         }
 
+        Evict(victim);
+        return true;
+    }
+
+    /// <summary>Takes a tile off the surface.</summary>
+    private void Evict(TileJob victim)
+    {
         _surface.Evict(victim.Tile);
         _residentBytes -= victim.Bytes;
         _residentCount--;
@@ -552,7 +666,63 @@ public sealed class TileScheduler : IDisposable
         }
 
         Trace(TileEventKind.Evicted, victim);
-        return true;
+    }
+
+    /// <summary>
+    /// After a zoom, once every visible tile at the new scale is on the surface (or failed), evicts the tiles of other scales on the
+    /// visible pages that are no longer wanted: they are covered, and only <see cref="GetFrame"/> mid-zoom had a use for them.
+    /// </summary>
+    private void SweepStale()
+    {
+        foreach (TileJob job in _wanted)
+        {
+            if (job.Priority == TilePriority.Visible && !job.IsResolved)
+            {
+                return;
+            }
+        }
+
+        _sweepStale = false;
+        int pages = VisiblePagesOf(_viewport);
+        foreach (TileJob job in _jobs.Values)
+        {
+            if (job.State == TileState.Resident && job.Generation != _generation && job.Tile.Scale != _viewport.Zoom && IndexOfPage(job.Tile.PageIndex, pages) is not null)
+            {
+                _stale.Add(job);
+            }
+        }
+
+        foreach (TileJob job in _stale)
+        {
+            Evict(job);
+        }
+
+        _stale.Clear();
+    }
+
+    private int VisiblePagesOf(in Viewport viewport)
+    {
+        int count = _layout.GetVisiblePages(viewport, _framePages);
+        if (count > _framePages.Length)
+        {
+            _framePages = new VisiblePage[Math.Max(count, _framePages.Length * 2)];
+            count = _layout.GetVisiblePages(viewport, _framePages);
+        }
+
+        return count;
+    }
+
+    private int? IndexOfPage(int pageIndex, int count)
+    {
+        for (int i = 0; i < count; i++)
+        {
+            if (_framePages[i].PageIndex == pageIndex)
+            {
+                return i;
+            }
+        }
+
+        return null;
     }
 
     private void Trace(TileEventKind kind, TileJob job) =>
