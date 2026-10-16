@@ -12,8 +12,8 @@ namespace Broadside.Rendering.Direct2D;
 /// </summary>
 internal sealed unsafe partial class Direct2DBackend
 {
-    /// <summary>The control point distance of a quarter circle drawn as one cubic Bézier curve, as a fraction of the radius.</summary>
-    private const double CircleKappa = 0.5522847498307936;
+    /// <summary>How far, in device pixels, a circle's chords may stray from it: an extend clip decides whole pixels by their centres.</summary>
+    private const double CircleTolerance = 0.002;
 
     private static readonly Diagnostic ShadingSkipped = new(
         "BackendShadingUnsupported",
@@ -599,7 +599,7 @@ internal sealed unsafe partial class Direct2DBackend
             sink->SetFillMode(D2D1_FILL_MODE.D2D1_FILL_MODE_ALTERNATE);
             if (excludeOutside)
             {
-                Circle(sink, large, largeRadius);
+                Circle(sink, large, largeRadius, MaxScale(toDevice));
             }
             else
             {
@@ -612,7 +612,7 @@ internal sealed unsafe partial class Direct2DBackend
 
             if (excludeInside && smallRadius > 0)
             {
-                Circle(sink, small, smallRadius);
+                Circle(sink, small, smallRadius, MaxScale(toDevice));
             }
 
             sink->Close();
@@ -625,14 +625,23 @@ internal sealed unsafe partial class Direct2DBackend
         PushGeometry(geometry, toDevice, aliased: true);
     }
 
-    private static void Circle(ID2D1GeometrySink* sink, PathPoint c, double r)
+    /// <summary>
+    /// Writes a circle as a polygon whose chords stay within <see cref="CircleTolerance"/> device pixels of it (Direct2D flattens curves
+    /// more coarsely), so that the aliased clip keeps the pixels whose centres the rasterizer finds inside.
+    /// </summary>
+    private static void Circle(ID2D1GeometrySink* sink, PathPoint c, double r, double scale)
     {
-        double k = CircleKappa * r;
+        double pixels = r * scale;
+        int segments = pixels > CircleTolerance && double.IsFinite(pixels)
+            ? (int)Math.Clamp(Math.Ceiling(Math.PI / Math.Acos(1 - (CircleTolerance / pixels))), 16, 8192)
+            : 16;
         sink->BeginFigure(Interop.Point(c.X + r, c.Y), D2D1_FIGURE_BEGIN.D2D1_FIGURE_BEGIN_FILLED);
-        Quarter(sink, c.X + r, c.Y + k, c.X + k, c.Y + r, c.X, c.Y + r);
-        Quarter(sink, c.X - k, c.Y + r, c.X - r, c.Y + k, c.X - r, c.Y);
-        Quarter(sink, c.X - r, c.Y - k, c.X - k, c.Y - r, c.X, c.Y - r);
-        Quarter(sink, c.X + k, c.Y - r, c.X + r, c.Y - k, c.X + r, c.Y);
+        for (int i = 1; i < segments; i++)
+        {
+            double angle = 2 * Math.PI * i / segments;
+            sink->AddLine(Interop.Point(c.X + (r * Math.Cos(angle)), c.Y + (r * Math.Sin(angle))));
+        }
+
         sink->EndFigure(D2D1_FIGURE_END.D2D1_FIGURE_END_CLOSED);
     }
 
