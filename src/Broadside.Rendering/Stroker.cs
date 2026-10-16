@@ -15,7 +15,8 @@ namespace Broadside.Rendering;
 /// offsets as two loops. Outer corners get the line join (§8.4.3.4; a miter beyond the limit becomes a bevel, §8.4.3.5), corners
 /// between the flattened pieces of one curve a round join; inner corners meet at the offsets' intersection or turn through the
 /// vertex. Every outline piece has the same orientation, so where parts of one stroke overlap the winding number only grows and the
-/// non-zero rule paints the union once.
+/// non-zero rule paints the union once (§8.5.3.1); the pieces go into one <see cref="ScanlineRasterizer.Union"/> shape, so their
+/// anti-aliased edges are not added up where they overlap either.
 /// </para>
 /// <para>
 /// A width of 0, or a width under half a pixel with stroke adjustment on (§10.7.5), strokes with a one-pixel round pen in device
@@ -97,6 +98,8 @@ internal sealed class Stroker
     /// <param name="userToDevice">The transform from user space to device pixels.</param>
     public void Stroke(PathView path, in StrokeStyle style, in Matrix userToDevice)
     {
+        // A stroke paints one shape (§8.5.3.1): where its pieces overlap, their anti-aliased edges count once.
+        _scan.Union = true;
         Configure(style, userToDevice);
         ReadOnlySpan<PathVerb> verbs = path.Verbs;
         ReadOnlySpan<PathPoint> points = path.Points;

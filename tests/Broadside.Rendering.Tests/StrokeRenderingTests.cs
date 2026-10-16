@@ -251,6 +251,28 @@ public sealed class StrokeRenderingTests
     }
 
     [Theory]
+    [InlineData("2 w 100 50.5 m 200 50.5 l 150 50.5 m 250 50.5 l S", false, 175, 49, 120, 49)]
+    [InlineData("2 w 100 50.5 m 200 50.5 l 150 50.5 m 250 50.5 l S", false, 175, 51, 120, 51)]
+    [InlineData("3 w 50.75 100 m 50.75 200 l 50.75 150 m 50.75 250 l S", false, 49, 175, 49, 120)]
+    [InlineData("3 w 50.75 100 m 50.75 200 l 50.75 150 m 50.75 250 l S", false, 52, 175, 52, 120)]
+    [InlineData("2 J 2 w 100 50.5 m 200 50.5 l S", true, 103, 49, 101, 49)]
+    [InlineData("2 J 2 w 50.25 100 m 50.25 200 l S", true, 49, 103, 49, 101)]
+    public void Overlapping_pieces_of_one_stroke_do_not_darken_its_anti_aliased_edges(string content, bool dashed, int x, int y, int referenceX, int referenceY)
+    {
+        // A stroke paints one shape (ISO 32000-2 §8.5.3.1): where two pieces overlap (two subpaths along the same line, or the square
+        // caps of neighbouring dashes 3 on, 1 off), an edge pixel half covered by both is still half covered, as it is where only one
+        // piece reaches.
+        content = (dashed ? "[3 1] 0 d " : string.Empty) + content;
+        using Bitmap bitmap = Render(content);
+
+        Rgba overlap = bitmap.At(x, y);
+        Rgba reference = bitmap.At(referenceX, referenceY);
+        Assert.NotEqual(White, reference);
+        Assert.NotEqual(Black, reference);
+        Assert.InRange(overlap.R, reference.R - 1, reference.R + 1);
+    }
+
+    [Theory]
     [InlineData("1000000000 w 1 J 1 j 0 0 m 1 1 l 2 0 l S", true)]
     [InlineData("[0.0001 0.0001] 0 d 2 w 0 300 m 100000 300 l S", true)]
     [InlineData("1 j 1 J 5 w 0 0 m 1000000000000000000000000000000 1 l -1000000000000000000000000000000 2 l S", true)]
