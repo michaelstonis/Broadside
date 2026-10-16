@@ -41,6 +41,12 @@
     <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
     <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
     <Compile Include="../Broadside.TestSupport/Allocations.cs" Link="Allocations.cs" />
+    <!-- The synthetic pages the backend is compared with the rasterizer on (DeviceProtocol.Samples); the device writes them itself. -->
+    <Compile Include="../Broadside.TestSupport/ContentSamples.cs" Link="Samples/ContentSamples.cs" />
+    <Compile Include="../Broadside.TestSupport/MaskSamples.cs" Link="Samples/MaskSamples.cs" />
+    <Compile Include="../Broadside.TestSupport/ShadingSamples.cs" Link="Samples/ShadingSamples.cs" />
+    <Compile Include="../Broadside.TestSupport/TilingSamples.cs" Link="Samples/TilingSamples.cs" />
+    <Compile Include="../Broadside.TestSupport/MeshShadingSamples.cs" Link="Samples/MeshShadingSamples.cs" />
     <!-- tests/Directory.Build.props imports Xunit everywhere; this app runs no xUnit. -->
     <Using Remove="Xunit" />
     <!-- Every hand-written corpus file, so the host can ask for any of them. -->

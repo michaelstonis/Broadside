@@ -131,7 +131,7 @@ public sealed partial class AndroidCanvasBackend
             _compositing = Compositing.Initial;
             _annotationDepth = 0;
             _blendReported = false;
-            _tilingReported = false;
+            _reported = 0;
             _groupReported = false;
             _softMaskReported = false;
             Diagnostics.Clear();

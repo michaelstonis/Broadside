@@ -92,6 +92,17 @@ internal sealed class AndroidDevice
     /// <summary>Returns how many Android fonts a fresh backend built while rendering every page of the file twice.</summary>
     public int FontsCreated(string fileName) => int.Parse(Result(DeviceProtocol.FontsKey(fileName)), CultureInfo.InvariantCulture);
 
+    /// <summary>Returns how many Android bitmaps a fresh backend made from the file's images and masks after rendering every page <paramref name="pass"/> times.</summary>
+    public int ImagesCreated(string fileName, int pass, string variant = DeviceProtocol.Native) =>
+        int.Parse(Result(DeviceProtocol.ImagesKey(fileName, pass, variant)), CultureInfo.InvariantCulture);
+
+    /// <summary>Returns how many pattern cells a fresh backend rendered into tiles after rendering every page <paramref name="pass"/> times.</summary>
+    public int CellsRecorded(string fileName, int pass) => int.Parse(Result(DeviceProtocol.CellsKey(fileName, pass)), CultureInfo.InvariantCulture);
+
+    /// <summary>Returns the bytes of converted pixels the backend kept after rendering every page of the file.</summary>
+    public long CachedImageBytes(string fileName, string variant = DeviceProtocol.Native) =>
+        long.Parse(Result(DeviceProtocol.CachedBytesKey(fileName, variant)), CultureInfo.InvariantCulture);
+
     /// <summary>Returns why the device's path reference did not draw the page, or <see langword="null"/> when it did.</summary>
     public string? PathReference(string fileName, int page) =>
         Result(DeviceProtocol.PathsKey(fileName, page)) is var answer && answer == "yes" ? null : answer;
@@ -139,6 +150,7 @@ internal sealed class AndroidDevice
         (byte[] output, int exitCode) = RunAdb(adb, [
             "-s", serial, "shell", "am", "instrument", "-w",
             "-e", DeviceProtocol.FilesArgument, string.Join(',', AndroidBackendTests.Files),
+            "-e", DeviceProtocol.UncachedArgument, string.Join(',', AndroidBackendTests.UncachedFiles),
             "-e", DeviceProtocol.ReplaysArgument, Replays.ToString(CultureInfo.InvariantCulture),
             $"{DeviceProtocol.Package}/{DeviceProtocol.Instrumentation}",
         ]);

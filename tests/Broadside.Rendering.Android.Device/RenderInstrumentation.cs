@@ -24,6 +24,7 @@ namespace Broadside.Rendering.Android.Device;
 public sealed class RenderInstrumentation : Instrumentation
 {
     private string _files = string.Empty;
+    private HashSet<string> _uncached = [];
     private int _replays = 20;
 
     public RenderInstrumentation(IntPtr handle, JniHandleOwnership transfer)
@@ -35,6 +36,7 @@ public sealed class RenderInstrumentation : Instrumentation
     {
         base.OnCreate(arguments);
         _files = arguments?.GetString(DeviceProtocol.FilesArgument) ?? string.Empty;
+        _uncached = [.. (arguments?.GetString(DeviceProtocol.UncachedArgument) ?? string.Empty).Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
         if (int.TryParse(arguments?.GetString(DeviceProtocol.ReplaysArgument), NumberStyles.Integer, CultureInfo.InvariantCulture, out int replays) && replays > 0)
         {
             _replays = replays;
@@ -80,9 +82,15 @@ public sealed class RenderInstrumentation : Instrumentation
 
         foreach (string fileName in _files.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
-            using PdfDocument document = engine.Open(ReadAsset(context, "corpus/" + fileName));
+            byte[] bytes = fileName.StartsWith(DeviceProtocol.SamplePrefix, StringComparison.Ordinal) ? DeviceProtocol.Sample(fileName) : ReadAsset(context, "corpus/" + fileName);
+            using PdfDocument document = engine.Open(bytes);
             results.PutString(DeviceProtocol.PageCountKey(fileName), document.Pages.Count.ToString(CultureInfo.InvariantCulture));
-            results.PutString(DeviceProtocol.FontsKey(fileName), CountFonts(document, options).ToString(CultureInfo.InvariantCulture));
+            Count(results, fileName, document, options);
+            if (_uncached.Contains(fileName))
+            {
+                RenderUncached(results, output, bytes, fileName, options);
+            }
+
             for (int index = 0; index < document.Pages.Count; index++)
             {
                 PdfPage page = document.Pages[index];
@@ -122,19 +130,52 @@ public sealed class RenderInstrumentation : Instrumentation
         File.WriteAllBytes(Path.Combine(output, DeviceProtocol.PixelFile(fileName, index, variant)), MemoryMarshal.AsBytes(argb.AsSpan()).ToArray());
     }
 
-    /// <summary>Renders every page of a document twice through a fresh backend and returns how many Android fonts it built.</summary>
-    private static int CountFonts(PdfDocument document, RenderOptions options)
+    /// <summary>
+    /// Renders every page of a document twice through a fresh backend and reports how many Android fonts it built, and how many
+    /// bitmaps it made from images and pattern cells after each pass.
+    /// </summary>
+    private static void Count(Bundle results, string fileName, PdfDocument document, RenderOptions options)
     {
         using var backend = new AndroidCanvasBackend();
-        for (int pass = 0; pass < 2; pass++)
+
+        // The lists are held: the backend keeps its bitmaps per display-list image, and a new list has new images.
+        DisplayList[] lists = [.. document.Pages.Select(page => page.CreateDisplayList())];
+        for (int pass = 1; pass <= 2; pass++)
         {
-            foreach (PdfPage page in document.Pages)
+            for (int index = 0; index < lists.Length; index++)
             {
-                using AndroidBitmap bitmap = backend.Render(page, options);
+                PdfPage page = document.Pages[index];
+                PixelSize size = options.GetPixelSize(page);
+                using AndroidBitmap bitmap = AndroidBitmap.CreateBitmap(size.Width, size.Height, AndroidBitmap.Config.Argb8888!);
+                using var canvas = new AndroidCanvas(bitmap);
+                backend.Render(lists[index], canvas, options.GetDeviceTransform(page));
             }
+
+            results.PutString(DeviceProtocol.ImagesKey(fileName, pass), backend.ImagesCreated.ToString(CultureInfo.InvariantCulture));
+            results.PutString(DeviceProtocol.CellsKey(fileName, pass), backend.CellsRecorded.ToString(CultureInfo.InvariantCulture));
         }
 
-        return backend.FontsCreated;
+        results.PutString(DeviceProtocol.FontsKey(fileName), backend.FontsCreated.ToString(CultureInfo.InvariantCulture));
+        results.PutString(DeviceProtocol.CachedBytesKey(fileName), backend.CachedImageBytes.ToString(CultureInfo.InvariantCulture));
+    }
+
+    /// <summary>
+    /// Renders every page of the file opened with a zero image cache budget (spec D10) through a fresh backend, writes the pixels as the
+    /// <see cref="DeviceProtocol.Uncached"/> variant and reports the bitmaps made and the bytes kept.
+    /// </summary>
+    private static void RenderUncached(Bundle results, string output, byte[] bytes, string fileName, RenderOptions options)
+    {
+        var engine = new PdfEngine(new PdfOptions().UseStandard14Fonts().UsePredefinedCMaps().UseSystemFontResolver(null).WithImageCacheBudget(0));
+        using PdfDocument document = engine.Open(bytes);
+        using var backend = new AndroidCanvasBackend();
+        for (int index = 0; index < document.Pages.Count; index++)
+        {
+            using AndroidBitmap bitmap = backend.Render(document.Pages[index], options);
+            Write(output, bitmap, fileName, index, DeviceProtocol.Uncached);
+        }
+
+        results.PutString(DeviceProtocol.ImagesKey(fileName, 1, DeviceProtocol.Uncached), backend.ImagesCreated.ToString(CultureInfo.InvariantCulture));
+        results.PutString(DeviceProtocol.CachedBytesKey(fileName, DeviceProtocol.Uncached), backend.CachedImageBytes.ToString(CultureInfo.InvariantCulture));
     }
 
     private static string Codes(AndroidCanvasBackend backend) => string.Join(',', backend.Diagnostics.Select(diagnostic => diagnostic.Code));

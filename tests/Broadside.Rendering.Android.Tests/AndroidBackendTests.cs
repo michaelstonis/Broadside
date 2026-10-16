@@ -5,7 +5,7 @@ using Broadside.TestSupport;
 namespace Broadside.Rendering.Android.Tests;
 
 /// <summary>
-/// The Android backend (issues #133, #135) against the software rasterizer's golden images: every page of the path corpus files and of
+/// The Android backend (issues #133, #134, #135) against the software rasterizer's golden images: every page of the path corpus files and of
 /// the text corpus files rendered through the Android Canvas on a device or emulator at the golden images' 72 DPI, glyphs natively and
 /// with forced outlines, and its replay allocating nothing once warm.
 /// </summary>
@@ -25,28 +25,26 @@ public sealed class AndroidBackendTests
     /// <summary>Every text corpus file (<c>text-*.pdf</c>), issue #135.</summary>
     internal static readonly string[] TextFiles = [.. Corpus.AllFileNames.Where(name => name.StartsWith("text-", StringComparison.Ordinal))];
 
-    /// <summary>The corpus files the device renders.</summary>
-    internal static readonly string[] Files = [.. PathFiles, .. TextFiles];
+    /// <summary>The corpus files the device renders, and the synthetic pages it generates (<see cref="DeviceProtocol.Samples"/>).</summary>
+    internal static readonly string[] Files = [.. PathFiles, .. TextFiles, .. AndroidPaintTests.PaintFiles, .. DeviceProtocol.Samples];
 
-    /// <summary>
-    /// The pages of the text corpus files that also paint an image or a stencil mask, which this backend does not draw yet (#134): they
-    /// cannot match their golden images until it does.
-    /// </summary>
-    private static readonly (string File, int Page)[] PagesWithImages =
-    [
-        ("text-render-modes.pdf", 1),
-        ("text-render-modes.pdf", 2),
-        ("text-render-modes.pdf", 3),
-        ("text-render-modes.pdf", 4),
-        ("text-tagged-spanning-image.pdf", 0),
-        ("text-type3.pdf", 0),
-    ];
+    /// <summary>The files the device also renders from a document opened with a zero image cache budget.</summary>
+    internal static readonly string[] UncachedFiles = AndroidPaintTests.UncachedFiles;
 
     public static TheoryData<string, int> PathPages() => GoldenCorpus.PagesOf(PathFiles);
 
-    public static TheoryData<string, int> TextPages() => Without(GoldenCorpus.PagesOf(TextFiles), PagesWithImages);
+    public static TheoryData<string, int> TextPages() => GoldenCorpus.PagesOf(TextFiles);
 
-    public static TheoryData<string, int> AllPages() => GoldenCorpus.PagesOf(Files);
+    public static TheoryData<string, int> AllPages()
+    {
+        TheoryData<string, int> pages = GoldenCorpus.PagesOf([.. PathFiles, .. TextFiles, .. AndroidPaintTests.PaintFiles]);
+        foreach (string sample in DeviceProtocol.Samples)
+        {
+            pages.Add(sample, 0);
+        }
+
+        return pages;
+    }
 
     [Theory]
     [MemberData(nameof(PathPages))]
@@ -154,19 +152,5 @@ public sealed class AndroidBackendTests
             $"outlines {device.ReplayMicroseconds(fileName, page, DeviceProtocol.Outlines):F1} us, {outlines} B");
         Assert.Equal(0, native);
         Assert.Equal(0, outlines);
-    }
-
-    private static TheoryData<string, int> Without(TheoryData<string, int> pages, (string File, int Page)[] excluded)
-    {
-        var kept = new TheoryData<string, int>();
-        foreach (TheoryDataRow<string, int> row in pages)
-        {
-            if (!excluded.Contains(row.Data))
-            {
-                kept.Add(row.Data.Item1, row.Data.Item2);
-            }
-        }
-
-        return kept;
     }
 }

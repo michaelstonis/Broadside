@@ -46,8 +46,17 @@ namespace Broadside.Rendering.Android;
 /// font was expected are reported in <see cref="Diagnostics"/>.
 /// </para>
 /// <para>
-/// Not drawn yet: images, image masks, shadings and patterns (issue #134), transparency groups and soft masks (#136); the list's
-/// operations of those kinds are skipped.
+/// Images (§8.9.4, §8.9.5) become Android bitmaps once per backend, kept within the document's image cache budget
+/// (<see cref="PdfOptions.ImageCacheBudget"/>); reduced to few enough device pixels they are resampled as the software rasterizer
+/// resamples them, otherwise the canvas samples them. Stencil masks (§8.9.6.2) are alpha bitmaps painted in the fill colour; soft and
+/// explicit masks of another size (§8.9.6.3, §11.6.5.2) mask the image in a layer. Axial and radial shadings (§8.7.4.5.3,
+/// §8.7.4.5.4) are linear and two-point conical gradient shaders (a radial shading other than growing concentric circles needs
+/// Android 12, API level 31); function-based shadings (§8.7.4.5.2) a texture; meshes (§8.7.4.5.5 to §8.7.4.5.8) are rasterized by
+/// the backend at the device's pixels and reported in <see cref="Diagnostics"/>. Tiling patterns (§8.7.3) are rendered once per scale
+/// into a bitmap tile, repeated by a bitmap shader on the lattice the software rasterizer lays.
+/// </para>
+/// <para>
+/// Not drawn yet: transparency groups and soft masks (#136), drawn as their content and reported.
 /// </para>
 /// <para>
 /// Reuse one instance for many renders: its Android path, paints and matrix are created once and kept, so a warm replay allocates
@@ -164,7 +173,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
         }
     }
 
-    /// <summary>Releases the backend's Android path, paints, matrix, dash effects and fonts; it renders no more after this.</summary>
+    /// <summary>Releases the backend's Android path, paints, matrix, dash effects, fonts, bitmaps and shaders; it renders no more after this.</summary>
     public void Dispose()
     {
         if (!_disposed)
@@ -233,7 +242,19 @@ public sealed partial class AndroidCanvasBackend : IDisposable
         private PdfColorConverter? _converter;
 
         public Backend()
+            : this(null, 0)
         {
+        }
+
+        /// <summary>Initializes a backend; one that renders pattern cells for <paramref name="owner"/> shares its image and shading caches.</summary>
+        private Backend(Backend? owner, int patternDepth)
+        {
+            _owner = owner;
+            _patternDepth = patternDepth;
+            _images = owner?._images ?? new ImageCache();
+            _shadings = owner?._shadings ?? new ShadingCache();
+            _maskInPaint.SetXfermode(_dstIn);
+            _insidePaint.SetXfermode(_srcIn);
             _fill.SetStyle(Paint.Style.Fill);
             _fill.Hinting = PaintHinting.Off;
             _fill.TextSize = DrawSize;
@@ -252,6 +273,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
             _depth = 0;
             BeginCompositing();
             BeginText();
+            BeginPaints(canvas, document);
             _baseCount = canvas.Save();
         }
 
@@ -324,15 +346,22 @@ public sealed partial class AndroidCanvasBackend : IDisposable
                 return;
             }
 
+            SetColor(_stroke, converter, color.Components, _compositing.StrokeAlpha);
+            SetBlendMode(_stroke, ref _strokeBlendMode);
+            DrawStroke(path, style);
+        }
+
+        /// <summary>Draws the stroke with the stroke paint's colour and blend mode (see <see cref="StrokePath"/>).</summary>
+        /// <returns>Whether anything was drawn.</returns>
+        private bool DrawStroke(PathView path, in StrokeStyle style)
+        {
             double width = StrokeWidth(style);
             _strokeInDevice = width == 0;
             if (!BuildStrokePath(path, style.LineCap == LineCap.Round, extendEnds: !style.DashArray.IsEmpty && style.LineCap != LineCap.Butt))
             {
-                return;
+                return false;
             }
 
-            SetColor(_stroke, converter, color.Components, _compositing.StrokeAlpha);
-            SetBlendMode(_stroke, ref _strokeBlendMode);
             _stroke.StrokeWidth = _strokeInDevice ? OnePixel : (float)width;
             _stroke.StrokeCap = style.LineCap switch
             {
@@ -360,18 +389,19 @@ public sealed partial class AndroidCanvasBackend : IDisposable
             if (_strokeInDevice)
             {
                 canvas.DrawPath(_path, _stroke);
-                return;
+                return true;
             }
 
             if (!SetMatrix(_toDevice))
             {
-                return;
+                return false;
             }
 
             int count = canvas.Save();
             canvas.Concat(_matrix);
             canvas.DrawPath(_path, _stroke);
             canvas.RestoreToCount(count);
+            return true;
         }
 
         /// <summary>Intersects the canvas clip with the inside of the path under the rule (§8.5.4); <see cref="RestoreState"/> undoes it.</summary>
@@ -381,33 +411,9 @@ public sealed partial class AndroidCanvasBackend : IDisposable
             _canvas!.ClipPath(_path);
         }
 
-        public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
-        {
-            // Issue #134.
-        }
-
-        public void FillImageMask(DisplayImageMask mask, in DisplayColor color)
-        {
-            // Issue #134.
-        }
-
-        public void DrawShading(in DisplayShading shading)
-        {
-            // Issue #134.
-        }
-
-        public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading)
-        {
-            // Issue #134.
-        }
-
-        public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading)
-        {
-            // Issue #134.
-        }
-
         public void Dispose()
         {
+            DisposePaints();
             _stroke.SetPathEffect(null);
             for (int i = 0; i < _dashCount; i++)
             {
