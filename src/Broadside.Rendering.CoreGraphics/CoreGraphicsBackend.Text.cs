@@ -44,7 +44,7 @@ internal sealed partial class CoreGraphicsBackend
     /// as in the software rasterizer, so a substitute's missing glyph or a glyph the parser could not read is not drawn natively
     /// either. Modes 4 to 7 add to the clip through <see cref="IntersectClip"/>, which the list records at the end of the text object.
     /// </remarks>
-    public void DrawGlyphs(in GlyphRun run)
+    private void DrawGlyphsCore(in GlyphRun run)
     {
         if (run.Glyphs.IsEmpty || !(run.Fills || run.Strokes))
         {

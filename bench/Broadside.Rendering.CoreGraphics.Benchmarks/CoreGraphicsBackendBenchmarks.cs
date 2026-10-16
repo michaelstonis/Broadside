@@ -30,7 +30,7 @@ public class CoreGraphicsBackendBenchmarks
     /// glyphs of an embedded TrueType program drawn by CoreGraphics' font engine or, with <c>-outlines</c>, from their outlines, or
     /// the image, stencil mask, shading, mesh and tiling pattern grids of the rasterizer's allocation tests.
     /// </summary>
-    [Params("paths-fill-rules.pdf", "paths-strokes.pdf", "clipping-paths.pdf", "path-heavy-256kb", "stroke-heavy-256kb", "clip-paths-grid", "text-heavy-2000", "text-heavy-2000-outlines", "image-heavy", "mask-heavy", "shading-grid", "mesh-patches", "tiling-grid")]
+    [Params("paths-fill-rules.pdf", "paths-strokes.pdf", "clipping-paths.pdf", "path-heavy-256kb", "stroke-heavy-256kb", "clip-paths-grid", "text-heavy-2000", "text-heavy-2000-outlines", "image-heavy", "mask-heavy", "shading-grid", "mesh-patches", "tiling-grid", "transparency-soft-masks.pdf", "transparency-groups.pdf")]
     public string Page { get; set; } = "";
 
     /// <summary>The resolution.</summary>

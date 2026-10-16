@@ -29,7 +29,7 @@ internal sealed partial class CoreGraphicsBackend
     private PixelRect _deviceBounds;
 
     /// <summary>Paints the shading within the current clip and its BBox, without its Background (ISO 32000-2 §8.7.4.2, §8.7.4.3).</summary>
-    public void DrawShading(in DisplayShading shading)
+    private void DrawShadingCore(in DisplayShading shading)
     {
         if (_compositing.FillAlpha == 0 || GetShading(shading) is not { PaintsNothing: false } entry || entry.Gradient is null && entry.Mesh is null && entry.Texture is null)
         {
@@ -44,7 +44,7 @@ internal sealed partial class CoreGraphicsBackend
     }
 
     /// <summary>Fills the path with the shading pattern's shading over its Background (ISO 32000-2 §8.7.4.1, §8.7.4.3).</summary>
-    public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading)
+    private void FillPathWithShadingCore(PathView path, FillRule rule, in DisplayShading shading)
     {
         if (path.IsEmpty || _compositing.FillAlpha == 0 || GetShading(shading) is not { PaintsNothing: false } entry)
         {
@@ -59,7 +59,7 @@ internal sealed partial class CoreGraphicsBackend
     }
 
     /// <summary>Paints the area the stroke covers with the shading pattern's shading over its Background (ISO 32000-2 §8.7.4.1, §8.5.3.2).</summary>
-    public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading)
+    private void StrokePathWithShadingCore(PathView path, in StrokeStyle style, in DisplayShading shading)
     {
         if (path.IsEmpty || _compositing.StrokeAlpha == 0 || GetShading(shading) is not { PaintsNothing: false } entry)
         {
