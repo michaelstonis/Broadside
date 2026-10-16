@@ -304,6 +304,12 @@ public sealed class PdfSaveOptions
     /// and, on every page with annotations, <c>Tabs</c> <c>/S</c>; it writes the header as PDF 1.7. It combines with
     /// <see cref="PdfAConformance"/>.
     /// </para>
+    /// <para>
+    /// <see cref="PdfUAConformance.PdfUA2"/> (ISO 14289-2, issue #205) is checked the same way under the rule identifiers of veraPDF's
+    /// PDF/UA-2 profile (which adds the ISO/TS 32005 containment rules, a single PDF 2.0 <c>Document</c> root, no <c>H</c> or
+    /// <c>Note</c>, and <c>ListNumbering</c> on lists with labels); the save writes <c>pdfuaid:part</c> 2 and <c>pdfuaid:rev</c> 2024
+    /// and the file as PDF 2.0, so it combines with PDF/A-4 and not with PDF/A-2 or PDF/A-3, whose header is 1.7.
+    /// </para>
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The value is not a defined conformance.</exception>
     public PdfUAConformance PdfUAConformance
@@ -320,6 +326,45 @@ public sealed class PdfSaveOptions
     public PdfSaveOptions WithPdfUAConformance(PdfUAConformance conformance)
     {
         PdfUAConformance = conformance;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the Well-Tagged PDF (WTPDF 1.0) conformance levels the saved file declares and is checked against, or
+    /// <see cref="PdfWellTaggedConformance.None"/> (the default) for none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Well-Tagged PDF 1.0 §6.1, cited by the rule identifiers of veraPDF's WTPDF 1.0 validation profiles, which share ISO 14289-2's
+    /// clause numbers. The save checks the document as for <see cref="PdfUAConformance.PdfUA2"/> (the reuse level does not require
+    /// figures' alternate text) and reports each failure condition as a <c>WellTaggedNonConformant</c> warning naming the rule; strict
+    /// mode throws for the first one, lenient mode saves without declaring the level (a <c>WellTaggedNotDeclared</c> information
+    /// diagnostic says so).
+    /// </para>
+    /// <para>
+    /// When the checks pass, the save writes a PDF Declaration per level (<see cref="PdfDeclaration.WellTaggedReuse"/>,
+    /// <see cref="PdfDeclaration.WellTaggedAccessibility"/>) in the document's XMP metadata, read back by
+    /// <see cref="PdfDocument.Declarations"/>, together with <c>DisplayDocTitle</c>, <c>MarkInfo</c> <c>Marked</c> and the pages'
+    /// <c>Tabs</c>, and writes the file as PDF 2.0. It combines with <see cref="PdfUAConformance"/> PDF/UA-2 and with PDF/A-4.
+    /// </para>
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value has a flag that is not a defined level.</exception>
+    public PdfWellTaggedConformance WellTaggedConformance
+    {
+        get;
+        set => field = (value & ~(PdfWellTaggedConformance.Reuse | PdfWellTaggedConformance.Accessibility)) == 0
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "Not a combination of defined WTPDF conformance levels.");
+    }
+
+    /// <summary>Sets <see cref="WellTaggedConformance"/>.</summary>
+    /// <param name="conformance">The WTPDF conformance levels, or <see cref="PdfWellTaggedConformance.None"/>.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="conformance"/> has a flag that is not a defined level.</exception>
+    /// <remarks>Well-Tagged PDF 1.0 §6.1 (veraPDF WTPDF 1.0 validation profiles).</remarks>
+    public PdfSaveOptions WithWellTaggedConformance(PdfWellTaggedConformance conformance)
+    {
+        WellTaggedConformance = conformance;
         return this;
     }
 

@@ -114,19 +114,20 @@ public sealed partial class PdfDocument
     /// that is not 2.n (rule 6.1.12-1).
     /// </summary>
     /// <param name="options">The save's options.</param>
-    /// <param name="accessible">Whether the save is also a conformant PDF/UA one, whose identification this packet carries.</param>
+    /// <param name="accessible">What the save writes of PDF/UA and WTPDF, whose identification and declarations this packet carries.</param>
     /// <returns><see langword="true"/>: the document changed.</returns>
-    private bool ApplyArchivalSave(PdfSaveOptions options, bool accessible)
+    private bool ApplyArchivalSave(PdfSaveOptions options, AccessibleSave accessible)
     {
         AddPdfAOutputIntent();
         var writer = new DocumentMetadataWriter(this);
-        if (accessible)
+        PdfAConformance level = options.PdfAConformance;
+        if (accessible.Any)
         {
-            // Issue #204: the PDF/UA identification goes in the same packet, its schema described for PDF/A (6.6.2.3.1).
-            IdentifyAccessibility(writer, extensionSchema: true);
+            // Issues #204, #205: the PDF/UA identification and WTPDF declarations go in the same packet, the pdfuaid schema described
+            // for PDF/A-2 and PDF/A-3 (6.6.2.3.1); PDF/A-4 has no extension schemas.
+            IdentifyAccessibility(writer, accessible, extensionSchema: level.Part() != 4);
         }
 
-        PdfAConformance level = options.PdfAConformance;
         writer
             .SetProperty(XmpNamespaces.PdfAIdentification, "part", level.Part().ToString(CultureInfo.InvariantCulture))
             .SetProperty(XmpNamespaces.PdfAIdentification, "conformance", level.Level())

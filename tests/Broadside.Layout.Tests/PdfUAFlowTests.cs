@@ -271,7 +271,7 @@ public sealed class PdfUAFlowTests
         flow.Render(document);
     }
 
-    private static FlowDocument Report(PdfDocument document, FlowTagging tagging)
+    internal static FlowDocument Report(PdfDocument document, FlowTagging tagging)
     {
         PdfCanvasFont font = document.EmbedTrueTypeFont(Sans);
         var body = new ParagraphStyle(font, 10);
@@ -299,17 +299,17 @@ public sealed class PdfUAFlowTests
         return flow;
     }
 
-    private static PdfImage Image(PdfDocument document) =>
+    internal static PdfImage Image(PdfDocument document) =>
         document.CreateImage([0, 64, 128, 255], new PdfImageLayout(2, 2, PdfDeviceGrayColorSpace.Instance), PdfImageCompression.Flate);
 
-    private static PdfDocument NewDocument()
+    internal static PdfDocument NewDocument()
     {
         PdfDocument document = PdfDocument.Create();
         document.Pages.RemoveAt(0);
         return document;
     }
 
-    private static byte[] Saved(PdfDocument document, PdfSaveOptions options)
+    internal static byte[] Saved(PdfDocument document, PdfSaveOptions options)
     {
         using var stream = new MemoryStream();
         document.Save(stream, options);

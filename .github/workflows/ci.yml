@@ -254,8 +254,9 @@ jobs:
           dotnet test --project tests/Broadside.Fonts.Standard14.Tests -c Release --no-build -- --filter-trait "Category=VeraPdf"
 
       # PDF/UA-1 output from flow layout (#204, and the tagging by construction it builds on, #179) against veraPDF's PDF/UA-1
-      # profile (plus PDF/A-2u for a combined save, and PDF/A-4 for a PDF/A-4 save asking for UA-1, #203).
-      - name: Validate PDF/UA-1 output with veraPDF
+      # profile (plus PDF/A-2u for a combined save, and PDF/A-4 for a PDF/A-4 save asking for UA-1, #203); PDF/UA-2 and Well-Tagged
+      # PDF output (#205) against the ua2 (PDF/UA-2 + ISO/TS 32005), wt1r and wt1a (WTPDF 1.0) profiles, alone and with PDF/A-4.
+      - name: Validate PDF/UA-1, PDF/UA-2 and WTPDF output with veraPDF
         env:
           BROADSIDE_REQUIRE_VERAPDF: '1'
         run: dotnet test --project tests/Broadside.Layout.Tests -c Release --no-build -- --filter-trait "Category=VeraPdf"
