@@ -181,6 +181,7 @@ public sealed class Direct2DRenderer : IDisposable
         if (!_disposed)
         {
             _disposed = true;
+            _backend.Dispose();
             _surface.Dispose();
             _fonts.Dispose();
         }
@@ -188,6 +189,15 @@ public sealed class Direct2DRenderer : IDisposable
 
     /// <summary>Gets how many DirectWrite font faces this renderer has created from font programs.</summary>
     internal int FontFacesCreated => _fonts.FacesCreated;
+
+    /// <summary>Gets how many Direct2D bitmaps were made from display-list images and masks (each once per renderer while cached).</summary>
+    internal int ImagesCreated => _backend.ImagesCreated;
+
+    /// <summary>Gets the bytes of converted image pixels the renderer keeps.</summary>
+    internal long CachedImageBytes => _backend.CachedImageBytes;
+
+    /// <summary>Gets how many tiling-pattern cells were drawn into tiles.</summary>
+    internal int CellsRecorded => _backend.CellsRecorded;
 
     private void Draw(DisplayList list, Bitmap target, in Matrix device, int width, int height, bool white, bool forceOutlines)
     {
@@ -223,6 +233,7 @@ public sealed class Direct2DRenderer : IDisposable
             if (result == HRESULT.D2DERR_RECREATE_TARGET && attempt == 0)
             {
                 // The device was lost (a driver update, a removed adapter): recreate everything once and draw again.
+                _backend.ReleaseDeviceResources();
                 _surface.Dispose();
                 _surface = new Direct2DSurface(_requested);
                 continue;

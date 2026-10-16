@@ -49,19 +49,6 @@ public sealed class CompositingTests
         AssertAgrees(page, render, options);
     }
 
-    [Theory]
-    [InlineData("pattern-tiling-colored.pdf")]
-    [InlineData("pattern-tiling-uncolored.pdf")]
-    public void A_tiling_pattern_is_skipped_and_reported_once(string fileName)
-    {
-        using PdfDocument document = GoldenCorpus.Open(fileName);
-        using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
-
-        using Bitmap render = renderer.Render(document.Pages[0], GoldenCorpus.CreateRenderOptions());
-
-        Assert.Single(renderer.Diagnostics, diagnostic => diagnostic.Code == "RenderingOperationSkipped" && diagnostic.Message.Contains("tiling", StringComparison.Ordinal));
-    }
-
     private static void AssertAgrees(PdfPage page, Bitmap render, RenderOptions options)
     {
         using var rasterizer = new SoftwareRasterizer();
