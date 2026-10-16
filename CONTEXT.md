@@ -97,6 +97,18 @@ _Avoid_: Chunk, patch (a patch is a shading)
 Where a document session puts finished tiles: the abstraction each UI shell implements over its own canvas, image or texture.
 _Avoid_: Canvas (the core's content-writing API), view, target
 
+**Page layout**:
+Where every page of a document sits in a viewer, in points: pages grouped into spreads, spreads in a strip with gaps and padding, each page turned by its own rotation plus the user's. Maps between viewport pixels and each page's user space.
+_Avoid_: Page arrangement, document layout (ambiguous with flow layout)
+
+**Spread**:
+One or two pages a page layout shows side by side (two facing pages, or a cover alone).
+_Avoid_: Page pair, row
+
+**Viewport**:
+The part of a page layout a shell shows: a scroll offset and a size in pixels, and a zoom in pixels per point.
+_Avoid_: Window, visible area, camera
+
 ### Text and layout
 
 **Layout tree**:

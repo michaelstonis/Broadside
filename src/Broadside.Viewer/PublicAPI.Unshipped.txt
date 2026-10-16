@@ -114,3 +114,111 @@ static Broadside.Viewer.DocumentSession.OpenAsync(System.IO.Stream! stream, Broa
 static Broadside.Viewer.DocumentSession.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri) -> System.Threading.Tasks.Task<Broadside.Viewer.DocumentSession!>!
 static Broadside.Viewer.DocumentSession.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, Broadside.Viewer.ViewerOptions? options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.Viewer.DocumentSession!>!
 static readonly Broadside.Viewer.ViewerOptions.DefaultSliceBudget -> System.TimeSpan
+Broadside.Viewer.LayoutRectangle
+Broadside.Viewer.LayoutRectangle.LayoutRectangle() -> void
+Broadside.Viewer.LayoutRectangle.LayoutRectangle(double X, double Y, double Width, double Height) -> void
+Broadside.Viewer.LayoutRectangle.X.get -> double
+Broadside.Viewer.LayoutRectangle.X.init -> void
+Broadside.Viewer.LayoutRectangle.Y.get -> double
+Broadside.Viewer.LayoutRectangle.Y.init -> void
+Broadside.Viewer.LayoutRectangle.Width.get -> double
+Broadside.Viewer.LayoutRectangle.Width.init -> void
+Broadside.Viewer.LayoutRectangle.Height.get -> double
+Broadside.Viewer.LayoutRectangle.Height.init -> void
+Broadside.Viewer.LayoutRectangle.Bottom.get -> double
+Broadside.Viewer.LayoutRectangle.Right.get -> double
+Broadside.Viewer.LayoutRectangle.Contains(double x, double y) -> bool
+Broadside.Viewer.PagePoint
+Broadside.Viewer.PagePoint.PagePoint() -> void
+Broadside.Viewer.PagePoint.PagePoint(int PageIndex, double X, double Y) -> void
+Broadside.Viewer.PagePoint.PageIndex.get -> int
+Broadside.Viewer.PagePoint.PageIndex.init -> void
+Broadside.Viewer.PagePoint.X.get -> double
+Broadside.Viewer.PagePoint.X.init -> void
+Broadside.Viewer.PagePoint.Y.get -> double
+Broadside.Viewer.PagePoint.Y.init -> void
+Broadside.Viewer.Viewport
+Broadside.Viewer.Viewport.Viewport() -> void
+Broadside.Viewer.Viewport.Viewport(double X, double Y, double Width, double Height, double Zoom) -> void
+Broadside.Viewer.Viewport.X.get -> double
+Broadside.Viewer.Viewport.X.init -> void
+Broadside.Viewer.Viewport.Y.get -> double
+Broadside.Viewer.Viewport.Y.init -> void
+Broadside.Viewer.Viewport.Width.get -> double
+Broadside.Viewer.Viewport.Width.init -> void
+Broadside.Viewer.Viewport.Height.get -> double
+Broadside.Viewer.Viewport.Height.init -> void
+Broadside.Viewer.Viewport.Zoom.get -> double
+Broadside.Viewer.Viewport.Zoom.init -> void
+Broadside.Viewer.VisiblePage
+Broadside.Viewer.VisiblePage.VisiblePage() -> void
+Broadside.Viewer.VisiblePage.VisiblePage(int PageIndex, Broadside.Rendering.PixelRectangle Region, double X, double Y) -> void
+Broadside.Viewer.VisiblePage.PageIndex.get -> int
+Broadside.Viewer.VisiblePage.PageIndex.init -> void
+Broadside.Viewer.VisiblePage.Region.get -> Broadside.Rendering.PixelRectangle
+Broadside.Viewer.VisiblePage.Region.init -> void
+Broadside.Viewer.VisiblePage.X.get -> double
+Broadside.Viewer.VisiblePage.X.init -> void
+Broadside.Viewer.VisiblePage.Y.get -> double
+Broadside.Viewer.VisiblePage.Y.init -> void
+Broadside.Viewer.PageLayoutMode
+Broadside.Viewer.PageLayoutMode.SinglePage = 0 -> Broadside.Viewer.PageLayoutMode
+Broadside.Viewer.PageLayoutMode.Continuous = 1 -> Broadside.Viewer.PageLayoutMode
+Broadside.Viewer.PageLayoutMode.TwoUp = 2 -> Broadside.Viewer.PageLayoutMode
+Broadside.Viewer.PageLayoutMode.TwoUpContinuous = 3 -> Broadside.Viewer.PageLayoutMode
+Broadside.Viewer.PageLayoutMode.Horizontal = 4 -> Broadside.Viewer.PageLayoutMode
+Broadside.Viewer.ZoomMode
+Broadside.Viewer.ZoomMode.ActualSize = 0 -> Broadside.Viewer.ZoomMode
+Broadside.Viewer.ZoomMode.FitWidth = 1 -> Broadside.Viewer.ZoomMode
+Broadside.Viewer.ZoomMode.FitPage = 2 -> Broadside.Viewer.ZoomMode
+Broadside.Viewer.PageLayoutOptions
+Broadside.Viewer.PageLayoutOptions.PageLayoutOptions() -> void
+Broadside.Viewer.PageLayoutOptions.Gap.get -> double
+Broadside.Viewer.PageLayoutOptions.Gap.set -> void
+Broadside.Viewer.PageLayoutOptions.Mode.get -> Broadside.Viewer.PageLayoutMode
+Broadside.Viewer.PageLayoutOptions.Mode.set -> void
+Broadside.Viewer.PageLayoutOptions.Padding.get -> double
+Broadside.Viewer.PageLayoutOptions.Padding.set -> void
+Broadside.Viewer.PageLayoutOptions.Rotation.get -> int
+Broadside.Viewer.PageLayoutOptions.Rotation.set -> void
+Broadside.Viewer.PageLayoutOptions.ShowCover.get -> bool
+Broadside.Viewer.PageLayoutOptions.ShowCover.set -> void
+Broadside.Viewer.PageLayoutOptions.WithCover(bool showCover) -> Broadside.Viewer.PageLayoutOptions!
+Broadside.Viewer.PageLayoutOptions.WithGap(double gap) -> Broadside.Viewer.PageLayoutOptions!
+Broadside.Viewer.PageLayoutOptions.WithMode(Broadside.Viewer.PageLayoutMode mode) -> Broadside.Viewer.PageLayoutOptions!
+Broadside.Viewer.PageLayoutOptions.WithPadding(double padding) -> Broadside.Viewer.PageLayoutOptions!
+Broadside.Viewer.PageLayoutOptions.WithRotation(int rotation) -> Broadside.Viewer.PageLayoutOptions!
+const Broadside.Viewer.PageLayoutOptions.DefaultSpacing = 8 -> double
+static Broadside.Viewer.PageLayoutOptions.For(Broadside.PdfPageLayout layout) -> Broadside.Viewer.PageLayoutOptions!
+Broadside.Viewer.PageLayout
+Broadside.Viewer.PageLayout.Clamp(in Broadside.Viewer.Viewport viewport) -> Broadside.Viewer.Viewport
+Broadside.Viewer.PageLayout.ContentHeight.get -> double
+Broadside.Viewer.PageLayout.ContentWidth.get -> double
+Broadside.Viewer.PageLayout.Gap.get -> double
+Broadside.Viewer.PageLayout.GetCurrentPage(in Broadside.Viewer.Viewport viewport) -> int
+Broadside.Viewer.PageLayout.GetPageBounds(int pageIndex) -> Broadside.Viewer.LayoutRectangle
+Broadside.Viewer.PageLayout.GetPageMetrics(int pageIndex) -> Broadside.Viewer.PageMetrics
+Broadside.Viewer.PageLayout.GetPagePixels(int pageIndex, double zoom) -> Broadside.Rendering.PixelRectangle
+Broadside.Viewer.PageLayout.GetPageRotation(int pageIndex) -> int
+Broadside.Viewer.PageLayout.GetPageTransform(in Broadside.Viewer.Viewport viewport, int pageIndex) -> Broadside.Graphics.Matrix
+Broadside.Viewer.PageLayout.GetSpread(int pageIndex) -> int
+Broadside.Viewer.PageLayout.GetSpreadBounds(int spreadIndex) -> Broadside.Viewer.LayoutRectangle
+Broadside.Viewer.PageLayout.GetSpreadPages(int spreadIndex) -> (int FirstPage, int Count)
+Broadside.Viewer.PageLayout.GetVisiblePages(in Broadside.Viewer.Viewport viewport, System.Span<Broadside.Viewer.VisiblePage> destination, double margin = 0) -> int
+Broadside.Viewer.PageLayout.GetVisibleTiles(in Broadside.Viewer.Viewport viewport, int tileSize, System.Span<Broadside.Viewer.Tile> destination, double margin = 0) -> int
+Broadside.Viewer.PageLayout.GetZoom(Broadside.Viewer.ZoomMode mode, double viewportWidth, double viewportHeight, int pageIndex, double actualSize = 1) -> double
+Broadside.Viewer.PageLayout.Mode.get -> Broadside.Viewer.PageLayoutMode
+Broadside.Viewer.PageLayout.PageCount.get -> int
+Broadside.Viewer.PageLayout.PageToViewport(in Broadside.Viewer.Viewport viewport, int pageIndex, Broadside.PdfRectangle rectangle) -> Broadside.Viewer.LayoutRectangle
+Broadside.Viewer.PageLayout.PageToViewport(in Broadside.Viewer.Viewport viewport, int pageIndex, double x, double y) -> Broadside.Graphics.PathPoint
+Broadside.Viewer.PageLayout.Padding.get -> double
+Broadside.Viewer.PageLayout.Rotation.get -> int
+Broadside.Viewer.PageLayout.ScrollTo(in Broadside.Viewer.Viewport viewport, int pageIndex) -> Broadside.Viewer.Viewport
+Broadside.Viewer.PageLayout.ShowCover.get -> bool
+Broadside.Viewer.PageLayout.Snap(in Broadside.Viewer.Viewport viewport) -> Broadside.Viewer.Viewport
+Broadside.Viewer.PageLayout.SpreadCount.get -> int
+Broadside.Viewer.PageLayout.TryGetPageAt(in Broadside.Viewer.Viewport viewport, double x, double y, out Broadside.Viewer.PagePoint point) -> bool
+Broadside.Viewer.PageLayout.ViewportToPage(in Broadside.Viewer.Viewport viewport, int pageIndex, double x, double y) -> Broadside.Viewer.PagePoint
+Broadside.Viewer.PageLayout.ZoomAt(in Broadside.Viewer.Viewport viewport, double zoom, double x, double y) -> Broadside.Viewer.Viewport
+static Broadside.Viewer.PageLayout.Create(System.ReadOnlySpan<Broadside.Viewer.PageMetrics> pages, Broadside.Viewer.PageLayoutOptions? options = null) -> Broadside.Viewer.PageLayout!
+static Broadside.Viewer.PageLayout.CreateAsync(Broadside.Viewer.DocumentSession! session, Broadside.Viewer.PageLayoutOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.PageLayout!>
