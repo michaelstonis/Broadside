@@ -57,6 +57,15 @@ public static class GoldenThresholds
             "the rim, whose centre lies within a fraction of a pixel of the circle, it decides inside where the rasterizer decides " +
             "outside (0.89 on that pixel); every other pixel is within the default."),
         new(
+            "direct2d",
+            "shading-radial-cases.pdf",
+            0,
+            new GoldenThreshold(GoldenThreshold.Default.EdgeTolerance, GoldenThreshold.Default.FlatTolerance, 64),
+            "Direct2D clips the ends of a radial it does not extend (#130) with an aliased layer mask, which it rasterizes on its own " +
+            "fixed sub-pixel grid: the rim pixels of each 70-pixel circle whose centres lie about 0.01 pixel inside it (lattice points " +
+            "nearly on the circle, 18 per circle) fall outside, where the rasterizer's per-pixel evaluation keeps them (56 pixels over " +
+            "four cells); every other pixel, the rest of the rims included, is within the default."),
+        new(
             "coregraphics-text",
             null,
             null,
