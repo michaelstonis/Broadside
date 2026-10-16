@@ -86,10 +86,10 @@ public sealed class TextSelectionTests
             copied[i++] = await selection.GetTextAsync(Token);
         }
 
-        const string FirstLines = "Columns are found from the white\nspace that runs down the page";
+        const string firstLines = "Columns are found from the white\nspace that runs down the page";
         Assert.StartsWith("Columns are found from the white The second column", copied[0], StringComparison.Ordinal);
-        Assert.Equal(FirstLines, copied[1]);
-        Assert.Equal(FirstLines, copied[2]);
+        Assert.Equal(firstLines, copied[1]);
+        Assert.Equal(firstLines, copied[2]);
     }
 
     [Fact]
