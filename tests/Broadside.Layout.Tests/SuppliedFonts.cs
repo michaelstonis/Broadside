@@ -12,7 +12,7 @@ namespace Broadside.Layout.Tests;
 /// embedded), and <c>layout-figures.pdf</c> has a Type 3 font whose two glyphs, a square and a triangle, map to no Unicode
 /// (§7.21.7). Each Helvetica font dictionary becomes Liberation Sans, metric-compatible with it, embedded whole as a non-symbolic
 /// TrueType font with <c>WinAnsiEncoding</c> and the program's own widths (§7.21.5, §7.21.6); the Type 3 font gets a <c>ToUnicode</c>
-/// CMap. Converting fonts is not auto-tagging's job: PDF/A conversion (#229) embeds Standard 14 fonts in the library.
+/// CMap. Converting fonts is not auto-tagging's job: <see cref="PdfDocument.ConvertToPdfA"/> (#229) embeds them in the library.
 /// </summary>
 internal static class SuppliedFonts
 {

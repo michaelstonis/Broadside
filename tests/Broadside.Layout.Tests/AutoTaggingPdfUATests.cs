@@ -34,6 +34,25 @@ public sealed class AutoTaggingPdfUATests
     }
 
     [Theory]
+    [Trait("Category", "VeraPdf")]
+    [InlineData("layout-two-column-untagged.pdf")]
+    [InlineData("layout-tables.pdf")]
+    public void An_untagged_layout_file_auto_tagged_and_converted_to_PDF_A_2u_passes_verapdf_PDF_UA_1_and_PDF_A_2u(string name)
+    {
+        using PdfDocument document = PdfDocument.Open(Corpus.Path(name));
+        document.AutoTag(new AutoTaggingOptions().WithLanguage("en-US"));
+        document.Properties.Title = "Layout sample";
+        PdfAConversion conversion = document.ConvertToPdfA(PdfAConformance.PdfA2u);
+
+        byte[] saved = PdfUAFlowTests.Saved(document, conversion.CreateSaveOptions().WithPdfUAConformance(PdfUAConformance.PdfUA1));
+
+        Assert.True(conversion.IsConformant, string.Join("; ", conversion.NotConverted));
+        Assert.DoesNotContain(document.Diagnostics, diagnostic => diagnostic.Code is NonConformant or NotIdentified);
+        Assert.Empty(VeraPdf.FailedRules(saved, "ua1"));
+        Assert.Empty(VeraPdf.FailedRules(saved, "2u"));
+    }
+
+    [Theory]
     [MemberData(nameof(LayoutFiles))]
     public void An_untagged_layout_file_auto_tagged_with_supplied_alternate_text_conforms_by_the_library_check(string name)
     {
