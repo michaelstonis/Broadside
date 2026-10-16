@@ -5,27 +5,6 @@ using System.Text.Json.Nodes;
 namespace Broadside.Tools.BenchGate;
 
 /// <summary>
-/// One baseline entry: the bytes one call of a benchmark allocates. <see cref="Min"/> equals <see cref="Max"/> for every case whose
-/// figure is the same in every process, which is the rule; a range is recorded only for a case measured to vary between processes
-/// (<c>bench/baselines/gate/README.md</c>, "Cases that vary").
-/// </summary>
-/// <param name="Min">The smallest accepted figure.</param>
-/// <param name="Max">The largest accepted figure.</param>
-public readonly record struct AllocationRange(long Min, long Max)
-{
-    /// <summary>True for an exact figure.</summary>
-    public bool IsExact => Min == Max;
-
-    /// <summary>True when <paramref name="bytes"/> is accepted.</summary>
-    public bool Contains(long bytes) => bytes >= Min && bytes <= Max;
-
-    /// <summary>The figure, or <c>min..max</c>.</summary>
-    public override string ToString() => IsExact
-        ? FormattableString.Invariant($"{Min} B")
-        : FormattableString.Invariant($"{Min}..{Max} B");
-}
-
-/// <summary>
 /// The stored allocation baseline (<c>bench/baselines/gate/allocations.json</c>): every gated case's full name and the bytes one
 /// call allocates, measured on the CI runner by <c>Broadside.Benchmarks --gate-allocations</c>. The gate requires an exact match;
 /// the file changes only through <see cref="BenchmarkGate.Record"/> (or by hand from the gate's summary), in the pull request that
@@ -40,13 +19,13 @@ public sealed class AllocationBaseline
         Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
     };
 
-    private AllocationBaseline(SortedDictionary<string, AllocationRange> allocations) => Allocations = allocations;
+    private AllocationBaseline(SortedDictionary<string, long> allocations) => Allocations = allocations;
 
-    /// <summary>The accepted figure or range by full name.</summary>
-    public IReadOnlyDictionary<string, AllocationRange> Allocations { get; }
+    /// <summary>The bytes per call by full name. The gate accepts exactly this figure and no other.</summary>
+    public IReadOnlyDictionary<string, long> Allocations { get; }
 
     /// <summary>
-    /// Reads a baseline file: <c>{ "Benchmarks": { "&lt;full name&gt;": &lt;bytes&gt; or { "Min": &lt;bytes&gt;, "Max": &lt;bytes&gt; }, ... } }</c>.
+    /// Reads a baseline file: <c>{ "Benchmarks": { "&lt;full name&gt;": &lt;bytes&gt;, ... } }</c>.
     /// </summary>
     public static AllocationBaseline Load(string path)
     {
@@ -56,53 +35,31 @@ public sealed class AllocationBaseline
             throw new InvalidDataException($"{path}: expected an object with a \"Benchmarks\" object.");
         }
 
-        var allocations = new SortedDictionary<string, AllocationRange>(StringComparer.Ordinal);
+        var allocations = new SortedDictionary<string, long>(StringComparer.Ordinal);
         foreach ((string name, JsonNode? value) in benchmarks)
         {
-            allocations[name] = value switch
-            {
-                JsonValue number => new AllocationRange(number.GetValue<long>(), number.GetValue<long>()),
-                JsonObject range when range["Min"] is JsonValue min && range["Max"] is JsonValue max && min.GetValue<long>() <= max.GetValue<long>() =>
-                    new AllocationRange(min.GetValue<long>(), max.GetValue<long>()),
-                _ => throw new InvalidDataException($"{path}: \"{name}\" must be a number or {{ \"Min\": <bytes>, \"Max\": <bytes> }}."),
-            };
+            allocations[name] = value is JsonValue number && number.TryGetValue(out long bytes) && bytes >= 0
+                ? bytes
+                : throw new InvalidDataException($"{path}: \"{name}\" must be a whole number of bytes (ranges are not accepted: allocations are deterministic since #288).");
         }
 
         return new AllocationBaseline(allocations);
     }
 
     /// <summary>
-    /// Builds a baseline from measured figures. A case measured the same everywhere gets that figure. A case whose figures differ,
-    /// or that <paramref name="previous"/> records as a range, gets a range: the previous one when it holds every figure, otherwise
-    /// the figures' span widened on each side by half the previous range's width (so a deliberate change moves the range without
-    /// narrowing it).
+    /// Builds a baseline from measured figures. A case measured more than once with different figures gets the largest; the gate
+    /// still fails it (<see cref="FindingKind.AllocationChanged"/>), because a case whose allocations vary between processes is a
+    /// determinism bug to fix in the library, not to accept in the baseline.
     /// </summary>
-    public static AllocationBaseline From(IReadOnlyDictionary<string, List<long>> measured, AllocationBaseline? previous = null)
+    public static AllocationBaseline From(IReadOnlyDictionary<string, List<long>> measured)
     {
-        var allocations = new SortedDictionary<string, AllocationRange>(StringComparer.Ordinal);
+        var allocations = new SortedDictionary<string, long>(StringComparer.Ordinal);
         foreach ((string name, List<long> values) in measured)
         {
-            if (values.Count == 0)
+            if (values.Count > 0)
             {
-                continue;
+                allocations[name] = values.Max();
             }
-
-            long min = values.Min();
-            long max = values.Max();
-            if (previous is not null && previous.Allocations.TryGetValue(name, out AllocationRange before) && !before.IsExact)
-            {
-                if (values.All(before.Contains))
-                {
-                    allocations[name] = before;
-                    continue;
-                }
-
-                long padding = (before.Max - before.Min) / 2;
-                allocations[name] = new AllocationRange(Math.Max(0, min - padding), max + padding);
-                continue;
-            }
-
-            allocations[name] = new AllocationRange(min, max);
         }
 
         return new AllocationBaseline(allocations);
@@ -112,9 +69,9 @@ public sealed class AllocationBaseline
     public void Save(string path)
     {
         var benchmarks = new JsonObject();
-        foreach ((string name, AllocationRange range) in Allocations)
+        foreach ((string name, long bytes) in Allocations)
         {
-            benchmarks[name] = range.IsExact ? JsonValue.Create(range.Min) : new JsonObject { ["Min"] = range.Min, ["Max"] = range.Max };
+            benchmarks[name] = bytes;
         }
 
         string json = new JsonObject { ["Benchmarks"] = benchmarks }.ToJsonString(Options).ReplaceLineEndings("\n") + "\n";

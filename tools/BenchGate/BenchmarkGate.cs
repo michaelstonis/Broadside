@@ -101,13 +101,13 @@ public static class BenchmarkGate
     }
 
     /// <summary>
-    /// Writes the pull request side's allocations under <paramref name="resultsRoot"/> as a baseline file, keeping the ranges of
-    /// <paramref name="previous"/> for the cases that vary (<see cref="AllocationBaseline.From"/>).
+    /// Writes the pull request side's allocations under <paramref name="resultsRoot"/> as a baseline file
+    /// (<see cref="AllocationBaseline.From"/>).
     /// </summary>
-    public static AllocationBaseline Record(string resultsRoot, string outputPath, AllocationBaseline? previous = null)
+    public static AllocationBaseline Record(string resultsRoot, string outputPath)
     {
         GateResults results = GateResults.Load(resultsRoot);
-        AllocationBaseline baseline = AllocationBaseline.From(results.Allocations.Head, previous);
+        AllocationBaseline baseline = AllocationBaseline.From(results.Allocations.Head);
         baseline.Save(outputPath);
         return baseline;
     }
@@ -128,31 +128,31 @@ public static class BenchmarkGate
             }
 
             long[] measured = [.. values.Distinct().Order()];
-            if (!baseline.Allocations.TryGetValue(name, out AllocationRange expected))
+            if (!baseline.Allocations.TryGetValue(name, out long expected))
             {
                 findings.Add(new GateFinding(name, FindingKind.NotInBaseline, Invariant($"allocates {Bytes(measured)} per call and has no baseline entry"), Measured: measured[^1]));
                 continue;
             }
 
-            if (!measured.All(expected.Contains))
+            if (measured.Length != 1 || measured[0] != expected)
             {
-                string accepted = expected.IsExact ? Invariant($"the baseline is {expected}") : Invariant($"the baseline accepts {expected} (this case varies between processes)");
-                findings.Add(new GateFinding(name, FindingKind.AllocationChanged, Invariant($"allocates {Bytes(measured)} per call; {accepted}"), expected.Min, measured[^1]));
+                string varies = measured.Length > 1 ? " (it varies between processes: make it deterministic, see #288)" : string.Empty;
+                findings.Add(new GateFinding(name, FindingKind.AllocationChanged, Invariant($"allocates {Bytes(measured)} per call{varies}; the baseline is {expected} B"), expected, measured[^1]));
                 continue;
             }
 
-            if (results.Allocations.Base.TryGetValue(name, out List<long>? onBase) && !onBase.All(expected.Contains))
+            if (results.Allocations.Base.TryGetValue(name, out List<long>? onBase) && onBase.Any(bytes => bytes != expected))
             {
                 long[] stale = [.. onBase.Distinct().Order()];
-                findings.Add(new GateFinding(name, FindingKind.BaselineStale, Invariant($"the base commit allocates {Bytes(stale)} per call, not the baseline's {expected}")));
+                findings.Add(new GateFinding(name, FindingKind.BaselineStale, Invariant($"the base commit allocates {Bytes(stale)} per call, not the baseline's {expected} B")));
             }
         }
 
-        foreach ((string name, AllocationRange expected) in baseline.Allocations)
+        foreach ((string name, long expected) in baseline.Allocations)
         {
             if (!options.Subset && !head.Contains(name))
             {
-                findings.Add(new GateFinding(name, FindingKind.NotRun, "is in the baseline but did not run", expected.Min));
+                findings.Add(new GateFinding(name, FindingKind.NotRun, "is in the baseline but did not run", expected));
             }
         }
     }

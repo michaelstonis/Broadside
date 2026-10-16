@@ -14,7 +14,7 @@ dotnet run --project tools/BenchGate -- shard --list methods.txt --baseline benc
 | Command | Does |
 |---|---|
 | `compare` | The verdict. Exit 0 when nothing fails, 1 on a regression; one `::error` annotation per regression, the Markdown summary on stdout and appended to `--summary <file>` (CI passes `$GITHUB_STEP_SUMMARY`). `--record <file>` also writes the re-recorded baseline. `--base-name` labels the base commit in the summary; `--fail-ratio` overrides the time threshold for experiments; `--subset true` (local runs of a few methods) does not report baseline cases that did not run. |
-| `record` | Writes the pull request side's allocation figures as a baseline file (sorted, one line per case), keeping the ranges of the `--baseline` file for the cases that vary. |
+| `record` | Writes the pull request side's allocation figures as a baseline file (sorted, one line per case). |
 | `suspects` | Writes the full names of the cases the rounds find slower (BenchmarkDotNet `--filter` matches a full name with its parameters), for `bench/run-gate.sh`'s confirmation rerun. |
 | `shard` | Splits the methods of `--list flat` over `--count` runners, balanced by the baseline's case count per method; the `--split` methods go to every runner (they partition their own cases). |
 
@@ -34,7 +34,7 @@ runners.
 ## Layout
 
 - `GateResults.cs`: reads BenchmarkDotNet's full JSON reports (`Workload`/`Result` iterations) into rounds, and the allocation files.
-- `AllocationBaseline.cs`: the baseline file (a number per case, or a `Min`/`Max` range for a case that varies between processes).
+- `AllocationBaseline.cs`: the baseline file (one exact number of bytes per case; ranges are refused).
 - `BenchmarkGate.cs`: the allocation and time rules, sharding and suspects; `GateOptions.cs` holds the thresholds.
 - `GateReport.cs`: findings and the job summary.
 - `Program.cs`: argument parsing and console output only.

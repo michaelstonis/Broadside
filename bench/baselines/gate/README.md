@@ -77,16 +77,14 @@ an improvement is locked in by the pull request that makes it rather than silent
 that no shard ran fails (a removed or renamed benchmark or `[Params]` value, or a case that crashed). When the base commit's own
 figure already differs from the baseline, the summary says the baseline is stale (a notice, not a failure).
 
-### Cases that vary
+### No ranges
 
-343 of the 345 cases measured the same figure in all 28 processes of the validation runs below. Two did not:
-`StructureTreeBenchmarks.BuildPageMcidIndex` with 1,000 and 10,000 marked-content items (693,816 to 696,576 and 6,790,640 to
-6,814,760 bytes per call, a 0.4 % spread). With that many objects the object cache's `ConcurrentDictionary` grows its lock array
-even with one processor, and the randomized hash comes back in. Their entries are ranges (`{ "Min": ..., "Max": ... }`: the
-observed span widened by half its width on each side) and the summary says "varies between processes" when one is outside.
-`record` keeps a range a range and moves it with a deliberate change. Making those two exact means making the cache's growth
-independent of the hash seed (a fixed concurrency level, or a seeded hash for object numbers); that is a library change outside
-this ticket.
+Every entry is one exact figure; the file refuses anything else. In the first validation runs two cases did vary between
+processes: `StructureTreeBenchmarks.BuildPageMcidIndex` with 1,000 and 10,000 marked-content items (a 0.4 % spread), because the
+object cache's `ConcurrentDictionary` grew its lock array by a hash with a per-process seed. #288 made every per-document
+concurrent table a `DeterministicTable` (one fixed lock), and those cases now measure the same in every process. A case whose
+figures differ between processes fails the gate ("varies between processes") whatever the baseline says: fix its determinism in
+the library (a new per-document concurrent table must come from `DeterministicTable.Create`), do not widen the baseline.
 
 ## The time rule
 
@@ -130,7 +128,7 @@ The baseline changes only in the pull request that changes the allocation, so a 
    merge into). It fails, and its summary has a "Baseline update" block with the lines to change.
 2. If every change there is intended, either apply those lines to `bench/baselines/gate/allocations.json` or download the run's
    `bench-gate-baseline` artifact (`gh run download <run id> -n bench-gate-baseline`) and replace the file with it: it is the
-   whole file re-recorded from that run, sorted, one line per case, ranges kept.
+   whole file re-recorded from that run, sorted, one line per case.
 3. Say why in the pull request description (for example "the walker now reads the page labels: +312 B per document").
 4. Commit; the next run passes.
 

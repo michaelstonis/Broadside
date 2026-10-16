@@ -122,46 +122,41 @@ public sealed class AllocationGateTests
     }
 
     [Fact]
-    public void A_case_recorded_as_varying_passes_inside_its_range_and_fails_outside_it()
+    public void A_range_in_the_baseline_file_is_refused()
     {
         using var tree = new ResultsTree();
-        tree.AddRounds("head", 2, ResultsTree.Lexer, 6_800_100, ResultsTree.Around(1000));
-        string inside = tree.WriteBaselineText(
+        string ranged = tree.WriteBaselineText(
             """{ "Benchmarks": { "Broadside.Benchmarks.LexerBenchmarks.Tokenize(File: \"empty-page.pdf\")": { "Min": 6800000, "Max": 6820000 } } }""");
-        Assert.True(BenchmarkGate.Run(inside, tree.Root).Passed);
 
-        string outside = tree.WriteBaselineText(
-            """{ "Benchmarks": { "Broadside.Benchmarks.LexerBenchmarks.Tokenize(File: \"empty-page.pdf\")": { "Min": 6700000, "Max": 6720000 } } }""");
-        GateFinding finding = Assert.Single(BenchmarkGate.Run(outside, tree.Root).Failures);
-        Assert.Equal(
-            "allocates 6800100 B per call; the baseline accepts 6700000..6720000 B (this case varies between processes)",
-            finding.Message);
+        InvalidDataException error = Assert.Throws<InvalidDataException>(() => AllocationBaseline.Load(ranged));
+
+        Assert.Contains("must be a whole number of bytes", error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
-    public void Recording_keeps_a_varying_case_a_range_and_moves_it_with_a_deliberate_change()
-    {
-        using var tree = new ResultsTree();
-        tree.AddRounds("head", 2, ResultsTree.Lexer, 7_000_000, ResultsTree.Around(1000));
-        AllocationBaseline previous = AllocationBaseline.Load(tree.WriteBaselineText(
-            """{ "Benchmarks": { "Broadside.Benchmarks.LexerBenchmarks.Tokenize(File: \"empty-page.pdf\")": { "Min": 6800000, "Max": 6820000 } } }"""));
-
-        AllocationBaseline recorded = BenchmarkGate.Record(tree.Root, Path.Combine(tree.Root, "recorded.json"), previous);
-
-        Assert.Equal(new AllocationRange(6_990_000, 7_010_000), recorded.Allocations[ResultsTree.Lexer]);
-    }
-
-    [Fact]
-    public void Figures_that_differ_between_processes_are_recorded_as_a_range()
+    public void Figures_that_differ_between_processes_fail_even_when_one_matches_the_baseline()
     {
         using var tree = new ResultsTree();
         tree.Add("round-1/head", ResultsTree.Lexer, 1000, ResultsTree.Around(1000))
             .Add("round-2/head", ResultsTree.Lexer, 1040, ResultsTree.Around(1000));
+        string baseline = tree.WriteBaseline((ResultsTree.Lexer, 1000));
+
+        GateFinding finding = Assert.Single(BenchmarkGate.Run(baseline, tree.Root).Failures);
+
+        Assert.Equal(FindingKind.AllocationChanged, finding.Kind);
+        Assert.Contains("varies between processes", finding.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void Recording_writes_one_exact_figure_per_case()
+    {
+        using var tree = new ResultsTree();
+        tree.AddRounds("head", 2, ResultsTree.Lexer, 1000, ResultsTree.Around(1000));
 
         AllocationBaseline recorded = BenchmarkGate.Record(tree.Root, Path.Combine(tree.Root, "recorded.json"));
 
-        Assert.Equal(new AllocationRange(1000, 1040), recorded.Allocations[ResultsTree.Lexer]);
-        Assert.Contains("\"Min\": 1000", File.ReadAllText(Path.Combine(tree.Root, "recorded.json")), StringComparison.Ordinal);
+        Assert.Equal(1000, recorded.Allocations[ResultsTree.Lexer]);
+        Assert.Contains("\"Broadside.Benchmarks.LexerBenchmarks.Tokenize(File: \\\"empty-page.pdf\\\")\": 1000", File.ReadAllText(Path.Combine(tree.Root, "recorded.json")), StringComparison.Ordinal);
     }
 
     [Fact]

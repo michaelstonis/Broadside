@@ -375,14 +375,8 @@
     "Broadside.Benchmarks.StreamEncoderBenchmarks.Encode(Filter: \"FlateDecode\")": 264,
     "Broadside.Benchmarks.StreamEncoderBenchmarks.Encode(Filter: \"RunLengthDecode\")": 0,
     "Broadside.Benchmarks.StructureTreeBenchmarks.BuildPageMcidIndex(Mcids: 10)": 65936,
-    "Broadside.Benchmarks.StructureTreeBenchmarks.BuildPageMcidIndex(Mcids: 1000)": {
-      "Min": 692436,
-      "Max": 697956
-    },
-    "Broadside.Benchmarks.StructureTreeBenchmarks.BuildPageMcidIndex(Mcids: 10000)": {
-      "Min": 6778580,
-      "Max": 6826820
-    },
+    "Broadside.Benchmarks.StructureTreeBenchmarks.BuildPageMcidIndex(Mcids: 1000)": 692436,
+    "Broadside.Benchmarks.StructureTreeBenchmarks.BuildPageMcidIndex(Mcids: 10000)": 6778580,
     "Broadside.Benchmarks.SystemFontBenchmarks.BuildIndex": 1058576,
     "Broadside.Benchmarks.SystemFontBenchmarks.FirstResolveHelvetica": 569880,
     "Broadside.Benchmarks.SystemFontBenchmarks.FirstResolveHelveticaFromIndex": 487992,
