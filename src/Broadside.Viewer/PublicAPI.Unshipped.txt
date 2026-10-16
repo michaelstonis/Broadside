@@ -347,3 +347,69 @@ Broadside.Viewer.ProgressiveZoomOptions.UseTimeProvider(System.TimeProvider! tim
 Broadside.Viewer.TileScheduler.GetFrame(in Broadside.Viewer.Viewport viewport, System.Span<Broadside.Viewer.FramePart> destination) -> int
 const Broadside.Viewer.ProgressiveZoomOptions.DefaultMinZoom = 0.1 -> double
 const Broadside.Viewer.ProgressiveZoomOptions.DefaultMaxZoom = 64 -> double
+Broadside.Viewer.ProgressiveZoom.Layout.get -> Broadside.Viewer.PageLayout!
+Broadside.Viewer.InputModel
+Broadside.Viewer.InputModel.InputModel(Broadside.Viewer.ProgressiveZoom! zoom, Broadside.Viewer.InputModelOptions? options = null) -> void
+Broadside.Viewer.InputModel.Zoom.get -> Broadside.Viewer.ProgressiveZoom!
+Broadside.Viewer.InputModel.Viewport.get -> Broadside.Viewer.Viewport
+Broadside.Viewer.InputModel.CurrentPage.get -> int
+Broadside.Viewer.InputModel.IsAnimating.get -> bool
+Broadside.Viewer.InputModel.ActualSize.get -> double
+Broadside.Viewer.InputModel.PixelRatio.get -> double
+Broadside.Viewer.InputModel.PixelRatio.set -> void
+Broadside.Viewer.InputModel.PointerDown(long pointerId, Broadside.Viewer.PointerKind kind, double x, double y) -> void
+Broadside.Viewer.InputModel.PointerMove(long pointerId, double x, double y) -> void
+Broadside.Viewer.InputModel.PointerUp(long pointerId, double x, double y) -> void
+Broadside.Viewer.InputModel.PointerCancel(long pointerId) -> void
+Broadside.Viewer.InputModel.Wheel(double deltaX, double deltaY, Broadside.Viewer.WheelDeltaMode mode, Broadside.Viewer.InputModifiers modifiers, double x, double y) -> void
+Broadside.Viewer.InputModel.KeyDown(Broadside.Viewer.InputKey key, Broadside.Viewer.InputModifiers modifiers) -> bool
+Broadside.Viewer.InputModel.Resize(double width, double height) -> void
+Broadside.Viewer.InputModel.GoToPage(int pageIndex) -> void
+Broadside.Viewer.InputModel.NextPage() -> void
+Broadside.Viewer.InputModel.PreviousPage() -> void
+Broadside.Viewer.InputModel.ZoomTo(Broadside.Viewer.ZoomMode mode) -> void
+Broadside.Viewer.InputModel.Stop() -> void
+Broadside.Viewer.InputModel.RunFrame(System.TimeSpan budget) -> bool
+const Broadside.Viewer.InputModel.LineScroll = 40 -> double
+Broadside.Viewer.InputModelOptions
+Broadside.Viewer.InputModelOptions.InputModelOptions() -> void
+Broadside.Viewer.InputModelOptions.TimeProvider.get -> System.TimeProvider!
+Broadside.Viewer.InputModelOptions.PixelRatio.get -> double
+Broadside.Viewer.InputModelOptions.AnimationDuration.get -> System.TimeSpan
+Broadside.Viewer.InputModelOptions.FlingTimeConstant.get -> System.TimeSpan
+Broadside.Viewer.InputModelOptions.DoubleTapZoom.get -> double
+Broadside.Viewer.InputModelOptions.SnapToPages.get -> bool
+Broadside.Viewer.InputModelOptions.UseTimeProvider(System.TimeProvider! timeProvider) -> Broadside.Viewer.InputModelOptions!
+Broadside.Viewer.InputModelOptions.WithPixelRatio(double pixelRatio) -> Broadside.Viewer.InputModelOptions!
+Broadside.Viewer.InputModelOptions.WithAnimationDuration(System.TimeSpan duration) -> Broadside.Viewer.InputModelOptions!
+Broadside.Viewer.InputModelOptions.WithFlingTimeConstant(System.TimeSpan timeConstant) -> Broadside.Viewer.InputModelOptions!
+Broadside.Viewer.InputModelOptions.WithDoubleTapZoom(double multiple) -> Broadside.Viewer.InputModelOptions!
+Broadside.Viewer.InputModelOptions.WithPageSnapping(bool snap) -> Broadside.Viewer.InputModelOptions!
+Broadside.Viewer.PointerKind
+Broadside.Viewer.PointerKind.Mouse = 0 -> Broadside.Viewer.PointerKind
+Broadside.Viewer.PointerKind.Touch = 1 -> Broadside.Viewer.PointerKind
+Broadside.Viewer.PointerKind.Pen = 2 -> Broadside.Viewer.PointerKind
+Broadside.Viewer.InputModifiers
+Broadside.Viewer.InputModifiers.None = 0 -> Broadside.Viewer.InputModifiers
+Broadside.Viewer.InputModifiers.Shift = 1 -> Broadside.Viewer.InputModifiers
+Broadside.Viewer.InputModifiers.Control = 2 -> Broadside.Viewer.InputModifiers
+Broadside.Viewer.InputModifiers.Alt = 4 -> Broadside.Viewer.InputModifiers
+Broadside.Viewer.InputModifiers.Meta = 8 -> Broadside.Viewer.InputModifiers
+Broadside.Viewer.WheelDeltaMode
+Broadside.Viewer.WheelDeltaMode.Pixel = 0 -> Broadside.Viewer.WheelDeltaMode
+Broadside.Viewer.WheelDeltaMode.Line = 1 -> Broadside.Viewer.WheelDeltaMode
+Broadside.Viewer.WheelDeltaMode.Page = 2 -> Broadside.Viewer.WheelDeltaMode
+Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.None = 0 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.ArrowLeft = 1 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.ArrowRight = 2 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.ArrowUp = 3 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.ArrowDown = 4 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.PageUp = 5 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.PageDown = 6 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Space = 7 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Home = 8 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.End = 9 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Plus = 10 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Minus = 11 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Zero = 12 -> Broadside.Viewer.InputKey
