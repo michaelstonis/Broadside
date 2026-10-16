@@ -4908,3 +4908,21 @@ Broadside.PdfSaveOptions.WithWellTaggedConformance(Broadside.PdfWellTaggedConfor
 const Broadside.PdfDeclaration.WellTaggedReuse = "http://pdfa.org/declarations/wtpdf#reuse1.0" -> string!
 const Broadside.PdfDeclaration.WellTaggedAccessibility = "http://pdfa.org/declarations/wtpdf#accessibility1.0" -> string!
 Broadside.XmpPacket.PdfUARevision.get -> int?
+Broadside.Layout.AutoTaggingOptions
+Broadside.Layout.AutoTaggingOptions.AutoTaggingOptions() -> void
+Broadside.Layout.AutoTaggingOptions.FigureAlternateText.get -> string!
+Broadside.Layout.AutoTaggingOptions.FigureAlternateText.set -> void
+Broadside.Layout.AutoTaggingOptions.Force.get -> bool
+Broadside.Layout.AutoTaggingOptions.Force.set -> void
+Broadside.Layout.AutoTaggingOptions.Language.get -> string?
+Broadside.Layout.AutoTaggingOptions.Language.set -> void
+Broadside.Layout.AutoTaggingOptions.WithFigureAlternateText(string! text) -> Broadside.Layout.AutoTaggingOptions!
+Broadside.Layout.AutoTaggingOptions.WithForce(bool force = true) -> Broadside.Layout.AutoTaggingOptions!
+Broadside.Layout.AutoTaggingOptions.WithLanguage(string? language) -> Broadside.Layout.AutoTaggingOptions!
+Broadside.Layout.AutoTaggingResult
+Broadside.Layout.AutoTaggingResult.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.Layout.AutoTaggingResult.Figures.get -> System.Collections.Generic.IReadOnlyList<Broadside.Structure.PdfStructureElement!>!
+Broadside.Layout.AutoTaggingResult.IsTagged.get -> bool
+Broadside.Layout.AutoTaggingResult.Layout.get -> Broadside.Layout.LayoutTree?
+Broadside.PdfDocument.AutoTag() -> Broadside.Layout.AutoTaggingResult!
+Broadside.PdfDocument.AutoTag(Broadside.Layout.AutoTaggingOptions! options) -> Broadside.Layout.AutoTaggingResult!
