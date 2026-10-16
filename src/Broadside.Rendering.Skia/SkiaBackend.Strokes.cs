@@ -63,17 +63,23 @@ public sealed partial class SkiaBackend
                 return;
             }
 
+            StrokeOutline(path, style, paint.WithAlpha(_compositing.StrokeAlpha), _compositing.BlendMode);
+        }
+
+        /// <summary>Strokes the path as <see cref="StrokePath"/> does, in a given colour and blend mode; false when the stroke paints nothing.</summary>
+        private bool StrokeOutline(PathView path, in StrokeStyle style, SKColor color, SKBlendMode mode)
+        {
             float width = Configure(style);
             _path.Clear();
             _path.FillType = SKPathFillType.Winding;
             CollectSubpaths(path);
             if (_path.IsEmpty)
             {
-                return;
+                return false;
             }
 
-            _stroke.Color = paint.WithAlpha(_compositing.StrokeAlpha);
-            _stroke.BlendMode = _compositing.BlendMode;
+            _stroke.Color = color;
+            _stroke.BlendMode = mode;
             _stroke.StrokeCap = style.LineCap switch
             {
                 LineCap.Round => SKStrokeCap.Round,
@@ -102,6 +108,7 @@ public sealed partial class SkiaBackend
             }
 
             _canvas.DrawPath(_paths.Get(_path), _stroke);
+            return true;
         }
 
         private void DisposeStrokes()

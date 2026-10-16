@@ -53,14 +53,26 @@ public sealed class CompositingTests
     [Theory]
     [InlineData("pattern-tiling-colored.pdf")]
     [InlineData("pattern-tiling-uncolored.pdf")]
-    public void A_tiling_pattern_is_skipped_and_reported_once(string fileName)
+    public void A_tiling_pattern_cell_is_recorded_once_per_backend_and_scale(string fileName)
     {
+        // Issue #122: each cell of the list becomes one picture; a warm replay reuses it, a replay at another scale records it again.
         using PdfDocument document = GoldenCorpus.Open(fileName);
+        DisplayList list = document.Pages[0].CreateDisplayList(DisplayLayers.Content);
+        using var bitmap = new SKBitmap(new SKImageInfo(1300, 1700, SKColorType.Bgra8888, SKAlphaType.Premul));
+        using var canvas = new SKCanvas(bitmap);
         using var backend = new SkiaBackend();
+        Matrix at72 = new RenderOptions().GetDeviceTransform(document.Pages[0]);
+        Matrix at144 = new RenderOptions().WithDpi(144).GetDeviceTransform(document.Pages[0]);
+        backend.Render(list, canvas, at72);
+        Assert.Empty(backend.Diagnostics);
+        int recorded = backend.CellsRecorded;
+        Assert.True(recorded > 0);
 
-        using SKBitmap bitmap = backend.Render(document.Pages[0], GoldenCorpus.CreateRenderOptions());
+        backend.Render(list, canvas, at72);
+        Assert.Equal(recorded, backend.CellsRecorded);
 
-        Assert.Single(backend.Diagnostics, diagnostic => diagnostic.Code == "BackendTilingPatternUnsupported");
+        backend.Render(list, canvas, at144);
+        Assert.Equal(2 * recorded, backend.CellsRecorded);
     }
 
     /// <summary>NoZoom and NoRotate annotations (§12.5.3) on an upright and a rotated page, appearances of paths only.</summary>

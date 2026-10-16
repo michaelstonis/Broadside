@@ -6,38 +6,22 @@ using SkiaSharp;
 namespace Broadside.Rendering.Skia.Tests;
 
 /// <summary>
-/// Operations the Skia backend does not draw yet (images, stencil masks, glyphs, shadings; issue #121) are skipped, never
-/// approximated, and each kind is reported once per render (ADR 0005).
+/// What the Skia backend approximates (transparency groups and soft masks until #124) is reported once per kind per render, and a
+/// render reports only what it approximated itself (ADR 0005: nothing is skipped or approximated silently).
 /// </summary>
 public sealed class UnsupportedOperationTests
 {
-    [Theory]
-    [InlineData("inline-image.pdf", "BackendImageUnsupported")]
-    [InlineData("image-stencil-mask.pdf", "BackendImageMaskUnsupported")]
-    [InlineData("shading-type2-axial.pdf", "BackendShadingUnsupported")]
-    [InlineData("pattern-shading-axial.pdf", "BackendShadingUnsupported")]
-    public void A_page_whose_only_paints_the_backend_cannot_draw_stays_white_and_reports_their_kind_once(string fileName, string code)
-    {
-        using PdfDocument document = GoldenCorpus.Open(fileName);
-        using var backend = new SkiaBackend();
-        using SKBitmap bitmap = backend.Render(document.Pages[0]);
-
-        Diagnostic diagnostic = Assert.Single(backend.Diagnostics);
-        Assert.Equal(code, diagnostic.Code);
-        Assert.Equal(DiagnosticSeverity.Information, diagnostic.Severity);
-        Assert.All(bitmap.Pixels, pixel => Assert.Equal(SKColors.White, pixel));
-    }
-
     [Fact]
     public void Each_render_reports_only_what_it_skipped()
     {
-        using PdfDocument image = GoldenCorpus.Open("inline-image.pdf");
+        using PdfDocument image = GoldenCorpus.Open("transparency-soft-masks.pdf");
         using PdfDocument paths = GoldenCorpus.Open("paths-fill-rules.pdf");
         using var backend = new SkiaBackend();
 
         using (backend.Render(image.Pages[0]))
         {
-            Assert.Single(backend.Diagnostics);
+            Assert.NotEmpty(backend.Diagnostics);
+            Assert.Equal(backend.Diagnostics.Count, backend.Diagnostics.Select(diagnostic => diagnostic.Code).Distinct().Count());
         }
 
         using (backend.Render(paths.Pages[0]))
