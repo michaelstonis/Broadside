@@ -88,7 +88,7 @@ internal sealed unsafe partial class Direct2DBackend
     private float _styleMiterLimit;
 
     /// <summary>Strokes the path with the colour (ISO 32000-2 §8.5.3.2).</summary>
-    public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
+    private void StrokePathCore(PathView path, in StrokeStyle style, in DisplayColor color)
     {
         PdfColorConverter converter = Converter(color);
         if (converter.PaintsNothing || path.IsEmpty || _compositing.StrokeAlpha == 0 || !ConfigurePen(style))

@@ -5,8 +5,7 @@ namespace Broadside.Rendering.Direct2D.Tests;
 
 /// <summary>
 /// Constant alpha, blend modes, annotations and tiling patterns on Direct2D (ISO 32000-2 §11.3.5, §11.6.4.4, §12.5.3, §12.5.5,
-/// §8.7.3): alpha and annotation layers measured against the software rasterizer, the blend modes Direct2D cannot draw and the tiling
-/// patterns it does not draw yet reported.
+/// §8.7.3): alpha and annotation layers measured against the software rasterizer, pages that blend drawn by the software rasterizer.
 /// </summary>
 public sealed class CompositingTests
 {
@@ -24,14 +23,19 @@ public sealed class CompositingTests
     }
 
     [Fact]
-    public void A_blend_mode_other_than_normal_composites_as_normal_and_is_reported_once()
+    public void A_page_that_paints_in_a_blend_mode_other_than_normal_is_drawn_by_the_software_rasterizer_and_reported_once()
     {
+        // Issue #132: Direct2D's primitive blend is source-over only, so the software rasterizer draws the page (§11.3.5).
         using PdfDocument document = PdfDocument.Open(BlendSamples.SolidGrid("Multiply", "Screen", "Hue"));
+        PdfPage page = document.Pages[0];
         using var renderer = new Direct2DRenderer(Direct2DDriver.Warp);
+        using var rasterizer = new SoftwareRasterizer();
 
-        using Bitmap render = renderer.Render(document.Pages[0]);
+        using Bitmap render = renderer.Render(page);
+        using Bitmap reference = rasterizer.Render(page);
 
-        Assert.Equal("BackendBlendModeUnsupported", Assert.Single(renderer.Diagnostics).Code);
+        Assert.Equal("BackendPageRasterized", Assert.Single(renderer.Diagnostics).Code);
+        Assert.True(render.Pixels.SequenceEqual(reference.Pixels));
     }
 
     [Theory]

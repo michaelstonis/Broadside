@@ -39,7 +39,7 @@ internal sealed unsafe partial class Direct2DBackend : IDisposable
     /// current transform. A mask of the image's size is folded into the pixels; a soft mask (§11.6.5.2) or explicit mask (§8.9.6.3)
     /// of another size clips the image at its own resolution, so each is resampled from its own grid.
     /// </summary>
-    public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
+    private void DrawImageCore(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
     {
         if (_compositing.FillAlpha == 0)
         {
@@ -99,7 +99,7 @@ internal sealed unsafe partial class Direct2DBackend : IDisposable
     /// Fills a stencil mask with the colour (ISO 32000-2 §8.9.6.2): the mask maps onto the unit square like an image and is the opacity
     /// of a fill of the unit square in the colour.
     /// </summary>
-    public void FillImageMask(DisplayImageMask mask, in DisplayColor color)
+    private void FillImageMaskCore(DisplayImageMask mask, in DisplayColor color)
     {
         PdfColorConverter converter = Converter(color);
         if (_compositing.FillAlpha == 0 || converter.PaintsNothing)
@@ -139,6 +139,7 @@ internal sealed unsafe partial class Direct2DBackend : IDisposable
         _images.Dispose();
         _shadings.Dispose();
         ClearTiles();
+        ReleaseTransparency();
     }
 
     /// <summary>Reads the document's image budget at the start of a replay.</summary>
