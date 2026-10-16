@@ -1,6 +1,8 @@
 <Solution>
   <Folder Name="/bench/">
     <Project Path="bench/Broadside.Benchmarks/Broadside.Benchmarks.csproj" />
+    <Project Path="bench/Broadside.Rendering.CoreGraphics.Benchmarks/Broadside.Rendering.CoreGraphics.Benchmarks.csproj" />
+    <Project Path="bench/Broadside.Rendering.Direct2D.Benchmarks/Broadside.Rendering.Direct2D.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/solution-items/">
     <File Path="Directory.Build.props" />
@@ -15,6 +17,7 @@
   <Folder Name="/src/">
     <Project Path="src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
     <Project Path="src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <Project Path="src/Broadside.Layout/Broadside.Layout.csproj" />
     <Project Path="src/Broadside.Rendering.Android/Broadside.Rendering.Android.csproj" />
     <Project Path="src/Broadside.Rendering.CoreGraphics/Broadside.Rendering.CoreGraphics.csproj" />
     <Project Path="src/Broadside.Rendering.Direct2D/Broadside.Rendering.Direct2D.csproj" />
@@ -28,17 +31,24 @@
     <Project Path="tests/Broadside.Fuzz/Broadside.Fuzz.csproj" />
     <Project Path="tests/Broadside.Globalization.Tests/Broadside.Globalization.Tests.csproj" />
     <Project Path="tests/Broadside.GoldenImages/Broadside.GoldenImages.csproj" />
+    <Project Path="tests/Broadside.Layout.Tests/Broadside.Layout.Tests.csproj" />
+    <Project Path="tests/Broadside.Rendering.Android.Device/Broadside.Rendering.Android.Device.csproj" />
+    <Project Path="tests/Broadside.Rendering.Android.Tests/Broadside.Rendering.Android.Tests.csproj" />
     <Project Path="tests/Broadside.Rendering.AotSmoke/Broadside.Rendering.AotSmoke.csproj" />
+    <Project Path="tests/Broadside.Rendering.CoreGraphics.Tests/Broadside.Rendering.CoreGraphics.Tests.csproj" />
+    <Project Path="tests/Broadside.Rendering.Direct2D.Tests/Broadside.Rendering.Direct2D.Tests.csproj" />
     <Project Path="tests/Broadside.Rendering.Skia.Tests/Broadside.Rendering.Skia.Tests.csproj" />
     <Project Path="tests/Broadside.Rendering.Tests/Broadside.Rendering.Tests.csproj" />
     <Project Path="tests/Broadside.Tests/Broadside.Tests.csproj" />
     <Project Path="tests/Broadside.TestSupport/Broadside.TestSupport.csproj" />
     <Project Path="tests/BenchGate.Tests/BenchGate.Tests.csproj" />
     <Project Path="tests/ConformanceCheck.Tests/ConformanceCheck.Tests.csproj" />
+    <Project Path="tests/RenderDiff.Tests/RenderDiff.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/BenchGate/BenchGate.csproj" />
     <Project Path="tools/ConformanceCheck/ConformanceCheck.csproj" />
     <Project Path="tools/CorpusFetcher/CorpusFetcher.csproj" />
+    <Project Path="tools/RenderDiff/RenderDiff.csproj" />
   </Folder>
 </Solution>

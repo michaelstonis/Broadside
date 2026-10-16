@@ -1,3 +1,4 @@
+using System.Globalization;
 using Broadside.Caching;
 using Broadside.Diagnostics;
 using Broadside.Objects;
@@ -19,7 +20,10 @@ public sealed partial class PdfDocument
     private static readonly CosName SubtypeKey = new("Subtype");
     private static readonly CosName XmlSubtype = new("XML");
 
+    private static readonly CosName OutputIntentsKey = new("OutputIntents");
+
     private readonly OnceCache<CosStream, XmpPacket?> _xmpPackets = new();
+    private readonly Dictionary<CosDictionary, PdfOutputIntent> _outputIntents = new(ReferenceEqualityComparer.Instance);
 
     /// <summary>Gets the version the file header states, or <see langword="null"/> when the header has no valid version.</summary>
     /// <remarks>ISO 32000-2 §7.5.2. <see cref="Version"/> is the version the document conforms to.</remarks>
@@ -89,6 +93,23 @@ public sealed partial class PdfDocument
     public PdfPageLabels? PageLabels =>
         GetNumberTreeReader(Catalog.GetValueOrDefault(PageLabelsKey)) is { } tree ? new PdfPageLabels(this, tree) : null;
 
+    /// <summary>Gets the document's output intents (<c>OutputIntents</c>, PDF 1.4), in the order written; empty when it has none.</summary>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.2, Table 29, and §14.11.5. Read on every call; the same <see cref="PdfOutputIntent"/> is returned for the same
+    /// dictionary. A page's own output intents (<see cref="PdfPage.OutputIntents"/>) take precedence for that page.
+    /// </remarks>
+    public IReadOnlyList<PdfOutputIntent> OutputIntents =>
+        PdfOutputIntent.Read(this, Catalog.GetValueOrDefault(OutputIntentsKey), CatalogReference, _outputIntents);
+
+    /// <summary>The output intent whose profile applies to a page: the page's first with a profile, else the document's (§14.11.5).</summary>
+    /// <param name="page">The page, or <see langword="null"/> for content that belongs to no page.</param>
+    /// <returns>The output intent, or <see langword="null"/>.</returns>
+    internal PdfOutputIntent? GetOutputIntent(PdfPage? page) =>
+        (page is null ? null : PdfOutputIntent.FirstWithProfile(page.OutputIntents)) ?? PdfOutputIntent.FirstWithProfile(OutputIntents);
+
+    /// <summary>The views of the output intent dictionaries read so far.</summary>
+    internal Dictionary<CosDictionary, PdfOutputIntent> OutputIntentViews => _outputIntents;
+
     /// <summary>Gets the natural language of the document's text (<c>Lang</c>), such as <c>en-US</c>, or <see langword="null"/> when unknown.</summary>
     /// <remarks>ISO 32000-2 §7.7.2, Table 29 (PDF 1.4), and §14.9.2. Not checked against BCP 47.</remarks>
     public string? Language => CatalogView.ReadText(LangKey, DiagnosticCodes.CatalogEntryInvalid);
@@ -98,7 +119,9 @@ public sealed partial class PdfDocument
     /// ISO 32000-2 §7.12, Tables 48 and 49. A prefix whose value is an array (PDF 2.0) contributes one extension per dictionary in it.
     /// Deviations are reported when this property is read: an entry that is not a dictionary (<c>ExtensionsInvalid</c>), a prefix value
     /// that is neither a developer extensions dictionary nor an array of them or that lacks a required entry
-    /// (<c>DeveloperExtensionInvalid</c>), and indirect references where everything "shall be direct objects" (<c>ExtensionsNotDirect</c>).
+    /// (<c>DeveloperExtensionInvalid</c>), an extension whose <c>BaseVersion</c> is later than <see cref="Version"/>
+    /// (<c>DeveloperExtensionBaseVersionLater</c>, §7.12.4; a save raises the version to it), and indirect references where everything
+    /// "shall be direct objects" (<c>ExtensionsNotDirect</c>).
     /// </remarks>
     public IReadOnlyList<PdfDeveloperExtension> Extensions
     {
@@ -112,6 +135,7 @@ public sealed partial class PdfDocument
             }
 
             DictionaryView catalog = CatalogView;
+            PdfVersion version = Version;
             if (value is not CosDictionary extensions)
             {
                 catalog.Report(DiagnosticCodes.ExtensionsInvalid, "The catalog's Extensions entry shall be a dictionary; it is ignored.");
@@ -163,9 +187,18 @@ public sealed partial class PdfDocument
 
             void AddExtension(CosName prefix, CosDictionary dictionary)
             {
-                if (PdfDeveloperExtension.ReadBaseVersion(this, dictionary) is null || PdfDeveloperExtension.ReadExtensionLevel(this, dictionary) is null)
+                PdfVersion? baseVersion = PdfDeveloperExtension.ReadBaseVersion(this, dictionary);
+                if (baseVersion is null || PdfDeveloperExtension.ReadExtensionLevel(this, dictionary) is null)
                 {
                     ReportExtension(prefix);
+                }
+                else if (baseVersion > version)
+                {
+                    // §7.12.4: BaseVersion "shall be less than or equal to the PDF version". Compared with the version the document
+                    // conforms to (the header's, or the catalog's when later), which an incremental update raises through the catalog.
+                    catalog.Report(
+                        DiagnosticCodes.DeveloperExtensionBaseVersionLater,
+                        string.Create(CultureInfo.InvariantCulture, $"The developer extension {prefix.Value} extends PDF {baseVersion}, later than the document's version {version}; the BaseVersion shall not be later than the document's version (ISO 32000-2 §7.12.4). Saving raises the version."));
                 }
 
                 result.Add(new PdfDeveloperExtension(this, prefix, dictionary));

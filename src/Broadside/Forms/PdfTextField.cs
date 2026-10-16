@@ -149,7 +149,8 @@ public sealed class PdfTextField : PdfTerminalField
     /// comb field spaces at most <see cref="MaxLength"/> characters evenly, one per cell; a password field shows asterisks. An
     /// auto-sized font fits the field. Characters the default appearance font cannot encode are shown in a TrueType font found by the
     /// engine's font resolvers (configure <c>UseStandard14Fonts()</c> for Liberation Sans), embedded as a subset Type 0 font
-    /// (§9.7, §9.9.2) with a <c>ToUnicode</c> CMap (§9.10.3). Rich text (<see cref="IsRichText"/>) is shown as plain text.
+    /// (§9.7, §9.9.2) with a <c>ToUnicode</c> CMap (§9.10.3): one subset per font program, shared by every field of the document
+    /// that needs it and reduced to the glyphs used when the document is saved. Rich text (<see cref="IsRichText"/>) is shown as plain text.
     /// </para>
     /// </remarks>
     public void GenerateAppearances() => TextFieldAppearance.Build(this, Value).Apply();

@@ -25,6 +25,8 @@ namespace Broadside.GoldenImages;
 /// </remarks>
 public static class GoldenCorpus
 {
+    private static readonly PdfEngine Engine = new(new PdfOptions().UseStandard14Fonts().UsePredefinedCMaps().UseSystemFontResolver(null));
+
     /// <summary>The resolution of every golden image: 72 DPI, one pixel per point.</summary>
     public const double Dpi = RenderOptions.DefaultDpi;
 
@@ -63,15 +65,18 @@ public static class GoldenCorpus
     /// <returns>The options; a backend maps pages to pixels with their <c>GetPixelSize</c> and <c>GetDeviceTransform</c>.</returns>
     public static RenderOptions CreateRenderOptions() => new() { Dpi = Dpi };
 
-    /// <summary>Opens a corpus file the way the golden images were drawn: leniently, with its user password when it has one.</summary>
+    /// <summary>
+    /// Opens a corpus file the way the golden images were drawn: leniently, with its user password when it has one, and with fonts
+    /// that do not depend on the machine: the Standard 14 fonts and predefined CMaps packages, and no operating-system fonts.
+    /// </summary>
     /// <param name="fileName">The corpus file.</param>
     /// <returns>The document; the caller disposes it.</returns>
     public static PdfDocument Open(string fileName)
     {
         string? password = Corpus.UserPassword(fileName);
         return password is null
-            ? PdfDocument.Open(Corpus.Bytes(fileName))
-            : new PdfEngine().Open(Corpus.Bytes(fileName), new PdfPassword(password));
+            ? Engine.Open(Corpus.Bytes(fileName))
+            : Engine.Open(Corpus.Bytes(fileName), new PdfPassword(password));
     }
 
     /// <summary>Returns the snapshot name of a page: the file name without <c>.pdf</c>, then <c>.page</c> and the zero-based page.</summary>
@@ -117,16 +122,29 @@ public static class GoldenCorpus
     /// <param name="page">The zero-based page.</param>
     /// <param name="render">The rasterizer's render at <see cref="Dpi"/>.</param>
     /// <returns>The verification; await it from the test.</returns>
-    public static async Task VerifyAsync(string fileName, int page, GoldenImage render)
+    public static Task VerifyAsync(string fileName, int page, GoldenImage render) => VerifyAsync(fileName, page, render, variant: null);
+
+    /// <summary>
+    /// Verifies the software rasterizer's render of a page with a render option that changes its look (such as overprint preview)
+    /// as a golden image of its own, in the subdirectory <paramref name="variant"/> of <see cref="Directory"/>, compared like
+    /// <see cref="VerifyAsync(string, int, GoldenImage)"/>.
+    /// </summary>
+    /// <param name="fileName">The corpus file.</param>
+    /// <param name="page">The zero-based page.</param>
+    /// <param name="render">The rasterizer's render at <see cref="Dpi"/>.</param>
+    /// <param name="variant">The subdirectory, named after the option (for example <c>OverprintPreview</c>); null for the default render.</param>
+    /// <returns>The verification; await it from the test.</returns>
+    public static async Task VerifyAsync(string fileName, int page, GoldenImage render, string? variant)
     {
         ArgumentNullException.ThrowIfNull(render);
         string name = SnapshotName(fileName, page);
+        string directory = VariantDirectory(variant);
         var settings = new VerifySettings();
-        settings.UseDirectory(Directory);
+        settings.UseDirectory(directory);
         settings.UseFileName(name);
         settings.UseStreamComparer(CompareSnapshot);
         settings.Context[ThresholdKey] = GoldenThresholds.For(GoldenThresholds.SoftwareRasterizer, fileName, page);
-        settings.Context[DiffPathKey] = Path.Combine(Directory, name + ".diff.png");
+        settings.Context[DiffPathKey] = Path.Combine(directory, name + ".diff.png");
         if (Environment.GetEnvironmentVariable(AcceptVariable) == "1")
         {
             settings.AutoVerify();
@@ -148,13 +166,50 @@ public static class GoldenCorpus
     /// <param name="page">The zero-based page.</param>
     /// <param name="render">The backend's render at <see cref="Dpi"/> through <see cref="CreateRenderOptions"/>.</param>
     /// <exception cref="GoldenImageMismatchException">The render does not match.</exception>
-    public static void AssertMatchesReference(string backend, string fileName, int page, GoldenImage render)
+    public static void AssertMatchesReference(string backend, string fileName, int page, GoldenImage render) =>
+        AssertMatchesReference(backend, fileName, page, render, Directory);
+
+    /// <summary>
+    /// Asserts that a backend's render of a page matches the page's golden image, as
+    /// <see cref="AssertMatchesReference(string, string, int, GoldenImage)"/> does, but writes and deletes the received and diff images
+    /// in another directory. Tests of the harness itself use a temporary directory of their own here, so test runs sharing a checkout
+    /// never race over the same files in <see cref="Directory"/> (issue #293).
+    /// </summary>
+    /// <param name="backend">The backend's name, as in the threshold table.</param>
+    /// <param name="fileName">The corpus file.</param>
+    /// <param name="page">The zero-based page.</param>
+    /// <param name="render">The backend's render at <see cref="Dpi"/> through <see cref="CreateRenderOptions"/>.</param>
+    /// <param name="outputDirectory">The existing directory that receives <c>&lt;page&gt;.&lt;backend&gt;.received.png</c> and
+    /// <c>&lt;page&gt;.&lt;backend&gt;.diff.png</c>.</param>
+    /// <exception cref="GoldenImageMismatchException">The render does not match.</exception>
+    public static void AssertMatchesReference(string backend, string fileName, int page, GoldenImage render, string outputDirectory)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(backend);
+        AssertMatchesReference(backend, fileName, page, render, GoldenThresholds.For(backend, fileName, page), outputDirectory);
+    }
+
+    /// <summary>
+    /// Asserts that a backend's render of a page matches the page's golden image under a named threshold rather than the table's,
+    /// such as <see cref="GoldenThreshold.Text"/> for glyphs a backend draws with its platform's font engine; otherwise as
+    /// <see cref="AssertMatchesReference(string, string, int, GoldenImage)"/>.
+    /// </summary>
+    /// <param name="backend">The backend's name, used in the names of the received and diff images.</param>
+    /// <param name="fileName">The corpus file.</param>
+    /// <param name="page">The zero-based page.</param>
+    /// <param name="render">The backend's render at <see cref="Dpi"/> through <see cref="CreateRenderOptions"/>.</param>
+    /// <param name="threshold">The threshold.</param>
+    /// <exception cref="GoldenImageMismatchException">The render does not match.</exception>
+    public static void AssertMatchesReference(string backend, string fileName, int page, GoldenImage render, GoldenThreshold threshold) =>
+        AssertMatchesReference(backend, fileName, page, render, threshold, Directory);
+
+    private static void AssertMatchesReference(string backend, string fileName, int page, GoldenImage render, GoldenThreshold threshold, string outputDirectory)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(backend);
         ArgumentNullException.ThrowIfNull(render);
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
         GoldenImage expected = LoadReference(fileName, page);
-        GoldenComparison comparison = GoldenComparison.Compare(expected, render, GoldenThresholds.For(backend, fileName, page));
-        string stem = Path.Combine(Directory, $"{SnapshotName(fileName, page)}.{backend}");
+        GoldenComparison comparison = GoldenComparison.Compare(expected, render, threshold);
+        string stem = Path.Combine(outputDirectory, $"{SnapshotName(fileName, page)}.{backend}");
         string received = stem + ".received.png";
         string diff = stem + ".diff.png";
         if (comparison.Matches)
@@ -170,6 +225,11 @@ public static class GoldenCorpus
             $"The {backend} render of page {page} of {fileName} does not match its golden image. {comparison.Describe()} " +
             $"See {received} and {diff}.");
     }
+
+    /// <summary>Returns the directory of a variant's golden images: <see cref="Directory"/> itself, or a subdirectory of it.</summary>
+    /// <param name="variant">The variant, or null for the default render.</param>
+    /// <returns>The directory.</returns>
+    public static string VariantDirectory(string? variant) => variant is null ? Directory : Path.Combine(Directory, variant);
 
     private static Task<CompareResult> CompareSnapshot(Stream received, Stream verified, IReadOnlyDictionary<string, object> context)
     {

@@ -2,11 +2,14 @@ using System.Buffers;
 using System.Buffers.Binary;
 using System.Globalization;
 using System.IO.Compression;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using Broadside.Filters;
 using Broadside.IO;
 using Broadside.Objects;
 using Broadside.Parsing;
+using Broadside.Security;
+using Broadside.Security.Cryptography;
 
 namespace Broadside.Writing;
 
@@ -70,18 +73,25 @@ internal sealed record UpdateResult(ReadOnlyMemory<byte> Bytes, XrefSection Sect
 /// source's header. The second file identifier is then derived from the previous one and the update's own bytes.
 /// </para>
 /// <para>
-/// Output is deterministic: the second file identifier is the first 16 bytes of the SHA-256 hash of everything written before the
+/// With an <see cref="ObjectEncryptor"/> (§7.6), every object is serialized through it under the number it is written with,
+/// compressed first and then encrypted; the encryption dictionary is written as it is and kept out of object streams (§7.5.7), and
+/// the cross-reference stream and the trailer are never encrypted. With an <see cref="IntegrityCodeWriter"/> (ISO/TS 32004), the
+/// trailer carries an <c>AuthCode</c> dictionary whose standalone PDF MAC token covers every byte from the header to the end of the
+/// file, the source's bytes of an incremental update included, except the token itself (§5.2.3, §6.5.1, §6.6.2).
+/// </para>
+/// <para>
+/// Output is deterministic (encrypted output aside: its IVs and MAC keys are random): the second file identifier is the first 16 bytes of the SHA-256 hash of everything written before the
 /// cross-reference information, and the first is the source's or, for a file without one, the same value (§14.4: both are equal
 /// when a file is first written). Nothing depends on the clock or a random source.
 /// </para>
 /// </remarks>
-internal sealed class FileWriter
+internal sealed partial class FileWriter
 {
     /// <summary>How many bytes are gathered before a chunk is handed out.</summary>
     private const int ChunkSize = 64 * 1024;
 
     /// <summary>The most objects one object stream holds, to keep random access cheap (§7.5.7, NOTE 4).</summary>
-    private const int ObjectStreamCapacity = 100;
+    internal const int ObjectStreamCapacity = 100;
 
     /// <summary>The largest offset a classic cross-reference entry's ten digits can state (§7.5.4).</summary>
     private const long MaxTableOffset = 9_999_999_999;
@@ -89,13 +99,10 @@ internal sealed class FileWriter
     /// <summary>The most bytes of the source one chunk of an incremental update's copy holds.</summary>
     private const int PrefixChunkSize = 1 << 20;
 
-    private static readonly PdfVersion StreamVersion = new(1, 5);
-
     /// <summary>What a compressed stream's dictionary grows by: <c> /Filter /FlateDecode</c>.</summary>
     private static readonly int FilterEntryLength = " /Filter /FlateDecode".Length;
 
     private readonly PdfSource? _source;
-    private readonly PdfVersion _version;
     private readonly IReadOnlyList<WriterObject> _objects;
     private readonly IReadOnlyDictionary<int, int> _freeGenerations;
     private readonly CosDictionary _trailer;
@@ -105,10 +112,14 @@ internal sealed class FileWriter
     private readonly CompressionLevel _compressionLevel;
     private readonly IReadOnlyDictionary<CosReference, CosReference>? _references;
     private readonly UpdateTarget? _update;
+    private readonly ObjectEncryptor? _encryption;
+
+    /// <summary>The <c>AuthCode</c> dictionary of the trailer being written, while <see cref="Integrity"/> is set.</summary>
+    private AuthCodePlaceholder? _authCode;
 
     /// <summary>Initializes a new instance of the <see cref="FileWriter"/> class.</summary>
     /// <param name="source">The file source bytes are copied from; <see langword="null"/> when no object has source bytes.</param>
-    /// <param name="version">The version for the header; raised to 1.5 for a cross-reference stream.</param>
+    /// <param name="version">The version for the header (<see cref="Version"/>); the caller raises it for the features the file uses (<see cref="VersionPlan"/>).</param>
     /// <param name="objects">The objects to write, in ascending object number.</param>
     /// <param name="freeGenerations">For object numbers that are free, the generation their free entry carries; others default to 0.</param>
     /// <param name="trailer">The trailer entries to write besides <c>Size</c> and <c>ID</c>.</param>
@@ -124,6 +135,11 @@ internal sealed class FileWriter
     /// For an incremental update, the file it is appended to (<paramref name="source"/>, copied whole) and the section it continues;
     /// <paramref name="freeGenerations"/> then holds only the numbers the update frees, unless the section lists every object.
     /// </param>
+    /// <param name="encryption">
+    /// For a file whose objects are encrypted or decrypted on the way out (§7.6), what each written object becomes under its written
+    /// number; every object is then serialized, never copied, and the encryption dictionary stays out of object streams.
+    /// <see langword="null"/> writes objects as they are.
+    /// </param>
     public FileWriter(
         PdfSource? source,
         PdfVersion version,
@@ -135,10 +151,12 @@ internal sealed class FileWriter
         IStreamEncoder flate,
         CompressionLevel compressionLevel,
         IReadOnlyDictionary<CosReference, CosReference>? references = null,
-        UpdateTarget? update = null)
+        UpdateTarget? update = null,
+        ObjectEncryptor? encryption = null)
     {
+        _encryption = encryption;
         _source = source;
-        _version = layout != PdfCrossReferenceLayout.Table && version < StreamVersion ? StreamVersion : version;
+        Version = version;
         _objects = objects;
         _freeGenerations = freeGenerations;
         _trailer = trailer;
@@ -150,6 +168,31 @@ internal sealed class FileWriter
         _update = update;
     }
 
+    /// <summary>
+    /// Gets the numbers of the object streams and the cross-reference stream the writer adds (§7.5.7, §7.5.8): given the lowest
+    /// number one may take (one above every number written or freed), the number it takes. A file whose references are written as
+    /// they are numbers them through the document's allocator (<see cref="ObjectLoader.NextNumberFrom"/>), so none takes the number
+    /// of a dangling reference, which must stay null (§7.3.10, issue #295). <see langword="null"/> takes the lowest number: a
+    /// renumbered file writes every reference to an object it does not hold as <c>null</c>, so no reference can reach them.
+    /// </summary>
+    public Func<int, int>? StreamNumbers { get; init; }
+
+    /// <summary>
+    /// Gets the composer of the PDF MAC token the trailer carries in a new <c>AuthCode</c> dictionary, standalone, over the whole file
+    /// but the token (ISO/TS 32004 §5.2.3, §6.5.1, §6.6.2); <see langword="null"/> writes none.
+    /// </summary>
+    public IntegrityCodeWriter? Integrity { get; init; }
+
+    /// <summary>
+    /// Gets or sets the signature dictionary of a signed revision the writer writes, whose signature carries the PDF MAC token as an
+    /// unsigned attribute (ISO/TS 32004 §6.5.2): the trailer's <c>AuthCode</c> is then <c>MACLocation</c> <c>AttachedToSig</c> with
+    /// <c>SigObjRef</c> (Table 6), and the signer composes the token. <see langword="null"/> writes a standalone token.
+    /// </summary>
+    public CosReference? IntegritySignature { get; set; }
+
+    /// <summary>Gets or sets the version the header states (§7.5.2); an incremental update writes no header.</summary>
+    public PdfVersion Version { get; set; }
+
     /// <summary>Gets what an incremental update appended, once <see cref="Write"/> has been enumerated to the end; otherwise <see langword="null"/>.</summary>
     public UpdateResult? Update { get; private set; }
 
@@ -157,9 +200,21 @@ internal sealed class FileWriter
     /// <returns>The file's bytes, in order.</returns>
     public IEnumerable<ReadOnlyMemory<byte>> Write()
     {
+        if (Linearized is { } layout)
+        {
+            foreach (ReadOnlyMemory<byte> chunk in WriteLinearized(layout))
+            {
+                yield return chunk;
+            }
+
+            yield break;
+        }
+
+        // ISO/TS 32004 §6.6.2: the MAC digests the file from its header (offset 0 of the byte range, §7.5.2) to its end.
+        using IncrementalDigest? integrity = Integrity is null || IntegritySignature is not null ? null : IntegrityCodeWriter.CreateDigest();
         if (_update is null)
         {
-            foreach (ReadOnlyMemory<byte> chunk in WriteFrom(0))
+            foreach (ReadOnlyMemory<byte> chunk in WriteFrom(0, integrity))
             {
                 yield return chunk;
             }
@@ -184,12 +239,18 @@ internal sealed class FileWriter
             }
 
             window = window[..(int)Math.Min(window.Length, Math.Min(length - position, PrefixChunkSize))];
+            long beforeHeader = _update.HeaderOffset - position;
+            if (integrity is not null && beforeHeader < window.Length)
+            {
+                integrity.AppendData(window.Span[(int)Math.Max(0, beforeHeader)..]);
+            }
+
             yield return window;
             position += window.Length;
         }
 
         var appended = new ArrayBufferWriter<byte>(ChunkSize);
-        foreach (ReadOnlyMemory<byte> chunk in WriteFrom(length))
+        foreach (ReadOnlyMemory<byte> chunk in WriteFrom(length, integrity))
         {
             appended.Write(chunk.Span);
             yield return chunk;
@@ -200,9 +261,10 @@ internal sealed class FileWriter
 
     /// <summary>
     /// Writes everything after the source's bytes: the whole file (header included) when <paramref name="begin"/> is 0, else an
-    /// incremental update appended at <paramref name="begin"/>.
+    /// incremental update appended at <paramref name="begin"/>. With <paramref name="integrity"/>, every byte before the
+    /// cross-reference section is digested into it as it is handed out, and the section's trailer carries the PDF MAC token.
     /// </summary>
-    private IEnumerable<ReadOnlyMemory<byte>> WriteFrom(long begin)
+    private IEnumerable<ReadOnlyMemory<byte>> WriteFrom(long begin, IncrementalDigest? integrity)
     {
         using var buffer = new PooledBufferWriter(ChunkSize * 2, Array.MaxLength);
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
@@ -251,6 +313,7 @@ internal sealed class FileWriter
             if (buffer.WrittenSpan.Length >= ChunkSize)
             {
                 hash.AppendData(buffer.WrittenSpan);
+                integrity?.AppendData(buffer.WrittenSpan);
                 yield return buffer.WrittenMemory;
                 flushed += buffer.WrittenSpan.Length;
                 buffer.Clear();
@@ -270,7 +333,8 @@ internal sealed class FileWriter
         int nextNumber = maxNumber + 1;
         for (int start = 0; start < compressible.Count; start += ObjectStreamCapacity)
         {
-            int container = nextNumber++;
+            int container = StreamNumber(nextNumber);
+            nextNumber = container + 1;
             int count = Math.Min(ObjectStreamCapacity, compressible.Count - start);
             for (int index = 0; index < count; index++)
             {
@@ -284,6 +348,7 @@ internal sealed class FileWriter
             if (buffer.WrittenSpan.Length >= ChunkSize)
             {
                 hash.AppendData(buffer.WrittenSpan);
+                integrity?.AppendData(buffer.WrittenSpan);
                 yield return buffer.WrittenMemory;
                 flushed += buffer.WrittenSpan.Length;
                 buffer.Clear();
@@ -291,6 +356,7 @@ internal sealed class FileWriter
         }
 
         hash.AppendData(buffer.WrittenSpan);
+        integrity?.AppendData(buffer.WrittenSpan);
         if (buffer.WrittenSpan.Length > 0)
         {
             yield return buffer.WrittenMemory;
@@ -302,9 +368,14 @@ internal sealed class FileWriter
         var secondIdentifier = new CosString(digest.AsSpan(0, 16), hexadecimal: true);
         var identifier = new CosArray([_firstIdentifier ?? secondIdentifier, secondIdentifier]);
 
+        // ISO/TS 32004 §5.2.3: the AuthCode dictionary's byte range and MAC are placeholders of their final widths, filled in once
+        // the whole file but the token is digested; the section is the last chunk, so nothing has been handed out past them.
+        _authCode = Integrity is null || IntegritySignature is not null ? null : AuthCodePlaceholder.Create(Integrity.TokenLength, flushed - origin);
         XrefSection section = _layout == PdfCrossReferenceLayout.Table
             ? WriteTable(buffer, entries, nextNumber, flushed, origin, identifier)
-            : WriteStream(buffer, entries, nextNumber, flushed, origin, identifier);
+            : WriteStream(buffer, entries, StreamNumber(nextNumber), flushed, origin, identifier);
+        _authCode?.Fill(MemoryMarshal.AsMemory(buffer.WrittenMemory).Span, flushed - origin, integrity!, Integrity!);
+
         if (_update is not null)
         {
             Update = new UpdateResult(ReadOnlyMemory<byte>.Empty, section, _update.PreviousSection is null, written);
@@ -313,15 +384,27 @@ internal sealed class FileWriter
         yield return buffer.WrittenMemory;
     }
 
-    /// <summary>Whether an object may be stored in an object stream (§7.5.7).</summary>
-    private static bool CanBeCompressed(WriterObject item) =>
-        item.Reference.Generation == 0 && item.Value is not (CosStream or CosReference);
+    /// <summary>The number of a stream the writer adds, at or above <paramref name="lowest"/>, through <see cref="StreamNumbers"/>.</summary>
+    private int StreamNumber(int lowest)
+    {
+        int number = StreamNumbers?.Invoke(lowest) ?? lowest;
+        if (number < lowest || number == int.MaxValue)
+        {
+            throw new InvalidOperationException("The document has no object number left for the streams the save adds.");
+        }
+
+        return number;
+    }
+
+    /// <summary>Whether an object may be stored in an object stream (§7.5.7): not a stream, and not the encryption dictionary.</summary>
+    private bool CanBeCompressed(WriterObject item) =>
+        item.Reference.Generation == 0 && item.Value is not (CosStream or CosReference) && !ReferenceEquals(item.Value, _encryption?.EncryptionDictionary);
 
     /// <summary>Writes <c>%PDF-n.m</c> and a comment line of four bytes above 127, marking the file as binary (§7.5.2).</summary>
     private void WriteHeader(IBufferWriter<byte> buffer)
     {
         buffer.Write("%PDF-"u8);
-        WriteAscii(buffer, _version.ToString());
+        WriteAscii(buffer, Version.ToString());
         buffer.Write("\n%"u8);
         buffer.Write<byte>([0xE2, 0xE3, 0xCF, 0xD3, (byte)'\n']);
     }
@@ -335,7 +418,13 @@ internal sealed class FileWriter
         WriteInteger(buffer, reference.Generation);
         buffer.Write(" obj\n"u8);
         int start = buffer.WrittenSpan.Length;
-        if (!item.Compress || item.Value is not CosStream stream || !TryWriteCompressed(buffer, stream, references))
+        if (_encryption is not null)
+        {
+            // Compressed first, then encrypted (§7.6.2: encryption applies to the stream's encoded data); never copied.
+            CosObject value = item.Compress && item.Value is CosStream unfiltered && Compressed(unfiltered) is { } compressed ? compressed : item.Value;
+            CosWriter.Write(_encryption.Encrypt(value, reference), buffer, references);
+        }
+        else if (!item.Compress || item.Value is not CosStream stream || !TryWriteCompressed(buffer, stream, references))
         {
             WriteBody(buffer, item, _source, references);
         }
@@ -362,15 +451,33 @@ internal sealed class FileWriter
             return false;
         }
 
+        CosWriter.Write(new CosStream(WithFlateFilter(stream.Dictionary), encoded.WrittenMemory), buffer, references);
+        return true;
+    }
+
+    /// <summary>
+    /// The <c>FlateDecode</c> copy of an unfiltered stream (§7.4.4), for a file whose streams are encrypted after compression;
+    /// <see langword="null"/> when compressing would not make the object smaller.
+    /// </summary>
+    private CosStream? Compressed(CosStream stream)
+    {
+        ReadOnlyMemory<byte> data = stream.EncodedData;
+        var encoded = new ArrayBufferWriter<byte>(Math.Max(256, data.Length / 2));
+        _flate.Encode(data.Span, encoded, new StreamEncoderContext { StreamDictionary = stream.Dictionary, CompressionLevel = _compressionLevel });
+        return encoded.WrittenCount + FilterEntryLength >= data.Length ? null : new CosStream(WithFlateFilter(stream.Dictionary), encoded.WrittenMemory);
+    }
+
+    /// <summary>A copy of a stream dictionary with <c>Filter</c> <c>FlateDecode</c>.</summary>
+    private static CosDictionary WithFlateFilter(CosDictionary source)
+    {
         var dictionary = new CosDictionary();
-        foreach (KeyValuePair<CosName, CosObject> entry in stream.Dictionary)
+        foreach (KeyValuePair<CosName, CosObject> entry in source)
         {
             dictionary[entry.Key] = entry.Value;
         }
 
         dictionary[FilterNames.Filter] = FilterNames.FlateDecode;
-        CosWriter.Write(new CosStream(dictionary, encoded.WrittenMemory), buffer, references);
-        return true;
+        return dictionary;
     }
 
     /// <summary>Writes an object's bytes: copied from the source when it has them, serialized (with its references renumbered) otherwise.</summary>
@@ -582,7 +689,10 @@ internal sealed class FileWriter
     /// The entries a cross-reference section lists, in ascending number. A complete file, and an update to a file whose
     /// cross-reference information was rebuilt, list every number below <paramref name="size"/> (<see cref="Complete"/>). Any other
     /// update lists object 0, the head of the free list, then the objects written and the numbers freed (§7.5.6, H.7.4): the freed
-    /// numbers link from 0 in ascending order back to 0, each with the generation a reuse would take.
+    /// numbers link from 0 in ascending order back to 0, each with the generation a reuse would take. So does an update to a rebuilt
+    /// file whose numbers are too sparse to list every one (the limits above which a complete save renumbers, <see cref="SavePlan"/>):
+    /// an update cannot renumber, and a damaged file's scan may find an object numbered near <see cref="int.MaxValue"/>, whose
+    /// complete table would not fit in memory (fuzz finding, save target).
     /// </summary>
     private List<(int Number, XrefEntry Entry)> Listing(Dictionary<int, XrefEntry> entries, int size)
     {
@@ -597,6 +707,11 @@ internal sealed class FileWriter
                 }
             }
 
+            if (_update is not null && !IsDense(size - 1, entries.Count + _freeGenerations.Count))
+            {
+                return SparseListing(entries);
+            }
+
             XrefEntry[] table = Complete(entries, size);
             for (int number = 0; number < table.Length; number++)
             {
@@ -606,6 +721,18 @@ internal sealed class FileWriter
             return listing;
         }
 
+        return SparseListing(entries);
+    }
+
+    /// <summary>Whether a section may list every number up to <paramref name="highest"/> for <paramref name="count"/> listed objects.</summary>
+    private static bool IsDense(int highest, int count) =>
+        highest <= SavePlan.MaxObjectNumber
+        && (highest <= SavePlan.MaxSparseObjectNumber || highest <= (long)SavePlan.MaxNumbersPerObject * Math.Max(count, 1));
+
+    /// <summary>Object 0, the freed numbers linked from it in ascending order, and the entries, in ascending number.</summary>
+    private List<(int Number, XrefEntry Entry)> SparseListing(Dictionary<int, XrefEntry> entries)
+    {
+        var listing = new List<(int Number, XrefEntry Entry)>();
         int[] freed = [.. _freeGenerations.Keys.Order()];
         listing.Add((0, new XrefEntry(XrefEntryKind.Free, freed.Length > 0 ? freed[0] : 0, CosReference.MaxGeneration)));
         for (int index = 0; index < freed.Length; index++)
@@ -653,6 +780,15 @@ internal sealed class FileWriter
         }
 
         trailer[KnownNames.ID] = identifier;
+        if (_authCode is not null)
+        {
+            trailer[AuthCodePlaceholder.Key] = _authCode.Dictionary;
+        }
+        else if (Integrity is not null && IntegritySignature is { } signature)
+        {
+            trailer[AuthCodePlaceholder.Key] = AuthCodePlaceholder.AttachedTo(signature);
+        }
+
         return trailer;
     }
 

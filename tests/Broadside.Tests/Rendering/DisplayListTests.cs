@@ -23,7 +23,7 @@ public sealed class DisplayListTests
         var recorder = new RecordingBackend();
         list.Replay(recorder);
 
-        // The twelfth rectangle is painted with a tiling pattern, which a later ticket brings to the display list.
+        // The twelfth rectangle is painted with an uncoloured tiling pattern (#112): its cell carries the colour.
         Assert.Equal(
             [
                 "fill nonzero M 40 640 L 140 640 L 140 740 L 40 740 Z | DeviceGray 0.5",
@@ -37,6 +37,7 @@ public sealed class DisplayListTests
                 "fill nonzero M 40 360 L 140 360 L 140 460 L 40 460 Z | Indexed 2",
                 "fill nonzero M 180 360 L 280 360 L 280 460 L 180 460 Z | Separation 1",
                 "fill nonzero M 320 360 L 420 360 L 420 460 L 320 460 Z | DeviceN 1 0.4",
+                "fill nonzero M 460 360 L 560 360 L 560 460 L 460 460 Z | tiling Uncolored ConstantSpacing [1 0 0 1 0 0] bbox [0 0 10 10] step 10 10",
             ],
             recorder.Operations);
         PdfSeparationColorSpace separation = Assert.IsType<PdfSeparationColorSpace>(recorder.Fills[9].ColorSpace);
@@ -54,13 +55,16 @@ public sealed class DisplayListTests
 
         document.Pages[0].CreateDisplayList().Replay(recorder);
 
-        // B fills, then strokes (the strokes have a test of their own); the pattern fill and the inline image are later tickets'. The
-        // q/Q around the image is dropped because nothing is painted inside it.
-        string[] fills = [.. recorder.Operations.Where(static line => !line.StartsWith("stroke ", StringComparison.Ordinal))];
+        // B fills, then strokes (the strokes have a test of their own); the pattern fill is a tiling pattern's (#112). The inline
+        // image (#102) is drawn in its own q/Q after them.
+        string[] fills = [.. recorder.Operations.Where(static line => line.StartsWith("fill ", StringComparison.Ordinal))];
         Assert.Equal(
-            ["DeviceGray 0.75", "DeviceRgb 0 0 1", "DeviceCmyk 0 1 0 0", "CalGray 0.8", "Separation 1", "Separation 0.25", "DeviceRgb 0 0 0"],
+            ["DeviceGray 0.75", "DeviceRgb 0 0 1", "DeviceCmyk 0 1 0 0", "CalGray 0.8", "Separation 1", "Separation 0.25", "tiling Uncolored ConstantSpacing [1 0 0 1 0 0] bbox [0 0 10 10] step 10 10", "DeviceRgb 0 0 0"],
             fills.Select(static line => line[(line.IndexOf('|', StringComparison.Ordinal) + 2)..]));
         Assert.All(fills, static line => Assert.StartsWith("fill nonzero M ", line, StringComparison.Ordinal));
+        Assert.Equal(
+            ["save", "transform [200 0 0 100 40 300]", "image 2x1 Indexed bpc 8", "restore"],
+            recorder.Operations.Where(static line => !line.StartsWith("fill ", StringComparison.Ordinal) && !line.StartsWith("stroke ", StringComparison.Ordinal)));
         Assert.Empty(document.Diagnostics);
     }
 
@@ -220,9 +224,9 @@ public sealed class DisplayListTests
 
         document.Pages[0].CreateDisplayList().Replay(recorder);
 
-        // Each B is a fill, then a stroke 8 wide; the pattern-coloured pair is a later ticket's.
+        // Each B is a fill, then a stroke 8 wide; the pattern-coloured pair strokes with the uncoloured tiling pattern (#112).
         Assert.Equal(
-            ["DeviceGray 0.25", "DeviceRgb 1 0 0", "DeviceCmyk 0 0 0 1", "CalGray 0.2", "Separation 1", "Separation 0.5", "DeviceCmyk 0 0 0 1"],
+            ["DeviceGray 0.25", "DeviceRgb 1 0 0", "DeviceCmyk 0 0 0 1", "CalGray 0.2", "Separation 1", "Separation 0.5", "tiling Uncolored ConstantSpacing [1 0 0 1 0 0] bbox [0 0 10 10] step 10 10", "DeviceCmyk 0 0 0 1"],
             recorder.Operations.Where(static line => line.StartsWith("stroke 8 ", StringComparison.Ordinal)).Select(static line => line[(line.IndexOf('|', StringComparison.Ordinal) + 2)..]));
     }
 
@@ -303,6 +307,60 @@ public sealed class DisplayListTests
         }
 
         public void IntersectClip(PathView path, FillRule rule)
+        {
+        }
+
+        public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
+        {
+        }
+
+        public void DrawGlyphs(in GlyphRun run)
+        {
+        }
+
+        public void DrawShading(in DisplayShading shading)
+        {
+        }
+
+        public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading)
+        {
+        }
+
+        public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading)
+        {
+        }
+
+        public void FillPathWithTilingPattern(PathView path, FillRule rule, in DisplayTilingPattern pattern)
+        {
+        }
+
+        public void StrokePathWithTilingPattern(PathView path, in StrokeStyle style, in DisplayTilingPattern pattern)
+        {
+        }
+
+        public void FillImageMask(DisplayImageMask mask, in DisplayColor color)
+        {
+        }
+
+        public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode)
+        {
+        }
+
+        public void SetDeviceParameters(in DisplayDeviceParameters parameters)
+        {
+        }
+
+        public void DrawGroup(in DisplayGroup group) => group.Replay(this);
+
+        public void SetSoftMask(in DisplaySoftMask mask)
+        {
+        }
+
+        public void BeginAnnotation(in DisplayAnnotation annotation)
+        {
+        }
+
+        public void EndAnnotation()
         {
         }
     }

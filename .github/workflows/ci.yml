@@ -62,17 +62,51 @@ jobs:
 
       - name: Install qpdf and poppler-utils (Linux)
         # Written files are checked with qpdf --check and pdfinfo (issue #44); the tests skip where the tools are missing.
+        # The linearized writer follows qpdf 12's object placement and the tests require qpdf 12 or later (Ubuntu's package is 11.9,
+        # whose linearization check disagrees with qpdf 12's own output), so qpdf comes from its pinned, checksummed release build.
         if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y qpdf poppler-utils
+        env:
+          QPDF_VERSION: 12.4.2
+          QPDF_SHA256: db367d897829f22c4198ce1094143c9d467bd6ee7dfabc44ba6f02056b24f8b1
+        run: |
+          sudo apt-get update && sudo apt-get install -y poppler-utils
+          curl -fsSL -o "$RUNNER_TEMP/qpdf.zip" "https://github.com/qpdf/qpdf/releases/download/v${QPDF_VERSION}/qpdf-${QPDF_VERSION}-bin-linux-x86_64.zip"
+          echo "${QPDF_SHA256}  $RUNNER_TEMP/qpdf.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/qpdf.zip" -d "$RUNNER_TEMP/qpdf"
+          QPDF_BIN="$(dirname "$(find "$RUNNER_TEMP/qpdf" -type f -name qpdf -perm -u+x | head -n 1)")"
+          echo "$QPDF_BIN" >> "$GITHUB_PATH"
+          "$QPDF_BIN/qpdf" --version
 
       - name: Restore
-        run: dotnet restore Broadside.slnx
+        # In the configuration the build uses: a macOS app (the CoreGraphics test and benchmark apps) builds for both osx-arm64 and
+        # osx-x64 in Release but only for the host in Debug, and the assets file must list every runtime the build compiles for.
+        run: dotnet restore Broadside.slnx -p:Configuration=Release
 
       - name: Build
-        run: dotnet build Broadside.slnx -c Release -warnaserror --no-restore
+        # The macOS workload of the 10.0.4xx workload set (macOS SDK pack 27.0) demands Xcode 27.0 for anything that outputs an app
+        # bundle (the CoreGraphics test and benchmark apps), and the macos-26 runner image has Xcode 26.x only. ValidateXcodeVersion=false
+        # skips the exact major.minor check, and Registrar=dynamic skips the static registrar, the one build step that needs the macOS
+        # 27.0 SDK headers (MT0179). Both only affect Apple app projects; drop them once the image ships Xcode 27.
+        run: dotnet build Broadside.slnx -c Release -warnaserror --no-restore -p:ValidateXcodeVersion=false -p:Registrar=dynamic
 
       - name: Test
         run: dotnet test Broadside.Core.slnf -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
+
+      - name: Test the CoreGraphics backend (macOS)
+        # The backend's render tests run on macOS only; the build above already compiled it for macOS, iOS and Mac Catalyst (issue #125).
+        if: runner.os == 'macOS'
+        run: dotnet test tests/Broadside.Rendering.CoreGraphics.Tests -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
+
+      - name: Test the Direct2D backend (Windows)
+        # Draws through Direct2D on a WARP device and compares with the golden images (issue #129); outside Broadside.Core.slnf
+        # because it needs Windows. Built above with the rest of the solution.
+        if: runner.os == 'Windows'
+        run: dotnet test --project tests/Broadside.Rendering.Direct2D.Tests -c Release --no-build --minimum-expected-tests 1 --results-directory artifacts/test-results -- --report-xunit-trx
+
+      - name: Dry run the Direct2D benchmarks (Windows)
+        # bench-dry runs bench/Broadside.Benchmarks on Linux; the Direct2D backend's benchmarks need Windows.
+        if: runner.os == 'Windows'
+        run: dotnet run -c Release --project bench/Broadside.Rendering.Direct2D.Benchmarks --no-build -- --filter '*' --job dry
 
       - name: Upload test results
         if: always()
@@ -143,6 +177,94 @@ jobs:
       - name: Run it natively compiled
         shell: bash
         run: artifacts/aot-smoke/Broadside.Rendering.AotSmoke --require-aot
+
+  # Validates the files Broadside writes in a PDF/A mode with veraPDF, the PDF Association's reference validator (issue #201; spec
+  # story 42; PDF/A-4 and 4f, #203): every test in the VeraPdf trait saves a document as PDF/A and asserts that veraPDF reports no failed rule. veraPDF is a
+  # Java tool used here only, never by the library (ADR 0001); its release is pinned and checksummed like qpdf above, and
+  # BROADSIDE_REQUIRE_VERAPDF makes a test fail rather than skip if the tool cannot be found, so the check never silently stops.
+  verapdf:
+    name: verapdf
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Install veraPDF
+        # The greenfield (PDF/A and PDF/UA) command-line validator, installed headless by its IzPack installer from the pinned,
+        # checksummed release archive.
+        env:
+          VERAPDF_VERSION: 1.28.2
+          VERAPDF_SHA256: d1693a5f0bf0997180f6d97e8a5568b0cf39e27eee338d439c8adb58435c1e89
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/verapdf.zip" "https://software.verapdf.org/rel/${VERAPDF_VERSION%.*}/verapdf-greenfield-${VERAPDF_VERSION}-installer.zip"
+          echo "${VERAPDF_SHA256}  $RUNNER_TEMP/verapdf.zip" | sha256sum -c -
+          unzip -q "$RUNNER_TEMP/verapdf.zip" -d "$RUNNER_TEMP/verapdf-installer"
+          cat > "$RUNNER_TEMP/auto-install.xml" <<EOF
+          <?xml version="1.0" encoding="UTF-8" standalone="no"?>
+          <AutomatedInstallation langpack="eng">
+            <com.izforge.izpack.panels.htmlhello.HTMLHelloPanel id="welcome"/>
+            <com.izforge.izpack.panels.target.TargetPanel id="install_dir"><installpath>$RUNNER_TEMP/verapdf</installpath></com.izforge.izpack.panels.target.TargetPanel>
+            <com.izforge.izpack.panels.packs.PacksPanel id="sdk_pack_select">
+              <pack index="0" name="veraPDF GUI" selected="true"/>
+              <pack index="1" name="veraPDF Mac and *nix Scripts" selected="true"/>
+              <pack index="2" name="veraPDF Validation model" selected="false"/>
+              <pack index="3" name="veraPDF Documentation" selected="false"/>
+              <pack index="4" name="veraPDF Sample Plugins" selected="false"/>
+            </com.izforge.izpack.panels.packs.PacksPanel>
+            <com.izforge.izpack.panels.install.InstallPanel id="install"/>
+            <com.izforge.izpack.panels.finish.FinishPanel id="finish"/>
+          </AutomatedInstallation>
+          EOF
+          java -jar "$RUNNER_TEMP/verapdf-installer/verapdf-greenfield-${VERAPDF_VERSION}/verapdf-izpack-installer-${VERAPDF_VERSION}.jar" "$RUNNER_TEMP/auto-install.xml"
+          echo "$RUNNER_TEMP/verapdf" >> "$GITHUB_PATH"
+          "$RUNNER_TEMP/verapdf/verapdf" --version
+
+      - name: Build the tests
+        run: |
+          dotnet build tests/Broadside.Tests -c Release -warnaserror
+          dotnet build tests/Broadside.Fonts.Standard14.Tests -c Release -warnaserror
+          dotnet build tests/Broadside.Layout.Tests -c Release -warnaserror
+
+      # The PDF/A conversion of real-world files (#229) converts every file of these two corpora and checks each it says conforms.
+      - name: Fetch the pdfbox and pdf20examples corpora
+        run: dotnet run -c Release --project tools/CorpusFetcher -- --only pdfbox,pdf20examples
+
+      - name: Validate PDF/A output with veraPDF
+        env:
+          BROADSIDE_REQUIRE_VERAPDF: '1'
+          BROADSIDE_CORPUS_DIR: ${{ github.workspace }}/corpus
+        run: |
+          dotnet test --project tests/Broadside.Tests -c Release --no-build -- --filter-trait "Category=VeraPdf"
+          dotnet test --project tests/Broadside.Fonts.Standard14.Tests -c Release --no-build -- --filter-trait "Category=VeraPdf"
+
+      # PDF/UA-1 output from flow layout (#204, and the tagging by construction it builds on, #179) against veraPDF's PDF/UA-1
+      # profile (plus PDF/A-2u for a combined save, and PDF/A-4 for a PDF/A-4 save asking for UA-1, #203); PDF/UA-2 and Well-Tagged
+      # PDF output (#205) against the ua2 (PDF/UA-2 + ISO/TS 32005), wt1r and wt1a (WTPDF 1.0) profiles, alone and with PDF/A-4.
+      - name: Validate PDF/UA-1, PDF/UA-2 and WTPDF output with veraPDF
+        env:
+          BROADSIDE_REQUIRE_VERAPDF: '1'
+        run: dotnet test --project tests/Broadside.Layout.Tests -c Release --no-build -- --filter-trait "Category=VeraPdf"
 
   # Shows the public API diff of the PR in the job summary for human review. It never fails: the
   # PublicApiAnalyzers (RS0016/RS0017) already fail the build when the API files and the code disagree.
@@ -220,8 +342,8 @@ jobs:
             echo "Skipped: \`tools/ConformanceCheck\` is not on this branch yet (issue #7)."
           } >> "${GITHUB_STEP_SUMMARY}"
 
-  # Checks the formatting of everything dotnet format can see: the core solution filter, and the fuzz and benchmark projects,
-  # which are outside it.
+  # Checks the formatting of everything dotnet format can see: the core solution filter, and the fuzz, benchmark and Windows-only
+  # Direct2D test and benchmark projects, which are outside it.
   format:
     name: format
     runs-on: ubuntu-latest
@@ -249,6 +371,8 @@ jobs:
           dotnet format Broadside.Core.slnf --verify-no-changes
           dotnet format tests/Broadside.Fuzz/Broadside.Fuzz.csproj --verify-no-changes
           dotnet format bench/Broadside.Benchmarks/Broadside.Benchmarks.csproj --verify-no-changes
+          dotnet format tests/Broadside.Rendering.Direct2D.Tests/Broadside.Rendering.Direct2D.Tests.csproj --verify-no-changes
+          dotnet format bench/Broadside.Rendering.Direct2D.Benchmarks/Broadside.Rendering.Direct2D.Benchmarks.csproj --verify-no-changes
 
   # Runs every fuzz target in smoke mode for 60 s (tests/Broadside.Fuzz/README.md), the targets of the --list split over
   # parallel shards (target i runs in shard i mod the shard count) so the run stays far below its timeout as targets are added.

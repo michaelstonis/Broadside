@@ -1,12 +1,13 @@
 using BenchmarkDotNet.Configs;
 using BenchmarkDotNet.Jobs;
+using BenchmarkDotNet.Toolchains.InProcess.Emit;
 
 namespace Broadside.Benchmarks;
 
 /// <summary>
 /// The BenchmarkDotNet configuration for every benchmark in this assembly: the default columns, exporters and loggers plus one job
-/// chosen by <c>--job</c>. <c>--job short</c> selects <see cref="Job.ShortRun"/> for a quick local signal, <c>--job dry</c> selects
-/// <see cref="Job.Dry"/> (one in-process iteration, no measurement) so CI can prove every benchmark still runs. Without <c>--job</c>,
+/// chosen by <c>--job</c>. <c>--job short</c> selects <see cref="Job.ShortRun"/> for a quick local signal (<c>--job short-inprocess</c> the same in process), <c>--job dry</c> selects
+/// <see cref="Job.Dry"/> run in process (one iteration, no measurement) so CI can prove every benchmark still runs. Without <c>--job</c>,
 /// or with a value this class does not recognise, BenchmarkDotNet's own command-line handling applies, which means
 /// <see cref="Job.Default"/> unless the value names another built-in job.
 /// </summary>
@@ -50,7 +51,14 @@ internal sealed class BenchmarkConfig : ManualConfig
     private static Job? SelectJob(string name) => name.ToUpperInvariant() switch
     {
         "SHORT" => Job.ShortRun,
-        "DRY" => Job.Dry,
+        // Short and in process (issue #140): the baseline runs on a shared machine, where the out-of-process build of the generated
+        // project is the slow part and adds nothing to a three-iteration signal.
+        "SHORT-INPROCESS" => Job.ShortRun.WithToolchain(InProcessEmitToolchain.Instance),
+        // In process: the dry run proves every benchmark executes, and its numbers mean nothing anyway. Out of process,
+        // BenchmarkDotNet first rebuilds the whole project graph into a generated boilerplate project under a fixed two-minute
+        // build timeout, which a CI runner does not always meet (bench-dry failed with "The configured timeout 00:02:00 was
+        // reached!" before running anything).
+        "DRY" => Job.Dry.WithToolchain(InProcessEmitToolchain.Instance),
         _ => null,
     };
 }

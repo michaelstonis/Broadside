@@ -1,8 +1,5 @@
-using System.Globalization;
-using System.Security.Cryptography;
 using System.Text;
 using Broadside.Fonts;
-using Broadside.Fonts.TrueType;
 using Broadside.Objects;
 
 namespace Broadside.Forms;
@@ -120,45 +117,39 @@ internal sealed class SimpleAppearanceFont : AppearanceFont
 }
 
 /// <summary>
-/// A TrueType program found by the engine's font resolvers, embedded as a subset Type 0 font (CIDFontType2, <c>Identity-H</c>, glyph
-/// ids as CIDs) with a <c>W</c> array and a <c>ToUnicode</c> CMap: for text the default appearance font cannot encode.
+/// A canvas font an appearance shows text with: for text the default appearance font cannot encode, the TrueType program the engine's
+/// font resolvers find, embedded through the same <see cref="EmbeddedCanvasFont"/> (and the same shared subset) a canvas uses.
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §9.7 (Type 0 fonts, CIDFontType2, <c>W</c>, <c>CIDToGIDMap</c>), §9.8 (descriptor, <c>FontFile2</c>), §9.9.2 (subset
-/// tag) and §9.10.3 (<c>ToUnicode</c>). Internal and minimal (issue #167); issue #150 owns general TrueType embedding.
+/// tag) and §9.10.3 (<c>ToUnicode</c>). Every appearance of a document that needs the same program shows it through one subset, grown
+/// as needed (issues #150, #285).
 /// </remarks>
-internal sealed class EmbeddedAppearanceFont : AppearanceFont
+internal sealed class CanvasAppearanceFont : AppearanceFont
 {
-    private readonly Dictionary<int, int> _glyphs;
-    private readonly Dictionary<int, double> _widths;
+    private readonly PdfCanvasFont _font;
 
-    private EmbeddedAppearanceFont(CosReference reference, Dictionary<int, int> glyphs, Dictionary<int, double> widths, double ascent, double descent)
-    {
-        FontObject = reference;
-        _glyphs = glyphs;
-        _widths = widths;
-        Ascent = ascent;
-        Descent = descent;
-    }
+    private CanvasAppearanceFont(PdfCanvasFont font) => _font = font;
 
-    public override CosObject FontObject { get; }
+    public override CosObject FontObject => _font.Reference;
 
-    public override double Ascent { get; }
+    public override double Ascent => _font.Ascent;
 
-    public override double Descent { get; }
+    public override double Descent => _font.Descent;
 
-    public override bool IsHexadecimal => true;
+    public override bool IsHexadecimal => _font.CodeLength > 1;
 
     /// <summary>
     /// Finds a TrueType program for <paramref name="text"/> through the document's font resolvers (one like <paramref name="like"/>,
-    /// then Helvetica's stand-in), and adds the subset font to the document.
+    /// then Helvetica's stand-in), and adds the text's glyphs to the document's shared subset of that program, adding the subset font
+    /// to the document when it has none yet.
     /// </summary>
     /// <param name="document">The document the font is added to.</param>
     /// <param name="like">The default appearance font, whose name and style choose the program; or <see langword="null"/>.</param>
     /// <param name="text">Every text the font will show.</param>
     /// <param name="missing">When no program has glyphs for all of it, the first character none has; else <see langword="null"/>.</param>
     /// <returns>The font, or <see langword="null"/> when no resolver found a TrueType program covering the text.</returns>
-    public static EmbeddedAppearanceFont? Create(PdfDocument document, PdfFont? like, IReadOnlyList<string> text, out string? missing)
+    public static CanvasAppearanceFont? CreateEmbedded(PdfDocument document, PdfFont? like, IReadOnlyList<string> text, out string? missing)
     {
         missing = null;
         var queries = new List<FontQuery>();
@@ -175,260 +166,44 @@ internal sealed class EmbeddedAppearanceFont : AppearanceFont
 
         foreach (FontQuery query in queries)
         {
-            if (document.FontResolvers.ResolveFont(query) is not { } resolution
-                || SfntFile.Open(resolution.Data, new FontProgramContext { FaceIndex = resolution.FaceIndex }) is not { } sfnt
-                || !sfnt.Has(SfntFile.Tag("glyf"))
-                || document.GetSubstituteProgram(resolution, reference: null) is not { } program
-                || PickCharacterMap(program) is not { } cmap)
+            if (document.FontResolvers.ResolveFont(query) is not { } resolution)
             {
                 continue;
             }
 
-            var glyphs = new Dictionary<int, int>();
-            string? uncovered = null;
-            foreach (string part in text)
+            if (EmbeddedCanvasFont.Get(document, resolution, text, out string? uncovered, out _) is { } font)
             {
-                foreach (Rune rune in part.EnumerateRunes())
-                {
-                    int glyph = cmap.GetGlyphId(rune.Value);
-                    if (glyph <= 0 || glyph >= program.GlyphCount)
-                    {
-                        uncovered ??= rune.ToString();
-                    }
-                    else
-                    {
-                        glyphs[rune.Value] = glyph;
-                    }
-                }
+                missing = null;
+                return new CanvasAppearanceFont(font);
             }
 
-            if (uncovered is not null)
-            {
-                missing ??= uncovered;
-                continue;
-            }
-
-            if (TrueTypeSubsetter.Subset(sfnt, glyphs.Values) is not { } subset)
-            {
-                continue;
-            }
-
-            missing = null;
-            return Embed(document, program, subset, glyphs);
+            missing ??= uncovered;
         }
 
         return null;
     }
 
-    public override bool CanEncode(string text)
-    {
-        foreach (Rune rune in text.EnumerateRunes())
-        {
-            if (!_glyphs.ContainsKey(rune.Value))
-            {
-                return false;
-            }
-        }
-
-        return true;
-    }
+    public override bool CanEncode(string text) => _font.CanEncode(text);
 
     public override byte[] Encode(string text)
     {
-        var bytes = new List<byte>(text.Length * 2);
+        var bytes = new List<byte>(text.Length * _font.CodeLength);
+        int index = 0;
         foreach (Rune rune in text.EnumerateRunes())
         {
-            int glyph = _glyphs[rune.Value];
-            bytes.Add((byte)(glyph >> 8));
-            bytes.Add((byte)glyph);
+            CanvasGlyph glyph = _font.GlyphOrThrow(rune, index, nameof(text));
+            for (int shift = 8 * (_font.CodeLength - 1); shift >= 0; shift -= 8)
+            {
+                bytes.Add((byte)(glyph.Code >> shift));
+            }
+
+            _font.OnShown(glyph, text.AsSpan(index, rune.Utf16SequenceLength));
+            index += rune.Utf16SequenceLength;
         }
 
         return [.. bytes];
     }
 
-    public override double Measure(string text)
-    {
-        double width = 0;
-        foreach (Rune rune in text.EnumerateRunes())
-        {
-            width += _widths[_glyphs[rune.Value]];
-        }
-
-        return width;
-    }
-
-    /// <summary>The Unicode subtable: (3, 10), else (3, 1), else (0, any).</summary>
-    private static FontCharacterMap? PickCharacterMap(FontProgram program)
-    {
-        FontCharacterMap? best = null;
-        int rank = 0;
-        foreach (FontCharacterMap map in program.CharacterMaps)
-        {
-            int candidate = (map.PlatformId, map.EncodingId) switch
-            {
-                (3, 10) => 3,
-                (3, 1) => 2,
-                (0, _) => 1,
-                _ => 0,
-            };
-            if (candidate > rank)
-            {
-                (best, rank) = (map, candidate);
-            }
-        }
-
-        return best;
-    }
-
-    /// <summary>Adds the Type 0 font, its CIDFont, descriptor, program and ToUnicode CMap to the document.</summary>
-    private static EmbeddedAppearanceFont Embed(PdfDocument document, FontProgram program, byte[] subset, Dictionary<int, int> glyphs)
-    {
-        double scale = program.FontMatrix.A * 1000;
-        var widths = new Dictionary<int, double>();
-        foreach (int glyph in glyphs.Values)
-        {
-            widths[glyph] = Math.Round(program.GetMetrics(glyph).AdvanceWidth * scale, 3);
-        }
-
-        int[] used = [.. widths.Keys.Order()];
-        string name = SubsetTag(used) + "+" + PostScriptName(program);
-        double ascent = Math.Round(program.Ascender * scale);
-        double descent = Math.Round(program.Descender * scale);
-        PdfRectangle box = program.FontBBox;
-        var bbox = new CosArray([Number(Math.Round(box.Left * scale)), Number(Math.Round(box.Bottom * scale)), Number(Math.Round(box.Right * scale)), Number(Math.Round(box.Top * scale))]);
-
-        CosReference fontFile = document.AddObject(new CosStream(new CosDictionary { [FontNames.Length1] = new CosInteger(subset.Length) }, subset));
-        CosReference descriptor = document.AddObject(new CosDictionary
-        {
-            [KnownNames.Type] = new CosName("FontDescriptor"),
-            [FontNames.FontName] = new CosName(name),
-            [FontNames.Flags] = new CosInteger(32),
-            [FontNames.FontBBox] = bbox,
-            [FontNames.ItalicAngle] = new CosInteger(0),
-            [FontNames.Ascent] = Number(ascent),
-            [FontNames.Descent] = Number(descent),
-            [FontNames.CapHeight] = Number(ascent),
-            [FontNames.StemV] = new CosInteger(80),
-            [FontNames.FontFile2] = fontFile,
-        });
-
-        var widthArray = new CosArray();
-        for (int index = 0; index < used.Length;)
-        {
-            int first = index;
-            var run = new CosArray();
-            do
-            {
-                run.Add(Number(widths[used[index]]));
-                index++;
-            }
-            while (index < used.Length && used[index] == used[index - 1] + 1);
-
-            widthArray.Add(new CosInteger(used[first]));
-            widthArray.Add(run);
-        }
-
-        CosReference cidFont = document.AddObject(new CosDictionary
-        {
-            [KnownNames.Type] = FontNames.Font,
-            [FontNames.Subtype] = CompositeFontNames.CidFontType2,
-            [FontNames.BaseFont] = new CosName(name),
-            [CompositeFontNames.CidSystemInfo] = new CosDictionary
-            {
-                [CompositeFontNames.Registry] = new CosString("Adobe"u8),
-                [CompositeFontNames.Ordering] = new CosString("Identity"u8),
-                [CompositeFontNames.Supplement] = new CosInteger(0),
-            },
-            [FontNames.FontDescriptor] = descriptor,
-            [CompositeFontNames.DW] = new CosInteger(1000),
-            [CompositeFontNames.W] = widthArray,
-            [CompositeFontNames.CidToGidMap] = CompositeFontNames.Identity,
-        });
-
-        CosReference toUnicode = document.AddObject(new CosStream(new CosDictionary(), ToUnicodeCMap(glyphs)));
-        CosReference font = document.AddObject(new CosDictionary
-        {
-            [KnownNames.Type] = FontNames.Font,
-            [FontNames.Subtype] = FontNames.Type0,
-            [FontNames.BaseFont] = new CosName(name),
-            [FontNames.Encoding] = new CosName("Identity-H"),
-            [CompositeFontNames.DescendantFonts] = new CosArray([cidFont]),
-            [CompositeFontNames.ToUnicode] = toUnicode,
-        });
-
-        return new EmbeddedAppearanceFont(font, glyphs, widths, ascent > 0 ? ascent : 800, descent < 0 ? descent : -200);
-    }
-
-    private static CosNumber Number(double value) =>
-        value == Math.Floor(value) && Math.Abs(value) < int.MaxValue ? new CosInteger((long)value) : new CosReal(value);
-
-    /// <summary>Six capital letters derived from the glyph set, so the same subset gets the same tag (§9.9.2).</summary>
-    private static string SubsetTag(int[] glyphs)
-    {
-        byte[] bytes = new byte[glyphs.Length * 4];
-        for (int index = 0; index < glyphs.Length; index++)
-        {
-            System.Buffers.Binary.BinaryPrimitives.WriteInt32BigEndian(bytes.AsSpan(index * 4), glyphs[index]);
-        }
-
-        byte[] hash = SHA256.HashData(bytes);
-        var tag = new StringBuilder(6);
-        for (int index = 0; index < 6; index++)
-        {
-            tag.Append((char)('A' + (hash[index] % 26)));
-        }
-
-        return tag.ToString();
-    }
-
-    private static string PostScriptName(FontProgram program)
-    {
-        var name = new StringBuilder();
-        foreach (char character in program.PostScriptName ?? "Font")
-        {
-            if (character is > ' ' and < (char)127 and not ('(' or ')' or '<' or '>' or '[' or ']' or '{' or '}' or '/' or '%' or '#'))
-            {
-                name.Append(character);
-            }
-        }
-
-        return name.Length == 0 ? "Font" : name.ToString();
-    }
-
-    /// <summary>A ToUnicode CMap mapping each two-byte glyph id to its character (§9.10.3, Adobe TN 5411).</summary>
-    private static byte[] ToUnicodeCMap(Dictionary<int, int> glyphs)
-    {
-        var byGlyph = new SortedDictionary<int, int>();
-        foreach ((int scalar, int glyph) in glyphs.OrderBy(pair => pair.Key))
-        {
-            byGlyph.TryAdd(glyph, scalar);
-        }
-
-        var cmap = new StringBuilder();
-        cmap.Append("/CIDInit /ProcSet findresource begin\n12 dict begin\nbegincmap\n");
-        cmap.Append("/CIDSystemInfo << /Registry (Adobe) /Ordering (UCS) /Supplement 0 >> def\n");
-        cmap.Append("/CMapName /Adobe-Identity-UCS def\n/CMapType 2 def\n");
-        cmap.Append("1 begincodespacerange\n<0000> <FFFF>\nendcodespacerange\n");
-        KeyValuePair<int, int>[] entries = [.. byGlyph];
-        for (int start = 0; start < entries.Length; start += 100)
-        {
-            int count = Math.Min(100, entries.Length - start);
-            cmap.Append(CultureInfo.InvariantCulture, $"{count} beginbfchar\n");
-            for (int index = start; index < start + count; index++)
-            {
-                cmap.Append(CultureInfo.InvariantCulture, $"<{entries[index].Key:X4}> <");
-                foreach (char unit in char.ConvertFromUtf32(entries[index].Value))
-                {
-                    cmap.Append(CultureInfo.InvariantCulture, $"{(int)unit:X4}");
-                }
-
-                cmap.Append(">\n");
-            }
-
-            cmap.Append("endbfchar\n");
-        }
-
-        cmap.Append("endcmap\nCMapName currentdict /CMap defineresource pop\nend\nend\n");
-        return Encoding.ASCII.GetBytes(cmap.ToString());
-    }
+    public override double Measure(string text) => _font.MeasureWidth(text, 1000);
 }
+

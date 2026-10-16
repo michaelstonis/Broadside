@@ -55,10 +55,68 @@ internal static class CrossReferenceReader
             return null;
         }
 
-        var sections = new List<XrefSection>();
-        var visited = new HashSet<long>();
-        XrefEntryBudget budget = XrefEntryBudget.For(source);
-        long? next = first;
+        return ReadChain(source, header, first, [], [], streams, diagnostics, scan, XrefEntryBudget.For(source));
+    }
+
+    /// <summary>
+    /// Reads the first-page cross-reference section of a linearized file (F.3.4), which starts after the linearization parameter
+    /// dictionary, without following its <c>Prev</c>; only a section that reads without a single deviation is returned, so a
+    /// damaged one is left to <see cref="Read"/>.
+    /// </summary>
+    /// <param name="source">The file.</param>
+    /// <param name="offset">The absolute offset just past the parameter dictionary's <c>endobj</c>.</param>
+    /// <param name="streams">The filter pipeline a cross-reference stream is decoded with.</param>
+    /// <returns>The section, or <see langword="null"/>.</returns>
+    public static XrefSection? ReadFirstPageSection(PdfSource source, long offset, StreamDecoder streams)
+    {
+        ReadOnlySpan<byte> window = source.GetWindow(offset).Span;
+        var lexer = new CosLexer(window);
+        CosToken first = lexer.Next();
+        if (first.Kind == CosTokenKind.EndOfInput)
+        {
+            return null;
+        }
+
+        var scratch = new DiagnosticSink(strict: false);
+        try
+        {
+            XrefSection? section = ReadSection(source, offset + first.Start, isFirst: true, streams, scratch, scan: null, [], XrefEntryBudget.For(source));
+            return scratch.Snapshot().Length == 0 ? section : null;
+        }
+        catch (DiagnosticException)
+        {
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Reads the cross-reference sections of a linearized file whose first-page section is already read: the sections its
+    /// <c>Prev</c> chain leads to, the main section first (F.3.11). The file's <c>startxref</c> is not read: it points at the
+    /// first-page section (F.3.11).
+    /// </summary>
+    /// <param name="source">The file.</param>
+    /// <param name="header">The header, whose offset every stated offset is relative to.</param>
+    /// <param name="firstPage">The first-page section, which leads the result.</param>
+    /// <param name="streams">The filter pipeline cross-reference streams are decoded with.</param>
+    /// <param name="diagnostics">Where to report deviations.</param>
+    /// <param name="scan">The scan a wrong <c>Prev</c> offset is repaired from.</param>
+    /// <returns>The cross-reference information.</returns>
+    public static CrossReference ReadAfterFirstPage(PdfSource source, FileHeader header, XrefSection firstPage, StreamDecoder streams, DiagnosticSink diagnostics, Lazy<FileScan> scan) =>
+        ReadChain(source, header, PreviousSectionOffset(firstPage, header, diagnostics), [firstPage], [firstPage.Offset], streams, diagnostics, scan, XrefEntryBudget.For(source))
+        ?? new CrossReference([firstPage]);
+
+    /// <summary>Reads the section at <paramref name="next"/> and every older one its <c>Prev</c> chain leads to, after <paramref name="sections"/>.</summary>
+    private static CrossReference? ReadChain(
+        PdfSource source,
+        FileHeader header,
+        long? next,
+        List<XrefSection> sections,
+        HashSet<long> visited,
+        StreamDecoder streams,
+        DiagnosticSink diagnostics,
+        Lazy<FileScan> scan,
+        XrefEntryBudget budget)
+    {
         while (next is { } offset)
         {
             if (!visited.Add(offset))

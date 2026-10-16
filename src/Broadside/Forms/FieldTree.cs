@@ -21,11 +21,15 @@ internal sealed class FieldTree
     /// <summary>The deepest nesting of field dictionaries read; deeper ones are cut with a diagnostic.</summary>
     public const int MaxDepth = 256;
 
-    private readonly ContainerStamps _tracked = new();
+    private readonly ContainerStamps _tracked;
     private readonly CosObject? _fieldsEntry;
     private readonly Dictionary<CosDictionary, FieldTree> _orphans = new(ReferenceEqualityComparer.Instance);
 
-    private FieldTree(CosObject? fieldsEntry) => _fieldsEntry = fieldsEntry;
+    private FieldTree(PdfDocument document, CosObject? fieldsEntry)
+    {
+        _tracked = new ContainerStamps(document);
+        _fieldsEntry = fieldsEntry;
+    }
 
     /// <summary>Gets the root fields, in order.</summary>
     public List<PdfField> Roots { get; } = [];
@@ -50,7 +54,7 @@ internal sealed class FieldTree
     {
         PdfDocument document = form.Document;
         form.Dictionary.TryGetValue(FormNames.Fields, out CosObject? entry);
-        var tree = new FieldTree(entry);
+        var tree = new FieldTree(document, entry);
         var builder = new Builder(form, tree);
         switch (document.Resolve(entry))
         {
@@ -132,7 +136,7 @@ internal sealed class FieldTree
         {
             if (!_orphans.TryGetValue(top, out FieldTree? orphan) || !orphan._tracked.IsCurrent)
             {
-                orphan = new FieldTree(fieldsEntry: null);
+                orphan = new FieldTree(document, fieldsEntry: null);
                 var builder = new Builder(form, orphan);
                 builder.AddOrphanRoot(top, reference);
                 builder.Run();

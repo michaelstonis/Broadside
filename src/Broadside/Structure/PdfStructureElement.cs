@@ -1,3 +1,4 @@
+using Broadside.Graphics;
 using Broadside.Objects;
 using Broadside.Parsing;
 
@@ -22,6 +23,9 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
     private readonly StructureContext _context;
     private readonly PdfStructureElement? _parent;
     private readonly bool _parentKnown;
+
+    /// <summary>Gets the document.</summary>
+    internal PdfDocument Document => _context.Document;
 
     internal PdfStructureElement(StructureContext context, CosDictionary dictionary, CosReference? reference, PdfStructureElement? parent, bool parentKnown, int depth)
     {
@@ -110,17 +114,29 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
     /// <remarks>ISO 32000-2 §14.7.3 (cycles are permitted, NOTE 2), §14.7.4.2, §14.8.6.2. Empty when the element has no type.</remarks>
     public IReadOnlyList<PdfStructureType> RoleMapping => StructureType is { } type ? _context.ResolveRole(type, Namespace).Chain : [];
 
-    /// <summary>Gets the element identifier (<c>ID</c>), a byte string unique in the document, or <see langword="null"/>.</summary>
+    /// <summary>Gets or sets the element identifier (<c>ID</c>), a byte string unique in the document, or <see langword="null"/>; setting keeps the root's <c>IDTree</c> in step.</summary>
     /// <remarks>ISO 32000-2 Table 355; looked up through <see cref="PdfStructureTreeRoot.FindElementById(ReadOnlySpan{byte})"/>.</remarks>
-    public CosString? Id => ViewReading.Get(_context.Document, Dictionary, StructureNames.ID) as CosString;
+    public CosString? Id
+    {
+        get => ViewReading.Get(_context.Document, Dictionary, StructureNames.ID) as CosString;
+        set => SetId(value);
+    }
 
-    /// <summary>Gets the title (<c>T</c>), or <see langword="null"/>.</summary>
+    /// <summary>Gets or sets the title (<c>T</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 355.</remarks>
-    public string? Title => ViewReading.Text(_context.Document, Dictionary, StructureNames.T);
+    public string? Title
+    {
+        get => ViewReading.Text(_context.Document, Dictionary, StructureNames.T);
+        set => StructureWriter.SetText(Dictionary, StructureNames.T, value);
+    }
 
-    /// <summary>Gets the element's own natural language (<c>Lang</c>, a BCP 47 tag), or <see langword="null"/>.</summary>
+    /// <summary>Gets or sets the element's own natural language (<c>Lang</c>, a BCP 47 tag), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 355 (PDF 1.4), §14.9.2.</remarks>
-    public string? Language => ViewReading.Text(_context.Document, Dictionary, StructureNames.Lang);
+    public string? Language
+    {
+        get => ViewReading.Text(_context.Document, Dictionary, StructureNames.Lang);
+        set => StructureWriter.SetText(Dictionary, StructureNames.Lang, value);
+    }
 
     /// <summary>Gets the natural language in effect: <see cref="Language"/>, else the nearest ancestor's, else the catalog's <c>Lang</c>; <see langword="null"/> when none says.</summary>
     /// <remarks>ISO 32000-2 §14.9.2.3: a language specification applies to the element and everything nested in it.</remarks>
@@ -140,17 +156,29 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
         }
     }
 
-    /// <summary>Gets the alternate description (<c>Alt</c>), or <see langword="null"/>.</summary>
+    /// <summary>Gets or sets the alternate description (<c>Alt</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 355, §14.9.3.</remarks>
-    public string? AlternateDescription => ViewReading.Text(_context.Document, Dictionary, StructureNames.Alt);
+    public string? AlternateDescription
+    {
+        get => ViewReading.Text(_context.Document, Dictionary, StructureNames.Alt);
+        set => StructureWriter.SetText(Dictionary, StructureNames.Alt, value);
+    }
 
-    /// <summary>Gets the expansion of an abbreviation or acronym (<c>E</c>), or <see langword="null"/>.</summary>
+    /// <summary>Gets or sets the expansion of an abbreviation or acronym (<c>E</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 355 (PDF 1.5), §14.9.5.</remarks>
-    public string? Expansion => ViewReading.Text(_context.Document, Dictionary, StructureNames.E);
+    public string? Expansion
+    {
+        get => ViewReading.Text(_context.Document, Dictionary, StructureNames.E);
+        set => StructureWriter.SetText(Dictionary, StructureNames.E, value);
+    }
 
-    /// <summary>Gets the replacement text (<c>ActualText</c>), or <see langword="null"/>.</summary>
+    /// <summary>Gets or sets the replacement text (<c>ActualText</c>), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 Table 355 (PDF 1.4), §14.9.4.</remarks>
-    public string? ActualText => ViewReading.Text(_context.Document, Dictionary, StructureNames.ActualText);
+    public string? ActualText
+    {
+        get => ViewReading.Text(_context.Document, Dictionary, StructureNames.ActualText);
+        set => StructureWriter.SetText(Dictionary, StructureNames.ActualText, value);
+    }
 
     /// <summary>Gets the element's revision number (<c>R</c>); 0 when absent.</summary>
     /// <remarks>ISO 32000-2 Table 355, §14.7.6.3 (deprecated in PDF 2.0).</remarks>
@@ -285,6 +313,131 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
     /// <summary>The depth of the element below the root (a child of the root is 0), as far as the view knows it.</summary>
     internal int Depth { get; }
 
+    /// <summary>Changes the element's structure type and namespace (<c>S</c> and <c>NS</c>).</summary>
+    /// <param name="type">The new type.</param>
+    /// <exception cref="ArgumentException">The type's name is empty, or its namespace is a namespace dictionary of another document.</exception>
+    /// <remarks>ISO 32000-2 Table 355 (<c>S</c>, <c>NS</c>), §14.7.4; see <see cref="PdfStructureTreeRoot.AddElement(PdfStructureType)"/> for how the namespace is written.</remarks>
+    public void SetStructureType(PdfStructureType type) => StructureWriter.SetType(_context, Dictionary, type);
+
+    /// <summary>Adds a structure element of <paramref name="type"/> as the element's last child.</summary>
+    /// <param name="type">The child's structure type and namespace.</param>
+    /// <returns>The new element: a new indirect object whose <c>P</c> is this element.</returns>
+    /// <exception cref="ArgumentException">The type's name is empty, or its namespace is a namespace dictionary of another document.</exception>
+    /// <remarks>ISO 32000-2 §14.7.2, Table 355 (<c>K</c>, <c>P</c>); §14.8.2.5: the order of <c>K</c> is the logical reading order.</remarks>
+    public PdfStructureElement AddElement(PdfStructureType type) =>
+        StructureWriter.AddElement(_context, Dictionary, StructureWriter.ElementReference(_context, this), this, type);
+
+    /// <summary>Adds a structure element of <paramref name="type"/>, in the default namespace, as the element's last child.</summary>
+    /// <param name="type">The structure type, such as <c>P</c>.</param>
+    /// <returns>The new element.</returns>
+    /// <remarks>ISO 32000-2 §14.7.2, Table 355. See <see cref="AddElement(PdfStructureType)"/>.</remarks>
+    public PdfStructureElement AddElement(string type) => AddElement(new PdfStructureType(type, PdfStructureNamespace.Pdf17));
+
+    /// <summary>Allocates the next MCID of <paramref name="page"/>'s content and makes that marked-content sequence the element's last content item.</summary>
+    /// <param name="page">The page whose content will hold the sequence; give its <c>BDC</c> the returned item's <see cref="PdfMarkedContentReference.Mcid"/>.</param>
+    /// <returns>The content item.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §14.7.5.2 (Table 357), §14.7.5.4 (Table 359). The page gets a <c>StructParents</c> key when it has none
+    /// (<c>ParentTreeNextKey</c> advances), and its parent-tree array lists this element at the MCID: the MCID is the first one that
+    /// array and the tree's <c>K</c> entries do not use. MCIDs already in the content but in neither are not seen; pass them to
+    /// <see cref="AddMarkedContent(PdfPage, int)"/>. The item is written as an integer when the element's <c>Pg</c> is the page (an
+    /// element without <c>Pg</c> gets this page), else as an MCR dictionary with its own <c>Pg</c>.
+    /// </remarks>
+    public PdfMarkedContentReference AddMarkedContent(PdfPage page) => StructureWriter.AddMarkedContent(_context, this, page, null, null);
+
+    /// <summary>Makes the marked-content sequence <paramref name="mcid"/> of <paramref name="page"/>'s content the element's last content item.</summary>
+    /// <param name="page">The page whose content holds the sequence.</param>
+    /// <param name="mcid">The sequence's MCID.</param>
+    /// <returns>The content item.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="mcid"/> is negative.</exception>
+    /// <exception cref="InvalidOperationException">The parent tree already lists an element for that MCID of the page's content.</exception>
+    /// <remarks>ISO 32000-2 §14.7.5.2, §14.7.5.4. See <see cref="AddMarkedContent(PdfPage)"/>.</remarks>
+    public PdfMarkedContentReference AddMarkedContent(PdfPage page, int mcid) => StructureWriter.AddMarkedContent(_context, this, page, null, mcid);
+
+    /// <summary>Allocates the next MCID of <paramref name="form"/>'s content, drawn on <paramref name="page"/>, and makes that sequence the element's last content item.</summary>
+    /// <param name="page">The page the form is drawn on.</param>
+    /// <param name="form">The form XObject whose content will hold the sequence; it must be an indirect object.</param>
+    /// <returns>The content item: an MCR with <c>Stm</c> naming the form.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §14.7.5.2 (Table 357, <c>Stm</c>), §14.7.5.4: MCIDs are scoped to their content stream, so the form gets its own
+    /// <c>StructParents</c> key and parent-tree array.
+    /// </remarks>
+    public PdfMarkedContentReference AddMarkedContent(PdfPage page, PdfFormXObject form)
+    {
+        ArgumentNullException.ThrowIfNull(form);
+        return StructureWriter.AddMarkedContent(_context, this, page, form, null);
+    }
+
+    /// <summary>Makes the marked-content sequence <paramref name="mcid"/> of <paramref name="form"/>'s content, drawn on <paramref name="page"/>, the element's last content item.</summary>
+    /// <param name="page">The page the form is drawn on.</param>
+    /// <param name="form">The form XObject whose content holds the sequence; it must be an indirect object.</param>
+    /// <param name="mcid">The sequence's MCID.</param>
+    /// <returns>The content item.</returns>
+    /// <remarks>ISO 32000-2 §14.7.5.2, §14.7.5.4. See <see cref="AddMarkedContent(PdfPage, PdfFormXObject)"/>.</remarks>
+    public PdfMarkedContentReference AddMarkedContent(PdfPage page, PdfFormXObject form, int mcid)
+    {
+        ArgumentNullException.ThrowIfNull(form);
+        return StructureWriter.AddMarkedContent(_context, this, page, form, mcid);
+    }
+
+    /// <summary>Makes the annotation or XObject <paramref name="target"/> the element's last content item (an object reference).</summary>
+    /// <param name="target">The indirect reference to the annotation dictionary or XObject stream.</param>
+    /// <param name="page">The page the object is on, written as the OBJR's <c>Pg</c>; <see langword="null"/> to leave it out.</param>
+    /// <returns>The content item.</returns>
+    /// <exception cref="ArgumentException"><paramref name="target"/> is neither a dictionary nor a stream.</exception>
+    /// <exception cref="InvalidOperationException">The object already has a <c>StructParent</c>.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §14.7.5.3 (Table 358), §14.7.5.4 (Table 359): the object gets a <c>StructParent</c> key, and the parent tree maps that
+    /// key to this element.
+    /// </remarks>
+    public PdfObjectReference AddObjectReference(CosReference target, PdfPage? page) => StructureWriter.AddObjectReference(_context, this, target, page);
+
+    /// <summary>Adds an attribute object of <paramref name="owner"/> to the element's <c>A</c> entry.</summary>
+    /// <param name="owner">The attribute owner, such as <c>Layout</c>, <c>List</c>, <c>Table</c> or <c>PrintField</c>.</param>
+    /// <returns>The new, empty attribute object, typed by its owner; set its values with <see cref="PdfAttributeObject.SetValue"/>.</returns>
+    /// <remarks>ISO 32000-2 Table 355 (<c>A</c>), §14.7.6.1 (Table 360), §14.8.5.2 (Table 376). Later attribute objects win over earlier ones.</remarks>
+    public PdfAttributeObject AddAttributes(CosName owner)
+    {
+        ArgumentNullException.ThrowIfNull(owner);
+        if (StructureNames.NSO.Equals(owner))
+        {
+            throw new ArgumentException("Attributes owned by a namespace are added with AddAttributes(PdfStructureNamespace).", nameof(owner));
+        }
+
+        return AddAttributeObject(new CosDictionary { [StructureNames.O] = owner });
+    }
+
+    /// <summary>Adds an attribute object owned by the namespace <paramref name="ns"/> (<c>O</c> <c>NSO</c>) to the element's <c>A</c> entry.</summary>
+    /// <param name="ns">The owning namespace; it is listed in the root's <c>Namespaces</c> when it is not yet.</param>
+    /// <returns>The new, empty attribute object.</returns>
+    /// <remarks>ISO 32000-2 §14.7.6.1, Table 360 (<c>NS</c>, PDF 2.0); ISO/TS 32005 §6.</remarks>
+    public PdfAttributeObject AddAttributes(PdfStructureNamespace ns)
+    {
+        ArgumentNullException.ThrowIfNull(ns);
+        CosReference reference = StructureWriter.NamespaceReference(_context, ns)
+            ?? StructureWriter.GetOrAddNamespace(_context, PdfStructureNamespace.Pdf17Name).Reference!;
+        return AddAttributeObject(new CosDictionary { [StructureNames.O] = StructureNames.NSO, [StructureNames.NS] = reference });
+    }
+
+    /// <summary>Adds the attribute class <paramref name="className"/> to the element's <c>C</c> entry.</summary>
+    /// <param name="className">A class of the root's <c>ClassMap</c> (<see cref="PdfStructureTreeRoot.AddClassAttributes"/>).</param>
+    /// <remarks>ISO 32000-2 Table 355 (<c>C</c>), §14.7.6.2.</remarks>
+    public void AddClassName(CosName className)
+    {
+        ArgumentNullException.ThrowIfNull(className);
+        StructureWriter.AppendTo(_context, Dictionary, StructureNames.C, className);
+    }
+
+    /// <summary>Removes the element, with everything under it, from the structure tree.</summary>
+    /// <exception cref="InvalidOperationException">The element is not reachable from the root.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §14.7.2, §14.7.5.4. The element leaves its parent's <c>K</c>; for it and every element under it, the parent tree
+    /// stops listing them (their MCIDs' array entries become null, their objects lose <c>StructParent</c> and its key), and their IDs
+    /// leave the ID tree. The marked content in the page content stays; the dictionaries stay objects of the document until a full save
+    /// drops unreachable objects.
+    /// </remarks>
+    public void Remove() => StructureWriter.Remove(_context, this);
+
     /// <summary>Returns the content items among <see cref="Children"/>: the marked-content and object references, in order.</summary>
     /// <returns>The content items.</returns>
     /// <remarks>ISO 32000-2 §14.7.5.1.1.</remarks>
@@ -412,6 +565,45 @@ public sealed class PdfStructureElement : PdfStructureItem, IEquatable<PdfStruct
         }
 
         return null;
+    }
+
+    private PdfAttributeObject AddAttributeObject(CosDictionary attributes)
+    {
+        StructureWriter.AppendTo(_context, Dictionary, StructureNames.A, attributes);
+        return PdfAttributeObject.Create(_context, attributes, null, 0);
+    }
+
+    /// <summary>Sets <c>ID</c> and moves the element's entry in the ID tree (created when the root has none).</summary>
+    private void SetId(CosString? value)
+    {
+        CosReference reference = StructureWriter.ElementReference(_context, this);
+        var root = new PdfStructureTreeRoot(_context);
+        if (value is not null && root.FindElementById(value.Bytes) is { } other && !other.Equals(this))
+        {
+            throw new InvalidOperationException("Another structure element has this ID (Table 355: unique in the document).");
+        }
+
+        PdfNameTree? tree = root.IdTree;
+        if (Id is { } old && tree is not null && tree.TryGetValue(old.Bytes, out CosObject? listed) && ReferenceEquals(listed, Dictionary))
+        {
+            tree.Remove(old);
+        }
+
+        if (value is null)
+        {
+            Dictionary.Remove(StructureNames.ID);
+            return;
+        }
+
+        Dictionary[StructureNames.ID] = value;
+        if (tree is null)
+        {
+            _context.Root[StructureNames.IDTree] = _context.Document.CreateNameTree([KeyValuePair.Create(value, (CosObject)reference)]).RootReference!;
+        }
+        else
+        {
+            tree.Set(value, reference);
+        }
     }
 
     private List<(CosName Name, int Revision)> ReadClassNames() =>

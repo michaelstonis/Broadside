@@ -20,6 +20,12 @@ namespace Broadside.Writing;
 /// <see cref="CreateIncremental"/> plans an incremental update instead (§7.5.6), through the same <see cref="FileWriter"/>.
 /// </para>
 /// <para>
+/// With <see cref="PdfSaveOptions.Linearize"/>, the same objects are laid out as a linearized file (Annex F): a
+/// <see cref="LinearizedLayout"/> orders them by part, renumbers them through the same reference map a renumbered save uses, and
+/// writes copies of the pages and page tree nodes whose inherited attributes it moves; the <see cref="FileWriter"/> then writes the
+/// linearized structure around them.
+/// </para>
+/// <para>
 /// With <see cref="PdfSaveOptions.RemoveUnreachableObjects"/>, only the objects the trailer reaches through indirect references are
 /// written (garbage collection), which drops the old file structure too, since nothing reaches it. Objects keep their numbers and
 /// generations unless <see cref="PdfSaveOptions.ObjectNumbering"/> is <see cref="PdfObjectNumbering.Compact"/> or the numbering is
@@ -30,6 +36,13 @@ namespace Broadside.Writing;
 /// An object that has not changed (<see cref="CosObject.IsDirty"/>), was read without any repair and holds no reference whose number
 /// changes is copied byte for byte from the source; any other object is serialized, its stream data written as stored. Every object
 /// is loaded first, so in strict mode a deviation throws before anything is written.
+/// </para>
+/// <para>
+/// Encryption (§7.6) follows <see cref="EncryptionPlan"/>: when the source or the output is encrypted, nothing is copied (the source
+/// bytes are ciphertext tied to the old key and object number) and every object goes through an <see cref="Security.ObjectEncryptor"/>
+/// under its written number. New encryption drops the old encryption dictionary and writes its own as a new object, numbered above
+/// every number the file lists or refers to. The object streams and the cross-reference stream a save adds are numbered the same
+/// way, above every number written, whenever the file keeps its references as they are (issue #295).
 /// </para>
 /// <para>
 /// An unfiltered stream that <see cref="PdfSaveOptions.StreamCompression"/> selects is written instead as a <c>FlateDecode</c> copy
@@ -64,17 +77,28 @@ internal static class SavePlan
     /// The cross-reference layout, the numbering, whether unreachable objects are dropped, and which streams are compressed and how hard.
     /// </param>
     /// <param name="encoders">The engine's encoders; streams are compressed with its <c>FlateDecode</c> encoder.</param>
+    /// <param name="security">The document's security, or <see langword="null"/> for a document read as not encrypted.</param>
+    /// <param name="features">
+    /// Receives the features of the version table the file uses (<see cref="VersionedFeatures"/>): its cross-reference layout,
+    /// compression and encryption. The writer's header states the document's header version; the caller raises it (<see cref="VersionPlan"/>).
+    /// </param>
     /// <returns>The writer.</returns>
-    /// <exception cref="NotSupportedException">The document is encrypted.</exception>
-    public static FileWriter Create(PdfSource source, ObjectLoader loader, PdfLinearization? linearization, PdfSaveOptions options, StreamEncoderRegistry encoders)
+    /// <exception cref="NotSupportedException">
+    /// What <see cref="EncryptionPlan"/> refuses, or a linearized save of a document without a catalog or a page, whose page tree
+    /// lists a page twice, or whose file carries an integrity MAC (ISO/TS 32004).
+    /// </exception>
+    public static FileWriter Create(
+        PdfSource source,
+        ObjectLoader loader,
+        PdfLinearization? linearization,
+        PdfSaveOptions options,
+        StreamEncoderRegistry encoders,
+        PdfSecurity? security,
+        ICollection<VersionedFeature> features)
     {
         CrossReference crossReference = loader.CrossReference;
         CosDictionary sourceTrailer = crossReference.Trailer;
-        if (sourceTrailer.ContainsKey(KnownNames.Encrypt))
-        {
-            throw new NotSupportedException(
-                "Saving an encrypted document is not supported yet: its objects would be written with keys that no longer match, or as plain text.");
-        }
+        EncryptionPlan encryption = EncryptionPlan.Create(loader, security, options, incremental: false);
 
         var existing = new Dictionary<int, CosReference>();
         var freeGenerations = new Dictionary<int, int>();
@@ -105,10 +129,22 @@ internal static class SavePlan
             existing[number] = new CosReference(number, 0);
         }
 
+        // An encryption dictionary that is replaced or dropped is not written and its number is freed, unless an object the save
+        // keeps refers to it: then it is an ordinary object of the document too (a damaged file's page tree root, say), and dropping
+        // it would change what the document shows (fuzz finding).
+        CosReference? oldEncryption = null;
+        if (encryption.ReplacesDictionary && sourceTrailer.TryGetValue(KnownNames.Encrypt, out CosObject? oldEntry)
+            && oldEntry is CosReference oldReference && existing.TryGetValue(oldReference.ObjectNumber, out CosReference? listed) && listed.Equals(oldReference))
+        {
+            oldEncryption = oldReference;
+            freeGenerations[oldReference.ObjectNumber] = NextGeneration(oldReference.Generation);
+        }
+
         var trailer = new CosDictionary();
         foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
         {
-            if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID))
+            if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID)
+                && encryption.KeepsTrailerEntry(entry.Key))
             {
                 trailer[entry.Key] = entry.Value;
             }
@@ -116,10 +152,46 @@ internal static class SavePlan
 
         List<(CosReference Reference, CosObject Value)> kept = options.RemoveUnreachableObjects
             ? LoadReachable(loader, trailer, existing)
-            : LoadAll(loader, linearization, crossReference, sourceTrailer, existing);
+            : LoadAll(loader, linearization, crossReference, sourceTrailer, existing, oldEncryption);
+        if (oldEncryption is not null && kept.Exists(item => item.Reference.Equals(oldEncryption)))
+        {
+            freeGenerations.Remove(oldEncryption.ObjectNumber);
+        }
 
+        if (encryption.NewDictionary is { } dictionary)
+        {
+            // The new encryption dictionary: an indirect object numbered as the next added object would be, above every number the
+            // file lists or refers to (§7.3.10, Table 15); a dangling reference in a damaged file must not come to reach it (fuzz
+            // finding). The number is not taken: the document does not change.
+            int number = loader.NextNumber;
+            if (number == int.MaxValue)
+            {
+                throw new InvalidOperationException("The document has no object number left for the encryption dictionary.");
+            }
+
+            var reference = new CosReference(number, 0);
+            kept.Add((reference, dictionary));
+            trailer[KnownNames.Encrypt] = reference;
+        }
+
+        // A linearized file (Annex F) orders and numbers its objects by part; nothing is freed. Its writer does not compose the PDF MAC
+        // token (ISO/TS 32004 §5.2.3), so a save that must carry one is not linearized rather than written without it.
+        if (options.Linearize && encryption.Integrity is not null)
+        {
+            throw new NotSupportedException("A file with an integrity MAC (ISO/TS 32004) cannot be saved linearized.");
+        }
+
+        LinearizedLayout? linearized = options.Linearize
+            ? LinearizedLayout.Create(trailer, kept, options.CrossReferenceLayout, value => value is not (CosStream or CosReference))
+            : null;
         Dictionary<CosReference, CosReference>? references = null;
-        if (options.ObjectNumbering == PdfObjectNumbering.Compact || !IsCompact(Highest(kept, freeGenerations), kept.Count))
+        if (linearized is not null)
+        {
+            references = linearized.References;
+            kept = [.. linearized.Objects];
+            freeGenerations.Clear();
+        }
+        else if (options.ObjectNumbering == PdfObjectNumbering.Compact || !IsCompact(Highest(kept, freeGenerations), kept.Count))
         {
             references = new Dictionary<CosReference, CosReference>(kept.Count);
             for (int index = 0; index < kept.Count; index++)
@@ -148,10 +220,17 @@ internal static class SavePlan
             }
         }
 
+        encryption.CheckWritable(kept, references);
         var objects = new List<WriterObject>(kept.Count);
         foreach ((CosReference reference, CosObject value) in kept)
         {
-            ObjectSourceBytes? bytes = !value.IsDirty
+            // Source bytes of an encrypted file are ciphertext under the old key and number; an encrypted or decrypted file
+            // serializes every object. A PDF/A save serializes every object too: copied bytes keep the source's stream keyword
+            // line ends and Length (ISO 19005-2 6.1.7.1, veraPDF rules 6.1.7.1-1 and -2) and other file-syntax deviations (issue #229).
+            ObjectSourceBytes? bytes = encryption.Encryptor is null
+                && options.PdfAConformance == PdfAConformance.None
+                && !value.IsDirty
+                && (linearized is null || CopiesIntoLinearized(linearized, reference, value))
                 && loader.TryGetSourceBytes(reference, out ObjectSourceBytes found)
                 && (references is null || KeepsReferences(value, references))
                     ? found
@@ -172,50 +251,90 @@ internal static class SavePlan
                 ? first
                 : null;
 
+        AddFeatures(features, options.CrossReferenceLayout, objects, encryption);
+        if (linearized is not null)
+        {
+            // Annex F, F.3.2: a linearized file is PDF 1.1 or later; its hint stream is FlateDecode-compressed unless compression is off.
+            features.Add(VersionedFeatures.Linearization);
+            if (options.StreamCompression != PdfStreamCompression.None)
+            {
+                features.Add(VersionedFeatures.FlateCompression);
+            }
+        }
+
         return new FileWriter(
             source,
             loader.Header.Version ?? FileHeader.DefaultVersion,
             objects,
             freeGenerations,
             trailer,
-            firstIdentifier,
+            encryption.FirstIdentifier ?? firstIdentifier,
             options.CrossReferenceLayout,
             encoders.Flate,
             options.CompressionLevel,
-            references);
+            references,
+            update: null,
+            encryption.Encryptor)
+        {
+            // A renumbered file (references is not null, which includes every linearized file: its layout's References) writes a
+            // dangling reference as null; one whose references are written as they are keeps it, so the streams the save adds skip
+            // its number. A linearized file numbers its own streams in the renumbered space (FileWriter.Linearized.cs).
+            StreamNumbers = references is null && options.CrossReferenceLayout != PdfCrossReferenceLayout.Table ? StreamNumbers(loader) : null,
+            Linearized = linearized,
+            CompressHintStream = options.StreamCompression != PdfStreamCompression.None,
+            Integrity = encryption.Integrity,
+        };
     }
+
+    /// <summary>
+    /// Whether an unchanged object may be copied byte for byte into a linearized file: not a page or page tree node the layout
+    /// rewrote, and not a stream with an indirect <c>Length</c>, which the layout treats as written with a direct one (§7.3.8.2).
+    /// </summary>
+    private static bool CopiesIntoLinearized(LinearizedLayout linearized, CosReference reference, CosObject value) =>
+        !linearized.IsSubstituted(reference)
+        && !(value is CosStream stream && stream.Dictionary.TryGetValue(KnownNames.Length, out CosObject? length) && length is CosReference);
 
     /// <summary>Plans an incremental update of an opened document (§7.5.6).</summary>
     /// <param name="source">The document's file, which the update is appended to.</param>
     /// <param name="loader">The document's loader.</param>
     /// <param name="options">Which of the written streams are compressed, and how hard.</param>
     /// <param name="encoders">The engine's encoders; streams are compressed with its <c>FlateDecode</c> encoder.</param>
+    /// <param name="security">The document's security, or <see langword="null"/> for a document read as not encrypted.</param>
+    /// <param name="features">
+    /// Receives the features of the version table the update uses (<see cref="VersionedFeatures"/>). An update writes no header: the
+    /// caller raises the version through the catalog's <c>Version</c> entry (§7.7.2, Table 29) and plans again.
+    /// </param>
     /// <returns>The writer.</returns>
-    /// <exception cref="NotSupportedException">The document is encrypted.</exception>
+    /// <exception cref="NotSupportedException">What <see cref="EncryptionPlan"/> refuses.</exception>
     /// <remarks>
     /// <para>
     /// ISO 32000-2 §7.5.6: "A cross-reference section for an incremental update shall contain entries only for objects that have been
     /// changed, replaced, or deleted." The update writes every loaded object that is dirty, every added object, and a free entry for
-    /// every removed one, with its generation raised by one (H.7.4). Nothing is loaded: an object nobody loaded has not changed. The
-    /// written objects are serialized; a written stream is compressed per <see cref="PdfSaveOptions.StreamCompression"/>.
+    /// every removed one, with its generation raised by one (H.7.4). Nothing is loaded to decide that: an object nobody loaded has
+    /// not changed. (An update that writes a cross-reference stream reads every object once, to number the stream away from every
+    /// dangling reference: issue #295.) The written objects are serialized; a written stream is compressed per
+    /// <see cref="PdfSaveOptions.StreamCompression"/>.
     /// </para>
     /// <para>
     /// The section takes the form of the file's newest one, a stream after a stream and a table after a table or a hybrid file's
-    /// table (§7.5.8.4), and its trailer repeats the newest trailer's entries except <c>Prev</c>, <c>XRefStm</c> and <c>Size</c>, with
+    /// table (§7.5.8.4), and its trailer repeats the newest trailer's entries except <c>Prev</c>, <c>XRefStm</c> and <c>Size</c> (and a
+    /// damaged <c>Encrypt</c> entry the document was read without, when the save removes encryption: issue #283), with
     /// <c>Prev</c> pointing at that section. A file whose cross-reference information had to be rebuilt (issue #41) has no section to
     /// point at: its update lists every object instead, so readers no longer need to rebuild it, and it writes again every object
     /// read with a repair, so appending bytes cannot change how it reads (an object cut off by the end of the file would run on).
     /// </para>
     /// </remarks>
-    public static FileWriter CreateIncremental(PdfSource source, ObjectLoader loader, PdfSaveOptions options, StreamEncoderRegistry encoders)
+    public static FileWriter CreateIncremental(
+        PdfSource source,
+        ObjectLoader loader,
+        PdfSaveOptions options,
+        StreamEncoderRegistry encoders,
+        PdfSecurity? security,
+        ICollection<VersionedFeature> features)
     {
         CrossReference crossReference = loader.CrossReference;
         CosDictionary sourceTrailer = crossReference.Trailer;
-        if (sourceTrailer.ContainsKey(KnownNames.Encrypt))
-        {
-            throw new NotSupportedException(
-                "Saving an encrypted document as an incremental update is not supported yet: the update's objects would have to be encrypted with the document's key and its integrity data recomputed.");
-        }
+        EncryptionPlan encryption = EncryptionPlan.Create(loader, security, options, incremental: true);
 
         var objects = new List<WriterObject>();
         var kept = new Dictionary<int, XrefEntry>();
@@ -261,7 +380,8 @@ internal static class SavePlan
         var trailer = new CosDictionary();
         foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
         {
-            if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID))
+            if (!entry.Key.Equals(KnownNames.Size) && !entry.Key.Equals(KnownNames.Prev) && !entry.Key.Equals(KnownNames.XRefStm) && !entry.Key.Equals(KnownNames.ID)
+                && encryption.KeepsTrailerEntry(entry.Key))
             {
                 trailer[entry.Key] = entry.Value;
             }
@@ -297,18 +417,64 @@ internal static class SavePlan
             kept,
             previousIdentifier);
 
+        PdfCrossReferenceLayout layout = form == XrefSectionKind.Stream ? PdfCrossReferenceLayout.Stream : PdfCrossReferenceLayout.Table;
+        AddFeatures(features, layout, objects, encryption);
         return new FileWriter(
             source,
             loader.Header.Version ?? FileHeader.DefaultVersion,
             objects,
             freeGenerations,
             trailer,
-            firstIdentifier,
-            form == XrefSectionKind.Stream ? PdfCrossReferenceLayout.Stream : PdfCrossReferenceLayout.Table,
+            encryption.FirstIdentifier ?? firstIdentifier,
+            layout,
             encoders.Flate,
             options.CompressionLevel,
             references: null,
-            target);
+            target,
+            encryption.Encryptor)
+        {
+            StreamNumbers = form == XrefSectionKind.Stream ? StreamNumbers(loader) : null,
+            Integrity = encryption.Integrity,
+        };
+    }
+
+    /// <summary>
+    /// The numbers of the streams a save adds, through the document's allocator (<see cref="ObjectLoader.NextNumberFrom"/>), so none
+    /// takes the number of a dangling reference (§7.3.10, issue #295). The numbers references name are found now (reading every
+    /// object, once per document), so in strict mode a deviation throws before anything is written.
+    /// </summary>
+    private static Func<int, int> StreamNumbers(ObjectLoader loader)
+    {
+        _ = loader.NextNumber;
+        return loader.NextNumberFrom;
+    }
+
+    /// <summary>
+    /// Adds the features of the version table a file uses: a cross-reference stream and object streams (PDF 1.5, §7.5.7, §7.5.8),
+    /// <c>FlateDecode</c> compression of a stream (PDF 1.2, §7.4.4; declared when a stream may be compressed, whether or not the
+    /// compressed copy turns out smaller), and the encryption <see cref="EncryptionPlan.Features"/> name.
+    /// </summary>
+    private static void AddFeatures(ICollection<VersionedFeature> features, PdfCrossReferenceLayout layout, List<WriterObject> objects, EncryptionPlan encryption)
+    {
+        if (layout != PdfCrossReferenceLayout.Table)
+        {
+            features.Add(VersionedFeatures.CrossReferenceStream);
+        }
+
+        if (layout == PdfCrossReferenceLayout.StreamWithObjectStreams)
+        {
+            features.Add(VersionedFeatures.ObjectStreams);
+        }
+
+        if (objects.Exists(item => item.Compress))
+        {
+            features.Add(VersionedFeatures.FlateCompression);
+        }
+
+        foreach (VersionedFeature feature in encryption.Features)
+        {
+            features.Add(feature);
+        }
     }
 
     /// <summary>
@@ -365,16 +531,33 @@ internal static class SavePlan
 
     /// <summary>
     /// Loads every object the cross-reference information lists as in use, in ascending number, except the old file's structure
-    /// (cross-reference and object streams, the linearization dictionary and hint streams) when nothing kept refers to it.
+    /// (cross-reference and object streams, the linearization dictionary and hint streams) and a replaced or dropped encryption
+    /// dictionary (<paramref name="oldEncryption"/>) when nothing kept refers to them.
     /// </summary>
     private static List<(CosReference Reference, CosObject Value)> LoadAll(
         ObjectLoader loader,
         PdfLinearization? linearization,
         CrossReference crossReference,
         CosDictionary sourceTrailer,
-        Dictionary<int, CosReference> existing)
+        Dictionary<int, CosReference> existing,
+        CosReference? oldEncryption)
     {
         var candidates = new HashSet<int>();
+        CosDictionary trailer = sourceTrailer;
+        if (oldEncryption is not null)
+        {
+            // The trailer's own Encrypt entry does not keep it.
+            candidates.Add(oldEncryption.ObjectNumber);
+            trailer = new CosDictionary();
+            foreach (KeyValuePair<CosName, CosObject> entry in sourceTrailer)
+            {
+                if (!entry.Key.Equals(KnownNames.Encrypt))
+                {
+                    trailer[entry.Key] = entry.Value;
+                }
+            }
+        }
+
         if (linearization is not null)
         {
             candidates.Add(linearization.Reference.ObjectNumber);
@@ -393,7 +576,7 @@ internal static class SavePlan
             loaded.Add((reference, value));
         }
 
-        HashSet<CosReference> referenced = FindReferenced(sourceTrailer, loaded, candidates);
+        HashSet<CosReference> referenced = FindReferenced(trailer, loaded, candidates);
         loaded.RemoveAll(item => candidates.Contains(item.Reference.ObjectNumber) && !referenced.Contains(item.Reference));
         return loaded;
     }

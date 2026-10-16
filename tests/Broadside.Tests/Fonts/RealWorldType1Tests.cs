@@ -34,6 +34,7 @@ public sealed class RealWorldType1Tests(ITestOutputHelper output)
         int glyphs = 0;
         int invalid = 0;
         int outsideBox = 0;
+        int converted = 0;
         var codes = new SortedDictionary<string, int>(StringComparer.Ordinal);
         var outline = new GlyphOutline();
         foreach (string file in files)
@@ -73,6 +74,7 @@ public sealed class RealWorldType1Tests(ITestOutputHelper output)
                     }
 
                     programs++;
+                    converted += ConvertsToCff(program, file) ? 1 : 0;
                     for (int code = 0; code < 256; code++)
                     {
                         Assert.InRange(font.GetGlyphId((byte)code), 0, program.GlyphCount - 1);
@@ -108,8 +110,50 @@ public sealed class RealWorldType1Tests(ITestOutputHelper output)
             }
         }
 
-        output.WriteLine($"{corpusId}: {programs} Type 1 programs, {unusable} unusable, {glyphs} glyphs outlined, {invalid} dropped, {outsideBox} reaching 500 units past a non-empty FontBBox.");
+        output.WriteLine($"{corpusId}: {programs} Type 1 programs, {unusable} unusable, {glyphs} glyphs outlined, {invalid} dropped, {outsideBox} reaching 500 units past a non-empty FontBBox, {converted} converted to CFF.");
         output.WriteLine(string.Join(", ", codes.Select(code => $"{code.Key} {code.Value}")));
+    }
+
+    /// <summary>
+    /// Issue #152: the program converts to CFF (unless a coordinate is past the Type 2 range), and every glyph draws the same verbs,
+    /// points (within 2^-16 of a unit) and advance in the converted program; a glyph the Type 1 interpreter drops is empty.
+    /// </summary>
+    private static bool ConvertsToCff(FontProgram program, string file)
+    {
+        var type1 = (Broadside.Fonts.Type1.Type1FontProgram)program;
+        if (Broadside.Fonts.Type1.Type1CffConverter.Convert(type1, out string? problem) is not { } data)
+        {
+            Assert.NotNull(problem);
+            return false;
+        }
+
+        FontProgram cff = new Broadside.Fonts.Cff.CffFontProgramParser().Parse(data, new FontProgramContext())!;
+        Assert.Equal(type1.GlyphCount, cff.GlyphCount);
+        var before = new GlyphOutline();
+        var after = new GlyphOutline();
+        for (int glyph = 0; glyph < Math.Min(type1.GlyphCount, MaxGlyphsPerProgram); glyph++)
+        {
+            GlyphOutlineStatus status = type1.GetOutline(glyph, before);
+            GlyphOutlineStatus converts = cff.GetOutline(glyph, after);
+            Assert.True(status == GlyphOutlineStatus.Invalid ? converts == GlyphOutlineStatus.Empty : converts == status, $"{file} glyph {glyph}: {status} -> {converts}");
+            if (status == GlyphOutlineStatus.Invalid)
+            {
+                continue;
+            }
+
+            PathVerb[] expected = [.. before.Path.Verbs.ToArray().Where(verb => verb != PathVerb.Close)];
+            Assert.True(expected.SequenceEqual(after.Path.Verbs.ToArray().Where(verb => verb != PathVerb.Close)), $"{file} glyph {glyph}: verbs");
+            for (int index = 0; index < before.Path.Points.Length; index++)
+            {
+                PathPoint p = before.Path.Points[index];
+                PathPoint q = after.Path.Points[index];
+                Assert.True(Math.Abs(p.X - q.X) <= 1.0 / 65536 && Math.Abs(p.Y - q.Y) <= 1.0 / 65536, $"{file} glyph {glyph} point {index}");
+            }
+
+            Assert.True(Math.Abs(type1.GetMetrics(glyph).AdvanceWidth - cff.GetMetrics(glyph).AdvanceWidth) <= 1.0 / 65536, $"{file} glyph {glyph}: width");
+        }
+
+        return true;
     }
 
     private static PdfDocument? OpenOrNull(string file)

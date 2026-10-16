@@ -12,7 +12,7 @@ namespace Broadside;
 /// prefetching a page are asynchronous. A document opened with <see cref="PdfEngine.OpenAsync(System.Net.Http.HttpClient, Uri, CancellationToken)"/>
 /// fetches the bytes a synchronous read misses by blocking on the request, except where
 /// <see cref="PdfOptions.SynchronousRangeFetch"/> is off, which it always is on the browser platform: a browser cannot block on
-/// HTTP. There, the read fails with this exception instead; await <see cref="PdfPage.PrefetchAsync"/> for the page first.
+/// HTTP. There, the read fails with this exception instead; await <see cref="PdfPage.PrefetchAsync"/> for the page first, or <see cref="PdfPageCollection.PrefetchAsync"/> to get a page of a linearized file, whose pages are found through its hint tables (issue #208).
 /// </para>
 /// <para>
 /// A read that fails this way leaves nothing cached: after the prefetch, the same read succeeds.
@@ -26,7 +26,7 @@ public sealed class PdfRangeNotLoadedException : InvalidOperationException
     public PdfRangeNotLoadedException(long offset, long length)
         : base(string.Create(
             CultureInfo.InvariantCulture,
-            $"Bytes {offset} to {offset + length - 1} of the remote file have not been fetched, and this document may not fetch them synchronously (PdfOptions.SynchronousRangeFetch is off, as it always is on the browser, which cannot block on HTTP). Await {nameof(PdfPage)}.{nameof(PdfPage.PrefetchAsync)} for the page before reading it."))
+            $"Bytes {offset} to {offset + length - 1} of the remote file have not been fetched, and this document may not fetch them synchronously (PdfOptions.SynchronousRangeFetch is off, as it always is on the browser, which cannot block on HTTP). Await {nameof(PdfPage)}.{nameof(PdfPage.PrefetchAsync)} for the page before reading it, or {nameof(PdfPageCollection)}.{nameof(PdfPageCollection.PrefetchAsync)} to get a page of a linearized file."))
     {
         Offset = offset;
         Length = length;

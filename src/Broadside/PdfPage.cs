@@ -21,13 +21,16 @@ namespace Broadside;
 /// gives; the reader records a diagnostic for it when it first walks the page tree.
 /// </para>
 /// </remarks>
-public sealed class PdfPage
+public sealed partial class PdfPage
 {
     /// <summary>The media box used when a page has none, US Letter, as pdf.js and PDFBox use.</summary>
     private static readonly PdfRectangle DefaultMediaBox = new(0, 0, 612, 792);
 
+    private static readonly CosName OutputIntentsKey = new("OutputIntents");
+    private static readonly CosName GroupKey = new("Group");
+
     private readonly PdfDocument _document;
-    private readonly PageTreeAncestor? _ancestors;
+    private PageTreeAncestor? _ancestors;
     private volatile AnnotationList? _annotations;
 
     internal PdfPage(PdfDocument document, CosDictionary dictionary, CosReference? reference, PageTreeAncestor? ancestors)
@@ -42,40 +45,105 @@ public sealed class PdfPage
     /// <remarks>ISO 32000-2 §7.7.3.3, Table 31.</remarks>
     public CosDictionary Dictionary { get; }
 
-    /// <summary>Gets the indirect reference to the page object, or <see langword="null"/> when the page tree holds it directly.</summary>
-    public CosReference? Reference { get; }
+    /// <summary>Gets the indirect reference to the page object, or <see langword="null"/> when the page tree holds it directly (until a page edit through <see cref="PdfDocument.Pages"/> makes it indirect).</summary>
+    public CosReference? Reference { get; private set; }
 
     /// <summary>Gets the page's additional actions (<c>AA</c>, PDF 1.2): actions when the page opens and closes; <see langword="null"/> when absent.</summary>
     /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §12.6.3, Table 198. Not inheritable; read on every call, never created by reading.</remarks>
     public PdfPageAdditionalActions? AdditionalActions =>
         PdfAdditionalActions.Create(_document, Dictionary.TryGetValue(ActionNames.AA, out CosObject? aa) ? aa : null, Reference, static (d, a, r, o) => new PdfPageAdditionalActions(d, a, r, o));
 
-    /// <summary>Gets the media box: the boundaries of the physical medium the page is displayed or printed on. Inheritable.</summary>
-    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Required; when missing or malformed, US Letter <c>[0 0 612 792]</c>.</remarks>
-    public PdfRectangle MediaBox => ReadBox(KnownNames.MediaBox, inheritable: true, out PdfRectangle box) == PageAttributeState.Valid ? box : DefaultMediaBox;
-
-    /// <summary>Gets the crop box: the region the page's contents are clipped to when displayed or printed. Inheritable.</summary>
-    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Defaults to the media box; reduced to its intersection with the media box.</remarks>
-    public PdfRectangle CropBox => ClipToMediaBox(KnownNames.CropBox, inheritable: true, MediaBox);
-
-    /// <summary>Gets the bleed box: the region the contents are clipped to in a production environment.</summary>
-    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Defaults to the crop box; reduced to its intersection with the media box.</remarks>
-    public PdfRectangle BleedBox => ClipToMediaBox(KnownNames.BleedBox, inheritable: false, CropBox);
-
-    /// <summary>Gets the trim box: the intended dimensions of the finished page after trimming.</summary>
-    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Defaults to the crop box; reduced to its intersection with the media box.</remarks>
-    public PdfRectangle TrimBox => ClipToMediaBox(KnownNames.TrimBox, inheritable: false, CropBox);
-
-    /// <summary>Gets the art box: the extent of the page's meaningful content.</summary>
-    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Defaults to the crop box; reduced to its intersection with the media box.</remarks>
-    public PdfRectangle ArtBox => ClipToMediaBox(KnownNames.ArtBox, inheritable: false, CropBox);
-
-    /// <summary>Gets the number of degrees the page is rotated clockwise when displayed or printed: 0, 90, 180 or 270. Inheritable.</summary>
+    /// <summary>Gets the page's own output intents (<c>OutputIntents</c>, PDF 2.0), in the order written; empty when it has none.</summary>
     /// <remarks>
-    /// ISO 32000-2 §7.7.3.3, Table 31. The entry shall be a multiple of 90; it is normalized into 0 to 270 (−90 reads as 270, 450 as
-    /// 90). A value that is not a multiple of 90 reads as 0.
+    /// ISO 32000-2 §7.7.3.3, Table 31, and §14.11.5: when a page has output intents, a processor that respects output intents uses
+    /// them for that page instead of the document's (<see cref="PdfDocument.OutputIntents"/>). Not inheritable; read on every call.
     /// </remarks>
-    public int Rotation => ReadRotation(out int degrees) is PageAttributeState.Valid or PageAttributeState.Repaired ? degrees : 0;
+    public IReadOnlyList<PdfOutputIntent> OutputIntents =>
+        PdfOutputIntent.Read(_document, Dictionary.GetValueOrDefault(OutputIntentsKey), Reference, _document.OutputIntentViews);
+
+    /// <summary>Gets or sets the media box: the boundaries of the physical medium the page is displayed or printed on. Inheritable.</summary>
+    /// <exception cref="ArgumentException">On set, a coordinate is not finite, or the box has no area.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Required; when missing or malformed, US Letter <c>[0 0 612 792]</c>. Setting
+    /// writes the page's own entry, which overrides an inherited one (§7.7.3.4). A mutation.
+    /// </remarks>
+    public PdfRectangle MediaBox
+    {
+        get => ReadBox(KnownNames.MediaBox, inheritable: true, out PdfRectangle box) == PageAttributeState.Valid ? box : DefaultMediaBox;
+        set => WriteBox(KnownNames.MediaBox, value, feature: null);
+    }
+
+    /// <summary>Gets or sets the crop box: the region the page's contents are clipped to when displayed or printed. Inheritable.</summary>
+    /// <exception cref="ArgumentException">On set, a coordinate is not finite, or the box has no area.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Defaults to the media box; reduced to its intersection with the media box. Setting
+    /// writes the page's own entry as given (reading reduces it again). A mutation.
+    /// </remarks>
+    public PdfRectangle CropBox
+    {
+        get => ClipToMediaBox(KnownNames.CropBox, inheritable: true, MediaBox);
+        set => WriteBox(KnownNames.CropBox, value, feature: null);
+    }
+
+    /// <summary>Gets or sets the bleed box: the region the contents are clipped to in a production environment.</summary>
+    /// <exception cref="ArgumentException">On set, a coordinate is not finite, or the box has no area.</exception>
+    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Defaults to the crop box; reduced to its intersection with the media box. Setting writes the entry as given (reading reduces it again) and records PDF 1.3 (Table 31). A mutation.</remarks>
+    public PdfRectangle BleedBox
+    {
+        get => ClipToMediaBox(KnownNames.BleedBox, inheritable: false, CropBox);
+        set => WriteBox(KnownNames.BleedBox, value, Writing.VersionedFeatures.PageBoundaries);
+    }
+
+    /// <summary>Gets or sets the trim box: the intended dimensions of the finished page after trimming.</summary>
+    /// <exception cref="ArgumentException">On set, a coordinate is not finite, or the box has no area.</exception>
+    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Defaults to the crop box; reduced to its intersection with the media box. Setting writes the entry as given (reading reduces it again) and records PDF 1.3 (Table 31). A mutation.</remarks>
+    public PdfRectangle TrimBox
+    {
+        get => ClipToMediaBox(KnownNames.TrimBox, inheritable: false, CropBox);
+        set => WriteBox(KnownNames.TrimBox, value, Writing.VersionedFeatures.PageBoundaries);
+    }
+
+    /// <summary>Gets or sets the art box: the extent of the page's meaningful content.</summary>
+    /// <exception cref="ArgumentException">On set, a coordinate is not finite, or the box has no area.</exception>
+    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §14.11.2. Defaults to the crop box; reduced to its intersection with the media box. Setting writes the entry as given (reading reduces it again) and records PDF 1.3 (Table 31). A mutation.</remarks>
+    public PdfRectangle ArtBox
+    {
+        get => ClipToMediaBox(KnownNames.ArtBox, inheritable: false, CropBox);
+        set => WriteBox(KnownNames.ArtBox, value, Writing.VersionedFeatures.PageBoundaries);
+    }
+
+    /// <summary>Gets or sets the number of degrees the page is rotated clockwise when displayed or printed: 0, 90, 180 or 270. Inheritable.</summary>
+    /// <exception cref="ArgumentOutOfRangeException">On set, the value is not a multiple of 90.</exception>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §7.7.3.3, Table 31 (PDF 1.0). The entry shall be a multiple of 90; it is normalized into 0 to 270 (−90 reads as 270,
+    /// 450 as 90). A value that is not a multiple of 90 reads as 0.
+    /// </para>
+    /// <para>
+    /// Setting writes the page's own <c>Rotate</c>, normalized into 0 to 270, which overrides an inherited one (§7.7.3.4); setting 0
+    /// when no ancestor gives a rotation removes the entry instead. A mutation: no read may run concurrently with it.
+    /// </para>
+    /// </remarks>
+    public int Rotation
+    {
+        get => ReadRotation(out int degrees) is PageAttributeState.Valid or PageAttributeState.Repaired ? degrees : 0;
+        set
+        {
+            if (value % 90 != 0)
+            {
+                throw new ArgumentOutOfRangeException(nameof(value), value, "A page's rotation shall be a multiple of 90 degrees.");
+            }
+
+            int degrees = ((value % 360) + 360) % 360;
+            if (degrees == 0 && !AncestorsHave(KnownNames.Rotate))
+            {
+                Dictionary.Remove(KnownNames.Rotate);
+                return;
+            }
+
+            Dictionary[KnownNames.Rotate] = new CosInteger(degrees);
+        }
+    }
 
     /// <summary>Gets the resource dictionary the page's content streams use, or <see langword="null"/> when the page has none. Inheritable.</summary>
     /// <remarks>ISO 32000-2 §7.7.3.3, Table 31, and §7.8.3.</remarks>
@@ -124,7 +192,7 @@ public sealed class PdfPage
     /// <remarks>
     /// <para>
     /// ISO 32000-2 §7.7.3.3, Table 31 (<c>Annots</c>), and §12.5. The list is built on first use and rebuilt when the page's
-    /// <c>Annots</c> entry or array, or an annotation's <c>Subtype</c>, changes; each annotation is a live view over its dictionary, and the same dictionary always
+    /// <c>Annots</c> entry or array, or an annotation's <c>Subtype</c>, changes, or an object is added or removed (§7.3.10); each annotation is a live view over its dictionary, and the same dictionary always
     /// gives the same instance. An element that is not an annotation dictionary is skipped; one listed twice appears twice. An
     /// <c>Annots</c> entry on a page tree node above the page, which is not inheritable, is used as viewers use it.
     /// </para>
@@ -134,17 +202,19 @@ public sealed class PdfPage
     {
         get
         {
+            int objectsVersion = _document.ObjectsVersion;
             (CosObject? entry, bool inherited) = FindAnnots();
             var array = _document.Resolve(entry) as CosArray;
             AnnotationList? cached = _annotations;
-            if (cached is not null && ReferenceEquals(cached.Entry, entry) && ReferenceEquals(cached.Array, array) && cached.ArrayVersion == (array?.Version ?? 0)
+            if (cached is not null && cached.ObjectsVersion == objectsVersion && ReferenceEquals(cached.Entry, entry) && ReferenceEquals(cached.Array, array)
+                && cached.ArrayVersion == (array?.Version ?? 0)
                 && cached.Items.All(annotation => Equals(annotation.CreatedSubtype, PdfAnnotation.ReadSubtype(_document, annotation.Dictionary, out _))))
             {
                 return cached.Items;
             }
 
             IReadOnlyList<PdfAnnotation> items = _document.AnnotationIndex.Read(this, entry, inherited);
-            _annotations = new AnnotationList(entry, array, array?.Version ?? 0, items);
+            _annotations = new AnnotationList(entry, array, array?.Version ?? 0, objectsVersion, items);
             return items;
         }
     }
@@ -193,6 +263,33 @@ public sealed class PdfPage
         ContentInterpreter.RunPage(this, _document, processor, options);
     }
 
+    /// <summary>Returns a canvas that draws on the page, after its existing content; dispose it to store what was drawn.</summary>
+    /// <returns>The canvas.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.8.2, §8.2 to §8.6; Table 31 (<c>Contents</c>, <c>Resources</c>). The new content goes into a new stream added to
+    /// the page's <c>Contents</c> (existing content wrapped in <c>q</c> and <c>Q</c>); resources go into the page's resource dictionary
+    /// (the inherited one when the page has none of its own, which other pages sharing it then also hold, unused; a new one when there
+    /// is none). See <see cref="Graphics.PdfCanvas"/>. A mutation.
+    /// </remarks>
+    public Graphics.PdfCanvas CreateCanvas() => new(_document, this);
+
+    /// <summary>Gets the attributes of the page group when the page has a transparency <c>Group</c>, else <see langword="null"/>.</summary>
+    /// <remarks>ISO 32000-2 §7.7.3.3, Table 31 (<c>Group</c>, PDF 1.4), §11.4.7 and §11.6.6, Table 145. Not inheritable.</remarks>
+    public Graphics.PdfTransparencyGroup? TransparencyGroup =>
+        Graphics.PdfTransparencyGroup.Read(_document, Dictionary.TryGetValue(GroupKey, out CosObject? value) ? value : null, Reference);
+
+    /// <summary>
+    /// Gives the page a page group, writing <c>&lt;&lt; /Type /Group /S /Transparency &gt;&gt;</c> as its <c>Group</c>, and returns
+    /// the group's attributes to set; returns the existing attributes when the page already has one.
+    /// </summary>
+    /// <returns>The group attributes.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §7.7.3.3, Table 31, §11.4.7 and §11.6.6, Table 145 (PDF 1.4). The page group is effectively isolated whatever
+    /// <see cref="Graphics.PdfTransparencyGroup.IsIsolated"/> says; its <see cref="Graphics.PdfTransparencyGroup.ColorSpace"/> is
+    /// honoured, and is the space the page's transparent content blends in. Records PDF 1.4. A mutation.
+    /// </remarks>
+    public Graphics.PdfTransparencyGroup CreateTransparencyGroup() => Graphics.PdfTransparencyGroup.Create(_document, Dictionary, Reference);
+
     /// <summary>
     /// Runs the page's content through <paramref name="editor"/> and, when it made edits, replaces the content with the result: one
     /// stream in which every byte the edits did not touch is as it was.
@@ -226,37 +323,90 @@ public sealed class PdfPage
     }
 
     /// <summary>Extracts the page's text: every glyph its content shows, with its Unicode text, position, font, size and rendering mode.</summary>
-    /// <returns>The glyphs in content order and their text, with their words, lines and plain text assembled on first use.</returns>
-    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content or its fonts.</exception>
+    /// <returns>The glyphs in reading order and their text, with their words, lines and plain text assembled on first use.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content, its fonts or the structure tree.</exception>
     /// <remarks>
-    /// ISO 32000-2 §9.4.4, §9.10, §14.8.2.6.2 and §14.9.4; see <see cref="Text.TextExtractor"/>. Text hidden by optional content is left out;
-    /// invisible text, artifacts and text replaced by <c>ActualText</c> are extracted and flagged (<see cref="Text.TextGlyphFlags"/>).
-    /// Positions are in default user space. Annotation appearances are not part of the page's content and are not extracted.
+    /// ISO 32000-2 §9.4.4, §9.10, §14.8.2.6.2, §14.8.2.5 and §14.9; see <see cref="Text.TextExtractor"/>. A tagged page reads in
+    /// logical content order, the order of its structure tree, with structure elements' <c>ActualText</c> and <c>Lang</c> applied
+    /// (<see cref="Text.TextReadingOrder.Structure"/>); other pages in content order. Text hidden by optional content and artifacts
+    /// are left out; invisible text and text replaced by <c>ActualText</c> are extracted and flagged (<see cref="Text.TextGlyphFlags"/>).
+    /// A structure element whose content spans pages gives its replacement once, on the page where it shows its first glyph in
+    /// logical order, so pages read one after another hold it once, in whatever order they are read; on its other pages its glyphs
+    /// are still returned, in order, with their element and replacement flag, but each with an empty text range, so they add no
+    /// text, words or lines. When the element's content starts with items that show no glyph (an image) on an earlier page, that
+    /// page is extracted once per document to find out (in strict mode its deviations then throw here too). Positions are in
+    /// default user space. Annotation appearances are not part of the page's content and are not extracted.
     /// </remarks>
     public Text.TextPage ExtractText() => ExtractText(new Text.TextExtractionOptions());
 
     /// <summary>Extracts the page's text with options.</summary>
-    /// <param name="options">What to extract and the content run's options.</param>
-    /// <returns>The glyphs in content order and their text.</returns>
-    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content or its fonts.</exception>
+    /// <param name="options">What to extract, in which order, and the content run's options.</param>
+    /// <returns>The glyphs in the order the options ask for and their text.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content, its fonts or the structure tree.</exception>
     /// <exception cref="OperationCanceledException">The content options' cancellation token was canceled.</exception>
-    /// <remarks>ISO 32000-2 §9.4.4, §9.10, §8.11.3.1 and §14.9.4. As <see cref="ExtractText()"/>.</remarks>
+    /// <remarks>ISO 32000-2 §9.4.4, §9.10, §8.11.3.1, §14.8.2 and §14.9. As <see cref="ExtractText()"/>.</remarks>
     public Text.TextPage ExtractText(Text.TextExtractionOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        var extractor = new Text.TextExtractor(options);
-        ProcessContent(extractor, options.ContentOptions ?? ContentInterpreter.DefaultOptions);
-        return extractor.ToTextPage();
+        return ExtractText(options, null);
+    }
+
+    /// <summary>Builds the page's layout tree: the nodes of the document's layout tree that have content on this page.</summary>
+    /// <returns>The tree, with this page alone in <see cref="Layout.LayoutTree.Pages"/>; a new one on every call.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content, its fonts or the structure tree.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §14.8.4 and ISO/TS 32005; as <see cref="PdfDocument.ExtractLayout()"/> for this page only: nodes whose content is
+    /// all on other pages are left out, and those that span pages have their extent on this one.
+    /// </remarks>
+    public Layout.LayoutTree ExtractLayout() => ExtractLayout(new Layout.LayoutOptions());
+
+    /// <summary>Builds the page's layout tree with options.</summary>
+    /// <param name="options">What content to include and the content run's options.</param>
+    /// <returns>The tree.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content, its fonts or the structure tree.</exception>
+    /// <exception cref="OperationCanceledException">The content options' cancellation token was canceled.</exception>
+    /// <remarks>ISO 32000-2 §14.8.4; ISO/TS 32005. As <see cref="ExtractLayout()"/>.</remarks>
+    public Layout.LayoutTree ExtractLayout(Layout.LayoutOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        return Layout.StructureLayout.Build(_document, [this], options);
+    }
+
+    /// <summary>Extracts the page's text with <paramref name="companion"/>, when given, run in the same pass over the content (issue #186).</summary>
+    internal Text.TextPage ExtractText(Text.TextExtractionOptions options, ContentProcessor? companion)
+    {
+        // Issue #284: the thread's extractor is reused, so only the returned page (its glyphs and text, copied at their exact size) is allocated per page.
+        // Issue #185: structure order reads the extractor's glyphs and content items, so it runs before the extractor is returned.
+        Text.TextExtractor extractor = Text.TextExtractor.Rent(options);
+        try
+        {
+            ContentProcessor processor = companion is null ? extractor : new CompositeContentProcessor(extractor, companion);
+            ProcessContent(processor, options.ContentOptions ?? ContentInterpreter.DefaultOptions);
+            return options.ReadingOrder == Text.TextReadingOrder.Structure && Text.StructureOrder.Build(_document, this, extractor, options) is { } ordered
+                ? ordered
+                : extractor.ToTextPage();
+        }
+        finally
+        {
+            Text.TextExtractor.Return(extractor);
+        }
     }
 
     /// <summary>Builds the page's display list: its content interpreted once into resolved drawing operations any backend replays.</summary>
-    /// <returns>The list; a new one on every call, reading the page live.</returns>
+    /// <returns>
+    /// The list: the one built earlier while the document is unchanged and the display-list cache still holds it, else a new one
+    /// reading the page live.
+    /// </returns>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
     /// <remarks>
     /// ADR 0006; ISO 32000-2 §8.5.3 (path painting) and §8.6 (colour). The content runs through the same interpreter as
     /// <see cref="ProcessContent(ContentProcessor)"/>, so lenient repairs are recorded in <see cref="PdfDocument.Diagnostics"/> the
     /// same way. Geometry is in user space with the transform to default user space; the media box, crop box, rotation and user unit
     /// are the renderer's to apply. Colours keep their colour space; a backend converts them (see <see cref="DisplayColor"/>).
+    /// A list is immutable and replays on any number of threads at once, so the document keeps the lists it builds, within
+    /// <see cref="PdfOptions.DisplayListCacheBudget"/>, and returns the same list again until any COS object changes (spec #33 viewer
+    /// capability 13); its images, masks, glyph outlines and decoded content come from the document's other caches
+    /// (<see cref="PdfDocument.CacheStatistics"/>). Diagnostics are recorded when a list is built, not when a kept one is returned.
     /// </remarks>
     public DisplayList CreateDisplayList() => CreateDisplayList(ContentInterpreter.DefaultOptions);
 
@@ -265,11 +415,94 @@ public sealed class PdfPage
     /// <returns>The list.</returns>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
     /// <exception cref="OperationCanceledException">The options' cancellation token was canceled.</exception>
-    /// <remarks>ADR 0006; ISO 32000-2 §8.5.3, §8.6. As <see cref="CreateDisplayList()"/>.</remarks>
+    /// <remarks>
+    /// ADR 0006; ISO 32000-2 §8.5.3, §8.6. As <see cref="CreateDisplayList()"/>: lists are kept per page and limits; a list built with
+    /// an <see cref="ContentOptions.OptionalContentState"/> is not kept, since the state can change without any COS object changing.
+    /// </remarks>
     public DisplayList CreateDisplayList(ContentOptions options)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return DisplayListBuilder.Build(this, _document, options);
+        return DisplayListBuilder.BuildCached(this, _document, DisplayLayers.Content, DisplayIntent.View, options);
+    }
+
+    /// <summary>Builds the page's hit-test index: its display list's glyphs, images and paths, and its link annotations.</summary>
+    /// <returns>The index, from a display list built for it under the document's default optional-content states.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
+    /// <remarks>Viewer capability 4; ADR 0006. As <see cref="CreateHitTestIndex(DisplayList, PdfOptionalContentState?)"/>.</remarks>
+    public HitTestIndex CreateHitTestIndex() => CreateHitTestIndex(CreateDisplayList());
+
+    /// <summary>Builds the page's hit-test index from a display list the caller already has, adding the page's link annotations.</summary>
+    /// <param name="displayList">The page's display list, such as the one a viewer caches to render tiles.</param>
+    /// <param name="optionalContentState">
+    /// The optional-content states that decide which links are visible, as the list was built with; <see langword="null"/> for the
+    /// document's default configuration.
+    /// </param>
+    /// <returns>The index.</returns>
+    /// <remarks>
+    /// Viewer capability 4; ISO 32000-2 §12.5.6.5 (links: <c>QuadPoints</c> inside <c>Rect</c>, else <c>Rect</c>), §12.5.3
+    /// (<c>Hidden</c> and <c>NoView</c> links are left out) and §8.11.3.3 (a link whose optional content is off is left out). The
+    /// links are read from <see cref="Annotations"/> now; the list's content is indexed as by <see cref="DisplayList.CreateHitTestIndex"/>.
+    /// </remarks>
+    public HitTestIndex CreateHitTestIndex(DisplayList displayList, PdfOptionalContentState? optionalContentState = null)
+    {
+        ArgumentNullException.ThrowIfNull(displayList);
+        return HitTestIndex.Create(displayList, HitTestIndex.CollectLinks(this, _document, optionalContentState));
+    }
+
+    /// <summary>Builds the display list of some of the page's layers, for the screen: content, annotations, form fields, or any combination.</summary>
+    /// <param name="layers">The layers the list holds, painted in content, annotations, form fields order.</param>
+    /// <returns>The list.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content or an appearance.</exception>
+    /// <remarks>As <see cref="CreateDisplayList(DisplayLayers, DisplayIntent, ContentOptions)"/> with <see cref="DisplayIntent.View"/> and default limits.</remarks>
+    public DisplayList CreateDisplayList(DisplayLayers layers) => CreateDisplayList(layers, DisplayIntent.View, ContentInterpreter.DefaultOptions);
+
+    /// <summary>Builds the display list of some of the page's layers for an intent, with limits and cancellation.</summary>
+    /// <param name="layers">The layers the list holds, painted in content, annotations, form fields order.</param>
+    /// <param name="intent">Whether the list is for the screen or for printing, which decides the annotations drawn.</param>
+    /// <param name="options">Limits, optional-content state and cancellation for the content and appearance runs.</param>
+    /// <returns>The list.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content or an appearance.</exception>
+    /// <exception cref="OperationCanceledException">The options' cancellation token was canceled.</exception>
+    /// <remarks>
+    /// <para>
+    /// ADR 0006; ISO 32000-2 §12.5.5 (Algorithm "Appearance streams"), §12.5.3 (flags) and §12.7 (form fields through their widgets).
+    /// The content layer is what <see cref="CreateDisplayList(ContentOptions)"/> builds. The annotation layer holds every annotation
+    /// but widgets, the form-field layer every widget, each in <c>Annots</c> order, each between
+    /// <see cref="IRenderingBackend.BeginAnnotation"/> and <see cref="IRenderingBackend.EndAnnotation"/>: its normal appearance for
+    /// its appearance state (<c>AS</c>), placed on its rectangle, which a backend composites as a transparency group with the
+    /// annotation's <c>ca</c> (or <c>CA</c>) and <c>BM</c> (§12.5.5, §11.6.6). Building each layer as a list of its own lets a
+    /// viewer redraw the overlays without re-rasterizing the page; replaying the three lists in order draws what one list of all
+    /// three draws.
+    /// </para>
+    /// <para>
+    /// Not drawn (Table 167): <c>Hidden</c> annotations; unknown types with <c>Invisible</c>; for <see cref="DisplayIntent.View"/>
+    /// those with <c>NoView</c>, for <see cref="DisplayIntent.Print"/> those without <c>Print</c>; annotations whose optional
+    /// content (<c>OC</c>, §8.11.3.3) is hidden in the options' optional-content state (the document's default without one);
+    /// popups, which a viewer shows as windows of their own (§12.5.6.14); and annotations without a normal appearance for their
+    /// state, recorded as <c>AppearanceNotRendered</c> (Information) unless they are links or projections or their rectangle has
+    /// no size, which need none (Table 166). Appearances are drawn as they are; none is generated. For
+    /// <see cref="DisplayIntent.View"/>, <c>NoZoom</c> and <c>NoRotate</c> (always for text annotations, §12.5.6.4) travel to the
+    /// backend in <see cref="DisplayAnnotation"/>.
+    /// </para>
+    /// <para>
+    /// Lists are kept like <see cref="CreateDisplayList()"/>'s, per page, layers, intent and limits, within
+    /// <see cref="PdfOptions.DisplayListCacheBudget"/> (spec #33 viewer capability 13).
+    /// </para>
+    /// <para>
+    /// For <see cref="DisplayIntent.Print"/> the optional-content state (the options', else the default configuration's) has its
+    /// configuration's auto-state entries for the Print event applied (§8.11.4.4), for the content and the annotations alike, and an
+    /// image XObject without <c>OC</c> is painted as its alternate marked <c>DefaultForPrinting</c> (§8.9.5.4).
+    /// </para>
+    /// </remarks>
+    public DisplayList CreateDisplayList(DisplayLayers layers, DisplayIntent intent, ContentOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (!Enum.IsDefined(intent))
+        {
+            throw new ArgumentOutOfRangeException(nameof(intent), intent, "The intent must be View or Print.");
+        }
+
+        return DisplayListBuilder.BuildCached(this, _document, layers & DisplayLayers.All, intent, options);
     }
 
     /// <summary>Reads a page boundary; for an inheritable one, from the nearest node that has it.</summary>
@@ -345,6 +578,23 @@ public sealed class PdfPage
         }
     }
 
+    /// <summary>Writes a page boundary as the page's own entry, recording the version it needs.</summary>
+    private void WriteBox(CosName key, PdfRectangle box, Writing.VersionedFeature? feature)
+    {
+        if (!double.IsFinite(box.Left) || !double.IsFinite(box.Bottom) || !double.IsFinite(box.Right) || !double.IsFinite(box.Top)
+            || box.Width <= 0 || box.Height <= 0)
+        {
+            throw new ArgumentException("A page boundary shall have finite coordinates and an area (ISO 32000-2 §14.11.2).", nameof(box));
+        }
+
+        if (feature is not null)
+        {
+            _document.RequireFeature(feature);
+        }
+
+        Dictionary[key] = Graphics.DrawingCache.Rectangle(box);
+    }
+
     /// <summary>A box that defaults to <paramref name="fallback"/>, reduced to its intersection with the media box (§14.11.2).</summary>
     private PdfRectangle ClipToMediaBox(CosName key, bool inheritable, PdfRectangle fallback)
     {
@@ -375,6 +625,63 @@ public sealed class PdfPage
         return (null, false);
     }
 
+    /// <summary>
+    /// The <c>Annots</c> entry the page reads from a page tree node above it, as stored (not resolved); <see langword="null"/> when the
+    /// page has its own or no node has one. Not inheritable (Table 31), but read as viewers read it (§7.7.3.3).
+    /// </summary>
+    internal CosObject? FindInheritedAnnots() => FindAnnots() is (CosObject entry, true) ? entry : null;
+
+    /// <summary>Gets the document the page belongs to.</summary>
+    internal PdfDocument Document => _document;
+
+    /// <summary>
+    /// The value an inheritable entry has when the page does not have it itself: the nearest ancestor's entry as stored, not resolved
+    /// (a reference stays a reference); <see langword="null"/> when the page has its own or no ancestor has one (§7.7.3.4).
+    /// </summary>
+    internal CosObject? FindInheritedEntry(CosName key)
+    {
+        if (Find(key) is not null)
+        {
+            return null;
+        }
+
+        for (PageTreeAncestor? node = _ancestors; node is not null; node = node.Parent)
+        {
+            if (EntryReader.Get(_document, node.Dictionary, key) is not null)
+            {
+                return node.Dictionary[key];
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Whether a node above the page has <paramref name="key"/>, resolving to a value.</summary>
+    private bool AncestorsHave(CosName key)
+    {
+        for (PageTreeAncestor? node = _ancestors; node is not null; node = node.Parent)
+        {
+            if (EntryReader.Get(_document, node.Dictionary, key) is not null)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>Gets the page tree nodes above the page, nearest first, as the page tree was last read or rebuilt.</summary>
+    internal PageTreeAncestor? Ancestors => _ancestors;
+
+    /// <summary>Points the view at the page's place in a rebuilt page tree (issue #158): its reference and its new ancestors.</summary>
+    /// <param name="reference">The page object's reference; a page the tree held directly gets one when the tree is rebuilt.</param>
+    /// <param name="ancestors">The nodes above the page, nearest first.</param>
+    internal void Relink(CosReference reference, PageTreeAncestor? ancestors)
+    {
+        Reference = reference;
+        _ancestors = ancestors;
+    }
+
     /// <summary>The page's own entry, resolved; <see langword="null"/> when absent or a reference to nothing.</summary>
     private CosObject? Find(CosName key) => EntryReader.Get(_document, Dictionary, key);
 
@@ -401,10 +708,14 @@ public sealed class PdfPage
 /// <summary>A page tree node on the path from the root to a page, nearest first: the nodes a page inherits from (§7.7.3.4).</summary>
 /// <param name="Dictionary">The node's dictionary.</param>
 /// <param name="Parent">The node above it, or <see langword="null"/> for the root.</param>
-internal sealed record PageTreeAncestor(CosDictionary Dictionary, PageTreeAncestor? Parent);
+/// <param name="Reference">The node's reference, or <see langword="null"/> when its parent holds it directly.</param>
+internal sealed record PageTreeAncestor(CosDictionary Dictionary, PageTreeAncestor? Parent, CosReference? Reference);
 
-/// <summary>A page's annotation list and the <c>Annots</c> entry, array and array version it was built from.</summary>
-internal sealed record AnnotationList(CosObject? Entry, CosArray? Array, int ArrayVersion, IReadOnlyList<PdfAnnotation> Items);
+/// <summary>
+/// A page's annotation list and the <c>Annots</c> entry, array and array version it was built from, with the document's
+/// <c>ObjectsVersion</c> then (a removed annotation object leaves the array unchanged, §7.3.10).
+/// </summary>
+internal sealed record AnnotationList(CosObject? Entry, CosArray? Array, int ArrayVersion, int ObjectsVersion, IReadOnlyList<PdfAnnotation> Items);
 
 /// <summary>What reading a page attribute found.</summary>
 internal enum PageAttributeState : byte

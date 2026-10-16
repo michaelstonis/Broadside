@@ -38,6 +38,9 @@ public abstract class PdfFunction
         _expectedOutputs = expectedOutputs;
     }
 
+    /// <summary>Gets the document the function belongs to.</summary>
+    internal PdfDocument Document => _cache.Document;
+
     /// <summary>Gets the function object: a <see cref="CosDictionary"/> (Types 2 and 3) or a <see cref="CosStream"/> (Types 0 and 4).</summary>
     public CosObject CosObject { get; }
 

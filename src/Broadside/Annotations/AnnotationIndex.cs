@@ -12,7 +12,7 @@ namespace Broadside.Annotations;
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §12.5.2 and §7.7.3.3. Thread-safe: views are created and published with first-publisher-wins semantics; the page map
-/// is built on first use and rebuilt when a page dictionary or an <c>Annots</c> array it read has changed (ADR 0004).
+/// is built on first use and rebuilt when a page dictionary or an <c>Annots</c> array it read has changed, or an object was added or removed (ADR 0004).
 /// </remarks>
 internal sealed class AnnotationIndex
 {
@@ -28,7 +28,7 @@ internal sealed class AnnotationIndex
         CosReference? pageReference = page.Reference;
         if (inherited)
         {
-            Report(DiagnosticCodes.AnnotsInherited, "The page has no Annots entry but a page tree node above it has one, which is not inheritable (Table 31); it is used, as viewers do.", pageReference);
+            ReportInherited(pageReference);
         }
 
         switch (_document.Resolve(annots))
@@ -42,6 +42,12 @@ internal sealed class AnnotationIndex
                 return [];
         }
     }
+
+    /// <summary>Records that a page reads its <c>Annots</c> from a page tree node above it, which is not inheritable (Table 31).</summary>
+    /// <param name="pageReference">The page object's reference, when it has one.</param>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode.</exception>
+    public void ReportInherited(CosReference? pageReference) =>
+        Report(DiagnosticCodes.AnnotsInherited, "The page has no Annots entry but a page tree node above it has one, which is not inheritable (Table 31); it is used, as viewers do.", pageReference);
 
     /// <summary>Returns the view over <paramref name="dictionary"/>, creating it for <paramref name="page"/> when there is none or its subtype changed.</summary>
     public PdfAnnotation GetOrCreate(CosDictionary dictionary, CosReference? reference, PdfPage? page)
@@ -176,7 +182,7 @@ internal sealed class AnnotationIndex
         }
 
         var owners = new Dictionary<CosDictionary, PdfPage>(ReferenceEqualityComparer.Instance);
-        var stamps = new ContainerStamps();
+        var stamps = new ContainerStamps(_document);
         foreach (PdfPage page in _document.Pages)
         {
             stamps.Add(page.Dictionary);

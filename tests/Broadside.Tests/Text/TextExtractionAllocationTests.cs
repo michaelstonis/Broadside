@@ -20,7 +20,7 @@ public sealed class TextExtractionAllocationTests
     {
         string lines = System.Text.Encoding.ASCII.GetString(ContentSamples.TextHeavy(10_000));
         using PdfDocument document = PdfDocument.Open(ContentPdf.BuildWith(ContentPdf.HelveticaResources, $"{lines} /Artifact BMC {lines} EMC", ContentPdf.Helvetica));
-        var extractor = new TextExtractor();
+        var extractor = new TextExtractor(new TextExtractionOptions().WithArtifacts());
 
         long allocated = Measure(document.Pages[0], extractor);
 
@@ -68,6 +68,48 @@ public sealed class TextExtractionAllocationTests
         Assert.True(forFew > 0, "The replacement string is expected to be allocated.");
         Assert.Equal(forFew, forMany);
     }
+
+    [Fact]
+    public void Extracting_a_page_of_ten_thousand_glyphs_allocates_its_text_page_and_little_more()
+    {
+        string lines = System.Text.Encoding.ASCII.GetString(ContentSamples.TextHeavy(10_000));
+        using PdfDocument document = PdfDocument.Open(ContentPdf.BuildWith(ContentPdf.HelveticaResources, lines, ContentPdf.Helvetica));
+        PdfPage page = document.Pages[0];
+        TextPage? extracted = null;
+
+        long allocated = Allocations.Measure(() => extracted = page.ExtractText(), WarmUp);
+
+        Assert.True(extracted!.Glyphs.Count >= 10_000, $"Only {extracted.Glyphs.Count} glyphs.");
+        long output = TextPageSize.Extracted(extracted);
+        Assert.InRange(allocated, output, output + PageOverhead);
+    }
+
+    [Fact]
+    public void Extracting_a_page_and_reading_its_words_lines_and_plain_text_allocates_them_and_little_more()
+    {
+        string lines = System.Text.Encoding.ASCII.GetString(ContentSamples.TextHeavy(10_000));
+        using PdfDocument document = PdfDocument.Open(ContentPdf.BuildWith(ContentPdf.HelveticaResources, lines, ContentPdf.Helvetica));
+        PdfPage page = document.Pages[0];
+        TextPage? extracted = null;
+
+        long allocated = Allocations.Measure(
+            () =>
+            {
+                extracted = page.ExtractText();
+                _ = extracted.Words.Count + extracted.Lines.Count + extracted.PlainText.Length;
+            },
+            WarmUp);
+
+        Assert.True(extracted!.Words.Count >= 1_000 && extracted.Lines.Count > 1, $"Only {extracted.Words.Count} words, {extracted.Lines.Count} lines.");
+        long output = TextPageSize.Assembled(extracted);
+        Assert.InRange(allocated, output, output + PageOverhead);
+    }
+
+    /// <summary>
+    /// The budget of <see cref="PdfPage.ExtractText()"/> beyond the arrays and strings it returns (issue #284): the page object, the
+    /// assembled words-and-lines record and the content run's own small objects, whatever the number of glyphs.
+    /// </summary>
+    private const long PageOverhead = 1024;
 
     private static long Measure(PdfPage page, TextExtractor extractor) => Allocations.Measure(
         () =>

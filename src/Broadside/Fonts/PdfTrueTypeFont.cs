@@ -22,7 +22,9 @@ public sealed class PdfTrueTypeFont : PdfSimpleFont
     /// <param name="code">The character code.</param>
     /// <returns>
     /// The glyph id in <see cref="PdfFont.Program"/>, or, for a font without a usable embedded program, in the program of
-    /// <see cref="PdfSimpleFont.Substitute"/> (selected by glyph name); 0 for every code when the font has neither.
+    /// <see cref="PdfSimpleFont.Substitute"/> (selected by glyph name; a name the substitute lacks falls back by the Adobe Glyph List
+    /// specification's rules, and one that decomposes into several glyphs, such as <c>f_i</c>, has no single glyph id and gives 0 while
+    /// the display list draws its components); 0 for every code when the font has neither.
     /// </returns>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the font or its program.</exception>
     /// <remarks>

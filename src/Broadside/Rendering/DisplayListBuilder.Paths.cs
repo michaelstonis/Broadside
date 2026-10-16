@@ -29,17 +29,29 @@ internal sealed partial class DisplayListBuilder
     /// <remarks>
     /// ISO 32000-2 §8.5.3, Table 59: <c>f</c>, <c>F</c>, <c>f*</c> and the fill of <c>B</c>, <c>B*</c>, <c>b</c>, <c>b*</c> become a
     /// fill with the nonstroking colour (§8.5.3.3.1); <c>S</c>, <c>s</c> and the stroke of the <c>B</c> family, after its fill, become
-    /// a stroke (§8.5.3.2, <c>DisplayListBuilder.Strokes.cs</c>). Clips (§8.5.4) and paints in a Pattern colour (§8.7) are not in
-    /// the list yet; later Phase 3 tickets add them.
+    /// a stroke (§8.5.3.2, <c>DisplayListBuilder.Strokes.cs</c>). A paint in a shading pattern becomes a paint with its shading
+    /// (§8.7.4.1, <c>DisplayListBuilder.Shadings.cs</c>); one in a tiling pattern becomes a paint with its cell (§8.7.3,
+    /// <c>DisplayListBuilder.Tiling.cs</c>).
     /// </remarks>
     public override void PaintPath(in PathEvent path, ContentContext context)
     {
-        if (path.Paint is PathPaint.Fill or PathPaint.FillAndStroke)
+        if (path.Paint == PathPaint.FillAndStroke)
+        {
+            // §11.7.4.4: one object, as if in a non-isolated knockout group, when transparency makes that differ.
+            ref readonly GraphicsState state = ref context.State;
+            int group = OpenFillAndStrokeGroup(state, context.DefaultColorSpaces, Bounds(path.Path.Points, StrokeReach(state)));
+            FillPath(path, context);
+            StrokePath(path, context);
+            CloseFillAndStrokeGroup(group);
+            return;
+        }
+
+        if (path.Paint == PathPaint.Fill)
         {
             FillPath(path, context);
         }
 
-        if (path.Paint is PathPaint.Stroke or PathPaint.FillAndStroke)
+        if (path.Paint == PathPaint.Stroke)
         {
             StrokePath(path, context);
         }
@@ -52,13 +64,36 @@ internal sealed partial class DisplayListBuilder
         ref readonly PdfColor fill = ref state.FillColor;
         if (fill.ColorSpace.Family == PdfColorSpaceFamily.Pattern)
         {
+            if (context.GetPattern(fill) is PdfTilingPattern)
+            {
+                FillPathWithTilingPattern(path, context);
+                return;
+            }
+
+            FillPathWithShading(path, context);
             return;
         }
 
         int pathIndex = InternPath(path.Path);
         int colorIndex = AddColor(fill, context.DefaultColorSpaces, ColorConversion.FromState(state, DeviceColorModel.Rgb));
+        SetCompositing(state, context);
         SetTransform(state.Ctm);
         AddOperation(new DisplayOperation(DisplayOperationKind.FillPath, path.FillRule, pathIndex, colorIndex));
+    }
+
+    /// <summary>Records the fill of a path in a shading pattern (§8.7.4.1).</summary>
+    private void FillPathWithShading(in PathEvent path, ContentContext context)
+    {
+        int shading = AddPatternShading(context.State.FillColor, context);
+        if (shading < 0)
+        {
+            return;
+        }
+
+        int pathIndex = InternPath(path.Path);
+        SetPatternCompositing(context.State.FillColor, context, stroke: false);
+        SetTransform(context.State.Ctm);
+        AddOperation(new DisplayOperation(DisplayOperationKind.FillPathWithShading, path.FillRule, pathIndex, shading));
     }
 
     /// <summary>Returns the index of <paramref name="path"/> in the path table, adding it when no equal path is there yet.</summary>

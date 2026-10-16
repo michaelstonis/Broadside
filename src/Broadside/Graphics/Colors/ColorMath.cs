@@ -26,11 +26,19 @@ internal static class ColorMath
             return XyzToSrgb;
         }
 
+        return Multiply(XyzToSrgb, Adapt(white, CieXyz.D65));
+    }
+
+    /// <summary>Returns the linearised Bradford chromatic adaptation from one white to another (ICC.1:2022 Annex E).</summary>
+    /// <param name="from">The source white.</param>
+    /// <param name="to">The destination white.</param>
+    /// <returns>A row-major 3 × 3 matrix taking XYZ under <paramref name="from"/> to XYZ under <paramref name="to"/>.</returns>
+    public static double[] Adapt(CieXyz from, CieXyz to)
+    {
         Span<double> sourceCone = stackalloc double[3];
         Span<double> targetCone = stackalloc double[3];
-        Apply(Bradford, white.X, white.Y, white.Z, sourceCone);
-        CieXyz d65 = CieXyz.D65;
-        Apply(Bradford, d65.X, d65.Y, d65.Z, targetCone);
+        Apply(Bradford, from.X, from.Y, from.Z, sourceCone);
+        Apply(Bradford, to.X, to.Y, to.Z, targetCone);
         double[] scaled = new double[9];
         for (int row = 0; row < 3; row++)
         {
@@ -41,7 +49,7 @@ internal static class ColorMath
             }
         }
 
-        return Multiply(XyzToSrgb, Multiply(BradfordInverse, scaled));
+        return Multiply(BradfordInverse, scaled);
     }
 
     /// <summary>The sRGB transfer function, linear to encoded, clipped to 0..1.</summary>
@@ -140,7 +148,11 @@ internal static class ColorMath
         result[2] = (matrix[6] * x) + (matrix[7] * y) + (matrix[8] * z);
     }
 
-    private static double[] Multiply(double[] left, double[] right)
+    /// <summary>Returns the product of two row-major 3 × 3 matrices.</summary>
+    /// <param name="left">The left matrix.</param>
+    /// <param name="right">The right matrix.</param>
+    /// <returns>A new row-major 3 × 3 matrix.</returns>
+    public static double[] Multiply(double[] left, double[] right)
     {
         double[] product = new double[9];
         for (int row = 0; row < 3; row++)

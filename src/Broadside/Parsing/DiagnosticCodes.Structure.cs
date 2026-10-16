@@ -22,4 +22,12 @@ internal static partial class DiagnosticCodes
     public const string AttributeObjectInvalid = nameof(AttributeObjectInvalid);
     public const string AttributeOwnerInvalid = nameof(AttributeOwnerInvalid);
     public const string AttributeRevisionInvalid = nameof(AttributeRevisionInvalid);
+
+    // Names of appended pages' structure renamed because the document uses them otherwise (issue #161; Information).
+    public const string StructureRoleConflict = nameof(StructureRoleConflict);
+    public const string StructureClassConflict = nameof(StructureClassConflict);
+    public const string StructureIdConflict = nameof(StructureIdConflict);
+
+    // Auto-tagging (issue #191; Warning): a detected figure was given the placeholder alternate description.
+    public const string FigureAlternateTextPlaceholder = nameof(FigureAlternateTextPlaceholder);
 }

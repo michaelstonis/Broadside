@@ -28,9 +28,17 @@ public sealed class PdfLineAnnotation : PdfMarkupAnnotation
     /// <remarks>ISO 32000-2 §12.5.6.7, Table 178, and Table 179.</remarks>
     public PdfLineEnding EndLineEnding => ReadLineEndings().End;
 
-    /// <summary>Gets the interior colour (<c>IC</c>, PDF 1.4), or <see langword="null"/> for none.</summary>
+    /// <summary>Gets or sets the interior colour (<c>IC</c>, PDF 1.4), or <see langword="null"/> for none; setting <see langword="null"/> removes it, and the appearance is kept until <see cref="PdfAnnotation.RegenerateAppearance"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.7, Table 178: it fills the line endings.</remarks>
-    public PdfDeviceColor? InteriorColor => ReadColor(AnnotationNames.IC);
+    public PdfDeviceColor? InteriorColor
+    {
+        get => ReadColor(AnnotationNames.IC);
+        set
+        {
+            AnnotationEditing.SetColor(Dictionary, AnnotationNames.IC, value);
+            Document.RequireFeature(Writing.VersionedFeatures.AnnotationTypes14);
+        }
+    }
 
     /// <summary>Gets the length of the leader lines (<c>LL</c>, PDF 1.6); default 0. Positive values extend above the line, negative below.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.7, Table 178.</remarks>

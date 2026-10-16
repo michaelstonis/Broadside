@@ -20,7 +20,10 @@ namespace Broadside;
 /// with document type declarations refused (no entity is ever expanded and nothing outside the packet is fetched) and at most
 /// 16 million characters. Malformed XML before the end of <c>rdf:RDF</c> makes the whole packet unreadable.
 /// </para>
-/// <para>Immutable: a snapshot of the bytes it was read from. Writing XMP is not supported yet.</para>
+/// <para>
+/// Immutable: a snapshot of the bytes it was read from. The document's own packet is written through <see cref="PdfDocument.Properties"/>,
+/// which keeps every property and rewrites the packet in canonical form.
+/// </para>
 /// </remarks>
 public sealed class XmpPacket
 {
@@ -107,6 +110,10 @@ public sealed class XmpPacket
     /// <summary>Gets the PDF/UA part the document claims, <c>pdfuaid:part</c>, or <see langword="null"/>.</summary>
     /// <remarks>ISO 14289-1 §5; ISO 14289-2 §6.</remarks>
     public int? PdfUAPart => GetInteger(XmpNamespaces.PdfUAIdentification, "part");
+
+    /// <summary>Gets the year of the PDF/UA part's edition the document claims, <c>pdfuaid:rev</c> (PDF/UA-2), or <see langword="null"/>.</summary>
+    /// <remarks>ISO 14289-2:2024 §5, Table 1 (veraPDF PDF/UA-2 rules 5-4 and 5-5).</remarks>
+    public int? PdfUARevision => GetInteger(XmpNamespaces.PdfUAIdentification, "rev");
 
     /// <summary>Gets <c>xmpMM:DocumentID</c>, the identifier of the document across its versions.</summary>
     /// <remarks>ISO 16684-1 §8.6.</remarks>

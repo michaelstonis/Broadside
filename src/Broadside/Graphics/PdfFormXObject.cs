@@ -38,6 +38,9 @@ public sealed class PdfFormXObject
     /// <summary>Gets the indirect reference to the stream, or <see langword="null"/> when it was reached directly.</summary>
     public CosReference? Reference { get; }
 
+    /// <summary>The document the form belongs to.</summary>
+    internal PdfDocument Document => _document;
+
     /// <summary>Gets a value indicating whether the stream's <c>Subtype</c> is <c>Form</c>, as Table 93 requires.</summary>
     /// <remarks>ISO 32000-2 §8.10.1, Table 93 (<c>Subtype</c>, required).</remarks>
     public bool IsForm => _document.Resolve(Get(AnnotationNames.Subtype)) is CosName { Value: "Form" };
@@ -46,9 +49,33 @@ public sealed class PdfFormXObject
     /// <remarks>ISO 32000-2 §8.10.1, Table 93 (<c>BBox</c>, required).</remarks>
     public PdfRectangle? BoundingBox => AnnotationValues.ReadRectangle(_document, Get(AnnotationNames.BBox));
 
-    /// <summary>Gets the form matrix, which maps form space to the user space of the content that paints it; the identity when absent or not six numbers.</summary>
-    /// <remarks>ISO 32000-2 §8.10.1, Table 93 (<c>Matrix</c>, default <c>[1 0 0 1 0 0]</c>).</remarks>
-    public Matrix Matrix => AnnotationValues.ReadMatrix(_document, Get(AnnotationNames.Matrix)) ?? Matrix.Identity;
+    /// <summary>Gets or sets the form matrix, which maps form space to the user space of the content that paints it; the identity when absent or not six numbers.</summary>
+    /// <exception cref="ArgumentException">On set, a component is not finite.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §8.10.1, Table 93 (<c>Matrix</c>, default <c>[1 0 0 1 0 0]</c>). For the group of a soft mask, the matrix is
+    /// concatenated with the CTM at the <c>gs</c> that set the mask (§11.6.5.1). Setting the identity removes the entry. A mutation:
+    /// every use of the form shows the change.
+    /// </remarks>
+    public Matrix Matrix
+    {
+        get => AnnotationValues.ReadMatrix(_document, Get(AnnotationNames.Matrix)) ?? Matrix.Identity;
+        set
+        {
+            if (!(double.IsFinite(value.A) && double.IsFinite(value.B) && double.IsFinite(value.C)
+                && double.IsFinite(value.D) && double.IsFinite(value.E) && double.IsFinite(value.F)))
+            {
+                throw new ArgumentException("Matrix components shall be finite numbers.", nameof(value));
+            }
+
+            if (value == Matrix.Identity)
+            {
+                Dictionary.Remove(AnnotationNames.Matrix);
+                return;
+            }
+
+            Dictionary[AnnotationNames.Matrix] = DrawingCache.Numbers([value.A, value.B, value.C, value.D, value.E, value.F]);
+        }
+    }
 
     /// <summary>Gets the resources the form's content uses, or <see langword="null"/> when the form has none of its own.</summary>
     /// <remarks>ISO 32000-2 §8.10.1, Table 93 (<c>Resources</c>), and §7.8.3.</remarks>
@@ -58,9 +85,52 @@ public sealed class PdfFormXObject
     /// <remarks>ISO 32000-2 §8.10.3, Table 94, and §11.6.6 (<c>Group</c>, PDF 1.4).</remarks>
     public CosDictionary? Group => _document.Resolve(Get(AnnotationNames.Group)) as CosDictionary;
 
+    /// <summary>
+    /// Gets the transparency group attributes of the form when it is a transparency group XObject (<c>Group</c> with
+    /// <c>S /Transparency</c>), else <see langword="null"/>.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §8.10.3 and §11.6.6, Table 145 (PDF 1.4).</remarks>
+    public PdfTransparencyGroup? TransparencyGroup => PdfTransparencyGroup.Read(_document, Get(AnnotationNames.Group), Reference);
+
+    /// <summary>
+    /// Makes the form a transparency group XObject, writing <c>&lt;&lt; /Type /Group /S /Transparency &gt;&gt;</c> as its
+    /// <c>Group</c>, and returns the group's attributes to set; returns the existing attributes when the form already is one.
+    /// </summary>
+    /// <returns>The group attributes: non-isolated, non-knockout, inheriting its colour space until set otherwise.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §8.10.3, Table 94, and §11.6.6 (PDF 1.4). When the canvas paints the form (<see cref="PdfCanvas.DrawForm"/>), its
+    /// content composites as one group, with the alpha, blend mode and soft mask in effect at <c>Do</c> applied to the group as a whole;
+    /// inside it they start at 1, Normal and none. A group of another subtype is replaced. Records PDF 1.4. A mutation.
+    /// </remarks>
+    public PdfTransparencyGroup CreateTransparencyGroup() => PdfTransparencyGroup.Create(_document, Dictionary, Reference);
+
     /// <summary>Gets the optional content group or membership dictionary of the form, or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §8.10.1, Table 93 (<c>OC</c>, PDF 1.5), and §8.11.3.3.</remarks>
     public CosDictionary? OptionalContent => _document.Resolve(Get(AnnotationNames.OC)) as CosDictionary;
+
+    /// <summary>Makes the form optional content of <paramref name="group"/> (<c>OC</c>): shown only while the group is ON.</summary>
+    /// <param name="group">A group of this document.</param>
+    /// <exception cref="ArgumentException"><paramref name="group"/> belongs to another document or is not an indirect object.</exception>
+    /// <remarks>ISO 32000-2 §8.10.1, Table 93 (<c>OC</c>, PDF 1.5), and §8.11.3.3. Records PDF 1.5. A mutation.</remarks>
+    public void SetOptionalContent(PdfOptionalContentGroup group)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+        OptionalContentWriter.Assign(_document, Dictionary, OptionalContentWriter.ReferenceOf(_document, group.Document, group.Reference, nameof(group)));
+    }
+
+    /// <summary>Makes the form optional content whose visibility <paramref name="membership"/> decides (<c>OC</c>).</summary>
+    /// <param name="membership">A membership dictionary of this document.</param>
+    /// <exception cref="ArgumentException"><paramref name="membership"/> belongs to another document or is not an indirect object.</exception>
+    /// <remarks>ISO 32000-2 §8.10.1, Table 93 (<c>OC</c>, PDF 1.5), and §8.11.3.3. Records PDF 1.5. A mutation.</remarks>
+    public void SetOptionalContent(PdfOptionalContentMembership membership)
+    {
+        ArgumentNullException.ThrowIfNull(membership);
+        OptionalContentWriter.Assign(_document, Dictionary, OptionalContentWriter.ReferenceOf(_document, membership.Document, membership.Reference, nameof(membership)));
+    }
+
+    /// <summary>Removes the form's <c>OC</c> entry: it is no longer optional content.</summary>
+    /// <remarks>ISO 32000-2 §8.10.1, Table 93 and §8.11.3.3. A mutation.</remarks>
+    public void RemoveOptionalContent() => OptionalContentWriter.Assign(_document, Dictionary, null);
 
     /// <summary>Gets the form's key in the structural parent tree when it is one content item, or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §8.10.1, Table 93 (<c>StructParent</c>, PDF 1.3), and §14.7.5.4.</remarks>
@@ -105,6 +175,15 @@ public sealed class PdfFormXObject
         ArgumentNullException.ThrowIfNull(options);
         return ContentRewriting.RewriteForm(this, _document, editor, options);
     }
+
+    /// <summary>Returns a canvas that draws in the form, after its existing content; dispose it to store what was drawn.</summary>
+    /// <returns>The canvas.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §8.10.1, Table 93, and §8.2 to §8.6. The form's stream is replaced by its decoded content wrapped in <c>q</c> and
+    /// <c>Q</c> followed by what was drawn, unfiltered (a save compresses it); resources go into the form's <c>Resources</c>, created
+    /// when missing. Every use of the form shows the change. See <see cref="PdfCanvas"/>. A mutation.
+    /// </remarks>
+    public PdfCanvas CreateCanvas() => new(_document, this);
 
     /// <summary>Returns the form view over <paramref name="value"/> when it is a stream, else <see langword="null"/>.</summary>
     internal static PdfFormXObject? Create(PdfDocument document, CosObject? value) =>

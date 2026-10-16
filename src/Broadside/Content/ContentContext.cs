@@ -298,7 +298,7 @@ public sealed class ContentContext
     /// <para>
     /// ISO 32000-2 §8.7.3.1, steps a to d: the cell runs between an implicit save and restore (<see cref="ContentProcessor.SaveState"/>
     /// and <see cref="ContentProcessor.RestoreState"/>), from the graphics state at the beginning of the stream that selected the
-    /// pattern, with the CTM set to the pattern space (<see cref="PdfPattern.GetPatternSpace"/>), the clip intersected with the cell's
+    /// pattern (its blend mode, alpha constants and soft mask at their defaults, §11.6.7), with the CTM set to the pattern space (<see cref="PdfPattern.GetPatternSpace"/>), the clip intersected with the cell's
     /// bounding box (a <see cref="ClipKind.Rectangle"/> clip event), <see cref="RunKind"/> <see cref="ContentRunKind.Pattern"/> and the
     /// pattern's resources (the current ones when it has none). One cell is run, at the origin of pattern space; replicating it every
     /// XStep and YStep is the processor's.
@@ -330,11 +330,11 @@ public sealed class ContentContext
     /// a soft-mask group), decoded once per document while the stream is unchanged.
     /// </summary>
     /// <remarks>ISO 32000-2 §7.8.2.</remarks>
-    internal ReadOnlyMemory<byte> GetContent(CosStream stream) => Document.ContentResources.GetContent(stream);
+    internal ReadOnlyMemory<byte> GetContent(CosStream stream) => Document.ContentResources.GetContent(stream, CancellationToken);
 
     /// <summary>Returns a page's <c>Contents</c> array read as one stream (Table 31), built once per document while it is unchanged.</summary>
     /// <remarks>ISO 32000-2 §7.8.2 and §7.7.3.3, Table 31.</remarks>
-    internal ContentResourceCache.JoinedContent GetContent(CosArray contents) => Document.ContentResources.GetContent(contents);
+    internal ContentResourceCache.JoinedContent GetContent(CosArray contents) => Document.ContentResources.GetContent(contents, CancellationToken);
 
     /// <summary>Returns the one form view of a form XObject's stream.</summary>
     /// <remarks>ISO 32000-2 §8.10.</remarks>

@@ -31,6 +31,10 @@ internal readonly record struct Created<TValue>(TValue Value, bool Keep = true);
 /// waiting, and that fallback is not cached.
 /// </para>
 /// <para>
+/// What the cache allocates depends only on how many keys it holds, never on how they hash (<see cref="DeterministicTable"/>,
+/// issue #288).
+/// </para>
+/// <para>
 /// A cached value is read without a lock. A factory exception is cached and rethrown to every later caller: the same input gives the
 /// same outcome (strict mode throws the same diagnostic again rather than recording it twice). The one exception is
 /// <see cref="PdfRangeNotLoadedException"/>, which says nothing about the value, only that a remote file's bytes have not been
@@ -45,11 +49,11 @@ internal sealed class OnceCache<TKey, TValue>
     private readonly ConcurrentDictionary<TKey, Entry> _entries;
 
     /// <summary>Creates an empty cache comparing keys with their default equality.</summary>
-    public OnceCache() => _entries = new();
+    public OnceCache() => _entries = DeterministicTable.Create<TKey, Entry>();
 
     /// <summary>Creates an empty cache comparing keys with <paramref name="comparer"/> (for instance by reference, for COS containers).</summary>
     /// <param name="comparer">The key comparer.</param>
-    public OnceCache(IEqualityComparer<TKey> comparer) => _entries = new(comparer);
+    public OnceCache(IEqualityComparer<TKey> comparer) => _entries = DeterministicTable.Create<TKey, Entry>(comparer);
 
     /// <summary>Returns the cached value for <paramref name="key"/>, when one has been computed.</summary>
     /// <param name="key">The key.</param>
@@ -94,7 +98,28 @@ internal sealed class OnceCache<TKey, TValue>
     /// that is (directly or through others) waiting for this one. Not cached.
     /// </param>
     /// <returns>The value.</returns>
-    public TValue GetOrCreate<TState>(TKey key, TState state, Func<TKey, TState, Created<TValue>> create, Func<TKey, TState, TValue> cycle)
+    public TValue GetOrCreate<TState>(TKey key, TState state, Func<TKey, TState, Created<TValue>> create, Func<TKey, TState, TValue> cycle) =>
+        GetOrCreate(key, stamp: null, state, create, cycle);
+
+    /// <summary>
+    /// Returns the value for <paramref name="key"/> computed at <paramref name="stamp"/>, computing it with <paramref name="create"/>
+    /// when nobody has. A value (or exception) cached at another stamp is stale: it is replaced, not kept beside the new one.
+    /// </summary>
+    /// <remarks>
+    /// For values that depend on more than the key can say, such as what an indirect reference in an unchanged container resolves to
+    /// (ISO 32000-2 §7.3.10): the stamp is the document's <c>ObjectsVersion</c>, read before the factory reads anything, so an
+    /// object added or removed since makes the value stale. Putting the stamp in the key instead would leave one entry behind per
+    /// stamp (issue #304). The stamp changes only by a mutation, which the concurrency contract makes single-threaded, so concurrent
+    /// requests agree on it; any of them may replace a stale entry, and the value is still computed once.
+    /// </remarks>
+    /// <typeparam name="TState">What the factories need, passed through so they can be static.</typeparam>
+    /// <param name="key">The key.</param>
+    /// <param name="stamp">What the value is computed at; <see langword="null"/> for a value the key alone decides.</param>
+    /// <param name="state">The factories' state.</param>
+    /// <param name="create">Computes the value; runs at most once per key and stamp while its results are kept.</param>
+    /// <param name="cycle">The value for a request that would wait on itself, as for the overload without a stamp. Not cached.</param>
+    /// <returns>The value.</returns>
+    public TValue GetOrCreate<TState>(TKey key, int? stamp, TState state, Func<TKey, TState, Created<TValue>> create, Func<TKey, TState, TValue> cycle)
     {
         while (true)
         {
@@ -102,7 +127,14 @@ internal sealed class OnceCache<TKey, TValue>
             {
                 if (entry.IsCompleted)
                 {
-                    return entry.Result;
+                    if (entry.Stamp == stamp)
+                    {
+                        return entry.Result;
+                    }
+
+                    // Stale: replace it. Only this exact entry is removed, so a request that replaced it first is not undone.
+                    _entries.TryRemove(new KeyValuePair<TKey, Entry>(key, entry));
+                    continue;
                 }
 
                 if (entry.IsAbandoned)
@@ -119,7 +151,7 @@ internal sealed class OnceCache<TKey, TValue>
                 continue;
             }
 
-            var mine = new Entry();
+            var mine = new Entry { Stamp = stamp };
             if (!_entries.TryAdd(key, mine))
             {
                 continue;
@@ -162,6 +194,9 @@ internal sealed class OnceCache<TKey, TValue>
     {
         private TValue? _value;
         private ExceptionDispatchInfo? _error;
+
+        /// <summary>Gets what the value was computed at; <see langword="null"/> for an unstamped value.</summary>
+        public int? Stamp { get; init; }
 
         /// <summary>Gets the value of a completed entry, or rethrows the exception of a failed one.</summary>
         public TValue Result

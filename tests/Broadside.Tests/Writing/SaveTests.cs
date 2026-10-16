@@ -11,10 +11,10 @@ public sealed class SaveTests
     private static readonly PdfCrossReferenceLayout[] Layouts = Enum.GetValues<PdfCrossReferenceLayout>();
 
     /// <summary>
-    /// Broken files whose damage is in a document-model structure read lazily (a name tree, an outline, a pattern, mesh data, a Type 3 glyph), not in the file structure:
+    /// Broken files whose damage is in a document-model structure read lazily (a name tree, an outline, a pattern, mesh data, a Type 3 glyph, a content stream), not in the file structure:
     /// they open without a diagnostic and save byte for byte, damage included, so qpdf reports it again.
     /// </summary>
-    private static readonly HashSet<string> DamagedInTheDocumentModel = new(StringComparer.Ordinal) { "name-tree-broken.pdf", "outline-broken.pdf", "annotations-malformed.pdf", "text-type1-pfb.pdf", "text-type1-hex-eexec.pdf", "text-type1-bad-lengths.pdf", "pattern-recursive.pdf", "shading-mesh-truncated.pdf", "text-type3-recursive.pdf", "ccitt-g3-damaged.pdf", "ccitt-g4-truncated.pdf" };
+    private static readonly HashSet<string> DamagedInTheDocumentModel = new(StringComparer.Ordinal) { "name-tree-broken.pdf", "outline-broken.pdf", "annotations-malformed.pdf", "text-type1-pfb.pdf", "text-type1-hex-eexec.pdf", "text-type1-bad-lengths.pdf", "pattern-recursive.pdf", "shading-mesh-truncated.pdf", "text-type3-recursive.pdf", "ccitt-g3-damaged.pdf", "ccitt-g4-truncated.pdf", "clip-before-path.pdf" };
 
     /// <summary>
     /// Well-formed files qpdf 12.4.2 warns about because it compares name tree keys as decoded text, not byte by byte as ISO 32000-2
@@ -22,7 +22,7 @@ public sealed class SaveTests
     /// </summary>
     private static readonly HashSet<string> QpdfComparesNameTreeKeysAsText = new(StringComparer.Ordinal) { "name-tree-deep.pdf" };
 
-    /// <summary>Every unencrypted well-formed corpus file with every layout (encrypted files cannot be saved yet).</summary>
+    /// <summary>Every unencrypted well-formed corpus file with every layout (encrypted files are re-encrypted, never copied: see EncryptedSaveTests).</summary>
     public static TheoryData<string, PdfCrossReferenceLayout> FilesAndLayouts
     {
         get
@@ -40,7 +40,7 @@ public sealed class SaveTests
         }
     }
 
-    /// <summary>Every unencrypted deliberately broken corpus file with every layout (encrypted files cannot be saved yet).</summary>
+    /// <summary>Every unencrypted deliberately broken corpus file with every layout (encrypted files are re-encrypted, never copied: see EncryptedSaveTests).</summary>
     public static TheoryData<string, PdfCrossReferenceLayout> BrokenFilesAndLayouts
     {
         get
@@ -298,16 +298,6 @@ public sealed class SaveTests
 
         using PdfDocument saved = PdfDocument.Open(output.ToArray());
         Assert.Single(saved.Pages);
-    }
-
-    [Fact]
-    public void An_encrypted_document_is_not_saved()
-    {
-        using PdfDocument source = PdfDocument.Open(Corpus.Path("encrypted-rc4-128.pdf"));
-        using var output = new MemoryStream();
-
-        Assert.Throws<NotSupportedException>(() => source.Save(output));
-        Assert.Equal(0, output.Length);
     }
 
     [Theory]

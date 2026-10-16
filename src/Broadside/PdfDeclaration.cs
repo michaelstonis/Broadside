@@ -13,7 +13,27 @@ namespace Broadside;
 /// </remarks>
 public sealed class PdfDeclaration
 {
-    private static readonly string[] Namespaces = ["http://pdfa.org/declarations/", "https://pdfa.org/declarations/"];
+    /// <summary>
+    /// The <c>pdfd:conformsTo</c> URI declaring Well-Tagged PDF 1.0's conformance level for reuse, as veraPDF's WTPDF 1.0 Reuse profile
+    /// tests it (rule 6.1.2-1); a save writes it for <see cref="PdfWellTaggedConformance.Reuse"/>.
+    /// </summary>
+    /// <remarks>
+    /// WTPDF 1.0 §6.1.2. The specification's text spells the URI with a slash before the fragment (<c>wtpdf/#reuse1.0</c>); veraPDF,
+    /// the validator the output is checked with, tests for this spelling (<c>declarations.contains(...)</c>, an exact match).
+    /// </remarks>
+    public const string WellTaggedReuse = "http://pdfa.org/declarations/wtpdf#reuse1.0";
+
+    /// <summary>
+    /// The <c>pdfd:conformsTo</c> URI declaring Well-Tagged PDF 1.0's conformance level for accessibility, as veraPDF's WTPDF 1.0
+    /// Accessibility profile tests it (rule 6.1.3-1); a save writes it for <see cref="PdfWellTaggedConformance.Accessibility"/>.
+    /// </summary>
+    /// <remarks>WTPDF 1.0 §6.1.3 (spelled <c>wtpdf/#accessibility1.0</c> in the specification's text; see <see cref="WellTaggedReuse"/>).</remarks>
+    public const string WellTaggedAccessibility = "http://pdfa.org/declarations/wtpdf#accessibility1.0";
+
+    /// <summary>The namespace of the PDF Declarations XMP properties a save writes (PDF Declarations §8.1).</summary>
+    internal const string Namespace = "http://pdfa.org/declarations/";
+
+    private static readonly string[] Namespaces = [Namespace, "https://pdfa.org/declarations/"];
 
     internal PdfDeclaration(string conformsTo, IReadOnlyList<PdfDeclarationClaim> claims)
     {

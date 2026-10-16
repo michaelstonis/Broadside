@@ -10,7 +10,7 @@ namespace Broadside.Rendering;
 /// their category in a file of their own.
 /// </summary>
 /// <remarks>
-/// One builder per thread is reused (<see cref="Build"/>), so its growable tables stay warm and building a page allocates only the
+/// One builder per thread is reused (<see cref="Build(PdfPage, PdfDocument, ContentOptions)"/>), so its growable tables stay warm and building a page allocates only the
 /// list itself: a fixed number of arrays sized to the page. The builder keeps no reference into the document between builds.
 /// </remarks>
 internal sealed partial class DisplayListBuilder : ContentProcessor
@@ -34,12 +34,12 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     private int _savedAtCount;
 
     /// <inheritdoc/>
-    public override ContentEvents Events => ContentEvents.Paths | ContentEvents.StateStack | ContentEvents.Clips;
+    public override ContentEvents Events => ContentEvents.Paths | ContentEvents.StateStack | ContentEvents.Clips | ContentEvents.Images | ContentEvents.Glyphs | ContentEvents.Shadings | ContentEvents.Type3GlyphContent | ContentEvents.Forms;
 
     /// <summary>Builds the display list of <paramref name="page"/>.</summary>
     /// <param name="page">The page.</param>
     /// <param name="document">The page's document.</param>
-    /// <param name="options">Limits and cancellation for the content run.</param>
+    /// <param name="options">Limits, cancellation and progress for the content run.</param>
     /// <returns>The list.</returns>
     public static DisplayList Build(PdfPage page, PdfDocument document, ContentOptions options)
     {
@@ -47,8 +47,16 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         _cached = null;
         try
         {
+            int pageGroup = builder.OpenPageGroup(page, document);
             ContentInterpreter.RunPage(page, document, builder, options);
+            builder.ClosePageGroup(pageGroup);
             return builder.ToDisplayList(document);
+        }
+        catch
+        {
+            // Cancelled (or a strict-mode deviation): nothing owns what was decoded, so its pooled buffers go back now.
+            builder.ReleaseImages();
+            throw;
         }
         finally
         {
@@ -72,6 +80,20 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     {
         Strokes = _strokes.AsSpan(0, _strokeCount).ToArray(),
         Dashes = _dashes.AsSpan(0, _dashCount).ToArray(),
+        Images = _images.AsSpan(0, _imageCount).ToArray(),
+        ImagePaints = _imagePaints.AsSpan(0, _imagePaintCount).ToArray(),
+        GlyphRuns = _glyphRuns.AsSpan(0, _glyphRunCount).ToArray(),
+        Glyphs = _glyphs.AsSpan(0, _glyphCount).ToArray(),
+        ShadingPaints = _shadingPaints.AsSpan(0, _shadingPaintCount).ToArray(),
+        ImageMasks = _imageMasks.AsSpan(0, _imageMaskCount).ToArray(),
+        TextGlyphs = _textGlyphs.AsSpan(0, _textGlyphCount).ToArray(),
+        Text = _text.AsSpan(0, _textLength).ToArray(),
+        Compositings = _compositings.AsSpan(0, _compositingCount).ToArray(),
+        Groups = _groups.AsSpan(0, _groupCount).ToArray(),
+        TilingPaints = _tilingPaints.AsSpan(0, _tilingPaintCount).ToArray(),
+        Annotations = _annotations.AsSpan(0, _annotationCount).ToArray(),
+        SoftMasks = _softMasks.AsSpan(0, _softMaskCount).ToArray(),
+        DeviceParameters = _deviceParameters.AsSpan(0, _deviceParameterCount).ToArray(),
     };
 
     /// <summary>Forgets everything built, keeping the tables' capacity and no reference into a document.</summary>
@@ -84,18 +106,37 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
         _savedAtCount = 0;
         ResetPaths();
         ResetStrokes();
+        ResetImages();
+        ResetText();
+        ResetShadings();
+        ResetTextPositions();
+        ResetCompositing();
+        ResetGroups();
+        ResetTiling();
+        ResetDeviceParameters();
+        ResetAnnotations();
+        ResetType3();
+        ResetSoftMasks();
     }
 
     /// <inheritdoc/>
-    public override void SaveState(ContentContext context)
+    public override void SaveState(ContentContext context) => Save();
+
+    /// <inheritdoc/>
+    public override void RestoreState(ContentContext context) => Restore();
+
+    /// <summary>Records a save of the state (§8.4.2 <c>q</c>).</summary>
+    private void Save()
     {
+        NoteType3Save();
         Append(ref _saved, ref _savedCount, _current);
         Append(ref _savedAt, ref _savedAtCount, _operationCount);
+        SaveCompositing();
         AddOperation(new DisplayOperation(DisplayOperationKind.SaveState, default, 0, 0));
     }
 
-    /// <inheritdoc/>
-    public override void RestoreState(ContentContext context)
+    /// <summary>Records a restore of the state (§8.4.2 <c>Q</c>), dropping the save and what follows it when nothing was painted since.</summary>
+    private void Restore()
     {
         if (_savedCount == 0)
         {
@@ -104,6 +145,7 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
 
         _current = _saved[--_savedCount];
         int saveAt = _savedAt[--_savedAtCount];
+        RestoreCompositing();
 
         // A save with nothing painted after it restores to what it saved: drop the pair and the state changes between them.
         if (!PaintsSince(saveAt + 1))
@@ -116,17 +158,20 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     }
 
     /// <summary>Records the CTM before a paint, when it differs from the transform the backend holds there.</summary>
-    /// <param name="ctm">The CTM of the paint.</param>
-    private void SetTransform(in Matrix ctm)
+    /// <param name="ctm">The CTM of the paint (to pattern space instead while building a tiling pattern's cell).</param>
+    private void SetTransform(in Matrix ctm) => SetRecordedTransform(Relative(ctm));
+
+    /// <summary>Records a transform already in the space this builder records in (see <see cref="Relative"/>), when it differs from the backend's.</summary>
+    private void SetRecordedTransform(in Matrix transform)
     {
-        if (ctm == _current)
+        if (transform == _current)
         {
             return;
         }
 
-        _current = ctm;
+        _current = transform;
         AddOperation(new DisplayOperation(DisplayOperationKind.SetTransform, default, _transformCount, 0));
-        Append(ref _transforms, ref _transformCount, ctm);
+        Append(ref _transforms, ref _transformCount, transform);
     }
 
     /// <summary>Returns whether any operation from <paramref name="start"/> on is something other than a state change.</summary>
@@ -134,7 +179,8 @@ internal sealed partial class DisplayListBuilder : ContentProcessor
     {
         for (int index = _operationCount - 1; index >= start; index--)
         {
-            if (_operations[index].Kind is not (DisplayOperationKind.SetTransform or DisplayOperationKind.IntersectClip))
+            if (_operations[index].Kind is not (DisplayOperationKind.SetTransform or DisplayOperationKind.IntersectClip or DisplayOperationKind.SetCompositing
+                or DisplayOperationKind.SetDeviceParameters or DisplayOperationKind.SetSoftMask))
             {
                 return true;
             }

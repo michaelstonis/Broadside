@@ -27,6 +27,19 @@ internal sealed class TextLayout
 
     private const double Degenerate = 1e-9;
 
+    /// <summary>The most words a layout <see cref="Return"/>ed to its thread may hold room for; a larger one is dropped.</summary>
+    private const int SharedWordLimit = 1 << 14;
+
+    /// <summary>
+    /// The layout <see cref="TextPage"/> assembles with on this thread (issue #284), so pages assembled one after another grow its
+    /// buffers once; <see langword="null"/> while it is rented.
+    /// </summary>
+    [ThreadStatic]
+    private static TextLayout? _shared;
+
+    /// <summary>The flags of glyphs whose text an element's alternate description or expansion replaces, a whole word each (§14.9.3, §14.9.5).</summary>
+    private const TextGlyphFlags Substituted = TextGlyphFlags.AlternateDescription | TextGlyphFlags.Expansion;
+
     private TextWord[] _words = new TextWord[16];
     private TextLine[] _lines = new TextLine[4];
     private char[] _plain = new char[64];
@@ -54,6 +67,23 @@ internal sealed class TextLayout
     public ReadOnlySpan<TextLine> Lines => _lines.AsSpan(0, _lineCount);
 
     public ReadOnlySpan<char> PlainText => _plain.AsSpan(0, _plainLength);
+
+    /// <summary>Takes this thread's shared layout, or a new one when it is in use or was dropped; give it back with <see cref="Return"/>.</summary>
+    internal static TextLayout Rent()
+    {
+        TextLayout layout = _shared ?? new TextLayout();
+        _shared = null;
+        return layout;
+    }
+
+    /// <summary>Keeps <paramref name="layout"/> as this thread's shared layout unless its buffers grew past <see cref="SharedWordLimit"/>; it holds no references.</summary>
+    internal static void Return(TextLayout layout)
+    {
+        if (layout._words.Length <= SharedWordLimit && layout._plain.Length <= SharedWordLimit * 16)
+        {
+            _shared = layout;
+        }
+    }
 
     /// <summary>Assembles <paramref name="glyphs"/>, whose text ranges index <paramref name="text"/>.</summary>
     public void Build(ReadOnlySpan<TextGlyph> glyphs, ReadOnlySpan<char> text)
@@ -144,7 +174,19 @@ internal sealed class TextLayout
             return Break.None;
         }
 
+        TextGlyphFlags substituted = (previous.Flags | next.Flags) & Substituted;
+        if (substituted != 0 && next.TextLength == 0 && (previous.Flags & next.Flags & Substituted) != 0)
+        {
+            // The rest of one element's Alt or E: the substitution on its first glyph stands for all of them.
+            return Break.None;
+        }
+
         Break geometric = Measure(previous, next, anchor);
+        if (substituted != 0)
+        {
+            // §14.9.3 and §14.9.5: an alternate description or expansion is a whole word or phrase, set apart from its neighbours.
+            return geometric == Break.None ? Break.Word : geometric;
+        }
 
         // §14.9.4: consecutive ActualText sequences are read as if no word break were present between them.
         return replaced && geometric == Break.Word ? Break.None : geometric;

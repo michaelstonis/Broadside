@@ -63,7 +63,7 @@ internal sealed class JpxPlane : IDisposable
     }
 
     /// <summary>Writes a decoded tile-component (integers before the DC level shift) at its place.</summary>
-    public void Write(JpxTileComponent component, int[] buffer)
+    public void Write(JpxTileComponent component, int[] buffer, CodecReporter reporter)
     {
         long shift = 1L << (SourceDepth - 1);
         long max = (1L << SourceDepth) - 1;
@@ -71,6 +71,7 @@ internal sealed class JpxPlane : IDisposable
         int top = (int)(component.Y0 - Y0);
         for (int y = 0; y < component.Height; y++)
         {
+            reporter.ThrowIfCancellationRequested();
             int row = top + y;
             if (row < 0 || row >= Height)
             {
@@ -139,6 +140,7 @@ internal static class JpxComposer
             bool clamped = false;
             for (int y = 0; y < height; y++)
             {
+                reporter.ThrowIfCancellationRequested();
                 Span<int> values = row.AsSpan(0, width * channels);
                 for (int ch = 0; ch < channels; ch++)
                 {

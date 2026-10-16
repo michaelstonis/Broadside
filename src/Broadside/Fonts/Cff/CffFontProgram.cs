@@ -57,6 +57,18 @@ internal sealed class CffFontProgram : FontProgram
     /// <remarks>Adobe Technical Note #5176 §12, Note 4: StandardEncoding, ExpertEncoding or a custom encoding.</remarks>
     public override IReadOnlyList<string>? BuiltInEncoding => _font.BuiltInEncoding;
 
+    /// <summary>Gets the sfnt file of an OpenType program read without any deviation; <see langword="null"/> otherwise.</summary>
+    internal TrueType.SfntFile? Sfnt { get; init; }
+
+    /// <inheritdoc/>
+    /// <remarks>An OpenType program read without repair: the whole sfnt file. A bare CFF program is not an sfnt.</remarks>
+    public override bool TryGetSfntData(out ReadOnlyMemory<byte> data, out int faceIndex)
+    {
+        data = Sfnt?.Data ?? default;
+        faceIndex = Sfnt?.FaceIndex ?? 0;
+        return Sfnt is not null;
+    }
+
     /// <summary>Gets the parsed tables (a CIDFontType0 maps CIDs to glyphs through them, §9.7.4.2).</summary>
     internal CffFont Font => _font;
 

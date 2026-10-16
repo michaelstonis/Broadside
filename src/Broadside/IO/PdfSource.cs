@@ -68,6 +68,15 @@ internal abstract class PdfSource : IDisposable
     /// <returns>The window length, or 0.</returns>
     public virtual int ExpectedObjectWindow(long offset) => 0;
 
+    /// <summary>
+    /// Records where objects, cross-reference sections and hinted byte ranges start or end (absolute offsets), for a source that
+    /// fetches what it reads: a miss is fetched up to the next one. Nothing for a local source.
+    /// </summary>
+    /// <param name="boundaries">The offsets, in any order; they are added to those recorded before.</param>
+    public virtual void AddObjectBoundaries(IEnumerable<long> boundaries)
+    {
+    }
+
     /// <summary>Creates a source over bytes the caller promises not to change while the source is in use. The bytes are not copied.</summary>
     /// <param name="bytes">The file.</param>
     /// <returns>The source.</returns>

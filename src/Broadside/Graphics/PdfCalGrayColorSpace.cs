@@ -31,7 +31,7 @@ public sealed class PdfCalGrayColorSpace : PdfColorSpace
     public CieXyz WhitePoint => ColorEntries.WhitePoint(Cache!, Dictionary) ?? CieXyz.D65;
 
     /// <summary>Gets the diffuse black point, <c>BlackPoint</c>; [0 0 0] when missing or invalid.</summary>
-    /// <remarks>ISO 32000-2 Table 62.</remarks>
+    /// <remarks>ISO 32000-2 Table 62 and §8.6.5.3. Descriptive: conversion to device colours does not use it, as A = 0 is XYZ zero whatever it says.</remarks>
     public CieXyz BlackPoint => ColorEntries.BlackPoint(Cache!, Dictionary, out _) ?? default;
 
     /// <summary>Gets the gamma G, <c>Gamma</c>; 1 when missing or not positive.</summary>

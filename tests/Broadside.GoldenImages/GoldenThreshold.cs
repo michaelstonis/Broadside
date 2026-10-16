@@ -43,6 +43,28 @@ public readonly record struct GoldenThreshold
     /// <summary>Gets the threshold every backend meets unless <see cref="GoldenThresholds"/> says otherwise: edges 0.3, flat areas 0.05, no differing pixel.</summary>
     public static GoldenThreshold Default { get; } = new(0.3, 0.05, 0);
 
+    /// <summary>
+    /// Gets the text threshold (spec #33, story 13): how far glyphs a backend draws with its platform's font engine (native glyph
+    /// rendering of TrueType and OpenType programs) may be from the software rasterizer's exact-area outlines: edges 0.8, flat areas
+    /// 0.05, at most 8 differing pixels.
+    /// </summary>
+    /// <remarks>
+    /// A font engine anti-aliases glyphs its own way: it applies a text gamma (CoreText draws small text lighter), dilates or rounds a
+    /// glyph's extent (CoreText's are up to three quarters of a pixel taller at 72 DPI) and positions glyphs on a quarter-pixel grid,
+    /// so an edge pixel can differ by up to 0.75 where the outline's edge falls near a pixel boundary. Flat areas (the inside of a
+    /// stem, the paper) must still match, so a missing, misplaced or wrongly coloured glyph fails. The few pixels allowed cover
+    /// glyphs whose overlapping contours an engine fills differently from the non-zero rule (the corpus CFF <c>I</c>, whose serif
+    /// and stem wind opposite ways). Measured on macOS (Skia over CoreText, issue #123): every text corpus page within it.
+    /// </remarks>
+    public static GoldenThreshold Text { get; } = new(0.8, 0.05, 8);
+
+    /// <summary>
+    /// Gets the tight threshold (spec #33, story 13): how far a backend's render with forced outlines may be from its own rendering of
+    /// the same outlines as paths: under 3 levels of grey (0.01) anywhere, no differing pixel.
+    /// </summary>
+    /// <remarks>Both go through the same scan converter, so only the last bits of the platform's arithmetic may differ.</remarks>
+    public static GoldenThreshold Tight { get; } = new(0.01, 0.01, 0);
+
     /// <summary>Gets the threshold that accepts only identical pixels.</summary>
     public static GoldenThreshold Exact { get; } = new(0, 0, 0);
 

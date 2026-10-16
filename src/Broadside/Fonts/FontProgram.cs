@@ -107,6 +107,29 @@ public abstract class FontProgram
         return false;
     }
 
+    /// <summary>
+    /// Gets the program's bytes as an sfnt file (a TrueType or OpenType program, or a TrueType collection and the index of this
+    /// program's font in it), for a backend that hands the program to a platform font engine to draw its glyphs natively.
+    /// </summary>
+    /// <param name="data">The whole sfnt file, as the font file stream holds it (decoded); empty when the method returns false.</param>
+    /// <param name="faceIndex">The index of this program's font in a TrueType collection; 0 otherwise.</param>
+    /// <returns>
+    /// <see langword="true"/> for a TrueType or OpenType program read without any repair; <see langword="false"/> for every other
+    /// format, and for a program whose reading reported a deviation (a platform engine would read the damaged bytes differently from
+    /// this program, so its glyphs must be drawn from <see cref="GetOutline"/>).
+    /// </returns>
+    /// <remarks>
+    /// ISO 32000-2 §9.9 (Table 124: <c>FontFile2</c> and <c>FontFile3</c> <c>OpenType</c>) and open decision 7 of the spec: native glyph
+    /// rendering covers TrueType and OpenType programs only. Glyph ids are this program's (<see cref="GetOutline"/>'s), which an sfnt
+    /// engine uses as they are. A parser of another format keeps the default, which returns <see langword="false"/>.
+    /// </remarks>
+    public virtual bool TryGetSfntData(out ReadOnlyMemory<byte> data, out int faceIndex)
+    {
+        data = default;
+        faceIndex = 0;
+        return false;
+    }
+
     /// <summary>Gets a glyph's name, or <see langword="null"/> when the program does not name it.</summary>
     /// <param name="glyphId">The glyph id.</param>
     /// <returns>The name.</returns>

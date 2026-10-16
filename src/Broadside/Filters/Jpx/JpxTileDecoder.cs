@@ -71,13 +71,14 @@ internal sealed class JpxTileDecoder : IDisposable
             int[] buffer = buffers[c];
             buffer.AsSpan(0, component.Width * component.Height).Clear();
             DecodeBlocks(component, data, buffer);
+            _reporter.ThrowIfCancellationRequested();
             if (component.Style.Reversible)
             {
-                JpxWavelet.Inverse53(component, buffer);
+                JpxWavelet.Inverse53(component, buffer, _reporter);
             }
             else
             {
-                JpxWavelet.Inverse97(component, MemoryMarshal.Cast<int, float>(buffer.AsSpan()));
+                JpxWavelet.Inverse97(component, MemoryMarshal.Cast<int, float>(buffer.AsSpan()), _reporter);
             }
         }
 
@@ -750,6 +751,7 @@ internal sealed class JpxTileDecoder : IDisposable
                         continue;
                     }
 
+                    _reporter.ThrowIfCancellationRequested();
                     int planes = band.MagnitudeBits + roi;
                     int top = planes - 1 - block.ZeroPlanes;
                     if (planes > 30 || roi >= 31)

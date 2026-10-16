@@ -14,9 +14,13 @@ internal sealed class SimpleFontMetrics
 {
     private readonly CosObject[] _sources;
     private readonly int[] _versions;
+    private readonly PdfDocument _document;
+    private readonly int _objectsVersion;
 
-    private SimpleFontMetrics(string[] names, double[] widths, Standard14Font? standard14, List<CosObject> sources)
+    private SimpleFontMetrics(string[] names, double[] widths, Standard14Font? standard14, List<CosObject> sources, PdfDocument document, int objectsVersion)
     {
+        _document = document;
+        _objectsVersion = objectsVersion;
         Names = names;
         Widths = widths;
         Standard14 = standard14;
@@ -37,11 +41,19 @@ internal sealed class SimpleFontMetrics
     /// <summary>Gets the descriptor synthesized from Standard 14 metrics, used when the font has no <c>FontDescriptor</c>.</summary>
     public PdfFontDescriptor? SynthesizedDescriptor { get; }
 
-    /// <summary>Gets a value indicating whether no source dictionary or array has changed since the tables were built.</summary>
+    /// <summary>
+    /// Gets a value indicating whether no object was added or removed (§7.3.10) and no source dictionary or array has changed since
+    /// the tables were built.
+    /// </summary>
     public bool IsCurrent
     {
         get
         {
+            if (_document.ObjectsVersion != _objectsVersion)
+            {
+                return false;
+            }
+
             for (int index = 0; index < _sources.Length; index++)
             {
                 if (VersionOf(_sources[index]) != _versions[index])
@@ -75,6 +87,7 @@ internal sealed class SimpleFontMetrics
     private sealed class Builder(PdfSimpleFont font)
     {
         private readonly List<CosObject> _sources = [font.Dictionary];
+        private readonly int _objectsVersion = font.Document.ObjectsVersion;
         private readonly string?[] _names = new string?[256];
         private readonly double[] _widths = new double[256];
         private CosDictionary? _descriptor;
@@ -97,7 +110,7 @@ internal sealed class SimpleFontMetrics
 
             ReadWidths(names);
             CheckStandard14Entries();
-            return new SimpleFontMetrics(names, _widths, _standard14, _sources);
+            return new SimpleFontMetrics(names, _widths, _standard14, _sources, font.Document, _objectsVersion);
         }
 
         /// <summary>The font descriptor (§9.8): present, a dictionary, well-formed; whether it embeds a program; its flags.</summary>

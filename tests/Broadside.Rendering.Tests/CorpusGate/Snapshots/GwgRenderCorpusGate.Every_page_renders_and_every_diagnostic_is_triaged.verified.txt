@@ -1,0 +1,15 @@
+﻿corpus: gwg-output-suite @ unknown
+files: 98
+well-formed files: 90
+outcomes:
+  Rendered: 98
+  PasswordRequired: 0
+  CertificateRequired: 0
+  EncryptionUnsupported: 0
+  Rejected: 0
+  Crash: 0
+  Timeout: 0
+pages rendered: 286
+render diagnostics on well-formed files (files, total):
+  CidToGidMapMissing: 5, 9
+  ContentColorOperatorMismatch: 6, 6

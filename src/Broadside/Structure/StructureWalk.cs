@@ -28,6 +28,10 @@ internal sealed class StructureWalk
     private readonly Dictionary<CosObject, Dictionary<int, PdfStructureElement>> _markedContent = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<CosObject, PdfStructureElement> _objects = new(ReferenceEqualityComparer.Instance);
     private readonly Dictionary<string, PdfStructureElement> _ids = new(StringComparer.Ordinal);
+    private readonly Dictionary<(CosObject StreamKey, int Mcid), int> _markedContentOrder = new(StreamMcidComparer.Instance);
+    private readonly Dictionary<CosObject, int> _objectOrder = new(ReferenceEqualityComparer.Instance);
+    private readonly Dictionary<PdfStructureElement, int> _firstItems = new(ReferenceEqualityComparer.Instance);
+    private readonly List<CosDictionary?> _itemPages = [];
 
     public static StructureWalk Empty { get; } = new();
 
@@ -37,12 +41,12 @@ internal sealed class StructureWalk
     /// <summary>Gets a value indicating whether any element has a content item.</summary>
     public bool HasContentItems { get; private set; }
 
-    public static StructureWalk Build(StructureContext context)
+    public static StructureWalk Build(StructureContext context, StructureStamps stamps)
     {
         var walk = new StructureWalk();
         var visited = new HashSet<CosDictionary>(ReferenceEqualityComparer.Instance);
         var stack = new Stack<(CosObject Entry, PdfStructureElement? Parent, int Depth)>();
-        Push(stack, KidReader.Entries(context, context.Root), null, 0);
+        Push(stack, KidReader.Entries(context, context.Root, stamps), null, 0);
         while (stack.TryPop(out (CosObject Entry, PdfStructureElement? Parent, int Depth) next))
         {
             (CosObject entry, PdfStructureElement? parent, int depth) = next;
@@ -56,7 +60,7 @@ internal sealed class StructureWalk
             switch (kid.Kind)
             {
                 case KidKind.Element:
-                    walk.VisitElement(context, kid, parent, depth, visited, stack);
+                    walk.VisitElement(context, kid, parent, depth, visited, stack, stamps);
                     break;
                 case KidKind.MarkedContent:
                     walk.VisitMarkedContent(context, parent!.CreateMarkedContent(kid));
@@ -64,9 +68,9 @@ internal sealed class StructureWalk
                 case KidKind.Object:
                     PdfObjectReference reference = parent!.CreateObjectReference(kid);
                     walk.HasContentItems = true;
-                    if (reference.ReferencedObject is not CosNull)
+                    if (reference.ReferencedObject is not CosNull && walk._objects.TryAdd(reference.ReferencedObject, parent))
                     {
-                        walk._objects.TryAdd(reference.ReferencedObject, parent);
+                        walk._objectOrder.Add(reference.ReferencedObject, walk.RecordItem(parent, reference.Page?.Dictionary));
                     }
 
                     break;
@@ -83,9 +87,62 @@ internal sealed class StructureWalk
 
     public bool TryGetById(ReadOnlySpan<byte> id, [MaybeNullWhen(false)] out PdfStructureElement element) => _ids.TryGetValue(Encoding.Latin1.GetString(id), out element);
 
+    /// <summary>
+    /// Finds the element whose <c>K</c> holds marked-content sequence <paramref name="mcid"/> of a content stream (a page object
+    /// or a stream), and the sequence's position in logical content order: the depth-first order of the hierarchy (§14.8.2.5.1).
+    /// </summary>
+    public bool TryGetMarkedContent(CosObject streamKey, int mcid, [MaybeNullWhen(false)] out PdfStructureElement element, out int order)
+    {
+        order = 0;
+        element = null;
+        return _markedContent.TryGetValue(streamKey, out Dictionary<int, PdfStructureElement>? map)
+            && map.TryGetValue(mcid, out element)
+            && _markedContentOrder.TryGetValue((streamKey, mcid), out order);
+    }
+
+    /// <summary>Finds the element whose <c>K</c> holds <paramref name="value"/> as an object content item, and the item's position in logical content order.</summary>
+    public bool TryGetObject(CosObject value, [MaybeNullWhen(false)] out PdfStructureElement element, out int order)
+    {
+        order = 0;
+        return _objects.TryGetValue(value, out element) && _objectOrder.TryGetValue(value, out order);
+    }
+
+    /// <summary>
+    /// Finds the position in logical content order (§14.8.2.5.1) of the first content item of <paramref name="element"/> or of any
+    /// element below it. The walk numbers content items depth first, so the items of an element's subtree are the consecutive
+    /// positions from this one.
+    /// </summary>
+    public bool TryGetFirstItem(PdfStructureElement element, out int order) => _firstItems.TryGetValue(element, out order);
+
+    /// <summary>
+    /// Gets the page object of the content item at position <paramref name="order"/> in logical content order, or
+    /// <see langword="null"/> when it names none (<c>Pg</c>, Table 355, Table 357, Table 358).
+    /// </summary>
+    public CosDictionary? ItemPage(int order) => _itemPages[order];
+
     /// <summary>The MCID-to-element map of one content stream (a page object or a stream), from <c>K</c>.</summary>
     public IReadOnlyDictionary<int, PdfStructureElement>? MarkedContent(CosObject streamKey) =>
         _markedContent.TryGetValue(streamKey, out Dictionary<int, PdfStructureElement>? map) ? map : null;
+
+    /// <summary>
+    /// Gives the next content item, of <paramref name="parent"/> and on <paramref name="page"/>, its position in logical content order,
+    /// and records that position as the first item of <paramref name="parent"/> and of each ancestor that has none yet. The walk meets
+    /// content items in logical order, so an element that already has a first item has an ancestor chain that has one too.
+    /// </summary>
+    private int RecordItem(PdfStructureElement parent, CosDictionary? page)
+    {
+        int order = _itemPages.Count;
+        _itemPages.Add(page);
+        for (PdfStructureElement? element = parent; element is not null; element = element.Parent)
+        {
+            if (!_firstItems.TryAdd(element, order))
+            {
+                break;
+            }
+        }
+
+        return order;
+    }
 
     private static void Push(Stack<(CosObject, PdfStructureElement?, int)> stack, IReadOnlyList<CosObject> entries, PdfStructureElement? parent, int depth)
     {
@@ -95,7 +152,7 @@ internal sealed class StructureWalk
         }
     }
 
-    private void VisitElement(StructureContext context, Kid kid, PdfStructureElement? parent, int depth, HashSet<CosDictionary> visited, Stack<(CosObject, PdfStructureElement?, int)> stack)
+    private void VisitElement(StructureContext context, Kid kid, PdfStructureElement? parent, int depth, HashSet<CosDictionary> visited, Stack<(CosObject, PdfStructureElement?, int)> stack, StructureStamps stamps)
     {
         CosDictionary dictionary = kid.Dictionary!;
         CosReference? where = kid.Reference ?? parent?.Reference;
@@ -133,7 +190,7 @@ internal sealed class StructureWalk
             }
         }
 
-        Push(stack, KidReader.Entries(context, dictionary), element, depth + 1);
+        Push(stack, KidReader.Entries(context, dictionary, stamps), element, depth + 1);
     }
 
     private void VisitMarkedContent(StructureContext context, PdfMarkedContentReference item)
@@ -150,12 +207,25 @@ internal sealed class StructureWalk
             _markedContent.Add(key, map);
         }
 
-        if (!map.TryAdd(item.Mcid, item.Parent))
+        if (map.TryAdd(item.Mcid, item.Parent))
+        {
+            _markedContentOrder.Add((key, item.Mcid), RecordItem(item.Parent, item.PageObject));
+        }
+        else
         {
             context.Report(
                 DiagnosticCodes.McidDuplicate,
                 $"MCID {item.Mcid} of one content stream is a content item of two structure elements (§14.7.5.2: MCIDs are unique per content stream); the first is kept.",
                 item.Parent.Reference);
         }
+    }
+
+    private sealed class StreamMcidComparer : IEqualityComparer<(CosObject StreamKey, int Mcid)>
+    {
+        public static readonly StreamMcidComparer Instance = new();
+
+        public bool Equals((CosObject StreamKey, int Mcid) x, (CosObject StreamKey, int Mcid) y) => ReferenceEquals(x.StreamKey, y.StreamKey) && x.Mcid == y.Mcid;
+
+        public int GetHashCode((CosObject StreamKey, int Mcid) obj) => HashCode.Combine(System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(obj.StreamKey), obj.Mcid);
     }
 }

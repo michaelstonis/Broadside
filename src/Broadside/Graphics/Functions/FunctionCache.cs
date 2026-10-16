@@ -40,6 +40,9 @@ internal sealed class FunctionCache
         _resolve = document.Resolve;
     }
 
+    /// <summary>Gets the document the functions belong to.</summary>
+    public PdfDocument Document => _document;
+
     /// <summary>Returns the view of a function object.</summary>
     /// <param name="value">A function dictionary or stream, or a reference to one.</param>
     /// <param name="expectedInputs">The number of inputs the consumer passes (repairs a missing Domain); 0 when unknown.</param>
@@ -107,9 +110,10 @@ internal sealed class FunctionCache
     /// <returns>The compiled function.</returns>
     internal CompiledFunction Compile(CosObject function, CosReference? reference, PdfFunctionType type, int expectedInputs, int expectedOutputs)
     {
+        int objectsVersion = _document.ObjectsVersion;
         var compilation = new FunctionCompilation(_document, _diagnostics) { Reference = reference };
         FunctionEvaluator evaluator = FunctionCompiler.Compile(function, compilation, type, expectedInputs, expectedOutputs);
-        return new CompiledFunction(evaluator, compilation.Dependencies());
+        return new CompiledFunction(evaluator, compilation.Dependencies(), _document, objectsVersion);
     }
 
     /// <summary>Resolves an object through the document.</summary>

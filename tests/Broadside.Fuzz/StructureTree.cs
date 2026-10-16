@@ -33,7 +33,42 @@ internal static class StructureTree
         if (document is not null)
         {
             Walk(document);
+            Edit(document);
         }
+    }
+
+    /// <summary>
+    /// Edits the tree read (issue #156) and reads it again: a new element with an allocated MCID on the first page and an ID, and the
+    /// last top-level element removed. Invariants: edits on any tree a lenient open accepts succeed; the reader sees them at once (the
+    /// new element owns its MCID, is found by its ID, and the removed element is gone from <see cref="PdfStructureTreeRoot.Elements"/>).
+    /// </summary>
+    private static void Edit(PdfDocument document)
+    {
+        if (document.StructureTree is not { } root || document.Pages.Count == 0 || document.Pages[0].Reference is null)
+        {
+            return;
+        }
+
+        PdfPage page = document.Pages[0];
+        IReadOnlyList<PdfStructureElement> children = root.Children;
+        PdfStructureElement? removed = children.Count > 0 && root.Elements.Contains(children[^1]) ? children[^1] : null;
+        removed?.Remove();
+
+        PdfStructureElement added = root.AddElement(new PdfStructureType("P", PdfStructureNamespace.Pdf20));
+        int mcid = added.AddMarkedContent(page).Mcid;
+        byte[] id = Guid.NewGuid().ToByteArray();
+        added.Id = new CosString(id);
+        if (!added.Equals(root.FindElement(page, mcid)) || !added.Equals(root.FindElementById(id)))
+        {
+            throw new InvalidOperationException("A written element is not found through the parent tree or the ID tree.");
+        }
+
+        if (removed is not null && root.Elements.Contains(removed))
+        {
+            throw new InvalidOperationException("A removed element is still reachable.");
+        }
+
+        Walk(document);
     }
 
     private static PdfDocument? OpenOrNull(byte[] file)
@@ -116,21 +151,129 @@ internal static class StructureTree
         foreach (PdfPage page in document.Pages)
         {
             _ = root.GetMarkedContentElements(page);
+            CheckReadingOrder(page);
         }
+
+        CheckLayout(document.ExtractLayout());
+        if (document.Pages.Count > 0)
+        {
+            CheckLayout(document.Pages[0].ExtractLayout());
+        }
+    }
+
+    /// <summary>
+    /// Checks a layout tree built from the structure tree (issue #186): every node is reached once with its parent set, every extent's
+    /// ranges lie within its page and within its parent's extent on that page, table cells have spans of at least 1 and grid positions
+    /// inside the table, and every node's text assembles.
+    /// </summary>
+    internal static void CheckLayout(Broadside.Layout.LayoutTree tree)
+    {
+        var seen = new HashSet<Broadside.Layout.LayoutNode>(ReferenceEqualityComparer.Instance);
+        var stack = new Stack<Broadside.Layout.LayoutNode>([tree.Root]);
+        while (stack.TryPop(out Broadside.Layout.LayoutNode? node))
+        {
+            if (!seen.Add(node))
+            {
+                throw new InvalidOperationException("A layout node is reached twice.");
+            }
+
+            _ = node.Text;
+            foreach (Broadside.Layout.LayoutExtent extent in node.Extents)
+            {
+                Broadside.Text.TextPage text = extent.Page.Text;
+                if (extent.GlyphStart < 0 || extent.GlyphCount < 0 || extent.GlyphStart + extent.GlyphCount > text.Glyphs.Count
+                    || extent.TextStart < 0 || extent.TextLength < 0 || extent.TextStart + extent.TextLength > text.Text.Length)
+                {
+                    throw new InvalidOperationException("A layout extent's range lies outside its page.");
+                }
+
+                if (node.Parent is { } parent
+                    && !parent.Extents.Any(outer => ReferenceEquals(outer.Page, extent.Page) && outer.GlyphStart <= extent.GlyphStart && extent.GlyphStart + extent.GlyphCount <= outer.GlyphStart + outer.GlyphCount))
+                {
+                    throw new InvalidOperationException("A layout extent is not inside its parent's.");
+                }
+            }
+
+            if (node is Broadside.Layout.LayoutTableCell cell
+                && (cell.RowSpan < 1 || cell.ColumnSpan < 1
+                    || (cell.Row >= 0 && node.Parent?.Parent is Broadside.Layout.LayoutTable table && (cell.Row + cell.RowSpan > table.RowCount || cell.Column + cell.ColumnSpan > table.ColumnCount))))
+            {
+                throw new InvalidOperationException("A table cell lies outside its table's grid.");
+            }
+
+            foreach (Broadside.Layout.LayoutNode child in node.Children)
+            {
+                if (!ReferenceEquals(child.Parent, node))
+                {
+                    throw new InvalidOperationException("A layout node's parent is not the node holding it.");
+                }
+
+                stack.Push(child);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Extracts the page's text in structure order (issue #185) and checks it: the glyphs' text ranges follow each other to the end of
+    /// the text, and with artifacts included every glyph content order shows is there exactly once, whatever the tree says.
+    /// </summary>
+    private static void CheckReadingOrder(PdfPage page)
+    {
+        var everything = new Broadside.Text.TextExtractionOptions().WithArtifacts().WithAlternateDescriptions().WithExpansions();
+        Broadside.Text.TextPage ordered = page.ExtractText(everything);
+        Broadside.Text.TextPage content = page.ExtractText(new Broadside.Text.TextExtractionOptions().WithArtifacts().WithReadingOrder(Broadside.Text.TextReadingOrder.Content));
+        Broadside.Text.TextPage real = page.ExtractText();
+        foreach (Broadside.Text.TextPage text in (Broadside.Text.TextPage[])[ordered, real])
+        {
+            int expectedStart = 0;
+            foreach (Broadside.Text.TextGlyph glyph in text.Glyphs)
+            {
+                if (glyph.TextStart != expectedStart || glyph.TextLength < 0)
+                {
+                    throw new InvalidOperationException($"A glyph's text starts at {glyph.TextStart} with {glyph.TextLength} units; expected {expectedStart}.");
+                }
+
+                expectedStart += glyph.TextLength;
+            }
+
+            if (expectedStart != text.Text.Length)
+            {
+                throw new InvalidOperationException($"The glyphs' text ends at {expectedStart}, the text at {text.Text.Length}.");
+            }
+
+            _ = text.PlainText;
+        }
+
+        if (ordered.Glyphs.Count != content.Glyphs.Count
+            || !Keys(ordered).SequenceEqual(Keys(content))
+            || real.Glyphs.Count > ordered.Glyphs.Count)
+        {
+            throw new InvalidOperationException($"Structure order has {ordered.Glyphs.Count} glyphs ({real.Glyphs.Count} without artifacts), content order {content.Glyphs.Count}.");
+        }
+
+        static IEnumerable<(double X, double Y, uint Code)> Keys(Broadside.Text.TextPage text) =>
+            text.Glyphs.Select(static glyph => (glyph.Origin.X, glyph.Origin.Y, glyph.CharacterCode)).Order();
     }
 
     /// <summary>Builds a one-page tagged file whose structure tree root and objects 5 onward are the input's lines.</summary>
     private static byte[] Synthesize(ReadOnlySpan<byte> data)
     {
         string[] lines = Encoding.Latin1.GetString(data).Split('\n', MaxObjects);
+
+        // The page's content and font follow the input's objects, so the input numbers its objects from 5 whatever its length; the
+        // content shows MCIDs 0 to 2, an artifact and unmarked text, for structure-order text extraction.
+        int content = lines.Length + 4;
         var objects = new List<string>
         {
             "<< /Type /Catalog /Pages 2 0 R /MarkInfo << /Marked true >> /StructTreeRoot 4 0 R /Lang (en) >>",
             "<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
-            "<< /Type /Page /Parent 2 0 R /Resources << >> /MediaBox [0 0 612 792] /StructParents 0 >>",
+            $"<< /Type /Page /Parent 2 0 R /Resources << /Font << /F1 {content + 1} 0 R >> >> /MediaBox [0 0 612 792] /Contents {content} 0 R /StructParents 0 >>",
             $"<< /Type /StructTreeRoot {lines[0]} >>",
         };
         objects.AddRange(lines.Skip(1));
+        const string shown = "BT /F1 12 Tf 72 700 Td /P <</MCID 0>> BDC (a) Tj EMC /P <</MCID 1>> BDC (b) Tj EMC /Artifact BMC (c) Tj EMC /P <</MCID 2>> BDC (d) Tj EMC (e) Tj ET";
+        objects.Add($"<< /Length {shown.Length} >>\nstream\n{shown}\nendstream");
+        objects.Add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
 
         var text = new StringBuilder("%PDF-2.0\n");
         var offsets = new List<int>();

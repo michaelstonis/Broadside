@@ -23,6 +23,8 @@
 
   <ItemGroup>
     <ProjectReference Include="../Broadside.Rendering/Broadside.Rendering.csproj" />
+    <!-- The device app (tests/Broadside.Rendering.Android.Device) reads the backend's font and native-glyph counters. -->
+    <InternalsVisibleTo Include="Broadside.Rendering.Android.Device" />
   </ItemGroup>
 
   <!-- No-op targets for a host that cannot build this project. The SDK, when imported below, replaces every one of them. -->

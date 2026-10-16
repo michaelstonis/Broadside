@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Globalization;
 using System.Runtime.CompilerServices;
 using Broadside.Annotations;
 using Broadside.Caching;
@@ -95,13 +96,16 @@ public sealed partial class PdfDocument : IDisposable
         Catalog = catalog;
         Revisions = revisions;
         Linearization = linearization;
-        Pages = new PdfPageCollection(() => PageTreeReader.Read(this, diagnostics));
+        Pages = new PdfPageCollection(this, () => PageTreeReader.Read(this, diagnostics));
         Functions = new FunctionCache(this, diagnostics);
         ColorSpaces = new ColorSpaceCache(this, diagnostics, colorManagement);
     }
 
     /// <summary>Gets the engine's encoders, which <see cref="EncodeStream"/> and saving use (issue #142).</summary>
     internal StreamEncoderRegistry StreamEncoders { get; private init; } = StreamEncoderRegistry.Default;
+
+    /// <summary>Gets the engine's clock, which dates the metadata a save writes (issue #162).</summary>
+    internal TimeProvider TimeProvider { get; private init; } = TimeProvider.System;
 
     /// <summary>
     /// Gets the version of the specification the document conforms to: the header's version, or the catalog's <c>Version</c> entry
@@ -224,10 +228,13 @@ public sealed partial class PdfDocument : IDisposable
     /// <remarks>ISO 32000-2 Annex F, F.3.3.</remarks>
     public PdfLinearization? Linearization { get; }
 
-    /// <summary>Gets a value indicating whether the document is encrypted (its trailer has an <c>Encrypt</c> entry).</summary>
+    /// <summary>Gets a value indicating whether the document is encrypted (its trailer's <c>Encrypt</c> entry is an encryption dictionary).</summary>
     /// <remarks>
-    /// ISO 32000-2 §7.6. An encrypted document opens transparently: strings and streams read through it are decrypted, so its COS
-    /// objects hold plaintext.
+    /// ISO 32000-2 §7.6.1, §7.6.2. An encrypted document opens transparently: strings and streams read through it are decrypted, so its
+    /// COS objects hold plaintext. An <c>Encrypt</c> entry that is not a dictionary (a damaged file) is reported as an
+    /// <c>EncryptDictionaryInvalid</c> error (strict mode throws) and the document is read as not encrypted; it then also saves as
+    /// one, so a save never refuses it for its encryption: a complete file drops the entry, and so does an incremental update that
+    /// removes encryption (<see cref="PdfSaveOptions.RemoveEncryption"/>).
     /// </remarks>
     public bool IsEncrypted => Security is not null;
 
@@ -250,8 +257,8 @@ public sealed partial class PdfDocument : IDisposable
     /// <remarks>
     /// ISO 32000-2 §7.7.2, Table 29 (<c>StructTreeRoot</c>), §14.7.2. Read when first asked for; an untagged document has no structure
     /// tree and no diagnostic. A <c>StructTreeRoot</c> that is not a dictionary is ignored with a <c>StructTreeRootInvalid</c> diagnostic.
-    /// The views share indexes built on first use (see <see cref="PdfStructureTreeRoot"/>); they are rebuilt when the catalog's
-    /// <c>StructTreeRoot</c> entry is replaced.
+    /// The views share indexes built on first use (see <see cref="PdfStructureTreeRoot"/>); they are rebuilt when anything they were
+    /// built from changes, and when the catalog's <c>StructTreeRoot</c> entry is replaced. <see cref="CreateStructureTree"/> adds one.
     /// </remarks>
     public PdfStructureTreeRoot? StructureTree
     {
@@ -446,16 +453,27 @@ public sealed partial class PdfDocument : IDisposable
 
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file with a classic cross-reference table.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
-    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
+    /// <exception cref="NotSupportedException">
+    /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
+    /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
+    /// </exception>
+    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
     public void Save(Stream stream) => Save(stream, new PdfSaveOptions());
 
     /// <summary>Writes the document to <paramref name="stream"/> as a complete file.</summary>
     /// <param name="stream">Where to write, from its current position. It is not disposed.</param>
     /// <param name="options">How to lay the file out.</param>
-    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
+    /// <exception cref="NotSupportedException">
+    /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
+    /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption,
+    /// or a linearized save would carry an integrity MAC.
+    /// </exception>
+    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
     /// <remarks>
     /// <para>
     /// ISO 32000-2 §7.5: a header, every object, the cross-reference information and the trailer. Objects keep their numbers and
@@ -463,7 +481,8 @@ public sealed partial class PdfDocument : IDisposable
     /// write compactly; <see cref="PdfSaveOptions.RemoveUnreachableObjects"/> leaves out objects the trailer does not reach. An object
     /// that has not changed since it was read, was read without any repair and holds no reference that was renumbered is written with
     /// exactly the bytes it was read from; other objects are serialized, stream data as stored. The revisions of an incrementally
-    /// updated file collapse into one, and a linearized file is written unlinearized (Annex F).
+    /// updated file collapse into one, and a linearized file is written unlinearized (Annex F) unless
+    /// <see cref="PdfSaveOptions.Linearize"/> lays the file out linearized again.
     /// </para>
     /// <para>
     /// Unfiltered streams that are new or changed are written compressed with the engine's <c>FlateDecode</c> encoder when that makes
@@ -471,9 +490,32 @@ public sealed partial class PdfDocument : IDisposable
     /// which and how hard. The document's own streams are not changed.
     /// </para>
     /// <para>
-    /// The header keeps the document's version, raised to 1.5 when the layout needs cross-reference streams. The trailer's first
+    /// The header keeps the document's version, raised to the highest minimum version of the features the file uses (ADR 0003): 1.5
+    /// for cross-reference and object streams, 1.2 for <c>FlateDecode</c> compression, the encryption's version, the <c>BaseVersion</c>
+    /// of each developer extension (§7.12.4). An incremental update writes no header: it raises the catalog's <c>Version</c> entry
+    /// instead (§7.5.6, §7.7.2 Table 29). A raise above <see cref="Version"/> is recorded as a <c>VersionRaised</c> diagnostic
+    /// (Information); in strict mode it is refused, and the save throws naming the features, before anything is written. A feature of an
+    /// ISO/TS extension (AES-GCM encryption, ISO/TS 32003; an integrity MAC, ISO/TS 32004) adds its developer extension to the
+    /// catalog's <c>Extensions</c> (§7.12),
+    /// keeping every other declaration. The trailer's first
     /// file identifier is kept; the second is derived from the written bytes, so saving the same document the same way always writes
     /// the same bytes (§14.4).
+    /// </para>
+    /// <para>
+    /// An encrypted document is saved encrypted with the key it was opened with, unless <see cref="PdfSaveOptions.Encryption"/> gives
+    /// new password encryption, <see cref="PdfSaveOptions.PublicKeyEncryption"/> new encryption for certificate recipients (§7.6.5), or
+    /// <see cref="PdfSaveOptions.RemoveEncryption"/> drops it (§7.6). Either way every object of an encrypted
+    /// document, or of an encrypted file, is serialized and its strings and streams encrypted again under its written number; nothing
+    /// is copied from the source, whose bytes are ciphertext. New encryption raises the header to the version its algorithm needs, and
+    /// encrypted output is not deterministic (random keys, salts and IVs). Saving with RC4 or AES-128, new or kept, records an
+    /// <c>EncryptionDeprecated</c> warning first, so strict mode refuses it. A file with an integrity MAC (ISO/TS 32004), new
+    /// (<see cref="PdfEncryptionOptions.IntegrityProtection"/>) or the document's own, gets a standalone PDF MAC token in its trailer's
+    /// <c>AuthCode</c>, computed over every byte of the file but the token; an incremental update computes it over the whole updated file.
+    /// </para>
+    /// <para>
+    /// A save checks everything that can refuse it before it changes the document (ADR 0005): a save that throws has written nothing
+    /// and left the document as it was. Only a save that goes ahead dates the modification (<see cref="PdfSaveOptions.UpdateModificationDate"/>,
+    /// §14.3.4), subsets the fonts filled fields grew, and declares extensions and a raised version in the catalog.
     /// </para>
     /// <para>
     /// With <see cref="PdfSaveOptions.IncrementalUpdate"/>, the file is instead the document's file followed by an incremental update
@@ -491,16 +533,27 @@ public sealed partial class PdfDocument : IDisposable
 
     /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it, with a classic cross-reference table.</summary>
     /// <param name="path">The file path. Do not name the file the document was opened from.</param>
-    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
+    /// <exception cref="NotSupportedException">
+    /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
+    /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
+    /// </exception>
+    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
     public void Save(string path) => Save(path, new PdfSaveOptions());
 
     /// <summary>Writes the document to the file at <paramref name="path"/>, replacing it.</summary>
     /// <param name="path">The file path. Do not name the file the document was opened from.</param>
     /// <param name="options">How to lay the file out.</param>
-    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
+    /// <exception cref="NotSupportedException">
+    /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
+    /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption,
+    /// or a linearized save would carry an integrity MAC.
+    /// </exception>
+    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/>.</remarks>
     public void Save(string path, PdfSaveOptions options)
     {
@@ -521,8 +574,14 @@ public sealed partial class PdfDocument : IDisposable
     /// <param name="options">How to lay the file out; <see langword="null"/> for the defaults (a classic cross-reference table).</param>
     /// <param name="cancellationToken">Cancels the writes.</param>
     /// <returns>A task that completes when the file is written.</returns>
-    /// <exception cref="NotSupportedException">The document is encrypted; saving it arrives in a later version.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write.</exception>
+    /// <exception cref="NotSupportedException">
+    /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
+    /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption,
+    /// or a linearized save would carry an integrity MAC.
+    /// </exception>
+    /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
     /// <remarks>
     /// ISO 32000-2 §7.5. Writes exactly the bytes <see cref="Save(Stream, PdfSaveOptions)"/> writes, from the same writer; only the
     /// writes to <paramref name="stream"/> are asynchronous.
@@ -541,14 +600,16 @@ public sealed partial class PdfDocument : IDisposable
 
     /// <summary>
     /// Makes <paramref name="value"/> a new indirect object of the document and returns the reference to it: the next object number
-    /// the file does not use, generation 0.
+    /// the file does not use and no reference in it names, generation 0.
     /// </summary>
     /// <param name="value">The object; a stream must be indirect, so this is how a new stream joins the document.</param>
     /// <returns>The reference, which <see cref="Resolve"/> resolves to <paramref name="value"/> at once.</returns>
     /// <exception cref="ArgumentException"><paramref name="value"/> is a <see cref="CosReference"/>, which an indirect object cannot be.</exception>
     /// <exception cref="InvalidOperationException">The document has used every object number.</exception>
     /// <remarks>
-    /// ISO 32000-2 §7.3.10. Place the reference in the document (a dictionary entry, an array element) for the object to be reached.
+    /// ISO 32000-2 §7.3.10 and §7.5.4. Place the reference in the document (a dictionary entry, an array element) for the object to be reached.
+    /// A reference to an object the file does not hold is a reference to null, and stays one: the new object never takes its number.
+    /// The first call reads every object of the file once to find such references.
     /// The next save writes the object whether or not anything refers to it, unless it drops unreachable objects
     /// (<see cref="PdfSaveOptions.RemoveUnreachableObjects"/>). A mutation: no read may run concurrently with it.
     /// </remarks>
@@ -565,13 +626,21 @@ public sealed partial class PdfDocument : IDisposable
     /// ISO 32000-2 §7.3.10 and §7.5.4. References to the object resolve to null from now on; remove them too, or they are written as
     /// references to a free object. A save writes the object's number as a free entry whose generation is one more than the
     /// object's, the generation a new object reusing the number would take (§7.5.6, H.7.4: an incremental update leaves the object's
-    /// old bytes in the file). A mutation: no read may run concurrently with it.
+    /// old bytes in the file). Views read before the removal (the structure tree, the outline, text extraction's reading order,
+    /// annotation lists, the form's fields, optional content, name and number trees, functions, colour converters, font metrics and
+    /// graphics state parameters) see it at their next read (ADR 0004). A mutation: no read may run concurrently with it.
     /// </remarks>
     public bool RemoveObject(CosReference reference)
     {
         ArgumentNullException.ThrowIfNull(reference);
         return _loader.Remove(reference);
     }
+
+    /// <summary>
+    /// Gets a number that changes every time <see cref="AddObject"/> or <see cref="RemoveObject"/> changes which objects references
+    /// resolve to (§7.3.10); live-view caches built from many containers record it with their <c>Version</c>s (ADR 0004).
+    /// </summary>
+    internal int ObjectsVersion => _loader.ObjectsVersion;
 
     /// <summary>Returns <paramref name="value"/>, or the indirect object it refers to when it is a <see cref="CosReference"/>.</summary>
     /// <param name="value">A COS object from this document, or <see langword="null"/>.</param>
@@ -755,7 +824,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <returns>The reader; <see langword="null"/> when the root does not resolve to a dictionary.</returns>
     internal NameTreeReader? GetNameTreeReader(CosObject? root) =>
         ResolveTreeRoot(root, DiagnosticCodes.NameTreeNodeInvalid, "name tree") is { } node
-            ? _nameTrees.GetValue(node, dictionary => new NameTreeReader(dictionary, root as CosReference, Resolve, _diagnostics))
+            ? _nameTrees.GetValue(node, dictionary => new NameTreeReader(dictionary, root as CosReference, Resolve, _diagnostics, () => ObjectsVersion))
             : null;
 
     /// <summary>Returns the document's reader for the number tree rooted at <paramref name="root"/>, creating it on first use.</summary>
@@ -763,7 +832,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <returns>The reader; <see langword="null"/> when the root does not resolve to a dictionary.</returns>
     internal NumberTreeReader? GetNumberTreeReader(CosObject? root) =>
         ResolveTreeRoot(root, DiagnosticCodes.NumberTreeNodeInvalid, "number tree") is { } node
-            ? _numberTrees.GetValue(node, dictionary => new NumberTreeReader(dictionary, root as CosReference, Resolve, _diagnostics))
+            ? _numberTrees.GetValue(node, dictionary => new NumberTreeReader(dictionary, root as CosReference, Resolve, _diagnostics, () => ObjectsVersion))
             : null;
 
     /// <summary>Gets the diagnostics sink, for document-model views that report what they find on first read.</summary>
@@ -977,6 +1046,11 @@ public sealed partial class PdfDocument : IDisposable
     /// (§7.4.4.4: TIFF 2, PNG 10 to 15) is applied before it. A stream without a <c>Filter</c> entry takes the data as it is.
     /// </para>
     /// <para>The stream's <see cref="CosStream.EncodedData"/> is replaced, which marks it changed; its dictionary is not changed.</para>
+    /// <para>
+    /// <c>FlateDecode</c> is PDF 1.2 (§7.4.4), <c>JBIG2Decode</c> PDF 1.4 (§7.4.7) and <c>JPXDecode</c> PDF 1.5 (§7.4.9; Table 6):
+    /// once a stream is encoded with one of them, a save of a document of an earlier version raises the version, or refuses in strict
+    /// mode (ADR 0003).
+    /// </para>
     /// </remarks>
     public void EncodeStream(CosStream stream, ReadOnlySpan<byte> data, System.IO.Compression.CompressionLevel compressionLevel = System.IO.Compression.CompressionLevel.Optimal)
     {
@@ -984,6 +1058,18 @@ public sealed partial class PdfDocument : IDisposable
         var output = new ArrayBufferWriter<byte>(Math.Max(256, data.Length / 2));
         new StreamEncoder(StreamEncoders, Resolve).Encode(data, stream.Dictionary, output, compressionLevel);
         stream.EncodedData = output.WrittenSpan.ToArray();
+
+        // §7.4.1, Table 6: FlateDecode is PDF 1.2, JBIG2Decode 1.4 and JPXDecode 1.5 (through an encoder the caller registers); a
+        // later save raises an earlier document to them (issues #141, #299).
+        CosObject filter = Resolve(stream.Dictionary.GetValueOrDefault(FilterNames.Filter));
+        IEnumerable<CosObject> names = filter is CosArray filters ? filters : [filter];
+        foreach (CosObject name in names)
+        {
+            if (Resolve(name) is CosName filterName && VersionedFeatures.Filter(filterName) is { } feature)
+            {
+                RequireFeature(feature);
+            }
+        }
     }
 
     /// <summary>Returns the font view over a font dictionary of this document.</summary>
@@ -1030,7 +1116,12 @@ public sealed partial class PdfDocument : IDisposable
     }
 
     /// <inheritdoc/>
-    public void Dispose() => _source.Dispose();
+    /// <remarks>Also empties the document's render caches (<see cref="CacheStatistics"/>).</remarks>
+    public void Dispose()
+    {
+        _source.Dispose();
+        Caches.Clear();
+    }
 
     /// <summary>
     /// Returns the parsed program of a font file stream, parsing it on first use with the engine's font program parsers (issue #50):
@@ -1080,7 +1171,10 @@ public sealed partial class PdfDocument : IDisposable
     /// <summary>Returns the default colour spaces of a resource dictionary.</summary>
     /// <param name="resources">The resource dictionary, such as <see cref="PdfPage.Resources"/>; <see langword="null"/> for none.</param>
     /// <returns>The defaults; <see cref="PdfDefaultColorSpaces.None"/> when the dictionary has none.</returns>
-    /// <remarks>ISO 32000-2 §8.6.5.6. Invalid defaults are ignored with a diagnostic.</remarks>
+    /// <remarks>
+    /// ISO 32000-2 §8.6.5.6. Invalid defaults are ignored with a diagnostic. Read again after the dictionary's <c>ColorSpace</c>
+    /// subdictionary changes or an object is added or removed (which can change what a reference in it resolves to, §7.3.10).
+    /// </remarks>
     public PdfDefaultColorSpaces GetDefaultColorSpaces(CosDictionary? resources) => ColorSpaces.GetDefaults(resources);
 
     /// <summary>Returns the converter from <paramref name="source"/> to RGB with the relative colorimetric intent.</summary>
@@ -1135,7 +1229,12 @@ public sealed partial class PdfDocument : IDisposable
     /// ISO 32000-2 §7.7.2, §7.7.3, Table 31: a catalog, a page tree root and one US Letter page whose <c>Resources</c> is the empty
     /// dictionary (no resources) and which has no <c>Contents</c> (an empty page). Written as PDF 2.0 with file identifiers.
     /// </remarks>
-    internal static PdfDocument CreateNew(EngineConfiguration configuration) => Read(PdfSource.FromMemory(NewDocumentFile()), configuration);
+    internal static PdfDocument CreateNew(EngineConfiguration configuration)
+    {
+        PdfDocument document = Read(PdfSource.FromMemory(NewDocumentFile()), configuration);
+        document._isNew = true;
+        return document;
+    }
 
     /// <summary>Writes the file <see cref="CreateNew"/> opens.</summary>
     private static byte[] NewDocumentFile()
@@ -1179,12 +1278,126 @@ public sealed partial class PdfDocument : IDisposable
         }
     }
 
-    private FileWriter PlanSave(PdfSaveOptions options)
+    /// <summary>
+    /// Plans a save in two steps, so that a save refused changes nothing in the document (issue #300). First every check that can
+    /// refuse it, on the document as it is: what the document's edits leave broken (<see cref="ReportBeforeSave"/>), what the writer
+    /// cannot write (encryption it refuses, in strict mode a deviation found loading the objects to write), a version later than the
+    /// document's in strict mode, deprecated encryption, the rules of a PDF/A conformance level (#201). Then what a save changes in
+    /// the document: grown font subsets completed (#285), the modification dated (#162), the PDF/A output intent and identification
+    /// (#201), the catalog's extensions and version (#141), and the file planned again when any of them changed something.
+    /// </summary>
+    /// <param name="options">The save's options.</param>
+    /// <param name="changes">
+    /// Where to record what the second step changes, so that it can be reverted (<see cref="CosChangeLog.Revert"/>): signing, whose
+    /// save changes the document before the signer is asked (issue #306). <see langword="null"/> for a save, which keeps its changes.
+    /// </param>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation the save-time checks report.</exception>
+    private FileWriter PlanSave(PdfSaveOptions options, CosChangeLog? changes = null)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return options.IncrementalUpdate
-            ? SavePlan.CreateIncremental(_source, _loader, options, StreamEncoders)
-            : SavePlan.Create(_source, _loader, Linearization, options, StreamEncoders);
+        CheckLinearization(options);
+        ReportBeforeSave();
+        bool archival = CheckArchivalSave(options);
+        AccessibleSave accessible = CheckAccessibleSave(options);
+        VersionedSave planned = CheckVersionedSave(options, archival, accessible);
+        ReportDeprecatedEncryption(options);
+        archival = archival && CheckArchivalVersion(options, planned);
+        accessible = CheckAccessibleVersion(planned, accessible);
+        if (options.PdfAConformance != PdfAConformance.None && !archival)
+        {
+            ReportNotIdentified(options);
+        }
+
+        ReportAccessibilityNotWritten(options, accessible);
+
+        if (changes is not null)
+        {
+            KeepMetadataSaveState(changes);
+        }
+
+        using CosChangeLog.Recording? recording = changes?.Record();
+        bool changed = CompleteFontSubsets();
+        changed |= DateModification(options);
+
+        // Issues #291 and #301: the metadata takes the layout and date form of the version the save writes, read before the
+        // incremental update's catalog Version below changes it. A raise to 2.0 moves the deprecated Info entries to the XMP packet
+        // (§14.3.3); it only moves metadata the document has, so it adds no versioned feature and the version decided stands.
+        changed |= LayOutMetadataFor(Version, planned.Needed);
+
+        // Issue #201: what a conformant PDF/A save adds, an output intent and the identified XMP packet, PDF 1.4 features the check
+        // step already counted (VersionedFeatures.PdfAOutput); the file is written as PDF 1.7, PDF/A-2's base, or as PDF 2.0 for
+        // PDF/A-4 (#203, VersionedFeatures.PdfA4Output).
+        if (archival)
+        {
+            changed |= ApplyArchivalSave(options, accessible);
+        }
+
+        // Issues #204, #205: what a conformant PDF/UA or WTPDF save adds (identification, declarations, DisplayDocTitle, MarkInfo,
+        // Tabs); PDF/UA-1 is also PDF 1.7 at most, PDF/UA-2 and WTPDF PDF 2.0 (VersionedFeatures.PdfUA2Output).
+        if (accessible.Any)
+        {
+            changed |= ApplyAccessibleSave(archival, accessible);
+        }
+
+        bool basedOnPdf17 = accessible.Conformance == PdfUAConformance.PdfUA1 || (archival && options.PdfAConformance.BaseVersion() == PdfA2Version);
+        return ApplyVersionedSave(options, planned, changed, basedOnPdf17 ? PdfA2Version : null);
+    }
+
+    /// <summary>
+    /// Reports encryption with RC4 or AES-128, new or kept, which ISO 32000-2 §7.6.2, Table 20 deprecates (V 1 to 4), as an
+    /// <c>EncryptionDeprecated</c> warning, so strict mode refuses the save before anything is written or changed.
+    /// </summary>
+    private void ReportDeprecatedEncryption(PdfSaveOptions options)
+    {
+        string? deprecated = options.Encryption switch
+        {
+            { Algorithm: PdfEncryptionAlgorithm.Rc4 } => "RC4 (V 2)",
+            { Algorithm: PdfEncryptionAlgorithm.Aes128 } => "AES-128 (V 4)",
+            null when Security is { Version: < 5 } kept && !options.RemoveEncryption => string.Create(CultureInfo.InvariantCulture, $"the document's own encryption (V {kept.Version})"),
+            _ => null,
+        };
+        if (deprecated is not null)
+        {
+            _diagnostics.Report(
+                DiagnosticCodes.EncryptionDeprecated,
+                DiagnosticSeverity.Warning,
+                $"The saved file is encrypted with {deprecated}, which is deprecated in PDF 2.0 (ISO 32000-2 §7.6.2, Table 20; RC4 offers little protection); AES-256 is the PDF 2.0 algorithm.");
+        }
+    }
+
+    /// <summary>
+    /// The save-time diagnostics channel (issue #158): checks of what the document's edits leave broken, reported in
+    /// <see cref="Diagnostics"/> before anything is planned or written, so strict mode throws with nothing written. Each check is
+    /// recorded once however often the document is saved. Add later save-time checks here.
+    /// </summary>
+    private void ReportBeforeSave() => RemovedPageReport.Report(this, _diagnostics);
+
+    /// <summary>
+    /// Refuses a linearized incremental update, and records that an incremental update of a linearized file leaves it unlinearized:
+    /// its parameter dictionary's <c>L</c> no longer matches the file length (Annex F, F.1, Table F.1, G.7).
+    /// </summary>
+    private void CheckLinearization(PdfSaveOptions options)
+    {
+        if (!options.IncrementalUpdate)
+        {
+            return;
+        }
+
+        if (options.Linearize)
+        {
+            throw new ArgumentException(
+                "An incremental update cannot be linearized: appending to a file leaves it unlinearized (ISO 32000-2 F.1, G.7). Save without IncrementalUpdate to linearize.",
+                nameof(options));
+        }
+
+        if (IsLinearized)
+        {
+            _diagnostics.Report(
+                DiagnosticCodes.LinearizationDropped,
+                DiagnosticSeverity.Information,
+                "The incremental update leaves the linearized file unlinearized: its linearization dictionary's L entry no longer matches the file length (ISO 32000-2 F.1, G.7). Save with Linearize to linearize it again.",
+                objectReference: Linearization!.Reference);
+        }
     }
 
     /// <summary>
@@ -1192,13 +1405,17 @@ public sealed partial class PdfDocument : IDisposable
     /// leads the cross-reference information, its revision is added, and the objects it wrote are no longer dirty. A full save
     /// changes nothing: the document keeps reading the file it was opened from.
     /// </summary>
-    private void Rebase(FileWriter writer)
+    private void Rebase(FileWriter writer) => Rebase(writer.Update);
+
+    /// <summary>As <see cref="Rebase(FileWriter)"/>, for an update whose bytes were completed after writing (a signature, issue #193).</summary>
+    private void Rebase(UpdateResult? update)
     {
-        if (writer.Update is not { } update)
+        if (update is null)
         {
             return;
         }
 
+        _isNew = false;
         AppendedSource source = AppendedSource.Append(_source, update.Bytes);
         _loader.Rebase(source, update.Section, update.ListsEverything, update.Objects);
         _source = source;
@@ -1231,7 +1448,8 @@ public sealed partial class PdfDocument : IDisposable
             };
             // Publication only: the scan is pure, and a scan of a remote file that misses (issue #207) must not be cached as failed.
             var scan = new Lazy<FileScan>(() => FileScan.Run(source), LazyThreadSafetyMode.PublicationOnly);
-            CrossReference? crossReference = CrossReferenceReader.Read(source, header, streams, diagnostics, scan);
+            CrossReference? crossReference = (source.IsLocal || diagnostics.IsStrict ? null : ReadFirstPageFirst(source, header, streams, diagnostics, scan))
+                ?? CrossReferenceReader.Read(source, header, streams, diagnostics, scan);
             bool reconstructed = crossReference is null;
             crossReference ??= Reconstruct(source, header, scan.Value, streams, diagnostics, reportMissingTrailer: true);
             loader = new ObjectLoader(source, header, crossReference, diagnostics, new ObjectLoaderHooks(), streams) { Scan = scan, Logger = configuration.Logger };
@@ -1261,7 +1479,10 @@ public sealed partial class PdfDocument : IDisposable
                 catalog = ReadCatalog(loader, diagnostics, reportUnusableRoot: true)!;
             }
 
-            IReadOnlyList<PdfRevision> revisions = ReadRevisions(source, crossReference, diagnostics);
+            // A linearized file whose length is its L has one revision (F.3.4, G.7), ending with the file; its tail is not read for it.
+            IReadOnlyList<PdfRevision> revisions = loader.CrossReference.IsDeferred
+                ? [new PdfRevision(0, source.Length, loader.CrossReference.FirstPageSection!.Trailer)]
+                : ReadRevisions(source, crossReference, diagnostics);
             if (security is not null)
             {
                 DocumentSecurity.CheckExtensions(security, catalog, loader.Resolve, diagnostics);
@@ -1271,7 +1492,26 @@ public sealed partial class PdfDocument : IDisposable
             var document = new PdfDocument(source, diagnostics, loader, streams, catalog, revisions, linearization, security, configuration.FontProgramParsers, configuration.ColorManagement, configuration.FontResolvers)
             {
                 StreamEncoders = configuration.StreamEncoders,
+                TimeProvider = configuration.TimeProvider,
+                Configuration = configuration,
+                Caches = new DocumentCaches(configuration.CacheBudgets),
+                MaxMeshVertices = configuration.MaxMeshVertices,
             };
+            if (loader.CrossReference.IsDeferred && linearization is not null)
+            {
+                // Annex G, G.4: the hint tables place other pages' objects and the shared objects, and find the pages, so neither
+                // the main cross-reference section nor the page tree is read for them (issue #208).
+                CrossReference deferred = loader.CrossReference;
+                deferred.Locator = new HintObjectLocator(source, header.Offset, () => linearization.Hints);
+                document.Pages.UseHints(new HintedPageList(
+                    document,
+                    source,
+                    header.Offset,
+                    linearization,
+                    number => deferred.FirstPageSection!.Entries.TryGetValue(number, out XrefEntry entry) ? entry : null,
+                    diagnostics));
+            }
+
             document.DetectXfa();
 
             // Table 15: ID is "required in PDF 2.0 or if an Encrypt entry is present" (the latter is the security handler's
@@ -1292,6 +1532,36 @@ public sealed partial class PdfDocument : IDisposable
             source.Dispose();
             throw;
         }
+    }
+
+    /// <summary>
+    /// Starts the cross-reference information of a remote linearized file from its first-page section (Annex G, G.2: "reading the
+    /// startxref line is not necessary"): the parameter dictionary is valid and its <c>L</c> is the file's length, the section after
+    /// it reads cleanly, lists the dictionary, has no free entries and a trailer with <c>Root</c> and a forward <c>Prev</c> (F.3.4).
+    /// The rest of the chain is read when first needed (issue #208). Anything else reads the file from its end as usual.
+    /// </summary>
+    private static CrossReference? ReadFirstPageFirst(PdfSource source, FileHeader header, StreamDecoder streams, DiagnosticSink diagnostics, Lazy<FileScan> scan)
+    {
+        if (LinearizationReader.ReadParameters(source, header) is not { } parameters
+            || CrossReferenceReader.ReadFirstPageSection(source, parameters.End, streams) is not { } firstPage
+            || firstPage.Trailer.ContainsKey(KnownNames.XRefStm)
+            || !firstPage.Trailer.ContainsKey(KnownNames.Root)
+            || !firstPage.Trailer.TryGetValue(KnownNames.Prev, out CosObject? prev)
+            || prev is not CosInteger { Value: var previous }
+            || header.Offset + previous <= firstPage.Offset
+            || !firstPage.Entries.TryGetValue(parameters.Reference.ObjectNumber, out XrefEntry dictionaryEntry)
+            || dictionaryEntry.Kind != XrefEntryKind.InUse
+            || firstPage.Entries.Values.Any(static entry => entry.Kind == XrefEntryKind.Free))
+        {
+            return null;
+        }
+
+        return CrossReference.Deferred(firstPage, () =>
+        {
+            CrossReference complete = CrossReferenceReader.ReadAfterFirstPage(source, header, firstPage, streams, diagnostics, scan);
+            source.AddObjectBoundaries(ObjectBoundaries(complete.Sections, header.Offset));
+            return complete;
+        });
     }
 
     /// <summary>Describes each revision: its byte range and its own trailer (§7.5.6).</summary>

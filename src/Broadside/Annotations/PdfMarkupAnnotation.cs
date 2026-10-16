@@ -15,9 +15,17 @@ public abstract class PdfMarkupAnnotation : PdfAnnotation
     {
     }
 
-    /// <summary>Gets the text label of the pop-up window's title bar, by convention the author (<c>T</c>, PDF 1.1), or <see langword="null"/>.</summary>
+    /// <summary>Gets or sets the text label of the pop-up window's title bar, by convention the author (<c>T</c>, PDF 1.1), or <see langword="null"/>; setting <see langword="null"/> removes it.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.2, Table 172.</remarks>
-    public string? Title => ReadText(AnnotationNames.T);
+    public string? Title
+    {
+        get => ReadText(AnnotationNames.T);
+        set
+        {
+            AnnotationEditing.SetText(Dictionary, AnnotationNames.T, value);
+            Document.RequireFeature(Writing.VersionedFeatures.AnnotationEntries11);
+        }
+    }
 
     /// <summary>Gets the pop-up annotation for entering or editing the text (<c>Popup</c>, PDF 1.3), or <see langword="null"/>.</summary>
     /// <remarks>
@@ -89,9 +97,17 @@ public abstract class PdfMarkupAnnotation : PdfAnnotation
         }
     }
 
-    /// <summary>Gets the subject of the annotation (<c>Subj</c>, PDF 1.5), or <see langword="null"/>.</summary>
+    /// <summary>Gets or sets the subject of the annotation (<c>Subj</c>, PDF 1.5), or <see langword="null"/>; setting <see langword="null"/> removes it.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.2, Table 172.</remarks>
-    public string? Subject => ReadText(AnnotationNames.Subj);
+    public string? Subject
+    {
+        get => ReadText(AnnotationNames.Subj);
+        set
+        {
+            AnnotationEditing.SetText(Dictionary, AnnotationNames.Subj, value);
+            Document.RequireFeature(Writing.VersionedFeatures.AnnotationTypes15);
+        }
+    }
 
     /// <summary>Gets how the annotation relates to <see cref="InReplyTo"/> (<c>RT</c>, PDF 1.6): a reply (the default) or a group.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.2, Table 172: meaningful only with <c>IRT</c>, which is required when <c>RT</c> is present.</remarks>

@@ -10,19 +10,41 @@
   <ItemGroup>
     <ProjectReference Include="../../src/Broadside/Broadside.csproj" />
     <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
+    <ProjectReference Include="../../src/Broadside.Layout/Broadside.Layout.csproj" />
     <ProjectReference Include="../../src/Broadside.Rendering/Broadside.Rendering.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <ProjectReference Include="../../src/Broadside.Rendering.Skia/Broadside.Rendering.Skia.csproj" />
     <PackageReference Include="BenchmarkDotNet" />
+    <!-- SkiaSharp carries only the Windows and Apple native libraries; the Linux one lets SkiaBackendBenchmarks run on the CI runners. -->
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
     <!-- Shared corpus locator, filter encoders and document walker, linked as source so this project does not drag xunit and Verify in through Broadside.TestSupport. -->
     <Compile Include="../../tests/Broadside.TestSupport/CorpusLocator.cs" Link="CorpusLocator.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/FilterEncoders.cs" Link="FilterEncoders.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/CcittEncoder.cs" Link="CcittEncoder.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/PngSamples.cs" Link="PngSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/DocumentWalker.cs" Link="DocumentWalker.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/AnnotationWalker.cs" Link="AnnotationWalker.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/ActionWalker.cs" Link="ActionWalker.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/FormWalker.cs" Link="FormWalker.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/ContentSamples.cs" Link="ContentSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/ClipSamples.cs" Link="ClipSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/AnnotationSamples.cs" Link="AnnotationSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/TextSamples.cs" Link="TextSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/TrueTypeBuilder.cs" Link="TrueTypeBuilder.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/OpenTypeLayoutBuilder.cs" Link="OpenTypeLayoutBuilder.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/ShapingTestFont.cs" Link="ShapingTestFont.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/GposBuilder.cs" Link="GposBuilder.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/PositioningTestFont.cs" Link="PositioningTestFont.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/ShadingSamples.cs" Link="ShadingSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/TilingSamples.cs" Link="TilingSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/BlendSamples.cs" Link="BlendSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/OverprintSamples.cs" Link="OverprintSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/GroupSamples.cs" Link="GroupSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/SoftMaskSamples.cs" Link="SoftMaskSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/MaskSamples.cs" Link="MaskSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/Type3Samples.cs" Link="Type3Samples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/MeshSamples.cs" Link="MeshSamples.cs" />
+    <Compile Include="../../tests/Broadside.TestSupport/MeshShadingSamples.cs" Link="MeshShadingSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/JpxSamples.cs" Link="JpxSamples.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/Jbig2Encoder.cs" Link="Jbig2Encoder.cs" />
     <Compile Include="../../tests/Broadside.TestSupport/Jbig2Encoder.Symbols.cs" Link="Jbig2Encoder.Symbols.cs" />

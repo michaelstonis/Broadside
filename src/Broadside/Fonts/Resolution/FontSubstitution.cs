@@ -76,7 +76,7 @@ internal static class FontSubstitution
         }
 
         bool zapf = (query.Standard14 ?? similar) == Standard14Font.ZapfDingbats;
-        return new FontSubstitute(program, resolution.Name, baseFont, kind, query.IsSymbolic, zapf);
+        return new FontSubstitute(program, resolution.Name, baseFont, kind, query.IsSymbolic, zapf) { Resolution = resolution };
     }
 
     /// <summary>The query for a font: its name, type and descriptor facts (§9.6.2.1 Table 109, §9.8.1 Table 120).</summary>

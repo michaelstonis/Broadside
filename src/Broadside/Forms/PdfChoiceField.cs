@@ -7,10 +7,24 @@ namespace Broadside.Forms;
 /// <remarks>ISO 32000-2 §12.7.5.4, Table 234 (<c>Opt</c>): a text string is both; a two-element array is <c>[export display]</c>.</remarks>
 public sealed class PdfChoiceOption
 {
-    internal PdfChoiceOption(string exportValue, string displayText)
+    /// <summary>Initializes a new instance of the <see cref="PdfChoiceOption"/> class: an option whose export value and display text differ.</summary>
+    /// <param name="exportValue">The value exported when the option is selected.</param>
+    /// <param name="displayText">The text shown for the option.</param>
+    /// <remarks>ISO 32000-2 §12.7.5.4, Table 234 (<c>Opt</c>): written as <c>[export display]</c>, or as one text string when both are equal.</remarks>
+    public PdfChoiceOption(string exportValue, string displayText)
     {
+        ArgumentNullException.ThrowIfNull(exportValue);
+        ArgumentNullException.ThrowIfNull(displayText);
         ExportValue = exportValue;
         DisplayText = displayText;
+    }
+
+    /// <summary>Initializes a new instance of the <see cref="PdfChoiceOption"/> class: an option shown and exported as <paramref name="text"/>.</summary>
+    /// <param name="text">The option's text and export value.</param>
+    /// <remarks>ISO 32000-2 §12.7.5.4, Table 234 (<c>Opt</c>): a text string.</remarks>
+    public PdfChoiceOption(string text)
+        : this(text, text)
+    {
     }
 
     /// <summary>Gets the value exported when the option is selected.</summary>
@@ -182,6 +196,156 @@ public abstract class PdfChoiceField : PdfTerminalField
     /// <summary>Gets a value indicating whether a value need not be one of the options.</summary>
     private protected virtual bool AllowsFreeText => false;
 
+    /// <summary>
+    /// Selects the option whose export value, else displayed text, is <paramref name="value"/> (the text itself in an editable combo
+    /// box when no option has it), or nothing with <see langword="null"/>, and regenerates the widgets' appearances.
+    /// </summary>
+    /// <param name="value">An option's export value or displayed text; any text for an editable combo box; or <see langword="null"/>.</param>
+    /// <exception cref="ArgumentException">No option has <paramref name="value"/> and the field is not an editable combo box.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// A character has no glyph in the default appearance font and no font program found by the engine's font resolvers has one
+    /// either; nothing is changed.
+    /// </exception>
+    /// <remarks>ISO 32000-2 §12.7.5.4 and Table 234, as <see cref="SetSelectedIndices"/> describes.</remarks>
+    public void SetValue(string? value)
+    {
+        if (value is null)
+        {
+            Store([], text: null, topIndex: null);
+            return;
+        }
+
+        IReadOnlyList<PdfChoiceOption> options = Options;
+        int index = Find(options, value, [], export: true);
+        index = index >= 0 ? index : Find(options, value, [], export: false);
+        if (index >= 0)
+        {
+            Store([index], text: null, topIndex: null);
+        }
+        else if (AllowsFreeText)
+        {
+            Store([], value, topIndex: null);
+        }
+        else
+        {
+            throw new ArgumentException($"No option of the choice field {FullyQualifiedName} has the export value or text {value} (ISO 32000-2 §12.7.5.4, Table 234).", nameof(value));
+        }
+    }
+
+    /// <summary>Selects the options at <paramref name="indices"/> in <see cref="Options"/> (none when empty) and regenerates the widgets' appearances.</summary>
+    /// <param name="indices">Indices into <see cref="Options"/>, in any order; more than one only when <see cref="IsMultiSelect"/>.</param>
+    /// <exception cref="ArgumentOutOfRangeException">An index is not an index into <see cref="Options"/>.</exception>
+    /// <exception cref="ArgumentException">Several options are given and the field is not multi-select (Table 233).</exception>
+    /// <exception cref="InvalidOperationException">
+    /// A character has no glyph in the default appearance font and no font program found by the engine's font resolvers has one
+    /// either; nothing is changed.
+    /// </exception>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §12.7.5.4 and Table 234. The value (<c>V</c>) is stored in the field's own dictionary as the selected option's
+    /// export value, an array of them when several are selected, and removed when none is. The indices (<c>I</c>, PDF 1.4) are
+    /// stored, ascending, when the field is multi-select or a selected option shares its export value with another ("shall be
+    /// used"), and removed otherwise. A list box whose first selected option is not visible scrolls to it (<c>TI</c>).
+    /// </para>
+    /// <para>
+    /// Appearances are generated as <see cref="GenerateAppearances"/> describes, before anything changes, so a failure leaves the
+    /// document as it was. When the form also has an XFA resource (Annex K), only the AcroForm value changes and an
+    /// <c>XfaDataNotUpdated</c> information diagnostic is recorded.
+    /// </para>
+    /// </remarks>
+    public void SetSelectedIndices(IEnumerable<int> indices)
+    {
+        ArgumentNullException.ThrowIfNull(indices);
+        int count = Options.Count;
+        var selected = new SortedSet<int>();
+        foreach (int index in indices)
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(index, nameof(indices));
+            ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, count, nameof(indices));
+            selected.Add(index);
+        }
+
+        if (selected.Count > 1 && !IsMultiSelect)
+        {
+            throw new ArgumentException($"The choice field {FullyQualifiedName} is not multi-select: at most one option may be selected (ISO 32000-2 §12.7.5.4, Table 233).", nameof(indices));
+        }
+
+        Store([.. selected], text: null, topIndex: null);
+    }
+
+    /// <summary>Regenerates the normal appearance of every widget from the field's current selection, as an interactive processor does for variable text.</summary>
+    /// <exception cref="InvalidOperationException">
+    /// A character has no glyph in the default appearance font and no font program found by the engine's font resolvers has one
+    /// either; nothing is changed.
+    /// </exception>
+    /// <remarks>
+    /// ISO 32000-2 §12.7.4.3 and §12.7.5.4. Each widget gets a new form XObject as its normal appearance, built as for a text field
+    /// (<see cref="PdfTextField.GenerateAppearances"/>: <c>MK</c> background and border, default appearance font, size and colour,
+    /// quadding): a combo box shows the selected option's displayed text (or an editable one's typed value) on one line; a list box
+    /// shows its options one per line from the top index (<see cref="TopIndex"/>), an auto size being 12 points, with a highlight
+    /// behind each selected option.
+    /// </remarks>
+    public void GenerateAppearances()
+    {
+        IReadOnlyList<int> selected = SelectedIndices;
+        string? text = selected.Count == 0 && AllowsFreeText && Values is [var typed, ..] ? typed : null;
+        TextFieldAppearance.BuildChoice(this, selected, text, topIndex: null, scrollToSelection: false).Apply();
+    }
+
+    /// <summary>Stores the selection (or typed text) and the appearances that show it; <paramref name="topIndex"/> sets a list box's first visible option.</summary>
+    private protected void Store(IReadOnlyList<int> selected, string? text, int? topIndex)
+    {
+        TextFieldAppearance appearances = TextFieldAppearance.BuildChoice(this, selected, text, topIndex, scrollToSelection: topIndex is null);
+        IReadOnlyList<PdfChoiceOption> options = Options;
+        if (topIndex is null)
+        {
+            if (text is not null)
+            {
+                Dictionary[FormNames.V] = new CosString(TextStringEncoder.Encode(text));
+            }
+            else if (selected.Count == 0)
+            {
+                Dictionary.Remove(FormNames.V);
+            }
+            else if (selected.Count == 1)
+            {
+                Dictionary[FormNames.V] = new CosString(TextStringEncoder.Encode(options[selected[0]].ExportValue));
+            }
+            else
+            {
+                Dictionary[FormNames.V] = new CosArray(selected.Select(index => (CosObject)new CosString(TextStringEncoder.Encode(options[index].ExportValue))));
+            }
+
+            bool shared = selected.Any(index => options.Where((option, other) => other != index && option.ExportValue == options[index].ExportValue).Any());
+            if (selected.Count > 0 && (IsMultiSelect || shared))
+            {
+                Dictionary[FormNames.I] = new CosArray(selected.Select(index => (CosObject)new CosInteger(index)));
+            }
+            else
+            {
+                Dictionary.Remove(FormNames.I);
+            }
+        }
+
+        if (this is PdfListBoxField)
+        {
+            if (appearances.TopIndex > 0)
+            {
+                Dictionary[FormNames.TI] = new CosInteger(appearances.TopIndex);
+            }
+            else
+            {
+                Dictionary.Remove(FormNames.TI);
+            }
+        }
+
+        appearances.Apply();
+        if (topIndex is null)
+        {
+            Form.ReportXfaNotUpdated(FullyQualifiedName);
+        }
+    }
+
     private static bool Matches(IReadOnlyList<int> indices, IReadOnlyList<PdfChoiceOption> options, IReadOnlyList<string> values)
     {
         var remaining = values.ToList();
@@ -287,5 +451,20 @@ public sealed class PdfListBoxField : PdfChoiceField
     internal PdfListBoxField(FieldInfo info, CosObject[] widgets)
         : base(info, PdfFieldKind.ListBox, widgets)
     {
+    }
+
+    /// <summary>Scrolls the list so that the option at <paramref name="topIndex"/> is the first one visible, and regenerates the widgets' appearances.</summary>
+    /// <param name="topIndex">An index into <see cref="PdfChoiceField.Options"/>; 0 when there are none.</param>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="topIndex"/> is not an index into the options.</exception>
+    /// <exception cref="InvalidOperationException">
+    /// A character has no glyph in the default appearance font and no font program found by the engine's font resolvers has one
+    /// either; nothing is changed.
+    /// </exception>
+    /// <remarks>ISO 32000-2 §12.7.5.4, Table 234 (<c>TI</c>, stored only when not 0, its default). The selection is unchanged.</remarks>
+    public void SetTopIndex(int topIndex)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(topIndex);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(topIndex, Math.Max(1, Options.Count));
+        Store(SelectedIndices, text: null, topIndex);
     }
 }

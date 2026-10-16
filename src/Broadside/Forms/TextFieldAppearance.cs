@@ -32,6 +32,11 @@ namespace Broadside.Forms;
 /// when the string names no usable font; otherwise a TrueType program from the engine's font resolvers, embedded as a subset Type 0
 /// font (§9.7, §9.9.2, §9.10.3).
 /// </para>
+/// <para>
+/// Choice fields (§12.7.5.4) are variable text too: a combo box shows its selected option's text (or the typed text of an editable
+/// one) as a single-line text field would; a list box shows its options one per line from the top index, each selected one on a
+/// highlight.
+/// </para>
 /// </remarks>
 internal sealed class TextFieldAppearance
 {
@@ -39,6 +44,7 @@ internal sealed class TextFieldAppearance
     private const double AutoLineFactor = 1.35;
     private const double MultilineAutoStart = 12;
     private const double MinimumAutoSize = 4;
+    private const double ListAutoSize = 12;
 
     private static readonly CosName XObjectName = new("XObject");
     private static readonly CosName Subtype = new("Subtype");
@@ -48,11 +54,15 @@ internal sealed class TextFieldAppearance
     private readonly PdfDocument _document;
     private readonly List<(PdfWidgetAnnotation Widget, CosStream Stream)> _appearances;
 
-    private TextFieldAppearance(PdfDocument document, List<(PdfWidgetAnnotation Widget, CosStream Stream)> appearances)
+    private TextFieldAppearance(PdfDocument document, List<(PdfWidgetAnnotation Widget, CosStream Stream)> appearances, int topIndex)
     {
         _document = document;
         _appearances = appearances;
+        TopIndex = topIndex;
     }
+
+    /// <summary>Gets the index of the first option a list box's appearances show (<c>TI</c>); 0 for other fields.</summary>
+    public int TopIndex { get; }
 
     /// <summary>Builds the appearances of every widget of <paramref name="field"/> for <paramref name="value"/>.</summary>
     /// <param name="field">The field.</param>
@@ -66,9 +76,55 @@ internal sealed class TextFieldAppearance
         bool multiline = field.IsMultiline;
         int? comb = !multiline && !field.IsPassword && !field.IsFileSelect && field.IsComb && field.MaxLength is > 0 and var length ? length : null;
         string text = DisplayText(value ?? string.Empty, field.IsPassword, multiline, comb);
+        return Build(field, text, multiline ? text.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal) : text, multiline, comb, list: null);
+    }
 
+    /// <summary>
+    /// Builds the appearances of every widget of a choice field showing the options at <paramref name="selected"/>, or the typed
+    /// <paramref name="text"/> of an editable combo box.
+    /// </summary>
+    /// <param name="field">The field.</param>
+    /// <param name="selected">The selected indices into the field's options, ascending.</param>
+    /// <param name="text">The text an editable combo box shows instead of an option, or <see langword="null"/>.</param>
+    /// <param name="topIndex">The first option a list box shows; <see langword="null"/> for the field's <c>TI</c>.</param>
+    /// <param name="scrollToSelection">Whether a list box scrolls so that its first selected option is visible.</param>
+    /// <returns>The appearances, not yet placed on the widgets (<see cref="Apply"/>).</returns>
+    /// <exception cref="InvalidOperationException">A character has no glyph in the default appearance font and no font program that has one was found.</exception>
+    public static TextFieldAppearance BuildChoice(PdfChoiceField field, IReadOnlyList<int> selected, string? text, int? topIndex, bool scrollToSelection)
+    {
+        IReadOnlyList<PdfChoiceOption> options = field.Options;
+        if (field is PdfComboBoxField)
+        {
+            string shown = DisplayText(text ?? (selected.Count > 0 ? options[selected[0]].DisplayText : string.Empty), password: false, multiline: false, comb: null);
+            return Build(field, shown, shown, multiline: false, comb: null, list: null);
+        }
+
+        string[] lines = [.. options.Select(option => DisplayText(option.DisplayText, password: false, multiline: false, comb: null))];
+        var list = new ListContent(lines, selected, Math.Clamp(topIndex ?? field.TopIndex, 0, Math.Max(0, lines.Length - 1)), scrollToSelection);
+        return Build(field, string.Empty, string.Concat(lines), multiline: false, comb: null, list);
+    }
+
+    /// <summary>
+    /// Builds the appearances of every widget of a push button showing <paramref name="caption"/> on one line, centred, in the default
+    /// appearance's font, size and colour (§12.7.5.2.2 and §12.5.6.19, Table 192, <c>CA</c>).
+    /// </summary>
+    /// <param name="field">The push button.</param>
+    /// <param name="caption">The caption; empty for none.</param>
+    /// <returns>The appearances, not yet placed on the widgets (<see cref="Apply"/>).</returns>
+    /// <exception cref="InvalidOperationException">A character has no glyph in the default appearance font and no font program that has one was found.</exception>
+    public static TextFieldAppearance BuildCaption(PdfPushButtonField field, string caption)
+    {
+        string shown = DisplayText(caption, password: false, multiline: false, comb: null);
+        return Build(field, shown, shown, multiline: false, comb: null, list: null, PdfTextJustification.Centered);
+    }
+
+    /// <summary>Builds the appearances of every widget of <paramref name="field"/> showing <paramref name="text"/>, or a list.</summary>
+    private static TextFieldAppearance Build(PdfTerminalField field, string text, string fontText, bool multiline, int? comb, ListContent? list, PdfTextJustification? quadding = null)
+    {
+        PdfDocument document = field.Document;
+        PdfDefaultAppearance? appearance = field.ParsedDefaultAppearance;
         CosDictionary fontResources = CopyFontResources(document, appearance?.FontResources);
-        (AppearanceFont font, CosName fontName) = ChooseFont(document, appearance, fontResources, multiline ? text.Replace("\r", string.Empty, StringComparison.Ordinal).Replace("\n", string.Empty, StringComparison.Ordinal) : text);
+        (AppearanceFont font, CosName fontName) = ChooseFont(document, appearance, fontResources, fontText);
         fontResources[fontName] = font.FontObject;
 
         var layout = new Layout(
@@ -78,17 +134,24 @@ internal sealed class TextFieldAppearance
             appearance?.Color,
             appearance?.TextMatrix,
             StateOperators(appearance?.OtherOperators ?? ReadOnlyMemory<byte>.Empty),
-            field.Quadding,
+            quadding ?? field.Quadding,
             multiline,
-            comb);
+            comb,
+            list);
 
         var appearances = new List<(PdfWidgetAnnotation, CosStream)>();
         foreach (PdfWidgetAnnotation widget in field.Widgets)
         {
-            appearances.Add((widget, BuildStream(document, widget, layout, text, appearance?.FontResources, fontResources)));
+            appearances.Add((widget, BuildStream(document, widget, appearance?.FontResources, fontResources, (content, box, width) =>
+            {
+                content.Name(Tx).Operator("BMC").Operator("q");
+                content.Rectangle(box.Left, box.Bottom, box.Width, box.Height).Operator("W").Operator("n");
+                layout.Write(content, text, box, width);
+                content.Operator("Q").Operator("EMC");
+            })));
         }
 
-        return new TextFieldAppearance(document, appearances);
+        return new TextFieldAppearance(document, appearances, list?.Top ?? list?.RequestedTop ?? 0);
     }
 
     /// <summary>Makes each appearance a new indirect object and the normal appearance (<c>AP</c> <c>N</c>) of its widget.</summary>
@@ -181,7 +244,7 @@ internal sealed class TextFieldAppearance
     /// The appearance's resources: those of the default resources the font was found in, each category copied one level deep so a
     /// font added for the appearance does not change the form's <c>DR</c> (§12.7.4.3).
     /// </summary>
-    private static CosDictionary CopyFontResources(PdfDocument document, CosDictionary? resources)
+    internal static CosDictionary CopyFontResources(PdfDocument document, CosDictionary? resources)
     {
         if (resources is not null && document.Resolve(resources.TryGetValue(FontNames.Font, out CosObject? fonts) ? fonts : null) is CosDictionary existing)
         {
@@ -216,7 +279,7 @@ internal sealed class TextFieldAppearance
             return (helvetica, UniqueName(fonts, "Helv"));
         }
 
-        if (EmbeddedAppearanceFont.Create(document, appearance?.Font, [text], out string? missing) is { } embedded)
+        if (CanvasAppearanceFont.CreateEmbedded(document, appearance?.Font, [text], out string? missing) is { } embedded)
         {
             return (embedded, UniqueName(fonts, "BrsF"));
         }
@@ -246,7 +309,7 @@ internal sealed class TextFieldAppearance
     }
 
     /// <summary>A name not yet used in <paramref name="fonts"/>: <paramref name="stem"/>, else the stem followed by a number.</summary>
-    private static CosName UniqueName(CosDictionary fonts, string stem)
+    internal static CosName UniqueName(CosDictionary fonts, string stem)
     {
         var name = new CosName(stem);
         for (int index = 1; fonts.ContainsKey(name); index++)
@@ -257,8 +320,11 @@ internal sealed class TextFieldAppearance
         return name;
     }
 
-    /// <summary>Builds one widget's appearance stream.</summary>
-    private static CosStream BuildStream(PdfDocument document, PdfWidgetAnnotation widget, Layout layout, string text, CosDictionary? defaultResources, CosDictionary fonts)
+    /// <summary>
+    /// Builds one widget's appearance stream: the <c>MK</c> background and border, then what <paramref name="body"/> writes given the
+    /// box inside the border and the form's width; resources copied from <paramref name="defaultResources"/> with <paramref name="fonts"/>.
+    /// </summary>
+    internal static CosStream BuildStream(PdfDocument document, PdfWidgetAnnotation widget, CosDictionary? defaultResources, CosDictionary fonts, Action<ContentWriter, Box, double> body)
     {
         PdfRectangle rect = widget.Rect;
         PdfAppearanceCharacteristics? characteristics = widget.AppearanceCharacteristics;
@@ -286,10 +352,7 @@ internal sealed class TextFieldAppearance
 
         double inset = Math.Max(1, bevelled ? 2 * borderWidth : borderWidth);
         var box = new Box(inset, inset, Math.Max(0, width - (2 * inset)), Math.Max(0, height - (2 * inset)));
-        content.Name(Tx).Operator("BMC").Operator("q");
-        content.Rectangle(box.Left, box.Bottom, box.Width, box.Height).Operator("W").Operator("n");
-        layout.Write(content, text, box, width);
-        content.Operator("Q").Operator("EMC");
+        body(content, box, width);
 
         var resources = new CosDictionary();
         if (defaultResources is not null)
@@ -339,7 +402,7 @@ internal sealed class TextFieldAppearance
         return copy;
     }
 
-    private static CosNumber Number(double value) =>
+    internal static CosNumber Number(double value) =>
         value == Math.Floor(value) && Math.Abs(value) < int.MaxValue ? new CosInteger((long)value) : new CosReal(Math.Round(value, 4));
 
     /// <summary>Strokes the border in its style (§12.5.4, Table 168): solid, dashed, underlined, or bevelled and inset with shaded edges.</summary>
@@ -381,7 +444,7 @@ internal sealed class TextFieldAppearance
     }
 
     /// <summary>Writes a device colour operator for 1, 3 or 4 components (§8.6.8, Table 73).</summary>
-    private static void WriteColor(ContentWriter content, IReadOnlyList<double> components, bool stroking)
+    internal static void WriteColor(ContentWriter content, IReadOnlyList<double> components, bool stroking)
     {
         foreach (double component in components)
         {
@@ -397,7 +460,7 @@ internal sealed class TextFieldAppearance
     }
 
     /// <summary>The rectangle text is clipped to and laid out in, in form space.</summary>
-    private readonly record struct Box(double Left, double Bottom, double Width, double Height)
+    internal readonly record struct Box(double Left, double Bottom, double Width, double Height)
     {
         public double Top => Bottom + Height;
     }
@@ -412,7 +475,8 @@ internal sealed class TextFieldAppearance
         ReadOnlyMemory<byte> OtherOperators,
         PdfTextJustification Quadding,
         bool Multiline,
-        int? Comb)
+        int? Comb,
+        ListContent? List)
     {
         /// <summary>The height of a line in thousandths of the font size: the font's ascent to its descent.</summary>
         private double LineFactor => Math.Max(1000, Font.Ascent - Font.Descent) / 1000;
@@ -421,7 +485,22 @@ internal sealed class TextFieldAppearance
         public void Write(ContentWriter content, string text, Box box, double width)
         {
             var placed = new List<(string Text, double X, double Y)>();
-            double size = Comb is { } cells ? LayOutComb(text, cells, box, width, placed) : Multiline ? LayOutLines(text, box, placed) : LayOutLine(text, box, placed);
+            var highlights = new List<Box>();
+            double size = List is { } list ? LayOutList(list, box, placed, highlights)
+                : Comb is { } cells ? LayOutComb(text, cells, box, width, placed)
+                : Multiline ? LayOutLines(text, box, placed) : LayOutLine(text, box, placed);
+            if (highlights.Count > 0)
+            {
+                content.Operator("q");
+                WriteColor(content, ListHighlight, stroking: false);
+                foreach (Box highlight in highlights)
+                {
+                    content.Rectangle(highlight.Left, highlight.Bottom, highlight.Width, highlight.Height);
+                }
+
+                content.Operator("f").Operator("Q");
+            }
+
             if (placed.Count == 0)
             {
                 return;
@@ -468,6 +547,42 @@ internal sealed class TextFieldAppearance
             {
                 double textWidth = units * size / 1000;
                 placed.Add((text, X(box, textWidth), Baseline(box, size)));
+            }
+
+            return size;
+        }
+
+        /// <summary>
+        /// Lays a list box out one option per line from the top index (scrolled so the first selected option is fully visible when
+        /// asked), each selected option on a highlight; an auto size is 12 points.
+        /// </summary>
+        private double LayOutList(ListContent list, Box box, List<(string, double, double)> placed, List<Box> highlights)
+        {
+            double size = FontSize == 0 ? ListAutoSize : FontSize;
+            double lineHeight = size * LineFactor;
+            int visible = Math.Max(1, (int)Math.Floor(box.Height / lineHeight));
+            int top = list.Top ??= list.Scroll && list.Selected.Count > 0 && (list.Selected[0] < list.RequestedTop || list.Selected[0] >= list.RequestedTop + visible)
+                ? list.Selected[0]
+                : list.RequestedTop;
+            for (int index = top; index < list.Lines.Count; index++)
+            {
+                double lineTop = box.Top - ((index - top) * lineHeight);
+                if (lineTop <= box.Bottom)
+                {
+                    break;
+                }
+
+                double lineBottom = lineTop - lineHeight;
+                if (list.Selected.Contains(index))
+                {
+                    highlights.Add(new Box(box.Left, lineBottom, box.Width, lineHeight));
+                }
+
+                string line = list.Lines[index];
+                if (line.Length > 0)
+                {
+                    placed.Add((line, X(box, Font.Measure(line) * size / 1000), lineBottom - (Math.Min(0, Font.Descent) * size / 1000)));
+                }
             }
 
             return size;
@@ -593,8 +708,25 @@ internal sealed class TextFieldAppearance
             _ => box.Left + TextPadding,
         };
 
+        /// <summary>The highlight behind a selected list box option, as other processors draw it (a light blue).</summary>
+        private static readonly double[] ListHighlight = [0.6, 0.757, 0.855];
+
         /// <summary>The baseline that centres the font's ascent-to-descent box in the box's height.</summary>
         private double Baseline(Box box, double size) =>
             box.Bottom + ((box.Height - (LineFactor * size)) / 2) - (Math.Min(0, Font.Descent) * size / 1000);
+    }
+
+    /// <summary>A list box's options as shown, the selected indices, and the first option shown (decided by the first widget laid out).</summary>
+    private sealed class ListContent(IReadOnlyList<string> lines, IReadOnlyList<int> selected, int requestedTop, bool scroll)
+    {
+        public IReadOnlyList<string> Lines { get; } = lines;
+
+        public IReadOnlyList<int> Selected { get; } = selected;
+
+        public int RequestedTop { get; } = requestedTop;
+
+        public bool Scroll { get; } = scroll;
+
+        public int? Top { get; set; }
     }
 }

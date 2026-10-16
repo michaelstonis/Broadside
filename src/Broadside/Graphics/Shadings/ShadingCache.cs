@@ -12,7 +12,9 @@ namespace Broadside.Graphics.Shadings;
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §8.7. Keyed by the resolved object's instance (the object cache gives one instance per indirect reference) and its
-/// <c>Version</c>, through <see cref="OnceCache{TKey, TValue}"/>. Lookups that hit allocate nothing.
+/// <c>Version</c>, through <see cref="OnceCache{TKey, TValue}"/>. Each model also records the document's <c>ObjectsVersion</c>: an
+/// object added or removed since can change what a reference in the unchanged object resolves to (a Function, a ColorSpace, a
+/// pattern's Shading; §7.3.10), so the model is built again and replaces the stale one (issue #304). Lookups that hit allocate nothing.
 /// </remarks>
 internal sealed class ShadingCache
 {
@@ -39,6 +41,7 @@ internal sealed class ShadingCache
 
         return _shadings.GetOrCreate(
             KeyOf(resolved, dictionary),
+            _document.ObjectsVersion,
             (Cache: this, Resolved: resolved, Dictionary: dictionary, Reference: reference, Owner: owner),
             static (_, state) => new Created<PdfShading?>(state.Cache.CreateShading(state.Resolved, state.Dictionary, state.Reference, state.Owner)),
             static (_, _) => null);
@@ -61,6 +64,7 @@ internal sealed class ShadingCache
 
         return _patterns.GetOrCreate(
             KeyOf(resolved, dictionary),
+            _document.ObjectsVersion,
             (Cache: this, Resolved: resolved, Dictionary: dictionary, Reference: reference, Owner: owner),
             static (_, state) => new Created<PdfPattern?>(state.Cache.CreatePattern(state.Resolved, state.Dictionary, state.Reference, state.Owner)),
             static (_, _) => null);

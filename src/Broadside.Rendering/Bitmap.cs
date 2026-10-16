@@ -56,13 +56,13 @@ public sealed class Bitmap : IDisposable
     }
 
     /// <summary>Gets the width in pixels.</summary>
-    public int Width { get; }
+    public int Width { get; private set; }
 
     /// <summary>Gets the height in pixels.</summary>
-    public int Height { get; }
+    public int Height { get; private set; }
 
     /// <summary>Gets the bytes from the start of one row to the start of the next.</summary>
-    public int Stride { get; }
+    public int Stride { get; private set; }
 
     /// <summary>Gets every row, <see cref="Stride"/> bytes apart, premultiplied BGRA.</summary>
     /// <exception cref="ObjectDisposedException">The bitmap was disposed.</exception>
@@ -97,6 +97,20 @@ public sealed class Bitmap : IDisposable
     {
         ArgumentNullException.ThrowIfNull(stream);
         PngEncoder.Write(this, stream);
+    }
+
+    /// <summary>Points this bitmap, over caller memory, at other memory: a renderer's reusable scratch surface (tiling-pattern cells).</summary>
+    /// <param name="pixels">At least <c>(height − 1) × stride + width × 4</c> bytes; their contents are kept.</param>
+    /// <param name="width">The width in pixels, at least 1.</param>
+    /// <param name="height">The height in pixels, at least 1.</param>
+    /// <param name="stride">The bytes from the start of one row to the start of the next, at least <c>width × 4</c>.</param>
+    internal void Attach(Memory<byte> pixels, int width, int height, int stride)
+    {
+        System.Diagnostics.Debug.Assert(_rented is null, "Only a bitmap over caller memory is re-attached.");
+        _pixels = pixels;
+        Width = width;
+        Height = height;
+        Stride = stride;
     }
 
     /// <summary>Returns a pooled buffer to its pool. A bitmap over caller memory leaves the memory alone.</summary>

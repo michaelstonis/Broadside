@@ -13,7 +13,7 @@ pdfjs/issue17808.pdf: pages 1, glyphs 60, words 9, lines 5, plain text 19f125039
 pdfjs/issue18911.pdf: pages 14, glyphs 69284, words 13420, lines 1502, plain text edbace89ae947aea06de1c4c83d053dc5d9181c8a6b1225ea15a624413833af0
 pdfbox/input/rendering/survey.pdf: pages 9, glyphs 5236, words 712, lines 117, plain text 11046a08e4493efbbd75828a57f15f5e17061ba2d59eac797abb67646988d064
 pdfjs/tracemonkey.pdf: pages 14, glyphs 69284, words 13420, lines 1502, plain text edbace89ae947aea06de1c4c83d053dc5d9181c8a6b1225ea15a624413833af0
-pdfjs/issue12810.pdf: pages 1, glyphs 15, words 3, lines 1, plain text 601e5c8975077e34530d9ba61f2452e4f3c5fd35cd4af41e8b74f1207ba108e8
+pdfjs/issue12810.pdf: pages 1, glyphs 0, words 0, lines 0, plain text ef6cbd2161eaea7943ce8693b9824d23d1793ffb1c0fca05b600d3899b44c977
 pdfjs/bug1799927.pdf: pages 1, glyphs 0, words 0, lines 0, plain text ef6cbd2161eaea7943ce8693b9824d23d1793ffb1c0fca05b600d3899b44c977
 qpdf/inline-images.pdf: pages 2, glyphs 0, words 0, lines 0, plain text 7060584c3e59f0b2f12f34aa0b40faadf4aa5790a0459f3319852bcd63262cbb
 pdfjs/issue11913.pdf: pages 1, glyphs 4779, words 801, lines 64, plain text 4a242df0d82566e95313104c09df421bed21814aebe2e0034efdbc5596e94840

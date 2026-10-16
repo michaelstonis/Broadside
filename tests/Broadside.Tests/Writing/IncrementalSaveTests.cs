@@ -10,6 +10,9 @@ public sealed class IncrementalSaveTests
     private static readonly CosName PageLayout = new("PageLayout");
     private static readonly CosName Rotate = new("Rotate");
 
+    /// <summary>Saves that do not date the modification (#162), for tests that count exactly the objects an update writes.</summary>
+    private static PdfSaveOptions Undated => new PdfSaveOptions().WithUpdateModificationDate(false);
+
     public static TheoryData<string> UpdatedForms => new() { "incremental-update.pdf", "xref-stream.pdf", "hybrid-xref.pdf" };
 
     [Theory]
@@ -35,7 +38,7 @@ public sealed class IncrementalSaveTests
         Assert.True(exitCode == 0, output);
     }
 
-    /// <summary>Every unencrypted well-formed corpus file (an encrypted document cannot be updated yet).</summary>
+    /// <summary>Every unencrypted well-formed corpus file (encrypted documents: see EncryptedSaveTests).</summary>
     public static TheoryData<string> WellFormedFiles => [.. Corpus.WellFormedFileNames.Where(name => !name.StartsWith("encrypted-", StringComparison.Ordinal))];
 
     [Theory]
@@ -64,11 +67,11 @@ public sealed class IncrementalSaveTests
     {
         using PdfDocument document = PdfDocument.Open(Corpus.Bytes(fileName));
         document.Catalog[PageLayout] = new CosName("SinglePage");
-        byte[] first = SaveIncrementally(document);
+        byte[] first = SaveIncrementally(document, Undated);
         PdfPage page = document.Pages[0];
         page.Dictionary[Rotate] = new CosInteger(270);
 
-        byte[] second = SaveIncrementally(document);
+        byte[] second = SaveIncrementally(document, Undated);
 
         Assert.True(second.AsSpan(0, first.Length).SequenceEqual(first), "The first update's bytes changed.");
         List<(int Number, int Generation)> defined = ObjectsDefinedIn(second.AsSpan(first.Length));
@@ -109,14 +112,14 @@ public sealed class IncrementalSaveTests
         using PdfDocument document = PdfDocument.Open(Corpus.Bytes("incremental-update.pdf"));
         CosReference page = document.Pages[0].Reference!;
         CosReference added = document.AddObject(new CosDictionary { [new CosName("Title")] = new CosString("Removed"u8) });
-        SaveIncrementally(document);
+        SaveIncrementally(document, Undated);
         int before = (int)document.Revisions[^1].Length;
         Assert.True(page.ObjectNumber < added.ObjectNumber);
         Assert.True(document.RemoveObject(added));
         Assert.False(document.RemoveObject(added));
         Assert.True(document.RemoveObject(page));
 
-        byte[] saved = SaveIncrementally(document);
+        byte[] saved = SaveIncrementally(document, Undated);
 
         // H.7.4: object 0 heads the free list, which runs through the freed numbers in order and back to 0.
         Dictionary<int, (int Type, long Second, int Third)> entries = NewestSection(saved);
@@ -236,18 +239,6 @@ public sealed class IncrementalSaveTests
     }
 
     [Fact]
-    public void An_incremental_save_of_an_encrypted_document_is_refused_before_anything_is_written()
-    {
-        using PdfDocument document = PdfDocument.Open(Corpus.Path("encrypted-aes-256.pdf"));
-        using var output = new MemoryStream();
-
-        NotSupportedException error = Assert.Throws<NotSupportedException>(() => document.Save(output, new PdfSaveOptions().WithIncrementalUpdate(true)));
-
-        Assert.Contains("encrypted", error.Message, StringComparison.Ordinal);
-        Assert.Equal(0, output.Length);
-    }
-
-    [Fact]
     public async Task An_incremental_save_writes_the_same_bytes_to_a_stream_asynchronously_and_to_a_path()
     {
         byte[] file = Corpus.Bytes("hybrid-xref.pdf");
@@ -255,10 +246,11 @@ public sealed class IncrementalSaveTests
         using PdfDocument second = PdfDocument.Open(file);
         first.Catalog[PageLayout] = new CosName("SinglePage");
         second.Catalog[PageLayout] = new CosName("SinglePage");
-        byte[] synchronous = SaveIncrementally(first);
+        // Undated: the three saves are compared byte for byte, and a save dates a changed document by default (#162).
+        byte[] synchronous = SaveIncrementally(first, Undated);
         using var output = new MemoryStream();
 
-        await second.SaveAsync(output, new PdfSaveOptions().WithIncrementalUpdate(true), TestContext.Current.CancellationToken);
+        await second.SaveAsync(output, Undated.WithIncrementalUpdate(true), TestContext.Current.CancellationToken);
 
         Assert.Equal(synchronous, output.ToArray());
         Assert.Equal(first.Revisions.Count, second.Revisions.Count);
@@ -267,7 +259,7 @@ public sealed class IncrementalSaveTests
         {
             using PdfDocument third = PdfDocument.Open(file);
             third.Catalog[PageLayout] = new CosName("SinglePage");
-            third.Save(path, new PdfSaveOptions().WithIncrementalUpdate(true));
+            third.Save(path, Undated.WithIncrementalUpdate(true));
             Assert.Equal(synchronous, await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken));
             Assert.False(third.Catalog.IsDirty);
         }

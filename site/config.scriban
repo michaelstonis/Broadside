@@ -45,6 +45,10 @@ with api.dotnet
     properties = {
         UseArtifactsOutput: "false"
     }
+    # SkiaSharp types in public signatures (SkiaBackend renders to an SKCanvas or SKBitmap) link to their Microsoft Learn pages.
+    external_apis = [
+        { uid_prefix: "SkiaSharp.", url: "https://learn.microsoft.com/dotnet/api/" }
+    ]
     projects = [
         { name: "Broadside", path: "../src/Broadside/Broadside.csproj" },
         { name: "Broadside.Rendering", path: "../src/Broadside.Rendering/Broadside.Rendering.csproj" },
