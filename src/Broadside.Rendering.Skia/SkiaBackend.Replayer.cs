@@ -75,6 +75,7 @@ public sealed partial class SkiaBackend
             Diagnostics.Clear();
             _reported = 0;
             BeginCompositing();
+            BeginTransparency();
         }
 
         public void End()
@@ -95,7 +96,7 @@ public sealed partial class SkiaBackend
                 Array.Resize(ref _stack, _stack.Length * 2);
             }
 
-            _stack[_depth++] = new SavedState(_ctm, _compositing);
+            _stack[_depth++] = new SavedState(_ctm, _compositing, _softMask);
             _canvas!.Save();
         }
 
@@ -106,6 +107,7 @@ public sealed partial class SkiaBackend
                 SavedState saved = _stack[--_depth];
                 SetTransform(saved.Ctm);
                 _compositing = saved.Compositing;
+                _softMask = saved.Mask;
             }
 
             _canvas!.Restore();
@@ -118,7 +120,7 @@ public sealed partial class SkiaBackend
         }
 
         /// <summary>Fills the path (ISO 32000-2 §8.5.3.3) mapped to the device, so Skia sees device coordinates in double precision.</summary>
-        public void FillPath(PathView path, FillRule rule, in DisplayColor color)
+        private void FillPathCore(PathView path, FillRule rule, in DisplayColor color)
         {
             if (path.IsEmpty || _compositing.FillAlpha == 0 || !TryGetColor(color, out SKColor paint))
             {
@@ -128,7 +130,7 @@ public sealed partial class SkiaBackend
             AddDevicePath(path);
             _path.FillType = rule == FillRule.EvenOdd ? SKPathFillType.EvenOdd : SKPathFillType.Winding;
             _fill.Color = paint.WithAlpha(_compositing.FillAlpha);
-            _fill.BlendMode = _compositing.BlendMode;
+            _fill.BlendMode = PaintBlend;
             _canvas!.SetMatrix(in _base);
             _canvas.DrawPath(_paths.Get(_path), _fill);
         }
@@ -151,6 +153,7 @@ public sealed partial class SkiaBackend
             DisposeImages();
             DisposeShadings();
             DisposeTiling();
+            DisposeTransparency();
             _imageCache?.Dispose();
             _shadingCache?.Dispose();
             ReleaseFaces();

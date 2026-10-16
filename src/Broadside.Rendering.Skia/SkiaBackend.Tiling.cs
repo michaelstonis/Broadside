@@ -35,7 +35,7 @@ public sealed partial class SkiaBackend
         public int CellsRecorded { get; private set; }
 
         /// <summary>Fills the path with the tiling pattern (ISO 32000-2 §8.7.3.1): the cell repeated at its steps from the pattern's origin.</summary>
-        public void FillPathWithTilingPattern(PathView path, FillRule rule, in DisplayTilingPattern pattern)
+        private void FillPathWithTilingPatternCore(PathView path, FillRule rule, in DisplayTilingPattern pattern)
         {
             if (path.IsEmpty || _compositing.FillAlpha == 0 || GetTile(pattern, out Matrix toDevice) is not { } tile)
             {
@@ -45,13 +45,13 @@ public sealed partial class SkiaBackend
             SKCanvas canvas = _canvas!;
             canvas.Save();
             ClipToPath(path, rule);
-            Prepare(_tile, _compositing.FillAlpha, _compositing.BlendMode);
+            Prepare(_tile, _compositing.FillAlpha, PaintBlend);
             PaintTile(tile, toDevice);
             canvas.Restore();
         }
 
         /// <summary>Paints the area the stroke covers with the tiling pattern (ISO 32000-2 §8.7.3.1, §8.5.3.2).</summary>
-        public void StrokePathWithTilingPattern(PathView path, in StrokeStyle style, in DisplayTilingPattern pattern)
+        private void StrokePathWithTilingPatternCore(PathView path, in StrokeStyle style, in DisplayTilingPattern pattern)
         {
             if (path.IsEmpty || _compositing.StrokeAlpha == 0 || GetTile(pattern, out Matrix toDevice) is not { } tile)
             {

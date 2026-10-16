@@ -200,6 +200,43 @@ public sealed partial class SoftwareRasterizer : IDisposable
         Draw(list, target, deviceTransform, target.Width, target.Height, background: null, antiAliasing, cull: true, preview: false, CancellationToken.None, progress: null);
     }
 
+    /// <summary>
+    /// Draws one transparency group over the current pixels of <paramref name="target"/>, composited as
+    /// <see cref="IRenderingBackend.DrawGroup"/> composites it (isolation, knockout, colour space, opacity, blend mode and soft mask),
+    /// starting from the initial graphics state: the managed fallback of platform backends for groups their library cannot composite.
+    /// </summary>
+    /// <param name="group">The group, valid during the <see cref="IRenderingBackend.DrawGroup"/> call that handed it over.</param>
+    /// <param name="document">The document of the group's display list, whose colour management converts its colours.</param>
+    /// <param name="target">The bitmap; drawing is clipped to it. A transparent bitmap gets the group's result alone.</param>
+    /// <param name="deviceTransform">The transform from the list's default user space to the bitmap's pixels, as for <see cref="Render(DisplayList, Bitmap, in Matrix)"/>.</param>
+    /// <param name="transform">The transform the backend held when the group was handed over (its last <see cref="IRenderingBackend.SetTransform"/>), which the content starts with.</param>
+    /// <param name="strokeAlpha">The stroking alpha the backend held (its last <see cref="IRenderingBackend.SetCompositing"/>).</param>
+    /// <param name="fillAlpha">The nonstroking alpha the backend held.</param>
+    /// <param name="blendMode">The blend mode the backend held.</param>
+    /// <remarks>
+    /// ISO 32000-2 §11.4 and §11.6.6. The content starts with the state the backend held at the group (<see cref="DisplayGroup"/>),
+    /// so the transform and compositing state come with it; the clip does not (the caller clips the result) and the soft mask starts
+    /// as None. Over a transparent bitmap, a non-isolated group sees a transparent backdrop, so its result is
+    /// that of the same group isolated (§11.4.5). Allocates nothing once warm, as <see cref="Render(DisplayList, Bitmap, in Matrix)"/>.
+    /// </remarks>
+    public void Render(in DisplayGroup group, PdfDocument document, Bitmap target, in Matrix deviceTransform, in Matrix transform, double strokeAlpha, double fillAlpha, BlendMode blendMode)
+    {
+        ArgumentNullException.ThrowIfNull(document);
+        ArgumentNullException.ThrowIfNull(target);
+        ThrowIfBusy();
+        _backend.Begin(document, target, deviceTransform, target.Width, target.Height, preview: false, AntiAliasing.All);
+        try
+        {
+            _backend.SetTransform(transform);
+            _backend.SetCompositing(strokeAlpha, fillAlpha, blendMode);
+            _backend.DrawGroup(group);
+        }
+        finally
+        {
+            _backend.End();
+        }
+    }
+
     /// <summary>Returns the rasterizer's pooled working buffers; it renders no more after this.</summary>
     public void Dispose()
     {

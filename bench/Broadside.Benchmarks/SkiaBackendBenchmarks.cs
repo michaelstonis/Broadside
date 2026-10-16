@@ -28,7 +28,7 @@ public class SkiaBackendBenchmarks
     private Matrix _device;
 
     /// <summary>The page: a path corpus file, a synthetic 256 KB stroke-heavy content stream, or a synthetic paint page.</summary>
-    [Params("paths-fill-rules.pdf", "paths-strokes.pdf", "clipping-paths.pdf", "stroke-heavy-256kb", "image-heavy", "mask-heavy", "shading-grid", "mesh-patches", "tiling-grid")]
+    [Params("paths-fill-rules.pdf", "paths-strokes.pdf", "clipping-paths.pdf", "stroke-heavy-256kb", "image-heavy", "mask-heavy", "shading-grid", "mesh-patches", "tiling-grid", "transparency-soft-masks.pdf", "transparency-groups.pdf")]
     public string Page { get; set; } = "";
 
     /// <summary>The resolution.</summary>

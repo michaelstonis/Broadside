@@ -6,7 +6,7 @@ using SkiaSharp;
 namespace Broadside.Rendering.Skia.Tests;
 
 /// <summary>
-/// What the Skia backend approximates (transparency groups and soft masks until #124) is reported once per kind per render, and a
+/// What the Skia backend approximates or hands to the software rasterizer (#124) is reported once per kind per render, and a
 /// render reports only what it approximated itself (ADR 0005: nothing is skipped or approximated silently).
 /// </summary>
 public sealed class UnsupportedOperationTests

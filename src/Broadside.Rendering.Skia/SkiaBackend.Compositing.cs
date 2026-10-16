@@ -28,7 +28,7 @@ public sealed partial class SkiaBackend
         /// Skia's sixteen separable and non-separable blend modes are the functions of §11.3.5, so every mode is native.
         /// </summary>
         public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode) =>
-            _compositing = new Compositing(Alpha(strokeAlpha), Alpha(fillAlpha), NativeBlendMode(blendMode));
+            _compositing = new Compositing(Alpha(strokeAlpha), Alpha(fillAlpha), NativeBlendMode(blendMode), blendMode);
 
         /// <summary>
         /// Begins an annotation (§12.5.5): saves the state, places the appearance as the software rasterizer does (NoZoom and NoRotate
@@ -166,14 +166,14 @@ public sealed partial class SkiaBackend
             return new Matrix(a, b, c, d, anchorX - ((a * x) + (c * y)), anchorY - ((b * x) + (d * y)));
         }
 
-        /// <summary>The alpha constants (8-bit) and Skia blend mode of the paints, saved and restored with the graphics state.</summary>
-        private readonly record struct Compositing(byte StrokeAlpha, byte FillAlpha, SKBlendMode BlendMode)
+        /// <summary>The alpha constants (8-bit), Skia blend mode and PDF blend mode of the paints, saved and restored with the graphics state.</summary>
+        private readonly record struct Compositing(byte StrokeAlpha, byte FillAlpha, SKBlendMode BlendMode, Graphics.BlendMode Mode)
         {
-            public static Compositing Initial { get; } = new(255, 255, SKBlendMode.SrcOver);
+            public static Compositing Initial { get; } = new(255, 255, SKBlendMode.SrcOver, Graphics.BlendMode.Normal);
         }
 
-        /// <summary>What <see cref="SaveState"/> keeps beside the canvas's own state: the transform and the compositing state.</summary>
-        private readonly record struct SavedState(Matrix Ctm, Compositing Compositing);
+        /// <summary>What <see cref="SaveState"/> keeps beside the canvas's own state: the transform, the compositing state and the soft mask.</summary>
+        private readonly record struct SavedState(Matrix Ctm, Compositing Compositing, MaskImage? Mask);
 
         /// <summary>What an annotation changed at its start: the device mapping to restore and the canvas save count of its layer, or -1.</summary>
         private readonly record struct AnnotationFrame(Matrix Device, int LayerCount);

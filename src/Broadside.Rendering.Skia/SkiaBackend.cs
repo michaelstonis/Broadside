@@ -24,7 +24,24 @@ namespace Broadside.Rendering.Skia;
 /// Constant alpha (§11.6.4.4) goes into the paints' colours and the blend mode (§11.3.5) into the paints: Skia's sixteen blend
 /// modes are the functions of Tables 134 and 135. Annotations and form fields (§12.5.5) are placed as the software rasterizer places
 /// them (NoZoom and NoRotate, §12.5.3), clipped to their rectangle and, when translucent or blending, drawn in a layer composited
-/// with their opacity and blend mode. Transparency groups and soft masks are not drawn yet (#124).
+/// with their opacity and blend mode.
+/// </para>
+/// <para>
+/// Transparency groups (§11.4, §11.6.6) Skia can composite are layers: isolated groups, and non-isolated ones whose content does
+/// not blend, are transparent layers composited with the group's opacity, blend mode and soft mask; a non-isolated group of
+/// blending content at an opacity below 1 is a layer started from the backdrop and interpolated towards it (§11.4.8); the
+/// implicit knockout group of a fill and stroke (§11.7.4.4) is a layer its paints replace into. Other knockout groups, and groups
+/// that blend in a gray or CMYK group colour space, are drawn by <see cref="SoftwareRasterizer"/> into an image composited in their
+/// place and reported once per render (<c>BackendKnockoutGroupRasterized</c>, <c>BackendGroupColorSpaceRasterized</c>, both
+/// <see cref="DiagnosticSeverity.Information"/>); a non-isolated group of blending content composited with a blend mode or a soft
+/// mask is drawn that way against a transparent backdrop, an approximation reported as the Warning
+/// <c>BackendNonIsolatedGroupApproximated</c>. Soft masks (§11.5, §11.6.5.1): their values are rendered by the software
+/// rasterizer once per mask, placement and clip, kept across renders (<c>BackendSoftMaskRasterized</c>), and applied to each masked
+/// paint or group result through a layer and <see cref="SKBlendMode.DstIn"/>.
+/// </para>
+/// <para>
+/// GPU: the canvas may be a GPU surface's (<c>SKSurface.Create(GRContext, ...)</c>, Metal, OpenGL, Vulkan or Direct3D); every
+/// image the backend makes (images, mask values, rasterized groups) is a raster image Skia uploads, so the same calls draw on both.
 /// </para>
 /// <para>
 /// Text (§9.3.6, §9.4.3): glyphs of TrueType and OpenType programs (§9.9) are filled by Skia's font engine from a typeface loaded
