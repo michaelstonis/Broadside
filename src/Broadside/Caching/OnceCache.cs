@@ -31,6 +31,10 @@ internal readonly record struct Created<TValue>(TValue Value, bool Keep = true);
 /// waiting, and that fallback is not cached.
 /// </para>
 /// <para>
+/// What the cache allocates depends only on how many keys it holds, never on how they hash (<see cref="DeterministicTable"/>,
+/// issue #288).
+/// </para>
+/// <para>
 /// A cached value is read without a lock. A factory exception is cached and rethrown to every later caller: the same input gives the
 /// same outcome (strict mode throws the same diagnostic again rather than recording it twice). The one exception is
 /// <see cref="PdfRangeNotLoadedException"/>, which says nothing about the value, only that a remote file's bytes have not been
@@ -45,11 +49,11 @@ internal sealed class OnceCache<TKey, TValue>
     private readonly ConcurrentDictionary<TKey, Entry> _entries;
 
     /// <summary>Creates an empty cache comparing keys with their default equality.</summary>
-    public OnceCache() => _entries = new();
+    public OnceCache() => _entries = DeterministicTable.Create<TKey, Entry>();
 
     /// <summary>Creates an empty cache comparing keys with <paramref name="comparer"/> (for instance by reference, for COS containers).</summary>
     /// <param name="comparer">The key comparer.</param>
-    public OnceCache(IEqualityComparer<TKey> comparer) => _entries = new(comparer);
+    public OnceCache(IEqualityComparer<TKey> comparer) => _entries = DeterministicTable.Create<TKey, Entry>(comparer);
 
     /// <summary>Returns the cached value for <paramref name="key"/>, when one has been computed.</summary>
     /// <param name="key">The key.</param>

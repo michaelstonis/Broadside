@@ -66,7 +66,7 @@ internal sealed class ColorSpaceCache
 
     private readonly OnceCache<Key, PdfColorSpace?> _spaces = new();
     private readonly OnceCache<Key, PdfDefaultColorSpaces> _defaults = new();
-    private readonly ConcurrentDictionary<ConverterKey, PdfColorConverter> _converters = new();
+    private readonly ConcurrentDictionary<ConverterKey, PdfColorConverter> _converters = DeterministicTable.Create<ConverterKey, PdfColorConverter>();
 
     /// <summary>Initializes a new instance of the <see cref="ColorSpaceCache"/> class.</summary>
     /// <param name="document">The document.</param>
