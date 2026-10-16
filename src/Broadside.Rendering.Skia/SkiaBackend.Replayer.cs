@@ -30,10 +30,41 @@ public sealed partial class SkiaBackend
         private PdfDefaultColorSpaces? _defaults;
         private PdfColorConverter? _converter;
 
-        public Replayer() => _stroke = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke };
+        // The caches every replayer of a render shares, held by the backend's own replayer (pattern cells replay through others).
+        private readonly ImageCache? _imageCache;
+        private readonly ShadingCache? _shadingCache;
+        private readonly WeakReference<PdfDocument?> _budgetDocument = new(null);
+
+        public Replayer()
+        {
+            _stroke = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke };
+            _imageCache = new ImageCache();
+            _shadingCache = new ShadingCache();
+        }
+
+        /// <summary>Creates the replayer of the pattern cells at <paramref name="depth"/>, sharing <paramref name="owner"/>'s caches and diagnostics.</summary>
+        private Replayer(Replayer owner, int depth)
+        {
+            _stroke = new SKPaint { IsAntialias = true, Style = SKPaintStyle.Stroke };
+            _owner = owner;
+            _patternDepth = depth;
+        }
+
+        /// <summary>Gets how many Skia images the backend made from display-list images and masks.</summary>
+        public int ImagesCreated => _imageCache?.Created ?? 0;
+
+        /// <summary>Gets the bytes of converted pixels the backend keeps.</summary>
+        public long CachedImageBytes => _imageCache?.Bytes ?? 0;
 
         public void Begin(PdfDocument document, SKCanvas canvas, in Matrix device)
         {
+            if (_imageCache is not null && (!_budgetDocument.TryGetTarget(out PdfDocument? last) || !ReferenceEquals(last, document)))
+            {
+                // The document's image budget (spec D10) bounds the converted pixels kept; read once per document, as reading allocates.
+                _imageCache.Budget = document.CacheStatistics.Images.Budget;
+                _budgetDocument.SetTarget(document);
+            }
+
             _document = document;
             _canvas = canvas;
             _base = canvas.TotalMatrix;
@@ -117,6 +148,11 @@ public sealed partial class SkiaBackend
             _fill.Dispose();
             DisposeStrokes();
             DisposeCompositing();
+            DisposeImages();
+            DisposeShadings();
+            DisposeTiling();
+            _imageCache?.Dispose();
+            _shadingCache?.Dispose();
             ReleaseFaces();
         }
 

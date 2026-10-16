@@ -37,17 +37,27 @@ namespace Broadside.Rendering.Skia;
 /// paints nothing.
 /// </para>
 /// <para>
-/// Images, stencil masks, shadings and tiling patterns are not drawn by this backend yet: each is skipped, never approximated, and
-/// the first one of each kind in a render adds an <see cref="DiagnosticSeverity.Information"/> diagnostic to
-/// <see cref="Diagnostics"/> (codes <c>BackendImageUnsupported</c>, <c>BackendImageMaskUnsupported</c>,
-/// <c>BackendShadingUnsupported</c> and <c>BackendTilingPatternUnsupported</c>).
+/// Images (§8.9.4, §8.9.5) are converted once per interned display-list image to a Skia image (colour management as for paths;
+/// Decode, Indexed, colour key, Matte; a mask of the image's size folded into its alpha, one of another size drawn at its own
+/// resolution) and resampled to the device as the software rasterizer resamples them: a box filter where a pixel spans more than a
+/// sample, square samples or a tent (Interpolate, §8.9.5.3) where it does not, for the first four transforms each image is drawn at;
+/// further transforms, and enlargements past 256 pixels per sample, are sampled by Skia (mipmaps when reduced). Stencil masks
+/// (§8.9.6.2) are alpha-only images painted in the fill colour. Converted pixels are kept within the document's
+/// <see cref="PdfOptions.ImageCacheBudget"/>; a budget of zero converts on every paint with the same output. Axial and radial
+/// shadings (§8.7.4.5.3, §8.7.4.5.4) are native linear and two-point conical gradients sampled from the function; function-based
+/// shadings (§8.7.4.5.2) a texture of the function over its domain; triangle and patch meshes (§8.7.4.5.5 to §8.7.4.5.8) vertices,
+/// a function's t interpolated through a colour table; shading patterns fill and stroke over their Background (§8.7.4.3). Tiling
+/// patterns (§8.7.3) record their cell once per scale into a picture repeated by a picture shader, laid out on the device as the
+/// rasterizer lays them out. What cannot be drawn is reported once per render: <c>BackendImageTooLarge</c> (an image too large
+/// to convert in memory), <c>BackendShadingUnsupported</c> (an unknown shading type) and <c>BackendTilingPatternApproximated</c>
+/// (cells nested more than eight deep, or overlapping their neighbours more than 256 times per tile).
 /// </para>
 /// <para>
 /// Reuse one instance for many renders (one per surface): it keeps its paints and caches every Skia path it builds, keyed by the
 /// path's geometry, so replaying the same list again (a repaint, a cached display list) allocates nothing per operation. The cache
 /// holds at most 2^21 coordinates and 2^16 paths and is emptied when it would grow past them; typefaces are kept per font program
-/// (at most 256, held weakly, so a closed document's go with it) with at most 2^16 glyphs among them; <see cref="Dispose"/>
-/// releases them all. An
+/// (at most 256, held weakly, so a closed document's go with it) with at most 2^16 glyphs among them; images, shadings (at most 256,
+/// 64 MiB) and pattern cells are kept per display-list instance, held weakly; <see cref="Dispose"/> releases them all. An
 /// instance renders one page at a time; use one per thread to render in parallel (a document is safe for concurrent renders while
 /// nobody changes it).
 /// </para>
@@ -175,6 +185,15 @@ public sealed partial class SkiaBackend : IDisposable
 
     /// <summary>Gets how many typefaces this backend has created from font programs (one per TrueType or OpenType program it drew natively).</summary>
     internal int TypefacesCreated => _replayer.TypefacesCreated;
+
+    /// <summary>Gets how many Skia images this backend has made from display-list images and masks (one per interned instance while kept).</summary>
+    internal int ImagesCreated => _replayer.ImagesCreated;
+
+    /// <summary>Gets the bytes of converted image pixels this backend keeps, within the document's image cache budget.</summary>
+    internal long CachedImageBytes => _replayer.CachedImageBytes;
+
+    /// <summary>Gets how many tiling-pattern cells this backend has recorded into pictures.</summary>
+    internal int CellsRecorded => _replayer.CellsRecorded;
 
     private void Draw(DisplayList list, SKCanvas canvas, in Matrix device, SKRect? page, bool forceOutlines)
     {
