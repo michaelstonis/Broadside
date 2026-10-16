@@ -21,6 +21,14 @@ public sealed class SkiaAllocationTests
     [InlineData("clipping-paths.pdf", 300)]
     [InlineData("pattern-shading-axial.pdf", 72)]
     [InlineData("text-truetype-embedded.pdf", 72)]
+    [InlineData("image-smask.pdf", 72)]
+    [InlineData("image-explicit-mask.pdf", 300)]
+    [InlineData("image-stencil-mask.pdf", 72)]
+    [InlineData("shading-type3-radial.pdf", 300)]
+    [InlineData("shading-type1-function.pdf", 72)]
+    [InlineData("shading-type6-coons.pdf", 72)]
+    [InlineData("pattern-tiling-colored.pdf", 72)]
+    [InlineData("pattern-recursive.pdf", 300)]
     public void Replaying_a_corpus_page_allocates_nothing(string fileName, int dpi)
     {
         using PdfDocument document = GoldenCorpus.Open(fileName);
@@ -61,6 +69,21 @@ public sealed class SkiaAllocationTests
         Assert.Equal(0, MeasureReplay(text, dpi, forceOutlines: forceOutlines));
         Assert.Equal(0, MeasureReplay(type3, dpi, forceOutlines: forceOutlines));
         Assert.Equal(0, MeasureReplay(standard14, dpi, forceOutlines: forceOutlines));
+    }
+
+    [Theory]
+    [InlineData("image-heavy", 72)]
+    [InlineData("image-heavy", 300)]
+    [InlineData("mask-heavy", 72)]
+    [InlineData("shading-grid", 300)]
+    [InlineData("tiling-grid", 72)]
+    [InlineData("tiling-grid", 300)]
+    [InlineData("mesh-patches", 72)]
+    public void Replaying_images_masks_shadings_and_patterns_allocates_nothing_per_paint(string sample, int dpi)
+    {
+        // Issue #122: images, masks, shaders, mesh vertices and pattern tiles come from the backend's caches once warm.
+        using PdfDocument document = PdfDocument.Open(PaintGoldenImageTests.Sample(sample));
+        Assert.Equal(0, MeasureReplay(document, dpi));
     }
 
     private static long MeasureReplay(PdfDocument document, int dpi, DisplayLayers layers = DisplayLayers.Content, bool forceOutlines = false)

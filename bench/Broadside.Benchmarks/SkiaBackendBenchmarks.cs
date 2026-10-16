@@ -8,9 +8,11 @@ using SkiaSharp;
 namespace Broadside.Benchmarks;
 
 /// <summary>
-/// The SkiaSharp backend (issue #121; ADR 0006): replaying the path corpus display lists (fills, strokes with dashes and stroke
-/// adjustment, clips) onto a reused raster canvas. Geometry is recorded in kept managed buffers and each Skia path comes from the
-/// backend's path cache once warm, so <c>Replay</c> must read <c>-</c> in <c>Allocated</c>: nothing per fill, stroke, dash or clip.
+/// The SkiaSharp backend (issues #121, #122; ADR 0006): replaying the path corpus display lists (fills, strokes with dashes and
+/// stroke adjustment, clips) and the synthetic image, mask, shading, mesh and tiling pages onto a reused raster canvas. Geometry is
+/// recorded in kept managed buffers and each Skia path comes from the backend's path cache once warm; images, their resamplings,
+/// shaders, mesh vertices and pattern pictures come from the backend's caches, so <c>Replay</c> must read <c>-</c> in
+/// <c>Allocated</c>: nothing per fill, stroke, dash, clip, image or pattern paint.
 /// <c>Broadside.Rendering.Skia.Tests.SkiaAllocationTests</c> fails the build if it regresses. Compare with
 /// <see cref="StrokeBenchmarks"/> and <see cref="ClipBenchmarks"/> for the software rasterizer's numbers.
 /// </summary>
@@ -25,8 +27,8 @@ public class SkiaBackendBenchmarks
     private SkiaBackend? _backend;
     private Matrix _device;
 
-    /// <summary>The page: a path corpus file, or a synthetic 256 KB stroke-heavy content stream.</summary>
-    [Params("paths-fill-rules.pdf", "paths-strokes.pdf", "clipping-paths.pdf", "stroke-heavy-256kb")]
+    /// <summary>The page: a path corpus file, a synthetic 256 KB stroke-heavy content stream, or a synthetic paint page.</summary>
+    [Params("paths-fill-rules.pdf", "paths-strokes.pdf", "clipping-paths.pdf", "stroke-heavy-256kb", "image-heavy", "mask-heavy", "shading-grid", "mesh-patches", "tiling-grid")]
     public string Page { get; set; } = "";
 
     /// <summary>The resolution.</summary>
@@ -36,9 +38,16 @@ public class SkiaBackendBenchmarks
     [GlobalSetup]
     public void Setup()
     {
-        _document = Page == "stroke-heavy-256kb"
-            ? PdfDocument.Open(ContentSamples.OnePage(ContentSamples.StrokeHeavy(256 * 1024), ContentSamples.StrokeHeavyResources))
-            : PdfDocument.Open(Path.Combine(CorpusLocator.CorpusDirectory, Page));
+        _document = Page switch
+        {
+            "stroke-heavy-256kb" => PdfDocument.Open(ContentSamples.OnePage(ContentSamples.StrokeHeavy(256 * 1024), ContentSamples.StrokeHeavyResources)),
+            "image-heavy" => PdfDocument.Open(ContentSamples.ImageHeavy()),
+            "mask-heavy" => PdfDocument.Open(MaskSamples.MaskHeavy()),
+            "shading-grid" => PdfDocument.Open(ShadingSamples.Grid()),
+            "mesh-patches" => PdfDocument.Open(MeshShadingSamples.Patches()),
+            "tiling-grid" => PdfDocument.Open(TilingSamples.Grid()),
+            _ => PdfDocument.Open(Path.Combine(CorpusLocator.CorpusDirectory, Page)),
+        };
         PdfPage page = _document.Pages[0];
         _list = page.CreateDisplayList();
         RenderOptions options = new RenderOptions().WithDpi(Dpi);

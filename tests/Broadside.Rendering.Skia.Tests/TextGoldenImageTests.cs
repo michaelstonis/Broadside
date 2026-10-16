@@ -13,20 +13,6 @@ namespace Broadside.Rendering.Skia.Tests;
 /// </summary>
 public sealed class TextGoldenImageTests
 {
-    /// <summary>
-    /// The pages of the text corpus files that also paint an image or a stencil mask, which this backend does not draw yet (#122):
-    /// they cannot match their golden images until it does.
-    /// </summary>
-    private static readonly (string File, int Page)[] PagesWithImages =
-    [
-        ("text-render-modes.pdf", 1),
-        ("text-render-modes.pdf", 2),
-        ("text-render-modes.pdf", 3),
-        ("text-render-modes.pdf", 4),
-        ("text-tagged-spanning-image.pdf", 0),
-        ("text-type3.pdf", 0),
-    ];
-
     [Theory]
     [MemberData(nameof(TextPages))]
     public void Page_drawn_with_native_glyphs_matches_the_golden_image_within_the_text_threshold(string fileName, int page)
@@ -78,42 +64,7 @@ public sealed class TextGoldenImageTests
         Assert.True(comparison.Matches, comparison.Describe());
     }
 
-    [Theory]
-    [MemberData(nameof(TextPagesWithImages))]
-    public void Text_pages_with_images_skip_only_the_images(string fileName, int page)
-    {
-        using PdfDocument document = GoldenCorpus.Open(fileName);
-        using var backend = new SkiaBackend();
-        using SKBitmap bitmap = backend.Render(document.Pages[page], GoldenCorpus.CreateRenderOptions());
-
-        Diagnostic diagnostic = Assert.Single(backend.Diagnostics);
-        Assert.Contains(diagnostic.Code, (string[])["BackendImageUnsupported", "BackendImageMaskUnsupported"]);
-    }
-
-    public static TheoryData<string, int> TextPages()
-    {
-        var pages = new TheoryData<string, int>();
-        foreach (TheoryDataRow<string, int> row in GoldenCorpus.PagesOf([.. TextFiles()]))
-        {
-            if (!PagesWithImages.Contains(row.Data))
-            {
-                pages.Add(row.Data.Item1, row.Data.Item2);
-            }
-        }
-
-        return pages;
-    }
-
-    public static TheoryData<string, int> TextPagesWithImages()
-    {
-        var pages = new TheoryData<string, int>();
-        foreach ((string file, int page) in PagesWithImages)
-        {
-            pages.Add(file, page);
-        }
-
-        return pages;
-    }
+    public static TheoryData<string, int> TextPages() => GoldenCorpus.PagesOf([.. TextFiles()]);
 
     private static IEnumerable<string> TextFiles() => Corpus.AllFileNames.Where(name => name.StartsWith("text-", StringComparison.Ordinal));
 
