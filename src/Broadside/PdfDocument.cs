@@ -1328,7 +1328,8 @@ public sealed partial class PdfDocument : IDisposable
         changed |= LayOutMetadataFor(Version, planned.Needed);
 
         // Issue #201: what a conformant PDF/A save adds, an output intent and the identified XMP packet, PDF 1.4 features the check
-        // step already counted (VersionedFeatures.PdfAOutput); the file is written as PDF 1.7, PDF/A-2's base.
+        // step already counted (VersionedFeatures.PdfAOutput); the file is written as PDF 1.7, PDF/A-2's base, or as PDF 2.0 for
+        // PDF/A-4 (#203, VersionedFeatures.PdfA4Output).
         if (archival)
         {
             changed |= ApplyArchivalSave(options, accessible);
@@ -1340,7 +1341,8 @@ public sealed partial class PdfDocument : IDisposable
             changed |= ApplyAccessibleSave(archival);
         }
 
-        return ApplyVersionedSave(options, planned, changed, archival || accessible ? PdfA2Version : null);
+        bool basedOnPdf17 = accessible || (archival && options.PdfAConformance.BaseVersion() == PdfA2Version);
+        return ApplyVersionedSave(options, planned, changed, basedOnPdf17 ? PdfA2Version : null);
     }
 
     /// <summary>

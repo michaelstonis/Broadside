@@ -4,7 +4,7 @@ namespace Broadside;
 /// <remarks>
 /// ISO 19005 (PDF/A). The standard is not in the repository; the levels and their requirements are cited by the rule identifiers of
 /// veraPDF's validation profiles (clause and test number, e.g. 6.2.11.4.1-1), the reference validator Broadside's output is checked
-/// with in CI (issues #201, #202, open decision 12).
+/// with in CI (issues #201, #202, #203, open decision 12).
 /// </remarks>
 public enum PdfAConformance
 {
@@ -37,4 +37,22 @@ public enum PdfAConformance
     /// <summary>PDF/A-3u (ISO 19005-3, level U): PDF/A-3b, and every glyph shown maps to a Unicode value, as for <see cref="PdfA2u"/>.</summary>
     /// <remarks>ISO 19005-3, 6.2.11.7.2 and 6.8 (veraPDF PDF/A-3U validation profile).</remarks>
     PdfA3u,
+
+    /// <summary>
+    /// PDF/A-4 (ISO 19005-4:2020): based on PDF 2.0, so the file has a <c>%PDF-2.n</c> header and no 1.7 limit; the identification
+    /// names the part and the revision year (<c>pdfaid:rev</c> 2020) and no conformance level; the trailer has no document information
+    /// dictionary (a save moves its entries to the XMP packet), unless the catalog has <c>PieceInfo</c>, when it keeps only
+    /// <c>ModDate</c>. Every font program embedded, an output intent, no encryption and no forbidden actions, as for PDF/A-2. An
+    /// embedded file must itself be PDF/A-1, -2 or -4, which a save does not verify, so it reports any.
+    /// </summary>
+    /// <remarks>ISO 19005-4, 6.1.2, 6.1.3, 6.7.3 and 6.9 (veraPDF PDF/A-4 validation profile, rules 6.1.2-1, 6.1.3-4, 6.1.3-5, 6.7.3-2 to 6.7.3-5, 6.9-3).</remarks>
+    PdfA4,
+
+    /// <summary>
+    /// PDF/A-4f (ISO 19005-4:2020, conformance F): PDF/A-4 with embedded files of any kind. The catalog's name dictionary has an
+    /// <c>EmbeddedFiles</c> tree, and each embedded file's specification has <c>F</c> and <c>UF</c>, an <c>AFRelationship</c>, and a
+    /// stream naming its MIME type; the identification states <c>pdfaid:conformance</c> F.
+    /// </summary>
+    /// <remarks>ISO 19005-4, 6.7.3 and 6.9 (veraPDF PDF/A-4F validation profile, rules 6.9-1, 6.9-2, 6.9-4 and 6.9-5).</remarks>
+    PdfA4f,
 }

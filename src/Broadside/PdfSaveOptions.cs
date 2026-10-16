@@ -248,8 +248,8 @@ public sealed class PdfSaveOptions
     /// </summary>
     /// <remarks>
     /// <para>
-    /// ISO 19005-2 (PDF/A-2) and ISO 19005-3 (PDF/A-3), cited by the rule identifiers of veraPDF's validation profiles, the reference
-    /// the output is validated with: see <see cref="PdfAConformance"/> for the levels (2b, 2u, 3b, 3u). Level U also checks that every
+    /// ISO 19005-2 (PDF/A-2), ISO 19005-3 (PDF/A-3) and ISO 19005-4 (PDF/A-4), cited by the rule identifiers of veraPDF's validation
+    /// profiles, the reference the output is validated with: see <see cref="PdfAConformance"/> for the levels (2b, 2u, 3b, 3u, 4, 4f). Level U also checks that every
     /// glyph shown maps to Unicode; PDF/A-3 allows embedded files of any kind when each is an associated file with a relationship. The save first checks the document, changing nothing: each rule it cannot meet (a font
     /// program not embedded, encryption, an action PDF/A forbids, an annotation without an appearance, a device colour space the output
     /// intent does not cover, a feature later than PDF 1.7, ...) is reported as a <c>PdfANonConformant</c> warning naming the rule. In
@@ -262,7 +262,8 @@ public sealed class PdfSaveOptions
     /// profile unless the document has one with a destination profile, the XMP metadata stream with the PDF/A identification
     /// (<c>pdfaid:part</c>, <c>pdfaid:conformance</c>) mirroring the document information, and the file identifiers; it writes the
     /// header as PDF 1.7 (PDF/A-2 and PDF/A-3 are based on ISO 32000-1), lowering a new document's 2.0; PDF/A-3's associated files
-    /// (AF, AFRelationship) do not raise it.
+    /// (AF, AFRelationship) do not raise it. PDF/A-4 is based on PDF 2.0: the header is 2.0 (a read 1.x document is raised), the
+    /// identification adds <c>pdfaid:rev</c>, and the trailer keeps no document information dictionary.
     /// </para>
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The value is not a defined level.</exception>
@@ -276,7 +277,7 @@ public sealed class PdfSaveOptions
     /// <param name="conformance">The PDF/A conformance level, or <see cref="PdfAConformance.None"/>.</param>
     /// <returns>These options.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="conformance"/> is not a defined level.</exception>
-    /// <remarks>ISO 19005-2 and ISO 19005-3 (veraPDF PDF/A-2B, -2U, -3B and -3U validation profiles).</remarks>
+    /// <remarks>ISO 19005-2, ISO 19005-3 and ISO 19005-4 (veraPDF PDF/A-2B, -2U, -3B, -3U, -4 and -4F validation profiles).</remarks>
     public PdfSaveOptions WithPdfAConformance(PdfAConformance conformance)
     {
         PdfAConformance = conformance;
