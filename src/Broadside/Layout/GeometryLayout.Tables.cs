@@ -293,7 +293,8 @@ internal sealed partial class GeometryLayout
     {
         TablePlan table = placement.Tables![placement.Paragraphs[index].Table];
         var node = new LayoutTable(null) { RowCount = table.Rows, ColumnCount = table.Columns };
-        node.AddExtent(Covering(placement, index, index));
+        node.AddExtent(OwnerExtent(placement, index));
+        AddCaption(placement, index, node, above: true);
         var cells = new LayoutTableCell[table.Cells.Count];
         int next = 0;
         for (int row = 0; row < table.Rows; row++)
@@ -340,6 +341,8 @@ internal sealed partial class GeometryLayout
 
             node.Add(rowNode);
         }
+
+        AddCaption(placement, index, node, above: false);
 
         // A data cell's headers are the filled header cells above it in its columns, top to bottom.
         for (int position = 0; position < cells.Length; position++)
@@ -392,6 +395,19 @@ internal sealed partial class GeometryLayout
     {
         _paragraphs.Add(new Paragraph(_order.Count) { Rows = 1, Tabular = true, Table = _fragments[proxy].Table - 1 });
         _order.Add(proxy);
+    }
+
+    /// <summary>Starts a paragraph that is the table or figure a proxy fragment stands for.</summary>
+    private void AddProxyParagraph(int proxy)
+    {
+        if (_fragments[proxy].Figure != 0)
+        {
+            _paragraphs.Add(new Paragraph(_order.Count) { Rows = 1, Figure = _fragments[proxy].Figure - 1 });
+            _order.Add(proxy);
+            return;
+        }
+
+        AddTableParagraph(proxy);
     }
 
     /// <summary>Finds the ruled tables of the page among <paramref name="items"/>, takes their fragments out and adds a proxy for each; returns how many items are left.</summary>
@@ -595,7 +611,7 @@ internal sealed partial class GeometryLayout
             ref readonly Fragment fragment = ref _fragments[items[position]];
             double x = (fragment.Left + fragment.Right) / 2;
             double y = (fragment.Bottom + fragment.Top) / 2;
-            if (fragment.Table != 0 || x <= table.Left || x >= table.Right || y <= table.Bottom || y >= table.Top)
+            if (fragment.IsProxy || x <= table.Left || x >= table.Right || y <= table.Bottom || y >= table.Top)
             {
                 continue;
             }
@@ -694,7 +710,7 @@ internal sealed partial class GeometryLayout
         {
             int start = index;
             ref readonly Fragment first = ref _fragments[items[index++]];
-            if (first.Table != 0)
+            if (first.IsProxy)
             {
                 return -1;
             }
@@ -704,7 +720,7 @@ internal sealed partial class GeometryLayout
             while (index < items.Length)
             {
                 ref readonly Fragment next = ref _fragments[items[index]];
-                if (next.Table != 0 || Math.Min(top, next.Top) - Math.Max(bottom, next.Bottom) < 0.5 * Math.Min(top - bottom, next.Top - next.Bottom))
+                if (next.IsProxy || Math.Min(top, next.Top) - Math.Max(bottom, next.Bottom) < 0.5 * Math.Min(top - bottom, next.Top - next.Bottom))
                 {
                     break;
                 }

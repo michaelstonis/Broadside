@@ -118,6 +118,8 @@ public sealed class LayoutTreeTests
         Assert.Equal("Formula", formula.StructureElement!.StructureType!.Value);
         LayoutExtent extent = Assert.Single(formula.Extents);
         Assert.Equal(new PdfRectangle(200, 580, 300, 620), extent.Bounds);
+        Assert.Equal(new PdfRectangle(200, 580, 300, 620), Assert.IsType<LayoutFigure>(formula).BoundingBox);
+        Assert.Equal(image, Assert.IsType<LayoutFigure>(figure).BoundingBox);
         Assert.Equal(0, extent.GlyphCount);
         Assert.Equal(0, extent.TextLength);
     }

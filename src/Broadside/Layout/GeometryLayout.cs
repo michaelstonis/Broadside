@@ -125,6 +125,7 @@ internal sealed partial class GeometryLayout
         detector._paragraphs.Clear();
         detector._fragments = [];
         detector._tables = null;
+        detector._figures = null;
         detector._current = null;
         detector._styles.Clear();
         detector._bold.Clear();
@@ -162,7 +163,8 @@ internal sealed partial class GeometryLayout
                     TextWord word = words[index];
                     PdfRectangle bounds = word.Quad.Bounds;
                     bool artifact = (glyphs[word.GlyphStart].Flags & TextGlyphFlags.Artifact) != 0;
-                    if (open && artifact == current.Artifact && (!horizontal || (bounds.Left - current.Right <= FragmentGap * lineHeight
+                    bool invisible = (glyphs[word.GlyphStart].Flags & TextGlyphFlags.Invisible) != 0;
+                    if (open && artifact == current.Artifact && invisible == current.Invisible && (!horizontal || (bounds.Left - current.Right <= FragmentGap * lineHeight
                         && !CrossesRule(verticalRules, current.Right, bounds.Left, (bounds.Bottom + bounds.Top) / 2))))
                     {
                         if (current.MarkerEnd > 0 && double.IsNaN(current.BodyLeft))
@@ -191,6 +193,7 @@ internal sealed partial class GeometryLayout
                         Top = bounds.Top,
                         Horizontal = horizontal,
                         Artifact = artifact,
+                        Invisible = invisible,
                         BodyLeft = double.NaN,
                     };
                     if (horizontal && !artifact)
@@ -260,6 +263,7 @@ internal sealed partial class GeometryLayout
         {
             Horizontal = horizontalRules,
             Vertical = verticalRules,
+            Graphics = rulings is null ? [] : [.. rulings.Graphics],
         });
     }
 
@@ -273,6 +277,7 @@ internal sealed partial class GeometryLayout
         {
             LayOut(analysis);
             Describe(analysis);
+            Captions(analysis);
         }
 
         Classify();
@@ -445,10 +450,13 @@ internal sealed partial class GeometryLayout
         _fragmentCount = _fragments.Length;
         _current = analysis;
         _tables = null;
+        _figures = null;
         _height = analysis.Height;
         int original = _fragments.Length;
         int count = 0;
-        Span<int> items = Grow(ref _items, original + 1);
+
+        // Room for a proxy per table and per figure beside the text's fragments.
+        Span<int> items = Grow(ref _items, original + 1 + analysis.Horizontal.Length + analysis.Graphics.Length);
         for (int index = 0; index < original; index++)
         {
             if (Eligible(_fragments[index]))
@@ -459,10 +467,11 @@ internal sealed partial class GeometryLayout
 
         _lineGap = analysis.LineGap;
         count = Lattices(analysis, items[..count]);
+        count = Figures(analysis, items, count);
         Cut(items[..count], 0, columnsFirst: false);
         for (int index = 0; index < original; index++)
         {
-            if (!_fragments[index].Horizontal && !_fragments[index].Artifact)
+            if (!_fragments[index].Horizontal && !_fragments[index].Artifact && !_fragments[index].Absorbed)
             {
                 _paragraphs.Add(new Paragraph(_order.Count) { Rows = 1 });
                 _order.Add(index);
@@ -471,10 +480,11 @@ internal sealed partial class GeometryLayout
 
         if (_fragmentCount != original)
         {
-            // Proxies stand for the tables in the reading order.
+            // Proxies stand for the tables and figures in the reading order.
             analysis.Fragments = _fragments[.._fragmentCount];
             _fragments = analysis.Fragments;
             analysis.Tables = _tables;
+            analysis.Figures = _figures;
         }
     }
 
@@ -757,11 +767,11 @@ internal sealed partial class GeometryLayout
             ref readonly Fragment first = ref _fragments[items[index++]];
             double top = first.Top;
             double bottom = first.Bottom;
-            while (index < items.Length && first.Table == 0)
+            while (index < items.Length && !first.IsProxy)
             {
                 ref readonly Fragment next = ref _fragments[items[index]];
                 double overlap = Math.Min(top, next.Top) - Math.Max(bottom, next.Bottom);
-                if (next.Table != 0 || overlap < 0.5 * Math.Min(top - bottom, next.Top - next.Bottom))
+                if (next.IsProxy || overlap < 0.5 * Math.Min(top - bottom, next.Top - next.Bottom))
                 {
                     break;
                 }
@@ -823,9 +833,9 @@ internal sealed partial class GeometryLayout
         for (int index = 0; index < rows.Length; index++)
         {
             Row row = rows[index];
-            if (_fragments[items[row.Start]].Table != 0)
+            if (_fragments[items[row.Start]].IsProxy)
             {
-                AddTableParagraph(items[row.Start]);
+                AddProxyParagraph(items[row.Start]);
                 previousCount = 2;
                 continue;
             }
@@ -872,7 +882,7 @@ internal sealed partial class GeometryLayout
     private int TabularRun(Span<int> items, ReadOnlySpan<Row> rows, int start)
     {
         int end = start;
-        while (end < rows.Length && _fragments[items[rows[end].Start]].Table == 0
+        while (end < rows.Length && !_fragments[items[rows[end].Start]].IsProxy
             && rows[end].Count - (_fragments[items[rows[end].Start]].IsMarkerOnly ? 1 : 0) > 1)
         {
             end++;
@@ -929,6 +939,16 @@ internal sealed partial class GeometryLayout
                 continue;
             }
 
+            if (paragraphs[paragraph].Figure >= 0)
+            {
+                FigurePlan figure = analysis.Figures![paragraphs[paragraph].Figure];
+                EmitFigure(figure, glyphs, source.Text, ordered, ref count, text);
+                place.GlyphCount = count - place.GlyphStart;
+                place.TextLength = text.Length - place.TextStart;
+                place.Bounds = place.Body = figure.Box;
+                continue;
+            }
+
             PdfRectangle? bounds = null;
             PdfRectangle? body = null;
             for (int position = start; position < end; position++)
@@ -978,7 +998,7 @@ internal sealed partial class GeometryLayout
 
         Debug.Assert(count == glyphs.Length, "The fragments partition the page's glyphs.");
         var page = new LayoutPage(analysis.Page, analysis.PageIndex, new TextPage(ordered, text.ToString()), isDetected: true);
-        var placement = new Placement(page, paragraphs, placed, analysis.Height, analysis.Tables);
+        var placement = new Placement(page, paragraphs, placed, analysis.Height, analysis.Tables, analysis.Figures);
         AddNodes(placement, root);
         if (placed.Length > 0)
         {
@@ -1086,6 +1106,18 @@ internal sealed partial class GeometryLayout
         /// <summary>For a fragment standing for a table in the cut (it has no glyphs), the table's number from 1; 0 for text.</summary>
         public int Table;
 
+        /// <summary>For a fragment standing for a figure in the cut (it has no glyphs), the figure's number from 1; 0 otherwise.</summary>
+        public int Figure;
+
+        /// <summary>Whether the fragment's text is invisible (rendering mode 3 or 7, §9.3.6), as the text a recogniser lays over a scan is.</summary>
+        public bool Invisible;
+
+        /// <summary>Whether a figure took the fragment as text inside it, out of the cut.</summary>
+        public bool Absorbed;
+
+        /// <summary>Gets a value indicating whether the fragment stands for a table or a figure and has no glyphs.</summary>
+        public readonly bool IsProxy => Table != 0 || Figure != 0;
+
         /// <summary>Gets a value indicating whether the fragment is a list marker and nothing else.</summary>
         public readonly bool IsMarkerOnly => MarkerEnd > 0 && double.IsNaN(BodyLeft);
     }
@@ -1107,6 +1139,12 @@ internal sealed partial class GeometryLayout
 
         /// <summary>Gets or sets the page's tables, in the order their proxies were made; null when it has none.</summary>
         public List<TablePlan>? Tables { get; set; }
+
+        /// <summary>Gets the page's images and painted paths, for figures.</summary>
+        public Graphic[] Graphics { get; init; } = [];
+
+        /// <summary>Gets or sets the page's figures, in the order their proxies were made; null when it has none.</summary>
+        public List<FigurePlan>? Figures { get; set; }
 
         /// <summary>Gets or sets the eligible fragments in reading order.</summary>
         public int[] Order { get; set; } = [];

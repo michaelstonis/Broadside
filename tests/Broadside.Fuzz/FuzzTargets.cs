@@ -63,6 +63,7 @@ internal static class FuzzTargets
         ["structure-tree"] = StructureTree.Target,
         ["layout-detection"] = LayoutDetectionTarget.Target,
         ["table-detection"] = TableDetectionTarget.Target,
+        ["figure-detection"] = FigureDetectionTarget.Target,
         ["function-type4"] = FunctionType4,
         ["function-sampled"] = FunctionSampled,
         ["optional-content"] = OptionalContentTarget.Target,

@@ -82,6 +82,7 @@
   jpx-lossless.pdf,
   jpx-smask-in-data.pdf,
   jpx-subsampled.pdf,
+  layout-figures.pdf,
   layout-headings-lists.pdf,
   layout-tables.pdf,
   layout-tagged.pdf,
