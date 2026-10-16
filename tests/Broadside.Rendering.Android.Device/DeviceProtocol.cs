@@ -1,3 +1,5 @@
+using Broadside.TestSupport;
+
 namespace Broadside.Rendering.Android.Device;
 
 /// <summary>
@@ -90,6 +92,44 @@ internal static class DeviceProtocol
 
     /// <summary>Returns the result key of the mean time of one warm replay of the page, in microseconds.</summary>
     public static string ReplayTimeKey(string fileName, int page, string variant = Native) => $"replay-us{Suffix(variant)}:{fileName}:{page}";
+
+    /// <summary>
+    /// The argument that lists the files also rendered from a document opened with a zero image cache budget (variant
+    /// <see cref="Uncached"/>), separated by commas.
+    /// </summary>
+    public const string UncachedArgument = "uncached";
+
+    /// <summary>The render variant of a document opened with a zero image cache budget: every paint converts its image anew.</summary>
+    public const string Uncached = "uncached";
+
+    /// <summary>The prefix of a synthetic page's file name: the device generates the file with the test support's samples.</summary>
+    public const string SamplePrefix = "sample-";
+
+    /// <summary>The synthetic pages (issue #134): every image resampling path, every mask path, shading, tiling and mesh grids.</summary>
+    public static readonly string[] Samples = ["sample-image-heavy.pdf", "sample-mask-heavy.pdf", "sample-shading-grid.pdf", "sample-tiling-grid.pdf", "sample-mesh-patches.pdf"];
+
+    /// <summary>Returns the bytes of a synthetic page (a name in <see cref="Samples"/>).</summary>
+    public static byte[] Sample(string fileName) => fileName switch
+    {
+        "sample-image-heavy.pdf" => ContentSamples.ImageHeavy(),
+        "sample-mask-heavy.pdf" => MaskSamples.MaskHeavy(),
+        "sample-shading-grid.pdf" => ShadingSamples.Grid(),
+        "sample-tiling-grid.pdf" => TilingSamples.Grid(),
+        "sample-mesh-patches.pdf" => MeshShadingSamples.Patches(),
+        _ => throw new ArgumentOutOfRangeException(nameof(fileName)),
+    };
+
+    /// <summary>
+    /// Returns the result key of how many Android bitmaps a fresh backend made from the file's images and masks after rendering every
+    /// page once (<paramref name="pass"/> 1) and twice (2).
+    /// </summary>
+    public static string ImagesKey(string fileName, int pass, string variant = Native) => $"images{Suffix(variant)}-{pass}:{fileName}";
+
+    /// <summary>Returns the result key of how many pattern cells a fresh backend rendered into tiles after <paramref name="pass"/> renders of every page.</summary>
+    public static string CellsKey(string fileName, int pass) => $"cells-{pass}:{fileName}";
+
+    /// <summary>Returns the result key of the bytes of converted pixels a backend keeps after rendering every page of the file in a variant.</summary>
+    public static string CachedBytesKey(string fileName, string variant = Native) => $"cached-bytes{Suffix(variant)}:{fileName}";
 
     private static string Suffix(string variant) => variant.Length == 0 ? string.Empty : "-" + variant;
 }
