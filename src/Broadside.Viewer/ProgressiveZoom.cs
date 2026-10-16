@@ -54,6 +54,9 @@ public sealed class ProgressiveZoom
     /// <summary>Gets the viewport the shell shows now (mid-zoom, the zoom of the last step).</summary>
     public Viewport Viewport => _viewport;
 
+    /// <summary>Gets the layout the zoom moves through: the scheduler's current <see cref="TileScheduler.Layout"/>.</summary>
+    public PageLayout Layout => _scheduler.Layout;
+
     /// <summary>Gets a value indicating whether a zoom is in progress: steps taken that have not settled, so no tile renders yet.</summary>
     public bool IsZooming => _zooming;
 

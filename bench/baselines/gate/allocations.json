@@ -198,6 +198,7 @@
     "Broadside.Benchmarks.ImageUnpackBenchmarks.UnpackScaled(Bits: 2)": 0,
     "Broadside.Benchmarks.ImageUnpackBenchmarks.UnpackScaled(Bits: 4)": 0,
     "Broadside.Benchmarks.ImageUnpackBenchmarks.UnpackScaled(Bits: 8)": 0,
+    "Broadside.Benchmarks.InputModelBenchmarks.Gesture": 0,
     "Broadside.Benchmarks.Jbig2Benchmarks.DecodeGenericMmr": 736,
     "Broadside.Benchmarks.Jbig2Benchmarks.DecodeGenericTemplate0Tpgd": 736,
     "Broadside.Benchmarks.Jbig2Benchmarks.DecodeHalftone": 2400,
