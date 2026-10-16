@@ -31,16 +31,27 @@ public sealed class SessionMemoryTests
             OpenRenderAndClose();
         }
 
-        long before = GC.GetTotalMemory(forceFullCollection: true);
-        for (int i = 0; i < 40; i++)
+        // The rasterizer's working arrays (a 4 MiB tile, a 2 MiB cell array) live in ArrayPool<T>.Shared, which belongs to the
+        // process: the runtime trims it on its own schedule after a full collection (at once when memory load is high, as on CI
+        // runners), so one block's delta can swing by megabytes either way without any session being kept. A session that leaks
+        // grows every block, so the smallest of several block deltas is what the sessions retain.
+        const int sessions = 40;
+        long[] growth = new long[3];
+        long before = LiveBytes();
+        for (int block = 0; block < growth.Length; block++)
         {
-            OpenRenderAndClose();
+            for (int i = 0; i < sessions; i++)
+            {
+                OpenRenderAndClose();
+            }
+
+            long after = LiveBytes();
+            growth[block] = after - before;
+            before = after;
         }
 
-        long growth = GC.GetTotalMemory(forceFullCollection: true) - before;
-
-        // Each cycle builds a list and draws a 4 MB tile; anything kept per cycle would add up to megabytes.
-        Assert.True(growth < 512 * 1024, $"Retained {growth} bytes over 40 sessions.");
+        // 128 KiB over 40 sessions: a leak of 3.2 KiB per session fails, far less than one tile or one parsed document.
+        Assert.True(growth.Min() < 128 * 1024, $"Retained {string.Join(", ", growth)} bytes over blocks of {sessions} sessions.");
     }
 
     [Fact]
@@ -59,6 +70,15 @@ public sealed class SessionMemoryTests
         // A 1024 x 1024 tile is 4 MiB of pixels; what remains is the bookkeeping of one asynchronous render.
         Assert.True(allocated < 8 * 1024, $"{allocated} bytes per tile.");
         Assert.Equal(0, session.Statistics.PixelBytes);
+    }
+
+    /// <summary>Gets the bytes still reachable once every finalizer and the pool trimming it triggers have run.</summary>
+    private static long LiveBytes()
+    {
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+        return GC.GetTotalMemory(forceFullCollection: true);
     }
 
     [MethodImpl(MethodImplOptions.NoInlining)]
