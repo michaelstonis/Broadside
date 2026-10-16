@@ -15,6 +15,8 @@ namespace Broadside.Layout.Flow;
 public sealed class TextStyle
 {
     private TextShaping? _effective;
+    private TextShaping? _leftToRight;
+    private TextShaping? _rightToLeft;
 
     /// <summary>Creates a style in <paramref name="font"/> at <paramref name="fontSize"/> points, in the default colour.</summary>
     /// <param name="font">The font; it shall belong to the document the flow renders into.</param>
@@ -62,6 +64,14 @@ public sealed class TextStyle
 
     /// <summary>The shaping with <c>kern</c> following <see cref="Kerning"/>.</summary>
     internal TextShaping EffectiveShaping => _effective ??= Shaping.WithFeature("kern", Kerning);
+
+    /// <summary>The effective shaping of a directional run: <see cref="EffectiveShaping"/> in the direction its bidi level gives, or as it is when null.</summary>
+    internal TextShaping ShapingFor(bool? rightToLeft) => rightToLeft switch
+    {
+        null => EffectiveShaping,
+        true => _rightToLeft ??= EffectiveShaping.WithRightToLeft(true),
+        false => _leftToRight ??= EffectiveShaping.WithRightToLeft(false),
+    };
 
     /// <summary>Returns a copy in another font (such as the bold of the same family).</summary>
     /// <param name="font">The font.</param>
