@@ -69,16 +69,18 @@ internal static class TableDetectionTarget
 
     private static void Check(LayoutTable table)
     {
-        if (table.RowCount != table.Children.Count || table.ColumnCount < 1)
+        // Issue #190: a caption is the first or last child; the rest are rows.
+        List<LayoutNode> rows = [.. table.Children.Where(static child => child.Kind != LayoutNodeKind.Caption)];
+        if (table.RowCount != rows.Count || table.ColumnCount < 1)
         {
             throw new InvalidOperationException("A detected table's row count is not its rows.");
         }
 
         bool[] covered = new bool[table.RowCount * table.ColumnCount];
         int headerRows = -1;
-        for (int row = 0; row < table.Children.Count; row++)
+        for (int row = 0; row < rows.Count; row++)
         {
-            foreach (LayoutNode node in table.Children[row].Children)
+            foreach (LayoutNode node in rows[row].Children)
             {
                 if (node is not LayoutTableCell cell || cell.Row != row || cell.Column < 0 || cell.RowSpan < 1 || cell.ColumnSpan < 1
                     || cell.Row + cell.RowSpan > table.RowCount || cell.Column + cell.ColumnSpan > table.ColumnCount)

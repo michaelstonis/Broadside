@@ -4504,6 +4504,8 @@ Broadside.Layout.LayoutExtent.LayoutExtent() -> void
 Broadside.Layout.LayoutExtent.Page.get -> Broadside.Layout.LayoutPage!
 Broadside.Layout.LayoutExtent.TextLength.get -> int
 Broadside.Layout.LayoutExtent.TextStart.get -> int
+Broadside.Layout.LayoutFigure
+Broadside.Layout.LayoutFigure.BoundingBox.get -> Broadside.PdfRectangle?
 Broadside.Layout.LayoutHeading
 Broadside.Layout.LayoutHeading.Level.get -> int
 Broadside.Layout.LayoutList
@@ -4921,3 +4923,21 @@ Broadside.PdfARuleViolation.PdfARuleViolation(string! Rule, string! Message) -> 
 Broadside.PdfARuleViolation.Rule.get -> string!
 Broadside.PdfARuleViolation.Rule.init -> void
 Broadside.PdfDocument.ConvertToPdfA(Broadside.PdfAConformance conformance) -> Broadside.PdfAConversion!
+Broadside.Layout.AutoTaggingOptions
+Broadside.Layout.AutoTaggingOptions.AutoTaggingOptions() -> void
+Broadside.Layout.AutoTaggingOptions.FigureAlternateText.get -> string!
+Broadside.Layout.AutoTaggingOptions.FigureAlternateText.set -> void
+Broadside.Layout.AutoTaggingOptions.Force.get -> bool
+Broadside.Layout.AutoTaggingOptions.Force.set -> void
+Broadside.Layout.AutoTaggingOptions.Language.get -> string?
+Broadside.Layout.AutoTaggingOptions.Language.set -> void
+Broadside.Layout.AutoTaggingOptions.WithFigureAlternateText(string! text) -> Broadside.Layout.AutoTaggingOptions!
+Broadside.Layout.AutoTaggingOptions.WithForce(bool force = true) -> Broadside.Layout.AutoTaggingOptions!
+Broadside.Layout.AutoTaggingOptions.WithLanguage(string? language) -> Broadside.Layout.AutoTaggingOptions!
+Broadside.Layout.AutoTaggingResult
+Broadside.Layout.AutoTaggingResult.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.Layout.AutoTaggingResult.Figures.get -> System.Collections.Generic.IReadOnlyList<Broadside.Structure.PdfStructureElement!>!
+Broadside.Layout.AutoTaggingResult.IsTagged.get -> bool
+Broadside.Layout.AutoTaggingResult.Layout.get -> Broadside.Layout.LayoutTree?
+Broadside.PdfDocument.AutoTag() -> Broadside.Layout.AutoTaggingResult!
+Broadside.PdfDocument.AutoTag(Broadside.Layout.AutoTaggingOptions! options) -> Broadside.Layout.AutoTaggingResult!

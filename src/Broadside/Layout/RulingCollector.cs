@@ -13,11 +13,17 @@ namespace Broadside.Layout;
 /// rectangle and are not rulings. A filled rectangle no thicker than <see cref="ThinRule"/> is one ruling along its middle; a
 /// thicker one (a cell's background) gives its four edges; a white one gives nothing. Hidden content is skipped unless asked for.
 /// At most <see cref="MaxRulings"/> are kept per page.
+/// Figure detection (issue #190) reads the page's images (§8.9) and painted paths outside <c>Artifact</c> marked content
+/// (§14.8.2.2) as <see cref="Graphic"/>s, at most <see cref="MaxGraphics"/>; Type 3 glyph procedures (§9.6.4) are glyphs, not
+/// graphics, and are not entered.
 /// </remarks>
 internal sealed class RulingCollector(bool includeHidden) : ContentProcessor
 {
     /// <summary>The most rulings kept for a page.</summary>
     internal const int MaxRulings = 4096;
+
+    /// <summary>The most graphics kept for a page.</summary>
+    internal const int MaxGraphics = 2048;
 
     /// <summary>The thickest filled rectangle, in points, read as a line rather than a box.</summary>
     internal const double ThinRule = 2.5;
@@ -27,9 +33,13 @@ internal sealed class RulingCollector(bool includeHidden) : ContentProcessor
 
     private readonly List<Ruling> _horizontal = [];
     private readonly List<Ruling> _vertical = [];
+    private readonly List<Graphic> _graphics = [];
+    private int _markedDepth;
+    private int _artifactDepth;
 
     /// <inheritdoc/>
-    public override ContentEvents Events => ContentEvents.Paths | (includeHidden ? ContentEvents.HiddenContent : ContentEvents.None);
+    public override ContentEvents Events =>
+        ContentEvents.Paths | ContentEvents.Images | ContentEvents.MarkedContent | (includeHidden ? ContentEvents.HiddenContent : ContentEvents.None);
 
     /// <summary>Gets the horizontal rulings of the last run: <see cref="Ruling.Position"/> is their y, the span runs along x.</summary>
     public List<Ruling> Horizontal => _horizontal;
@@ -37,11 +47,17 @@ internal sealed class RulingCollector(bool includeHidden) : ContentProcessor
     /// <summary>Gets the vertical rulings of the last run: <see cref="Ruling.Position"/> is their x, the span runs along y.</summary>
     public List<Ruling> Vertical => _vertical;
 
+    /// <summary>Gets the page's painted images and paths outside artifacts, for figure detection, in painting order.</summary>
+    public List<Graphic> Graphics => _graphics;
+
     /// <inheritdoc/>
     public override void BeginRun(ContentContext context)
     {
         _horizontal.Clear();
         _vertical.Clear();
+        _graphics.Clear();
+        _markedDepth = 0;
+        _artifactDepth = 0;
     }
 
     /// <inheritdoc/>
@@ -57,6 +73,9 @@ internal sealed class RulingCollector(bool includeHidden) : ContentProcessor
         bool stroke = path.Paint is PathPaint.Stroke or PathPaint.FillAndStroke;
         bool fill = path.Paint is PathPaint.Fill or PathPaint.FillAndStroke;
         bool white = fill && IsWhite(context.State.FillColor);
+
+        // Whether the path is more than lines and frames: a curve, a slanted segment, or a filled area thicker than a rule.
+        bool shape = false;
         ReadOnlySpan<PathVerb> verbs = path.Path.Verbs;
         ReadOnlySpan<PathPoint> points = path.Path.Points;
         int point = 0;
@@ -80,6 +99,7 @@ internal sealed class RulingCollector(bool includeHidden) : ContentProcessor
                     Segment(current, start);
                 }
 
+                shape |= fill && !white && right - left > ThinRule && top - bottom > ThinRule;
                 if (fill && !white && straight && corners is 4 or 5)
                 {
                     Box(left, bottom, right, top);
@@ -120,6 +140,7 @@ internal sealed class RulingCollector(bool includeHidden) : ContentProcessor
             if (verb != PathVerb.LineTo)
             {
                 straight = false;
+                shape = true;
             }
             else
             {
@@ -128,7 +149,9 @@ internal sealed class RulingCollector(bool includeHidden) : ContentProcessor
                     Segment(current, next);
                 }
 
-                straight &= Math.Abs(next.X - current.X) <= Slack || Math.Abs(next.Y - current.Y) <= Slack;
+                bool aligned = Math.Abs(next.X - current.X) <= Slack || Math.Abs(next.Y - current.Y) <= Slack;
+                straight &= aligned;
+                shape |= !aligned;
                 corners++;
                 left = Math.Min(left, next.X);
                 bottom = Math.Min(bottom, next.Y);
@@ -137,6 +160,52 @@ internal sealed class RulingCollector(bool includeHidden) : ContentProcessor
             }
 
             current = next;
+        }
+
+        if (_artifactDepth == 0 && (stroke || !white))
+        {
+            PdfRectangle box = path.Path.Bounds;
+            AddGraphic(Quad.FromRectangle(ctm, box.Left, box.Bottom, box.Right, box.Top).Bounds, shape ? GraphicKind.Shape : GraphicKind.Rule);
+        }
+    }
+
+    public override void PaintImage(in ImageEvent image, ContentContext context)
+    {
+        if (_artifactDepth == 0 && (!image.IsHidden || includeHidden))
+        {
+            AddGraphic(Quad.FromRectangle(image.Ctm, 0, 0, 1, 1).Bounds, GraphicKind.Image);
+        }
+    }
+
+    public override void BeginMarkedContent(in MarkedContentEvent mc, ContentContext context)
+    {
+        _markedDepth++;
+        if (_artifactDepth == 0 && mc.Tag.SequenceEqual("Artifact"u8))
+        {
+            _artifactDepth = _markedDepth;
+        }
+    }
+
+    public override void EndMarkedContent(in MarkedContentEvent mc, ContentContext context)
+    {
+        if (_markedDepth == 0)
+        {
+            return;
+        }
+
+        if (_markedDepth == _artifactDepth)
+        {
+            _artifactDepth = 0;
+        }
+
+        _markedDepth--;
+    }
+
+    private void AddGraphic(PdfRectangle box, GraphicKind kind)
+    {
+        if (_graphics.Count < MaxGraphics && double.IsFinite(box.Left) && double.IsFinite(box.Bottom) && double.IsFinite(box.Right) && double.IsFinite(box.Top))
+        {
+            _graphics.Add(new Graphic(box, kind));
         }
     }
 
@@ -214,3 +283,21 @@ internal sealed class RulingCollector(bool includeHidden) : ContentProcessor
 /// <param name="Low">Where the line starts along its axis.</param>
 /// <param name="High">Where the line ends along its axis.</param>
 internal readonly record struct Ruling(double Position, double Low, double High);
+
+/// <summary>What a painted graphic is to figure detection.</summary>
+internal enum GraphicKind : byte
+{
+    /// <summary>Axis-aligned lines, frames and thin filled rectangles: they join a figure but do not make one.</summary>
+    Rule,
+
+    /// <summary>A path with a curve, a slanted segment or a filled area thicker than a rule.</summary>
+    Shape,
+
+    /// <summary>An image (§8.9), placed by the unit square through its CTM.</summary>
+    Image,
+}
+
+/// <summary>A painted image or path: its bounds in page space and its kind.</summary>
+/// <param name="Box">The bounds.</param>
+/// <param name="Kind">The kind.</param>
+internal readonly record struct Graphic(PdfRectangle Box, GraphicKind Kind);

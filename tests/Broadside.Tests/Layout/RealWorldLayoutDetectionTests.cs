@@ -139,7 +139,7 @@ public sealed class RealWorldLayoutDetectionTests : IDisposable
 
     private static string Normalize(string text) => string.Join(' ', text.Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries));
 
-    /// <summary>The page's paragraph-level items in reading order: paragraphs, headings, list items (each before its nested lists) and table cells.</summary>
+    /// <summary>The page's paragraph-level items in reading order: paragraphs, headings, list items (each before its nested lists), table cells and captions.</summary>
     private static Item[] Items(LayoutTree tree, int pageNumber)
     {
         Assert.True(tree.Pages[pageNumber - 1].IsDetected, $"page {pageNumber} is detected");
@@ -156,10 +156,30 @@ public sealed class RealWorldLayoutDetectionTests : IDisposable
     {
         if (node is LayoutTable table)
         {
-            // Issue #189: a detected table's filled cells are items, row by row.
-            foreach (LayoutNode cell in table.Children.SelectMany(static row => row.Children).Where(static cell => cell.Text.Length > 0))
+            // Issue #189: a detected table's filled cells are items, row by row; issue #190: its caption is one too.
+            foreach (LayoutNode child in table.Children)
             {
-                items.Add(new Item(Normalize(cell.Text), "P", depth));
+                if (child.Kind == LayoutNodeKind.Caption)
+                {
+                    items.Add(new Item(Normalize(child.Text), "P", depth));
+                    continue;
+                }
+
+                foreach (LayoutNode cell in child.Children.Where(static cell => cell.Text.Length > 0))
+                {
+                    items.Add(new Item(Normalize(cell.Text), "P", depth));
+                }
+            }
+
+            return;
+        }
+
+        if (node.Kind == LayoutNodeKind.Figure)
+        {
+            // Issue #190: a figure is not paragraph-level text (its labels are its own); its caption is.
+            foreach (LayoutNode caption in node.Children)
+            {
+                items.Add(new Item(Normalize(caption.Text), "P", depth));
             }
 
             return;

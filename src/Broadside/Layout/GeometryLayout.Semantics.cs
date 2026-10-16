@@ -378,7 +378,7 @@ internal sealed partial class GeometryLayout
 
     private static bool IsHeading(in Paragraph paragraph, (double Size, bool Bold) body)
     {
-        if (paragraph.Tabular || paragraph.Letters < 2 || paragraph.Last == ':' || paragraph.Share < DominantShare || paragraph.Glyphs > MaxHeadingGlyphs || body.Size <= 0)
+        if (paragraph.Tabular || paragraph.Owner >= 0 || paragraph.Figure >= 0 || paragraph.Letters < 2 || paragraph.Last == ':' || paragraph.Share < DominantShare || paragraph.Glyphs > MaxHeadingGlyphs || body.Size <= 0)
         {
             return false;
         }
@@ -401,9 +401,15 @@ internal sealed partial class GeometryLayout
         for (int index = 0; index < paragraphs.Length; index++)
         {
             ref readonly Paragraph paragraph = ref paragraphs[index];
-            if (paragraph.Table >= 0)
+            if (paragraph.Owner >= 0)
             {
-                // A table closes the lists open above it.
+                // A caption is a child of its figure or table.
+                continue;
+            }
+
+            if (paragraph.Table >= 0 || paragraph.Figure >= 0)
+            {
+                // A table or figure closes the lists open above it.
                 open.Clear();
                 entries.Add(new Entry(index, null));
                 continue;
@@ -501,6 +507,11 @@ internal sealed partial class GeometryLayout
         if (placement.Paragraphs[index].Table >= 0)
         {
             return TableNode(placement, index);
+        }
+
+        if (placement.Paragraphs[index].Figure >= 0)
+        {
+            return FigureNode(placement, index);
         }
 
         int level = placement.Paragraphs[index].Level;
@@ -680,6 +691,21 @@ internal sealed partial class GeometryLayout
         /// <summary>The index of the page's table the paragraph is; -1 when it is text.</summary>
         public int Table = -1;
 
+        /// <summary>The index of the page's figure the paragraph is; -1 when it is not one.</summary>
+        public int Figure = -1;
+
+        /// <summary>For a table or figure, the paragraph that is its caption; -1 when it has none.</summary>
+        public int Caption = -1;
+
+        /// <summary>For a caption, the paragraph of the table or figure it belongs to; -1 when the paragraph is not a caption.</summary>
+        public int Owner = -1;
+
+        /// <summary>For a table or figure with a caption, whether the caption is above it.</summary>
+        public bool CaptionAbove;
+
+        /// <summary>Whether the paragraph (a part of a figure, or its label) joined a captioned figure and is no paragraph of its own.</summary>
+        public bool Merged;
+
         /// <summary>Gets a value indicating whether the paragraph is a list item: it starts with a marker and is not a heading.</summary>
         public readonly bool IsItem => !double.IsNaN(Body) && Level == 0;
     }
@@ -699,7 +725,7 @@ internal sealed partial class GeometryLayout
     }
 
     /// <summary>A page's rebuilt text and its paragraphs, which nodes are made from.</summary>
-    private readonly record struct Placement(LayoutPage Page, Paragraph[] Paragraphs, Placed[] Placed, double Height, List<TablePlan>? Tables);
+    private readonly record struct Placement(LayoutPage Page, Paragraph[] Paragraphs, Placed[] Placed, double Height, List<TablePlan>? Tables, List<FigurePlan>? Figures);
 
     /// <summary>A paragraph (its index) or a list, in the order they are read.</summary>
     private readonly record struct Entry(int Paragraph, ListPlan? List);
