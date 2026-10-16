@@ -97,6 +97,12 @@ internal sealed unsafe partial class Direct2DBackend
         }
 
         SetColor(converter, color.Components, _compositing.StrokeAlpha);
+        StrokeWith(path, style);
+    }
+
+    /// <summary>Strokes the path with the current paint (<see cref="_paint"/>), the pen configured (<see cref="ConfigurePen"/>).</summary>
+    private void StrokeWith(PathView path, in StrokeStyle style)
+    {
         _dotCount = 0;
         _hasStrokeFigures = false;
         ID2D1PathGeometry* geometry = OpenGeometry(out ID2D1GeometrySink* sink);
@@ -118,7 +124,7 @@ internal sealed unsafe partial class Direct2DBackend
             {
                 ID2D1StrokeStyle1* strokeStyle = StrokeStyleFor(style.LineCap, style.LineJoin, style.MiterLimit);
                 SetWorldTransform(_penToDevice);
-                _context->DrawGeometry((ID2D1Geometry*)geometry, (ID2D1Brush*)_brush, (float)(2 * _radius), (ID2D1StrokeStyle*)strokeStyle);
+                _context->DrawGeometry((ID2D1Geometry*)geometry, Paint(_penToDevice), (float)(2 * _radius), (ID2D1StrokeStyle*)strokeStyle);
             }
         }
         finally
@@ -824,7 +830,7 @@ internal sealed unsafe partial class Direct2DBackend
             }
 
             SetWorldTransform(_penToDevice);
-            _context->FillGeometry((ID2D1Geometry*)geometry, (ID2D1Brush*)_brush, null);
+            _context->FillGeometry((ID2D1Geometry*)geometry, Paint(_penToDevice), null);
         }
         finally
         {

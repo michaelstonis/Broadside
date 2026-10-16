@@ -21,3 +21,7 @@ IDWriteFontFace
 IDWriteRenderingParams3
 DWRITE_GLYPH_RUN
 DWRITE_FONT_METRICS
+ID2D1BitmapBrush1
+ID2D1LinearGradientBrush
+ID2D1RadialGradientBrush
+ID2D1GradientStopCollection1

@@ -21,6 +21,9 @@ internal sealed unsafe class Direct2DSurface : IDisposable
     private ID2D1Device* _device;
     private ID2D1DeviceContext* _context;
     private ID2D1SolidColorBrush* _brush;
+    private ID2D1BitmapBrush1* _bitmapBrush;
+    private ID2D1BitmapBrush1* _maskBrush;
+    private readonly ID2D1DeviceContext*[] _cellContexts = new ID2D1DeviceContext*[8];
     private ID2D1Bitmap1* _target;
     private ID2D1Bitmap1* _readback;
     private int _width;
@@ -47,6 +50,18 @@ internal sealed unsafe class Direct2DSurface : IDisposable
     public ID2D1DeviceContext* Context => _context;
 
     public ID2D1SolidColorBrush* Brush => _brush;
+
+    /// <summary>Gets the bitmap brush paints with images, rasterized shadings and pattern tiles are drawn through.</summary>
+    public ID2D1BitmapBrush1* BitmapBrush => _bitmapBrush;
+
+    /// <summary>Gets the bitmap brush mask layers use as their opacity brush; it is left alone until the layer is popped.</summary>
+    public ID2D1BitmapBrush1* MaskBrush => _maskBrush;
+
+    /// <summary>Gets the width, in pixels, of the area being drawn.</summary>
+    public int Width => _width;
+
+    /// <summary>Gets the height, in pixels, of the area being drawn.</summary>
+    public int Height => _height;
 
     /// <summary>Gets the largest width and height, in pixels, of a bitmap the device can draw into.</summary>
     public int MaximumSize { get; private set; }
@@ -107,9 +122,34 @@ internal sealed unsafe class Direct2DSurface : IDisposable
         }
     }
 
+    /// <summary>
+    /// Returns the device context tiling-pattern cells nested <paramref name="depth"/> deep (from 1) are drawn with, made on first use
+    /// on the same device, so that the bitmaps and brushes of every context are shared. Cells nest at most eight deep.
+    /// </summary>
+    public ID2D1DeviceContext* CellContext(int depth)
+    {
+        if (_cellContexts[depth - 1] is null)
+        {
+            ID2D1DeviceContext* context;
+            _device->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS.D2D1_DEVICE_CONTEXT_OPTIONS_NONE, &context);
+            context->SetUnitMode(D2D1_UNIT_MODE.D2D1_UNIT_MODE_PIXELS);
+            context->SetAntialiasMode(D2D1_ANTIALIAS_MODE.D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
+            _cellContexts[depth - 1] = context;
+        }
+
+        return _cellContexts[depth - 1];
+    }
+
     public void Dispose()
     {
         ReleaseTargets();
+        for (int i = 0; i < _cellContexts.Length; i++)
+        {
+            Release(ref _cellContexts[i]);
+        }
+
+        Release(ref _maskBrush);
+        Release(ref _bitmapBrush);
         Release(ref _brush);
         Release(ref _context);
         Release(ref _device);
@@ -187,6 +227,11 @@ internal sealed unsafe class Direct2DSurface : IDisposable
         ID2D1SolidColorBrush* brush;
         _context->CreateSolidColorBrush(&black, null, &brush);
         _brush = brush;
+        ID2D1BitmapBrush1* bitmapBrush;
+        _context->CreateBitmapBrush(null, null, null, &bitmapBrush);
+        _bitmapBrush = bitmapBrush;
+        _context->CreateBitmapBrush(null, null, null, &bitmapBrush);
+        _maskBrush = bitmapBrush;
     }
 
     private void EnsureTarget(int width, int height)

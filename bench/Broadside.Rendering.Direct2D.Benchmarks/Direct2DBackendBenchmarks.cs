@@ -28,7 +28,7 @@ public class Direct2DBackendBenchmarks
     /// The page: one of the three path corpus files, a synthetic 256 KB fill-heavy, stroke-heavy or clip-heavy page, or text: the
     /// embedded TrueType corpus file and a synthetic page of 2,000 glyphs, natively and with outlines forced.
     /// </summary>
-    [Params("paths-fill-rules.pdf", "paths-strokes.pdf", "clipping-paths.pdf", "path-heavy-256kb", "stroke-heavy-256kb", "clip-paths-grid", "text-truetype-embedded.pdf", "text-heavy-2000", "text-heavy-2000-outlines")]
+    [Params("paths-fill-rules.pdf", "paths-strokes.pdf", "clipping-paths.pdf", "path-heavy-256kb", "stroke-heavy-256kb", "clip-paths-grid", "text-truetype-embedded.pdf", "text-heavy-2000", "text-heavy-2000-outlines", "image-heavy", "mask-heavy", "shading-grid", "mesh-patches", "tiling-grid")]
     public string Page { get; set; } = "";
 
     /// <summary>The resolution.</summary>
@@ -44,6 +44,11 @@ public class Direct2DBackendBenchmarks
             "stroke-heavy-256kb" => PdfDocument.Open(ContentSamples.OnePage(ContentSamples.StrokeHeavy(256 * 1024), ContentSamples.StrokeHeavyResources)),
             "clip-paths-grid" => PdfDocument.Open(ContentSamples.OnePage(ClipSamples.Grid(ClipSampleKind.Paths))),
             "text-heavy-2000" or "text-heavy-2000-outlines" => PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(2000))),
+            "image-heavy" => PdfDocument.Open(ContentSamples.ImageHeavy()),
+            "mask-heavy" => PdfDocument.Open(MaskSamples.MaskHeavy()),
+            "shading-grid" => PdfDocument.Open(ShadingSamples.Grid()),
+            "mesh-patches" => PdfDocument.Open(MeshShadingSamples.Patches()),
+            "tiling-grid" => PdfDocument.Open(TilingSamples.Grid()),
             _ => PdfDocument.Open(Path.Combine(CorpusLocator.CorpusDirectory, Page)),
         };
         PdfPage page = _document.Pages[0];
