@@ -21,8 +21,18 @@ namespace Broadside.Rendering.CoreGraphics;
 /// </para>
 /// <para>
 /// The page mapping is the software rasterizer's (<see cref="RenderOptions.GetDeviceTransform"/>, <see cref="RenderOptions.GetPixelSize"/>),
-/// so both backends put every page on the same pixels. Images, shadings and stencil masks are not drawn by this backend yet (issue
-/// #126).
+/// so both backends put every page on the same pixels.
+/// </para>
+/// <para>
+/// Images and masks (§8.9): each display-list image is converted once per renderer to a CoreGraphics image (colour through the
+/// colour management, Decode, colour key, Matte, masks of the image's size folded in), kept within the document's image cache budget
+/// (<see cref="PdfOptions.ImageCacheBudget"/>), and resampled to the device pixels as the software rasterizer resamples it (box filter
+/// when reduced, square samples or Interpolate's tent when enlarged) for the first transforms it is drawn at; stencil masks (§8.9.6.2)
+/// and soft or explicit masks of another size (§11.6.5.2, §8.9.6.3) clip as 8-bit alpha. Shadings (§8.7.4): axial and radial ones
+/// are CoreGraphics shadings with the file's Extend, function-based ones a texture drawn through their Matrix, and mesh shadings
+/// (types 4 to 7), which CoreGraphics cannot shade, are rasterized by the backend at the device's pixels (reported as Information);
+/// Background and BBox are honoured, the AntiAlias hint is not. Tiling patterns (§8.7.3): the cell is rendered once per scale into a
+/// tile, repeated over a lattice laid on the device pixels as the rasterizer lays it (TilingType).
 /// </para>
 /// <para>
 /// Text (§9.2.4, §9.3.6, §9.4.3): glyphs of TrueType and OpenType programs (§9.9, embedded or substituted) are filled by CoreGraphics'
@@ -138,14 +148,23 @@ public sealed class CoreGraphicsRenderer : IDisposable
     }
 
     /// <summary>Gets what the last render could not draw exactly as the file asks: one diagnostic per kind.</summary>
-    /// <remarks>ADR 0005: nothing is skipped or approximated silently. CoreGraphics' ColorDodge, ColorBurn and SoftLight are not ISO 32000-2 §11.3.5's; tiling patterns (§8.7.3) are not drawn yet.</remarks>
+    /// <remarks>ADR 0005: nothing is skipped or approximated silently. CoreGraphics' ColorDodge, ColorBurn and SoftLight are not ISO 32000-2 §11.3.5's; mesh shadings (§8.7.4.5.5 to §8.7.4.5.8) are rasterized by the backend.</remarks>
     public IReadOnlyList<Diagnostic> Diagnostics => _backend.Diagnostics;
+
+    /// <summary>Gets how many CoreGraphics images the renderer made from display-list images and masks.</summary>
+    internal int ImagesCreated => _backend.ImagesCreated;
+
+    /// <summary>Gets the bytes of converted pixels the renderer keeps.</summary>
+    internal long CachedImageBytes => _backend.CachedImageBytes;
+
+    /// <summary>Gets how many tiling pattern cells the renderer rendered into tiles.</summary>
+    internal int CellsRecorded => _backend.CellsRecorded;
 
     /// <summary>Ends the renderer's use; it renders no more after this.</summary>
     public void Dispose()
     {
         _disposed = true;
-        _backend.ClearFonts();
+        _backend.Dispose();
     }
 
     private static readonly CGColor White = new(1, 1, 1, 1);

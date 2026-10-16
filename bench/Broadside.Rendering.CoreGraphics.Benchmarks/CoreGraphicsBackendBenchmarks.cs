@@ -8,9 +8,10 @@ using CoreGraphics;
 namespace Broadside.Benchmarks;
 
 /// <summary>
-/// The CoreGraphics backend (issues #125 and #127; ISO 32000-2 §8.5.3, §8.5.4, §8.4.3, §9.3.6): replaying the path corpus files and
-/// synthetic path-, stroke-, clip- and text-heavy display lists onto a reused CoreGraphics bitmap context. Paths go to the context
-/// point by point, colours and dashes through kept buffers, glyphs one by one through the font loaded once per program, so
+/// The CoreGraphics backend (issues #125, #126 and #127; ISO 32000-2 §8.5.3, §8.5.4, §8.4.3, §9.3.6, §8.9, §8.7): replaying the path
+/// corpus files and synthetic path-, stroke-, clip-, text-, image-, mask-, shading- and pattern-heavy display lists onto a reused CoreGraphics bitmap context. Paths go to the context
+/// point by point, colours and dashes through kept buffers, glyphs one by one through the font loaded once per program, images, masks, shadings and
+/// pattern tiles from the renderer's caches, so
 /// <c>Replay</c> must read <c>-</c> in <c>Allocated</c>: nothing per path, segment, dash, clip or glyph. <c>Broadside.Rendering.CoreGraphics.Tests.ReplayAllocationTests</c> fails the build if it regresses.
 /// </summary>
 [MemoryDiagnoser]
@@ -26,9 +27,10 @@ public class CoreGraphicsBackendBenchmarks
 
     /// <summary>
     /// The page: one of the three path corpus files, a synthetic 256 KB path-, stroke- or clip-heavy content stream, or about 2,000
-    /// glyphs of an embedded TrueType program drawn by CoreGraphics' font engine or, with <c>-outlines</c>, from their outlines.
+    /// glyphs of an embedded TrueType program drawn by CoreGraphics' font engine or, with <c>-outlines</c>, from their outlines, or
+    /// the image, stencil mask, shading, mesh and tiling pattern grids of the rasterizer's allocation tests.
     /// </summary>
-    [Params("paths-fill-rules.pdf", "paths-strokes.pdf", "clipping-paths.pdf", "path-heavy-256kb", "stroke-heavy-256kb", "clip-paths-grid", "text-heavy-2000", "text-heavy-2000-outlines")]
+    [Params("paths-fill-rules.pdf", "paths-strokes.pdf", "clipping-paths.pdf", "path-heavy-256kb", "stroke-heavy-256kb", "clip-paths-grid", "text-heavy-2000", "text-heavy-2000-outlines", "image-heavy", "mask-heavy", "shading-grid", "mesh-patches", "tiling-grid")]
     public string Page { get; set; } = "";
 
     /// <summary>The resolution.</summary>
@@ -44,6 +46,11 @@ public class CoreGraphicsBackendBenchmarks
             "stroke-heavy-256kb" => PdfDocument.Open(ContentSamples.OnePage(ContentSamples.StrokeHeavy(256 * 1024), ContentSamples.StrokeHeavyResources)),
             "clip-paths-grid" => PdfDocument.Open(ContentSamples.OnePage(ClipSamples.Grid(ClipSampleKind.Paths))),
             "text-heavy-2000" or "text-heavy-2000-outlines" => PdfDocument.Open(TextSamples.Page(ContentSamples.TextHeavy(2000))),
+            "image-heavy" => PdfDocument.Open(ContentSamples.ImageHeavy()),
+            "mask-heavy" => PdfDocument.Open(MaskSamples.MaskHeavy()),
+            "shading-grid" => PdfDocument.Open(ShadingSamples.Grid()),
+            "mesh-patches" => PdfDocument.Open(MeshShadingSamples.Patches()),
+            "tiling-grid" => PdfDocument.Open(TilingSamples.Grid()),
             _ => PdfDocument.Open(Path.Combine(CorpusLocator.CorpusDirectory, Page)),
         };
         PdfPage page = _document.Pages[0];

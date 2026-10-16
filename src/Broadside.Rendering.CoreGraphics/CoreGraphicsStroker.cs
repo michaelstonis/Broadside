@@ -77,11 +77,25 @@ internal sealed class CoreGraphicsStroker
     /// <param name="path">The path in user space.</param>
     /// <param name="style">The line parameters, in user space.</param>
     /// <param name="userToDevice">The CTM followed by the device transform: user space to the context's user space.</param>
-    public void Stroke(CGContext context, PathView path, in StrokeStyle style, in Matrix userToDevice)
+    public void Stroke(CGContext context, PathView path, in StrokeStyle style, in Matrix userToDevice) => Run(context, path, style, userToDevice, outline: false);
+
+    /// <summary>
+    /// Leaves the outline of the area the stroke covers as the context's current path (in the context's space, after the stroke's
+    /// transform is restored), for a clip; false when the stroke paints nothing.
+    /// </summary>
+    /// <param name="context">The context, its user space the space <paramref name="userToDevice"/> maps to.</param>
+    /// <param name="path">The path in user space.</param>
+    /// <param name="style">The line parameters, in user space.</param>
+    /// <param name="userToDevice">The CTM followed by the device transform: user space to the context's user space.</param>
+    /// <returns>Whether an outline was left.</returns>
+    public bool Outline(CGContext context, PathView path, in StrokeStyle style, in Matrix userToDevice) =>
+        Run(context, path, style, userToDevice, outline: true) && !context.IsPathEmpty();
+
+    private bool Run(CGContext context, PathView path, in StrokeStyle style, in Matrix userToDevice, bool outline)
     {
         if (!Configure(style, userToDevice))
         {
-            return;
+            return false;
         }
 
         _context = context;
@@ -126,13 +140,23 @@ internal sealed class CoreGraphicsStroker
 
             context.BeginPath();
             Walk(path);
-            context.StrokePath();
+            if (outline)
+            {
+                // The current path is not part of the graphics state and is kept in device space, so it survives the restore.
+                context.ReplacePathWithStrokedPath();
+            }
+            else
+            {
+                context.StrokePath();
+            }
         }
         finally
         {
             context.RestoreState();
             _context = null;
         }
+
+        return true;
     }
 
     /// <summary>The largest factor by which the linear part of <paramref name="m"/> stretches a vector: its largest singular value.</summary>

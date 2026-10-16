@@ -50,9 +50,46 @@ public sealed class ReplayAllocationTests
         AssertReplayAllocatesNothing(TextSamples.Page(ContentSamples.TextHeavy(2000)), scale, forceOutlines: forceOutlines);
     }
 
+    [Theory]
+    [InlineData("pattern-shading-axial.pdf", 1)]
+    [InlineData("image-smask.pdf", 1)]
+    [InlineData("image-explicit-mask.pdf", 4)]
+    [InlineData("image-stencil-mask.pdf", 1)]
+    [InlineData("shading-type3-radial.pdf", 4)]
+    [InlineData("shading-type1-function.pdf", 1)]
+    [InlineData("shading-type6-coons.pdf", 1)]
+    [InlineData("pattern-tiling-colored.pdf", 1)]
+    [InlineData("pattern-tiling-uncolored.pdf", 4)]
+    public void Replaying_a_paint_corpus_page_allocates_nothing(string fileName, double scale)
+    {
+        // Issue #126: images, masks, shadings, rasterized meshes and pattern tiles come from the renderer's caches once warm. The
+        // document is its own, not the golden corpus's shared engine's, whose display-list caches other tests' pages evict from.
+        using PdfDocument document = PdfDocument.Open(Corpus.Bytes(fileName));
+        AssertReplayAllocatesNothing(document, scale);
+    }
+
+    [Theory]
+    [InlineData("image-heavy", 1)]
+    [InlineData("image-heavy", 4)]
+    [InlineData("mask-heavy", 1)]
+    [InlineData("shading-grid", 4)]
+    [InlineData("tiling-grid", 1)]
+    [InlineData("tiling-grid", 4)]
+    [InlineData("mesh-patches", 1)]
+    public void Replaying_images_masks_shadings_and_patterns_allocates_nothing_per_paint(string sample, double scale)
+    {
+        using PdfDocument document = PdfDocument.Open(PaintGoldenImageTests.Sample(sample));
+        AssertReplayAllocatesNothing(document, scale);
+    }
+
     private static void AssertReplayAllocatesNothing(byte[] file, double scale, DisplayLayers layers = DisplayLayers.Content, bool forceOutlines = false)
     {
         using PdfDocument document = PdfDocument.Open(file);
+        AssertReplayAllocatesNothing(document, scale, layers, forceOutlines);
+    }
+
+    private static void AssertReplayAllocatesNothing(PdfDocument document, double scale, DisplayLayers layers = DisplayLayers.Content, bool forceOutlines = false)
+    {
         PdfPage page = document.Pages[0];
         DisplayList list = page.CreateDisplayList(layers);
         RenderOptions options = new RenderOptions().WithScale(scale);
