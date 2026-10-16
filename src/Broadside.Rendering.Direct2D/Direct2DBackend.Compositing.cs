@@ -13,8 +13,6 @@ internal sealed unsafe partial class Direct2DBackend
         DiagnosticSeverity.Warning,
         "The Direct2D backend does not blend other than Normal yet (ISO 32000-2 §11.3.5; Direct2D's primitive blend is source-over only); the page's paints and annotations in other blend modes were composited as Normal.");
 
-    private static readonly Diagnostic TilingPatternsSkipped = Skipped("tiling patterns", 130);
-
     private static readonly Diagnostic GroupApproximated = new(
         "BackendTransparencyGroupApproximated",
         DiagnosticSeverity.Warning,
@@ -114,7 +112,7 @@ internal sealed unsafe partial class Direct2DBackend
         };
         SetWorldTransform(Matrix.Identity);
         _context->PushLayer(&parameters, null);
-        AddClip(new Clip(null, isLayer: true));
+        AddClip(new Clip(null, isLayer: true), _area);
     }
 
     /// <summary>Ends the annotation: pops its layer and clip with the state and restores the device mapping.</summary>
@@ -128,14 +126,6 @@ internal sealed unsafe partial class Direct2DBackend
         _device = _annotationDevices[--_annotationDepth];
         RestoreState();
     }
-
-    /// <summary>Skips a fill with a tiling pattern (§8.7.3.1), reported once per render.</summary>
-    public void FillPathWithTilingPattern(PathView path, FillRule rule, in DisplayTilingPattern pattern) =>
-        Skip(SkippedOperations.TilingPatterns, TilingPatternsSkipped);
-
-    /// <summary>Skips a stroke with a tiling pattern (§8.7.3.1), reported once per render.</summary>
-    public void StrokePathWithTilingPattern(PathView path, in StrokeStyle style, in DisplayTilingPattern pattern) =>
-        Skip(SkippedOperations.TilingPatterns, TilingPatternsSkipped);
 
     /// <summary>
     /// Draws a transparency group's content straight onto the context (ISO 32000-2 §11.4.4 NOTE 5: exact for a non-isolated,

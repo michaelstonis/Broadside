@@ -1,5 +1,3 @@
-using System.Collections.ObjectModel;
-using System.Globalization;
 using Broadside.Diagnostics;
 using Broadside.Graphics;
 using Windows.Win32.Graphics.Direct2D;
@@ -30,20 +28,21 @@ namespace Broadside.Rendering.Direct2D;
 /// </remarks>
 internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
 {
-    private const string SkippedCode = "RenderingOperationSkipped";
-
-    private static readonly Diagnostic ImagesSkipped = Skipped("images", 130);
-
-    private static readonly Diagnostic ImageMasksSkipped = Skipped("stencil image masks", 130);
-
-    private static readonly Diagnostic ShadingsSkipped = Skipped("shadings and shading patterns", 130);
-
     private readonly List<Diagnostic> _diagnostics = [];
     private SkippedOperations _skipped;
 
     private ID2D1Factory1* _factory;
     private ID2D1DeviceContext* _context;
     private ID2D1SolidColorBrush* _brush;
+    private Direct2DSurface? _surface;
+
+    // The brush fills and strokes paint with: the solid colour brush, or a gradient or bitmap brush whose own space maps to the device
+    // through _paintToDevice (shadings and tiling patterns).
+    private ID2D1Brush* _paint;
+    private Matrix _paintToDevice;
+
+    // The device pixels drawn into.
+    private D2D_RECT_F _area;
     private PdfDocument? _document;
     private Matrix _device;
     private Matrix _ctm;
@@ -67,16 +66,15 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
     private PdfDefaultColorSpaces? _defaults;
     private PdfColorConverter? _converter;
 
-    public Direct2DBackend() => Diagnostics = new ReadOnlyCollection<Diagnostic>(_diagnostics);
-
     [Flags]
     private enum SkippedOperations
     {
         None = 0,
-        Images = 1,
-        ImageMasks = 2,
-        Shadings = 4,
-        TilingPatterns = 16,
+        ImageTooLarge = 1,
+        ShadingUnsupported = 2,
+        MeshRasterized = 4,
+        RadialRasterized = 8,
+        TilingApproximated = 16,
         BlendModes = 32,
         Groups = 64,
         SoftMasks = 128,
@@ -87,11 +85,18 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
     public IReadOnlyList<Diagnostic> Diagnostics { get; }
 
     /// <summary>Starts a replay onto the surface's device context, which is between <c>BeginDraw</c> and <c>EndDraw</c>.</summary>
-    public void Begin(Direct2DSurface surface, DirectWriteFonts? fonts, PdfDocument document, in Matrix device)
+    public void Begin(Direct2DSurface surface, DirectWriteFonts? fonts, PdfDocument document, in Matrix device) =>
+        Begin(surface, surface.Context, surface.Width, surface.Height, fonts, document, device);
+
+    /// <summary>Starts a replay onto <paramref name="context"/>, whose target is <paramref name="width"/> × <paramref name="height"/> pixels.</summary>
+    public void Begin(Direct2DSurface surface, ID2D1DeviceContext* context, int width, int height, DirectWriteFonts? fonts, PdfDocument document, in Matrix device)
     {
+        _surface = surface;
         _factory = surface.Factory;
-        _context = surface.Context;
+        _context = context;
         _brush = surface.Brush;
+        _paint = (ID2D1Brush*)_brush;
+        _area = new D2D_RECT_F { left = 0, top = 0, right = width, bottom = height };
         _document = document;
         _device = device;
         _ctm = Matrix.Identity;
@@ -102,6 +107,7 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
         _skipped = SkippedOperations.None;
         BeginCompositing();
         BeginText(fonts);
+        BeginImages(document);
     }
 
     /// <summary>Pops every clip still pushed and lets go of the document and the surface.</summary>
@@ -115,6 +121,8 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
         _factory = null;
         _context = null;
         _brush = null;
+        _paint = null;
+        _surface = null;
         _fonts = null;
         EndStrokes();
     }
@@ -163,6 +171,12 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
         }
 
         SetColor(converter, color.Components, _compositing.FillAlpha);
+        FillWith(path, rule);
+    }
+
+    /// <summary>Fills the path with the current paint (<see cref="_paint"/>), degenerate subpaths as the device pixel under them.</summary>
+    private void FillWith(PathView path, FillRule rule)
+    {
         _pixelCount = 0;
         ID2D1PathGeometry* geometry = CreateFillGeometry(path, rule, collectPixels: true, out bool hasFigures);
         try
@@ -170,7 +184,7 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
             if (hasFigures)
             {
                 SetWorldTransform(_toDevice);
-                _context->FillGeometry((ID2D1Geometry*)geometry, (ID2D1Brush*)_brush, null);
+                _context->FillGeometry((ID2D1Geometry*)geometry, Paint(_toDevice), null);
             }
         }
         finally
@@ -226,25 +240,8 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
             throw;
         }
 
-        AddClip(new Clip((ID2D1Geometry*)geometry));
+        AddClip(new Clip((ID2D1Geometry*)geometry), GeometryBounds((ID2D1Geometry*)geometry, _toDevice));
     }
-
-    public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion) =>
-        Skip(SkippedOperations.Images, ImagesSkipped);
-
-    public void FillImageMask(DisplayImageMask mask, in DisplayColor color) => Skip(SkippedOperations.ImageMasks, ImageMasksSkipped);
-
-    public void DrawShading(in DisplayShading shading) => Skip(SkippedOperations.Shadings, ShadingsSkipped);
-
-    public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading) => Skip(SkippedOperations.Shadings, ShadingsSkipped);
-
-    public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading) =>
-        Skip(SkippedOperations.Shadings, ShadingsSkipped);
-
-    private static Diagnostic Skipped(string what, int issue) => new(
-        SkippedCode,
-        DiagnosticSeverity.Warning,
-        string.Create(CultureInfo.InvariantCulture, $"The Direct2D backend does not draw {what} yet (issue #{issue}); the render leaves them out."));
 
     private static byte Channel(float value) => (byte)((Math.Clamp(value, 0f, 1f) * 255f) + 0.5f);
 
@@ -253,8 +250,61 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
         if ((_skipped & kind) == 0)
         {
             _skipped |= kind;
-            _diagnostics.Add(diagnostic);
+            Add(diagnostic);
         }
+    }
+
+    /// <summary>Records <paramref name="diagnostic"/> unless a diagnostic with its code is recorded already (a cell's, merged).</summary>
+    private void Add(Diagnostic diagnostic)
+    {
+        foreach (Diagnostic existing in _diagnostics)
+        {
+            if (existing.Code == diagnostic.Code)
+            {
+                return;
+            }
+        }
+
+        _diagnostics.Add(diagnostic);
+    }
+
+    /// <summary>
+    /// Returns the current paint for a draw under the world transform <paramref name="world"/>: a pattern brush's transform is set so
+    /// that its space lands on the device through <see cref="_paintToDevice"/>.
+    /// </summary>
+    private ID2D1Brush* Paint(in Matrix world)
+    {
+        if (_paint != (ID2D1Brush*)_brush && world.TryInvert(out Matrix inverse))
+        {
+            D2D_MATRIX_3X2_F transform = Interop.Matrix(_paintToDevice * inverse);
+            _paint->SetTransform(&transform);
+        }
+
+        return _paint;
+    }
+
+    /// <summary>Gets the device bounds of the current clip within the area drawn.</summary>
+    private D2D_RECT_F ClipBounds => _clipCount == 0 ? _area : _clips[_clipCount - 1].Bounds;
+
+    /// <summary>Returns the device bounds of <paramref name="geometry"/> under <paramref name="transform"/>.</summary>
+    private static D2D_RECT_F GeometryBounds(ID2D1Geometry* geometry, in Matrix transform)
+    {
+        D2D_MATRIX_3X2_F matrix = Interop.Matrix(transform);
+        D2D_RECT_F bounds;
+        geometry->GetBounds(&matrix, &bounds);
+        return bounds;
+    }
+
+    private static D2D_RECT_F Intersect(in D2D_RECT_F a, in D2D_RECT_F b)
+    {
+        var result = new D2D_RECT_F
+        {
+            left = Math.Max(a.left, b.left),
+            top = Math.Max(a.top, b.top),
+            right = Math.Min(a.right, b.right),
+            bottom = Math.Min(a.bottom, b.bottom),
+        };
+        return result.right > result.left && result.bottom > result.top ? result : default;
     }
 
     private void SetWorldTransform(in Matrix transform)
@@ -454,7 +504,7 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
             float left = (float)Math.Floor(device.X);
             float top = (float)Math.Floor(device.Y);
             var pixel = new D2D_RECT_F { left = left, top = top, right = left + 1, bottom = top + 1 };
-            _context->FillRectangle(&pixel, (ID2D1Brush*)_brush);
+            _context->FillRectangle(&pixel, Paint(Matrix.Identity));
         }
 
         _pixelCount = 0;
@@ -464,16 +514,18 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
     {
         SetWorldTransform(Matrix.Identity);
         _context->PushAxisAlignedClip(&rectangle, D2D1_ANTIALIAS_MODE.D2D1_ANTIALIAS_MODE_PER_PRIMITIVE);
-        AddClip(new Clip(null));
+        AddClip(new Clip(null), rectangle);
     }
 
-    private void AddClip(Clip clip)
+    /// <summary>Records a pushed clip whose visible area lies within the device rectangle <paramref name="bounds"/>.</summary>
+    private void AddClip(Clip clip, in D2D_RECT_F bounds)
     {
         if (_clipCount == _clips.Length)
         {
             Array.Resize(ref _clips, _clipCount * 2);
         }
 
+        clip.Bounds = Intersect(ClipBounds, bounds);
         _clips[_clipCount++] = clip;
     }
 
@@ -549,12 +601,15 @@ internal sealed unsafe partial class Direct2DBackend : IRenderingBackend
     }
 
     /// <summary>A clip pushed on the device context: the geometric mask of its layer, or none for an axis-aligned clip.</summary>
-    private readonly struct Clip(ID2D1Geometry* mask, bool isLayer = false)
+    private struct Clip(ID2D1Geometry* mask, bool isLayer = false)
     {
         public ID2D1Geometry* Mask { get; } = mask;
 
         /// <summary>Gets a value indicating whether the clip is a layer (with a geometric mask, or an annotation's opacity layer).</summary>
         public bool IsLayer { get; } = isLayer || mask is not null;
+
+        /// <summary>Gets or sets the device bounds of what is visible inside this clip and those under it.</summary>
+        public D2D_RECT_F Bounds { get; set; }
     }
 
     /// <summary>The subpath being written for a fill: its first point, whether a figure has begun, and whether it is degenerate.</summary>
