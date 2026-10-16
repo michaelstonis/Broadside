@@ -124,6 +124,8 @@ internal sealed partial class GeometryLayout
         detector._order.Clear();
         detector._paragraphs.Clear();
         detector._fragments = [];
+        detector._tables = null;
+        detector._current = null;
         detector._styles.Clear();
         detector._bold.Clear();
         _cached = detector;
@@ -134,9 +136,12 @@ internal sealed partial class GeometryLayout
     /// <param name="page">The page.</param>
     /// <param name="pageIndex">The page's index in the document.</param>
     /// <param name="text">The page's text.</param>
-    public void Analyze(int slot, PdfPage page, int pageIndex, TextPage text)
+    /// <param name="rulings">The page's ruling lines, collected in the same pass as its text; <see langword="null"/> when none were.</param>
+    public void Analyze(int slot, PdfPage page, int pageIndex, TextPage text, RulingCollector? rulings)
     {
         ReadOnlySpan<TextGlyph> glyphs = text.GlyphSpan;
+        Ruling[] horizontalRules = Sorted(rulings?.Horizontal);
+        Ruling[] verticalRules = Sorted(rulings?.Vertical);
         _build.Clear();
         TextLayout layout = TextLayout.Rent();
         try
@@ -157,7 +162,8 @@ internal sealed partial class GeometryLayout
                     TextWord word = words[index];
                     PdfRectangle bounds = word.Quad.Bounds;
                     bool artifact = (glyphs[word.GlyphStart].Flags & TextGlyphFlags.Artifact) != 0;
-                    if (open && artifact == current.Artifact && (!horizontal || bounds.Left - current.Right <= FragmentGap * lineHeight))
+                    if (open && artifact == current.Artifact && (!horizontal || (bounds.Left - current.Right <= FragmentGap * lineHeight
+                        && !CrossesRule(verticalRules, current.Right, bounds.Left, (bounds.Bottom + bounds.Top) / 2))))
                     {
                         if (current.MarkerEnd > 0 && double.IsNaN(current.BodyLeft))
                         {
@@ -250,7 +256,11 @@ internal sealed partial class GeometryLayout
             }
         }
 
-        _pages.Add(new Analysis(slot, page, pageIndex, text, _fragments, _height, TypicalLineGap(items[..count])));
+        _pages.Add(new Analysis(slot, page, pageIndex, text, _fragments, _height, TypicalLineGap(items[..count]))
+        {
+            Horizontal = horizontalRules,
+            Vertical = verticalRules,
+        });
     }
 
     /// <summary>Marks running artifacts over every analysed page, then lays each out and adds its paragraphs to <paramref name="root"/>.</summary>
@@ -270,6 +280,8 @@ internal sealed partial class GeometryLayout
         {
             pages[analysis.Slot] = Emit(analysis, root);
         }
+
+        LinkContinuedTables();
     }
 
     private static double Square(double value) => value * value;
@@ -430,10 +442,14 @@ internal sealed partial class GeometryLayout
         _order.Clear();
         _paragraphs.Clear();
         _fragments = analysis.Fragments;
+        _fragmentCount = _fragments.Length;
+        _current = analysis;
+        _tables = null;
         _height = analysis.Height;
+        int original = _fragments.Length;
         int count = 0;
-        Span<int> items = Grow(ref _items, _fragments.Length);
-        for (int index = 0; index < _fragments.Length; index++)
+        Span<int> items = Grow(ref _items, original + 1);
+        for (int index = 0; index < original; index++)
         {
             if (Eligible(_fragments[index]))
             {
@@ -442,14 +458,23 @@ internal sealed partial class GeometryLayout
         }
 
         _lineGap = analysis.LineGap;
+        count = Lattices(analysis, items[..count]);
         Cut(items[..count], 0, columnsFirst: false);
-        for (int index = 0; index < _fragments.Length; index++)
+        for (int index = 0; index < original; index++)
         {
             if (!_fragments[index].Horizontal && !_fragments[index].Artifact)
             {
                 _paragraphs.Add(new Paragraph(_order.Count) { Rows = 1 });
                 _order.Add(index);
             }
+        }
+
+        if (_fragmentCount != original)
+        {
+            // Proxies stand for the tables in the reading order.
+            analysis.Fragments = _fragments[.._fragmentCount];
+            _fragments = analysis.Fragments;
+            analysis.Tables = _tables;
         }
     }
 
@@ -503,12 +528,26 @@ internal sealed partial class GeometryLayout
             return;
         }
 
-        if (depth < MaxDepth && items.Length > 1 && (columnsFirst ? Columns(items, depth) || Bands(items, depth) : Bands(items, depth) || Columns(items, depth)))
+        if (depth < MaxDepth && items.Length > 1
+            && (columnsFirst ? Table(items) || Columns(items, depth) || Bands(items, depth) : Bands(items, depth) || Table(items) || Columns(items, depth)))
         {
             return;
         }
 
         Block(items);
+    }
+
+    /// <summary>Takes a whole region as a table found from white space, if it is one.</summary>
+    private bool Table(Span<int> items)
+    {
+        int proxy = StreamTable(items);
+        if (proxy < 0)
+        {
+            return false;
+        }
+
+        AddTableParagraph(proxy);
+        return true;
     }
 
     /// <summary>Cuts <paramref name="items"/> into columns left to right, if white space crosses it from top to bottom.</summary>
@@ -718,11 +757,11 @@ internal sealed partial class GeometryLayout
             ref readonly Fragment first = ref _fragments[items[index++]];
             double top = first.Top;
             double bottom = first.Bottom;
-            while (index < items.Length)
+            while (index < items.Length && first.Table == 0)
             {
                 ref readonly Fragment next = ref _fragments[items[index]];
                 double overlap = Math.Min(top, next.Top) - Math.Max(bottom, next.Bottom);
-                if (overlap < 0.5 * Math.Min(top - bottom, next.Top - next.Bottom))
+                if (next.Table != 0 || overlap < 0.5 * Math.Min(top - bottom, next.Top - next.Bottom))
                 {
                     break;
                 }
@@ -779,10 +818,32 @@ internal sealed partial class GeometryLayout
         bool indents = rows.Length >= 2 && onMargin * 2 >= rows.Length;
         bool shortLines = rows.Length >= 3 && justified * 5 >= (rows.Length - 1) * 3;
         int previousCount = 0;
+        int tried = 0;
         double body = double.NaN;
         for (int index = 0; index < rows.Length; index++)
         {
             Row row = rows[index];
+            if (_fragments[items[row.Start]].Table != 0)
+            {
+                AddTableParagraph(items[row.Start]);
+                previousCount = 2;
+                continue;
+            }
+
+            // A run of rows of several fragments may be a table found from white space (each run is tried once).
+            int run = index >= tried ? TabularRun(items, rows, index) : index;
+            if (run > index)
+            {
+                tried = run;
+                int proxy = StreamTable(items[rows[index].Start..(rows[run - 1].Start + rows[run - 1].Count)]);
+                if (proxy >= 0)
+                {
+                    AddTableParagraph(proxy);
+                    previousCount = 2;
+                    index = run - 1;
+                    continue;
+                }
+            }
 
             // A list item's marker set apart by a gutter-wide gap is a fragment of its own that does not make the row a form row.
             ref readonly Fragment head = ref _fragments[items[row.Start]];
@@ -805,6 +866,19 @@ internal sealed partial class GeometryLayout
                 _order.Add(fragment);
             }
         }
+    }
+
+    /// <summary>The end of the run of at least <see cref="MinTableRows"/> rows of several fragments starting at <paramref name="start"/>; <paramref name="start"/> when there is none.</summary>
+    private int TabularRun(Span<int> items, ReadOnlySpan<Row> rows, int start)
+    {
+        int end = start;
+        while (end < rows.Length && _fragments[items[rows[end].Start]].Table == 0
+            && rows[end].Count - (_fragments[items[rows[end].Start]].IsMarkerOnly ? 1 : 0) > 1)
+        {
+            end++;
+        }
+
+        return end - start >= MinTableRows ? end : start;
     }
 
     /// <summary>Whether a row continues the list item above: it starts where the item's body does, with no break in spacing or size.</summary>
@@ -845,6 +919,16 @@ internal sealed partial class GeometryLayout
             ref Placed place = ref placed[paragraph];
             place.GlyphStart = count;
             place.TextStart = text.Length;
+            if (paragraphs[paragraph].Table >= 0)
+            {
+                TablePlan table = analysis.Tables![paragraphs[paragraph].Table];
+                EmitTable(table, glyphs, source.Text, ordered, ref count, text);
+                place.GlyphCount = count - place.GlyphStart;
+                place.TextLength = text.Length - place.TextStart;
+                place.Bounds = place.Body = table.Bounds;
+                continue;
+            }
+
             PdfRectangle? bounds = null;
             PdfRectangle? body = null;
             for (int position = start; position < end; position++)
@@ -894,7 +978,7 @@ internal sealed partial class GeometryLayout
 
         Debug.Assert(count == glyphs.Length, "The fragments partition the page's glyphs.");
         var page = new LayoutPage(analysis.Page, analysis.PageIndex, new TextPage(ordered, text.ToString()), isDetected: true);
-        var placement = new Placement(page, paragraphs, placed, analysis.Height);
+        var placement = new Placement(page, paragraphs, placed, analysis.Height, analysis.Tables);
         AddNodes(placement, root);
         if (placed.Length > 0)
         {
@@ -903,6 +987,31 @@ internal sealed partial class GeometryLayout
         }
 
         return page;
+    }
+
+    /// <summary>Appends a table's glyphs cell by cell, row by row, each cell's fragments top to bottom.</summary>
+    private void EmitTable(TablePlan table, ReadOnlySpan<TextGlyph> glyphs, string source, TextGlyph[] ordered, ref int count, StringBuilder text)
+    {
+        foreach (CellPlan cell in table.Cells)
+        {
+            cell.Fragments.Sort(new ByTop(_fragments));
+            cell.GlyphStart = count;
+            cell.TextStart = text.Length;
+            PdfRectangle? bounds = cell.Box;
+            foreach (int item in cell.Fragments)
+            {
+                ref readonly Fragment fragment = ref _fragments[item];
+                Copy(glyphs, source, ordered, ref count, text, fragment.GlyphStart, fragment.GlyphEnd, artifact: false);
+                if (cell.Box is null)
+                {
+                    bounds = Union(bounds, new PdfRectangle(fragment.Left, fragment.Bottom, fragment.Right, fragment.Top));
+                }
+            }
+
+            cell.GlyphCount = count - cell.GlyphStart;
+            cell.TextLength = text.Length - cell.TextStart;
+            cell.Bounds = bounds;
+        }
     }
 
     private static PdfRectangle Union(PdfRectangle? known, PdfRectangle box) => known is { } value ? MarkGeometry.Union(value, box) : box;
@@ -974,6 +1083,9 @@ internal sealed partial class GeometryLayout
         /// <summary>The list marker the fragment starts with.</summary>
         public Marker Marker;
 
+        /// <summary>For a fragment standing for a table in the cut (it has no glyphs), the table's number from 1; 0 for text.</summary>
+        public int Table;
+
         /// <summary>Gets a value indicating whether the fragment is a list marker and nothing else.</summary>
         public readonly bool IsMarkerOnly => MarkerEnd > 0 && double.IsNaN(BodyLeft);
     }
@@ -984,6 +1096,18 @@ internal sealed partial class GeometryLayout
     /// <summary>A page to lay out: where it goes, its text, its fragments and its body height.</summary>
     private sealed record Analysis(int Slot, PdfPage Page, int PageIndex, TextPage Text, Fragment[] Fragments, double Height, double LineGap)
     {
+        /// <summary>Gets or sets the fragments, with those standing for tables after the text's once the page is laid out.</summary>
+        public Fragment[] Fragments { get; set; } = Fragments;
+
+        /// <summary>Gets the page's horizontal rulings, by position.</summary>
+        public Ruling[] Horizontal { get; init; } = [];
+
+        /// <summary>Gets the page's vertical rulings, by position.</summary>
+        public Ruling[] Vertical { get; init; } = [];
+
+        /// <summary>Gets or sets the page's tables, in the order their proxies were made; null when it has none.</summary>
+        public List<TablePlan>? Tables { get; set; }
+
         /// <summary>Gets or sets the eligible fragments in reading order.</summary>
         public int[] Order { get; set; } = [];
 

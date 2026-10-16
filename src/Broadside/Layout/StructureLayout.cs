@@ -42,10 +42,14 @@ internal static class StructureLayout
         var builder = new Builder(document, root);
         var layoutPages = new LayoutPage[pages.Count];
         var geometry = new MarkGeometry(options.IncludeHiddenContent);
+        RulingCollector? rulings = options.Detection == LayoutDetection.None ? null : new RulingCollector(options.IncludeHiddenContent);
+
+        // Rulings (for detected tables) are collected beside the text, with the marks' geometry when a structure tree is read too.
+        Content.ContentProcessor? companion = root is null ? rulings : rulings is null ? geometry : new Content.CompositeContentProcessor(geometry, rulings);
         GeometryLayout? detector = null;
         try
         {
-            return Build(document, pages, options, textOptions, root, builder, layoutPages, geometry, ref detector);
+            return Build(document, pages, options, textOptions, root, builder, layoutPages, geometry, (companion, rulings), ref detector);
         }
         finally
         {
@@ -58,17 +62,18 @@ internal static class StructureLayout
 
     private static LayoutTree Build(
         PdfDocument document, IReadOnlyList<PdfPage> pages, LayoutOptions options, TextExtractionOptions textOptions, PdfStructureTreeRoot? root,
-        Builder builder, LayoutPage[] layoutPages, MarkGeometry geometry, ref GeometryLayout? detector)
+        Builder builder, LayoutPage[] layoutPages, MarkGeometry geometry, (Content.ContentProcessor? Companion, RulingCollector? Rulings) collectors,
+        ref GeometryLayout? detector)
     {
         for (int index = 0; index < pages.Count; index++)
         {
             PdfPage page = pages[index];
-            TextPage text = page.ExtractText(textOptions, root is null ? null : geometry);
+            TextPage text = page.ExtractText(textOptions, collectors.Companion);
             int pageIndex = document.Pages.IndexOf(page);
             if (options.Detection != LayoutDetection.None && (root is null || (text.Glyphs.Count > 0 && !IsTagged(text))))
             {
                 // Spec story 36: a page with no tagged content is laid out from its geometry once every page is known.
-                (detector ??= GeometryLayout.Rent()).Analyze(index, page, pageIndex, text);
+                (detector ??= GeometryLayout.Rent()).Analyze(index, page, pageIndex, text, collectors.Rulings);
                 continue;
             }
 

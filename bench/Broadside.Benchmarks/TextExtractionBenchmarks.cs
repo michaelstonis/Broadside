@@ -21,6 +21,7 @@ public class TextExtractionBenchmarks
     private PdfDocument? _tagged;
     private PdfPage? _taggedPage;
     private PdfDocument? _headings;
+    private PdfDocument? _tables;
 
     [GlobalSetup]
     public void Setup()
@@ -34,6 +35,7 @@ public class TextExtractionBenchmarks
         _taggedPage = _tagged.Pages[0];
         _ = _taggedPage.ExtractText();
         _headings = PdfDocument.Open(ContentSamples.HeadingsAndLists(8));
+        _tables = PdfDocument.Open(ContentSamples.Tables(8));
     }
 
     [GlobalCleanup]
@@ -42,6 +44,7 @@ public class TextExtractionBenchmarks
         _document?.Dispose();
         _tagged?.Dispose();
         _headings?.Dispose();
+        _tables?.Dispose();
     }
 
     [Benchmark(Baseline = true)]
@@ -112,4 +115,13 @@ public class TextExtractionBenchmarks
     /// <returns>The number of nodes under the root.</returns>
     [Benchmark]
     public int DetectHeadingsAndLists() => _headings!.ExtractLayout().Root.Children.Count;
+
+    /// <summary>
+    /// The layout tree of eight untagged pages of tables (about 7,000 glyphs; issue #189): the detection of <see cref="DetectLayout"/>
+    /// plus the rulings collected beside the text, and per page a ruled grid with merged cells and an unruled table aligned by white
+    /// space, their cells, header rows and header links. Node texts are not assembled.
+    /// </summary>
+    /// <returns>The number of nodes under the root.</returns>
+    [Benchmark]
+    public int DetectTables() => _tables!.ExtractLayout().Root.Children.Count;
 }

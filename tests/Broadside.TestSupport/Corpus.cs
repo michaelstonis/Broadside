@@ -89,6 +89,7 @@ public static class Corpus
         "layout-two-column-untagged.pdf",
         "layout-three-column.pdf",
         "layout-headings-lists.pdf",
+        "layout-tables.pdf",
         "destinations-all.pdf",
         "outline-full.pdf",
         "functions.pdf",
