@@ -25,8 +25,9 @@ public sealed class AndroidBackendTests
     /// <summary>Every text corpus file (<c>text-*.pdf</c>), issue #135.</summary>
     internal static readonly string[] TextFiles = [.. Corpus.AllFileNames.Where(name => name.StartsWith("text-", StringComparison.Ordinal))];
 
-    /// <summary>The corpus files the device renders, and the synthetic pages it generates (<see cref="DeviceProtocol.Samples"/>).</summary>
-    internal static readonly string[] Files = [.. PathFiles, .. TextFiles, .. AndroidPaintTests.PaintFiles, .. DeviceProtocol.Samples];
+    /// <summary>The corpus files the device renders, and the synthetic pages it generates (<see cref="DeviceProtocol.Samples"/>, <see cref="DeviceProtocol.TransparencySamples"/>).</summary>
+    internal static readonly string[] Files =
+        [.. PathFiles, .. TextFiles, .. AndroidPaintTests.PaintFiles, .. DeviceProtocol.Samples, .. AndroidTransparencyTests.TransparencyFiles, .. DeviceProtocol.TransparencySamples];
 
     /// <summary>The files the device also renders from a document opened with a zero image cache budget.</summary>
     internal static readonly string[] UncachedFiles = AndroidPaintTests.UncachedFiles;

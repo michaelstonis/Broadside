@@ -272,6 +272,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
             _toDevice = device;
             _depth = 0;
             BeginCompositing();
+            BeginTransparency();
             BeginText();
             BeginPaints(canvas, document);
             _baseCount = canvas.Save();
@@ -295,7 +296,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
                 Array.Resize(ref _stack, _stack.Length * 2);
             }
 
-            _stack[_depth++] = new SavedState(_ctm, _toDevice, _compositing);
+            _stack[_depth++] = new SavedState(_ctm, _toDevice, _compositing, _softMask);
             _canvas!.Save();
         }
 
@@ -308,6 +309,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
                 _ctm = saved.Ctm;
                 _toDevice = saved.ToDevice;
                 _compositing = saved.Compositing;
+                _softMask = saved.Mask;
                 _canvas!.Restore();
             }
         }
@@ -319,7 +321,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
         }
 
         /// <summary>Fills the path mapped to the device with the rule (§8.5.3.3).</summary>
-        public void FillPath(PathView path, FillRule rule, in DisplayColor color)
+        private void FillPathCore(PathView path, FillRule rule, in DisplayColor color)
         {
             PdfColorConverter converter = Converter(color);
             if (converter.PaintsNothing || path.IsEmpty || _compositing.FillAlpha == 0)
@@ -338,7 +340,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
         /// line (width 0, or under half a pixel with stroke adjustment) in device space with a one-pixel pen, as the software
         /// rasterizer draws it, its dash pattern scaled by the transform's largest stretch.
         /// </summary>
-        public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color)
+        private void StrokePathCore(PathView path, in StrokeStyle style, in DisplayColor color)
         {
             PdfColorConverter converter = Converter(color);
             if (converter.PaintsNothing || path.IsEmpty || _compositing.StrokeAlpha == 0)
@@ -414,6 +416,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
         public void Dispose()
         {
             DisposePaints();
+            DisposeTransparency();
             _stroke.SetPathEffect(null);
             for (int i = 0; i < _dashCount; i++)
             {

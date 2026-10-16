@@ -47,6 +47,8 @@
     <Compile Include="../Broadside.TestSupport/ShadingSamples.cs" Link="Samples/ShadingSamples.cs" />
     <Compile Include="../Broadside.TestSupport/TilingSamples.cs" Link="Samples/TilingSamples.cs" />
     <Compile Include="../Broadside.TestSupport/MeshShadingSamples.cs" Link="Samples/MeshShadingSamples.cs" />
+    <Compile Include="../Broadside.TestSupport/GroupSamples.cs" Link="Samples/GroupSamples.cs" />
+    <Compile Include="../Broadside.TestSupport/SoftMaskSamples.cs" Link="Samples/SoftMaskSamples.cs" />
     <!-- tests/Directory.Build.props imports Xunit everywhere; this app runs no xUnit. -->
     <Using Remove="Xunit" />
     <!-- Every hand-written corpus file, so the host can ask for any of them. -->
