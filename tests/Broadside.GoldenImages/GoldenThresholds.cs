@@ -49,6 +49,14 @@ public static class GoldenThresholds
             "at about 92 % instead of fully covered (0.08 against the 0.05 flat tolerance), where its stroker's inner join folds the " +
             "outline back through the vertex; the two pixels are inside the stroke and everything else matches within the defaults (#121)."),
         new(
+            "coregraphics",
+            "shading-type3-radial.pdf",
+            0,
+            new GoldenThreshold(GoldenThreshold.Default.EdgeTolerance, GoldenThreshold.Default.FlatTolerance, 2),
+            "CoreGraphics' radial shading (#126) does not anti-alias the rim of a circle it does not extend past, and on one pixel of " +
+            "the rim, whose centre lies within a fraction of a pixel of the circle, it decides inside where the rasterizer decides " +
+            "outside (0.89 on that pixel); every other pixel is within the default."),
+        new(
             "coregraphics-text",
             null,
             null,

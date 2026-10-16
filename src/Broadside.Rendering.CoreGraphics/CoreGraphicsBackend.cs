@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Broadside.Diagnostics;
 using Broadside.Graphics;
 using CoreGraphics;
 
@@ -19,7 +20,7 @@ namespace Broadside.Rendering.CoreGraphics;
 /// backend's lifetime, strokes through <see cref="CoreGraphicsStroker"/>'s kept arrays.
 /// </para>
 /// </remarks>
-internal sealed partial class CoreGraphicsBackend : IRenderingBackend
+internal sealed partial class CoreGraphicsBackend : IRenderingBackend, IDisposable
 {
     /// <summary>Mapped coordinates are kept within ±2^40 units, as the software rasterizer keeps its device coordinates.</summary>
     internal const double CoordinateLimit = 1099511627776.0;
@@ -40,6 +41,25 @@ internal sealed partial class CoreGraphicsBackend : IRenderingBackend
     private ColorConversion _conversion;
     private PdfDefaultColorSpaces? _defaults;
     private PdfColorConverter? _converter;
+    private ReportedKinds _reported;
+
+    /// <summary>Initializes a backend with its own image and shading caches.</summary>
+    public CoreGraphicsBackend()
+    {
+        _images = new ImageCache();
+        _shadings = new ShadingCache();
+    }
+
+    /// <summary>The kinds of diagnostic a replay reports once each.</summary>
+    [Flags]
+    private enum ReportedKinds
+    {
+        None = 0,
+        ImageTooLarge = 1,
+        ShadingUnsupported = 2,
+        MeshRasterized = 4,
+        TilingApproximated = 8,
+    }
 
     /// <summary>Replays <paramref name="list"/> onto <paramref name="context"/>, leaving its graphics state as it was.</summary>
     public void Replay(DisplayList list, CGContext context, in Matrix device)
@@ -51,6 +71,8 @@ internal sealed partial class CoreGraphicsBackend : IRenderingBackend
         _toDevice = device;
         _depth = 0;
         BeginCompositing();
+        BeginImages(context, list.Document);
+        BeginShadings(context);
 
         // The text matrix is the context's but not part of its graphics state: kept here and put back, as glyphs replace it.
         CGAffineTransform textMatrix = context.TextMatrix;
@@ -168,25 +190,27 @@ internal sealed partial class CoreGraphicsBackend : IRenderingBackend
         }
     }
 
-    // Images, shadings and stencil masks are drawn by the CoreGraphics ticket that follows this one (#126).
-    public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
+    /// <summary>Releases the fonts, kept images, shadings and pattern tiles; the backend can render again afterwards.</summary>
+    public void Dispose()
     {
+        ClearFonts();
+        ClearTiles();
+        _cellBackend?.Dispose();
+        if (_owner is null)
+        {
+            _images.Dispose();
+            _shadings.Dispose();
+        }
     }
 
-    public void FillImageMask(DisplayImageMask mask, in DisplayColor color)
+    /// <summary>Adds <paramref name="diagnostic"/> the first time a replay meets its kind (ADR 0005: never silently).</summary>
+    private void Report(ReportedKinds kind, Diagnostic diagnostic)
     {
-    }
-
-    public void DrawShading(in DisplayShading shading)
-    {
-    }
-
-    public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading)
-    {
-    }
-
-    public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading)
-    {
+        if ((_reported & kind) == 0)
+        {
+            _reported |= kind;
+            Diagnostics.Add(diagnostic);
+        }
     }
 
     private static nfloat Quantize(float value) => (nfloat)(MathF.Round(Math.Clamp(value, 0f, 1f) * 255f) / 255f);

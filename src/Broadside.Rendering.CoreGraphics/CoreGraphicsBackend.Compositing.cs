@@ -118,7 +118,7 @@ internal sealed partial class CoreGraphicsBackend
         _compositing = Compositing.Initial;
         _annotationDepth = 0;
         _approximationReported = false;
-        _tilingReported = false;
+        _reported = ReportedKinds.None;
         _groupReported = false;
         _softMaskReported = false;
         _glyphsOutlinedReported = false;

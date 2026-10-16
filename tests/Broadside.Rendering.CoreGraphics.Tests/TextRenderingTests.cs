@@ -24,17 +24,6 @@ public sealed class TextRenderingTests
     /// <summary>The threshold-table name of this backend's renders with glyphs drawn natively.</summary>
     private const string NativeText = "coregraphics-text";
 
-    /// <summary>Pages whose images the backend does not draw yet (#126): they are compared once images land.</summary>
-    private static readonly Dictionary<(string File, int Page), string> NeedImages = new()
-    {
-        [("text-render-modes.pdf", 1)] = "a checkerboard image painted through the text clip",
-        [("text-render-modes.pdf", 2)] = "a checkerboard image painted through the text clip",
-        [("text-render-modes.pdf", 3)] = "a checkerboard image painted through the text clip",
-        [("text-render-modes.pdf", 4)] = "a checkerboard image painted through the text clip",
-        [("text-tagged-spanning-image.pdf", 0)] = "an image XObject",
-        [("text-type3.pdf", 0)] = "a Type 3 glyph that paints an inline image mask",
-    };
-
     [Theory]
     [MemberData(nameof(TextPages))]
     public void A_text_page_matches_its_golden_image_within_the_text_threshold(string fileName, int page)
@@ -203,7 +192,7 @@ public sealed class TextRenderingTests
         }
     }
 
-    /// <summary>Every page of every text corpus file (<c>text-*.pdf</c>); pages that also need images are skipped until #126.</summary>
+    /// <summary>Every page of every text corpus file (<c>text-*.pdf</c>); images and masks included (#126).</summary>
     public static IEnumerable<TheoryDataRow<string, int>> TextPages()
     {
         foreach (string fileName in Corpus.AllFileNames.Where(name => name.StartsWith("text-", StringComparison.Ordinal)))
@@ -211,9 +200,7 @@ public sealed class TextRenderingTests
             using PdfDocument document = GoldenCorpus.Open(fileName);
             for (int page = 0; page < document.Pages.Count; page++)
             {
-                yield return NeedImages.TryGetValue((fileName, page), out string? reason)
-                    ? new TheoryDataRow<string, int>(fileName, page) { Skip = $"The page also paints {reason}, which the CoreGraphics backend draws from #126 on." }
-                    : new TheoryDataRow<string, int>(fileName, page);
+                yield return new TheoryDataRow<string, int>(fileName, page);
             }
         }
     }

@@ -39,20 +39,6 @@ public sealed class CompositingTests
         Assert.Empty(renderer.Diagnostics);
     }
 
-    [Theory]
-    [InlineData("pattern-tiling-colored.pdf")]
-    [InlineData("pattern-tiling-uncolored.pdf")]
-    public void A_tiling_pattern_is_skipped_and_reported_once(string fileName)
-    {
-        // ISO 32000-2 §8.7.3: not drawn by this backend yet; ADR 0005: never skipped silently.
-        using PdfDocument document = GoldenImages.GoldenCorpus.Open(fileName);
-        using var renderer = new CoreGraphicsRenderer();
-
-        Render(renderer, document.Pages[0]);
-
-        Assert.Single(renderer.Diagnostics, diagnostic => diagnostic.Code == "BackendTilingPatternUnsupported");
-    }
-
     private static void Render(CoreGraphicsRenderer renderer, PdfPage page)
     {
         RenderOptions options = new();
