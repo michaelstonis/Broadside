@@ -865,14 +865,14 @@ public sealed class InputModel
         double start = ((Horizontal ? bounds.X : bounds.Y) - Layout.Padding) * zoom;
         double end = ((Horizontal ? bounds.Right : bounds.Bottom) + Layout.Padding) * zoom;
         double extent = Extent(v);
-        double max = MaxAlong(v);
+        (double min, double max) = Layout.AlongRange(v);
         if (end - start <= extent)
         {
-            double centred = Math.Clamp((start + end - extent) / 2, 0, max);
+            double centred = Math.Clamp((start + end - extent) / 2, min, max);
             return (centred, centred);
         }
 
-        double low = Math.Clamp(start, 0, max);
+        double low = Math.Clamp(start, min, max);
         return (low, Math.Clamp(end - extent, low, max));
     }
 
