@@ -28,6 +28,12 @@ public sealed partial class PdfDocument
     private static readonly CosName DisplayDocTitleKey = new("DisplayDocTitle");
 
     /// <summary>
+    /// The Figure elements auto-tagging gave placeholder alternate text, with that text: while a figure still has it, an accessible
+    /// save reports the figure as having none (veraPDF rule 7.3-1), so a placeholder is never taken for a description.
+    /// </summary>
+    internal Dictionary<CosDictionary, string>? PlaceholderAlternateText { get; set; }
+
+    /// <summary>
     /// The check step of a PDF/UA or Well-Tagged PDF save, on the document as it is (issue #300): reports every failure condition found
     /// as a <c>PdfUANonConformant</c> or <c>WellTaggedNonConformant</c> warning, which strict mode throws before anything is written or
     /// changed. The document is checked once per part of ISO 14289 asked for (WTPDF 1.0 is checked as PDF/UA-2, whose rule numbers it

@@ -33,6 +33,15 @@ public sealed partial class PdfDocument
     /// shows glyphs of two elements belongs to the one first in reading order. <c>MarkInfo</c> <c>Marked</c> is set; the changes can
     /// be saved incrementally.
     /// </para>
+    /// <para>
+    /// For PDF/UA-1 (ISO 14289-1; veraPDF rule identifiers): heading levels start at <c>H1</c> and never skip one (7.4.2-1); text the
+    /// layout has no glyph for (hidden by optional content) becomes <c>P</c> elements and painting that paints nothing becomes
+    /// artifacts, on every page, so no content is left neither tagged nor an artifact (7.1-3). The glyphs inside a link annotation
+    /// go into a <c>Link</c> element with an object reference to it (§14.8.4.4.2), and their text becomes its <c>Contents</c> when it
+    /// has none (7.18.5); widgets go into <c>Form</c> elements and other annotations except printer's marks into <c>Annot</c>
+    /// elements after the page content (§14.8.4.4, 7.18.1, 7.18.4). Other descriptions are never invented: a PDF/UA save reports
+    /// them, and reports a figure whose placeholder <c>Alt</c> was not replaced (7.3-1). Fonts are not embedded.
+    /// </para>
     /// </remarks>
     public AutoTaggingResult AutoTag(AutoTaggingOptions options)
     {
