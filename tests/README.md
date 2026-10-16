@@ -137,6 +137,8 @@ dotnet run -c Release --project bench/Broadside.Rendering.CoreGraphics.Benchmark
 
 `--job short` and `--job dry` are handled by `BenchmarkConfig`; any other BenchmarkDotNet option, including other `--job` values, passes through. Results land in `BenchmarkDotNet.Artifacts/` (gitignored).
 
+Every pull request that touches library, benchmark or corpus code also runs the benchmark regression gate (`.github/workflows/bench-gate.yml`): each case's allocations must equal `bench/baselines/gate/allocations.json` and its time must not be measurably slower than the base commit's on the same runner. What it checks, its thresholds and how to update the baseline are in [`bench/baselines/gate/README.md`](../bench/baselines/gate/README.md).
+
 ## Fuzzing
 
 `tests/Broadside.Fuzz` holds one SharpFuzz target per parser and codec. Without any fuzzer installed, `--smoke <target> [seconds]` runs the target over the corpus and random mutations of it; CI runs that for 60 s per target. Real fuzzing with libFuzzer or AFL is described in [Broadside.Fuzz/README.md](Broadside.Fuzz/README.md).

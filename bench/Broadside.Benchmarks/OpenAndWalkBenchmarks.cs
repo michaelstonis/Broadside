@@ -31,9 +31,12 @@ public class OpenAndWalkBenchmarks
     [ParamsSource(nameof(Files))]
     public string File { get; set; } = "";
 
-    /// <summary>Every minimal-corpus file, then the real-world subset files present on this machine.</summary>
+    /// <summary>
+    /// Every minimal-corpus file, then the real-world subset files present on this machine; on a regression-gate runner, only
+    /// its partition of them (<see cref="BenchmarkPartition"/>).
+    /// </summary>
     public static IEnumerable<string> Files() =>
-        [.. CorpusLocator.CorpusFiles().Select(Path.GetFileName).OfType<string>(), .. RealWorldSubset.Available()];
+        BenchmarkPartition.Select([.. CorpusLocator.CorpusFiles().Select(Path.GetFileName).OfType<string>(), .. RealWorldSubset.Available()]);
 
     [GlobalSetup]
     public void Setup()
