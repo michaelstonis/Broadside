@@ -12,6 +12,7 @@
     <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
     <ProjectReference Include="../../src/Broadside.Layout/Broadside.Layout.csproj" />
     <ProjectReference Include="../../src/Broadside.Rendering/Broadside.Rendering.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
     <ProjectReference Include="../../src/Broadside.Rendering.Skia/Broadside.Rendering.Skia.csproj" />
     <PackageReference Include="BenchmarkDotNet" />
     <!-- SkiaSharp carries only the Windows and Apple native libraries; the Linux one lets SkiaBackendBenchmarks run on the CI runners. -->
