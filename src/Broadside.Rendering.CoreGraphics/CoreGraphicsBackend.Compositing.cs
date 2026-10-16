@@ -33,12 +33,15 @@ internal sealed partial class CoreGraphicsBackend
     /// </summary>
     /// <remarks>
     /// CoreGraphics' ColorDodge, ColorBurn and SoftLight differ from Table 134's functions (measured against the software rasterizer,
-    /// which implements them as written); they are kept as the nearest native blend and reported once per render.
+    /// which implements them as written); they are kept as the nearest native blend and reported once per render. In the layer of a
+    /// fill and stroke's knockout group (§11.7.4.4) the paints replace what the layer holds by their coverage (CoreGraphics' Copy);
+    /// the layer composites with the blend mode.
     /// </remarks>
     public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode)
     {
         _compositing = new Compositing(Alpha(strokeAlpha), Alpha(fillAlpha), blendMode);
-        _context!.SetBlendMode(NativeBlendMode(blendMode));
+        CGBlendMode native = NativeBlendMode(blendMode);
+        _context!.SetBlendMode(_knockout ? CGBlendMode.Copy : native);
     }
 
     /// <summary>Gets the diagnostics of the current or last replay.</summary>
@@ -119,8 +122,7 @@ internal sealed partial class CoreGraphicsBackend
         _annotationDepth = 0;
         _approximationReported = false;
         _reported = ReportedKinds.None;
-        _groupReported = false;
-        _softMaskReported = false;
+        BeginTransparency();
         _glyphsOutlinedReported = false;
         Diagnostics.Clear();
     }
@@ -218,8 +220,8 @@ internal sealed partial class CoreGraphicsBackend
         public static Compositing Initial { get; } = new(255, 255, BlendMode.Normal);
     }
 
-    /// <summary>What <see cref="SaveState"/> keeps beside the context's graphics state: the transform and the compositing state.</summary>
-    private readonly record struct SavedState(Matrix Ctm, Matrix ToDevice, Compositing Compositing);
+    /// <summary>What <see cref="SaveState"/> keeps beside the context's graphics state: the transform, the compositing state and the soft mask.</summary>
+    private readonly record struct SavedState(Matrix Ctm, Matrix ToDevice, Compositing Compositing, MaskImage? Mask);
 
     /// <summary>What an annotation changed at its start: the device mapping to restore, the save depth it began at and whether it opened a layer.</summary>
     private readonly record struct AnnotationFrame(Matrix Device, int SaveDepth, bool Layered);
