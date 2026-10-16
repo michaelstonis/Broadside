@@ -61,11 +61,21 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         _backendFactory = options.BackendFactory ?? (static () => new SoftwareTileBackend());
         _yield = options.Yield ?? YieldAsync;
         _slots = new SemaphoreSlim(options.MaxConcurrency, options.MaxConcurrency);
+        MaxConcurrency = options.MaxConcurrency;
         _metrics = new PageMetrics?[document.Pages.Count];
     }
 
     /// <summary>Gets the document. The session owns it and disposes it when it closes.</summary>
     public PdfDocument Document { get; }
+
+    /// <summary>Gets whether the session works on its caller's thread in slices (the browser) instead of on thread-pool workers.</summary>
+    internal bool IsCooperative => _cooperative;
+
+    /// <summary>Gets the longest piece of drawing work run between yields in cooperative mode.</summary>
+    internal TimeSpan SliceBudget => _sliceBudget;
+
+    /// <summary>Gets the most tiles drawn at once.</summary>
+    internal int MaxConcurrency { get; }
 
     /// <summary>Gets the number of pages.</summary>
     public int PageCount => _metrics.Length;
@@ -339,8 +349,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         {
             PdfPage page = await LoadPageAsync(tile.PageIndex, token).ConfigureAwait(true);
             DisplayList list = await BuildAsync(tile.PageIndex, page, tile.Layers, token).ConfigureAwait(true);
-            Matrix transform = new RenderOptions().WithScale(tile.Scale).WithRotation(tile.Rotation).GetDeviceTransform(page)
-                * Matrix.CreateTranslation(-tile.Region.X, -tile.Region.Y);
+            Matrix transform = GetTileTransform(page, tile);
 
             await _slots.WaitAsync(token).ConfigureAwait(true);
             slot = true;
@@ -436,7 +445,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         }
     }
 
-    private async ValueTask<PdfPage> LoadPageAsync(int pageIndex, CancellationToken token)
+    internal async ValueTask<PdfPage> LoadPageAsync(int pageIndex, CancellationToken token)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, PageCount);
@@ -450,6 +459,21 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
         return page;
     }
+
+    /// <summary>Builds (or takes from the document's cache) a page's list on the calling thread: the tile scheduler's cooperative path.</summary>
+    internal DisplayList CreateDisplayList(PdfPage page, DisplayLayers layers, CancellationToken token) =>
+        page.CreateDisplayList(layers, _intent, new ContentOptions().WithCancellation(token));
+
+    /// <summary>The device transform that draws <paramref name="tile"/>'s region of <paramref name="page"/> at the bitmap's origin.</summary>
+    internal static Matrix GetTileTransform(PdfPage page, in Tile tile) =>
+        new RenderOptions().WithScale(tile.Scale).WithRotation(tile.Rotation).GetDeviceTransform(page)
+            * Matrix.CreateTranslation(-tile.Region.X, -tile.Region.Y);
+
+    /// <summary>Counts pixels a tile render holds outside the session (the scheduler's cooperative renders).</summary>
+    internal void AddPixelBytes(long bytes) => Interlocked.Add(ref _pixelBytes, bytes);
+
+    /// <summary>Counts a tile presented (or cancelled) by the scheduler's cooperative path.</summary>
+    internal void CountTile(bool presented) => Interlocked.Increment(ref presented ? ref _presented : ref _cancelled);
 
     private async ValueTask<DisplayList> BuildAsync(int pageIndex, PdfPage page, DisplayLayers layers, CancellationToken token)
     {
@@ -560,7 +584,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         }
     }
 
-    private CancellationTokenSource Enter(CancellationToken cancellationToken)
+    internal CancellationTokenSource Enter(CancellationToken cancellationToken)
     {
         lock (_gate)
         {
@@ -571,7 +595,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         return CancellationTokenSource.CreateLinkedTokenSource(_closing.Token, cancellationToken);
     }
 
-    private void Exit(CancellationTokenSource operation)
+    internal void Exit(CancellationTokenSource operation)
     {
         operation.Dispose();
         bool release;
@@ -587,7 +611,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         }
     }
 
-    private ITileBackend RentBackend()
+    internal ITileBackend RentBackend()
     {
         lock (_gate)
         {
@@ -600,7 +624,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         return _backendFactory();
     }
 
-    private void ReturnBackend(ITileBackend backend)
+    internal void ReturnBackend(ITileBackend backend)
     {
         lock (_gate)
         {

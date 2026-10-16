@@ -120,6 +120,37 @@ internal sealed class ByteBudgetCache<TKey, TEntry>
         return true;
     }
 
+    /// <summary>Gets the bytes held now.</summary>
+    public long Bytes
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _bytes;
+            }
+        }
+    }
+
+    /// <summary>Evicts least recently used entries until at least <paramref name="bytes"/> are freed or the cache is empty.</summary>
+    /// <param name="bytes">The bytes to free; zero or less frees nothing.</param>
+    /// <returns>The bytes freed.</returns>
+    public long Trim(long bytes)
+    {
+        long freed = 0;
+        lock (_gate)
+        {
+            while (_tail is not null && freed < bytes)
+            {
+                freed += _tail.Bytes;
+                Remove(_tail);
+                _evictions++;
+            }
+        }
+
+        return freed;
+    }
+
     /// <summary>Drops every entry; the counters keep counting.</summary>
     public void Clear()
     {

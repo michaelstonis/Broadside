@@ -97,6 +97,10 @@ _Avoid_: Chunk, patch (a patch is a shading)
 Where a document session puts finished tiles: the abstraction each UI shell implements over its own canvas, image or texture.
 _Avoid_: Canvas (the core's content-writing API), view, target
 
+**Tile scheduler**:
+Decides which tiles a viewer draws and when (visible, then near, then ahead in the scroll direction), cancels tiles the viewport has left, and keeps tiles, display lists and the core caches within one memory budget.
+_Avoid_: Render queue, tile manager
+
 **Page layout**:
 Where every page of a document sits in a viewer, in points: pages grouped into spreads, spreads in a strip with gaps and padding, each page turned by its own rotation plus the user's. Maps between viewport pixels and each page's user space.
 _Avoid_: Page arrangement, document layout (ambiguous with flow layout)
