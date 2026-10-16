@@ -108,7 +108,13 @@ internal static class DeviceProtocol
     /// <summary>The synthetic pages (issue #134): every image resampling path, every mask path, shading, tiling and mesh grids.</summary>
     public static readonly string[] Samples = ["sample-image-heavy.pdf", "sample-mask-heavy.pdf", "sample-shading-grid.pdf", "sample-tiling-grid.pdf", "sample-mesh-patches.pdf"];
 
-    /// <summary>Returns the bytes of a synthetic page (a name in <see cref="Samples"/>).</summary>
+    /// <summary>
+    /// The synthetic transparency pages (issue #136): every kind of group, every soft-mask path, and a non-isolated group of Multiply
+    /// paints. Kept apart from <see cref="Samples"/>: the groups the software rasterizer draws allocate their pixels per render.
+    /// </summary>
+    public static readonly string[] TransparencySamples = ["sample-group-grid.pdf", "sample-soft-mask-grid.pdf", "sample-non-isolated.pdf"];
+
+    /// <summary>Returns the bytes of a synthetic page (a name in <see cref="Samples"/> or <see cref="TransparencySamples"/>).</summary>
     public static byte[] Sample(string fileName) => fileName switch
     {
         "sample-image-heavy.pdf" => ContentSamples.ImageHeavy(),
@@ -116,6 +122,9 @@ internal static class DeviceProtocol
         "sample-shading-grid.pdf" => ShadingSamples.Grid(),
         "sample-tiling-grid.pdf" => TilingSamples.Grid(),
         "sample-mesh-patches.pdf" => MeshShadingSamples.Patches(),
+        "sample-group-grid.pdf" => GroupSamples.Grid(),
+        "sample-soft-mask-grid.pdf" => SoftMaskSamples.Grid(),
+        "sample-non-isolated.pdf" => NonIsolated(),
         _ => throw new ArgumentOutOfRangeException(nameof(fileName)),
     };
 
@@ -130,6 +139,20 @@ internal static class DeviceProtocol
 
     /// <summary>Returns the result key of the bytes of converted pixels a backend keeps after rendering every page of the file in a variant.</summary>
     public static string CachedBytesKey(string fileName, string variant = Native) => $"cached-bytes{Suffix(variant)}:{fileName}";
+
+    /// <summary>
+    /// A non-isolated group of Multiply paints at <c>/ca 0.5</c> (ISO 32000-2 §11.4.8) over an opaque backdrop, and the same group
+    /// inside an isolated group over a translucent backdrop of its own (a backdrop whose alpha is below 1).
+    /// </summary>
+    private static byte[] NonIsolated() => ContentSamples.OnePage(
+        "0 0.8 0.2 rg 20 20 572 300 re f q /H gs 1 0 0 1 40 40 cm /N Do Q q 1 0 0 1 320 40 cm /I Do Q"u8.ToArray(),
+        "/ExtGState << /H << /ca 0.5 >> >> /XObject << /N 5 0 R /I 6 0 R >>",
+        ContentSamples.Stream(
+            "/M gs 1 0 0 rg 20 20 120 120 re f 0 0 1 rg 70 70 120 120 re f",
+            "/Type /XObject /Subtype /Form /BBox [0 0 200 200] /Resources << /ExtGState << /M << /BM /Multiply >> >> >> /Group << /S /Transparency >>"),
+        ContentSamples.Stream(
+            "/H gs 1 1 0 rg 0 0 200 200 re f /N Do",
+            "/Type /XObject /Subtype /Form /BBox [0 0 200 200] /Resources << /ExtGState << /H << /ca 0.5 >> >> /XObject << /N 5 0 R >> >> /Group << /S /Transparency /I true >>"));
 
     private static string Suffix(string variant) => variant.Length == 0 ? string.Empty : "-" + variant;
 }

@@ -73,6 +73,12 @@ public sealed partial class AndroidCanvasBackend
             ShadingUnsupported = 2,
             MeshRasterized = 4,
             TilingApproximated = 8,
+            KnockoutRasterized = 16,
+            ColorSpaceRasterized = 32,
+            NonIsolatedRasterized = 64,
+            NonIsolatedApproximated = 128,
+            SoftMaskRasterized = 256,
+            GroupApproximated = 512,
         }
 
         public int ImagesCreated => _images.Created;
@@ -84,7 +90,7 @@ public sealed partial class AndroidCanvasBackend
         /// current transform. A mask of the image's size is folded into the pixels; a soft mask (§11.6.5.2) or explicit mask (§8.9.6.3)
         /// of another size is drawn at its own resolution onto the image in a layer, so each is resampled from its own grid.
         /// </summary>
-        public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
+        private void DrawImageCore(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
         {
             if (_compositing.FillAlpha == 0)
             {
@@ -152,7 +158,7 @@ public sealed partial class AndroidCanvasBackend
         /// Fills a stencil mask with the colour (ISO 32000-2 §8.9.6.2): the mask maps onto the unit square like an image and is drawn
         /// as an alpha bitmap, which the canvas paints in the paint's colour.
         /// </summary>
-        public void FillImageMask(DisplayImageMask mask, in DisplayColor color)
+        private void FillImageMaskCore(DisplayImageMask mask, in DisplayColor color)
         {
             PdfColorConverter converter = Converter(color);
             if (_compositing.FillAlpha == 0 || converter.PaintsNothing)

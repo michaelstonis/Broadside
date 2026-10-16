@@ -91,7 +91,7 @@ public sealed partial class AndroidCanvasBackend
         /// parameters in user space), §9.9 (embedded font programs). Consecutive filled glyphs sharing the same transform but for its
         /// translation are drawn in one call; a run that also strokes is drawn glyph by glyph, each glyph filled before it is stroked.
         /// </remarks>
-        public void DrawGlyphs(in GlyphRun run)
+        private void DrawGlyphsCore(in GlyphRun run)
         {
             if (run.Glyphs.IsEmpty || !(run.Fills || run.Strokes))
             {
@@ -139,7 +139,7 @@ public sealed partial class AndroidCanvasBackend
                 if (strokes)
                 {
                     FlushNative();
-                    StrokePath(ToUserSpace(outline, glyphToUser), run.StrokeStyle, run.StrokeColor);
+                    StrokePathCore(ToUserSpace(outline, glyphToUser), run.StrokeStyle, run.StrokeColor);
                 }
             }
 

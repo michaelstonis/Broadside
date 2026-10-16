@@ -503,8 +503,9 @@ internal ref struct Type1CharStringInterpreter
     {
         if (_inSeac)
         {
+            // A seac ends the component like endchar, so the contour it interrupts is closed.
             Report(CharStringIssue.SeacComponentMissing);
-            return Outcome.Finished;
+            return Finish();
         }
 
         CloseContour();
