@@ -22,6 +22,7 @@ public class TextExtractionBenchmarks
     private PdfPage? _taggedPage;
     private PdfDocument? _headings;
     private PdfDocument? _tables;
+    private PdfDocument? _figures;
 
     [GlobalSetup]
     public void Setup()
@@ -36,6 +37,7 @@ public class TextExtractionBenchmarks
         _ = _taggedPage.ExtractText();
         _headings = PdfDocument.Open(ContentSamples.HeadingsAndLists(8));
         _tables = PdfDocument.Open(ContentSamples.Tables(8));
+        _figures = PdfDocument.Open(ContentSamples.Figures(8));
     }
 
     [GlobalCleanup]
@@ -45,6 +47,7 @@ public class TextExtractionBenchmarks
         _tagged?.Dispose();
         _headings?.Dispose();
         _tables?.Dispose();
+        _figures?.Dispose();
     }
 
     [Benchmark(Baseline = true)]
@@ -124,4 +127,13 @@ public class TextExtractionBenchmarks
     /// <returns>The number of nodes under the root.</returns>
     [Benchmark]
     public int DetectTables() => _tables!.ExtractLayout().Root.Children.Count;
+
+    /// <summary>
+    /// The layout tree of eight untagged pages of figures (about 3,000 glyphs and 2,000 graphics; issue #190): the detection of
+    /// <see cref="DetectTables"/> plus the images and paths collected beside the text, clustered into figures (a bar chart, a scatter
+    /// plot of 200 curves, an image a page) whose labels leave the reading order, and their captions. Node texts are not assembled.
+    /// </summary>
+    /// <returns>The number of nodes under the root.</returns>
+    [Benchmark]
+    public int DetectFigures() => _figures!.ExtractLayout().Root.Children.Count;
 }

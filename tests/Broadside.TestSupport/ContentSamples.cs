@@ -235,6 +235,59 @@ public static class ContentSamples
         return File([.. objects]);
     }
 
+    private static readonly string[] Ordinals = ["first", "second", "third", "fourth", "fifth", "sixth", "seventh", "eighth", "ninth", "tenth"];
+
+    /// <summary>
+    /// Untagged pages of figures (spec story 36, issue #190): on each page two lines of text, a bar chart of 20 bars on two axes with a
+    /// label under each bar and a caption below, a scatter plot of 200 small circles drawn with curves in a frame, captioned below,
+    /// an image captioned above, and a closing line (about 400 glyphs and 250 graphics a page).
+    /// </summary>
+    /// <param name="pages">The number of pages.</param>
+    /// <returns>The file.</returns>
+    public static byte[] Figures(int pages)
+    {
+        var objects = new List<string>
+        {
+            "<< /Type /Catalog /Pages 2 0 R >>",
+            $"<< /Type /Pages /Kids [{string.Join(' ', Enumerable.Range(0, pages).Select(static page => string.Create(CultureInfo.InvariantCulture, $"{3 + (2 * page)} 0 R")))}] /Count {pages} >>",
+        };
+        int fonts = 3 + (2 * pages);
+        for (int page = 0; page < pages; page++)
+        {
+            var content = new StringBuilder();
+            // Words that differ from page to page, so no line recurs as a running header or footer.
+            string ordinal = Ordinals[page % Ordinals.Length];
+            content.Append(CultureInfo.InvariantCulture, $"BT /F1 10 Tf 72 760 Td (The {ordinal} page holds a bar chart, a scatter plot and an image,) Tj 0 -12 Td (each with a caption found by its label.) Tj ET\n0.5 w\n");
+            content.Append("72 560 m 72 720 l S 72 560 m 540 560 l S\n");
+            for (int bar = 0; bar < 20; bar++)
+            {
+                double x = 80 + (bar * 23);
+                content.Append(CultureInfo.InvariantCulture, $"0.{(bar % 9) + 1} 0.4 0.7 rg {x} 560 16 {20 + ((bar * 37) % 130)} re f 0 g\n");
+                content.Append(CultureInfo.InvariantCulture, $"BT /F1 7 Tf {x + 2} 552 Td (B{bar + 1}) Tj ET\n");
+            }
+
+            content.Append(CultureInfo.InvariantCulture, $"BT /F1 10 Tf 72 530 Td (Figure {(page * 3) + 1}: Twenty bars over two axes.) Tj ET\n");
+            content.Append("72 300 300 200 re S\n");
+            for (int point = 0; point < 200; point++)
+            {
+                double x = 80 + ((point * 53) % 285);
+                double y = 310 + ((point * 31) % 180);
+                content.Append(CultureInfo.InvariantCulture, $"{x} {y} m {x + 2} {y + 2} {x + 4} {y - 2} {x} {y} c f\n");
+            }
+
+            content.Append(CultureInfo.InvariantCulture, $"BT /F1 10 Tf 72 280 Td (Figure {(page * 3) + 2}. Two hundred points in a frame.) Tj ET\n");
+            content.Append(CultureInfo.InvariantCulture, $"BT /F1 10 Tf 400 470 Td (Figure {(page * 3) + 3}: An image.) Tj ET\n");
+            content.Append("q 120 0 0 120 400 330 cm BI /W 2 /H 2 /CS /G /BPC 8 /F /AHx ID 00FF7F20> EI Q\n");
+            content.Append(CultureInfo.InvariantCulture, $"BT /F1 10 Tf 72 112 Td (Closing lines of running text end the {ordinal} page,) Tj 0 -12 Td (the {ordinal} of its kind.) Tj ET\n");
+            objects.Add(string.Create(CultureInfo.InvariantCulture, $"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 {fonts} 0 R /F2 {fonts + 1} 0 R >> >> /Contents {4 + (2 * page)} 0 R >>"));
+            objects.Add(Stream(content.ToString()));
+        }
+
+        objects.Add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>");
+        objects.Add("<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>");
+        return File([.. objects]);
+    }
+
     /// <summary>A file of the objects, numbered from 1 (object 1 the catalog), with a cross-reference table (ISO 32000-2 §7.5).</summary>
     public static byte[] File(string[] objects)
     {

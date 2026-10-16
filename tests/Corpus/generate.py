@@ -3899,6 +3899,72 @@ def gen_layout_tables() -> bytes:
     ])
 
 
+def gen_layout_figures() -> bytes:
+    """Figure and caption detection (spec story 36, issue #190) over two untagged pages in Helvetica 10 (headings in
+    Helvetica-Bold). Page 1: a bar chart drawn with paths (8.5.2 m/l/re, 8.5.3 S/f: two axis lines, four filled bars, tick marks)
+    with the quarter labels under its axis and a legend inside it, captioned below (Figure 1:); a paragraph that starts with
+    "Figure 1 shows" (a reference, not a caption); a ruled table captioned above (Table 1:); a 2x2 RGB image XObject (8.9.5)
+    scaled to 120 x 90, captioned below (Figure 2.); a closing paragraph. Page 2: an 8x8 DeviceGray image standing for a scan
+    with two lines of invisible text (9.3.6 rendering mode 3) over it, as a recogniser lays them, captioned below; then a line
+    shown in a Type 3 font (9.6.4) whose glyphs (a filled square and a triangle) have names outside the Adobe Glyph List and no
+    ToUnicode CMap (9.10.2), so their text is unknown."""
+    def text(font, x, y, value):
+        return b"BT /F%d 10 Tf %d %d Td (%s) Tj ET" % (font, x, y, value)
+
+    def line(x1, y1, x2, y2):
+        return b"%d %d m %d %d l S" % (x1, y1, x2, y2)
+
+    page1 = [b"BT /F2 16 Tf 72 740 Td (Detected Figures) Tj ET",
+             text(1, 72, 712, b"This page tests figure detection from vector drawings and from"),
+             text(1, 72, 700, b"images, with captions found by their labels."),
+             b"0.5 w", line(100, 540, 100, 680), line(100, 540, 380, 540)]
+    for index, (height, colour) in enumerate([(60, b"0.2 0.4 0.8"), (100, b"0.8 0.3 0.2"), (80, b"0.3 0.7 0.3"),
+                                              (120, b"0.9 0.7 0.1")]):
+        x = 120 + 60 * index
+        page1 += [b"%s rg %d 540 40 %d re f 0 g" % (colour, x, height), line(x + 20, 540, x + 20, 536),
+                  text(1, x + 14, 528, b"Q%d" % (index + 1))]
+    page1 += [text(1, 330, 666, b"Sales"),
+              text(1, 72, 505, b"Figure 1: Quarterly sales drawn as a bar chart."),
+              text(1, 72, 476, b"Figure 1 shows sales by quarter; the paragraph after it is running"),
+              text(1, 72, 464, b"text that refers to the figure and is not a caption.")]
+    page1 += [text(1, 72, 436, b"Table 1: Fruit prices."), b"0.5 w",
+              line(72, 426, 300, 426), line(72, 408, 300, 408), line(72, 390, 300, 390), line(72, 372, 300, 372),
+              line(72, 426, 72, 372), line(186, 426, 186, 372), line(300, 426, 300, 372),
+              text(2, 77, 413, b"Fruit"), text(2, 191, 413, b"Price"),
+              text(1, 77, 395, b"Apples"), text(1, 191, 395, b"1.20"),
+              text(1, 77, 377, b"Pears"), text(1, 191, 377, b"0.95")]
+    page1 += [b"q 120 0 0 90 72 230 cm /Im1 Do Q",
+              text(1, 72, 212, b"Figure 2. A raster image placed by its matrix."),
+              text(1, 72, 180, b"A closing paragraph ends the page.")]
+    page2 = [b"BT /F2 16 Tf 72 740 Td (Scanned and Type 3 Text) Tj ET",
+             b"q 300 0 0 200 72 480 cm /Im2 Do Q",
+             b"q BT 3 Tr /F1 10 Tf 90 640 Td (Recognised text laid over) Tj 0 -20 Td (a scanned image.) Tj ET Q",
+             text(1, 72, 462, b"Figure 3: A scan with its recognised text."),
+             text(1, 72, 420, b"The line below is set in a Type 3 font without Unicode:"),
+             b"BT /T3 10 Tf 72 380 Td (\001\002\001\002) Tj ET"]
+    fonts = b"/Font << /F1 5 0 R /F2 6 0 R >>"
+    rgb = bytes([200, 40, 40, 40, 160, 40, 40, 40, 200, 220, 200, 40])
+    gray = bytes((17 * (row + column)) % 256 for row in range(8) for column in range(8))
+    return simple_file([
+        (1, catalog()),
+        (2, pages([3, 7])),
+        (3, page(contents=4, resources=False, extra=b" /Resources << %s /XObject << /Im1 9 0 R >> >>" % fonts)),
+        (4, stream(b"", b"\n".join(page1))),
+        (5, HELVETICA),
+        (6, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"),
+        (7, page(contents=8, resources=False,
+                 extra=b" /Resources << /Font << /F1 5 0 R /F2 6 0 R /T3 11 0 R >> /XObject << /Im2 10 0 R >> >>")),
+        (8, stream(b"", b"\n".join(page2))),
+        (9, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8", rgb)),
+        (10, stream(b"/Type /XObject /Subtype /Image /Width 8 /Height 8 /ColorSpace /DeviceGray /BitsPerComponent 8", gray)),
+        (11, b"<< /Type /Font /Subtype /Type3 /FontBBox [0 0 750 750] /FontMatrix [0.001 0 0 0.001 0 0]"
+             b" /CharProcs << /T3box 12 0 R /T3peak 13 0 R >> /Encoding << /Type /Encoding /Differences [1 /T3box /T3peak] >>"
+             b" /FirstChar 1 /LastChar 2 /Widths [1000 1000] >>"),
+        (12, stream(b"", b"1000 0 0 0 750 750 d1 0 0 750 750 re f")),
+        (13, stream(b"", b"1000 0 0 0 750 750 d1 0 0 m 375 750 l 750 0 l f")),
+    ])
+
+
 def gen_functions() -> bytes:
     """7.10 functions as Separation tint transforms (8.6.6.4), one rectangle per colour space.
     CS0: Type 0 (7.10.2), 8-bit, 1 in, 4 out (DeviceCMYK), Size [3], painted at 0.5 (the middle sample).
@@ -7087,6 +7153,7 @@ FILES = {
     "layout-three-column.pdf": gen_layout_three_column,
     "layout-headings-lists.pdf": gen_layout_headings_lists,
     "layout-tables.pdf": gen_layout_tables,
+    "layout-figures.pdf": gen_layout_figures,
     "destinations-all.pdf": gen_destinations_all,
     "outline-full.pdf": gen_outline_full,
     "outline-broken.pdf": gen_outline_broken,

@@ -387,6 +387,7 @@ internal static class StructureLayout
             {
                 LayoutNodeKind.Heading => new LayoutHeading(element, HeadingLevel(element, type)),
                 LayoutNodeKind.Table => new LayoutTable(element),
+                LayoutNodeKind.Figure => new LayoutFigure(element, BoundingBox(element)),
                 LayoutNodeKind.List => new LayoutList(element, element.GetAttributeValue(StructureNames.List, ListNumbering) is { } value && _document.Resolve(value) is CosName numbering ? numbering.Value : "None"),
                 LayoutNodeKind.TableCell => new LayoutTableCell(element, type == "TH", SpanOf(element, RowSpan, int.MaxValue), SpanOf(element, ColSpan, MaxColumnSpan)),
                 _ => LayoutNode.Create(kind, element),
@@ -586,6 +587,12 @@ internal static class StructureLayout
 
             return low;
         }
+
+        /// <summary>A figure element's <c>BBox</c> attribute (§14.8.5.4.3, Table 379), when it is a well-formed rectangle.</summary>
+        private PdfRectangle? BoundingBox(PdfStructureElement element) =>
+            element.GetAttributeValue(StructureNames.Layout, StructureNames.BBox) is { } value && _document.Resolve(value) is CosArray { Count: 4 } box
+                ? Rectangle(box)
+                : null;
 
         private static LayoutExtent ExtentOf(LayoutPage page, Accumulator accumulator)
         {

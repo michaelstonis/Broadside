@@ -4504,6 +4504,8 @@ Broadside.Layout.LayoutExtent.LayoutExtent() -> void
 Broadside.Layout.LayoutExtent.Page.get -> Broadside.Layout.LayoutPage!
 Broadside.Layout.LayoutExtent.TextLength.get -> int
 Broadside.Layout.LayoutExtent.TextStart.get -> int
+Broadside.Layout.LayoutFigure
+Broadside.Layout.LayoutFigure.BoundingBox.get -> Broadside.PdfRectangle?
 Broadside.Layout.LayoutHeading
 Broadside.Layout.LayoutHeading.Level.get -> int
 Broadside.Layout.LayoutList

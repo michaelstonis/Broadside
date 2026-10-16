@@ -1,0 +1,44 @@
+# Hand-labelled figures and captions of real-world untagged pages, for RealWorldFigureDetectionTests (issue #190).
+# Each "== <corpus path> <page number>" section lists every figure drawn with graphics on the page (code listings set in text
+# only are not figures to geometry and are left out), and the captions of its tables.
+# "F x0 y0 x1 y1 | caption" is a figure: its box in default user space and the start of its caption ("-" when it has none).
+# "T | caption" is a table and the start of its caption.
+# Boxes come from the page, not from the detector: the bounds of the non-white pixels of a 72 dpi Ghostscript render with text
+# filtered out (-dFILTERTEXT), between the text line above the figure and its caption in poppler's -bbox-layout; a rule across
+# the column over or under a float, with white space around it, separates it from the text and does not count. Matching is by
+# overlap (intersection over union at least 0.5), so a box need not be exact. Captions are matched by their start, compared in
+# compatibility form (NFKC); prefixes stop before ligatures the text extraction maps to other characters.
+
+== pdfjs/tracemonkey.pdf 2
+F 324 421 545 597 | Figure 2. State machine
+
+== pdfjs/tracemonkey.pdf 6
+F 393 588 481 716 | Figure 5. A tree with two traces
+F 364 335 515 498 | Figure 6. We handle type-unstable
+
+== pdfjs/tracemonkey.pdf 7
+F 97 602 250 717 | Figure 7. Control
+F 387 603 487 716 | Figure 8. Control
+
+== pdfjs/tracemonkey.pdf 8
+T | Figure 9. Tagged values
+
+== pdfjs/tracemonkey.pdf 10
+F 379 507 562 718 | Figure 11. Fraction of dynamic
+
+== pdfjs/tracemonkey.pdf 11
+F 55 464 549 719 | Figure 10. Speedup vs. a baseline
+
+== pdfjs/tracemonkey.pdf 12
+T | Figure 13. Detailed trace recording
+
+== pdfjs/tracemonkey.pdf 13
+F 84 517 289 714 | Figure 12. Fraction of time spent
+
+# A diagram drawn as an image in a book, with no caption.
+== pdfjs/freeculture.pdf 133
+F 157 291 335 467 | -
+
+# A small vector drawing over a caption with mathematics in it.
+== pdfjs/issue11045.pdf 1
+F 277 604 327 654 | Figure 1: Locations of the neutral
