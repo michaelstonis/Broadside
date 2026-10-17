@@ -1,5 +1,7 @@
 {
   "Benchmarks": {
+    "Broadside.Benchmarks.AnnotationLayerBenchmarks.Drag": 0,
+    "Broadside.Benchmarks.AnnotationLayerBenchmarks.Hover": 0,
     "Broadside.Benchmarks.AnnotationRenderingBenchmarks.Build(Dpi: 300)": 43792,
     "Broadside.Benchmarks.AnnotationRenderingBenchmarks.Build(Dpi: 72)": 43792,
     "Broadside.Benchmarks.AnnotationRenderingBenchmarks.Replay(Dpi: 300)": 0,

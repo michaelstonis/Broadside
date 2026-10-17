@@ -10,6 +10,7 @@
       "src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj",
       "src/Broadside.Layout/Broadside.Layout.csproj",
       "src/Broadside.Viewer/Broadside.Viewer.csproj",
+      "src/Broadside.Viewer.Blazor/Broadside.Viewer.Blazor.csproj",
       "tests/Broadside.TestSupport/Broadside.TestSupport.csproj",
       "tests/Broadside.GoldenImages/Broadside.GoldenImages.csproj",
       "tests/Broadside.Tests/Broadside.Tests.csproj",

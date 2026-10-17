@@ -1,0 +1,45 @@
+#nullable enable
+Broadside.Viewer.Blazor.PdfViewer
+Broadside.Viewer.Blazor.PdfViewer.AllowAnnotationEditing.get -> bool
+Broadside.Viewer.Blazor.PdfViewer.AllowAnnotationEditing.set -> void
+Broadside.Viewer.Blazor.PdfViewer.Class.get -> string?
+Broadside.Viewer.Blazor.PdfViewer.Class.set -> void
+Broadside.Viewer.Blazor.PdfViewer.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Broadside.Viewer.Blazor.PdfViewer.GoToPage(int pageIndex) -> void
+Broadside.Viewer.Blazor.PdfViewer.HttpClient.get -> System.Net.Http.HttpClient?
+Broadside.Viewer.Blazor.PdfViewer.HttpClient.set -> void
+Broadside.Viewer.Blazor.PdfViewer.Label.get -> string?
+Broadside.Viewer.Blazor.PdfViewer.Label.set -> void
+Broadside.Viewer.Blazor.PdfViewer.LayoutOptions.get -> Broadside.Viewer.PageLayoutOptions?
+Broadside.Viewer.Blazor.PdfViewer.LayoutOptions.set -> void
+Broadside.Viewer.Blazor.PdfViewer.NextPage() -> void
+Broadside.Viewer.Blazor.PdfViewer.OnAction.get -> Microsoft.AspNetCore.Components.EventCallback<Broadside.Viewer.ViewerActionEventArgs!>
+Broadside.Viewer.Blazor.PdfViewer.OnAction.set -> void
+Broadside.Viewer.Blazor.PdfViewer.OnError.get -> Microsoft.AspNetCore.Components.EventCallback<System.Exception!>
+Broadside.Viewer.Blazor.PdfViewer.OnError.set -> void
+Broadside.Viewer.Blazor.PdfViewer.OnStateChanged.get -> Microsoft.AspNetCore.Components.EventCallback<Broadside.Viewer.Blazor.PdfViewerState>
+Broadside.Viewer.Blazor.PdfViewer.OnStateChanged.set -> void
+Broadside.Viewer.Blazor.PdfViewer.Options.get -> Broadside.Viewer.ViewerOptions?
+Broadside.Viewer.Blazor.PdfViewer.Options.set -> void
+Broadside.Viewer.Blazor.PdfViewer.PdfViewer() -> void
+Broadside.Viewer.Blazor.PdfViewer.PreviousPage() -> void
+Broadside.Viewer.Blazor.PdfViewer.Session.get -> Broadside.Viewer.DocumentSession?
+Broadside.Viewer.Blazor.PdfViewer.Session.set -> void
+Broadside.Viewer.Blazor.PdfViewer.ShowAnnotations.get -> bool
+Broadside.Viewer.Blazor.PdfViewer.ShowAnnotations.set -> void
+Broadside.Viewer.Blazor.PdfViewer.Source.get -> System.Uri?
+Broadside.Viewer.Blazor.PdfViewer.Source.set -> void
+Broadside.Viewer.Blazor.PdfViewer.State.get -> Broadside.Viewer.Blazor.PdfViewerState
+Broadside.Viewer.Blazor.PdfViewer.ZoomBy(double factor) -> void
+Broadside.Viewer.Blazor.PdfViewer.ZoomTo(Broadside.Viewer.ZoomMode mode) -> void
+Broadside.Viewer.Blazor.PdfViewerState
+Broadside.Viewer.Blazor.PdfViewerState.IsLoading.get -> bool
+Broadside.Viewer.Blazor.PdfViewerState.IsLoading.init -> void
+Broadside.Viewer.Blazor.PdfViewerState.PageCount.get -> int
+Broadside.Viewer.Blazor.PdfViewerState.PageCount.init -> void
+Broadside.Viewer.Blazor.PdfViewerState.PageIndex.get -> int
+Broadside.Viewer.Blazor.PdfViewerState.PageIndex.init -> void
+Broadside.Viewer.Blazor.PdfViewerState.PdfViewerState() -> void
+Broadside.Viewer.Blazor.PdfViewerState.PdfViewerState(int PageIndex, int PageCount, double Zoom, bool IsLoading) -> void
+Broadside.Viewer.Blazor.PdfViewerState.Zoom.get -> double
+Broadside.Viewer.Blazor.PdfViewerState.Zoom.init -> void

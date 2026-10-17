@@ -1,0 +1,26 @@
+html, body { margin: 0; height: 100%; font: 14px system-ui, sans-serif; overscroll-behavior: none; }
+#app, .app { height: 100%; display: flex; flex-direction: column; }
+.booting { margin: 16px; }
+.toolbar {
+  display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; background: #fafafa; border-bottom: 1px solid #ccc;
+  padding: max(6px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) 6px max(10px, env(safe-area-inset-left));
+}
+.toolbar .group, .toolbar .address { display: flex; gap: 6px; align-items: center; }
+.toolbar label { display: inline-flex; gap: 4px; align-items: center; white-space: nowrap; }
+.toolbar .documents { flex: 1 1 22em; min-width: 0; }
+.toolbar .address { flex: 1; min-width: 0; }
+.toolbar .address input { flex: 1; min-width: 6em; }
+.toolbar button, .toolbar select, .toolbar input { font: inherit; min-height: 32px; }
+.toolbar button { min-width: 32px; }
+.toolbar .page, .toolbar .zoom { min-width: 3.5em; text-align: center; font-variant-numeric: tabular-nums; }
+.message { padding: 6px 12px; background: #fff8d6; border-bottom: 1px solid #e6d98c; overflow-wrap: anywhere; }
+.viewer { flex: 1; min-height: 0; }
+
+@media (max-width: 600px) {
+  .toolbar .hide-narrow { display: none; }
+  .toolbar { gap: 4px 8px; }
+  .toolbar .group { flex-wrap: nowrap; }
+  .toolbar .documents { flex-basis: 100%; }
+  .toolbar button, .toolbar select, .toolbar input { min-height: 40px; font-size: 16px; }
+  .toolbar button { min-width: 40px; }
+}
