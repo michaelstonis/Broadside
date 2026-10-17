@@ -1,0 +1,64 @@
+#nullable enable
+Broadside.Viewer.Maui.MauiAppBuilderExtensions
+Broadside.Viewer.Maui.PdfView
+Broadside.Viewer.Maui.PdfView.Accessibility.get -> Broadside.Viewer.AccessibilityBridge?
+Broadside.Viewer.Maui.PdfView.ActionRequested -> System.EventHandler<Broadside.Viewer.ViewerActionEventArgs!>?
+Broadside.Viewer.Maui.PdfView.AllowAnnotationEditing.get -> bool
+Broadside.Viewer.Maui.PdfView.AllowAnnotationEditing.set -> void
+Broadside.Viewer.Maui.PdfView.Annotations.get -> Broadside.Viewer.AnnotationLayer?
+Broadside.Viewer.Maui.PdfView.CaptureFrameAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<byte[]!>!
+Broadside.Viewer.Maui.PdfView.CopySelectionAsync() -> System.Threading.Tasks.Task<string?>!
+Broadside.Viewer.Maui.PdfView.CurrentSession.get -> Broadside.Viewer.DocumentSession?
+Broadside.Viewer.Maui.PdfView.Dispose() -> void
+Broadside.Viewer.Maui.PdfView.Error -> System.EventHandler<Broadside.Viewer.Maui.PdfViewErrorEventArgs!>?
+Broadside.Viewer.Maui.PdfView.GoToPage(int pageIndex) -> void
+Broadside.Viewer.Maui.PdfView.LayoutOptions.get -> Broadside.Viewer.PageLayoutOptions?
+Broadside.Viewer.Maui.PdfView.LayoutOptions.set -> void
+Broadside.Viewer.Maui.PdfView.NextPage() -> void
+Broadside.Viewer.Maui.PdfView.Options.get -> Broadside.Viewer.ViewerOptions?
+Broadside.Viewer.Maui.PdfView.Options.set -> void
+Broadside.Viewer.Maui.PdfView.PdfView() -> void
+Broadside.Viewer.Maui.PdfView.PreviousPage() -> void
+Broadside.Viewer.Maui.PdfView.Selection.get -> Broadside.Viewer.TextSelection?
+Broadside.Viewer.Maui.PdfView.Session.get -> Broadside.Viewer.DocumentSession?
+Broadside.Viewer.Maui.PdfView.Session.set -> void
+Broadside.Viewer.Maui.PdfView.ShowAnnotations.get -> bool
+Broadside.Viewer.Maui.PdfView.ShowAnnotations.set -> void
+Broadside.Viewer.Maui.PdfView.Source.get -> string?
+Broadside.Viewer.Maui.PdfView.Source.set -> void
+Broadside.Viewer.Maui.PdfView.State.get -> Broadside.Viewer.Maui.PdfViewState
+Broadside.Viewer.Maui.PdfView.StateChanged -> System.EventHandler<Broadside.Viewer.Maui.PdfViewStateChangedEventArgs!>?
+Broadside.Viewer.Maui.PdfView.UseHardwareAcceleration.get -> bool
+Broadside.Viewer.Maui.PdfView.UseHardwareAcceleration.set -> void
+Broadside.Viewer.Maui.PdfView.ZoomBy(double factor) -> void
+Broadside.Viewer.Maui.PdfView.ZoomTo(Broadside.Viewer.ZoomMode mode) -> void
+Broadside.Viewer.Maui.PdfViewErrorEventArgs
+Broadside.Viewer.Maui.PdfViewErrorEventArgs.Exception.get -> System.Exception!
+Broadside.Viewer.Maui.PdfViewErrorEventArgs.PdfViewErrorEventArgs(System.Exception! exception) -> void
+Broadside.Viewer.Maui.PdfViewState
+Broadside.Viewer.Maui.PdfViewState.IsLoading.get -> bool
+Broadside.Viewer.Maui.PdfViewState.IsLoading.init -> void
+Broadside.Viewer.Maui.PdfViewState.IsRendering.get -> bool
+Broadside.Viewer.Maui.PdfViewState.IsRendering.init -> void
+Broadside.Viewer.Maui.PdfViewState.PageCount.get -> int
+Broadside.Viewer.Maui.PdfViewState.PageCount.init -> void
+Broadside.Viewer.Maui.PdfViewState.PageIndex.get -> int
+Broadside.Viewer.Maui.PdfViewState.PageIndex.init -> void
+Broadside.Viewer.Maui.PdfViewState.PdfViewState() -> void
+Broadside.Viewer.Maui.PdfViewState.PdfViewState(int PageIndex, int PageCount, double Zoom, bool IsLoading, bool IsRendering) -> void
+Broadside.Viewer.Maui.PdfViewState.Zoom.get -> double
+Broadside.Viewer.Maui.PdfViewState.Zoom.init -> void
+Broadside.Viewer.Maui.PdfViewStateChangedEventArgs
+Broadside.Viewer.Maui.PdfViewStateChangedEventArgs.PdfViewStateChangedEventArgs(Broadside.Viewer.Maui.PdfViewState state) -> void
+Broadside.Viewer.Maui.PdfViewStateChangedEventArgs.State.get -> Broadside.Viewer.Maui.PdfViewState
+Broadside.Viewer.Maui.SkiaTileBackend
+Broadside.Viewer.Maui.SkiaTileBackend.Begin(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, System.Threading.CancellationToken cancellationToken) -> Broadside.Viewer.ITileRender!
+Broadside.Viewer.Maui.SkiaTileBackend.Dispose() -> void
+Broadside.Viewer.Maui.SkiaTileBackend.SkiaTileBackend() -> void
+static Broadside.Viewer.Maui.MauiAppBuilderExtensions.UseBroadsideViewer(this Microsoft.Maui.Hosting.MauiAppBuilder! builder) -> Microsoft.Maui.Hosting.MauiAppBuilder!
+static readonly Broadside.Viewer.Maui.PdfView.AllowAnnotationEditingProperty -> Microsoft.Maui.Controls.BindableProperty!
+static readonly Broadside.Viewer.Maui.PdfView.LayoutOptionsProperty -> Microsoft.Maui.Controls.BindableProperty!
+static readonly Broadside.Viewer.Maui.PdfView.SessionProperty -> Microsoft.Maui.Controls.BindableProperty!
+static readonly Broadside.Viewer.Maui.PdfView.ShowAnnotationsProperty -> Microsoft.Maui.Controls.BindableProperty!
+static readonly Broadside.Viewer.Maui.PdfView.SourceProperty -> Microsoft.Maui.Controls.BindableProperty!
+static readonly Broadside.Viewer.Maui.PdfView.UseHardwareAccelerationProperty -> Microsoft.Maui.Controls.BindableProperty!

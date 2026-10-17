@@ -46,6 +46,9 @@
     <!-- SkiaSharp's native library for Linux (SkiaSharp itself carries only the Windows and Apple ones), so the Skia backend's tests and
          benchmarks run on the Linux CI legs (#121); same version as SkiaSharp, never in a package: an application picks its own. -->
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
+    <!-- The MAUI viewer (#226): MAUI itself and SkiaSharp's MAUI views, the platform libraries ADR 0001 allows that shell. -->
+    <PackageVersion Include="Microsoft.Maui.Controls" Version="10.0.110" />
+    <PackageVersion Include="SkiaSharp.Views.Maui.Controls" Version="4.153.1" />
     <!-- A concrete container, logging pipeline and configuration for the dependency-injection tests (#46); never in the core. -->
     <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
