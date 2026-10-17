@@ -19,6 +19,12 @@
     <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.360" />
   </ItemGroup>
 
+  <ItemGroup Label="Viewer shells: Microsoft-shipped UI frameworks, never referenced by the core (ADR 0001)">
+    <PackageVersion Include="Microsoft.AspNetCore.Components.Web" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" Version="10.0.12" />
+  </ItemGroup>
+
   <ItemGroup Label="Build and analysis">
     <PackageVersion Include="MinVer" Version="8.0.0" />
     <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" />
@@ -33,6 +39,8 @@
     <PackageVersion Include="Verify.XunitV3" Version="33.3.2" />
     <PackageVersion Include="BenchmarkDotNet" Version="0.15.8" />
     <PackageVersion Include="SharpFuzz" Version="2.3.0" />
+    <!-- Drives a real browser for the Blazor WebAssembly viewer's tests (#221); never in a package. -->
+    <PackageVersion Include="Microsoft.Playwright" Version="1.58.0" />
     <!-- An independent, fully managed PNG decoder (public domain port of stb_image) that checks the rasterizer's PNG output (#95); never in a package. -->
     <PackageVersion Include="StbImageSharp" Version="2.30.15" />
     <!-- SkiaSharp's native library for Linux (SkiaSharp itself carries only the Windows and Apple ones), so the Skia backend's tests and

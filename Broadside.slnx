@@ -4,6 +4,9 @@
     <Project Path="bench/Broadside.Rendering.CoreGraphics.Benchmarks/Broadside.Rendering.CoreGraphics.Benchmarks.csproj" />
     <Project Path="bench/Broadside.Rendering.Direct2D.Benchmarks/Broadside.Rendering.Direct2D.Benchmarks.csproj" />
   </Folder>
+  <Folder Name="/samples/">
+    <Project Path="samples/Broadside.Viewer.Blazor.Sample/Broadside.Viewer.Blazor.Sample.csproj" />
+  </Folder>
   <Folder Name="/solution-items/">
     <File Path="Directory.Build.props" />
     <File Path="Directory.Packages.props" />
@@ -23,6 +26,7 @@
     <Project Path="src/Broadside.Rendering.Direct2D/Broadside.Rendering.Direct2D.csproj" />
     <Project Path="src/Broadside.Rendering.Skia/Broadside.Rendering.Skia.csproj" />
     <Project Path="src/Broadside.Rendering/Broadside.Rendering.csproj" />
+    <Project Path="src/Broadside.Viewer.Blazor/Broadside.Viewer.Blazor.csproj" />
     <Project Path="src/Broadside.Viewer/Broadside.Viewer.csproj" />
     <Project Path="src/Broadside/Broadside.csproj" />
   </Folder>
@@ -33,6 +37,7 @@
     <Project Path="tests/Broadside.Globalization.Tests/Broadside.Globalization.Tests.csproj" />
     <Project Path="tests/Broadside.GoldenImages/Broadside.GoldenImages.csproj" />
     <Project Path="tests/Broadside.Layout.Tests/Broadside.Layout.Tests.csproj" />
+    <Project Path="tests/Broadside.Viewer.Blazor.BrowserTests/Broadside.Viewer.Blazor.BrowserTests.csproj" />
     <Project Path="tests/Broadside.Viewer.Tests/Broadside.Viewer.Tests.csproj" />
     <Project Path="tests/Broadside.Rendering.Android.Device/Broadside.Rendering.Android.Device.csproj" />
     <Project Path="tests/Broadside.Rendering.Android.Tests/Broadside.Rendering.Android.Tests.csproj" />

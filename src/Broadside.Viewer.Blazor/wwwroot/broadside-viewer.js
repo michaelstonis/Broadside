@@ -1,0 +1,228 @@
+// Broadside Blazor viewer: the minimal browser half of PdfViewer (issue #221). It blits tiles the .NET side rasterized into a
+// canvas, forwards pointer, wheel, keyboard, focus and clipboard events to the viewer core, and positions the accessible text layer.
+// Everything else (layout, scheduling, hit-testing, selection, accessibility tree) runs in .NET. No dependencies.
+
+const viewers = new Map();
+let interop = null;
+
+const STYLE = `
+.bs-viewer{position:relative;overflow:hidden;touch-action:none;outline:none;background:#e6e6e6;user-select:none;-webkit-user-select:none}
+.bs-viewer:focus-visible{box-shadow:inset 0 0 0 2px #1a73e8}
+.bs-viewer>canvas{position:absolute;left:0;top:0;width:100%;height:100%;display:block}
+.bs-viewer>.bs-status{position:absolute;left:12px;top:12px;font:14px system-ui,sans-serif;color:#333}
+.bs-a11y{position:absolute;left:0;top:0;width:0;height:0;pointer-events:none;color:transparent}
+.bs-a11y>section{position:absolute;left:0;top:0;width:0;height:0;transform-origin:0 0}
+.bs-a11y [data-bs-node]{white-space:pre;line-height:1;font-size:8px;margin:0;padding:0}
+.bs-a11y [data-bs-box]{position:absolute}
+.bs-a11y :focus{outline:2px solid #1a73e8;outline-offset:0}`;
+
+async function exportsOf() {
+  if (interop === null) {
+    const runtime = await globalThis.getDotnetRuntime(0);
+    const exports = await runtime.getAssemblyExports("Broadside.Viewer.Blazor.dll");
+    interop = exports.Broadside.Viewer.Blazor.ViewerInterop;
+  }
+  return interop;
+}
+
+function modifiers(e) {
+  return (e.shiftKey ? 1 : 0) | (e.ctrlKey ? 2 : 0) | (e.altKey ? 4 : 0) | (e.metaKey ? 8 : 0);
+}
+
+function pointerKind(type) {
+  return type === "touch" ? 1 : type === "pen" ? 2 : 0;
+}
+
+const CURSORS = ["default", "pointer", "text", "grabbing"];
+
+export async function attach(id, elementId) {
+  const x = await exportsOf();
+  if (!document.getElementById("bs-viewer-style")) {
+    const style = document.createElement("style");
+    style.id = "bs-viewer-style";
+    style.textContent = STYLE;
+    document.head.appendChild(style);
+  }
+
+  const host = document.getElementById(elementId);
+  const canvas = host.querySelector("canvas");
+  const context = canvas.getContext("2d", { alpha: false });
+  const abort = new AbortController();
+  const signal = abort.signal;
+  const v = { host, canvas, context, abort, tiles: new Map(), sections: new Map(), cursor: 0, frames: 0, sum: 0, max: 0, long: 0, frameStart: 0 };
+  viewers.set(id, v);
+
+  const point = (e) => {
+    const r = host.getBoundingClientRect();
+    return [e.clientX - r.left, e.clientY - r.top];
+  };
+  const resize = () => {
+    const r = host.getBoundingClientRect();
+    const ratio = window.devicePixelRatio || 1;
+    const w = Math.max(1, Math.round(r.width * ratio));
+    const h = Math.max(1, Math.round(r.height * ratio));
+    if (canvas.width !== w || canvas.height !== h) {
+      canvas.width = w;
+      canvas.height = h;
+    }
+    x.OnResize(id, Math.max(1, r.width), Math.max(1, r.height), ratio);
+  };
+
+  host.addEventListener("pointerdown", (e) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+    host.setPointerCapture(e.pointerId);
+    host.focus({ preventScroll: true });
+    const [px, py] = point(e);
+    x.OnPointerDown(id, e.pointerId, pointerKind(e.pointerType), px, py, e.detail || 1, modifiers(e));
+    e.preventDefault();
+  }, { signal });
+  host.addEventListener("pointermove", (e) => {
+    const [px, py] = point(e);
+    const cursor = x.OnPointerMove(id, e.pointerId, px, py);
+    if (cursor !== v.cursor) {
+      v.cursor = cursor;
+      host.style.cursor = CURSORS[cursor] || "default";
+    }
+  }, { signal });
+  host.addEventListener("pointerup", (e) => {
+    const [px, py] = point(e);
+    x.OnPointerUp(id, e.pointerId, px, py);
+  }, { signal });
+  host.addEventListener("pointercancel", (e) => x.OnPointerCancel(id, e.pointerId), { signal });
+  host.addEventListener("wheel", (e) => {
+    const [px, py] = point(e);
+    x.OnWheel(id, e.deltaX, e.deltaY, e.deltaMode, modifiers(e), px, py);
+    e.preventDefault();
+  }, { signal, passive: false });
+  host.addEventListener("keydown", (e) => {
+    if (x.OnKeyDown(id, e.key, modifiers(e))) e.preventDefault();
+  }, { signal });
+  host.addEventListener("copy", (e) => {
+    const text = x.OnCopy(id);
+    if (text !== null && text !== undefined) {
+      e.clipboardData.setData("text/plain", text);
+      e.preventDefault();
+    }
+  }, { signal });
+  host.addEventListener("focusin", (e) => {
+    if (e.target !== host && e.target.id) x.OnNodeFocused(id, e.target.id);
+  }, { signal });
+
+  const observer = new ResizeObserver(resize);
+  observer.observe(host);
+  v.observer = observer;
+  resize();
+}
+
+export function detach(id) {
+  const v = viewers.get(id);
+  if (!v) return;
+  v.abort.abort();
+  v.observer.disconnect();
+  v.tiles.clear();
+  viewers.delete(id);
+}
+
+export function nextFrame(id) {
+  return new Promise((resolve) => requestAnimationFrame((time) => {
+    const v = viewers.get(id);
+    if (v) v.frameStart = performance.now();
+    resolve();
+  }));
+}
+
+export function putTile(id, key, width, height, pixels) {
+  const v = viewers.get(id);
+  if (!v) return;
+  let tile = v.tiles.get(key);
+  if (!tile || tile.width !== width || tile.height !== height) {
+    tile = document.createElement("canvas");
+    tile.width = width;
+    tile.height = height;
+    v.tiles.set(key, tile);
+  }
+  const image = new ImageData(width, height);
+  pixels.copyTo(new Uint8Array(image.data.buffer));
+  tile.getContext("2d").putImageData(image, 0, 0);
+}
+
+export function dropTile(id, key) {
+  const v = viewers.get(id);
+  if (v) v.tiles.delete(key);
+}
+
+// Header: [records, pageCount, currentPage, zoom, tilesPresented, 0, 0, 0, 0]; then records of 9 numbers:
+// 1 paper (x, y, w, h) | 2 tile (key, x, y, w, h) | 3 selection quad (x1, y1 ... x4, y4) | 4 text layer (page, a, b, c, d, e, f).
+export function draw(id, commands) {
+  const v = viewers.get(id);
+  if (!v) return;
+  const c = commands.slice();
+  const g = v.context;
+  g.fillStyle = "#e6e6e6";
+  g.fillRect(0, 0, v.canvas.width, v.canvas.height);
+  const records = c[0];
+  for (let i = 0, o = 9; i < records; i++, o += 9) {
+    switch (c[o]) {
+      case 1:
+        g.fillStyle = "#ffffff";
+        g.shadowColor = "rgba(0,0,0,0.25)";
+        g.shadowBlur = 4;
+        g.fillRect(c[o + 1], c[o + 2], c[o + 3], c[o + 4]);
+        g.shadowBlur = 0;
+        g.shadowColor = "transparent";
+        break;
+      case 2: {
+        const tile = v.tiles.get(c[o + 1]);
+        if (tile) g.drawImage(tile, c[o + 2], c[o + 3], c[o + 4], c[o + 5]);
+        break;
+      }
+      case 3:
+        g.fillStyle = "rgba(26,115,232,0.3)";
+        g.beginPath();
+        g.moveTo(c[o + 1], c[o + 2]);
+        g.lineTo(c[o + 3], c[o + 4]);
+        g.lineTo(c[o + 5], c[o + 6]);
+        g.lineTo(c[o + 7], c[o + 8]);
+        g.closePath();
+        g.fill();
+        break;
+      case 4: {
+        let section = v.sections.get(c[o + 1]);
+        if (!section || !section.isConnected) {
+          section = v.host.querySelector(`section[data-bs-page="${c[o + 1]}"]`);
+          if (!section) break;
+          v.sections.set(c[o + 1], section);
+        }
+        const transform = `matrix(${c[o + 2]},${c[o + 3]},${c[o + 4]},${c[o + 5]},${c[o + 6]},${c[o + 7]})`;
+        if (section.style.transform !== transform) section.style.transform = transform;
+        break;
+      }
+    }
+  }
+
+  const ms = performance.now() - v.frameStart;
+  v.frames++;
+  v.sum += ms;
+  if (ms > v.max) v.max = ms;
+  if (ms > 50) v.long++;
+  const d = v.host.dataset;
+  d.pageCount = c[1];
+  d.currentPage = c[2] + 1;
+  d.zoom = c[3];
+  d.tilesPresented = c[4];
+  d.frames = v.frames;
+  d.maxFrameMs = v.max.toFixed(1);
+  d.meanFrameMs = (v.sum / v.frames).toFixed(2);
+  d.longFrames = v.long;
+}
+
+export function focusNode(id, elementId) {
+  const element = document.getElementById(elementId);
+  if (!element) return false;
+  if (document.activeElement !== element) element.focus({ preventScroll: true });
+  return true;
+}
+
+export function writeClipboard(text) {
+  if (navigator.clipboard) navigator.clipboard.writeText(text).catch(() => {});
+}

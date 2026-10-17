@@ -37,6 +37,7 @@ None of these packages is published yet.
 | `Broadside.Fonts.Cmaps` | Adobe predefined CMaps and CID-to-Unicode tables | none | not yet published |
 | `Broadside.Layout` | Flow-layout document engine over the canvas API | none | not yet published |
 | `Broadside.Viewer` | Framework-neutral viewer core: document session, tiles, surface abstraction, headless host | none | not yet published |
+| `Broadside.Viewer.Blazor` | Blazor WebAssembly viewer component: canvas tiles, remote files by range requests, input, selection, links, accessible text layer | `Microsoft.AspNetCore.Components.Web` | not yet published |
 | `Broadside.Viewer.*` | MAUI, Uno, Avalonia, WPF, WinUI, Blazor shells over the viewer core | per framework | not yet published |
 
 Target framework: `net10.0` only ([ADR 0002](docs/adr/0002-target-net10-only.md)).
