@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The .NET MAUI shell of the viewer core (#226). net10.0 always builds (no workload: the shell's logic and its tests run in the
+    core gate, Broadside.Core.slnf). Platform targets follow the platform backends' gate, BroadsideBuildPlatformBackends: forced on
+    (true) every Apple and Android target builds on a macOS host; forced off (false) none does; left unset, a macOS host builds the
+    ones whose workload the running SDK has installed, so an SDK without workloads still builds and tests the shell. Windows (WinUI,
+    no workload) builds on any Windows host unless the gate is forced off. MAUI and SkiaSharp's MAUI views are the only
+    dependencies beyond Broadside (ADR 0001: a shell depends on its platform library).
+  -->
+  <PropertyGroup Label="Platform gate">
+    <_BroadsideWorkloads>$([MSBuild]::EnsureTrailingSlash('$(NetCoreRoot)'))metadata/workloads/$([System.Text.RegularExpressions.Regex]::Replace('$(NETCoreSdkVersion)', '^(\d+\.\d+\.\d)\d\d.*$', '${1}00'))/InstalledWorkloads/</_BroadsideWorkloads>
+    <_BroadsideApple Condition="$([MSBuild]::IsOSPlatform('OSX')) and '$(BroadsideBuildPlatformBackends)' != 'false'">true</_BroadsideApple>
+    <_BroadsideForced Condition="'$(BroadsideBuildPlatformBackends)' == 'true'">true</_BroadsideForced>
+    <BroadsideBuildWindowsShell Condition="'$(BroadsideBuildPlatformBackends)' != 'false' and $([MSBuild]::IsOSPlatform('Windows'))">true</BroadsideBuildWindowsShell>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <Description>.NET MAUI viewer for Broadside: a PdfView control on the shared viewer core, drawn with SkiaSharp (GPU where available) on iOS, Android, Mac Catalyst and Windows. Depends on Microsoft.Maui.Controls and SkiaSharp.Views.Maui.Controls.</Description>
+    <TargetFramework />
+    <TargetFrameworks>net10.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(_BroadsideApple)' == 'true' and ('$(_BroadsideForced)' == 'true' or Exists('$(_BroadsideWorkloads)android'))">$(TargetFrameworks);net10.0-android</TargetFrameworks>
+    <TargetFrameworks Condition="'$(_BroadsideApple)' == 'true' and ('$(_BroadsideForced)' == 'true' or Exists('$(_BroadsideWorkloads)ios'))">$(TargetFrameworks);net10.0-ios</TargetFrameworks>
+    <TargetFrameworks Condition="'$(_BroadsideApple)' == 'true' and ('$(_BroadsideForced)' == 'true' or Exists('$(_BroadsideWorkloads)maccatalyst'))">$(TargetFrameworks);net10.0-maccatalyst</TargetFrameworks>
+    <TargetFrameworks Condition="'$(BroadsideBuildWindowsShell)' == 'true'">$(TargetFrameworks);net10.0-windows10.0.19041.0</TargetFrameworks>
+    <SupportedOSPlatformVersion Condition="'$(TargetPlatformIdentifier)' == 'ios'">15.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="'$(TargetPlatformIdentifier)' == 'maccatalyst'">15.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="'$(TargetPlatformIdentifier)' == 'android'">24.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="'$(TargetPlatformIdentifier)' == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
+    <AndroidGenerateResourceDesigner>false</AndroidGenerateResourceDesigner>
+    <!-- The package ships from the macOS release job, which has every Apple and Android target; elsewhere it is built and tested only. -->
+    <IsPackable Condition="!$(TargetFrameworks.Contains('maccatalyst'))">false</IsPackable>
+    <!-- MAUI and SkiaSharp's views are not trimming- or AOT-annotated for every target; the shell itself uses no reflection. -->
+    <IsTrimmable>false</IsTrimmable>
+    <IsAotCompatible>false</IsAotCompatible>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Broadside.Viewer/Broadside.Viewer.csproj" />
+    <ProjectReference Include="../Broadside.Rendering.Skia/Broadside.Rendering.Skia.csproj" />
+    <PackageReference Include="Microsoft.Maui.Controls" />
+    <PackageReference Include="SkiaSharp.Views.Maui.Controls" />
+  </ItemGroup>
+
+  <!-- Platform code lives under Platforms/<name>/ and compiles only for its target. -->
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' != 'android'">
+    <Compile Remove="Platforms/Android/**" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' != 'ios' and '$(TargetPlatformIdentifier)' != 'maccatalyst'">
+    <Compile Remove="Platforms/Apple/**" />
+  </ItemGroup>
+  <ItemGroup Condition="'$(TargetPlatformIdentifier)' != 'windows'">
+    <Compile Remove="Platforms/Windows/**" />
+  </ItemGroup>
+
+</Project>

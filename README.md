@@ -38,7 +38,8 @@ None of these packages is published yet.
 | `Broadside.Layout` | Flow-layout document engine over the canvas API | none | not yet published |
 | `Broadside.Viewer` | Framework-neutral viewer core: document session, tiles, surface abstraction, headless host | none | not yet published |
 | `Broadside.Viewer.Blazor` | Blazor WebAssembly viewer component: canvas tiles, remote files by range requests, input, selection, links, accessible text layer | `Microsoft.AspNetCore.Components.Web` | not yet published |
-| `Broadside.Viewer.*` | MAUI, Uno, Avalonia, WPF, WinUI, Blazor shells over the viewer core | per framework | not yet published |
+| `Broadside.Viewer.Maui` | .NET MAUI viewer control (`PdfView`) for iOS, Android, Mac Catalyst and Windows: Skia tiles composed on the GPU, shared gestures, selection handles, links, form editing, screen-reader semantics | `Microsoft.Maui.Controls`, `SkiaSharp.Views.Maui.Controls` | not yet published |
+| `Broadside.Viewer.*` | Uno, Avalonia, WPF, WinUI shells over the viewer core | per framework | not yet published |
 
 Demo: [`samples/Broadside.Viewer.Blazor.Sample`](samples/Broadside.Viewer.Blazor.Sample/README.md) is a Blazor WebAssembly app that shows the library end to end in a browser (phone included): viewing, search, outline, thumbnails, annotations, forms, document information and tags, signatures, and creating PDF/A and PDF/UA documents with the layout package.
 
