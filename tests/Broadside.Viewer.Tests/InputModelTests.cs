@@ -108,6 +108,29 @@ public sealed class InputModelTests
 
     [Theory]
     [MemberData(nameof(Modes))]
+    public async Task Home_and_End_show_the_first_and_last_spreads_at_a_small_zoom(PageLayoutMode mode)
+    {
+        await using Harness viewer = await Harness.OpenAsync(mode, 0.2, new InputModelOptions().WithAnimationDuration(TimeSpan.Zero));
+
+        bool paged = mode is PageLayoutMode.SinglePage or PageLayoutMode.TwoUp;
+        Assert.True(viewer.Input.KeyDown(InputKey.End, InputModifiers.None));
+        if (paged)
+        {
+            Assert.Equal(viewer.Layout.SpreadCount - 1, viewer.Layout.GetSpread(viewer.Input.CurrentPage));
+        }
+
+        Assert.True(viewer.Input.KeyDown(InputKey.Home, InputModifiers.None));
+        if (paged)
+        {
+            Assert.Equal(0, viewer.Input.CurrentPage);
+        }
+
+        var visible = new VisiblePage[viewer.Layout.PageCount];
+        Assert.Equal(0, visible[..viewer.Layout.GetVisiblePages(viewer.Input.Viewport, visible)][0].PageIndex);
+    }
+
+    [Theory]
+    [MemberData(nameof(Modes))]
     public async Task Keys_and_the_wheel_page_through_the_document_and_zoom(PageLayoutMode mode)
     {
         await using Harness viewer = await Harness.OpenAsync(mode, ZoomMode.FitWidth, new InputModelOptions().WithAnimationDuration(TimeSpan.Zero), height: 400);
@@ -119,7 +142,15 @@ public sealed class InputModelTests
         Assert.Equal(viewer.Layout.SpreadCount - 1, viewer.Layout.GetSpread(viewer.Input.CurrentPage));
         Assert.True(viewer.Input.KeyDown(InputKey.Home, InputModifiers.None));
         Assert.Equal(0, viewer.Input.CurrentPage);
-        Assert.Equal(0, Along(viewer.Input.Viewport, horizontal));
+        if (paged)
+        {
+            // A spread shorter than the viewport is centred, so its offset may be negative.
+            Assert.True(Along(viewer.Input.Viewport, horizontal) <= 0);
+        }
+        else
+        {
+            Assert.Equal(0, Along(viewer.Input.Viewport, horizontal));
+        }
 
         Assert.True(viewer.Input.KeyDown(InputKey.PageDown, InputModifiers.None));
         if (paged)

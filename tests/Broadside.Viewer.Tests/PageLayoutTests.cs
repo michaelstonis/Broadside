@@ -317,6 +317,62 @@ public sealed class PageLayoutTests
         static (PageLayoutMode, bool) Of(PageLayoutOptions options) => (options.Mode, options.ShowCover);
     }
 
+    [Theory]
+    [InlineData(PageLayoutMode.SinglePage, 0.4)]
+    [InlineData(PageLayoutMode.SinglePage, 1)]
+    [InlineData(PageLayoutMode.TwoUp, 0.4)]
+    [InlineData(PageLayoutMode.TwoUp, 1)]
+    [InlineData(PageLayoutMode.Continuous, 0.4)]
+    [InlineData(PageLayoutMode.TwoUpContinuous, 0.4)]
+    [InlineData(PageLayoutMode.Horizontal, 0.4)]
+    public void The_first_and_last_pages_can_be_shown_at_a_zoom_where_a_spread_is_smaller_than_the_viewport(PageLayoutMode mode, double zoom)
+    {
+        // Twelve 100 x 100 pages: at these zooms a spread is far shorter (and narrower) than the 600 x 800 viewport, yet the content is longer.
+        PageMetrics[] pages = [.. Enumerable.Range(0, 12).Select(i => new PageMetrics(i, new PdfRectangle(0, 0, 100, 100), 0, 1))];
+        foreach (bool cover in new[] { false, true })
+        {
+            PageLayout layout = PageLayout.Create(pages, new PageLayoutOptions().WithMode(mode).WithCover(cover).WithGap(10).WithPadding(5));
+            bool paged = mode is PageLayoutMode.SinglePage or PageLayoutMode.TwoUp;
+            var visible = new VisiblePage[16];
+
+            Viewport first = layout.ScrollTo(new Viewport(0, 0, 600, 800, zoom), 0);
+            Assert.Equal(first, layout.Clamp(first));
+            Assert.Equal(0, visible[..layout.GetVisiblePages(first, visible)][0].PageIndex);
+            Viewport last = layout.ScrollTo(first, 11);
+            Assert.Equal(11, visible[..layout.GetVisiblePages(last, visible)][^1].PageIndex);
+            if (paged)
+            {
+                // Only the spread at the viewport's centre shows, and it is the first (or last) one.
+                Assert.Equal(0, layout.GetSpread(layout.GetCurrentPage(first)));
+                Assert.Equal(layout.GetSpreadPages(0).Count, layout.GetVisiblePages(first, visible));
+                Assert.Equal(layout.GetSpread(11), layout.GetSpread(layout.GetCurrentPage(last)));
+            }
+
+            if (paged)
+            {
+                for (int page = 0; page < layout.PageCount; page++)
+                {
+                    Viewport shown = layout.ScrollTo(first, page);
+                    Assert.Equal(layout.GetSpread(page), layout.GetSpread(layout.GetCurrentPage(shown)));
+                    Assert.Equal(shown, layout.Clamp(shown));
+                }
+            }
+
+            // A scroll past either end still lands on the first or last spread.
+            double beyond = 1e6;
+            bool horizontal = mode == PageLayoutMode.Horizontal;
+            Viewport before = layout.Clamp(first with { X = horizontal ? -beyond : 0, Y = horizontal ? 0 : -beyond });
+            Viewport after = layout.Clamp(first with { X = horizontal ? beyond : 0, Y = horizontal ? 0 : beyond });
+            Assert.Equal(0, visible[..layout.GetVisiblePages(before, visible)][0].PageIndex);
+            Assert.Equal(11, visible[..layout.GetVisiblePages(after, visible)][^1].PageIndex);
+            if (paged)
+            {
+                Assert.Equal(0, layout.GetSpread(layout.GetCurrentPage(before)));
+                Assert.Equal(layout.SpreadCount - 1, layout.GetSpread(layout.GetCurrentPage(after)));
+            }
+        }
+    }
+
     [Fact]
     public void Bad_arguments_are_refused()
     {
