@@ -31,10 +31,15 @@ public class FirstPaintBenchmarks
     [GlobalSetup]
     public void Setup() => (_bytes, _index) = RealWorldPages.Read(Page);
 
+    /// <summary>
+    /// Runs first paint with an infinite slice budget (<see cref="ViewerOptions.WithSliceBudget"/>), so a draw never splits at a
+    /// wall-clock deadline: the slice count, and with it the allocation the gate compares exactly, does not depend on the runner's speed.
+    /// </summary>
+    /// <returns>The frames it took.</returns>
     [Benchmark]
     public int FirstPaint()
     {
-        using DocumentSession session = DocumentSession.Open(_bytes, new ViewerOptions().UseEngine(RealWorldPages.Engine).WithThreading(ViewerThreading.Cooperative));
+        using DocumentSession session = DocumentSession.Open(_bytes, new ViewerOptions().UseEngine(RealWorldPages.Engine).WithThreading(ViewerThreading.Cooperative).WithSliceBudget(Timeout.InfiniteTimeSpan));
         PageLayout layout = PageLayout.CreateAsync(session).AsTask().GetAwaiter().GetResult();
         var surface = new FirstPaintSurface();
         using var scheduler = new TileScheduler(session, layout, surface);
