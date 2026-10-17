@@ -125,6 +125,10 @@ _Avoid_: Window, visible area, camera
 The selected text of a document session: an anchor and a focus caret between glyphs, in reading order, possibly on different pages; read back as quads per page to draw and as text to copy.
 _Avoid_: Highlight (a highlight is an annotation), range, marquee
 
+**Annotation layer**:
+The viewer's model of a document session's annotations, links and form-field widgets: hit-testing, hover, selection and keyboard focus, link activation raised as action requests the shell performs (never scripts), notes, field editing and annotation edits that invalidate only the overlay tiles they touch.
+_Avoid_: Overlay (an overlay is the transparent tile the annotation and form-field layers render into), annotation manager
+
 **Reading-order provider**:
 What decides the order a page's glyphs are selected and copied in: content order, or the layout tree's structure or detected order.
 _Avoid_: Sorter, text order strategy

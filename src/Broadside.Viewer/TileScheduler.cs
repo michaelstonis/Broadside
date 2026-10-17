@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Broadside.Graphics;
 using Broadside.Rendering;
 
 namespace Broadside.Viewer;
@@ -48,6 +49,8 @@ public sealed class TileScheduler : IDisposable
     private readonly double _placeholderScale;
     private readonly int _maxConcurrency;
     private readonly Action<TileSchedulerEvent>? _observer;
+    private readonly bool _separateOverlays;
+    private DisplayLayers _layers = DisplayLayers.All;
     private readonly Dictionary<Tile, TileJob> _jobs = [];
     private List<TileJob> _wanted = [];
     private List<TileJob> _previous = [];
@@ -99,7 +102,169 @@ public sealed class TileScheduler : IDisposable
         _placeholderScale = options.PlaceholderScale;
         _maxConcurrency = options.MaxConcurrency;
         _observer = options.Observer;
+        _separateOverlays = options.SeparateOverlays;
     }
+
+    /// <summary>
+    /// Gets the layers the tiles show (<see cref="DisplayLayers.All"/> by default). With
+    /// <see cref="TileSchedulerOptions.SeparateOverlays"/>, the content layer and the annotation and form-field layers are separate
+    /// tiles, the overlays transparent and drawn over the content tile of the same region.
+    /// </summary>
+    /// <remarks>Spec #33 viewer capability 6.</remarks>
+    public DisplayLayers Layers
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _layers;
+            }
+        }
+    }
+
+    /// <summary>
+    /// Shows or hides layers: tiles of layers no longer shown leave the surface at once, and the next frames draw only the tiles the
+    /// new layers add. With <see cref="TileSchedulerOptions.SeparateOverlays"/>, toggling the annotation or form-field layer redraws only
+    /// the overlay tiles; the content tiles stay.
+    /// </summary>
+    /// <param name="layers">The layers to show.</param>
+    /// <exception cref="ObjectDisposedException">The scheduler is disposed.</exception>
+    /// <remarks>Spec #33 viewer capability 6; ISO 32000-2 §12.5 (annotations drawn over the page content).</remarks>
+    public void SetLayers(DisplayLayers layers)
+    {
+        layers &= DisplayLayers.All;
+        List<CancellationTokenSource>? cancel = null;
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_stopped, this);
+            if (layers == _layers)
+            {
+                return;
+            }
+
+            _layers = layers;
+            _replan = true;
+            foreach (TileJob job in _jobs.Values)
+            {
+                if (!IsShown(job.Tile.Layers))
+                {
+                    _stale.Add(job);
+                }
+            }
+
+            foreach (TileJob job in _stale)
+            {
+                Drop(job, ref cancel);
+            }
+
+            _stale.Clear();
+        }
+
+        CancelAll(cancel);
+    }
+
+    /// <summary>
+    /// Redraws the tiles of a page that show <paramref name="area"/> in <paramref name="layers"/>, after an edit changed what they show
+    /// (an annotation added, moved or removed, a field's value). Tiles on the surface leave it and render again when wanted; renders in
+    /// progress restart.
+    /// </summary>
+    /// <param name="pageIndex">The zero-based page.</param>
+    /// <param name="area">The changed area in the page's default user space.</param>
+    /// <param name="layers">The layers that changed (<see cref="DisplayLayers.Annotations"/> for an annotation edit).</param>
+    /// <returns>How many tiles were dropped.</returns>
+    /// <exception cref="ObjectDisposedException">The scheduler is disposed.</exception>
+    /// <remarks>
+    /// Spec #33 viewer capability 6. Annotations drawn with NoZoom or NoRotate (ISO 32000-2 §12.5.3) leave their rectangle: invalidate
+    /// the whole page (<see cref="Invalidate(int, DisplayLayers)"/>) for them.
+    /// </remarks>
+    public int Invalidate(int pageIndex, PdfRectangle area, DisplayLayers layers) => Invalidate(pageIndex, area, layers, wholePage: false);
+
+    /// <summary>Redraws every tile of a page that shows any of <paramref name="layers"/>.</summary>
+    /// <param name="pageIndex">The zero-based page.</param>
+    /// <param name="layers">The layers that changed.</param>
+    /// <returns>How many tiles were dropped.</returns>
+    /// <exception cref="ObjectDisposedException">The scheduler is disposed.</exception>
+    /// <remarks>Spec #33 viewer capability 6.</remarks>
+    public int Invalidate(int pageIndex, DisplayLayers layers) => Invalidate(pageIndex, default, layers, wholePage: true);
+
+    private int Invalidate(int pageIndex, PdfRectangle area, DisplayLayers layers, bool wholePage)
+    {
+        List<CancellationTokenSource>? cancel = null;
+        int dropped;
+        lock (_gate)
+        {
+            ObjectDisposedException.ThrowIf(_stopped, this);
+            PdfPage? page = null;
+            foreach (TileJob job in _jobs.Values)
+            {
+                Tile tile = job.Tile;
+                if (tile.PageIndex != pageIndex || (tile.Layers & layers) == 0 || job.State is not (TileState.Resident or TileState.Drawing))
+                {
+                    continue;
+                }
+
+                if (!wholePage)
+                {
+                    page ??= _session.Document.Pages[pageIndex];
+                    if (!Shows(DocumentSession.GetTileTransform(page, tile), tile.Region, area))
+                    {
+                        continue;
+                    }
+                }
+
+                _stale.Add(job);
+            }
+
+            dropped = _stale.Count;
+            foreach (TileJob job in _stale)
+            {
+                Drop(job, ref cancel);
+            }
+
+            _stale.Clear();
+        }
+
+        CancelAll(cancel);
+        return dropped;
+
+        // Whether the area's device bounds, widened by the anti-aliasing and region margins, touch the tile's pixels.
+        static bool Shows(in Matrix transform, PixelRectangle region, PdfRectangle area)
+        {
+            PathPoint a = transform.Transform(area.Left, area.Bottom);
+            PathPoint b = transform.Transform(area.Right, area.Bottom);
+            PathPoint c = transform.Transform(area.Right, area.Top);
+            PathPoint d = transform.Transform(area.Left, area.Top);
+            const double margin = 2;
+            double left = Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X)) - margin;
+            double right = Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X)) + margin;
+            double top = Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y)) - margin;
+            double bottom = Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y)) + margin;
+            return right > 0 && bottom > 0 && left < region.Width && top < region.Height;
+        }
+    }
+
+    /// <summary>Takes a tile off the surface (or stops its render); a tile still wanted renders again, after a replan for a stopped one.</summary>
+    private void Drop(TileJob job, ref List<CancellationTokenSource>? cancel)
+    {
+        if (job.State == TileState.Resident)
+        {
+            Evict(job);
+        }
+        else if (job.IsDrawing)
+        {
+            Cancel(job, ref cancel);
+            _replan = true;
+        }
+        else if (job.Generation != _generation)
+        {
+            _jobs.Remove(job.Tile);
+        }
+    }
+
+    private bool IsShown(DisplayLayers layers) =>
+        _separateOverlays
+            ? layers == (_layers & DisplayLayers.Content) || layers == (_layers & ~DisplayLayers.Content)
+            : layers == _layers;
 
     /// <summary>Gets the layout the tiles are cut from.</summary>
     public PageLayout Layout
@@ -492,15 +657,27 @@ public sealed class TileScheduler : IDisposable
             count = _layout.GetVisibleTiles(viewport, _tileSize, _tiles, margin);
         }
 
+        DisplayLayers content = _separateOverlays ? _layers & DisplayLayers.Content : _layers;
+        DisplayLayers overlay = _separateOverlays ? _layers & ~DisplayLayers.Content : DisplayLayers.None;
         for (int i = 0; i < count; i++)
         {
-            Want(_tiles[i], priority, placeholder: false);
+            if (content != DisplayLayers.None)
+            {
+                Want(_tiles[i] with { Layers = content }, priority, placeholder: false);
+            }
+
+            if (overlay != DisplayLayers.None)
+            {
+                Want(_tiles[i] with { Layers = overlay }, priority, placeholder: false);
+            }
         }
     }
 
     private void AddPlaceholders(in Viewport viewport, TilePriority priority)
     {
-        if (!(_placeholderScale > 0) || _placeholderScale >= viewport.Zoom)
+        // Placeholders stand in for the content: with separate overlays they are content-only, so toggling an overlay never redraws one.
+        DisplayLayers layers = _separateOverlays ? _layers & DisplayLayers.Content : _layers;
+        if (!(_placeholderScale > 0) || _placeholderScale >= viewport.Zoom || layers == DisplayLayers.None)
         {
             return;
         }
@@ -515,7 +692,7 @@ public sealed class TileScheduler : IDisposable
         for (int i = 0; i < count; i++)
         {
             int page = _pages[i].PageIndex;
-            var tile = new Tile(page, _placeholderScale, _layout.GetPagePixels(page, _placeholderScale)) { Rotation = _layout.Rotation };
+            var tile = new Tile(page, _placeholderScale, _layout.GetPagePixels(page, _placeholderScale)) { Rotation = _layout.Rotation, Layers = layers };
             Want(tile, priority, placeholder: true);
         }
     }
