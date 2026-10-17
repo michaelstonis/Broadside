@@ -140,6 +140,8 @@ jobs:
             artifacts/package/release/Broadside.Rendering.CoreGraphics.*.snupkg
             artifacts/package/release/Broadside.Rendering.Android.*.nupkg
             artifacts/package/release/Broadside.Rendering.Android.*.snupkg
+            artifacts/package/release/Broadside.Viewer.Maui.*.nupkg
+            artifacts/package/release/Broadside.Viewer.Maui.*.snupkg
           if-no-files-found: error
 
   # Merge the packages, then (tag and not a dry run) push them to NuGet.org and create the GitHub release.

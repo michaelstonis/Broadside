@@ -28,6 +28,7 @@
     <Project Path="src/Broadside.Rendering.WebGL/Broadside.Rendering.WebGL.csproj" />
     <Project Path="src/Broadside.Rendering/Broadside.Rendering.csproj" />
     <Project Path="src/Broadside.Viewer.Blazor/Broadside.Viewer.Blazor.csproj" />
+    <Project Path="src/Broadside.Viewer.Maui/Broadside.Viewer.Maui.csproj" />
     <Project Path="src/Broadside.Viewer/Broadside.Viewer.csproj" />
     <Project Path="src/Broadside/Broadside.csproj" />
   </Folder>
@@ -39,6 +40,7 @@
     <Project Path="tests/Broadside.GoldenImages/Broadside.GoldenImages.csproj" />
     <Project Path="tests/Broadside.Layout.Tests/Broadside.Layout.Tests.csproj" />
     <Project Path="tests/Broadside.Viewer.Blazor.BrowserTests/Broadside.Viewer.Blazor.BrowserTests.csproj" />
+    <Project Path="tests/Broadside.Viewer.Maui.Tests/Broadside.Viewer.Maui.Tests.csproj" />
     <Project Path="tests/Broadside.Viewer.Tests/Broadside.Viewer.Tests.csproj" />
     <Project Path="tests/Broadside.Rendering.Android.Device/Broadside.Rendering.Android.Device.csproj" />
     <Project Path="tests/Broadside.Rendering.Android.Tests/Broadside.Rendering.Android.Tests.csproj" />
