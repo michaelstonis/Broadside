@@ -1,0 +1,6 @@
+﻿page 1: Hi!
+  H code 48/1 GlyphName font Arial,Bold 24 Fill origin (72, 700) advance (17.328, 0) quad (72, 695.032) (89.328, 695.032) (89.328, 717.232) (72, 717.232)
+  i code 69/1 GlyphName font Arial,Bold 24 Fill origin (89.328, 700) advance (6.672, 0) quad (89.328, 695.032) (96, 695.032) (96, 717.232) (89.328, 717.232)
+  ! code 21/1 GlyphName font Arial,Bold 24 Fill origin (96, 700) advance (7.992, 0) quad (96, 695.032) (103.992, 695.032) (103.992, 717.232) (96, 717.232)
+  line Hi! glyphs 0+3 quad (72, 695.032) (103.992, 695.032) (103.992, 717.232) (72, 717.232)
+    words Hi! glyphs 0+3

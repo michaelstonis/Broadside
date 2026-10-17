@@ -39,6 +39,11 @@ public sealed class StructureCorpusTests(ITestOutputHelper output)
         int expected = fileName switch
         {
             "tagged-structure.pdf" => 18,
+            "layout-tagged.pdf" => 29, // Document > Sect > H, Para > Link, FENote, Figure > Caption, Formula, Table (THead, TBody, 4 TR, 4 TH, 6 TD), NonStruct > P, Artifact
+            "layout-two-column-tagged.pdf" => 5, // Document over four P whose lines interleave across two columns
+            "text-tagged-replacements.pdf" => 11, // Document, H1, two P with ActualText and E Spans, Figure, Artifact, three P (§14.8.2.5)
+            "text-tagged-spanning.pdf" => 5, // Document, two P, an ActualText Span and an Alt Figure whose content spans both pages
+            "text-tagged-spanning-image.pdf" => 4, // Document, two P and an ActualText Span over an image on page 1 and text on page 2
             "associated-files.pdf" => 1, // the structure element that carries an AF entry (§14.13.6)
             "outline-full.pdf" => 1, // the H1 an outline item's /SE points to (§12.3.3)
             "actions-all.pdf" => 1, // the P a go-to action's SD points to (§12.6.4.2)
@@ -78,8 +83,8 @@ public sealed class StructureCorpusTests(ITestOutputHelper output)
 
     private static (int Elements, string[] Codes, string? Failure) WalkWithTimeLimit(string file)
     {
-        Task<(int, string[], string?)> walk = Task.Factory.StartNew(() => WalkOne(file), CancellationToken.None, TaskCreationOptions.LongRunning, TaskScheduler.Default);
-        return walk.Wait(RealWorldCorpus.TimeLimit) ? walk.Result : (0, [], "timed out");
+        TimeLimitedResult<(int, string[], string?)> walk = TimeLimitedWalk.RunAsync(() => WalkOne(file), RealWorldCorpus.ProcessorTimeLimit, RealWorldCorpus.HangLimit).GetAwaiter().GetResult();
+        return walk.Verdict == TimeLimitedVerdict.Finished ? walk.Value : (0, [], walk.Verdict == TimeLimitedVerdict.Hung ? "timed out" : "over its processor-time limit");
     }
 
     private static (int Elements, string[] Codes, string? Failure) WalkOne(string file)

@@ -83,6 +83,60 @@ _Avoid_: CPU renderer, fallback renderer
 A backend that draws through a platform's own graphics API: CoreGraphics on Apple platforms, Direct2D on Windows, Android Canvas on Android.
 _Avoid_: Platform renderer, OS renderer
 
+### Viewer
+
+**Document session**:
+One open document in a viewer: owns the document, the engine, the options and the tile backends, and is what every UI shell drives.
+_Avoid_: Viewer model, controller, document view
+
+**Tile**:
+A rectangle of pixels of one page at one zoom, rendered from the page's cached display list and handed to a surface.
+_Avoid_: Chunk, patch (a patch is a shading)
+
+**Surface**:
+Where a document session puts finished tiles: the abstraction each UI shell implements over its own canvas, image or texture.
+_Avoid_: Canvas (the core's content-writing API), view, target
+
+**Tile scheduler**:
+Decides which tiles a viewer draws and when (visible, then near, then ahead in the scroll direction), cancels tiles the viewport has left, and keeps tiles, display lists and the core caches within one memory budget.
+_Avoid_: Render queue, tile manager
+
+**Progressive zoom**:
+Zooming that shows each step at once from the tiles already on a surface (scaled, over each page's paper), keeps the anchor under the pointer, and renders sharp tiles only once the zoom settles.
+_Avoid_: Zoom controller, live zoom
+
+**Input model**:
+Turns a shell's pointer, touch, wheel and keyboard events into the viewer's scrolls, zooms and page turns (drag with inertia, pinch, double-tap, snapping, keys), on an injected clock; each shell only translates its platform's events into it.
+_Avoid_: Gesture recognizer, input controller, input handler
+
+**Page layout**:
+Where every page of a document sits in a viewer, in points: pages grouped into spreads, spreads in a strip with gaps and padding, each page turned by its own rotation plus the user's. Maps between viewport pixels and each page's user space.
+_Avoid_: Page arrangement, document layout (ambiguous with flow layout)
+
+**Spread**:
+One or two pages a page layout shows side by side (two facing pages, or a cover alone).
+_Avoid_: Page pair, row
+
+**Viewport**:
+The part of a page layout a shell shows: a scroll offset and a size in pixels, and a zoom in pixels per point.
+_Avoid_: Window, visible area, camera
+
+**Text selection**:
+The selected text of a document session: an anchor and a focus caret between glyphs, in reading order, possibly on different pages; read back as quads per page to draw and as text to copy.
+_Avoid_: Highlight (a highlight is an annotation), range, marquee
+
+**Annotation layer**:
+The viewer's model of a document session's annotations, links and form-field widgets: hit-testing, hover, selection and keyboard focus, link activation raised as action requests the shell performs (never scripts), notes, field editing and annotation edits that invalidate only the overlay tiles they touch.
+_Avoid_: Overlay (an overlay is the transparent tile the annotation and form-field layers render into), annotation manager
+
+**Reading-order provider**:
+What decides the order a page's glyphs are selected and copied in: content order, or the layout tree's structure or detected order.
+_Avoid_: Sorter, text order strategy
+
+**Accessibility bridge**:
+The framework-neutral accessible tree of a document session (document, pages, then each page's layout-tree nodes with roles, names, values, states and viewport bounds), its reading-order navigation and an accessible focus that follows the viewer's page, which a shell maps onto ARIA, UI Automation or NSAccessibility.
+_Avoid_: Screen reader support, automation peer (that is the shell's side)
+
 ### Text and layout
 
 **Layout tree**:

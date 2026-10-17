@@ -12,6 +12,8 @@ public static class Corpus
         "pdf20-header.pdf",
         "text-standard14.pdf",
         "text-truetype-embedded.pdf",
+        "text-render-modes.pdf",
+        "text-rotated.pdf",
         "text-standard14-differences.pdf",
         "text-standard14-winansi-quirks.pdf",
         "text-standard14-macroman.pdf",
@@ -31,8 +33,13 @@ public static class Corpus
         "text-type1-embedded.pdf",
         "text-cid-identity-h.pdf",
         "text-cid-identity-v.pdf",
+        "text-lines-rotated.pdf",
+        "text-tagged-replacements.pdf",
+        "text-tagged-spanning.pdf",
+        "text-tagged-spanning-image.pdf",
         "text-cid-embedded-cmap.pdf",
         "text-cidcff-predefined-cmap.pdf",
+        "text-cid-nonembedded.pdf",
         "text-tounicode-bf.pdf",
         "text-glyph-names.pdf",
         "xref-stream.pdf",
@@ -57,6 +64,7 @@ public static class Corpus
         "encrypted-crypt-filters.pdf",
         "encrypted-aes-gcm.pdf",
         "encrypted-mac.pdf",
+        "encrypted-mac-sha3.pdf",
         "encrypted-empty-owner-password.pdf",
         "encrypted-embedded-file-open.pdf",
         "inline-image.pdf",
@@ -64,6 +72,7 @@ public static class Corpus
         "annotations-link.pdf",
         "annotations-subtypes.pdf",
         "annotations-appearance.pdf",
+        "annotations-nozoom.pdf",
         "outline.pdf",
         "name-tree-dests.pdf",
         "metadata-xmp.pdf",
@@ -75,10 +84,18 @@ public static class Corpus
         "name-tree-deep.pdf",
         "number-tree-deep.pdf",
         "tagged-structure.pdf",
+        "layout-tagged.pdf",
+        "layout-two-column-tagged.pdf",
+        "layout-two-column-untagged.pdf",
+        "layout-three-column.pdf",
+        "layout-headings-lists.pdf",
+        "layout-tables.pdf",
+        "layout-figures.pdf",
         "destinations-all.pdf",
         "outline-full.pdf",
         "functions.pdf",
         "optional-content.pdf",
+        "optional-content-pages.pdf",
         "embedded-files.pdf",
         "collection-portfolio.pdf",
         "associated-files.pdf",
@@ -92,8 +109,17 @@ public static class Corpus
         "color-operators.pdf",
         "default-colorspaces.pdf",
         "separation-special.pdf",
+        "icc-rgb-matrix.pdf",
+        "icc-lut.pdf",
+        "output-intent-cmyk.pdf",
+        "rendering-intents.pdf",
         "form-xobject-nested.pdf",
         "extgstate-params.pdf",
+        "transparency-blend-modes.pdf",
+        "transfer-functions.pdf",
+        "overprint.pdf",
+        "transparency-groups.pdf",
+        "transparency-soft-masks.pdf",
         "marked-content.pdf",
         "image-stencil-mask.pdf",
         "image-explicit-mask.pdf",
@@ -105,6 +131,7 @@ public static class Corpus
         "image-4bpc-indexed.pdf",
         "image-16bpc.pdf",
         "image-decode-inverted.pdf",
+        "image-alternates.pdf",
         "jpx-lossless.pdf",
         "jpx-subsampled.pdf",
         "jpx-smask-in-data.pdf",
@@ -124,6 +151,7 @@ public static class Corpus
         "pattern-tiling-uncolored.pdf",
         "pattern-shading-axial.pdf",
         "pattern-in-form.pdf",
+        "shading-radial-cases.pdf",
         "text-type3.pdf",
         "ccitt-g3-1d.pdf",
         "ccitt-g3-1d-eol-align.pdf",
@@ -136,6 +164,10 @@ public static class Corpus
         "jbig2-generic.pdf",
         "jbig2-generic-mmr.pdf",
         "jbig2-annex-h.pdf",
+        "paths-fill-rules.pdf",
+        "page-rotation.pdf",
+        "paths-strokes.pdf",
+        "clipping-paths.pdf",
     ];
 
     private static readonly string[] Malformed =
@@ -159,6 +191,7 @@ public static class Corpus
         "text-type3-recursive.pdf",
         "ccitt-g3-damaged.pdf",
         "ccitt-g4-truncated.pdf",
+        "clip-before-path.pdf",
     ];
 
     private static readonly (string FileName, string UserPassword)[] PasswordProtected =
@@ -202,4 +235,8 @@ public static class Corpus
 
     /// <summary>Opens a corpus file for reading. The caller disposes the stream.</summary>
     public static FileStream Open(string fileName) => File.OpenRead(Path(fileName));
+
+    /// <summary>The user password of a file in the "Password-protected files" table, or <see langword="null"/> for any other file.</summary>
+    public static string? UserPassword(string fileName) =>
+        Array.Find(PasswordProtected, file => string.Equals(file.FileName, fileName, StringComparison.Ordinal)).UserPassword;
 }

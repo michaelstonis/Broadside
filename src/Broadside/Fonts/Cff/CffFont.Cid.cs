@@ -286,7 +286,9 @@ internal sealed partial class CffFont
         /// <summary>Gets the program's matrix: that of the first Font DICT.</summary>
         public Matrix FontMatrix { get; }
 
-        public CffPrivate GetPrivate(int glyphId) => _privates[(uint)glyphId < (uint)_select.Length ? _select[glyphId] : 0];
+        public CffPrivate GetPrivate(int glyphId) => _privates[GetFontDict(glyphId)];
+
+        public int GetFontDict(int glyphId) => (uint)glyphId < (uint)_select.Length && _select[glyphId] < _privates.Length ? _select[glyphId] : 0;
 
         public bool TryGetAdjustment(int glyphId, out Matrix adjustment)
         {

@@ -1,0 +1,709 @@
+#nullable enable
+Broadside.Viewer.DocumentSession
+Broadside.Viewer.DocumentSession.Dispose() -> void
+Broadside.Viewer.DocumentSession.DisposeAsync() -> System.Threading.Tasks.ValueTask
+Broadside.Viewer.DocumentSession.Document.get -> Broadside.PdfDocument!
+Broadside.Viewer.DocumentSession.GetDisplayListAsync(int pageIndex, Broadside.Rendering.DisplayLayers layers = Broadside.Rendering.DisplayLayers.All, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Rendering.DisplayList!>
+Broadside.Viewer.DocumentSession.GetPageMetricsAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.PageMetrics>
+Broadside.Viewer.DocumentSession.GetPageTileAsync(int pageIndex, double scale, int rotation = 0, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.Tile>
+Broadside.Viewer.DocumentSession.IsClosed.get -> bool
+Broadside.Viewer.DocumentSession.PageCount.get -> int
+Broadside.Viewer.DocumentSession.RenderPageAsync(int pageIndex, double scale, Broadside.Viewer.IRenderSurface! surface, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.Viewer.Tile>!
+Broadside.Viewer.DocumentSession.RenderTileAsync(Broadside.Viewer.Tile tile, Broadside.Viewer.IRenderSurface! surface, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.Viewer.DocumentSession.Statistics.get -> Broadside.Viewer.SessionStatistics
+Broadside.Viewer.DocumentSession.TryGetPageMetrics(int pageIndex, out Broadside.Viewer.PageMetrics metrics) -> bool
+Broadside.Viewer.HeadlessSurface
+Broadside.Viewer.HeadlessSurface.Dispose() -> void
+Broadside.Viewer.HeadlessSurface.HeadlessSurface() -> void
+Broadside.Viewer.HeadlessSurface.Present(Broadside.Viewer.Tile tile, Broadside.Rendering.Bitmap! pixels) -> void
+Broadside.Viewer.HeadlessSurface.Tiles.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.PresentedTile!>!
+Broadside.Viewer.IRenderSurface
+Broadside.Viewer.IRenderSurface.Present(Broadside.Viewer.Tile tile, Broadside.Rendering.Bitmap! pixels) -> void
+Broadside.Viewer.ITileBackend
+Broadside.Viewer.ITileBackend.Begin(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, System.Threading.CancellationToken cancellationToken) -> Broadside.Viewer.ITileRender!
+Broadside.Viewer.ITileRender
+Broadside.Viewer.ITileRender.RenderSlice(System.TimeSpan budget) -> bool
+Broadside.Viewer.PageMetrics
+Broadside.Viewer.PageMetrics.CropBox.get -> Broadside.PdfRectangle
+Broadside.Viewer.PageMetrics.CropBox.init -> void
+Broadside.Viewer.PageMetrics.Height.get -> double
+Broadside.Viewer.PageMetrics.Index.get -> int
+Broadside.Viewer.PageMetrics.Index.init -> void
+Broadside.Viewer.PageMetrics.PageMetrics() -> void
+Broadside.Viewer.PageMetrics.PageMetrics(int Index, Broadside.PdfRectangle CropBox, int Rotation, double UserUnit) -> void
+Broadside.Viewer.PageMetrics.Rotation.get -> int
+Broadside.Viewer.PageMetrics.Rotation.init -> void
+Broadside.Viewer.PageMetrics.UserUnit.get -> double
+Broadside.Viewer.PageMetrics.UserUnit.init -> void
+Broadside.Viewer.PageMetrics.Width.get -> double
+Broadside.Viewer.PresentedTile
+Broadside.Viewer.PresentedTile.Pixels.get -> Broadside.Rendering.Bitmap!
+Broadside.Viewer.PresentedTile.Pixels.init -> void
+Broadside.Viewer.PresentedTile.PresentedTile(Broadside.Viewer.Tile Tile, Broadside.Rendering.Bitmap! Pixels) -> void
+Broadside.Viewer.PresentedTile.Tile.get -> Broadside.Viewer.Tile
+Broadside.Viewer.PresentedTile.Tile.init -> void
+Broadside.Viewer.SessionStatistics
+Broadside.Viewer.SessionStatistics.PendingOperations.get -> int
+Broadside.Viewer.SessionStatistics.PendingOperations.init -> void
+Broadside.Viewer.SessionStatistics.PixelBytes.get -> long
+Broadside.Viewer.SessionStatistics.PixelBytes.init -> void
+Broadside.Viewer.SessionStatistics.SessionStatistics() -> void
+Broadside.Viewer.SessionStatistics.SessionStatistics(int PendingOperations, long PixelBytes, long TilesPresented, long TilesCancelled) -> void
+Broadside.Viewer.SessionStatistics.TilesCancelled.get -> long
+Broadside.Viewer.SessionStatistics.TilesCancelled.init -> void
+Broadside.Viewer.SessionStatistics.TilesPresented.get -> long
+Broadside.Viewer.SessionStatistics.TilesPresented.init -> void
+Broadside.Viewer.SoftwareTileBackend
+Broadside.Viewer.SoftwareTileBackend.Begin(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, System.Threading.CancellationToken cancellationToken) -> Broadside.Viewer.ITileRender!
+Broadside.Viewer.SoftwareTileBackend.Dispose() -> void
+Broadside.Viewer.SoftwareTileBackend.SoftwareTileBackend() -> void
+Broadside.Viewer.Tile
+Broadside.Viewer.Tile.Layers.get -> Broadside.Rendering.DisplayLayers
+Broadside.Viewer.Tile.Layers.init -> void
+Broadside.Viewer.Tile.PageIndex.get -> int
+Broadside.Viewer.Tile.PageIndex.init -> void
+Broadside.Viewer.Tile.Region.get -> Broadside.Rendering.PixelRectangle
+Broadside.Viewer.Tile.Region.init -> void
+Broadside.Viewer.Tile.Rotation.get -> int
+Broadside.Viewer.Tile.Rotation.init -> void
+Broadside.Viewer.Tile.Scale.get -> double
+Broadside.Viewer.Tile.Scale.init -> void
+Broadside.Viewer.Tile.Tile() -> void
+Broadside.Viewer.Tile.Tile(int PageIndex, double Scale, Broadside.Rendering.PixelRectangle Region) -> void
+Broadside.Viewer.ViewerOptions
+Broadside.Viewer.ViewerOptions.Credentials.get -> Broadside.Security.PdfCredentials?
+Broadside.Viewer.ViewerOptions.Credentials.set -> void
+Broadside.Viewer.ViewerOptions.DocumentOptions.get -> Broadside.PdfOptions?
+Broadside.Viewer.ViewerOptions.DocumentOptions.set -> void
+Broadside.Viewer.ViewerOptions.Engine.get -> Broadside.PdfEngine?
+Broadside.Viewer.ViewerOptions.Engine.set -> void
+Broadside.Viewer.ViewerOptions.Intent.get -> Broadside.Rendering.DisplayIntent
+Broadside.Viewer.ViewerOptions.Intent.set -> void
+Broadside.Viewer.ViewerOptions.MaxConcurrency.get -> int
+Broadside.Viewer.ViewerOptions.MaxConcurrency.set -> void
+Broadside.Viewer.ViewerOptions.BackendFactory.get -> System.Func<Broadside.Viewer.ITileBackend!>?
+Broadside.Viewer.ViewerOptions.BackendFactory.set -> void
+Broadside.Viewer.ViewerOptions.SliceBudget.get -> System.TimeSpan
+Broadside.Viewer.ViewerOptions.SliceBudget.set -> void
+Broadside.Viewer.ViewerOptions.Threading.get -> Broadside.Viewer.ViewerThreading
+Broadside.Viewer.ViewerOptions.Threading.set -> void
+Broadside.Viewer.ViewerOptions.UseEngine(Broadside.PdfEngine! engine) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.UseBackend(System.Func<Broadside.Viewer.ITileBackend!>! factory) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.UseYield(System.Func<System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>! yield) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.ViewerOptions() -> void
+Broadside.Viewer.ViewerOptions.WithCredentials(Broadside.Security.PdfCredentials! credentials) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.WithDocumentOptions(Broadside.PdfOptions! options) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.WithIntent(Broadside.Rendering.DisplayIntent intent) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.WithMaxConcurrency(int maxConcurrency) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.WithSliceBudget(System.TimeSpan budget) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.WithThreading(Broadside.Viewer.ViewerThreading threading) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.ViewerOptions.Yield.get -> System.Func<System.Threading.CancellationToken, System.Threading.Tasks.ValueTask>?
+Broadside.Viewer.ViewerOptions.Yield.set -> void
+Broadside.Viewer.ViewerThreading
+Broadside.Viewer.ViewerThreading.Automatic = 0 -> Broadside.Viewer.ViewerThreading
+Broadside.Viewer.ViewerThreading.Background = 1 -> Broadside.Viewer.ViewerThreading
+Broadside.Viewer.ViewerThreading.Cooperative = 2 -> Broadside.Viewer.ViewerThreading
+static Broadside.Viewer.DocumentSession.Open(string! path) -> Broadside.Viewer.DocumentSession!
+static Broadside.Viewer.DocumentSession.Open(string! path, Broadside.Viewer.ViewerOptions? options) -> Broadside.Viewer.DocumentSession!
+static Broadside.Viewer.DocumentSession.Open(System.IO.Stream! stream) -> Broadside.Viewer.DocumentSession!
+static Broadside.Viewer.DocumentSession.Open(System.IO.Stream! stream, Broadside.Viewer.ViewerOptions? options) -> Broadside.Viewer.DocumentSession!
+static Broadside.Viewer.DocumentSession.Open(System.ReadOnlyMemory<byte> bytes) -> Broadside.Viewer.DocumentSession!
+static Broadside.Viewer.DocumentSession.Open(System.ReadOnlyMemory<byte> bytes, Broadside.Viewer.ViewerOptions? options) -> Broadside.Viewer.DocumentSession!
+static Broadside.Viewer.DocumentSession.OpenAsync(System.IO.Stream! stream) -> System.Threading.Tasks.Task<Broadside.Viewer.DocumentSession!>!
+static Broadside.Viewer.DocumentSession.OpenAsync(System.IO.Stream! stream, Broadside.Viewer.ViewerOptions? options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.Viewer.DocumentSession!>!
+static Broadside.Viewer.DocumentSession.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri) -> System.Threading.Tasks.Task<Broadside.Viewer.DocumentSession!>!
+static Broadside.Viewer.DocumentSession.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, Broadside.Viewer.ViewerOptions? options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.Viewer.DocumentSession!>!
+static readonly Broadside.Viewer.ViewerOptions.DefaultSliceBudget -> System.TimeSpan
+Broadside.Viewer.LayoutRectangle
+Broadside.Viewer.LayoutRectangle.LayoutRectangle() -> void
+Broadside.Viewer.LayoutRectangle.LayoutRectangle(double X, double Y, double Width, double Height) -> void
+Broadside.Viewer.LayoutRectangle.X.get -> double
+Broadside.Viewer.LayoutRectangle.X.init -> void
+Broadside.Viewer.LayoutRectangle.Y.get -> double
+Broadside.Viewer.LayoutRectangle.Y.init -> void
+Broadside.Viewer.LayoutRectangle.Width.get -> double
+Broadside.Viewer.LayoutRectangle.Width.init -> void
+Broadside.Viewer.LayoutRectangle.Height.get -> double
+Broadside.Viewer.LayoutRectangle.Height.init -> void
+Broadside.Viewer.LayoutRectangle.Bottom.get -> double
+Broadside.Viewer.LayoutRectangle.Right.get -> double
+Broadside.Viewer.LayoutRectangle.Contains(double x, double y) -> bool
+Broadside.Viewer.PagePoint
+Broadside.Viewer.PagePoint.PagePoint() -> void
+Broadside.Viewer.PagePoint.PagePoint(int PageIndex, double X, double Y) -> void
+Broadside.Viewer.PagePoint.PageIndex.get -> int
+Broadside.Viewer.PagePoint.PageIndex.init -> void
+Broadside.Viewer.PagePoint.X.get -> double
+Broadside.Viewer.PagePoint.X.init -> void
+Broadside.Viewer.PagePoint.Y.get -> double
+Broadside.Viewer.PagePoint.Y.init -> void
+Broadside.Viewer.Viewport
+Broadside.Viewer.Viewport.Viewport() -> void
+Broadside.Viewer.Viewport.Viewport(double X, double Y, double Width, double Height, double Zoom) -> void
+Broadside.Viewer.Viewport.X.get -> double
+Broadside.Viewer.Viewport.X.init -> void
+Broadside.Viewer.Viewport.Y.get -> double
+Broadside.Viewer.Viewport.Y.init -> void
+Broadside.Viewer.Viewport.Width.get -> double
+Broadside.Viewer.Viewport.Width.init -> void
+Broadside.Viewer.Viewport.Height.get -> double
+Broadside.Viewer.Viewport.Height.init -> void
+Broadside.Viewer.Viewport.Zoom.get -> double
+Broadside.Viewer.Viewport.Zoom.init -> void
+Broadside.Viewer.VisiblePage
+Broadside.Viewer.VisiblePage.VisiblePage() -> void
+Broadside.Viewer.VisiblePage.VisiblePage(int PageIndex, Broadside.Rendering.PixelRectangle Region, double X, double Y) -> void
+Broadside.Viewer.VisiblePage.PageIndex.get -> int
+Broadside.Viewer.VisiblePage.PageIndex.init -> void
+Broadside.Viewer.VisiblePage.Region.get -> Broadside.Rendering.PixelRectangle
+Broadside.Viewer.VisiblePage.Region.init -> void
+Broadside.Viewer.VisiblePage.X.get -> double
+Broadside.Viewer.VisiblePage.X.init -> void
+Broadside.Viewer.VisiblePage.Y.get -> double
+Broadside.Viewer.VisiblePage.Y.init -> void
+Broadside.Viewer.PageLayoutMode
+Broadside.Viewer.PageLayoutMode.SinglePage = 0 -> Broadside.Viewer.PageLayoutMode
+Broadside.Viewer.PageLayoutMode.Continuous = 1 -> Broadside.Viewer.PageLayoutMode
+Broadside.Viewer.PageLayoutMode.TwoUp = 2 -> Broadside.Viewer.PageLayoutMode
+Broadside.Viewer.PageLayoutMode.TwoUpContinuous = 3 -> Broadside.Viewer.PageLayoutMode
+Broadside.Viewer.PageLayoutMode.Horizontal = 4 -> Broadside.Viewer.PageLayoutMode
+Broadside.Viewer.ZoomMode
+Broadside.Viewer.ZoomMode.ActualSize = 0 -> Broadside.Viewer.ZoomMode
+Broadside.Viewer.ZoomMode.FitWidth = 1 -> Broadside.Viewer.ZoomMode
+Broadside.Viewer.ZoomMode.FitPage = 2 -> Broadside.Viewer.ZoomMode
+Broadside.Viewer.PageLayoutOptions
+Broadside.Viewer.PageLayoutOptions.PageLayoutOptions() -> void
+Broadside.Viewer.PageLayoutOptions.Gap.get -> double
+Broadside.Viewer.PageLayoutOptions.Gap.set -> void
+Broadside.Viewer.PageLayoutOptions.Mode.get -> Broadside.Viewer.PageLayoutMode
+Broadside.Viewer.PageLayoutOptions.Mode.set -> void
+Broadside.Viewer.PageLayoutOptions.Padding.get -> double
+Broadside.Viewer.PageLayoutOptions.Padding.set -> void
+Broadside.Viewer.PageLayoutOptions.Rotation.get -> int
+Broadside.Viewer.PageLayoutOptions.Rotation.set -> void
+Broadside.Viewer.PageLayoutOptions.ShowCover.get -> bool
+Broadside.Viewer.PageLayoutOptions.ShowCover.set -> void
+Broadside.Viewer.PageLayoutOptions.WithCover(bool showCover) -> Broadside.Viewer.PageLayoutOptions!
+Broadside.Viewer.PageLayoutOptions.WithGap(double gap) -> Broadside.Viewer.PageLayoutOptions!
+Broadside.Viewer.PageLayoutOptions.WithMode(Broadside.Viewer.PageLayoutMode mode) -> Broadside.Viewer.PageLayoutOptions!
+Broadside.Viewer.PageLayoutOptions.WithPadding(double padding) -> Broadside.Viewer.PageLayoutOptions!
+Broadside.Viewer.PageLayoutOptions.WithRotation(int rotation) -> Broadside.Viewer.PageLayoutOptions!
+const Broadside.Viewer.PageLayoutOptions.DefaultSpacing = 8 -> double
+static Broadside.Viewer.PageLayoutOptions.For(Broadside.PdfPageLayout layout) -> Broadside.Viewer.PageLayoutOptions!
+Broadside.Viewer.PageLayout
+Broadside.Viewer.PageLayout.Clamp(in Broadside.Viewer.Viewport viewport) -> Broadside.Viewer.Viewport
+Broadside.Viewer.PageLayout.ContentHeight.get -> double
+Broadside.Viewer.PageLayout.ContentWidth.get -> double
+Broadside.Viewer.PageLayout.Gap.get -> double
+Broadside.Viewer.PageLayout.GetCurrentPage(in Broadside.Viewer.Viewport viewport) -> int
+Broadside.Viewer.PageLayout.GetPageBounds(int pageIndex) -> Broadside.Viewer.LayoutRectangle
+Broadside.Viewer.PageLayout.GetPageMetrics(int pageIndex) -> Broadside.Viewer.PageMetrics
+Broadside.Viewer.PageLayout.GetPagePixels(int pageIndex, double zoom) -> Broadside.Rendering.PixelRectangle
+Broadside.Viewer.PageLayout.GetPageRotation(int pageIndex) -> int
+Broadside.Viewer.PageLayout.GetPageTransform(in Broadside.Viewer.Viewport viewport, int pageIndex) -> Broadside.Graphics.Matrix
+Broadside.Viewer.PageLayout.GetSpread(int pageIndex) -> int
+Broadside.Viewer.PageLayout.GetSpreadBounds(int spreadIndex) -> Broadside.Viewer.LayoutRectangle
+Broadside.Viewer.PageLayout.GetSpreadPages(int spreadIndex) -> (int FirstPage, int Count)
+Broadside.Viewer.PageLayout.GetVisiblePages(in Broadside.Viewer.Viewport viewport, System.Span<Broadside.Viewer.VisiblePage> destination, double margin = 0) -> int
+Broadside.Viewer.PageLayout.GetVisibleTiles(in Broadside.Viewer.Viewport viewport, int tileSize, System.Span<Broadside.Viewer.Tile> destination, double margin = 0) -> int
+Broadside.Viewer.PageLayout.GetZoom(Broadside.Viewer.ZoomMode mode, double viewportWidth, double viewportHeight, int pageIndex, double actualSize = 1) -> double
+Broadside.Viewer.PageLayout.Mode.get -> Broadside.Viewer.PageLayoutMode
+Broadside.Viewer.PageLayout.PageCount.get -> int
+Broadside.Viewer.PageLayout.PageToViewport(in Broadside.Viewer.Viewport viewport, int pageIndex, Broadside.PdfRectangle rectangle) -> Broadside.Viewer.LayoutRectangle
+Broadside.Viewer.PageLayout.PageToViewport(in Broadside.Viewer.Viewport viewport, int pageIndex, double x, double y) -> Broadside.Graphics.PathPoint
+Broadside.Viewer.PageLayout.Padding.get -> double
+Broadside.Viewer.PageLayout.Rotation.get -> int
+Broadside.Viewer.PageLayout.ScrollTo(in Broadside.Viewer.Viewport viewport, int pageIndex) -> Broadside.Viewer.Viewport
+Broadside.Viewer.PageLayout.ShowCover.get -> bool
+Broadside.Viewer.PageLayout.Snap(in Broadside.Viewer.Viewport viewport) -> Broadside.Viewer.Viewport
+Broadside.Viewer.PageLayout.SpreadCount.get -> int
+Broadside.Viewer.PageLayout.TryGetPageAt(in Broadside.Viewer.Viewport viewport, double x, double y, out Broadside.Viewer.PagePoint point) -> bool
+Broadside.Viewer.PageLayout.ViewportToPage(in Broadside.Viewer.Viewport viewport, int pageIndex, double x, double y) -> Broadside.Viewer.PagePoint
+Broadside.Viewer.PageLayout.ZoomAt(in Broadside.Viewer.Viewport viewport, double zoom, double x, double y) -> Broadside.Viewer.Viewport
+static Broadside.Viewer.PageLayout.Create(System.ReadOnlySpan<Broadside.Viewer.PageMetrics> pages, Broadside.Viewer.PageLayoutOptions? options = null) -> Broadside.Viewer.PageLayout!
+static Broadside.Viewer.PageLayout.CreateAsync(Broadside.Viewer.DocumentSession! session, Broadside.Viewer.PageLayoutOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.PageLayout!>
+Broadside.Viewer.HeadlessSurface.Bytes.get -> long
+Broadside.Viewer.HeadlessSurface.Evict(Broadside.Viewer.Tile tile) -> void
+Broadside.Viewer.IRenderSurface.Evict(Broadside.Viewer.Tile tile) -> void
+Broadside.Viewer.TileScheduler
+Broadside.Viewer.TileScheduler.Dispose() -> void
+Broadside.Viewer.TileScheduler.IsIdle.get -> bool
+Broadside.Viewer.TileScheduler.Layout.get -> Broadside.Viewer.PageLayout!
+Broadside.Viewer.TileScheduler.RunFrame(System.TimeSpan budget) -> bool
+Broadside.Viewer.TileScheduler.SetLayout(Broadside.Viewer.PageLayout! layout) -> void
+Broadside.Viewer.TileScheduler.Statistics.get -> Broadside.Viewer.TileSchedulerStatistics
+Broadside.Viewer.TileScheduler.TileScheduler(Broadside.Viewer.DocumentSession! session, Broadside.Viewer.PageLayout! layout, Broadside.Viewer.IRenderSurface! surface, Broadside.Viewer.TileSchedulerOptions? options = null) -> void
+Broadside.Viewer.TileScheduler.Update(in Broadside.Viewer.Viewport viewport) -> void
+Broadside.Viewer.TileSchedulerOptions
+Broadside.Viewer.TileSchedulerOptions.TileSchedulerOptions() -> void
+Broadside.Viewer.TileSchedulerOptions.UseObserver(System.Action<Broadside.Viewer.TileSchedulerEvent>! observer) -> Broadside.Viewer.TileSchedulerOptions!
+Broadside.Viewer.TileSchedulerOptions.Observer.get -> System.Action<Broadside.Viewer.TileSchedulerEvent>?
+Broadside.Viewer.TileSchedulerOptions.Observer.set -> void
+const Broadside.Viewer.TileSchedulerOptions.DefaultMemoryBudget = 268435456 -> long
+const Broadside.Viewer.TileSchedulerOptions.DefaultTileSize = 256 -> int
+const Broadside.Viewer.TileSchedulerOptions.DefaultPlaceholderScale = 0.25 -> double
+Broadside.Viewer.TileSchedulerOptions.TileSize.get -> int
+Broadside.Viewer.TileSchedulerOptions.TileSize.set -> void
+Broadside.Viewer.TileSchedulerOptions.WithTileSize(int tileSize) -> Broadside.Viewer.TileSchedulerOptions!
+Broadside.Viewer.TileSchedulerOptions.MemoryBudget.get -> long
+Broadside.Viewer.TileSchedulerOptions.MemoryBudget.set -> void
+Broadside.Viewer.TileSchedulerOptions.WithMemoryBudget(long bytes) -> Broadside.Viewer.TileSchedulerOptions!
+Broadside.Viewer.TileSchedulerOptions.NearMargin.get -> double
+Broadside.Viewer.TileSchedulerOptions.NearMargin.set -> void
+Broadside.Viewer.TileSchedulerOptions.WithNearMargin(double pixels) -> Broadside.Viewer.TileSchedulerOptions!
+Broadside.Viewer.TileSchedulerOptions.RenderAhead.get -> double
+Broadside.Viewer.TileSchedulerOptions.RenderAhead.set -> void
+Broadside.Viewer.TileSchedulerOptions.WithRenderAhead(double viewports) -> Broadside.Viewer.TileSchedulerOptions!
+Broadside.Viewer.TileSchedulerOptions.PlaceholderScale.get -> double
+Broadside.Viewer.TileSchedulerOptions.PlaceholderScale.set -> void
+Broadside.Viewer.TileSchedulerOptions.WithPlaceholderScale(double scale) -> Broadside.Viewer.TileSchedulerOptions!
+Broadside.Viewer.TileSchedulerOptions.MaxConcurrency.get -> int
+Broadside.Viewer.TileSchedulerOptions.MaxConcurrency.set -> void
+Broadside.Viewer.TileSchedulerOptions.WithMaxConcurrency(int maxConcurrency) -> Broadside.Viewer.TileSchedulerOptions!
+Broadside.Viewer.TilePriority
+Broadside.Viewer.TilePriority.Visible = 0 -> Broadside.Viewer.TilePriority
+Broadside.Viewer.TilePriority.Near = 1 -> Broadside.Viewer.TilePriority
+Broadside.Viewer.TilePriority.Ahead = 2 -> Broadside.Viewer.TilePriority
+Broadside.Viewer.TileEventKind
+Broadside.Viewer.TileEventKind.Started = 0 -> Broadside.Viewer.TileEventKind
+Broadside.Viewer.TileEventKind.Presented = 1 -> Broadside.Viewer.TileEventKind
+Broadside.Viewer.TileEventKind.Cancelled = 2 -> Broadside.Viewer.TileEventKind
+Broadside.Viewer.TileEventKind.Evicted = 3 -> Broadside.Viewer.TileEventKind
+Broadside.Viewer.TileEventKind.Failed = 4 -> Broadside.Viewer.TileEventKind
+Broadside.Viewer.TileSchedulerEvent
+Broadside.Viewer.TileSchedulerEvent.TileSchedulerEvent() -> void
+Broadside.Viewer.TileSchedulerEvent.TileSchedulerEvent(Broadside.Viewer.TileEventKind Kind, Broadside.Viewer.Tile Tile, Broadside.Viewer.TilePriority Priority, bool IsPlaceholder, long Bytes) -> void
+Broadside.Viewer.TileSchedulerEvent.Kind.get -> Broadside.Viewer.TileEventKind
+Broadside.Viewer.TileSchedulerEvent.Kind.init -> void
+Broadside.Viewer.TileSchedulerEvent.Tile.get -> Broadside.Viewer.Tile
+Broadside.Viewer.TileSchedulerEvent.Tile.init -> void
+Broadside.Viewer.TileSchedulerEvent.Priority.get -> Broadside.Viewer.TilePriority
+Broadside.Viewer.TileSchedulerEvent.Priority.init -> void
+Broadside.Viewer.TileSchedulerEvent.IsPlaceholder.get -> bool
+Broadside.Viewer.TileSchedulerEvent.IsPlaceholder.init -> void
+Broadside.Viewer.TileSchedulerEvent.Bytes.get -> long
+Broadside.Viewer.TileSchedulerEvent.Bytes.init -> void
+Broadside.Viewer.TileSchedulerStatistics
+Broadside.Viewer.TileSchedulerStatistics.TileSchedulerStatistics() -> void
+Broadside.Viewer.TileSchedulerStatistics.TileSchedulerStatistics(long Budget, long Bytes, long PeakBytes, long TileBytes, int ResidentTiles, int PendingTiles, long TilesStarted, long TilesPresented, long TilesCancelled, long TilesEvicted, System.TimeSpan LongestFrame) -> void
+Broadside.Viewer.TileSchedulerStatistics.Budget.get -> long
+Broadside.Viewer.TileSchedulerStatistics.Budget.init -> void
+Broadside.Viewer.TileSchedulerStatistics.Bytes.get -> long
+Broadside.Viewer.TileSchedulerStatistics.Bytes.init -> void
+Broadside.Viewer.TileSchedulerStatistics.PeakBytes.get -> long
+Broadside.Viewer.TileSchedulerStatistics.PeakBytes.init -> void
+Broadside.Viewer.TileSchedulerStatistics.TileBytes.get -> long
+Broadside.Viewer.TileSchedulerStatistics.TileBytes.init -> void
+Broadside.Viewer.TileSchedulerStatistics.ResidentTiles.get -> int
+Broadside.Viewer.TileSchedulerStatistics.ResidentTiles.init -> void
+Broadside.Viewer.TileSchedulerStatistics.PendingTiles.get -> int
+Broadside.Viewer.TileSchedulerStatistics.PendingTiles.init -> void
+Broadside.Viewer.TileSchedulerStatistics.TilesStarted.get -> long
+Broadside.Viewer.TileSchedulerStatistics.TilesStarted.init -> void
+Broadside.Viewer.TileSchedulerStatistics.TilesPresented.get -> long
+Broadside.Viewer.TileSchedulerStatistics.TilesPresented.init -> void
+Broadside.Viewer.TileSchedulerStatistics.TilesCancelled.get -> long
+Broadside.Viewer.TileSchedulerStatistics.TilesCancelled.init -> void
+Broadside.Viewer.TileSchedulerStatistics.TilesEvicted.get -> long
+Broadside.Viewer.TileSchedulerStatistics.TilesEvicted.init -> void
+Broadside.Viewer.TileSchedulerStatistics.LongestFrame.get -> System.TimeSpan
+Broadside.Viewer.TileSchedulerStatistics.LongestFrame.init -> void
+Broadside.Viewer.FramePart
+Broadside.Viewer.FramePart.FramePart() -> void
+Broadside.Viewer.FramePart.FramePart(Broadside.Viewer.FramePartKind Kind, Broadside.Viewer.Tile Tile, Broadside.Viewer.LayoutRectangle Destination) -> void
+Broadside.Viewer.FramePart.Kind.get -> Broadside.Viewer.FramePartKind
+Broadside.Viewer.FramePart.Kind.init -> void
+Broadside.Viewer.FramePart.Tile.get -> Broadside.Viewer.Tile
+Broadside.Viewer.FramePart.Tile.init -> void
+Broadside.Viewer.FramePart.Destination.get -> Broadside.Viewer.LayoutRectangle
+Broadside.Viewer.FramePart.Destination.init -> void
+Broadside.Viewer.FramePartKind
+Broadside.Viewer.FramePartKind.Paper = 0 -> Broadside.Viewer.FramePartKind
+Broadside.Viewer.FramePartKind.Scaled = 1 -> Broadside.Viewer.FramePartKind
+Broadside.Viewer.FramePartKind.Sharp = 2 -> Broadside.Viewer.FramePartKind
+Broadside.Viewer.ProgressiveZoom
+Broadside.Viewer.ProgressiveZoom.ProgressiveZoom(Broadside.Viewer.TileScheduler! scheduler, in Broadside.Viewer.Viewport viewport, Broadside.Viewer.ProgressiveZoomOptions? options = null) -> void
+Broadside.Viewer.ProgressiveZoom.Viewport.get -> Broadside.Viewer.Viewport
+Broadside.Viewer.ProgressiveZoom.IsZooming.get -> bool
+Broadside.Viewer.ProgressiveZoom.MinZoom.get -> double
+Broadside.Viewer.ProgressiveZoom.MaxZoom.get -> double
+Broadside.Viewer.ProgressiveZoom.SetViewport(in Broadside.Viewer.Viewport viewport) -> void
+Broadside.Viewer.ProgressiveZoom.BeginGesture() -> void
+Broadside.Viewer.ProgressiveZoom.ZoomBy(double factor, double anchorX, double anchorY) -> Broadside.Viewer.Viewport
+Broadside.Viewer.ProgressiveZoom.ZoomTo(double zoom, double anchorX, double anchorY) -> Broadside.Viewer.Viewport
+Broadside.Viewer.ProgressiveZoom.EndGesture() -> Broadside.Viewer.Viewport
+Broadside.Viewer.ProgressiveZoom.RunFrame(System.TimeSpan budget) -> bool
+Broadside.Viewer.ProgressiveZoom.GetFrame(System.Span<Broadside.Viewer.FramePart> destination) -> int
+Broadside.Viewer.ProgressiveZoomOptions
+Broadside.Viewer.ProgressiveZoomOptions.ProgressiveZoomOptions() -> void
+Broadside.Viewer.ProgressiveZoomOptions.MinZoom.get -> double
+Broadside.Viewer.ProgressiveZoomOptions.MaxZoom.get -> double
+Broadside.Viewer.ProgressiveZoomOptions.SettleDelay.get -> System.TimeSpan
+Broadside.Viewer.ProgressiveZoomOptions.SettleDelay.set -> void
+Broadside.Viewer.ProgressiveZoomOptions.TimeProvider.get -> System.TimeProvider!
+Broadside.Viewer.ProgressiveZoomOptions.WithZoomRange(double minZoom, double maxZoom) -> Broadside.Viewer.ProgressiveZoomOptions!
+Broadside.Viewer.ProgressiveZoomOptions.WithSettleDelay(System.TimeSpan delay) -> Broadside.Viewer.ProgressiveZoomOptions!
+Broadside.Viewer.ProgressiveZoomOptions.UseTimeProvider(System.TimeProvider! timeProvider) -> Broadside.Viewer.ProgressiveZoomOptions!
+Broadside.Viewer.TileScheduler.GetFrame(in Broadside.Viewer.Viewport viewport, System.Span<Broadside.Viewer.FramePart> destination) -> int
+const Broadside.Viewer.ProgressiveZoomOptions.DefaultMinZoom = 0.1 -> double
+const Broadside.Viewer.ProgressiveZoomOptions.DefaultMaxZoom = 64 -> double
+Broadside.Viewer.ContentReadingOrder
+Broadside.Viewer.ContentReadingOrder.GetReadingOrder(Broadside.PdfPage! page, Broadside.Rendering.HitTestIndex! index) -> int[]!
+static Broadside.Viewer.ContentReadingOrder.Instance.get -> Broadside.Viewer.ContentReadingOrder!
+Broadside.Viewer.IReadingOrderProvider
+Broadside.Viewer.IReadingOrderProvider.GetReadingOrder(Broadside.PdfPage! page, Broadside.Rendering.HitTestIndex! index) -> int[]!
+Broadside.Viewer.LayoutReadingOrder
+Broadside.Viewer.LayoutReadingOrder.GetReadingOrder(Broadside.PdfPage! page, Broadside.Rendering.HitTestIndex! index) -> int[]!
+Broadside.Viewer.LayoutReadingOrder.LayoutReadingOrder() -> void
+Broadside.Viewer.LayoutReadingOrder.LayoutReadingOrder(Broadside.Layout.LayoutOptions! options) -> void
+static Broadside.Viewer.LayoutReadingOrder.Default.get -> Broadside.Viewer.LayoutReadingOrder!
+Broadside.Viewer.SelectableText
+Broadside.Viewer.SelectableText.FindLink(Broadside.Graphics.PathPoint point) -> Broadside.Rendering.HitTestLink?
+Broadside.Viewer.SelectableText.GetGlyphAt(Broadside.Graphics.PathPoint point) -> int
+Broadside.Viewer.SelectableText.GetGlyphIndex(int position) -> int
+Broadside.Viewer.SelectableText.GetGlyphText(int position) -> System.ReadOnlySpan<char>
+Broadside.Viewer.SelectableText.GetLineRange(int position) -> (int Start, int End)
+Broadside.Viewer.SelectableText.GetNearestGlyph(Broadside.Graphics.PathPoint point) -> int
+Broadside.Viewer.SelectableText.GetOffset(Broadside.Graphics.PathPoint point) -> int
+Broadside.Viewer.SelectableText.GetParagraphRange(int position) -> (int Start, int End)
+Broadside.Viewer.SelectableText.GetPosition(int glyphIndex) -> int
+Broadside.Viewer.SelectableText.GetQuads(int start, int end, System.Span<Broadside.Graphics.Quad> destination) -> int
+Broadside.Viewer.SelectableText.GetText(int start, int end) -> string!
+Broadside.Viewer.SelectableText.GetWordRange(int position) -> (int Start, int End)
+Broadside.Viewer.SelectableText.Index.get -> Broadside.Rendering.HitTestIndex!
+Broadside.Viewer.SelectableText.Length.get -> int
+Broadside.Viewer.SelectableText.Page.get -> Broadside.PdfPage!
+static Broadside.Viewer.SelectableText.Create(Broadside.PdfPage! page, Broadside.Rendering.HitTestIndex! index, Broadside.Viewer.IReadingOrderProvider? readingOrder = null) -> Broadside.Viewer.SelectableText!
+Broadside.Viewer.SelectionGranularity
+Broadside.Viewer.SelectionGranularity.Character = 0 -> Broadside.Viewer.SelectionGranularity
+Broadside.Viewer.SelectionGranularity.Line = 2 -> Broadside.Viewer.SelectionGranularity
+Broadside.Viewer.SelectionGranularity.Paragraph = 3 -> Broadside.Viewer.SelectionGranularity
+Broadside.Viewer.SelectionGranularity.Word = 1 -> Broadside.Viewer.SelectionGranularity
+Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.CharacterBackward = 0 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.CharacterForward = 1 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.DocumentEnd = 9 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.DocumentStart = 8 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.LineDown = 5 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.LineEnd = 7 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.LineStart = 6 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.LineUp = 4 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.WordBackward = 2 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.WordForward = 3 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.TextPosition
+Broadside.Viewer.TextPosition.CompareTo(Broadside.Viewer.TextPosition other) -> int
+Broadside.Viewer.TextPosition.Offset.get -> int
+Broadside.Viewer.TextPosition.Offset.init -> void
+Broadside.Viewer.TextPosition.PageIndex.get -> int
+Broadside.Viewer.TextPosition.PageIndex.init -> void
+Broadside.Viewer.TextPosition.TextPosition() -> void
+Broadside.Viewer.TextPosition.TextPosition(int PageIndex, int Offset) -> void
+static Broadside.Viewer.TextPosition.operator <(Broadside.Viewer.TextPosition left, Broadside.Viewer.TextPosition right) -> bool
+static Broadside.Viewer.TextPosition.operator <=(Broadside.Viewer.TextPosition left, Broadside.Viewer.TextPosition right) -> bool
+static Broadside.Viewer.TextPosition.operator >(Broadside.Viewer.TextPosition left, Broadside.Viewer.TextPosition right) -> bool
+static Broadside.Viewer.TextPosition.operator >=(Broadside.Viewer.TextPosition left, Broadside.Viewer.TextPosition right) -> bool
+Broadside.Viewer.TextSelection
+Broadside.Viewer.TextSelection.Anchor.get -> Broadside.Viewer.TextPosition
+Broadside.Viewer.TextSelection.Begin(in Broadside.Viewer.PagePoint point, Broadside.Viewer.SelectionGranularity granularity = Broadside.Viewer.SelectionGranularity.Character) -> bool
+Broadside.Viewer.TextSelection.Changed -> System.EventHandler?
+Broadside.Viewer.TextSelection.Clear() -> void
+Broadside.Viewer.TextSelection.End.get -> Broadside.Viewer.TextPosition
+Broadside.Viewer.TextSelection.Extend(in Broadside.Viewer.PagePoint point) -> bool
+Broadside.Viewer.TextSelection.FindLink(in Broadside.Viewer.PagePoint point) -> Broadside.Rendering.HitTestLink?
+Broadside.Viewer.TextSelection.Focus.get -> Broadside.Viewer.TextPosition
+Broadside.Viewer.TextSelection.GetQuads(int pageIndex, System.Span<Broadside.Graphics.Quad> destination) -> int
+Broadside.Viewer.TextSelection.GetTextAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string!>
+Broadside.Viewer.TextSelection.Granularity.get -> Broadside.Viewer.SelectionGranularity
+Broadside.Viewer.TextSelection.IsEmpty.get -> bool
+Broadside.Viewer.TextSelection.LoadPageAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.SelectableText!>
+Broadside.Viewer.TextSelection.Move(Broadside.Viewer.SelectionMove move, bool extend = true) -> bool
+Broadside.Viewer.TextSelection.ReadingOrder.get -> Broadside.Viewer.IReadingOrderProvider!
+Broadside.Viewer.TextSelection.Select(Broadside.Viewer.TextPosition anchor, Broadside.Viewer.TextPosition focus) -> void
+Broadside.Viewer.TextSelection.SelectAll() -> void
+Broadside.Viewer.TextSelection.Session.get -> Broadside.Viewer.DocumentSession!
+Broadside.Viewer.TextSelection.Start.get -> Broadside.Viewer.TextPosition
+Broadside.Viewer.TextSelection.TextSelection(Broadside.Viewer.DocumentSession! session) -> void
+Broadside.Viewer.TextSelection.TextSelection(Broadside.Viewer.DocumentSession! session, Broadside.Viewer.IReadingOrderProvider? readingOrder) -> void
+Broadside.Viewer.TextSelection.TryGetPage(int pageIndex, out Broadside.Viewer.SelectableText? text) -> bool
+Broadside.Viewer.ProgressiveZoom.Layout.get -> Broadside.Viewer.PageLayout!
+Broadside.Viewer.InputModel
+Broadside.Viewer.InputModel.InputModel(Broadside.Viewer.ProgressiveZoom! zoom, Broadside.Viewer.InputModelOptions? options = null) -> void
+Broadside.Viewer.InputModel.Zoom.get -> Broadside.Viewer.ProgressiveZoom!
+Broadside.Viewer.InputModel.Viewport.get -> Broadside.Viewer.Viewport
+Broadside.Viewer.InputModel.CurrentPage.get -> int
+Broadside.Viewer.InputModel.IsAnimating.get -> bool
+Broadside.Viewer.InputModel.ActualSize.get -> double
+Broadside.Viewer.InputModel.PixelRatio.get -> double
+Broadside.Viewer.InputModel.PixelRatio.set -> void
+Broadside.Viewer.InputModel.PointerDown(long pointerId, Broadside.Viewer.PointerKind kind, double x, double y) -> void
+Broadside.Viewer.InputModel.PointerMove(long pointerId, double x, double y) -> void
+Broadside.Viewer.InputModel.PointerUp(long pointerId, double x, double y) -> void
+Broadside.Viewer.InputModel.PointerCancel(long pointerId) -> void
+Broadside.Viewer.InputModel.Wheel(double deltaX, double deltaY, Broadside.Viewer.WheelDeltaMode mode, Broadside.Viewer.InputModifiers modifiers, double x, double y) -> void
+Broadside.Viewer.InputModel.KeyDown(Broadside.Viewer.InputKey key, Broadside.Viewer.InputModifiers modifiers) -> bool
+Broadside.Viewer.InputModel.Resize(double width, double height) -> void
+Broadside.Viewer.InputModel.GoToPage(int pageIndex) -> void
+Broadside.Viewer.InputModel.NextPage() -> void
+Broadside.Viewer.InputModel.PreviousPage() -> void
+Broadside.Viewer.InputModel.ZoomTo(Broadside.Viewer.ZoomMode mode) -> void
+Broadside.Viewer.InputModel.Stop() -> void
+Broadside.Viewer.InputModel.RunFrame(System.TimeSpan budget) -> bool
+const Broadside.Viewer.InputModel.LineScroll = 40 -> double
+Broadside.Viewer.InputModelOptions
+Broadside.Viewer.InputModelOptions.InputModelOptions() -> void
+Broadside.Viewer.InputModelOptions.TimeProvider.get -> System.TimeProvider!
+Broadside.Viewer.InputModelOptions.PixelRatio.get -> double
+Broadside.Viewer.InputModelOptions.AnimationDuration.get -> System.TimeSpan
+Broadside.Viewer.InputModelOptions.FlingTimeConstant.get -> System.TimeSpan
+Broadside.Viewer.InputModelOptions.DoubleTapZoom.get -> double
+Broadside.Viewer.InputModelOptions.SnapToPages.get -> bool
+Broadside.Viewer.InputModelOptions.UseTimeProvider(System.TimeProvider! timeProvider) -> Broadside.Viewer.InputModelOptions!
+Broadside.Viewer.InputModelOptions.WithPixelRatio(double pixelRatio) -> Broadside.Viewer.InputModelOptions!
+Broadside.Viewer.InputModelOptions.WithAnimationDuration(System.TimeSpan duration) -> Broadside.Viewer.InputModelOptions!
+Broadside.Viewer.InputModelOptions.WithFlingTimeConstant(System.TimeSpan timeConstant) -> Broadside.Viewer.InputModelOptions!
+Broadside.Viewer.InputModelOptions.WithDoubleTapZoom(double multiple) -> Broadside.Viewer.InputModelOptions!
+Broadside.Viewer.InputModelOptions.WithPageSnapping(bool snap) -> Broadside.Viewer.InputModelOptions!
+Broadside.Viewer.PointerKind
+Broadside.Viewer.PointerKind.Mouse = 0 -> Broadside.Viewer.PointerKind
+Broadside.Viewer.PointerKind.Touch = 1 -> Broadside.Viewer.PointerKind
+Broadside.Viewer.PointerKind.Pen = 2 -> Broadside.Viewer.PointerKind
+Broadside.Viewer.InputModifiers
+Broadside.Viewer.InputModifiers.None = 0 -> Broadside.Viewer.InputModifiers
+Broadside.Viewer.InputModifiers.Shift = 1 -> Broadside.Viewer.InputModifiers
+Broadside.Viewer.InputModifiers.Control = 2 -> Broadside.Viewer.InputModifiers
+Broadside.Viewer.InputModifiers.Alt = 4 -> Broadside.Viewer.InputModifiers
+Broadside.Viewer.InputModifiers.Meta = 8 -> Broadside.Viewer.InputModifiers
+Broadside.Viewer.WheelDeltaMode
+Broadside.Viewer.WheelDeltaMode.Pixel = 0 -> Broadside.Viewer.WheelDeltaMode
+Broadside.Viewer.WheelDeltaMode.Line = 1 -> Broadside.Viewer.WheelDeltaMode
+Broadside.Viewer.WheelDeltaMode.Page = 2 -> Broadside.Viewer.WheelDeltaMode
+Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.None = 0 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.ArrowLeft = 1 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.ArrowRight = 2 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.ArrowUp = 3 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.ArrowDown = 4 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.PageUp = 5 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.PageDown = 6 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Space = 7 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Home = 8 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.End = 9 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Plus = 10 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Minus = 11 -> Broadside.Viewer.InputKey
+Broadside.Viewer.InputKey.Zero = 12 -> Broadside.Viewer.InputKey
+Broadside.Viewer.AnnotationLayer
+Broadside.Viewer.AnnotationLayer.ActionRequested -> System.EventHandler<Broadside.Viewer.ViewerActionEventArgs!>?
+Broadside.Viewer.AnnotationLayer.Activate(Broadside.Viewer.AnnotationTarget target) -> void
+Broadside.Viewer.AnnotationLayer.Add(int pageIndex, System.Func<Broadside.PdfPage!, Broadside.Annotations.PdfAnnotation!>! create) -> Broadside.Viewer.AnnotationTarget?
+Broadside.Viewer.AnnotationLayer.AnnotationLayer(Broadside.Viewer.DocumentSession! session, Broadside.Viewer.TileScheduler? scheduler = null) -> void
+Broadside.Viewer.AnnotationLayer.Changed -> System.EventHandler?
+Broadside.Viewer.AnnotationLayer.Edit(Broadside.Viewer.AnnotationTarget target, System.Action<Broadside.Annotations.PdfAnnotation!>! edit, bool regenerateAppearance = true) -> bool
+Broadside.Viewer.AnnotationLayer.Focus(Broadside.Viewer.AnnotationTarget? target) -> void
+Broadside.Viewer.AnnotationLayer.Focused.get -> Broadside.Viewer.AnnotationTarget?
+Broadside.Viewer.AnnotationLayer.FocusedField.get -> Broadside.Forms.PdfTerminalField?
+Broadside.Viewer.AnnotationLayer.FocusNext() -> bool
+Broadside.Viewer.AnnotationLayer.FocusPrevious() -> bool
+Broadside.Viewer.AnnotationLayer.GetAccessibleName(Broadside.Viewer.AnnotationTarget target) -> string!
+Broadside.Viewer.AnnotationLayer.GetAnnotation(Broadside.Viewer.AnnotationTarget target) -> Broadside.Annotations.PdfAnnotation!
+Broadside.Viewer.AnnotationLayer.GetCount(int pageIndex) -> int
+Broadside.Viewer.AnnotationLayer.GetFocusOrder(int pageIndex, System.Span<Broadside.Viewer.AnnotationTarget> destination) -> int
+Broadside.Viewer.AnnotationLayer.GetNote(Broadside.Viewer.AnnotationTarget target) -> Broadside.Viewer.AnnotationNote!
+Broadside.Viewer.AnnotationLayer.GetRectangle(Broadside.Viewer.AnnotationTarget target) -> Broadside.PdfRectangle
+Broadside.Viewer.AnnotationLayer.GetRole(Broadside.Viewer.AnnotationTarget target) -> Broadside.Viewer.AnnotationRole
+Broadside.Viewer.AnnotationLayer.GetScreenRectangle(Broadside.Viewer.AnnotationTarget target, Broadside.Viewer.PageLayout! layout, in Broadside.Viewer.Viewport viewport) -> Broadside.Viewer.LayoutRectangle
+Broadside.Viewer.AnnotationLayer.HitTest(in Broadside.Viewer.PagePoint point) -> Broadside.Viewer.AnnotationTarget?
+Broadside.Viewer.AnnotationLayer.Hovered.get -> Broadside.Viewer.AnnotationTarget?
+Broadside.Viewer.AnnotationLayer.Invalidated -> System.EventHandler<Broadside.Viewer.PageInvalidatedEventArgs!>?
+Broadside.Viewer.AnnotationLayer.IsDragging.get -> bool
+Broadside.Viewer.AnnotationLayer.LoadPageAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<int>
+Broadside.Viewer.AnnotationLayer.Move(Broadside.Viewer.AnnotationTarget target, double dx, double dy) -> bool
+Broadside.Viewer.AnnotationLayer.PointerCancel() -> void
+Broadside.Viewer.AnnotationLayer.PointerDown(in Broadside.Viewer.PagePoint point) -> bool
+Broadside.Viewer.AnnotationLayer.PointerMove(in Broadside.Viewer.PagePoint point) -> Broadside.Viewer.AnnotationTarget?
+Broadside.Viewer.AnnotationLayer.PointerUp(in Broadside.Viewer.PagePoint point) -> bool
+Broadside.Viewer.AnnotationLayer.Remove(Broadside.Viewer.AnnotationTarget target) -> bool
+Broadside.Viewer.AnnotationLayer.Select(Broadside.Viewer.AnnotationTarget? target) -> void
+Broadside.Viewer.AnnotationLayer.Selected.get -> Broadside.Viewer.AnnotationTarget?
+Broadside.Viewer.AnnotationLayer.Session.get -> Broadside.Viewer.DocumentSession!
+Broadside.Viewer.AnnotationLayer.SetFieldChoice(string? value) -> bool
+Broadside.Viewer.AnnotationLayer.SetFieldSelection(System.Collections.Generic.IEnumerable<int>! indices) -> bool
+Broadside.Viewer.AnnotationLayer.SetFieldText(string? value) -> bool
+Broadside.Viewer.AnnotationLayer.ToggleField() -> bool
+Broadside.Viewer.AnnotationNote
+Broadside.Viewer.AnnotationNote.Annotation.get -> Broadside.Annotations.PdfAnnotation!
+Broadside.Viewer.AnnotationNote.Annotation.init -> void
+Broadside.Viewer.AnnotationNote.AnnotationNote(Broadside.Annotations.PdfAnnotation! Annotation, string? Contents, string? RichText, string? Title, string? Subject, string? Modified, Broadside.PdfRectangle? PopupRectangle, bool IsOpen, System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfMarkupAnnotation!>! Replies) -> void
+Broadside.Viewer.AnnotationNote.Contents.get -> string?
+Broadside.Viewer.AnnotationNote.Contents.init -> void
+Broadside.Viewer.AnnotationNote.IsOpen.get -> bool
+Broadside.Viewer.AnnotationNote.IsOpen.init -> void
+Broadside.Viewer.AnnotationNote.Modified.get -> string?
+Broadside.Viewer.AnnotationNote.Modified.init -> void
+Broadside.Viewer.AnnotationNote.PopupRectangle.get -> Broadside.PdfRectangle?
+Broadside.Viewer.AnnotationNote.PopupRectangle.init -> void
+Broadside.Viewer.AnnotationNote.Replies.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfMarkupAnnotation!>!
+Broadside.Viewer.AnnotationNote.Replies.init -> void
+Broadside.Viewer.AnnotationNote.RichText.get -> string?
+Broadside.Viewer.AnnotationNote.RichText.init -> void
+Broadside.Viewer.AnnotationNote.Subject.get -> string?
+Broadside.Viewer.AnnotationNote.Subject.init -> void
+Broadside.Viewer.AnnotationNote.Title.get -> string?
+Broadside.Viewer.AnnotationNote.Title.init -> void
+Broadside.Viewer.AnnotationRole
+Broadside.Viewer.AnnotationRole.Annotation = 2 -> Broadside.Viewer.AnnotationRole
+Broadside.Viewer.AnnotationRole.Field = 1 -> Broadside.Viewer.AnnotationRole
+Broadside.Viewer.AnnotationRole.Link = 0 -> Broadside.Viewer.AnnotationRole
+Broadside.Viewer.AnnotationTarget
+Broadside.Viewer.AnnotationTarget.AnnotationTarget() -> void
+Broadside.Viewer.AnnotationTarget.AnnotationTarget(int PageIndex, int Index) -> void
+Broadside.Viewer.AnnotationTarget.Index.get -> int
+Broadside.Viewer.AnnotationTarget.Index.init -> void
+Broadside.Viewer.AnnotationTarget.PageIndex.get -> int
+Broadside.Viewer.AnnotationTarget.PageIndex.init -> void
+Broadside.Viewer.PageInvalidatedEventArgs
+Broadside.Viewer.PageInvalidatedEventArgs.Area.get -> Broadside.PdfRectangle?
+Broadside.Viewer.PageInvalidatedEventArgs.Layers.get -> Broadside.Rendering.DisplayLayers
+Broadside.Viewer.PageInvalidatedEventArgs.PageIndex.get -> int
+Broadside.Viewer.TileScheduler.Invalidate(int pageIndex, Broadside.PdfRectangle area, Broadside.Rendering.DisplayLayers layers) -> int
+Broadside.Viewer.TileScheduler.Invalidate(int pageIndex, Broadside.Rendering.DisplayLayers layers) -> int
+Broadside.Viewer.TileScheduler.Layers.get -> Broadside.Rendering.DisplayLayers
+Broadside.Viewer.TileScheduler.SetLayers(Broadside.Rendering.DisplayLayers layers) -> void
+Broadside.Viewer.TileSchedulerOptions.SeparateOverlays.get -> bool
+Broadside.Viewer.TileSchedulerOptions.SeparateOverlays.set -> void
+Broadside.Viewer.TileSchedulerOptions.WithSeparateOverlays(bool separate = true) -> Broadside.Viewer.TileSchedulerOptions!
+Broadside.Viewer.ViewerActionEventArgs
+Broadside.Viewer.ViewerActionEventArgs.Action.get -> Broadside.PdfAction?
+Broadside.Viewer.ViewerActionEventArgs.Annotation.get -> Broadside.Annotations.PdfAnnotation?
+Broadside.Viewer.ViewerActionEventArgs.Destination.get -> Broadside.PdfExplicitDestination?
+Broadside.Viewer.ViewerActionEventArgs.IsScript.get -> bool
+Broadside.Viewer.ViewerActionEventArgs.Kind.get -> Broadside.PdfActionKind
+Broadside.Viewer.ViewerActionEventArgs.NamedOperation.get -> Broadside.PdfNamedOperation?
+Broadside.Viewer.ViewerActionEventArgs.PageIndex.get -> int?
+Broadside.Viewer.ViewerActionEventArgs.Uri.get -> System.Uri?
+const Broadside.Viewer.AnnotationLayer.DragThreshold = 2 -> double
+static Broadside.Viewer.AnnotationLayer.GetDestinationViewport(Broadside.PdfExplicitDestination! destination, Broadside.Viewer.PageLayout! layout, in Broadside.Viewer.Viewport viewport) -> Broadside.Viewer.Viewport
+Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Document = 0 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Page = 1 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Section = 2 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Group = 3 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Paragraph = 4 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Heading = 5 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.List = 6 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.ListItem = 7 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.ListMarker = 8 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Table = 9 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Row = 10 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.ColumnHeader = 11 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.RowHeader = 12 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Cell = 13 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Figure = 14 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Caption = 15 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Text = 16 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Link = 17 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Note = 18 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Button = 19 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.CheckBox = 20 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.RadioButton = 21 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.TextBox = 22 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.ComboBox = 23 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.ListBox = 24 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Annotation = 25 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleStates.None = 0 -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleStates.Focusable = 1 -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleStates.Focused = 2 -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleStates.Offscreen = 4 -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleStates.Checked = 8 -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleStates.ReadOnly = 16 -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleStates.Required = 32 -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleStates.Disabled = 64 -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.Element = 0 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.Heading = 1 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.Landmark = 2 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.Table = 3 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.List = 4 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.Figure = 5 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.Link = 6 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.Control = 7 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.Page = 8 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibilityChangeKind
+Broadside.Viewer.AccessibilityChangeKind.FocusChanged = 0 -> Broadside.Viewer.AccessibilityChangeKind
+Broadside.Viewer.AccessibilityChangeKind.ChildrenChanged = 1 -> Broadside.Viewer.AccessibilityChangeKind
+Broadside.Viewer.AccessibilityChangeKind.BoundsChanged = 2 -> Broadside.Viewer.AccessibilityChangeKind
+Broadside.Viewer.AccessibilityChange
+Broadside.Viewer.AccessibilityChange.AccessibilityChange() -> void
+Broadside.Viewer.AccessibilityChange.AccessibilityChange(Broadside.Viewer.AccessibilityChangeKind Kind, Broadside.Viewer.AccessibleNode? Node) -> void
+Broadside.Viewer.AccessibilityChange.Kind.get -> Broadside.Viewer.AccessibilityChangeKind
+Broadside.Viewer.AccessibilityChange.Kind.init -> void
+Broadside.Viewer.AccessibilityChange.Node.get -> Broadside.Viewer.AccessibleNode?
+Broadside.Viewer.AccessibilityChange.Node.init -> void
+Broadside.Viewer.AccessibleElement
+Broadside.Viewer.AccessibleElement.AccessibleElement() -> void
+Broadside.Viewer.AccessibleElement.AccessibleElement(Broadside.Viewer.AccessibleRole Role, Broadside.PdfRectangle Bounds) -> void
+Broadside.Viewer.AccessibleElement.Role.get -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleElement.Role.init -> void
+Broadside.Viewer.AccessibleElement.Bounds.get -> Broadside.PdfRectangle
+Broadside.Viewer.AccessibleElement.Bounds.init -> void
+Broadside.Viewer.AccessibleElement.Name.get -> string?
+Broadside.Viewer.AccessibleElement.Name.init -> void
+Broadside.Viewer.AccessibleElement.Value.get -> string?
+Broadside.Viewer.AccessibleElement.Value.init -> void
+Broadside.Viewer.AccessibleElement.States.get -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleElement.States.init -> void
+Broadside.Viewer.AccessibleElement.Source.get -> object?
+Broadside.Viewer.AccessibleElement.Source.init -> void
+Broadside.Viewer.IAccessibleElementProvider
+Broadside.Viewer.IAccessibleElementProvider.GetElements(Broadside.PdfPage! page, int pageIndex, System.Collections.Generic.ICollection<Broadside.Viewer.AccessibleElement>! destination) -> void
+Broadside.Viewer.AccessibleNode
+Broadside.Viewer.AccessibleNode.Role.get -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleNode.Name.get -> string?
+Broadside.Viewer.AccessibleNode.Value.get -> string?
+Broadside.Viewer.AccessibleNode.Text.get -> string!
+Broadside.Viewer.AccessibleNode.Language.get -> string?
+Broadside.Viewer.AccessibleNode.Level.get -> int
+Broadside.Viewer.AccessibleNode.PageIndex.get -> int
+Broadside.Viewer.AccessibleNode.Index.get -> int
+Broadside.Viewer.AccessibleNode.Parent.get -> Broadside.Viewer.AccessibleNode?
+Broadside.Viewer.AccessibleNode.Children.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.AccessibleNode!>!
+Broadside.Viewer.AccessibleNode.RowCount.get -> int
+Broadside.Viewer.AccessibleNode.ColumnCount.get -> int
+Broadside.Viewer.AccessibleNode.Row.get -> int
+Broadside.Viewer.AccessibleNode.Column.get -> int
+Broadside.Viewer.AccessibleNode.RowSpan.get -> int
+Broadside.Viewer.AccessibleNode.ColumnSpan.get -> int
+Broadside.Viewer.AccessibleNode.Headers.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.AccessibleNode!>!
+Broadside.Viewer.AccessibleNode.PageBounds.get -> Broadside.PdfRectangle?
+Broadside.Viewer.AccessibleNode.LayoutNode.get -> Broadside.Layout.LayoutNode?
+Broadside.Viewer.AccessibleNode.Source.get -> object?
+override Broadside.Viewer.AccessibleNode.ToString() -> string!
+Broadside.Viewer.AccessibilityBridge
+Broadside.Viewer.AccessibilityBridge.AccessibilityBridge(Broadside.Viewer.DocumentSession! session) -> void
+Broadside.Viewer.AccessibilityBridge.AccessibilityBridge(Broadside.Viewer.DocumentSession! session, Broadside.Viewer.IAccessibleElementProvider? elements) -> void
+Broadside.Viewer.AccessibilityBridge.Observer.get -> System.Action<Broadside.Viewer.AccessibilityChange>?
+Broadside.Viewer.AccessibilityBridge.Observer.set -> void
+Broadside.Viewer.AccessibilityBridge.Session.get -> Broadside.Viewer.DocumentSession!
+Broadside.Viewer.AccessibilityBridge.Elements.get -> Broadside.Viewer.IAccessibleElementProvider?
+Broadside.Viewer.AccessibilityBridge.Root.get -> Broadside.Viewer.AccessibleNode!
+Broadside.Viewer.AccessibilityBridge.Viewer.get -> Broadside.Viewer.ProgressiveZoom?
+Broadside.Viewer.AccessibilityBridge.Viewer.set -> void
+Broadside.Viewer.AccessibilityBridge.Focus.get -> Broadside.Viewer.AccessibleNode?
+Broadside.Viewer.AccessibilityBridge.GetPage(int pageIndex) -> Broadside.Viewer.AccessibleNode!
+Broadside.Viewer.AccessibilityBridge.IsPageLoaded(int pageIndex) -> bool
+Broadside.Viewer.AccessibilityBridge.LoadPage(int pageIndex) -> Broadside.Viewer.AccessibleNode!
+Broadside.Viewer.AccessibilityBridge.LoadPageAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.AccessibleNode!>
+Broadside.Viewer.AccessibilityBridge.InvalidatePage(int pageIndex) -> void
+Broadside.Viewer.AccessibilityBridge.FindNode(int pageIndex, object! source) -> Broadside.Viewer.AccessibleNode?
+Broadside.Viewer.AccessibilityBridge.GetNodeAt(in Broadside.Viewer.PagePoint point) -> Broadside.Viewer.AccessibleNode!
+Broadside.Viewer.AccessibilityBridge.FindNext(Broadside.Viewer.AccessibleNode? from, Broadside.Viewer.AccessibleNavigation target, bool backward = false, int level = 0) -> Broadside.Viewer.AccessibleNode?
+Broadside.Viewer.AccessibilityBridge.MoveFocus(Broadside.Viewer.AccessibleNavigation target, bool backward = false, int level = 0) -> bool
+Broadside.Viewer.AccessibilityBridge.SetFocus(Broadside.Viewer.AccessibleNode? node) -> void
+Broadside.Viewer.AccessibilityBridge.Update() -> void
+Broadside.Viewer.AccessibilityBridge.Update(Broadside.Viewer.PageLayout! layout, in Broadside.Viewer.Viewport viewport) -> void
+Broadside.Viewer.AccessibilityBridge.GetStates(Broadside.Viewer.AccessibleNode! node) -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibilityBridge.TryGetBounds(Broadside.Viewer.AccessibleNode! node, out Broadside.Viewer.LayoutRectangle bounds) -> bool
+Broadside.Viewer.AccessibilityBridge.TryGetViewportShowing(Broadside.Viewer.AccessibleNode! node, out Broadside.Viewer.Viewport viewport) -> bool
+Broadside.Viewer.AnnotationLayer.Accessibility.get -> Broadside.Viewer.AccessibilityBridge?
+Broadside.Viewer.AnnotationLayer.Accessibility.set -> void
+Broadside.Viewer.AnnotationLayer.GetElements(Broadside.PdfPage! page, int pageIndex, System.Collections.Generic.ICollection<Broadside.Viewer.AccessibleElement>! destination) -> void

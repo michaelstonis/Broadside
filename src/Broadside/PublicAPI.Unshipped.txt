@@ -530,6 +530,8 @@ Broadside.Content.ContentOptions.MaxOperands.get -> int
 Broadside.Content.ContentOptions.MaxOperands.set -> void
 Broadside.Content.ContentOptions.MaxSaveDepth.get -> int
 Broadside.Content.ContentOptions.MaxSaveDepth.set -> void
+Broadside.Content.ContentOptions.Progress.get -> System.IProgress<double>?
+Broadside.Content.ContentOptions.Progress.set -> void
 Broadside.Content.ContentOptions.OptionalContentState.get -> Broadside.PdfOptionalContentState?
 Broadside.Content.ContentOptions.OptionalContentState.set -> void
 Broadside.Content.ContentOptions.WithCancellation(System.Threading.CancellationToken cancellationToken) -> Broadside.Content.ContentOptions!
@@ -537,6 +539,7 @@ Broadside.Content.ContentOptions.WithMaxNestingDepth(int maxNestingDepth) -> Bro
 Broadside.Content.ContentOptions.WithMaxOperands(int maxOperands) -> Broadside.Content.ContentOptions!
 Broadside.Content.ContentOptions.WithMaxSaveDepth(int maxSaveDepth) -> Broadside.Content.ContentOptions!
 Broadside.Content.ContentOptions.WithOptionalContentState(Broadside.PdfOptionalContentState? state) -> Broadside.Content.ContentOptions!
+Broadside.Content.ContentOptions.WithProgress(System.IProgress<double>? progress) -> Broadside.Content.ContentOptions!
 Broadside.Content.ContentProcessor
 Broadside.Content.ContentProcessor.ContentProcessor() -> void
 Broadside.Content.ContentRunKind
@@ -1064,6 +1067,8 @@ Broadside.Graphics.ColorConversion.Target.get -> Broadside.Graphics.DeviceColorM
 Broadside.Graphics.ColorConversion.Target.init -> void
 Broadside.Graphics.ColorConversion.UndercolorRemoval.get -> Broadside.Graphics.PdfFunction?
 Broadside.Graphics.ColorConversion.UndercolorRemoval.init -> void
+Broadside.Graphics.ColorConversion.TransferFunction.get -> Broadside.Graphics.PdfTransferFunction?
+Broadside.Graphics.ColorConversion.TransferFunction.init -> void
 Broadside.Graphics.ComponentRange
 Broadside.Graphics.ComponentRange.Clamp(double value) -> double
 Broadside.Graphics.ComponentRange.ComponentRange() -> void
@@ -1297,6 +1302,7 @@ Broadside.Graphics.PdfIccBasedColorSpace.GetProfileData() -> System.ReadOnlyMemo
 Broadside.Graphics.PdfIccBasedColorSpace.Metadata.get -> Broadside.Objects.CosStream?
 Broadside.Graphics.PdfIccBasedColorSpace.ProfileHeader.get -> Broadside.Graphics.IccProfileHeader?
 Broadside.Graphics.PdfIccBasedColorSpace.Range.get -> System.Collections.Generic.IReadOnlyList<double>!
+Broadside.Graphics.PdfIccBasedColorSpace.ReportProfileInvalid(string! message) -> void
 Broadside.Graphics.PdfIccBasedColorSpace.Stream.get -> Broadside.Objects.CosStream!
 Broadside.Graphics.PdfIndexedColorSpace
 Broadside.Graphics.PdfIndexedColorSpace.Base.get -> Broadside.Graphics.PdfColorSpace!
@@ -1412,6 +1418,18 @@ Broadside.Graphics.PdfTriangleMeshShading.VertexColors.get -> System.ReadOnlySpa
 Broadside.Graphics.PdfTriangleMeshShading.VertexCount.get -> int
 Broadside.Graphics.PdfTriangleMeshShading.Vertices.get -> System.ReadOnlySpan<Broadside.Graphics.PathPoint>
 Broadside.Graphics.PdfTriangleMeshShading.VerticesPerRow.get -> int
+Broadside.Graphics.Quad
+Broadside.Graphics.Quad.BottomLeft.get -> Broadside.Graphics.PathPoint
+Broadside.Graphics.Quad.BottomLeft.init -> void
+Broadside.Graphics.Quad.BottomRight.get -> Broadside.Graphics.PathPoint
+Broadside.Graphics.Quad.BottomRight.init -> void
+Broadside.Graphics.Quad.Bounds.get -> Broadside.PdfRectangle
+Broadside.Graphics.Quad.Quad() -> void
+Broadside.Graphics.Quad.Quad(Broadside.Graphics.PathPoint BottomLeft, Broadside.Graphics.PathPoint BottomRight, Broadside.Graphics.PathPoint TopRight, Broadside.Graphics.PathPoint TopLeft) -> void
+Broadside.Graphics.Quad.TopLeft.get -> Broadside.Graphics.PathPoint
+Broadside.Graphics.Quad.TopLeft.init -> void
+Broadside.Graphics.Quad.TopRight.get -> Broadside.Graphics.PathPoint
+Broadside.Graphics.Quad.TopRight.init -> void
 Broadside.Graphics.RenderingIntent
 Broadside.Graphics.RenderingIntent.AbsoluteColorimetric = 1 -> Broadside.Graphics.RenderingIntent
 Broadside.Graphics.RenderingIntent.Perceptual = 3 -> Broadside.Graphics.RenderingIntent
@@ -1595,11 +1613,14 @@ Broadside.Objects.CosString.IsHexadecimal.get -> bool
 Broadside.PdfDocument.GetImage(Broadside.Objects.CosObject? image) -> Broadside.Images.PdfImage?
 Broadside.PdfOptions.MaxImagePixels.get -> long
 Broadside.PdfOptions.MaxImagePixels.set -> void
+Broadside.PdfOptions.MaxMeshVertices.get -> int
+Broadside.PdfOptions.MaxMeshVertices.set -> void
 Broadside.PdfDocument.GetPattern(Broadside.Objects.CosObject! pattern) -> Broadside.Graphics.PdfPattern?
 Broadside.PdfDocument.GetShading(Broadside.Objects.CosObject! shading) -> Broadside.Graphics.PdfShading?
 Broadside.PdfDocument.AcroForm.get -> Broadside.Forms.PdfAcroForm?
 Broadside.PdfOptions.UseFontProgramParser(Broadside.Fonts.IFontProgramParser! parser) -> Broadside.PdfOptions!
 Broadside.PdfOptions.WithMaxImagePixels(long maxPixels) -> Broadside.PdfOptions!
+Broadside.PdfOptions.WithMaxMeshVertices(int maxVertices) -> Broadside.PdfOptions!
 Broadside.PdfPage.Annotations.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfAnnotation!>!
 Broadside.PdfAction.EnumerateActionTree(int maxDepth = 64) -> System.Collections.Generic.IEnumerable<Broadside.PdfAction!>!
 Broadside.PdfAction.Next.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfAction!>!
@@ -1739,6 +1760,8 @@ Broadside.PdfDocument.GetColorConverter(Broadside.Graphics.PdfColorSpace! source
 Broadside.PdfDocument.GetColorSpace(Broadside.Objects.CosObject! colorSpace) -> Broadside.Graphics.PdfColorSpace!
 Broadside.PdfDocument.GetDefaultColorSpaces(Broadside.Objects.CosDictionary? resources) -> Broadside.Graphics.PdfDefaultColorSpaces!
 Broadside.PdfOptions.UseColorManagement(Broadside.Graphics.IColorManagement! colorManagement) -> Broadside.PdfOptions!
+Broadside.PdfPage.ExtractText() -> Broadside.Text.TextPage!
+Broadside.PdfPage.ExtractText(Broadside.Text.TextExtractionOptions! options) -> Broadside.Text.TextPage!
 Broadside.PdfPage.GetImage(string! resourceName) -> Broadside.Images.PdfImage?
 Broadside.PdfPage.ProcessContent(Broadside.Content.ContentProcessor! processor) -> void
 Broadside.PdfPage.ProcessContent(Broadside.Content.ContentProcessor! processor, Broadside.Content.ContentOptions! options) -> void
@@ -1827,6 +1850,95 @@ Broadside.PdfWindowsLaunchParameters.Dictionary.get -> Broadside.Objects.CosDict
 Broadside.PdfWindowsLaunchParameters.FileName.get -> Broadside.Objects.CosString?
 Broadside.PdfWindowsLaunchParameters.Operation.get -> string!
 Broadside.PdfWindowsLaunchParameters.Parameters.get -> Broadside.Objects.CosString?
+Broadside.Text.TextExtractionOptions
+Broadside.Text.TextExtractionOptions.ContentOptions.get -> Broadside.Content.ContentOptions?
+Broadside.Text.TextExtractionOptions.ContentOptions.set -> void
+Broadside.Text.TextExtractionOptions.IncludeHiddenContent.get -> bool
+Broadside.Text.TextExtractionOptions.IncludeHiddenContent.set -> void
+Broadside.Text.TextExtractionOptions.TextExtractionOptions() -> void
+Broadside.Text.TextExtractionOptions.WithContentOptions(Broadside.Content.ContentOptions? options) -> Broadside.Text.TextExtractionOptions!
+Broadside.Text.TextExtractionOptions.WithHiddenContent(bool include = true) -> Broadside.Text.TextExtractionOptions!
+Broadside.Text.TextExtractor
+Broadside.Text.TextExtractor.Clear() -> void
+Broadside.Text.TextExtractor.GetGlyphText(in Broadside.Text.TextGlyph glyph) -> System.ReadOnlySpan<char>
+Broadside.Text.TextExtractor.GetLineText(in Broadside.Text.TextLine line) -> System.ReadOnlySpan<char>
+Broadside.Text.TextExtractor.GetWordText(in Broadside.Text.TextWord word) -> System.ReadOnlySpan<char>
+Broadside.Text.TextExtractor.Glyphs.get -> System.ReadOnlySpan<Broadside.Text.TextGlyph>
+Broadside.Text.TextExtractor.Lines.get -> System.ReadOnlySpan<Broadside.Text.TextLine>
+Broadside.Text.TextExtractor.PlainText.get -> System.ReadOnlySpan<char>
+Broadside.Text.TextExtractor.Text.get -> System.ReadOnlySpan<char>
+Broadside.Text.TextExtractor.TextExtractor() -> void
+Broadside.Text.TextExtractor.TextExtractor(Broadside.Text.TextExtractionOptions! options) -> void
+Broadside.Text.TextExtractor.ToTextPage() -> Broadside.Text.TextPage!
+Broadside.Text.TextExtractor.Words.get -> System.ReadOnlySpan<Broadside.Text.TextWord>
+Broadside.Text.TextGlyph
+Broadside.Text.TextGlyph.Adjustment.get -> double
+Broadside.Text.TextGlyph.Advance.get -> Broadside.Graphics.PathPoint
+Broadside.Text.TextGlyph.CharacterCode.get -> uint
+Broadside.Text.TextGlyph.CodeLength.get -> int
+Broadside.Text.TextGlyph.Flags.get -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextGlyph.Font.get -> Broadside.Fonts.PdfFont!
+Broadside.Text.TextGlyph.FontSize.get -> double
+Broadside.Text.TextGlyph.IsVertical.get -> bool
+Broadside.Text.TextGlyph.Origin.get -> Broadside.Graphics.PathPoint
+Broadside.Text.TextGlyph.Quad.get -> Broadside.Graphics.Quad
+Broadside.Text.TextGlyph.RenderingMode.get -> Broadside.Graphics.TextRenderingMode
+Broadside.Text.TextGlyph.TextGlyph() -> void
+Broadside.Text.TextGlyph.TextLength.get -> int
+Broadside.Text.TextGlyph.TextRenderingMatrix.get -> Broadside.Graphics.Matrix
+Broadside.Text.TextGlyph.TextStart.get -> int
+Broadside.Text.TextGlyph.UnicodeSource.get -> Broadside.Fonts.UnicodeSource
+Broadside.Text.TextGlyphFlags
+Broadside.Text.TextGlyphFlags.ActualText = 8 -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextGlyphFlags.Artifact = 4 -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextGlyphFlags.Hidden = 2 -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextGlyphFlags.Invisible = 1 -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextGlyphFlags.None = 0 -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextExtractionOptions.ApplyAlternateDescriptions.get -> bool
+Broadside.Text.TextExtractionOptions.ApplyAlternateDescriptions.set -> void
+Broadside.Text.TextExtractionOptions.ApplyExpansions.get -> bool
+Broadside.Text.TextExtractionOptions.ApplyExpansions.set -> void
+Broadside.Text.TextExtractionOptions.IncludeArtifacts.get -> bool
+Broadside.Text.TextExtractionOptions.IncludeArtifacts.set -> void
+Broadside.Text.TextExtractionOptions.ReadingOrder.get -> Broadside.Text.TextReadingOrder
+Broadside.Text.TextExtractionOptions.ReadingOrder.set -> void
+Broadside.Text.TextExtractionOptions.WithAlternateDescriptions(bool apply = true) -> Broadside.Text.TextExtractionOptions!
+Broadside.Text.TextExtractionOptions.WithArtifacts(bool include = true) -> Broadside.Text.TextExtractionOptions!
+Broadside.Text.TextExtractionOptions.WithExpansions(bool apply = true) -> Broadside.Text.TextExtractionOptions!
+Broadside.Text.TextExtractionOptions.WithReadingOrder(Broadside.Text.TextReadingOrder order) -> Broadside.Text.TextExtractionOptions!
+Broadside.Text.TextGlyph.Language.get -> string?
+Broadside.Text.TextGlyph.StructureElement.get -> Broadside.Structure.PdfStructureElement?
+Broadside.Text.TextGlyphFlags.AlternateDescription = 16 -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextGlyphFlags.Expansion = 32 -> Broadside.Text.TextGlyphFlags
+Broadside.Text.TextReadingOrder
+Broadside.Text.TextReadingOrder.Content = 1 -> Broadside.Text.TextReadingOrder
+Broadside.Text.TextReadingOrder.Structure = 0 -> Broadside.Text.TextReadingOrder
+Broadside.Text.TextLine
+Broadside.Text.TextLine.GlyphCount.get -> int
+Broadside.Text.TextLine.GlyphStart.get -> int
+Broadside.Text.TextLine.IsVertical.get -> bool
+Broadside.Text.TextLine.PlainTextLength.get -> int
+Broadside.Text.TextLine.PlainTextStart.get -> int
+Broadside.Text.TextLine.Quad.get -> Broadside.Graphics.Quad
+Broadside.Text.TextLine.TextLine() -> void
+Broadside.Text.TextLine.WordCount.get -> int
+Broadside.Text.TextLine.WordStart.get -> int
+Broadside.Text.TextPage
+Broadside.Text.TextPage.GetGlyphText(in Broadside.Text.TextGlyph glyph) -> System.ReadOnlySpan<char>
+Broadside.Text.TextPage.GetLineText(in Broadside.Text.TextLine line) -> System.ReadOnlySpan<char>
+Broadside.Text.TextPage.GetWordText(in Broadside.Text.TextWord word) -> System.ReadOnlySpan<char>
+Broadside.Text.TextPage.Glyphs.get -> System.Collections.Generic.IReadOnlyList<Broadside.Text.TextGlyph>!
+Broadside.Text.TextPage.Lines.get -> System.Collections.Generic.IReadOnlyList<Broadside.Text.TextLine>!
+Broadside.Text.TextPage.PlainText.get -> string!
+Broadside.Text.TextPage.Text.get -> string!
+Broadside.Text.TextPage.Words.get -> System.Collections.Generic.IReadOnlyList<Broadside.Text.TextWord>!
+Broadside.Text.TextWord
+Broadside.Text.TextWord.GlyphCount.get -> int
+Broadside.Text.TextWord.GlyphStart.get -> int
+Broadside.Text.TextWord.Quad.get -> Broadside.Graphics.Quad
+Broadside.Text.TextWord.TextLength.get -> int
+Broadside.Text.TextWord.TextStart.get -> int
+Broadside.Text.TextWord.TextWord() -> void
 const Broadside.Content.ContentOptions.DefaultMaxNestingDepth = 50 -> int
 const Broadside.Content.ContentOptions.DefaultMaxOperands = 65536 -> int
 const Broadside.Content.ContentOptions.DefaultMaxSaveDepth = 4096 -> int
@@ -2164,6 +2276,7 @@ const Broadside.Graphics.IccProfileHeader.Length = 128 -> int
 const Broadside.Graphics.PdfColor.MaxComponents = 32 -> int
 const Broadside.Objects.CosReference.MaxGeneration = 65535 -> int
 const Broadside.PdfOptions.DefaultMaxImagePixels = 268435456 -> long
+const Broadside.PdfOptions.DefaultMaxMeshVertices = 4194304 -> int
 override Broadside.Annotations.PdfDeviceColor.Equals(object? obj) -> bool
 override Broadside.Annotations.PdfDeviceColor.GetHashCode() -> int
 override Broadside.Annotations.PdfDeviceColor.ToString() -> string!
@@ -2222,6 +2335,7 @@ override Broadside.Graphics.PdfPatternColorSpace.ComponentCount.get -> int
 override Broadside.Graphics.PdfPatternColorSpace.Family.get -> Broadside.Graphics.PdfColorSpaceFamily
 override Broadside.Graphics.PdfSeparationColorSpace.ComponentCount.get -> int
 override Broadside.Graphics.PdfSeparationColorSpace.Family.get -> Broadside.Graphics.PdfColorSpaceFamily
+override Broadside.Graphics.Quad.ToString() -> string!
 override Broadside.Objects.CosArray.IsDirty.get -> bool
 override Broadside.Objects.CosBoolean.Equals(object? obj) -> bool
 override Broadside.Objects.CosBoolean.GetHashCode() -> int
@@ -2240,6 +2354,14 @@ override Broadside.Objects.CosReference.GetHashCode() -> int
 override Broadside.Objects.CosStream.IsDirty.get -> bool
 override Broadside.Objects.CosString.Equals(object? obj) -> bool
 override Broadside.Objects.CosString.GetHashCode() -> int
+override Broadside.Text.TextExtractor.BeginMarkedContent(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
+override Broadside.Text.TextExtractor.BeginRun(Broadside.Content.ContentContext! context) -> void
+override Broadside.Text.TextExtractor.EndMarkedContent(in Broadside.Content.MarkedContentEvent mc, Broadside.Content.ContentContext! context) -> void
+override Broadside.Text.TextExtractor.Events.get -> Broadside.Content.ContentEvents
+override Broadside.Text.TextExtractor.ShowGlyph(in Broadside.Content.GlyphEvent glyph, Broadside.Content.ContentContext! context) -> void
+override Broadside.Text.TextExtractor.BeginForm(in Broadside.Content.FormEvent form, Broadside.Content.ContentContext! context) -> Broadside.Content.ContentVisit
+override Broadside.Text.TextExtractor.EndForm(in Broadside.Content.FormEvent form, Broadside.Content.ContentContext! context) -> void
+override Broadside.Text.TextPage.ToString() -> string!
 static Broadside.Annotations.PdfAnnotation.ComputeAppearanceMatrix(Broadside.PdfRectangle rect, Broadside.PdfRectangle boundingBox, Broadside.Graphics.Matrix matrix) -> Broadside.Graphics.Matrix?
 static Broadside.Annotations.PdfQuadrilateral.operator !=(Broadside.Annotations.PdfQuadrilateral left, Broadside.Annotations.PdfQuadrilateral right) -> bool
 static Broadside.Annotations.PdfQuadrilateral.operator ==(Broadside.Annotations.PdfQuadrilateral left, Broadside.Annotations.PdfQuadrilateral right) -> bool
@@ -2299,6 +2421,7 @@ static Broadside.Graphics.PdfDefaultColorSpaces.None.get -> Broadside.Graphics.P
 static Broadside.Graphics.PdfDeviceCmykColorSpace.Instance.get -> Broadside.Graphics.PdfDeviceCmykColorSpace!
 static Broadside.Graphics.PdfDeviceGrayColorSpace.Instance.get -> Broadside.Graphics.PdfDeviceGrayColorSpace!
 static Broadside.Graphics.PdfDeviceRgbColorSpace.Instance.get -> Broadside.Graphics.PdfDeviceRgbColorSpace!
+static Broadside.Graphics.Quad.FromRectangle(Broadside.Graphics.Matrix matrix, double left, double bottom, double right, double top) -> Broadside.Graphics.Quad
 static Broadside.Images.ImageDecodeMap.Create(System.ReadOnlySpan<double> decode, int components, int bitsPerComponent) -> Broadside.Images.ImageDecodeMap!
 static Broadside.Images.ImageRows.ColorKey(System.ReadOnlySpan<ushort> raw, int components, System.ReadOnlySpan<double> ranges, System.Span<byte> coverage) -> void
 static Broadside.Images.ImageRows.MaskIndex(int index, int size, int maskSize) -> int
@@ -2342,6 +2465,7 @@ virtual Broadside.Fonts.FontProgram.GetMetrics(int glyphId) -> Broadside.Fonts.G
 virtual Broadside.Fonts.FontProgram.LineGap.get -> double
 virtual Broadside.Fonts.FontProgram.PostScriptName.get -> string?
 virtual Broadside.Fonts.FontProgram.TryGetGlyphId(string! glyphName, out int glyphId) -> bool
+virtual Broadside.Fonts.FontProgram.TryGetSfntData(out System.ReadOnlyMemory<byte> data, out int faceIndex) -> bool
 virtual Broadside.Fonts.FontProgram.BuiltInEncoding.get -> System.Collections.Generic.IReadOnlyList<string!>?
 static Broadside.PdfCollectionIdRange.operator !=(Broadside.PdfCollectionIdRange left, Broadside.PdfCollectionIdRange right) -> bool
 static Broadside.PdfCollectionIdRange.operator ==(Broadside.PdfCollectionIdRange left, Broadside.PdfCollectionIdRange right) -> bool
@@ -2380,6 +2504,8 @@ Broadside.Filters.DctDecodeFilter.Name.get -> Broadside.Objects.CosName!
 Broadside.Filters.DctDecodeFilter.TryReadHeader(System.ReadOnlySpan<byte> encoded, Broadside.Filters.ImageFilterContext! context, out Broadside.Filters.ImageHeader header) -> bool
 Broadside.Filters.FilterContext
 Broadside.Filters.FilterContext.DecodeStream(Broadside.Objects.CosStream! stream) -> System.ReadOnlyMemory<byte>
+Broadside.Filters.FilterContext.CancellationToken.get -> System.Threading.CancellationToken
+Broadside.Filters.FilterContext.CancellationToken.init -> void
 Broadside.Filters.FilterContext.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
 Broadside.Filters.FilterContext.FilterContext() -> void
 Broadside.Filters.FilterContext.MaxDecodedLength.get -> long
@@ -2623,14 +2749,16 @@ Broadside.Security.StandardSecurityHandler.StandardSecurityHandler() -> void
 Broadside.Security.StandardSecurityHandler.SubFilters.get -> System.Collections.Generic.IReadOnlyCollection<Broadside.Objects.CosName!>!
 override Broadside.Security.PdfPassword.ToString() -> string!
 static Broadside.Security.StandardSecurityHandler.UserPermissions(int rawPermissions, int revision) -> Broadside.PdfPermissions
-Broadside.PdfEngine.OpenAsync(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+Broadside.PdfEngine.OpenAsync(System.IO.Stream! stream) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+Broadside.PdfEngine.OpenAsync(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
 Broadside.PdfOptions.StreamBufferLimit.get -> long
 Broadside.PdfOptions.StreamBufferLimit.set -> void
 Broadside.PdfOptions.WithStreamBufferLimit(long limit) -> Broadside.PdfOptions!
 const Broadside.PdfOptions.DefaultStreamBufferLimit = 67108864 -> long
 static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
 static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
-static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream, Broadside.PdfOptions! options, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream, Broadside.PdfOptions! options) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.IO.Stream! stream, Broadside.PdfOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
 Broadside.PdfCrossReferenceLayout
 Broadside.PdfCrossReferenceLayout.Stream = 1 -> Broadside.PdfCrossReferenceLayout
 Broadside.PdfCrossReferenceLayout.StreamWithObjectStreams = 2 -> Broadside.PdfCrossReferenceLayout
@@ -2640,6 +2768,9 @@ Broadside.PdfDocument.Save(string! path, Broadside.PdfSaveOptions! options) -> v
 Broadside.PdfDocument.Save(System.IO.Stream! stream) -> void
 Broadside.PdfDocument.Save(System.IO.Stream! stream, Broadside.PdfSaveOptions! options) -> void
 Broadside.PdfDocument.SaveAsync(System.IO.Stream! stream, Broadside.PdfSaveOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.PdfDocument.Sign(System.IO.Stream! stream, Broadside.Signatures.IPdfSigner! signer, Broadside.Signatures.PdfSignatureOptions? options = null) -> void
+Broadside.PdfDocument.SignAsync(System.IO.Stream! stream, Broadside.Signatures.IPdfSigner! signer, Broadside.Signatures.PdfSignatureOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.PdfDocument.ValidateSignatures(Broadside.Signatures.PdfSignatureValidationOptions? options = null) -> System.Collections.Generic.IReadOnlyList<Broadside.Signatures.PdfSignatureValidation!>!
 Broadside.PdfSaveOptions
 Broadside.PdfSaveOptions.CrossReferenceLayout.get -> Broadside.PdfCrossReferenceLayout
 Broadside.PdfSaveOptions.CrossReferenceLayout.set -> void
@@ -3008,6 +3139,86 @@ Broadside.PdfPageLabelStyle.UppercaseLetters = 4 -> Broadside.PdfPageLabelStyle
 Broadside.PdfPageLabelStyle.UppercaseRoman = 2 -> Broadside.PdfPageLabelStyle
 Broadside.PdfDocument.MarkInfo.get -> Broadside.Structure.PdfMarkInfo!
 Broadside.PdfDocument.StructureTree.get -> Broadside.Structure.PdfStructureTreeRoot?
+Broadside.Signatures.IPdfSigner
+Broadside.Signatures.IPdfSigner.Certificate.get -> System.Security.Cryptography.X509Certificates.X509Certificate2!
+Broadside.Signatures.IPdfSigner.CertificateChain.get -> System.Collections.Generic.IReadOnlyList<System.Security.Cryptography.X509Certificates.X509Certificate2!>!
+Broadside.Signatures.IPdfSigner.RsaSignaturePadding.get -> System.Security.Cryptography.RSASignaturePadding!
+Broadside.Signatures.IPdfSigner.SignDigest(System.ReadOnlySpan<byte> digest, System.Security.Cryptography.HashAlgorithmName digestAlgorithm) -> byte[]!
+Broadside.Signatures.IPdfSigner.SignDigestAsync(System.ReadOnlyMemory<byte> digest, System.Security.Cryptography.HashAlgorithmName digestAlgorithm, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.ValueTask<byte[]!>
+Broadside.Signatures.PdfCertificateSigner
+Broadside.Signatures.PdfCertificateSigner.Certificate.get -> System.Security.Cryptography.X509Certificates.X509Certificate2!
+Broadside.Signatures.PdfCertificateSigner.CertificateChain.get -> System.Collections.Generic.IReadOnlyList<System.Security.Cryptography.X509Certificates.X509Certificate2!>!
+Broadside.Signatures.PdfCertificateSigner.PdfCertificateSigner(System.Security.Cryptography.X509Certificates.X509Certificate2! certificate, System.Collections.Generic.IEnumerable<System.Security.Cryptography.X509Certificates.X509Certificate2!>? certificateChain = null, System.Security.Cryptography.RSASignaturePadding? rsaSignaturePadding = null) -> void
+Broadside.Signatures.PdfCertificateSigner.RsaSignaturePadding.get -> System.Security.Cryptography.RSASignaturePadding!
+Broadside.Signatures.PdfCertificateSigner.SignDigest(System.ReadOnlySpan<byte> digest, System.Security.Cryptography.HashAlgorithmName digestAlgorithm) -> byte[]!
+Broadside.Signatures.PdfSignatureOptions
+Broadside.Signatures.PdfSignatureOptions.ContactInfo.get -> string?
+Broadside.Signatures.PdfSignatureOptions.ContactInfo.set -> void
+Broadside.Signatures.PdfSignatureOptions.DigestAlgorithm.get -> System.Security.Cryptography.HashAlgorithmName?
+Broadside.Signatures.PdfSignatureOptions.DigestAlgorithm.set -> void
+Broadside.Signatures.PdfSignatureOptions.FieldName.get -> string?
+Broadside.Signatures.PdfSignatureOptions.FieldName.set -> void
+Broadside.Signatures.PdfSignatureOptions.Location.get -> string?
+Broadside.Signatures.PdfSignatureOptions.Location.set -> void
+Broadside.Signatures.PdfSignatureOptions.PdfSignatureOptions() -> void
+Broadside.Signatures.PdfSignatureOptions.Reason.get -> string?
+Broadside.Signatures.PdfSignatureOptions.Reason.set -> void
+Broadside.Signatures.PdfSignatureOptions.SignerName.get -> string?
+Broadside.Signatures.PdfSignatureOptions.SignerName.set -> void
+Broadside.Signatures.PdfSignatureOptions.SigningTime.get -> System.DateTimeOffset?
+Broadside.Signatures.PdfSignatureOptions.SigningTime.set -> void
+Broadside.Signatures.PdfSignatureOptions.SubFilter.get -> Broadside.Signatures.PdfSignatureSubFilter
+Broadside.Signatures.PdfSignatureOptions.SubFilter.set -> void
+Broadside.Signatures.PdfSignatureOptions.WithContactInfo(string? contactInfo) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureOptions.WithDigestAlgorithm(System.Security.Cryptography.HashAlgorithmName? digestAlgorithm) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureOptions.WithFieldName(string? fieldName) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureOptions.WithLocation(string? location) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureOptions.WithReason(string? reason) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureOptions.WithSignerName(string? signerName) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureOptions.WithSigningTime(System.DateTimeOffset? signingTime) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureProblem
+Broadside.Signatures.PdfSignatureProblem.Kind.get -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblem.Message.get -> string!
+Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ByteRangeGap = 2 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ByteRangeInvalid = 1 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ByteRangeMissing = 0 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ContentsMissing = 3 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ContentsOutsideGap = 4 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.DigestMismatch = 6 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.SignatureEncodingInvalid = 5 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.SignatureValueInvalid = 8 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.SignedAttributesInvalid = 7 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureStatus
+Broadside.Signatures.PdfSignatureStatus.Indeterminate = 2 -> Broadside.Signatures.PdfSignatureStatus
+Broadside.Signatures.PdfSignatureStatus.Invalid = 1 -> Broadside.Signatures.PdfSignatureStatus
+Broadside.Signatures.PdfSignatureStatus.Valid = 0 -> Broadside.Signatures.PdfSignatureStatus
+Broadside.Signatures.PdfSignatureValidation
+Broadside.Signatures.PdfSignatureValidation.ByteRange.get -> System.Collections.Generic.IReadOnlyList<long>!
+Broadside.Signatures.PdfSignatureValidation.CertificatePath.get -> System.Collections.Generic.IReadOnlyList<System.Security.Cryptography.X509Certificates.X509Certificate2!>!
+Broadside.Signatures.PdfSignatureValidation.CoversWholeFile.get -> bool
+Broadside.Signatures.PdfSignatureValidation.DigestAlgorithm.get -> System.Security.Cryptography.HashAlgorithmName?
+Broadside.Signatures.PdfSignatureValidation.Field.get -> Broadside.Forms.PdfSignatureField!
+Broadside.Signatures.PdfSignatureValidation.FieldName.get -> string!
+Broadside.Signatures.PdfSignatureValidation.Problems.get -> System.Collections.Generic.IReadOnlyList<Broadside.Signatures.PdfSignatureProblem!>!
+Broadside.Signatures.PdfSignatureValidation.SignerCertificate.get -> System.Security.Cryptography.X509Certificates.X509Certificate2?
+Broadside.Signatures.PdfSignatureValidation.Status.get -> Broadside.Signatures.PdfSignatureStatus
+Broadside.Signatures.PdfSignatureValidation.SubFilter.get -> string?
+Broadside.Signatures.PdfSignatureValidationOptions
+Broadside.Signatures.PdfSignatureValidationOptions.ExtraCertificates.get -> System.Collections.Generic.IReadOnlyList<System.Security.Cryptography.X509Certificates.X509Certificate2!>!
+Broadside.Signatures.PdfSignatureValidationOptions.ExtraCertificates.set -> void
+Broadside.Signatures.PdfSignatureValidationOptions.PdfSignatureValidationOptions() -> void
+Broadside.Signatures.PdfSignatureValidationOptions.TrustAnchors.get -> System.Collections.Generic.IReadOnlyList<System.Security.Cryptography.X509Certificates.X509Certificate2!>!
+Broadside.Signatures.PdfSignatureValidationOptions.TrustAnchors.set -> void
+Broadside.Signatures.PdfSignatureValidationOptions.ValidationTime.get -> System.DateTimeOffset?
+Broadside.Signatures.PdfSignatureValidationOptions.ValidationTime.set -> void
+Broadside.Signatures.PdfSignatureValidationOptions.WithExtraCertificates(params System.Collections.Generic.IEnumerable<System.Security.Cryptography.X509Certificates.X509Certificate2!>! extraCertificates) -> Broadside.Signatures.PdfSignatureValidationOptions!
+Broadside.Signatures.PdfSignatureValidationOptions.WithTrustAnchors(params System.Collections.Generic.IEnumerable<System.Security.Cryptography.X509Certificates.X509Certificate2!>! trustAnchors) -> Broadside.Signatures.PdfSignatureValidationOptions!
+Broadside.Signatures.PdfSignatureValidationOptions.WithValidationTime(System.DateTimeOffset? validationTime) -> Broadside.Signatures.PdfSignatureValidationOptions!
+Broadside.Signatures.PdfSignatureOptions.WithSubFilter(Broadside.Signatures.PdfSignatureSubFilter subFilter) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureSubFilter
+Broadside.Signatures.PdfSignatureSubFilter.AdobePkcs7Detached = 0 -> Broadside.Signatures.PdfSignatureSubFilter
+Broadside.Signatures.PdfSignatureSubFilter.EtsiCadesDetached = 1 -> Broadside.Signatures.PdfSignatureSubFilter
 Broadside.Structure.PdfArtifactAttributes
 Broadside.Structure.PdfArtifactAttributes.ArtifactSubtype.get -> string?
 Broadside.Structure.PdfArtifactAttributes.ArtifactType.get -> string?
@@ -3177,6 +3388,7 @@ abstract Broadside.Structure.PdfStructureItem.Parent.get -> Broadside.Structure.
 const Broadside.Structure.PdfStructureNamespace.MathMLName = "http://www.w3.org/1998/Math/MathML" -> string!
 const Broadside.Structure.PdfStructureNamespace.Pdf17Name = "http://iso.org/pdf/ssn" -> string!
 const Broadside.Structure.PdfStructureNamespace.Pdf20Name = "http://iso.org/pdf2/ssn" -> string!
+override Broadside.Signatures.PdfSignatureProblem.ToString() -> string!
 override Broadside.Structure.PdfMarkedContentReference.Parent.get -> Broadside.Structure.PdfStructureElement!
 override Broadside.Structure.PdfObjectReference.Parent.get -> Broadside.Structure.PdfStructureElement!
 override Broadside.Structure.PdfStructureElement.Equals(object? obj) -> bool
@@ -3401,6 +3613,11 @@ Broadside.Fonts.SystemFontResolver.Directories.get -> System.Collections.Generic
 Broadside.Fonts.SystemFontResolver.ResolveFont(Broadside.Fonts.FontQuery! query) -> Broadside.Fonts.FontResolution?
 Broadside.Fonts.SystemFontResolver.SystemFontResolver() -> void
 Broadside.Fonts.SystemFontResolver.SystemFontResolver(System.Collections.Generic.IEnumerable<string!>! directories) -> void
+Broadside.Fonts.SystemFontResolver.SystemFontResolver(System.Collections.Generic.IEnumerable<string!>! directories, string? indexPath) -> void
+Broadside.Fonts.SystemFontResolver.IndexPath.get -> string?
+Broadside.PdfOptions.SystemFontIndexPath.get -> string?
+Broadside.PdfOptions.SystemFontIndexPath.set -> void
+Broadside.PdfOptions.WithSystemFontIndexPath(string? path) -> Broadside.PdfOptions!
 Broadside.PdfOptions.UseFontResolver(Broadside.Fonts.IFontResolver! resolver) -> Broadside.PdfOptions!
 Broadside.PdfOptions.UseSystemFontResolver(Broadside.Fonts.IFontResolver? resolver) -> Broadside.PdfOptions!
 Broadside.Filters.CcittFaxDecodeFilter
@@ -3417,3 +3634,1312 @@ Broadside.Filters.Jbig2DecodeFilter.Name.get -> Broadside.Objects.CosName!
 Broadside.Filters.Jbig2DecodeFilter.TryReadHeader(System.ReadOnlySpan<byte> encoded, Broadside.Filters.ImageFilterContext! context, out Broadside.Filters.ImageHeader header) -> bool
 Broadside.Annotations.PdfAnnotation.ProcessAppearance(Broadside.Graphics.PdfFormXObject! appearance, Broadside.Content.ContentProcessor! processor) -> bool
 Broadside.Annotations.PdfAnnotation.ProcessAppearance(Broadside.Graphics.PdfFormXObject! appearance, Broadside.Content.ContentProcessor! processor, Broadside.Content.ContentOptions! options) -> bool
+Broadside.Forms.PdfDefaultAppearance
+Broadside.Forms.PdfDefaultAppearance.Color.get -> Broadside.Graphics.PdfColor?
+Broadside.Forms.PdfDefaultAppearance.Font.get -> Broadside.Fonts.PdfFont?
+Broadside.Forms.PdfDefaultAppearance.FontName.get -> Broadside.Objects.CosName?
+Broadside.Forms.PdfDefaultAppearance.FontResources.get -> Broadside.Objects.CosDictionary?
+Broadside.Forms.PdfDefaultAppearance.FontSize.get -> double
+Broadside.Forms.PdfDefaultAppearance.IsAutoSize.get -> bool
+Broadside.Forms.PdfDefaultAppearance.IsValid.get -> bool
+Broadside.Forms.PdfDefaultAppearance.OtherOperators.get -> System.ReadOnlyMemory<byte>
+Broadside.Forms.PdfDefaultAppearance.Problems.get -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearance.TextMatrix.get -> Broadside.Graphics.Matrix?
+Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.FontOperatorMissing = 2 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.MultipleTextMatrices = 16 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.None = 0 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.OperandsInvalid = 4 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.OperatorNotAllowed = 8 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfDefaultAppearanceProblems.SyntaxInvalid = 1 -> Broadside.Forms.PdfDefaultAppearanceProblems
+Broadside.Forms.PdfField.ParsedDefaultAppearance.get -> Broadside.Forms.PdfDefaultAppearance?
+static Broadside.Forms.PdfDefaultAppearance.Parse(System.ReadOnlySpan<byte> value) -> Broadside.Forms.PdfDefaultAppearance!
+Broadside.PdfPage.CreateDisplayList() -> Broadside.Rendering.DisplayList!
+Broadside.PdfPage.CreateDisplayList(Broadside.Content.ContentOptions! options) -> Broadside.Rendering.DisplayList!
+Broadside.Rendering.DisplayColor
+Broadside.Rendering.DisplayColor.ColorSpace.get -> Broadside.Graphics.PdfColorSpace!
+Broadside.Rendering.DisplayColor.Components.get -> System.ReadOnlySpan<float>
+Broadside.Rendering.DisplayColor.Conversion.get -> Broadside.Graphics.ColorConversion
+Broadside.Rendering.DisplayColor.DefaultColorSpaces.get -> Broadside.Graphics.PdfDefaultColorSpaces!
+Broadside.Rendering.DisplayColor.DisplayColor() -> void
+Broadside.Rendering.DisplayList
+Broadside.Rendering.DisplayList.Document.get -> Broadside.PdfDocument!
+Broadside.Rendering.DisplayList.Replay(Broadside.Rendering.IRenderingBackend! backend) -> void
+Broadside.Rendering.DisplayList.BeginReplay(Broadside.Rendering.IRenderingBackend! backend, System.Threading.CancellationToken cancellationToken, System.IProgress<double>? progress) -> Broadside.Rendering.DisplayListReplay!
+Broadside.Rendering.DisplayList.BeginReplay(Broadside.Rendering.IRenderingBackend! backend, Broadside.PdfRectangle region, System.Threading.CancellationToken cancellationToken, System.IProgress<double>? progress) -> Broadside.Rendering.DisplayListReplay!
+Broadside.Rendering.DisplayList.OperationCount.get -> int
+Broadside.Rendering.DisplayList.Replay(Broadside.Rendering.IRenderingBackend! backend, System.Threading.CancellationToken cancellationToken, System.IProgress<double>? progress) -> void
+Broadside.Rendering.DisplayListReplay
+Broadside.Rendering.DisplayListReplay.Backend.get -> Broadside.Rendering.IRenderingBackend!
+Broadside.Rendering.DisplayListReplay.Continue(System.TimeSpan budget) -> bool
+Broadside.Rendering.DisplayListReplay.IsCompleted.get -> bool
+Broadside.Rendering.DisplayListReplay.List.get -> Broadside.Rendering.DisplayList!
+Broadside.Rendering.DisplayListReplay.Position.get -> int
+Broadside.Rendering.DisplayListReplay.Progress.get -> double
+Broadside.Rendering.IRenderingBackend
+Broadside.Rendering.IRenderingBackend.FillPath(Broadside.Graphics.PathView path, Broadside.Graphics.FillRule rule, in Broadside.Rendering.DisplayColor color) -> void
+Broadside.Rendering.IRenderingBackend.IntersectClip(Broadside.Graphics.PathView path, Broadside.Graphics.FillRule rule) -> void
+Broadside.Rendering.IRenderingBackend.RestoreState() -> void
+Broadside.Rendering.IRenderingBackend.SaveState() -> void
+Broadside.Rendering.IRenderingBackend.SetTransform(in Broadside.Graphics.Matrix transform) -> void
+Broadside.Content.GlyphEvent.Type3Metrics.get -> Broadside.Fonts.Type3GlyphMetrics
+Broadside.Fonts.Type3GlyphKind
+Broadside.Fonts.Type3GlyphKind.None = 0 -> Broadside.Fonts.Type3GlyphKind
+Broadside.Fonts.Type3GlyphKind.ShapeAndColor = 1 -> Broadside.Fonts.Type3GlyphKind
+Broadside.Fonts.Type3GlyphKind.ShapeOnly = 2 -> Broadside.Fonts.Type3GlyphKind
+Broadside.Fonts.Type3GlyphKind.Undeclared = 3 -> Broadside.Fonts.Type3GlyphKind
+Broadside.Fonts.Type3GlyphMetrics
+Broadside.Fonts.Type3GlyphMetrics.BoundingBox.get -> Broadside.PdfRectangle
+Broadside.Fonts.Type3GlyphMetrics.Kind.get -> Broadside.Fonts.Type3GlyphKind
+Broadside.Fonts.Type3GlyphMetrics.Type3GlyphMetrics() -> void
+Broadside.Fonts.Type3GlyphMetrics.WidthX.get -> double
+Broadside.Fonts.Type3GlyphMetrics.WidthY.get -> double
+Broadside.PdfObjectNumbering
+Broadside.PdfObjectNumbering.Automatic = 0 -> Broadside.PdfObjectNumbering
+Broadside.PdfObjectNumbering.Compact = 1 -> Broadside.PdfObjectNumbering
+Broadside.PdfSaveOptions.ObjectNumbering.get -> Broadside.PdfObjectNumbering
+Broadside.PdfSaveOptions.ObjectNumbering.set -> void
+Broadside.PdfSaveOptions.RemoveUnreachableObjects.get -> bool
+Broadside.PdfSaveOptions.RemoveUnreachableObjects.set -> void
+Broadside.PdfSaveOptions.WithObjectNumbering(Broadside.PdfObjectNumbering numbering) -> Broadside.PdfSaveOptions!
+Broadside.PdfSaveOptions.WithRemoveUnreachableObjects(bool remove) -> Broadside.PdfSaveOptions!
+Broadside.Filters.Ascii85Encoder
+Broadside.Filters.Ascii85Encoder.Ascii85Encoder() -> void
+Broadside.Filters.Ascii85Encoder.Encode(System.ReadOnlySpan<byte> data, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.StreamEncoderContext! context) -> void
+Broadside.Filters.Ascii85Encoder.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.AsciiHexEncoder
+Broadside.Filters.AsciiHexEncoder.AsciiHexEncoder() -> void
+Broadside.Filters.AsciiHexEncoder.Encode(System.ReadOnlySpan<byte> data, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.StreamEncoderContext! context) -> void
+Broadside.Filters.AsciiHexEncoder.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.FlateEncoder
+Broadside.Filters.FlateEncoder.Encode(System.ReadOnlySpan<byte> data, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.StreamEncoderContext! context) -> void
+Broadside.Filters.FlateEncoder.FlateEncoder() -> void
+Broadside.Filters.FlateEncoder.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.IStreamEncoder
+Broadside.Filters.IStreamEncoder.Encode(System.ReadOnlySpan<byte> data, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.StreamEncoderContext! context) -> void
+Broadside.Filters.IStreamEncoder.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.RunLengthEncoder
+Broadside.Filters.RunLengthEncoder.Encode(System.ReadOnlySpan<byte> data, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.StreamEncoderContext! context) -> void
+Broadside.Filters.RunLengthEncoder.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.RunLengthEncoder.RunLengthEncoder() -> void
+Broadside.Filters.StreamEncoderContext
+Broadside.Filters.StreamEncoderContext.CompressionLevel.get -> System.IO.Compression.CompressionLevel
+Broadside.Filters.StreamEncoderContext.CompressionLevel.init -> void
+Broadside.Filters.StreamEncoderContext.Parameters.get -> Broadside.Objects.CosDictionary?
+Broadside.Filters.StreamEncoderContext.Parameters.init -> void
+Broadside.Filters.StreamEncoderContext.StreamDictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Filters.StreamEncoderContext.StreamDictionary.init -> void
+Broadside.Filters.StreamEncoderContext.StreamEncoderContext() -> void
+Broadside.PdfDocument.EncodeStream(Broadside.Objects.CosStream! stream, System.ReadOnlySpan<byte> data, System.IO.Compression.CompressionLevel compressionLevel = System.IO.Compression.CompressionLevel.Optimal) -> void
+Broadside.PdfOptions.UseStreamEncoder(Broadside.Filters.IStreamEncoder! encoder) -> Broadside.PdfOptions!
+Broadside.PdfSaveOptions.CompressionLevel.get -> System.IO.Compression.CompressionLevel
+Broadside.PdfSaveOptions.CompressionLevel.set -> void
+Broadside.PdfSaveOptions.StreamCompression.get -> Broadside.PdfStreamCompression
+Broadside.PdfSaveOptions.StreamCompression.set -> void
+Broadside.PdfSaveOptions.WithCompressionLevel(System.IO.Compression.CompressionLevel level) -> Broadside.PdfSaveOptions!
+Broadside.PdfSaveOptions.WithStreamCompression(Broadside.PdfStreamCompression compression) -> Broadside.PdfSaveOptions!
+Broadside.PdfStreamCompression
+Broadside.PdfStreamCompression.AllStreams = 2 -> Broadside.PdfStreamCompression
+Broadside.PdfStreamCompression.ChangedStreams = 1 -> Broadside.PdfStreamCompression
+Broadside.PdfStreamCompression.None = 0 -> Broadside.PdfStreamCompression
+Broadside.Rendering.IRenderingBackend.StrokePath(Broadside.Graphics.PathView path, in Broadside.Rendering.StrokeStyle style, in Broadside.Rendering.DisplayColor color) -> void
+Broadside.Rendering.StrokeStyle
+Broadside.Rendering.StrokeStyle.DashArray.get -> System.ReadOnlySpan<double>
+Broadside.Rendering.StrokeStyle.DashPhase.get -> double
+Broadside.Rendering.StrokeStyle.LineCap.get -> Broadside.Graphics.LineCap
+Broadside.Rendering.StrokeStyle.LineJoin.get -> Broadside.Graphics.LineJoin
+Broadside.Rendering.StrokeStyle.LineWidth.get -> double
+Broadside.Rendering.StrokeStyle.MiterLimit.get -> double
+Broadside.Rendering.StrokeStyle.StrokeAdjustment.get -> bool
+Broadside.Rendering.StrokeStyle.StrokeStyle() -> void
+Broadside.Filters.DctChromaSubsampling
+Broadside.Filters.DctChromaSubsampling.Horizontal = 1 -> Broadside.Filters.DctChromaSubsampling
+Broadside.Filters.DctChromaSubsampling.HorizontalAndVertical = 2 -> Broadside.Filters.DctChromaSubsampling
+Broadside.Filters.DctChromaSubsampling.None = 0 -> Broadside.Filters.DctChromaSubsampling
+Broadside.Filters.DctEncoder
+Broadside.Filters.DctEncoder.ChromaSubsampling.get -> Broadside.Filters.DctChromaSubsampling
+Broadside.Filters.DctEncoder.DctEncoder() -> void
+Broadside.Filters.DctEncoder.DctEncoder(int quality) -> void
+Broadside.Filters.DctEncoder.DctEncoder(int quality, Broadside.Filters.DctChromaSubsampling chromaSubsampling) -> void
+Broadside.Filters.DctEncoder.Encode(System.ReadOnlySpan<byte> data, System.Buffers.IBufferWriter<byte>! output, Broadside.Filters.StreamEncoderContext! context) -> void
+Broadside.Filters.DctEncoder.Name.get -> Broadside.Objects.CosName!
+Broadside.Filters.DctEncoder.Quality.get -> int
+const Broadside.Filters.DctEncoder.DefaultQuality = 75 -> int
+Broadside.PdfEngine.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+Broadside.PdfEngine.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, Broadside.PdfOptions! options) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.OpenAsync(System.Net.Http.HttpClient! httpClient, System.Uri! uri, Broadside.PdfOptions! options, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task<Broadside.PdfDocument!>!
+Broadside.PdfPage.PrefetchAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.PdfOptions.RangeBlockSize.get -> int
+Broadside.PdfOptions.RangeBlockSize.set -> void
+Broadside.PdfOptions.WithRangeBlockSize(int blockSize) -> Broadside.PdfOptions!
+Broadside.PdfOptions.RangeCacheLimit.get -> long
+Broadside.PdfOptions.RangeCacheLimit.set -> void
+Broadside.PdfOptions.WithRangeCacheLimit(long limit) -> Broadside.PdfOptions!
+Broadside.PdfOptions.SynchronousRangeFetch.get -> bool
+Broadside.PdfOptions.SynchronousRangeFetch.set -> void
+Broadside.PdfOptions.WithSynchronousRangeFetch(bool enabled) -> Broadside.PdfOptions!
+const Broadside.PdfOptions.DefaultRangeBlockSize = 4096 -> int
+const Broadside.PdfOptions.DefaultRangeCacheLimit = 67108864 -> long
+Broadside.PdfRangeNotLoadedException
+Broadside.PdfRangeNotLoadedException.PdfRangeNotLoadedException() -> void
+Broadside.PdfRangeNotLoadedException.PdfRangeNotLoadedException(long offset, long length) -> void
+Broadside.PdfRangeNotLoadedException.PdfRangeNotLoadedException(string? message) -> void
+Broadside.PdfRangeNotLoadedException.PdfRangeNotLoadedException(string? message, System.Exception? innerException) -> void
+Broadside.PdfRangeNotLoadedException.Offset.get -> long
+Broadside.PdfRangeNotLoadedException.Length.get -> long
+Broadside.Rendering.DisplayImage
+Broadside.Rendering.DisplayImage.BitsPerComponent.get -> int
+Broadside.Rendering.DisplayImage.ColorSpace.get -> Broadside.Graphics.PdfColorSpace!
+Broadside.Rendering.DisplayImage.Components.get -> int
+Broadside.Rendering.DisplayImage.DecodeMap.get -> Broadside.Images.ImageDecodeMap!
+Broadside.Rendering.DisplayImage.GetRow(int y) -> System.ReadOnlySpan<byte>
+Broadside.Rendering.DisplayImage.Height.get -> int
+Broadside.Rendering.DisplayImage.Interpolate.get -> bool
+Broadside.Rendering.DisplayImage.Samples.get -> System.ReadOnlySpan<byte>
+Broadside.Rendering.DisplayImage.StorageBits.get -> int
+Broadside.Rendering.DisplayImage.Stride.get -> int
+Broadside.Rendering.DisplayImage.Width.get -> int
+Broadside.Rendering.DisplayImage.ColorKey.get -> System.ReadOnlySpan<double>
+Broadside.Rendering.DisplayImage.ColorTable.get -> System.ReadOnlySpan<byte>
+Broadside.Rendering.DisplayImage.Mask.get -> Broadside.Rendering.DisplayImageMask?
+Broadside.Rendering.DisplayImage.Matte.get -> System.ReadOnlySpan<float>
+Broadside.Rendering.DisplayImage.SoftMask.get -> Broadside.Rendering.DisplayImage?
+Broadside.Rendering.DisplayImageMask
+Broadside.Rendering.DisplayImageMask.GetRow(int y) -> System.ReadOnlySpan<byte>
+Broadside.Rendering.DisplayImageMask.Height.get -> int
+Broadside.Rendering.DisplayImageMask.Interpolate.get -> bool
+Broadside.Rendering.DisplayImageMask.IsInverted.get -> bool
+Broadside.Rendering.DisplayImageMask.Samples.get -> System.ReadOnlySpan<byte>
+Broadside.Rendering.DisplayImageMask.Stride.get -> int
+Broadside.Rendering.DisplayImageMask.Width.get -> int
+Broadside.Rendering.IRenderingBackend.DrawImage(Broadside.Rendering.DisplayImage! image, Broadside.Graphics.PdfDefaultColorSpaces! defaultColorSpaces, Broadside.Graphics.ColorConversion conversion) -> void
+Broadside.Rendering.DisplayShading
+Broadside.Rendering.DisplayShading.Conversion.get -> Broadside.Graphics.ColorConversion
+Broadside.Rendering.DisplayShading.DefaultColorSpaces.get -> Broadside.Graphics.PdfDefaultColorSpaces!
+Broadside.Rendering.DisplayShading.DisplayShading() -> void
+Broadside.Rendering.DisplayShading.Matrix.get -> Broadside.Graphics.Matrix
+Broadside.Rendering.DisplayShading.PaintsBackground.get -> bool
+Broadside.Rendering.DisplayShading.Shading.get -> Broadside.Graphics.PdfShading!
+Broadside.Rendering.IRenderingBackend.DrawShading(in Broadside.Rendering.DisplayShading shading) -> void
+Broadside.Rendering.IRenderingBackend.FillPathWithShading(Broadside.Graphics.PathView path, Broadside.Graphics.FillRule rule, in Broadside.Rendering.DisplayShading shading) -> void
+Broadside.Rendering.IRenderingBackend.StrokePathWithShading(Broadside.Graphics.PathView path, in Broadside.Rendering.StrokeStyle style, in Broadside.Rendering.DisplayShading shading) -> void
+Broadside.Rendering.IRenderingBackend.FillImageMask(Broadside.Rendering.DisplayImageMask! mask, in Broadside.Rendering.DisplayColor color) -> void
+Broadside.PdfDocument.AddObject(Broadside.Objects.CosObject! value) -> Broadside.Objects.CosReference!
+Broadside.PdfDocument.RemoveObject(Broadside.Objects.CosReference! reference) -> bool
+Broadside.PdfSaveOptions.IncrementalUpdate.get -> bool
+Broadside.PdfSaveOptions.IncrementalUpdate.set -> void
+Broadside.PdfSaveOptions.WithIncrementalUpdate(bool incremental) -> Broadside.PdfSaveOptions!
+Broadside.PdfSaveOptions.Linearize.get -> bool
+Broadside.PdfSaveOptions.Linearize.set -> void
+Broadside.PdfSaveOptions.WithLinearize(bool linearize) -> Broadside.PdfSaveOptions!
+Broadside.PdfDocument.CreateNameTree(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<Broadside.Objects.CosString!, Broadside.Objects.CosObject!>>! entries) -> Broadside.PdfNameTree!
+Broadside.PdfDocument.CreateNumberTree(System.Collections.Generic.IEnumerable<System.Collections.Generic.KeyValuePair<int, Broadside.Objects.CosObject!>>! entries) -> Broadside.PdfNumberTree!
+Broadside.PdfNameTree.Remove(Broadside.Objects.CosString! key) -> bool
+Broadside.PdfNameTree.Set(Broadside.Objects.CosString! key, Broadside.Objects.CosObject! value) -> void
+Broadside.PdfNumberTree.Remove(int key) -> bool
+Broadside.PdfNumberTree.Set(int key, Broadside.Objects.CosObject! value) -> void
+Broadside.Content.ContentEditor
+Broadside.Content.ContentEditor.ContentEditor() -> void
+Broadside.Content.ContentEditor.Content.get -> System.ReadOnlyMemory<byte>
+Broadside.Content.ContentEditor.CurrentOperator.get -> int
+Broadside.Content.ContentEditor.GetOperator(int index) -> Broadside.Content.ContentOperatorRange
+Broadside.Content.ContentEditor.InsertAfter(int index, System.ReadOnlySpan<byte> content) -> void
+Broadside.Content.ContentEditor.InsertBefore(int index, System.ReadOnlySpan<byte> content) -> void
+Broadside.Content.ContentEditor.OperatorCount.get -> int
+Broadside.Content.ContentEditor.Remove(int index) -> void
+Broadside.Content.ContentEditor.Replace(int index, System.ReadOnlySpan<byte> content) -> void
+Broadside.Content.ContentEditor.Wrap(int first, int last, System.ReadOnlySpan<byte> before, System.ReadOnlySpan<byte> after) -> void
+Broadside.Content.ContentOperatorRange
+Broadside.Content.ContentOperatorRange.Code.get -> Broadside.Content.ContentOperatorCode
+Broadside.Content.ContentOperatorRange.Code.init -> void
+Broadside.Content.ContentOperatorRange.ContentOperatorRange() -> void
+Broadside.Content.ContentOperatorRange.ContentOperatorRange(Broadside.Content.ContentOperatorCode Code, int Offset, int Length) -> void
+Broadside.Content.ContentOperatorRange.Length.get -> int
+Broadside.Content.ContentOperatorRange.Length.init -> void
+Broadside.Content.ContentOperatorRange.Offset.get -> int
+Broadside.Content.ContentOperatorRange.Offset.init -> void
+Broadside.Graphics.PdfFormXObject.RewriteContent(Broadside.Content.ContentEditor! editor) -> bool
+Broadside.Graphics.PdfFormXObject.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
+Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor) -> bool
+Broadside.PdfPage.RewriteContent(Broadside.Content.ContentEditor! editor, Broadside.Content.ContentOptions! options) -> bool
+Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionAlgorithm.Aes128 = 1 -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionAlgorithm.Aes256 = 0 -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionAlgorithm.Rc4 = 2 -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionOptions
+Broadside.PdfEncryptionOptions.Algorithm.get -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionOptions.Algorithm.set -> void
+Broadside.PdfEncryptionOptions.EncryptMetadata.get -> bool
+Broadside.PdfEncryptionOptions.EncryptMetadata.set -> void
+Broadside.PdfEncryptionOptions.OwnerPassword.get -> string!
+Broadside.PdfEncryptionOptions.PdfEncryptionOptions(string? userPassword, string? ownerPassword) -> void
+Broadside.PdfEncryptionOptions.Permissions.get -> Broadside.PdfPermissions
+Broadside.PdfEncryptionOptions.Permissions.set -> void
+Broadside.PdfEncryptionOptions.UserPassword.get -> string!
+Broadside.PdfEncryptionOptions.WithAlgorithm(Broadside.PdfEncryptionAlgorithm algorithm) -> Broadside.PdfEncryptionOptions!
+Broadside.PdfEncryptionOptions.WithEncryptMetadata(bool encryptMetadata) -> Broadside.PdfEncryptionOptions!
+Broadside.PdfEncryptionOptions.WithPermissions(Broadside.PdfPermissions permissions) -> Broadside.PdfEncryptionOptions!
+Broadside.PdfSaveOptions.Encryption.get -> Broadside.PdfEncryptionOptions?
+Broadside.PdfSaveOptions.Encryption.set -> void
+Broadside.PdfSaveOptions.RemoveEncryption.get -> bool
+Broadside.PdfSaveOptions.RemoveEncryption.set -> void
+Broadside.PdfSaveOptions.WithEncryption(Broadside.PdfEncryptionOptions? encryption) -> Broadside.PdfSaveOptions!
+Broadside.PdfSaveOptions.WithRemoveEncryption(bool remove) -> Broadside.PdfSaveOptions!
+Broadside.PdfDocumentProperties.Author.set -> void
+Broadside.PdfDocumentProperties.CreationDate.set -> void
+Broadside.PdfDocumentProperties.Creator.set -> void
+Broadside.PdfDocumentProperties.Keywords.set -> void
+Broadside.PdfDocumentProperties.ModificationDate.set -> void
+Broadside.PdfDocumentProperties.Producer.set -> void
+Broadside.PdfDocumentProperties.Subject.set -> void
+Broadside.PdfDocumentProperties.Title.set -> void
+Broadside.PdfOptions.UseTimeProvider(System.TimeProvider! timeProvider) -> Broadside.PdfOptions!
+Broadside.PdfSaveOptions.UpdateModificationDate.get -> bool
+Broadside.PdfSaveOptions.UpdateModificationDate.set -> void
+Broadside.PdfSaveOptions.WithUpdateModificationDate(bool update) -> Broadside.PdfSaveOptions!
+Broadside.Forms.PdfTextField.GenerateAppearances() -> void
+Broadside.Forms.PdfTextField.SetValue(string? value) -> void
+Broadside.PdfDocument.Flatten() -> bool
+Broadside.PdfDocument.Flatten(Broadside.PdfFlattenOptions! options) -> bool
+Broadside.PdfFlattenIntent
+Broadside.PdfFlattenIntent.Print = 1 -> Broadside.PdfFlattenIntent
+Broadside.PdfFlattenIntent.View = 0 -> Broadside.PdfFlattenIntent
+Broadside.PdfFlattenOptions
+Broadside.PdfFlattenOptions.IncludeAnnotations.get -> bool
+Broadside.PdfFlattenOptions.IncludeAnnotations.set -> void
+Broadside.PdfFlattenOptions.Intent.get -> Broadside.PdfFlattenIntent
+Broadside.PdfFlattenOptions.Intent.set -> void
+Broadside.PdfFlattenOptions.PdfFlattenOptions() -> void
+Broadside.PdfFlattenOptions.WithAnnotations(bool include) -> Broadside.PdfFlattenOptions!
+Broadside.PdfFlattenOptions.WithIntent(Broadside.PdfFlattenIntent intent) -> Broadside.PdfFlattenOptions!
+Broadside.Rendering.DisplayGlyph
+Broadside.Rendering.DisplayGlyph.DisplayGlyph() -> void
+Broadside.Rendering.DisplayGlyph.GlyphId.get -> int
+Broadside.Rendering.DisplayGlyph.HorizontalScale.get -> double
+Broadside.Rendering.DisplayGlyph.TextMatrix.get -> Broadside.Graphics.Matrix
+Broadside.Rendering.GlyphRun
+Broadside.Rendering.GlyphRun.FillColor.get -> Broadside.Rendering.DisplayColor
+Broadside.Rendering.GlyphRun.Fills.get -> bool
+Broadside.Rendering.GlyphRun.FontMatrix.get -> Broadside.Graphics.Matrix
+Broadside.Rendering.GlyphRun.GetGlyphTransform(int index) -> Broadside.Graphics.Matrix
+Broadside.Rendering.GlyphRun.GetOutline(int index) -> Broadside.Graphics.PathView
+Broadside.Rendering.GlyphRun.GlyphRun() -> void
+Broadside.Rendering.GlyphRun.Glyphs.get -> System.ReadOnlySpan<Broadside.Rendering.DisplayGlyph>
+Broadside.Rendering.GlyphRun.Program.get -> Broadside.Fonts.FontProgram?
+Broadside.Rendering.GlyphRun.RenderingMode.get -> Broadside.Graphics.TextRenderingMode
+Broadside.Rendering.GlyphRun.StrokeColor.get -> Broadside.Rendering.DisplayColor
+Broadside.Rendering.GlyphRun.Strokes.get -> bool
+Broadside.Rendering.GlyphRun.StrokeStyle.get -> Broadside.Rendering.StrokeStyle
+Broadside.Rendering.IRenderingBackend.DrawGlyphs(in Broadside.Rendering.GlyphRun run) -> void
+Broadside.PdfOutputIntent
+Broadside.PdfOutputIntent.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.PdfOutputIntent.Reference.get -> Broadside.Objects.CosReference?
+Broadside.PdfOutputIntent.Subtype.get -> string?
+Broadside.PdfOutputIntent.OutputCondition.get -> string?
+Broadside.PdfOutputIntent.OutputConditionIdentifier.get -> string?
+Broadside.PdfOutputIntent.RegistryName.get -> string?
+Broadside.PdfOutputIntent.Info.get -> string?
+Broadside.PdfOutputIntent.DestinationProfile.get -> Broadside.Graphics.PdfIccBasedColorSpace?
+override Broadside.PdfOutputIntent.ToString() -> string!
+Broadside.PdfDocument.OutputIntents.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOutputIntent!>!
+Broadside.PdfPage.OutputIntents.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfOutputIntent!>!
+Broadside.Graphics.GraphicsState.OutputIntent.get -> Broadside.PdfOutputIntent?
+Broadside.Graphics.ColorConversion.OutputIntent.get -> Broadside.PdfOutputIntent?
+Broadside.Graphics.ColorConversion.OutputIntent.init -> void
+Broadside.PdfObjectCopier
+Broadside.PdfObjectCopier.Copy(Broadside.Objects.CosObject! value) -> Broadside.Objects.CosObject!
+Broadside.PdfObjectCopier.CopyPage(Broadside.PdfPage! page) -> Broadside.Objects.CosReference!
+Broadside.PdfObjectCopier.PdfObjectCopier(Broadside.PdfDocument! source, Broadside.PdfDocument! target) -> void
+Broadside.PdfObjectCopier.Source.get -> Broadside.PdfDocument!
+Broadside.PdfObjectCopier.Target.get -> Broadside.PdfDocument!
+Broadside.PdfDocument.AddAssociatedFile(Broadside.Objects.CosDictionary! owner, Broadside.PdfFileSpecification! file) -> void
+Broadside.PdfDocument.AddEmbeddedFile(string! fileName, System.ReadOnlySpan<byte> contents, Broadside.PdfEmbeddedFileOptions? options = null) -> Broadside.PdfEmbeddedFileEntry!
+Broadside.PdfDocument.AddEmbeddedFile(string! name, Broadside.PdfFileSpecification! file) -> Broadside.PdfEmbeddedFileEntry!
+Broadside.PdfDocument.CreateEmbeddedFile(string! fileName, System.ReadOnlySpan<byte> contents, Broadside.PdfEmbeddedFileOptions? options = null) -> Broadside.PdfFileSpecification!
+Broadside.PdfDocument.RemoveAssociatedFile(Broadside.Objects.CosDictionary! owner, Broadside.PdfFileSpecification! file) -> bool
+Broadside.PdfDocument.RemoveEmbeddedFile(string! name) -> bool
+Broadside.PdfEmbeddedFileOptions
+Broadside.PdfEmbeddedFileOptions.CreationDate.get -> System.DateTimeOffset?
+Broadside.PdfEmbeddedFileOptions.CreationDate.set -> void
+Broadside.PdfEmbeddedFileOptions.Description.get -> string?
+Broadside.PdfEmbeddedFileOptions.Description.set -> void
+Broadside.PdfEmbeddedFileOptions.MediaType.get -> string?
+Broadside.PdfEmbeddedFileOptions.MediaType.set -> void
+Broadside.PdfEmbeddedFileOptions.ModificationDate.get -> System.DateTimeOffset?
+Broadside.PdfEmbeddedFileOptions.ModificationDate.set -> void
+Broadside.PdfEmbeddedFileOptions.PdfEmbeddedFileOptions() -> void
+Broadside.PdfEmbeddedFileOptions.Relationship.get -> Broadside.PdfFileRelationship?
+Broadside.PdfEmbeddedFileOptions.Relationship.set -> void
+Broadside.PdfEmbeddedFileOptions.WithCreationDate(System.DateTimeOffset? date) -> Broadside.PdfEmbeddedFileOptions!
+Broadside.PdfEmbeddedFileOptions.WithDescription(string? description) -> Broadside.PdfEmbeddedFileOptions!
+Broadside.PdfEmbeddedFileOptions.WithMediaType(string? mediaType) -> Broadside.PdfEmbeddedFileOptions!
+Broadside.PdfEmbeddedFileOptions.WithModificationDate(System.DateTimeOffset? date) -> Broadside.PdfEmbeddedFileOptions!
+Broadside.PdfEmbeddedFileOptions.WithRelationship(Broadside.PdfFileRelationship? relationship) -> Broadside.PdfEmbeddedFileOptions!
+Broadside.PdfDocument.CreateDestination(Broadside.PdfPage! page, Broadside.PdfDestinationView view, double? left = null, double? top = null, double? right = null, double? bottom = null, double? zoom = null) -> Broadside.PdfExplicitDestination!
+Broadside.PdfDocument.CreateOutline() -> Broadside.PdfOutline!
+Broadside.PdfDocument.CreatePageLabels() -> Broadside.PdfPageLabels!
+Broadside.PdfDocument.RemoveNamedDestination(Broadside.Objects.CosString! name) -> bool
+Broadside.PdfDocument.RemoveNamedDestination(string! name) -> bool
+Broadside.PdfDocument.SetNamedDestination(Broadside.Objects.CosString! name, Broadside.PdfExplicitDestination! destination) -> Broadside.PdfNamedDestination!
+Broadside.PdfDocument.SetNamedDestination(string! name, Broadside.PdfExplicitDestination! destination) -> Broadside.PdfNamedDestination!
+Broadside.PdfOutline.Add(string! title) -> Broadside.PdfOutlineItem!
+Broadside.PdfOutline.Insert(int index, string! title) -> Broadside.PdfOutlineItem!
+Broadside.PdfOutlineItem.Add(string! title) -> Broadside.PdfOutlineItem!
+Broadside.PdfOutlineItem.Color.set -> void
+Broadside.PdfOutlineItem.Destination.set -> void
+Broadside.PdfOutlineItem.Flags.set -> void
+Broadside.PdfOutlineItem.Insert(int index, string! title) -> Broadside.PdfOutlineItem!
+Broadside.PdfOutlineItem.IsOpen.set -> void
+Broadside.PdfOutlineItem.MoveTo(Broadside.PdfOutlineItem? parent, int index) -> void
+Broadside.PdfOutlineItem.Remove() -> void
+Broadside.PdfOutlineItem.Title.set -> void
+Broadside.PdfPageLabels.RemoveRange(int startPageIndex) -> bool
+Broadside.PdfPageLabels.SetRange(int startPageIndex, Broadside.PdfPageLabelStyle style, string? prefix = null, int firstNumber = 1) -> Broadside.PdfPageLabelRange!
+Broadside.PdfPageCollection.Add(Broadside.Objects.CosReference! pageObject) -> Broadside.PdfPage!
+Broadside.PdfPageCollection.Add(Broadside.PdfRectangle mediaBox) -> Broadside.PdfPage!
+Broadside.PdfPageCollection.IndexOf(Broadside.PdfPage! page) -> int
+Broadside.PdfPageCollection.Insert(int index, Broadside.Objects.CosReference! pageObject) -> Broadside.PdfPage!
+Broadside.PdfPageCollection.Insert(int index, Broadside.PdfRectangle mediaBox) -> Broadside.PdfPage!
+Broadside.PdfPageCollection.Move(int fromIndex, int toIndex) -> void
+Broadside.PdfPageCollection.Remove(Broadside.PdfPage! page) -> bool
+Broadside.PdfPageCollection.RemoveAt(int index) -> void
+Broadside.PdfPage.Rotation.set -> void
+Broadside.PdfDocument.CreateStructureTree() -> Broadside.Structure.PdfStructureTreeRoot!
+Broadside.Structure.PdfAttributeObject.SetValue(Broadside.Objects.CosName! name, Broadside.Objects.CosObject? value) -> void
+Broadside.Structure.PdfMarkInfo.Marked.set -> void
+Broadside.Structure.PdfMarkInfo.Suspects.set -> void
+Broadside.Structure.PdfMarkInfo.UserProperties.set -> void
+Broadside.Structure.PdfStructureElement.ActualText.set -> void
+Broadside.Structure.PdfStructureElement.AddAttributes(Broadside.Objects.CosName! owner) -> Broadside.Structure.PdfAttributeObject!
+Broadside.Structure.PdfStructureElement.AddAttributes(Broadside.Structure.PdfStructureNamespace! ns) -> Broadside.Structure.PdfAttributeObject!
+Broadside.Structure.PdfStructureElement.AddClassName(Broadside.Objects.CosName! className) -> void
+Broadside.Structure.PdfStructureElement.AddElement(Broadside.Structure.PdfStructureType! type) -> Broadside.Structure.PdfStructureElement!
+Broadside.Structure.PdfStructureElement.AddElement(string! type) -> Broadside.Structure.PdfStructureElement!
+Broadside.Structure.PdfStructureElement.AddMarkedContent(Broadside.PdfPage! page) -> Broadside.Structure.PdfMarkedContentReference!
+Broadside.Structure.PdfStructureElement.AddMarkedContent(Broadside.PdfPage! page, Broadside.Graphics.PdfFormXObject! form) -> Broadside.Structure.PdfMarkedContentReference!
+Broadside.Structure.PdfStructureElement.AddMarkedContent(Broadside.PdfPage! page, Broadside.Graphics.PdfFormXObject! form, int mcid) -> Broadside.Structure.PdfMarkedContentReference!
+Broadside.Structure.PdfStructureElement.AddMarkedContent(Broadside.PdfPage! page, int mcid) -> Broadside.Structure.PdfMarkedContentReference!
+Broadside.Structure.PdfStructureElement.AddObjectReference(Broadside.Objects.CosReference! target, Broadside.PdfPage? page) -> Broadside.Structure.PdfObjectReference!
+Broadside.Structure.PdfStructureElement.AlternateDescription.set -> void
+Broadside.Structure.PdfStructureElement.Expansion.set -> void
+Broadside.Structure.PdfStructureElement.Id.set -> void
+Broadside.Structure.PdfStructureElement.Language.set -> void
+Broadside.Structure.PdfStructureElement.Remove() -> void
+Broadside.Structure.PdfStructureElement.SetStructureType(Broadside.Structure.PdfStructureType! type) -> void
+Broadside.Structure.PdfStructureElement.Title.set -> void
+Broadside.Structure.PdfStructureNamespace.MapRole(Broadside.Objects.CosName! type, Broadside.Structure.PdfStructureType! target) -> void
+Broadside.Structure.PdfStructureNamespace.RemoveRoleMapping(Broadside.Objects.CosName! type) -> bool
+Broadside.Structure.PdfStructureTreeRoot.AddClassAttributes(Broadside.Objects.CosName! className, Broadside.Objects.CosName! owner) -> Broadside.Structure.PdfAttributeObject!
+Broadside.Structure.PdfStructureTreeRoot.AddElement(Broadside.Structure.PdfStructureType! type) -> Broadside.Structure.PdfStructureElement!
+Broadside.Structure.PdfStructureTreeRoot.AddElement(string! type) -> Broadside.Structure.PdfStructureElement!
+Broadside.Structure.PdfStructureTreeRoot.GetOrAddNamespace(string! name) -> Broadside.Structure.PdfStructureNamespace!
+Broadside.Structure.PdfStructureTreeRoot.IdTree.get -> Broadside.PdfNameTree?
+Broadside.Structure.PdfStructureTreeRoot.MapRole(Broadside.Objects.CosName! type, Broadside.Objects.CosName! target) -> void
+Broadside.Structure.PdfStructureTreeRoot.MinimumVersion.get -> Broadside.PdfVersion
+Broadside.Structure.PdfStructureTreeRoot.ParentTree.get -> Broadside.PdfNumberTree?
+Broadside.Structure.PdfStructureTreeRoot.RemoveRoleMapping(Broadside.Objects.CosName! type) -> bool
+Broadside.Forms.PdfToggleButtonField.SetValue(Broadside.Objects.CosName! value) -> void
+Broadside.Forms.PdfToggleButtonField.Select(Broadside.Annotations.PdfWidgetAnnotation! widget) -> void
+Broadside.Forms.PdfToggleButtonField.SetExportValue(string? exportValue) -> void
+Broadside.Forms.PdfToggleButtonField.GenerateAppearances() -> void
+Broadside.Forms.PdfCheckBoxField.SetChecked(bool isChecked) -> void
+Broadside.Forms.PdfChoiceField.SetValue(string? value) -> void
+Broadside.Forms.PdfChoiceField.SetSelectedIndices(System.Collections.Generic.IEnumerable<int>! indices) -> void
+Broadside.Forms.PdfChoiceField.GenerateAppearances() -> void
+Broadside.Forms.PdfListBoxField.SetTopIndex(int topIndex) -> void
+Broadside.PdfDocument.CreateAcroForm() -> Broadside.Forms.PdfAcroForm!
+Broadside.Forms.PdfAcroForm.AddTextField(string! name, Broadside.PdfPage! page, Broadside.PdfRectangle rectangle, Broadside.Forms.PdfFieldOptions? options = null) -> Broadside.Forms.PdfTextField!
+Broadside.Forms.PdfAcroForm.AddCheckBox(string! name, Broadside.PdfPage! page, Broadside.PdfRectangle rectangle, Broadside.Forms.PdfFieldOptions? options = null) -> Broadside.Forms.PdfCheckBoxField!
+Broadside.Forms.PdfAcroForm.AddRadioButtons(string! name, System.Collections.Generic.IEnumerable<Broadside.Forms.PdfRadioButton!>! buttons, Broadside.Forms.PdfFieldOptions? options = null) -> Broadside.Forms.PdfRadioButtonField!
+Broadside.Forms.PdfAcroForm.AddComboBox(string! name, Broadside.PdfPage! page, Broadside.PdfRectangle rectangle, System.Collections.Generic.IEnumerable<Broadside.Forms.PdfChoiceOption!>! choices, Broadside.Forms.PdfFieldOptions? options = null) -> Broadside.Forms.PdfComboBoxField!
+Broadside.Forms.PdfAcroForm.AddListBox(string! name, Broadside.PdfPage! page, Broadside.PdfRectangle rectangle, System.Collections.Generic.IEnumerable<Broadside.Forms.PdfChoiceOption!>! choices, Broadside.Forms.PdfFieldOptions? options = null) -> Broadside.Forms.PdfListBoxField!
+Broadside.Forms.PdfAcroForm.AddPushButton(string! name, Broadside.PdfPage! page, Broadside.PdfRectangle rectangle, Broadside.Forms.PdfFieldOptions? options = null) -> Broadside.Forms.PdfPushButtonField!
+Broadside.Forms.PdfAcroForm.AddSignatureField(string! name, Broadside.PdfPage! page, Broadside.PdfRectangle rectangle, Broadside.Forms.PdfFieldOptions? options = null) -> Broadside.Forms.PdfSignatureField!
+Broadside.Forms.PdfChoiceOption.PdfChoiceOption(string! exportValue, string! displayText) -> void
+Broadside.Forms.PdfChoiceOption.PdfChoiceOption(string! text) -> void
+Broadside.Forms.PdfRadioButton
+Broadside.Forms.PdfRadioButton.PdfRadioButton(Broadside.PdfPage! page, Broadside.PdfRectangle rectangle, string! state) -> void
+Broadside.Forms.PdfRadioButton.Page.get -> Broadside.PdfPage!
+Broadside.Forms.PdfRadioButton.Rectangle.get -> Broadside.PdfRectangle
+Broadside.Forms.PdfRadioButton.State.get -> string!
+Broadside.Forms.PdfFieldOptions
+Broadside.Forms.PdfFieldOptions.PdfFieldOptions() -> void
+Broadside.Forms.PdfFieldOptions.Flags.get -> Broadside.Forms.PdfFieldFlags
+Broadside.Forms.PdfFieldOptions.Flags.set -> void
+Broadside.Forms.PdfFieldOptions.AlternateName.get -> string?
+Broadside.Forms.PdfFieldOptions.AlternateName.set -> void
+Broadside.Forms.PdfFieldOptions.FontSize.get -> double
+Broadside.Forms.PdfFieldOptions.FontSize.set -> void
+Broadside.Forms.PdfFieldOptions.TextColor.get -> Broadside.Annotations.PdfDeviceColor!
+Broadside.Forms.PdfFieldOptions.TextColor.set -> void
+Broadside.Forms.PdfFieldOptions.Quadding.get -> Broadside.Annotations.PdfTextJustification
+Broadside.Forms.PdfFieldOptions.Quadding.set -> void
+Broadside.Forms.PdfFieldOptions.BorderColor.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.Forms.PdfFieldOptions.BorderColor.set -> void
+Broadside.Forms.PdfFieldOptions.BackgroundColor.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.Forms.PdfFieldOptions.BackgroundColor.set -> void
+Broadside.Forms.PdfFieldOptions.BorderWidth.get -> double
+Broadside.Forms.PdfFieldOptions.BorderWidth.set -> void
+Broadside.Forms.PdfFieldOptions.MaxLength.get -> int?
+Broadside.Forms.PdfFieldOptions.MaxLength.set -> void
+Broadside.Forms.PdfFieldOptions.Caption.get -> string?
+Broadside.Forms.PdfFieldOptions.Caption.set -> void
+Broadside.Forms.PdfFieldOptions.WithFlags(Broadside.Forms.PdfFieldFlags flags) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithAlternateName(string? alternateName) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithFontSize(double fontSize) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithTextColor(Broadside.Annotations.PdfDeviceColor! color) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithQuadding(Broadside.Annotations.PdfTextJustification quadding) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithBorderColor(Broadside.Annotations.PdfDeviceColor? color) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithBackgroundColor(Broadside.Annotations.PdfDeviceColor? color) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithBorderWidth(double width) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithMaxLength(int? maxLength) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Forms.PdfFieldOptions.WithCaption(string? caption) -> Broadside.Forms.PdfFieldOptions!
+Broadside.Rendering.DisplayList.Replay(Broadside.Rendering.IRenderingBackend! backend, Broadside.PdfRectangle region) -> void
+Broadside.PdfEncryptionRecipient
+Broadside.PdfEncryptionRecipient.Access.get -> Broadside.PdfAccessLevel
+Broadside.PdfEncryptionRecipient.Certificate.get -> System.Security.Cryptography.X509Certificates.X509Certificate2!
+Broadside.PdfEncryptionRecipient.Permissions.get -> Broadside.PdfPermissions
+Broadside.PdfPublicKeyEncryptionOptions
+Broadside.PdfPublicKeyEncryptionOptions.AddOwner(System.Security.Cryptography.X509Certificates.X509Certificate2! certificate) -> Broadside.PdfPublicKeyEncryptionOptions!
+Broadside.PdfPublicKeyEncryptionOptions.AddRecipient(System.Security.Cryptography.X509Certificates.X509Certificate2! certificate, Broadside.PdfPermissions permissions) -> Broadside.PdfPublicKeyEncryptionOptions!
+Broadside.PdfPublicKeyEncryptionOptions.EncryptMetadata.get -> bool
+Broadside.PdfPublicKeyEncryptionOptions.EncryptMetadata.set -> void
+Broadside.PdfPublicKeyEncryptionOptions.PdfPublicKeyEncryptionOptions() -> void
+Broadside.PdfPublicKeyEncryptionOptions.Recipients.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfEncryptionRecipient!>!
+Broadside.PdfPublicKeyEncryptionOptions.WithEncryptMetadata(bool encryptMetadata) -> Broadside.PdfPublicKeyEncryptionOptions!
+Broadside.PdfSaveOptions.PublicKeyEncryption.get -> Broadside.PdfPublicKeyEncryptionOptions?
+Broadside.PdfSaveOptions.PublicKeyEncryption.set -> void
+Broadside.PdfSaveOptions.WithPublicKeyEncryption(Broadside.PdfPublicKeyEncryptionOptions? encryption) -> Broadside.PdfSaveOptions!
+Broadside.PdfPage.CreateHitTestIndex() -> Broadside.Rendering.HitTestIndex!
+Broadside.PdfPage.CreateHitTestIndex(Broadside.Rendering.DisplayList! displayList, Broadside.PdfOptionalContentState? optionalContentState = null) -> Broadside.Rendering.HitTestIndex!
+Broadside.Rendering.DisplayList.CreateHitTestIndex() -> Broadside.Rendering.HitTestIndex!
+Broadside.Rendering.HitTestGlyph
+Broadside.Rendering.HitTestGlyph.CharacterCode.get -> uint
+Broadside.Rendering.HitTestGlyph.CodeLength.get -> int
+Broadside.Rendering.HitTestGlyph.HitTestGlyph() -> void
+Broadside.Rendering.HitTestGlyph.IsVertical.get -> bool
+Broadside.Rendering.HitTestGlyph.Quad.get -> Broadside.Graphics.Quad
+Broadside.Rendering.HitTestGlyph.RenderingMode.get -> Broadside.Graphics.TextRenderingMode
+Broadside.Rendering.HitTestGlyph.TextLength.get -> int
+Broadside.Rendering.HitTestGlyph.TextStart.get -> int
+Broadside.Rendering.HitTestIndex
+Broadside.Rendering.HitTestIndex.Find(Broadside.Graphics.PathPoint point, Broadside.Rendering.HitTestKinds kinds) -> Broadside.Rendering.HitTestMatches
+Broadside.Rendering.HitTestIndex.Find(Broadside.PdfRectangle area, Broadside.Rendering.HitTestKinds kinds) -> Broadside.Rendering.HitTestMatches
+Broadside.Rendering.HitTestIndex.GetGlyph(int index) -> Broadside.Rendering.HitTestGlyph
+Broadside.Rendering.HitTestIndex.GetGlyphText(in Broadside.Rendering.HitTestGlyph glyph) -> System.ReadOnlySpan<char>
+Broadside.Rendering.HitTestIndex.GlyphCount.get -> int
+Broadside.Rendering.HitTestIndex.Images.get -> System.ReadOnlySpan<Broadside.Rendering.HitTestShape>
+Broadside.Rendering.HitTestIndex.Links.get -> System.Collections.Generic.IReadOnlyList<Broadside.Rendering.HitTestLink!>!
+Broadside.Rendering.HitTestIndex.Paths.get -> System.ReadOnlySpan<Broadside.Rendering.HitTestShape>
+Broadside.Rendering.HitTestIndex.Text.get -> System.ReadOnlySpan<char>
+Broadside.Rendering.HitTestItem
+Broadside.Rendering.HitTestItem.HitTestItem() -> void
+Broadside.Rendering.HitTestItem.HitTestItem(Broadside.Rendering.HitTestKinds Kind, int Index) -> void
+Broadside.Rendering.HitTestItem.Index.get -> int
+Broadside.Rendering.HitTestItem.Index.init -> void
+Broadside.Rendering.HitTestItem.Kind.get -> Broadside.Rendering.HitTestKinds
+Broadside.Rendering.HitTestItem.Kind.init -> void
+Broadside.Rendering.HitTestKinds
+Broadside.Rendering.HitTestKinds.All = Broadside.Rendering.HitTestKinds.Glyphs | Broadside.Rendering.HitTestKinds.Images | Broadside.Rendering.HitTestKinds.Paths | Broadside.Rendering.HitTestKinds.Links -> Broadside.Rendering.HitTestKinds
+Broadside.Rendering.HitTestKinds.Glyphs = 1 -> Broadside.Rendering.HitTestKinds
+Broadside.Rendering.HitTestKinds.Images = 2 -> Broadside.Rendering.HitTestKinds
+Broadside.Rendering.HitTestKinds.Links = 8 -> Broadside.Rendering.HitTestKinds
+Broadside.Rendering.HitTestKinds.None = 0 -> Broadside.Rendering.HitTestKinds
+Broadside.Rendering.HitTestKinds.Paths = 4 -> Broadside.Rendering.HitTestKinds
+Broadside.Rendering.HitTestLink
+Broadside.Rendering.HitTestLink.Action.get -> Broadside.PdfAction?
+Broadside.Rendering.HitTestLink.Annotation.get -> Broadside.Annotations.PdfLinkAnnotation!
+Broadside.Rendering.HitTestLink.Bounds.get -> Broadside.PdfRectangle
+Broadside.Rendering.HitTestLink.Destination.get -> Broadside.PdfDestination?
+Broadside.Rendering.HitTestLink.Region.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>!
+Broadside.Rendering.HitTestMatches
+Broadside.Rendering.HitTestMatches.Current.get -> Broadside.Rendering.HitTestItem
+Broadside.Rendering.HitTestMatches.GetEnumerator() -> Broadside.Rendering.HitTestMatches
+Broadside.Rendering.HitTestMatches.HitTestMatches() -> void
+Broadside.Rendering.HitTestMatches.MoveNext() -> bool
+Broadside.Rendering.HitTestShape
+Broadside.Rendering.HitTestShape.Bounds.get -> Broadside.PdfRectangle
+Broadside.Rendering.HitTestShape.Bounds.init -> void
+Broadside.Rendering.HitTestShape.HitTestShape() -> void
+Broadside.Rendering.HitTestShape.HitTestShape(Broadside.Graphics.Quad Quad, Broadside.PdfRectangle Bounds) -> void
+Broadside.Rendering.HitTestShape.Quad.get -> Broadside.Graphics.Quad
+Broadside.Rendering.HitTestShape.Quad.init -> void
+Broadside.PdfCacheStatistics
+Broadside.PdfCacheStatistics.Budget.get -> long
+Broadside.PdfCacheStatistics.Budget.init -> void
+Broadside.PdfCacheStatistics.Bytes.get -> long
+Broadside.PdfCacheStatistics.Bytes.init -> void
+Broadside.PdfCacheStatistics.Count.get -> int
+Broadside.PdfCacheStatistics.Count.init -> void
+Broadside.PdfCacheStatistics.Evictions.get -> long
+Broadside.PdfCacheStatistics.Evictions.init -> void
+Broadside.PdfCacheStatistics.Hits.get -> long
+Broadside.PdfCacheStatistics.Hits.init -> void
+Broadside.PdfCacheStatistics.Misses.get -> long
+Broadside.PdfCacheStatistics.Misses.init -> void
+Broadside.PdfCacheStatistics.PdfCacheStatistics() -> void
+Broadside.PdfCacheStatistics.PdfCacheStatistics(long Budget, long Bytes, long PeakBytes, int Count, long Hits, long Misses, long Evictions) -> void
+Broadside.PdfCacheStatistics.PeakBytes.get -> long
+Broadside.PdfCacheStatistics.PeakBytes.init -> void
+Broadside.PdfDocument.CacheStatistics.get -> Broadside.PdfDocumentCacheStatistics!
+Broadside.PdfDocumentCacheStatistics
+Broadside.PdfDocumentCacheStatistics.Content.get -> Broadside.PdfCacheStatistics
+Broadside.PdfDocumentCacheStatistics.Content.init -> void
+Broadside.PdfDocumentCacheStatistics.DisplayLists.get -> Broadside.PdfCacheStatistics
+Broadside.PdfDocumentCacheStatistics.DisplayLists.init -> void
+Broadside.PdfDocumentCacheStatistics.Glyphs.get -> Broadside.PdfCacheStatistics
+Broadside.PdfDocumentCacheStatistics.Glyphs.init -> void
+Broadside.PdfDocumentCacheStatistics.Images.get -> Broadside.PdfCacheStatistics
+Broadside.PdfDocumentCacheStatistics.Images.init -> void
+Broadside.PdfDocumentCacheStatistics.PdfDocumentCacheStatistics(Broadside.PdfCacheStatistics Content, Broadside.PdfCacheStatistics Images, Broadside.PdfCacheStatistics Glyphs, Broadside.PdfCacheStatistics DisplayLists) -> void
+Broadside.PdfOptions.ContentCacheBudget.get -> long
+Broadside.PdfOptions.ContentCacheBudget.set -> void
+Broadside.PdfOptions.DisplayListCacheBudget.get -> long
+Broadside.PdfOptions.DisplayListCacheBudget.set -> void
+Broadside.PdfOptions.GlyphCacheBudget.get -> long
+Broadside.PdfOptions.GlyphCacheBudget.set -> void
+Broadside.PdfOptions.ImageCacheBudget.get -> long
+Broadside.PdfOptions.ImageCacheBudget.set -> void
+Broadside.PdfOptions.WithContentCacheBudget(long budget) -> Broadside.PdfOptions!
+Broadside.PdfOptions.WithDisplayListCacheBudget(long budget) -> Broadside.PdfOptions!
+Broadside.PdfOptions.WithGlyphCacheBudget(long budget) -> Broadside.PdfOptions!
+Broadside.PdfOptions.WithImageCacheBudget(long budget) -> Broadside.PdfOptions!
+const Broadside.PdfOptions.DefaultContentCacheBudget = 33554432 -> long
+const Broadside.PdfOptions.DefaultDisplayListCacheBudget = 33554432 -> long
+const Broadside.PdfOptions.DefaultGlyphCacheBudget = 8388608 -> long
+const Broadside.PdfOptions.DefaultImageCacheBudget = 67108864 -> long
+Broadside.PdfEncryptionAlgorithm.Aes256Gcm = 3 -> Broadside.PdfEncryptionAlgorithm
+Broadside.PdfEncryptionOptions.IntegrityProtection.get -> bool
+Broadside.PdfEncryptionOptions.IntegrityProtection.set -> void
+Broadside.PdfEncryptionOptions.WithIntegrityProtection(bool integrityProtection) -> Broadside.PdfEncryptionOptions!
+Broadside.PdfPublicKeyEncryptionOptions.IntegrityProtection.get -> bool
+Broadside.PdfPublicKeyEncryptionOptions.IntegrityProtection.set -> void
+Broadside.PdfPublicKeyEncryptionOptions.WithIntegrityProtection(bool integrityProtection) -> Broadside.PdfPublicKeyEncryptionOptions!
+Broadside.Rendering.IRenderingBackend.SetCompositing(double strokeAlpha, double fillAlpha, Broadside.Graphics.BlendMode blendMode) -> void
+Broadside.Rendering.DisplayGroup
+Broadside.Rendering.DisplayGroup.BlendMode.get -> Broadside.Graphics.BlendMode
+Broadside.Rendering.DisplayGroup.BoundingBox.get -> Broadside.PdfRectangle
+Broadside.Rendering.DisplayGroup.ColorSpace.get -> Broadside.Graphics.PdfColorSpace?
+Broadside.Rendering.DisplayGroup.Conversion.get -> Broadside.Graphics.ColorConversion
+Broadside.Rendering.DisplayGroup.DefaultColorSpaces.get -> Broadside.Graphics.PdfDefaultColorSpaces!
+Broadside.Rendering.DisplayGroup.DisplayGroup() -> void
+Broadside.Rendering.DisplayGroup.HasBoundingBox.get -> bool
+Broadside.Rendering.DisplayGroup.IsIsolated.get -> bool
+Broadside.Rendering.DisplayGroup.IsKnockout.get -> bool
+Broadside.Rendering.DisplayGroup.Kind.get -> Broadside.Rendering.DisplayGroupKind
+Broadside.Rendering.DisplayGroup.Matrix.get -> Broadside.Graphics.Matrix
+Broadside.Rendering.DisplayGroup.Opacity.get -> double
+Broadside.Rendering.DisplayGroup.Replay(Broadside.Rendering.IRenderingBackend! backend) -> void
+Broadside.Rendering.DisplayGroupKind
+Broadside.Rendering.DisplayGroupKind.FillAndStroke = 2 -> Broadside.Rendering.DisplayGroupKind
+Broadside.Rendering.DisplayGroupKind.Page = 1 -> Broadside.Rendering.DisplayGroupKind
+Broadside.Rendering.DisplayGroupKind.Transparency = 0 -> Broadside.Rendering.DisplayGroupKind
+Broadside.Rendering.IRenderingBackend.DrawGroup(in Broadside.Rendering.DisplayGroup group) -> void
+Broadside.Rendering.DisplayTilingPattern
+Broadside.Rendering.DisplayTilingPattern.Cell.get -> Broadside.Rendering.DisplayList!
+Broadside.Rendering.DisplayTilingPattern.DisplayTilingPattern() -> void
+Broadside.Rendering.DisplayTilingPattern.Matrix.get -> Broadside.Graphics.Matrix
+Broadside.Rendering.DisplayTilingPattern.Pattern.get -> Broadside.Graphics.PdfTilingPattern!
+Broadside.Rendering.IRenderingBackend.FillPathWithTilingPattern(Broadside.Graphics.PathView path, Broadside.Graphics.FillRule rule, in Broadside.Rendering.DisplayTilingPattern pattern) -> void
+Broadside.Rendering.IRenderingBackend.StrokePathWithTilingPattern(Broadside.Graphics.PathView path, in Broadside.Rendering.StrokeStyle style, in Broadside.Rendering.DisplayTilingPattern pattern) -> void
+Broadside.Rendering.IRenderingBackend.SetDeviceParameters(in Broadside.Rendering.DisplayDeviceParameters parameters) -> void
+Broadside.Rendering.DisplayDeviceParameters
+Broadside.Rendering.DisplayDeviceParameters.DisplayDeviceParameters() -> void
+Broadside.Rendering.DisplayDeviceParameters.FillOverprint.get -> bool
+Broadside.Rendering.DisplayDeviceParameters.Halftone.get -> Broadside.Objects.CosObject?
+Broadside.Rendering.DisplayDeviceParameters.HalftoneOrigin.get -> Broadside.Graphics.PathPoint?
+Broadside.Rendering.DisplayDeviceParameters.OverprintMode.get -> int
+Broadside.Rendering.DisplayDeviceParameters.StrokeOverprint.get -> bool
+Broadside.PdfPage.CreateDisplayList(Broadside.Rendering.DisplayLayers layers) -> Broadside.Rendering.DisplayList!
+Broadside.PdfPage.CreateDisplayList(Broadside.Rendering.DisplayLayers layers, Broadside.Rendering.DisplayIntent intent, Broadside.Content.ContentOptions! options) -> Broadside.Rendering.DisplayList!
+Broadside.Rendering.DisplayAnnotation
+Broadside.Rendering.DisplayAnnotation.BlendMode.get -> Broadside.Graphics.BlendMode
+Broadside.Rendering.DisplayAnnotation.DisplayAnnotation() -> void
+Broadside.Rendering.DisplayAnnotation.Isolated.get -> bool
+Broadside.Rendering.DisplayAnnotation.Kind.get -> Broadside.Annotations.PdfAnnotationKind
+Broadside.Rendering.DisplayAnnotation.Knockout.get -> bool
+Broadside.Rendering.DisplayAnnotation.NoRotate.get -> bool
+Broadside.Rendering.DisplayAnnotation.NoZoom.get -> bool
+Broadside.Rendering.DisplayAnnotation.Opacity.get -> double
+Broadside.Rendering.DisplayAnnotation.Rectangle.get -> Broadside.PdfRectangle
+Broadside.Rendering.DisplayAnnotation.Reference.get -> Broadside.Objects.CosReference?
+Broadside.Rendering.DisplayIntent
+Broadside.Rendering.DisplayIntent.Print = 1 -> Broadside.Rendering.DisplayIntent
+Broadside.Rendering.DisplayIntent.View = 0 -> Broadside.Rendering.DisplayIntent
+Broadside.Rendering.DisplayLayers
+Broadside.Rendering.DisplayLayers.All = Broadside.Rendering.DisplayLayers.Content | Broadside.Rendering.DisplayLayers.Annotations | Broadside.Rendering.DisplayLayers.FormFields -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.DisplayLayers.Annotations = 2 -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.DisplayLayers.Content = 1 -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.DisplayLayers.FormFields = 4 -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.DisplayLayers.None = 0 -> Broadside.Rendering.DisplayLayers
+Broadside.Rendering.IRenderingBackend.BeginAnnotation(in Broadside.Rendering.DisplayAnnotation annotation) -> void
+Broadside.Rendering.IRenderingBackend.EndAnnotation() -> void
+Broadside.Signatures.PdfCertificationPermissions
+Broadside.Signatures.PdfCertificationPermissions.NoChanges = 1 -> Broadside.Signatures.PdfCertificationPermissions
+Broadside.Signatures.PdfCertificationPermissions.FormFilling = 2 -> Broadside.Signatures.PdfCertificationPermissions
+Broadside.Signatures.PdfCertificationPermissions.FormFillingAndAnnotations = 3 -> Broadside.Signatures.PdfCertificationPermissions
+Broadside.Signatures.PdfFieldLockOptions
+Broadside.Signatures.PdfFieldLockOptions.Action.get -> Broadside.Forms.PdfSignatureFieldLockAction
+Broadside.Signatures.PdfFieldLockOptions.FieldNames.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.Signatures.PdfFieldLockOptions.Permissions.get -> Broadside.Signatures.PdfCertificationPermissions?
+Broadside.Signatures.PdfFieldLockOptions.WithPermissions(Broadside.Signatures.PdfCertificationPermissions? permissions) -> Broadside.Signatures.PdfFieldLockOptions!
+static Broadside.Signatures.PdfFieldLockOptions.All() -> Broadside.Signatures.PdfFieldLockOptions!
+static Broadside.Signatures.PdfFieldLockOptions.Include(params System.Collections.Generic.IEnumerable<string!>! fieldNames) -> Broadside.Signatures.PdfFieldLockOptions!
+static Broadside.Signatures.PdfFieldLockOptions.Exclude(params System.Collections.Generic.IEnumerable<string!>! fieldNames) -> Broadside.Signatures.PdfFieldLockOptions!
+Broadside.Signatures.PdfSignatureOptions.Certification.get -> Broadside.Signatures.PdfCertificationPermissions?
+Broadside.Signatures.PdfSignatureOptions.Certification.set -> void
+Broadside.Signatures.PdfSignatureOptions.FieldLock.get -> Broadside.Signatures.PdfFieldLockOptions?
+Broadside.Signatures.PdfSignatureOptions.FieldLock.set -> void
+Broadside.Signatures.PdfSignatureOptions.WithCertification(Broadside.Signatures.PdfCertificationPermissions? permissions) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureOptions.WithFieldLock(Broadside.Signatures.PdfFieldLockOptions? fieldLock) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfSignatureValidation.SignedRevision.get -> int?
+Broadside.Signatures.PdfSignatureValidation.CertificationPermissions.get -> Broadside.Signatures.PdfCertificationPermissions?
+Broadside.Signatures.PdfSignatureValidation.Modifications.get -> System.Collections.Generic.IReadOnlyList<Broadside.Signatures.PdfModification!>!
+Broadside.Signatures.PdfModificationKind
+Broadside.Signatures.PdfModificationKind.DocumentSecurityStore = 0 -> Broadside.Signatures.PdfModificationKind
+Broadside.Signatures.PdfModificationKind.DocumentTimestamp = 1 -> Broadside.Signatures.PdfModificationKind
+Broadside.Signatures.PdfModificationKind.DocumentInformation = 2 -> Broadside.Signatures.PdfModificationKind
+Broadside.Signatures.PdfModificationKind.Signing = 3 -> Broadside.Signatures.PdfModificationKind
+Broadside.Signatures.PdfModificationKind.FormFilling = 4 -> Broadside.Signatures.PdfModificationKind
+Broadside.Signatures.PdfModificationKind.Annotations = 5 -> Broadside.Signatures.PdfModificationKind
+Broadside.Signatures.PdfModificationKind.FormStructure = 6 -> Broadside.Signatures.PdfModificationKind
+Broadside.Signatures.PdfModificationKind.Pages = 7 -> Broadside.Signatures.PdfModificationKind
+Broadside.Signatures.PdfModificationKind.Other = 8 -> Broadside.Signatures.PdfModificationKind
+Broadside.Signatures.PdfModification
+Broadside.Signatures.PdfModification.Revision.get -> int
+Broadside.Signatures.PdfModification.Kind.get -> Broadside.Signatures.PdfModificationKind
+Broadside.Signatures.PdfModification.ObjectReference.get -> Broadside.Objects.CosReference?
+Broadside.Signatures.PdfModification.FieldName.get -> string?
+Broadside.Signatures.PdfModification.Description.get -> string!
+Broadside.Signatures.PdfModification.IsPermitted.get -> bool
+override Broadside.Signatures.PdfModification.ToString() -> string!
+Broadside.PdfDocument.AppendPages(Broadside.PdfDocument! source) -> void
+Broadside.PdfDocument.AppendPages(Broadside.PdfDocument! source, System.Range pages) -> void
+Broadside.PdfDocument.ExtractPages(System.Range pages) -> Broadside.PdfDocument!
+Broadside.PdfDocument.Split(params System.Collections.Generic.IEnumerable<System.Range>! ranges) -> System.Collections.Generic.IReadOnlyList<Broadside.PdfDocument!>!
+static Broadside.PdfDocument.Merge(params System.Collections.Generic.IEnumerable<Broadside.PdfDocument!>! sources) -> Broadside.PdfDocument!
+Broadside.Graphics.PdfCanvas
+Broadside.Graphics.PdfCanvas.Clip(Broadside.Graphics.FillRule rule = Broadside.Graphics.FillRule.NonZero) -> void
+Broadside.Graphics.PdfCanvas.CloseAndStroke() -> void
+Broadside.Graphics.PdfCanvas.CloseFillAndStroke(Broadside.Graphics.FillRule rule = Broadside.Graphics.FillRule.NonZero) -> void
+Broadside.Graphics.PdfCanvas.ClosePath() -> void
+Broadside.Graphics.PdfCanvas.CurveTo(double x1, double y1, double x2, double y2, double x3, double y3) -> void
+Broadside.Graphics.PdfCanvas.Dispose() -> void
+Broadside.Graphics.PdfCanvas.DrawForm(Broadside.Graphics.PdfFormXObject! form) -> void
+Broadside.Graphics.PdfCanvas.EndPath() -> void
+Broadside.Graphics.PdfCanvas.Fill(Broadside.Graphics.FillRule rule = Broadside.Graphics.FillRule.NonZero) -> void
+Broadside.Graphics.PdfCanvas.FillAndStroke(Broadside.Graphics.FillRule rule = Broadside.Graphics.FillRule.NonZero) -> void
+Broadside.Graphics.PdfCanvas.LineTo(double x, double y) -> void
+Broadside.Graphics.PdfCanvas.MoveTo(double x, double y) -> void
+Broadside.Graphics.PdfCanvas.Rectangle(double x, double y, double width, double height) -> void
+Broadside.Graphics.PdfCanvas.RestoreState() -> void
+Broadside.Graphics.PdfCanvas.Rotate(double degrees) -> void
+Broadside.Graphics.PdfCanvas.SaveState() -> void
+Broadside.Graphics.PdfCanvas.Scale(double x, double y) -> void
+Broadside.Graphics.PdfCanvas.SetBlendMode(Broadside.Graphics.BlendMode mode) -> void
+Broadside.Graphics.PdfCanvas.SetDashPattern(System.ReadOnlySpan<double> dashArray, double phase) -> void
+Broadside.Graphics.PdfCanvas.SetFillAlpha(double alpha) -> void
+Broadside.Graphics.PdfCanvas.SetFillColor(Broadside.Graphics.PdfColor color) -> void
+Broadside.Graphics.PdfCanvas.SetFlatness(double flatness) -> void
+Broadside.Graphics.PdfCanvas.SetLineCap(Broadside.Graphics.LineCap cap) -> void
+Broadside.Graphics.PdfCanvas.SetLineJoin(Broadside.Graphics.LineJoin join) -> void
+Broadside.Graphics.PdfCanvas.SetLineWidth(double width) -> void
+Broadside.Graphics.PdfCanvas.SetMiterLimit(double limit) -> void
+Broadside.Graphics.PdfCanvas.SetRenderingIntent(Broadside.Graphics.RenderingIntent intent) -> void
+Broadside.Graphics.PdfCanvas.SetStrokeAlpha(double alpha) -> void
+Broadside.Graphics.PdfCanvas.SetStrokeColor(Broadside.Graphics.PdfColor color) -> void
+Broadside.Graphics.PdfCanvas.StateDepth.get -> int
+Broadside.Graphics.PdfCanvas.Stroke() -> void
+Broadside.Graphics.PdfCanvas.Transform(Broadside.Graphics.Matrix matrix) -> void
+Broadside.Graphics.PdfCanvas.Translate(double x, double y) -> void
+static Broadside.Graphics.PdfColor.FromCmyk(float cyan, float magenta, float yellow, float black) -> Broadside.Graphics.PdfColor
+static Broadside.Graphics.PdfColor.FromGray(float gray) -> Broadside.Graphics.PdfColor
+static Broadside.Graphics.PdfColor.FromRgb(float red, float green, float blue) -> Broadside.Graphics.PdfColor
+Broadside.Graphics.PdfFormXObject.CreateCanvas() -> Broadside.Graphics.PdfCanvas!
+Broadside.PdfDocument.CreateDeviceNColorSpace(System.Collections.Generic.IReadOnlyList<string!>! colorants, Broadside.Graphics.PdfColorSpace! alternate, Broadside.Graphics.PdfFunction! tintTransform) -> Broadside.Graphics.PdfDeviceNColorSpace!
+Broadside.PdfDocument.CreateDeviceNColorSpace(System.Collections.Generic.IReadOnlyList<string!>! colorants, System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PdfColor>! alternateColors) -> Broadside.Graphics.PdfDeviceNColorSpace!
+Broadside.PdfDocument.CreateExponentialFunction(System.ReadOnlySpan<double> c0, System.ReadOnlySpan<double> c1, double exponent) -> Broadside.Graphics.PdfExponentialFunction!
+Broadside.PdfDocument.CreateFormXObject(Broadside.PdfRectangle boundingBox) -> Broadside.Graphics.PdfFormXObject!
+Broadside.PdfDocument.CreateIccBasedColorSpace(System.ReadOnlySpan<byte> profile) -> Broadside.Graphics.PdfIccBasedColorSpace!
+Broadside.PdfDocument.CreatePostScriptFunction(System.ReadOnlySpan<double> domain, System.ReadOnlySpan<double> range, string! program) -> Broadside.Graphics.PdfPostScriptFunction!
+Broadside.PdfDocument.CreateSeparationColorSpace(string! colorant, Broadside.Graphics.PdfColor alternateColor) -> Broadside.Graphics.PdfSeparationColorSpace!
+Broadside.PdfDocument.CreateSeparationColorSpace(string! colorant, Broadside.Graphics.PdfColorSpace! alternate, Broadside.Graphics.PdfFunction! tintTransform) -> Broadside.Graphics.PdfSeparationColorSpace!
+Broadside.PdfPage.ArtBox.set -> void
+Broadside.PdfPage.BleedBox.set -> void
+Broadside.PdfPage.CreateCanvas() -> Broadside.Graphics.PdfCanvas!
+Broadside.PdfPage.CropBox.set -> void
+Broadside.PdfPage.MediaBox.set -> void
+Broadside.PdfPage.TrimBox.set -> void
+Broadside.Graphics.PdfTransparencyGroup
+Broadside.Graphics.PdfTransparencyGroup.ColorSpace.get -> Broadside.Graphics.PdfColorSpace?
+Broadside.Graphics.PdfTransparencyGroup.ColorSpace.set -> void
+Broadside.Graphics.PdfTransparencyGroup.Dictionary.get -> Broadside.Objects.CosDictionary!
+Broadside.Graphics.PdfTransparencyGroup.IsIsolated.get -> bool
+Broadside.Graphics.PdfTransparencyGroup.IsIsolated.set -> void
+Broadside.Graphics.PdfTransparencyGroup.IsKnockout.get -> bool
+Broadside.Graphics.PdfTransparencyGroup.IsKnockout.set -> void
+Broadside.Graphics.PdfFormXObject.TransparencyGroup.get -> Broadside.Graphics.PdfTransparencyGroup?
+Broadside.Graphics.PdfFormXObject.CreateTransparencyGroup() -> Broadside.Graphics.PdfTransparencyGroup!
+Broadside.Graphics.PdfFormXObject.Matrix.set -> void
+Broadside.PdfPage.TransparencyGroup.get -> Broadside.Graphics.PdfTransparencyGroup?
+Broadside.PdfPage.CreateTransparencyGroup() -> Broadside.Graphics.PdfTransparencyGroup!
+Broadside.PdfDocument.CreateSoftMask(Broadside.Graphics.PdfSoftMaskType type, Broadside.Graphics.PdfFormXObject! group, System.Collections.Generic.IReadOnlyList<double>? backdrop = null, Broadside.Graphics.PdfFunction? transferFunction = null) -> Broadside.Graphics.PdfSoftMask!
+Broadside.Graphics.PdfCanvas.SetSoftMask(Broadside.Graphics.PdfSoftMask? mask) -> void
+Broadside.Graphics.PdfCanvas.DrawImage(Broadside.Images.PdfImage! image) -> void
+Broadside.Graphics.PdfCanvas.DrawImage(Broadside.Images.PdfImage! image, double x, double y, double width, double height) -> void
+Broadside.Images.PdfImageCompression
+Broadside.Images.PdfImageCompression.Dct = 1 -> Broadside.Images.PdfImageCompression
+Broadside.Images.PdfImageCompression.Flate = 0 -> Broadside.Images.PdfImageCompression
+Broadside.Images.PdfImageLayout
+Broadside.Images.PdfImageLayout.BitsPerComponent.get -> int
+Broadside.Images.PdfImageLayout.BitsPerComponent.init -> void
+Broadside.Images.PdfImageLayout.ColorSpace.get -> Broadside.Graphics.PdfColorSpace!
+Broadside.Images.PdfImageLayout.ColorSpace.init -> void
+Broadside.Images.PdfImageLayout.Height.get -> int
+Broadside.Images.PdfImageLayout.Height.init -> void
+Broadside.Images.PdfImageLayout.PdfImageLayout() -> void
+Broadside.Images.PdfImageLayout.PdfImageLayout(int Width, int Height, Broadside.Graphics.PdfColorSpace! ColorSpace, int BitsPerComponent = 8) -> void
+Broadside.Images.PdfImageLayout.Width.get -> int
+Broadside.Images.PdfImageLayout.Width.init -> void
+Broadside.PdfDocument.CreateImage(System.ReadOnlySpan<byte> samples, Broadside.Images.PdfImageLayout layout, Broadside.Images.PdfImageCompression compression) -> Broadside.Images.PdfImage!
+Broadside.PdfDocument.CreateImage(System.ReadOnlySpan<byte> samples, System.ReadOnlySpan<byte> alpha, Broadside.Images.PdfImageLayout layout, Broadside.Images.PdfImageCompression compression) -> Broadside.Images.PdfImage!
+Broadside.PdfDocument.CreateImageFromJpeg(System.ReadOnlySpan<byte> jpeg) -> Broadside.Images.PdfImage!
+Broadside.PdfDocument.CreateImageFromPng(System.ReadOnlySpan<byte> png) -> Broadside.Images.PdfImage!
+Broadside.PdfDocument.CreateIndexedColorSpace(Broadside.Graphics.PdfColorSpace! baseSpace, System.ReadOnlySpan<byte> lookup) -> Broadside.Graphics.PdfIndexedColorSpace!
+Broadside.Fonts.PdfCanvasFont
+Broadside.Fonts.PdfCanvasFont.AppliesWordSpacing.get -> bool
+Broadside.Fonts.PdfCanvasFont.CanEncode(System.ReadOnlySpan<char> text) -> bool
+Broadside.Fonts.PdfCanvasFont.Font.get -> Broadside.Fonts.PdfFont!
+Broadside.Fonts.PdfCanvasFont.MeasureWidth(System.ReadOnlySpan<char> text, double fontSize) -> double
+Broadside.Fonts.PdfCanvasFont.MeasureWidth(System.ReadOnlySpan<char> text, double fontSize, bool kerning) -> double
+Broadside.Fonts.PdfCanvasFont.MeasureWidth(System.ReadOnlySpan<char> text, double fontSize, Broadside.Fonts.TextShaping! shaping) -> double
+Broadside.Fonts.PdfCanvasFont.Shape(string! text, Broadside.Fonts.TextShaping! shaping) -> Broadside.Fonts.ShapedText!
+Broadside.Fonts.ShapedGlyph
+Broadside.Fonts.ShapedGlyph.Advance.get -> double
+Broadside.Fonts.ShapedGlyph.Advance.init -> void
+Broadside.Fonts.ShapedGlyph.Cluster.get -> int
+Broadside.Fonts.ShapedGlyph.Cluster.init -> void
+Broadside.Fonts.ShapedGlyph.Code.get -> int
+Broadside.Fonts.ShapedGlyph.Code.init -> void
+Broadside.Fonts.ShapedGlyph.ShapedGlyph() -> void
+Broadside.Fonts.ShapedGlyph.ShapedGlyph(int Code, int Cluster, double Advance, double XOffset, double YOffset) -> void
+Broadside.Fonts.ShapedGlyph.XOffset.get -> double
+Broadside.Fonts.ShapedGlyph.XOffset.init -> void
+Broadside.Fonts.ShapedGlyph.YOffset.get -> double
+Broadside.Fonts.ShapedGlyph.YOffset.init -> void
+Broadside.Fonts.ShapedText
+Broadside.Fonts.ShapedText.Font.get -> Broadside.Fonts.PdfCanvasFont!
+Broadside.Fonts.ShapedText.Glyphs.get -> System.ReadOnlySpan<Broadside.Fonts.ShapedGlyph>
+Broadside.Fonts.ShapedText.IsRightToLeft.get -> bool
+Broadside.Fonts.ShapedText.MeasureWidth(double fontSize) -> double
+Broadside.Fonts.ShapedText.Text.get -> string!
+Broadside.Fonts.TextShaping
+Broadside.Fonts.TextShaping.Equals(Broadside.Fonts.TextShaping? other) -> bool
+Broadside.Fonts.TextShaping.Features.get -> System.Collections.Generic.IReadOnlyDictionary<string!, bool>!
+Broadside.Fonts.TextShaping.IsEnabled(string! feature) -> bool
+Broadside.Fonts.TextShaping.Language.get -> string?
+Broadside.Fonts.TextShaping.RightToLeft.get -> bool?
+Broadside.Fonts.TextShaping.Script.get -> string?
+Broadside.Fonts.TextShaping.WithFeature(string! feature, bool enabled) -> Broadside.Fonts.TextShaping!
+Broadside.Fonts.TextShaping.WithLanguage(string? language) -> Broadside.Fonts.TextShaping!
+Broadside.Fonts.TextShaping.WithRightToLeft(bool? rightToLeft) -> Broadside.Fonts.TextShaping!
+Broadside.Fonts.TextShaping.WithScript(string? script) -> Broadside.Fonts.TextShaping!
+override Broadside.Fonts.TextShaping.Equals(object? obj) -> bool
+override Broadside.Fonts.TextShaping.GetHashCode() -> int
+static Broadside.Fonts.TextShaping.Default.get -> Broadside.Fonts.TextShaping!
+abstract Broadside.Fonts.PdfCanvasFont.Ascent.get -> double
+abstract Broadside.Fonts.PdfCanvasFont.CapHeight.get -> double
+abstract Broadside.Fonts.PdfCanvasFont.Descent.get -> double
+abstract Broadside.Fonts.PdfCanvasFont.FontBBox.get -> Broadside.PdfRectangle
+abstract Broadside.Fonts.PdfCanvasFont.Name.get -> string!
+abstract Broadside.Fonts.PdfCanvasFont.XHeight.get -> double
+Broadside.Graphics.PdfCanvas.BeginText() -> void
+Broadside.Graphics.PdfCanvas.EndText() -> void
+Broadside.Graphics.PdfCanvas.Font.get -> Broadside.Fonts.PdfCanvasFont?
+Broadside.Graphics.PdfCanvas.FontSize.get -> double
+Broadside.Graphics.PdfCanvas.IsInTextObject.get -> bool
+Broadside.Graphics.PdfCanvas.MoveText(double x, double y) -> void
+Broadside.Graphics.PdfCanvas.MoveTextAndSetLeading(double x, double y) -> void
+Broadside.Graphics.PdfCanvas.MoveToNextLine() -> void
+Broadside.Graphics.PdfCanvas.SetCharacterSpacing(double spacing) -> void
+Broadside.Graphics.PdfCanvas.SetFont(Broadside.Fonts.PdfCanvasFont! font, double size) -> void
+Broadside.Graphics.PdfCanvas.SetHorizontalScaling(double percent) -> void
+Broadside.Graphics.PdfCanvas.SetTextLeading(double leading) -> void
+Broadside.Graphics.PdfCanvas.SetTextMatrix(Broadside.Graphics.Matrix matrix) -> void
+Broadside.Graphics.PdfCanvas.SetTextRenderingMode(Broadside.Graphics.TextRenderingMode mode) -> void
+Broadside.Graphics.PdfCanvas.SetTextRise(double rise) -> void
+Broadside.Graphics.PdfCanvas.SetWordSpacing(double spacing) -> void
+Broadside.Graphics.PdfCanvas.ShowText(System.ReadOnlySpan<char> text) -> void
+Broadside.Graphics.PdfCanvas.ShowText(System.ReadOnlySpan<char> text, bool kerning) -> void
+Broadside.Graphics.PdfCanvas.ShowText(Broadside.Fonts.ShapedText! text) -> void
+Broadside.Graphics.PdfCanvas.ShowText(Broadside.Fonts.ShapedText! text, System.ReadOnlySpan<double> adjustments) -> void
+Broadside.Graphics.PdfCanvas.ShowText(System.ReadOnlySpan<char> text, System.ReadOnlySpan<double> adjustments) -> void
+Broadside.Graphics.PdfCanvas.ShowTextOnNextLine(System.ReadOnlySpan<char> text) -> void
+Broadside.Graphics.PdfCanvas.ShowTextOnNextLine(System.ReadOnlySpan<char> text, double wordSpacing, double characterSpacing) -> void
+Broadside.PdfDocument.GetStandard14Font(Broadside.Fonts.Standard14Font font) -> Broadside.Fonts.PdfCanvasFont!
+Broadside.Rendering.DisplayGroup.SoftMask.get -> Broadside.Rendering.DisplaySoftMask
+Broadside.Rendering.DisplaySoftMask
+Broadside.Rendering.DisplaySoftMask.Backdrop.get -> System.ReadOnlySpan<float>
+Broadside.Rendering.DisplaySoftMask.BoundingBox.get -> Broadside.PdfRectangle
+Broadside.Rendering.DisplaySoftMask.ColorSpace.get -> Broadside.Graphics.PdfColorSpace?
+Broadside.Rendering.DisplaySoftMask.Content.get -> Broadside.Rendering.DisplayList!
+Broadside.Rendering.DisplaySoftMask.Conversion.get -> Broadside.Graphics.ColorConversion
+Broadside.Rendering.DisplaySoftMask.DefaultColorSpaces.get -> Broadside.Graphics.PdfDefaultColorSpaces!
+Broadside.Rendering.DisplaySoftMask.DisplaySoftMask() -> void
+Broadside.Rendering.DisplaySoftMask.HasBoundingBox.get -> bool
+Broadside.Rendering.DisplaySoftMask.IsNone.get -> bool
+Broadside.Rendering.DisplaySoftMask.IsShape.get -> bool
+Broadside.Rendering.DisplaySoftMask.Matrix.get -> Broadside.Graphics.Matrix
+Broadside.Rendering.DisplaySoftMask.Subtype.get -> Broadside.Graphics.PdfSoftMaskType
+Broadside.Rendering.DisplaySoftMask.TransferFunction.get -> Broadside.Graphics.PdfFunction?
+Broadside.Rendering.IRenderingBackend.SetSoftMask(in Broadside.Rendering.DisplaySoftMask mask) -> void
+Broadside.Layout.LayoutExtent
+Broadside.Layout.LayoutExtent.Bounds.get -> Broadside.PdfRectangle?
+Broadside.Layout.LayoutExtent.GlyphCount.get -> int
+Broadside.Layout.LayoutExtent.GlyphStart.get -> int
+Broadside.Layout.LayoutExtent.LayoutExtent() -> void
+Broadside.Layout.LayoutExtent.Page.get -> Broadside.Layout.LayoutPage!
+Broadside.Layout.LayoutExtent.TextLength.get -> int
+Broadside.Layout.LayoutExtent.TextStart.get -> int
+Broadside.Layout.LayoutFigure
+Broadside.Layout.LayoutFigure.BoundingBox.get -> Broadside.PdfRectangle?
+Broadside.Layout.LayoutHeading
+Broadside.Layout.LayoutHeading.Level.get -> int
+Broadside.Layout.LayoutList
+Broadside.Layout.LayoutList.Numbering.get -> string!
+Broadside.Layout.LayoutNode
+Broadside.Layout.LayoutNode.AlternateDescription.get -> string?
+Broadside.Layout.LayoutNode.Annotations.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfAnnotation!>!
+Broadside.Layout.LayoutNode.Children.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.LayoutNode!>!
+Broadside.Layout.LayoutNode.Extents.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.LayoutExtent>!
+Broadside.Layout.LayoutNode.Kind.get -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNode.Language.get -> string?
+Broadside.Layout.LayoutNode.Parent.get -> Broadside.Layout.LayoutNode?
+Broadside.Layout.LayoutNode.StructureElement.get -> Broadside.Structure.PdfStructureElement?
+Broadside.Layout.LayoutNode.Text.get -> string!
+Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Caption = 12 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Document = 0 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Figure = 11 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Heading = 3 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Label = 6 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Link = 14 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.List = 4 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.ListBody = 7 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.ListItem = 5 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Note = 15 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Paragraph = 2 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Section = 1 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Span = 13 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.Table = 8 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.TableCell = 10 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutNodeKind.TableRow = 9 -> Broadside.Layout.LayoutNodeKind
+Broadside.Layout.LayoutOptions
+Broadside.Layout.LayoutOptions.ContentOptions.get -> Broadside.Content.ContentOptions?
+Broadside.Layout.LayoutOptions.ContentOptions.set -> void
+Broadside.Layout.LayoutOptions.IncludeHiddenContent.get -> bool
+Broadside.Layout.LayoutOptions.IncludeHiddenContent.set -> void
+Broadside.Layout.LayoutOptions.LayoutOptions() -> void
+Broadside.Layout.LayoutOptions.WithContentOptions(Broadside.Content.ContentOptions? options) -> Broadside.Layout.LayoutOptions!
+Broadside.Layout.LayoutOptions.WithHiddenContent(bool include = true) -> Broadside.Layout.LayoutOptions!
+Broadside.Layout.LayoutPage
+Broadside.Layout.LayoutPage.Page.get -> Broadside.PdfPage!
+Broadside.Layout.LayoutPage.PageIndex.get -> int
+Broadside.Layout.LayoutPage.Text.get -> Broadside.Text.TextPage!
+Broadside.Layout.LayoutTable
+Broadside.Layout.LayoutTable.ColumnCount.get -> int
+Broadside.Layout.LayoutTable.NextPart.get -> Broadside.Layout.LayoutTable?
+Broadside.Layout.LayoutTable.PreviousPart.get -> Broadside.Layout.LayoutTable?
+Broadside.Layout.LayoutTable.RowCount.get -> int
+Broadside.Layout.LayoutTableCell
+Broadside.Layout.LayoutTableCell.Column.get -> int
+Broadside.Layout.LayoutTableCell.ColumnSpan.get -> int
+Broadside.Layout.LayoutTableCell.Headers.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.LayoutTableCell!>!
+Broadside.Layout.LayoutTableCell.IsHeader.get -> bool
+Broadside.Layout.LayoutTableCell.Row.get -> int
+Broadside.Layout.LayoutTableCell.RowSpan.get -> int
+Broadside.Layout.LayoutTree
+Broadside.Layout.LayoutTree.Pages.get -> System.Collections.Generic.IReadOnlyList<Broadside.Layout.LayoutPage!>!
+Broadside.Layout.LayoutTree.Root.get -> Broadside.Layout.LayoutNode!
+Broadside.PdfDocument.ExtractLayout() -> Broadside.Layout.LayoutTree!
+Broadside.PdfDocument.ExtractLayout(Broadside.Layout.LayoutOptions! options) -> Broadside.Layout.LayoutTree!
+Broadside.PdfPage.ExtractLayout() -> Broadside.Layout.LayoutTree!
+Broadside.PdfPage.ExtractLayout(Broadside.Layout.LayoutOptions! options) -> Broadside.Layout.LayoutTree!
+override Broadside.Layout.LayoutNode.ToString() -> string!
+override Broadside.Layout.LayoutPage.ToString() -> string!
+Broadside.PdfPageCollection.PrefetchAsync(int index, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<Broadside.PdfPage!>!
+Broadside.PdfDocument.Timestamp(System.IO.Stream! stream, Broadside.Signatures.PdfTimestampClient! timestampClient, string? fieldName = null) -> void
+Broadside.PdfDocument.TimestampAsync(System.IO.Stream! stream, Broadside.Signatures.PdfTimestampClient! timestampClient, string? fieldName = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.Signatures.PdfSignatureOptions.TimestampClient.get -> Broadside.Signatures.PdfTimestampClient?
+Broadside.Signatures.PdfSignatureOptions.TimestampClient.set -> void
+Broadside.Signatures.PdfSignatureOptions.WithTimestampClient(Broadside.Signatures.PdfTimestampClient? timestampClient) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.Signatures.PdfTimestampClient
+Broadside.Signatures.PdfTimestampClient.AuthorityUri.get -> System.Uri!
+Broadside.Signatures.PdfTimestampClient.DigestAlgorithm.get -> System.Security.Cryptography.HashAlgorithmName
+Broadside.Signatures.PdfTimestampClient.DigestAlgorithm.set -> void
+Broadside.Signatures.PdfTimestampClient.PdfTimestampClient(System.Net.Http.HttpClient! httpClient, System.Uri! authorityUri) -> void
+Broadside.Signatures.PdfTimestampClient.Policy.get -> string?
+Broadside.Signatures.PdfTimestampClient.Policy.set -> void
+Broadside.Signatures.PdfTimestampClient.TokenSizeEstimate.get -> int
+Broadside.Signatures.PdfTimestampClient.TokenSizeEstimate.set -> void
+Broadside.Signatures.PdfTimestampClient.WithDigestAlgorithm(System.Security.Cryptography.HashAlgorithmName digestAlgorithm) -> Broadside.Signatures.PdfTimestampClient!
+Broadside.Signatures.PdfTimestampClient.WithPolicy(string? policy) -> Broadside.Signatures.PdfTimestampClient!
+Broadside.Signatures.PdfTimestampClient.WithTokenSizeEstimate(int tokenSizeEstimate) -> Broadside.Signatures.PdfTimestampClient!
+Broadside.Signatures.PdfTimestampException
+Broadside.Signatures.PdfTimestampException.AuthorityStatus.get -> int?
+Broadside.Signatures.PdfTimestampException.FailureInfo.get -> int?
+Broadside.Signatures.PdfTimestampException.PdfTimestampException() -> void
+Broadside.Signatures.PdfTimestampException.PdfTimestampException(string? message) -> void
+Broadside.Signatures.PdfTimestampException.PdfTimestampException(string? message, System.Exception? innerException) -> void
+Broadside.PdfDocument.ValidateSignaturesAsync(Broadside.Signatures.PdfSignatureValidationOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task<System.Collections.Generic.IReadOnlyList<Broadside.Signatures.PdfSignatureValidation!>!>!
+Broadside.Signatures.PdfRevocationStatus
+Broadside.Signatures.PdfRevocationStatus.NotChecked = 0 -> Broadside.Signatures.PdfRevocationStatus
+Broadside.Signatures.PdfRevocationStatus.Good = 1 -> Broadside.Signatures.PdfRevocationStatus
+Broadside.Signatures.PdfRevocationStatus.Revoked = 2 -> Broadside.Signatures.PdfRevocationStatus
+Broadside.Signatures.PdfRevocationStatus.Unknown = 3 -> Broadside.Signatures.PdfRevocationStatus
+Broadside.Signatures.PdfRevocationSource
+Broadside.Signatures.PdfRevocationSource.None = 0 -> Broadside.Signatures.PdfRevocationSource
+Broadside.Signatures.PdfRevocationSource.Ocsp = 1 -> Broadside.Signatures.PdfRevocationSource
+Broadside.Signatures.PdfRevocationSource.Crl = 2 -> Broadside.Signatures.PdfRevocationSource
+Broadside.Signatures.PdfCertificateRevocation
+Broadside.Signatures.PdfCertificateRevocation.Certificate.get -> System.Security.Cryptography.X509Certificates.X509Certificate2!
+Broadside.Signatures.PdfCertificateRevocation.Status.get -> Broadside.Signatures.PdfRevocationStatus
+Broadside.Signatures.PdfCertificateRevocation.Source.get -> Broadside.Signatures.PdfRevocationSource
+Broadside.Signatures.PdfCertificateRevocation.RevocationTime.get -> System.DateTimeOffset?
+Broadside.Signatures.PdfCertificateRevocation.Reason.get -> System.Security.Cryptography.X509Certificates.X509RevocationReason?
+Broadside.Signatures.PdfCertificateRevocation.Fetched.get -> bool
+Broadside.Signatures.PdfTimestampValidation
+Broadside.Signatures.PdfTimestampValidation.Status.get -> Broadside.Signatures.PdfSignatureStatus
+Broadside.Signatures.PdfTimestampValidation.Problems.get -> System.Collections.Generic.IReadOnlyList<Broadside.Signatures.PdfSignatureProblem!>!
+Broadside.Signatures.PdfTimestampValidation.Time.get -> System.DateTimeOffset
+Broadside.Signatures.PdfTimestampValidation.Policy.get -> string?
+Broadside.Signatures.PdfTimestampValidation.DigestAlgorithm.get -> System.Security.Cryptography.HashAlgorithmName?
+Broadside.Signatures.PdfTimestampValidation.SignerCertificate.get -> System.Security.Cryptography.X509Certificates.X509Certificate2?
+Broadside.Signatures.PdfTimestampValidation.CertificatePath.get -> System.Collections.Generic.IReadOnlyList<System.Security.Cryptography.X509Certificates.X509Certificate2!>!
+Broadside.Signatures.PdfTimestampValidation.Revocations.get -> System.Collections.Generic.IReadOnlyList<Broadside.Signatures.PdfCertificateRevocation!>!
+Broadside.Signatures.PdfSignatureValidation.ValidationTime.get -> System.DateTimeOffset
+Broadside.Signatures.PdfSignatureValidation.Timestamp.get -> Broadside.Signatures.PdfTimestampValidation?
+Broadside.Signatures.PdfSignatureValidation.Revocations.get -> System.Collections.Generic.IReadOnlyList<Broadside.Signatures.PdfCertificateRevocation!>!
+Broadside.Signatures.PdfSignatureValidationOptions.OcspResponses.get -> System.Collections.Generic.IReadOnlyList<byte[]!>!
+Broadside.Signatures.PdfSignatureValidationOptions.OcspResponses.set -> void
+Broadside.Signatures.PdfSignatureValidationOptions.CertificateRevocationLists.get -> System.Collections.Generic.IReadOnlyList<byte[]!>!
+Broadside.Signatures.PdfSignatureValidationOptions.CertificateRevocationLists.set -> void
+Broadside.Signatures.PdfSignatureValidationOptions.RequireRevocationStatus.get -> bool
+Broadside.Signatures.PdfSignatureValidationOptions.RequireRevocationStatus.set -> void
+Broadside.Signatures.PdfSignatureValidationOptions.OnlineRevocationClient.get -> System.Net.Http.HttpClient?
+Broadside.Signatures.PdfSignatureValidationOptions.OnlineRevocationClient.set -> void
+Broadside.Signatures.PdfSignatureValidationOptions.WithOcspResponses(params System.Collections.Generic.IEnumerable<byte[]!>! ocspResponses) -> Broadside.Signatures.PdfSignatureValidationOptions!
+Broadside.Signatures.PdfSignatureValidationOptions.WithCertificateRevocationLists(params System.Collections.Generic.IEnumerable<byte[]!>! certificateRevocationLists) -> Broadside.Signatures.PdfSignatureValidationOptions!
+Broadside.Signatures.PdfSignatureValidationOptions.WithRequireRevocationStatus(bool requireRevocationStatus) -> Broadside.Signatures.PdfSignatureValidationOptions!
+Broadside.Signatures.PdfSignatureValidationOptions.UseOnlineRevocation(System.Net.Http.HttpClient? httpClient) -> Broadside.Signatures.PdfSignatureValidationOptions!
+Broadside.Signatures.PdfSignatureProblemKind.SigningCertificateMismatch = 9 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.SignedRevisionUnknown = 10 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ModificationNotPermitted = 11 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.LockedFieldModified = 12 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.SubFilterUnsupported = 13 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.AlgorithmUnsupported = 14 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.SignerCertificateMissing = 15 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.CertificateExpired = 16 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.CertificateNotYetValid = 17 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ChainIncomplete = 18 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.ChainUntrusted = 19 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.IssuerNotCertificateAuthority = 20 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.KeyUsageNotPermitted = 21 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.PathLengthExceeded = 22 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.CertificateRevoked = 23 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.RevocationUnknown = 24 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Signatures.PdfSignatureProblemKind.TimestampInvalid = 25 -> Broadside.Signatures.PdfSignatureProblemKind
+Broadside.Graphics.PdfCanvas.PaintShading(Broadside.Graphics.PdfShading! shading) -> void
+Broadside.Graphics.PdfCanvas.SetFillPattern(Broadside.Graphics.PdfPattern! pattern) -> void
+Broadside.Graphics.PdfCanvas.SetStrokePattern(Broadside.Graphics.PdfPattern! pattern) -> void
+Broadside.Graphics.PdfCanvas.SetFillPattern(Broadside.Graphics.PdfTilingPattern! pattern, Broadside.Graphics.PdfColor color) -> void
+Broadside.Graphics.PdfCanvas.SetStrokePattern(Broadside.Graphics.PdfTilingPattern! pattern, Broadside.Graphics.PdfColor color) -> void
+Broadside.Graphics.PdfFreeFormMeshBuilder
+Broadside.Graphics.PdfFreeFormMeshBuilder.PdfFreeFormMeshBuilder(Broadside.Graphics.PdfColorSpace! colorSpace) -> void
+Broadside.Graphics.PdfFreeFormMeshBuilder.PdfFreeFormMeshBuilder(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PdfFunction! function) -> void
+Broadside.Graphics.PdfFreeFormMeshBuilder.TriangleCount.get -> int
+Broadside.Graphics.PdfFreeFormMeshBuilder.AddTriangle(Broadside.Graphics.PdfMeshVertex a, Broadside.Graphics.PdfMeshVertex b, Broadside.Graphics.PdfMeshVertex c) -> Broadside.Graphics.PdfFreeFormMeshBuilder!
+Broadside.Graphics.PdfFreeFormMeshBuilder.AddStripVertex(Broadside.Graphics.PdfMeshVertex vertex) -> Broadside.Graphics.PdfFreeFormMeshBuilder!
+Broadside.Graphics.PdfFreeFormMeshBuilder.AddFanVertex(Broadside.Graphics.PdfMeshVertex vertex) -> Broadside.Graphics.PdfFreeFormMeshBuilder!
+Broadside.Graphics.PdfGradientStop
+Broadside.Graphics.PdfGradientStop.PdfGradientStop() -> void
+Broadside.Graphics.PdfGradientStop.PdfGradientStop(double Offset, Broadside.Graphics.PdfColor Color) -> void
+Broadside.Graphics.PdfGradientStop.Offset.get -> double
+Broadside.Graphics.PdfGradientStop.Offset.init -> void
+Broadside.Graphics.PdfGradientStop.Color.get -> Broadside.Graphics.PdfColor
+Broadside.Graphics.PdfGradientStop.Color.init -> void
+Broadside.Graphics.PdfLatticeMeshBuilder
+Broadside.Graphics.PdfLatticeMeshBuilder.PdfLatticeMeshBuilder(Broadside.Graphics.PdfColorSpace! colorSpace, int verticesPerRow) -> void
+Broadside.Graphics.PdfLatticeMeshBuilder.PdfLatticeMeshBuilder(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PdfFunction! function, int verticesPerRow) -> void
+Broadside.Graphics.PdfLatticeMeshBuilder.VerticesPerRow.get -> int
+Broadside.Graphics.PdfLatticeMeshBuilder.RowCount.get -> int
+Broadside.Graphics.PdfLatticeMeshBuilder.AddRow(params System.ReadOnlySpan<Broadside.Graphics.PdfMeshVertex> vertices) -> Broadside.Graphics.PdfLatticeMeshBuilder!
+Broadside.Graphics.PdfMeshBuilder
+Broadside.Graphics.PdfMeshBuilder.ColorSpace.get -> Broadside.Graphics.PdfColorSpace!
+Broadside.Graphics.PdfMeshBuilder.Function.get -> Broadside.Graphics.PdfFunction?
+Broadside.Graphics.PdfMeshVertex
+Broadside.Graphics.PdfMeshVertex.PdfMeshVertex() -> void
+Broadside.Graphics.PdfMeshVertex.PdfMeshVertex(double x, double y, Broadside.Graphics.PdfColor color) -> void
+Broadside.Graphics.PdfMeshVertex.PdfMeshVertex(double x, double y, double t) -> void
+Broadside.Graphics.PdfMeshVertex.Point.get -> Broadside.Graphics.PathPoint
+Broadside.Graphics.PdfMeshVertex.Color.get -> Broadside.Graphics.PdfColor
+Broadside.Graphics.PdfMeshVertex.Parameter.get -> double
+Broadside.Graphics.PdfMeshVertex.IsParametric.get -> bool
+Broadside.Graphics.PdfMeshVertex.Equals(Broadside.Graphics.PdfMeshVertex other) -> bool
+override Broadside.Graphics.PdfMeshVertex.Equals(object? obj) -> bool
+override Broadside.Graphics.PdfMeshVertex.GetHashCode() -> int
+static Broadside.Graphics.PdfMeshVertex.operator ==(Broadside.Graphics.PdfMeshVertex left, Broadside.Graphics.PdfMeshVertex right) -> bool
+static Broadside.Graphics.PdfMeshVertex.operator !=(Broadside.Graphics.PdfMeshVertex left, Broadside.Graphics.PdfMeshVertex right) -> bool
+Broadside.Graphics.PdfPatchMeshBuilder
+Broadside.Graphics.PdfPatchMeshBuilder.PdfPatchMeshBuilder(Broadside.Graphics.PdfColorSpace! colorSpace, bool tensorProduct) -> void
+Broadside.Graphics.PdfPatchMeshBuilder.PdfPatchMeshBuilder(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PdfFunction! function, bool tensorProduct) -> void
+Broadside.Graphics.PdfPatchMeshBuilder.IsTensorProduct.get -> bool
+Broadside.Graphics.PdfPatchMeshBuilder.PatchCount.get -> int
+Broadside.Graphics.PdfPatchMeshBuilder.AddPatch(System.ReadOnlySpan<Broadside.Graphics.PathPoint> controlPoints, System.ReadOnlySpan<Broadside.Graphics.PdfColor> cornerColors) -> Broadside.Graphics.PdfPatchMeshBuilder!
+Broadside.Graphics.PdfPatchMeshBuilder.AddPatch(System.ReadOnlySpan<Broadside.Graphics.PathPoint> controlPoints, System.ReadOnlySpan<double> cornerParameters) -> Broadside.Graphics.PdfPatchMeshBuilder!
+Broadside.Graphics.PdfShadingOptions
+Broadside.Graphics.PdfShadingOptions.PdfShadingOptions() -> void
+Broadside.Graphics.PdfShadingOptions.BoundingBox.get -> Broadside.PdfRectangle?
+Broadside.Graphics.PdfShadingOptions.BoundingBox.set -> void
+Broadside.Graphics.PdfShadingOptions.Background.get -> Broadside.Graphics.PdfColor?
+Broadside.Graphics.PdfShadingOptions.Background.set -> void
+Broadside.Graphics.PdfShadingOptions.AntiAlias.get -> bool
+Broadside.Graphics.PdfShadingOptions.AntiAlias.set -> void
+Broadside.Graphics.PdfShadingOptions.ExtendStart.get -> bool
+Broadside.Graphics.PdfShadingOptions.ExtendStart.set -> void
+Broadside.Graphics.PdfShadingOptions.ExtendEnd.get -> bool
+Broadside.Graphics.PdfShadingOptions.ExtendEnd.set -> void
+Broadside.Graphics.PdfShadingOptions.WithBoundingBox(Broadside.PdfRectangle boundingBox) -> Broadside.Graphics.PdfShadingOptions!
+Broadside.Graphics.PdfShadingOptions.WithBackground(Broadside.Graphics.PdfColor background) -> Broadside.Graphics.PdfShadingOptions!
+Broadside.Graphics.PdfShadingOptions.WithAntiAlias(bool antiAlias) -> Broadside.Graphics.PdfShadingOptions!
+Broadside.Graphics.PdfShadingOptions.WithExtend(bool start, bool end) -> Broadside.Graphics.PdfShadingOptions!
+Broadside.Graphics.PdfTilingPattern.CreateCanvas() -> Broadside.Graphics.PdfCanvas!
+Broadside.PdfDocument.CreateGradientFunction(System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PdfGradientStop>! stops) -> Broadside.Graphics.PdfFunction!
+Broadside.PdfDocument.CreateAxialShading(Broadside.Graphics.PathPoint start, Broadside.Graphics.PathPoint end, System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PdfGradientStop>! stops) -> Broadside.Graphics.PdfAxialShading!
+Broadside.PdfDocument.CreateAxialShading(Broadside.Graphics.PathPoint start, Broadside.Graphics.PathPoint end, System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PdfGradientStop>! stops, Broadside.Graphics.PdfShadingOptions? options) -> Broadside.Graphics.PdfAxialShading!
+Broadside.PdfDocument.CreateAxialShading(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PathPoint start, Broadside.Graphics.PathPoint end, Broadside.Graphics.PdfFunction! function) -> Broadside.Graphics.PdfAxialShading!
+Broadside.PdfDocument.CreateAxialShading(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PathPoint start, Broadside.Graphics.PathPoint end, Broadside.Graphics.PdfFunction! function, Broadside.Graphics.PdfShadingOptions? options) -> Broadside.Graphics.PdfAxialShading!
+Broadside.PdfDocument.CreateRadialShading(Broadside.Graphics.PathPoint startCenter, double startRadius, Broadside.Graphics.PathPoint endCenter, double endRadius, System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PdfGradientStop>! stops) -> Broadside.Graphics.PdfRadialShading!
+Broadside.PdfDocument.CreateRadialShading(Broadside.Graphics.PathPoint startCenter, double startRadius, Broadside.Graphics.PathPoint endCenter, double endRadius, System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PdfGradientStop>! stops, Broadside.Graphics.PdfShadingOptions? options) -> Broadside.Graphics.PdfRadialShading!
+Broadside.PdfDocument.CreateRadialShading(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PathPoint startCenter, double startRadius, Broadside.Graphics.PathPoint endCenter, double endRadius, Broadside.Graphics.PdfFunction! function) -> Broadside.Graphics.PdfRadialShading!
+Broadside.PdfDocument.CreateRadialShading(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PathPoint startCenter, double startRadius, Broadside.Graphics.PathPoint endCenter, double endRadius, Broadside.Graphics.PdfFunction! function, Broadside.Graphics.PdfShadingOptions? options) -> Broadside.Graphics.PdfRadialShading!
+Broadside.PdfDocument.CreateFunctionShading(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PdfFunction! function, Broadside.PdfRectangle domain, Broadside.Graphics.Matrix matrix) -> Broadside.Graphics.PdfFunctionShading!
+Broadside.PdfDocument.CreateFunctionShading(Broadside.Graphics.PdfColorSpace! colorSpace, Broadside.Graphics.PdfFunction! function, Broadside.PdfRectangle domain, Broadside.Graphics.Matrix matrix, Broadside.Graphics.PdfShadingOptions? options) -> Broadside.Graphics.PdfFunctionShading!
+Broadside.PdfDocument.CreateMeshShading(Broadside.Graphics.PdfFreeFormMeshBuilder! mesh) -> Broadside.Graphics.PdfTriangleMeshShading!
+Broadside.PdfDocument.CreateMeshShading(Broadside.Graphics.PdfFreeFormMeshBuilder! mesh, Broadside.Graphics.PdfShadingOptions? options) -> Broadside.Graphics.PdfTriangleMeshShading!
+Broadside.PdfDocument.CreateMeshShading(Broadside.Graphics.PdfLatticeMeshBuilder! mesh) -> Broadside.Graphics.PdfTriangleMeshShading!
+Broadside.PdfDocument.CreateMeshShading(Broadside.Graphics.PdfLatticeMeshBuilder! mesh, Broadside.Graphics.PdfShadingOptions? options) -> Broadside.Graphics.PdfTriangleMeshShading!
+Broadside.PdfDocument.CreateMeshShading(Broadside.Graphics.PdfPatchMeshBuilder! mesh) -> Broadside.Graphics.PdfPatchMeshShading!
+Broadside.PdfDocument.CreateMeshShading(Broadside.Graphics.PdfPatchMeshBuilder! mesh, Broadside.Graphics.PdfShadingOptions? options) -> Broadside.Graphics.PdfPatchMeshShading!
+Broadside.PdfDocument.CreateShadingPattern(Broadside.Graphics.PdfShading! shading, Broadside.Graphics.Matrix? matrix = null) -> Broadside.Graphics.PdfShadingPattern!
+Broadside.PdfDocument.CreateTilingPattern(Broadside.PdfRectangle boundingBox, double xStep, double yStep, Broadside.Graphics.PdfTilingPaintType paintType, Broadside.Graphics.Matrix? matrix = null, Broadside.Graphics.PdfTilingType tilingType = Broadside.Graphics.PdfTilingType.ConstantSpacing) -> Broadside.Graphics.PdfTilingPattern!
+Broadside.PdfDocument.EmbedFont(Broadside.Fonts.FontQuery! query) -> Broadside.Fonts.PdfCanvasFont?
+Broadside.PdfDocument.EmbedFont(System.ReadOnlyMemory<byte> program, int faceIndex = 0) -> Broadside.Fonts.PdfCanvasFont!
+Broadside.PdfDocument.EmbedTrueTypeFont(Broadside.Fonts.FontQuery! query) -> Broadside.Fonts.PdfCanvasFont?
+Broadside.PdfDocument.EmbedTrueTypeFont(System.ReadOnlyMemory<byte> program, int faceIndex = 0) -> Broadside.Fonts.PdfCanvasFont!
+Broadside.PdfAConformance
+Broadside.PdfAConformance.None = 0 -> Broadside.PdfAConformance
+Broadside.PdfAConformance.PdfA2b = 1 -> Broadside.PdfAConformance
+Broadside.PdfAConformance.PdfA2u = 2 -> Broadside.PdfAConformance
+Broadside.PdfAConformance.PdfA3b = 3 -> Broadside.PdfAConformance
+Broadside.PdfAConformance.PdfA3u = 4 -> Broadside.PdfAConformance
+Broadside.PdfAConformance.PdfA4 = 5 -> Broadside.PdfAConformance
+Broadside.PdfAConformance.PdfA4f = 6 -> Broadside.PdfAConformance
+Broadside.PdfSaveOptions.PdfAConformance.get -> Broadside.PdfAConformance
+Broadside.PdfSaveOptions.PdfAConformance.set -> void
+Broadside.PdfSaveOptions.WithPdfAConformance(Broadside.PdfAConformance conformance) -> Broadside.PdfSaveOptions!
+static Broadside.Graphics.PdfIccBasedColorSpace.CreateSrgbProfileData() -> byte[]!
+Broadside.Layout.LayoutDetection
+Broadside.Layout.LayoutDetection.AllPages = 1 -> Broadside.Layout.LayoutDetection
+Broadside.Layout.LayoutDetection.None = 2 -> Broadside.Layout.LayoutDetection
+Broadside.Layout.LayoutDetection.UntaggedPages = 0 -> Broadside.Layout.LayoutDetection
+Broadside.Layout.LayoutOptions.Detection.get -> Broadside.Layout.LayoutDetection
+Broadside.Layout.LayoutOptions.Detection.set -> void
+Broadside.Layout.LayoutOptions.WithDetection(Broadside.Layout.LayoutDetection detection) -> Broadside.Layout.LayoutOptions!
+Broadside.Layout.LayoutPage.IsDetected.get -> bool
+Broadside.PdfPage.AddTextAnnotation(Broadside.PdfRectangle rect, string! text, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfTextAnnotation!
+Broadside.PdfPage.AddLinkAnnotation(Broadside.PdfRectangle rect, System.Uri! target) -> Broadside.Annotations.PdfLinkAnnotation!
+Broadside.PdfPage.AddLinkAnnotation(Broadside.PdfRectangle rect, Broadside.PdfPage! target) -> Broadside.Annotations.PdfLinkAnnotation!
+Broadside.PdfPage.AddFreeTextAnnotation(Broadside.PdfRectangle rect, string! text, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfFreeTextAnnotation!
+Broadside.PdfPage.AddLineAnnotation(Broadside.Graphics.PathPoint start, Broadside.Graphics.PathPoint end, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfLineAnnotation!
+Broadside.PdfPage.AddSquareAnnotation(Broadside.PdfRectangle rect, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfSquareAnnotation!
+Broadside.PdfPage.AddCircleAnnotation(Broadside.PdfRectangle rect, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfCircleAnnotation!
+Broadside.PdfPage.AddPolygonAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PathPoint>! vertices, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfPolygonAnnotation!
+Broadside.PdfPage.AddPolyLineAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PathPoint>! vertices, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfPolyLineAnnotation!
+Broadside.PdfPage.AddInkAnnotation(System.Collections.Generic.IReadOnlyList<System.Collections.Generic.IReadOnlyList<Broadside.Graphics.PathPoint>!>! strokes, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfInkAnnotation!
+Broadside.PdfPage.AddHighlightAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>! quadrilaterals, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfHighlightAnnotation!
+Broadside.PdfPage.AddUnderlineAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>! quadrilaterals, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfUnderlineAnnotation!
+Broadside.PdfPage.AddSquigglyAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>! quadrilaterals, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfSquigglyAnnotation!
+Broadside.PdfPage.AddStrikeOutAnnotation(System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfQuadrilateral>! quadrilaterals, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfStrikeOutAnnotation!
+Broadside.PdfPage.AddStampAnnotation(Broadside.PdfRectangle rect, string! name, Broadside.Annotations.PdfAnnotationOptions? options = null) -> Broadside.Annotations.PdfStampAnnotation!
+Broadside.PdfPage.RemoveAnnotation(Broadside.Annotations.PdfAnnotation! annotation) -> void
+Broadside.Annotations.PdfAnnotation.Rect.set -> void
+Broadside.Annotations.PdfAnnotation.Contents.set -> void
+Broadside.Annotations.PdfAnnotation.Name.set -> void
+Broadside.Annotations.PdfAnnotation.Flags.set -> void
+Broadside.Annotations.PdfAnnotation.Color.set -> void
+Broadside.Annotations.PdfAnnotation.StrokingOpacity.set -> void
+Broadside.Annotations.PdfAnnotation.RegenerateAppearance() -> bool
+Broadside.Annotations.PdfAnnotation.Move(double dx, double dy) -> void
+Broadside.Annotations.PdfAnnotation.SetBorderWidth(double width) -> void
+Broadside.Annotations.PdfMarkupAnnotation.Title.set -> void
+Broadside.Annotations.PdfMarkupAnnotation.Subject.set -> void
+Broadside.Annotations.PdfSquareAnnotation.InteriorColor.set -> void
+Broadside.Annotations.PdfCircleAnnotation.InteriorColor.set -> void
+Broadside.Annotations.PdfLineAnnotation.InteriorColor.set -> void
+Broadside.Annotations.PdfPolygonAnnotation.InteriorColor.set -> void
+Broadside.Annotations.PdfPolyLineAnnotation.InteriorColor.set -> void
+Broadside.Annotations.PdfAnnotationOptions
+Broadside.Annotations.PdfAnnotationOptions.PdfAnnotationOptions() -> void
+Broadside.Annotations.PdfAnnotationOptions.Color.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.Annotations.PdfAnnotationOptions.Color.set -> void
+Broadside.Annotations.PdfAnnotationOptions.InteriorColor.get -> Broadside.Annotations.PdfDeviceColor?
+Broadside.Annotations.PdfAnnotationOptions.InteriorColor.set -> void
+Broadside.Annotations.PdfAnnotationOptions.BorderWidth.get -> double
+Broadside.Annotations.PdfAnnotationOptions.BorderWidth.set -> void
+Broadside.Annotations.PdfAnnotationOptions.Opacity.get -> double
+Broadside.Annotations.PdfAnnotationOptions.Opacity.set -> void
+Broadside.Annotations.PdfAnnotationOptions.Flags.get -> Broadside.Annotations.PdfAnnotationFlags
+Broadside.Annotations.PdfAnnotationOptions.Flags.set -> void
+Broadside.Annotations.PdfAnnotationOptions.Contents.get -> string?
+Broadside.Annotations.PdfAnnotationOptions.Contents.set -> void
+Broadside.Annotations.PdfAnnotationOptions.Title.get -> string?
+Broadside.Annotations.PdfAnnotationOptions.Title.set -> void
+Broadside.Annotations.PdfAnnotationOptions.Subject.get -> string?
+Broadside.Annotations.PdfAnnotationOptions.Subject.set -> void
+Broadside.Annotations.PdfAnnotationOptions.Name.get -> string?
+Broadside.Annotations.PdfAnnotationOptions.Name.set -> void
+Broadside.Annotations.PdfAnnotationOptions.FontSize.get -> double
+Broadside.Annotations.PdfAnnotationOptions.FontSize.set -> void
+Broadside.Annotations.PdfAnnotationOptions.TextColor.get -> Broadside.Annotations.PdfDeviceColor!
+Broadside.Annotations.PdfAnnotationOptions.TextColor.set -> void
+Broadside.Annotations.PdfAnnotationOptions.WithColor(Broadside.Annotations.PdfDeviceColor? color) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithInteriorColor(Broadside.Annotations.PdfDeviceColor? color) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithBorderWidth(double width) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithOpacity(double opacity) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithFlags(Broadside.Annotations.PdfAnnotationFlags flags) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithContents(string? contents) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithTitle(string? title) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithSubject(string? subject) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithName(string? name) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithFontSize(double size) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Annotations.PdfAnnotationOptions.WithTextColor(Broadside.Annotations.PdfDeviceColor! color) -> Broadside.Annotations.PdfAnnotationOptions!
+Broadside.Signatures.PdfSignatureAppearance
+Broadside.Signatures.PdfSignatureAppearance.Font.get -> Broadside.Fonts.PdfCanvasFont?
+Broadside.Signatures.PdfSignatureAppearance.Font.set -> void
+Broadside.Signatures.PdfSignatureAppearance.FontSize.get -> double?
+Broadside.Signatures.PdfSignatureAppearance.FontSize.set -> void
+Broadside.Signatures.PdfSignatureAppearance.Image.get -> Broadside.Images.PdfImage?
+Broadside.Signatures.PdfSignatureAppearance.Image.set -> void
+Broadside.Signatures.PdfSignatureAppearance.PageIndex.get -> int
+Broadside.Signatures.PdfSignatureAppearance.PageIndex.set -> void
+Broadside.Signatures.PdfSignatureAppearance.PdfSignatureAppearance(int pageIndex, Broadside.PdfRectangle rectangle) -> void
+Broadside.Signatures.PdfSignatureAppearance.Rectangle.get -> Broadside.PdfRectangle
+Broadside.Signatures.PdfSignatureAppearance.Rectangle.set -> void
+Broadside.Signatures.PdfSignatureAppearance.Text.get -> string?
+Broadside.Signatures.PdfSignatureAppearance.Text.set -> void
+Broadside.Signatures.PdfSignatureAppearance.WithFont(Broadside.Fonts.PdfCanvasFont? font) -> Broadside.Signatures.PdfSignatureAppearance!
+Broadside.Signatures.PdfSignatureAppearance.WithFontSize(double? fontSize) -> Broadside.Signatures.PdfSignatureAppearance!
+Broadside.Signatures.PdfSignatureAppearance.WithImage(Broadside.Images.PdfImage? image) -> Broadside.Signatures.PdfSignatureAppearance!
+Broadside.Signatures.PdfSignatureAppearance.WithPageIndex(int pageIndex) -> Broadside.Signatures.PdfSignatureAppearance!
+Broadside.Signatures.PdfSignatureAppearance.WithRectangle(Broadside.PdfRectangle rectangle) -> Broadside.Signatures.PdfSignatureAppearance!
+Broadside.Signatures.PdfSignatureAppearance.WithText(string? text) -> Broadside.Signatures.PdfSignatureAppearance!
+Broadside.Signatures.PdfSignatureOptions.Appearance.get -> Broadside.Signatures.PdfSignatureAppearance?
+Broadside.Signatures.PdfSignatureOptions.Appearance.set -> void
+Broadside.Signatures.PdfSignatureOptions.WithAppearance(Broadside.Signatures.PdfSignatureAppearance? appearance) -> Broadside.Signatures.PdfSignatureOptions!
+Broadside.PdfDocument.AddValidationData(System.IO.Stream! stream, Broadside.Signatures.PdfSignatureValidationOptions? options = null) -> void
+Broadside.PdfDocument.AddValidationDataAsync(System.IO.Stream! stream, Broadside.Signatures.PdfSignatureValidationOptions? options = null, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.Task!
+Broadside.Graphics.PdfCanvas.BeginMarkedContent(string! tag) -> void
+Broadside.Graphics.PdfCanvas.BeginMarkedContent(string! tag, Broadside.Objects.CosDictionary! properties) -> void
+Broadside.Graphics.PdfCanvas.EndMarkedContent() -> void
+Broadside.Graphics.PdfCanvas.MarkedContentDepth.get -> int
+Broadside.Structure.PdfArtifactEdges
+Broadside.Structure.PdfArtifactEdges.None = 0 -> Broadside.Structure.PdfArtifactEdges
+Broadside.Structure.PdfArtifactEdges.Top = 1 -> Broadside.Structure.PdfArtifactEdges
+Broadside.Structure.PdfArtifactEdges.Bottom = 2 -> Broadside.Structure.PdfArtifactEdges
+Broadside.Structure.PdfArtifactEdges.Left = 4 -> Broadside.Structure.PdfArtifactEdges
+Broadside.Structure.PdfArtifactEdges.Right = 8 -> Broadside.Structure.PdfArtifactEdges
+Broadside.Structure.PdfArtifactType
+Broadside.Structure.PdfArtifactType.Pagination = 0 -> Broadside.Structure.PdfArtifactType
+Broadside.Structure.PdfArtifactType.Layout = 1 -> Broadside.Structure.PdfArtifactType
+Broadside.Structure.PdfArtifactType.Page = 2 -> Broadside.Structure.PdfArtifactType
+Broadside.Structure.PdfArtifactType.Background = 3 -> Broadside.Structure.PdfArtifactType
+Broadside.Graphics.PdfCanvas.BeginArtifact() -> void
+Broadside.Graphics.PdfCanvas.BeginArtifact(Broadside.Structure.PdfArtifactType type) -> void
+Broadside.Graphics.PdfCanvas.BeginArtifact(Broadside.Structure.PdfArtifactType type, string? subtype, Broadside.Structure.PdfArtifactEdges attached, Broadside.PdfRectangle? boundingBox) -> void
+Broadside.Graphics.PdfCanvas.BeginOptionalContent(Broadside.PdfOptionalContentGroup! group) -> void
+Broadside.Graphics.PdfCanvas.BeginOptionalContent(Broadside.PdfOptionalContentMembership! membership) -> void
+Broadside.Graphics.PdfCanvas.BeginTaggedContent(Broadside.Structure.PdfStructureElement! element) -> Broadside.Structure.PdfMarkedContentReference!
+Broadside.Graphics.PdfCanvas.BeginTaggedContent(Broadside.Structure.PdfStructureElement! element, Broadside.Objects.CosDictionary! properties) -> Broadside.Structure.PdfMarkedContentReference!
+Broadside.Graphics.PdfCanvas.BeginTaggedContent(Broadside.Structure.PdfStructureElement! element, Broadside.PdfPage? page, Broadside.Objects.CosDictionary? properties) -> Broadside.Structure.PdfMarkedContentReference!
+Broadside.PdfDocument.CreateOptionalContentGroup(string! name, bool visible = true) -> Broadside.PdfOptionalContentGroup!
+Broadside.PdfDocument.CreateOptionalContentMembership(Broadside.PdfVisibilityExpression! expression) -> Broadside.PdfOptionalContentMembership!
+Broadside.PdfDocument.CreateOptionalContentMembership(System.Collections.Generic.IEnumerable<Broadside.PdfOptionalContentGroup!>! groups, Broadside.PdfVisibilityPolicy policy) -> Broadside.PdfOptionalContentMembership!
+static Broadside.PdfVisibilityExpression.And(params Broadside.PdfVisibilityExpression![]! operands) -> Broadside.PdfVisibilityExpression!
+static Broadside.PdfVisibilityExpression.Not(Broadside.PdfVisibilityExpression! operand) -> Broadside.PdfVisibilityExpression!
+static Broadside.PdfVisibilityExpression.Of(Broadside.PdfOptionalContentGroup! group) -> Broadside.PdfVisibilityExpression!
+static Broadside.PdfVisibilityExpression.Or(params Broadside.PdfVisibilityExpression![]! operands) -> Broadside.PdfVisibilityExpression!
+Broadside.Graphics.PdfFormXObject.RemoveOptionalContent() -> void
+Broadside.Graphics.PdfFormXObject.SetOptionalContent(Broadside.PdfOptionalContentGroup! group) -> void
+Broadside.Graphics.PdfFormXObject.SetOptionalContent(Broadside.PdfOptionalContentMembership! membership) -> void
+Broadside.Images.PdfImage.RemoveOptionalContent() -> void
+Broadside.Images.PdfImage.SetOptionalContent(Broadside.PdfOptionalContentGroup! group) -> void
+Broadside.Images.PdfImage.SetOptionalContent(Broadside.PdfOptionalContentMembership! membership) -> void
+Broadside.Annotations.PdfAnnotation.RemoveOptionalContent() -> void
+Broadside.Annotations.PdfAnnotation.SetOptionalContent(Broadside.PdfOptionalContentGroup! group) -> void
+Broadside.Annotations.PdfAnnotation.SetOptionalContent(Broadside.PdfOptionalContentMembership! membership) -> void
+Broadside.PdfUAConformance
+Broadside.PdfUAConformance.None = 0 -> Broadside.PdfUAConformance
+Broadside.PdfUAConformance.PdfUA1 = 1 -> Broadside.PdfUAConformance
+Broadside.PdfSaveOptions.PdfUAConformance.get -> Broadside.PdfUAConformance
+Broadside.PdfSaveOptions.PdfUAConformance.set -> void
+Broadside.PdfSaveOptions.WithPdfUAConformance(Broadside.PdfUAConformance conformance) -> Broadside.PdfSaveOptions!
+Broadside.PdfUAConformance.PdfUA2 = 2 -> Broadside.PdfUAConformance
+Broadside.PdfWellTaggedConformance
+Broadside.PdfWellTaggedConformance.None = 0 -> Broadside.PdfWellTaggedConformance
+Broadside.PdfWellTaggedConformance.Reuse = 1 -> Broadside.PdfWellTaggedConformance
+Broadside.PdfWellTaggedConformance.Accessibility = 2 -> Broadside.PdfWellTaggedConformance
+Broadside.PdfSaveOptions.WellTaggedConformance.get -> Broadside.PdfWellTaggedConformance
+Broadside.PdfSaveOptions.WellTaggedConformance.set -> void
+Broadside.PdfSaveOptions.WithWellTaggedConformance(Broadside.PdfWellTaggedConformance conformance) -> Broadside.PdfSaveOptions!
+const Broadside.PdfDeclaration.WellTaggedReuse = "http://pdfa.org/declarations/wtpdf#reuse1.0" -> string!
+const Broadside.PdfDeclaration.WellTaggedAccessibility = "http://pdfa.org/declarations/wtpdf#accessibility1.0" -> string!
+Broadside.XmpPacket.PdfUARevision.get -> int?
+Broadside.PdfAConversion
+Broadside.PdfAConversion.Changes.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.PdfAConversion.Conformance.get -> Broadside.PdfAConformance
+Broadside.PdfAConversion.CreateSaveOptions() -> Broadside.PdfSaveOptions!
+Broadside.PdfAConversion.IsConformant.get -> bool
+Broadside.PdfAConversion.NotConverted.get -> System.Collections.Generic.IReadOnlyList<string!>!
+Broadside.PdfAConversion.Violations.get -> System.Collections.Generic.IReadOnlyList<Broadside.PdfARuleViolation>!
+Broadside.PdfARuleViolation
+Broadside.PdfARuleViolation.Message.get -> string!
+Broadside.PdfARuleViolation.Message.init -> void
+Broadside.PdfARuleViolation.PdfARuleViolation() -> void
+Broadside.PdfARuleViolation.PdfARuleViolation(string! Rule, string! Message) -> void
+Broadside.PdfARuleViolation.Rule.get -> string!
+Broadside.PdfARuleViolation.Rule.init -> void
+Broadside.PdfDocument.ConvertToPdfA(Broadside.PdfAConformance conformance) -> Broadside.PdfAConversion!
+Broadside.Layout.AutoTaggingOptions
+Broadside.Layout.AutoTaggingOptions.AutoTaggingOptions() -> void
+Broadside.Layout.AutoTaggingOptions.FigureAlternateText.get -> string!
+Broadside.Layout.AutoTaggingOptions.FigureAlternateText.set -> void
+Broadside.Layout.AutoTaggingOptions.Force.get -> bool
+Broadside.Layout.AutoTaggingOptions.Force.set -> void
+Broadside.Layout.AutoTaggingOptions.Language.get -> string?
+Broadside.Layout.AutoTaggingOptions.Language.set -> void
+Broadside.Layout.AutoTaggingOptions.WithFigureAlternateText(string! text) -> Broadside.Layout.AutoTaggingOptions!
+Broadside.Layout.AutoTaggingOptions.WithForce(bool force = true) -> Broadside.Layout.AutoTaggingOptions!
+Broadside.Layout.AutoTaggingOptions.WithLanguage(string? language) -> Broadside.Layout.AutoTaggingOptions!
+Broadside.Layout.AutoTaggingResult
+Broadside.Layout.AutoTaggingResult.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.Layout.AutoTaggingResult.Figures.get -> System.Collections.Generic.IReadOnlyList<Broadside.Structure.PdfStructureElement!>!
+Broadside.Layout.AutoTaggingResult.IsTagged.get -> bool
+Broadside.Layout.AutoTaggingResult.Layout.get -> Broadside.Layout.LayoutTree?
+Broadside.PdfDocument.AutoTag() -> Broadside.Layout.AutoTaggingResult!
+Broadside.PdfDocument.AutoTag(Broadside.Layout.AutoTaggingOptions! options) -> Broadside.Layout.AutoTaggingResult!
+Broadside.PdfDocument.CachedBytes.get -> long
+Broadside.PdfDocument.TrimCaches(long maxBytes) -> long

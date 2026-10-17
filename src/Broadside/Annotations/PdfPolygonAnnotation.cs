@@ -20,9 +20,17 @@ public sealed class PdfPolygonAnnotation : PdfMarkupAnnotation
     /// <remarks>ISO 32000-2 §12.5.6.9, Table 181.</remarks>
     public IReadOnlyList<IReadOnlyList<double>>? Path => ReadPath();
 
-    /// <summary>Gets the interior colour (<c>IC</c>, PDF 1.4), or <see langword="null"/> for none.</summary>
+    /// <summary>Gets or sets the interior colour (<c>IC</c>, PDF 1.4), or <see langword="null"/> for none; setting <see langword="null"/> removes it, and the appearance is kept until <see cref="PdfAnnotation.RegenerateAppearance"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.9, Table 181: it fills the polygon.</remarks>
-    public PdfDeviceColor? InteriorColor => ReadColor(AnnotationNames.IC);
+    public PdfDeviceColor? InteriorColor
+    {
+        get => ReadColor(AnnotationNames.IC);
+        set
+        {
+            AnnotationEditing.SetColor(Dictionary, AnnotationNames.IC, value);
+            Document.RequireFeature(Writing.VersionedFeatures.AnnotationTypes14);
+        }
+    }
 
     /// <summary>Gets the border effect (<c>BE</c>, PDF 1.5), or <see langword="null"/> for none.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.9, Table 181, and §12.5.4, Table 169.</remarks>

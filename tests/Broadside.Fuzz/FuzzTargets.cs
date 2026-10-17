@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.IO.Compression;
 using Broadside.Content;
 using Broadside.Diagnostics;
 using Broadside.Filters;
@@ -33,6 +34,7 @@ internal static class FuzzTargets
         ["object-parser"] = ObjectParser,
         ["document"] = Document,
         ["windowed-document"] = WindowedDocument,
+        ["first-page-first"] = FirstPageFirst,
         ["save"] = Save,
         ["hint-tables"] = HintTables,
         ["xref-stream"] = XrefStream,
@@ -44,31 +46,57 @@ internal static class FuzzTargets
         ["filter-flate"] = data => Filter(new FlateDecodeFilter(), data, parameters: null, maxRatio: 1100),
         ["filter-runlength"] = data => Filter(new RunLengthDecodeFilter(), data, parameters: null, maxRatio: 128),
         ["filter-predictor"] = PredictorTarget,
+        ["filter-encode"] = EncodeTarget,
         ["filter-dct"] = DctTarget.Target,
+        ["filter-dct-encode"] = DctEncodeTarget.Target,
+        ["png-reader"] = PngTarget.Target,
         ["filter-ccitt"] = CcittTarget.Target,
         ["filter-jpx"] = Jpx,
         ["filter-jbig2"] = Jbig2Target.Target,
         ["encrypted-document"] = EncryptedDocument,
         ["decrypt"] = Decrypt,
         ["mac-token"] = MacToken,
+        ["timestamp-response"] = TimestampResponseTarget.Target,
         ["public-key"] = PublicKey.Target,
         ["xmp"] = Xmp,
         ["pdf-date"] = PdfDateTarget,
         ["structure-tree"] = StructureTree.Target,
+        ["layout-detection"] = LayoutDetectionTarget.Target,
+        ["table-detection"] = TableDetectionTarget.Target,
+        ["figure-detection"] = FigureDetectionTarget.Target,
         ["function-type4"] = FunctionType4,
         ["function-sampled"] = FunctionSampled,
         ["optional-content"] = OptionalContentTarget.Target,
         ["font-truetype"] = FontTrueType,
         ["font-cff"] = FontCff,
+        ["truetype-subset"] = TrueTypeSubsetTarget.Target,
+        ["cff-subset"] = CffSubsetTarget.Target,
+        ["type1-to-cff"] = Type1ToCffTarget.Target,
+        ["gsub"] = GsubTarget.Target,
+        ["gpos"] = GposTarget.Target,
         ["font-scanner"] = FontScanner,
+        ["font-index"] = FontIndex,
         ["font-type1"] = FontType1,
         ["cmap"] = CMapFile,
         ["tounicode"] = ToUnicodeFile,
         ["colorspace"] = ColorSpaceTarget,
         ["content-objects"] = ContentObjectsTargets.ContentWithResources,
         ["inline-image-end"] = ContentObjectsTargets.InlineImageEnd,
+        ["text-extraction"] = ContentObjectsTargets.TextExtraction,
         ["image-decode"] = ImageDecodeTarget.Target,
         ["shading-mesh"] = ShadingMeshTarget.Target,
+        ["default-appearance"] = DefaultAppearanceTarget.Target,
+        ["form-fill"] = FormFillTarget.Target,
+        ["flatten"] = FlattenTarget.Target,
+        ["display-list"] = DisplayListTarget.Target,
+        ["content-rewrite"] = ContentRewriteTarget.Target,
+        ["icc-profile"] = IccProfileTarget.Target,
+        ["rasterize"] = RasterizeTarget.Target,
+        ["rasterize-page"] = RasterizePageTarget.Target,
+        ["signature-validation"] = SignatureValidationTarget.Target,
+        ["cms"] = SignatureValidationTarget.Cms,
+        ["ocsp-response"] = SignatureValidationTarget.OcspResponse,
+        ["crl"] = SignatureValidationTarget.Crl,
     };
 
     /// <summary>
@@ -80,6 +108,10 @@ internal static class FuzzTargets
         public static readonly CosName Contents = new("Contents");
         public static readonly CosName Font = new("Font");
         public static readonly CosName Info = new("Info");
+        public static readonly CosName Filter = new("Filter");
+        public static readonly CosName DecodeParms = new("DecodeParms");
+        public static readonly CosName Lang = new("Lang");
+        public static readonly CosName Marker = new("Marker");
     }
 
     /// <summary>
@@ -564,6 +596,70 @@ internal static class FuzzTargets
     }
 
     /// <summary>
+    /// The stored system font index (#93) over the input as the files part of a store for the directory <c>/fonts</c> (an input
+    /// starting with <c>BSFI</c> is read as a whole store, for the directories it names). A store that reads must list each file once with a path, faces of
+    /// non-empty names, face indexes under 256 and weights from 1 to 1,000, and must write back to bytes that read to the same
+    /// faces.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §9.6.2.1 and §9.8 (finding a non-embedded font's program); ADR 0009.</remarks>
+    /// <summary>The directories a whole store names (after the magic and the version), so a real store seeds <see cref="FontIndex"/>.</summary>
+    private static string[]? StoredDirectories(byte[] store)
+    {
+        try
+        {
+            using var reader = new BinaryReader(new MemoryStream(store, 8, store.Length - 8, writable: false));
+            int count = reader.ReadInt32();
+            return count is >= 0 and <= 64 ? [.. Enumerable.Range(0, count).Select(_ => reader.ReadString())] : null;
+        }
+        catch (Exception exception) when (exception is EndOfStreamException or FormatException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
+    private static void FontIndex(ReadOnlySpan<byte> data)
+    {
+        string[] directories = ["/fonts"];
+        byte[] store;
+        if (data.StartsWith("BSFI"u8))
+        {
+            store = data.ToArray();
+            directories = StoredDirectories(store) ?? directories;
+        }
+        else
+        {
+            using var header = new MemoryStream();
+            SystemFontIndexFile.Write(header, directories, []);
+            store = [.. header.ToArray().AsSpan(0, (int)header.Length - 4), .. data];
+        }
+
+        if (SystemFontIndexFile.Read(store, directories) is not { } files)
+        {
+            return;
+        }
+
+        var listed = new List<(FontFileEntry File, SystemFontFace[] Faces)>();
+        foreach ((string path, StoredFontFile file) in files)
+        {
+            if (path.Length == 0 || file.Faces.Any(face => face.FaceIndex is < 0 or >= 256 || face.PostScriptName.Length == 0 || face.Family.Length == 0 || face.Weight is < 1 or > 1000 || face.Path != path))
+            {
+                throw new InvalidOperationException($"The store read an impossible file or face for {path}.");
+            }
+
+            listed.Add((new FontFileEntry(path, string.Empty, file.Length, file.WriteTime), file.Faces));
+        }
+
+        using var output = new MemoryStream();
+        SystemFontIndexFile.Write(output, directories, listed);
+        Dictionary<string, StoredFontFile> again = SystemFontIndexFile.Read(output.ToArray(), directories)
+            ?? throw new InvalidOperationException("A store written from a store that read does not read.");
+        if (again.Count != files.Count || files.Any(pair => !again.TryGetValue(pair.Key, out StoredFontFile? other) || !other.Faces.SequenceEqual(pair.Value.Faces) || other.Length != pair.Value.Length || other.WriteTime != pair.Value.WriteTime))
+        {
+            throw new InvalidOperationException("A store written from a store that read reads to other files or faces.");
+        }
+    }
+
+    /// <summary>
     /// Parses the input as a TrueType program (issue #50) and reads all of it: every glyph's outline (up to 4,096 glyphs) and metrics,
     /// every "cmap" subtable for the codes 0 to 0x1FF and 0xF000 to 0xF0FF, every "post" name and its reverse lookup. An input that
     /// starts with <c>%PDF-</c> is read from its first <c>00 01 00 00</c>, so the TrueType corpus files seed the target with their
@@ -784,6 +880,19 @@ internal static class FuzzTargets
         }
     }
 
+    /// <summary>
+    /// Opens the input from memory through a source that says it is not local, as a remote file is read (issue #208): a linearized
+    /// file starts from its first-page cross-reference section, finds its pages through the page offset hint table and places other
+    /// pages' objects through the hint tables before the rest of its cross-reference information is read. Then reads what
+    /// <c>windowed-document</c> reads. The hints are untrusted: whatever they say, the read must end with a document or a diagnostic.
+    /// </summary>
+    /// <remarks>ISO 32000-2 Annex F, F.3.4, F.4.2, F.4.3 and Annex G, G.2 to G.4.</remarks>
+    private static void FirstPageFirst(ReadOnlySpan<byte> data)
+    {
+        byte[] bytes = data.ToArray();
+        _ = ReadEverything(() => PdfDocument.Read(new RemoteLikeSource(PdfSource.FromMemory(bytes)), EngineConfiguration.From(new PdfOptions())));
+    }
+
     private static string ReadEverything(Func<PdfDocument> open)
     {
         PdfDocument document;
@@ -832,12 +941,17 @@ internal static class FuzzTargets
     }
 
     /// <summary>
-    /// Opens the input as a whole file in lenient mode, saves it in the layout the input's length selects, and reopens the output.
-    /// Whatever opened must save, and what was saved must open again with the same number of pages: a full save writes every object
-    /// (repaired ones re-serialized), so nothing the first open could read may become unreadable. <see cref="NotSupportedException"/>
-    /// is the documented outcome for an encrypted file or one with object numbers above the save limit.
+    /// Opens the input as a whole file in lenient mode, saves it in the layout, object numbering and garbage collection the input's
+    /// length selects, and reopens the output. Whatever opened must save, and what was saved must open again with the same number of
+    /// pages: a full save writes every object the trailer reaches (repaired ones re-serialized, references renumbered), so nothing the
+    /// first open could read through the page tree may become unreadable. The input's length also selects the encryption: the
+    /// document's own, new AES-256 or AES-GCM with an integrity MAC encryption with an empty user password, or none (issues #180,
+    /// #181); either way the output opens without a password, and a MAC written new or kept from a verified one verifies. It also
+    /// selects a linearized save (issue #228), which must read as linearized, with hint tables that read.
+    /// <see cref="NotSupportedException"/> is the documented outcome for what a save cannot write (data its credentials do not decrypt,
+    /// a linearized save of a document without pages, whose page tree lists a page twice, or that carries an integrity MAC).
     /// </summary>
-    /// <remarks>ISO 32000-2 §7.5 (issue #44).</remarks>
+    /// <remarks>ISO 32000-2 §7.5, §7.3.10, §7.6, Annex F; ISO/TS 32003, ISO/TS 32004 (issues #44, #144, #180, #181, #228).</remarks>
     private static void Save(ReadOnlySpan<byte> data)
     {
         using PdfDocument? document = OpenOrNull(data);
@@ -847,11 +961,39 @@ internal static class FuzzTargets
         }
 
         int pages = document.Pages.Count;
+        if (data.Length / 12 % 2 == 1)
+        {
+            SaveIncrementally(document, data, pages);
+            return;
+        }
+
         var layout = (PdfCrossReferenceLayout)(data.Length % 3);
+        var numbering = (PdfObjectNumbering)(data.Length / 3 % 2);
+        bool removeUnreachable = data.Length / 6 % 2 == 1;
+        bool linearize = data.Length / 144 % 2 == 1;
+        PdfSaveOptions options = new PdfSaveOptions().WithCrossReferenceLayout(layout).WithObjectNumbering(numbering).WithRemoveUnreachableObjects(removeUnreachable).WithLinearize(linearize);
+        bool protect = false;
+        switch (data.Length / 24 % 3)
+        {
+            case 1:
+                protect = data.Length / 72 % 2 == 1;
+                options.WithEncryption(protect
+                    ? new PdfEncryptionOptions(null, "owner").WithAlgorithm(PdfEncryptionAlgorithm.Aes256Gcm).WithIntegrityProtection(true)
+                    : new PdfEncryptionOptions(null, "owner"));
+                break;
+            case 2:
+                options.WithRemoveEncryption(true);
+                break;
+            default:
+                // The document's own encryption: a MAC it verified is computed again over the saved file (issue #181).
+                protect = document.Security is { Integrity: PdfIntegrityStatus.Verified };
+                break;
+        }
+
         using var output = new MemoryStream();
         try
         {
-            document.Save(output, new PdfSaveOptions().WithCrossReferenceLayout(layout));
+            document.Save(output, options);
         }
         catch (NotSupportedException)
         {
@@ -862,6 +1004,65 @@ internal static class FuzzTargets
         if (saved.Pages.Count != pages)
         {
             throw new InvalidOperationException($"The saved file has {saved.Pages.Count} pages; the input had {pages}.");
+        }
+
+        if (linearize && (!saved.IsLinearized || saved.Linearization!.Hints is null))
+        {
+            throw new InvalidOperationException("A file saved linearized does not read as linearized, or its hint tables do not read.");
+        }
+
+        if (protect && saved.Security?.Integrity != PdfIntegrityStatus.Verified)
+        {
+            throw new InvalidOperationException($"The saved file's integrity MAC is {saved.Security?.Integrity}, not verified.");
+        }
+    }
+
+    /// <summary>
+    /// Saves <paramref name="document"/> (the input, opened) twice as incremental updates, the catalog changed before each and an
+    /// object added before the second. Each output must start with the bytes before it (§7.5.6: the original is left intact) and
+    /// reopen, with the same number of pages when the input opened without a warning; the document must keep its pages once it reads
+    /// from the updated file.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.5.6 (issue #145).</remarks>
+    private static void SaveIncrementally(PdfDocument document, ReadOnlySpan<byte> data, int pages)
+    {
+        byte[] previous = data.ToArray();
+        bool clean = !document.Diagnostics.Any(diagnostic => diagnostic.Severity >= DiagnosticSeverity.Warning);
+        for (int round = 0; round < 2; round++)
+        {
+            document.Catalog[Names.Lang] = new CosString(round == 0 ? "x"u8 : "y"u8);
+            if (round == 1)
+            {
+                // An integer: a damaged input may hold dangling references to numbers above its Size, and a new object under
+                // such a number is what they now reach; an integer is never read as a page.
+                document.Catalog[Names.Marker] = document.AddObject(new CosInteger(1));
+            }
+
+            using var output = new MemoryStream();
+            try
+            {
+                document.Save(output, new PdfSaveOptions().WithIncrementalUpdate(true));
+            }
+            catch (NotSupportedException)
+            {
+                return;
+            }
+
+            byte[] written = output.ToArray();
+            if (written.Length < previous.Length || !written.AsSpan(0, previous.Length).SequenceEqual(previous))
+            {
+                throw new InvalidOperationException("An incremental update changed the bytes it was appended to.");
+            }
+
+            // A damaged input's old sections stay in the file, and a reader repairs them from where the new chain reaches them,
+            // which may read differently from the original's own repair; only a clean input must reopen with the same pages.
+            using PdfDocument saved = PdfDocument.Open(written);
+            if ((clean && saved.Pages.Count != pages) || document.Pages.Count != pages)
+            {
+                throw new InvalidOperationException($"The updated file has {saved.Pages.Count} pages; the input had {pages}.");
+            }
+
+            previous = written;
         }
     }
 
@@ -1009,6 +1210,79 @@ internal static class FuzzTargets
         {
             throw new InvalidOperationException($"Predictor {predictor} turned {body.Length} bytes into {output.WrittenCount}, not whole rows of {row}.");
         }
+    }
+
+    /// <summary>
+    /// The encoders (issue #142): byte 0 selects ASCIIHex, ASCII85, RunLength, Flate at one of four compression levels, Flate after a
+    /// predictor whose Predictor (2, 10 to 15), Colors, BitsPerComponent and Columns come from bytes 1 to 3 (the data is cut to whole
+    /// rows), or the chain <c>[/ASCII85Decode /RunLengthDecode /FlateDecode]</c>; the rest is the data. The data is encoded through
+    /// the document's encoding pipeline and decoded through the decoding pipeline with the managed defaults in strict mode, which
+    /// must give it back exactly and report nothing. Any input is a valid seed.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §7.4.1 to §7.4.5, §7.4.4.3 Table 8 and §7.4.4.4.</remarks>
+    private static void EncodeTarget(ReadOnlySpan<byte> data)
+    {
+        if (data.IsEmpty)
+        {
+            return;
+        }
+
+        ReadOnlySpan<int> predictors = [2, 10, 11, 12, 13, 14, 15];
+        ReadOnlySpan<int> depths = [1, 2, 4, 8, 16];
+        ReadOnlySpan<CompressionLevel> levels = [CompressionLevel.Optimal, CompressionLevel.Fastest, CompressionLevel.NoCompression, CompressionLevel.SmallestSize];
+        int mode = data[0] % 10;
+        ReadOnlySpan<byte> body = data[1..];
+        var dictionary = new CosDictionary();
+        switch (mode)
+        {
+            case 0:
+                dictionary[Names.Filter] = new CosName("ASCIIHexDecode");
+                break;
+            case 1:
+                dictionary[Names.Filter] = new CosName("ASCII85Decode");
+                break;
+            case 2:
+                dictionary[Names.Filter] = new CosName("RunLengthDecode");
+                break;
+            case 3 or 4 or 5 or 6:
+                dictionary[Names.Filter] = new CosName("FlateDecode");
+                break;
+            case 7 or 8:
+                if (body.Length < 3)
+                {
+                    return;
+                }
+
+                int colors = 1 + (body[0] % 4);
+                int bitsPerComponent = depths[body[1] % depths.Length];
+                int columns = 1 + (body[2] % 64);
+                int row = ((colors * bitsPerComponent * columns) + 7) / 8;
+                dictionary[Names.Filter] = new CosName("FlateDecode");
+                dictionary[Names.DecodeParms] = new CosDictionary
+                {
+                    [new CosName("Predictor")] = new CosInteger(predictors[(body[0] / 4) % predictors.Length]),
+                    [new CosName("Colors")] = new CosInteger(colors),
+                    [new CosName("BitsPerComponent")] = new CosInteger(bitsPerComponent),
+                    [new CosName("Columns")] = new CosInteger(columns),
+                };
+                body = body[3..];
+                body = body[..(body.Length / row * row)];
+                break;
+            default:
+                dictionary[Names.Filter] = new CosArray([new CosName("ASCII85Decode"), new CosName("RunLengthDecode"), new CosName("FlateDecode")]);
+                break;
+        }
+
+        var encoded = new ArrayBufferWriter<byte>();
+        new StreamEncoder(StreamEncoderRegistry.Default, Unresolved).Encode(body, dictionary, encoded, levels[mode % levels.Length]);
+        var decoder = new StreamDecoder(FilterRegistry.Create([]), PdfOptions.DefaultMaxDecodedStreamLength, new DiagnosticSink(strict: true), Unresolved);
+        ReadOnlyMemory<byte> decoded = decoder.Decode(new CosStream(dictionary, encoded.WrittenSpan.ToArray()));
+        if (!decoded.Span.SequenceEqual(body))
+        {
+            throw new InvalidOperationException($"Encoding {body.Length} bytes in mode {mode} decoded to {decoded.Length} other bytes.");
+        }
+
+        static CosObject Unresolved(CosObject? value) => value ?? CosNull.Instance;
     }
 
     /// <summary>
@@ -1740,8 +2014,37 @@ internal static class FuzzTargets
         if (packet is not null)
         {
             WalkPacket(packet);
+            RewritePacket(packet);
         }
     }
+
+    /// <summary>
+    /// Writes a readable packet back (issue #162, ISO 16684-1 §7): the writer must not throw, and the written packet must read
+    /// with no diagnostic at all into the same data model, less the properties named in the RDF or XML namespace, which are syntax.
+    /// </summary>
+    private static void RewritePacket(XmpPacket packet)
+    {
+        byte[] written = XmpPacketWriter.Write(packet.Properties, packet.About ?? string.Empty);
+        var reported = new List<string>();
+        XmpPacket? reread = XmpPacketReader.Read(written, (code, _, _) => reported.Add(code));
+        if (reread is null || reported.Count > 0)
+        {
+            throw new InvalidOperationException($"A written XMP packet must read cleanly; reported: {string.Join(", ", reported)}.");
+        }
+
+        string expected = string.Join("\n", packet.Properties.Where(XmpPacketWriter.IsProperty).Select(DescribeXmp));
+        string actual = string.Join("\n", reread.Properties.Select(DescribeXmp));
+        if (expected != actual || (packet.About ?? string.Empty) != reread.About)
+        {
+            throw new InvalidOperationException($"A written XMP packet must read back the same properties.\nExpected:\n{expected}\nActual:\n{actual}");
+        }
+    }
+
+    private static string DescribeXmp(XmpProperty property) =>
+        $"{property.NamespaceName}|{property.Name}|{property.Kind}|{property.Value}|{property.Language}"
+        + $"[{string.Join(",", property.Items.Select(DescribeXmp))}]"
+        + $"{{{string.Join(",", property.Fields.Where(XmpPacketWriter.IsProperty).Select(DescribeXmp))}}}"
+        + $"({string.Join(",", property.Qualifiers.Where(XmpPacketWriter.IsProperty).Select(DescribeXmp))})";
 
     private static void WalkPacket(XmpPacket packet)
     {
@@ -1785,6 +2088,28 @@ internal static class FuzzTargets
         if (XmpDate.TryParse(text, out XmpDate xmp) && xmp.Text != text)
         {
             throw new InvalidOperationException("An XMP date must keep its text.");
+        }
+    }
+
+    /// <summary>A source over another that says it is not local, so the document reads it as it reads a remote file (issue #208).</summary>
+    private sealed class RemoteLikeSource(PdfSource inner) : PdfSource
+    {
+        public override long Length => inner.Length;
+
+        public override bool IsLocal => false;
+
+        public override int Read(long offset, Span<byte> destination) => inner.Read(offset, destination);
+
+        public override ReadOnlyMemory<byte> GetWindow(long offset, int minimumLength) => inner.GetWindow(offset, minimumLength);
+
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                inner.Dispose();
+            }
+
+            base.Dispose(disposing);
         }
     }
 }

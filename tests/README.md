@@ -7,13 +7,20 @@
 | `Broadside.Tests` | Tests for the core package (COS layer, document model, filters, security, content, text, layout, forms, signatures). |
 | `Broadside.Rendering.Tests` | Tests for the managed rasterizer, color engine and PNG encoder. Rendering snapshots live here. |
 | `Broadside.Rendering.Skia.Tests` | Tests for the SkiaSharp backend against the same display lists. |
+| `Broadside.Rendering.CoreGraphics.Tests` | Tests for the CoreGraphics backend: its renders of corpus pages against the golden images, and replay allocation. A macOS app (`net10.0-macos`) under the same platform gate as the package; see "The CoreGraphics backend" below. |
+| `Broadside.Rendering.Android.Device` | An Android app (built only with the android workload) whose instrumentation renders corpus pages through the Android backend on a device or emulator and measures replay allocations there. Not a test project. |
+| `Broadside.Rendering.Android.Tests` | Host tests for the Android backend: install the device app over adb, run it, and compare its renders with the golden images. Skip without adb, a device or the built APK (`BROADSIDE_ANDROID_REQUIRED=1` fails instead); not in `Broadside.Core.slnf`; run by `.github/workflows/android.yml`. |
+| `Broadside.Rendering.Direct2D.Tests` | Tests for the Direct2D backend: renders on a WARP device compared with the golden images, and replay allocation tests. Windows only: outside `Broadside.Core.slnf`, run by the Windows leg of CI. |
+| `Broadside.Rendering.AotSmoke` | A console host published with Native AOT that renders the rendering corpus files and compares them with the rasterizer's snapshots. Not a test project; see "The AOT smoke host" below. |
 | `Broadside.Fonts.Standard14.Tests` | Tests for the standard 14 font metrics and programs. |
 | `Broadside.Fonts.Cmaps.Tests` | Tests for the predefined CMaps. |
 | `Broadside.TestSupport` | A plain library shared by the test projects: the `Corpus` helper and the Verify configuration. Not a test project. |
+| `Broadside.GoldenImages` | A plain library for rendering test projects: the golden-image harness (perceptual comparison, the reviewed threshold table, access to `Golden/`). Sees public API only. See "Golden images" below. |
+| `Golden/` | The golden images: every page of every corpus file rendered by the software rasterizer at 72 DPI. |
 | `Broadside.Fuzz` | The SharpFuzz harness. A console application, not a test project; see its [README](Broadside.Fuzz/README.md). |
 | `Corpus/` | Hand-written minimal PDFs, one feature each; see its [README](Corpus/README.md). |
 
-One test project per core package, named `<Package>.Tests`; `src/Directory.Build.props` grants each one `InternalsVisibleTo` on its package (and grants it to `Broadside.Benchmarks` and `Broadside.Fuzz`). Unit tests sit next to the feature they cover, in the same namespace as the code plus `.Tests`. The Direct2D, CoreGraphics and Android backends have no test projects yet: each runs only on its own platform, so they get projects, and a CI leg, when those backends exist.
+One test project per core package, named `<Package>.Tests`; `src/Directory.Build.props` grants each one `InternalsVisibleTo` on its package (and grants it to `Broadside.Benchmarks` and `Broadside.Fuzz`). Unit tests sit next to the feature they cover, in the same namespace as the code plus `.Tests`. The platform backends' tests run on their own platforms: the Android backend's on the host against a device (see the two `Broadside.Rendering.Android.*` rows above and the `adding-a-rendering-backend` skill); the CoreGraphics backend's are a macOS app (see "The CoreGraphics backend" below); `Broadside.Rendering.Direct2D.Tests` builds everywhere (the Windows targeting pack is a NuGet package) but runs only on Windows: `dotnet test --project tests/Broadside.Rendering.Direct2D.Tests`.
 
 Every test project is xUnit v3 on the Microsoft Testing Platform runner (`tests/Directory.Build.props` sets `OutputType=Exe`, the runner, and a global `using Xunit`), with `AnalysisLevel=latest-all` and warnings as errors like the rest of the repository; the folder props relax the few rules that only matter for shipping code.
 
@@ -76,6 +83,39 @@ or install the [Verify CLI](https://github.com/VerifyTests/Verify.Terminal) (`do
 
 Verify 33 and later require the consumer to state its license terms at build time; `tests/Directory.Build.props` claims the open-source exemption with a twelve-month expiry that has to be bumped before it lapses. The comment there says what to do.
 
+Rendering snapshots in `Broadside.Rendering.Tests` are PNG files (`Bitmap.SavePng`) compared by their decoded pixels, not their bytes (`PngSnapshots` registers the comparer), so a different zlib build never fails a test whose image is the same. Decoding uses StbImageSharp, a managed decoder independent of the encoder. Open the `.received.png` and look at it before accepting it.
+
+## Golden images
+
+Every page of every hand-written corpus file is rendered by the software rasterizer at 72 DPI and kept as a reviewed PNG in `tests/Golden/<file>.page<N>.verified.png` (issue #120). `Broadside.Rendering.Tests.Golden.GoldenImageTests` produces them through the normal Verify flow, so adding a corpus file (or changing what the rasterizer draws) fails once per affected page and leaves a `.received.png` to look at and accept. To re-baseline after a deliberate rendering change, run the rendering tests once with `BROADSIDE_ACCEPT_GOLDEN=1`, then review every changed image before committing.
+
+The comparison (`tests/Broadside.GoldenImages`, `GoldenComparison`) is perceptual, not byte-exact: each pixel's difference is a YIQ distance scaled so white against black is 1. Pixels on an edge of the golden image may differ up to an edge tolerance (anti-aliasing), pixels in flat areas only up to a much tighter one (a wrong colour is a bug), and a page matches when at most a given number of pixels exceed their tolerance. The default, `GoldenThreshold.Default` (edges 0.3, flat 0.05, no pixel over), tolerates another renderer's anti-aliasing at every edge yet fails a glyph moved by one pixel; `GoldenComparisonTests` proves both on synthetic glyphs. The software rasterizer is held to its own images more tightly (0.01). Any looser threshold for a page is a row with a reason in `GoldenThresholds.Rules`, the one reviewed table.
+
+A failing comparison writes a `.diff.png` beside the received image: red pixels are beyond tolerance, amber ones within it, the rest is the golden image faded. Both are gitignored, and CI uploads them as the `golden-images-<os>` artifact when a run fails.
+
+Backend test projects reference `Broadside.GoldenImages` and call `GoldenCorpus.AssertMatchesReference("<backend>", fileName, page, GoldenImage.FromPixels(...))` with their own render; see `Broadside.Rendering.Skia.Tests.GoldenHarnessTests` and the `adding-a-rendering-backend` skill. They need no rasterizer internals. A test that fails a comparison on purpose (a test of the harness itself) passes its own temporary directory as the last argument of `AssertMatchesReference`, never writing a fixed name into `Golden/`, so test runs sharing a checkout do not race (#293).
+
+## The AOT smoke host
+
+`tests/Broadside.Rendering.AotSmoke` proves that rendering runs trimmed and natively compiled with no native dependency besides the runtime (issue #95). It is a console program, not a test project, so `dotnet test` skips it; the `aot-smoke` CI job publishes and runs it on all three operating systems:
+
+```sh
+dotnet publish tests/Broadside.Rendering.AotSmoke -c Release --use-current-runtime -o artifacts/aot-smoke
+artifacts/aot-smoke/Broadside.Rendering.AotSmoke --require-aot     # exit 0 when every check passes
+```
+
+Trim and AOT analysis warnings fail the publish. Native AOT needs the platform linker (clang, Xcode or the MSVC tools); on a Mac whose Command Line Tools SDK is newer than its linker, point the build at an Xcode with `DEVELOPER_DIR` and `SDKROOT`. `dotnet run --project tests/Broadside.Rendering.AotSmoke` runs the same checks under the JIT.
+
+## The CoreGraphics backend
+
+`Broadside.Rendering.CoreGraphics.Tests` targets `net10.0-macos`, so it builds as an app bundle and runs on macOS only; it is in `Broadside.slnx`, not in `Broadside.Core.slnf`, and the macOS CI leg runs it after the solution build. It needs the `macos` workload, and on a machine with several .NET installs the SDK that has it (on the owner's Mac, `/usr/local/share/dotnet/dotnet`). Two things differ from the other test projects: xUnit's check for a .NET app host is replaced (a macOS app's host is the native launcher inside its bundle), and `Program.cs` replaces xUnit's generated entry point, because the macOS framework delivers some completions on the main run loop, which xUnit's entry point would block forever.
+
+```sh
+dotnet test tests/Broadside.Rendering.CoreGraphics.Tests
+```
+
+The package itself also builds for iOS and Mac Catalyst; nothing runs on a simulator.
+
 ## Benchmarks
 
 `bench/Broadside.Benchmarks` is a BenchmarkDotNet console application. Every hot path gets a benchmark class with `[MemoryDiagnoser]` (CLAUDE.md, "Code conventions"); `CorpusBenchmarks` is the placeholder that proves the harness runs.
@@ -87,7 +127,17 @@ dotnet run -c Release --project bench/Broadside.Benchmarks -- --filter '*' --job
 dotnet run -c Release --project bench/Broadside.Benchmarks -- --list flat               # the benchmark names
 ```
 
+`bench/Broadside.Rendering.CoreGraphics.Benchmarks` holds the CoreGraphics backend's benchmarks. It is a macOS app (it cannot live in the `net10.0` project) and runs every job in process; it takes the same `--filter` and `--job` options:
+
+```sh
+dotnet run -c Release --project bench/Broadside.Rendering.CoreGraphics.Benchmarks -- --filter '*' --job short
+```
+
+`bench/Broadside.Rendering.Direct2D.Benchmarks` holds the Direct2D backend's benchmarks in a project of its own, because it targets Windows; it links `BenchmarkConfig` and takes the same options (`dotnet run -c Release --project bench/Broadside.Rendering.Direct2D.Benchmarks -- --filter '*'`), and CI dry-runs it on Windows.
+
 `--job short` and `--job dry` are handled by `BenchmarkConfig`; any other BenchmarkDotNet option, including other `--job` values, passes through. Results land in `BenchmarkDotNet.Artifacts/` (gitignored).
+
+Every pull request that touches library, benchmark or corpus code also runs the benchmark regression gate (`.github/workflows/bench-gate.yml`): each case's allocations must equal `bench/baselines/gate/allocations.json` and its time must not be measurably slower than the base commit's on the same runner. What it checks, its thresholds and how to update the baseline are in [`bench/baselines/gate/README.md`](../bench/baselines/gate/README.md).
 
 ## Fuzzing
 

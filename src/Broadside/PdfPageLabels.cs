@@ -1,6 +1,7 @@
 using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.Parsing;
+using Broadside.Writing;
 
 namespace Broadside;
 
@@ -95,6 +96,46 @@ public sealed class PdfPageLabels
 
         return labels;
     }
+
+    /// <summary>Labels the pages from <paramref name="startPageIndex"/> to the next range: sets or replaces the range starting there.</summary>
+    /// <param name="startPageIndex">The index of the range's first page, from 0. It need not be a page of the document yet.</param>
+    /// <param name="style">How the numeric portion is written; <see cref="PdfPageLabelStyle.None"/> for the prefix alone.</param>
+    /// <param name="prefix">The text before the numeric portion, or <see langword="null"/> for none.</param>
+    /// <param name="firstNumber">The number of the range's first page, 1 or more.</param>
+    /// <returns>The range as written.</returns>
+    /// <exception cref="ArgumentOutOfRangeException">
+    /// <paramref name="startPageIndex"/> is negative, <paramref name="firstNumber"/> is below 1, or <paramref name="style"/> is not a
+    /// defined value.
+    /// </exception>
+    /// <exception cref="ArgumentException"><paramref name="prefix"/> holds U+0000.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §12.4.2, Table 161 (PDF 1.3), and §7.9.7: a page label dictionary holding only <c>S</c>, <c>P</c> and <c>St</c>
+    /// where they differ from the defaults, stored in the number tree under <paramref name="startPageIndex"/> with the tree's
+    /// <c>Limits</c> kept correct. A mutation: no read may run concurrently with it.
+    /// </remarks>
+    public PdfPageLabelRange SetRange(int startPageIndex, PdfPageLabelStyle style, string? prefix = null, int firstNumber = 1)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(startPageIndex);
+        ArgumentOutOfRangeException.ThrowIfLessThan(firstNumber, 1);
+        if (prefix is not null && prefix.Contains('\0', StringComparison.Ordinal))
+        {
+            throw new ArgumentException("A page label prefix cannot hold U+0000.", nameof(prefix));
+        }
+
+        _document.RequireFeature(VersionedFeatures.PageLabels);
+        CosDictionary dictionary = PdfDocument.PageLabelDictionary(style, prefix, firstNumber);
+        new PdfNumberTree(_tree, _document).Set(startPageIndex, dictionary);
+        return new PdfPageLabelRange(_document, startPageIndex, dictionary, _tree.RootReference ?? _document.CatalogReference);
+    }
+
+    /// <summary>Removes the range starting at <paramref name="startPageIndex"/>: its pages join the range before.</summary>
+    /// <param name="startPageIndex">The index of the range's first page.</param>
+    /// <returns><see langword="true"/> when a range started there.</returns>
+    /// <remarks>
+    /// ISO 32000-2 §12.4.2 and §7.9.7. Removing the range at page index 0 leaves the tree without the entry the clause requires; the
+    /// labels then read as decimal from 1 up to the first range, with a diagnostic. A mutation.
+    /// </remarks>
+    public bool RemoveRange(int startPageIndex) => new PdfNumberTree(_tree, _document).Remove(startPageIndex);
 
     private string Label(int pageIndex) =>
         FindRange(pageIndex, out int start) is { } range ? range.GetLabel(pageIndex - start) : Unlabelled(pageIndex);

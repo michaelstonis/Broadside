@@ -53,6 +53,11 @@ internal sealed partial class ContentInterpreter
     private FillRule? _pendingClip;
     private bool _busy;
 
+    // Progress of the top-level stream (ContentOptions.Progress): its length and the end of its last operator executed.
+    private IProgress<double>? _progress;
+    private int _progressLength;
+    private int _progressPosition;
+
     private ContentInterpreter() => _context = new ContentContext(this);
 
     /// <summary>Gets the current graphics state.</summary>
@@ -129,24 +134,15 @@ internal sealed partial class ContentInterpreter
     private void RunPageCore(PdfPage page, PdfDocument document, ContentProcessor processor, ContentOptions options)
     {
         Begin(document, page, processor, options, page.Reference);
-        byte[]? rented = null;
-        try
-        {
-            ReadOnlyMemory<byte> content = ReadContents(page, document, ref rented);
-            Execute(content.Span);
-            End();
-        }
-        finally
-        {
-            if (rented is not null)
-            {
-                ArrayPool<byte>.Shared.Return(rented);
-            }
-        }
+        Execute(ReadContents(page, document).Span);
+        End();
     }
 
-    /// <summary>Decodes the page's content; parts of an array are joined with a line feed between them (Table 31).</summary>
-    private ReadOnlyMemory<byte> ReadContents(PdfPage page, PdfDocument document, ref byte[]? rented)
+    /// <summary>
+    /// Returns the page's decoded content, from the document's cache once a run has decoded it (issue #90); parts of an array are
+    /// joined with a line feed between them (Table 31).
+    /// </summary>
+    private ReadOnlyMemory<byte> ReadContents(PdfPage page, PdfDocument document)
     {
         if (!page.Dictionary.TryGetValue(KnownNames.Contents, out CosObject? entry))
         {
@@ -159,9 +155,9 @@ internal sealed partial class ContentInterpreter
                 return ReadOnlyMemory<byte>.Empty;
             case CosStream stream:
                 _parts.Add(new ContentPart(0, entry as CosReference));
-                return document.DecodeStream(stream);
+                return _context.GetContent(stream);
             case CosArray { Count: > 0 } array:
-                return ReadParts(array, document, ref rented);
+                return ReadParts(array);
             case CosArray:
                 Report(ContentIssue.StreamInvalid, -1, "The page's Contents array is empty; the page has no content.");
                 return ReadOnlyMemory<byte>.Empty;
@@ -171,34 +167,17 @@ internal sealed partial class ContentInterpreter
         }
     }
 
-    private ReadOnlyMemory<byte> ReadParts(CosArray array, PdfDocument document, ref byte[]? rented)
+    private ReadOnlyMemory<byte> ReadParts(CosArray array)
     {
-        var decoded = new ReadOnlyMemory<byte>[array.Count];
-        int total = 0;
-        for (int index = 0; index < array.Count; index++)
+        ContentResourceCache.JoinedContent joined = _context.GetContent(array);
+        foreach (string problem in joined.Problems)
         {
-            if (document.Resolve(array[index]) is CosStream stream)
-            {
-                decoded[index] = document.DecodeStream(stream);
-                total += decoded[index].Length + 1;
-            }
-            else
-            {
-                Report(ContentIssue.StreamInvalid, -1, $"Element {index} of the page's Contents array is not a stream; skipped.");
-            }
+            Report(ContentIssue.StreamInvalid, -1, problem);
         }
 
-        rented = ArrayPool<byte>.Shared.Rent(Math.Max(1, total));
-        int position = 0;
-        for (int index = 0; index < array.Count; index++)
+        foreach (ContentPart part in joined.Parts)
         {
-            if (document.Resolve(array[index]) is CosStream)
-            {
-                _parts.Add(new ContentPart(position, array[index] as CosReference));
-                decoded[index].Span.CopyTo(rented.AsSpan(position));
-                position += decoded[index].Length;
-                rented[position++] = (byte)'\n';
-            }
+            _parts.Add(part);
         }
 
         if (_parts.Count == 0)
@@ -206,7 +185,7 @@ internal sealed partial class ContentInterpreter
             _parts.Add(new ContentPart(0, null));
         }
 
-        return rented.AsMemory(0, position);
+        return joined.Data;
     }
 
     /// <summary>Resets the interpreter for a top-level run of a page's content: initial state, empty stacks, the page's resources.</summary>
@@ -228,10 +207,12 @@ internal sealed partial class ContentInterpreter
         IgnoresColorOperators = false;
         _glyphHeadPending = false;
         _maxSaveDepth = options.MaxSaveDepth;
+        _printing = options.Printing;
         BeginNesting(document, page, options);
         _arena.Limit = options.MaxOperands;
         _path.Accumulate = (_events & (ContentEvents.Paths | ContentEvents.Clips)) != 0;
         _states[0] = GraphicsState.CreateInitial();
+        _states[0].OutputIntent = document.GetOutputIntent(page);
         _maxNestingDepth = options.MaxNestingDepth;
         _frames.Clear();
         _frames.Add(new RunFrame(null, Matrix.Identity, _states[0]));
@@ -246,6 +227,9 @@ internal sealed partial class ContentInterpreter
         _context.ContentStream = null;
         _context.StructParents = page is null ? null : Annotations.AnnotationValues.ReadInteger(document, page.Dictionary.TryGetValue(StructParentsName, out CosObject? key) ? key : null);
         _context.CancellationToken = options.CancellationToken;
+        _progress = options.Progress;
+        _progressLength = 0;
+        _progressPosition = 0;
     }
 
     /// <summary>Prepares a top-level run (<see cref="Prepare"/>) and starts it.</summary>
@@ -266,6 +250,22 @@ internal sealed partial class ContentInterpreter
     {
         FinishStream();
         _processor.EndRun(_context);
+        _progress?.Report(1);
+    }
+
+    /// <summary>
+    /// At a cancellation point: checks the token, reports progress (whose receiver may cancel it), and checks again, so a cancel from
+    /// the receiver stops the run before its next operator.
+    /// </summary>
+    private void CheckPoint()
+    {
+        CancellationToken token = _context.CancellationToken;
+        token.ThrowIfCancellationRequested();
+        if (_progress is { } progress)
+        {
+            progress.Report(_progressLength == 0 ? 0 : (double)_progressPosition / _progressLength);
+            token.ThrowIfCancellationRequested();
+        }
     }
 
     private void Release()
@@ -278,6 +278,7 @@ internal sealed partial class ContentInterpreter
         _frames.Clear();
         _processor = null!;
         _diagnostics = null;
+        _progress = null;
         _context.Document = null!;
         _context.Page = null;
         _context.Resources = null;
@@ -290,6 +291,12 @@ internal sealed partial class ContentInterpreter
     {
         var reader = new ContentReader(content, _arena);
         _arena.Clear();
+        bool topLevel = _context.Depth == 0;
+        if (topLevel)
+        {
+            _progressLength = content.Length;
+        }
+
         while (reader.Next(out ReadOperator op))
         {
             if (reader.Issues != ReaderIssues.None)
@@ -304,9 +311,14 @@ internal sealed partial class ContentInterpreter
                 Report(ContentIssue.OperandOverflow, op.KeywordStart, "More operands than the limit were written before an operator; the oldest were dropped.");
             }
 
+            if (topLevel)
+            {
+                _progressPosition = op.End;
+            }
+
             if (++_operatorCount % CancellationInterval == 0)
             {
-                _context.CancellationToken.ThrowIfCancellationRequested();
+                CheckPoint();
             }
 
             LocatePart(op.KeywordStart);

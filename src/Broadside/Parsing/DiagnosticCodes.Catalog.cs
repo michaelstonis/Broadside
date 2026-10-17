@@ -12,7 +12,11 @@ internal static partial class DiagnosticCodes
     public const string ExtensionsInvalid = nameof(ExtensionsInvalid);
     public const string ExtensionsNotDirect = nameof(ExtensionsNotDirect);
     public const string DeveloperExtensionInvalid = nameof(DeveloperExtensionInvalid);
+    public const string DeveloperExtensionBaseVersionLater = nameof(DeveloperExtensionBaseVersionLater);
     public const string RequirementInvalid = nameof(RequirementInvalid);
+
+    // Output intents (§14.11.5, issue #119).
+    public const string OutputIntentInvalid = nameof(OutputIntentInvalid);
 
     // Page labels (§12.4.2).
     public const string PageLabelsMissingZeroKey = nameof(PageLabelsMissingZeroKey);
@@ -35,4 +39,27 @@ internal static partial class DiagnosticCodes
     public const string XmpLeadingJunk = nameof(XmpLeadingJunk);
     public const string XmpPropertyDuplicate = nameof(XmpPropertyDuplicate);
     public const string FileIdentifierInvalid = nameof(FileIdentifierInvalid);
+
+    // Saving (ADR 0003; §7.5.2, §7.7.2 Table 29): the version a save writes (issue #141).
+    public const string VersionRaised = nameof(VersionRaised);
+
+    // Saving with a PDF/A conformance level (issue #201; veraPDF validation-profile rule identifiers): a rule the document cannot
+    // meet (Warning, refused in strict mode), and a lenient save that therefore does not claim the conformance (Information).
+    public const string PdfANonConformant = nameof(PdfANonConformant);
+    public const string PdfANotIdentified = nameof(PdfANotIdentified);
+
+    // Converting a document to a PDF/A level (issue #229): what the conversion changed or removed, and what it could not fix and why
+    // (both Information; the rules still not met are PdfANonConformant warnings).
+    public const string PdfAConverted = nameof(PdfAConverted);
+    public const string PdfANotConverted = nameof(PdfANotConverted);
+
+    // Saving with a PDF/UA conformance (issue #204; veraPDF PDF/UA-1 rule identifiers): a failure condition the document has
+    // (Warning, refused in strict mode), and a lenient save that therefore does not claim the conformance (Information).
+    public const string PdfUANonConformant = nameof(PdfUANonConformant);
+    public const string PdfUANotIdentified = nameof(PdfUANotIdentified);
+
+    // Saving with Well-Tagged PDF declarations (issue #205; veraPDF WTPDF 1.0 rule identifiers): a failure condition the document has
+    // (Warning, refused in strict mode), and a lenient save that therefore does not declare the level (Information).
+    public const string WellTaggedNonConformant = nameof(WellTaggedNonConformant);
+    public const string WellTaggedNotDeclared = nameof(WellTaggedNotDeclared);
 }

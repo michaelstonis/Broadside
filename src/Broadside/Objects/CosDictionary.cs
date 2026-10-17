@@ -17,6 +17,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
 {
     private readonly OrderedDictionary<CosName, CosObject> _entries;
     private bool _changed;
+    private int _version;
 
     /// <summary>Initializes a new, empty instance of the <see cref="CosDictionary"/> class.</summary>
     public CosDictionary() => _entries = [];
@@ -45,12 +46,34 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
         }
     }
 
+    /// <inheritdoc/>
+    internal override void MarkClean()
+    {
+        _changed = false;
+        foreach (KeyValuePair<CosName, CosObject> entry in _entries)
+        {
+            entry.Value.MarkClean();
+        }
+    }
+
     /// <summary>
     /// Gets a number that changes every time an entry is added, replaced or removed through the public API, and never by reading
-    /// or loading: caches of state derived from the dictionary record it and rebuild when it differs. Changes to the values
+    /// or loading: caches of state derived from the dictionary record it and rebuild when it differs. Every change also advances
+    /// <see cref="CosMutation.Epoch"/>. Changes to the values
     /// themselves are not counted; a cache records each container it depends on.
     /// </summary>
-    internal int Version { get; private set; }
+    internal int Version
+    {
+        get => _version;
+        private set
+        {
+            if (value != _version)
+            {
+                _version = value;
+                CosMutation.Advance();
+            }
+        }
+    }
 
     /// <summary>Gets the number of entries.</summary>
     public int Count => _entries.Count;
@@ -90,6 +113,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
                 return;
             }
 
+            CosChangeLog.Changing(this);
             _entries[key] = value;
             _changed = true;
             Version++;
@@ -114,6 +138,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
             return;
         }
 
+        CosChangeLog.Changing(this);
         _entries.Add(key, value);
         _changed = true;
         Version++;
@@ -124,6 +149,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
     /// <returns><see langword="true"/> when an entry was removed.</returns>
     public bool Remove(CosName key)
     {
+        CosChangeLog.Changing(this);
         bool removed = _entries.Remove(key);
         _changed |= removed;
         Version += removed ? 1 : 0;
@@ -133,6 +159,7 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
     /// <summary>Removes every entry; marks the dictionary dirty when it was not already empty.</summary>
     public void Clear()
     {
+        CosChangeLog.Changing(this);
         _changed |= _entries.Count > 0;
         Version += _entries.Count > 0 ? 1 : 0;
         _entries.Clear();
@@ -165,10 +192,29 @@ public sealed class CosDictionary : CosObject, IDictionary<CosName, CosObject>, 
     /// <inheritdoc/>
     bool ICollection<KeyValuePair<CosName, CosObject>>.Remove(KeyValuePair<CosName, CosObject> item)
     {
+        CosChangeLog.Changing(this);
         bool removed = ((ICollection<KeyValuePair<CosName, CosObject>>)_entries).Remove(item);
         _changed |= removed;
         Version += removed ? 1 : 0;
         return removed;
+    }
+
+    /// <inheritdoc/>
+    internal override Action CaptureState()
+    {
+        KeyValuePair<CosName, CosObject>[] entries = [.. _entries];
+        bool changed = _changed;
+        return () =>
+        {
+            _entries.Clear();
+            foreach ((CosName key, CosObject value) in entries)
+            {
+                _entries.Add(key, value);
+            }
+
+            _changed = changed;
+            Version++;
+        };
     }
 
     /// <summary>Replaces the value at <paramref name="index"/> as part of loading (decryption), without marking the dictionary dirty.</summary>

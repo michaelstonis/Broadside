@@ -24,16 +24,45 @@ public sealed class PdfOptions
     /// <summary>The default of <see cref="StreamBufferLimit"/>: 64 MiB.</summary>
     public const long DefaultStreamBufferLimit = 64L << 20;
 
+    /// <summary>The default of <see cref="RangeBlockSize"/>: 4 KiB.</summary>
+    public const int DefaultRangeBlockSize = 4 * 1024;
+
+    /// <summary>The default of <see cref="RangeCacheLimit"/>: 64 MiB.</summary>
+    public const long DefaultRangeCacheLimit = 64L << 20;
+
     /// <summary>The default of <see cref="MaxImagePixels"/>: 2^28 (268,435,456) pixels, a 16384 x 16384 image.</summary>
     public const long DefaultMaxImagePixels = 1L << 28;
 
+    /// <summary>The default of <see cref="ContentCacheBudget"/>: 32 MiB.</summary>
+    public const long DefaultContentCacheBudget = 32L << 20;
+
+    /// <summary>The default of <see cref="ImageCacheBudget"/>: 64 MiB.</summary>
+    public const long DefaultImageCacheBudget = 64L << 20;
+
+    /// <summary>The default of <see cref="GlyphCacheBudget"/>: 8 MiB.</summary>
+    public const long DefaultGlyphCacheBudget = 8L << 20;
+
+    /// <summary>The default of <see cref="DisplayListCacheBudget"/>: 32 MiB.</summary>
+    public const long DefaultDisplayListCacheBudget = 32L << 20;
+
+    /// <summary>The default of <see cref="MaxMeshVertices"/>: 2^22 (4,194,304) vertices.</summary>
+    public const int DefaultMaxMeshVertices = 1 << 22;
+
     private readonly List<IStreamFilter> _filters = [];
+    private readonly List<IStreamEncoder> _streamEncoders = [];
     private readonly List<ISecurityHandler> _securityHandlers = [];
     private readonly List<IFontProgramParser> _fontProgramParsers = [];
     private readonly List<IFontResolver> _fontResolvers = [];
     private long _maxDecodedStreamLength = DefaultMaxDecodedStreamLength;
     private long _streamBufferLimit = DefaultStreamBufferLimit;
+    private int _rangeBlockSize = DefaultRangeBlockSize;
+    private long _rangeCacheLimit = DefaultRangeCacheLimit;
     private long _maxImagePixels = DefaultMaxImagePixels;
+    private long _contentCacheBudget = DefaultContentCacheBudget;
+    private long _imageCacheBudget = DefaultImageCacheBudget;
+    private long _glyphCacheBudget = DefaultGlyphCacheBudget;
+    private long _displayListCacheBudget = DefaultDisplayListCacheBudget;
+    private int _maxMeshVertices = DefaultMaxMeshVertices;
 
     /// <summary>Gets or sets how deviations from the specification are treated. The default is <see cref="PdfReadingMode.Lenient"/>.</summary>
     /// <remarks>ADR 0005.</remarks>
@@ -98,6 +127,38 @@ public sealed class PdfOptions
         return this;
     }
 
+    /// <summary>Gets the encoders registered with <see cref="UseStreamEncoder"/>, in registration order.</summary>
+    /// <remarks>ISO 32000-2 §7.4.1. Not public, so configuration binding never sees it; encoders are code, set with <see cref="UseStreamEncoder"/>.</remarks>
+    internal IReadOnlyList<IStreamEncoder> StreamEncoders => _streamEncoders;
+
+    /// <summary>
+    /// Uses <paramref name="encoder"/> to write data for the filter its <see cref="IStreamEncoder.Name"/> names, replacing the managed
+    /// default of that name (<see cref="FlateEncoder"/>, <see cref="AsciiHexEncoder"/>, <see cref="Ascii85Encoder"/>,
+    /// <see cref="RunLengthEncoder"/>) or adding an encoder the defaults lack. A later registration of the same name wins. Saving
+    /// compresses streams with the encoder registered for <c>FlateDecode</c>.
+    /// </summary>
+    /// <param name="encoder">The encoder. Shared by every document and thread of the engine: it must keep no state between calls.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentException">
+    /// The encoder's name is <c>Crypt</c>, which the security handler applies (§7.4.10), or an inline-image abbreviation such as
+    /// <c>Fl</c> (§8.9.7, Table 92).
+    /// </exception>
+    /// <remarks>ISO 32000-2 §7.4.1. The encoding half of the filter extension point (ADR 0001), separate from <see cref="UseFilter"/>.</remarks>
+    public PdfOptions UseStreamEncoder(IStreamEncoder encoder)
+    {
+        ArgumentNullException.ThrowIfNull(encoder);
+        CosName name = encoder.Name ?? throw new ArgumentException("The encoder has no name.", nameof(encoder));
+        if (name.Equals(FilterNames.Crypt) || InlineImageAbbreviations.TryExpandFilter(name, out _))
+        {
+            throw new ArgumentException(
+                $"An encoder cannot be registered under /{name.Value}: Crypt belongs to the security handler and abbreviations are not stream filter names.",
+                nameof(encoder));
+        }
+
+        _streamEncoders.Add(encoder);
+        return this;
+    }
+
     /// <summary>
     /// Gets or sets the most pixels (width x height) one image may have; a larger image is not decoded, with a diagnostic. Default
     /// 2^28. The bytes of its samples are also limited by <see cref="MaxDecodedStreamLength"/>.
@@ -125,6 +186,163 @@ public sealed class PdfOptions
     public PdfOptions WithMaxImagePixels(long maxPixels)
     {
         MaxImagePixels = maxPixels;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the most bytes of decoded content streams (pages, form XObjects, tiling patterns, Type 3 glyphs) a document keeps
+    /// for its next content run; the least recently used are dropped beyond it and decoded again when needed. Zero keeps none. Default
+    /// 32 MiB.
+    /// </summary>
+    /// <remarks>
+    /// Spec #33 viewer capability 13; ISO 32000-2 §7.8.2 (content streams, decoded through their filters, §7.4). Observed through
+    /// <see cref="PdfDocument.CacheStatistics"/> (<see cref="PdfDocumentCacheStatistics.Content"/>). Changes nothing a run produces.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    public long ContentCacheBudget
+    {
+        get => _contentCacheBudget;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _contentCacheBudget = value;
+        }
+    }
+
+    /// <summary>Sets <see cref="ContentCacheBudget"/>.</summary>
+    /// <param name="budget">The most bytes of decoded content a document keeps; zero for none.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="budget"/> is negative.</exception>
+    /// <remarks>Spec #33 viewer capability 13; ISO 32000-2 §7.8.2.</remarks>
+    public PdfOptions WithContentCacheBudget(long budget)
+    {
+        ContentCacheBudget = budget;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the most bytes of decoded images (image XObjects with their masks, soft masks and colour tables, and stencil masks)
+    /// a document keeps for its next display lists; the least recently used are dropped beyond it and decoded again when painted. An
+    /// image larger than the budget is decoded for each list that paints it. Zero keeps none: each list decodes its own. Default
+    /// 64 MiB.
+    /// </summary>
+    /// <remarks>
+    /// Spec #33 viewer capability 13; ISO 32000-2 §8.9.5 (image XObjects), §8.9.6 and §11.6.5 (masks). Observed through
+    /// <see cref="PdfDocument.CacheStatistics"/> (<see cref="PdfDocumentCacheStatistics.Images"/>). A display list holds the images it
+    /// paints whatever this budget, so a list kept by the caller keeps its images alive after they leave the cache.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    public long ImageCacheBudget
+    {
+        get => _imageCacheBudget;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _imageCacheBudget = value;
+        }
+    }
+
+    /// <summary>Sets <see cref="ImageCacheBudget"/>.</summary>
+    /// <param name="budget">The most bytes of decoded images a document keeps; zero for none.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="budget"/> is negative.</exception>
+    /// <remarks>Spec #33 viewer capability 13; ISO 32000-2 §8.9.5.</remarks>
+    public PdfOptions WithImageCacheBudget(long budget)
+    {
+        ImageCacheBudget = budget;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the most bytes of glyph outlines a document keeps once read from its font programs; the least recently used are
+    /// dropped beyond it and read again when shown. Zero keeps none: each display list reads its own. Default 8 MiB.
+    /// </summary>
+    /// <remarks>
+    /// Spec #33 viewer capability 13; ISO 32000-2 §9.2.4 (glyph descriptions in font programs). Observed through
+    /// <see cref="PdfDocument.CacheStatistics"/> (<see cref="PdfDocumentCacheStatistics.Glyphs"/>).
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    public long GlyphCacheBudget
+    {
+        get => _glyphCacheBudget;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _glyphCacheBudget = value;
+        }
+    }
+
+    /// <summary>Sets <see cref="GlyphCacheBudget"/>.</summary>
+    /// <param name="budget">The most bytes of glyph outlines a document keeps; zero for none.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="budget"/> is negative.</exception>
+    /// <remarks>Spec #33 viewer capability 13; ISO 32000-2 §9.2.4.</remarks>
+    public PdfOptions WithGlyphCacheBudget(long budget)
+    {
+        GlyphCacheBudget = budget;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the most bytes of display lists a document keeps, so that rendering a page again (another zoom, another tile)
+    /// reuses its list while the document is unchanged; the least recently used are dropped beyond it. A list is charged its tables
+    /// and the images it holds. Zero keeps none: <see cref="PdfPage.CreateDisplayList()"/> builds a new list on every call. Default
+    /// 32 MiB.
+    /// </summary>
+    /// <remarks>
+    /// Spec #33 viewer capability 13, ADR 0006. Observed through <see cref="PdfDocument.CacheStatistics"/>
+    /// (<see cref="PdfDocumentCacheStatistics.DisplayLists"/>).
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
+    public long DisplayListCacheBudget
+    {
+        get => _displayListCacheBudget;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegative(value);
+            _displayListCacheBudget = value;
+        }
+    }
+
+    /// <summary>Sets <see cref="DisplayListCacheBudget"/>.</summary>
+    /// <param name="budget">The most bytes of display lists a document keeps; zero for none.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="budget"/> is negative.</exception>
+    /// <remarks>Spec #33 viewer capability 13, ADR 0006.</remarks>
+    public PdfOptions WithDisplayListCacheBudget(long budget)
+    {
+        DisplayListCacheBudget = budget;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the most vertices one mesh shading (Types 4 to 7) decodes, a patch counting as 16; the rest of a larger mesh is
+    /// dropped with a <c>MeshSizeExceeded</c> diagnostic. Default 2^22.
+    /// </summary>
+    /// <remarks>
+    /// ISO 32000-2 §8.7.4.5.5 to §8.7.4.5.8: a mesh is as long as its stream, so a small compressed stream can decode to more
+    /// triangles or patches than a page can usefully show; the limit bounds the memory and the time one shading takes. The data is
+    /// also limited by <see cref="MaxDecodedStreamLength"/>.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not positive.</exception>
+    public int MaxMeshVertices
+    {
+        get => _maxMeshVertices;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
+            _maxMeshVertices = value;
+        }
+    }
+
+    /// <summary>Sets <see cref="MaxMeshVertices"/>.</summary>
+    /// <param name="maxVertices">The most vertices one mesh shading decodes.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="maxVertices"/> is not positive.</exception>
+    /// <remarks>ISO 32000-2 §8.7.4.5.5 to §8.7.4.5.8.</remarks>
+    public PdfOptions WithMaxMeshVertices(int maxVertices)
+    {
+        MaxMeshVertices = maxVertices;
         return this;
     }
 
@@ -170,6 +388,86 @@ public sealed class PdfOptions
         return this;
     }
 
+    /// <summary>
+    /// Gets or sets the unit a remote file is fetched and cached in, in bytes: every request covers whole blocks. Default 4 KiB.
+    /// </summary>
+    /// <remarks>
+    /// Spec #33, viewer capability 5; ISO 32000-2 §7.5.4 (random access through the cross-reference table). Applies to documents opened
+    /// with <see cref="PdfEngine.OpenAsync(System.Net.Http.HttpClient, Uri, CancellationToken)"/>. A small block wastes little around
+    /// each small object (a page object is a few hundred bytes); a large object is fetched in one request whatever the block size.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is less than 512 or more than 16 MiB.</exception>
+    public int RangeBlockSize
+    {
+        get => _rangeBlockSize;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfLessThan(value, 512);
+            ArgumentOutOfRangeException.ThrowIfGreaterThan(value, 16 << 20);
+            _rangeBlockSize = value;
+        }
+    }
+
+    /// <summary>Sets <see cref="RangeBlockSize"/>.</summary>
+    /// <param name="blockSize">The size of a fetched and cached block, in bytes.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="blockSize"/> is less than 512 or more than 16 MiB.</exception>
+    /// <remarks>Spec #33, viewer capability 5.</remarks>
+    public PdfOptions WithRangeBlockSize(int blockSize)
+    {
+        RangeBlockSize = blockSize;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the most bytes of a remote file a document keeps cached; the least recently used blocks are dropped beyond it and
+    /// fetched again when needed. Default 64 MiB.
+    /// </summary>
+    /// <remarks>
+    /// Spec #33, viewer capability 5. Parsed objects are kept by the document whatever this limit; the cache holds the bytes stream data
+    /// is read from. Where <see cref="SynchronousRangeFetch"/> is off, a page's objects must fit in the cache between its
+    /// <see cref="PdfPage.PrefetchAsync"/> and its reading.
+    /// </remarks>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not positive.</exception>
+    public long RangeCacheLimit
+    {
+        get => _rangeCacheLimit;
+        set
+        {
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(value);
+            _rangeCacheLimit = value;
+        }
+    }
+
+    /// <summary>Sets <see cref="RangeCacheLimit"/>.</summary>
+    /// <param name="limit">The most bytes of a remote file kept cached.</param>
+    /// <returns>These options.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="limit"/> is not positive.</exception>
+    /// <remarks>Spec #33, viewer capability 5.</remarks>
+    public PdfOptions WithRangeCacheLimit(long limit)
+    {
+        RangeCacheLimit = limit;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets whether a synchronous read of a remote document that needs bytes not yet fetched blocks on the request. When off,
+    /// the read throws <see cref="PdfRangeNotLoadedException"/>, and a page is read after awaiting its <see cref="PdfPage.PrefetchAsync"/>.
+    /// On by default, except on the browser platform (and WASI), which cannot block on HTTP; turning it on there has no effect.
+    /// </summary>
+    /// <remarks>Spec #33, viewer capability 5; ADR 0010 (the asynchronous prefetch boundary).</remarks>
+    public bool SynchronousRangeFetch { get; set; } = !OperatingSystem.IsBrowser() && !OperatingSystem.IsWasi();
+
+    /// <summary>Sets <see cref="SynchronousRangeFetch"/>.</summary>
+    /// <param name="enabled">Whether a synchronous read may block on fetching what it misses.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>Spec #33, viewer capability 5; ADR 0010.</remarks>
+    public PdfOptions WithSynchronousRangeFetch(bool enabled)
+    {
+        SynchronousRangeFetch = enabled;
+        return this;
+    }
+
     /// <summary>Gets the logger factory set by <see cref="WithLoggerFactory"/>, or <see langword="null"/>.</summary>
     /// <remarks>Not a property, so configuration binding never sees it.</remarks>
     internal ILoggerFactory? LoggerFactory { get; private set; }
@@ -189,6 +487,24 @@ public sealed class PdfOptions
     public PdfOptions WithLoggerFactory(ILoggerFactory? loggerFactory)
     {
         LoggerFactory = loggerFactory;
+        return this;
+    }
+
+    /// <summary>Gets the clock set with <see cref="UseTimeProvider"/>; <see cref="TimeProvider.System"/> otherwise.</summary>
+    /// <remarks>Not public, so configuration binding never sees it.</remarks>
+    internal TimeProvider TimeProvider { get; private set; } = TimeProvider.System;
+
+    /// <summary>
+    /// Uses <paramref name="timeProvider"/> as the clock that dates what the engine writes, such as the modification date a save
+    /// records (ISO 32000-2 §14.3.4), in place of <see cref="TimeProvider.System"/>.
+    /// </summary>
+    /// <param name="timeProvider">The clock; dates are written in its local time zone.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ISO 32000-2 §14.3.3 and §14.3.4. A fixed clock makes saved files reproducible.</remarks>
+    public PdfOptions UseTimeProvider(TimeProvider timeProvider)
+    {
+        ArgumentNullException.ThrowIfNull(timeProvider);
+        TimeProvider = timeProvider;
         return this;
     }
 
@@ -303,6 +619,29 @@ public sealed class PdfOptions
     public PdfOptions UseSystemFontResolver(IFontResolver? resolver)
     {
         SystemFontResolver = resolver;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the file where the default operating-system font resolver keeps the index of the font files it has read, so a
+    /// later process finds installed fonts without reading their files again; <see langword="null"/> (the default) keeps no index and
+    /// writes nothing.
+    /// </summary>
+    /// <remarks>
+    /// ADR 0009. The file is created, with its directory, after the first font the operating system's fonts are asked for, and
+    /// rewritten when more font files have been read. Font files added, removed or changed since are read again, so the index never
+    /// changes which font is found. Engines with the same path share one resolver in the process. Applies only to the default
+    /// resolver: one set with <see cref="UseSystemFontResolver"/> keeps its own index (<see cref="Fonts.SystemFontResolver.IndexPath"/>).
+    /// </remarks>
+    public string? SystemFontIndexPath { get; set; }
+
+    /// <summary>Sets <see cref="SystemFontIndexPath"/>.</summary>
+    /// <param name="path">The index file, or <see langword="null"/> to keep none.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>ADR 0009.</remarks>
+    public PdfOptions WithSystemFontIndexPath(string? path)
+    {
+        SystemFontIndexPath = path;
         return this;
     }
 

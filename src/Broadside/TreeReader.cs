@@ -31,7 +31,7 @@ namespace Broadside;
 /// Thread-safe for concurrent reads (the index is built under a lock and published whole).
 /// </para>
 /// </remarks>
-internal abstract class TreeReader<TKey>
+internal abstract partial class TreeReader<TKey>
     where TKey : notnull
 {
     /// <summary>The deepest tree the reader descends into: deeper nodes are skipped with a diagnostic.</summary>
@@ -46,14 +46,19 @@ internal abstract class TreeReader<TKey>
     /// <param name="rootReference">The root's reference, for diagnostics, or <see langword="null"/> when it is direct.</param>
     /// <param name="resolve">Resolves references through the document.</param>
     /// <param name="diagnostics">Where to report deviations.</param>
+    /// <param name="objectsVersion">
+    /// Reads the document's <c>ObjectsVersion</c>: an added or removed object changes what a reference in an unchanged node resolves
+    /// to (§7.3.10), so the index records it with the node versions (issue #303).
+    /// </param>
     /// <param name="maxDepth">The deepest level the walk descends to; the root is level 0.</param>
-    private protected TreeReader(CosDictionary root, CosReference? rootReference, Func<CosObject?, CosObject> resolve, DiagnosticSink diagnostics, int maxDepth)
+    private protected TreeReader(CosDictionary root, CosReference? rootReference, Func<CosObject?, CosObject> resolve, DiagnosticSink diagnostics, Func<int> objectsVersion, int maxDepth)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(maxDepth);
         Root = root;
         RootReference = rootReference;
         Resolve = resolve;
         Diagnostics = diagnostics;
+        ObjectsVersion = objectsVersion;
         MaxDepth = maxDepth;
     }
 
@@ -69,6 +74,8 @@ internal abstract class TreeReader<TKey>
     private protected Func<CosObject?, CosObject> Resolve { get; }
 
     private protected DiagnosticSink Diagnostics { get; }
+
+    private Func<int> ObjectsVersion { get; }
 
     /// <summary>Gets the key of the array holding the pairs: <c>Names</c> or <c>Nums</c>.</summary>
     private protected abstract CosName EntriesKey { get; }
@@ -177,8 +184,9 @@ internal abstract class TreeReader<TKey>
     /// <summary>Gets the index, building it when there is none or a node it was built from has changed.</summary>
     private TreeIndex GetIndex()
     {
+        int objectsVersion = ObjectsVersion();
         TreeIndex? index = _index;
-        if (index is not null && index.IsCurrent())
+        if (index is not null && index.IsCurrent(objectsVersion))
         {
             return index;
         }
@@ -186,7 +194,7 @@ internal abstract class TreeReader<TKey>
         lock (_gate)
         {
             index = _index;
-            if (index is not null && index.IsCurrent())
+            if (index is not null && index.IsCurrent(objectsVersion))
             {
                 return index;
             }
@@ -205,7 +213,7 @@ internal abstract class TreeReader<TKey>
 
             // Keys are unique after the walk, so the sort order is total.
             Array.Sort(keyArray, valueArray, KeyComparer);
-            index = new TreeIndex(keyArray, valueArray, [.. stamps]);
+            index = new TreeIndex(keyArray, valueArray, [.. stamps], objectsVersion);
             _index = index;
             return index;
         }
@@ -592,8 +600,11 @@ internal abstract class TreeReader<TKey>
     /// <summary>The usable Limits of the nodes on the path to a node, nearest first.</summary>
     private sealed record BoundsChain(Bounds Bounds, CosReference? Reference, BoundsChain? Next);
 
-    /// <summary>Every key of the tree, sorted, with raw values; current while no container it was read from has changed.</summary>
-    private sealed class TreeIndex(TKey[] keys, CosObject[] values, (CosObject Container, int Version)[] stamps)
+    /// <summary>
+    /// Every key of the tree, sorted, with raw values; current while no object was added or removed and no container it was read from
+    /// has changed.
+    /// </summary>
+    private sealed class TreeIndex(TKey[] keys, CosObject[] values, (CosObject Container, int Version)[] stamps, int objectsVersion)
     {
         public TKey[] Keys => keys;
 
@@ -601,8 +612,13 @@ internal abstract class TreeReader<TKey>
 
         public int Find(TKey key, IComparer<TKey> comparer) => Array.BinarySearch(keys, key, comparer);
 
-        public bool IsCurrent()
+        public bool IsCurrent(int currentObjectsVersion)
         {
+            if (currentObjectsVersion != objectsVersion)
+            {
+                return false;
+            }
+
             foreach ((CosObject container, int version) in stamps)
             {
                 int current = container switch

@@ -29,6 +29,7 @@ public abstract class PdfPattern
         CosObject = reader.CosObject;
         Dictionary = reader.Dictionary;
         Reference = reader.Reference;
+        Document = reader.Document;
         Matrix = reader.Matrix(ShadingNames.Matrix, DiagnosticCodes.PatternEntryInvalid);
     }
 
@@ -55,6 +56,9 @@ public abstract class PdfPattern
 
     /// <summary>Gets a value indicating whether the pattern can be painted; when <see langword="false"/> it paints nothing.</summary>
     public bool IsValid { get; private protected set; }
+
+    /// <summary>Gets the document the pattern belongs to.</summary>
+    internal PdfDocument Document { get; }
 
     /// <summary>Returns the matrix from pattern space to the run's default user space, for a colour that selected this pattern.</summary>
     /// <param name="color">The pattern colour, as <c>scn</c> or <c>SCN</c> set it.</param>

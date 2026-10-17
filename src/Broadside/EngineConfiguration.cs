@@ -1,8 +1,10 @@
+using Broadside.Caching;
 using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.Fonts;
 using Broadside.Fonts.Resolution;
 using Broadside.Graphics;
+using Broadside.IO;
 using Broadside.Security;
 using Microsoft.Extensions.Logging;
 
@@ -26,7 +28,7 @@ internal sealed class EngineConfiguration
     /// Gets what sees each diagnostic as it is recorded, before strict mode throws it: the logger, or <see langword="null"/> when
     /// nothing logs, so a document without logging pays nothing.
     /// </summary>
-    public Action<Diagnostic>? DiagnosticObserver { get; private init; }
+    public Action<Diagnostic>? DiagnosticObserver { get; private set; }
 
     /// <summary>
     /// Gets the logger lazy loading is traced through (issue #45: <c>ObjectParsed</c>, <c>ObjectStreamDecoded</c>), or
@@ -36,6 +38,9 @@ internal sealed class EngineConfiguration
 
     /// <summary>Gets the filters by name: the managed defaults with the options' registrations applied (issue #38).</summary>
     public FilterRegistry Filters { get; private init; } = FilterRegistry.Create([]);
+
+    /// <summary>Gets the encoders by filter name: the managed defaults with the options' registrations applied (issue #142).</summary>
+    public StreamEncoderRegistry StreamEncoders { get; private init; } = StreamEncoderRegistry.Default;
 
     /// <summary>Gets the most bytes one stream may decode to (issue #38).</summary>
     public long MaxDecodedStreamLength { get; private init; } = PdfOptions.DefaultMaxDecodedStreamLength;
@@ -58,8 +63,29 @@ internal sealed class EngineConfiguration
     /// <summary>Gets how many bytes of a non-seekable stream are copied into memory before a temporary file is used (issue #45).</summary>
     public long StreamBufferLimit { get; private init; } = PdfOptions.DefaultStreamBufferLimit;
 
+    /// <summary>Gets how a remote file is fetched and cached (issue #207).</summary>
+    public RangeSourceSettings RangeSource { get; private init; } = new(PdfOptions.DefaultRangeBlockSize, PdfOptions.DefaultRangeCacheLimit, SynchronousFetch: true);
+
     /// <summary>Gets the most pixels one image may have (issue #60).</summary>
     public long MaxImagePixels { get; private init; } = PdfOptions.DefaultMaxImagePixels;
+
+    /// <summary>Gets the byte budgets of each document's render caches (issue #103).</summary>
+    public CacheBudgets CacheBudgets { get; private init; } = CacheBudgets.Default;
+    /// <summary>Gets the most vertices one mesh shading decodes (issue #110).</summary>
+    public int MaxMeshVertices { get; private init; } = PdfOptions.DefaultMaxMeshVertices;
+
+    /// <summary>Gets the clock that dates what the engine writes (issue #162).</summary>
+    public TimeProvider TimeProvider { get; private init; } = TimeProvider.System;
+
+    /// <summary>Returns a copy whose diagnostics are seen by <paramref name="observer"/> instead.</summary>
+    /// <param name="observer">The observer, or <see langword="null"/> for none.</param>
+    /// <returns>The copy.</returns>
+    public EngineConfiguration WithDiagnosticObserver(Action<Diagnostic>? observer)
+    {
+        var copy = (EngineConfiguration)MemberwiseClone();
+        copy.DiagnosticObserver = observer;
+        return copy;
+    }
 
     /// <summary>Copies the current values of <paramref name="options"/>.</summary>
     /// <param name="options">The options.</param>
@@ -70,15 +96,34 @@ internal sealed class EngineConfiguration
         DiagnosticObserver = DiagnosticLog.CreateObserver(options.LoggerFactory ?? hostLoggerFactory),
         Logger = ObjectLog.CreateLogger(options.LoggerFactory ?? hostLoggerFactory),
         Filters = FilterRegistry.Create(options.Filters),
+        StreamEncoders = options.StreamEncoders.Count == 0 ? StreamEncoderRegistry.Default : StreamEncoderRegistry.Create(options.StreamEncoders),
         MaxDecodedStreamLength = options.MaxDecodedStreamLength,
         SecurityHandlers = options.SecurityHandlers.Count == 0 ? SecurityHandlerRegistry.Default : SecurityHandlerRegistry.Create(options.SecurityHandlers),
         Credentials = options.Credentials,
         StreamBufferLimit = options.StreamBufferLimit,
         MaxImagePixels = options.MaxImagePixels,
+        CacheBudgets = new(options.ContentCacheBudget, options.ImageCacheBudget, options.GlyphCacheBudget, options.DisplayListCacheBudget),
+        MaxMeshVertices = options.MaxMeshVertices,
+        RangeSource = new(
+            options.RangeBlockSize,
+            Math.Max(options.RangeCacheLimit, options.RangeBlockSize),
+            options.SynchronousRangeFetch && !OperatingSystem.IsBrowser() && !OperatingSystem.IsWasi()),
         FontProgramParsers = FontProgramParserRegistry.Create(options.FontProgramParsers),
         ColorManagement = options.ColorManagement,
-        FontResolvers = options.FontResolvers.Count == 0 && ReferenceEquals(options.SystemFontResolver, SystemFontResolver.Shared)
-            ? FontResolverChain.Default
-            : new FontResolverChain(options.FontResolvers, options.SystemFontResolver),
+        TimeProvider = options.TimeProvider,
+        FontResolvers = CreateFontResolvers(options),
     };
+
+    private static FontResolverChain CreateFontResolvers(PdfOptions options)
+    {
+        IFontResolver? system = options.SystemFontResolver;
+        if (ReferenceEquals(system, SystemFontResolver.Shared) && !string.IsNullOrEmpty(options.SystemFontIndexPath))
+        {
+            system = SystemFontResolver.ForIndexPath(options.SystemFontIndexPath);
+        }
+
+        return options.FontResolvers.Count == 0 && ReferenceEquals(system, SystemFontResolver.Shared)
+            ? FontResolverChain.Default
+            : new FontResolverChain(options.FontResolvers, system);
+    }
 }

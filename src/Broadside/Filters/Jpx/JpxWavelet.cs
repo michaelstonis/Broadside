@@ -1,4 +1,5 @@
 using System.Buffers;
+using Broadside.Filters.Codecs;
 
 namespace Broadside.Filters.Jpx;
 
@@ -29,7 +30,7 @@ internal static class JpxWavelet
     private const float InverseK = (float)(1 / 1.230174104914001);
 
     /// <summary>Reconstructs <paramref name="component"/>'s samples from its sub-bands with the 5/3 reversible filter.</summary>
-    public static void Inverse53(JpxTileComponent component, int[] buffer)
+    public static void Inverse53(JpxTileComponent component, int[] buffer, CodecReporter reporter)
     {
         int stride = component.Width;
         int longest = Math.Max(component.Width, component.Height);
@@ -52,6 +53,7 @@ internal static class JpxWavelet
                 int yParity = (int)(resolution.Y0 & 1);
                 for (int y = 0; y < height; y++)
                 {
+                    reporter.ThrowIfCancellationRequested();
                     Span<int> row = buffer.AsSpan(y * stride, width);
                     Interleave(row, lower.Width, xParity, line);
                     Inverse1D(line.AsSpan(0, width), xParity);
@@ -60,6 +62,7 @@ internal static class JpxWavelet
 
                 for (int x = 0; x < width; x++)
                 {
+                    reporter.ThrowIfCancellationRequested();
                     for (int y = 0; y < height; y++)
                     {
                         lows[y] = buffer[(y * stride) + x];
@@ -126,7 +129,7 @@ internal static class JpxWavelet
 
     /// <summary>Reconstructs <paramref name="component"/>'s samples from its dequantized sub-bands with the 9/7 irreversible filter.</summary>
     /// <remarks>ITU-T T.800 F.3.8.2, equation F-7 and Table F.4: K scales the low-pass samples, 1/K the high-pass ones.</remarks>
-    public static void Inverse97(JpxTileComponent component, Span<float> buffer)
+    public static void Inverse97(JpxTileComponent component, Span<float> buffer, CodecReporter reporter)
     {
         int stride = component.Width;
         int longest = Math.Max(component.Width, component.Height);
@@ -149,6 +152,7 @@ internal static class JpxWavelet
                 int yParity = (int)(resolution.Y0 & 1);
                 for (int y = 0; y < height; y++)
                 {
+                    reporter.ThrowIfCancellationRequested();
                     Span<float> row = buffer.Slice(y * stride, width);
                     Interleave(row, lower.Width, xParity, line);
                     Inverse1D97(line.AsSpan(0, width), xParity);
@@ -158,6 +162,7 @@ internal static class JpxWavelet
                 // Columns in groups: gathered side by side so each lifting step walks memory in order.
                 for (int x0 = 0; x0 < width; x0 += Columns)
                 {
+                    reporter.ThrowIfCancellationRequested();
                     int count = Math.Min(Columns, width - x0);
                     int lowCount = lower.Height;
                     for (int y = 0; y < height; y++)

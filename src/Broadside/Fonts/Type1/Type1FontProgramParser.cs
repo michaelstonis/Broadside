@@ -29,7 +29,10 @@ public sealed class Type1FontProgramParser : IFontProgramParser
 
     /// <inheritdoc/>
     /// <remarks>Accepts a program starting with <c>%!</c> (Type 1 Font Format §2.4) and a PFB file (<c>0x80 0x01</c>, TN 5040 §3.3).</remarks>
-    public bool CanParse(ReadOnlySpan<byte> data) => data.StartsWith("%!"u8) || (data.Length >= 6 && data[0] == 0x80 && data[1] == 1);
+    public bool CanParse(ReadOnlySpan<byte> data) => IsType1(data);
+
+    /// <summary>Whether <paramref name="data"/> starts like a Type 1 program: <c>%!</c> or a PFB segment header.</summary>
+    internal static bool IsType1(ReadOnlySpan<byte> data) => data.StartsWith("%!"u8) || (data.Length >= 6 && data[0] == 0x80 && data[1] == 1);
 
     /// <inheritdoc/>
     public FontProgram? Parse(ReadOnlyMemory<byte> data, FontProgramContext context)

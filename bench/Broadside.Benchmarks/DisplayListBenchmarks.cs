@@ -1,0 +1,107 @@
+using BenchmarkDotNet.Attributes;
+using Broadside.Graphics;
+using Broadside.Rendering;
+using Broadside.TestSupport;
+
+namespace Broadside.Benchmarks;
+
+/// <summary>
+/// Builds a page's display list and replays it into a backend that draws nothing (ADR 0006; ISO 32000-2 §8.5.3, §8.6). Building
+/// allocates the list itself, a fixed number of arrays per page; <c>Replay</c> must read <c>-</c> in <c>Allocated</c>.
+/// <c>Broadside.Tests.Rendering.DisplayListAllocationTests</c> fails the build if either regresses.
+/// </summary>
+[MemoryDiagnoser]
+public class DisplayListBenchmarks
+{
+    private readonly NullBackend _backend = new();
+    private PdfDocument? _document;
+    private PdfPage? _page;
+    private DisplayList? _list;
+
+    /// <summary>The page: a synthetic 256 KB path-heavy content stream, or a corpus file.</summary>
+    [Params("path-heavy-256kb", "colorspace-families.pdf")]
+    public string Page { get; set; } = "";
+
+    /// <summary>Keeps no display lists (issue #103), so that <c>Build</c> builds on every call instead of returning the kept list.</summary>
+    private static PdfOptions BuildOptions => new PdfOptions().WithDisplayListCacheBudget(0);
+
+    [GlobalSetup]
+    public void Setup()
+    {
+        _document = Page == "path-heavy-256kb"
+            ? PdfDocument.Open(ContentSamples.OnePage(ContentSamples.PathHeavy(256 * 1024)), BuildOptions)
+            : PdfDocument.Open(Path.Combine(CorpusLocator.CorpusDirectory, Page), BuildOptions);
+        _page = _document.Pages[0];
+        _list = _page.CreateDisplayList();
+    }
+
+    [GlobalCleanup]
+    public void Cleanup() => _document?.Dispose();
+
+    [Benchmark]
+    public DisplayList Build() => _page!.CreateDisplayList();
+
+    [Benchmark]
+    public int Replay()
+    {
+        _backend.Calls = 0;
+        _list!.Replay(_backend);
+        return _backend.Calls;
+    }
+
+    /// <summary>Counts calls and draws nothing.</summary>
+    private sealed class NullBackend : IRenderingBackend
+    {
+        public int Calls { get; set; }
+
+        public void SaveState() => Calls++;
+
+        public void RestoreState() => Calls++;
+
+        public void SetTransform(in Matrix transform) => Calls++;
+
+        public void FillPath(PathView path, FillRule rule, in DisplayColor color) => Calls += path.Verbs.Length + color.Components.Length;
+
+        public void StrokePath(PathView path, in StrokeStyle style, in DisplayColor color) => Calls += path.Verbs.Length + style.DashArray.Length + color.Components.Length;
+
+        public void IntersectClip(PathView path, FillRule rule) => Calls += path.Verbs.Length;
+
+        public void DrawImage(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion) => Calls += image.Width;
+
+        public void DrawGlyphs(in GlyphRun run)
+        {
+            for (int index = 0; index < run.Glyphs.Length; index++)
+            {
+                Calls += run.Glyphs[index].GlyphId + run.GetOutline(index).Verbs.Length;
+            }
+        }
+
+        public void DrawShading(in DisplayShading shading) => Calls += (int)shading.Shading.ShadingType;
+
+        public void FillPathWithShading(PathView path, FillRule rule, in DisplayShading shading) => Calls += path.Verbs.Length + (int)shading.Shading.ShadingType;
+
+        public void StrokePathWithShading(PathView path, in StrokeStyle style, in DisplayShading shading) => Calls += path.Verbs.Length + (int)shading.Shading.ShadingType;
+
+        public void FillPathWithTilingPattern(PathView path, FillRule rule, in DisplayTilingPattern pattern) => Calls += path.Verbs.Length + (int)pattern.Pattern.TilingType;
+
+        public void StrokePathWithTilingPattern(PathView path, in StrokeStyle style, in DisplayTilingPattern pattern) => Calls += path.Verbs.Length + (int)pattern.Pattern.TilingType;
+
+        public void FillImageMask(DisplayImageMask mask, in DisplayColor color) => Calls += mask.Width + color.Components.Length;
+
+        public void SetCompositing(double strokeAlpha, double fillAlpha, BlendMode blendMode) => Calls += (int)blendMode + 1;
+
+        public void DrawGroup(in DisplayGroup group)
+        {
+            Calls++;
+            group.Replay(this);
+        }
+
+        public void SetSoftMask(in DisplaySoftMask mask) => Calls += mask.IsNone ? 1 : 2;
+
+        public void BeginAnnotation(in DisplayAnnotation annotation) => Calls += (int)annotation.Kind;
+
+        public void EndAnnotation() => Calls++;
+
+        public void SetDeviceParameters(in DisplayDeviceParameters parameters) => Calls += parameters.OverprintMode + 1;
+    }
+}

@@ -8,8 +8,8 @@ namespace Broadside.Content;
 /// <para>
 /// ISO 32000-2 §8.8 to §8.10. <c>Do</c> looks its name up in the current resources' <c>XObject</c> subdictionary: an image is painted
 /// into the unit square of user space (one <see cref="ImageEvent"/>), a form's content runs as a nested stream (§8.10.1, see the
-/// <c>Nesting</c> part), and a PostScript XObject (deprecated, §8.8.2) is ignored. An image or form whose <c>OC</c> is off is not
-/// drawn (§8.11.3.3).
+/// <c>Nesting</c> part), and a PostScript XObject (deprecated, §8.8.2) is ignored. A form whose <c>OC</c> is off is not drawn
+/// (§8.11.3.3); for an image, optional content and the output choose between the image, its alternates and nothing (§8.9.5.4).
 /// </para>
 /// <para>
 /// The reader already delivers an inline image whole: <c>BI</c> with its dictionary as written (abbreviated keys included) and the
@@ -26,6 +26,12 @@ internal sealed partial class ContentInterpreter
     private static readonly CosName ImageMaskAbbreviation = new("IM");
     private static readonly CosName StructParentName = new("StructParent");
     private static readonly PdfVersion Pdf20 = new(2, 0);
+    private static readonly CosName OptionalContentName = new("OC");
+    private static readonly CosName AlternatesName = new("Alternates");
+    private static readonly CosName AlternateImageName = new("Image");
+
+    // Whether the run is for printing, which selects DefaultForPrinting alternate images (§8.9.5.4 d).
+    private bool _printing;
 
     private void ExecuteXObject(ContentOperatorCode code, ContentOperands operands, ReadOperator op, ReadOnlySpan<byte> content, int offset)
     {
@@ -63,7 +69,7 @@ internal sealed partial class ContentInterpreter
         switch (subtype)
         {
             case CosName { Value: "Form" }:
-                PaintForm(document.ContentResources.GetForm(stream, value as CosReference), name, offset, _processor);
+                PaintForm(_context.GetForm(stream, value as CosReference), name, offset, _processor);
                 break;
             case CosName { Value: "Image" }:
                 PaintImageXObject(stream, value as CosReference, name);
@@ -79,10 +85,7 @@ internal sealed partial class ContentInterpreter
 
     private void PaintImageXObject(CosStream stream, CosReference? reference, ReadOnlySpan<byte> name)
     {
-        CosDictionary dictionary = stream.Dictionary;
-        // ImageMask, or its inline abbreviation IM, which the image layer reads on an XObject too (ImageKeyAbbreviated).
-        bool stencil = (dictionary.TryGetValue(ImageMaskName, out CosObject? mask) || dictionary.TryGetValue(ImageMaskAbbreviation, out mask))
-            && _context.Document.Resolve(mask) is CosBoolean { Value: true };
+        bool stencil = IsStencil(stream.Dictionary);
         if (IgnoresColorOperators && !stencil)
         {
             Report(ContentIssue.ColorOperatorIgnored, -1, "An image that is not an image mask is painted inside a d1 glyph or an uncoloured pattern, where only image masks are allowed; it is ignored.");
@@ -94,14 +97,27 @@ internal sealed partial class ContentInterpreter
             return;
         }
 
-        bool hidden = _context.IsHidden || (_tracker is { } tracker && !tracker.IsObjectVisible(dictionary));
+        // §8.9.5.4: optional content and the output decide whether the base image, one of its alternates or nothing is painted.
+        bool hidden = _context.IsHidden || _tracker is { IsVisible: false };
+        if (!hidden)
+        {
+            CosStream selected = stream;
+            hidden = !SelectImage(ref selected, ref reference);
+            if (!ReferenceEquals(selected, stream))
+            {
+                stream = selected;
+                stencil = IsStencil(stream.Dictionary);
+            }
+        }
+
         if (hidden && (_events & ContentEvents.HiddenContent) == 0)
         {
             return;
         }
 
         PdfDocument document = _context.Document;
-        Images.PdfImage? model = document.ContentResources.GetImage(stream, reference);
+        CosDictionary dictionary = stream.Dictionary;
+        Images.PdfImage? model = _context.GetImage(stream, reference);
         var image = new ImageEvent
         {
             Stream = stream,
@@ -115,6 +131,64 @@ internal sealed partial class ContentInterpreter
         };
         _processor.PaintImage(image, _context);
     }
+
+    /// <summary>Whether an image dictionary is a stencil mask: <c>ImageMask</c>, or its inline abbreviation <c>IM</c>, which the image layer reads on an XObject too (ImageKeyAbbreviated).</summary>
+    private bool IsStencil(CosDictionary dictionary) =>
+        (dictionary.TryGetValue(ImageMaskName, out CosObject? mask) || dictionary.TryGetValue(ImageMaskAbbreviation, out mask))
+        && _context.Document.Resolve(mask) is CosBoolean { Value: true };
+
+    /// <summary>
+    /// Chooses the image a <c>Do</c> paints (ISO 32000-2 §8.9.5.4): the base image, one of its <c>Alternates</c>, or none. Returns
+    /// false when nothing is shown; otherwise <paramref name="stream"/> and <paramref name="reference"/> are the image to paint.
+    /// </summary>
+    /// <remarks>
+    /// a) and b): a base image with <c>OC</c> is painted when its optional content is visible, and <c>DefaultForPrinting</c> is
+    /// ignored. c): when it is hidden, the first alternate without <c>OC</c> or with visible optional content is painted, and nothing
+    /// when there is none. d): a base image without <c>OC</c> is printed as the first alternate marked <c>DefaultForPrinting</c>,
+    /// unless that alternate's own optional content is hidden, in which case nothing is printed; on screen, or without such an
+    /// alternate, the base image is painted. In a document without optional content properties every <c>OC</c> entry is visible.
+    /// </remarks>
+    private bool SelectImage(ref CosStream stream, ref CosReference? reference)
+    {
+        CosDictionary dictionary = stream.Dictionary;
+        bool hasGroup = dictionary.TryGetValue(OptionalContentName, out CosObject? group);
+        if (hasGroup && IsGroupVisible(group))
+        {
+            return true;
+        }
+
+        if (!hasGroup && !_printing)
+        {
+            return true;
+        }
+
+        if (!dictionary.ContainsKey(AlternatesName) || _context.GetImage(stream, reference) is not { } model)
+        {
+            return !hasGroup;
+        }
+
+        foreach (Images.PdfAlternateImage alternate in model.Alternates)
+        {
+            bool alternateHasGroup = alternate.Dictionary.TryGetValue(OptionalContentName, out CosObject? alternateGroup);
+            if (hasGroup ? alternateHasGroup && !IsGroupVisible(alternateGroup) : !alternate.DefaultForPrinting)
+            {
+                continue;
+            }
+
+            if (alternate.Image.Stream is not { } alternateStream || (alternateHasGroup && !IsGroupVisible(alternateGroup)))
+            {
+                return false;
+            }
+
+            stream = alternateStream;
+            reference = alternate.Dictionary.TryGetValue(AlternateImageName, out CosObject? value) ? value as CosReference : null;
+            return true;
+        }
+
+        return !hasGroup;
+    }
+
+    private bool IsGroupVisible(CosObject? group) => _tracker is not { } tracker || tracker.IsGroupVisible(group);
 
     /// <summary>An inline image (§8.9.7): the dictionary as written and the encoded data, painted into the unit square.</summary>
     private void PaintInlineImage(ContentOperand dictionary, ReadOnlySpan<byte> data, ReadOperator op, ReadOnlySpan<byte> content, int offset)

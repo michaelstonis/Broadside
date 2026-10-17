@@ -28,9 +28,17 @@ public sealed class PdfPolyLineAnnotation : PdfMarkupAnnotation
     /// <remarks>ISO 32000-2 §12.5.6.9, Table 181, and Table 179.</remarks>
     public PdfLineEnding EndLineEnding => ReadLineEndings().End;
 
-    /// <summary>Gets the interior colour (<c>IC</c>, PDF 1.4), or <see langword="null"/> for none.</summary>
+    /// <summary>Gets or sets the interior colour (<c>IC</c>, PDF 1.4), or <see langword="null"/> for none; setting <see langword="null"/> removes it, and the appearance is kept until <see cref="PdfAnnotation.RegenerateAppearance"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.9, Table 181: it fills the line endings.</remarks>
-    public PdfDeviceColor? InteriorColor => ReadColor(AnnotationNames.IC);
+    public PdfDeviceColor? InteriorColor
+    {
+        get => ReadColor(AnnotationNames.IC);
+        set
+        {
+            AnnotationEditing.SetColor(Dictionary, AnnotationNames.IC, value);
+            Document.RequireFeature(Writing.VersionedFeatures.AnnotationTypes14);
+        }
+    }
 
     /// <summary>Gets the measure dictionary giving the scale and units of the annotation (<c>Measure</c>, PDF 1.7), as stored, or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.6.9, Table 181, and §12.9, Table 266.</remarks>

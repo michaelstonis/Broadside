@@ -1,0 +1,97 @@
+﻿corpus: gwg-output-suite @ unknown
+files: 98
+well-formed files: 90
+outcomes:
+  Interpreted: 98
+  PasswordRequired: 0
+  CertificateRequired: 0
+  EncryptionUnsupported: 0
+  Rejected: 0
+  Crash: 0
+  Timeout: 0
+pages: 286
+appearance streams: 0
+concurrent passes: 38
+page events:
+  Runs: 286
+  Operators: 210757
+  UnknownOperators: 0
+  StateSaves: 10862
+  PathVerbs: 106958
+  PathsStroked: 1215
+  PathsFilled: 6365
+  PathsFilledAndStroked: 327
+  PathsEnded: 3550
+  ClipsPath: 3550
+  ClipsRectangle: 913
+  ClipsText: 0
+  TextObjects: 7034
+  GlyphsType1: 278607
+  GlyphsMMType1: 228
+  GlyphsTrueType: 16110
+  GlyphsType3: 381
+  GlyphsType0: 28264
+  Type3GlyphsRun: 213
+  ImagesXObject: 814
+  ImagesInline: 72
+  ImagesStencil: 222
+  ImagesUnresolved: 0
+  ShadingsFunction: 0
+  ShadingsAxialRadial: 56
+  ShadingsMesh: 6
+  ShadingsUnresolved: 0
+  MeshesDecoded: 6
+  PatternFillsTiling: 0
+  PatternFillsShading: 0
+  PatternCellsRun: 0
+  FormsEntered: 811
+  TransparencyGroups: 557
+  SoftMaskGroupsRun: 102
+  MarkedContentSequences: 6491
+  OptionalContentSequences: 22
+  MarkedContentPoints: 27
+  MaxDepth: 4
+appearance events:
+  Runs: 0
+  Operators: 0
+  UnknownOperators: 0
+  StateSaves: 0
+  PathVerbs: 0
+  PathsStroked: 0
+  PathsFilled: 0
+  PathsFilledAndStroked: 0
+  PathsEnded: 0
+  ClipsPath: 0
+  ClipsRectangle: 0
+  ClipsText: 0
+  TextObjects: 0
+  GlyphsType1: 0
+  GlyphsMMType1: 0
+  GlyphsTrueType: 0
+  GlyphsType3: 0
+  GlyphsType0: 0
+  Type3GlyphsRun: 0
+  ImagesXObject: 0
+  ImagesInline: 0
+  ImagesStencil: 0
+  ImagesUnresolved: 0
+  ShadingsFunction: 0
+  ShadingsAxialRadial: 0
+  ShadingsMesh: 0
+  ShadingsUnresolved: 0
+  MeshesDecoded: 0
+  PatternFillsTiling: 0
+  PatternFillsShading: 0
+  PatternCellsRun: 0
+  FormsEntered: 0
+  TransparencyGroups: 0
+  SoftMaskGroupsRun: 0
+  MarkedContentSequences: 0
+  OptionalContentSequences: 0
+  MarkedContentPoints: 0
+  MaxDepth: 0
+diagnostics on well-formed files (files, total):
+  CidToGidMapMissing: 5, 9
+  ContentColorOperatorMismatch: 6, 6
+diagnostics on other files (files, total):
+  CidToGidMapMissing: 1, 3

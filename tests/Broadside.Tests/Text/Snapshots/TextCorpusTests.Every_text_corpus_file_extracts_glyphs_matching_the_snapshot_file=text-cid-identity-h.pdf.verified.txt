@@ -1,0 +1,6 @@
+﻿page 1: H I
+  H code 1/2 ToUnicode font BroadsideMinimal 24 Fill origin (72, 700) advance (19.2, 0) quad (72, 695.2) (91.2, 695.2) (91.2, 719.2) (72, 719.2)
+    code 3/2 ToUnicode font BroadsideMinimal 24 Fill origin (91.2, 700) advance (14.4, 0) quad (91.2, 695.2) (105.6, 695.2) (105.6, 719.2) (91.2, 719.2)
+  I code 2/2 ToUnicode font BroadsideMinimal 24 Fill origin (105.6, 700) advance (9.6, 0) quad (105.6, 695.2) (115.2, 695.2) (115.2, 719.2) (105.6, 719.2)
+  line H I glyphs 0+3 quad (72, 695.2) (115.2, 695.2) (115.2, 719.2) (72, 719.2)
+    words H glyphs 0+1 | I glyphs 2+1

@@ -55,6 +55,9 @@ public sealed class PdfEngine
     /// <summary>Gets the engine the static entry points use when no options are given: default options, no state.</summary>
     internal static PdfEngine Default { get; } = new();
 
+    /// <summary>Gets the engine's configuration, for documents made from others (<see cref="PdfDocument.Merge"/>).</summary>
+    internal EngineConfiguration Configuration => _configuration;
+
     /// <summary>Opens the PDF file at <paramref name="path"/>.</summary>
     /// <param name="path">The file path.</param>
     /// <returns>The document. Dispose it when done.</returns>
@@ -86,6 +89,18 @@ public sealed class PdfEngine
     /// The stream. It is not disposed. A seekable stream is read in place as objects are used: keep it open and unchanged until the
     /// document is disposed. A non-seekable stream is read to its end, asynchronously, before the file is parsed.
     /// </param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">
+    /// The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.
+    /// </exception>
+    /// <remarks>ISO 32000-2 §7.5. As <see cref="OpenAsync(Stream, CancellationToken)"/>, without cancellation.</remarks>
+    public Task<PdfDocument> OpenAsync(Stream stream) => OpenAsync(stream, CancellationToken.None);
+
+    /// <summary>Opens the PDF file held by <paramref name="stream"/>, from its current position, reading a non-seekable stream asynchronously.</summary>
+    /// <param name="stream">
+    /// The stream. It is not disposed. A seekable stream is read in place as objects are used: keep it open and unchanged until the
+    /// document is disposed. A non-seekable stream is read to its end, asynchronously, before the file is parsed.
+    /// </param>
     /// <param name="cancellationToken">Cancels reading a non-seekable stream.</param>
     /// <returns>The document. Dispose it when done.</returns>
     /// <exception cref="Diagnostics.DiagnosticException">
@@ -96,11 +111,53 @@ public sealed class PdfEngine
     /// ISO 32000-2 §7.5. Reading is synchronous once the bytes are available (spec #33: <c>Async</c> only at the open and save
     /// boundaries), so this differs from <see cref="Open(Stream)"/> only in how a non-seekable stream is copied.
     /// </remarks>
-    public async Task<PdfDocument> OpenAsync(Stream stream, CancellationToken cancellationToken = default)
+    public async Task<PdfDocument> OpenAsync(Stream stream, CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(stream);
         PdfSource source = await PdfSource.FromStreamAsync(stream, _configuration.StreamBufferLimit, cancellationToken).ConfigureAwait(false);
         return PdfDocument.Read(source, _configuration);
+    }
+
+    /// <summary>Opens the remote PDF file at <paramref name="uri"/> through HTTP range requests.</summary>
+    /// <param name="httpClient">The client the requests go through; not disposed. It stays in use until the document is disposed.</param>
+    /// <param name="uri">The file's address.</param>
+    /// <returns>The document. Dispose it when done.</returns>
+    /// <exception cref="Diagnostics.DiagnosticException">
+    /// The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.
+    /// </exception>
+    /// <exception cref="HttpRequestException">The server answered with an error status, or could not be reached.</exception>
+    /// <exception cref="IOException">The server's answers are inconsistent: the file changed while it was read, for instance.</exception>
+    /// <remarks>Spec #33, viewer capability 5. As <see cref="OpenAsync(HttpClient, Uri, CancellationToken)"/>, without cancellation.</remarks>
+    public Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri) => OpenAsync(httpClient, uri, CancellationToken.None);
+
+    /// <summary>
+    /// Opens the remote PDF file at <paramref name="uri"/> through HTTP range requests: the end of the file first, then only the byte
+    /// ranges of the objects in use. A server that does not serve ranges sends the whole file, which is then read like a stream.
+    /// </summary>
+    /// <param name="httpClient">The client the requests go through; not disposed. It stays in use until the document is disposed.</param>
+    /// <param name="uri">The file's address.</param>
+    /// <param name="cancellationToken">Cancels the requests made while opening.</param>
+    /// <returns>
+    /// The document, with its structure, catalog and page tree fetched. Dispose it when done. Before reading a page synchronously
+    /// where <see cref="PdfOptions.SynchronousRangeFetch"/> is off (always on the browser), await <see cref="PdfPage.PrefetchAsync"/>.
+    /// </returns>
+    /// <exception cref="Diagnostics.DiagnosticException">
+    /// The file cannot be read at all, or, in strict mode, deviates from ISO 32000-2.
+    /// </exception>
+    /// <exception cref="HttpRequestException">The server answered with an error status, or could not be reached.</exception>
+    /// <exception cref="IOException">The server's answers are inconsistent: the file changed while it was read, for instance.</exception>
+    /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §7.5.1 and §7.5.4 (random access through the cross-reference table, read from the end of the file); spec #33,
+    /// viewer capability 5; RFC 9110 §14 (range requests); ADR 0010 (the asynchronous prefetch boundary). Bytes are fetched in blocks
+    /// of <see cref="PdfOptions.RangeBlockSize"/> and kept up to <see cref="PdfOptions.RangeCacheLimit"/>. Credentials for an
+    /// encrypted file are taken from the options.
+    /// </remarks>
+    public Task<PdfDocument> OpenAsync(HttpClient httpClient, Uri uri, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(httpClient);
+        ArgumentNullException.ThrowIfNull(uri);
+        return PdfDocument.OpenRemoteAsync(httpClient, uri, _configuration, cancellationToken);
     }
 
     /// <summary>Opens the PDF file held in <paramref name="bytes"/>.</summary>

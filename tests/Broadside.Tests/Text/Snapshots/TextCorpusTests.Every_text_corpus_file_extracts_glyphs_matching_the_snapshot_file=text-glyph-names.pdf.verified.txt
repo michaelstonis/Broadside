@@ -1,0 +1,9 @@
+﻿page 1: HIfi\uD83D\uDE00ABĻ
+  H code 1/1 GlyphName font Helvetica 24 Fill origin (72, 700) advance (0, 0) quad (72, 695.032) (72, 695.032) (72, 717.232) (72, 717.232)
+  I code 2/1 GlyphName font Helvetica 24 Fill origin (72, 700) advance (6.672, 0) quad (72, 695.032) (78.672, 695.032) (78.672, 717.232) (72, 717.232)
+  fi code 3/1 GlyphName font Helvetica 24 Fill origin (78.672, 700) advance (0, 0) quad (78.672, 695.032) (78.672, 695.032) (78.672, 717.232) (78.672, 717.232)
+  \uD83D\uDE00 code 4/1 GlyphName font Helvetica 24 Fill origin (78.672, 700) advance (0, 0) quad (78.672, 695.032) (78.672, 695.032) (78.672, 717.232) (78.672, 717.232)
+  AB code 5/1 GlyphName font Helvetica 24 Fill origin (78.672, 700) advance (0, 0) quad (78.672, 695.032) (78.672, 695.032) (78.672, 717.232) (78.672, 717.232)
+  Ļ code 6/1 GlyphName font Helvetica 24 Fill origin (78.672, 700) advance (13.344, 0) quad (78.672, 695.032) (92.016, 695.032) (92.016, 717.232) (78.672, 717.232)
+  line HIfi\uD83D\uDE00ABĻ glyphs 0+6 quad (72, 695.032) (92.016, 695.032) (92.016, 717.232) (72, 717.232)
+    words HIfi\uD83D\uDE00ABĻ glyphs 0+6

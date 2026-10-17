@@ -15,10 +15,14 @@ One file per specification. One row per clause. Status is one of `not started`, 
 | [pdf20-an001.md](./pdf20-an001.md) | Application Note 001 Black Point Compensation |
 | [pdf20-an002.md](./pdf20-an002.md) | Application Note 002 Associated Files |
 | [pdf20-an003.md](./pdf20-an003.md) | Application Note 003 Object Metadata Locations |
+| [icc-1-2022.md](./icc-1-2022.md) | ICC.1:2022 colour profile format (reading, for ICCBased colour spaces) |
 | [iso-14289-1.md](./iso-14289-1.md) | ISO 14289-1:2014 PDF/UA-1 |
 | [iso-14289-2.md](./iso-14289-2.md) | ISO 14289-2:2024 PDF/UA-2 |
+| [iso-19005-2.md](./iso-19005-2.md) | ISO 19005-2:2011 PDF/A-2 output, cited by veraPDF rule identifiers (open decision 12) |
+| [iso-19005-3.md](./iso-19005-3.md) | ISO 19005-3:2012 PDF/A-3 output: what it changes from PDF/A-2, cited by veraPDF rule identifiers (open decision 12) |
+| [iso-19005-4.md](./iso-19005-4.md) | ISO 19005-4:2020 PDF/A-4 and PDF/A-4f output, based on PDF 2.0, cited by veraPDF rule identifiers (open decision 12) |
 
-PDF/A and PDF/X get files when their documents are purchased; see `docs/research/missing-iso-specs.md`. The PDF Association's Tagged PDF Best Practice Guide in `Specs/` is guidance, not a conformance target.
+PDF/A rows cite veraPDF validation-profile rule identifiers, the standards not being purchased (open decision 12); PDF/X gets a file when its document is purchased; see `docs/research/missing-iso-specs.md`. The PDF Association's Tagged PDF Best Practice Guide in `Specs/` is guidance, not a conformance target.
 
 ## Row format
 

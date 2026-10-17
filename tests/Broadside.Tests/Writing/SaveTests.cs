@@ -1,3 +1,4 @@
+using System.Globalization;
 using Broadside.Diagnostics;
 using Broadside.Objects;
 using Broadside.TestSupport;
@@ -10,10 +11,10 @@ public sealed class SaveTests
     private static readonly PdfCrossReferenceLayout[] Layouts = Enum.GetValues<PdfCrossReferenceLayout>();
 
     /// <summary>
-    /// Broken files whose damage is in a document-model structure read lazily (a name tree, an outline, a pattern, mesh data, a Type 3 glyph), not in the file structure:
+    /// Broken files whose damage is in a document-model structure read lazily (a name tree, an outline, a pattern, mesh data, a Type 3 glyph, a content stream), not in the file structure:
     /// they open without a diagnostic and save byte for byte, damage included, so qpdf reports it again.
     /// </summary>
-    private static readonly HashSet<string> DamagedInTheDocumentModel = new(StringComparer.Ordinal) { "name-tree-broken.pdf", "outline-broken.pdf", "annotations-malformed.pdf", "text-type1-pfb.pdf", "text-type1-hex-eexec.pdf", "text-type1-bad-lengths.pdf", "pattern-recursive.pdf", "shading-mesh-truncated.pdf", "text-type3-recursive.pdf", "ccitt-g3-damaged.pdf", "ccitt-g4-truncated.pdf" };
+    private static readonly HashSet<string> DamagedInTheDocumentModel = new(StringComparer.Ordinal) { "name-tree-broken.pdf", "outline-broken.pdf", "annotations-malformed.pdf", "text-type1-pfb.pdf", "text-type1-hex-eexec.pdf", "text-type1-bad-lengths.pdf", "pattern-recursive.pdf", "shading-mesh-truncated.pdf", "text-type3-recursive.pdf", "ccitt-g3-damaged.pdf", "ccitt-g4-truncated.pdf", "clip-before-path.pdf" };
 
     /// <summary>
     /// Well-formed files qpdf 12.4.2 warns about because it compares name tree keys as decoded text, not byte by byte as ISO 32000-2
@@ -21,7 +22,7 @@ public sealed class SaveTests
     /// </summary>
     private static readonly HashSet<string> QpdfComparesNameTreeKeysAsText = new(StringComparer.Ordinal) { "name-tree-deep.pdf" };
 
-    /// <summary>Every unencrypted well-formed corpus file with every layout (encrypted files cannot be saved yet).</summary>
+    /// <summary>Every unencrypted well-formed corpus file with every layout (encrypted files are re-encrypted, never copied: see EncryptedSaveTests).</summary>
     public static TheoryData<string, PdfCrossReferenceLayout> FilesAndLayouts
     {
         get
@@ -39,7 +40,7 @@ public sealed class SaveTests
         }
     }
 
-    /// <summary>Every unencrypted deliberately broken corpus file with every layout (encrypted files cannot be saved yet).</summary>
+    /// <summary>Every unencrypted deliberately broken corpus file with every layout (encrypted files are re-encrypted, never copied: see EncryptedSaveTests).</summary>
     public static TheoryData<string, PdfCrossReferenceLayout> BrokenFilesAndLayouts
     {
         get
@@ -257,37 +258,30 @@ public sealed class SaveTests
         Assert.True(CosObject.DeepEquals(source.Resolve(new CosReference(5, 0)), reopened.Resolve(new CosReference(5, 0))));
     }
 
-    [Fact]
-    public void A_document_with_object_numbers_beyond_the_limit_is_not_saved()
-    {
-        // A classic table lists every number up to the largest; renumbering is not supported yet.
-        byte[] file = Document.TestPdf.AppendUpdate(
-            Document.TestPdf.OnePage(string.Empty),
-            "/Size 9000001 /Root 1 0 R",
-            (9_000_000, 0, "<< /Unused true >>"));
-        using PdfDocument source = PdfDocument.Open(file);
-        using var output = new MemoryStream();
-
-        Assert.Throws<NotSupportedException>(() => source.Save(output));
-        Assert.Equal(0, output.Length);
-    }
-
-    // Found by libFuzzer (issue #48): an 11 KB file whose one object is numbered 6,600,016 saved to a 132 MB file (a classic table
-    // lists every number up to the largest), which then took 2.3 GB to open again. Saving a numbering that sparse needs
-    // renumbering, so it is refused like numbers above the limit; a large but dense numbering still saves.
-    [Fact]
-    public void A_document_whose_numbering_is_far_sparser_than_its_objects_is_not_saved()
+    // A classic table lists every number up to the largest. Found by libFuzzer (issue #48): an 11 KB file whose one object is
+    // numbered 6,600,016 saved to a 132 MB file, which then took 2.3 GB to open again; it was refused until renumbering (#144).
+    // A number above the ISO 32000-1 Annex C limit, or a numbering far sparser than the objects, is now renumbered densely.
+    [Theory]
+    [InlineData(9_000_000, PdfCrossReferenceLayout.Table)]
+    [InlineData(9_000_000, PdfCrossReferenceLayout.StreamWithObjectStreams)]
+    [InlineData(2_000_000, PdfCrossReferenceLayout.Table)]
+    [InlineData(2_000_000, PdfCrossReferenceLayout.Stream)]
+    public void A_document_numbered_in_the_millions_saves_to_a_compact_file(int number, PdfCrossReferenceLayout layout)
     {
         byte[] file = Document.TestPdf.AppendUpdate(
-            Document.TestPdf.OnePage(string.Empty),
-            "/Size 2000001 /Root 1 0 R",
-            (2_000_000, 0, "<< /Unused true >>"));
+            Document.TestPdf.OnePage(string.Empty, catalogEntries: string.Create(CultureInfo.InvariantCulture, $"/Extra {number} 0 R")),
+            string.Create(CultureInfo.InvariantCulture, $"/Size {number + 1} /Root 1 0 R"),
+            (number, 0, "<< /Unused true >>"));
         using PdfDocument source = PdfDocument.Open(file);
-        using var output = new MemoryStream();
 
-        NotSupportedException error = Assert.Throws<NotSupportedException>(() => source.Save(output));
-        Assert.Contains("renumbering", error.Message, StringComparison.Ordinal);
-        Assert.Equal(0, output.Length);
+        byte[] output = Save(source, layout);
+
+        Assert.True(output.Length < 2 * file.Length, $"{output.Length} bytes.");
+        using PdfDocument saved = PdfDocument.Open(output);
+        Assert.True(((CosInteger)saved.Trailer[new CosName("Size")]).Value < 10);
+        Assert.Single(saved.Pages);
+        CosGraph.AssertIsomorphic(source, saved);
+        Assert.True(CosObject.DeepEquals(new CosDictionary { [new CosName("Unused")] = CosBoolean.True }, saved.Resolve(saved.Catalog[new CosName("Extra")])));
     }
 
     [Fact]
@@ -304,16 +298,6 @@ public sealed class SaveTests
 
         using PdfDocument saved = PdfDocument.Open(output.ToArray());
         Assert.Single(saved.Pages);
-    }
-
-    [Fact]
-    public void An_encrypted_document_is_not_saved()
-    {
-        using PdfDocument source = PdfDocument.Open(Corpus.Path("encrypted-rc4-128.pdf"));
-        using var output = new MemoryStream();
-
-        Assert.Throws<NotSupportedException>(() => source.Save(output));
-        Assert.Equal(0, output.Length);
     }
 
     [Theory]

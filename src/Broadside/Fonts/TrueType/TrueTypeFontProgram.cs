@@ -114,6 +114,18 @@ internal sealed partial class TrueTypeFontProgram : FontProgram
         }
     }
 
+    /// <summary>Gets or sets a value indicating whether the program was read without reporting any deviation.</summary>
+    internal bool IsIntact { get; set; }
+
+    /// <inheritdoc/>
+    /// <remarks>The whole file, also a collection (whose font this program is <see cref="SfntFile.FaceIndex"/>); only when read without repair.</remarks>
+    public override bool TryGetSfntData(out ReadOnlyMemory<byte> data, out int faceIndex)
+    {
+        data = IsIntact ? _sfnt.Data : default;
+        faceIndex = IsIntact ? _sfnt.FaceIndex : 0;
+        return IsIntact;
+    }
+
     /// <summary>Gets the units per em, from "head".</summary>
     internal int UnitsPerEm => _unitsPerEm;
 

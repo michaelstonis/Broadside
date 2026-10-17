@@ -1,0 +1,9 @@
+﻿page 1: HIHI
+  H code 48/1 GlyphName font BroadsideMinimal 24 Fill origin (100, 500) advance (16.628, 9.6) quad (102.4, 495.843) (119.028, 505.443) (107.028, 526.228) (90.4, 516.628)
+  I code 49/1 GlyphName font BroadsideMinimal 24 Fill origin (116.628, 509.6) advance (8.314, 4.8) quad (119.028, 505.443) (127.342, 510.243) (115.342, 531.028) (107.028, 526.228)
+  H code 48/1 GlyphName font BroadsideMinimal 24 Fill origin (300, 300) advance (0, 19.2) quad (304.8, 300) (304.8, 319.2) (280.8, 319.2) (280.8, 300)
+  I code 49/1 GlyphName font BroadsideMinimal 24 Fill origin (300, 319.2) advance (0, 9.6) quad (304.8, 319.2) (304.8, 328.8) (280.8, 328.8) (280.8, 319.2)
+  line HI glyphs 0+2 quad (102.4, 495.843) (127.342, 510.243) (115.342, 531.028) (90.4, 516.628)
+    words HI glyphs 0+2
+  line HI glyphs 2+2 quad (304.8, 300) (304.8, 328.8) (280.8, 328.8) (280.8, 300)
+    words HI glyphs 2+2

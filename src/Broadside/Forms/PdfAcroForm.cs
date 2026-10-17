@@ -16,7 +16,8 @@ namespace Broadside.Forms;
 /// <para>
 /// Malformed trees (cycles, kids under two parents, missing or mismatched <c>Parent</c> entries, missing names or types) are read as
 /// far as they can be, each deviation recorded as a diagnostic when the tree is read (lenient mode); in strict mode reading the
-/// tree throws. Nothing is written to the file: no appearance is generated and no missing entry is filled in.
+/// tree throws. Reading writes nothing to the file: no appearance is generated and no missing entry is filled in. The <c>Add</c>
+/// methods (<see cref="AddTextField"/> and the others) create fields with their widgets and appearances (§12.7.4, §12.7.5).
 /// </para>
 /// </remarks>
 public sealed class PdfAcroForm
@@ -273,6 +274,142 @@ public sealed class PdfAcroForm
         return tree.ByWidget.TryGetValue(dictionary, out PdfTerminalField? owner) ? [owner] : [];
     }
 
+    /// <summary>Creates a text field with one widget on <paramref name="page"/>.</summary>
+    /// <param name="name">The field's fully qualified name: partial names joined by periods. Ancestors that do not exist are created as non-terminal fields.</param>
+    /// <param name="page">The page the widget is on, a page of this form's document.</param>
+    /// <param name="rectangle">The widget's rectangle, in default user space.</param>
+    /// <param name="options">The field's flags, text appearance and widget colours; <see langword="null"/> for the defaults.</param>
+    /// <returns>The new field, with no value; set one with <see cref="PdfTextField.SetValue"/>.</returns>
+    /// <exception cref="ArgumentException">
+    /// The name has an empty partial name, the page is not an indirect page of the document, the rectangle is not finite, or an
+    /// option does not apply to a text field (a flag of another type, a caption, a comb without <c>MaxLen</c>).
+    /// </exception>
+    /// <exception cref="InvalidOperationException">The form has a field with that name, or an ancestor named is a terminal field.</exception>
+    /// <remarks>
+    /// <para>
+    /// ISO 32000-2 §12.7.4 and §12.7.5.3. The field (<c>FT</c> <c>Tx</c>) is merged with its widget annotation (Table 226, <c>Kids</c>)
+    /// and added to its parent's <c>Kids</c> or the form's <c>Fields</c>, the widget to the page's <c>Annots</c>, with <c>P</c>,
+    /// the Print flag, and <c>MK</c> and <c>BS</c> from the options (§12.5.6.19). The field gets its own default appearance
+    /// (<c>DA</c>: the options' size and colour in the form's Helvetica) and the form's default resources get Helvetica and
+    /// ZapfDingbats when they lack them (§12.7.3, Table 224, <c>DR</c>, <c>DA</c>).
+    /// </para>
+    /// <para>
+    /// Every widget gets an appearance stream, as <see cref="PdfTextField.GenerateAppearances"/> makes it, so the form needs no
+    /// <c>NeedAppearances</c>. Text the form's Helvetica cannot show is drawn in an embedded subset font. When any step fails the
+    /// document is left as it was. Creating a form field raises a save of a document below PDF 1.2 to 1.2, and the PDF 1.3 to 1.5
+    /// entries and flags raise it further (ADR 0003). A mutation: no read may run concurrently with it.
+    /// </para>
+    /// </remarks>
+    public PdfTextField AddTextField(string name, PdfPage page, PdfRectangle rectangle, PdfFieldOptions? options = null) =>
+        FieldCreation.Add<PdfTextField>(this, name, FieldCreation.Kind.Text, [(page, rectangle, null)], [], options ?? new PdfFieldOptions());
+
+    /// <summary>Creates a check box with one widget on <paramref name="page"/>, unchecked.</summary>
+    /// <param name="name">The field's fully qualified name, as for <see cref="AddTextField"/>.</param>
+    /// <param name="page">The page the widget is on, a page of this form's document.</param>
+    /// <param name="rectangle">The widget's rectangle, in default user space.</param>
+    /// <param name="options">The field's flags, mark colour and size, widget colours and caption; <see langword="null"/> for the defaults.</param>
+    /// <returns>The new field; check it with <see cref="PdfCheckBoxField.SetChecked"/>.</returns>
+    /// <exception cref="ArgumentException">As for <see cref="AddTextField"/>, for a check box.</exception>
+    /// <exception cref="InvalidOperationException">The form has a field with that name, or an ancestor named is a terminal field.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §12.7.5.2.3. A button field (<c>FT</c> <c>Btn</c>, no Radio or Pushbutton flag) merged with its widget, whose
+    /// appearance subdictionary has the on state <c>Yes</c> (a check mark in ZapfDingbats, or the <see cref="PdfFieldOptions.Caption"/>
+    /// character) and <c>Off</c>; <c>AS</c> is <c>Off</c>. Otherwise as <see cref="AddTextField"/> describes.
+    /// </remarks>
+    public PdfCheckBoxField AddCheckBox(string name, PdfPage page, PdfRectangle rectangle, PdfFieldOptions? options = null) =>
+        FieldCreation.Add<PdfCheckBoxField>(this, name, FieldCreation.Kind.CheckBox, [(page, rectangle, null)], [], options ?? new PdfFieldOptions());
+
+    /// <summary>Creates a radio button field with one widget per button, none selected.</summary>
+    /// <param name="name">The field's fully qualified name, as for <see cref="AddTextField"/>.</param>
+    /// <param name="buttons">The buttons, at least one: each widget's page, rectangle and on state.</param>
+    /// <param name="options">The field's flags (NoToggleToOff, RadiosInUnison), dot colour and size, widget colours and caption; <see langword="null"/> for the defaults.</param>
+    /// <returns>The new field; select a button with <see cref="PdfToggleButtonField.SetValue"/> or <see cref="PdfToggleButtonField.Select"/>.</returns>
+    /// <exception cref="ArgumentException">There is no button, or as for <see cref="AddTextField"/>, for radio buttons.</exception>
+    /// <exception cref="InvalidOperationException">The form has a field with that name, or an ancestor named is a terminal field.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §12.7.5.2.4. A button field with the Radio flag whose <c>Kids</c> are the widgets (each with <c>Parent</c>), each
+    /// with an appearance subdictionary for its on state (a dot in ZapfDingbats, or the caption character) and <c>Off</c>, <c>AS</c>
+    /// <c>Off</c>. RadiosInUnison needs PDF 1.5. Otherwise as <see cref="AddTextField"/> describes.
+    /// </remarks>
+    public PdfRadioButtonField AddRadioButtons(string name, IEnumerable<PdfRadioButton> buttons, PdfFieldOptions? options = null)
+    {
+        ArgumentNullException.ThrowIfNull(buttons);
+        List<(PdfPage, PdfRectangle, CosName?)> widgets = [.. buttons.Select(button =>
+        {
+            ArgumentNullException.ThrowIfNull(button, nameof(buttons));
+            return (button.Page, button.Rectangle, (CosName?)button.StateName);
+        })];
+        if (widgets.Count == 0)
+        {
+            throw new ArgumentException("A radio button field needs at least one button.", nameof(buttons));
+        }
+
+        return FieldCreation.Add<PdfRadioButtonField>(this, name, FieldCreation.Kind.RadioButton, widgets, [], options ?? new PdfFieldOptions());
+    }
+
+    /// <summary>Creates a combo box with one widget on <paramref name="page"/>, nothing selected.</summary>
+    /// <param name="name">The field's fully qualified name, as for <see cref="AddTextField"/>.</param>
+    /// <param name="page">The page the widget is on, a page of this form's document.</param>
+    /// <param name="rectangle">The widget's rectangle, in default user space.</param>
+    /// <param name="choices">The options, in the order shown.</param>
+    /// <param name="options">The field's flags (Edit, Sort, DoNotSpellCheck, CommitOnSelChange), text appearance and widget colours; <see langword="null"/> for the defaults.</param>
+    /// <returns>The new field; select an option with <see cref="PdfChoiceField.SetValue"/>.</returns>
+    /// <exception cref="ArgumentException">As for <see cref="AddTextField"/>, for a combo box.</exception>
+    /// <exception cref="InvalidOperationException">The form has a field with that name, or an ancestor named is a terminal field.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §12.7.5.4, Tables 233 and 234. A choice field (<c>FT</c> <c>Ch</c>) with the Combo flag and an <c>Opt</c> array
+    /// (a text string per option, or <c>[export display]</c> when they differ). Otherwise as <see cref="AddTextField"/> describes.
+    /// </remarks>
+    public PdfComboBoxField AddComboBox(string name, PdfPage page, PdfRectangle rectangle, IEnumerable<PdfChoiceOption> choices, PdfFieldOptions? options = null) =>
+        FieldCreation.Add<PdfComboBoxField>(this, name, FieldCreation.Kind.ComboBox, [(page, rectangle, null)], Choices(choices), options ?? new PdfFieldOptions());
+
+    /// <summary>Creates a list box with one widget on <paramref name="page"/>, nothing selected.</summary>
+    /// <param name="name">The field's fully qualified name, as for <see cref="AddTextField"/>.</param>
+    /// <param name="page">The page the widget is on, a page of this form's document.</param>
+    /// <param name="rectangle">The widget's rectangle, in default user space.</param>
+    /// <param name="choices">The options, in the order shown.</param>
+    /// <param name="options">The field's flags (Sort, MultiSelect, CommitOnSelChange), text appearance and widget colours; <see langword="null"/> for the defaults.</param>
+    /// <returns>The new field; select options with <see cref="PdfChoiceField.SetValue"/> or <see cref="PdfChoiceField.SetSelectedIndices"/>.</returns>
+    /// <exception cref="ArgumentException">As for <see cref="AddTextField"/>, for a list box.</exception>
+    /// <exception cref="InvalidOperationException">The form has a field with that name, or an ancestor named is a terminal field.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §12.7.5.4, Tables 233 and 234. A choice field without the Combo flag; MultiSelect needs PDF 1.4. Otherwise as
+    /// <see cref="AddComboBox"/> describes.
+    /// </remarks>
+    public PdfListBoxField AddListBox(string name, PdfPage page, PdfRectangle rectangle, IEnumerable<PdfChoiceOption> choices, PdfFieldOptions? options = null) =>
+        FieldCreation.Add<PdfListBoxField>(this, name, FieldCreation.Kind.ListBox, [(page, rectangle, null)], Choices(choices), options ?? new PdfFieldOptions());
+
+    /// <summary>Creates a push button with one widget on <paramref name="page"/>, showing <see cref="PdfFieldOptions.Caption"/>.</summary>
+    /// <param name="name">The field's fully qualified name, as for <see cref="AddTextField"/>.</param>
+    /// <param name="page">The page the widget is on, a page of this form's document.</param>
+    /// <param name="rectangle">The widget's rectangle, in default user space.</param>
+    /// <param name="options">The caption, its size and colour, and the widget colours; <see langword="null"/> for the defaults.</param>
+    /// <returns>The new field; give its widget an action through its dictionary's <c>A</c> entry.</returns>
+    /// <exception cref="ArgumentException">As for <see cref="AddTextField"/>, for a push button.</exception>
+    /// <exception cref="InvalidOperationException">The form has a field with that name, or an ancestor named is a terminal field.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §12.7.5.2.2. A button field with the Pushbutton flag, merged with its widget, whose appearance shows the caption
+    /// (<c>MK</c> <c>CA</c>) centred in the form's Helvetica. Otherwise as <see cref="AddTextField"/> describes.
+    /// </remarks>
+    public PdfPushButtonField AddPushButton(string name, PdfPage page, PdfRectangle rectangle, PdfFieldOptions? options = null) =>
+        FieldCreation.Add<PdfPushButtonField>(this, name, FieldCreation.Kind.PushButton, [(page, rectangle, null)], [], options ?? new PdfFieldOptions());
+
+    /// <summary>Creates an unsigned signature field with one widget on <paramref name="page"/>.</summary>
+    /// <param name="name">The field's fully qualified name, as for <see cref="AddTextField"/>.</param>
+    /// <param name="page">The page the widget is on, a page of this form's document.</param>
+    /// <param name="rectangle">The widget's rectangle, in default user space; an empty one makes the signature invisible.</param>
+    /// <param name="options">The widget colours; <see langword="null"/> for the defaults.</param>
+    /// <returns>The new field; sign it by name with <see cref="PdfDocument.Sign(Stream, Signatures.IPdfSigner, Signatures.PdfSignatureOptions?)"/>.</returns>
+    /// <exception cref="ArgumentException">As for <see cref="AddTextField"/>, for a signature field.</exception>
+    /// <exception cref="InvalidOperationException">The form has a field with that name, or an ancestor named is a terminal field.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §12.7.5.5 (PDF 1.3) and §12.7.3, Table 225. A signature field (<c>FT</c> <c>Sig</c>, no <c>V</c>) merged with its
+    /// widget, whose appearance draws the widget's background and border; the form's <c>SigFlags</c> gets SignaturesExist. Otherwise
+    /// as <see cref="AddTextField"/> describes.
+    /// </remarks>
+    public PdfSignatureField AddSignatureField(string name, PdfPage page, PdfRectangle rectangle, PdfFieldOptions? options = null) =>
+        FieldCreation.Add<PdfSignatureField>(this, name, FieldCreation.Kind.Signature, [(page, rectangle, null)], [], options ?? new PdfFieldOptions());
+
     /// <summary>Returns the field <paramref name="widget"/> belongs to, recording a widget that the tree from <c>Fields</c> does not reach.</summary>
     internal PdfTerminalField? FieldOf(PdfWidgetAnnotation widget)
     {
@@ -293,9 +430,37 @@ public sealed class PdfAcroForm
         return outside;
     }
 
+    /// <summary>
+    /// Records, when the form has an XFA resource, that a field's value was changed in the AcroForm only: the XFA datasets keep the
+    /// old value, so an XFA processor shows that one (Annex K).
+    /// </summary>
+    /// <param name="fieldName">The fully qualified name of the field that was filled.</param>
+    internal void ReportXfaNotUpdated(string fieldName)
+    {
+        if (Xfa is not null)
+        {
+            Report(
+                DiagnosticCodes.XfaDataNotUpdated,
+                $"The field {fieldName} was filled in the AcroForm only: the form's XFA resource (Annex K, deprecated in PDF 2.0) is kept unchanged, so its datasets still hold the old value and an XFA processor shows that one.",
+                DiagnosticSeverity.Information);
+        }
+    }
+
     /// <summary>Reports a deviation in the interactive form dictionary.</summary>
     internal void Report(string code, string message, DiagnosticSeverity severity = DiagnosticSeverity.Warning) =>
         Document.DiagnosticSink.Report(code, severity, message, objectReference: Reference ?? Document.CatalogReference);
+
+    private static List<PdfChoiceOption> Choices(IEnumerable<PdfChoiceOption> choices)
+    {
+        ArgumentNullException.ThrowIfNull(choices);
+        List<PdfChoiceOption> list = [.. choices];
+        if (list.Any(choice => choice is null))
+        {
+            throw new ArgumentException("An option is null.", nameof(choices));
+        }
+
+        return list;
+    }
 
     private CosObject? Get(CosName key) => FieldTree.Get(Document, Dictionary, key);
 }

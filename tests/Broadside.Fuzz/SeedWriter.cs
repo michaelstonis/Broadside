@@ -43,8 +43,11 @@ internal static class SeedWriter
     private static readonly CosName EarlyChange = new("EarlyChange");
     private static readonly CosName AuthCode = new("AuthCode");
     private static readonly CosName Mac = new("MAC");
+    private static readonly CosName KnownContents = new("Contents");
     private static readonly CosName Metadata = new("Metadata");
     private static readonly CosName Contents = new("Contents");
+    private static readonly CosName AcroForm = new("AcroForm");
+    private static readonly CosName DA = new("DA");
 
     private static readonly Dictionary<string, string> FilterTargets = new(StringComparer.Ordinal)
     {
@@ -101,11 +104,18 @@ internal static class SeedWriter
         "object-stream" => Streams(file).Select(stream => ObjectStreamSeed(stream.Document, stream.Value)).OfType<byte[]>(),
         "hint-tables" => Streams(file).Select(stream => HintSeed(stream.Document, stream.Value)).OfType<byte[]>(),
         "mac-token" => MacTokens(file),
-        "content-lexer" or "content-interpreter" or "content-objects" => ContentStreams(file),
+        "cms" => SignatureContents(file),
+        "timestamp-response" => [TimestampResponseTarget.ValidResponse()],
+        "ocsp-response" => SignatureContents(file).SelectMany(static contents => Revocation(contents, ocsp: true)),
+        "crl" => SignatureContents(file).SelectMany(static contents => Revocation(contents, ocsp: false)),
+        "default-appearance" => DefaultAppearances(file),
+        "content-lexer" or "content-interpreter" or "content-objects" or "display-list" or "filter-encode" or "text-extraction" or "rasterize" or "content-rewrite" => ContentStreams(file),
         "xmp" => Streams(file).Where(stream => Metadata.Equals(stream.Value.Dictionary.TryGetValue(Type, out CosObject? type) ? type : null))
             .Select(stream => stream.Document.DecodeStream(stream.Value).ToArray()),
         "decrypt" => EncryptedBodies(file),
         "filter-jbig2" => Streams(file).Select(stream => Jbig2Seed(stream.Document, stream.Value)).OfType<byte[]>(),
+        "icc-profile" => Streams(file).Select(stream => stream.Document.DecodeStream(stream.Value).ToArray())
+            .Where(static data => data.Length >= 40 && data.AsSpan(36, 4).SequenceEqual("acsp"u8)),
         _ when FilterTargets.TryGetValue(target, out string? filter) =>
             Streams(file).Where(stream => FirstFilter(stream.Value) == filter).Select(stream => stream.Value.EncodedData.ToArray()),
         _ => [file],
@@ -294,7 +304,61 @@ internal static class SeedWriter
         }
     }
 
+    /// <summary><c>default-appearance</c>: the <c>DA</c> string of every dictionary held as an object, and of an interactive form held directly in one.</summary>
+    private static IEnumerable<byte[]> DefaultAppearances(byte[] file)
+    {
+        using PdfDocument? document = Open(file);
+        if (document is null)
+        {
+            yield break;
+        }
+
+        long size = document.Trailer.TryGetValue(Size, out CosObject? entry) && entry is CosInteger integer ? integer.Value : 0;
+        for (int number = 1; number < Math.Min(size, MaxObjectNumber); number++)
+        {
+            CosDictionary? dictionary = document.Resolve(new CosReference(number, 0)) switch
+            {
+                CosStream stream => stream.Dictionary,
+                CosDictionary value => value,
+                _ => null,
+            };
+
+            CosDictionary? form = dictionary is not null && dictionary.TryGetValue(AcroForm, out CosObject? inner) ? inner as CosDictionary : null;
+            foreach (CosDictionary? candidate in (CosDictionary?[])[dictionary, form])
+            {
+                if (candidate is not null && candidate.TryGetValue(DA, out CosObject? value) && value is CosString text)
+                {
+                    yield return text.Bytes.ToArray();
+                }
+            }
+        }
+    }
+
     /// <summary><c>mac-token</c>: the DER token of a standalone PDF MAC (ISO/TS 32004).</summary>
+    /// <summary><c>cms</c>: the <c>Contents</c> of every signed signature field, zero padding included (§12.8.3.3.1).</summary>
+    private static IEnumerable<byte[]> SignatureContents(byte[] file)
+    {
+        using PdfDocument? document = Open(file);
+        if (document?.AcroForm is not { } form)
+        {
+            yield break;
+        }
+
+        foreach (Broadside.Forms.PdfSignatureField field in form.TerminalFields.OfType<Broadside.Forms.PdfSignatureField>())
+        {
+            if (field.SignatureDictionary?.TryGetValue(KnownContents, out CosObject? contents) == true && document.Resolve(contents) is CosString value)
+            {
+                yield return value.Bytes.ToArray();
+            }
+        }
+    }
+
+    /// <summary><c>ocsp-response</c> and <c>crl</c>: the OCSP responses or CRLs a signature's CMS object carries (§12.8.3.3.2).</summary>
+    private static IReadOnlyList<byte[]> Revocation(byte[] contents, bool ocsp) =>
+        Broadside.Signatures.Validation.CmsSignature.TryDecode(contents, out Broadside.Signatures.Validation.CmsSignature cms, out _)
+            ? ocsp ? cms.OcspResponses : cms.Crls
+            : [];
+
     private static IEnumerable<byte[]> MacTokens(byte[] file)
     {
         using PdfDocument? document = Open(file);

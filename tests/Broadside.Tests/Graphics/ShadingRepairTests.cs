@@ -41,6 +41,32 @@ public sealed class ShadingRepairTests
     }
 
     [Fact]
+    public void The_mesh_limit_of_the_options_cuts_a_larger_mesh_with_one_size_diagnostic()
+    {
+        // shading-type4-freeform.pdf has five vertices; with a limit of four the third triangle, which needs the fifth, is dropped.
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("shading-type4-freeform.pdf"), new PdfOptions().WithMaxMeshVertices(4));
+
+        PdfTriangleMeshShading shading = OnlyShading<PdfTriangleMeshShading>(document);
+
+        Assert.Equal(4, shading.VertexCount);
+        Assert.Equal([0, 1, 2, 1, 2, 3], shading.Triangles.ToArray());
+        Diagnostic diagnostic = Assert.Single(document.Diagnostics);
+        Assert.Equal(("MeshSizeExceeded", new CosReference(5, 0)), (diagnostic.Code, diagnostic.ObjectReference));
+    }
+
+    [Fact]
+    public void The_mesh_limit_must_be_positive_and_defaults_to_2_to_the_22()
+    {
+        Assert.Throws<ArgumentOutOfRangeException>(() => new PdfOptions().WithMaxMeshVertices(0));
+        Assert.Equal(1 << 22, new PdfOptions().MaxMeshVertices);
+        Assert.Equal(PdfOptions.DefaultMaxMeshVertices, new PdfOptions().MaxMeshVertices);
+
+        using PdfDocument document = PdfDocument.Open(Corpus.Path("shading-type4-freeform.pdf"), new PdfOptions().WithMaxMeshVertices(5));
+        Assert.Equal(3, OnlyShading<PdfTriangleMeshShading>(document).TriangleCount);
+        Assert.Empty(document.Diagnostics);
+    }
+
+    [Fact]
     public void A_shading_with_CS_instead_of_ColorSpace_is_read_with_a_diagnostic()
     {
         (PdfShading? shading, string[] codes) = Read($"<< /ShadingType 2 /CS /DeviceRGB /Coords [0 0 1 0] {Red} >>");
@@ -219,6 +245,38 @@ public sealed class ShadingRepairTests
         Assert.NotSame(first, second);
         Assert.Equal(new PathPoint(5, 5), second.Start);
         Assert.Equal(new PathPoint(0, 0), ((PdfAxialShading)first).Start);
+    }
+
+    [Fact]
+    public void A_function_removed_as_an_object_is_seen_by_the_shading_read_before()
+    {
+        using PdfDocument document = PdfDocument.Create();
+        CosReference function = document.AddObject(Cos("<< /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >>"));
+        CosReference shading = document.AddObject(Cos($"<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 1 0] /Function {function.ObjectNumber} 0 R >>"));
+        Assert.True(document.GetShading(shading)!.IsValid);
+
+        // §7.3.10: Function now resolves to null, which a Type 2 shading requires (§8.7.4.5.3); the shading dictionary is unchanged.
+        Assert.True(document.RemoveObject(function));
+
+        PdfShading after = document.GetShading(shading)!;
+        Assert.False(after.HasFunction);
+        Assert.False(after.IsValid);
+    }
+
+    [Fact]
+    public void A_shading_removed_as_an_object_is_seen_by_the_pattern_read_before()
+    {
+        using PdfDocument document = PdfDocument.Create();
+        CosReference shading = document.AddObject(Cos($"<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 1 0] {Red} >>"));
+        CosReference pattern = document.AddObject(Cos($"<< /PatternType 2 /Shading {shading.ObjectNumber} 0 R >>"));
+        Assert.NotNull(Assert.IsType<PdfShadingPattern>(document.GetPattern(pattern)).Shading);
+
+        // §7.3.10: Shading now resolves to null (§8.7.4.1, Table 75); the pattern dictionary is unchanged.
+        Assert.True(document.RemoveObject(shading));
+
+        var after = Assert.IsType<PdfShadingPattern>(document.GetPattern(pattern));
+        Assert.Null(after.Shading);
+        Assert.False(after.IsValid);
     }
 
     [Fact]

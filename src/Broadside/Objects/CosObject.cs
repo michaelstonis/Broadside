@@ -40,6 +40,20 @@ public abstract class CosObject
     /// <remarks>ISO 32000-2 §7.5.6: the basis for writing an incremental update.</remarks>
     public virtual bool IsDirty => false;
 
+    /// <summary>
+    /// Clears <see cref="IsDirty"/> on this object and the direct objects it contains, once the object has been written to the file the
+    /// document now reads (an incremental update, ISO 32000-2 §7.5.6). Indirect references are not followed.
+    /// </summary>
+    internal virtual void MarkClean()
+    {
+    }
+
+    /// <summary>
+    /// Captures how this container is now, for <see cref="CosChangeLog"/>: the returned action puts its contents and dirty state back
+    /// as they are, and records the change for the caches that follow its <c>Version</c>. Only containers change.
+    /// </summary>
+    internal virtual Action CaptureState() => throw new InvalidOperationException("Only a dictionary, an array or a stream changes.");
+
     /// <summary>Parses exactly one COS object from <paramref name="bytes"/>.</summary>
     /// <param name="bytes">The object's syntax, optionally surrounded by white-space and comments.</param>
     /// <returns>The parsed object. Parsed objects are not dirty.</returns>

@@ -508,23 +508,26 @@ OID_PDF_MAC_WRAP_KDF = "1.0.32004.1.1"
 OID_AES256_WRAP = "2.16.840.1.101.3.4.1.45"
 OID_HMAC_SHA256 = "1.2.840.113549.2.9"
 OID_SHA256 = "2.16.840.1.101.3.4.2.1"
+OID_SHA3_256 = "2.16.840.1.101.3.4.2.8"
 OID_CONTENT_TYPE = "1.2.840.113549.1.9.3"
 OID_MESSAGE_DIGEST = "1.2.840.113549.1.9.4"
 OID_CMS_ALGORITHM_PROTECTION = "1.2.840.113549.1.9.52"
 
 
-def pdf_mac_token(file_key: bytes, kdf_salt: bytes, mac_key: bytes, data_digest: bytes) -> bytes:
+def pdf_mac_token(file_key: bytes, kdf_salt: bytes, mac_key: bytes, data_digest: bytes,
+                  digest_oid: str = OID_SHA256, digest=hashlib.sha256) -> bytes:
     """ISO/TS 32004 6.2-6.4: a CMS AuthenticatedData (RFC 5652 9) over PdfMacIntegrityInfo, one
-    PasswordRecipientInfo with pdfMacWrapKdf and AES-256 key wrap, HMAC-SHA-256, SHA-256 digests."""
-    sha256_alg = der_seq(der_oid(OID_SHA256))
+    PasswordRecipientInfo with pdfMacWrapKdf and AES-256 key wrap, HMAC-SHA-256, and the digests of
+    Table 8 (SHA-256 unless digest_oid and digest name another)."""
+    digest_alg = der_seq(der_oid(digest_oid))
     hmac_alg = der_seq(der_oid(OID_HMAC_SHA256))
     info = der_seq(der(0x02, b"\0"), der(0x04, data_digest))  # version 0, dataDigest
     encap = der_seq(der_oid(OID_PDF_MAC_INTEGRITY_INFO), der(0xA0, der(0x04, info)))
     attrs = sorted([
         der_seq(der_oid(OID_CONTENT_TYPE), der_set(der_oid(OID_PDF_MAC_INTEGRITY_INFO))),
-        der_seq(der_oid(OID_MESSAGE_DIGEST), der_set(der(0x04, hashlib.sha256(info).digest()))),
+        der_seq(der_oid(OID_MESSAGE_DIGEST), der_set(der(0x04, digest(info).digest()))),
         der_seq(der_oid(OID_CMS_ALGORITHM_PROTECTION),
-                der_set(der_seq(sha256_alg, der(0xA2, der_oid(OID_HMAC_SHA256))))),  # RFC 6211, macAlgorithm [2]
+                der_set(der_seq(digest_alg, der(0xA2, der_oid(OID_HMAC_SHA256))))),  # RFC 6211, macAlgorithm [2]
     ])
     mac = hmac.new(mac_key, der(0x31, b"".join(attrs)), hashlib.sha256).digest()  # RFC 5652 9.2
     kek = hkdf_sha256(file_key, kdf_salt, b"PDFMAC", 32)
@@ -534,7 +537,7 @@ def pdf_mac_token(file_key: bytes, kdf_salt: bytes, mac_key: bytes, data_digest:
         der(0x02, b"\0"),                      # version 0
         der_set(pwri),                          # recipientInfos
         hmac_alg,                               # macAlgorithm
-        der(0xA1, der_oid(OID_SHA256)),         # digestAlgorithm [1]
+        der(0xA1, der_oid(digest_oid)),         # digestAlgorithm [1]
         encap,                                  # encapContentInfo
         der(0xA2, b"".join(attrs)),             # authAttrs [2]
         der(0x04, mac))                         # mac
@@ -1158,6 +1161,73 @@ def gen_text_truetype_embedded() -> bytes:
     ], binary=True)
 
 
+def gen_text_render_modes() -> bytes:
+    """9.3.6 text rendering modes (Table 104) with the embedded font of text-truetype-embedded.pdf; 8.5.4 clipping.
+
+    Page 1, modes 0-3 at 48 pt: four lines of HI, from the top: mode 0 filled with the blue nonstroking colour, mode 1 stroked with
+    the red stroking colour (8.4.3: 4-unit lines, round joins), mode 2 filled then stroked, mode 3 invisible followed by an I in
+    mode 0 that starts where the invisible text's advance (9.4.4) left the pen.
+
+    Pages 2-5, the clipping modes 4-7 at 120 pt: one HI from (30, 100) painted as the mode says (4 fill, 5 stroke, 6 fill then
+    stroke, 7 neither), then a 6 x 6 green and yellow checkerboard image over the whole page, which the text clip set at ET
+    (after the glyphs were painted) shows only inside the glyph outlines.
+    """
+    font, widths = minimal_truetype()
+    first, last = min(widths), max(widths)
+    w = b" ".join(b"%d" % widths[c] for c in range(first, last + 1))
+    setup = b"0.2 0.4 0.8 rg 0.8 0.1 0.1 RG 4 w 1 j\n"
+    content = (setup +
+               b"BT /F1 48 Tf 40 230 Td 0 Tr (HI) Tj\n"
+               b"0 -60 Td 1 Tr (HI) Tj\n"
+               b"0 -60 Td 2 Tr (HI) Tj\n"
+               b"0 -60 Td 3 Tr (HI) Tj 0 Tr (I) Tj ET")
+    green, yellow = bytes([26, 179, 51]), bytes([242, 204, 26])
+    checker = b"".join(green if (x + y) % 2 == 0 else yellow for y in range(6) for x in range(6))
+    clip_pages = [8, 9, 10, 11]
+    objects = [
+        (1, catalog()),
+        (2, pages([3] + clip_pages)),
+        (3, page(mediabox=b"[0 0 300 300]", contents=4, font=5)),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Font /Subtype /TrueType /BaseFont /BroadsideMinimal /FirstChar %d /LastChar %d "
+            b"/Widths [%s] /Encoding /WinAnsiEncoding /FontDescriptor 6 0 R >>" % (first, last, w)),
+        (6, b"<< /Type /FontDescriptor /FontName /BroadsideMinimal /Flags 32 /FontBBox [0 0 700 700] "
+            b"/ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 200 /FontFile2 7 0 R >>"),
+        (7, stream(b"/Length1 %d" % len(font), font)),
+    ]
+    for index, mode in enumerate(range(4, 8)):
+        objects.append((clip_pages[index], page(mediabox=b"[0 0 300 300]", contents=12 + index, resources=False,
+                                                extra=b" /Resources << /Font << /F1 5 0 R >> /XObject << /Im1 16 0 R >> >>")))
+    for index, mode in enumerate(range(4, 8)):
+        objects.append((12 + index, stream(b"", setup + b"BT /F1 120 Tf 30 100 Td %d Tr (HI) Tj ET\n"
+                                                    b"q 300 0 0 300 0 0 cm /Im1 Do Q" % mode)))
+    objects.append((16, stream(b"/Type /XObject /Subtype /Image /Width 6 /Height 6 /ColorSpace /DeviceRGB /BitsPerComponent 8",
+                               checker)))
+    return simple_file(objects, binary=True)
+
+
+def gen_text_rotated() -> bytes:
+    """9.4.4 (the text rendering matrix) and 8.3.4: the embedded font of text-truetype-embedded.pdf at 24 pt, HI twice, rotated two
+    ways. Line 1 is rotated 30 degrees by the text matrix (Tm [0.866025 0.5 -0.5 0.866025 100 500]); line 2 is rotated 90 degrees
+    by the CTM (cm [0 1 -1 0 300 300]) with the text at the origin of the rotated space. Glyph boxes are rotated with the text."""
+    font, widths = minimal_truetype()
+    first, last = min(widths), max(widths)
+    w = b" ".join(b"%d" % widths[c] for c in range(first, last + 1))
+    content = (b"BT /F1 24 Tf 0.866025 0.5 -0.5 0.866025 100 500 Tm (HI) Tj ET\n"
+               b"q 0 1 -1 0 300 300 cm BT /F1 24 Tf (HI) Tj ET Q")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, font=5)),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Font /Subtype /TrueType /BaseFont /BroadsideMinimal /FirstChar %d /LastChar %d "
+            b"/Widths [%s] /Encoding /WinAnsiEncoding /FontDescriptor 6 0 R >>" % (first, last, w)),
+        (6, b"<< /Type /FontDescriptor /FontName /BroadsideMinimal /Flags 32 /FontBBox [0 0 700 700] "
+            b"/ItalicAngle 0 /Ascent 800 /Descent -200 /CapHeight 700 /StemV 200 /FontFile2 7 0 R >>"),
+        (7, stream(b"/Length1 %d" % len(font), font)),
+    ], binary=True)
+
+
 def codes_content(lines: list[tuple[str, bytes]]) -> bytes:
     """One text line per (font resource, codes); codes as a hexadecimal string so any byte can be shown."""
     out = b"BT /%s 24 Tf 72 700 Td <%s> Tj" % (lines[0][0].encode(), lines[0][1].hex().upper().encode())
@@ -1683,6 +1753,154 @@ def gen_text_cid_identity_h() -> bytes:
                     [b"\x00\x01\x00\x03\x00\x02"], tu)
 
 
+def gen_text_lines_rotated() -> bytes:
+    """9.4.2 Table 106 (Tm, TL, T*) and 9.4.4: Helvetica 12 pt, leading 14, two lines at each of three text matrices: upright
+    [1 0 0 1 72 700], rotated 90 degrees [0 1 -1 0 400 500] and rotated 30 degrees [0.866025 0.5 -0.5 0.866025 72 300].
+    Each pair is "<angle> degrees" then T* "second line", so every line holds two words and runs along its own baseline."""
+    lines = b""
+    for matrix, angle in ((b"1 0 0 1 72 700", b"Zero"), (b"0 1 -1 0 400 500", b"Ninety"),
+                          (b"0.866025 0.5 -0.5 0.866025 72 300", b"Thirty")):
+        lines += b" %s Tm (%s degrees) Tj T* (second line) Tj" % (matrix, angle)
+    return text_file(stream(b"", b"BT /F1 12 Tf 14 TL" + lines + b" ET"))
+
+
+def gen_text_tagged_replacements() -> bytes:
+    """14.8.2.5 logical content order, 14.7.5 content items, 14.8.2.2 artifacts and 14.9 element-level Lang, Alt, ActualText
+    and E. A PDF 2.0 tagged page whose content paints its sequences out of logical order: Document > [H1 (MCID 0),
+    P /Lang (de-DE) > Span /ActualText (Drucker) over MCIDs 1 and 2 ("Druk-" and "ker" on two lines, 14.9.4 EXAMPLE),
+    P > [Span /E (Doctor) (MCID 3, "Dr."), MCID 4 "Healwell"] (14.9.5 EXAMPLE), Figure /Alt (A star) (MCID 5, "*"),
+    Artifact (2.0 namespace) holding a line number (MCID 6, "12"), P whose content item is form Fm1 (OBJR, StructParent 1,
+    "In a form"), P whose content item is MCID 0 of form Fm2 (MCR with Stm; Fm2 has StructParents 2, "Form text"),
+    P (MCID 7, "Last")]. One line ("Stray") is in no marked-content sequence, so not in the tree: an artifact (14.8.2.2.2)."""
+    content = b"\n".join([
+        b"/P <</MCID 7>> BDC BT /F1 12 Tf 72 500 Td (Last) Tj ET EMC",
+        b"/Fm2 Do",
+        b"BT /F1 12 Tf 72 100 Td (Stray) Tj ET",
+        b"/Figure <</MCID 5>> BDC BT /F1 12 Tf 72 580 Td (*) Tj ET EMC",
+        b"/Span <</MCID 3>> BDC BT /F1 12 Tf 72 600 Td (Dr.) Tj ET EMC",
+        b"/P <</MCID 4>> BDC BT /F1 12 Tf 92 600 Td (Healwell) Tj ET EMC",
+        b"/H1 <</MCID 0>> BDC BT /F1 24 Tf 72 700 Td (Title) Tj ET EMC",
+        b"/Span <</MCID 1>> BDC BT /F1 12 Tf 72 660 Td (Druk-) Tj ET EMC",
+        b"/Span <</MCID 2>> BDC BT /F1 12 Tf 72 645 Td (ker) Tj ET EMC",
+        b"/LineNum <</MCID 6>> BDC BT /F1 8 Tf 40 660 Td (12) Tj ET EMC",
+        b"/Fm1 Do",
+    ])
+    fonts = b"/Resources << /Font << /F1 6 0 R >> >>"
+    ns = b"/NS 9 0 R"
+    id0 = file_id("text-tagged-replacements").hex().encode()
+
+    def elem(s: bytes, parent: int, extra: bytes) -> bytes:
+        return b"<< /Type /StructElem /S /%s /P %d 0 R %s %s >>" % (s, parent, ns, extra)
+
+    return simple_file([
+        (1, catalog(b" /MarkInfo << /Marked true >> /StructTreeRoot 10 0 R /Lang (en-US)")),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << /Font << /F1 6 0 R >> /XObject << /Fm1 7 0 R /Fm2 8 0 R >> >> /StructParents 0")),
+        (4, stream(b"", content)),
+        (6, HELVETICA),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 612 792] /StructParent 1 " + fonts,
+                   b"BT /F1 12 Tf 72 540 Td (In a form) Tj ET")),
+        (8, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 612 792] /StructParents 2 " + fonts,
+                   b"/P <</MCID 0>> BDC BT /F1 12 Tf 72 520 Td (Form text) Tj ET EMC")),
+        (9, b"<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>"),
+        (10, b"<< /Type /StructTreeRoot /K [11 0 R] /Namespaces [9 0 R] "
+             b"/ParentTree << /Nums [0 [12 0 R 14 0 R 14 0 R 16 0 R 15 0 R 17 0 R 18 0 R 20 0 R] 1 19 0 R 2 [21 0 R]] >> "
+             b"/ParentTreeNextKey 3 >>"),
+        (11, elem(b"Document", 10, b"/K [12 0 R 13 0 R 15 0 R 17 0 R 18 0 R 19 0 R 21 0 R 20 0 R]")),
+        (12, elem(b"H1", 11, b"/Pg 3 0 R /K 0")),
+        (13, elem(b"P", 11, b"/Lang (de-DE) /K [14 0 R]")),
+        (14, elem(b"Span", 13, b"/Pg 3 0 R /ActualText (Drucker) /K [1 2]")),
+        (15, elem(b"P", 11, b"/Pg 3 0 R /K [16 0 R 4]")),
+        (16, elem(b"Span", 15, b"/Pg 3 0 R /E (Doctor) /K 3")),
+        (17, elem(b"Figure", 11, b"/Pg 3 0 R /Alt (A star) /K 5")),
+        (18, elem(b"Artifact", 11, b"/Pg 3 0 R /K 6")),
+        (19, elem(b"P", 11, b"/Pg 3 0 R /K << /Type /OBJR /Obj 7 0 R >>")),
+        (20, elem(b"P", 11, b"/Pg 3 0 R /K 7")),
+        (21, elem(b"P", 11, b"/K << /Type /MCR /Pg 3 0 R /Stm 8 0 R /MCID 0 >>")),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_text_tagged_spanning() -> bytes:
+    """14.7.5.2 marked-content items on two pages, 14.8.2.5 logical content order and 14.9.3/14.9.4 element-level Alt and
+    ActualText over content that spans a page break. A PDF 2.0 tagged file of two pages: Document > [P (page 1 MCID 0,
+    "Before"), Span /ActualText (Drucker) over MCRs page 1 MCID 1 ("Druk-", the last line of page 1) and page 2 MCID 0 ("ker",
+    the first line of page 2), Figure /Alt (Two stars) over MCRs page 1 MCID 2 and page 2 MCID 1 ("*" on each page),
+    P (page 2 MCID 2, "After")]. Each element's content starts on page 1, so its replacement belongs there once."""
+    def line(tag: bytes, mcid: int, y: int, text: bytes) -> bytes:
+        return b"/%s <</MCID %d>> BDC BT /F1 12 Tf 72 %d Td (%s) Tj ET EMC" % (tag, mcid, y, text)
+
+    first = b"\n".join([line(b"P", 0, 700, b"Before"), line(b"Span", 1, 680, b"Druk-"), line(b"Figure", 2, 660, b"*")])
+    second = b"\n".join([line(b"Span", 0, 700, b"ker"), line(b"Figure", 1, 680, b"*"), line(b"P", 2, 660, b"After")])
+    resources = b" /Resources << /Font << /F1 7 0 R >> >>"
+    ns = b"/NS 9 0 R"
+    id0 = file_id("text-tagged-spanning").hex().encode()
+
+    def elem(s: bytes, extra: bytes, parent: int = 11) -> bytes:
+        return b"<< /Type /StructElem /S /%s /P %d 0 R %s %s >>" % (s, parent, ns, extra)
+
+    def mcr(pg: int, mcid: int) -> bytes:
+        return b"<< /Type /MCR /Pg %d 0 R /MCID %d >>" % (pg, mcid)
+
+    return simple_file([
+        (1, catalog(b" /MarkInfo << /Marked true >> /StructTreeRoot 10 0 R /Lang (en-US)")),
+        (2, pages([3, 5])),
+        (3, page(contents=4, resources=False, extra=resources + b" /StructParents 0")),
+        (4, stream(b"", first)),
+        (5, page(contents=6, resources=False, extra=resources + b" /StructParents 1")),
+        (6, stream(b"", second)),
+        (7, HELVETICA),
+        (9, b"<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>"),
+        (10, b"<< /Type /StructTreeRoot /K [11 0 R] /Namespaces [9 0 R] "
+             b"/ParentTree << /Nums [0 [12 0 R 13 0 R 14 0 R] 1 [13 0 R 14 0 R 15 0 R]] >> /ParentTreeNextKey 2 >>"),
+        (11, elem(b"Document", b"/K [12 0 R 13 0 R 14 0 R 15 0 R]", parent=10)),
+        (12, elem(b"P", b"/Pg 3 0 R /K 0")),
+        (13, elem(b"Span", b"/ActualText (Drucker) /K [%s %s]" % (mcr(3, 1), mcr(5, 0)))),
+        (14, elem(b"Figure", b"/Alt (Two stars) /K [%s %s]" % (mcr(3, 2), mcr(5, 1)))),
+        (15, elem(b"P", b"/Pg 5 0 R /K 2")),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_text_tagged_spanning_image() -> bytes:
+    """14.7.5.2 marked-content items on two pages, 14.8.2.5 logical content order and 14.9.4 element-level ActualText whose
+    element's first content item shows no glyph. A PDF 2.0 tagged file of two pages: Document > [P (page 1 MCID 0, "Before"),
+    Span /ActualText (ACME Corp) over MCRs page 1 MCID 1 (a 2 x 2 black and grey inline image with its /L, the logo, the
+    last thing on page 1) and page 2 MCID 0 ("ACME", the first line of page 2), P (page 2 MCID 1, "After")]. The Span's
+    content starts on page 1 but shows its first glyph on page 2, so its replacement belongs there, once."""
+    def line(tag: bytes, mcid: int, y: int, text: bytes) -> bytes:
+        return b"/%s <</MCID %d>> BDC BT /F1 12 Tf 72 %d Td (%s) Tj ET EMC" % (tag, mcid, y, text)
+
+    logo = b"/Span <</MCID 1>> BDC q 40 0 0 40 72 630 cm BI /W 2 /H 2 /CS /G /BPC 8 /L 4 ID \x00\x80\x80\x00 EI Q EMC"
+    first = b"\n".join([line(b"P", 0, 700, b"Before"), logo])
+    second = b"\n".join([line(b"Span", 0, 700, b"ACME"), line(b"P", 1, 680, b"After")])
+    resources = b" /Resources << /Font << /F1 7 0 R >> >>"
+    ns = b"/NS 9 0 R"
+    id0 = file_id("text-tagged-spanning-image").hex().encode()
+
+    def elem(s: bytes, extra: bytes, parent: int = 11) -> bytes:
+        return b"<< /Type /StructElem /S /%s /P %d 0 R %s %s >>" % (s, parent, ns, extra)
+
+    def mcr(pg: int, mcid: int) -> bytes:
+        return b"<< /Type /MCR /Pg %d 0 R /MCID %d >>" % (pg, mcid)
+
+    return simple_file([
+        (1, catalog(b" /MarkInfo << /Marked true >> /StructTreeRoot 10 0 R /Lang (en-US)")),
+        (2, pages([3, 5])),
+        (3, page(contents=4, resources=False, extra=resources + b" /StructParents 0")),
+        (4, stream(b"", first)),
+        (5, page(contents=6, resources=False, extra=resources + b" /StructParents 1")),
+        (6, stream(b"", second)),
+        (7, HELVETICA),
+        (9, b"<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>"),
+        (10, b"<< /Type /StructTreeRoot /K [11 0 R] /Namespaces [9 0 R] "
+             b"/ParentTree << /Nums [0 [12 0 R 13 0 R] 1 [13 0 R 14 0 R]] >> /ParentTreeNextKey 2 >>"),
+        (11, elem(b"Document", b"/K [12 0 R 13 0 R 14 0 R]", parent=10)),
+        (12, elem(b"P", b"/Pg 3 0 R /K 0")),
+        (13, elem(b"Span", b"/ActualText (ACME Corp) /K [%s %s]" % (mcr(3, 1), mcr(5, 0)))),
+        (14, elem(b"P", b"/Pg 5 0 R /K 1")),
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
 def gen_text_cid_identity_v() -> bytes:
     """9.7.4.1 Table 115 (CIDToGIDMap stream, DW2, W2), 9.7.4.3 (W2 in both forms, DW2 fallback, v.x = w0/2), 9.7.5.2
     Identity-V. The map covers CIDs 0 to 0x22 (0x21 -> 1, 0x22 -> 2); CID 0x23 is past its end and shows CID 0's glyph."""
@@ -1797,6 +2015,26 @@ def gen_text_cidcff_predefined_cmap() -> bytes:
             b"/Ascent 880 /Descent -120 /CapHeight 700 /StemV 80 /FontFile3 8 0 R >>"),
         (8, stream(b"/Subtype /CIDFontType0C", font)),
     ], binary=True)
+
+
+def gen_text_cid_nonembedded() -> bytes:
+    """9.7.4 (a CIDFontType0 that is not embedded: no FontFile entry), 9.7.5.2 Table 116 (the predefined CMap
+    UniJIS-UTF16-H: codes are UTF-16BE), 9.7.6.2, 9.8 (the descriptor of a non-embedded CIDFont) and 9.10.2 (Unicode
+    through the Adobe-Japan1 collection). Shows <304230443046 65E5672C8A9E>: the kana A I U and the kanji NICHI HON GO;
+    a reader draws them with a substitute font found by name or by collection. No ToUnicode, no W (DW 1000)."""
+    content = b"BT /F1 24 Tf 72 700 Td <30423044304665E5672C8A9E> Tj ET"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, b"<< /Type /Page /Parent 2 0 R /MediaBox %s /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>" % LETTER),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Font /Subtype /Type0 /BaseFont /KozMinPr6N-Regular-UniJIS-UTF16-H /Encoding /UniJIS-UTF16-H "
+            b"/DescendantFonts [6 0 R] >>"),
+        (6, b"<< /Type /Font /Subtype /CIDFontType0 /BaseFont /KozMinPr6N-Regular "
+            b"/CIDSystemInfo << /Registry (Adobe) /Ordering (Japan1) /Supplement 6 >> /FontDescriptor 7 0 R /DW 1000 >>"),
+        (7, b"<< /Type /FontDescriptor /FontName /KozMinPr6N-Regular /Flags 4 /FontBBox [-437 -340 1147 1317] "
+            b"/ItalicAngle 0 /Ascent 880 /Descent -120 /CapHeight 742 /StemV 80 >>"),
+    ])
 
 
 def gen_text_tounicode_bf() -> bytes:
@@ -2183,10 +2421,12 @@ def gen_encrypted_crypt_filters(name: str = "encrypted-crypt-filters") -> bytes:
 MAC_TAMPER_TARGET = b"% Integrity check target: original\n"
 
 
-def gen_encrypted_mac(name: str = "encrypted-mac") -> bytes:
+def gen_encrypted_mac(name: str = "encrypted-mac", label: bytes = b"Integrity MAC (R6)",
+                      digest_oid: str = OID_SHA256, digest=hashlib.sha256) -> bytes:
     """ISO/TS 32004: R6 (V 5) with /KDFSalt, P -4100 (bit 13 clear: a MAC token is required) and a
     standalone PDF MAC token in the trailer's /AuthCode, its /ByteRange covering the whole file except
-    the token, the 32004 extension declared in the catalog."""
+    the token, the 32004 extension declared in the catalog. The token's digests are SHA-256 unless
+    digest_oid and digest name another algorithm of Table 8."""
     key = fixed_bytes(name + ":file-key", 32)
     kdf_salt = fixed_bytes(name + ":kdf-salt", 32)
     mac_key = fixed_bytes(name + ":mac-key", 32)
@@ -2200,11 +2440,11 @@ def gen_encrypted_mac(name: str = "encrypted-mac") -> bytes:
     f.add(1, catalog(extensions(32004, b":2024", b"https://www.iso.org/standard/45877.html", encrypt)))
     f.add(2, pages())
     f.add(3, page(contents=4, font=5))
-    f.add(4, stream(b"", encrypt(4, "stream", text_content(b"Integrity MAC (R6)"))))
+    f.add(4, stream(b"", encrypt(4, "stream", text_content(label))))
     f.add(5, HELVETICA)
     f.add(6, enc)
     f.raw(MAC_TAMPER_TARGET)
-    token_length = len(pdf_mac_token(key, kdf_salt, mac_key, bytes(32)))
+    token_length = len(pdf_mac_token(key, kdf_salt, mac_key, bytes(digest().digest_size), digest_oid, digest))
     placeholder = b"<" + b"0" * (2 * token_length) + b">"
     range_placeholder = b"[0 0000000000 0000000000 0000000000]"
     data = bytearray(f.finish_classic(
@@ -2215,8 +2455,8 @@ def gen_encrypted_mac(name: str = "encrypted-mac") -> bytes:
     byte_range = b"[0 %010d %010d %010d]" % (l1, start, len(data) - start)
     r = data.index(range_placeholder)
     data[r:r + len(range_placeholder)] = byte_range
-    digest = hashlib.sha256(bytes(data[:l1]) + bytes(data[start:])).digest()
-    token = pdf_mac_token(key, kdf_salt, mac_key, digest)
+    data_digest = digest(bytes(data[:l1]) + bytes(data[start:])).digest()
+    token = pdf_mac_token(key, kdf_salt, mac_key, data_digest, digest_oid, digest)
     data[l1:start] = b"<" + token.hex().upper().encode() + b">"
     return bytes(data)
 
@@ -2296,6 +2536,7 @@ def gen_annotations_link() -> bytes:
         (2, pages()),
         (3, page(extra=b" /Annots [4 0 R]")),
         (4, b"<< /Type /Annot /Subtype /Link /Rect [72 700 300 724] /Border [0 0 0] "
+            b"/QuadPoints [72 712 300 712 300 724 72 724 72 700 150 700 150 712 72 712] "
             b"/A << /S /URI /URI (https://example.com/) >> >>"),
     ])
 
@@ -2396,6 +2637,48 @@ def gen_annotations_appearance() -> bytes:
         (12, b"<< /Type /Annot /Subtype /Square /Rect [300 300 340 340] /AS /On"
              b" /AP << /N << /On 6 0 R /Off 7 0 R >> /D << /On 8 0 R >> >> >>"),
     ]
+    return simple_file(objects)
+
+
+def gen_annotations_nozoom() -> bytes:
+    """12.5.3 Table 167 NoZoom and NoRotate, Figure 78, and 12.5.6.4 (a text annotation behaves as if both
+    were set). Two 300 x 300 pages, the second with /Rotate 90, each with the same five annotations whose
+    appearances are 40 x 40 squares with a black band along their top edge (so orientation shows): Square
+    with F 12 (Print, NoZoom) red at [40 220 80 260]; F 20 (Print, NoRotate) blue at [180 220 220 260];
+    F 28 (Print, NoZoom, NoRotate) green at [40 80 80 120]; F 4 grey at [180 80 220 120] for reference;
+    and a Text annotation with F 4 (no NoZoom or NoRotate bit), yellow 20 x 20 at [120 150 140 170]. The
+    page content strokes each rectangle in light grey, so the annotations' places at 100% stay visible."""
+    def band(rgb: bytes, size: int) -> bytes:
+        return stream(b"/Type /XObject /Subtype /Form /Resources << >> /BBox [0 0 %d %d]" % (size, size),
+                      rgb + b" rg 0 0 %d %d re f 0 g 0 %d %d %d re f" % (size, size * 3 // 4, size * 3 // 4, size, size // 4))
+    content = (b"0.75 G 1 w 40 220 40 40 re S 180 220 40 40 re S 40 80 40 40 re S 180 80 40 40 re S"
+               b" 120 150 20 20 re S")
+    box = b"[0 0 300 300]"
+
+    def annotations(first: int, parent: int) -> list[tuple[int, bytes]]:
+        return [
+            (first, b"<< /Type /Annot /Subtype /Square /Rect [40 220 80 260] /F 12 /P %d 0 R /AP << /N 6 0 R >> >>" % parent),
+            (first + 1, b"<< /Type /Annot /Subtype /Square /Rect [180 220 220 260] /F 20 /P %d 0 R /AP << /N 7 0 R >> >>" % parent),
+            (first + 2, b"<< /Type /Annot /Subtype /Square /Rect [40 80 80 120] /F 28 /P %d 0 R /AP << /N 8 0 R >> >>" % parent),
+            (first + 3, b"<< /Type /Annot /Subtype /Square /Rect [180 80 220 120] /F 4 /P %d 0 R /AP << /N 9 0 R >> >>" % parent),
+            (first + 4, b"<< /Type /Annot /Subtype /Text /Rect [120 150 140 170] /F 4 /P %d 0 R /AP << /N 15 0 R >> >>" % parent),
+        ]
+
+    objects: list[tuple[int, bytes]] = [
+        (1, catalog()),
+        (2, pages([3, 4])),
+        (3, page(mediabox=box, contents=5, extra=b" /Annots [10 0 R 11 0 R 12 0 R 13 0 R 14 0 R]")),
+        (4, page(mediabox=box, contents=5, extra=b" /Rotate 90 /Annots [20 0 R 21 0 R 22 0 R 23 0 R 24 0 R]")),
+        (5, stream(b"", content)),
+        (6, band(b"1 0 0", 40)),
+        (7, band(b"0 0 1", 40)),
+        (8, band(b"0 0.6 0", 40)),
+        (9, band(b"0.5 0.5 0.5", 40)),
+        (15, band(b"1 0.8 0", 20)),
+    ]
+    objects += annotations(10, 3)
+    objects += annotations(20, 4)
+    objects.sort(key=lambda item: item[0])
     return simple_file(objects)
 
 
@@ -2981,33 +3264,64 @@ def gen_optional_content() -> bytes:
     OCMD 9 (/OCGs [A B] /P /AllOff) and OCMD 10 (/VE [/Or A [/Not B]]), content sections /OC /a, /m1, /m2
     and /a nested in /b, a form XObject with /OC B, an annotation with /OC C; D carries Order (a label and
     an unlabelled nested array), RBGroups and Locked; Configs has one alternate configuration
-    (8.11.4.3 Table 99: BaseState OFF, ON [C], Intent All)."""
+    (8.11.4.3 Table 99: BaseState OFF, ON [C], Intent All). D2 also has a Print usage (PrintState OFF) that D's only AS entry
+    (Event Print, Category [Print], 8.11.4.4) applies when printing, and a last section /OC /d2 paints at x 100 (visible on screen,
+    hidden in print)."""
     content = (b"/OC /a BDC 0 0 10 10 re f EMC\n"
                b"/OC /m1 BDC 20 0 10 10 re f EMC\n"
                b"/OC /m2 BDC 40 0 10 10 re f EMC\n"
                b"/OC /b BDC /OC /a BDC 60 0 10 10 re f EMC EMC\n"
-               b"/Fm Do\n")
+               b"/Fm Do\n"
+               b"/OC /d2 BDC 100 0 10 10 re f EMC\n")
     ocprops = (b" /OCProperties << /OCGs [5 0 R 6 0 R 7 0 R 8 0 R]"
                b" /D << /Name (Default) /Creator (Broadside corpus) /OFF [6 0 R]"
-               b" /Order [5 0 R [(Labelled) 6 0 R 7 0 R] [8 0 R]] /RBGroups [[5 0 R 6 0 R]] /Locked [7 0 R] >>"
+               b" /Order [5 0 R [(Labelled) 6 0 R 7 0 R] [8 0 R]] /RBGroups [[5 0 R 6 0 R]] /Locked [7 0 R]"
+               b" /AS [<< /Event /Print /Category [/Print] /OCGs [8 0 R] >>] >>"
                b" /Configs [<< /Name (Only C) /BaseState /OFF /ON [7 0 R] /Intent /All /ListMode /VisiblePages >>] >>")
     return simple_file([
         (1, catalog(ocprops)),
         (2, pages()),
         (3, page(contents=4, resources=False,
-                 extra=b" /Resources << /Properties << /a 5 0 R /b 6 0 R /m1 9 0 R /m2 10 0 R >>"
+                 extra=b" /Resources << /Properties << /a 5 0 R /b 6 0 R /m1 9 0 R /m2 10 0 R /d2 8 0 R >>"
                        b" /XObject << /Fm 11 0 R >> >> /Annots [12 0 R]")),
         (4, stream(b"", content)),
         (5, b"<< /Type /OCG /Name (A) >>"),
         (6, b"<< /Type /OCG /Name (B) >>"),
         (7, b"<< /Type /OCG /Name (C) /Intent /Design /Usage << /CreatorInfo << /Creator (Broadside) /Subtype /Technical >> >> >>"),
-        (8, b"<< /Type /OCG /Name (D2) /Usage << /View << /ViewState /OFF >> /Zoom << /min 1.5 >> >> >>"),
+        (8, b"<< /Type /OCG /Name (D2) /Usage << /View << /ViewState /OFF >> /Print << /PrintState /OFF >> /Zoom << /min 1.5 >> >> >>"),
         (9, b"<< /Type /OCMD /OCGs [5 0 R 6 0 R] /P /AllOff >>"),
         (10, b"<< /Type /OCMD /VE [/Or 5 0 R [/Not 6 0 R]] >>"),
         (11, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 10 10] /OC 6 0 R", b"80 0 10 10 re f")),
         (12, b"<< /Type /Annot /Subtype /Square /Rect [100 100 200 200] /OC 7 0 R >>"),
     ])
 
+
+def gen_optional_content_pages() -> bytes:
+    """8.11.4: three pages, each using its own optional content group, for merging and splitting by page.
+    Page 1 draws a section /OC /base (Base), page 2 a section /OC /notes (Notes, OFF in D, with a Zoom usage),
+    page 3 has a Square annotation with /OC Draft; Unused is used by no page (OFF in D). D (8.11.4.3 Table 99)
+    carries Name, Order [Base [Notes Draft] [(Extras) Unused]] (Notes and Draft as Base's sublayers), RBGroups
+    [[Notes Draft]], Locked [Draft] and AS [View event, OCGs [Base Notes], Category [/Zoom]] (8.11.4.4 Table 101);
+    Configs has one alternate configuration (Review: BaseState OFF, ON [Notes Draft])."""
+    ocprops = (b" /OCProperties << /OCGs [9 0 R 10 0 R 11 0 R 12 0 R]"
+               b" /D << /Name (Layers) /OFF [10 0 R 12 0 R] /Order [9 0 R [10 0 R 11 0 R] [(Extras) 12 0 R]]"
+               b" /RBGroups [[10 0 R 11 0 R]] /Locked [11 0 R]"
+               b" /AS [<< /Event /View /OCGs [9 0 R 10 0 R] /Category [/Zoom] >>] >>"
+               b" /Configs [<< /Name (Review) /BaseState /OFF /ON [10 0 R 11 0 R] >>] >>")
+    return simple_file([
+        (1, catalog(ocprops)),
+        (2, pages([3, 5, 7])),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /Properties << /base 9 0 R >> >>")),
+        (4, stream(b"", b"/OC /base BDC 0 0 10 10 re f EMC\n")),
+        (5, page(contents=6, resources=False, extra=b" /Resources << /Properties << /notes 10 0 R >> >>")),
+        (6, stream(b"", b"/OC /notes BDC 20 0 10 10 re f EMC\n")),
+        (7, page(extra=b" /Annots [8 0 R]")),
+        (8, b"<< /Type /Annot /Subtype /Square /Rect [100 100 200 200] /OC 11 0 R >>"),
+        (9, b"<< /Type /OCG /Name (Base) >>"),
+        (10, b"<< /Type /OCG /Name (Notes) /Usage << /Zoom << /min 2 >> >> >>"),
+        (11, b"<< /Type /OCG /Name (Draft) >>"),
+        (12, b"<< /Type /OCG /Name (Unused) >>"),
+    ])
 
 def utf16_text(text: str) -> bytes:
     """7.9.2.2 text string as a hexadecimal string: FEFF byte order mark, then UTF-16BE."""
@@ -3219,19 +3533,20 @@ def gen_tagged_structure() -> bytes:
     one page (StructParents 0), plus a pagination artifact outside the tree. ParentTree (14.7.5.4),
     IDTree, RoleMap (Para -> P in the default 1.7 namespace), ClassMap with C and A on the heading
     (14.7.6.2: A wins), namespaces (14.7.4) PDF 2.0 and a custom one whose RoleMapNS maps Chapter to
-    [/Sect <2.0>] (14.8.6.2), and one marked-content reference dictionary (Table 357) for MCID 9."""
+    [/Sect <2.0>] (14.8.6.2), and one marked-content reference dictionary (Table 357) for MCID 9. The content
+    paints the table before the heading, so page content order differs from logical content order (14.8.2.5)."""
     content = b"\n".join([
         b"/Artifact <</Type /Pagination /Subtype /PageNum>> BDC BT /F1 10 Tf 300 40 Td (1) Tj ET EMC",
+        b"/TH <</MCID 6>> BDC BT /F1 12 Tf 72 610 Td (Name) Tj ET EMC",
+        b"/TH <</MCID 7>> BDC BT /F1 12 Tf 200 610 Td (Value) Tj ET EMC",
+        b"/TD <</MCID 8>> BDC BT /F1 12 Tf 72 595 Td (Alpha) Tj ET EMC",
+        b"/TD <</MCID 9>> BDC BT /F1 12 Tf 200 595 Td (1) Tj ET EMC",
         b"/H1 <</MCID 0>> BDC BT /F1 24 Tf 72 720 Td (Broadside) Tj ET EMC",
         b"/P <</MCID 1>> BDC BT /F1 12 Tf 72 690 Td (A paragraph with a link.) Tj ET EMC",
         b"/Lbl <</MCID 2>> BDC BT /F1 12 Tf 72 660 Td (1.) Tj ET EMC",
         b"/LBody <</MCID 3>> BDC BT /F1 12 Tf 96 660 Td (First item) Tj ET EMC",
         b"/Lbl <</MCID 4>> BDC BT /F1 12 Tf 72 645 Td (2.) Tj ET EMC",
         b"/LBody <</MCID 5>> BDC BT /F1 12 Tf 96 645 Td (Second item) Tj ET EMC",
-        b"/TH <</MCID 6>> BDC BT /F1 12 Tf 72 610 Td (Name) Tj ET EMC",
-        b"/TH <</MCID 7>> BDC BT /F1 12 Tf 200 610 Td (Value) Tj ET EMC",
-        b"/TD <</MCID 8>> BDC BT /F1 12 Tf 72 595 Td (Alpha) Tj ET EMC",
-        b"/TD <</MCID 9>> BDC BT /F1 12 Tf 200 595 Td (1) Tj ET EMC",
     ])
     ns20 = b"/NS 7 0 R"
     id0 = file_id("tagged-structure").hex().encode()
@@ -3272,6 +3587,382 @@ def gen_tagged_structure() -> bytes:
         (27, elem(b"TD", 26, ns20 + b" /Pg 3 0 R /K 8 /A << /O /Table /Headers [(h1)] >>")),
         (28, elem(b"TD", 26, ns20 + b" /K << /Type /MCR /MCID 9 /Pg 3 0 R >>")),
     ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_layout_tagged() -> bytes:
+    """14.8.4 standard structure types read as a layout tree (ISO/TS 32005): a PDF 2.0 tagged page (/StructParents 0)
+    whose Document > Sect holds an H (level from nesting, 14.8.4.5 Table 366), a role-mapped Para (RoleMap /Para /P)
+    with a Link (MCID and an OBJR to a Link annotation, /StructParent 1) inside its text, an FENote, a Figure with
+    /Alt over an image XObject and a Caption, a Formula with /Alt over an empty sequence and a Layout BBox attribute
+    (14.8.5.4.3), a Table whose THead holds TH cells with RowSpan 2 and ColSpan 2 and whose TBody TD cells name their
+    headers by ID (Table 384 Headers, IDTree), one TD empty, a NonStruct around a P (14.8.4.4), and an Artifact element
+    (14.8.4.8.7). The content paints the table first."""
+    content = b"\n".join([
+        b"/TH <</MCID 8>> BDC BT /F1 12 Tf 72 500 Td (Name) Tj ET EMC",
+        b"/TH <</MCID 9>> BDC BT /F1 12 Tf 200 500 Td (First half) Tj ET EMC",
+        b"/TH <</MCID 10>> BDC BT /F1 12 Tf 200 485 Td (Q1) Tj ET EMC",
+        b"/TH <</MCID 11>> BDC BT /F1 12 Tf 300 485 Td (Q2) Tj ET EMC",
+        b"/TD <</MCID 12>> BDC BT /F1 12 Tf 72 470 Td (Alpha) Tj ET EMC",
+        b"/TD <</MCID 13>> BDC BT /F1 12 Tf 200 470 Td (1) Tj ET EMC",
+        b"/TD <</MCID 14>> BDC BT /F1 12 Tf 300 470 Td (2) Tj ET EMC",
+        b"/TD <</MCID 15>> BDC BT /F1 12 Tf 72 455 Td (Beta) Tj ET EMC",
+        b"/TD <</MCID 16>> BDC BT /F1 12 Tf 300 455 Td (4) Tj ET EMC",
+        b"/H <</MCID 0>> BDC BT /F1 18 Tf 72 720 Td (Results) Tj ET EMC",
+        b"/P <</MCID 1>> BDC BT /F1 12 Tf 72 696 Td (See the ) Tj ET EMC",
+        b"/Link <</MCID 2>> BDC BT /F1 12 Tf 116.7 696 Td (report) Tj ET EMC",
+        b"/P <</MCID 3>> BDC BT /F1 12 Tf 148.044 696 Td (.) Tj ET EMC",
+        b"/FENote <</MCID 4>> BDC BT /F1 9 Tf 72 60 Td (1 Fetched in 2026.) Tj ET EMC",
+        b"/Figure <</MCID 5>> BDC q 100 0 0 100 72 580 cm /Im1 Do Q EMC",
+        b"/Caption <</MCID 6>> BDC BT /F1 10 Tf 72 565 Td (Figure 1. A grey square) Tj ET EMC",
+        b"/Formula <</MCID 7>> BDC EMC",
+        b"/P <</MCID 17>> BDC BT /F1 12 Tf 72 420 Td (Grouped without structure.) Tj ET EMC",
+        b"/Span <</MCID 18>> BDC BT /F1 10 Tf 500 750 Td (Draft) Tj ET EMC",
+    ])
+    ns = b"/NS 7 0 R"
+    id0 = file_id("layout-tagged").hex().encode()
+
+    def elem(s: bytes, parent: int, extra: bytes) -> bytes:
+        return b"<< /Type /StructElem /S /%s /P %d 0 R %s %s >>" % (s, parent, ns if s != b"Para" else b"", extra)
+
+    pg = b"/Pg 3 0 R"
+    # MCID -> owning element, for the parent tree (14.7.5.4).
+    owners = {0: 13, 1: 14, 2: 15, 3: 14, 4: 16, 5: 17, 6: 18, 7: 19, 8: 23, 9: 24, 10: 26, 11: 27,
+              12: 30, 13: 31, 14: 32, 15: 34, 16: 36, 17: 38, 18: 39}
+    parent_array = b" ".join(b"%d 0 R" % owners[m] for m in range(19))
+    return simple_file([
+        (1, catalog(b" /MarkInfo << /Marked true >> /StructTreeRoot 10 0 R /Lang (en-US)")),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << /Font << /F1 6 0 R >> /XObject << /Im1 8 0 R >> >> /StructParents 0 /Tabs /S /Annots [5 0 R]")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /Annot /Subtype /Link /Rect [116 692 148 708] /Border [0 0 0] "
+            b"/A << /S /URI /URI (https://example.com/report) >> /StructParent 1 >>"),
+        (6, HELVETICA),
+        (7, b"<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>"),
+        (8, stream(b"/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8", b"\x80")),
+        (10, b"<< /Type /StructTreeRoot /K [11 0 R] /ParentTree << /Nums [0 [%s] 1 15 0 R] >> /ParentTreeNextKey 2 "
+             b"/IDTree << /Names [(half) 24 0 R (q1) 26 0 R (q2) 27 0 R] >> /RoleMap << /Para /P >> /Namespaces [7 0 R] >>"
+             % parent_array),
+        (11, elem(b"Document", 10, b"/K [12 0 R]")),
+        (12, elem(b"Sect", 11, b"/K [13 0 R 14 0 R 16 0 R 17 0 R 19 0 R 20 0 R 37 0 R 39 0 R]")),
+        (13, elem(b"H", 12, pg + b" /K 0")),
+        (14, elem(b"Para", 12, pg + b" /K [1 15 0 R 3]")),
+        (15, elem(b"Link", 14, pg + b" /K [2 << /Type /OBJR /Obj 5 0 R >>]")),
+        (16, elem(b"FENote", 12, pg + b" /K 4")),
+        (17, elem(b"Figure", 12, pg + b" /Alt (A grey square) /K [5 18 0 R]")),
+        (18, elem(b"Caption", 17, pg + b" /K 6")),
+        (19, elem(b"Formula", 12, pg + b" /Alt (E = mc2) /A << /O /Layout /BBox [200 580 300 620] >> /K 7")),
+        (20, elem(b"Table", 12, b"/K [21 0 R 28 0 R]")),
+        (21, elem(b"THead", 20, b"/K [22 0 R 25 0 R]")),
+        (22, elem(b"TR", 21, b"/K [23 0 R 24 0 R]")),
+        (23, elem(b"TH", 22, pg + b" /K 8 /A << /O /Table /RowSpan 2 >>")),
+        (24, elem(b"TH", 22, pg + b" /ID (half) /K 9 /A << /O /Table /ColSpan 2 /Scope /Column >>")),
+        (25, elem(b"TR", 21, b"/K [26 0 R 27 0 R]")),
+        (26, elem(b"TH", 25, pg + b" /ID (q1) /K 10")),
+        (27, elem(b"TH", 25, pg + b" /ID (q2) /K 11")),
+        (28, elem(b"TBody", 20, b"/K [29 0 R 33 0 R]")),
+        (29, elem(b"TR", 28, b"/K [30 0 R 31 0 R 32 0 R]")),
+        (30, elem(b"TD", 29, pg + b" /K 12")),
+        (31, elem(b"TD", 29, pg + b" /K 13 /A << /O /Table /Headers [(q1) (half)] >>")),
+        (32, elem(b"TD", 29, pg + b" /K 14 /A << /O /Table /Headers [(q2) (half)] >>")),
+        (33, elem(b"TR", 28, b"/K [34 0 R 35 0 R 36 0 R]")),
+        (34, elem(b"TD", 33, pg + b" /K 15")),
+        (35, elem(b"TD", 33, b"")),
+        (36, elem(b"TD", 33, pg + b" /K 16 /A << /O /Table /Headers [(q2)] >>")),
+        (37, elem(b"NonStruct", 12, b"/K [38 0 R]")),
+        (38, elem(b"P", 37, pg + b" /K 17")),
+        (39, elem(b"Artifact", 12, pg + b" /K 18")),
+    ], version="2.0", binary=True, trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+TWO_COLUMN_PARAGRAPHS = [
+    # (column x, first baseline, first-line indent, lines); the left column's paragraphs follow each other, the right
+    # column's second paragraph is set off by extra space instead of an indent.
+    (72, 700, 12, [b"Columns are found from the white", b"space that runs down the page", b"between blocks of text, and the",
+                   b"reader goes down one column first."]),
+    (72, 652, 12, [b"A paragraph starts where a line", b"is indented from the left edge", b"of its column."]),
+    (324, 700, 12, [b"The second column is read after", b"the first one, even when the", b"content stream draws the lines",
+                    b"across both columns in turn."]),
+    (324, 642, 0, [b"Extra space between lines also", b"starts a new paragraph here."]),
+]
+
+
+def two_column_lines() -> list[tuple[int, int, int, bytes]]:
+    """The two-column page's lines as (paragraph, x, baseline, text), in the order the content draws them: row by row
+    across both columns, top to bottom, so content order is not reading order."""
+    lines = []
+    for index, (x, y, indent, texts) in enumerate(TWO_COLUMN_PARAGRAPHS):
+        for row, text in enumerate(texts):
+            lines.append((index, x + (indent if row == 0 else 0), y - 12 * row, text))
+    return sorted(lines, key=lambda line: (-line[2], line[1]))
+
+
+def gen_layout_two_column_untagged() -> bytes:
+    """Layout detection (spec story 36) over an untagged page: two columns of Helvetica 10 on a 12-point pitch, four
+    paragraphs (three start with a 12-point first-line indent, one after 10 points of extra space). The content draws
+    the lines row by row across both columns, so reading order differs from content order. The tagged twin is
+    layout-two-column-tagged.pdf."""
+    content = b"\n".join(b"BT /F1 10 Tf %d %d Td (%s) Tj ET" % (x, y, text) for _, x, y, text in two_column_lines())
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, font=5)),
+        (4, stream(b"", content)),
+        (5, HELVETICA),
+    ])
+
+
+def gen_layout_two_column_tagged() -> bytes:
+    """14.7.5.2 marked content and 14.8.4.3 P elements over the same page as layout-two-column-untagged.pdf: a PDF 2.0
+    tagged file whose Document holds one P per paragraph in reading order, each P over the MCIDs of its lines (the
+    content draws them row by row across both columns, so every P has several MCIDs)."""
+    lines = two_column_lines()
+    content = b"\n".join(b"/P <</MCID %d>> BDC BT /F1 10 Tf %d %d Td (%s) Tj ET EMC" % (mcid, x, y, text)
+                         for mcid, (_, x, y, text) in enumerate(lines))
+    count = len(TWO_COLUMN_PARAGRAPHS)
+    first = 12
+    elements = []
+    for index in range(count):
+        mcids = b" ".join(b"%d" % mcid for mcid, line in enumerate(lines) if line[0] == index)
+        elements.append((first + index, b"<< /Type /StructElem /S /P /P 11 0 R /NS 9 0 R /Pg 3 0 R /K [%s] >>" % mcids))
+    parents = b" ".join(b"%d 0 R" % (first + line[0]) for line in lines)
+    kids = b" ".join(b"%d 0 R" % (first + index) for index in range(count))
+    id0 = file_id("layout-two-column-tagged").hex().encode()
+    return simple_file([
+        (1, catalog(b" /MarkInfo << /Marked true >> /StructTreeRoot 10 0 R /Lang (en-US)")),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /Font << /F1 5 0 R >> >> /StructParents 0")),
+        (4, stream(b"", content)),
+        (5, HELVETICA),
+        (9, b"<< /Type /Namespace /NS (http://iso.org/pdf2/ssn) >>"),
+        (10, b"<< /Type /StructTreeRoot /K [11 0 R] /Namespaces [9 0 R] /ParentTree << /Nums [0 [%s]] >> "
+             b"/ParentTreeNextKey 1 >>" % parents),
+        (11, b"<< /Type /StructElem /S /Document /P 10 0 R /NS 9 0 R /K [%s] >>" % kids),
+        *elements,
+    ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (id0, id0))
+
+
+def gen_layout_three_column() -> bytes:
+    """Layout detection (spec story 36) over three untagged pages of three columns (Helvetica 9 on an 11-point pitch, two
+    paragraphs per column, each with a 9-point first-line indent), under a running header ("Broadside Quarterly" left,
+    "Issue 7" right) and a footer ("Page n") repeated on every page. Page 1 has a full-width 18-point title above the
+    columns, drawn last; every page draws its columns middle, right, left."""
+    names = [b"one", b"two", b"three"]
+    objects = [(1, catalog()), (2, pages([3, 5, 7])), (9, HELVETICA)]
+    for number in range(1, 4):
+        parts = [b"BT /F1 9 Tf 72 750 Td (Broadside Quarterly) Tj ET", b"BT /F1 9 Tf 504 750 Td (Issue 7) Tj ET"]
+        for column in (1, 2, 0):
+            x = 72 + 180 * column
+            paragraphs = [
+                [b"Column %s opens page %d with" % (names[column], number), b"a first paragraph of three",
+                 b"short lines."],
+                [b"Its second paragraph follows", b"right after the first one", b"and closes the column."],
+            ]
+            y = 660
+            for lines in paragraphs:
+                for row, text in enumerate(lines):
+                    parts.append(b"BT /F1 9 Tf %d %d Td (%s) Tj ET" % (x + (9 if row == 0 else 0), y, text))
+                    y -= 11
+        parts.append(b"BT /F1 9 Tf 288 40 Td (Page %d) Tj ET" % number)
+        if number == 1:
+            parts.append(b"BT /F1 18 Tf 72 700 Td (Three Columns Under One Title) Tj ET")
+        page_number = 1 + 2 * number
+        objects.append((page_number, page(contents=page_number + 1, font=9)))
+        objects.append((page_number + 1, stream(b"", b"\n".join(parts))))
+    return simple_file(sorted(objects))
+
+
+def gen_layout_headings_lists() -> bytes:
+    """Heading and list detection (spec story 36, issue #188) over one untagged page: body text in Helvetica 10 on a 12-point
+    pitch, headings in Helvetica-Bold 20, 14 and 11 (levels 1, 2 and 3), a three-level list (WinAnsi bullets, then a) b) c)
+    letters, then i. ii. roman numerals) with a hanging indent under the first item's wrapped line, a decimal list, an
+    upper-case roman list whose bodies sit past a gap wider than a column gutter, and an upper-case lettered list in
+    parentheses. 9.6.2.2 Standard Type 1 fonts, D.2 WinAnsiEncoding (bullet 0x95)."""
+    rows = [
+        (2, 20, 72, 740, b"Headings and Lists"),
+        (1, 10, 72, 710, b"This page tests the detection of headings and lists from the"),
+        (1, 10, 72, 698, b"geometry of untagged text: font size, weight and spacing set"),
+        (1, 10, 72, 686, b"headings apart, and markers start list items."),
+        (2, 14, 72, 656, b"1 Bulleted items"),
+        (1, 10, 72, 632, b"A bulleted list follows, three levels deep, with a hanging"),
+        (1, 10, 72, 620, b"indent for the line that wraps."),
+        (2, 11, 72, 596, b"1.1 Three levels"),
+        (1, 10, 84, 576, b"\x95"), (1, 10, 96, 576, b"The first item has a body long enough to wrap onto"),
+        (1, 10, 96, 564, b"a second line under its own text."),
+        (1, 10, 84, 552, b"\x95"), (1, 10, 96, 552, b"The second item holds a nested list:"),
+        (1, 10, 108, 540, b"a)"), (1, 10, 122, 540, b"a lettered item at the second level"),
+        (1, 10, 108, 528, b"b)"), (1, 10, 122, 528, b"another lettered item, which nests deeper:"),
+        (1, 10, 134, 516, b"i."), (1, 10, 148, 516, b"a roman item at the third level"),
+        (1, 10, 134, 504, b"ii."), (1, 10, 148, 504, b"and a second roman item"),
+        (1, 10, 108, 492, b"c)"), (1, 10, 122, 492, b"a third lettered item"),
+        (1, 10, 84, 480, b"\x95"), (1, 10, 96, 480, b"The third item closes the list."),
+        (2, 14, 72, 450, b"2 Numbered items"),
+        (1, 10, 72, 426, b"Numbers, upper-case roman numerals and letters mark ordered lists."),
+        (1, 10, 84, 402, b"1."), (1, 10, 100, 402, b"Decimal numbers with a full stop"),
+        (1, 10, 84, 390, b"2."), (1, 10, 100, 390, b"count the items of a list"),
+        (1, 10, 84, 378, b"3."), (1, 10, 100, 378, b"one after the other."),
+        (1, 10, 72, 354, b"Upper-case roman numerals with a wide gap after the marker:"),
+        (1, 10, 84, 330, b"I."), (1, 10, 120, 330, b"the first numeral"),
+        (1, 10, 84, 318, b"II."), (1, 10, 120, 318, b"the second numeral"),
+        (1, 10, 84, 306, b"III."), (1, 10, 120, 306, b"the third numeral"),
+        (1, 10, 84, 294, b"IV."), (1, 10, 120, 294, b"the fourth numeral"),
+        (1, 10, 72, 270, b"Upper-case letters in parentheses:"),
+        (1, 10, 84, 246, b"(A)"), (1, 10, 104, 246, b"a first lettered item"),
+        (1, 10, 84, 234, b"(B)"), (1, 10, 104, 234, b"a second lettered item"),
+        (1, 10, 84, 222, b"(C)"), (1, 10, 104, 222, b"a third lettered item"),
+        (2, 11, 72, 198, b"2.1 Closing"),
+        (1, 10, 72, 174, b"A last paragraph ends the page after the lists, back on the"),
+        (1, 10, 72, 162, b"left margin of the body text."),
+    ]
+    content = b"\n".join(b"BT /F%d %d Tf %d %d Td (%s) Tj ET" % (font, size, x, y, text.replace(b"(", b"\\(").replace(b")", b"\\)"))
+                          for font, size, x, y, text in rows)
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, HELVETICA),
+        (6, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"),
+    ])
+
+
+def gen_layout_tables() -> bytes:
+    """Table detection (spec story 36, issue #189) over three untagged pages in Helvetica 10 (headers in Helvetica-Bold). Page 1: a
+    ruled table whose lines (8.5.2 m/l, 8.5.3.2 S) leave out the sides inside merged cells (a two-row header: Region and Product each
+    span two rows, Sales spans two columns over Q1 and Q2; North spans two body rows; Total spans two columns), a paragraph, then an
+    unruled table aligned by white space with a bold header row under a heading (Temperature) centred over two columns, and a closing
+    paragraph. Pages 2 and 3: a ruled three-column table with a bold header row that runs to the foot of page 2 and continues at the
+    top of page 3 without repeating its header. 9.6.2.2 Standard Type 1 fonts."""
+    def text(font, x, y, value):
+        return b"BT /F%d 10 Tf %d %d Td (%s) Tj ET" % (font, x, y, value)
+
+    def line(x1, y1, x2, y2):
+        return b"%d %d m %d %d l S" % (x1, y1, x2, y2)
+
+    page1 = [b"BT /F2 16 Tf 72 740 Td (Detected Tables) Tj ET",
+             text(1, 72, 712, b"This page tests table detection from ruling lines and from"),
+             text(1, 72, 700, b"aligned white space, with merged cells and header rows."),
+             b"0.5 w"]
+    page1 += [line(72, 680, 432, 680), line(272, 662, 432, 662), line(72, 644, 432, 644), line(172, 626, 432, 626),
+              line(72, 608, 432, 608), line(72, 590, 432, 590), line(72, 572, 432, 572),
+              line(72, 680, 72, 572), line(172, 680, 172, 590), line(272, 680, 272, 572), line(352, 662, 352, 572),
+              line(432, 680, 432, 572)]
+    page1 += [text(2, 77, 658, b"Region"), text(2, 177, 658, b"Product"), text(2, 277, 667, b"Sales"),
+              text(2, 277, 649, b"Q1"), text(2, 357, 649, b"Q2"),
+              text(1, 77, 622, b"North"), text(1, 177, 631, b"Apples"), text(1, 277, 631, b"120"), text(1, 357, 631, b"135"),
+              text(1, 177, 613, b"Pears"), text(1, 277, 613, b"80"), text(1, 357, 613, b"95"),
+              text(1, 77, 595, b"South"), text(1, 177, 595, b"Apples"), text(1, 277, 595, b"150"), text(1, 357, 595, b"160"),
+              text(1, 77, 577, b"Total"), text(1, 277, 577, b"350"), text(1, 357, 577, b"390")]
+    page1 += [text(1, 72, 548, b"Between the tables, a paragraph of running text that is not part"),
+              text(1, 72, 536, b"of either table.")]
+    page1 += [text(2, 200, 500, b"Temperature"),
+              text(2, 72, 486, b"City"), text(2, 200, 486, b"Min"), text(2, 250, 486, b"Max"), text(2, 300, 486, b"Rain")]
+    for row, (city, low, high, rain) in enumerate([(b"Oslo", b"-4", b"3", b"49"), (b"Lima", b"15", b"22", b"1"),
+                                                   (b"Cairo", b"14", b"25", b"5"), (b"Perth", b"9", b"18", b"146")]):
+        y = 472 - 14 * row
+        page1 += [text(1, 72, y, city), text(1, 200, y, low), text(1, 250, y, high), text(1, 300, y, rain)]
+    page1 += [text(1, 72, 400, b"A closing paragraph follows the unruled table.")]
+
+    def ruled(top, rows, header):
+        """A ruled Item/Qty/Price table: one row per entry, 18 points each, from top down."""
+        content = [b"0.5 w"]
+        bottom = top - 18 * len(rows)
+        for index in range(len(rows) + 1):
+            content.append(line(72, top - 18 * index, 452, top - 18 * index))
+        for x in (72, 252, 352, 452):
+            content.append(line(x, top, x, bottom))
+        for index, cells in enumerate(rows):
+            font = 2 if header and index == 0 else 1
+            for x, value in zip((77, 257, 357), cells):
+                content.append(text(font, x, top - 18 * index - 13, value))
+        return content
+
+    parts = [(b"Part %02d" % n, b"%d" % (n * 3), b"%d.%02d" % divmod(n * 125, 100)) for n in range(1, 17)]
+    page2 = [b"BT /F2 16 Tf 72 740 Td (Continued Table) Tj ET",
+             text(1, 72, 712, b"The table below runs to the foot of the page and goes on at the"),
+             text(1, 72, 700, b"top of the next one.")]
+    page2 += ruled(300, [(b"Item", b"Qty", b"Price")] + parts[:11], header=True)
+    page3 = ruled(740, parts[11:], header=False)
+    page3 += [text(1, 72, 620, b"The table above continues the one on the previous page.")]
+    fonts = b" /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >>"
+    return simple_file([
+        (1, catalog()),
+        (2, pages([3, 7, 9])),
+        (3, page(contents=4, resources=False, extra=fonts)),
+        (4, stream(b"", b"\n".join(page1))),
+        (5, HELVETICA),
+        (6, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"),
+        (7, page(contents=8, resources=False, extra=fonts)),
+        (8, stream(b"", b"\n".join(page2))),
+        (9, page(contents=10, resources=False, extra=fonts)),
+        (10, stream(b"", b"\n".join(page3))),
+    ])
+
+
+def gen_layout_figures() -> bytes:
+    """Figure and caption detection (spec story 36, issue #190) over two untagged pages in Helvetica 10 (headings in
+    Helvetica-Bold). Page 1: a bar chart drawn with paths (8.5.2 m/l/re, 8.5.3 S/f: two axis lines, four filled bars, tick marks)
+    with the quarter labels under its axis and a legend inside it, captioned below (Figure 1:); a paragraph that starts with
+    "Figure 1 shows" (a reference, not a caption); a ruled table captioned above (Table 1:); a 2x2 RGB image XObject (8.9.5)
+    scaled to 120 x 90, captioned below (Figure 2.); a closing paragraph. Page 2: an 8x8 DeviceGray image standing for a scan
+    with two lines of invisible text (9.3.6 rendering mode 3) over it, as a recogniser lays them, captioned below; then a line
+    shown in a Type 3 font (9.6.4) whose glyphs (a filled square and a triangle) have names outside the Adobe Glyph List and no
+    ToUnicode CMap (9.10.2), so their text is unknown."""
+    def text(font, x, y, value):
+        return b"BT /F%d 10 Tf %d %d Td (%s) Tj ET" % (font, x, y, value)
+
+    def line(x1, y1, x2, y2):
+        return b"%d %d m %d %d l S" % (x1, y1, x2, y2)
+
+    page1 = [b"BT /F2 16 Tf 72 740 Td (Detected Figures) Tj ET",
+             text(1, 72, 712, b"This page tests figure detection from vector drawings and from"),
+             text(1, 72, 700, b"images, with captions found by their labels."),
+             b"0.5 w", line(100, 540, 100, 680), line(100, 540, 380, 540)]
+    for index, (height, colour) in enumerate([(60, b"0.2 0.4 0.8"), (100, b"0.8 0.3 0.2"), (80, b"0.3 0.7 0.3"),
+                                              (120, b"0.9 0.7 0.1")]):
+        x = 120 + 60 * index
+        page1 += [b"%s rg %d 540 40 %d re f 0 g" % (colour, x, height), line(x + 20, 540, x + 20, 536),
+                  text(1, x + 14, 528, b"Q%d" % (index + 1))]
+    page1 += [text(1, 330, 666, b"Sales"),
+              text(1, 72, 505, b"Figure 1: Quarterly sales drawn as a bar chart."),
+              text(1, 72, 476, b"Figure 1 shows sales by quarter; the paragraph after it is running"),
+              text(1, 72, 464, b"text that refers to the figure and is not a caption.")]
+    page1 += [text(1, 72, 436, b"Table 1: Fruit prices."), b"0.5 w",
+              line(72, 426, 300, 426), line(72, 408, 300, 408), line(72, 390, 300, 390), line(72, 372, 300, 372),
+              line(72, 426, 72, 372), line(186, 426, 186, 372), line(300, 426, 300, 372),
+              text(2, 77, 413, b"Fruit"), text(2, 191, 413, b"Price"),
+              text(1, 77, 395, b"Apples"), text(1, 191, 395, b"1.20"),
+              text(1, 77, 377, b"Pears"), text(1, 191, 377, b"0.95")]
+    page1 += [b"q 120 0 0 90 72 230 cm /Im1 Do Q",
+              text(1, 72, 212, b"Figure 2. A raster image placed by its matrix."),
+              text(1, 72, 180, b"A closing paragraph ends the page.")]
+    page2 = [b"BT /F2 16 Tf 72 740 Td (Scanned and Type 3 Text) Tj ET",
+             b"q 300 0 0 200 72 480 cm /Im2 Do Q",
+             b"q BT 3 Tr /F1 10 Tf 90 640 Td (Recognised text laid over) Tj 0 -20 Td (a scanned image.) Tj ET Q",
+             text(1, 72, 462, b"Figure 3: A scan with its recognised text."),
+             text(1, 72, 420, b"The line below is set in a Type 3 font without Unicode:"),
+             b"BT /T3 10 Tf 72 380 Td (\001\002\001\002) Tj ET"]
+    fonts = b"/Font << /F1 5 0 R /F2 6 0 R >>"
+    rgb = bytes([200, 40, 40, 40, 160, 40, 40, 40, 200, 220, 200, 40])
+    gray = bytes((17 * (row + column)) % 256 for row in range(8) for column in range(8))
+    return simple_file([
+        (1, catalog()),
+        (2, pages([3, 7])),
+        (3, page(contents=4, resources=False, extra=b" /Resources << %s /XObject << /Im1 9 0 R >> >>" % fonts)),
+        (4, stream(b"", b"\n".join(page1))),
+        (5, HELVETICA),
+        (6, b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>"),
+        (7, page(contents=8, resources=False,
+                 extra=b" /Resources << /Font << /F1 5 0 R /F2 6 0 R /T3 11 0 R >> /XObject << /Im2 10 0 R >> >>")),
+        (8, stream(b"", b"\n".join(page2))),
+        (9, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceRGB /BitsPerComponent 8", rgb)),
+        (10, stream(b"/Type /XObject /Subtype /Image /Width 8 /Height 8 /ColorSpace /DeviceGray /BitsPerComponent 8", gray)),
+        (11, b"<< /Type /Font /Subtype /Type3 /FontBBox [0 0 750 750] /FontMatrix [0.001 0 0 0.001 0 0]"
+             b" /CharProcs << /T3box 12 0 R /T3peak 13 0 R >> /Encoding << /Type /Encoding /Differences [1 /T3box /T3peak] >>"
+             b" /FirstChar 1 /LastChar 2 /Widths [1000 1000] >>"),
+        (12, stream(b"", b"1000 0 0 0 750 750 d1 0 0 750 750 re f")),
+        (13, stream(b"", b"1000 0 0 0 750 750 d1 0 0 m 375 750 l 750 0 l f")),
+    ])
 
 
 def gen_functions() -> bytes:
@@ -3320,8 +4011,10 @@ def s15f16(value: float) -> bytes:
     return struct.pack(">i", round(value * 65536))
 
 
-def icc_profile(device_class: bytes, space: bytes, tags: list[tuple[bytes, bytes]]) -> bytes:
-    """A version 2.1 ICC profile (ICC.1:2022 7.2 header, 7.3 tag table): XYZ PCS, D50 illuminant, the tags 4-byte aligned."""
+def icc_profile(device_class: bytes, space: bytes, tags: list[tuple[bytes, bytes]], version: bytes = bytes([2, 0x10]),
+                pcs: bytes = b"XYZ ") -> bytes:
+    """An ICC profile, version 2.1 unless given (ICC.1:2022 7.2 header, 7.3 tag table): XYZ PCS unless given, D50 illuminant,
+    the tags 4-byte aligned."""
     count = len(tags)
     offset = 128 + 4 + 12 * count
     table = struct.pack(">I", count)
@@ -3330,7 +4023,7 @@ def icc_profile(device_class: bytes, space: bytes, tags: list[tuple[bytes, bytes
         table += sig + struct.pack(">II", offset + len(data), len(body))
         data += body + b"\x00" * (-len(body) % 4)
     size = 128 + len(table) + len(data)
-    header = (struct.pack(">I", size) + b"\x00" * 4 + bytes([2, 0x10, 0, 0]) + device_class + space + b"XYZ "
+    header = (struct.pack(">I", size) + b"\x00" * 4 + version + b"\x00\x00" + device_class + space + pcs
               + struct.pack(">6H", 2026, 1, 1, 0, 0, 0) + b"acsp" + b"\x00" * 24 + struct.pack(">I", 0)
               + s15f16(0.9642) + s15f16(1.0) + s15f16(0.8249) + b"\x00" * 48)
     assert len(header) == 128
@@ -3504,6 +4197,491 @@ def gen_separation_special() -> bytes:
         (4, stream(b"", content)),
         (5, stream(b"/FunctionType 4 /Domain [0 1 0 1] /Range [0 1]", b"{pop pop 1}")),
     ])
+
+def icc_mluc(text: str) -> bytes:
+    """ICC.1:2022 10.15 multiLocalizedUnicodeType (version 4 profiles): one en-US record, UTF-16BE."""
+    data = text.encode("utf-16-be")
+    return b"mluc" + b"\x00" * 4 + struct.pack(">II", 1, 12) + b"enUS" + struct.pack(">II", len(data), 28) + data
+
+
+def icc_para(function_type: int, *params: float) -> bytes:
+    """ICC.1:2022 10.18 parametricCurveType: function type 0 to 4 (Table 68) and its parameters g a b c d e f."""
+    assert len(params) == (1, 3, 4, 5, 7)[function_type]
+    return b"para" + b"\x00" * 4 + struct.pack(">HH", function_type, 0) + b"".join(s15f16(p) for p in params)
+
+
+def icc_sampled(values: list[float]) -> bytes:
+    """ICC.1:2022 10.6 curveType with n > 1 entries: a sampled curve, uInt16Number values 0..65535, linear in between."""
+    return b"curv" + b"\x00" * 4 + struct.pack(">I", len(values)) + b"".join(struct.pack(">H", round(v * 65535)) for v in values)
+
+
+ICC_IDENTITY = b"curv" + b"\x00" * 8
+"""ICC.1:2022 10.6 curveType with no entries: the identity."""
+
+ICC_V4 = bytes([4, 0x40])
+
+ICC_MATRIX_PROFILES: dict[str, bytes] = {}
+"""Filled lazily by icc_matrix_profiles(): the four profiles of icc-rgb-matrix.pdf by resource name (tools/IccReference reads them)."""
+
+ICC_MATRIX_SAMPLES = {
+    "rgb": [(0, 0, 0), (1, 1, 1), (1, 0, 0), (0, 1, 0), (0, 0, 1), (0.5, 0.5, 0.5), (0.25, 0.6, 0.9), (0.03, 0.04, 0.02)],
+    "gray": [(0,), (0.02,), (0.03,), (0.25,), (0.5,), (0.75,), (1,)],
+}
+"""The colours icc-rgb-matrix.pdf paints in each space: one row of 50 x 50 squares per space."""
+
+
+def icc_matrix_profiles() -> dict[str, bytes]:
+    """The profiles of icc-rgb-matrix.pdf (ICC.1:2022 8.4.3 display matrix/TRC, 8.4.4 monochrome display, Annex F.2-F.3):
+    CS0 v4.4 RGB, Adobe RGB (1998) primaries adapted to D50, parametric curves of types 0 (g 1.8), 1 (g 2.2, a 1.05, b -0.05) and
+    2 (g 2, a 0.9, b 0.05, c 0.03); CS1 v2.1 RGB, the sRGB primaries adapted to D50, a sampled 33-entry curve (x^2.2), a
+    one-entry gamma curve (u8Fixed8 1.8) and the identity (no entries); CS2 v4.4 GRAY, parametric type 3 (the sRGB curve,
+    IEC 61966-2-1); CS3 v4.4 GRAY, parametric type 4 (g 2.6, a 0.94, b 0.05, c 0.08, d 0.06, e 0.005, f 0.001)."""
+    if not ICC_MATRIX_PROFILES:
+        d50 = icc_xyz(0.9642, 1.0, 0.8249)
+        ICC_MATRIX_PROFILES["CS0"] = icc_profile(b"mntr", b"RGB ", [
+            (b"desc", icc_mluc("Broadside RGB parametric")), (b"cprt", icc_mluc("No copyright, use freely")), (b"wtpt", d50),
+            (b"rXYZ", icc_xyz(0.6097, 0.3111, 0.0195)), (b"gXYZ", icc_xyz(0.2053, 0.6257, 0.0609)),
+            (b"bXYZ", icc_xyz(0.1492, 0.0632, 0.7446)),
+            (b"rTRC", icc_para(0, 1.8)), (b"gTRC", icc_para(1, 2.2, 1.05, -0.05)), (b"bTRC", icc_para(2, 2.0, 0.9, 0.05, 0.03)),
+        ], ICC_V4)
+        ICC_MATRIX_PROFILES["CS1"] = icc_profile(b"mntr", b"RGB ", [
+            (b"desc", icc_desc(b"Broadside RGB sampled")), (b"cprt", ICC_COPYRIGHT), (b"wtpt", d50),
+            (b"rXYZ", icc_xyz(0.4361, 0.2225, 0.0139)), (b"gXYZ", icc_xyz(0.3851, 0.7169, 0.0971)),
+            (b"bXYZ", icc_xyz(0.1431, 0.0606, 0.7141)),
+            (b"rTRC", icc_sampled([(i / 32) ** 2.2 for i in range(33)])), (b"gTRC", icc_gamma(1.8)), (b"bTRC", ICC_IDENTITY),
+        ])
+        ICC_MATRIX_PROFILES["CS2"] = icc_profile(b"mntr", b"GRAY", [
+            (b"desc", icc_mluc("Broadside gray sRGB curve")), (b"cprt", icc_mluc("No copyright, use freely")), (b"wtpt", d50),
+            (b"kTRC", icc_para(3, 2.4, 1 / 1.055, 0.055 / 1.055, 1 / 12.92, 0.04045)),
+        ], ICC_V4)
+        ICC_MATRIX_PROFILES["CS3"] = icc_profile(b"mntr", b"GRAY", [
+            (b"desc", icc_mluc("Broadside gray type 4")), (b"cprt", icc_mluc("No copyright, use freely")), (b"wtpt", d50),
+            (b"kTRC", icc_para(4, 2.6, 0.94, 0.05, 0.08, 0.06, 0.005, 0.001)),
+        ], ICC_V4)
+    return ICC_MATRIX_PROFILES
+
+
+def gen_icc_rgb_matrix() -> bytes:
+    """8.6.5.5 ICCBased spaces with matrix/TRC profiles (ICC.1:2022 10.6 curveType, 10.18 parametricCurveType, 10.31 XYZType,
+    Annex F.2 and F.3), the four of icc_matrix_profiles(), N 3, 3, 1, 1 and no Alternate. One row of 50 x 50 squares per space,
+    top to bottom CS0 to CS3, painting ICC_MATRIX_SAMPLES left to right (rgb for CS0 and CS1, gray for CS2 and CS3)."""
+    profiles = icc_matrix_profiles()
+    content = b""
+    for row, name in enumerate(profiles):
+        samples = ICC_MATRIX_SAMPLES["rgb" if row < 2 else "gray"]
+        for column, sample in enumerate(samples):
+            values = b" ".join(b"%g" % v for v in sample)
+            content += b"/%s cs %s scn %d %d 50 50 re f\n" % (name.encode(), values, 40 + 65 * column, 680 - 80 * row)
+    resources = b"<< /ColorSpace << /CS0 [/ICCBased 5 0 R] /CS1 [/ICCBased 6 0 R] /CS2 [/ICCBased 7 0 R] /CS3 [/ICCBased 8 0 R] >> >>"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/N 3", profiles["CS0"])),
+        (6, stream(b"/N 3", profiles["CS1"])),
+        (7, stream(b"/N 1", profiles["CS2"])),
+        (8, stream(b"/N 1", profiles["CS3"])),
+    ], binary=True)
+
+
+def icc_curves(curves: list[bytes]) -> bytes:
+    """A set of embedded curveType or parametricCurveType tags stored one after another, each padded to 4 bytes (10.12.2)."""
+    return b"".join(c + b"\x00" * (-len(c) % 4) for c in curves)
+
+
+def icc_grid_values(grids: list[int], function) -> list[float]:
+    """CLUT samples of function(normalized inputs) -> normalized outputs, the first input varying least rapidly (10.10)."""
+    values: list[float] = []
+
+    def walk(prefix: list[float], depth: int) -> None:
+        if depth == len(grids):
+            values.extend(min(max(v, 0.0), 1.0) for v in function(*prefix))
+            return
+        for i in range(grids[depth]):
+            walk(prefix + [i / (grids[depth] - 1)], depth + 1)
+    walk([], 0)
+    return values
+
+
+def icc_u16(values: list[float]) -> bytes:
+    return b"".join(struct.pack(">H", round(min(max(v, 0.0), 1.0) * 65535)) for v in values)
+
+
+def icc_u8(values: list[float]) -> bytes:
+    return bytes(round(min(max(v, 0.0), 1.0) * 255) for v in values)
+
+
+ICC_IDENTITY_MATRIX = b"".join(s15f16(v) for v in (1, 0, 0, 0, 1, 0, 0, 0, 1))
+
+
+def icc_lut16(grid: int, function, in_tables: list[list[float]], out_tables: list[list[float]]) -> bytes:
+    """ICC.1:2022 10.10 lut16Type ('mft2', Table 40): identity matrix, input tables, a CLUT of `grid` points per side holding
+    function(normalized inputs), output tables; all uInt16Number."""
+    values = icc_grid_values([grid] * len(in_tables), function)
+    return (b"mft2" + b"\x00" * 4 + bytes([len(in_tables), len(out_tables), grid, 0]) + ICC_IDENTITY_MATRIX
+            + struct.pack(">HH", len(in_tables[0]), len(out_tables[0]))
+            + b"".join(icc_u16(t) for t in in_tables) + icc_u16(values) + b"".join(icc_u16(t) for t in out_tables))
+
+
+def icc_lut8(grid: int, function, in_tables: list[list[float]], out_tables: list[list[float]]) -> bytes:
+    """ICC.1:2022 10.11 lut8Type ('mft1', Table 44): identity matrix, 256-entry input tables, the CLUT, 256-entry output tables."""
+    values = icc_grid_values([grid] * len(in_tables), function)
+    return (b"mft1" + b"\x00" * 4 + bytes([len(in_tables), len(out_tables), grid, 0]) + ICC_IDENTITY_MATRIX
+            + b"".join(icc_u8(t) for t in in_tables) + icc_u8(values) + b"".join(icc_u8(t) for t in out_tables))
+
+
+def icc_clut(grids: list[int], precision: int, function) -> bytes:
+    """ICC.1:2022 10.12.3 / 10.13.5 CLUT (Tables 46 and 48): 16 grid-point counts, the precision (1 or 2 bytes), the samples."""
+    values = icc_grid_values(grids, function)
+    data = icc_u8(values) if precision == 1 else icc_u16(values)
+    return bytes(grids + [0] * (16 - len(grids))) + bytes([precision, 0, 0, 0]) + data
+
+
+def icc_mab(signature: bytes, inputs: int, outputs: int, b: list[bytes], matrix: list[float] | None = None,
+            m: list[bytes] | None = None, clut: bytes | None = None, a: list[bytes] | None = None) -> bytes:
+    """ICC.1:2022 10.12 lutAToBType ('mAB ', Table 45) or 10.13 lutBToAType ('mBA ', Table 47): the 32-byte header with the five
+    offsets, then the elements in the order the tag stores them (B curves, matrix, M curves, CLUT, A curves), 4-byte aligned;
+    a missing element has offset 0. The matrix is 12 s15Fixed16Numbers e1 to e12 (Equations 16 to 19)."""
+    elements = [icc_curves(b), b"".join(s15f16(v) for v in matrix) if matrix else None,
+                icc_curves(m) if m else None, clut, icc_curves(a) if a else None]
+    body = b""
+    offsets = []
+    for element in elements:
+        if element is None:
+            offsets.append(0)
+            continue
+        offsets.append(32 + len(body))
+        body += element + b"\x00" * (-len(element) % 4)
+    return signature + b"\x00" * 4 + bytes([inputs, outputs, 0, 0]) + struct.pack(">5I", *offsets) + body
+
+
+ICC_D50 = (0.9642, 1.0, 0.8249)
+ICC_SRGB_D50 = ((0.4361, 0.3851, 0.1431), (0.2225, 0.7169, 0.0606), (0.0139, 0.0971, 0.7141))
+"""Rows X, Y, Z of the sRGB primaries adapted to D50 (columns red, green, blue)."""
+
+
+def icc_lab(xyz: tuple[float, float, float]) -> tuple[float, float, float]:
+    """CIE 1976 L*a*b* of an XYZ colour relative to the D50 PCS white (ICC.1:2022 Annex A)."""
+    def f(t: float) -> float:
+        return t ** (1 / 3) if t > (6 / 29) ** 3 else t / (3 * (6 / 29) ** 2) + 4 / 29
+    fx, fy, fz = (f(v / w) for v, w in zip(xyz, ICC_D50))
+    return 116 * fy - 16, 500 * (fx - fy), 200 * (fy - fz)
+
+
+def icc_rgb_xyz(r: float, g: float, b: float) -> tuple[float, float, float]:
+    return tuple(row[0] * r + row[1] * g + row[2] * b for row in ICC_SRGB_D50)
+
+
+def icc_ink(c: float, m: float, y: float, k: float, paper: float, density: float) -> tuple[float, float, float]:
+    """A made-up subtractive press: the reflectance of each primary through the inks' unwanted absorptions, as Lab."""
+    keep = 1 - density * k
+    red = paper * (1 - 0.92 * c) * (1 - 0.12 * m) * (1 - 0.03 * y) * keep
+    green = paper * (1 - 0.25 * c) * (1 - 0.9 * m) * (1 - 0.08 * y) * keep
+    blue = paper * (1 - 0.1 * c) * (1 - 0.3 * m) * (1 - 0.9 * y) * keep
+    return icc_lab(icc_rgb_xyz(red, green, blue))
+
+
+def icc_lab_v4(lab: tuple[float, float, float]) -> tuple[float, float, float]:
+    """6.3.4.2 Tables 12 and 13: PCSLAB normalized for 8-bit and 16-bit encodings (and lut8Type, lutAToBType, lutBToAType)."""
+    return lab[0] / 100, (lab[1] + 128) / 255, (lab[2] + 128) / 255
+
+
+def icc_lab_legacy(lab: tuple[float, float, float]) -> tuple[float, float, float]:
+    """10.10 Tables 42 and 43: the legacy 16-bit PCSLAB encoding of lut16Type, normalized (FF00h is L* 100, a* 127)."""
+    return lab[0] / 100 * 65280 / 65535, (lab[1] + 128) * 256 / 65535, (lab[2] + 128) * 256 / 65535
+
+
+def icc_cmyk_from_lab(lab: tuple[float, float, float]) -> tuple[float, float, float, float]:
+    """A smooth made-up separation for the BToA tags: gray component to black, a* and b* to the chromatic inks."""
+    darkness = min(max(1 - lab[0] / 100, 0.0), 1.0)
+    k = 0.7 * darkness ** 2
+    c = 0.85 * darkness + max(-lab[1], 0) / 200 + max(-lab[2], 0) / 400
+    m = 0.8 * darkness + max(lab[1], 0) / 180
+    y = 0.8 * darkness + max(lab[2], 0) / 160
+    return tuple(min(max(v, 0.0), 1.0) for v in (c * (1 - k), m * (1 - k), y * (1 - k), k))
+
+
+def icc_identity_table(entries: int) -> list[float]:
+    return [i / (entries - 1) for i in range(entries)]
+
+
+ICC_LUT_PROFILES: dict[str, bytes] = {}
+"""Filled lazily by icc_lut_profiles(): the five profiles of icc-lut.pdf by resource name (tools/IccReference reads them)."""
+
+ICC_LUT_SAMPLES = {
+    "cmyk": [(0, 0, 0, 0), (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1), (0.2, 0.4, 0.6, 0.1), (0.5, 0.5, 0.5, 0.5),
+             (0.85, 0.15, 0.6, 0.3)],
+    "rgb": [(0, 0, 0), (1, 1, 1), (1, 0, 0), (0, 1, 0), (0, 0, 1), (0.5, 0.5, 0.5), (0.25, 0.6, 0.9), (0.9, 0.35, 0.05)],
+    "gray": [(0,), (0.1,), (0.25,), (0.5,), (0.75,), (1,)],
+}
+"""The colours icc-lut.pdf paints in each space: one row of 50 x 50 squares per space."""
+
+ICC_LUT_KINDS = {"CS0": "cmyk", "CS1": "cmyk", "CS2": "rgb", "CS3": "rgb", "CS4": "gray"}
+
+
+def icc_lut_profiles() -> dict[str, bytes]:
+    """The profiles of icc-lut.pdf (ICC.1:2022 8.5.2 output, 8.4.2 input, 8.4.3 display profiles built on lookup tables; 10.10 to
+    10.13, 10.22; 8.10.2 precedence):
+    CS0 v2.1 'prtr' CMYK, PCS Lab: A2B0 lut16Type (256-entry input tables x^1.05, 9-point CLUT, 2-entry output tables, legacy
+    PCSLAB) and B2A0 lut16Type (Lab to CMYK, 9-point CLUT, 256-entry output tables).
+    CS1 v4.4 'prtr' CMYK, PCS Lab, wtpt (0.93, 0.96, 0.78): A2B0 lutAToBType (perceptual: A curves para type 0 g 1.1, 8-bit 7-point
+    CLUT of a lighter press, identity B curves) and A2B1 lutAToBType (colorimetric: identity A curves, 16-bit 9-point CLUT,
+    B curves para type 0 g 1), and B2A1 lutBToAType (identity B curves, 16-bit 11-point CLUT, A curves para type 0 g 0.95).
+    CS2 v2.1 'scnr' RGB, PCS Lab: A2B0 lut8Type (input tables x^0.95, 9-point CLUT of the D50 sRGB primaries with gamma 2.2,
+    identity output tables).
+    CS3 v4.4 'mntr' RGB, PCS XYZ: A2B0 lutAToBType with every element (A para g 2.2, 5-point 16-bit CLUT with cross-talk, M para
+    g 1.2, the D50 sRGB matrix in u1Fixed15 units with offsets, identity B), B2A0 lutBToAType (B identity, the inverse matrix, M
+    para g 1/1.2, 2-point identity CLUT, A para g 1/2.2), and also matrix/TRC tags (other primaries, gamma 1) that 8.10.2 says
+    the A2B0 tag overrides, and a chad (s15Fixed16ArrayType, the Bradford D65-to-D50 matrix).
+    CS4 v4.4 'mntr' GRAY, PCS Lab: A2B0 lutAToBType (a 5-entry sampled A curve, a 6-point one-input CLUT, identity B curves)."""
+    if ICC_LUT_PROFILES:
+        return ICC_LUT_PROFILES
+
+    def press(paper: float, density: float, encode):
+        return lambda c, m, y, k: encode(icc_ink(c, m, y, k, paper, density))
+
+    def separation(decode):
+        def function(*pcs: float) -> tuple[float, ...]:
+            return icc_cmyk_from_lab(decode(pcs))
+        return function
+
+    def from_legacy(v):
+        return v[0] * 65535 / 65280 * 100, v[1] * 65535 / 256 - 128, v[2] * 65535 / 256 - 128
+
+    def from_v4(v):
+        return v[0] * 100, v[1] * 255 - 128, v[2] * 255 - 128
+
+    curve_105 = [(i / 255) ** 1.05 for i in range(256)]
+    ICC_LUT_PROFILES["CS0"] = icc_profile(b"prtr", b"CMYK", [
+        (b"desc", icc_desc(b"Broadside CMYK lut16")), (b"cprt", ICC_COPYRIGHT), (b"wtpt", icc_xyz(*ICC_D50)),
+        (b"A2B0", icc_lut16(9, press(1.0, 0.85, icc_lab_legacy), [curve_105] * 4, [icc_identity_table(2)] * 3)),
+        (b"B2A0", icc_lut16(9, separation(from_legacy), [icc_identity_table(2)] * 3, [icc_identity_table(256)] * 4)),
+    ], pcs=b"Lab ")
+    ICC_LUT_PROFILES["CS1"] = icc_profile(b"prtr", b"CMYK", [
+        (b"desc", icc_mluc("Broadside CMYK lutAToB")), (b"cprt", icc_mluc("No copyright, use freely")),
+        (b"wtpt", icc_xyz(0.93, 0.96, 0.78)),
+        (b"A2B0", icc_mab(b"mAB ", 4, 3, [ICC_IDENTITY] * 3, clut=icc_clut([7] * 4, 1, press(1.0, 0.7, icc_lab_v4)),
+                          a=[icc_para(0, 1.1)] * 4)),
+        (b"A2B1", icc_mab(b"mAB ", 4, 3, [icc_para(0, 1.0)] * 3, clut=icc_clut([9] * 4, 2, press(0.97, 0.9, icc_lab_v4)),
+                          a=[ICC_IDENTITY] * 4)),
+        (b"B2A1", icc_mab(b"mBA ", 3, 4, [ICC_IDENTITY] * 3, clut=icc_clut([11] * 3, 2, separation(from_v4)),
+                          a=[icc_para(0, 0.95)] * 4)),
+    ], ICC_V4, pcs=b"Lab ")
+
+    def scanner(r, g, b):
+        return icc_lab_v4(icc_lab(icc_rgb_xyz(r ** 2.2, g ** 2.2, b ** 2.2)))
+    curve_095 = [(i / 255) ** 0.95 for i in range(256)]
+    ICC_LUT_PROFILES["CS2"] = icc_profile(b"scnr", b"RGB ", [
+        (b"desc", icc_desc(b"Broadside RGB lut8")), (b"cprt", ICC_COPYRIGHT), (b"wtpt", icc_xyz(*ICC_D50)),
+        (b"A2B0", icc_lut8(9, scanner, [curve_095] * 3, [icc_identity_table(256)] * 3)),
+    ], pcs=b"Lab ")
+
+    xyz_unit = 32768 / 65535  # u1Fixed15Number (6.3.4.2 Table 11): 1.0 is 8000h
+    forward = [[v * xyz_unit for v in row] for row in ICC_SRGB_D50]
+    offsets = [0.002, 0.001, 0.003]
+    det = (forward[0][0] * (forward[1][1] * forward[2][2] - forward[1][2] * forward[2][1])
+           - forward[0][1] * (forward[1][0] * forward[2][2] - forward[1][2] * forward[2][0])
+           + forward[0][2] * (forward[1][0] * forward[2][1] - forward[1][1] * forward[2][0]))
+    inverse = [[(forward[(c + 1) % 3][(r + 1) % 3] * forward[(c + 2) % 3][(r + 2) % 3]
+                 - forward[(c + 1) % 3][(r + 2) % 3] * forward[(c + 2) % 3][(r + 1) % 3]) / det for c in range(3)] for r in range(3)]
+
+    def crosstalk(r, g, b):
+        return 0.9 * r + 0.1 * g * r, 0.05 * r + 0.9 * g + 0.05 * b, 0.1 * g + 0.9 * b * (0.9 + 0.1 * b)
+    ICC_LUT_PROFILES["CS3"] = icc_profile(b"mntr", b"RGB ", [
+        (b"desc", icc_mluc("Broadside RGB lutAToB")), (b"cprt", icc_mluc("No copyright, use freely")),
+        (b"wtpt", icc_xyz(*ICC_D50)),
+        (b"chad", b"sf32" + b"\x00" * 4 + b"".join(s15f16(v) for v in (1.0478, 0.0229, -0.0501, 0.0295, 0.9905, -0.0171,
+                                                                         -0.0092, 0.0151, 0.7519))),
+        (b"rXYZ", icc_xyz(0.6097, 0.3111, 0.0195)), (b"gXYZ", icc_xyz(0.2053, 0.6257, 0.0609)),
+        (b"bXYZ", icc_xyz(0.1492, 0.0632, 0.7446)),
+        (b"rTRC", ICC_IDENTITY), (b"gTRC", ICC_IDENTITY), (b"bTRC", ICC_IDENTITY),
+        (b"A2B0", icc_mab(b"mAB ", 3, 3, [ICC_IDENTITY] * 3,
+                          matrix=[v for row in forward for v in row] + offsets, m=[icc_para(0, 1.2)] * 3,
+                          clut=icc_clut([5] * 3, 2, crosstalk), a=[icc_para(0, 2.2)] * 3)),
+        (b"B2A0", icc_mab(b"mBA ", 3, 3, [ICC_IDENTITY] * 3,
+                          matrix=[v for row in inverse for v in row] + [0, 0, 0], m=[icc_para(0, 1 / 1.2)] * 3,
+                          clut=icc_clut([2] * 3, 2, lambda r, g, b: (r, g, b)), a=[icc_para(0, 1 / 2.2)] * 3)),
+    ], ICC_V4)
+
+    ICC_LUT_PROFILES["CS4"] = icc_profile(b"mntr", b"GRAY", [
+        (b"desc", icc_mluc("Broadside gray lutAToB")), (b"cprt", icc_mluc("No copyright, use freely")),
+        (b"wtpt", icc_xyz(*ICC_D50)),
+        (b"A2B0", icc_mab(b"mAB ", 1, 3, [ICC_IDENTITY] * 3, clut=icc_clut([6], 2,
+                          lambda x: icc_lab_v4((100 * x ** 0.8, 0.0, 6 * (1 - x)))),
+                          a=[icc_sampled([0, 0.2, 0.45, 0.72, 1])])),
+    ], ICC_V4, pcs=b"Lab ")
+    return ICC_LUT_PROFILES
+
+
+def gen_icc_lut() -> bytes:
+    """8.6.5.5 ICCBased spaces with lookup-table profiles (ICC.1:2022 10.10 lut16Type, 10.11 lut8Type, 10.12 lutAToBType,
+    10.13 lutBToAType, 10.22 s15Fixed16ArrayType; 8.10.2 tag precedence), the five of icc_lut_profiles(), N 4, 4, 3, 3, 1 with
+    no Alternate. One row of 50 x 50 squares per space, top to bottom CS0 to CS4, painting ICC_LUT_SAMPLES left to right."""
+    profiles = icc_lut_profiles()
+    content = b""
+    for row, name in enumerate(profiles):
+        for column, sample in enumerate(ICC_LUT_SAMPLES[ICC_LUT_KINDS[name]]):
+            values = b" ".join(b"%g" % v for v in sample)
+            content += b"/%s cs %s scn %d %d 50 50 re f\n" % (name.encode(), values, 40 + 65 * column, 680 - 80 * row)
+    resources = (b"<< /ColorSpace << /CS0 [/ICCBased 5 0 R] /CS1 [/ICCBased 6 0 R] /CS2 [/ICCBased 7 0 R] "
+                 b"/CS3 [/ICCBased 8 0 R] /CS4 [/ICCBased 9 0 R] >> >>")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/N 4", profiles["CS0"])),
+        (6, stream(b"/N 4", profiles["CS1"])),
+        (7, stream(b"/N 3", profiles["CS2"])),
+        (8, stream(b"/N 3", profiles["CS3"])),
+        (9, stream(b"/N 1", profiles["CS4"])),
+    ], binary=True)
+
+
+def icc_press_profile(name: str, paper: float, density: float, saturation: float | None = None,
+                      perceptual: tuple[float, float] | None = None, white: tuple[float, float, float] = ICC_D50) -> bytes:
+    """A version 2.1 'prtr' CMYK output profile of the made-up press icc_ink(paper, density), PCS Lab, lut16Type throughout
+    (ICC.1:2022 8.5.2, 10.10): A2B1 and B2A1 the press itself; A2B0 and B2A0 a perceptual rendering (another paper and density,
+    the same press when not given); A2B2 (only when `saturation` is given) the press with a* and b* scaled by it. 9-point CLUTs,
+    identity input and output tables except 256-entry output tables on the BToA side."""
+    def legacy(lab):
+        return icc_lab_legacy(lab)
+
+    def press(p: float, d: float, chroma: float = 1.0):
+        def function(c, m, y, k):
+            lab = icc_ink(c, m, y, k, p, d)
+            return legacy((lab[0], lab[1] * chroma, lab[2] * chroma))
+        return function
+
+    def from_legacy(v):
+        return v[0] * 65535 / 65280 * 100, v[1] * 65535 / 256 - 128, v[2] * 65535 / 256 - 128
+
+    def separation(*pcs: float) -> tuple[float, ...]:
+        return icc_cmyk_from_lab(from_legacy(pcs))
+
+    in4 = [icc_identity_table(2)] * 4
+    out3 = [icc_identity_table(2)] * 3
+    in3 = [icc_identity_table(2)] * 3
+    out4 = [icc_identity_table(256)] * 4
+    p_paper, p_density = perceptual or (paper, density)
+    tags = [
+        (b"desc", icc_desc(name.encode())), (b"cprt", ICC_COPYRIGHT), (b"wtpt", icc_xyz(*white)),
+        (b"A2B0", icc_lut16(9, press(p_paper, p_density), in4, out3)),
+        (b"A2B1", icc_lut16(9, press(paper, density), in4, out3)),
+        (b"B2A0", icc_lut16(9, separation, in3, out4)),
+        (b"B2A1", icc_lut16(9, separation, in3, out4)),
+    ]
+    if saturation is not None:
+        tags.append((b"A2B2", icc_lut16(9, press(paper, density, saturation), in4, out3)))
+    return icc_profile(b"prtr", b"CMYK", tags, pcs=b"Lab ")
+
+
+OUTPUT_INTENT_PROFILES: dict[str, bytes] = {}
+"""Filled lazily by output_intent_profiles(): the catalog's and the page's output intent profiles of output-intent-cmyk.pdf."""
+
+OUTPUT_INTENT_SAMPLES = [(0, 0, 0, 0), (1, 0, 0, 0), (0, 1, 0, 0), (0, 0, 1, 0), (0, 0, 0, 1), (0.2, 0.4, 0.6, 0.1),
+                         (0.6, 0.4, 0.4, 1.0)]
+"""The DeviceCMYK colours output-intent-cmyk.pdf paints on each page, left to right."""
+
+
+def output_intent_profiles() -> dict[str, bytes]:
+    """The output intent profiles of output-intent-cmyk.pdf (icc_press_profile): "catalog", a dense press on white paper, and
+    "page", a lighter press on a warmer paper with a separate perceptual rendering."""
+    if not OUTPUT_INTENT_PROFILES:
+        OUTPUT_INTENT_PROFILES["catalog"] = icc_press_profile("Broadside made-up press", 1.0, 0.9)
+        OUTPUT_INTENT_PROFILES["page"] = icc_press_profile("Broadside made-up newsprint", 0.92, 0.65, perceptual=(0.95, 0.75),
+                                                           white=(0.90, 0.93, 0.74))
+    return OUTPUT_INTENT_PROFILES
+
+
+def gen_output_intent_cmyk() -> bytes:
+    """14.11.5 output intents (Table 401): the catalog's OutputIntents holds one GTS_PDFX output intent dictionary (indirect) whose
+    DestOutputProfile is a CMYK output profile (output_intent_profiles()["catalog"]); page 2 has its own OutputIntents (PDF 2.0,
+    7.7.3.3 Table 31) with a direct dictionary and another profile, which takes precedence for that page. Both pages paint
+    OUTPUT_INTENT_SAMPLES in DeviceCMYK (one row of 50 x 50 squares), then a DeviceRGB and a DeviceGray square below, which a CMYK
+    output intent does not characterise."""
+    profiles = output_intent_profiles()
+    identifier = file_id("output-intent-cmyk").hex().encode()
+    content = b""
+    for column, sample in enumerate(OUTPUT_INTENT_SAMPLES):
+        content += b"%s k %d 680 50 50 re f\n" % (b" ".join(b"%g" % v for v in sample), 40 + 65 * column)
+    content += b"0.9 0.2 0.1 rg 40 600 50 50 re f\n0.4 g 105 600 50 50 re f\n"
+    intent = (b"/Type /OutputIntent /S /GTS_PDFX /OutputCondition (Broadside made-up press) /OutputConditionIdentifier (Custom) "
+              b"/RegistryName (http://www.color.org) /Info (A made-up CMYK press for tests)")
+    page_intent = (b"<< /Type /OutputIntent /S /GTS_PDFX /OutputConditionIdentifier (Custom) /Info (A made-up newsprint press) "
+                   b"/DestOutputProfile 8 0 R >>")
+    return simple_file([
+        (1, catalog(b" /OutputIntents [6 0 R]")),
+        (2, pages([3, 4])),
+        (3, page(contents=5)),
+        (4, page(contents=5, extra=b" /OutputIntents [" + page_intent + b"]")),
+        (5, stream(b"", content)),
+        (6, b"<< " + intent + b" /DestOutputProfile 7 0 R >>"),
+        (7, stream(b"/N 4", profiles["catalog"])),
+        (8, stream(b"/N 4", profiles["page"])),
+    ], version="2.0", binary=True, trailer_extra=b" /ID [<%s> <%s>]" % (identifier, identifier))
+
+
+RENDERING_INTENT_PROFILE: list[bytes] = []
+"""Filled lazily by rendering_intent_profile(): the CMYK profile of rendering-intents.pdf."""
+
+RENDERING_INTENT_COLORS = {"bright": (0.2, 0.6, 0.8, 0.0), "dark": (0.6, 0.4, 0.4, 1.0)}
+"""The two colours rendering-intents.pdf paints; both are exact in 8-bit image samples."""
+
+RENDERING_INTENT_SQUARES = [
+    ("bright", "RelativeColorimetric", b"", "the initial intent"),
+    ("bright", "Perceptual", b"/Perceptual ri ", "ri"),
+    ("bright", "Saturation", b"/Saturation ri ", "ri"),
+    ("bright", "AbsoluteColorimetric", b"/AbsoluteColorimetric ri ", "ri"),
+    ("bright", "Saturation", b"/GS0 gs ", "the ExtGState RI"),
+    ("bright", "Perceptual", b"/GS0 gs ", "the image Intent over the ExtGState RI"),
+    ("dark", "RelativeColorimetric", b"/GS1 gs ", "UseBlackPtComp OFF"),
+    ("dark", "RelativeColorimetric", b"/GS2 gs ", "UseBlackPtComp ON"),
+    ("dark", "RelativeColorimetric", b"", "UseBlackPtComp Default"),
+]
+"""The squares of rendering-intents.pdf, left to right, six on the first row and three on the second: colour, the intent in
+effect, the operators that set it, and what they exercise. The sixth square is an image XObject; the others are filled paths."""
+
+
+def rendering_intent_profile() -> bytes:
+    """The profile of rendering-intents.pdf (icc_press_profile): a dense press on a bluish-white paper (wtpt 0.93 0.97 0.86)
+    whose four intents give different colours: A2B0 a lighter perceptual rendering, A2B1 the press, A2B2 the press with chroma
+    raised by 1.4, and ICC-absolute colorimetry through the media white point; its black is far from L* 0."""
+    if not RENDERING_INTENT_PROFILE:
+        RENDERING_INTENT_PROFILE.append(icc_press_profile("Broadside four intents", 0.97, 0.8, saturation=1.4,
+                                                          perceptual=(1.0, 0.6), white=(0.93, 0.97, 0.86)))
+    return RENDERING_INTENT_PROFILE[0]
+
+
+def gen_rendering_intents() -> bytes:
+    """8.6.5.8 rendering intents (Table 69) set by ri (8.4.4), the ExtGState RI entry (8.4.5 Table 57) and an image's Intent entry
+    (8.9.5 Table 87), and 8.6.5.9 UseBlackPtComp (Table 57, PDF 2.0) OFF, ON and absent, all on colours of one ICCBased CMYK space
+    (rendering_intent_profile(), N 4) whose intents differ. RENDERING_INTENT_SQUARES lists the 70 x 70 squares; each is
+    painted inside q ... Q so its intent does not carry over."""
+    content = b""
+    for index, (color, _, operators, _) in enumerate(RENDERING_INTENT_SQUARES):
+        x = 40 + 85 * (index % 6)
+        y = 650 - 100 * (index // 6)
+        if index == 5:
+            content += b"q %s%d 0 0 70 %d %d cm /Im0 Do Q\n" % (operators, 70, x, y)
+            continue
+        values = b" ".join(b"%g" % v for v in RENDERING_INTENT_COLORS[color])
+        content += b"q %s/CS0 cs %s scn %d %d 70 70 re f Q\n" % (operators, values, x, y)
+    image = bytes(round(v * 255) for v in RENDERING_INTENT_COLORS["bright"]) * 4
+    identifier = file_id("rendering-intents").hex().encode()
+    resources = (b"<< /ColorSpace << /CS0 [/ICCBased 5 0 R] >> /XObject << /Im0 6 0 R >> /ExtGState << "
+                 b"/GS0 << /Type /ExtGState /RI /Saturation >> /GS1 << /Type /ExtGState /UseBlackPtComp /OFF >> "
+                 b"/GS2 << /Type /ExtGState /UseBlackPtComp /ON >> >> >>")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=b" /Resources " + resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/N 4", rendering_intent_profile())),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 2 /BitsPerComponent 8 /ColorSpace [/ICCBased 5 0 R] "
+                   b"/Intent /Perceptual", image)),
+    ], version="2.0", binary=True, trailer_extra=b" /ID [<%s> <%s>]" % (identifier, identifier))
 
 # ---------------------------------------------------------------------------
 # Shadings and patterns (clause 8.7)
@@ -3723,6 +4901,44 @@ def gen_pattern_in_form() -> bytes:
                     b"/Resources << >>", b"0 0.5 0 rg 0 0 10 10 re f"))])
 
 
+def gen_shading_radial_cases() -> bytes:
+    """8.7.4.5.4 Table 80 and Figures 34-36: radial shadings (red to blue, DeviceRGB) in six 180 x 180 cells, each painted
+    with sh inside a re W n clip, except the last, a shading pattern (8.7.4.1). Top row, left to right: A a sphere, the
+    starting circle a point inside the ending circle (Figure 35 left), with a Background (Table 77) that sh ignores; B a
+    sphere, the ending circle a point inside the starting circle (Figure 35 right); C an inner circle of radius 15 inside
+    the ending circle, extended at the larger end (Figure 36), so the whole cell is painted. Bottom row: D the starting
+    circle inside the ending circle and touching it at one point (|centre distance| = r1 - r0, so the quadratic in s is
+    linear); E circles touching from outside (|centre distance| = r0 + r1), extended at both ends (a cone, Figure 34);
+    F shading A as a shading pattern translated into the cell, its Background filling the cell outside the circles."""
+    cells = [(21, 591), (216, 591), (411, 591), (21, 396), (216, 396), (411, 396)]
+    function = b"/Function << /FunctionType 2 /Domain [0 1] /C0 [1 0 0] /C1 [0 0 1] /N 1 >>"
+
+    def radial(coords: str, extra: str = "") -> bytes:
+        return b"<< /ShadingType 3 /ColorSpace /DeviceRGB /Coords [%s] %s %s >>" % (
+            coords.encode(), function, extra.encode())
+
+    (ax, ay), (bx, by), (cx, cy), (dx, dy), (ex, ey), (fx, fy) = [(x + 90, y + 90) for x, y in cells]
+    shadings = [
+        radial(f"{ax - 25} {ay + 25} 0 {ax} {ay} 70", "/Background [0.8 0.8 0.8]"),
+        radial(f"{bx} {by} 70 {bx + 25} {by + 25} 0"),
+        radial(f"{cx} {cy} 15 {cx + 15} {cy} 50", "/Extend [false true]"),
+        radial(f"{dx - 30} {dy} 30 {dx} {dy} 60"),
+        radial(f"{ex - 45} {ey} 15 {ex + 15} {ey} 45", "/Extend [true true]"),
+    ]
+    content = b"".join(b"q %d %d 180 180 re W n /Sh%d sh Q\n" % (x, y, i) for i, (x, y) in enumerate(cells[:5]))
+    content += b"/Pattern cs /P0 scn %d %d 180 180 re f\n" % cells[5]
+    names = b" ".join(b"/Sh%d %d 0 R" % (i, 5 + i) for i in range(5))
+    resources = b" /Resources << /Shading << %s >> /Pattern << /P0 10 0 R >> >>" % names
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=resources)),
+        (4, stream(b"", content)),
+        *[(5 + i, shading) for i, shading in enumerate(shadings)],
+        (10, b"<< /Type /Pattern /PatternType 2 /Matrix [1 0 0 1 %d %d] /Shading 5 0 R >>" % (fx - ax, fy - ay)),
+    ], version="1.7", binary=True)
+
+
 def gen_pattern_recursive() -> bytes:
     """Broken (8.7.3.1): the tiling pattern's cell fills with the pattern itself, an endless recursion."""
     return pattern_page(
@@ -3799,6 +5015,283 @@ def gen_extgstate_params() -> bytes:
         (8, b"<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >>"),
         (9, HELVETICA),
     ], version="2.0", trailer_extra=b" /ID [<%s> <%s>]" % (file_id("extgstate-params").hex().encode(), file_id("extgstate-params").hex().encode()))
+
+
+def gen_transfer_functions() -> bytes:
+    """10.5 transfer functions set through 8.4.5 Table 57 (TR, TR2), on a Letter page in rows of 100 x 100 patches from x = 40
+    every 140 (ISO 32000-2 deprecates TR in PDF 2.0; the file is PDF 1.7). Functions (7.10): Square f(x) = x^2, Invert
+    1 - x, Root x^0.5 (Type 2), PsInvert {1 exch sub} (Type 4) and Sampled (Type 0, 5 samples 0 200 60 230 255 / 255,
+    linear between them).
+    Row 1 (y 640), TR Square (one function for every component): 0.25 g, 0.75 g, 0.2 0.5 0.8 rg, and image Im0 (2 x 1
+    DeviceGray, samples 64 and 192).
+    Row 2 (y 500), TR [Invert Square Root Invert] (red, green, blue, gray: an RGB device uses the first three): 0.25 g,
+    0.2 0.5 0.8 rg, 1 1 1 rg, Im0.
+    Row 3 (y 360), TR2 PsInvert: 0.25 g, 0.2 0.5 0.8 rg; then in q/Q TR2 /Default 0.25 g; then in q/Q TR /Identity 0.75 g.
+    Row 4 (y 220), TR2 [Sampled Square Root Invert] with TR Invert in the same dictionary (TR2 wins): 0.6 0.6 0.6 rg,
+    Separation /All at tint 0.5 (1 - tint on every component, then the functions), Separation /None at 0.5 (paints nothing,
+    the page shows), and a DeviceGray axial shading 0 to 1 across the patch (sh in a clip).
+    Row 5 (y 130): under TR Square, a 10-wide 0.5 g stroke from x 40 to 560."""
+    square = b"<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 2 >>"
+    invert = b"<< /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >>"
+    root = b"<< /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 0.5 >>"
+    content = (b"q /Square gs 0.25 g 40 640 100 100 re f 0.75 g 180 640 100 100 re f 0.2 0.5 0.8 rg 320 640 100 100 re f"
+               b" q 100 0 0 100 460 640 cm /Im0 Do Q Q\n"
+               b"q /Four gs 0.25 g 40 500 100 100 re f 0.2 0.5 0.8 rg 180 500 100 100 re f 1 1 1 rg 320 500 100 100 re f"
+               b" q 100 0 0 100 460 500 cm /Im0 Do Q Q\n"
+               b"q /PsInvert gs 0.25 g 40 360 100 100 re f 0.2 0.5 0.8 rg 180 360 100 100 re f"
+               b" q /Default gs 0.25 g 320 360 100 100 re f Q q /Identity gs 0.75 g 460 360 100 100 re f Q Q\n"
+               b"q /Sampled gs 0.6 0.6 0.6 rg 40 220 100 100 re f /CS0 cs 0.5 scn 180 220 100 100 re f"
+               b" /CS1 cs 0.5 scn 320 220 100 100 re f q 460 220 100 100 re W n /Sh0 sh Q Q\n"
+               b"q /Square gs 10 w 0.5 G 40 130 m 560 130 l S Q\n")
+    resources = (b" /Resources << /ExtGState << /Square << /TR " + square + b" >> /Four << /TR [" + invert + b" " + square
+                 + b" " + root + b" " + invert + b"] >> /PsInvert << /TR2 6 0 R >> /Default << /TR2 /Default >>"
+                 b" /Identity << /TR /Identity >> /Sampled << /TR " + invert + b" /TR2 [7 0 R " + square + b" " + root + b" "
+                 + invert + b"] >> >> /XObject << /Im0 5 0 R >> /ColorSpace << /CS0 [/Separation /All /DeviceGray " + invert
+                 + b"] /CS1 [/Separation /None /DeviceGray " + invert + b"] >> /Shading << /Sh0 << /ShadingType 2"
+                 b" /ColorSpace /DeviceGray /Coords [460 0 560 0] /Function << /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1]"
+                 b" /N 1 >> /Extend [true true] >> >> >>")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8",
+                   bytes([64, 192]))),
+        (6, stream(b"/FunctionType 4 /Domain [0 1] /Range [0 1]", b"{1 exch sub}")),
+        (7, stream(b"/FunctionType 0 /Domain [0 1] /Range [0 1] /Size [5] /BitsPerSample 8", bytes([0, 200, 60, 230, 255]))),
+    ])
+
+
+def gen_overprint() -> bytes:
+    """8.6.7 overprint control (OP, op, OPM; Table 57) and 11.7.4.5 Table 146, for overprint preview: 20 cells on a Letter page,
+    4 per row from x = 36 every 144, rows from the top every 150 (row r's cell origin is y = 612 - 150 r). In each cell a
+    backdrop square (x0, y0 + 40, 80 x 80) is painted first, then an overlay square (x0 + 40, y0, 80 x 80) under an ExtGState:
+    /Knock (OP false), /Op0 (OP true, OPM 0), /Op1 (OP true, OPM 1), /Stroke (OP true, op false, OPM 1). The middle
+    40 x 40 is where they overlap. Spot colours: /Orange = Separation /BroadsideOrange (alternate DeviceCMYK 0 0.6 1 0),
+    /Green = Separation /BroadsideGreen (0.8 0 1 0), /Cyan = Separation /Cyan (a process colourant), /MG = DeviceN
+    [/Magenta /BroadsideGreen] (Type 4 tint transform to 0.8g m g 0).
+    Row 0: cyan backdrop, magenta overlay under Knock, Op0, Op1; 0.6 0 0.3 0 k under 0 0.5 0 0.2 k with Op1.
+    Row 1: Op1 with every component 0 (0 0 0 0 k over 0.2 0.8 0.4 0 k: paints nothing); Op1 0.5 g and 1 g over cyan
+    (DeviceGray, a process space, replaces every process colourant: 1 g knocks out to white where 0 0 0 0 k did not);
+    Stroke: a magenta overlay fill knocks out, then a yellow 10-wide vertical stroke at x0 + 60 from y0 to y0 + 120
+    overprints.
+    Row 2: Orange over cyan (Knock, Op0); magenta (Op0) over Orange; 0.5 g (Op1) over Orange 0.8.
+    Row 3: Separation /Cyan over magenta (Op0); MG 0.5 1 over cyan (Op0); Orange over Green (Op0); MG 1 0 over Green (Knock).
+    Row 4: a 2 x 2 DeviceCMYK image over Orange (Op0, Knock); a DeviceCMYK axial shading cyan to magenta over Orange (Op1, sh
+    in a clip); an 8 x 8 checkerboard stencil mask in 0 1 0 0 k over cyan (Op1)."""
+    def cell(index: int, backdrop: bytes, overlay: bytes) -> bytes:
+        x = 36 + (index % 4) * 144
+        y = 612 - (index // 4) * 150
+        return (b"q %s %d %d 80 80 re f Q\n" % (backdrop, x, y + 40)
+                + b"q " + overlay.replace(b"$X", b"%d" % (x + 40)).replace(b"$Y", b"%d" % y).replace(b"$S", b"%d" % (x + 60))
+                .replace(b"$T", b"%d" % (y + 120)) + b" Q\n")
+
+    square = b"$X $Y 80 80 re f"
+    image = b"q 80 0 0 80 $X $Y cm /Im0 Do Q"
+    content = b"".join([
+        cell(0, b"1 0 0 0 k", b"/Knock gs 0 1 0 0 k " + square),
+        cell(1, b"1 0 0 0 k", b"/Op0 gs 0 1 0 0 k " + square),
+        cell(2, b"1 0 0 0 k", b"/Op1 gs 0 1 0 0 k " + square),
+        cell(3, b"0.6 0 0.3 0 k", b"/Op1 gs 0 0.5 0 0.2 k " + square),
+        cell(4, b"0.2 0.8 0.4 0 k", b"/Op1 gs 0 0 0 0 k " + square),
+        cell(5, b"1 0 0 0 k", b"/Op1 gs 0.5 g " + square),
+        cell(6, b"1 0 0 0 k", b"/Op1 gs 1 g " + square),
+        cell(7, b"1 0 0 0 k", b"/Stroke gs 0 1 0 0 k " + square + b" 0 0 1 0 K 10 w $S $Y m $S $T l S"),
+        cell(8, b"1 0 0 0 k", b"/Knock gs /Orange cs 1 scn " + square),
+        cell(9, b"1 0 0 0 k", b"/Op0 gs /Orange cs 1 scn " + square),
+        cell(10, b"/Orange cs 1 scn", b"/Op0 gs 0 1 0 0 k " + square),
+        cell(11, b"/Orange cs 0.8 scn", b"/Op1 gs 0.5 g " + square),
+        cell(12, b"0 1 0 0 k", b"/Op0 gs /Cyan cs 1 scn " + square),
+        cell(13, b"1 0 0 0 k", b"/Op0 gs /MG cs 0.5 1 scn " + square),
+        cell(14, b"/Green cs 1 scn", b"/Op0 gs /Orange cs 1 scn " + square),
+        cell(15, b"/Green cs 1 scn", b"/Knock gs /MG cs 1 0 scn " + square),
+        cell(16, b"/Orange cs 1 scn", b"/Op0 gs " + image),
+        cell(17, b"/Orange cs 1 scn", b"/Knock gs " + image),
+        cell(18, b"/Orange cs 1 scn", b"/Op1 gs $X $Y 80 80 re W n q 80 0 0 80 $X $Y cm /Sh0 sh Q"),
+        cell(19, b"1 0 0 0 k", b"/Op1 gs 0 1 0 0 k q 80 0 0 80 $X $Y cm /Im1 Do Q"),
+    ])
+    orange = b"<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [0 0.6 1 0] /N 1 >>"
+    green = b"<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [0.8 0 1 0] /N 1 >>"
+    cyan = b"<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0 0] /C1 [1 0 0 0] /N 1 >>"
+    resources = (b" /Resources << /ExtGState << /Knock << /OP false /op false /OPM 0 >> /Op0 << /OP true /op true /OPM 0 >>"
+                 b" /Op1 << /OP true /op true /OPM 1 >> /Stroke << /OP true /op false /OPM 1 >> >>"
+                 b" /ColorSpace << /Orange [/Separation /BroadsideOrange /DeviceCMYK " + orange + b"]"
+                 b" /Green [/Separation /BroadsideGreen /DeviceCMYK " + green + b"]"
+                 b" /Cyan [/Separation /Cyan /DeviceCMYK " + cyan + b"]"
+                 b" /MG [/DeviceN [/Magenta /BroadsideGreen] /DeviceCMYK 7 0 R] >>"
+                 b" /XObject << /Im0 5 0 R /Im1 6 0 R >>"
+                 b" /Shading << /Sh0 << /ShadingType 2 /ColorSpace /DeviceCMYK /Coords [0 0 1 0] /Function << /FunctionType 2"
+                 b" /Domain [0 1] /C0 [1 0 0 0] /C1 [0 1 0 0] /N 1 >> /Extend [true true] >> >> >>")
+    checkerboard = bytes([0xAA if row % 2 == 0 else 0x55 for row in range(8)])
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False, extra=resources)),
+        (4, stream(b"", content)),
+        (5, stream(b"/Type /XObject /Subtype /Image /Width 2 /Height 2 /ColorSpace /DeviceCMYK /BitsPerComponent 8",
+                   bytes([255, 0, 0, 0, 0, 255, 0, 0, 0, 0, 255, 0, 0, 0, 0, 255]))),
+        (6, stream(b"/Type /XObject /Subtype /Image /Width 8 /Height 8 /ImageMask true /Decode [1 0]", checkerboard)),
+        (7, stream(b"/FunctionType 4 /Domain [0 1 0 1] /Range [0 1 0 1 0 1 0 1]", b"{dup 0.8 mul 3 1 roll 0}")),
+    ])
+
+
+BLEND_MODES = ["Normal", "Multiply", "Screen", "Overlay", "Darken", "Lighten", "ColorDodge", "ColorBurn", "HardLight",
+               "SoftLight", "Difference", "Exclusion", "Hue", "Saturation", "Color", "Luminosity"]
+
+
+def gen_transparency_blend_modes() -> bytes:
+    """11.3.5 Tables 134 and 135, 11.6.3, 11.6.4.4: the 16 standard blend modes, each at nonstroking alpha 1 and 0.5, over
+    a gradient backdrop. The page is a 4 x 4 grid of 153 x 198 cells, the modes in table order left to right, top to
+    bottom. In each cell an axial shading (8.7.4.5.3) from yellow (1 0.9 0.1) at x = 8 to dark blue (0.1 0.2 0.6) at
+    x = 145, painted with sh inside a 137 x 178 clip from (8, 10), is the backdrop; a rectangle in (0.2 0.7 0.9), from
+    x = 20 to 133, is filled over it at y 110..170 under /BM mode /ca 1 and at y 30..90 under /BM mode /ca 0.5. The
+    band y 90..110 shows the backdrop alone."""
+    cells = []
+    for index, mode in enumerate(BLEND_MODES):
+        x = (index % 4) * 153
+        y = 792 - (index // 4 + 1) * 198
+        cells.append(b"q 1 0 0 1 %d %d cm q 8 10 137 178 re W n /Sh0 sh Q 0.2 0.7 0.9 rg "
+                     b"q /G%dA gs 20 110 113 60 re f Q q /G%dH gs 20 30 113 60 re f Q Q\n" % (x, y, index, index))
+    states = b" ".join(b"/G%dA << /BM /%s /ca 1 >> /G%dH << /BM /%s /ca 0.5 >>" % (i, m.encode(), i, m.encode())
+                       for i, m in enumerate(BLEND_MODES))
+    shading = (b"<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [8 0 145 0] /Function << /FunctionType 2 /Domain [0 1]"
+               b" /C0 [1 0.9 0.1] /C1 [0.1 0.2 0.6] /N 1 >> >>")
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << /ExtGState << " + states + b" >> /Shading << /Sh0 5 0 R >> >>")),
+        (4, stream(b"", b"".join(cells))),
+        (5, shading),
+    ], version="1.7")
+
+
+def disc(cx: float, cy: float, r: float) -> bytes:
+    """A circle of radius ``r`` about (cx, cy) as four cubic Bezier arcs (8.5.2.2), closed."""
+    k = 0.5523 * r
+    return (b"%g %g m %g %g %g %g %g %g c %g %g %g %g %g %g c %g %g %g %g %g %g c %g %g %g %g %g %g c h"
+            % (cx + r, cy,
+               cx + r, cy + k, cx + k, cy + r, cx, cy + r,
+               cx - k, cy + r, cx - r, cy + k, cx - r, cy,
+               cx - r, cy - k, cx - k, cy - r, cx, cy - r,
+               cx + k, cy - r, cx + r, cy - k, cx + r, cy))
+
+
+def gen_transparency_groups() -> bytes:
+    """11.4.5, 11.4.6, 11.4.7, 11.6.6 Table 145, 11.7.4.4: transparency groups. Page 1 (no page group) is a 2 x 4 grid of
+    306 x 198 cells, each over a DeviceRGB axial shading from yellow (1 0.9 0.1) to dark blue (0.1 0.2 0.6) across the
+    cell (8.7.4.5.3). In rows 1 and 2 a group XObject holds four overlapping discs of radius 40 (red, green, blue and
+    yellow, after Figure 74) painted with /BM /Multiply inside it: row 1 isolated (/I true), row 2 non-isolated; the left
+    column knockout (/K true), the right not. Row 3 left: the same discs in an isolated group painted with /ca 0.5 and
+    /BM /Multiply at Do; right: cyan, magenta and yellow discs (DeviceCMYK, Multiply) in an isolated group with
+    /CS /DeviceCMYK, beside the same discs in an isolated /CS /DeviceRGB group. Row 4 left: a rectangle filled red and
+    stroked 16 wide in blue with b under /CA 0.5 (one object, 11.7.4.4: the stroke does not show the fill through it);
+    right: a non-isolated group at /ca 0.5 holding two overlapping black squares. Page 2 has a page group
+    /CS /DeviceCMYK: cyan and magenta discs at /ca 0.5 overlap, a yellow disc multiplies over them, on white."""
+    shading = (b"<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 306 0] /Function << /FunctionType 2 /Domain [0 1]"
+               b" /C0 [1 0.9 0.1] /C1 [0.1 0.2 0.6] /N 1 >> >>")
+    rgb_discs = (b"1 0 0 rg " + disc(-25, 25, 40) + b" f 0 1 0 rg " + disc(25, 25, 40) + b" f "
+                 b"0 0 1 rg " + disc(-25, -25, 40) + b" f 1 1 0 rg " + disc(25, -25, 40) + b" f")
+    cmy_discs = (b"1 0 0 0 k " + disc(0, 25, 35) + b" f 0 1 0 0 k " + disc(-22, -12, 35) + b" f "
+                 b"0 0 1 0 k " + disc(22, -12, 35) + b" f")
+    states = (b"/ExtGState << /M << /BM /Multiply >> /HM << /BM /Multiply /ca 0.5 >> /H << /ca 0.5 >> "
+              b"/HS << /CA 0.5 >> >>")
+    resources = b"/Resources << " + states + b" >>"
+
+    def form(group: bytes, content: bytes, bbox: bytes = b"[-80 -80 80 80]") -> bytes:
+        return stream(b"/Type /XObject /Subtype /Form /BBox " + bbox + b" /Group << /S /Transparency " + group + b" >> "
+                      + resources, content)
+
+    forms = [
+        form(b"/I true /K true", b"/M gs " + rgb_discs),          # 6: isolated knockout
+        form(b"/I true", b"/M gs " + rgb_discs),                  # 7: isolated
+        form(b"/K true", b"/M gs " + rgb_discs),                  # 8: non-isolated knockout
+        form(b"", b"/M gs " + rgb_discs),                         # 9: non-isolated
+        form(b"/I true /CS /DeviceCMYK", b"/M gs " + cmy_discs),  # 10: CMYK
+        form(b"/I true /CS /DeviceRGB", b"/M gs " + cmy_discs),   # 11: RGB
+        form(b"", b"0 g -60 -40 80 80 re f -20 -40 80 80 re f"),  # 12: two black squares
+    ]
+    cells = []
+
+    def cell(column: int, row: int, body: bytes) -> None:
+        x = column * 306
+        y = 792 - (row + 1) * 198
+        cells.append(b"q 1 0 0 1 %d %d cm q 0 0 306 198 re W n /Sh0 sh Q %s Q\n" % (x, y, body))
+
+    cell(0, 0, b"q 1 0 0 1 153 99 cm /G6 Do Q")
+    cell(1, 0, b"q 1 0 0 1 153 99 cm /G7 Do Q")
+    cell(0, 1, b"q 1 0 0 1 153 99 cm /G8 Do Q")
+    cell(1, 1, b"q 1 0 0 1 153 99 cm /G9 Do Q")
+    cell(0, 2, b"q /HM gs 1 0 0 1 153 99 cm /G7 Do Q")
+    cell(1, 2, b"q 1 0 0 1 80 99 cm /G10 Do Q q 1 0 0 1 226 99 cm /G11 Do Q")
+    cell(0, 3, b"q /HS gs 16 w 1 0 0 rg 0 0 1 RG 83 49 140 100 re b Q")
+    cell(1, 3, b"q /H gs 1 0 0 1 153 99 cm /G12 Do Q")
+    xobjects = b" ".join(b"/G%d %d 0 R" % (n, n) for n in range(6, 13))
+    page2 = (b"/H gs 1 0 0 0 k " + disc(256, 420, 90) + b" f 0 1 0 0 k " + disc(356, 420, 90) + b" f "
+             b"/M gs 0 0 1 0 k " + disc(306, 340, 90) + b" f")
+    return simple_file([
+        (1, catalog()),
+        (2, pages([3, 13])),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << " + states + b" /Shading << /Sh0 5 0 R >> /XObject << " + xobjects + b" >> >>")),
+        (4, stream(b"", b"".join(cells))),
+        (5, shading),
+        *[(6 + i, f) for i, f in enumerate(forms)],
+        (13, page(contents=14, resources=False,
+                  extra=b" /Group << /S /Transparency /CS /DeviceCMYK >> /Resources << " + states + b" >>")),
+        (14, stream(b"", page2)),
+    ], version="1.7")
+
+
+def gen_transparency_soft_masks() -> bytes:
+    """11.5, 11.6.4.3, 11.6.5.1 Table 142 (SMask, TR, BC), 11.6.6: soft masks in the graphics state. A 2 x 3 grid of 306 x 264
+    cells, each over a DeviceRGB axial shading from yellow (1 0.9 0.1) to dark blue (0.1 0.2 0.6), each painting a red
+    240 x 200 rectangle (or a group) about the cell centre under a soft mask. The luminosity masks' group (/CS /DeviceGray,
+    BBox [-100 -80 100 80] about the centre) is a horizontal gray axial shading from black to white; the alpha masks' group
+    is an opaque disc of radius 70. Row 1 left: luminosity with /BC [1] (the rectangle shows whole outside the mask's
+    bounding box, fades to nothing at its left edge inside it); right: alpha (the rectangle shows as a disc). Row 2 left: alpha
+    with an inverting /TR (a disc-shaped hole); right: luminosity set under a 30 degree rotation (the gradient runs at 30
+    degrees, the rectangle stays square; outside the rotated box /BC 0 hides it). Row 3 left: a mask turned off again by
+    /SMask /None (the plain rectangle); right: a transparency group of two overlapping blue discs painted with Do under the
+    luminosity mask (masked as a whole: the overlap is no darker than the rest)."""
+    backdrop = (b"<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [0 0 306 0] /Function << /FunctionType 2 /Domain [0 1]"
+                b" /C0 [1 0.9 0.1] /C1 [0.1 0.2 0.6] /N 1 >> >>")
+    gradient = (b"/Resources << /Shading << /SG << /ShadingType 2 /ColorSpace /DeviceGray /Coords [-100 0 100 0] /Function"
+                b" << /FunctionType 2 /Domain [0 1] /C0 [0] /C1 [1] /N 1 >> >> >> >>")
+    states = (b"/ExtGState << /LB << /SMask << /Type /Mask /S /Luminosity /G 6 0 R /BC [1] >> >>"
+              b" /L << /SMask << /Type /Mask /S /Luminosity /G 6 0 R >> >>"
+              b" /A << /SMask << /Type /Mask /S /Alpha /G 7 0 R >> >>"
+              b" /AT << /SMask << /Type /Mask /S /Alpha /G 7 0 R /TR 8 0 R >> >>"
+              b" /N << /SMask /None >> >>")
+    rect = b"1 0 0 rg -120 -100 240 200 re f"
+    cells = []
+
+    def cell(column: int, row: int, body: bytes) -> None:
+        x = column * 306
+        y = 792 - (row + 1) * 264
+        cells.append(b"q 1 0 0 1 %d %d cm q 0 0 306 264 re W n /Sh0 sh Q 1 0 0 1 153 132 cm %s Q\n" % (x, y, body))
+
+    cell(0, 0, b"/LB gs " + rect)
+    cell(1, 0, b"/A gs " + rect)
+    cell(0, 1, b"/AT gs " + rect)
+    cell(1, 1, b"0.866 0.5 -0.5 0.866 0 0 cm /L gs 0.866 -0.5 0.5 0.866 0 0 cm " + rect)
+    cell(0, 2, b"/L gs /N gs " + rect)
+    cell(1, 2, b"/L gs /G9 Do")
+    return simple_file([
+        (1, catalog()),
+        (2, pages([3])),
+        (3, page(contents=4, resources=False,
+                 extra=b" /Resources << " + states + b" /Shading << /Sh0 5 0 R >> /XObject << /G9 9 0 R >> >>")),
+        (4, stream(b"", b"".join(cells))),
+        (5, backdrop),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [-100 -80 100 80] /Group << /S /Transparency /CS /DeviceGray >> "
+                   + gradient, b"/SG sh")),
+        (7, stream(b"/Type /XObject /Subtype /Form /BBox [-100 -80 100 80] /Group << /S /Transparency >>",
+                   b"0 g " + disc(0, 0, 70) + b" f")),
+        (8, b"<< /FunctionType 2 /Domain [0 1] /C0 [1] /C1 [0] /N 1 >>"),
+        (9, stream(b"/Type /XObject /Subtype /Form /BBox [-120 -100 120 100] /Group << /S /Transparency >>",
+                   b"0 0 1 rg " + disc(-35, 0, 65) + b" f " + disc(35, 0, 65) + b" f")),
+    ], version="1.7")
 
 
 def gen_marked_content() -> bytes:
@@ -3985,6 +5478,41 @@ def gen_image_16bpc() -> bytes:
 def gen_image_decode_inverted() -> bytes:
     """8.9.5.2 Table 88 Decode: a 4 x 1 DeviceGray 8-bit ramp 0, 85, 170, 255 with /Decode [1 0], which reverses it."""
     return one_image(b"/Width 4 /Height 1 /ColorSpace /DeviceGray /BitsPerComponent 8 /Decode [1 0]", bytes([0, 85, 170, 255]))
+
+
+def gen_image_alternates() -> bytes:
+    """8.9.5.4 Table 89 alternate images and the selection algorithm, with 8.11.3.3 optional content. One 200 x 200 page, four
+    cells, each a 1 x 1 DeviceRGB image XObject painted 80 x 80 (named by colour below). Groups: Screen (ON) and Hidden (OFF in D).
+    Top left /Im1: red base, Alternates [green DefaultForPrinting]: red on screen, green when printed (rule d). Top right /Im2:
+    blue base with /OC Screen, Alternates [yellow DefaultForPrinting]: the base OC is visible, so blue for both (rules a, b).
+    Bottom left /Im3: red base with /OC Hidden, Alternates [magenta /OC Hidden, cyan]: the first visible alternate, cyan, for both
+    (rule c). Bottom right /Im4: grey base, Alternates [black DefaultForPrinting /OC Hidden]: grey on screen, nothing printed
+    (rule d, the selected alternate's OC is processed). PDF 1.5."""
+    def rgb(r: int, g: int, b: int, extra: bytes = b"") -> bytes:
+        return stream(b"/Type /XObject /Subtype /Image /Width 1 /Height 1 /ColorSpace /DeviceRGB /BitsPerComponent 8" + extra,
+                      bytes([r, g, b]))
+    content = (b"q 80 0 0 80 10 110 cm /Im1 Do Q\n"
+               b"q 80 0 0 80 110 110 cm /Im2 Do Q\n"
+               b"q 80 0 0 80 10 10 cm /Im3 Do Q\n"
+               b"q 80 0 0 80 110 10 cm /Im4 Do Q\n")
+    return simple_file([
+        (1, catalog(b" /OCProperties << /OCGs [5 0 R 6 0 R] /D << /OFF [6 0 R] >> >>")),
+        (2, pages()),
+        (3, page(mediabox=b"[0 0 200 200]", contents=4, resources=False,
+                 extra=b" /Resources << /XObject << /Im1 7 0 R /Im2 9 0 R /Im3 11 0 R /Im4 14 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, b"<< /Type /OCG /Name (Screen) >>"),
+        (6, b"<< /Type /OCG /Name (Hidden) >>"),
+        (7, rgb(255, 0, 0, b" /Alternates [<< /Image 8 0 R /DefaultForPrinting true >>]")),
+        (8, rgb(0, 255, 0)),
+        (9, rgb(0, 0, 255, b" /OC 5 0 R /Alternates [<< /Image 10 0 R /DefaultForPrinting true >>]")),
+        (10, rgb(255, 255, 0)),
+        (11, rgb(255, 0, 0, b" /OC 6 0 R /Alternates [<< /Image 12 0 R /OC 6 0 R >> << /Image 13 0 R >>]")),
+        (12, rgb(255, 0, 255)),
+        (13, rgb(0, 255, 255)),
+        (14, rgb(128, 128, 128, b" /Alternates [<< /Image 15 0 R /DefaultForPrinting true /OC 6 0 R >>]")),
+        (15, rgb(0, 0, 0)),
+    ], version="1.5", binary=True)
 
 
 INLINE_FILTERS_SAMPLES = bytes(range(0, 240, 5))
@@ -5343,11 +6871,197 @@ def gen_jbig2_annex_h() -> bytes:
     return simple_file(objects, version="1.4", binary=True)
 
 
+
+def _num(v: float) -> bytes:
+    """A coordinate written with at most three decimals and no trailing zeros (7.3.3 real numbers)."""
+    text = ("%.3f" % v).rstrip("0").rstrip(".")
+    return (text if text not in ("-0", "") else "0").encode()
+
+
+def _star(cx: float, cy: float, r: float) -> bytes:
+    """A five-pointed star drawn as one self-intersecting pentagram (every second vertex), open (implicitly closed by the fill)."""
+    pts = [(cx + r * math.cos(math.radians(90 + k * 144)), cy + r * math.sin(math.radians(90 + k * 144))) for k in range(5)]
+    out = b"%s %s m" % (_num(pts[0][0]), _num(pts[0][1]))
+    for x, y in pts[1:]:
+        out += b" %s %s l" % (_num(x), _num(y))
+    return out
+
+
+def _circle(cx: float, cy: float, r: float, clockwise: bool) -> bytes:
+    """A circle as four cubic Bezier curves (8.5.2.2 c) with the usual kappa 0.5523, closed with h."""
+    k = 0.5523 * r
+    if not clockwise:
+        segs = [((cx + r, cy + k), (cx + k, cy + r), (cx, cy + r)), ((cx - k, cy + r), (cx - r, cy + k), (cx - r, cy)),
+                ((cx - r, cy - k), (cx - k, cy - r), (cx, cy - r)), ((cx + k, cy - r), (cx + r, cy - k), (cx + r, cy))]
+    else:
+        segs = [((cx + r, cy - k), (cx + k, cy - r), (cx, cy - r)), ((cx - k, cy - r), (cx - r, cy - k), (cx - r, cy)),
+                ((cx - r, cy + k), (cx - k, cy + r), (cx, cy + r)), ((cx + k, cy + r), (cx + r, cy + k), (cx + r, cy))]
+    out = b"%s %s m" % (_num(cx + r), _num(cy))
+    for a, b_, c in segs:
+        out += b" %s %s %s %s %s %s c" % (_num(a[0]), _num(a[1]), _num(b_[0]), _num(b_[1]), _num(c[0]), _num(c[1]))
+    return out + b" h"
+
+
+def _square(x0: float, y0: float, x1: float, y1: float, clockwise: bool) -> bytes:
+    """A closed axis-aligned square as m, l, l, l, h, counterclockwise (in PDF's y-up space) unless ``clockwise``."""
+    corners = [(x0, y0), (x1, y0), (x1, y1), (x0, y1)]
+    if clockwise:
+        corners = [corners[0]] + corners[:0:-1]
+    out = b"%s %s m" % (_num(corners[0][0]), _num(corners[0][1]))
+    for x, y in corners[1:]:
+        out += b" %s %s l" % (_num(x), _num(y))
+    return out + b" h"
+
+
+def gen_paths_fill_rules() -> bytes:
+    """8.5.2 path construction (m, l, c, v, y, h), 8.5.3.3 filling: the non-zero winding number rule (f) and the even-odd rule (f*),
+    implicit closing of open subpaths and a disregarded trailing moveto (8.5.3.3.1); 8.3.4 cm. One 400 x 300 page, white
+    background. Top row: (A) a pentagram filled with f in DeviceRGB red, centre (65, 225), radius 55: the centre pentagon is inside
+    (winding 2); (B) the same pentagram with f* in DeviceRGB blue at (195, 225): the centre pentagon is outside (even crossing count);
+    (C) a circle of four c curves, radius 55, counterclockwise, with a clockwise circle of radius 25 inside, filled with f in DeviceCMYK
+    0 0.5 1 0 at (325, 225): the inner circle has winding 0, so it is a hole. Bottom row: (D) two counterclockwise squares, 15..115
+    and 40..90 by 20..120 and 45..95, filled with f in DeviceRGB 0 0.6 0: solid (winding 2 inside both); (E) the same two squares
+    shifted to x 145..245 filled with f* in DeviceGray 0.3: a ring; (F) under q 0.866 0.5 -0.5 0.866 330 75 cm (a 30 degree
+    rotation about (330, 75)), an open triangle (-50 -45, 10 -45, -20 45, no h) and a lens of a v curve and a y curve (25 -40 m
+    55 0 25 40 v -5 0 25 -40 y h), then a trailing 0 0 m, filled with f in DeviceRGB 0.5 0 0.5, then Q."""
+    content = b"\n".join([
+        b"1 0 0 rg " + _star(65, 225, 55) + b" f",
+        b"0 0 1 rg " + _star(195, 225, 55) + b" f*",
+        b"0 0.5 1 0 k " + _circle(325, 225, 55, clockwise=False) + b" " + _circle(325, 225, 25, clockwise=True) + b" f",
+        b"0 0.6 0 rg " + _square(15, 20, 115, 120, False) + b" " + _square(40, 45, 90, 95, False) + b" f",
+        b"0.3 g " + _square(145, 20, 245, 120, False) + b" " + _square(170, 45, 220, 95, False) + b" f*",
+        b"q 0.866 0.5 -0.5 0.866 330 75 cm 0.5 0 0.5 rg -50 -45 m 10 -45 l -20 45 l"
+        b" 25 -40 m 55 0 25 40 v -5 0 25 -40 y h 0 0 m f Q",
+    ]) + b"\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(mediabox=b"[0 0 400 300]", contents=4)),
+        (4, stream(b"", content)),
+    ])
+
+
+def gen_page_rotation() -> bytes:
+    """7.7.3.3 Table 31 Rotate and UserUnit, 14.11.2 CropBox. Four pages with MediaBox [0 0 200 100], each painting a red square at
+    the user-space origin (0 0 40 40 re) and a green square in the opposite corner (160 60 40 40 re) on a white page: page 1
+    /Rotate 90, page 2 /Rotate 180, page 3 /Rotate 270 (shown turned clockwise by that many degrees), page 4 /UserUnit 2 (PDF 1.6)
+    with /CropBox [20 10 180 90], so it shows 160 x 80 units of 2/72 inch: 320 x 160 pixels at 72 DPI with both squares cut by
+    the crop box. All four pages share one content stream (object 7)."""
+    content = b"1 0 0 rg 0 0 40 40 re f 0 1 0 rg 160 60 40 40 re f\n"
+    extras = [b" /Rotate 90", b" /Rotate 180", b" /Rotate 270", b" /UserUnit 2 /CropBox [20 10 180 90]"]
+    objects = [(1, catalog()), (2, pages([3, 4, 5, 6]))]
+    for i, extra in enumerate(extras):
+        objects.append((3 + i, page(mediabox=b"[0 0 200 100]", contents=7, extra=extra)))
+    objects.append((7, stream(b"", content)))
+    return simple_file(objects)
+
+
+def gen_paths_strokes() -> bytes:
+    """8.5.3.2 stroking with the line parameters of 8.4.3 (width, cap, join, miter limit, dash pattern) and 10.7.5 automatic
+    stroke adjustment. One 400 x 400 page, white background, four bands from the top. (A) y 300..400: three chevrons 14 wide, each
+    with cap and join of the same number: 0 J 0 j (butt, miter) in DeviceRGB red, 1 J 1 j (round, round) green, 2 J 2 j (projecting
+    square, bevel) blue. (B) y 200..300: two chevrons 8 wide, arms 60 long, that meet at 30 degrees (miter ratio 1 / sin 15 = 3.86): 4 M keeps
+    the miter, 3.5 M bevels it (DeviceGray 0); a closed triangle (h) 6 wide whose three corners are mitered, in DeviceRGB 0.5 0 0.5.
+    (C) y 100..200: lines 6 wide from x 20 to 200 dashed [12 6] 0, [12 6] 9 and [6 3 9] -3 (a negative phase, normalized by twice
+    the array sum); [0 12] 0 with round caps (dots) and [0 12] 6 with projecting square caps along a slanted line (squares turned with
+    it); right half, a rectangle (re) 6 wide dashed [30 10] 5, whose last dash runs on into the first across its start (a mitered
+    corner), and a dashed curve, in DeviceRGB 0 0 0.8. (D) y 0..100: 0 w lines (the thinnest line: one device pixel) horizontal at
+    y 90.3, vertical at x 30.6, diagonal, and a circle; 1 w rules at y 70 and x 100.5 without and, through /GS0 gs (SA true), with
+    stroke adjustment at y 50 and x 120.5; under q 4 0 0 1 200 0 cm, a circle of radius 10 and a diagonal 3 wide with round caps
+    (an elliptical pen, four times wider across than along y); 12 wide degenerate subpaths with round caps (dots: 350 80 m 350 80 l,
+    370 80 m h), with butt caps (nothing: 350 40 m 350 40 l) and a lone trailing moveto (nothing)."""
+    def chevron(x0: float, y0: float, w: float, h: float) -> bytes:
+        return b"%s %s m %s %s l %s %s l" % (_num(x0), _num(y0), _num(x0 + w / 2), _num(y0 + h), _num(x0 + w), _num(y0))
+
+    half = 60 * math.tan(math.radians(15))
+    content = b"\n".join([
+        b"14 w 0 J 0 j 1 0 0 RG " + chevron(25, 320, 90, 60) + b" S",
+        b"1 J 1 j 0 1 0 RG " + chevron(155, 320, 90, 60) + b" S",
+        b"2 J 2 j 0 0 1 RG " + chevron(285, 320, 90, 60) + b" S",
+        b"0 J 0 j 0 G 8 w 4 M 40 %s m 100 275 l 40 %s l S" % (_num(275 - half), _num(275 + half)),
+        b"3.5 M 40 %s m 100 230 l 40 %s l S" % (_num(230 - half), _num(230 + half)),
+        b"10 M 6 w 0.5 0 0.5 RG 250 215 m 370 230 l 290 285 l h S",
+        b"0 0 0.8 RG [12 6] 0 d 20 190 m 200 190 l S",
+        b"[12 6] 9 d 20 175 m 200 175 l S",
+        b"[6 3 9] -3 d 20 160 m 200 160 l S",
+        b"1 J [0 12] 0 d 20 145 m 200 145 l S",
+        b"2 J [0 12] 6 d 20 110 m 200 130 l S",
+        b"0 J [30 10] 5 d 230 120 140 70 re S",
+        b"[8 4] 0 d 1 J 240 105 m 280 85 340 125 380 105 c S",
+        b"[] 0 d 0 J 0 G 0 w 10 90.3 m 90 90.3 l S 30.6 10 m 30.6 80 l S 40 10 m 90 60 l S " + _circle(65, 35, 15, clockwise=False) + b" S",
+        b"1 w 100 70 m 180 70 l S 100.5 10 m 100.5 60 l S",
+        b"q /GS0 gs 110 50 m 180 50 l S 120.5 10 m 120.5 40 l S Q",
+        b"q 4 0 0 1 200 0 cm 3 w 0 0 0.6 RG " + _circle(10, 50, 10, clockwise=False) + b" S 1 J 2 10 m 28 85 l S Q",
+        b"1 J 12 w 1 0 0 RG 350 80 m 350 80 l S 375 80 m h S 0 J 350 40 m 350 40 l S 1 J 375 40 m S",
+    ]) + b"\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(mediabox=b"[0 0 400 400]", contents=4, resources=False,
+                 extra=b" /Resources << /ExtGState << /GS0 << /Type /ExtGState /SA true >> >> >>")),
+        (4, stream(b"", content)),
+    ])
+
+
+def gen_clipping_paths() -> bytes:
+    """8.5.4 clipping path operators (W, W*) with 8.5.3.3 insideness, 8.4.2 q/Q restoring the clip, 8.10.1 form bounding-box clips.
+    One 400 x 300 page, white background, each figure in its own q/Q. Top row: (A) nested clips: a counterclockwise circle of four c
+    curves, centre (70, 225), radius 55, W n, then the rectangle 70 200 130 100 re W n, then a DeviceRGB red fill of the whole cell:
+    only the part of the circle right of x = 70 and above y = 200 is red; (B) an even-odd clip: a pentagram at (200, 225), radius 55,
+    W* n, then a DeviceRGB blue fill of 140 165 120 120: the five points are blue, the centre pentagon white; (C) a clip restored by
+    Q: q 285 170 50 110 re W n, a DeviceRGB 0 0.6 0 fill of 270 200 120 50 (green only from x 285 to 335), Q, then a DeviceRGB
+    0.5 0 0.5 bar 270 175 120 10 re f that is not clipped. Bottom row: (D) a clip applies after the paint of its path: two
+    counterclockwise squares 20..120 and 45..95 filled with W* f in red (non-zero: solid), then a blue fill of the cell, which
+    reaches only the even-odd ring; (E) form XObjects clipped to their bounding boxes: under 1 0 0 1 150 20 cm, form Fm (/BBox
+    [0 0 100 100]) fills a DeviceRGB 0 0.5 0.5 circle of radius 60 at (50, 50) (cut by the box on four sides) and paints form In
+    (/BBox [25 25 75 75]), which fills a DeviceRGB 1 0.5 0 triangle (0 0) (100 0) (50 100) cut to its box; (F) an oblique
+    rectangle clip: under a 30 degree rotation about (330, 75), -40 -40 80 80 re W n, then eight vertical stripes 15 wide from
+    x = -60, alternately DeviceRGB red and blue, cut to the turned square."""
+    content = b"\n".join([
+        b"q " + _circle(70, 225, 55, clockwise=False) + b" W n 70 200 130 100 re W n 1 0 0 rg 0 150 140 150 re f Q",
+        b"q " + _star(200, 225, 55) + b" W* n 0 0 1 rg 140 165 120 120 re f Q",
+        b"q 285 170 50 110 re W n 0 0.6 0 rg 270 200 120 50 re f Q 0.5 0 0.5 rg 270 175 120 10 re f",
+        b"q 1 0 0 rg " + _square(20, 20, 120, 120, False) + b" " + _square(45, 45, 95, 95, False) + b" W* f 0 0 1 rg 0 0 140 140 re f Q",
+        b"q 1 0 0 1 150 20 cm /Fm Do Q",
+        b"q 0.866 0.5 -0.5 0.866 330 75 cm -40 -40 80 80 re W n "
+        + b" ".join(b"%s rg %d -60 15 120 re f" % (b"1 0 0" if i % 2 == 0 else b"0 0 1", -60 + 15 * i) for i in range(8)) + b" Q",
+    ]) + b"\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(mediabox=b"[0 0 400 300]", contents=4, resources=False, extra=b" /Resources << /XObject << /Fm 5 0 R >> >>")),
+        (4, stream(b"", content)),
+        (5, stream(b"/Type /XObject /Subtype /Form /BBox [0 0 100 100] /Resources << /XObject << /In 6 0 R >> >>",
+                   b"0 0.5 0.5 rg " + _circle(50, 50, 60, clockwise=False) + b" f /In Do")),
+        (6, stream(b"/Type /XObject /Subtype /Form /BBox [25 25 75 75]", b"1 0.5 0 rg 0 0 m 100 0 l 50 100 l h f")),
+    ])
+
+
+def gen_clip_before_path() -> bytes:
+    """Broken (8.5.4 Table 60, 8.2 Figure 9): W and W* written BEFORE the path they clip, as pdf.js's clippath.pdf does, instead of
+    between its last construction operator and n. One 200 x 100 page on white, each figure in q/Q. Left: W, then the square
+    20 20 .. 80 80 (m l l l h), n, then a DeviceRGB red fill of the whole left half 0 0 100 100 re f: PDFium, pdf.js and poppler
+    apply the pending W at the n, so only the square is red. Right: W*, then the counterclockwise squares 110 10 .. 190 90 and
+    130 30 .. 170 70, n, then a DeviceRGB blue fill of the right half: even-odd, so only the ring between the squares is blue."""
+    content = b"\n".join([
+        b"q W " + _square(20, 20, 80, 80, False) + b" n 1 0 0 rg 0 0 100 100 re f Q",
+        b"q W* " + _square(110, 10, 190, 90, False) + b" " + _square(130, 30, 170, 70, False) + b" n 0 0 1 rg 100 0 100 100 re f Q",
+    ]) + b"\n"
+    return simple_file([
+        (1, catalog()),
+        (2, pages()),
+        (3, page(mediabox=b"[0 0 200 100]", contents=4)),
+        (4, stream(b"", content)),
+    ])
+
+
 FILES = {
     "empty-page.pdf": gen_empty_page,
     "pdf20-header.pdf": gen_pdf20_header,
     "text-standard14.pdf": gen_text_standard14,
     "text-truetype-embedded.pdf": gen_text_truetype_embedded,
+    "text-render-modes.pdf": gen_text_render_modes,
+    "text-rotated.pdf": gen_text_rotated,
     "text-standard14-differences.pdf": gen_text_standard14_differences,
     "text-standard14-winansi-quirks.pdf": gen_text_standard14_winansi_quirks,
     "text-standard14-macroman.pdf": gen_text_standard14_macroman,
@@ -5367,8 +7081,13 @@ FILES = {
     "text-type1-embedded.pdf": gen_text_type1_embedded,
     "text-cid-identity-h.pdf": gen_text_cid_identity_h,
     "text-cid-identity-v.pdf": gen_text_cid_identity_v,
+    "text-lines-rotated.pdf": gen_text_lines_rotated,
+    "text-tagged-replacements.pdf": gen_text_tagged_replacements,
+    "text-tagged-spanning.pdf": gen_text_tagged_spanning,
+    "text-tagged-spanning-image.pdf": gen_text_tagged_spanning_image,
     "text-cid-embedded-cmap.pdf": gen_text_cid_embedded_cmap,
     "text-cidcff-predefined-cmap.pdf": gen_text_cidcff_predefined_cmap,
+    "text-cid-nonembedded.pdf": gen_text_cid_nonembedded,
     "text-tounicode-bf.pdf": gen_text_tounicode_bf,
     "text-glyph-names.pdf": gen_text_glyph_names,
     "xref-stream.pdf": gen_xref_stream,
@@ -5390,6 +7109,8 @@ FILES = {
     "encrypted-crypt-filters.pdf": gen_encrypted_crypt_filters,
     "encrypted-aes-gcm.pdf": gen_encrypted_aes_gcm,
     "encrypted-mac.pdf": gen_encrypted_mac,
+    "encrypted-mac-sha3.pdf": lambda: gen_encrypted_mac(
+        "encrypted-mac-sha3", b"Integrity MAC SHA3-256 (R6)", OID_SHA3_256, hashlib.sha3_256),
     "encrypted-empty-owner-password.pdf": gen_encrypted_empty_owner_password,
     "encrypted-embedded-file-open.pdf": gen_encrypted_embedded_file_open,
     "encrypted-user-password.pdf": gen_encrypted_user_password,
@@ -5409,6 +7130,7 @@ FILES = {
     "annotations-link.pdf": gen_annotations_link,
     "annotations-subtypes.pdf": gen_annotations_subtypes,
     "annotations-appearance.pdf": gen_annotations_appearance,
+    "annotations-nozoom.pdf": gen_annotations_nozoom,
     "annotations-malformed.pdf": gen_annotations_malformed,
     "text-type1-pfb.pdf": gen_text_type1_pfb,
     "text-type1-hex-eexec.pdf": gen_text_type1_hex_eexec,
@@ -5425,11 +7147,19 @@ FILES = {
     "number-tree-deep.pdf": gen_number_tree_deep,
     "name-tree-broken.pdf": gen_name_tree_broken,
     "tagged-structure.pdf": gen_tagged_structure,
+    "layout-tagged.pdf": gen_layout_tagged,
+    "layout-two-column-tagged.pdf": gen_layout_two_column_tagged,
+    "layout-two-column-untagged.pdf": gen_layout_two_column_untagged,
+    "layout-three-column.pdf": gen_layout_three_column,
+    "layout-headings-lists.pdf": gen_layout_headings_lists,
+    "layout-tables.pdf": gen_layout_tables,
+    "layout-figures.pdf": gen_layout_figures,
     "destinations-all.pdf": gen_destinations_all,
     "outline-full.pdf": gen_outline_full,
     "outline-broken.pdf": gen_outline_broken,
     "functions.pdf": gen_functions,
     "optional-content.pdf": gen_optional_content,
+    "optional-content-pages.pdf": gen_optional_content_pages,
     "embedded-files.pdf": gen_embedded_files,
     "collection-portfolio.pdf": gen_collection_portfolio,
     "associated-files.pdf": gen_associated_files,
@@ -5443,8 +7173,17 @@ FILES = {
     "color-operators.pdf": gen_color_operators,
     "default-colorspaces.pdf": gen_default_colorspaces,
     "separation-special.pdf": gen_separation_special,
+    "icc-rgb-matrix.pdf": gen_icc_rgb_matrix,
+    "icc-lut.pdf": gen_icc_lut,
+    "output-intent-cmyk.pdf": gen_output_intent_cmyk,
+    "rendering-intents.pdf": gen_rendering_intents,
     "form-xobject-nested.pdf": gen_form_xobject_nested,
     "extgstate-params.pdf": gen_extgstate_params,
+    "transparency-blend-modes.pdf": gen_transparency_blend_modes,
+    "transfer-functions.pdf": gen_transfer_functions,
+    "overprint.pdf": gen_overprint,
+    "transparency-groups.pdf": gen_transparency_groups,
+    "transparency-soft-masks.pdf": gen_transparency_soft_masks,
     "marked-content.pdf": gen_marked_content,
     "image-stencil-mask.pdf": gen_image_stencil_mask,
     "image-explicit-mask.pdf": gen_image_explicit_mask,
@@ -5456,6 +7195,7 @@ FILES = {
     "image-4bpc-indexed.pdf": gen_image_4bpc_indexed,
     "image-16bpc.pdf": gen_image_16bpc,
     "image-decode-inverted.pdf": gen_image_decode_inverted,
+    "image-alternates.pdf": gen_image_alternates,
     "jpx-lossless.pdf": gen_jpx_lossless,
     "jpx-subsampled.pdf": gen_jpx_subsampled,
     "jpx-smask-in-data.pdf": gen_jpx_smask_in_data,
@@ -5475,6 +7215,7 @@ FILES = {
     "pattern-tiling-uncolored.pdf": gen_pattern_tiling_uncolored,
     "pattern-shading-axial.pdf": gen_pattern_shading,
     "pattern-in-form.pdf": gen_pattern_in_form,
+    "shading-radial-cases.pdf": gen_shading_radial_cases,
     "text-type3.pdf": gen_text_type3,
     "pattern-recursive.pdf": gen_pattern_recursive,
     "shading-mesh-truncated.pdf": gen_shading_mesh_truncated,
@@ -5492,6 +7233,11 @@ FILES = {
     "jbig2-generic.pdf": gen_jbig2_generic,
     "jbig2-generic-mmr.pdf": gen_jbig2_generic_mmr,
     "jbig2-annex-h.pdf": gen_jbig2_annex_h,
+    "paths-fill-rules.pdf": gen_paths_fill_rules,
+    "page-rotation.pdf": gen_page_rotation,
+    "paths-strokes.pdf": gen_paths_strokes,
+    "clipping-paths.pdf": gen_clipping_paths,
+    "clip-before-path.pdf": gen_clip_before_path,
 }
 
 

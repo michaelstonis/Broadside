@@ -61,7 +61,7 @@ public abstract class PdfAnnotation
     /// <remarks>ISO 32000-2 §12.5.2, Table 166 (required).</remarks>
     public CosName? Subtype => ReadSubtype(Document, Dictionary, out _);
 
-    /// <summary>Gets the annotation rectangle in default user space, normalized; <c>[0 0 0 0]</c> when <c>Rect</c> is missing or malformed.</summary>
+    /// <summary>Gets or sets the annotation rectangle in default user space, normalized; setting it keeps the appearance, which §12.5.5 then maps onto the new rectangle; <c>[0 0 0 0]</c> when <c>Rect</c> is missing or malformed.</summary>
     /// <remarks>ISO 32000-2 §12.5.2, Table 166 (required), and §7.9.5: any two diagonally opposite corners, so an unnormalized rectangle is legal.</remarks>
     public PdfRectangle Rect
     {
@@ -75,19 +75,33 @@ public abstract class PdfAnnotation
             Report(DiagnosticCodes.AnnotationRectInvalid, "The annotation's Rect entry is missing or not four numbers; it reads as [0 0 0 0].");
             return default;
         }
+
+        set => Dictionary[AnnotationNames.Rect] = AnnotationEditing.Rectangle(AnnotationEditing.Checked(value, nameof(value)));
     }
 
-    /// <summary>Gets the text displayed for the annotation, or an alternate description of it (<c>Contents</c>); <see langword="null"/> when absent.</summary>
+    /// <summary>Gets or sets the text displayed for the annotation, or an alternate description of it (<c>Contents</c>); <see langword="null"/> when absent, and setting <see langword="null"/> removes it. Setting it keeps the appearance (<see cref="RegenerateAppearance"/>).</summary>
     /// <remarks>ISO 32000-2 §12.5.2, Table 166; a text string (§7.9.2.2).</remarks>
-    public string? Contents => ReadText(AnnotationNames.Contents);
+    public string? Contents
+    {
+        get => ReadText(AnnotationNames.Contents);
+        set => AnnotationEditing.SetText(Dictionary, AnnotationNames.Contents, value);
+    }
 
     /// <summary>Gets the page object the <c>P</c> entry names (PDF 1.3), or <see langword="null"/>. Advisory: <see cref="Page"/> is the page that holds the annotation.</summary>
     /// <remarks>ISO 32000-2 §12.5.2, Table 166.</remarks>
     public CosDictionary? PageObject => Get(AnnotationNames.P) as CosDictionary;
 
-    /// <summary>Gets the annotation name, unique among the annotations of its page (<c>NM</c>, PDF 1.4), or <see langword="null"/>.</summary>
+    /// <summary>Gets or sets the annotation name, unique among the annotations of its page (<c>NM</c>, PDF 1.4), or <see langword="null"/>; setting <see langword="null"/> removes it.</summary>
     /// <remarks>ISO 32000-2 §12.5.2, Table 166.</remarks>
-    public string? Name => ReadText(AnnotationNames.NM);
+    public string? Name
+    {
+        get => ReadText(AnnotationNames.NM);
+        set
+        {
+            AnnotationEditing.SetText(Dictionary, AnnotationNames.NM, value);
+            Document.RequireFeature(Writing.VersionedFeatures.AnnotationTypes14);
+        }
+    }
 
     /// <summary>Gets the modification date as stored (<c>M</c>, PDF 1.1), or <see langword="null"/>: a date string or text in any format.</summary>
     /// <remarks>ISO 32000-2 §12.5.2, Table 166: processors "shall accept and display a string in any format".</remarks>
@@ -97,7 +111,7 @@ public abstract class PdfAnnotation
     /// <remarks>ISO 32000-2 §12.5.2, Table 166, and §7.9.4.</remarks>
     public PdfDate? Modified => PdfDate.TryParse(ModifiedText, out PdfDate date) ? date : null;
 
-    /// <summary>Gets the annotation flags (<c>F</c>, PDF 1.1), every bit as stored; <see cref="PdfAnnotationFlags.None"/> when absent.</summary>
+    /// <summary>Gets or sets the annotation flags (<c>F</c>, PDF 1.1), every bit as stored; <see cref="PdfAnnotationFlags.None"/> when absent.</summary>
     /// <remarks>
     /// ISO 32000-2 §12.5.3, Table 167. A real number is truncated, and bits the table does not define are kept; both record a
     /// diagnostic. Text annotations behave as if <see cref="PdfAnnotationFlags.NoZoom"/> and <see cref="PdfAnnotationFlags.NoRotate"/>
@@ -130,6 +144,12 @@ public abstract class PdfAnnotation
             }
 
             return (PdfAnnotationFlags)(int)(uint)bits;
+        }
+
+        set
+        {
+            Dictionary[AnnotationNames.F] = new CosInteger((uint)value);
+            Document.RequireFeature(Writing.VersionedFeatures.AnnotationEntries11);
         }
     }
 
@@ -169,9 +189,43 @@ public abstract class PdfAnnotation
     /// <remarks>ISO 32000-2 §12.5.4, Table 168, and §12.5.2, Table 166 (<c>Border</c>, default <c>[0 0 1]</c>).</remarks>
     public PdfAnnotationBorder Border => ReadBorder();
 
-    /// <summary>Gets the annotation's colour (<c>C</c>, PDF 1.1): its icon background, pop-up title bar or link border; <see langword="null"/> when absent.</summary>
+    /// <summary>Gets or sets the annotation's colour (<c>C</c>, PDF 1.1): its icon background, pop-up title bar or link border; <see langword="null"/> when absent, and setting <see langword="null"/> removes it. Setting it keeps the appearance: call <see cref="RegenerateAppearance"/> to draw the new colour.</summary>
     /// <remarks>ISO 32000-2 §12.5.2, Table 166. An empty array is transparent; 2 or more than 4 numbers read as absent with a diagnostic.</remarks>
-    public PdfDeviceColor? Color => ReadColor(AnnotationNames.C);
+    public PdfDeviceColor? Color
+    {
+        get => ReadColor(AnnotationNames.C);
+        set => AnnotationEditing.SetColor(Dictionary, AnnotationNames.C, value);
+    }
+
+    /// <summary>
+    /// Draws a new normal appearance stream from the annotation's entries, replacing its appearance dictionary, for the subtypes
+    /// the library creates: Text, Link, FreeText, Line, Square, Circle, Polygon, PolyLine, Ink, Highlight, Underline, Squiggly,
+    /// StrikeOut and Stamp. Editing an annotation's entries keeps its appearance until this is called.
+    /// </summary>
+    /// <returns><see langword="false"/>, changing nothing, for another subtype.</returns>
+    /// <exception cref="InvalidOperationException">The rectangle has no area, or free text has characters no available font can show; nothing is changed.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §12.5.5 and §12.5.6. A Line, Polygon, PolyLine, Ink or text markup annotation's rectangle is first fitted to its
+    /// points and border. The appearance state (<c>AS</c>) is removed, since the new appearance has no states.
+    /// </remarks>
+    public bool RegenerateAppearance() => AnnotationEditing.Atomically(() => AnnotationAppearances.Generate(this));
+
+    /// <summary>
+    /// Moves the annotation by an offset in default user space: its rectangle and every coordinate of its own (<c>L</c>,
+    /// <c>Vertices</c>, <c>InkList</c>, <c>Path</c>, <c>QuadPoints</c>, <c>CL</c>), keeping its appearance, which §12.5.5 maps onto the
+    /// moved rectangle.
+    /// </summary>
+    /// <param name="dx">The horizontal offset.</param>
+    /// <param name="dy">The vertical offset.</param>
+    /// <exception cref="ArgumentOutOfRangeException">An offset is not finite.</exception>
+    /// <remarks>ISO 32000-2 §12.5.2, Table 166, and the subtype tables of §12.5.6. A pop-up annotation is not moved with its parent.</remarks>
+    public void Move(double dx, double dy) => AnnotationEditing.Move(this, dx, dy);
+
+    /// <summary>Sets the border width in points, as a solid border style dictionary (<c>BS</c>, PDF 1.2), keeping the appearance until <see cref="RegenerateAppearance"/> is called.</summary>
+    /// <param name="width">The width; 0 draws no border.</param>
+    /// <exception cref="ArgumentOutOfRangeException">The width is negative, not finite, or above 1 000.</exception>
+    /// <remarks>ISO 32000-2 §12.5.4, Table 168; <c>BS</c> takes precedence over <c>Border</c>.</remarks>
+    public void SetBorderWidth(double width) => AnnotationEditing.SetBorderWidth(this, width);
 
     /// <summary>Gets the annotation's key in the structural parent tree (<c>StructParent</c>, PDF 1.3), or <see langword="null"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.2, Table 166, and §14.7.5.4.</remarks>
@@ -181,13 +235,42 @@ public abstract class PdfAnnotation
     /// <remarks>ISO 32000-2 §12.5.2, Table 166, and §8.11.3.3.</remarks>
     public CosDictionary? OptionalContent => ReadDictionary(AnnotationNames.OC);
 
+    /// <summary>Makes the annotation optional content of <paramref name="group"/> (<c>OC</c>): shown only while the group is ON.</summary>
+    /// <param name="group">A group of this document.</param>
+    /// <exception cref="ArgumentException"><paramref name="group"/> belongs to another document or is not an indirect object.</exception>
+    /// <remarks>ISO 32000-2 §12.5.2, Table 166 (<c>OC</c>, PDF 1.5), and §8.11.3.3. Records PDF 1.5. A mutation.</remarks>
+    public void SetOptionalContent(PdfOptionalContentGroup group)
+    {
+        ArgumentNullException.ThrowIfNull(group);
+        OptionalContentWriter.Assign(Document, Dictionary, OptionalContentWriter.ReferenceOf(Document, group.Document, group.Reference, nameof(group)));
+    }
+
+    /// <summary>Makes the annotation optional content whose visibility <paramref name="membership"/> decides (<c>OC</c>).</summary>
+    /// <param name="membership">A membership dictionary of this document.</param>
+    /// <exception cref="ArgumentException"><paramref name="membership"/> belongs to another document or is not an indirect object.</exception>
+    /// <remarks>ISO 32000-2 §12.5.2, Table 166 (<c>OC</c>, PDF 1.5), and §8.11.3.3. Records PDF 1.5. A mutation.</remarks>
+    public void SetOptionalContent(PdfOptionalContentMembership membership)
+    {
+        ArgumentNullException.ThrowIfNull(membership);
+        OptionalContentWriter.Assign(Document, Dictionary, OptionalContentWriter.ReferenceOf(Document, membership.Document, membership.Reference, nameof(membership)));
+    }
+
+    /// <summary>Removes the annotation's <c>OC</c> entry: it is no longer optional content.</summary>
+    /// <remarks>ISO 32000-2 §12.5.2, Table 166 and §8.11.3.3. A mutation.</remarks>
+    public void RemoveOptionalContent() => OptionalContentWriter.Assign(Document, Dictionary, null);
+
     /// <summary>Gets the files associated with the annotation (<c>AF</c>, PDF 2.0); empty when there are none.</summary>
     /// <remarks>ISO 32000-2 §12.5.2, Table 166, and §14.13.9; read as <see cref="PdfDocument.ReadAssociatedFiles"/> reads any owner's.</remarks>
     public IReadOnlyList<PdfFileSpecification> AssociatedFiles => Document.ReadAssociatedFiles(Dictionary, DiagnosticReference);
 
-    /// <summary>Gets the stroking opacity used when the appearance is regenerated (<c>CA</c>, PDF 1.4); default 1.0.</summary>
+    /// <summary>Gets or sets the stroking opacity used when the appearance is regenerated (<c>CA</c>, PDF 1.4); default 1.0, and setting 1 removes the entry.</summary>
     /// <remarks>ISO 32000-2 §12.5.2, Table 166. Not used when the annotation has an appearance stream.</remarks>
-    public double StrokingOpacity => ReadNumber(AnnotationNames.StrokingOpacity, 1.0);
+    /// <exception cref="ArgumentOutOfRangeException">The value set is not between 0 and 1.</exception>
+    public double StrokingOpacity
+    {
+        get => ReadNumber(AnnotationNames.StrokingOpacity, 1.0);
+        set => AnnotationEditing.SetOpacity(this, value);
+    }
 
     /// <summary>Gets the non-stroking opacity used when the appearance is regenerated (<c>ca</c>, PDF 2.0); default <see cref="StrokingOpacity"/>.</summary>
     /// <remarks>ISO 32000-2 §12.5.2, Table 166: "If a ca entry is not present ... the value of this CA entry shall also be used for nonstroking operations".</remarks>

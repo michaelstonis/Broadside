@@ -43,6 +43,9 @@ public sealed class PdfSoftMask
         Reference = reference;
     }
 
+    /// <summary>The document the mask belongs to.</summary>
+    internal PdfDocument Document => _document;
+
     /// <summary>Gets the soft-mask dictionary.</summary>
     public CosDictionary Dictionary { get; }
 

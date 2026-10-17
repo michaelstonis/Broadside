@@ -66,7 +66,8 @@ Kebab-case, feature first, variant second: `flate-stream.pdf`, `encrypted-aes-25
    dotnet test tests/Broadside.Tests          # green: File_lists_match_the_corpus_directory and the snapshot agree
    ```
 
-7. Commit the PDF, `generate.py`, the README, `Corpus.cs` and the snapshot together, and update the conformance rows for the clauses the file exercises.
+   The golden-image test (`Broadside.Rendering.Tests`, `GoldenImageTests`, #120) also fails once per page of the new file, leaving `tests/Golden/<file>.page<N>.received.png`. Open each one and look at it, then accept it (rename to `.verified.png`, or run the rendering tests once with `BROADSIDE_ACCEPT_GOLDEN=1`).
+7. Commit the PDF, `generate.py`, the README, `Corpus.cs`, the snapshot and the golden images together, and update the conformance rows for the clauses the file exercises.
 
 ## Worked example: `text-type1-embedded.pdf`
 
@@ -88,3 +89,4 @@ Goal: one line of text in an embedded Type 1 font, the `/FontFile` counterpart o
 - [ ] Name added to `Corpus.cs` (`WellFormed` or `Malformed`)
 - [ ] Verify snapshot refreshed; `dotnet test tests/Broadside.Tests` green
 - [ ] Conformance rows updated for the clauses the file exercises
+- [ ] `OpenAndWalkBenchmarks` gains a case for the file: add its line to `bench/baselines/gate/allocations.json` from the benchmark gate's run summary or `bench-gate-baseline` artifact (`bench/baselines/gate/README.md`)

@@ -1,0 +1,88 @@
+%PDF-1.7
+%ту╧╙
+1 0 obj
+<< /Type /Catalog /Pages 2 0 R >>
+endobj
+2 0 obj
+<< /Type /Pages /Kids [3 0 R] /Count 1 >>
+endobj
+3 0 obj
+<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R /F2 6 0 R >> >> >>
+endobj
+4 0 obj
+<<  /Length 2824 >>
+stream
+BT /F2 20 Tf 72 740 Td (Headings and Lists) Tj ET
+BT /F1 10 Tf 72 710 Td (This page tests the detection of headings and lists from the) Tj ET
+BT /F1 10 Tf 72 698 Td (geometry of untagged text: font size, weight and spacing set) Tj ET
+BT /F1 10 Tf 72 686 Td (headings apart, and markers start list items.) Tj ET
+BT /F2 14 Tf 72 656 Td (1 Bulleted items) Tj ET
+BT /F1 10 Tf 72 632 Td (A bulleted list follows, three levels deep, with a hanging) Tj ET
+BT /F1 10 Tf 72 620 Td (indent for the line that wraps.) Tj ET
+BT /F2 11 Tf 72 596 Td (1.1 Three levels) Tj ET
+BT /F1 10 Tf 84 576 Td (Х) Tj ET
+BT /F1 10 Tf 96 576 Td (The first item has a body long enough to wrap onto) Tj ET
+BT /F1 10 Tf 96 564 Td (a second line under its own text.) Tj ET
+BT /F1 10 Tf 84 552 Td (Х) Tj ET
+BT /F1 10 Tf 96 552 Td (The second item holds a nested list:) Tj ET
+BT /F1 10 Tf 108 540 Td (a\)) Tj ET
+BT /F1 10 Tf 122 540 Td (a lettered item at the second level) Tj ET
+BT /F1 10 Tf 108 528 Td (b\)) Tj ET
+BT /F1 10 Tf 122 528 Td (another lettered item, which nests deeper:) Tj ET
+BT /F1 10 Tf 134 516 Td (i.) Tj ET
+BT /F1 10 Tf 148 516 Td (a roman item at the third level) Tj ET
+BT /F1 10 Tf 134 504 Td (ii.) Tj ET
+BT /F1 10 Tf 148 504 Td (and a second roman item) Tj ET
+BT /F1 10 Tf 108 492 Td (c\)) Tj ET
+BT /F1 10 Tf 122 492 Td (a third lettered item) Tj ET
+BT /F1 10 Tf 84 480 Td (Х) Tj ET
+BT /F1 10 Tf 96 480 Td (The third item closes the list.) Tj ET
+BT /F2 14 Tf 72 450 Td (2 Numbered items) Tj ET
+BT /F1 10 Tf 72 426 Td (Numbers, upper-case roman numerals and letters mark ordered lists.) Tj ET
+BT /F1 10 Tf 84 402 Td (1.) Tj ET
+BT /F1 10 Tf 100 402 Td (Decimal numbers with a full stop) Tj ET
+BT /F1 10 Tf 84 390 Td (2.) Tj ET
+BT /F1 10 Tf 100 390 Td (count the items of a list) Tj ET
+BT /F1 10 Tf 84 378 Td (3.) Tj ET
+BT /F1 10 Tf 100 378 Td (one after the other.) Tj ET
+BT /F1 10 Tf 72 354 Td (Upper-case roman numerals with a wide gap after the marker:) Tj ET
+BT /F1 10 Tf 84 330 Td (I.) Tj ET
+BT /F1 10 Tf 120 330 Td (the first numeral) Tj ET
+BT /F1 10 Tf 84 318 Td (II.) Tj ET
+BT /F1 10 Tf 120 318 Td (the second numeral) Tj ET
+BT /F1 10 Tf 84 306 Td (III.) Tj ET
+BT /F1 10 Tf 120 306 Td (the third numeral) Tj ET
+BT /F1 10 Tf 84 294 Td (IV.) Tj ET
+BT /F1 10 Tf 120 294 Td (the fourth numeral) Tj ET
+BT /F1 10 Tf 72 270 Td (Upper-case letters in parentheses:) Tj ET
+BT /F1 10 Tf 84 246 Td (\(A\)) Tj ET
+BT /F1 10 Tf 104 246 Td (a first lettered item) Tj ET
+BT /F1 10 Tf 84 234 Td (\(B\)) Tj ET
+BT /F1 10 Tf 104 234 Td (a second lettered item) Tj ET
+BT /F1 10 Tf 84 222 Td (\(C\)) Tj ET
+BT /F1 10 Tf 104 222 Td (a third lettered item) Tj ET
+BT /F2 11 Tf 72 198 Td (2.1 Closing) Tj ET
+BT /F1 10 Tf 72 174 Td (A last paragraph ends the page after the lists, back on the) Tj ET
+BT /F1 10 Tf 72 162 Td (left margin of the body text.) Tj ET
+endstream
+endobj
+5 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>
+endobj
+6 0 obj
+<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>
+endobj
+xref
+0 7
+0000000000 65535 f 
+0000000015 00000 n 
+0000000064 00000 n 
+0000000121 00000 n 
+0000000257 00000 n 
+0000003134 00000 n 
+0000003231 00000 n 
+trailer
+<< /Size 7 /Root 1 0 R >>
+startxref
+3333
+%%EOF

@@ -1,0 +1,44 @@
+﻿corpus: verapdf-corpus @ bb75f4f0073d9350dfd058c0162a367e6fadf25e
+files: 2906
+well-formed files: 2783
+outcomes:
+  Rendered: 2906
+  PasswordRequired: 0
+  CertificateRequired: 0
+  EncryptionUnsupported: 0
+  Rejected: 0
+  Crash: 0
+  Timeout: 0
+pages rendered: 12949
+render diagnostics on well-formed files (files, total):
+  CMapCodeInvalid: 2, 2
+  CMapEntryInvalid: 6, 6
+  CMapWritingModeMismatch: 9, 9
+  CidSystemInfoMismatch: 10, 10
+  CidToGidMapInvalid: 8, 8
+  CidToGidMapMissing: 6, 6
+  ColorSpaceEntryInvalid: 1, 1
+  ContentColorOperandCount: 1, 1
+  ContentColorOperatorMismatch: 15, 15
+  ContentColorSpaceMissing: 2, 2
+  ContentExtGStateInvalid: 4, 4
+  ContentStackUnderflow: 2, 2
+  ContentSyntaxInvalid: 3, 3
+  ContentUnbalancedSave: 1, 1
+  ContentUnknownOperator: 5, 5
+  ContentXObjectMissing: 1, 1
+  DctLeadingJunk: 5, 5
+  FilterUnsupported: 1, 1
+  FontDescriptorInvalid: 6, 6
+  FontEncodingInvalid: 8, 8
+  FontProgramInvalid: 3, 3
+  FontTableInvalid: 19, 19
+  FontType1CharStringsMissing: 1, 1
+  FontType1Length1Repaired: 1, 1
+  FunctionEvaluationRepaired: 7, 7
+  FunctionProgramStackInvalid: 7, 7
+  IccComponentCountMismatch: 1, 1
+  ImageComponentMismatch: 3, 3
+  ToUnicodeCodeLengthMismatch: 1, 1
+  ToUnicodeDestinationInvalid: 1, 1
+  Type0IdentityNotEmbedded: 2, 2

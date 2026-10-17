@@ -11,8 +11,15 @@ namespace Broadside.Fonts;
 /// <para>
 /// ISO 32000-2 §9.6.2.1 (Table 109: <c>BaseFont</c> "may be used to find the font program in the PDF processor or its
 /// environment"), §9.6.2.2 and §9.8. The font directories are read in managed code (no fontconfig, CoreText or DirectWrite): TrueType
-/// and OpenType files and collections (<c>.ttf</c>, <c>.otf</c>, <c>.ttc</c>, <c>.otc</c>), headers only, on the first font asked
-/// for, once per instance. The engines' default instance is shared by the process, so its directories are scanned once.
+/// and OpenType files and collections (<c>.ttf</c>, <c>.otf</c>, <c>.ttc</c>, <c>.otc</c>), headers only, each at most once per
+/// instance. The engines' default instance is shared by the process.
+/// </para>
+/// <para>
+/// The first font asked for does not wait for every font file to be read (ADR 0009): the directories are listed (names only), and a
+/// font is looked for first in the files whose names share their first three letters with the name, family or stand-ins asked for
+/// (<c>Arial Bold.ttf</c>, <c>arialbd.ttf</c> for Arial), and in files whose names say nothing about their family (non-Latin names);
+/// only when those hold nothing for it are the other files read. An index file (<see cref="IndexPath"/>, off by default; for the
+/// engines' default instance <see cref="PdfOptions.SystemFontIndexPath"/>) keeps what was read for later processes.
 /// </para>
 /// <para>
 /// A font is looked for, in order: by PostScript name ignoring case (also without hyphens, with the Windows <c>Name,Style</c> comma
@@ -38,8 +45,14 @@ public sealed class SystemFontResolver : IFontResolver
     /// <summary>The most bytes of one font file loaded.</summary>
     private const long MaxFileLength = 256L << 20;
 
-    private readonly Lazy<SystemFontIndex> _index;
+    /// <summary>The most queries whose candidate files are remembered.</summary>
+    private const int MaxRememberedQueries = 4096;
+
+    private static readonly ConcurrentDictionary<string, SystemFontResolver> SharedByIndexPath = new(StringComparer.Ordinal);
+
+    private readonly Lazy<SystemFontCatalog> _catalog;
     private readonly ConcurrentDictionary<string, ReadOnlyMemory<byte>?> _files = new(StringComparer.Ordinal);
+    private readonly ConcurrentDictionary<(string Name, string? Family, Standard14Font? Standard14), SystemFontIndex> _candidates = new();
 
     /// <summary>Initializes a new instance of the <see cref="SystemFontResolver"/> class over the platform's font directories.</summary>
     public SystemFontResolver()
@@ -50,20 +63,46 @@ public sealed class SystemFontResolver : IFontResolver
     /// <summary>Initializes a new instance of the <see cref="SystemFontResolver"/> class over the given directories.</summary>
     /// <param name="directories">The directories, searched recursively, earlier ones first; missing ones are skipped.</param>
     public SystemFontResolver(IEnumerable<string> directories)
+        : this(directories, indexPath: null)
+    {
+    }
+
+    /// <summary>
+    /// Initializes a new instance of the <see cref="SystemFontResolver"/> class over the given directories, keeping what it reads of
+    /// them in an index file so a later process reads no font file twice.
+    /// </summary>
+    /// <param name="directories">The directories, searched recursively, earlier ones first; missing ones are skipped.</param>
+    /// <param name="indexPath">
+    /// The index file, created (with its directory) after the first font asked for and rewritten whenever more font files have been
+    /// read; <see langword="null"/> keeps nothing and writes nothing.
+    /// </param>
+    /// <remarks>
+    /// ADR 0009. The index records each font file read with its length and last write time; a file added, removed or changed since is
+    /// read again, so the index never changes what is found, only how many font files are opened. An index that cannot be read (of
+    /// another version, other directories, damaged) is ignored and replaced; one that cannot be written is skipped. Never throws for
+    /// either.
+    /// </remarks>
+    /// <exception cref="ArgumentException"><paramref name="indexPath"/> is not a valid path.</exception>
+    public SystemFontResolver(IEnumerable<string> directories, string? indexPath)
     {
         ArgumentNullException.ThrowIfNull(directories);
         Directories = [.. directories];
-        _index = new Lazy<SystemFontIndex>(() => SystemFontIndex.Build(Directories), LazyThreadSafetyMode.ExecutionAndPublication);
+        IndexPath = indexPath is null ? null : Path.GetFullPath(indexPath);
+        _catalog = new Lazy<SystemFontCatalog>(() => new SystemFontCatalog(Directories, IndexPath), LazyThreadSafetyMode.ExecutionAndPublication);
     }
 
     /// <summary>Gets the directories read, in the order they are searched.</summary>
     public IReadOnlyList<string> Directories { get; }
 
-    /// <summary>Gets the instance engines use by default, shared by the process so the font directories are scanned once.</summary>
+    /// <summary>Gets the full path of the index file kept between processes, or <see langword="null"/> when none is kept.</summary>
+    /// <remarks>ADR 0009; see <see cref="SystemFontResolver(IEnumerable{string}, string?)"/>.</remarks>
+    public string? IndexPath { get; }
+
+    /// <summary>Gets the instance engines use by default, shared by the process so the font directories are read once.</summary>
     internal static SystemFontResolver Shared { get; } = new();
 
-    /// <summary>Gets the faces found (scanning the directories on first use).</summary>
-    internal SystemFontIndex Index => _index.Value;
+    /// <summary>Gets the font files read so far and the listing they come from (listing the directories on first use).</summary>
+    internal SystemFontCatalog Catalog => _catalog.Value;
 
     /// <inheritdoc/>
     /// <remarks>ISO 32000-2 §9.6.2.1, §9.6.2.2 and §9.8; the order is described on <see cref="SystemFontResolver"/>.</remarks>
@@ -75,20 +114,75 @@ public sealed class SystemFontResolver : IFontResolver
             return null;
         }
 
-        SystemFontIndex index = Index;
+        SystemFontCatalog catalog = Catalog;
+        try
+        {
+            // The files the query's names point at first; every file only when they hold nothing for it.
+            (SystemFontFace Face, FontMatchKind Kind)? found = Find(Candidates(catalog, query), query) ?? Find(catalog.Full, query);
+            return found is { } match ? Load(match.Face, match.Kind) : null;
+        }
+        finally
+        {
+            catalog.SaveIfChanged();
+        }
+    }
+
+    /// <summary>The default resolver over the platform's directories that keeps its index at a path: one per path in the process.</summary>
+    /// <param name="indexPath">The index file.</param>
+    /// <returns>The resolver.</returns>
+    internal static SystemFontResolver ForIndexPath(string indexPath) =>
+        SharedByIndexPath.GetOrAdd(Path.GetFullPath(indexPath), static path => new SystemFontResolver(PlatformDirectories(), path));
+
+    /// <summary>Resolves a query over every font file of the directories, as before any file name was looked at (an oracle for tests).</summary>
+    internal FontResolution? ResolveFontFromEveryFile(FontQuery query) =>
+        Directories.Count > 0 && Find(Catalog.Full, query) is { } match ? Load(match.Face, match.Kind) : null;
+
+    /// <summary>The index of the files a query's names point at, remembered per name, descriptor family and Standard 14 font.</summary>
+    private SystemFontIndex Candidates(SystemFontCatalog catalog, FontQuery query)
+    {
+        var key = (query.PostScriptName, query.FontFamily, query.Standard14);
+        if (_candidates.TryGetValue(key, out SystemFontIndex? index))
+        {
+            return index;
+        }
+
+        index = catalog.ForKeys(LookupKeys(query));
+        return _candidates.Count < MaxRememberedQueries ? _candidates.GetOrAdd(key, index) : index;
+    }
+
+    /// <summary>The family keys a lookup compares: the name's, the family's, the descriptor's family and the Standard 14 stand-ins.</summary>
+    private static List<string> LookupKeys(FontQuery query)
+    {
+        var keys = new List<string> { FontNameParser.FamilyKey(query.PostScriptName), query.FamilyKey };
+        if (query.FontFamily is { Length: > 0 } family)
+        {
+            keys.Add(FontNameParser.FamilyKey(family));
+        }
+
+        if (query.Standard14 is { } standard14)
+        {
+            keys.AddRange(StandIns.For(standard14));
+        }
+
+        return keys;
+    }
+
+    /// <summary>The lookup ladder over an index: name, family, the descriptor's family, Standard 14 stand-ins.</summary>
+    private static (SystemFontFace Face, FontMatchKind Kind)? Find(SystemFontIndex index, FontQuery query)
+    {
         if (FindByName(index, query) is { } exact)
         {
-            return Load(exact, FontMatchKind.Exact);
+            return (exact, FontMatchKind.Exact);
         }
 
         if (FindByFamily(index, query, query.FamilyKey) is { } family)
         {
-            return Load(family, FontMatchKind.Family);
+            return (family, FontMatchKind.Family);
         }
 
         if (query.FontFamily is { Length: > 0 } descriptorFamily && FindByFamily(index, query, FontNameParser.FamilyKey(descriptorFamily)) is { } byDescriptor)
         {
-            return Load(byDescriptor, FontMatchKind.Family);
+            return (byDescriptor, FontMatchKind.Family);
         }
 
         if (query.Standard14 is { } standard14)
@@ -97,7 +191,7 @@ public sealed class SystemFontResolver : IFontResolver
             {
                 if (FindByFamily(index, query, key) is { } standIn)
                 {
-                    return Load(standIn, FontMatchKind.Standard14);
+                    return (standIn, FontMatchKind.Standard14);
                 }
             }
         }

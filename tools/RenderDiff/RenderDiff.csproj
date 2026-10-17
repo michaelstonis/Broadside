@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Development-only triage tool (issue #137): renders corpus pages with Broadside and with reference renderers (PDFium, pdf.js,
+    poppler) run as separate processes, aligns the images, ranks pages by the golden-image harness's perceptual comparison and writes
+    a report. Never a CI gate, never packed, and nothing in src/ references it (ADR 0001). See README.md.
+  -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Broadside.Tools.RenderDiff</RootNamespace>
+    <AssemblyName>RenderDiff</AssemblyName>
+    <Description>Compares Broadside's renders with PDFium, pdf.js and poppler and ranks the pages that differ most.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Rendering/Broadside.Rendering.csproj" />
+    <PackageReference Include="StbImageSharp" />
+  </ItemGroup>
+
+  <!--
+    The golden-image harness's image, comparison and threshold types (#120), compiled in from tests/Broadside.GoldenImages so pages are
+    ranked by exactly the metric golden images are held to. Linked rather than referenced: that project also carries xunit and Verify,
+    which a console tool does not need.
+  -->
+  <ItemGroup>
+    <Compile Include="../../tests/Broadside.GoldenImages/GoldenImage.cs" Link="GoldenImages/GoldenImage.cs" />
+    <Compile Include="../../tests/Broadside.GoldenImages/GoldenComparison.cs" Link="GoldenImages/GoldenComparison.cs" />
+    <Compile Include="../../tests/Broadside.GoldenImages/GoldenThreshold.cs" Link="GoldenImages/GoldenThreshold.cs" />
+    <Compile Include="../../tests/Broadside.GoldenImages/GoldenPixelFormat.cs" Link="GoldenImages/GoldenPixelFormat.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="reference/pdfium/render.py" CopyToOutputDirectory="PreserveNewest" LinkBase="reference/pdfium" />
+    <None Include="reference/pdfjs/render.mjs" CopyToOutputDirectory="PreserveNewest" LinkBase="reference/pdfjs" />
+  </ItemGroup>
+
+</Project>

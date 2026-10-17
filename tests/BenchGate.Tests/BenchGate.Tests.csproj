@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Drives tools/BenchGate with synthetic BenchmarkDotNet reports and with a real one from bench/baselines. -->
+  <PropertyGroup>
+    <RootNamespace>Broadside.Tools.BenchGate.Tests</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../tools/BenchGate/BenchGate.csproj" />
+    <PackageReference Include="xunit.v3" />
+  </ItemGroup>
+
+</Project>

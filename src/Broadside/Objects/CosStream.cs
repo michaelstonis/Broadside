@@ -38,7 +38,7 @@ public sealed class CosStream : CosObject
 
     /// <summary>
     /// Gets a number that changes every time the data is replaced through the public API, and never by reading or loading. The
-    /// dictionary has its own <see cref="CosDictionary.Version"/>.
+    /// dictionary has its own <see cref="CosDictionary.Version"/>. Every change also advances <see cref="CosMutation.Epoch"/>.
     /// </summary>
     internal int Version { get; private set; }
 
@@ -55,10 +55,12 @@ public sealed class CosStream : CosObject
         get => _deferred is { } deferred ? deferred.Read() : _encodedData;
         set
         {
+            CosChangeLog.Changing(this);
             _encodedData = value;
             _deferred = null;
             _changed = true;
             Version++;
+            CosMutation.Advance();
         }
     }
 
@@ -81,6 +83,30 @@ public sealed class CosStream : CosObject
 
     /// <inheritdoc/>
     public override bool IsDirty => _changed || Dictionary.IsDirty;
+
+    /// <inheritdoc/>
+    internal override void MarkClean()
+    {
+        _changed = false;
+        Dictionary.MarkClean();
+    }
+
+    /// <inheritdoc/>
+    /// <remarks>The data only: the dictionary is a container of its own, recorded when it changes.</remarks>
+    internal override Action CaptureState()
+    {
+        ReadOnlyMemory<byte> data = _encodedData;
+        DeferredStreamData? deferred = _deferred;
+        bool changed = _changed;
+        return () =>
+        {
+            _encodedData = data;
+            _deferred = deferred;
+            _changed = changed;
+            Version++;
+            CosMutation.Advance();
+        };
+    }
 
     /// <summary>Data computed from the loaded data on first read, once however many threads read it (<see cref="OnceCache{TKey, TValue}"/>).</summary>
     private sealed class TransformedData(DeferredStreamData? source, ReadOnlyMemory<byte> loaded, Func<ReadOnlyMemory<byte>, ReadOnlyMemory<byte>> transform)

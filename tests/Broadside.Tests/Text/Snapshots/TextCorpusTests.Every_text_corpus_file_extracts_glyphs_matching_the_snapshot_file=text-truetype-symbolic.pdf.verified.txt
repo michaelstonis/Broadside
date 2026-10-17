@@ -1,0 +1,7 @@
+﻿page 1: ABCD
+  A code 41/1 GlyphName font BroadsideSymbolic 24 Fill origin (72, 700) advance (9.6, 0) quad (72, 695.2) (81.6, 695.2) (81.6, 719.2) (72, 719.2)
+  B code 42/1 GlyphName font BroadsideSymbolic 24 Fill origin (81.6, 700) advance (14.4, 0) quad (81.6, 695.2) (96, 695.2) (96, 719.2) (81.6, 719.2)
+  C code 43/1 GlyphName font BroadsideSymbolic 24 Fill origin (96, 700) advance (19.2, 0) quad (96, 695.2) (115.2, 695.2) (115.2, 719.2) (96, 719.2)
+  D code 44/1 GlyphName font BroadsideSymbolic 24 Fill origin (115.2, 700) advance (14.4, 0) quad (115.2, 695.2) (129.6, 695.2) (129.6, 719.2) (115.2, 719.2)
+  line ABCD glyphs 0+4 quad (72, 695.2) (129.6, 695.2) (129.6, 719.2) (72, 719.2)
+    words ABCD glyphs 0+4

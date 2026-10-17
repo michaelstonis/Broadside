@@ -117,19 +117,26 @@ public sealed class ColorConversionTests
         Assert.True(absolute[2] < absolute[0] - 0.05, $"Expected a warm white, got [{string.Join(", ", absolute)}].");
     }
 
-    [Fact]
-    public void Black_point_compensation_maps_the_source_black_point_to_black_unless_it_is_off()
+    /// <summary>
+    /// A CalGray BlackPoint (here 0.7, as in pdf.js's calgray.pdf) neither clips the values below it to black nor darkens the rest:
+    /// with the equal-energy white and gamma 1, A is the luminance, so each value is the sRGB encoding of A (IEC 61966-2-1), with
+    /// black point compensation on, off or left to the processor (#279).
+    /// </summary>
+    [Theory]
+    [InlineData(BlackPointCompensation.Default)]
+    [InlineData(BlackPointCompensation.On)]
+    [InlineData(BlackPointCompensation.Off)]
+    public void A_CalGray_BlackPoint_keeps_the_tonal_ramp_on_both_sides_of_it(BlackPointCompensation compensation)
     {
         using PdfDocument document = PdfDocument.Create();
-        PdfColorSpace space = document.GetColorSpace(Cos("[/CalGray << /WhitePoint [0.95047 1 1.08883] /BlackPoint [0.047523 0.05 0.054441] >>]"));
-        float[] rgb = new float[3];
+        PdfColorSpace space = document.GetColorSpace(Cos("[/CalGray << /WhitePoint [1 1 1] /BlackPoint [0.7 0.7 0.7] >>]"));
+        PdfColorConverter converter = document.GetColorConverter(space, new ColorConversion { BlackPointCompensation = compensation });
 
-        document.GetColorConverter(space, new ColorConversion { BlackPointCompensation = BlackPointCompensation.On }).Convert([0.05f], rgb);
-        Near([0f, 0f, 0f], rgb, 1e-3);
-        document.GetColorConverter(space, new ColorConversion { BlackPointCompensation = BlackPointCompensation.Off }).Convert([0.05f], rgb);
-        Near([0.2474f, 0.2474f, 0.2474f], rgb, 2e-3);
-        document.GetColorConverter(space, new ColorConversion { Intent = RenderingIntent.AbsoluteColorimetric }).Convert([0.05f], rgb);
-        Assert.True(rgb[1] > 0.2f);
+        (float A, float Srgb)[] ramp = [(0f, 0f), (0.01f, 0.0999f), (0.35f, 0.6262f), (0.69f, 0.8489f), (0.7f, 0.8543f), (0.71f, 0.8597f), (1f, 1f)];
+        foreach ((float a, float srgb) in ramp)
+        {
+            Near([srgb, srgb, srgb], converter.ConvertOne(a), 2e-3);
+        }
     }
 
     [Fact]
@@ -174,6 +181,21 @@ public sealed class ColorConversionTests
         Near([1f, 0.9f, 0.5f], document.Rgb(gold, 0.5f));
         document.GetColorConverter(gold).Convert(new byte[] { 255, 0 }, bytes, 2);
         Assert.Equal(new byte[] { 255, 204, 0, 255, 255, 255 }, bytes);
+    }
+
+    [Fact]
+    public void A_tint_transform_removed_as_an_object_is_seen_by_the_converter_built_before()
+    {
+        using PdfDocument document = PdfDocument.Open(
+            Page("<< >>", string.Empty, "<< /FunctionType 2 /Domain [0 1] /C0 [0 0 0] /C1 [1 0 0] /N 1 >>"),
+            new PdfOptions().UseColorManagement(ManagedColorManagement.Classic));
+        PdfColorSpace spot = document.GetColorSpace(Cos("[/Separation /Spot /DeviceRGB 5 0 R]"));
+        Near([1f, 0f, 0f], document.Rgb(spot, 1));
+
+        // §7.3.10: the tint transform now resolves to null, so subtractive ink applies (§8.6.6.4); the array is unchanged.
+        Assert.True(document.RemoveObject(new CosReference(5, 0)));
+
+        Near([0.75f, 0.75f, 0.75f], document.Rgb(spot, 0.25f));
     }
 
     [Fact]

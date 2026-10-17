@@ -1,0 +1,78 @@
+﻿corpus: pdfjs @ c53f395e4057b501f478a7e98ed03d47c7c62a04
+files: 989
+well-formed files: 717
+outcomes:
+  Rendered: 976
+  PasswordRequired: 11
+  CertificateRequired: 0
+  EncryptionUnsupported: 0
+  Rejected: 2
+  Crash: 0
+  Timeout: 0
+pages rendered: 1831
+render diagnostics on well-formed files (files, total):
+  AppearanceResourcesMissing: 8, 61
+  CMapCodeInvalid: 1, 1
+  CMapEntryInvalid: 3, 3
+  CMapOperatorNotAllowed: 1, 1
+  CMapUseCMapInvalid: 1, 1
+  CidSystemInfoInvalid: 2, 2
+  CidSystemInfoMismatch: 1, 1
+  CidToGidMapMissing: 20, 24
+  ColorSpaceEntryInvalid: 1, 3
+  ColorSpaceInvalid: 1, 1
+  ContentColorOperatorMismatch: 19, 90
+  ContentExtGStateInvalid: 3, 3
+  ContentFontMissing: 1, 1
+  ContentGraphicsStateRange: 1, 1
+  ContentMarkedContentUnbalanced: 3, 3
+  ContentNoCurrentPoint: 1, 1
+  ContentOperandCount: 5, 5
+  ContentOperandType: 1, 1
+  ContentPropertiesMissing: 1, 1
+  ContentStackUnderflow: 3, 5
+  ContentSyntaxInvalid: 2, 2
+  ContentTextObjectUnbalanced: 3, 3
+  ContentType3GlyphMetricsMissing: 1, 1
+  ContentUnbalancedSave: 4, 4
+  ContentUnknownOperator: 4, 4
+  ContentXObjectInvalid: 1, 1
+  ContentXObjectMissing: 1, 1
+  DctLeadingJunk: 1, 1
+  FontBaseFontMissing: 1, 2
+  FontCffDictInvalid: 2, 2
+  FontCffFdSelectInvalid: 1, 1
+  FontCffHeaderInvalid: 1, 1
+  FontCffPrivateMissing: 1, 2
+  FontCharstringArgumentCount: 1, 11
+  FontCharstringUnknownOperator: 1, 1
+  FontCmapInvalid: 5, 5
+  FontDescriptorInvalid: 20, 180
+  FontDescriptorMissing: 3, 3
+  FontEncodingInvalid: 3, 3
+  FontGlyphInvalid: 6, 6
+  FontProgramFormatMismatch: 6, 6
+  FontProgramInvalid: 1, 1
+  FontProgramTruncated: 3, 3
+  FontStandard14EntriesIncomplete: 3, 3
+  FontTableInvalid: 22, 31
+  FontType1HexEexec: 2, 2
+  FontType1Length1Repaired: 3, 3
+  FontType1Length2Repaired: 3, 4
+  FontType1PfbWrapped: 2, 2
+  FontTypeInvalid: 2, 2
+  FontWidthsInvalid: 1, 4
+  FontWidthsMissing: 3, 3
+  FunctionEntryInvalid: 1, 1
+  FunctionEvaluationRepaired: 1, 1
+  ImageDimensionInvalid: 1, 1
+  ImageDimensionMismatch: 1, 1
+  ImageMaskConflict: 4, 18
+  ImageMaskInvalid: 1, 1
+  ShadingFunctionInvalid: 1, 16
+  ToUnicodeBfRangeOverflow: 14, 17
+  ToUnicodeCidMapping: 2, 2
+  ToUnicodeCodeLengthMismatch: 2, 2
+  ToUnicodeDestinationInvalid: 9, 10
+  ToUnicodeIdentityName: 7, 11
+  Type0IdentityNotEmbedded: 20, 29

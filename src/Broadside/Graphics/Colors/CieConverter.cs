@@ -4,10 +4,15 @@ namespace Broadside.Graphics.Colors;
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §8.6.5.2 to §8.6.5.4 give XYZ relative to the space's white point; §10.3 leaves the CIE to device step to colour
-/// management. The pipeline: clip the components into range; compute XYZ; with black point compensation (§8.6.5.9), scale each
-/// tristimulus value, normalised to the white, so the black point maps to zero; adapt from the white point to D65 with the Bradford
+/// management. The pipeline: clip the components into range; compute XYZ; adapt from the white point to D65 with the Bradford
 /// transform (none for the absolute colorimetric intent); take XYZ to linear sRGB and encode it (IEC 61966-2-1); RGB then goes to
 /// gray or CMYK by §10.4.2.
+/// </para>
+/// <para>
+/// The <c>BlackPoint</c> entry does not enter the formulas, which give XYZ = 0 for the darkest components whatever it says. Black
+/// point compensation (§8.6.5.9, ISO 18619) maps the darkest colour a source produces, here that zero, to the destination's black,
+/// sRGB's zero, so it changes nothing for these spaces; scaling by the entry instead would clip every colour darker than it to
+/// black (#279). PDFium, pdf.js, Ghostscript and Poppler render it this way too.
 /// </para>
 /// <para>
 /// pdf.js approximates CalGray and Lab differently, so renders differ slightly from it; this is the colorimetric result.
@@ -18,20 +23,16 @@ internal sealed class CieConverter : IColorConverter
     private readonly PdfColorSpaceFamily _family;
     private readonly ColorConversion _conversion;
     private readonly CieXyz _white;
-    private readonly double[] _black;
-    private readonly bool _compensate;
     private readonly double[] _gamma;
     private readonly double[] _matrix;
     private readonly double[] _ranges;
     private readonly double[] _toSrgb;
 
-    private CieConverter(PdfColorSpaceFamily family, ColorConversion conversion, CieXyz white, CieXyz black, double[] gamma, double[] matrix, double[] ranges)
+    private CieConverter(PdfColorSpaceFamily family, ColorConversion conversion, CieXyz white, double[] gamma, double[] matrix, double[] ranges)
     {
         _family = family;
         _conversion = conversion;
         _white = white;
-        _black = [black.X / white.X, black.Y / white.Y, black.Z / white.Z];
-        _compensate = conversion.CompensatesBlackPoint && (black.X > 0 || black.Y > 0 || black.Z > 0) && _black.All(static b => b < 1);
         _gamma = gamma;
         _matrix = matrix;
         _ranges = ranges;
@@ -48,19 +49,19 @@ internal sealed class CieConverter : IColorConverter
 
     /// <summary>Creates the converter for a CalGray space.</summary>
     public static CieConverter ForCalGray(PdfCalGrayColorSpace space, ColorConversion conversion) =>
-        new(PdfColorSpaceFamily.CalGray, conversion, space.WhitePoint, space.BlackPoint, [space.Gamma], [], []);
+        new(PdfColorSpaceFamily.CalGray, conversion, space.WhitePoint, [space.Gamma], [], []);
 
     /// <summary>Creates the converter for a CalRGB space.</summary>
     public static CieConverter ForCalRgb(PdfCalRgbColorSpace space, ColorConversion conversion) =>
-        new(PdfColorSpaceFamily.CalRgb, conversion, space.WhitePoint, space.BlackPoint, [.. space.Gamma], [.. space.Matrix], []);
+        new(PdfColorSpaceFamily.CalRgb, conversion, space.WhitePoint, [.. space.Gamma], [.. space.Matrix], []);
 
     /// <summary>Creates the converter for a Lab space.</summary>
     public static CieConverter ForLab(PdfLabColorSpace space, ColorConversion conversion) =>
-        new(PdfColorSpaceFamily.Lab, conversion, space.WhitePoint, space.BlackPoint, [], [], [0, 100, .. space.Range]);
+        new(PdfColorSpaceFamily.Lab, conversion, space.WhitePoint, [], [], [0, 100, .. space.Range]);
 
     /// <summary>Creates the converter for an ICC profile whose data colour space is Lab: D50 white (the PCS), ranges from the space.</summary>
     public static CieConverter ForIccLab(PdfIccBasedColorSpace space, ColorConversion conversion) =>
-        new(PdfColorSpaceFamily.Lab, conversion, CieXyz.D50, default, [], [], [.. space.Range]);
+        new(PdfColorSpaceFamily.Lab, conversion, CieXyz.D50, [], [], [.. space.Range]);
 
     /// <inheritdoc/>
     public void Convert(ReadOnlySpan<float> source, Span<float> destination, int count)
@@ -72,11 +73,6 @@ internal sealed class CieConverter : IColorConverter
         for (int i = 0; i < count; i++)
         {
             ToXyz(source.Slice(i * inputs, inputs), xyz);
-            if (_compensate)
-            {
-                Compensate(xyz);
-            }
-
             ColorMath.Apply(_toSrgb, xyz[0], xyz[1], xyz[2], rgb);
             ColorMath.FromRgb(
                 ColorMath.EncodeSrgb(rgb[0]),
@@ -118,17 +114,6 @@ internal sealed class CieConverter : IColorConverter
                 xyz[2] = _white.Z * ColorMath.LabG(mid - (bstar / 200));
                 break;
         }
-    }
-
-    /// <summary>
-    /// Black point compensation with a black destination: each tristimulus value, relative to the white, is scaled so the source
-    /// black point lands on zero while the white stays (ISO 32000-2 §8.6.5.9; Adobe's algorithm with the sRGB black of 0).
-    /// </summary>
-    private void Compensate(Span<double> xyz)
-    {
-        xyz[0] = _white.X * (((xyz[0] / _white.X) - _black[0]) / (1 - _black[0]));
-        xyz[1] = _white.Y * (((xyz[1] / _white.Y) - _black[1]) / (1 - _black[1]));
-        xyz[2] = _white.Z * (((xyz[2] / _white.Z) - _black[2]) / (1 - _black[2]));
     }
 
     private static double Clip(double value, double minimum, double maximum) => value >= minimum ? Math.Min(value, maximum) : minimum;

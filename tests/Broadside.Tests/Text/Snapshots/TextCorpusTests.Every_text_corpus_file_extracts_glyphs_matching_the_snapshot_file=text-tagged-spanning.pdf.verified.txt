@@ -1,0 +1,33 @@
+﻿page 1: BeforeDrucker*
+  B code 42/1 GlyphName font Helvetica 12 Fill element P lang en-US origin (72, 700) advance (8.004, 0) quad (72, 697.516) (80.004, 697.516) (80.004, 708.616) (72, 708.616)
+  e code 65/1 GlyphName font Helvetica 12 Fill element P lang en-US origin (80.004, 700) advance (6.672, 0) quad (80.004, 697.516) (86.676, 697.516) (86.676, 708.616) (80.004, 708.616)
+  f code 66/1 GlyphName font Helvetica 12 Fill element P lang en-US origin (86.676, 700) advance (3.336, 0) quad (86.676, 697.516) (90.012, 697.516) (90.012, 708.616) (86.676, 708.616)
+  o code 6F/1 GlyphName font Helvetica 12 Fill element P lang en-US origin (90.012, 700) advance (6.672, 0) quad (90.012, 697.516) (96.684, 697.516) (96.684, 708.616) (90.012, 708.616)
+  r code 72/1 GlyphName font Helvetica 12 Fill element P lang en-US origin (96.684, 700) advance (3.996, 0) quad (96.684, 697.516) (100.68, 697.516) (100.68, 708.616) (96.684, 708.616)
+  e code 65/1 GlyphName font Helvetica 12 Fill element P lang en-US origin (100.68, 700) advance (6.672, 0) quad (100.68, 697.516) (107.352, 697.516) (107.352, 708.616) (100.68, 708.616)
+  Drucker code 44/1 GlyphName font Helvetica 12 Fill ActualText element Span lang en-US origin (72, 680) advance (8.664, 0) quad (72, 677.516) (80.664, 677.516) (80.664, 688.616) (72, 688.616)
+   code 72/1 GlyphName font Helvetica 12 Fill ActualText element Span lang en-US origin (80.664, 680) advance (3.996, 0) quad (80.664, 677.516) (84.66, 677.516) (84.66, 688.616) (80.664, 688.616)
+   code 75/1 GlyphName font Helvetica 12 Fill ActualText element Span lang en-US origin (84.66, 680) advance (6.672, 0) quad (84.66, 677.516) (91.332, 677.516) (91.332, 688.616) (84.66, 688.616)
+   code 6B/1 GlyphName font Helvetica 12 Fill ActualText element Span lang en-US origin (91.332, 680) advance (6, 0) quad (91.332, 677.516) (97.332, 677.516) (97.332, 688.616) (91.332, 688.616)
+   code 2D/1 GlyphName font Helvetica 12 Fill ActualText element Span lang en-US origin (97.332, 680) advance (3.996, 0) quad (97.332, 677.516) (101.328, 677.516) (101.328, 688.616) (97.332, 688.616)
+  * code 2A/1 GlyphName font Helvetica 12 Fill element Figure lang en-US origin (72, 660) advance (4.668, 0) quad (72, 657.516) (76.668, 657.516) (76.668, 668.616) (72, 668.616)
+  line Before glyphs 0+6 quad (72, 697.516) (107.352, 697.516) (107.352, 708.616) (72, 708.616)
+    words Before glyphs 0+6
+  line Drucker glyphs 6+5 quad (72, 677.516) (101.328, 677.516) (101.328, 688.616) (72, 688.616)
+    words Drucker glyphs 6+5
+  line * glyphs 11+1 quad (72, 657.516) (76.668, 657.516) (76.668, 668.616) (72, 668.616)
+    words * glyphs 11+1
+page 2: *After
+   code 6B/1 GlyphName font Helvetica 12 Fill ActualText element Span lang en-US origin (72, 700) advance (6, 0) quad (72, 697.516) (78, 697.516) (78, 708.616) (72, 708.616)
+   code 65/1 GlyphName font Helvetica 12 Fill ActualText element Span lang en-US origin (78, 700) advance (6.672, 0) quad (78, 697.516) (84.672, 697.516) (84.672, 708.616) (78, 708.616)
+   code 72/1 GlyphName font Helvetica 12 Fill ActualText element Span lang en-US origin (84.672, 700) advance (3.996, 0) quad (84.672, 697.516) (88.668, 697.516) (88.668, 708.616) (84.672, 708.616)
+  * code 2A/1 GlyphName font Helvetica 12 Fill element Figure lang en-US origin (72, 680) advance (4.668, 0) quad (72, 677.516) (76.668, 677.516) (76.668, 688.616) (72, 688.616)
+  A code 41/1 GlyphName font Helvetica 12 Fill element P lang en-US origin (72, 660) advance (8.004, 0) quad (72, 657.516) (80.004, 657.516) (80.004, 668.616) (72, 668.616)
+  f code 66/1 GlyphName font Helvetica 12 Fill element P lang en-US origin (80.004, 660) advance (3.336, 0) quad (80.004, 657.516) (83.34, 657.516) (83.34, 668.616) (80.004, 668.616)
+  t code 74/1 GlyphName font Helvetica 12 Fill element P lang en-US origin (83.34, 660) advance (3.336, 0) quad (83.34, 657.516) (86.676, 657.516) (86.676, 668.616) (83.34, 668.616)
+  e code 65/1 GlyphName font Helvetica 12 Fill element P lang en-US origin (86.676, 660) advance (6.672, 0) quad (86.676, 657.516) (93.348, 657.516) (93.348, 668.616) (86.676, 668.616)
+  r code 72/1 GlyphName font Helvetica 12 Fill element P lang en-US origin (93.348, 660) advance (3.996, 0) quad (93.348, 657.516) (97.344, 657.516) (97.344, 668.616) (93.348, 668.616)
+  line * glyphs 3+1 quad (72, 677.516) (76.668, 677.516) (76.668, 688.616) (72, 688.616)
+    words * glyphs 3+1
+  line After glyphs 4+5 quad (72, 657.516) (97.344, 657.516) (97.344, 668.616) (72, 668.616)
+    words After glyphs 4+5

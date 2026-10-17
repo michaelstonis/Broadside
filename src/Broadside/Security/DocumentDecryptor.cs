@@ -57,9 +57,10 @@ internal sealed record CryptFilter(CosName Name, CryptMethod Method, byte[] Key)
 /// A stream whose <c>Filter</c> starts with <c>Crypt</c> is decrypted here too, with the crypt filter its <c>DecodeParms</c> name
 /// (default <c>Identity</c>) and that filter's key used as is (§7.4.10), not with <c>StmF</c>; the pipeline's <c>Crypt</c> stage then
 /// passes the already decrypted data through. So <see cref="CosStream.EncodedData"/> of every loaded stream holds plaintext,
-/// decrypted when it is first read and kept (issue #45: loading a stream object neither reads nor decrypts its data). For an AES-128
-/// crypt filter whose data does not decrypt with the key as is, Algorithm 1's per-object key (what Table 25 describes for
-/// <c>AESV2</c>, and what qpdf uses) is tried before the data is reported damaged.
+/// decrypted when it is first read and kept (issue #45: loading a stream object neither reads nor decrypts its data). An AES-128
+/// crypt filter's data is decrypted with Algorithm 1's per-object key first (what Table 25 describes for <c>AESV2</c>, what qpdf and
+/// poppler write, and what a re-save with the document's own key writes), and with the key as is only when that leaves no valid
+/// PKCS#5 pad; the pad is all that tells the two apart, and it ends valid under the wrong key for about one IV in 256 (issue #297).
 /// </para>
 /// <para>
 /// Damaged ciphertext is repaired the way pdf.js does, with a diagnostic: AES data too short for an IV and a block decrypts to nothing,
@@ -106,11 +107,23 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
     /// <summary>Gets a value indicating whether metadata streams are encrypted (Table 21).</summary>
     public bool EncryptMetadata { get; }
 
+    /// <summary>
+    /// Gets the file encryption key the handler returned, the input key material of the integrity MAC (ISO/TS 32004 §6.4); empty for a
+    /// document opened without authentication.
+    /// </summary>
+    public byte[] FileEncryptionKey { get; private init; } = [];
+
     /// <summary>Gets the crypt filter strings are decrypted with.</summary>
     public CryptFilter Strings => _strings;
 
     /// <summary>Gets the crypt filter streams are decrypted with by default.</summary>
     public CryptFilter Streams => _streams;
+
+    /// <summary>Gets the crypt filter embedded files are decrypted with (<c>EFF</c>, default <c>StmF</c>).</summary>
+    public CryptFilter EmbeddedFiles => _embeddedFiles;
+
+    /// <summary>Gets the crypt filters of <c>CF</c> by name, the ones a <c>Crypt</c> filter can name (§7.4.10).</summary>
+    public IReadOnlyDictionary<CosName, CryptFilter> Named => _named;
 
     /// <summary>Reads the crypt filters of an encryption dictionary (Table 20, §7.6.6) for the key a handler returned.</summary>
     /// <param name="encryption">The encryption dictionary.</param>
@@ -145,7 +158,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
                     }
 
                     var rc4 = new CryptFilter(StandardFilterName, CryptMethod.Rc4, fileKey);
-                    return new DocumentDecryptor(rc4, rc4, rc4, [], encryptMetadata: true, diagnostics, resolve);
+                    return new DocumentDecryptor(rc4, rc4, rc4, [], encryptMetadata: true, diagnostics, resolve) { FileEncryptionKey = fileKey };
                 }
 
             case 4 or 5 or 6:
@@ -220,7 +233,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
                     }
 
                     bool encryptMetadata = flag is not CosBoolean { Value: false };
-                    return new DocumentDecryptor(strings, streams, embedded, named, encryptMetadata, diagnostics, resolve);
+                    return new DocumentDecryptor(strings, streams, embedded, named, encryptMetadata, diagnostics, resolve) { FileEncryptionKey = fileKey };
                 }
 
             default:
@@ -369,11 +382,12 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
         return fitted;
     }
 
-    private static bool IsType(CosDictionary dictionary, CosName type) =>
+    /// <summary>Whether a dictionary's direct <c>Type</c> entry is <paramref name="type"/>.</summary>
+    internal static bool IsType(CosDictionary dictionary, CosName type) =>
         dictionary.TryGetValue(KnownNames.Type, out CosObject? value) && type.Equals(value);
 
     /// <summary>A signature dictionary's <c>Contents</c> is never encrypted (§7.6.2): Type Sig or DocTimeStamp, or Contents with ByteRange.</summary>
-    private static bool IsSignature(CosDictionary dictionary) =>
+    internal static bool IsSignature(CosDictionary dictionary) =>
         IsType(dictionary, Sig) || IsType(dictionary, DocTimeStamp)
         || (dictionary.TryGetValue(KnownNames.Contents, out CosObject? contents) && contents is CosString && dictionary.TryGetValue(KnownNames.ByteRange, out CosObject? range) && range is CosArray);
 
@@ -516,14 +530,25 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
             objectReference: id);
 
     /// <summary>Reads the crypt filter a stream names when its first filter is <c>Crypt</c> (§7.4.10, Table 14; default Identity).</summary>
-    private bool TryReadCryptFilterName(CosDictionary dictionary, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out CosName? name)
+    private bool TryReadCryptFilterName(CosDictionary dictionary, [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out CosName? name) =>
+        TryReadCryptFilterName(dictionary, _resolve, out name);
+
+    /// <summary>Reads the crypt filter a stream names when its first filter is <c>Crypt</c> (§7.4.10, Table 14; default Identity).</summary>
+    /// <param name="dictionary">The stream dictionary.</param>
+    /// <param name="resolve">Resolves references.</param>
+    /// <param name="name">The crypt filter's name.</param>
+    /// <returns>Whether the stream's first filter is <c>Crypt</c>.</returns>
+    internal static bool TryReadCryptFilterName(
+        CosDictionary dictionary,
+        Func<CosObject?, CosObject> resolve,
+        [System.Diagnostics.CodeAnalysis.NotNullWhen(true)] out CosName? name)
     {
         name = null;
-        CosObject filters = _resolve(dictionary.TryGetValue(FilterNames.Filter, out CosObject? filter) ? filter : null);
+        CosObject filters = resolve(dictionary.TryGetValue(FilterNames.Filter, out CosObject? filter) ? filter : null);
         bool first = filters switch
         {
             CosName single => single.Equals(FilterNames.Crypt),
-            CosArray { Count: > 0 } array => FilterNames.Crypt.Equals(_resolve(array[0])),
+            CosArray { Count: > 0 } array => FilterNames.Crypt.Equals(resolve(array[0])),
             _ => false,
         };
         if (!first)
@@ -531,13 +556,13 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
             return false;
         }
 
-        CosObject parameters = _resolve(dictionary.TryGetValue(FilterNames.DecodeParms, out CosObject? entry) ? entry : null);
+        CosObject parameters = resolve(dictionary.TryGetValue(FilterNames.DecodeParms, out CosObject? entry) ? entry : null);
         if (parameters is CosArray { Count: > 0 } list)
         {
-            parameters = _resolve(list[0]);
+            parameters = resolve(list[0]);
         }
 
-        name = parameters is CosDictionary decodeParms && _resolve(decodeParms.TryGetValue(FilterNames.Name, out CosObject? value) ? value : null) is CosName named
+        name = parameters is CosDictionary decodeParms && resolve(decodeParms.TryGetValue(FilterNames.Name, out CosObject? value) ? value : null) is CosName named
             ? named
             : FilterNames.Identity;
         return true;
@@ -558,14 +583,17 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
 
             case CryptMethod.AesV2:
                 {
-                    byte[] key = perObjectKey ? ObjectKey(filter.Key, id, aes: true) : filter.Key;
-                    ReadOnlyMemory<byte> plain = DecryptCbc(key, data, out string? problem);
+                    // A Crypt filter's AESV2 data is tried with Algorithm 1's object key first (what qpdf and poppler write, and what
+                    // ObjectEncryptor re-saves with), then with the filter's key as is (§7.4.10). Only the PKCS#5 pad tells them apart,
+                    // and a wrong key ends in a valid pad about once in 256 random IVs, so the key every writer uses is tried first:
+                    // trying the as-is key first misread about one re-save in 200 (issue #297).
+                    ReadOnlyMemory<byte> plain = DecryptCbc(ObjectKey(filter.Key, id, aes: true), data, out string? problem);
                     if (problem is not null && !perObjectKey)
                     {
-                        ReadOnlyMemory<byte> salted = DecryptCbc(ObjectKey(filter.Key, id, aes: true), data, out string? saltedProblem);
-                        if (saltedProblem is null)
+                        ReadOnlyMemory<byte> asIs = DecryptCbc(filter.Key, data, out string? asIsProblem);
+                        if (asIsProblem is null)
                         {
-                            return salted;
+                            return asIs;
                         }
                     }
 
@@ -586,7 +614,7 @@ internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler
     }
 
     /// <summary>Algorithm 1 steps b-d: MD5 of the key, the low 3 bytes of the object number, the low 2 of the generation, "sAlT" for AES.</summary>
-    private static byte[] ObjectKey(byte[] fileKey, CosReference id, bool aes)
+    internal static byte[] ObjectKey(byte[] fileKey, CosReference id, bool aes)
     {
         Span<byte> input = stackalloc byte[fileKey.Length + 9];
         fileKey.CopyTo(input);

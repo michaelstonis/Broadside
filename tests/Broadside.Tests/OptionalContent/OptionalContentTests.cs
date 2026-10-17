@@ -25,6 +25,7 @@ public sealed class OptionalContentTests
         Assert.Equal("Broadside", properties.Groups[2].Usage!.Creator);
         Assert.Equal("Technical", properties.Groups[2].Usage!.CreatorSubtype!.Value);
         Assert.False(properties.Groups[3].Usage!.ViewState);
+        Assert.False(properties.Groups[3].Usage!.PrintState);
         Assert.Equal(1.5, properties.Groups[3].Usage!.ZoomMin);
         Assert.Null(properties.Groups[3].Usage!.ZoomMax);
         Assert.Empty(document.Diagnostics);
@@ -47,7 +48,10 @@ public sealed class OptionalContentTests
         Assert.Equal(PdfOptionalContentListMode.AllPages, configuration.ListMode);
         Assert.Equal(["A", "B"], Assert.Single(configuration.RadioButtonGroups).Select(group => group.Name));
         Assert.Equal(["C"], configuration.Locked.Select(group => group.Name));
-        Assert.Empty(configuration.AutoStates);
+        PdfOptionalContentUsageApplication print = Assert.Single(configuration.AutoStates);
+        Assert.Equal(PdfOptionalContentEvent.Print, print.Event);
+        Assert.Equal(["Print"], print.Categories.Select(category => category.Value));
+        Assert.Equal(["D2"], print.Groups.Select(group => group.Name));
         Assert.Empty(document.Diagnostics);
     }
 

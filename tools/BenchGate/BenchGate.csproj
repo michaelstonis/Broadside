@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The benchmark regression gate (issue #139): compares BenchmarkDotNet JSON reports with the stored allocation baseline and with the base commit. See README.md. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Broadside.Tools.BenchGate</RootNamespace>
+    <AssemblyName>BenchGate</AssemblyName>
+    <Description>Fails a pull request whose benchmarks allocate differently from bench/baselines/gate or run measurably slower than its base commit.</Description>
+  </PropertyGroup>
+
+</Project>

@@ -87,8 +87,9 @@ internal sealed class StreamDecoder
     /// <summary>Decodes a stream into a new array.</summary>
     /// <param name="stream">The stream.</param>
     /// <param name="depth">How many decodes are in progress beneath this one.</param>
+    /// <param name="cancellationToken">Cancels the decode (<see cref="FilterContext.CancellationToken"/>).</param>
     /// <returns>The decoded data; for a stream without filters, its encoded data itself.</returns>
-    public ReadOnlyMemory<byte> Decode(CosStream stream, int depth = 0)
+    public ReadOnlyMemory<byte> Decode(CosStream stream, int depth = 0, CancellationToken cancellationToken = default)
     {
         if (!HasFilters(stream))
         {
@@ -97,7 +98,7 @@ internal sealed class StreamDecoder
         }
 
         using var output = new PooledBufferWriter(InitialCapacity(stream), MaxDecodedLength);
-        Decode(stream, output, depth);
+        Decode(stream, output, depth, stopBeforeImageFilter: false, out _, cancellationToken);
         return output.WrittenSpan.ToArray();
     }
 
@@ -116,8 +117,13 @@ internal sealed class StreamDecoder
     /// <param name="depth">How many decodes are in progress beneath this one.</param>
     /// <param name="stopBeforeImageFilter">Whether to leave a last image filter to the caller.</param>
     /// <param name="outcome">Whether every filter ran, and the image filter left to the caller, if any.</param>
-    public void Decode(CosStream stream, IBufferWriter<byte> output, int depth, bool stopBeforeImageFilter, out ChainOutcome outcome)
+    /// <param name="cancellationToken">
+    /// Cancels the decode: given to every filter's context (<see cref="FilterContext.CancellationToken"/>), and the
+    /// <see cref="OperationCanceledException"/> a filter throws for it passes through instead of becoming a diagnostic.
+    /// </param>
+    public void Decode(CosStream stream, IBufferWriter<byte> output, int depth, bool stopBeforeImageFilter, out ChainOutcome outcome, CancellationToken cancellationToken = default)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         outcome = new ChainOutcome(Complete: true, ImageFilter: null, ImageContext: null);
         CheckExternalFile(stream);
         if (depth > MaxDepth)
@@ -144,7 +150,7 @@ internal sealed class StreamDecoder
             outcome = outcome with
             {
                 ImageFilter = imageFilter,
-                ImageContext = new FilterContext(this, depth) { Parameters = stage.Parameters, StreamDictionary = stream.Dictionary },
+                ImageContext = new FilterContext(this, depth) { Parameters = stage.Parameters, StreamDictionary = stream.Dictionary, CancellationToken = cancellationToken },
             };
         }
 
@@ -158,7 +164,7 @@ internal sealed class StreamDecoder
                 next ??= new PooledBufferWriter(InitialCapacity(stream), MaxDecodedLength);
                 next.Clear();
                 FilterStage stage = chain[index];
-                var context = new FilterContext(this, depth) { Parameters = stage.Parameters, StreamDictionary = stream.Dictionary };
+                var context = new FilterContext(this, depth) { Parameters = stage.Parameters, StreamDictionary = stream.Dictionary, CancellationToken = cancellationToken };
                 bool stop = !RunStage(stage, index, data, next, context);
                 if (!stop && FilterNames.TakesPredictor(stage.Name))
                 {
@@ -218,15 +224,16 @@ internal sealed class StreamDecoder
             return false;
         }
 
-        return Guard(output, name, () => filter.Decode(data, output, context));
+        return Guard(output, name, () => filter.Decode(data, output, context), context.CancellationToken);
     }
 
     /// <summary>Runs an image filter's facet, converting its failures into a diagnostic and <see langword="null"/>.</summary>
     /// <typeparam name="T">The result.</typeparam>
     /// <param name="name">The filter's name.</param>
     /// <param name="action">The call.</param>
+    /// <param name="cancellationToken">The decode's token: an <see cref="OperationCanceledException"/> for it passes through.</param>
     /// <returns>The result; <see langword="null"/> when the filter threw.</returns>
-    public T? RunImageFilter<T>(CosName name, Func<T?> action)
+    public T? RunImageFilter<T>(CosName name, Func<T?> action, CancellationToken cancellationToken = default)
         where T : class
     {
         try
@@ -237,8 +244,12 @@ internal sealed class StreamDecoder
         {
             throw;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
 #pragma warning disable CA1031 // A filter is an extension point; whatever it throws becomes a diagnostic, never a crash (ADR 0005).
-        catch (Exception exception) when (exception is not OutOfMemoryException)
+        catch (Exception exception) when (exception is not (OutOfMemoryException or PdfRangeNotLoadedException))
 #pragma warning restore CA1031
         {
             Report(
@@ -250,7 +261,7 @@ internal sealed class StreamDecoder
     }
 
     private bool RunPredictor(ReadOnlyMemory<byte> data, PooledBufferWriter output, FilterContext context) =>
-        Guard(output, filterName: null, () => Predictor.Decode(data.Span, output, context));
+        Guard(output, filterName: null, () => Predictor.Decode(data.Span, output, context), context.CancellationToken);
 
     private bool RunCryptFilter(int index, ReadOnlyMemory<byte> data, PooledBufferWriter output, FilterContext context)
     {
@@ -262,7 +273,7 @@ internal sealed class StreamDecoder
         CosName cryptFilterName = context.Resolve(context.Parameters?.TryGetValue(FilterNames.Name, out CosObject? named) == true ? named : null) as CosName
             ?? FilterNames.Identity;
         bool decrypted = false;
-        bool completed = Guard(output, FilterNames.Crypt, () => decrypted = CryptFilter.TryDecrypt(cryptFilterName, data.Span, output, context));
+        bool completed = Guard(output, FilterNames.Crypt, () => decrypted = CryptFilter.TryDecrypt(cryptFilterName, data.Span, output, context), context.CancellationToken);
         if (completed && !decrypted)
         {
             Report(
@@ -281,7 +292,8 @@ internal sealed class StreamDecoder
     /// <param name="output">The stage's output.</param>
     /// <param name="filterName">The filter the stage runs, or <see langword="null"/> for the predictor stage.</param>
     /// <param name="action">The stage.</param>
-    private bool Guard(PooledBufferWriter output, CosName? filterName, Action action)
+    /// <param name="cancellationToken">The decode's token: an <see cref="OperationCanceledException"/> for it passes through.</param>
+    private bool Guard(PooledBufferWriter output, CosName? filterName, Action action, CancellationToken cancellationToken)
     {
         try
         {
@@ -292,13 +304,17 @@ internal sealed class StreamDecoder
         {
             throw;
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (DecodedLengthExceededException)
         {
             ReportLengthExceeded();
             return false;
         }
 #pragma warning disable CA1031 // A filter is an extension point; whatever it throws becomes a diagnostic, never a crash (ADR 0005).
-        catch (Exception exception) when (exception is not OutOfMemoryException)
+        catch (Exception exception) when (exception is not (OutOfMemoryException or PdfRangeNotLoadedException))
 #pragma warning restore CA1031
         {
             if (output.Exceeded)
@@ -449,7 +465,7 @@ internal sealed class StreamDecoder
     /// <summary>One filter of a chain and its parameters.</summary>
     private readonly record struct FilterStage(CosName Name, CosDictionary? Parameters);
 
-    /// <summary>What <see cref="Decode(CosStream, IBufferWriter{byte}, int, bool, out ChainOutcome)"/> did.</summary>
+    /// <summary>What <see cref="Decode(CosStream, IBufferWriter{byte}, int, bool, out ChainOutcome, CancellationToken)"/> did.</summary>
     /// <param name="Complete">Whether every filter ran; <see langword="false"/> when the chain stopped at a filter it could not run.</param>
     /// <param name="ImageFilter">The last filter, left to the caller because it has an image facet; <see langword="null"/> otherwise.</param>
     /// <param name="ImageContext">The context for that filter: its parameters and the stream dictionary.</param>
