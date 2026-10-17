@@ -219,7 +219,12 @@ export function draw(id, commands) {
 export function focusNode(id, elementId) {
   const element = document.getElementById(elementId);
   if (!element) return false;
-  if (document.activeElement !== element) element.focus({ preventScroll: true });
+  // The keyboard follows the viewer's reading focus only while the viewer (or nothing) has it: a focus change the host page caused,
+  // e.g. through AnnotationLayer.Focus while the user types in the host's own form, must not take the keyboard from that element.
+  const active = document.activeElement;
+  const v = viewers.get(id);
+  if (active && active !== document.body && v && !v.host.contains(active)) return true;
+  if (active !== element) element.focus({ preventScroll: true });
   return true;
 }
 

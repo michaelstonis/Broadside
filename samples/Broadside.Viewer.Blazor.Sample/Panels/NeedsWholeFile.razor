@@ -1,0 +1,6 @@
+@inject Demo Demo
+
+<div class="notice" role="status">
+  <p>This part of the remote document has not been downloaded yet: the viewer reads only the byte ranges it draws.</p>
+  <button @onclick="Demo.LoadWholeAsync" data-action="load-whole">Load whole file</button>
+</div>

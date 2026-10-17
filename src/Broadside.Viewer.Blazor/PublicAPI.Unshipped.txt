@@ -2,6 +2,7 @@
 Broadside.Viewer.Blazor.PdfViewer
 Broadside.Viewer.Blazor.PdfViewer.AllowAnnotationEditing.get -> bool
 Broadside.Viewer.Blazor.PdfViewer.AllowAnnotationEditing.set -> void
+Broadside.Viewer.Blazor.PdfViewer.Annotations.get -> Broadside.Viewer.AnnotationLayer?
 Broadside.Viewer.Blazor.PdfViewer.Class.get -> string?
 Broadside.Viewer.Blazor.PdfViewer.Class.set -> void
 Broadside.Viewer.Blazor.PdfViewer.DisposeAsync() -> System.Threading.Tasks.ValueTask
@@ -23,6 +24,8 @@ Broadside.Viewer.Blazor.PdfViewer.Options.get -> Broadside.Viewer.ViewerOptions?
 Broadside.Viewer.Blazor.PdfViewer.Options.set -> void
 Broadside.Viewer.Blazor.PdfViewer.PdfViewer() -> void
 Broadside.Viewer.Blazor.PdfViewer.PreviousPage() -> void
+Broadside.Viewer.Blazor.PdfViewer.Reveal(int pageIndex, Broadside.PdfRectangle area) -> void
+Broadside.Viewer.Blazor.PdfViewer.Selection.get -> Broadside.Viewer.TextSelection?
 Broadside.Viewer.Blazor.PdfViewer.Session.get -> Broadside.Viewer.DocumentSession?
 Broadside.Viewer.Blazor.PdfViewer.Session.set -> void
 Broadside.Viewer.Blazor.PdfViewer.ShowAnnotations.get -> bool

@@ -1,0 +1,105 @@
+@using Broadside.Diagnostics
+@inject Demo Demo
+
+<form class="create" @onsubmit="CreateAsync">
+  <label>Title <input @bind="_request.Title" data-input="create-title" /></label>
+  <label>Author <input @bind="_request.Author" /></label>
+  <label>Text <textarea rows="5" @bind="_request.Body"></textarea></label>
+  <label class="check"><input type="checkbox" @bind="_request.IncludeTable" /> Table with a header row</label>
+  <label class="check"><input type="checkbox" @bind="_request.IncludeFigure" /> Figure with alternate text</label>
+  <label>PDF/A
+    <select @bind="_request.Archival" data-input="create-pdfa">
+      <option value="@PdfAConformance.None">None</option>
+      <option value="@PdfAConformance.PdfA2b">PDF/A-2b</option>
+      <option value="@PdfAConformance.PdfA2u">PDF/A-2u</option>
+      <option value="@PdfAConformance.PdfA3u">PDF/A-3u</option>
+      <option value="@PdfAConformance.PdfA4">PDF/A-4</option>
+    </select>
+  </label>
+  <label>PDF/UA
+    <select @bind="_request.Accessible" data-input="create-pdfua">
+      <option value="@PdfUAConformance.None">None</option>
+      <option value="@PdfUAConformance.PdfUA1">PDF/UA-1</option>
+      <option value="@PdfUAConformance.PdfUA2">PDF/UA-2</option>
+    </select>
+  </label>
+  <button type="submit" class="primary" disabled="@_busy" data-action="create">@(_busy ? "Creating…" : "Create and open")</button>
+</form>
+
+@if (_result is { } result)
+{
+  <section class="panel-section" data-created-bytes="@result.Bytes.Length">
+    <h3>Created</h3>
+    <p>@result.Pages page(s), @((result.Bytes.Length / 1024.0).ToString("0.0", CultureInfo.InvariantCulture)) KB.
+      @if (Conformant(result))
+      {
+        <span class="badge valid" data-conformance="ok">Identified as @Claim()</span>
+      }
+      else
+      {
+        <span class="badge invalid" data-conformance="problems">Not identified</span>
+      }
+    </p>
+    @if (result.Diagnostics.Count > 0)
+    {
+      <ul class="list diagnostics">
+        @foreach (Diagnostic diagnostic in result.Diagnostics.Take(50))
+        {
+          <li class="diagnostic @diagnostic.Severity.ToString().ToLowerInvariant()"><strong>@diagnostic.Code</strong><div>@diagnostic.Message</div></li>
+        }
+      </ul>
+    }
+    <button @onclick="DownloadAsync" data-action="download-created">Download created.pdf</button>
+  </section>
+}
+<p class="hint">Built in the browser with the flow layout package and saved with the conformance you choose: the save checks the rules
+  it knows (veraPDF rule numbers in the messages) and identifies the file only when they pass.</p>
+
+@code {
+  private readonly CreateRequest _request = new();
+  private CreateResult? _result;
+  private PdfAConformance _archival;
+  private PdfUAConformance _accessible;
+  private bool _busy;
+
+  private bool Conformant(CreateResult result) =>
+    !result.Diagnostics.Any(d => d.Code.EndsWith("NonConformant", StringComparison.Ordinal) || d.Code.EndsWith("NotIdentified", StringComparison.Ordinal));
+
+  private string Claim() => string.Join(" + ", new[]
+  {
+    _archival == PdfAConformance.None ? null : _archival.ToString().Replace("PdfA", "PDF/A-", StringComparison.Ordinal),
+    _accessible == PdfUAConformance.None ? null : _accessible.ToString().Replace("PdfUA", "PDF/UA-", StringComparison.Ordinal),
+  }.Where(s => s is not null).DefaultIfEmpty("plain PDF"));
+
+  private async Task CreateAsync()
+  {
+    _busy = true;
+    StateHasChanged();
+    await Task.Yield(); // let the button show "Creating…" before the layout runs on this thread
+    try
+    {
+      _archival = _request.Archival;
+      _accessible = _request.Accessible;
+      _result = DocumentCreator.Create(_request);
+      await Demo.OpenBytesAsync("created.pdf", _result.Bytes);
+    }
+#pragma warning disable CA1031 // shown to the user
+    catch (Exception exception)
+#pragma warning restore CA1031
+    {
+      Demo.Report($"The document could not be created: {exception.Message}");
+    }
+    finally
+    {
+      _busy = false;
+    }
+  }
+
+  private async Task DownloadAsync()
+  {
+    if (_result is not null)
+    {
+      await Demo.DownloadAsync("created.pdf", _result.Bytes);
+    }
+  }
+}

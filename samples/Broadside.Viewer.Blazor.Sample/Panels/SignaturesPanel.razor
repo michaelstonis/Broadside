@@ -1,0 +1,172 @@
+@using Broadside.Forms
+@using Broadside.Signatures
+@inherits DemoPanel
+
+@if (_needsWholeFile)
+{
+  <NeedsWholeFile />
+}
+else if (_running)
+{
+  <p class="hint">Validating…</p>
+}
+else if (_error is not null)
+{
+  <p class="notice" data-signature-error="true">@_error</p>
+  @if (_fields.Count > 0)
+  {
+    <p class="hint">What the signature dictionaries say (ISO 32000-2 §12.8.1, Table 255), read without checking them:</p>
+    <ul class="list signatures" data-signature-count="@_fields.Count">
+      @foreach ((string name, List<(string Key, string Value)> entries) in _fields)
+      {
+        <li class="signature">
+          <div class="row between"><strong>@name</strong><span class="badge" data-signature-status="Unchecked">Not checked</span></div>
+          <dl class="facts">
+            @foreach ((string key, string value) in entries)
+            {
+              <dt>@key</dt>
+              <dd>@value</dd>
+            }
+          </dl>
+        </li>
+      }
+    </ul>
+  }
+}
+else if (_results.Count == 0)
+{
+  <p class="hint" data-signature-count="0">This document has no signed signature fields. Try “Signed document” in the gallery.</p>
+}
+else
+{
+  <ul class="list signatures" data-signature-count="@_results.Count">
+    @foreach (PdfSignatureValidation result in _results)
+    {
+      <li class="signature">
+        <div class="row between">
+          <strong>@result.FieldName</strong>
+          <span class="badge @result.Status.ToString().ToLowerInvariant()" data-signature-status="@result.Status">@result.Status</span>
+        </div>
+        <dl class="facts">
+          @if (result.SignerCertificate is { } signer)
+          {
+            <dt>Signer</dt>
+            <dd>@signer.Subject</dd>
+            <dt>Issuer</dt>
+            <dd>@signer.Issuer</dd>
+          }
+          <dt>Format</dt>
+          <dd>@(result.SubFilter ?? "–")@(result.DigestAlgorithm is { } digest ? $", {digest.Name}" : "")</dd>
+          <dt>Covers</dt>
+          <dd>@(result.CoversWholeFile ? "the whole file" : "an earlier revision (the file changed after signing)")</dd>
+          <dt>Chain</dt>
+          <dd>@result.CertificatePath.Count certificate(s)</dd>
+        </dl>
+        @if (result.Problems.Count > 0)
+        {
+          <ul class="problems">
+            @foreach (PdfSignatureProblem problem in result.Problems)
+            {
+              <li><small>@problem.Kind</small> @problem.Message</li>
+            }
+          </ul>
+        }
+      </li>
+    }
+  </ul>
+  <p class="hint">Integrity (the signed byte ranges against the CMS digest) and the certificate chain (ISO 32000-2 §12.8, ISO/TS 32002). No
+    trust anchors are configured in the demo, so a chain that ends at a root it does not know is indeterminate rather than valid.</p>
+}
+
+@code {
+  private IReadOnlyList<PdfSignatureValidation> _results = [];
+  private int _version = -1;
+  private bool _running;
+  private bool _needsWholeFile;
+  private string? _error;
+  private readonly List<(string Name, List<(string Key, string Value)> Entries)> _fields = [];
+
+  protected override async Task OnDemoChangedAsync()
+  {
+    if (_version == Demo.Version || Demo.Document is not { } document)
+    {
+      return;
+    }
+
+    _version = Demo.Version;
+    _results = [];
+    _error = null;
+    _fields.Clear();
+    _needsWholeFile = false;
+    _running = true;
+    try
+    {
+      _results = await document.ValidateSignaturesAsync(cancellationToken: Demo.WorkToken);
+    }
+    catch (PdfRangeNotLoadedException)
+    {
+      _needsWholeFile = Demo.RemoteAddress is not null;
+    }
+    catch (OperationCanceledException)
+    {
+    }
+    catch (PlatformNotSupportedException)
+    {
+      // .NET on WebAssembly has no X.509 support (X509Certificate2 throws), and the validation result carries the certificates.
+      _error = "Signature validation needs X.509 certificate support, which .NET on WebAssembly does not have; run the same code on a server or desktop to validate. The signed fields are listed below.";
+      ReadDictionaries(document);
+    }
+#pragma warning disable CA1031 // shown to the user
+    catch (Exception exception)
+#pragma warning restore CA1031
+    {
+      _error = $"The signatures could not be validated: {exception.Message}";
+    }
+    finally
+    {
+      _running = false;
+    }
+  }
+
+  private void ReadDictionaries(PdfDocument document)
+  {
+    foreach (PdfSignatureField field in document.AcroForm?.TerminalFields.OfType<PdfSignatureField>() ?? [])
+    {
+      if (field.SignatureDictionary is not { } dictionary)
+      {
+        continue;
+      }
+
+      var entries = new List<(string, string)>();
+      foreach ((Broadside.Objects.CosName key, Broadside.Objects.CosObject value) in dictionary)
+      {
+        string? text = document.Resolve(value) switch
+        {
+          Broadside.Objects.CosString str when key.Value is "M" => PdfDate.TryParse(str.DecodeText(), out PdfDate date) ? date.Value.ToString("u", CultureInfo.InvariantCulture) : str.DecodeText(),
+          Broadside.Objects.CosString str when key.Value is not "Contents" => str.DecodeText(),
+          Broadside.Objects.CosName name => name.Value,
+          Broadside.Objects.CosArray array when key.Value is "ByteRange" => string.Join(' ', array.Select(item => item.ToString())),
+          _ => null,
+        };
+        if (text is not null)
+        {
+          entries.Add((Label(key.Value), text));
+        }
+      }
+
+      _fields.Add((field.FullyQualifiedName, entries));
+    }
+  }
+
+  private static string Label(string key) => key switch
+  {
+    "Name" => "Signer",
+    "M" => "Signed",
+    "Reason" => "Reason",
+    "Location" => "Location",
+    "ContactInfo" => "Contact",
+    "SubFilter" => "Format",
+    "ByteRange" => "Byte range",
+    _ => key,
+  };
+}

@@ -1,128 +1,239 @@
-@using System.Globalization
-@using Broadside
-@using Broadside.Viewer
-@using Broadside.Viewer.Blazor
+@implements IDisposable
+@inject Demo Demo
 @inject NavigationManager Navigation
 
 <div class="app">
-  <header class="toolbar" role="toolbar" aria-label="Viewer controls">
-    <div class="group documents">
-      <label for="gallery" class="hide-narrow">Document</label>
-      <select id="gallery" value="@_address" @onchange="Pick" aria-label="Sample document">
-        @foreach ((string file, string title) in Gallery)
-        {
-          <option value="@file">@title</option>
-        }
-        @if (!Gallery.Any(entry => entry.File == _address))
-        {
-          <option value="@_address">@_address</option>
-        }
-      </select>
-      <form @onsubmit="OpenAddress" class="address">
-        <input id="address" @bind="_typed" type="url" inputmode="url" placeholder="Open from URL…" aria-label="Document URL" />
-        <button type="submit">Open</button>
-      </form>
+  <header class="topbar">
+    <button class="icon" @onclick="() => Toggle(Panel.Open)" aria-label="Documents" aria-expanded="@(_panel == Panel.Open ? "true" : "false")" data-panel-button="open">☰</button>
+    <div class="title" title="@Demo.Name">
+      <span class="name">@(Demo.Name.Length == 0 ? "Broadside" : Demo.Name)</span>
+      @if (Demo.IsEdited)
+      {
+        <span class="edited" title="Edited">edited</span>
+      }
     </div>
-    <div class="group">
-      <button @onclick="() => _viewer?.PreviousPage()" aria-label="Previous page">‹</button>
-      <span class="page" aria-live="polite">@(_state.PageCount == 0 ? "–" : $"{_state.PageIndex + 1} / {_state.PageCount}")</span>
-      <button @onclick="() => _viewer?.NextPage()" aria-label="Next page">›</button>
-      <button @onclick="() => _viewer?.ZoomBy(1 / 1.25)" aria-label="Zoom out">−</button>
-      <span class="zoom">@((_state.Zoom * 100).ToString("0", CultureInfo.InvariantCulture))%</span>
-      <button @onclick="() => _viewer?.ZoomBy(1.25)" aria-label="Zoom in">+</button>
-      <button @onclick="() => _viewer?.ZoomTo(ZoomMode.FitWidth)" aria-label="Fit width">↔</button>
+    <div class="pager">
+      <button class="icon" @onclick="() => Demo.Viewer?.PreviousPage()" aria-label="Previous page">‹</button>
+      <span class="page" aria-live="polite" data-page="@Demo.State.PageIndex">@(Demo.State.PageCount == 0 ? "–" : $"{Demo.State.PageIndex + 1} / {Demo.State.PageCount}")</span>
+      <button class="icon" @onclick="() => Demo.Viewer?.NextPage()" aria-label="Next page">›</button>
     </div>
-    <div class="group">
-      <select @bind="Mode" aria-label="Page layout">
-        @foreach (PageLayoutMode mode in Enum.GetValues<PageLayoutMode>())
-        {
-          <option value="@mode">@mode</option>
-        }
-      </select>
-      <label><input type="checkbox" @bind="_showAnnotations" /> Annotations</label>
+    <div class="zoom wide-only">
+      <button class="icon" @onclick="() => Demo.Viewer?.ZoomBy(1 / 1.25)" aria-label="Zoom out">−</button>
+      <span class="percent">@((Demo.State.Zoom * 100).ToString("0", CultureInfo.InvariantCulture))%</span>
+      <button class="icon" @onclick="() => Demo.Viewer?.ZoomBy(1.25)" aria-label="Zoom in">+</button>
+      <button class="icon" @onclick="() => Demo.Viewer?.ZoomTo(ZoomMode.FitWidth)" aria-label="Fit width">↔</button>
     </div>
+    <button class="icon" @onclick="() => Demo.DownloadAsync()" disabled="@(Demo.Document is null)" aria-label="Download the document with your edits" data-action="download">⤓</button>
   </header>
 
-  @if (_message is not null)
+  @if (Demo.Message is not null)
   {
-    <div class="message" role="status">@_message @if (_link is not null) { <a href="@_link" target="_blank" rel="noopener noreferrer">@_link</a> }</div>
+    <div class="message" role="status">
+      <span>@Demo.Message</span>
+      @if (Demo.Link is not null)
+      {
+        <a href="@Demo.Link" target="_blank" rel="noopener noreferrer">@Demo.Link</a>
+      }
+      <button class="icon small" @onclick="() => Demo.Report(null)" aria-label="Dismiss">×</button>
+    </div>
   }
 
-  @* A new layout mode reopens the document: layout options apply when a document opens. *@
-  @if (_source is not null)
-  {
-    <PdfViewer @key="@($"{_source}|{Mode}")" @ref="_viewer" Class="viewer" Source="_source" Options="Options" Label="Document"
-               LayoutOptions="new PageLayoutOptions().WithMode(Mode)" ShowAnnotations="_showAnnotations"
-               OnStateChanged="state => _state = state" OnAction="OnAction" OnError="OnError" />
-  }
+  <div class="workspace @(_panel == Panel.None ? "" : "with-sheet")">
+    <main class="stage">
+      @if (Demo.Session is not null)
+      {
+        <PdfViewer @ref="_viewer" Class="viewer" Session="Demo.Session" Label="@Demo.Name" LayoutOptions="_layout"
+                   ShowAnnotations="_showAnnotations" AllowAnnotationEditing="_editAnnotations"
+                   OnStateChanged="OnStateChanged" OnAction="OnAction" OnError="OnError" />
+      }
+      else
+      {
+        <div class="empty">@(Demo.IsOpening ? "Opening…" : "Open a document from the menu.")</div>
+      }
+    </main>
+
+    @if (_panel != Panel.None)
+    {
+      <aside class="sheet" role="dialog" aria-label="@Title(_panel)" data-sheet="@_panel.ToString().ToLowerInvariant()" @onkeydown="SheetKey">
+        <div class="sheet-handle" aria-hidden="true"></div>
+        <div class="sheet-header">
+          <h2>@Title(_panel)</h2>
+          <button class="icon" @onclick="() => Toggle(Panel.None)" aria-label="Close panel">×</button>
+        </div>
+        <div class="sheet-body">
+          @switch (_panel)
+          {
+            case Panel.Open:
+              <OpenPanel />
+              break;
+            case Panel.Search:
+              <SearchPanel />
+              break;
+            case Panel.Outline:
+              <OutlinePanel />
+              break;
+            case Panel.Pages:
+              <PagesPanel />
+              break;
+            case Panel.Annotate:
+              <AnnotatePanel @bind-ShowAnnotations="_showAnnotations" @bind-EditAnnotations="_editAnnotations" />
+              break;
+            case Panel.Form:
+              <FormPanel />
+              break;
+            case Panel.Info:
+              <InfoPanel />
+              break;
+            case Panel.Signatures:
+              <SignaturesPanel />
+              break;
+            case Panel.View:
+              <ViewPanel Layout="_layout" LayoutChanged="layout => _layout = layout" />
+              break;
+            case Panel.Create:
+              <CreatePanel />
+              break;
+          }
+        </div>
+      </aside>
+    }
+  </div>
+
+  <nav class="tabs" aria-label="Tools">
+    @foreach (Panel panel in Tabs)
+    {
+      <button class="tab @(_panel == panel ? "active" : "")" @onclick="() => Toggle(panel)" aria-pressed="@(_panel == panel ? "true" : "false")"
+              data-panel-button="@panel.ToString().ToLowerInvariant()">
+        <span class="glyph" aria-hidden="true">@Glyph(panel)</span>
+        <span class="label">@Title(panel)</span>
+      </button>
+    }
+  </nav>
 </div>
 
 @code {
-  // Bundled with the app (wwwroot/documents), so the gallery works offline; any other address is fetched with range requests.
-  private static readonly (string File, string Title)[] Gallery =
-  [
-    ("documents/layout-two-column-tagged.pdf", "Two columns (tagged)"),
-    ("documents/annotations-link.pdf", "Links"),
-    ("documents/acroform-fields.pdf", "Form fields"),
-    ("documents/shading-radial-cases.pdf", "Shadings"),
-    ("documents/page-rotation.pdf", "Rotated pages"),
-  ];
+  private enum Panel { None, Open, Search, Outline, Pages, Annotate, Form, Info, Signatures, View, Create }
 
-  // Standard 14 fonts are bundled so documents that do not embed Helvetica, Times or Courier render like a desktop viewer.
-  private static readonly ViewerOptions Options = new ViewerOptions().UseEngine(new PdfEngine(new PdfOptions().UseStandard14Fonts()));
+  private static readonly Panel[] Tabs =
+    [Panel.Search, Panel.Outline, Panel.Pages, Panel.Annotate, Panel.Form, Panel.Info, Panel.Signatures, Panel.View, Panel.Create];
 
   private PdfViewer? _viewer;
-  private PdfViewerState _state;
-  private string _address = Gallery[0].File;
-  private string _typed = "";
-  private Uri? _source;
+  private AnnotationLayer? _layer;
+  private AnnotationTarget? _focusedField;
+  private Panel _panel;
+  private PageLayoutOptions _layout = new();
   private bool _showAnnotations = true;
-  private string? _message;
-  private string? _link;
+  private bool _editAnnotations;
 
-  private PageLayoutMode Mode { get; set; } = PageLayoutMode.Continuous;
-
-  protected override void OnInitialized()
+  private static string Title(Panel panel) => panel switch
   {
-    // ?file=<address> opens a document directly (relative addresses are resolved against the app, wherever it is hosted).
-    string query = new Uri(Navigation.Uri).Query.TrimStart('?');
-    foreach (string pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+    Panel.Open => "Documents",
+    Panel.Search => "Search",
+    Panel.Outline => "Outline",
+    Panel.Pages => "Pages",
+    Panel.Annotate => "Annotate",
+    Panel.Form => "Form",
+    Panel.Info => "Info",
+    Panel.Signatures => "Signatures",
+    Panel.View => "View",
+    Panel.Create => "Create",
+    _ => "",
+  };
+
+  private static string Glyph(Panel panel) => panel switch
+  {
+    Panel.Search => "⌕",
+    Panel.Outline => "≡",
+    Panel.Pages => "▦",
+    Panel.Annotate => "✎",
+    Panel.Form => "☐",
+    Panel.Info => "i",
+    Panel.Signatures => "✓",
+    Panel.View => "⟳",
+    Panel.Create => "+",
+    _ => "",
+  };
+
+  protected override async Task OnInitializedAsync()
+  {
+    Demo.Changed += OnDemoChanged;
+
+    // ?file=<address> opens a document through range requests (relative addresses resolve against the app, wherever it is hosted).
+    string? file = null;
+    foreach (string pair in new Uri(Navigation.Uri).Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
     {
       string[] parts = pair.Split('=', 2);
       if (parts.Length == 2 && parts[0] == "file")
       {
-        _address = Uri.UnescapeDataString(parts[1]);
+        file = Uri.UnescapeDataString(parts[1]);
       }
     }
 
-    Open(_address);
-  }
-
-  private void Pick(ChangeEventArgs e) => Open(e.Value?.ToString() ?? Gallery[0].File);
-
-  private void OpenAddress()
-  {
-    if (!string.IsNullOrWhiteSpace(_typed))
+    if (file is not null)
     {
-      Open(_typed.Trim());
+      await Demo.OpenUrlAsync(file);
+    }
+    else
+    {
+      await Demo.OpenGalleryAsync(Demo.Gallery[0]);
     }
   }
 
-  private void Open(string address)
+  protected override void OnAfterRender(bool firstRender)
   {
-    _address = address;
-    _message = null;
-    _link = null;
-    _state = default;
-    _source = Uri.TryCreate(address, UriKind.RelativeOrAbsolute, out Uri? uri) ? uri : null;
+    Demo.Viewer = _viewer;
+    AnnotationLayer? layer = _viewer?.Annotations;
+    if (!ReferenceEquals(layer, _layer))
+    {
+      _layer?.Changed -= OnLayerChanged;
+      _layer = layer;
+      _layer?.Changed += OnLayerChanged;
+    }
+  }
+
+  public void Dispose()
+  {
+    Demo.Changed -= OnDemoChanged;
+    _layer?.Changed -= OnLayerChanged;
+  }
+
+  // Tapping a text or choice field in the page opens the Form panel, where the phone's keyboard can fill it.
+  private void OnLayerChanged(object? sender, EventArgs e)
+  {
+    AnnotationTarget? focused = _layer?.FocusedField is Broadside.Forms.PdfTextField or Broadside.Forms.PdfChoiceField ? _layer.Focused : null;
+    if (focused is not null && focused != _focusedField && _panel != Panel.Form)
+    {
+      _panel = Panel.Form;
+      _ = InvokeAsync(StateHasChanged);
+    }
+
+    _focusedField = focused;
+  }
+
+  private void OnDemoChanged(object? sender, EventArgs e) => _ = InvokeAsync(StateHasChanged);
+
+  private void Toggle(Panel panel) => _panel = _panel == panel ? Panel.None : panel;
+
+  private void SheetKey(KeyboardEventArgs e)
+  {
+    if (e.Key == "Escape")
+    {
+      _panel = Panel.None;
+    }
+  }
+
+  private void OnStateChanged(PdfViewerState state)
+  {
+    Demo.State = state;
+    Demo.Refresh();
   }
 
   // The viewer follows links inside the document itself and never opens anything else: a URI is offered here for the user to open.
   private void OnAction(ViewerActionEventArgs action)
   {
-    _link = action.Uri?.ToString();
-    _message = _link is null ? $"Action requested: {action.Kind}" : "Link to";
+    string? link = action.Uri?.ToString();
+    Demo.Report(link is null ? $"The document asked for an action: {action.Kind}" : "The document links to", link);
   }
 
-  private void OnError(Exception exception) => _message = exception.Message;
+  private void OnError(Exception exception) => Demo.Report(exception.Message);
 }

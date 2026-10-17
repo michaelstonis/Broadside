@@ -115,7 +115,7 @@ internal sealed class ViewerController : IAsyncDisposable
     {
         Close();
         int generation = ++_generation;
-        _layoutOptions = layoutOptions;
+        _layoutOptions = layoutOptions is null ? null : LayoutKey.Of(layoutOptions).ToOptions();
         SetState(_state with { IsLoading = true, PageCount = 0, PageIndex = 0 });
         DocumentSession session = await open(_closing.Token).ConfigureAwait(true);
         if (generation != _generation || _closing.IsCancellationRequested)
@@ -217,6 +217,64 @@ internal sealed class ViewerController : IAsyncDisposable
             _zoom.ZoomBy(factor, _width * _ratio / 2, _height * _ratio / 2);
             Wake();
         }
+    }
+
+    /// <summary>Gets the text selection of the open document.</summary>
+    public TextSelection? Selection => _selection;
+
+    /// <summary>Gets the annotation layer of the open document.</summary>
+    public AnnotationLayer? Annotations => _annotations;
+
+    /// <summary>Applies new layout options to the open document, keeping the current page in view; options equal to the current ones change nothing.</summary>
+    public void SetLayoutOptions(PageLayoutOptions? options)
+    {
+        LayoutKey key = LayoutKey.Of(options);
+        if (key == LayoutKey.Of(_layoutOptions))
+        {
+            return;
+        }
+
+        _layoutOptions = options is null ? null : key.ToOptions();
+        if (_scheduler is null || _zoom is null || _input is null)
+        {
+            return;
+        }
+
+        int page = _input.CurrentPage;
+        PageLayout layout = PageLayout.Create(_metrics, _layoutOptions);
+        _scheduler.SetLayout(layout);
+        Viewport viewport = _zoom.Viewport;
+        double zoom = layout.GetZoom(ZoomMode.FitWidth, viewport.Width, viewport.Height, page, _input.ActualSize);
+        _zoom.SetViewport(layout.Clamp(layout.ScrollTo(viewport with { Zoom = zoom }, page)));
+        Wake();
+    }
+
+    /// <summary>Scrolls the least distance that brings an area of a page into view, or centres it when it is not on the screen.</summary>
+    public void Reveal(int pageIndex, PdfRectangle area)
+    {
+        if (_zoom is null || _input is null || (uint)pageIndex >= (uint)_metrics.Length)
+        {
+            return;
+        }
+
+        PageLayout layout = _zoom.Layout;
+        Viewport viewport = _input.Viewport;
+        if (layout.Mode is PageLayoutMode.SinglePage or PageLayoutMode.TwoUp && layout.GetSpread(pageIndex) != layout.GetSpread(_input.CurrentPage))
+        {
+            viewport = layout.ScrollTo(viewport, pageIndex);
+        }
+
+        LayoutRectangle box = layout.PageToViewport(viewport, pageIndex, area);
+        double margin = 24 * _ratio;
+        double dx = box.X < margin ? box.X - margin : box.X + box.Width > viewport.Width - margin ? box.X + box.Width - viewport.Width + margin : 0;
+        double dy = box.Y < margin ? box.Y - margin : box.Y + box.Height > viewport.Height - margin ? box.Y + box.Height - viewport.Height + margin : 0;
+        if (box.Y + box.Height < 0 || box.Y > viewport.Height)
+        {
+            dy = box.Y + (box.Height / 2) - (viewport.Height / 2);
+        }
+
+        _zoom.SetViewport(layout.Clamp(viewport with { X = viewport.X + dx, Y = viewport.Y + dy }));
+        Wake();
     }
 
     // ---- DOM events (called synchronously from JavaScript) ----
@@ -909,5 +967,18 @@ internal sealed class ViewerController : IAsyncDisposable
         }
 
         _closing.Dispose();
+    }
+
+    /// <summary>The values of a <see cref="PageLayoutOptions"/> (a mutable class), compared to tell whether a relayout is needed.</summary>
+    private readonly record struct LayoutKey(PageLayoutMode Mode, bool ShowCover, double Gap, double Padding, int Rotation)
+    {
+        public static LayoutKey Of(PageLayoutOptions? options)
+        {
+            options ??= new PageLayoutOptions();
+            return new LayoutKey(options.Mode, options.ShowCover, options.Gap, options.Padding, options.Rotation);
+        }
+
+        public PageLayoutOptions ToOptions() =>
+            new PageLayoutOptions().WithMode(Mode).WithCover(ShowCover).WithGap(Gap).WithPadding(Padding).WithRotation(Rotation);
     }
 }
