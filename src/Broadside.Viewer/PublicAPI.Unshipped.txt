@@ -515,6 +515,7 @@ Broadside.Viewer.AnnotationLayer.GetRole(Broadside.Viewer.AnnotationTarget targe
 Broadside.Viewer.AnnotationLayer.GetScreenRectangle(Broadside.Viewer.AnnotationTarget target, Broadside.Viewer.PageLayout! layout, in Broadside.Viewer.Viewport viewport) -> Broadside.Viewer.LayoutRectangle
 Broadside.Viewer.AnnotationLayer.HitTest(in Broadside.Viewer.PagePoint point) -> Broadside.Viewer.AnnotationTarget?
 Broadside.Viewer.AnnotationLayer.Hovered.get -> Broadside.Viewer.AnnotationTarget?
+Broadside.Viewer.AnnotationLayer.Pressed.get -> Broadside.Viewer.AnnotationTarget?
 Broadside.Viewer.AnnotationLayer.Invalidated -> System.EventHandler<Broadside.Viewer.PageInvalidatedEventArgs!>?
 Broadside.Viewer.AnnotationLayer.IsDragging.get -> bool
 Broadside.Viewer.AnnotationLayer.LoadPageAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<int>

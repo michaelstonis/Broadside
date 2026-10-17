@@ -56,6 +56,57 @@ public sealed class ViewerRegressionTests(BrowserHost host)
         Assert.Equal(0, await page.EvaluateAsync<int>("() => document.querySelectorAll('.bs-a11y :focus-visible').length"));
     }
 
+    [Fact]
+    public async Task Links_show_when_pressed_follow_internal_destinations_and_ask_before_leaving_the_document()
+    {
+        // Issue #350: a tap on a link gave no feedback. Page 1's top half: a URI link on the left, a link to page 4 on the right.
+        BrowserHost.RequireApp();
+        host.Serve("links.pdf", LinkedDocument());
+        await using IBrowserContext context = await host.Browser.NewContextAsync(new BrowserNewContextOptions { ViewportSize = new ViewportSize { Width = 1000, Height = 800 } });
+        IPage page = await OpenAsync(context, new Uri(host.AppAddress, "?file=../files/links.pdf").ToString());
+        LocatorBoundingBoxResult box = (await page.Locator(".bs-viewer").BoundingBoxAsync())!;
+        (float X, float Y) external = (box.X + (box.Width * 0.3f), box.Y + 120);
+        (float X, float Y) inside = (box.X + (box.Width * 0.7f), box.Y + 120);
+
+        // Hovered under a mouse once the page's links have loaded.
+        for (int i = 0; i < 200 && await Viewer.Data(page, "linkState") != "hover"; i++)
+        {
+            await page.Mouse.MoveAsync(external.X + (i % 2), external.Y);
+            await page.WaitForTimeoutAsync(100);
+        }
+
+        Assert.Equal("hover", await Viewer.Data(page, "linkState"));
+        await page.Mouse.DownAsync();
+        await page.WaitForFunctionAsync("() => document.querySelector('.bs-viewer').dataset.linkState === 'pressed'", null, Slow);
+        await page.Mouse.UpAsync();
+        ILocator sheet = page.Locator("[data-link-sheet]");
+        await sheet.WaitForAsync(new LocatorWaitForOptions { Timeout = 30_000 });
+        Assert.Equal("https://example.com/", await sheet.Locator(".link-open").GetAttributeAsync("href"));
+        Assert.Single(context.Pages); // never opened by itself
+        await sheet.Locator(".link-cancel").ClickAsync();
+        await sheet.WaitForAsync(new LocatorWaitForOptions { State = WaitForSelectorState.Detached, Timeout = 30_000 });
+
+        await page.Mouse.ClickAsync(inside.X, inside.Y);
+        await page.WaitForFunctionAsync("() => document.querySelector('.bs-viewer').dataset.currentPage === '4'", null, Slow);
+        Assert.Equal(0, await page.Locator("[data-link-sheet]").CountAsync());
+    }
+
+    private static byte[] LinkedDocument()
+    {
+        using PdfDocument document = PdfDocument.Create();
+        PdfPage first = document.Pages.Add(new PdfRectangle(0, 0, 612, 792));
+        for (int i = 1; i < 5; i++)
+        {
+            document.Pages.Add(new PdfRectangle(0, 0, 612, 792));
+        }
+
+        first.AddLinkAnnotation(new PdfRectangle(0, 396, 306, 792), new Uri("https://example.com/"));
+        first.AddLinkAnnotation(new PdfRectangle(306, 396, 612, 792), document.Pages[3]);
+        using var stream = new MemoryStream();
+        document.Save(stream);
+        return stream.ToArray();
+    }
+
     private static async Task<IPage> OpenAsync(IBrowserContext context, string address)
     {
         IPage page = await context.NewPageAsync();

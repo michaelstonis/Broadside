@@ -131,8 +131,14 @@ public sealed class AnnotationLayerTests
         Assert.Equal(1, changes);
         Assert.Equal(AnnotationRole.Link, layer.GetRole(link));
 
+        // #350: the press is visible at once (a shell draws Pressed) and ends with the release.
         Assert.True(layer.PointerDown(new PagePoint(0, 100, 705)));
+        Assert.Equal(link, layer.Pressed);
+        Assert.Equal(2, changes);
+        Assert.Empty(requested);
         Assert.True(layer.PointerUp(new PagePoint(0, 101, 706)));
+        Assert.Null(layer.Pressed);
+        Assert.True(changes > 2);
         ViewerActionEventArgs action = Assert.Single(requested);
         Assert.Equal(PdfActionKind.Uri, action.Kind);
         Assert.Equal(new Uri("https://example.com/"), action.Uri);

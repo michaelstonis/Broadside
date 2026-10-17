@@ -61,6 +61,7 @@ internal sealed class ViewerController : IAsyncDisposable
     private int _panPointers;
     private AccessibleNode? _pendingFocus;
     private bool _pendingFollow;
+    private bool _touched;
     private bool _focusHost;
     private PdfViewerState _state;
 
@@ -300,6 +301,8 @@ internal sealed class ViewerController : IAsyncDisposable
         {
             return;
         }
+
+        _touched = kind != PointerKind.Mouse; // a finger leaves no hover behind: only a mouse's hover is drawn
 
         if (_mode == PointerMode.Pan)
         {
@@ -644,7 +647,9 @@ internal sealed class ViewerController : IAsyncDisposable
         bool more = _input.RunFrame(FrameBudget);
         Viewport viewport = _input.Viewport;
         _bridge!.Update();
-        bool unloaded = RequestPageLoad(viewport, Stopwatch.GetElapsedTime(start) < IdleFrame);
+        // A load starts in a cheap frame, or once no tile is left to draw: on a slow device every frame may take longer than IdleFrame,
+        // and the page's links, fields and text must still load (#350).
+        bool unloaded = RequestPageLoad(viewport, !more || Stopwatch.GetElapsedTime(start) < IdleFrame);
 
         if (_focusHost)
         {
@@ -741,8 +746,9 @@ internal sealed class ViewerController : IAsyncDisposable
         try
         {
             CancellationToken token = _closing.Token;
-            await _selection!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            // Links and fields first: they are cheap and make the page interactive; text selection extracts the page's layout (#350).
             await _annotations!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await _selection!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
             await _bridge!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
             if (generation == _generation)
             {
@@ -858,6 +864,19 @@ internal sealed class ViewerController : IAsyncDisposable
                     Add(ref records, 3, a.X, a.Y, b.X, b.Y, c.X, c.Y, e.X, e.Y);
                 }
             }
+        }
+
+        // Links and fields show they are live: pressed while a pointer holds them, hovered under a mouse (#350).
+        AnnotationLayer annotations = _annotations!;
+        if (annotations.Pressed is { } pressed && annotations.GetRole(pressed) != AnnotationRole.Annotation)
+        {
+            LayoutRectangle r = annotations.GetScreenRectangle(pressed, layout, viewport);
+            Add(ref records, 5, r.X, r.Y, r.Width, r.Height, 2);
+        }
+        else if (!_touched && _mode == PointerMode.None && annotations.Hovered is { } hovered && annotations.GetRole(hovered) != AnnotationRole.Annotation)
+        {
+            LayoutRectangle r = annotations.GetScreenRectangle(hovered, layout, viewport);
+            Add(ref records, 5, r.X, r.Y, r.Width, r.Height, 1);
         }
 
         double scale = 1 / _ratio;

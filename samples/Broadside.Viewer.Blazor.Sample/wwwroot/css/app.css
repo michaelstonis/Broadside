@@ -44,6 +44,10 @@ small { color: var(--muted); }
 
 .message { display: flex; align-items: center; gap: 8px; padding: 4px 4px 4px 12px; background: #fff8d6; border-bottom: 1px solid #e6d98c; overflow-wrap: anywhere; }
 .message span { flex: 1; }
+.link-sheet { background: #e8f0fe; border-bottom-color: #aecbfa; }
+.link-sheet .link-open, .link-sheet .link-cancel { padding: 6px 14px; border-radius: 6px; font: inherit; text-decoration: none; }
+.link-sheet .link-open { background: var(--accent); color: #fff; }
+.link-sheet .link-cancel { background: transparent; border: 1px solid #aecbfa; }
 
 /* Workspace: the viewer and the sheet */
 .workspace { flex: 1; min-height: 0; display: flex; flex-direction: column; }

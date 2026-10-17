@@ -156,13 +156,14 @@ export function dropTile(id, key) {
 }
 
 // Header: [records, pageCount, currentPage, zoom, tilesPresented, 0, 0, 0, 0]; then records of 9 numbers:
-// 1 paper (x, y, w, h) | 2 tile (key, x, y, w, h) | 3 selection quad (x1, y1 ... x4, y4) | 4 text layer (page, a, b, c, d, e, f).
+// 1 paper (x, y, w, h) | 2 tile (key, x, y, w, h) | 3 selection quad (x1, y1 ... x4, y4) | 4 text layer (page, a, b, c, d, e, f) |
+// 5 live link or field (x, y, w, h, 1 hover | 2 pressed).
 export function draw(id, commands) {
   const v = viewers.get(id);
   if (!v) return;
   const c = commands.slice();
   v.last = c;
-  paint(v, c);
+  const link = paint(v, c);
 
   const ms = performance.now() - v.frameStart;
   v.frames++;
@@ -178,9 +179,12 @@ export function draw(id, commands) {
   d.maxFrameMs = v.max.toFixed(1);
   d.meanFrameMs = (v.sum / v.frames).toFixed(2);
   d.longFrames = v.long;
+  d.linkState = link;
 }
 
+// Returns the state of the link or field drawn live: "pressed", "hover" or "".
 function paint(v, c) {
+  let link = "";
   const g = v.context;
   g.fillStyle = "#e6e6e6";
   g.fillRect(0, 0, v.canvas.width, v.canvas.height);
@@ -221,8 +225,20 @@ function paint(v, c) {
         if (section.style.transform !== transform) section.style.transform = transform;
         break;
       }
+      case 5: {
+        const pressed = c[o + 5] === 2;
+        g.fillStyle = pressed ? "rgba(26,115,232,0.28)" : "rgba(26,115,232,0.12)";
+        g.fillRect(c[o + 1], c[o + 2], c[o + 3], c[o + 4]);
+        g.strokeStyle = "rgba(26,115,232,0.8)";
+        g.lineWidth = Math.max(1, Math.round(window.devicePixelRatio || 1));
+        g.strokeRect(c[o + 1], c[o + 2], c[o + 3], c[o + 4]);
+        link = pressed ? "pressed" : "hover";
+        break;
+      }
     }
   }
+
+  return link;
 }
 
 export function focusNode(id, elementId, follow) {
