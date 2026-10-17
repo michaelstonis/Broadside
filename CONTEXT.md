@@ -133,6 +133,10 @@ _Avoid_: Overlay (an overlay is the transparent tile the annotation and form-fie
 What decides the order a page's glyphs are selected and copied in: content order, or the layout tree's structure or detected order.
 _Avoid_: Sorter, text order strategy
 
+**Accessibility bridge**:
+The framework-neutral accessible tree of a document session (document, pages, then each page's layout-tree nodes with roles, names, values, states and viewport bounds), its reading-order navigation and an accessible focus that follows the viewer's page, which a shell maps onto ARIA, UI Automation or NSAccessibility.
+_Avoid_: Screen reader support, automation peer (that is the shell's side)
+
 ### Text and layout
 
 **Layout tree**:
