@@ -1,3 +1,5 @@
+using Broadside.Rendering;
+
 namespace Broadside.Viewer;
 
 /// <summary>Why a <see cref="TileScheduler"/> wants a tile, in the order it renders them.</summary>
@@ -27,7 +29,10 @@ public enum TileEventKind
     /// <summary>Its render stopped because the viewport moved away (or the scheduler closed); it never reaches the surface.</summary>
     Cancelled,
 
-    /// <summary>The surface dropped it to stay within the memory budget.</summary>
+    /// <summary>
+    /// The surface dropped it: to stay within the memory budget, because its layer was hidden (<see cref="TileScheduler.SetLayers"/>) or
+    /// because an edit changed what it shows (<see cref="TileScheduler.Invalidate(int, PdfRectangle, DisplayLayers)"/>).
+    /// </summary>
     Evicted,
 
     /// <summary>Its render failed; the scheduler does not retry it while it stays wanted.</summary>

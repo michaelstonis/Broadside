@@ -113,6 +113,23 @@ public sealed class TileSchedulerOptions
     /// </summary>
     public Action<TileSchedulerEvent>? Observer { get; set; }
 
+    /// <summary>
+    /// Gets or sets whether the annotation and form-field layers render as their own transparent tiles over content-only tiles
+    /// (<see langword="false"/> by default: one tile holds every shown layer). Separate overlays cost a second tile per region, and
+    /// in return <see cref="TileScheduler.SetLayers"/> and annotation edits redraw only the overlays.
+    /// </summary>
+    /// <remarks>Spec #33 viewer capability 6.</remarks>
+    public bool SeparateOverlays { get; set; }
+
+    /// <summary>Sets <see cref="SeparateOverlays"/>.</summary>
+    /// <param name="separate">Whether overlays are separate tiles.</param>
+    /// <returns>These options.</returns>
+    public TileSchedulerOptions WithSeparateOverlays(bool separate = true)
+    {
+        SeparateOverlays = separate;
+        return this;
+    }
+
     /// <summary>Sets <see cref="TileSize"/>.</summary>
     /// <param name="tileSize">Device pixels.</param>
     /// <returns>These options.</returns>

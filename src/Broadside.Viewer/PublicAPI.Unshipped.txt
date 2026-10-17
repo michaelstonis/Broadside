@@ -491,6 +491,97 @@ Broadside.Viewer.InputKey.End = 9 -> Broadside.Viewer.InputKey
 Broadside.Viewer.InputKey.Plus = 10 -> Broadside.Viewer.InputKey
 Broadside.Viewer.InputKey.Minus = 11 -> Broadside.Viewer.InputKey
 Broadside.Viewer.InputKey.Zero = 12 -> Broadside.Viewer.InputKey
+Broadside.Viewer.AnnotationLayer
+Broadside.Viewer.AnnotationLayer.ActionRequested -> System.EventHandler<Broadside.Viewer.ViewerActionEventArgs!>?
+Broadside.Viewer.AnnotationLayer.Activate(Broadside.Viewer.AnnotationTarget target) -> void
+Broadside.Viewer.AnnotationLayer.Add(int pageIndex, System.Func<Broadside.PdfPage!, Broadside.Annotations.PdfAnnotation!>! create) -> Broadside.Viewer.AnnotationTarget?
+Broadside.Viewer.AnnotationLayer.AnnotationLayer(Broadside.Viewer.DocumentSession! session, Broadside.Viewer.TileScheduler? scheduler = null) -> void
+Broadside.Viewer.AnnotationLayer.Changed -> System.EventHandler?
+Broadside.Viewer.AnnotationLayer.Edit(Broadside.Viewer.AnnotationTarget target, System.Action<Broadside.Annotations.PdfAnnotation!>! edit, bool regenerateAppearance = true) -> bool
+Broadside.Viewer.AnnotationLayer.Focus(Broadside.Viewer.AnnotationTarget? target) -> void
+Broadside.Viewer.AnnotationLayer.Focused.get -> Broadside.Viewer.AnnotationTarget?
+Broadside.Viewer.AnnotationLayer.FocusedField.get -> Broadside.Forms.PdfTerminalField?
+Broadside.Viewer.AnnotationLayer.FocusNext() -> bool
+Broadside.Viewer.AnnotationLayer.FocusPrevious() -> bool
+Broadside.Viewer.AnnotationLayer.GetAccessibleName(Broadside.Viewer.AnnotationTarget target) -> string!
+Broadside.Viewer.AnnotationLayer.GetAnnotation(Broadside.Viewer.AnnotationTarget target) -> Broadside.Annotations.PdfAnnotation!
+Broadside.Viewer.AnnotationLayer.GetCount(int pageIndex) -> int
+Broadside.Viewer.AnnotationLayer.GetFocusOrder(int pageIndex, System.Span<Broadside.Viewer.AnnotationTarget> destination) -> int
+Broadside.Viewer.AnnotationLayer.GetNote(Broadside.Viewer.AnnotationTarget target) -> Broadside.Viewer.AnnotationNote!
+Broadside.Viewer.AnnotationLayer.GetRectangle(Broadside.Viewer.AnnotationTarget target) -> Broadside.PdfRectangle
+Broadside.Viewer.AnnotationLayer.GetRole(Broadside.Viewer.AnnotationTarget target) -> Broadside.Viewer.AnnotationRole
+Broadside.Viewer.AnnotationLayer.GetScreenRectangle(Broadside.Viewer.AnnotationTarget target, Broadside.Viewer.PageLayout! layout, in Broadside.Viewer.Viewport viewport) -> Broadside.Viewer.LayoutRectangle
+Broadside.Viewer.AnnotationLayer.HitTest(in Broadside.Viewer.PagePoint point) -> Broadside.Viewer.AnnotationTarget?
+Broadside.Viewer.AnnotationLayer.Hovered.get -> Broadside.Viewer.AnnotationTarget?
+Broadside.Viewer.AnnotationLayer.Invalidated -> System.EventHandler<Broadside.Viewer.PageInvalidatedEventArgs!>?
+Broadside.Viewer.AnnotationLayer.IsDragging.get -> bool
+Broadside.Viewer.AnnotationLayer.LoadPageAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<int>
+Broadside.Viewer.AnnotationLayer.Move(Broadside.Viewer.AnnotationTarget target, double dx, double dy) -> bool
+Broadside.Viewer.AnnotationLayer.PointerCancel() -> void
+Broadside.Viewer.AnnotationLayer.PointerDown(in Broadside.Viewer.PagePoint point) -> bool
+Broadside.Viewer.AnnotationLayer.PointerMove(in Broadside.Viewer.PagePoint point) -> Broadside.Viewer.AnnotationTarget?
+Broadside.Viewer.AnnotationLayer.PointerUp(in Broadside.Viewer.PagePoint point) -> bool
+Broadside.Viewer.AnnotationLayer.Remove(Broadside.Viewer.AnnotationTarget target) -> bool
+Broadside.Viewer.AnnotationLayer.Select(Broadside.Viewer.AnnotationTarget? target) -> void
+Broadside.Viewer.AnnotationLayer.Selected.get -> Broadside.Viewer.AnnotationTarget?
+Broadside.Viewer.AnnotationLayer.Session.get -> Broadside.Viewer.DocumentSession!
+Broadside.Viewer.AnnotationLayer.SetFieldChoice(string? value) -> bool
+Broadside.Viewer.AnnotationLayer.SetFieldSelection(System.Collections.Generic.IEnumerable<int>! indices) -> bool
+Broadside.Viewer.AnnotationLayer.SetFieldText(string? value) -> bool
+Broadside.Viewer.AnnotationLayer.ToggleField() -> bool
+Broadside.Viewer.AnnotationNote
+Broadside.Viewer.AnnotationNote.Annotation.get -> Broadside.Annotations.PdfAnnotation!
+Broadside.Viewer.AnnotationNote.Annotation.init -> void
+Broadside.Viewer.AnnotationNote.AnnotationNote(Broadside.Annotations.PdfAnnotation! Annotation, string? Contents, string? RichText, string? Title, string? Subject, string? Modified, Broadside.PdfRectangle? PopupRectangle, bool IsOpen, System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfMarkupAnnotation!>! Replies) -> void
+Broadside.Viewer.AnnotationNote.Contents.get -> string?
+Broadside.Viewer.AnnotationNote.Contents.init -> void
+Broadside.Viewer.AnnotationNote.IsOpen.get -> bool
+Broadside.Viewer.AnnotationNote.IsOpen.init -> void
+Broadside.Viewer.AnnotationNote.Modified.get -> string?
+Broadside.Viewer.AnnotationNote.Modified.init -> void
+Broadside.Viewer.AnnotationNote.PopupRectangle.get -> Broadside.PdfRectangle?
+Broadside.Viewer.AnnotationNote.PopupRectangle.init -> void
+Broadside.Viewer.AnnotationNote.Replies.get -> System.Collections.Generic.IReadOnlyList<Broadside.Annotations.PdfMarkupAnnotation!>!
+Broadside.Viewer.AnnotationNote.Replies.init -> void
+Broadside.Viewer.AnnotationNote.RichText.get -> string?
+Broadside.Viewer.AnnotationNote.RichText.init -> void
+Broadside.Viewer.AnnotationNote.Subject.get -> string?
+Broadside.Viewer.AnnotationNote.Subject.init -> void
+Broadside.Viewer.AnnotationNote.Title.get -> string?
+Broadside.Viewer.AnnotationNote.Title.init -> void
+Broadside.Viewer.AnnotationRole
+Broadside.Viewer.AnnotationRole.Annotation = 2 -> Broadside.Viewer.AnnotationRole
+Broadside.Viewer.AnnotationRole.Field = 1 -> Broadside.Viewer.AnnotationRole
+Broadside.Viewer.AnnotationRole.Link = 0 -> Broadside.Viewer.AnnotationRole
+Broadside.Viewer.AnnotationTarget
+Broadside.Viewer.AnnotationTarget.AnnotationTarget() -> void
+Broadside.Viewer.AnnotationTarget.AnnotationTarget(int PageIndex, int Index) -> void
+Broadside.Viewer.AnnotationTarget.Index.get -> int
+Broadside.Viewer.AnnotationTarget.Index.init -> void
+Broadside.Viewer.AnnotationTarget.PageIndex.get -> int
+Broadside.Viewer.AnnotationTarget.PageIndex.init -> void
+Broadside.Viewer.PageInvalidatedEventArgs
+Broadside.Viewer.PageInvalidatedEventArgs.Area.get -> Broadside.PdfRectangle?
+Broadside.Viewer.PageInvalidatedEventArgs.Layers.get -> Broadside.Rendering.DisplayLayers
+Broadside.Viewer.PageInvalidatedEventArgs.PageIndex.get -> int
+Broadside.Viewer.TileScheduler.Invalidate(int pageIndex, Broadside.PdfRectangle area, Broadside.Rendering.DisplayLayers layers) -> int
+Broadside.Viewer.TileScheduler.Invalidate(int pageIndex, Broadside.Rendering.DisplayLayers layers) -> int
+Broadside.Viewer.TileScheduler.Layers.get -> Broadside.Rendering.DisplayLayers
+Broadside.Viewer.TileScheduler.SetLayers(Broadside.Rendering.DisplayLayers layers) -> void
+Broadside.Viewer.TileSchedulerOptions.SeparateOverlays.get -> bool
+Broadside.Viewer.TileSchedulerOptions.SeparateOverlays.set -> void
+Broadside.Viewer.TileSchedulerOptions.WithSeparateOverlays(bool separate = true) -> Broadside.Viewer.TileSchedulerOptions!
+Broadside.Viewer.ViewerActionEventArgs
+Broadside.Viewer.ViewerActionEventArgs.Action.get -> Broadside.PdfAction?
+Broadside.Viewer.ViewerActionEventArgs.Annotation.get -> Broadside.Annotations.PdfAnnotation?
+Broadside.Viewer.ViewerActionEventArgs.Destination.get -> Broadside.PdfExplicitDestination?
+Broadside.Viewer.ViewerActionEventArgs.IsScript.get -> bool
+Broadside.Viewer.ViewerActionEventArgs.Kind.get -> Broadside.PdfActionKind
+Broadside.Viewer.ViewerActionEventArgs.NamedOperation.get -> Broadside.PdfNamedOperation?
+Broadside.Viewer.ViewerActionEventArgs.PageIndex.get -> int?
+Broadside.Viewer.ViewerActionEventArgs.Uri.get -> System.Uri?
+const Broadside.Viewer.AnnotationLayer.DragThreshold = 2 -> double
+static Broadside.Viewer.AnnotationLayer.GetDestinationViewport(Broadside.PdfExplicitDestination! destination, Broadside.Viewer.PageLayout! layout, in Broadside.Viewer.Viewport viewport) -> Broadside.Viewer.Viewport
 Broadside.Viewer.AccessibleRole
 Broadside.Viewer.AccessibleRole.Document = 0 -> Broadside.Viewer.AccessibleRole
 Broadside.Viewer.AccessibleRole.Page = 1 -> Broadside.Viewer.AccessibleRole
@@ -613,3 +704,6 @@ Broadside.Viewer.AccessibilityBridge.Update(Broadside.Viewer.PageLayout! layout,
 Broadside.Viewer.AccessibilityBridge.GetStates(Broadside.Viewer.AccessibleNode! node) -> Broadside.Viewer.AccessibleStates
 Broadside.Viewer.AccessibilityBridge.TryGetBounds(Broadside.Viewer.AccessibleNode! node, out Broadside.Viewer.LayoutRectangle bounds) -> bool
 Broadside.Viewer.AccessibilityBridge.TryGetViewportShowing(Broadside.Viewer.AccessibleNode! node, out Broadside.Viewer.Viewport viewport) -> bool
+Broadside.Viewer.AnnotationLayer.Accessibility.get -> Broadside.Viewer.AccessibilityBridge?
+Broadside.Viewer.AnnotationLayer.Accessibility.set -> void
+Broadside.Viewer.AnnotationLayer.GetElements(Broadside.PdfPage! page, int pageIndex, System.Collections.Generic.ICollection<Broadside.Viewer.AccessibleElement>! destination) -> void
