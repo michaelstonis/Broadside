@@ -34,9 +34,10 @@ public sealed class SessionMemoryTests
         // The rasterizer's working arrays (a 4 MiB tile, a 2 MiB cell array) live in ArrayPool<T>.Shared, which belongs to the
         // process: the runtime trims it on its own schedule after a full collection (at once when memory load is high, as on CI
         // runners), so one block's delta can swing by megabytes either way without any session being kept. A session that leaks
-        // grows every block, so the smallest of several block deltas is what the sessions retain.
+        // grows every block, so the smallest of several block deltas is what the sessions retain. The pool fills one array per block until
+        // its partitions are full, which takes more than three blocks after some earlier tests, hence ten.
         const int sessions = 40;
-        long[] growth = new long[3];
+        long[] growth = new long[10];
         long before = LiveBytes();
         for (int block = 0; block < growth.Length; block++)
         {

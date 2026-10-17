@@ -471,7 +471,7 @@ public sealed class PageLayout
         return best;
     }
 
-    /// <summary>Scrolls a viewport to a page: its spread's leading edge (less the padding) at the viewport's leading edge, the page centred across the strip.</summary>
+    /// <summary>Scrolls a viewport to a page: its spread's leading edge (less the padding) at the viewport's leading edge (in a paged mode a spread shorter than the viewport is centred instead), the page centred across the strip.</summary>
     /// <param name="viewport">The viewport.</param>
     /// <param name="pageIndex">The zero-based page.</param>
     /// <returns>The viewport scrolled, kept inside the content (<see cref="Clamp"/>).</returns>
@@ -482,9 +482,20 @@ public sealed class PageLayout
         LayoutRectangle spread = _spreads[_spreadOf[pageIndex]];
         LayoutRectangle box = _bounds[pageIndex];
         double z = viewport.Zoom;
+        double extent = _horizontal ? viewport.Width : viewport.Height;
+        double start = (spread.Y - Padding) * z;
+        double end = (spread.Bottom + Padding) * z;
+        if (_horizontal)
+        {
+            start = (spread.X - Padding) * z;
+            end = (spread.Right + Padding) * z;
+        }
+
+        // A paged spread shorter than the viewport is centred (the leading edge would show the spreads after it as well).
+        double along = _paged && end - start < extent ? (start + end - extent) / 2 : start;
         return Clamp(_horizontal
-            ? viewport with { X = (spread.X - Padding) * z, Y = ((box.Y + (box.Height / 2)) * z) - (viewport.Height / 2) }
-            : viewport with { X = ((box.X + (box.Width / 2)) * z) - (viewport.Width / 2), Y = (spread.Y - Padding) * z });
+            ? viewport with { X = along, Y = ((box.Y + (box.Height / 2)) * z) - (viewport.Height / 2) }
+            : viewport with { X = ((box.X + (box.Width / 2)) * z) - (viewport.Width / 2), Y = along });
     }
 
     /// <summary>Snaps a viewport along the strip to the spread whose leading edge (less the padding) is nearest its leading edge.</summary>
@@ -525,15 +536,39 @@ public sealed class PageLayout
         return Clamp(viewport with { X = (layoutX * zoom) - x, Y = (layoutY * zoom) - y, Zoom = zoom });
     }
 
-    /// <summary>Keeps a viewport's scroll offsets inside the content: from 0 to the content's size at the zoom less the viewport's.</summary>
+    /// <summary>
+    /// Keeps a viewport's scroll offsets inside the content: from 0 to the content's size at the zoom less the viewport's. In a paged mode
+    /// (<see cref="PageLayoutMode.SinglePage"/>, <see cref="PageLayoutMode.TwoUp"/>) the range along the strip widens, when the first or last
+    /// spread is shorter than the viewport, to the offsets that centre it, so the first and last spreads can be shown on their own.
+    /// </summary>
     /// <param name="viewport">The viewport.</param>
     /// <returns>The viewport clamped.</returns>
     public Viewport Clamp(in Viewport viewport)
     {
         CheckViewport(viewport);
+        (double minAlong, double maxAlong) = AlongRange(viewport);
         double maxX = Math.Max(0, (ContentWidth * viewport.Zoom) - viewport.Width);
         double maxY = Math.Max(0, (ContentHeight * viewport.Zoom) - viewport.Height);
-        return viewport with { X = Math.Clamp(viewport.X, 0, maxX), Y = Math.Clamp(viewport.Y, 0, maxY) };
+        return _horizontal
+            ? viewport with { X = Math.Clamp(viewport.X, minAlong, maxAlong), Y = Math.Clamp(viewport.Y, 0, maxY) }
+            : viewport with { X = Math.Clamp(viewport.X, 0, maxX), Y = Math.Clamp(viewport.Y, minAlong, maxAlong) };
+    }
+
+    /// <summary>The scroll offsets along the strip a viewport may take (see <see cref="Clamp"/>).</summary>
+    internal (double Min, double Max) AlongRange(in Viewport viewport)
+    {
+        double extent = _horizontal ? viewport.Width : viewport.Height;
+        double max = Math.Max(0, ((_horizontal ? ContentWidth : ContentHeight) * viewport.Zoom) - extent);
+        if (!_paged || SpreadCount == 0)
+        {
+            return (0, max);
+        }
+
+        double zoom = viewport.Zoom;
+        int last = SpreadCount - 1;
+        double first = (((Start(0) - Padding) + (End(0) + Padding)) * zoom - extent) / 2;
+        double trailing = (((Start(last) - Padding) + (End(last) + Padding)) * zoom - extent) / 2;
+        return (Math.Min(0, first), Math.Max(max, trailing));
     }
 
     private static int Pixels(double extent) => Math.Max(1, (int)Math.Min(int.MaxValue / 4, Math.Ceiling(extent - Tolerance)));
@@ -569,12 +604,14 @@ public sealed class PageLayout
 
     private double End(int spread) => _horizontal ? _spreads[spread].Right : _spreads[spread].Bottom;
 
-    /// <summary>The content's origin in viewport pixels: centred along an axis where it is smaller than the viewport.</summary>
+    /// <summary>The content's origin in viewport pixels: centred along an axis where it is smaller than the viewport (but not along a paged mode's strip).</summary>
     private (double X, double Y) Origin(in Viewport viewport)
     {
         double width = ContentWidth * viewport.Zoom;
         double height = ContentHeight * viewport.Zoom;
-        return (width < viewport.Width ? (viewport.Width - width) / 2 : -viewport.X, height < viewport.Height ? (viewport.Height - height) / 2 : -viewport.Y);
+        // A paged mode never centres the content along the strip: its offsets reach the centred first and last spread instead (AlongRange).
+        return (width < viewport.Width && !(_paged && _horizontal) ? (viewport.Width - width) / 2 : -viewport.X,
+            height < viewport.Height && !(_paged && !_horizontal) ? (viewport.Height - height) / 2 : -viewport.Y);
     }
 
     private int CentreSpread(in Viewport viewport, double originX, double originY) =>
