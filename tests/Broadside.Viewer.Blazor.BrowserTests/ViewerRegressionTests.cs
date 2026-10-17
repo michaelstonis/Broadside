@@ -33,6 +33,29 @@ public sealed class ViewerRegressionTests(BrowserHost host)
         Assert.NotEqual([0, 0, 0], pixel);
     }
 
+    [Fact]
+    public async Task Scrolling_pages_into_view_moves_no_focus_onto_the_page_content()
+    {
+        // Issue #349: the accessible focus follows the viewer's page, but scrolling must not pull the keyboard focus (and a focus ring)
+        // onto the text layer of a pointer user.
+        BrowserHost.RequireApp();
+        await using IBrowserContext context = await host.Browser.NewContextAsync(new BrowserNewContextOptions { ViewportSize = new ViewportSize { Width = 1000, Height = 800 } });
+        IPage page = await OpenAsync(context, host.AppAddress.ToString());
+        LocatorBoundingBoxResult box = (await page.Locator(".bs-viewer").BoundingBoxAsync())!;
+        await page.Mouse.ClickAsync(box.X + 2, box.Y + 2); // the grey margin: focuses the viewer without selecting text
+        await page.Mouse.MoveAsync(box.X + (box.Width / 2), box.Y + (box.Height / 2));
+        for (int i = 0; i < 12 && await Viewer.Data(page, "currentPage") is not ("3" or "4" or "5"); i++)
+        {
+            await page.Mouse.WheelAsync(0, 600);
+            await page.WaitForTimeoutAsync(150);
+        }
+
+        await page.WaitForSelectorAsync(".bs-a11y section[data-bs-page='2'] [data-bs-node]", new PageWaitForSelectorOptions { State = WaitForSelectorState.Attached, Timeout = 60_000 });
+        await page.WaitForTimeoutAsync(500);
+        Assert.True(await page.EvaluateAsync<bool>("() => document.activeElement === document.querySelector('.bs-viewer')"), "the viewer keeps the focus");
+        Assert.Equal(0, await page.EvaluateAsync<int>("() => document.querySelectorAll('.bs-a11y :focus-visible').length"));
+    }
+
     private static async Task<IPage> OpenAsync(IBrowserContext context, string address)
     {
         IPage page = await context.NewPageAsync();

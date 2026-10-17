@@ -18,4 +18,12 @@ public enum AccessibilityChangeKind
 /// <param name="Kind">What changed.</param>
 /// <param name="Node">The node concerned: the newly focused node, the rebuilt page, or null for a bounds change.</param>
 /// <remarks>Spec #33 viewer capability 8. A struct, so raising it allocates nothing.</remarks>
-public readonly record struct AccessibilityChange(AccessibilityChangeKind Kind, AccessibleNode? Node);
+public readonly record struct AccessibilityChange(AccessibilityChangeKind Kind, AccessibleNode? Node)
+{
+    /// <summary>
+    /// Gets whether a <see cref="AccessibilityChangeKind.FocusChanged"/> only follows the viewer to a new current page (scrolling), rather
+    /// than answering a navigation request. A shell moves the platform's keyboard focus for it only while that focus is already on an
+    /// accessible node, so scrolling never pulls the focus (or a focus ring) onto the page content.
+    /// </summary>
+    public bool FollowsViewer { get; init; }
+}

@@ -366,11 +366,11 @@ public sealed class AccessibilityBridge
         Raise(AccessibilityChangeKind.BoundsChanged, null);
         if (follow && previous >= 0 && current != previous && (uint)current < (uint)_pages.Length && Focus?.PageIndex != current)
         {
-            SetFocusCore(FirstNode(current), scroll: false);
+            SetFocusCore(FirstNode(current), scroll: false, follow: true);
         }
     }
 
-    private void SetFocusCore(AccessibleNode? node, bool scroll)
+    private void SetFocusCore(AccessibleNode? node, bool scroll, bool follow = false)
     {
         if (ReferenceEquals(node, Focus))
         {
@@ -378,7 +378,7 @@ public sealed class AccessibilityBridge
         }
 
         Focus = node;
-        Raise(AccessibilityChangeKind.FocusChanged, node);
+        Observer?.Invoke(new AccessibilityChange(AccessibilityChangeKind.FocusChanged, node) { FollowsViewer = follow });
         if (scroll && node is not null && Viewer is { } viewer)
         {
             UpdateCore(viewer.Layout, viewer.Viewport, follow: false);

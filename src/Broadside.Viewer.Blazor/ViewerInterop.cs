@@ -53,7 +53,7 @@ internal static partial class ViewerInterop
     public static partial void Draw(int id, [JSMarshalAs<JSType.MemoryView>] Span<double> commands);
 
     [JSImport("focusNode", Module)]
-    public static partial bool FocusNode(int id, string elementId);
+    public static partial bool FocusNode(int id, string elementId, bool follow);
 
     [JSImport("writeClipboard", Module)]
     public static partial void WriteClipboard(string text);

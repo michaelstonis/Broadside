@@ -14,7 +14,8 @@ const STYLE = `
 .bs-a11y>section{position:absolute;left:0;top:0;width:0;height:0;transform-origin:0 0}
 .bs-a11y [data-bs-node]{white-space:pre;line-height:1;font-size:8px;margin:0;padding:0}
 .bs-a11y [data-bs-box]{position:absolute}
-.bs-a11y :focus{outline:2px solid #1a73e8;outline-offset:0}`;
+.bs-a11y :focus{outline:none}
+.bs-a11y :focus-visible{outline:2px solid #1a73e8;outline-offset:0}`;
 
 async function exportsOf() {
   if (interop === null) {
@@ -224,9 +225,12 @@ function paint(v, c) {
   }
 }
 
-export function focusNode(id, elementId) {
+export function focusNode(id, elementId, follow) {
   const element = document.getElementById(elementId);
   if (!element) return false;
+  // Following the viewer to a new page (scrolling) moves the keyboard only while it is already on the text layer: a pointer user's
+  // focus stays on the viewer, so no focus ring appears over content scrolling into view (#349).
+  if (follow && !(document.activeElement && document.activeElement.hasAttribute("data-bs-node"))) return true;
   // The keyboard follows the viewer's reading focus only while the viewer (or nothing) has it: a focus change the host page caused,
   // e.g. through AnnotationLayer.Focus while the user types in the host's own form, must not take the keyboard from that element.
   const active = document.activeElement;

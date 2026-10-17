@@ -60,6 +60,7 @@ internal sealed class ViewerController : IAsyncDisposable
     private PointerMode _mode;
     private int _panPointers;
     private AccessibleNode? _pendingFocus;
+    private bool _pendingFollow;
     private bool _focusHost;
     private PdfViewerState _state;
 
@@ -647,9 +648,9 @@ internal sealed class ViewerController : IAsyncDisposable
 
         if (_focusHost)
         {
-            _focusHost = !ViewerInterop.FocusNode(Id, ElementId);
+            _focusHost = !ViewerInterop.FocusNode(Id, ElementId, false);
         }
-        else if (_pendingFocus is { } node && NodeIds.TryGetValue(node, out string? id) && ViewerInterop.FocusNode(Id, id))
+        else if (_pendingFocus is { } node && NodeIds.TryGetValue(node, out string? id) && ViewerInterop.FocusNode(Id, id, _pendingFollow))
         {
             _pendingFocus = null;
         }
@@ -784,6 +785,7 @@ internal sealed class ViewerController : IAsyncDisposable
         {
             case AccessibilityChangeKind.FocusChanged:
                 _pendingFocus = change.Node;
+                _pendingFollow = change.FollowsViewer; // scrolling moves the keyboard focus only while it is on the text layer (#349)
                 _focusHost = change.Node is null;
                 Wake();
                 break;

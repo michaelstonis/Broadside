@@ -637,6 +637,8 @@ Broadside.Viewer.AccessibilityChangeKind.BoundsChanged = 2 -> Broadside.Viewer.A
 Broadside.Viewer.AccessibilityChange
 Broadside.Viewer.AccessibilityChange.AccessibilityChange() -> void
 Broadside.Viewer.AccessibilityChange.AccessibilityChange(Broadside.Viewer.AccessibilityChangeKind Kind, Broadside.Viewer.AccessibleNode? Node) -> void
+Broadside.Viewer.AccessibilityChange.FollowsViewer.get -> bool
+Broadside.Viewer.AccessibilityChange.FollowsViewer.init -> void
 Broadside.Viewer.AccessibilityChange.Kind.get -> Broadside.Viewer.AccessibilityChangeKind
 Broadside.Viewer.AccessibilityChange.Kind.init -> void
 Broadside.Viewer.AccessibilityChange.Node.get -> Broadside.Viewer.AccessibleNode?
