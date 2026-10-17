@@ -16,7 +16,7 @@
 
   <ItemGroup Label="Backends (never referenced by the core)">
     <PackageVersion Include="SkiaSharp" Version="4.153.1" />
-    <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.360" />
+    <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.363" />
   </ItemGroup>
 
   <ItemGroup Label="Viewer shells: Microsoft-shipped UI frameworks, never referenced by the core (ADR 0001)">
@@ -27,8 +27,8 @@
 
   <ItemGroup Label="Build and analysis">
     <PackageVersion Include="MinVer" Version="8.0.0" />
-    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.401" />
-    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="3.3.4" />
+    <PackageVersion Include="Microsoft.SourceLink.GitHub" Version="10.0.402" />
+    <PackageVersion Include="Microsoft.CodeAnalysis.PublicApiAnalyzers" Version="5.6.0" />
   </ItemGroup>
 
   <ItemGroup Label="Tests, benchmarks, fuzzing">
@@ -47,7 +47,7 @@
          benchmarks run on the Linux CI legs (#121); same version as SkiaSharp, never in a package: an application picks its own. -->
     <PackageVersion Include="SkiaSharp.NativeAssets.Linux.NoDependencies" Version="4.153.1" />
     <!-- A concrete container, logging pipeline and configuration for the dependency-injection tests (#46); never in the core. -->
-    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.12" />
+    <PackageVersion Include="Microsoft.Extensions.Configuration" Version="10.0.13" />
     <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Logging" Version="10.0.12" />
     <PackageVersion Include="Microsoft.Extensions.Options.ConfigurationExtensions" Version="10.0.12" />
