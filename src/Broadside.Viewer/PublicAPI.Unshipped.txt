@@ -191,6 +191,7 @@ Broadside.Viewer.PageLayoutOptions.WithRotation(int rotation) -> Broadside.Viewe
 const Broadside.Viewer.PageLayoutOptions.DefaultSpacing = 8 -> double
 static Broadside.Viewer.PageLayoutOptions.For(Broadside.PdfPageLayout layout) -> Broadside.Viewer.PageLayoutOptions!
 Broadside.Viewer.PageLayout
+Broadside.Viewer.PageLayout.Anchor(Broadside.Viewer.PageLayout! previous, in Broadside.Viewer.Viewport viewport) -> Broadside.Viewer.Viewport
 Broadside.Viewer.PageLayout.Clamp(in Broadside.Viewer.Viewport viewport) -> Broadside.Viewer.Viewport
 Broadside.Viewer.PageLayout.ContentHeight.get -> double
 Broadside.Viewer.PageLayout.ContentWidth.get -> double

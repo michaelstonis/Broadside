@@ -554,6 +554,37 @@ public sealed class PageLayout
             : viewport with { X = Math.Clamp(viewport.X, 0, maxX), Y = Math.Clamp(viewport.Y, minAlong, maxAlong) };
     }
 
+    /// <summary>
+    /// Moves a viewport from an earlier layout of the same pages to this one (real page sizes replacing placeholders, other options)
+    /// so that it keeps showing what it showed: the current page of <paramref name="previous"/> keeps its top-left corner where it was
+    /// in the viewport, at the same zoom.
+    /// </summary>
+    /// <param name="previous">The layout the viewport was in.</param>
+    /// <param name="viewport">The viewport.</param>
+    /// <returns>The viewport in this layout, kept inside the content (<see cref="Clamp"/>).</returns>
+    /// <remarks>
+    /// Spec #33 viewer capability 3. Without it a page that grows the column (a wider page arriving after page 1's placeholder size)
+    /// would shift every page across the strip under fixed scroll offsets, and the page in view would slide out of it.
+    /// </remarks>
+    public Viewport Anchor(PageLayout previous, in Viewport viewport)
+    {
+        ArgumentNullException.ThrowIfNull(previous);
+        CheckViewport(viewport);
+        int page = previous.GetCurrentPage(viewport);
+        if (page < 0 || page >= PageCount)
+        {
+            return Clamp(viewport);
+        }
+
+        (double originX, double originY) = previous.Origin(viewport);
+        LayoutRectangle was = previous._bounds[page];
+        LayoutRectangle box = _bounds[page];
+        double zoom = viewport.Zoom;
+        double x = (was.X * zoom) + originX; // the page's top-left corner in viewport pixels
+        double y = (was.Y * zoom) + originY;
+        return Clamp(viewport with { X = (box.X * zoom) - x, Y = (box.Y * zoom) - y });
+    }
+
     /// <summary>The scroll offsets along the strip a viewport may take (see <see cref="Clamp"/>).</summary>
     internal (double Min, double Max) AlongRange(in Viewport viewport)
     {

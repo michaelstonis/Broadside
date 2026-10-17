@@ -664,8 +664,9 @@ internal sealed class ViewerController : IAsyncDisposable
         _metricsDirty = false;
         _lastRelayout = Stopwatch.GetTimestamp();
         PageLayout layout = PageLayout.Create(_metrics, _layoutOptions);
+        PageLayout previous = _zoom!.Layout;
         _scheduler!.SetLayout(layout);
-        _zoom!.SetViewport(layout.Clamp(_zoom.Viewport));
+        _zoom.SetViewport(layout.Anchor(previous, _zoom.Viewport)); // the page in view stays put as real sizes replace placeholders (#348)
     }
 
     private async Task SweepMetricsAsync(DocumentSession session, int generation)
