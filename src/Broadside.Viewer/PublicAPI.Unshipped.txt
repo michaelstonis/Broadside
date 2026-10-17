@@ -491,3 +491,125 @@ Broadside.Viewer.InputKey.End = 9 -> Broadside.Viewer.InputKey
 Broadside.Viewer.InputKey.Plus = 10 -> Broadside.Viewer.InputKey
 Broadside.Viewer.InputKey.Minus = 11 -> Broadside.Viewer.InputKey
 Broadside.Viewer.InputKey.Zero = 12 -> Broadside.Viewer.InputKey
+Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Document = 0 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Page = 1 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Section = 2 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Group = 3 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Paragraph = 4 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Heading = 5 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.List = 6 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.ListItem = 7 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.ListMarker = 8 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Table = 9 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Row = 10 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.ColumnHeader = 11 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.RowHeader = 12 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Cell = 13 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Figure = 14 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Caption = 15 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Text = 16 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Link = 17 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Note = 18 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Button = 19 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.CheckBox = 20 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.RadioButton = 21 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.TextBox = 22 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.ComboBox = 23 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.ListBox = 24 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleRole.Annotation = 25 -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleStates.None = 0 -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleStates.Focusable = 1 -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleStates.Focused = 2 -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleStates.Offscreen = 4 -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleStates.Checked = 8 -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleStates.ReadOnly = 16 -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleStates.Required = 32 -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleStates.Disabled = 64 -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.Element = 0 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.Heading = 1 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.Landmark = 2 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.Table = 3 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.List = 4 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.Figure = 5 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.Link = 6 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.Control = 7 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibleNavigation.Page = 8 -> Broadside.Viewer.AccessibleNavigation
+Broadside.Viewer.AccessibilityChangeKind
+Broadside.Viewer.AccessibilityChangeKind.FocusChanged = 0 -> Broadside.Viewer.AccessibilityChangeKind
+Broadside.Viewer.AccessibilityChangeKind.ChildrenChanged = 1 -> Broadside.Viewer.AccessibilityChangeKind
+Broadside.Viewer.AccessibilityChangeKind.BoundsChanged = 2 -> Broadside.Viewer.AccessibilityChangeKind
+Broadside.Viewer.AccessibilityChange
+Broadside.Viewer.AccessibilityChange.AccessibilityChange() -> void
+Broadside.Viewer.AccessibilityChange.AccessibilityChange(Broadside.Viewer.AccessibilityChangeKind Kind, Broadside.Viewer.AccessibleNode? Node) -> void
+Broadside.Viewer.AccessibilityChange.Kind.get -> Broadside.Viewer.AccessibilityChangeKind
+Broadside.Viewer.AccessibilityChange.Kind.init -> void
+Broadside.Viewer.AccessibilityChange.Node.get -> Broadside.Viewer.AccessibleNode?
+Broadside.Viewer.AccessibilityChange.Node.init -> void
+Broadside.Viewer.AccessibleElement
+Broadside.Viewer.AccessibleElement.AccessibleElement() -> void
+Broadside.Viewer.AccessibleElement.AccessibleElement(Broadside.Viewer.AccessibleRole Role, Broadside.PdfRectangle Bounds) -> void
+Broadside.Viewer.AccessibleElement.Role.get -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleElement.Role.init -> void
+Broadside.Viewer.AccessibleElement.Bounds.get -> Broadside.PdfRectangle
+Broadside.Viewer.AccessibleElement.Bounds.init -> void
+Broadside.Viewer.AccessibleElement.Name.get -> string?
+Broadside.Viewer.AccessibleElement.Name.init -> void
+Broadside.Viewer.AccessibleElement.Value.get -> string?
+Broadside.Viewer.AccessibleElement.Value.init -> void
+Broadside.Viewer.AccessibleElement.States.get -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibleElement.States.init -> void
+Broadside.Viewer.AccessibleElement.Source.get -> object?
+Broadside.Viewer.AccessibleElement.Source.init -> void
+Broadside.Viewer.IAccessibleElementProvider
+Broadside.Viewer.IAccessibleElementProvider.GetElements(Broadside.PdfPage! page, int pageIndex, System.Collections.Generic.ICollection<Broadside.Viewer.AccessibleElement>! destination) -> void
+Broadside.Viewer.AccessibleNode
+Broadside.Viewer.AccessibleNode.Role.get -> Broadside.Viewer.AccessibleRole
+Broadside.Viewer.AccessibleNode.Name.get -> string?
+Broadside.Viewer.AccessibleNode.Value.get -> string?
+Broadside.Viewer.AccessibleNode.Text.get -> string!
+Broadside.Viewer.AccessibleNode.Language.get -> string?
+Broadside.Viewer.AccessibleNode.Level.get -> int
+Broadside.Viewer.AccessibleNode.PageIndex.get -> int
+Broadside.Viewer.AccessibleNode.Index.get -> int
+Broadside.Viewer.AccessibleNode.Parent.get -> Broadside.Viewer.AccessibleNode?
+Broadside.Viewer.AccessibleNode.Children.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.AccessibleNode!>!
+Broadside.Viewer.AccessibleNode.RowCount.get -> int
+Broadside.Viewer.AccessibleNode.ColumnCount.get -> int
+Broadside.Viewer.AccessibleNode.Row.get -> int
+Broadside.Viewer.AccessibleNode.Column.get -> int
+Broadside.Viewer.AccessibleNode.RowSpan.get -> int
+Broadside.Viewer.AccessibleNode.ColumnSpan.get -> int
+Broadside.Viewer.AccessibleNode.Headers.get -> System.Collections.Generic.IReadOnlyList<Broadside.Viewer.AccessibleNode!>!
+Broadside.Viewer.AccessibleNode.PageBounds.get -> Broadside.PdfRectangle?
+Broadside.Viewer.AccessibleNode.LayoutNode.get -> Broadside.Layout.LayoutNode?
+Broadside.Viewer.AccessibleNode.Source.get -> object?
+override Broadside.Viewer.AccessibleNode.ToString() -> string!
+Broadside.Viewer.AccessibilityBridge
+Broadside.Viewer.AccessibilityBridge.AccessibilityBridge(Broadside.Viewer.DocumentSession! session) -> void
+Broadside.Viewer.AccessibilityBridge.AccessibilityBridge(Broadside.Viewer.DocumentSession! session, Broadside.Viewer.IAccessibleElementProvider? elements) -> void
+Broadside.Viewer.AccessibilityBridge.Observer.get -> System.Action<Broadside.Viewer.AccessibilityChange>?
+Broadside.Viewer.AccessibilityBridge.Observer.set -> void
+Broadside.Viewer.AccessibilityBridge.Session.get -> Broadside.Viewer.DocumentSession!
+Broadside.Viewer.AccessibilityBridge.Elements.get -> Broadside.Viewer.IAccessibleElementProvider?
+Broadside.Viewer.AccessibilityBridge.Root.get -> Broadside.Viewer.AccessibleNode!
+Broadside.Viewer.AccessibilityBridge.Viewer.get -> Broadside.Viewer.ProgressiveZoom?
+Broadside.Viewer.AccessibilityBridge.Viewer.set -> void
+Broadside.Viewer.AccessibilityBridge.Focus.get -> Broadside.Viewer.AccessibleNode?
+Broadside.Viewer.AccessibilityBridge.GetPage(int pageIndex) -> Broadside.Viewer.AccessibleNode!
+Broadside.Viewer.AccessibilityBridge.IsPageLoaded(int pageIndex) -> bool
+Broadside.Viewer.AccessibilityBridge.LoadPage(int pageIndex) -> Broadside.Viewer.AccessibleNode!
+Broadside.Viewer.AccessibilityBridge.LoadPageAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.AccessibleNode!>
+Broadside.Viewer.AccessibilityBridge.InvalidatePage(int pageIndex) -> void
+Broadside.Viewer.AccessibilityBridge.FindNode(int pageIndex, object! source) -> Broadside.Viewer.AccessibleNode?
+Broadside.Viewer.AccessibilityBridge.GetNodeAt(in Broadside.Viewer.PagePoint point) -> Broadside.Viewer.AccessibleNode!
+Broadside.Viewer.AccessibilityBridge.FindNext(Broadside.Viewer.AccessibleNode? from, Broadside.Viewer.AccessibleNavigation target, bool backward = false, int level = 0) -> Broadside.Viewer.AccessibleNode?
+Broadside.Viewer.AccessibilityBridge.MoveFocus(Broadside.Viewer.AccessibleNavigation target, bool backward = false, int level = 0) -> bool
+Broadside.Viewer.AccessibilityBridge.SetFocus(Broadside.Viewer.AccessibleNode? node) -> void
+Broadside.Viewer.AccessibilityBridge.Update() -> void
+Broadside.Viewer.AccessibilityBridge.Update(Broadside.Viewer.PageLayout! layout, in Broadside.Viewer.Viewport viewport) -> void
+Broadside.Viewer.AccessibilityBridge.GetStates(Broadside.Viewer.AccessibleNode! node) -> Broadside.Viewer.AccessibleStates
+Broadside.Viewer.AccessibilityBridge.TryGetBounds(Broadside.Viewer.AccessibleNode! node, out Broadside.Viewer.LayoutRectangle bounds) -> bool
+Broadside.Viewer.AccessibilityBridge.TryGetViewportShowing(Broadside.Viewer.AccessibleNode! node, out Broadside.Viewer.Viewport viewport) -> bool
