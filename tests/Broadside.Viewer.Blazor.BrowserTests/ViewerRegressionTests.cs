@@ -14,22 +14,27 @@ public sealed class ViewerRegressionTests(BrowserHost host)
         BrowserHost.RequireApp();
         await using IBrowserContext context = await host.Browser.NewContextAsync(new BrowserNewContextOptions { ViewportSize = new ViewportSize { Width = 1000, Height = 800 } });
         IPage page = await OpenAsync(context, host.AppAddress.ToString());
-        int[] pixel = await page.EvaluateAsync<int[]>("""
-            () => new Promise(resolve => {
+        // Created after the viewer's own observer, so it runs after the viewer resized the canvas, before the browser paints.
+        await page.EvaluateAsync("""
+            () => {
               const host = document.querySelector('.bs-viewer');
               const canvas = host.querySelector('canvas');
               const before = canvas.width;
-              // Created after the viewer's own observer, so it runs after the viewer resized the canvas, before the browser paints.
-              const observer = new ResizeObserver(() => {
-                if (canvas.width === before) return;
-                observer.disconnect();
-                const d = canvas.getContext('2d').getImageData(1, 1, 1, 1).data;
-                resolve([d[0], d[1], d[2]]);
+              window.bsResized = new Promise(resolve => {
+                const observer = new ResizeObserver(() => {
+                  if (canvas.width === before) return;
+                  observer.disconnect();
+                  const d = canvas.getContext('2d').getImageData(1, 1, 1, 1).data;
+                  resolve([d[0], d[1], d[2]]);
+                });
+                observer.observe(host);
+                setTimeout(() => resolve(null), 20000);
               });
-              observer.observe(host);
-              host.style.width = (host.getBoundingClientRect().width - 37) + 'px';
-            })
+            }
             """);
+        await page.SetViewportSizeAsync(800, 700); // a window resize or a phone turning
+        int[]? pixel = await page.EvaluateAsync<int[]?>("() => window.bsResized");
+        Assert.NotNull(pixel);
         Assert.NotEqual([0, 0, 0], pixel);
     }
 
@@ -75,7 +80,9 @@ public sealed class ViewerRegressionTests(BrowserHost host)
             await page.WaitForTimeoutAsync(100);
         }
 
-        Assert.Equal("hover", await Viewer.Data(page, "linkState"));
+        string state = await page.EvaluateAsync<string>(
+            "() => { const v = document.querySelector('.bs-viewer'); return JSON.stringify({ cursor: v.style.cursor, data: { ...v.dataset }, message: document.querySelector('.message')?.innerText ?? null, sections: document.querySelectorAll('.bs-a11y section').length }); }");
+        Assert.True(await Viewer.Data(page, "linkState") == "hover", state);
         await page.Mouse.DownAsync();
         await page.WaitForFunctionAsync("() => document.querySelector('.bs-viewer').dataset.linkState === 'pressed'", null, Slow);
         await page.Mouse.UpAsync();
@@ -94,11 +101,12 @@ public sealed class ViewerRegressionTests(BrowserHost host)
     private static byte[] LinkedDocument()
     {
         using PdfDocument document = PdfDocument.Create();
-        PdfPage first = document.Pages.Add(new PdfRectangle(0, 0, 612, 792));
-        for (int i = 1; i < 5; i++)
+        while (document.Pages.Count < 5)
         {
             document.Pages.Add(new PdfRectangle(0, 0, 612, 792));
         }
+
+        PdfPage first = document.Pages[0];
 
         first.AddLinkAnnotation(new PdfRectangle(0, 396, 306, 792), new Uri("https://example.com/"));
         first.AddLinkAnnotation(new PdfRectangle(306, 396, 612, 792), document.Pages[3]);
