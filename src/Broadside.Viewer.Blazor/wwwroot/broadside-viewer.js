@@ -62,8 +62,11 @@ export async function attach(id, elementId) {
     const w = Math.max(1, Math.round(r.width * ratio));
     const h = Math.max(1, Math.round(r.height * ratio));
     if (canvas.width !== w || canvas.height !== h) {
+      // Resizing clears the canvas (to black: it has no alpha). Repaint the last frame at once, before the browser shows the cleared
+      // canvas; the next frame lays it out for the new size (#346).
       canvas.width = w;
       canvas.height = h;
+      if (v.last) paint(v, v.last);
     }
     x.OnResize(id, Math.max(1, r.width), Math.max(1, r.height), ratio);
   };
@@ -157,6 +160,26 @@ export function draw(id, commands) {
   const v = viewers.get(id);
   if (!v) return;
   const c = commands.slice();
+  v.last = c;
+  paint(v, c);
+
+  const ms = performance.now() - v.frameStart;
+  v.frames++;
+  v.sum += ms;
+  if (ms > v.max) v.max = ms;
+  if (ms > 50) v.long++;
+  const d = v.host.dataset;
+  d.pageCount = c[1];
+  d.currentPage = c[2] + 1;
+  d.zoom = c[3];
+  d.tilesPresented = c[4];
+  d.frames = v.frames;
+  d.maxFrameMs = v.max.toFixed(1);
+  d.meanFrameMs = (v.sum / v.frames).toFixed(2);
+  d.longFrames = v.long;
+}
+
+function paint(v, c) {
   const g = v.context;
   g.fillStyle = "#e6e6e6";
   g.fillRect(0, 0, v.canvas.width, v.canvas.height);
@@ -199,21 +222,6 @@ export function draw(id, commands) {
       }
     }
   }
-
-  const ms = performance.now() - v.frameStart;
-  v.frames++;
-  v.sum += ms;
-  if (ms > v.max) v.max = ms;
-  if (ms > 50) v.long++;
-  const d = v.host.dataset;
-  d.pageCount = c[1];
-  d.currentPage = c[2] + 1;
-  d.zoom = c[3];
-  d.tilesPresented = c[4];
-  d.frames = v.frames;
-  d.maxFrameMs = v.max.toFixed(1);
-  d.meanFrameMs = (v.sum / v.frames).toFixed(2);
-  d.longFrames = v.long;
 }
 
 export function focusNode(id, elementId) {
