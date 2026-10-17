@@ -12,7 +12,7 @@
 | `format` | ubuntu | `dotnet format --verify-no-changes` on `Broadside.Core.slnf`, `tests/Broadside.Fuzz`, `bench/Broadside.Benchmarks`, `tests/Broadside.Rendering.Direct2D.Tests` and `bench/Broadside.Rendering.Direct2D.Benchmarks` (the last four are outside the solution filter). |
 | `fuzz-smoke (<shard>/6)` | ubuntu | Six parallel shards: each `--list`s the fuzz targets and runs `--smoke <target> 60` for every target whose index modulo 6 is its shard; uploads `artifacts/fuzz/**` as `fuzz-findings-<shard>` on failure. |
 | `bench-dry` | ubuntu | `dotnet run --project bench/Broadside.Benchmarks -- --filter '*' --job dry`: one iteration of every benchmark, no measurement. |
-| `blazor-wasm` | ubuntu | Installs `wasm-tools`, publishes `samples/Broadside.Viewer.Blazor.Sample` as a static site with `publish-static.sh` (trimmed, AOT-compiled) and runs `tests/Broadside.Viewer.Blazor.BrowserTests` in the image's Chrome through Playwright: a remote linearized file shows page 1 before the download completes, keyboard and screen-reader reading order, a phone profile with pinch-zoom, no native binaries and the size budget (issue #221). |
+| `blazor-wasm` | ubuntu | Installs `wasm-tools`, publishes `samples/Broadside.Viewer.Blazor.Sample` twice with `publish-static.sh` (trimmed and AOT-compiled; then `--no-aot --runtime-folder framework`, in its own obj/bin folders), installs Playwright's WebKit and Firefox, and runs `tests/Broadside.Viewer.Blazor.BrowserTests` in the image's Chrome, WebKit and Firefox: a remote linearized file shows page 1 before the download completes, keyboard and screen-reader reading order, a phone profile with pinch-zoom, every demo feature at 390 px with touch in all three browsers (#338), the non-AOT build booting from a host that refuses paths starting with `_`, no native binaries and the size budgets (issues #221, #338). Screenshots are uploaded as `blazor-demo-screenshots`. |
 
 A newer push to the same PR or branch cancels the older run. NuGet packages are cached per OS, keyed on `Directory.Packages.props` and every `.csproj`. `DiffEngine_Disabled=true` keeps Verify from launching a diff tool.
 
@@ -67,6 +67,10 @@ Runs on pull requests and pushes to `main` that touch `site/**`, `src/**`, `docs
 Pull requests only build and check. GitHub Pages is configured with the "GitHub Actions" source (`build_type: workflow`), so nothing is pushed to a `gh-pages` branch.
 
 Locally, `./check-docs.sh` runs the same build and checks. To preview with live reload, `cd site && dotnet tool run lunet serve` (the dev environment drops the `/Broadside` base path).
+
+## `demo-pages.yml`: the Blazor demo as a static site
+
+Manual only (the "Run workflow" button; inputs `aot`, `runtime-folder`, `deploy`). Publishes `samples/Broadside.Viewer.Blazor.Sample` with `publish-static.sh`, adds `.nojekyll`, and uploads the site as the `blazor-demo-site` artifact. With `deploy` it also deploys to GitHub Pages, which REPLACES the documentation site (one Pages site per repository; `docs.yml` restores it on its next run), so leave `deploy` off unless that is intended, or host the demo under a sub-folder of the documentation site (it works from any sub-path).
 
 ## `release.yml`: tags `v*` and the "Run workflow" button
 

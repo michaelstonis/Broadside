@@ -1,0 +1,175 @@
+@inherits DemoPanel
+@inject IJSRuntime JS
+
+<form class="row" @onsubmit="SearchAsync">
+  <input @bind="_query" type="search" enterkeyhint="search" placeholder="Find in document" aria-label="Find in document" data-input="search" />
+  <button type="submit">Find</button>
+</form>
+
+@if (_searching)
+{
+  <p class="hint">Searching page @(_page + 1) of @(Demo.Session?.PageCount ?? 0)…</p>
+}
+
+@if (_hits.Count > 0)
+{
+  <div class="row between">
+    <span data-search-count="@_hits.Count">@(_current + 1) of @_hits.Count</span>
+    <span>
+      <button class="icon" @onclick="() => Show(_current - 1)" aria-label="Previous match">‹</button>
+      <button class="icon" @onclick="() => Show(_current + 1)" aria-label="Next match">›</button>
+      <button @onclick="CopyAsync">Copy</button>
+    </span>
+  </div>
+  <ul class="list results">
+    @for (int i = 0; i < _hits.Count && i < 200; i++)
+    {
+      int index = i;
+      SearchHit hit = _hits[i];
+      <li>
+        <button class="list-item @(index == _current ? "current" : "")" @onclick="() => Show(index)">
+          <small>Page @(hit.PageIndex + 1)</small>
+          <span>@hit.Context</span>
+        </button>
+      </li>
+    }
+  </ul>
+}
+else if (_done)
+{
+  <p class="hint" data-search-count="0">No matches.</p>
+}
+else
+{
+  <p class="hint">Text comes from the viewer's selection model in reading order (structure order on tagged pages, detected columns on
+    untagged ones). A match is selected in the viewer: copy it, or drag to extend the selection with a mouse.</p>
+}
+
+@if (_copied is not null)
+{
+  <p class="hint">Copied: “@_copied”</p>
+}
+
+@code {
+  private readonly List<SearchHit> _hits = [];
+  private string _query = "";
+  private bool _searching;
+  private bool _done;
+  private int _page;
+  private int _current = -1;
+  private int _version;
+  private string? _copied;
+  private CancellationTokenSource? _search;
+
+  protected override Task OnDemoChangedAsync()
+  {
+    Reload();
+    return Task.CompletedTask;
+  }
+
+  private void Reload()
+  {
+    if (_version != Demo.Version)
+    {
+      _version = Demo.Version;
+      Reset();
+    }
+  }
+
+  protected override void OnClosed() => _search?.Cancel();
+
+  private void Reset()
+  {
+    _search?.Cancel();
+    _hits.Clear();
+    _current = -1;
+    _done = false;
+    _searching = false;
+  }
+
+  private async Task SearchAsync()
+  {
+    Reset();
+    if (Demo.Viewer?.Selection is not { } selection || Demo.Session is not { } session || string.IsNullOrWhiteSpace(_query))
+    {
+      return;
+    }
+
+    var search = CancellationTokenSource.CreateLinkedTokenSource(Demo.WorkToken);
+    _search = search;
+    _searching = true;
+    try
+    {
+      for (_page = 0; _page < session.PageCount && !search.IsCancellationRequested; _page++)
+      {
+        SelectableText? text = await selection.LoadPageAsync(_page, search.Token);
+        if (text is not null)
+        {
+          int before = _hits.Count;
+          TextSearch.FindOnPage(text, _page, _query, _hits);
+          if (before == 0 && _hits.Count > 0)
+          {
+            Show(0);
+          }
+        }
+
+        StateHasChanged();
+        await Task.Yield();
+      }
+    }
+    catch (OperationCanceledException)
+    {
+      return;
+    }
+#pragma warning disable CA1031 // shown to the user
+    catch (Exception exception)
+#pragma warning restore CA1031
+    {
+      Demo.Report($"Search stopped: {exception.Message}");
+    }
+    finally
+    {
+      if (ReferenceEquals(_search, search))
+      {
+        _searching = false;
+        _done = true;
+      }
+    }
+  }
+
+  private void Show(int index)
+  {
+    if (_hits.Count == 0 || Demo.Viewer is not { Selection: { } selection } viewer)
+    {
+      return;
+    }
+
+    _current = ((index % _hits.Count) + _hits.Count) % _hits.Count;
+    SearchHit hit = _hits[_current];
+    selection.Select(new TextPosition(hit.PageIndex, hit.Start), new TextPosition(hit.PageIndex, hit.End));
+    if (TextSearch.Bounds(selection, hit.PageIndex) is { } bounds)
+    {
+      viewer.Reveal(hit.PageIndex, bounds);
+    }
+    else
+    {
+      viewer.GoToPage(hit.PageIndex);
+    }
+  }
+
+  private async Task CopyAsync()
+  {
+    if (Demo.Viewer?.Selection is { IsEmpty: false } selection)
+    {
+      _copied = await selection.GetTextAsync();
+      try
+      {
+        await JS.InvokeVoidAsync("navigator.clipboard.writeText", _copied);
+      }
+      catch (JSException)
+      {
+        // The clipboard needs a secure context and a user gesture; the text is still shown.
+      }
+    }
+  }
+}

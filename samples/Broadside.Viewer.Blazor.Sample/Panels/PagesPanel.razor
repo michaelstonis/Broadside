@@ -1,0 +1,100 @@
+@inherits DemoPanel
+
+<p class="hint">Each thumbnail is a whole page rendered by the same managed rasterizer as the viewer, one at a time between frames.</p>
+<ul class="thumbnails">
+  @for (int i = 0; i < Count; i++)
+  {
+    int page = i;
+    <li>
+      <button class="thumbnail @(page == Demo.State.PageIndex ? "current" : "")" @onclick="() => Demo.Viewer?.GoToPage(page)" aria-label="Page @(page + 1)">
+        @if (Demo.Thumbnails.TryGetValue(page, out string? image))
+        {
+          <img src="@image" alt="" data-thumbnail="@(page)" />
+        }
+        else
+        {
+          <span class="placeholder"></span>
+        }
+        <small>@(page + 1)</small>
+      </button>
+    </li>
+  }
+</ul>
+@if (_more)
+{
+  <p class="hint">Showing the first @Count pages.</p>
+}
+
+@code {
+  private const int MaxPages = 300;
+  private const double ThumbnailPixels = 220;
+  private CancellationTokenSource? _work;
+  private int _version = -1;
+  private bool _more;
+
+  private int Count => Math.Min(Demo.Session?.PageCount ?? 0, MaxPages);
+
+  protected override Task OnDemoChangedAsync()
+  {
+    Reload();
+    return Task.CompletedTask;
+  }
+
+  private void Reload()
+  {
+    if (_version != Demo.Version)
+    {
+      _version = Demo.Version;
+      _more = (Demo.Session?.PageCount ?? 0) > MaxPages;
+      _work?.Cancel();
+      _work = CancellationTokenSource.CreateLinkedTokenSource(Demo.WorkToken);
+      _ = RenderAsync(_work.Token);
+    }
+  }
+
+  protected override void OnClosed() => _work?.Cancel();
+
+  private async Task RenderAsync(CancellationToken token)
+  {
+    if (Demo.Session is not { } session)
+    {
+      return;
+    }
+
+    // Start at the page in view, then wrap around.
+    int count = Count;
+    int first = Demo.CurrentPage;
+    for (int n = 0; n < count && !token.IsCancellationRequested; n++)
+    {
+      int page = (first + n) % count;
+      if (Demo.Thumbnails.ContainsKey(page))
+      {
+        continue;
+      }
+
+      try
+      {
+        PageMetrics metrics = await session.GetPageMetricsAsync(page, token);
+        double scale = ThumbnailPixels / Math.Max(metrics.Width, metrics.Height);
+        var surface = new PngSurface();
+        await session.RenderPageAsync(page, scale, surface, token);
+        if (surface.Image is { } image && !token.IsCancellationRequested)
+        {
+          Demo.Thumbnails[page] = image;
+          StateHasChanged();
+        }
+      }
+      catch (OperationCanceledException)
+      {
+        return;
+      }
+#pragma warning disable CA1031 // a page that cannot be rendered keeps its placeholder
+      catch (Exception)
+#pragma warning restore CA1031
+      {
+      }
+
+      await Task.Yield();
+    }
+  }
+}

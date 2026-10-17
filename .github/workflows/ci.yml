@@ -501,16 +501,37 @@ jobs:
       - name: Publish the sample as a static site
         run: samples/Broadside.Viewer.Blazor.Sample/publish-static.sh artifacts/blazor-sample
 
+      - name: Publish the sample without AOT, runtime outside _framework
+        # The second publish mode (#338): its own obj/bin folders, so it does not reuse the AOT build's intermediates.
+        run: samples/Broadside.Viewer.Blazor.Sample/publish-static.sh --no-aot --runtime-folder framework artifacts/blazor-sample-lite
+
       - name: Build the browser tests
         run: dotnet build tests/Broadside.Viewer.Blazor.BrowserTests -c Release -warnaserror
 
+      - name: Install WebKit and Firefox for Playwright
+        timeout-minutes: 10
+        run: pwsh artifacts/bin/Broadside.Viewer.Blazor.BrowserTests/release/playwright.ps1 install --with-deps webkit firefox
+
       - name: Browser tests
-        # The hosted image's Google Chrome (channel "chrome"), so no browser download; the tests fail rather than skip without the app.
+        # Chromium is the hosted image's Google Chrome (channel "chrome"); WebKit and Firefox are Playwright's. The tests fail rather than
+        # skip without the apps or a browser.
         env:
           BROADSIDE_BLAZOR_REQUIRED: '1'
           BROADSIDE_BROWSER_CHANNEL: chrome
+          BROADSIDE_BROWSERS_REQUIRED: chromium,webkit,firefox
           BROADSIDE_BROWSER_LOG: ${{ runner.temp }}/browser-measurements.txt
-        run: dotnet test --project tests/Broadside.Viewer.Blazor.BrowserTests -c Release --no-build --minimum-expected-tests 7
+          BROADSIDE_BROWSER_SCREENSHOTS: ${{ runner.temp }}/screenshots
+        run: |
+          mkdir -p "${RUNNER_TEMP}/screenshots"
+          dotnet test --project tests/Broadside.Viewer.Blazor.BrowserTests -c Release --no-build --minimum-expected-tests 14
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: blazor-demo-screenshots
+          path: ${{ runner.temp }}/screenshots
+          if-no-files-found: ignore
 
       - name: Measurements
         if: always()

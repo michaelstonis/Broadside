@@ -1,0 +1,197 @@
+@using Broadside.Diagnostics
+@using Broadside.Structure
+@inherits DemoPanel
+
+@if (_needsWholeFile)
+{
+  <NeedsWholeFile />
+}
+
+<div class="segmented" role="tablist">
+  @foreach (string tab in Tabs)
+  {
+    <button role="tab" class="@(_tab == tab ? "active" : "")" aria-selected="@(_tab == tab ? "true" : "false")" @onclick="() => _tab = tab" data-info-tab="@tab">@tab</button>
+  }
+</div>
+
+@if (_tab == "Document")
+{
+  <dl class="facts" data-info="document">
+    @foreach ((string name, string value) in _facts)
+    {
+      <dt>@name</dt>
+      <dd>@value</dd>
+    }
+  </dl>
+}
+else if (_tab == "Diagnostics")
+{
+  <p class="hint">What the reader repaired or noticed while opening and reading this file (Broadside never repairs silently).</p>
+  @if (_diagnostics.Count == 0)
+  {
+    <p class="hint" data-diagnostic-count="0">No diagnostics: the file read cleanly so far.</p>
+  }
+  else
+  {
+    <ul class="list diagnostics" data-diagnostic-count="@_diagnostics.Count">
+      @foreach (Diagnostic diagnostic in _diagnostics.Take(300))
+      {
+        <li class="diagnostic @diagnostic.Severity.ToString().ToLowerInvariant()">
+          <strong>@diagnostic.Code</strong> <small>@diagnostic.Severity@(diagnostic.Offset is long offset ? $" at byte {offset}" : "")</small>
+          <div>@diagnostic.Message</div>
+        </li>
+      }
+    </ul>
+  }
+}
+else
+{
+  @if (_roots.Count == 0)
+  {
+    <p class="hint" data-tag-count="0">This document is not tagged (no structure tree). Try “Tagged structure” or “Two columns (tagged)”.</p>
+  }
+  else
+  {
+    <p class="hint">The logical structure (ISO 32000-2 §14.7), as assistive technology reads it. Expand a node to see its children.</p>
+    <ul class="tree tags" role="tree" data-tag-count="@_roots.Count">
+      @foreach (PdfStructureElement element in _roots)
+      {
+        @Node(element, 0)
+      }
+    </ul>
+  }
+}
+
+@code {
+  private static readonly string[] Tabs = ["Document", "Diagnostics", "Tags"];
+  private readonly List<(string Name, string Value)> _facts = [];
+  private readonly HashSet<PdfStructureElement> _open = new(ReferenceEqualityComparer.Instance);
+  private IReadOnlyList<Diagnostic> _diagnostics = [];
+  private IReadOnlyList<PdfStructureElement> _roots = [];
+  private string _tab = "Document";
+  private int _version = -1;
+  private bool _needsWholeFile;
+
+  protected override Task OnDemoChangedAsync()
+  {
+    Reload();
+    return Task.CompletedTask;
+  }
+
+  private void Reload()
+  {
+    if (_version == Demo.Version)
+    {
+      return;
+    }
+
+    _version = Demo.Version;
+    _facts.Clear();
+    _open.Clear();
+    _needsWholeFile = false;
+    if (Demo.Document is not { } document)
+    {
+      return;
+    }
+
+    Add("File", Demo.Name);
+    Add("Pages", document.Pages.Count.ToString(CultureInfo.InvariantCulture));
+    try
+    {
+      Add("PDF version", document.Version.ToString());
+      Add("Linearized", document.IsLinearized ? "yes" : "no");
+      Add("Encrypted", document.IsEncrypted ? "yes" : "no");
+      Add("Tagged", document.StructureTree is null ? "no" : "yes");
+      Add("Language", document.Language);
+      if (document.Information is { } info)
+      {
+        Add("Title", info.Title);
+        Add("Author", info.Author);
+        Add("Subject", info.Subject);
+        Add("Keywords", info.Keywords);
+        Add("Creator", info.Creator);
+        Add("Producer", info.Producer);
+        Add("Created", info.CreationDate?.Value.ToString("u", CultureInfo.InvariantCulture));
+        Add("Modified", info.ModificationDate?.Value.ToString("u", CultureInfo.InvariantCulture));
+      }
+
+      if (document.Metadata?.Packet is { } xmp)
+      {
+        Add("XMP title", xmp.Title);
+        Add("XMP producer", xmp.Producer);
+        Add("PDF/A", xmp.PdfAPart is int part ? $"{part}{xmp.PdfAConformance?.ToLowerInvariant()}" : null);
+        Add("PDF/UA", xmp.PdfUAPart is int ua ? ua.ToString(CultureInfo.InvariantCulture) : null);
+      }
+
+      _roots = document.StructureTree?.Children ?? [];
+    }
+    catch (PdfRangeNotLoadedException)
+    {
+      _needsWholeFile = Demo.RemoteAddress is not null;
+    }
+
+    Add("Source", Demo.RemoteAddress is { } remote ? $"{remote} (range requests)" : "in memory");
+    _diagnostics = document.Diagnostics;
+  }
+
+  private void Add(string name, string? value)
+  {
+    if (!string.IsNullOrWhiteSpace(value))
+    {
+      _facts.Add((name, value));
+    }
+  }
+
+  private RenderFragment Node(PdfStructureElement element, int depth) => __builder =>
+  {
+    List<PdfStructureElement> children = [.. element.Children.OfType<PdfStructureElement>()];
+    bool open = _open.Contains(element);
+    string type = element.StructureType?.Value ?? "?";
+    string? standard = element.StandardType?.Name;
+    string? detail = element.AlternateDescription ?? element.ActualText ?? element.Title;
+    <li role="treeitem" aria-expanded="@(children.Count > 0 ? (open ? "true" : "false") : null)">
+      <div class="tree-row" style="padding-left: @(depth * 14)px">
+        @if (children.Count > 0)
+        {
+          <button class="icon small" @onclick="() => Toggle(element)" aria-label="@(open ? "Collapse" : "Expand") @type">@(open ? "▾" : "▸")</button>
+        }
+        else
+        {
+          <span class="tree-spacer"></span>
+        }
+        <span class="tag" data-tag="@type">
+          <code>@type</code>
+          @if (standard is not null && standard != type)
+          {
+            <small>→ @standard</small>
+          }
+          @if (element.Page is not null && children.Count == 0 && detail is null)
+          {
+            <small>content</small>
+          }
+          @if (detail is not null)
+          {
+            <small>“@detail”</small>
+          }
+        </span>
+      </div>
+      @if (open)
+      {
+        <ul role="group">
+          @foreach (PdfStructureElement child in children.Take(500))
+          {
+            @Node(child, depth + 1)
+          }
+        </ul>
+      }
+    </li>
+  };
+
+  private void Toggle(PdfStructureElement element)
+  {
+    if (!_open.Remove(element))
+    {
+      _open.Add(element);
+    }
+  }
+}

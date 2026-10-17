@@ -3,12 +3,15 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Broadside viewer</title>
+  <meta name="theme-color" content="#1f3a5f" />
+  <title>Broadside demo</title>
   <base href="./" />
+  <!-- broadside:import-map -->
   <link rel="stylesheet" href="css/app.css" />
 </head>
 <body>
-  <div id="app"><p class="booting">Loading…</p></div>
-  <script src="_framework/blazor.webassembly.js"></script>
+  <div id="app"><p class="booting">Loading Broadside…</p></div>
+  <script src="_framework/blazor.webassembly.js" autostart="false"></script>
+  <script src="js/start.js"></script>
 </body>
 </html>

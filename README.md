@@ -40,6 +40,8 @@ None of these packages is published yet.
 | `Broadside.Viewer.Blazor` | Blazor WebAssembly viewer component: canvas tiles, remote files by range requests, input, selection, links, accessible text layer | `Microsoft.AspNetCore.Components.Web` | not yet published |
 | `Broadside.Viewer.*` | MAUI, Uno, Avalonia, WPF, WinUI, Blazor shells over the viewer core | per framework | not yet published |
 
+Demo: [`samples/Broadside.Viewer.Blazor.Sample`](samples/Broadside.Viewer.Blazor.Sample/README.md) is a Blazor WebAssembly app that shows the library end to end in a browser (phone included): viewing, search, outline, thumbnails, annotations, forms, document information and tags, signatures, and creating PDF/A and PDF/UA documents with the layout package.
+
 Target framework: `net10.0` only ([ADR 0002](docs/adr/0002-target-net10-only.md)).
 
 ## Building
