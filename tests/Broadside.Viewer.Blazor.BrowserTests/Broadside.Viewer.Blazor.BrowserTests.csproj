@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Browser tests of the Blazor WebAssembly viewer sample (#221): Kestrel serves the PUBLISHED sample (trimmed, AOT-compiled) and test
+    documents with HTTP range support, and Playwright drives Chromium. Not in Broadside.Core.slnf: the sample must be published first
+    (needs the wasm-tools workload), so CI runs these in the blazor-wasm job. Locally:
+      samples/Broadside.Viewer.Blazor.Sample/publish-static.sh artifacts/blazor-sample
+      dotnet test (project tests/Broadside.Viewer.Blazor.BrowserTests)
+    Without a published app the tests skip, unless BROADSIDE_BLAZOR_REQUIRED=1 (CI) makes that a failure.
+  -->
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <ProjectReference Include="../../src/Broadside.Viewer/Broadside.Viewer.csproj" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="Microsoft.Playwright" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="../Broadside.Tests/Document/TestPdf.cs" Link="Shared/TestPdf.cs" />
+    <None Include="../Corpus/layout-two-column-untagged.pdf;../Corpus/layout-two-column-tagged.pdf;../Corpus/tagged-structure.pdf" LinkBase="Corpus" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,128 @@
+@using System.Globalization
+@using Broadside
+@using Broadside.Viewer
+@using Broadside.Viewer.Blazor
+@inject NavigationManager Navigation
+
+<div class="app">
+  <header class="toolbar" role="toolbar" aria-label="Viewer controls">
+    <div class="group documents">
+      <label for="gallery" class="hide-narrow">Document</label>
+      <select id="gallery" value="@_address" @onchange="Pick" aria-label="Sample document">
+        @foreach ((string file, string title) in Gallery)
+        {
+          <option value="@file">@title</option>
+        }
+        @if (!Gallery.Any(entry => entry.File == _address))
+        {
+          <option value="@_address">@_address</option>
+        }
+      </select>
+      <form @onsubmit="OpenAddress" class="address">
+        <input id="address" @bind="_typed" type="url" inputmode="url" placeholder="Open from URL…" aria-label="Document URL" />
+        <button type="submit">Open</button>
+      </form>
+    </div>
+    <div class="group">
+      <button @onclick="() => _viewer?.PreviousPage()" aria-label="Previous page">‹</button>
+      <span class="page" aria-live="polite">@(_state.PageCount == 0 ? "–" : $"{_state.PageIndex + 1} / {_state.PageCount}")</span>
+      <button @onclick="() => _viewer?.NextPage()" aria-label="Next page">›</button>
+      <button @onclick="() => _viewer?.ZoomBy(1 / 1.25)" aria-label="Zoom out">−</button>
+      <span class="zoom">@((_state.Zoom * 100).ToString("0", CultureInfo.InvariantCulture))%</span>
+      <button @onclick="() => _viewer?.ZoomBy(1.25)" aria-label="Zoom in">+</button>
+      <button @onclick="() => _viewer?.ZoomTo(ZoomMode.FitWidth)" aria-label="Fit width">↔</button>
+    </div>
+    <div class="group">
+      <select @bind="Mode" aria-label="Page layout">
+        @foreach (PageLayoutMode mode in Enum.GetValues<PageLayoutMode>())
+        {
+          <option value="@mode">@mode</option>
+        }
+      </select>
+      <label><input type="checkbox" @bind="_showAnnotations" /> Annotations</label>
+    </div>
+  </header>
+
+  @if (_message is not null)
+  {
+    <div class="message" role="status">@_message @if (_link is not null) { <a href="@_link" target="_blank" rel="noopener noreferrer">@_link</a> }</div>
+  }
+
+  @* A new layout mode reopens the document: layout options apply when a document opens. *@
+  @if (_source is not null)
+  {
+    <PdfViewer @key="@($"{_source}|{Mode}")" @ref="_viewer" Class="viewer" Source="_source" Options="Options" Label="Document"
+               LayoutOptions="new PageLayoutOptions().WithMode(Mode)" ShowAnnotations="_showAnnotations"
+               OnStateChanged="state => _state = state" OnAction="OnAction" OnError="OnError" />
+  }
+</div>
+
+@code {
+  // Bundled with the app (wwwroot/documents), so the gallery works offline; any other address is fetched with range requests.
+  private static readonly (string File, string Title)[] Gallery =
+  [
+    ("documents/layout-two-column-tagged.pdf", "Two columns (tagged)"),
+    ("documents/annotations-link.pdf", "Links"),
+    ("documents/acroform-fields.pdf", "Form fields"),
+    ("documents/shading-radial-cases.pdf", "Shadings"),
+    ("documents/page-rotation.pdf", "Rotated pages"),
+  ];
+
+  // Standard 14 fonts are bundled so documents that do not embed Helvetica, Times or Courier render like a desktop viewer.
+  private static readonly ViewerOptions Options = new ViewerOptions().UseEngine(new PdfEngine(new PdfOptions().UseStandard14Fonts()));
+
+  private PdfViewer? _viewer;
+  private PdfViewerState _state;
+  private string _address = Gallery[0].File;
+  private string _typed = "";
+  private Uri? _source;
+  private bool _showAnnotations = true;
+  private string? _message;
+  private string? _link;
+
+  private PageLayoutMode Mode { get; set; } = PageLayoutMode.Continuous;
+
+  protected override void OnInitialized()
+  {
+    // ?file=<address> opens a document directly (relative addresses are resolved against the app, wherever it is hosted).
+    string query = new Uri(Navigation.Uri).Query.TrimStart('?');
+    foreach (string pair in query.Split('&', StringSplitOptions.RemoveEmptyEntries))
+    {
+      string[] parts = pair.Split('=', 2);
+      if (parts.Length == 2 && parts[0] == "file")
+      {
+        _address = Uri.UnescapeDataString(parts[1]);
+      }
+    }
+
+    Open(_address);
+  }
+
+  private void Pick(ChangeEventArgs e) => Open(e.Value?.ToString() ?? Gallery[0].File);
+
+  private void OpenAddress()
+  {
+    if (!string.IsNullOrWhiteSpace(_typed))
+    {
+      Open(_typed.Trim());
+    }
+  }
+
+  private void Open(string address)
+  {
+    _address = address;
+    _message = null;
+    _link = null;
+    _state = default;
+    _source = Uri.TryCreate(address, UriKind.RelativeOrAbsolute, out Uri? uri) ? uri : null;
+  }
+
+  // The viewer follows links inside the document itself and never opens anything else: a URI is offered here for the user to open.
+  private void OnAction(ViewerActionEventArgs action)
+  {
+    _link = action.Uri?.ToString();
+    _message = _link is null ? $"Action requested: {action.Kind}" : "Link to";
+  }
+
+  private void OnError(Exception exception) => _message = exception.Message;
+}

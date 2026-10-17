@@ -12,6 +12,7 @@
 | `format` | ubuntu | `dotnet format --verify-no-changes` on `Broadside.Core.slnf`, `tests/Broadside.Fuzz`, `bench/Broadside.Benchmarks`, `tests/Broadside.Rendering.Direct2D.Tests` and `bench/Broadside.Rendering.Direct2D.Benchmarks` (the last four are outside the solution filter). |
 | `fuzz-smoke (<shard>/6)` | ubuntu | Six parallel shards: each `--list`s the fuzz targets and runs `--smoke <target> 60` for every target whose index modulo 6 is its shard; uploads `artifacts/fuzz/**` as `fuzz-findings-<shard>` on failure. |
 | `bench-dry` | ubuntu | `dotnet run --project bench/Broadside.Benchmarks -- --filter '*' --job dry`: one iteration of every benchmark, no measurement. |
+| `blazor-wasm` | ubuntu | Installs `wasm-tools`, publishes `samples/Broadside.Viewer.Blazor.Sample` as a static site with `publish-static.sh` (trimmed, AOT-compiled) and runs `tests/Broadside.Viewer.Blazor.BrowserTests` in the image's Chrome through Playwright: a remote linearized file shows page 1 before the download completes, keyboard and screen-reader reading order, a phone profile with pinch-zoom, no native binaries and the size budget (issue #221). |
 
 A newer push to the same PR or branch cancels the older run. NuGet packages are cached per OS, keyed on `Directory.Packages.props` and every `.csproj`. `DiffEngine_Disabled=true` keeps Verify from launching a diff tool.
 

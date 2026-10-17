@@ -1,0 +1,37 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <!--
+    The Blazor WebAssembly viewer sample (issue #221). `dotnet run` serves it in debug (interpreted); `dotnet publish -c Release`
+    trims it and compiles it ahead of time to WebAssembly, which needs the wasm-tools workload (`dotnet workload install wasm-tools`).
+    The published wwwroot is a self-contained static site that works from any sub-path (relative base href): publish-static.sh copies
+    it to a folder. It carries no native binaries beyond the .NET WebAssembly runtime and stays under the size budget the browser
+    tests check (tests/Broadside.Viewer.Blazor.BrowserTests/PublishedAppTests.cs).
+  -->
+  <PropertyGroup>
+    <TimeZoneSupport>false</TimeZoneSupport>
+    <BlazorEnableTimeZoneSupport>false</BlazorEnableTimeZoneSupport>
+    <BlazorWebAssemblyLoadAllGlobalizationData>false</BlazorWebAssemblyLoadAllGlobalizationData>
+    <WasmEnableWebcil>true</WasmEnableWebcil>
+    <!-- A plain static site: the host serves files as they are, so no precompressed .br/.gz copies. -->
+    <CompressionEnabled>false</CompressionEnabled>
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <!-- The WebAssembly SDK publishes in a nested build that clears _IsPublishing and sets _WasmIsPublishing instead. -->
+  <PropertyGroup Condition="'$(_IsPublishing)' == 'true' Or '$(_WasmIsPublishing)' == 'true'">
+    <RunAOTCompilation>true</RunAOTCompilation>
+    <PublishTrimmed>true</PublishTrimmed>
+    <TrimMode>full</TrimMode>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly.DevServer" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Viewer.Blazor/Broadside.Viewer.Blazor.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+  </ItemGroup>
+
+</Project>
