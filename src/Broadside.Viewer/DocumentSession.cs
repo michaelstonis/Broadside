@@ -50,6 +50,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     private long _pixelBytes;
     private long _presented;
     private long _cancelled;
+    private int _liveBackends;
 
     private DocumentSession(PdfDocument document, ViewerOptions options, bool remote)
     {
@@ -76,6 +77,12 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
     /// <summary>Gets the most tiles drawn at once.</summary>
     internal int MaxConcurrency { get; }
+
+    /// <summary>
+    /// Gets the backends the session has created and not yet disposed (rented, idle or drawing). Each holds pooled scratch buffers
+    /// until it is disposed, so this is zero once a closed session has released everything it took from the pools.
+    /// </summary>
+    internal int LiveBackends => Volatile.Read(ref _liveBackends);
 
     /// <summary>Gets the number of pages.</summary>
     public int PageCount => _metrics.Length;
@@ -621,7 +628,9 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
             }
         }
 
-        return _backendFactory();
+        ITileBackend created = _backendFactory();
+        Interlocked.Increment(ref _liveBackends);
+        return created;
     }
 
     internal void ReturnBackend(ITileBackend backend)
@@ -635,7 +644,13 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
             }
         }
 
+        DisposeBackend(backend);
+    }
+
+    private void DisposeBackend(ITileBackend backend)
+    {
         backend.Dispose();
+        Interlocked.Decrement(ref _liveBackends);
     }
 
     private async Task CloseAsync()
@@ -693,7 +708,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
         foreach (ITileBackend idle in backends)
         {
-            idle.Dispose();
+            DisposeBackend(idle);
         }
 
         _slots.Dispose();
