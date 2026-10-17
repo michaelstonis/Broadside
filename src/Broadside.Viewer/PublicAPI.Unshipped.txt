@@ -704,3 +704,6 @@ Broadside.Viewer.AccessibilityBridge.Update(Broadside.Viewer.PageLayout! layout,
 Broadside.Viewer.AccessibilityBridge.GetStates(Broadside.Viewer.AccessibleNode! node) -> Broadside.Viewer.AccessibleStates
 Broadside.Viewer.AccessibilityBridge.TryGetBounds(Broadside.Viewer.AccessibleNode! node, out Broadside.Viewer.LayoutRectangle bounds) -> bool
 Broadside.Viewer.AccessibilityBridge.TryGetViewportShowing(Broadside.Viewer.AccessibleNode! node, out Broadside.Viewer.Viewport viewport) -> bool
+Broadside.Viewer.AnnotationLayer.Accessibility.get -> Broadside.Viewer.AccessibilityBridge?
+Broadside.Viewer.AnnotationLayer.Accessibility.set -> void
+Broadside.Viewer.AnnotationLayer.GetElements(Broadside.PdfPage! page, int pageIndex, System.Collections.Generic.ICollection<Broadside.Viewer.AccessibleElement>! destination) -> void

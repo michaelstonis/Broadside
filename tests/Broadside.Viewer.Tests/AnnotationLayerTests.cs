@@ -347,6 +347,42 @@ public sealed class AnnotationLayerTests
     }
 
     [Fact]
+    public async Task Links_and_form_fields_are_accessible_nodes_in_keyboard_focus_order()
+    {
+        await using DocumentSession session = Open("acroform-fields.pdf");
+        var layer = new AnnotationLayer(session);
+        await layer.LoadPageAsync(0, Token);
+        AnnotationTarget link = Assert.NotNull(layer.Add(0, page => page.AddLinkAnnotation(new PdfRectangle(10, 10, 60, 30), new Uri("https://example.com/a"))));
+        var bridge = new AccessibilityBridge(session, layer);
+        layer.Accessibility = bridge;
+
+        AccessibleNode pageNode = await bridge.LoadPageAsync(0, Token);
+        AccessibleNode[] elements = [.. pageNode.Children.Where(n => n.Source is CosDictionary)];
+        var order = new AnnotationTarget[layer.GetCount(0)];
+        int count = layer.GetFocusOrder(0, order);
+        object[] expected = [.. order[..count].Select(t => layer.GetAnnotation(t)).Where(a => a is PdfLinkAnnotation or PdfWidgetAnnotation or PdfMarkupAnnotation).Select(a => (object)a.Dictionary)];
+        Assert.Equal(expected, elements.Select(n => n.Source!));
+
+        AccessibleNode linkNode = Assert.Single(elements, n => n.Role == AccessibleRole.Link);
+        Assert.Equal("https://example.com/a", linkNode.Name);
+        AccessibleNode textNode = elements.First(n => n.Role == AccessibleRole.TextBox);
+        Assert.True(bridge.GetStates(textNode).HasFlag(AccessibleStates.Focusable));
+
+        // The layer's keyboard focus moves the bridge's, and a value edit rebuilds the page's nodes with focus kept on the field.
+        while (layer.Focused is not { } focused || !ReferenceEquals(layer.GetAnnotation(focused).Dictionary, textNode.Source))
+        {
+            Assert.True(layer.FocusNext());
+            Assert.Same(layer.GetAnnotation(layer.Focused!.Value).Dictionary, bridge.Focus?.Source);
+        }
+
+        Assert.True(layer.SetFieldText("Grace"));
+        Assert.Equal("Grace", bridge.Focus?.Value);
+        Assert.Same(textNode.Source, bridge.Focus?.Source);
+        layer.Focus(link);
+        Assert.Equal(AccessibleRole.Link, bridge.Focus?.Role);
+    }
+
+    [Fact]
     public async Task Arguments_are_checked()
     {
         await using DocumentSession session = Open(ManyPagesDocument.Create(1));

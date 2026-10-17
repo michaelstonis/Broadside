@@ -25,7 +25,7 @@ namespace Broadside.Viewer;
 /// <see cref="LoadPageAsync"/> has loaded it. Pointer moves allocate nothing.
 /// </para>
 /// </remarks>
-public sealed class AnnotationLayer
+public sealed class AnnotationLayer : IAccessibleElementProvider
 {
     /// <summary>How far, in default user space units, a press must travel on a selected annotation before it drags it.</summary>
     public const double DragThreshold = 2;
@@ -68,6 +68,49 @@ public sealed class AnnotationLayer
 
     /// <summary>Gets the session.</summary>
     public DocumentSession Session { get; }
+
+    /// <summary>
+    /// Gets or sets the accessibility bridge built over this layer (<c>new AccessibilityBridge(session, layer)</c>), so the layer keeps
+    /// it current: a value or annotation edit rebuilds the page's accessible nodes, and the layer's keyboard focus moves the bridge's.
+    /// </summary>
+    /// <remarks>Spec #33 viewer capabilities 6 and 7.</remarks>
+    public AccessibilityBridge? Accessibility { get; set; }
+
+    /// <summary>
+    /// Lists a page's links, form fields and markup annotations (comments) as accessible elements in keyboard focus order
+    /// (<see cref="GetFocusOrder"/>), each named by <see cref="GetAccessibleName"/>, with a field's value and its checked, read-only
+    /// and required states; the source is the annotation's dictionary (stable across edits). Links with a structure parent are left
+    /// out: a tagged page's content already has them as <see cref="AccessibleRole.Link"/> nodes.
+    /// </summary>
+    /// <param name="page">The page.</param>
+    /// <param name="pageIndex">The zero-based page; loaded into the layer when it is not yet.</param>
+    /// <param name="destination">Receives the elements.</param>
+    /// <remarks>ISO 32000-2 §12.5.1 (Tabs), §12.7.4 (field values and flags), §14.9.3 (alternate descriptions); spec #33 viewer capability 7.</remarks>
+    public void GetElements(PdfPage page, int pageIndex, ICollection<AccessibleElement> destination)
+    {
+        ArgumentNullException.ThrowIfNull(page);
+        ArgumentNullException.ThrowIfNull(destination);
+        ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, _pages.Length);
+        AnnotationPage model = _pages[pageIndex] ??= AnnotationPage.Create(Session.Document, page);
+        foreach (int index in model.Order)
+        {
+            PdfAnnotation annotation = model.Entries[index].Annotation;
+            if (annotation is PdfLinkAnnotation { StructParent: not null } || annotation is not (PdfLinkAnnotation or PdfWidgetAnnotation or PdfMarkupAnnotation))
+            {
+                continue;
+            }
+
+            (AccessibleRole role, string? value, AccessibleStates states) = Describe(annotation);
+            destination.Add(new AccessibleElement(role, model.Entries[index].Rect)
+            {
+                Name = GetAccessibleName(new AnnotationTarget(pageIndex, index)),
+                Value = value,
+                States = states,
+                Source = annotation.Dictionary,
+            });
+        }
+    }
 
     /// <summary>Gets the annotation under the pointer, or <see langword="null"/>.</summary>
     public AnnotationTarget? Hovered { get; private set; }
@@ -310,6 +353,11 @@ public sealed class AnnotationLayer
         {
             Focused = target;
             Changed?.Invoke(this, EventArgs.Empty);
+            if (target is { } focused && Accessibility is { } bridge && bridge.IsPageLoaded(focused.PageIndex)
+                && bridge.FindNode(focused.PageIndex, Get(focused).Annotation.Dictionary) is { } node && !ReferenceEquals(node, bridge.Focus))
+            {
+                bridge.SetFocus(node);
+            }
         }
     }
 
@@ -645,6 +693,38 @@ public sealed class AnnotationLayer
     private static bool CanEdit(in Entry entry) =>
         entry.Role != AnnotationRole.Field && (entry.Annotation.Flags & PdfAnnotationFlags.Locked) == 0;
 
+    private static (AccessibleRole Role, string? Value, AccessibleStates States) Describe(PdfAnnotation annotation)
+    {
+        if (annotation is PdfLinkAnnotation)
+        {
+            return (AccessibleRole.Link, null, AccessibleStates.None);
+        }
+
+        if (annotation is not PdfWidgetAnnotation widget)
+        {
+            return (AccessibleRole.Annotation, annotation.Contents, AccessibleStates.None);
+        }
+
+        PdfTerminalField? field = widget.Field;
+        AccessibleStates states = (field is { IsReadOnly: true } ? AccessibleStates.ReadOnly : AccessibleStates.None)
+            | (field is { IsRequired: true } ? AccessibleStates.Required : AccessibleStates.None);
+        switch (field)
+        {
+            case PdfTextField text:
+                return (AccessibleRole.TextBox, text.Value, states);
+            case PdfToggleButtonField toggle:
+                bool on = toggle.SelectedWidgets.Any(w => ReferenceEquals(w.Dictionary, widget.Dictionary));
+                AccessibleRole role = toggle is PdfRadioButtonField ? AccessibleRole.RadioButton : AccessibleRole.CheckBox;
+                return (role, null, states | (on ? AccessibleStates.Checked : AccessibleStates.None));
+            case PdfChoiceField choice:
+                IReadOnlyList<PdfChoiceOption> options = choice.Options;
+                string value = string.Join(", ", choice.SelectedIndices.Where(i => i < options.Count).Select(i => options[i].DisplayText));
+                return (choice is PdfComboBoxField ? AccessibleRole.ComboBox : AccessibleRole.ListBox, value, states);
+            default:
+                return (AccessibleRole.Button, null, states);
+        }
+    }
+
     private static PdfRectangle Union(PdfRectangle a, PdfRectangle b) =>
         new(Math.Min(a.Left, b.Left), Math.Min(a.Bottom, b.Bottom), Math.Max(a.Right, b.Right), Math.Max(a.Top, b.Top));
 
@@ -711,6 +791,7 @@ public sealed class AnnotationLayer
         }
 
         Invalidated?.Invoke(this, invalidation);
+        Accessibility?.InvalidatePage(invalidation.PageIndex);
     }
 
     private bool MoveFocus(bool forward)
