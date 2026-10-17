@@ -13,6 +13,18 @@
 </section>
 
 <section class="panel-section">
+  <h3>Renderer</h3>
+  <div class="segmented" role="radiogroup" aria-label="Renderer">
+    <button role="radio" class="@(Renderers.UseWebGL ? "" : "active")" aria-checked="@(Renderers.UseWebGL ? "false" : "true")"
+            @onclick="() => UseRenderer(false)" data-renderer="software">Software</button>
+    <button role="radio" class="@(Renderers.UseWebGL ? "active" : "")" aria-checked="@(Renderers.UseWebGL ? "true" : "false")"
+            @onclick="() => UseRenderer(true)" data-renderer="webgl">WebGL (GPU)</button>
+  </div>
+  <p class="hint" data-renderer-status>@_rendererMessage @Renderers.Status. @RenderStats.TileCount tiles,
+    mean @RenderStats.MeanTile.ToString("0.0", CultureInfo.InvariantCulture) ms@(RenderStats.FallbackTiles > 0 ? $", {RenderStats.FallbackTiles} drawn by the software rasterizer" : "").</p>
+</section>
+
+<section class="panel-section">
   <h3>Rotation</h3>
   <div class="row">
     <button @onclick="() => Change(Copy().WithRotation(Layout.Rotation - 90))" aria-label="Rotate left" data-action="rotate-left">⟲ Left</button>
@@ -52,5 +64,13 @@
   private PageLayoutOptions Copy() =>
     new PageLayoutOptions().WithMode(Layout.Mode).WithCover(Layout.ShowCover).WithGap(Layout.Gap).WithPadding(Layout.Padding).WithRotation(Layout.Rotation);
 
+  private string? _rendererMessage;
+
   private Task Change(PageLayoutOptions layout) => LayoutChanged.InvokeAsync(layout);
+
+  private async Task UseRenderer(bool webgl)
+  {
+    _rendererMessage = await Renderers.SetAsync(webgl) || !webgl ? null : "WebGL 2 is not available in this browser.";
+    Demo.Viewer?.Redraw();
+  }
 }

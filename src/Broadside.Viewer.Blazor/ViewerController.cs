@@ -153,7 +153,7 @@ internal sealed class ViewerController : IAsyncDisposable
         }
 
         PageLayout layout = PageLayout.Create(_metrics, _layoutOptions);
-        _scheduler = new TileScheduler(session, layout, _surface);
+        _scheduler = new TileScheduler(session, layout, _surface, TileObserver is { } observer ? new TileSchedulerOptions().UseObserver(observer) : null);
         if (!_showAnnotations)
         {
             _scheduler.SetLayers(DisplayLayers.Content);
@@ -177,6 +177,25 @@ internal sealed class ViewerController : IAsyncDisposable
 
         SetState(_state with { IsLoading = false, PageCount = session.PageCount });
         _ = SweepMetricsAsync(session, generation);
+        Wake();
+    }
+
+    /// <summary>Gets or sets the observer given to the tile scheduler of the next document opened.</summary>
+    public Action<TileSchedulerEvent>? TileObserver { get; set; }
+
+    /// <summary>Invalidates every tile of every page so that all are drawn again.</summary>
+    public void Redraw()
+    {
+        if (_scheduler is null || _session is null)
+        {
+            return;
+        }
+
+        for (int page = 0; page < _session.PageCount; page++)
+        {
+            _scheduler.Invalidate(page, AllLayers);
+        }
+
         Wake();
     }
 

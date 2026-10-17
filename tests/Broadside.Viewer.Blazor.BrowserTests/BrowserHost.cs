@@ -177,7 +177,12 @@ public sealed class BrowserHost : IAsyncLifetime
 
         _playwright = await Microsoft.Playwright.Playwright.CreateAsync().ConfigureAwait(false);
         string? channel = Environment.GetEnvironmentVariable("BROADSIDE_BROWSER_CHANNEL");
-        Browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Channel = string.IsNullOrEmpty(channel) ? null : channel }).ConfigureAwait(false);
+        // WebGL 2 for the WebGL backend's tests (#353): the GPU where headless Chromium can use it (Metal through ANGLE on macOS),
+        // SwiftShader (software WebGL) elsewhere, which Chromium only enables on request.
+        string[] args = OperatingSystem.IsMacOS()
+            ? ["--enable-gpu", "--ignore-gpu-blocklist", "--use-angle=metal", "--enable-unsafe-swiftshader"]
+            : ["--ignore-gpu-blocklist", "--enable-unsafe-swiftshader"];
+        Browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Channel = string.IsNullOrEmpty(channel) ? null : channel, Args = args }).ConfigureAwait(false);
     }
 
     public async ValueTask DisposeAsync()

@@ -46,6 +46,9 @@ internal static partial class ViewerInterop
     [JSImport("putTile", Module)]
     public static partial void PutTile(int id, int key, int width, int height, [JSMarshalAs<JSType.MemoryView>] Span<byte> pixels);
 
+    [JSImport("putTileFromCanvas", Module)]
+    public static partial void PutTileFromCanvas(int id, int key, int width, int height, JSObject source);
+
     [JSImport("dropTile", Module)]
     public static partial void DropTile(int id, int key);
 

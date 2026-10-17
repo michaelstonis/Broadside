@@ -66,6 +66,13 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     [Parameter]
     public bool AllowAnnotationEditing { get; set; }
 
+    /// <summary>
+    /// Gets or sets an observer of the tile scheduler's events (tiles started, presented, cancelled, evicted, failed), applied when a
+    /// document opens: for instrumentation such as time to the first sharp page (#353's measurements).
+    /// </summary>
+    [Parameter]
+    public Action<TileSchedulerEvent>? TileObserver { get; set; }
+
     /// <summary>Gets or sets the accessible name of the viewer region.</summary>
     [Parameter]
     public string? Label { get; set; }
@@ -118,6 +125,9 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     /// <param name="mode">The zoom.</param>
     public void ZoomTo(ZoomMode mode) => _controller?.ZoomTo(mode);
 
+    /// <summary>Draws every tile again, for example after the session's backend changed what it draws with.</summary>
+    public void Redraw() => _controller?.Redraw();
+
     /// <summary>Zooms by a factor about the centre of the viewport.</summary>
     /// <param name="factor">The factor (above 1 zooms in).</param>
     public void ZoomBy(double factor) => _controller?.ZoomBy(factor);
@@ -152,6 +162,7 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
         }
 
         _controller.AllowAnnotationEditing = AllowAnnotationEditing;
+        _controller.TileObserver = TileObserver;
         _controller.SetShowAnnotations(ShowAnnotations);
         _controller.SetLayoutOptions(LayoutOptions);
         if (_attached)

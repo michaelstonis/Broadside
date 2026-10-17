@@ -1,6 +1,7 @@
 using System.Buffers.Binary;
 using System.Runtime.Versioning;
 using Broadside.Rendering;
+using Broadside.Rendering.WebGL;
 
 namespace Broadside.Viewer.Blazor;
 
@@ -30,6 +31,14 @@ internal sealed class CanvasSurface(int viewerId) : IRenderSurface
 
         int width = pixels.Width;
         int height = pixels.Height;
+        if (GpuPresentation.TryClaim(pixels))
+        {
+            // Drawn by the WebGL backend and still in its canvas: copied GPU to GPU (#353).
+            ViewerInterop.PutTileFromCanvas(viewerId, key, width, height, WebGLRenderer.Canvas);
+            Presented++;
+            return;
+        }
+
         int length = width * height * 4;
         if (_rgba.Length < length)
         {
