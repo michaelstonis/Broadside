@@ -26,14 +26,19 @@
     <button class="icon" @onclick="() => Demo.DownloadAsync()" disabled="@(Demo.Document is null)" aria-label="Download the document with your edits" data-action="download">⤓</button>
   </header>
 
-  @if (Demo.Message is not null)
+  @if (Demo.Link is not null)
+  {
+    @* A link out of the document is never followed by itself: the user confirms it here. *@
+    <div class="message link-sheet" role="alertdialog" aria-label="Open link" data-link-sheet>
+      <span>@Demo.Message <strong class="link-address">@Demo.Link</strong></span>
+      <a class="link-open" href="@Demo.Link" target="_blank" rel="noopener noreferrer" @onclick="() => Demo.Report(null)">Open</a>
+      <button class="link-cancel" @onclick="() => Demo.Report(null)">Cancel</button>
+    </div>
+  }
+  else if (Demo.Message is not null)
   {
     <div class="message" role="status">
       <span>@Demo.Message</span>
-      @if (Demo.Link is not null)
-      {
-        <a href="@Demo.Link" target="_blank" rel="noopener noreferrer">@Demo.Link</a>
-      }
       <button class="icon small" @onclick="() => Demo.Report(null)" aria-label="Dismiss">×</button>
     </div>
   }
@@ -210,7 +215,17 @@
     _focusedField = focused;
   }
 
-  private void OnDemoChanged(object? sender, EventArgs e) => _ = InvokeAsync(StateHasChanged);
+  private void OnDemoChanged(object? sender, EventArgs e)
+  {
+    // A gallery file whose feature lives in a panel (an outline, a link) opens that panel (#351).
+    if (Demo.SuggestedPanel is { } suggested && Enum.TryParse(suggested, ignoreCase: true, out Panel panel))
+    {
+      Demo.SuggestedPanel = null;
+      _panel = panel;
+    }
+
+    _ = InvokeAsync(StateHasChanged);
+  }
 
   private void Toggle(Panel panel) => _panel = _panel == panel ? Panel.None : panel;
 
@@ -231,8 +246,16 @@
   // The viewer follows links inside the document itself and never opens anything else: a URI is offered here for the user to open.
   private void OnAction(ViewerActionEventArgs action)
   {
-    string? link = action.Uri?.ToString();
-    Demo.Report(link is null ? $"The document asked for an action: {action.Kind}" : "The document links to", link);
+    if (action.Uri is { } uri)
+    {
+      Demo.Report("This link leaves the document. Open", uri.ToString());
+    }
+    else if (action.Destination is null && action.PageIndex is null)
+    {
+      Demo.Report($"The document asked for an action: {action.Kind}");
+    }
+
+    // A destination inside the document needs no message: the viewer has already scrolled to it.
   }
 
   private void OnError(Exception exception) => Demo.Report(exception.Message);

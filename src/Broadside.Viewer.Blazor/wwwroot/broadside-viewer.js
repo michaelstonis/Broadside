@@ -14,7 +14,8 @@ const STYLE = `
 .bs-a11y>section{position:absolute;left:0;top:0;width:0;height:0;transform-origin:0 0}
 .bs-a11y [data-bs-node]{white-space:pre;line-height:1;font-size:8px;margin:0;padding:0}
 .bs-a11y [data-bs-box]{position:absolute}
-.bs-a11y :focus{outline:2px solid #1a73e8;outline-offset:0}`;
+.bs-a11y :focus{outline:none}
+.bs-a11y :focus-visible{outline:2px solid #1a73e8;outline-offset:0}`;
 
 async function exportsOf() {
   if (interop === null) {
@@ -62,8 +63,11 @@ export async function attach(id, elementId) {
     const w = Math.max(1, Math.round(r.width * ratio));
     const h = Math.max(1, Math.round(r.height * ratio));
     if (canvas.width !== w || canvas.height !== h) {
+      // Resizing clears the canvas (to black: it has no alpha). Repaint the last frame at once, before the browser shows the cleared
+      // canvas; the next frame lays it out for the new size (#346).
       canvas.width = w;
       canvas.height = h;
+      if (v.last) paint(v, v.last);
     }
     x.OnResize(id, Math.max(1, r.width), Math.max(1, r.height), ratio);
   };
@@ -152,11 +156,35 @@ export function dropTile(id, key) {
 }
 
 // Header: [records, pageCount, currentPage, zoom, tilesPresented, 0, 0, 0, 0]; then records of 9 numbers:
-// 1 paper (x, y, w, h) | 2 tile (key, x, y, w, h) | 3 selection quad (x1, y1 ... x4, y4) | 4 text layer (page, a, b, c, d, e, f).
+// 1 paper (x, y, w, h) | 2 tile (key, x, y, w, h) | 3 selection quad (x1, y1 ... x4, y4) | 4 text layer (page, a, b, c, d, e, f) |
+// 5 live link or field (x, y, w, h, 1 hover | 2 pressed).
 export function draw(id, commands) {
   const v = viewers.get(id);
   if (!v) return;
   const c = commands.slice();
+  v.last = c;
+  const link = paint(v, c);
+
+  const ms = performance.now() - v.frameStart;
+  v.frames++;
+  v.sum += ms;
+  if (ms > v.max) v.max = ms;
+  if (ms > 50) v.long++;
+  const d = v.host.dataset;
+  d.pageCount = c[1];
+  d.currentPage = c[2] + 1;
+  d.zoom = c[3];
+  d.tilesPresented = c[4];
+  d.frames = v.frames;
+  d.maxFrameMs = v.max.toFixed(1);
+  d.meanFrameMs = (v.sum / v.frames).toFixed(2);
+  d.longFrames = v.long;
+  d.linkState = link;
+}
+
+// Returns the state of the link or field drawn live: "pressed", "hover" or "".
+function paint(v, c) {
+  let link = "";
   const g = v.context;
   g.fillStyle = "#e6e6e6";
   g.fillRect(0, 0, v.canvas.width, v.canvas.height);
@@ -197,28 +225,28 @@ export function draw(id, commands) {
         if (section.style.transform !== transform) section.style.transform = transform;
         break;
       }
+      case 5: {
+        const pressed = c[o + 5] === 2;
+        g.fillStyle = pressed ? "rgba(26,115,232,0.28)" : "rgba(26,115,232,0.12)";
+        g.fillRect(c[o + 1], c[o + 2], c[o + 3], c[o + 4]);
+        g.strokeStyle = "rgba(26,115,232,0.8)";
+        g.lineWidth = Math.max(1, Math.round(window.devicePixelRatio || 1));
+        g.strokeRect(c[o + 1], c[o + 2], c[o + 3], c[o + 4]);
+        link = pressed ? "pressed" : "hover";
+        break;
+      }
     }
   }
 
-  const ms = performance.now() - v.frameStart;
-  v.frames++;
-  v.sum += ms;
-  if (ms > v.max) v.max = ms;
-  if (ms > 50) v.long++;
-  const d = v.host.dataset;
-  d.pageCount = c[1];
-  d.currentPage = c[2] + 1;
-  d.zoom = c[3];
-  d.tilesPresented = c[4];
-  d.frames = v.frames;
-  d.maxFrameMs = v.max.toFixed(1);
-  d.meanFrameMs = (v.sum / v.frames).toFixed(2);
-  d.longFrames = v.long;
+  return link;
 }
 
-export function focusNode(id, elementId) {
+export function focusNode(id, elementId, follow) {
   const element = document.getElementById(elementId);
   if (!element) return false;
+  // Following the viewer to a new page (scrolling) moves the keyboard only while it is already on the text layer: a pointer user's
+  // focus stays on the viewer, so no focus ring appears over content scrolling into view (#349).
+  if (follow && !(document.activeElement && document.activeElement.hasAttribute("data-bs-node"))) return true;
   // The keyboard follows the viewer's reading focus only while the viewer (or nothing) has it: a focus change the host page caused,
   // e.g. through AnnotationLayer.Focus while the user types in the host's own form, must not take the keyboard from that element.
   const active = document.activeElement;

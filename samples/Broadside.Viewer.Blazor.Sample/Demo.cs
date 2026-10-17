@@ -8,7 +8,9 @@ namespace Broadside.Viewer.Blazor.Sample;
 /// <param name="File">The address relative to the app.</param>
 /// <param name="Title">What the gallery shows.</param>
 /// <param name="Remote">Whether to open it through HTTP range requests (first page first) instead of downloading it whole.</param>
-public sealed record GalleryEntry(string File, string Title, bool Remote = false);
+/// <param name="Note">What to tell the user when it opens: single-feature test files can look blank or clipped on purpose.</param>
+/// <param name="Panel">The panel that shows its feature (its name in lower case), opened with it.</param>
+public sealed record GalleryEntry(string File, string Title, bool Remote = false, string? Note = null, string? Panel = null);
 
 /// <summary>
 /// The demo's state, shared by the shell and every panel: the open document (a <see cref="DocumentSession"/> the app owns and hands to
@@ -22,14 +24,14 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
     [
         new("documents/tracemonkey.pdf", "TraceMonkey paper (real world)"),
         new("documents/layout-two-column-tagged.pdf", "Two columns (tagged)"),
-        new("documents/outline-full.pdf", "Outline"),
+        new("documents/outline-full.pdf", "Outline", Note: "This file has an outline and no page content, so its page is blank (as in every viewer): its bookmarks are in the Outline panel.", Panel: "outline"),
         new("documents/acroform-fields.pdf", "Form fields"),
         new("documents/tagged-structure.pdf", "Tagged structure"),
         new("documents/layout-tables.pdf", "Tables"),
         new("documents/signed.pdf", "Signed document"),
         new("documents/info-dictionary.pdf", "Document information"),
-        new("documents/annotations-link.pdf", "Links"),
-        new("documents/shading-radial-cases.pdf", "Shadings"),
+        new("documents/annotations-link.pdf", "Links", Note: "This page has no content, only a link near its top left: point at it or tap it (the link is listed in the Annotate panel).", Panel: "annotate"),
+        new("documents/shading-radial-cases.pdf", "Shadings", Note: "The cone in the middle of the second row is cut flat at top and bottom by its cell's clip, as in other renderers."),
         new("documents/transparency-blend-modes.pdf", "Transparency"),
         new("documents/page-rotation.pdf", "Rotated pages"),
         new("documents/linearized.pdf", "Linearized (range requests)", Remote: true),
@@ -89,12 +91,31 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
     public int CurrentPage => Math.Clamp(State.PageIndex, 0, Math.Max(0, (Session?.PageCount ?? 1) - 1));
 
     /// <summary>Opens a gallery document: downloaded whole (small files), or through range requests for the remote entry.</summary>
-    public Task OpenGalleryAsync(GalleryEntry entry) =>
-        entry.Remote ? OpenUrlAsync(entry.File) : RunOpenAsync(entry.File, async token =>
+    public async Task OpenGalleryAsync(GalleryEntry entry)
+    {
+        ArgumentNullException.ThrowIfNull(entry);
+        await (entry.Remote ? OpenUrlAsync(entry.File) : RunOpenAsync(entry.File, async token =>
         {
             byte[] bytes = await http.GetByteArrayAsync(Resolve(entry.File), token).ConfigureAwait(true);
             return (DocumentSession.Open(bytes, Options), FileName(entry.File), null);
-        });
+        })).ConfigureAwait(true);
+
+        if (Address == entry.File && Message is null)
+        {
+            SuggestedPanel = entry.Panel;
+            if (entry.Note is not null)
+            {
+                Report(entry.Note);
+            }
+            else
+            {
+                Refresh();
+            }
+        }
+    }
+
+    /// <summary>Gets or sets the panel the shell should open for the document just opened (taken and cleared by the shell).</summary>
+    public string? SuggestedPanel { get; set; }
 
     /// <summary>Opens a document from an address through HTTP range requests: page 1 of a linearized file shows before the rest arrives.</summary>
     public Task OpenUrlAsync(string address) => RunOpenAsync(address, async token =>

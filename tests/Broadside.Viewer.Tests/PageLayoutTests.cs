@@ -286,6 +286,36 @@ public sealed class PageLayoutTests
     }
 
     [Fact]
+    public async Task Page_one_stays_in_view_when_real_page_sizes_replace_its_placeholder_size()
+    {
+        // Issue #348: page-rotation.pdf's page 1 is 100 pt wide shown, its page 4 320 pt (UserUnit 2). The viewer opens with page 1's
+        // size standing in for every page at fit-width; when the real sizes widen the column, page 1 must not slide out of view.
+        await using DocumentSession session = DocumentSession.Open(Corpus.Bytes("page-rotation.pdf"));
+        var real = new PageMetrics[session.PageCount];
+        for (int i = 0; i < real.Length; i++)
+        {
+            real[i] = await session.GetPageMetricsAsync(i, TestContext.Current.CancellationToken);
+        }
+
+        PageMetrics[] placeholders = [.. real.Select(m => real[0] with { Index = m.Index })];
+        PageLayout before = PageLayout.Create(placeholders);
+        double zoom = before.GetZoom(ZoomMode.FitWidth, 390, 800, 0);
+        var viewport = new Viewport(0, 0, 390, 800, zoom);
+        PathPoint corner = before.PageToViewport(viewport, 0, 0, 0);
+
+        PageLayout after = PageLayout.Create(real);
+        Assert.True(after.ContentWidth > before.ContentWidth);
+        Assert.Equal(-1, Visible(after, after.Clamp(viewport)).ToList().FindIndex(p => p.PageIndex == 0)); // the bug: page 1 off screen
+
+        Viewport anchored = after.Anchor(before, viewport);
+        Assert.Equal(0, after.GetCurrentPage(anchored));
+        PathPoint moved = after.PageToViewport(anchored, 0, 0, 0);
+        Assert.Equal(corner.X, moved.X, 6);
+        Assert.Equal(corner.Y, moved.Y, 6);
+        Assert.Equal(viewport.Zoom, anchored.Zoom);
+    }
+
+    [Fact]
     public async Task The_red_square_at_the_user_space_origin_shows_where_the_page_rotation_puts_it()
     {
         await using DocumentSession session = DocumentSession.Open(Corpus.Bytes("page-rotation.pdf"));
