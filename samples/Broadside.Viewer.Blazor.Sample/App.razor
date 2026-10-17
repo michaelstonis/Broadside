@@ -215,7 +215,17 @@
     _focusedField = focused;
   }
 
-  private void OnDemoChanged(object? sender, EventArgs e) => _ = InvokeAsync(StateHasChanged);
+  private void OnDemoChanged(object? sender, EventArgs e)
+  {
+    // A gallery file whose feature lives in a panel (an outline, a link) opens that panel (#351).
+    if (Demo.SuggestedPanel is { } suggested && Enum.TryParse(suggested, ignoreCase: true, out Panel panel))
+    {
+      Demo.SuggestedPanel = null;
+      _panel = panel;
+    }
+
+    _ = InvokeAsync(StateHasChanged);
+  }
 
   private void Toggle(Panel panel) => _panel = _panel == panel ? Panel.None : panel;
 
