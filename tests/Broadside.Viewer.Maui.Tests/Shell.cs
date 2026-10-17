@@ -81,19 +81,37 @@ internal sealed class Shell : IViewerHost, IDisposable
         return shell;
     }
 
-    /// <summary>Runs frames (16 ms apart) until the controller needs no more, letting page loads finish between them.</summary>
-    public async Task SettleAsync(int maxFrames = 2000)
+    /// <summary>
+    /// Runs frames (16 ms apart on the test clock) until the controller needs no more and no page load is pending. Page loads run
+    /// through the session's own tasks, so a slow runner gets real time for them: the limit is wall-clock time, not a frame count.
+    /// </summary>
+    public async Task SettleAsync()
     {
-        for (int i = 0; i < maxFrames; i++)
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        bool more = true;
+        while (watch.Elapsed < TimeSpan.FromMinutes(2))
         {
-            Clock.Advance(TimeSpan.FromMilliseconds(16));
-            bool more = Controller.Frame();
+            if (more || !Controller.IsLoadingPages)
+            {
+                Clock.Advance(TimeSpan.FromMilliseconds(16));
+                more = Controller.Frame();
+            }
+
+            if (!more && Controller.IsLoadingPages)
+            {
+                // Nothing to draw until a page's text, links and accessibility nodes arrive.
+                await Task.Delay(2);
+                more = true;
+                continue;
+            }
+
             await Task.Yield();
-            if (!more && !Controller.IsLoadingPages && i > 2)
+            if (!more && !Controller.IsLoadingPages)
             {
                 // One more round: a page load may have completed and woken the controller.
                 Clock.Advance(TimeSpan.FromMilliseconds(16));
-                if (!Controller.Frame() && !Controller.IsLoadingPages)
+                more = Controller.Frame();
+                if (!more && !Controller.IsLoadingPages)
                 {
                     Assert.Empty(Errors);
                     return;
@@ -101,7 +119,7 @@ internal sealed class Shell : IViewerHost, IDisposable
             }
         }
 
-        Assert.Fail("The viewer did not settle: " + string.Join(",", Events.GroupBy(e => e.Kind + "/" + e.Priority + "/" + e.Tile.Layers).Select(g => g.Key + "=" + g.Count())) + " stats=" + Controller.Scheduler!.Statistics);
+        Assert.Fail($"The viewer did not settle (more: {more}, loading pages: {Controller.IsLoadingPages}): " + string.Join(",", Events.GroupBy(e => e.Kind + "/" + e.Priority + "/" + e.Tile.Layers).Select(g => g.Key + "=" + g.Count())) + " stats=" + Controller.Scheduler!.Statistics);
     }
 
     /// <summary>Sends a SkiaSharp touch event at a point in device-independent units (as SkiaSharp reports it: canvas pixels).</summary>

@@ -571,17 +571,18 @@ jobs:
           dotnet build samples/Broadside.Viewer.Maui.Sample -t:InstallAndroidDependencies -f net10.0-android
           -p:AndroidSdkDirectory="$ANDROID_HOME" -p:AcceptAndroidSDKLicenses=true
 
-      # ValidateXcodeVersion=false and Registrar=dynamic: the workload's Apple SDK packs want Xcode 27 and the runner image has Xcode 26
-      # (see build-test's Build step). Drop them once the image ships Xcode 27.
-      - name: Build the sample for Mac Catalyst
+      # The workload's Apple SDK packs want Xcode 27 and the runner image has Xcode 26 (see build-test's Build step): linking an app
+      # bundle fails there (MT0180 in ILLink), so the Apple heads are compiled (C#, analyzers, XAML-free) but not bundled. Build the
+      # whole app (-t:Build) once the image ships Xcode 27; locally, with Xcode 27, the Catalyst and simulator apps build and run.
+      - name: Compile the sample for Mac Catalyst
         run: >
-          dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-maccatalyst -warnaserror
+          dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-maccatalyst -t:Compile -warnaserror
           -p:ValidateXcodeVersion=false -p:Registrar=dynamic
 
-      - name: Build the sample for the iOS simulator
+      - name: Compile the sample for the iOS simulator
         run: >
-          dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-ios -p:RuntimeIdentifier=iossimulator-arm64 -warnaserror
-          -p:ValidateXcodeVersion=false -p:Registrar=dynamic
+          dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-ios -p:RuntimeIdentifier=iossimulator-arm64 -t:Compile
+          -warnaserror -p:ValidateXcodeVersion=false -p:Registrar=dynamic
 
       - name: Build the sample for Android
         run: dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-android -warnaserror -p:AndroidSdkDirectory="$ANDROID_HOME"
