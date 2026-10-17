@@ -11,7 +11,7 @@ namespace Broadside.Fonts.TrueType;
 /// ISO 32000-2 §9.9 (Table 124: a <c>FontFile2</c> program for a CIDFontType2 has <c>glyf</c>, <c>head</c>, <c>hhea</c>,
 /// <c>hmtx</c>, <c>loca</c> and <c>maxp</c>, and <c>cvt </c>, <c>fpgm</c> and <c>prep</c> when its instructions need them) and
 /// §9.9.2 (subset fonts: <c>.notdef</c> is kept as glyph 0). Written: those tables (<c>loca</c> in the long format; <c>hmtx</c>,
-/// <c>hhea</c> and <c>maxp</c> for the new glyph count; composite glyphs' component ids renumbered), plus <c>OS/2</c>, <c>name</c>
+/// <c>hhea</c> and <c>maxp</c> for the new glyph count, with valid versions; composite glyphs' component ids renumbered), plus <c>OS/2</c>, <c>name</c>
 /// and a format 3 <c>post</c> when the program has them. <c>cmap</c> is not needed for a CIDFontType2 (§9.7.4.2), and every table
 /// indexed by glyph id that is not rewritten (<c>hdmx</c>, <c>kern</c>, <c>LTSH</c>, <c>VDMX</c>, layout tables) is dropped. The
 /// output depends only on the program and the glyph set, so the same input always gives the same bytes.
@@ -112,12 +112,18 @@ internal static class TrueTypeSubsetter
             BinaryPrimitives.WriteInt16BigEndian(newHmtx.AsSpan((index * 4) + 2), bearing);
         }
 
+        // head, hhea and maxp are written with valid versions (and the head magic number), whatever the original held: a reader that
+        // finds a table by its recognizable start (SfntFile's one-byte offset recovery) then reads each where the directory puts it.
         byte[] head = headTable.ToArray();
+        BinaryPrimitives.WriteUInt32BigEndian(head, 0x00010000);
         BinaryPrimitives.WriteUInt32BigEndian(head.AsSpan(8), 0);
+        BinaryPrimitives.WriteUInt32BigEndian(head.AsSpan(12), 0x5F0F3CF5);
         BinaryPrimitives.WriteInt16BigEndian(head.AsSpan(50), 1);
         byte[] hhea = hheaTable.ToArray();
+        BinaryPrimitives.WriteUInt32BigEndian(hhea, 0x00010000);
         BinaryPrimitives.WriteUInt16BigEndian(hhea.AsSpan(34), (ushort)count);
-        byte[] maxp = maxpTable.ToArray();
+        byte[] maxp = maxpTable[..(maxpTable.Length >= 32 ? 32 : 6)].ToArray();
+        BinaryPrimitives.WriteUInt32BigEndian(maxp, maxp.Length == 32 ? 0x00010000u : 0x00005000u);
         BinaryPrimitives.WriteUInt16BigEndian(maxp.AsSpan(4), (ushort)count);
 
         var tables = new List<(uint Tag, byte[] Data)>
