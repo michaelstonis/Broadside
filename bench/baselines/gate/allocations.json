@@ -539,6 +539,8 @@
     "Broadside.Benchmarks.TextRenderingBenchmarks.Replay(Page: \"text-heavy-2000\", Dpi: 72)": 0,
     "Broadside.Benchmarks.TextRenderingBenchmarks.Replay(Page: \"text-render-modes.pdf\", Dpi: 300)": 0,
     "Broadside.Benchmarks.TextRenderingBenchmarks.Replay(Page: \"text-render-modes.pdf\", Dpi: 72)": 0,
+    "Broadside.Benchmarks.TextSelectionBenchmarks.DragOffText": 0,
+    "Broadside.Benchmarks.TextSelectionBenchmarks.DragOnText": 0,
     "Broadside.Benchmarks.TextShowBenchmarks.ShowGlyphs": 0,
     "Broadside.Benchmarks.TileRenderingBenchmarks.Tile(Page: \"path-heavy-256kb\", Scale: 1)": 0,
     "Broadside.Benchmarks.TileRenderingBenchmarks.Tile(Page: \"path-heavy-256kb\", Scale: 4)": 0,

@@ -347,6 +347,84 @@ Broadside.Viewer.ProgressiveZoomOptions.UseTimeProvider(System.TimeProvider! tim
 Broadside.Viewer.TileScheduler.GetFrame(in Broadside.Viewer.Viewport viewport, System.Span<Broadside.Viewer.FramePart> destination) -> int
 const Broadside.Viewer.ProgressiveZoomOptions.DefaultMinZoom = 0.1 -> double
 const Broadside.Viewer.ProgressiveZoomOptions.DefaultMaxZoom = 64 -> double
+Broadside.Viewer.ContentReadingOrder
+Broadside.Viewer.ContentReadingOrder.GetReadingOrder(Broadside.PdfPage! page, Broadside.Rendering.HitTestIndex! index) -> int[]!
+static Broadside.Viewer.ContentReadingOrder.Instance.get -> Broadside.Viewer.ContentReadingOrder!
+Broadside.Viewer.IReadingOrderProvider
+Broadside.Viewer.IReadingOrderProvider.GetReadingOrder(Broadside.PdfPage! page, Broadside.Rendering.HitTestIndex! index) -> int[]!
+Broadside.Viewer.LayoutReadingOrder
+Broadside.Viewer.LayoutReadingOrder.GetReadingOrder(Broadside.PdfPage! page, Broadside.Rendering.HitTestIndex! index) -> int[]!
+Broadside.Viewer.LayoutReadingOrder.LayoutReadingOrder() -> void
+Broadside.Viewer.LayoutReadingOrder.LayoutReadingOrder(Broadside.Layout.LayoutOptions! options) -> void
+static Broadside.Viewer.LayoutReadingOrder.Default.get -> Broadside.Viewer.LayoutReadingOrder!
+Broadside.Viewer.SelectableText
+Broadside.Viewer.SelectableText.FindLink(Broadside.Graphics.PathPoint point) -> Broadside.Rendering.HitTestLink?
+Broadside.Viewer.SelectableText.GetGlyphAt(Broadside.Graphics.PathPoint point) -> int
+Broadside.Viewer.SelectableText.GetGlyphIndex(int position) -> int
+Broadside.Viewer.SelectableText.GetGlyphText(int position) -> System.ReadOnlySpan<char>
+Broadside.Viewer.SelectableText.GetLineRange(int position) -> (int Start, int End)
+Broadside.Viewer.SelectableText.GetNearestGlyph(Broadside.Graphics.PathPoint point) -> int
+Broadside.Viewer.SelectableText.GetOffset(Broadside.Graphics.PathPoint point) -> int
+Broadside.Viewer.SelectableText.GetParagraphRange(int position) -> (int Start, int End)
+Broadside.Viewer.SelectableText.GetPosition(int glyphIndex) -> int
+Broadside.Viewer.SelectableText.GetQuads(int start, int end, System.Span<Broadside.Graphics.Quad> destination) -> int
+Broadside.Viewer.SelectableText.GetText(int start, int end) -> string!
+Broadside.Viewer.SelectableText.GetWordRange(int position) -> (int Start, int End)
+Broadside.Viewer.SelectableText.Index.get -> Broadside.Rendering.HitTestIndex!
+Broadside.Viewer.SelectableText.Length.get -> int
+Broadside.Viewer.SelectableText.Page.get -> Broadside.PdfPage!
+static Broadside.Viewer.SelectableText.Create(Broadside.PdfPage! page, Broadside.Rendering.HitTestIndex! index, Broadside.Viewer.IReadingOrderProvider? readingOrder = null) -> Broadside.Viewer.SelectableText!
+Broadside.Viewer.SelectionGranularity
+Broadside.Viewer.SelectionGranularity.Character = 0 -> Broadside.Viewer.SelectionGranularity
+Broadside.Viewer.SelectionGranularity.Line = 2 -> Broadside.Viewer.SelectionGranularity
+Broadside.Viewer.SelectionGranularity.Paragraph = 3 -> Broadside.Viewer.SelectionGranularity
+Broadside.Viewer.SelectionGranularity.Word = 1 -> Broadside.Viewer.SelectionGranularity
+Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.CharacterBackward = 0 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.CharacterForward = 1 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.DocumentEnd = 9 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.DocumentStart = 8 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.LineDown = 5 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.LineEnd = 7 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.LineStart = 6 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.LineUp = 4 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.WordBackward = 2 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.SelectionMove.WordForward = 3 -> Broadside.Viewer.SelectionMove
+Broadside.Viewer.TextPosition
+Broadside.Viewer.TextPosition.CompareTo(Broadside.Viewer.TextPosition other) -> int
+Broadside.Viewer.TextPosition.Offset.get -> int
+Broadside.Viewer.TextPosition.Offset.init -> void
+Broadside.Viewer.TextPosition.PageIndex.get -> int
+Broadside.Viewer.TextPosition.PageIndex.init -> void
+Broadside.Viewer.TextPosition.TextPosition() -> void
+Broadside.Viewer.TextPosition.TextPosition(int PageIndex, int Offset) -> void
+static Broadside.Viewer.TextPosition.operator <(Broadside.Viewer.TextPosition left, Broadside.Viewer.TextPosition right) -> bool
+static Broadside.Viewer.TextPosition.operator <=(Broadside.Viewer.TextPosition left, Broadside.Viewer.TextPosition right) -> bool
+static Broadside.Viewer.TextPosition.operator >(Broadside.Viewer.TextPosition left, Broadside.Viewer.TextPosition right) -> bool
+static Broadside.Viewer.TextPosition.operator >=(Broadside.Viewer.TextPosition left, Broadside.Viewer.TextPosition right) -> bool
+Broadside.Viewer.TextSelection
+Broadside.Viewer.TextSelection.Anchor.get -> Broadside.Viewer.TextPosition
+Broadside.Viewer.TextSelection.Begin(in Broadside.Viewer.PagePoint point, Broadside.Viewer.SelectionGranularity granularity = Broadside.Viewer.SelectionGranularity.Character) -> bool
+Broadside.Viewer.TextSelection.Changed -> System.EventHandler?
+Broadside.Viewer.TextSelection.Clear() -> void
+Broadside.Viewer.TextSelection.End.get -> Broadside.Viewer.TextPosition
+Broadside.Viewer.TextSelection.Extend(in Broadside.Viewer.PagePoint point) -> bool
+Broadside.Viewer.TextSelection.FindLink(in Broadside.Viewer.PagePoint point) -> Broadside.Rendering.HitTestLink?
+Broadside.Viewer.TextSelection.Focus.get -> Broadside.Viewer.TextPosition
+Broadside.Viewer.TextSelection.GetQuads(int pageIndex, System.Span<Broadside.Graphics.Quad> destination) -> int
+Broadside.Viewer.TextSelection.GetTextAsync(System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<string!>
+Broadside.Viewer.TextSelection.Granularity.get -> Broadside.Viewer.SelectionGranularity
+Broadside.Viewer.TextSelection.IsEmpty.get -> bool
+Broadside.Viewer.TextSelection.LoadPageAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<Broadside.Viewer.SelectableText!>
+Broadside.Viewer.TextSelection.Move(Broadside.Viewer.SelectionMove move, bool extend = true) -> bool
+Broadside.Viewer.TextSelection.ReadingOrder.get -> Broadside.Viewer.IReadingOrderProvider!
+Broadside.Viewer.TextSelection.Select(Broadside.Viewer.TextPosition anchor, Broadside.Viewer.TextPosition focus) -> void
+Broadside.Viewer.TextSelection.SelectAll() -> void
+Broadside.Viewer.TextSelection.Session.get -> Broadside.Viewer.DocumentSession!
+Broadside.Viewer.TextSelection.Start.get -> Broadside.Viewer.TextPosition
+Broadside.Viewer.TextSelection.TextSelection(Broadside.Viewer.DocumentSession! session) -> void
+Broadside.Viewer.TextSelection.TextSelection(Broadside.Viewer.DocumentSession! session, Broadside.Viewer.IReadingOrderProvider? readingOrder) -> void
+Broadside.Viewer.TextSelection.TryGetPage(int pageIndex, out Broadside.Viewer.SelectableText? text) -> bool
 Broadside.Viewer.ProgressiveZoom.Layout.get -> Broadside.Viewer.PageLayout!
 Broadside.Viewer.InputModel
 Broadside.Viewer.InputModel.InputModel(Broadside.Viewer.ProgressiveZoom! zoom, Broadside.Viewer.InputModelOptions? options = null) -> void
