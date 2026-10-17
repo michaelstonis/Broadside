@@ -317,7 +317,11 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
     {
         if (change.Kind == AccessibilityChangeKind.FocusChanged)
         {
-            _semantics.Focus(change.Node);
+            // Focus that only follows scrolling (page changes) does not pull the screen reader away from what it is reading.
+            if (!change.FollowsViewer)
+            {
+                _semantics.Focus(change.Node);
+            }
         }
         else
         {

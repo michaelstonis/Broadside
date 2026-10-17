@@ -66,6 +66,8 @@ internal sealed class ViewerController : IDisposable
     private LayoutRectangle _editorBounds;
     private PdfViewState _state;
     private int _pendingLoads;
+    private bool _keyboardFocus;
+    private bool _mouseHover;
     private bool _disposed;
 
     // Touch: a press that stays put on text turns into a word selection after LongPress.
@@ -376,6 +378,8 @@ internal sealed class ViewerController : IDisposable
         }
 
         _interacted = true;
+        _keyboardFocus = false;
+        _mouseHover = kind == PointerKind.Mouse;
         if (_mode == PointerMode.Pan)
         {
             // A further finger joins the pan: the input model turns two into a pinch.
@@ -690,7 +694,7 @@ internal sealed class ViewerController : IDisposable
         bool more = _input.RunFrame(FrameBudget);
         Viewport viewport = _input.Viewport;
         _bridge!.Update();
-        bool unloaded = RequestPageLoad(viewport, Stopwatch.GetElapsedTime(start) < IdleFrame);
+        bool unloaded = RequestPageLoad(viewport, !more || Stopwatch.GetElapsedTime(start) < IdleFrame);
         bool stale = Surface.ExpireStale();
         Compose(viewport);
         PlaceEditor(viewport);
@@ -739,9 +743,10 @@ internal sealed class ViewerController : IDisposable
     {
         _metricsDirty = false;
         _lastRelayout = Stopwatch.GetTimestamp();
+        PageLayout previous = _zoom!.Layout;
         PageLayout layout = PageLayout.Create(_metrics, _layoutOptions);
         _scheduler!.SetLayout(layout);
-        _zoom!.SetViewport(_interacted ? layout.Clamp(_zoom.Viewport) : InitialViewport(layout));
+        _zoom.SetViewport(_interacted ? layout.Anchor(previous, _zoom.Viewport) : InitialViewport(layout));
     }
 
     private async Task SweepMetricsAsync(DocumentSession session, int generation)
@@ -808,8 +813,9 @@ internal sealed class ViewerController : IDisposable
         try
         {
             CancellationToken token = _closing.Token;
-            await _selection!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
             await _annotations!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            Wake();
+            await _selection!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
             await _bridge!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
             if (generation == _generation)
             {
@@ -970,18 +976,34 @@ internal sealed class ViewerController : IDisposable
         }
 
         AddSelection(frame, layout, viewport);
-        if (_annotations!.Focused is { } focused && _editor is null)
+        // Chrome: a pressed link or field, the mouse's hovered one, and the keyboard focus (never a ring after a tap or click).
+        if (_annotations!.Pressed is { } pressed)
         {
-            LayoutRectangle box = _annotations.GetScreenRectangle(focused, layout, viewport);
-            float inset = (float)_ratio;
-            frame.Add(new ViewerFrame.Item(
-                ViewerFrame.ItemKind.Chrome,
-                new SKRect((float)box.X - inset, (float)box.Y - inset, (float)box.Right + inset, (float)box.Bottom + inset),
-                A: new SKPoint((float)(2 * _ratio), 0)));
+            AddChrome(frame, pressed, layout, viewport, 2);
+        }
+        else if (_mouseHover && _mode == PointerMode.None && _annotations.Hovered is { } hovered
+            && (AllowAnnotationEditing || _annotations.GetRole(hovered) != AnnotationRole.Annotation))
+        {
+            AddChrome(frame, hovered, layout, viewport, 1);
+        }
+
+        if (_keyboardFocus && _annotations.Focused is { } focused && _editor is null)
+        {
+            AddChrome(frame, focused, layout, viewport, 2);
         }
 
         Presenter.Publish(frame, Surface.Retired);
         _host.RequestPaint();
+    }
+
+    private void AddChrome(ViewerFrame frame, AnnotationTarget target, PageLayout layout, in Viewport viewport, double width)
+    {
+        LayoutRectangle box = _annotations!.GetScreenRectangle(target, layout, viewport);
+        float inset = (float)_ratio;
+        frame.Add(new ViewerFrame.Item(
+            ViewerFrame.ItemKind.Chrome,
+            new SKRect((float)box.X - inset, (float)box.Y - inset, (float)box.Right + inset, (float)box.Bottom + inset),
+            A: new SKPoint((float)(width * _ratio), 0)));
     }
 
     private void AddStaleOverlays(ViewerFrame frame, ReadOnlySpan<FramePart> parts, in Viewport viewport, int rotation)
@@ -1144,6 +1166,7 @@ internal sealed class ViewerController : IDisposable
         switch (key)
         {
             case "Tab":
+                _keyboardFocus = true;
                 return shift ? _annotations!.FocusPrevious() : _annotations!.FocusNext();
             case "Enter" when _annotations!.Focused is { } focused:
                 _annotations.Activate(focused);
