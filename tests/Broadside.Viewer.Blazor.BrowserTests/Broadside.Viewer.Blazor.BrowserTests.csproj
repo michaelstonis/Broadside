@@ -11,6 +11,7 @@
   <ItemGroup>
     <FrameworkReference Include="Microsoft.AspNetCore.App" />
     <ProjectReference Include="../../src/Broadside.Viewer/Broadside.Viewer.csproj" />
+    <ProjectReference Include="../Broadside.GoldenImages/Broadside.GoldenImages.csproj" />
     <PackageReference Include="xunit.v3" />
     <PackageReference Include="Microsoft.Playwright" />
   </ItemGroup>

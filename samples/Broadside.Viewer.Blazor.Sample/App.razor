@@ -44,7 +44,7 @@
       {
         <PdfViewer @ref="_viewer" Class="viewer" Session="Demo.Session" Label="@Demo.Name" LayoutOptions="_layout"
                    ShowAnnotations="_showAnnotations" AllowAnnotationEditing="_editAnnotations"
-                   OnStateChanged="OnStateChanged" OnAction="OnAction" OnError="OnError" />
+                   OnStateChanged="OnStateChanged" OnAction="OnAction" OnError="OnError" TileObserver="RenderStats.Observe" />
       }
       else
       {
@@ -157,6 +157,7 @@
   protected override async Task OnInitializedAsync()
   {
     Demo.Changed += OnDemoChanged;
+    Demo.Current = Demo;
 
     // ?file=<address> opens a document through range requests (relative addresses resolve against the app, wherever it is hosted).
     string? file = null;
@@ -166,6 +167,11 @@
       if (parts.Length == 2 && parts[0] == "file")
       {
         file = Uri.UnescapeDataString(parts[1]);
+      }
+      else if (parts.Length == 2 && parts[0] == "renderer" && parts[1] == "webgl")
+      {
+        // ?renderer=webgl draws with WebGL 2 from the first page (the View panel switches later).
+        await Renderers.SetAsync(true);
       }
     }
 

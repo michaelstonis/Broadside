@@ -30,7 +30,9 @@ requests, so page 1 of a linearized file shows before the rest arrives (the serv
 | **Annotate.** Add a note, box, text, stamp, or a highlight over the selected text; list and remove annotations. Only the tiles an edit touches redraw. | **Form.** Fill text fields, check boxes, radio buttons and choices; tapping a field in the page opens it here. ⤓ downloads the document with your edits. | **Create.** A report laid out with the flow layout package (headings, list, table, figure, link, header and footer), tagged by construction and saved as PDF/A-2u, -3u, -4 and PDF/UA-1 or -2. |
 
 **View** switches the page layout (continuous, single page, two-up, horizontal), rotates the view and zooms; pinch, double-tap,
-Ctrl/⌘ + wheel and the keyboard work in the page as well. **Signatures** validates signed fields where the runtime can: .NET on
+Ctrl/⌘ + wheel and the keyboard work in the page as well. Its **Renderer** switch draws the tiles with WebGL 2 on the GPU instead of
+the managed software rasterizer (#353; `?renderer=webgl` starts that way) and shows the GPU, the tile count, the mean tile time and
+how many tiles fell back to the rasterizer; see `docs/benchmarks/viewer-gpu-vs-software.md` for what it changes. **Signatures** validates signed fields where the runtime can: .NET on
 WebAssembly has no X.509 support, so in the browser the panel lists what each signature dictionary says, unchecked, and says why
 (the same code validates on a server or desktop).
 

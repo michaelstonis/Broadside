@@ -1,0 +1,23 @@
+#nullable enable
+Broadside.Rendering.WebGL.WebGLRender
+Broadside.Rendering.WebGL.WebGLRender.Continue(System.TimeSpan budget) -> bool
+Broadside.Rendering.WebGL.WebGLRender.Dispose() -> void
+Broadside.Rendering.WebGL.WebGLRender.GpuTime.get -> System.TimeSpan
+Broadside.Rendering.WebGL.WebGLRender.IsCompleted.get -> bool
+Broadside.Rendering.WebGL.WebGLRender.IsInCanvas.get -> bool
+Broadside.Rendering.WebGL.WebGLRender.UsedSoftwareRasterizer.get -> bool
+Broadside.Rendering.WebGL.WebGLRenderer
+Broadside.Rendering.WebGL.WebGLRenderer.BeginRender(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, bool readBack, System.Threading.CancellationToken cancellationToken) -> Broadside.Rendering.WebGL.WebGLRender!
+Broadside.Rendering.WebGL.WebGLRenderer.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.Rendering.WebGL.WebGLRenderer.Dispose() -> void
+Broadside.Rendering.WebGL.WebGLRenderer.Render(Broadside.PdfPage! page, Broadside.Rendering.RenderOptions! options) -> Broadside.Rendering.Bitmap!
+Broadside.Rendering.WebGL.WebGLRenderer.Render(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform) -> void
+Broadside.Rendering.WebGL.WebGLRenderer.WebGLRenderer() -> void
+static Broadside.Rendering.WebGL.WebGLRenderer.Canvas.get -> System.Runtime.InteropServices.JavaScript.JSObject!
+static Broadside.Rendering.WebGL.WebGLRenderer.Description.get -> string?
+static Broadside.Rendering.WebGL.WebGLRenderer.InitializeAsync() -> System.Threading.Tasks.Task<bool>!
+static Broadside.Rendering.WebGL.WebGLRenderer.IsAvailable.get -> bool
+static Broadside.Rendering.WebGL.WebGLRenderer.TextureBudget.get -> long
+static Broadside.Rendering.WebGL.WebGLRenderer.TextureBudget.set -> void
+static Broadside.Rendering.WebGL.WebGLRenderer.TextureBytes.get -> long
+static Broadside.Rendering.WebGL.WebGLRenderer.ReadCanvas(Broadside.Rendering.Bitmap! target) -> void

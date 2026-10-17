@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk.Razor">
+
+  <PropertyGroup>
+    <Description>WebGL 2 backend for Broadside in the browser (Blazor WebAssembly). Replays display lists on the GPU through a thin JavaScript layer (no third-party JavaScript): paths and glyph outlines by stencil-then-cover, strokes tessellated in .NET, clips in the stencil buffer, images as mipmapped textures; what it cannot draw is drawn by the managed software rasterizer, with a diagnostic. Runs in the browser only.</Description>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <SupportedPlatform Include="browser" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../Broadside.Rendering/Broadside.Rendering.csproj" />
+  </ItemGroup>
+
+</Project>

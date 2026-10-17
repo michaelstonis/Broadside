@@ -91,6 +91,31 @@ public static class GoldenThresholds
             "Forced outlines on Direct2D (#131) against the same outlines written as path objects, otherwise held to GoldenThreshold.Tight: " +
             "the glyphs arrive pre-mapped to user space while the path page reaches them through its cm, so Direct2D flattens the " +
             "curves of the rotated lines under different transforms; four edge pixels differ by up to 0.047 on WARP, the same ink."),
+        new(
+            "webgl",
+            null,
+            null,
+            new GoldenThreshold(0.6, GoldenThreshold.Default.FlatTolerance, 0),
+            "The WebGL backend (#353) anti-aliases paths, glyph outlines, strokes and clips by 4x multisampling (MAX_SAMPLES on ANGLE " +
+            "Metal and SwiftShader), so an edge pixel's coverage is one of five levels where the rasterizer computes the exact area: " +
+            "single edge pixels of small text and thin strokes differ by up to 0.55 (text-cff-embedded, paths-strokes) with the same " +
+            "ink; flat areas match within the default."),
+        new(
+            "webgl",
+            "image-stencil-mask.pdf",
+            0,
+            new GoldenThreshold(0.6, GoldenThreshold.Default.FlatTolerance, 100),
+            "The magnified 8x8 stencil mask is sampled nearest-neighbour by the GPU, whose texel boundaries fall exactly on pixel " +
+            "centres here: with float texture coordinates the GPU picks the next texel on one row and one column of each step of " +
+            "the shape (100 pixels on the shape's edges, #353); the shape and every other pixel match."),
+        new(
+            "webgl",
+            "text-type3.pdf",
+            0,
+            new GoldenThreshold(0.6, GoldenThreshold.Default.FlatTolerance, 36),
+            "Glyph c of both Type 3 fonts is an 8x1 image mask magnified by the glyph matrix; as for image-stencil-mask, a texel " +
+            "boundary on a pixel centre goes to the next texel on the GPU, moving the edge of one bar by a pixel (18 pixels a glyph, " +
+            "#353)."),
     ];
 
     /// <summary>Returns the threshold a backend's render of one corpus page must meet.</summary>

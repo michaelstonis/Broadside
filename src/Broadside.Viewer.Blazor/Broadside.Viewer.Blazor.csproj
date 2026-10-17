@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk.Razor">
 
   <PropertyGroup>
-    <Description>The Blazor WebAssembly shell for the Broadside viewer: a PdfViewer component that renders tiles with the managed software rasterizer into a canvas, opens remote files through HTTP range requests (first page first), and wires the viewer core's input model, text selection, annotation layer and accessibility bridge to the DOM. No native assets and no third-party JavaScript; trimmable and AOT-compatible. Runs in the browser only.</Description>
+    <Description>The Blazor WebAssembly shell for the Broadside viewer: a PdfViewer component that renders tiles with the managed software rasterizer (or, as an option, with WebGL 2 through Broadside.Rendering.WebGL) into a canvas, opens remote files through HTTP range requests (first page first), and wires the viewer core's input model, text selection, annotation layer and accessibility bridge to the DOM. No native assets and no third-party JavaScript; trimmable and AOT-compatible. Runs in the browser only.</Description>
   </PropertyGroup>
 
   <ItemGroup>
@@ -11,6 +11,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.AspNetCore.Components.Web" />
     <ProjectReference Include="../Broadside.Viewer/Broadside.Viewer.csproj" />
+    <ProjectReference Include="../Broadside.Rendering.WebGL/Broadside.Rendering.WebGL.csproj" />
   </ItemGroup>
 
 </Project>

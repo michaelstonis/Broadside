@@ -21,6 +21,8 @@
     <!-- A plain static site: the host serves files as they are, so no precompressed .br/.gz copies. -->
     <CompressionEnabled>false</CompressionEnabled>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- [JSExport] benchmark hooks (RenderStats) need the generated interop's unsafe code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <BroadsideAot Condition="'$(BroadsideAot)' == ''">true</BroadsideAot>
   </PropertyGroup>
 

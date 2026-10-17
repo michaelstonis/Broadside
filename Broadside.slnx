@@ -25,6 +25,7 @@
     <Project Path="src/Broadside.Rendering.CoreGraphics/Broadside.Rendering.CoreGraphics.csproj" />
     <Project Path="src/Broadside.Rendering.Direct2D/Broadside.Rendering.Direct2D.csproj" />
     <Project Path="src/Broadside.Rendering.Skia/Broadside.Rendering.Skia.csproj" />
+    <Project Path="src/Broadside.Rendering.WebGL/Broadside.Rendering.WebGL.csproj" />
     <Project Path="src/Broadside.Rendering/Broadside.Rendering.csproj" />
     <Project Path="src/Broadside.Viewer.Blazor/Broadside.Viewer.Blazor.csproj" />
     <Project Path="src/Broadside.Viewer/Broadside.Viewer.csproj" />

@@ -146,6 +146,22 @@ export function putTile(id, key, width, height, pixels) {
   tile.getContext("2d").putImageData(image, 0, 0);
 }
 
+// A tile the WebGL backend (#353) left in its canvas: copied GPU to GPU, no read-back.
+export function putTileFromCanvas(id, key, width, height, source) {
+  const v = viewers.get(id);
+  if (!v) return;
+  let tile = v.tiles.get(key);
+  if (!tile || tile.width !== width || tile.height !== height) {
+    tile = document.createElement("canvas");
+    tile.width = width;
+    tile.height = height;
+    v.tiles.set(key, tile);
+  }
+  const context = tile.getContext("2d");
+  context.clearRect(0, 0, width, height);
+  context.drawImage(source, 0, 0, width, height, 0, 0, width, height);
+}
+
 export function dropTile(id, key) {
   const v = viewers.get(id);
   if (v) v.tiles.delete(key);

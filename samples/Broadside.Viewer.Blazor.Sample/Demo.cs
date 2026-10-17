@@ -35,8 +35,16 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
         new("documents/linearized.pdf", "Linearized (range requests)", Remote: true),
     ];
 
-    /// <summary>Standard 14 fonts are bundled, so documents that do not embed Helvetica, Times or Courier render like a desktop viewer.</summary>
-    public static readonly ViewerOptions Options = new ViewerOptions().UseEngine(new PdfEngine(new PdfOptions().UseStandard14Fonts()));
+    /// <summary>
+    /// Standard 14 fonts are bundled, so documents that do not embed Helvetica, Times or Courier render like a desktop viewer. Tiles are
+    /// drawn by <see cref="DemoTileBackend"/>: the software rasterizer, or WebGL when the View panel selects it.
+    /// </summary>
+    public static readonly ViewerOptions Options = new ViewerOptions()
+        .UseEngine(new PdfEngine(new PdfOptions().UseStandard14Fonts()))
+        .UseBackend(static () => new DemoTileBackend());
+
+    /// <summary>Gets the demo of the running app (for the browser benchmarks' exports).</summary>
+    public static Demo? Current { get; set; }
 
     private CancellationTokenSource _work = new();
 
@@ -207,6 +215,7 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
         _work = new CancellationTokenSource();
         CancellationToken token = _work.Token;
         IsOpening = true;
+        RenderStats.MarkOpen();
         Message = null;
         Link = null;
         Changed?.Invoke(this, EventArgs.Empty);
