@@ -110,6 +110,14 @@ public static class GoldenThresholds
             "the shape (100 pixels on the shape's edges, #353); the shape and every other pixel match."),
         new(
             "webgl",
+            "paths-strokes.pdf",
+            0,
+            new GoldenThreshold(0.6, GoldenThreshold.Default.FlatTolerance, 2),
+            "The zero-width (one device pixel) diagonal and circle are covered by 4 samples per pixel whose positions depend on the " +
+            "GPU: SwiftShader (CI) places them so that one pixel where the diagonal crosses the circle reaches 0.66 against the " +
+            "rasterizer's exact coverage (ANGLE Metal: within 0.6, #353); every other pixel is within the general webgl row."),
+        new(
+            "webgl",
             "text-type3.pdf",
             0,
             new GoldenThreshold(0.6, GoldenThreshold.Default.FlatTolerance, 36),
