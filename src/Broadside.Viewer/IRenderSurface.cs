@@ -12,7 +12,7 @@ namespace Broadside.Viewer;
 /// </remarks>
 public interface IRenderSurface
 {
-    /// <summary>Takes the pixels of one finished tile.</summary>
+    /// <summary>Takes the pixels of one finished tile; a tile presented again (redrawn after an edit) replaces its earlier pixels.</summary>
     /// <param name="tile">The tile.</param>
     /// <param name="pixels">
     /// Its pixels, premultiplied BGRA, <see cref="Tile.Region"/>'s size. Valid only during the call: the session returns the buffer to

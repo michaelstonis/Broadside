@@ -115,6 +115,13 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
     /// <summary>Gets the annotation under the pointer, or <see langword="null"/>.</summary>
     public AnnotationTarget? Hovered { get; private set; }
 
+    /// <summary>
+    /// Gets the annotation a pointer is pressing (from <see cref="PointerDown"/> until <see cref="PointerUp"/> or
+    /// <see cref="PointerCancel"/>), or <see langword="null"/>: a shell draws it pressed, so a tap on a link or field shows at once.
+    /// <see cref="Changed"/> is raised when it changes.
+    /// </summary>
+    public AnnotationTarget? Pressed => _pressed;
+
     /// <summary>Gets the selected annotation (one of role <see cref="AnnotationRole.Annotation"/>), or <see langword="null"/>.</summary>
     public AnnotationTarget? Selected { get; private set; }
 
@@ -228,6 +235,8 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
             return false;
         }
 
+        Changed?.Invoke(this, EventArgs.Empty);
+
         switch (Get(target).Role)
         {
             case AnnotationRole.Annotation:
@@ -293,6 +302,8 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
             return false;
         }
 
+        Changed?.Invoke(this, EventArgs.Empty);
+
         if (_dragging)
         {
             _dragging = false;
@@ -313,7 +324,12 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
     /// <summary>Abandons a press: a drag in progress snaps back.</summary>
     public void PointerCancel()
     {
-        _pressed = null;
+        if (_pressed is not null)
+        {
+            _pressed = null;
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+
         if (_dragging)
         {
             _dragging = false;

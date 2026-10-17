@@ -48,8 +48,10 @@ public sealed class DemoTests(BrowserHost host)
         await page.WaitForFunctionAsync("() => { const i = document.querySelector('[data-thumbnail]'); return i && i.complete && i.naturalWidth > 0; }", null, Normal);
 
         // The outline of a gallery document.
-        await OpenGalleryAsync(page, "documents/outline-full.pdf", "outline-full.pdf", ink: false); // its pages are blank
-        await OpenPanelAsync(page, "outline");
+        // Its page is blank (as in poppler): the demo says so and opens the Outline panel by itself (#351).
+        await OpenGalleryAsync(page, "documents/outline-full.pdf", "outline-full.pdf", ink: false);
+        await page.Locator("[data-sheet=outline]").WaitForAsync();
+        Assert.Contains("Outline panel", await page.Locator(".message").InnerTextAsync(), StringComparison.Ordinal);
         await page.WaitForFunctionAsync("() => document.querySelectorAll('[data-outline]').length >= 3", null, Normal);
         await ScreenshotAsync(page, screenshots, "outline");
 
@@ -66,8 +68,9 @@ public sealed class DemoTests(BrowserHost host)
         await ScreenshotAsync(page, screenshots, "tags");
 
         // Annotations: add a note and a stamp through the annotation layer.
-        await OpenGalleryAsync(page, "documents/annotations-link.pdf", "annotations-link.pdf", ink: false); // blue link text only
-        await OpenPanelAsync(page, "annotate");
+        await OpenGalleryAsync(page, "documents/annotations-link.pdf", "annotations-link.pdf", ink: false); // a link and no content
+        await page.Locator("[data-sheet=annotate]").WaitForAsync(); // opened by the gallery entry, with a note (#351)
+        Assert.Contains("link", await page.Locator(".message").InnerTextAsync(), StringComparison.Ordinal);
         int before = await CountAsync(page, "annotationCount");
         await page.Locator("[data-action=add-note]").ClickAsync();
         await page.Locator("[data-action=add-stamp]").ClickAsync();

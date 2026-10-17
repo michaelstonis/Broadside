@@ -165,8 +165,9 @@ public sealed class TileScheduler : IDisposable
 
     /// <summary>
     /// Redraws the tiles of a page that show <paramref name="area"/> in <paramref name="layers"/>, after an edit changed what they show
-    /// (an annotation added, moved or removed, a field's value). Tiles on the surface leave it and render again when wanted; renders in
-    /// progress restart.
+    /// (an annotation added, moved or removed, a field's value). A tile on the surface that is still wanted stays there, and in
+    /// <see cref="GetFrame"/>, until its redraw replaces it (<see cref="TileEventKind.Invalidated"/>), so the edit never shows a blank
+    /// frame; one no longer wanted leaves the surface; renders in progress restart.
     /// </summary>
     /// <param name="pageIndex">The zero-based page.</param>
     /// <param name="area">The changed area in the page's default user space.</param>
@@ -218,7 +219,7 @@ public sealed class TileScheduler : IDisposable
             dropped = _stale.Count;
             foreach (TileJob job in _stale)
             {
-                Drop(job, ref cancel);
+                Refresh(job, ref cancel);
             }
 
             _stale.Clear();
@@ -243,9 +244,36 @@ public sealed class TileScheduler : IDisposable
         }
     }
 
+    /// <summary>
+    /// Redraws an out-of-date tile: one still wanted keeps its old pixels on the surface (and in <see cref="GetFrame"/>) until the redraw
+    /// replaces them, so an edit never shows a blank frame; a render in progress restarts, keeping the old pixels it was replacing.
+    /// </summary>
+    private void Refresh(TileJob job, ref List<CancellationTokenSource>? cancel)
+    {
+        if (job.State == TileState.Resident && job.Generation == _generation)
+        {
+            job.State = TileState.New;
+            job.OldPixels = true;
+            Trace(TileEventKind.Invalidated, job);
+        }
+        else if (job.IsDrawing && job.OldPixels)
+        {
+            job.OldPixels = false;
+            Cancel(job, ref cancel);
+            var redraw = new TileJob(this, job.Tile) { Generation = job.Generation, Priority = job.Priority, IsPlaceholder = job.IsPlaceholder, Bytes = job.Bytes, OldPixels = true };
+            _jobs[job.Tile] = redraw;
+            _replan = true;
+        }
+        else
+        {
+            Drop(job, ref cancel);
+        }
+    }
+
     /// <summary>Takes a tile off the surface (or stops its render); a tile still wanted renders again, after a replan for a stopped one.</summary>
     private void Drop(TileJob job, ref List<CancellationTokenSource>? cancel)
     {
+        ForgetOldPixels(job);
         if (job.State == TileState.Resident)
         {
             Evict(job);
@@ -259,6 +287,22 @@ public sealed class TileScheduler : IDisposable
         {
             _jobs.Remove(job.Tile);
         }
+    }
+
+    /// <summary>Takes the pixels an invalidated tile still shows off the surface: its redraw will not replace them.</summary>
+    private void ForgetOldPixels(TileJob job)
+    {
+        if (!job.OldPixels)
+        {
+            return;
+        }
+
+        job.OldPixels = false;
+        _surface.Evict(job.Tile);
+        _residentBytes -= job.Bytes;
+        _residentCount--;
+        _evicted++;
+        Trace(TileEventKind.Evicted, job);
     }
 
     private bool IsShown(DisplayLayers layers) =>
@@ -466,7 +510,7 @@ public sealed class TileScheduler : IDisposable
             foreach (TileJob job in _jobs.Values)
             {
                 Tile tile = job.Tile;
-                if (job.State != TileState.Resident || tile.Rotation != _layout.Rotation || IndexOfPage(tile.PageIndex, pages) is not int at)
+                if ((job.State != TileState.Resident && !job.OldPixels) || tile.Rotation != _layout.Rotation || IndexOfPage(tile.PageIndex, pages) is not int at)
                 {
                     continue;
                 }
@@ -640,6 +684,7 @@ public sealed class TileScheduler : IDisposable
             }
             else if (job.State is TileState.New or TileState.Failed)
             {
+                ForgetOldPixels(job);
                 _jobs.Remove(job.Tile);
             }
         }
@@ -1215,8 +1260,16 @@ public sealed class TileScheduler : IDisposable
     private void MakeResident(TileJob job)
     {
         job.State = TileState.Resident;
-        _residentBytes += job.Bytes;
-        _residentCount++;
+        if (job.OldPixels)
+        {
+            job.OldPixels = false; // the redraw replaced the old pixels under the same tile, already counted
+        }
+        else
+        {
+            _residentBytes += job.Bytes;
+            _residentCount++;
+        }
+
         _presented++;
         Enforce();
         Trace(TileEventKind.Presented, job);
@@ -1226,6 +1279,7 @@ public sealed class TileScheduler : IDisposable
     private void Fail(TileJob job)
     {
         Release(job);
+        ForgetOldPixels(job);
         job.State = TileState.Failed;
         Trace(TileEventKind.Failed, job);
     }
@@ -1239,6 +1293,7 @@ public sealed class TileScheduler : IDisposable
     /// <summary>Stops a render the viewport has left; a background render's token is cancelled by the caller after the lock is released.</summary>
     private void Cancel(TileJob job, ref List<CancellationTokenSource>? cancel)
     {
+        ForgetOldPixels(job);
         if (_cooperative)
         {
             if (job.Load is not null)
@@ -1339,6 +1394,7 @@ public sealed class TileScheduler : IDisposable
             {
                 if (failed)
                 {
+                    ForgetOldPixels(job);
                     job.State = TileState.Failed;
                     Trace(TileEventKind.Failed, job);
                 }
@@ -1402,6 +1458,9 @@ public sealed class TileScheduler : IDisposable
         public bool Reserved { get; set; }
 
         public bool Prefetched { get; set; }
+
+        /// <summary>Gets or sets whether the surface still shows this tile's pixels from before an invalidation (counted as resident).</summary>
+        public bool OldPixels { get; set; }
 
         public CancellationTokenSource? Cancellation { get; set; }
 
