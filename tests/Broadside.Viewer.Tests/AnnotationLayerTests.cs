@@ -67,13 +67,50 @@ public sealed class AnnotationLayerTests
         PageInvalidatedEventArgs invalidation = Assert.Single(invalidations);
         Assert.Equal((DisplayLayers.Annotations, 86.5, 146.5), (invalidation.Layers, invalidation.Area!.Value.Left, invalidation.Area.Value.Right));
 
-        // Device rows 742-782: tiles (0, 512) and (0, 768) of column 0, overlay only.
-        Assert.All(events, e => Assert.Equal((TileEventKind.Evicted, Overlay, 0), (e.Kind, e.Tile.Layers, e.Tile.Region.X)));
+        // Device rows 742-782: tiles (0, 512) and (0, 768) of column 0, overlay only; they stay on the surface until redrawn (#347).
+        Assert.All(events, e => Assert.Equal((TileEventKind.Invalidated, Overlay, 0), (e.Kind, e.Tile.Layers, e.Tile.Region.X)));
         Assert.Equal(2, events.Count);
+        Assert.All(events, e => Assert.Contains(surface.Tiles, t => t.Tile == e.Tile));
         events.Clear();
         RunToIdle(scheduler);
         Assert.All(events, e => Assert.Equal(Overlay, e.Tile.Layers));
         Assert.Equal(2, events.Count(e => e.Kind == TileEventKind.Presented));
+    }
+
+    [Fact]
+    public async Task Choosing_a_form_value_keeps_every_tile_in_the_frame_until_its_redraw_replaces_it()
+    {
+        // Issue #347: the old tiles of the field stay drawn while the new ones render, so no frame shows blank paper.
+        using var surface = new HeadlessSurface();
+        var events = new List<TileSchedulerEvent>();
+        await using DocumentSession session = Cooperative(Corpus.Bytes("acroform-fields.pdf"));
+        PageLayout layout = await PageLayout.CreateAsync(session, cancellationToken: Token);
+        using var scheduler = new TileScheduler(session, layout, surface, new TileSchedulerOptions().WithRenderAhead(0).WithNearMargin(0).WithPlaceholderScale(0).UseObserver(events.Add));
+        var viewport = new Viewport(0, 0, 612, 792, 1);
+        scheduler.Update(viewport);
+        RunToIdle(scheduler);
+        var frame = new FramePart[64];
+        int before = scheduler.GetFrame(viewport, frame);
+        int tiles = surface.Tiles.Count;
+
+        var layer = new AnnotationLayer(session, scheduler);
+        int count = await layer.LoadPageAsync(0, Token);
+        AnnotationTarget box = Enumerable.Range(0, count).Select(i => new AnnotationTarget(0, i))
+            .First(t => layer.GetRole(t) == AnnotationRole.Field && ((PdfWidgetAnnotation)layer.GetAnnotation(t)).Field is PdfCheckBoxField { IsReadOnly: false });
+        events.Clear();
+        layer.Activate(box);
+        Assert.Contains(events, e => e.Kind == TileEventKind.Invalidated);
+        do
+        {
+            Assert.Equal(before, scheduler.GetFrame(viewport, frame));
+            Assert.All(frame.AsSpan(0, before).ToArray(), part => Assert.NotEqual(FramePartKind.Scaled, part.Kind));
+            Assert.Equal(tiles, surface.Tiles.Count);
+        }
+        while (scheduler.RunFrame(TimeSpan.FromTicks(1)));
+
+        Assert.DoesNotContain(events, e => e.Kind == TileEventKind.Evicted);
+        Assert.Equal(events.Count(e => e.Kind == TileEventKind.Invalidated), events.Count(e => e.Kind == TileEventKind.Presented));
+        Assert.Equal(tiles, surface.Tiles.Count);
     }
 
     [Fact]

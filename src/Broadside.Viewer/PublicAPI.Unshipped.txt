@@ -270,6 +270,7 @@ Broadside.Viewer.TileEventKind.Presented = 1 -> Broadside.Viewer.TileEventKind
 Broadside.Viewer.TileEventKind.Cancelled = 2 -> Broadside.Viewer.TileEventKind
 Broadside.Viewer.TileEventKind.Evicted = 3 -> Broadside.Viewer.TileEventKind
 Broadside.Viewer.TileEventKind.Failed = 4 -> Broadside.Viewer.TileEventKind
+Broadside.Viewer.TileEventKind.Invalidated = 5 -> Broadside.Viewer.TileEventKind
 Broadside.Viewer.TileSchedulerEvent
 Broadside.Viewer.TileSchedulerEvent.TileSchedulerEvent() -> void
 Broadside.Viewer.TileSchedulerEvent.TileSchedulerEvent(Broadside.Viewer.TileEventKind Kind, Broadside.Viewer.Tile Tile, Broadside.Viewer.TilePriority Priority, bool IsPlaceholder, long Bytes) -> void
