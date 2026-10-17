@@ -80,6 +80,10 @@ public sealed class DemoTests(BrowserHost host)
         await OpenPanelAsync(page, "form");
         ILocator name = page.Locator("[data-field=name]");
         await name.FillAsync("Filled in the demo");
+        // Focusing a field reveals it in the page through the annotation layer; the viewer's reading focus must not take the keyboard.
+        await page.WaitForTimeoutAsync(500);
+        Assert.True(await name.EvaluateAsync<bool>("e => document.activeElement === e"), "the form panel's input keeps the keyboard");
+        Assert.Equal("Filled in the demo", await name.InputValueAsync());
         await name.DispatchEventAsync("change");
         await page.Locator(".topbar .edited").WaitForAsync();
         await ScreenshotAsync(page, screenshots, "form");
