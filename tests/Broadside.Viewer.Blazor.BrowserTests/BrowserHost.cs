@@ -146,8 +146,8 @@ public sealed class BrowserHost : IAsyncLifetime
         var types = new FileExtensionContentTypeProvider();
         types.Mappings[".wasm"] = "application/wasm";
         // A host that reserves paths starting with an underscore (the non-AOT build must not need any).
-        // BROADSIDE_CROSS_ORIGIN_ISOLATED=1 serves everything with COOP/COEP (performance.measureUserAgentSpecificMemory needs it; the
-        // render worker benchmark measures the page's and the worker's memory with it, #357). Off by default: static hosts send neither.
+        // BROADSIDE_CROSS_ORIGIN_ISOLATED=1 serves everything with COOP/COEP, to try the viewer on an isolated page (#357). Off by
+        // default: static hosts send neither header.
         bool isolated = Environment.GetEnvironmentVariable("BROADSIDE_CROSS_ORIGIN_ISOLATED") == "1";
         _server.Use(async (context, next) =>
         {

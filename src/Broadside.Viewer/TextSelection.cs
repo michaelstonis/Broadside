@@ -19,6 +19,7 @@ namespace Broadside.Viewer;
 /// </remarks>
 public sealed class TextSelection
 {
+    private readonly PageLoads<SelectableText> _loads = new();
     private readonly SelectableText?[] _pages;
     private TextPosition _anchorStart;
     private TextPosition _anchorEnd;
@@ -94,14 +95,19 @@ public sealed class TextSelection
             return loaded;
         }
 
-        DisplayList list = await Session.GetDisplayListAsync(pageIndex, DisplayLayers.All, cancellationToken).ConfigureAwait(false);
-
-        // The hit-test index and reading order are built off the UI thread in background mode (#357).
-        SelectableText text = await Session.ReadAsync(
-            _ =>
+        // One load per page however many ask; the hit-test index and reading order are built off the UI thread in background mode (#357).
+        SelectableText text = await _loads.LoadAsync(
+            pageIndex,
+            async () =>
             {
-                PdfPage page = Session.Document.Pages[pageIndex];
-                return SelectableText.Create(page, page.CreateHitTestIndex(list), ReadingOrder);
+                DisplayList list = await Session.GetDisplayListAsync(pageIndex, DisplayLayers.All, CancellationToken.None).ConfigureAwait(false);
+                return await Session.ReadAsync(
+                    _ =>
+                    {
+                        PdfPage page = Session.Document.Pages[pageIndex];
+                        return SelectableText.Create(page, page.CreateHitTestIndex(list), ReadingOrder);
+                    },
+                    CancellationToken.None).ConfigureAwait(false);
             },
             cancellationToken).ConfigureAwait(false);
         return Interlocked.CompareExchange(ref _pages[pageIndex], text, null) ?? text;

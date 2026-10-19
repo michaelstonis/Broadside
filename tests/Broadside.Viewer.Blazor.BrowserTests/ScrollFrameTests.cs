@@ -8,8 +8,7 @@ namespace Broadside.Viewer.Blazor.BrowserTests;
 /// The measurements behind <c>docs/benchmarks/viewer-render-worker.md</c> (#357): the demo opens TraceMonkey, pdf.js issue5567 (zoomed
 /// in) and issue12841 (a heavy page), with and without the render worker, scrolls with the wheel at a steady pace and records every
 /// <c>requestAnimationFrame</c> interval, on a desktop viewport and on a phone viewport with the CPU slowed 4x; plus the worker's boot
-/// time, the time to the first tile and, when the host is cross-origin isolated (<c>BROADSIDE_CROSS_ORIGIN_ISOLATED=1</c>), the memory
-/// of the page and of the worker (<c>performance.measureUserAgentSpecificMemory</c>). Explicit (wall-clock numbers): run with
+/// time, the time to the first tile, the page's memory (WebAssembly memory and JS heap) and the worker's WebAssembly memory. Explicit (wall-clock numbers): run with
 /// <c>BROADSIDE_CORPUS_DIR</c> set and the published app under test; <c>BROADSIDE_FRAME_BENCH_LABEL</c> names the build in
 /// <c>artifacts/scroll-frames-&lt;label&gt;.md</c>.
 /// </summary>
@@ -34,19 +33,16 @@ public sealed class ScrollFrameTests(BrowserHost host)
         }
         """;
 
-    // Bytes of the page's realm and of its dedicated workers (JS heaps and WebAssembly memories), or nothing without isolation.
-    private const string Memory = """
+    // The page's WebAssembly memory plus its JS heap (Chromium's performance.memory).
+    private const string PageMemory = """
         async () => {
-          if (!globalThis.crossOriginIsolated || !performance.measureUserAgentSpecificMemory) return [-1, -1];
-          const m = await performance.measureUserAgentSpecificMemory();
-          let page = 0, worker = 0;
-          for (const b of m.breakdown) {
-            const scopes = b.attribution.map(a => a.scope);
-            if (scopes.includes('DedicatedWorkerGlobalScope')) worker += b.bytes; else page += b.bytes;
-          }
-          return [page, worker];
+          const runtime = await globalThis.getDotnetRuntime(0);
+          return runtime.Module.HEAPU8.byteLength + (performance.memory ? performance.memory.usedJSHeapSize : 0);
         }
         """;
+
+    // The render worker's WebAssembly memory (a worker's JS heap is not exposed to script).
+    private const string WorkerMemory = "() => globalThis.__broadsideRuntime ? globalThis.__broadsideRuntime.Module.HEAPU8.byteLength : -1";
 
     [Fact(Explicit = true)]
     public async Task Measure_main_thread_frames_while_scrolling()
@@ -58,7 +54,7 @@ public sealed class ScrollFrameTests(BrowserHost host)
         var table = new StringBuilder();
         table.AppendLine(CultureInfo.InvariantCulture, $"## {label}: rAF intervals while scrolling (ms)");
         table.AppendLine();
-        table.AppendLine("| Device | Document | Worker | Frames while scrolling | Mean | p95 | Max | Over 17 ms | Settling 1.5 s after: max, over 17 ms | Worker boot (ms) | First tile (ms) | Page / worker memory (MiB) |");
+        table.AppendLine("| Device | Document | Worker | Frames while scrolling | Mean | p95 | Max | Over 17 ms | Settling 1.5 s after: max, over 17 ms | Worker boot (ms) | First tile (ms) | Page wasm+JS / worker wasm (MiB) |");
         table.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|");
         foreach ((string device, int width, int height, float scale, bool mobile, int throttle) in Devices)
         {
@@ -136,8 +132,14 @@ public sealed class ScrollFrameTests(BrowserHost host)
         double[] frames = [.. all.Where(f => f[0] <= end).Select(f => f[1])];
         double[] tail = [.. all.Where(f => f[0] > end).Select(f => f[1])];
         string worker = await page.EvaluateAsync<string>("() => document.querySelector('.bs-viewer')?.dataset.bsWorker ?? 'no'");
-        double[] memory = await page.EvaluateAsync<double[]>(Memory);
-        return new Run(frames, tail, worker, boot, firstTile, memory[0], memory[1]);
+        double pageBytes = await page.EvaluateAsync<double>(PageMemory);
+        double workerBytes = -1;
+        foreach (IWorker w in page.Workers)
+        {
+            workerBytes = Math.Max(workerBytes, await w.EvaluateAsync<double>(WorkerMemory));
+        }
+
+        return new Run(frames, tail, worker, boot, firstTile, pageBytes, workerBytes);
     }
 
     private static string FindRoot()

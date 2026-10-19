@@ -39,6 +39,24 @@ internal sealed class DocumentGate : IDisposable
         }
     }
 
+    /// <summary>Starts a short read on the calling thread when no edit is in progress (end it with <see cref="ExitRead"/>).</summary>
+    public bool TryEnterRead()
+    {
+        lock (_lock)
+        {
+            if (_edits != 0)
+            {
+                return false;
+            }
+
+            _readers++;
+            return true;
+        }
+    }
+
+    /// <summary>Ends a read <see cref="TryEnterRead"/> started.</summary>
+    public void ExitRead() => Exit();
+
     /// <summary>Starts an edit on the calling thread: cancels the reads in progress and blocks until they have stopped.</summary>
     public void BeginEdit()
     {

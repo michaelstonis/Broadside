@@ -16,6 +16,7 @@ function reply(message, transfer) {
 async function boot(dotnetUrl) {
   const { dotnet } = await import(dotnetUrl);
   const runtime = await dotnet.create();
+  globalThis.__broadsideRuntime = runtime; // diagnostics: the worker's WebAssembly memory (benchmarks)
   runtime.setModuleImports("broadside-render-worker", {
     deliver: (job, width, height, pixels) => {
       const image = new ImageData(width, height);

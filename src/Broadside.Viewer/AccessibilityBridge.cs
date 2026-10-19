@@ -25,6 +25,7 @@ namespace Broadside.Viewer;
 /// </remarks>
 public sealed class AccessibilityBridge
 {
+    private readonly PageLoads<LayoutTree> _loads = new();
     private readonly AccessibleNode[] _pages;
     private readonly AccessibleNode[]?[] _orders;
     private readonly List<AccessibleElement> _elements = [];
@@ -129,16 +130,22 @@ public sealed class AccessibilityBridge
         CheckPage(pageIndex);
         if (_orders[pageIndex] is null)
         {
-            // A remote page and everything it uses are fetched first (the layout reads its content and fonts); no display list is built.
-            PdfPage page = await Session.LoadPageAsync(pageIndex, cancellationToken).ConfigureAwait(true);
-            if (Session.IsRemote)
-            {
-                await page.PrefetchAsync(cancellationToken).ConfigureAwait(true);
-            }
+            // One extraction per page however many ask (#357). A remote page and everything it uses are fetched first (the layout
+            // reads its content and fonts; no display list is built); the layout (structure tree or content reading order) is extracted
+            // off the UI thread in background mode, and the nodes are built back on the caller's context.
+            LayoutTree tree = await _loads.LoadAsync(
+                pageIndex,
+                async () =>
+                {
+                    PdfPage page = await Session.LoadPageAsync(pageIndex, CancellationToken.None).ConfigureAwait(false);
+                    if (Session.IsRemote)
+                    {
+                        await page.PrefetchAsync(CancellationToken.None).ConfigureAwait(false);
+                    }
 
-            // The layout (structure tree or content reading order) is extracted off the UI thread in background mode (#357); the
-            // nodes are built back on the caller's context.
-            LayoutTree tree = await Session.ReadAsync(_ => page.ExtractLayout(), cancellationToken).ConfigureAwait(true);
+                    return await Session.ReadAsync(_ => page.ExtractLayout(), CancellationToken.None).ConfigureAwait(false);
+                },
+                cancellationToken).ConfigureAwait(true);
             if (_orders[pageIndex] is null)
             {
                 LoadOrder(pageIndex, tree);

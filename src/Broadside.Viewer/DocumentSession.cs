@@ -521,11 +521,32 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     {
         ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, PageCount);
-        PdfPage page = _remote
-            ? await Document.Pages.PrefetchAsync(pageIndex, token).ConfigureAwait(false)
-            : _reads is { } reads
-                ? await reads.ReadAsync(_ => Document.Pages[pageIndex], token).ConfigureAwait(false)
-                : Document.Pages[pageIndex];
+        PdfPage page;
+        if (_remote)
+        {
+            page = await Document.Pages.PrefetchAsync(pageIndex, token).ConfigureAwait(false);
+        }
+        else if (_reads is not { } reads)
+        {
+            page = Document.Pages[pageIndex];
+        }
+        else if (reads.TryEnterRead())
+        {
+            // No edit in progress: the page object is read here, so requests for a page arrive at its list build together and share it.
+            try
+            {
+                page = Document.Pages[pageIndex];
+            }
+            finally
+            {
+                reads.ExitRead();
+            }
+        }
+        else
+        {
+            // An edit is in progress: read after it, on a worker.
+            page = await reads.ReadAsync(_ => Document.Pages[pageIndex], token).ConfigureAwait(false);
+        }
         lock (_gate)
         {
             _metrics[pageIndex] ??= PageMetrics.Of(pageIndex, page);

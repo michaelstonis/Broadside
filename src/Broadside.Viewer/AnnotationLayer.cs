@@ -30,6 +30,7 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
     /// <summary>How far, in default user space units, a press must travel on a selected annotation before it drags it.</summary>
     public const double DragThreshold = 2;
 
+    private readonly PageLoads<AnnotationPage> _loads = new();
     private static readonly CosName TabsKey = new("Tabs");
     private static readonly CosName RowOrder = new("R");
     private static readonly CosName ColumnOrder = new("C");
@@ -147,13 +148,16 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
             return loaded.Count;
         }
 
-        PdfPage page = await Session.LoadPageAsync(pageIndex, cancellationToken).ConfigureAwait(true);
-        if (_pages[pageIndex] is null)
-        {
-            // Off the UI thread in background mode (#357); installed back on the caller's context.
-            AnnotationPage created = await Session.ReadAsync(_ => AnnotationPage.Create(Session.Document, page), cancellationToken).ConfigureAwait(true);
-            _pages[pageIndex] ??= created;
-        }
+        // Off the UI thread in background mode, one load per page however many ask (#357); installed back on the caller's context.
+        AnnotationPage created = await _loads.LoadAsync(
+            pageIndex,
+            async () =>
+            {
+                PdfPage page = await Session.LoadPageAsync(pageIndex, CancellationToken.None).ConfigureAwait(false);
+                return await Session.ReadAsync(_ => AnnotationPage.Create(Session.Document, page), CancellationToken.None).ConfigureAwait(false);
+            },
+            cancellationToken).ConfigureAwait(true);
+        _pages[pageIndex] ??= created;
 
         return _pages[pageIndex]!.Count;
     }
