@@ -259,4 +259,42 @@ public sealed class ColorConversionTests
 
         Near([1f, 0f, 1f], document.Rgb(PdfDeviceRgbColorSpace.Instance, 7, -3, float.MaxValue));
     }
+
+    [Theory]
+    [InlineData("rgb")]
+    [InlineData("cmyk")]
+    public void Eight_bit_samples_of_a_device_space_converted_to_its_own_model_are_the_samples(string family)
+    {
+        using PdfDocument document = PdfDocument.Create();
+        (PdfColorSpace space, DeviceColorModel model) = family == "rgb"
+            ? ((PdfColorSpace)PdfDeviceRgbColorSpace.Instance, DeviceColorModel.Rgb)
+            : (PdfDeviceCmykColorSpace.Instance, DeviceColorModel.Cmyk);
+        PdfColorConverter converter = document.GetColorConverter(space, new ColorConversion { Target = model });
+        byte[] samples = new byte[256 * converter.InputCount];
+        for (int i = 0; i < samples.Length; i++)
+        {
+            samples[i] = (byte)((i * 37) + (i / 3));
+        }
+
+        byte[] converted = new byte[samples.Length];
+        converter.Convert(samples, converted, 256);
+
+        Assert.Equal(samples, converted);
+    }
+
+    [Fact]
+    public void Runs_of_one_CMYK_colour_convert_to_the_same_bits_as_each_colour_alone()
+    {
+        using PdfDocument document = PdfDocument.Create();
+        PdfColorConverter converter = document.GetColorConverter(PdfDeviceCmykColorSpace.Instance, new ColorConversion());
+        float[] colours = [0.1f, 0.2f, 0.3f, 0.4f, 0.1f, 0.2f, 0.3f, 0.4f, 0.1f, 0.2f, 0.3f, 0.5f, 0f, 0f, 0f, 0f, -0f, 0f, 0f, 0f, 1f, 1f, 1f, 1f, 1f, 1f, 1f, 1f];
+        float[] batch = new float[colours.Length / 4 * 3];
+        converter.Convert(colours, batch, colours.Length / 4);
+
+        for (int i = 0; i < colours.Length / 4; i++)
+        {
+            float[] alone = converter.ConvertOne(colours[(i * 4)..((i * 4) + 4)]);
+            Assert.Equal(alone, batch[(i * 3)..((i * 3) + 3)]);
+        }
+    }
 }

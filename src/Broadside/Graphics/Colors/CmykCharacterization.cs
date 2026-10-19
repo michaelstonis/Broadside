@@ -54,62 +54,161 @@ internal static class CmykCharacterization
         0.013494, -0.060840, 0.020458, -0.002912,
     ];
 
-    /// <summary>Converts one CMYK colour (each 0 to 1, already clipped) to encoded sRGB, each 0 to 1.</summary>
-    /// <param name="c">Cyan.</param>
-    /// <param name="m">Magenta.</param>
-    /// <param name="y">Yellow.</param>
-    /// <param name="k">Black.</param>
-    /// <param name="rgb">Three values.</param>
-    public static void ToRgb(double c, double m, double y, double k, Span<double> rgb)
+    /// <summary>
+    /// Converts one CMYK colour (each 0 to 1, already clipped) to encoded sRGB, each 0 to 1: 1 plus the dot product of each channel's
+    /// coefficients with the monomials, in the term order above. Unrolled, without a term buffer, since it runs once per pixel of
+    /// CMYK images, groups and shadings; the sums keep their order, so the result is the same bits on every platform.
+    /// </summary>
+    /// <param name="c">Cyan, 0 to 1.</param>
+    /// <param name="m">Magenta, 0 to 1.</param>
+    /// <param name="y">Yellow, 0 to 1.</param>
+    /// <param name="k">Black, 0 to 1.</param>
+    /// <param name="r">Red, 0 to 1.</param>
+    /// <param name="g">Green, 0 to 1.</param>
+    /// <param name="b">Blue, 0 to 1.</param>
+    public static void ToRgb(double c, double m, double y, double k, out double r, out double g, out double b)
     {
-        Span<double> terms = stackalloc double[34];
-        terms[0] = k;
-        terms[1] = y;
-        terms[2] = m;
-        terms[3] = c;
-        terms[4] = k * k;
-        terms[5] = y * k;
-        terms[6] = y * y;
-        terms[7] = m * k;
-        terms[8] = m * y;
-        terms[9] = m * m;
-        terms[10] = c * k;
-        terms[11] = c * y;
-        terms[12] = c * m;
-        terms[13] = c * c;
-        terms[14] = k * k * k;
-        terms[15] = y * k * k;
-        terms[16] = y * y * k;
-        terms[17] = y * y * y;
-        terms[18] = m * k * k;
-        terms[19] = m * y * k;
-        terms[20] = m * y * y;
-        terms[21] = m * m * k;
-        terms[22] = m * m * y;
-        terms[23] = m * m * m;
-        terms[24] = c * k * k;
-        terms[25] = c * y * k;
-        terms[26] = c * y * y;
-        terms[27] = c * m * k;
-        terms[28] = c * m * y;
-        terms[29] = c * m * m;
-        terms[30] = c * c * k;
-        terms[31] = c * c * y;
-        terms[32] = c * c * m;
-        terms[33] = c * c * c;
-        rgb[0] = ColorMath.Clamp01(1 + Dot(Red, terms));
-        rgb[1] = ColorMath.Clamp01(1 + Dot(Green, terms));
-        rgb[2] = ColorMath.Clamp01(1 + Dot(Blue, terms));
-    }
-
-    private static double Dot(ReadOnlySpan<double> coefficients, ReadOnlySpan<double> terms)
-    {
-        double sum = 0;
-        for (int i = 0; i < coefficients.Length; i++)
-        {
-            sum += coefficients[i] * terms[i];
-        }
-
-        return sum;
+        double t0 = k;
+        double t1 = y;
+        double t2 = m;
+        double t3 = c;
+        double t4 = k * k;
+        double t5 = y * k;
+        double t6 = y * y;
+        double t7 = m * k;
+        double t8 = m * y;
+        double t9 = m * m;
+        double t10 = c * k;
+        double t11 = c * y;
+        double t12 = c * m;
+        double t13 = c * c;
+        double t14 = k * k * k;
+        double t15 = y * k * k;
+        double t16 = y * y * k;
+        double t17 = y * y * y;
+        double t18 = m * k * k;
+        double t19 = m * y * k;
+        double t20 = m * y * y;
+        double t21 = m * m * k;
+        double t22 = m * m * y;
+        double t23 = m * m * m;
+        double t24 = c * k * k;
+        double t25 = c * y * k;
+        double t26 = c * y * y;
+        double t27 = c * m * k;
+        double t28 = c * m * y;
+        double t29 = c * m * m;
+        double t30 = c * c * k;
+        double t31 = c * c * y;
+        double t32 = c * c * m;
+        double t33 = c * c * c;
+        double rSum = 0;
+        rSum += Red[0] * t0;
+        rSum += Red[1] * t1;
+        rSum += Red[2] * t2;
+        rSum += Red[3] * t3;
+        rSum += Red[4] * t4;
+        rSum += Red[5] * t5;
+        rSum += Red[6] * t6;
+        rSum += Red[7] * t7;
+        rSum += Red[8] * t8;
+        rSum += Red[9] * t9;
+        rSum += Red[10] * t10;
+        rSum += Red[11] * t11;
+        rSum += Red[12] * t12;
+        rSum += Red[13] * t13;
+        rSum += Red[14] * t14;
+        rSum += Red[15] * t15;
+        rSum += Red[16] * t16;
+        rSum += Red[17] * t17;
+        rSum += Red[18] * t18;
+        rSum += Red[19] * t19;
+        rSum += Red[20] * t20;
+        rSum += Red[21] * t21;
+        rSum += Red[22] * t22;
+        rSum += Red[23] * t23;
+        rSum += Red[24] * t24;
+        rSum += Red[25] * t25;
+        rSum += Red[26] * t26;
+        rSum += Red[27] * t27;
+        rSum += Red[28] * t28;
+        rSum += Red[29] * t29;
+        rSum += Red[30] * t30;
+        rSum += Red[31] * t31;
+        rSum += Red[32] * t32;
+        rSum += Red[33] * t33;
+        r = ColorMath.Clamp01(1 + rSum);
+        double gSum = 0;
+        gSum += Green[0] * t0;
+        gSum += Green[1] * t1;
+        gSum += Green[2] * t2;
+        gSum += Green[3] * t3;
+        gSum += Green[4] * t4;
+        gSum += Green[5] * t5;
+        gSum += Green[6] * t6;
+        gSum += Green[7] * t7;
+        gSum += Green[8] * t8;
+        gSum += Green[9] * t9;
+        gSum += Green[10] * t10;
+        gSum += Green[11] * t11;
+        gSum += Green[12] * t12;
+        gSum += Green[13] * t13;
+        gSum += Green[14] * t14;
+        gSum += Green[15] * t15;
+        gSum += Green[16] * t16;
+        gSum += Green[17] * t17;
+        gSum += Green[18] * t18;
+        gSum += Green[19] * t19;
+        gSum += Green[20] * t20;
+        gSum += Green[21] * t21;
+        gSum += Green[22] * t22;
+        gSum += Green[23] * t23;
+        gSum += Green[24] * t24;
+        gSum += Green[25] * t25;
+        gSum += Green[26] * t26;
+        gSum += Green[27] * t27;
+        gSum += Green[28] * t28;
+        gSum += Green[29] * t29;
+        gSum += Green[30] * t30;
+        gSum += Green[31] * t31;
+        gSum += Green[32] * t32;
+        gSum += Green[33] * t33;
+        g = ColorMath.Clamp01(1 + gSum);
+        double bSum = 0;
+        bSum += Blue[0] * t0;
+        bSum += Blue[1] * t1;
+        bSum += Blue[2] * t2;
+        bSum += Blue[3] * t3;
+        bSum += Blue[4] * t4;
+        bSum += Blue[5] * t5;
+        bSum += Blue[6] * t6;
+        bSum += Blue[7] * t7;
+        bSum += Blue[8] * t8;
+        bSum += Blue[9] * t9;
+        bSum += Blue[10] * t10;
+        bSum += Blue[11] * t11;
+        bSum += Blue[12] * t12;
+        bSum += Blue[13] * t13;
+        bSum += Blue[14] * t14;
+        bSum += Blue[15] * t15;
+        bSum += Blue[16] * t16;
+        bSum += Blue[17] * t17;
+        bSum += Blue[18] * t18;
+        bSum += Blue[19] * t19;
+        bSum += Blue[20] * t20;
+        bSum += Blue[21] * t21;
+        bSum += Blue[22] * t22;
+        bSum += Blue[23] * t23;
+        bSum += Blue[24] * t24;
+        bSum += Blue[25] * t25;
+        bSum += Blue[26] * t26;
+        bSum += Blue[27] * t27;
+        bSum += Blue[28] * t28;
+        bSum += Blue[29] * t29;
+        bSum += Blue[30] * t30;
+        bSum += Blue[31] * t31;
+        bSum += Blue[32] * t32;
+        bSum += Blue[33] * t33;
+        b = ColorMath.Clamp01(1 + bSum);
     }
 }

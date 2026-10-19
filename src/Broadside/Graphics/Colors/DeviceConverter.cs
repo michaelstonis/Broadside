@@ -1,3 +1,5 @@
+using System.Runtime.InteropServices;
+
 namespace Broadside.Graphics.Colors;
 
 /// <summary>Converts DeviceGray, DeviceRGB or DeviceCMYK colours to a device colour model.</summary>
@@ -29,14 +31,60 @@ internal sealed class DeviceConverter(PdfColorSpaceFamily source, ColorConversio
         _ => 3,
     };
 
+    /// <summary>
+    /// Whether every colour converts to itself: DeviceRGB to RGB, DeviceCMYK to CMYK and DeviceGray to gray, where conversion only
+    /// clips to 0 to 1, so 8-bit samples need no conversion at all (see <see cref="ManagedPipeline"/>).
+    /// </summary>
+    public bool IsIdentity => (source, conversion.Target) is (PdfColorSpaceFamily.DeviceRgb, DeviceColorModel.Rgb)
+        or (PdfColorSpaceFamily.DeviceCmyk, DeviceColorModel.Cmyk) or (PdfColorSpaceFamily.DeviceGray, DeviceColorModel.Gray);
+
     /// <inheritdoc/>
     public void Convert(ReadOnlySpan<float> source, Span<float> destination, int count)
     {
         int inputs = InputCount;
         int outputs = OutputCount;
+        if (inputs == 4 && outputs < 4 && cmyk == CmykConversion.Characterized)
+        {
+            ConvertCharacterized(source, destination, count);
+            return;
+        }
+
         for (int i = 0; i < count; i++)
         {
             ConvertOne(source.Slice(i * inputs, inputs), destination.Slice(i * outputs, outputs));
+        }
+    }
+
+    /// <summary>
+    /// CMYK through the SWOP characterisation, the costly conversion (a cubic polynomial per channel): a colour equal to the one
+    /// before it (a flat area, a group's backdrop) takes that one's result, bit for bit what converting it again gives.
+    /// </summary>
+    private void ConvertCharacterized(ReadOnlySpan<float> source, Span<float> destination, int count)
+    {
+        int outputs = OutputCount;
+        ReadOnlySpan<uint> bits = MemoryMarshal.Cast<float, uint>(source[..(count * 4)]);
+        (uint c0, uint m0, uint y0, uint k0) = (0, 0, 0, 0);
+        (float r0, float g0, float b0) = (0, 0, 0);
+        for (int i = 0; i < count; i++)
+        {
+            int at = i * 4;
+            (uint c1, uint m1, uint y1, uint k1) = (bits[at], bits[at + 1], bits[at + 2], bits[at + 3]);
+            Span<float> output = destination.Slice(i * outputs, outputs);
+            if (i == 0 || c1 != c0 || m1 != m0 || y1 != y0 || k1 != k0)
+            {
+                ConvertCmyk(source.Slice(at, 4), output);
+                (c0, m0, y0, k0) = (c1, m1, y1, k1);
+                r0 = output[0];
+                (g0, b0) = outputs == 3 ? (output[1], output[2]) : (0, 0);
+                continue;
+            }
+
+            output[0] = r0;
+            if (outputs == 3)
+            {
+                output[1] = g0;
+                output[2] = b0;
+            }
         }
     }
 
@@ -97,8 +145,7 @@ internal sealed class DeviceConverter(PdfColorSpaceFamily source, ColorConversio
             return;
         }
 
-        Span<double> rgb = stackalloc double[3];
-        CmykCharacterization.ToRgb(c, m, y, k, rgb);
-        ColorMath.FromRgb(rgb[0], rgb[1], rgb[2], output, conversion);
+        CmykCharacterization.ToRgb(c, m, y, k, out double r, out double g, out double b);
+        ColorMath.FromRgb(r, g, b, output, conversion);
     }
 }

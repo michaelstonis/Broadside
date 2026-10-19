@@ -50,6 +50,15 @@ public sealed partial class SkiaBackend
                 Report(4, GlyphsOutlined);
             }
 
+            // A run crosses many tiles: a filled glyph wholly outside the clip draws nothing, so it is neither recorded nor drawn.
+            bool culls = fills && !strokes;
+            SKRect clip = default;
+            if (culls)
+            {
+                _canvas!.SetMatrix(in _base);
+                clip = _canvas.LocalClipBounds;
+            }
+
             for (int index = 0; index < run.Glyphs.Length; index++)
             {
                 PathView outline = run.GetOutline(index);
@@ -59,6 +68,11 @@ public sealed partial class SkiaBackend
                 }
 
                 Matrix glyphToUser = run.GetGlyphTransform(index);
+                if (culls && Misses(outline, glyphToUser * _toDevice, clip))
+                {
+                    continue;
+                }
+
                 if (fills)
                 {
                     Matrix glyphToDevice = glyphToUser * _toDevice;
@@ -73,6 +87,36 @@ public sealed partial class SkiaBackend
                     StrokePathCore(ToUserSpace(outline, glyphToUser), run.StrokeStyle, run.StrokeColor);
                 }
             }
+        }
+
+        /// <summary>
+        /// Whether the outline under <paramref name="glyphToDevice"/> lies wholly outside <paramref name="clip"/> (in the coordinates of
+        /// the canvas under <c>_base</c>): the bounds of its points (a curve stays within its control points), with two pixels to spare.
+        /// </summary>
+        private static bool Misses(PathView outline, in Matrix glyphToDevice, SKRect clip)
+        {
+            double minX = double.PositiveInfinity;
+            double minY = double.PositiveInfinity;
+            double maxX = double.NegativeInfinity;
+            double maxY = double.NegativeInfinity;
+            foreach (PathPoint point in outline.Points)
+            {
+                minX = Math.Min(minX, point.X);
+                minY = Math.Min(minY, point.Y);
+                maxX = Math.Max(maxX, point.X);
+                maxY = Math.Max(maxY, point.Y);
+            }
+
+            PathPoint a = glyphToDevice.Transform(minX, minY);
+            PathPoint b = glyphToDevice.Transform(maxX, minY);
+            PathPoint c = glyphToDevice.Transform(maxX, maxY);
+            PathPoint d = glyphToDevice.Transform(minX, maxY);
+
+            // NaN compares false everywhere, so an outline that cannot be bounded is drawn as before.
+            return Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X)) < clip.Left - 2
+                || Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X)) > clip.Right + 2
+                || Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y)) < clip.Top - 2
+                || Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y)) > clip.Bottom + 2;
         }
 
         /// <summary>

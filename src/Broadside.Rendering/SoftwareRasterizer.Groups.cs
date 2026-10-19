@@ -27,6 +27,7 @@ public sealed partial class SoftwareRasterizer
         // Working rows for converting a group's result to its parent's colour space.
         private float[] _groupComponents = [];
         private float[] _groupConverted = [];
+        private int[] _groupRuns = [];
         private uint[] _groupRow = [];
 
         // The backdrop a non-isolated tiling cell is rendered over, and the bitmap over it.
@@ -270,6 +271,7 @@ public sealed partial class SoftwareRasterizer
             _layers = [];
             Pooled.Return(ref _groupComponents);
             Pooled.Return(ref _groupConverted);
+            Pooled.Return(ref _groupRuns);
             Pooled.Return(ref _groupRow);
             _groundBitmap?.Dispose();
             _groundBitmap = null;
@@ -461,14 +463,27 @@ public sealed partial class SoftwareRasterizer
             int outputs = _pixelModel.Components;
             Pooled.Ensure(ref _groupComponents, width * inputs);
             Pooled.Ensure(ref _groupConverted, width * outputs);
+            Pooled.Ensure(ref _groupRuns, width);
             Span<float> components = _groupComponents.AsSpan(0, width * inputs);
             Span<uint> first = layer.PlaneRow(0, row, 0, width);
             Span<uint> black = cmyk ? layer.PlaneRow(1, row, 0, width) : default;
+            Span<int> runs = _groupRuns.AsSpan(0, width);
+
+            // A pixel equal to the one before it (in every plane) converts to the same colour, so each run of equal pixels (a flat
+            // area, the backdrop) is converted once: the colours converted are the runs' first pixels, in order.
+            int count = 0;
             for (int x = 0; x < width; x++)
             {
                 uint pixel = first[x];
+                if (x > 0 && pixel == first[x - 1] && (!cmyk || black[x] == black[x - 1]))
+                {
+                    runs[x] = runs[x - 1];
+                    continue;
+                }
+
+                runs[x] = count;
                 float alpha = (pixel >> 24) / 255f;
-                Span<float> c = components.Slice(x * inputs, inputs);
+                Span<float> c = components.Slice(count++ * inputs, inputs);
                 if (alpha <= 0 && !layer.OntoWhite)
                 {
                     c.Clear();
@@ -492,12 +507,18 @@ public sealed partial class SoftwareRasterizer
                 }
             }
 
-            Span<float> converted = _groupConverted.AsSpan(0, width * outputs);
-            converter.Convert(components, converted, width);
+            Span<float> converted = _groupConverted.AsSpan(0, count * outputs);
+            converter.Convert(components[..(count * inputs)], converted, count);
             for (int x = 0; x < width; x++)
             {
+                if (x > 0 && runs[x] == runs[x - 1])
+                {
+                    destination[x] = destination[x - 1];
+                    continue;
+                }
+
                 int alpha = layer.OntoWhite ? 255 : (int)(first[x] >> 24);
-                destination[x] = alpha == 0 ? 0 : Premultiply(_pixelModel.Pack(converted.Slice(x * outputs, outputs)), alpha);
+                destination[x] = alpha == 0 ? 0 : Premultiply(_pixelModel.Pack(converted.Slice(runs[x] * outputs, outputs)), alpha);
             }
         }
 
