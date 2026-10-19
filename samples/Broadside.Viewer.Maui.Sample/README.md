@@ -18,6 +18,8 @@ links inside the document navigate.
 
 Smoke run: `BROADSIDE_SMOKE=1` (Android: `adb shell am start -n dev.broadside.viewer.sample/.MainActivity --ez smoke true`) opens
 TraceMonkey, waits for page 1, captures the frame from the GPU surface, logs `BROADSIDE_SMOKE_OK` with what it measured and quits.
+`smoke-android.sh <apk>` installs an APK on the connected emulator or device, runs that intent and fails on `BROADSIDE_SMOKE_FAILED`,
+a native abort or no verdict in time; `.github/workflows/maui-android.yml` runs it on the Release build (#368).
 
 ## Documents
 
