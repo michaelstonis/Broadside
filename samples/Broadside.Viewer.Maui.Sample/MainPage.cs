@@ -37,6 +37,7 @@ public sealed class MainPage : ContentPage
     private readonly Label _status = new() { VerticalTextAlignment = TextAlignment.Center, Margin = new Thickness(8, 0) };
     private DocumentSession? _session;
     private bool _smokeDone;
+    private bool _benchStarted;
 
     public MainPage()
     {
@@ -82,11 +83,18 @@ public sealed class MainPage : ContentPage
         return button;
     }
 
-    private async Task OpenAsync(GalleryEntry entry)
+    private Task<bool> OpenAsync(GalleryEntry entry) => OpenFileAsync(entry.File);
+
+    private async Task<bool> OpenFileAsync(string file)
     {
         try
         {
-            await using Stream asset = await FileSystem.OpenAppPackageFileAsync(entry.File);
+            if (!await FileSystem.AppPackageFileExistsAsync(file))
+            {
+                return false;
+            }
+
+            await using Stream asset = await FileSystem.OpenAppPackageFileAsync(file);
             using var bytes = new MemoryStream();
             await asset.CopyToAsync(bytes);
             DocumentSession session = DocumentSession.Open(bytes.ToArray(), Options);
@@ -94,19 +102,34 @@ public sealed class MainPage : ContentPage
             _session = session;
             _view.Session = session;
             old?.Dispose();
+            return true;
         }
         catch (Exception exception)
         {
             _status.Text = exception.Message;
+            return false;
         }
     }
 
     private void OnStateChanged(object? sender, PdfViewStateChangedEventArgs e)
     {
         PdfViewState state = e.State;
-        _status.Text = state.PageCount == 0
+
+        // Only page and zoom changes reach the label: a text change lays the page out again, which a scroll must not pay for each time
+        // the view starts or finishes drawing (#357).
+        string status = state.PageCount == 0
             ? (state.IsLoading ? "Opening…" : string.Empty)
-            : string.Create(CultureInfo.InvariantCulture, $"Page {state.PageIndex + 1} of {state.PageCount}  {state.Zoom * 100:0}%{(state.IsRendering ? "  drawing…" : string.Empty)}");
+            : string.Create(CultureInfo.InvariantCulture, $"Page {state.PageIndex + 1} of {state.PageCount}  {state.Zoom * 100:0}%");
+        if (_status.Text != status)
+        {
+            _status.Text = status;
+        }
+        if (FrameBench.Requested && !_benchStarted && state is { PageCount: > 0, IsLoading: false })
+        {
+            _benchStarted = true;
+            _ = FrameBench.RunAsync(_view, OpenFileAsync);
+        }
+
         if (SmokeTest.Requested && !_smokeDone && state is { PageCount: > 0, IsLoading: false, IsRendering: false, Zoom: > 0 })
         {
             _smokeDone = true;

@@ -33,6 +33,8 @@ internal sealed class ViewerController : IDisposable
     private const DisplayLayers AllLayers = DisplayLayers.Content | OverlayLayers;
 
     private readonly IViewerHost _host;
+    private readonly SynchronizationContext? _ui;
+    private int _wakePosted;
     private readonly TimeProvider _time;
     private readonly CancellationTokenSource _closing = new();
     private readonly HashSet<int> _requested = [];
@@ -93,7 +95,20 @@ internal sealed class ViewerController : IDisposable
         _host = host;
         _time = time ?? TimeProvider.System;
         Surface = new TileImageSurface(_time);
-        Surface.Presented += (_, _) => Wake();
+
+        // A background session presents on workers (#357): the frame request goes back to the UI thread.
+        _ui = SynchronizationContext.Current;
+        Surface.Presented += (_, _) =>
+        {
+            if (_ui is null || SynchronizationContext.Current == _ui)
+            {
+                Wake();
+            }
+            else if (Interlocked.Exchange(ref _wakePosted, 1) == 0)
+            {
+                _ui.Post(static state => ((ViewerController)state!).WakeFromWorker(), this);
+            }
+        };
     }
 
     private enum PointerMode
@@ -695,11 +710,18 @@ internal sealed class ViewerController : IDisposable
         Viewport viewport = _input.Viewport;
         _bridge!.Update();
         bool unloaded = RequestPageLoad(viewport, !more || Stopwatch.GetElapsedTime(start) < IdleFrame);
+        Surface.Drain();
         bool stale = Surface.ExpireStale();
         Compose(viewport);
         PlaceEditor(viewport);
         SetState(new PdfViewState(_input.CurrentPage, _metrics.Length, viewport.Zoom / _input.ActualSize, false, !_scheduler!.IsIdle));
         return more || unloaded || stale || longPress || _metricsDirty || _input.IsAnimating;
+    }
+
+    private void WakeFromWorker()
+    {
+        Volatile.Write(ref _wakePosted, 0);
+        Wake();
     }
 
     private void Wake()

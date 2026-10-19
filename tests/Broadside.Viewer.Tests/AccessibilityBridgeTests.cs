@@ -78,6 +78,8 @@ public sealed class AccessibilityBridgeTests
         viewer.Settle();
         bridge.Update();
 
+        // A background session extracts the new page's layout on a worker first (#357): the focus follows once it is loaded.
+        await WaitUntilAsync(() => focusChanges.Count > 0);
         AccessibleNode first = Assert.Single(focusChanges)!;
         Assert.True(Assert.Single(follows)); // #349: following the viewer is marked, so a shell need not move the keyboard focus
         Assert.Same(first, bridge.Focus);
@@ -89,6 +91,7 @@ public sealed class AccessibilityBridgeTests
         viewer.Input.GoToPage(0);
         viewer.Settle();
         bridge.Update();
+        await WaitUntilAsync(() => bridge.Focus!.PageIndex == 0);
         Assert.Equal("Before", bridge.Focus!.Name);
         Assert.Equal(AccessibleStates.Focusable | AccessibleStates.Offscreen, bridge.GetStates(first));
 
@@ -205,6 +208,15 @@ public sealed class AccessibilityBridgeTests
         Assert.Throws<ArgumentNullException>(() => bridge.FindNode(0, null!));
         Assert.Equal(AccessibleRole.Document, bridge.Root.Role);
         Assert.Equal(-1, bridge.Root.PageIndex);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        while (!condition() && watch.Elapsed < TimeSpan.FromSeconds(30))
+        {
+            await Task.Delay(5, TestContext.Current.CancellationToken);
+        }
     }
 
     internal static DocumentSession Open(string fileName) =>

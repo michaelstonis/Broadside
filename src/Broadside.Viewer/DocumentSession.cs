@@ -43,6 +43,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     private readonly Stack<ITileBackend> _idleBackends = new();
     private readonly PageMetrics?[] _metrics;
     private readonly Dictionary<(int Page, DisplayLayers Layers), PendingBuild> _builds = [];
+    private readonly DocumentGate? _reads;
     private int _pending;
     private bool _closed;
     private bool _cancelIssued;
@@ -64,10 +65,19 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         _slots = new SemaphoreSlim(options.MaxConcurrency, options.MaxConcurrency);
         MaxConcurrency = options.MaxConcurrency;
         _metrics = new PageMetrics?[document.Pages.Count];
+        _reads = _cooperative ? null : new DocumentGate();
+        RemoteRenderer = options.RemoteRenderer;
     }
 
     /// <summary>Gets the document. The session owns it and disposes it when it closes.</summary>
     public PdfDocument Document { get; }
+
+    /// <summary>Gets the renderer that draws the tiles it accepts outside the viewer's thread, if the options selected one.</summary>
+    /// <remarks>Spec #33 viewer capability 1 (#357), ADR 0013. A shell keeps overlays in tiles of their own when it is set.</remarks>
+    public IRemoteTileRenderer? RemoteRenderer { get; }
+
+    /// <summary>Gets whether the document is read through range requests (pages are prefetched before use).</summary>
+    internal bool IsRemote => _remote;
 
     /// <summary>Gets whether the session works on its caller's thread in slices (the browser) instead of on thread-pool workers.</summary>
     internal bool IsCooperative => _cooperative;
@@ -357,6 +367,14 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
             PdfPage page = await LoadPageAsync(tile.PageIndex, token).ConfigureAwait(true);
             DisplayList list = await BuildAsync(tile.PageIndex, page, tile.Layers, token).ConfigureAwait(true);
             Matrix transform = GetTileTransform(page, tile);
+            if (list.OperationCount == 0 && (tile.Layers & DisplayLayers.Content) == 0 && surface is IEmptyTileSink empty)
+            {
+                // An overlay with nothing on it: the scheduler keeps it without pixels (#357).
+                token.ThrowIfCancellationRequested();
+                empty.PresentEmpty(tile);
+                Interlocked.Increment(ref _presented);
+                return;
+            }
 
             await _slots.WaitAsync(token).ConfigureAwait(true);
             slot = true;
@@ -397,6 +415,53 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         Tile tile = await GetPageTileAsync(pageIndex, scale, 0, cancellationToken).ConfigureAwait(true);
         await RenderTileAsync(tile, surface, cancellationToken).ConfigureAwait(true);
         return tile;
+    }
+
+    /// <summary>
+    /// Starts an edit of <see cref="Document"/> on the calling thread (the UI thread): in <see cref="ViewerThreading.Background"/> mode it
+    /// stops the reads that workers have in progress (page loads, display-list builds and page-model loads, which start again after
+    /// the edit) and holds new ones until the returned scope is disposed. Edit the document only inside such a scope while the session
+    /// reads it; <see cref="AnnotationLayer"/>'s edits take one themselves.
+    /// </summary>
+    /// <returns>The edit's scope; dispose it when the edit is done (then invalidate the tiles it touched).</returns>
+    /// <exception cref="InvalidOperationException">Another thread is editing the document.</exception>
+    /// <remarks>
+    /// Spec #33 viewer capability 1 (#357): the thread-safety contract, concurrent reads and renders, single-threaded mutation. Tile
+    /// replays read only the finished display list and go on. In <see cref="ViewerThreading.Cooperative"/> mode every read runs on the
+    /// caller's thread, so the scope does nothing.
+    /// </remarks>
+    public IDisposable BeginEdit()
+    {
+        if (_reads is not { } reads)
+        {
+            return EditScope.None;
+        }
+
+        reads.BeginEdit();
+        return new EditScope(reads.EndEdit);
+    }
+
+    /// <summary>
+    /// Reads the document off the caller's thread: on a worker in <see cref="ViewerThreading.Background"/> mode, outside any edit
+    /// (<see cref="BeginEdit"/>); on the caller's thread in cooperative mode.
+    /// </summary>
+    internal async ValueTask<T> ReadAsync<T>(Func<CancellationToken, T> work, CancellationToken cancellationToken)
+    {
+        if (_reads is not { } reads)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return work(cancellationToken);
+        }
+
+        CancellationTokenSource operation = Enter(cancellationToken);
+        try
+        {
+            return await reads.ReadAsync(work, operation.Token).ConfigureAwait(false);
+        }
+        finally
+        {
+            Exit(operation);
+        }
     }
 
     /// <summary>Closes the session: cancels pending work; the backends and the document are released once that work has stopped.</summary>
@@ -458,7 +523,9 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, PageCount);
         PdfPage page = _remote
             ? await Document.Pages.PrefetchAsync(pageIndex, token).ConfigureAwait(false)
-            : Document.Pages[pageIndex];
+            : _reads is { } reads
+                ? await reads.ReadAsync(_ => Document.Pages[pageIndex], token).ConfigureAwait(false)
+                : Document.Pages[pageIndex];
         lock (_gate)
         {
             _metrics[pageIndex] ??= PageMetrics.Of(pageIndex, page);
@@ -580,7 +647,8 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
                     return page.CreateDisplayList(layers, _intent, options);
                 }
 
-                return await Task.Run(() => page.CreateDisplayList(layers, _intent, options), token).ConfigureAwait(false);
+                // A read: an edit stops the build and it starts again after the edit.
+                return await _reads!.ReadAsync(read => page.CreateDisplayList(layers, _intent, new ContentOptions().WithCancellation(read)), token).ConfigureAwait(false);
             }
             catch (PdfRangeNotLoadedException) when (_remote && attempt == 0)
             {
@@ -713,6 +781,8 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
         _slots.Dispose();
         _closing.Dispose();
+        _reads?.Dispose();
+        RemoteRenderer?.Dispose();
         Document.Dispose();
         _released.TrySetResult();
     }
@@ -726,5 +796,14 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         public int Waiters { get; set; }
 
         public void Dispose() => Cancellation.Dispose();
+    }
+
+    private sealed class EditScope(Action? end) : IDisposable
+    {
+        public static readonly EditScope None = new(null);
+
+        private Action? _end = end;
+
+        public void Dispose() => Interlocked.Exchange(ref _end, null)?.Invoke();
     }
 }

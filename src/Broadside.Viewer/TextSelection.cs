@@ -95,8 +95,15 @@ public sealed class TextSelection
         }
 
         DisplayList list = await Session.GetDisplayListAsync(pageIndex, DisplayLayers.All, cancellationToken).ConfigureAwait(false);
-        PdfPage page = Session.Document.Pages[pageIndex];
-        SelectableText text = SelectableText.Create(page, page.CreateHitTestIndex(list), ReadingOrder);
+
+        // The hit-test index and reading order are built off the UI thread in background mode (#357).
+        SelectableText text = await Session.ReadAsync(
+            _ =>
+            {
+                PdfPage page = Session.Document.Pages[pageIndex];
+                return SelectableText.Create(page, page.CreateHitTestIndex(list), ReadingOrder);
+            },
+            cancellationToken).ConfigureAwait(false);
         return Interlocked.CompareExchange(ref _pages[pageIndex], text, null) ?? text;
     }
 

@@ -166,10 +166,15 @@
 
     // ?file=<address> opens a document through range requests (relative addresses resolve against the app, wherever it is hosted).
     string? file = null;
+    bool worker = true;
     foreach (string pair in new Uri(Navigation.Uri).Query.TrimStart('?').Split('&', StringSplitOptions.RemoveEmptyEntries))
     {
       string[] parts = pair.Split('=', 2);
-      if (parts.Length == 2 && parts[0] == "file")
+      if (parts.Length == 2 && parts[0] == "worker" && parts[1] == "0")
+      {
+        worker = false; // ?worker=0 draws every tile on the page's thread (to compare)
+      }
+      else if (parts.Length == 2 && parts[0] == "file")
       {
         file = Uri.UnescapeDataString(parts[1]);
       }
@@ -178,6 +183,12 @@
         // ?renderer=webgl draws with WebGL 2 from the first page (the View panel switches later).
         await Renderers.SetAsync(true);
       }
+    }
+
+    // The render worker boots the app's runtime a second time, in a Web Worker: content tiles render there (#357).
+    if (worker)
+    {
+      await RenderWorker.StartAsync(TimeSpan.FromSeconds(30));
     }
 
     if (file is not null)

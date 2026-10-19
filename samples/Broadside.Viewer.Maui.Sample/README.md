@@ -19,6 +19,11 @@ links inside the document navigate.
 Smoke run: `BROADSIDE_SMOKE=1` (Android: `adb shell am start -n dev.broadside.viewer.sample/.MainActivity --ez smoke true`) opens
 TraceMonkey, waits for page 1, captures the frame from the GPU surface, logs `BROADSIDE_SMOKE_OK` with what it measured and quits.
 
+Frame bench (#357): `BROADSIDE_FRAMES=1` (iOS simulator: `SIMCTL_CHILD_BROADSIDE_FRAMES=1 xcrun simctl launch --console-pty ...`;
+Android: `--ez frames true`) scrolls TraceMonkey, then pdf.js issue5567 zoomed in (bundled only when `BROADSIDE_CORPUS_DIR` has it at
+build time), for four seconds each while a probe thread measures how long the UI thread takes to pick up work, and logs one
+`BROADSIDE_FRAMES` line per document (`max` is the longest UI-thread stall).
+
 ## Documents
 
 - `tracemonkey.pdf`: "Trace-based Just-in-Time Type Specialization for Dynamic Languages" (Gal et al., PLDI 2009), the default document

@@ -15,6 +15,12 @@ public class MainActivity : MauiAppCompatActivity
             SmokeTest.Requested = true;
         }
 
+        // Frame bench (#357): adb shell am start -n dev.broadside.viewer.sample/.MainActivity --ez frames true
+        if (Intent?.GetBooleanExtra("frames", false) == true)
+        {
+            FrameBench.Requested = true;
+        }
+
         base.OnCreate(savedInstanceState);
     }
 }

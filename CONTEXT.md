@@ -101,6 +101,10 @@ _Avoid_: Canvas (the core's content-writing API), view, target
 Decides which tiles a viewer draws and when (visible, then near, then ahead in the scroll direction), cancels tiles the viewport has left, and keeps tiles, display lists and the core caches within one memory budget.
 _Avoid_: Render queue, tile manager
 
+**Remote tile renderer**:
+Draws the tiles it accepts outside the thread that runs the viewer, from its own copy of the document (in the browser, the **render worker**: a second .NET runtime in a Web Worker); the tile scheduler keeps drawing the rest, such as annotation and form-field overlays, which edits change.
+_Avoid_: Worker renderer, offscreen renderer
+
 **Progressive zoom**:
 Zooming that shows each step at once from the tiles already on a surface (scaled, over each page's paper), keeps the anchor under the pointer, and renders sharp tiles only once the zoom settles.
 _Avoid_: Zoom controller, live zoom

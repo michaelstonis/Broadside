@@ -30,6 +30,7 @@ public sealed class AccessibilityBridge
     private readonly List<AccessibleElement> _elements = [];
     private PageLayout? _layout;
     private Viewport _viewport;
+    private int _followPending = -1;
     private int _currentPage = -1;
 
     /// <summary>Initializes a bridge over a session's document.</summary>
@@ -107,6 +108,15 @@ public sealed class AccessibilityBridge
     public AccessibleNode LoadPage(int pageIndex)
     {
         LoadOrder(CheckPage(pageIndex));
+        if (_followPending == pageIndex)
+        {
+            _followPending = -1;
+            if (_currentPage == pageIndex && Focus?.PageIndex != pageIndex)
+            {
+                SetFocusCore(FirstNode(pageIndex), scroll: false, follow: true);
+            }
+        }
+
         return _pages[pageIndex];
     }
 
@@ -119,7 +129,20 @@ public sealed class AccessibilityBridge
         CheckPage(pageIndex);
         if (_orders[pageIndex] is null)
         {
-            await Session.GetDisplayListAsync(pageIndex, DisplayLayers.Content, cancellationToken).ConfigureAwait(true);
+            // A remote page and everything it uses are fetched first (the layout reads its content and fonts); no display list is built.
+            PdfPage page = await Session.LoadPageAsync(pageIndex, cancellationToken).ConfigureAwait(true);
+            if (Session.IsRemote)
+            {
+                await page.PrefetchAsync(cancellationToken).ConfigureAwait(true);
+            }
+
+            // The layout (structure tree or content reading order) is extracted off the UI thread in background mode (#357); the
+            // nodes are built back on the caller's context.
+            LayoutTree tree = await Session.ReadAsync(_ => page.ExtractLayout(), cancellationToken).ConfigureAwait(true);
+            if (_orders[pageIndex] is null)
+            {
+                LoadOrder(pageIndex, tree);
+            }
         }
 
         return LoadPage(pageIndex);
@@ -366,7 +389,40 @@ public sealed class AccessibilityBridge
         Raise(AccessibilityChangeKind.BoundsChanged, null);
         if (follow && previous >= 0 && current != previous && (uint)current < (uint)_pages.Length && Focus?.PageIndex != current)
         {
-            SetFocusCore(FirstNode(current), scroll: false, follow: true);
+            if (_orders[current] is not null)
+            {
+                SetFocusCore(FirstNode(current), scroll: false, follow: true);
+            }
+            else if (Session.IsCooperative)
+            {
+                // One thread: extracting the page's layout now would stall the scroll (#357). The focus follows once the shell loads
+                // the page (LoadPage or LoadPageAsync), which it does when the view settles.
+                _followPending = current;
+            }
+            else
+            {
+                // The page's layout is extracted on a worker first (#357): a scroll never waits for it on the UI thread.
+                _ = FollowAsync(current);
+            }
+        }
+    }
+
+    private async Task FollowAsync(int pageIndex)
+    {
+        try
+        {
+            await LoadPageAsync(pageIndex).ConfigureAwait(true);
+        }
+#pragma warning disable CA1031 // the focus simply stays where it is; the page's own load reports its failure
+        catch (Exception)
+#pragma warning restore CA1031
+        {
+            return;
+        }
+
+        if (_currentPage == pageIndex && Focus?.PageIndex != pageIndex)
+        {
+            SetFocusCore(FirstNode(pageIndex), scroll: false, follow: true);
         }
     }
 
@@ -435,7 +491,7 @@ public sealed class AccessibilityBridge
         return pageIndex;
     }
 
-    private AccessibleNode[] LoadOrder(int pageIndex)
+    private AccessibleNode[] LoadOrder(int pageIndex, LayoutTree? extracted = null)
     {
         if (_orders[pageIndex] is { } loaded)
         {
@@ -444,7 +500,7 @@ public sealed class AccessibilityBridge
 
         PdfPage page = Session.Document.Pages[pageIndex];
         AccessibleNode pageNode = _pages[pageIndex];
-        LayoutTree tree = page.ExtractLayout();
+        LayoutTree tree = extracted ?? page.ExtractLayout();
         var order = new List<AccessibleNode>();
         var map = new Dictionary<LayoutNode, AccessibleNode>(ReferenceEqualityComparer.Instance);
         var children = new List<AccessibleNode>(tree.Root.Children.Count);

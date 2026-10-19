@@ -19,6 +19,10 @@ internal sealed class ViewerController : IAsyncDisposable
     /// <summary>A frame with less work than this starts loading one visible page's text, links and accessible tree.</summary>
     private static readonly TimeSpan IdleFrame = TimeSpan.FromMilliseconds(4);
 
+    // With a render worker, a page's text, links and accessibility nodes load once the view has been still this long: their display
+    // lists are built on this thread, which a scroll must not wait for (#357).
+    private static readonly TimeSpan SettleBeforeLoads = TimeSpan.FromMilliseconds(300);
+
     /// <summary>Real page sizes replace placeholders at most this often, so a remote document does not relayout per page.</summary>
     private static readonly TimeSpan RelayoutInterval = TimeSpan.FromMilliseconds(250);
 
@@ -40,6 +44,9 @@ internal sealed class ViewerController : IAsyncDisposable
     private double _ratio = 1;
 
     private DocumentSession? _session;
+    private bool _remoteRendering;
+    private Viewport _lastViewport;
+    private long _lastMove;
     private bool _ownsSession;
     private int _generation;
     private PageMetrics[] _metrics = [];
@@ -153,7 +160,22 @@ internal sealed class ViewerController : IAsyncDisposable
         }
 
         PageLayout layout = PageLayout.Create(_metrics, _layoutOptions);
-        _scheduler = new TileScheduler(session, layout, _surface, TileObserver is { } observer ? new TileSchedulerOptions().UseObserver(observer) : null);
+        // With a render worker (#357) the content tiles come from its copy of the document; annotations and form fields get tiles of
+        // their own, drawn here, so an edit never waits for the worker and the worker's copy never needs it.
+        _remoteRendering = session.RemoteRenderer is not null;
+        var schedulerOptions = new TileSchedulerOptions();
+        if (_remoteRendering)
+        {
+            schedulerOptions.WithSeparateOverlays();
+        }
+
+        if (TileObserver is { } observer)
+        {
+            schedulerOptions.UseObserver(observer);
+        }
+
+        ViewerInterop.MarkWorker(Id, _remoteRendering);
+        _scheduler = new TileScheduler(session, layout, _surface, schedulerOptions);
         if (!_showAnnotations)
         {
             _scheduler.SetLayers(DisplayLayers.Content);
@@ -668,7 +690,14 @@ internal sealed class ViewerController : IAsyncDisposable
         _bridge!.Update();
         // A load starts in a cheap frame, or once no tile is left to draw: on a slow device every frame may take longer than IdleFrame,
         // and the page's links, fields and text must still load (#350).
-        bool unloaded = RequestPageLoad(viewport, !more || Stopwatch.GetElapsedTime(start) < IdleFrame);
+        if (viewport != _lastViewport)
+        {
+            _lastViewport = viewport;
+            _lastMove = Stopwatch.GetTimestamp();
+        }
+
+        bool settled = !_remoteRendering || Stopwatch.GetElapsedTime(_lastMove) >= SettleBeforeLoads;
+        bool unloaded = RequestPageLoad(viewport, settled && (!more || Stopwatch.GetElapsedTime(start) < IdleFrame));
 
         if (_focusHost)
         {
@@ -760,6 +789,14 @@ internal sealed class ViewerController : IAsyncDisposable
     }
 
     /// <summary>Loads a page's selectable text, annotations and accessible tree, so the page can be selected, clicked and read.</summary>
+    private async Task SettledAsync(CancellationToken token)
+    {
+        while (_remoteRendering && Stopwatch.GetElapsedTime(_lastMove) < SettleBeforeLoads)
+        {
+            await Task.Delay(SettleBeforeLoads, token).ConfigureAwait(true);
+        }
+    }
+
     private async Task LoadPageAsync(int pageIndex, int generation)
     {
         try
@@ -767,7 +804,12 @@ internal sealed class ViewerController : IAsyncDisposable
             CancellationToken token = _closing.Token;
             // Links and fields first: they are cheap and make the page interactive; text selection extracts the page's layout (#350).
             await _annotations!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+
+            // Text selection builds the page's display list and accessibility extracts its layout on this thread, each one long task:
+            // with a render worker they wait until the view is still, so a scroll that starts meanwhile is not held up (#357).
+            await SettledAsync(token).ConfigureAwait(true);
             await _selection!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await SettledAsync(token).ConfigureAwait(true);
             await _bridge!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
             if (generation == _generation)
             {
@@ -849,6 +891,7 @@ internal sealed class ViewerController : IAsyncDisposable
             count = _zoom.GetFrame(_parts);
         }
 
+        // Paper and content tiles first, then overlay tiles (separate with a render worker) over all of them.
         foreach (FramePart part in _parts.AsSpan(0, count))
         {
             LayoutRectangle d = part.Destination;
@@ -856,7 +899,16 @@ internal sealed class ViewerController : IAsyncDisposable
             {
                 Add(ref records, 1, d.X, d.Y, d.Width, d.Height);
             }
-            else if (_surface.TryGetKey(part.Tile, out int key))
+            else if ((part.Tile.Layers & DisplayLayers.Content) != 0 && _surface.TryGetKey(part.Tile, out int key))
+            {
+                Add(ref records, 2, key, d.X, d.Y, d.Width, d.Height);
+            }
+        }
+
+        foreach (FramePart part in _parts.AsSpan(0, count))
+        {
+            LayoutRectangle d = part.Destination;
+            if (part.Kind != FramePartKind.Paper && (part.Tile.Layers & DisplayLayers.Content) == 0 && _surface.TryGetKey(part.Tile, out int key))
             {
                 Add(ref records, 2, key, d.X, d.Y, d.Width, d.Height);
             }

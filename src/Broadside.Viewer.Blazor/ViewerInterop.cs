@@ -49,6 +49,31 @@ internal static partial class ViewerInterop
     [JSImport("putTileFromCanvas", Module)]
     public static partial void PutTileFromCanvas(int id, int key, int width, int height, JSObject source);
 
+    [JSImport("putTileFromImage", Module)]
+    public static partial void PutTileFromImage(int id, int key, JSObject image);
+
+    [JSImport("markWorker", Module)]
+    public static partial void MarkWorker(int id, bool on);
+
+    [JSImport("startWorker", Module)]
+    [return: JSMarshalAs<JSType.Promise<JSType.String>>]
+    public static partial Task<string> StartWorker(int timeoutMs);
+
+    [JSImport("workerOpen", Module)]
+    public static partial void WorkerOpen(int document, int intent, [JSMarshalAs<JSType.MemoryView>] Span<byte> bytes);
+
+    [JSImport("workerOpenAddress", Module)]
+    public static partial void WorkerOpenAddress(int document, int intent, string address);
+
+    [JSImport("workerClose", Module)]
+    public static partial void WorkerClose(int document);
+
+    [JSImport("workerRender", Module)]
+    public static partial void WorkerRender(int job, int document, int page, double scale, int rotation, int x, int y, int width, int height, int layers);
+
+    [JSImport("workerCancel", Module)]
+    public static partial void WorkerCancel(int job);
+
     [JSImport("dropTile", Module)]
     public static partial void DropTile(int id, int key);
 

@@ -148,8 +148,14 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
         }
 
         PdfPage page = await Session.LoadPageAsync(pageIndex, cancellationToken).ConfigureAwait(true);
-        AnnotationPage model = _pages[pageIndex] ??= AnnotationPage.Create(Session.Document, page);
-        return model.Count;
+        if (_pages[pageIndex] is null)
+        {
+            // Off the UI thread in background mode (#357); installed back on the caller's context.
+            AnnotationPage created = await Session.ReadAsync(_ => AnnotationPage.Create(Session.Document, page), cancellationToken).ConfigureAwait(true);
+            _pages[pageIndex] ??= created;
+        }
+
+        return _pages[pageIndex]!.Count;
     }
 
     /// <summary>Gets how many annotations of a page take part: 0 until <see cref="LoadPageAsync"/> loaded it.</summary>
@@ -569,7 +575,11 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
             return false;
         }
 
-        field.SetValue(value);
+        using (Session.BeginEdit())
+        {
+            field.SetValue(value);
+        }
+
         InvalidateField(field);
         return true;
     }
@@ -585,7 +595,11 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
             return false;
         }
 
-        field.SetValue(value);
+        using (Session.BeginEdit())
+        {
+            field.SetValue(value);
+        }
+
         InvalidateField(field);
         return true;
     }
@@ -602,7 +616,11 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
             return false;
         }
 
-        field.SetSelectedIndices(indices);
+        using (Session.BeginEdit())
+        {
+            field.SetSelectedIndices(indices);
+        }
+
         InvalidateField(field);
         return true;
     }
@@ -636,7 +654,12 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
     {
         ArgumentNullException.ThrowIfNull(create);
         PdfPage page = PageOf(pageIndex);
-        PdfAnnotation annotation = create(page);
+        PdfAnnotation annotation;
+        using (Session.BeginEdit())
+        {
+            annotation = create(page);
+        }
+
         Reload(pageIndex, page);
         InvalidateAnnotation(pageIndex, annotation, annotation.Rect);
         AnnotationTarget? added = Find(pageIndex, annotation.Dictionary);
@@ -673,10 +696,13 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
 
         PdfAnnotation annotation = entry.Annotation;
         PdfRectangle before = entry.Rect;
-        edit(annotation);
-        if (regenerateAppearance)
+        using (Session.BeginEdit())
         {
-            annotation.RegenerateAppearance();
+            edit(annotation);
+            if (regenerateAppearance)
+            {
+                annotation.RegenerateAppearance();
+            }
         }
 
         Reload(target.PageIndex, PageOf(target.PageIndex));
@@ -698,7 +724,11 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
         }
 
         PdfPage page = PageOf(target.PageIndex);
-        page.RemoveAnnotation(entry.Annotation);
+        using (Session.BeginEdit())
+        {
+            page.RemoveAnnotation(entry.Annotation);
+        }
+
         Reload(target.PageIndex, page);
         Invalidate(new PageInvalidatedEventArgs(target.PageIndex, null, DisplayLayers.Annotations));
         return true;
@@ -762,13 +792,16 @@ public sealed class AnnotationLayer : IAccessibleElementProvider
 
     private void Toggle(PdfToggleButtonField field, PdfWidgetAnnotation widget)
     {
-        if (field is PdfCheckBoxField checkBox && checkBox.IsChecked)
+        using (Session.BeginEdit())
         {
-            checkBox.SetChecked(false);
-        }
-        else
-        {
-            field.Select(widget);
+            if (field is PdfCheckBoxField checkBox && checkBox.IsChecked)
+            {
+                checkBox.SetChecked(false);
+            }
+            else
+            {
+                field.Select(widget);
+            }
         }
 
         InvalidateField(field);

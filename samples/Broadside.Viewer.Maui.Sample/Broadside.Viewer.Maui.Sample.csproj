@@ -44,6 +44,11 @@
                LogicalName="documents/%(Filename)%(Extension)" Link="Resources/Raw/documents/%(Filename)%(Extension)" />
   </ItemGroup>
 
+  <!-- The frame bench's second document (#357), bundled only when the local real-world corpus has it (it is not redistributed). -->
+  <ItemGroup Condition="'$(BROADSIDE_CORPUS_DIR)' != '' and Exists('$(BROADSIDE_CORPUS_DIR)/pdfjs/issue5567.pdf')">
+    <MauiAsset Include="$(BROADSIDE_CORPUS_DIR)/pdfjs/issue5567.pdf" LogicalName="documents/issue5567.pdf" Link="Resources/Raw/documents/issue5567.pdf" />
+  </ItemGroup>
+
   <ItemGroup>
     <ProjectReference Include="../../src/Broadside.Viewer.Maui/Broadside.Viewer.Maui.csproj" />
     <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />

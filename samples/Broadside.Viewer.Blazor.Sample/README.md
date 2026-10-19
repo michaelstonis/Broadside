@@ -36,6 +36,11 @@ how many tiles fell back to the rasterizer; see `docs/benchmarks/viewer-gpu-vs-s
 WebAssembly has no X.509 support, so in the browser the panel lists what each signature dictionary says, unchecked, and says why
 (the same code validates on a server or desktop).
 
+Content tiles are drawn by the **render worker** (#357): `Program.cs` serves tiles when the app boots a second time inside a Web
+Worker, and each document the demo opens is sent there, so the page's thread only composes tiles and draws annotation and form
+overlays while you scroll. It needs no cross-origin isolation (any static host works); `?worker=0` draws every tile on the page's
+thread instead, to compare.
+
 ![Signatures](docs/demo-signatures.png)
 
 The screenshots come from the browser tests (`BROADSIDE_BROWSER_SCREENSHOTS=<folder>`, Chromium at 390 × 844).

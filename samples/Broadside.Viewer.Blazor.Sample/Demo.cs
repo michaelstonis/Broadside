@@ -45,6 +45,54 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
         .UseEngine(new PdfEngine(new PdfOptions().UseStandard14Fonts()))
         .UseBackend(static () => new DemoTileBackend());
 
+    /// <summary>
+    /// The options for one document: <see cref="Options"/>, plus the render worker's renderer when the worker runs (#357), so content
+    /// tiles are drawn off the page's thread (the session disposes the renderer).
+    /// </summary>
+    private static ViewerOptions OptionsFor(Func<IRemoteTileRenderer?> worker) =>
+        Renderers.UseWebGL || worker() is not { } renderer
+            ? Options
+            : new ViewerOptions().UseEngine(Options.Engine!).UseBackend(Options.BackendFactory!).WithIntent(Options.Intent).UseRemoteRenderer(renderer);
+
+    /// <summary>
+    /// Applies the renderer the View panel selected: the software rasterizer draws content tiles in the render worker, WebGL draws them
+    /// on the page's thread (the GPU is the page's), so a switch reopens the document where it is (with any edits) or just redraws it.
+    /// </summary>
+    public async Task ApplyRendererAsync()
+    {
+        if (Session is not { } session)
+        {
+            return;
+        }
+
+        bool worker = !Renderers.UseWebGL && RenderWorker.IsRunning;
+        if ((session.RemoteRenderer is not null) == worker)
+        {
+            Viewer?.Redraw();
+            return;
+        }
+
+        int page = CurrentPage;
+        bool edited = IsEdited;
+        if (RemoteAddress is { } remote && !edited)
+        {
+            await OpenUrlAsync(remote.AbsoluteUri).ConfigureAwait(true);
+            return;
+        }
+
+        try
+        {
+            using var stream = new MemoryStream();
+            await session.Document.SaveAsync(stream, new PdfSaveOptions(), WorkToken).ConfigureAwait(true);
+            await OpenBytesAsync(Name, stream.ToArray(), Address, page).ConfigureAwait(true);
+            IsEdited = edited;
+        }
+        catch (PdfRangeNotLoadedException)
+        {
+            Viewer?.Redraw(); // a remote file not loaded whole keeps its renderer
+        }
+    }
+
     /// <summary>Gets the demo of the running app (for the browser benchmarks' exports).</summary>
     public static Demo? Current { get; set; }
 
@@ -105,7 +153,7 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
         await (entry.Remote ? OpenUrlAsync(entry.File) : RunOpenAsync(entry.File, async token =>
         {
             byte[] bytes = await http.GetByteArrayAsync(Resolve(entry.File), token).ConfigureAwait(true);
-            return (DocumentSession.Open(bytes, Options), FileName(entry.File), null);
+            return (DocumentSession.Open(bytes, OptionsFor(() => RenderWorker.Open(bytes, Options.Intent))), FileName(entry.File), null);
         })).ConfigureAwait(true);
 
         if (Address == entry.File && Message is null)
@@ -129,14 +177,14 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
     public Task OpenUrlAsync(string address) => RunOpenAsync(address, async token =>
     {
         Uri uri = Resolve(address);
-        DocumentSession session = await DocumentSession.OpenAsync(http, uri, Options, token).ConfigureAwait(true);
+        DocumentSession session = await DocumentSession.OpenAsync(http, uri, OptionsFor(() => RenderWorker.Open(uri, Options.Intent)), token).ConfigureAwait(true);
         return (session, FileName(uri.AbsolutePath), uri);
     });
 
     /// <summary>Opens a document from bytes (a local file, a created document, or a remote one downloaded whole).</summary>
     public async Task OpenBytesAsync(string name, byte[] bytes, string? address = null, int page = 0)
     {
-        await RunOpenAsync(address, _ => Task.FromResult<(DocumentSession, string, Uri?)>((DocumentSession.Open(bytes, Options), name, null)))
+        await RunOpenAsync(address, _ => Task.FromResult<(DocumentSession, string, Uri?)>((DocumentSession.Open(bytes, OptionsFor(() => RenderWorker.Open(bytes, Options.Intent))), name, null)))
             .ConfigureAwait(true);
         if (page > 0)
         {
