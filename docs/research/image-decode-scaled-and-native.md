@@ -30,6 +30,8 @@ Issues that come out of this report:
 3. **Choose the reduction so the decoded image still has at least k samples per device pixel. k = 2 is proposed (an owner decision).**
    - Page-level differences against a full decode at k ≈ 2–3 are 36–54 dB.
    - That is smaller than the difference between our full-decode output and poppler's (26–37 dB).
+   - **Codec reduction averages before colour conversion, and today's pipeline averages after it.** The two agree only for affine conversions: DeviceGray, DeviceRGB, the no-CMM ICCBased fallback, and identities.
+   - For other conversions, cap the codec's reduction at 1/2 (1/4 for smooth tone curves) and leave further reduction to the painter, after conversion. A strongly curved tint transform at 1/8 measured only 40.5 dB. See §2.7.
 4. **JPX: dropping resolution levels is the large lever.**
    - OpenJPEG on `issue5567.pdf`: 340 ms full, 129 ms (−1 level), 63 ms (−2), 45 ms (−3).
    - Our managed decoder takes 475 ms full, so it is only 1.4× OpenJPEG's single-thread time.
@@ -242,6 +244,8 @@ Proposed rule:
 - k = 1 is the owner's alternative (decision 1 below). It roughly halves the time again at 35–45 dB.
 - `/Interpolate` (§8.9.5.3) only affects enlargement, so it does not change the choice. Enlargement never happens when k ≥ 1.
 - **Never reduce for print intent or exports** (decision 2): a `RenderOptions` switch, on by default for viewers.
+- **Cap s when the image's colour conversion is not affine** (§2.7): at most 2, or 4 for smooth tone curves.
+- The measurements in this section are from the no-CMM path. The cover's ICCBased space falls back to DeviceRGB there, which is affine, and the ICC-on run gave identical figures.
 
 ### 2.6 Cache and zoom
 
@@ -249,6 +253,52 @@ Proposed rule:
 - **Zoom-in:** asks for the next reduction up and decodes it from the encoded bytes. The coarser entry stays as the progressive-zoom placeholder (#212) until the budget evicts it.
 - **Zoom-out:** uses any cached finer reduction (down-filtering is always correct). It does not decode again.
 - **Masks:** an SMask or Mask has its own size (§11.6.5.2, §8.9.6.3). It is reduced by its own rule; today's code already resamples masks from their own resolution. A soft mask of the image's size is "folded" only when both have the same reduction.
+
+### 2.7 Averaging in sample space versus after colour conversion
+
+Today, `ImageSource.Prepare` converts every sample to the device model at the image's own resolution. `ImagePainter` then box-averages the **converted** (premultiplied) pixels. A reduction inside a codec averages **before** conversion instead:
+- the DCT scaled IDCT averages in the codec's sample space: YCbCr, followed by the codec's own affine YCbCr→RGB (§7.4.8);
+- a JPX resolution level is a low-pass of the component samples (§3).
+
+Both results then go through the PDF colour conversion (§8.6, §8.9.5). The two orders agree only when that conversion is **affine** on the samples: f(mean(x)) = mean(f(x)) holds for f(x) = a·x + b and fails otherwise. For f(t) = t², the samples 0 and 1 give f(0.5) = 0.25, but the mean of f is 0.5.
+
+**Affine to an RGB target** (a source-space reduction equals converting first, up to rounding and clamping), provided no transfer function applies:
+- DeviceGray and DeviceRGB, with any `/Decode` (Table 88 maps linearly);
+- an ICCBased space that falls back to its DeviceGray or DeviceRGB alternate because no colour management is registered (the viewers' default today);
+- any space whose converter reports `DeviceConverter.IsIdentity`;
+- DeviceCMYK into a CMYK transparency-group plane (`PixelModel` CMYK).
+
+**Not affine:**
+- DeviceCMYK to RGB (the SWOP polynomial in `CmykCharacterization`);
+- ICCBased through a colour-management module (tone curves, CLUTs);
+- CalGray, CalRGB and Lab;
+- Separation and DeviceN (arbitrary tint transforms, §8.6.6.4–§8.6.6.5);
+- Indexed (a table lookup);
+- any image painted under a non-identity transfer function.
+
+How large the difference is, measured: box averages compared as f(mean) against mean(f), at 1/2, 1/4 and 1/8, over three representative curves, on the two test images.
+
+| Curve | Cover 1/2 | Cover 1/4 | Cover 1/8 | Photo 1/2 | Photo 1/4 | Photo 1/8 |
+|---|---|---|---|---|---|---|
+| Tint transform t² (Type 2 function, N = 2) | 56.6 dB, max 24 | 47.0 dB, max 38 | **40.5 dB, max 41**, 1.8% > 8 levels | 61.4 dB | 54.4 dB | 49.3 dB, max 30 |
+| Gamma 1.8 RGB to sRGB (a ROMM-like tone curve) | 61.1 dB | 54.3 dB | 48.7 dB, max 14 | 66.7 dB | 62.7 dB | 59.0 dB |
+| Gamma 2.2 (CalRGB) to sRGB | 62.2 dB | 57.9 dB | 54.7 dB, max 8 | 72.2 dB | 68.0 dB | 65.1 dB |
+
+What the table shows:
+- The error grows with the reduction, because each block holds more contrast.
+- It grows with the curvature of the conversion.
+- Smooth ICC tone curves stay above 48 dB even at 1/8. A strongly curved tint transform does not.
+
+**Rule**, applied the same way to the DCT, JPX and Flate paths:
+
+| Case | What to do |
+|---|---|
+| Affine | Reduce in sample space at any factor. The result matches converting at full resolution and then resampling, up to rounding and clamping. |
+| Not affine, DCT or JPX | Reduce in the codec, but by at most 1/2. Allow 1/4 when the conversion is only a smooth ICC or Cal tone curve with no CLUT (≥ 54 dB measured). Leave any further reduction to `ImagePainter`'s box filter, which runs after conversion. Most of the codec saving stays, and the error stays within the bar below. |
+| Not affine, Flate, raw, CCITT, JBIG2 | Convert each row first, then average the converted pixels. That is exactly today's order. |
+| Indexed | Never averaged before conversion. |
+
+For the not-affine DCT and JPX cases, §6.4's page tolerance gains a second bar against a convert-then-resample reference: PSNR ≥ 45 dB and max ≤ 40 at the capped reduction. The worst measured at 1/2 is 56.6 dB.
 
 ## 3. JPX: resolution levels and layers
 
@@ -259,7 +309,38 @@ Dropping the top d levels therefore:
 - skips tier-1 (EBCOT, Annex D) for every code-block of the dropped subbands;
 - skips the inverse DWT (Annex F) for the dropped levels.
 
-Packet headers of the dropped levels must still be read in progressions that interleave them (LRCP, RLCP): the next packet's position depends on their lengths. RPCL and the position-major orders put them last.
+Where the packets of the dropped levels sit depends on the progression order (T.800 §B.12.1, in `Specs/References/T-REC-T.800-201906.pdf`). `JpxTileDecoder.ReadVolume` and `ReadPositions` follow the same loops.
+
+| Order (§B.12.1) | Outer loops | Packets of dropped resolutions | Can a tile's packet sequence be cut short? |
+|---|---|---|---|
+| LRCP (B.12.1.1) | layer, then resolution | At the end of **every layer**, before the next layer's retained packets | Only when L = 1, where it degenerates to resolution-major. With L > 1, only after the retained packets of the last layer. |
+| RLCP (B.12.1.2) | resolution, then layer | All after every retained packet | **Yes**, after the last retained resolution |
+| RPCL (B.12.1.3) | resolution, then position | All after every retained packet | **Yes**, after the last retained resolution |
+| PCRL (B.12.1.4) | position, component, then resolution | Interleaved at every precinct position, before the retained packets of later positions and components | No |
+| CPRL (B.12.1.5) | component, position, then resolution | Interleaved within every component, before later positions and later components | No |
+
+Three things qualify the "Yes" rows:
+- **Different decomposition levels per component.** Resolution indices are synchronised from the N_L LL band (§B.12). Dropping the top d levels keeps r ≤ N_L(i) − d for each component i, so the cut point differs per component. A clean cut needs the same N_L in every component, or the cut is taken at the largest kept r.
+- **POC changes** (A.6.6, §B.12.2). The order can change per progression volume, so classify each volume separately. The sequence can be cut only once every remaining volume holds dropped resolutions alone.
+- **Per tile.** Each tile has its own packet sequence, spread over tile-parts (§B.11, A.4.2). The cut applies per tile, at a packet boundary; §B.11 allows dropping whole trailing packets.
+
+Where the sequence cannot be cut, the dropped packets must be passed over in order, because each packet's position depends on the lengths of the ones before it:
+
+| Codestream feature | How to skip a dropped packet |
+|---|---|
+| No PLT or PLM (A.7.2, A.7.3) | Decode the dropped packet's header and skip its body by the code-block lengths the header gives. This is what `ReadPacket` does today, minus tier-1. No retained precinct needs a dropped precinct's header state (inclusion and zero-bit-plane tag trees, Lblock), so it can be decoded into scratch state. |
+| PLT or PLM present | The segments list every packet's length, so a dropped packet is skipped whole and its header is never read. `JpxCodestreamReader` ignores PLT and PLM today, so this is new work. |
+| Packed headers (PPM, PPT; A.7.4, A.7.5) | The headers sit in a separate stream with no per-header length. Every header must still be decoded in order, both to find the next header and to get the body offsets. Bodies are skipped by length. |
+| SOP (A.8.1) and EPH (A.8.2) | SOP may precede each packet; its 6 bytes are consumed but not needed for skipping. EPH, when COD requires it, ends every header and must be consumed. With packed headers, EPH sits in the PPM/PPT stream and SOP directly before each body. |
+
+What a reduction saves, by order:
+- **Every order:**
+  - tier-1 (Annex D) for every code-block of a dropped sub-band;
+  - the inverse DWT (Annex F) of the dropped levels.
+
+  That is most of the work: tier-1 is 75% of our decode (perf deep dive H9).
+- **RLCP, RPCL, and LRCP with one layer:** the header decoding and the bytes of the dropped packets as well. Over range requests (ADR 0010) those bytes need not be fetched at all, when a tile's tail is in its own tile-part or the range can stop there.
+- **PCRL, CPRL, and LRCP with several layers:** every byte is still read, and every dropped header is decoded or skipped through PLT. The saving is tier-1 and the DWT only.
 
 Measured with OpenJPEG 2.5.4 (`-r d -threads 1`, including process start and PPM write) on `issue5567.pdf` (1500×1125, 5 levels, 1 layer):
 
@@ -270,7 +351,13 @@ Measured with OpenJPEG 2.5.4 (`-r d -threads 1`, including process start and PPM
 | 2 | 375×282 | 63 ms (5.4×) |
 | 3 | 188×141 | 45 ms (7.6×) |
 
-Our managed decoder takes 475 ms full on the JIT (§H9 of `docs/benchmarks/perf-deep-dive.md` puts tier-1 at 75% of it). A managed reduced decode should gain in proportion, because tier-1 work is proportional to the samples in the kept subbands. The JPX prototype was not built; these OpenJPEG ratios are the estimate.
+Our managed decoder takes 475 ms full on the JIT (§H9 of `docs/benchmarks/perf-deep-dive.md` puts tier-1 at 75% of it). A managed reduced decode should gain in proportion, because tier-1 work is proportional to the samples in the kept subbands. The JPX prototype was not built, so these OpenJPEG ratios are the estimate. They hold for this case only: LRCP with one layer, where the dropped packets form the tail. For PCRL, CPRL and multi-layer LRCP, expect the tier-1 and DWT share of the gain without the I/O share.
+
+The LL band at level d is not a box average. It is the codestream's low-pass analysis filter (5/3 or 9/7, Annex F), applied in component space after the inverse component transform (Annex G). It is sharper than a box filter, and the 9/7 filter can ring slightly. It is also taken before the PDF colour conversion, so the rule in §2.7 applies to it as it does to the DCT.
+
+Fidelity bars for JPX:
+- **Decoder level:** match `opj_decompress -r d`.
+- **Page level:** §6.4's tolerances, measured against a full decode that is converted and then resampled.
 
 Quality layers (`cp_layer`) trade fidelity for time inside the kept levels. Layers are encoder-defined, so they are not a resolution choice. They are useful only as an explicit "draft" option and are out of scope.
 
@@ -280,13 +367,10 @@ The JPX tier-1 rewrite (perf deep dive item 1, #352) and this work compound.
 
 Flate, LZW, RunLength, CCITT and JBIG2 must decode every byte, so a reduction cannot save decode time. It can still save everything downstream (§1) and the cache memory, by box-filtering rows as they come out of the decoder.
 
-Where averaging is allowed:
-- Components that average linearly:
-  - DeviceGray, DeviceRGB, DeviceCMYK;
-  - ICCBased with a default `/Decode`;
-  - Separation/DeviceN tints.
-  These are averaged in the source space before conversion, as the DCT path already does in YCbCr.
-- **Indexed images are never averaged** (§8.6.6.3: values are indices).
+Where to average follows §2.7:
+- **In source space, before conversion,** only when the image's conversion is affine (the list in §2.7). The result then equals today's output up to rounding, and conversion runs on the reduced image only.
+- **Otherwise, convert each row first and average the converted pixels.** That is exactly what `ImageSource.Prepare` and `ImagePainter` do today. Conversion still runs at full resolution, but cache memory and painting shrink.
+- **Indexed images are never averaged in source space** (§8.6.6.3: values are indices). They take the convert-first path.
 - **1-bit images and stencil masks** become 8-bit coverage: a 600-dpi scan shown at 100 dpi becomes 6×6 averages. That changes the image's bits per component, so `DisplayImage` must say so.
 - **Colour-key masks** (§8.9.6.4) compare raw values, so they are applied before the reduction and travel as an opacity plane.
 
@@ -440,6 +524,9 @@ The seam keeps `IImageFilter` as the managed, exact contract and adds the platfo
 Tests:
 - **Managed scaled decode:** byte-exact against `djpeg -scale 1/s -dct int -nosmooth` over the DCT corpus. CI installs libjpeg-turbo as it does qpdf. JPX against `opj_decompress -r d` within the existing JPX tolerance. A geometry test at non-divisible sizes.
 - **Page level:** snapshot tests at k = 2 against a full decode, with PSNR ≥ 35 dB and ≤ 4% of pixels over 8 levels (the worst measured is 36.5 dB and 3.2% at k = 2.4 on the photo's fine texture; owner to confirm, decision 1). Goldens at 1:1 stay untouched, because k ≥ 2 never reduces at 1:1.
+- **Colour order (§2.7):** a test per conversion class (DeviceRGB, CMM-managed ICCBased, Separation with a curved tint, Indexed, under a transfer function) checks two things against a convert-then-resample reference:
+  - the reduction cap is applied;
+  - the bar holds: PSNR ≥ 45 dB and max ≤ 40.
 - **Native:**
   - Chrome planes: bit-exact.
   - Skia and Chrome RGB: max ≤ 24, PSNR ≥ 50 dB, ≤ 1% of pixels over 2 levels at full size; PSNR ≥ 55 dB against managed at 1/2–1/8.
