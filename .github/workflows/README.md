@@ -13,7 +13,7 @@
 | `fuzz-smoke (<shard>/6)` | ubuntu | Six parallel shards: each `--list`s the fuzz targets and runs `--smoke <target> 60` for every target whose index modulo 6 is its shard; uploads `artifacts/fuzz/**` as `fuzz-findings-<shard>` on failure. |
 | `bench-dry` | ubuntu | `dotnet run --project bench/Broadside.Benchmarks -- --filter '*' --job dry`: one iteration of every benchmark, no measurement. |
 | `blazor-wasm` | ubuntu | Installs `wasm-tools`, publishes `samples/Broadside.Viewer.Blazor.Sample` twice with `publish-static.sh` (trimmed and AOT-compiled; then `--no-aot --runtime-folder framework`, in its own obj/bin folders), installs Playwright's WebKit and Firefox, and runs `tests/Broadside.Viewer.Blazor.BrowserTests` in the image's Chrome, WebKit and Firefox: a remote linearized file shows page 1 before the download completes, keyboard and screen-reader reading order, a phone profile with pinch-zoom, every demo feature at 390 px with touch in all three browsers (#338), the non-AOT build booting from a host that refuses paths starting with `_`, no native binaries and the size budgets (issues #221, #338). Screenshots are uploaded as `blazor-demo-screenshots`. |
-| `maui` | macOS | Installs the `maui` workload and builds `samples/Broadside.Viewer.Maui.Sample` (#226) for Android and compiles its Mac Catalyst and iOS-simulator heads (`-t:Compile`: bundling needs Xcode 27, which the image lacks) with `-warnaserror`. The shell library itself builds in `build-test`; its tests are in `Broadside.Core.slnf`. |
+| `maui` | macOS | Installs the `maui` workload and builds `samples/Broadside.Viewer.Maui.Sample` (#226) for Android in Debug and in Release (ILLink and AOT on, arm64 and x86_64), and compiles its Mac Catalyst and iOS-simulator heads (`-t:Compile`: bundling needs Xcode 27, which the image lacks), all with `-warnaserror`. Then `tools/ApkAotCheck` checks that every AOT image in the Release APK holds the MVIDs of the assemblies the APK ships, the mismatch that crashed the Release app at startup in #366 (#368). The shell library itself builds in `build-test`; its tests are in `Broadside.Core.slnf`. |
 
 A newer push to the same PR or branch cancels the older run. NuGet packages are cached per OS, keyed on `Directory.Packages.props` and every `.csproj`. `DiffEngine_Disabled=true` keeps Verify from launching a diff tool.
 
@@ -43,6 +43,14 @@ Runs Mondays 05:17 UTC, on pull requests that touch `src/Broadside.Rendering.And
 | Job | Runs on | What it does |
 |---|---|---|
 | `emulator (API 35)` | ubuntu | Installs the `android` workload and the SDK packages it needs (`-t:InstallAndroidDependencies`), builds `tests/Broadside.Rendering.Android.Device` in Release for `android-x64` and the host project `tests/Broadside.Rendering.Android.Tests`, enables KVM, boots an x86_64 `google_apis` emulator with `reactivecircus/android-emulator-runner` and runs the host tests with `BROADSIDE_ANDROID_REQUIRED=1` (a missing device fails instead of skipping). The tests install the APK, run its instrumentation (render the path corpus files through `AndroidCanvasBackend`, measure warm replays), pull the pixels over adb and compare them with the golden images (issue #133). Uploads TRX as `android-test-results`, and on failure `tests/Golden/*.android.received.png` and `.diff.png` as `golden-images-android`. |
+
+## `maui-android.yml`: the MAUI sample on an emulator, weekly, on MAUI sample pull requests and the "Run workflow" button
+
+Runs Mondays 05:47 UTC, on pull requests that touch `samples/Broadside.Viewer.Maui.Sample/**`, the viewer shells it is built from (`src/Broadside.Viewer/**`, `src/Broadside.Viewer.Maui/**`, `src/Broadside.Rendering.Skia/**`), `tools/ApkAotCheck/**`, `Directory.Build.props`, `Directory.Packages.props`, `global.json` or the workflow itself, and on the "Run workflow" button (spec #33 open decision 9, as for `android.yml`).
+
+| Job | Runs on | What it does |
+|---|---|---|
+| `smoke (API 35)` | ubuntu | Installs the `maui-android` workload and the SDK packages it needs, builds the sample in Release for `android-x64` with `-warnaserror`, runs `tools/ApkAotCheck` on the APK, enables KVM, boots an x86_64 `google_apis` emulator (SwiftShader GPU) with `reactivecircus/android-emulator-runner` and runs `samples/Broadside.Viewer.Maui.Sample/smoke-android.sh`: install, start the smoke intent, and require `BROADSIDE_SMOKE_OK` in logcat (TraceMonkey page 1 captured from the GPU surface) before a `BROADSIDE_SMOKE_FAILED`, a native abort or 300 s (#368). |
 
 ## `fuzz.yml`: real fuzzing, weekly and on the "Run workflow" button
 

@@ -56,6 +56,7 @@
     <Project Path="tests/RenderDiff.Tests/RenderDiff.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
+    <Project Path="tools/ApkAotCheck/ApkAotCheck.csproj" />
     <Project Path="tools/BenchGate/BenchGate.csproj" />
     <Project Path="tools/ConformanceCheck/ConformanceCheck.csproj" />
     <Project Path="tools/CorpusFetcher/CorpusFetcher.csproj" />
