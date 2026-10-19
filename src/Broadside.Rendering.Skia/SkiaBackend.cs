@@ -81,6 +81,9 @@ namespace Broadside.Rendering.Skia;
 /// </remarks>
 public sealed partial class SkiaBackend : IDisposable
 {
+    /// <summary>How far, in device pixels, a paint can reach beyond its outline: anti-aliasing, the thinnest line, stroke adjustment.</summary>
+    private const int RegionMargin = 2;
+
     private static readonly RenderOptions DefaultOptions = new();
     private static readonly Content.ContentOptions DefaultContentOptions = new();
 
@@ -181,13 +184,17 @@ public sealed partial class SkiaBackend : IDisposable
     /// <see cref="RenderOptions.GetDeviceTransform"/>; a tile renderer adds its own offset.
     /// </param>
     /// <param name="forceOutlines">Whether to draw every glyph from its outline, never through Skia's font engine (<see cref="RenderOptions.ForceOutlines"/>).</param>
-    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space), §9.2.4 (glyph outlines).</remarks>
+    /// <remarks>
+    /// ADR 0006; ISO 32000-2 §8.3.2.2 (device space), §9.2.4 (glyph outlines). Spec #33 story 14 (viewer capability 1): only the
+    /// paints whose bounds reach the canvas's clip are drawn (<see cref="DisplayList.Replay(IRenderingBackend, PdfRectangle)"/>), so
+    /// a tile costs what its own content costs, as with the software rasterizer. The list computes the bounds on its first such render.
+    /// </remarks>
     public void Render(DisplayList list, SKCanvas canvas, in Matrix deviceTransform, bool forceOutlines)
     {
         ArgumentNullException.ThrowIfNull(list);
         ArgumentNullException.ThrowIfNull(canvas);
         ObjectDisposedException.ThrowIf(_disposed, this);
-        Draw(list, canvas, deviceTransform, null, forceOutlines);
+        Draw(list, canvas, deviceTransform, null, forceOutlines, cull: true);
     }
 
     /// <summary>Releases the backend's cached Skia paths and its paints; it renders no more after this.</summary>
@@ -212,7 +219,40 @@ public sealed partial class SkiaBackend : IDisposable
     /// <summary>Gets how many tiling-pattern cells this backend has recorded into pictures.</summary>
     internal int CellsRecorded => _replayer.CellsRecorded;
 
-    private void Draw(DisplayList list, SKCanvas canvas, in Matrix device, SKRect? page, bool forceOutlines)
+    /// <summary>
+    /// Returns the part of default user space that can change the pixels inside <paramref name="canvas"/>'s clip under
+    /// <paramref name="device"/>: the clip's device bounds widened by <see cref="RegionMargin"/> pixels, mapped back. False when the
+    /// canvas has a perspective transform or a transform has no inverse.
+    /// </summary>
+    private static bool TryGetRegion(SKCanvas canvas, in Matrix device, out PdfRectangle region)
+    {
+        region = default;
+        SKMatrix total = canvas.TotalMatrix;
+        if (total.Persp0 != 0 || total.Persp1 != 0 || total.Persp2 != 1 || !total.TryInvert(out SKMatrix toCanvas) || !device.TryInvert(out Matrix toPage))
+        {
+            return false;
+        }
+
+        SKRectI clip = canvas.DeviceClipBounds;
+        SKRect local = toCanvas.MapRect(new SKRect(clip.Left - RegionMargin, clip.Top - RegionMargin, clip.Right + RegionMargin, clip.Bottom + RegionMargin));
+        PathPoint a = toPage.Transform(local.Left, local.Top);
+        PathPoint b = toPage.Transform(local.Right, local.Top);
+        PathPoint c = toPage.Transform(local.Right, local.Bottom);
+        PathPoint d = toPage.Transform(local.Left, local.Bottom);
+        double left = Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X));
+        double bottom = Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y));
+        double right = Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X));
+        double top = Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y));
+        if (!(double.IsFinite(left) && double.IsFinite(bottom) && double.IsFinite(right) && double.IsFinite(top)))
+        {
+            return false;
+        }
+
+        region = new PdfRectangle(left, bottom, right, top);
+        return true;
+    }
+
+    private void Draw(DisplayList list, SKCanvas canvas, in Matrix device, SKRect? page, bool forceOutlines, bool cull = false)
     {
         int saveCount = canvas.Save();
         try
@@ -227,7 +267,14 @@ public sealed partial class SkiaBackend : IDisposable
             _replayer.Begin(list.Document, canvas, device);
             try
             {
-                list.Replay(_replayer);
+                if (cull && TryGetRegion(canvas, device, out PdfRectangle region))
+                {
+                    list.Replay(_replayer, region);
+                }
+                else
+                {
+                    list.Replay(_replayer);
+                }
             }
             finally
             {

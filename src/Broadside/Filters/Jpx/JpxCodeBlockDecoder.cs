@@ -44,6 +44,10 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
     private const byte Visited = 4;
     private const byte Refined = 8;
 
+    // At least one of the eight neighbours is significant: a sample without it has zero-coding context 0 (Table D.1), so the
+    // significance pass skips it without reading its neighbours. Set when a neighbour becomes significant, never cleared in a block.
+    private const byte Neighbour = 16;
+
     private const int SignContexts = 9;
     private const int RefinementContexts = 14;
     private const int RunLengthContext = 17;
@@ -79,7 +83,7 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
         _height = height;
         _stride = width + 2;
         _causal = (style & JpxComponentStyle.VerticallyCausal) != 0;
-        _magnitudes.AsSpan(0, width * height).Clear();
+        // Magnitudes are written when a sample becomes significant and read only for significant ones, so they need no clearing.
         _flags.AsSpan(0, _stride * (height + 2)).Clear();
         ResetContexts();
 
@@ -218,13 +222,14 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
             int flagRow = ((y + 1) * _stride) + 1;
             for (int x = 0; x < _width; x++)
             {
-                int doubled = _magnitudes[(y * _width) + x];
+                byte flags = _flags[flagRow + x];
+                int doubled = (flags & Significant) != 0 ? _magnitudes[(y * _width) + x] : 0;
                 if (doubled >= threshold)
                 {
                     doubled >>= roi;
                 }
 
-                bool negative = (_flags[flagRow + x] & Negative) != 0;
+                bool negative = (flags & Negative) != 0;
                 if (scale == 0)
                 {
                     int magnitude = doubled / 2;
@@ -284,8 +289,25 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
     {
         int entry = SignContext(index, causal);
         int sign = mq.Decode(ref _contexts[SignContexts + (entry >> 1)]) ^ (entry & 1);
-        _flags[index] |= sign == 1 ? (byte)(Significant | Negative) : Significant;
+        MarkSignificant(index, sign == 1);
         _magnitudes[sample] = 3 << plane;
+    }
+
+    /// <summary>Makes the sample significant, with its sign, and tells its eight neighbours (in the padded grid) that they have one.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void MarkSignificant(int index, bool negative)
+    {
+        byte[] f = _flags;
+        int s = _stride;
+        f[index] |= negative ? (byte)(Significant | Negative) : Significant;
+        f[index - s - 1] |= Neighbour;
+        f[index - s] |= Neighbour;
+        f[index - s + 1] |= Neighbour;
+        f[index - 1] |= Neighbour;
+        f[index + 1] |= Neighbour;
+        f[index + s - 1] |= Neighbour;
+        f[index + s] |= Neighbour;
+        f[index + s + 1] |= Neighbour;
     }
 
     /// <summary>D.3.1: insignificant coefficients with a significant neighbour.</summary>
@@ -299,8 +321,9 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
                 for (int y = y0; y < y1; y++)
                 {
                     int index = ((y + 1) * _stride) + x + 1;
-                    if ((_flags[index] & Significant) != 0)
+                    if ((_flags[index] & (Significant | Neighbour)) != Neighbour)
                     {
+                        // Significant already, or no significant neighbour (context 0).
                         continue;
                     }
 
@@ -332,7 +355,7 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
                 for (int y = y0; y < y1; y++)
                 {
                     int index = ((y + 1) * _stride) + x + 1;
-                    if ((_flags[index] & Significant) != 0 || ZeroContext(index, orientation, Causal(y)) == 0)
+                    if ((_flags[index] & (Significant | Neighbour)) != Neighbour || ZeroContext(index, orientation, Causal(y)) == 0)
                     {
                         continue;
                     }
@@ -340,7 +363,7 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
                     _flags[index] |= Visited;
                     if (raw.Decode() == 1)
                     {
-                        _flags[index] |= raw.Decode() == 1 ? (byte)(Significant | Negative) : Significant;
+                        MarkSignificant(index, raw.Decode() == 1);
                         _magnitudes[(y * _width) + x] = 3 << plane;
                     }
                 }
@@ -434,12 +457,15 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
             {
                 int y = y0;
                 int top = ((y0 + 1) * s) + x + 1;
+                // A column none of whose samples has a significant neighbour has all its contexts 0 without reading them.
+                int column = y1 - y0 == 4 ? f[top] | f[top + s] | f[top + (2 * s)] | f[top + (3 * s)] : 0;
                 if (y1 - y0 == 4
-                    && (f[top] | f[top + s] | f[top + (2 * s)] | f[top + (3 * s)]) == 0
-                    && ZeroContext(top, orientation, false) == 0
-                    && ZeroContext(top + s, orientation, false) == 0
-                    && ZeroContext(top + (2 * s), orientation, false) == 0
-                    && ZeroContext(top + (3 * s), orientation, _causal) == 0)
+                    && (column & ~Neighbour) == 0
+                    && ((column & Neighbour) == 0
+                        || (ZeroContext(top, orientation, false) == 0
+                            && ZeroContext(top + s, orientation, false) == 0
+                            && ZeroContext(top + (2 * s), orientation, false) == 0
+                            && ZeroContext(top + (3 * s), orientation, _causal) == 0)))
                 {
                     if (mq.Decode(ref _contexts[RunLengthContext]) == 0)
                     {
@@ -457,7 +483,7 @@ internal sealed class JpxCodeBlockDecoder : IDisposable
                 {
                     int index = ((y + 1) * s) + x + 1;
                     bool causal = Causal(y);
-                    if ((f[index] & (Significant | Visited)) == 0 && mq.Decode(ref _contexts[ZeroContext(index, orientation, causal)]) == 1)
+                    if ((f[index] & (Significant | Visited)) == 0 && mq.Decode(ref _contexts[(f[index] & Neighbour) == 0 ? 0 : ZeroContext(index, orientation, causal)]) == 1)
                     {
                         BecomeSignificant(ref mq, index, (y * _width) + x, plane, causal);
                     }
