@@ -545,7 +545,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         else
         {
             // An edit is in progress: read after it, on a worker.
-            page = await reads.ReadAsync(_ => Document.Pages[pageIndex], token).ConfigureAwait(false);
+            page = await ReadPageAsync(reads, pageIndex, token).ConfigureAwait(false);
         }
         lock (_gate)
         {
@@ -554,6 +554,14 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
         return page;
     }
+
+    // The lambdas live in methods of their own: a lambda that captures a parameter makes the compiler allocate its closure on every
+    // call of the method that declares the parameter, so LoadPageAsync and BuildCoreAsync would allocate even in cooperative mode.
+    private Task<PdfPage> ReadPageAsync(DocumentGate reads, int pageIndex, CancellationToken token) =>
+        reads.ReadAsync(_ => Document.Pages[pageIndex], token);
+
+    private Task<DisplayList> BuildOnWorkerAsync(PdfPage page, DisplayLayers layers, CancellationToken token) =>
+        _reads!.ReadAsync(read => page.CreateDisplayList(layers, _intent, new ContentOptions().WithCancellation(read)), token);
 
     /// <summary>Builds (or takes from the document's cache) a page's list on the calling thread: the tile scheduler's cooperative path.</summary>
     internal DisplayList CreateDisplayList(PdfPage page, DisplayLayers layers, CancellationToken token) =>
@@ -669,7 +677,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
                 }
 
                 // A read: an edit stops the build and it starts again after the edit.
-                return await _reads!.ReadAsync(read => page.CreateDisplayList(layers, _intent, new ContentOptions().WithCancellation(read)), token).ConfigureAwait(false);
+                return await BuildOnWorkerAsync(page, layers, token).ConfigureAwait(false);
             }
             catch (PdfRangeNotLoadedException) when (_remote && attempt == 0)
             {
