@@ -350,6 +350,30 @@ public sealed class ViewerControllerTests
 
     private static int TileItems(Shell shell) => CountItems(shell, _ => true);
 
+    [Fact]
+    public void A_tile_a_closed_session_presents_late_never_reaches_the_next_document()
+    {
+        // Review #364 (P1): a worker can present after the surface was cleared for the next document; that tile is dropped.
+        var surface = new TileImageSurface(TimeProvider.System);
+        IRenderSurface closed = surface.ForCurrentSession();
+        var tile = new Tile(0, 1, new PixelRectangle(0, 0, 4, 4));
+        using var pixels = new Broadside.Rendering.Bitmap(4, 4);
+        closed.Present(tile, pixels);
+        surface.Drain();
+        Assert.True(surface.TryGetImage(tile, out _));
+
+        surface.Clear();
+        IRenderSurface next = surface.ForCurrentSession();
+        closed.Present(tile, pixels); // late: the old session's worker
+        surface.Drain();
+        Assert.False(surface.TryGetImage(tile, out _));
+
+        next.Present(tile, pixels);
+        surface.Drain();
+        Assert.True(surface.TryGetImage(tile, out _));
+        surface.Clear();
+    }
+
     private static int OverlayItems(Shell shell) => CountItems(shell, shell.Controller.Surface.IsOverlay);
 
     private static int CountItems(Shell shell, Func<SKImage, bool> match)

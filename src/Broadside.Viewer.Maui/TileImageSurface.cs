@@ -9,7 +9,7 @@ namespace Broadside.Viewer.Maui;
 /// overlay tiles it touches) never blinks: the old overlay shows until its replacement is presented.
 /// </summary>
 /// <remarks>
-/// Thread-safe for the scheduler (#357): <see cref="Present"/> and <see cref="Evict"/> may run on workers (a background session
+/// Thread-safe for the scheduler (#357): <see cref="Present(Tile, Bitmap)"/> and <see cref="Evict(Tile)"/> may run on workers (a background session
 /// presents where the tile finished), so they make the Skia image there and only queue the change; the UI thread applies the queue in
 /// <see cref="Drain"/> before it composes, and every other member is for the UI thread.
 /// </remarks>
@@ -20,6 +20,7 @@ internal sealed class TileImageSurface : IRenderSurface
     private List<(Tile Tile, SKImage? Image)> _inbox = [];
     private List<(Tile Tile, SKImage? Image)> _applying = [];
     private int _presentedCount;
+    private int _generation;
     private readonly Dictionary<Tile, SKImage> _images = [];
     private readonly Dictionary<Tile, (SKImage Image, long Since)> _stale = [];
     private readonly List<Tile> _expired = [];
@@ -37,9 +38,27 @@ internal sealed class TileImageSurface : IRenderSurface
 
     public IReadOnlyDictionary<Tile, (SKImage Image, long Since)> Stale => _stale;
 
-    public unsafe void Present(Tile tile, Bitmap pixels)
+    /// <summary>Gets the surface a session's scheduler presents to: what it presents after <see cref="Clear"/> is dropped, never shown.</summary>
+    public IRenderSurface ForCurrentSession()
+    {
+        lock (_inboxGate)
+        {
+            return new SessionSurface(this, _generation);
+        }
+    }
+
+    public void Present(Tile tile, Bitmap pixels) => Present(tile, pixels, Volatile.Read(ref _generation));
+
+    public void Evict(Tile tile) => Evict(tile, Volatile.Read(ref _generation));
+
+    private unsafe void Present(Tile tile, Bitmap pixels, int generation)
     {
         ArgumentNullException.ThrowIfNull(pixels);
+        if (generation != Volatile.Read(ref _generation))
+        {
+            return; // a closed session's late tile (#357): not even copied
+        }
+
         var info = new SKImageInfo(pixels.Width, pixels.Height, SKColorType.Bgra8888, SKAlphaType.Premul);
         SKImage image;
         fixed (byte* source = pixels.Pixels)
@@ -49,6 +68,12 @@ internal sealed class TileImageSurface : IRenderSurface
 
         lock (_inboxGate)
         {
+            if (generation != _generation)
+            {
+                image.Dispose(); // the surface was cleared while the image was made
+                return;
+            }
+
             _inbox.Add((tile, image));
         }
 
@@ -56,11 +81,14 @@ internal sealed class TileImageSurface : IRenderSurface
         Presented?.Invoke(this, EventArgs.Empty);
     }
 
-    public void Evict(Tile tile)
+    private void Evict(Tile tile, int generation)
     {
         lock (_inboxGate)
         {
-            _inbox.Add((tile, null));
+            if (generation == _generation)
+            {
+                _inbox.Add((tile, null));
+            }
         }
     }
 
@@ -181,6 +209,12 @@ internal sealed class TileImageSurface : IRenderSurface
 
     public void Clear()
     {
+        // Tiles of the session being closed that are still on their way are fenced off: they arrive with the old generation.
+        lock (_inboxGate)
+        {
+            _generation++;
+        }
+
         Drain();
         foreach (SKImage image in _images.Values)
         {
@@ -189,5 +223,13 @@ internal sealed class TileImageSurface : IRenderSurface
 
         _images.Clear();
         ExpireStale(all: true);
+    }
+
+    /// <summary>One session's view of the surface: its presents and evictions carry the generation it was created in.</summary>
+    private sealed class SessionSurface(TileImageSurface owner, int generation) : IRenderSurface
+    {
+        public void Present(Tile tile, Bitmap pixels) => owner.Present(tile, pixels, generation);
+
+        public void Evict(Tile tile) => owner.Evict(tile, generation);
     }
 }

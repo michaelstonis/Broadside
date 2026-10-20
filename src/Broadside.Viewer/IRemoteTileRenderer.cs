@@ -24,6 +24,10 @@ public interface IRemoteTileRenderer : IDisposable
     /// <param name="tile">The tile, as <see cref="DocumentSession.RenderTileAsync"/> takes it.</param>
     /// <param name="surface">Where the finished tile goes, on the caller's context.</param>
     /// <param name="cancellationToken">Stops the render; the tile is then never presented.</param>
-    /// <returns>A task that completes once the tile is presented, or fails with <see cref="OperationCanceledException"/>.</returns>
+    /// <returns>
+    /// A task that completes once the tile is presented, or fails with <see cref="OperationCanceledException"/>. Completing without
+    /// presenting gives the tile back: the scheduler starts it again, and draws it itself when <see cref="CanRender"/> then declines it
+    /// (a renderer that stopped working).
+    /// </returns>
     Task RenderAsync(Tile tile, IRenderSurface surface, CancellationToken cancellationToken);
 }

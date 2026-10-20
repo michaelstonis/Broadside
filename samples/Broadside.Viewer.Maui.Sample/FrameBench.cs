@@ -96,7 +96,7 @@ public static class FrameBench
 
         await Task.Delay(1000);
         await stop.CancelAsync();
-        probe.Join();
+        await Task.Run(probe.Join); // off the UI thread: the probe may wait on a callback queued for it
         double[] sorted;
         lock (waits)
         {

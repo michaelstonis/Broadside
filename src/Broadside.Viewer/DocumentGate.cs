@@ -39,6 +39,31 @@ internal sealed class DocumentGate : IDisposable
         }
     }
 
+    /// <summary>
+    /// Runs asynchronous <paramref name="work"/> (a remote prefetch: range requests, then parsing) as a read: after any edit in
+    /// progress, and again if an edit cancels it.
+    /// </summary>
+    public async Task<T> ReadAsync<T>(Func<CancellationToken, Task<T>> work, CancellationToken token)
+    {
+        while (true)
+        {
+            CancellationToken edit = await EnterAsync(token).ConfigureAwait(false);
+            try
+            {
+                using var linked = CancellationTokenSource.CreateLinkedTokenSource(token, edit);
+                return await work(linked.Token).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (edit.IsCancellationRequested && !token.IsCancellationRequested)
+            {
+                // An edit stopped the read: read again once it has ended.
+            }
+            finally
+            {
+                Exit();
+            }
+        }
+    }
+
     /// <summary>Starts a short read on the calling thread when no edit is in progress (end it with <see cref="ExitRead"/>).</summary>
     public bool TryEnterRead()
     {

@@ -1474,7 +1474,10 @@ public sealed class TileScheduler : IDisposable
                 }
                 else
                 {
-                    job.State = TileState.New; // stopped by the session closing; nothing reached the surface
+                    // Stopped by the session closing, or given back by a remote renderer that could not draw it: nothing reached the
+                    // surface, so it starts again (drawn here when the remote renderer now declines it).
+                    job.State = TileState.New;
+                    job.IsRemote = false;
                 }
             }
         }

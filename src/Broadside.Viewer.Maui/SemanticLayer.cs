@@ -40,9 +40,11 @@ internal sealed class SemanticLayer : AbsoluteLayout
         }
 
         IReadOnlyList<int> loaded = controller.AccessiblePages;
-        foreach (int page in _pages.Keys)
+        int rotation = RotationOf(controller);
+        foreach ((int page, PageLayer existing) in _pages)
         {
-            if (!loaded.Contains(page) || (changed is { Role: AccessibleRole.Page } && changed.PageIndex == page))
+            // A layer's label rectangles hold the rotation it was built at: another rotation rebuilds it.
+            if (!loaded.Contains(page) || existing.Rotation != rotation || (changed is { Role: AccessibleRole.Page } && changed.PageIndex == page))
             {
                 _drop.Add(page);
             }
@@ -58,9 +60,17 @@ internal sealed class SemanticLayer : AbsoluteLayout
         {
             if (!_pages.ContainsKey(page) && controller.TryGetNodeBounds(controller.Bridge.GetPage(page), out LayoutRectangle bounds) && bounds.Width > 0)
             {
-                var layer = new PageLayer(page, bounds);
+                var layer = new PageLayer(page, bounds, rotation);
+
+                // In page order, so screen readers traverse the pages in order whichever was (re)built last.
+                int before = 0;
+                foreach (int other in _pages.Keys)
+                {
+                    before += other < page ? 1 : 0;
+                }
+
                 _pages.Add(page, layer);
-                Children.Add(layer.View);
+                Children.Insert(before, layer.View);
                 SetLayoutBounds((BindableObject)layer.View, new Rect(0, 0, layer.Width, layer.Height));
                 _pending.Enqueue(layer);
             }
@@ -75,6 +85,12 @@ internal sealed class SemanticLayer : AbsoluteLayout
     {
         if (controller.Bridge is not { } bridge)
         {
+            return;
+        }
+
+        if (_controller is not null && _pages.Values.Any(layer => layer.Rotation != RotationOf(controller)))
+        {
+            Rebuild(controller); // the view rotated: the layers are rebuilt at the new rotation (Rebuild repositions)
             return;
         }
 
@@ -95,6 +111,8 @@ internal sealed class SemanticLayer : AbsoluteLayout
             }
         }
     }
+
+    private static int RotationOf(ViewerController controller) => controller.Zoom?.Layout.Rotation ?? 0;
 
     public void Focus(AccessibleNode? node)
     {
@@ -234,9 +252,11 @@ internal sealed class SemanticLayer : AbsoluteLayout
     }
 
     /// <summary>One loaded page's views, in a layer the page's size when it was added, moved and scaled as the page moves.</summary>
-    private sealed class PageLayer(int pageIndex, LayoutRectangle bounds)
+    private sealed class PageLayer(int pageIndex, LayoutRectangle bounds, int rotation)
     {
         public int PageIndex { get; } = pageIndex;
+
+        public int Rotation { get; } = rotation;
 
         public double Width { get; } = bounds.Width;
 

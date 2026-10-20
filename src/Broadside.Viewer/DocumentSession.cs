@@ -366,7 +366,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         {
             PdfPage page = await LoadPageAsync(tile.PageIndex, token).ConfigureAwait(true);
             DisplayList list = await BuildAsync(tile.PageIndex, page, tile.Layers, token).ConfigureAwait(true);
-            Matrix transform = GetTileTransform(page, tile);
+            Matrix transform = await GetTileTransformAsync(page, tile, token).ConfigureAwait(true);
             if (list.OperationCount == 0 && (tile.Layers & DisplayLayers.Content) == 0 && surface is IEmptyTileSink empty)
             {
                 // An overlay with nothing on it: the scheduler keeps it without pixels (#357).
@@ -522,34 +522,46 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, PageCount);
         PdfPage page;
-        if (_remote)
+        PageMetrics metrics;
+        if (_reads is { } reads && _remote)
+        {
+            // A remote page's prefetch reads the document (its page, annotation and resource collections): an edit cancels it and it
+            // starts again afterwards. The geometry is read under the same lease.
+            (page, metrics) = await PrefetchPageAsync(reads, pageIndex, token).ConfigureAwait(false);
+        }
+        else if (_remote)
         {
             page = await Document.Pages.PrefetchAsync(pageIndex, token).ConfigureAwait(false);
+            metrics = PageMetrics.Of(pageIndex, page);
         }
-        else if (_reads is not { } reads)
+        else if (_reads is null)
         {
             page = Document.Pages[pageIndex];
+            metrics = PageMetrics.Of(pageIndex, page);
         }
-        else if (reads.TryEnterRead())
+        else if (_reads.TryEnterRead())
         {
-            // No edit in progress: the page object is read here, so requests for a page arrive at its list build together and share it.
+            // No edit in progress: the page object and its geometry are read here, so requests for a page arrive at its list build
+            // together and share it.
             try
             {
                 page = Document.Pages[pageIndex];
+                metrics = PageMetrics.Of(pageIndex, page);
             }
             finally
             {
-                reads.ExitRead();
+                _reads.ExitRead();
             }
         }
         else
         {
             // An edit is in progress: read after it, on a worker.
-            page = await ReadPageAsync(reads, pageIndex, token).ConfigureAwait(false);
+            (page, metrics) = await ReadPageAsync(_reads, pageIndex, token).ConfigureAwait(false);
         }
+
         lock (_gate)
         {
-            _metrics[pageIndex] ??= PageMetrics.Of(pageIndex, page);
+            _metrics[pageIndex] ??= metrics;
         }
 
         return page;
@@ -557,8 +569,62 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
     // The lambdas live in methods of their own: a lambda that captures a parameter makes the compiler allocate its closure on every
     // call of the method that declares the parameter, so LoadPageAsync and BuildCoreAsync would allocate even in cooperative mode.
-    private Task<PdfPage> ReadPageAsync(DocumentGate reads, int pageIndex, CancellationToken token) =>
-        reads.ReadAsync(_ => Document.Pages[pageIndex], token);
+    private Task<(PdfPage, PageMetrics)> ReadPageAsync(DocumentGate reads, int pageIndex, CancellationToken token) =>
+        reads.ReadAsync(
+            _ =>
+            {
+                PdfPage page = Document.Pages[pageIndex];
+                return (page, PageMetrics.Of(pageIndex, page));
+            },
+            token);
+
+    private Task<(PdfPage, PageMetrics)> PrefetchPageAsync(DocumentGate reads, int pageIndex, CancellationToken token) =>
+        reads.ReadAsync(
+            async read =>
+            {
+                PdfPage page = await Document.Pages.PrefetchAsync(pageIndex, read).ConfigureAwait(false);
+                return (page, PageMetrics.Of(pageIndex, page));
+            },
+            token);
+
+    /// <summary>Fetches a remote page's whole closure (what it uses beyond the hints) as a read, so an edit never races it.</summary>
+    internal Task PrefetchClosureAsync(PdfPage page, CancellationToken token) =>
+        _reads is { } reads ? PrefetchClosureAsync(reads, page, token) : page.PrefetchAsync(token);
+
+    private static Task<bool> PrefetchClosureAsync(DocumentGate reads, PdfPage page, CancellationToken token) =>
+        reads.ReadAsync(
+            async read =>
+            {
+                await page.PrefetchAsync(read).ConfigureAwait(false);
+                return true;
+            },
+            token);
+
+    /// <summary>The tile's device transform, read under a lease in background mode so an edit of the page's geometry never races it.</summary>
+    private ValueTask<Matrix> GetTileTransformAsync(PdfPage page, Tile tile, CancellationToken token)
+    {
+        if (_reads is not { } reads)
+        {
+            return ValueTask.FromResult(GetTileTransform(page, tile));
+        }
+
+        if (reads.TryEnterRead())
+        {
+            try
+            {
+                return ValueTask.FromResult(GetTileTransform(page, tile));
+            }
+            finally
+            {
+                reads.ExitRead();
+            }
+        }
+
+        return new ValueTask<Matrix>(ReadTileTransformAsync(reads, page, tile, token));
+    }
+
+    private static Task<Matrix> ReadTileTransformAsync(DocumentGate reads, PdfPage page, Tile tile, CancellationToken token) =>
+        reads.ReadAsync(_ => GetTileTransform(page, tile), token);
 
     private Task<DisplayList> BuildOnWorkerAsync(PdfPage page, DisplayLayers layers, CancellationToken token) =>
         _reads!.ReadAsync(read => page.CreateDisplayList(layers, _intent, new ContentOptions().WithCancellation(read)), token);
@@ -683,7 +749,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
             {
                 // A resource outside the page's prefetched closure (a shared object the hints did not list): fetch the page's whole
                 // closure without blocking, then build again.
-                await page.PrefetchAsync(token).ConfigureAwait(false);
+                await PrefetchClosureAsync(page, token).ConfigureAwait(false);
             }
         }
     }

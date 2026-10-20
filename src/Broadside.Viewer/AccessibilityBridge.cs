@@ -140,7 +140,7 @@ public sealed class AccessibilityBridge
                     PdfPage page = await Session.LoadPageAsync(pageIndex, CancellationToken.None).ConfigureAwait(false);
                     if (Session.IsRemote)
                     {
-                        await page.PrefetchAsync(CancellationToken.None).ConfigureAwait(false);
+                        await Session.PrefetchClosureAsync(page, CancellationToken.None).ConfigureAwait(false);
                     }
 
                     return await Session.ReadAsync(_ => page.ExtractLayout(), CancellationToken.None).ConfigureAwait(false);

@@ -241,7 +241,22 @@ export function startWorker(timeoutMs) {
     }
     worker = w;
     const timer = setTimeout(() => done("timeout"), timeoutMs);
-    w.onerror = (e) => { clearTimeout(timer); done("failed: " + (e.message || "error")); };
+    // A failure after startup (#357): the page's thread takes every tile over, including those the worker still had.
+    const failed = async (message) => {
+      if (!settled) {
+        clearTimeout(timer);
+        done("failed: " + message);
+        return;
+      }
+      if (worker === w) {
+        worker = null;
+        w.terminate();
+        globalThis.broadsideRenderWorker = { ...(globalThis.broadsideRenderWorker || {}), status: "failed: " + message };
+        (await workerExports()).OnWorkerFailed(message);
+      }
+    };
+    w.onerror = (e) => { e.preventDefault?.(); failed(e.message || "error"); };
+    w.onmessageerror = () => failed("a message could not be read");
     w.onmessage = async (e) => {
       const m = e.data;
       if (m.type === "ready") {

@@ -205,7 +205,7 @@ internal sealed class ViewerController : IDisposable
             schedulerOptions.UseObserver(observer);
         }
 
-        _scheduler = new TileScheduler(session, layout, Surface, schedulerOptions);
+        _scheduler = new TileScheduler(session, layout, Surface.ForCurrentSession(), schedulerOptions);
         if (!_showAnnotations)
         {
             _scheduler.SetLayers(DisplayLayers.Content);

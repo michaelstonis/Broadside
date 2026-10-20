@@ -40,7 +40,9 @@ public static partial class RenderWorker
 {
     private const string WorkerModule = "broadside-render-worker";
     private static readonly Dictionary<int, PdfDocument> Documents = [];
-    private static readonly Dictionary<int, TaskCompletionSource<JSObject>> Jobs = [];
+    private static readonly Dictionary<int, (int Document, TaskCompletionSource<JSObject?> Pending)> Jobs = [];
+    private static readonly HashSet<int> Opening = [];
+    private static readonly HashSet<int> ClosedWhileOpening = [];
     private static readonly Dictionary<int, WorkerTileRenderer> Renderers = [];
     private static Func<PdfEngine>? _engine;
     private static Task<bool>? _start;
@@ -145,11 +147,17 @@ public static partial class RenderWorker
 
     // ---- The page's side ----
 
-    internal static async Task<JSObject> RenderAsync(int document, Tile tile, CancellationToken token)
+    /// <summary>Renders a tile in the worker: its image, or <see langword="null"/> when the worker gave the tile back (it failed).</summary>
+    internal static async Task<JSObject?> RenderAsync(int document, Tile tile, CancellationToken token)
     {
+        if (!IsRunning)
+        {
+            return null;
+        }
+
         int job = ++_nextJob;
-        var pending = new TaskCompletionSource<JSObject>(TaskCreationOptions.RunContinuationsAsynchronously);
-        Jobs[job] = pending;
+        var pending = new TaskCompletionSource<JSObject?>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Jobs[job] = (document, pending);
         PixelRectangle r = tile.Region;
         ViewerInterop.WorkerRender(job, document, tile.PageIndex, tile.Scale, tile.Rotation, r.X, r.Y, r.Width, r.Height, (int)tile.Layers);
         try
@@ -175,6 +183,7 @@ public static partial class RenderWorker
         if (!opened && Renderers.TryGetValue(document, out WorkerTileRenderer? renderer))
         {
             renderer.IsBroken = true; // later tiles draw on the page's thread
+            GiveBack(document); // and so do the tiles already sent for it
             Console.WriteLine($"Broadside render worker could not open the document ({message}): tiles render on the page's thread.");
         }
     }
@@ -182,9 +191,9 @@ public static partial class RenderWorker
     [JSExport]
     internal static void OnRendered(int job, JSObject image)
     {
-        if (Jobs.Remove(job, out TaskCompletionSource<JSObject>? pending))
+        if (Jobs.Remove(job, out (int Document, TaskCompletionSource<JSObject?> Pending) entry))
         {
-            pending.TrySetResult(image);
+            entry.Pending.TrySetResult(image);
         }
         else
         {
@@ -192,21 +201,48 @@ public static partial class RenderWorker
         }
     }
 
+    /// <summary>The worker stopped after it had started (#357): every tile goes back to the page's thread from now on.</summary>
+    [JSExport]
+    internal static void OnWorkerFailed(string message)
+    {
+        IsRunning = false;
+        foreach (WorkerTileRenderer renderer in Renderers.Values)
+        {
+            renderer.IsBroken = true;
+        }
+
+        GiveBack(null);
+        Console.WriteLine($"Broadside render worker stopped ({message}): tiles render on the page's thread.");
+    }
+
+    /// <summary>Completes the outstanding tiles (of one document, or all) without an image: the scheduler draws them itself.</summary>
+    private static void GiveBack(int? document)
+    {
+        foreach ((int job, (int Document, TaskCompletionSource<JSObject?> Pending) entry) in Jobs.ToArray())
+        {
+            if (document is null || entry.Document == document)
+            {
+                Jobs.Remove(job);
+                entry.Pending.TrySetResult(null);
+            }
+        }
+    }
+
     [JSExport]
     internal static void OnFailed(int job, string message)
     {
-        if (Jobs.Remove(job, out TaskCompletionSource<JSObject>? pending))
+        if (Jobs.Remove(job, out (int Document, TaskCompletionSource<JSObject?> Pending) entry))
         {
-            pending.TrySetException(new InvalidOperationException("The render worker failed to draw the tile: " + message));
+            entry.Pending.TrySetException(new InvalidOperationException("The render worker failed to draw the tile: " + message));
         }
     }
 
     [JSExport]
     internal static void OnCancelled(int job)
     {
-        if (Jobs.Remove(job, out TaskCompletionSource<JSObject>? pending))
+        if (Jobs.Remove(job, out (int Document, TaskCompletionSource<JSObject?> Pending) entry))
         {
-            pending.TrySetCanceled();
+            entry.Pending.TrySetCanceled();
         }
     }
 
@@ -226,6 +262,11 @@ public static partial class RenderWorker
     [JSExport]
     internal static void CloseDocument(int document)
     {
+        if (Opening.Contains(document))
+        {
+            ClosedWhileOpening.Add(document); // disposed when its open completes
+        }
+
         if (Documents.Remove(document, out PdfDocument? closed))
         {
             closed.Dispose();
@@ -240,7 +281,24 @@ public static partial class RenderWorker
     {
         PdfEngine engine = _engine?.Invoke() ?? new PdfEngine();
         _http ??= new HttpClient();
-        Documents[document] = await engine.OpenAsync(_http, new Uri(address)).ConfigureAwait(true);
+        Opening.Add(document);
+        PdfDocument opened;
+        try
+        {
+            opened = await engine.OpenAsync(_http, new Uri(address)).ConfigureAwait(true);
+        }
+        finally
+        {
+            Opening.Remove(document);
+        }
+
+        if (ClosedWhileOpening.Remove(document))
+        {
+            opened.Dispose(); // its renderer was disposed while the range requests ran
+            return;
+        }
+
+        Documents[document] = opened;
         DocumentIntents[document] = (DisplayIntent)intent;
         Remote.Add(document);
     }
@@ -320,7 +378,14 @@ internal sealed class WorkerTileRenderer(int document) : IRemoteTileRenderer
     {
         ArgumentNullException.ThrowIfNull(surface);
         cancellationToken.ThrowIfCancellationRequested();
-        JSObject image = await RenderWorker.RenderAsync(document, tile, cancellationToken).ConfigureAwait(true);
+        if (await RenderWorker.RenderAsync(document, tile, cancellationToken).ConfigureAwait(true) is not { } image)
+        {
+            // Given back (the worker stopped, or could not open the document): completing without presenting hands the tile to the
+            // scheduler, which draws it on the page's thread now that CanRender declines.
+            IsBroken = true;
+            return;
+        }
+
         using (image)
         {
             cancellationToken.ThrowIfCancellationRequested();

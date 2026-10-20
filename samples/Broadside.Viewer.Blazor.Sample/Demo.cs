@@ -77,6 +77,11 @@ public sealed class Demo(HttpClient http, NavigationManager navigation, IJSRunti
         if (RemoteAddress is { } remote && !edited)
         {
             await OpenUrlAsync(remote.AbsoluteUri).ConfigureAwait(true);
+            if (page > 0)
+            {
+                await GoToPageLaterAsync(page).ConfigureAwait(true);
+            }
+
             return;
         }
 
