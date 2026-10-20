@@ -586,3 +586,16 @@ jobs:
 
       - name: Build the sample for Android
         run: dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-android -warnaserror -p:AndroidSdkDirectory="$ANDROID_HOME"
+
+      # Release turns on ILLink and AOT, which Debug does not. #366 shipped because only Debug was built: the APK packaged
+      # assemblies its AOT images were not compiled from, and the app aborted at startup. Build every default ABI, then check that
+      # each libaot-*.so in the APK holds the MVIDs of the assemblies the APK ships. The emulator run is in maui-android.yml.
+      - name: Build the sample for Android in Release (AOT)
+        run: >
+          dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-android -c Release -warnaserror
+          -p:AndroidSdkDirectory="$ANDROID_HOME"
+
+      - name: Check the APK's AOT images against its assemblies
+        run: >
+          dotnet run --project tools/ApkAotCheck --
+          artifacts/bin/Broadside.Viewer.Maui.Sample/release_net10.0-android/dev.broadside.viewer.sample-Signed.apk

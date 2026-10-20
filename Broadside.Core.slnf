@@ -27,6 +27,7 @@
       "tests/Broadside.Globalization.Tests/Broadside.Globalization.Tests.csproj",
       "tests/ConformanceCheck.Tests/ConformanceCheck.Tests.csproj",
       "tools/RenderDiff/RenderDiff.csproj",
+      "tools/ApkAotCheck/ApkAotCheck.csproj",
       "tests/RenderDiff.Tests/RenderDiff.Tests.csproj",
       "tests/BenchGate.Tests/BenchGate.Tests.csproj"
     ]

@@ -22,10 +22,17 @@
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">17.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
-    <!-- A sample shows the library; it is not trimmed or published. -->
+    <!-- A sample shows the library; it is not published, and the sample itself is never trimmed. Apple targets link nothing. -->
     <IsTrimmable>false</IsTrimmable>
     <MtouchLink>None</MtouchLink>
-    <AndroidLinkMode>None</AndroidLinkMode>
+    <!--
+      Android keeps the SDK's default link mode: None in Debug, SdkOnly in Release. SdkOnly trims the framework, the bindings
+      and every library that opts in with IsTrimmable, which includes the Broadside libraries under src/; this sample and
+      Broadside.Viewer.Maui opt out and are kept whole. AndroidLinkMode=None in Release crashes at startup with AOT on: the SDK
+      packages the assemblies its no-shrink step and marshal-method rewriter modified (Microsoft.Maui, Xamarin.AndroidX.Core, ...)
+      but AOT-compiles the unmodified copies, so Mono aborts on a class layout or assembly GUID mismatch.
+    -->
+
     <!-- Android emulators and Apple Silicon simulators: build for the host's architecture in Debug. -->
     <RuntimeIdentifier Condition="'$(TargetFramework)' == 'net10.0-maccatalyst' and '$(Configuration)' != 'Release'">maccatalyst-arm64</RuntimeIdentifier>
     <!-- The generated platform code (Resource designer, registrar) is not held to the repository's analyzers. -->
