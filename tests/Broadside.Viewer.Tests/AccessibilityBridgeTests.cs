@@ -62,11 +62,13 @@ public sealed class AccessibilityBridgeTests
         await using Viewer viewer = await Viewer.OpenAsync("text-tagged-spanning.pdf");
         var bridge = new AccessibilityBridge(viewer.Session) { Viewer = viewer.Zoom };
         var focusChanges = new List<AccessibleNode?>();
+        var follows = new List<bool>();
         bridge.Observer = change =>
         {
             if (change.Kind == AccessibilityChangeKind.FocusChanged)
             {
                 focusChanges.Add(change.Node);
+                follows.Add(change.FollowsViewer);
             }
         };
         bridge.Update();
@@ -76,7 +78,10 @@ public sealed class AccessibilityBridgeTests
         viewer.Settle();
         bridge.Update();
 
+        // A background session extracts the new page's layout on a worker first (#357): the focus follows once it is loaded.
+        await WaitUntilAsync(() => focusChanges.Count > 0);
         AccessibleNode first = Assert.Single(focusChanges)!;
+        Assert.True(Assert.Single(follows)); // #349: following the viewer is marked, so a shell need not move the keyboard focus
         Assert.Same(first, bridge.Focus);
         Assert.Equal(1, first.PageIndex);
         Assert.Equal(0, first.Index);
@@ -86,8 +91,15 @@ public sealed class AccessibilityBridgeTests
         viewer.Input.GoToPage(0);
         viewer.Settle();
         bridge.Update();
+        await WaitUntilAsync(() => bridge.Focus!.PageIndex == 0);
         Assert.Equal("Before", bridge.Focus!.Name);
         Assert.Equal(AccessibleStates.Focusable | AccessibleStates.Offscreen, bridge.GetStates(first));
+
+        // A navigation request is not a follow.
+        follows.Clear();
+        Assert.True(bridge.MoveFocus(AccessibleNavigation.Element));
+        bridge.SetFocus(first);
+        Assert.Equal([false, false], follows);
     }
 
     [Fact]
@@ -196,6 +208,15 @@ public sealed class AccessibilityBridgeTests
         Assert.Throws<ArgumentNullException>(() => bridge.FindNode(0, null!));
         Assert.Equal(AccessibleRole.Document, bridge.Root.Role);
         Assert.Equal(-1, bridge.Root.PageIndex);
+    }
+
+    private static async Task WaitUntilAsync(Func<bool> condition)
+    {
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        while (!condition() && watch.Elapsed < TimeSpan.FromSeconds(30))
+        {
+            await Task.Delay(5, TestContext.Current.CancellationToken);
+        }
     }
 
     internal static DocumentSession Open(string fileName) =>

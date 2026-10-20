@@ -1,0 +1,76 @@
+@inject Demo Demo
+
+<section class="panel-section">
+  <h3>Page layout</h3>
+  <div class="segmented wrap" role="radiogroup" aria-label="Page layout">
+    @foreach ((PageLayoutMode mode, string title) in Modes)
+    {
+      <button role="radio" class="@(Layout.Mode == mode ? "active" : "")" aria-checked="@(Layout.Mode == mode ? "true" : "false")"
+              @onclick="() => Change(Copy().WithMode(mode))" data-layout="@mode">@title</button>
+    }
+  </div>
+  <label class="check"><input type="checkbox" checked="@Layout.ShowCover" @onchange="e => Change(Copy().WithCover((bool)e.Value!))" /> Cover page alone (two-up)</label>
+</section>
+
+<section class="panel-section">
+  <h3>Renderer</h3>
+  <div class="segmented" role="radiogroup" aria-label="Renderer">
+    <button role="radio" class="@(Renderers.UseWebGL ? "" : "active")" aria-checked="@(Renderers.UseWebGL ? "false" : "true")"
+            @onclick="() => UseRenderer(false)" data-renderer="software">Software</button>
+    <button role="radio" class="@(Renderers.UseWebGL ? "active" : "")" aria-checked="@(Renderers.UseWebGL ? "true" : "false")"
+            @onclick="() => UseRenderer(true)" data-renderer="webgl">WebGL (GPU)</button>
+  </div>
+  <p class="hint" data-renderer-status>@_rendererMessage @Renderers.Status. @RenderStats.TileCount tiles,
+    mean @RenderStats.MeanTile.ToString("0.0", CultureInfo.InvariantCulture) ms@(RenderStats.FallbackTiles > 0 ? $", {RenderStats.FallbackTiles} drawn by the software rasterizer" : "").</p>
+</section>
+
+<section class="panel-section">
+  <h3>Rotation</h3>
+  <div class="row">
+    <button @onclick="() => Change(Copy().WithRotation(Layout.Rotation - 90))" aria-label="Rotate left" data-action="rotate-left">⟲ Left</button>
+    <span class="value" data-rotation="@Layout.Rotation">@Layout.Rotation°</span>
+    <button @onclick="() => Change(Copy().WithRotation(Layout.Rotation + 90))" aria-label="Rotate right" data-action="rotate-right">Right ⟳</button>
+  </div>
+  <p class="hint">A view rotation added to every page's own /Rotate; the file is not changed.</p>
+</section>
+
+<section class="panel-section">
+  <h3>Zoom <small>@((Demo.State.Zoom * 100).ToString("0", CultureInfo.InvariantCulture))%</small></h3>
+  <div class="button-grid">
+    <button @onclick="() => Demo.Viewer?.ZoomBy(1 / 1.25)" aria-label="Zoom out">−</button>
+    <button @onclick="() => Demo.Viewer?.ZoomBy(1.25)" aria-label="Zoom in" data-action="zoom-in">+</button>
+    <button @onclick="() => Demo.Viewer?.ZoomTo(ZoomMode.FitWidth)">Fit width</button>
+    <button @onclick="() => Demo.Viewer?.ZoomTo(ZoomMode.FitPage)">Fit page</button>
+    <button @onclick="() => Demo.Viewer?.ZoomTo(ZoomMode.ActualSize)">Actual size</button>
+  </div>
+  <p class="hint">Pinch, double-tap, wheel with Ctrl or ⌘, and + / − / 0 on the keyboard zoom too; the old tiles stretch until the sharp
+    ones arrive.</p>
+</section>
+
+@code {
+  private static readonly (PageLayoutMode Mode, string Title)[] Modes =
+  [
+    (PageLayoutMode.Continuous, "Continuous"),
+    (PageLayoutMode.SinglePage, "Single page"),
+    (PageLayoutMode.TwoUp, "Two-up"),
+    (PageLayoutMode.TwoUpContinuous, "Two-up continuous"),
+    (PageLayoutMode.Horizontal, "Horizontal"),
+  ];
+
+  [Parameter, EditorRequired] public PageLayoutOptions Layout { get; set; } = default!;
+
+  [Parameter] public EventCallback<PageLayoutOptions> LayoutChanged { get; set; }
+
+  private PageLayoutOptions Copy() =>
+    new PageLayoutOptions().WithMode(Layout.Mode).WithCover(Layout.ShowCover).WithGap(Layout.Gap).WithPadding(Layout.Padding).WithRotation(Layout.Rotation);
+
+  private string? _rendererMessage;
+
+  private Task Change(PageLayoutOptions layout) => LayoutChanged.InvokeAsync(layout);
+
+  private async Task UseRenderer(bool webgl)
+  {
+    _rendererMessage = await Renderers.SetAsync(webgl) || !webgl ? null : "WebGL 2 is not available in this browser.";
+    await Demo.ApplyRendererAsync();
+  }
+}

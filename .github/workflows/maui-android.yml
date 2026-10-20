@@ -1,0 +1,103 @@
+# The .NET MAUI viewer sample in Release on an Android emulator (#368): weekly, on pull requests that touch the sample, the
+# viewer shells it is built from, its build inputs or the AOT check, and on the "Run workflow" button. ci.yml's maui job builds
+# the Release APK and checks its AOT images on every pull request; this runs it, which ci.yml cannot (spec #33 open decision 9:
+# emulators are too slow and flaky for every PR). See .github/workflows/README.md.
+name: MAUI Android
+
+on:
+  schedule:
+    # Mondays 05:47 UTC, after android.yml.
+    - cron: '47 5 * * 1'
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - 'samples/Broadside.Viewer.Maui.Sample/**'
+      - 'src/Broadside.Viewer.Maui/**'
+      - 'src/Broadside.Viewer/**'
+      - 'src/Broadside.Rendering.Skia/**'
+      - 'tools/ApkAotCheck/**'
+      - 'Directory.Build.props'
+      - 'Directory.Packages.props'
+      - 'global.json'
+      - '.github/workflows/maui-android.yml'
+
+concurrency:
+  group: maui-android-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+
+jobs:
+  # Builds the sample in Release (ILLink and AOT on) for x86_64, the emulator's ABI on a Linux runner, checks the APK's AOT images
+  # against its assemblies, boots an emulator and runs the smoke intent: TraceMonkey opens, page 1 is captured from the GPU
+  # surface, and the app logs BROADSIDE_SMOKE_OK. #366 aborted here at startup while the Debug build ran.
+  smoke:
+    name: smoke (API ${{ matrix.api-level }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        api-level: [35]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-maui-android-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-maui-android-${{ runner.os }}-
+
+      - name: Install the maui-android workload
+        timeout-minutes: 20
+        run: dotnet workload install maui-android
+
+      - name: Install the Android SDK packages the workload needs
+        run: >
+          dotnet build samples/Broadside.Viewer.Maui.Sample -t:InstallAndroidDependencies -f net10.0-android
+          -p:AndroidSdkDirectory="$ANDROID_HOME" -p:AcceptAndroidSDKLicenses=true
+
+      - name: Build the sample for Android in Release (AOT, x86_64)
+        run: >
+          dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-android -c Release -warnaserror
+          -p:RuntimeIdentifier=android-x64 -p:AndroidSdkDirectory="$ANDROID_HOME"
+
+      - name: Find the APK
+        run: |
+          apk=$(find artifacts/bin/Broadside.Viewer.Maui.Sample -name 'dev.broadside.viewer.sample-Signed.apk' | head -n 1)
+          test -n "$apk" || { echo "No signed APK under artifacts/bin/Broadside.Viewer.Maui.Sample"; exit 1; }
+          echo "APK=$apk" >> "$GITHUB_ENV"
+
+      - name: Check the APK's AOT images against its assemblies
+        run: dotnet run --project tools/ApkAotCheck -- "$APK"
+
+      - name: Enable KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Run the smoke intent on an emulator
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api-level }}
+          arch: x86_64
+          target: google_apis
+          disable-animations: true
+          emulator-options: -no-window -no-audio -no-boot-anim -no-snapshot -gpu swiftshader_indirect
+          script: bash samples/Broadside.Viewer.Maui.Sample/smoke-android.sh "$APK"

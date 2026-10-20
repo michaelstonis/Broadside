@@ -1,0 +1,132 @@
+@inherits DemoPanel
+
+@if (_needsWholeFile)
+{
+  <NeedsWholeFile />
+}
+else if (_items is null || _items.Count == 0)
+{
+  <p class="hint">This document has no outline (bookmarks). Try “Outline and links” in the gallery.</p>
+}
+else
+{
+  <ul class="tree outline" role="tree">
+    @foreach (PdfOutlineItem item in _items)
+    {
+      @Item(item, 0)
+    }
+  </ul>
+}
+
+@code {
+  private IReadOnlyList<PdfOutlineItem>? _items;
+  private bool _needsWholeFile;
+  private int _version = -1;
+  private readonly HashSet<PdfOutlineItem> _open = new(ReferenceEqualityComparer.Instance);
+
+  protected override Task OnDemoChangedAsync()
+  {
+    Reload();
+    return Task.CompletedTask;
+  }
+
+  private void Reload()
+  {
+    if (_version == Demo.Version)
+    {
+      return;
+    }
+
+    _version = Demo.Version;
+    _open.Clear();
+    _needsWholeFile = false;
+    try
+    {
+      _items = Demo.Document?.Outline?.Items;
+      foreach (PdfOutlineItem item in _items ?? [])
+      {
+        if (item.IsOpen)
+        {
+          _open.Add(item);
+        }
+      }
+    }
+    catch (PdfRangeNotLoadedException)
+    {
+      _needsWholeFile = Demo.RemoteAddress is not null;
+    }
+  }
+
+  // Children render only once a node is expanded, so a huge outline costs nothing until it is browsed.
+  private RenderFragment Item(PdfOutlineItem item, int depth) => __builder =>
+  {
+    bool hasChildren = item.Children.Count > 0;
+    bool open = _open.Contains(item);
+    int? page = PageOf(item);
+    <li role="treeitem" aria-expanded="@(hasChildren ? (open ? "true" : "false") : null)">
+      <div class="tree-row" style="padding-left: @(depth * 14)px">
+        @if (hasChildren)
+        {
+          <button class="icon small" @onclick="() => Toggle(item)" aria-label="@(open ? "Collapse" : "Expand")">@(open ? "▾" : "▸")</button>
+        }
+        else
+        {
+          <span class="tree-spacer"></span>
+        }
+        <button class="tree-label" @onclick="() => Go(page)" disabled="@(page is null)" data-outline="@item.Title">
+          @item.Title
+          @if (page is int p)
+          {
+            <small>p. @(p + 1)</small>
+          }
+        </button>
+      </div>
+      @if (hasChildren && open)
+      {
+        <ul role="group">
+          @foreach (PdfOutlineItem child in item.Children)
+          {
+            @Item(child, depth + 1)
+          }
+        </ul>
+      }
+    </li>
+  };
+
+  private void Toggle(PdfOutlineItem item)
+  {
+    if (!_open.Remove(item))
+    {
+      _open.Add(item);
+    }
+  }
+
+  private void Go(int? page)
+  {
+    if (page is int index)
+    {
+      Demo.Viewer?.GoToPage(index);
+    }
+  }
+
+  // An outline item goes to its destination, or to the destination of its GoTo action (ISO 32000-2 §12.3.3); named destinations are
+  // looked up in the document.
+  private int? PageOf(PdfOutlineItem item)
+  {
+    try
+    {
+      PdfDestination? destination = item.Destination ?? (item.Action as PdfGoToAction)?.Destination;
+      PdfExplicitDestination? target = destination switch
+      {
+        PdfExplicitDestination explicitDestination => explicitDestination,
+        PdfNamedDestination named => named.Resolve(),
+        _ => null,
+      };
+      return target?.PageIndex;
+    }
+    catch (PdfRangeNotLoadedException)
+    {
+      return null;
+    }
+  }
+}

@@ -19,6 +19,10 @@ internal sealed class ViewerController : IAsyncDisposable
     /// <summary>A frame with less work than this starts loading one visible page's text, links and accessible tree.</summary>
     private static readonly TimeSpan IdleFrame = TimeSpan.FromMilliseconds(4);
 
+    // With a render worker, a page's text, links and accessibility nodes load once the view has been still this long: their display
+    // lists are built on this thread, which a scroll must not wait for (#357).
+    private static readonly TimeSpan SettleBeforeLoads = TimeSpan.FromMilliseconds(300);
+
     /// <summary>Real page sizes replace placeholders at most this often, so a remote document does not relayout per page.</summary>
     private static readonly TimeSpan RelayoutInterval = TimeSpan.FromMilliseconds(250);
 
@@ -40,6 +44,9 @@ internal sealed class ViewerController : IAsyncDisposable
     private double _ratio = 1;
 
     private DocumentSession? _session;
+    private bool _remoteRendering;
+    private Viewport _lastViewport;
+    private long _lastMove;
     private bool _ownsSession;
     private int _generation;
     private PageMetrics[] _metrics = [];
@@ -60,6 +67,8 @@ internal sealed class ViewerController : IAsyncDisposable
     private PointerMode _mode;
     private int _panPointers;
     private AccessibleNode? _pendingFocus;
+    private bool _pendingFollow;
+    private bool _touched;
     private bool _focusHost;
     private PdfViewerState _state;
 
@@ -115,7 +124,7 @@ internal sealed class ViewerController : IAsyncDisposable
     {
         Close();
         int generation = ++_generation;
-        _layoutOptions = layoutOptions;
+        _layoutOptions = layoutOptions is null ? null : LayoutKey.Of(layoutOptions).ToOptions();
         SetState(_state with { IsLoading = true, PageCount = 0, PageIndex = 0 });
         DocumentSession session = await open(_closing.Token).ConfigureAwait(true);
         if (generation != _generation || _closing.IsCancellationRequested)
@@ -151,7 +160,22 @@ internal sealed class ViewerController : IAsyncDisposable
         }
 
         PageLayout layout = PageLayout.Create(_metrics, _layoutOptions);
-        _scheduler = new TileScheduler(session, layout, _surface);
+        // With a render worker (#357) the content tiles come from its copy of the document; annotations and form fields get tiles of
+        // their own, drawn here, so an edit never waits for the worker and the worker's copy never needs it.
+        _remoteRendering = session.RemoteRenderer is not null;
+        var schedulerOptions = new TileSchedulerOptions();
+        if (_remoteRendering)
+        {
+            schedulerOptions.WithSeparateOverlays();
+        }
+
+        if (TileObserver is { } observer)
+        {
+            schedulerOptions.UseObserver(observer);
+        }
+
+        ViewerInterop.MarkWorker(Id, _remoteRendering);
+        _scheduler = new TileScheduler(session, layout, _surface, schedulerOptions);
         if (!_showAnnotations)
         {
             _scheduler.SetLayers(DisplayLayers.Content);
@@ -175,6 +199,25 @@ internal sealed class ViewerController : IAsyncDisposable
 
         SetState(_state with { IsLoading = false, PageCount = session.PageCount });
         _ = SweepMetricsAsync(session, generation);
+        Wake();
+    }
+
+    /// <summary>Gets or sets the observer given to the tile scheduler of the next document opened.</summary>
+    public Action<TileSchedulerEvent>? TileObserver { get; set; }
+
+    /// <summary>Invalidates every tile of every page so that all are drawn again.</summary>
+    public void Redraw()
+    {
+        if (_scheduler is null || _session is null)
+        {
+            return;
+        }
+
+        for (int page = 0; page < _session.PageCount; page++)
+        {
+            _scheduler.Invalidate(page, AllLayers);
+        }
+
         Wake();
     }
 
@@ -219,6 +262,64 @@ internal sealed class ViewerController : IAsyncDisposable
         }
     }
 
+    /// <summary>Gets the text selection of the open document.</summary>
+    public TextSelection? Selection => _selection;
+
+    /// <summary>Gets the annotation layer of the open document.</summary>
+    public AnnotationLayer? Annotations => _annotations;
+
+    /// <summary>Applies new layout options to the open document, keeping the current page in view; options equal to the current ones change nothing.</summary>
+    public void SetLayoutOptions(PageLayoutOptions? options)
+    {
+        LayoutKey key = LayoutKey.Of(options);
+        if (key == LayoutKey.Of(_layoutOptions))
+        {
+            return;
+        }
+
+        _layoutOptions = options is null ? null : key.ToOptions();
+        if (_scheduler is null || _zoom is null || _input is null)
+        {
+            return;
+        }
+
+        int page = _input.CurrentPage;
+        PageLayout layout = PageLayout.Create(_metrics, _layoutOptions);
+        _scheduler.SetLayout(layout);
+        Viewport viewport = _zoom.Viewport;
+        double zoom = layout.GetZoom(ZoomMode.FitWidth, viewport.Width, viewport.Height, page, _input.ActualSize);
+        _zoom.SetViewport(layout.Clamp(layout.ScrollTo(viewport with { Zoom = zoom }, page)));
+        Wake();
+    }
+
+    /// <summary>Scrolls the least distance that brings an area of a page into view, or centres it when it is not on the screen.</summary>
+    public void Reveal(int pageIndex, PdfRectangle area)
+    {
+        if (_zoom is null || _input is null || (uint)pageIndex >= (uint)_metrics.Length)
+        {
+            return;
+        }
+
+        PageLayout layout = _zoom.Layout;
+        Viewport viewport = _input.Viewport;
+        if (layout.Mode is PageLayoutMode.SinglePage or PageLayoutMode.TwoUp && layout.GetSpread(pageIndex) != layout.GetSpread(_input.CurrentPage))
+        {
+            viewport = layout.ScrollTo(viewport, pageIndex);
+        }
+
+        LayoutRectangle box = layout.PageToViewport(viewport, pageIndex, area);
+        double margin = 24 * _ratio;
+        double dx = box.X < margin ? box.X - margin : box.X + box.Width > viewport.Width - margin ? box.X + box.Width - viewport.Width + margin : 0;
+        double dy = box.Y < margin ? box.Y - margin : box.Y + box.Height > viewport.Height - margin ? box.Y + box.Height - viewport.Height + margin : 0;
+        if (box.Y + box.Height < 0 || box.Y > viewport.Height)
+        {
+            dy = box.Y + (box.Height / 2) - (viewport.Height / 2);
+        }
+
+        _zoom.SetViewport(layout.Clamp(viewport with { X = viewport.X + dx, Y = viewport.Y + dy }));
+        Wake();
+    }
+
     // ---- DOM events (called synchronously from JavaScript) ----
 
     public void Resize(double width, double height, double pixelRatio)
@@ -241,6 +342,8 @@ internal sealed class ViewerController : IAsyncDisposable
         {
             return;
         }
+
+        _touched = kind != PointerKind.Mouse; // a finger leaves no hover behind: only a mouse's hover is drawn
 
         if (_mode == PointerMode.Pan)
         {
@@ -585,13 +688,22 @@ internal sealed class ViewerController : IAsyncDisposable
         bool more = _input.RunFrame(FrameBudget);
         Viewport viewport = _input.Viewport;
         _bridge!.Update();
-        bool unloaded = RequestPageLoad(viewport, Stopwatch.GetElapsedTime(start) < IdleFrame);
+        // A load starts in a cheap frame, or once no tile is left to draw: on a slow device every frame may take longer than IdleFrame,
+        // and the page's links, fields and text must still load (#350).
+        if (viewport != _lastViewport)
+        {
+            _lastViewport = viewport;
+            _lastMove = Stopwatch.GetTimestamp();
+        }
+
+        bool settled = !_remoteRendering || Stopwatch.GetElapsedTime(_lastMove) >= SettleBeforeLoads;
+        bool unloaded = RequestPageLoad(viewport, settled && (!more || Stopwatch.GetElapsedTime(start) < IdleFrame));
 
         if (_focusHost)
         {
-            _focusHost = !ViewerInterop.FocusNode(Id, ElementId);
+            _focusHost = !ViewerInterop.FocusNode(Id, ElementId, false);
         }
-        else if (_pendingFocus is { } node && NodeIds.TryGetValue(node, out string? id) && ViewerInterop.FocusNode(Id, id))
+        else if (_pendingFocus is { } node && NodeIds.TryGetValue(node, out string? id) && ViewerInterop.FocusNode(Id, id, _pendingFollow))
         {
             _pendingFocus = null;
         }
@@ -606,8 +718,9 @@ internal sealed class ViewerController : IAsyncDisposable
         _metricsDirty = false;
         _lastRelayout = Stopwatch.GetTimestamp();
         PageLayout layout = PageLayout.Create(_metrics, _layoutOptions);
+        PageLayout previous = _zoom!.Layout;
         _scheduler!.SetLayout(layout);
-        _zoom!.SetViewport(layout.Clamp(_zoom.Viewport));
+        _zoom.SetViewport(layout.Anchor(previous, _zoom.Viewport)); // the page in view stays put as real sizes replace placeholders (#348)
     }
 
     private async Task SweepMetricsAsync(DocumentSession session, int generation)
@@ -676,13 +789,27 @@ internal sealed class ViewerController : IAsyncDisposable
     }
 
     /// <summary>Loads a page's selectable text, annotations and accessible tree, so the page can be selected, clicked and read.</summary>
+    private async Task SettledAsync(CancellationToken token)
+    {
+        while (_remoteRendering && Stopwatch.GetElapsedTime(_lastMove) < SettleBeforeLoads)
+        {
+            await Task.Delay(SettleBeforeLoads, token).ConfigureAwait(true);
+        }
+    }
+
     private async Task LoadPageAsync(int pageIndex, int generation)
     {
         try
         {
             CancellationToken token = _closing.Token;
-            await _selection!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            // Links and fields first: they are cheap and make the page interactive; text selection extracts the page's layout (#350).
             await _annotations!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+
+            // Text selection builds the page's display list and accessibility extracts its layout on this thread, each one long task:
+            // with a render worker they wait until the view is still, so a scroll that starts meanwhile is not held up (#357).
+            await SettledAsync(token).ConfigureAwait(true);
+            await _selection!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
+            await SettledAsync(token).ConfigureAwait(true);
             await _bridge!.LoadPageAsync(pageIndex, token).ConfigureAwait(true);
             if (generation == _generation)
             {
@@ -725,6 +852,7 @@ internal sealed class ViewerController : IAsyncDisposable
         {
             case AccessibilityChangeKind.FocusChanged:
                 _pendingFocus = change.Node;
+                _pendingFollow = change.FollowsViewer; // scrolling moves the keyboard focus only while it is on the text layer (#349)
                 _focusHost = change.Node is null;
                 Wake();
                 break;
@@ -763,6 +891,7 @@ internal sealed class ViewerController : IAsyncDisposable
             count = _zoom.GetFrame(_parts);
         }
 
+        // Paper and content tiles first, then overlay tiles (separate with a render worker) over all of them.
         foreach (FramePart part in _parts.AsSpan(0, count))
         {
             LayoutRectangle d = part.Destination;
@@ -770,7 +899,16 @@ internal sealed class ViewerController : IAsyncDisposable
             {
                 Add(ref records, 1, d.X, d.Y, d.Width, d.Height);
             }
-            else if (_surface.TryGetKey(part.Tile, out int key))
+            else if ((part.Tile.Layers & DisplayLayers.Content) != 0 && _surface.TryGetKey(part.Tile, out int key))
+            {
+                Add(ref records, 2, key, d.X, d.Y, d.Width, d.Height);
+            }
+        }
+
+        foreach (FramePart part in _parts.AsSpan(0, count))
+        {
+            LayoutRectangle d = part.Destination;
+            if (part.Kind != FramePartKind.Paper && (part.Tile.Layers & DisplayLayers.Content) == 0 && _surface.TryGetKey(part.Tile, out int key))
             {
                 Add(ref records, 2, key, d.X, d.Y, d.Width, d.Height);
             }
@@ -797,6 +935,19 @@ internal sealed class ViewerController : IAsyncDisposable
                     Add(ref records, 3, a.X, a.Y, b.X, b.Y, c.X, c.Y, e.X, e.Y);
                 }
             }
+        }
+
+        // Links and fields show they are live: pressed while a pointer holds them, hovered under a mouse (#350).
+        AnnotationLayer annotations = _annotations!;
+        if (annotations.Pressed is { } pressed && annotations.GetRole(pressed) != AnnotationRole.Annotation)
+        {
+            LayoutRectangle r = annotations.GetScreenRectangle(pressed, layout, viewport);
+            Add(ref records, 5, r.X, r.Y, r.Width, r.Height, 2);
+        }
+        else if (!_touched && _mode == PointerMode.None && annotations.Hovered is { } hovered && annotations.GetRole(hovered) != AnnotationRole.Annotation)
+        {
+            LayoutRectangle r = annotations.GetScreenRectangle(hovered, layout, viewport);
+            Add(ref records, 5, r.X, r.Y, r.Width, r.Height, 1);
         }
 
         double scale = 1 / _ratio;
@@ -909,5 +1060,18 @@ internal sealed class ViewerController : IAsyncDisposable
         }
 
         _closing.Dispose();
+    }
+
+    /// <summary>The values of a <see cref="PageLayoutOptions"/> (a mutable class), compared to tell whether a relayout is needed.</summary>
+    private readonly record struct LayoutKey(PageLayoutMode Mode, bool ShowCover, double Gap, double Padding, int Rotation)
+    {
+        public static LayoutKey Of(PageLayoutOptions? options)
+        {
+            options ??= new PageLayoutOptions();
+            return new LayoutKey(options.Mode, options.ShowCover, options.Gap, options.Padding, options.Rotation);
+        }
+
+        public PageLayoutOptions ToOptions() =>
+            new PageLayoutOptions().WithMode(Mode).WithCover(ShowCover).WithGap(Gap).WithPadding(Padding).WithRotation(Rotation);
     }
 }

@@ -1,11 +1,17 @@
 <Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
 
   <!--
-    The Blazor WebAssembly viewer sample (issue #221). `dotnet run` serves it in debug (interpreted); `dotnet publish -c Release`
+    The Broadside Blazor WebAssembly demo (issues #221 and #338). `dotnet run` serves it in debug (interpreted); `dotnet publish -c Release`
     trims it and compiles it ahead of time to WebAssembly, which needs the wasm-tools workload (`dotnet workload install wasm-tools`).
     The published wwwroot is a self-contained static site that works from any sub-path (relative base href): publish-static.sh copies
     it to a folder. It carries no native binaries beyond the .NET WebAssembly runtime and stays under the size budget the browser
-    tests check (tests/Broadside.Viewer.Blazor.BrowserTests/PublishedAppTests.cs).
+    tests check (tests/Broadside.Viewer.Blazor.BrowserTests/PublishedAppTests.cs). See README.md.
+
+    Publish switches:
+      -p:BroadsideAot=false               no ahead-of-time compilation: the IL runs in the interpreter, the runtime module is ~1.3 MB
+                                          instead of ~21 MB, and no file is larger than ~4.5 MB (hosts with a per-file size limit).
+      -p:BroadsideRuntimeFolder=<name>    moves _framework to <name> and _content to <name>-content after publishing (hosts that
+                                          reserve paths starting with "_"); index.html is rewritten to load from there (see README.md).
   -->
   <PropertyGroup>
     <TimeZoneSupport>false</TimeZoneSupport>
@@ -15,11 +21,14 @@
     <!-- A plain static site: the host serves files as they are, so no precompressed .br/.gz copies. -->
     <CompressionEnabled>false</CompressionEnabled>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <!-- [JSExport] benchmark hooks (RenderStats) need the generated interop's unsafe code. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <BroadsideAot Condition="'$(BroadsideAot)' == ''">true</BroadsideAot>
   </PropertyGroup>
 
   <!-- The WebAssembly SDK publishes in a nested build that clears _IsPublishing and sets _WasmIsPublishing instead. -->
   <PropertyGroup Condition="'$(_IsPublishing)' == 'true' Or '$(_WasmIsPublishing)' == 'true'">
-    <RunAOTCompilation>true</RunAOTCompilation>
+    <RunAOTCompilation Condition="'$(BroadsideAot)' == 'true'">true</RunAOTCompilation>
     <PublishTrimmed>true</PublishTrimmed>
     <TrimMode>full</TrimMode>
   </PropertyGroup>
@@ -31,7 +40,43 @@
 
   <ItemGroup>
     <ProjectReference Include="../../src/Broadside.Viewer.Blazor/Broadside.Viewer.Blazor.csproj" />
+    <ProjectReference Include="../../src/Broadside.Layout/Broadside.Layout.csproj" />
     <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
   </ItemGroup>
+
+  <!-- The gallery: hand-written files from the test corpus, served from wwwroot/documents (linked, so they never drift). -->
+  <ItemGroup>
+    <Content Include="../../tests/Corpus/layout-two-column-tagged.pdf;../../tests/Corpus/layout-tables.pdf;../../tests/Corpus/tagged-structure.pdf;../../tests/Corpus/outline-full.pdf;../../tests/Corpus/annotations-link.pdf;../../tests/Corpus/acroform-fields.pdf;../../tests/Corpus/info-dictionary.pdf;../../tests/Corpus/shading-radial-cases.pdf;../../tests/Corpus/transparency-blend-modes.pdf;../../tests/Corpus/page-rotation.pdf;../../tests/Corpus/linearized.pdf"
+             Link="wwwroot/documents/%(Filename)%(Extension)" CopyToOutputDirectory="Never" />
+  </ItemGroup>
+
+  <!--
+    Hosts that reserve paths starting with "_" (some static hosts treat them as private): after publishing, move the runtime and the
+    component libraries' assets to folders without the underscore and point index.html at them. The runtime loads every other file
+    relative to dotnet.js (wwwroot/js/start.js maps it through Blazor's loadBootResource), and an import map sends the viewer's
+    JavaScript module import from _content to the renamed folder.
+  -->
+  <Target Name="BroadsideMoveRuntimeFolder" AfterTargets="Publish" Condition="'$(BroadsideRuntimeFolder)' != '' And '$(_WasmIsPublishing)' != 'true'">
+    <Error Condition="$(BroadsideRuntimeFolder.StartsWith('_')) Or $(BroadsideRuntimeFolder.Contains('/')) Or $(BroadsideRuntimeFolder.Contains('\'))"
+           Text="BroadsideRuntimeFolder must be a plain folder name that does not start with an underscore." />
+    <PropertyGroup>
+      <_BroadsideSite>$([MSBuild]::NormalizeDirectory('$(PublishDir)', 'wwwroot'))</_BroadsideSite>
+      <_BroadsideContent>$(BroadsideRuntimeFolder)-content</_BroadsideContent>
+    </PropertyGroup>
+    <ItemGroup>
+      <_BroadsideFramework Include="$(_BroadsideSite)_framework/**/*" />
+      <_BroadsideContentFiles Include="$(_BroadsideSite)_content/**/*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(_BroadsideFramework)" DestinationFiles="@(_BroadsideFramework->'$(_BroadsideSite)$(BroadsideRuntimeFolder)/%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(_BroadsideContentFiles)" DestinationFiles="@(_BroadsideContentFiles->'$(_BroadsideSite)$(_BroadsideContent)/%(RecursiveDir)%(Filename)%(Extension)')" />
+    <RemoveDir Directories="$(_BroadsideSite)_framework;$(_BroadsideSite)_content" />
+    <PropertyGroup>
+      <_BroadsideIndex>$([System.IO.File]::ReadAllText('$(_BroadsideSite)index.html'))</_BroadsideIndex>
+      <_BroadsideIndex>$(_BroadsideIndex.Replace('src="_framework/', 'src="$(BroadsideRuntimeFolder)/'))</_BroadsideIndex>
+      <_BroadsideIndex>$(_BroadsideIndex.Replace('&lt;!-- broadside:import-map --&gt;', '&lt;script type="importmap"&gt;{ "imports": { "./_content/": "./$(_BroadsideContent)/" } }&lt;/script&gt;'))</_BroadsideIndex>
+    </PropertyGroup>
+    <WriteLinesToFile File="$(_BroadsideSite)index.html" Lines="$([MSBuild]::Escape('$(_BroadsideIndex.TrimEnd())'))" Overwrite="true" WriteOnlyWhenDifferent="false" />
+    <Message Importance="high" Text="Runtime moved to $(BroadsideRuntimeFolder)/ and component assets to $(_BroadsideContent)/ in $(_BroadsideSite)" />
+  </Target>
 
 </Project>

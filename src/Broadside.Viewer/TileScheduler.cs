@@ -19,8 +19,10 @@ namespace Broadside.Viewer;
 /// <c>requestAnimationFrame</c>) while it returns <see langword="true"/>. With a cooperative session (the browser, one thread) the
 /// frame does the work itself, in slices of the session's <see cref="ViewerOptions.SliceBudget"/>, until the frame's budget is spent:
 /// at most one display-list build runs per frame, and only while no slow build has run in it yet, because a build cannot be
-/// interrupted, so a frame overruns its budget by at most one build. With a background session the frame starts up to
-/// <see cref="TileSchedulerOptions.MaxConcurrency"/> renders on worker threads and returns at once.
+/// interrupted, so a frame overruns its budget by at most one build. With a background session the frame only plans: it queues up to
+/// <see cref="TileSchedulerOptions.MaxConcurrency"/> tile jobs on the thread pool and returns at once, and each job loads its page,
+/// builds or takes its display list, renders and presents on workers, so <see cref="IRenderSurface.Present"/> and
+/// <see cref="IRenderSurface.Evict"/> are then called on worker threads too (#357): the UI thread only draws what the surface holds.
 /// </para>
 /// <para>
 /// A tile of a lower priority starts only once every wanted tile of a higher one is on the surface (or failed), so an off-screen tile
@@ -42,6 +44,8 @@ public sealed class TileScheduler : IDisposable
     private readonly IRenderSurface _surface;
     private readonly Lock _gate = new();
     private readonly bool _cooperative;
+    private readonly IRemoteTileRenderer? _remote;
+    private int _remoteRunning;
     private readonly int _tileSize;
     private readonly long _budget;
     private readonly double _nearMargin;
@@ -69,6 +73,7 @@ public sealed class TileScheduler : IDisposable
     private long _residentBytes;
     private long _drawingBytes;
     private long _peakBytes;
+    private long _pendingTrim = -1;
     private int _residentCount;
     private int _running;
     private long _started;
@@ -95,6 +100,7 @@ public sealed class TileScheduler : IDisposable
         _layout = layout;
         _surface = surface;
         _cooperative = session.IsCooperative;
+        _remote = session.RemoteRenderer;
         _tileSize = options.TileSize;
         _budget = options.MemoryBudget;
         _nearMargin = options.NearMargin;
@@ -165,8 +171,9 @@ public sealed class TileScheduler : IDisposable
 
     /// <summary>
     /// Redraws the tiles of a page that show <paramref name="area"/> in <paramref name="layers"/>, after an edit changed what they show
-    /// (an annotation added, moved or removed, a field's value). Tiles on the surface leave it and render again when wanted; renders in
-    /// progress restart.
+    /// (an annotation added, moved or removed, a field's value). A tile on the surface that is still wanted stays there, and in
+    /// <see cref="GetFrame"/>, until its redraw replaces it (<see cref="TileEventKind.Invalidated"/>), so the edit never shows a blank
+    /// frame; one no longer wanted leaves the surface; renders in progress restart.
     /// </summary>
     /// <param name="pageIndex">The zero-based page.</param>
     /// <param name="area">The changed area in the page's default user space.</param>
@@ -218,7 +225,7 @@ public sealed class TileScheduler : IDisposable
             dropped = _stale.Count;
             foreach (TileJob job in _stale)
             {
-                Drop(job, ref cancel);
+                Refresh(job, ref cancel);
             }
 
             _stale.Clear();
@@ -243,9 +250,36 @@ public sealed class TileScheduler : IDisposable
         }
     }
 
+    /// <summary>
+    /// Redraws an out-of-date tile: one still wanted keeps its old pixels on the surface (and in <see cref="GetFrame"/>) until the redraw
+    /// replaces them, so an edit never shows a blank frame; a render in progress restarts, keeping the old pixels it was replacing.
+    /// </summary>
+    private void Refresh(TileJob job, ref List<CancellationTokenSource>? cancel)
+    {
+        if (job.State == TileState.Resident && job.Generation == _generation)
+        {
+            job.State = TileState.New;
+            job.OldPixels = true;
+            Trace(TileEventKind.Invalidated, job);
+        }
+        else if (job.IsDrawing && job.OldPixels)
+        {
+            job.OldPixels = false;
+            Cancel(job, ref cancel);
+            var redraw = new TileJob(this, job.Tile) { Generation = job.Generation, Priority = job.Priority, IsPlaceholder = job.IsPlaceholder, Bytes = job.Bytes, OldPixels = true };
+            _jobs[job.Tile] = redraw;
+            _replan = true;
+        }
+        else
+        {
+            Drop(job, ref cancel);
+        }
+    }
+
     /// <summary>Takes a tile off the surface (or stops its render); a tile still wanted renders again, after a replan for a stopped one.</summary>
     private void Drop(TileJob job, ref List<CancellationTokenSource>? cancel)
     {
+        ForgetOldPixels(job);
         if (job.State == TileState.Resident)
         {
             Evict(job);
@@ -259,6 +293,22 @@ public sealed class TileScheduler : IDisposable
         {
             _jobs.Remove(job.Tile);
         }
+    }
+
+    /// <summary>Takes the pixels an invalidated tile still shows off the surface: its redraw will not replace them.</summary>
+    private void ForgetOldPixels(TileJob job)
+    {
+        if (!job.OldPixels)
+        {
+            return;
+        }
+
+        job.OldPixels = false;
+        _surface.Evict(job.Tile);
+        _residentBytes -= job.Bytes;
+        _residentCount--;
+        _evicted++;
+        Trace(TileEventKind.Evicted, job);
     }
 
     private bool IsShown(DisplayLayers layers) =>
@@ -466,7 +516,7 @@ public sealed class TileScheduler : IDisposable
             foreach (TileJob job in _jobs.Values)
             {
                 Tile tile = job.Tile;
-                if (job.State != TileState.Resident || tile.Rotation != _layout.Rotation || IndexOfPage(tile.PageIndex, pages) is not int at)
+                if ((job.State != TileState.Resident && !job.OldPixels) || tile.Rotation != _layout.Rotation || IndexOfPage(tile.PageIndex, pages) is not int at)
                 {
                     continue;
                 }
@@ -640,6 +690,7 @@ public sealed class TileScheduler : IDisposable
             }
             else if (job.State is TileState.New or TileState.Failed)
             {
+                ForgetOldPixels(job);
                 _jobs.Remove(job.Tile);
             }
         }
@@ -779,7 +830,15 @@ public sealed class TileScheduler : IDisposable
         long room = _budget - _residentBytes - _drawingBytes;
         if (_session.Document.CachedBytes > room)
         {
-            _session.Document.TrimCaches(Math.Max(0, room));
+            if (_cooperative)
+            {
+                _session.Document.TrimCaches(Math.Max(0, room));
+            }
+            else
+            {
+                // A worker presenting a tile trims after it leaves the lock, so the UI thread's frame never waits on the trim.
+                _pendingTrim = _pendingTrim < 0 ? Math.Max(0, room) : Math.Min(_pendingTrim, Math.Max(0, room));
+            }
         }
 
         _peakBytes = Math.Max(_peakBytes, AccountedBytes());
@@ -967,7 +1026,12 @@ public sealed class TileScheduler : IDisposable
                 return null;
             }
 
-            if (job.State == TileState.New || (job.State == TileState.Drawing && job.Load is null))
+            if (job.State == TileState.New && IsRemote(job) && _remoteRunning >= _remote!.MaxConcurrency)
+            {
+                continue; // the remote renderer is busy: draw a tile it would not take meanwhile
+            }
+
+            if (job.State == TileState.New || (job.State == TileState.Drawing && job.Load is null && !job.IsRemote))
             {
                 return job;
             }
@@ -982,6 +1046,13 @@ public sealed class TileScheduler : IDisposable
         if (!Reserve(bytes, job.Priority))
         {
             return false;
+        }
+
+        if (IsRemote(job))
+        {
+            StartRemote(job, bytes);
+            _ = RunBackgroundAsync(job); // posts the tile and returns; it is presented in a later frame
+            return true;
         }
 
         CancellationTokenSource operation;
@@ -1112,6 +1183,16 @@ public sealed class TileScheduler : IDisposable
         }
 
         Enforce(); // the build may have grown the caches
+        if (list.OperationCount == 0 && (job.Tile.Layers & DisplayLayers.Content) == 0)
+        {
+            // An overlay with nothing on it (a page without annotations): resident without pixels, never drawn or composed (#357).
+            ForgetOldPixels(job);
+            Release(job);
+            job.Bytes = 0;
+            MakeResident(job);
+            return;
+        }
+
         job.Target = new Bitmap(job.Tile.Region.Width, job.Tile.Region.Height);
         _session.AddPixelBytes(job.Bytes);
         if ((job.Tile.Layers & DisplayLayers.Content) != 0)
@@ -1215,8 +1296,16 @@ public sealed class TileScheduler : IDisposable
     private void MakeResident(TileJob job)
     {
         job.State = TileState.Resident;
-        _residentBytes += job.Bytes;
-        _residentCount++;
+        if (job.OldPixels)
+        {
+            job.OldPixels = false; // the redraw replaced the old pixels under the same tile, already counted
+        }
+        else
+        {
+            _residentBytes += job.Bytes;
+            _residentCount++;
+        }
+
         _presented++;
         Enforce();
         Trace(TileEventKind.Presented, job);
@@ -1226,6 +1315,7 @@ public sealed class TileScheduler : IDisposable
     private void Fail(TileJob job)
     {
         Release(job);
+        ForgetOldPixels(job);
         job.State = TileState.Failed;
         Trace(TileEventKind.Failed, job);
     }
@@ -1239,7 +1329,8 @@ public sealed class TileScheduler : IDisposable
     /// <summary>Stops a render the viewport has left; a background render's token is cancelled by the caller after the lock is released.</summary>
     private void Cancel(TileJob job, ref List<CancellationTokenSource>? cancel)
     {
-        if (_cooperative)
+        ForgetOldPixels(job);
+        if (_cooperative && !job.IsRemote)
         {
             if (job.Load is not null)
             {
@@ -1292,16 +1383,47 @@ public sealed class TileScheduler : IDisposable
                 return;
             }
 
-            job.Bytes = bytes;
-            job.State = TileState.Drawing;
-            job.Cancellation = new CancellationTokenSource();
-            job.Reserved = true;
-            _drawingBytes += bytes;
-            _running++;
-            _started++;
-            Trace(TileEventKind.Started, job);
-            _ = RunBackgroundAsync(job);
+            if (IsRemote(job))
+            {
+                if (_remoteRunning >= _remote!.MaxConcurrency)
+                {
+                    continue;
+                }
+
+                StartRemote(job, bytes);
+            }
+            else
+            {
+                job.Bytes = bytes;
+                job.State = TileState.Drawing;
+                job.Cancellation = new CancellationTokenSource();
+                job.Reserved = true;
+                _drawingBytes += bytes;
+                _running++;
+                _started++;
+                Trace(TileEventKind.Started, job);
+            }
+
+            // The whole job (page load, list build, render, present) runs on workers: the frame's thread only plans (#357).
+            ThreadPool.UnsafeQueueUserWorkItem(job, preferLocal: false);
         }
+    }
+
+    private bool IsRemote(TileJob job) => _remote is { } remote && remote.CanRender(job.Tile);
+
+    /// <summary>Starts a tile the remote renderer draws: counted like a background render until it is presented or stops.</summary>
+    private void StartRemote(TileJob job, long bytes)
+    {
+        job.IsRemote = true;
+        job.Bytes = bytes;
+        job.State = TileState.Drawing;
+        job.Cancellation = new CancellationTokenSource();
+        job.Reserved = true;
+        _drawingBytes += bytes;
+        _running++;
+        _remoteRunning++;
+        _started++;
+        Trace(TileEventKind.Started, job);
     }
 
     private async Task RunBackgroundAsync(TileJob job)
@@ -1309,7 +1431,9 @@ public sealed class TileScheduler : IDisposable
         bool failed = false;
         try
         {
-            await _session.RenderTileAsync(job.Tile, job, job.Cancellation!.Token).ConfigureAwait(false);
+            await (job.IsRemote
+                ? _remote!.RenderAsync(job.Tile, job, job.Cancellation!.Token)
+                : _session.RenderTileAsync(job.Tile, job, job.Cancellation!.Token)).ConfigureAwait(false);
         }
         catch (OperationCanceledException)
         {
@@ -1329,6 +1453,11 @@ public sealed class TileScheduler : IDisposable
         {
             _stopped |= _session.IsClosed;
             _running--;
+            if (job.IsRemote)
+            {
+                _remoteRunning--;
+            }
+
             if (job.Reserved)
             {
                 job.Reserved = false;
@@ -1339,17 +1468,39 @@ public sealed class TileScheduler : IDisposable
             {
                 if (failed)
                 {
+                    ForgetOldPixels(job);
                     job.State = TileState.Failed;
                     Trace(TileEventKind.Failed, job);
                 }
                 else
                 {
-                    job.State = TileState.New; // stopped by the session closing; nothing reached the surface
+                    // Stopped by the session closing, or given back by a remote renderer that could not draw it: nothing reached the
+                    // surface, so it starts again (drawn here when the remote renderer now declines it).
+                    job.State = TileState.New;
+                    job.IsRemote = false;
                 }
             }
         }
 
         job.Cancellation!.Dispose();
+    }
+
+    /// <summary>A background overlay had nothing to draw: it is resident without pixels, unless it was cancelled first.</summary>
+    private void PresentEmpty(TileJob job)
+    {
+        lock (_gate)
+        {
+            if (job.State != TileState.Drawing || _stopped)
+            {
+                return;
+            }
+
+            ForgetOldPixels(job);
+            job.Reserved = false;
+            _drawingBytes -= job.Bytes;
+            job.Bytes = 0;
+            MakeResident(job);
+        }
     }
 
     /// <summary>A background render finished: the tile reaches the surface unless it was cancelled first.</summary>
@@ -1366,11 +1517,19 @@ public sealed class TileScheduler : IDisposable
         }
 
         _surface.Present(job.Tile, pixels);
+        long trim;
         lock (_gate)
         {
             job.Reserved = false;
             _drawingBytes -= job.Bytes;
             MakeResident(job);
+            trim = _pendingTrim;
+            _pendingTrim = -1;
+        }
+
+        if (trim >= 0)
+        {
+            _session.Document.TrimCaches(trim); // safe while other threads render
         }
     }
 
@@ -1385,7 +1544,7 @@ public sealed class TileScheduler : IDisposable
     }
 
     /// <summary>One wanted tile and its render. Also the surface a background render presents through, so a cancelled render is recognised.</summary>
-    private sealed class TileJob(TileScheduler scheduler, Tile tile) : IRenderSurface
+    private sealed class TileJob(TileScheduler scheduler, Tile tile) : IRenderSurface, IThreadPoolWorkItem, IEmptyTileSink
     {
         public Tile Tile { get; } = tile;
 
@@ -1402,6 +1561,12 @@ public sealed class TileScheduler : IDisposable
         public bool Reserved { get; set; }
 
         public bool Prefetched { get; set; }
+
+        /// <summary>Gets or sets whether the remote renderer draws the tile (a background-style job in either mode).</summary>
+        public bool IsRemote { get; set; }
+
+        /// <summary>Gets or sets whether the surface still shows this tile's pixels from before an invalidation (counted as resident).</summary>
+        public bool OldPixels { get; set; }
 
         public CancellationTokenSource? Cancellation { get; set; }
 
@@ -1422,5 +1587,10 @@ public sealed class TileScheduler : IDisposable
         public bool IsDrawing => State is TileState.Drawing;
 
         public void Present(Tile presented, Bitmap pixels) => scheduler.PresentBackground(this, pixels);
+
+        public void PresentEmpty(Tile presented) => scheduler.PresentEmpty(this);
+
+        /// <summary>Runs a background job on the worker that took it.</summary>
+        public void Execute() => _ = scheduler.RunBackgroundAsync(this);
     }
 }

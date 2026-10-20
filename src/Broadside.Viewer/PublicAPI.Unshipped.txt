@@ -191,6 +191,7 @@ Broadside.Viewer.PageLayoutOptions.WithRotation(int rotation) -> Broadside.Viewe
 const Broadside.Viewer.PageLayoutOptions.DefaultSpacing = 8 -> double
 static Broadside.Viewer.PageLayoutOptions.For(Broadside.PdfPageLayout layout) -> Broadside.Viewer.PageLayoutOptions!
 Broadside.Viewer.PageLayout
+Broadside.Viewer.PageLayout.Anchor(Broadside.Viewer.PageLayout! previous, in Broadside.Viewer.Viewport viewport) -> Broadside.Viewer.Viewport
 Broadside.Viewer.PageLayout.Clamp(in Broadside.Viewer.Viewport viewport) -> Broadside.Viewer.Viewport
 Broadside.Viewer.PageLayout.ContentHeight.get -> double
 Broadside.Viewer.PageLayout.ContentWidth.get -> double
@@ -270,6 +271,7 @@ Broadside.Viewer.TileEventKind.Presented = 1 -> Broadside.Viewer.TileEventKind
 Broadside.Viewer.TileEventKind.Cancelled = 2 -> Broadside.Viewer.TileEventKind
 Broadside.Viewer.TileEventKind.Evicted = 3 -> Broadside.Viewer.TileEventKind
 Broadside.Viewer.TileEventKind.Failed = 4 -> Broadside.Viewer.TileEventKind
+Broadside.Viewer.TileEventKind.Invalidated = 5 -> Broadside.Viewer.TileEventKind
 Broadside.Viewer.TileSchedulerEvent
 Broadside.Viewer.TileSchedulerEvent.TileSchedulerEvent() -> void
 Broadside.Viewer.TileSchedulerEvent.TileSchedulerEvent(Broadside.Viewer.TileEventKind Kind, Broadside.Viewer.Tile Tile, Broadside.Viewer.TilePriority Priority, bool IsPlaceholder, long Bytes) -> void
@@ -513,6 +515,7 @@ Broadside.Viewer.AnnotationLayer.GetRole(Broadside.Viewer.AnnotationTarget targe
 Broadside.Viewer.AnnotationLayer.GetScreenRectangle(Broadside.Viewer.AnnotationTarget target, Broadside.Viewer.PageLayout! layout, in Broadside.Viewer.Viewport viewport) -> Broadside.Viewer.LayoutRectangle
 Broadside.Viewer.AnnotationLayer.HitTest(in Broadside.Viewer.PagePoint point) -> Broadside.Viewer.AnnotationTarget?
 Broadside.Viewer.AnnotationLayer.Hovered.get -> Broadside.Viewer.AnnotationTarget?
+Broadside.Viewer.AnnotationLayer.Pressed.get -> Broadside.Viewer.AnnotationTarget?
 Broadside.Viewer.AnnotationLayer.Invalidated -> System.EventHandler<Broadside.Viewer.PageInvalidatedEventArgs!>?
 Broadside.Viewer.AnnotationLayer.IsDragging.get -> bool
 Broadside.Viewer.AnnotationLayer.LoadPageAsync(int pageIndex, System.Threading.CancellationToken cancellationToken = default(System.Threading.CancellationToken)) -> System.Threading.Tasks.ValueTask<int>
@@ -635,6 +638,8 @@ Broadside.Viewer.AccessibilityChangeKind.BoundsChanged = 2 -> Broadside.Viewer.A
 Broadside.Viewer.AccessibilityChange
 Broadside.Viewer.AccessibilityChange.AccessibilityChange() -> void
 Broadside.Viewer.AccessibilityChange.AccessibilityChange(Broadside.Viewer.AccessibilityChangeKind Kind, Broadside.Viewer.AccessibleNode? Node) -> void
+Broadside.Viewer.AccessibilityChange.FollowsViewer.get -> bool
+Broadside.Viewer.AccessibilityChange.FollowsViewer.init -> void
 Broadside.Viewer.AccessibilityChange.Kind.get -> Broadside.Viewer.AccessibilityChangeKind
 Broadside.Viewer.AccessibilityChange.Kind.init -> void
 Broadside.Viewer.AccessibilityChange.Node.get -> Broadside.Viewer.AccessibleNode?
@@ -707,3 +712,12 @@ Broadside.Viewer.AccessibilityBridge.TryGetViewportShowing(Broadside.Viewer.Acce
 Broadside.Viewer.AnnotationLayer.Accessibility.get -> Broadside.Viewer.AccessibilityBridge?
 Broadside.Viewer.AnnotationLayer.Accessibility.set -> void
 Broadside.Viewer.AnnotationLayer.GetElements(Broadside.PdfPage! page, int pageIndex, System.Collections.Generic.ICollection<Broadside.Viewer.AccessibleElement>! destination) -> void
+Broadside.Viewer.DocumentSession.BeginEdit() -> System.IDisposable!
+Broadside.Viewer.IRemoteTileRenderer
+Broadside.Viewer.IRemoteTileRenderer.CanRender(in Broadside.Viewer.Tile tile) -> bool
+Broadside.Viewer.IRemoteTileRenderer.MaxConcurrency.get -> int
+Broadside.Viewer.IRemoteTileRenderer.RenderAsync(Broadside.Viewer.Tile tile, Broadside.Viewer.IRenderSurface! surface, System.Threading.CancellationToken cancellationToken) -> System.Threading.Tasks.Task!
+Broadside.Viewer.ViewerOptions.RemoteRenderer.get -> Broadside.Viewer.IRemoteTileRenderer?
+Broadside.Viewer.ViewerOptions.RemoteRenderer.set -> void
+Broadside.Viewer.ViewerOptions.UseRemoteRenderer(Broadside.Viewer.IRemoteTileRenderer! renderer) -> Broadside.Viewer.ViewerOptions!
+Broadside.Viewer.DocumentSession.RemoteRenderer.get -> Broadside.Viewer.IRemoteTileRenderer?

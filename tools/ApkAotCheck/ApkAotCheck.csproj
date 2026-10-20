@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Checks that every AOT image in a .NET for Android APK was compiled from the assemblies the APK ships (#366). See README.md. -->
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <RootNamespace>Broadside.Tools.ApkAotCheck</RootNamespace>
+    <AssemblyName>ApkAotCheck</AssemblyName>
+    <Description>Checks that the AOT images in a .NET for Android APK match the assemblies in its assembly store.</Description>
+  </PropertyGroup>
+
+</Project>

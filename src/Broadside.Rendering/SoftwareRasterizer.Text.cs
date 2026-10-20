@@ -70,6 +70,12 @@ public sealed partial class SoftwareRasterizer
                     }
 
                     Matrix glyphToUser = run.GetGlyphTransform(index);
+                    if (fills && !strokes && !_previewing && MissesClip(outline, glyphToUser * ctm))
+                    {
+                        // A run crosses many tiles; a glyph wholly outside this one's clip paints nothing, so it is not scan converted.
+                        continue;
+                    }
+
                     if (fills)
                     {
                         _toDevice = glyphToUser * ctm;
@@ -93,6 +99,37 @@ public sealed partial class SoftwareRasterizer
                 _toDevice = ctm;
                 _scan.Rule = _pathRule;
             }
+        }
+
+        /// <summary>
+        /// Whether the outline, under <paramref name="glyphToDevice"/>, lies wholly outside the clip's pixel bounds: the bounds of its
+        /// points (a curve stays within its control points) mapped to device space, with a pixel to spare.
+        /// </summary>
+        private bool MissesClip(PathView outline, in Matrix glyphToDevice)
+        {
+            double minX = double.PositiveInfinity;
+            double minY = double.PositiveInfinity;
+            double maxX = double.NegativeInfinity;
+            double maxY = double.NegativeInfinity;
+            foreach (PathPoint point in outline.Points)
+            {
+                minX = Math.Min(minX, point.X);
+                minY = Math.Min(minY, point.Y);
+                maxX = Math.Max(maxX, point.X);
+                maxY = Math.Max(maxY, point.Y);
+            }
+
+            PathPoint a = glyphToDevice.Transform(minX, minY);
+            PathPoint b = glyphToDevice.Transform(maxX, minY);
+            PathPoint c = glyphToDevice.Transform(maxX, maxY);
+            PathPoint d = glyphToDevice.Transform(minX, maxY);
+            _clip.GetBounds(out int left, out int top, out int right, out int bottom);
+
+            // NaN compares false everywhere, so an outline that cannot be bounded is drawn as before.
+            return Math.Max(Math.Max(a.X, b.X), Math.Max(c.X, d.X)) < left - 1
+                || Math.Min(Math.Min(a.X, b.X), Math.Min(c.X, d.X)) > right + 1
+                || Math.Max(Math.Max(a.Y, b.Y), Math.Max(c.Y, d.Y)) < top - 1
+                || Math.Min(Math.Min(a.Y, b.Y), Math.Min(c.Y, d.Y)) > bottom + 1;
         }
 
         /// <summary>Converts a colour to the opaque pixel it paints, or returns false when it paints nothing.</summary>

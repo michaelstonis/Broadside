@@ -162,6 +162,32 @@ internal sealed class MeshLayer
             double s0 = p0.At(dx, dy);
             double s1 = p1.At(dx, dy);
             double s2 = p2.At(dx, dy);
+            if (!_hasBox)
+            {
+                // The common case, specialised: every pixel of the span is painted.
+                HasPaint = true;
+                if (_table is { } colours)
+                {
+                    for (int i = 0; i < line.Length; i++)
+                    {
+                        line[i] = colours[Index(s0)];
+                        s0 += p0.Dx;
+                    }
+                }
+                else
+                {
+                    for (int i = 0; i < line.Length; i++)
+                    {
+                        line[i] = Pack(s0, s1, s2);
+                        s0 += p0.Dx;
+                        s1 += p1.Dx;
+                        s2 += p2.Dx;
+                    }
+                }
+
+                continue;
+            }
+
             double tx = 0;
             double ty = 0;
             if (_hasBox)

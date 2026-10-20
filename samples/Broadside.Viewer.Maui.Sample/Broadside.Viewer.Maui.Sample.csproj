@@ -1,0 +1,65 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The .NET MAUI viewer sample (#226): Broadside.Viewer.Maui's PdfView over the same gallery as the Blazor demo, TraceMonkey first.
+    Needs the maui workload (UseMaui), so it is not part of Broadside.slnx; the ci.yml "maui" job builds it. Run on Mac Catalyst:
+      dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-maccatalyst -t:Run
+    With the environment variable BROADSIDE_SMOKE=1 (Android: the intent extra "smoke"), it opens TraceMonkey, waits for page 1,
+    captures the GPU frame and logs "BROADSIDE_SMOKE_OK" with what it measured, then quits.
+  -->
+  <PropertyGroup>
+    <TargetFramework />
+    <TargetFrameworks>net10.0-android</TargetFrameworks>
+    <TargetFrameworks Condition="$([MSBuild]::IsOSPlatform('OSX'))">$(TargetFrameworks);net10.0-ios;net10.0-maccatalyst</TargetFrameworks>
+    <OutputType>Exe</OutputType>
+    <UseMaui>true</UseMaui>
+    <SingleProject>true</SingleProject>
+    <RootNamespace>Broadside.Viewer.Maui.Sample</RootNamespace>
+    <ApplicationTitle>Broadside Viewer</ApplicationTitle>
+    <ApplicationId>dev.broadside.viewer.sample</ApplicationId>
+    <ApplicationDisplayVersion>1.0</ApplicationDisplayVersion>
+    <ApplicationVersion>1</ApplicationVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'ios'">15.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'maccatalyst'">17.0</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">24.0</SupportedOSPlatformVersion>
+    <!-- A sample shows the library; it is not published, and the sample itself is never trimmed. Apple targets link nothing. -->
+    <IsTrimmable>false</IsTrimmable>
+    <MtouchLink>None</MtouchLink>
+    <!--
+      Android keeps the SDK's default link mode: None in Debug, SdkOnly in Release. SdkOnly trims the framework, the bindings
+      and every library that opts in with IsTrimmable, which includes the Broadside libraries under src/; this sample and
+      Broadside.Viewer.Maui opt out and are kept whole. AndroidLinkMode=None in Release crashes at startup with AOT on: the SDK
+      packages the assemblies its no-shrink step and marshal-method rewriter modified (Microsoft.Maui, Xamarin.AndroidX.Core, ...)
+      but AOT-compiles the unmodified copies, so Mono aborts on a class layout or assembly GUID mismatch.
+    -->
+
+    <!-- Android emulators and Apple Silicon simulators: build for the host's architecture in Debug. -->
+    <RuntimeIdentifier Condition="'$(TargetFramework)' == 'net10.0-maccatalyst' and '$(Configuration)' != 'Release'">maccatalyst-arm64</RuntimeIdentifier>
+    <!-- The generated platform code (Resource designer, registrar) is not held to the repository's analyzers. -->
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <NoWarn>$(NoWarn);IDE0130;CA1001;CA1031;CA1303;CA1848;CA2007;XC0022;XC0025</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <MauiIcon Include="Resources/AppIcon/appicon.svg" ForegroundFile="Resources/AppIcon/appiconfg.svg" Color="#2B4C7E" />
+    <MauiSplashScreen Include="Resources/Splash/splash.svg" Color="#2B4C7E" BaseSize="128,128" />
+  </ItemGroup>
+
+  <!-- The gallery: the Blazor demo's documents and the corpus files it links, as app assets (linked, so they never drift). -->
+  <ItemGroup>
+    <MauiAsset Include="../Broadside.Viewer.Blazor.Sample/wwwroot/documents/tracemonkey.pdf;../Broadside.Viewer.Blazor.Sample/wwwroot/documents/signed.pdf;../../tests/Corpus/layout-two-column-tagged.pdf;../../tests/Corpus/layout-tables.pdf;../../tests/Corpus/tagged-structure.pdf;../../tests/Corpus/outline-full.pdf;../../tests/Corpus/annotations-link.pdf;../../tests/Corpus/acroform-fields.pdf;../../tests/Corpus/info-dictionary.pdf;../../tests/Corpus/shading-radial-cases.pdf;../../tests/Corpus/transparency-blend-modes.pdf;../../tests/Corpus/page-rotation.pdf;../../tests/Corpus/linearized.pdf"
+               LogicalName="documents/%(Filename)%(Extension)" Link="Resources/Raw/documents/%(Filename)%(Extension)" />
+  </ItemGroup>
+
+  <!-- The frame bench's second document (#357), bundled only when the local real-world corpus has it (it is not redistributed). -->
+  <ItemGroup Condition="'$(BROADSIDE_CORPUS_DIR)' != '' and Exists('$(BROADSIDE_CORPUS_DIR)/pdfjs/issue5567.pdf')">
+    <MauiAsset Include="$(BROADSIDE_CORPUS_DIR)/pdfjs/issue5567.pdf" LogicalName="documents/issue5567.pdf" Link="Resources/Raw/documents/issue5567.pdf" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Viewer.Maui/Broadside.Viewer.Maui.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <PackageReference Include="Microsoft.Maui.Controls" />
+  </ItemGroup>
+
+</Project>

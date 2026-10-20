@@ -31,12 +31,19 @@ public enum TileEventKind
 
     /// <summary>
     /// The surface dropped it: to stay within the memory budget, because its layer was hidden (<see cref="TileScheduler.SetLayers"/>) or
-    /// because an edit changed what it shows (<see cref="TileScheduler.Invalidate(int, PdfRectangle, DisplayLayers)"/>).
+    /// because an edit changed what it shows (<see cref="TileScheduler.Invalidate(int, PdfRectangle, DisplayLayers)"/>) while it was no
+    /// longer wanted.
     /// </summary>
     Evicted,
 
     /// <summary>Its render failed; the scheduler does not retry it while it stays wanted.</summary>
     Failed,
+
+    /// <summary>
+    /// An edit changed what it shows (<see cref="TileScheduler.Invalidate(int, PdfRectangle, DisplayLayers)"/>): it stays on the surface,
+    /// and in the frame, until its redraw is presented in its place.
+    /// </summary>
+    Invalidated,
 }
 
 /// <summary>One entry of a <see cref="TileScheduler"/>'s trace (<see cref="TileSchedulerOptions.Observer"/>).</summary>

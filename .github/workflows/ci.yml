@@ -501,18 +501,101 @@ jobs:
       - name: Publish the sample as a static site
         run: samples/Broadside.Viewer.Blazor.Sample/publish-static.sh artifacts/blazor-sample
 
+      - name: Publish the sample without AOT, runtime outside _framework
+        # The second publish mode (#338): its own obj/bin folders, so it does not reuse the AOT build's intermediates.
+        run: samples/Broadside.Viewer.Blazor.Sample/publish-static.sh --no-aot --runtime-folder framework artifacts/blazor-sample-lite
+
       - name: Build the browser tests
         run: dotnet build tests/Broadside.Viewer.Blazor.BrowserTests -c Release -warnaserror
 
+      - name: Install WebKit and Firefox for Playwright
+        timeout-minutes: 10
+        run: pwsh artifacts/bin/Broadside.Viewer.Blazor.BrowserTests/release/playwright.ps1 install --with-deps webkit firefox
+
       - name: Browser tests
-        # The hosted image's Google Chrome (channel "chrome"), so no browser download; the tests fail rather than skip without the app.
+        # Chromium is the hosted image's Google Chrome (channel "chrome"); WebKit and Firefox are Playwright's. The tests fail rather than
+        # skip without the apps or a browser.
         env:
           BROADSIDE_BLAZOR_REQUIRED: '1'
           BROADSIDE_BROWSER_CHANNEL: chrome
+          BROADSIDE_BROWSERS_REQUIRED: chromium,webkit,firefox
           BROADSIDE_BROWSER_LOG: ${{ runner.temp }}/browser-measurements.txt
-        run: dotnet test --project tests/Broadside.Viewer.Blazor.BrowserTests -c Release --no-build --minimum-expected-tests 7
+          BROADSIDE_BROWSER_SCREENSHOTS: ${{ runner.temp }}/screenshots
+        run: |
+          mkdir -p "${RUNNER_TEMP}/screenshots"
+          dotnet test --project tests/Broadside.Viewer.Blazor.BrowserTests -c Release --no-build --minimum-expected-tests 14
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: blazor-demo-screenshots
+          path: ${{ runner.temp }}/screenshots
+          if-no-files-found: ignore
 
       - name: Measurements
         if: always()
         run: |
           { echo '```'; cat "${RUNNER_TEMP}/browser-measurements.txt" 2>/dev/null || true; echo '```'; } >> "${GITHUB_STEP_SUMMARY}"
+
+  # The .NET MAUI viewer sample (#226) for Mac Catalyst, the iOS simulator and Android. It needs the maui workload, so it is not in
+  # Broadside.slnx; the shell library's platform targets also build in build-test (macOS) and its tests run in Broadside.Core.slnf.
+  maui:
+    name: maui
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-maui-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-maui-${{ runner.os }}-
+
+      - name: Install the maui workload
+        timeout-minutes: 20
+        run: dotnet workload install maui
+
+      - name: Install the Android SDK packages the workload needs
+        run: >
+          dotnet build samples/Broadside.Viewer.Maui.Sample -t:InstallAndroidDependencies -f net10.0-android
+          -p:AndroidSdkDirectory="$ANDROID_HOME" -p:AcceptAndroidSDKLicenses=true
+
+      # The workload's Apple SDK packs want Xcode 27 and the runner image has Xcode 26 (see build-test's Build step): linking an app
+      # bundle fails there (MT0180 in ILLink), so the Apple heads are compiled (C#, analyzers, XAML-free) but not bundled. Build the
+      # whole app (-t:Build) once the image ships Xcode 27; locally, with Xcode 27, the Catalyst and simulator apps build and run.
+      - name: Compile the sample for Mac Catalyst
+        run: >
+          dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-maccatalyst -t:Compile -warnaserror
+          -p:ValidateXcodeVersion=false -p:Registrar=dynamic
+
+      - name: Compile the sample for the iOS simulator
+        run: >
+          dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-ios -p:RuntimeIdentifier=iossimulator-arm64 -t:Compile
+          -warnaserror -p:ValidateXcodeVersion=false -p:Registrar=dynamic
+
+      - name: Build the sample for Android
+        run: dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-android -warnaserror -p:AndroidSdkDirectory="$ANDROID_HOME"
+
+      # Release turns on ILLink and AOT, which Debug does not. #366 shipped because only Debug was built: the APK packaged
+      # assemblies its AOT images were not compiled from, and the app aborted at startup. Build every default ABI, then check that
+      # each libaot-*.so in the APK holds the MVIDs of the assemblies the APK ships. The emulator run is in maui-android.yml.
+      - name: Build the sample for Android in Release (AOT)
+        run: >
+          dotnet build samples/Broadside.Viewer.Maui.Sample -f net10.0-android -c Release -warnaserror
+          -p:AndroidSdkDirectory="$ANDROID_HOME"
+
+      - name: Check the APK's AOT images against its assemblies
+        run: >
+          dotnet run --project tools/ApkAotCheck --
+          artifacts/bin/Broadside.Viewer.Maui.Sample/release_net10.0-android/dev.broadside.viewer.sample-Signed.apk

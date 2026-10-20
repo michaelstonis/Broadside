@@ -38,7 +38,16 @@ public sealed class HeadlessSurface : IRenderSurface, IDisposable
 
             lock (_gate)
             {
-                _tiles.Add(new PresentedTile(tile, copy));
+                int index = _tiles.FindIndex(presented => presented.Tile == tile);
+                if (index >= 0)
+                {
+                    _tiles[index].Pixels.Dispose(); // a redraw replaces the tile's old pixels
+                    _tiles[index] = new PresentedTile(tile, copy);
+                }
+                else
+                {
+                    _tiles.Add(new PresentedTile(tile, copy));
+                }
             }
 
             copy = null;

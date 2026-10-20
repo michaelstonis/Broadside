@@ -1,0 +1,68 @@
+@inject Demo Demo
+
+<section class="panel-section">
+  <h3>Your files</h3>
+  <label class="file-picker">
+    <InputFile OnChange="OpenFileAsync" accept=".pdf,application/pdf" aria-label="Open a PDF from this device" data-input="file" />
+    <span>Open a PDF from this device</span>
+  </label>
+  <p class="hint">The file stays in your browser: Broadside reads and renders it in WebAssembly, nothing is uploaded.</p>
+</section>
+
+<section class="panel-section">
+  <h3>From a URL</h3>
+  <form class="row" @onsubmit="OpenAddressAsync">
+    <input @bind="_address" type="url" inputmode="url" placeholder="https://…/file.pdf" aria-label="Document URL" data-input="url" />
+    <button type="submit">Open</button>
+  </form>
+  <p class="hint">Read through HTTP range requests: page 1 of a linearized file shows before the rest downloads. The server must allow
+    cross-origin range requests (CORS) unless it is this site.</p>
+</section>
+
+<section class="panel-section">
+  <h3>Gallery</h3>
+  <ul class="list gallery">
+    @foreach (GalleryEntry entry in Demo.Gallery)
+    {
+      <li>
+        <button class="list-item @(Demo.Address == entry.File ? "current" : "")" @onclick="() => Demo.OpenGalleryAsync(entry)" data-gallery="@entry.File">
+          <span>@entry.Title</span>
+          <small>@entry.File[(entry.File.LastIndexOf('/') + 1)..]</small>
+        </button>
+      </li>
+    }
+  </ul>
+  <p class="hint">Hand-written files from Broadside's test corpus, one feature each.</p>
+</section>
+
+@code {
+  private const long MaxFileSize = 256L * 1024 * 1024;
+  private string _address = "";
+
+  private async Task OpenFileAsync(InputFileChangeEventArgs e)
+  {
+    IBrowserFile file = e.File;
+    try
+    {
+      using var buffer = new MemoryStream();
+      await using (Stream stream = file.OpenReadStream(MaxFileSize))
+      {
+        await stream.CopyToAsync(buffer);
+      }
+
+      await Demo.OpenBytesAsync(file.Name, buffer.ToArray());
+    }
+    catch (IOException exception)
+    {
+      Demo.Report($"The file could not be read: {exception.Message}");
+    }
+  }
+
+  private async Task OpenAddressAsync()
+  {
+    if (!string.IsNullOrWhiteSpace(_address))
+    {
+      await Demo.OpenUrlAsync(_address.Trim());
+    }
+  }
+}

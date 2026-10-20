@@ -24,6 +24,7 @@ public class ColorConversionBenchmarks
         ["Indexed"] = "[/Indexed /DeviceRGB 255 <" + string.Concat(Enumerable.Range(0, 256).Select(static i => $"{i:X2}{255 - i:X2}{(i * 7) & 255:X2}")) + ">]",
         ["Lab"] = "[/Lab << /WhitePoint [0.9642 1 0.8249] /Range [-128 127 -128 127] >>]",
         ["RgbTransfer"] = "/DeviceRGB",
+        ["Rgb"] = "/DeviceRGB",
     };
 
     private const string Transfer =
@@ -38,7 +39,7 @@ public class ColorConversionBenchmarks
     private float[] _colors = [];
 
     /// <summary>The source colour space.</summary>
-    [Params("Cmyk", "Separation", "Indexed", "Lab", "RgbTransfer")]
+    [Params("Cmyk", "Separation", "Indexed", "Lab", "RgbTransfer", "Rgb")]
     public string Space { get; set; } = "";
 
     [GlobalSetup]

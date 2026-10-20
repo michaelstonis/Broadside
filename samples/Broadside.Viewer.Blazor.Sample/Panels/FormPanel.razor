@@ -1,0 +1,193 @@
+@using Broadside.Annotations
+@using Broadside.Forms
+@inherits DemoPanel
+@inject IJSRuntime JS
+
+@if (_loading)
+{
+  <p class="hint">Reading the form…</p>
+}
+else if (_fields.Count == 0)
+{
+  <p class="hint" data-field-count="0">This document has no form fields. Try “Form fields” in the gallery.</p>
+}
+else
+{
+  <p class="hint">Fill a field here or tap it in the page. Values go through the viewer's annotation layer: the field's appearance is
+    regenerated (ISO 32000-2 §12.7.4.3) and its tiles redraw. Download (⤓) saves the filled form.</p>
+  <ul class="list form-fields" data-field-count="@_fields.Count">
+    @foreach (FieldItem item in _fields)
+    {
+      <li class="field @(IsFocused(item) ? "focused" : "")" id="field-@item.Id">
+        <label for="input-@item.Id">@item.Label <small>p. @(item.Target.PageIndex + 1)</small></label>
+        @switch (item.Field)
+        {
+          case PdfTextField text:
+            if (text.IsMultiline)
+            {
+              <textarea id="input-@item.Id" rows="3" value="@text.Value" disabled="@text.IsReadOnly" @onfocus="() => Reveal(item)"
+                        @onchange="e => SetText(item, e.Value?.ToString())" data-field="@item.Name"></textarea>
+            }
+            else
+            {
+              <input id="input-@item.Id" value="@text.Value" maxlength="@(text.MaxLength ?? 524288)" disabled="@text.IsReadOnly" @onfocus="() => Reveal(item)"
+                     @onchange="e => SetText(item, e.Value?.ToString())" data-field="@item.Name" />
+            }
+            break;
+          case PdfCheckBoxField check:
+            <input id="input-@item.Id" type="checkbox" checked="@check.IsChecked" disabled="@check.IsReadOnly" @onchange="() => Toggle(item)" data-field="@item.Name" />
+            break;
+          case PdfRadioButtonField radio:
+            <button id="input-@item.Id" disabled="@radio.IsReadOnly" @onclick="() => Toggle(item)" data-field="@item.Name">Choose this option</button>
+            break;
+          case PdfChoiceField choice when choice.Kind == PdfFieldKind.ComboBox || !choice.IsMultiSelect:
+            <select id="input-@item.Id" disabled="@choice.IsReadOnly" @onfocus="() => Reveal(item)" @onchange="e => SetChoice(item, e.Value?.ToString())" data-field="@item.Name">
+              <option value="" selected="@(choice.SelectedIndices.Count == 0)">—</option>
+              @for (int i = 0; i < choice.Options.Count; i++)
+              {
+                PdfChoiceOption option = choice.Options[i];
+                <option value="@option.ExportValue" selected="@choice.SelectedIndices.Contains(i)">@option.DisplayText</option>
+              }
+            </select>
+            break;
+          case PdfChoiceField choice:
+            <select id="input-@item.Id" multiple disabled="@choice.IsReadOnly" @onchange="e => SetSelection(item, e.Value)" data-field="@item.Name">
+              @for (int i = 0; i < choice.Options.Count; i++)
+              {
+                <option value="@i" selected="@choice.SelectedIndices.Contains(i)">@choice.Options[i].DisplayText</option>
+              }
+            </select>
+            break;
+          default:
+            <span class="hint">@item.Field.Kind (shown, not editable here)</span>
+            break;
+        }
+      </li>
+    }
+  </ul>
+}
+
+@code {
+  private const int MaxPages = 100;
+  private readonly List<FieldItem> _fields = [];
+  private AnnotationLayer? _layer;
+  private int _version = -1;
+  private bool _loading;
+  private AnnotationTarget? _shown;
+
+  private sealed record FieldItem(int Id, AnnotationTarget Target, PdfTerminalField Field, string Name, string Label, PdfRectangle Rect);
+
+  protected override async Task OnDemoChangedAsync()
+  {
+    if (_version != Demo.Version || !ReferenceEquals(_layer, Demo.Viewer?.Annotations))
+    {
+      _version = Demo.Version;
+      await LoadAsync();
+    }
+  }
+
+  protected override void OnClosed() => Attach(null);
+
+  private async Task LoadAsync()
+  {
+    Attach(Demo.Viewer?.Annotations);
+    if (_layer is not { } layer || Demo.Session is not { } session)
+    {
+      _fields.Clear();
+      return;
+    }
+
+    // Only the first time: later loads (after an edit) keep the list in place.
+    _loading = _fields.Count == 0;
+    var fields = new List<FieldItem>();
+    try
+    {
+      for (int page = 0; page < Math.Min(session.PageCount, MaxPages); page++)
+      {
+        int count = await layer.LoadPageAsync(page, Demo.WorkToken);
+        for (int i = 0; i < count; i++)
+        {
+          var target = new AnnotationTarget(page, i);
+          if (layer.GetRole(target) == AnnotationRole.Field && layer.GetAnnotation(target) is PdfWidgetAnnotation { Field: { } field })
+          {
+            string name = field.FullyQualifiedName;
+            fields.Add(new FieldItem(fields.Count, target, field, name, field.AlternateName ?? name, layer.GetRectangle(target)));
+          }
+        }
+      }
+    }
+    catch (OperationCanceledException)
+    {
+      return;
+    }
+#pragma warning disable CA1031 // shown to the user
+    catch (Exception exception)
+#pragma warning restore CA1031
+    {
+      Demo.Report($"The form could not be read: {exception.Message}");
+    }
+    finally
+    {
+      _loading = false;
+    }
+
+    _fields.Clear();
+    _fields.AddRange(fields);
+  }
+
+  private void Attach(AnnotationLayer? layer)
+  {
+    if (ReferenceEquals(layer, _layer))
+    {
+      return;
+    }
+
+    _layer?.Changed -= OnLayerChanged;
+    _layer = layer;
+    _layer?.Changed += OnLayerChanged;
+  }
+
+  private void OnLayerChanged(object? sender, EventArgs e) => _ = InvokeAsync(async () =>
+  {
+    StateHasChanged();
+    if (_layer?.Focused is { } focused && _fields.Find(item => item.Target == focused) is { } item && focused != _shown)
+    {
+      _shown = focused;
+      await JS.InvokeVoidAsync("broadsideDemo.reveal", $"#field-{item.Id}");
+    }
+  });
+
+  private bool IsFocused(FieldItem item) => _layer?.Focused == item.Target;
+
+  private void Reveal(FieldItem item)
+  {
+    _layer?.Focus(item.Target);
+    Demo.Viewer?.Reveal(item.Target.PageIndex, item.Rect);
+  }
+
+  private void SetText(FieldItem item, string? value) => Edit(item, layer => layer.SetFieldText(value));
+
+  private void Toggle(FieldItem item) => Edit(item, layer => layer.ToggleField());
+
+  private void SetChoice(FieldItem item, string? value) => Edit(item, layer => layer.SetFieldChoice(string.IsNullOrEmpty(value) ? null : value));
+
+  private void SetSelection(FieldItem item, object? value)
+  {
+    IEnumerable<int> indices = value is string[] values ? values.Select(v => int.Parse(v, CultureInfo.InvariantCulture)) : [];
+    Edit(item, layer => layer.SetFieldSelection(indices));
+  }
+
+  private void Edit(FieldItem item, Func<AnnotationLayer, bool> edit)
+  {
+    if (_layer is not { } layer)
+    {
+      return;
+    }
+
+    layer.Focus(item.Target);
+    if (edit(layer))
+    {
+      Demo.MarkEdited();
+    }
+  }
+}

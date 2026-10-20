@@ -165,10 +165,12 @@ public sealed partial class SkiaBackend
                 {
                     SKImage? reduced = null;
                     bool owned = false;
-                    if (entry.Admit(toCanvas, out int slot))
+                    if (entry.Admit(toCanvas, pixels, out int slot))
                     {
                         reduced = entry.ReductionAt(slot);
-                        if (reduced is null && ImageReducer.Reduce(samples, toCanvas, pixels, interpolate) is { } made)
+                        // Made for the slot's own transform, even when this one is it moved by whole pixels, so that the pixels never depend
+                        // on whether the resampling was kept (the budget).
+                        if (reduced is null && ImageReducer.Reduce(samples, entry.TransformAt(slot), entry.PixelsAt(slot), interpolate) is { } made)
                         {
                             reduced = made;
                             long bytes = (long)pixels.Width * pixels.Height * (samples.ColorType == SKColorType.Alpha8 ? 1 : 4);

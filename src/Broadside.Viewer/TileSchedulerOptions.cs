@@ -21,7 +21,7 @@ public sealed class TileSchedulerOptions
     private double _nearMargin = DefaultTileSize;
     private double _renderAhead = 1;
     private double _placeholderScale = DefaultPlaceholderScale;
-    private int _maxConcurrency = Math.Max(1, Environment.ProcessorCount);
+    private int _maxConcurrency = Math.Max(1, Environment.ProcessorCount - 1); // one core stays with the UI thread (#357)
 
     /// <summary>Gets or sets the side of a tile in device pixels (<see cref="DefaultTileSize"/> by default).</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value is less than 16.</exception>
@@ -92,8 +92,8 @@ public sealed class TileSchedulerOptions
     }
 
     /// <summary>
-    /// Gets or sets how many tiles render at once on a multi-threaded host (the processor count by default). A cooperative session
-    /// draws one tile at a time.
+    /// Gets or sets how many tiles render at once on a multi-threaded host (by default one less than the processor count, at least
+    /// one, so the UI thread keeps a core). A cooperative session draws one tile at a time.
     /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">The value is less than 1.</exception>
     public int MaxConcurrency

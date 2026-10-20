@@ -30,6 +30,9 @@ namespace Broadside.Viewer.Blazor;
 [SupportedOSPlatform("browser")]
 public sealed class PdfViewer : ComponentBase, IAsyncDisposable
 {
+    private bool _dirty = true;
+    private string? _renderedClass;
+    private string? _renderedLabel;
     private ViewerController? _controller;
     private HttpClient? _ownedClient;
     private Uri? _openedSource;
@@ -54,7 +57,7 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     [Parameter]
     public ViewerOptions? Options { get; set; }
 
-    /// <summary>Gets or sets the page layout (mode, cover, gaps, rotation); applies when a document opens.</summary>
+    /// <summary>Gets or sets the page layout (mode, cover, gaps, rotation); a change applies to the open document at once and keeps the current page in view.</summary>
     [Parameter]
     public PageLayoutOptions? LayoutOptions { get; set; }
 
@@ -65,6 +68,13 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     /// <summary>Gets or sets a value indicating whether presses on markup annotations select and move them (off: they pan or select text).</summary>
     [Parameter]
     public bool AllowAnnotationEditing { get; set; }
+
+    /// <summary>
+    /// Gets or sets an observer of the tile scheduler's events (tiles started, presented, cancelled, evicted, failed), applied when a
+    /// document opens: for instrumentation such as time to the first sharp page (#353's measurements).
+    /// </summary>
+    [Parameter]
+    public Action<TileSchedulerEvent>? TileObserver { get; set; }
 
     /// <summary>Gets or sets the accessible name of the viewer region.</summary>
     [Parameter]
@@ -89,6 +99,18 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     /// <summary>Gets the current state.</summary>
     public PdfViewerState State => _controller?.State ?? default;
 
+    /// <summary>
+    /// Gets the text selection of the open document, or null while nothing is open: select a found match with
+    /// <see cref="TextSelection.Select"/> (after <see cref="TextSelection.LoadPageAsync"/>) and the viewer draws it.
+    /// </summary>
+    public TextSelection? Selection => _controller?.Selection;
+
+    /// <summary>
+    /// Gets the annotation layer of the open document, or null while nothing is open: annotations added, edited or removed and form
+    /// fields filled through it are redrawn at once.
+    /// </summary>
+    public AnnotationLayer? Annotations => _controller?.Annotations;
+
     [Inject]
     private NavigationManager Navigation { get; set; } = default!;
 
@@ -106,9 +128,17 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     /// <param name="mode">The zoom.</param>
     public void ZoomTo(ZoomMode mode) => _controller?.ZoomTo(mode);
 
+    /// <summary>Draws every tile again, for example after the session's backend changed what it draws with.</summary>
+    public void Redraw() => _controller?.Redraw();
+
     /// <summary>Zooms by a factor about the centre of the viewport.</summary>
     /// <param name="factor">The factor (above 1 zooms in).</param>
     public void ZoomBy(double factor) => _controller?.ZoomBy(factor);
+
+    /// <summary>Scrolls the least distance that brings an area of a page into view (a found match, an annotation), or centres it.</summary>
+    /// <param name="pageIndex">The zero-based page.</param>
+    /// <param name="area">The area in the page's default user space.</param>
+    public void Reveal(int pageIndex, PdfRectangle area) => _controller?.Reveal(pageIndex, area);
 
     /// <inheritdoc/>
     public async ValueTask DisposeAsync()
@@ -134,8 +164,17 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
             return;
         }
 
+        if (!string.Equals(Class, _renderedClass, StringComparison.Ordinal) || !string.Equals(Label, _renderedLabel, StringComparison.Ordinal))
+        {
+            _renderedClass = Class;
+            _renderedLabel = Label;
+            _dirty = true;
+        }
+
         _controller.AllowAnnotationEditing = AllowAnnotationEditing;
+        _controller.TileObserver = TileObserver;
         _controller.SetShowAnnotations(ShowAnnotations);
+        _controller.SetLayoutOptions(LayoutOptions);
         if (_attached)
         {
             await OpenIfChangedAsync().ConfigureAwait(true);
@@ -151,6 +190,19 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
             _attached = true;
             await OpenIfChangedAsync().ConfigureAwait(true);
         }
+    }
+
+    /// <summary>
+    /// Renders only when the viewer's own markup changed (its text layer, status or attributes), not each time the parent re-renders
+    /// (it does on every page change through <see cref="OnStateChanged"/>): diffing the text layer of every loaded page would stall a
+    /// scroll on a phone (#357).
+    /// </summary>
+    /// <returns>Whether to render.</returns>
+    protected override bool ShouldRender()
+    {
+        bool render = _dirty;
+        _dirty = false;
+        return render;
     }
 
     /// <inheritdoc/>
@@ -198,7 +250,11 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     }
 
     /// <summary>Re-renders the text layer (pages loaded or changed).</summary>
-    internal void RequestRender() => _ = InvokeAsync(StateHasChanged);
+    internal void RequestRender()
+    {
+        _dirty = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
 
     internal void RaiseStateChanged(PdfViewerState state)
     {
@@ -263,6 +319,7 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
             ReportError(exception);
         }
 
+        _dirty = true;
         StateHasChanged();
     }
 }

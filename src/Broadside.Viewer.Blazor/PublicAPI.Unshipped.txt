@@ -2,6 +2,7 @@
 Broadside.Viewer.Blazor.PdfViewer
 Broadside.Viewer.Blazor.PdfViewer.AllowAnnotationEditing.get -> bool
 Broadside.Viewer.Blazor.PdfViewer.AllowAnnotationEditing.set -> void
+Broadside.Viewer.Blazor.PdfViewer.Annotations.get -> Broadside.Viewer.AnnotationLayer?
 Broadside.Viewer.Blazor.PdfViewer.Class.get -> string?
 Broadside.Viewer.Blazor.PdfViewer.Class.set -> void
 Broadside.Viewer.Blazor.PdfViewer.DisposeAsync() -> System.Threading.Tasks.ValueTask
@@ -23,6 +24,8 @@ Broadside.Viewer.Blazor.PdfViewer.Options.get -> Broadside.Viewer.ViewerOptions?
 Broadside.Viewer.Blazor.PdfViewer.Options.set -> void
 Broadside.Viewer.Blazor.PdfViewer.PdfViewer() -> void
 Broadside.Viewer.Blazor.PdfViewer.PreviousPage() -> void
+Broadside.Viewer.Blazor.PdfViewer.Reveal(int pageIndex, Broadside.PdfRectangle area) -> void
+Broadside.Viewer.Blazor.PdfViewer.Selection.get -> Broadside.Viewer.TextSelection?
 Broadside.Viewer.Blazor.PdfViewer.Session.get -> Broadside.Viewer.DocumentSession?
 Broadside.Viewer.Blazor.PdfViewer.Session.set -> void
 Broadside.Viewer.Blazor.PdfViewer.ShowAnnotations.get -> bool
@@ -43,3 +46,21 @@ Broadside.Viewer.Blazor.PdfViewerState.PdfViewerState() -> void
 Broadside.Viewer.Blazor.PdfViewerState.PdfViewerState(int PageIndex, int PageCount, double Zoom, bool IsLoading) -> void
 Broadside.Viewer.Blazor.PdfViewerState.Zoom.get -> double
 Broadside.Viewer.Blazor.PdfViewerState.Zoom.init -> void
+Broadside.Viewer.Blazor.PdfViewer.Redraw() -> void
+Broadside.Viewer.Blazor.PdfViewer.TileObserver.get -> System.Action<Broadside.Viewer.TileSchedulerEvent>?
+Broadside.Viewer.Blazor.PdfViewer.TileObserver.set -> void
+Broadside.Viewer.Blazor.WebGLTileBackend
+Broadside.Viewer.Blazor.WebGLTileBackend.Begin(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, System.Threading.CancellationToken cancellationToken) -> Broadside.Viewer.ITileRender!
+Broadside.Viewer.Blazor.WebGLTileBackend.Diagnostics.get -> System.Collections.Generic.IReadOnlyList<Broadside.Diagnostics.Diagnostic!>!
+Broadside.Viewer.Blazor.WebGLTileBackend.Dispose() -> void
+Broadside.Viewer.Blazor.WebGLTileBackend.WebGLTileBackend() -> void
+static Broadside.Viewer.Blazor.WebGLTileBackend.Create() -> Broadside.Viewer.ITileBackend!
+static Broadside.Viewer.Blazor.WebGLTileBackend.InitializeAsync() -> System.Threading.Tasks.Task<bool>!
+static Broadside.Viewer.Blazor.WebGLTileBackend.IsAvailable.get -> bool
+Broadside.Viewer.Blazor.RenderWorker
+static Broadside.Viewer.Blazor.RenderWorker.IsRunning.get -> bool
+static Broadside.Viewer.Blazor.RenderWorker.IsWorker.get -> bool
+static Broadside.Viewer.Blazor.RenderWorker.Open(System.ReadOnlySpan<byte> document, Broadside.Rendering.DisplayIntent intent) -> Broadside.Viewer.IRemoteTileRenderer?
+static Broadside.Viewer.Blazor.RenderWorker.Open(System.Uri! address, Broadside.Rendering.DisplayIntent intent) -> Broadside.Viewer.IRemoteTileRenderer?
+static Broadside.Viewer.Blazor.RenderWorker.Serve(System.Func<Broadside.PdfEngine!>! engine) -> void
+static Broadside.Viewer.Blazor.RenderWorker.StartAsync(System.TimeSpan? timeout = null) -> System.Threading.Tasks.Task<bool>!

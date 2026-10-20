@@ -84,7 +84,7 @@ public sealed class TileSchedulerTests
         using var surface = new HeadlessSurface();
         await using DocumentSession session = DocumentSession.Open(
             ManyPages(500),
-            new ViewerOptions().WithThreading(ViewerThreading.Background).UseBackend(HeldBackend.Factory(backends)));
+            new ViewerOptions().WithThreading(ViewerThreading.Background).WithMaxConcurrency(2).UseBackend(HeldBackend.Factory(backends)));
         PageLayout layout = await PageLayout.CreateAsync(session, cancellationToken: TestContext.Current.CancellationToken);
         var events = new List<TileSchedulerEvent>();
         using var scheduler = new TileScheduler(

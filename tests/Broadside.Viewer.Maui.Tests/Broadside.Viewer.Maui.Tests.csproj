@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The MAUI shell's logic on net10.0 (no workload): gestures, keys and frames through the controller every platform shares (#226). -->
+  <ItemGroup>
+    <ProjectReference Include="../../src/Broadside.Viewer.Maui/Broadside.Viewer.Maui.csproj" SetTargetFramework="TargetFramework=net10.0" />
+    <!-- (the shell also builds platform targets on macOS; the tests use its net10.0 build) -->
+    <ProjectReference Include="../../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" />
+    <ProjectReference Include="../../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" />
+    <ProjectReference Include="../Broadside.TestSupport/Broadside.TestSupport.csproj" />
+    <PackageReference Include="xunit.v3" />
+    <PackageReference Include="SkiaSharp.NativeAssets.Linux.NoDependencies" />
+  </ItemGroup>
+
+</Project>

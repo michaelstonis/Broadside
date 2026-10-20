@@ -1,0 +1,190 @@
+@using Broadside.Annotations
+@using Broadside.Graphics
+@inherits DemoPanel
+
+<section class="panel-section">
+  <label class="check"><input type="checkbox" checked="@ShowAnnotations" @onchange="e => ShowAnnotationsChanged.InvokeAsync((bool)e.Value!)" /> Show annotations and form fields</label>
+  <label class="check"><input type="checkbox" checked="@EditAnnotations" @onchange="e => EditAnnotationsChanged.InvokeAsync((bool)e.Value!)" data-input="move-annotations" /> Drag to move annotations (mouse)</label>
+</section>
+
+<section class="panel-section">
+  <h3>Add to page @(Demo.CurrentPage + 1)</h3>
+  <div class="button-grid">
+    <button @onclick="AddNote" data-action="add-note">Note</button>
+    <button @onclick="AddBox" data-action="add-box">Box</button>
+    <button @onclick="AddText" data-action="add-text">Text</button>
+    <button @onclick="AddStamp" data-action="add-stamp">Stamp</button>
+    <button @onclick="HighlightSelection" disabled="@(Demo.Viewer?.Selection is not { IsEmpty: false })" data-action="highlight">Highlight selection</button>
+  </div>
+  <p class="hint">Added through the viewer's annotation layer: the appearance is generated (ISO 32000-2 §12.5) and only the tiles it
+    touches redraw. Download (⤓) saves the document with your edits.</p>
+</section>
+
+<section class="panel-section">
+  <h3>On this page</h3>
+  @if (_items.Count == 0)
+  {
+    <p class="hint" data-annotation-count="0">No annotations on this page.</p>
+  }
+  else
+  {
+    <ul class="list" data-annotation-count="@_items.Count">
+      @foreach (Item item in _items)
+      {
+        <li class="row between">
+          <button class="list-item" @onclick="() => Show(item)">
+            <span>@item.Kind</span>
+            @if (!string.IsNullOrEmpty(item.Text))
+            {
+              <small>@item.Text</small>
+            }
+          </button>
+          @if (item.Removable)
+          {
+            <button class="icon" @onclick="() => Remove(item)" aria-label="Remove @item.Kind">×</button>
+          }
+        </li>
+      }
+    </ul>
+  }
+</section>
+
+@code {
+  private readonly List<Item> _items = [];
+  private int _loadedPage = -1;
+  private int _loadedVersion = -1;
+  private int _added;
+
+  [Parameter] public bool ShowAnnotations { get; set; }
+  [Parameter] public EventCallback<bool> ShowAnnotationsChanged { get; set; }
+  [Parameter] public bool EditAnnotations { get; set; }
+  [Parameter] public EventCallback<bool> EditAnnotationsChanged { get; set; }
+
+  private sealed record Item(AnnotationTarget Target, string Kind, string? Text, bool Removable, PdfRectangle Rect);
+
+  protected override async Task OnDemoChangedAsync()
+  {
+    if (_loadedPage != Demo.CurrentPage || _loadedVersion != Demo.Version)
+    {
+      await LoadAsync();
+    }
+  }
+
+  private async Task LoadAsync()
+  {
+    _loadedPage = Demo.CurrentPage;
+    _loadedVersion = Demo.Version;
+    if (Demo.Viewer?.Annotations is not { } layer || Demo.Session is null)
+    {
+      _items.Clear();
+      return;
+    }
+
+    int page = _loadedPage;
+    var items = new List<Item>();
+    try
+    {
+      int count = await layer.LoadPageAsync(page, Demo.WorkToken);
+      for (int i = 0; i < count; i++)
+      {
+        var target = new AnnotationTarget(page, i);
+        PdfAnnotation annotation = layer.GetAnnotation(target);
+        AnnotationRole role = layer.GetRole(target);
+        string kind = role == AnnotationRole.Field ? "Form field" : annotation.Subtype?.Value ?? "Annotation";
+        items.Add(new Item(target, kind, annotation.Contents ?? layer.GetAccessibleName(target), role != AnnotationRole.Field, layer.GetRectangle(target)));
+      }
+    }
+    catch (OperationCanceledException)
+    {
+    }
+#pragma warning disable CA1031 // shown to the user
+    catch (Exception exception)
+#pragma warning restore CA1031
+    {
+      Demo.Report($"The annotations could not be read: {exception.Message}");
+    }
+
+    _items.Clear();
+    _items.AddRange(items);
+  }
+
+  private void AddNote() => Add((page, at) => page.AddTextAnnotation(new PdfRectangle(at.X, at.Y - 24, at.X + 24, at.Y), "A note added in the Broadside demo.",
+      new PdfAnnotationOptions().WithColor(new PdfDeviceColor(1, 0.85, 0.2)).WithTitle("Demo")));
+
+  private void AddBox() => Add((page, at) => page.AddSquareAnnotation(new PdfRectangle(at.X, at.Y - 60, at.X + 120, at.Y),
+      new PdfAnnotationOptions().WithColor(new PdfDeviceColor(0.85, 0.1, 0.1)).WithInteriorColor(new PdfDeviceColor(1, 0.9, 0.9)).WithOpacity(0.6).WithContents("Box")));
+
+  private void AddText() => Add((page, at) => page.AddFreeTextAnnotation(new PdfRectangle(at.X, at.Y - 40, at.X + 180, at.Y), "Typed with Broadside",
+      new PdfAnnotationOptions().WithColor(new PdfDeviceColor(0.1, 0.3, 0.8))));
+
+  private void AddStamp() => Add((page, at) => page.AddStampAnnotation(new PdfRectangle(at.X, at.Y - 50, at.X + 160, at.Y), "Approved",
+      new PdfAnnotationOptions().WithColor(new PdfDeviceColor(0.1, 0.55, 0.2))));
+
+  private void HighlightSelection()
+  {
+    if (Demo.Viewer is not { Selection: { IsEmpty: false } selection, Annotations: { } layer })
+    {
+      return;
+    }
+
+    int page = selection.Start.PageIndex;
+    Span<Quad> quads = stackalloc Quad[64];
+    int count = Math.Min(selection.GetQuads(page, quads), quads.Length);
+    if (count == 0)
+    {
+      return;
+    }
+
+    var marks = new List<PdfQuadrilateral>(count);
+    foreach (Quad quad in quads[..count])
+    {
+      marks.Add(new PdfQuadrilateral(quad.TopLeft, quad.TopRight, quad.BottomLeft, quad.BottomRight));
+    }
+
+    if (layer.Add(page, p => p.AddHighlightAnnotation(marks, new PdfAnnotationOptions().WithColor(new PdfDeviceColor(1, 0.95, 0.2)))) is not null)
+    {
+      selection.Clear();
+      Demo.MarkEdited();
+    }
+  }
+
+  // New annotations go near the top-left of the page in view, each one a little lower than the last.
+  private void Add(Func<PdfPage, PathPoint, PdfAnnotation> create)
+  {
+    if (Demo.Viewer?.Annotations is not { } layer)
+    {
+      return;
+    }
+
+    int page = Demo.CurrentPage;
+    int step = _added++ % 8;
+    AnnotationTarget? added = layer.Add(page, p =>
+    {
+      PdfRectangle crop = p.CropBox;
+      return create(p, new PathPoint(crop.Left + 48 + (step * 12), crop.Top - 72 - (step * 64)));
+    });
+    if (added is { } target)
+    {
+      layer.Select(target);
+      Demo.Viewer.Reveal(page, layer.GetRectangle(target));
+      Demo.MarkEdited();
+    }
+  }
+
+  private void Show(Item item)
+  {
+    if (Demo.Viewer?.Annotations is { } layer)
+    {
+      layer.Select(item.Target);
+      Demo.Viewer.Reveal(item.Target.PageIndex, item.Rect);
+    }
+  }
+
+  private void Remove(Item item)
+  {
+    if (Demo.Viewer?.Annotations is { } layer && layer.Remove(item.Target))
+    {
+      Demo.MarkEdited();
+    }
+  }
+}

@@ -7,6 +7,10 @@ internal sealed class ManagedPipeline : ColorPipeline
     private readonly IColorConverter _converter;
     private readonly ComponentRange[] _clip;
 
+    // Whether 8-bit samples convert to themselves (DeviceRGB to RGB, DeviceCMYK to CMYK): every byte maps to b / 255, which the
+    // converter only clips, and back to the same byte, so they are copied.
+    private readonly bool _copiesBytes;
+
     public ManagedPipeline(PdfColorSpace space, IColorConverter converter, int outputs)
         : base(Ranges(space), outputs)
     {
@@ -18,6 +22,19 @@ internal sealed class ManagedPipeline : ColorPipeline
 
         _converter = converter;
         _clip = Ranges(space);
+        _copiesBytes = converter is DeviceConverter { IsIdentity: true } && Array.TrueForAll(_clip, static range => range == new ComponentRange(0, 1));
+    }
+
+    /// <inheritdoc/>
+    public override void Convert(ReadOnlySpan<byte> source, Span<byte> destination, int count)
+    {
+        if (_copiesBytes)
+        {
+            source[..(count * InputCount)].CopyTo(destination);
+            return;
+        }
+
+        base.Convert(source, destination, count);
     }
 
     /// <summary>The component ranges of a space.</summary>

@@ -17,19 +17,30 @@ namespace Broadside.Viewer.Blazor.BrowserTests;
 
 /// <summary>
 /// Serves the published Blazor sample (a static site under <c>/viewer/</c>, standard media types only) and test documents over HTTP (documents with byte-range support and an optional gate that holds
-/// every request starting at or past an offset), and runs one headless Chromium for all tests.
+/// every request starting at or past an offset), and runs one headless Chromium for all tests. When the non-AOT build with a renamed
+/// runtime folder is published too (<c>publish-static.sh --no-aot --runtime-folder framework artifacts/blazor-sample-lite</c>), it is served
+/// under <c>/lite/</c> by a host that refuses every path segment starting with an underscore, as some static hosts do. WebKit and Firefox
+/// start on demand (<see cref="GetBrowserAsync"/>).
 /// </summary>
 public sealed class BrowserHost : IAsyncLifetime
 {
     private readonly ConcurrentDictionary<string, HostedDocument> _documents = new(StringComparer.Ordinal);
+    private readonly Dictionary<string, IBrowser> _browsers = new(StringComparer.Ordinal);
+    private readonly SemaphoreSlim _launching = new(1, 1);
     private WebApplication? _server;
     private IPlaywright? _playwright;
 
     /// <summary>Gets the published app's <c>wwwroot</c>, or <see langword="null"/> when it is not published.</summary>
-    public static string? AppDirectory { get; } = FindApp();
+    public static string? AppDirectory { get; } = FindApp("BROADSIDE_BLAZOR_APP", "blazor-sample");
 
     /// <summary>Gets the address of the app (a sub-path of the server), ending in a slash.</summary>
     public Uri AppAddress => new(BaseAddress, "viewer/");
+
+    /// <summary>Gets the non-AOT build with its runtime outside <c>_framework</c>, or <see langword="null"/> when it is not published.</summary>
+    public static string? LiteDirectory { get; } = FindApp("BROADSIDE_BLAZOR_LITE_APP", "blazor-sample-lite");
+
+    /// <summary>Gets the address of the non-AOT build (served by a host that refuses paths starting with an underscore).</summary>
+    public Uri LiteAddress => new(BaseAddress, "lite/");
 
     /// <summary>Gets the server's base address, ending in a slash.</summary>
     public Uri BaseAddress { get; private set; } = new("http://127.0.0.1/");
@@ -53,6 +64,66 @@ public sealed class BrowserHost : IAsyncLifetime
         Assert.Fail(message);
     }
 
+    /// <summary>Skips (locally) or fails (CI) a test when the non-AOT build is not published.</summary>
+    public static void RequireLiteApp()
+    {
+        if (LiteDirectory is not null)
+        {
+            return;
+        }
+
+        string message = "The non-AOT sample is not published: run `samples/Broadside.Viewer.Blazor.Sample/publish-static.sh --no-aot --runtime-folder framework artifacts/blazor-sample-lite` or set BROADSIDE_BLAZOR_LITE_APP.";
+        Assert.SkipWhen(Environment.GetEnvironmentVariable("BROADSIDE_BLAZOR_REQUIRED") != "1", message);
+        Assert.Fail(message);
+    }
+
+    /// <summary>
+    /// Gets a browser by Playwright name (<c>chromium</c>, <c>webkit</c>, <c>firefox</c>), launched on first use. A browser that is not
+    /// installed skips the test, unless BROADSIDE_BROWSERS_REQUIRED lists it (CI), which makes that a failure. Chromium is <see cref="Browser"/>.
+    /// </summary>
+    public async Task<IBrowser> GetBrowserAsync(string name)
+    {
+        if (name == "chromium")
+        {
+            return Browser;
+        }
+
+        await _launching.WaitAsync().ConfigureAwait(false);
+        try
+        {
+            if (_browsers.TryGetValue(name, out IBrowser? browser))
+            {
+                return browser;
+            }
+
+            IBrowserType type = name switch
+            {
+                "webkit" => _playwright!.Webkit,
+                "firefox" => _playwright!.Firefox,
+                _ => throw new ArgumentOutOfRangeException(nameof(name), name, "chromium, webkit or firefox"),
+            };
+            try
+            {
+                browser = await type.LaunchAsync().ConfigureAwait(false);
+            }
+            catch (PlaywrightException exception) when (exception.Message.Contains("Executable doesn't exist", StringComparison.Ordinal))
+            {
+                string required = Environment.GetEnvironmentVariable("BROADSIDE_BROWSERS_REQUIRED") ?? "";
+                string message = $"Playwright's {name} is not installed (pwsh bin/<config>/net10.0/playwright.ps1 install {name}).";
+                Assert.SkipUnless(required.Split(',', StringSplitOptions.TrimEntries).Contains(name, StringComparer.Ordinal), message);
+                Assert.Fail(message);
+                throw;
+            }
+
+            _browsers[name] = browser;
+            return browser;
+        }
+        finally
+        {
+            _launching.Release();
+        }
+    }
+
     /// <summary>Serves a document at <c>files/{name}</c>.</summary>
     public HostedDocument Serve(string name, byte[] bytes, long? gateFrom = null)
     {
@@ -63,7 +134,7 @@ public sealed class BrowserHost : IAsyncLifetime
 
     public async ValueTask InitializeAsync()
     {
-        if (AppDirectory is null)
+        if (AppDirectory is null && LiteDirectory is null)
         {
             return;
         }
@@ -74,10 +145,40 @@ public sealed class BrowserHost : IAsyncLifetime
         _server = builder.Build();
         var types = new FileExtensionContentTypeProvider();
         types.Mappings[".wasm"] = "application/wasm";
-        var files = new PhysicalFileProvider(AppDirectory);
-        // The app lives under a sub-path, as in a static host's folder: everything it loads must be relative.
-        _server.UseDefaultFiles(new DefaultFilesOptions { FileProvider = files, RequestPath = "/viewer" });
-        _server.UseStaticFiles(new StaticFileOptions { FileProvider = files, RequestPath = "/viewer", ContentTypeProvider = types });
+        // A host that reserves paths starting with an underscore (the non-AOT build must not need any).
+        // BROADSIDE_CROSS_ORIGIN_ISOLATED=1 serves everything with COOP/COEP, to try the viewer on an isolated page (#357). Off by
+        // default: static hosts send neither header.
+        bool isolated = Environment.GetEnvironmentVariable("BROADSIDE_CROSS_ORIGIN_ISOLATED") == "1";
+        _server.Use(async (context, next) =>
+        {
+            if (isolated)
+            {
+                context.Response.Headers["Cross-Origin-Opener-Policy"] = "same-origin";
+                context.Response.Headers["Cross-Origin-Embedder-Policy"] = "require-corp";
+            }
+
+            string path = context.Request.Path.Value ?? "";
+            if (path.StartsWith("/lite/", StringComparison.Ordinal) && path.Split('/').Any(static segment => segment.StartsWith('_')))
+            {
+                context.Response.StatusCode = StatusCodes.Status404NotFound;
+                return;
+            }
+
+            await next(context).ConfigureAwait(false);
+        });
+        foreach ((string? directory, string prefix) in new[] { (AppDirectory, "/viewer"), (LiteDirectory, "/lite") })
+        {
+            if (directory is null)
+            {
+                continue;
+            }
+
+            var files = new PhysicalFileProvider(directory);
+            // The app lives under a sub-path, as in a static host's folder: everything it loads must be relative.
+            _server.UseDefaultFiles(new DefaultFilesOptions { FileProvider = files, RequestPath = prefix });
+            _server.UseStaticFiles(new StaticFileOptions { FileProvider = files, RequestPath = prefix, ContentTypeProvider = types });
+        }
+
         _server.MapGet("/files/{name}", ServeDocumentAsync);
         await _server.StartAsync().ConfigureAwait(false);
         string address = _server.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.First();
@@ -85,7 +186,12 @@ public sealed class BrowserHost : IAsyncLifetime
 
         _playwright = await Microsoft.Playwright.Playwright.CreateAsync().ConfigureAwait(false);
         string? channel = Environment.GetEnvironmentVariable("BROADSIDE_BROWSER_CHANNEL");
-        Browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Channel = string.IsNullOrEmpty(channel) ? null : channel }).ConfigureAwait(false);
+        // WebGL 2 for the WebGL backend's tests (#353): the GPU where headless Chromium can use it (Metal through ANGLE on macOS),
+        // SwiftShader (software WebGL) elsewhere, which Chromium only enables on request.
+        string[] args = OperatingSystem.IsMacOS()
+            ? ["--enable-gpu", "--ignore-gpu-blocklist", "--use-angle=metal", "--enable-unsafe-swiftshader"]
+            : ["--ignore-gpu-blocklist", "--enable-unsafe-swiftshader"];
+        Browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions { Channel = string.IsNullOrEmpty(channel) ? null : channel, Args = args }).ConfigureAwait(false);
     }
 
     public async ValueTask DisposeAsync()
@@ -95,10 +201,17 @@ public sealed class BrowserHost : IAsyncLifetime
             document.Release();
         }
 
+        foreach (IBrowser browser in _browsers.Values)
+        {
+            await browser.DisposeAsync().ConfigureAwait(false);
+        }
+
         if (Browser is not null)
         {
             await Browser.DisposeAsync().ConfigureAwait(false);
         }
+
+        _launching.Dispose();
 
         _playwright?.Dispose();
         if (_server is not null)
@@ -165,9 +278,9 @@ public sealed class BrowserHost : IAsyncLifetime
         return start <= end;
     }
 
-    private static string? FindApp()
+    private static string? FindApp(string variable, string folder)
     {
-        string? configured = Environment.GetEnvironmentVariable("BROADSIDE_BLAZOR_APP");
+        string? configured = Environment.GetEnvironmentVariable(variable);
         if (!string.IsNullOrEmpty(configured))
         {
             return Directory.Exists(configured) ? Path.GetFullPath(configured) : null;
@@ -177,7 +290,7 @@ public sealed class BrowserHost : IAsyncLifetime
         {
             if (File.Exists(Path.Combine(directory.FullName, "Broadside.slnx")))
             {
-                string app = Path.Combine(directory.FullName, "artifacts", "blazor-sample");
+                string app = Path.Combine(directory.FullName, "artifacts", folder);
                 return File.Exists(Path.Combine(app, "index.html")) ? app : null;
             }
         }
