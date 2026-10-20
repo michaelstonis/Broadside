@@ -71,6 +71,6 @@
   private async Task UseRenderer(bool webgl)
   {
     _rendererMessage = await Renderers.SetAsync(webgl) || !webgl ? null : "WebGL 2 is not available in this browser.";
-    Demo.Viewer?.Redraw();
+    await Demo.ApplyRendererAsync();
   }
 }

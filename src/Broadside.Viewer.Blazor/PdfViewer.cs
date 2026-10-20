@@ -30,6 +30,9 @@ namespace Broadside.Viewer.Blazor;
 [SupportedOSPlatform("browser")]
 public sealed class PdfViewer : ComponentBase, IAsyncDisposable
 {
+    private bool _dirty = true;
+    private string? _renderedClass;
+    private string? _renderedLabel;
     private ViewerController? _controller;
     private HttpClient? _ownedClient;
     private Uri? _openedSource;
@@ -161,6 +164,13 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
             return;
         }
 
+        if (!string.Equals(Class, _renderedClass, StringComparison.Ordinal) || !string.Equals(Label, _renderedLabel, StringComparison.Ordinal))
+        {
+            _renderedClass = Class;
+            _renderedLabel = Label;
+            _dirty = true;
+        }
+
         _controller.AllowAnnotationEditing = AllowAnnotationEditing;
         _controller.TileObserver = TileObserver;
         _controller.SetShowAnnotations(ShowAnnotations);
@@ -180,6 +190,19 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
             _attached = true;
             await OpenIfChangedAsync().ConfigureAwait(true);
         }
+    }
+
+    /// <summary>
+    /// Renders only when the viewer's own markup changed (its text layer, status or attributes), not each time the parent re-renders
+    /// (it does on every page change through <see cref="OnStateChanged"/>): diffing the text layer of every loaded page would stall a
+    /// scroll on a phone (#357).
+    /// </summary>
+    /// <returns>Whether to render.</returns>
+    protected override bool ShouldRender()
+    {
+        bool render = _dirty;
+        _dirty = false;
+        return render;
     }
 
     /// <inheritdoc/>
@@ -227,7 +250,11 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
     }
 
     /// <summary>Re-renders the text layer (pages loaded or changed).</summary>
-    internal void RequestRender() => _ = InvokeAsync(StateHasChanged);
+    internal void RequestRender()
+    {
+        _dirty = true;
+        _ = InvokeAsync(StateHasChanged);
+    }
 
     internal void RaiseStateChanged(PdfViewerState state)
     {
@@ -292,6 +319,7 @@ public sealed class PdfViewer : ComponentBase, IAsyncDisposable
             ReportError(exception);
         }
 
+        _dirty = true;
         StateHasChanged();
     }
 }

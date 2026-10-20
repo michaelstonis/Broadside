@@ -21,6 +21,11 @@ TraceMonkey, waits for page 1, captures the frame from the GPU surface, logs `BR
 `smoke-android.sh <apk>` installs an APK on the connected emulator or device, runs that intent and fails on `BROADSIDE_SMOKE_FAILED`,
 a native abort or no verdict in time; `.github/workflows/maui-android.yml` runs it on the Release build (#368).
 
+Frame bench (#357): `BROADSIDE_FRAMES=1` (iOS simulator: `SIMCTL_CHILD_BROADSIDE_FRAMES=1 xcrun simctl launch --console-pty ...`;
+Android: `--ez frames true`) scrolls TraceMonkey, then pdf.js issue5567 zoomed in (bundled only when `BROADSIDE_CORPUS_DIR` has it at
+build time), for four seconds each while a probe thread measures how long the UI thread takes to pick up work, and logs one
+`BROADSIDE_FRAMES` line per document (`max` is the longest UI-thread stall).
+
 ## Documents
 
 - `tracemonkey.pdf`: "Trace-based Just-in-Time Type Specialization for Dynamic Languages" (Gal et al., PLDI 2009), the default document

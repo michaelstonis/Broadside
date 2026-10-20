@@ -14,7 +14,7 @@ public sealed class ViewerOptions
     public static readonly TimeSpan DefaultSliceBudget = TimeSpan.FromMilliseconds(8);
 
     private TimeSpan _sliceBudget = DefaultSliceBudget;
-    private int _maxConcurrency = Math.Max(1, Environment.ProcessorCount);
+    private int _maxConcurrency = Math.Max(1, Environment.ProcessorCount - 1); // one core stays with the UI thread (#357)
 
     /// <summary>Gets or sets the engine that opens the document; <see langword="null"/> (the default) builds one from <see cref="DocumentOptions"/>.</summary>
     public PdfEngine? Engine { get; set; }
@@ -47,7 +47,10 @@ public sealed class ViewerOptions
         }
     }
 
-    /// <summary>Gets or sets how many tiles render at once (the processor count by default); further renders wait their turn.</summary>
+    /// <summary>
+    /// Gets or sets how many tiles render at once (by default one less than the processor count, at least one, so the UI thread keeps
+    /// a core); further renders wait their turn.
+    /// </summary>
     /// <exception cref="ArgumentOutOfRangeException">The value is less than 1.</exception>
     public int MaxConcurrency
     {
@@ -131,6 +134,25 @@ public sealed class ViewerOptions
     public ViewerOptions WithMaxConcurrency(int maxConcurrency)
     {
         MaxConcurrency = maxConcurrency;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the renderer that draws the tiles it accepts outside the viewer's thread (a browser Web Worker), or
+    /// <see langword="null"/> (the default) to draw every tile with <see cref="BackendFactory"/>'s backends. The session that opens
+    /// with these options owns it and disposes it when it closes, so set it on options used for one session.
+    /// </summary>
+    /// <remarks>Spec #33 viewer capability 1 (#357), ADR 0013.</remarks>
+    public IRemoteTileRenderer? RemoteRenderer { get; set; }
+
+    /// <summary>Selects the renderer that draws tiles outside the viewer's thread (see <see cref="RemoteRenderer"/>).</summary>
+    /// <param name="renderer">The renderer; the session opened with these options disposes it.</param>
+    /// <returns>These options.</returns>
+    /// <remarks>Spec #33 viewer capability 1 (#357), ADR 0013.</remarks>
+    public ViewerOptions UseRemoteRenderer(IRemoteTileRenderer renderer)
+    {
+        ArgumentNullException.ThrowIfNull(renderer);
+        RemoteRenderer = renderer;
         return this;
     }
 

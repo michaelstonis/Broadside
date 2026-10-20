@@ -7,8 +7,10 @@ namespace Broadside.Viewer;
 /// image or texture (a Blazor canvas, a WPF writeable bitmap, a GPU texture), and <see cref="HeadlessSurface"/> in tests.
 /// </summary>
 /// <remarks>
-/// Spec #33 story 54. <see cref="Present"/> is called on the context that awaited the render (the UI thread when the shell has a
-/// synchronization context), only for tiles that completed: a cancelled tile never reaches the surface.
+/// Spec #33 story 54. <see cref="Present"/> is called only for tiles that completed: a cancelled tile never reaches the surface. A
+/// direct <see cref="DocumentSession.RenderTileAsync"/> presents on the context that awaited it; a <see cref="TileScheduler"/> over a
+/// <see cref="ViewerThreading.Background"/> session presents and evicts on worker threads, several at once, so such a surface is
+/// thread-safe and hands its tiles to the UI thread itself (#357).
 /// </remarks>
 public interface IRenderSurface
 {
@@ -22,7 +24,8 @@ public interface IRenderSurface
 
     /// <summary>
     /// Drops a tile presented earlier: the <see cref="TileScheduler"/> calls it to keep the tiles a surface holds within its memory
-    /// budget, and counts the tile's pixels as freed once it returns. Called on the thread that runs the scheduler's frames.
+    /// budget, and counts the tile's pixels as freed once it returns. Called on the thread that runs the scheduler's frames, or (in
+    /// background mode) on the worker that just presented a tile.
     /// </summary>
     /// <param name="tile">A tile passed to <see cref="Present"/> before and not dropped since.</param>
     /// <remarks>Spec #33 viewer capability 13. The default does nothing, for surfaces that keep no tiles.</remarks>

@@ -57,3 +57,10 @@ Broadside.Viewer.Blazor.WebGLTileBackend.WebGLTileBackend() -> void
 static Broadside.Viewer.Blazor.WebGLTileBackend.Create() -> Broadside.Viewer.ITileBackend!
 static Broadside.Viewer.Blazor.WebGLTileBackend.InitializeAsync() -> System.Threading.Tasks.Task<bool>!
 static Broadside.Viewer.Blazor.WebGLTileBackend.IsAvailable.get -> bool
+Broadside.Viewer.Blazor.RenderWorker
+static Broadside.Viewer.Blazor.RenderWorker.IsRunning.get -> bool
+static Broadside.Viewer.Blazor.RenderWorker.IsWorker.get -> bool
+static Broadside.Viewer.Blazor.RenderWorker.Open(System.ReadOnlySpan<byte> document, Broadside.Rendering.DisplayIntent intent) -> Broadside.Viewer.IRemoteTileRenderer?
+static Broadside.Viewer.Blazor.RenderWorker.Open(System.Uri! address, Broadside.Rendering.DisplayIntent intent) -> Broadside.Viewer.IRemoteTileRenderer?
+static Broadside.Viewer.Blazor.RenderWorker.Serve(System.Func<Broadside.PdfEngine!>! engine) -> void
+static Broadside.Viewer.Blazor.RenderWorker.StartAsync(System.TimeSpan? timeout = null) -> System.Threading.Tasks.Task<bool>!

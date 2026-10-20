@@ -43,6 +43,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     private readonly Stack<ITileBackend> _idleBackends = new();
     private readonly PageMetrics?[] _metrics;
     private readonly Dictionary<(int Page, DisplayLayers Layers), PendingBuild> _builds = [];
+    private readonly DocumentGate? _reads;
     private int _pending;
     private bool _closed;
     private bool _cancelIssued;
@@ -64,10 +65,19 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         _slots = new SemaphoreSlim(options.MaxConcurrency, options.MaxConcurrency);
         MaxConcurrency = options.MaxConcurrency;
         _metrics = new PageMetrics?[document.Pages.Count];
+        _reads = _cooperative ? null : new DocumentGate();
+        RemoteRenderer = options.RemoteRenderer;
     }
 
     /// <summary>Gets the document. The session owns it and disposes it when it closes.</summary>
     public PdfDocument Document { get; }
+
+    /// <summary>Gets the renderer that draws the tiles it accepts outside the viewer's thread, if the options selected one.</summary>
+    /// <remarks>Spec #33 viewer capability 1 (#357), ADR 0013. A shell keeps overlays in tiles of their own when it is set.</remarks>
+    public IRemoteTileRenderer? RemoteRenderer { get; }
+
+    /// <summary>Gets whether the document is read through range requests (pages are prefetched before use).</summary>
+    internal bool IsRemote => _remote;
 
     /// <summary>Gets whether the session works on its caller's thread in slices (the browser) instead of on thread-pool workers.</summary>
     internal bool IsCooperative => _cooperative;
@@ -356,7 +366,15 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         {
             PdfPage page = await LoadPageAsync(tile.PageIndex, token).ConfigureAwait(true);
             DisplayList list = await BuildAsync(tile.PageIndex, page, tile.Layers, token).ConfigureAwait(true);
-            Matrix transform = GetTileTransform(page, tile);
+            Matrix transform = await GetTileTransformAsync(page, tile, token).ConfigureAwait(true);
+            if (list.OperationCount == 0 && (tile.Layers & DisplayLayers.Content) == 0 && surface is IEmptyTileSink empty)
+            {
+                // An overlay with nothing on it: the scheduler keeps it without pixels (#357).
+                token.ThrowIfCancellationRequested();
+                empty.PresentEmpty(tile);
+                Interlocked.Increment(ref _presented);
+                return;
+            }
 
             await _slots.WaitAsync(token).ConfigureAwait(true);
             slot = true;
@@ -397,6 +415,53 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         Tile tile = await GetPageTileAsync(pageIndex, scale, 0, cancellationToken).ConfigureAwait(true);
         await RenderTileAsync(tile, surface, cancellationToken).ConfigureAwait(true);
         return tile;
+    }
+
+    /// <summary>
+    /// Starts an edit of <see cref="Document"/> on the calling thread (the UI thread): in <see cref="ViewerThreading.Background"/> mode it
+    /// stops the reads that workers have in progress (page loads, display-list builds and page-model loads, which start again after
+    /// the edit) and holds new ones until the returned scope is disposed. Edit the document only inside such a scope while the session
+    /// reads it; <see cref="AnnotationLayer"/>'s edits take one themselves.
+    /// </summary>
+    /// <returns>The edit's scope; dispose it when the edit is done (then invalidate the tiles it touched).</returns>
+    /// <exception cref="InvalidOperationException">Another thread is editing the document.</exception>
+    /// <remarks>
+    /// Spec #33 viewer capability 1 (#357): the thread-safety contract, concurrent reads and renders, single-threaded mutation. Tile
+    /// replays read only the finished display list and go on. In <see cref="ViewerThreading.Cooperative"/> mode every read runs on the
+    /// caller's thread, so the scope does nothing.
+    /// </remarks>
+    public IDisposable BeginEdit()
+    {
+        if (_reads is not { } reads)
+        {
+            return EditScope.None;
+        }
+
+        reads.BeginEdit();
+        return new EditScope(reads.EndEdit);
+    }
+
+    /// <summary>
+    /// Reads the document off the caller's thread: on a worker in <see cref="ViewerThreading.Background"/> mode, outside any edit
+    /// (<see cref="BeginEdit"/>); on the caller's thread in cooperative mode.
+    /// </summary>
+    internal async ValueTask<T> ReadAsync<T>(Func<CancellationToken, T> work, CancellationToken cancellationToken)
+    {
+        if (_reads is not { } reads)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return work(cancellationToken);
+        }
+
+        CancellationTokenSource operation = Enter(cancellationToken);
+        try
+        {
+            return await reads.ReadAsync(work, operation.Token).ConfigureAwait(false);
+        }
+        finally
+        {
+            Exit(operation);
+        }
     }
 
     /// <summary>Closes the session: cancels pending work; the backends and the document are released once that work has stopped.</summary>
@@ -456,16 +521,113 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     {
         ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(pageIndex, PageCount);
-        PdfPage page = _remote
-            ? await Document.Pages.PrefetchAsync(pageIndex, token).ConfigureAwait(false)
-            : Document.Pages[pageIndex];
+        PdfPage page;
+        PageMetrics metrics;
+        if (_reads is { } reads && _remote)
+        {
+            // A remote page's prefetch reads the document (its page, annotation and resource collections): an edit cancels it and it
+            // starts again afterwards. The geometry is read under the same lease.
+            (page, metrics) = await PrefetchPageAsync(reads, pageIndex, token).ConfigureAwait(false);
+        }
+        else if (_remote)
+        {
+            page = await Document.Pages.PrefetchAsync(pageIndex, token).ConfigureAwait(false);
+            metrics = PageMetrics.Of(pageIndex, page);
+        }
+        else if (_reads is null)
+        {
+            page = Document.Pages[pageIndex];
+            metrics = PageMetrics.Of(pageIndex, page);
+        }
+        else if (_reads.TryEnterRead())
+        {
+            // No edit in progress: the page object and its geometry are read here, so requests for a page arrive at its list build
+            // together and share it.
+            try
+            {
+                page = Document.Pages[pageIndex];
+                metrics = PageMetrics.Of(pageIndex, page);
+            }
+            finally
+            {
+                _reads.ExitRead();
+            }
+        }
+        else
+        {
+            // An edit is in progress: read after it, on a worker.
+            (page, metrics) = await ReadPageAsync(_reads, pageIndex, token).ConfigureAwait(false);
+        }
+
         lock (_gate)
         {
-            _metrics[pageIndex] ??= PageMetrics.Of(pageIndex, page);
+            _metrics[pageIndex] ??= metrics;
         }
 
         return page;
     }
+
+    // The lambdas live in methods of their own: a lambda that captures a parameter makes the compiler allocate its closure on every
+    // call of the method that declares the parameter, so LoadPageAsync and BuildCoreAsync would allocate even in cooperative mode.
+    private Task<(PdfPage, PageMetrics)> ReadPageAsync(DocumentGate reads, int pageIndex, CancellationToken token) =>
+        reads.ReadAsync(
+            _ =>
+            {
+                PdfPage page = Document.Pages[pageIndex];
+                return (page, PageMetrics.Of(pageIndex, page));
+            },
+            token);
+
+    private Task<(PdfPage, PageMetrics)> PrefetchPageAsync(DocumentGate reads, int pageIndex, CancellationToken token) =>
+        reads.ReadAsync(
+            async read =>
+            {
+                PdfPage page = await Document.Pages.PrefetchAsync(pageIndex, read).ConfigureAwait(false);
+                return (page, PageMetrics.Of(pageIndex, page));
+            },
+            token);
+
+    /// <summary>Fetches a remote page's whole closure (what it uses beyond the hints) as a read, so an edit never races it.</summary>
+    internal Task PrefetchClosureAsync(PdfPage page, CancellationToken token) =>
+        _reads is { } reads ? PrefetchClosureAsync(reads, page, token) : page.PrefetchAsync(token);
+
+    private static Task<bool> PrefetchClosureAsync(DocumentGate reads, PdfPage page, CancellationToken token) =>
+        reads.ReadAsync(
+            async read =>
+            {
+                await page.PrefetchAsync(read).ConfigureAwait(false);
+                return true;
+            },
+            token);
+
+    /// <summary>The tile's device transform, read under a lease in background mode so an edit of the page's geometry never races it.</summary>
+    private ValueTask<Matrix> GetTileTransformAsync(PdfPage page, Tile tile, CancellationToken token)
+    {
+        if (_reads is not { } reads)
+        {
+            return ValueTask.FromResult(GetTileTransform(page, tile));
+        }
+
+        if (reads.TryEnterRead())
+        {
+            try
+            {
+                return ValueTask.FromResult(GetTileTransform(page, tile));
+            }
+            finally
+            {
+                reads.ExitRead();
+            }
+        }
+
+        return new ValueTask<Matrix>(ReadTileTransformAsync(reads, page, tile, token));
+    }
+
+    private static Task<Matrix> ReadTileTransformAsync(DocumentGate reads, PdfPage page, Tile tile, CancellationToken token) =>
+        reads.ReadAsync(_ => GetTileTransform(page, tile), token);
+
+    private Task<DisplayList> BuildOnWorkerAsync(PdfPage page, DisplayLayers layers, CancellationToken token) =>
+        _reads!.ReadAsync(read => page.CreateDisplayList(layers, _intent, new ContentOptions().WithCancellation(read)), token);
 
     /// <summary>Builds (or takes from the document's cache) a page's list on the calling thread: the tile scheduler's cooperative path.</summary>
     internal DisplayList CreateDisplayList(PdfPage page, DisplayLayers layers, CancellationToken token) =>
@@ -580,13 +742,14 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
                     return page.CreateDisplayList(layers, _intent, options);
                 }
 
-                return await Task.Run(() => page.CreateDisplayList(layers, _intent, options), token).ConfigureAwait(false);
+                // A read: an edit stops the build and it starts again after the edit.
+                return await BuildOnWorkerAsync(page, layers, token).ConfigureAwait(false);
             }
             catch (PdfRangeNotLoadedException) when (_remote && attempt == 0)
             {
                 // A resource outside the page's prefetched closure (a shared object the hints did not list): fetch the page's whole
                 // closure without blocking, then build again.
-                await page.PrefetchAsync(token).ConfigureAwait(false);
+                await PrefetchClosureAsync(page, token).ConfigureAwait(false);
             }
         }
     }
@@ -713,6 +876,8 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
         _slots.Dispose();
         _closing.Dispose();
+        _reads?.Dispose();
+        RemoteRenderer?.Dispose();
         Document.Dispose();
         _released.TrySetResult();
     }
@@ -726,5 +891,14 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         public int Waiters { get; set; }
 
         public void Dispose() => Cancellation.Dispose();
+    }
+
+    private sealed class EditScope(Action? end) : IDisposable
+    {
+        public static readonly EditScope None = new(null);
+
+        private Action? _end = end;
+
+        public void Dispose() => Interlocked.Exchange(ref _end, null)?.Invoke();
     }
 }

@@ -62,3 +62,4 @@ static readonly Broadside.Viewer.Maui.PdfView.SessionProperty -> Microsoft.Maui.
 static readonly Broadside.Viewer.Maui.PdfView.ShowAnnotationsProperty -> Microsoft.Maui.Controls.BindableProperty!
 static readonly Broadside.Viewer.Maui.PdfView.SourceProperty -> Microsoft.Maui.Controls.BindableProperty!
 static readonly Broadside.Viewer.Maui.PdfView.UseHardwareAccelerationProperty -> Microsoft.Maui.Controls.BindableProperty!
+Broadside.Viewer.Maui.PdfView.ScrollBy(double deltaX, double deltaY) -> void

@@ -146,8 +146,17 @@ public sealed class BrowserHost : IAsyncLifetime
         var types = new FileExtensionContentTypeProvider();
         types.Mappings[".wasm"] = "application/wasm";
         // A host that reserves paths starting with an underscore (the non-AOT build must not need any).
+        // BROADSIDE_CROSS_ORIGIN_ISOLATED=1 serves everything with COOP/COEP, to try the viewer on an isolated page (#357). Off by
+        // default: static hosts send neither header.
+        bool isolated = Environment.GetEnvironmentVariable("BROADSIDE_CROSS_ORIGIN_ISOLATED") == "1";
         _server.Use(async (context, next) =>
         {
+            if (isolated)
+            {
+                context.Response.Headers["Cross-Origin-Opener-Policy"] = "same-origin";
+                context.Response.Headers["Cross-Origin-Embedder-Policy"] = "require-corp";
+            }
+
             string path = context.Request.Path.Value ?? "";
             if (path.StartsWith("/lite/", StringComparison.Ordinal) && path.Split('/').Any(static segment => segment.StartsWith('_')))
             {

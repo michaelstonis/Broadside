@@ -187,7 +187,11 @@ public static partial class RenderStats
     public static async Task<bool> UseRendererAsync(bool webgl)
     {
         bool ok = await Renderers.SetAsync(webgl).ConfigureAwait(true);
-        Demo.Current?.Viewer?.Redraw();
+        if (Demo.Current is { } demo)
+        {
+            await demo.ApplyRendererAsync().ConfigureAwait(true);
+        }
+
         return ok;
     }
 

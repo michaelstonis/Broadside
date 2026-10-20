@@ -123,6 +123,7 @@ export function detach(id) {
   if (!v) return;
   v.abort.abort();
   v.observer.disconnect();
+  for (const tile of v.tiles.values()) closeTile(tile);
   v.tiles.clear();
   viewers.delete(id);
 }
@@ -135,11 +136,16 @@ export function nextFrame(id) {
   }));
 }
 
+function closeTile(tile) {
+  if (tile && typeof tile.close === "function") tile.close(); // an ImageBitmap from the render worker
+}
+
 export function putTile(id, key, width, height, pixels) {
   const v = viewers.get(id);
   if (!v) return;
   let tile = v.tiles.get(key);
-  if (!tile || tile.width !== width || tile.height !== height) {
+  if (!(tile instanceof HTMLCanvasElement) || tile.width !== width || tile.height !== height) {
+    closeTile(tile);
     tile = document.createElement("canvas");
     tile.width = width;
     tile.height = height;
@@ -155,7 +161,8 @@ export function putTileFromCanvas(id, key, width, height, source) {
   const v = viewers.get(id);
   if (!v) return;
   let tile = v.tiles.get(key);
-  if (!tile || tile.width !== width || tile.height !== height) {
+  if (!(tile instanceof HTMLCanvasElement) || tile.width !== width || tile.height !== height) {
+    closeTile(tile);
     tile = document.createElement("canvas");
     tile.width = width;
     tile.height = height;
@@ -166,9 +173,133 @@ export function putTileFromCanvas(id, key, width, height, source) {
   context.drawImage(source, 0, 0, width, height, 0, 0, width, height);
 }
 
+// A tile the render worker drew (#357): its ImageBitmap is drawn as it is, nothing is copied on this thread.
+export function putTileFromImage(id, key, image) {
+  const v = viewers.get(id);
+  if (!v) {
+    closeTile(image);
+    return;
+  }
+  const old = v.tiles.get(key);
+  if (old !== image) closeTile(old);
+  v.tiles.set(key, image);
+}
+
 export function dropTile(id, key) {
   const v = viewers.get(id);
-  if (v) v.tiles.delete(key);
+  if (!v) return;
+  closeTile(v.tiles.get(key));
+  v.tiles.delete(key);
+}
+
+export function markWorker(id, on) {
+  const v = viewers.get(id);
+  if (v) v.host.dataset.bsWorker = on ? "yes" : "no";
+}
+
+// ---- The render worker (#357) ----
+
+let worker = null;
+
+async function workerExports() {
+  const runtime = await globalThis.getDotnetRuntime(0);
+  const exports = await runtime.getAssemblyExports("Broadside.Viewer.Blazor.dll");
+  return exports.Broadside.Viewer.Blazor.RenderWorker;
+}
+
+// Where the page's own runtime came from, so the worker boots the same files (any runtime folder).
+function dotnetUrl() {
+  const entry = performance.getEntriesByType("resource").find((e) => /\/dotnet\.js(\?|$)/.test(e.name));
+  return entry ? entry.name : new URL("_framework/dotnet.js", document.baseURI).href;
+}
+
+// Starts the worker; resolves "ready", "notServed" (the app's Main does not call RenderWorker.Serve) or why it failed.
+export function startWorker(timeoutMs) {
+  if (typeof Worker === "undefined" || typeof createImageBitmap === "undefined") return Promise.resolve("unsupported");
+  return new Promise((resolve) => {
+    let settled = false;
+    const started = performance.now();
+    const done = (status) => {
+      if (settled) return;
+      settled = true;
+      // Diagnostics for the app and the benchmarks: how the worker started and how long its runtime took to boot.
+      globalThis.broadsideRenderWorker = { status, bootMs: Math.round(performance.now() - started) };
+      if (status !== "ready" && worker) {
+        worker.terminate();
+        worker = null;
+      }
+      resolve(status);
+    };
+    let w;
+    try {
+      const script = new URL("./broadside-render-worker.js", import.meta.url);
+      script.searchParams.set("dotnet", dotnetUrl());
+      w = new Worker(script, { type: "module" });
+    } catch (error) {
+      resolve("failed: " + error);
+      return;
+    }
+    worker = w;
+    const timer = setTimeout(() => done("timeout"), timeoutMs);
+    // A failure after startup (#357): the page's thread takes every tile over, including those the worker still had.
+    const failed = async (message) => {
+      if (!settled) {
+        clearTimeout(timer);
+        done("failed: " + message);
+        return;
+      }
+      if (worker === w) {
+        worker = null;
+        w.terminate();
+        globalThis.broadsideRenderWorker = { ...(globalThis.broadsideRenderWorker || {}), status: "failed: " + message };
+        (await workerExports()).OnWorkerFailed(message);
+      }
+    };
+    w.onerror = (e) => { e.preventDefault?.(); failed(e.message || "error"); };
+    w.onmessageerror = () => failed("a message could not be read");
+    w.onmessage = async (e) => {
+      const m = e.data;
+      if (m.type === "ready") {
+        clearTimeout(timer);
+        done(m.served ? "ready" : "notServed");
+        return;
+      }
+      if (m.type === "bootFailed") {
+        clearTimeout(timer);
+        done("failed: " + m.message);
+        return;
+      }
+      const x = await workerExports();
+      switch (m.type) {
+        case "opened": x.OnOpened(m.doc, true, null); break;
+        case "openFailed": x.OnOpened(m.doc, false, m.message); break;
+        case "rendered": x.OnRendered(m.job, m.image); break;
+        case "failed": x.OnFailed(m.job, m.message); break;
+        case "cancelled": x.OnCancelled(m.job); break;
+      }
+    };
+  });
+}
+
+export function workerOpen(doc, intent, bytes) {
+  const copy = bytes.slice(); // a MemoryView: copy it out of the runtime's heap, then hand the copy over
+  worker?.postMessage({ type: "open", doc, intent, bytes: copy.buffer }, [copy.buffer]);
+}
+
+export function workerOpenAddress(doc, intent, address) {
+  worker?.postMessage({ type: "openAddress", doc, intent, address });
+}
+
+export function workerClose(doc) {
+  worker?.postMessage({ type: "close", doc });
+}
+
+export function workerRender(job, doc, page, scale, rotation, x, y, width, height, layers) {
+  worker?.postMessage({ type: "render", job, doc, page, scale, rotation, x, y, width, height, layers });
+}
+
+export function workerCancel(job) {
+  worker?.postMessage({ type: "cancel", job });
 }
 
 // Header: [records, pageCount, currentPage, zoom, tilesPresented, 0, 0, 0, 0]; then records of 9 numbers:

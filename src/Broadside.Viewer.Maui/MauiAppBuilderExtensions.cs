@@ -17,7 +17,13 @@ public static class MauiAppBuilderExtensions
     {
         ArgumentNullException.ThrowIfNull(builder);
         builder.UseSkiaSharp();
-        builder.ConfigureMauiHandlers(handlers => handlers.AddHandler<PdfView, PdfViewHandler>());
+        builder.ConfigureMauiHandlers(handlers =>
+        {
+            handlers.AddHandler<PdfView, PdfViewHandler>();
+#if IOS
+            handlers.AddHandler<MetalCanvas, MetalCanvasHandler>();
+#endif
+        });
         return builder;
     }
 }

@@ -13,8 +13,8 @@ namespace Broadside.Viewer.Maui;
 
 /// <summary>
 /// A .NET MAUI control that shows a PDF document on the shared viewer core, drawn with SkiaSharp: tiles render through
-/// <see cref="SkiaTileBackend"/> off the UI thread and are composed on the GPU (<see cref="SKGLView"/>: Metal on iOS and Mac Catalyst,
-/// OpenGL ES on Android, Direct3D on Windows) unless <see cref="UseHardwareAcceleration"/> is off.
+/// <see cref="SkiaTileBackend"/> off the UI thread and are composed on the GPU (Metal on iOS and Mac Catalyst, OpenGL ES on Android
+/// through <see cref="SKGLView"/>, Direct3D on Windows) unless <see cref="UseHardwareAcceleration"/> is off (a CPU raster canvas).
 /// </summary>
 /// <remarks>
 /// <para>
@@ -176,6 +176,11 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
     /// <param name="factor">The factor (above 1 zooms in).</param>
     public void ZoomBy(double factor) => _controller.ZoomBy(factor);
 
+    /// <summary>Scrolls the view by a distance in device-independent units, as a wheel or trackpad scroll does (no animation).</summary>
+    /// <param name="deltaX">The horizontal distance; positive scrolls right.</param>
+    /// <param name="deltaY">The vertical distance; positive scrolls down.</param>
+    public void ScrollBy(double deltaX, double deltaY) => HandleScroll(deltaX, deltaY, InputModifiers.None, Width / 2, Height / 2);
+
     /// <summary>Copies the selected text to the clipboard.</summary>
     /// <returns>The copied text, or null when nothing is selected.</returns>
     public async Task<string?> CopySelectionAsync()
@@ -325,7 +330,7 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
         }
         else
         {
-            _semantics.Rebuild(_controller);
+            _semantics.Rebuild(_controller, change.Node);
             _semanticsDirty = true;
         }
     }
@@ -382,6 +387,9 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
     {
         switch (_canvas)
         {
+            case MetalCanvas metal:
+                metal.InvalidateSurface();
+                break;
             case SKGLView gl:
                 gl.InvalidateSurface();
                 break;
@@ -393,6 +401,15 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
 
     private View CreateCanvas()
     {
+        if (UseHardwareAcceleration && MetalCanvas.IsSupported)
+        {
+            // iOS: Metal, as on Mac Catalyst (SKGLView is OpenGL ES there: deprecated, and emulated slowly on the simulator).
+            var metal = new MetalCanvas();
+            metal.Painted += Paint;
+            metal.Touch += OnTouch;
+            return metal;
+        }
+
         if (UseHardwareAcceleration)
         {
             var gl = new SKGLView { EnableTouchEvents = true, HasRenderLoop = false };
@@ -412,6 +429,10 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
         View old = _canvas;
         switch (old)
         {
+            case MetalCanvas metal:
+                metal.Painted -= Paint;
+                metal.Touch -= OnTouch;
+                break;
             case SKGLView gl:
                 gl.PaintSurface -= OnPaintGpu;
                 gl.Touch -= OnTouch;
@@ -433,7 +454,7 @@ public sealed class PdfView : ContentView, IViewerHost, IDisposable
 
     private void OnPaintCpu(object? sender, SKPaintSurfaceEventArgs e) => Paint(e.Surface, e.Info.Width);
 
-    // May run on the GL thread (Android): it only draws the published frame and reads back a capture.
+    // May run on the GL thread (Android): it only draws the published frame and reads back a capture. Metal (iOS) paints on the UI thread.
     private void Paint(SKSurface surface, int pixelWidth)
     {
         _controller.Presenter.Draw(surface.Canvas);
