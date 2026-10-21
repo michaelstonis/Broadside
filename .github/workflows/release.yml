@@ -7,7 +7,7 @@
 #
 # Publishing uses NuGet trusted publishing (OIDC), so the repository holds no NuGet API key. Before the first
 # real release the owner must register this workflow as a trusted publisher on nuget.org:
-#   nuget.org -> sign in as michaelstonis -> profile -> Trusted Publishing -> Add
+#   nuget.org -> sign in as stonis -> profile -> Trusted Publishing -> Add
 #     Repository owner: michaelstonis
 #     Repository:       Broadside
 #     Workflow file:    release.yml
@@ -216,7 +216,7 @@ jobs:
         id: login
         uses: NuGet/login@v1
         with:
-          user: michaelstonis
+          user: stonis # the nuget.org username of the account that created the trusted publishing policy
 
       - name: Push to NuGet.org
         if: steps.decide.outputs.publish == 'true'
