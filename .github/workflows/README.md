@@ -104,7 +104,7 @@ The dry run builds, tests and packs on both runners and uploads the merged `pack
 
 The repository holds no NuGet API key. `NuGet/login` exchanges the job's GitHub OIDC token for a short-lived API key, which only works once nuget.org knows the workflow. Before the first real release:
 
-1. Sign in to nuget.org as `michaelstonis` → profile → **Trusted Publishing** → **Add**.
+1. Sign in to nuget.org as `stonis` (the nuget.org account; the workflow passes it as `user:`) → profile → **Trusted Publishing** → **Add**.
 2. Repository owner `michaelstonis`, repository `Broadside`, workflow file `release.yml`, environment empty.
 3. Push a tag: `git tag v0.1.0-preview.1 && git push origin v0.1.0-preview.1`.
 
