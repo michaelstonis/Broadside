@@ -67,7 +67,7 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
 
       - name: Restore
-        run: dotnet restore Broadside.slnx
+        run: dotnet restore Broadside.slnx -p:Configuration=Release
 
       - name: Build
         # Same as ci.yml's build-test: the workload's Apple SDK packs want a newer Xcode than the hosted macOS image
@@ -120,7 +120,7 @@ jobs:
         run: dotnet workload install macos ios maccatalyst android
 
       - name: Restore
-        run: dotnet restore Broadside.slnx
+        run: dotnet restore Broadside.slnx -p:Configuration=Release
 
       - name: Build
         # Same as ci.yml's build-test: the workload's Apple SDK packs want a newer Xcode than the hosted macOS image
