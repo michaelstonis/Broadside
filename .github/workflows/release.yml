@@ -207,7 +207,9 @@ jobs:
         if: steps.decide.outputs.publish == 'true'
         uses: actions/setup-dotnet@v6
         with:
-          global-json-file: global.json
+          # This job does not check out the repository (it only pushes the packages the build jobs made), so there is no
+          # global.json here; any .NET 10 SDK can push.
+          dotnet-version: 10.0.x
 
       - name: Log in to NuGet.org (trusted publishing)
         if: steps.decide.outputs.publish == 'true'
