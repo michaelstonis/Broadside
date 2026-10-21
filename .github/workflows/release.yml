@@ -67,10 +67,13 @@ jobs:
           restore-keys: nuget-${{ runner.os }}-
 
       - name: Restore
-        run: dotnet restore Broadside.slnx
+        run: dotnet restore Broadside.slnx -p:Configuration=Release
 
       - name: Build
-        run: dotnet build Broadside.slnx -c Release -warnaserror --no-restore
+        # Same as ci.yml's build-test: the workload's Apple SDK packs want a newer Xcode than the hosted macOS image
+        # ships, so skip the Xcode version check and use the dynamic registrar (both affect app projects only, not the
+        # packed libraries). Drop both once the image ships the Xcode the workload asks for.
+        run: dotnet build Broadside.slnx -c Release -warnaserror --no-restore -p:ValidateXcodeVersion=false -p:Registrar=dynamic
 
       - name: Test
         run: dotnet test Broadside.Core.slnf -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
@@ -117,10 +120,13 @@ jobs:
         run: dotnet workload install macos ios maccatalyst android
 
       - name: Restore
-        run: dotnet restore Broadside.slnx
+        run: dotnet restore Broadside.slnx -p:Configuration=Release
 
       - name: Build
-        run: dotnet build Broadside.slnx -c Release -warnaserror --no-restore
+        # Same as ci.yml's build-test: the workload's Apple SDK packs want a newer Xcode than the hosted macOS image
+        # ships, so skip the Xcode version check and use the dynamic registrar (both affect app projects only, not the
+        # packed libraries). Drop both once the image ships the Xcode the workload asks for.
+        run: dotnet build Broadside.slnx -c Release -warnaserror --no-restore -p:ValidateXcodeVersion=false -p:Registrar=dynamic
 
       - name: Test
         run: dotnet test Broadside.Core.slnf -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
@@ -129,7 +135,7 @@ jobs:
         run: dotnet test tests/Broadside.Rendering.CoreGraphics.Tests -c Release --no-build --results-directory artifacts/test-results -- --report-xunit-trx
 
       - name: Pack the full solution
-        run: dotnet pack Broadside.slnx -c Release --no-build
+        run: dotnet pack Broadside.slnx -c Release --no-build -p:ValidateXcodeVersion=false -p:Registrar=dynamic
 
       - name: Upload platform packages
         uses: actions/upload-artifact@v7
