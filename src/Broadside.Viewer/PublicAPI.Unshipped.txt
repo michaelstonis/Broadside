@@ -721,3 +721,5 @@ Broadside.Viewer.ViewerOptions.RemoteRenderer.get -> Broadside.Viewer.IRemoteTil
 Broadside.Viewer.ViewerOptions.RemoteRenderer.set -> void
 Broadside.Viewer.ViewerOptions.UseRemoteRenderer(Broadside.Viewer.IRemoteTileRenderer! renderer) -> Broadside.Viewer.ViewerOptions!
 Broadside.Viewer.DocumentSession.RemoteRenderer.get -> Broadside.Viewer.IRemoteTileRenderer?
+Broadside.Viewer.IRenderSurface.AcceptsDevicePixels.get -> bool
+Broadside.Viewer.ITileRender.ReadBack() -> void

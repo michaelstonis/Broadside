@@ -1244,10 +1244,15 @@ public sealed class TileScheduler : IDisposable
             return;
         }
 
-        job.Rendering.Dispose();
-        job.Rendering = null;
+        // The rendering is disposed after the tile is presented (by Release, before the bitmap): a tile its backend left on the device
+        // (ADR 0012) is read back for a surface that reads pixels, and dropped before the bitmap is released (#380).
         try
         {
+            if (!_surface.AcceptsDevicePixels)
+            {
+                job.Rendering.ReadBack();
+            }
+
             _surface.Present(job.Tile, job.Target!);
         }
         catch (Exception)

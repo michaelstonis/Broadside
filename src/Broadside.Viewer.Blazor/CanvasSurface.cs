@@ -18,6 +18,9 @@ internal sealed class CanvasSurface(int viewerId) : IRenderSurface
     private byte[] _rgba = [];
     private int _next;
 
+    /// <summary>Gets a value indicating whether tiles still in the WebGL canvas are copied from it GPU to GPU (<see cref="GpuPresentation"/>, ADR 0012).</summary>
+    public bool AcceptsDevicePixels => true;
+
     /// <summary>Gets the number of tiles presented so far.</summary>
     public int Presented { get; private set; }
 
