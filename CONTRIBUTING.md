@@ -8,7 +8,7 @@ Before starting, read [CLAUDE.md](CLAUDE.md) (the rules), [CONTEXT.md](CONTEXT.m
 
 - **Issues.** Every unit of work is a GitHub issue created from the [task template](.github/ISSUE_TEMPLATE/task.yml). It names the phase and track, the scope, the spec clauses it implements, the acceptance criteria and what blocks it. Bugs use the bug report template.
 - **Labels.** Each issue carries a `phase:N` label, a `track:*` label where a track applies, one or more `area:*` labels, and `task` or `bug`. `in-progress` means someone has claimed it.
-- **Milestones.** One milestone per phase, Phase 0 through Phase 6. The current milestone is the one with open issues and the lowest number.
+- **Milestones.** One milestone per phase, Phase 0 through Phase 7, plus `Post-v1` for earmarked work. The current milestone is the one with open issues and the lowest number. The status of each phase is in [docs/plan/README.md](docs/plan/README.md#status).
 - **Project board.** Issues are tracked on the [Broadside project board](https://github.com/users/michaelstonis/projects/1). The board reflects issue state; update the issue, not the board.
 - **Plan.** The issue lists per phase live in [docs/plan](docs/plan) and link to the GitHub issues.
 

@@ -1,6 +1,24 @@
 # Broadside build plan
 
-Broadside is a fully managed .NET implementation of ISO 32000-2 with a cross-platform, cross-backend rendering layer and, later, viewer controls. This plan is the top of the work tree. Every phase lists its tracks; tracks inside a phase share nothing but the phases below them, so they run in parallel across agents. Decisions behind the plan are in `docs/adr/`; vocabulary is in `CONTEXT.md`; what is implemented is in `docs/conformance/`.
+Broadside is a fully managed .NET implementation of ISO 32000-2 with a cross-platform, cross-backend rendering layer and viewer controls. This plan is the top of the work tree. Every phase lists its tracks; tracks inside a phase share nothing but the phases below them, so they run in parallel across agents. Decisions behind the plan are in `docs/adr/`; vocabulary is in `CONTEXT.md`; what is implemented is in `docs/conformance/`.
+
+## Status
+
+From the GitHub milestones, October 2026. A phase is done when every task issue in its milestone is closed. Its parent issue (#86 to #89) stays open until spec #33 reaches `main`. Ticket branches merge into the integration branch `spec/33-broadside-v1`, which reaches `main` in batches (#83, #277, #379).
+
+| Phase | Milestone | Status |
+|---|---|---|
+| 0. Scaffold | closed, 10 issues | done |
+| 1. COS layer | 28 closed, 0 open | done |
+| 2. Model and codecs | 30 closed, 0 open | done |
+| 3. Rendering | 58 closed; only the parent #86 open | done |
+| 4. Write and Edit | 63 closed; only the parent #87 open | done |
+| 5. Cross-cutting | 31 closed; only the parent #88 open | done |
+| 6. Viewer | 10 closed, 9 open | In progress. Done: the viewer core (#209 to #214, #217, #220) and the Blazor (#221) and MAUI (#226) shells. Open: #215 search, #216 outline and thumbnails, #218 form filling, #219 smart dark mode, #222 to #225 the WPF, WinUI, Avalonia and Uno shells (all provisional), and the parent #89. |
+| 7. Hardening and v1 release | 1 closed, 46 open | In progress. The first preview, `0.1.0-preview.1`, was published to NuGet.org on 2026-10-21 as 13 packages, but its ticket #266 is still open. The other 7A, 7B and 7C tickets are open. |
+| Post-v1 | 3 open | earmarked (#232): #230 complex-script shaping, #260 JBIG2 extended templates |
+
+Work outside the phase tickets is tracked as open issues without a milestone: for example the image-decode performance work (#362, #365, #372 to #377) and the fuzz findings #387 and #390.
 
 ## Packages
 
@@ -15,7 +33,11 @@ Broadside is a fully managed .NET implementation of ISO 32000-2 with a cross-pla
 | `Broadside.Fonts.Standard14` | Liberation + Foxit Symbol/Dingbats glyph data | none |
 | `Broadside.Fonts.Cmaps` | Adobe predefined CMaps and CID-to-Unicode tables | none |
 | `Broadside.Layout` | Flow-layout document engine over the canvas API | none |
-| `Broadside.Viewer.*` | Shared viewer core + MAUI, Uno, Avalonia, WPF, WinUI, Blazor shells (post-Phase 3) | per framework |
+| `Broadside.Rendering.WebGL` | WebGL 2 backend for the browser (ADR 0012) | the browser |
+| `Broadside.Viewer` | Framework-neutral viewer core: document session, page layout, tile scheduler, input model, text selection, annotation layer, accessibility bridge | none |
+| `Broadside.Viewer.Blazor` | Blazor WebAssembly shell (`PdfViewer`) | `Microsoft.AspNetCore.Components.Web` |
+| `Broadside.Viewer.Maui` | .NET MAUI shell (`PdfView`) | `Microsoft.Maui.Controls`, `SkiaSharp.Views.Maui.Controls` |
+| `Broadside.Viewer.*` | Uno, Avalonia, WPF and WinUI shells (provisional, #222 to #225) | per framework |
 
 Target framework: `net10.0` only (ADR 0002). License: MIT (ADR 0008).
 
@@ -132,7 +154,7 @@ Phase 0 → Phase 1 → {2A, 2B, 2C, 2D} → 3A → {3B, 3C, 3D, 3E, 3F, 3G, 3H,
 
 - [Phase 0](phase-0-issues.md) (scaffold, horizontal by nature)
 - [Phase 1](phase-1-issues.md) and [Phase 2](phase-2-issues.md): vertical slices of the [spec](spec-broadside-v1.md), published as sub-issues of #33
-- [Phase 3](phase-3-issues.md), [Phase 4](phase-4-issues.md), [Phase 5](phase-5-issues.md) and [Phase 6](phase-6-issues.md, provisional): vertical slices published 2026-10-10 under phase parents #86–#89
+- [Phase 3](phase-3-issues.md), [Phase 4](phase-4-issues.md), [Phase 5](phase-5-issues.md) and [Phase 6](phase-6-issues.md) (provisional): vertical slices published 2026-10-10 under phase parents #86–#89
 - [Phase 7](phase-7-issues.md): hardening and v1 release under #231; earmarked post-v1 work under #232
 
 ## Working agreement
