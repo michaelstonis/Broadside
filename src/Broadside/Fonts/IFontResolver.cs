@@ -8,7 +8,7 @@ namespace Broadside.Fonts;
 /// <para>
 /// ISO 32000-2 §9.6.2.2 (the Standard 14 fonts, "or their font metrics and suitable substitution fonts, shall be available"),
 /// §9.8 (the font descriptor, which "enables a PDF processor to synthesise a substitute font or select a similar font"), §9.7.5.2
-/// (predefined CMaps) and §9.10.2 (CID-to-Unicode tables). ADR 0007 and ADR 0009.
+/// (predefined CMaps) and §9.10.2 (CID-to-Unicode tables).
 /// </para>
 /// <para>
 /// An engine asks its resolvers in order: those registered with <see cref="PdfOptions.UseFontResolver"/>, in registration order,

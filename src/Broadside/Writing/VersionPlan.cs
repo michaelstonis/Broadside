@@ -10,7 +10,7 @@ namespace Broadside.Writing;
 /// strict mode, and the developer extensions its ISO/TS features declare.
 /// </summary>
 /// <remarks>
-/// ADR 0003; ISO 32000-2 §7.5.2 (the version is identified in the header or in the catalog's <c>Version</c> entry), §7.7.2,
+/// ISO 32000-2 §7.5.2 (the version is identified in the header or in the catalog's <c>Version</c> entry), §7.7.2,
 /// Table 29 (<c>Version</c>, which an incremental update uses to raise the version, §7.5.6) and §7.12 (developer extensions).
 /// </remarks>
 internal static class VersionPlan

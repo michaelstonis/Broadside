@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds the documentation site with Lunet and checks the output: every expected route exists,
 # search is wired in, and every internal link and asset reference resolves to a generated file.
+# First runs ./check-adr-refs.sh: no doc, README, site page, template or XML doc comment references an ADR.
 # Modelled on wieslawsoltes/TreeDataGrid check-docs.sh; see docs/research/doc-site-tooling.md.
 #
 #   ./check-docs.sh            build into site/.lunet/build/www and check it
@@ -22,6 +23,12 @@ fail() {
 }
 
 cd "${ROOT}"
+
+# 0. No ADR references in user-facing text (fast, before the build).
+if ! "${ROOT}/check-adr-refs.sh"; then
+    fail "ADR references in user-facing text (lines above)"
+fi
+
 dotnet tool restore
 
 # Start from a clean output so a page removed from the sources cannot survive in www/.

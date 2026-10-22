@@ -11,7 +11,7 @@ namespace Broadside.Rendering;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Viewer capability 4; ADR 0006 (the display list is what hit-testing reads). Page space is default user space (ISO 32000-2
+/// Viewer capability 4 (the display list is what hit-testing reads). Page space is default user space (ISO 32000-2
 /// §8.3.2.3), the space the display list and annotation rectangles are in, before the crop box, rotation and user unit: a viewer maps
 /// a device point into it through the inverse of the transform it renders with (for the software rasterizer,
 /// <c>RenderOptions.GetDeviceTransform</c>). Glyph boxes follow §9.4.4 and §9.8.1 (<see cref="HitTestGlyph"/>), image and path areas

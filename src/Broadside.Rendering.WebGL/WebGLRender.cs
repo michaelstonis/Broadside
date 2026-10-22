@@ -9,7 +9,7 @@ namespace Broadside.Rendering.WebGL;
 /// A WebGL render in progress: the display list is recorded in time slices, then drawn by the GPU in the slice that finishes it. When
 /// the recording meets something the backend does not draw, the rest of the render is the software rasterizer's, in slices too.
 /// </summary>
-/// <remarks>ISO 32000-2 §10.7.1. Spec #33 viewer capability 2 (time-sliced replay); ADR 0012 (fallbacks).</remarks>
+/// <remarks>ISO 32000-2 §10.7.1. Spec #33 viewer capability 2 (time-sliced replay).</remarks>
 [SupportedOSPlatform("browser")]
 public sealed class WebGLRender : IDisposable
 {

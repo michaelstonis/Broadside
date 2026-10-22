@@ -10,7 +10,7 @@ namespace Broadside.Rendering;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ADR 0006: it consumes display lists only, replaying them through its own <see cref="IRenderingBackend"/>. Paths are mapped to
+/// It consumes display lists only, replaying them through its own <see cref="IRenderingBackend"/>. Paths are mapped to
 /// device space, curves flattened to within a tenth of a pixel (ISO 32000-2 §10.7.2 lets a processor choose its flatness), open
 /// subpaths closed, a trailing lone moveto ignored and a degenerate subpath given the pixel under it (§8.5.3.3.1), then scan
 /// converted with the non-zero winding or even-odd rule (§8.5.3.3.2, §8.5.3.3.3, §10.7.4; see the remarks on coverage there). Colours
@@ -156,7 +156,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// <param name="progress">Receives the share of the list's operations drawn so far, from 0 to 1 (see <see cref="DisplayList.BeginReplay(IRenderingBackend, CancellationToken, IProgress{double})"/>), or <see langword="null"/>.</param>
     /// <returns>The render, with nothing drawn yet. Continue it to the end, or dispose it.</returns>
     /// <exception cref="InvalidOperationException">Another progressive render of this rasterizer has not ended.</exception>
-    /// <remarks>ADR 0006; viewer capability 2 (issue #97). Continued to the end, it draws exactly what <see cref="Render(DisplayList, Bitmap, in Matrix)"/> draws.</remarks>
+    /// <remarks>Viewer capability 2 (issue #97). Continued to the end, it draws exactly what <see cref="Render(DisplayList, Bitmap, in Matrix)"/> draws.</remarks>
     public ProgressiveRender BeginRender(DisplayList list, Bitmap target, in Matrix deviceTransform, CancellationToken cancellationToken, IProgress<double>? progress)
     {
         ArgumentNullException.ThrowIfNull(list);
@@ -174,7 +174,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// origin) and gets the same pixels as the whole page's render.
     /// </param>
     /// <remarks>
-    /// ADR 0006; ISO 32000-2 §8.3.2.2 (device space). Spec #33 story 14 (viewer capability 1): only the paints whose bounds reach the
+    /// ISO 32000-2 §8.3.2.2 (device space). Spec #33 story 14 (viewer capability 1): only the paints whose bounds reach the
     /// bitmap are drawn (<see cref="DisplayList.Replay(IRenderingBackend, PdfRectangle)"/>), so one cached list renders tiles at any
     /// scale, each costing what its own content costs. The list computes the bounds on its first such render.
     /// </remarks>
@@ -191,7 +191,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
     /// <param name="target">The bitmap; drawing is clipped to it.</param>
     /// <param name="deviceTransform">The transform from the list's default user space to the bitmap's pixels, as for <see cref="Render(DisplayList, Bitmap, in Matrix)"/>.</param>
     /// <param name="antiAliasing">The kinds anti-aliased; the others paint whole pixels only (see <see cref="Rendering.AntiAliasing"/>).</param>
-    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space) and §10.7.4 (scan conversion rules).</remarks>
+    /// <remarks>ISO 32000-2 §8.3.2.2 (device space) and §10.7.4 (scan conversion rules).</remarks>
     public void Render(DisplayList list, Bitmap target, in Matrix deviceTransform, AntiAliasing antiAliasing)
     {
         ArgumentNullException.ThrowIfNull(list);

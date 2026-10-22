@@ -1,6 +1,6 @@
 # Browser viewer: the render worker (#357)
 
-What the opt-in render worker (`RenderWorker`, ADR 0013) costs and what it buys. By default the Blazor viewer draws every tile on the page's thread. An app can opt in to a second .NET runtime in a Web Worker, which renders content tiles and hands them back as `ImageBitmap`s. The library never starts the worker by itself. To use it, an app does all three of these:
+What the opt-in render worker (`RenderWorker`) costs and what it buys. By default the Blazor viewer draws every tile on the page's thread. An app can opt in to a second .NET runtime in a Web Worker, which renders content tiles and hands them back as `ImageBitmap`s. The library never starts the worker by itself. To use it, an app does all three of these:
 
 - serves it from `Main` (`RenderWorker.Serve`);
 - starts it (`RenderWorker.StartAsync`);

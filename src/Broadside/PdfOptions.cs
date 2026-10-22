@@ -65,7 +65,7 @@ public sealed class PdfOptions
     private int _maxMeshVertices = DefaultMaxMeshVertices;
 
     /// <summary>Gets or sets how deviations from the specification are treated. The default is <see cref="PdfReadingMode.Lenient"/>.</summary>
-    /// <remarks>ADR 0005.</remarks>
+    /// <remarks>Lenient by default: a deviation is repaired and recorded as a diagnostic; strict mode throws instead.</remarks>
     public PdfReadingMode ReadingMode { get; set; } = PdfReadingMode.Lenient;
 
     /// <summary>Repairs deviations and records them as diagnostics on the document. The default.</summary>
@@ -111,7 +111,7 @@ public sealed class PdfOptions
     /// The filter's name is <c>Crypt</c>, which the security handler decodes (§7.4.10), or an inline-image abbreviation such as
     /// <c>Fl</c> (§8.9.7, Table 92), which is always read as the full name it stands for.
     /// </exception>
-    /// <remarks>ISO 32000-2 §7.4.1. The filter extension point (ADR 0001).</remarks>
+    /// <remarks>ISO 32000-2 §7.4.1. The filter extension point.</remarks>
     public PdfOptions UseFilter(IStreamFilter filter)
     {
         ArgumentNullException.ThrowIfNull(filter);
@@ -143,7 +143,7 @@ public sealed class PdfOptions
     /// The encoder's name is <c>Crypt</c>, which the security handler applies (§7.4.10), or an inline-image abbreviation such as
     /// <c>Fl</c> (§8.9.7, Table 92).
     /// </exception>
-    /// <remarks>ISO 32000-2 §7.4.1. The encoding half of the filter extension point (ADR 0001), separate from <see cref="UseFilter"/>.</remarks>
+    /// <remarks>ISO 32000-2 §7.4.1. The encoding half of the filter extension point, separate from <see cref="UseFilter"/>.</remarks>
     public PdfOptions UseStreamEncoder(IStreamEncoder encoder)
     {
         ArgumentNullException.ThrowIfNull(encoder);
@@ -290,7 +290,7 @@ public sealed class PdfOptions
     /// 32 MiB.
     /// </summary>
     /// <remarks>
-    /// Spec #33 viewer capability 13, ADR 0006. Observed through <see cref="PdfDocument.CacheStatistics"/>
+    /// Spec #33 viewer capability 13. Observed through <see cref="PdfDocument.CacheStatistics"/>
     /// (<see cref="PdfDocumentCacheStatistics.DisplayLists"/>).
     /// </remarks>
     /// <exception cref="ArgumentOutOfRangeException">The value is negative.</exception>
@@ -308,7 +308,7 @@ public sealed class PdfOptions
     /// <param name="budget">The most bytes of display lists a document keeps; zero for none.</param>
     /// <returns>These options.</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="budget"/> is negative.</exception>
-    /// <remarks>Spec #33 viewer capability 13, ADR 0006.</remarks>
+    /// <remarks>Spec #33 viewer capability 13.</remarks>
     public PdfOptions WithDisplayListCacheBudget(long budget)
     {
         DisplayListCacheBudget = budget;
@@ -455,13 +455,13 @@ public sealed class PdfOptions
     /// the read throws <see cref="PdfRangeNotLoadedException"/>, and a page is read after awaiting its <see cref="PdfPage.PrefetchAsync"/>.
     /// On by default, except on the browser platform (and WASI), which cannot block on HTTP; turning it on there has no effect.
     /// </summary>
-    /// <remarks>Spec #33, viewer capability 5; ADR 0010 (the asynchronous prefetch boundary).</remarks>
+    /// <remarks>Spec #33, viewer capability 5 (the asynchronous prefetch boundary).</remarks>
     public bool SynchronousRangeFetch { get; set; } = !OperatingSystem.IsBrowser() && !OperatingSystem.IsWasi();
 
     /// <summary>Sets <see cref="SynchronousRangeFetch"/>.</summary>
     /// <param name="enabled">Whether a synchronous read may block on fetching what it misses.</param>
     /// <returns>These options.</returns>
-    /// <remarks>Spec #33, viewer capability 5; ADR 0010.</remarks>
+    /// <remarks>Spec #33, viewer capability 5.</remarks>
     public PdfOptions WithSynchronousRangeFetch(bool enabled)
     {
         SynchronousRangeFetch = enabled;
@@ -479,7 +479,7 @@ public sealed class PdfOptions
     /// <param name="loggerFactory">The logger factory, or <see langword="null"/> to use the container's or none.</param>
     /// <returns>These options.</returns>
     /// <remarks>
-    /// ADR 0005 and spec #33, user story 45. Diagnostics are logged under the category <c>Broadside.PdfDocument</c> with event id 1,
+    /// Spec #33, user story 45. Diagnostics are logged under the category <c>Broadside.PdfDocument</c> with event id 1,
     /// <c>Diagnostic</c>, at <see cref="LogLevel.Warning"/> or <see cref="LogLevel.Error"/> after their severity, with the structured
     /// values <c>Code</c>, <c>Severity</c>, <c>Offset</c>, <c>ObjectReference</c> and <c>Message</c>. In strict mode the deviation is
     /// logged before it is thrown.
@@ -518,7 +518,7 @@ public sealed class PdfOptions
     /// </summary>
     /// <param name="colorManagement">The colour management. Shared by every document and thread of the engine.</param>
     /// <returns>These options.</returns>
-    /// <remarks>ISO 32000-2 §8.6.5, §10.3 and §10.4. The colour-management extension point (ADR 0001).</remarks>
+    /// <remarks>ISO 32000-2 §8.6.5, §10.3 and §10.4. The colour-management extension point.</remarks>
     public PdfOptions UseColorManagement(IColorManagement colorManagement)
     {
         ArgumentNullException.ThrowIfNull(colorManagement);
@@ -541,7 +541,7 @@ public sealed class PdfOptions
     /// </summary>
     /// <param name="handler">The handler. Shared by every document and thread of the engine: it must keep no state between calls.</param>
     /// <returns>These options.</returns>
-    /// <remarks>ISO 32000-2 §7.6.2, Table 20. The security handler extension point (ADR 0001).</remarks>
+    /// <remarks>ISO 32000-2 §7.6.2, Table 20. The security handler extension point.</remarks>
     public PdfOptions UseSecurityHandler(ISecurityHandler handler)
     {
         ArgumentNullException.ThrowIfNull(handler);
@@ -574,7 +574,7 @@ public sealed class PdfOptions
     /// </summary>
     /// <param name="parser">The parser. Shared by every document and thread of the engine: it must keep no state between calls.</param>
     /// <returns>These options.</returns>
-    /// <remarks>ISO 32000-2 §9.9. The font program parser extension point (ADR 0001); the managed default reads TrueType programs.</remarks>
+    /// <remarks>ISO 32000-2 §9.9. The font program parser extension point; the managed default reads TrueType programs.</remarks>
     public PdfOptions UseFontProgramParser(IFontProgramParser parser)
     {
         ArgumentNullException.ThrowIfNull(parser);
@@ -598,7 +598,7 @@ public sealed class PdfOptions
     /// <param name="resolver">The resolver. Shared by every document and thread of the engine: it must keep no state between calls.</param>
     /// <returns>These options.</returns>
     /// <remarks>
-    /// ISO 32000-2 §9.6.2.2, §9.7.5.2 and §9.8. The font resolver extension point (ADR 0001, ADR 0007, ADR 0009). The Standard 14
+    /// ISO 32000-2 §9.6.2.2, §9.7.5.2 and §9.8. The font resolver extension point. The Standard 14
     /// fonts package registers its resolver with one call, <c>UseStandard14Fonts()</c>.
     /// </remarks>
     public PdfOptions UseFontResolver(IFontResolver resolver)
@@ -628,7 +628,7 @@ public sealed class PdfOptions
     /// writes nothing.
     /// </summary>
     /// <remarks>
-    /// ADR 0009. The file is created, with its directory, after the first font the operating system's fonts are asked for, and
+    /// The file is created, with its directory, after the first font the operating system's fonts are asked for, and
     /// rewritten when more font files have been read. Font files added, removed or changed since are read again, so the index never
     /// changes which font is found. Engines with the same path share one resolver in the process. Applies only to the default
     /// resolver: one set with <see cref="UseSystemFontResolver"/> keeps its own index (<see cref="Fonts.SystemFontResolver.IndexPath"/>).
@@ -638,7 +638,7 @@ public sealed class PdfOptions
     /// <summary>Sets <see cref="SystemFontIndexPath"/>.</summary>
     /// <param name="path">The index file, or <see langword="null"/> to keep none.</param>
     /// <returns>These options.</returns>
-    /// <remarks>ADR 0009.</remarks>
+    /// <remarks>See <see cref="SystemFontIndexPath"/>.</remarks>
     public PdfOptions WithSystemFontIndexPath(string? path)
     {
         SystemFontIndexPath = path;

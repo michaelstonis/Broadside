@@ -6,7 +6,7 @@ namespace Broadside.Security.Cryptography;
 /// Chooses, at run time, between the base class library's implementation of a primitive and the managed one in this folder.
 /// </summary>
 /// <remarks>
-/// ADR 0001 and the WebAssembly commitment of the specification: the base class library has no MD5, AES or AES-GCM in the browser,
+/// The core is fully managed and runs on WebAssembly: the base class library has no MD5, AES or AES-GCM in the browser,
 /// no AES-GCM before iOS and tvOS 13, and no RFC 3394 key wrap anywhere. Every primitive the security handlers use goes through the
 /// facades here (<see cref="Md5"/>, <see cref="AesCipher"/>, <see cref="AesGcmCipher"/>, <see cref="AesKeyWrap"/>, <see cref="Rc4"/>,
 /// <see cref="IncrementalDigest"/>), which use the base class library where the platform supports it and the managed implementation

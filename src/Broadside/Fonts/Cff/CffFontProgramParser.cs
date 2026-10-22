@@ -26,7 +26,7 @@ namespace Broadside.Fonts.Cff;
 /// encoding; a CIDFontType0 selects its glyphs by CID. CFF2 (OpenType variable fonts) is not read.
 /// </para>
 /// <para>
-/// Leniency follows ADR 0005: a damaged INDEX, DICT, charset or encoding is read as far as it goes, with a diagnostic; a damaged
+/// Reading is lenient: a damaged INDEX, DICT, charset or encoding is read as far as it goes, with a diagnostic; a damaged
 /// charstring drops its glyph (<see cref="GlyphOutlineStatus.Invalid"/>), never draws it in part. Every glyph is bounded by the
 /// 48-entry argument stack, 10 levels of subroutines and <see cref="FontProgramContext.MaxCharStringOperators"/>.
 /// </para>

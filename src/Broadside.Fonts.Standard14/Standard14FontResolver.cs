@@ -8,7 +8,7 @@ namespace Broadside.Fonts.Standard14;
 /// <para>
 /// ISO 32000-2 §9.6.2.2: the Standard 14 fonts, "or their font metrics and suitable substitution fonts, shall be available to the
 /// PDF processor". The metrics are in the core; this package supplies the glyphs, so pages that use non-embedded Standard 14 fonts
-/// render the same on every machine, without operating-system fonts (ADR 0007). It answers a query whose
+/// render the same on every machine, without operating-system fonts. It answers a query whose
 /// <see cref="FontQuery.Standard14"/> is set (any of the fourteen names, or a name the core reads as one of them, such as
 /// <c>Arial,Bold</c>) with <see cref="FontMatchKind.Standard14"/>, and the PostScript names of its own fonts (such as
 /// <c>LiberationSans-Bold</c>) with <see cref="FontMatchKind.Exact"/>; nothing else.

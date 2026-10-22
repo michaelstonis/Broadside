@@ -21,7 +21,7 @@ Before starting, read [CLAUDE.md](CLAUDE.md) (the rules), [CONTEXT.md](CONTEXT.m
 
 ## Developer Certificate of Origin
 
-Every commit must be signed off. Signing off certifies that you wrote the change or otherwise have the right to submit it under the project's MIT license, as described by the [Developer Certificate of Origin](https://developercertificate.org). It is a one-line statement in the commit message, not a legal document you sign separately, and it is what lets the project keep the freedom to adjust licensing later ([ADR 0008](docs/adr/0008-mit-license-sponsorship-not-restriction.md)).
+Every commit must be signed off. Signing off certifies that you wrote the change or otherwise have the right to submit it under the project's MIT license, as described by the [Developer Certificate of Origin](https://developercertificate.org). It is a one-line statement in the commit message, not a legal document you sign separately, and it is what lets the project keep the freedom to adjust licensing later.
 
 Sign off with the `-s` flag:
 
@@ -72,7 +72,7 @@ Squash merges are the default; the squashed commit message follows Conventional 
 
 The short version: C# latest, file-scoped namespaces, `sealed` unless designed for inheritance, nullable enabled, warnings are errors, `Pdf` prefix for document-model types and `Cos` prefix for COS types, no per-token or per-glyph allocation on hot paths. The full list is in [CLAUDE.md](CLAUDE.md) under "Code conventions" and is enforced at build time by [.editorconfig](.editorconfig) (`EnforceCodeStyleInBuild` is on). Tests use xUnit v3.
 
-If you think a convention or decision is wrong, say so in the PR or open an issue; do not silently work around it. Changing a term in `CONTEXT.md` or writing a new ADR requires stating why the existing decision was wrong.
+If you think a convention or decision is wrong, say so in the PR or open an issue; do not silently work around it. Changing a term in `CONTEXT.md` or reversing an architecture decision requires stating why the existing decision was wrong.
 
 ## Humans and agents
 

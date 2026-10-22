@@ -5,7 +5,7 @@ using Microsoft.Extensions.Logging.Abstractions;
 namespace Broadside.Diagnostics;
 
 /// <summary>
-/// Logs diagnostics through the logging abstractions, in addition to recording them on the document (ADR 0005; spec #33, user
+/// Logs diagnostics through the logging abstractions, in addition to recording them on the document (spec #33, user
 /// story 45). The log methods are source-generated, so nothing is formatted or boxed unless the level is enabled.
 /// </summary>
 internal static partial class DiagnosticLog

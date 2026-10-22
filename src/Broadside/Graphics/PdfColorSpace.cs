@@ -17,7 +17,7 @@ namespace Broadside.Graphics;
 /// instance per colour space object of a document, shared by every caller and thread.
 /// </para>
 /// <para>
-/// Entries are read from the COS objects on every call (ADR 0004), with the repairs lenient reading applies (a missing white point
+/// Entries are read from the COS objects on every call, with the repairs lenient reading applies (a missing white point
 /// reads as D65, for instance); the deviations themselves are recorded once, when the document first reads the space. A space that
 /// cannot be used at all (an unknown family, an Indexed space without a lookup table, a space that refers to itself) is read as
 /// DeviceGray. Converting colours to a device is <see cref="PdfColorConverter"/>'s job.
@@ -47,7 +47,7 @@ public abstract class PdfColorSpace
     /// <remarks>ISO 32000-2 §8.6.2, §8.6.8 (Table 73: the operand counts of <c>sc</c> and <c>scn</c>).</remarks>
     public abstract int ComponentCount { get; }
 
-    /// <summary>Gets the earliest PDF version that has this colour space (Table 61), for a writer raising the file's version (ADR 0003).</summary>
+    /// <summary>Gets the earliest PDF version that has this colour space (Table 61), for a writer raising the file's version.</summary>
     /// <remarks>
     /// ISO 32000-2 §8.6.3: the device spaces, CalGray, CalRGB, Lab and Indexed 1.1 (an Indexed lookup string 1.2), Pattern and
     /// Separation 1.2, ICCBased and DeviceN 1.3 (DeviceN attributes 1.6).

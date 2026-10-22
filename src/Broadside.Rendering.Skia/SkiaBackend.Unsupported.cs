@@ -6,7 +6,7 @@ public sealed partial class SkiaBackend
 {
     /// <summary>
     /// What this backend approximates, hands to the software rasterizer or leaves out, each reported once per kind per
-    /// render (ADR 0005: nothing is skipped silently). The diagnostics are shared immutable instances, so reporting allocates nothing;
+    /// render (nothing is skipped silently). The diagnostics are shared immutable instances, so reporting allocates nothing;
     /// the replayers of pattern cells report through the backend's own.
     /// </summary>
     private sealed partial class Replayer

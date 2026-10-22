@@ -13,7 +13,7 @@ namespace Broadside.Rendering.Android;
 public sealed partial class AndroidCanvasBackend
 {
     /// <summary>Gets what the last render could not draw as the file asks: one diagnostic per kind.</summary>
-    /// <remarks>ADR 0005: nothing is approximated silently. Android before 10 (API level 29) has no blend modes for paints and layers.</remarks>
+    /// <remarks>Nothing is approximated silently. Android before 10 (API level 29) has no blend modes for paints and layers.</remarks>
     public IReadOnlyList<Diagnostic> Diagnostics => _backend.Diagnostics;
 
     private sealed partial class Backend

@@ -9,7 +9,7 @@ namespace Broadside.Rendering;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ADR 0006. A struct-based operation buffer: operations are records in one array, paths are stored once per distinct path (verbs
+/// A struct-based operation buffer: operations are records in one array, paths are stored once per distinct path (verbs
 /// and points in shared arrays) and colours once per run of equal colours, so building costs a fixed number of arrays per page and
 /// replaying allocates nothing. Fonts, images and colour spaces are resolved before an operation enters the list; the list never
 /// reads the file again (a replay touches only the list), so it can be cached and replayed many times, for example per tile and
@@ -121,7 +121,7 @@ public sealed partial class DisplayList
     /// <summary>Calls <paramref name="backend"/> once for every operation of the list, in order.</summary>
     /// <param name="backend">The backend that draws.</param>
     /// <remarks>
-    /// ADR 0006. Reads only the list (never the document or its file) and allocates nothing; safe to call on several threads at once
+    /// Reads only the list (never the document or its file) and allocates nothing; safe to call on several threads at once
     /// with a backend per thread. See <see cref="IRenderingBackend"/> for the state a replay starts from.
     /// </remarks>
     public void Replay(IRenderingBackend backend)
@@ -160,7 +160,7 @@ public sealed partial class DisplayList
     /// <paramref name="cancellationToken"/> was cancelled; the backend holds whatever the operations before it drew.
     /// </exception>
     /// <remarks>
-    /// ADR 0006; viewer capability 2 (issue #97). Allocates nothing. To stop after a time budget and resume later, use
+    /// Viewer capability 2 (issue #97). Allocates nothing. To stop after a time budget and resume later, use
     /// <see cref="BeginReplay(IRenderingBackend, CancellationToken, IProgress{double})"/>.
     /// </remarks>
     public void Replay(IRenderingBackend backend, CancellationToken cancellationToken, IProgress<double>? progress)
@@ -182,7 +182,7 @@ public sealed partial class DisplayList
     /// </param>
     /// <returns>The replay, at the first operation; nothing has been handed over yet.</returns>
     /// <remarks>
-    /// ADR 0006; viewer capability 2 (issue #97), like PDFium's progressive rendering: a host that must not block, such as a Blazor
+    /// Viewer capability 2 (issue #97), like PDFium's progressive rendering: a host that must not block, such as a Blazor
     /// WebAssembly page on its only thread, replays a slice, yields to its event loop, and continues. Slicing never changes what
     /// the backend receives: the calls are those of <see cref="Replay(IRenderingBackend)"/>, in the same order.
     /// </remarks>
@@ -202,7 +202,7 @@ public sealed partial class DisplayList
     /// <param name="progress">Receives the share of the operations handed over or skipped so far, as for the overload without a region.</param>
     /// <returns>The replay, at the first operation.</returns>
     /// <remarks>
-    /// ADR 0006; viewer capabilities 1 and 2 (issues #96, #97): a tile of a cached list, drawn in time slices. Skipped operations
+    /// Viewer capabilities 1 and 2 (issues #96, #97): a tile of a cached list, drawn in time slices. Skipped operations
     /// count towards <see cref="DisplayListReplay.Position"/> and progress but take no time from a slice's budget.
     /// </remarks>
     public DisplayListReplay BeginReplay(IRenderingBackend backend, PdfRectangle region, CancellationToken cancellationToken, IProgress<double>? progress)

@@ -1,5 +1,5 @@
 # Documentation site: builds the Lunet site (site/) with ./check-docs.sh on every pull request that touches it
-# or its inputs, and deploys it to GitHub Pages on every push to main.
+# or its inputs (including every README, top-level Markdown file and GitHub template, which ./check-adr-refs.sh scans), and deploys it to GitHub Pages on every push to main.
 # See .github/workflows/README.md and docs/research/doc-site-tooling.md.
 name: Docs
 
@@ -12,6 +12,11 @@ on:
       - 'docs/**'
       - '.config/**'
       - 'check-docs.sh'
+      - 'check-adr-refs.sh'
+      - '*.md'
+      - '**/README*'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
       - 'global.json'
@@ -23,6 +28,11 @@ on:
       - 'docs/**'
       - '.config/**'
       - 'check-docs.sh'
+      - 'check-adr-refs.sh'
+      - '*.md'
+      - '**/README*'
+      - '.github/ISSUE_TEMPLATE/**'
+      - '.github/PULL_REQUEST_TEMPLATE.md'
       - 'Directory.Build.props'
       - 'Directory.Packages.props'
       - 'global.json'

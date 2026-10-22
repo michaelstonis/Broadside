@@ -30,7 +30,7 @@ public sealed partial class PdfDocument
     /// A solidus in <paramref name="fileName"/> is written escaped (<c>\/</c>, §7.11.2.1) so the name stays one component.
     /// <c>F</c> holds the name in PDFDocEncoding, with <c>_</c> for each character it cannot encode; <c>UF</c> holds it exactly.
     /// Minimum versions: embedded file streams PDF 1.3, <c>Desc</c> 1.6, <c>UF</c> 1.7, <c>AFRelationship</c> 2.0; a later save raises
-    /// the document's version to the highest one used, or refuses in strict mode (ADR 0003). A mutation: no
+    /// the document's version to the highest one used, or refuses in strict mode. A mutation: no
     /// read may run concurrently with it.
     /// </para>
     /// </remarks>
@@ -184,7 +184,7 @@ public sealed partial class PdfDocument
     /// dictionary (read leniently as an array of one) becomes an array holding it and the new file; an <c>AF</c> that is neither is
     /// replaced. An embedded associated file should have a <c>Subtype</c> and <c>Params</c> with <c>ModDate</c> (§14.13.2), which
     /// <see cref="CreateEmbeddedFile"/> writes when <see cref="PdfEmbeddedFileOptions.ModificationDate"/> is set. Minimum version PDF
-    /// 2.0, which a later save raises the document to (or refuses in strict mode; ADR 0003). A mutation: no read may run concurrently with it.
+    /// 2.0, which a later save raises the document to (or refuses in strict mode). A mutation: no read may run concurrently with it.
     /// </remarks>
     public void AddAssociatedFile(CosDictionary owner, PdfFileSpecification file)
     {

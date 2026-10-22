@@ -8,7 +8,7 @@ namespace Broadside;
 /// <summary>
 /// One walk of the document outline: every item's view, parent, level and children, kept while nothing the walk read has changed
 /// (ISO 32000-2 §12.3.3, Tables 150 and 151). The outline views read their shape from it, so an edit through any view or straight to
-/// the COS objects is seen by every view at the next read (ADR 0004).
+/// the COS objects is seen by every view at the next read.
 /// </summary>
 /// <remarks>
 /// <para>

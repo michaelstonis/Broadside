@@ -5,8 +5,8 @@ namespace Broadside;
 
 /// <summary>
 /// Reads the entries of one dictionary for a document-model view through <see cref="EntryReader"/>: resolves references, applies
-/// defaults without writing them, and reports a deviation against the dictionary's object (ADR 0004: views read through, never copy;
-/// ADR 0005: lenient with diagnostics).
+/// defaults without writing them, and reports a deviation against the dictionary's object (views read through, never copy;
+/// lenient with diagnostics).
 /// </summary>
 /// <param name="Document">The document the dictionary belongs to.</param>
 /// <param name="Dictionary">The dictionary.</param>

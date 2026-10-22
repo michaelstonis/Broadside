@@ -297,7 +297,7 @@ public sealed class PdfAcroForm
     /// Every widget gets an appearance stream, as <see cref="PdfTextField.GenerateAppearances"/> makes it, so the form needs no
     /// <c>NeedAppearances</c>. Text the form's Helvetica cannot show is drawn in an embedded subset font. When any step fails the
     /// document is left as it was. Creating a form field raises a save of a document below PDF 1.2 to 1.2, and the PDF 1.3 to 1.5
-    /// entries and flags raise it further (ADR 0003). A mutation: no read may run concurrently with it.
+    /// entries and flags raise it further. A mutation: no read may run concurrently with it.
     /// </para>
     /// </remarks>
     public PdfTextField AddTextField(string name, PdfPage page, PdfRectangle rectangle, PdfFieldOptions? options = null) =>

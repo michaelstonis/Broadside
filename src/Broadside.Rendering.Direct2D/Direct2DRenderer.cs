@@ -10,7 +10,7 @@ namespace Broadside.Rendering.Direct2D;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ADR 0006: it consumes display lists only, replaying them onto a Direct2D device context over a Direct3D 11 device (the graphics
+/// It consumes display lists only, replaying them onto a Direct2D device context over a Direct3D 11 device (the graphics
 /// hardware or WARP, <see cref="Direct2DDriver"/>). Fills use the non-zero winding or even-odd rule with every subpath closed
 /// (ISO 32000-2 §8.5.3.3), strokes follow the line parameters with the elliptical pen of a non-uniform transform, dashes, the
 /// thinnest line and stroke adjustment (§8.5.3.2, §8.4.3, §10.7.5), and clips intersect anti-aliased, saved and restored with the
@@ -158,7 +158,7 @@ public sealed class Direct2DRenderer : IDisposable
     /// <see cref="RenderOptions.GetDeviceTransform"/>; a tile renderer adds its own offset.
     /// </param>
     /// <exception cref="ArgumentException">The device cannot hold a bitmap of <paramref name="target"/>'s size.</exception>
-    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space).</remarks>
+    /// <remarks>ISO 32000-2 §8.3.2.2 (device space).</remarks>
     public void Render(DisplayList list, Bitmap target, in Matrix deviceTransform)
     {
         Render(list, target, deviceTransform, forceOutlines: false);
@@ -173,7 +173,7 @@ public sealed class Direct2DRenderer : IDisposable
     /// <param name="deviceTransform">The transform from the list's default user space to the bitmap's pixels (origin top-left, y down).</param>
     /// <param name="forceOutlines">Whether to draw every glyph from its outline, never through DirectWrite (<see cref="RenderOptions.ForceOutlines"/>).</param>
     /// <exception cref="ArgumentException">The device cannot hold a bitmap of <paramref name="target"/>'s size.</exception>
-    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space), §9.2.4 (glyph outlines).</remarks>
+    /// <remarks>ISO 32000-2 §8.3.2.2 (device space), §9.2.4 (glyph outlines).</remarks>
     public void Render(DisplayList list, Bitmap target, in Matrix deviceTransform, bool forceOutlines)
     {
         ArgumentNullException.ThrowIfNull(list);

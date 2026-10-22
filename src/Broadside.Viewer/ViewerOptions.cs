@@ -142,13 +142,13 @@ public sealed class ViewerOptions
     /// <see langword="null"/> (the default) to draw every tile with <see cref="BackendFactory"/>'s backends. The session that opens
     /// with these options owns it and disposes it when it closes, so set it on options used for one session.
     /// </summary>
-    /// <remarks>Spec #33 viewer capability 1 (#357), ADR 0013.</remarks>
+    /// <remarks>Spec #33 viewer capability 1 (#357).</remarks>
     public IRemoteTileRenderer? RemoteRenderer { get; set; }
 
     /// <summary>Selects the renderer that draws tiles outside the viewer's thread (see <see cref="RemoteRenderer"/>).</summary>
     /// <param name="renderer">The renderer; the session opened with these options disposes it.</param>
     /// <returns>These options.</returns>
-    /// <remarks>Spec #33 viewer capability 1 (#357), ADR 0013.</remarks>
+    /// <remarks>Spec #33 viewer capability 1 (#357).</remarks>
     public ViewerOptions UseRemoteRenderer(IRemoteTileRenderer renderer)
     {
         ArgumentNullException.ThrowIfNull(renderer);

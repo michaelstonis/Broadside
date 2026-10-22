@@ -8,7 +8,7 @@ namespace Broadside.Graphics.Functions;
 /// <summary>Turns a function dictionary or stream into a <see cref="FunctionEvaluator"/>, repairing what it can.</summary>
 /// <remarks>
 /// ISO 32000-2 §7.10. Lenient: every deviation is a diagnostic, and a function that cannot be used compiles to an
-/// <see cref="InvalidEvaluator"/>. Strict mode throws from the first diagnostic of severity Warning or Error (ADR 0005).
+/// <see cref="InvalidEvaluator"/>. Strict mode throws from the first diagnostic of severity Warning or Error.
 /// </remarks>
 internal static class FunctionCompiler
 {

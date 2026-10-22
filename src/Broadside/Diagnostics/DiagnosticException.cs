@@ -4,7 +4,7 @@ namespace Broadside.Diagnostics;
 /// The exception a reader throws for a <see cref="Diagnostics.Diagnostic"/>: in strict mode for the first deviation found, and in
 /// either mode when the file cannot be read at all.
 /// </summary>
-/// <remarks>ADR 0005. The <see cref="Diagnostic"/> carries the code, offset and object of the deviation.</remarks>
+/// <remarks>The <see cref="Diagnostic"/> carries the code, offset and object of the deviation.</remarks>
 public sealed class DiagnosticException : FormatException
 {
     private const string UnspecifiedCode = "Unspecified";

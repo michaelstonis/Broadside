@@ -9,7 +9,7 @@ namespace Broadside.Graphics;
 /// indirect object, so a direct object inside a resource dictionary is reported on its owner. Allocation-free to copy.
 /// </summary>
 /// <remarks>
-/// ADR 0005: reading repairs and records a <see cref="Diagnostic"/>. File offsets are not known once an object is parsed, so none is
+/// Reading repairs and records a <see cref="Diagnostic"/>. File offsets are not known once an object is parsed, so none is
 /// given. A missing sink (a model built outside a document) records nothing.
 /// </remarks>
 /// <param name="sink">The document's sink, or <see langword="null"/>.</param>

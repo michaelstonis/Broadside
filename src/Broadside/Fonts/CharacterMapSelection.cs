@@ -17,7 +17,7 @@ namespace Broadside.Fonts;
 /// The reverse map is the last resort of Unicode mapping when the methods of §9.10.2 fail (PDFBox does the same for TrueType CIDFonts,
 /// PDFBOX-5324): every code point of the Basic Multilingual Plane is looked up in the first Unicode subtable, and those of planes 1 and
 /// 2 in the first format 12 or 13 subtable; a glyph reached by several code points takes the smallest. Per program, never
-/// process-wide (ADR 0009): it lives and dies with the program. Thread-safe: immutable once published.
+/// process-wide: it lives and dies with the program. Thread-safe: immutable once published.
 /// </para>
 /// </remarks>
 internal sealed class CharacterMapSelection
