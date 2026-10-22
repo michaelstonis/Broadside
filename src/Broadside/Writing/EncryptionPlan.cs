@@ -14,15 +14,8 @@ internal sealed class EncryptionPlan
     private static readonly CosName AuthCode = new("AuthCode");
     private static readonly CosName KdfSalt = new("KDFSalt");
 
-    /// <summary>How deep a kept encryption dictionary is copied direct: past it a value is written as null (<see cref="Direct"/>).</summary>
-    private const int MaxDirectDepth = 32;
-
-    /// <summary>How many values a direct copy of a kept encryption dictionary holds at most: past it a value is written as null.</summary>
-    private const int MaxDirectValues = 4096;
-
     private readonly DocumentDecryptor? _sourceDecryptor;
     private readonly bool _keepsSourceEncryption;
-    private readonly CosDictionary? _sourceDictionary;
 
     private EncryptionPlan(
         ObjectEncryptor? encryptor,
@@ -32,8 +25,7 @@ internal sealed class EncryptionPlan
         IReadOnlyList<VersionedFeature> features,
         IntegrityCodeWriter? integrity,
         DocumentDecryptor? sourceDecryptor,
-        bool keepsSourceEncryption,
-        CosDictionary? sourceDictionary = null)
+        bool keepsSourceEncryption)
     {
         Encryptor = encryptor;
         ReplacesDictionary = replacesDictionary;
@@ -43,7 +35,6 @@ internal sealed class EncryptionPlan
         Integrity = integrity;
         _sourceDecryptor = sourceDecryptor;
         _keepsSourceEncryption = keepsSourceEncryption;
-        _sourceDictionary = sourceDictionary;
     }
 
     /// <summary>Gets what each written object becomes, or <see langword="null"/> when objects are written as they are (and may be copied).</summary>
@@ -52,7 +43,11 @@ internal sealed class EncryptionPlan
     /// <summary>Gets a value indicating whether the source's <c>Encrypt</c> and <c>AuthCode</c> trailer entries, and its encryption dictionary, are dropped.</summary>
     public bool ReplacesDictionary { get; }
 
-    /// <summary>Gets the new encryption dictionary, written as a new indirect object the trailer's <c>Encrypt</c> refers to.</summary>
+    /// <summary>
+    /// Gets the new encryption dictionary, written as a new indirect object the trailer's <c>Encrypt</c> refers to: new encryption's,
+    /// or the direct copy of a kept dictionary that holds a reference (<see cref="KeptEncryptionDictionary"/>), whose source object
+    /// then stays only for what else refers to it.
+    /// </summary>
     public CosDictionary? NewDictionary { get; }
 
     /// <summary>Gets the first file identifier the keys were derived from (Algorithm 2), or <see langword="null"/> to keep the usual one.</summary>
@@ -87,17 +82,7 @@ internal sealed class EncryptionPlan
     /// save writes anew.
     /// </returns>
     public bool KeepsTrailerEntry(CosName key) =>
-        !(ReplacesDictionary && IsEncryptionEntry(key)) && !(Integrity is not null && key.Equals(AuthCode));
-
-    /// <summary>
-    /// Returns what a complete file writes for <paramref name="value"/>, an object the save keeps: the direct copy of the document's
-    /// encryption dictionary when <paramref name="value"/> is that dictionary and the save keeps it with references in it
-    /// (<see cref="Direct"/>), else <paramref name="value"/> itself.
-    /// </summary>
-    /// <param name="value">An object the save writes, or the value of the trailer's <c>Encrypt</c> entry.</param>
-    /// <returns>What to write.</returns>
-    public CosObject Written(CosObject value) =>
-        _sourceDictionary is not null && ReferenceEquals(value, _sourceDictionary) ? Encryptor!.EncryptionDictionary! : value;
+        !(ReplacesDictionary && IsEncryptionEntry(key)) && !(NewDictionary is not null && key.Equals(KnownNames.Encrypt)) && !(Integrity is not null && key.Equals(AuthCode));
 
     /// <summary>Decides what a save does about encryption.</summary>
     /// <param name="loader">The document's loader.</param>
@@ -224,92 +209,18 @@ internal sealed class EncryptionPlan
         CosString firstIdentifier = trailer.TryGetValue(KnownNames.ID, out CosObject? identifiers) && identifiers is CosArray { Count: >= 1 } array && array[0] is CosString kept
             ? kept
             : new CosString([], hexadecimal: true);
-        // §7.6.2: the values of the dictionary's entries shall not be encrypted, and the reader resolves them before it can decrypt
-        // anything. A reference in it reaches an object the save would encrypt, or put in an encrypted object stream (§7.5.7), so a
-        // complete file writes the dictionary direct (issue #390). An incremental update writes it only when it changed, as it is.
-        CosDictionary source = security.EncryptionDictionary;
-        CosDictionary written = incremental ? source : Direct(source, loader.Resolve);
+        // §7.6.2: a complete file whose kept encryption dictionary holds a reference writes a new, direct one that reads the same
+        // (issue #390); an incremental update leaves the document's as it is.
+        CosDictionary? rebuilt = incremental ? null : KeptEncryptionDictionary.Rebuild(security, loader.Resolve, keepsIntegrity: integrity is not null);
         return new EncryptionPlan(
-            ObjectEncryptor.Keep(decryptor, written, loader.Resolve),
+            ObjectEncryptor.Keep(decryptor, rebuilt ?? security.EncryptionDictionary, loader.Resolve),
             replacesDictionary: false,
-            null,
+            rebuilt,
             firstIdentifier,
             features,
             integrity,
             decryptor,
-            keepsSourceEncryption: true,
-            ReferenceEquals(written, source) ? null : source);
-    }
-
-    /// <summary>
-    /// Returns <paramref name="dictionary"/> when it holds no reference, else a copy in which every reference, in it and in the
-    /// dictionaries and arrays it holds, is replaced by a copy of what the reference resolves to (ISO 32000-2 §7.6.2).
-    /// </summary>
-    /// <remarks>
-    /// What cannot be direct is written as null, which reads as the entry absent (§7.3.9) and is what a security handler reads it as
-    /// anyway, since none reads a stream or a page tree from the dictionary: a stream (§7.3.8: always indirect), a reference to an
-    /// object being copied (a cycle), and anything past <see cref="MaxDirectDepth"/> nested values or <see cref="MaxDirectValues"/>
-    /// copied ones (a damaged entry that reaches the whole document). Every value the handler read when the document was opened was
-    /// resolved before decryption was installed, so the copy holds those values as the handler read them.
-    /// </remarks>
-    private static CosDictionary Direct(CosDictionary dictionary, Func<CosObject?, CosObject> resolve)
-    {
-        if (!HoldsReference(dictionary, depth: 0))
-        {
-            return dictionary;
-        }
-
-        int budget = MaxDirectValues;
-        return (CosDictionary)DirectCopy(dictionary, resolve, [], depth: 0, ref budget);
-    }
-
-    private static bool HoldsReference(CosObject value, int depth) => depth > MaxDirectDepth || value switch
-    {
-        CosReference => true,
-        CosDictionary dictionary => dictionary.Any(entry => HoldsReference(entry.Value, depth + 1)),
-        CosArray array => array.Any(item => HoldsReference(item, depth + 1)),
-        _ => false,
-    };
-
-    private static CosObject DirectCopy(CosObject value, Func<CosObject?, CosObject> resolve, HashSet<CosReference> path, int depth, ref int budget)
-    {
-        if (depth > MaxDirectDepth || --budget < 0)
-        {
-            return CosNull.Instance;
-        }
-
-        switch (value)
-        {
-            case CosReference reference:
-                if (!path.Add(reference))
-                {
-                    return CosNull.Instance;
-                }
-
-                CosObject resolved = DirectCopy(resolve(reference), resolve, path, depth, ref budget);
-                path.Remove(reference);
-                return resolved;
-            case CosStream:
-                return CosNull.Instance;
-            case CosDictionary dictionary:
-                var copy = new CosDictionary();
-                foreach (KeyValuePair<CosName, CosObject> entry in dictionary)
-                {
-                    copy[entry.Key] = DirectCopy(entry.Value, resolve, path, depth + 1, ref budget);
-                }
-
-                return copy;
-            case CosArray array:
-                var items = new CosArray();
-                foreach (CosObject item in array)
-                {
-                    items.Add(DirectCopy(item, resolve, path, depth + 1, ref budget));
-                }
-
-                return items;
-            default:
-                return value;
-        }
+            keepsSourceEncryption: true);
     }
 
     /// <summary>The MAC composer for a document that keeps its encryption and has, or needs, a PDF MAC token (ISO/TS 32004).</summary>

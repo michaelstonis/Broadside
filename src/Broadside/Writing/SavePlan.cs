@@ -139,9 +139,10 @@ internal static class SavePlan
 
         // An encryption dictionary that is replaced or dropped is not written and its number is freed, unless an object the save
         // keeps refers to it: then it is an ordinary object of the document too (a damaged file's page tree root, say), and dropping
-        // it would change what the document shows (fuzz finding).
+        // it would change what the document shows (fuzz finding). A kept dictionary written anew (issue #390) leaves its source
+        // object the same way.
         CosReference? oldEncryption = null;
-        if (encryption.ReplacesDictionary && sourceTrailer.TryGetValue(KnownNames.Encrypt, out CosObject? oldEntry)
+        if ((encryption.ReplacesDictionary || encryption.NewDictionary is not null) && sourceTrailer.TryGetValue(KnownNames.Encrypt, out CosObject? oldEntry)
             && oldEntry is CosReference oldReference && existing.TryGetValue(oldReference.ObjectNumber, out CosReference? listed) && listed.Equals(oldReference))
         {
             oldEncryption = oldReference;
@@ -164,17 +165,6 @@ internal static class SavePlan
         if (oldEncryption is not null && kept.Exists(item => item.Reference.Equals(oldEncryption)))
         {
             freeGenerations.Remove(oldEncryption.ObjectNumber);
-        }
-
-        // A kept encryption dictionary with references in it is written direct (§7.6.2, issue #390), indirect or in the trailer.
-        for (int index = 0; index < kept.Count; index++)
-        {
-            kept[index] = (kept[index].Reference, encryption.Written(kept[index].Value));
-        }
-
-        if (trailer.TryGetValue(KnownNames.Encrypt, out CosObject? encrypt))
-        {
-            trailer[KnownNames.Encrypt] = encryption.Written(encrypt);
         }
 
         bool exhausted = false;

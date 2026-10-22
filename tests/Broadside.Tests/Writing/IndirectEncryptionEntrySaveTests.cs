@@ -115,7 +115,114 @@ public sealed partial class IndirectEncryptionEntrySaveTests
     }
 
     [Fact]
-    public void A_direct_encryption_dictionary_in_the_trailer_is_written_without_references()
+    public void An_oversized_entry_before_the_handlers_entries_does_not_take_them_out_of_the_saved_dictionary()
+    {
+        // Review finding: Extra (no handler reads it) refers to 4096 integers, and V to an array, which the handler reads as no V.
+        string integers = string.Join(' ', Enumerable.Repeat("0", 4096));
+        byte[] file = Rc4File($"<< /Extra 7 0 R /Filter /Standard /R 3 /Length 40 /P -4 /O {Owner} /U {User} /V 8 0 R >>", $"[{integers}]", "[1 2]");
+        using PdfDocument source = PdfDocument.Open(file);
+
+        byte[] saved = Save(source, new PdfSaveOptions().WithCrossReferenceLayout(PdfCrossReferenceLayout.StreamWithObjectStreams));
+
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        AssertSameDocument(source, reopened);
+        CosDictionary written = reopened.Security!.EncryptionDictionary;
+        Assert.False(written.ContainsKey(new CosName("Extra")));
+        Assert.Equal(2L, Assert.IsType<CosInteger>(written[new CosName("V")]).Value);
+        foreach (string key in (string[])["Filter", "R", "Length", "P", "O", "U"])
+        {
+            Assert.True(written.ContainsKey(new CosName(key)), key);
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(LayoutsAndNumberings))]
+    public void A_confidential_string_is_never_written_in_the_clear(PdfCrossReferenceLayout layout, PdfObjectNumbering numbering)
+    {
+        // Review finding: V refers to the page tree, whose page and annotation hold strings the save encrypts. Nothing of the
+        // document may reach the encryption dictionary, which is written unencrypted.
+        byte[] file = Rc4File($"<< /Filter /Standard /R 3 /Length 40 /P -4 /O {Owner} /U {User} /V 2 0 R >>");
+        using PdfDocument source = PdfDocument.Open(file);
+        PdfPage page = Assert.Single(source.Pages);
+        page.Dictionary[new CosName("Secret")] = new CosString("confidential-page"u8);
+        page.Dictionary[new CosName("Annots")] = new CosArray([
+            new CosDictionary
+            {
+                [new CosName("Subtype")] = new CosName("Text"),
+                [new CosName("Rect")] = new CosArray([new CosInteger(0), new CosInteger(0), new CosInteger(10), new CosInteger(10)]),
+                [new CosName("Contents")] = new CosString("confidential-note"u8),
+            },
+        ]);
+
+        byte[] saved = Save(source, new PdfSaveOptions().WithCrossReferenceLayout(layout).WithObjectNumbering(numbering).WithStreamCompression(PdfStreamCompression.None));
+
+        Assert.Equal(-1, saved.AsSpan().IndexOf("confidential"u8));
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        CosDictionary reopenedPage = Assert.Single(reopened.Pages).Dictionary;
+        Assert.Equal("confidential-page"u8.ToArray(), ((CosString)reopenedPage[new CosName("Secret")]).Bytes.ToArray());
+        AssertDirect(reopened.Security!.EncryptionDictionary);
+    }
+
+    [Fact]
+    public void A_reference_to_a_reference_reads_as_the_reader_read_it()
+    {
+        // Review finding: Filter refers to object 7, whose value is the reference 8 0 R to /Vendor. The reader resolves once, sees
+        // no name, and takes the standard handler because R is present; the save must not write /Vendor.
+        byte[] file = Rc4File($"<< /Filter 7 0 R /R 3 /Length 40 /P -4 /O {Owner} /U {User} /V 2 >>", "8 0 R", "/Vendor");
+        using PdfDocument source = PdfDocument.Open(file);
+        Assert.Equal(new CosName("Standard"), source.Security!.Handler);
+
+        byte[] saved = Save(source, new PdfSaveOptions());
+
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Equal(new CosName("Standard"), reopened.Security!.Handler);
+        Assert.Equal(new CosName("Standard"), reopened.Security.EncryptionDictionary[new CosName("Filter")]);
+        AssertSameDocument(source, reopened);
+    }
+
+    [Fact]
+    public void Shared_arrays_an_entry_refers_to_do_not_amplify_the_saved_dictionary()
+    {
+        // Review finding: 64 references to an array of 64 references to an array of 64 integers would copy 262144 values.
+        string level2 = string.Join(' ', Enumerable.Repeat("0", 64));
+        string level1 = string.Join(' ', Enumerable.Repeat("9 0 R", 64));
+        string level0 = string.Join(' ', Enumerable.Repeat("8 0 R", 64));
+        byte[] file = Rc4File($"<< /Filter /Standard /R 3 /Length 40 /P -4 /O {Owner} /U {User} /V 2 /Extra 7 0 R >>", $"[{level0}]", $"[{level1}]", $"[{level2}]");
+        using PdfDocument source = PdfDocument.Open(file);
+
+        byte[] saved = Save(source, new PdfSaveOptions().WithStreamCompression(PdfStreamCompression.None));
+
+        Assert.True(saved.Length < file.Length + 2048, $"The saved file is {saved.Length} bytes; the source {file.Length}.");
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        AssertSameDocument(source, reopened);
+    }
+
+    [Theory]
+    [InlineData(PdfCrossReferenceLayout.Table)]
+    [InlineData(PdfCrossReferenceLayout.StreamWithObjectStreams)]
+    public void An_encryption_dictionary_the_page_tree_also_uses_keeps_its_content_in_a_save_that_keeps_the_encryption(PdfCrossReferenceLayout layout)
+    {
+        // Review finding: the catalog's Pages is the encryption dictionary, which reads as the one page, with Contents 4 0 R.
+        byte[] file = new TestPdf { Header = "%PDF-1.4", TrailerEntries = $"/Encrypt 6 0 R {Id}" }.Build(
+        [
+            "<< /Type /Catalog /Pages 6 0 R >>",
+            .. CorpusObjects()[1..5],
+            $"<< /Filter /Standard /R 3 /Length 40 /P -4 /O {Owner} /U {User} /V 2 /MediaBox [0 0 612 792] /Contents 4 0 R /Resources << /Font << /F1 5 0 R >> >> >>",
+        ]);
+        using PdfDocument source = PdfDocument.Open(file);
+        Assert.Equal(new CosReference(6, 0), Assert.Single(source.Pages).Reference);
+        string[] contents = DecodedContents(source);
+        Assert.NotEqual(string.Empty, Assert.Single(contents));
+
+        byte[] saved = Save(source, new PdfSaveOptions().WithCrossReferenceLayout(layout));
+
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Equal(contents, DecodedContents(reopened));
+        Assert.True(reopened.IsEncrypted);
+    }
+
+    [Fact]
+    public void A_direct_encryption_dictionary_in_the_trailer_with_references_is_written_as_a_new_direct_object()
     {
         byte[] file = new TestPdf { Header = "%PDF-1.4", TrailerEntries = $"/Encrypt << /Filter /Standard /R 3 /Length 40 /P -4 /O 6 0 R /U {User} /V 2 >> {Id}" }
             .Build([.. CorpusObjects(), Owner]);
@@ -126,7 +233,8 @@ public sealed partial class IndirectEncryptionEntrySaveTests
 
         using PdfDocument reopened = PdfDocument.Open(saved);
         AssertSameDocument(source, reopened);
-        AssertDirect(Assert.IsType<CosDictionary>(reopened.Trailer[Encrypt]));
+        Assert.IsType<CosReference>(reopened.Trailer[Encrypt]);
+        AssertDirect(reopened.Security!.EncryptionDictionary);
     }
 
     [Theory]
@@ -184,6 +292,12 @@ public sealed partial class IndirectEncryptionEntrySaveTests
                 break;
         }
     }
+
+    /// <summary>The decoded content of every page.</summary>
+    private static string[] DecodedContents(PdfDocument document) =>
+        [.. document.Pages.Select(page => document.Resolve(page.Dictionary[new CosName("Contents")]) is CosStream stream
+            ? Encoding.Latin1.GetString(document.DecodeStream(stream).Span)
+            : string.Empty)];
 
     private static byte[] Save(PdfDocument document, PdfSaveOptions options)
     {
