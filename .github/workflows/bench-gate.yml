@@ -81,6 +81,9 @@ jobs:
           fetch-depth: 0
           ref: ${{ github.event_name == 'schedule' && env.NIGHTLY_BRANCH || '' }}
 
+      - name: Test the decision
+        run: bench/test-gate-plan.sh
+
       - name: Decide
         id: plan
         shell: bash
@@ -91,60 +94,8 @@ jobs:
           PR: ${{ github.event.pull_request.number }}
           INPUT_BASE: ${{ inputs.base }}
           INPUT_TIMING: ${{ inputs.timing }}
-        run: |
-          head=$(git rev-parse HEAD)
-          run=true
-          case "${EVENT}" in
-            pull_request)
-              # The pull_request checkout is the merge commit; its first parent is the base branch as merged into.
-              base=$(git rev-parse HEAD^1)
-              labels=$(gh pr view "${PR}" --repo "${GITHUB_REPOSITORY}" --json labels --jq '.labels[].name')
-              hot=$(git diff --name-only "${base}" "${head}" | grep -E "${HOT_PATHS}" || true)
-              if [ "${BASE_REF}" = main ]; then
-                timing=true; reason="the pull request is into main"
-              elif grep -qx perf <<< "${labels}"; then
-                timing=true; reason="the pull request is labelled perf"
-              elif [ -n "${hot}" ]; then
-                timing=true; reason="the pull request changes a hot path ($(head -n 3 <<< "${hot}" | paste -sd ' ' -)$([ "$(wc -l <<< "${hot}")" -gt 3 ] && echo ' ...'))"
-              else
-                timing=false; reason="the pull request changes no hot path and is not labelled perf"
-              fi
-              ;;
-            schedule)
-              # Since the previous nightly that measured something (success or failure; a cancelled one measured nothing).
-              since=$(gh run list --repo "${GITHUB_REPOSITORY}" --workflow bench-gate.yml --event schedule --status completed --limit 30 \
-                --json createdAt,conclusion --jq '[.[] | select(.conclusion == "success" or .conclusion == "failure")][0].createdAt // empty')
-              since=${since:-$(date -u -d '24 hours ago' +%Y-%m-%dT%H:%M:%SZ)}
-              base=$(git rev-list -1 --first-parent --before="${since}" HEAD)
-              timing=true
-              reason="nightly: ${NIGHTLY_BRANCH} at ${head:0:10} against ${base:0:10}, its tip at ${since}"
-              if [ -z "${base}" ] || [ "${base}" = "${head}" ]; then
-                run=false; timing=false; reason="nightly: nothing merged into ${NIGHTLY_BRANCH} since ${since}"
-              fi
-              ;;
-            *)
-              base=$(git rev-parse "origin/${INPUT_BASE}" 2>/dev/null || git rev-parse "${INPUT_BASE}")
-              timing=${INPUT_TIMING:-true}
-              reason="run by hand against ${INPUT_BASE}"
-              ;;
-          esac
-          {
-            echo "run=${run}"
-            echo "head=${head}"
-            echo "base=${base}"
-            echo "timing=${timing}"
-            echo "reason=${reason}"
-          } >> "${GITHUB_OUTPUT}"
-          {
-            echo "## Benchmark gate plan"
-            echo
-            echo "Head \`${head:0:10}\`, base \`${base:0:10}\`. Allocations: $([ "${run}" = true ] && echo checked || echo skipped). Times: $([ "${timing}" = true ] && echo compared || echo 'not compared'), because ${reason}."
-            if [ "${EVENT}" = pull_request ] && [ "${timing}" != true ]; then
-              echo
-              echo "To compare times on this pull request, add the \`perf\` label (bench-gate-perf.yml then re-runs this workflow)."
-            fi
-          } >> "${GITHUB_STEP_SUMMARY}"
-          echo "Times: ${timing} (${reason})"
+        # The decision is a script so that it can be tested locally (bench/test-gate-plan.sh); a failure fails `gate` too.
+        run: bench/gate-plan.sh
 
   # Every pull request: each shard measures the allocation figures of a quarter of the benchmark cases (balanced by the
   # baseline's case counts), head only: no base build, no timing. The runner image is pinned because the baseline's allocations
@@ -281,37 +232,63 @@ jobs:
   gate:
     name: gate
     needs: [plan, allocations, measure]
-    if: always() && needs.plan.outputs.run == 'true'
+    # Always, so that a failed or incomplete `plan` (which skips every measuring job) fails the gate instead of skipping it.
+    if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       contents: read
       issues: write # the nightly regression issue
     steps:
+      - name: Check the plan
+        id: check
+        shell: bash
+        env:
+          PLANNED: ${{ needs.plan.result }}
+          RUN: ${{ needs.plan.outputs.run }}
+          HEAD: ${{ needs.plan.outputs.head }}
+          BASE: ${{ needs.plan.outputs.base }}
+          TIMING: ${{ needs.plan.outputs.timing }}
+          REASON: ${{ needs.plan.outputs.reason }}
+        run: |
+          if [ "${PLANNED}" != success ] || [ -z "${HEAD}" ] || [ -z "${BASE}" ] \
+            || [[ "${RUN}" != true && "${RUN}" != false ]] || [[ "${TIMING}" != true && "${TIMING}" != false ]]; then
+            echo "::error title=Benchmark gate::The plan job did not decide (${PLANNED}; run '${RUN}', head '${HEAD}', base '${BASE}', timing '${TIMING}'), so nothing was measured; see its log."
+            exit 1
+          fi
+          echo "go=${RUN}" >> "${GITHUB_OUTPUT}"
+          if [ "${RUN}" != true ]; then
+            echo "Nothing to measure: ${REASON}." >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
       - name: Check out
+        if: steps.check.outputs.go == 'true'
         uses: actions/checkout@v7
         with:
           ref: ${{ github.event_name == 'schedule' && needs.plan.outputs.head || '' }}
 
       - name: Set up .NET
+        if: steps.check.outputs.go == 'true'
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
       - name: Download the allocation figures
+        if: steps.check.outputs.go == 'true'
         uses: actions/download-artifact@v8
         with:
           pattern: bench-gate-allocations-*
           path: artifacts/bench-gate
 
       - name: Download the timing reports
-        if: needs.plan.outputs.timing == 'true'
+        if: steps.check.outputs.go == 'true' && needs.plan.outputs.timing == 'true'
         uses: actions/download-artifact@v8
         with:
           pattern: bench-gate-shard-*
           path: artifacts/bench-gate
 
       - name: Compare with the baseline and the base commit
+        if: steps.check.outputs.go == 'true'
         shell: bash
         env:
           BASE: ${{ needs.plan.outputs.base }}
@@ -339,7 +316,7 @@ jobs:
           exit "${status}"
 
       - name: Upload the re-recorded baseline
-        if: always()
+        if: always() && steps.check.outputs.go == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: bench-gate-baseline

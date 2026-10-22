@@ -1,14 +1,23 @@
 # Adding the `perf` label to a pull request re-runs its benchmark gate (bench-gate.yml) so that it compares times too (issue #389):
 # the gate's `plan` job reads the labels the pull request has when it runs. The gate itself does not trigger on labels, so that
 # labelling a pull request for any other reason never starts, cancels or hides a gate run.
+#
+# Security: this runs on `pull_request_target` because a `pull_request` run from a fork gets a read-only token, which cannot cancel
+# or re-run the gate. `pull_request_target` runs this file as it is on the base branch, with a token that can write, for any
+# pull request, including a fork's. That is safe here only because the job is metadata-only, and must stay so:
+# - it never checks out, builds, runs or reads anything from the pull request (no actions/checkout, no scripts from the repo);
+# - the only values it takes from the event are the label name (compared in `if:`) and the head commit's SHA (passed through an
+#   environment variable, never interpolated into the script); the re-run then runs the gate with its normal `pull_request`
+#   permissions, read-only for a fork;
+# - its token can only manage workflow runs and read pull requests (`permissions:` below), nothing else.
+# Only people with triage or write access can add a label, so outsiders cannot trigger it.
 name: Benchmark gate (perf label)
 
 on:
-  pull_request:
+  pull_request_target:
     types: [labeled]
 
-permissions:
-  contents: read
+permissions: {}
 
 jobs:
   rerun:
@@ -18,6 +27,7 @@ jobs:
     timeout-minutes: 20
     permissions:
       actions: write
+      pull-requests: read
     steps:
       - name: Re-run the gate of the pull request's head commit
         shell: bash
@@ -38,7 +48,9 @@ jobs:
           if [ "$(latest status)" != completed ]; then
             gh run cancel "${id}" --repo "${GITHUB_REPOSITORY}" || true
             for _ in $(seq 1 60); do
-              [ "$(latest status)" = completed ] && break
+              if [ "$(latest status)" = completed ]; then
+                break
+              fi
               sleep 10
             done
           fi

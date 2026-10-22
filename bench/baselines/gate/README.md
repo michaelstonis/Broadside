@@ -50,7 +50,8 @@ The `plan` job decides, and its job summary (and the `gate` summary's last line)
 
 **Requesting times on a pull request**: add the `perf` label. `bench-gate-perf.yml` then re-runs the pull request's gate (it
 cancels a run in progress first), whose `plan` job reads the labels the pull request has at that moment; every later push keeps
-comparing times while the label stays. Without the helper (say, the label was there before the pull request touched a watched
+comparing times while the label stays. It works for a fork's pull request too (`pull_request_target`, metadata only; see the
+workflow's header). Without the helper (say, the label was there before the pull request touched a watched
 path), re-run the workflow from the Actions tab or push. Use it for a change that can slow a path outside `HOT_PATHS` (the
 document model, caching, writing) or a change to the gate's own timing machinery (`bench/run-gate.sh`, `tools/BenchGate`).
 
