@@ -5,7 +5,6 @@
 
 Broadside is a fully managed .NET implementation of the PDF specification (ISO 32000-2 and its extensions). It reads, writes, edits and renders PDF files. Everything that interprets the PDF file itself (parsing, writing, fonts, image codecs, cryptography, content interpretation) is written in C# with no native dependency. Rendering goes through a display list that several backends consume: the managed software rasterizer, SkiaSharp, CoreGraphics, Android Canvas, Direct2D and WebGL 2. On top of that sit a framework-neutral viewer core and two viewer controls, one for Blazor WebAssembly and one for .NET MAUI. MIT licensed. The goal is to be the only PDF dependency a .NET application needs.
 
-> [!IMPORTANT]
 > **Broadside is in preview.** The first preview, `0.1.0-preview.1`, is on NuGet.org. The public API is not frozen yet (the v1 freeze is [#262](https://github.com/michaelstonis/Broadside/issues/262)), so expect breaking changes between previews. Read the [known issues](#known-issues-and-limitations) before you depend on it.
 
 ## Contents
