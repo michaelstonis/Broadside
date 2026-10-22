@@ -1,4 +1,4 @@
-# Release: build and test on Linux and macOS, pack every package, publish to NuGet.org and create a GitHub release.
+# Release: build and test on Linux and macOS (plus the MAUI viewer's Windows target on Windows), pack every package, publish to NuGet.org and create a GitHub release.
 #
 # Triggers:
 #   - a tag v* (MinVer turns the tag into the package version; see Directory.Build.props)
@@ -90,11 +90,53 @@ jobs:
             artifacts/package/release/*.snupkg
           if-no-files-found: error
 
-  # Platform packages that need the Apple and Android workloads: Rendering.CoreGraphics and Rendering.Android.
-  # The full solution is built and tested here too; only the two platform packages are uploaded, the Linux job
-  # provides the rest so that every package comes from exactly one build.
+  # The Windows target of Broadside.Viewer.Maui (net10.0-windows10.0.19041.0, the Platforms/Windows handler). WinAppSDK's build runs
+  # MakePri.exe, so the target builds only on Windows, and the Apple targets build only on macOS: this job builds the Windows assembly
+  # and build-macos packs it into the one Viewer.Maui package next to the Apple, Android and net10.0 assemblies (#381).
+  build-windows:
+    name: build the MAUI viewer's Windows target (Windows)
+    runs-on: windows-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          # MinVer: the assembly gets the same version as the package build-macos packs it into.
+          fetch-depth: 0
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Restore
+        run: dotnet restore src/Broadside.Viewer.Maui -p:Configuration=Release
+
+      - name: Build the Windows target
+        # No workload: the Windows target (WinUI) builds from NuGet packages on any Windows host (see the project file).
+        run: dotnet build src/Broadside.Viewer.Maui -c Release -warnaserror --no-restore -f net10.0-windows10.0.19041.0
+
+      - name: Upload the Windows assembly
+        uses: actions/upload-artifact@v7
+        with:
+          name: viewer-maui-windows
+          # The assembly, its PDB (for the .snupkg) and its XML documentation; nothing else of the output goes into the package.
+          path: artifacts/bin/Broadside.Viewer.Maui/release_net10.0-windows10.0.19041.0/Broadside.Viewer.Maui.*
+          if-no-files-found: error
+
+  # Platform packages that need the Apple and Android workloads: Rendering.CoreGraphics, Rendering.Android and Viewer.Maui (with the
+  # Windows target from build-windows). The full solution is built and tested here too; only the platform packages are uploaded, the
+  # Linux job provides the rest so that every package comes from exactly one build.
   build-macos:
-    name: build and pack platform backends (macOS)
+    name: build and pack platform packages (macOS)
+    needs: [build-windows]
     runs-on: macos-latest
     timeout-minutes: 90
     steps:
@@ -136,6 +178,37 @@ jobs:
 
       - name: Pack the full solution
         run: dotnet pack Broadside.slnx -c Release --no-build -p:ValidateXcodeVersion=false -p:Registrar=dynamic
+
+      - name: Download the MAUI viewer's Windows assembly
+        uses: actions/download-artifact@v8
+        with:
+          name: viewer-maui-windows
+          path: artifacts/bin/Broadside.Viewer.Maui/release_net10.0-windows10.0.19041.0
+
+      - name: Repack the MAUI viewer with its Windows target
+        # BroadsideBuildWindowsShell=true adds the Windows target (and EnableWindowsTargeting) on this macOS host. Restore again so the
+        # assets file has the target's dependency group, then pack without building: the Windows assembly is build-windows' and the
+        # others are the ones built above. This overwrites the Viewer.Maui package of the previous step.
+        run: |
+          dotnet restore src/Broadside.Viewer.Maui -p:Configuration=Release -p:BroadsideBuildWindowsShell=true
+          dotnet pack src/Broadside.Viewer.Maui -c Release --no-build --no-restore -p:BroadsideBuildWindowsShell=true -p:ValidateXcodeVersion=false -p:Registrar=dynamic
+
+      - name: Check the MAUI viewer package's targets
+        # Fail the release if any target's assembly is missing from the package (NuGet writes net10.0-windows10.0.19041.0 as
+        # net10.0-windows10.0.19041 and the platform versions of the Android and Apple targets in full).
+        shell: bash
+        run: |
+          nupkg="$(ls artifacts/package/release/Broadside.Viewer.Maui.*.nupkg)"
+          listing="$(unzip -Z1 "${nupkg}")"
+          { echo "## ${nupkg##*/}"; echo; echo '```'; echo "${listing}" | grep '^lib/'; echo '```'; } >> "${GITHUB_STEP_SUMMARY}"
+          missing=0
+          for tfm in 'net10\.0' 'net10\.0-android[0-9.]+' 'net10\.0-ios[0-9.]+' 'net10\.0-maccatalyst[0-9.]+' 'net10\.0-windows10\.0\.19041(\.0)?'; do
+            if ! echo "${listing}" | grep -Eq "^lib/${tfm}/Broadside\.Viewer\.Maui\.dll$"; then
+              echo "::error::${nupkg##*/} has no lib/${tfm}/Broadside.Viewer.Maui.dll"
+              missing=1
+            fi
+          done
+          exit "${missing}"
 
       - name: Upload platform packages
         uses: actions/upload-artifact@v7
