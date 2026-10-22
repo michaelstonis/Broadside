@@ -1,7 +1,7 @@
 # Broadside .NET MAUI viewer sample
 
 A MAUI app around `Broadside.Viewer.Maui`'s `PdfView`: the same gallery as the Blazor demo, TraceMonkey first, drawn with SkiaSharp
-(tiles rendered off the UI thread, composed on the GPU: Metal on Mac Catalyst, OpenGL ES on Android and iOS).
+(tiles rendered off the UI thread, composed on the GPU: Metal on iOS and Mac Catalyst, OpenGL ES on Android).
 
 Needs the `maui` workload. Run it on Mac Catalyst from the repository root:
 
