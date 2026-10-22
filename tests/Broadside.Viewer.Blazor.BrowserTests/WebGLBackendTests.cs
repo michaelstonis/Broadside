@@ -42,6 +42,40 @@ public sealed class WebGLBackendTests(BrowserHost host)
         GoldenCorpus.AssertMatchesReference("webgl", fileName, page, render);
     }
 
+    [Theory]
+    [InlineData("paths-fill-rules.pdf", 0)]
+    [InlineData("text-standard14.pdf", 0)]
+    [InlineData("dct-baseline.pdf", 0)]
+    public async Task A_thumbnail_drawn_with_WebGL_matches_the_software_rasterizer_and_the_render_after_it_too(string fileName, int pageIndex)
+    {
+        // #380: the Pages panel's PngSurface read the bitmap while the tile was still in the WebGL canvas (only the paper), and the
+        // next render read the canvas back into that thumbnail's released bitmap.
+        BrowserHost.RequireApp();
+        host.Serve(fileName, await File.ReadAllBytesAsync(Path.Combine(Corpus.Directory, fileName), TestContext.Current.CancellationToken));
+        await using IBrowserContext context = await host.Browser.NewContextAsync();
+        IPage page = await context.NewPageAsync();
+        await page.GotoAsync(host.AppAddress.ToString());
+        await page.WaitForFunctionAsync("() => globalThis.getDotnetRuntime && document.querySelector('.bs-viewer')", null, new PageWaitForFunctionOptions { Timeout = 120_000 });
+        string address = new Uri(host.BaseAddress, "files/" + Uri.EscapeDataString(fileName)).ToString();
+        string result = await page.EvaluateAsync<string>(
+            """
+            async ([address, page, dpi]) => {
+              const exports = await getDotnetRuntime(0).getAssemblyExports('Broadside.Viewer.Blazor.Sample.dll');
+              return exports.Broadside.Viewer.Blazor.Sample.RenderStats.RenderThumbnailsAsync(address, page, dpi);
+            }
+            """,
+            new object[] { address, pageIndex, GoldenCorpus.Dpi });
+        string[] parts = result.Split(';', 3);
+        Assert.SkipWhen(parts[0].Contains("BackendWebGLUnavailable", StringComparison.Ordinal), "WebGL 2 is not available in this Chromium.");
+        Viewer.Log($"webgl thumbnails {fileName}#{pageIndex}: {parts[0]}");
+        Assert.DoesNotContain("Rasterized", parts[0], StringComparison.Ordinal); // drawn on the GPU, so held in the canvas when presented
+        foreach (string base64 in parts.AsSpan(1))
+        {
+            using var png = new MemoryStream(Convert.FromBase64String(base64));
+            GoldenCorpus.AssertMatchesReference("webgl", fileName, pageIndex, GoldenImage.FromPng(png));
+        }
+    }
+
     [Fact]
     public async Task A_shading_falls_back_to_the_software_rasterizer_with_a_diagnostic()
     {

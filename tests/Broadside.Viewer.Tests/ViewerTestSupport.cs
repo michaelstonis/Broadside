@@ -99,6 +99,8 @@ internal sealed class CountingBackend : ITileBackend
             return inner.RenderSlice(budget);
         }
 
+        public void ReadBack() => inner.ReadBack();
+
         public void Dispose() => inner.Dispose();
     }
 }

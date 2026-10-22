@@ -490,11 +490,22 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
 
             if (_cooperative)
             {
+                // The render outlives the presentation: a tile its backend left on the device (ADR 0012) is read back for a surface
+                // that reads pixels, and dropped by the render's disposal before the bitmap is released (#380).
                 using ITileRender rendering = backend.Begin(list, target, transform, token);
                 while (!rendering.RenderSlice(_sliceBudget))
                 {
                     await _yield(token).ConfigureAwait(true);
                 }
+
+                // A render cancelled after its last slice still never reaches the surface.
+                token.ThrowIfCancellationRequested();
+                if (!surface.AcceptsDevicePixels)
+                {
+                    rendering.ReadBack();
+                }
+
+                surface.Present(tile, target);
             }
             else
             {
@@ -503,13 +514,12 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
                     {
                         using ITileRender rendering = backend.Begin(list, target, transform, token);
                         rendering.RenderSlice(Timeout.InfiniteTimeSpan);
+                        rendering.ReadBack(); // the render ends before the tile is presented
                     },
                     token).ConfigureAwait(true);
+                token.ThrowIfCancellationRequested();
+                surface.Present(tile, target);
             }
-
-            // A render cancelled after its last slice still never reaches the surface.
-            token.ThrowIfCancellationRequested();
-            surface.Present(tile, target);
         }
         finally
         {

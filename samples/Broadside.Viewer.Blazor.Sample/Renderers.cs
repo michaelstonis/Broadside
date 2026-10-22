@@ -89,6 +89,8 @@ public sealed class DemoTileBackend : ITileBackend
             return done;
         }
 
+        public void ReadBack() => render.ReadBack();
+
         public void Dispose() => render.Dispose();
     }
 }
@@ -235,6 +237,31 @@ public static partial class RenderStats
             bitmap.SavePng(png);
             return string.Create(CultureInfo.InvariantCulture, $"{milliseconds:0.###};{codes};{Convert.ToBase64String(png.ToArray())}");
         }
+    }
+
+    /// <summary>
+    /// Renders one page twice as the Pages panel draws thumbnails, through a cooperative session with the WebGL backend presenting to a
+    /// <see cref="PngSurface"/>; returns "diagnostic codes;base64 PNG;base64 PNG" (#380: the thumbnail had only the paper, and the
+    /// render after it read the canvas back into the thumbnail's released bitmap).
+    /// </summary>
+    [JSExport]
+    public static async Task<string> RenderThumbnailsAsync(string address, int page, double dpi)
+    {
+        using var http = new HttpClient();
+        byte[] bytes = await http.GetByteArrayAsync(new Uri(address)).ConfigureAwait(true);
+        await WebGLTileBackend.InitializeAsync().ConfigureAwait(true);
+        WebGLTileBackend? backend = null;
+        ViewerOptions options = new ViewerOptions()
+            .WithThreading(ViewerThreading.Cooperative)
+            .WithDocumentOptions(new PdfOptions().UseStandard14Fonts())
+            .UseBackend(() => backend = new WebGLTileBackend());
+        await using DocumentSession session = DocumentSession.Open(bytes, options);
+        var first = new PngSurface();
+        var second = new PngSurface();
+        await session.RenderPageAsync(page, dpi / 72, first).ConfigureAwait(true);
+        await session.RenderPageAsync(page, dpi / 72, second).ConfigureAwait(true);
+        string codes = string.Join(',', backend?.Diagnostics.Select(static d => d.Code) ?? []);
+        return $"{codes};{first.Image?[(first.Image.IndexOf(',', StringComparison.Ordinal) + 1)..]};{second.Image?[(second.Image.IndexOf(',', StringComparison.Ordinal) + 1)..]}";
     }
 
     private static double Percentile(double[] sorted, double p) =>

@@ -23,6 +23,16 @@ public interface IRenderSurface
     void Present(Tile tile, Bitmap pixels);
 
     /// <summary>
+    /// Gets a value indicating whether <see cref="Present"/> can take a tile its backend left on the device (the GPU) without reading
+    /// its pixels; otherwise the session reads such a tile back into the bitmap first (<see cref="ITileRender.ReadBack"/>).
+    /// </summary>
+    /// <remarks>
+    /// ADR 0012 (#380). The default, <see langword="false"/>, suits every surface that reads the bitmap (an image, a PNG, a copy). The
+    /// Blazor canvas surface accepts device pixels: it copies a tile still in the WebGL canvas GPU to GPU, and reads the bitmap otherwise.
+    /// </remarks>
+    bool AcceptsDevicePixels => false;
+
+    /// <summary>
     /// Drops a tile presented earlier: the <see cref="TileScheduler"/> calls it to keep the tiles a surface holds within its memory
     /// budget, and counts the tile's pixels as freed once it returns. Called on the thread that runs the scheduler's frames, or (in
     /// background mode) on the worker that just presented a tile.
