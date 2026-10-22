@@ -83,9 +83,10 @@ Manual only (the "Run workflow" button; inputs `aot`, `runtime-folder`, `deploy`
 
 ## `release.yml`: tags `v*` and the "Run workflow" button
 
-1. `build-linux`: builds, tests and packs the core packages (`Broadside.Core.slnf`).
-2. `build-macos`: installs the workloads, builds the full solution, tests `Broadside.Core.slnf` and the CoreGraphics backend, packs it, and uploads only `Broadside.Rendering.CoreGraphics` and `Broadside.Rendering.Android`, so that every package comes from exactly one build.
-3. `publish`: merges the two sets into the `packages` artifact. On a `v*` tag that is not a dry run it logs in to NuGet.org with trusted publishing, runs `dotnet nuget push --skip-duplicate`, and creates a GitHub release with generated notes and the packages attached (marked pre-release when the tag has a `-` suffix, e.g. `v0.1.0-preview.1`).
+1. `build-linux`: builds, tests and packs the core packages (`Broadside.Core.slnf`), including `Broadside.Rendering.Direct2D` (a single `net10.0-windows10.0.19041.0` target that builds anywhere through `EnableWindowsTargeting`).
+2. `build-windows`: builds the Windows target of `Broadside.Viewer.Maui` (`net10.0-windows10.0.19041.0`, the `Platforms/Windows` handler) and uploads the assembly, PDB and XML docs as `viewer-maui-windows`. WinAppSDK's build runs `MakePri.exe`, so this target builds only on Windows, and the Apple targets only on macOS; neither runner can build the whole package (#381).
+3. `build-macos` (after `build-windows`): installs the workloads, builds the full solution, tests `Broadside.Core.slnf` and the CoreGraphics backend, and packs it. It then downloads `viewer-maui-windows` into the Windows target's output folder and repacks `Broadside.Viewer.Maui` with `-p:BroadsideBuildWindowsShell=true` (restore, then `dotnet pack --no-build`), so the one package holds the `net10.0`, Android, iOS, Mac Catalyst and Windows assemblies, and fails if any of the five is missing (the listing goes to the job summary). It uploads only `Broadside.Rendering.CoreGraphics`, `Broadside.Rendering.Android` and `Broadside.Viewer.Maui`, so that every package comes from exactly one build.
+4. `publish`: merges the two sets into the `packages` artifact. On a `v*` tag that is not a dry run it logs in to NuGet.org with trusted publishing, runs `dotnet nuget push --skip-duplicate`, and creates a GitHub release with generated notes and the packages attached (marked pre-release when the tag has a `-` suffix, e.g. `v0.1.0-preview.1`).
 
 MinVer derives the package version from the tag (`v1.2.3` → `1.2.3`); a dispatch run on a branch produces `0.1.0-preview.0.<height>`.
 
@@ -98,7 +99,7 @@ gh workflow run release.yml --ref main -f dry_run=true
 gh run watch
 ```
 
-The dry run builds, tests and packs on both runners and uploads the merged `packages` artifact, but pushes nothing and creates no release. It needs no secrets. Setting `dry_run` to false on a tag ref performs a real release; on a branch ref it still publishes nothing, because the push and release steps also require a `v*` tag.
+The dry run builds, tests and packs on all three runners and uploads the merged `packages` artifact, but pushes nothing and creates no release. It needs no secrets. Setting `dry_run` to false on a tag ref performs a real release; on a branch ref it still publishes nothing, because the push and release steps also require a `v*` tag.
 
 ### Trusted publishing (one-time setup by the owner)
 
