@@ -166,6 +166,17 @@ internal static class SavePlan
             freeGenerations.Remove(oldEncryption.ObjectNumber);
         }
 
+        // A kept encryption dictionary with references in it is written direct (§7.6.2, issue #390), indirect or in the trailer.
+        for (int index = 0; index < kept.Count; index++)
+        {
+            kept[index] = (kept[index].Reference, encryption.Written(kept[index].Value));
+        }
+
+        if (trailer.TryGetValue(KnownNames.Encrypt, out CosObject? encrypt))
+        {
+            trailer[KnownNames.Encrypt] = encryption.Written(encrypt);
+        }
+
         bool exhausted = false;
         if (encryption.NewDictionary is { } dictionary)
         {
