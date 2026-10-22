@@ -16,7 +16,9 @@ Broadside's vocabulary lives in [`CONTEXT.md`](https://github.com/michaelstonis/
 
 **Fonts.** A *font program* is embedded or substituted glyph data (TrueType, OpenType, CFF, Type 1, Type 3). The *Standard 14 fonts* may be used without embedding. The *font resolver* finds a font program for a font that is not embedded.
 
-**Rendering.** The *display list* is the device-independent, fully resolved sequence of drawing operations every *backend* consumes. The *software rasterizer* is the managed reference backend; a *native backend* draws through a platform API (CoreGraphics, Direct2D, Android Canvas).
+**Rendering.** The *display list* is the device-independent, fully resolved sequence of drawing operations every *backend* consumes. The *software rasterizer* is the managed reference backend; a *native backend* draws through a platform API (CoreGraphics, Direct2D, Android Canvas). The SkiaSharp and WebGL 2 backends consume the same display list.
+
+**Viewer.** A *document session* is one open document in a viewer: it owns the document, the engine, the options and the tile backends. A *tile* is a rectangle of one page at one zoom, rendered from the page's cached display list and handed to a *surface*, which each UI shell implements over its own canvas, image or texture. The *tile scheduler* decides which tiles are drawn and when, within one memory budget. A *remote tile renderer* draws tiles outside the viewer's thread; in the browser that is the *render worker*, a second .NET runtime in a Web Worker.
 
 **Text and layout.** The *structure tree* is the tagged-PDF hierarchy stored in the file (ISO 32000-2 §14.7). The *layout tree* is the logical content recovered from a page, from the structure tree when the file is tagged and from geometry when it is not.
 
@@ -37,3 +39,5 @@ Broadside's vocabulary lives in [`CONTEXT.md`](https://github.com/michaelstonis/
 | [0009](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0009-font-resolver-contract.md) | One font resolver interface, asked in order (configured resolvers, then system fonts), serves font programs and named CMap resources. |
 | [0010](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0010-asynchronous-prefetch-boundary-for-remote-files.md) | Remote files are read synchronously behind an asynchronous prefetch boundary. |
 | [0011](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0011-external-signer-contract.md) | Signing goes through one signer interface that signs a digest; the core hashes the byte ranges and encodes the CMS object. |
+| [0012](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0012-webgl2-backend-for-the-browser-viewer.md) | The browser viewer gets an optional WebGL 2 backend; the software rasterizer stays the default, and what WebGL cannot draw falls back to it with a diagnostic. |
+| [0013](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0013-tiles-render-off-the-ui-thread.md) | Tiles render off the UI thread; in the browser, in an opt-in render worker rather than with .NET WebAssembly threads. |
