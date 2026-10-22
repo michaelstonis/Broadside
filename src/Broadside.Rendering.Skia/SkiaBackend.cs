@@ -11,7 +11,7 @@ namespace Broadside.Rendering.Skia;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ADR 0006: it consumes display lists only, replaying them through its own <see cref="IRenderingBackend"/>. Paths fill with the
+/// It consumes display lists only, replaying them through its own <see cref="IRenderingBackend"/>. Paths fill with the
 /// non-zero winding or even-odd rule (ISO 32000-2 §8.5.3.3), strokes follow the line parameters of §8.4.3 and the stroking rules of
 /// §8.5.3.2 (each subpath on its own, dashes restarted per subpath and measured in user space, a degenerate subpath a dot only with
 /// round caps, the thinnest line one device pixel, stroke adjustment of §10.7.5), and clipping paths intersect the clip, which
@@ -98,7 +98,7 @@ public sealed partial class SkiaBackend : IDisposable
     /// Gets what the last render could not draw: one <see cref="DiagnosticSeverity.Information"/> diagnostic per kind of operation it
     /// skipped. The list is cleared when the next render starts.
     /// </summary>
-    /// <remarks>ADR 0005: nothing is skipped silently.</remarks>
+    /// <remarks>Nothing is skipped silently.</remarks>
     public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics;
 
     /// <summary>Renders <paramref name="page"/> at 72 DPI into a new bitmap (premultiplied BGRA), on white.</summary>
@@ -169,7 +169,7 @@ public sealed partial class SkiaBackend : IDisposable
     /// The transform from the list's default user space to the canvas's coordinates (origin top-left, y down), such as
     /// <see cref="RenderOptions.GetDeviceTransform"/>; a tile renderer adds its own offset.
     /// </param>
-    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space). Glyphs of TrueType and OpenType programs are drawn natively.</remarks>
+    /// <remarks>ISO 32000-2 §8.3.2.2 (device space). Glyphs of TrueType and OpenType programs are drawn natively.</remarks>
     public void Render(DisplayList list, SKCanvas canvas, in Matrix deviceTransform) => Render(list, canvas, deviceTransform, forceOutlines: false);
 
     /// <summary>
@@ -185,7 +185,7 @@ public sealed partial class SkiaBackend : IDisposable
     /// </param>
     /// <param name="forceOutlines">Whether to draw every glyph from its outline, never through Skia's font engine (<see cref="RenderOptions.ForceOutlines"/>).</param>
     /// <remarks>
-    /// ADR 0006; ISO 32000-2 §8.3.2.2 (device space), §9.2.4 (glyph outlines). Spec #33 story 14 (viewer capability 1): only the
+    /// ISO 32000-2 §8.3.2.2 (device space), §9.2.4 (glyph outlines). Spec #33 story 14 (viewer capability 1): only the
     /// paints whose bounds reach the canvas's clip are drawn (<see cref="DisplayList.Replay(IRenderingBackend, PdfRectangle)"/>), so
     /// a tile costs what its own content costs, as with the software rasterizer. The list computes the bounds on its first such render.
     /// </remarks>

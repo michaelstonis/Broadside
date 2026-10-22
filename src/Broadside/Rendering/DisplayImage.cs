@@ -16,7 +16,7 @@ namespace Broadside.Rendering;
 /// the transform set before the paint.
 /// </para>
 /// <para>
-/// ADR 0006: fonts, images and colours are resolved before an operation enters the list, so a backend never reads the file. One
+/// Fonts, images and colours are resolved before an operation enters the list, so a backend never reads the file. One
 /// instance per distinct image XObject per list: a backend may key a per-surface cache (a converted bitmap, a native image) on the
 /// instance. Immutable; safe to read from any number of threads.
 /// </para>

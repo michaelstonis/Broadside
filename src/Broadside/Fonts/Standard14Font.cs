@@ -3,7 +3,7 @@ namespace Broadside.Fonts;
 /// <summary>One of the fourteen Standard 14 fonts, whose metrics every PDF processor provides.</summary>
 /// <remarks>
 /// ISO 32000-2 §9.6.2.2. The metrics are those of the Adobe Core 14 AFM files (Adobe Technical Note #5004), which ship in the core
-/// package; the glyphs ship separately (ADR 0007).
+/// package; the glyphs ship separately.
 /// </remarks>
 public enum Standard14Font
 {

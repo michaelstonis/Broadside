@@ -59,7 +59,7 @@ internal enum CharStringIssue
 /// throws. An issue that drops the glyph is an <see cref="DiagnosticSeverity.Error"/> (glyphs are lost); a repair is a
 /// <see cref="DiagnosticSeverity.Warning"/>.
 /// </summary>
-/// <remarks>ADR 0005. Thread-safe: programs are shared by every thread rendering their document.</remarks>
+/// <remarks>Thread-safe: programs are shared by every thread rendering their document.</remarks>
 internal sealed class CharStringReporter(FontProgramContext context, string format)
 {
     private int _reported;

@@ -12,7 +12,7 @@ namespace Broadside.Writing;
 /// or refuses in strict mode (issue #290).
 /// </summary>
 /// <remarks>
-/// <para>ADR 0003; ISO 32000-2 §7.5.2. Each object is looked at on its own, by its keys and type, so a walk over a graph finds what
+/// <para>ISO 32000-2 §7.5.2. Each object is looked at on its own, by its keys and type, so a walk over a graph finds what
 /// the whole graph uses. Found:</para>
 /// <list type="bullet">
 /// <item><see cref="VersionedFeatures.AssociatedFiles"/>: an <c>AF</c> or <c>AFRelationship</c> entry in any dictionary (§14.13).</item>

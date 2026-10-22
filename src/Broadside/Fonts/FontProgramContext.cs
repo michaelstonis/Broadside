@@ -84,7 +84,7 @@ public sealed class FontProgramContext
     public string? FaceName { get; init; }
 
     /// <summary>Gets how deviations are treated: in <see cref="PdfReadingMode.Strict"/> mode, <see cref="Report"/> throws.</summary>
-    /// <remarks>ADR 0005.</remarks>
+    /// <remarks>Lenient by default: a deviation is repaired and recorded as a diagnostic; strict mode throws instead.</remarks>
     public PdfReadingMode ReadingMode { get; init; } = PdfReadingMode.Lenient;
 
     /// <summary>Gets how deeply composite glyphs may nest; a deeper component is skipped with a diagnostic. Default 16.</summary>
@@ -117,7 +117,7 @@ public sealed class FontProgramContext
     /// <param name="severity">Whether the repair kept the glyphs (<see cref="DiagnosticSeverity.Warning"/>) or lost some.</param>
     /// <param name="message">What was wrong and what the parser did.</param>
     /// <exception cref="DiagnosticException">In strict mode, unless the severity is <see cref="DiagnosticSeverity.Information"/>.</exception>
-    /// <remarks>ADR 0005. Inside a document the diagnostic is recorded on the document, against the font file stream.</remarks>
+    /// <remarks>Inside a document the diagnostic is recorded on the document, against the font file stream.</remarks>
     public void Report(string code, DiagnosticSeverity severity, string message)
     {
         ArgumentNullException.ThrowIfNull(code);

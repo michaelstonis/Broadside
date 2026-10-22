@@ -40,7 +40,7 @@ public sealed class CMapContext
     }
 
     /// <summary>Gets how deviations are treated: in <see cref="PdfReadingMode.Strict"/> mode the first one throws.</summary>
-    /// <remarks>ADR 0005.</remarks>
+    /// <remarks>Lenient by default: a deviation is repaired and recorded as a diagnostic; strict mode throws instead.</remarks>
     public PdfReadingMode ReadingMode { get; init; } = PdfReadingMode.Lenient;
 
     /// <summary>

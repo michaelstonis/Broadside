@@ -15,7 +15,7 @@ namespace Broadside.Images;
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §8.9. Get one with <see cref="PdfDocument.GetImage"/>, <see cref="PdfPage.GetImage"/> or, for an inline image in a
-/// content stream, <see cref="Content.ContentContext.GetInlineImage"/>. Every property reads the dictionary on every call (ADR 0004).
+/// content stream, <see cref="Content.ContentContext.GetInlineImage"/>. Every property reads the dictionary on every call.
 /// Deviations are repaired the way most readers repair them and recorded as diagnostics on the document (a property of an image that
 /// cannot be painted at all, such as one without a width, reads as 0 or <see langword="null"/>); in strict mode the first deviation
 /// throws from the member that meets it.
@@ -872,7 +872,7 @@ public sealed class PdfImage
     /// it lacks (the rule JPXDecode applies to its channels, ISO 32000-2 §7.4.9); depth, rows decoded, polarity and alpha are kept.
     /// </summary>
     /// <returns>The copy, or <see langword="null"/> when it is over the image limits (reported by <see cref="ImageFilterContext.TryCreateImage"/>).</returns>
-    /// <remarks>ISO 32000-2 §8.9.5.1, Table 87: the colour space decides the number of components; ADR 0005: repaired, not dropped.</remarks>
+    /// <remarks>ISO 32000-2 §8.9.5.1, Table 87: the colour space decides the number of components; repaired, not dropped.</remarks>
     private static DecodedImage? WithComponents(DecodedImage decoded, int components, ImageFilterContext context)
     {
         DecodedImageBuilder? builder = null;

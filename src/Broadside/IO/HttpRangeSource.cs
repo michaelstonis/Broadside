@@ -17,7 +17,7 @@ namespace Broadside.IO;
 /// without a range gets its whole answer used as the file.
 /// </para>
 /// <para>
-/// Reads are synchronous (ADR 0010). A read whose blocks are cached copies them. A read that misses either blocks on the request,
+/// Reads are synchronous. A read whose blocks are cached copies them. A read that misses either blocks on the request,
 /// or, inside <see cref="RunAsync{T}"/> and wherever synchronous fetching is off (always on the browser, which cannot block on
 /// HTTP), throws <see cref="PdfRangeNotLoadedException"/>: <see cref="RunAsync{T}"/> catches it, fetches the range asynchronously
 /// and runs the operation again, so an asynchronous prefetch is the same synchronous code run until nothing misses.

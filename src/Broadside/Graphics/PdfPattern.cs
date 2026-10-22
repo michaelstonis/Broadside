@@ -51,7 +51,7 @@ public abstract class PdfPattern
     public Matrix Matrix { get; }
 
     /// <summary>Gets the earliest PDF version that has this kind of pattern: 1.2 for tiling patterns, 1.3 for shading patterns.</summary>
-    /// <remarks>ISO 32000-2 §8.6.6.2 and §8.7.4.1 (ADR 0003).</remarks>
+    /// <remarks>ISO 32000-2 §8.6.6.2 and §8.7.4.1.</remarks>
     public PdfVersion MinimumVersion => PatternType == PdfPatternType.Tiling ? new PdfVersion(1, 2) : new PdfVersion(1, 3);
 
     /// <summary>Gets a value indicating whether the pattern can be painted; when <see langword="false"/> it paints nothing.</summary>

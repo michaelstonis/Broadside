@@ -65,7 +65,7 @@ internal sealed record CryptFilter(CosName Name, CryptMethod Method, byte[] Key)
 /// <para>
 /// Damaged ciphertext is repaired the way pdf.js does, with a diagnostic: AES data too short for an IV and a block decrypts to nothing,
 /// a trailing partial block is dropped, an invalid PKCS#5 pad is kept; AES-GCM data that fails authentication decrypts to nothing.
-/// Decryption never marks anything dirty (ADR 0004). Thread-safe: the key material is immutable and every call has its own cipher.
+/// Decryption never marks anything dirty. Thread-safe: the key material is immutable and every call has its own cipher.
 /// </para>
 /// </remarks>
 internal sealed class DocumentDecryptor : IObjectDecryptor, ICryptFilterHandler

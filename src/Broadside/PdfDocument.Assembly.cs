@@ -114,7 +114,7 @@ public sealed partial class PdfDocument
     /// <c>StructureIdConflict</c>).
     /// </para>
     /// <para>
-    /// Copied objects may raise this document's version on save (ADR 0003). A mutation of this document: no read of it may run
+    /// Copied objects may raise this document's version on save. A mutation of this document: no read of it may run
     /// concurrently; the source may be read by others.
     /// </para>
     /// </remarks>

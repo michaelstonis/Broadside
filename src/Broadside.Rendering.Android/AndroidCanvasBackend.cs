@@ -19,7 +19,7 @@ namespace Broadside.Rendering.Android;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ADR 0006: it consumes display lists only. ISO 32000-2 §8.5.3: paths fill with the non-zero winding or even-odd rule
+/// It consumes display lists only. ISO 32000-2 §8.5.3: paths fill with the non-zero winding or even-odd rule
 /// (§8.5.3.3.2, §8.5.3.3.3), open subpaths closed, a trailing lone moveto ignored and a degenerate subpath given the device pixel
 /// under it (§8.5.3.3.1), as the software rasterizer does; strokes take the line parameters of §8.4.3 (width, cap, join, miter limit,
 /// dash pattern) in user space, so a non-uniform transform gives an elliptical pen; a zero width (§8.4.3.2) is a one-pixel pen in
@@ -142,7 +142,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
     /// The transform from the list's default user space to the canvas's coordinates (origin top-left, y down), such as
     /// <see cref="RenderOptions.GetDeviceTransform"/>; a tile renderer adds its own offset.
     /// </param>
-    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space). Glyphs of TrueType and OpenType programs are drawn natively.</remarks>
+    /// <remarks>ISO 32000-2 §8.3.2.2 (device space). Glyphs of TrueType and OpenType programs are drawn natively.</remarks>
     public void Render(DisplayList list, AndroidCanvas canvas, in Matrix deviceTransform) => Render(list, canvas, deviceTransform, forceOutlines: false);
 
     /// <summary>Draws <paramref name="list"/> onto <paramref name="canvas"/>, without a background; the canvas is left as it was found.</summary>
@@ -155,7 +155,7 @@ public sealed partial class AndroidCanvasBackend : IDisposable
     /// <param name="forceOutlines">
     /// Whether to fill every glyph from its outline, never through Android's font engine (<see cref="RenderOptions.ForceOutlines"/>).
     /// </param>
-    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space), §9.2.4 (glyph outlines).</remarks>
+    /// <remarks>ISO 32000-2 §8.3.2.2 (device space), §9.2.4 (glyph outlines).</remarks>
     public void Render(DisplayList list, AndroidCanvas canvas, in Matrix deviceTransform, bool forceOutlines)
     {
         ArgumentNullException.ThrowIfNull(list);

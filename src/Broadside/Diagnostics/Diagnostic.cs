@@ -7,7 +7,7 @@ namespace Broadside.Diagnostics;
 /// <summary>A record of one deviation from the specification found while reading a file, and what was done about it.</summary>
 /// <remarks>
 /// <para>
-/// ADR 0005: in lenient mode a reader repairs what it can and records a diagnostic on the document; in strict mode the first
+/// In lenient mode a reader repairs what it can and records a diagnostic on the document; in strict mode the first
 /// <see cref="DiagnosticSeverity.Warning"/> or <see cref="DiagnosticSeverity.Error"/> is thrown as a <see cref="DiagnosticException"/>.
 /// A well-formed file produces no warnings and no errors: one means a "shall" of ISO 32000-2 was violated or the reader changed what
 /// it read, never that a "should" was not followed. <see cref="DiagnosticSeverity.Information"/> notes a valid feature the library

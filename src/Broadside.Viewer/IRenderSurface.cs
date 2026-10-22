@@ -27,7 +27,7 @@ public interface IRenderSurface
     /// its pixels; otherwise the session reads such a tile back into the bitmap first (<see cref="ITileRender.ReadBack"/>).
     /// </summary>
     /// <remarks>
-    /// ADR 0012 (#380). The default, <see langword="false"/>, suits every surface that reads the bitmap (an image, a PNG, a copy). The
+    /// Issue #380. The default, <see langword="false"/>, suits every surface that reads the bitmap (an image, a PNG, a copy). The
     /// Blazor canvas surface accepts device pixels: it copies a tile still in the WebGL canvas GPU to GPU, and reads the bitmap otherwise.
     /// </remarks>
     bool AcceptsDevicePixels => false;

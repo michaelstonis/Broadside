@@ -3,13 +3,13 @@
 The owner asked for fact-finding before any implementation. This report covers two questions:
 
 - How much is saved by decoding an image only at the resolution it is drawn at (#362), and how to do it without losing fidelity?
-- Where can a platform's native or hardware decoder do the work, and how would it plug in without breaking ADR 0001 (no native dependency in the core)?
+- Where can a platform's native or hardware decoder do the work, and how would it plug in without adding a native dependency to the core?
 
 Every number in this report was measured on this branch's code, or on a throwaway prototype of it, unless it says otherwise. The prototypes lived in the session scratchpad and are deleted. Nothing here changes the library.
 
 Issues that come out of this report:
 - **#362**: updated (scaled decode).
-- **#372**: platform image decoder seam, ADR 0015.
+- **#372**: platform image decoder seam.
 - **#373**: browser.
 - **#374**: SkiaSharp.
 - **#375**: Apple ImageIO.
@@ -48,7 +48,7 @@ Issues that come out of this report:
    - Chrome cannot decode 12-bit or arithmetic-coded JPEGs, nor one corpus file (`issue12841_reduced.pdf`) that we decode. A managed fallback is required.
 7. **Recommendation, in order:**
    1. Scaled decode in the managed codecs (#362). It helps every platform and is the precondition for the rest.
-   2. The browser native path (#373) behind a new asynchronous seam (#372, ADR 0015). It is the only place native decode is a large win, 5–23× and off the thread.
+   2. The browser native path (#373) behind a new asynchronous seam (#372). It is the only place native decode is a large win, 5–23× and off the thread.
    3. SkiaSharp `SKCodec` for the MAUI/Skia shells (#374), about 3×.
    4. ImageIO, Android and WIC (#375, #376, #377) only if device measurements beat the Skia path.
 
@@ -339,7 +339,7 @@ What a reduction saves, by order:
   - the inverse DWT (Annex F) of the dropped levels.
 
   That is most of the work: tier-1 is 75% of our decode (perf deep dive H9).
-- **RLCP, RPCL, and LRCP with one layer:** the header decoding and the bytes of the dropped packets as well. Over range requests (ADR 0010) those bytes need not be fetched at all, when a tile's tail is in its own tile-part or the range can stop there.
+- **RLCP, RPCL, and LRCP with one layer:** the header decoding and the bytes of the dropped packets as well. Over range requests those bytes need not be fetched at all, when a tile's tail is in its own tile-part or the range can stop there.
 - **PCRL, CPRL, and LRCP with several layers:** every byte is still read, and every dropped header is decoded or skipped through PLT. The saving is tier-1 and the DWT only.
 
 Measured with OpenJPEG 2.5.4 (`-r d -threads 1`, including process start and PPM write) on `issue5567.pdf` (1500×1125, 5 levels, 1 layer):
@@ -444,7 +444,7 @@ ISO 32000-2 §8.9.5 makes the image dictionary's `/ColorSpace` and `/Decode` aut
 | **12-bit, arithmetic, lossless, hierarchical.** | Managed unless measured supported on that path. Arithmetic is fine on Skia and ImageIO. |
 | **SOF size differs from the dictionary's, or height 0 with DNL.** | Managed. The pdf.js rule. |
 | **Fancy upsampling** (Skia, Chrome RGB paths, ImageIO, Android). Up to 23 levels at chroma edges of 4:2:0 images, 0.5% of pixels. | Tolerance tests (§6.5). Chrome planes avoid it entirely. |
-| **Decode failure** (Chrome on `issue12841_reduced.pdf`). | Fall back to managed and record an Information diagnostic (ADR 0005: never silent). |
+| **Decode failure** (Chrome on `issue12841_reduced.pdf`). | Fall back to managed and record an Information diagnostic (never silent). |
 
 ### 5.4 Round trip into .NET
 
@@ -462,9 +462,9 @@ ISO 32000-2 §8.9.5 makes the image dictionary's `/ColorSpace` and `/Decode` aut
 
 ## 6. Design proposal
 
-### 6.1 Display lists hold images that decode on demand (ADR 0014, in #362)
+### 6.1 Display lists hold images that decode on demand (#362)
 
-Today `DisplayListBuilder.InternImage` decodes each image fully at build time, and `DisplayImage` holds the samples (ADR 0006: "decoded images"). A reduction depends on the device transform, which a device-independent list does not know.
+Today `DisplayListBuilder.InternImage` decodes each image fully at build time, and `DisplayImage` holds the samples (the display list interns "decoded images"). A reduction depends on the device transform, which a device-independent list does not know.
 
 Proposal:
 - `DisplayImage` holds a reference to an internal `ImageSource` record with:
@@ -475,16 +475,16 @@ Proposal:
   - The call returns a `DecodedImage` plus the source size, so geometry stays exact (§2.4).
   - It decodes at most once per (image, reduction) across threads. A per-entry once-gate honours the concurrent-replay contract of #357.
 - **The build still reads the header** (`IImageFilter.TryReadHeader`) and applies the size limits, so a list stays complete and safe. Decode diagnostics move from list build to first replay. Document that.
-- **Invariant:** a backend still never reads the file. The encoded bytes are in memory, and ADR 0010's prefetch has already fetched them.
+- **Invariant:** a backend still never reads the file. The encoded bytes are in memory, and the asynchronous prefetch has already fetched them.
 - `IImageFilter` gains an optional reduction:
   - `ImageFilterContext.Reduction` (log2 requested).
   - `DecodedImage.Reduction` (log2 delivered: a codec may deliver less).
   - Codecs that do not support it ignore it.
-  This extends an existing extension point; ADR 0001 needs no new one.
+  This extends an existing extension point; no new one is needed.
 
-### 6.2 The platform decoder seam (ADR 0015, #372)
+### 6.2 The platform decoder seam (#372)
 
-Browser decoders are asynchronous, and the core is synchronous (ADR 0010). Following ADR 0010's pattern, add one asynchronous boundary instead of making decode asynchronous:
+Browser decoders are asynchronous, and the core is synchronous. Following the pattern of the asynchronous prefetch for remote files, add one asynchronous boundary instead of making decode asynchronous:
 
 ```csharp
 // Broadside core: the extension point; managed default = none registered.
@@ -502,7 +502,7 @@ How it is used:
 - **Before replaying a tile**, the tile scheduler awaits `PrefetchImagesAsync` for the list's images that the tile reaches and that lack a cached reduction. Eligible ones go to the platform decoder; the rest decode managed.
 - **Then the replay runs synchronously** and finds every image in the cache. A cache miss during replay, such as a caller that did not prefetch, decodes managed. It never blocks on the platform decoder, so the browser cannot deadlock.
 - **In MAUI/desktop**, the background tile job (#357) awaits the prefetch on the thread pool.
-- **In the browser** it awaits in the cooperative loop: the native decode runs off the thread while the frame loop continues. Or the render worker (ADR 0013) does the same in its own runtime.
+- **In the browser** it awaits in the cooperative loop: the native decode runs off the thread while the frame loop continues. Or the render worker does the same in its own runtime.
 
 Other parts of the seam:
 - **Eligibility** (§5.3) lives in the core as one shared predicate over `JpegInfo` (already in `Broadside.Images`) plus the dictionary. A platform decoder can only narrow it.
@@ -512,7 +512,7 @@ Other parts of the seam:
 
 ### 6.3 Why not just register a native `IImageFilter`?
 
-`PdfOptions.UseFilter` already lets a platform package replace `DCTDecode` synchronously (ADR 0001). For the synchronous platforms (Skia, ImageIO, WIC, Android) that would work today. It has three costs:
+`PdfOptions.UseFilter` already lets a platform package replace `DCTDecode` synchronously. For the synchronous platforms (Skia, ImageIO, WIC, Android) that would work today. It has three costs:
 - It cannot serve the browser's asynchronous APIs.
 - It gives no shared eligibility or fallback, so each package re-implements both.
 - It would replace the managed decoder for byte-level `Decode` callers, such as text extraction or export, who need exact §8.9.3 samples.
@@ -543,7 +543,7 @@ Benchmarks (`[MemoryDiagnoser]`, allocation-free per row and MCU):
 
 | Platform | Recommendation | Why |
 |---|---|---|
-| All | **#362 first**: scaled DCT (port `jidctred.c` and the chroma rule, DC-only progressive), JPX level discard, Flate row reduction, on-demand display images (ADR 0014) | 2–20× on image pages everywhere; precondition for the rest |
+| All | **#362 first**: scaled DCT (port `jidctred.c` and the chroma rule, DC-only progressive), JPX level discard, Flate row reduction, on-demand display images | 2–20× on image pages everywhere; precondition for the rest |
 | Browser (Blazor, page and render worker) | **Yes, high priority** (#373). `ImageDecoder` planes at full size (bit-exact), `desiredWidth` when reduced. `createImageBitmap` fallback on Safari, preferably in the render worker or as mode B. | 15.5 ms off-thread vs 72 ms (AOT) / 364 ms (interpreter) on-thread |
 | MAUI and the Skia backend (Android, iOS, Catalyst, Windows) | **Yes, medium priority** (#374). `SKCodec` scaled decode in `Broadside.Rendering.Skia`. | 3.3× full, equal to libjpeg-turbo; native dependency already allowed there |
 | Apple, CoreGraphics backend | **Measure on a device first** (#375). ImageIO is 2.7× but not bit-exact, and its 1/4 output is 46 dB. | Only matters if the CoreGraphics backend is used without Skia |

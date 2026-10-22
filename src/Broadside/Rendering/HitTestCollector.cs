@@ -4,7 +4,7 @@ namespace Broadside.Rendering;
 
 /// <summary>
 /// A backend that paints nothing and collects where images and paths land: each paint's box in page space under the transform in
-/// force, cut to the bounds of the clip in force (ADR 0006: hit-testing reads the display list like any backend).
+/// force, cut to the bounds of the clip in force (hit-testing reads the display list like any backend).
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §8.4.2 (the state stack), §8.3.2 (transforms), §8.5.3 (paths), §8.5.4 (clips), §8.9.4 (the image unit square) and

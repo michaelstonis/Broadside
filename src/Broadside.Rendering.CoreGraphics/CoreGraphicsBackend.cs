@@ -212,7 +212,7 @@ internal sealed partial class CoreGraphicsBackend : IRenderingBackend, IDisposab
         }
     }
 
-    /// <summary>Adds <paramref name="diagnostic"/> the first time a replay meets its kind (ADR 0005: never silently).</summary>
+    /// <summary>Adds <paramref name="diagnostic"/> the first time a replay meets its kind (never silently).</summary>
     private void Report(ReportedKinds kind, Diagnostic diagnostic)
     {
         if ((_reported & kind) == 0)

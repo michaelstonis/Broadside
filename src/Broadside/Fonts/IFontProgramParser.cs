@@ -18,7 +18,7 @@ namespace Broadside.Fonts;
 /// </para>
 /// <para>
 /// Thread safety: one instance serves every document of every thread of the engines it is registered with, so it keeps no state
-/// between calls. Leniency (ADR 0005): on malformed data a parser repairs what it can, reports each repair through
+/// between calls. Leniency: on malformed data a parser repairs what it can, reports each repair through
 /// <see cref="FontProgramContext.Report"/>, and returns a program, or <see langword="null"/> when nothing is usable; it does not
 /// throw except for the <see cref="Diagnostics.DiagnosticException"/> strict mode raises. Any other exception is caught by the
 /// engine and recorded as a diagnostic.

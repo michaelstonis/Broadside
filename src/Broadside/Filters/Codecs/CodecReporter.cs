@@ -14,7 +14,7 @@ internal readonly record struct CodecDiagnostic(string Code, DiagnosticSeverity 
 /// "report once per code" policy the DCT, JPX and JBIG2 decoders share.
 /// </summary>
 /// <remarks>
-/// ADR 0005: lenient mode records and continues; strict mode throws from <see cref="Report"/> (the context throws). A silent reporter
+/// Lenient mode records and continues; strict mode throws from <see cref="Report"/> (the context throws). A silent reporter
 /// (a header read the decode repeats) reports nothing. Without a context it only records, in <see cref="Recorded"/>, for a caller
 /// that replays the deviations into another call (JBIG2 globals). A pooled decoder calls <see cref="Reset"/> per call; the set and
 /// list keep their capacity, so a call that reports nothing allocates nothing.

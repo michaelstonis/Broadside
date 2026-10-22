@@ -230,7 +230,7 @@ public sealed partial class PdfPage
     /// <exception cref="IOException">The server's answers are inconsistent: the file changed while it was read, for instance.</exception>
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
     /// <remarks>
-    /// Spec #33, viewer capability 5; ADR 0010. Only a document opened through
+    /// Spec #33, viewer capability 5. Only a document opened through
     /// <see cref="PdfEngine.OpenAsync(HttpClient, Uri, CancellationToken)"/> fetches anything. Where
     /// <see cref="PdfOptions.SynchronousRangeFetch"/> is off (always on the browser, which cannot block on HTTP), a synchronous read
     /// of a page before its prefetch throws <see cref="PdfRangeNotLoadedException"/>; elsewhere it blocks on the requests instead, and
@@ -399,7 +399,7 @@ public sealed partial class PdfPage
     /// </returns>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
     /// <remarks>
-    /// ADR 0006; ISO 32000-2 §8.5.3 (path painting) and §8.6 (colour). The content runs through the same interpreter as
+    /// ISO 32000-2 §8.5.3 (path painting) and §8.6 (colour). The content runs through the same interpreter as
     /// <see cref="ProcessContent(ContentProcessor)"/>, so lenient repairs are recorded in <see cref="PdfDocument.Diagnostics"/> the
     /// same way. Geometry is in user space with the transform to default user space; the media box, crop box, rotation and user unit
     /// are the renderer's to apply. Colours keep their colour space; a backend converts them (see <see cref="DisplayColor"/>).
@@ -416,7 +416,7 @@ public sealed partial class PdfPage
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
     /// <exception cref="OperationCanceledException">The options' cancellation token was canceled.</exception>
     /// <remarks>
-    /// ADR 0006; ISO 32000-2 §8.5.3, §8.6. As <see cref="CreateDisplayList()"/>: lists are kept per page and limits; a list built with
+    /// ISO 32000-2 §8.5.3, §8.6. As <see cref="CreateDisplayList()"/>: lists are kept per page and limits; a list built with
     /// an <see cref="ContentOptions.OptionalContentState"/> is not kept, since the state can change without any COS object changing.
     /// </remarks>
     public DisplayList CreateDisplayList(ContentOptions options)
@@ -428,7 +428,7 @@ public sealed partial class PdfPage
     /// <summary>Builds the page's hit-test index: its display list's glyphs, images and paths, and its link annotations.</summary>
     /// <returns>The index, from a display list built for it under the document's default optional-content states.</returns>
     /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for the first deviation found in the content.</exception>
-    /// <remarks>Viewer capability 4; ADR 0006. As <see cref="CreateHitTestIndex(DisplayList, PdfOptionalContentState?)"/>.</remarks>
+    /// <remarks>Viewer capability 4. As <see cref="CreateHitTestIndex(DisplayList, PdfOptionalContentState?)"/>.</remarks>
     public HitTestIndex CreateHitTestIndex() => CreateHitTestIndex(CreateDisplayList());
 
     /// <summary>Builds the page's hit-test index from a display list the caller already has, adding the page's link annotations.</summary>
@@ -465,7 +465,7 @@ public sealed partial class PdfPage
     /// <exception cref="OperationCanceledException">The options' cancellation token was canceled.</exception>
     /// <remarks>
     /// <para>
-    /// ADR 0006; ISO 32000-2 §12.5.5 (Algorithm "Appearance streams"), §12.5.3 (flags) and §12.7 (form fields through their widgets).
+    /// ISO 32000-2 §12.5.5 (Algorithm "Appearance streams"), §12.5.3 (flags) and §12.7 (form fields through their widgets).
     /// The content layer is what <see cref="CreateDisplayList(ContentOptions)"/> builds. The annotation layer holds every annotation
     /// but widgets, the form-field layer every widget, each in <c>Annots</c> order, each between
     /// <see cref="IRenderingBackend.BeginAnnotation"/> and <see cref="IRenderingBackend.EndAnnotation"/>: its normal appearance for

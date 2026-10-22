@@ -20,7 +20,7 @@ internal static class AnnotationEditing
     private static readonly CosName Solid = new("S");
     private static readonly CosName Action = new("Action");
 
-    /// <summary>Runs <paramref name="change"/>, undoing every change it made to the document when it throws (mutation is single-threaded, ADR 0004).</summary>
+    /// <summary>Runs <paramref name="change"/>, undoing every change it made to the document when it throws (mutation is single-threaded).</summary>
     public static T Atomically<T>(Func<T> change)
     {
         var log = new CosChangeLog();
@@ -178,7 +178,7 @@ internal static class AnnotationEditing
         return annotation;
     }
 
-    /// <summary>Records the versioned features the new annotation's entries use (ADR 0003), as <see cref="CarriedFeatures"/> finds them in a copy.</summary>
+    /// <summary>Records the versioned features the new annotation's entries use, as <see cref="CarriedFeatures"/> finds them in a copy.</summary>
     private static void RequireFeatures(PdfDocument document, CosDictionary dictionary, PdfAnnotationKind kind)
     {
         document.RequireFeature(VersionedFeatures.AnnotationEntries11);

@@ -11,7 +11,7 @@ namespace Broadside.Structure;
 /// namespace dictionary naming <c>http://iso.org/pdf2/ssn</c> equals <see cref="Pdf20"/>, whatever object it is (§14.7.4.2).
 /// </para>
 /// <para>
-/// A view over its dictionary (ADR 0004): <see cref="Name"/>, <see cref="RoleMap"/> and <see cref="Schema"/> read it on every call.
+/// A view over its dictionary: <see cref="Name"/>, <see cref="RoleMap"/> and <see cref="Schema"/> read it on every call.
 /// The <c>Schema</c> file specification is exposed as its COS object until the file specification view (issue #76) types it.
 /// </para>
 /// </remarks>

@@ -8,7 +8,7 @@ namespace Broadside;
 /// <para>
 /// ISO 32000-2 §12.3.3, Tables 151 and 152. The properties read the item dictionary on every call and return the defaults the clause
 /// gives (black, no flags) without writing them. <see cref="Children"/>, <see cref="Parent"/> and <see cref="Level"/> read the shape of
-/// the outline the catalog names as its links are now (ADR 0004): an edit through any view, or straight to the COS objects, shows at
+/// the outline the catalog names as its links are now: an edit through any view, or straight to the COS objects, shows at
 /// the next read. The outline is walked again only when a dictionary the last walk read has changed (see <see cref="PdfOutline"/>);
 /// an item stays the same view while it stays in the outline. An item the outline does not reach (removed, or of an outline the
 /// catalog no longer names) has no parent, no children and level 0.
@@ -132,7 +132,7 @@ public sealed class PdfOutlineItem
     /// <exception cref="ArgumentOutOfRangeException">A component of the value set is not a number from 0 to 1.</exception>
     /// <remarks>
     /// ISO 32000-2 §12.3.3, Table 151: DeviceRGB, default <c>[0.0 0.0 0.0]</c>. Setting black removes <c>C</c>, the default; any other
-    /// colour is written as three numbers (PDF 1.4), and a later save of a document below PDF 1.4 raises it to 1.4 (ADR 0003).
+    /// colour is written as three numbers (PDF 1.4), and a later save of a document below PDF 1.4 raises it to 1.4.
     /// </remarks>
     public PdfRgbColor Color
     {
@@ -164,7 +164,7 @@ public sealed class PdfOutlineItem
     /// <remarks>
     /// ISO 32000-2 §12.3.3, Tables 151 and 152: "all other bits of the integer shall be 0". Setting
     /// <see cref="PdfOutlineItemFlags.None"/> removes <c>F</c>, the default; any other value raises a later save of a document below
-    /// PDF 1.4 to 1.4 (ADR 0003).
+    /// PDF 1.4 to 1.4.
     /// </remarks>
     public PdfOutlineItemFlags Flags
     {

@@ -12,7 +12,7 @@ namespace Broadside.Viewer;
 /// <remarks>
 /// <para>
 /// Spec #33 viewer capabilities 1 (tiles from cached display lists), 3 (render-ahead with cancellation) and 13 (one memory budget).
-/// ISO 32000-2 §10.7.1 (rendering through display lists, ADR 0006).
+/// ISO 32000-2 §10.7.1 (rendering through display lists).
 /// </para>
 /// <para>
 /// The shell calls <see cref="Update"/> whenever the viewport changes and <see cref="RunFrame"/> once per frame (for example from

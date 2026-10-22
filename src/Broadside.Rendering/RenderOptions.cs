@@ -106,7 +106,7 @@ public sealed class RenderOptions
     /// backend's own font rendering; <see langword="false"/> by default.
     /// </summary>
     /// <remarks>
-    /// ADR 0006: a display list's glyph runs carry the font program and glyph ids, so a native backend (SkiaSharp, CoreGraphics,
+    /// A display list's glyph runs carry the font program and glyph ids, so a native backend (SkiaSharp, CoreGraphics,
     /// Direct2D, Android) may draw glyphs with its platform's font engine, whose hinting and anti-aliasing differ from the outlines'.
     /// With this set, such a backend fills and strokes <see cref="GlyphRun.GetOutline"/> like any path, so its output matches the
     /// software rasterizer's within the golden-image threshold. The software rasterizer always draws outlines (ISO 32000-2 §9.2.4).

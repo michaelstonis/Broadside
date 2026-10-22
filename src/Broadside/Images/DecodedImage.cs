@@ -77,7 +77,7 @@ public sealed class DecodedImage : IDisposable
     /// <summary>Gets the number of rows the data actually held; the rows after them are zero.</summary>
     /// <remarks>
     /// ISO 32000-2 §8.9.3. Less than <see cref="Height"/> only for truncated data, which a lenient reader decodes as far as it goes
-    /// and records as a diagnostic (ADR 0005). An image mask's missing rows paint nothing.
+    /// and records as a diagnostic. An image mask's missing rows paint nothing.
     /// </remarks>
     public int DecodedRows { get; }
 

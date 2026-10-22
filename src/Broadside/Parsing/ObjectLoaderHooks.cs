@@ -32,7 +32,7 @@ internal readonly record struct ObjectLoadContext(CosReference Reference, long O
 /// <remarks>
 /// Must not decrypt cross-reference streams (they never pass through the loader: <see cref="XrefStreamReader"/> reads them), objects
 /// inside object streams (never passed to it: they are decrypted with their container, an ordinary <see cref="ObjectOrigin.FileBody"/>
-/// stream), or the <c>Encrypt</c> dictionary itself (§7.6.2). Must not mark anything dirty (ADR 0004).
+/// stream), or the <c>Encrypt</c> dictionary itself (§7.6.2). Must not mark anything dirty.
 /// </remarks>
 internal interface IObjectDecryptor
 {

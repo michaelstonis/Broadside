@@ -56,3 +56,4 @@ Broadside is a fully managed .NET PDF library (read, write, edit, render) with v
 - Do not mark a conformance row `done` without a linked test.
 - Do not change `CONTEXT.md` terms or write an ADR without stating in the PR why the existing decision was wrong.
 - Do not merge from Phase 2 onward without owner review.
+- Do not reference ADRs in docs, READMEs, site pages or XML doc comments. State the decision in plain words; `./check-adr-refs.sh` (run by `check-docs.sh` in CI) enforces it.

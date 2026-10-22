@@ -10,7 +10,7 @@ namespace Broadside.Rendering.CoreGraphics;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ADR 0006: it consumes display lists only, replaying them through its own <see cref="IRenderingBackend"/>. Fills, strokes and clips
+/// It consumes display lists only, replaying them through its own <see cref="IRenderingBackend"/>. Fills, strokes and clips
 /// become CoreGraphics paths: fills and clips by the non-zero winding or even-odd rule (ISO 32000-2 §8.5.3.3, §8.5.4), open
 /// subpaths closed, a trailing lone moveto ignored and a degenerate subpath given the device pixel under it (§8.5.3.3.1); strokes in
 /// the stroke's user space with its line width, caps, joins, miter limit and dash pattern (§8.4.3, §8.5.3.2), so a non-uniform
@@ -118,7 +118,7 @@ public sealed class CoreGraphicsRenderer : IDisposable
     /// <see cref="RenderOptions.GetDeviceTransform"/> for a context whose user space is pixels with the origin at the top left and y
     /// down (a flipped view's); a tile renderer adds its own offset.
     /// </param>
-    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space).</remarks>
+    /// <remarks>ISO 32000-2 §8.3.2.2 (device space).</remarks>
     public void Render(DisplayList list, CGContext context, in Matrix deviceTransform)
     {
         ArgumentNullException.ThrowIfNull(list);
@@ -137,7 +137,7 @@ public sealed class CoreGraphicsRenderer : IDisposable
     /// <see cref="RenderOptions.GetDeviceTransform"/>; a tile renderer adds its own offset.
     /// </param>
     /// <param name="forceOutlines">Whether every glyph is filled from its outline (<see cref="RenderOptions.ForceOutlines"/>).</param>
-    /// <remarks>ADR 0006; ISO 32000-2 §8.3.2.2 (device space), §9.2.4 (glyph outlines).</remarks>
+    /// <remarks>ISO 32000-2 §8.3.2.2 (device space), §9.2.4 (glyph outlines).</remarks>
     public void Render(DisplayList list, CGContext context, in Matrix deviceTransform, bool forceOutlines)
     {
         ArgumentNullException.ThrowIfNull(list);
@@ -148,7 +148,7 @@ public sealed class CoreGraphicsRenderer : IDisposable
     }
 
     /// <summary>Gets what the last render could not draw exactly as the file asks: one diagnostic per kind.</summary>
-    /// <remarks>ADR 0005: nothing is skipped or approximated silently. CoreGraphics' ColorDodge, ColorBurn and SoftLight are not ISO 32000-2 §11.3.5's; mesh shadings (§8.7.4.5.5 to §8.7.4.5.8) are rasterized by the backend.</remarks>
+    /// <remarks>Nothing is skipped or approximated silently. CoreGraphics' ColorDodge, ColorBurn and SoftLight are not ISO 32000-2 §11.3.5's; mesh shadings (§8.7.4.5.5 to §8.7.4.5.8) are rasterized by the backend.</remarks>
     public IReadOnlyList<Diagnostic> Diagnostics => _backend.Diagnostics;
 
     /// <summary>Gets how many CoreGraphics images the renderer made from display-list images and masks.</summary>

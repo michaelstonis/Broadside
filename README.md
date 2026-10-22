@@ -23,7 +23,7 @@ Broadside is a fully managed .NET implementation of the PDF specification (ISO 3
 
 ## Install
 
-Broadside targets `net10.0` only ([ADR 0002](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0002-target-net10-only.md)). Every package is a prerelease, so pass `--prerelease`:
+Broadside targets `net10.0` only. Every package is a prerelease, so pass `--prerelease`:
 
 ```sh
 dotnet add package Broadside --prerelease                    # read, write, edit; text extraction
@@ -54,7 +54,7 @@ All 13 packages are published to NuGet.org at `0.1.0-preview.1`, with a matching
 | [`Broadside.Viewer.Blazor`](https://www.nuget.org/packages/Broadside.Viewer.Blazor) | Blazor WebAssembly viewer component (`PdfViewer`) | `net10.0` (browser only) | `Microsoft.AspNetCore.Components.Web` |
 | [`Broadside.Viewer.Maui`](https://www.nuget.org/packages/Broadside.Viewer.Maui) | .NET MAUI viewer control (`PdfView`), drawn with SkiaSharp | `net10.0`, `net10.0-android`, `net10.0-ios`, `net10.0-maccatalyst`; `net10.0-windows10.0.19041.0` from the next release ([#381](https://github.com/michaelstonis/Broadside/issues/381)) | `Microsoft.Maui.Controls`, `SkiaSharp.Views.Maui.Controls` |
 
-The core and `Broadside.Rendering` depend only on packages Microsoft ships with no native component ([ADR 0001](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0001-fully-managed-core-with-extension-points.md)); every other backend depends on its platform library and nothing else. Every package except `Broadside.Viewer.Maui` is marked trimmable and AOT-compatible. MAUI and SkiaSharp's views are not annotated for trimming on every target.
+The core and `Broadside.Rendering` depend only on packages Microsoft ships with no native component; every other backend depends on its platform library and nothing else. Every package except `Broadside.Viewer.Maui` is marked trimmable and AOT-compatible. MAUI and SkiaSharp's views are not annotated for trimming on every target.
 
 ## Quick start
 
@@ -116,18 +116,18 @@ using (PdfDocument report = PdfDocument.Create())
 }
 ```
 
-Reading is lenient by default: a damaged file is repaired and every repair is recorded as a `Diagnostic` on the document; `new PdfOptions().UseStrict()` makes the first deviation an error instead ([ADR 0005](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0005-lenient-reading-with-diagnostics.md)).
+Reading is lenient by default: a damaged file is repaired and every repair is recorded as a `Diagnostic` on the document; `new PdfOptions().UseStrict()` makes the first deviation an error instead.
 
 ## What it does
 
 - **Read.** Parsing with repair of damaged files (cross-reference reconstruction, `startxref` and stream `/Length` recovery), object streams, incremental-update chains, linearized files, and remote files read through HTTP range requests (`PdfDocument.OpenAsync(HttpClient, Uri)`). Decryption with the standard security handler (RC4, AES-128, AES-256, AES-GCM per ISO/TS 32003) and the public-key security handler.
 - **Filters and codecs.** Flate, LZW, ASCIIHex, ASCII85, RunLength, predictors, DCT (JPEG), CCITT fax, JBIG2 and JPEG 2000, all managed.
 - **Fonts.** TrueType, OpenType, CFF and CID-keyed CFF, Type 1 and Type 3, composite fonts with embedded or predefined CMaps, and a font resolver for fonts that are not embedded.
-- **Render.** The content interpreter builds a display list that every backend consumes ([ADR 0006](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0006-display-list-rendering-architecture.md)). The software rasterizer covers paths, text, images, shadings, patterns and the transparency model. The ICC colour engine handles ICCBased colour spaces. Render options cover DPI or scale, rotation, a region, layers, intent, anti-aliasing, overprint preview, cancellation and progress.
+- **Render.** The content interpreter builds a display list that every backend consumes. The software rasterizer covers paths, text, images, shadings, patterns and the transparency model. The ICC colour engine handles ICCBased colour spaces. Render options cover DPI or scale, rotation, a region, layers, intent, anti-aliasing, overprint preview, cancellation and progress.
 - **Write.** The canvas API (`PdfPage.CreateCanvas()`), font embedding with subsetting, and the flow layout package. Output conformance: PDF/A-2b, -2u, -3b, -3u, -4 and -4f (`PdfSaveOptions.WithPdfAConformance`), PDF/UA-1 and -2 (`WithPdfUAConformance`), and Well-Tagged PDF. PDF/A-2b output is validated by veraPDF in CI.
 - **Edit.** Incremental update or full rewrite, linearized output, page insertion, removal and reordering, `PdfDocument.Merge` and `Split`, annotations, form filling with regenerated appearances and flattening, and encryption on save.
 - **Text and structure.** Text extraction with words, lines and reading order (`PdfPage.ExtractText()`), the layout tree (`PdfPage.ExtractLayout()`), the structure tree, and auto-tagging of untagged files (`PdfDocument.AutoTag()`).
-- **Signatures.** CMS/PAdES signing through one signer interface (`PdfDocument.Sign`, `PdfCertificateSigner`; [ADR 0011](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0011-external-signer-contract.md)) and validation (`PdfDocument.ValidateSignatures`).
+- **Signatures.** CMS/PAdES signing through one signer interface (`PdfDocument.Sign`, `PdfCertificateSigner`) and validation (`PdfDocument.ValidateSignatures`).
 - **Out of scope** stays parse-and-preserve: JavaScript, XFA rendering, 3D, rich media and multimedia are read, kept and written back, never executed or rendered.
 
 How much of each specification is implemented is in the [conformance map](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/README.md), summarized under [Documentation](#documentation).
@@ -153,8 +153,8 @@ Both viewer controls are shells over `Broadside.Viewer`, which owns the document
 **Blazor WebAssembly** (`Broadside.Viewer.Blazor`). The `PdfViewer` component draws tiles into canvases and opens remote files through HTTP range requests, first page first. It has no native assets and no third-party JavaScript.
 
 - The software rasterizer draws the tiles by default.
-- WebGL 2 is opt-in: await `WebGLTileBackend.InitializeAsync()`, then pass `new ViewerOptions().UseBackend(WebGLTileBackend.Create)` ([ADR 0012](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0012-webgl2-backend-for-the-browser-viewer.md)). Thumbnails and other surfaces that need pixels read them back from the GPU on the integration branch ([#380](https://github.com/michaelstonis/Broadside/issues/380), not released yet).
-- The render worker is opt-in too: a second .NET runtime in a JS Web Worker draws content tiles off the page's thread ([ADR 0013](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0013-tiles-render-off-the-ui-thread.md)). The library never starts it by itself. The app must serve it from `Main` (`RenderWorker.Serve`), start it (`RenderWorker.StartAsync`) and give each session a renderer (`ViewerOptions.UseRemoteRenderer`). It needs no cross-origin isolation and does not use .NET WebAssembly threads.
+- WebGL 2 is opt-in: await `WebGLTileBackend.InitializeAsync()`, then pass `new ViewerOptions().UseBackend(WebGLTileBackend.Create)`. Thumbnails and other surfaces that need pixels read them back from the GPU on the integration branch ([#380](https://github.com/michaelstonis/Broadside/issues/380), not released yet).
+- The render worker is opt-in too: a second .NET runtime in a JS Web Worker draws content tiles off the page's thread. The library never starts it by itself. The app must serve it from `Main` (`RenderWorker.Serve`), start it (`RenderWorker.StartAsync`) and give each session a renderer (`ViewerOptions.UseRemoteRenderer`). It needs no cross-origin isolation and does not use .NET WebAssembly threads.
 
 ```razor
 @using Broadside.Viewer.Blazor
@@ -169,7 +169,7 @@ Both viewer controls are shells over `Broadside.Viewer`, which owns the document
 
 Give the viewer a size: its canvas and layers are absolutely positioned and its own stylesheet sets no height, so without one it collapses to zero height ([#393](https://github.com/michaelstonis/Broadside/issues/393) proposes a default).
 
-**.NET MAUI** (`Broadside.Viewer.Maui`). The `PdfView` control draws with SkiaSharp. Tiles render off the UI thread ([#357](https://github.com/michaelstonis/Broadside/issues/357), ADR 0013) and are composed on the GPU: Metal on iOS and Mac Catalyst, OpenGL ES on Android, and Direct3D on Windows. Set `UseHardwareAcceleration` to false to compose on the CPU instead. Register it with `builder.UseBroadsideViewer()` in `MauiProgram`, then set `Source` to a file path or an http(s) address.
+**.NET MAUI** (`Broadside.Viewer.Maui`). The `PdfView` control draws with SkiaSharp. Tiles render off the UI thread ([#357](https://github.com/michaelstonis/Broadside/issues/357)) and are composed on the GPU: Metal on iOS and Mac Catalyst, OpenGL ES on Android, and Direct3D on Windows. Set `UseHardwareAcceleration` to false to compose on the CPU instead. Register it with `builder.UseBroadsideViewer()` in `MauiProgram`, then set `Source` to a file path or an http(s) address.
 
 **Samples** (in [`samples/`](https://github.com/michaelstonis/Broadside/tree/main/samples)):
 
@@ -215,7 +215,6 @@ From the [open issues](https://github.com/michaelstonis/Broadside/issues):
 
 - **Site and API reference:** <https://michaelstonis.github.io/Broadside/>. Its sources are in [`site/`](https://github.com/michaelstonis/Broadside/tree/main/site); build and check it locally with `./check-docs.sh`.
 - [`CONTEXT.md`](https://github.com/michaelstonis/Broadside/blob/main/CONTEXT.md): the vocabulary.
-- [`docs/adr/`](https://github.com/michaelstonis/Broadside/tree/main/docs/adr): the architecture decisions and why.
 - [`docs/plan/`](https://github.com/michaelstonis/Broadside/blob/main/docs/plan/README.md): phases, tracks and the issue lists.
 - [`docs/conformance/`](https://github.com/michaelstonis/Broadside/blob/main/docs/conformance/README.md): what is implemented, clause by clause, checked in CI by `tools/ConformanceCheck`. In October 2026, of the 646 rows across 17 specifications, 356 are `done`, 115 `partial`, 128 `not started` and 47 `n/a`. For ISO 32000-2 alone, 272 of 433 rows are `done` and 68 `partial`. Most of the 66 `not started` rows there are introductions, out-of-scope features (multimedia, 3D, rich media), prepress (separations, trapping, OPI) and informative annexes. Run `dotnet run --project tools/ConformanceCheck -- --summary` for the current counts.
 - [`docs/benchmarks/`](https://github.com/michaelstonis/Broadside/tree/main/docs/benchmarks): the [perf deep dive](https://github.com/michaelstonis/Broadside/blob/main/docs/benchmarks/perf-deep-dive.md), [WebGL against the software rasterizer](https://github.com/michaelstonis/Broadside/blob/main/docs/benchmarks/viewer-gpu-vs-software.md), [the render worker](https://github.com/michaelstonis/Broadside/blob/main/docs/benchmarks/viewer-render-worker.md), and the [Phase 2](https://github.com/michaelstonis/Broadside/blob/main/docs/benchmarks/phase-2-content-baseline.md) and [Phase 3](https://github.com/michaelstonis/Broadside/blob/main/docs/benchmarks/phase-3-render-baselines.md) baselines.
@@ -243,7 +242,7 @@ People and AI agents contribute the same way: pick an issue, branch, and open a 
 
 ## Sponsoring
 
-Broadside is free to use under the MIT license and will stay that way. Sponsorship funds the work and buys priority on bugs and features, never access to features. See [`SPONSORS.md`](https://github.com/michaelstonis/Broadside/blob/main/SPONSORS.md) for the tiers and [ADR 0008](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0008-mit-license-sponsorship-not-restriction.md) for the reasoning.
+Broadside is free to use under the MIT license and will stay that way. Sponsorship funds the work and buys priority on bugs and features, never access to features. See [`SPONSORS.md`](https://github.com/michaelstonis/Broadside/blob/main/SPONSORS.md) for the tiers.
 
 ## License
 

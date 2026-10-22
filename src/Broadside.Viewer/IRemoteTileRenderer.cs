@@ -7,7 +7,7 @@ namespace Broadside.Viewer;
 /// presents finished tiles and draws what the remote copy cannot know about (edits, which stay with the session's own document).
 /// </summary>
 /// <remarks>
-/// Spec #33 viewer capability 1 (#357), ADR 0013. Selected with <see cref="ViewerOptions.UseRemoteRenderer"/>; the session disposes it
+/// Spec #33 viewer capability 1 (#357). Selected with <see cref="ViewerOptions.UseRemoteRenderer"/>; the session disposes it
 /// when it closes. A tile it renders never reaches the surface after its token is cancelled.
 /// </remarks>
 public interface IRemoteTileRenderer : IDisposable

@@ -5,7 +5,7 @@ namespace Broadside;
 /// <para>ISO 32000-2 §7.5.4 (cross-reference table), §7.5.7 (object streams) and §7.5.8 (cross-reference streams).</para>
 /// <para>
 /// The supported combinations, and the minimum PDF version each needs (the header is raised to it when the document's own version is
-/// lower; ADR 0003):
+/// lower):
 /// </para>
 /// <list type="table">
 /// <listheader><term>Layout</term><description>Cross-reference / object streams / minimum version</description></listheader>

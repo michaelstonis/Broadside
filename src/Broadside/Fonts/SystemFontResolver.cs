@@ -15,7 +15,7 @@ namespace Broadside.Fonts;
 /// instance. The engines' default instance is shared by the process.
 /// </para>
 /// <para>
-/// The first font asked for does not wait for every font file to be read (ADR 0009): the directories are listed (names only), and a
+/// The first font asked for does not wait for every font file to be read: the directories are listed (names only), and a
 /// font is looked for first in the files whose names share their first three letters with the name, family or stand-ins asked for
 /// (<c>Arial Bold.ttf</c>, <c>arialbd.ttf</c> for Arial), and in files whose names say nothing about their family (non-Latin names);
 /// only when those hold nothing for it are the other files read. An index file (<see cref="IndexPath"/>, off by default; for the
@@ -77,7 +77,7 @@ public sealed class SystemFontResolver : IFontResolver
     /// read; <see langword="null"/> keeps nothing and writes nothing.
     /// </param>
     /// <remarks>
-    /// ADR 0009. The index records each font file read with its length and last write time; a file added, removed or changed since is
+    /// The index records each font file read with its length and last write time; a file added, removed or changed since is
     /// read again, so the index never changes what is found, only how many font files are opened. An index that cannot be read (of
     /// another version, other directories, damaged) is ignored and replaced; one that cannot be written is skipped. Never throws for
     /// either.
@@ -95,7 +95,7 @@ public sealed class SystemFontResolver : IFontResolver
     public IReadOnlyList<string> Directories { get; }
 
     /// <summary>Gets the full path of the index file kept between processes, or <see langword="null"/> when none is kept.</summary>
-    /// <remarks>ADR 0009; see <see cref="SystemFontResolver(IEnumerable{string}, string?)"/>.</remarks>
+    /// <remarks>See <see cref="SystemFontResolver(IEnumerable{string}, string?)"/>.</remarks>
     public string? IndexPath { get; }
 
     /// <summary>Gets the instance engines use by default, shared by the process so the font directories are read once.</summary>

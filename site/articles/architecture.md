@@ -4,7 +4,7 @@ title: "Architecture"
 
 # Architecture
 
-Broadside's vocabulary lives in [`CONTEXT.md`](https://github.com/michaelstonis/Broadside/blob/main/CONTEXT.md) and its decisions in [`docs/adr/`](https://github.com/michaelstonis/Broadside/tree/main/docs/adr). This page summarizes both; the linked files are authoritative.
+Broadside's vocabulary lives in [`CONTEXT.md`](https://github.com/michaelstonis/Broadside/blob/main/CONTEXT.md). This page summarizes it and the design decisions the library is built on; `CONTEXT.md` is authoritative for the terms.
 
 ## Vocabulary
 
@@ -26,18 +26,16 @@ Broadside's vocabulary lives in [`CONTEXT.md`](https://github.com/michaelstonis/
 
 ## Decisions
 
-| ADR | Decision |
-|---|---|
-| [0001](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0001-fully-managed-core-with-extension-points.md) | Fully managed core, with extension points for every component a consumer may want to substitute. |
-| [0002](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0002-target-net10-only.md) | Target `net10.0` only. |
-| [0003](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0003-pdf-2-0-as-canonical-model.md) | PDF 2.0 is the canonical object model; the written version is raised to what the used features need. |
-| [0004](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0004-two-layer-object-model-with-public-cos.md) | Two public layers: COS objects and a document model that is a live view over them. |
-| [0005](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0005-lenient-reading-with-diagnostics.md) | Lenient reading by default, every repair recorded as a diagnostic. |
-| [0006](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0006-display-list-rendering-architecture.md) | Rendering goes through a display list; no backend sees content-stream operators. |
-| [0007](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0007-standard-14-glyphs-in-separate-package.md) | Standard 14 glyph data ships in a separate package; the core carries only metrics. |
-| [0008](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0008-mit-license-sponsorship-not-restriction.md) | MIT license; sponsorship is asked for, not enforced. |
-| [0009](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0009-font-resolver-contract.md) | One font resolver interface, asked in order (configured resolvers, then system fonts), serves font programs and named CMap resources. |
-| [0010](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0010-asynchronous-prefetch-boundary-for-remote-files.md) | Remote files are read synchronously behind an asynchronous prefetch boundary. |
-| [0011](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0011-external-signer-contract.md) | Signing goes through one signer interface that signs a digest; the core hashes the byte ranges and encodes the CMS object. |
-| [0012](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0012-webgl2-backend-for-the-browser-viewer.md) | The browser viewer gets an optional WebGL 2 backend; the software rasterizer stays the default, and what WebGL cannot draw falls back to it with a diagnostic. |
-| [0013](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0013-tiles-render-off-the-ui-thread.md) | Tiles render off the UI thread; in the browser, in an opt-in render worker rather than with .NET WebAssembly threads. |
+- Fully managed core, with extension points for every component a consumer may want to substitute.
+- Target `net10.0` only.
+- PDF 2.0 is the canonical object model; the written version is raised to what the used features need.
+- Two public layers: COS objects and a document model that is a live view over them.
+- Lenient reading by default, every repair recorded as a diagnostic.
+- Rendering goes through a display list; no backend sees content-stream operators.
+- Standard 14 glyph data ships in a separate package; the core carries only metrics.
+- MIT license; sponsorship is asked for, not enforced.
+- One font resolver interface, asked in order (configured resolvers, then system fonts), serves font programs and named CMap resources.
+- Remote files are read synchronously behind an asynchronous prefetch boundary.
+- Signing goes through one signer interface that signs a digest; the core hashes the byte ranges and encodes the CMS object.
+- The browser viewer gets an optional WebGL 2 backend; the software rasterizer stays the default, and what WebGL cannot draw falls back to it with a diagnostic.
+- Tiles render off the UI thread; in the browser, in an opt-in render worker rather than with .NET WebAssembly threads.

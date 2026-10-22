@@ -6,7 +6,7 @@ namespace Broadside.Graphics.Functions;
 /// <param name="Container">A <see cref="CosDictionary"/>, <see cref="CosArray"/> or <see cref="CosStream"/>.</param>
 /// <param name="Version">The container's version when it was read.</param>
 /// <remarks>
-/// ISO 32000-2 §7.10; ADR 0004 (live views). A compiled function is a snapshot of the COS objects it read; it is stale as soon as
+/// ISO 32000-2 §7.10 (live views). A compiled function is a snapshot of the COS objects it read; it is stale as soon as
 /// one of them has changed through the public API, and is then compiled again.
 /// </remarks>
 internal readonly record struct FunctionDependency(CosObject Container, int Version)

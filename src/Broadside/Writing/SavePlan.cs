@@ -588,7 +588,7 @@ internal static class SavePlan
     /// <summary>
     /// Records that a save renumbers a numbering its options keep because <paramref name="highest"/> passes
     /// <see cref="MaxObjectNumber"/>: <c>ObjectNumberOutOfRange</c>, Information, or a Warning that strict mode throws before anything
-    /// is written or changed (ADR 0005), as a raised version is (<see cref="VersionPlan.Check"/>).
+    /// is written or changed, as a raised version is (<see cref="VersionPlan.Check"/>).
     /// </summary>
     private static void ReportRenumbered(DiagnosticSink diagnostics, int highest)
     {
