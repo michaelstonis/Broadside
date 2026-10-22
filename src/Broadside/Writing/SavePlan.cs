@@ -172,12 +172,13 @@ internal static class SavePlan
             // The new encryption dictionary: an indirect object numbered as the next added object would be, above every number the
             // file lists or refers to (§7.3.10, Table 15); a dangling reference in a damaged file must not come to reach it (fuzz
             // finding). The number is not taken: the document does not change. When no number is left above (a file that holds
-            // object 2147483647), the save renumbers, writing every dangling reference as null, so the lowest number no object
-            // holds will do (issue #371).
+            // object 2147483647), the save renumbers, writing every dangling reference as null, so the dictionary takes the lowest
+            // number no object holds, the save frees or any reference names: renumbering maps a reference by its number, and a
+            // dangling one must not come to name the dictionary (issue #371).
             int number = loader.NextNumber;
             if (number == int.MaxValue)
             {
-                number = LowestUnused(existing, freeGenerations);
+                number = LowestUnused(existing, freeGenerations, ReferencedNumbers(trailer, kept));
                 exhausted = true;
             }
 
@@ -607,16 +608,62 @@ internal static class SavePlan
         }
     }
 
-    /// <summary>The lowest object number no object of the file holds and no number it frees, for a save that renumbers.</summary>
-    private static int LowestUnused(Dictionary<int, CosReference> existing, Dictionary<int, int> freeGenerations)
+    /// <summary>
+    /// The lowest object number no object of the file holds, no number it frees and no reference names (<paramref name="referenced"/>),
+    /// for a save that renumbers.
+    /// </summary>
+    private static int LowestUnused(Dictionary<int, CosReference> existing, Dictionary<int, int> freeGenerations, HashSet<int> referenced)
     {
         int number = 1;
-        while (existing.ContainsKey(number) || freeGenerations.ContainsKey(number))
+        while (existing.ContainsKey(number) || freeGenerations.ContainsKey(number) || referenced.Contains(number))
         {
             number++;
         }
 
         return number;
+    }
+
+    /// <summary>Every object number a reference in <paramref name="trailer"/> or the <paramref name="kept"/> objects names, at any depth.</summary>
+    private static HashSet<int> ReferencedNumbers(CosDictionary trailer, List<(CosReference Reference, CosObject Value)> kept)
+    {
+        var numbers = new HashSet<int>();
+        var pending = new Stack<CosObject>();
+        pending.Push(trailer);
+        foreach ((_, CosObject value) in kept)
+        {
+            pending.Push(value);
+        }
+
+        while (pending.TryPop(out CosObject? value))
+        {
+            switch (value)
+            {
+                case CosReference reference:
+                    numbers.Add(reference.ObjectNumber);
+                    break;
+                case CosArray array:
+                    foreach (CosObject item in array)
+                    {
+                        pending.Push(item);
+                    }
+
+                    break;
+                case CosDictionary dictionary:
+                    foreach (CosObject item in dictionary.Values)
+                    {
+                        pending.Push(item);
+                    }
+
+                    break;
+                case CosStream stream:
+                    pending.Push(stream.Dictionary);
+                    break;
+                default:
+                    break;
+            }
+        }
+
+        return numbers;
     }
 
     /// <summary>The highest number the written cross-reference information would list when the numbers are kept.</summary>

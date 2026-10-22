@@ -1312,12 +1312,29 @@ public sealed partial class PdfDocument : IDisposable
 
         ReportAccessibilityNotWritten(options, accessible);
 
-        if (changes is not null)
+        // What the save changes from here on is recorded, so a refusal after it (the plan made again over the changed document can
+        // still refuse: an information dictionary the dating adds may take a number past the limit, issue #371) leaves the document
+        // as it was. A caller that passes its own log reverts it itself.
+        CosChangeLog log = changes ?? new CosChangeLog();
+        KeepMetadataSaveState(log);
+        try
         {
-            KeepMetadataSaveState(changes);
+            using CosChangeLog.Recording recording = log.Record();
+            return ApplySaveChanges(options, planned, archival, accessible);
         }
+        catch when (changes is null)
+        {
+            log.Revert();
+            throw;
+        }
+    }
 
-        using CosChangeLog.Recording? recording = changes?.Record();
+    /// <summary>
+    /// The second half of <see cref="PlanSave"/>, once every check has passed: what the save changes in the document (font subsets,
+    /// dates, the metadata layout, a PDF/A or PDF/UA save's additions), then the writer planned again over the changed document.
+    /// </summary>
+    private FileWriter ApplySaveChanges(PdfSaveOptions options, VersionedSave planned, bool archival, AccessibleSave accessible)
+    {
         bool changed = CompleteFontSubsets();
         changed |= DateModification(options);
 

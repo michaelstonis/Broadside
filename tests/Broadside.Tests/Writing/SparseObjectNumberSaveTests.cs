@@ -197,6 +197,54 @@ public sealed class SparseObjectNumberSaveTests
         Assert.True(CosObject.DeepEquals(new CosDictionary { [new CosName("Value")] = new CosInteger(1) }, reopened.Resolve(reopened.Catalog[new CosName("Extra")])));
     }
 
+    [Fact]
+    public void New_encryption_of_a_file_out_of_numbers_keeps_a_dangling_reference_null()
+    {
+        // The encryption dictionary's number while the save renumbers must not be one a dangling reference names (§7.3.10): 4 0 R
+        // names nothing, so it stays null rather than coming to name the encryption dictionary.
+        byte[] file = WithUpdate(int.MaxValue, "<< /Value 1 >>", $"/Extra {int.MaxValue} 0 R /Dangling 4 0 R");
+        using PdfDocument document = PdfDocument.Open(file);
+
+        byte[] saved = Save(document, new PdfSaveOptions().WithEncryption(new PdfEncryptionOptions(null, "owner")));
+
+        using PdfDocument reopened = PdfDocument.Open(saved);
+        Assert.Empty(reopened.Diagnostics);
+        Assert.IsType<CosNull>(reopened.Resolve(reopened.Catalog.TryGetValue(new CosName("Dangling"), out CosObject? dangling) ? dangling : null));
+        Assert.True(CosObject.DeepEquals(new CosDictionary { [new CosName("Value")] = new CosInteger(1) }, reopened.Resolve(reopened.Catalog[new CosName("Extra")])));
+    }
+
+    [Fact]
+    public void A_strict_save_refused_after_dating_the_document_leaves_it_as_it_was()
+    {
+        // At the limit, the first plan renumbers the sparse numbering without a diagnostic; dating the PDF 1.7 document then adds an
+        // information dictionary numbered 8,388,608, past the limit, so the plan made again over the changed document refuses. What
+        // the save changed (the dictionary, the trailer's Info entry, the dates) is undone, and nothing is written.
+        byte[] file = WithUpdate(Limit, "<< /Kept true >>", $"/Extra {Limit} 0 R");
+        using PdfDocument document = PdfDocument.Open(file, new PdfOptions().UseStrict());
+        Assert.False(document.Trailer.ContainsKey(new CosName("Info")));
+        document.Catalog[new CosName("Lang")] = new CosString("en"u8);
+        var catalogBefore = new CosDictionary();
+        foreach (KeyValuePair<CosName, CosObject> entry in document.Catalog)
+        {
+            catalogBefore[entry.Key] = entry.Value;
+        }
+
+        using var output = new MemoryStream();
+
+        DiagnosticException exception = Assert.Throws<DiagnosticException>(() => document.Save(output));
+
+        Assert.Equal(OutOfRange, exception.Diagnostic.Code);
+        Assert.Equal(0, output.Length);
+        Assert.False(document.Trailer.ContainsKey(new CosName("Info")));
+        Assert.True(CosObject.DeepEquals(catalogBefore, document.Catalog));
+        Assert.Null(document.Resolve(new CosReference(Limit + 1, 0)) as CosDictionary);
+
+        // Without dating, nothing passes the limit: the sparse numbering is renumbered without a diagnostic, and the save writes.
+        byte[] saved = Save(document, new PdfSaveOptions());
+        using PdfDocument reopened = PdfDocument.Open(saved, new PdfOptions().UseStrict());
+        Assert.Equal("en", ((CosString)reopened.Catalog[new CosName("Lang")]).DecodeText());
+    }
+
     /// <summary>A one-page file and an update adding object <paramref name="number"/>, which the catalog names through <paramref name="catalogEntries"/>.</summary>
     private static byte[] WithUpdate(int number, string body, string catalogEntries) =>
         Document.TestPdf.AppendUpdate(
