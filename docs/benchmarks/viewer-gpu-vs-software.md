@@ -1,6 +1,6 @@
 # Browser viewer: WebGL 2 against the software rasterizer (#353)
 
-What GPU rendering changes in the Blazor WebAssembly viewer. The WebGL backend (`Broadside.Rendering.WebGL`, ADR 0012) is compared with the default managed software rasterizer in the demo app, AOT and non-AOT builds, on the documents from #211/#352 that motivated the question.
+What GPU rendering changes in the Blazor WebAssembly viewer. The WebGL backend (`Broadside.Rendering.WebGL`) is compared with the default managed software rasterizer in the demo app, AOT and non-AOT builds, on the documents from #211/#352 that motivated the question.
 
 ## Setup
 

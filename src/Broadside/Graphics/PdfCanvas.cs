@@ -23,7 +23,7 @@ namespace Broadside.Graphics;
 /// <para>
 /// Resources are added to the page's or form's resource dictionary as they are used, each under a name the dictionary does not have
 /// yet; using the same colour space, graphics state parameters or form again reuses its name (§7.8.3). Graphics state parameter
-/// dictionaries are written once per document for the same values. Using a feature records the PDF version it needs (ADR 0003): a
+/// dictionaries are written once per document for the same values. Using a feature records the PDF version it needs: a
 /// save raises the document's version to it, or refuses in strict mode.
 /// </para>
 /// <para>

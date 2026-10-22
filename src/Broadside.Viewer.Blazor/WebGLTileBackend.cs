@@ -13,7 +13,7 @@ namespace Broadside.Viewer.Blazor;
 /// rasterizer (<see cref="SoftwareTileBackend"/>) stays the default. Pages or regions the GPU path does not draw fall back to the
 /// software rasterizer per tile, with a diagnostic (<see cref="Diagnostics"/>).
 /// </summary>
-/// <remarks>ISO 32000-2 §10.7.1 through the display list (ADR 0006); ADR 0012 (the WebGL backend and its fallbacks).</remarks>
+/// <remarks>ISO 32000-2 §10.7.1 through the display list . The WebGL backend is opt-in and falls back to the software rasterizer.</remarks>
 [SupportedOSPlatform("browser")]
 public sealed class WebGLTileBackend : ITileBackend
 {

@@ -6,7 +6,7 @@ namespace Broadside;
 #pragma warning restore IDE0130
 
 /// <summary>Wires the Standard 14 glyph package into an engine's options.</summary>
-/// <remarks>ISO 32000-2 §9.6.2.2; ADR 0007.</remarks>
+/// <remarks>ISO 32000-2 §9.6.2.2.</remarks>
 public static class Standard14PdfOptionsExtensions
 {
     /// <summary>

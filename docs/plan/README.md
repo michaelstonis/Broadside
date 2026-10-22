@@ -1,6 +1,6 @@
 # Broadside build plan
 
-Broadside is a fully managed .NET implementation of ISO 32000-2 with a cross-platform, cross-backend rendering layer and viewer controls. This plan is the top of the work tree. Every phase lists its tracks; tracks inside a phase share nothing but the phases below them, so they run in parallel across agents. Decisions behind the plan are in `docs/adr/`; vocabulary is in `CONTEXT.md`; what is implemented is in `docs/conformance/`.
+Broadside is a fully managed .NET implementation of ISO 32000-2 with a cross-platform, cross-backend rendering layer and viewer controls. This plan is the top of the work tree. Every phase lists its tracks; tracks inside a phase share nothing but the phases below them, so they run in parallel across agents. Vocabulary is in `CONTEXT.md`; what is implemented is in `docs/conformance/`.
 
 ## Status
 
@@ -33,13 +33,13 @@ Work outside the phase tickets is tracked as open issues without a milestone: fo
 | `Broadside.Fonts.Standard14` | Liberation + Foxit Symbol/Dingbats glyph data | none |
 | `Broadside.Fonts.Cmaps` | Adobe predefined CMaps and CID-to-Unicode tables | none |
 | `Broadside.Layout` | Flow-layout document engine over the canvas API | none |
-| `Broadside.Rendering.WebGL` | WebGL 2 backend for the browser (ADR 0012) | the browser |
+| `Broadside.Rendering.WebGL` | WebGL 2 backend for the browser | the browser |
 | `Broadside.Viewer` | Framework-neutral viewer core: document session, page layout, tile scheduler, input model, text selection, annotation layer, accessibility bridge | none |
 | `Broadside.Viewer.Blazor` | Blazor WebAssembly shell (`PdfViewer`) | `Microsoft.AspNetCore.Components.Web` |
 | `Broadside.Viewer.Maui` | .NET MAUI shell (`PdfView`) | `Microsoft.Maui.Controls`, `SkiaSharp.Views.Maui.Controls` |
 | `Broadside.Viewer.*` | Uno, Avalonia, WPF and WinUI shells (provisional, #222 to #225) | per framework |
 
-Target framework: `net10.0` only (ADR 0002). License: MIT (ADR 0008).
+Target framework: `net10.0` only. License: MIT.
 
 ## Capability order
 
@@ -67,9 +67,9 @@ Single track. Everything later depends on it.
 Single track with internal parallelism once the lexer exists.
 
 - Lexer over `ReadOnlySpan<byte>` (§7.2 character set, tokens, comments). No allocation per token.
-- COS object types (§7.3) with dirty tracking (ADR 0004).
+- COS object types (§7.3) with dirty tracking.
 - Object parser, indirect objects, object streams (§7.5.7), cross-reference tables and streams (§7.5.4, §7.5.8), hybrid files, incremental-update chains (§7.5.6), trailer, linearization hints read (Annex F).
-- Cross-reference reconstruction by scanning when the table is wrong; stream `/Length` recovery; `startxref` recovery (ADR 0005). Diagnostics model.
+- Cross-reference reconstruction by scanning when the table is wrong; stream `/Length` recovery; `startxref` recovery. Diagnostics model.
 - File source abstraction: in-memory, memory-mapped, seekable `Stream`; object cache with the concurrency contract of Q19 (read-safe, mutate-single-threaded).
 - Standard filters (§7.4): Flate, LZW, ASCIIHex, ASCII85, RunLength, predictors (TIFF and PNG). Crypt filter. DCT/CCITT/JBIG2/JPX are Phase 2 tracks behind the same `Filter` extension point.
 - Standard security handler (§7.6): RC4 40/128, AES-128, AES-256 (R5 and R6), AES-GCM (ISO/TS 32003), public-key security handler read (§7.6.5), integrity protection (ISO/TS 32004). Decrypt on read.
@@ -89,7 +89,7 @@ Evidence (issue #48): real fuzzing of every Phase 1 target runs weekly in [`.git
 
 **Track 2C Document model** (§7.7, §12, §14): name trees and number trees, page labels, outlines, destinations, actions (parse-and-preserve for JavaScript and multimedia), viewer preferences, annotations (all §12.5.6 subtypes as typed classes, appearance streams), AcroForm read (§12.7) including field hierarchy and inheritance, structure tree read (§14.7, §14.8, ISO/TS 32005 namespaces), marked content, metadata streams and XMP read, associated files (AN002), object metadata locations (AN003), optional content (§8.11), embedded files, collections, PDF Declarations.
 
-**Track 2D Content interpreter** (§8, §9.4): content stream lexer and operator stream, graphics state machine (§8.4) including ExtGState, color spaces (§8.6: Device*, CalGray/RGB, Lab, ICCBased via alternate until Phase 3 ICC, Indexed, Separation, DeviceN, Pattern) with the color-space extension point, shadings 1–7 (§8.7.4) as a resolved model, tiling patterns, text state and text object positioning (§9.4), Type 3 glyph procedures, form XObjects, inline images, marked content events, PostScript calculator functions (§7.10.5) and sampled/exponential/stitching functions. One interpreter, processors consume (ADR: Q40).
+**Track 2D Content interpreter** (§8, §9.4): content stream lexer and operator stream, graphics state machine (§8.4) including ExtGState, color spaces (§8.6: Device*, CalGray/RGB, Lab, ICCBased via alternate until Phase 3 ICC, Indexed, Separation, DeviceN, Pattern) with the color-space extension point, shadings 1–7 (§8.7.4) as a resolved model, tiling patterns, text state and text object positioning (§9.4), Type 3 glyph procedures, form XObjects, inline images, marked content events, PostScript calculator functions (§7.10.5) and sampled/exponential/stitching functions. One interpreter, processors consume (Q40).
 
 Exit criteria per track: conformance rows for the listed clauses `done`; corpus-driven tests that every font and image in the corpora decodes; interpreter replays every content stream in the corpora without diagnostics on well-formed files.
 
@@ -97,7 +97,7 @@ Track 2D exit gate (#80): `tests/Broadside.Tests/Content/CorpusGate/` interprets
 
 ### Phase 3: Rendering (parallel tracks after 3A)
 
-**Track 3A Display list** (ADR 0006): struct-based op buffer, interned resources (decoded images, glyph outlines, shadings), text runs with font reference + glyph ids + positions, clip stack, transparency group markers, annotation appearance ops as a separate layer, hit-test index for text. Render options per Q39 (scale/DPI, rotation, clip rectangle, layers, intent, anti-aliasing, `ForceOutlines`, cancellation, progress). The display list is replayable on any thread.
+**Track 3A Display list**: struct-based op buffer, interned resources (decoded images, glyph outlines, shadings), text runs with font reference + glyph ids + positions, clip stack, transparency group markers, annotation appearance ops as a separate layer, hit-test index for text. Render options per Q39 (scale/DPI, rotation, clip rectangle, layers, intent, anti-aliasing, `ForceOutlines`, cancellation, progress). The display list is replayable on any thread.
 
 Then in parallel:
 
@@ -112,7 +112,7 @@ Viewer-driven requirements folded in here (from `docs/research/pdf-viewer-landsc
 
 ### Phase 4: Write and Edit (parallel tracks)
 
-- **4A Canvas API**: `PdfCanvas` over a page or form XObject: paths, transforms, clipping, text (simple and composite fonts), images, shadings, patterns, transparency, marked content and tags, optional content. Font embedding with subsetting (TrueType glyf subsetting, CFF subsetting, Type 1 to CFF conversion), encoders (Flate, DCT baseline, PNG predictors), image placement from PNG/JPEG/raw buffers. Version raising per ADR 0003.
+- **4A Canvas API**: `PdfCanvas` over a page or form XObject: paths, transforms, clipping, text (simple and composite fonts), images, shadings, patterns, transparency, marked content and tags, optional content. Font embedding with subsetting (TrueType glyf subsetting, CFF subsetting, Type 1 to CFF conversion), encoders (Flate, DCT baseline, PNG predictors), image placement from PNG/JPEG/raw buffers. Version raising: each feature declares its minimum PDF version and the header is raised to it.
 - **4B Incremental update and Edit**: dirty-tracked save as incremental update, full rewrite with object renumbering and garbage collection, page insertion/removal/reorder, document merge and split, object copying across documents with reference remapping, metadata and XMP write, attachment write.
 - **4C Forms**: field creation, fill, appearance stream regeneration (needs 4A), flatten, XFA detection with diagnostic.
 - **4D Flow layout** (`Broadside.Layout`): text blocks with line breaking (Unicode UAX #14), bidi (UAX #9), OpenType shaping (GSUB/GPOS basic features, kerning, ligatures, mark positioning), paragraphs, lists, tables with spans and page breaking, images, headers/footers, page templates. Emits tags via 4A so output is tagged by construction.

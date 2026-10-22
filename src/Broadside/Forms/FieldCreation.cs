@@ -506,7 +506,7 @@ internal static class FieldCreation
         }
     }
 
-    /// <summary>Records the versions the new field needs (ADR 0003).</summary>
+    /// <summary>Records the versions the new field needs.</summary>
     private static void RecordFeatures(PdfDocument document, Kind kind, PdfFieldFlags flags, PdfFieldOptions options)
     {
         document.RequireFeature(VersionedFeatures.InteractiveForm);

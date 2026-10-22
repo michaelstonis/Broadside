@@ -14,7 +14,7 @@ namespace Broadside.Fonts.Cmaps;
 /// cmap-resources (BSD-3-Clause), and answers <see cref="FontResourceKind.CMap"/> with their names, exactly as Table 116 spells
 /// them. It also answers <see cref="FontResourceKind.CidToUnicode"/> for <c>Adobe-CNS1-UCS2</c>, <c>Adobe-GB1-UCS2</c>,
 /// <c>Adobe-Japan1-UCS2</c>, <c>Adobe-Korea1-UCS2</c> and <c>Adobe-KR-UCS2</c> (§9.10.2), from Adobe's mapping-resources-pdf
-/// (BSD-3-Clause). Every other request, and every font, is left to the next resolver (ADR 0009).
+/// (BSD-3-Clause). Every other request, and every font, is left to the next resolver.
 /// </para>
 /// <para>
 /// The files are the upstream CMap files, byte for byte, stored Deflate-compressed as assembly resources; each is inflated on its

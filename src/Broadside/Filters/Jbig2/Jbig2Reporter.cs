@@ -6,7 +6,7 @@ namespace Broadside.Filters.Jbig2;
 
 /// <summary>Reports the deviations of one JBIG2Decode call through its filter context, each code (and key) once per call.</summary>
 /// <remarks>
-/// ADR 0005: lenient mode records and continues; strict mode throws from <see cref="CodecReporter.Report"/>. Without a context it
+/// Lenient mode records and continues; strict mode throws from <see cref="CodecReporter.Report"/>. Without a context it
 /// only tracks, and keeps what it reports in <see cref="CodecReporter.Recorded"/> (the global segments, decoded once per
 /// <c>JBIG2Globals</c> stream and replayed into each image's context).
 /// </remarks>

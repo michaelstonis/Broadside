@@ -37,7 +37,7 @@ public sealed partial class PdfDocument
     /// An alpha channel, or a tRNS table of an indexed-colour image, becomes a soft-mask image (<c>SMask</c>, PDF 1.4) of the same
     /// size: 8-bit for a palette, the image's depth otherwise; an image whose every pixel is opaque gets none. The tRNS colour of a
     /// greyscale or truecolour image becomes a colour key mask (<c>Mask</c>, PDF 1.3, §8.9.6.4). 16-bit samples are PDF 1.5. Each
-    /// feature's version is recorded (ADR 0003). A mutation.
+    /// feature's version is recorded. A mutation.
     /// </para>
     /// </remarks>
     public PdfImage CreateImageFromPng(ReadOnlySpan<byte> png)

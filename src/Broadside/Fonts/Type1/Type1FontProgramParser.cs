@@ -18,7 +18,7 @@ namespace Broadside.Fonts.Type1;
 /// §9.9: the text rendering mode decides between filling and stroking).
 /// </para>
 /// <para>
-/// Leniency follows ADR 0005: wrong <c>Length1</c>/<c>Length2</c>, hexadecimal eexec, PFB wrapping, malformed entries and
+/// Reading is lenient: wrong <c>Length1</c>/<c>Length2</c>, hexadecimal eexec, PFB wrapping, malformed entries and
 /// charstring errors are repaired with a diagnostic; only a program without <c>CharStrings</c> is unusable.
 /// </para>
 /// </remarks>

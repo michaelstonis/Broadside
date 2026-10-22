@@ -126,7 +126,7 @@ public readonly ref struct DisplayGroup
 
     /// <summary>Calls <paramref name="backend"/> once for every operation of the group's content, in order (nested groups included).</summary>
     /// <param name="backend">The backend that draws the content, usually the one <see cref="IRenderingBackend.DrawGroup"/> was called on.</param>
-    /// <remarks>ADR 0006; allocates nothing. See <see cref="DisplayList.Replay(IRenderingBackend)"/>.</remarks>
+    /// <remarks>Allocates nothing. See <see cref="DisplayList.Replay(IRenderingBackend)"/>.</remarks>
     public void Replay(IRenderingBackend backend)
     {
         ArgumentNullException.ThrowIfNull(backend);

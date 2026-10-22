@@ -92,7 +92,7 @@ public abstract class PdfCidFont
     /// </summary>
     /// <remarks>
     /// <para>
-    /// ISO 32000-2 §9.7.4 and ADR 0009, as <see cref="PdfSimpleFont.Substitute"/>: the resolvers are asked for the CIDFont by name,
+    /// ISO 32000-2 §9.7.4, as <see cref="PdfSimpleFont.Substitute"/>: the resolvers are asked for the CIDFont by name,
     /// with its CIDFont type, character collection and descriptor facts (<see cref="FontQuery"/>), then for the most similar Standard
     /// 14 font. A substitute standing in for another font records an information diagnostic naming both; when nothing is found, an
     /// information diagnostic says so (never thrown in strict mode: which fonts a machine has is not a deviation of the file).

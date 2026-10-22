@@ -12,7 +12,7 @@ public sealed partial class PdfDocument
 
     private OutlineViews? _outlineViews;
 
-    /// <summary>Gets the current outline walk every outline view reads its shape from (ISO 32000-2 §12.3.3; ADR 0004).</summary>
+    /// <summary>Gets the current outline walk every outline view reads its shape from (ISO 32000-2 §12.3.3).</summary>
     internal OutlineViews OutlineViews
     {
         get
@@ -54,7 +54,7 @@ public sealed partial class PdfDocument
     /// ISO 32000-2 §12.3.2.2, Table 149: <c>[page /XYZ left top zoom]</c>, <c>[page /Fit]</c>, <c>[page /FitH top]</c>,
     /// <c>[page /FitV left]</c>, <c>[page /FitR left bottom right top]</c>, <c>[page /FitB]</c> (PDF 1.1), <c>[page /FitBH top]</c>
     /// (PDF 1.1), <c>[page /FitBV left]</c> (PDF 1.1), in default user space, null for a value kept. A <c>FitB</c>, <c>FitBH</c> or
-    /// <c>FitBV</c> destination raises a later save of a PDF 1.0 document to 1.1 (ADR 0003).
+    /// <c>FitBV</c> destination raises a later save of a PDF 1.0 document to 1.1.
     /// </remarks>
     public PdfExplicitDestination CreateDestination(
         PdfPage page,
@@ -152,7 +152,7 @@ public sealed partial class PdfDocument
     /// ISO 32000-2 §12.3.2.4 (PDF 1.2) and §7.7.4, Table 32. The name dictionary and its <c>Dests</c> tree are created when absent; the
     /// key is found as <see cref="GetNamedDestination(string)"/> finds it (PDFDocEncoding, then UTF-16BE, then every key decoded). A
     /// PDF 1.1 entry of the same name in the catalog's <c>Dests</c> dictionary is removed, so both lookups agree. A later save of a document
-    /// below PDF 1.2 raises it to 1.2 (ADR 0003). A mutation.
+    /// below PDF 1.2 raises it to 1.2. A mutation.
     /// </remarks>
     public PdfNamedDestination SetNamedDestination(string name, PdfExplicitDestination destination)
     {
@@ -220,7 +220,7 @@ public sealed partial class PdfDocument
     /// <remarks>
     /// ISO 32000-2 §7.7.2, Table 29 (<c>PageLabels</c>, PDF 1.3), and §12.4.2: a new number tree holding the range for page index 0
     /// the clause requires, <c>&lt;&lt; /S /D &gt;&gt;</c>. A tree it replaces stays in the file until a save that removes unreachable
-    /// objects. A later save of a document below PDF 1.3 raises it to 1.3 (ADR 0003). A mutation.
+    /// objects. A later save of a document below PDF 1.3 raises it to 1.3. A mutation.
     /// </remarks>
     public PdfPageLabels CreatePageLabels()
     {

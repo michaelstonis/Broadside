@@ -2,7 +2,7 @@
 
 Triage for rendering differences (issue #137). RenderDiff renders each page of a PDF file or a corpus with Broadside's software rasterizer and with reference renderers (PDFium, pdf.js, poppler) at the same DPI, lines the images up, ranks the pages by the golden-image harness's perceptual comparison and writes a report with side-by-side and diff images.
 
-It is a development tool only: never a CI gate, never packed, and no Broadside package references it or anything it uses (ADR 0001). The reference renderers run as separate processes from a directory outside the tracked files.
+It is a development tool only: never a CI gate, never packed, and no Broadside package references it or anything it uses. The reference renderers run as separate processes from a directory outside the tracked files.
 
 ## Install the reference renderers
 

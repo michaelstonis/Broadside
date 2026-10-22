@@ -75,7 +75,7 @@ public abstract class PdfShading
     public CosReference? Reference { get; }
 
     /// <summary>Gets the earliest PDF version that has shadings: 1.3.</summary>
-    /// <remarks>ISO 32000-2 §8.7.4.3, Table 77 (ADR 0003).</remarks>
+    /// <remarks>ISO 32000-2 §8.7.4.3, Table 77.</remarks>
     public PdfVersion MinimumVersion { get; } = new(1, 3);
 
     /// <summary>Gets the colour space the shading's colours are given in (<c>ColorSpace</c>); DeviceGray when it is unusable.</summary>

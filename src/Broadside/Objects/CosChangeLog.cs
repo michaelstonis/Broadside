@@ -12,7 +12,7 @@ namespace Broadside.Objects;
 /// A container is recorded once, on its first change while recording: its entries or elements (in order), or its data, and whether
 /// it was dirty. Reverting puts them back as they were, marks the container changed for the caches that record its
 /// <c>Version</c>, and so the document's COS graph is the one before the first recorded change. The log is not a lock: it records
-/// only what this thread changes, which is every change to the document since mutation is single-threaded (ADR 0004).
+/// only what this thread changes, which is every change to the document since mutation is single-threaded.
 /// </para>
 /// <para>
 /// Reverting runs the undo actions and restores the containers in the reverse order they were recorded in. An object number a

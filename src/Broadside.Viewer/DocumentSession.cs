@@ -11,7 +11,7 @@ namespace Broadside.Viewer;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ISO 32000-2 §7.7.3.3 (pages), §14.11.2 (the crop box is displayed) and §10.7.1 (rendering through display lists, ADR 0006).
+/// ISO 32000-2 §7.7.3.3 (pages), §14.11.2 (the crop box is displayed) and §10.7.1 (rendering through display lists).
 /// Spec #33 story 54 and viewer capabilities 1, 2 and 5.
 /// </para>
 /// <para>
@@ -73,7 +73,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     public PdfDocument Document { get; }
 
     /// <summary>Gets the renderer that draws the tiles it accepts outside the viewer's thread, if the options selected one.</summary>
-    /// <remarks>Spec #33 viewer capability 1 (#357), ADR 0013. A shell keeps overlays in tiles of their own when it is set.</remarks>
+    /// <remarks>Spec #33 viewer capability 1 (#357). A shell keeps overlays in tiles of their own when it is set.</remarks>
     public IRemoteTileRenderer? RemoteRenderer { get; }
 
     /// <summary>Gets whether the document is read through range requests (pages are prefetched before use).</summary>
@@ -301,7 +301,7 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
     /// <returns>The list.</returns>
     /// <exception cref="OperationCanceledException">The token was cancelled or the session closed.</exception>
     /// <exception cref="ObjectDisposedException">The session is closed.</exception>
-    /// <remarks>ISO 32000-2 §8.2 and §12.5 (layers). ADR 0006.</remarks>
+    /// <remarks>ISO 32000-2 §8.2 and §12.5 (layers).</remarks>
     public async ValueTask<DisplayList> GetDisplayListAsync(int pageIndex, DisplayLayers layers = DisplayLayers.All, CancellationToken cancellationToken = default)
     {
         CancellationTokenSource operation = Enter(cancellationToken);

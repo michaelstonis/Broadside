@@ -121,7 +121,7 @@ public sealed partial class PdfCanvas
     /// <exception cref="InvalidOperationException">A path is being built, or the canvas is disposed.</exception>
     /// <remarks>
     /// ISO 32000-2 §14.8.2.2.2, Table 363. A subtype records PDF 1.7, and the PDF 2.0 subtypes PDF 2.0, as the version the document
-    /// needs (ADR 0003). End the sequence with <see cref="EndMarkedContent"/>.
+    /// needs. End the sequence with <see cref="EndMarkedContent"/>.
     /// </remarks>
     public void BeginArtifact(PdfArtifactType type, string? subtype, PdfArtifactEdges attached, PdfRectangle? boundingBox)
     {

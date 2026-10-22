@@ -4,7 +4,7 @@ using Broadside.Graphics;
 namespace Broadside.Rendering;
 
 /// <summary>
-/// The display-list builder: a content processor that turns the interpreter's events into display-list records (ADR 0006; the
+/// The display-list builder: a content processor that turns the interpreter's events into display-list records (the
 /// spec's "one content interpreter, many processors"). Split by operation category: this file holds the run, the state stack,
 /// transforms and the final copy; <c>DisplayListBuilder.Paths.cs</c> holds path fills, path interning and colours. Later tickets add
 /// their category in a file of their own.

@@ -22,7 +22,7 @@ namespace Broadside.Fonts.TrueType;
 /// between its "hmtx" left side bearing and its bounding box's left edge, as TrueType rasterizers place glyphs.
 /// </para>
 /// <para>
-/// Leniency follows ADR 0005: a missing "head", "hhea", "hmtx" or "maxp" is replaced by defaults with a diagnostic; only a program
+/// Reading is lenient: a missing "head", "hhea", "hmtx" or "maxp" is replaced by defaults with a diagnostic; only a program
 /// without "glyf" and "loca" is unusable. A damaged glyph is dropped (<see cref="GlyphOutlineStatus.Invalid"/>), never drawn in part.
 /// </para>
 /// </remarks>

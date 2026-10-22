@@ -4,7 +4,7 @@ namespace Broadside.Caching;
 
 /// <summary>
 /// The COS containers a cached derivation read, each with its <c>Version</c> at the time, and the document's <c>ObjectsVersion</c>:
-/// the cache is current while none of them has changed through the public API (the cache-invalidation rule of live views, ADR 0004).
+/// the cache is current while none of them has changed through the public API (the cache-invalidation rule of live views).
 /// </summary>
 /// <remarks>
 /// <para>

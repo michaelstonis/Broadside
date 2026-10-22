@@ -16,7 +16,7 @@ namespace Broadside.Viewer.Blazor;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Spec #33 viewer capability 1 (#357), ADR 0013. Strictly opt-in: the library never starts the worker by itself. It costs a second
+/// Spec #33 viewer capability 1 (#357). Strictly opt-in: the library never starts the worker by itself. It costs a second
 /// .NET runtime (boot time and memory, see docs/benchmarks/viewer-render-worker.md), so an app that wants it does all three of: serve
 /// it from <c>Main</c>, start it with <see cref="StartAsync"/>, and give each session a renderer with
 /// <see cref="ViewerOptions.UseRemoteRenderer"/>. Without them every tile renders on the page's thread, as before.

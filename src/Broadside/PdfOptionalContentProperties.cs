@@ -18,7 +18,7 @@ namespace Broadside;
 /// <para>
 /// The group list (<c>OCGs</c>) and each group's intents are read when the view is created, recording the version of every container
 /// read: <see cref="PdfDocument.OptionalContent"/> returns a new view once <c>OCProperties</c> is replaced, any of them has changed,
-/// or an object was added or removed (§7.3.10) (ADR 0004), and states computed from the old view are refused by the new one. Each
+/// or an object was added or removed (§7.3.10), and states computed from the old view are refused by the new one. Each
 /// membership dictionary's compiled visibility is recompiled when its dictionary or arrays change or an object is added or removed. Everything else (configurations, names, usage) reads the COS objects on every
 /// call. Nothing is ever written to the file: a missing <c>D</c> reads as an empty configuration with a diagnostic.
 /// </para>

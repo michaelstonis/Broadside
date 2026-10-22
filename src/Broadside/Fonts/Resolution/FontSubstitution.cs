@@ -8,7 +8,7 @@ namespace Broadside.Fonts.Resolution;
 /// Finds the program a simple font or a CIDFont that is not embedded is drawn with: the engine's resolvers for the font itself, then
 /// for the most similar Standard 14 font, recording what was substituted or that nothing was found.
 /// </summary>
-/// <remarks>ISO 32000-2 §9.5 NOTE 5, §9.6.2.2, §9.7.4, §9.8.1 (Table 120) and §9.8.2 (Table 121). ADR 0009.</remarks>
+/// <remarks>ISO 32000-2 §9.5 NOTE 5, §9.6.2.2, §9.7.4, §9.8.1 (Table 120) and §9.8.2 (Table 121).</remarks>
 internal static class FontSubstitution
 {
     /// <summary>Resolves the substitute of a font, reporting on the font's object.</summary>

@@ -7,7 +7,7 @@ namespace Broadside.Objects;
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §7.3. The parser is lenient and never throws on any input: every deviation from the syntax is repaired and reported to
-/// the <see cref="CosRepairLog"/> (ADR 0005); a caller that wants strictness checks the log. Nesting deeper than
+/// the <see cref="CosRepairLog"/>; a caller that wants strictness checks the log. Nesting deeper than
 /// <see cref="MaxDepth"/> is skipped, so hostile input cannot exhaust the stack.
 /// </para>
 /// <para>

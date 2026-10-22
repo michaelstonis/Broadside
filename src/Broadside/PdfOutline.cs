@@ -11,7 +11,7 @@ namespace Broadside;
 /// cycle (a <c>Next</c> back to an earlier sibling, a <c>First</c> back to an ancestor) or a very deep chain ends. The walk is kept
 /// until a dictionary it read changes, and every item view (<see cref="PdfOutlineItem.Children"/>, <see cref="PdfOutlineItem.Parent"/>,
 /// <see cref="PdfOutlineItem.Level"/>) reads its shape from the current walk, so an edit through any view or straight to the COS
-/// objects shows in every view at the next read (ADR 0004).
+/// objects shows in every view at the next read.
 /// </para>
 /// <para>
 /// The walk checks the outline as it goes and reports, once per item: an item reached twice (<c>OutlineCycle</c>, Error), a level

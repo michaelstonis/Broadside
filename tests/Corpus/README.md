@@ -199,7 +199,7 @@ The crypt filter `/Length` entries in the R4 and R6 files are `16` and `32` (byt
 
 ## Deliberately broken files
 
-Each file is `empty-page.pdf` (or `text-standard14.pdf`) with exactly one defect. The "lenient mode" column says what a Phase 1 reader is expected to do under ADR 0005: repair, record one `Diagnostic`, and expose the same document as the intact file. In strict mode the same condition is an error: the `DiagnosticException` carries the first diagnostic listed. The codes, objects and offsets (absolute, from byte 0) below are what Broadside records, all at `Warning` severity; `BrokenCorpusTests` asserts them exactly.
+Each file is `empty-page.pdf` (or `text-standard14.pdf`) with exactly one defect. The "lenient mode" column says what a Phase 1 reader is expected to do under lenient reading: repair, record one `Diagnostic`, and expose the same document as the intact file. In strict mode the same condition is an error: the `DiagnosticException` carries the first diagnostic listed. The codes, objects and offsets (absolute, from byte 0) below are what Broadside records, all at `Warning` severity; `BrokenCorpusTests` asserts them exactly.
 
 | File | Defect | Clauses | What qpdf 12.4.2 and poppler report | Lenient mode |
 |---|---|---|---|---|

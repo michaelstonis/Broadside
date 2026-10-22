@@ -4,7 +4,7 @@ title: "Getting started"
 
 # Getting started
 
-Broadside is in preview. The first preview, `0.1.0-preview.1`, is on NuGet.org, and the public API may still change before v1. The packages target `net10.0` only ([ADR 0002](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0002-target-net10-only.md)).
+Broadside is in preview. The first preview, `0.1.0-preview.1`, is on NuGet.org, and the public API may still change before v1. The packages target `net10.0` only.
 
 ## Install
 
@@ -79,11 +79,11 @@ using (PdfDocument report = PdfDocument.Create())
 }
 ```
 
-Reading is lenient by default: a damaged file is repaired and every repair is recorded as a diagnostic on the document. `new PdfOptions().UseStrict()` makes the first deviation an error instead ([ADR 0005](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0005-lenient-reading-with-diagnostics.md)).
+Reading is lenient by default: a damaged file is repaired and every repair is recorded as a diagnostic on the document. `new PdfOptions().UseStrict()` makes the first deviation an error instead.
 
 ## Viewers
 
-- **Blazor WebAssembly** (`Broadside.Viewer.Blazor`): the `PdfViewer` component. The software rasterizer draws the tiles by default. WebGL 2 is opt-in ([ADR 0012](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0012-webgl2-backend-for-the-browser-viewer.md)), and so is a render worker that draws content tiles in a JS Web Worker ([ADR 0013](https://github.com/michaelstonis/Broadside/blob/main/docs/adr/0013-tiles-render-off-the-ui-thread.md)). The app has to start the worker explicitly; it uses no .NET WebAssembly threads.
+- **Blazor WebAssembly** (`Broadside.Viewer.Blazor`): the `PdfViewer` component. The software rasterizer draws the tiles by default. WebGL 2 is opt-in, and so is a render worker that draws content tiles in a JS Web Worker. The app has to start the worker explicitly; it uses no .NET WebAssembly threads.
 - **.NET MAUI** (`Broadside.Viewer.Maui`): the `PdfView` control, drawn with SkiaSharp, for iOS, Android, Mac Catalyst and Windows. Tiles render off the UI thread and are composed on the GPU (Metal on iOS and Mac Catalyst). Register it with `builder.UseBroadsideViewer()`. The package's Windows target ships from the next release.
 
 ## Samples

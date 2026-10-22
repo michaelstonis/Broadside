@@ -4,7 +4,7 @@ namespace Broadside.Fonts.Resolution;
 /// An engine's font resolvers in the order they are asked: those registered with <see cref="PdfOptions.UseFontResolver"/>, then
 /// the operating system's. Immutable; shared by every document of the engine.
 /// </summary>
-/// <remarks>ISO 32000-2 §9.6.2.2, §9.7.5.2, §9.8. ADR 0009.</remarks>
+/// <remarks>ISO 32000-2 §9.6.2.2, §9.7.5.2, §9.8.</remarks>
 internal sealed class FontResolverChain
 {
     private readonly IFontResolver[] _resolvers;

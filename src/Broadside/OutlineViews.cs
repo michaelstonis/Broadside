@@ -4,7 +4,7 @@ using Broadside.Objects;
 namespace Broadside;
 
 /// <summary>
-/// The document's current outline walk, which every outline view reads its shape from (ISO 32000-2 §12.3.3; ADR 0004): created on
+/// The document's current outline walk, which every outline view reads its shape from (ISO 32000-2 §12.3.3): created on
 /// first use, walked again when anything the last walk read has changed.
 /// </summary>
 /// <remarks>

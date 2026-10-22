@@ -9,7 +9,7 @@ namespace Broadside.Signatures;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ISO 32000-2 §12.8.1 and §12.8.3.3; RFC 5652 §5.4 and §5.5; ADR 0011. The document computes the byte range digest itself, builds
+/// ISO 32000-2 §12.8.1 and §12.8.3.3; RFC 5652 §5.4 and §5.5. The document computes the byte range digest itself, builds
 /// the CMS signed attributes (content type, message digest and signing certificate), and asks the signer to sign the digest of their DER encoding, the
 /// value RFC 5652 §5.4 says the signature is computed over. The signer never sees the document. It returns the raw signature value,
 /// whose algorithm follows the certificate's key:

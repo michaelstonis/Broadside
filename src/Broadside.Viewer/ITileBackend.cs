@@ -8,7 +8,7 @@ namespace Broadside.Viewer;
 /// host can interleave with its UI. <see cref="SoftwareTileBackend"/> is the default.
 /// </summary>
 /// <remarks>
-/// ISO 32000-2 §10.7.1 (rendering) through the display list (ADR 0006): a backend replays the list through an
+/// ISO 32000-2 §10.7.1 (rendering) through the display list: a backend replays the list through an
 /// <see cref="IRenderingBackend"/> and never reads content operators. A backend is used by one render at a time; the session keeps a
 /// pool of them, one per concurrent render, and disposes them when it closes.
 /// </remarks>

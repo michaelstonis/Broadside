@@ -149,7 +149,7 @@ public sealed class PdfEngine
     /// <exception cref="OperationCanceledException"><paramref name="cancellationToken"/> was canceled.</exception>
     /// <remarks>
     /// ISO 32000-2 §7.5.1 and §7.5.4 (random access through the cross-reference table, read from the end of the file); spec #33,
-    /// viewer capability 5; RFC 9110 §14 (range requests); ADR 0010 (the asynchronous prefetch boundary). Bytes are fetched in blocks
+    /// viewer capability 5; RFC 9110 §14 (range requests). Reading stays synchronous; fetching is asynchronous only at open and prefetch. Bytes are fetched in blocks
     /// of <see cref="PdfOptions.RangeBlockSize"/> and kept up to <see cref="PdfOptions.RangeCacheLimit"/>. Credentials for an
     /// encrypted file are taken from the options.
     /// </remarks>

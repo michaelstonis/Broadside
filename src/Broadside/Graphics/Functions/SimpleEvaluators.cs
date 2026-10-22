@@ -1,7 +1,7 @@
 namespace Broadside.Graphics.Functions;
 
 /// <summary>A function that could not be compiled: every evaluation fails and writes 0, clipped to the range when there is one.</summary>
-/// <remarks>ISO 32000-2 §7.10; ADR 0005. Consumers apply their own fallback (a tint transform's default, skipping a shading).</remarks>
+/// <remarks>ISO 32000-2 §7.10. Consumers apply their own fallback (a tint transform's default, skipping a shading).</remarks>
 internal sealed class InvalidEvaluator(double[] domain, double[]? range, int outputCount) : FunctionEvaluator(domain, range, outputCount)
 {
     /// <inheritdoc/>

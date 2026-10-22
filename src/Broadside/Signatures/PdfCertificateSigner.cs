@@ -10,7 +10,7 @@ namespace Broadside.Signatures;
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §12.8.3.3 and Table 260 (RSA keys up to 4096 bits, PDF 1.5; ECDSA, PDF 2.0); ISO/TS 32002 §5.1.3 (curves); RFC 8017
-/// §8.1 and §8.2; ADR 0011. The certificate is not copied: keep it alive, and undisposed, until signing is done.
+/// §8.1 and §8.2. The certificate is not copied: keep it alive, and undisposed, until signing is done.
 /// </para>
 /// <para>
 /// ECDSA signs every digest on every platform. RSA signs SHA-3 digests only where the platform's RSA has SHA-3 (Windows and Linux,

@@ -210,7 +210,7 @@ public sealed partial class AndroidCanvasBackend
             return (_point.Left, _point.Top);
         }
 
-        /// <summary>Reports a diagnostic once per render (ADR 0005).</summary>
+        /// <summary>Reports a diagnostic once per render.</summary>
         private void Report(Reported kind, Diagnostic diagnostic)
         {
             if ((_reported & kind) == 0)
