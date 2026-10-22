@@ -29,6 +29,7 @@ Broadside targets `net10.0` only ([ADR 0002](https://github.com/michaelstonis/Br
 dotnet add package Broadside --prerelease                    # read, write, edit; text extraction
 dotnet add package Broadside.Rendering --prerelease          # software rasterizer and PNG output
 dotnet add package Broadside.Fonts.Standard14 --prerelease   # glyphs for pages that use non-embedded Standard 14 fonts
+dotnet add package Broadside.Layout --prerelease             # flow layout (FlowDocument, Paragraph)
 ```
 
 Add the other packages from the table below as you need them.
@@ -158,8 +159,15 @@ Both viewer controls are shells over `Broadside.Viewer`, which owns the document
 ```razor
 @using Broadside.Viewer.Blazor
 
-<PdfViewer Source="@(new Uri("sample.pdf", UriKind.Relative))" Label="Sample document" />
+<PdfViewer Source="@(new Uri("sample.pdf", UriKind.Relative))" Label="Sample document" Class="pdf-host" />
 ```
+
+```css
+/* wwwroot/css/app.css */
+.pdf-host { height: 80vh; }
+```
+
+Give the viewer a size: its canvas and layers are absolutely positioned and its own stylesheet sets no height, so without one it collapses to zero height ([#393](https://github.com/michaelstonis/Broadside/issues/393) proposes a default).
 
 **.NET MAUI** (`Broadside.Viewer.Maui`). The `PdfView` control draws with SkiaSharp. Tiles render off the UI thread ([#357](https://github.com/michaelstonis/Broadside/issues/357), ADR 0013) and are composed on the GPU: Metal on iOS and Mac Catalyst, OpenGL ES on Android, and Direct3D on Windows. Set `UseHardwareAcceleration` to false to compose on the CPU instead. Register it with `builder.UseBroadsideViewer()` in `MauiProgram`, then set `Source` to a file path or an http(s) address.
 

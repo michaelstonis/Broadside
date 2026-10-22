@@ -14,6 +14,7 @@ Every package is a prerelease, so pass `--prerelease`:
 dotnet add package Broadside --prerelease                    # read, write, edit; text extraction
 dotnet add package Broadside.Rendering --prerelease          # software rasterizer and PNG output
 dotnet add package Broadside.Fonts.Standard14 --prerelease   # glyphs for pages that use non-embedded Standard 14 fonts
+dotnet add package Broadside.Layout --prerelease             # flow layout (FlowDocument, Paragraph)
 ```
 
 The full list of 13 packages, with what each one contains and its target frameworks, is in the [README](https://github.com/michaelstonis/Broadside#packages).
