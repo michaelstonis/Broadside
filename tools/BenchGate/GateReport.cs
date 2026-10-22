@@ -96,9 +96,14 @@ public sealed class GateReport
         var text = new StringBuilder();
         IReadOnlyList<GateFinding> failures = Failures;
         string against = baseName is null ? "the base commit" : $"the base commit `{baseName}`";
+
+        // An allocation-only run (every pull request outside the hot paths, issue #389) reads no timing rounds.
+        string times = RoundCount == 0
+            ? "times were not compared in this run (they are on hot-path and `perf`-labelled pull requests, pull requests into `main` and nightly; `bench/baselines/gate/README.md`, \"When it runs\")."
+            : Invariant($"times with {against}, run on this runner in {RoundCount} interleaved round(s), slower cases rerun once to confirm.");
         text.AppendLine("## Benchmark gate").AppendLine();
         text.AppendLine(Invariant(
-            $"{(Passed ? "**Passed**" : $"**Failed**: {failures.Count} regression(s)")} over {CaseCount} benchmark case(s). Allocations (bytes per call) are compared with `{BaselinePath}`, exactly; times with {against}, run on this runner in {RoundCount} interleaved round(s), slower cases rerun once to confirm."));
+            $"{(Passed ? "**Passed**" : $"**Failed**: {failures.Count} regression(s)")} over {CaseCount} benchmark case(s). Allocations (bytes per call) are compared with `{BaselinePath}`, exactly; {times}"));
         text.AppendLine();
 
         if (failures.Count > 0)

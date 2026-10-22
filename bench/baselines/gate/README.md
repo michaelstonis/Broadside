@@ -1,20 +1,21 @@
 # Benchmark regression gate
 
 The CI gate of spec story 52 (issue #139): every pull request that touches library, benchmark or corpus code measures every
-benchmark case of `bench/Broadside.Benchmarks`, built from the pull request and from its base commit, side by side on the same
-runner, and fails when
+benchmark case of `bench/Broadside.Benchmarks` and fails when
 
 - **an allocation changes**: the bytes one call of a case allocates differ in any way (more or fewer) from
-  [`allocations.json`](allocations.json), or a case is new, renamed or gone without that file saying so; or
-- **a case is measurably slower** than on the base commit (the rule is below).
+  [`allocations.json`](allocations.json), or a case is new, renamed or gone without that file saying so (every such pull
+  request); or
+- **a case is measurably slower** than on the base commit, built and run side by side on the same runner (the rule is below; on
+  hot-path and `perf`-labelled pull requests, pull requests into `main` and nightly, see "When it runs").
 
 The job summary lists each regression on its own row (and as an `::error` annotation), with the exact baseline lines an intended
 allocation change needs.
 
 | Piece | Where |
 |---|---|
-| Workflow | [`.github/workflows/bench-gate.yml`](../../../.github/workflows/bench-gate.yml): four `measure` shards, then `gate` |
-| Measuring | [`bench/run-gate.sh`](../../run-gate.sh): builds both commits, measures allocations, runs the timings interleaved, reruns what looks slower |
+| Workflow | [`.github/workflows/bench-gate.yml`](../../../.github/workflows/bench-gate.yml): `plan`, four `allocations` shards, four `measure` shards when times are compared, then `gate`; [`bench-gate-perf.yml`](../../../.github/workflows/bench-gate-perf.yml) re-runs it when a pull request is labelled `perf` |
+| Measuring | [`bench/run-gate.sh`](../../run-gate.sh): builds both commits, measures allocations, runs the timings interleaved, reruns what looks slower; `--measure allocations` or `times` does one part |
 | Allocation figures | [`GateAllocations.cs`](../../Broadside.Benchmarks/GateAllocations.cs): `Broadside.Benchmarks --gate-allocations` |
 | Comparing | [`tools/BenchGate`](../../../tools/BenchGate/README.md): the allocation and time rules, the summary, `record`, `shard` |
 | Baseline | [`allocations.json`](allocations.json): full name to bytes per call, recorded on the CI runner |
@@ -27,15 +28,45 @@ over `tests/Corpus/` only and `ContentInterpretationBenchmarks` over its `tests/
 
 ## When it runs
 
-On a pull request whose diff touches `src/**`, `bench/**`, `tests/Broadside.TestSupport/**`, `tests/Corpus/**`,
-`tools/BenchGate/**`, `Directory.Build.props`, `Directory.Packages.props`, `global.json` or the workflow, and on the "Run
-workflow" button (`gh workflow run bench-gate.yml --ref <branch> -f base=<branch, tag or commit>`, available once the workflow is
-on `main`), which is how a branch without a pull request gets a run and a re-recorded baseline. A newer push cancels the older run.
+The gate has two parts (issue #389): allocations on every pull request it watches, times only where they matter. Comparing times
+needs the base commit built and both commits run in interleaved rounds, about an hour of wall-clock time; checking allocations
+needs one short run of the pull request, about 12 minutes.
 
-Each of four `measure` jobs (`ubuntu-24.04`, 4 vCPU) builds both commits and measures its share of the cases: methods dealt to the
-lightest shard by their case count in the baseline, and `OpenAndWalkBenchmarks.OpenAndWalk`, which has a case per corpus file,
-split over all four through `BROADSIDE_BENCH_PARTITION` ([`BenchmarkPartition.cs`](../../Broadside.Benchmarks/BenchmarkPartition.cs)).
-The `gate` job compares everything at once, so a case no shard ran is caught. A run takes 20 to 25 minutes of wall-clock time.
+**Allocations** are checked on every pull request whose diff touches `src/**`, `bench/**`, `tests/Broadside.TestSupport/**`,
+`tests/Corpus/**`, `tools/BenchGate/**`, `Directory.Build.props`, `Directory.Packages.props`, `global.json` or the workflow, and
+on every run listed below. Same baseline file, same exactness as ever.
+
+**Times** are compared as well (the `measure` jobs run) when:
+
+| Trigger | Base the times are compared with |
+|---|---|
+| The pull request's diff touches a hot path: `src/Broadside/` `IO`, `Parsing`, `Objects`, `Content`, `Filters`, `Images`, `Fonts`, `Graphics`, `Rendering` or `Text`; `src/Broadside.Rendering`, `src/Broadside.Rendering.Skia`, `src/Broadside.Fonts.Cmaps`, `src/Broadside.Fonts.Standard14`; `global.json`, `Directory.Build.props`, `Directory.Packages.props` (`HOT_PATHS` in the workflow) | the pull request's base |
+| The pull request has the `perf` label | the pull request's base |
+| The pull request is into `main` (the integration branch's merge) | `main` |
+| Nightly, 02:17 UTC, on the integration branch (`NIGHTLY_BRANCH`, `spec/33-broadside-v1`) | the branch's tip when the previous nightly ran: each night measures what was merged that day. Nothing merged, no run. |
+| The "Run workflow" button (`gh workflow run bench-gate.yml --ref <branch> -f base=<branch, tag or commit>`; `-f timing=false` for allocations only) | `base` |
+
+The `plan` job decides, and its job summary (and the `gate` summary's last line) says whether times were compared and why.
+
+**Requesting times on a pull request**: add the `perf` label. `bench-gate-perf.yml` then re-runs the pull request's gate (it
+cancels a run in progress first), whose `plan` job reads the labels the pull request has at that moment; every later push keeps
+comparing times while the label stays. It works for a fork's pull request too (`pull_request_target`, metadata only; see the
+workflow's header). Without the helper (say, the label was there before the pull request touched a watched
+path), re-run the workflow from the Actions tab or push. Use it for a change that can slow a path outside `HOT_PATHS` (the
+document model, caching, writing) or a change to the gate's own timing machinery (`bench/run-gate.sh`, `tools/BenchGate`).
+
+**A nightly regression** (or a nightly whose shards fail) opens an issue titled "Nightly benchmark gate failed on
+spec/33-broadside-v1" with the summary and the range of commits, or comments on that issue while it is open. Close it when the
+regression is fixed or accepted. The schedule runs from `main`'s copy of the workflow (GitHub runs schedules from the default
+branch only), so it starts once this workflow reaches `main`.
+
+Each of four `allocations` jobs (`ubuntu-24.04`, 4 vCPU) builds the pull request and measures the allocation figures of its share
+of the cases (`bench/run-gate.sh --measure allocations`): methods dealt to the lightest shard by their case count in the baseline,
+and `OpenAndWalkBenchmarks.OpenAndWalk`, which has a case per corpus file, split over all four through `BROADSIDE_BENCH_PARTITION`
+([`BenchmarkPartition.cs`](../../Broadside.Benchmarks/BenchmarkPartition.cs)). They take about 10 minutes, most of it the build.
+When times are compared, four `measure` jobs, sharded the same way, build both commits and run the timing rounds and the rerun
+(`--measure times`, which also measures the base commit's allocation figures for the stale-baseline notice); they take 45 to 70
+minutes. The `gate` job compares everything at once, so a case no shard ran is caught. A newer push cancels the older run.
 
 ## How it measures
 
@@ -117,8 +148,9 @@ Measured over ten runs of the gate against an unchanged commit on the CI runner 
 - A true 30 % slowdown shows about 1.30 in each round. It escapes only if noise lowers a round or the rerun below 1.15 (noise
   below 0.885, about 1 % of case-rounds) or the pooled ratio below 1.20, so it is caught in about 96 % of runs; 40 % or more is
   caught essentially always. Under 15 % is not the gate's business: it is within what the runner itself moves.
-- The time a run takes was the other constraint: two rounds plus a targeted rerun keep a run near 25 minutes on four shards.
-  More rounds would tighten the estimate, at about 8 minutes each.
+- The time a run takes was the other constraint: two rounds plus a targeted rerun kept a run near 25 minutes on four shards
+  when this rule was set. More rounds would tighten the estimate, at about 8 minutes each. With Phase 3's benchmarks a shard
+  had grown to 45 to 70 minutes by October 2026, which is why times now run only where they matter (#389).
 
 ## Updating the baseline
 
@@ -143,7 +175,8 @@ Times are compared with the base commit, never with stored figures, so there is 
 merges, the slower code is the next base. An intended slowdown (a correctness fix that costs time, a feature on a hot path) is
 accepted by the owner merging despite the failing gate, with the gate's numbers and the reason in the pull request description.
 From Phase 2 on the owner reviews every merge anyway (`CLAUDE.md`). The gate is not a required status check, so it does not block
-a merge mechanically.
+a merge mechanically. A slowdown that reached the integration branch without a timing run (a pull request outside `HOT_PATHS`
+without the `perf` label) is caught by the next nightly, which opens an issue; accept it by closing that issue with the reason.
 
 ## Running it locally
 
@@ -155,7 +188,8 @@ dotnet run --project tools/BenchGate -- compare --baseline bench/baselines/gate/
 ```
 
 `methods.txt` holds `Namespace.Type.Method` lines (`dotnet run -c Release --project bench/Broadside.Benchmarks -- --list flat`
-prints them all); without `--methods` every case runs (about 25 minutes per round on an idle machine). `--subset true` stops
+prints them all); without `--methods` every case runs (about 25 minutes per round on an idle machine). `--measure allocations`
+measures only the pull request's allocation figures, as every pull request's CI does (no `--base` needed). `--subset true` stops
 the comparison from reporting the baseline cases you did not run. On a developer machine the time rule is meaningful (both
 commits run on the same machine), but the allocation figures are this machine's: expect allocation findings on the cases that
 read system fonts and a few bytes per document on macOS, and use them only to compare before and after your own change.

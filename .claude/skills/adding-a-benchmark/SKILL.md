@@ -67,12 +67,14 @@ Results land in `BenchmarkDotNet.Artifacts/results/` (gitignored). `--job dry` n
 
 ## The regression gate
 
-`.github/workflows/bench-gate.yml` (issue #139; everything about it is in `bench/baselines/gate/README.md`) runs every benchmark of a pull request that touches `src/`, `bench/`, the corpus or the test support code, next to the same benchmarks built from its base commit on the same runner, and fails when:
+`.github/workflows/bench-gate.yml` (issues #139, #389; everything about it is in `bench/baselines/gate/README.md`) runs every benchmark of a pull request that touches `src/`, `bench/`, the corpus or the test support code, and fails when:
 
-- the bytes one call of a case allocates (measured by `Broadside.Benchmarks --gate-allocations`, steady state, current thread) differ in any way from `bench/baselines/gate/allocations.json` (more or fewer), or a case is new, renamed or gone without the baseline saying so;
-- a case is at least 20 % slower than the base overall and at least 15 % slower in each of two interleaved rounds and in a rerun (the full rule and why are in the README).
+- the bytes one call of a case allocates (measured by `Broadside.Benchmarks --gate-allocations`, steady state, current thread) differ in any way from `bench/baselines/gate/allocations.json` (more or fewer), or a case is new, renamed or gone without the baseline saying so. **Every** such pull request, about 12 minutes;
+- a case is at least 20 % slower than the same benchmark built from the base commit and run beside it on the same runner, overall, and at least 15 % slower in each of two interleaved rounds and in a rerun (the full rule and why are in the README). **Only** when the diff touches a hot path (`HOT_PATHS` in the workflow: `src/Broadside/` `IO`, `Parsing`, `Objects`, `Content`, `Filters`, `Images`, `Fonts`, `Graphics`, `Rendering`, `Text`; `Broadside.Rendering`, `Broadside.Rendering.Skia`, `Broadside.Fonts.Cmaps`, `Broadside.Fonts.Standard14`; SDK and package versions), when the pull request has the `perf` label, on pull requests into `main`, and nightly on the integration branch (a regression opens an issue). About 70 minutes.
 
 What that means for you:
+
+- **A hot-path change gets times automatically.** A change that can slow something outside those paths (the document model, caching, writing, the gate's own timing code in `bench/run-gate.sh` or `tools/BenchGate`) should carry the `perf` label: adding it re-runs the gate with times (`bench-gate-perf.yml`), and later pushes keep them. The `plan` job's summary says whether times ran and why.
 
 - **A new benchmark or a new `[Params]` value, a rename, a removal, or an intended allocation change** fails the gate until the baseline is updated in the same PR. The failing run's summary prints the exact lines to change, and its `bench-gate-baseline` artifact is the whole file re-recorded on the CI runner; commit either. Do not record the file on your own machine: the figures differ by platform.
 - **A benchmark with one case per corpus file** passes its `[ParamsSource]` values through `BenchmarkPartition.Select` and is added to the workflow's `SPLIT` list, so its cases spread over the gate's runners (`OpenAndWalkBenchmarks` does).

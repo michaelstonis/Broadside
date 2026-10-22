@@ -1,7 +1,10 @@
-# Benchmark regression gate (issue #139): on pull requests that touch library, benchmark or corpus code, run every benchmark
-# of the pull request and of its base commit side by side on the same runner, then fail on any allocation that differs from
-# bench/baselines/gate/allocations.json or any case measurably slower than the base. The thresholds, the procedure that
-# updates the baseline and the noise measurements behind both are in bench/baselines/gate/README.md.
+# Benchmark regression gate (issues #139, #389), in two parts. On every pull request that touches library, benchmark or corpus
+# code, the `allocations` jobs measure every benchmark case of the pull request once and the gate fails on any allocation that
+# differs from bench/baselines/gate/allocations.json. Times are compared only where they matter: on pull requests whose diff
+# touches a hot path (HOT_PATHS below), on pull requests labelled `perf`, on pull requests into main, nightly on the integration
+# branch (NIGHTLY_BRANCH) and on the "Run workflow" button. Then the `measure` jobs run every benchmark of the pull request and of
+# its base commit side by side on the same runner and the gate also fails on any case measurably slower than the base. The
+# thresholds, the procedure that updates the baseline and the noise measurements behind both are in bench/baselines/gate/README.md.
 name: Benchmark gate
 
 on:
@@ -16,15 +19,23 @@ on:
       - 'Directory.Packages.props'
       - 'global.json'
       - '.github/workflows/bench-gate.yml'
+  # Nightly: the integration branch against the commit the previous nightly measured; a regression opens or updates an issue.
+  # GitHub runs schedules from the default branch's copy of this file only.
+  schedule:
+    - cron: '17 2 * * *'
   workflow_dispatch:
     inputs:
       base:
         description: Branch, tag or commit to compare against
         required: false
         default: main
+      timing:
+        description: Compare times with the base too (allocations are always checked)
+        type: boolean
+        default: true
 
 concurrency:
-  group: bench-gate-${{ github.event.pull_request.number || github.ref }}
+  group: bench-gate-${{ github.event.pull_request.number || github.ref }}-${{ github.event_name }}
   cancel-in-progress: true
 
 permissions:
@@ -36,15 +47,121 @@ env:
   DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
   DOTNET_GENERATE_ASPNET_CERTIFICATE: false
   BASELINE: bench/baselines/gate/allocations.json
-  SHARDS: 4 # the length of measure's matrix.shard
+  SHARDS: 4 # the length of the allocations and measure jobs' matrix.shard
   # Methods with one case per corpus file split their cases over the shards (bench/Broadside.Benchmarks/BenchmarkPartition.cs).
   SPLIT: Broadside.Benchmarks.OpenAndWalkBenchmarks.OpenAndWalk
+  # The branch the nightly run measures.
+  NIGHTLY_BRANCH: spec/33-broadside-v1
+  # A pull request whose diff touches one of these (an extended regular expression over the changed paths) compares times: the
+  # lexer and parsing, the content interpreter, filters and codecs, the rasterizer and rendering, colour, fonts and text, and the
+  # SDK, runtime and package versions. Anything else gets times by the `perf` label, before main, or the next nightly.
+  HOT_PATHS: >-
+    ^src/Broadside/(IO|Parsing|Objects|Content|Filters|Images|Fonts|Graphics|Rendering|Text)/|^src/Broadside\.(Rendering|Rendering\.Skia|Fonts\.Cmaps|Fonts\.Standard14)/|^(global\.json|Directory\.Build\.props|Directory\.Packages\.props)$
 
 jobs:
-  # Each shard runs a quarter of the benchmark cases (balanced by the baseline's case counts) for both commits, interleaved
-  # in two rounds, and reruns what looks slower. The runner image is pinned because the baseline's allocations were recorded on it.
+  # Decides what this run measures: the commits (head, and base for times) and whether times are compared, and says why.
+  plan:
+    name: plan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      pull-requests: read # the pull request's labels as they are now, so that re-running the workflow after adding `perf` works
+      actions: read # the previous nightly run
+    outputs:
+      run: ${{ steps.plan.outputs.run }}
+      head: ${{ steps.plan.outputs.head }}
+      base: ${{ steps.plan.outputs.base }}
+      timing: ${{ steps.plan.outputs.timing }}
+      reason: ${{ steps.plan.outputs.reason }}
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'schedule' && env.NIGHTLY_BRANCH || '' }}
+
+      - name: Test the decision
+        run: bench/test-gate-plan.sh
+
+      - name: Decide
+        id: plan
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          EVENT: ${{ github.event_name }}
+          BASE_REF: ${{ github.base_ref }}
+          PR: ${{ github.event.pull_request.number }}
+          INPUT_BASE: ${{ inputs.base }}
+          INPUT_TIMING: ${{ inputs.timing }}
+        # The decision is a script so that it can be tested locally (bench/test-gate-plan.sh); a failure fails `gate` too.
+        run: bench/gate-plan.sh
+
+  # Every pull request: each shard measures the allocation figures of a quarter of the benchmark cases (balanced by the
+  # baseline's case counts), head only: no base build, no timing. The runner image is pinned because the baseline's allocations
+  # were recorded on it.
+  allocations:
+    name: allocations (${{ matrix.shard }})
+    needs: plan
+    if: needs.plan.outputs.run == 'true'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [0, 1, 2, 3]
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event_name == 'schedule' && needs.plan.outputs.head || '' }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Select this shard's benchmarks
+        shell: bash
+        env:
+          SHARD: ${{ matrix.shard }}
+        run: |
+          dotnet build bench/Broadside.Benchmarks -c Release -warnaserror
+          dotnet run -c Release --project bench/Broadside.Benchmarks --no-build -- --list flat > "${RUNNER_TEMP}/methods.txt"
+          dotnet run -c Release --project tools/BenchGate -- shard --list "${RUNNER_TEMP}/methods.txt" --baseline "${BASELINE}" \
+            --count "${SHARDS}" --index "${SHARD}" --split "${SPLIT}" --out "${RUNNER_TEMP}/shard.txt"
+          cat "${RUNNER_TEMP}/shard.txt"
+
+      - name: Measure the allocations
+        shell: bash
+        env:
+          SHARD: ${{ matrix.shard }}
+          BROADSIDE_BENCH_PARTITION: ${{ matrix.shard }}/${{ env.SHARDS }}
+        run: bench/run-gate.sh --measure allocations --head . --out "artifacts/bench-gate/alloc-${SHARD}" --methods "${RUNNER_TEMP}/shard.txt"
+
+      - name: Upload the figures
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: bench-gate-allocations-${{ matrix.shard }}
+          # The whole folder, so the artifact keeps alloc-<shard>/allocations/head/ (the gate reads the side from the path).
+          path: artifacts/bench-gate/
+          if-no-files-found: warn
+          overwrite: true
+
+  # When times are compared: each shard runs its quarter of the cases for both commits, interleaved in two rounds, and reruns
+  # what looks slower. Its allocation figures are the base commit's only (the stale-baseline notice).
   measure:
     name: measure (${{ matrix.shard }})
+    needs: plan
+    if: needs.plan.outputs.timing == 'true'
     runs-on: ubuntu-24.04
     timeout-minutes: 100
     strategy:
@@ -56,6 +173,7 @@ jobs:
         uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          ref: ${{ github.event_name == 'schedule' && needs.plan.outputs.head || '' }}
 
       - name: Set up .NET
         uses: actions/setup-dotnet@v6
@@ -72,17 +190,10 @@ jobs:
       - name: Check out the base commit
         shell: bash
         env:
-          EVENT: ${{ github.event_name }}
-          INPUT_BASE: ${{ inputs.base }}
+          BASE: ${{ needs.plan.outputs.base }}
         run: |
-          if [ "${EVENT}" = "pull_request" ]; then
-            # The pull_request checkout is the merge commit; its first parent is the base branch as merged into.
-            base=$(git rev-parse HEAD^1)
-          else
-            base=$(git rev-parse "origin/${INPUT_BASE}" 2>/dev/null || git rev-parse "${INPUT_BASE}")
-          fi
-          git worktree add --detach "${RUNNER_TEMP}/base" "${base}"
-          echo "Base commit: ${base}"
+          git worktree add --detach "${RUNNER_TEMP}/base" "${BASE}"
+          echo "Base commit: ${BASE}"
 
       - name: Select this shard's benchmarks
         shell: bash
@@ -100,7 +211,9 @@ jobs:
         env:
           SHARD: ${{ matrix.shard }}
           BROADSIDE_BENCH_PARTITION: ${{ matrix.shard }}/${{ env.SHARDS }}
-        run: bench/run-gate.sh --base "${RUNNER_TEMP}/base" --head . --out "artifacts/bench-gate/shard-${SHARD}" --methods "${RUNNER_TEMP}/shard.txt"
+        run: |
+          bench/run-gate.sh --measure times --base "${RUNNER_TEMP}/base" --head . --out "artifacts/bench-gate/shard-${SHARD}" \
+            --methods "${RUNNER_TEMP}/shard.txt"
 
       - name: Upload the reports
         if: always()
@@ -112,51 +225,125 @@ jobs:
             artifacts/bench-gate/**/allocations/*/*.json
             artifacts/bench-gate/**/suspects.txt
           if-no-files-found: warn
+          overwrite: true
 
-  # Compares all shards' reports at once, so a benchmark that no shard ran is caught, and writes the job summary.
+  # Compares all shards' figures and reports at once, so a benchmark that no shard ran is caught, and writes the job summary.
+  # Nightly, a failure opens an issue (or comments on the open one).
   gate:
     name: gate
-    needs: measure
+    needs: [plan, allocations, measure]
+    # Always, so that a failed or incomplete `plan` (which skips every measuring job) fails the gate instead of skipping it.
     if: always()
     runs-on: ubuntu-24.04
     timeout-minutes: 15
+    permissions:
+      contents: read
+      issues: write # the nightly regression issue
     steps:
+      - name: Check the plan
+        id: check
+        shell: bash
+        env:
+          PLANNED: ${{ needs.plan.result }}
+          RUN: ${{ needs.plan.outputs.run }}
+          HEAD: ${{ needs.plan.outputs.head }}
+          BASE: ${{ needs.plan.outputs.base }}
+          TIMING: ${{ needs.plan.outputs.timing }}
+          REASON: ${{ needs.plan.outputs.reason }}
+        run: |
+          if [ "${PLANNED}" != success ] || [ -z "${HEAD}" ] || [ -z "${BASE}" ] \
+            || [[ "${RUN}" != true && "${RUN}" != false ]] || [[ "${TIMING}" != true && "${TIMING}" != false ]]; then
+            echo "::error title=Benchmark gate::The plan job did not decide (${PLANNED}; run '${RUN}', head '${HEAD}', base '${BASE}', timing '${TIMING}'), so nothing was measured; see its log."
+            exit 1
+          fi
+          echo "go=${RUN}" >> "${GITHUB_OUTPUT}"
+          if [ "${RUN}" != true ]; then
+            echo "Nothing to measure: ${REASON}." >> "${GITHUB_STEP_SUMMARY}"
+          fi
+
       - name: Check out
+        if: steps.check.outputs.go == 'true'
         uses: actions/checkout@v7
         with:
-          fetch-depth: 2
+          ref: ${{ github.event_name == 'schedule' && needs.plan.outputs.head || '' }}
 
       - name: Set up .NET
+        if: steps.check.outputs.go == 'true'
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
 
-      - name: Download the reports
+      - name: Download the allocation figures
+        if: steps.check.outputs.go == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          pattern: bench-gate-allocations-*
+          path: artifacts/bench-gate
+
+      - name: Download the timing reports
+        if: steps.check.outputs.go == 'true' && needs.plan.outputs.timing == 'true'
         uses: actions/download-artifact@v8
         with:
           pattern: bench-gate-shard-*
           path: artifacts/bench-gate
 
       - name: Compare with the baseline and the base commit
+        if: steps.check.outputs.go == 'true'
         shell: bash
         env:
-          EVENT: ${{ github.event_name }}
+          BASE: ${{ needs.plan.outputs.base }}
+          TIMING: ${{ needs.plan.outputs.timing }}
+          REASON: ${{ needs.plan.outputs.reason }}
+          ALLOCATED: ${{ needs.allocations.result }}
           MEASURED: ${{ needs.measure.result }}
         run: |
-          if [ "${EVENT}" = "pull_request" ]; then base_name=$(git rev-parse --short HEAD^1); else base_name="${{ inputs.base }}"; fi
+          summary="${RUNNER_TEMP}/gate-summary.md"
           status=0
           dotnet run -c Release --project tools/BenchGate -- compare --baseline "${BASELINE}" --results artifacts/bench-gate \
-            --summary "${GITHUB_STEP_SUMMARY}" --record artifacts/bench-gate-baseline/allocations.json --base-name "${base_name}" || status=$?
-          if [ "${MEASURED}" != "success" ]; then
-            echo "::error title=Benchmark gate::A measuring shard did not succeed (${MEASURED}); see its log."
+            --summary "${summary}" --record artifacts/bench-gate-baseline/allocations.json --base-name "${BASE:0:7}" || status=$?
+          echo "Times $([ "${TIMING}" = true ] && echo were || echo 'were not') compared because ${REASON}." >> "${summary}"
+          if [ "${ALLOCATED}" != success ]; then
+            echo "::error title=Benchmark gate::An allocations shard did not succeed (${ALLOCATED}); see its log."
+            echo "**An allocations shard did not succeed (${ALLOCATED}).**" >> "${summary}"
             status=1
           fi
+          if [ "${TIMING}" = true ] && [ "${MEASURED}" != success ]; then
+            echo "::error title=Benchmark gate::A measuring shard did not succeed (${MEASURED}); see its log."
+            echo "**A measuring shard did not succeed (${MEASURED}).**" >> "${summary}"
+            status=1
+          fi
+          cat "${summary}" >> "${GITHUB_STEP_SUMMARY}"
           exit "${status}"
 
       - name: Upload the re-recorded baseline
-        if: always()
+        if: always() && steps.check.outputs.go == 'true'
         uses: actions/upload-artifact@v7
         with:
           name: bench-gate-baseline
           path: artifacts/bench-gate-baseline/allocations.json
           if-no-files-found: ignore
+          overwrite: true
+
+      - name: Open or update the nightly regression issue
+        if: failure() && github.event_name == 'schedule'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD: ${{ needs.plan.outputs.head }}
+          BASE: ${{ needs.plan.outputs.base }}
+        run: |
+          title="Nightly benchmark gate failed on ${NIGHTLY_BRANCH}"
+          run_url="${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}"
+          {
+            echo "The [nightly benchmark gate](${run_url}) failed on \`${NIGHTLY_BRANCH}\` at \`${HEAD:0:10}\`, against \`${BASE:0:10}\`"
+            echo "([what was merged in between](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/compare/${BASE}...${HEAD}))."
+            echo
+            head -c 60000 "${RUNNER_TEMP}/gate-summary.md" 2>/dev/null || echo "The comparison did not run; see the run's log."
+          } > "${RUNNER_TEMP}/issue.md"
+          number=$(gh issue list --repo "${GITHUB_REPOSITORY}" --state open --search "\"${title}\" in:title" --json number,title \
+            --jq "map(select(.title == \"${title}\"))[0].number // empty")
+          if [ -n "${number}" ]; then
+            gh issue comment "${number}" --repo "${GITHUB_REPOSITORY}" --body-file "${RUNNER_TEMP}/issue.md"
+          else
+            gh issue create --repo "${GITHUB_REPOSITORY}" --title "${title}" --label area:ci --body-file "${RUNNER_TEMP}/issue.md"
+          fi
