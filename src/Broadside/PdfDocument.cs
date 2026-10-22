@@ -456,10 +456,10 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead).
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
     public void Save(Stream stream) => Save(stream, new PdfSaveOptions());
 
@@ -469,17 +469,19 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption,
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
     /// or a linearized save would carry an integrity MAC.
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
     /// <remarks>
     /// <para>
     /// ISO 32000-2 §7.5: a header, every object, the cross-reference information and the trailer. Objects keep their numbers and
     /// generations unless <see cref="PdfSaveOptions.ObjectNumbering"/> renumbers them, or the numbering is too large or too sparse to
-    /// write compactly; <see cref="PdfSaveOptions.RemoveUnreachableObjects"/> leaves out objects the trailer does not reach. An object
-    /// that has not changed since it was read, was read without any repair and holds no reference that was renumbered is written with
+    /// write compactly. A number past 8,388,607 (ISO 32000-1 Annex C, Table C.1), such as a damaged file's scan may find, renumbers
+    /// the file with an <c>ObjectNumberOutOfRange</c> diagnostic (Information; in strict mode, a refusal); the cross-reference
+    /// information never costs more than the objects written (§7.5.4, §7.5.8.2). <see cref="PdfSaveOptions.RemoveUnreachableObjects"/>
+    /// leaves out objects the trailer does not reach. An object that has not changed since it was read, was read without any repair and holds no reference that was renumbered is written with
     /// exactly the bytes it was read from; other objects are serialized, stream data as stored. The revisions of an incrementally
     /// updated file collapse into one, and a linearized file is written unlinearized (Annex F) unless
     /// <see cref="PdfSaveOptions.Linearize"/> lays the file out linearized again.
@@ -536,10 +538,10 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption.
+    /// data its credentials do not decrypt and is not saved with its own encryption, or an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead).
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/> with default <see cref="PdfSaveOptions"/>.</remarks>
     public void Save(string path) => Save(path, new PdfSaveOptions());
 
@@ -549,11 +551,11 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption,
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
     /// or a linearized save would carry an integrity MAC.
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
     /// <remarks>ISO 32000-2 §7.5. As <see cref="Save(Stream, PdfSaveOptions)"/>.</remarks>
     public void Save(string path, PdfSaveOptions options)
     {
@@ -577,11 +579,11 @@ public sealed partial class PdfDocument : IDisposable
     /// <exception cref="NotSupportedException">
     /// The save cannot be written as asked: the document's encryption is kept with an integrity MAC (ISO/TS 32004) it cannot compute
     /// again (opened without the file encryption key, or no <c>KDFSalt</c>), it holds
-    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption,
+    /// data its credentials do not decrypt and is not saved with its own encryption, an incremental update would change its encryption or need an object number past 2147483646 (a file that holds object 2147483647; save it whole instead),
     /// or a linearized save would carry an integrity MAC.
     /// </exception>
     /// <exception cref="ArgumentException">The options both set and remove encryption, or set encryption its algorithm cannot write.</exception>
-    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
+    /// <exception cref="DiagnosticException">In strict mode, for the first deviation found while loading the objects to write, or reported before writing (a destination showing a page removed through <see cref="PdfPageCollection.RemoveAt"/>, a version later than the document's, deprecated encryption, an object number past 8,388,607 that a save keeping the numbering would have to renumber, an incremental update refused for its object numbers); nothing is written then, and the document is left as it was: the save neither dates it nor changes its catalog or fonts.</exception>
     /// <remarks>
     /// ISO 32000-2 §7.5. Writes exactly the bytes <see cref="Save(Stream, PdfSaveOptions)"/> writes, from the same writer; only the
     /// writes to <paramref name="stream"/> are asynchronous.

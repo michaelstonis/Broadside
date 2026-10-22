@@ -1,3 +1,5 @@
+using System.Globalization;
+using Broadside.Diagnostics;
 using Broadside.Filters;
 using Broadside.IO;
 using Broadside.Objects;
@@ -82,11 +84,16 @@ internal static class SavePlan
     /// Receives the features of the version table the file uses (<see cref="VersionedFeatures"/>): its cross-reference layout,
     /// compression and encryption. The writer's header states the document's header version; the caller raises it (<see cref="VersionPlan"/>).
     /// </param>
+    /// <param name="diagnostics">
+    /// The document's diagnostics: a numbering the save renumbers although the options keep it, because a number passes
+    /// <see cref="MaxObjectNumber"/>, is recorded as <c>ObjectNumberOutOfRange</c> (Information), or refused in strict mode.
+    /// </param>
     /// <returns>The writer.</returns>
     /// <exception cref="NotSupportedException">
     /// What <see cref="EncryptionPlan"/> refuses, or a linearized save of a document without a catalog or a page, whose page tree
     /// lists a page twice, or whose file carries an integrity MAC (ISO/TS 32004).
     /// </exception>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for a numbering the save would have to renumber, past <see cref="MaxObjectNumber"/>.</exception>
     public static FileWriter Create(
         PdfSource source,
         ObjectLoader loader,
@@ -94,7 +101,8 @@ internal static class SavePlan
         PdfSaveOptions options,
         StreamEncoderRegistry encoders,
         PdfSecurity? security,
-        ICollection<VersionedFeature> features)
+        ICollection<VersionedFeature> features,
+        DiagnosticSink diagnostics)
     {
         CrossReference crossReference = loader.CrossReference;
         CosDictionary sourceTrailer = crossReference.Trailer;
@@ -158,15 +166,19 @@ internal static class SavePlan
             freeGenerations.Remove(oldEncryption.ObjectNumber);
         }
 
+        bool exhausted = false;
         if (encryption.NewDictionary is { } dictionary)
         {
             // The new encryption dictionary: an indirect object numbered as the next added object would be, above every number the
             // file lists or refers to (§7.3.10, Table 15); a dangling reference in a damaged file must not come to reach it (fuzz
-            // finding). The number is not taken: the document does not change.
+            // finding). The number is not taken: the document does not change. When no number is left above (a file that holds
+            // object 2147483647), the save renumbers, writing every dangling reference as null, so the lowest number no object
+            // holds will do (issue #371).
             int number = loader.NextNumber;
             if (number == int.MaxValue)
             {
-                throw new InvalidOperationException("The document has no object number left for the encryption dictionary.");
+                number = LowestUnused(existing, freeGenerations);
+                exhausted = true;
             }
 
             var reference = new CosReference(number, 0);
@@ -191,18 +203,11 @@ internal static class SavePlan
             kept = [.. linearized.Objects];
             freeGenerations.Clear();
         }
-        else if (options.ObjectNumbering == PdfObjectNumbering.Compact || !IsCompact(Highest(kept, freeGenerations), kept.Count))
-        {
-            references = new Dictionary<CosReference, CosReference>(kept.Count);
-            for (int index = 0; index < kept.Count; index++)
-            {
-                references[kept[index].Reference] = new CosReference(index + 1, 0);
-            }
-
-            freeGenerations.Clear();
-        }
         else
         {
+            // The numbers the file would list with its numbering kept: the objects written and every number freed, those of the
+            // objects the save drops included. A damaged file's scan may find an object numbered near int.MaxValue that nothing
+            // reaches; freed, it would make the one subsection of a complete file (§7.5.4) two billion entries long (issue #371).
             var keptReferences = new HashSet<CosReference>(kept.Select(item => item.Reference));
             foreach (CosReference reference in existing.Values)
             {
@@ -212,7 +217,24 @@ internal static class SavePlan
                 }
             }
 
-            if (options.RemoveUnreachableObjects)
+            int highest = Highest(kept, freeGenerations);
+            bool renumber = options.ObjectNumbering == PdfObjectNumbering.Compact || exhausted || !IsCompact(highest, kept.Count);
+            if (renumber && options.ObjectNumbering != PdfObjectNumbering.Compact && (exhausted || highest > MaxObjectNumber))
+            {
+                ReportRenumbered(diagnostics, exhausted ? int.MaxValue : highest);
+            }
+
+            if (renumber)
+            {
+                references = new Dictionary<CosReference, CosReference>(kept.Count);
+                for (int index = 0; index < kept.Count; index++)
+                {
+                    references[kept[index].Reference] = new CosReference(index + 1, 0);
+                }
+
+                freeGenerations.Clear();
+            }
+            else if (options.RemoveUnreachableObjects)
             {
                 // The numbers are kept, but a serialized object must not keep a reference to a dropped object (its number is free and
                 // an update could reuse it), and an object whose bytes hold one is serialized rather than copied.
@@ -304,8 +326,13 @@ internal static class SavePlan
     /// Receives the features of the version table the update uses (<see cref="VersionedFeatures"/>). An update writes no header: the
     /// caller raises the version through the catalog's <c>Version</c> entry (§7.7.2, Table 29) and plans again.
     /// </param>
+    /// <param name="diagnostics">The document's diagnostics, which record an update refused for its numbers (<see cref="CheckUpdateNumbers"/>).</param>
     /// <returns>The writer.</returns>
-    /// <exception cref="NotSupportedException">What <see cref="EncryptionPlan"/> refuses.</exception>
+    /// <exception cref="NotSupportedException">
+    /// What <see cref="EncryptionPlan"/> refuses, or an update of a file that holds object 2147483647, whose <c>Size</c> or new
+    /// cross-reference stream would need a number past it.
+    /// </exception>
+    /// <exception cref="Diagnostics.DiagnosticException">In strict mode, for an update refused for its numbers.</exception>
     /// <remarks>
     /// <para>
     /// ISO 32000-2 §7.5.6: "A cross-reference section for an incremental update shall contain entries only for objects that have been
@@ -330,7 +357,8 @@ internal static class SavePlan
         PdfSaveOptions options,
         StreamEncoderRegistry encoders,
         PdfSecurity? security,
-        ICollection<VersionedFeature> features)
+        ICollection<VersionedFeature> features,
+        DiagnosticSink diagnostics)
     {
         CrossReference crossReference = loader.CrossReference;
         CosDictionary sourceTrailer = crossReference.Trailer;
@@ -402,13 +430,16 @@ internal static class SavePlan
             ? kept.Values.Any(entry => entry.Kind == XrefEntryKind.Compressed) ? XrefSectionKind.Stream : XrefSectionKind.Table
             : crossReference.Sections[0].Kind;
         // Above every number the file lists, whatever its Size says (a new cross-reference stream must not take a used number).
-        int size = sourceTrailer.TryGetValue(KnownNames.Size, out CosObject? sizeEntry) && sizeEntry is CosInteger { Value: > 0 and <= MaxObjectNumber } count
-            ? (int)count.Value
+        // In 64 bits: a file may list object 2147483647, one below which Size cannot be (issue #371).
+        long size = sourceTrailer.TryGetValue(KnownNames.Size, out CosObject? sizeEntry) && sizeEntry is CosInteger { Value: > 0 and <= MaxObjectNumber } count
+            ? count.Value
             : 0;
         foreach (int number in crossReference.Entries.Keys)
         {
-            size = Math.Max(size, number + 1);
+            size = Math.Max(size, number + 1L);
         }
+
+        CheckUpdateNumbers(loader, form, size, objects, freeGenerations, diagnostics);
         var target = new UpdateTarget(
             loader.Header.Offset,
             listsEverything ? null : crossReference.Sections[0].Offset - loader.Header.Offset,
@@ -436,6 +467,47 @@ internal static class SavePlan
             StreamNumbers = form == XrefSectionKind.Stream ? StreamNumbers(loader) : null,
             Integrity = encryption.Integrity,
         };
+    }
+
+    /// <summary>
+    /// Refuses, before anything is written or changed, an update whose numbers a section cannot state: an update cannot renumber
+    /// (§7.5.6), its <c>Size</c> is one more than the highest number it lists (§7.5.5, Table 15), and a new cross-reference stream
+    /// takes a number above them (§7.5.8, issue #295), so a file that holds object 2147483647 leaves no 32-bit <c>Size</c> (ISO 32000-2
+    /// Annex C, Table C.1: object numbers are expected to fit in 32 bits). Records <c>ObjectNumberOutOfRange</c> (Warning), which
+    /// strict mode throws, then throws <see cref="NotSupportedException"/>.
+    /// </summary>
+    private static void CheckUpdateNumbers(
+        ObjectLoader loader,
+        XrefSectionKind form,
+        long size,
+        List<WriterObject> objects,
+        Dictionary<int, int> freeGenerations,
+        DiagnosticSink diagnostics)
+    {
+        long highest = size - 1;
+        foreach (WriterObject item in objects)
+        {
+            highest = Math.Max(highest, item.Reference.ObjectNumber);
+        }
+
+        foreach (int number in freeGenerations.Keys)
+        {
+            highest = Math.Max(highest, number);
+        }
+
+        bool fits = form == XrefSectionKind.Stream
+            ? highest + 1 < int.MaxValue && loader.NextNumberFrom((int)(highest + 1)) < int.MaxValue
+            : highest < int.MaxValue;
+        if (fits)
+        {
+            return;
+        }
+
+        diagnostics.Report(
+            DiagnosticCodes.ObjectNumberOutOfRange,
+            DiagnosticSeverity.Warning,
+            string.Create(CultureInfo.InvariantCulture, $"The file lists object number {highest}, and an incremental update, which cannot renumber, would need a Size or a cross-reference stream number above {int.MaxValue - 1} (ISO 32000-2 §7.5.6; Annex C, Table C.1); nothing is written. Save the whole file instead, which renumbers."));
+        throw new NotSupportedException("An incremental update of a file that holds object 2147483647 cannot be written: its Size would not fit in 32 bits (ISO 32000-2 Annex C). Save the whole file instead.");
     }
 
     /// <summary>
@@ -511,6 +583,41 @@ internal static class SavePlan
     /// </summary>
     private static bool IsCompact(int highest, int count) =>
         highest <= MaxObjectNumber && (highest <= MaxSparseObjectNumber || highest <= (long)MaxNumbersPerObject * count);
+
+    /// <summary>
+    /// Records that a save renumbers a numbering its options keep because <paramref name="highest"/> passes
+    /// <see cref="MaxObjectNumber"/>: <c>ObjectNumberOutOfRange</c>, Information, or a Warning that strict mode throws before anything
+    /// is written or changed (ADR 0005), as a raised version is (<see cref="VersionPlan.Check"/>).
+    /// </summary>
+    private static void ReportRenumbered(DiagnosticSink diagnostics, int highest)
+    {
+        if (diagnostics.IsStrict)
+        {
+            diagnostics.Report(
+                DiagnosticCodes.ObjectNumberOutOfRange,
+                DiagnosticSeverity.Warning,
+                string.Create(CultureInfo.InvariantCulture, $"The save would list object number {highest}, above {MaxObjectNumber} (ISO 32000-1 Annex C, Table C.1; ISO 32000-2 Annex C, Table C.1), and must renumber the objects to write it; strict mode does not renumber a numbering the options keep, so nothing is written. Save with PdfObjectNumbering.Compact."));
+        }
+        else
+        {
+            diagnostics.Report(
+                DiagnosticCodes.ObjectNumberOutOfRange,
+                DiagnosticSeverity.Information,
+                string.Create(CultureInfo.InvariantCulture, $"The save would list object number {highest}, above {MaxObjectNumber} (ISO 32000-1 Annex C, Table C.1; ISO 32000-2 Annex C, Table C.1); the objects are renumbered 1 to n and every reference to an object not written is written as null (§7.3.10)."));
+        }
+    }
+
+    /// <summary>The lowest object number no object of the file holds and no number it frees, for a save that renumbers.</summary>
+    private static int LowestUnused(Dictionary<int, CosReference> existing, Dictionary<int, int> freeGenerations)
+    {
+        int number = 1;
+        while (existing.ContainsKey(number) || freeGenerations.ContainsKey(number))
+        {
+            number++;
+        }
+
+        return number;
+    }
 
     /// <summary>The highest number the written cross-reference information would list when the numbers are kept.</summary>
     private static int Highest(List<(CosReference Reference, CosObject Value)> kept, Dictionary<int, int> freeGenerations)

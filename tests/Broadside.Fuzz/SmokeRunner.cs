@@ -27,6 +27,20 @@ internal static class SmokeRunner
 
         Log($"smoke: target '{targetName}', {seeds.Length} corpus files, {duration.TotalSeconds:0.#} s, seed {seed}");
 
+        // Regression seeds: the minimized inputs of the target's past findings, replayed first and not mutated, so a seed number keeps
+        // naming the same mutations whatever seeds are added.
+        string regressions = Path.Combine(CorpusLocator.RepositoryRoot, "tests", "Broadside.Fuzz", "Seeds", targetName);
+        if (Directory.Exists(regressions))
+        {
+            foreach (string path in Directory.GetFiles(regressions).Order(StringComparer.Ordinal))
+            {
+                if (!TryExecute(target, File.ReadAllBytes(path), out Exception? failure))
+                {
+                    return ReportFailure(targetName, File.ReadAllBytes(path), failure, $"regression seed {Path.GetFileName(path)}", seed, iteration: 0);
+                }
+            }
+        }
+
         for (int i = 0; i < seeds.Length; i++)
         {
             if (!TryExecute(target, seeds[i], out Exception? failure))
