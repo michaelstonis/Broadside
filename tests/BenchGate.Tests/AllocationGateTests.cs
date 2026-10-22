@@ -35,6 +35,43 @@ public sealed class AllocationGateTests
     }
 
     [Fact]
+    public void An_allocation_only_run_fails_on_a_changed_figure_and_on_a_case_no_shard_ran()
+    {
+        // Every pull request's `allocations` jobs (issue #389): head figures only, no base commit and no timing rounds.
+        using var tree = new ResultsTree();
+        tree.AddAllocation("bench-gate-allocations-0/alloc-0/allocations/head", "allocations", ResultsTree.Lexer, 24);
+        string baseline = tree.WriteBaseline((ResultsTree.Lexer, 0), (ResultsTree.Flate, 16));
+
+        GateReport report = BenchmarkGate.Run(baseline, tree.Root);
+
+        Assert.False(report.Passed);
+        Assert.Equal(
+            [(ResultsTree.Lexer, FindingKind.AllocationChanged), (ResultsTree.Flate, FindingKind.NotRun)],
+            report.Failures.Select(static finding => (finding.Benchmark, finding.Kind)).OrderBy(static pair => pair.Kind));
+    }
+
+    [Fact]
+    public void Split_jobs_combine_the_allocation_figures_with_the_timing_rounds()
+    {
+        // The `measure` jobs (bench/run-gate.sh --measure times) write the rounds and the base commit's figures; the pull
+        // request's figures come from the `allocations` jobs' artifacts.
+        using var tree = new ResultsTree();
+        tree.Add("bench-gate-shard-0/shard-0/round-1/base", ResultsTree.Lexer, 8, ResultsTree.Around(1000))
+            .Add("bench-gate-shard-0/shard-0/round-1/head", ResultsTree.Lexer, 8, ResultsTree.Around(1000));
+        string headFigures = Path.Combine(tree.Root, "bench-gate-shard-0", "shard-0", "allocations", "head");
+        Directory.Delete(headFigures, recursive: true);
+        tree.AddAllocation("bench-gate-allocations-0/alloc-0/allocations/head", "allocations", ResultsTree.Lexer, 0);
+        string baseline = tree.WriteBaseline((ResultsTree.Lexer, 0));
+
+        GateReport report = BenchmarkGate.Run(baseline, tree.Root);
+
+        Assert.True(report.Passed);
+        Assert.Single(report.Times);
+        GateFinding stale = Assert.Single(report.Findings);
+        Assert.Equal(FindingKind.BaselineStale, stale.Kind);
+    }
+
+    [Fact]
     public void Fewer_allocations_than_the_baseline_also_fail_until_the_baseline_is_updated()
     {
         using var tree = new ResultsTree();

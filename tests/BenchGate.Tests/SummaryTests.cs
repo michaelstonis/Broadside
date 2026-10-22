@@ -69,6 +69,25 @@ public sealed class SummaryTests
     }
 
     [Fact]
+    public void An_allocation_only_run_says_times_were_not_compared()
+    {
+        // The layout of the `allocations` jobs (issue #389): <artifact>/<shard>/allocations/head/allocations.json, no rounds.
+        using var tree = new ResultsTree();
+        tree.AddAllocation("bench-gate-allocations-0/alloc-0/allocations/head", "allocations", ResultsTree.Lexer, 0)
+            .AddAllocation("bench-gate-allocations-1/alloc-1/allocations/head", "allocations", ResultsTree.Flate, 16);
+        string baseline = tree.WriteBaseline((ResultsTree.Lexer, 0), (ResultsTree.Flate, 16));
+
+        GateReport report = BenchmarkGate.Run(baseline, tree.Root);
+        string summary = report.ToMarkdown("abc1234");
+
+        Assert.True(report.Passed);
+        Assert.Empty(report.Times);
+        Assert.Contains("**Passed** over 2 benchmark case(s).", summary, StringComparison.Ordinal);
+        Assert.Contains("times were not compared in this run", summary, StringComparison.Ordinal);
+        Assert.DoesNotContain("interleaved round(s)", summary, StringComparison.Ordinal);
+    }
+
+    [Fact]
     public void A_real_BenchmarkDotNet_report_is_read()
     {
         // The Phase 1 baseline's lexer report (#48): BenchmarkDotNet 0.15's full compressed JSON exporter.

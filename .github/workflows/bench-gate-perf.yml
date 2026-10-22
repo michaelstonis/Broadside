@@ -1,0 +1,46 @@
+# Adding the `perf` label to a pull request re-runs its benchmark gate (bench-gate.yml) so that it compares times too (issue #389):
+# the gate's `plan` job reads the labels the pull request has when it runs. The gate itself does not trigger on labels, so that
+# labelling a pull request for any other reason never starts, cancels or hides a gate run.
+name: Benchmark gate (perf label)
+
+on:
+  pull_request:
+    types: [labeled]
+
+permissions:
+  contents: read
+
+jobs:
+  rerun:
+    name: rerun the benchmark gate with times
+    if: github.event.label.name == 'perf'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: write
+    steps:
+      - name: Re-run the gate of the pull request's head commit
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          latest() {
+            gh run list --repo "${GITHUB_REPOSITORY}" --workflow bench-gate.yml --event pull_request --commit "${HEAD_SHA}" --limit 1 \
+              --json databaseId,status --jq ".[0].${1} // empty"
+          }
+          id=$(latest databaseId)
+          if [ -z "${id}" ]; then
+            echo "::notice title=Benchmark gate::This pull request's head commit has no benchmark gate run: it changes nothing the gate watches. Use the Run workflow button of bench-gate.yml to compare times anyway."
+            exit 0
+          fi
+          # A run in progress planned without the label: cancel it, wait for it to stop, then run it again.
+          if [ "$(latest status)" != completed ]; then
+            gh run cancel "${id}" --repo "${GITHUB_REPOSITORY}" || true
+            for _ in $(seq 1 60); do
+              [ "$(latest status)" = completed ] && break
+              sleep 10
+            done
+          fi
+          gh run rerun "${id}" --repo "${GITHUB_REPOSITORY}"
+          echo "Re-ran ${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${id} with times."
