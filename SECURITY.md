@@ -2,11 +2,11 @@
 
 ## Supported versions
 
-No version of Broadside has been released yet, so no version is currently supported with security fixes. Once packages are published, this table will list the versions that receive fixes.
+The only release so far is the preview `0.1.0-preview.1` (NuGet.org, 2026-10-21). The support policy for previews is not decided yet; it is part of [#266](https://github.com/michaelstonis/Broadside/issues/266). Until then, report against the latest preview or the `main` branch.
 
 | Version | Supported |
 |---|---|
-| none yet | – |
+| `0.1.0-preview.1` | preview; support policy pending |
 
 ## Reporting a vulnerability
 
