@@ -15,12 +15,16 @@ namespace Broadside.Rendering;
 /// together span [0, ⌈W / s⌉·s / W], clipped at 1: never infer the geometry from <see cref="Width"/> alone.
 /// </para>
 /// <para>
+/// A value over samples the image or the document's image cache owns, so asking for an image's samples allocates nothing; two
+/// values are equal when they view the same samples. The default value views nothing and must not be read.
+/// </para>
+/// <para>
 /// The samples are raw values like the image's (<see cref="DisplayImage.DecodeMap"/> applies to them), averaged in the codec's own
-/// space before any colour conversion. Immutable; safe to read from any number of threads. The document's image cache owns it: a
-/// backend never disposes it, and may key a per-surface cache on the instance.
+/// space before any colour conversion. Immutable; safe to read from any number of threads. A backend may key a per-surface cache
+/// on the value (its samples are kept while anything holds them).
 /// </para>
 /// </remarks>
-public sealed class DisplayImageSamples
+public readonly struct DisplayImageSamples : IEquatable<DisplayImageSamples>
 {
     private readonly DecodedImage _samples;
 
@@ -83,4 +87,26 @@ public sealed class DisplayImageSamples
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="y"/> is outside the samples.</exception>
     /// <remarks>ISO 32000-2 §8.9.3.</remarks>
     public ReadOnlySpan<byte> GetRow(int y) => _samples.GetRow(y);
+
+    /// <summary>Returns whether two values view the same samples.</summary>
+    /// <param name="left">A value.</param>
+    /// <param name="right">Another.</param>
+    /// <returns>Whether they are equal.</returns>
+    public static bool operator ==(DisplayImageSamples left, DisplayImageSamples right) => left.Equals(right);
+
+    /// <summary>Returns whether two values view different samples.</summary>
+    /// <param name="left">A value.</param>
+    /// <param name="right">Another.</param>
+    /// <returns>Whether they differ.</returns>
+    public static bool operator !=(DisplayImageSamples left, DisplayImageSamples right) => !left.Equals(right);
+
+    /// <inheritdoc/>
+    public bool Equals(DisplayImageSamples other) =>
+        ReferenceEquals(_samples, other._samples) && SourceWidth == other.SourceWidth && SourceHeight == other.SourceHeight;
+
+    /// <inheritdoc/>
+    public override bool Equals(object? obj) => obj is DisplayImageSamples other && Equals(other);
+
+    /// <inheritdoc/>
+    public override int GetHashCode() => System.Runtime.CompilerServices.RuntimeHelpers.GetHashCode(_samples);
 }

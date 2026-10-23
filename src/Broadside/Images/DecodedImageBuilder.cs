@@ -20,7 +20,7 @@ public sealed class DecodedImageBuilder : IDisposable
     private readonly int _length;
     private DecodedImageBuilder? _alpha;
     private int _decodedRows;
-    private int _reduction;
+    private byte _reduction;
 
     internal DecodedImageBuilder(int width, int height, int components, int bitsPerComponent)
     {
@@ -96,7 +96,7 @@ public sealed class DecodedImageBuilder : IDisposable
         {
             ArgumentOutOfRangeException.ThrowIfNegative(value);
             ArgumentOutOfRangeException.ThrowIfGreaterThan(value, ImageGeometry.MaxReduction);
-            _reduction = value;
+            _reduction = (byte)value;
         }
     }
 

@@ -4966,3 +4966,9 @@ Broadside.Rendering.DisplayImageSamples.SourceWidth.get -> int
 Broadside.Rendering.DisplayImageSamples.StorageBits.get -> int
 Broadside.Rendering.DisplayImageSamples.Stride.get -> int
 Broadside.Rendering.DisplayImageSamples.Width.get -> int
+Broadside.Rendering.DisplayImageSamples.DisplayImageSamples() -> void
+Broadside.Rendering.DisplayImageSamples.Equals(Broadside.Rendering.DisplayImageSamples other) -> bool
+override Broadside.Rendering.DisplayImageSamples.Equals(object? obj) -> bool
+override Broadside.Rendering.DisplayImageSamples.GetHashCode() -> int
+static Broadside.Rendering.DisplayImageSamples.operator !=(Broadside.Rendering.DisplayImageSamples left, Broadside.Rendering.DisplayImageSamples right) -> bool
+static Broadside.Rendering.DisplayImageSamples.operator ==(Broadside.Rendering.DisplayImageSamples left, Broadside.Rendering.DisplayImageSamples right) -> bool

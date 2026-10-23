@@ -28,6 +28,7 @@ public sealed class DecodedImage : IDisposable
 {
     private byte[]? _buffer;
     private readonly int _length;
+    private readonly byte _reduction;
 
     internal DecodedImage(DecodedImageBuilder builder, byte[] buffer, int length, DecodedImage? alpha)
     {
@@ -40,7 +41,7 @@ public sealed class DecodedImage : IDisposable
         StorageBits = builder.StorageBits;
         Stride = builder.Stride;
         DecodedRows = builder.DecodedRows;
-        Reduction = builder.Reduction;
+        _reduction = (byte)builder.Reduction;
         SamplesInverted = builder.SamplesInverted;
         ColorModel = builder.ColorModel;
         IccProfile = builder.IccProfile;
@@ -91,7 +92,7 @@ public sealed class DecodedImage : IDisposable
     /// covers the source samples i·s to (i + 1)·s − 1, so the last one may cover less than s. Painted into the unit square (ISO
     /// 32000-2 §8.9.4), the reduced samples span ⌈W / s⌉·s / W of it, clipped at 1.
     /// </remarks>
-    public int Reduction { get; }
+    public int Reduction => _reduction;
 
     /// <summary>Gets all rows: <see cref="Stride"/> × <see cref="Height"/> bytes.</summary>
     /// <exception cref="ObjectDisposedException">The image was disposed.</exception>
