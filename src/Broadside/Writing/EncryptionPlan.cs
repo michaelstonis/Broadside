@@ -43,7 +43,11 @@ internal sealed class EncryptionPlan
     /// <summary>Gets a value indicating whether the source's <c>Encrypt</c> and <c>AuthCode</c> trailer entries, and its encryption dictionary, are dropped.</summary>
     public bool ReplacesDictionary { get; }
 
-    /// <summary>Gets the new encryption dictionary, written as a new indirect object the trailer's <c>Encrypt</c> refers to.</summary>
+    /// <summary>
+    /// Gets the new encryption dictionary, written as a new indirect object the trailer's <c>Encrypt</c> refers to: new encryption's,
+    /// or the direct copy of a kept dictionary that holds a reference (<see cref="KeptEncryptionDictionary"/>), whose source object
+    /// then stays only for what else refers to it.
+    /// </summary>
     public CosDictionary? NewDictionary { get; }
 
     /// <summary>Gets the first file identifier the keys were derived from (Algorithm 2), or <see langword="null"/> to keep the usual one.</summary>
@@ -78,7 +82,7 @@ internal sealed class EncryptionPlan
     /// save writes anew.
     /// </returns>
     public bool KeepsTrailerEntry(CosName key) =>
-        !(ReplacesDictionary && IsEncryptionEntry(key)) && !(Integrity is not null && key.Equals(AuthCode));
+        !(ReplacesDictionary && IsEncryptionEntry(key)) && !(NewDictionary is not null && key.Equals(KnownNames.Encrypt)) && !(Integrity is not null && key.Equals(AuthCode));
 
     /// <summary>Decides what a save does about encryption.</summary>
     /// <param name="loader">The document's loader.</param>
@@ -205,10 +209,13 @@ internal sealed class EncryptionPlan
         CosString firstIdentifier = trailer.TryGetValue(KnownNames.ID, out CosObject? identifiers) && identifiers is CosArray { Count: >= 1 } array && array[0] is CosString kept
             ? kept
             : new CosString([], hexadecimal: true);
+        // §7.6.2: a complete file whose kept encryption dictionary holds a reference writes a new, direct one that reads the same
+        // (issue #390); an incremental update leaves the document's as it is.
+        CosDictionary? rebuilt = incremental ? null : KeptEncryptionDictionary.Rebuild(security, loader.Resolve, keepsIntegrity: integrity is not null);
         return new EncryptionPlan(
-            ObjectEncryptor.Keep(decryptor, security.EncryptionDictionary, loader.Resolve),
+            ObjectEncryptor.Keep(decryptor, rebuilt ?? security.EncryptionDictionary, loader.Resolve),
             replacesDictionary: false,
-            null,
+            rebuilt,
             firstIdentifier,
             features,
             integrity,

@@ -37,7 +37,7 @@ internal sealed record UpdateTarget(
     long HeaderOffset,
     long? PreviousSection,
     XrefSectionKind Form,
-    int Size,
+    long Size,
     IReadOnlyDictionary<int, XrefEntry> KeptEntries,
     CosString? PreviousIdentifier);
 
@@ -65,6 +65,14 @@ internal sealed record UpdateResult(ReadOnlyMemory<byte> Bytes, XrefSection Sect
 /// <c>Length</c>), §7.5.4 (classic table, one subsection, 20-byte entries, free entries linked from object 0), §7.5.5 (trailer,
 /// <c>startxref</c>, <c>%%EOF</c>), §7.5.7 (object streams), §7.5.8 (cross-reference stream with an entry for itself) and §14.4
 /// (file identifiers).
+/// </para>
+/// <para>
+/// What the cross-reference information costs is bounded by the objects written, never by the highest object number (issue #371):
+/// a section lists every number below <c>Size</c> only while the numbering is dense (<see cref="IsDense"/>), and otherwise lists the
+/// written and freed numbers in subsections (§7.5.4) or <c>Index</c> pairs (§7.5.8.2, Table 17). A complete file's numbering is
+/// dense, since <see cref="SavePlan"/> renumbers any other, so it keeps the one subsection from 0 that §7.5.4 asks of a file never
+/// updated; an incremental update cannot renumber. Sizes and numbers above the written objects are computed in 64 bits, so an
+/// object numbered <see cref="int.MaxValue"/> overflows nothing.
 /// </para>
 /// <para>
 /// An incremental update (§7.5.6, <see cref="UpdateTarget"/>) is written the same way after a copy of every byte of the source: no
@@ -293,7 +301,7 @@ internal sealed partial class FileWriter
 
         bool compress = _update is null && _layout == PdfCrossReferenceLayout.StreamWithObjectStreams;
         var compressible = new List<WriterObject>();
-        int maxNumber = _freeGenerations.Count == 0 ? 0 : _freeGenerations.Keys.Max();
+        long maxNumber = _freeGenerations.Count == 0 ? 0 : _freeGenerations.Keys.Max();
         foreach (WriterObject item in _objects)
         {
             maxNumber = Math.Max(maxNumber, item.Reference.ObjectNumber);
@@ -330,11 +338,11 @@ internal sealed partial class FileWriter
             maxNumber = Math.Max(maxNumber, _update.Size - 1);
         }
 
-        int nextNumber = maxNumber + 1;
+        long nextNumber = maxNumber + 1;
         for (int start = 0; start < compressible.Count; start += ObjectStreamCapacity)
         {
             int container = StreamNumber(nextNumber);
-            nextNumber = container + 1;
+            nextNumber = container + 1L;
             int count = Math.Min(ObjectStreamCapacity, compressible.Count - start);
             for (int index = 0; index < count; index++)
             {
@@ -384,10 +392,19 @@ internal sealed partial class FileWriter
         yield return buffer.WrittenMemory;
     }
 
-    /// <summary>The number of a stream the writer adds, at or above <paramref name="lowest"/>, through <see cref="StreamNumbers"/>.</summary>
-    private int StreamNumber(int lowest)
+    /// <summary>
+    /// The number of a stream the writer adds, at or above <paramref name="lowest"/>, through <see cref="StreamNumbers"/>; below
+    /// <see cref="int.MaxValue"/>, so the section's <c>Size</c> stays a 32-bit integer (Annex C, Table C.1). <see cref="SavePlan"/>
+    /// refuses a save that would run out first, with a diagnostic.
+    /// </summary>
+    private int StreamNumber(long lowest)
     {
-        int number = StreamNumbers?.Invoke(lowest) ?? lowest;
+        if (lowest >= int.MaxValue)
+        {
+            throw new InvalidOperationException("The document has no object number left for the streams the save adds.");
+        }
+
+        int number = StreamNumbers?.Invoke((int)lowest) ?? (int)lowest;
         if (number < lowest || number == int.MaxValue)
         {
             throw new InvalidOperationException("The document has no object number left for the streams the save adds.");
@@ -550,7 +567,7 @@ internal sealed partial class FileWriter
     /// subsection per run of consecutive numbers <see cref="Listing"/> gives.
     /// </summary>
     /// <returns>The section as a reader would read it, with absolute offsets.</returns>
-    private XrefSection WriteTable(PooledBufferWriter buffer, Dictionary<int, XrefEntry> entries, int size, long position, long origin, CosArray identifier)
+    private XrefSection WriteTable(PooledBufferWriter buffer, Dictionary<int, XrefEntry> entries, long size, long position, long origin, CosArray identifier)
     {
         List<(int Number, XrefEntry Entry)> listing = Listing(entries, size);
         buffer.Write("xref\n"u8);
@@ -687,14 +704,16 @@ internal sealed partial class FileWriter
 
     /// <summary>
     /// The entries a cross-reference section lists, in ascending number. A complete file, and an update to a file whose
-    /// cross-reference information was rebuilt, list every number below <paramref name="size"/> (<see cref="Complete"/>). Any other
-    /// update lists object 0, the head of the free list, then the objects written and the numbers freed (§7.5.6, H.7.4): the freed
-    /// numbers link from 0 in ascending order back to 0, each with the generation a reuse would take. So does an update to a rebuilt
-    /// file whose numbers are too sparse to list every one (the limits above which a complete save renumbers, <see cref="SavePlan"/>):
-    /// an update cannot renumber, and a damaged file's scan may find an object numbered near <see cref="int.MaxValue"/>, whose
-    /// complete table would not fit in memory (fuzz finding, save target).
+    /// cross-reference information was rebuilt, list every number below <paramref name="size"/> (<see cref="Complete"/>) while the
+    /// numbering is dense (<see cref="IsDense"/>). Any other update lists object 0, the head of the free list, then the objects
+    /// written and the numbers freed (§7.5.6, H.7.4): the freed numbers link from 0 in ascending order back to 0, each with the
+    /// generation a reuse would take. So does a section whose numbers are too sparse to list every one (the limits above which a
+    /// complete save renumbers, <see cref="SavePlan"/>), which the writer then writes in subsections (§7.5.4) or <c>Index</c> pairs
+    /// (§7.5.8.2): an update cannot renumber, and a damaged file's scan may find an object numbered near <see cref="int.MaxValue"/>,
+    /// whose complete table would not fit in memory (fuzz findings, save target; issue #371). The listing holds one row per object
+    /// written, kept or freed, whatever <paramref name="size"/> is.
     /// </summary>
-    private List<(int Number, XrefEntry Entry)> Listing(Dictionary<int, XrefEntry> entries, int size)
+    private List<(int Number, XrefEntry Entry)> Listing(Dictionary<int, XrefEntry> entries, long size)
     {
         var listing = new List<(int Number, XrefEntry Entry)>();
         if (_update is not { PreviousSection: not null })
@@ -707,12 +726,12 @@ internal sealed partial class FileWriter
                 }
             }
 
-            if (_update is not null && !IsDense(size - 1, entries.Count + _freeGenerations.Count))
+            if (!IsDense(size - 1, entries.Count + _freeGenerations.Count))
             {
                 return SparseListing(entries);
             }
 
-            XrefEntry[] table = Complete(entries, size);
+            XrefEntry[] table = Complete(entries, (int)size);
             for (int number = 0; number < table.Length; number++)
             {
                 listing.Add((number, table[number]));
@@ -725,7 +744,7 @@ internal sealed partial class FileWriter
     }
 
     /// <summary>Whether a section may list every number up to <paramref name="highest"/> for <paramref name="count"/> listed objects.</summary>
-    private static bool IsDense(int highest, int count) =>
+    private static bool IsDense(long highest, int count) =>
         highest <= SavePlan.MaxObjectNumber
         && (highest <= SavePlan.MaxSparseObjectNumber || highest <= (long)SavePlan.MaxNumbersPerObject * Math.Max(count, 1));
 
@@ -766,7 +785,7 @@ internal sealed partial class FileWriter
     }
 
     /// <summary>The trailer: <c>Size</c>, the given entries, an update's <c>Prev</c>, then <c>ID</c> (§7.5.5, Table 15; §7.5.6).</summary>
-    private CosDictionary TrailerDictionary(int size, CosArray identifier)
+    private CosDictionary TrailerDictionary(long size, CosArray identifier)
     {
         var trailer = new CosDictionary { [KnownNames.Size] = new CosInteger(size) };
         foreach (KeyValuePair<CosName, CosObject> entry in _trailer)

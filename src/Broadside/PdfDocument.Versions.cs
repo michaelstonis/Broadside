@@ -128,8 +128,8 @@ public sealed partial class PdfDocument
     private readonly record struct VersionedSave(FileWriter Writer, List<VersionedFeature> Features, PdfVersion Needed);
 
     private FileWriter PlanWriter(PdfSaveOptions options, List<VersionedFeature> features) => options.IncrementalUpdate
-        ? SavePlan.CreateIncremental(_source, _loader, options, StreamEncoders, Security, features)
-        : SavePlan.Create(_source, _loader, Linearization, options, StreamEncoders, Security, features);
+        ? SavePlan.CreateIncremental(_source, _loader, options, StreamEncoders, Security, features, _diagnostics)
+        : SavePlan.Create(_source, _loader, Linearization, options, StreamEncoders, Security, features, _diagnostics);
 
     /// <summary>
     /// Adds the features the document itself uses: those its writing APIs recorded (<see cref="RequireFeature"/>), its structure tree's

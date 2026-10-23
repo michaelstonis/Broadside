@@ -1,0 +1,148 @@
+# Publishes the Blazor WebAssembly viewer sample as a static site (trimmed, AOT-compiled; needs the wasm-tools workload) and drives
+# it in headless browsers through Playwright (issue #221): page 1 of a remote linearized file shows before the download completes,
+# keyboard and screen-reader navigation reach page text in reading order, a phone profile loads it and pinch-zooms, and the site
+# has no native binaries and fits its size budget. Measurements (bytes served, frame times, site size) go to the job summary.
+#
+# Chromium is always the hosted image's Google Chrome. Which of Playwright's own browsers also run is the `browsers` input
+# (issue #389): ci.yml passes `firefox` for pull requests into the integration branch, and `firefox webkit` for pull requests into
+# main and pushes to main. WebKit needs about 120 MB of system packages from the Ubuntu mirror, whose stalls timed the install out
+# twice on #388, so it is not on every pull request; this workflow also runs nightly on the integration branch with all three.
+name: Blazor WebAssembly
+
+on:
+  workflow_call:
+    inputs:
+      browsers:
+        description: Playwright browsers to install and require besides the image's Chrome (space-separated)
+        type: string
+        required: true
+  schedule:
+    - cron: '47 3 * * *'
+  workflow_dispatch:
+    inputs:
+      browsers:
+        description: Playwright browsers to install and require besides the image's Chrome (space-separated)
+        type: string
+        default: firefox webkit
+
+permissions:
+  contents: read
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_GENERATE_ASPNET_CERTIFICATE: false
+  DiffEngine_Disabled: true
+  # The branch the nightly run checks out (schedules run from the default branch's copy of this file).
+  NIGHTLY_BRANCH: spec/33-broadside-v1
+  BROWSERS: ${{ inputs.browsers || 'firefox webkit' }}
+
+jobs:
+  blazor-wasm:
+    name: blazor-wasm (chrome ${{ inputs.browsers || 'firefox webkit' }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - name: Check out
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event_name == 'schedule' && env.NIGHTLY_BRANCH || '' }}
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Install the wasm-tools workload
+        timeout-minutes: 15
+        run: dotnet workload install wasm-tools
+
+      - name: Publish the sample as a static site
+        run: samples/Broadside.Viewer.Blazor.Sample/publish-static.sh artifacts/blazor-sample
+
+      - name: Publish the sample without AOT, runtime outside _framework
+        # The second publish mode (#338): its own obj/bin folders, so it does not reuse the AOT build's intermediates.
+        run: samples/Broadside.Viewer.Blazor.Sample/publish-static.sh --no-aot --runtime-folder framework artifacts/blazor-sample-lite
+
+      - name: Build the browser tests
+        run: dotnet build tests/Broadside.Viewer.Blazor.BrowserTests -c Release -warnaserror
+
+      - name: Find Playwright's version
+        id: playwright
+        shell: bash
+        run: |
+          version=$(sed -n 's/.*Include="Microsoft.Playwright" Version="\([^"]*\)".*/\1/p' Directory.Packages.props)
+          [ -n "${version}" ] || { echo "::error::Microsoft.Playwright is not in Directory.Packages.props"; exit 1; }
+          read -r -a browsers <<< "${BROWSERS}"
+          {
+            echo "version=${version}"
+            echo "key=$(IFS=-; echo "${browsers[*]}")"
+            echo "required=$(IFS=,; echo "chromium,${browsers[*]}")"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Cache Playwright's browsers
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-${{ steps.playwright.outputs.key }}
+
+      - name: Install Playwright's ${{ env.BROWSERS }}
+        timeout-minutes: 25
+        shell: bash
+        run: |
+          playwright=artifacts/bin/Broadside.Viewer.Blazor.BrowserTests/release/playwright.ps1
+          # retry <attempts> <seconds> <command...>: a stalled download is killed (with its child processes) and started again.
+          retry() {
+            local attempts="$1" limit="$2" attempt
+            shift 2
+            for attempt in $(seq 1 "${attempts}"); do
+              timeout --kill-after=15 "${limit}" "$@" && return 0
+              echo "::warning title=Playwright install::attempt ${attempt} of ${attempts} of '$*' failed or timed out"
+              sleep 15
+            done
+            return 1
+          }
+          # WebKit's system packages (GStreamer and friends). Firefox runs on the libraries of the image's own Firefox, so it needs
+          # none. apt gives up on a stalled mirror connection after 30 s and retries, instead of hanging until the step times out.
+          if [[ " ${BROWSERS} " == *" webkit "* ]]; then
+            printf 'Acquire::Retries "5";\nAcquire::http::Timeout "30";\nAcquire::https::Timeout "30";\n' | sudo tee /etc/apt/apt.conf.d/80-retries
+            retry 3 420 pwsh "${playwright}" install-deps webkit
+          fi
+          # A no-op when the cache above restored them.
+          # shellcheck disable=SC2086 # one argument per browser
+          retry 3 240 pwsh "${playwright}" install ${BROWSERS}
+
+      - name: Browser tests
+        # The tests fail rather than skip without the apps or a required browser; a browser not in BROADSIDE_BROWSERS_REQUIRED and
+        # not installed is skipped.
+        env:
+          BROADSIDE_BLAZOR_REQUIRED: '1'
+          BROADSIDE_BROWSER_CHANNEL: chrome
+          BROADSIDE_BROWSERS_REQUIRED: ${{ steps.playwright.outputs.required }}
+          BROADSIDE_BROWSER_LOG: ${{ runner.temp }}/browser-measurements.txt
+          BROADSIDE_BROWSER_SCREENSHOTS: ${{ runner.temp }}/screenshots
+        run: |
+          mkdir -p "${RUNNER_TEMP}/screenshots"
+          dotnet test --project tests/Broadside.Viewer.Blazor.BrowserTests -c Release --no-build --minimum-expected-tests 14
+
+      - name: Upload screenshots
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: blazor-demo-screenshots
+          path: ${{ runner.temp }}/screenshots
+          if-no-files-found: ignore
+
+      - name: Measurements
+        if: always()
+        run: |
+          { echo '```'; cat "${RUNNER_TEMP}/browser-measurements.txt" 2>/dev/null || true; echo '```'; } >> "${GITHUB_STEP_SUMMARY}"

@@ -13,6 +13,11 @@
     <_BroadsideApple Condition="$([MSBuild]::IsOSPlatform('OSX')) and '$(BroadsideBuildPlatformBackends)' != 'false'">true</_BroadsideApple>
     <_BroadsideForced Condition="'$(BroadsideBuildPlatformBackends)' == 'true'">true</_BroadsideForced>
     <BroadsideBuildWindowsShell Condition="'$(BroadsideBuildPlatformBackends)' != 'false' and $([MSBuild]::IsOSPlatform('Windows'))">true</BroadsideBuildWindowsShell>
+    <!--
+      The Windows target cannot be built off Windows (WinAppSDK's MakePri.exe), but it can be restored and packed: the release's macOS
+      job restores and packs it with BroadsideBuildWindowsShell=true and NoBuild, from the assembly the Windows job built (#381).
+    -->
+    <EnableWindowsTargeting Condition="'$(BroadsideBuildWindowsShell)' == 'true'">true</EnableWindowsTargeting>
   </PropertyGroup>
 
   <PropertyGroup>
@@ -28,7 +33,7 @@
     <SupportedOSPlatformVersion Condition="'$(TargetPlatformIdentifier)' == 'android'">24.0</SupportedOSPlatformVersion>
     <SupportedOSPlatformVersion Condition="'$(TargetPlatformIdentifier)' == 'windows'">10.0.17763.0</SupportedOSPlatformVersion>
     <AndroidGenerateResourceDesigner>false</AndroidGenerateResourceDesigner>
-    <!-- The package ships from the macOS release job, which has every Apple and Android target; elsewhere it is built and tested only. -->
+    <!-- The package ships from the macOS release job, which has every Apple and Android target and packs the Windows one built on Windows; elsewhere it is built and tested only. -->
     <IsPackable Condition="!$(TargetFrameworks.Contains('maccatalyst'))">false</IsPackable>
     <!-- MAUI and SkiaSharp's views are not trimming- or AOT-annotated for every target; the shell itself uses no reflection. -->
     <IsTrimmable>false</IsTrimmable>

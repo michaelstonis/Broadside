@@ -4,7 +4,7 @@
 # machine, then a rerun of whatever the rounds found slower. The verdict is
 # `dotnet run --project tools/BenchGate -- compare --baseline bench/baselines/gate/allocations.json --results <out>` afterwards.
 #
-#   bench/run-gate.sh --head <checkout> --out <dir> [--base <checkout>] [--methods <file>] [--rounds <n>]
+#   bench/run-gate.sh --head <checkout> --out <dir> [--base <checkout>] [--methods <file>] [--rounds <n>] [--measure <what>]
 #
 #   --head     checkout of the pull request; built here; its tools/BenchGate is the one used.
 #   --base     checkout of the commit to compare against (a git worktree); built here. Without it only allocations are measured.
@@ -12,6 +12,10 @@
 #   --methods  file of Namespace.Type.Method lines to run (BenchGate shard output); default every benchmark.
 #   --rounds   interleaved rounds, default 2. Odd rounds run base first, even rounds head first, so drift of the machine
 #              during the run weighs on both sides alike.
+#   --measure  all (default): everything above. allocations: the pull request's allocation figures only, no base build and no
+#              timing (CI's `allocations` jobs, on every pull request). times: the timing rounds and the rerun, plus the base
+#              commit's allocation figures for the stale-baseline notice, but not the pull request's (CI's `measure` jobs, which
+#              run beside the `allocations` jobs only when times are compared; bench/baselines/gate/README.md, "When it runs").
 #
 # Exit code: 0 when the pull request's benchmarks all ran (the base side may fail, e.g. a benchmark it does not have yet),
 # 1 otherwise.
@@ -22,6 +26,7 @@ head=""
 out=""
 methods=""
 rounds=2
+measure=all
 while [ $# -gt 0 ]; do
   case "$1" in
     --base) base="$2"; shift 2 ;;
@@ -29,13 +34,19 @@ while [ $# -gt 0 ]; do
     --out) out="$2"; shift 2 ;;
     --methods) methods="$2"; shift 2 ;;
     --rounds) rounds="$2"; shift 2 ;;
+    --measure) measure="$2"; shift 2 ;;
     *) echo "unknown option $1" >&2; exit 2 ;;
   esac
 done
 if [ -z "${head}" ] || [ -z "${out}" ]; then
-  echo "usage: $0 --head <checkout> --out <dir> [--base <checkout>] [--methods <file>] [--rounds <n>]" >&2
+  echo "usage: $0 --head <checkout> --out <dir> [--base <checkout>] [--methods <file>] [--rounds <n>] [--measure all|allocations|times]" >&2
   exit 2
 fi
+case "${measure}" in
+  all|times) ;;
+  allocations) base="" ;; # the pull request's figures against the stored baseline: the base commit is not needed
+  *) echo "--measure takes all, allocations or times, not '${measure}'" >&2; exit 2 ;;
+esac
 
 head="$(cd "${head}" && pwd)"
 mkdir -p "${out}"
@@ -127,9 +138,14 @@ run() {
   fi
 }
 
-allocations "${head}" head
+if [ "${measure}" != times ]; then
+  allocations "${head}" head
+fi
 if [ "${base_built}" = true ]; then
   allocations "${base}" base
+fi
+if [ "${measure}" = allocations ]; then
+  exit "${status}"
 fi
 
 for round in $(seq 1 "${rounds}"); do

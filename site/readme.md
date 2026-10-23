@@ -8,7 +8,7 @@ Broadside is a fully managed .NET implementation of the PDF specification (ISO 3
 
 ## Status
 
-**Preview.** The first preview, `0.1.0-preview.1`, is on NuGet.org as 13 packages. The public API is not frozen yet, so expect breaking changes between previews. Phases 0 to 5 (the COS layer, the model and codecs, rendering, writing and editing, and the cross-cutting capabilities) are complete. The viewer (Phase 6) and hardening for v1 (Phase 7) are in progress. The [API reference](api/readme.md) is generated from the XML documentation of the core, rendering, Skia and font packages.
+**Preview.** The first preview, `0.1.0-preview.1`, is on NuGet.org as 13 packages. The public API is not frozen yet, so expect breaking changes between previews. Phases 0 to 5 (the COS layer, the model and codecs, rendering, writing and editing, and the cross-cutting capabilities) are complete. The viewer (Phase 6) and hardening for v1 (Phase 7) are in progress. The [API reference](api/readme.md) is generated from the XML documentation of every package; [API coverage](articles/api-coverage.md) says which target framework each one is built from.
 
 ## Where to go next
 

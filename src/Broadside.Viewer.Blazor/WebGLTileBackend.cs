@@ -8,7 +8,8 @@ namespace Broadside.Viewer.Blazor;
 
 /// <summary>
 /// The WebGL 2 tile backend for the browser viewer: tiles are drawn on the GPU (<see cref="WebGLRenderer"/>) and copied from its canvas
-/// into the viewer's tile canvases without reading the pixels back. Select it with
+/// into the viewer's tile canvases without reading the pixels back; a surface that reads pixels (a thumbnail, a PNG) gets them read back
+/// (<see cref="IRenderSurface.AcceptsDevicePixels"/>, #380). Select it with
 /// <c>new ViewerOptions().UseBackend(WebGLTileBackend.Create)</c> after awaiting <see cref="InitializeAsync"/>; the software
 /// rasterizer (<see cref="SoftwareTileBackend"/>) stays the default. Pages or regions the GPU path does not draw fall back to the
 /// software rasterizer per tile, with a diagnostic (<see cref="Diagnostics"/>).
@@ -61,13 +62,21 @@ public sealed class WebGLTileBackend : ITileBackend
             return true;
         }
 
-        public void Dispose() => render.Dispose();
+        public void ReadBack() => GpuPresentation.ReadBack(target);
+
+        public void Dispose()
+        {
+            // The bitmap is released after the render: a tile no surface claimed is dropped, never read back into it later (#380).
+            GpuPresentation.Release(target);
+            render.Dispose();
+        }
     }
 }
 
 /// <summary>
-/// The tile the WebGL canvas holds until the surface presents it: <see cref="CanvasSurface"/> claims it and copies the canvas; any
-/// other use of the pixels (a new render, a surface that reads them) gets them read back first.
+/// The tile the WebGL canvas holds from the end of its render until the render is disposed: <see cref="CanvasSurface"/> claims it and
+/// copies the canvas; a surface that reads pixels gets them read back first (<see cref="ReadBack"/>), and a new render reads back a
+/// tile still held before it overwrites the canvas. Disposing the render drops the hold, before the session releases the bitmap (#380).
 /// </summary>
 [SupportedOSPlatform("browser")]
 internal static class GpuPresentation
@@ -90,6 +99,22 @@ internal static class GpuPresentation
 
         _held = null;
         return true;
+    }
+
+    public static void ReadBack(Bitmap target)
+    {
+        if (ReferenceEquals(_held, target))
+        {
+            Flush();
+        }
+    }
+
+    public static void Release(Bitmap target)
+    {
+        if (ReferenceEquals(_held, target))
+        {
+            _held = null;
+        }
     }
 
     public static void Flush()
