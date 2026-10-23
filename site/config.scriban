@@ -29,9 +29,15 @@ with search
 end
 
 # API reference from the XML documentation the compiler emits (GenerateDocumentationFile is on in
-# Directory.Build.props). Only the plain net10.0 packages are listed, so the site builds on Linux:
-# Broadside.Rendering.CoreGraphics and Broadside.Rendering.Android need platform workloads, and
-# Broadside.Rendering.Direct2D targets net10.0-windows. They join when the site build gains a runner for them.
+# Directory.Build.props). Every package under src/ is listed here or, if the docs build cannot compile it, in
+# site/articles/api-coverage.md; ./check-docs.sh fails when a package is in neither. Each project builds one target
+# framework, the most complete one a Linux runner with the android workload can produce:
+#   - Broadside.Viewer.Maui builds net10.0. Its public API is the same on every target (one PublicAPI file); the
+#     iOS, Android, Mac Catalyst and Windows handlers are internal.
+#   - Broadside.Rendering.Direct2D builds net10.0-windows (the Windows targeting pack is a NuGet package).
+#   - Broadside.Rendering.Android builds net10.0-android (the docs job installs the android workload).
+#   - Broadside.Rendering.CoreGraphics is not listed: its macos, ios and maccatalyst workloads only install on macOS.
+#     site/articles/api-coverage.md documents its API instead.
 with api.dotnet
     title = "Broadside .NET API Reference"
     path = "/api"
@@ -45,15 +51,26 @@ with api.dotnet
     properties = {
         UseArtifactsOutput: "false"
     }
-    # SkiaSharp types in public signatures (SkiaBackend renders to an SKCanvas or SKBitmap) link to their Microsoft Learn pages.
+    # SkiaSharp types in public signatures (SkiaBackend renders to an SKCanvas or SKBitmap) and Android types
+    # (AndroidCanvasBackend renders to a Canvas or Bitmap) link to their Microsoft Learn pages.
     external_apis = [
-        { uid_prefix: "SkiaSharp.", url: "https://learn.microsoft.com/dotnet/api/" }
+        { uid_prefix: "SkiaSharp.", url: "https://learn.microsoft.com/dotnet/api/" },
+        { uid_prefix: "Android.", url: "https://learn.microsoft.com/dotnet/api/" }
     ]
     projects = [
         { name: "Broadside", path: "../src/Broadside/Broadside.csproj" },
         { name: "Broadside.Rendering", path: "../src/Broadside.Rendering/Broadside.Rendering.csproj" },
         { name: "Broadside.Rendering.Skia", path: "../src/Broadside.Rendering.Skia/Broadside.Rendering.Skia.csproj" },
+        { name: "Broadside.Rendering.WebGL", path: "../src/Broadside.Rendering.WebGL/Broadside.Rendering.WebGL.csproj" },
+        { name: "Broadside.Rendering.Direct2D", path: "../src/Broadside.Rendering.Direct2D/Broadside.Rendering.Direct2D.csproj" },
+        { name: "Broadside.Rendering.Android", path: "../src/Broadside.Rendering.Android/Broadside.Rendering.Android.csproj",
+          properties: { BroadsideBuildPlatformBackends: "true", TargetFramework: "net10.0-android" } },
         { name: "Broadside.Fonts.Standard14", path: "../src/Broadside.Fonts.Standard14/Broadside.Fonts.Standard14.csproj" },
-        { name: "Broadside.Fonts.Cmaps", path: "../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" }
+        { name: "Broadside.Fonts.Cmaps", path: "../src/Broadside.Fonts.Cmaps/Broadside.Fonts.Cmaps.csproj" },
+        { name: "Broadside.Layout", path: "../src/Broadside.Layout/Broadside.Layout.csproj" },
+        { name: "Broadside.Viewer", path: "../src/Broadside.Viewer/Broadside.Viewer.csproj" },
+        { name: "Broadside.Viewer.Blazor", path: "../src/Broadside.Viewer.Blazor/Broadside.Viewer.Blazor.csproj" },
+        { name: "Broadside.Viewer.Maui", path: "../src/Broadside.Viewer.Maui/Broadside.Viewer.Maui.csproj",
+          properties: { TargetFramework: "net10.0" } }
     ]
 end

@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Builds the documentation site with Lunet and checks the output: every expected route exists,
-# search is wired in, and every internal link and asset reference resolves to a generated file.
+# search is wired in, every package under src/ has an API reference, and every internal link and asset
+# reference resolves to a generated file.
 # First runs ./check-adr-refs.sh: no doc, README, site page, template or XML doc comment references an ADR.
 # Modelled on wieslawsoltes/TreeDataGrid check-docs.sh; see docs/research/doc-site-tooling.md.
 #
@@ -58,6 +59,7 @@ for route in \
     articles/roadmap/index.html \
     articles/conformance/index.html \
     articles/contributing/index.html \
+    articles/api-coverage/index.html \
     api/index.html \
     css/site.css \
     js/site.js \
@@ -96,7 +98,43 @@ if [ -n "${md_files}" ]; then
     echo "${md_files}" >&2
 fi
 
-# 5. Every internal href/src resolves to a file in the output. Absolute links must carry the
+# 5. Every package under src/ has an API reference. Its public types are the type lines of its PublicAPI
+#    files (a bare dotted name: members carry a signature or "->"). Each must have a generated page under
+#    api/, except in a package the site build cannot compile (listed below), whose types the API coverage
+#    article must document instead. The article's table must also name every package.
+NOT_GENERATED="Broadside.Rendering.CoreGraphics"
+COVERAGE="${DOC_ROOT}/articles/api-coverage/index.html"
+packages_checked=0
+types_checked=0
+for project in "${ROOT}"/src/*/*.csproj; do
+    package_dir="$(dirname "${project}")"
+    package="$(basename "${project}" .csproj)"
+    packages_checked=$((packages_checked + 1))
+    if [ -f "${COVERAGE}" ] && ! grep -q "<code>${package}</code>" "${COVERAGE}"; then
+        fail "package ${package} has no row in site/articles/api-coverage.md"
+    fi
+    types="$(cat "${package_dir}"/PublicAPI.*.txt 2>/dev/null | tr -d '\r' | grep -E '^[A-Za-z_][A-Za-z0-9_.]*$' || true)"
+    if [ -z "${types}" ]; then
+        fail "package ${package} has no public types in its PublicAPI files, so its API reference cannot be checked"
+        continue
+    fi
+    generated=true
+    for skipped in ${NOT_GENERATED}; do
+        [ "${package}" = "${skipped}" ] && generated=false
+    done
+    for type in ${types}; do
+        types_checked=$((types_checked + 1))
+        if [ "${generated}" = true ]; then
+            if [ ! -f "${DOC_ROOT}/api/${type}/index.html" ]; then
+                fail "no API reference page for ${type} (package ${package}): is it listed in site/config.scriban?"
+            fi
+        elif [ ! -f "${COVERAGE}" ] || ! grep -q "${type##*.}" "${COVERAGE}"; then
+            fail "${type} (package ${package}, not generated) is not documented in site/articles/api-coverage.md"
+        fi
+    done
+done
+
+# 6. Every internal href/src resolves to a file in the output. Absolute links must carry the
 #    production base path (GitHub Pages serves the site under /Broadside/); relative links are
 #    resolved against the directory of the page that contains them.
 resolve() {
@@ -147,4 +185,4 @@ if [ "${failures}" -ne 0 ]; then
     echo "check-docs: FAILED with ${failures} problem(s) in ${pages} pages" >&2
     exit 1
 fi
-echo "check-docs: OK, ${pages} HTML pages, ${links_checked} internal references checked, output in ${DOC_ROOT#"${ROOT}/"}"
+echo "check-docs: OK, ${pages} HTML pages, ${packages_checked} packages (${types_checked} public types) covered, ${links_checked} internal references checked, output in ${DOC_ROOT#"${ROOT}/"}"

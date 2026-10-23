@@ -54,12 +54,12 @@ env:
   DOTNET_GENERATE_ASPNET_CERTIFICATE: false
 
 jobs:
-  # Builds the site (Lunet builds the listed src/ projects for the API reference) and checks routes and links.
+  # Builds the site (Lunet builds the src/ projects for the API reference) and checks routes, API coverage and links.
   # Outside pull requests it also uploads the output as the Pages artifact.
   build:
     name: build
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     steps:
       - name: Check out
         uses: actions/checkout@v7
@@ -76,8 +76,21 @@ jobs:
           key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj', '.config/dotnet-tools.json') }}
           restore-keys: nuget-${{ runner.os }}-
 
+      # The API reference builds Broadside.Rendering.Android for net10.0-android (site/config.scriban). The Apple
+      # workloads do not install on Linux, so Broadside.Rendering.CoreGraphics is documented in
+      # site/articles/api-coverage.md instead; that page says which target framework each package is built from.
+      - name: Install the android workload
+        timeout-minutes: 15
+        run: dotnet workload install android
+
+      - name: Install the Android SDK packages the workload needs
+        run: >
+          dotnet build src/Broadside.Rendering.Android -t:InstallAndroidDependencies -f net10.0-android
+          -p:BroadsideBuildPlatformBackends=true -p:AndroidSdkDirectory="$ANDROID_HOME" -p:AcceptAndroidSDKLicenses=true
+
       - name: Build and check the site
-        run: ./check-docs.sh
+        # MSBuild reads the environment, so the Android build inside Lunet finds the runner's SDK.
+        run: AndroidSdkDirectory="$ANDROID_HOME" ./check-docs.sh
 
       - name: Configure Pages
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'

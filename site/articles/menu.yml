@@ -4,4 +4,5 @@ articles:
   - {path: architecture.md, title: "Architecture"}
   - {path: roadmap.md, title: "Roadmap"}
   - {path: conformance.md, title: "Conformance"}
+  - {path: api-coverage.md, title: "API coverage"}
   - {path: contributing.md, title: "Contributing"}
