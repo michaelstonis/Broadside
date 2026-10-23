@@ -1,4 +1,5 @@
 using Broadside.Caching;
+using Broadside.Filters;
 using Broadside.Graphics;
 using Broadside.Images;
 
@@ -36,76 +37,63 @@ namespace Broadside.Rendering;
 /// </remarks>
 public sealed class DisplayImage
 {
-    private readonly DecodedImage? _samples;
-    private readonly DisplayImageSamples? _full;
-    private readonly EncodedImage? _encoded;
-    private readonly ByteBudgetCache<(object Source, int Slot), IBudgetedEntry>? _cache;
-    private readonly Slot[] _slots = [];
+    // Shared zero rows for GetRow of an image that cannot be decoded (it paints nothing; the bytes only keep old backends safe).
+    private static byte[] _blank = [];
+
+    // What the samples come from, one field so an image costs no more than it did before reductions (issue #362): the decoded
+    // samples of an image decoded at build, or the Reductions of an image kept encoded.
+    private readonly object _source;
     private readonly double[] _colorKey = [];
     private readonly float[] _matte = [];
     private readonly byte[] _colorTable = [];
-    private volatile bool _failed;
-    private byte[]? _blankRow;
 
     internal DisplayImage(DecodedImage samples, PdfColorSpace colorSpace, ImageDecodeMap decodeMap, bool interpolate)
     {
-        _samples = samples;
-        _full = new DisplayImageSamples(samples, samples.Width, samples.Height);
+        _source = samples;
         ColorSpace = colorSpace;
         DecodeMap = decodeMap;
         Interpolate = interpolate;
-        Width = samples.Width;
-        Height = samples.Height;
-        Components = samples.Components;
-        BitsPerComponent = samples.BitsPerComponent;
-        StorageBits = samples.StorageBits;
-        Stride = samples.Stride;
     }
 
     internal DisplayImage(EncodedImage encoded, ByteBudgetCache<(object Source, int Slot), IBudgetedEntry> cache, PdfColorSpace colorSpace, ImageDecodeMap decodeMap, bool interpolate)
     {
-        _encoded = encoded;
-        _cache = cache;
+        _source = new Reductions(encoded, cache, Math.Clamp(encoded.Header.MaxReduction, 0, ImageGeometry.MaxReduction));
         ColorSpace = colorSpace;
         DecodeMap = decodeMap;
         Interpolate = interpolate;
-        Width = encoded.Header.Width;
-        Height = encoded.Header.Height;
-        Components = encoded.Header.Components;
-        BitsPerComponent = encoded.Header.BitsPerComponent;
-        StorageBits = ImageGeometry.StorageBits(BitsPerComponent);
-        Stride = (int)ImageGeometry.Stride(Width, Components, StorageBits);
-        MaxReduction = Math.Clamp(encoded.Header.MaxReduction, 0, ImageGeometry.MaxReduction);
-        _slots = new Slot[MaxReduction + 1];
-        for (int i = 0; i < _slots.Length; i++)
-        {
-            _slots[i] = new Slot();
-        }
     }
+
+    /// <summary>Gets the samples decoded at build, or <see langword="null"/> for an image kept encoded.</summary>
+    private DecodedImage? Decoded => _source as DecodedImage;
+
+    /// <summary>Gets the header of an image kept encoded, or the decoded samples' facts.</summary>
+    private ImageHeader Facts => _source is Reductions reductions
+        ? reductions.Encoded!.Header
+        : new ImageHeader(Decoded!.Width, Decoded.Height, Decoded.Components, Decoded.BitsPerComponent);
 
     /// <summary>Gets the width in samples.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 (Width), or what the codec reported (§7.4.9).</remarks>
-    public int Width { get; }
+    public int Width => Facts.Width;
 
     /// <summary>Gets the height in samples.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 (Height), or what the codec reported (§7.4.9).</remarks>
-    public int Height { get; }
+    public int Height => Facts.Height;
 
     /// <summary>Gets the number of colour components per sample: the colour space's (1 for an Indexed image).</summary>
     /// <remarks>ISO 32000-2 §8.9.3.</remarks>
-    public int Components { get; }
+    public int Components => Facts.Components;
 
     /// <summary>Gets the logical bits per component n: raw values run from 0 to 2^n − 1.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 (BitsPerComponent).</remarks>
-    public int BitsPerComponent { get; }
+    public int BitsPerComponent => Facts.BitsPerComponent;
 
     /// <summary>Gets the bits each component occupies in <see cref="Samples"/>: 1, 2, 4, 8 or 16.</summary>
     /// <remarks>Equal to <see cref="BitsPerComponent"/> except for depths other than those five, stored at the next wider one, values unchanged.</remarks>
-    public int StorageBits { get; }
+    public int StorageBits => Decoded?.StorageBits ?? ImageGeometry.StorageBits(BitsPerComponent);
 
     /// <summary>Gets the number of bytes per row of <see cref="Samples"/>.</summary>
     /// <remarks>ISO 32000-2 §8.9.3: each row starts on a byte boundary.</remarks>
-    public int Stride { get; }
+    public int Stride => Decoded?.Stride ?? (int)ImageGeometry.Stride(Width, Components, StorageBits);
 
     /// <summary>Gets the raw samples at the image's own resolution, <see cref="Stride"/> × <see cref="Height"/> bytes in the §8.9.3 layout.</summary>
     /// <remarks>
@@ -119,7 +107,7 @@ public sealed class DisplayImage
     /// was built, up to 3 (an eighth) or more for one whose codec decodes reduced resolutions.
     /// </summary>
     /// <remarks>ISO 32000-2 §7.4.8 (DCT) and §7.4.9 (JPEG 2000 resolution levels): what the codec's header says it can do.</remarks>
-    public int MaxReduction { get; }
+    public int MaxReduction => _source is Reductions reductions ? reductions.Slots.Length - 1 : 0;
 
     /// <summary>
     /// Returns the image's samples at a reduction of 2^<paramref name="reduction"/>, or at the finest one that is cheaper to get: a
@@ -148,55 +136,55 @@ public sealed class DisplayImage
     public DisplayImageSamples? GetSamplesAt(int reduction)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(reduction);
-        if (_encoded is null)
+        if (_source is DecodedImage decodedAtBuild)
         {
-            return _full;
+            return new DisplayImageSamples(decodedAtBuild, decodedAtBuild.Width, decodedAtBuild.Height);
         }
 
-        if (_failed)
+        var reductions = (Reductions)_source;
+        if (reductions.Failed)
         {
             return null;
         }
 
-        int wanted = Math.Min(reduction, MaxReduction);
+        int wanted = Math.Min(reduction, reductions.Slots.Length - 1);
         for (int finer = wanted; finer >= 0; finer--)
         {
-            if (Find(finer) is { } kept)
+            if (Find(reductions, finer) is { } kept)
             {
                 return kept;
             }
         }
 
-        Slot slot = _slots[wanted];
+        Slot slot = reductions.Slots[wanted];
         lock (slot.Gate)
         {
-            if (Find(wanted) is { } kept)
+            if (Find(reductions, wanted) is { } kept)
             {
                 return kept;
             }
 
-            if (_failed)
+            if (reductions.Failed)
             {
                 return null;
             }
 
-            DecodedImage? decoded = _encoded.Decode(wanted, CancellationToken.None);
+            DecodedImage? decoded = reductions.Encoded!.Decode(wanted, CancellationToken.None);
             if (decoded is null)
             {
-                _failed = true;
+                reductions.Failed = true;
                 return null;
             }
 
-            var samples = new DisplayImageSamples(decoded, Width, Height);
-            Keep(samples.Reduction, samples);
-            if (samples.Reduction != wanted)
+            Keep(reductions, decoded.Reduction, decoded);
+            if (decoded.Reduction != wanted)
             {
                 // The codec delivered less than was asked for: later requests for this reduction find the same samples.
-                slot.Weak.SetTarget(samples);
+                slot.Weak.SetTarget(decoded);
                 slot.Alias = true;
             }
 
-            return samples;
+            return new DisplayImageSamples(decoded, Width, Height);
         }
     }
 
@@ -365,7 +353,15 @@ public sealed class DisplayImage
 
         ArgumentOutOfRangeException.ThrowIfNegative(y);
         ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(y, Height);
-        return _blankRow ??= new byte[Stride];
+        int stride = Stride;
+        byte[] blank = Volatile.Read(ref _blank);
+        if (blank.Length < stride)
+        {
+            blank = new byte[stride];
+            Volatile.Write(ref _blank, blank);
+        }
+
+        return blank.AsSpan(0, stride);
     }
 
     /// <summary>
@@ -373,9 +369,9 @@ public sealed class DisplayImage
     /// its colour key, matte and colour table; what a render cache charges for it (issue #103).
     /// </summary>
     internal long RetainedBytes =>
-        (_samples?.RetainedBytes ?? 0L)
-        + (_encoded?.RetainedBytes ?? 0L)
-        + (SoftMask is { } soft && (_samples is null || !ReferenceEquals(soft._samples, _samples.Alpha)) ? soft.RetainedBytes : 0L)
+        (Decoded?.RetainedBytes ?? 0L)
+        + (_source is Reductions { Encoded: { } encoded } ? encoded.RetainedBytes : 0L)
+        + (SoftMask is { } soft && (Decoded is not { } decoded || !ReferenceEquals(soft.Decoded, decoded.Alpha)) ? soft.RetainedBytes : 0L)
         + (Mask?.RetainedBytes ?? 0L)
         + (_colorKey.Length * (long)sizeof(double))
         + (_matte.Length * (long)sizeof(float))
@@ -383,43 +379,76 @@ public sealed class DisplayImage
     /// <summary>Returns the pooled samples (and the masks'), for an image no list will own: the build that decoded it failed.</summary>
     internal void Release()
     {
-        _samples?.Dispose();
+        Decoded?.Dispose();
         Mask?.Release();
         SoftMask?.Release();
     }
 
     /// <summary>Returns the samples of <paramref name="reduction"/> when they are still held, keeping them in the cache.</summary>
-    private DisplayImageSamples? Find(int reduction)
+    private DisplayImageSamples? Find(Reductions reductions, int reduction)
     {
-        Slot slot = _slots[reduction];
+        Slot slot = reductions.Slots[reduction];
         if (slot.Strong is { } strong)
         {
-            return strong;
+            return new DisplayImageSamples(strong, Width, Height);
         }
 
-        if (!slot.Weak.TryGetTarget(out DisplayImageSamples? samples))
+        if (!slot.Weak.TryGetTarget(out DecodedImage? samples))
         {
             return null;
         }
 
-        if (!slot.Alias && !_cache!.TryGet((this, samples.Reduction), out _))
+        if (!slot.Alias && !reductions.Cache.TryGet((this, samples.Reduction), out _))
         {
             // Evicted but still alive (a render holds it): back into the cache, or held here when it no longer fits.
-            Keep(samples.Reduction, samples);
+            Keep(reductions, samples.Reduction, samples);
         }
 
-        return samples;
+        return new DisplayImageSamples(samples, Width, Height);
     }
 
     /// <summary>Offers the samples to the document's image cache, and holds them here when the cache will not keep them.</summary>
-    private void Keep(int reduction, DisplayImageSamples samples)
+    private void Keep(Reductions reductions, int reduction, DecodedImage samples)
     {
-        Slot slot = _slots[reduction];
+        Slot slot = reductions.Slots[reduction];
         slot.Weak.SetTarget(samples);
         slot.Alias = false;
-        if (!_cache!.Add((this, reduction), new DisplayImageSamplesEntry(samples)))
+        if (!reductions.Cache.Add((this, reduction), new DisplayImageSamplesEntry(samples)))
         {
             slot.Strong = samples;
+        }
+    }
+
+    /// <summary>The state of an image decoded when drawn: its encoded data, the cache its samples go to, one slot per reduction.</summary>
+    private sealed class Reductions(EncodedImage? encoded, ByteBudgetCache<(object Source, int Slot), IBudgetedEntry> cache, int maxReduction)
+    {
+        /// <summary>Gets the encoded image.</summary>
+        public EncodedImage? Encoded { get; } = encoded;
+
+        /// <summary>Gets the document's image cache.</summary>
+        public ByteBudgetCache<(object Source, int Slot), IBudgetedEntry> Cache { get; } = cache;
+
+        /// <summary>Gets one slot per reduction, 0 to the largest.</summary>
+        public Slot[] Slots { get; } = CreateSlots(maxReduction);
+
+        /// <summary>Gets or sets a value indicating whether the decode failed (reported once; the image paints nothing).</summary>
+        public bool Failed
+        {
+            get => Volatile.Read(ref _failed);
+            set => Volatile.Write(ref _failed, value);
+        }
+
+        private bool _failed;
+
+        private static Slot[] CreateSlots(int maxReduction)
+        {
+            var slots = new Slot[maxReduction + 1];
+            for (int i = 0; i < slots.Length; i++)
+            {
+                slots[i] = new Slot();
+            }
+
+            return slots;
         }
     }
 
@@ -430,10 +459,10 @@ public sealed class DisplayImage
         public Lock Gate { get; } = new();
 
         /// <summary>Gets the samples while anything holds them (the cache, a render).</summary>
-        public WeakReference<DisplayImageSamples> Weak { get; } = new(null!);
+        public WeakReference<DecodedImage> Weak { get; } = new(null!);
 
         /// <summary>Gets or sets the samples the cache would not keep (over its budget), held for as long as the image is.</summary>
-        public DisplayImageSamples? Strong { get; set; }
+        public DecodedImage? Strong { get; set; }
 
         /// <summary>Gets or sets a value indicating whether <see cref="Weak"/> holds a coarser request's fallback to another reduction.</summary>
         public bool Alias { get; set; }

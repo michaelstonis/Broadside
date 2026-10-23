@@ -1,6 +1,7 @@
 using System.Runtime.CompilerServices;
 using Broadside.Caching;
 using Broadside.Graphics;
+using Broadside.Images;
 using Broadside.Objects;
 
 namespace Broadside.Rendering;
@@ -38,10 +39,10 @@ internal sealed class DisplayImageEntry(long epoch, DisplayImage? image, Display
 /// document's image cache under the image and the reduction. Always current: the image is immutable, so its samples are too.
 /// </summary>
 /// <param name="samples">The samples.</param>
-internal sealed class DisplayImageSamplesEntry(DisplayImageSamples samples) : IBudgetedEntry
+internal sealed class DisplayImageSamplesEntry(DecodedImage samples) : IBudgetedEntry
 {
     /// <summary>Gets the samples.</summary>
-    public DisplayImageSamples Samples { get; } = samples;
+    public DecodedImage Samples { get; } = samples;
 
     /// <inheritdoc/>
     public long Bytes { get; } = DisplayImageEntry.Overhead + samples.RetainedBytes;

@@ -19,7 +19,7 @@ namespace Broadside.Filters;
 /// </remarks>
 public sealed class ImageFilterContext
 {
-    private readonly int _reduction;
+    private readonly byte _reduction;
 
     /// <summary>Initializes a new instance of the <see cref="ImageFilterContext"/> class.</summary>
     /// <param name="filter">The filter context of the decode: the codec's <c>DecodeParms</c>, the image dictionary, diagnostics.</param>
@@ -74,7 +74,7 @@ public sealed class ImageFilterContext
         {
             ArgumentOutOfRangeException.ThrowIfNegative(value);
             ArgumentOutOfRangeException.ThrowIfGreaterThan(value, ImageGeometry.MaxReduction);
-            _reduction = value;
+            _reduction = (byte)value;
         }
     }
 
