@@ -365,7 +365,7 @@ public sealed class PdfImage
 
 #pragma warning disable CA2000 // The prepared image hands the samples to the caller, who owns them.
         return outcome.ImageFilter is { } filter
-            ? DecodeWithFilter(filter, outcome.ImageContext!, data.WrittenMemory, layout, keepEncoded)
+            ? DecodeWithFilter(filter, outcome.ImageContext!, outcome.HasCodestream ? outcome.Codestream : data.WrittenMemory, outcome.HasCodestream, layout, keepEncoded)
             : new PreparedImage(FromSamples(data.WrittenSpan, layout), null);
 #pragma warning restore CA2000
     }
@@ -836,7 +836,8 @@ public sealed class PdfImage
         }
     }
 
-    private PreparedImage DecodeWithFilter(IImageFilter filter, FilterContext filterContext, ReadOnlyMemory<byte> data, ImageLayout layout, bool keepEncoded)
+    // dataIsStream: data is the stream's own data, which stays valid and is kept as is; otherwise a pooled buffer, copied when kept.
+    private PreparedImage DecodeWithFilter(IImageFilter filter, FilterContext filterContext, ReadOnlyMemory<byte> data, bool dataIsStream, ImageLayout layout, bool keepEncoded)
     {
         StreamDecoder streams = _document.Streams;
         var context = new ImageFilterContext(filterContext)
@@ -871,7 +872,7 @@ public sealed class PdfImage
         {
             ReportDimensions(filter, kept.Width, kept.Height, layout);
             return new PreparedImage(null, new EncodedImage(
-                data.ToArray(), filter, streams, filterContext.Parameters, filterContext.StreamDictionary, kept, layout.Width, layout.Height, layout.BitsPerComponent));
+                dataIsStream ? data : data.ToArray(), filter, streams, filterContext.Parameters, filterContext.StreamDictionary, kept, layout.Width, layout.Height, layout.BitsPerComponent));
         }
 
         DecodedImage? decoded = streams.RunImageFilter(filter.Name, () => filter.DecodeImage(data, context), filterContext.CancellationToken);
