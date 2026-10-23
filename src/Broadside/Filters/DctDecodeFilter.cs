@@ -46,6 +46,14 @@ namespace Broadside.Filters;
 /// throws at the first deviation.
 /// </para>
 /// <para>
+/// Reduced resolutions (issue #362): asked for a reduction by <see cref="ImageFilterContext.Reduction"/> (1/2, 1/4 or 1/8,
+/// <see cref="ImageHeader.MaxReduction"/> 3), the image path decodes every block with a reduced IDCT ported from libjpeg-turbo's
+/// <c>jidctred.c</c>, and gives each subsampled component a larger IDCT instead of upsampling it where the factors allow
+/// (<c>jdmaster.c</c>), so the ⌈W / s⌉ x ⌈H / s⌉ samples equal <c>djpeg -scale 1/s -dct int -nosmooth</c>'s. At 1/8, a
+/// progressive image whose every component reduces to its DC skips the AC scans. Only viewers ask for it; the plain filter path
+/// and every other decode are at full resolution.
+/// </para>
+/// <para>
 /// Stateless and thread-safe; a decode allocates nothing per block or row (the per-image buffers are pooled).
 /// </para>
 /// </remarks>
@@ -94,7 +102,10 @@ public sealed class DctDecodeFilter : IImageFilter
     }
 
     /// <inheritdoc/>
-    /// <remarks>ITU-T T.81 §B.2.2 (frame header: X, Y, Nf, P); ISO 32000-2 §8.9.5.1 Table 87 (always 8 bits per component).</remarks>
+    /// <remarks>
+    /// ITU-T T.81 §B.2.2 (frame header: X, Y, Nf, P); ISO 32000-2 §8.9.5.1 Table 87 (always 8 bits per component). The header says
+    /// the image decodes at 1/2, 1/4 and 1/8 too (<see cref="ImageHeader.MaxReduction"/> 3).
+    /// </remarks>
     public bool TryReadHeader(ReadOnlySpan<byte> encoded, ImageFilterContext context, out ImageHeader header)
     {
         ArgumentNullException.ThrowIfNull(context);
@@ -107,7 +118,7 @@ public sealed class DctDecodeFilter : IImageFilter
                 return false;
             }
 
-            header = new ImageHeader(decoder.Width, decoder.Height, decoder.ComponentCount, 8) { ColorModel = decoder.ColorModel };
+            header = new ImageHeader(decoder.Width, decoder.Height, decoder.ComponentCount, 8) { ColorModel = decoder.ColorModel, MaxReduction = 3 };
             return true;
         }
         finally
@@ -119,7 +130,9 @@ public sealed class DctDecodeFilter : IImageFilter
     /// <inheritdoc/>
     /// <remarks>
     /// ISO 32000-2 §7.4.8 and §8.9.3. The image reports its <see cref="DecodedImage.ColorModel"/> (Gray, RGB or CMYK by component
-    /// count), the APP14 <see cref="DecodedImage.AdobeTransform"/> and whether a colour transform was applied.
+    /// count), the APP14 <see cref="DecodedImage.AdobeTransform"/> and whether a colour transform was applied. With
+    /// <see cref="ImageFilterContext.Reduction"/> 1 to 3 (more is read as 3) it is decoded at 1/2, 1/4 or 1/8
+    /// (<see cref="DecodedImage.Reduction"/>).
     /// </remarks>
     public DecodedImage? DecodeImage(ReadOnlyMemory<byte> encoded, ImageFilterContext context)
     {
@@ -135,7 +148,8 @@ public sealed class DctDecodeFilter : IImageFilter
             }
 
             decoder.SelectColorTransform(ReadColorTransform(context.Filter));
-            if (!context.TryCreateImage(decoder.Width, decoder.Height, decoder.ComponentCount, 8, out image))
+            decoder.SetReduction(context.Reduction);
+            if (!context.TryCreateImage(decoder.OutputWidth, decoder.OutputHeight, decoder.ComponentCount, 8, out image))
             {
                 return null;
             }
@@ -147,6 +161,7 @@ public sealed class DctDecodeFilter : IImageFilter
             }
 
             image.DecodedRows = decoder.DecodedRows;
+            image.Reduction = decoder.Reduction;
             image.ColorModel = decoder.ColorModel;
             image.AdobeTransform = decoder.AdobeTransform;
             image.ColorTransformApplied = decoder.ColorTransformApplied;

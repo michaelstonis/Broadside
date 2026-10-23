@@ -179,7 +179,7 @@ internal sealed partial class DisplayListBuilder
 
     /// <summary>
     /// Decodes an image and its mask; an image whose codec decodes reduced resolutions is kept encoded instead, to be decoded at the
-    /// resolution it is drawn at (issue #362; see <see cref="DisplayImage.GetSamplesAt"/>).
+    /// resolution it is drawn at (issue #362; see <see cref="DisplayImage.GetSamplesAt(int)"/>).
     /// </summary>
     /// <returns>The image, or <see langword="null"/> (the reason is already a diagnostic of the image).</returns>
     private static DisplayImage? Decode(PdfImage model, PdfDocument document, CancellationToken cancellationToken)

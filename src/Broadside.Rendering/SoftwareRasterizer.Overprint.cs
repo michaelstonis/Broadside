@@ -450,7 +450,7 @@ public sealed partial class SoftwareRasterizer
                 ? _previewImageBaseConverter ??= _document!.GetColorConverter(indexed.Base, conversion with { Target = DeviceColorModel.Cmyk }, defaultColorSpaces)
                 : null;
             // A print preview draws every image at its own resolution (#362: reductions are for displaying only).
-            if (image.GetSamplesAt(0) is not { } samples || (long)samples.Width * samples.Height > Array.MaxLength)
+            if (image.GetSamplesAt(0, _cancellationToken) is not { } samples || (long)samples.Width * samples.Height > Array.MaxLength)
             {
                 _scan.Reset(_width, _height);
                 return;

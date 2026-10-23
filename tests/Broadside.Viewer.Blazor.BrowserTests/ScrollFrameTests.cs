@@ -56,9 +56,14 @@ public sealed class ScrollFrameTests(BrowserHost host)
         table.AppendLine();
         table.AppendLine("| Device | Document | Worker | Frames while scrolling | Mean | p95 | Max | Over 17 ms | Settling 1.5 s after: max, over 17 ms | Worker boot (ms) | First tile (ms) | Page wasm+JS / worker wasm (MiB) |");
         table.AppendLine("|---|---|---|---|---|---|---|---|---|---|---|---|");
+        // BROADSIDE_FRAME_BENCH_DOCUMENTS replaces the documents: paths separated by ';', absolute or under the corpus directory,
+        // shown at the fitted zoom (issue #362 measures the catalogue-class page this way).
+        (string File, int ZoomSteps)[] documents = Environment.GetEnvironmentVariable("BROADSIDE_FRAME_BENCH_DOCUMENTS") is { Length: > 0 } list
+            ? [.. list.Split(';', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Select(static file => (file, 0))]
+            : Documents;
         foreach ((string device, int width, int height, float scale, bool mobile, int throttle) in Devices)
         {
-            foreach ((string file, int zoomSteps) in Documents)
+            foreach ((string file, int zoomSteps) in documents)
             {
                 string path = Path.Combine(corpus!, file);
                 if (!File.Exists(path))
@@ -66,7 +71,7 @@ public sealed class ScrollFrameTests(BrowserHost host)
                     continue;
                 }
 
-                string served = file.Replace('/', '-');
+                string served = Path.IsPathRooted(file) ? Path.GetFileName(file) : file.Replace('/', '-');
                 host.Serve(served, await File.ReadAllBytesAsync(path, TestContext.Current.CancellationToken));
                 foreach (bool useWorker in new[] { false, true })
                 {

@@ -48,6 +48,25 @@ public sealed class DctAllocationTests
         Assert.InRange(forLarge, 0, forSmall);
     }
 
+    [Theory]
+    [InlineData(1)]
+    [InlineData(2)]
+    [InlineData(3)]
+    public void A_reduced_decode_allocates_per_image_not_per_block_or_row(int reduction)
+    {
+        // Issue #362: the reduced IDCTs work in stack scratch and the strips shrink with the scale, so a decode at 1/2, 1/4 or 1/8
+        // allocates what the full decode does, whatever the size: the image objects.
+        var filter = new DctDecodeFilter();
+        byte[] small = Jpeg("sampling-420");
+        byte[] large = Jpeg("progressive");
+        long forSmall = Allocations.Measure(() => DecodeImage(filter, small, reduction));
+        long forLarge = Allocations.Measure(() => DecodeImage(filter, large, reduction));
+        long full = Allocations.Measure(() => DecodeImage(filter, small));
+
+        Assert.InRange(forLarge, 0, forSmall);
+        Assert.Equal(full, forSmall);
+    }
+
     public static TheoryData<string, DctChromaSubsampling, string?> EncoderLayouts => new()
     {
         { "testorig", DctChromaSubsampling.HorizontalAndVertical, null },
@@ -84,9 +103,9 @@ public sealed class DctAllocationTests
         filter.Decode(jpeg, output, context);
     }
 
-    private static void DecodeImage(DctDecodeFilter filter, byte[] jpeg)
+    private static void DecodeImage(DctDecodeFilter filter, byte[] jpeg, int reduction = 0)
     {
-        var context = new ImageFilterContext(new FilterContext());
+        var context = new ImageFilterContext(new FilterContext()) { Reduction = reduction };
         using DecodedImage? image = filter.DecodeImage(jpeg, context);
         Assert.NotNull(image);
     }
