@@ -22,6 +22,9 @@ public sealed partial class SoftwareRasterizer
         // The fewest decoded samples per device pixel a reduced image keeps (#362), or 0 to draw images at their own resolution.
         private double _imageSamplesPerPixel;
 
+        // The render's token: a decode at replay (#362) stops with the render.
+        private CancellationToken _cancellationToken;
+
         /// <summary>
         /// Draws the image's samples into the parallelogram the unit square maps to: the outline is scan converted like a filled path
         /// (so its edges are anti-aliased and the clipping path cuts it as it cuts fills and strokes, §8.5.4), and each covered pixel
@@ -60,7 +63,7 @@ public sealed partial class SoftwareRasterizer
                 return;
             }
 
-            if (image.GetSamplesAt(reduction) is not { } samples || (long)samples.Width * samples.Height > Array.MaxLength)
+            if (image.GetSamplesAt(reduction, _cancellationToken) is not { } samples || (long)samples.Width * samples.Height > Array.MaxLength)
             {
                 // ISO 32000-2 §8.9.5: an image that cannot be decoded paints nothing (its reason is a diagnostic of the document).
                 _scan.Reset(_width, _height);

@@ -350,7 +350,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
     private ProgressiveRender Begin(DisplayList list, Bitmap target, in Matrix device, int width, int height, AntiAliasing antiAliasing, bool cull, bool preview, double imageSamplesPerPixel, CancellationToken cancellationToken, IProgress<double>? progress)
     {
-        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing, imageSamplesPerPixel);
+        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing, imageSamplesPerPixel, cancellationToken);
         DisplayListReplay replay = cull && TryGetRegion(device, width, height, out PdfRectangle region)
             ? list.BeginReplay(_backend, region, cancellationToken, progress)
             : list.BeginReplay(_backend, cancellationToken, progress);
@@ -365,7 +365,7 @@ public sealed partial class SoftwareRasterizer : IDisposable
             Fill(target, width, height, pixel);
         }
 
-        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing, imageSamplesPerPixel);
+        _backend.Begin(list.Document, target, device, width, height, preview, antiAliasing, imageSamplesPerPixel, cancellationToken);
         try
         {
             PdfRectangle region = default;
@@ -473,10 +473,11 @@ public sealed partial class SoftwareRasterizer : IDisposable
 
         public Backend() => _stroker = new Stroker(_scan);
 
-        public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height, bool preview, AntiAliasing antiAliasing = AntiAliasing.All, double imageSamplesPerPixel = 0)
+        public void Begin(PdfDocument document, Bitmap target, in Matrix device, int width, int height, bool preview, AntiAliasing antiAliasing = AntiAliasing.All, double imageSamplesPerPixel = 0, CancellationToken cancellationToken = default)
         {
             SetAntiAliasing(antiAliasing);
             _imageSamplesPerPixel = preview ? 0 : imageSamplesPerPixel;
+            _cancellationToken = cancellationToken;
             _document = document;
             _target = target;
             _device = device;

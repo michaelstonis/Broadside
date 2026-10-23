@@ -29,7 +29,7 @@ namespace Broadside.Rendering;
 /// <para>
 /// Most images are decoded when the list is built. An image whose codec decodes reduced resolutions (<see cref="MaxReduction"/>
 /// above 0; <c>ImageHeader.MaxReduction</c>) is instead kept encoded, its header read and its limits checked, and is decoded when it
-/// is drawn: <see cref="GetSamplesAt"/> decodes it at the reduction asked for, once per reduction however many tiles ask at the same
+/// is drawn: <see cref="GetSamplesAt(int)"/> decodes it at the reduction asked for, once per reduction however many tiles ask at the same
 /// time, and the document's image cache keeps the result within its budget. A decode that fails then records its diagnostics on
 /// the document when the image is first drawn, not when the list is built, and the image paints nothing. A finer reduction already
 /// decoded serves a coarser request. The encoded data lives in the list, so a backend still never reads the file.
@@ -98,12 +98,12 @@ public sealed class DisplayImage
     /// <summary>Gets the raw samples at the image's own resolution, <see cref="Stride"/> × <see cref="Height"/> bytes in the §8.9.3 layout.</summary>
     /// <remarks>
     /// ISO 32000-2 §8.9.3. Rows the data did not reach are zero. For an image kept encoded this decodes it at its full resolution
-    /// (<see cref="GetSamplesAt"/> with 0); empty when it cannot be decoded.
+    /// (<see cref="GetSamplesAt(int)"/> with 0); empty when it cannot be decoded.
     /// </remarks>
     public ReadOnlySpan<byte> Samples => GetSamplesAt(0) is { } samples ? samples.Samples : default;
 
     /// <summary>
-    /// Gets the largest reduction, as a power of two, that <see cref="GetSamplesAt"/> can deliver: 0 for an image decoded when the list
+    /// Gets the largest reduction, as a power of two, that <see cref="GetSamplesAt(int)"/> can deliver: 0 for an image decoded when the list
     /// was built, up to 3 (an eighth) or more for one whose codec decodes reduced resolutions.
     /// </summary>
     /// <remarks>ISO 32000-2 §7.4.8 (DCT) and §7.4.9 (JPEG 2000 resolution levels): what the codec's header says it can do.</remarks>
@@ -133,7 +133,16 @@ public sealed class DisplayImage
     /// it.
     /// </para>
     /// </remarks>
-    public DisplayImageSamples? GetSamplesAt(int reduction)
+    public DisplayImageSamples? GetSamplesAt(int reduction) => GetSamplesAt(reduction, CancellationToken.None);
+
+    /// <summary>As <see cref="GetSamplesAt(int)"/>, stopping a decode in progress when <paramref name="cancellationToken"/> is cancelled.</summary>
+    /// <param name="reduction">The reduction asked for: 0 for the image's own resolution, 1 for half, 2 for a quarter, 3 for an eighth.</param>
+    /// <param name="cancellationToken">Given to the codec; a render's token, so that a cancelled tile does not wait for a long decode.</param>
+    /// <returns>As <see cref="GetSamplesAt(int)"/>.</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="reduction"/> is negative.</exception>
+    /// <exception cref="OperationCanceledException">The token was cancelled during the decode; nothing is kept, and the next request decodes again.</exception>
+    /// <remarks>ISO 32000-2 §8.9.3 and §8.9.4; viewer capability 2 (cancellation).</remarks>
+    public DisplayImageSamples? GetSamplesAt(int reduction, CancellationToken cancellationToken)
     {
         ArgumentOutOfRangeException.ThrowIfNegative(reduction);
         if (_source is DecodedImage decodedAtBuild)
@@ -169,7 +178,7 @@ public sealed class DisplayImage
                 return null;
             }
 
-            DecodedImage? decoded = reductions.Encoded!.Decode(wanted, CancellationToken.None);
+            DecodedImage? decoded = reductions.Encoded!.Decode(wanted, cancellationToken);
             if (decoded is null)
             {
                 reductions.Failed = true;
@@ -189,7 +198,7 @@ public sealed class DisplayImage
     }
 
     /// <summary>
-    /// Returns the reduction to ask <see cref="GetSamplesAt"/> for when the image is drawn under <paramref name="transform"/>: the
+    /// Returns the reduction to ask <see cref="GetSamplesAt(int)"/> for when the image is drawn under <paramref name="transform"/>: the
     /// largest power of two that still leaves at least <paramref name="samplesPerPixel"/> samples per device pixel along the image's
     /// most enlarged direction, within what the codec delivers and what the colour conversion allows.
     /// </summary>
@@ -341,7 +350,7 @@ public sealed class DisplayImage
 
     /// <summary>Gets one row of <see cref="Samples"/>.</summary>
     /// <param name="y">The row, from 0 at the top of the image.</param>
-    /// <returns>The row's <see cref="Stride"/> bytes; zeros when the image cannot be decoded (<see cref="GetSamplesAt"/> is then <see langword="null"/>).</returns>
+    /// <returns>The row's <see cref="Stride"/> bytes; zeros when the image cannot be decoded (<see cref="GetSamplesAt(int)"/> is then <see langword="null"/>).</returns>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="y"/> is outside the image.</exception>
     /// <remarks>ISO 32000-2 §8.9.3.</remarks>
     public ReadOnlySpan<byte> GetRow(int y)

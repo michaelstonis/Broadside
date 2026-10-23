@@ -4952,6 +4952,7 @@ Broadside.Images.DecodedImageBuilder.Reduction.get -> int
 Broadside.Images.DecodedImageBuilder.Reduction.set -> void
 Broadside.Rendering.DisplayImage.GetReduction(in Broadside.Graphics.Matrix transform, double samplesPerPixel, Broadside.Graphics.PdfColorConverter? converter) -> int
 Broadside.Rendering.DisplayImage.GetSamplesAt(int reduction) -> Broadside.Rendering.DisplayImageSamples?
+Broadside.Rendering.DisplayImage.GetSamplesAt(int reduction, System.Threading.CancellationToken cancellationToken) -> Broadside.Rendering.DisplayImageSamples?
 Broadside.Rendering.DisplayImage.MaxReduction.get -> int
 Broadside.Rendering.DisplayImageSamples
 Broadside.Rendering.DisplayImageSamples.BitsPerComponent.get -> int

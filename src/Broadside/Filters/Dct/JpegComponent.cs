@@ -78,14 +78,21 @@ internal sealed class JpegComponent
     /// <summary>Gets or sets the first block row <see cref="Coefficients"/> holds.</summary>
     public int FirstStoredRow { get; set; }
 
-    /// <summary>Gets the IDCT samples of one MCU row: <see cref="StripStride"/> x 8 Vi bytes (8-bit frames).</summary>
+    /// <summary>
+    /// Gets or sets the samples each block's IDCT produces per side: 8 at full resolution, 4, 2 or 1 for a reduced decode (issue
+    /// #362; libjpeg's <c>DCT_scaled_size</c>). A subsampled component gets a larger IDCT instead of being upsampled where the
+    /// factors allow.
+    /// </summary>
+    public int ScaledSize { get; set; } = 8;
+
+    /// <summary>Gets the IDCT samples of one MCU row: <see cref="StripStride"/> x <see cref="ScaledSize"/> Vi bytes (8-bit frames).</summary>
     public byte[]? Strip { get; private set; }
 
     /// <summary>Gets the IDCT samples of one MCU row of a 12-bit frame: <see cref="StripStride"/> x 8 Vi values.</summary>
     public ushort[]? Strip12 { get; private set; }
 
-    /// <summary>Gets the width of <see cref="Strip"/>: <see cref="BlocksPerLine"/> x 8.</summary>
-    public int StripStride => BlocksPerLine * 8;
+    /// <summary>Gets the width of <see cref="Strip"/>: <see cref="BlocksPerLine"/> x <see cref="ScaledSize"/>.</summary>
+    public int StripStride => BlocksPerLine * ScaledSize;
 
     /// <summary>Gets a row the component's samples are replicated into to the image width, when it is subsampled horizontally.</summary>
     public byte[]? Upsampled { get; private set; }
@@ -102,7 +109,7 @@ internal sealed class JpegComponent
 
     /// <summary>Rents the buffers for an image: coefficients for <paramref name="rows"/> block rows, the strip, the upsampling row.</summary>
     /// <param name="rows">The block rows to store.</param>
-    /// <param name="imageWidth">The image width X.</param>
+    /// <param name="imageWidth">The output width: the image width X, reduced.</param>
     /// <param name="upsample">Whether the component is subsampled horizontally.</param>
     /// <param name="twelveBit">Whether the frame's sample precision is 12 bits.</param>
     public void Allocate(int rows, int imageWidth, bool upsample, bool twelveBit)
@@ -114,12 +121,12 @@ internal sealed class JpegComponent
         Coefficients.AsSpan(0, count).Clear();
         if (twelveBit)
         {
-            Strip12 = ArrayPool<ushort>.Shared.Rent(StripStride * V * 8);
+            Strip12 = ArrayPool<ushort>.Shared.Rent(StripStride * V * ScaledSize);
             Upsampled12 = upsample ? ArrayPool<ushort>.Shared.Rent(imageWidth) : null;
         }
         else
         {
-            Strip = ArrayPool<byte>.Shared.Rent(StripStride * V * 8);
+            Strip = ArrayPool<byte>.Shared.Rent(StripStride * V * ScaledSize);
             Upsampled = upsample ? ArrayPool<byte>.Shared.Rent(imageWidth) : null;
         }
     }
@@ -161,6 +168,7 @@ internal sealed class JpegComponent
         }
 
         StoredRows = 0;
+        ScaledSize = 8;
         QuantizationLatched = false;
         Scanned = false;
         DcTable = null;

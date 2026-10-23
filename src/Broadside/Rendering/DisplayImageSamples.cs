@@ -4,7 +4,7 @@ namespace Broadside.Rendering;
 
 /// <summary>
 /// The samples of a <see cref="DisplayImage"/> at one resolution: the image's own, or a reduction of it by a power of two, decoded
-/// for a render that draws the image smaller than its resolution (<see cref="DisplayImage.GetSamplesAt"/>).
+/// for a render that draws the image smaller than its resolution (<see cref="DisplayImage.GetSamplesAt(int)"/>).
 /// </summary>
 /// <remarks>
 /// <para>

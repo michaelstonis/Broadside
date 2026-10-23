@@ -1,6 +1,8 @@
+using System.Buffers;
 using Broadside.Filters;
 using Broadside.Graphics;
 using Broadside.Images;
+using Broadside.Objects;
 
 namespace Broadside.TestSupport;
 
@@ -16,6 +18,7 @@ namespace Broadside.TestSupport;
 public static class CatalogueSamples
 {
     private static readonly Dictionary<(int, int, DctChromaSubsampling), byte[]> Pages = [];
+    private static readonly Dictionary<(int, int, DctChromaSubsampling), byte[]> Jpegs = [];
     private static readonly Lock Gate = new();
 
     /// <summary>Returns the page: a <paramref name="width"/> × <paramref name="height"/> photograph over the whole 612 x 792 page.</summary>
@@ -34,6 +37,31 @@ public static class CatalogueSamples
             }
 
             return file;
+        }
+    }
+
+    /// <summary>Returns the photograph alone as a JPEG: baseline, quality 90, YCbCr with <paramref name="subsampling"/>.</summary>
+    /// <param name="width">The width in samples.</param>
+    /// <param name="height">The height in samples.</param>
+    /// <param name="subsampling">The chroma subsampling.</param>
+    /// <returns>The JPEG.</returns>
+    public static byte[] Jpeg(int width = 2550, int height = 3150, DctChromaSubsampling subsampling = DctChromaSubsampling.None)
+    {
+        lock (Gate)
+        {
+            if (!Jpegs.TryGetValue((width, height, subsampling), out byte[]? jpeg))
+            {
+                var output = new ArrayBufferWriter<byte>();
+                var context = new StreamEncoderContext
+                {
+                    StreamDictionary = new CosDictionary { [new CosName("Width")] = new CosInteger(width), [new CosName("Height")] = new CosInteger(height) },
+                };
+                new DctEncoder(90, subsampling).Encode(Photo(width, height), output, context);
+                jpeg = output.WrittenSpan.ToArray();
+                Jpegs[(width, height, subsampling)] = jpeg;
+            }
+
+            return jpeg;
         }
     }
 

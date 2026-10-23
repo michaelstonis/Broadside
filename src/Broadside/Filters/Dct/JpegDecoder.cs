@@ -80,6 +80,8 @@ internal sealed class JpegDecoder
     private bool _progressive;
     private bool _arithmetic;
     private int _precision = 8;
+    private int _reduction;
+    private int _minScaled = 8;
     private ScanKind _scanKind;
     private int _spectralStart;
     private int _spectralEnd = 63;
@@ -138,8 +140,17 @@ internal sealed class JpegDecoder
         _ => ImageColorModel.Unknown,
     };
 
-    /// <summary>Gets the number of rows decoded from data; the rows below are mid-grey.</summary>
-    public int DecodedRows => (int)Math.Min(Height, (long)_firstMissingRow * 8 * _vMax);
+    /// <summary>Gets the number of output rows decoded from data; the rows below are mid-grey.</summary>
+    public int DecodedRows => (int)Math.Min(OutputHeight, (long)_firstMissingRow * _minScaled * _vMax);
+
+    /// <summary>Gets the reduction the image is decoded at, as a power of two: 0 to 3 (<see cref="SetReduction"/>).</summary>
+    public int Reduction => _reduction;
+
+    /// <summary>Gets the width of the output rows: ⌈<see cref="Width"/> / 2^<see cref="Reduction"/>⌉.</summary>
+    public int OutputWidth => ImageGeometry.Reduce(Width, _reduction);
+
+    /// <summary>Gets the number of output rows: ⌈<see cref="Height"/> / 2^<see cref="Reduction"/>⌉.</summary>
+    public int OutputHeight => ImageGeometry.Reduce(Height, _reduction);
 
     /// <summary>Returns this thread's decoder, or a new one when it is in use.</summary>
     /// <returns>The decoder.</returns>
@@ -246,6 +257,25 @@ internal sealed class JpegDecoder
         }
     }
 
+    /// <summary>
+    /// Decodes the image at a reduction of 2^<paramref name="reduction"/> (1/2, 1/4 or 1/8; 0 for the full resolution): every
+    /// block goes through a reduced IDCT, as libjpeg-turbo does for <c>-scale 1/s</c>, so the output is ⌈W / s⌉ x ⌈H / s⌉
+    /// samples equal to <c>djpeg -scale 1/s -dct int -nosmooth</c>'s.
+    /// </summary>
+    /// <param name="reduction">The reduction, clamped to 0 to 3.</param>
+    /// <remarks>
+    /// Issue #362. ITU-T T.81 §A.3.3 (the IDCT, here of reduced size: a block's samples averaged over 2 x 2, 4 x 4 or 8 x 8).
+    /// The IDCT size of each component follows libjpeg-turbo's <c>jdmaster.c</c>: a subsampled component gets a larger IDCT
+    /// instead of upsampling where the factors allow, so 4:2:0 at 1/2 decodes its chroma with the full 8 x 8 IDCT and upsamples
+    /// nothing. At 1/8, when every component takes the 1 x 1 IDCT (the DC alone), a progressive frame's AC scans are skipped.
+    /// Call after <see cref="ReadHeaders"/> and before <see cref="Decode"/>.
+    /// </remarks>
+    public void SetReduction(int reduction)
+    {
+        _reduction = Math.Clamp(reduction, 0, 3);
+        _minScaled = 8 >> _reduction;
+    }
+
     /// <summary>Chooses the colour transform from the APP14 segment, the <c>ColorTransform</c> parameter and the component identifiers.</summary>
     /// <param name="colorTransform">The DecodeParms <c>ColorTransform</c> value, or -1 when absent.</param>
     /// <remarks>
@@ -330,10 +360,28 @@ internal sealed class JpegDecoder
                 return false;
             }
 
+            bool skipped = false;
+            if (usable && _progressive && _spectralStart > 0 && DcOnly)
+            {
+                // Every component's 1 x 1 IDCT reads the DC alone, so the AC scans change nothing in the output (issue #362).
+                for (int j = 0; j < _scanLength; j++)
+                {
+                    _components[_scanComponents[j]].Scanned = true;
+                }
+
+                usable = false;
+                skipped = true;
+            }
+
             if (usable)
             {
                 DecodeScan(data, ref position, ref sink);
                 _scansDecoded++;
+            }
+            else if (skipped)
+            {
+                // The whole scan, its restart intervals included.
+                position = SkipScan(data, position);
             }
             else
             {
@@ -401,6 +449,23 @@ internal sealed class JpegDecoder
     }
 
     private static string Invariant(FormattableString text) => text.ToString(CultureInfo.InvariantCulture);
+
+    /// <summary>Gets a value indicating whether every component decodes with the 1 x 1 IDCT, which reads the DC coefficient alone.</summary>
+    private bool DcOnly
+    {
+        get
+        {
+            for (int c = 0; c < _componentCount; c++)
+            {
+                if (_components[c].ScaledSize != 1)
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+    }
 
     /// <summary>Finds the next marker from <paramref name="position"/>, skipping fill bytes; returns the code after FF, or -1 at the end.</summary>
     private int NextMarker(ReadOnlySpan<byte> data, ref int position)
@@ -937,8 +1002,17 @@ internal sealed class JpegDecoder
 
         for (int c = 0; c < _componentCount; c++)
         {
+            // libjpeg-turbo jdmaster.c: scale a subsampled component up through its IDCT rather than by upsampling.
             JpegComponent component = _components[c];
-            component.Allocate(_streaming ? component.V : component.BlockRows, Width, component.H != _hMax, _precision == 12);
+            int size = _minScaled;
+            while (size < 8 && (_hMax * _minScaled) % (component.H * size * 2) == 0 && (_vMax * _minScaled) % (component.V * size * 2) == 0)
+            {
+                size *= 2;
+            }
+
+            component.ScaledSize = size;
+            bool upsample = component.H * size != _hMax * _minScaled;
+            component.Allocate(_streaming ? component.V : component.BlockRows, OutputWidth, upsample, _precision == 12);
         }
 
         _storageReady = true;
@@ -1082,6 +1156,21 @@ internal sealed class JpegDecoder
         }
 
         return position + 1 < data.Length ? position : data.Length;
+    }
+
+    /// <summary>Returns the position of the marker that ends a scan's entropy-coded data, past its restart markers.</summary>
+    private static int SkipScan(ReadOnlySpan<byte> data, int position)
+    {
+        while (true)
+        {
+            position = SkipEntropyCodedData(data, position);
+            if (position + 1 >= data.Length || data[position + 1] is < 0xD0 or > 0xD7)
+            {
+                return position;
+            }
+
+            position += 2;
+        }
     }
 
     /// <summary>Resets the state every scan and restart interval starts with: DC predictors, EOBRUN, arithmetic statistics.</summary>
@@ -1658,6 +1747,7 @@ internal sealed class JpegDecoder
         {
             JpegComponent component = _components[c];
             int stride = component.StripStride;
+            int size = component.ScaledSize;
             byte[] strip = component.Strip!;
             for (int v = 0; v < component.V; v++)
             {
@@ -1669,14 +1759,30 @@ internal sealed class JpegDecoder
 
                 for (int column = 0; column < component.BlocksWide; column++)
                 {
-                    InverseDct.Transform(component.Block(row, column), component.Quantization, strip.AsSpan((v * 8 * stride) + (column * 8)), stride);
+                    Span<short> block = component.Block(row, column);
+                    Span<byte> target = strip.AsSpan((v * size * stride) + (column * size));
+                    switch (size)
+                    {
+                        case 8:
+                            InverseDct.Transform(block, component.Quantization, target, stride);
+                            break;
+                        case 4:
+                            InverseDct.Transform4(block, component.Quantization, target, stride);
+                            break;
+                        case 2:
+                            InverseDct.Transform2(block, component.Quantization, target, stride);
+                            break;
+                        default:
+                            InverseDct.Transform1(block, component.Quantization, target);
+                            break;
+                    }
                 }
             }
         }
 
-        int top = mcuRow * 8 * _vMax;
-        int bottom = Math.Min(top + (8 * _vMax), Height);
-        int width = Width;
+        int top = mcuRow * _minScaled * _vMax;
+        int bottom = Math.Min(top + (_minScaled * _vMax), OutputHeight);
+        int width = OutputWidth;
         for (int y = top; y < bottom; y++)
         {
             int local = y - top;
@@ -1714,15 +1820,18 @@ internal sealed class JpegDecoder
     private ReadOnlySpan<byte> Line(JpegComponent component, int local, int width)
     {
         int stride = component.StripStride;
-        ReadOnlySpan<byte> source = component.Strip.AsSpan(local * component.V / _vMax * stride, stride);
+        int size = component.ScaledSize;
+        int full = _minScaled;
+        ReadOnlySpan<byte> source = component.Strip.AsSpan(local * component.V * size / (_vMax * full) * stride, stride);
         if (component.Upsampled is not { } upsampled)
         {
             return source[..width];
         }
 
         Span<byte> target = upsampled.AsSpan(0, width);
-        int h = component.H;
-        if (_hMax == 2 * h)
+        int h = component.H * size;
+        int hMax = _hMax * full;
+        if (hMax == 2 * h)
         {
             for (int x = 0; x < width; x++)
             {
@@ -1733,7 +1842,7 @@ internal sealed class JpegDecoder
         {
             for (int x = 0; x < width; x++)
             {
-                target[x] = source[x * h / _hMax];
+                target[x] = source[x * h / hMax];
             }
         }
 
@@ -1749,6 +1858,7 @@ internal sealed class JpegDecoder
         {
             JpegComponent component = _components[c];
             int stride = component.StripStride;
+            int size = component.ScaledSize;
             ushort[] strip = component.Strip12!;
             for (int v = 0; v < component.V; v++)
             {
@@ -1760,14 +1870,30 @@ internal sealed class JpegDecoder
 
                 for (int column = 0; column < component.BlocksWide; column++)
                 {
-                    InverseDct.Transform12(component.Block(row, column), component.Quantization, strip.AsSpan((v * 8 * stride) + (column * 8)), stride);
+                    Span<short> block = component.Block(row, column);
+                    Span<ushort> target = strip.AsSpan((v * size * stride) + (column * size));
+                    switch (size)
+                    {
+                        case 8:
+                            InverseDct.Transform12(block, component.Quantization, target, stride);
+                            break;
+                        case 4:
+                            InverseDct.Transform4_12(block, component.Quantization, target, stride);
+                            break;
+                        case 2:
+                            InverseDct.Transform2_12(block, component.Quantization, target, stride);
+                            break;
+                        default:
+                            InverseDct.Transform1_12(block, component.Quantization, target);
+                            break;
+                    }
                 }
             }
         }
 
-        int top = mcuRow * 8 * _vMax;
-        int bottom = Math.Min(top + (8 * _vMax), Height);
-        int width = Width;
+        int top = mcuRow * _minScaled * _vMax;
+        int bottom = Math.Min(top + (_minScaled * _vMax), OutputHeight);
+        int width = OutputWidth;
         for (int y = top; y < bottom; y++)
         {
             int local = y - top;
@@ -1801,17 +1927,20 @@ internal sealed class JpegDecoder
     private ReadOnlySpan<ushort> Line12(JpegComponent component, int local, int width)
     {
         int stride = component.StripStride;
-        ReadOnlySpan<ushort> source = component.Strip12.AsSpan(local * component.V / _vMax * stride, stride);
+        int size = component.ScaledSize;
+        int full = _minScaled;
+        ReadOnlySpan<ushort> source = component.Strip12.AsSpan(local * component.V * size / (_vMax * full) * stride, stride);
         if (component.Upsampled12 is not { } upsampled)
         {
             return source[..width];
         }
 
         Span<ushort> target = upsampled.AsSpan(0, width);
-        int h = component.H;
+        int h = component.H * size;
+        int hMax = _hMax * full;
         for (int x = 0; x < width; x++)
         {
-            target[x] = source[x * h / _hMax];
+            target[x] = source[x * h / hMax];
         }
 
         return target;
@@ -1869,6 +1998,8 @@ internal sealed class JpegDecoder
         _progressive = false;
         _arithmetic = false;
         _precision = 8;
+        _reduction = 0;
+        _minScaled = 8;
         _scanKind = ScanKind.Sequential;
         _spectralStart = 0;
         _spectralEnd = 63;
