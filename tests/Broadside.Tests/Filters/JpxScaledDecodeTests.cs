@@ -56,13 +56,35 @@ public sealed class JpxScaledDecodeTests
     [InlineData("NoDecomposition", 0)]
     [InlineData("Tiled", 0)]
     [InlineData("RpclTiledOffsets", 0)]
-    public void The_header_offers_as_many_levels_as_every_tile_component_has_and_the_origin_allows(string name, int expected)
+    public void The_header_offers_as_many_levels_as_the_main_header_gives_every_component_and_the_origin_allows(string name, int expected)
     {
         // Tiled and RpclTiledOffsets put the image origin at (3, 5), which no reduction keeps on its grid.
         var context = new ImageFilterContext(new FilterContext());
 
         Assert.True(new JpxDecodeFilter().TryReadHeader(JpxSamples.Vector(name).Data, context, out ImageHeader header));
         Assert.Equal(expected, header.MaxReduction);
+    }
+
+    [Fact]
+    public void Every_vector_decoded_at_the_reduction_its_header_offers_delivers_at_most_that_at_the_reduced_size()
+    {
+        // The header reads the main header only; a tile-part header with fewer levels makes the decode deliver less.
+        foreach (JpxVector vector in JpxSamples.Vectors)
+        {
+            var context = new ImageFilterContext(new FilterContext());
+            if (!new JpxDecodeFilter().TryReadHeader(vector.Data, context, out ImageHeader header) || header.MaxReduction == 0)
+            {
+                continue;
+            }
+
+            DecodedImage? image = new JpxDecodeFilter().DecodeImage(vector.Data, new ImageFilterContext(new FilterContext()) { Reduction = header.MaxReduction });
+            using (image)
+            {
+                Assert.NotNull(image);
+                Assert.InRange(image.Reduction, 0, header.MaxReduction);
+                Assert.Equal((ImageGeometry.Reduce(header.Width, image.Reduction), ImageGeometry.Reduce(header.Height, image.Reduction)), (image.Width, image.Height));
+            }
+        }
     }
 
     [Fact]

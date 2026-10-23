@@ -40,7 +40,7 @@ internal static class JpxDecoder
 
         var quiet = new CodecReporter(context.Filter, silent: true);
         JpxOutputPlan plan = JpxOutputPlan.Create(size, JpxFileHeader.Read(data, quiet), context, quiet);
-        int maxReduction = JpxCodestreamReader.Read(data.Slice(range.Offset, range.Length), quiet) is { HighThroughput: false } stream ? MaxReduction(stream) : 0;
+        int maxReduction = OnReducedGrid(size, JpxCodestreamReader.ReadMainHeaderLevels(data.Slice(range.Offset, range.Length), size.Components.Length));
         header = new ImageHeader(
             (int)Math.Min(size.Width - size.OriginX, int.MaxValue),
             (int)Math.Min(size.Height - size.OriginY, int.MaxValue),
@@ -57,7 +57,8 @@ internal static class JpxDecoder
     /// <summary>
     /// The most resolution levels a reduced decode may drop (issue #362; ITU-T T.800 B.5): the fewest decomposition levels of any
     /// tile-component, and no more than keep the image origin on the reduced grid, so a reduction by 2^d is exactly ⌈W / 2^d⌉ x
-    /// ⌈H / 2^d⌉ samples.
+    /// ⌈H / 2^d⌉ samples. The header offers the main header's levels (<see cref="JpxCodestreamReader.ReadMainHeaderLevels"/>); a
+    /// tile-part header that lowers them makes the decode deliver less than asked, which the samples' reduction says.
     /// </summary>
     private static int MaxReduction(JpxCodestream stream)
     {
@@ -78,13 +79,19 @@ internal static class JpxDecoder
             }
         }
 
-        JpxImageSize size = stream.Size;
+        return OnReducedGrid(stream.Size, levels);
+    }
+
+    /// <summary>Lowers <paramref name="levels"/> until the image origin divides by 2^levels; at most <see cref="ImageGeometry.MaxReduction"/>.</summary>
+    private static int OnReducedGrid(JpxImageSize size, int levels)
+    {
+        levels = Math.Clamp(levels, 0, ImageGeometry.MaxReduction);
         while (levels > 0 && ((size.OriginX & ((1L << levels) - 1)) != 0 || (size.OriginY & ((1L << levels) - 1)) != 0))
         {
             levels--;
         }
 
-        return Math.Max(0, levels);
+        return levels;
     }
 
     /// <summary>The image size at a reduction of 2^<paramref name="reduction"/>: the reference grid divided, rounded up (B-15).</summary>
@@ -128,7 +135,7 @@ internal static class JpxDecoder
         }
 
         JpxImageSize size = stream.Size;
-        int reduction = Math.Min(context.Reduction, MaxReduction(stream));
+        int reduction = context.Reduction > 0 ? Math.Min(context.Reduction, MaxReduction(stream)) : 0;
         JpxImageSize output = Reduce(size, reduction);
         long width = output.Width - output.OriginX;
         long height = output.Height - output.OriginY;

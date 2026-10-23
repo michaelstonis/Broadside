@@ -119,6 +119,63 @@ internal static class JpxCodestreamReader
         return ParseSize(body, reporter);
     }
 
+    /// <summary>
+    /// Reads the fewest decomposition levels the main header's COD and COC marker segments give any component, without parsing
+    /// them or allocating; 0 when the header is unreadable, has no COD, or signals high-throughput coding.
+    /// </summary>
+    /// <param name="codestream">The codestream, from its SOC marker.</param>
+    /// <param name="components">The number of components SIZ declares.</param>
+    /// <returns>The levels, which tile-part headers may still lower (a decode takes those into account).</returns>
+    /// <remarks>ITU-T T.800 A.6.1 (COD: SPcod's first byte is the number of levels, its fourth the code-block style), A.6.2 (COC).</remarks>
+    public static int ReadMainHeaderLevels(ReadOnlySpan<byte> codestream, int components)
+    {
+        if (codestream.Length < 6)
+        {
+            return 0;
+        }
+
+        int used = components < 257 ? 1 : 2;
+        int levels = -1;
+        int position = 4 + BinaryPrimitives.ReadUInt16BigEndian(codestream[4..]);
+        while (position + 4 <= codestream.Length)
+        {
+            ushort marker = BinaryPrimitives.ReadUInt16BigEndian(codestream[position..]);
+            int length = BinaryPrimitives.ReadUInt16BigEndian(codestream[(position + 2)..]);
+            if (marker is Sot or Eoc || marker < 0xFF00 || length < 2 || position + 2 + length > codestream.Length)
+            {
+                break;
+            }
+
+            ReadOnlySpan<byte> body = codestream.Slice(position + 4, length - 2);
+            int style = -1;
+            switch (marker)
+            {
+                case Cap when body.Length >= 4 && (BinaryPrimitives.ReadUInt32BigEndian(body) & HighThroughputCapability) != 0:
+                    return 0;
+                case Cod when body.Length >= 10:
+                    style = 5;
+                    break;
+                case Coc when body.Length >= used + 5:
+                    style = used + 1;
+                    break;
+            }
+
+            if (style >= 0)
+            {
+                if ((body[style + 3] & HighThroughputBlockStyle) != 0)
+                {
+                    return 0;
+                }
+
+                levels = levels < 0 ? body[style] : Math.Min(levels, body[style]);
+            }
+
+            position += 2 + length;
+        }
+
+        return Math.Clamp(levels, 0, 32);
+    }
+
     /// <summary>Parses the main header and every tile-part header of <paramref name="codestream"/>.</summary>
     public static JpxCodestream? Read(ReadOnlySpan<byte> codestream, CodecReporter reporter)
     {
