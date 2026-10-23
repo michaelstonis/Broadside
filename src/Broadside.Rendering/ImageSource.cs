@@ -34,7 +34,7 @@ internal sealed class ImageSource : IDisposable
     private byte[] _rgb = [];
     private byte[] _alpha = [];
     private float[] _alphaValues = [];
-    private DisplayImage? _image;
+    private DisplayImageSamples? _samples;
     private PdfColorConverter? _converter;
     private PixelModel _model;
 
@@ -50,34 +50,38 @@ internal sealed class ImageSource : IDisposable
     /// <summary>Gets the height of the image converted last.</summary>
     public int Height { get; private set; }
 
-    /// <summary>Whether the image's soft mask has the image's size, so that its opacity is folded into the converted pixels.</summary>
-    public static bool FoldsSoftMask(DisplayImage image) =>
-        image.SoftMask is { } soft && soft.Width == image.Width && soft.Height == image.Height;
+    /// <summary>
+    /// Whether the image's soft mask has the size of the samples painted, at the image's own resolution, so that its opacity is
+    /// folded into the converted pixels; a mask of a reduced image is resampled on its own grid (#362).
+    /// </summary>
+    public static bool FoldsSoftMask(DisplayImage image, DisplayImageSamples samples) =>
+        samples.Reduction == 0 && image.SoftMask is { } soft && soft.Width == samples.Width && soft.Height == samples.Height;
 
-    /// <summary>Whether the image's explicit mask has the image's size, so that it is folded into the converted pixels.</summary>
-    public static bool FoldsMask(DisplayImage image) =>
-        image.Mask is { } mask && mask.Width == image.Width && mask.Height == image.Height;
+    /// <summary>Whether the image's explicit mask has the size of the samples painted, at the image's own resolution, so that it is folded into the converted pixels.</summary>
+    public static bool FoldsMask(DisplayImage image, DisplayImageSamples samples) =>
+        samples.Reduction == 0 && image.Mask is { } mask && mask.Width == samples.Width && mask.Height == samples.Height;
 
-    /// <summary>Converts <paramref name="image"/> with <paramref name="converter"/>, unless it is the image and converter of the last call.</summary>
-    /// <param name="image">The image; at most <see cref="Array.MaxLength"/> pixels.</param>
+    /// <summary>Converts <paramref name="samples"/> of <paramref name="image"/> with <paramref name="converter"/>, unless they are the samples and converter of the last call.</summary>
+    /// <param name="image">The image: its colour space, Decode mapping and masks.</param>
+    /// <param name="samples">The samples to convert, at the image's resolution or a reduction of it; at most <see cref="Array.MaxLength"/> pixels.</param>
     /// <param name="converter">Its converter to RGB.</param>
     /// <param name="baseConverter">
     /// For an Indexed image with a <see cref="DisplayImage.Matte"/>, the converter of its base space (the matte is removed from the
     /// table's colours); otherwise unused.
     /// </param>
     /// <param name="model">What the pixels hold: RGB, or a transparency group's gray or CMYK plane; the converters convert to its target.</param>
-    public void Prepare(DisplayImage image, PdfColorConverter converter, PdfColorConverter? baseConverter = null, PixelModel model = default)
+    public void Prepare(DisplayImage image, DisplayImageSamples samples, PdfColorConverter converter, PdfColorConverter? baseConverter = null, PixelModel model = default)
     {
-        if (ReferenceEquals(image, _image) && ReferenceEquals(converter, _converter) && model == _model)
+        if (ReferenceEquals(samples, _samples) && ReferenceEquals(converter, _converter) && model == _model)
         {
             return;
         }
 
         int outputs = model.Components;
 
-        int width = image.Width;
-        int height = image.Height;
-        int components = image.Components;
+        int width = samples.Width;
+        int height = samples.Height;
+        int components = samples.Components;
         int values = width * components;
         Pooled.Ensure(ref _pixels, width * height);
         Pooled.Ensure(ref _rgb, width * outputs);
@@ -91,8 +95,8 @@ internal sealed class ImageSource : IDisposable
             ranges[c] = space.GetComponentRange(c);
         }
 
-        bool foldSoft = FoldsSoftMask(image);
-        bool foldMask = FoldsMask(image);
+        bool foldSoft = FoldsSoftMask(image, samples);
+        bool foldMask = FoldsMask(image, samples);
         bool colorKey = !image.ColorKey.IsEmpty;
         bool matte = foldSoft && !image.Matte.IsEmpty
             && (indexed is null ? image.Matte.Length == components : baseConverter is not null && image.Matte.Length == indexed.Base.ComponentCount);
@@ -100,7 +104,7 @@ internal sealed class ImageSource : IDisposable
 
         RowKind kind = matte ? (indexed is null ? RowKind.Values : RowKind.TableValues)
             : indexed is not null ? RowKind.Indices
-            : image.StorageBits <= 8 && IsDefault(map, ranges) ? RowKind.Bytes
+            : samples.StorageBits <= 8 && IsDefault(map, ranges) ? RowKind.Bytes
             : RowKind.Values;
         int colorComponents = kind == RowKind.TableValues ? indexed!.Base.ComponentCount : components;
         int colorValues = width * colorComponents;
@@ -132,10 +136,10 @@ internal sealed class ImageSource : IDisposable
         Span<byte> opacity = alpha ? _alpha.AsSpan(0, width) : default;
         for (int y = 0; y < height; y++)
         {
-            ReadOnlySpan<byte> row = image.GetRow(y);
+            ReadOnlySpan<byte> row = samples.GetRow(y);
             if (kind != RowKind.Bytes || colorKey)
             {
-                ImageRows.Unpack(row, image.StorageBits, values, raw);
+                ImageRows.Unpack(row, samples.StorageBits, values, raw);
             }
 
             if (foldSoft)
@@ -158,7 +162,7 @@ internal sealed class ImageSource : IDisposable
                     converter.Convert(bytes, rgb, width);
                     break;
                 case RowKind.Bytes:
-                    ImageRows.UnpackScaled(row, image.StorageBits, image.BitsPerComponent, values, bytes);
+                    ImageRows.UnpackScaled(row, samples.StorageBits, samples.BitsPerComponent, values, bytes);
                     converter.Convert(bytes, rgb, width);
                     break;
                 case RowKind.TableValues:
@@ -209,7 +213,7 @@ internal sealed class ImageSource : IDisposable
 
         Width = width;
         Height = height;
-        _image = image;
+        _samples = samples;
         _converter = converter;
         _model = model;
     }
@@ -217,7 +221,7 @@ internal sealed class ImageSource : IDisposable
     /// <summary>Forgets the image converted last, so that nothing it belongs to is kept alive; the buffers stay.</summary>
     public void Forget()
     {
-        _image = null;
+        _samples = null;
         _converter = null;
     }
 

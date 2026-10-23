@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using Broadside.Caching;
 using Broadside.Content;
 using Broadside.Graphics;
 using Broadside.Images;
@@ -90,15 +91,15 @@ internal sealed partial class DisplayListBuilder
         else
         {
             DisplayImageMask? mask;
-            if (stream is not null && context.Document.Caches.Images.TryGet((stream, true), out DisplayImageEntry? cached))
+            if (stream is not null && context.Document.Caches.Images.TryGet((stream, DisplayImageEntry.StencilSlot), out IBudgetedEntry? cached))
             {
-                mask = cached.Mask;
+                mask = ((DisplayImageEntry)cached).Mask;
             }
             else
             {
                 long epoch = CosMutation.Epoch;
                 mask = DecodeMask(model, context.CancellationToken);
-                if (mask is not null && (stream is null || !context.Document.Caches.Images.Add((stream, true), new DisplayImageEntry(epoch, null, mask))))
+                if (mask is not null && (stream is null || !context.Document.Caches.Images.Add((stream, DisplayImageEntry.StencilSlot), new DisplayImageEntry(epoch, null, mask))))
                 {
                     // Only this build holds it until its list does: a failed build gives its samples back (issue #97).
                     Append(ref _owned, ref _ownedCount, mask);
@@ -146,15 +147,15 @@ internal sealed partial class DisplayListBuilder
         }
 
         DisplayImage? image;
-        if (stream is not null && document.Caches.Images.TryGet((stream, false), out DisplayImageEntry? cached))
+        if (stream is not null && document.Caches.Images.TryGet((stream, DisplayImageEntry.ImageSlot), out IBudgetedEntry? cached))
         {
-            image = cached.Image;
+            image = ((DisplayImageEntry)cached).Image;
         }
         else
         {
             long epoch = CosMutation.Epoch;
-            image = Decode(model, cancellationToken);
-            if (image is not null && (stream is null || !document.Caches.Images.Add((stream, false), new DisplayImageEntry(epoch, image, null))))
+            image = Decode(model, document, cancellationToken);
+            if (image is not null && (stream is null || !document.Caches.Images.Add((stream, DisplayImageEntry.ImageSlot), new DisplayImageEntry(epoch, image, null))))
             {
                 // Only this build holds it until its list does: a failed build gives its samples back (issue #97).
                 Append(ref _owned, ref _ownedCount, image);
@@ -176,11 +177,35 @@ internal sealed partial class DisplayListBuilder
         return index;
     }
 
-    /// <summary>Decodes an image and its mask.</summary>
+    /// <summary>
+    /// Decodes an image and its mask; an image whose codec decodes reduced resolutions is kept encoded instead, to be decoded at the
+    /// resolution it is drawn at (issue #362; see <see cref="DisplayImage.GetSamplesAt"/>).
+    /// </summary>
     /// <returns>The image, or <see langword="null"/> (the reason is already a diagnostic of the image).</returns>
-    private static DisplayImage? Decode(PdfImage model, CancellationToken cancellationToken)
+    private static DisplayImage? Decode(PdfImage model, PdfDocument document, CancellationToken cancellationToken)
     {
-        DecodedImage? decoded = model.DecodeSamples(cancellationToken);
+        PdfImage.PreparedImage prepared = model.Prepare(cancellationToken);
+        if (prepared.Encoded is { } encoded)
+        {
+            // Prepare keeps an image encoded only when its dictionary's colour space has the codestream's component count.
+            PdfColorSpace space = model.ColorSpace!;
+            if (space.Family == PdfColorSpaceFamily.Pattern)
+            {
+                return null;
+            }
+
+            MaskParts parts = DecodeMasks(model, null, space, cancellationToken);
+            return new DisplayImage(encoded, document.Caches.Images, space, model.CreateDecodeMapFor(space.ComponentCount, encoded.Header.BitsPerComponent, inverted: false), model.Interpolate)
+            {
+                Mask = parts.Mask,
+                SoftMask = parts.SoftMask,
+                ColorKeyRanges = parts.ColorKey,
+                MatteColor = parts.Matte,
+                ColorTableBytes = space is PdfIndexedColorSpace indexedSpace ? ColorTable(indexedSpace) : [],
+            };
+        }
+
+        DecodedImage? decoded = prepared.Decoded;
         try
         {
             if (decoded is null
@@ -224,7 +249,7 @@ internal sealed partial class DisplayListBuilder
     /// key), §11.6.5.2 (soft mask and Matte), §7.4.9 and Table 87 (SMaskInData: 1 opacity, 2 opacity premultiplied into the
     /// colour, which is a Matte of zeros). An unusable mask leaves the image unmasked; its reason is already a diagnostic.
     /// </remarks>
-    private static MaskParts DecodeMasks(PdfImage model, DecodedImage decoded, PdfColorSpace space, CancellationToken cancellationToken)
+    private static MaskParts DecodeMasks(PdfImage model, DecodedImage? decoded, PdfColorSpace space, CancellationToken cancellationToken)
     {
         switch (model.MaskKind)
         {
@@ -234,10 +259,10 @@ internal sealed partial class DisplayListBuilder
                 return new MaskParts(null, null, [.. ranges], []);
             case PdfImageMaskKind.Soft when model.Mask is { } softMask && DecodeSoftMask(softMask, cancellationToken) is { } soft:
                 return new MaskParts(null, soft, [], model.Matte is { } matte ? [.. matte.Select(static m => (float)m)] : []);
-            case PdfImageMaskKind.SoftInData when decoded.Alpha is { } alpha:
+            case PdfImageMaskKind.SoftInData when decoded?.Alpha is { } alpha:
                 int components = space is PdfIndexedColorSpace indexed ? indexed.Base.ComponentCount : space.ComponentCount;
                 var opacity = new DisplayImage(alpha, PdfDeviceGrayColorSpace.Instance, ImageDecodeMap.Create([0, 1], 1, alpha.BitsPerComponent), model.Interpolate);
-                return new MaskParts(null, opacity, [], model.SoftMaskInData == 2 || decoded.AlphaPremultiplied ? new float[components] : []);
+                return new MaskParts(null, opacity, [], model.SoftMaskInData == 2 || decoded!.AlphaPremultiplied ? new float[components] : []);
             default:
                 return new MaskParts(null, null, [], []);
         }

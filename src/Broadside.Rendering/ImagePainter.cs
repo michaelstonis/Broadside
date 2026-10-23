@@ -55,6 +55,11 @@ internal readonly ref struct ImagePainter : ICoverageSink
     /// <param name="maskInterpolate">Whether the mask's enlarged samples are blended bilinearly.</param>
     /// <param name="compositor">The constant alpha and blend mode the pixels composite with (§11.3); the default is opaque Normal.</param>
     /// <param name="average">Whether a reduced axis averages the samples under the pixel; otherwise the sample at its centre is taken (§10.7.4).</param>
+    /// <param name="maskScaleU">
+    /// The factor from image sample positions to mask sample positions across, or 0 for <paramref name="maskWidth"/> /
+    /// <paramref name="width"/>; given when the image's samples are a reduction whose grid overhangs the unit square.
+    /// </param>
+    /// <param name="maskScaleV">The factor down, or 0 for <paramref name="maskHeight"/> / <paramref name="height"/>.</param>
     public ImagePainter(
         Span<byte> target,
         int stride,
@@ -68,7 +73,9 @@ internal readonly ref struct ImagePainter : ICoverageSink
         int maskHeight = 1,
         bool maskInterpolate = false,
         Compositor compositor = default,
-        bool average = true)
+        bool average = true,
+        double maskScaleU = 0,
+        double maskScaleV = 0)
     {
         _compositor = compositor;
         _target = target;
@@ -77,7 +84,14 @@ internal readonly ref struct ImagePainter : ICoverageSink
         _inverse = inverse;
         _grid = new Grid(width, height, inverse, 1, 1, interpolate, average);
         _mask = mask;
-        _maskGrid = new Grid(maskWidth, maskHeight, inverse, (double)maskWidth / width, (double)maskHeight / height, maskInterpolate, average);
+        _maskGrid = new Grid(
+            maskWidth,
+            maskHeight,
+            inverse,
+            maskScaleU > 0 ? maskScaleU : (double)maskWidth / width,
+            maskScaleV > 0 ? maskScaleV : (double)maskHeight / height,
+            maskInterpolate,
+            average);
     }
 
     /// <summary>Creates a painter of one colour through a mask.</summary>

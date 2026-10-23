@@ -31,7 +31,8 @@ public sealed partial class SkiaBackend
         /// </summary>
         private void DrawImageCore(DisplayImage image, PdfDefaultColorSpaces defaultColorSpaces, ColorConversion conversion)
         {
-            if (_compositing.FillAlpha == 0)
+            // An image kept encoded that cannot be decoded paints nothing (ISO 32000-2 §8.9.5; its reason is a diagnostic).
+            if (_compositing.FillAlpha == 0 || image.GetSamplesAt(0) is null)
             {
                 return;
             }

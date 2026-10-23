@@ -124,3 +124,14 @@ Broadside.Rendering.RenderOptions.WithOptionalContentState(Broadside.PdfOptional
 Broadside.Rendering.RenderOptions.WithTransparentBackground(bool transparent) -> Broadside.Rendering.RenderOptions!
 Broadside.Rendering.SoftwareRasterizer.Render(Broadside.Rendering.DisplayList! list, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, Broadside.Rendering.AntiAliasing antiAliasing) -> void
 Broadside.Rendering.SoftwareRasterizer.Render(in Broadside.Rendering.DisplayGroup group, Broadside.PdfDocument! document, Broadside.Rendering.Bitmap! target, in Broadside.Graphics.Matrix deviceTransform, in Broadside.Graphics.Matrix transform, double strokeAlpha, double fillAlpha, Broadside.Graphics.BlendMode blendMode) -> void
+const Broadside.Rendering.RenderOptions.DefaultImageSamplesPerPixel = 2 -> double
+Broadside.Rendering.RenderOptions.ImageSamplesPerPixel.get -> double
+Broadside.Rendering.RenderOptions.ImageSamplesPerPixel.set -> void
+Broadside.Rendering.RenderOptions.ScaledImageDecode.get -> bool
+Broadside.Rendering.RenderOptions.ScaledImageDecode.set -> void
+Broadside.Rendering.RenderOptions.WithImageSamplesPerPixel(double samplesPerPixel) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.RenderOptions.WithScaledImageDecode(bool scaledImageDecode) -> Broadside.Rendering.RenderOptions!
+Broadside.Rendering.SoftwareRasterizer.ImageSamplesPerPixel.get -> double
+Broadside.Rendering.SoftwareRasterizer.ImageSamplesPerPixel.set -> void
+Broadside.Rendering.SoftwareRasterizer.ScaledImageDecode.get -> bool
+Broadside.Rendering.SoftwareRasterizer.ScaledImageDecode.set -> void

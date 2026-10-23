@@ -32,8 +32,12 @@ internal sealed class DocumentCaches(CacheBudgets budgets)
     /// <summary>Gets the decoded content streams and joined <c>Contents</c> arrays, keyed by the stream or array.</summary>
     public ByteBudgetCache<object, IBudgetedEntry> Content { get; } = new(budgets.Content, ReferenceEqualityComparer.Instance);
 
-    /// <summary>Gets the decoded images and stencil masks, keyed by the image XObject's stream and whether it is painted as a stencil.</summary>
-    public ByteBudgetCache<(CosStream Stream, bool Stencil), DisplayImageEntry> Images { get; } = new(budgets.Images);
+    /// <summary>
+    /// Gets the decoded images and stencil masks (<see cref="DisplayImageEntry"/>), keyed by the image XObject's stream and
+    /// <see cref="DisplayImageEntry.ImageSlot"/> or <see cref="DisplayImageEntry.StencilSlot"/>; and the samples of images kept
+    /// encoded (<see cref="DisplayImageSamplesEntry"/>), keyed by the <see cref="DisplayImage"/> and the reduction decoded.
+    /// </summary>
+    public ByteBudgetCache<(object Source, int Slot), IBudgetedEntry> Images { get; } = new(budgets.Images);
 
     /// <summary>Gets the glyph outlines, keyed by the font program and glyph id.</summary>
     public ByteBudgetCache<(FontProgram Program, int GlyphId), GlyphOutlineEntry> Glyphs { get; } = new(budgets.Glyphs);

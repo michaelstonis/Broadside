@@ -60,7 +60,8 @@ public sealed class DocumentSession : IDisposable, IAsyncDisposable
         _cooperative = options.IsCooperative;
         _sliceBudget = options.SliceBudget;
         _intent = options.Intent;
-        _backendFactory = options.BackendFactory ?? (static () => new SoftwareTileBackend());
+        (bool scaled, double samplesPerPixel) = (options.ScaledImageDecode, options.ImageSamplesPerPixel);
+        _backendFactory = options.BackendFactory ?? (() => new SoftwareTileBackend(scaled, samplesPerPixel));
         _yield = options.Yield ?? YieldAsync;
         _slots = new SemaphoreSlim(options.MaxConcurrency, options.MaxConcurrency);
         MaxConcurrency = options.MaxConcurrency;

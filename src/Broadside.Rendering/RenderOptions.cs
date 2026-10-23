@@ -20,8 +20,12 @@ public sealed class RenderOptions
     /// <summary>The resolution of one pixel per point: 72 dots per inch, scale 1.</summary>
     public const double DefaultDpi = 72;
 
+    /// <summary>The default of <see cref="ImageSamplesPerPixel"/>: a reduced image keeps at least 2 samples per device pixel.</summary>
+    public const double DefaultImageSamplesPerPixel = 2;
+
     private double _scale = 1;
     private int _rotation;
+    private double _imageSamplesPerPixel = DefaultImageSamplesPerPixel;
 
     /// <summary>Gets or sets device pixels per unit of default user space (before <c>UserUnit</c>): 1 is 72 DPI, 2 is 144 DPI.</summary>
     /// <exception cref="ArgumentOutOfRangeException">The value is not a finite number greater than zero.</exception>
@@ -335,6 +339,64 @@ public sealed class RenderOptions
         TransparentBackground = transparent;
         return this;
     }
+
+    /// <summary>
+    /// Gets or sets a value indicating whether images are decoded at the resolution they are drawn at rather than their own, for a
+    /// page shown much smaller than its images; <see langword="false"/> by default.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// For displaying only: viewers turn it on, and it must stay off for printing, export and anything that keeps the pixels as a
+    /// faithful render. An image whose codec decodes reduced resolutions (DCT, JPEG 2000) is decoded at the largest power-of-two
+    /// reduction that still leaves <see cref="ImageSamplesPerPixel"/> samples per device pixel along its most enlarged direction
+    /// (<see cref="DisplayImage.GetReduction"/>), which skips most of the decoding, converting and resampling of a large photograph
+    /// shown on a phone. The rasterizer still box-filters the reduced samples to the device, so the page differs from a full decode
+    /// only by the coarser average: at the default of 2 samples per pixel, 36 to 54 dB on photographs.
+    /// </para>
+    /// <para>
+    /// ISO 32000-2 §8.9.4 (image space and the unit square), §8.9.5.3 (Interpolate only affects enlargement, which a reduction never
+    /// causes) and §8.6 (averaging before colour conversion equals averaging after it only for an affine conversion, so a curved
+    /// conversion caps the reduction). Ignored with <see cref="OverprintPreview"/>, a print preview.
+    /// </para>
+    /// </remarks>
+    public bool ScaledImageDecode { get; set; }
+
+    /// <summary>Sets <see cref="ScaledImageDecode"/>.</summary>
+    /// <param name="scaledImageDecode">Whether images are decoded at the resolution they are drawn at.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithScaledImageDecode(bool scaledImageDecode)
+    {
+        ScaledImageDecode = scaledImageDecode;
+        return this;
+    }
+
+    /// <summary>
+    /// Gets or sets the fewest decoded samples per device pixel a reduced image keeps when <see cref="ScaledImageDecode"/> is on:
+    /// <see cref="DefaultImageSamplesPerPixel"/> (2) by default. 1 decodes less and renders faster, at a coarser average (35 to 48 dB
+    /// against a full decode on photographs, where 2 gives 36 to 54 dB).
+    /// </summary>
+    /// <exception cref="ArgumentOutOfRangeException">The value is not a finite number of at least 1.</exception>
+    /// <remarks>ISO 32000-2 §8.9.4: the count is taken along the image's most enlarged direction in device space, so rotation and skew never leave fewer.</remarks>
+    public double ImageSamplesPerPixel
+    {
+        get => _imageSamplesPerPixel;
+        set => _imageSamplesPerPixel = CheckSamplesPerPixel(value);
+    }
+
+    /// <summary>Sets <see cref="ImageSamplesPerPixel"/>.</summary>
+    /// <param name="samplesPerPixel">The fewest decoded samples per device pixel, at least 1.</param>
+    /// <returns>This instance.</returns>
+    public RenderOptions WithImageSamplesPerPixel(double samplesPerPixel)
+    {
+        ImageSamplesPerPixel = samplesPerPixel;
+        return this;
+    }
+
+    /// <summary>Returns <paramref name="value"/> when it is a valid <see cref="ImageSamplesPerPixel"/>.</summary>
+    internal static double CheckSamplesPerPixel(double value) =>
+        double.IsFinite(value) && value >= 1
+            ? value
+            : throw new ArgumentOutOfRangeException(nameof(value), value, "The samples per pixel must be a finite number of at least 1.");
 
     /// <summary>Returns the size in pixels of <paramref name="page"/> rendered with these options.</summary>
     /// <param name="page">The page.</param>
