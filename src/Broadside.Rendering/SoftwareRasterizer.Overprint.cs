@@ -458,9 +458,10 @@ public sealed partial class SoftwareRasterizer
 
             ImageSource cmy = _cmyImage ??= new ImageSource();
             ImageSource black = _blackImage ??= new ImageSource();
-            cmy.Prepare(image, samples, converter, baseConverter, CmyPass);
-            black.Prepare(image, samples, converter, baseConverter, BlackPass);
-            ImageMask mask = PrepareImageMask(image, samples);
+            DisplayImageSamples? soft = FoldedSoftMask(image, samples);
+            cmy.Prepare(image, samples, soft, converter, baseConverter, CmyPass);
+            black.Prepare(image, samples, soft, converter, baseConverter, BlackPass);
+            ImageMask mask = PrepareImageMask(image, samples, soft);
             (byte[]? opacity, int maskWidth, int maskHeight, bool maskInterpolate) = (mask.Opacity, mask.Width, mask.Height, mask.Interpolate);
             if (!TryBeginLayers(black: true, out PixelBounds bounds))
             {

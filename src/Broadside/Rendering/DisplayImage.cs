@@ -37,19 +37,29 @@ namespace Broadside.Rendering;
 /// </remarks>
 public sealed class DisplayImage
 {
+    /// <summary>
+    /// The fewest samples an image decoded at build must have to be reduced when drawn (512 x 512); below it, converting it whole
+    /// costs little, and the image keeps no reduction state.
+    /// </summary>
+    internal const long MinimumReducedPixels = 1 << 18;
+
     // Shared zero rows for GetRow of an image that cannot be decoded (it paints nothing; the bytes only keep old backends safe).
     private static byte[] _blank = [];
 
     // What the samples come from, one field so an image costs no more than it did before reductions (issue #362): the decoded
-    // samples of an image decoded at build, or the Reductions of an image kept encoded.
+    // samples of an image decoded at build, or the Reductions of an image kept encoded or large enough to be reduced.
     private readonly object _source;
     private readonly double[] _colorKey = [];
     private readonly float[] _matte = [];
     private readonly byte[] _colorTable = [];
 
-    internal DisplayImage(DecodedImage samples, PdfColorSpace colorSpace, ImageDecodeMap decodeMap, bool interpolate)
+    internal DisplayImage(DecodedImage samples, PdfColorSpace colorSpace, ImageDecodeMap decodeMap, bool interpolate, ByteBudgetCache<(object Source, int Slot), IBudgetedEntry>? cache = null)
     {
-        _source = samples;
+        // Issue #362: a large image decoded when the list was built is reduced from its full decode, by a box average, when drawn
+        // small (Flate, LZW, raw samples, CCITT, JBIG2); a small one is converted whole.
+        _source = cache is not null && (long)samples.Width * samples.Height >= MinimumReducedPixels
+            ? new Reductions(null, cache, ImageGeometry.MaxReduction) { Samples = samples }
+            : samples;
         ColorSpace = colorSpace;
         DecodeMap = decodeMap;
         Interpolate = interpolate;
@@ -64,12 +74,12 @@ public sealed class DisplayImage
     }
 
     /// <summary>Gets the samples decoded at build, or <see langword="null"/> for an image kept encoded.</summary>
-    private DecodedImage? Decoded => _source as DecodedImage;
+    private DecodedImage? Decoded => _source as DecodedImage ?? (_source as Reductions)?.Samples;
 
     /// <summary>Gets the header of an image kept encoded, or the decoded samples' facts.</summary>
-    private ImageHeader Facts => _source is Reductions reductions
-        ? reductions.Encoded!.Header
-        : new ImageHeader(Decoded!.Width, Decoded.Height, Decoded.Components, Decoded.BitsPerComponent);
+    private ImageHeader Facts => Decoded is { } decoded
+        ? new ImageHeader(decoded.Width, decoded.Height, decoded.Components, decoded.BitsPerComponent)
+        : ((Reductions)_source).Encoded!.Header;
 
     /// <summary>Gets the width in samples.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 (Width), or what the codec reported (§7.4.9).</remarks>
@@ -107,7 +117,7 @@ public sealed class DisplayImage
     /// was built, up to 3 (an eighth) or more for one whose codec decodes reduced resolutions.
     /// </summary>
     /// <remarks>ISO 32000-2 §7.4.8 (DCT) and §7.4.9 (JPEG 2000 resolution levels): what the codec's header says it can do.</remarks>
-    public int MaxReduction => _source is Reductions reductions ? reductions.Slots.Length - 1 : 0;
+    public int MaxReduction => _source is Reductions reductions ? reductions.MaxReduction : 0;
 
     /// <summary>
     /// Returns the image's samples at a reduction of 2^<paramref name="reduction"/>, or at the finest one that is cheaper to get: a
@@ -147,17 +157,24 @@ public sealed class DisplayImage
         ArgumentOutOfRangeException.ThrowIfNegative(reduction);
         if (_source is DecodedImage decodedAtBuild)
         {
-            return new DisplayImageSamples(decodedAtBuild, decodedAtBuild.Width, decodedAtBuild.Height);
+            return new DisplayImageSamples(decodedAtBuild, decodedAtBuild.Width, decodedAtBuild.Height, DecodeMap);
         }
 
         var reductions = (Reductions)_source;
+        int wanted = Math.Min(reduction, reductions.MaxReduction);
+        if (reductions.Samples is { } whole && wanted == 0)
+        {
+            return new DisplayImageSamples(whole, whole.Width, whole.Height, DecodeMap);
+        }
+
         if (reductions.Failed)
         {
             return null;
         }
 
-        int wanted = Math.Min(reduction, reductions.Slots.Length - 1);
-        for (int finer = wanted; finer >= 0; finer--)
+        // A finer reduction already made serves this one (zoom-out); for an image decoded at build that excludes its full decode,
+        // whose reduction is cheaper than painting it.
+        for (int finer = wanted; finer >= (reductions.Samples is null ? 0 : 1); finer--)
         {
             if (Find(reductions, finer) is { } kept)
             {
@@ -178,7 +195,11 @@ public sealed class DisplayImage
                 return null;
             }
 
-            DecodedImage? decoded = reductions.Encoded!.Decode(wanted, cancellationToken);
+#pragma warning disable CA2000 // The cache and the slots own the samples from here on.
+            DecodedImage? decoded = reductions.Samples is { } source
+                ? ImageReducer.Reduce(source, wanted, cancellationToken)
+                : reductions.Encoded!.Decode(wanted, cancellationToken);
+#pragma warning restore CA2000
             if (decoded is null)
             {
                 reductions.Failed = true;
@@ -193,7 +214,7 @@ public sealed class DisplayImage
                 slot.Alias = true;
             }
 
-            return new DisplayImageSamples(decoded, Width, Height);
+            return new DisplayImageSamples(decoded, Width, Height, MapFor(decoded));
         }
     }
 
@@ -237,13 +258,25 @@ public sealed class DisplayImage
 
         if (converter is not null)
         {
-            cap = Math.Min(cap, converter.MaxImageReduction);
+            // An image decoded at build is reduced before conversion only through an affine one; otherwise its rows are converted
+            // first and the rasterizer averages them, as before.
+            int limit = converter.MaxImageReduction;
+            cap = Math.Min(cap, Decoded is not null && limit < Graphics.Colors.ImageReductions.Any ? 0 : limit);
         }
 
-        double a = transform.A / Width;
-        double b = transform.B / Width;
-        double c = transform.C / Height;
-        double d = transform.D / Height;
+        return Reduction(Width, Height, transform, samplesPerPixel, cap);
+    }
+
+    /// <summary>
+    /// The reduction rule of <see cref="GetReduction"/> for a <paramref name="width"/> × <paramref name="height"/> image: the largest
+    /// power of two s with s ≤ 1 / (k · σmax(A)), at most 2^<paramref name="cap"/>.
+    /// </summary>
+    internal static int Reduction(int width, int height, in Matrix transform, double samplesPerPixel, int cap)
+    {
+        double a = transform.A / width;
+        double b = transform.B / width;
+        double c = transform.C / height;
+        double d = transform.D / height;
         double sum = (a * a) + (b * b) + (c * c) + (d * d);
         double determinant = (a * d) - (b * c);
         double sigma = Math.Sqrt((sum + Math.Sqrt(Math.Max(0, (sum * sum) - (4 * determinant * determinant)))) / 2);
@@ -260,6 +293,38 @@ public sealed class DisplayImage
         }
 
         return reduction;
+    }
+
+    /// <summary>The Decode mapping of reduced samples: the image's, at 8 bits when the reduction widened samples of fewer.</summary>
+    private ImageDecodeMap MapFor(DecodedImage decoded)
+    {
+        ImageDecodeMap map = DecodeMap;
+        if (decoded.BitsPerComponent == map.BitsPerComponent)
+        {
+            return map;
+        }
+
+        if (_source is Reductions { Widened: { } widened } && widened.BitsPerComponent == decoded.BitsPerComponent)
+        {
+            return widened;
+        }
+
+        // Table 88 is linear: the mean of raw values r / (2^n − 1) is the 8-bit value v / 255 with the same Dmin and Dmax.
+        int top = (1 << map.BitsPerComponent) - 1;
+        double[] decode = new double[2 * map.Components];
+        for (int c = 0; c < map.Components; c++)
+        {
+            decode[2 * c] = map.Map(c, 0);
+            decode[(2 * c) + 1] = map.Map(c, top);
+        }
+
+        ImageDecodeMap created = ImageDecodeMap.Create(decode, map.Components, decoded.BitsPerComponent);
+        if (_source is Reductions reductions)
+        {
+            reductions.Widened = created;
+        }
+
+        return created;
     }
 
     /// <summary>Gets the colour space of the samples, as resolved before default colour spaces apply.</summary>
@@ -399,7 +464,7 @@ public sealed class DisplayImage
         Slot slot = reductions.Slots[reduction];
         if (slot.Strong is { } strong)
         {
-            return new DisplayImageSamples(strong, Width, Height);
+            return new DisplayImageSamples(strong, Width, Height, MapFor(strong));
         }
 
         if (!slot.Weak.TryGetTarget(out DecodedImage? samples))
@@ -413,7 +478,7 @@ public sealed class DisplayImage
             Keep(reductions, samples.Reduction, samples);
         }
 
-        return new DisplayImageSamples(samples, Width, Height);
+        return new DisplayImageSamples(samples, Width, Height, MapFor(samples));
     }
 
     /// <summary>Offers the samples to the document's image cache, and holds them here when the cache will not keep them.</summary>
@@ -431,14 +496,26 @@ public sealed class DisplayImage
     /// <summary>The state of an image decoded when drawn: its encoded data, the cache its samples go to, one slot per reduction.</summary>
     private sealed class Reductions(EncodedImage? encoded, ByteBudgetCache<(object Source, int Slot), IBudgetedEntry> cache, int maxReduction)
     {
-        /// <summary>Gets the encoded image.</summary>
+        private Slot[]? _slots;
+        private bool _failed;
+
+        /// <summary>Gets the encoded image, or <see langword="null"/> for one decoded at build.</summary>
         public EncodedImage? Encoded { get; } = encoded;
+
+        /// <summary>Gets or sets the full decode of an image decoded at build, reduced from by a box average.</summary>
+        public DecodedImage? Samples { get; init; }
 
         /// <summary>Gets the document's image cache.</summary>
         public ByteBudgetCache<(object Source, int Slot), IBudgetedEntry> Cache { get; } = cache;
 
-        /// <summary>Gets one slot per reduction, 0 to the largest.</summary>
-        public Slot[] Slots { get; } = CreateSlots(maxReduction);
+        /// <summary>Gets or sets the Decode mapping of reduced samples widened to 8 bits, made once.</summary>
+        public ImageDecodeMap? Widened { get; set; }
+
+        /// <summary>Gets the largest reduction.</summary>
+        public int MaxReduction { get; } = maxReduction;
+
+        /// <summary>Gets one slot per reduction, 0 to the largest, made on first use.</summary>
+        public Slot[] Slots => Volatile.Read(ref _slots) ?? CreateSlots();
 
         /// <summary>Gets or sets a value indicating whether the decode failed (reported once; the image paints nothing).</summary>
         public bool Failed
@@ -447,17 +524,15 @@ public sealed class DisplayImage
             set => Volatile.Write(ref _failed, value);
         }
 
-        private bool _failed;
-
-        private static Slot[] CreateSlots(int maxReduction)
+        private Slot[] CreateSlots()
         {
-            var slots = new Slot[maxReduction + 1];
+            var slots = new Slot[MaxReduction + 1];
             for (int i = 0; i < slots.Length; i++)
             {
                 slots[i] = new Slot();
             }
 
-            return slots;
+            return Interlocked.CompareExchange(ref _slots, slots, null) ?? slots;
         }
     }
 

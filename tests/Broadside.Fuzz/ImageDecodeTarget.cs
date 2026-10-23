@@ -12,7 +12,7 @@ namespace Broadside.Fuzz;
 /// stream and runs it, so the inline-image end finder sees the data. A whole corpus file (<c>%PDF-</c>) decodes every image
 /// XObject of its first page. The engine's limits are tiny (2^16 pixels, 1 MiB) so mutated sizes stay cheap. Invariants: no
 /// exception in lenient mode; every decoded buffer is Stride x Height bytes with the §8.9.3 stride and no more decoded rows than
-/// rows; an inline image's data lies within the content.
+/// rows; an inline image's data lies within the content; a box-average reduction of the decode (issue #362) keeps the layout.
 /// </summary>
 /// <remarks>ISO 32000-2 §8.9.</remarks>
 internal static class ImageDecodeTarget
@@ -108,6 +108,29 @@ internal static class ImageDecodeTarget
         {
             ImageRows.Unpack(decoded.GetRow(y), decoded.StorageBits, row.Length, row);
             map.Map(row, values);
+        }
+
+        // Issue #362: the box-average reduction a viewer makes of an image decoded in full keeps the layout at ceil(W / s) x ceil(H / s),
+        // 8 bits or more, and never averages above the largest raw value.
+        int reduction = 1 + (decoded.Width % 3);
+        using DecodedImage reduced = ImageReducer.Reduce(decoded, reduction, CancellationToken.None);
+        int scale = 1 << reduction;
+        if (reduced.Width != (decoded.Width + scale - 1) / scale || reduced.Height != (decoded.Height + scale - 1) / scale
+            || reduced.Components != decoded.Components || reduced.BitsPerComponent < 8 || reduced.Reduction != reduction
+            || reduced.Samples.Length != (long)reduced.Stride * reduced.Height || reduced.DecodedRows > reduced.Height)
+        {
+            throw new InvalidOperationException($"Reduced {decoded.Width} x {decoded.Height} by {scale} to {reduced.Width} x {reduced.Height} x {reduced.Components} at {reduced.BitsPerComponent} bits.");
+        }
+
+        ushort[] reducedRow = new ushort[reduced.Width * reduced.Components];
+        int top = (1 << reduced.BitsPerComponent) - 1;
+        for (int y = 0; y < reduced.Height; y++)
+        {
+            ImageRows.Unpack(reduced.GetRow(y), reduced.StorageBits, reducedRow.Length, reducedRow);
+            if (reducedRow.Any(value => value > top))
+            {
+                throw new InvalidOperationException("A reduced sample is above the largest raw value.");
+            }
         }
     }
 

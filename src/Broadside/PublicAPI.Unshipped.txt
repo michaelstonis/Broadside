@@ -4966,6 +4966,8 @@ Broadside.Rendering.DisplayImageSamples.SourceWidth.get -> int
 Broadside.Rendering.DisplayImageSamples.StorageBits.get -> int
 Broadside.Rendering.DisplayImageSamples.Stride.get -> int
 Broadside.Rendering.DisplayImageSamples.Width.get -> int
+Broadside.Rendering.DisplayImageSamples.DecodeMap.get -> Broadside.Images.ImageDecodeMap!
+Broadside.Rendering.DisplayImageMask.GetReduction(in Broadside.Graphics.Matrix transform, double samplesPerPixel) -> int
 Broadside.Rendering.DisplayImageSamples.DisplayImageSamples() -> void
 Broadside.Rendering.DisplayImageSamples.Equals(Broadside.Rendering.DisplayImageSamples other) -> bool
 override Broadside.Rendering.DisplayImageSamples.Equals(object? obj) -> bool

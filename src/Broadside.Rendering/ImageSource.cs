@@ -35,6 +35,9 @@ internal sealed class ImageSource : IDisposable
     private byte[] _alpha = [];
     private float[] _alphaValues = [];
     private DisplayImageSamples _samples;
+
+    // The soft mask folded into the samples converted last, if any; at their reduction, so its samples are a function of it.
+    private DisplayImage? _soft;
     private PdfColorConverter? _converter;
     private PixelModel _model;
 
@@ -54,8 +57,8 @@ internal sealed class ImageSource : IDisposable
     /// Whether the image's soft mask has the size of the samples painted, at the image's own resolution, so that its opacity is
     /// folded into the converted pixels; a mask of a reduced image is resampled on its own grid (#362).
     /// </summary>
-    public static bool FoldsSoftMask(DisplayImage image, DisplayImageSamples samples) =>
-        samples.Reduction == 0 && image.SoftMask is { } soft && soft.Width == samples.Width && soft.Height == samples.Height;
+    public static bool FoldsSoftMask(DisplayImage image, DisplayImageSamples samples, DisplayImageSamples? soft) =>
+        soft is { } folded && image.SoftMask is { } mask && mask.Width == image.Width && mask.Height == image.Height && folded.Reduction == samples.Reduction;
 
     /// <summary>Whether the image's explicit mask has the size of the samples painted, at the image's own resolution, so that it is folded into the converted pixels.</summary>
     public static bool FoldsMask(DisplayImage image, DisplayImageSamples samples) =>
@@ -70,9 +73,10 @@ internal sealed class ImageSource : IDisposable
     /// table's colours); otherwise unused.
     /// </param>
     /// <param name="model">What the pixels hold: RGB, or a transparency group's gray or CMYK plane; the converters convert to its target.</param>
-    public void Prepare(DisplayImage image, DisplayImageSamples samples, PdfColorConverter converter, PdfColorConverter? baseConverter = null, PixelModel model = default)
+    /// <param name="soft">The soft mask's samples when they are folded in: the soft mask has the image's size and these are at the samples' reduction (<see cref="FoldsSoftMask"/>); otherwise <see langword="null"/>.</param>
+    public void Prepare(DisplayImage image, DisplayImageSamples samples, DisplayImageSamples? soft, PdfColorConverter converter, PdfColorConverter? baseConverter = null, PixelModel model = default)
     {
-        if (samples == _samples && ReferenceEquals(converter, _converter) && model == _model)
+        if (samples == _samples && ReferenceEquals(soft is null ? null : image.SoftMask, _soft) && ReferenceEquals(converter, _converter) && model == _model)
         {
             return;
         }
@@ -88,14 +92,14 @@ internal sealed class ImageSource : IDisposable
 
         PdfColorSpace space = image.ColorSpace;
         var indexed = space as PdfIndexedColorSpace;
-        ImageDecodeMap map = image.DecodeMap;
+        ImageDecodeMap map = samples.DecodeMap;
         Span<ComponentRange> ranges = stackalloc ComponentRange[components];
         for (int c = 0; c < components; c++)
         {
             ranges[c] = space.GetComponentRange(c);
         }
 
-        bool foldSoft = FoldsSoftMask(image, samples);
+        bool foldSoft = FoldsSoftMask(image, samples, soft);
         bool foldMask = FoldsMask(image, samples);
         bool colorKey = !image.ColorKey.IsEmpty;
         bool matte = foldSoft && !image.Matte.IsEmpty
@@ -144,7 +148,7 @@ internal sealed class ImageSource : IDisposable
 
             if (foldSoft)
             {
-                MaskSource.SoftRow(image.SoftMask!, y, opacity, _raw.AsSpan(values, width), _alphaValues.AsSpan(0, width));
+                MaskSource.SoftRow(soft!.Value, y, opacity, _raw.AsSpan(values, width), _alphaValues.AsSpan(0, width));
             }
             else if (foldMask)
             {
@@ -214,6 +218,7 @@ internal sealed class ImageSource : IDisposable
         Width = width;
         Height = height;
         _samples = samples;
+        _soft = soft is null ? null : image.SoftMask;
         _converter = converter;
         _model = model;
     }
@@ -222,6 +227,7 @@ internal sealed class ImageSource : IDisposable
     public void Forget()
     {
         _samples = default;
+        _soft = null;
         _converter = null;
     }
 

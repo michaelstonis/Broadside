@@ -19,8 +19,8 @@ namespace Broadside.Rendering;
 /// values are equal when they view the same samples. The default value views nothing and must not be read.
 /// </para>
 /// <para>
-/// The samples are raw values like the image's (<see cref="DisplayImage.DecodeMap"/> applies to them), averaged in the codec's own
-/// space before any colour conversion. Immutable; safe to read from any number of threads. A backend may key a per-surface cache
+/// The samples are raw values like the image's (<see cref="DecodeMap"/> applies to them), averaged in the codec's own space, or the
+/// samples' own for an image decoded when its list was built, before any colour conversion. Immutable; safe to read from any number of threads. A backend may key a per-surface cache
 /// on the value (its samples are kept while anything holds them).
 /// </para>
 /// </remarks>
@@ -28,12 +28,20 @@ public readonly struct DisplayImageSamples : IEquatable<DisplayImageSamples>
 {
     private readonly DecodedImage _samples;
 
-    internal DisplayImageSamples(DecodedImage samples, int sourceWidth, int sourceHeight)
+    internal DisplayImageSamples(DecodedImage samples, int sourceWidth, int sourceHeight, ImageDecodeMap decodeMap)
     {
         _samples = samples;
         SourceWidth = sourceWidth;
         SourceHeight = sourceHeight;
+        DecodeMap = decodeMap;
     }
+
+    /// <summary>
+    /// Gets the mapping from these samples' raw values to colour components: the image's <see cref="DisplayImage.DecodeMap"/>, at 8 bits
+    /// when a reduction turned samples of fewer bits (a 1-bit scan, a 4-bit image) into 8-bit averages.
+    /// </summary>
+    /// <remarks>ISO 32000-2 §8.9.5.2, Table 88: linear, so the mean of raw values maps to the mean of their component values.</remarks>
+    public ImageDecodeMap DecodeMap { get; }
 
     /// <summary>Gets the width in samples: ⌈<see cref="SourceWidth"/> / 2^<see cref="Reduction"/>⌉.</summary>
     /// <remarks>ISO 32000-2 §8.9.5.1, Table 87 (Width), reduced.</remarks>

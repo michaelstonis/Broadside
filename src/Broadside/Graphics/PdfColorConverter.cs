@@ -53,7 +53,7 @@ public sealed class PdfColorConverter
 
     /// <summary>
     /// Gets the largest reduction, as a power of two, at which image samples may be averaged before this conversion instead of
-    /// after it: <see cref="ImageReductions.Any"/> for an affine conversion, 2 for smooth tone curves, 1 for other curves, 0 for a
+    /// after it: <see cref="ImageReductions.Any"/> for an affine conversion, 1 for a curved one, 0 for a
     /// table lookup (Indexed).
     /// </summary>
     /// <remarks>

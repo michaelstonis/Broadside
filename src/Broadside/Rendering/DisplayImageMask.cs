@@ -1,3 +1,4 @@
+using Broadside.Graphics;
 using Broadside.Images;
 
 namespace Broadside.Rendering;
@@ -61,6 +62,29 @@ public sealed class DisplayImageMask
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="y"/> is outside the mask.</exception>
     /// <remarks>ISO 32000-2 §8.9.3.</remarks>
     public ReadOnlySpan<byte> GetRow(int y) => _samples.GetRow(y);
+
+    /// <summary>
+    /// Returns the reduction, as a power of two, at which a viewer may resample the mask when it is drawn under
+    /// <paramref name="transform"/>: the largest that still leaves <paramref name="samplesPerPixel"/> samples per device pixel along
+    /// its most enlarged direction; each reduced sample is then the share of the samples it covers that paint (8-bit coverage).
+    /// </summary>
+    /// <param name="transform">The transform from the unit square (user space, §8.9.4) to device pixels.</param>
+    /// <param name="samplesPerPixel">The fewest reduced samples per device pixel, at least 1 (see <see cref="DisplayImage.GetReduction"/>).</param>
+    /// <returns>The reduction: 0 for a mask of fewer than 65,536 samples, at most 8 (1/256).</returns>
+    /// <exception cref="ArgumentOutOfRangeException"><paramref name="samplesPerPixel"/> is not a finite number of at least 1.</exception>
+    /// <remarks>
+    /// ISO 32000-2 §8.9.6.2 and §8.9.6.3 (issue #362): coverage averages linearly, so reducing before painting equals the box filter
+    /// of the rasterizer over the mask's own samples, to within rounding. For displaying only.
+    /// </remarks>
+    public int GetReduction(in Matrix transform, double samplesPerPixel)
+    {
+        if (!double.IsFinite(samplesPerPixel) || samplesPerPixel < 1)
+        {
+            throw new ArgumentOutOfRangeException(nameof(samplesPerPixel), samplesPerPixel, "The samples per pixel must be a finite number of at least 1.");
+        }
+
+        return (long)Width * Height < DisplayImage.MinimumReducedPixels ? 0 : DisplayImage.Reduction(Width, Height, transform, samplesPerPixel, 8);
+    }
 
     /// <summary>Gets the bytes this mask keeps: its sample buffer; what a render cache charges for it (issue #103).</summary>
     internal long RetainedBytes => _samples.RetainedBytes;
