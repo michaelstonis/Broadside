@@ -57,14 +57,13 @@ public sealed partial class SoftwareRasterizer
             }
 
             int reduction = _imageSamplesPerPixel > 0 ? image.GetReduction(_toDevice, _imageSamplesPerPixel, converter) : 0;
-            DisplayImageSamples? samples = _previewing ? null : image.GetSamplesAt(reduction, _cancellationToken);
             if (_previewing)
             {
                 PreviewImage(image, defaultColorSpaces, conversion, inverse);
                 return;
             }
 
-            if (samples is null || (long)samples.Width * samples.Height > Array.MaxLength)
+            if (image.GetSamplesAt(reduction, _cancellationToken) is not { } samples || (long)samples.Width * samples.Height > Array.MaxLength)
             {
                 // ISO 32000-2 §8.9.5: an image that cannot be decoded paints nothing (its reason is a diagnostic of the document).
                 _scan.Reset(_width, _height);

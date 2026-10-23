@@ -34,7 +34,7 @@ internal sealed class ImageSource : IDisposable
     private byte[] _rgb = [];
     private byte[] _alpha = [];
     private float[] _alphaValues = [];
-    private DisplayImageSamples? _samples;
+    private DisplayImageSamples _samples;
     private PdfColorConverter? _converter;
     private PixelModel _model;
 
@@ -72,7 +72,7 @@ internal sealed class ImageSource : IDisposable
     /// <param name="model">What the pixels hold: RGB, or a transparency group's gray or CMYK plane; the converters convert to its target.</param>
     public void Prepare(DisplayImage image, DisplayImageSamples samples, PdfColorConverter converter, PdfColorConverter? baseConverter = null, PixelModel model = default)
     {
-        if (ReferenceEquals(samples, _samples) && ReferenceEquals(converter, _converter) && model == _model)
+        if (samples == _samples && ReferenceEquals(converter, _converter) && model == _model)
         {
             return;
         }
@@ -221,7 +221,7 @@ internal sealed class ImageSource : IDisposable
     /// <summary>Forgets the image converted last, so that nothing it belongs to is kept alive; the buffers stay.</summary>
     public void Forget()
     {
-        _samples = null;
+        _samples = default;
         _converter = null;
     }
 
