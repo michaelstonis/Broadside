@@ -10,7 +10,7 @@ namespace Broadside.Graphics;
 /// <para>
 /// ISO 32000-2 §7.10. Get one with <see cref="PdfDocument.GetFunction"/>; the subclass says which of the four types it is
 /// (<see cref="PdfSampledFunction"/>, <see cref="PdfExponentialFunction"/>, <see cref="PdfStitchingFunction"/>,
-/// <see cref="PdfPostScriptFunction"/>). Entries such as <see cref="Domain"/> are read from the COS object on every call (ADR 0004).
+/// <see cref="PdfPostScriptFunction"/>). Entries such as <see cref="Domain"/> are read from the COS object on every call.
 /// </para>
 /// <para>
 /// Evaluation runs on a form compiled once from the COS objects: inputs are clipped to the domain, outputs to the range (§7.10.1).
@@ -56,7 +56,7 @@ public abstract class PdfFunction
     public abstract PdfFunctionType FunctionType { get; }
 
     /// <summary>Gets the earliest PDF version that has this type of function: 1.2 for Type 0, 1.3 for the others.</summary>
-    /// <remarks>ISO 32000-2 §7.10.1 (ADR 0003: a writer raises the file's version to this).</remarks>
+    /// <remarks>ISO 32000-2 §7.10.1 (a writer raises the file's version to this).</remarks>
     public PdfVersion MinimumVersion => FunctionType == PdfFunctionType.Sampled ? new PdfVersion(1, 2) : new PdfVersion(1, 3);
 
     /// <summary>Gets the <c>Domain</c> entry: 2 × m numbers, an interval per input; empty when it is missing or not numbers.</summary>

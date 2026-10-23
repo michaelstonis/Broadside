@@ -28,7 +28,7 @@ public abstract class FontProgram
     }
 
     /// <summary>Gets the "cmap" subtables PDF glyph selection and Unicode mapping use, chosen once for this program.</summary>
-    /// <remarks>ISO 32000-2 §9.6.5.4. Per-program data, kept on the program (ADR 0009: nothing per program is process-wide).</remarks>
+    /// <remarks>ISO 32000-2 §9.6.5.4. Per-program data, kept on the program (nothing per program is process-wide).</remarks>
     internal CharacterMapSelection CharacterMapSelection
     {
         get

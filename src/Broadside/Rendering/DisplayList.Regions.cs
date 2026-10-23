@@ -24,7 +24,7 @@ public sealed partial class DisplayList
     /// </param>
     /// <remarks>
     /// <para>
-    /// ADR 0006; spec #33 story 14 (viewer capability 1: render tiles at many zoom levels from one cached list). Each paint's bounds are
+    /// Spec #33 story 14 (viewer capability 1: render tiles at many zoom levels from one cached list). Each paint's bounds are
     /// in default user space (ISO 32000-2 §8.3.2.3): its path's points (curve control points included, which bound the curve) under
     /// the transform of the paint (a fill or stroke in a shading or tiling pattern (§8.7.3) is bounded by its path like any other); a
     /// stroke's path widened by half the line width times the miter limit or √2 for square caps

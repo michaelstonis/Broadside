@@ -33,7 +33,7 @@ internal sealed partial class DisplayListBuilder
     /// <para>
     /// ISO 32000-2 §9.4.3: each glyph enters the list with the glyph id its font selects (§9.6.5 for simple fonts, §9.7.4.2 and
     /// §9.7.6.3 for composite fonts) in the font's embedded program (§9.9) or, without one, in the substitute the engine's font
-    /// resolvers found (§9.6.2.2, ADR 0009), scaled horizontally to the width the PDF gives the glyph; a glyph name the substitute
+    /// resolvers found (§9.6.2.2), scaled horizontally to the width the PDF gives the glyph; a glyph name the substitute
     /// draws as several glyphs (Adobe Glyph List specification §2, as <c>f_i</c>) enters as its components side by side, together
     /// scaled to that width. Its text matrix places it
     /// (§9.4.4); its rendering mode (§9.3.6) decides whether the run fills with the nonstroking colour, strokes with the stroking

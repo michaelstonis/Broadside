@@ -12,7 +12,7 @@ namespace Broadside.Rendering.WebGL;
 /// that composites canvases). What it cannot draw natively makes the software rasterizer draw that render instead, with a diagnostic.
 /// </summary>
 /// <remarks>
-/// ISO 32000-2 §10.7.1 (rendering) through the display list (ADR 0006); the backend choice and its fallbacks are ADR 0012. Call
+/// ISO 32000-2 §10.7.1 (rendering) through the display list. The backend is opt-in and falls back to the software rasterizer. Call
 /// <see cref="InitializeAsync"/> once before rendering. One render at a time per instance; instances share one WebGL context, so
 /// renders on one page are sequential (WebAssembly is single-threaded).
 /// </remarks>

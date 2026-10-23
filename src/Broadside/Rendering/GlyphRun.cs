@@ -37,7 +37,7 @@ public readonly record struct DisplayGlyph
     /// font's width for the code divided by the substitute's width for the glyph. 1 for a glyph drawn with the font's own program.
     /// </summary>
     /// <remarks>
-    /// ISO 32000-2 §9.2.4 and §9.6.2.2: the glyph is positioned by the font's widths whatever program draws it; ADR 0009 (font
+    /// ISO 32000-2 §9.2.4 and §9.6.2.2: the glyph is positioned by the font's widths whatever program draws it (font
     /// substitution). Only horizontal writing is scaled.
     /// </remarks>
     public double HorizontalScale { get; }
@@ -104,7 +104,7 @@ public readonly ref struct GlyphRun
     /// Gets the font program the glyph ids select in: the font's embedded program, or the substitute the engine's font resolvers
     /// found for it; <see langword="null"/> when the font has neither (the glyphs then have empty outlines).
     /// </summary>
-    /// <remarks>ISO 32000-2 §9.9 (embedded font programs), §9.6.2.2 and ADR 0009 (substitutes).</remarks>
+    /// <remarks>ISO 32000-2 §9.9 (embedded font programs), §9.6.2.2 (substitutes).</remarks>
     public FontProgram? Program { get; }
 
     /// <summary>Gets the matrix from the program's glyph space to text space (<see cref="FontProgram.FontMatrix"/>; identity without a program).</summary>

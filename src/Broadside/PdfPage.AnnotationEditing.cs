@@ -8,7 +8,7 @@ namespace Broadside;
 /// ISO 32000-2 §12.5. Each <c>Add…Annotation</c> method writes the annotation dictionary (§12.5.2 and the subtype's table in
 /// §12.5.6), appends it to the page's <c>Annots</c> and draws its normal appearance stream (§12.5.5), so viewers that do not
 /// generate appearances show it as Broadside does; the new annotation is returned as its typed view. A failure changes nothing.
-/// Each call records the versions its entries need (ADR 0003), so a save raises an older document or refuses in strict mode.
+/// Each call records the versions its entries need, so a save raises an older document or refuses in strict mode.
 /// </remarks>
 public sealed partial class PdfPage
 {

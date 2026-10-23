@@ -6,7 +6,7 @@ using Windows.Win32.Graphics.Direct2D.Common;
 namespace Broadside.Rendering.Direct2D;
 
 /// <summary>
-/// The backend <see cref="Direct2DRenderer"/> replays display lists through (ADR 0006): graphics state, path geometry, clips and
+/// The backend <see cref="Direct2DRenderer"/> replays display lists through: graphics state, path geometry, clips and
 /// colour on a Direct2D device context.
 /// </summary>
 /// <remarks>

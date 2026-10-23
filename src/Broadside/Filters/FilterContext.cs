@@ -53,7 +53,7 @@ public sealed class FilterContext
     public CosDictionary StreamDictionary { get; init; } = new();
 
     /// <summary>Gets how deviations are treated: in <see cref="PdfReadingMode.Strict"/> mode, <see cref="Report"/> throws.</summary>
-    /// <remarks>ADR 0005.</remarks>
+    /// <remarks>Lenient by default: a deviation is repaired and recorded as a diagnostic; strict mode throws instead.</remarks>
     public PdfReadingMode ReadingMode { get; init; } = PdfReadingMode.Lenient;
 
     /// <summary>Gets the most bytes one stream may decode to; the pipeline truncates longer output with a diagnostic.</summary>
@@ -82,7 +82,7 @@ public sealed class FilterContext
     /// <param name="severity">Whether the repair kept all content (<see cref="DiagnosticSeverity.Warning"/>) or probably lost some.</param>
     /// <param name="message">What was wrong and what the filter did.</param>
     /// <exception cref="DiagnosticException">In strict mode, always: the decode ends here.</exception>
-    /// <remarks>ADR 0005. Inside a document the diagnostic is also recorded on the document.</remarks>
+    /// <remarks>Inside a document the diagnostic is also recorded on the document.</remarks>
     public void Report(string code, DiagnosticSeverity severity, string message)
     {
         var diagnostic = new Diagnostic(code, severity, message);

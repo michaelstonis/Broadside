@@ -22,7 +22,7 @@ namespace Broadside.Filters;
 /// keeps no state between calls; everything a decode needs lives in locals, pooled buffers or the <see cref="FilterContext"/>.
 /// </para>
 /// <para>
-/// Leniency (ADR 0005): on malformed data a filter writes what it can decode, reports one diagnostic per kind of deviation through
+/// Leniency: on malformed data a filter writes what it can decode, reports one diagnostic per kind of deviation through
 /// <see cref="FilterContext.Report"/>, and returns. In strict mode <see cref="FilterContext.Report"/> throws, which ends the decode.
 /// </para>
 /// </remarks>

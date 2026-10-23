@@ -6,7 +6,7 @@ namespace Broadside.Structure;
 /// <summary>The root of a document's structure tree: its top-level elements, role and class maps, namespaces, and the lookups from content to elements.</summary>
 /// <remarks>
 /// <para>
-/// ISO 32000-2 §14.7.2, Table 354. A live view over the structure tree root dictionary (ADR 0004): <see cref="Children"/> and the map
+/// ISO 32000-2 §14.7.2, Table 354. A live view over the structure tree root dictionary: <see cref="Children"/> and the map
 /// properties read it on every call. The lookups (<see cref="FindElement(PdfPage, int)"/>, <see cref="FindElementById(ReadOnlySpan{byte})"/>,
 /// <see cref="Elements"/>) use indexes built on first use and kept while every object they were built from keeps its version: an edit,
 /// through this API or directly on the COS objects, is seen by the next lookup. They are safe to use from several threads while

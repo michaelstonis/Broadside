@@ -45,7 +45,7 @@ internal sealed record DeveloperExtensionDeclaration(CosName Prefix, PdfVersion 
 
 /// <summary>
 /// A feature a saved file can use, and the earliest PDF version that has it: a row of the version table that saving raises the
-/// version by (ADR 0003).
+/// version by.
 /// </summary>
 /// <param name="Name">What the feature is, as the raise diagnostic and the strict-mode refusal name it.</param>
 /// <param name="Clause">Where the version is stated.</param>
@@ -60,7 +60,7 @@ internal sealed record VersionedFeature(string Name, string Clause, PdfVersion M
 
 /// <summary>The writable features and the minimum version each needs: the table a save raises the version by.</summary>
 /// <remarks>
-/// <para>ADR 0003; ISO 32000-2 §7.5.2 and §7.7.2, Table 29. One row per feature the library writes:</para>
+/// <para>ISO 32000-2 §7.5.2 and §7.7.2, Table 29. One row per feature the library writes:</para>
 /// <list type="table">
 /// <listheader><term>Feature</term><description>Minimum version (clause)</description></listheader>
 /// <item><term><see cref="FlateCompression"/></term><description>1.2 (§7.4.4): a save that compresses a stream, or <see cref="PdfDocument.EncodeStream"/> through <c>FlateDecode</c>.</description></item>

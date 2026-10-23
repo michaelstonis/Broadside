@@ -6,7 +6,7 @@ namespace Broadside;
 #pragma warning restore IDE0130
 
 /// <summary>Wires the predefined CMaps package into an engine's options.</summary>
-/// <remarks>ISO 32000-2 §9.7.5.2, Table 116; ADR 0009.</remarks>
+/// <remarks>ISO 32000-2 §9.7.5.2, Table 116.</remarks>
 public static class CmapsPdfOptionsExtensions
 {
     /// <summary>

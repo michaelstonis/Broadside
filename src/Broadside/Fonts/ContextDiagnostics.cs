@@ -9,7 +9,7 @@ namespace Broadside.Fonts;
 /// code is kept for the context's own list; inside a document every report also goes to the document's sink, once per code against
 /// the parsed stream; outside one, strict mode throws.
 /// </summary>
-/// <remarks>ADR 0005. Thread-safe: a context is shared by every thread reading the font or CMap it belongs to.</remarks>
+/// <remarks>Thread-safe: a context is shared by every thread reading the font or CMap it belongs to.</remarks>
 internal sealed class ContextDiagnostics(DiagnosticSink? sink, CosReference? objectReference)
 {
     private readonly List<Diagnostic> _diagnostics = [];

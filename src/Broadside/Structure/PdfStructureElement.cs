@@ -7,7 +7,7 @@ namespace Broadside.Structure;
 /// <summary>A structure element: one node of a document's structure tree, a live view over its structure element dictionary.</summary>
 /// <remarks>
 /// <para>
-/// ISO 32000-2 §14.7.2, Table 355. Every property reads the dictionary when called (ADR 0004); <see cref="Children"/> enumerates
+/// ISO 32000-2 §14.7.2, Table 355. Every property reads the dictionary when called; <see cref="Children"/> enumerates
 /// <c>K</c> on each call. Two views of the same dictionary are equal.
 /// </para>
 /// <para>

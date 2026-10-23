@@ -46,7 +46,7 @@ internal enum NamedLookup
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §8.6. Spaces are keyed by the indirect reference they were reached through, else by the direct array, and by the
-/// array's version, so a space whose array changes is read again (ADR 0004). Built through <see cref="OnceCache{TKey, TValue}"/>:
+/// array's version, so a space whose array changes is read again. Built through <see cref="OnceCache{TKey, TValue}"/>:
 /// concurrent first reads create one view, and a space that contains itself (an Indexed base referring to the Indexed space) is
 /// detected as a cycle. Names (<c>/CS0</c>) are never keys: the same name means different spaces in different resources.
 /// </para>

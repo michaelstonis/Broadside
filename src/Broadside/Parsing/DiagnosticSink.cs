@@ -7,7 +7,7 @@ namespace Broadside.Parsing;
 /// <summary>
 /// The one place a document's reader records deviations. Lenient: append and continue. Strict: append, then throw a
 /// <see cref="DiagnosticException"/> for the first deviation of severity <see cref="DiagnosticSeverity.Warning"/> or
-/// <see cref="DiagnosticSeverity.Error"/> (ADR 0005); <see cref="DiagnosticSeverity.Information"/> never throws.
+/// <see cref="DiagnosticSeverity.Error"/>; <see cref="DiagnosticSeverity.Information"/> never throws.
 /// </summary>
 /// <remarks>
 /// <para>

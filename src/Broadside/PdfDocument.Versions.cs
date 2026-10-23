@@ -5,7 +5,7 @@ namespace Broadside;
 
 /// <content>
 /// The version a save writes (issue #141): every writable feature declares its minimum PDF version, and a save raises the version
-/// to the highest one used, or refuses in strict mode. ISO 32000-2 §7.5.2, §7.7.2 (Table 29), §7.12; ADR 0003.
+/// to the highest one used, or refuses in strict mode. ISO 32000-2 §7.5.2, §7.7.2 (Table 29), §7.12.
 /// </content>
 public sealed partial class PdfDocument
 {

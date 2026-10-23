@@ -286,7 +286,7 @@ internal static class CrossReferenceReconstructor
         && catalog.TryGetValue(KnownNames.Pages, out CosObject? pages)
         && loader.Resolve(pages) is CosDictionary;
 
-    /// <summary>Copies the entries of <paramref name="dictionary"/> but <paramref name="keys"/>, for a dictionary that reads as parsed (ADR 0004).</summary>
+    /// <summary>Copies the entries of <paramref name="dictionary"/> but <paramref name="keys"/>, for a dictionary that reads as parsed.</summary>
     private static OrderedDictionary<CosName, CosObject> Without(CosDictionary dictionary, params ReadOnlySpan<CosName> keys)
     {
         var copy = new OrderedDictionary<CosName, CosObject>();

@@ -21,7 +21,7 @@ internal sealed record CacheBudgets(long Content, long Images, long Glyphs, long
 
 /// <summary>
 /// A document's render caches, each bounded by its byte budget and evicted least recently used (spec #33 viewer capability 13, issue
-/// #103): decoded content (§7.8.2), decoded images and masks (§8.9), glyph outlines (§9.2.4) and display lists (ADR 0006).
+/// #103): decoded content (§7.8.2), decoded images and masks (§8.9), glyph outlines (§9.2.4) and display lists.
 /// </summary>
 /// <remarks>
 /// Safe for concurrent renders of an unchanged document (CLAUDE.md thread-safety contract): each cache has its own lock, and two

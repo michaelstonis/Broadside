@@ -1,7 +1,7 @@
 namespace Broadside;
 
 /// <summary>How a reader treats a deviation from the specification.</summary>
-/// <remarks>ADR 0005.</remarks>
+/// <remarks>Reading is lenient by default: a reader repairs what it can and records a diagnostic for each repair.</remarks>
 public enum PdfReadingMode
 {
     /// <summary>The default: repair what can be repaired, record a <see cref="Diagnostics.Diagnostic"/> on the document, continue.</summary>

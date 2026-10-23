@@ -2,7 +2,7 @@ namespace Broadside.Diagnostics;
 
 /// <summary>How much the repair recorded by a <see cref="Diagnostic"/> may have changed the document.</summary>
 /// <remarks>
-/// ADR 0005. Ordered: a higher value is more severe. A well-formed file produces no <see cref="Warning"/> and no
+/// Ordered: a higher value is more severe. A well-formed file produces no <see cref="Warning"/> and no
 /// <see cref="Error"/>; strict mode throws on those two and never on <see cref="Information"/>.
 /// </remarks>
 public enum DiagnosticSeverity

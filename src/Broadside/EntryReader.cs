@@ -5,7 +5,7 @@ namespace Broadside;
 
 /// <summary>
 /// The one reader for the entries of document-model dictionaries (catalog views, annotations, actions, forms, structure, files and
-/// layers), with one leniency policy. Nothing here writes to COS (ADR 0004).
+/// layers), with one leniency policy. Nothing here writes to COS.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -15,7 +15,7 @@ namespace Broadside;
 /// <para>
 /// A typed read accepts its own type. When the caller passes an <see cref="EntryReport"/>, a value of a neighbouring type with one
 /// obvious reading is repaired (a name or a number where a text string belongs reads as its text; a real holding a whole number
-/// where an integer belongs reads as that integer) and anything else reads as absent, each with a diagnostic (ADR 0005). Without
+/// where an integer belongs reads as that integer) and anything else reads as absent, each with a diagnostic. Without
 /// an <see cref="EntryReport"/> the read is a probe: a value of another type reads as absent and nothing is repaired, so no repair
 /// ever happens silently.
 /// </para>

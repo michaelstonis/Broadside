@@ -8,7 +8,7 @@ namespace Broadside.Rendering;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ADR 0006: backends consume display lists and never see content-stream operators. Everything a call hands over is resolved:
+/// Backends consume display lists and never see content-stream operators. Everything a call hands over is resolved:
 /// paths in user space with the transform set before them, colours as colour space plus components (ISO 32000-2 §8.6.1, colour
 /// specification). Colour rendering is the backend's (§8.6.1, §10): it converts a <see cref="DisplayColor"/> to its device model
 /// through <see cref="PdfDocument.GetColorConverter(PdfColorSpace, ColorConversion, PdfDefaultColorSpaces?)"/> on
@@ -229,7 +229,7 @@ public interface IRenderingBackend
     /// <para>
     /// The same mask (same <see cref="DisplaySoftMask.Content"/> and <see cref="DisplaySoftMask.Matrix"/>) usually arrives many
     /// times in one replay; a backend renders it once and keeps it. A backend that cannot apply soft masks paints unmasked and
-    /// reports that it did (ADR 0005).
+    /// reports that it did.
     /// </para>
     /// </remarks>
     void SetSoftMask(in DisplaySoftMask mask);

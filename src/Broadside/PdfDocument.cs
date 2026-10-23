@@ -33,7 +33,7 @@ namespace Broadside;
 /// from the member that loads them, so strict validation at open is not exhaustive.
 /// </para>
 /// <para>
-/// Repairs (ISO 32000-2 §7.5 describes the structure but not its repair; ADR 0005): a wrong <c>startxref</c> or <c>Prev</c> offset
+/// Repairs (ISO 32000-2 §7.5 describes the structure but not its repair): a wrong <c>startxref</c> or <c>Prev</c> offset
 /// reads the nearest cross-reference section; an entry whose offset does not hold its object is looked up near that offset, then
 /// anywhere in the file; a missing or unusable cross-reference table or trailer is rebuilt by scanning the file for object headers,
 /// object streams and trailers, and the catalog is found by its type when no trailer leads to it; a wrong stream <c>Length</c> is
@@ -299,7 +299,7 @@ public sealed partial class PdfDocument : IDisposable
 
     /// <summary>Gets the deviations found so far, in the order they were found. Empty for a well-formed file.</summary>
     /// <remarks>
-    /// ADR 0005. A snapshot: objects load lazily, so reading more of the document can add diagnostics, which a later call returns.
+    /// A snapshot: objects load lazily, so reading more of the document can add diagnostics, which a later call returns.
     /// </remarks>
     public IReadOnlyList<Diagnostic> Diagnostics => _diagnostics.Snapshot();
 
@@ -492,7 +492,7 @@ public sealed partial class PdfDocument : IDisposable
     /// which and how hard. The document's own streams are not changed.
     /// </para>
     /// <para>
-    /// The header keeps the document's version, raised to the highest minimum version of the features the file uses (ADR 0003): 1.5
+    /// The header keeps the document's version, raised to the highest minimum version of the features the file uses: 1.5
     /// for cross-reference and object streams, 1.2 for <c>FlateDecode</c> compression, the encryption's version, the <c>BaseVersion</c>
     /// of each developer extension (§7.12.4). An incremental update writes no header: it raises the catalog's <c>Version</c> entry
     /// instead (§7.5.6, §7.7.2 Table 29). A raise above <see cref="Version"/> is recorded as a <c>VersionRaised</c> diagnostic
@@ -515,7 +515,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <c>AuthCode</c>, computed over every byte of the file but the token; an incremental update computes it over the whole updated file.
     /// </para>
     /// <para>
-    /// A save checks everything that can refuse it before it changes the document (ADR 0005): a save that throws has written nothing
+    /// A save checks everything that can refuse it before it changes the document: a save that throws has written nothing
     /// and left the document as it was. Only a save that goes ahead dates the modification (<see cref="PdfSaveOptions.UpdateModificationDate"/>,
     /// §14.3.4), subsets the fonts filled fields grew, and declares extensions and a raised version in the catalog.
     /// </para>
@@ -630,7 +630,7 @@ public sealed partial class PdfDocument : IDisposable
     /// object's, the generation a new object reusing the number would take (§7.5.6, H.7.4: an incremental update leaves the object's
     /// old bytes in the file). Views read before the removal (the structure tree, the outline, text extraction's reading order,
     /// annotation lists, the form's fields, optional content, name and number trees, functions, colour converters, font metrics and
-    /// graphics state parameters) see it at their next read (ADR 0004). A mutation: no read may run concurrently with it.
+    /// graphics state parameters) see it at their next read. A mutation: no read may run concurrently with it.
     /// </remarks>
     public bool RemoveObject(CosReference reference)
     {
@@ -640,7 +640,7 @@ public sealed partial class PdfDocument : IDisposable
 
     /// <summary>
     /// Gets a number that changes every time <see cref="AddObject"/> or <see cref="RemoveObject"/> changes which objects references
-    /// resolve to (§7.3.10); live-view caches built from many containers record it with their <c>Version</c>s (ADR 0004).
+    /// resolve to (§7.3.10); live-view caches built from many containers record it with their <c>Version</c>s.
     /// </summary>
     internal int ObjectsVersion => _loader.ObjectsVersion;
 
@@ -1051,7 +1051,7 @@ public sealed partial class PdfDocument : IDisposable
     /// <para>
     /// <c>FlateDecode</c> is PDF 1.2 (§7.4.4), <c>JBIG2Decode</c> PDF 1.4 (§7.4.7) and <c>JPXDecode</c> PDF 1.5 (§7.4.9; Table 6):
     /// once a stream is encoded with one of them, a save of a document of an earlier version raises the version, or refuses in strict
-    /// mode (ADR 0003).
+    /// mode.
     /// </para>
     /// </remarks>
     public void EncodeStream(CosStream stream, ReadOnlySpan<byte> data, System.IO.Compression.CompressionLevel compressionLevel = System.IO.Compression.CompressionLevel.Optimal)

@@ -13,7 +13,7 @@ namespace Broadside.Rendering.WebGL;
 /// </summary>
 /// <remarks>
 /// ISO 32000-2 §8.4.2 (graphics state stack), §8.5.3 (painting), §8.5.4 (clipping), §8.9 (images), §9.4.3 and §9.2.4 (glyph outlines,
-/// non-zero), §11.4 and §11.6.4.4 (groups, constant alpha), §12.5.5 (annotation appearances), through the display list (ADR 0006).
+/// non-zero), §11.4 and §11.6.4.4 (groups, constant alpha), §12.5.5 (annotation appearances), through the display list.
 /// </remarks>
 [SupportedOSPlatform("browser")]
 internal sealed class Recorder : IRenderingBackend

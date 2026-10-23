@@ -1,6 +1,6 @@
 # Spec: Broadside v1
 
-Umbrella specification for the library as planned on 2026-10-09. Vocabulary is from `CONTEXT.md`; decisions it restates are recorded in `docs/adr/`; the build order is in `docs/plan/README.md`. Phase issues cite this spec; this spec does not replace them.
+Umbrella specification for the library as planned on 2026-10-09. Vocabulary is from `CONTEXT.md`; the build order is in `docs/plan/README.md`. Phase issues cite this spec; this spec does not replace them.
 
 ## Problem Statement
 
@@ -84,18 +84,18 @@ Broadside is one MIT-licensed, fully managed .NET 10 library that reads any PDF 
 
 ## Implementation Decisions
 
-- **Fully managed core.** Everything that interprets the file (parsing, writing, fonts, image codecs, cryptography, content interpretation) is C# with no dependency outside Microsoft-shipped packages that carry no native component. Backends other than the software rasterizer are separate packages and may depend on their platform library. (ADR 0001)
-- **net10.0 only**, no multi-targeting. (ADR 0002)
-- **PDF 2.0 is the canonical model.** Earlier versions are read into it; on write, features declare a minimum version and the header is raised, or strict mode throws. (ADR 0003)
-- **Two public layers.** COS objects (`Cos*` types) and the document model (`Pdf*` types) as live views, never copies. Dirty tracking on COS objects from the start to support incremental update. (ADR 0004)
-- **Lenient by default with diagnostics**, strict mode opt-in. Cross-reference reconstruction by scanning, stream-length recovery, `startxref` recovery. (ADR 0005)
-- **Display list.** Interpretation produces a struct-based, device-independent operation buffer with interned resources; every backend consumes it; immediate rendering is interpret-then-replay. Glyph runs carry font program, glyph ids and positions; backends may render glyphs natively, with a force-outlines render option. Transparency groups a backend cannot express fall back to the software rasterizer per group. (ADR 0006)
+- **Fully managed core.** Everything that interprets the file (parsing, writing, fonts, image codecs, cryptography, content interpretation) is C# with no dependency outside Microsoft-shipped packages that carry no native component. Backends other than the software rasterizer are separate packages and may depend on their platform library.
+- **net10.0 only**, no multi-targeting.
+- **PDF 2.0 is the canonical model.** Earlier versions are read into it; on write, features declare a minimum version and the header is raised, or strict mode throws.
+- **Two public layers.** COS objects (`Cos*` types) and the document model (`Pdf*` types) as live views, never copies. Dirty tracking on COS objects from the start to support incremental update.
+- **Lenient by default with diagnostics**, strict mode opt-in. Cross-reference reconstruction by scanning, stream-length recovery, `startxref` recovery.
+- **Display list.** Interpretation produces a struct-based, device-independent operation buffer with interned resources; every backend consumes it; immediate rendering is interpret-then-replay. Glyph runs carry font program, glyph ids and positions; backends may render glyphs natively, with a force-outlines render option. Transparency groups a backend cannot express fall back to the software rasterizer per group.
 - **One content interpreter**, many processors: the display-list builder, the text extractor, the layout detector and the editor consume one interpreted stream from one graphics-state machine; nothing re-parses content.
 - **Memory and I/O.** Random access over a source abstraction (in-memory, memory-mapped, seekable stream); lazy object loading through the cross-reference table with an object cache; synchronous core with `Async` only at open and save boundaries.
 - **Thread safety.** A document is safe for concurrent reads and renders when unmutated; mutation is single-threaded and the caller's responsibility.
 - **Configuration.** A fluent options object passed at open or create; `Use*` selects an implementation, `With*` sets a value; a DI registration binds the same options and exposes one engine. No static or global registries.
 - **Extension points** with managed defaults: stream filters, font program parsers, font resolver, color management, rendering backends, security handlers. Each is an interface registered through the options object.
-- **Fonts.** Standard 14 metrics ship in the core; glyphs ship in a separate package; the default resolver falls back to operating-system fonts with a diagnostic. Predefined CMaps and CID-to-Unicode tables ship in a separate package; Identity CMaps and embedded CMaps are in the core. (ADR 0007)
+- **Fonts.** Standard 14 metrics ship in the core; glyphs ship in a separate package; the default resolver falls back to operating-system fonts with a diagnostic. Predefined CMaps and CID-to-Unicode tables ship in a separate package; Identity CMaps and embedded CMaps are in the core.
 - **Codecs.** Flate via the BCL; LZW, ASCII, RunLength, predictors, DCT (baseline and progressive), CCITT G3/G4, JBIG2 (all region types) and JPEG 2000 Part 1 implemented in managed code, in that order, each behind the filter extension point. Encoders: Flate always, DCT baseline for photos.
 - **Color.** ICC-based spaces resolve through a managed ICC engine (matrix/TRC and LUT profiles, rendering intents, Black Point Compensation) behind the color-management extension point; until it lands, the alternate space is used.
 - **Render options.** Scale or DPI, rotation, page-space clip rectangle, layer toggles (content, annotations, form fields), rendering intent (view or print), per-category anti-aliasing, force outlines, cancellation token, progress callback. Software output is premultiplied BGRA 8-bit into a caller-provided or pooled buffer.

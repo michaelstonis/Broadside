@@ -9,7 +9,7 @@ namespace Broadside.Rendering;
 /// </summary>
 /// <remarks>
 /// <para>
-/// ADR 0006; viewer capability 2 (issue #97), PDFium's progressive rendering. Between slices the backend keeps the state the
+/// Viewer capability 2 (issue #97), PDFium's progressive rendering. Between slices the backend keeps the state the
 /// operations so far gave it (graphics state stack, transform, clip) and whatever it drew, so its output after any slice is a valid
 /// partial image, and the whole replay hands the backend exactly the calls of <see cref="DisplayList.Replay(IRenderingBackend)"/>.
 /// The budget is checked after each operation, so a slice runs at least one operation and ends at most one operation after its

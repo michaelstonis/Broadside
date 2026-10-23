@@ -133,8 +133,8 @@ public sealed class PdfIccBasedColorSpace : PdfColorSpace
     /// <exception cref="ArgumentException"><paramref name="message"/> is empty.</exception>
     /// <exception cref="Diagnostics.DiagnosticException">The document was opened in strict mode.</exception>
     /// <remarks>
-    /// ISO 32000-2 §8.6.5.5 (Table 65: the alternate is used when the profile is not supported) and ADR 0005 (a repair is recorded,
-    /// never swallowed). The diagnostic has the code <c>IccProfileInvalid</c>, the one recorded when the profile header is unusable,
+    /// ISO 32000-2 §8.6.5.5 (Table 65: the alternate is used when the profile is not supported); a repair is recorded,
+    /// never swallowed. The diagnostic has the code <c>IccProfileInvalid</c>, the one recorded when the profile header is unusable,
     /// and is recorded once per space however many converters report it.
     /// </remarks>
     public void ReportProfileInvalid(string message)

@@ -12,7 +12,7 @@ namespace Broadside.Structure;
 /// <remarks>
 /// <para>
 /// ISO 32000-2 §14.7.6.1, Table 360 (<c>O</c>, and <c>NS</c> when <c>O</c> is <c>NSO</c>); §14.8.5.2, Table 376 (standard owners).
-/// A view over its dictionary (ADR 0004): every value is read when asked for. <see cref="Revision"/> is the revision number that
+/// A view over its dictionary: every value is read when asked for. <see cref="Revision"/> is the revision number that
 /// follows the object in the element's <c>A</c> array or its class in <c>C</c> (§14.7.6.3, deprecated in PDF 2.0; 0 when absent).
 /// </para>
 /// <para>

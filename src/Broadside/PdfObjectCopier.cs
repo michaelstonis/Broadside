@@ -40,7 +40,7 @@ namespace Broadside;
 /// <b>Versions.</b> The features of the version table that the copied objects use (associated files, a file specification's
 /// <c>UF</c> or <c>Desc</c>, embedded file streams, <c>FlateDecode</c>, structure elements and namespaces, outline item styles,
 /// <c>FitB</c> destinations) are recorded in the target as its own writing APIs record theirs, so its next save raises its version to
-/// the highest of them, or refuses in strict mode before writing (ISO 32000-2 §7.5.2, ADR 0003). A copy between documents of the
+/// the highest of them, or refuses in strict mode before writing (ISO 32000-2 §7.5.2). A copy between documents of the
 /// same version raises nothing the source did not already need.
 /// </para>
 /// <para>
@@ -424,7 +424,7 @@ public sealed class PdfObjectCopier
 
     /// <summary>
     /// Records in the target a feature a copied object uses (issue #290), once per session: the target's next save raises its
-    /// version to the feature's, or refuses in strict mode (§7.5.2, ADR 0003).
+    /// version to the feature's, or refuses in strict mode (§7.5.2).
     /// </summary>
     private void Carry(VersionedFeature feature)
     {

@@ -12,7 +12,7 @@ namespace Broadside;
 /// <para>
 /// ISO 32000-2 §14.11.5, Tables 401 and 402. Read from <see cref="PdfDocument.OutputIntents"/> (the catalog's <c>OutputIntents</c>,
 /// PDF 1.4) or <see cref="PdfPage.OutputIntents"/> (a page's, PDF 2.0, which takes precedence for that page). A live view over the
-/// dictionary (ADR 0004). <c>MixingHints</c>, <c>SpectralData</c> and <c>DestOutputProfileRef</c> are kept in
+/// dictionary. <c>MixingHints</c>, <c>SpectralData</c> and <c>DestOutputProfileRef</c> are kept in
 /// <see cref="Dictionary"/> unread (the specification lets a processor ignore them).
 /// </para>
 /// <para>

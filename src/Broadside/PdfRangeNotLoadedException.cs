@@ -8,7 +8,7 @@ namespace Broadside;
 /// </summary>
 /// <remarks>
 /// <para>
-/// Spec #33, viewer capability 5 (range-request sources) and ADR 0010. Reading a document is synchronous; only opening it and
+/// Spec #33, viewer capability 5 (range-request sources). Reading a document is synchronous; only opening it and
 /// prefetching a page are asynchronous. A document opened with <see cref="PdfEngine.OpenAsync(System.Net.Http.HttpClient, Uri, CancellationToken)"/>
 /// fetches the bytes a synchronous read misses by blocking on the request, except where
 /// <see cref="PdfOptions.SynchronousRangeFetch"/> is off, which it always is on the browser platform: a browser cannot block on
