@@ -19,12 +19,13 @@ namespace Broadside.Images;
 /// </para>
 /// <para>
 /// Immutable; <see cref="Decode"/> may run on any number of threads at once. It reads no COS object the parser has not loaded: its
-/// data is its own copy, and the parameter and image dictionaries are shallow copies taken when it was made.
+/// data is the stream's data as read when it was made (which nothing writes in place) or, after other filters, its own copy, and the
+/// parameter and image dictionaries are shallow copies taken when it was made.
 /// </para>
 /// </remarks>
 internal sealed class EncodedImage
 {
-    private readonly byte[] _data;
+    private readonly ReadOnlyMemory<byte> _data;
     private readonly IImageFilter _filter;
     private readonly StreamDecoder _streams;
     private readonly CosDictionary? _parameters;
@@ -34,7 +35,7 @@ internal sealed class EncodedImage
     private readonly int _dictionaryBits;
 
     /// <summary>Initializes a new instance of the <see cref="EncodedImage"/> class.</summary>
-    /// <param name="data">The data the codec decodes, owned from now on.</param>
+    /// <param name="data">The data the codec decodes, which nothing writes from now on.</param>
     /// <param name="filter">The codec.</param>
     /// <param name="streams">The document's filter pipeline: limits, diagnostics, references.</param>
     /// <param name="parameters">The codec's <c>DecodeParms</c>, or <see langword="null"/>.</param>
@@ -43,7 +44,7 @@ internal sealed class EncodedImage
     /// <param name="width">The dictionary's width.</param>
     /// <param name="height">The dictionary's height.</param>
     /// <param name="bitsPerComponent">The dictionary's bits per component.</param>
-    public EncodedImage(byte[] data, IImageFilter filter, StreamDecoder streams, CosDictionary? parameters, CosDictionary dictionary, in ImageHeader header, int width, int height, int bitsPerComponent)
+    public EncodedImage(ReadOnlyMemory<byte> data, IImageFilter filter, StreamDecoder streams, CosDictionary? parameters, CosDictionary dictionary, in ImageHeader header, int width, int height, int bitsPerComponent)
     {
         _data = data;
         _filter = filter;
